@@ -275,6 +275,13 @@ public final class Expressions implements Iterable<Expression> {
                     Optional<String> maybeName = expression.getName()
                             .map(Identifier::getName)
                             .map(name -> countsByName.getOrDefault(name, 1) < 2 ? name : null);
+
+                    final var value = expression.getUnderlying();
+                    if (expression.getUnderlying() instanceof ColumnarValue) {
+                        final var colValue = (ColumnarValue)value;
+                        final var field = Type.Record.Field.of(value.getResultType(), maybeName, Optional.of(colValue.getColumnId()));
+                        return Column.of(field, colValue.getInner());
+                    }
                     return Column.of(maybeName, expression.getUnderlying());
                 })
                 .collect(ImmutableList.toImmutableList());

@@ -1982,7 +1982,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
 
         try (FDBRecordContext context1 = openContext(); FDBRecordContext context2 = openContext()) {
             openSimpleRecordStore(context1);
-            recordStore.markIndexWriteOnly(indexName);
+            recordStore.markIndexWriteOnly(indexName).get();
 
             openSimpleRecordStore(context2);
             recordStore.saveRecord(record);

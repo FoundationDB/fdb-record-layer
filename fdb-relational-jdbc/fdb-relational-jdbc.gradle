@@ -21,7 +21,6 @@
 import org.yaml.snakeyaml.Yaml
 
 plugins {
-    alias(libs.plugins.serviceloader)
     alias(libs.plugins.shadow)
 }
 
@@ -62,10 +61,6 @@ if (fdbEnvironmentYamlFile.exists()) {
             task.environment(FDB_CLUSTER_FILE: firstClusterFile)
         }
     }
-}
-
-serviceLoader {
-    serviceInterface 'java.sql.Driver'
 }
 
 jar {

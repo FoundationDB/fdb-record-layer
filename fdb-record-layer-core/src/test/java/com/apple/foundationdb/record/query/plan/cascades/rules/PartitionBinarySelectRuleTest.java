@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.query.plan.cascades.rules;
 
 import com.apple.foundationdb.record.provider.foundationdb.query.FDBQueryGraphTestHelpers;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
+import com.apple.foundationdb.record.query.plan.cascades.PlannerPhase;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.RuleTestHelper;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
@@ -53,7 +54,7 @@ class PartitionBinarySelectRuleTest {
     // into a rule when the final result value isn't used later
     private static final Value RCV_OF_ONE = RecordConstructorValue.ofUnnamed(ImmutableList.of(LiteralValue.ofScalar(1)));
 
-    private final RuleTestHelper testHelper = new RuleTestHelper(new PartitionBinarySelectRule());
+    private final RuleTestHelper testHelper = new RuleTestHelper(new PartitionBinarySelectRule(), PlannerPhase.PLANNING);
 
     //
     // Un-correlated joins.

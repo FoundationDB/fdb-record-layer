@@ -10,12 +10,12 @@ recursive-cte-tests:
         (_.ID AS ID, _.PARENT AS PARENT, q0.LEVEL + @c48 AS LEVEL) } | MAP (_.ID AS
         ID, _.PARENT AS PARENT, _.LEVEL AS LEVEL)'
     task_count: 1850
-    task_total_time_ms: 59
+    task_total_time_ms: 40
     transform_count: 417
-    transform_time_ms: 17
+    transform_time_ms: 11
     transform_yield_count: 120
-    insert_time_ms: 2
-    insert_new_count: 261
+    insert_time_ms: 1
+    insert_new_count: 255
     insert_reused_count: 10
 -   query: EXPLAIN with recursive c1 as ( select id, parent, 0 as level from t1 where
         id = 250 union all select b.id, b.parent, a.y as level from t1 as b, (select
@@ -28,12 +28,12 @@ recursive-cte-tests:
         (_.ID AS ID, _.PARENT AS PARENT, q0.LEVEL + @c48 AS LEVEL) } | MAP (_.ID AS
         ID, _.PARENT AS PARENT, _.LEVEL AS LEVEL)'
     task_count: 1850
-    task_total_time_ms: 195
+    task_total_time_ms: 94
     transform_count: 417
-    transform_time_ms: 51
+    transform_time_ms: 21
     transform_yield_count: 120
-    insert_time_ms: 4
-    insert_new_count: 261
+    insert_time_ms: 1
+    insert_new_count: 255
     insert_reused_count: 10
 -   query: EXPLAIN with recursive c1 as ( select id, parent, 0 as level from t1 where
         id = 250 union all select b.id, b.parent, a.y as level from (select id, parent,
@@ -47,12 +47,12 @@ recursive-cte-tests:
         + @c44 AS LEVEL) } | INSERT INTO TEMP q1 }} | MAP (_.ID AS ID, _.PARENT AS
         PARENT, _.LEVEL AS LEVEL)
     task_count: 1443
-    task_total_time_ms: 183
+    task_total_time_ms: 44
     transform_count: 361
-    transform_time_ms: 52
+    transform_time_ms: 13
     transform_yield_count: 105
-    insert_time_ms: 3
-    insert_new_count: 197
+    insert_time_ms: 1
+    insert_new_count: 195
     insert_reused_count: 10
 -   query: EXPLAIN with recursive c1 as ( select id, parent from t1 where parent =
         -1 union all select b.id, b.parent from c1 as a, t1 as b where a.id = b.parent)
@@ -63,12 +63,12 @@ recursive-cte-tests:
         FILTER q0.ID EQUALS _.PARENT | MAP (_.ID AS ID, _.PARENT AS PARENT) } | MAP
         (_.ID AS ID)'
     task_count: 1845
-    task_total_time_ms: 184
+    task_total_time_ms: 130
     transform_count: 398
-    transform_time_ms: 46
+    transform_time_ms: 29
     transform_yield_count: 124
-    insert_time_ms: 4
-    insert_new_count: 266
+    insert_time_ms: 2
+    insert_new_count: 260
     insert_reused_count: 9
 -   query: EXPLAIN with recursive c1 as ( select id, parent from t1 where parent =
         -1 union all select b.id, b.parent from c1 as a, t1 as b where a.id = b.parent)
@@ -79,12 +79,12 @@ recursive-cte-tests:
         FILTER q0.ID EQUALS _.PARENT | MAP (_.ID AS ID, _.PARENT AS PARENT) } | MAP
         (_.ID AS ID)'
     task_count: 1806
-    task_total_time_ms: 184
+    task_total_time_ms: 65
     transform_count: 392
-    transform_time_ms: 48
+    transform_time_ms: 18
     transform_yield_count: 121
-    insert_time_ms: 4
-    insert_new_count: 258
+    insert_time_ms: 1
+    insert_new_count: 252
     insert_reused_count: 9
 -   query: EXPLAIN with recursive c1 as ( select id, parent from t1 where parent =
         -1 union all select b.id, b.parent from c1 as a, t1 as b where a.id = b.parent)
@@ -95,12 +95,12 @@ recursive-cte-tests:
         TEMP SCAN base() | FILTER _.ID EQUALS q2.PARENT AS q3 RETURN (q2.ID AS ID,
         q2.PARENT AS PARENT) } | INSERT INTO TEMP q1 }} | MAP (_.ID AS ID)
     task_count: 1399
-    task_total_time_ms: 160
+    task_total_time_ms: 106
     transform_count: 336
-    transform_time_ms: 47
+    transform_time_ms: 30
     transform_yield_count: 106
-    insert_time_ms: 3
-    insert_new_count: 194
+    insert_time_ms: 2
+    insert_new_count: 192
     insert_reused_count: 9
 -   query: EXPLAIN with recursive c1 as ( select id, parent from t1 where id = 250
         union all select b.id, b.parent from c1 as a, t1 as b where a.parent = b.id)
@@ -111,12 +111,12 @@ recursive-cte-tests:
         FILTER q0.PARENT EQUALS _.ID | MAP (_.ID AS ID, _.PARENT AS PARENT) } | MAP
         (_.ID AS ID)'
     task_count: 2191
-    task_total_time_ms: 60
+    task_total_time_ms: 91
     transform_count: 440
-    transform_time_ms: 17
+    transform_time_ms: 20
     transform_yield_count: 135
-    insert_time_ms: 3
-    insert_new_count: 325
+    insert_time_ms: 2
+    insert_new_count: 315
     insert_reused_count: 9
 -   query: EXPLAIN with recursive c1 as ( select id, parent from t1 where id = 250
         union all select b.id, b.parent from c1 as a, t1 as b where a.parent = b.id)
@@ -127,12 +127,12 @@ recursive-cte-tests:
         TEMP SCAN base() | FILTER _.PARENT EQUALS q2.ID AS q3 RETURN (q2.ID AS ID,
         q2.PARENT AS PARENT) } | INSERT INTO TEMP q1 }} | MAP (_.ID AS ID)
     task_count: 1319
-    task_total_time_ms: 82
+    task_total_time_ms: 106
     transform_count: 320
-    transform_time_ms: 23
+    transform_time_ms: 28
     transform_yield_count: 101
-    insert_time_ms: 1
-    insert_new_count: 183
+    insert_time_ms: 2
+    insert_new_count: 181
     insert_reused_count: 9
 -   query: EXPLAIN with recursive c1 as ( select id, parent from t1 where id = 250
         union all select b.id, b.parent from c1 as a, t1 as b where a.parent = b.id)
@@ -143,12 +143,12 @@ recursive-cte-tests:
         FILTER q0.PARENT EQUALS _.ID | MAP (_.ID AS ID, _.PARENT AS PARENT) } | MAP
         (_.ID AS ID)'
     task_count: 2152
-    task_total_time_ms: 100
+    task_total_time_ms: 97
     transform_count: 434
-    transform_time_ms: 24
+    transform_time_ms: 20
     transform_yield_count: 132
     insert_time_ms: 3
-    insert_new_count: 315
+    insert_new_count: 305
     insert_reused_count: 9
 -   query: EXPLAIN with recursive c1 as ( select id, parent from t1 where id = 250
         union all select b.id, b.parent from c1 as a, t1 as b where a.parent = b.id)
@@ -159,12 +159,12 @@ recursive-cte-tests:
         FILTER q0.PARENT EQUALS _.ID | MAP (_.ID AS ID, _.PARENT AS PARENT) } | MAP
         (_.ID AS ID)'
     task_count: 2152
-    task_total_time_ms: 199
+    task_total_time_ms: 70
     transform_count: 434
-    transform_time_ms: 44
+    transform_time_ms: 16
     transform_yield_count: 132
-    insert_time_ms: 5
-    insert_new_count: 315
+    insert_time_ms: 2
+    insert_new_count: 305
     insert_reused_count: 9
 -   query: EXPLAIN with recursive allDescendants as ( with recursive ancestorsOf250
         as ( select id, parent from t1 where id = 250 union all select b.id, b.parent
@@ -179,12 +179,12 @@ recursive-cte-tests:
         <,> -> [ID: KEY:[1], PARENT: KEY:[0]]) | FILTER q0.ID EQUALS _.PARENT | MAP
         (_.ID AS ID, _.PARENT AS PARENT) } | MAP (_.ID AS ID, _.PARENT AS PARENT)'
     task_count: 3425
-    task_total_time_ms: 156
+    task_total_time_ms: 129
     transform_count: 707
-    transform_time_ms: 40
+    transform_time_ms: 27
     transform_yield_count: 207
-    insert_time_ms: 4
-    insert_new_count: 515
+    insert_time_ms: 3
+    insert_new_count: 499
     insert_reused_count: 15
 -   query: EXPLAIN with recursive allDescendants as ( with recursive ancestorsOf250
         as ( select id, parent from t1 where id = 250 union all select b.id, b.parent
@@ -200,12 +200,12 @@ recursive-cte-tests:
         <,> -> [ID: KEY:[1], PARENT: KEY:[0]]) | FILTER q0.ID EQUALS _.PARENT | MAP
         (_.ID AS ID, _.PARENT AS PARENT) } | MAP (_.ID AS ID, _.PARENT AS PARENT)'
     task_count: 3135
-    task_total_time_ms: 140
+    task_total_time_ms: 170
     transform_count: 666
-    transform_time_ms: 38
+    transform_time_ms: 44
     transform_yield_count: 193
-    insert_time_ms: 4
-    insert_new_count: 461
+    insert_time_ms: 5
+    insert_new_count: 447
     insert_reused_count: 15
 -   query: EXPLAIN with recursive c1 as ( select id, parent from t1 where parent =
         -1 union all select b.id, b.parent from c1 as a, t1 as b where a.id = b.parent)
@@ -216,12 +216,12 @@ recursive-cte-tests:
         FILTER q0.ID EQUALS _.PARENT | MAP (_.ID AS ID, _.PARENT AS PARENT) } | MAP
         (_.ID AS ID)'
     task_count: 1845
-    task_total_time_ms: 184
+    task_total_time_ms: 130
     transform_count: 398
-    transform_time_ms: 46
+    transform_time_ms: 29
     transform_yield_count: 124
-    insert_time_ms: 4
-    insert_new_count: 266
+    insert_time_ms: 2
+    insert_new_count: 260
     insert_reused_count: 9
 -   query: EXPLAIN with recursive c1 as ( select id, parent from t1 where parent =
         -1 union all select b.id, b.parent from c1 as a, t1 as b where a.id = b.parent)
@@ -232,12 +232,12 @@ recursive-cte-tests:
         FILTER q0.ID EQUALS _.PARENT | MAP (_.ID AS ID, _.PARENT AS PARENT) } | MAP
         (_.ID AS ID)'
     task_count: 1845
-    task_total_time_ms: 184
+    task_total_time_ms: 130
     transform_count: 398
-    transform_time_ms: 46
+    transform_time_ms: 29
     transform_yield_count: 124
-    insert_time_ms: 4
-    insert_new_count: 266
+    insert_time_ms: 2
+    insert_new_count: 260
     insert_reused_count: 9
 -   query: EXPLAIN with recursive c1 as ( select id, parent from t1 where parent =
         -1 union all select b.id, b.parent from c1 as a, t1 as b where a.id = b.parent)
@@ -248,12 +248,12 @@ recursive-cte-tests:
         FILTER q0.ID EQUALS _.PARENT | MAP (_.ID AS ID, _.PARENT AS PARENT) } | MAP
         (_.ID AS ID)'
     task_count: 1806
-    task_total_time_ms: 184
+    task_total_time_ms: 65
     transform_count: 392
-    transform_time_ms: 48
+    transform_time_ms: 18
     transform_yield_count: 121
-    insert_time_ms: 4
-    insert_new_count: 258
+    insert_time_ms: 1
+    insert_new_count: 252
     insert_reused_count: 9
 -   query: EXPLAIN with recursive allDescendants as ( with recursive ancestorsOf250
         as ( select id, parent from t1 where id = 250 union all select b.id, b.parent
@@ -268,12 +268,12 @@ recursive-cte-tests:
         <,> -> [ID: KEY:[1], PARENT: KEY:[0]]) | FILTER q0.ID EQUALS _.PARENT | MAP
         (_.ID AS ID, _.PARENT AS PARENT) } | MAP (_.ID AS ID, _.PARENT AS PARENT)'
     task_count: 3425
-    task_total_time_ms: 156
+    task_total_time_ms: 129
     transform_count: 707
-    transform_time_ms: 40
+    transform_time_ms: 27
     transform_yield_count: 207
-    insert_time_ms: 4
-    insert_new_count: 515
+    insert_time_ms: 3
+    insert_new_count: 499
     insert_reused_count: 15
 -   query: EXPLAIN with recursive allDescendants as ( with recursive ancestorsOf250
         as ( select id, parent from t1 where id = 250 union all select b.id, b.parent
@@ -288,12 +288,12 @@ recursive-cte-tests:
         <,> -> [ID: KEY:[1], PARENT: KEY:[0]]) | FILTER q0.ID EQUALS _.PARENT | MAP
         (_.ID AS ID, _.PARENT AS PARENT) } | MAP (_.ID AS ID, _.PARENT AS PARENT)'
     task_count: 3425
-    task_total_time_ms: 156
+    task_total_time_ms: 129
     transform_count: 707
-    transform_time_ms: 40
+    transform_time_ms: 27
     transform_yield_count: 207
-    insert_time_ms: 4
-    insert_new_count: 515
+    insert_time_ms: 3
+    insert_new_count: 499
     insert_reused_count: 15
 -   query: EXPLAIN with recursive allDescendants as ( with recursive ancestorsOf250
         as ( select id, parent from t1 where id = 250 union all select b.id, b.parent
@@ -309,12 +309,12 @@ recursive-cte-tests:
         <,> -> [ID: KEY:[1], PARENT: KEY:[0]]) | FILTER q0.ID EQUALS _.PARENT | MAP
         (_.ID AS ID, _.PARENT AS PARENT) } | MAP (_.ID AS ID, _.PARENT AS PARENT)'
     task_count: 3135
-    task_total_time_ms: 140
+    task_total_time_ms: 170
     transform_count: 666
-    transform_time_ms: 38
+    transform_time_ms: 44
     transform_yield_count: 193
-    insert_time_ms: 4
-    insert_new_count: 461
+    insert_time_ms: 5
+    insert_new_count: 447
     insert_reused_count: 15
 recursive-cte-tests-with-hints:
 -   query: EXPLAIN with recursive c1 as ( select id, parent, 0 as level from t1 use
@@ -324,18 +324,18 @@ recursive-cte-tests-with-hints:
         level from c1
     ref: recursive-cte.yamsql:434
     explain: 'RUNION-DFS PREORDER q0 { COVERING(PARENTIDX <,> -> [ID: KEY:[1], PARENT:
-        KEY:[0]]) | FILTER _.ID EQUALS promote(@c24 AS LONG) | MAP (_.ID AS ID, _.PARENT
-        AS PARENT, @c11 AS LEVEL) } { RECURSIVE COVERING(PARENTIDX <,> -> [ID: KEY:[1],
+        KEY:[0]]) | FILTER _.ID EQUALS promote(@c23 AS LONG) | MAP (_.ID AS ID, _.PARENT
+        AS PARENT, @c10 AS LEVEL) } { RECURSIVE COVERING(PARENTIDX <,> -> [ID: KEY:[1],
         PARENT: KEY:[0]]) | FILTER q0.PARENT EQUALS _.ID | MAP (_.ID AS ID, _.PARENT
-        AS PARENT, q0.LEVEL + @c59 AS LEVEL) } | MAP (_.ID AS ID, _.PARENT AS PARENT,
+        AS PARENT, q0.LEVEL + @c58 AS LEVEL) } | MAP (_.ID AS ID, _.PARENT AS PARENT,
         _.LEVEL AS LEVEL)'
     task_count: 1069
-    task_total_time_ms: 14
+    task_total_time_ms: 79
     transform_count: 262
-    transform_time_ms: 4
+    transform_time_ms: 14
     transform_yield_count: 59
-    insert_time_ms: 0
-    insert_new_count: 134
+    insert_time_ms: 1
+    insert_new_count: 132
     insert_reused_count: 4
 -   query: EXPLAIN with recursive c1 as ( select id, parent, 0 as level from t1 use
         index (childIdx) where id = 250 union all select b.id, b.parent, a.y as level
@@ -343,19 +343,19 @@ recursive-cte-tests-with-hints:
         c1) as a  where a.parent = b.id) traversal order pre_order select id, parent,
         level from c1
     ref: recursive-cte.yamsql:447
-    explain: 'RUNION-DFS PREORDER q0 { COVERING(CHILDIDX [EQUALS promote(@c24 AS LONG)]
+    explain: 'RUNION-DFS PREORDER q0 { COVERING(CHILDIDX [EQUALS promote(@c23 AS LONG)]
         -> [ID: KEY:[0], PARENT: KEY:[1]]) | MAP (_.ID AS ID, _.PARENT AS PARENT,
-        @c11 AS LEVEL) } { RECURSIVE COVERING(CHILDIDX <,> -> [ID: KEY:[0], PARENT:
+        @c10 AS LEVEL) } { RECURSIVE COVERING(CHILDIDX <,> -> [ID: KEY:[0], PARENT:
         KEY:[1]]) | FILTER q0.PARENT EQUALS _.ID | MAP (_.ID AS ID, _.PARENT AS PARENT,
-        q0.LEVEL + @c59 AS LEVEL) } | MAP (_.ID AS ID, _.PARENT AS PARENT, _.LEVEL
+        q0.LEVEL + @c58 AS LEVEL) } | MAP (_.ID AS ID, _.PARENT AS PARENT, _.LEVEL
         AS LEVEL)'
     task_count: 1038
-    task_total_time_ms: 13
+    task_total_time_ms: 77
     transform_count: 256
-    transform_time_ms: 3
+    transform_time_ms: 16
     transform_yield_count: 58
-    insert_time_ms: 0
-    insert_new_count: 129
+    insert_time_ms: 1
+    insert_new_count: 127
     insert_reused_count: 3
 -   query: EXPLAIN with recursive c1 as ( select id, parent, 0 as level from t1 use
         index (childIdx) where id = 250 and parent is not null union all select b.id,
@@ -364,19 +364,19 @@ recursive-cte-tests-with-hints:
         + 1 as y from c1) as a  where b.id = a.parent) traversal order pre_order select
         id, parent, level from c1
     ref: recursive-cte.yamsql:460
-    explain: 'RUNION-DFS PREORDER q0 { COVERING(CHILDIDX [EQUALS promote(@c24 AS LONG),
+    explain: 'RUNION-DFS PREORDER q0 { COVERING(CHILDIDX [EQUALS promote(@c23 AS LONG),
         [NOT_NULL]] -> [ID: KEY:[0], PARENT: KEY:[1]]) | MAP (_.ID AS ID, _.PARENT
-        AS PARENT, @c11 AS LEVEL) } { RECURSIVE COVERING(CHILDIDX [EQUALS q0.PARENT,
+        AS PARENT, @c10 AS LEVEL) } { RECURSIVE COVERING(CHILDIDX [EQUALS q0.PARENT,
         [NOT_NULL]] -> [ID: KEY:[0], PARENT: KEY:[1]]) | MAP (_.ID AS ID, _.PARENT
-        AS PARENT, q0.LEVEL + @c81 AS LEVEL) } | MAP (_.ID AS ID, _.PARENT AS PARENT,
+        AS PARENT, q0.LEVEL + @c80 AS LEVEL) } | MAP (_.ID AS ID, _.PARENT AS PARENT,
         _.LEVEL AS LEVEL)'
     task_count: 1203
-    task_total_time_ms: 18
+    task_total_time_ms: 22
     transform_count: 297
-    transform_time_ms: 7
+    transform_time_ms: 5
     transform_yield_count: 67
     insert_time_ms: 0
-    insert_new_count: 149
+    insert_new_count: 148
     insert_reused_count: 3
 -   query: EXPLAIN with recursive allDescendants as ( select *  from t1 where id =
         50 union all select c.* from allDescendants as p, t1 as c use index (childIdxNoNulls)

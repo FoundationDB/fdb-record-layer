@@ -283,6 +283,121 @@ public class IndexTest {
                 IndexTypes.VALUE);
     }
 
+    /**
+     * Scalar array unnesting via correlated subquery: STRING ARRAY, INDEX…AS syntax.
+     */
+    @Test
+    void createIndexOnScalarStringArray() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template "
+                + "CREATE TABLE T(p BIGINT, items STRING ARRAY, PRIMARY KEY (p)) " +
+                "CREATE INDEX mv1 AS SELECT SQ.item FROM T AS t, (SELECT item FROM t.items AS item) SQ ORDER BY SQ.item";
+        indexIs(stmt, field("ITEMS").nest(field(REPEATED_FIELD_NAME, KeyExpression.FanType.FanOut)), IndexTypes.VALUE);
+    }
+
+    /**
+     * Scalar array unnesting via correlated subquery: STRING ARRAY, VIEW + INDEX…ON syntax.
+     */
+    @Test
+    void createIndexOnScalarStringArrayUsingView() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TABLE T(p BIGINT, items STRING ARRAY, PRIMARY KEY (p)) " +
+                "CREATE VIEW v1 AS SELECT SQ.item FROM T AS t, (SELECT item FROM t.items AS item) SQ " +
+                "CREATE INDEX mv1 ON v1(item)";
+        indexIs(stmt, field("ITEMS").nest(field(REPEATED_FIELD_NAME, KeyExpression.FanType.FanOut)), IndexTypes.VALUE);
+    }
+
+    /**
+     * Scalar array unnesting via correlated subquery: INTEGER ARRAY (to exercise a different scalar type).
+     */
+    @Test
+    void createIndexOnScalarIntegerArray() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TABLE T(p BIGINT, nums INTEGER ARRAY, PRIMARY KEY (p)) " +
+                "CREATE INDEX mv1 AS SELECT SQ.num FROM T AS t, (SELECT num FROM t.nums AS num) SQ ORDER BY SQ.num";
+        indexIs(stmt, field("NUMS").nest(field(REPEATED_FIELD_NAME, KeyExpression.FanType.FanOut)), IndexTypes.VALUE);
+    }
+
+    /**
+     * Scalar array unnesting via correlated subquery: array element + table column, ordered by (item, p).
+     */
+    @Test
+    void createIndexOnScalarArrayAndConcat() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TABLE T(p BIGINT, items STRING ARRAY, PRIMARY KEY (p)) " +
+                "CREATE INDEX mv1 AS SELECT SQ.item, t.p FROM T AS t, (SELECT item FROM t.items AS item) SQ ORDER BY SQ.item, t.p";
+        indexIs(stmt, concat(field("ITEMS").nest(field(REPEATED_FIELD_NAME, KeyExpression.FanType.FanOut)), field("P")), IndexTypes.VALUE);
+    }
+
+    /**
+     * Scalar array unnesting via correlated subquery: array element + table column, ordered by (p, item).
+     */
+    @Test
+    void createIndexOnScalarArrayAndConcatDifferentOrder() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TABLE T(p BIGINT, items STRING ARRAY, PRIMARY KEY (p)) " +
+                "CREATE INDEX mv1 AS SELECT t.p, SQ.item FROM T AS t, (SELECT item FROM t.items AS item) SQ ORDER BY t.p, SQ.item";
+        indexIs(stmt, concat(field("P"), field("ITEMS").nest(field(REPEATED_FIELD_NAME, KeyExpression.FanType.FanOut))), IndexTypes.VALUE);
+    }
+
+    /**
+     * Scalar array unnesting via PartiQL syntax: STRING ARRAY, INDEX…AS syntax.
+     */
+    @Test
+    void createIndexOnScalarStringArrayPartiQL() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TABLE T(p BIGINT, items STRING ARRAY, PRIMARY KEY (p)) " +
+                "CREATE INDEX mv1 AS SELECT item FROM T AS t, t.items AS item ORDER BY item";
+        indexIs(stmt, field("ITEMS").nest(field(REPEATED_FIELD_NAME, KeyExpression.FanType.FanOut)), IndexTypes.VALUE);
+    }
+
+    /**
+     * Scalar array unnesting via PartiQL syntax: STRING ARRAY, VIEW + INDEX…ON syntax.
+     */
+    @SuppressWarnings("checkstyle:AbbreviationAsWordInName")
+    @Test
+    void createIndexOnScalarStringArrayPartiQLUsingView() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TABLE T(p BIGINT, items STRING ARRAY, PRIMARY KEY (p)) " +
+                "CREATE VIEW v1 AS SELECT item FROM T AS t, t.items AS item " +
+                "CREATE INDEX mv1 ON v1(item)";
+        indexIs(stmt, field("ITEMS").nest(field(REPEATED_FIELD_NAME, KeyExpression.FanType.FanOut)), IndexTypes.VALUE);
+    }
+
+    /**
+     * Scalar array unnesting via PartiQL syntax: INTEGER ARRAY (different scalar type).
+     */
+    @Test
+    void createIndexOnScalarIntegerArrayPartiQL() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TABLE T(p BIGINT, nums INTEGER ARRAY, PRIMARY KEY (p)) " +
+                "CREATE INDEX mv1 AS SELECT num FROM T AS t, t.nums AS num ORDER BY num";
+        indexIs(stmt, field("NUMS").nest(field(REPEATED_FIELD_NAME, KeyExpression.FanType.FanOut)), IndexTypes.VALUE);
+    }
+
+    /**
+     * Scalar array unnesting via PartiQL syntax: array element + table column, ordered by (item, p).
+     */
+    @SuppressWarnings("checkstyle:AbbreviationAsWordInName")
+    @Test
+    void createIndexOnScalarArrayPartiQLAndConcat() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TABLE T(p BIGINT, items STRING ARRAY, PRIMARY KEY (p)) " +
+                "CREATE INDEX mv1 AS SELECT item, t.p FROM T AS t, t.items AS item ORDER BY item, t.p";
+        indexIs(stmt, concat(field("ITEMS").nest(field(REPEATED_FIELD_NAME, KeyExpression.FanType.FanOut)), field("P")), IndexTypes.VALUE);
+    }
+
+    /**
+     * Scalar array unnesting via PartiQL syntax: array element + table column, ordered by (p, item).
+     */
+    @SuppressWarnings("checkstyle:AbbreviationAsWordInName")
+    @Test
+    void createIndexOnScalarArrayPartiQLAndConcatDifferentOrder() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TABLE T(p BIGINT, items STRING ARRAY, PRIMARY KEY (p)) " +
+                "CREATE INDEX mv1 AS SELECT t.p, item FROM T AS t, t.items AS item ORDER BY t.p, item";
+        indexIs(stmt, concat(field("P"), field("ITEMS").nest(field(REPEATED_FIELD_NAME, KeyExpression.FanType.FanOut))), IndexTypes.VALUE);
+    }
+
     @Test
     void createLegacyIndexWithPredicateIsSupported() throws Exception {
         final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
@@ -412,6 +527,25 @@ public class IndexTest {
                 "CREATE TABLE T1(p1 bigint, a1 A array, c1 B array, primary key(p1)) " +
                 "CREATE INDEX mv1 AS SELECT 5+1 FROM T1";
         indexIs(stmt, function("add", concat(value(5), value(1))), IndexTypes.VALUE);
+    }
+
+    @Test
+    void createIndexWithCardinalityFunctionOnNonNullableArrayIsSupported() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TABLE T1(p1 BIGINT, int_arr INTEGER ARRAY NOT NULL, PRIMARY KEY(p1)) " +
+                "CREATE INDEX mv1 AS SELECT CARDINALITY(int_arr) FROM T1";
+        var exp = function("cardinality", field("INT_ARR", KeyExpression.FanType.Concatenate));
+        indexIs(stmt, exp, IndexTypes.VALUE);
+    }
+
+    @Test
+    void createIndexWithCardinalityFunctionOnNullableArrayIsSupported() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TABLE T1(p1 BIGINT, int_arr INTEGER ARRAY NULL, PRIMARY KEY(p1)) " +
+                "CREATE INDEX mv1 AS SELECT CARDINALITY(int_arr) FROM T1";
+        // Notice the nested "values" field that gets introduced when the array is nullable.
+        var exp = function("cardinality", field("INT_ARR").nest(field("values", KeyExpression.FanType.Concatenate)));
+        indexIs(stmt, exp, IndexTypes.VALUE);
     }
 
     @Test
@@ -1067,6 +1201,23 @@ public class IndexTest {
                 "CREATE TABLE T(p bigint, a A array, primary key(p))" +
                 "CREATE INDEX mv1 AS SELECT t.p from T AS t order by t.p + 4";
         shouldFailWith(stmt, ErrorCode.INVALID_COLUMN_REFERENCE, "Cannot create index and order by an expression that is not present in the projection list");
+    }
+
+    @Test
+    void createIndexOnArrayFieldWithoutUnnestingIsDisallowed() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TABLE T (p BIGINT, items STRING ARRAY, PRIMARY KEY (p))" +
+                "CREATE INDEX MV1 AS SELECT items FROM T";
+        shouldFailWith(stmt, ErrorCode.UNSUPPORTED_OPERATION, "cannot create index on array field");
+    }
+
+    @Test
+    void createIndexNavigatingThroughArrayWithoutUnnestingIsDisallowed() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TYPE AS STRUCT A(x BIGINT) " +
+                "CREATE TABLE T (p BIGINT, a A ARRAY, PRIMARY KEY (p))" +
+                "CREATE INDEX MV1 AS SELECT a.x FROM T";
+        shouldFailWith(stmt, ErrorCode.UNDEFINED_COLUMN, "A.X");
     }
 
     @Test

@@ -30,13 +30,13 @@ import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
 import com.apple.foundationdb.relational.yamltests.YamlReference;
 import com.apple.foundationdb.relational.yamltests.block.PreambleBlock;
 import com.apple.foundationdb.relational.yamltests.command.queryconfigs.CheckExplainConfig;
+import com.apple.foundationdb.relational.yamltests.command.queryconfigs.CheckResultMetadataConfig;
 import com.apple.foundationdb.relational.yamltests.server.SemanticVersion;
+import com.apple.foundationdb.relational.yamltests.server.SemanticVersionRanges;
 import com.apple.foundationdb.relational.yamltests.server.SupportedVersionCheck;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Range;
-import com.google.common.collect.RangeSet;
-import com.google.common.collect.TreeRangeSet;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.junit.jupiter.api.Assertions;
@@ -108,9 +108,11 @@ public abstract class QueryConfig {
     public static final String QUERY_CONFIG_SETUP = "setup";
     public static final String QUERY_CONFIG_SETUP_REFERENCE = "setupReference";
     public static final String QUERY_CONFIG_DEBUGGER = "debugger";
+    public static final String QUERY_CONFIG_RESULT_METADATA = "resultMetadata";
 
-    private static final Set<String> RESULT_CONFIGS = ImmutableSet.of(QUERY_CONFIG_ERROR, QUERY_CONFIG_COUNT, QUERY_CONFIG_RESULT, QUERY_CONFIG_UNORDERED_RESULT);
+    private static final Set<String> RESULT_CONFIGS = ImmutableSet.of(QUERY_CONFIG_ERROR, QUERY_CONFIG_COUNT, QUERY_CONFIG_RESULT, QUERY_CONFIG_UNORDERED_RESULT, QUERY_CONFIG_RESULT_METADATA);
     private static final Set<String> VERSION_DEPENDENT_RESULT_CONFIGS = ImmutableSet.of(QUERY_CONFIG_INITIAL_VERSION_AT_LEAST, QUERY_CONFIG_INITIAL_VERSION_LESS_THAN);
+    private static final Set<String> RESULT_CONSUMING_CONFIGS = ImmutableSet.of(QUERY_CONFIG_ERROR, QUERY_CONFIG_COUNT, QUERY_CONFIG_RESULT, QUERY_CONFIG_UNORDERED_RESULT);
 
     @Nullable private final Object value;
     @Nonnull private final YamlReference reference;
@@ -231,6 +233,12 @@ public abstract class QueryConfig {
                                                      @Nonnull String configName, @Nullable Object value,
                                                      @Nonnull final YamlReference reference, @Nonnull YamlExecutionContext executionContext) {
         return new CheckExplainConfig(configName, value, reference, executionContext, isExact, blockName);
+    }
+
+    private static QueryConfig getCheckResultMetadataConfig(@Nonnull String configName, @Nullable Object value,
+                                                            @Nonnull final YamlReference reference,
+                                                            @Nonnull YamlExecutionContext executionContext) {
+        return new CheckResultMetadataConfig(configName, value, reference, executionContext);
     }
 
     private static QueryConfig getCheckErrorConfig(@Nullable Object value, @Nonnull final YamlReference reference) {
@@ -415,7 +423,9 @@ public abstract class QueryConfig {
                 if (requireResults && !resultOrVersionConfig) {
                     throw new IllegalArgumentException("Only result configurations can follow first result or version specification config");
                 }
-                requireResults |= resultOrVersionConfig;
+                // resultMetadata is allowed anywhere (before or after result configs) but does not itself
+                // trigger the ordering constraint — non-result configs such as explain may follow it.
+                requireResults |= (resultOrVersionConfig && !QUERY_CONFIG_RESULT_METADATA.equals(key));
                 configs.add(parseConfig(blockName, key, value, reference, executionContext));
             } catch (Exception e) {
                 throw YamlExecutionContext.wrapContext(e, () -> "‼️ Error parsing the query config at " + reference, "config", reference);
@@ -482,6 +492,8 @@ public abstract class QueryConfig {
             return getSetupConfig(executionContext.getTransactionSetup(value), reference);
         } else if (QUERY_CONFIG_DEBUGGER.equals(key)) {
             return getDebuggerConfig(value, reference);
+        } else if (QUERY_CONFIG_RESULT_METADATA.equals(key)) {
+            return getCheckResultMetadataConfig(key, value, reference, executionContext);
         } else {
             throw Assert.failUnchecked("‼️ '" + key + "' is not a valid configuration");
         }
@@ -492,18 +504,20 @@ public abstract class QueryConfig {
                         .noneMatch(config -> QueryConfig.QUERY_CONFIG_SUPPORTED_VERSION.equals(config.getConfigName())),
                 "supported_version must be the first config in a query (after the query itself)");
 
+        if (configs.stream().anyMatch(c -> QUERY_CONFIG_RESULT_METADATA.equals(c.getConfigName()))) {
+            Assert.thatUnchecked(configs.stream().anyMatch(c -> RESULT_CONSUMING_CONFIGS.contains(c.getConfigName())),
+                    "resultMetadata requires at least one of result, unorderedResult, error, or count to be present");
+        }
+
         // Validate that the results check each version comprehensively by making sure the set of
         // covered ranges spans the range [MIN_VERSION, MAX_VERSION)
         if (configs.stream().anyMatch(config -> config instanceof QueryConfig.InitialVersionCheckConfig)) {
-            // Creating an interval set including each covered range
-            RangeSet<SemanticVersion> rangeSet = TreeRangeSet.create();
-            configs.stream().filter(config -> config instanceof QueryConfig.InitialVersionCheckConfig)
-                    .map(config -> (QueryConfig.InitialVersionCheckConfig)config)
-                    .forEach(config -> rangeSet.add(Range.closedOpen(config.getMinVersion(), config.getMaxVersion())));
-            // Get the set of uncovered ranges that span over [MIN_VERSION, MAX_VERSION)
-            Set<Range<SemanticVersion>> uncovered = rangeSet.complement()
-                    .subRangeSet(Range.closedOpen(SemanticVersion.min(), SemanticVersion.max()))
-                    .asRanges();
+            List<Range<SemanticVersion>> ranges = configs.stream()
+                    .filter(config -> config instanceof QueryConfig.InitialVersionCheckConfig)
+                    .map(config -> (QueryConfig.InitialVersionCheckConfig) config)
+                    .map(config -> Range.closedOpen(config.getMinVersion(), config.getMaxVersion()))
+                    .toList();
+            Set<Range<SemanticVersion>> uncovered = SemanticVersionRanges.uncovered(ranges);
             if (!uncovered.isEmpty()) {
                 IllegalArgumentException e = new IllegalArgumentException("Test case does not cover complete set of versions as it is missing: " + uncovered);
                 throw YamlExecutionContext.wrapContext(e, () -> "‼️ Non-comprehensive test case found at " + reference, "config", reference);
@@ -563,7 +577,7 @@ public abstract class QueryConfig {
         }
     }
 
-    private static boolean shouldExecuteExplain(final YamlExecutionContext executionContext) {
+    static boolean shouldExecuteExplain(final YamlExecutionContext executionContext) {
         return (! executionContext.getConnectionFactory().isMultiServer());
     }
 

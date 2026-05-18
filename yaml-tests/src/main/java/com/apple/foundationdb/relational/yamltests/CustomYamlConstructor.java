@@ -23,6 +23,7 @@ package com.apple.foundationdb.relational.yamltests;
 import com.apple.foundationdb.record.util.ServiceLoaderProvider;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.util.Assert;
+import com.apple.foundationdb.relational.yamltests.block.CopyBlock;
 import com.apple.foundationdb.relational.yamltests.block.IncludeBlock;
 import com.apple.foundationdb.relational.yamltests.block.PreambleBlock;
 import com.apple.foundationdb.relational.yamltests.block.SetupBlock;
@@ -58,9 +59,11 @@ public class CustomYamlConstructor extends SafeConstructor {
         requireLineNumber.add(PreambleBlock.OPTIONS);
         requireLineNumber.add(SetupBlock.SETUP_BLOCK);
         requireLineNumber.add(SetupBlock.SchemaTemplateBlock.SCHEMA_TEMPLATE_BLOCK);
+        requireLineNumber.add(SetupBlock.SchemaTemplateBlock.SCHEMA_TEMPLATE_VARIANT_DEFINITION);
         requireLineNumber.add(TransactionSetupsBlock.TRANSACTION_SETUP);
         requireLineNumber.add(TestBlock.TEST_BLOCK);
         requireLineNumber.add(IncludeBlock.INCLUDE);
+        requireLineNumber.add(CopyBlock.COPY_BLOCK);
         // commands
         requireLineNumber.add(Command.COMMAND_LOAD_SCHEMA_TEMPLATE);
         requireLineNumber.add(Command.COMMAND_SET_SCHEMA_STATE);
@@ -80,6 +83,7 @@ public class CustomYamlConstructor extends SafeConstructor {
         requireLineNumber.add(QueryConfig.QUERY_CONFIG_SETUP);
         requireLineNumber.add(QueryConfig.QUERY_CONFIG_SETUP_REFERENCE);
         requireLineNumber.add(QueryConfig.QUERY_CONFIG_DEBUGGER);
+        requireLineNumber.add(QueryConfig.QUERY_CONFIG_RESULT_METADATA);
     }
 
     @Override

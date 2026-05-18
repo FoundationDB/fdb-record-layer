@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.RecordMetaDataOptionsProto;
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.TestRecords1Proto;
+import com.apple.foundationdb.record.TestRecords4Proto;
 import com.apple.foundationdb.record.TestRecordsEnumProto;
 import com.apple.foundationdb.record.TestRecordsIdenticalTypesProto;
 import com.apple.foundationdb.record.TestRecordsWithHeaderProto;
@@ -44,14 +45,17 @@ import com.apple.foundationdb.record.provider.common.text.PrefixTextTokenizer;
 import com.apple.foundationdb.record.provider.common.text.TextTokenizer;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerFactoryRegistryImpl;
 import com.apple.foundationdb.tuple.Tuple;
+import com.apple.test.ParameterizedTestUtils;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.DescriptorProtos;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Descriptors.Descriptor;
 import com.google.protobuf.Descriptors.FieldDescriptor;
 import com.google.protobuf.Descriptors.FileDescriptor;
-import com.google.protobuf.InvalidProtocolBufferException;
+import org.junit.jupiter.api.Named;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -64,6 +68,7 @@ import java.util.Set;
 import java.util.function.Consumer;
 import java.util.function.UnaryOperator;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsInAnyOrder;
@@ -78,6 +83,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 
 /**
  * Tests of the {@link MetaDataEvolutionValidator} class. This mostly consists of trying to perform illegal updates
@@ -111,6 +117,95 @@ class MetaDataEvolutionValidatorTest {
     static void assertInvalid(@Nonnull String errMsg, @Nonnull FileDescriptor oldFileDescriptor, @Nonnull FileDescriptor newFileDescriptor) {
         assertInvalid(errMsg, oldFileDescriptor.findMessageTypeByName(RecordMetaDataBuilder.DEFAULT_UNION_NAME), newFileDescriptor.findMessageTypeByName(RecordMetaDataBuilder.DEFAULT_UNION_NAME));
     }
+
+    private static class FieldRenameChecker {
+        @Nonnull
+        private final MetaDataEvolutionValidator baseValidator;
+        @Nonnull
+        private final MetaDataEvolutionValidator noRenamesValidator;
+        @Nonnull
+        private final MetaDataEvolutionValidator deprecatedOnlyValidator;
+        @Nonnull
+        private final MetaDataEvolutionValidator anyRenameValidator;
+        @Nonnull
+        private final MetaDataEvolutionValidator allRenamesValidator;
+
+        public FieldRenameChecker(MetaDataEvolutionValidator baseValidator) {
+            this.baseValidator = baseValidator;
+            final MetaDataEvolutionValidator.Builder builder = baseValidator.asBuilder();
+
+            noRenamesValidator = builder
+                    .setAllowDeprecatedFieldRenames(false)
+                    .setAllowFieldRenames(false)
+                    .build();
+            assertFalse(noRenamesValidator.allowsAnyFieldRenames());
+            assertFalse(noRenamesValidator.allowsDeprecatedFieldRenames());
+            assertFalse(noRenamesValidator.allowsFieldRenames());
+
+            deprecatedOnlyValidator = builder
+                    .setAllowDeprecatedFieldRenames(true)
+                    .build();
+            assertTrue(deprecatedOnlyValidator.allowsAnyFieldRenames());
+            assertTrue(deprecatedOnlyValidator.allowsDeprecatedFieldRenames());
+            assertFalse(deprecatedOnlyValidator.allowsFieldRenames());
+
+            anyRenameValidator = builder
+                    .setAllowDeprecatedFieldRenames(false)
+                    .setAllowFieldRenames(true)
+                    .build();
+            assertTrue(anyRenameValidator.allowsAnyFieldRenames());
+            assertFalse(anyRenameValidator.allowsDeprecatedFieldRenames());
+            assertTrue(anyRenameValidator.allowsFieldRenames());
+
+            // This should behave the same as anyRenameValidator, but it is included for completeness
+            allRenamesValidator = builder
+                    .setAllowDeprecatedFieldRenames(true)
+                    .build();
+            assertTrue(allRenamesValidator.allowsAnyFieldRenames());
+            assertTrue(allRenamesValidator.allowsDeprecatedFieldRenames());
+            assertTrue(allRenamesValidator.allowsFieldRenames());
+        }
+
+        @Nonnull
+        public MetaDataEvolutionValidator getBaseValidator() {
+            return baseValidator;
+        }
+
+        public void assertInvalidRenaming(@Nonnull String errMsg, boolean deprecatedOnly, @Nonnull RecordMetaData oldMetaData, @Nonnull RecordMetaData newMetaData) {
+            assertInvalid("field renamed", noRenamesValidator, oldMetaData, newMetaData);
+            assertInvalid(deprecatedOnly ? errMsg : "field renamed", deprecatedOnlyValidator, oldMetaData, newMetaData);
+            assertInvalid(errMsg, anyRenameValidator, oldMetaData, newMetaData);
+            assertInvalid(errMsg, allRenamesValidator, oldMetaData, newMetaData);
+        }
+
+        public void assertValidRenaming(boolean deprecatedOnly, @Nonnull RecordMetaData oldMetaData, @Nonnull RecordMetaData newMetaData) {
+            assertInvalid("field renamed", noRenamesValidator, oldMetaData, newMetaData);
+            if (deprecatedOnly) {
+                deprecatedOnlyValidator.validate(oldMetaData, newMetaData);
+            } else {
+                assertInvalid("field renamed", deprecatedOnlyValidator, oldMetaData, newMetaData);
+            }
+            anyRenameValidator.validate(oldMetaData, newMetaData);
+            allRenamesValidator.validate(oldMetaData, newMetaData);
+        }
+
+        public void assertValidRenaming(boolean deprecatedOnly, @Nonnull FileDescriptor oldFileDescriptor, @Nonnull FileDescriptor newFileDescriptor) {
+            assertValidRenaming(deprecatedOnly, oldFileDescriptor.findMessageTypeByName(RecordMetaDataBuilder.DEFAULT_UNION_NAME), newFileDescriptor.findMessageTypeByName(RecordMetaDataBuilder.DEFAULT_UNION_NAME));
+        }
+
+        public void assertValidRenaming(boolean deprecatedOnly, @Nonnull Descriptor oldUnionDescriptor, @Nonnull Descriptor newUnionDescriptor) {
+            assertInvalid("field renamed", noRenamesValidator, oldUnionDescriptor, newUnionDescriptor);
+            if (deprecatedOnly) {
+                deprecatedOnlyValidator.validateUnion(oldUnionDescriptor, newUnionDescriptor);
+            } else {
+                assertInvalid("field renamed", deprecatedOnlyValidator, oldUnionDescriptor, newUnionDescriptor);
+            }
+            anyRenameValidator.validateUnion(oldUnionDescriptor, newUnionDescriptor);
+            allRenamesValidator.validateUnion(oldUnionDescriptor, newUnionDescriptor);
+        }
+    }
+
+    private final FieldRenameChecker fieldRenameChecker = new FieldRenameChecker(validator);
 
     @Test
     void doNotChangeVersion() {
@@ -177,16 +272,28 @@ class MetaDataEvolutionValidatorTest {
     }
 
     @Nonnull
-    static FileDescriptor mutateField(@Nonnull String messageName, @Nonnull String fieldName, @Nonnull FileDescriptor originalFile,
-                                      @Nonnull Consumer<DescriptorProtos.FieldDescriptorProto.Builder> fieldMutation) {
+    static FileDescriptor mutateMessageType(@Nonnull String messageName, @Nonnull FileDescriptor originalFile, @Nonnull Consumer<DescriptorProtos.DescriptorProto.Builder> typeMutation) {
         return mutateFile(originalFile, fileBuilder ->
                 fileBuilder.getMessageTypeBuilderList().forEach(message -> {
                     if (message.getName().equals(messageName)) {
-                        message.getFieldBuilderList().forEach(field -> {
-                            if (field.getName().equals(fieldName)) {
-                                fieldMutation.accept(field);
-                            }
-                        });
+                        typeMutation.accept(message);
+                    }
+                })
+        );
+    }
+
+    @Nonnull
+    static FileDescriptor mutateMessageType(@Nonnull String messageName, @Nonnull Consumer<DescriptorProtos.DescriptorProto.Builder> typeMutation) {
+        return mutateMessageType(messageName, TestRecords1Proto.getDescriptor(), typeMutation);
+    }
+
+    @Nonnull
+    static FileDescriptor mutateField(@Nonnull String messageName, @Nonnull String fieldName, @Nonnull FileDescriptor originalFile,
+                                      @Nonnull Consumer<DescriptorProtos.FieldDescriptorProto.Builder> fieldMutation) {
+        return mutateMessageType(messageName, originalFile, message ->
+                message.getFieldBuilderList().forEach(field -> {
+                    if (field.getName().equals(fieldName)) {
+                        fieldMutation.accept(field);
                     }
                 })
         );
@@ -195,6 +302,20 @@ class MetaDataEvolutionValidatorTest {
     @Nonnull
     static FileDescriptor mutateField(@Nonnull String messageName, @Nonnull String fieldName, @Nonnull Consumer<DescriptorProtos.FieldDescriptorProto.Builder> fieldMutation) {
         return mutateField(messageName, fieldName, TestRecords1Proto.getDescriptor(), fieldMutation);
+    }
+
+    @Nonnull
+    static DescriptorProtos.FieldDescriptorProto.Builder addField(@Nonnull DescriptorProtos.DescriptorProto.Builder message) {
+        int maxFieldNumber = message.getFieldBuilderList().stream()
+                .mapToInt(DescriptorProtos.FieldDescriptorProto.Builder::getNumber)
+                .max()
+                .orElse(0);
+        return message.addFieldBuilder()
+                .setNumber(maxFieldNumber + 1);
+    }
+
+    static void deprecateField(@Nonnull DescriptorProtos.FieldDescriptorProto.Builder field) {
+        field.getOptionsBuilder().setDeprecated(true);
     }
 
     @Test
@@ -248,16 +369,12 @@ class MetaDataEvolutionValidatorTest {
 
     @Test
     void swapUnionFields() {
-        FileDescriptor updatedDescriptor = mutateFile(fileBuilder ->
-                fileBuilder.getMessageTypeBuilderList().forEach(message -> {
-                    if (message.getName().equals(RecordMetaDataBuilder.DEFAULT_UNION_NAME)) {
-                        message.getFieldBuilderList().forEach(field -> {
-                            if (field.getNumber() == 1) {
-                                field.setNumber(2);
-                            } else {
-                                field.setNumber(1);
-                            }
-                        });
+        FileDescriptor updatedDescriptor = mutateMessageType(RecordMetaDataBuilder.DEFAULT_UNION_NAME, message ->
+                message.getFieldBuilderList().forEach(field -> {
+                    if (field.getNumber() == 1) {
+                        field.setNumber(2);
+                    } else {
+                        field.setNumber(1);
                     }
                 })
         );
@@ -273,18 +390,15 @@ class MetaDataEvolutionValidatorTest {
         // Swap the positions for RecordOne and RecordTwo in the union descriptor. As these have identical definitions,
         // they could actually be swapped. Though perhaps they shouldn't be, and disallowing type renames will address
         // this kind of tom foolery
-        FileDescriptor updatedFileDescriptor = mutateFile(TestRecordsIdenticalTypesProto.getDescriptor(), fileBuilder ->
-                fileBuilder.getMessageTypeBuilderList().forEach(message -> {
-                    if (message.getName().equals(RecordMetaDataBuilder.DEFAULT_UNION_NAME)) {
-                        message.getFieldBuilderList().forEach(field -> {
-                            if (field.getNumber() == 1) {
-                                field.setNumber(2);
-                            } else {
-                                field.setNumber(1);
-                            }
-                        });
+        FileDescriptor updatedFileDescriptor = mutateMessageType(RecordMetaDataBuilder.DEFAULT_UNION_NAME, TestRecordsIdenticalTypesProto.getDescriptor(), message ->
+                message.getFieldBuilderList().forEach(field -> {
+                    if (field.getNumber() == 1) {
+                        field.setNumber(2);
+                    } else {
+                        field.setNumber(1);
                     }
-                }));
+                })
+        );
         validator.validateUnion(TestRecordsIdenticalTypesProto.RecordTypeUnion.getDescriptor(), updatedFileDescriptor.findMessageTypeByName(RecordMetaDataBuilder.DEFAULT_UNION_NAME));
         final MetaDataEvolutionValidator stricterValidator = MetaDataEvolutionValidator.newBuilder()
                 .setDisallowTypeRenames(true)
@@ -320,35 +434,21 @@ class MetaDataEvolutionValidatorTest {
 
     @Test
     void typeChangeCreatesAmbiguousCorrespondence() {
-        final FileDescriptor fileWithAdditionalUnionField = mutateFile(TestRecordsIdenticalTypesProto.getDescriptor(), fileBuilder ->
-                fileBuilder.getMessageTypeBuilderList().forEach(message -> {
-                    // Add a second field in the union descriptor pointing to RecordOne. This is fine
-                    if (message.getName().equals(RecordMetaDataBuilder.DEFAULT_UNION_NAME)) {
-                        message.addFieldBuilder()
-                                .setLabel(DescriptorProtos.FieldDescriptorProto.Label.LABEL_OPTIONAL)
-                                .setType(DescriptorProtos.FieldDescriptorProto.Type.TYPE_MESSAGE)
-                                .setTypeName("RecordOne")
-                                .setName("other_union_field")
-                                .setNumber(3);
-                    }
-                })
+        final FileDescriptor fileWithAdditionalUnionField = mutateMessageType(RecordMetaDataBuilder.DEFAULT_UNION_NAME, TestRecordsIdenticalTypesProto.getDescriptor(), message ->
+                // Add a second field in the union descriptor pointing to RecordOne. This is fine
+                addField(message)
+                        .setLabel(DescriptorProtos.FieldDescriptorProto.Label.LABEL_OPTIONAL)
+                        .setType(DescriptorProtos.FieldDescriptorProto.Type.TYPE_MESSAGE)
+                        .setTypeName("RecordOne")
+                        .setName("other_union_field")
         );
         final RecordMetaData metaData1 = RecordMetaData.build(TestRecordsIdenticalTypesProto.getDescriptor());
         final RecordMetaData metaData2 = replaceRecordsDescriptor(metaData1, fileWithAdditionalUnionField);
         validator.validate(metaData1, metaData2);
 
         // Change the type of the new union field so it now points to RecordTwo
-        final FileDescriptor fileWithModifiedNewUnionField = mutateFile(fileWithAdditionalUnionField, fileBuilder ->
-                fileBuilder.getMessageTypeBuilderList().forEach(message -> {
-                    if (message.getName().equals(RecordMetaDataBuilder.DEFAULT_UNION_NAME)) {
-                        message.getFieldBuilderList().forEach(field -> {
-                            if (field.getName().equals("other_union_field")) {
-                                field.setTypeName("RecordTwo");
-                            }
-                        });
-                    }
-                })
-        );
+        final FileDescriptor fileWithModifiedNewUnionField = mutateField(RecordMetaDataBuilder.DEFAULT_UNION_NAME, "other_union_field", fileWithAdditionalUnionField,
+                field -> field.setTypeName("RecordTwo"));
         final RecordMetaData metaData3 = replaceRecordsDescriptor(metaData2, fileWithModifiedNewUnionField);
         validator.validate(metaData1, metaData3); // it actually would be fine to go straight from 1 to 3
         // Going from 2 to 3 is a problem. That's because when the field numbers are consulted between union
@@ -356,6 +456,7 @@ class MetaDataEvolutionValidatorTest {
         // field 1 is a RecordOne in both). Likewise, looking at field 2 establishes that RecordTwo corresponds
         // to RecordTwo. But then the third field causes trouble: version 2 is of type RecordOne and version 3
         // is of type RecordTwo. So the old RecordOne must be both a new RecordOne and a new RecordTwo.
+        assertInvalid("record type corresponds to multiple types in new meta-data", metaData2.getUnionDescriptor(), metaData3.getUnionDescriptor());
         assertInvalid("record type corresponds to multiple types in new meta-data", metaData2, metaData3);
     }
 
@@ -380,13 +481,11 @@ class MetaDataEvolutionValidatorTest {
             fileBuilder.addMessageType(newMessageType);
             fileBuilder.getMessageTypeBuilderList().forEach(message -> {
                 if (message.getName().equals(RecordMetaDataBuilder.DEFAULT_UNION_NAME)) {
-                    message.addField(DescriptorProtos.FieldDescriptorProto.newBuilder()
+                    addField(message)
                             .setLabel(DescriptorProtos.FieldDescriptorProto.Label.LABEL_OPTIONAL)
                             .setType(DescriptorProtos.FieldDescriptorProto.Type.TYPE_MESSAGE)
                             .setTypeName("MyOtherOtherRecord")
-                            .setName("_MyOtherOtherRecord")
-                            .setNumber(message.getFieldList().stream().mapToInt(DescriptorProtos.FieldDescriptorProto::getNumber).max().orElse(0) + 1)
-                    );
+                            .setName("_MyOtherOtherRecord");
                 }
             });
         });
@@ -439,12 +538,11 @@ class MetaDataEvolutionValidatorTest {
         FileDescriptor updatedDescriptor = mutateFile(fileBuilder ->
                 fileBuilder.getMessageTypeBuilderList().forEach(message -> {
                     if (message.getName().equals(RecordMetaDataBuilder.DEFAULT_UNION_NAME)) {
-                        message.addField(DescriptorProtos.FieldDescriptorProto.newBuilder()
+                        addField(message)
                                 .setLabel(DescriptorProtos.FieldDescriptorProto.Label.LABEL_OPTIONAL)
                                 .setType(DescriptorProtos.FieldDescriptorProto.Type.TYPE_MESSAGE)
                                 .setTypeName("MyOtherRecord")
-                                .setName("_MyOtherOtherRecord")
-                                .setNumber(message.getFieldList().stream().mapToInt(DescriptorProtos.FieldDescriptorProto::getNumber).max().orElse(0) + 1));
+                                .setName("_MyOtherOtherRecord");
                     }
                 })
         );
@@ -589,12 +687,11 @@ class MetaDataEvolutionValidatorTest {
             fileBuilder.addMessageType(newMessageType);
             fileBuilder.getMessageTypeBuilderList().forEach(messageType -> {
                 if (messageType.getName().equals(RecordMetaDataBuilder.DEFAULT_UNION_NAME)) {
-                    messageType.addField(DescriptorProtos.FieldDescriptorProto.newBuilder()
+                    addField(messageType)
                             .setLabel(DescriptorProtos.FieldDescriptorProto.Label.LABEL_OPTIONAL)
                             .setType(DescriptorProtos.FieldDescriptorProto.Type.TYPE_MESSAGE)
                             .setTypeName("MyOtherOtherRecord")
-                            .setName("_MyOtherOtherRecord")
-                            .setNumber(messageType.getFieldList().stream().mapToInt(DescriptorProtos.FieldDescriptorProto::getNumber).max().orElse(0) + 1));
+                            .setName("_MyOtherOtherRecord");
                 }
             });
         });
@@ -679,12 +776,11 @@ class MetaDataEvolutionValidatorTest {
             fileBuilder.addMessageType(newMessageType);
             fileBuilder.getMessageTypeBuilderList().forEach(messageType -> {
                 if (messageType.getName().equals(RecordMetaDataBuilder.DEFAULT_UNION_NAME)) {
-                    messageType.addField(DescriptorProtos.FieldDescriptorProto.newBuilder()
+                    addField(messageType)
                             .setLabel(DescriptorProtos.FieldDescriptorProto.Label.LABEL_OPTIONAL)
                             .setType(DescriptorProtos.FieldDescriptorProto.Type.TYPE_MESSAGE)
                             .setTypeName("MyOtherOtherRecord")
-                            .setName("_MyOtherOtherRecord")
-                            .setNumber(messageType.getFieldList().stream().mapToInt(DescriptorProtos.FieldDescriptorProto::getNumber).max().orElse(0) + 1));
+                            .setName("_MyOtherOtherRecord");
                 }
             });
         });
@@ -739,17 +835,13 @@ class MetaDataEvolutionValidatorTest {
 
     @Test
     void dropField() {
-        FileDescriptor updatedFile = mutateFile(fileBuilder ->
-                fileBuilder.getMessageTypeBuilderList().forEach(message -> {
-                    if (message.getName().equals("MySimpleRecord")) {
-                        int fieldNumValue2Index = 0;
-                        while (!message.getField(fieldNumValue2Index).getName().equals("num_value_2")) {
-                            fieldNumValue2Index++;
-                        }
-                        message.removeField(fieldNumValue2Index);
-                    }
-                })
-        );
+        FileDescriptor updatedFile = mutateMessageType("MySimpleRecord", message -> {
+            int fieldNumValue2Index = 0;
+            while (!message.getField(fieldNumValue2Index).getName().equals("num_value_2")) {
+                fieldNumValue2Index++;
+            }
+            message.removeField(fieldNumValue2Index);
+        });
         assertInvalid("field removed from message descriptor", TestRecords1Proto.getDescriptor(), updatedFile);
         RecordMetaData metaData1 = RecordMetaData.build(TestRecords1Proto.getDescriptor());
         RecordMetaData metaData2 = replaceRecordsDescriptor(metaData1, updatedFile);
@@ -760,26 +852,304 @@ class MetaDataEvolutionValidatorTest {
     void renameField() {
         FileDescriptor updatedFile = mutateField("MySimpleRecord", "num_value_2",
                 field -> field.setName("num_value_too"));
-        assertInvalid("field renamed", TestRecords1Proto.getDescriptor(), updatedFile);
+        fieldRenameChecker.assertValidRenaming(false, TestRecords1Proto.getDescriptor(), updatedFile);
+
         RecordMetaData metaData1 = RecordMetaData.build(TestRecords1Proto.getDescriptor());
         RecordMetaData metaData2 = replaceRecordsDescriptor(metaData1, updatedFile);
-        assertInvalid("field renamed", metaData1, metaData2);
-
-        // This updates both the field name and its indexes which means that this is actually okay.
-        updatedFile = mutateField("MySimpleRecord", "str_value_indexed",
-                field -> field.setName("str_value_still_indexed"));
-        RecordMetaData metaData3 = replaceRecordsDescriptor(metaData1, updatedFile, protoBuilder ->
-                protoBuilder.getIndexesBuilderList().forEach(index -> {
-                    if (index.getName().equals("MySimpleRecord$str_value_indexed")) {
-                        index.setRootExpression(Key.Expressions.field("str_value_still_indexed").toKeyExpression());
-                    }
-                })
-        );
-        assertInvalid("field renamed", metaData1, metaData3);
+        fieldRenameChecker.assertValidRenaming(false, metaData1, metaData2);
     }
 
     @Test
-    void fieldTypeChanged() throws InvalidProtocolBufferException {
+    void renameDeprecatedField() {
+        FileDescriptor deprecatedFile = mutateField("MySimpleRecord", "num_value_2",
+                MetaDataEvolutionValidatorTest::deprecateField);
+        FileDescriptor renamedFile = mutateField("MySimpleRecord", "num_value_2", deprecatedFile,
+                field -> field.setName("num_value_too"));
+        fieldRenameChecker.assertValidRenaming(true, deprecatedFile, renamedFile);
+
+        RecordMetaData metaData1 = RecordMetaData.build(deprecatedFile);
+        RecordMetaData metaData2 = replaceRecordsDescriptor(metaData1, renamedFile);
+        fieldRenameChecker.assertValidRenaming(true, metaData1, metaData2);
+    }
+
+    @Test
+    void renameFieldWhenMarkingDeprecated() {
+        FileDescriptor updatedFile = mutateField("MySimpleRecord", "num_value_2", field -> {
+            deprecateField(field);
+            field.setName("num_value_too");
+        });
+        fieldRenameChecker.assertValidRenaming(true, TestRecords1Proto.getDescriptor(), updatedFile);
+
+        RecordMetaData metaData1 = RecordMetaData.build(TestRecords1Proto.getDescriptor());
+        RecordMetaData metaData2 = replaceRecordsDescriptor(metaData1, updatedFile);
+        fieldRenameChecker.assertValidRenaming(true, metaData1, metaData2);
+    }
+
+    @Test
+    void renameFieldWhenUndeprecating() {
+        // Change the field name at the same time we mark it as not deprecated
+        FileDescriptor deprecatedFile = mutateField("MySimpleRecord", "num_value_2",
+                MetaDataEvolutionValidatorTest::deprecateField);
+        FileDescriptor renamedFile = mutateField("MySimpleRecord", "num_value_2", deprecatedFile,
+                field -> field.clearOptions().setName("num_value_too"));
+        RecordMetaData metaData1 = RecordMetaData.build(deprecatedFile);
+        RecordMetaData metaData2 = replaceRecordsDescriptor(metaData1, renamedFile);
+
+        // Under default settings, this is still not allowed (because we ban undeprecating fields)
+        assertFalse(fieldRenameChecker.getBaseValidator().allowsUndeprecatingFields());
+        fieldRenameChecker.assertInvalidRenaming("field is no longer deprecated", true, metaData1, metaData2);
+
+        // If un-deprecating fields is okay, then we get a valid renaming
+        final FieldRenameChecker laxerFieldRenameChecker = new FieldRenameChecker(fieldRenameChecker.getBaseValidator().asBuilder()
+                .setAllowUndeprecatingFields(true)
+                .build());
+        assertTrue(laxerFieldRenameChecker.getBaseValidator().allowsUndeprecatingFields());
+        laxerFieldRenameChecker.assertValidRenaming(true, metaData1, metaData2);
+    }
+
+    @Test
+    void renameMixOfDeprecatedAndUndeprecatedFields() {
+        FileDescriptor deprecatedFile = mutateField("RestaurantTag", "weight", TestRecords4Proto.getDescriptor(),
+                MetaDataEvolutionValidatorTest::deprecateField);
+        deprecatedFile = mutateField("ReviewerStats", "hometown", deprecatedFile,
+                MetaDataEvolutionValidatorTest::deprecateField);
+        assertTrue(deprecatedFile.findMessageTypeByName("RestaurantTag").findFieldByName("weight").getOptions().getDeprecated());
+        assertTrue(deprecatedFile.findMessageTypeByName("ReviewerStats").findFieldByName("hometown").getOptions().getDeprecated());
+        final RecordMetaData metaData1 = RecordMetaData.build(deprecatedFile);
+
+        // Rename one deprecated field
+        FileDescriptor renamedFile = mutateField("ReviewerStats", "hometown", deprecatedFile,
+                field -> field.setName("origin"));
+        assertTrue(renamedFile.findMessageTypeByName("ReviewerStats").findFieldByName("origin").getOptions().getDeprecated());
+        fieldRenameChecker.assertValidRenaming(true, deprecatedFile.findMessageTypeByName("UnionDescriptor"), renamedFile.findMessageTypeByName("UnionDescriptor"));
+        fieldRenameChecker.assertValidRenaming(true, metaData1, replaceRecordsDescriptor(metaData1, renamedFile));
+
+        // Rename another deprecated field
+        renamedFile = mutateField("RestaurantTag", "weight", renamedFile,
+                field -> field.setName("weighting"));
+        assertTrue(renamedFile.findMessageTypeByName("RestaurantTag").findFieldByName("weighting").getOptions().getDeprecated());
+        fieldRenameChecker.assertValidRenaming(true, deprecatedFile.findMessageTypeByName("UnionDescriptor"), renamedFile.findMessageTypeByName("UnionDescriptor"));
+        fieldRenameChecker.assertValidRenaming(true, metaData1, replaceRecordsDescriptor(metaData1, renamedFile));
+
+        // Rename a non deprecated field. Now, the fieldRenameChecker should only consider this valid if it allows
+        // all field renames
+        renamedFile = mutateField("RestaurantRecord", "reviews", renamedFile,
+                field -> field.setName("review_list"));
+        assertFalse(renamedFile.findMessageTypeByName("RestaurantRecord").findFieldByName("review_list").getOptions().getDeprecated());
+        fieldRenameChecker.assertValidRenaming(false, deprecatedFile.findMessageTypeByName("UnionDescriptor"), renamedFile.findMessageTypeByName("UnionDescriptor"));
+        fieldRenameChecker.assertValidRenaming(false, metaData1, replaceRecordsDescriptor(metaData1, renamedFile));
+    }
+
+    @Nonnull
+    static Stream<Named<Boolean>> deprecatedArgs() {
+        return ParameterizedTestUtils.booleans("deprecated");
+    }
+
+    @ParameterizedTest
+    @MethodSource("deprecatedArgs")
+    void renameFieldWithIndex(boolean deprecated) {
+        RecordMetaData metaData1 = RecordMetaData.build(TestRecords1Proto.getDescriptor());
+        FileDescriptor updatedFile = mutateMessageType("MySimpleRecord", simpleRecordType -> {
+            simpleRecordType.getFieldBuilderList().stream()
+                    .filter(field -> field.getName().equals("str_value_indexed"))
+                    .forEach(field -> {
+                        if (deprecated) {
+                            deprecateField(field);
+                        }
+                        field.setName("str_value_indexed_old");
+                    });
+
+            // Add a new field also called str_value_indexed. This is necessary as the validation logic invoked
+            // when building the meta-data will fail if there's an index on a field that doesn't exist
+            addField(simpleRecordType)
+                    .setName("str_value_indexed")
+                    .setType(DescriptorProtos.FieldDescriptorProto.Type.TYPE_BYTES)
+                    .setLabel(DescriptorProtos.FieldDescriptorProto.Label.LABEL_OPTIONAL);
+        });
+        RecordMetaData metaData2 = replaceRecordsDescriptor(metaData1, updatedFile);
+
+        // This is rejected even if we allow field renames as the index expression has not been updated
+        fieldRenameChecker.assertInvalidRenaming("index key expression does not match required", deprecated, metaData1, metaData2);
+
+        // This updates both the field name and its indexes which means that this is actually okay.
+        RecordMetaData metaData3 = replaceRecordsDescriptor(metaData1, updatedFile, protoBuilder ->
+                protoBuilder.getIndexesBuilderList().forEach(index -> {
+                    if (index.getName().equals("MySimpleRecord$str_value_indexed")) {
+                        index.setRootExpression(Key.Expressions.field("str_value_indexed_old").toKeyExpression());
+                    }
+                })
+        );
+        fieldRenameChecker.assertValidRenaming(deprecated, metaData1, metaData3);
+    }
+
+    @ParameterizedTest
+    @MethodSource("deprecatedArgs")
+    void renameFieldInUniversalIndex(boolean deprecated) {
+        RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecords1Proto.getDescriptor());
+        metaDataBuilder.addUniversalIndex(new Index("all$num_value_2", "num_value_2"));
+        RecordMetaData metaData1 = metaDataBuilder.build();
+
+        FileDescriptor updatedFile = mutateMessageType("MySimpleRecord", simpleRecordType -> {
+            simpleRecordType.getFieldBuilderList().stream()
+                    .filter(field -> field.getName().equals("num_value_2"))
+                    .forEach(field -> {
+                        if (deprecated) {
+                            deprecateField(field);
+                        }
+                        field.setName("num_value_2__old");
+                    });
+
+            addField(simpleRecordType)
+                    .setName("num_value_2")
+                    .setType(DescriptorProtos.FieldDescriptorProto.Type.TYPE_SFIXED64)
+                    .setLabel(DescriptorProtos.FieldDescriptorProto.Label.LABEL_OPTIONAL);
+        });
+        RecordMetaData metaData2 = replaceRecordsDescriptor(metaData1, updatedFile);
+
+        // Still not allowed as the multi-type index requires the new key expression num_value_2__old on one record
+        // type but num_value_2 on another
+        fieldRenameChecker.assertInvalidRenaming("field renames result in inconsistent index definition for multi-type index", deprecated, metaData1, metaData2);
+
+        // Update the other types num_value_2 so now all types rename num_value_2 the same way
+        updatedFile = mutateMessageType("MyOtherRecord", updatedFile, otherRecordType -> {
+            otherRecordType.getFieldBuilderList().stream()
+                    .filter(field -> field.getName().equals("num_value_2"))
+                    .forEach(field -> {
+                        if (deprecated) {
+                            deprecateField(field);
+                        }
+                        field.setName("num_value_2__old");
+                    });
+
+            addField(otherRecordType)
+                    .setName("num_value_2")
+                    .setType(DescriptorProtos.FieldDescriptorProto.Type.TYPE_INT64)
+                    .setLabel(DescriptorProtos.FieldDescriptorProto.Label.LABEL_OPTIONAL);
+        });
+        RecordMetaData metaData3 = replaceRecordsDescriptor(metaData1, updatedFile);
+        // Still not allowed as the index hasn't been updated
+        fieldRenameChecker.assertInvalidRenaming("index key expression does not match required", deprecated, metaData1, metaData3);
+
+        RecordMetaData metaData4 = replaceIndex(metaData3, "all$num_value_2",
+                indexProto -> indexProto.toBuilder().setRootExpression(Key.Expressions.field("num_value_2__old").toKeyExpression()).build());
+        fieldRenameChecker.assertValidRenaming(deprecated, metaData1, metaData4);
+    }
+
+    @ParameterizedTest
+    @MethodSource("deprecatedArgs")
+    void renameFieldWithMultiTypeIndex(boolean deprecated) {
+        // Create a meta-data with a non-universal multi-type index
+        RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecords4Proto.getDescriptor());
+        final List<String> types = List.of("RestaurantReviewer", "RestaurantRecord");
+        metaDataBuilder.addMultiTypeIndex(types.stream().map(metaDataBuilder::getRecordType).toList(),
+                new Index("multi_name", "name"));
+        metaDataBuilder.removeIndex("RestaurantRecord$name");
+        metaDataBuilder.removeIndex("RestaurantReviewer$name");
+        RecordMetaData metaData1 = metaDataBuilder.build();
+
+        // Updating the name in just one type results in different types requiring different field renames
+        for (String type : types) {
+            FileDescriptor renamedOneName = mutateMessageType(type, TestRecords4Proto.getDescriptor(), descriptor -> updateNameField(descriptor, deprecated));
+            RecordMetaData metaData2 = replaceRecordsDescriptor(metaData1, renamedOneName);
+
+            fieldRenameChecker.assertInvalidRenaming("field renames result in inconsistent index definition for multi-type index", deprecated, metaData1, metaData2);
+        }
+
+        // Updating all the names changes the error message
+        FileDescriptor updateAllNames = types.stream()
+                .reduce(TestRecords4Proto.getDescriptor(), (fileDescriptor, type) -> mutateMessageType(type, fileDescriptor, descriptor -> updateNameField(descriptor, deprecated)), (fileA, fileB) -> fail("cannot combine"));
+        RecordMetaData metaData3 = replaceRecordsDescriptor(metaData1, updateAllNames);
+        fieldRenameChecker.assertInvalidRenaming("index key expression does not match required", deprecated, metaData1, metaData3);
+
+        // Updating the key expression in the index to match the new name is legal if field renames are allowed
+        RecordMetaData metaData4 = replaceIndex(metaData3, "multi_name", index -> index.toBuilder().setRootExpression(Key.Expressions.field("name_a").toKeyExpression()).build());
+        fieldRenameChecker.assertValidRenaming(deprecated, metaData1, metaData4);
+    }
+
+    private void updateNameField(@Nonnull DescriptorProtos.DescriptorProto.Builder descriptor, boolean deprecateOld) {
+        // Rename name to name_a
+        descriptor.getFieldBuilderList().stream()
+                .filter(field -> field.getName().equals("name"))
+                .forEach(field -> {
+                    if (deprecateOld) {
+                        deprecateField(field);
+                    }
+                    field.setName("name_a");
+                });
+        // Add in a name field to ensure meta-data validation (not evolution validation) passes
+        addField(descriptor)
+                .setName("name")
+                .setType(DescriptorProtos.FieldDescriptorProto.Type.TYPE_STRING)
+                .setLabel(DescriptorProtos.FieldDescriptorProto.Label.LABEL_OPTIONAL);
+    }
+
+    @ParameterizedTest
+    @MethodSource("deprecatedArgs")
+    void renameFieldInPrimaryKey(boolean deprecated) {
+        RecordMetaData metaData1 = RecordMetaData.build(TestRecords1Proto.getDescriptor());
+        FileDescriptor updatedFile = mutateMessageType("MySimpleRecord", simpleRecordType -> {
+            simpleRecordType.getFieldBuilderList().stream()
+                    .filter(field -> field.getName().equals("rec_no"))
+                    .forEach(field -> {
+                        if (deprecated) {
+                            deprecateField(field);
+                        }
+                        field.setName("old_rec_no");
+                    });
+
+            // Add a new field also called rec_no so that we pass meta-data validation
+            addField(simpleRecordType)
+                    .setName("rec_no")
+                    .setType(DescriptorProtos.FieldDescriptorProto.Type.TYPE_BYTES)
+                    .setLabel(DescriptorProtos.FieldDescriptorProto.Label.LABEL_OPTIONAL);
+        });
+        RecordMetaData metaData2 = replaceRecordsDescriptor(metaData1, updatedFile);
+
+        // This is rejected even if we allow field renames as the primary key has not been updated
+        fieldRenameChecker.assertInvalidRenaming("record type primary key does not match required", deprecated, metaData1, metaData2);
+
+        // Now update the primary key to match the new record name
+        RecordMetaData metaData3 = replaceRecordsDescriptor(metaData1, updatedFile, protoBuilder ->
+                protoBuilder.getRecordTypesBuilderList().forEach(recordType -> {
+                    if (recordType.getName().equals("MySimpleRecord")) {
+                        recordType.setPrimaryKey(Key.Expressions.field("old_rec_no").toKeyExpression());
+                    }
+                })
+        );
+        fieldRenameChecker.assertValidRenaming(deprecated, metaData1, metaData3);
+    }
+
+    @Test
+    void deprecateField() {
+        FileDescriptor deprecatedFile = mutateField("MySimpleRecord", "str_value_indexed",
+                MetaDataEvolutionValidatorTest::deprecateField);
+        RecordMetaData metaData1 = RecordMetaData.build(TestRecords1Proto.getDescriptor());
+        // The str_value_indexed field is used in indexes. We may want to ban those, which we should do in the
+        // MetaDataValidator (not the evolution validator). If we do, this may fail, and we should change this
+        // test to use a non-indexed field
+        RecordMetaData metaData2 = replaceRecordsDescriptor(metaData1, deprecatedFile);
+        // Deprecating fields is okay
+        validator.validate(metaData1, metaData2);
+    }
+
+    @Test
+    void undeprecateField() {
+        FileDescriptor deprecatedFile = mutateField("MySimpleRecord", "num_value_3_indexed",
+                MetaDataEvolutionValidatorTest::deprecateField);
+        RecordMetaData metaData1 = RecordMetaData.build(deprecatedFile);
+        RecordMetaData metaData2 = replaceRecordsDescriptor(metaData1, TestRecords1Proto.getDescriptor());
+        assertFalse(validator.allowsUndeprecatingFields());
+        assertInvalid("field is no longer deprecated", metaData1, metaData2);
+
+        final MetaDataEvolutionValidator laxerValidator = validator.asBuilder()
+                .setAllowUndeprecatingFields(true)
+                .build();
+        assertTrue(laxerValidator.allowsUndeprecatingFields());
+        laxerValidator.validate(metaData1, metaData2);
+    }
+
+    @Test
+    void fieldTypeChanged() {
         FileDescriptor updatedFile = mutateField("MySimpleRecord", "str_value_indexed",
                 field -> field.setType(DescriptorProtos.FieldDescriptorProto.Type.TYPE_BYTES));
         assertInvalid("field type changed", TestRecords1Proto.getDescriptor(), updatedFile);
@@ -873,15 +1243,19 @@ class MetaDataEvolutionValidatorTest {
         final Descriptor selfReferenceUnion = TestSelfReferenceProto.RecordTypeUnion.getDescriptor();
         final Descriptor unspooledUnion = TestSelfReferenceUnspooledProto.RecordTypeUnion.getDescriptor();
         validator.validateUnion(selfReferenceUnion, unspooledUnion);
-        assertInvalid("field removed", unspooledUnion, selfReferenceUnion);
 
-        FileDescriptor updatedUnspooledFile = mutateFile(TestSelfReferenceUnspooledProto.getDescriptor(), fileBuilder ->
-                fileBuilder.getMessageTypeBuilderList().forEach(message -> {
-                    if (message.getName().equals("Node")) {
-                        message.removeField(0);
-                    }
-                })
-        );
+        // Try the other way. Note that one of the fields in the unspooled LinkedListRecord is deprecated, so we need
+        // to allow undeprecation in order to catch the field removal error
+        assertFalse(validator.allowsUndeprecatingFields());
+        assertInvalid("field is no longer deprecated", unspooledUnion, selfReferenceUnion);
+        final MetaDataEvolutionValidator laxerValidator = validator.asBuilder()
+                .setAllowUndeprecatingFields(true)
+                .build();
+        assertTrue(laxerValidator.allowsUndeprecatingFields());
+        assertInvalid("field removed", laxerValidator, unspooledUnion, selfReferenceUnion);
+
+        FileDescriptor updatedUnspooledFile = mutateMessageType("Node", TestSelfReferenceUnspooledProto.getDescriptor(),
+                message -> message.removeField(0));
         assertNull(updatedUnspooledFile.findMessageTypeByName("Node").findFieldByName("rec_no"));
         assertInvalid("field removed", TestSelfReferenceUnspooledProto.getDescriptor(), updatedUnspooledFile);
     }
@@ -910,16 +1284,22 @@ class MetaDataEvolutionValidatorTest {
         validator.validate(metaData1, metaData2);
     }
 
-    @Test
-    void nestedTypeChangesFieldName() {
-        FileDescriptor updatedFile = mutateField("HeaderRecord", "num", TestRecordsWithHeaderProto.getDescriptor(),
-                field -> field.setName("numb"));
-        assertInvalid("field renamed", TestRecordsWithHeaderProto.getDescriptor(), updatedFile);
+    @ParameterizedTest
+    @MethodSource("deprecatedArgs")
+    void nestedTypeChangesFieldName(boolean deprecated) {
+        FileDescriptor updatedFile = mutateField("HeaderRecord", "num", TestRecordsWithHeaderProto.getDescriptor(), field -> {
+            if (deprecated) {
+                deprecateField(field);
+            }
+            field.setName("numb");
+        });
+        fieldRenameChecker.assertValidRenaming(deprecated, TestRecordsWithHeaderProto.getDescriptor(), updatedFile);
+
         RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecordsWithHeaderProto.getDescriptor());
         metaDataBuilder.getRecordType("MyRecord").setPrimaryKey(Key.Expressions.field("header").nest(Key.Expressions.concatenateFields("path", "rec_no")));
         RecordMetaData metaData1 = metaDataBuilder.getRecordMetaData();
         RecordMetaData metaData2 = replaceRecordsDescriptor(metaData1, updatedFile);
-        assertInvalid("field renamed", metaData1, metaData2);
+        fieldRenameChecker.assertValidRenaming(deprecated, metaData1, metaData2);
     }
 
     @Test
@@ -934,22 +1314,141 @@ class MetaDataEvolutionValidatorTest {
         assertInvalid("field type changed", metaData1, metaData2);
     }
 
-    @Test
-    void nestedTypesMerged() {
+    @ParameterizedTest
+    @MethodSource("deprecatedArgs")
+    void nestedTypesMerged(boolean deprecated) {
         validator.validateUnion(TestUnmergedNestedTypesProto.RecordTypeUnion.getDescriptor(), TestMergedNestedTypesProto.RecordTypeUnion.getDescriptor());
 
-        FileDescriptor updatedMergedFile = mutateField("OneTrueNested", "b", TestMergedNestedTypesProto.getDescriptor(),
-                field -> field.setName("c"));
-        assertInvalid("field renamed", TestUnmergedNestedTypesProto.getDescriptor(), updatedMergedFile);
+        FileDescriptor updatedMergedFile = mutateField("OneTrueNested", "b", TestMergedNestedTypesProto.getDescriptor(), field -> {
+            if (deprecated) {
+                deprecateField(field);
+            }
+            field.setName("c");
+        });
+        fieldRenameChecker.assertValidRenaming(deprecated, TestUnmergedNestedTypesProto.getDescriptor(), updatedMergedFile);
     }
 
-    @Test
-    void nestedTypesSplit() {
+    @ParameterizedTest
+    @MethodSource("deprecatedArgs")
+    void nestedTypesMergedWithIndexesAndFieldRenames(boolean deprecated) {
+        // Start with two fields in MyRecord, a and b, pointing to a NestedA and Nested B respectively
+        // Then merge the types NestedA and NestedB together. In the merging, field 2 of NestedA is renamed
+        // from a_prime to b, and field 2 of NestedB is renamed from b_prime to b. Validate that indexes
+        // defined on those two fields need to match to pass validation
+        FileDescriptor unmergedFile = mutateMessageType("NestedA", TestUnmergedNestedTypesProto.getDescriptor(),
+                message -> addField(message)
+                        .setName("a_prime")
+                        .setType(DescriptorProtos.FieldDescriptorProto.Type.TYPE_INT32)
+                        .setLabel(DescriptorProtos.FieldDescriptorProto.Label.LABEL_OPTIONAL));
+        unmergedFile = mutateField("NestedB", "b", unmergedFile,
+                field -> field.setName("b_prime"));
+        final RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder()
+                .setRecords(unmergedFile);
+        metaDataBuilder.addIndex("MyRecord", "MyRecord$a.b+b.b", Key.Expressions.concat(Key.Expressions.field("a").nest("a_prime"), Key.Expressions.field("b").nest("b_prime")));
+        final RecordMetaData metaData1 = metaDataBuilder.build();
+
+        FileDescriptor mergedFile = mutateMessageType("OneTrueNested", TestMergedNestedTypesProto.getDescriptor(), message -> {
+            final DescriptorProtos.FieldDescriptorProto.Builder aPrime = addField(message)
+                    .setName("a_prime")
+                    .setType(DescriptorProtos.FieldDescriptorProto.Type.TYPE_INT32)
+                    .setLabel(DescriptorProtos.FieldDescriptorProto.Label.LABEL_OPTIONAL);
+            final DescriptorProtos.FieldDescriptorProto.Builder bPrime = addField(message)
+                    .setName("b_prime")
+                    .setType(DescriptorProtos.FieldDescriptorProto.Type.TYPE_INT32)
+                    .setLabel(DescriptorProtos.FieldDescriptorProto.Label.LABEL_OPTIONAL);
+            if (deprecated) {
+                deprecateField(aPrime);
+                deprecateField(bPrime);
+                message.getFieldBuilderList().stream()
+                        .filter(field -> field.getName().equals("a") || field.getName().equals("b"))
+                        .forEach(MetaDataEvolutionValidatorTest::deprecateField);
+            }
+        });
+        final RecordMetaData metaData2 = replaceRecordsDescriptor(metaData1, mergedFile);
+
+        // Even with field renames allowed, this should be rejected as the a.a_prime field has not been updated in the index
+        fieldRenameChecker.assertInvalidRenaming("index key expression does not match required", deprecated, metaData1, metaData2);
+
+        // Update the index so that it reflects the new field name for a.a_prime -> a.b
+        final RecordMetaData metaData3 = replaceIndex(metaData2, "MyRecord$a.b+b.b", indexProto ->
+                indexProto.toBuilder().setRootExpression(Key.Expressions.concat(Key.Expressions.field("a").nest("b"), Key.Expressions.field("b").nest("b")).toKeyExpression()).build());
+        fieldRenameChecker.assertValidRenaming(deprecated, metaData1, metaData3);
+    }
+
+    @ParameterizedTest
+    @MethodSource("deprecatedArgs")
+    void nestedTypesSplit(boolean deprecated) {
         validator.validateUnion(TestMergedNestedTypesProto.RecordTypeUnion.getDescriptor(), TestSplitNestedTypesProto.RecordTypeUnion.getDescriptor());
 
-        FileDescriptor updatedSplitFile = mutateField("NestedB", "b", TestSplitNestedTypesProto.getDescriptor(),
+        FileDescriptor fieldTypeChangedFile = mutateField("NestedB", "b", TestSplitNestedTypesProto.getDescriptor(),
                 field -> field.setType(DescriptorProtos.FieldDescriptorProto.Type.TYPE_BYTES));
-        assertInvalid("field type changed", TestUnmergedNestedTypesProto.getDescriptor(), updatedSplitFile);
+        assertInvalid("field type changed", TestUnmergedNestedTypesProto.getDescriptor(), fieldTypeChangedFile);
+
+        // Put different renames for different fields
+        FileDescriptor updatedSplitFile = mutateField("NestedA", "b", TestSplitNestedTypesProto.getDescriptor(), field -> {
+            if (deprecated) {
+                deprecateField(field);
+            }
+            field.setName("b_1");
+        });
+        updatedSplitFile = mutateField("NestedB", "b", updatedSplitFile, field -> {
+            if (deprecated) {
+                deprecateField(field);
+            }
+            field.setName("b_2");
+        });
+        fieldRenameChecker.assertValidRenaming(deprecated, TestMergedNestedTypesProto.getDescriptor(), updatedSplitFile);
+    }
+
+    @ParameterizedTest
+    @MethodSource("deprecatedArgs")
+    void nestedTypesSplitWithIndex(boolean deprecated) {
+        // Start with two fields in MyRecord, a and b, both pointing to OneTrueNested with fields a and b
+        // In the split file, a now points to a NestedA and b points to a NestedB
+        // Rename the b field in NestedA to b_1 and the b field in NestedB to b_2 and validate that the indexes
+        // need to match to pass validation
+        final RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder()
+                .setRecords(TestMergedNestedTypesProto.getDescriptor());
+        metaDataBuilder.addIndex("MyRecord", "MyRecord$a.b+b.b", Key.Expressions.concat(Key.Expressions.field("a").nest("b"), Key.Expressions.field("b").nest("b")));
+        final RecordMetaData metaData1 = metaDataBuilder.build();
+
+        FileDescriptor splitFile = mutateMessageType("NestedA", TestSplitNestedTypesProto.getDescriptor(), message -> {
+            message.getFieldBuilderList().forEach(field -> {
+                if (field.getName().equals("b")) {
+                    if (deprecated) {
+                        deprecateField(field);
+                    }
+                    field.setName("b_1");
+                }
+            });
+            addField(message)
+                    .setName("b")
+                    .setType(DescriptorProtos.FieldDescriptorProto.Type.TYPE_INT32)
+                    .setLabel(DescriptorProtos.FieldDescriptorProto.Label.LABEL_OPTIONAL);
+        });
+        splitFile = mutateMessageType("NestedB", splitFile, message -> {
+            message.getFieldBuilderList().forEach(field -> {
+                if (field.getName().equals("b")) {
+                    if (deprecated) {
+                        deprecateField(field);
+                    }
+                    field.setName("b_2");
+                }
+            });
+            addField(message)
+                    .setName("b")
+                    .setType(DescriptorProtos.FieldDescriptorProto.Type.TYPE_INT32)
+                    .setLabel(DescriptorProtos.FieldDescriptorProto.Label.LABEL_OPTIONAL);
+        });
+        final RecordMetaData metaData2 = replaceRecordsDescriptor(metaData1, splitFile);
+
+        // Even with field renames allowed, this should be rejected as the a.b and b.b fields have not been updated in the index
+        fieldRenameChecker.assertInvalidRenaming("index key expression does not match required", deprecated, metaData1, metaData2);
+
+        // Update the index so that it reflects the new field name for a.b -> a.b_1 and b.b -> b.b_2
+        final RecordMetaData metaData3 = replaceIndex(metaData2, "MyRecord$a.b+b.b", indexProto ->
+                indexProto.toBuilder().setRootExpression(Key.Expressions.concat(Key.Expressions.field("a").nest("b_1"), Key.Expressions.field("b").nest("b_2")).toKeyExpression()).build());
+        fieldRenameChecker.assertValidRenaming(deprecated, metaData1, metaData3);
     }
 
     @Test
@@ -980,17 +1479,11 @@ class MetaDataEvolutionValidatorTest {
 
     @Test
     void addRequiredField() {
-        FileDescriptor updatedFile = mutateFile(fileBuilder ->
-                fileBuilder.getMessageTypeBuilderList().forEach(message -> {
-                    if (message.getName().equals("MySimpleRecord")) {
-                        message.addField(DescriptorProtos.FieldDescriptorProto.newBuilder()
-                                .setLabel(DescriptorProtos.FieldDescriptorProto.Label.LABEL_REQUIRED)
-                                .setType(DescriptorProtos.FieldDescriptorProto.Type.TYPE_INT32)
-                                .setName("new_int_field")
-                                .setNumber(message.getFieldList().stream().mapToInt(DescriptorProtos.FieldDescriptorProto::getNumber).max().getAsInt() + 1)
-                        );
-                    }
-                })
+        FileDescriptor updatedFile = mutateMessageType("MySimpleRecord", message ->
+                addField(message)
+                        .setLabel(DescriptorProtos.FieldDescriptorProto.Label.LABEL_REQUIRED)
+                        .setType(DescriptorProtos.FieldDescriptorProto.Type.TYPE_INT32)
+                        .setName("new_int_field")
         );
         assertInvalid("required field added to record type", TestRecords1Proto.getDescriptor(), updatedFile);
         RecordMetaData metaData1 = RecordMetaData.build(TestRecords1Proto.getDescriptor());
@@ -1000,13 +1493,8 @@ class MetaDataEvolutionValidatorTest {
 
     @Test
     void dropType() {
-        FileDescriptor updatedFile = mutateFile(fileBuilder ->
-                fileBuilder.getMessageTypeBuilderList().forEach(message -> {
-                    if (message.getName().equals(RecordMetaDataBuilder.DEFAULT_UNION_NAME)) {
-                        message.removeField(1);
-                    }
-                })
-        );
+        FileDescriptor updatedFile = mutateMessageType(RecordMetaDataBuilder.DEFAULT_UNION_NAME,
+                message -> message.removeField(1));
         assertInvalid("record type removed from union", TestRecords1Proto.getDescriptor(), updatedFile);
         RecordMetaData metaData1 = RecordMetaData.build(TestRecords1Proto.getDescriptor());
         MetaDataException e = assertThrows(MetaDataException.class, () -> replaceRecordsDescriptor(metaData1, updatedFile));
@@ -1025,23 +1513,19 @@ class MetaDataEvolutionValidatorTest {
     @Test
     void addNewPlaceInUnionDescriptor() {
         // Add a new field to the union descriptor that points to an existing record; leave the old one
-        FileDescriptor updatedFile = mutateFile(fileBuilder ->
-                fileBuilder.getMessageTypeBuilderList().forEach(message -> {
-                    if (message.getName().equals(RecordMetaDataBuilder.DEFAULT_UNION_NAME)) {
-                        message.getFieldBuilderList().forEach(field -> {
-                            if (field.getName().endsWith("MySimpleRecord")) {
-                                field.setName("_MyOldSimpleRecordField");
-                            }
-                        });
-                        message.addField(DescriptorProtos.FieldDescriptorProto.newBuilder()
-                                .setLabel(DescriptorProtos.FieldDescriptorProto.Label.LABEL_OPTIONAL)
-                                .setType(DescriptorProtos.FieldDescriptorProto.Type.TYPE_MESSAGE)
-                                .setTypeName("MySimpleRecord")
-                                .setName("_MySimpleRecord")
-                                .setNumber(1066));
-                    }
-                })
-        );
+        FileDescriptor updatedFile = mutateMessageType(RecordMetaDataBuilder.DEFAULT_UNION_NAME, message -> {
+            message.getFieldBuilderList().forEach(field -> {
+                if (field.getName().endsWith("MySimpleRecord")) {
+                    field.setName("_MyOldSimpleRecordField");
+                }
+            });
+            message.addField(DescriptorProtos.FieldDescriptorProto.newBuilder()
+                    .setLabel(DescriptorProtos.FieldDescriptorProto.Label.LABEL_OPTIONAL)
+                    .setType(DescriptorProtos.FieldDescriptorProto.Type.TYPE_MESSAGE)
+                    .setTypeName("MySimpleRecord")
+                    .setName("_MySimpleRecord")
+                    .setNumber(1066));
+        });
         RecordMetaData metaData1 = RecordMetaData.build(TestRecords1Proto.getDescriptor());
         RecordMetaData metaData2 = replaceRecordsDescriptor(metaData1, updatedFile);
         assertEquals(1066, metaData2.getUnionFieldForRecordType(metaData2.getRecordType("MySimpleRecord")).getNumber());
@@ -1049,25 +1533,16 @@ class MetaDataEvolutionValidatorTest {
         assertEquals(metaData1.getRecordType("MySimpleRecord").getRecordTypeKey(), metaData2.getRecordType("MySimpleRecord").getRecordTypeKey());
 
         // Add a new field that points to an existing record but put it in a lower position in the union which makes the record type key change
-        updatedFile = mutateFile(updatedFile, fileBuilder ->
-                fileBuilder.getMessageTypeBuilderList().forEach(message -> {
-                    if (message.getName().equals(RecordMetaDataBuilder.DEFAULT_UNION_NAME)) {
-                        message.removeField(0);
-                    }
-                })
-        );
+        updatedFile = mutateMessageType(RecordMetaDataBuilder.DEFAULT_UNION_NAME, updatedFile,
+                message -> message.removeField(0));
         RecordMetaData metaData3 = RecordMetaData.build(updatedFile);
-        updatedFile = mutateFile(updatedFile, fileBuilder ->
-                fileBuilder.getMessageTypeBuilderList().forEach(message -> {
-                    if (message.getName().equals(RecordMetaDataBuilder.DEFAULT_UNION_NAME)) {
-                        message.addField(DescriptorProtos.FieldDescriptorProto.newBuilder()
-                                .setLabel(DescriptorProtos.FieldDescriptorProto.Label.LABEL_OPTIONAL)
-                                .setType(DescriptorProtos.FieldDescriptorProto.Type.TYPE_MESSAGE)
-                                .setTypeName("MySimpleRecord")
-                                .setName("_MyOtherSimpleRecord")
-                                .setNumber(800));
-                    }
-                })
+        updatedFile = mutateMessageType(RecordMetaDataBuilder.DEFAULT_UNION_NAME, updatedFile, message ->
+                message.addField(DescriptorProtos.FieldDescriptorProto.newBuilder()
+                        .setLabel(DescriptorProtos.FieldDescriptorProto.Label.LABEL_OPTIONAL)
+                        .setType(DescriptorProtos.FieldDescriptorProto.Type.TYPE_MESSAGE)
+                        .setTypeName("MySimpleRecord")
+                        .setName("_MyOtherSimpleRecord")
+                        .setNumber(800))
         );
         RecordMetaData metaData4 = replaceRecordsDescriptor(metaData3, updatedFile);
         RecordType recordType3 = metaData3.getRecordType("MySimpleRecord");
@@ -1137,21 +1612,6 @@ class MetaDataEvolutionValidatorTest {
     }
 
     @Test
-    void removeRecordType() {
-        FileDescriptor updatedDescriptor = mutateFile(fileBuilder ->
-                fileBuilder.getMessageTypeBuilderList().forEach(message -> {
-                    if (message.getName().equals(RecordMetaDataBuilder.DEFAULT_UNION_NAME)) {
-                        // Remove field 1 from record type list, corresponding to MyOtherRecord
-                        message.removeField(1);
-                    }
-                }));
-        RecordMetaData metaData1 = RecordMetaData.build(TestRecords1Proto.getDescriptor());
-        RecordMetaData metaData2 = replaceRecordsDescriptor(metaData1, updatedDescriptor, metaDataBuilder ->
-                metaDataBuilder.removeRecordTypes(1));
-        assertInvalid("record type removed", metaData1, metaData2);
-    }
-
-    @Test
     void recordTypeKeyChanged() {
         RecordMetaData metaData1 = RecordMetaData.build(TestRecords1Proto.getDescriptor());
         RecordMetaDataProto.MetaData.Builder protoBuilder = metaData1.toProto().toBuilder()
@@ -1161,6 +1621,18 @@ class MetaDataEvolutionValidatorTest {
                     .setStringValue("new_key"));
         RecordMetaData metaData2 = RecordMetaData.build(protoBuilder.build());
         assertInvalid("record type key changed", metaData1, metaData2);
+    }
+
+    @Test
+    void primaryKeyChanged() {
+        RecordMetaData metaData1 = RecordMetaData.build(TestRecords1Proto.getDescriptor());
+        RecordMetaDataProto.MetaData.Builder protoBuilder = metaData1.toProto().toBuilder()
+                .setVersion(metaData1.getVersion() + 1);
+        protoBuilder.getRecordTypesBuilder(0)
+                .setPrimaryKey(Key.Expressions.field("num_value_2").toKeyExpression());
+
+        RecordMetaData metaData2 = RecordMetaData.build(protoBuilder.build());
+        assertInvalid("record type primary key changed", metaData1, metaData2);
     }
 
     // Former index tests

@@ -103,6 +103,30 @@ class MetaDataEvolutionValidatorBuilderTest {
     }
 
     @Test
+    void allowFieldRenames() {
+        testSettingBooleanOption("allowFieldRenames",
+                MetaDataEvolutionValidator.Builder::setAllowFieldRenames,
+                MetaDataEvolutionValidator.Builder::allowsFieldRenames,
+                MetaDataEvolutionValidator::allowsFieldRenames);
+    }
+
+    @Test
+    void allowDeprecatedFieldRenames() {
+        testSettingBooleanOption("allowDeprecatedFieldRenames",
+                MetaDataEvolutionValidator.Builder::setAllowDeprecatedFieldRenames,
+                MetaDataEvolutionValidator.Builder::allowsDeprecatedFieldRenames,
+                MetaDataEvolutionValidator::allowsDeprecatedFieldRenames);
+    }
+
+    @Test
+    void allowUndeprecatingFields() {
+        testSettingBooleanOption("allowUndeprecatingFields",
+                MetaDataEvolutionValidator.Builder::setAllowUndeprecatingFields,
+                MetaDataEvolutionValidator.Builder::allowsUndeprecatingFields,
+                MetaDataEvolutionValidator::allowsUndeprecatingFields);
+    }
+
+    @Test
     void allowIndexRebuilds() {
         testSettingBooleanOption("allowIndexRebuilds",
                 MetaDataEvolutionValidator.Builder::setAllowIndexRebuilds,

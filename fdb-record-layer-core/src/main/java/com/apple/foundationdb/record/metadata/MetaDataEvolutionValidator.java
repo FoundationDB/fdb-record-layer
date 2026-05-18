@@ -23,12 +23,17 @@ package com.apple.foundationdb.record.metadata;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
+import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
+import com.apple.foundationdb.record.metadata.expressions.visitors.RenameFieldsVisitor;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerFactoryRegistry;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerFactoryRegistryImpl;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Verify;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
 import com.google.common.collect.Sets;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Descriptors.Descriptor;
 import com.google.protobuf.Descriptors.EnumDescriptor;
@@ -53,7 +58,8 @@ import java.util.stream.Collectors;
  *     <li>No record types are dropped.</li>
  *     <li>None of the fields of any existing record type are dropped.</li>
  *     <li>None of the fields change type except in ways that preserve their serialized form in both Protobuf fields and as {@link com.apple.foundationdb.tuple.Tuple} elements.</li>
- *     <li>None of the fields change name (which is required as key expressions reference fields by name).</li>
+ *     <li>None of the fields change name (which is required as key expressions reference fields by name). If this validator
+ *         {@linkplain #allowsFieldRenames() allows field renames}, then this validates that any key expressions have been appropriately updated.</li>
  *     <li>None of the fields change their label (e.g., switch from {@code optional} to {@code required}.</li>
  *     <li>The new meta-data continues to split long records if the old meta-data did.</li>
  *     <li>New record types include the version in which they were introduced.</li>
@@ -93,6 +99,9 @@ public class MetaDataEvolutionValidator {
     private final IndexValidatorRegistry indexValidatorRegistry;
     private final boolean allowNoVersionChange;
     private final boolean allowNoSinceVersion;
+    private final boolean allowFieldRenames;
+    private final boolean allowDeprecatedFieldRenames;
+    private final boolean allowUndeprecatingFields;
     private final boolean allowIndexRebuilds;
     private final boolean allowMissingFormerIndexNames;
     private final boolean allowOlderFormerIndexAddedVersions;
@@ -103,6 +112,9 @@ public class MetaDataEvolutionValidator {
         this.indexValidatorRegistry = IndexMaintainerFactoryRegistryImpl.instance();
         this.allowNoVersionChange = false;
         this.allowNoSinceVersion = false;
+        this.allowFieldRenames = false;
+        this.allowDeprecatedFieldRenames = false;
+        this.allowUndeprecatingFields = false;
         this.allowIndexRebuilds = false;
         this.allowMissingFormerIndexNames = false;
         this.allowOlderFormerIndexAddedVersions = false;
@@ -114,6 +126,9 @@ public class MetaDataEvolutionValidator {
         this.indexValidatorRegistry = builder.indexValidatorRegistry;
         this.allowNoVersionChange = builder.allowNoVersionChange;
         this.allowNoSinceVersion = builder.allowNoSinceVersion;
+        this.allowFieldRenames = builder.allowFieldRenames;
+        this.allowDeprecatedFieldRenames = builder.allowDeprecatedFieldRenames;
+        this.allowUndeprecatingFields = builder.allowUndeprecatingFields;
         this.allowIndexRebuilds = builder.allowIndexRebuilds;
         this.allowMissingFormerIndexNames = builder.allowMissingFormerIndexNames;
         this.allowOlderFormerIndexAddedVersions = builder.allowOlderFormerIndexAddedVersions;
@@ -164,6 +179,7 @@ public class MetaDataEvolutionValidator {
      * @param newUnionDescriptor the new proposed meta-data
      */
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
+    @VisibleForTesting
     public void validateUnion(@Nonnull Descriptor oldUnionDescriptor, @Nonnull Descriptor newUnionDescriptor) {
         if (oldUnionDescriptor == newUnionDescriptor) {
             // Don't bother validating the record types if they are all the same.
@@ -261,11 +277,25 @@ public class MetaDataEvolutionValidator {
 
     private void validateField(@Nonnull FieldDescriptor oldFieldDescriptor, @Nonnull FieldDescriptor newFieldDescriptor,
                                @Nonnull Set<NonnullPair<Descriptor, Descriptor>> seenDescriptors) {
+        final boolean oldDeprecated = oldFieldDescriptor.getOptions().getDeprecated();
+        final boolean newDeprecated = newFieldDescriptor.getOptions().getDeprecated();
         if (!oldFieldDescriptor.getName().equals(newFieldDescriptor.getName())) {
-            // TODO: Field renaming should be allowed with some caveats about if the field is indexed or not
-            throw new MetaDataException("field renamed",
-                    LogMessageKeys.OLD_FIELD_NAME, oldFieldDescriptor.getName(),
-                    LogMessageKeys.NEW_FIELD_NAME, newFieldDescriptor.getName());
+            // Field renames are allowed if either:
+            //  1. We allow all field renames (allowFieldRenames is true)
+            //  2. We allow deprecated field renames and the field is deprecated, here determined by whether the old
+            //     or new field is deprecated. (Using both the old and new fields means it is okay to change the
+            //     name both when deprecating it and un-deprecating it.)
+            // We want to throw an error if neither of those is true, hence the statement below. We could theoretically
+            // use DeMorgan's to rewrite some of that, but at the cost of legibility
+            if (!(allowFieldRenames || (allowDeprecatedFieldRenames && (oldDeprecated || newDeprecated)))) {
+                throw new MetaDataException("field renamed",
+                        LogMessageKeys.OLD_FIELD_NAME, oldFieldDescriptor.getName(),
+                        LogMessageKeys.NEW_FIELD_NAME, newFieldDescriptor.getName());
+            }
+        }
+        if (!allowUndeprecatingFields && oldDeprecated && !newDeprecated) {
+            throw new MetaDataException("field is no longer deprecated",
+                    LogMessageKeys.FIELD_NAME, oldFieldDescriptor.getName());
         }
         if (!oldFieldDescriptor.getType().equals(newFieldDescriptor.getType())) {
             validateTypeChange(oldFieldDescriptor, newFieldDescriptor);
@@ -332,9 +362,8 @@ public class MetaDataEvolutionValidator {
                 }
                 String existingName = renames.putIfAbsent(oldRecord.getName(), newRecord.getName());
                 if (existingName != null && !existingName.equals(newRecord.getName())) {
-                    // This is unlikely because of the validation done in validateUnion. However, it
-                    // is possible if multiple types in the old meta-data can be evolved to the same
-                    // type in the new meta-data
+                    // This should have already been caught in validateUnion which also looks for multiple
+                    // records mapping to the same new record, but it's easy enough to check here
                     throw new MetaDataException("record type corresponds to multiple types in new meta-data",
                             LogMessageKeys.OLD_RECORD_TYPE, oldRecord.getName(),
                             LogMessageKeys.NEW_RECORD_TYPE, newRecord.getName() + " & " + existingName);
@@ -365,11 +394,25 @@ public class MetaDataEvolutionValidator {
                         LogMessageKeys.OLD_VERSION, oldRecordType.getSinceVersion(),
                         LogMessageKeys.NEW_VERSION, newRecordType.getSinceVersion());
             }
-            if (!oldRecordType.getPrimaryKey().equals(newRecordType.getPrimaryKey())) {
-                throw new MetaDataException("record type primary key changed",
-                        LogMessageKeys.RECORD_TYPE, newRecordTypeName,
-                        LogMessageKeys.OLD_KEY_EXPRESSION, oldRecordType.getPrimaryKey(),
-                        LogMessageKeys.NEW_KEY_EXPRESSION, newRecordType.getPrimaryKey());
+            final KeyExpression expectedPrimaryKey;
+            if (allowsAnyFieldRenames()) {
+                expectedPrimaryKey = RenameFieldsVisitor.renameFields(oldRecordType.getPrimaryKey(), oldRecordType.getDescriptor(), newRecordType.getDescriptor());
+            } else {
+                expectedPrimaryKey = oldRecordType.getPrimaryKey();
+            }
+            if (!expectedPrimaryKey.equals(newRecordType.getPrimaryKey())) {
+                if (expectedPrimaryKey.equals(oldRecordType.getPrimaryKey())) {
+                    throw new MetaDataException("record type primary key changed",
+                            LogMessageKeys.RECORD_TYPE, newRecordTypeName,
+                            LogMessageKeys.OLD_KEY_EXPRESSION, oldRecordType.getPrimaryKey(),
+                            LogMessageKeys.NEW_KEY_EXPRESSION, newRecordType.getPrimaryKey());
+                } else {
+                    throw new MetaDataException("record type primary key does not match required",
+                            LogMessageKeys.RECORD_TYPE, newRecordTypeName,
+                            LogMessageKeys.OLD_KEY_EXPRESSION, oldRecordType.getPrimaryKey(),
+                            LogMessageKeys.REQUIRED_KEY_EXPRESSION, expectedPrimaryKey,
+                            LogMessageKeys.NEW_KEY_EXPRESSION, newRecordType.getPrimaryKey());
+                }
             }
             if (!oldRecordType.getRecordTypeKey().equals(newRecordType.getRecordTypeKey())) {
                 throw new MetaDataException("record type key changed",
@@ -555,7 +598,7 @@ public class MetaDataEvolutionValidator {
                     LogMessageKeys.OLD_VERSION, oldFormerIndex.getRemovedVersion(),
                     LogMessageKeys.NEW_VERSION, newFormerIndex.getRemovedVersion());
         }
-        // Technically, it would okay if the added version were set to something in the new former
+        // Technically, it would be okay if the added version were set to something in the new former
         // index that is less than the old former index's added version, but if that happens, then
         // it's possible something went wrong.
         if (oldFormerIndex.getAddedVersion() != newFormerIndex.getAddedVersion()) {
@@ -564,9 +607,11 @@ public class MetaDataEvolutionValidator {
                     LogMessageKeys.OLD_VERSION, oldFormerIndex.getAddedVersion(),
                     LogMessageKeys.NEW_VERSION, newFormerIndex.getAddedVersion());
         }
-        // It would be okay if the name were lost or something or just changed, as it's only used
-        // as additional book-keeping, but if it's lost, then that could be a sign that something
-        // deeper is wrong.
+        // The former name is mostly used for logging, but it is also used during checkVersion
+        // to clear out the index state, so if this isn't set properly, we can end up leaving
+        // index state information uncleared. If we ever use the subspace key instead of the
+        // name to clear that information out, then we could get rid of this check.
+        // See: https://github.com/foundationdb/fdb-record-layer/issues/514
         if (!Objects.equals(oldFormerIndex.getFormerName(), newFormerIndex.getFormerName())) {
             throw new MetaDataException("name of former index differs from prior version",
                     LogMessageKeys.SUBSPACE_KEY, subspaceKey,
@@ -615,12 +660,6 @@ public class MetaDataEvolutionValidator {
                     LogMessageKeys.OLD_INDEX_TYPE, oldIndex.getType(),
                     LogMessageKeys.NEW_INDEX_TYPE, newIndex.getType());
         }
-        if (!oldIndex.getRootExpression().equals(newIndex.getRootExpression())) {
-            throw new MetaDataException("index key expression changed",
-                    LogMessageKeys.INDEX_NAME, newIndex.getName(),
-                    LogMessageKeys.OLD_KEY_EXPRESSION, oldIndex.getRootExpression(),
-                    LogMessageKeys.NEW_KEY_EXPRESSION, newIndex.getRootExpression());
-        }
         // The new index must be defined on all record types that the old index was defined on. It may be defined
         // on additional types, but to avoid a rebuild, these record types must be newer than the old meta-data.
         Set<String> oldRecordTypeNames = oldMetaData.recordTypesForIndex(oldIndex).stream()
@@ -645,6 +684,42 @@ public class MetaDataEvolutionValidator {
                             LogMessageKeys.INDEX_NAME, newIndex.getName(),
                             LogMessageKeys.RECORD_TYPE, newRecordTypeName);
                 }
+            }
+        }
+        // The index root expression must be the same, modulo field renames
+        KeyExpression expectedKeyExpression = null;
+        if (allowsAnyFieldRenames()) {
+            for (String oldRecordTypeName : oldRecordTypeNames) {
+                final Descriptor oldDescriptor = oldMetaData.getRecordType(oldRecordTypeName).getDescriptor();
+                final Descriptor newDescriptor = newMetaData.getRecordType(typeRenames.getOrDefault(oldRecordTypeName, oldRecordTypeName)).getDescriptor();
+                final KeyExpression renamedKeyExpression = RenameFieldsVisitor.renameFields(oldIndex.getRootExpression(), oldDescriptor, newDescriptor);
+                if (expectedKeyExpression == null) {
+                    expectedKeyExpression = renamedKeyExpression;
+                } else if (!renamedKeyExpression.equals(expectedKeyExpression)) {
+                    throw new MetaDataException("field renames result in inconsistent index definition for multi-type index",
+                            LogMessageKeys.INDEX_NAME, newIndex.getName(),
+                            LogMessageKeys.OLD_KEY_EXPRESSION, oldIndex.getRootExpression(),
+                            LogMessageKeys.NEW_KEY_EXPRESSION, expectedKeyExpression);
+                }
+            }
+        } else {
+            expectedKeyExpression = oldIndex.getRootExpression();
+        }
+        // This shouldn't happen, as it would imply that the index is not defined on any record types
+        Verify.verifyNotNull(expectedKeyExpression, "Unable to create expected key expression for index %s", newIndex.getName());
+
+        if (!newIndex.getRootExpression().equals(expectedKeyExpression)) {
+            if (oldIndex.getRootExpression().equals(expectedKeyExpression)) {
+                throw new MetaDataException("index key expression changed",
+                        LogMessageKeys.INDEX_NAME, newIndex.getName(),
+                        LogMessageKeys.OLD_KEY_EXPRESSION, oldIndex.getRootExpression(),
+                        LogMessageKeys.NEW_KEY_EXPRESSION, newIndex.getRootExpression());
+            } else {
+                throw new MetaDataException("index key expression does not match required",
+                        LogMessageKeys.INDEX_NAME, newIndex.getName(),
+                        LogMessageKeys.OLD_KEY_EXPRESSION, oldIndex.getRootExpression(),
+                        LogMessageKeys.REQUIRED_KEY_EXPRESSION, expectedKeyExpression,
+                        LogMessageKeys.NEW_KEY_EXPRESSION, newIndex.getRootExpression());
             }
         }
         // Make sure the primary key component positions are the same
@@ -710,6 +785,99 @@ public class MetaDataEvolutionValidator {
      */
     public boolean allowsNoSinceVersion() {
         return allowNoSinceVersion;
+    }
+
+    /**
+     * Whether this validator allows field renames. Correspondences between old and new fields are evaluated by looking
+     * at the Protobuf field number. In general, renaming fields is probably a bad idea, as it requires that
+     * any queries are updated to use the new field names atomically with the meta-data update, which can be difficult
+     * to orchestrate. However, if that can be guaranteed, then older data can still be deserialized. If this is
+     * {@code true}, then this will allow fields to be renamed, and it will validate that all record primary keys and
+     * index root expressions have been updated to use the new names.
+     *
+     * <p>
+     * If field renames are allowed, this performs a best-effort validation to ensure that all usages of modified fields have
+     * been updated. Some parts of the meta-data, like user-defined functions and views, cannot be validated at this
+     * level as it would require parsing the SQL, so if this option is enabled, there is some onus on the user to
+     * update those definitions.
+     * </p>
+     *
+     * <p>
+     * Note that this is a strictly more permissive setting than
+     * {@linkplain #allowsDeprecatedFieldRenames() allowing deprecated field renames}. If this is set to {@code true},
+     * then that other setting is effectively ignored.
+     * </p>
+     *
+     * @return whether this validator allows field names to change
+     * @see #allowsDeprecatedFieldRenames()
+     */
+    public boolean allowsFieldRenames() {
+        return allowFieldRenames;
+    }
+
+    /**
+     * Whether this validator allows deprecated fields to be renamed. If this is {@code true}, then
+     * this behaves in an analogous fashion to if {@link #allowsFieldRenames()} returns {@code true}, but
+     * it only allows the change if the field has been deprecated. In general, removing fields is
+     * not allowed as it can result in unknown fields during Protobuf deserialization. For that reason,
+     * deprecating fields should be preferred to deleting them. Once a field is deprecated and no longer
+     * actively accessed, further modifications to the name of the now unused field may be safe.
+     * Note that this option will result in accepting a meta-data change if a field is renamed
+     * and deprecated in the same change. Additionally, if this validator {@link #allowsUndeprecatingFields()},
+     * then this also allows deprecated fields to be renamed in the same change in which they are
+     * marked as no longer deprecated.
+     *
+     * <p>
+     * One reason that a user may want to allow renaming deprecating fields is to support recreating
+     * an existing field. For example, there are certain incompatible changes that a user may want
+     * to make to a field (e.g., modifying its Protobuf type from {@code sfixed32} to {@code sfixed64}).
+     * To accomplish this, the user can deprecate the old field, rename it, and then create a new field
+     * with the original field's name. This is not an operation that is without cost (the user must,
+     * for example, delete or at least bump the {@linkplain Index#getLastModifiedVersion() last modified version} of
+     * any index referencing the field, and they may need to populate the new field with data from the
+     * deprecated field), but it may be something that a user wants to do while iterating on a test
+     * meta-data. However, this should generally be avoided in production use cases.
+     * </p>
+     *
+     * <p>
+     * Note that this is a strictly less permissive setting than more generally
+     * {@linkplain #allowsFieldRenames() allowing field renames}. If that configuration is set to {@code true}, then
+     * this configuration option is effectively ignored.
+     * </p>
+     *
+     * @return whether this validator allows deprecated fields to be renamed
+     * @see #allowsFieldRenames()
+     */
+    public boolean allowsDeprecatedFieldRenames() {
+        return allowDeprecatedFieldRenames;
+    }
+
+    /**
+     * Whether this validator allows any kind of field renames. It captures whether either this validator
+     * {@link #allowsFieldRenames()} or {@link #allowsDeprecatedFieldRenames()}. If this is false, then
+     * this validator will throw if any kind of field changes its name. The exact set of field renames
+     * that are allowed will depend on the values of the other two configuration parameters.
+     *
+     * @return whether this validator allows any kind of field renames
+     * @see #allowsFieldRenames()
+     * @see #allowsDeprecatedFieldRenames()
+     */
+    public boolean allowsAnyFieldRenames() {
+        return allowFieldRenames || allowDeprecatedFieldRenames;
+    }
+
+    /**
+     * Whether this validator allows fields that were previously deprecated to be marked as not
+     * deprecated. Deprecating a field should generally be a one-way operation, as it represents
+     * deleting a field from the meta-data. By default, validators will therefore reject any meta-data
+     * change where a field goes from deprecated to not deprecated. However, especially when iterating
+     * on a meta-data used only in testing, there may be times when a user wants to un-delete a field.
+     * This option provides the flexibility for the user to allow that.
+     *
+     * @return whether this validator allows fields to be undeprecated
+     */
+    public boolean allowsUndeprecatingFields() {
+        return allowUndeprecatingFields;
     }
 
     /**
@@ -827,6 +995,9 @@ public class MetaDataEvolutionValidator {
         private IndexValidatorRegistry indexValidatorRegistry;
         private boolean allowNoVersionChange;
         private boolean allowNoSinceVersion;
+        private boolean allowFieldRenames;
+        private boolean allowDeprecatedFieldRenames;
+        private boolean allowUndeprecatingFields;
         private boolean allowIndexRebuilds;
         private boolean allowMissingFormerIndexNames;
         private boolean allowOlderFormerIndexAddedVersions;
@@ -837,6 +1008,9 @@ public class MetaDataEvolutionValidator {
             this.indexValidatorRegistry = validator.indexValidatorRegistry;
             this.allowNoVersionChange = validator.allowNoVersionChange;
             this.allowNoSinceVersion = validator.allowNoSinceVersion;
+            this.allowFieldRenames = validator.allowFieldRenames;
+            this.allowDeprecatedFieldRenames = validator.allowDeprecatedFieldRenames;
+            this.allowUndeprecatingFields = validator.allowUndeprecatingFields;
             this.allowIndexRebuilds = validator.allowIndexRebuilds;
             this.allowMissingFormerIndexNames = validator.allowMissingFormerIndexNames;
             this.allowOlderFormerIndexAddedVersions = validator.allowOlderFormerIndexAddedVersions;
@@ -852,6 +1026,7 @@ public class MetaDataEvolutionValidator {
          * @see com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase.BaseBuilder#setIndexMaintainerRegistry(IndexMaintainerFactoryRegistry)
          * @see MetaDataEvolutionValidator#getIndexValidatorRegistry()
          */
+        @CanIgnoreReturnValue
         @Nonnull
         public Builder setIndexValidatorRegistry(@Nonnull IndexValidatorRegistry indexValidatorRegistry) {
             this.indexValidatorRegistry = indexValidatorRegistry;
@@ -876,6 +1051,7 @@ public class MetaDataEvolutionValidator {
          * @return this builder
          * @see MetaDataEvolutionValidator#allowsNoVersionChange()
          */
+        @CanIgnoreReturnValue
         @Nonnull
         public Builder setAllowNoVersionChange(boolean allowNoVersionChange) {
             this.allowNoVersionChange = allowNoVersionChange;
@@ -898,6 +1074,7 @@ public class MetaDataEvolutionValidator {
          * @return this builder
          * @see MetaDataEvolutionValidator#allowsNoSinceVersion()
          */
+        @CanIgnoreReturnValue
         @Nonnull
         public Builder setAllowNoSinceVersion(boolean allowNoSinceVersion) {
             this.allowNoSinceVersion = allowNoSinceVersion;
@@ -915,11 +1092,84 @@ public class MetaDataEvolutionValidator {
         }
 
         /**
+         * Set whether the validator will allow fields to be renamed.
+         *
+         * @param allowFieldRenames whether the validator will allow fields to be renamed
+         * @return this builder
+         * @see MetaDataEvolutionValidator#allowsFieldRenames()
+         */
+        @CanIgnoreReturnValue
+        @Nonnull
+        public Builder setAllowFieldRenames(boolean allowFieldRenames) {
+            this.allowFieldRenames = allowFieldRenames;
+            return this;
+        }
+
+        /**
+         * Whether the validator will allow fields to be renamed.
+         *
+         * @return whether the validator will allow fields to be renamed
+         * @see MetaDataEvolutionValidator#allowsFieldRenames()
+         */
+        public boolean allowsFieldRenames() {
+            return allowFieldRenames;
+        }
+
+        /**
+         * Set whether the validator will allow deprecated fields to be renamed.
+         *
+         * @param allowDeprecatedFieldRenames whether the validator will allow deprecated fields to be renamed
+         * @return this builder
+         * @see MetaDataEvolutionValidator#allowsDeprecatedFieldRenames()
+         */
+        @CanIgnoreReturnValue
+        @Nonnull
+        public Builder setAllowDeprecatedFieldRenames(boolean allowDeprecatedFieldRenames) {
+            this.allowDeprecatedFieldRenames = allowDeprecatedFieldRenames;
+            return this;
+        }
+
+        /**
+         * Whether the validator will allow deprecated fields to be renamed.
+         *
+         * @return whether the validator will allow deprecated fields to be renamed
+         * @see MetaDataEvolutionValidator#allowsDeprecatedFieldRenames()
+         */
+        public boolean allowsDeprecatedFieldRenames() {
+            return allowDeprecatedFieldRenames;
+        }
+
+        /**
+         * Set whether the validator will allow deprecated fields to be marked as not deprecated.
+         *
+         * @param allowUndeprecatingFields whether the validator will allow deprecated fields to be un-deprecated
+         * @return this builder
+         * @see MetaDataEvolutionValidator#allowsUndeprecatingFields()
+         */
+        @CanIgnoreReturnValue
+        @Nonnull
+        public Builder setAllowUndeprecatingFields(boolean allowUndeprecatingFields) {
+            this.allowUndeprecatingFields = allowUndeprecatingFields;
+            return this;
+        }
+
+        /**
+         * Whether the validator will allow deprecated fields to be marked as not deprecated.
+         *
+         * @return whether the validator will allow deprecated fields to be un-deprecated
+         * @see MetaDataEvolutionValidator#allowsUndeprecatingFields()
+         */
+        public boolean allowsUndeprecatingFields() {
+            return allowUndeprecatingFields;
+        }
+
+        /**
          * Set whether the validator will allow changes to indexes that require rebuilds.
          * @param allowIndexRebuilds whether the validator will allow changes to indexes that require rebuilds
          * @return this builder
          * @see MetaDataEvolutionValidator#allowsIndexRebuilds()
          */
+        @CanIgnoreReturnValue
         @Nonnull
         public Builder setAllowIndexRebuilds(boolean allowIndexRebuilds) {
             this.allowIndexRebuilds = allowIndexRebuilds;
@@ -941,6 +1191,7 @@ public class MetaDataEvolutionValidator {
          * @return this builder
          * @see MetaDataEvolutionValidator#allowsMissingFormerIndexNames()
          */
+        @CanIgnoreReturnValue
         @Nonnull
         public Builder setAllowMissingFormerIndexNames(boolean allowMissingFormerIndexNames) {
             this.allowMissingFormerIndexNames = allowMissingFormerIndexNames;
@@ -964,6 +1215,7 @@ public class MetaDataEvolutionValidator {
          * @return this builder
          * @see MetaDataEvolutionValidator#allowsOlderFormerIndexAddedVersions()
          */
+        @CanIgnoreReturnValue
         @Nonnull
         public Builder setAllowOlderFormerIndexAddedVerions(boolean allowOlderFormerIndexAddedVerions) {
             this.allowOlderFormerIndexAddedVersions = allowOlderFormerIndexAddedVerions;
@@ -988,6 +1240,7 @@ public class MetaDataEvolutionValidator {
          * @return this builder
          * @see MetaDataEvolutionValidator#allowsUnsplitToSplit()
          */
+        @CanIgnoreReturnValue
         @Nonnull
         public Builder setAllowUnsplitToSplit(boolean allowUnsplitToSplit) {
             this.allowUnsplitToSplit = allowUnsplitToSplit;
@@ -1011,6 +1264,7 @@ public class MetaDataEvolutionValidator {
          * @return this builder
          * @see MetaDataEvolutionValidator#disallowsTypeRenames()
          */
+        @CanIgnoreReturnValue
         @Nonnull
         public Builder setDisallowTypeRenames(boolean disallowTypeRenames) {
             this.disallowTypeRenames = disallowTypeRenames;

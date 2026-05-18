@@ -934,7 +934,7 @@ public class TransformedRecordSerializerTest {
         assertTrue(isCompressed(serialized));
 
         // Corrupt the first byte of the actual ciphertext (after the 1-byte prefix and 16-byte IV).
-        serialized[1 + CipherPool.IV_SIZE] ^= 0xFF;
+        serialized[1 + CipherPool.IV_SIZE] ^= (byte)0xFF;
 
         RecordSerializationException e = assertThrows(RecordSerializationException.class,
                 () -> deserialize(serializer, PRIMARY_KEY, serialized));

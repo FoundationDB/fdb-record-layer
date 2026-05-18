@@ -88,10 +88,10 @@ cte-tests:
         promote(@c38 AS LONG) AND q0.ID LESS_THAN _.ID | FETCH AS q1 RETURN (q0.ID
         AS X1, q0.COL1 AS Y1, q1.ID AS A1, q1.COL2 AS B1) }'
     task_count: 1211
-    task_total_time_ms: 33
+    task_total_time_ms: 15
     transform_count: 305
-    transform_time_ms: 14
+    transform_time_ms: 7
     transform_yield_count: 88
-    insert_time_ms: 1
-    insert_new_count: 166
+    insert_time_ms: 0
+    insert_new_count: 164
     insert_reused_count: 11

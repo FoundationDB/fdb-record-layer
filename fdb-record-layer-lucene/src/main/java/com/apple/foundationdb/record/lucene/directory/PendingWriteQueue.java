@@ -507,7 +507,7 @@ public class PendingWriteQueue {
     }
 
     @SuppressWarnings("serial")
-    public static class PendingWritesQueueTooLargeException extends RecordCoreException {
+    public static final class PendingWritesQueueTooLargeException extends RecordCoreException {
         protected PendingWritesQueueTooLargeException(final String message, long itemCount) {
             super(message);
             addLogInfo(LuceneLogMessageKeys.MAX_QUEUE_SIZE, itemCount);
