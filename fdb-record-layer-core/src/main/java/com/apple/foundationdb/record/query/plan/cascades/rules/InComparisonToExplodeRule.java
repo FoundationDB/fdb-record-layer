@@ -194,10 +194,9 @@ public class InComparisonToExplodeRule extends ExplorationCascadesRule<SelectExp
         }
 
         transformedQuantifiers.addAll(bindings.getAll(innerQuantifierMatcher));
-        final var exp = new SelectExpression(selectExpression.getResultValue(),
+        call.yieldExploratoryExpression(new SelectExpression(selectExpression.getResultValue(),
                 transformedQuantifiers.build(),
-                transformedPredicates.build());
-        call.yieldExploratoryExpression(exp);
+                transformedPredicates.build()));
     }
 
     /**

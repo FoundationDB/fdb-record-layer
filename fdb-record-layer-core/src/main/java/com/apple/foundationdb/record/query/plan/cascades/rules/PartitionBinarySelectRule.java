@@ -108,9 +108,6 @@ public class PartitionBinarySelectRule extends ExplorationCascadesRule<SelectExp
 
         final var selectExpression = bindings.get(root);
 
-        final var outerResultValue = selectExpression.getResultValue().getResultType().isRecord()
-                ? selectExpression.getResultValue()
-                : RecordConstructorValue.ofColumns(ImmutableList.of(Column.unnamedOf(selectExpression.getResultValue())));
         //
         // We are going to try to pull as many predicates as we can towards the left side.
         //
@@ -206,7 +203,7 @@ public class PartitionBinarySelectRule extends ExplorationCascadesRule<SelectExp
         graphExpansionBuilder.addQuantifier(newLeftQuantifier);
         graphExpansionBuilder.addQuantifier(newRightQuantifier);
 
-        final var newSelectExpression = graphExpansionBuilder.build().buildSelectWithResultValue(outerResultValue);
+        final var newSelectExpression = graphExpansionBuilder.build().buildSelectWithResultValue(selectExpression.getResultValue());
 
         call.yieldExploratoryExpression(newSelectExpression);
     }
