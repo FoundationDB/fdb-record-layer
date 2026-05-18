@@ -186,6 +186,7 @@ allprojects {
         mavenCentral()
     }
 }
+
 subprojects {
     apply from: rootProject.file('gradle/testing.gradle')
 
@@ -195,7 +196,7 @@ subprojects {
     }
 
     def publishBuild = Boolean.parseBoolean(findProperty('publishBuild') ?: 'false')
-    def autoServiceVersion = libs.versions.autoService.asProvider().get()
+    def autoServiceVersion = publishBuild ? libs.versions.autoService.asProvider().get() : libs.versions.autoService.development.get()
 
     project.configurations.all {
         resolutionStrategy.eachDependency {details ->
