@@ -68,7 +68,7 @@ import java.util.Optional;
 public class CompiledSqlFunction extends UserDefinedFunction implements WithPlanGenerationSideEffects {
 
     @Nonnull
-    public final RelationalExpression body;
+    private final RelationalExpression body;
 
     @Nonnull
     private final Optional<CorrelationIdentifier> parametersCorrelation;
