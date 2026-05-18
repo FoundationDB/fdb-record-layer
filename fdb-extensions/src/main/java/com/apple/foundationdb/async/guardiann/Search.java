@@ -518,19 +518,38 @@ public class Search {
                                                     }),
                                     config.searchConcurrency());
 
+                    final AsyncIterable<VectorReferenceAndDistance> vectorReferenceAndDistancesIterable =
+                            AsyncUtil.mapIterable(mapConcatIterable(getExecutor(), clusterMetadataIterable,
+                                            clusterMetadataWithDistance ->
+                                                    primitives.fetchVectorReferencesIterable(readTransaction,
+                                                            storageTransform,
+                                                            clusterMetadataWithDistance.clusterMetadata().id()),
+                                            config.searchConcurrency()),
+                                    vectorReference -> {
+                                        final double distance =
+                                                estimator.distance(transformedQueryVector, vectorReference.getVector());
+                                        return new VectorReferenceAndDistance(vectorReference, distance);
+                                    });
+
+                    // Expand collapsed references inline: a collapsed reference becomes one entry
+                    // per vector ID behind the signature, all sharing the same distance.
+                    final AsyncIterable<VectorReferenceAndDistance> expandedVectorReferenceAndDistancesIterable =
+                            MoreAsyncUtil.mapConcatIterable(getExecutor(), vectorReferenceAndDistancesIterable,
+                                    vectorReferenceAndDistance -> {
+                                        final VectorReference vectorReference = vectorReferenceAndDistance.getVectorReference();
+                                        if (!vectorReference.isCollapsed()) {
+                                            return MoreAsyncUtil.mapToIterable(vectorReferenceAndDistance,
+                                                    item -> CompletableFuture.completedFuture(vectorReferenceAndDistance));
+                                        }
+                                        final UUID signature = StorageAdapter.signatureUuid(vectorReference.getVector());
+                                        return AsyncUtil.mapIterable(
+                                                primitives.fetchCollapsedVectorIdsIterable(readTransaction, signature),
+                                                vectorId -> vectorReferenceAndDistance.withVectorReference(
+                                                        vectorReference.withVectorId(vectorId)));
+                                    }, config.searchConcurrency());
+
                     final AsyncIterable<VectorReferenceAndDistance> filteredVectorReferenceAndDistancesIterable =
-                            MoreAsyncUtil.filterIterable(getExecutor(),
-                                    AsyncUtil.mapIterable(mapConcatIterable(getExecutor(), clusterMetadataIterable,
-                                                    clusterMetadataWithDistance ->
-                                                            primitives.fetchVectorReferencesIterable(readTransaction,
-                                                                    storageTransform,
-                                                                    clusterMetadataWithDistance.clusterMetadata().id()),
-                                                    config.searchConcurrency()),
-                                            vectorReference -> {
-                                                final double distance =
-                                                        estimator.distance(transformedQueryVector, vectorReference.getVector());
-                                                return new VectorReferenceAndDistance(vectorReference, distance);
-                                            }),
+                            MoreAsyncUtil.filterIterable(getExecutor(), expandedVectorReferenceAndDistancesIterable,
                                     vectorReferenceAndDistance -> {
                                         final int distanceComparison = Double.compare(vectorReferenceAndDistance.getDistance(), minimumRadius);
                                         if (distanceComparison != 0) {
