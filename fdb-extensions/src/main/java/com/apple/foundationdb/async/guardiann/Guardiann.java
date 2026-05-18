@@ -169,6 +169,9 @@ public class Guardiann {
      * @param k the number of nearest neighbors to return
      * @param efSearch the size of the dynamic candidate list for the search. A larger value increases accuracy
      *        at the cost of performance.
+     * @param searchMaxClusters maximum number of clusters to probe
+     * @param searchMinClustersBeforePruning minimum clusters before distance-ratio pruning
+     * @param searchDistanceRatioCutoff distance ratio threshold for cluster pruning
      * @param includeVectors indicator if the caller would like the search to also include vectors in the result set
      * @param queryVector the vector to find the nearest neighbors for
      *
@@ -181,9 +184,13 @@ public class Guardiann {
             kNearestNeighborsSearch(@Nonnull final ReadTransaction readTransaction,
                                     final int k,
                                     final int efSearch,
+                                    final int searchMaxClusters,
+                                    final int searchMinClustersBeforePruning,
+                                    final double searchDistanceRatioCutoff,
                                     final boolean includeVectors,
                                     @Nonnull final RealVector queryVector) {
-        return search().kNearestNeighborsSearch(readTransaction, k, efSearch, includeVectors, queryVector);
+        return search().kNearestNeighborsSearch(readTransaction, k, efSearch, searchMaxClusters,
+                searchMinClustersBeforePruning, searchDistanceRatioCutoff, includeVectors, queryVector);
     }
 
     /**

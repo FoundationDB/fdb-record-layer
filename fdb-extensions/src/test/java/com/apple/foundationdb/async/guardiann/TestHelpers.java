@@ -308,7 +308,7 @@ class TestHelpers {
                 final long beginTs = System.nanoTime();
                 final List<? extends ResultEntry> results =
                         db.run(tr -> guardiann.kNearestNeighborsSearch(tr, k, efSearch,
-                                true, queryVector).join());
+                                48, 16, 1.50d, true, queryVector).join());
                 final long endTs = System.nanoTime();
                 logger.info("retrieved result in elapsedTimeMs={}, reading readBytes={}",
                         TimeUnit.NANOSECONDS.toMillis(endTs - beginTs), onReadListener.getBytesReadByLayer());

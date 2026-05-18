@@ -421,6 +421,7 @@ public class DebugIndexTest implements BaseTest {
                 final long beginTs = System.nanoTime();
                 final List<? extends ResultEntry> results =
                         db.run(tr -> guardiann.kNearestNeighborsSearch(tr, k, 30000,
+                                48, 16, 1.50d,
                                 true, queryVector).join());
                 final long endTs = System.nanoTime();
                 logger.info("retrieved result in elapsedTimeMs={}, reading readBytes={}",

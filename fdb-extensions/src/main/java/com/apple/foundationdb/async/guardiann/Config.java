@@ -51,12 +51,9 @@ import javax.annotation.Nonnull;
  * @param deterministicRandomness whether randomness should always be deterministic (for debugging/replay)
  * @param maxNumConcurrentNodeFetches maximum concurrent node fetches (passed through to HNSW config)
  * @param maxNumConcurrentNeighborhoodFetches maximum concurrent neighborhood fetches (passed through to HNSW config)
- * @param searchMaxClusters maximum number of clusters to probe during search
- * @param searchMinClustersBeforePruning minimum clusters to accumulate before distance-ratio pruning
- * @param searchDistanceRatioCutoff distance ratio threshold for cluster pruning during search
+ * @param sampleBatchSize number of sampled vectors consumed per statistics-computation pass
  * @param searchConcurrency concurrency for parallel metadata fetches during search
  * @param insertMaxCandidateClusters maximum clusters evaluated as insertion targets
- * @param sampleBatchSize number of sampled vectors consumed per statistics-computation pass
  * @param deleteMaxCandidateClusters maximum clusters probed when locating a vector's references during delete
  * @param deleteConcurrency concurrency for parallel operations during delete
  * @param splitNeighborhoodSize number of nearest clusters fetched from HNSW for split candidate evaluation
@@ -89,14 +86,11 @@ public record Config(@Nonnull Metric metric,
                      boolean deterministicRandomness,
                      int maxNumConcurrentNodeFetches,
                      int maxNumConcurrentNeighborhoodFetches,
+                     int sampleBatchSize,
                      // search
-                     int searchMaxClusters,
-                     int searchMinClustersBeforePruning,
-                     double searchDistanceRatioCutoff,
                      int searchConcurrency,
                      // insert
                      int insertMaxCandidateClusters,
-                     int sampleBatchSize,
                      // delete
                      int deleteMaxCandidateClusters,
                      int deleteConcurrency,
@@ -135,15 +129,13 @@ public record Config(@Nonnull Metric metric,
     // HNSW concurrency (passed through)
     public static final int DEFAULT_MAX_NUM_CONCURRENT_NODE_FETCHES = 16;
     public static final int DEFAULT_MAX_NUM_CONCURRENT_NEIGHBOR_FETCHES = 10;
+    // stats sampling
+    public static final int DEFAULT_SAMPLE_BATCH_SIZE = 50;
 
     // search
-    public static final int DEFAULT_SEARCH_MAX_CLUSTERS = 48;
-    public static final int DEFAULT_SEARCH_MIN_CLUSTERS_BEFORE_PRUNING = 16;
-    public static final double DEFAULT_SEARCH_DISTANCE_RATIO_CUTOFF = 1.50d;
     public static final int DEFAULT_SEARCH_CONCURRENCY = 10;
     // insert
     public static final int DEFAULT_INSERT_MAX_CANDIDATE_CLUSTERS = 10;
-    public static final int DEFAULT_SAMPLE_BATCH_SIZE = 50;
     // delete
     public static final int DEFAULT_DELETE_MAX_CANDIDATE_CLUSTERS = 10;
     public static final int DEFAULT_DELETE_CONCURRENCY = 10;
@@ -208,8 +200,7 @@ public record Config(@Nonnull Metric metric,
                 replicationPriorityMin(), sampleVectorStatsProbability(), maintainStatsProbability(),
                 statsThreshold(), isUseRaBitQ(), getRaBitQNumExBits(), deterministicRandomness(),
                 maxNumConcurrentNodeFetches(), maxNumConcurrentNeighborhoodFetches(),
-                searchMaxClusters(), searchMinClustersBeforePruning(), searchDistanceRatioCutoff(),
-                searchConcurrency(), insertMaxCandidateClusters(), sampleBatchSize(),
+                sampleBatchSize(), searchConcurrency(), insertMaxCandidateClusters(),
                 deleteMaxCandidateClusters(), deleteConcurrency(),
                 splitNeighborhoodSize(), mergeInnerNeighborhoodSize(), mergeOuterNeighborhoodSize(),
                 kMeansMaxIterations(), kMeansMaxRestarts(),
@@ -232,12 +223,9 @@ public record Config(@Nonnull Metric metric,
                 ", deterministicRandomness=" + deterministicRandomness() +
                 ", maxNumConcurrentNodeFetches=" + maxNumConcurrentNodeFetches() +
                 ", maxNumConcurrentNeighborhoodFetches=" + maxNumConcurrentNeighborhoodFetches() +
-                ", searchMaxClusters=" + searchMaxClusters() +
-                ", searchMinClustersBeforePruning=" + searchMinClustersBeforePruning() +
-                ", searchDistanceRatioCutoff=" + searchDistanceRatioCutoff() +
+                ", sampleBatchSize=" + sampleBatchSize() +
                 ", searchConcurrency=" + searchConcurrency() +
                 ", insertMaxCandidateClusters=" + insertMaxCandidateClusters() +
-                ", sampleBatchSize=" + sampleBatchSize() +
                 ", deleteMaxCandidateClusters=" + deleteMaxCandidateClusters() +
                 ", deleteConcurrency=" + deleteConcurrency() +
                 ", splitNeighborhoodSize=" + splitNeighborhoodSize() +
@@ -280,15 +268,12 @@ public record Config(@Nonnull Metric metric,
         private boolean deterministicRandomness = DEFAULT_DETERMINISTIC_RANDOMNESS;
         private int maxNumConcurrentNodeFetches = DEFAULT_MAX_NUM_CONCURRENT_NODE_FETCHES;
         private int maxNumConcurrentNeighborhoodFetches = DEFAULT_MAX_NUM_CONCURRENT_NEIGHBOR_FETCHES;
+        private int sampleBatchSize = DEFAULT_SAMPLE_BATCH_SIZE;
 
         // search
-        private int searchMaxClusters = DEFAULT_SEARCH_MAX_CLUSTERS;
-        private int searchMinClustersBeforePruning = DEFAULT_SEARCH_MIN_CLUSTERS_BEFORE_PRUNING;
-        private double searchDistanceRatioCutoff = DEFAULT_SEARCH_DISTANCE_RATIO_CUTOFF;
         private int searchConcurrency = DEFAULT_SEARCH_CONCURRENCY;
         // insert
         private int insertMaxCandidateClusters = DEFAULT_INSERT_MAX_CANDIDATE_CLUSTERS;
-        private int sampleBatchSize = DEFAULT_SAMPLE_BATCH_SIZE;
         // delete
         private int deleteMaxCandidateClusters = DEFAULT_DELETE_MAX_CANDIDATE_CLUSTERS;
         private int deleteConcurrency = DEFAULT_DELETE_CONCURRENCY;
@@ -317,9 +302,9 @@ public record Config(@Nonnull Metric metric,
                              final int statsThreshold, final boolean useRaBitQ, final int raBitQNumExBits,
                              final boolean deterministicRandomness, final int maxNumConcurrentNodeFetches,
                              final int maxNumConcurrentNeighborhoodFetches,
-                             final int searchMaxClusters, final int searchMinClustersBeforePruning,
-                             final double searchDistanceRatioCutoff, final int searchConcurrency,
-                             final int insertMaxCandidateClusters, final int sampleBatchSize,
+                             final int sampleBatchSize,
+                             final int searchConcurrency,
+                             final int insertMaxCandidateClusters,
                              final int deleteMaxCandidateClusters, final int deleteConcurrency,
                              final int splitNeighborhoodSize, final int mergeInnerNeighborhoodSize,
                              final int mergeOuterNeighborhoodSize, final int kMeansMaxIterations,
@@ -342,12 +327,9 @@ public record Config(@Nonnull Metric metric,
             this.deterministicRandomness = deterministicRandomness;
             this.maxNumConcurrentNodeFetches = maxNumConcurrentNodeFetches;
             this.maxNumConcurrentNeighborhoodFetches = maxNumConcurrentNeighborhoodFetches;
-            this.searchMaxClusters = searchMaxClusters;
-            this.searchMinClustersBeforePruning = searchMinClustersBeforePruning;
-            this.searchDistanceRatioCutoff = searchDistanceRatioCutoff;
+            this.sampleBatchSize = sampleBatchSize;
             this.searchConcurrency = searchConcurrency;
             this.insertMaxCandidateClusters = insertMaxCandidateClusters;
-            this.sampleBatchSize = sampleBatchSize;
             this.deleteMaxCandidateClusters = deleteMaxCandidateClusters;
             this.deleteConcurrency = deleteConcurrency;
             this.splitNeighborhoodSize = splitNeighborhoodSize;
@@ -511,30 +493,12 @@ public record Config(@Nonnull Metric metric,
             return this;
         }
 
-        public int getSearchMaxClusters() {
-            return searchMaxClusters;
+        public int getSampleBatchSize() {
+            return sampleBatchSize;
         }
 
-        public ConfigBuilder setSearchMaxClusters(final int searchMaxClusters) {
-            this.searchMaxClusters = searchMaxClusters;
-            return this;
-        }
-
-        public int getSearchMinClustersBeforePruning() {
-            return searchMinClustersBeforePruning;
-        }
-
-        public ConfigBuilder setSearchMinClustersBeforePruning(final int searchMinClustersBeforePruning) {
-            this.searchMinClustersBeforePruning = searchMinClustersBeforePruning;
-            return this;
-        }
-
-        public double getSearchDistanceRatioCutoff() {
-            return searchDistanceRatioCutoff;
-        }
-
-        public ConfigBuilder setSearchDistanceRatioCutoff(final double searchDistanceRatioCutoff) {
-            this.searchDistanceRatioCutoff = searchDistanceRatioCutoff;
+        public ConfigBuilder setSampleBatchSize(final int sampleBatchSize) {
+            this.sampleBatchSize = sampleBatchSize;
             return this;
         }
 
@@ -553,15 +517,6 @@ public record Config(@Nonnull Metric metric,
 
         public ConfigBuilder setInsertMaxCandidateClusters(final int insertMaxCandidateClusters) {
             this.insertMaxCandidateClusters = insertMaxCandidateClusters;
-            return this;
-        }
-
-        public int getSampleBatchSize() {
-            return sampleBatchSize;
-        }
-
-        public ConfigBuilder setSampleBatchSize(final int sampleBatchSize) {
-            this.sampleBatchSize = sampleBatchSize;
             return this;
         }
 
@@ -680,8 +635,7 @@ public record Config(@Nonnull Metric metric,
                     getMaintainStatsProbability(), getStatsThreshold(), isUseRaBitQ(), getRaBitQNumExBits(),
                     isDeterministicRandomness(), getMaxNumConcurrentNodeFetches(),
                     getMaxNumConcurrentNeighborhoodFetches(),
-                    getSearchMaxClusters(), getSearchMinClustersBeforePruning(), getSearchDistanceRatioCutoff(),
-                    getSearchConcurrency(), getInsertMaxCandidateClusters(), getSampleBatchSize(),
+                    getSampleBatchSize(), getSearchConcurrency(), getInsertMaxCandidateClusters(),
                     getDeleteMaxCandidateClusters(), getDeleteConcurrency(),
                     getSplitNeighborhoodSize(), getMergeInnerNeighborhoodSize(), getMergeOuterNeighborhoodSize(),
                     getKMeansMaxIterations(), getKMeansMaxRestarts(),

@@ -160,6 +160,9 @@ public class Search {
      * @param readTransaction the read transaction context
      * @param k the number of nearest neighbors to return
      * @param efSearch the size of the candidate pool (larger values improve recall at the cost of latency)
+     * @param searchMaxClusters maximum number of clusters to probe
+     * @param searchMinClustersBeforePruning minimum clusters before distance-ratio pruning kicks in
+     * @param searchDistanceRatioCutoff distance ratio threshold for cluster pruning
      * @param includeVectors whether to include reconstructed vector data in the results
      * @param queryVector the query vector to search for
      * @return a future completing with up to {@code k} nearest neighbors sorted by distance
@@ -170,9 +173,13 @@ public class Search {
             kNearestNeighborsSearch(@Nonnull final ReadTransaction readTransaction,
                                     final int k,
                                     final int efSearch,
+                                    final int searchMaxClusters,
+                                    final int searchMinClustersBeforePruning,
+                                    final double searchDistanceRatioCutoff,
                                     final boolean includeVectors,
                                     @Nonnull final RealVector queryVector) {
-        return search(readTransaction, k, efSearch, queryVector)
+        return search(readTransaction, k, efSearch, searchMaxClusters, searchMinClustersBeforePruning,
+                searchDistanceRatioCutoff, queryVector)
                 .thenApply(searchResult ->
                         postProcessSearchResult(searchResult.storageTransform(),
                                 searchResult.nearestReferences(), includeVectors));
@@ -186,6 +193,9 @@ public class Search {
      * @param readTransaction the read transaction context
      * @param k the number of final results to return
      * @param efSearch the candidate pool size for the top-K collection stages
+     * @param searchMaxClusters maximum number of clusters to probe
+     * @param searchMinClustersBeforePruning minimum clusters before pruning
+     * @param searchDistanceRatioCutoff distance ratio threshold for pruning
      * @param queryVector the query vector
      * @return a future completing with the search result, or {@code null} if no vectors exist yet
      */
@@ -193,6 +203,9 @@ public class Search {
     CompletableFuture<SearchResult> search(@Nonnull final ReadTransaction readTransaction,
                                            final int k,
                                            final int efSearch,
+                                           final int searchMaxClusters,
+                                           final int searchMinClustersBeforePruning,
+                                           final double searchDistanceRatioCutoff,
                                            @Nonnull final RealVector queryVector) {
         final Primitives primitives = primitives();
         final Config config = getConfig();
@@ -206,8 +219,8 @@ public class Search {
                     final Transformed<RealVector> transformedQueryVector = storageTransform.transform(queryVector);
                     final Estimator estimator = primitives.quantizer(accessInfo).estimator();
 
-                    return fetchCandidateClusters(readTransaction, primitives, storageTransform, queryVector)
-                            .thenApply(this::pruneClusters)
+                    return fetchCandidateClusters(readTransaction, primitives, storageTransform, queryVector, searchMaxClusters)
+                            .thenApply(clusters -> pruneClusters(clusters, searchMinClustersBeforePruning, searchDistanceRatioCutoff))
                             .thenCompose(clusters ->
                                     retrieveVectorReferencesFromClusters(readTransaction, primitives,
                                             storageTransform, estimator, transformedQueryVector, clusters, efSearch))
@@ -221,13 +234,13 @@ public class Search {
 
     /**
      * Queries the HNSW centroid index for the nearest cluster centroids to the query vector, fetches
-     * their metadata, and returns up to {@link Config#searchMaxClusters()} candidates sorted by
-     * centroid distance.
+     * their metadata, and returns up to {@code searchMaxClusters} candidates sorted by centroid distance.
      *
      * @param readTransaction the read transaction context
      * @param primitives primitives for database access
      * @param storageTransform the transform for converting raw vectors into the stored coordinate space
      * @param queryVector the query vector in its original coordinate space
+     * @param searchMaxClusters maximum number of clusters to probe
      * @return a future completing with the candidate clusters sorted by centroid distance (ascending)
      */
     @Nonnull
@@ -235,13 +248,14 @@ public class Search {
             fetchCandidateClusters(@Nonnull final ReadTransaction readTransaction,
                                    @Nonnull final Primitives primitives,
                                    @Nonnull final StorageTransform storageTransform,
-                                   @Nonnull final RealVector queryVector) {
+                                   @Nonnull final RealVector queryVector,
+                                   final int searchMaxClusters) {
         final Config config = getConfig();
 
         final AsyncIterable<ResultEntry> clusterCentroidEntriesByDistanceIterable =
                 MoreAsyncUtil.limitIterable(MoreAsyncUtil.iterableOf(() ->
                         primitives.centroidsOrderedByDistance(readTransaction, queryVector,
-                                0.0d, null), getExecutor()), config.searchMaxClusters(), getExecutor());
+                                0.0d, null), getExecutor()), searchMaxClusters, getExecutor());
 
         final AsyncIterable<ClusterMetadataWithDistance> clusterMetadataIterable =
                 mapIterablePipelined(getExecutor(), clusterCentroidEntriesByDistanceIterable,
@@ -263,18 +277,20 @@ public class Search {
 
     /**
      * Prunes the candidate cluster list by removing clusters whose centroid distance exceeds the
-     * configured ratio relative to the nearest centroid. Always retains at least
-     * {@link Config#searchMinClustersBeforePruning()} clusters regardless of the ratio.
+     * given ratio relative to the nearest centroid. Always retains at least
+     * {@code searchMinClustersBeforePruning} clusters regardless of the ratio.
      *
      * @param clusterMetadataWithDistances the candidate clusters sorted by centroid distance (ascending)
+     * @param searchMinClustersBeforePruning minimum clusters to retain before pruning
+     * @param searchDistanceRatioCutoff distance ratio threshold
      * @return the pruned sublist
      */
     @Nonnull
     private List<ClusterMetadataWithDistance>
-            pruneClusters(@Nonnull final List<ClusterMetadataWithDistance> clusterMetadataWithDistances) {
-        final Config config = getConfig();
-
-        if (clusterMetadataWithDistances.size() <= config.searchMinClustersBeforePruning()) {
+            pruneClusters(@Nonnull final List<ClusterMetadataWithDistance> clusterMetadataWithDistances,
+                          final int searchMinClustersBeforePruning,
+                          final double searchDistanceRatioCutoff) {
+        if (clusterMetadataWithDistances.size() <= searchMinClustersBeforePruning) {
             if (logger.isInfoEnabled()) {
                 logger.info("querying numClusters={}", clusterMetadataWithDistances.size());
             }
@@ -283,9 +299,9 @@ public class Search {
 
         final double nearestCentroidDistance = clusterMetadataWithDistances.get(0).distance();
         int i;
-        for (i = config.searchMinClustersBeforePruning(); i < clusterMetadataWithDistances.size(); i++) {
+        for (i = searchMinClustersBeforePruning; i < clusterMetadataWithDistances.size(); i++) {
             final ClusterMetadataWithDistance currentClusterMetadata = clusterMetadataWithDistances.get(i);
-            if (currentClusterMetadata.distance() / nearestCentroidDistance > config.searchDistanceRatioCutoff()) {
+            if (currentClusterMetadata.distance() / nearestCentroidDistance > searchDistanceRatioCutoff) {
                 break;
             }
         }
@@ -464,8 +480,12 @@ public class Search {
     @Nonnull
     CompletableFuture<SearchResult> searchOrderedByDistance(@Nonnull final ReadTransaction readTransaction,
                                                             final int k,
+                                                            final int searchMaxClusters,
                                                             final int efSearch,
-                                                            @Nonnull final RealVector queryVector) {
+                                                            @Nonnull final RealVector queryVector,
+                                                            final double minimumRadiusCluster,
+                                                            final double minimumRadius,
+                                                            @Nullable final Tuple minimumPrimaryKey) {
         final Primitives primitives = primitives();
         final Config config = getConfig();
 
@@ -481,7 +501,8 @@ public class Search {
                     final AsyncIterable<ResultEntry> clusterCentroidEntriesByDistanceIterable =
                             MoreAsyncUtil.limitIterable(MoreAsyncUtil.iterableOf(() ->
                                     primitives.centroidsOrderedByDistance(readTransaction, queryVector,
-                                            0.0d, null), getExecutor()), config.searchMaxClusters(), getExecutor());
+                                            minimumRadiusCluster, null), getExecutor()),
+                                    searchMaxClusters, getExecutor());
 
                     final AsyncIterable<ClusterMetadataWithDistance> clusterMetadataIterable =
                             mapIterablePipelined(getExecutor(), clusterCentroidEntriesByDistanceIterable,
@@ -493,54 +514,39 @@ public class Search {
                                                                 storageTransform.transform(
                                                                         Objects.requireNonNull(resultEntry.getVector()));
                                                         return new ClusterMetadataWithDistance(clusterMetadata,
-                                                                transformedCentroid,
-                                                                resultEntry.getDistance());
+                                                                transformedCentroid, resultEntry.getDistance());
                                                     }),
                                     config.searchConcurrency());
 
-                    final CompletableFuture<List<ClusterMetadataWithDistance>> clusterMetadataWithDistancesFuture =
-                            AsyncUtil.collect(clusterMetadataIterable, getExecutor());
-
-                    final var boundedClusterMetadataIterable =
-                            MoreAsyncUtil.iterableFromCollection(
-                                    clusterMetadataWithDistancesFuture.thenApply(clusterMetadataWithDistances -> {
-                                        if (clusterMetadataWithDistances.size() <= config.searchMaxClusters()) {
-                                            if (logger.isInfoEnabled()) {
-                                                logger.info("querying numClusters={}", clusterMetadataWithDistances.size());
-                                            }
-                                            return clusterMetadataWithDistances;
+                    final AsyncIterable<VectorReferenceAndDistance> filteredVectorReferenceAndDistancesIterable =
+                            MoreAsyncUtil.filterIterable(getExecutor(),
+                                    AsyncUtil.mapIterable(mapConcatIterable(getExecutor(), clusterMetadataIterable,
+                                                    clusterMetadataWithDistance ->
+                                                            primitives.fetchVectorReferencesIterable(readTransaction,
+                                                                    storageTransform,
+                                                                    clusterMetadataWithDistance.clusterMetadata().id()),
+                                                    config.searchConcurrency()),
+                                            vectorReference -> {
+                                                final double distance =
+                                                        estimator.distance(transformedQueryVector, vectorReference.getVector());
+                                                return new VectorReferenceAndDistance(vectorReference, distance);
+                                            }),
+                                    vectorReferenceAndDistance -> {
+                                        final int distanceComparison = Double.compare(vectorReferenceAndDistance.getDistance(), minimumRadius);
+                                        if (distanceComparison != 0) {
+                                            return distanceComparison > 0; // keep the ones that are bigger than minimum radius
                                         }
-
-                                        final double nearestCentroidDistance = clusterMetadataWithDistances.get(0).distance();
-                                        int i;
-                                        for (i = config.searchMaxClusters(); i < clusterMetadataWithDistances.size(); i ++) {
-                                            final ClusterMetadataWithDistance currentClusterMetadata =
-                                                    clusterMetadataWithDistances.get(i);
-                                            if (currentClusterMetadata.distance() / nearestCentroidDistance > config.searchDistanceRatioCutoff()) {
-                                                break;
-                                            }
+                                        if (minimumPrimaryKey == null) {
+                                            return true;
                                         }
-                                        if (logger.isInfoEnabled()) {
-                                            logger.info("limiting query to numClusters={}", i);
-                                        }
-                                        return clusterMetadataWithDistances.subList(0, i);
-                                    }), getExecutor());
-
-                    final AsyncIterable<VectorReferenceAndDistance> vectorReferenceAndDistancesIterable =
-                            AsyncUtil.mapIterable(mapConcatIterable(getExecutor(), boundedClusterMetadataIterable,
-                                    clusterMetadataWithDistance ->
-                                            primitives.fetchVectorReferencesIterable(readTransaction,
-                                                    storageTransform,
-                                                    clusterMetadataWithDistance.clusterMetadata().id()),
-                                    config.searchConcurrency()),
-                                    vectorReference -> {
-                                        final double distance =
-                                                estimator.distance(transformedQueryVector, vectorReference.getVector());
-                                        return new VectorReferenceAndDistance(vectorReference, distance);
+                                        final int tupleComparison =
+                                                Objects.compare(vectorReferenceAndDistance.getVectorReference().getId().getPrimaryKey(),
+                                                        minimumPrimaryKey, Comparator.naturalOrder());
+                                        return tupleComparison > 0;
                                     });
 
                     final AsyncIterable<VectorReferenceAndDistance> almostSortedVectorReferencesIterable =
-                            almostSortedVectorReferencesIterable(vectorReferenceAndDistancesIterable,
+                            almostSortedVectorReferencesIterable(filteredVectorReferenceAndDistancesIterable,
                                     efSearch, getExecutor());
 
                     final Map<Tuple, CompletableFuture<VectorMetadata>> primaryKeyToVectorMetadataUuidFutureMap =
