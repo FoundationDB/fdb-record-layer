@@ -91,6 +91,11 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
+    public void arraysUnnestingDocumentationQueries(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("arrays-unnesting-documentation-queries.yamsql");
+    }
+
+    @TestTemplate
     public void betweenTest(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("between.yamsql");
     }
