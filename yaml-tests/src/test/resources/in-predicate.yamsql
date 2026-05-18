@@ -310,6 +310,13 @@ test_block:
           { child_id: 'c1', num: 1, parent_id: 'p1' },
           { child_id: 'c2', num: 2, parent_id: 'p1' }
         ]
+    -
+      # PartiQL join with array of longs combined with IN predicate on the unnested elements.
+      # This exercises the case where a SelectExpression has a naked primitive result value (a bigint from the
+      # unnested numbers array), which previously caused SplitSelectExtractIndependentQuantifiersRule to throw.
+      - query: SELECT t.id, n FROM array_table AS t, t.numbers AS n WHERE n IN (10, 20)
+      - supported_version: !current_version
+      - unorderedResult: [{ID: 1, N: 10}, {ID: 1, N: 20}, {ID: 3, N: 10}, {ID: 5, N: 20}]
 ---
 # Following tests are run once because running them the second time around causes the error to be different. This is
 # "expected" as the point of error is different in both the cases.
