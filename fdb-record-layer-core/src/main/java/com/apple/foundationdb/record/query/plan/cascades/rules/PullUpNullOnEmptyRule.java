@@ -38,18 +38,17 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 
 /**
  * A rewrite rule that splits a {@link SelectExpression} expression that ranges over a child with a {@link Quantifier}
- * that has {@code null-on-empty} semantics into two parts:
+ * that has null-on-empty semantics into two parts:
  * <ol>
- *     <li> a lower {@link SelectExpression} expression that ranges over the old child with a normal {@link Quantifier},
- *     i.e. one without {@code null-on-empty} semantics.
- *     <li> an upper {@link SelectExpression} expression that ranges over the lower the {@link SelectExpression} with a
- *     {@link Quantifier} that has {@code null-on-empty} semantics, and the same set of predicates as contained by the
- *     lower {@link SelectExpression}.
+ *     <li>A lower {@code SelectExpression} that ranges over the old child with a normal quantifier, i.e., one without
+ *     null-on-empty semantics.
+ *     <li>An upper {@code SelectExpression} that ranges over the lower select with a quantifier that has null-on-empty
+ *     semantics, and the same set of predicates as the lower select.
  * </ol>
- * The purpose of this rewrite rule is to create a variation that has a better chance of matching an index (since the lower
- * {@link SelectExpression} has a normal {@link Quantifier}), the purpose of the upper {@link SelectExpression} is to reapply
- * the predicates on top of its {@link Quantifier} with {@code null-on-empty} giving them a chance of acting on any {@code null}s
- * produced by this quantifier, which guarantees semantic equivalency.
+ * The purpose of this rewrite rule is to create a variation that has a better chance of matching an index, since the
+ * lower select has a normal quantifier. The purpose of the upper select is to reapply the predicates on top of its
+ * quantifier with null-on-empty, giving them a chance of acting on any {@code null}s produced by this quantifier,
+ * which guarantees semantic equivalency.
  */
 public class PullUpNullOnEmptyRule extends ExplorationCascadesRule<SelectExpression> {
 
@@ -95,10 +94,13 @@ public class PullUpNullOnEmptyRule extends ExplorationCascadesRule<SelectExpress
                 .addAllPredicates(selectExpression.getPredicates())
                 .build().buildSimpleSelectOverQuantifier(newChildrenQuantifier));
 
-        // Create the upper select expression.
+        // Create the upper select expression. The predicates are duplicated on top of the null-on-empty quantifier
+        // (as well as pushed down into the lower `SelectExpression`), so that predicates that filter out the null
+        // rows produced by `null-on-empty` are still applied correctly.
         final var topLevelSelectQuantifier = Quantifier.forEachBuilder().from(quantifier).build(newSelectExpression);
         final var topLevelSelectExpression = GraphExpansion.builder()
                 .addQuantifier(topLevelSelectQuantifier)
+                .addAllPredicates(selectExpression.getPredicates())
                 .build().buildSelectWithResultValue(selectExpression.getResultValue());
 
         call.yieldExploratoryExpression(topLevelSelectExpression);
