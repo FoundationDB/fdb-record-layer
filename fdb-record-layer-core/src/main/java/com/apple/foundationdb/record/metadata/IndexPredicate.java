@@ -424,8 +424,9 @@ public abstract class IndexPredicate {
                 this.value = ConstantValue.FALSE;
             } else if (predicate == com.apple.foundationdb.record.query.plan.cascades.predicates.ConstantPredicate.NULL) {
                 this.value = ConstantValue.NULL;
+            } else {
+                throw new RecordCoreException("could not create a PoJo constant index predicate").addLogInfo(LogMessageKeys.VALUE, predicate);
             }
-            throw new RecordCoreException("could not create a PoJo constant index predicate").addLogInfo(LogMessageKeys.VALUE, predicate);
         }
 
         public ConstantPredicate(@Nonnull final RecordMetaDataProto.ConstantPredicate proto) {
