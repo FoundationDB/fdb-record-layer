@@ -26,6 +26,9 @@ schema_template:
       create index f1 as select f.sa, f.sb from ta order by f.sa, f.sb
       create table array_table(id bigint, fruits string array, numbers bigint array, fruit_records fruit_type array, primary key(id))
       create index fruits as select fruits from array_table
+      create table t_parent(id string, lst string array, primary key(id))
+      create table t_child(id string, t_link fruit_type, num bigint, primary key(id))
+      CREATE FUNCTION get_key(IN r TYPE fruit_type) RETURNS STRING AS r.name
   - initialVersionAtLeast: "4.12.1.0"
     definition: |
       create type as struct ts(sa bigint, sb bigint)
@@ -34,6 +37,9 @@ schema_template:
       create index f1 as select f.sa, f.sb from ta order by f.sa, f.sb
       create table array_table(id bigint, fruits string array, numbers bigint array, fruit_records fruit_type array, primary key(id))
       create index fruits as select "fruit" from array_table as t, t.fruits as "fruit"
+      create table t_parent(id string, lst string array, primary key(id))
+      create table t_child(id string, t_link fruit_type, num bigint, primary key(id))
+      CREATE FUNCTION get_key(IN r TYPE fruit_type) RETURNS STRING AS r.name
 ---
 setup:
   steps:
@@ -57,6 +63,16 @@ setup:
                (3, ['apple', 'grape', 'mango'], [10, 60, 70], [('mango' as name, 'orange' as color), ('apple' as name, 'green' as color)]),
                (4, ['kiwi'], [80], [('kiwi' as name, 'brown' as color)]),
                (5, ['banana', 'cherry', 'date'], [20, 90, 100], [('date' as name, 'brown' as color), ('cherry' as name, 'red' as color)])
+    - query: INSERT INTO t_parent (id, lst)
+        VALUES ('p1', ['tag_a']),
+               ('p2', ['tag_b']),
+               ('p3', ['tag_a'])
+    - query: INSERT INTO t_child (id, t_link, num)
+        VALUES ('c1', ('p1', null), 1),
+               ('c2', ('p1', null), 2),
+               ('c3', ('p1', null), 4),
+               ('c4', ('p2', null), 1),
+               ('c5', ('p3', null), 1)
 ---
 test_block:
   tests:
@@ -272,6 +288,78 @@ test_block:
       - query: select id from array_table where ('apple', 'red') not in fruit_records
       - supported_version: 4.8.1.0
       - unorderedResult: [{2}, {3}, {4}, {5}]
+    -
+      # Test get_key() UDF on a struct column used as a join key, combined with
+      # literal IN string-array and bigint IN value-list predicates.
+      # c1 (num=1) and c2 (num=2) match; c3 excluded by num NOT IN (1,2,3);
+      # c4 excluded because p2 lacks 'tag_a'; c5 excluded because p3 != 'p1'.
+      - query: SELECT
+                   t_child.id AS child_id,
+                   t_child.num AS num,
+                   t_parent.id AS parent_id
+               FROM
+                   t_parent,
+                   t_child
+               WHERE
+                   get_key(t_child.t_link) = t_parent.id
+                   AND 'tag_a' IN t_parent.lst
+                   AND t_parent.id = 'p1'
+                   AND t_child.num IN (1, 2, 3)
+      - supported_version: !current_version
+      - unorderedResult: [
+          { child_id: 'c1', num: 1, parent_id: 'p1' },
+          { child_id: 'c2', num: 2, parent_id: 'p1' }
+        ]
+    -
+      # PartiQL join with array of longs combined with IN predicate on the unnested elements.
+      # This exercises the case where a SelectExpression has a naked primitive result value (a bigint from the
+      # unnested numbers array), which previously caused SplitSelectExtractIndependentQuantifiersRule to throw.
+      - query: SELECT t.id, n FROM array_table AS t, t.numbers AS n WHERE n IN (10, 20)
+      - supported_version: !current_version
+      - unorderedResult: [{ID: 1, N: 10}, {ID: 1, N: 20}, {ID: 3, N: 10}, {ID: 5, N: 20}]
+    -
+      # PartiQL join AT on bigint array: unnest numbers with ordinal position.
+      - query: SELECT t.id, n, idx FROM array_table AS t, t.numbers AS n AT idx
+      - supported_version: !current_version
+      - unorderedResult: [
+          {ID: 1, N: 10,  IDX: 1}, {ID: 1, N: 20,  IDX: 2}, {ID: 1, N: 30,  IDX: 3},
+          {ID: 2, N: 40,  IDX: 1}, {ID: 2, N: 50,  IDX: 2},
+          {ID: 3, N: 10,  IDX: 1}, {ID: 3, N: 60,  IDX: 2}, {ID: 3, N: 70,  IDX: 3},
+          {ID: 4, N: 80,  IDX: 1},
+          {ID: 5, N: 20,  IDX: 1}, {ID: 5, N: 90,  IDX: 2}, {ID: 5, N: 100, IDX: 3}]
+    -
+      # PartiQL join AT on bigint array with IN predicate on the unnested value.
+      # The ordinal (IDX) reflects the position in the original array, not the rank among filtered rows.
+      - query: SELECT t.id, n, idx FROM array_table AS t, t.numbers AS n AT idx WHERE n IN (10, 20)
+      - supported_version: !current_version
+      - unorderedResult: [
+          {ID: 1, N: 10, IDX: 1}, {ID: 1, N: 20, IDX: 2},
+          {ID: 3, N: 10, IDX: 1},
+          {ID: 5, N: 20, IDX: 1}]
+    -
+      # PartiQL join AT on bigint array with IN predicate on the ordinal.
+      - query: SELECT t.id, n, idx FROM array_table AS t, t.numbers AS n AT idx WHERE idx IN (1, 3)
+      - supported_version: !current_version
+      - unorderedResult: [
+          {ID: 1, N: 10,  IDX: 1}, {ID: 1, N: 30,  IDX: 3},
+          {ID: 2, N: 40,  IDX: 1},
+          {ID: 3, N: 10,  IDX: 1}, {ID: 3, N: 70,  IDX: 3},
+          {ID: 4, N: 80,  IDX: 1},
+          {ID: 5, N: 20,  IDX: 1}, {ID: 5, N: 100, IDX: 3}]
+    -
+      # PartiQL join AT on bigint array with IN predicate on the primary key.
+      - query: SELECT t.id, n, idx FROM array_table AS t, t.numbers AS n AT idx WHERE t.id IN (2, 4)
+      - supported_version: !current_version
+      - unorderedResult: [
+          {ID: 2, N: 40, IDX: 1}, {ID: 2, N: 50, IDX: 2},
+          {ID: 4, N: 80, IDX: 1}]
+    -
+      # PartiQL join AT on string array with IN predicate on the unnested value.
+      - query: SELECT t.id, f, idx FROM array_table AS t, t.fruits AS f AT idx WHERE f IN ('apple', 'mango')
+      - supported_version: !current_version
+      - unorderedResult: [
+          {ID: 1, F: 'apple', IDX: 1},
+          {ID: 3, F: 'apple', IDX: 1}, {ID: 3, F: 'mango', IDX: 3}]
 ---
 # Following tests are run once because running them the second time around causes the error to be different. This is
 # "expected" as the point of error is different in both the cases.
