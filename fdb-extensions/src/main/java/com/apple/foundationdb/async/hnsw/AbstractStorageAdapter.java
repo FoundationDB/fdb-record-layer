@@ -22,6 +22,7 @@ package com.apple.foundationdb.async.hnsw;
 
 import com.apple.foundationdb.ReadTransaction;
 import com.apple.foundationdb.Transaction;
+import com.apple.foundationdb.async.common.StorageTransform;
 import com.apple.foundationdb.linear.Quantizer;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;

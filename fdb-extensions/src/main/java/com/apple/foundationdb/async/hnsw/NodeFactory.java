@@ -45,18 +45,18 @@ interface NodeFactory<N extends NodeReference> {
      * with a primary key, an optional feature vector, and a list of its initial neighbors.
      *
      * @param primaryKey the {@link Tuple} representing the unique primary key for the new node. Must not be
-     *        {@code null}.
-     * @param vector the optional feature {@link RealVector} associated with the node, which can be used for similarity
-     *        calculations. May be {@code null} if the node does not encode a vector (see {@link CompactNode} versus
-     *        {@link InliningNode}).
+     * {@code null}.
      * @param neighbors the list of initial {@link NodeReference}s for the new node,
      * establishing its initial connections in the graph. Must not be {@code null}.
-     *
+     * @param vector the optional transformed {@link RealVector} associated with the node. May be {@code null} if the
+     *        node does not encode a vector (see {@link CompactNode} versus {@link InliningNode}).
+     * @param additionalValues the optional additional values associated with the node. May be {@code null} if the
+     *        node does not encode a additional vectors (see {@link CompactNode} versus {@link InliningNode}).
      * @return a new, non-null {@link AbstractNode} instance configured with the provided parameters.
      */
     @Nonnull
     AbstractNode<N> create(@Nonnull Tuple primaryKey, @Nullable Transformed<RealVector> vector,
-                           @Nonnull List<? extends NodeReference> neighbors);
+                           @Nullable Tuple additionalValues, @Nonnull List<? extends NodeReference> neighbors);
 
     /**
      * Gets the kind of this node.

@@ -50,7 +50,7 @@ public class EncodedRealVector implements RealVector {
     private final Supplier<Integer> hashCodeSupplier = Suppliers.memoize(this::computeHashCode);
     @Nonnull
     @SuppressWarnings("this-escape")
-    private final Supplier<double[]> dataSupplier = Suppliers.memoize(this::computeData);
+    private final Supplier<double[]> dataSupplier = Suppliers.memoize(this::computeData2);
     @Nonnull
     @SuppressWarnings("this-escape")
     private final Supplier<byte[]> rawDataSupplier = Suppliers.memoize(this::computeRawData);
@@ -122,7 +122,6 @@ public class EncodedRealVector implements RealVector {
         return encoded[dimension];
     }
 
-
     @Override
     public double getComponent(final int dimension) {
         return getData()[dimension];
@@ -160,6 +159,32 @@ public class EncodedRealVector implements RealVector {
 
         // ô = c + Δx * r
         return z.multiply(deltaX).getData();
+    }
+
+    @Nonnull
+    double[] computeData2() {
+        final int numDimensions = getNumDimensions();
+        final double cb = (1 << numExBits) - 0.5;
+        final double[] xucData = new double[numDimensions];
+        double xucNormSqr = 0.0;
+        for (int i = 0; i < xucData.length; i++) {
+            final double component = encoded[i] - cb;
+            xucData[i] = component;
+            xucNormSqr += component * component;
+        }
+
+        // Degenerate case: the original vector had zero norm, so the best reconstruction is the zero vector.
+        if (!(fAddEx > 0.0) || xucNormSqr == 0.0) {
+            return new double[numDimensions];
+        }
+
+        // Reconstruct the signed quantized direction and scale it back to the stored vector norm.
+        // fAddEx stores ||v||^2, while encoded - cb stores the signed code direction used by the estimator.
+        final double scale = Math.sqrt(fAddEx / xucNormSqr);
+        for (int i = 0; i < xucData.length; i++) {
+            xucData[i] *= scale;
+        }
+        return xucData;
     }
 
     @Nonnull

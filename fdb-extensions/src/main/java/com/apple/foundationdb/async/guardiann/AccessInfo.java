@@ -1,0 +1,59 @@
+/*
+ * AccessInfo.java
+ *
+ * This source file is part of the FoundationDB open source project
+ *
+ * Copyright 2015-2025 Apple Inc. and the FoundationDB project authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package com.apple.foundationdb.async.guardiann;
+
+import com.apple.foundationdb.async.common.StorageTransform;
+import com.apple.foundationdb.linear.AffineOperator;
+import com.apple.foundationdb.linear.FhtKacRotator;
+import com.apple.foundationdb.linear.RealVector;
+
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+
+/**
+ * Class to capture the current state of this GUARDIANN that cannot be expressed as metadata but that also is not the
+ * actual
+ * data that is inserted, organized and retrieved. For instance, any information that pertains to coordinate system
+ * transformations that have to be carried out prior/posterior to inserting/retrieving an item into/from the structure.
+ *
+ * @param rotatorSeed A seed that can be used to reconstruct a random rotator {@link FhtKacRotator} used
+ * in ({@link StorageTransform}).
+ * @param negatedCentroid The negated centroid that is usually derived as an average over some vectors seen so far. It
+ * is used to create
+ * the {@link StorageTransform}. The centroid is stored in its negated form (i.e. {@code centroid * (-1)}) as the
+ * {@link AffineOperator} adds its translation vector but the centroid needs to be
+ * subtracted.
+ */
+record AccessInfo(long rotatorSeed, @Nullable RealVector negatedCentroid) {
+
+    @SuppressWarnings("BooleanMethodIsAlwaysInverted")
+    public boolean canUseRaBitQ() {
+        return negatedCentroid() != null;
+    }
+
+    @Nonnull
+    @Override
+    public String toString() {
+        return "AccessInfo[" +
+                "rotatorSeed=" + rotatorSeed +
+                ", centroid=" + negatedCentroid + "]";
+    }
+}

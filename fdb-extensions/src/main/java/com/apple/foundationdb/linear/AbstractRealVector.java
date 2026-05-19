@@ -39,7 +39,7 @@ import java.util.stream.Collectors;
  */
 public abstract class AbstractRealVector implements RealVector {
     @Nonnull
-    final double[] data;
+    protected final double[] data;
 
     @Nonnull
     @SuppressWarnings("this-escape")
@@ -155,7 +155,7 @@ public abstract class AbstractRealVector implements RealVector {
      * Computes a hash code based on the internal {@code data} array.
      * @return the computed hash code for this object.
      */
-    private int computeHashCode() {
+    protected int computeHashCode() {
         return Arrays.hashCode(data);
     }
 
@@ -188,11 +188,11 @@ public abstract class AbstractRealVector implements RealVector {
         if (limitDimensions < data.length) {
             return "[" + Arrays.stream(Arrays.copyOfRange(data, 0, limitDimensions))
                     .mapToObj(String::valueOf)
-                    .collect(Collectors.joining(",")) + ", ...]";
+                    .collect(Collectors.joining(", ")) + ", ...]";
         } else {
             return "[" + Arrays.stream(data)
                     .mapToObj(String::valueOf)
-                    .collect(Collectors.joining(",")) + "]";
+                    .collect(Collectors.joining(", ")) + "]";
         }
     }
 
