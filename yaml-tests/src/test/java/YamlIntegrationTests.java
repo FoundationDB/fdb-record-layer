@@ -71,6 +71,11 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
+    void arrayJoinAt(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("array-join-at.yamsql");
+    }
+
+    @TestTemplate
     void arraysCardinality(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("arrays-cardinality.yamsql");
     }
@@ -240,6 +245,11 @@ public class YamlIntegrationTests {
     @TestTemplate
     public void multiClusterIsolation(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("multi-cluster-isolation.yamsql");
+    }
+
+    @TestTemplate
+    public void copyBasic(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("copy-basic.yamsql");
     }
 
     @TestTemplate

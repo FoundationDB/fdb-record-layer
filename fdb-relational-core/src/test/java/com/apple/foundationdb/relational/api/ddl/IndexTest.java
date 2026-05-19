@@ -530,6 +530,25 @@ public class IndexTest {
     }
 
     @Test
+    void createIndexWithCardinalityFunctionOnNonNullableArrayIsSupported() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TABLE T1(p1 BIGINT, int_arr INTEGER ARRAY NOT NULL, PRIMARY KEY(p1)) " +
+                "CREATE INDEX mv1 AS SELECT CARDINALITY(int_arr) FROM T1";
+        var exp = function("cardinality", field("INT_ARR", KeyExpression.FanType.Concatenate));
+        indexIs(stmt, exp, IndexTypes.VALUE);
+    }
+
+    @Test
+    void createIndexWithCardinalityFunctionOnNullableArrayIsSupported() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TABLE T1(p1 BIGINT, int_arr INTEGER ARRAY NULL, PRIMARY KEY(p1)) " +
+                "CREATE INDEX mv1 AS SELECT CARDINALITY(int_arr) FROM T1";
+        // Notice the nested "values" field that gets introduced when the array is nullable.
+        var exp = function("cardinality", field("INT_ARR").nest(field("values", KeyExpression.FanType.Concatenate)));
+        indexIs(stmt, exp, IndexTypes.VALUE);
+    }
+
+    @Test
     void createIndexWithFieldSumInProjectionIsSupported() throws Exception {
         final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
                 "CREATE TABLE T1(p1 bigint, a bigint, b bigint, primary key(p1)) " +
@@ -1182,6 +1201,23 @@ public class IndexTest {
                 "CREATE TABLE T(p bigint, a A array, primary key(p))" +
                 "CREATE INDEX mv1 AS SELECT t.p from T AS t order by t.p + 4";
         shouldFailWith(stmt, ErrorCode.INVALID_COLUMN_REFERENCE, "Cannot create index and order by an expression that is not present in the projection list");
+    }
+
+    @Test
+    void createIndexOnArrayFieldWithoutUnnestingIsDisallowed() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TABLE T (p BIGINT, items STRING ARRAY, PRIMARY KEY (p))" +
+                "CREATE INDEX MV1 AS SELECT items FROM T";
+        shouldFailWith(stmt, ErrorCode.UNSUPPORTED_OPERATION, "cannot create index on array field");
+    }
+
+    @Test
+    void createIndexNavigatingThroughArrayWithoutUnnestingIsDisallowed() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TYPE AS STRUCT A(x BIGINT) " +
+                "CREATE TABLE T (p BIGINT, a A ARRAY, PRIMARY KEY (p))" +
+                "CREATE INDEX MV1 AS SELECT a.x FROM T";
+        shouldFailWith(stmt, ErrorCode.UNDEFINED_COLUMN, "A.X");
     }
 
     @Test

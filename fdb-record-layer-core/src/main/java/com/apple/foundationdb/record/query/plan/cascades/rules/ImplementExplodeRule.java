@@ -25,6 +25,7 @@ import com.apple.foundationdb.record.query.plan.cascades.ImplementationCascadesR
 import com.apple.foundationdb.record.query.plan.cascades.ImplementationCascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.ExplodeExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
+import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryExplodePlan;
 
 import javax.annotation.Nonnull;
@@ -35,10 +36,8 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  * A rule that implements an {@link ExplodeExpression} as a {@link RecordQueryExplodePlan}.
  */
 @API(API.Status.EXPERIMENTAL)
-@SuppressWarnings("PMD.TooManyStaticImports")
 public class ImplementExplodeRule extends ImplementationCascadesRule<ExplodeExpression> {
-    private static final BindingMatcher<ExplodeExpression> root =
-            explodeExpression();
+    private static final BindingMatcher<ExplodeExpression> root = explodeExpression();
 
     public ImplementExplodeRule() {
         super(root);
@@ -46,7 +45,9 @@ public class ImplementExplodeRule extends ImplementationCascadesRule<ExplodeExpr
 
     @Override
     public void onMatch(@Nonnull final ImplementationCascadesRuleCall call) {
-        final var explodeExpression = call.get(root);
-        call.yieldPlan(new RecordQueryExplodePlan(explodeExpression.getCollectionValue()));
+        final ExplodeExpression explodeExpression = call.get(root);
+        final Value collectionValue = explodeExpression.getCollectionValue();
+        final boolean isWithOrdinality = explodeExpression.isWithOrdinality();
+        call.yieldPlan(new RecordQueryExplodePlan(collectionValue, isWithOrdinality));
     }
 }
