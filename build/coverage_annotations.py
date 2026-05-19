@@ -135,7 +135,13 @@ def parse_diff(diff_path):
     current_file = None
     current_line = 0
 
-    with open(diff_path) as f:
+    # Use errors='replace' so the parser tolerates diffs that contain non-UTF-8
+    # bytes inside hunk content. This happens when git classifies a fixture file
+    # (e.g. a .binpb binary protobuf) as text and emits a regular textual diff
+    # whose hunk lines include raw binary bytes. We never need to decode that
+    # content faithfully -- non-Java paths are filtered out in
+    # generate_annotations() -- but the file must decode without raising.
+    with open(diff_path, encoding='utf-8', errors='replace') as f:
         for raw_line in f:
             line = raw_line.rstrip('\n')
 

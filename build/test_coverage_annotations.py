@@ -255,6 +255,57 @@ diff --git a/build.gradle b/build.gradle
         finally:
             os.unlink(path)
 
+    def test_diff_with_non_utf8_bytes(self):
+        """parse_diff tolerates raw non-UTF-8 bytes embedded in hunk content.
+
+        Reproduces the failure mode where `gh pr diff` emits a textual diff for
+        a binary-protobuf (.binpb) fixture: git classifies it as text, so the
+        patch contains real binary bytes (e.g. \\xc8, \\xff) inline. The script
+        must keep parsing and still extract changed lines for the .java entries.
+        """
+        # Build the diff as bytes so we can embed real non-UTF-8 sequences.
+        diff_bytes = (
+            b'diff --git a/yaml-tests/src/test/resources/foo.binpb '
+            b'b/yaml-tests/src/test/resources/foo.binpb\n'
+            b'--- a/yaml-tests/src/test/resources/foo.binpb\n'
+            b'+++ b/yaml-tests/src/test/resources/foo.binpb\n'
+            b'@@ -1,3 +1,3 @@\n'
+            b'-\xc8\x17\n'
+            b'+\xff\x17\n'
+            b' 9\n'
+            b'-\x15agg-empty-table-tests\x12 EXPLAIN select\n'
+            b'+\x15agg-empty-table-tests\x12 EXPLAIN insert\n'
+            b'diff --git a/fdb-record-layer-core/src/main/java/com/apple/'
+            b'foundationdb/record/FDBRecordStore.java '
+            b'b/fdb-record-layer-core/src/main/java/com/apple/foundationdb/'
+            b'record/FDBRecordStore.java\n'
+            b'--- a/fdb-record-layer-core/src/main/java/com/apple/foundationdb/'
+            b'record/FDBRecordStore.java\n'
+            b'+++ b/fdb-record-layer-core/src/main/java/com/apple/foundationdb/'
+            b'record/FDBRecordStore.java\n'
+            b'@@ -10,2 +10,3 @@\n'
+            b' existing line\n'
+            b'+added line on 11\n'
+            b' existing line\n'
+        )
+        f = tempfile.NamedTemporaryFile(mode='wb', suffix='.patch', delete=False)
+        f.write(diff_bytes)
+        f.close()
+        try:
+            # Must not raise UnicodeDecodeError.
+            result = parse_diff(f.name)
+
+            java_path = ('fdb-record-layer-core/src/main/java/com/apple/'
+                         'foundationdb/record/FDBRecordStore.java')
+            self.assertIn(java_path, result)
+            # The +line in the java hunk lands on new-file line 11.
+            self.assertIn(11, result[java_path])
+            # The binpb file is present (parse_diff doesn't filter); content
+            # filtering happens later in generate_annotations().
+            self.assertIn('yaml-tests/src/test/resources/foo.binpb', result)
+        finally:
+            os.unlink(f.name)
+
 
 class TestComputeFileCoverage(unittest.TestCase):
     """Tests for compute_file_coverage()"""
