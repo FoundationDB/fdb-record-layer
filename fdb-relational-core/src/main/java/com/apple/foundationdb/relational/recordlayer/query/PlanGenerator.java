@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordStoreState;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
+import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMatchCandidateRegistry;
@@ -138,6 +139,35 @@ public final class PlanGenerator {
             RelationalLoggingUtil.publishPlanGenerationLogs(logger, message, plan, exception, totalTimeMicros(), options);
         }
         return plan;
+    }
+
+    /**
+     * Pre-generates and caches plans for the prepare statements defined in the schema template.
+     * This method is idempotent per template name and version — subsequent calls for the same
+     * template are no-ops.
+     */
+    public void prepareStatements() {
+        if (cache.isEmpty()) {
+            return;
+        }
+        final var schemaTemplate = planContext.getSchemaTemplate();
+        if (schemaTemplate.getPrepareStatements().isEmpty()) {
+            return;
+        }
+        final var templateKey = schemaTemplate.getName() + ":" + schemaTemplate.getVersion();
+        if (cache.get().isPrepared(templateKey)) {
+            return;
+        }
+        for (final var entry : schemaTemplate.getPrepareStatements().entrySet()) {
+            try {
+                getPlan(entry.getValue());
+            } catch (RelationalException e) {
+                if (logger.isErrorEnabled()) {
+                    logger.error(KeyValueLogMessage.of("prepare statement", LogMessageKeys.QUERY, entry.getValue()), e);
+                }
+            }
+        }
+        cache.get().markPrepared(templateKey);
     }
 
     private boolean isCaseSensitive() {
@@ -480,7 +510,9 @@ public final class PlanGenerator {
                                        @Nonnull final Options options) throws RelationalException {
         final var planner = new CascadesPlanner(metaData, recordStoreState, matchCandidateRegistry);
         planner.setConfiguration(planContext.getRecordQueryPlannerConfiguration());
-        return new PlanGenerator(cache, planContext, planner, options);
+        final var planGenerator = new PlanGenerator(cache, planContext, planner, options);
+        planGenerator.prepareStatements();
+        return planGenerator;
     }
 
     /**

@@ -234,4 +234,11 @@ public class NoOpSchemaTemplateTests {
         assertEquals("schema1", schema1.getName());
         assertEquals("schema2", schema2.getName());
     }
+
+    @Test
+    public void testGetPrepareStatementsReturnsEmptyMap() {
+        final NoOpSchemaTemplate template = new NoOpSchemaTemplate("test", 1);
+        assertNotNull(template.getPrepareStatements());
+        assertEquals(0, template.getPrepareStatements().size());
+    }
 }

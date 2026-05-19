@@ -116,6 +116,8 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
     @Nonnull
     private final Map<String, View> viewMap;
     @Nonnull
+    private final Map<String, String> prepareStatements;
+    @Nonnull
     private final Map<String, Index> indexes;
     @Nonnull
     private final Map<String, Index> universalIndexes;
@@ -152,6 +154,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
         syntheticRecordTypes = new HashMap<>();
         userDefinedFunctionMap = new HashMap<>();
         viewMap = new HashMap<>();
+        prepareStatements = new HashMap<>();
     }
 
     private void processSchemaOptions(boolean processExtensionOptions) {
@@ -238,6 +241,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
             final View view = View.fromProto(viewProto);
             viewMap.put(view.getName(), view);
         }
+        prepareStatements.putAll(metaDataProto.getPrepareStatementsMap());
         if (metaDataProto.hasSplitLongRecords()) {
             splitLongRecords = metaDataProto.getSplitLongRecords();
         }
@@ -1215,6 +1219,15 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
         viewMap.put(view.getName(), view);
     }
 
+    @Nonnull
+    public Map<String, String> getPrepareStatements() {
+        return prepareStatements;
+    }
+
+    public void addPrepareStatement(@Nonnull String name, @Nonnull String prepareStatement) {
+        prepareStatements.put(name, prepareStatement);
+    }
+
     public boolean isSplitLongRecords() {
         return splitLongRecords;
     }
@@ -1456,7 +1469,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
         Map<Object, SyntheticRecordType<?>> recordTypeKeyToSyntheticRecordTypeMap = Maps.newHashMapWithExpectedSize(syntheticRecordTypes.size());
         RecordMetaData metaData = new RecordMetaData(recordsDescriptor, getUnionDescriptor(), unionFields,
                 builtRecordTypes, builtSyntheticRecordTypes, recordTypeKeyToSyntheticRecordTypeMap,
-                indexes, universalIndexes, formerIndexes, userDefinedFunctionMap, viewMap,
+                indexes, universalIndexes, formerIndexes, userDefinedFunctionMap, viewMap, prepareStatements,
                 splitLongRecords, storeRecordVersions, version, subspaceKeyCounter, usesSubspaceKeyCounter, recordCountKey, localFileDescriptor != null);
         for (RecordTypeBuilder recordTypeBuilder : recordTypes.values()) {
             KeyExpression primaryKey = recordTypeBuilder.getPrimaryKey();
