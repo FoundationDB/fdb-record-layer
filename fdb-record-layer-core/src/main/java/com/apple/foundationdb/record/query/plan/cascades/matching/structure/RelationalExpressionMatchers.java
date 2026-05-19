@@ -38,6 +38,7 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalUniq
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RecursiveUnionExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpressionWithPredicates;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.OuterJoinExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.TableFunctionExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.TempTableInsertExpression;
@@ -246,6 +247,16 @@ public class RelationalExpressionMatchers {
     public static BindingMatcher<SelectExpression> selectExpression(@Nonnull final CollectionMatcher<? extends QueryPredicate> downstreamPredicates,
                                                                     @Nonnull final CollectionMatcher<? extends Quantifier> downstreamQuantifiers) {
         return ofTypeWithPredicatesAndOwning(SelectExpression.class, downstreamPredicates, downstreamQuantifiers);
+    }
+
+    @Nonnull
+    public static BindingMatcher<OuterJoinExpression> outerJoinExpression() {
+        return ofType(OuterJoinExpression.class);
+    }
+
+    @Nonnull
+    public static BindingMatcher<OuterJoinExpression> outerJoinExpression(@Nonnull final CollectionMatcher<? extends Quantifier> downstream) {
+        return ofTypeOwning(OuterJoinExpression.class, downstream);
     }
 
     @Nonnull

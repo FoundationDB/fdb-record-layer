@@ -213,6 +213,11 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
+    public void joinTestsOuter(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("join-tests-outer.yamsql");
+    }
+
+    @TestTemplate
     public void joinRowVersionTests(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("join-tests-row-version.yamsql");
     }
