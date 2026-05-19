@@ -60,6 +60,7 @@ import com.apple.foundationdb.relational.util.Assert;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Streams;
 import com.google.protobuf.ZeroCopyByteString;
 import org.antlr.v4.runtime.ParserRuleContext;
@@ -891,12 +892,22 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
             } else {
                 final var star = getDelegate().getSemanticAnalyzer().expandStar(Optional.of(id), getDelegate().getLogicalOperators());
                 final var resultValue = star.getUnderlying();
-                return Expression.ofUnnamed(resultValue);
+                // Name the column after the qualifier (table name or alias) that was expanded.
+                return Expression.of(resultValue, id);
             }
         }
         if (ctx.STAR() != null) {
             final var star = getDelegate().getSemanticAnalyzer().expandStar(Optional.empty(), getDelegate().getLogicalOperators());
             final var resultValue = star.getUnderlying();
+            // When there is exactly one table in scope, name the column after that table/alias.
+            // With multiple tables the expansion is ambiguous, so fall back to an unnamed column.
+            final var forEachOps = getDelegate().getLogicalOperators().forEachOnly();
+            if (Iterables.size(forEachOps) == 1) {
+                final Optional<Identifier> tableName = Iterables.getOnlyElement(forEachOps).getName();
+                if (tableName.isPresent()) {
+                    return Expression.of(resultValue, tableName.get());
+                }
+            }
             return Expression.ofUnnamed(resultValue);
         }
         final var expressions = parseRecordFieldsUnderReorderings(ctx.expressionWithOptionalName());

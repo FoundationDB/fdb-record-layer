@@ -1,0 +1,69 @@
+#
+# star-expression-metadata.yamsql
+#
+# This source file is part of the FoundationDB open source project
+#
+# Copyright 2015-2026 Apple Inc. and the FoundationDB project authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Tests the result-set column names produced by parenthesised-star SELECT expressions.
+#
+# Parenthesised-star forms — SELECT (*) and SELECT (T.*) — pack the entire row into a
+# single struct-typed column.  The outer column name is inferred as follows:
+#
+#   SELECT (T.*)           → column named T  (explicit qualifier used as name)
+#   SELECT (*)  single tbl → column named after the sole table/alias in scope
+#   SELECT (*) / (T.*) AS X → explicit alias overrides inferred name
+#   SELECT (*) multi-table → column is anonymous ("_0") — ambiguous source
+---
+schema_template:
+    create table foo(id bigint, val bigint, primary key(id))
+---
+setup:
+  steps:
+    - query: INSERT INTO foo VALUES (1, 10)
+---
+test_block:
+  tests:
+    -
+      # Case 1: SELECT (*) FROM FOO  →  single table in scope → column named FOO
+      - query: SELECT (*) FROM foo
+      - resultMetadata: [{FOO: [{ID: BIGINT}, {VAL: BIGINT}]}]
+      - result: [{FOO: {ID: 1, VAL: 10}}]
+    -
+      # Case 2: SELECT (FOO.*) FROM FOO  →  qualifier is used as column name
+      - query: SELECT (foo.*) FROM foo
+      - resultMetadata: [{FOO: [{ID: BIGINT}, {VAL: BIGINT}]}]
+      - result: [{FOO: {ID: 1, VAL: 10}}]
+    -
+      # Case 3: SELECT (*) FROM FOO AS BAR  →  single table alias in scope → column named BAR
+      - query: SELECT (*) FROM foo AS bar
+      - resultMetadata: [{BAR: [{ID: BIGINT}, {VAL: BIGINT}]}]
+      - result: [{BAR: {ID: 1, VAL: 10}}]
+    -
+      # Case 4: SELECT (BAR.*) FROM FOO AS BAR  →  qualifier (the alias) is used as column name
+      - query: SELECT (bar.*) FROM foo AS bar
+      - resultMetadata: [{BAR: [{ID: BIGINT}, {VAL: BIGINT}]}]
+      - result: [{BAR: {ID: 1, VAL: 10}}]
+    -
+      # Case 5: SELECT (*) AS BAR FROM FOO  →  explicit alias overrides inferred name
+      - query: SELECT (*) AS bar FROM foo
+      - resultMetadata: [{BAR: [{ID: BIGINT}, {VAL: BIGINT}]}]
+      - result: [{BAR: {ID: 1, VAL: 10}}]
+    -
+      # Case 6: SELECT (FOO.*) AS BAR FROM FOO  →  explicit alias overrides qualifier name
+      - query: SELECT (foo.*) AS bar FROM foo
+      - resultMetadata: [{BAR: [{ID: BIGINT}, {VAL: BIGINT}]}]
+      - result: [{BAR: {ID: 1, VAL: 10}}]
+...
