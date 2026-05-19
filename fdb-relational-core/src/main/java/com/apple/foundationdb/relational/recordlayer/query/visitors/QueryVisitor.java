@@ -262,6 +262,7 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
                     selectExpressions, where, outerCorrelations, literals);
             if (groupByExpressions.isEmpty() && !getDelegate().isForDdl()) {
                 selectExpressions = LogicalOperator.adjustCountOnEmpty(selectExpressions);
+                where = where.map(e -> LogicalOperator.adjustCountOnEmpty(Expressions.ofSingle(e)).getSingleItem());
             }
             selectExpressions = selectExpressions.dereferenced(literals).expanded().pullUp(Expression.ofUnnamed(groupBy.getQuantifier().getRangesOver().get().getResultValue()).dereferenced(literals).getSingleItem().getUnderlying(), groupBy.getQuantifier().getAlias(), outerCorrelations).clearQualifier();
             final var finalOuterCorrelation = outerCorrelations;
