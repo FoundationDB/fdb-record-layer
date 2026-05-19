@@ -113,12 +113,12 @@ test_block:
     # Mix of integer and float conversions to HALF
     -
       - query: select cast([1, 2.5, 3L] as VECTOR(3, HALF)) from tDoubleVector where a = 100
-      - explain: "SCAN([IS TDOUBLEVECTOR, EQUALS promote(@c23 AS LONG)]) | MAP (CAST(array(@c4, @c6, @c8) AS VECTOR(16, 3)) AS _0)"
+      - explain: "SCAN([IS TDOUBLEVECTOR, EQUALS promote(@c23 AS LONG)]) | MAP (CAST(array(promote(@c4 AS DOUBLE), @c6, promote(@c8 AS DOUBLE)) AS VECTOR(16, 3)) AS _0)"
       - result: [{!v16 [1.0, 2.5, 3.0]}]
     # Mix of integer and double conversions to FLOAT
     -
       - query: select cast([1, 2.5, 3L] as VECTOR(3, FLOAT)) from tDoubleVector where a = 100
-      - explain: "SCAN([IS TDOUBLEVECTOR, EQUALS promote(@c23 AS LONG)]) | MAP (CAST(array(@c4, @c6, @c8) AS VECTOR(32, 3)) AS _0)"
+      - explain: "SCAN([IS TDOUBLEVECTOR, EQUALS promote(@c23 AS LONG)]) | MAP (CAST(array(promote(@c4 AS DOUBLE), @c6, promote(@c8 AS DOUBLE)) AS VECTOR(32, 3)) AS _0)"
       - result: [{!v32 [1.0, 2.5, 3.0]}]
     # Large numbers in LONG array to HALF vector
     -

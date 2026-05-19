@@ -63,6 +63,7 @@ import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.sql.Array;
 import java.sql.Connection;
+import java.sql.DatabaseMetaData;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
@@ -1647,6 +1648,50 @@ public class StandardQueryTests {
                             .hasColumn("PK", 1L)
                             .hasColumn("v", vector)
                             .hasNoNextRow();
+                }
+            }
+        }
+    }
+
+    @Test
+    void testSelectWithConstructedArrayOfPrimitives() throws Exception {
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplateWithNonNullableArrays).build()) {
+            try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
+                insertRestaurantComplexRecord(statement);
+                Assertions.assertTrue(
+                        statement.execute("SELECT [name] FROM RestaurantComplexRecord"),
+                        "Did not return a result set from a select statement!");
+                try (final RelationalResultSet resultSet = statement.getResultSet()) {
+                    ResultSetAssert.assertThat(resultSet).hasNextRow();
+                    try (RelationalResultSet arrResultSet = resultSet.getArray(1).getResultSet()) {
+                        ResultSetAssert.assertThat(arrResultSet).hasNextRow();
+                        Assertions.assertEquals("testName", arrResultSet.getString(2));
+                        Assertions.assertEquals(DatabaseMetaData.columnNoNulls, arrResultSet.getMetaData().isNullable(2));
+                    }
+                    Assertions.assertFalse(resultSet.next());
+                }
+            }
+        }
+    }
+
+    @Test
+    void testSelectWithConstructedArrayOfStructs() throws Exception {
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplateWithNonNullableArrays).build()) {
+            try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
+                insertRestaurantComplexRecord(statement);
+                Assertions.assertTrue(
+                        statement.execute("SELECT [location] FROM RestaurantComplexRecord"),
+                        "Did not return a result set from a select statement!");
+                try (final RelationalResultSet resultSet = statement.getResultSet()) {
+                    ResultSetAssert.assertThat(resultSet).hasNextRow();
+                    try (RelationalResultSet arrResultSet = resultSet.getArray(1).getResultSet()) {
+                        ResultSetAssert.assertThat(arrResultSet).hasNextRow();
+                        Assertions.assertEquals("address", arrResultSet.getStruct(2).getString("ADDRESS"));
+                        Assertions.assertEquals("1", arrResultSet.getStruct(2).getString("LATITUDE"));
+                        Assertions.assertEquals("1", arrResultSet.getStruct(2).getString("LONGITUDE"));
+                        Assertions.assertEquals(DatabaseMetaData.columnNoNulls, arrResultSet.getMetaData().isNullable(2));
+                    }
+                    Assertions.assertFalse(resultSet.next());
                 }
             }
         }
