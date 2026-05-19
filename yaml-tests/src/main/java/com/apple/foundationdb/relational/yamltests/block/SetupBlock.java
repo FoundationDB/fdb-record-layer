@@ -90,7 +90,6 @@ public class SetupBlock extends ConnectedBlock {
                         connectionOptions = TestBlock.TestBlockOptions.parseConnectionOptions(Matchers.map(optionsMap.get(CONNECTION_OPTIONS)));
                     }
                 }
-
                 final var stepsObject = setupMap.getOrDefault(STEPS, null);
                 if (stepsObject == null) {
                     Assert.failUnchecked("Illegal Format: No steps provided in setup block.");

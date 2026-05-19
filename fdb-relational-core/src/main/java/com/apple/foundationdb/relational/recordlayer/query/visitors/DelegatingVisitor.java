@@ -1226,6 +1226,12 @@ public class DelegatingVisitor<D extends TypedVisitor> implements TypedVisitor {
 
     @Nonnull
     @Override
+    public Object visitExpressionWithPrecedence(@Nonnull RelationalParser.ExpressionWithPrecedenceContext ctx) {
+        return getDelegate().visitExpressionWithPrecedence(ctx);
+    }
+
+    @Nonnull
+    @Override
     public Object visitExpressionsWithDefaults(@Nonnull RelationalParser.ExpressionsWithDefaultsContext ctx) {
         return getDelegate().visitExpressionsWithDefaults(ctx);
     }
@@ -1250,8 +1256,14 @@ public class DelegatingVisitor<D extends TypedVisitor> implements TypedVisitor {
 
     @Nonnull
     @Override
-    public Object visitOfTypeClause(@Nonnull RelationalParser.OfTypeClauseContext ctx) {
-        return getDelegate().visitOfTypeClause(ctx);
+    public Expression visitSingleFieldRecordConstructor(final RelationalParser.SingleFieldRecordConstructorContext ctx) {
+        return getDelegate().visitSingleFieldRecordConstructor(ctx);
+    }
+
+    @Nonnull
+    @Override
+    public Object visitStructWithOptionalTypeClause(@Nonnull final RelationalParser.StructWithOptionalTypeClauseContext ctx) {
+        return getDelegate().visitStructWithOptionalTypeClause(ctx);
     }
 
     @Nonnull
@@ -1578,6 +1590,12 @@ public class DelegatingVisitor<D extends TypedVisitor> implements TypedVisitor {
 
     @Nonnull
     @Override
+    public Object visitSingleFieldRecordConstructorExpressionAtom(final RelationalParser.SingleFieldRecordConstructorExpressionAtomContext ctx) {
+        return getDelegate().visitSingleFieldRecordConstructorExpressionAtom(ctx);
+    }
+
+    @Nonnull
+    @Override
     public Object visitArrayConstructorExpressionAtom(@Nonnull RelationalParser.ArrayConstructorExpressionAtomContext ctx) {
         return getDelegate().visitArrayConstructorExpressionAtom(ctx);
     }
@@ -1586,6 +1604,12 @@ public class DelegatingVisitor<D extends TypedVisitor> implements TypedVisitor {
     @Override
     public Expression visitMathExpressionAtom(@Nonnull RelationalParser.MathExpressionAtomContext ctx) {
         return getDelegate().visitMathExpressionAtom(ctx);
+    }
+
+    @Nonnull
+    @Override
+    public Object visitExpressionWithPrecedenceAtom(final RelationalParser.ExpressionWithPrecedenceAtomContext ctx) {
+        return getDelegate().visitExpressionWithPrecedenceAtom(ctx);
     }
 
     @Nonnull

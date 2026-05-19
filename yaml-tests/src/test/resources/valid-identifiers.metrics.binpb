@@ -430,16 +430,16 @@ n
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [foo__2tableA, foo__1tableC, foo__2table__1nested, foo__2table__1repeated, foo__2table__1nested__2repeated, my__1adjacency__1list, foo__2enum__2type, foo__2tableB, __foo__0tableD, foo__2tableE]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS foo.tableA.A1, LONG AS foo.tableA.A2, LONG AS foo.tableA.A3)" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}«
+}è
 K
-	all-tests>EXPLAIN select struct "x$$" ("foo.tableA".*) from "foo.tableA"˜
-†ﬂ¯–	J Õõµ(%0«πB8 @2ISCAN(foo.tableA.idx3 <,>) | MAP (_ AS foo.tableA)•digraph G {
+	all-tests>EXPLAIN select struct "x$$" ("foo.tableA".*) from "foo.tableA"ø
+Ûùçÿà ¯Ïã(20∏æT83@/SCAN([IS foo__2tableA]) | MAP (_ AS foo.tableA)Ôdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
   1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q2 AS foo.tableA)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS foo.tableA.A1, LONG AS foo.tableA.A2, LONG AS foo.tableA.A3 AS foo.tableA)" ];
-  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS foo.tableA.A1, LONG AS foo.tableA.A2, LONG AS foo.tableA.A3)" ];
-  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">foo.tableA.idx3</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS foo.tableA.A1, LONG AS foo.tableA.A2, LONG AS foo.tableA.A3)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">comparisons: [IS foo__2tableA]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS foo.tableA.A1, LONG AS foo.tableA.A2, LONG AS foo.tableA.A3)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [foo__2tableA, foo__1tableC, foo__2table__1nested, foo__2table__1repeated, foo__2table__1nested__2repeated, my__1adjacency__1list, foo__2enum__2type, foo__2tableB, __foo__0tableD, foo__2tableE]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS foo.tableA.A1, LONG AS foo.tableA.A2, LONG AS foo.tableA.A3)" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
 }Û

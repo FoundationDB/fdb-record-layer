@@ -37,6 +37,9 @@ schema_template:
     create function f4 ( in a bigint, in b string, in c bigint, in d bigint) as select * from f3(a, b, c + d)
     create function f5 ( in a bigint default 103, in b string default 'b' )
        as select col1, col2 from t1 where col1 < a and col2 = b
+    create type as struct single_field_st(a bigint)
+    create function f6 (in k_st TYPE single_field_st)
+       as select col1, col2, col3 from t1 where col3 = k_st.a
 ---
 setup:
   steps:
@@ -187,11 +190,17 @@ test_block:
       - query: select col1, col2 from f1(103);
       - error: UNDEFINED_FUNCTION
     -
-      - query: select col1, col2 from f1(103);
-      - error: UNDEFINED_FUNCTION
-    -
       - query: select col1, col2 from f1(a => 103, a => 104);
       - error: SYNTAX_ERROR
+    -
+      - query: select col1, col2 from f2((0l + 1l))
+      - unorderedResult: [ { !l 100, 'a' } ]
+    -
+      # TODO: this function call should be possible, but due to https://github.com/FoundationDB/fdb-record-layer/issues/4177
+      #       we can't have a compiled SQL function with a struct parameter type.
+      - query: select col1, col2 from f6(STRUCT (1l))
+      - supported_version: !current_version
+      - error: INTERNAL_ERROR
 ---
 test_block:
   name: parenthesis-less-function-calls
@@ -204,5 +213,4 @@ test_block:
     -
       - query: select * from f1;
       - error: UNDEFINED_FUNCTION
-
 ...

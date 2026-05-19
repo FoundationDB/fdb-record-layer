@@ -21,16 +21,10 @@
 package com.apple.foundationdb.relational.recordlayer.query.functions;
 
 import com.apple.foundationdb.record.query.plan.cascades.CatalogedFunction;
-import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
-import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
-import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.query.Expressions;
 
 import javax.annotation.Nonnull;
-import java.util.stream.StreamSupport;
-
-import static java.util.stream.Collectors.toList;
 
 /**
  * A catalog of scalar, and table-valued functions that are either built-in or user-defined.
@@ -76,34 +70,5 @@ public interface SqlFunctionCatalog {
     @Nonnull
     static SqlFunctionCatalog newInstance(@Nonnull final RecordLayerSchemaTemplate metadata, final boolean caseSensitive) {
         return SqlFunctionCatalogImpl.newInstance(metadata, caseSensitive);
-    }
-
-    /**
-     * A utility method that transforms a single-item {@link RecordConstructorValue} value into its inner {@link Value}.
-     * This is mainly used for deterministically distinguishing between:
-     * <ul>
-     *     <li>Single item record constructor</li>
-     *     <li>Order of operations</li>
-     * </ul>
-     * Currently, all of our SQL functions are assumed to be working with primitives, therefore, when there is a scenario
-     * where the arguments can be interpreted as either single-item records or to indicate order of operations,
-     * the precedence is <i>always</i> given to the latter.
-     * For example, the argument {@code (3+4)} in this expression {@code (3+4)*5} is considered to correspond to a
-     * single integer which is the result of {@code 3+4} as opposed to a single-item record whose element is {@code 3+4}.
-     *
-     * @param value The value to potentially simplify
-     * @return if the {@code value} is a single-item record, then the content of the {@code value} is recursively checked
-     * and returned, otherwise, the {@code value} itself is returned without modification.
-     */
-    @Nonnull
-    static Typed flattenRecordWithOneField(@Nonnull final Typed value) {
-        if (value instanceof RecordConstructorValue && ((RecordConstructorValue) value).getColumns().size() == 1) {
-            return flattenRecordWithOneField(((Value) value).getChildren().iterator().next());
-        }
-        if (value instanceof Value) {
-            return ((Value) value).withChildren(StreamSupport.stream(((Value) value).getChildren().spliterator(), false)
-                    .map(SqlFunctionCatalog::flattenRecordWithOneField).map(v -> (Value) v).collect(toList()));
-        }
-        return value;
     }
 }

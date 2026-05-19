@@ -460,7 +460,7 @@ test_block:
     -
       # named record construction with uid star
       - query: select struct "x$$" ("foo.tableA".*) from "foo.tableA"
-      - explain: "ISCAN(foo.tableA.idx3 <,>) | MAP (_ AS foo.tableA)"
+      - explain: "SCAN([IS foo__2tableA]) | MAP (_ AS foo.tableA)"
       - result: [{{"foo.tableA.A1": 1 , "foo.tableA.A2": 10, "foo.tableA.A3": 1}}, {{"foo.tableA.A1": 2, "foo.tableA.A2": 10, "foo.tableA.A3": 2}}, {{"foo.tableA.A1": 3, "foo.tableA.A2": 10, "foo.tableA.A3": 3}}]
     -
       # named record construction with aliased expressions

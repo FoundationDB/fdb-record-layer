@@ -16,7 +16,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
+---
+options:
+  supported_version: !current_version
 ---
 schema_template:
     create table t1(id bigint, col1 bigint, col2 bigint, primary key(id))
@@ -114,10 +116,10 @@ setup:
                (17, 0, 'bar', 0, 1, 'e2', 0),
                (18, 0, 'bar', 0, 1, 'e2', 11)
     - query: INSERT INTO t6
-        VALUES (1, 1, 10, [('p'), ('q'), ('r')], 100),
-               (2, 1, 10, [('p'), ('q')], 150),
-               (3, 2, 10, [('p'), ('q')], 50),
-               (4, 2, 20, [('q'), ('r')], 400)
+        VALUES (1, 1, 10, [STRUCT ('p'), STRUCT ('q'), STRUCT ('r')], 100),
+               (2, 1, 10, [STRUCT ('p'), STRUCT ('q')], 150),
+               (3, 2, 10, [STRUCT ('p'), STRUCT ('q')], 50),
+               (4, 2, 20, [STRUCT ('q'), STRUCT ('r')], 400)
 ---
 test_block:
   name: agg-index-tests

@@ -1,9 +1,9 @@
 #
-# user-defined-scalar-function-tests.yamsql
+# user-defined-macro-function-tests.yamsql
 #
 # This source file is part of the FoundationDB open source project
 #
-# Copyright 2021-2024 Apple Inc. and the FoundationDB project authors
+# Copyright 2021-2026 Apple Inc. and the FoundationDB project authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -44,6 +44,8 @@ schema_template:
     create table deep_nested_t(id bigint, a level1, primary key(id))
     create index deep_idx as select a.b.c.d from deep_nested_t order by a.b.c.d
     CREATE FUNCTION abcd(IN a TYPE level1) RETURNS bigint AS a.b.c.d
+    create type as struct single_field_st(a bigint)
+    create function func_with_single_field_record (in st TYPE single_field_st) RETURNS bigint AS st.a
 ---
 setup:
   steps:
@@ -207,4 +209,15 @@ test_block:
       # wrong function name
       - query: select zz(r) from nested group by z(r)
       - error: UNSUPPORTED_QUERY
+    -
+      # TODO: We have to use a value from a table here in the record constructor instead of a literal
+      #       value. This is because the function requires the provided record to have nullable fields,
+      #       and it is not possible to construct a record from literal values and make it have nullable
+      #       fields as mentioned in https://github.com/FoundationDB/fdb-record-layer/issues/4183.
+      - query: select func_with_single_field_record(STRUCT (a)) from simple_table where a = 10
+      - supported_version: !current_version
+      - unorderedResult: [{!l 10}]
+    -
+      - query: select self((3l*5l)+7l) from range(1, 2)
+      - unorderedResult: [{!l 22}]
 ...

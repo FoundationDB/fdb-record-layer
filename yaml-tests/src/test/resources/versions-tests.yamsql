@@ -448,6 +448,17 @@ test_block:
            { { '__ROW_VERSION': !not_null _, { ID: 1, COL1: 10, COL2: 1 }, }, },
         ]
     -
+      # Simple star select ordered by newest first. The row version and data are packaged up. The row version should not be in the nested star
+      - query: select struct (t1."__ROW_VERSION", struct (t1.*)) from t1 where col1 = 10 order by "__ROW_VERSION" desc;
+      - supported_version: !current_version
+      - result: [
+        { { '__ROW_VERSION': !not_null _, { ID: 4, COL1: 10, COL2: 4 }, }, },
+        { { '__ROW_VERSION': !not_null _, { ID: 2, COL1: 10, COL2: 2 }, }, },
+        { { '__ROW_VERSION': !not_null _, { ID: 5, COL1: 10, COL2: 5 }, }, },
+        { { '__ROW_VERSION': !not_null _, { ID: 3, COL1: 10, COL2: 3 }, }, },
+        { { '__ROW_VERSION': !not_null _, { ID: 1, COL1: 10, COL2: 1 }, }, },
+      ]
+    -
       # Simple star select ordered by newest first with a type alias. The row version should not be projected
       - query: select * from t1 as b where col1 = 10 order by "__ROW_VERSION" desc;
       - explain: "ISCAN(GROUPED_VERSION_INDEX [EQUALS promote(@c9 AS LONG)] REVERSE) | MAP (_.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2)"

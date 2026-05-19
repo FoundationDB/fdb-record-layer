@@ -19,7 +19,7 @@
 
 ---
 options:
-  supported_version: 4.12.1.0
+  supported_version: !current_version
 ---
 # Assorted tests for ARRAY unnesting (aka. "array joins"), with and without indexes.
 #
@@ -67,8 +67,8 @@ setup:
                     (2, ['d', 'e']),
                     (3, ['a', 'd', 'f'])
     - query: INSERT INTO T3
-             VALUES (1, [(101), (102)], [101, 102]),
-                    (2, [(201), (202)], [201, 202])
+             VALUES (1, [STRUCT (101), STRUCT (102)], [101, 102]),
+                    (2, [STRUCT (201), STRUCT (202)], [201, 202])
     - query: INSERT INTO "restaurant"
              VALUES (1, 'Pizza Place', [('Alice', 5), ('Bob', 3)]),
                     (2, 'Burger Barn', [('Carol', 4)]),
@@ -165,7 +165,7 @@ test_block:
       - error: INVALID_COLUMN_REFERENCE
     -
       # Wrapping the unnested scalar into a one-field struct lifts it back into a record type, so `.*` expansion is allowed.
-      - query: SELECT "b".* FROM (SELECT "a" FROM VALUES ([1, 2, 3, 4]) AS T("a")) AS "sq", (SELECT ("x") AS wrapped FROM "sq"."a" AS "x") AS "b"
+      - query: SELECT "b".* FROM (SELECT "a" FROM VALUES ([1, 2, 3, 4]) AS T("a")) AS "sq", (SELECT STRUCT ("x") AS wrapped FROM "sq"."a" AS "x") AS "b"
       - result: [{wrapped: {1}}, {wrapped: {2}}, {wrapped: {3}}, {wrapped: {4}}]
     -
       # Same .* rejection as above, but on an unnested VECTOR element. VECTOR has no fields to expand.
@@ -175,7 +175,7 @@ test_block:
       # Unnest the ARRAY of integers via a subquery and wrap each integer into a tuple with a `( … )` expression.
       # Note: As an alternative to the `AS "wrapped_int"` we might write `AS SQ ("wrapped_int")`, but this is not
       #       possible currently, as the SQL `AS table-alias ( column-alias … )` notation is not yet supported.
-      - query: SELECT "id", SQ.* FROM T3, (SELECT ("integer") AS "wrapped_int" FROM T3."integers" AS "integer") AS SQ
+      - query: SELECT "id", SQ.* FROM T3, (SELECT struct ("integer") AS "wrapped_int" FROM T3."integers" AS "integer") AS SQ
       - unorderedResult: [{1, wrapped_int: {101}}, {1, wrapped_int: {102}}, {2, wrapped_int: {201}}, {2, wrapped_int: {202}}]
     -
       # Similar wrapping as in the previous query, but here we don’t even bind an "integer" variable to the unnested

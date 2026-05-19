@@ -738,7 +738,15 @@ public interface TypedVisitor extends RelationalParserVisitor<Object> {
 
     @Nonnull
     @Override
-    Object visitOfTypeClause(@Nonnull RelationalParser.OfTypeClauseContext ctx);
+    Expression visitSingleFieldRecordConstructor(RelationalParser.SingleFieldRecordConstructorContext ctx);
+
+    @Nonnull
+    @Override
+    Object visitExpressionWithPrecedence(@Nonnull RelationalParser.ExpressionWithPrecedenceContext ctx);
+
+    @Nonnull
+    @Override
+    Object visitStructWithOptionalTypeClause(@Nonnull RelationalParser.StructWithOptionalTypeClauseContext ctx);
 
     @Nonnull
     @Override
@@ -945,6 +953,10 @@ public interface TypedVisitor extends RelationalParserVisitor<Object> {
     @Nonnull
     @Override
     Object visitRecordConstructorExpressionAtom(@Nonnull RelationalParser.RecordConstructorExpressionAtomContext ctx);
+
+    @Nonnull
+    @Override
+    Object visitSingleFieldRecordConstructorExpressionAtom(RelationalParser.SingleFieldRecordConstructorExpressionAtomContext ctx);
 
     @Nonnull
     @Override
