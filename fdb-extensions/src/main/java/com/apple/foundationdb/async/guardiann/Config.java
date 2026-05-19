@@ -20,7 +20,7 @@
 
 package com.apple.foundationdb.async.guardiann;
 
-import com.apple.foundationdb.async.common.BaseConfig;
+import com.apple.foundationdb.async.common.VectorEncodingConfig;
 import com.apple.foundationdb.async.hnsw.HNSW;
 import com.apple.foundationdb.linear.Metric;
 import com.google.common.base.Preconditions;
@@ -66,8 +66,6 @@ import javax.annotation.Nonnull;
  * @param collapseMinDuplicates minimum identical vectors sharing a signature before collapse
  * @param splitMergeConcurrency concurrency for parallel operations during split/merge tasks
  * @param reassignConcurrency concurrency for parallel operations during reassign tasks
- * @param deleteMaxCandidateClusters maximum clusters probed when locating a vector's references during delete
- * @param deleteConcurrency concurrency for parallel operations during delete
  */
 @SuppressWarnings("checkstyle:MemberName")
 public record Config(@Nonnull Metric metric,
@@ -107,7 +105,7 @@ public record Config(@Nonnull Metric metric,
                      int collapseMinDuplicates,
                      // per-task concurrency
                      int splitMergeConcurrency,
-                     int reassignConcurrency) implements BaseConfig {
+                     int reassignConcurrency) implements VectorEncodingConfig {
 
     @Nonnull public static final Metric DEFAULT_METRIC = Metric.EUCLIDEAN_METRIC;
     public static final int DEFAULT_PRIMARY_CLUSTER_MIN = 100;
@@ -158,47 +156,12 @@ public record Config(@Nonnull Metric metric,
         Preconditions.checkArgument(numDimensions >= 1, "numDimensions must be (1, MAX_INT]");
     }
 
-    /**
-     * The metric that is used to determine distances between vectors.
-     */
-    @Nonnull
-    @Override
-    public Metric getMetric() {
-        return metric;
-    }
-
-    /**
-     * The number of dimensions used. All vectors must have exactly this number of dimensions.
-     */
-    @Override
-    public int getNumDimensions() {
-        return numDimensions;
-    }
-
-    /**
-     * Indicator if we should RaBitQ quantization. See {@link com.apple.foundationdb.rabitq.RaBitQuantizer} for more
-     * details.
-     */
-    @Override
-    public boolean isUseRaBitQ() {
-        return useRaBitQ;
-    }
-
-    /**
-     * Number of bits per dimensions iff {@link #isUseRaBitQ()} is set to {@code true}, ignored otherwise. If RaBitQ
-     * encoding is used, a vector is stored using roughly {@code 25 + numDimensions * (numExBits + 1) / 8} bytes.
-     */
-    @Override
-    public int getRaBitQNumExBits() {
-        return raBitQNumExBits;
-    }
-
     @Nonnull
     public ConfigBuilder toBuilder() {
-        return new ConfigBuilder(getMetric(), primaryClusterMin(), primaryClusterMax(),
+        return new ConfigBuilder(metric(), primaryClusterMin(), primaryClusterMax(),
                 underreplicatedPrimaryClusterMax(), replicatedClusterMaxWrites(), replicatedClusterTarget(),
                 replicationPriorityMin(), sampleVectorStatsProbability(), maintainStatsProbability(),
-                statsThreshold(), isUseRaBitQ(), getRaBitQNumExBits(), deterministicRandomness(),
+                statsThreshold(), useRaBitQ(), raBitQNumExBits(), deterministicRandomness(),
                 maxNumConcurrentNodeFetches(), maxNumConcurrentNeighborhoodFetches(),
                 sampleBatchSize(), searchConcurrency(), insertMaxCandidateClusters(),
                 deleteMaxCandidateClusters(), deleteConcurrency(),
@@ -211,7 +174,7 @@ public record Config(@Nonnull Metric metric,
     @Override
     @Nonnull
     public String toString() {
-        return "Config[metric=" + getMetric() + ", numDimensions=" + getNumDimensions() +
+        return "Config[metric=" + metric() + ", numDimensions=" + numDimensions() +
                 ", primaryClusterMin=" + primaryClusterMin() + ", primaryClusterMax=" + primaryClusterMax() +
                 ", underreplicatedPrimaryClusterMax=" + underreplicatedPrimaryClusterMax() +
                 ", replicatedClusterMaxWrites=" + replicatedClusterMaxWrites() +
@@ -219,7 +182,7 @@ public record Config(@Nonnull Metric metric,
                 ", replicationPriorityMin=" + replicationPriorityMin() +
                 ", sampleVectorStatsProbability=" + sampleVectorStatsProbability() +
                 ", maintainStatsProbability=" + maintainStatsProbability() + ", statsThreshold=" + statsThreshold() +
-                ", useRaBitQ=" + isUseRaBitQ() + ", raBitQNumExBits=" + getRaBitQNumExBits() +
+                ", useRaBitQ=" + useRaBitQ() + ", raBitQNumExBits=" + raBitQNumExBits() +
                 ", deterministicRandomness=" + deterministicRandomness() +
                 ", maxNumConcurrentNodeFetches=" + maxNumConcurrentNodeFetches() +
                 ", maxNumConcurrentNeighborhoodFetches=" + maxNumConcurrentNeighborhoodFetches() +

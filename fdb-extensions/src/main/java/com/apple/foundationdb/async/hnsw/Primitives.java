@@ -147,7 +147,7 @@ public class Primitives {
     }
 
     boolean isMetricNeedsNormalizedVectors() {
-        return getConfig().getMetric() == Metric.COSINE_METRIC;
+        return getConfig().metric() == Metric.COSINE_METRIC;
     }
 
     @Nonnull
@@ -165,19 +165,19 @@ public class Primitives {
     StorageTransform storageTransform(@Nullable final Long rotatorSeed,
                                       @Nullable final RealVector negatedCentroid,
                                       final boolean normalizeVectors) {
-        return storageTransform(rotatorSeed, negatedCentroid, normalizeVectors, getConfig().getNumDimensions());
+        return storageTransform(rotatorSeed, negatedCentroid, normalizeVectors, getConfig().numDimensions());
     }
 
     @Nonnull
     Quantizer quantizer(@Nullable final AccessInfo accessInfo) {
         if (accessInfo == null || !accessInfo.canUseRaBitQ()) {
-            return Quantizer.noOpQuantizer(getConfig().getMetric());
+            return Quantizer.noOpQuantizer(getConfig().metric());
         }
 
         final Config config = getConfig();
-        return config.isUseRaBitQ()
-               ? new RaBitQuantizer(config.getMetric(), config.getRaBitQNumExBits())
-               : Quantizer.noOpQuantizer(config.getMetric());
+        return config.useRaBitQ()
+               ? new RaBitQuantizer(config.metric(), config.raBitQNumExBits())
+               : Quantizer.noOpQuantizer(config.metric());
     }
 
     /**
@@ -440,7 +440,7 @@ public class Primitives {
         return forEach(nodeReferences,
                 currentNeighborReference -> fetchNodeIfNecessaryAndApply(storageAdapter, readTransaction,
                         storageTransform, layer, currentNeighborReference, fetchBypassFunction, biMapFunction),
-                getConfig().getMaxNumConcurrentNodeFetches(),
+                getConfig().maxNumConcurrentNodeFetches(),
                 getExecutor())
                 .thenApply(results -> {
                     final ImmutableList.Builder<U> filteredListBuilder = ImmutableList.builder();
@@ -489,7 +489,7 @@ public class Primitives {
                                 return new NodeReferenceAndNode<>(updatedNodeReference, node);
                             });
                 },
-                getConfig().getMaxNumConcurrentNodeFetches(),
+                getConfig().maxNumConcurrentNodeFetches(),
                 getExecutor())
                 .thenApply(results -> {
                     final ImmutableList.Builder<NodeReferenceAndNode<NodeReferenceWithVector, N>> filteredListBuilder =
@@ -654,15 +654,15 @@ public class Primitives {
                              final int layer,
                              final int m,
                              @Nonnull final Map<Tuple, AbstractNode<N>> nodeCache) {
-        final Metric metric = getConfig().getMetric();
+        final Metric metric = getConfig().metric();
 
         final List<NodeReferenceWithDistance> selected = Lists.newArrayListWithExpectedSize(m);
         final Queue<NodeReferenceWithDistance> candidates =
-                new PriorityQueue<>(getConfig().getM(), NodeReferenceWithDistance.comparator());
+                new PriorityQueue<>(getConfig().m(), NodeReferenceWithDistance.comparator());
         initialCandidates.forEach(candidates::add);
         final Queue<NodeReferenceWithDistance> discardedCandidates =
-                getConfig().isKeepPrunedConnections()
-                ? new PriorityQueue<>(getConfig().getM(), NodeReferenceWithDistance.comparator()) : null;
+                getConfig().keepPrunedConnections()
+                ? new PriorityQueue<>(getConfig().m(), NodeReferenceWithDistance.comparator()) : null;
 
         while (!candidates.isEmpty() && selected.size() < m) {
             final NodeReferenceWithDistance nearestCandidate = candidates.poll();
@@ -1077,7 +1077,7 @@ public class Primitives {
      * @return a non-negative integer representing the randomly selected layer
      */
     int topLayer(@Nonnull final Tuple primaryKey) {
-        double lambda = 1.0 / Math.log(getConfig().getM());
+        double lambda = 1.0 / Math.log(getConfig().m());
         double u = 1.0 - RandomHelpers.splitMixDouble(primaryKey.hashCode());  // Avoid log(0)
         return (int) Math.floor(-Math.log(u) * lambda);
     }
@@ -1107,8 +1107,8 @@ public class Primitives {
                 !accessInfo.canUseRaBitQ()
                 ? StorageTransform.identity() :
                 storageTransform(accessInfo.getRotatorSeed(), accessInfo.getNegatedCentroid(),
-                        config.getMetric() == Metric.COSINE_METRIC,
-                        config.getNumDimensions());
+                        config.metric() == Metric.COSINE_METRIC,
+                        config.numDimensions());
 
         scanLayerInternal(config, subspace, db, layer, batchSize,
                 node ->
@@ -1178,7 +1178,7 @@ public class Primitives {
                                    @Nonnull final OnWriteListener onWriteListener,
                                    @Nonnull final OnReadListener onReadListener,
                                    final int layer) {
-        return config.isUseInlining() && layer > 0
+        return config.useInlining() && layer > 0
                ? new InliningStorageAdapter(config, InliningNode.factory(), subspace, onWriteListener, onReadListener)
                : new CompactStorageAdapter(config, CompactNode.factory(), subspace, onWriteListener, onReadListener);
     }

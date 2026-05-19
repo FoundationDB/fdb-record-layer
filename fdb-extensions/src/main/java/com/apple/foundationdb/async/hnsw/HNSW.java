@@ -178,8 +178,8 @@ public class HNSW {
      * Fetch a node and return its values as a {@link ResultEntry}.
      * @param readTransaction the transaction to use for reading from the database
      * @param primaryKey the primary key of the record
-     * @return a new {@link ResultEntry} where {@link ResultEntry#getDistance()} returns {@code 0.0d} and
-     *         {@link ResultEntry#getRankOrRowNumber()} returns {@code -1}
+     * @return a new {@link ResultEntry} where {@link ResultEntry#distance()} returns {@code 0.0d} and
+     *         {@link ResultEntry#rankOrRowNumber()} returns {@code -1}
      */
     @Nonnull
     public CompletableFuture<ResultEntry> fetch(@Nonnull final ReadTransaction readTransaction,

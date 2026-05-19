@@ -1,5 +1,5 @@
 /*
- * ClusterIdAndCentroid.java
+ * ClusterReference.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -29,26 +29,26 @@ import javax.annotation.Nullable;
 import java.util.List;
 import java.util.UUID;
 
-record ClusterIdAndCentroid(@Nonnull UUID clusterId, @Nonnull Transformed<RealVector> centroid) {
+record ClusterReference(@Nonnull UUID clusterId, @Nonnull Transformed<RealVector> centroid) {
 
-    static Lens<ClusterMetadataWithDistance, ClusterIdAndCentroid> FROM_CLUSTER_METADATA_AND_DISTANCE =
+    static Lens<ClusterMetadataWithDistance, ClusterReference> FROM_CLUSTER_METADATA_AND_DISTANCE =
             new Lens<>() {
                 @Override
-                public ClusterIdAndCentroid get(@Nonnull final ClusterMetadataWithDistance clusterMetadataWithDistance) {
-                    return new ClusterIdAndCentroid(clusterMetadataWithDistance.clusterMetadata().id(),
+                public ClusterReference get(@Nonnull final ClusterMetadataWithDistance clusterMetadataWithDistance) {
+                    return new ClusterReference(clusterMetadataWithDistance.clusterMetadata().id(),
                             clusterMetadataWithDistance.centroid());
                 }
 
                 @Nonnull
                 @Override
                 public ClusterMetadataWithDistance set(@Nullable final ClusterMetadataWithDistance clusterMetadataWithDistance,
-                                                       @Nullable final ClusterIdAndCentroid clusterIdAndCentroid) {
+                                                       @Nullable final ClusterReference clusterReference) {
                     throw new UnsupportedOperationException("unsupported");
                 }
             };
 
     @Nonnull
-    static List<ClusterIdAndCentroid> fromClusterMetadataAndDistances(@Nonnull List<ClusterMetadataWithDistance> clusterMetadataWithDistances) {
+    static List<ClusterReference> fromClusterMetadataAndDistances(@Nonnull List<ClusterMetadataWithDistance> clusterMetadataWithDistances) {
         return Lens.extract(FROM_CLUSTER_METADATA_AND_DISTANCE, clusterMetadataWithDistances);
     }
 }

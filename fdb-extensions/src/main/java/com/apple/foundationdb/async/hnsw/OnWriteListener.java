@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.async.hnsw;
 
+import com.apple.foundationdb.Range;
 import com.apple.foundationdb.async.common.OnKeyValueWriteListener;
 import com.apple.foundationdb.tuple.Tuple;
 
@@ -31,6 +32,49 @@ import javax.annotation.Nonnull;
 public interface OnWriteListener extends OnKeyValueWriteListener {
     OnWriteListener NOOP = new OnWriteListener() {
     };
+
+    /**
+     * Callback method that is invoked for each key/value pair that is written to the database.
+     * <p>
+     * This is a default method and its base implementation is a no-op. Implementors of the interface can override this
+     * method to react to the deletion of a neighbor node, for example, to clean up related resources or update internal
+     * state.
+     * @param layer the layer the data was written to
+     * @param key the key
+     * @param value the value.
+     */
+    @SuppressWarnings("unused")
+    default void onKeyValueWritten(final int layer, @Nonnull final byte[] key, @Nonnull final byte[] value) {
+        onKeyValueWritten(key, value);
+    }
+
+    /**
+     * Callback method invoked when a key is deleted.
+     * <p>
+     * This is a default method and its base implementation is a no-op. Implementors of the interface can override this
+     * method to react to the deletion of a neighbor node, for example, to clean up related resources or update internal
+     * state.
+     * @param layer the layer index where the deletion occurred
+     * @param key the key that was deleted
+     */
+    @SuppressWarnings("unused")
+    default void onKeyDeleted(final int layer, @Nonnull final byte[] key) {
+        onKeyDeleted(key);
+    }
+
+    /**
+     * Callback method invoked when an entire range is deleted.
+     * <p>
+     * This is a default method and its base implementation is a no-op. Implementors of the interface can override this
+     * method to react to the deletion of a neighbor node, for example, to clean up related resources or update internal
+     * state.
+     * @param layer the layer index where the deletion occurred
+     * @param range the {@link Range} that was deleted
+     */
+    @SuppressWarnings("unused")
+    default void onRangeDeleted(final int layer, @Nonnull final Range range) {
+        onRangeDeleted(range);
+    }
 
     /**
      * Callback method that is invoked after a node has been successfully written to a specific layer.

@@ -197,10 +197,10 @@ class DataRecordsTest {
 
     @Nonnull
     private static ResultEntry resultEntry(@Nonnull final Random random, @Nonnull final ResultEntry original) {
-        return new ResultEntry(primaryKey(random, original.getPrimaryKey()),
-                rawVector(random, Objects.requireNonNull(original.getVector())), null,
-                differentDouble(random, original.getDistance()),
-                differentInteger(random, original.getRankOrRowNumber(), 100));
+        return new ResultEntry(primaryKey(random, original.primaryKey()),
+                rawVector(random, Objects.requireNonNull(original.vector())), null,
+                differentDouble(random, original.distance()),
+                differentInteger(random, original.rankOrRowNumber(), 100));
     }
 
     @Nonnull
@@ -314,8 +314,8 @@ class DataRecordsTest {
     @Nonnull
     private static AggregatedVector aggregatedVector(@Nonnull final Random random,
                                                      @Nonnull final AggregatedVector original) {
-        return new AggregatedVector(differentInteger(random, original.getPartialCount(), 100),
-                vector(random, original.getPartialVector()));
+        return new AggregatedVector(differentInteger(random, original.partialCount(), 100),
+                vector(random, original.partialVector()));
     }
 
     @Nonnull

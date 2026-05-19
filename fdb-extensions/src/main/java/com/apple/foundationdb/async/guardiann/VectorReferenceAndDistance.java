@@ -21,43 +21,26 @@
 package com.apple.foundationdb.async.guardiann;
 
 import javax.annotation.Nonnull;
-import java.util.Objects;
 
-class VectorReferenceAndDistance {
-    @Nonnull
-    private final VectorReference vectorReference;
-    final double distance;
+/**
+ * Pairs a {@link VectorReference} with its computed distance to a query vector. Used during search
+ * to rank candidate vectors and collect the top-K nearest results.
+ *
+ * @param vectorReference the vector reference from a cluster
+ * @param distance the computed distance between this vector and the query vector
+ */
+record VectorReferenceAndDistance(@Nonnull VectorReference vectorReference, double distance) {
 
-    public VectorReferenceAndDistance(@Nonnull final VectorReference vectorReference, final double distance) {
-        this.vectorReference = vectorReference;
-        this.distance = distance;
-    }
-
-    @Nonnull
-    public VectorReference getVectorReference() {
-        return vectorReference;
-    }
-
-    public double getDistance() {
-        return distance;
-    }
-
+    /**
+     * Returns a copy of this pair with a different vector reference, preserving the same distance.
+     * Used when expanding collapsed references — all expanded entries share the same distance since
+     * the underlying vector data is identical.
+     *
+     * @param vectorReference the replacement vector reference
+     * @return a new pair with the given reference and the original distance
+     */
     @Nonnull
     public VectorReferenceAndDistance withVectorReference(@Nonnull final VectorReference vectorReference) {
-        return new VectorReferenceAndDistance(vectorReference, getDistance());
-    }
-
-    @Override
-    public boolean equals(final Object o) {
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-        final VectorReferenceAndDistance that = (VectorReferenceAndDistance)o;
-        return Double.compare(getDistance(), that.getDistance()) == 0 && Objects.equals(getVectorReference(), that.getVectorReference());
-    }
-
-    @Override
-    public int hashCode() {
-        return Objects.hash(getVectorReference(), getDistance());
+        return new VectorReferenceAndDistance(vectorReference, distance());
     }
 }

@@ -20,105 +20,36 @@
 
 package com.apple.foundationdb.async.common;
 
-import com.apple.foundationdb.ReadTransaction;
 import com.apple.foundationdb.async.hnsw.Config;
-import com.apple.foundationdb.async.hnsw.HNSW;
+import com.apple.foundationdb.linear.DoubleRealVector;
+import com.apple.foundationdb.linear.FloatRealVector;
+import com.apple.foundationdb.linear.HalfRealVector;
 import com.apple.foundationdb.linear.RealVector;
 import com.apple.foundationdb.tuple.Tuple;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.Objects;
 
 /**
  * Record-like class to wrap the results of a kNN-search.
+ *
+ * @param primaryKey Primary key of the item in the HNSW.
+ * @param vector The vector that is stored with the item in the structure. This vector is expressed in the client's
+ *        coordinate system and should be of class {@link HalfRealVector}, {@link FloatRealVector},
+ *        or {@link DoubleRealVector}. This member is nullable. It is set to {@code null}, if the caller to
+ *        {@code kNearestNeighborsSearch(.)} requested to not return vectors. The vector, if set, may or may not be
+ *        exactly equal to the vector that was originally inserted into the vector structure. Depending on
+ *        quantization settings (see {@link Config}, the vector that is returned may only be an approximation of the
+ *        original vector.
+ * @param additionalValues additional values that are stored together with the primary key and the vector for faster
+ *        retrieval.
+ * @param distance The distance of item's vector to the query vector.
+ * @param rankOrRowNumber The row number of the item. TODO support rank.
  */
-public class ResultEntry {
-    /**
-     * Primary key of the item in the HNSW.
-     */
-    @Nonnull
-    private final Tuple primaryKey;
-
-    /**
-     * The vector that is stored with the item in the structure. This vector is expressed in the client's coordinate
-     * system and should be of class {@link com.apple.foundationdb.linear.HalfRealVector},
-     * {@link com.apple.foundationdb.linear.FloatRealVector}, or {@link com.apple.foundationdb.linear.DoubleRealVector}.
-     * This member is nullable. It is set to {@code null}, if the caller to
-     * {@link HNSW#kNearestNeighborsSearch(ReadTransaction, int, int, boolean, RealVector)} requested to not return
-     * vectors.
-     * <p>
-     * The vector, if set, may or may not be exactly equal to the vector that was originally inserted in the HNSW.
-     * Depending on quantization settings (see {@link Config}, the vector that
-     * is returned may only be an approximation of the original vector.
-     */
-    @Nullable
-    private final RealVector vector;
-
-    @Nullable
-    private final Tuple additionalValues;
-
-    /**
-     * The distance of item's vector to the query vector.
-     */
-    private final double distance;
-
-    /**
-     * The row number of the item. TODO support rank.
-     */
-    private final int rankOrRowNumber;
-
-    public ResultEntry(@Nonnull final Tuple primaryKey, @Nullable final RealVector vector,
-                       @Nullable final Tuple additionalValues, final double distance,
-                       final int rankOrRowNumber) {
-        this.primaryKey = primaryKey;
-        this.vector = vector;
-        this.additionalValues = additionalValues;
-        this.distance = distance;
-        this.rankOrRowNumber = rankOrRowNumber;
-    }
+public record ResultEntry(@Nonnull Tuple primaryKey, @Nullable RealVector vector, @Nullable Tuple additionalValues,
+                          double distance, int rankOrRowNumber) {
 
     @Nonnull
-    public Tuple getPrimaryKey() {
-        return primaryKey;
-    }
-
-    @Nullable
-    public RealVector getVector() {
-        return vector;
-    }
-
-    @Nullable
-    public Tuple getAdditionalValues() {
-        return additionalValues;
-    }
-
-    public double getDistance() {
-        return distance;
-    }
-
-    public int getRankOrRowNumber() {
-        return rankOrRowNumber;
-    }
-
-    @Override
-    public boolean equals(final Object o) {
-        if (!(o instanceof ResultEntry)) {
-            return false;
-        }
-        final ResultEntry that = (ResultEntry)o;
-        return Double.compare(distance, that.distance) == 0 &&
-                rankOrRowNumber == that.rankOrRowNumber &&
-                Objects.equals(primaryKey, that.primaryKey) &&
-                Objects.equals(vector, that.vector) &&
-                Objects.equals(additionalValues, that.additionalValues);
-    }
-
-    @Override
-    public int hashCode() {
-        return Objects.hash(primaryKey, vector, additionalValues, distance, rankOrRowNumber);
-    }
-
     @Override
     public String toString() {
         return "[" +

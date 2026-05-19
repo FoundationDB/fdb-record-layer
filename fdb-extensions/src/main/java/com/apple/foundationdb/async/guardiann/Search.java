@@ -61,10 +61,10 @@ import static com.apple.foundationdb.async.MoreAsyncUtil.mapIterablePipelined;
  * pipeline proceeds through the following stages:
  * <ol>
  *   <li><b>Candidate cluster selection</b> — queries the HNSW centroid index for the nearest cluster
- *       centroids to the query vector, up to {@link Config#searchMaxClusters()}.</li>
+ *       centroids to the query vector, up to {@code searchMaxClusters}.</li>
  *   <li><b>Distance-ratio pruning</b> — discards clusters whose centroid distance exceeds
- *       {@link Config#searchDistanceRatioCutoff()} times the nearest centroid distance, retaining
- *       at least {@link Config#searchMinClustersBeforePruning()} clusters.</li>
+ *       {@code earchDistanceRatioCutoff} times the nearest centroid distance, retaining
+ *       at least {@code searchMinClustersBeforePruning} clusters.</li>
  *   <li><b>Vector reference retrieval</b> — scans the surviving clusters for individual vector
  *       references, computing distances to the query vector and collecting the top-{@code efSearch}
  *       closest candidates.</li>
@@ -261,14 +261,14 @@ public class Search {
                 mapIterablePipelined(getExecutor(), clusterCentroidEntriesByDistanceIterable,
                         resultEntry ->
                                 primitives.fetchClusterMetadata(readTransaction,
-                                                StorageAdapter.clusterIdFromTuple(resultEntry.getPrimaryKey()))
+                                                StorageAdapter.clusterIdFromTuple(resultEntry.primaryKey()))
                                         .thenApply(clusterMetadata -> {
                                             final Transformed<RealVector> transformedCentroid =
                                                     storageTransform.transform(
-                                                            Objects.requireNonNull(resultEntry.getVector()));
+                                                            Objects.requireNonNull(resultEntry.vector()));
                                             return new ClusterMetadataWithDistance(clusterMetadata,
                                                     transformedCentroid,
-                                                    resultEntry.getDistance());
+                                                    resultEntry.distance());
                                         }),
                         config.searchConcurrency());
 
@@ -349,13 +349,13 @@ public class Search {
                                 config.searchConcurrency()),
                         vectorReference -> {
                             final double distance =
-                                    estimator.distance(transformedQueryVector, vectorReference.getVector());
+                                    estimator.distance(transformedQueryVector, vectorReference.vector());
                             return new VectorReferenceAndDistance(vectorReference, distance);
                         });
 
         final DistinctTopK<VectorReferenceAndDistance> distinctTopK =
-                DistinctTopK.min(Comparator.comparing(VectorReferenceAndDistance::getDistance)
-                        .thenComparing(d -> d.getVectorReference().getId()), efSearch);
+                DistinctTopK.min(Comparator.comparing(VectorReferenceAndDistance::distance)
+                        .thenComparing(d -> d.vectorReference().id()), efSearch);
 
         return distinctTopK.collect(vectorReferenceAndDistancesIterable, getExecutor());
     }
@@ -381,7 +381,7 @@ public class Search {
 
         boolean foundCollapsedReferences = false;
         for (final VectorReferenceAndDistance referenceAndDistance : topReferences) {
-            if (referenceAndDistance.getVectorReference().isCollapsed()) {
+            if (referenceAndDistance.vectorReference().isCollapsed()) {
                 foundCollapsedReferences = true;
                 break;
             }
@@ -396,13 +396,13 @@ public class Search {
         final AsyncIterable<VectorReferenceAndDistance> expandedTopReferencesIterable =
                 MoreAsyncUtil.mapConcatIterable(getExecutor(), topReferencesIterable,
                         vectorReferenceAndDistance -> {
-                            final VectorReference vectorReference = vectorReferenceAndDistance.getVectorReference();
+                            final VectorReference vectorReference = vectorReferenceAndDistance.vectorReference();
                             if (!vectorReference.isCollapsed()) {
                                 return MoreAsyncUtil.mapToIterable(vectorReferenceAndDistance,
                                         item -> CompletableFuture.completedFuture(vectorReferenceAndDistance));
                             }
 
-                            final UUID signature = StorageAdapter.signatureUuid(vectorReference.getVector());
+                            final UUID signature = StorageAdapter.signatureUuid(vectorReference.vector());
                             return AsyncUtil.mapIterable(
                                     primitives.fetchCollapsedVectorIdsIterable(readTransaction, signature),
                                     vectorId -> vectorReferenceAndDistance.withVectorReference(
@@ -410,8 +410,8 @@ public class Search {
                         }, config.searchConcurrency());
 
         final DistinctTopK<VectorReferenceAndDistance> expandedDistinctTopK =
-                DistinctTopK.min(Comparator.comparing(VectorReferenceAndDistance::getDistance)
-                        .thenComparing(d -> d.getVectorReference().getId()), efSearch);
+                DistinctTopK.min(Comparator.comparing(VectorReferenceAndDistance::distance)
+                        .thenComparing(d -> d.vectorReference().id()), efSearch);
 
         return expandedDistinctTopK.collect(expandedTopReferencesIterable, getExecutor());
     }
@@ -441,7 +441,7 @@ public class Search {
         return MoreAsyncUtil.forEach(topReferences,
                         vectorReferenceAndDistance -> {
                             final VectorId vectorReferenceId =
-                                    vectorReferenceAndDistance.getVectorReference().getId();
+                                    vectorReferenceAndDistance.vectorReference().id();
                             final CompletableFuture<VectorMetadata> vectorMetadataFuture =
                                     primaryKeyToVectorMetadataFutureMap.computeIfAbsent(
                                             vectorReferenceId.getPrimaryKey(),
@@ -465,8 +465,8 @@ public class Search {
                         }
                         enrichedResultsBuilder.add(new VectorReferenceAndDistance(
                                 enrichVectorReference(primaryKeyToVectorMetadataFutureMap,
-                                        vectorReferenceAndDistance.getVectorReference()),
-                                vectorReferenceAndDistance.getDistance()));
+                                        vectorReferenceAndDistance.vectorReference()),
+                                vectorReferenceAndDistance.distance()));
                         numEnrichedResults++;
                     }
                     if (numEnrichedResults < k) {
@@ -508,13 +508,13 @@ public class Search {
                             mapIterablePipelined(getExecutor(), clusterCentroidEntriesByDistanceIterable,
                                     resultEntry ->
                                             primitives.fetchClusterMetadata(readTransaction,
-                                                            StorageAdapter.clusterIdFromTuple(resultEntry.getPrimaryKey()))
+                                                            StorageAdapter.clusterIdFromTuple(resultEntry.primaryKey()))
                                                     .thenApply(clusterMetadata -> {
                                                         final Transformed<RealVector> transformedCentroid =
                                                                 storageTransform.transform(
-                                                                        Objects.requireNonNull(resultEntry.getVector()));
+                                                                        Objects.requireNonNull(resultEntry.vector()));
                                                         return new ClusterMetadataWithDistance(clusterMetadata,
-                                                                transformedCentroid, resultEntry.getDistance());
+                                                                transformedCentroid, resultEntry.distance());
                                                     }),
                                     config.searchConcurrency());
 
@@ -527,7 +527,7 @@ public class Search {
                                             config.searchConcurrency()),
                                     vectorReference -> {
                                         final double distance =
-                                                estimator.distance(transformedQueryVector, vectorReference.getVector());
+                                                estimator.distance(transformedQueryVector, vectorReference.vector());
                                         return new VectorReferenceAndDistance(vectorReference, distance);
                                     });
 
@@ -536,12 +536,12 @@ public class Search {
                     final AsyncIterable<VectorReferenceAndDistance> expandedVectorReferenceAndDistancesIterable =
                             MoreAsyncUtil.mapConcatIterable(getExecutor(), vectorReferenceAndDistancesIterable,
                                     vectorReferenceAndDistance -> {
-                                        final VectorReference vectorReference = vectorReferenceAndDistance.getVectorReference();
+                                        final VectorReference vectorReference = vectorReferenceAndDistance.vectorReference();
                                         if (!vectorReference.isCollapsed()) {
                                             return MoreAsyncUtil.mapToIterable(vectorReferenceAndDistance,
                                                     item -> CompletableFuture.completedFuture(vectorReferenceAndDistance));
                                         }
-                                        final UUID signature = StorageAdapter.signatureUuid(vectorReference.getVector());
+                                        final UUID signature = StorageAdapter.signatureUuid(vectorReference.vector());
                                         return AsyncUtil.mapIterable(
                                                 primitives.fetchCollapsedVectorIdsIterable(readTransaction, signature),
                                                 vectorId -> vectorReferenceAndDistance.withVectorReference(
@@ -551,7 +551,7 @@ public class Search {
                     final AsyncIterable<VectorReferenceAndDistance> filteredVectorReferenceAndDistancesIterable =
                             MoreAsyncUtil.filterIterable(getExecutor(), expandedVectorReferenceAndDistancesIterable,
                                     vectorReferenceAndDistance -> {
-                                        final int distanceComparison = Double.compare(vectorReferenceAndDistance.getDistance(), minimumRadius);
+                                        final int distanceComparison = Double.compare(vectorReferenceAndDistance.distance(), minimumRadius);
                                         if (distanceComparison != 0) {
                                             return distanceComparison > 0; // keep the ones that are bigger than minimum radius
                                         }
@@ -559,7 +559,7 @@ public class Search {
                                             return true;
                                         }
                                         final int tupleComparison =
-                                                Objects.compare(vectorReferenceAndDistance.getVectorReference().getId().getPrimaryKey(),
+                                                Objects.compare(vectorReferenceAndDistance.vectorReference().id().getPrimaryKey(),
                                                         minimumPrimaryKey, Comparator.naturalOrder());
                                         return tupleComparison > 0;
                                     });
@@ -574,7 +574,7 @@ public class Search {
                             MoreAsyncUtil.filterIterablePipelined(getExecutor(), almostSortedVectorReferencesIterable,
                                     vectorReferenceAndDistance -> {
                                         final VectorId vectorReferenceId =
-                                                vectorReferenceAndDistance.getVectorReference().getId();
+                                                vectorReferenceAndDistance.vectorReference().id();
                                         final CompletableFuture<VectorMetadata> vectorMetadataFuture =
                                                 primaryKeyToVectorMetadataUuidFutureMap.computeIfAbsent(
                                                         vectorReferenceId.getPrimaryKey(),
@@ -588,8 +588,8 @@ public class Search {
                     final AsyncIterable<VectorReferenceAndDistance> dedupedVectorReferenceAndDistancesIterable =
                             MoreAsyncUtil.filterIterable(getExecutor(), filteredByCurrentMetadataIterable,
                                     vectorReferenceAndDistance ->
-                                            seenPrimaryKeys.add(vectorReferenceAndDistance.getVectorReference()
-                                                    .getId().getPrimaryKey()));
+                                            seenPrimaryKeys.add(vectorReferenceAndDistance.vectorReference()
+                                                    .id().getPrimaryKey()));
 
                     final CompletableFuture<List<VectorReferenceAndDistance>> nearestKReferencesFuture =
                             AsyncUtil.collect(
@@ -599,8 +599,8 @@ public class Search {
                                             vectorReferenceAndDistance ->
                                                     new VectorReferenceAndDistance(
                                                             enrichVectorReference(primaryKeyToVectorMetadataUuidFutureMap,
-                                                                    vectorReferenceAndDistance.getVectorReference()),
-                                                            vectorReferenceAndDistance.getDistance())), getExecutor());
+                                                                    vectorReferenceAndDistance.vectorReference()),
+                                                            vectorReferenceAndDistance.distance())), getExecutor());
                     return nearestKReferencesFuture.thenApply(nearestKReferences ->
                             new SearchResult(accessInfo, storageTransform, nearestKReferences));
                 });
@@ -623,16 +623,16 @@ public class Search {
 
         for (int i = 0; i < nearestReferences.size(); i++) {
             final VectorReferenceAndDistance vectorReferenceAndDistance = nearestReferences.get(i);
-            final VectorReference vectorReference = vectorReferenceAndDistance.getVectorReference();
+            final VectorReference vectorReference = vectorReferenceAndDistance.vectorReference();
             @Nullable final RealVector reconstructedVector =
-                    includeVectors ? storageTransform.untransform(vectorReference.getVector()) : null;
+                    includeVectors ? storageTransform.untransform(vectorReference.vector()) : null;
 
-            final VectorId vectorId = vectorReference.getId();
+            final VectorId vectorId = vectorReference.id();
             @Nullable final Tuple additionalValues =
                     vectorId instanceof VectorMetadata ? ((VectorMetadata)vectorId).getAdditionalValues() : null;
             resultBuilder.add(
-                    new ResultEntry(vectorReference.getId().getPrimaryKey(),
-                            reconstructedVector, additionalValues, vectorReferenceAndDistance.getDistance(),
+                    new ResultEntry(vectorReference.id().getPrimaryKey(),
+                            reconstructedVector, additionalValues, vectorReferenceAndDistance.distance(),
                             i));
         }
         return resultBuilder.build();
@@ -653,12 +653,12 @@ public class Search {
 
                     return MoreAsyncUtil.forEach(centroids,
                                     centroid -> {
-                                        final UUID clusterId = StorageAdapter.clusterIdFromTuple(centroid.getPrimaryKey());
+                                        final UUID clusterId = StorageAdapter.clusterIdFromTuple(centroid.primaryKey());
                                         return primitives.fetchClusterMetadata(readTransaction, clusterId)
                                                 .thenCompose(clusterMetadata -> {
                                                     final Transformed<RealVector> transformedCentroid =
                                                             storageTransform.transform(
-                                                                    Objects.requireNonNull(centroid.getVector()));
+                                                                    Objects.requireNonNull(centroid.vector()));
                                                     return primitives.fetchCluster(readTransaction,
                                                             storageTransform, clusterId, transformedCentroid);
                                                 });
@@ -675,13 +675,13 @@ public class Search {
                                     final Map<Integer, Integer> wrongAssignmentsByRankMap = Maps.newHashMap();
                                     for (final VectorReference vectorReference : currentCluster.vectorReferences()) {
                                         if (vectorReference.isPrimaryCopy()) {
-                                            assignmentsMap.put(currentClusterId, vectorReference.getId().getPrimaryKey());
+                                            assignmentsMap.put(currentClusterId, vectorReference.id().getPrimaryKey());
                                             numAllPrimaryAssignments++;
                                             final TreeSet<ClusterMetadataWithDistance> trueClusterDistances =
                                                     new TreeSet<>(Comparator.comparing(ClusterMetadataWithDistance::distance));
                                             for (final Cluster cluster : clusters) {
                                                 final double distance =
-                                                        estimator.distance(cluster.centroid(), vectorReference.getVector());
+                                                        estimator.distance(cluster.centroid(), vectorReference.vector());
                                                 trueClusterDistances.add(
                                                         new ClusterMetadataWithDistance(cluster.clusterMetadata(),
                                                                 cluster.centroid(), distance));
@@ -761,12 +761,12 @@ public class Search {
 
                     return MoreAsyncUtil.forEach(centroids,
                                     centroid -> {
-                                        final UUID clusterId = StorageAdapter.clusterIdFromTuple(centroid.getPrimaryKey());
+                                        final UUID clusterId = StorageAdapter.clusterIdFromTuple(centroid.primaryKey());
                                         return primitives.fetchClusterMetadata(readTransaction, clusterId)
                                                 .thenApply(clusterMetadata -> {
                                                     final Transformed<RealVector> transformedCentroid =
                                                             storageTransform.transform(
-                                                                    Objects.requireNonNull(centroid.getVector()));
+                                                                    Objects.requireNonNull(centroid.vector()));
                                                     return new ClusterMetadataWithDistance(clusterMetadata,
                                                             transformedCentroid, 0.0d);
                                                 });
@@ -820,7 +820,7 @@ public class Search {
             almostSortedVectorReferencesIterable(@Nonnull final AsyncIterable<VectorReferenceAndDistance> iterable,
                                                  final int maxQueueSize, @Nonnull final Executor executor) {
         return MoreAsyncUtil.iterableOf(() -> new AlmostSortedAsyncIterator<>(iterable.iterator(),
-                        Comparator.comparing(VectorReferenceAndDistance::getDistance), maxQueueSize, executor),
+                        Comparator.comparing(VectorReferenceAndDistance::distance), maxQueueSize, executor),
                 executor);
     }
 
@@ -838,7 +838,7 @@ public class Search {
         final var vectorMetadata =
                 Objects.requireNonNull(
                         Objects.requireNonNull(
-                                        primaryKeyToVectorMetadataUuidFutureMap.get(vectorReference.getId().getPrimaryKey())).getNow(null));
+                                        primaryKeyToVectorMetadataUuidFutureMap.get(vectorReference.id().getPrimaryKey())).getNow(null));
         return vectorReference.withVectorId(vectorMetadata);
     }
 

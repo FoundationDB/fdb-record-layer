@@ -123,7 +123,7 @@ class InliningNode extends AbstractNode<NodeReferenceWithVector> {
 
     @Override
     public boolean isInliningNode() {
-        return false;
+        return true;
     }
 
     /**

@@ -91,7 +91,7 @@ class TestHelpers {
         final Path verticesFile = tempDir.resolve("vertices-" + prefix + "-" + layer + ".csv");
         try (final BufferedWriter verticesWriter = Files.newBufferedWriter(verticesFile)) {
             for (final ResultEntry result : results) {
-                verticesWriter.write(Long.toString(result.getPrimaryKey().getLong(0)));
+                verticesWriter.write(Long.toString(result.primaryKey().getLong(0)));
                 verticesWriter.newLine();
             }
         }
@@ -176,7 +176,7 @@ class TestHelpers {
                                   @Nonnull final HNSW hnsw,
                                   @Nonnull final List<PrimaryKeyAndVector> data,
                                   final int k) throws IOException {
-        final Metric metric = hnsw.getConfig().getMetric();
+        final Metric metric = hnsw.getConfig().metric();
         final Path siftSmallGroundTruthPath = Paths.get(".out/extracted/siftsmall/siftsmall_groundtruth.ivecs");
         final Path siftSmallQueryPath = Paths.get(".out/extracted/siftsmall/siftsmall_query.fvecs");
 
@@ -204,7 +204,7 @@ class TestHelpers {
 
                 int recallCount = 0;
                 for (final ResultEntry resultEntry : results) {
-                    final int primaryKeyIndex = (int)resultEntry.getPrimaryKey().getLong(0);
+                    final int primaryKeyIndex = (int)resultEntry.primaryKey().getLong(0);
 
                     //
                     // Assert that the original vector and the reconstructed vector are the same-ish vector
@@ -216,11 +216,11 @@ class TestHelpers {
                     final RealVector originalVector = data.get(primaryKeyIndex).getVector();
                     assertThat(originalVector).isNotNull();
                     final double distance = metric.distance(originalVector,
-                            Objects.requireNonNull(resultEntry.getVector()).toDoubleRealVector());
+                            Objects.requireNonNull(resultEntry.vector()).toDoubleRealVector());
                     assertThat(distance).isCloseTo(0.0d, within(30.0d));
 
                     logger.trace("retrieved result nodeId = {} at distance = {} ",
-                            primaryKeyIndex, resultEntry.getDistance());
+                            primaryKeyIndex, resultEntry.distance());
                     if (groundTruthIndices.contains(primaryKeyIndex)) {
                         recallCount ++;
                     }

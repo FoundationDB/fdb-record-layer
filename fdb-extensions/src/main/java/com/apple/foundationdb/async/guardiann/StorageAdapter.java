@@ -227,7 +227,7 @@ class StorageAdapter {
     private com.apple.foundationdb.async.hnsw.Config computeClusterCentroidHnswConfig() {
         final Config config = getConfig();
         return HNSW.newConfigBuilder()
-                .setMetric(config.getMetric())
+                .setMetric(config.metric())
                 .setUseInlining(false)
                 .setEfRepair(64)
                 .setExtendCandidates(false)
@@ -236,7 +236,7 @@ class StorageAdapter {
                 .setM(16)
                 .setMMax(24)
                 .setMMax0(32)
-                .build(config.getNumDimensions());
+                .build(config.numDimensions());
     }
 
     @Nonnull
@@ -249,8 +249,8 @@ class StorageAdapter {
 
     @Nonnull
     static Tuple tupleFromAccessInfo(@Nonnull final AccessInfo accessInfo) {
-        final RealVector centroid = accessInfo.getNegatedCentroid();
-        return Tuple.from(accessInfo.getRotatorSeed(),
+        final RealVector centroid = accessInfo.negatedCentroid();
+        return Tuple.from(accessInfo.rotatorSeed(),
                 centroid == null ? null : StorageHelpers.tupleFromVector(centroid));
     }
 
@@ -321,36 +321,36 @@ class StorageAdapter {
     static Tuple valueTupleFromClusterMetadata(@Nonnull final ClusterMetadata clusterMetadata) {
         return Tuple.from(clusterMetadata.id(),
                 clusterMetadata.numPrimaryUnderreplicatedVectors(), clusterMetadata.numReplicatedVectors(),
-                valueTupleFromRunningStandardDeviation(clusterMetadata.runningStandardDeviation()),
+                valueTupleFromRunningStats(clusterMetadata.runningStandardDeviation()),
                 clusterMetadata.getStatesCode());
     }
 
     @Nonnull
-    static RunningStandardDeviation runningStandardDeviationFromTuple(@Nonnull final Tuple valueTuple) {
-        return new RunningStandardDeviation(valueTuple.getLong(0), valueTuple.getDouble(1),
+    static RunningStats runningStandardDeviationFromTuple(@Nonnull final Tuple valueTuple) {
+        return new RunningStats(valueTuple.getLong(0), valueTuple.getDouble(1),
                 valueTuple.getDouble(2), valueTuple.getDouble(3));
     }
 
     @Nonnull
-    static Tuple valueTupleFromRunningStandardDeviation(@Nonnull final RunningStandardDeviation runningStandardDeviation) {
-        return Tuple.from(runningStandardDeviation.getNumElements(), runningStandardDeviation.getRunningMean(),
-                runningStandardDeviation.getRunningSumSquaredDeviations(),
-                runningStandardDeviation.getRunningMaxEver());
+    static Tuple valueTupleFromRunningStats(@Nonnull final RunningStats runningStandardDeviation) {
+        return Tuple.from(runningStandardDeviation.numElements(), runningStandardDeviation.runningMean(),
+                runningStandardDeviation.runningSumSquaredDeviations(),
+                runningStandardDeviation.runningMaxEver());
     }
 
     @Nonnull
-    static ClusterIdAndCentroid clusterIdAndCentroidFromTuple(@Nonnull final Config config,
-                                                              @Nonnull final StorageTransform storageTransform,
-                                                              @Nonnull final Tuple valueTuple) {
-        return new ClusterIdAndCentroid(valueTuple.getUUID(0),
+    static ClusterReference clusterReferenceFromTuple(@Nonnull final Config config,
+                                                      @Nonnull final StorageTransform storageTransform,
+                                                      @Nonnull final Tuple valueTuple) {
+        return new ClusterReference(valueTuple.getUUID(0),
                 storageTransform.transform(StorageHelpers.vectorFromBytes(config, valueTuple.getBytes(1))));
     }
 
     @Nonnull
-    static Tuple valueTupleFromClusterIdAndCentroid(@Nonnull final Quantizer quantizer,
-                                                    @Nonnull final ClusterIdAndCentroid clusterIdAndCentroid) {
-        return Tuple.from(clusterIdAndCentroid.clusterId(),
-                StorageHelpers.bytesFromVector(quantizer.encode(clusterIdAndCentroid.centroid())));
+    static Tuple valueTupleFromClusterReference(@Nonnull final Quantizer quantizer,
+                                                @Nonnull final ClusterReference clusterReference) {
+        return Tuple.from(clusterReference.clusterId(),
+                StorageHelpers.bytesFromVector(quantizer.encode(clusterReference.centroid())));
     }
 
     @Nonnull
@@ -373,12 +373,12 @@ class StorageAdapter {
     @Nonnull
     static Tuple valueTupleFromVectorReference(@Nonnull final Quantizer quantizer,
                                                @Nonnull final VectorReference vectorReference) {
-        final VectorId vectorId = vectorReference.getId();
-        final Transformed<RealVector> encodedVector = quantizer.encode(vectorReference.getVector());
+        final VectorId vectorId = vectorReference.id();
+        final Transformed<RealVector> encodedVector = quantizer.encode(vectorReference.vector());
         return Tuple.from(vectorId.getUuid(), vectorReference.isPrimaryCopy(),
                 vectorReference.isUnderreplicated(), vectorReference.isCollapsed(),
                 encodedVector.getUnderlyingVector().getRawData(),
-                vectorReference.isPrimaryCopy() ? null : vectorReference.getReplicationPriority());
+                vectorReference.isPrimaryCopy() ? null : vectorReference.replicationPriority());
     }
 
     @Nonnull

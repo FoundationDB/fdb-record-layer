@@ -182,7 +182,7 @@ public class BounceTask extends AbstractDeferredTask {
                                                         return AsyncUtil.DONE;
                                                     }
                                                     final Transformed<RealVector> transformedCentroid =
-                                                            storageTransform.transform(Objects.requireNonNull(resultEntry.getVector()));
+                                                            storageTransform.transform(Objects.requireNonNull(resultEntry.vector()));
 
                                                     final UUID taskId =
                                                             randomNormalPriorityTaskId(nestedRandom,

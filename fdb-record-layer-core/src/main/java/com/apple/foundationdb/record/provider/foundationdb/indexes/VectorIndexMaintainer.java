@@ -244,10 +244,10 @@ public class VectorIndexMaintainer extends StandardIndexMaintainer {
         if (prefixTuple != null) {
             keyItems.addAll(prefixTuple.getItems());
         }
-        keyItems.addAll(resultEntry.getPrimaryKey().getItems());
+        keyItems.addAll(resultEntry.primaryKey().getItems());
         final List<Object> valueItems = Lists.newArrayList();
-        final RealVector vector = resultEntry.getVector();
-        valueItems.add(vector == null ? null : resultEntry.getVector().getRawData());
+        final RealVector vector = resultEntry.vector();
+        valueItems.add(vector == null ? null : resultEntry.vector().getRawData());
         return new IndexEntry(state.index, Tuple.fromList(keyItems),
                 Tuple.fromList(valueItems));
     }
@@ -401,7 +401,7 @@ public class VectorIndexMaintainer extends StandardIndexMaintainer {
         // resources if the user didn't explicitly ask for it. If RaBitQ is not used, the vectors returned are identical
         // to their inserted counterparts. We also already fetched them, so returning them is free.
         //
-        return !config.isUseRaBitQ();
+        return !config.useRaBitQ();
     }
 
     static class OnRead implements OnReadListener {

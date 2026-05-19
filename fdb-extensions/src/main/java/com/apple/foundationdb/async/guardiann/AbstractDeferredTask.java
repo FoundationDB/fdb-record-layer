@@ -216,12 +216,12 @@ public abstract class AbstractDeferredTask {
     }
 
     @CanIgnoreReturnValue
-    static <T> RunningStandardDeviation
-            updateRunningStandardDeviationsMap(@Nonnull final Map<T, RunningStandardDeviation> map,
+    static <T> RunningStats
+            updateRunningStatssMap(@Nonnull final Map<T, RunningStats> map,
                                                @Nonnull final T key, final double distance) {
         return map.compute(key, (ignoredKey, old) -> {
             if (old == null) {
-                return RunningStandardDeviation.of(distance);
+                return RunningStats.of(distance);
             }
             return old.add(distance);
         });
@@ -241,7 +241,7 @@ public abstract class AbstractDeferredTask {
                                                         @Nonnull final List<VectorReference> newAssignments) {
         final ImmutableMap.Builder<Tuple, VectorReference> assignedByPrimaryKeyBuilder = ImmutableMap.builder();
         for (final VectorReference assignedVector : newAssignments) {
-            assignedByPrimaryKeyBuilder.put(assignedVector.getId().getPrimaryKey(), assignedVector);
+            assignedByPrimaryKeyBuilder.put(assignedVector.id().getPrimaryKey(), assignedVector);
         }
         final ImmutableMap<Tuple, VectorReference> assignedByPrimaryKey = assignedByPrimaryKeyBuilder.build();
 
@@ -249,12 +249,12 @@ public abstract class AbstractDeferredTask {
         final ImmutableList.Builder<VectorReference> toWriteBuilder = ImmutableList.builder();
 
         for (final VectorReference vectorReference : targetCluster.vectorReferences()) {
-            final Tuple primaryKey = vectorReference.getId().getPrimaryKey();
+            final Tuple primaryKey = vectorReference.id().getPrimaryKey();
             final VectorReference assignedVectorReference = assignedByPrimaryKey.get(primaryKey);
 
             if (assignedVectorReference != null) {
-                Verify.verify(assignedVectorReference.getId().getUuid()
-                        .equals(vectorReference.getId().getUuid()));
+                Verify.verify(assignedVectorReference.id().getUuid()
+                        .equals(vectorReference.id().getUuid()));
 
                 if (assignedVectorReference.isPrimaryCopy() != vectorReference.isPrimaryCopy() ||
                         assignedVectorReference.isUnderreplicated() != vectorReference.isUnderreplicated()) {
@@ -295,7 +295,7 @@ public abstract class AbstractDeferredTask {
                                                         @Nonnull final Map<UUID, ClusterMetadataWithDistance> candidateClusters) {
         final ImmutableListMultimap.Builder<UUID, ClusterMetadataWithDistance> invertedAssignmentsMapBuilder =
                 ImmutableListMultimap.builder();
-        final Map<UUID, RunningStandardDeviation> standardDeviationUpdates = Maps.newHashMap();
+        final Map<UUID, RunningStats> standardDeviationUpdates = Maps.newHashMap();
         for (final VectorReference vectorReference : vectorReferences) {
             if (!vectorReference.isPrimaryCopy()) {
                 continue;
@@ -305,7 +305,7 @@ public abstract class AbstractDeferredTask {
                     TopK.min(Comparator.comparing(ClusterMetadataWithDistance::distance), 32);
             for (final ClusterMetadataWithDistance clusterMetadataWithDistance : candidateClusters.values()) {
                 final double distance =
-                        estimator.distance(vectorReference.getVector(), clusterMetadataWithDistance.centroid());
+                        estimator.distance(vectorReference.vector(), clusterMetadataWithDistance.centroid());
                 nearestClusters.add(clusterMetadataWithDistance.withNewDistance(distance));
             }
 
@@ -313,12 +313,12 @@ public abstract class AbstractDeferredTask {
             Verify.verify(!sortedNearestClusters.isEmpty());
 
             final ClusterMetadataWithDistance primaryClusterMetadataWithDistance = sortedNearestClusters.get(0);
-            updateRunningStandardDeviationsMap(standardDeviationUpdates,
+            updateRunningStatssMap(standardDeviationUpdates,
                     primaryClusterMetadataWithDistance.clusterMetadata().id(),
                     primaryClusterMetadataWithDistance.distance());
 
             for (final ClusterMetadataWithDistance clusterMetadataWithDistance : sortedNearestClusters) {
-                invertedAssignmentsMapBuilder.put(vectorReference.getId().getUuid(),
+                invertedAssignmentsMapBuilder.put(vectorReference.id().getUuid(),
                         clusterMetadataWithDistance);
             }
         }
@@ -332,10 +332,10 @@ public abstract class AbstractDeferredTask {
      * @param target the mutable map to merge into
      * @param updates the updates to merge (as returned by {@link #computeNearestClusters})
      */
-    static void mergeStandardDeviationUpdates(@Nonnull final Map<UUID, RunningStandardDeviation> target,
-                                              @Nonnull final Map<UUID, RunningStandardDeviation> updates) {
-        for (final Map.Entry<UUID, RunningStandardDeviation> entry : updates.entrySet()) {
-            target.merge(entry.getKey(), entry.getValue(), RunningStandardDeviation::combine);
+    static void mergeStandardDeviationUpdates(@Nonnull final Map<UUID, RunningStats> target,
+                                              @Nonnull final Map<UUID, RunningStats> updates) {
+        for (final Map.Entry<UUID, RunningStats> entry : updates.entrySet()) {
+            target.merge(entry.getKey(), entry.getValue(), RunningStats::combine);
         }
     }
 
@@ -385,7 +385,7 @@ public abstract class AbstractDeferredTask {
     }
 
     record NearestClustersResult(@Nonnull ImmutableListMultimap<UUID, ClusterMetadataWithDistance> invertedAssignments,
-                                 @Nonnull Map<UUID, RunningStandardDeviation> standardDeviationUpdates) {
+                                 @Nonnull Map<UUID, RunningStats> standardDeviationUpdates) {
     }
 
     record Neighborhoods(@Nonnull List<ClusterMetadataWithDistance> innerNeighborhood,

@@ -29,7 +29,9 @@ import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 
 public class SplitMergeEvaluator {
     private static final Logger logger = LoggerFactory.getLogger(SplitMergeEvaluator.class);
@@ -49,7 +51,7 @@ public class SplitMergeEvaluator {
         final PartitionStats candidateStats = evaluatePartition(candidateVectors, vectorLens, candidate, parameters);
 
         final double relativeSseGain =
-                (currentStats.getSse() - candidateStats.getSse()) / Math.max(currentStats.getSse(), 1e-12);
+                (currentStats.sse() - candidateStats.sse()) / Math.max(currentStats.sse(), 1e-12);
 
         final double scoreGain;
         final String splitKind;
@@ -57,68 +59,68 @@ public class SplitMergeEvaluator {
             // For 1 -> 2, current separation/margins are undefined, so score only
             // from the candidate's absolute quality plus SSE gain.
             scoreGain =
-                    parameters.getAlphaSseGain() * relativeSseGain +
-                            parameters.getBetaSeparationGain() * candidateStats.getSeparation() -
-                            parameters.getGammaImbalancePenalty() * candidateStats.getImbalance() -
-                            parameters.getDeltaLowMarginPenalty() * candidateStats.getLowMarginRate();
+                    parameters.alphaSseGain() * relativeSseGain +
+                            parameters.betaSeparationGain() * candidateStats.separation() -
+                            parameters.gammaImbalancePenalty() * candidateStats.imbalance() -
+                            parameters.deltaLowMarginPenalty() * candidateStats.lowMarginRate();
             splitKind = "[1 → 2]";
         } else {
             // For 2 -> 3, compare candidate against current on routing-oriented metrics.
             double separationGain;
-            if (Double.isNaN(currentStats.getSeparation())) {
+            if (Double.isNaN(currentStats.separation())) {
                 separationGain = 0.0;
             } else {
-                separationGain = candidateStats.getSeparation() - currentStats.getSeparation();
+                separationGain = candidateStats.separation() - currentStats.separation();
             }
 
             double lowMarginPenalty =
-                    Math.max(0.0, candidateStats.getLowMarginRate() - currentStats.getLowMarginRate());
+                    Math.max(0.0, candidateStats.lowMarginRate() - currentStats.lowMarginRate());
 
             double imbalancePenalty =
-                    Math.max(0.0, candidateStats.getImbalance() - currentStats.getImbalance());
+                    Math.max(0.0, candidateStats.imbalance() - currentStats.imbalance());
 
             scoreGain =
-                    parameters.getAlphaSseGain() * relativeSseGain +
-                            parameters.getBetaSeparationGain() * separationGain -
-                            parameters.getGammaImbalancePenalty() * imbalancePenalty -
-                            parameters.getDeltaLowMarginPenalty() * lowMarginPenalty;
+                    parameters.alphaSseGain() * relativeSseGain +
+                            parameters.betaSeparationGain() * separationGain -
+                            parameters.gammaImbalancePenalty() * imbalancePenalty -
+                            parameters.deltaLowMarginPenalty() * lowMarginPenalty;
             splitKind = "[2 → 3]";
         }
 
         // Candidate-specific hard rejects
         if (candidate.k() == 2) {
-            if (candidateStats.getSmallestFrac() < parameters.getMinSmallestFracFor2()) {
+            if (candidateStats.smallestFrac() < parameters.minSmallestFracFor2()) {
                 return invalid(currentStats, candidateStats, relativeSseGain, scoreGain,
                         splitKind + " too imbalanced");
             }
         } else if (candidate.k() == 3) {
-            if (candidateStats.getSmallestFrac() < parameters.getMinSmallestFracFor3()) {
+            if (candidateStats.smallestFrac() < parameters.minSmallestFracFor3()) {
                 return invalid(currentStats, candidateStats, relativeSseGain, scoreGain,
                         splitKind + " has tiny child");
             }
-            if (candidateStats.getLargestFrac() > parameters.getMaxLargestFracFor3()) {
+            if (candidateStats.largestFrac() > parameters.maxLargestFracFor3()) {
                 return keepCurrent(currentStats, candidateStats, relativeSseGain, scoreGain,
                         splitKind + " largest child too large");
             }
         }
 
-        if (Double.isNaN(candidateStats.getSeparation()) ||
-                candidateStats.getSeparation() < parameters.getMinSeparation()) {
+        if (Double.isNaN(candidateStats.separation()) ||
+                candidateStats.separation() < parameters.minSeparation()) {
             return keepCurrent(currentStats, candidateStats, relativeSseGain, scoreGain,
                     splitKind + " candidate separation too low");
         }
 
-        if (candidateStats.getLowMarginRate() > parameters.getMaxLowMarginRate()) {
+        if (candidateStats.lowMarginRate() > parameters.maxLowMarginRate()) {
             return keepCurrent(currentStats, candidateStats, relativeSseGain, scoreGain,
                     splitKind + " candidate low-margin rate too high");
         }
 
-        if (relativeSseGain < parameters.getMinRelativeSseGain()) {
+        if (relativeSseGain < parameters.minRelativeSseGain()) {
             return keepCurrent(currentStats, candidateStats, relativeSseGain, scoreGain,
                     splitKind + " relative SSE gain too small");
         }
 
-        if (scoreGain < parameters.getMinScoreGain()) {
+        if (scoreGain < parameters.minScoreGain()) {
             return keepCurrent(currentStats, candidateStats, relativeSseGain, scoreGain,
                     splitKind + " overall gain too small");
         }
@@ -170,10 +172,10 @@ public class SplitMergeEvaluator {
         if (partition.k() <= 0) {
             throw new IllegalArgumentException("partition must have at least one centroid");
         }
-        if (partition.getAssignments().length != vectors.size()) {
+        if (partition.assignments().length != vectors.size()) {
             throw new IllegalArgumentException("assignment length mismatch");
         }
-        for (int a : partition.getAssignments()) {
+        for (int a : partition.assignments()) {
             if (a < 0 || a >= partition.k()) {
                 throw new IllegalArgumentException("invalid assignment: " + a);
             }
@@ -185,18 +187,17 @@ public class SplitMergeEvaluator {
                                                         @Nonnull final Lens<V, RealVector> vectorLens,
                                                         @Nonnull final Partition<?> partition,
                                                         @Nonnull final Parameters parameters) {
-        final Estimator estimator = parameters.getEstimator();
+        final Estimator estimator = parameters.estimator();
         final int n = vectors.size();
         final int k = partition.k();
 
         Preconditions.checkArgument(n > 0, "points must not be empty");
         Preconditions.checkArgument(k > 0, "partition must have at least one centroid");
-        Preconditions.checkArgument(partition.getAssignments().length == n,
+        Preconditions.checkArgument(partition.assignments().length == n,
                 "assignment length mismatch");
 
         int[] childSizes = new int[k];
-        @SuppressWarnings({"unchecked"})
-        final List<Double>[] childRadii = (List<Double>[])new ArrayList<?>[k];
+        @SuppressWarnings({"unchecked"}) final List<Double>[] childRadii = (List<Double>[])new ArrayList<?>[k];
         for (int i = 0; i < k; i++) {
             childRadii[i] = new ArrayList<>();
         }
@@ -267,7 +268,7 @@ public class SplitMergeEvaluator {
             }
         }
 
-        double target = (double) n / k;
+        double target = (double)n / k;
         double imbalance = 0.0;
         int minSize = Integer.MAX_VALUE;
         int maxSize = Integer.MIN_VALUE;
@@ -278,10 +279,10 @@ public class SplitMergeEvaluator {
             minSize = Math.min(minSize, sz);
             maxSize = Math.max(maxSize, sz);
         }
-        imbalance /= ((double) n * n);
+        imbalance /= ((double)n * n);
 
-        final double largestFrac = (double) maxSize / n;
-        final double smallestFrac = (double) minSize / n;
+        final double largestFrac = (double)maxSize / n;
+        final double smallestFrac = (double)minSize / n;
 
         double maxRadius95 = 0.0;
         for (int i = 0; i < k; i++) {
@@ -321,7 +322,7 @@ public class SplitMergeEvaluator {
                     lowMarginCount++;
                 }
             }
-            lowMarginRate = (double) lowMarginCount / (double) n;
+            lowMarginRate = (double)lowMarginCount / (double)n;
         }
 
         return new PartitionStats(k, sse, imbalance, separation, largestFrac, smallestFrac, maxRadius95, medianMargin,
@@ -331,35 +332,27 @@ public class SplitMergeEvaluator {
     @SuppressWarnings("SwitchStatementWithTooFewBranches")
     private static double computeLowMarginThreshold(@Nonnull final Parameters parameters,
                                                     final double overallP95) {
-        switch (parameters.estimator.getMetric()) {
-            case COSINE_METRIC:
-                return parameters.lowMarginThreshold > 0.0 ? parameters.lowMarginThreshold : 0.02;
-            default:
-                return parameters.lowMarginThreshold > 0.0 ? parameters.lowMarginThreshold : 0.05 * overallP95;
-        }
+        return switch (parameters.estimator.getMetric()) {
+            case COSINE_METRIC -> parameters.lowMarginThreshold > 0.0 ? parameters.lowMarginThreshold : 0.02;
+            default -> parameters.lowMarginThreshold > 0.0 ? parameters.lowMarginThreshold : 0.05 * overallP95;
+        };
     }
 
     private static double geometricDistance(@Nonnull final Estimator estimator, @Nonnull final RealVector a,
                                             @Nonnull final RealVector b) {
-        switch (estimator.getMetric()) {
-            case COSINE_METRIC:
-            case EUCLIDEAN_METRIC:
-                return estimator.distance(a, b);
-            default:
-                throw new UnsupportedOperationException("metric is not supported");
-        }
+        return switch (estimator.getMetric()) {
+            case COSINE_METRIC, EUCLIDEAN_METRIC -> estimator.distance(a, b);
+            default -> throw new UnsupportedOperationException("metric is not supported");
+        };
     }
 
     private static double distanceForSse(@Nonnull final Estimator estimator, @Nonnull final RealVector v,
                                          @Nonnull final RealVector c) {
-        switch (estimator.getMetric()) {
-            case COSINE_METRIC:
-                return 2.0d * estimator.distance(v, c);
-            case EUCLIDEAN_METRIC:
-                return v.subtract(c).l2SquaredNorm();
-            default:
-                throw new UnsupportedOperationException("metric is not supported");
-        }
+        return switch (estimator.getMetric()) {
+            case COSINE_METRIC -> 2.0d * estimator.distance(v, c);
+            case EUCLIDEAN_METRIC -> v.subtract(c).l2SquaredNorm();
+            default -> throw new UnsupportedOperationException("metric is not supported");
+        };
     }
 
     private static double percentile(@Nonnull final List<Double> values, double p) {
@@ -373,8 +366,8 @@ public class SplitMergeEvaluator {
         }
 
         final double rank = p * (copy.size() - 1);
-        final int lo = (int) Math.floor(rank);
-        final int hi = (int) Math.ceil(rank);
+        final int lo = (int)Math.floor(rank);
+        final int hi = (int)Math.ceil(rank);
         if (lo == hi) {
             return copy.get(lo);
         }
@@ -390,34 +383,24 @@ public class SplitMergeEvaluator {
     }
 
     /**
-     * A partition of the SAME point set passed to evaluateUpgrade(...).
-     * assignment[i] tells which centroid owns points.get(i).
-     * @param <V> type parameter of the vector type
+     * A partition of a point set into {@code k} clusters, as passed to
+     * {@link #evaluateUpgrade}. Each vector is assigned to exactly one centroid via the
+     * {@code assignments} array, where {@code assignments[i]} is the index into {@code centroids}
+     * that owns {@code vectors.get(i)}.
+     *
+     * @param <V> the type of the centroid representation
+     * @param centroids the cluster centroids (one per cluster, size determines {@code k})
+     * @param vectorLens lens for extracting a {@link RealVector} from a centroid of type {@code V}
+     * @param assignments per-vector cluster assignment; {@code assignments[i]} is the centroid index
+     *        for the i-th vector in the corresponding vector list
      */
-    public static final class Partition<V> {
-        @Nonnull
-        private final List<V> centroids;   // size k
-        @Nonnull
-        private final Lens<V, RealVector> vectorLens;
-        @Nonnull
-        private final int[] assignments;      // over the same vectors
-
-        public Partition(@Nonnull final List<V> centroids,
-                         @Nonnull final Lens<V, RealVector> vectorLens,
-                         @Nonnull final int[] assignment) {
-            this.centroids = centroids;
-            this.vectorLens = vectorLens;
-            this.assignments = assignment;
-        }
+    public record Partition<V>(@Nonnull List<V> centroids,
+                               @Nonnull Lens<V, RealVector> vectorLens,
+                               @Nonnull int[] assignments) {
 
         @Nonnull
         public RealVector getCentroid(final int index) {
             return vectorLens.getNonnull(centroids.get(index));
-        }
-
-        @Nonnull
-        public int[] getAssignments() {
-            return assignments;
         }
 
         public int getAssignment(final int index) {
@@ -428,83 +411,52 @@ public class SplitMergeEvaluator {
         public int k() {
             return centroids.size();
         }
+
+        @Override
+        public boolean equals(final Object o) {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            final Partition<?> that = (Partition<?>)o;
+            return Objects.equals(centroids, that.centroids) &&
+                    Objects.equals(vectorLens, that.vectorLens) &&
+                    Arrays.equals(assignments, that.assignments);
+        }
+
+        @Override
+        public int hashCode() {
+            int result = Objects.hash(centroids, vectorLens);
+            result = 31 * result + Arrays.hashCode(assignments);
+            return result;
+        }
     }
 
+    /**
+     * Quality statistics computed for a partitioning (current or candidate). Used by the evaluator to
+     * decide whether a candidate repartitioning improves upon the current layout.
+     *
+     * @param k number of clusters in this partitioning
+     * @param sse total sum of squared distances from each vector to its assigned centroid
+     * @param imbalance measure of how unevenly vectors are distributed across clusters (0 = perfectly balanced)
+     * @param separation average inter-centroid distance normalized by cluster radii; higher values indicate
+     *        better-separated clusters
+     * @param largestFrac fraction of all vectors assigned to the largest cluster
+     * @param smallestFrac fraction of all vectors assigned to the smallest cluster
+     * @param maxRadius95 95th percentile of assigned distances across all clusters; used as a scale reference
+     *        for margin thresholds
+     * @param medianMargin median assignment margin across all vectors; the margin is the difference between
+     *        a vector's distance to its second-nearest centroid and its nearest centroid
+     * @param p10Margin 10th percentile of assignment margins; low values indicate many vectors near cluster
+     *        boundaries
+     * @param lowMarginRate fraction of vectors whose assignment margin falls below the configured threshold
+     */
     @SuppressWarnings("checkstyle:MemberName")
-    public static final class PartitionStats {
-        private final int k;
-        private final double sse;
-        private final double imbalance;
-        private final double separation;
-        private final double largestFrac;
-        private final double smallestFrac;
-        private final double maxRadius95;
-        private final double medianMargin;
-        private final double p10Margin;
-        private final double lowMarginRate;
-
-        public PartitionStats(final int k,
-                              final double sse,
-                              final double imbalance,
-                              final double separation,
-                              final double largestFrac,
-                              final double smallestFrac,
-                              final double maxRadius95,
-                              final double medianMargin,
-                              final double p10Margin,
-                              final double lowMarginRate) {
-            this.k = k;
-            this.sse = sse;
-            this.imbalance = imbalance;
-            this.separation = separation;
-            this.largestFrac = largestFrac;
-            this.smallestFrac = smallestFrac;
-            this.maxRadius95 = maxRadius95;
-            this.medianMargin = medianMargin;
-            this.p10Margin = p10Margin;
-            this.lowMarginRate = lowMarginRate;
-        }
-
-        public int getK() {
-            return k;
-        }
-
-        public double getSse() {
-            return sse;
-        }
-
-        public double getImbalance() {
-            return imbalance;
-        }
-
-        public double getSeparation() {
-            return separation;
-        }
-
-        public double getLargestFrac() {
-            return largestFrac;
-        }
-
-        public double getSmallestFrac() {
-            return smallestFrac;
-        }
-
-        public double getMaxRadius95() {
-            return maxRadius95;
-        }
-
-        public double getMedianMargin() {
-            return medianMargin;
-        }
-
-        public double getP10Margin() {
-            return p10Margin;
-        }
-
-        public double getLowMarginRate() {
-            return lowMarginRate;
-        }
-
+    public record PartitionStats(int k, double sse, double imbalance, double separation, double largestFrac,
+                                 double smallestFrac, double maxRadius95, double medianMargin, double p10Margin,
+                                 double lowMarginRate) {
         public void log(@Nonnull final Logger logger, @Nonnull final String messagePrefix) {
             if (logger.isErrorEnabled()) {
                 logger.error("{} k={}, sse={}, imbalance={}, separation={}, largestFrac={}, smallestFrac={}" +
@@ -515,34 +467,37 @@ public class SplitMergeEvaluator {
         }
     }
 
-    public static final class Parameters {
-        @Nonnull
-        private final Estimator estimator;
-
-        // Candidate hard rejects
-        private final double minRelativeSseGain;
-        private final double minSeparation;
-        private final double maxLowMarginRate;
-
-        // Candidate size sanity
-        private final double minSmallestFracFor2; // when candidate k = 2
-        private final double minSmallestFracFor3; // when candidate k = 3
-        private final double maxLargestFracFor3;  // when candidate k = 3
-
-        // Margin threshold
-        // COSINE_NORMALIZED: if <= 0, default 0.02
-        // L2: if <= 0, use 5% of overall p95 assigned distance
-        private final double lowMarginThreshold;
-
-        // Score weights for comparing current vs candidate
-        private final double alphaSseGain;
-        private final double betaSeparationGain;
-        private final double gammaImbalancePenalty;
-        private final double deltaLowMarginPenalty;
-
-        // Candidate must beat current by at least this much
-        private final double minScoreGain;
-
+    /**
+     * Tuning parameters for the split/merge evaluator that control when a candidate repartitioning is
+     * accepted or rejected, and how the composite quality score is computed.
+     *
+     * @param estimator the distance estimator used for all distance computations
+     * @param minRelativeSseGain minimum relative SSE (sum of squared errors) improvement required;
+     * candidates with less improvement are rejected as not worth the disruption
+     * @param minSeparation minimum inter-cluster separation required; candidates whose clusters are
+     * too close together (poorly separated) are rejected
+     * @param maxLowMarginRate maximum fraction of vectors with low assignment margin; a high rate
+     * indicates many vectors are ambiguously placed near cluster boundaries
+     * @param minSmallestFracFor2 minimum fraction of vectors in the smallest cluster when the candidate
+     * has 2 clusters; prevents severely imbalanced 2-way splits
+     * @param minSmallestFracFor3 minimum fraction of vectors in the smallest cluster when the candidate
+     * has 3 clusters; more lenient than the 2-cluster threshold
+     * @param maxLargestFracFor3 maximum fraction of vectors in the largest cluster when the candidate
+     * has 3 clusters; prevents one cluster from dominating
+     * @param lowMarginThreshold distance threshold below which a vector's assignment margin is considered
+     * "low"; if non-positive, a metric-dependent default is used (0.02 for cosine, 5% of p95 for L2)
+     * @param alphaSseGain weight for the SSE gain component in the composite score
+     * @param betaSeparationGain weight for the separation gain component in the composite score
+     * @param gammaImbalancePenalty weight for the imbalance penalty in the composite score
+     * @param deltaLowMarginPenalty weight for the low-margin-rate penalty in the composite score
+     * @param minScoreGain minimum composite score improvement the candidate must achieve over the
+     * current partitioning to be accepted
+     */
+    public record Parameters(@Nonnull Estimator estimator, double minRelativeSseGain, double minSeparation,
+                             double maxLowMarginRate, double minSmallestFracFor2, double minSmallestFracFor3,
+                             double maxLargestFracFor3, double lowMarginThreshold, double alphaSseGain,
+                             double betaSeparationGain, double gammaImbalancePenalty, double deltaLowMarginPenalty,
+                             double minScoreGain) {
         public Parameters(@Nonnull final Estimator estimator) {
             this(estimator,
                     0.10d,
@@ -558,145 +513,24 @@ public class SplitMergeEvaluator {
                     0.75d,
                     0.05);
         }
-
-        public Parameters(@Nonnull final Estimator estimator, final double minRelativeSseGain, final double minSeparation,
-                          final double maxLowMarginRate, final double minSmallestFracFor2, final double minSmallestFracFor3,
-                          final double maxLargestFracFor3, final double lowMarginThreshold, final double alphaSseGain,
-                          final double betaSeparationGain, final double gammaImbalancePenalty,
-                          final double deltaLowMarginPenalty, final double minScoreGain) {
-            this.estimator = estimator;
-            this.minRelativeSseGain = minRelativeSseGain;
-            this.minSeparation = minSeparation;
-            this.maxLowMarginRate = maxLowMarginRate;
-            this.minSmallestFracFor2 = minSmallestFracFor2;
-            this.minSmallestFracFor3 = minSmallestFracFor3;
-            this.maxLargestFracFor3 = maxLargestFracFor3;
-            this.lowMarginThreshold = lowMarginThreshold;
-            this.alphaSseGain = alphaSseGain;
-            this.betaSeparationGain = betaSeparationGain;
-            this.gammaImbalancePenalty = gammaImbalancePenalty;
-            this.deltaLowMarginPenalty = deltaLowMarginPenalty;
-            this.minScoreGain = minScoreGain;
-        }
-
-        @Nonnull
-        public Estimator getEstimator() {
-            return estimator;
-        }
-
-        public double getMinRelativeSseGain() {
-            return minRelativeSseGain;
-        }
-
-        public double getMinSeparation() {
-            return minSeparation;
-        }
-
-        public double getMaxLowMarginRate() {
-            return maxLowMarginRate;
-        }
-
-        public double getMinSmallestFracFor2() {
-            return minSmallestFracFor2;
-        }
-
-        public double getMinSmallestFracFor3() {
-            return minSmallestFracFor3;
-        }
-
-        public double getMaxLargestFracFor3() {
-            return maxLargestFracFor3;
-        }
-
-        public double getLowMarginThreshold() {
-            return lowMarginThreshold;
-        }
-
-        public double getAlphaSseGain() {
-            return alphaSseGain;
-        }
-
-        public double getBetaSeparationGain() {
-            return betaSeparationGain;
-        }
-
-        public double getGammaImbalancePenalty() {
-            return gammaImbalancePenalty;
-        }
-
-        public double getDeltaLowMarginPenalty() {
-            return deltaLowMarginPenalty;
-        }
-
-        public double getMinScoreGain() {
-            return minScoreGain;
-        }
     }
 
-    public static final class UpgradeResult {
-        @Nonnull
-        private final Decision decision;
-        @Nonnull
-        private final PartitionStats currentStats;
-        @Nonnull
-        private final PartitionStats candidateStats;
-
-        private final double relativeSseGain;
-        private final double scoreGain;
-        private final String reason;
-
-        public UpgradeResult(@Nonnull final Decision decision,
-                             @Nonnull final PartitionStats currentStats,
-                             @Nonnull final PartitionStats candidateStats,
-                             final double relativeSseGain,
-                             final double scoreGain,
-                             final String reason) {
-            this.decision = decision;
-            this.currentStats = currentStats;
-            this.candidateStats = candidateStats;
-            this.relativeSseGain = relativeSseGain;
-            this.scoreGain = scoreGain;
-            this.reason = reason;
-        }
-
-        @Nonnull
-        public Decision getDecision() {
-            return decision;
-        }
-
-        @Nonnull
-        public PartitionStats getCurrentStats() {
-            return currentStats;
-        }
-
-        @Nonnull
-        public PartitionStats getCandidateStats() {
-            return candidateStats;
-        }
-
-        public double getRelativeSseGain() {
-            return relativeSseGain;
-        }
-
-        public double getScoreGain() {
-            return scoreGain;
-        }
-
-        public String getReason() {
-            return reason;
-        }
-
-        @Override
-        public String toString() {
-            return "UpgradeResult{" +
-                    "decision=" + decision +
-                    ", currentStats=" + currentStats +
-                    ", candidateStats=" + candidateStats +
-                    ", relativeSseGain=" + relativeSseGain +
-                    ", scoreGain=" + scoreGain +
-                    ", reason='" + reason + '\'' +
-                    '}';
-        }
+    /**
+     * The outcome of evaluating a candidate repartitioning against the current layout. Contains the
+     * decision (accept, keep current, or invalid), the statistics for both partitionings, and the
+     * computed quality metrics that led to the decision.
+     *
+     * @param decision the evaluator's decision for this candidate
+     * @param currentStats quality statistics of the current (existing) partitioning
+     * @param candidateStats quality statistics of the proposed candidate partitioning
+     * @param relativeSseGain relative improvement in SSE: {@code (currentSSE - candidateSSE) / currentSSE}
+     * @param scoreGain composite quality score difference between candidate and current
+     * @param reason human-readable explanation of why this decision was made
+     */
+    public record UpgradeResult(@Nonnull Decision decision, @Nonnull PartitionStats currentStats,
+                                @Nonnull PartitionStats candidateStats, double relativeSseGain, double scoreGain,
+                                String reason) {
     }
 }
+
 

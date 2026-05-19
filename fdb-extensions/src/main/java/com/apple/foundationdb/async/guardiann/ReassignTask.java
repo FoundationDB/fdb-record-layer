@@ -65,13 +65,13 @@ public class ReassignTask extends AbstractDeferredTask {
     @Nonnull
     private final Set<UUID> causeClusterIds;
     @Nonnull
-    private final List<ClusterIdAndCentroid> neighborhood;
+    private final List<ClusterReference> neighborhood;
 
     private ReassignTask(@Nonnull final Locator locator, @Nonnull final AccessInfo accessInfo,
                          @Nonnull final UUID taskId, @Nonnull final UUID targetClusterId,
                          @Nonnull final Transformed<RealVector> centroid,
                          @Nonnull final Set<UUID> causeClusterIds,
-                         @Nonnull final List<ClusterIdAndCentroid> neighborhood) {
+                         @Nonnull final List<ClusterReference> neighborhood) {
         super(locator, accessInfo, taskId, ImmutableSet.of(targetClusterId));
         this.centroid = centroid;
         this.causeClusterIds = ImmutableSet.copyOf(causeClusterIds);
@@ -89,7 +89,7 @@ public class ReassignTask extends AbstractDeferredTask {
     }
 
     @Nonnull
-    private List<ClusterIdAndCentroid> getNeighborhood() {
+    private List<ClusterReference> getNeighborhood() {
         return neighborhood;
     }
 
@@ -105,9 +105,9 @@ public class ReassignTask extends AbstractDeferredTask {
         final Transformed<RealVector> encodedVector = quantizer.encode(getCentroid());
 
         final ImmutableList.Builder<Object> neighborhoodTuplesBuilder = ImmutableList.builder();
-        for (final ClusterIdAndCentroid clusterMetadataWithDistance : getNeighborhood()) {
+        for (final ClusterReference clusterMetadataWithDistance : getNeighborhood()) {
             neighborhoodTuplesBuilder.add(
-                    StorageAdapter.valueTupleFromClusterIdAndCentroid(quantizer,
+                    StorageAdapter.valueTupleFromClusterReference(quantizer,
                             clusterMetadataWithDistance));
         }
 
@@ -175,13 +175,13 @@ public class ReassignTask extends AbstractDeferredTask {
         final int numOuterNeighborhood = config.reassignOuterNeighborhoodSize();
         final int numNeighborhood = numInnerNeighborhood + numOuterNeighborhood;
 
-        final List<ClusterIdAndCentroid> neighborhood = getNeighborhood();
+        final List<ClusterReference> neighborhood = getNeighborhood();
         if (neighborhood.isEmpty()) {
             return primitives.fetchNeighborhoodClusterMetadata(transaction, targetClusterMetadata,
                             targetClusterCentroid, storageTransform, numNeighborhood)
                     .thenAccept(fetchedNeighborhood -> {
                         final ReassignTask reassignTask = withHighPriorityAndNeighborhood(random,
-                                ClusterIdAndCentroid.fromClusterMetadataAndDistances(fetchedNeighborhood));
+                                ClusterReference.fromClusterMetadataAndDistances(fetchedNeighborhood));
                         reassignTask.writeDeferredTask(transaction);
                         if (logger.isTraceEnabled()) {
                             logger.trace("enqueuing high priority REASSIGN due to refetch of neighborhood; taskId={}; neighborhoodSize={}",
@@ -259,11 +259,11 @@ public class ReassignTask extends AbstractDeferredTask {
         // Initialize a map we need to use to keep track for the correct most up-to-date count, mean, and
         // standard deviations for distances.
         //
-        final Map<UUID, RunningStandardDeviation> standardDeviationsMap = Maps.newHashMap();
+        final Map<UUID, RunningStats> standardDeviationsMap = Maps.newHashMap();
         for (final Map.Entry<UUID, ClusterMetadataWithDistance> entry : clusterIdMetadataMap.entrySet()) {
             final UUID clusterId = entry.getKey();
             if (targetClusterId.equals(clusterId)) {
-                standardDeviationsMap.put(clusterId, RunningStandardDeviation.identity());
+                standardDeviationsMap.put(clusterId, RunningStats.identity());
             } else {
                 // Don't add the target as we re-add all vectors.
                 standardDeviationsMap.put(clusterId,
@@ -281,10 +281,10 @@ public class ReassignTask extends AbstractDeferredTask {
         final ImmutableListMultimap.Builder<UUID, VectorReference> assignmentBuilder =
                 ImmutableListMultimap.builder();
         final TopK<VectorReference> replicatedTopK =
-                TopK.max(Comparator.comparing(VectorReference::getReplicationPriority),
+                TopK.max(Comparator.comparing(VectorReference::replicationPriority),
                         config.replicatedClusterTarget());
 
-        RunningStandardDeviation replicationPriorityStandardDeviation = RunningStandardDeviation.identity();
+        RunningStats replicationPriorityStandardDeviation = RunningStats.identity();
         int numReplicated = 0;
         int numOccluded = 0;
         for (final VectorReference vectorReference : vectorReferences) {
@@ -294,7 +294,7 @@ public class ReassignTask extends AbstractDeferredTask {
             }
 
             final var nearestClusters =
-                    Objects.requireNonNull(invertedAssignmentsMap.get(vectorReference.getId().getUuid()));
+                    Objects.requireNonNull(invertedAssignmentsMap.get(vectorReference.id().getUuid()));
             Verify.verify(!nearestClusters.isEmpty());
             final ClusterMetadataWithDistance primaryCluster = Objects.requireNonNull(nearestClusters.get(0));
             final double distanceToPrimaryCentroid = primaryCluster.distance();
@@ -336,13 +336,13 @@ public class ReassignTask extends AbstractDeferredTask {
                     continue;
                 }
 
-                final RunningStandardDeviation updatedStandardDeviation =
+                final RunningStats updatedStandardDeviation =
                         Objects.requireNonNull(
                                 standardDeviationsMap.get(replicationCandidateClusterMetadata.id()));
 
                 final double replicationPriority =
                         StorageAdapter.replicationPriority(distance, distanceToPrimaryCentroid,
-                                Math.toIntExact(updatedStandardDeviation.getNumElements()),
+                                Math.toIntExact(updatedStandardDeviation.numElements()),
                                 updatedStandardDeviation.mean(),
                                 updatedStandardDeviation.populationStandardDeviation());
                 replicationPriorityStandardDeviation = replicationPriorityStandardDeviation.add(replicationPriority);
@@ -371,11 +371,11 @@ public class ReassignTask extends AbstractDeferredTask {
 
         if (logger.isTraceEnabled()) {
             logger.trace("replication priority num={}. mean={}, standard deviation={}, numReplicated={}, numOccluded={}, lowestReplicationPriority={}",
-                    replicationPriorityStandardDeviation.getNumElements(),
+                    replicationPriorityStandardDeviation.numElements(),
                     replicationPriorityStandardDeviation.mean(),
                     replicationPriorityStandardDeviation.populationStandardDeviation(),
                     numReplicated, numOccluded, replicatedTopK.worstElement()
-                            .map(VectorReference::getReplicationPriority).orElse(0.0d));
+                            .map(VectorReference::replicationPriority).orElse(0.0d));
         }
 
         return new Reassignment(clusterIdMetadataMap, assignmentBuilder.build(), standardDeviationsMap);
@@ -483,7 +483,7 @@ public class ReassignTask extends AbstractDeferredTask {
         final Primitives primitives = getLocator().primitives();
         final Map<UUID, ClusterMetadataWithDistance> clusterIdMetadataMap =
                 reassignment.clusterIdMetadataMap();
-        final Map<UUID, RunningStandardDeviation> updatedStandardDeviationsMap =
+        final Map<UUID, RunningStats> updatedStandardDeviationsMap =
                 reassignment.updatedStandardDeviationsMap();
 
         ClusterMetadata newTargetClusterMetadata = null;
@@ -495,7 +495,7 @@ public class ReassignTask extends AbstractDeferredTask {
             final int numPrimaryVectorsAdded = counters.numPrimaryVectorsAdded().getOrDefault(toBeWritten, 0);
             final int numPrimaryUnderreplicatedVectorsAdded = counters.numPrimaryUnderreplicatedVectorsAdded().getOrDefault(toBeWritten, 0);
             final int numReplicatedVectorsAdded = counters.numReplicatedVectorsAdded().getOrDefault(toBeWritten, 0);
-            final RunningStandardDeviation updatedStandardDeviation =
+            final RunningStats updatedStandardDeviation =
                     Objects.requireNonNull(updatedStandardDeviationsMap.get(toBeWritten));
 
             if (targetClusterMetadata.id().equals(clusterMetadata.id())) {
@@ -534,7 +534,7 @@ public class ReassignTask extends AbstractDeferredTask {
 
     @Nonnull
     private ReassignTask withHighPriorityAndNeighborhood(@Nonnull final SplittableRandom random,
-                                                         @Nonnull final List<ClusterIdAndCentroid> neighborhood) {
+                                                         @Nonnull final List<ClusterReference> neighborhood) {
         return ReassignTask.of(getLocator(), getAccessInfo(),
                 randomHighPriorityTaskId(random, getConfig().deterministicRandomness()), getTargetClusterId(),
                 getCentroid(), getCauseClusterIds(), neighborhood);
@@ -550,11 +550,11 @@ public class ReassignTask extends AbstractDeferredTask {
         final Transformed<RealVector> centroid = storageTransform.transform(
                 StorageHelpers.vectorFromBytes(locator.getConfig(), valueTuple.getBytes(2)));
         final Set<UUID> causeClusterIds = StorageAdapter.clusterIdsFromTuple(valueTuple.getNestedTuple(3));
-        final ImmutableList.Builder<ClusterIdAndCentroid> neighborhoodsBuilder = ImmutableList.builder();
+        final ImmutableList.Builder<ClusterReference> neighborhoodsBuilder = ImmutableList.builder();
         final Tuple neighborhoodsTuple = valueTuple.getNestedTuple(4);
         for (int i = 0; i < neighborhoodsTuple.size(); i ++) {
             final Tuple clusterMetadataWithDistanceTuple = neighborhoodsTuple.getNestedTuple(i);
-            neighborhoodsBuilder.add(StorageAdapter.clusterIdAndCentroidFromTuple(locator.getConfig(),
+            neighborhoodsBuilder.add(StorageAdapter.clusterReferenceFromTuple(locator.getConfig(),
                     storageTransform, clusterMetadataWithDistanceTuple));
         }
 
@@ -575,13 +575,13 @@ public class ReassignTask extends AbstractDeferredTask {
                            @Nonnull final UUID taskId, @Nonnull final UUID clusterId,
                            @Nonnull final Transformed<RealVector> centroid,
                            @Nonnull final Set<UUID> causeClusterIds,
-                           @Nonnull final List<ClusterIdAndCentroid> neighborhood) {
+                           @Nonnull final List<ClusterReference> neighborhood) {
         return new ReassignTask(locator, accessInfo, taskId, clusterId, centroid, causeClusterIds, neighborhood);
     }
 
     private record Reassignment(@Nonnull Map<UUID, ClusterMetadataWithDistance> clusterIdMetadataMap,
                                 @Nonnull ListMultimap<UUID, VectorReference> assignmentMultimap,
-                                @Nonnull Map<UUID, RunningStandardDeviation> updatedStandardDeviationsMap) {
+                                @Nonnull Map<UUID, RunningStats> updatedStandardDeviationsMap) {
     }
 
     private record WriteCounters(@Nonnull Map<UUID, Integer> numPrimaryVectorsAdded,

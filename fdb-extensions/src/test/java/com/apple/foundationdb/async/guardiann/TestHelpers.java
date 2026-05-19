@@ -58,6 +58,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -109,12 +110,12 @@ class TestHelpers {
             return loopFuture.thenApply(vignore -> data.build())
                     .whenComplete((result, error) -> {
                         if (error != null) {
-                            logger.trace("failed to insert batchSize={}", error);
+                            logger.trace("failed to insert batchSize={}", batchSize);
                         } else {
                             final long endTs = System.nanoTime();
                             logger.trace("inserted batchSize={} records={} starting at id={} took elapsedTime={}ms, readBytes={}",
                                     batchSize, result.size(), firstId, TimeUnit.NANOSECONDS.toMillis(endTs - beginTs),
-                                    onReadListener.getBytesReadByLayer());
+                                    onReadListener);
                         }
                         onWriteListener.popFrame();
                         onReadListener.popFrame();
@@ -202,12 +203,12 @@ class TestHelpers {
                     remainingBatch.subList(0, numInsertedInBatch).clear();
                 }
                 final long endTs = System.nanoTime();
-                final long totalBytesRead = onReadListener.getBytesReadByLayer().values().stream().mapToLong(x -> x).sum();
-                final long totalBytesWritten = onWriteListener.getBytesWrittenByLayer().values().stream().mapToLong(x -> x).sum();
+                final long bytesRead = onReadListener.getBytesRead();
+                final long bytesWritten = onWriteListener.getBytesWritten();
 
                 logger.info("inserted batchSize={} for a total of numRecords={} took elapsedTime={}ms, bytesRead={}, bytesWritten={}, taskCountByKind={}",
                         batchSize, i, TimeUnit.NANOSECONDS.toMillis(endTs - beginTs),
-                        totalBytesRead, totalBytesWritten, onWriteListener.getNumTasksEnqueuedByKind());
+                        bytesRead, bytesWritten, onWriteListener.getNumTasksEnqueuedByKind());
 
                 onWriteListener.popFrame();
                 onReadListener.popFrame();
@@ -311,14 +312,14 @@ class TestHelpers {
                                 48, 16, 1.50d, true, queryVector).join());
                 final long endTs = System.nanoTime();
                 logger.info("retrieved result in elapsedTimeMs={}, reading readBytes={}",
-                        TimeUnit.NANOSECONDS.toMillis(endTs - beginTs), onReadListener.getBytesReadByLayer());
+                        TimeUnit.NANOSECONDS.toMillis(endTs - beginTs), onReadListener.getBytesRead());
 
                 int recallCount = 0;
                 for (final ResultEntry resultEntry : results) {
-                    final int primaryKeyIndex = (int)resultEntry.getPrimaryKey().getLong(0);
+                    final int primaryKeyIndex = (int)resultEntry.primaryKey().getLong(0);
 
                     logger.trace("retrieved result nodeId = {} at distance = {} ",
-                            primaryKeyIndex, resultEntry.getDistance());
+                            primaryKeyIndex, resultEntry.distance());
                     if (groundTruthIndices.contains(primaryKeyIndex)) {
                         recallCount ++;
                     }
@@ -359,11 +360,9 @@ class TestHelpers {
         }
 
         @Override
-        public void onKeyValueWritten(final int layer, @Nonnull final byte[] key, @Nonnull final byte[] value) {
+        public void onKeyValueWritten(@Nonnull final byte[] key, @Nonnull final byte[] value) {
             for (final Frame frame : frames) {
-                frame.bytesWrittenByLayer()
-                        .compute(layer, (l, oldValue) -> (oldValue == null ? 0 : oldValue) +
-                                key.length + (value == null ? 0 : value.length));
+                frame.bytesWritten().addAndGet(key.length + value.length);
             }
         }
 
@@ -401,55 +400,49 @@ class TestHelpers {
         }
 
         @Nonnull
-        public Map<Integer, Long> getBytesWrittenByLayer() {
-            return Objects.requireNonNull(frames.peek()).bytesWrittenByLayer();
+        public Long getBytesWritten() {
+            return Objects.requireNonNull(frames.peek()).bytesWritten().get();
         }
 
         public void pushFrame() {
-            frames.push(new Frame(Maps.newConcurrentMap(), Maps.newConcurrentMap(), Maps.newConcurrentMap()));
+            frames.push(new Frame(new AtomicLong(0L), Maps.newConcurrentMap(), Maps.newConcurrentMap()));
         }
 
         public void popFrame() {
             frames.pop();
         }
 
-        private record Frame(@Nonnull Map<Integer, Long> bytesWrittenByLayer,
+        private record Frame(@Nonnull AtomicLong bytesWritten,
                              @Nonnull Map<AbstractDeferredTask.Kind, Integer> numTasksEnqueuedByKind,
-                             Map<AbstractDeferredTask.Kind, Integer> numTasksExecutedByKind) {
+                             @Nonnull Map<AbstractDeferredTask.Kind, Integer> numTasksExecutedByKind) {
         }
     }
 
     static class TestOnReadListener implements OnReadListener {
         @Nonnull
-        private final ArrayDeque<Frame> frames;
+        private final ArrayDeque<AtomicLong> frames;
 
         public TestOnReadListener() {
             this.frames = new ArrayDeque<>();
         }
 
-        @Nonnull
-        public Map<Integer, Long> getBytesReadByLayer() {
-            return Objects.requireNonNull(frames.peek()).bytesReadByLayer();
+        public long getBytesRead() {
+            return Objects.requireNonNull(frames.peek()).get();
         }
 
         @Override
-        public void onKeyValueRead(final int layer, @Nonnull final byte[] key, @Nullable final byte[] value) {
-            for (final Frame frame : frames) {
-                frame.bytesReadByLayer().compute(layer,
-                        (l, oldValue) -> (oldValue == null ? 0 : oldValue) +
-                                key.length + (value == null ? 0 : value.length));
+        public void onKeyValueRead(@Nonnull final byte[] key, @Nullable final byte[] value) {
+            for (final AtomicLong frame : frames) {
+                frame.addAndGet(key.length + (value == null ? 0 : value.length));
             }
         }
 
         public void pushFrame() {
-            frames.push(new Frame(Maps.newConcurrentMap()));
+            frames.push(new AtomicLong(0L));
         }
 
         public void popFrame() {
             frames.pop();
-        }
-
-        private record Frame(@Nonnull Map<Integer, Long> bytesReadByLayer) {
         }
     }
 }

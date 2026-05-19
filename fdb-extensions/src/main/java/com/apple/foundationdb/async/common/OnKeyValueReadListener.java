@@ -32,13 +32,11 @@ public interface OnKeyValueReadListener {
      * <p>
      * This method is typically called during a scan or iteration over data for each key/value pair.
      * The default implementation is a no-op and does nothing.
-     * @param layer the layer from which the key-value pair was read.
      * @param key the key that was read, guaranteed to be non-null.
      * @param value the value associated with the key, can be null if the key was not found
      */
     @SuppressWarnings("unused")
-    default void onKeyValueRead(int layer,
-                                @Nonnull byte[] key,
+    default void onKeyValueRead(@Nonnull byte[] key,
                                 @Nullable byte[] value) {
         // nothing
     }

@@ -226,14 +226,14 @@ public class IndexOptions {
 
     /**
      * HNSW-only: The metric that is used to determine distances between vectors. The default metric is
-     * {@link Config#DEFAULT_METRIC}. See {@link Config#getMetric()}.
+     * {@link Config#DEFAULT_METRIC}. See {@link Config#metric()}.
      */
     public static final String HNSW_METRIC = "hnswMetric";
 
     /**
      * HNSW-only: The number of dimensions used. All vectors must have exactly this number of dimensions. This option
      * must be set when interacting with a vector index as it there is no default.
-     * @see Config#getNumDimensions()
+     * @see Config#numDimensions()
      */
     public static final String HNSW_NUM_DIMENSIONS = "hnswNumDimensions";
 
@@ -344,7 +344,7 @@ public class IndexOptions {
     /**
      * HNSW-only: Indicator if we should RaBitQ quantization. See {@link com.apple.foundationdb.rabitq.RaBitQuantizer}
      * for more details. The default value is set to {@link Config#DEFAULT_USE_RABITQ}.
-     * @see Config#isUseRaBitQ()
+     * @see Config#useRaBitQ()
      */
     public static final String HNSW_USE_RABITQ = "hnswUseRaBitQ";
 
@@ -353,7 +353,7 @@ public class IndexOptions {
      * otherwise. If RaBitQ encoding is used, a vector is stored using roughly
      * {@code 25 + numDimensions * (numExBits + 1) / 8} bytes. The default value is set to
      * {@link Config#DEFAULT_RABITQ_NUM_EX_BITS}.
-     * @see Config#getRaBitQNumExBits()
+     * @see Config#raBitQNumExBits()
      */
     public static final String HNSW_RABITQ_NUM_EX_BITS = "hnswRaBitQNumExBits";
 

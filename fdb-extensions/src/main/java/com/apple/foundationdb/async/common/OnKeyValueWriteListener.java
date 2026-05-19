@@ -34,12 +34,11 @@ public interface OnKeyValueWriteListener {
      * This is a default method and its base implementation is a no-op. Implementors of the interface can override this
      * method to react to the deletion of a neighbor node, for example, to clean up related resources or update internal
      * state.
-     * @param layer the layer the data was written to
      * @param key the key
      * @param value the value.
      */
     @SuppressWarnings("unused")
-    default void onKeyValueWritten(final int layer, @Nonnull final byte[] key, @Nonnull final byte[] value) {
+    default void onKeyValueWritten(@Nonnull final byte[] key, @Nonnull final byte[] value) {
         // nothing
     }
 
@@ -49,11 +48,10 @@ public interface OnKeyValueWriteListener {
      * This is a default method and its base implementation is a no-op. Implementors of the interface can override this
      * method to react to the deletion of a neighbor node, for example, to clean up related resources or update internal
      * state.
-     * @param layer the layer index where the deletion occurred
      * @param key the key that was deleted
      */
     @SuppressWarnings("unused")
-    default void onKeyDeleted(final int layer, @Nonnull final byte[] key) {
+    default void onKeyDeleted(@Nonnull final byte[] key) {
         // nothing
     }
 
@@ -63,11 +61,10 @@ public interface OnKeyValueWriteListener {
      * This is a default method and its base implementation is a no-op. Implementors of the interface can override this
      * method to react to the deletion of a neighbor node, for example, to clean up related resources or update internal
      * state.
-     * @param layer the layer index where the deletion occurred
      * @param range the {@link Range} that was deleted
      */
     @SuppressWarnings("unused")
-    default void onRangeDeleted(final int layer, @Nonnull final Range range) {
+    default void onRangeDeleted(@Nonnull final Range range) {
         // nothing
     }
 }

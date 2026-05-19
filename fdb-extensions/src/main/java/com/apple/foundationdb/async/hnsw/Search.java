@@ -389,7 +389,7 @@ public class Search {
         final Queue<NodeReferenceWithDistance> candidates =
                 // This initial capacity is somewhat arbitrary as m is not necessarily a limit,
                 // but it gives us a number that is better than the default.
-                new PriorityQueue<>(getConfig().getM(), NodeReferenceWithDistance.comparator());
+                new PriorityQueue<>(getConfig().m(), NodeReferenceWithDistance.comparator());
         candidates.add(nodeReferenceWithDistance);
 
         return AsyncUtil.whileTrue(() -> {
@@ -530,7 +530,7 @@ public class Search {
                     final Queue<NodeReferenceWithDistance> candidates =
                             // This initial capacity is somewhat arbitrary as m is not necessarily a limit,
                             // but it gives us a number that is better than the default.
-                            new PriorityQueue<>(getConfig().getM(), NodeReferenceWithDistance.comparator());
+                            new PriorityQueue<>(getConfig().m(), NodeReferenceWithDistance.comparator());
                     candidates.addAll(refetchedNodeReferences);
                     final Set<Tuple> visited = Sets.newConcurrentHashSet(NodeReference.primaryKeys(refetchedNodeReferences));
                     final Queue<NodeReferenceWithDistance> nearestNeighbors =

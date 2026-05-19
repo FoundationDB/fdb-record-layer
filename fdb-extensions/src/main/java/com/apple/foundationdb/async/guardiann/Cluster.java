@@ -26,6 +26,16 @@ import com.apple.foundationdb.linear.Transformed;
 import javax.annotation.Nonnull;
 import java.util.List;
 
+/**
+ * Represents a fully materialized cluster: its metadata, its centroid in the transformed coordinate space,
+ * and the list of vector references it contains (both primary and replicated). Instances are created by
+ * fetching a cluster's metadata and vector references from storage, typically during split, merge, or
+ * reassign operations that need to inspect and repartition the cluster's contents.
+ *
+ * @param clusterMetadata the cluster's metadata (ID, vector counts, running standard deviation, state flags)
+ * @param centroid the cluster's centroid in the transformed coordinate space
+ * @param vectorReferences all vector references stored in this cluster (primary and replicated)
+ */
 record Cluster(@Nonnull ClusterMetadata clusterMetadata,
                @Nonnull Transformed<RealVector> centroid,
                @Nonnull List<VectorReference> vectorReferences) {

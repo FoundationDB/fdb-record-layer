@@ -1,5 +1,5 @@
 /*
- * BaseConfig.java
+ * VectorEncodingConfig.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -28,23 +28,23 @@ import javax.annotation.Nonnull;
  * TODO.
  */
 @SuppressWarnings("checkstyle:MemberName")
-public interface BaseConfig {
+public interface VectorEncodingConfig {
     /**
      * The metric that is used to determine distances between vectors.
      */
     @Nonnull
-    Metric getMetric();
+    Metric metric();
 
     /**
      * The number of dimensions used. All vectors must have exactly this number of dimensions.
      */
-    int getNumDimensions();
+    int numDimensions();
 
-    boolean isUseRaBitQ();
+    boolean useRaBitQ();
 
     /**
-     * Number of bits per dimensions iff {@link #isUseRaBitQ()} is set to {@code true}, ignored otherwise. If RaBitQ
+     * Number of bits per dimensions iff {@link #useRaBitQ()} is set to {@code true}, ignored otherwise. If RaBitQ
      * encoding is used, a vector is stored using roughly {@code 25 + numDimensions * (numExBits + 1) / 8} bytes.
      */
-    int getRaBitQNumExBits();
+    int raBitQNumExBits();
 }

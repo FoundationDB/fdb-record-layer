@@ -177,7 +177,7 @@ public class CollapseTask extends AbstractDeferredTask {
             //
             final UUID signature =
                     Iterables.getOnlyElement(
-                            vectorReferenceToVectorSignatureMap.get(vectorReference.getId().getUuid()));
+                            vectorReferenceToVectorSignatureMap.get(vectorReference.id().getUuid()));
 
             blackHoleMap.putIfAbsent(signature, vectorReference);
         }
@@ -187,9 +187,9 @@ public class CollapseTask extends AbstractDeferredTask {
         final ImmutableListMultimap.Builder<UUID, VectorId> collapsedAssignmentsMapBuilder =
                 ImmutableListMultimap.builder();
         final TopK<VectorReference> replicatedTopK =
-                TopK.max(Comparator.comparing(VectorReference::getReplicationPriority),
+                TopK.max(Comparator.comparing(VectorReference::replicationPriority),
                         config.replicatedClusterTarget());
-        RunningStandardDeviation standardDeviation = RunningStandardDeviation.identity();
+        RunningStats standardDeviation = RunningStats.identity();
 
         for (final VectorReference vectorReference : vectorReferences) {
             if (!vectorReference.isPrimaryCopy()) {
@@ -202,7 +202,7 @@ public class CollapseTask extends AbstractDeferredTask {
             }
 
             final double distanceToCentroid =
-                    estimator.distance(vectorReference.getVector(), targetClusterCentroid);
+                    estimator.distance(vectorReference.vector(), targetClusterCentroid);
 
             if (!vectorReference.isCollapsed()) {
                 //
@@ -210,7 +210,7 @@ public class CollapseTask extends AbstractDeferredTask {
                 //
                 final UUID signature =
                         Iterables.getOnlyElement(
-                                vectorReferenceToVectorSignatureMap.get(vectorReference.getId().getUuid()));
+                                vectorReferenceToVectorSignatureMap.get(vectorReference.id().getUuid()));
 
                 final ImmutableSet<UUID> identicalVectors = vectorSignatureToVectorUuidMap.get(signature);
                 if (identicalVectors.size() > getConfig().collapseMinDuplicates() && !blackHoleMap.containsKey(signature)) {
@@ -227,12 +227,12 @@ public class CollapseTask extends AbstractDeferredTask {
                     // add the collapsed reference to the regular assignments data structure
                     targetAssignmentBuilder.add(collapsedReference);
                     // add the vector id to the collapsed set
-                    collapsedAssignmentsMapBuilder.put(signature, vectorReference.getId());
+                    collapsedAssignmentsMapBuilder.put(signature, vectorReference.id());
                     continue;
                 }
 
                 if (blackHoleMap.containsKey(signature)) {
-                    collapsedAssignmentsMapBuilder.put(signature, vectorReference.getId());
+                    collapsedAssignmentsMapBuilder.put(signature, vectorReference.id());
                     continue;
                 }
             }
@@ -245,11 +245,11 @@ public class CollapseTask extends AbstractDeferredTask {
 
         if (logger.isTraceEnabled()) {
             logger.trace("collapsed num={}, mean={}, standard deviation={}, lowestReplicationPriority={}",
-                    standardDeviation.getNumElements(),
+                    standardDeviation.numElements(),
                     standardDeviation.mean(),
                     standardDeviation.populationStandardDeviation(),
                     replicatedTopK.worstElement()
-                            .map(VectorReference::getReplicationPriority).orElse(0.0d));
+                            .map(VectorReference::replicationPriority).orElse(0.0d));
         }
 
         return new CollapseAssignments(targetAssignmentBuilder.build(), standardDeviation,
@@ -276,13 +276,13 @@ public class CollapseTask extends AbstractDeferredTask {
         // to be added to the write list on top of the base delta.
         final ImmutableMap.Builder<Tuple, VectorReference> oldPrimaryKeysBuilder = ImmutableMap.builder();
         for (final VectorReference vectorReference : targetCluster.vectorReferences()) {
-            oldPrimaryKeysBuilder.put(vectorReference.getId().getPrimaryKey(), vectorReference);
+            oldPrimaryKeysBuilder.put(vectorReference.id().getPrimaryKey(), vectorReference);
         }
         final ImmutableMap<Tuple, VectorReference> oldPrimaryKeys = oldPrimaryKeysBuilder.build();
 
         final ImmutableList.Builder<VectorReference> additionalWritesBuilder = ImmutableList.builder();
         for (final VectorReference assignedVector : collapseAssignments.assignments()) {
-            if (!oldPrimaryKeys.containsKey(assignedVector.getId().getPrimaryKey())) {
+            if (!oldPrimaryKeys.containsKey(assignedVector.id().getPrimaryKey())) {
                 additionalWritesBuilder.add(assignedVector);
             }
         }
@@ -380,7 +380,7 @@ public class CollapseTask extends AbstractDeferredTask {
         final Primitives primitives = getLocator().primitives();
         final ClusterMetadata targetClusterMetadata = targetClusterMetadataWithDistance.clusterMetadata();
 
-        final RunningStandardDeviation updatedStandardDeviation =
+        final RunningStats updatedStandardDeviation =
                 collapseAssignments.updatedStandardDeviation();
 
         final EnumSet<ClusterMetadata.State> newStates = EnumSet.copyOf(targetClusterMetadata.states());
@@ -441,7 +441,7 @@ public class CollapseTask extends AbstractDeferredTask {
         final Map<UUID, Integer> countersMap = Maps.newHashMapWithExpectedSize(vectorReferences.size());
         for (final VectorReference vectorReference : vectorReferences) {
             if (vectorReference.isPrimaryCopy()) {
-                incrementCounter(countersMap, StorageAdapter.signatureUuid(vectorReference.getVector()));
+                incrementCounter(countersMap, StorageAdapter.signatureUuid(vectorReference.vector()));
             }
         }
 
@@ -453,7 +453,7 @@ public class CollapseTask extends AbstractDeferredTask {
         final ImmutableSetMultimap.Builder<UUID, UUID> resultMapBuilder = ImmutableSetMultimap.builder();
         for (final VectorReference vectorReference : vectorReferences) {
             if (vectorReference.isPrimaryCopy()) {
-                resultMapBuilder.put(vectorReference.getId().getUuid(), StorageAdapter.signatureUuid(vectorReference.getVector()));
+                resultMapBuilder.put(vectorReference.id().getUuid(), StorageAdapter.signatureUuid(vectorReference.vector()));
             }
         }
 
@@ -461,7 +461,7 @@ public class CollapseTask extends AbstractDeferredTask {
     }
 
     private record CollapseAssignments(@Nonnull List<VectorReference> assignments,
-                                       @Nonnull RunningStandardDeviation updatedStandardDeviation,
+                                       @Nonnull RunningStats updatedStandardDeviation,
                                        @Nonnull ListMultimap<UUID, VectorId> collapsedAssignmentsMap) {
     }
 }

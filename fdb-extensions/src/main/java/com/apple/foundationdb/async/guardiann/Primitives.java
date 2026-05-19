@@ -200,17 +200,17 @@ class Primitives {
                 new com.apple.foundationdb.async.hnsw.OnWriteListener() {
                     @Override
                     public void onKeyValueWritten(final int layer, @Nonnull final byte[] key, @Nonnull final byte[] value) {
-                        getOnWriteListener().onKeyValueWritten(layer, key, value);
+                        getOnWriteListener().onKeyValueWritten(key, value);
                     }
 
                     @Override
                     public void onKeyDeleted(final int layer, @Nonnull final byte[] key) {
-                        getOnWriteListener().onKeyDeleted(layer, key);
+                        getOnWriteListener().onKeyDeleted(key);
                     }
 
                     @Override
                     public void onRangeDeleted(final int layer, @Nonnull final Range range) {
-                        getOnWriteListener().onRangeDeleted(layer, range);
+                        getOnWriteListener().onRangeDeleted(range);
                     }
                 };
 
@@ -218,7 +218,7 @@ class Primitives {
                 new com.apple.foundationdb.async.hnsw.OnReadListener() {
                     @Override
                     public void onKeyValueRead(final int layer, @Nonnull final byte[] key, @Nullable final byte[] value) {
-                        getOnReadListener().onKeyValueRead(layer, key, value);
+                        getOnReadListener().onKeyValueRead(key, value);
                     }
                 };
 
@@ -227,7 +227,7 @@ class Primitives {
     }
 
     boolean isMetricNeedsNormalizedVectors() {
-        return getConfig().getMetric() == Metric.COSINE_METRIC;
+        return getConfig().metric() == Metric.COSINE_METRIC;
     }
 
     @Nonnull
@@ -236,8 +236,8 @@ class Primitives {
             return StorageTransform.identity();
         }
 
-        return storageTransform(accessInfo.getRotatorSeed(),
-                Objects.requireNonNull(accessInfo.getNegatedCentroid()),
+        return storageTransform(accessInfo.rotatorSeed(),
+                Objects.requireNonNull(accessInfo.negatedCentroid()),
                 isMetricNeedsNormalizedVectors());
     }
 
@@ -247,7 +247,7 @@ class Primitives {
                                       final boolean normalizeVectors) {
         final LinearOperator linearOperator =
                 rotatorSeed == null
-                ? null : new FhtKacRotator(rotatorSeed, getConfig().getNumDimensions(), 10);
+                ? null : new FhtKacRotator(rotatorSeed, getConfig().numDimensions(), 10);
 
         return new StorageTransform(linearOperator, negatedCentroid, normalizeVectors);
     }
@@ -255,13 +255,13 @@ class Primitives {
     @Nonnull
     Quantizer quantizer(@Nullable final AccessInfo accessInfo) {
         if (accessInfo == null || !accessInfo.canUseRaBitQ()) {
-            return Quantizer.noOpQuantizer(getConfig().getMetric());
+            return Quantizer.noOpQuantizer(getConfig().metric());
         }
 
         final Config config = getConfig();
-        return config.isUseRaBitQ()
-               ? new RaBitQuantizer(config.getMetric(), config.getRaBitQNumExBits())
-               : Quantizer.noOpQuantizer(config.getMetric());
+        return config.useRaBitQ()
+               ? new RaBitQuantizer(config.metric(), config.raBitQNumExBits())
+               : Quantizer.noOpQuantizer(config.metric());
     }
 
     @Nonnull
@@ -271,7 +271,7 @@ class Primitives {
 
         return readTransaction.get(key)
                 .thenApply(valueBytes -> {
-                    getOnReadListener().onKeyValueRead(-1, key, valueBytes);
+                    getOnReadListener().onKeyValueRead(key, valueBytes);
                     if (valueBytes == null) {
                         return null; // not a single vector in the index
                     }
@@ -285,7 +285,7 @@ class Primitives {
         final byte[] key = accessInfoSubspace.pack();
         final byte[] value = StorageAdapter.tupleFromAccessInfo(accessInfo).pack();
         transaction.set(key, value);
-        getOnWriteListener().onKeyValueWritten(-1, key, value);
+        getOnWriteListener().onKeyValueWritten(key, value);
     }
 
     @Nonnull
@@ -301,7 +301,7 @@ class Primitives {
 
         return readTransaction.get(key)
                 .thenApply(valueBytes -> {
-                    getOnReadListener().onKeyValueRead(-1, key, valueBytes);
+                    getOnReadListener().onKeyValueRead(key, valueBytes);
                     if (valueBytes == null) {
                         return null; // unable to find vector
                     }
@@ -315,7 +315,7 @@ class Primitives {
         final byte[] key = vectorMetadataSubspace.pack(vectorMetadata.getPrimaryKey());
         final byte[] value = StorageAdapter.valueTupleFromVectorMetadata(vectorMetadata).pack();
 
-        getOnWriteListener().onKeyValueWritten(-1, key, value);
+        getOnWriteListener().onKeyValueWritten(key, value);
         transaction.set(key, value);
     }
 
@@ -323,7 +323,7 @@ class Primitives {
                               @Nonnull final Tuple primaryKey) {
         final Subspace vectorMetadataSubspace = getVectorMetadataSubspace();
         final byte[] key = vectorMetadataSubspace.pack(primaryKey);
-        getLocator().getOnWriteListener().onKeyDeleted(-1, key);
+        getLocator().getOnWriteListener().onKeyDeleted(key);
         transaction.clear(key);
     }
 
@@ -377,7 +377,7 @@ class Primitives {
         final byte[] key = getClusterMetadataSubspace().pack(Tuple.from(clusterId));
         return readTransaction.get(key)
                 .thenApply(valueBytes -> {
-                    getOnReadListener().onKeyValueRead(-1, key, valueBytes);
+                    getOnReadListener().onKeyValueRead(key, valueBytes);
                     if (valueBytes == null) {
                         return null;
                     }
@@ -391,7 +391,7 @@ class Primitives {
         final byte[] key = clusterMetadataSubspace.pack(Tuple.from(clusterMetadata.id()));
         final byte[] value = StorageAdapter.valueTupleFromClusterMetadata(clusterMetadata).pack();
 
-        getOnWriteListener().onKeyValueWritten(-1, key, value);
+        getOnWriteListener().onKeyValueWritten(key, value);
         transaction.set(key, value);
     }
 
@@ -400,7 +400,7 @@ class Primitives {
         final Subspace clusterMetadataSubspace = getClusterMetadataSubspace();
         final byte[] key = clusterMetadataSubspace.pack(Tuple.from(clusterId));
 
-        getOnWriteListener().onKeyDeleted(-1, key);
+        getOnWriteListener().onKeyDeleted(key);
         transaction.clear(key);
     }
 
@@ -425,7 +425,7 @@ class Primitives {
                     final Tuple primaryKey = vectorReferencesSubspace.unpack(keyValue.getKey()).getNestedTuple(1);
                     final byte[] keyBytes = keyValue.getKey();
                     final byte[] valueBytes = keyValue.getValue();
-                    getOnReadListener().onKeyValueRead(-1, keyBytes, valueBytes);
+                    getOnReadListener().onKeyValueRead(keyBytes, valueBytes);
                     return StorageAdapter.vectorReferenceFromTuples(getConfig(), storageTransform,
                             primaryKey, Tuple.fromBytes(valueBytes));
                 });
@@ -441,7 +441,7 @@ class Primitives {
 
         return readTransaction.get(key)
                 .thenApply(valueBytes -> {
-                    getOnReadListener().onKeyValueRead(-1, key, valueBytes);
+                    getOnReadListener().onKeyValueRead(key, valueBytes);
                     if (valueBytes == null) {
                         return null;
                     }
@@ -464,10 +464,10 @@ class Primitives {
                               @Nonnull final UUID clusterId,
                               @Nonnull final VectorReference vectorReference) {
         final Subspace vectorReferencesSubspace = getVectorReferencesSubspace();
-        final byte[] key = vectorReferencesSubspace.pack(Tuple.from(clusterId, vectorReference.getId().getPrimaryKey()));
+        final byte[] key = vectorReferencesSubspace.pack(Tuple.from(clusterId, vectorReference.id().getPrimaryKey()));
         final byte[] value = StorageAdapter.valueTupleFromVectorReference(quantizer, vectorReference).pack();
 
-        getOnWriteListener().onKeyValueWritten(-1, key, value);
+        getOnWriteListener().onKeyValueWritten(key, value);
         transaction.set(key, value);
     }
 
@@ -477,7 +477,7 @@ class Primitives {
         final Subspace vectorReferencesSubspace = getVectorReferencesSubspace();
         final byte[] key = vectorReferencesSubspace.pack(Tuple.from(clusterId, primaryKey));
 
-        getOnWriteListener().onKeyDeleted(-1, key);
+        getOnWriteListener().onKeyDeleted(key);
         transaction.clear(key);
     }
 
@@ -487,7 +487,7 @@ class Primitives {
         final byte[] rangeKey = vectorReferencesSubspace.pack(Tuple.from(clusterId));
         final Range range = Range.startsWith(rangeKey);
 
-        getOnWriteListener().onRangeDeleted(-1, range);
+        getOnWriteListener().onRangeDeleted(range);
         transaction.clear(range);
     }
 
@@ -510,7 +510,7 @@ class Primitives {
                     final Tuple primaryKey = collapsedVectorIdsSubspace.unpack(keyValue.getKey()).getNestedTuple(1);
                     final byte[] keyBytes = keyValue.getKey();
                     final byte[] valueBytes = keyValue.getValue();
-                    getOnReadListener().onKeyValueRead(-1, keyBytes, valueBytes);
+                    getOnReadListener().onKeyValueRead(keyBytes, valueBytes);
                     return StorageAdapter.collapsedVectorIdFromValueTuple(primaryKey, Tuple.fromBytes(valueBytes));
                 });
     }
@@ -527,7 +527,7 @@ class Primitives {
                     final Tuple primaryKey = collapsedVectorIdsSubspace.unpack(keyValue.getKey()).getNestedTuple(1);
                     final byte[] keyBytes = keyValue.getKey();
                     final byte[] valueBytes = keyValue.getValue();
-                    getOnReadListener().onKeyValueRead(-1, keyBytes, valueBytes);
+                    getOnReadListener().onKeyValueRead(keyBytes, valueBytes);
                     return StorageAdapter.collapsedVectorIdFromValueTuple(primaryKey, Tuple.fromBytes(valueBytes));
                 });
     }
@@ -539,7 +539,7 @@ class Primitives {
         final byte[] key = collapsedVectorIdsSubspace.pack(Tuple.from(signature, vectorId.getPrimaryKey()));
         final byte[] value = StorageAdapter.valueTupleFromCollapsedVectorId(vectorId).pack();
 
-        getOnWriteListener().onKeyValueWritten(-1, key, value);
+        getOnWriteListener().onKeyValueWritten(key, value);
         transaction.set(key, value);
     }
 
@@ -549,7 +549,7 @@ class Primitives {
         final Subspace collapsedVectorIdsSubspace = getCollapsedVectorIdsSubspace();
         final byte[] key = collapsedVectorIdsSubspace.pack(Tuple.from(signature, primaryKey));
 
-        getOnWriteListener().onKeyDeleted(-1, key);
+        getOnWriteListener().onKeyDeleted(key);
         transaction.clear(key);
     }
 
@@ -594,7 +594,7 @@ class Primitives {
                         final Tuple valueTuple = Tuple.fromBytes(valueBytes);
                         deferredTasksBuilder.add(AbstractDeferredTask.newFromTuples(getLocator(), accessInfo,
                                 keyTuple, valueTuple));
-                        getOnReadListener().onKeyValueRead(-1, keyBytes, valueBytes);
+                        getOnReadListener().onKeyValueRead(keyBytes, valueBytes);
                     }
                     return deferredTasksBuilder.build();
                 });
@@ -617,7 +617,7 @@ class Primitives {
                     final Tuple valueTuple = Tuple.fromBytes(valueBytes);
                     final AbstractDeferredTask task =
                             AbstractDeferredTask.newFromTuples(getLocator(), accessInfo, keyTuple, valueTuple);
-                    getOnReadListener().onKeyValueRead(-1, keyBytes, valueBytes);
+                    getOnReadListener().onKeyValueRead(keyBytes, valueBytes);
                     return task;
                 });
     }
@@ -629,7 +629,7 @@ class Primitives {
         final byte[] key = tasksSubspace.pack(Tuple.from(taskId));
         final byte[] value = valueTuple.pack();
 
-        getOnWriteListener().onKeyValueWritten(-1, key, value);
+        getOnWriteListener().onKeyValueWritten(key, value);
         transaction.set(key, value);
     }
 
@@ -642,7 +642,7 @@ class Primitives {
                                                             final int numPrimaryVectorsAdded,
                                                             final int numPrimaryUnderreplicatedVectorsAdded,
                                                             final int numReplicatedVectorsAdded,
-                                                            @Nonnull final RunningStandardDeviation updatedStandardDeviation,
+                                                            @Nonnull final RunningStats updatedStandardDeviation,
                                                             @Nonnull final Set<UUID> causeClusterIds) {
         final Config config = getConfig();
         final UUID clusterId = clusterMetadata.id();
@@ -743,9 +743,9 @@ class Primitives {
                                         executor),
                                 numClusters, executor),
                         resultEntry -> {
-                            final UUID clusterId = StorageAdapter.clusterIdFromTuple(resultEntry.getPrimaryKey());
+                            final UUID clusterId = StorageAdapter.clusterIdFromTuple(resultEntry.primaryKey());
                             final Transformed<RealVector> transformedClusterCentroid =
-                                    storageTransform.transform(Objects.requireNonNull(resultEntry.getVector()));
+                                    storageTransform.transform(Objects.requireNonNull(resultEntry.vector()));
                             if (clusterId.equals(targetClusterMetadata.id())) {
                                 return CompletableFuture.completedFuture(new ClusterMetadataWithDistance(targetClusterMetadata,
                                         transformedClusterCentroid, 0.0d));
@@ -783,7 +783,7 @@ class Primitives {
         for (final Cluster cluster : clusters) {
             for (final VectorReference vectorReference : cluster.vectorReferences()) {
                 if (!discardReplicatedVectorReferences || vectorReference.isPrimaryCopy()) {
-                    vectorsByUuidMap.compute(vectorReference.getId().getUuid(),
+                    vectorsByUuidMap.compute(vectorReference.id().getUuid(),
                             (vectorUuid, oldVectorReference) -> {
                                 if (oldVectorReference == null) {
                                     return vectorReference;
@@ -799,7 +799,7 @@ class Primitives {
                                 }
                                 // both of them are replicated vector references -- take the one with the higher
                                 // replication priority
-                                return oldVectorReference.getReplicationPriority() > vectorReference.getReplicationPriority()
+                                return oldVectorReference.replicationPriority() > vectorReference.replicationPriority()
                                        ? oldVectorReference
                                        : vectorReference;
                             });
@@ -809,9 +809,9 @@ class Primitives {
 
         return forEach(vectorsByUuidMap.values(),
                 vectorReference ->
-                        primitives.fetchVectorMetadata(transaction, vectorReference.getId().getPrimaryKey())
+                        primitives.fetchVectorMetadata(transaction, vectorReference.id().getPrimaryKey())
                                 .thenApply(vectorMetadata ->
-                                        vectorReference.isCollapsed() || vectorMetadata.getUuid().equals(vectorReference.getId().getUuid())
+                                        vectorReference.isCollapsed() || vectorMetadata.getUuid().equals(vectorReference.id().getUuid())
                                         ? vectorReference : null),
                 10,
                 executor)

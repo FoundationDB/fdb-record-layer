@@ -147,7 +147,7 @@ public class DebugIndexTest implements BaseTest {
         //insertedData = TestHelpers.insertSIFTSmall(db, guardiann);
 //        TestHelpers.insertFirstRepeatedly(db, guardiann,
 //                "/Users/nseemann/downloads/embeddings-unified-model-1m-1.0.0.fvecs", 1000, 50);
-        //insertedData = TestHelpers.insertSIFT100k(db, guardiann, 100_000, 50);
+        insertedData = TestHelpers.insertSIFT100k(db, guardiann, 100_000, 50);
     }
 
     @Test
@@ -169,22 +169,22 @@ public class DebugIndexTest implements BaseTest {
         });
 
         final RealVector queryVector = findQuery(queriesFile, 795);
-        final List<ClusterInfo> clusterInfos = Lists.newArrayList();
+        final List<ClusterReferenceWithDistance> clusterReferenceWithDistances = Lists.newArrayList();
         for (final ResultEntry centroidEntry : centroidEntries) {
             final Transformed<RealVector> centroidVector =
-                    StorageTransform.identity().transform(Objects.requireNonNull(centroidEntry.getVector()));
-            final ClusterInfo clusterInfo =
-                    new ClusterInfo(new ClusterIdAndCentroid(centroidEntry.getPrimaryKey().getUUID(0),
+                    StorageTransform.identity().transform(Objects.requireNonNull(centroidEntry.vector()));
+            final ClusterReferenceWithDistance clusterReferenceWithDistance =
+                    new ClusterReferenceWithDistance(new ClusterReference(centroidEntry.primaryKey().getUUID(0),
                             centroidVector), Metric.COSINE_METRIC.distance(queryVector, centroidVector.getUnderlyingVector()));
-            clusterInfos.add(clusterInfo);
+            clusterReferenceWithDistances.add(clusterReferenceWithDistance);
         }
 
-        clusterInfos.sort(Comparator.comparing(ClusterInfo::getDistance));
+        clusterReferenceWithDistances.sort(Comparator.comparing(ClusterReferenceWithDistance::distance));
 
-        for (final ClusterInfo clusterInfo : clusterInfos) {
-            final UUID clusterId = clusterInfo.getClusterIdAndCentroid().clusterId();
+        for (final ClusterReferenceWithDistance clusterReferenceWithDistance : clusterReferenceWithDistances) {
+            final UUID clusterId = clusterReferenceWithDistance.clusterReference().clusterId();
             logger.info("cluster={}, distance={}, missingItems={}",
-                    clusterId, clusterInfo.getDistance(), result.get(clusterId));
+                    clusterId, clusterReferenceWithDistance.distance(), result.get(clusterId));
         }
 
         // Replace this with your actual vector lookup.
@@ -192,12 +192,12 @@ public class DebugIndexTest implements BaseTest {
 
         final List<ClusterData> clusters = new ArrayList<>();
 
-        for (final ClusterInfo clusterInfo : clusterInfos) {
+        for (final ClusterReferenceWithDistance clusterReferenceWithDistance : clusterReferenceWithDistances) {
             // Example cluster
             clusters.add(new ClusterData(
-                    clusterInfo.getClusterIdAndCentroid().clusterId(),
-                    clusterInfo.getClusterIdAndCentroid().centroid().getUnderlyingVector(),
-                    result.get(clusterInfo.getClusterIdAndCentroid().clusterId())
+                    clusterReferenceWithDistance.clusterReference().clusterId(),
+                    clusterReferenceWithDistance.clusterReference().centroid().getUnderlyingVector(),
+                    result.get(clusterReferenceWithDistance.clusterReference().clusterId())
                             .stream()
                             .map(tuple -> Math.toIntExact(tuple.getLong(0))).collect(Collectors.toList())));
         }
@@ -394,7 +394,7 @@ public class DebugIndexTest implements BaseTest {
                            final int queryIndex,
                            final int k) throws IOException {
 
-        final Metric metric = guardiann.getConfig().getMetric();
+        final Metric metric = guardiann.getConfig().metric();
         final Path siftQueryPath = Paths.get(queriesFile);
         final Path siftGroundTruthPath = Paths.get(groundTruthFile);
 
@@ -425,11 +425,11 @@ public class DebugIndexTest implements BaseTest {
                                 true, queryVector).join());
                 final long endTs = System.nanoTime();
                 logger.info("retrieved result in elapsedTimeMs={}, reading readBytes={}",
-                        TimeUnit.NANOSECONDS.toMillis(endTs - beginTs), onReadListener.getBytesReadByLayer());
+                        TimeUnit.NANOSECONDS.toMillis(endTs - beginTs), onReadListener.getBytesRead());
 
                 int recallCount = 0;
                 for (final ResultEntry resultEntry : results) {
-                    final int primaryKeyIndex = (int)resultEntry.getPrimaryKey().getLong(0);
+                    final int primaryKeyIndex = (int)resultEntry.primaryKey().getLong(0);
 
                     //
                     // Assert that the original vector and the reconstructed vector are the same-ish vector
@@ -441,7 +441,7 @@ public class DebugIndexTest implements BaseTest {
                     final RealVector originalVector = data.get(primaryKeyIndex).getVector();
                     assertThat(originalVector).isNotNull();
                     final double distance = metric.distance(originalVector,
-                            Objects.requireNonNull(resultEntry.getVector()).toDoubleRealVector());
+                            Objects.requireNonNull(resultEntry.vector()).toDoubleRealVector());
                     assertThat(distance).isCloseTo(0.0d, within(30.0d));
 
                     if (groundTruthIndices.contains(primaryKeyIndex)) {
@@ -1248,23 +1248,6 @@ public class DebugIndexTest implements BaseTest {
         }
     }
 
-    private static class ClusterInfo {
-        @Nonnull
-        private final ClusterIdAndCentroid clusterIdAndCentroid;
-        private final double distance;
-
-        public ClusterInfo(@Nonnull final ClusterIdAndCentroid clusterIdAndCentroid, final double distance) {
-            this.clusterIdAndCentroid = clusterIdAndCentroid;
-            this.distance = distance;
-        }
-
-        @Nonnull
-        public ClusterIdAndCentroid getClusterIdAndCentroid() {
-            return clusterIdAndCentroid;
-        }
-
-        public double getDistance() {
-            return distance;
-        }
+    private record ClusterReferenceWithDistance(@Nonnull ClusterReference clusterReference, double distance) {
     }
 }

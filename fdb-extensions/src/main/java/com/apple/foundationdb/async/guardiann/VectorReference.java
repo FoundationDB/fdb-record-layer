@@ -31,135 +31,145 @@ import javax.annotation.Nullable;
 import java.util.Objects;
 import java.util.UUID;
 
-class VectorReference {
+/**
+ * A reference to a vector stored within a cluster. Each cluster contains vector references for both
+ * its primary vectors (owned by this cluster) and replicated vectors (copies from neighboring clusters
+ * kept for search recall). A vector reference carries the vector data in the transformed coordinate
+ * space along with metadata describing its role in the cluster.
+ *
+ * <p>
+ * A vector reference can be in one of several states:
+ * <ul>
+ *   <li><b>Primary copy</b> — this cluster is the authoritative owner of the vector. The running
+ *       standard deviation in the cluster metadata accounts for this vector's distance to the centroid.</li>
+ *   <li><b>Primary underreplicated copy</b> — a primary copy whose replication to neighboring clusters
+ *       has not yet been completed. A reassign task will eventually propagate replicas.</li>
+ *   <li><b>Replicated copy</b> — a copy stored in a neighboring cluster for improved search recall.
+ *       Carries a {@code replicationPriority} score indicating how important this replica is.</li>
+ *   <li><b>Collapsed</b> — a representative for many identical vectors sharing the same content
+ *       signature. The individual vector IDs are stored separately in the collapsed vector IDs
+ *       subspace.</li>
+ * </ul>
+ *
+ * @param id the vector's identity (primary key + UUID)
+ * @param isPrimaryCopy whether this is the authoritative primary copy in this cluster
+ * @param isUnderreplicated whether this primary copy's replicas have not yet been propagated
+ * @param isCollapsed whether this reference represents a collapsed set of identical vectors
+ * @param vector the vector data in the transformed coordinate space
+ * @param replicationPriority the replication priority score (only meaningful for replicated copies;
+ *        {@code -1.0} for primary copies)
+ */
+record VectorReference(@Nonnull VectorId id, boolean isPrimaryCopy, boolean isUnderreplicated, boolean isCollapsed,
+                       @Nonnull Transformed<RealVector> vector, double replicationPriority) {
     private static final Lens<VectorReference, RealVector> VECTOR_LENS =
             new VectorReferenceVectorLens().compose(Transformed.underlyingLens());
 
-    @Nonnull
-    private final VectorId id;
-    private final boolean isPrimaryCopy;
-    private final boolean isUnderreplicated;
-    private final boolean isCollapsed;
-    @Nonnull
-    private final Transformed<RealVector> vector;
-    private final double replicationPriority;
-
-    public VectorReference(@Nonnull final VectorId id, final boolean isPrimaryCopy, final boolean isUnderreplicated,
-                           boolean isCollapsed, @Nonnull final Transformed<RealVector> vector,
-                           final double replicationPriority) {
+    VectorReference {
         Preconditions.checkArgument(isPrimaryCopy || !isUnderreplicated);
-        this.id = id;
-        this.isPrimaryCopy = isPrimaryCopy;
-        this.isUnderreplicated = isUnderreplicated;
-        this.isCollapsed = isCollapsed;
-        this.vector = vector;
-        this.replicationPriority = replicationPriority;
     }
 
-    @Nonnull
-    public VectorId getId() {
-        return id;
-    }
-
-    public boolean isPrimaryCopy() {
-        return isPrimaryCopy;
-    }
-
-    public boolean isUnderreplicated() {
-        return isUnderreplicated;
-    }
-
-    public boolean isCollapsed() {
-        return isCollapsed;
-    }
-
-    @Nonnull
-    public Transformed<RealVector> getVector() {
-        return vector;
-    }
-
-    public double getReplicationPriority() {
-        return replicationPriority;
-    }
-
+    /**
+     * Returns a copy of this reference with a different vector ID, or {@code this} if the ID is unchanged.
+     *
+     * @param newVectorId the new vector ID
+     * @return the updated vector reference
+     */
     @Nonnull
     public VectorReference withVectorId(final VectorId newVectorId) {
-        if (getId() == newVectorId) {
+        if (id() == newVectorId) {
             return this;
         }
         return new VectorReference(newVectorId, isPrimaryCopy(), isUnderreplicated(), isCollapsed(),
-                getVector(), getReplicationPriority());
+                vector(), replicationPriority());
     }
 
+    /**
+     * Returns a copy toggling between primary/replicated and underreplicated states. Resets the
+     * replication priority to {@code -1.0} when becoming a primary copy.
+     *
+     * @param isPrimaryCopy whether the result should be a primary copy
+     * @param isUnderreplicated whether the result should be marked as underreplicated
+     * @return the updated vector reference, or {@code this} if unchanged
+     */
     @Nonnull
     public VectorReference withPrimaryCopy(final boolean isPrimaryCopy, final boolean isUnderreplicated) {
         if (isPrimaryCopy() == isPrimaryCopy && isUnderreplicated() == isUnderreplicated) {
             return this;
         }
-        return new VectorReference(getId(), isPrimaryCopy, isUnderreplicated, isCollapsed(),
-                getVector(), isPrimaryCopy ? -1.0d : getReplicationPriority());
+        return new VectorReference(id(), isPrimaryCopy, isUnderreplicated, isCollapsed(),
+                vector(), isPrimaryCopy ? -1.0d : replicationPriority());
     }
 
+    /**
+     * Returns a copy with the vector data replaced, or {@code this} if the vector is unchanged.
+     *
+     * @param newVector the new vector data in the transformed coordinate space
+     * @return the updated vector reference
+     */
     @Nonnull
     public VectorReference withVector(final Transformed<RealVector> newVector) {
-        if (getVector() == newVector) {
+        if (vector() == newVector) {
             return this;
         }
-        return new VectorReference(getId(), isPrimaryCopy(), isUnderreplicated(), isCollapsed(), newVector,
-                getReplicationPriority());
+        return new VectorReference(id(), isPrimaryCopy(), isUnderreplicated(), isCollapsed(), newVector,
+                replicationPriority());
     }
 
+    /** Converts this reference to a non-underreplicated primary copy. */
     @Nonnull
     public VectorReference toPrimaryCopy() {
         return withPrimaryCopy(true, false);
     }
 
+    /**
+     * Converts this reference to a replicated copy with the given replication priority.
+     *
+     * @param newReplicationScore the replication priority score for the replica
+     * @return the replicated vector reference
+     */
     @Nonnull
     public VectorReference toReplicatedCopy(final double newReplicationScore) {
-        return new VectorReference(getId(), false, false, isCollapsed(), getVector(),
+        return new VectorReference(id(), false, false, isCollapsed(), vector(),
                 newReplicationScore);
     }
 
+    /** Converts this reference to an underreplicated primary copy. */
     @Nonnull
     public VectorReference toPrimaryUnderreplicatedCopy() {
         return withPrimaryCopy(true, true);
     }
 
+    /**
+     * Creates a collapsed version of this reference. The collapsed reference uses the signature as its
+     * primary key and is marked as collapsed. The individual vector IDs behind this collapsed reference
+     * are stored separately in the collapsed vector IDs subspace.
+     *
+     * @param signature the content signature (SHA-256 hash truncated to UUID) shared by all identical vectors
+     * @param vectorUuid the UUID assigned to the collapsed representative
+     * @return the collapsed vector reference
+     */
     @Nonnull
     public VectorReference toCollapsed(@Nonnull final UUID signature, @Nonnull final UUID vectorUuid) {
         return new VectorReference(new VectorId(Tuple.from(signature), vectorUuid), isPrimaryCopy(),
-                isUnderreplicated(), true, getVector(), getReplicationPriority());
+                isUnderreplicated(), true, vector(), replicationPriority());
     }
 
-    @Override
-    public boolean equals(final Object o) {
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-        final VectorReference that = (VectorReference)o;
-        return Objects.equals(getId(), that.getId()) &&
-                isPrimaryCopy() == that.isPrimaryCopy() &&
-                isUnderreplicated() == that.isUnderreplicated() &&
-                isCollapsed() == that.isCollapsed() &&
-                Objects.equals(getVector(), that.getVector()) &&
-                getReplicationPriority() == that.getReplicationPriority();
-    }
-
-    @Override
-    public int hashCode() {
-        return Objects.hash(getId(), isPrimaryCopy(), isUnderreplicated(), isCollapsed(), getVector(),
-                getReplicationPriority());
-    }
-
+    @Nonnull
     @Override
     public String toString() {
-        return "VR[" + getId() +
+        return "VR[" + id() +
                 ", isPrimaryCopy=" + isPrimaryCopy() +
                 ", isUnderreplicated=" + isUnderreplicated() +
                 ", isCollapsed=" + isCollapsed() +
-                ", replicationPriority=" + getReplicationPriority() + "]";
+                ", replicationPriority=" + replicationPriority() + "]";
     }
 
+    /**
+     * Returns a lens that extracts the underlying {@link RealVector} from a vector reference,
+     * composing the vector reference → transformed vector → raw vector lenses.
+     *
+     * @return the composed lens
+     */
     @Nonnull
     public static Lens<VectorReference, RealVector> vectorLens() {
         return VECTOR_LENS;
@@ -173,7 +183,7 @@ class VectorReference {
         @Nullable
         @Override
         public Transformed<RealVector> get(@Nonnull final VectorReference vectorReference) {
-            return vectorReference.getVector();
+            return vectorReference.vector();
         }
 
         @Nonnull

@@ -35,14 +35,60 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 
 /**
- * TODO.
+ * A transactional approximate nearest neighbor (ANN) vector structure built on top of FoundationDB.
+ * Guardiann organizes vectors into clusters, each represented by a centroid stored in an HNSW graph
+ * for fast centroid lookup, and maintains per-cluster metadata (vector counts, running statistics,
+ * replication state) to support incremental maintenance.
+ *
+ * <h2>Architecture</h2>
  * <p>
- * This class provides methods for building the graph ({@link #insert(Transaction, Tuple, RealVector, Tuple)})
- * and performing k-NN searches ({@link #kNearestNeighborsSearch(ReadTransaction, int, int, boolean, RealVector)}).
- * It is designed to be used with a transactional storage backend, managed via a {@link Subspace}.
+ * Vectors are partitioned into clusters. Each cluster stores a set of <em>primary</em> vector
+ * references (the authoritative copies) and <em>replicated</em> references (copies from neighboring
+ * clusters kept for improved search recall). Cluster centroids are indexed in an HNSW graph so that
+ * the nearest clusters to a query vector can be found efficiently.
+ * </p>
+ *
+ * <h2>Operations</h2>
+ * <ul>
+ *   <li><b>Insert</b> ({@link #insert}) — finds the nearest cluster(s) for a new vector, writes
+ *       primary and replicated references, and triggers deferred maintenance tasks (split/merge/reassign)
+ *       if cluster size invariants are violated.</li>
+ *   <li><b>Search</b> ({@link #kNearestNeighborsSearch}) — probes the nearest cluster centroids,
+ *       scans their vector references, and returns the top-k closest vectors. Supports distance-ratio
+ *       pruning and centroid-ball pruning via {@code maxEver} bounds.</li>
+ *   <li><b>Delete</b> ({@link #delete}) — locates and removes vector references from clusters,
+ *       updates metadata, and handles collapsed (deduplicated) vectors.</li>
+ * </ul>
+ *
+ * <h2>Maintenance</h2>
  * <p>
- * This class functions as the entry point for any interactions with the Guardiann data structure. It delegates to
- * the respective operations classes which implement the actual algorithms to maintain and to search the structure.
+ * Structural maintenance is performed lazily via deferred tasks that are executed piggy-backed on
+ * insert and delete operations:
+ * </p>
+ * <ul>
+ *   <li><b>Split/Merge</b> — when a cluster grows beyond {@link Config#primaryClusterMax()} or shrinks
+ *       below {@link Config#primaryClusterMin()}, a {@link SplitMergeTask} repartitions the affected
+ *       clusters using bounded k-means and updates the HNSW centroid index.</li>
+ *   <li><b>Reassign</b> — a {@link ReassignTask} recomputes vector assignments and replication for a
+ *       cluster, fixing underreplicated vectors and cleaning up excess replicas.</li>
+ *   <li><b>Collapse</b> — a {@link CollapseTask} detects large groups of identical vectors and replaces
+ *       them with a single collapsed representative to reduce storage.</li>
+ *   <li><b>Bounce</b> — a {@link BounceTask} coordinates execution order between dependent tasks,
+ *       ensuring prerequisite tasks complete before follow-up tasks are created.</li>
+ * </ul>
+ *
+ * <h2>Usage</h2>
+ * <p>
+ * This class is the primary entry point for interacting with the Guardiann vector structure. It
+ * delegates to specialized operation classes ({@link Insert}, {@link Search}, {@link Delete}) which
+ * implement the respective algorithms. All operations are asynchronous and designed for use within
+ * FoundationDB transactions.
+ * </p>
+ *
+ * @see Config
+ * @see Search
+ * @see Insert
+ * @see Delete
  */
 @API(API.Status.EXPERIMENTAL)
 public class Guardiann {
@@ -70,18 +116,16 @@ public class Guardiann {
     }
 
     /**
-     * Constructs a new Guardiann graph instance.
+     * Constructs a new Guardiann vector structure instance.
      * <p>
-     * This constructor initializes the Guardiann structure with the necessary components for storage,
-     * execution, configuration, and event handling. All parameters are mandatory and must not be null.
+     * Initializes the structure with the necessary components for storage, execution, configuration,
+     * and event handling. All parameters are mandatory and must not be null.
      *
-     * @param subspace the {@link Subspace} where the graph data is stored.
-     * @param executor the {@link Executor} service to use for concurrent operations.
-     * @param config the {@link Config} object containing Guardiann storage and algorithm parameters.
-     * @param onWriteListener a listener to be notified of write events on the graph.
-     * @param onReadListener a listener to be notified of read events on the graph.
-     *
-     * @throws NullPointerException if any of the parameters are {@code null}.
+     * @param subspace the {@link Subspace} where the vector structure data is stored
+     * @param executor the {@link Executor} service to use for concurrent operations
+     * @param config the {@link Config} object containing algorithm and storage parameters
+     * @param onWriteListener a listener to be notified of write events
+     * @param onReadListener a listener to be notified of read events
      */
     public Guardiann(@Nonnull final Subspace subspace,
                      @Nonnull final Executor executor,
@@ -194,23 +238,17 @@ public class Guardiann {
     }
 
     /**
-     * Inserts a new vector with its associated primary key into the structure.
+     * Inserts a new vector with its associated primary key into the vector structure.
      * <p>
-     * The method first determines a layer for the new node, called the {@code top layer}.
-     * It then traverses the graph from the entry point downwards, greedily searching for the nearest
-     * neighbors to the {@code newVector} at each layer. This search identifies the optimal
-     * connection points for the new node.
-     * <p>
-     * Once the nearest neighbors are found, the new node is linked into the graph structure at all
-     * layers up to its {@code top layer}. Special handling is included for inserting the
-     * first-ever node into the graph or when a new node's layer is higher than any existing node,
-     * which updates the graph's entry point. All operations are performed asynchronously.
+     * Finds the nearest cluster(s) for the new vector by querying the HNSW centroid index, writes a
+     * primary vector reference to the nearest cluster and replicated references to neighboring clusters
+     * based on replication priority scoring. Updates cluster metadata and enqueues deferred maintenance
+     * tasks (split, merge, reassign) if cluster size invariants are violated.
      *
      * @param transaction the {@link Transaction} context for all database operations
-     * @param newPrimaryKey the unique {@link Tuple} primary key for the new node being inserted
-     * @param newVector the {@link RealVector} data to be inserted into the graph
-     * @param additionalValues additional values to be associated with the new vector/record
-     *
+     * @param newPrimaryKey the unique {@link Tuple} primary key for the new vector being inserted
+     * @param newVector the {@link RealVector} data to be inserted
+     * @param additionalValues additional values to be associated with the new vector/record, or {@code null}
      * @return a {@link CompletableFuture} that completes when the insertion operation is finished
      */
     @Nonnull

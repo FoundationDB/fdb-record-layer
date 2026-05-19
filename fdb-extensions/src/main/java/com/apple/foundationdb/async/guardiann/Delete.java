@@ -150,10 +150,10 @@ public class Delete {
                                                 getExecutor()),
                                         resultEntry ->
                                                 primitives.fetchClusterMetadataWithDistance(transaction,
-                                                        StorageAdapter.clusterIdFromTuple(resultEntry.getPrimaryKey()),
+                                                        StorageAdapter.clusterIdFromTuple(resultEntry.primaryKey()),
                                                         storageTransform.transform(
-                                                                Objects.requireNonNull(resultEntry.getVector())),
-                                                        resultEntry.getDistance()),
+                                                                Objects.requireNonNull(resultEntry.vector())),
+                                                        resultEntry.distance()),
                                         1),
                                 config.deleteMaxCandidateClusters(),
                                 getExecutor()),
@@ -184,7 +184,7 @@ public class Delete {
 
                                 if (vectorReference.isPrimaryCopy()) {
                                     foundPrimary = true;
-                                    final RunningStandardDeviation updatedStandardDeviation =
+                                    final RunningStats updatedStandardDeviation =
                                             clusterMetadata.runningStandardDeviation().remove(
                                                     clusterMetadataWithDistance.distance());
 

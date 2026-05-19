@@ -222,13 +222,13 @@ public class Insert {
                             mapIterablePipelined(getExecutor(), clusterCentroidEntriesByDistanceIterable,
                                     resultEntry ->
                                             StorageAdapter.requireNonNull(primitives.fetchClusterMetadata(transaction,
-                                                            StorageAdapter.clusterIdFromTuple(resultEntry.getPrimaryKey())))
+                                                            StorageAdapter.clusterIdFromTuple(resultEntry.primaryKey())))
                                                     .thenApply(clusterMetadata -> {
                                                         final Transformed<RealVector> transformedCentroid =
-                                                                storageTransform.transform(Objects.requireNonNull(resultEntry.getVector()));
+                                                                storageTransform.transform(Objects.requireNonNull(resultEntry.vector()));
                                                         return new ClusterMetadataWithDistance(clusterMetadata,
                                                                         transformedCentroid,
-                                                                        resultEntry.getDistance());
+                                                                        resultEntry.distance());
                                                     }),
                                     1);
 
@@ -282,13 +282,13 @@ public class Insert {
 
                                         for (final ClusterMetadataWithDistance replicationCandidate : replicationCandidates) {
                                             final ClusterMetadata clusterMetadata = replicationCandidate.clusterMetadata();
-                                            final RunningStandardDeviation runningStandardDeviation =
+                                            final RunningStats runningStandardDeviation =
                                                     clusterMetadata.runningStandardDeviation();
                                             final UUID clusterId = clusterMetadata.id();
                                             final boolean isPrimaryCluster = clusterId.equals(primaryClusterIdAtomic.get());
 
                                             final double distance = replicationCandidate.distance();
-                                            final RunningStandardDeviation updatedStandardDeviation;
+                                            final RunningStats updatedStandardDeviation;
                                             if (isPrimaryCluster) {
                                                 primitives.writeVectorReference(transaction, quantizer, clusterId,
                                                         new VectorReference(newVectorMetadata,
@@ -348,15 +348,15 @@ public class Insert {
         final long rotatorSeed;
         final RealVector negatedCentroid;
 
-        if (config.isUseRaBitQ() &&
-                !config.getMetric().satisfiesPreservedUnderTranslation()) {
+        if (config.useRaBitQ() &&
+                !config.metric().satisfiesPreservedUnderTranslation()) {
             //
             // The metric does not preserve distances under translation of the vectors, but we are supposed to encode
             // the vectors using RaBitQ. There is no point in sampling the centroid as we cannot translate any vectors.
             // Instead, we use RaBitQ immediately under an identity translation.
             //
             rotatorSeed = random.nextLong();
-            negatedCentroid = DoubleRealVector.zeroVector(config.getNumDimensions());
+            negatedCentroid = DoubleRealVector.zeroVector(config.numDimensions());
         } else {
             rotatorSeed = -1L;
             negatedCentroid = null;
@@ -371,7 +371,7 @@ public class Insert {
         final UUID clusterId = RandomHelpers.randomUuid(config.deterministicRandomness());
         primitives.writeClusterMetadata(transaction,
                 new ClusterMetadata(clusterId, 0, 0,
-                        RunningStandardDeviation.identity(), EnumSet.noneOf(ClusterMetadata.State.class)));
+                        RunningStats.identity(), EnumSet.noneOf(ClusterMetadata.State.class)));
 
         return primitives.getClusterCentroidsHnsw()
                 .insert(transaction,
@@ -405,11 +405,11 @@ public class Insert {
                                                           @Nonnull final Transformed<RealVector> transformedNewVector) {
         final Config config = getConfig();
         final Subspace samplesSubspace = getSamplesSubspace();
-        if (config.isUseRaBitQ() &&
+        if (config.useRaBitQ() &&
                 !currentAccessInfo.canUseRaBitQ()) {
             final Primitives primitives = primitives();
             if (shouldSampleVector(random)) {
-                appendSampledVector(transaction, random, config.deterministicRandomness(),
+                appendSampledVector(transaction, config.deterministicRandomness(),
                         samplesSubspace, 1, transformedNewVector, getOnWriteListener());
             }
             if (shouldMaintainStats(random)) {
@@ -420,9 +420,9 @@ public class Insert {
                                     aggregateVectors(sampledVectors);
 
                             if (aggregatedSampledVector != null) {
-                                final int partialCount = aggregatedSampledVector.getPartialCount();
-                                final Transformed<RealVector> partialVector = aggregatedSampledVector.getPartialVector();
-                                appendSampledVector(transaction, random, config.deterministicRandomness(),
+                                final int partialCount = aggregatedSampledVector.partialCount();
+                                final Transformed<RealVector> partialVector = aggregatedSampledVector.partialVector();
+                                appendSampledVector(transaction, config.deterministicRandomness(),
                                         samplesSubspace, partialCount, partialVector, getOnWriteListener());
                                 if (logger.isTraceEnabled()) {
                                     logger.trace("updated stats with numVectors={}, partialCount={}, partialVector={}",
@@ -432,7 +432,7 @@ public class Insert {
                                 if (partialCount >= config.statsThreshold()) {
                                     final long rotatorSeed = random.nextLong();
                                     final FhtKacRotator rotator =
-                                            new FhtKacRotator(rotatorSeed, config.getNumDimensions(), 10);
+                                            new FhtKacRotator(rotatorSeed, config.numDimensions(), 10);
 
                                     final Transformed<RealVector> centroid =
                                             partialVector.multiply(-1.0d / partialCount);

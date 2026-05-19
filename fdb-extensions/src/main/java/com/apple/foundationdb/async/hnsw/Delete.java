@@ -261,7 +261,7 @@ class Delete {
                 (layer, nestedRandom) ->
                         deleteFromLayer(primitives().storageAdapterForLayer(layer), transaction, storageTransform,
                                 quantizer, nestedRandom, layer, primaryKey),
-                getConfig().getMaxNumConcurrentDeleteFromLayer(),
+                getConfig().maxNumConcurrentDeleteFromLayer(),
                 getExecutor());
     }
 
@@ -321,7 +321,7 @@ class Delete {
                                                 repairNeighbor(storageAdapter, transaction,
                                                         storageTransform, estimator, layer, neighborReference,
                                                         candidates, candidateChangeSetMap, nodeCache),
-                                        getConfig().getMaxNumConcurrentNeighborhoodFetches(), getExecutor())
+                                        getConfig().maxNumConcurrentNeighborhoodFetches(), getExecutor())
                                         .thenApply(ignored -> {
                                             final ImmutableMap.Builder<Tuple, NodeReferenceWithVector> candidateReferencesMapBuilder =
                                                     ImmutableMap.builder();
@@ -336,7 +336,7 @@ class Delete {
                             })
                             .thenCompose(candidateReferencesMap -> {
                                 final int currentMMax =
-                                        layer == 0 ? getConfig().getMMax0() : getConfig().getMMax();
+                                        layer == 0 ? getConfig().mMax0() : getConfig().mMax();
 
                                 //
                                 // If we previously went beyond the mMax/mMax0, we need to prune the neighbors.
@@ -363,7 +363,7 @@ class Delete {
                                                         return prunedCandidateChangeSet;
                                                     });
                                         },
-                                        getConfig().getMaxNumConcurrentNeighborhoodFetches(), getExecutor())
+                                        getConfig().maxNumConcurrentNeighborhoodFetches(), getExecutor())
                                         .thenApply(ignored -> candidateReferencesMap);
                             })
                             .thenApply(candidateReferencesMap -> {
@@ -569,7 +569,7 @@ class Delete {
                                      @Nonnull final Map<Tuple /* primaryKey */, NeighborsChangeSet<N>> neighborChangeSetMap,
                                      final Map<Tuple, AbstractNode<N>> nodeCache) {
         return primitives().selectCandidates(storageAdapter, transaction, storageTransform, estimator, candidates,
-                layer, getConfig().getM(), nodeCache)
+                layer, getConfig().m(), nodeCache)
                 .thenApply(selectedCandidates -> {
                     if (logger.isTraceEnabled()) {
                         final ImmutableList.Builder<String> candidateStringsBuilder = ImmutableList.builder();
@@ -657,7 +657,7 @@ class Delete {
         // Sample all the rest -- For the sampling rate, subtract the size of initialNodeKeys so that we get roughly
         // efRepair nodes.
         //
-        final double sampleRate = (double)(getConfig().getEfRepair() - initialNodeKeys.size()) / numberOfCandidates;
+        final double sampleRate = (double)(getConfig().efRepair() - initialNodeKeys.size()) / numberOfCandidates;
         if (sampleRate >= 1) {
             return true;
         }

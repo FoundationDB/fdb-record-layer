@@ -337,14 +337,14 @@ class OperationsTest implements BaseTest {
                 onWriteListener, onReadListener);
 
         final int k = 50;
-        final List<PrimaryKeyAndVector> insertedData = randomVectors(random, config.getNumDimensions(), size);
+        final List<PrimaryKeyAndVector> insertedData = randomVectors(random, config.numDimensions(), size);
 
         for (int i = 0; i < size;) {
             i += TestHelpers.basicInsertBatch(getDb(), hnsw, 100, i,
                     (tr, nextId) -> insertedData.get(Math.toIntExact(nextId))).size();
         }
 
-        final HalfRealVector queryVector = createRandomHalfVector(random, config.getNumDimensions());
+        final HalfRealVector queryVector = createRandomHalfVector(random, config.numDimensions());
 
         //
         // Attempt to mutate some records by updating them using the same primary keys but different random vectors.
@@ -355,7 +355,7 @@ class OperationsTest implements BaseTest {
             i += TestHelpers.basicInsertBatch(getDb(), hnsw, 100, 0,
                     (tr, ignored) -> {
                         final var primaryKey = CommonTestHelpers.createPrimaryKey(random.nextInt(1000));
-                        final HalfRealVector dataVector = createRandomHalfVector(random, config.getNumDimensions());
+                        final HalfRealVector dataVector = createRandomHalfVector(random, config.numDimensions());
                         return new PrimaryKeyAndVector(primaryKey, dataVector);
                     }).size();
         }
@@ -368,16 +368,16 @@ class OperationsTest implements BaseTest {
         final long endTs = System.nanoTime();
 
         final ImmutableSet<Tuple> trueNN =
-                orderedByDistances(config.getMetric(), insertedData, queryVector).stream()
+                orderedByDistances(config.metric(), insertedData, queryVector).stream()
                         .limit(k)
                         .map(PrimaryKeyVectorAndDistance::getPrimaryKey)
                         .collect(ImmutableSet.toImmutableSet());
 
         int recallCount = 0;
         for (ResultEntry resultEntry : results) {
-            logger.info("nodeId ={} at distance={}", resultEntry.getPrimaryKey().getLong(0),
-                    resultEntry.getDistance());
-            if (trueNN.contains(resultEntry.getPrimaryKey())) {
+            logger.info("nodeId ={} at distance={}", resultEntry.primaryKey().getLong(0),
+                    resultEntry.distance());
+            if (trueNN.contains(resultEntry.primaryKey())) {
                 recallCount++;
             }
         }
@@ -410,7 +410,7 @@ class OperationsTest implements BaseTest {
     @MethodSource("differentMetrics")
     void testBasicInsertRingSearch(final long seed, final Config config) throws ExecutionException, InterruptedException, TimeoutException {
         final Random random = new Random(seed);
-        final Metric metric = config.getMetric();
+        final Metric metric = config.metric();
         final int size = 1000;
         final TestOnWriteListener onWriteListener = new TestOnWriteListener();
         final TestOnReadListener onReadListener = new TestOnReadListener();
@@ -419,7 +419,7 @@ class OperationsTest implements BaseTest {
                 onWriteListener, onReadListener);
 
         final int k = 30;
-        final List<PrimaryKeyAndVector> insertedData = randomVectors(random, config.getNumDimensions(), size);
+        final List<PrimaryKeyAndVector> insertedData = randomVectors(random, config.numDimensions(), size);
 
         for (int i = 0; i < size;) {
             i += TestHelpers.basicInsertBatch(getDb(), hnsw, 100, i,
@@ -427,7 +427,7 @@ class OperationsTest implements BaseTest {
         }
 
         final double radius = 1d;
-        final HalfRealVector queryVector = createRandomHalfVector(random, config.getNumDimensions());
+        final HalfRealVector queryVector = createRandomHalfVector(random, config.numDimensions());
 
         onReadListener.reset();
         final long beginTs = System.nanoTime();
@@ -444,7 +444,7 @@ class OperationsTest implements BaseTest {
 
         int recallCount = 0;
         for (ResultEntry resultEntry : results) {
-            if (trueNN.contains(resultEntry.getPrimaryKey())) {
+            if (trueNN.contains(resultEntry.primaryKey())) {
                 recallCount++;
             }
         }
@@ -468,7 +468,7 @@ class OperationsTest implements BaseTest {
                 onWriteListener, onReadListener);
 
         final int k = 50;
-        final List<PrimaryKeyAndVector> insertedData = randomVectors(random, config.getNumDimensions(), size);
+        final List<PrimaryKeyAndVector> insertedData = randomVectors(random, config.numDimensions(), size);
 
         for (int i = 0; i < size;) {
             i += TestHelpers.basicInsertBatch(getDb(), hnsw, 100, i,
@@ -507,9 +507,9 @@ class OperationsTest implements BaseTest {
                     .collect(ImmutableList.toImmutableList());
 
             if (!remainingData.isEmpty()) {
-                final HalfRealVector queryVector = createRandomHalfVector(random, config.getNumDimensions());
+                final HalfRealVector queryVector = createRandomHalfVector(random, config.numDimensions());
                 final ImmutableSet<Tuple> trueNN =
-                        orderedByDistances(config.getMetric(), remainingData, queryVector).stream()
+                        orderedByDistances(config.metric(), remainingData, queryVector).stream()
                                 .limit(k)
                                 .map(PrimaryKeyVectorAndDistance::getPrimaryKey)
                                 .collect(ImmutableSet.toImmutableSet());
@@ -523,7 +523,7 @@ class OperationsTest implements BaseTest {
 
                 int recallCount = 0;
                 for (ResultEntry resultEntry : results) {
-                    if (trueNN.contains(resultEntry.getPrimaryKey())) {
+                    if (trueNN.contains(resultEntry.primaryKey())) {
                         recallCount++;
                     }
                 }
@@ -607,25 +607,25 @@ class OperationsTest implements BaseTest {
         int exactVectorCount = 0;
         int encodedVectorCount = 0;
         for (final ResultEntry resultEntry : results) {
-            if (trueNN.contains(resultEntry.getPrimaryKey())) {
+            if (trueNN.contains(resultEntry.primaryKey())) {
                 recallCount ++;
             }
 
             final RealVector originalVector =
-                    insertedData.get(Math.toIntExact(resultEntry.getPrimaryKey().getLong(0))).getVector();
+                    insertedData.get(Math.toIntExact(resultEntry.primaryKey().getLong(0))).getVector();
             assertThat(originalVector).isNotNull();
-            final RealVector fromDBVector = fromDBMap.get(resultEntry.getPrimaryKey());
+            final RealVector fromDBVector = fromDBMap.get(resultEntry.primaryKey());
             assertThat(fromDBVector).isNotNull();
             if (!(fromDBVector instanceof EncodedRealVector)) {
                 assertThat(originalVector).isEqualTo(fromDBVector);
                 exactVectorCount ++;
                 final double distance = metric.distance(originalVector,
-                        Objects.requireNonNull(resultEntry.getVector()));
+                        Objects.requireNonNull(resultEntry.vector()));
                 assertThat(distance).isCloseTo(0.0d, within(2E-12));
             } else {
                 encodedVectorCount ++;
                 final double distance = metric.distance(originalVector,
-                        Objects.requireNonNull(resultEntry.getVector()).toDoubleRealVector());
+                        Objects.requireNonNull(resultEntry.vector()).toDoubleRealVector());
                 assertThat(distance).isCloseTo(0.0d, within(20.0d));
             }
         }
@@ -647,7 +647,7 @@ class OperationsTest implements BaseTest {
         final HNSW hnsw = new HNSW(subspaceExtension.getSubspace(), TestExecutors.defaultThreadPool(), config,
                 onWriteListener, onReadListener);
 
-        final List<PrimaryKeyAndVector> insertedData = randomVectors(random, config.getNumDimensions(), size);
+        final List<PrimaryKeyAndVector> insertedData = randomVectors(random, config.numDimensions(), size);
 
         for (int i = 0; i < size;) {
             i += TestHelpers.basicInsertBatch(getDb(), hnsw, 100, i,
@@ -655,10 +655,10 @@ class OperationsTest implements BaseTest {
         }
 
         final int skip = 100;
-        final HalfRealVector queryVector = createRandomHalfVector(random, config.getNumDimensions());
+        final HalfRealVector queryVector = createRandomHalfVector(random, config.numDimensions());
 
         final NavigableSet<PrimaryKeyVectorAndDistance> orderedByDistances =
-                CommonTestHelpers.orderedByDistances(config.getMetric(), insertedData, queryVector);
+                CommonTestHelpers.orderedByDistances(config.metric(), insertedData, queryVector);
         final PrimaryKeyVectorAndDistance discriminator = Iterables.get(orderedByDistances, skip - 1);
 
         onReadListener.reset();
@@ -680,7 +680,7 @@ class OperationsTest implements BaseTest {
             final ResultEntry previous = results.get(i - 1);
             final ResultEntry current = results.get(i);
 
-            if (previous.getDistance() > current.getDistance()) {
+            if (previous.distance() > current.distance()) {
                 numInversions++;
             }
         }
@@ -703,7 +703,7 @@ class OperationsTest implements BaseTest {
 
         final ImmutableSet<Tuple> resultIds =
                 results.stream()
-                        .map(ResultEntry::getPrimaryKey)
+                        .map(ResultEntry::primaryKey)
                         .collect(ImmutableSet.toImmutableSet());
 
         final Set<Tuple> commonIds = Sets.intersection(groundTruthExpected, resultIds);

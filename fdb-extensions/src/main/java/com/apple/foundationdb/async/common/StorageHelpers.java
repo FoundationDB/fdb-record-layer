@@ -40,7 +40,6 @@ import com.google.common.collect.ImmutableList;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
-import java.util.SplittableRandom;
 import java.util.concurrent.CompletableFuture;
 
 public final class StorageHelpers {
@@ -68,7 +67,7 @@ public final class StorageHelpers {
                         // this is done to not lock the entire range we just read but jst the keys we did read
                         transaction.addReadConflictKey(key);
                         transaction.clear(key);
-                        onReadListener.onKeyValueRead(-1, key, value);
+                        onReadListener.onKeyValueRead(key, value);
                     }
                     return resultBuilder.build();
                 });
@@ -80,14 +79,13 @@ public final class StorageHelpers {
         int partialCount = 0;
         for (final AggregatedVector vector : vectors) {
             partialVector = partialVector == null
-                            ? vector.getPartialVector() : partialVector.add(vector.getPartialVector());
-            partialCount += vector.getPartialCount();
+                            ? vector.partialVector() : partialVector.add(vector.partialVector());
+            partialCount += vector.partialCount();
         }
         return partialCount == 0 ? null : new AggregatedVector(partialCount, partialVector);
     }
 
     public static void appendSampledVector(@Nonnull final Transaction transaction,
-                                           @Nonnull final SplittableRandom random,
                                            final boolean deterministicRandomness,
                                            @Nonnull final Subspace prefixSubspace,
                                            final int partialCount,
@@ -99,7 +97,7 @@ public final class StorageHelpers {
         // getting underlying is okay as it is only written to the database
         final byte[] value = tupleFromVector(vector.getUnderlyingVector().toDoubleRealVector()).pack();
         transaction.set(prefixKey, value);
-        onWriteListener.onKeyValueWritten(-1, prefixKey, value);
+        onWriteListener.onKeyValueWritten(prefixKey, value);
     }
 
     public static void deleteAllSampledVectors(@Nonnull final Transaction transaction, @Nonnull final Subspace prefixSubspace,
@@ -107,7 +105,7 @@ public final class StorageHelpers {
         final byte[] prefixKey = prefixSubspace.pack();
         final Range range = Range.startsWith(prefixKey);
         transaction.clear(range);
-        onWriteListener.onRangeDeleted(-1, range);
+        onWriteListener.onRangeDeleted(range);
     }
 
     @Nonnull
@@ -154,7 +152,7 @@ public final class StorageHelpers {
      * Creates a {@link RealVector} from a given {@link Tuple}.
      * <p>
      * This method assumes the vector data is stored as a byte array at the first. position (index 0) of the tuple. It
-     * extracts this byte array and then delegates to the {@link #vectorFromBytes(BaseConfig, byte[])} method for the
+     * extracts this byte array and then delegates to the {@link #vectorFromBytes(VectorEncodingConfig, byte[])} method for the
      * actual conversion.
      * @param config an HNSW configuration
      * @param vectorTuple the tuple containing the vector data as a byte array at index 0. Must not be {@code null}.
@@ -162,7 +160,7 @@ public final class StorageHelpers {
      *         This method never returns {@code null}.
      */
     @Nonnull
-    public static RealVector vectorFromTuple(@Nonnull final BaseConfig config, @Nonnull final Tuple vectorTuple) {
+    public static RealVector vectorFromTuple(@Nonnull final VectorEncodingConfig config, @Nonnull final Tuple vectorTuple) {
         return vectorFromBytes(config, vectorTuple.getBytes(0));
     }
 
@@ -171,23 +169,19 @@ public final class StorageHelpers {
      * <p>
      * This method interprets the input byte array by interpreting the first byte of the array.
      * It the delegates to {@link RealVector#fromBytes(VectorType, byte[])}.
-     * @param config an HNSW config
+     * @param config a vector-encoding configuration
      * @param vectorBytes the non-null byte array to convert.
      * @return a new {@link RealVector} instance created from the byte array.
      */
     @Nonnull
-    public static RealVector vectorFromBytes(@Nonnull final BaseConfig config, @Nonnull final byte[] vectorBytes) {
+    public static RealVector vectorFromBytes(@Nonnull final VectorEncodingConfig config, @Nonnull final byte[] vectorBytes) {
         final byte vectorTypeOrdinal = vectorBytes[0];
-        switch (RealVector.fromVectorTypeOrdinal(vectorTypeOrdinal)) {
-            case RABITQ:
-                Verify.verify(config.isUseRaBitQ());
-                return EncodedRealVector.fromBytes(vectorBytes, config.getNumDimensions(), config.getRaBitQNumExBits());
-            case HALF:
-            case SINGLE:
-            case DOUBLE:
-                return RealVector.fromBytes(vectorBytes);
-            default:
-                throw new RuntimeException("unable to serialize vector");
-        }
+        return switch (RealVector.fromVectorTypeOrdinal(vectorTypeOrdinal)) {
+            case RABITQ -> {
+                Verify.verify(config.useRaBitQ());
+                yield EncodedRealVector.fromBytes(vectorBytes, config.numDimensions(), config.raBitQNumExBits());
+            }
+            case HALF, SINGLE, DOUBLE -> RealVector.fromBytes(vectorBytes);
+        };
     }
 }

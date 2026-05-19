@@ -21,64 +21,32 @@
 package com.apple.foundationdb.async.guardiann;
 
 import com.apple.foundationdb.async.common.StorageTransform;
+import com.apple.foundationdb.linear.AffineOperator;
+import com.apple.foundationdb.linear.FhtKacRotator;
 import com.apple.foundationdb.linear.RealVector;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.Objects;
 
 /**
- * Class to capture the current state of this GUARDIANN that cannot be expressed as metadata but that also is not the actual
+ * Class to capture the current state of this GUARDIANN that cannot be expressed as metadata but that also is not the
+ * actual
  * data that is inserted, organized and retrieved. For instance, any information that pertains to coordinate system
  * transformations that have to be carried out prior/posterior to inserting/retrieving an item into/from the structure.
+ *
+ * @param rotatorSeed A seed that can be used to reconstruct a random rotator {@link FhtKacRotator} used
+ * in ({@link StorageTransform}).
+ * @param negatedCentroid The negated centroid that is usually derived as an average over some vectors seen so far. It
+ * is used to create
+ * the {@link StorageTransform}. The centroid is stored in its negated form (i.e. {@code centroid * (-1)}) as the
+ * {@link AffineOperator} adds its translation vector but the centroid needs to be
+ * subtracted.
  */
-class AccessInfo {
-    /**
-     * A seed that can be used to reconstruct a random rotator {@link com.apple.foundationdb.linear.FhtKacRotator} used
-     * in ({@link StorageTransform}).
-     */
-    private final long rotatorSeed;
+record AccessInfo(long rotatorSeed, @Nullable RealVector negatedCentroid) {
 
-    /**
-     * The negated centroid that is usually derived as an average over some vectors seen so far. It is used to create
-     * the {@link StorageTransform}. The centroid is stored in its negated form (i.e. {@code centroid * (-1)}) as the
-     * {@link com.apple.foundationdb.linear.AffineOperator} adds its translation vector but the centroid needs to be
-     * subtracted.
-     */
-    @Nullable
-    private final RealVector negatedCentroid;
-
-    public AccessInfo(final long rotatorSeed, @Nullable final RealVector negatedCentroid) {
-        this.rotatorSeed = rotatorSeed;
-        this.negatedCentroid = negatedCentroid;
-    }
-
+    @SuppressWarnings("BooleanMethodIsAlwaysInverted")
     public boolean canUseRaBitQ() {
-        return getNegatedCentroid() != null;
-    }
-
-    public long getRotatorSeed() {
-        return rotatorSeed;
-    }
-
-    @Nullable
-    public RealVector getNegatedCentroid() {
-        return negatedCentroid;
-    }
-
-    @Override
-    public boolean equals(final Object o) {
-        if (!(o instanceof AccessInfo)) {
-            return false;
-        }
-        final AccessInfo that = (AccessInfo)o;
-        return rotatorSeed == that.rotatorSeed &&
-                Objects.equals(negatedCentroid, that.negatedCentroid);
-    }
-
-    @Override
-    public int hashCode() {
-        return Objects.hash(rotatorSeed, negatedCentroid);
+        return negatedCentroid() != null;
     }
 
     @Nonnull

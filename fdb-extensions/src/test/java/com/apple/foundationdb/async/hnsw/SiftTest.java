@@ -223,7 +223,7 @@ class SiftTest implements BaseTest {
             final ResultEntry previous = results.get(i - 1);
             final ResultEntry current = results.get(i);
 
-            if (previous.getDistance() > current.getDistance()) {
+            if (previous.distance() > current.distance()) {
                 numInversions++;
             }
         }
@@ -253,7 +253,7 @@ class SiftTest implements BaseTest {
 
         final ImmutableSet<Tuple> resultIds =
                 results.stream()
-                        .map(ResultEntry::getPrimaryKey)
+                        .map(ResultEntry::primaryKey)
                         .collect(ImmutableSet.toImmutableSet());
 
         final Set<Tuple> commonIds = Sets.intersection(groundTruthExpected, resultIds);

@@ -271,8 +271,8 @@ public class Insert {
         final StorageTransform storageTransform;
         final Quantizer quantizer;
         final RealVector negatedCentroid;
-        if (config.isUseRaBitQ() &&
-                !config.getMetric().satisfiesPreservedUnderTranslation()) {
+        if (config.useRaBitQ() &&
+                !config.metric().satisfiesPreservedUnderTranslation()) {
             //
             // The metric does not preserve distances under translation of the vectors, but we are supposed to encode
             // the vectors using RaBitQ. There is no point in sampling the centroid as we cannot translate any vectors.
@@ -281,12 +281,12 @@ public class Insert {
             rotatorSeed = random.nextLong();
             storageTransform = primitives.storageTransform(rotatorSeed, null,
                     primitives.isMetricNeedsNormalizedVectors());
-            quantizer = new RaBitQuantizer(config.getMetric(), config.getRaBitQNumExBits());
-            negatedCentroid = DoubleRealVector.zeroVector(config.getNumDimensions());
+            quantizer = new RaBitQuantizer(config.metric(), config.raBitQNumExBits());
+            negatedCentroid = DoubleRealVector.zeroVector(config.numDimensions());
         } else {
             rotatorSeed = -1L;
             storageTransform = StorageTransform.identity();
-            quantizer = Quantizer.noOpQuantizer(config.getMetric());
+            quantizer = Quantizer.noOpQuantizer(config.metric());
             negatedCentroid = null;
         }
 
@@ -329,10 +329,10 @@ public class Insert {
                                                           @Nonnull final SplittableRandom random,
                                                           @Nonnull final AccessInfo currentAccessInfo,
                                                           @Nonnull final Transformed<RealVector> transformedNewVector) {
-        if (getConfig().isUseRaBitQ() &&
+        if (getConfig().useRaBitQ() &&
                 !currentAccessInfo.canUseRaBitQ()) {
             if (shouldSampleVector(random)) {
-                appendSampledVector(transaction, random, false,
+                appendSampledVector(transaction, false,
                         getSamplesSubspace(), 1, transformedNewVector, getOnWriteListener());
             }
             if (shouldMaintainStats(random)) {
@@ -343,19 +343,19 @@ public class Insert {
                                     aggregateVectors(sampledVectors);
 
                             if (aggregatedSampledVector != null) {
-                                final int partialCount = aggregatedSampledVector.getPartialCount();
-                                final Transformed<RealVector> partialVector = aggregatedSampledVector.getPartialVector();
-                                appendSampledVector(transaction, random, false,
+                                final int partialCount = aggregatedSampledVector.partialCount();
+                                final Transformed<RealVector> partialVector = aggregatedSampledVector.partialVector();
+                                appendSampledVector(transaction, false,
                                         getSamplesSubspace(), partialCount, partialVector, getOnWriteListener());
                                 if (logger.isTraceEnabled()) {
                                     logger.trace("updated stats with numVectors={}, partialCount={}, partialVector={}",
                                             sampledVectors.size(), partialCount, partialVector);
                                 }
 
-                                if (partialCount >= getConfig().getStatsThreshold()) {
+                                if (partialCount >= getConfig().statsThreshold()) {
                                     final long rotatorSeed = random.nextLong();
                                     final FhtKacRotator rotator =
-                                            new FhtKacRotator(rotatorSeed, getConfig().getNumDimensions(), 10);
+                                            new FhtKacRotator(rotatorSeed, getConfig().numDimensions(), 10);
 
                                     final Transformed<RealVector> centroid =
                                             partialVector.multiply(-1.0d / partialCount);
@@ -504,14 +504,14 @@ public class Insert {
         final Estimator estimator = quantizer.estimator();
 
         return searcher().beamSearchLayer(storageAdapter, transaction, storageTransform,
-                nearestNeighbors, layer, getConfig().getEfConstruction(),
+                nearestNeighbors, layer, getConfig().efConstruction(),
                 Search.distanceToTargetVector(estimator, newVector), nodeCache)
                 .thenCompose(searchResult ->
                         primitives.extendCandidatesIfNecessary(storageAdapter, transaction, storageTransform, estimator,
-                                searchResult, layer, getConfig().isExtendCandidates(), nodeCache, newVector)
+                                searchResult, layer, getConfig().extendCandidates(), nodeCache, newVector)
                                 .thenCompose(extendedCandidates ->
                                         primitives.selectCandidates(storageAdapter, transaction, storageTransform, estimator,
-                                                extendedCandidates, layer, getConfig().getM(), nodeCache))
+                                                extendedCandidates, layer, getConfig().m(), nodeCache))
                                 .thenCompose(selectedNeighbors -> {
                                     final NodeFactory<N> nodeFactory = storageAdapter.getNodeFactory();
 
@@ -543,7 +543,7 @@ public class Insert {
                                     }
 
                                     final int currentMMax =
-                                            layer == 0 ? getConfig().getMMax0() : getConfig().getMMax();
+                                            layer == 0 ? getConfig().mMax0() : getConfig().mMax();
 
                                     return forEach(selectedNeighbors,
                                             selectedNeighbor -> {
@@ -561,7 +561,7 @@ public class Insert {
                                                             }
                                                             return primitives.resolveChangeSetFromNewNeighbors(changeSet, nodeReferencesAndNodes);
                                                         });
-                                            }, getConfig().getMaxNumConcurrentNeighborhoodFetches(), getExecutor())
+                                            }, getConfig().maxNumConcurrentNeighborhoodFetches(), getExecutor())
                                             .thenApply(changeSets -> {
                                                 for (int i = 0; i < selectedNeighbors.size(); i++) {
                                                     final NodeReferenceAndNode<NodeReferenceWithDistance, N> selectedNeighbor =
@@ -589,10 +589,10 @@ public class Insert {
     }
 
     private boolean shouldSampleVector(@Nonnull final SplittableRandom random) {
-        return random.nextDouble() < getConfig().getSampleVectorStatsProbability();
+        return random.nextDouble() < getConfig().sampleVectorStatsProbability();
     }
 
     private boolean shouldMaintainStats(@Nonnull final SplittableRandom random) {
-        return random.nextDouble() < getConfig().getMaintainStatsProbability();
+        return random.nextDouble() < getConfig().maintainStatsProbability();
     }
 }

@@ -141,7 +141,7 @@ class OutwardTraversalIterator implements AsyncIterator<NodeReferenceAndNode<Nod
         final PriorityQueue<NodeReferenceWithDistance> candidates =
                 // This initial capacity is somewhat arbitrary as m is not necessarily
                 // a limit, but it gives us a number that is better than the default.
-                new PriorityQueue<>(getConfig().getM(), NodeReferenceWithDistance.comparator());
+                new PriorityQueue<>(getConfig().m(), NodeReferenceWithDistance.comparator());
         final SpatialRestrictions visited = new SpatialRestrictions(1, minimumRadius, minimumPrimaryKey);
 
         final PriorityQueue<NodeReferenceWithDistance> out =
