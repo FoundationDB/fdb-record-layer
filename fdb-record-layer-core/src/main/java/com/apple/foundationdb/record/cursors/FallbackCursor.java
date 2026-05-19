@@ -119,6 +119,10 @@ public class FallbackCursor<T> implements RecordCursor<T> {
                     inner.close();
                     inner = fallbackCursorSupplier.apply(lastSuccessfulResult);
                     nextResultFuture = inner.onNext();
+                    if (LOGGER.isDebugEnabled()) {
+                        LOGGER.debug(KeyValueLogMessage.of("inner cursor encountered error, attempting fallback",
+                                LogMessageKeys.MESSAGE, throwable.getClass().getSimpleName()));
+                    }
                     if (LOGGER.isInfoEnabled()) {
                         LOGGER.info(KeyValueLogMessage.of("fallback triggered", LogMessageKeys.MESSAGE, throwable.getMessage()));
                     }
