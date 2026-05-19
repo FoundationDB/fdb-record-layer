@@ -41,7 +41,6 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
-    @MaintainYamlTestConfig(YamlTestConfigFilters.CORRECT_EXPECTATIONS)
     public void aggregateEmptyTable(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("aggregate-empty-table.yamsql");
     }

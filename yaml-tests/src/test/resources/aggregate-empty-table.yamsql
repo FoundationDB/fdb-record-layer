@@ -667,11 +667,11 @@ test_block:
     -
       - query: select count(*) from t3 having count(*) is null or count(*) > 100
       - supported_version: !current_version
-      - explain: "ISCAN(T3_I1 <,>) | MAP (_ AS _0) | AGG (count(_._0.COL1) AS _0) GROUP BY () | ON EMPTY NULL | FILTER coalesce_long(_._0._0, promote(0l AS LONG)) IS_NULL OR coalesce_long(_._0._0, promote(0l AS LONG)) GREATER_THAN promote(@c20 AS LONG) | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
+      - explain: "ISCAN(T3_I2 <,>) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY () | ON EMPTY NULL | FILTER coalesce_long(_._0._0, 0l) IS_NULL OR coalesce_long(_._0._0, 0l) GREATER_THAN promote(@c20 AS LONG) | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
       - result: []
     -
       - query: select sum(col1) from t3 having sum(col1) is null or sum(col1) > 100
       - supported_version: !current_version
-      - explain: "ISCAN(T3_I1 <,>) | MAP (_ AS _0) | AGG (count(_._0.COL1) AS _0) GROUP BY () | ON EMPTY NULL | FILTER coalesce_long(_._0._0, promote(0l AS LONG)) IS_NULL OR coalesce_long(_._0._0, promote(0l AS LONG)) GREATER_THAN promote(@c20 AS LONG) | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
+      - explain: "ISCAN(T3_I1 <,>) | MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0) GROUP BY () | ON EMPTY NULL | FILTER _._0._0 IS_NULL OR _._0._0 GREATER_THAN promote(@c20 AS LONG) | MAP (_._0._0 AS _0)"
       - result: [{!null _}]
 ...
