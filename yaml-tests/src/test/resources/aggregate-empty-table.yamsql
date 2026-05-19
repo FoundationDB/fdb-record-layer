@@ -674,4 +674,9 @@ test_block:
       - supported_version: !current_version
       - explain: "ISCAN(T3_I1 <,>) | MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0) GROUP BY () | ON EMPTY NULL | FILTER _._0._0 IS_NULL OR _._0._0 GREATER_THAN promote(@c20 AS LONG) | MAP (_._0._0 AS _0)"
       - result: [{!null _}]
+    -
+      - query: select count(col1) from t3 having count(col1) = 0
+      - supported_version: !current_version
+      - explain: "ISCAN(T3_I1 <,>) | MAP (_ AS _0) | AGG (count(_._0.COL1) AS _0) GROUP BY () | ON EMPTY NULL | FILTER coalesce_long(_._0._0, promote(0l AS LONG)) EQUALS promote(@c13 AS LONG) | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
+      - result: [{0}]
 ...

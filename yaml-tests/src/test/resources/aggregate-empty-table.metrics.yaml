@@ -1090,3 +1090,17 @@ agg-empty-table-tests-after-modifications:
     insert_time_ms: 1
     insert_new_count: 46
     insert_reused_count: 6
+-   query: EXPLAIN select count(col1) from t3 having count(col1) = 0
+    ref: aggregate-empty-table.yamsql:680
+    explain: ISCAN(T3_I1 <,>) | MAP (_ AS _0) | AGG (count(_._0.COL1) AS _0) GROUP
+        BY () | ON EMPTY NULL | FILTER coalesce_long(_._0._0, promote(0l AS LONG))
+        EQUALS promote(@c13 AS LONG) | MAP (coalesce_long(_._0._0, promote(0l AS LONG))
+        AS _0)
+    task_count: 418
+    task_total_time_ms: 35
+    transform_count: 96
+    transform_time_ms: 9
+    transform_yield_count: 39
+    insert_time_ms: 1
+    insert_new_count: 50
+    insert_reused_count: 6
