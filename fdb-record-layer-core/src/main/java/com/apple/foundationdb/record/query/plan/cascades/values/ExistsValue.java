@@ -22,15 +22,19 @@ package com.apple.foundationdb.record.query.plan.cascades.values;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
+import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.planprotos.PExistsValue;
 import com.apple.foundationdb.record.planprotos.PValue;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
+import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokens;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
@@ -44,6 +48,7 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
+import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -57,13 +62,13 @@ import java.util.function.Supplier;
  * A {@link Value} that checks whether an item exists in its child quantifier expression or not.
  */
 @API(API.Status.EXPERIMENTAL)
-public class ExistsValue extends AbstractValue implements BooleanValue, QuantifiedValue, Value.NonEvaluableValue {
+public class ExistsValue extends AbstractValue implements BooleanValue, ValueWithChild {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Exists-Value");
     @Nonnull
-    private final CorrelationIdentifier alias;
+    private final Value value;
 
-    public ExistsValue(@Nonnull CorrelationIdentifier alias) {
-        this.alias = alias;
+    public ExistsValue(@Nonnull Value value) {
+        this.value = value;
     }
 
     @Override
@@ -71,13 +76,11 @@ public class ExistsValue extends AbstractValue implements BooleanValue, Quantifi
     @SpotBugsSuppressWarnings("NP_NONNULL_PARAM_VIOLATION")
     public Optional<QueryPredicate> toQueryPredicate(@Nullable final TypeRepository typeRepository,
                                                      @Nonnull final Set<CorrelationIdentifier> localAliases) {
-        return Optional.of(new ExistsPredicate(alias));
-    }
-
-    @Nonnull
-    @Override
-    public CorrelationIdentifier getAlias() {
-        return alias;
+        if (value instanceof QuantifiedObjectValue qov) {
+            return Optional.of(new ExistsPredicate(qov.getAlias()));
+        } else {
+            return Optional.of(new ValuePredicate(value, new Comparisons.NullComparison(Comparisons.Type.NOT_NULL)));
+        }
     }
 
     @Override
@@ -87,14 +90,20 @@ public class ExistsValue extends AbstractValue implements BooleanValue, Quantifi
 
     @Override
     public int planHash(@Nonnull final PlanHashMode mode) {
-        return PlanHashable.objectsPlanHash(mode, BASE_HASH, alias);
+        return PlanHashable.objectsPlanHash(mode, BASE_HASH, value);
     }
 
     @Nonnull
     @Override
     public ExplainTokensWithPrecedence explain(@Nonnull final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
         return ExplainTokensWithPrecedence.of(new ExplainTokens().addFunctionCall("exists",
-                new ExplainTokens().addAliasReference(getAlias())));
+                getChild().explain().getExplainTokens()));
+    }
+
+    @Nullable
+    @Override
+    public <M extends Message> Object eval(@Nullable final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
+        return getChild().eval(store, context) != null;
     }
 
     @Override
@@ -113,7 +122,7 @@ public class ExistsValue extends AbstractValue implements BooleanValue, Quantifi
     @Override
     public PExistsValue toProto(@Nonnull final PlanSerializationContext serializationContext) {
         return PExistsValue.newBuilder()
-                .setAlias(alias.getId())
+                .setValue(getChild().toValueProto(serializationContext))
                 .build();
     }
 
@@ -126,18 +135,27 @@ public class ExistsValue extends AbstractValue implements BooleanValue, Quantifi
     @Nonnull
     public static ExistsValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
                                         @Nonnull final PExistsValue existsValueProto) {
-        if (existsValueProto.hasAlias()) {
-            return new ExistsValue(CorrelationIdentifier.of(Objects.requireNonNull(existsValueProto.getAlias())));
-        }
-        // TODO deprecated -- remove this
-        return new ExistsValue(QuantifiedObjectValue.fromProto(serializationContext,
-                Objects.requireNonNull(existsValueProto.getChild())).getAlias());
+        return existsValueProto.hasChild() ?
+               new ExistsValue(QuantifiedObjectValue.fromProto(serializationContext, Objects.requireNonNull(existsValueProto.getChild()))) :
+               new ExistsValue(Value.fromValueProto(serializationContext, Objects.requireNonNull(existsValueProto.getValue())));
     }
 
     @Nonnull
     @Override
     protected Iterable<? extends Value> computeChildren() {
-        return ImmutableList.of();
+        return ImmutableList.of(getChild());
+    }
+
+    @Nonnull
+    @Override
+    public Value getChild() {
+        return value;
+    }
+
+    @Nonnull
+    @Override
+    public ValueWithChild withNewChild(@Nonnull final Value rebasedChild) {
+        return new ExistsValue(rebasedChild);
     }
 
     /**
@@ -160,7 +178,7 @@ public class ExistsValue extends AbstractValue implements BooleanValue, Quantifi
             // create an existential quantifier
             final Quantifier.Existential existsQuantifier = Quantifier.existential(Reference.initialOf((RelationalExpression)in));
 
-            return new ExistsValue(existsQuantifier.getAlias());
+            return new ExistsValue(existsQuantifier.getFlowedObjectValue());
         }
     }
 
