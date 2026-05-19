@@ -111,8 +111,9 @@ jobs:
     needs: [tests, other-tests]
     runs-on: ubuntu-latest
     permissions:
-      checks: read
+      checks: write
       contents: read
+      pull-requests: read
     timeout-minutes: 10
     steps:
       - name: Checkout HEAD sources
@@ -161,3 +162,13 @@ jobs:
           comment-type: summary
           min-coverage-overall: 75
           min-coverage-changed-files: 80
+      - name: Get PR Diff
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh pr diff ${{ github.event.pull_request.number }} > pr_diff.patch
+      - name: Annotate Coverage
+        run: |
+          python3 build/coverage_annotations.py \
+            --report .out/reports/jacoco/codeCoverageReport/codeCoverageReport.xml \
+            --diff pr_diff.patch
