@@ -71,6 +71,11 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
+    void arrayJoinAt(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("array-join-at.yamsql");
+    }
+
+    @TestTemplate
     void arraysCardinality(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("arrays-cardinality.yamsql");
     }
@@ -243,6 +248,11 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
+    public void copyBasic(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("copy-basic.yamsql");
+    }
+
+    @TestTemplate
     public void indexDdl(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("index-ddl.yamsql");
     }
@@ -335,6 +345,11 @@ public class YamlIntegrationTests {
     @TestTemplate
     public void setupWithConnectionOptionsTest(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("setup-with-connection-options.yamsql");
+    }
+
+    @TestTemplate
+    public void skippedFieldNumberProto(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("skipped-field-number-proto.yamsql");
     }
 
     @TestTemplate

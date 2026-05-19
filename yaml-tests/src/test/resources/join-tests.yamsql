@@ -508,16 +508,16 @@ test_block:
     -
       # NATURAL JOIN (inner) is not yet supported.`
       - query: SELECT * FROM emp e NATURAL JOIN dept d;
-      - supported_version: !current_version
+      - supported_version: 4.12.2.0
       - error: '0AF00'  # UNSUPPORTED_QUERY
     -
       # NATURAL LEFT JOIN is not yet supported.
       - query: SELECT * FROM emp e NATURAL LEFT JOIN dept d;
-      - supported_version: !current_version
+      - supported_version: 4.12.2.0
       - error: '0AF00'  # UNSUPPORTED_QUERY
     -
       # STRAIGHT_JOIN is not yet supported.
       - query: SELECT * FROM emp e STRAIGHT_JOIN dept d ON e.dept_id = d.id;
-      - supported_version: !current_version
+      - supported_version: 4.12.2.0
       - error: '0AF00'  # UNSUPPORTED_QUERY
 ...

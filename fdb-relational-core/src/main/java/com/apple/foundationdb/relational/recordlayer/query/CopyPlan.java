@@ -41,6 +41,7 @@ import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.relational.api.Options;
+import com.apple.foundationdb.relational.api.RelationalArray;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStructMetaData;
 import com.apple.foundationdb.relational.api.Transaction;
@@ -59,6 +60,7 @@ import com.apple.foundationdb.relational.recordlayer.ArrayRow;
 import com.apple.foundationdb.relational.recordlayer.ContinuationBuilder;
 import com.apple.foundationdb.relational.recordlayer.ContinuationImpl;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalConnection;
+import com.google.protobuf.ByteString;
 import com.apple.foundationdb.relational.recordlayer.KeySpaceUtils;
 import com.apple.foundationdb.relational.recordlayer.RecordContextTransaction;
 import com.apple.foundationdb.relational.recordlayer.RecordLayerIterator;
@@ -69,7 +71,9 @@ import com.apple.foundationdb.relational.util.catalog.KeySpaceProvider;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.net.URI;
+import java.sql.Array;
 import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
@@ -493,27 +497,45 @@ public final class CopyPlan extends QueryPlan {
                     ErrorCode.INVALID_PARAMETER);
         }
 
-        // Validate it's an array
-        if (!(parameterValue instanceof List)) {
-            throw new RelationalException(
-                    "Parameter must be an ARRAY, got: " + parameterValue.getClass().getName(),
-                    ErrorCode.INVALID_PARAMETER);
+        if (parameterValue instanceof List) {
+            @SuppressWarnings("unchecked")
+            List<Object> dataArray = (List<Object>) parameterValue;
+            return dataArray;
         }
 
-        @SuppressWarnings("unchecked")
-        List<Object> dataArray = (List<Object>) parameterValue;
-        return dataArray;
+        if (parameterValue instanceof Array) {
+            try {
+                final Array sqlArray = (Array) parameterValue;
+                final List<Object> elements = new ArrayList<>();
+                try (RelationalResultSet rs = ((RelationalArray) sqlArray).getResultSet(1, Integer.MAX_VALUE)) {
+                    while (rs.next()) {
+                        elements.add(rs.getBytes("VALUE"));
+                    }
+                }
+                return elements;
+            } catch (SQLException e) {
+                throw new RelationalException(
+                        "Failed to extract elements from ARRAY parameter: " + e.getMessage(),
+                        ErrorCode.INVALID_PARAMETER, e);
+            }
+        }
+
+        throw new RelationalException(
+                "Parameter must be an ARRAY, got: " + parameterValue.getClass().getName(),
+                ErrorCode.INVALID_PARAMETER);
     }
 
     @Nonnull
     private static byte[] convertToBytes(@Nullable final Object element) throws RelationalException {
-        if (!(element instanceof byte[])) {
-            throw new RelationalException(
-                    "Array elements must be BYTES, got: " + (element == null ? null : element.getClass().getName()),
-                    ErrorCode.INVALID_PARAMETER);
+        if (element instanceof byte[]) {
+            return (byte[]) element;
         }
-
-        return (byte[])element;
+        if (element instanceof ByteString) {
+            return ((ByteString) element).toByteArray();
+        }
+        throw new RelationalException(
+                "Array elements must be BYTES, got: " + (element == null ? null : element.getClass().getName()),
+                ErrorCode.INVALID_PARAMETER);
     }
 
     @Nonnull

@@ -311,7 +311,7 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
     private LogicalOperator generateSourceAccessForIndex(@Nonnull final Identifier sourceIdentifier) {
         final var semanticAnalyzer = getDelegate().getSemanticAnalyzer();
         var logicalOperator = getDelegate().getPlanGenerationContext().withDisabledLiteralProcessing(() ->
-                LogicalOperator.generateAccess(sourceIdentifier, Optional.empty(), Set.of(),
+                LogicalOperator.generateAccess(sourceIdentifier, Optional.empty(), Optional.empty(), Set.of(),
                         semanticAnalyzer, getDelegate().getCurrentPlanFragment(),
                         getDelegate().getLogicalOperatorCatalog()));
 

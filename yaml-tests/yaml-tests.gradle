@@ -100,11 +100,9 @@ ext.resolveOtherServer = { Set<String> rejectedVersions ->
         // Every time we get a version that has `-SNAPSHOT` we add it to the `rejectedVersions` list, and recurse
         // until we find a version that doesn't have a `-SNAPSHOT`, and that's what we use.
         dependencies.add(configurationName,
-                ['group': 'org.foundationdb',
-                 'name': 'fdb-relational-server',
-                 // the all classifier specifies that we want to fetch the shadow jar, which includes all the
-                 // dependencies
-                 'classifier': 'all'],
+                // the `all` classifier specifies that we want to fetch the shadow jar, which includes all the
+                // dependencies. The empty version slot is filled in by the `version { strictly '+' }` Action below.
+                'org.foundationdb:fdb-relational-server::all',
                 {
                     version {
                         strictly '+'
@@ -172,9 +170,7 @@ ext.resolveSpecificServer = { String version ->
             }
         })
         dependencies.add(configurationName,
-                ['group': 'org.foundationdb',
-                 'name': 'fdb-relational-server',
-                 'classifier': 'all'],
+                'org.foundationdb:fdb-relational-server::all',
                 {
                     it.version {
                         strictly version
@@ -224,14 +220,14 @@ task downloadManyExternalServers(type: Copy) {
 // n defaults to 10 and can be overridden with -Ptests.listVersionsCount=<n>.
 // Output file: <buildDir>/recentVersions.txt
 task listRecentVersions {
+    def listVersionsCountProvider = providers.gradleProperty('tests.listVersionsCount')
+    def outputFileProvider = layout.buildDirectory.file('recentVersions.txt')
     doLast {
-        int count = project.hasProperty('tests.listVersionsCount')
-            ? Integer.parseInt(project.getProperty('tests.listVersionsCount'))
-            : 10
+        int count = listVersionsCountProvider.map { Integer.parseInt(it) }.getOrElse(10)
         def versions = resolveRecentVersionStrings(count)
         // we don't want the output to be a declared output, otherwise gradle will conclude that it doesn't need to
         // rerun this when the property changes.
-        def outputFile = project.layout.buildDirectory.file('recentVersions.txt').get().asFile
+        def outputFile = outputFileProvider.get().asFile
         outputFile.parentFile.mkdirs()
         String jsonArray = '["' + versions.join('", "') + '"]'
         outputFile.text = "versions=" + jsonArray
@@ -247,13 +243,14 @@ task listRecentVersions {
 task downloadSpecificExternalServer(type: Copy) {
     dependsOn "cleanExternalServerDirectory"
     into project.layout.buildDirectory.dir('externalServer')
+    def mixedModeVersionProvider = providers.gradleProperty('tests.mixedModeVersion')
     // Resolve which JAR to download only when the task is actually executed.
     // Using from(Callable) defers evaluation to execution time, which avoids
     // failing at configuration time when neither property is set and this task
     // is not part of the requested task graph.
     from({
-        if (project.hasProperty('tests.mixedModeVersion')) {
-            def exactVersion = project.getProperty('tests.mixedModeVersion')
+        def exactVersion = mixedModeVersionProvider.orNull
+        if (exactVersion != null) {
             println("Using explicitly specified external server version: ${exactVersion}")
             return resolveSpecificServer(exactVersion)
         } else {
