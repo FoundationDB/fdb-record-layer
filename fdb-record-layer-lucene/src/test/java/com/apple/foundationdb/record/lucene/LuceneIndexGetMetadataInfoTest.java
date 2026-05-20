@@ -234,27 +234,69 @@ public class LuceneIndexGetMetadataInfoTest extends FDBRecordStoreTestBase {
                 new LuceneMetadataInfo.LuceneFileInfo("file1.txt", 1L, 100L),
                 new LuceneMetadataInfo.LuceneFileInfo("file2.txt", 2L, 200L)
         );
-        final LuceneMetadataInfo.LuceneInfo info1 = new LuceneMetadataInfo.LuceneInfo(10, 5, detailedFiles1);
-        final LuceneMetadataInfo.LuceneInfo info2 = new LuceneMetadataInfo.LuceneInfo(10, 5, detailedFiles1Copy);
-        final LuceneMetadataInfo.LuceneInfo info3 = new LuceneMetadataInfo.LuceneInfo(15, 5, detailedFiles1);
-        final LuceneMetadataInfo.LuceneInfo info4 = new LuceneMetadataInfo.LuceneInfo(10, 3, detailedFiles1);
-        final LuceneMetadataInfo.LuceneInfo info5 = new LuceneMetadataInfo.LuceneInfo(10, 5, detailedFiles2);
+        final LuceneMetadataInfo.LuceneInfo info1 = new LuceneMetadataInfo.LuceneInfo(10, 5, detailedFiles1, 1);
+        final LuceneMetadataInfo.LuceneInfo info2 = new LuceneMetadataInfo.LuceneInfo(10, 5, detailedFiles1Copy, 1);
+        final LuceneMetadataInfo.LuceneInfo info3 = new LuceneMetadataInfo.LuceneInfo(15, 5, detailedFiles1, 1);
+        final LuceneMetadataInfo.LuceneInfo info4 = new LuceneMetadataInfo.LuceneInfo(10, 3, detailedFiles1, 1);
+        final LuceneMetadataInfo.LuceneInfo info5 = new LuceneMetadataInfo.LuceneInfo(10, 5, detailedFiles2, 1);
+        final LuceneMetadataInfo.LuceneInfo info6 = new LuceneMetadataInfo.LuceneInfo(10, 5, detailedFiles1, 2);
 
         // Test equals
         assertEquals(info1, info2);
         assertNotEquals(info1, info3);
         assertNotEquals(info1, info4);
         assertNotEquals(info1, info5);
+        assertNotEquals(info1, info6);
 
         // Test hashCode consistency
         assertEquals(info1.hashCode(), info2.hashCode());
         assertNotEquals(info1.hashCode(), info3.hashCode());
         assertNotEquals(info1.hashCode(), info4.hashCode());
         assertNotEquals(info1.hashCode(), info5.hashCode());
+        assertNotEquals(info1.hashCode(), info6.hashCode());
 
         // Test reflexivity
         assertEquals(info1, info1);
         assertEquals(info1.hashCode(), info1.hashCode());
+    }
+
+    @Test
+    void getMetadataWithNonZeroQueueSize() {
+        final LuceneIndexTestDataModel dataModel = new LuceneIndexTestDataModel.Builder(234097L, this::getStoreBuilder, pathManager)
+                .setIsGrouped(false)
+                .setEnablePendingWriteQueueDuringMerge(true)
+                .build();
+
+        // Save an initial batch of records directly to Lucene (no merge indicator yet)
+        try (FDBRecordContext context = openContext()) {
+            dataModel.saveRecords(3, context, 0);
+            commit(context);
+        }
+
+        // Activate the pending-write queue by simulating an ongoing merge
+        try (FDBRecordContext context = openContext()) {
+            dataModel.setOngoingMergeIndicator(context, null, null);
+            commit(context);
+        }
+
+        // Save records while the merge indicator is set - writes go to the queue instead of directly to Lucene
+        try (FDBRecordContext context = openContext()) {
+            dataModel.saveRecords(3, context, 0);
+            commit(context);
+        }
+
+        // Queue has pending entries - metadata should report a non-zero queue size
+        final LuceneMetadataInfo result = getLuceneMetadataInfo(false, Tuple.from(), dataModel, null);
+        assertThat(result.getLuceneInfo().get(0).getPendingWritesQueueSize(), Matchers.equalTo(3L));
+
+        // Merge drains the queue
+        try (FDBRecordContext context = openContext()) {
+            dataModel.explicitMergeIndex(context, timer);
+        }
+
+        // After merge the queue is empty - metadata should report zero
+        final LuceneMetadataInfo result2 = getLuceneMetadataInfo(false, Tuple.from(), dataModel, null);
+        assertEquals(0L, result2.getLuceneInfo().get(0).getPendingWritesQueueSize());
     }
 
     private static void assertPartitionInfosHaveCorrectFromTo(

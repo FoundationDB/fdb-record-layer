@@ -75,7 +75,6 @@ import org.slf4j.LoggerFactory;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.io.IOException;
-import com.apple.foundationdb.record.util.pair.ImmutablePair;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -591,17 +590,14 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
                 final CompletableFuture<Long> queueSizeFuture =
                         directoryManager.getPendingWriteQueue(groupingKey, partitionId)
                                         .getQueueSize(state.context);
-                return filesFuture.thenCombine(
-                        fieldInfosFuture.thenCombine(queueSizeFuture,
-                                (fieldInfosCount, queueSize) ->
-                                        ImmutablePair.of(fieldInfosCount,
-                                                queueSize != null ? queueSize : 0L)),
-                        (fileList, fieldInfosAndQueueSize) ->
-                                new LuceneMetadataInfo.LuceneInfo(
-                                        indexReader.numDocs(),
-                                        fieldInfosAndQueueSize.getLeft(),
-                                        toLuceneFileInfo(fileList),
-                                        fieldInfosAndQueueSize.getRight()));
+                return filesFuture.thenCompose(fileList ->
+                        fieldInfosFuture.thenCompose(fieldInfosCount ->
+                                queueSizeFuture.thenApply(queueSize ->
+                                        new LuceneMetadataInfo.LuceneInfo(
+                                                indexReader.numDocs(),
+                                                fieldInfosCount,
+                                                toLuceneFileInfo(fileList),
+                                                queueSize != null ? queueSize : 0L))));
             }
         } catch (IOException e) {
             return CompletableFuture.failedFuture(e);
