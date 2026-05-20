@@ -25,8 +25,6 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.relational.api.EmbeddedRelationalStruct;
 import com.apple.foundationdb.relational.api.KeySet;
 import com.apple.foundationdb.relational.api.Options;
-import com.apple.foundationdb.relational.api.RelationalConnection;
-import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.api.RelationalStruct;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
@@ -54,7 +52,9 @@ import com.apple.foundationdb.relational.recordlayer.query.cache.RelationalPlanC
 import java.net.URI;
 import java.sql.Connection;
 import java.sql.DriverManager;
+import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -132,10 +132,10 @@ public class IndexScanVsQueryBenchmark extends EmbeddedRelationalBenchmark {
     }
 
     private void insertData() throws SQLException {
-        try (RelationalConnection conn = DriverManager.getConnection("jdbc:embed:" + dbUri)
-                .unwrap(RelationalConnection.class)) {
+        try (Connection conn = DriverManager.getConnection("jdbc:embed:" + dbUri)) {
             conn.setSchema(schema);
-            try (RelationalStatement stmt = conn.createStatement()) {
+            try (Statement rawStmt = conn.createStatement()) {
+                RelationalStatement stmt = rawStmt.unwrap(RelationalStatement.class);
                 List<RelationalStruct> rows = new ArrayList<>(NUM_CATEGORIES * rowsPerGroup);
                 for (int g = 0; g < NUM_CATEGORIES; g++) {
                     for (int r = 0; r < rowsPerGroup; r++) {
@@ -160,9 +160,9 @@ public class IndexScanVsQueryBenchmark extends EmbeddedRelationalBenchmark {
      */
     @Benchmark
     public void lookupByLabel_directAccess(Blackhole bh, ConnHolder connHolder) throws SQLException {
-        try (RelationalStatement stmt = connHolder.connection.createStatement()
-                .unwrap(RelationalStatement.class)) {
-            try (RelationalResultSet rs = stmt.executeScan("IndexBenchTable",
+        try (Statement rawStmt = connHolder.connection.createStatement()) {
+            RelationalStatement stmt = rawStmt.unwrap(RelationalStatement.class);
+            try (ResultSet rs = stmt.executeScan("IndexBenchTable",
                     new KeySet().setKeyColumn("label", LOOKUP_LABEL),
                     indexHintLabel)) {
                 if (rs.next()) {
@@ -179,13 +179,11 @@ public class IndexScanVsQueryBenchmark extends EmbeddedRelationalBenchmark {
      */
     @Benchmark
     public void lookupByLabel_sqlQuery(Blackhole bh, ConnHolder connHolder) throws SQLException {
-        try (RelationalStatement stmt = connHolder.connection.createStatement()
-                .unwrap(RelationalStatement.class)) {
-            try (RelationalResultSet rs = stmt.executeQuery(
+        try (Statement stmt = connHolder.connection.createStatement();
+             ResultSet rs = stmt.executeQuery(
                     "SELECT \"label\" FROM \"IndexBenchTable\" WHERE \"label\" = '" + LOOKUP_LABEL + "'")) {
-                if (rs.next()) {
-                    bh.consume(rs.getString("label"));
-                }
+            if (rs.next()) {
+                bh.consume(rs.getString("label"));
             }
         }
     }
@@ -199,9 +197,9 @@ public class IndexScanVsQueryBenchmark extends EmbeddedRelationalBenchmark {
      */
     @Benchmark
     public void scanByCategory_directAccess(Blackhole bh, ConnHolder connHolder) throws SQLException {
-        try (RelationalStatement stmt = connHolder.connection.createStatement()
-                .unwrap(RelationalStatement.class)) {
-            try (RelationalResultSet rs = stmt.executeScan("IndexBenchTable",
+        try (Statement rawStmt = connHolder.connection.createStatement()) {
+            RelationalStatement stmt = rawStmt.unwrap(RelationalStatement.class);
+            try (ResultSet rs = stmt.executeScan("IndexBenchTable",
                     new KeySet().setKeyColumn("category", LOOKUP_CATEGORY),
                     indexHintCategory)) {
                 while (rs.next()) {
@@ -218,13 +216,11 @@ public class IndexScanVsQueryBenchmark extends EmbeddedRelationalBenchmark {
      */
     @Benchmark
     public void scanByCategory_sqlQuery(Blackhole bh, ConnHolder connHolder) throws SQLException {
-        try (RelationalStatement stmt = connHolder.connection.createStatement()
-                .unwrap(RelationalStatement.class)) {
-            try (RelationalResultSet rs = stmt.executeQuery(
+        try (Statement stmt = connHolder.connection.createStatement();
+             ResultSet rs = stmt.executeQuery(
                     "SELECT \"category\" FROM \"IndexBenchTable\" WHERE \"category\" = " + LOOKUP_CATEGORY)) {
-                while (rs.next()) {
-                    bh.consume(rs.getLong("category"));
-                }
+            while (rs.next()) {
+                bh.consume(rs.getLong("category"));
             }
         }
     }

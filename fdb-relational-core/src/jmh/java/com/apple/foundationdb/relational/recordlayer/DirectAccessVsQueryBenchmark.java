@@ -25,8 +25,6 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.relational.api.EmbeddedRelationalStruct;
 import com.apple.foundationdb.relational.api.KeySet;
 import com.apple.foundationdb.relational.api.Options;
-import com.apple.foundationdb.relational.api.RelationalConnection;
-import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.api.RelationalStruct;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
@@ -54,7 +52,9 @@ import com.apple.foundationdb.relational.recordlayer.query.cache.RelationalPlanC
 import java.net.URI;
 import java.sql.Connection;
 import java.sql.DriverManager;
+import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -124,10 +124,10 @@ public class DirectAccessVsQueryBenchmark extends EmbeddedRelationalBenchmark {
     }
 
     private void insertData() throws SQLException {
-        try (RelationalConnection conn = DriverManager.getConnection("jdbc:embed:" + dbUri)
-                .unwrap(RelationalConnection.class)) {
+        try (Connection conn = DriverManager.getConnection("jdbc:embed:" + dbUri)) {
             conn.setSchema(schema);
-            try (RelationalStatement stmt = conn.createStatement()) {
+            try (Statement rawStmt = conn.createStatement()) {
+                RelationalStatement stmt = rawStmt.unwrap(RelationalStatement.class);
                 List<RelationalStruct> rows = new ArrayList<>(NUM_GROUPS * rowsPerGroup);
                 for (int g = 0; g < NUM_GROUPS; g++) {
                     for (int r = 0; r < rowsPerGroup; r++) {
@@ -147,9 +147,9 @@ public class DirectAccessVsQueryBenchmark extends EmbeddedRelationalBenchmark {
 
     @Benchmark
     public void get_directAccess(Blackhole bh, ConnHolder connHolder) throws SQLException {
-        try (RelationalStatement stmt = connHolder.connection.createStatement()
-                .unwrap(RelationalStatement.class)) {
-            try (RelationalResultSet rs = stmt.executeGet("BenchTable",
+        try (Statement rawStmt = connHolder.connection.createStatement()) {
+            RelationalStatement stmt = rawStmt.unwrap(RelationalStatement.class);
+            try (ResultSet rs = stmt.executeGet("BenchTable",
                     new KeySet().setKeyColumn("group_id", LOOKUP_GROUP)
                                 .setKeyColumn("row_id", LOOKUP_ROW),
                     Options.NONE)) {
@@ -163,15 +163,13 @@ public class DirectAccessVsQueryBenchmark extends EmbeddedRelationalBenchmark {
 
     @Benchmark
     public void get_sqlQuery(Blackhole bh, ConnHolder connHolder) throws SQLException {
-        try (RelationalStatement stmt = connHolder.connection.createStatement()
-                .unwrap(RelationalStatement.class)) {
-            try (RelationalResultSet rs = stmt.executeQuery(
+        try (Statement stmt = connHolder.connection.createStatement();
+             ResultSet rs = stmt.executeQuery(
                     "SELECT * FROM \"BenchTable\" WHERE \"group_id\" = " + LOOKUP_GROUP
                     + " AND \"row_id\" = " + LOOKUP_ROW)) {
-                if (rs.next()) {
-                    bh.consume(rs.getLong("group_id"));
-                    bh.consume(rs.getString("val"));
-                }
+            if (rs.next()) {
+                bh.consume(rs.getLong("group_id"));
+                bh.consume(rs.getString("val"));
             }
         }
     }
@@ -180,9 +178,9 @@ public class DirectAccessVsQueryBenchmark extends EmbeddedRelationalBenchmark {
 
     @Benchmark
     public void scanPrefix_directAccess(Blackhole bh, ConnHolder connHolder) throws SQLException {
-        try (RelationalStatement stmt = connHolder.connection.createStatement()
-                .unwrap(RelationalStatement.class)) {
-            try (RelationalResultSet rs = stmt.executeScan("BenchTable",
+        try (Statement rawStmt = connHolder.connection.createStatement()) {
+            RelationalStatement stmt = rawStmt.unwrap(RelationalStatement.class);
+            try (ResultSet rs = stmt.executeScan("BenchTable",
                     new KeySet().setKeyColumn("group_id", LOOKUP_GROUP),
                     Options.NONE)) {
                 while (rs.next()) {
@@ -195,14 +193,12 @@ public class DirectAccessVsQueryBenchmark extends EmbeddedRelationalBenchmark {
 
     @Benchmark
     public void scanPrefix_sqlQuery(Blackhole bh, ConnHolder connHolder) throws SQLException {
-        try (RelationalStatement stmt = connHolder.connection.createStatement()
-                .unwrap(RelationalStatement.class)) {
-            try (RelationalResultSet rs = stmt.executeQuery(
+        try (Statement stmt = connHolder.connection.createStatement();
+             ResultSet rs = stmt.executeQuery(
                     "SELECT * FROM \"BenchTable\" WHERE \"group_id\" = " + LOOKUP_GROUP)) {
-                while (rs.next()) {
-                    bh.consume(rs.getLong("group_id"));
-                    bh.consume(rs.getString("val"));
-                }
+            while (rs.next()) {
+                bh.consume(rs.getLong("group_id"));
+                bh.consume(rs.getString("val"));
             }
         }
     }
@@ -211,9 +207,9 @@ public class DirectAccessVsQueryBenchmark extends EmbeddedRelationalBenchmark {
 
     @Benchmark
     public void fullScan_directAccess(Blackhole bh, ConnHolder connHolder) throws SQLException {
-        try (RelationalStatement stmt = connHolder.connection.createStatement()
-                .unwrap(RelationalStatement.class)) {
-            try (RelationalResultSet rs = stmt.executeScan("BenchTable", new KeySet(), Options.NONE)) {
+        try (Statement rawStmt = connHolder.connection.createStatement()) {
+            RelationalStatement stmt = rawStmt.unwrap(RelationalStatement.class);
+            try (ResultSet rs = stmt.executeScan("BenchTable", new KeySet(), Options.NONE)) {
                 while (rs.next()) {
                     bh.consume(rs.getLong("group_id"));
                     bh.consume(rs.getString("val"));
@@ -224,13 +220,11 @@ public class DirectAccessVsQueryBenchmark extends EmbeddedRelationalBenchmark {
 
     @Benchmark
     public void fullScan_sqlQuery(Blackhole bh, ConnHolder connHolder) throws SQLException {
-        try (RelationalStatement stmt = connHolder.connection.createStatement()
-                .unwrap(RelationalStatement.class)) {
-            try (RelationalResultSet rs = stmt.executeQuery("SELECT * FROM \"BenchTable\"")) {
-                while (rs.next()) {
-                    bh.consume(rs.getLong("group_id"));
-                    bh.consume(rs.getString("val"));
-                }
+        try (Statement stmt = connHolder.connection.createStatement();
+             ResultSet rs = stmt.executeQuery("SELECT * FROM \"BenchTable\"")) {
+            while (rs.next()) {
+                bh.consume(rs.getLong("group_id"));
+                bh.consume(rs.getString("val"));
             }
         }
     }
