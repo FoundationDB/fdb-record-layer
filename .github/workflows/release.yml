@@ -381,7 +381,7 @@ jobs:
       - name: Upload Documentation
         if: needs.get-update-type.outputs.update-type == 'BUILD'
         id: doc_upload
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@v5.0.0
         with:
           path: docs/sphinx/.out/html/
 
@@ -403,4 +403,4 @@ jobs:
         shell: bash
         run: echo "${{ needs.get-update-type.outputs.update-type }}"
       - name: Deploy Documentation
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5.0.0

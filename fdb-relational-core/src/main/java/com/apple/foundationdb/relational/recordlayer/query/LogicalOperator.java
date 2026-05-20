@@ -74,19 +74,21 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
- * A logical operator wraps an SQL operation that produces some output. The operator has the following structure:
+ * A logical operator wraps a SQL operation that produces some output.
+ *
+ * <p>An operator has the following structure:
  * <ul>
- *     <li>optional name, this name usually corresponds to either a SQL alias (e.g. in case of subquery) or a table name</li>
- *     <li>output {@link Expression}s.</li>
- *     <li>internal representation by means of a {@link Quantifier}.</li>
+ *     <li>An optional name ({@link Identifier}). This name usually corresponds to either a SQL alias (e.g., in case of
+ *     subquery) or a table name.</li>
+ *     <li>A list of output expressions ({@link Expressions}).</li>
+ *     <li>The internal representation by means of a {@link Quantifier}.</li>
  * </ul>
- * The operator is created when a SQL abstract syntax tree (AST) is traversed [1].
- * For example, the following SQL statement {@code SELECT A, B, C FROM T} will produce a {@link LogicalOperator} whose
- * name is {@code T} and has an output of three {@link Expression}s named {@code A},
- * {@code B}, and {@code C}, the logical operator will wrap an internal quantifier that is a for-each {@link Quantifier}
- * that returns all the rows of the table {@code T}.
- * <br>
- * [1] see {@link com.apple.foundationdb.relational.recordlayer.query.visitors.QueryVisitor} for more information.
+ * An operator is created when a SQL abstract syntax tree (AST) is traversed [1]. For example, the SQL statement
+ * {@code SELECT A, B, C FROM T} will produce a {@code LogicalOperator} whose name is {@code T} and which has an output
+ * of three expressions ({@link Expression}) named {@code A}, {@code B}, and {@code C}. The logical operator will wrap
+ * an internal quantifier that is a for-each {@link Quantifier} returning all the rows of the table {@code T}.
+ * <p>
+ * [1] See {@link com.apple.foundationdb.relational.recordlayer.query.visitors.QueryVisitor} for more information.
  */
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 @API(API.Status.EXPERIMENTAL)
@@ -175,6 +177,7 @@ public class LogicalOperator {
     @Nonnull
     public static LogicalOperator generateAccess(@Nonnull Identifier identifier,
                                                  @Nonnull Optional<Identifier> alias,
+                                                 @Nonnull Optional<Identifier> atAlias,
                                                  @Nonnull Set<String> requestedIndexes,
                                                  @Nonnull SemanticAnalyzer semanticAnalyzer,
                                                  @Nonnull LogicalPlanFragment currentPlanFragment,
@@ -182,17 +185,43 @@ public class LogicalOperator {
         // look up any localized artifacts, such as common table expressions.
         final var cteMaybe = semanticAnalyzer.findCteMaybe(identifier, currentPlanFragment);
         if (cteMaybe.isPresent()) {
+            Assert.thatUnchecked(atAlias.isEmpty(),
+                    ErrorCode.WRONG_OBJECT_TYPE,
+                    () -> String.format(Locale.ROOT,
+                            "AT clause requires an array-typed column, but '%s' is a common table expression",
+                            identifier));
             return cteMaybe.get().withNewSharedReferenceAndAlias(alias);
         } else if (semanticAnalyzer.tableExists(identifier)) {
+            Assert.thatUnchecked(atAlias.isEmpty(),
+                    ErrorCode.WRONG_OBJECT_TYPE,
+                    () -> String.format(Locale.ROOT,
+                            "AT clause requires an array-typed column, but '%s' is a table",
+                            identifier));
             return logicalOperatorCatalog.lookupTableAccess(identifier, alias, requestedIndexes, semanticAnalyzer);
         } else if (semanticAnalyzer.viewExists(identifier)) {
+            Assert.thatUnchecked(atAlias.isEmpty(),
+                    ErrorCode.WRONG_OBJECT_TYPE,
+                    () -> String.format(Locale.ROOT,
+                            "AT clause requires an array-typed column, but '%s' is a view",
+                            identifier));
             return semanticAnalyzer.resolveView(identifier).withNewSharedReferenceAndAlias(alias);
         } else if (semanticAnalyzer.functionExists(identifier)) {
-            return semanticAnalyzer.resolveTableFunction(identifier, Expressions.empty(), false).withNewSharedReferenceAndAlias(alias);
+            Assert.thatUnchecked(atAlias.isEmpty(),
+                    ErrorCode.WRONG_OBJECT_TYPE,
+                    () -> String.format(Locale.ROOT,
+                            "AT clause requires an array-typed column, but '%s' is a function",
+                            identifier));
+            return semanticAnalyzer.resolveTableFunction(identifier, Expressions.empty(), false)
+                    .withNewSharedReferenceAndAlias(alias);
         } else {
-            final var correlatedField = semanticAnalyzer.resolveCorrelatedIdentifier(identifier, currentPlanFragment.getLogicalOperatorsIncludingOuter());
-            Assert.thatUnchecked(requestedIndexes.isEmpty(), ErrorCode.UNSUPPORTED_QUERY, () -> String.format(Locale.ROOT, "Can not hint indexes with correlated field access %s", identifier));
-            return generateCorrelatedFieldAccess(correlatedField, alias);
+            final var correlatedField = semanticAnalyzer.resolveCorrelatedIdentifier(identifier,
+                    currentPlanFragment.getLogicalOperatorsIncludingOuter());
+            Assert.thatUnchecked(requestedIndexes.isEmpty(),
+                    ErrorCode.UNSUPPORTED_QUERY,
+                    () -> String.format(Locale.ROOT,
+                            "Can not hint indexes with correlated field access %s",
+                            identifier));
+            return generateCorrelatedFieldAccess(correlatedField, alias, atAlias);
         }
     }
 
@@ -275,21 +304,33 @@ public class LogicalOperator {
 
     @Nonnull
     private static LogicalOperator generateCorrelatedFieldAccess(@Nonnull Expression expression,
-                                                                 @Nonnull Optional<Identifier> alias) {
+                                                                 @Nonnull Optional<Identifier> alias,
+                                                                 @Nonnull Optional<Identifier> atAlias) {
         Assert.thatUnchecked(expression.getDataType().getCode() == DataType.Code.ARRAY,
                 ErrorCode.INVALID_COLUMN_REFERENCE,
                 () -> String.format(Locale.ROOT, "join correlation can occur only on column of repeated type, not %s type", expression.getDataType()));
-        final var explode = new ExplodeExpression(expression.getUnderlying());
+        final boolean withOrdinality = atAlias.isPresent();
+        final var explode = new ExplodeExpression(expression.getUnderlying(), withOrdinality);
         final var resultingQuantifier = Quantifier.forEach(Reference.initialOf(explode));
+        final QuantifiedObjectValue flowedObjectValue = resultingQuantifier.getFlowedObjectValue();
+        final Type flowedObjectType = resultingQuantifier.getFlowedObjectType();
 
-        Expressions outputAttributes;
-        if (resultingQuantifier.getFlowedObjectType().isPrimitive()) {
-            final ImmutableList.Builder<Expression> attributesBuilder = ImmutableList.builder();
-            attributesBuilder.add(new Expression(alias, DataTypeUtils.toRelationalType(explode.getResultValue().getResultType()), resultingQuantifier.getFlowedObjectValue()));
-            outputAttributes = Expressions.of(attributesBuilder.build());
+        final ImmutableList.Builder<Expression> attributesBuilder = ImmutableList.builder();
+        if (atAlias.isPresent()) {
+            // With AT, the `ExplodeExpression` produces a struct (element, ordinal). Use `FieldValue` accessors.
+            final Type elementType = explode.getElementType();
+            attributesBuilder.add(new Expression(alias, DataTypeUtils.toRelationalType(elementType),
+                    FieldValue.ofOrdinalNumber(flowedObjectValue, 0)));
+            attributesBuilder.add(new Expression(atAlias, DataType.Primitives.INTEGER.type(),
+                    FieldValue.ofOrdinalNumber(flowedObjectValue, 1)));
+        } else if (flowedObjectType.isPrimitive()) {
+            attributesBuilder.add(new Expression(alias, DataTypeUtils.toRelationalType(explode.getExplodeResultType()),
+                    flowedObjectValue));
         } else {
-            outputAttributes = Expressions.of(convertToExpressions(resultingQuantifier));
+            attributesBuilder.addAll(convertToExpressions(resultingQuantifier));
         }
+        final Expressions outputAttributes = Expressions.of(attributesBuilder.build());
+
         final var operator = LogicalOperator.newOperator(alias, outputAttributes, resultingQuantifier);
         // For struct array elements, prepend a whole-struct EphemeralExpression named by the alias.
         // This allows UDFs to receive the entire struct element as an argument.
@@ -301,10 +342,10 @@ public class LogicalOperator {
         //  - lookup("item.price", ..., matchQualifiedOnly=true) iterates [EphemeralExpression(item), item.b, item.c, ...]
         //  - EphemeralExpression(item): exact match fails; lookupNestedField → skipped
         //  - item.b: exact match item.b.
-        if (alias.isPresent() && resultingQuantifier.getFlowedObjectType().isRecord()) {
-            final var elementType = DataTypeUtils.toRelationalType(resultingQuantifier.getFlowedObjectType());
-            final var wholeStructExpr = new EphemeralExpression(alias, elementType,
-                    resultingQuantifier.getFlowedObjectValue(), Expression.Visibility.VISIBLE);
+        if (alias.isPresent() && atAlias.isEmpty() && flowedObjectType.isRecord()) {
+            final var elementType = DataTypeUtils.toRelationalType(flowedObjectType);
+            final var wholeStructExpr = new EphemeralExpression(alias, elementType, flowedObjectValue,
+                    Expression.Visibility.VISIBLE);
             return operator.withOutput(Expressions.of(ImmutableList.<Expression>builder()
                     .add(wholeStructExpr)
                     .addAll(operator.getOutput().asList())
