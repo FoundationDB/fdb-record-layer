@@ -7,6 +7,52 @@ As the [versioning guide](Versioning.md) details, it cannot always be determined
 
 ## 4.10
 
+### 4.12.3.0
+
+<h4> Breaking Changes </h4>
+
+* Fix the NULL result of `field()` key expressions with fan-type `Concatenate` - [PR #4130](https://github.com/FoundationDB/fdb-record-layer/pull/4130)
+<h4> New Features </h4>
+
+* Implement the PartiQL “AT” construct for unnesting with ordinality - [PR #4112](https://github.com/FoundationDB/fdb-record-layer/pull/4112)
+* Support CARDINALITY() in indexes - [PR #4100](https://github.com/FoundationDB/fdb-record-layer/pull/4100)
+<h4> Bug Fixes </h4>
+
+* Fix semantic analysis of unary grouping comparisons  - [PR #4174](https://github.com/FoundationDB/fdb-record-layer/pull/4174)
+* Disallow CREATE INDEX on ARRAY fields with implicit fan-out - [PR #4156](https://github.com/FoundationDB/fdb-record-layer/pull/4156)
+
+<details>
+<summary>
+
+<h4> Build/Test/Documentation/Style Improvements (click to expand) </h4>
+
+</summary>
+
+* Upgrade to Gradle 8.14 - [PR #4176](https://github.com/FoundationDB/fdb-record-layer/pull/4176)
+* Handle binary files in diffs for coverage_annotations - [PR #4178](https://github.com/FoundationDB/fdb-record-layer/pull/4178)
+* Update OperationsTest.testBasicInsertRingSearch expectation based on nightly runs - [PR #4142](https://github.com/FoundationDB/fdb-record-layer/pull/4142)
+* Introduce custom mechanism for exposing coverage information - [PR #4146](https://github.com/FoundationDB/fdb-record-layer/pull/4146)
+* Cleanup 4.5.3.0 Release Notes - [PR #3521](https://github.com/FoundationDB/fdb-record-layer/pull/3521)
+* Add support for using the COPY command in yamsql - [PR #4053](https://github.com/FoundationDB/fdb-record-layer/pull/4053)
+* Prepare for upgrading Gradle from 8.13 to 9.5 - [PR #4140](https://github.com/FoundationDB/fdb-record-layer/pull/4140)
+* Support per-version variants to `schema_template` in .yamsql tests - [PR #4155](https://github.com/FoundationDB/fdb-record-layer/pull/4155)
+* Update actions dependencies to not depend on Node 20 - [PR #4145](https://github.com/FoundationDB/fdb-record-layer/pull/4145)
+
+</details>
+
+
+**[Full Changelog (4.12.2.0...4.12.3.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.12.2.0...4.12.3.0)**
+
+#### Mixed Mode Test Results
+
+Mixed mode testing run against the following previous versions:
+
+✅`4.10.13.0`, ✅`4.10.15.0`, ✅`4.10.16.0`, ✅`4.10.17.0`, ✅`4.10.18.0`, ✅`4.10.19.0`, ✅`4.10.20.0`, ✅`4.11.1.0`, ✅`4.12.1.0`, ✅`4.12.2.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/26186643524)
+
+
+
 ### 4.12.2.0
 
 <h4> Breaking Changes </h4>
