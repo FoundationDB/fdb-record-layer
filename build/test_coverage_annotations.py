@@ -30,8 +30,12 @@ import unittest
 sys.path.insert(0, os.path.dirname(__file__))
 from coverage_annotations import (
     LineCoverage,
+    compute_changed_lines_branch_coverage,
     compute_changed_lines_coverage,
+    compute_file_branch_coverage,
     compute_file_coverage,
+    format_branch_percentage,
+    format_combined_percentage,
     format_file_annotation,
     format_percentage,
     generate_annotations,
@@ -343,11 +347,13 @@ class TestFormatPercentage(unittest.TestCase):
 class TestFormatFileAnnotation(unittest.TestCase):
     """Tests for format_file_annotation()"""
 
-    def test_basic_annotation(self):
+    def test_basic_annotation_no_branches(self):
         result = format_file_annotation(
             'module/src/main/java/com/example/Foo.java',
             (8, 10),
             (2, 3),
+            (0, 0),
+            (0, 0),
             first_changed_line=15,
         )
         self.assertEqual(
@@ -356,11 +362,43 @@ class TestFormatFileAnnotation(unittest.TestCase):
             'File coverage: 80.0% (8/10 lines) | Changed lines: 66.7% (2/3 lines)'
         )
 
+    def test_annotation_with_branches(self):
+        result = format_file_annotation(
+            'module/src/main/java/com/example/Foo.java',
+            (8, 10),
+            (2, 3),
+            (6, 10),
+            (1, 4),
+            first_changed_line=15,
+        )
+        self.assertEqual(
+            result,
+            '::notice file=module/src/main/java/com/example/Foo.java,line=14::'
+            'File coverage: 80.0% (8/10 lines), 60.0% (6/10 branches) | '
+            'Changed lines: 66.7% (2/3 lines), 25.0% (1/4 branches)'
+        )
+
+    def test_annotation_omits_branches_when_only_file_has_branches(self):
+        # File has branches, but changed lines don't touch any
+        result = format_file_annotation(
+            'module/src/main/java/com/example/Foo.java',
+            (8, 10),
+            (2, 3),
+            (6, 10),
+            (0, 0),
+            first_changed_line=15,
+        )
+        self.assertIn('80.0% (8/10 lines), 60.0% (6/10 branches)', result)
+        self.assertIn('Changed lines: 66.7% (2/3 lines)', result)
+        self.assertNotIn('0/0 branches', result)
+
     def test_annotation_line_does_not_go_below_1(self):
         result = format_file_annotation(
             'module/src/main/java/com/example/Foo.java',
             (8, 10),
             (2, 3),
+            (0, 0),
+            (0, 0),
             first_changed_line=1,
         )
         self.assertIn('line=1', result)
@@ -370,9 +408,99 @@ class TestFormatFileAnnotation(unittest.TestCase):
             'module/src/main/java/com/example/Foo.java',
             (8, 10),
             (0, 0),
+            (0, 0),
+            (0, 0),
             first_changed_line=5,
         )
         self.assertIn('N/A (no executable lines)', result)
+
+
+class TestComputeFileBranchCoverage(unittest.TestCase):
+    """Tests for compute_file_branch_coverage()"""
+
+    def test_mixed_branches(self):
+        lines = [
+            LineCoverage(10, 0, 3, 0, 0),    # no branches
+            LineCoverage(15, 0, 5, 1, 3),    # 3 covered, 1 missed
+            LineCoverage(20, 0, 1, 2, 2),    # 2 covered, 2 missed
+        ]
+        covered, total = compute_file_branch_coverage(lines)
+        self.assertEqual(covered, 5)
+        self.assertEqual(total, 8)
+
+    def test_no_branches(self):
+        lines = [
+            LineCoverage(10, 0, 3, 0, 0),
+            LineCoverage(11, 0, 2, 0, 0),
+        ]
+        covered, total = compute_file_branch_coverage(lines)
+        self.assertEqual(covered, 0)
+        self.assertEqual(total, 0)
+
+    def test_all_branches_covered(self):
+        lines = [LineCoverage(10, 0, 5, 0, 4)]
+        covered, total = compute_file_branch_coverage(lines)
+        self.assertEqual(covered, 4)
+        self.assertEqual(total, 4)
+
+    def test_empty_file(self):
+        covered, total = compute_file_branch_coverage([])
+        self.assertEqual(covered, 0)
+        self.assertEqual(total, 0)
+
+
+class TestComputeChangedLinesBranchCoverage(unittest.TestCase):
+    """Tests for compute_changed_lines_branch_coverage()"""
+
+    def test_changed_lines_with_branches(self):
+        lines = [
+            LineCoverage(10, 0, 3, 0, 0),    # no branches
+            LineCoverage(15, 0, 5, 1, 3),    # 3 covered, 1 missed
+            LineCoverage(20, 0, 1, 2, 2),    # 2 covered, 2 missed
+        ]
+        # Only line 15 is changed
+        covered, total = compute_changed_lines_branch_coverage(lines, {15})
+        self.assertEqual(covered, 3)
+        self.assertEqual(total, 4)
+
+    def test_changed_lines_without_branches(self):
+        lines = [LineCoverage(10, 0, 3, 0, 0)]
+        covered, total = compute_changed_lines_branch_coverage(lines, {10})
+        self.assertEqual(covered, 0)
+        self.assertEqual(total, 0)
+
+    def test_changed_line_not_in_coverage(self):
+        lines = [LineCoverage(10, 0, 3, 1, 1)]
+        # Line 5 is changed but has no coverage data (e.g., a comment)
+        covered, total = compute_changed_lines_branch_coverage(lines, {5})
+        self.assertEqual(covered, 0)
+        self.assertEqual(total, 0)
+
+
+class TestFormatCombinedPercentage(unittest.TestCase):
+    """Tests for format_combined_percentage()"""
+
+    def test_with_branches(self):
+        result = format_combined_percentage((4, 8), (3, 5))
+        self.assertEqual(result, '50.0% (4/8 lines), 60.0% (3/5 branches)')
+
+    def test_without_branches(self):
+        result = format_combined_percentage((4, 8), (0, 0))
+        self.assertEqual(result, '50.0% (4/8 lines)')
+
+    def test_no_executable_lines(self):
+        result = format_combined_percentage((0, 0), (0, 0))
+        self.assertEqual(result, 'N/A (no executable lines)')
+
+
+class TestFormatBranchPercentage(unittest.TestCase):
+    """Tests for format_branch_percentage()"""
+
+    def test_basic(self):
+        self.assertEqual(format_branch_percentage(3, 5), '60.0% (3/5 branches)')
+
+    def test_full(self):
+        self.assertEqual(format_branch_percentage(4, 4), '100.0% (4/4 branches)')
 
 
 class TestGenerateAnnotations(unittest.TestCase):
@@ -435,9 +563,24 @@ class TestGenerateAnnotations(unittest.TestCase):
         annotations = generate_annotations(self.coverage_data, diff_data, None)
         self.assertEqual(len(annotations), 1)
         # File has 8 executable lines, 4 covered -> 50%
-        self.assertIn('50.0%', annotations[0])
-        # Changed lines 12, 13, 14 are all uncovered -> 0%
-        self.assertIn('0.0%', annotations[0])
+        self.assertIn('50.0% (4/8 lines)', annotations[0])
+        # File has 4 total branches (line 15: cb=3 mb=1), 3 covered -> 75%
+        self.assertIn('75.0% (3/4 branches)', annotations[0])
+        # Changed lines 12, 13, 14 are all uncovered with no branches -> 0% lines, no branches
+        self.assertIn('0.0% (0/3 lines)', annotations[0])
+        # Changed lines have no branches, so branches segment should be omitted from changed
+        self.assertNotIn('0/0 branches', annotations[0])
+
+    def test_annotation_with_branches_on_changed_line(self):
+        diff_data = {
+            # Line 15 has cb=3 mb=1 (partial branch coverage)
+            'fdb-record-layer-core/src/main/java/com/apple/foundationdb/record/FDBRecordStore.java': {15},
+        }
+        annotations = generate_annotations(self.coverage_data, diff_data, None)
+        self.assertEqual(len(annotations), 1)
+        # Changed line 15: 1 covered line, 3/4 branches covered
+        self.assertIn('100.0% (1/1 lines)', annotations[0])
+        self.assertIn('75.0% (3/4 branches)', annotations[0])
 
 
 class TestEndToEnd(unittest.TestCase):

@@ -204,15 +204,67 @@ def compute_changed_lines_coverage(lines, changed_line_numbers):
     return covered_changed, executable_changed
 
 
+def compute_file_branch_coverage(lines):
+    """
+    Compute overall branch coverage for a file.
+
+    Returns:
+        tuple of (covered_branches, total_branches)
+    """
+    covered = sum(l.covered_branches for l in lines)
+    missed = sum(l.missed_branches for l in lines)
+    return covered, covered + missed
+
+
+def compute_changed_lines_branch_coverage(lines, changed_line_numbers):
+    """
+    Compute branch coverage for only the changed lines in a file.
+
+    Returns:
+        tuple of (covered_branches, total_branches)
+    """
+    line_map = {l.line_number: l for l in lines}
+    covered = 0
+    total = 0
+
+    for line_num in changed_line_numbers:
+        line = line_map.get(line_num)
+        if line is not None:
+            covered += line.covered_branches
+            total += line.covered_branches + line.missed_branches
+
+    return covered, total
+
+
 def format_percentage(covered, total):
-    """Format a coverage percentage string."""
+    """Format a line coverage percentage string."""
     if total == 0:
         return 'N/A (no executable lines)'
     pct = (covered / total) * 100
     return f'{pct:.1f}% ({covered}/{total} lines)'
 
 
-def format_file_annotation(repo_path, file_coverage, changed_coverage, first_changed_line):
+def format_branch_percentage(covered, total):
+    """Format a branch coverage percentage string."""
+    pct = (covered / total) * 100
+    return f'{pct:.1f}% ({covered}/{total} branches)'
+
+
+def format_combined_percentage(line_cov, branch_cov):
+    """
+    Format combined line + branch coverage. Branch part is omitted when there
+    are no branches at all (keeps annotations tidy for files with no
+    conditional logic).
+    """
+    parts = [format_percentage(*line_cov)]
+    if branch_cov[1] > 0:
+        parts.append(format_branch_percentage(*branch_cov))
+    return ', '.join(parts)
+
+
+def format_file_annotation(repo_path, file_line_coverage, changed_line_coverage,
+                           file_branch_coverage, changed_branch_coverage,
+                           first_changed_line):
     """
     Format a single GitHub Actions annotation for a file's coverage summary.
 
@@ -221,11 +273,8 @@ def format_file_annotation(repo_path, file_coverage, changed_coverage, first_cha
 
     Returns the annotation string, or None if there's nothing to report.
     """
-    file_covered, file_total = file_coverage
-    changed_covered, changed_total = changed_coverage
-
-    file_pct_str = format_percentage(file_covered, file_total)
-    changed_pct_str = format_percentage(changed_covered, changed_total)
+    file_pct_str = format_combined_percentage(file_line_coverage, file_branch_coverage)
+    changed_pct_str = format_combined_percentage(changed_line_coverage, changed_branch_coverage)
 
     annotation_line = max(1, first_changed_line - 1)
     message = f'File coverage: {file_pct_str} | Changed lines: {changed_pct_str}'
@@ -260,10 +309,15 @@ def generate_annotations(coverage_data, diff_data, source_prefixes):
 
         file_coverage = compute_file_coverage(lines)
         changed_coverage = compute_changed_lines_coverage(lines, changed_line_numbers)
+        file_branch_coverage = compute_file_branch_coverage(lines)
+        changed_branch_coverage = compute_changed_lines_branch_coverage(lines, changed_line_numbers)
         first_changed_line = min(changed_line_numbers)
 
         annotation = format_file_annotation(
-            repo_path, file_coverage, changed_coverage, first_changed_line)
+            repo_path,
+            file_coverage, changed_coverage,
+            file_branch_coverage, changed_branch_coverage,
+            first_changed_line)
         if annotation:
             annotations.append(annotation)
 
