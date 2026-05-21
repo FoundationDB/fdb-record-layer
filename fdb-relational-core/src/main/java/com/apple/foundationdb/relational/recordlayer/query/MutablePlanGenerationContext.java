@@ -55,7 +55,6 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Struct;
 import java.util.ArrayList;
-import java.util.EnumSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Optional;
