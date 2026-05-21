@@ -106,6 +106,11 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
+    void boolLiteralPredicate(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("boolean-ddl.yamsql");
+    }
+
+    @TestTemplate
     void bytes(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("bytes.yamsql");
     }
