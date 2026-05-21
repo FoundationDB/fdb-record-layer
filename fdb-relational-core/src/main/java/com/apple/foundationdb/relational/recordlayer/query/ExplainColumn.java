@@ -22,7 +22,6 @@ package com.apple.foundationdb.relational.recordlayer.query;
 
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
-import com.apple.foundationdb.relational.api.exceptions.UncheckedRelationalException;
 
 import javax.annotation.Nonnull;
 import java.util.EnumSet;
