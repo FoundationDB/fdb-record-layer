@@ -722,11 +722,6 @@ simpleDescribeStatement
 fullDescribeStatement
     : command=(EXPLAIN | DESCRIBE | DESC)
       ( '(' explainColumnList ')' )?
-      (
-        formatType=(EXTENDED | PARTITIONS | FORMAT )
-        '='
-        formatValue=(TRADITIONAL | JSON)
-      )?
       describeObjectClause
     ;
 

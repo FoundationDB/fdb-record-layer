@@ -39,6 +39,10 @@ import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerInvoked
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerTable;
 import com.apple.foundationdb.relational.recordlayer.query.cache.QueryCacheKey;
+
+import static com.apple.foundationdb.relational.recordlayer.query.ExplainColumn.ALL;
+import static com.apple.foundationdb.relational.recordlayer.query.ExplainColumn.PLAN;
+import static com.apple.foundationdb.relational.recordlayer.query.ExplainColumn.PLAN_HASH;
 import com.apple.foundationdb.relational.recordlayer.query.functions.CompiledSqlFunction;
 import com.apple.foundationdb.relational.recordlayer.util.Hex;
 import com.apple.foundationdb.relational.util.Assert;
@@ -1492,6 +1496,50 @@ public class AstNormalizerTests {
         Assertions.assertThatThrownBy(() -> normalizer.visitFullDescribeStatement(new RelationalParser.FullDescribeStatementContext(null, -1)))
                 .isInstanceOf(UncheckedRelationalException.class)
                 .hasMessageContaining("Explain/Describe statement should not appear at the parser level");
+    }
+
+    @Test
+    void explainWithColumnSelectionProducesSameCacheKeyAsPlainExplain() throws RelationalException {
+        final var selQ = "select * from t1 where c1 > 42";
+        final var plainExpQ = "explain select * from t1 where c1 > 42";
+        final var colExpQ = "explain (PLAN) select * from t1 where c1 > 42";
+
+        final var selRes = AstNormalizer.normalizeAst(fakeSchemaTemplate, QueryParser.parse(selQ), PreparedParams.empty(), 0, plannerConfiguration, false, PlanHashable.PlanHashMode.VC0, selQ);
+        final var plainExpRes = AstNormalizer.normalizeAst(fakeSchemaTemplate, QueryParser.parse(plainExpQ), PreparedParams.empty(), 0, plannerConfiguration, false, PlanHashable.PlanHashMode.VC0, plainExpQ);
+        final var colExpRes = AstNormalizer.normalizeAst(fakeSchemaTemplate, QueryParser.parse(colExpQ), PreparedParams.empty(), 0, plannerConfiguration, false, PlanHashable.PlanHashMode.VC0, colExpQ);
+
+        Assertions.assertThat(colExpRes.getQueryCacheKey())
+                .isEqualTo(plainExpRes.getQueryCacheKey())
+                .isEqualTo(selRes.getQueryCacheKey());
+    }
+
+    @Test
+    void explainWithColumnSelectionSetsExplainColumnsInExecutionContext() throws RelationalException {
+        final var q = "explain (PLAN, PLAN_HASH) select * from t1 where c1 > 42";
+        final var res = AstNormalizer.normalizeAst(fakeSchemaTemplate, QueryParser.parse(q), PreparedParams.empty(), 0, plannerConfiguration, false, PlanHashable.PlanHashMode.VC0, q);
+
+        Assertions.assertThat(res.getQueryExecutionContext().getExplainColumns())
+                .containsExactlyInAnyOrderElementsOf(EnumSet.of(PLAN, PLAN_HASH));
+    }
+
+    @Test
+    void explainWithNoColumnListSetsAllColumnsInExecutionContext() throws RelationalException {
+        final var q = "explain select * from t1 where c1 > 42";
+        final var res = AstNormalizer.normalizeAst(fakeSchemaTemplate, QueryParser.parse(q), PreparedParams.empty(), 0, plannerConfiguration, false, PlanHashable.PlanHashMode.VC0, q);
+
+        Assertions.assertThat(res.getQueryExecutionContext().getExplainColumns())
+                .containsExactlyInAnyOrderElementsOf(ALL);
+    }
+
+    @Test
+    void explainColumnOrderDoesNotAffectCacheKey() throws RelationalException {
+        final var q1 = "explain (PLAN, PLAN_HASH) select * from t1 where c1 > 42";
+        final var q2 = "explain (PLAN_HASH, PLAN) select * from t1 where c1 > 42";
+
+        final var res1 = AstNormalizer.normalizeAst(fakeSchemaTemplate, QueryParser.parse(q1), PreparedParams.empty(), 0, plannerConfiguration, false, PlanHashable.PlanHashMode.VC0, q1);
+        final var res2 = AstNormalizer.normalizeAst(fakeSchemaTemplate, QueryParser.parse(q2), PreparedParams.empty(), 0, plannerConfiguration, false, PlanHashable.PlanHashMode.VC0, q2);
+
+        Assertions.assertThat(res1.getQueryCacheKey()).isEqualTo(res2.getQueryCacheKey());
     }
 
     @Test
