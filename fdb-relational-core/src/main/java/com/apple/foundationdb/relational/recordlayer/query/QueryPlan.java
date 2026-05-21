@@ -318,6 +318,8 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
         @Nonnull
         private RelationalResultSet executeExplain(@Nonnull ContinuationImpl parsedContinuation,
                                                    ExecutionContext executionContext) throws RelationalException {
+            final var requestedColumns = queryExecutionContext.getExplainColumns();
+
             final var continuationStructType = DataType.StructType.from(
                     "PLAN_CONTINUATION", List.of(
                             DataType.StructType.Field.from("EXECUTION_STATE", DataType.Primitives.BYTES.type(), 0),
@@ -343,74 +345,115 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
                             DataType.StructType.Field.from("REWRITING_PHASE_TASKS_TOTAL_TIME_NS", DataType.Primitives.LONG.type(), 12),
                             DataType.StructType.Field.from("PLANNING_PHASE_TASKS_TOTAL_TIME_NS", DataType.Primitives.LONG.type(), 13)),
                     true);
-            final var explainStructType = DataType.StructType.from(
-                    "EXPLAIN", List.of(
-                            DataType.StructType.Field.from("PLAN", DataType.Primitives.STRING.type(), 0),
-                            DataType.StructType.Field.from("PLAN_HASH", DataType.Primitives.INTEGER.type(), 1),
-                            DataType.StructType.Field.from("PLAN_DOT", DataType.Primitives.STRING.type(), 2),
-                            DataType.StructType.Field.from("PLAN_GML", DataType.Primitives.STRING.type(), 3),
-                            DataType.StructType.Field.from("PLAN_CONTINUATION", continuationStructType, 4),
-                            DataType.StructType.Field.from("PLANNER_METRICS", plannerMetricsStructType, 5)),
-                    true);
 
-            final Struct continuationInfo = ContinuationImpl.BEGIN.equals(parsedContinuation) ? null :
-                                            new ImmutableRowStruct(new ArrayRow(
-                            parsedContinuation.getExecutionState(),
-                            parsedContinuation.getVersion(),
-                            parsedContinuation.getCompiledStatement() == null ? null : parsedContinuation.getCompiledStatement().getPlanSerializationMode(),
-                            parsedContinuation.getPlanHash(),
-                            getSerializedPlanFromContinuation(parsedContinuation, executionContext).map(RecordQueryPlan::getComplexity).orElse(null)
-                    ), RelationalStructMetaData.of(continuationStructType));
+            // Build a result schema containing only the requested columns, in canonical order.
+            final var explainFields = new ArrayList<DataType.StructType.Field>();
+            int idx = 0;
+            if (requestedColumns.contains(ExplainColumn.PLAN)) {
+                explainFields.add(DataType.StructType.Field.from("PLAN", DataType.Primitives.STRING.type(), idx++));
+            }
+            if (requestedColumns.contains(ExplainColumn.PLAN_HASH)) {
+                explainFields.add(DataType.StructType.Field.from("PLAN_HASH", DataType.Primitives.INTEGER.type(), idx++));
+            }
+            if (requestedColumns.contains(ExplainColumn.PLAN_DOT)) {
+                explainFields.add(DataType.StructType.Field.from("PLAN_DOT", DataType.Primitives.STRING.type(), idx++));
+            }
+            if (requestedColumns.contains(ExplainColumn.PLAN_GML)) {
+                explainFields.add(DataType.StructType.Field.from("PLAN_GML", DataType.Primitives.STRING.type(), idx++));
+            }
+            if (requestedColumns.contains(ExplainColumn.PLAN_CONTINUATION)) {
+                explainFields.add(DataType.StructType.Field.from("PLAN_CONTINUATION", continuationStructType, idx++));
+            }
+            if (requestedColumns.contains(ExplainColumn.PLANNER_METRICS)) {
+                explainFields.add(DataType.StructType.Field.from("PLANNER_METRICS", plannerMetricsStructType, idx));
+            }
+            final var explainStructType = DataType.StructType.from("EXPLAIN", explainFields, true);
+
+            // Compute only what was requested — skip expensive graph generation if not needed.
+            final Struct continuationInfo;
+            if (requestedColumns.contains(ExplainColumn.PLAN_CONTINUATION)) {
+                continuationInfo = ContinuationImpl.BEGIN.equals(parsedContinuation) ? null :
+                        new ImmutableRowStruct(new ArrayRow(
+                                parsedContinuation.getExecutionState(),
+                                parsedContinuation.getVersion(),
+                                parsedContinuation.getCompiledStatement() == null ? null : parsedContinuation.getCompiledStatement().getPlanSerializationMode(),
+                                parsedContinuation.getPlanHash(),
+                                getSerializedPlanFromContinuation(parsedContinuation, executionContext).map(RecordQueryPlan::getComplexity).orElse(null)
+                        ), RelationalStructMetaData.of(continuationStructType));
+            } else {
+                continuationInfo = null;
+            }
 
             final Struct plannerMetrics;
-            if (plannerEventStatsMaps == null) {
-                plannerMetrics = null;
-            } else {
+            if (requestedColumns.contains(ExplainColumn.PLANNER_METRICS) && plannerEventStatsMaps != null) {
                 final var plannerEventClassStatsMap = plannerEventStatsMaps.getEventClassStatsMap();
-
                 final var aggregateExecutingTasksStats =
                         Optional.ofNullable(plannerEventClassStatsMap.get(ExecutingTaskPlannerEvent.class));
                 final var aggregateTransformRuleCallStats =
                         Optional.ofNullable(plannerEventClassStatsMap.get(TransformRuleCallPlannerEvent.class));
                 final var aggregateInsertIntoMemoStats =
                         Optional.ofNullable(plannerEventClassStatsMap.get(InsertIntoMemoPlannerEvent.class));
-
                 final var executingTasksStatsForRewritingPhase =
                         plannerEventStatsMaps.getEventWithStateClassStatsMapByPlannerPhase(PlannerPhase.REWRITING)
                                 .map(m -> m.get(ExecutingTaskPlannerEvent.class));
                 final var executingTasksStatsForPlanningPhase =
                         plannerEventStatsMaps.getEventWithStateClassStatsMapByPlannerPhase(PlannerPhase.PLANNING)
                                 .map(m -> m.get(ExecutingTaskPlannerEvent.class));
-
-                plannerMetrics =
-                        new ImmutableRowStruct(new ArrayRow(
-                                aggregateExecutingTasksStats.map(s -> s.getCount(Location.BEGIN)).orElse(0L),
-                                aggregateExecutingTasksStats.map(PlannerEventStats::getTotalTimeInNs).orElse(0L),
-                                aggregateTransformRuleCallStats.map(s -> s.getCount(Location.BEGIN)).orElse(0L),
-                                aggregateTransformRuleCallStats.map(PlannerEventStats::getOwnTimeInNs).orElse(0L),
-                                aggregateTransformRuleCallStats.map(s -> s.getCount(Location.YIELD)).orElse(0L),
-                                aggregateInsertIntoMemoStats.map(PlannerEventStats::getOwnTimeInNs).orElse(0L),
-                                aggregateInsertIntoMemoStats.map(s -> s.getCount(Location.NEW)).orElse(0L),
-                                aggregateInsertIntoMemoStats.map(s -> s.getCount(Location.REUSED)).orElse(0L),
-                                aggregateTransformRuleCallStats.map(s -> s.getCount(
-                                        Location.DISCARDED_INTERSECTION_COMBINATIONS)).orElse(0L),
-                                aggregateTransformRuleCallStats.map(s -> s.getCount(
-                                        Location.ALL_INTERSECTION_COMBINATIONS)).orElse(0L),
-                                executingTasksStatsForRewritingPhase.map(s -> s.getCount(Location.BEGIN)).orElse(0L),
-                                executingTasksStatsForPlanningPhase.map(s -> s.getCount(Location.BEGIN)).orElse(0L),
-                                executingTasksStatsForRewritingPhase.map(PlannerEventStats::getTotalTimeInNs).orElse(0L),
-                                executingTasksStatsForPlanningPhase.map(PlannerEventStats::getTotalTimeInNs).orElse(0L)
-                        ), RelationalStructMetaData.of(plannerMetricsStructType));
+                plannerMetrics = new ImmutableRowStruct(new ArrayRow(
+                        aggregateExecutingTasksStats.map(s -> s.getCount(Location.BEGIN)).orElse(0L),
+                        aggregateExecutingTasksStats.map(PlannerEventStats::getTotalTimeInNs).orElse(0L),
+                        aggregateTransformRuleCallStats.map(s -> s.getCount(Location.BEGIN)).orElse(0L),
+                        aggregateTransformRuleCallStats.map(PlannerEventStats::getOwnTimeInNs).orElse(0L),
+                        aggregateTransformRuleCallStats.map(s -> s.getCount(Location.YIELD)).orElse(0L),
+                        aggregateInsertIntoMemoStats.map(PlannerEventStats::getOwnTimeInNs).orElse(0L),
+                        aggregateInsertIntoMemoStats.map(s -> s.getCount(Location.NEW)).orElse(0L),
+                        aggregateInsertIntoMemoStats.map(s -> s.getCount(Location.REUSED)).orElse(0L),
+                        aggregateTransformRuleCallStats.map(s -> s.getCount(Location.DISCARDED_INTERSECTION_COMBINATIONS)).orElse(0L),
+                        aggregateTransformRuleCallStats.map(s -> s.getCount(Location.ALL_INTERSECTION_COMBINATIONS)).orElse(0L),
+                        executingTasksStatsForRewritingPhase.map(s -> s.getCount(Location.BEGIN)).orElse(0L),
+                        executingTasksStatsForPlanningPhase.map(s -> s.getCount(Location.BEGIN)).orElse(0L),
+                        executingTasksStatsForRewritingPhase.map(PlannerEventStats::getTotalTimeInNs).orElse(0L),
+                        executingTasksStatsForPlanningPhase.map(PlannerEventStats::getTotalTimeInNs).orElse(0L)
+                ), RelationalStructMetaData.of(plannerMetricsStructType));
+            } else {
+                plannerMetrics = null;
             }
 
-            final var plannerGraph = Objects.requireNonNull(recordQueryPlan.acceptVisitor(PlannerGraphVisitor.forExplain()));
-            return new IteratorResultSet(RelationalStructMetaData.of(explainStructType), Collections.singleton(new ArrayRow(
-                    explain(),
-                    planHashSupplier.get(),
-                    PlannerGraphVisitor.exportToDot(plannerGraph),
-                    PlannerGraphVisitor.exportToGml(plannerGraph, Map.of()),
-                    continuationInfo,
-                    plannerMetrics)).iterator(), 0);
+            // DOT and GML share the same PlannerGraph — build it only once if either is requested.
+            final String planDot;
+            final String planGml;
+            if (requestedColumns.contains(ExplainColumn.PLAN_DOT) || requestedColumns.contains(ExplainColumn.PLAN_GML)) {
+                final var plannerGraph = Objects.requireNonNull(recordQueryPlan.acceptVisitor(PlannerGraphVisitor.forExplain()));
+                planDot = requestedColumns.contains(ExplainColumn.PLAN_DOT) ? PlannerGraphVisitor.exportToDot(plannerGraph) : null;
+                planGml = requestedColumns.contains(ExplainColumn.PLAN_GML) ? PlannerGraphVisitor.exportToGml(plannerGraph, Map.of()) : null;
+            } else {
+                planDot = null;
+                planGml = null;
+            }
+
+            // Assemble the row in the same canonical column order used for the schema above.
+            final var rowValues = new ArrayList<>();
+            if (requestedColumns.contains(ExplainColumn.PLAN)) {
+                rowValues.add(explain());
+            }
+            if (requestedColumns.contains(ExplainColumn.PLAN_HASH)) {
+                rowValues.add(planHashSupplier.get());
+            }
+            if (requestedColumns.contains(ExplainColumn.PLAN_DOT)) {
+                rowValues.add(planDot);
+            }
+            if (requestedColumns.contains(ExplainColumn.PLAN_GML)) {
+                rowValues.add(planGml);
+            }
+            if (requestedColumns.contains(ExplainColumn.PLAN_CONTINUATION)) {
+                rowValues.add(continuationInfo);
+            }
+            if (requestedColumns.contains(ExplainColumn.PLANNER_METRICS)) {
+                rowValues.add(plannerMetrics);
+            }
+
+            return new IteratorResultSet(RelationalStructMetaData.of(explainStructType),
+                    Collections.singleton(new ArrayRow(rowValues.toArray())).iterator(), 0);
         }
 
         @Nonnull

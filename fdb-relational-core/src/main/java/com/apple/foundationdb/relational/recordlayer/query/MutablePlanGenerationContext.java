@@ -55,9 +55,11 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Struct;
 import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Supplier;
 
 import static com.apple.foundationdb.relational.api.exceptions.ErrorCode.DATATYPE_MISMATCH;
@@ -91,6 +93,9 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
     private boolean shouldProcessLiteral;
 
     private boolean forExplain;
+
+    @Nonnull
+    private Set<ExplainColumn> explainColumns;
 
     @Nullable
     private byte[] continuation;
@@ -280,6 +285,7 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
         constantObjectValues = new LinkedList<>();
         shouldProcessLiteral = true;
         forExplain = false;
+        explainColumns = ExplainColumn.ALL;
         continuation = null;
         equalityConstraints = ImmutableList.builder();
     }
@@ -355,6 +361,12 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
         return forExplain;
     }
 
+    @Nonnull
+    @Override
+    public Set<ExplainColumn> getExplainColumns() {
+        return explainColumns;
+    }
+
 
     @Nonnull
     public QueryPlanConstraint getPlanConstraintsForLiteralReferences() {
@@ -389,6 +401,10 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
 
     public void setForExplain(boolean forExplain) {
         this.forExplain = forExplain;
+    }
+
+    public void setExplainColumns(@Nonnull Set<ExplainColumn> explainColumns) {
+        this.explainColumns = explainColumns;
     }
 
     @Nonnull

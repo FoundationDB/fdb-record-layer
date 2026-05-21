@@ -245,6 +245,7 @@ public final class PlanGenerator {
         final var planGenerationContext = new MutablePlanGenerationContext(planContext.getPreparedStatementParameters(),
                 currentPlanHashMode, ast.getQuery(), ast.getQueryCacheKey().getCanonicalQueryString(), parameterHash);
         planGenerationContext.setForExplain(ast.getQueryExecutionContext().isForExplain());
+        planGenerationContext.setExplainColumns(ast.getQueryExecutionContext().getExplainColumns());
         final var metadata = Assert.castUnchecked(planContext.getSchemaTemplate(), RecordLayerSchemaTemplate.class);
         try (var ignored = new PlannerEventStatsCollector.DefaultStatsCollectorController()) {
             final var maybePlan = planContext.getMetricsCollector().clock(RelationalMetric.RelationalEvent.GENERATE_LOGICAL_PLAN, () ->
@@ -367,6 +368,7 @@ public final class PlanGenerator {
                 ast.getQuery(),
                 ast.getQueryCacheKey().getCanonicalQueryString(), Objects.requireNonNull(continuation.getBindingHash()));
         planGenerationContext.setForExplain(ast.getQueryExecutionContext().isForExplain());
+        planGenerationContext.setExplainColumns(ast.getQueryExecutionContext().getExplainColumns());
         Arrays.stream(orderedLiterals).forEach(literal -> planGenerationContext.getLiteralsBuilder().addLiteral(literal));
         planGenerationContext.setContinuation(continuationProto);
         final var continuationPlanConstraint =

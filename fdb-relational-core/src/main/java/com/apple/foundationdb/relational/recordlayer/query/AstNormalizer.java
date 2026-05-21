@@ -597,6 +597,7 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
                                                    @Nonnull final PlanHashable.PlanHashMode currentPlanHashMode,
                                                    @Nonnull final String query) throws RelationalException {
         final var astNormalizer = new AstNormalizer(preparedStatementParameters, caseSensitive, currentPlanHashMode, parseTreeInfo.getQueryType() == ParseTreeInfo.QueryType.DESCRIBE_QUERY);
+        astNormalizer.queryHasherContextBuilder.setExplainColumns(parseTreeInfo.getExplainColumns());
         astNormalizer.visit(parseTreeInfo.getRootContext());
         final var recordLayerSchemaTemplate = Assert.castUnchecked(schemaTemplate, RecordLayerSchemaTemplate.class);
 

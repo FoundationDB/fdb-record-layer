@@ -36,6 +36,8 @@ import org.antlr.v4.runtime.tree.TerminalNode;
 import javax.annotation.Nonnull;
 import java.util.ArrayDeque;
 import java.util.Deque;
+import java.util.EnumSet;
+import java.util.Set;
 
 /**
  * this holds query parsing information.
@@ -49,9 +51,18 @@ public final class ParseTreeInfoImpl implements ParseTreeInfo {
     @Nonnull
     private final QueryType queryType;
 
-    private ParseTreeInfoImpl(@Nonnull final ParseTree effectiveContext, @Nonnull final QueryType queryType) {
+    @Nonnull
+    private final Set<ExplainColumn> explainColumns;
+
+    private ParseTreeInfoImpl(@Nonnull final ParseTree effectiveContext, @Nonnull final QueryType queryType,
+                              @Nonnull final Set<ExplainColumn> explainColumns) {
         this.rootContext = effectiveContext;
         this.queryType = queryType;
+        this.explainColumns = explainColumns;
+    }
+
+    private ParseTreeInfoImpl(@Nonnull final ParseTree effectiveContext, @Nonnull final QueryType queryType) {
+        this(effectiveContext, queryType, ExplainColumn.ALL);
     }
 
     private static class QueryTypeVisitor extends RelationalParserBaseVisitor<ParseTreeInfoImpl> {
@@ -133,7 +144,16 @@ public final class ParseTreeInfoImpl implements ParseTreeInfo {
         public ParseTreeInfoImpl visitFullDescribeStatement(final RelationalParser.FullDescribeStatementContext ctx) {
             final var describeObjectClause = ctx.describeObjectClause();
             remapParseTree(describeObjectClause);
-            return new ParseTreeInfoImpl(describeObjectClause, QueryType.DESCRIBE_QUERY);
+            final Set<ExplainColumn> explainColumns;
+            if (ctx.explainColumnList() == null) {
+                explainColumns = ExplainColumn.ALL;
+            } else {
+                explainColumns = EnumSet.noneOf(ExplainColumn.class);
+                for (final var optCtx : ctx.explainColumnList().explainColumnOption()) {
+                    explainColumns.add(ExplainColumn.fromName(optCtx.columnName.getText()));
+                }
+            }
+            return new ParseTreeInfoImpl(describeObjectClause, QueryType.DESCRIBE_QUERY, explainColumns);
         }
 
         @Override
@@ -154,6 +174,11 @@ public final class ParseTreeInfoImpl implements ParseTreeInfo {
     @Nonnull
     public ParseTree getRootContext() {
         return rootContext;
+    }
+
+    @Nonnull
+    public Set<ExplainColumn> getExplainColumns() {
+        return explainColumns;
     }
 
     @Nonnull
