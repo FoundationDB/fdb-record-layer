@@ -20,8 +20,13 @@
 
 package com.apple.foundationdb.relational.recordlayer.query;
 
+import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
+import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.relational.api.exceptions.UncheckedRelationalException;
+
 import javax.annotation.Nonnull;
 import java.util.EnumSet;
+import java.util.Locale;
 import java.util.Set;
 
 /**
@@ -48,9 +53,11 @@ public enum ExplainColumn {
     @Nonnull
     public static ExplainColumn fromName(@Nonnull String name) {
         try {
-            return valueOf(name.toUpperCase());
+            return valueOf(name.toUpperCase(Locale.ROOT));
         } catch (IllegalArgumentException e) {
-            throw new IllegalArgumentException("Unknown EXPLAIN column: '" + name + "'. Valid columns: PLAN, PLAN_HASH, PLAN_DOT, PLAN_GML, PLAN_CONTINUATION, PLANNER_METRICS");
+            throw new RelationalException(
+                    "Unknown EXPLAIN column: '" + name + "'. Valid columns: PLAN, PLAN_HASH, PLAN_DOT, PLAN_GML, PLAN_CONTINUATION, PLANNER_METRICS",
+                    ErrorCode.INVALID_PARAMETER, e).toUncheckedWrappedException();
         }
     }
 }
