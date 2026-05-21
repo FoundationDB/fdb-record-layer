@@ -359,7 +359,7 @@ class TestFormatFileAnnotation(unittest.TestCase):
         self.assertEqual(
             result,
             '::notice file=module/src/main/java/com/example/Foo.java,line=14::'
-            'File coverage: 80.0% (8/10 lines) | Changed lines: 66.7% (2/3 lines)'
+            'File coverage: 80.0% (8/10 lines)%0AChanged lines: 66.7% (2/3 lines)'
         )
 
     def test_annotation_with_branches(self):
@@ -374,7 +374,7 @@ class TestFormatFileAnnotation(unittest.TestCase):
         self.assertEqual(
             result,
             '::notice file=module/src/main/java/com/example/Foo.java,line=14::'
-            'File coverage: 80.0% (8/10 lines), 60.0% (6/10 branches) | '
+            'File coverage: 80.0% (8/10 lines), 60.0% (6/10 branches)%0A'
             'Changed lines: 66.7% (2/3 lines), 25.0% (1/4 branches)'
         )
 

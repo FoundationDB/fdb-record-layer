@@ -277,7 +277,7 @@ def format_file_annotation(repo_path, file_line_coverage, changed_line_coverage,
     changed_pct_str = format_combined_percentage(changed_line_coverage, changed_branch_coverage)
 
     annotation_line = max(1, first_changed_line - 1)
-    message = f'File coverage: {file_pct_str} | Changed lines: {changed_pct_str}'
+    message = f'File coverage: {file_pct_str}%0AChanged lines: {changed_pct_str}'
     return f'::notice file={repo_path},line={annotation_line}::{message}'
 
 
