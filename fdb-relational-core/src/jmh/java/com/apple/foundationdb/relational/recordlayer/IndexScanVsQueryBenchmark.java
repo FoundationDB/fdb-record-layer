@@ -180,8 +180,8 @@ public class IndexScanVsQueryBenchmark extends EmbeddedRelationalBenchmark {
     @Benchmark
     public void lookupByLabel_sqlQuery(Blackhole bh, ConnHolder connHolder) throws SQLException {
         try (Statement stmt = connHolder.connection.createStatement();
-             ResultSet rs = stmt.executeQuery(
-                    "SELECT \"label\" FROM \"IndexBenchTable\" WHERE \"label\" = '" + LOOKUP_LABEL + "'")) {
+                ResultSet rs = stmt.executeQuery(
+                        "SELECT \"label\" FROM \"IndexBenchTable\" WHERE \"label\" = '" + LOOKUP_LABEL + "'")) {
             if (rs.next()) {
                 bh.consume(rs.getString("label"));
             }
@@ -217,8 +217,8 @@ public class IndexScanVsQueryBenchmark extends EmbeddedRelationalBenchmark {
     @Benchmark
     public void scanByCategory_sqlQuery(Blackhole bh, ConnHolder connHolder) throws SQLException {
         try (Statement stmt = connHolder.connection.createStatement();
-             ResultSet rs = stmt.executeQuery(
-                    "SELECT \"category\" FROM \"IndexBenchTable\" WHERE \"category\" = " + LOOKUP_CATEGORY)) {
+                ResultSet rs = stmt.executeQuery(
+                        "SELECT \"category\" FROM \"IndexBenchTable\" WHERE \"category\" = " + LOOKUP_CATEGORY)) {
             while (rs.next()) {
                 bh.consume(rs.getLong("category"));
             }

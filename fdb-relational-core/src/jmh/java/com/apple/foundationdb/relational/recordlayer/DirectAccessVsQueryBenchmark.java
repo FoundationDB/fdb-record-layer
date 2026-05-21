@@ -164,9 +164,9 @@ public class DirectAccessVsQueryBenchmark extends EmbeddedRelationalBenchmark {
     @Benchmark
     public void get_sqlQuery(Blackhole bh, ConnHolder connHolder) throws SQLException {
         try (Statement stmt = connHolder.connection.createStatement();
-             ResultSet rs = stmt.executeQuery(
-                    "SELECT * FROM \"BenchTable\" WHERE \"group_id\" = " + LOOKUP_GROUP
-                    + " AND \"row_id\" = " + LOOKUP_ROW)) {
+                ResultSet rs = stmt.executeQuery(
+                        "SELECT * FROM \"BenchTable\" WHERE \"group_id\" = " + LOOKUP_GROUP
+                        + " AND \"row_id\" = " + LOOKUP_ROW)) {
             if (rs.next()) {
                 bh.consume(rs.getLong("group_id"));
                 bh.consume(rs.getString("val"));
@@ -194,8 +194,8 @@ public class DirectAccessVsQueryBenchmark extends EmbeddedRelationalBenchmark {
     @Benchmark
     public void scanPrefix_sqlQuery(Blackhole bh, ConnHolder connHolder) throws SQLException {
         try (Statement stmt = connHolder.connection.createStatement();
-             ResultSet rs = stmt.executeQuery(
-                    "SELECT * FROM \"BenchTable\" WHERE \"group_id\" = " + LOOKUP_GROUP)) {
+                ResultSet rs = stmt.executeQuery(
+                        "SELECT * FROM \"BenchTable\" WHERE \"group_id\" = " + LOOKUP_GROUP)) {
             while (rs.next()) {
                 bh.consume(rs.getLong("group_id"));
                 bh.consume(rs.getString("val"));
@@ -221,7 +221,7 @@ public class DirectAccessVsQueryBenchmark extends EmbeddedRelationalBenchmark {
     @Benchmark
     public void fullScan_sqlQuery(Blackhole bh, ConnHolder connHolder) throws SQLException {
         try (Statement stmt = connHolder.connection.createStatement();
-             ResultSet rs = stmt.executeQuery("SELECT * FROM \"BenchTable\"")) {
+                ResultSet rs = stmt.executeQuery("SELECT * FROM \"BenchTable\"")) {
             while (rs.next()) {
                 bh.consume(rs.getLong("group_id"));
                 bh.consume(rs.getString("val"));
