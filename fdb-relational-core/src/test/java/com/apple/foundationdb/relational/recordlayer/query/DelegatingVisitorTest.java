@@ -610,4 +610,31 @@ public class DelegatingVisitorTest {
         final Object result = delegating.visitExplainColumnOption(context);
         Assertions.assertThat(result).isSameAs(mockResult);
     }
+
+    @Test
+    void visitExplainColumnListBaseVisitorInvokesChildren() {
+        final var called = new MutableBoolean(false);
+        final BaseVisitor baseVisitor = new BaseVisitor(
+                new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "(PLAN)", "(PLAN)", 42),
+                generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE,
+                URI.create("/FDB/FRL1"), false) {
+            @Override
+            public Object visitExplainColumnOption(@Nonnull RelationalParser.ExplainColumnOptionContext ctx) {
+                called.setTrue();
+                return null;
+            }
+        };
+        baseVisitor.visitExplainColumnList(parseQuery("(PLAN)", RelationalParser::explainColumnList));
+        Assertions.assertThat(called.booleanValue()).as("visitChildren should have descended into ExplainColumnOptionContext").isTrue();
+    }
+
+    @Test
+    void visitExplainColumnOptionBaseVisitorReturnsNull() {
+        final BaseVisitor baseVisitor = new BaseVisitor(
+                new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "PLAN", "PLAN", 42),
+                generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE,
+                URI.create("/FDB/FRL1"), false);
+        final var ctx = parseQuery("PLAN", RelationalParser::explainColumnOption);
+        Assertions.assertThat(baseVisitor.visitExplainColumnOption(ctx)).isNull();
+    }
 }
