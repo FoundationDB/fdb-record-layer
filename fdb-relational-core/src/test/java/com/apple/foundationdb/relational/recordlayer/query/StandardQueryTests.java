@@ -559,7 +559,7 @@ public class StandardQueryTests {
     }
 
     @Test
-    void partiqlNestingWorks() throws Exception {
+    void sqlPlusPlusNestingWorks() throws Exception {
         final String schema = "CREATE TYPE AS STRUCT A ( b B )" +
                 " CREATE TYPE AS STRUCT B ( c C )" +
                 " CREATE TYPE AS STRUCT C ( d D )" +
@@ -611,7 +611,7 @@ public class StandardQueryTests {
     }
 
     @Test
-    void partiqlNestingWorksWithRepeatedLeaf() throws Exception {
+    void sqlPlusPlusNestingWorksWithRepeatedLeaf() throws Exception {
         final String schema = "CREATE TYPE AS STRUCT A ( b B )" +
                 " CREATE TYPE AS STRUCT B ( c C )" +
                 " CREATE TYPE AS STRUCT C ( d D )" +
@@ -656,7 +656,7 @@ public class StandardQueryTests {
     }
 
     @Test
-    void partiqlAccessingNestedFieldWithInnerRepeatedFieldsFails() throws Exception {
+    void sqlPlusPlusAccessingNestedFieldWithInnerRepeatedFieldsFails() throws Exception {
         final String schema = "CREATE TYPE AS STRUCT A ( b B )" +
                 " CREATE TYPE AS STRUCT B ( c C )" +
                 " CREATE TYPE AS STRUCT C ( d D )" +

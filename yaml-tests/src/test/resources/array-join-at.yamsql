@@ -20,7 +20,7 @@
 options:
   supported_version: 4.12.3.0
 ---
-# Comprehensive integration tests for the PartiQL AT construct.
+# Comprehensive integration tests for the SQL++ AT construct.
 schema_template:
   CREATE TABLE T1 ("id" BIGINT, "arr1" INTEGER ARRAY NULL, "arr1_nn" INTEGER ARRAY NOT NULL, PRIMARY KEY ("id"))
   CREATE TABLE T2 ("id" BIGINT, "arr1" INTEGER ARRAY,      "arr2"    INTEGER ARRAY,          PRIMARY KEY ("id"))
@@ -89,7 +89,7 @@ test_block:
           {id: 2, val: 203, at: 3}]
     -
       # It is allowed to leave out the AS alias completely, keeping only the AT part. This way the elements themselves
-      # cannot be accessed, only their indexes. Although this is not possible with pure PartiQL or with the UNNEST()
+      # cannot be accessed, only their indexes. Although this is not possible with pure SQL++ or with the UNNEST()
       # construct in standard SQL, we do not prohibit this case.
       - query: SELECT "id", "at" FROM T1, T1."arr1" AT "at"
       - explain: "SCAN([IS T1]) | FLATMAP q0 -> { EXPLODE q0.arr1 WITH ORDINALITY AS q1 RETURN (q0.id AS id, q1._1 AS at) }"

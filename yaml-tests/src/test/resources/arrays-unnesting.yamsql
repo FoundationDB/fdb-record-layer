@@ -109,7 +109,7 @@ test_block:
       - query: SELECT "items" FROM "T1_indexed" ORDER BY "items"
       - error: "0AF00"  # "Cascades planner could not plan query"
     -
-      # Unnesting the array using PartiQL-style unnesting.
+      # Unnesting the array using SQL++-style unnesting.
       - query: SELECT "id", "item" FROM "T1_indexed" AS "row", "row"."items" AS "item"
       - explain: "SCAN([IS T1_indexed]) | FLATMAP q0 -> { EXPLODE q0.items AS q1 RETURN (q0.id AS id, q1 AS item) }"
       - unorderedResult: [
@@ -123,9 +123,9 @@ test_block:
           {id: 3, item: 'f'}]
     -
       # Unnesting the array using a lateral/correlated subquery.
-      # Notice the difference to PartiQL-style unnesting, where "item" binds directly to an array item.
+      # Notice the difference to SQL++-style unnesting, where "item" binds directly to an array item.
       # Here the subquery packs each array item into a tuple, produces a stream of tuples, and binds SQ to each tuple.
-      # The planner is able to produce the same EXPLODE plan as for PartiQL-style unnesting.
+      # The planner is able to produce the same EXPLODE plan as for SQL++-style unnesting.
       - query: SELECT "id", SQ."item" FROM "T1_indexed" AS "row", (SELECT "item" FROM "row"."items" AS "item") AS SQ
       - explain: "SCAN([IS T1_indexed]) | FLATMAP q0 -> { EXPLODE q0.items AS q1 RETURN (q0.id AS id, q1 AS item) }"
       - unorderedResult: [

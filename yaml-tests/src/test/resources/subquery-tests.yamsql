@@ -51,11 +51,11 @@ test_block:
       - explain: "SCAN([IS A, EQUALS promote(@c14 AS INT)]) | MAP (_.X AS X) | DEFAULT NULL | FILTER _ NOT_NULL | FLATMAP q0 -> { SCAN([IS X]) AS q1 RETURN (q1.IDX AS IDX) }"
       - result: [{4}, {5}, {6}]
     -
-      # PartiQL resolution.
+      # SQL++ resolution.
       - query: select idr from r, r.nr as NEST where NEST.f = 23;
       - result: [{2}]
     -
-      # PartiQL resolution, another flavour (TODO check whether this still use the IR index).
+      # SQL++ resolution, another flavour (TODO check whether this still use the IR index).
       - query: select idr from r, (select * from r.nr) as NEST where NEST.f = 23;
       - result: [{2}]
     -

@@ -34,7 +34,7 @@ test_block:
                           {x: 2, idr: 2, nr: [{f: 21}, {f: 22}, {f: 23}]},
                           {x: 3, idr: 3, nr: [{f: 31}, {f: 32}, {f: 33}]}]
 
-    # Array Unnesting with PartiQL
+    # Array Unnesting with SQL++
     -
       - query: SELECT idr FROM r, r.nr AS NEST WHERE NEST.f = 23
       - result: [{idr: 2}]

@@ -46,7 +46,7 @@ Mixed mode testing run against the following previous versions:
 * Fix the NULL result of `field()` key expressions with fan-type `Concatenate` - [PR #4130](https://github.com/FoundationDB/fdb-record-layer/pull/4130)
 <h4> New Features </h4>
 
-* Implement the PartiQL “AT” construct for unnesting with ordinality - [PR #4112](https://github.com/FoundationDB/fdb-record-layer/pull/4112)
+* Implement the SQL++ “AT” construct for unnesting with ordinality - [PR #4112](https://github.com/FoundationDB/fdb-record-layer/pull/4112)
 * Support CARDINALITY() in indexes - [PR #4100](https://github.com/FoundationDB/fdb-record-layer/pull/4100)
 <h4> Bug Fixes </h4>
 

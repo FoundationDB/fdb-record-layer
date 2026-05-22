@@ -35,7 +35,7 @@ import java.sql.SQLWarning;
  * <dl>
  *     <dt><span class="strong"> Query Language</span></dt>
  *     <dd>
- *         The Query language used by Relational is a subset of the <a href="https://partiql.org">PartiQL Spec</a>.
+ *         The Query language used by Relational is a subset of <a href="https://arxiv.org/pdf/1405.3631">SQL++</a>.
  *     </dd>
  *     <dt><span class="strong"> Direct Access</span></dt>
  *     <dd>

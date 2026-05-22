@@ -340,10 +340,10 @@ public class IndexTest {
     }
 
     /**
-     * Scalar array unnesting via PartiQL syntax: STRING ARRAY, INDEX…AS syntax.
+     * Scalar array unnesting via SQL++ syntax: STRING ARRAY, INDEX…AS syntax.
      */
     @Test
-    void createIndexOnScalarStringArrayPartiQL() throws Exception {
+    void createIndexOnScalarStringArraySqlPlusPlus() throws Exception {
         final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
                 "CREATE TABLE T(p BIGINT, items STRING ARRAY, PRIMARY KEY (p)) " +
                 "CREATE INDEX mv1 AS SELECT item FROM T AS t, t.items AS item ORDER BY item";
@@ -351,11 +351,11 @@ public class IndexTest {
     }
 
     /**
-     * Scalar array unnesting via PartiQL syntax: STRING ARRAY, VIEW + INDEX…ON syntax.
+     * Scalar array unnesting via SQL++ syntax: STRING ARRAY, VIEW + INDEX…ON syntax.
      */
     @SuppressWarnings("checkstyle:AbbreviationAsWordInName")
     @Test
-    void createIndexOnScalarStringArrayPartiQLUsingView() throws Exception {
+    void createIndexOnScalarStringArraySqlPlusPlusUsingView() throws Exception {
         final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
                 "CREATE TABLE T(p BIGINT, items STRING ARRAY, PRIMARY KEY (p)) " +
                 "CREATE VIEW v1 AS SELECT item FROM T AS t, t.items AS item " +
@@ -364,10 +364,10 @@ public class IndexTest {
     }
 
     /**
-     * Scalar array unnesting via PartiQL syntax: INTEGER ARRAY (different scalar type).
+     * Scalar array unnesting via SQL++ syntax: INTEGER ARRAY (different scalar type).
      */
     @Test
-    void createIndexOnScalarIntegerArrayPartiQL() throws Exception {
+    void createIndexOnScalarIntegerArraySqlPlusPlus() throws Exception {
         final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
                 "CREATE TABLE T(p BIGINT, nums INTEGER ARRAY, PRIMARY KEY (p)) " +
                 "CREATE INDEX mv1 AS SELECT num FROM T AS t, t.nums AS num ORDER BY num";
@@ -375,11 +375,11 @@ public class IndexTest {
     }
 
     /**
-     * Scalar array unnesting via PartiQL syntax: array element + table column, ordered by (item, p).
+     * Scalar array unnesting via SQL++ syntax: array element + table column, ordered by (item, p).
      */
     @SuppressWarnings("checkstyle:AbbreviationAsWordInName")
     @Test
-    void createIndexOnScalarArrayPartiQLAndConcat() throws Exception {
+    void createIndexOnScalarArraySqlPlusPlusAndConcat() throws Exception {
         final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
                 "CREATE TABLE T(p BIGINT, items STRING ARRAY, PRIMARY KEY (p)) " +
                 "CREATE INDEX mv1 AS SELECT item, t.p FROM T AS t, t.items AS item ORDER BY item, t.p";
@@ -387,11 +387,11 @@ public class IndexTest {
     }
 
     /**
-     * Scalar array unnesting via PartiQL syntax: array element + table column, ordered by (p, item).
+     * Scalar array unnesting via SQL++ syntax: array element + table column, ordered by (p, item).
      */
     @SuppressWarnings("checkstyle:AbbreviationAsWordInName")
     @Test
-    void createIndexOnScalarArrayPartiQLAndConcatDifferentOrder() throws Exception {
+    void createIndexOnScalarArraySqlPlusPlusAndConcatDifferentOrder() throws Exception {
         final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
                 "CREATE TABLE T(p BIGINT, items STRING ARRAY, PRIMARY KEY (p)) " +
                 "CREATE INDEX mv1 AS SELECT t.p, item FROM T AS t, t.items AS item ORDER BY t.p, item";

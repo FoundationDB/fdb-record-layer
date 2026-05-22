@@ -40,7 +40,7 @@ A subquery that references columns from the outer query:
 Array Unnesting
 ---------------
 
-FDB supports PartiQL-style array unnesting:
+FDB supports SQL++-style array unnesting:
 
 .. code-block:: sql
 
@@ -124,10 +124,10 @@ Use a correlated subquery as a derived table:
 
 The subquery ``(SELECT * FROM r WHERE r.idr = a.x)`` is correlated because it references ``a.x`` from the outer query.
 
-Array Unnesting with PartiQL
+Array Unnesting with SQL++
 -----------------------------
 
-Unnest an array column using PartiQL syntax:
+Unnest an array column using SQL++ syntax:
 
 .. code-block:: sql
 
