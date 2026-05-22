@@ -25,6 +25,7 @@ import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.GroupByExpression;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.PredicateWithComparisons;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.PredicateWithValue;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.QuantifiedValuePredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
@@ -236,8 +237,8 @@ public class PredicateMultiMap {
         }
 
         @Nonnull
-        static PredicateCompensationFunction ofExistentialValuePredicate(@Nonnull final ValuePredicate valuePredicate) {
-            final var result = LinkedIdentitySet.of((QueryPredicate)valuePredicate);
+        static PredicateCompensationFunction ofExistentialValuePredicate(@Nonnull final QuantifiedValuePredicate quantifiedValuePredicate) {
+            final var result = LinkedIdentitySet.of((QueryPredicate)quantifiedValuePredicate);
 
             return new PredicateCompensationFunction() {
                 @Override

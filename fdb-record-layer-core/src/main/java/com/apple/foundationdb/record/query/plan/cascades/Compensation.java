@@ -274,9 +274,9 @@ public interface Compensation {
     /**
      * Returns if this compensation object needs to be applied in order to filter to the correct records. This is
      * important when a situation calls for the correct filtering but does not care about the actual result.
-     * For instance, if the {@link com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate}
-     * is an existential predicate, that it needs to reapply if its child compensation is needed for filtering but that
-     * condition only cares for the existence but not the actual value.
+     * For instance, {@link com.apple.foundationdb.record.query.plan.cascades.predicates.QuantifiedValuePredicate}
+     * needs to reapply if its child compensation is needed for filtering but that condition only cares for the
+     * existence but not the actual value.
      * Note that it holds that if this method implied {@link #isNeeded()}.
      * @return {@code true} if this compensation must be applied, {@code false} if this compensation is not needed.
      *         Note, by contract it is illegal to call {@link #apply} on this compensation if this method returns

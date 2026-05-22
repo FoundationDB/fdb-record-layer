@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.query.plan.cascades.PlannerPhase;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.RuleTestHelper;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.QuantifiedValuePredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
@@ -212,13 +213,13 @@ class PartitionBinarySelectRuleTest {
 
         final SelectExpression join = join(t, tau)
                 .addResultColumn(projectColumn(t, "a"))
-                .addPredicate(new ValuePredicate(QuantifiedObjectValue.of(tau), new Comparisons.NullComparison(Comparisons.Type.NOT_NULL)))
+                .addPredicate(new QuantifiedValuePredicate(QuantifiedObjectValue.of(tau), new Comparisons.NullComparison(Comparisons.Type.NOT_NULL)))
                 .addPredicate(fieldPredicate(t, "c", new Comparisons.NullComparison(Comparisons.Type.NOT_NULL)))
                 .build().buildSelect();
 
         // Partition predicates to the two sides
         final Quantifier newT = forEach(selectWithPredicates(t, fieldPredicate(t, "c", new Comparisons.NullComparison(Comparisons.Type.NOT_NULL))));
-        final Quantifier newTau = forEach(new SelectExpression(RCV_OF_ONE, ImmutableList.of(tau), ImmutableList.of(new ValuePredicate(QuantifiedObjectValue.of(tau), new Comparisons.NullComparison(Comparisons.Type.NOT_NULL)))));
+        final Quantifier newTau = forEach(new SelectExpression(RCV_OF_ONE, ImmutableList.of(tau), ImmutableList.of(new QuantifiedValuePredicate(QuantifiedObjectValue.of(tau), new Comparisons.NullComparison(Comparisons.Type.NOT_NULL)))));
         final SelectExpression newJoin = join(newT, newTau)
                 .addResultColumn(projectColumn(newT, "a"))
                 .build().buildSelect();
@@ -298,14 +299,14 @@ class PartitionBinarySelectRuleTest {
         final SelectExpression join = join(t, g)
                 .addResultColumn(projectColumn(t, "a"))
                 .addPredicate(fieldPredicate(t, "b", new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, "hello")))
-                .addPredicate(new ValuePredicate(QuantifiedObjectValue.of(g), new Comparisons.NullComparison(Comparisons.Type.NOT_NULL)))
+                .addPredicate(new QuantifiedValuePredicate(QuantifiedObjectValue.of(g), new Comparisons.NullComparison(Comparisons.Type.NOT_NULL)))
                 .build().buildSelect();
 
         // Push the predicate on t down to t. Push the existential predicate to be on top of g
         final Quantifier newT = forEach(selectWithPredicates(t,
                 fieldPredicate(t, "b", new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, "hello"))));
         final Quantifier newGLower = Quantifier.existential(explodeField(newT, "g").getRangesOver());
-        final Quantifier newG = forEach(new SelectExpression(RCV_OF_ONE, ImmutableList.of(newGLower), ImmutableList.of(new ValuePredicate(QuantifiedObjectValue.of(newGLower), new Comparisons.NullComparison(Comparisons.Type.NOT_NULL)))));
+        final Quantifier newG = forEach(new SelectExpression(RCV_OF_ONE, ImmutableList.of(newGLower), ImmutableList.of(new QuantifiedValuePredicate(QuantifiedObjectValue.of(newGLower), new Comparisons.NullComparison(Comparisons.Type.NOT_NULL)))));
         final SelectExpression newJoin = join(newT, newG)
                 .addResultColumn(projectColumn(newT, "a"))
                 .build().buildSelect();
@@ -326,7 +327,7 @@ class PartitionBinarySelectRuleTest {
 
         final SelectExpression join = join(t, tau)
                 .addResultColumn(projectColumn(t, "a"))
-                .addPredicate(new ValuePredicate(QuantifiedObjectValue.of(tau), new Comparisons.NullComparison(Comparisons.Type.NOT_NULL)))
+                .addPredicate(new QuantifiedValuePredicate(QuantifiedObjectValue.of(tau), new Comparisons.NullComparison(Comparisons.Type.NOT_NULL)))
                 .addPredicate(fieldPredicate(t, "c", new Comparisons.NullComparison(Comparisons.Type.IS_NULL)))
                 .build().buildSelect();
 
@@ -334,7 +335,7 @@ class PartitionBinarySelectRuleTest {
         final Quantifier newT = forEach(selectWithPredicates(t, fieldPredicate(t, "c", new Comparisons.NullComparison(Comparisons.Type.IS_NULL))));
         final Quantifier newMiddleTau = exists(selectWithPredicates(lowerTau,
                 fieldPredicate(lowerTau, "beta", new Comparisons.ValueComparison(Comparisons.Type.EQUALS, fieldValue(newT, "b")))));
-        final Quantifier newTau = forEach(new SelectExpression(RCV_OF_ONE, ImmutableList.of(newMiddleTau), ImmutableList.of(new ValuePredicate(QuantifiedObjectValue.of(newMiddleTau), new Comparisons.NullComparison(Comparisons.Type.NOT_NULL)))));
+        final Quantifier newTau = forEach(new SelectExpression(RCV_OF_ONE, ImmutableList.of(newMiddleTau), ImmutableList.of(new QuantifiedValuePredicate(QuantifiedObjectValue.of(newMiddleTau), new Comparisons.NullComparison(Comparisons.Type.NOT_NULL)))));
 
         final SelectExpression newJoin = join(newT, newTau)
                 .addResultColumn(projectColumn(newT, "a"))

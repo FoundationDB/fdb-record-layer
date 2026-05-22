@@ -25,6 +25,7 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpre
 import com.apple.foundationdb.record.query.plan.cascades.predicates.AndPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.Placeholder;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.PredicateWithValueAndRanges;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.QuantifiedValuePredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
@@ -339,7 +340,7 @@ public class GraphExpansion {
 
     @Nonnull
     public static GraphExpansion ofExists(@Nonnull final Quantifier.Existential existentialQuantifier) {
-        final var existsPredicate = new ValuePredicate(QuantifiedObjectValue.of(existentialQuantifier), new Comparisons.NullComparison(Comparisons.Type.NOT_NULL));
+        final var existsPredicate = new QuantifiedValuePredicate(QuantifiedObjectValue.of(existentialQuantifier), new Comparisons.NullComparison(Comparisons.Type.NOT_NULL));
         return of(ImmutableList.of(), ImmutableList.of(existsPredicate), ImmutableList.of(existentialQuantifier), ImmutableList.of());
     }
 

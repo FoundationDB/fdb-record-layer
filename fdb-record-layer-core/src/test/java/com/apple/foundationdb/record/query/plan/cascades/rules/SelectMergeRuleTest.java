@@ -34,6 +34,7 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalDist
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalFilterExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalUnionExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.QuantifiedValuePredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
@@ -295,13 +296,13 @@ class SelectMergeRuleTest {
 
         Quantifier explodeFQun = forEach(new ExplodeExpression(fieldValue(baseQun, "f")));
         Quantifier existsHigherFQun = exists(new LogicalFilterExpression(
-                ImmutableList.of(new ValuePredicate(explodeFQun.getFlowedObjectValue(), new Comparisons.SimpleComparison(Comparisons.Type.GREATER_THAN, 42L))),
+                ImmutableList.of(new QuantifiedValuePredicate(explodeFQun.getFlowedObjectValue(), new Comparisons.SimpleComparison(Comparisons.Type.GREATER_THAN, 42L))),
                 explodeFQun));
 
         SelectExpression upper = join(baseQun, existsHigherFQun)
                 .addResultColumn(projectColumn(baseQun, "a"))
                 .addResultColumn(projectColumn(baseQun, "b"))
-                .addPredicate(new ValuePredicate(QuantifiedObjectValue.of(existsHigherFQun), new Comparisons.NullComparison(Comparisons.Type.NOT_NULL)))
+                .addPredicate(new QuantifiedValuePredicate(QuantifiedObjectValue.of(existsHigherFQun), new Comparisons.NullComparison(Comparisons.Type.NOT_NULL)))
                 .build().buildSelect();
 
         testHelper.assertYieldsNothing(upper, true);
@@ -373,7 +374,7 @@ class SelectMergeRuleTest {
         SelectExpression upper = join(baseQun, existsHigherTwoQun)
                 .addResultColumn(projectColumn(baseQun, "a"))
                 .addResultColumn(projectColumn(baseQun, "b"))
-                .addPredicate(new ValuePredicate(QuantifiedObjectValue.of(existsHigherTwoQun), new Comparisons.NullComparison(Comparisons.Type.NOT_NULL)))
+                .addPredicate(new QuantifiedValuePredicate(QuantifiedObjectValue.of(existsHigherTwoQun), new Comparisons.NullComparison(Comparisons.Type.NOT_NULL)))
                 .build().buildSelect();
 
         testHelper.assertYieldsNothing(upper, true);
