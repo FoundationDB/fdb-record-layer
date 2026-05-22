@@ -19,7 +19,7 @@
 
 ---
 options:
-    supported_version: !current_version
+    supported_version: 4.12.4.0
 ---
 # Exercise boolean constants (TRUE/FALSE/NULL) used as top-level WHERE predicates in `CREATE INDEX … AS` DDL statements.
 # This covers the `forDdl == true` branch of `Expression.Utils.toUnderlyingPredicate()`.
