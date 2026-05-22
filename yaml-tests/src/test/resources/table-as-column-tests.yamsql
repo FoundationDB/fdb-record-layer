@@ -1,0 +1,71 @@
+#
+# table-as-column-tests.yamsql
+#
+# This source file is part of the FoundationDB open source project
+#
+# Copyright 2021-2026 Apple Inc. and the FoundationDB project authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# Tests for SELECT <tablename> FROM <tablename>: when an identifier in the SELECT list
+# matches a table name or alias (and no column with that name exists), the full row
+# is returned as a struct — equivalent to SELECT (*) FROM <tablename>.
+# When a column with the same name exists, the column takes priority.
+
+---
+options:
+    supported_version: !current_version
+---
+schema_template:
+    create table t1(pk bigint, a bigint, b bigint, primary key(pk))
+    create table colname(colname bigint, other bigint, primary key(colname))
+---
+setup:
+  connect: 1
+  steps:
+    - query: INSERT INTO t1 VALUES (1, 10, 20), (2, 30, 40)
+    - query: INSERT INTO colname VALUES (99, 42)
+---
+test_block:
+  name: table-as-column-tests
+  preset: single_repetition_ordered
+  tests:
+    -
+      # Table name used as SELECT item returns the full row as a struct
+      - query: select t1 from t1 where pk = 1
+      - result: [ { {PK: 1, A: 10, B: 20} } ]
+    -
+      # Equivalent to SELECT (*) FROM T1 — both forms return the same struct
+      - query: select (*) from t1 where pk = 1
+      - result: [ { {PK: 1, A: 10, B: 20} } ]
+    -
+      # Alias form: SELECT <alias> FROM <table> <alias> returns the full row as a struct
+      - query: select t from t1 t where pk = 1
+      - result: [ { {PK: 1, A: 10, B: 20} } ]
+    -
+      # Column name takes priority over table name when both share the same identifier
+      - query: select colname from colname
+      - result: [ {99} ]
+    -
+      # When the table has an alias, the original table name is no longer in scope
+      - query: select t1 from t1 t where pk = 1
+      - error: "42703"
+    -
+      # In a join, the table name selects that table's row as a struct
+      - query: select t1 from t1, colname
+      - unorderedResult: [ { {PK: 1, A: 10, B: 20} }, { {PK: 2, A: 30, B: 40} } ]
+    -
+      # Double-wrapped (*) nesting is unaffected
+      - query: select ((*)) from t1 where pk = 1
+      - result: [ { { {PK: 1, A: 10, B: 20} } } ]
+...

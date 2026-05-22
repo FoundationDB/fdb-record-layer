@@ -113,6 +113,56 @@ It is also possible to project individual columns from a table, for example, sup
     * - :json:`"Restaurant4"`
 
 
+Projecting the entire row as a struct
+-------------------------------------
+
+It is possible to project the entire row as a single :sql:`STRUCT` column rather than expanding individual fields. There are two equivalent ways to do this.
+
+**Using** :sql:`(*)`
+
+.. code-block:: sql
+
+    SELECT (*) FROM restaurant;
+
+This returns one column per row, named after the table, whose value is a :sql:`STRUCT` containing all of the table's fields:
+
+.. list-table::
+    :header-rows: 1
+
+    * - :sql:`restaurant`
+    * - :json:`{"REST_NO": 42, "NAME": "Restaurant1", "REVIEWS": [...]}`
+    * - :json:`{"REST_NO": 43, "NAME": "Restaurant2", "REVIEWS": [...]}`
+    * - :json:`{"REST_NO": 44, "NAME": "Restaurant3", "REVIEWS": [...]}`
+    * - :json:`{"REST_NO": 45, "NAME": "Restaurant4", "REVIEWS": [...]}`
+
+**Using the table name (or alias) as the projection expression**
+
+As a shorthand, using the table name directly in the :sql:`SELECT` list is equivalent to :sql:`SELECT (*)`:
+
+.. code-block:: sql
+
+    SELECT restaurant FROM restaurant;
+
+If the table has an alias, use the alias:
+
+.. code-block:: sql
+
+    SELECT r FROM restaurant r;
+
+In both cases the result is identical to :sql:`SELECT (*) FROM restaurant`.
+
+.. note::
+
+    If a column in the table has the same name as the table itself, the column takes priority and its value is returned instead of the row struct.
+
+Structs can be nested further by wrapping :sql:`(*)` in another level of parentheses:
+
+.. code-block:: sql
+
+    SELECT ((*)) FROM restaurant;
+
+This returns a single column whose value is a :sql:`STRUCT` containing one field, which is itself the row :sql:`STRUCT`.
+
 Projecting column inside nested a nested :sql:`STRUCT`
 ------------------------------------------------------
 

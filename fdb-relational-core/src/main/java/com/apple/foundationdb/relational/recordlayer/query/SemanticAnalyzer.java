@@ -384,8 +384,35 @@ public class SemanticAnalyzer {
                 return resolvedMaybe.get();
             }
         }
+        // Fallback: if the identifier names a table or alias in scope, return the full row as a struct.
+        // This makes SELECT FOO FROM FOO equivalent to SELECT (*) FROM FOO when no column named FOO exists.
+        // Column resolution above always takes priority.
+        currentPlanFragment = planFragment;
+        resolvedMaybe = resolveAsTableRowMaybe(identifier, currentPlanFragment.getLogicalOperators());
+        if (resolvedMaybe.isPresent()) {
+            return resolvedMaybe.get();
+        }
+        while (currentPlanFragment.hasParent()) {
+            currentPlanFragment = currentPlanFragment.getParent();
+            resolvedMaybe = resolveAsTableRowMaybe(identifier, currentPlanFragment.getLogicalOperators());
+            if (resolvedMaybe.isPresent()) {
+                return resolvedMaybe.get();
+            }
+        }
         Assert.failUnchecked(ErrorCode.UNDEFINED_COLUMN, String.format(Locale.ROOT, "Attempting to query non existing column %s", identifier));
         return null; // unreachable.
+    }
+
+    @Nonnull
+    private Optional<Expression> resolveAsTableRowMaybe(@Nonnull Identifier identifier,
+                                                         @Nonnull LogicalOperators operators) {
+        final boolean matchesTableName = Streams.stream(operators.forEachOnly())
+                .anyMatch(op -> op.getName().isPresent() && op.getName().get().equals(identifier));
+        if (!matchesTableName) {
+            return Optional.empty();
+        }
+        final var star = expandStar(Optional.of(identifier), operators);
+        return Optional.of(Expression.of(star.getUnderlying(), identifier));
     }
 
     @Nonnull
