@@ -105,6 +105,15 @@ test_block:
       - result: [{F: {ID: 1, VAL: 10}}]
 ---
 test_block:
+  name: values-source
+  tests:
+    -
+      # VALUES without alias has no name → source is anonymous, column is _0
+      - query: SELECT (*) FROM VALUES (1, 2), (3, 4)
+      - resultMetadata: [{_0: [{_0: INTEGER}, {_1: INTEGER}]}]
+      - unorderedResult: [{_0: {_0: 1, _1: 2}}, {_0: {_0: 3, _1: 4}}]
+---
+test_block:
   name: ambiguous-join-source
   tests:
     -
