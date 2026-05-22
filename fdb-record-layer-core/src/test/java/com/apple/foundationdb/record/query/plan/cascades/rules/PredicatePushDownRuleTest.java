@@ -42,8 +42,9 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalUniq
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ConstantPredicate;
-import com.apple.foundationdb.record.query.plan.cascades.predicates.ExistsPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.OrPredicate;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
+import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.AggregateValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.ConstantObjectValue;
@@ -157,7 +158,7 @@ public class PredicatePushDownRuleTest {
         builder.addResultColumn(column(lowerQun, "b", "b"));
         builder.addAllPredicates(ImmutableList.of(
                 fieldPredicate(lowerQun, "a", EQUALS_42),
-                new ExistsPredicate(existentialQun.getAlias())
+                new ValuePredicate(QuantifiedObjectValue.of(existentialQun), new Comparisons.NullComparison(Comparisons.Type.NOT_NULL))
         ));
         SelectExpression higher = builder.build().buildSelect();
 
@@ -170,7 +171,7 @@ public class PredicatePushDownRuleTest {
         GraphExpansion.Builder newBuilder = GraphExpansion.builder().addQuantifier(newLowerQun).addQuantifier(existentialQun);
         newBuilder.addResultColumn(column(newLowerQun, "b", "b"));
         newBuilder.addAllPredicates(ImmutableList.of(
-                new ExistsPredicate(existentialQun.getAlias())
+                new ValuePredicate(QuantifiedObjectValue.of(existentialQun), new Comparisons.NullComparison(Comparisons.Type.NOT_NULL))
         ));
         SelectExpression newHigher = newBuilder.build().buildSelect();
 
@@ -516,7 +517,7 @@ public class PredicatePushDownRuleTest {
         ));
         SelectExpression topSelect = join(baseQun, nestedExistsQun)
                 .addResultColumn(projectColumn(baseQun, "a"))
-                .addPredicate(new ExistsPredicate(nestedExistsQun.getAlias()))
+                .addPredicate(new ValuePredicate(QuantifiedObjectValue.of(nestedExistsQun), new Comparisons.NullComparison(Comparisons.Type.NOT_NULL)))
                 .addPredicate(fieldPredicate(baseQun, "b", GREATER_THAN_HELLO))
                 .build()
                 .buildSelect();

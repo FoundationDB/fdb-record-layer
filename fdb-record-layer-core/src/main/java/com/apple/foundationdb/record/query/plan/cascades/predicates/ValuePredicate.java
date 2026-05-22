@@ -30,11 +30,17 @@ import com.apple.foundationdb.record.planprotos.PQueryPredicate;
 import com.apple.foundationdb.record.planprotos.PValuePredicate;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.expressions.Comparisons.Comparison;
+import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
+import com.apple.foundationdb.record.query.plan.cascades.ComparisonRange;
 import com.apple.foundationdb.record.query.plan.cascades.ConstrainedBoolean;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
+import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap;
 import com.apple.foundationdb.record.query.plan.cascades.ValueEquivalence;
+import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.query.plan.cascades.values.translation.PullUp;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence.Precedence;
@@ -49,6 +55,7 @@ import com.google.protobuf.Message;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -209,6 +216,41 @@ public class ValuePredicate extends AbstractQueryPredicate implements PredicateW
         return ExplainTokensWithPrecedence.of(Precedence.COMPARISONS,
                 Precedence.COMPARISONS.parenthesizeChild(value.explain()).addWhitespace()
                         .addNested(Precedence.COMPARISONS.parenthesizeChild(comparison.explain())));
+    }
+
+    /**
+     * Checks if this predicate represents an existential: a {@link QuantifiedObjectValue} with a
+     * {@link Comparisons.Type#NOT_NULL} comparison.
+     */
+    public boolean hasExistentialPattern() {
+        return value instanceof QuantifiedObjectValue && comparison.getType() == Comparisons.Type.NOT_NULL;
+    }
+
+    @Nonnull
+    @Override
+    public PredicateMultiMap.PredicateCompensationFunction computeCompensationFunction(@Nonnull final PartialMatch partialMatch,
+                                                                                       @Nonnull final QueryPredicate originalQueryPredicate,
+                                                                                       @Nonnull final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap,
+                                                                                       @Nonnull final List<PredicateMultiMap.PredicateCompensationFunction> childrenResults,
+                                                                                       @Nonnull final PullUp pullUp) {
+        Verify.verify(childrenResults.isEmpty());
+        if (originalQueryPredicate instanceof ValuePredicate originalValuePredicate && originalValuePredicate.hasExistentialPattern()) {
+            final var alias = ((QuantifiedObjectValue) originalValuePredicate.getValue()).getAlias();
+            final var regularMatchInfo = partialMatch.getRegularMatchInfo();
+            final var matchesAnyExistentialQuantifier = partialMatch.getQueryExpression().getQuantifiers().stream()
+                    .anyMatch(quantifier -> quantifier.getAlias().equals(alias));
+            if (matchesAnyExistentialQuantifier) {
+                final var childPartialMatchOptional = regularMatchInfo.getChildPartialMatchMaybe(alias);
+                final var compensationOptional =
+                        childPartialMatchOptional.map(childPartialMatch ->
+                                childPartialMatch.compensateExistential(boundParameterPrefixMap));
+                if (compensationOptional.isEmpty() || compensationOptional.get().isNeededForFiltering()) {
+                    return PredicateMultiMap.PredicateCompensationFunction.ofExistentialValuePredicate(this);
+                }
+            }
+            return PredicateMultiMap.PredicateCompensationFunction.noCompensationNeeded();
+        }
+        return computeCompensationFunctionForLeaf(pullUp);
     }
 
     @Nonnull

@@ -34,8 +34,8 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalDist
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalFilterExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalUnionExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
-import com.apple.foundationdb.record.query.plan.cascades.predicates.ExistsPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
+import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.ConstantObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
@@ -301,7 +301,7 @@ class SelectMergeRuleTest {
         SelectExpression upper = join(baseQun, existsHigherFQun)
                 .addResultColumn(projectColumn(baseQun, "a"))
                 .addResultColumn(projectColumn(baseQun, "b"))
-                .addPredicate(new ExistsPredicate(existsHigherFQun.getAlias()))
+                .addPredicate(new ValuePredicate(QuantifiedObjectValue.of(existsHigherFQun), new Comparisons.NullComparison(Comparisons.Type.NOT_NULL)))
                 .build().buildSelect();
 
         testHelper.assertYieldsNothing(upper, true);
@@ -373,7 +373,7 @@ class SelectMergeRuleTest {
         SelectExpression upper = join(baseQun, existsHigherTwoQun)
                 .addResultColumn(projectColumn(baseQun, "a"))
                 .addResultColumn(projectColumn(baseQun, "b"))
-                .addPredicate(new ExistsPredicate(existsHigherTwoQun.getAlias()))
+                .addPredicate(new ValuePredicate(QuantifiedObjectValue.of(existsHigherTwoQun), new Comparisons.NullComparison(Comparisons.Type.NOT_NULL)))
                 .build().buildSelect();
 
         testHelper.assertYieldsNothing(upper, true);

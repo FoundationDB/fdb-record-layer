@@ -46,7 +46,6 @@ import com.apple.foundationdb.record.query.plan.cascades.explain.InternalPlanner
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.AndOrPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.AndPredicate;
-import com.apple.foundationdb.record.query.plan.cascades.predicates.ExistsPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.OrPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.Placeholder;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.PredicateWithValue;
@@ -409,8 +408,7 @@ public class SelectExpression extends AbstractRelationalExpressionWithChildren i
                         bindingAliasMap.containsSource(quantifier.getAlias()))
                 .anyMatch(quantifier -> getPredicates()
                         .stream()
-                        .noneMatch(predicate -> predicate instanceof ExistsPredicate &&
-                                                ((ExistsPredicate)predicate).getExistentialAlias().equals(quantifier.getAlias()))
+                        .noneMatch(predicate -> isExistentialOverQuantifier(predicate, quantifier.getAlias()))
                 )) {
             return ImmutableList.of();
         }
@@ -597,6 +595,14 @@ public class SelectExpression extends AbstractRelationalExpressionWithChildren i
                 });
     }
 
+    private static boolean isExistentialOverQuantifier(@Nonnull final QueryPredicate predicate, @Nonnull final CorrelationIdentifier correlationIdentifier) {
+        if (predicate instanceof ValuePredicate valuePredicate && valuePredicate.hasExistentialPattern()) {
+            final var correlatedTo = valuePredicate.getCorrelatedTo();
+            return Iterables.size(correlatedTo) == 1 && Iterables.getOnlyElement(correlatedTo).equals(correlationIdentifier);
+        }
+        return false;
+    }
+
     @Nonnull
     @Override
     public Optional<MatchInfo> adjustMatch(@Nonnull final PartialMatch partialMatch) {
@@ -732,10 +738,9 @@ public class SelectExpression extends AbstractRelationalExpressionWithChildren i
         final var rangeBuilder = RangeConstraints.newBuilder();
 
         for (final var predicate : predicates) {
-            if (predicate instanceof ValuePredicate) {
-                final var predicateRange = ((ValuePredicate)predicate).getComparison();
-                if (!rangeBuilder.addComparisonMaybe(predicateRange)) {
-                    result.add(value.withComparison(predicateRange));  // give up.
+            if (predicate instanceof ValuePredicate valuePredicate) {
+                if (valuePredicate.hasExistentialPattern() || !rangeBuilder.addComparisonMaybe(valuePredicate.getComparison())) {
+                    result.add(value.withComparison(valuePredicate.getComparison()));  // give up.
                 }
             } else if (predicate instanceof PredicateWithValueAndRanges && ((PredicateWithValueAndRanges)predicate).isSargable()) {
                 final var predicateRange = Iterables.getOnlyElement(((PredicateWithValueAndRanges)predicate).getRanges());

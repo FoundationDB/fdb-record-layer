@@ -1,0 +1,136 @@
+#
+# exists-in-select.yamsql
+#
+# This source file is part of the FoundationDB open source project
+#
+# Copyright 2021-2024 Apple Inc. and the FoundationDB project authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+---
+options:
+  supported_version: !current_version
+---
+schema_template:
+    create table t1(id bigint, col1 bigint, primary key(id))
+    create table t2(id bigint, t1_id bigint, primary key(id))
+    create table t3(id bigint, t2_id bigint, label string, primary key(id))
+    create index t3_t2_id as select t2_id from t3
+---
+setup:
+  steps:
+    - query: INSERT INTO t1 VALUES (1, 10), (2, 20), (3, 30)
+    - query: INSERT INTO t2 VALUES (100, 1), (200, 1), (300, 3)
+    - query: INSERT INTO t3 VALUES (1000, 100, 'a'), (2000, 100, 'b'), (3000, 300, 'c')
+---
+test_block:
+  name: exists-in-projection
+  preset: single_repetition_ordered
+  tests:
+    -
+      # exists in projection, no join
+      - query: select id, exists (select 1 from t2 where t2.t1_id = t1.id) as has_t2 from t1
+      - explain: "SCAN([IS T1]) | FLATMAP q0 -> { SCAN([IS T2]) | FILTER _.T1_ID EQUALS q0.ID | MAP (@c6 AS _0) | DEFAULT NULL AS q1 RETURN (q0.ID AS ID, exists(q1) AS HAS_T2) }"
+      - result: [{ID: 1, HAS_T2: true},
+                 {ID: 2, HAS_T2: false},
+                 {ID: 3, HAS_T2: true}]
+    -
+      # exists in projection with a single join
+      - query: select t1.id, exists (select 1 from t2 where t2.t1_id = t1.id) as has_t2
+               from t1 join t2 on t1.id = t2.t1_id
+      - explain: "SCAN([IS T2]) | FLATMAP q0 -> { SCAN([IS T1, EQUALS q0.T1_ID]) | FLATMAP q1 -> { SCAN([IS T2]) | FILTER _.T1_ID EQUALS q1.ID | MAP (@c8 AS _0) | DEFAULT NULL AS q2 RETURN (q1 AS _0, q2 AS _1) } AS q3 RETURN (q3._0.ID AS ID, exists(q3._1) AS HAS_T2) }"
+      - unorderedResult: [{ID: 1, HAS_T2: true},
+                          {ID: 1, HAS_T2: true},
+                          {ID: 3, HAS_T2: true}]
+    -
+      # exists in projection checking a different table than the one being joined
+      - query: select t1.id, t2.id as t2_id,
+               exists (select 1 from t3 where t3.t2_id = t2.id) as has_t3
+               from t1 join t2 on t1.id = t2.t1_id
+      - explain: "SCAN([IS T2]) | FLATMAP q0 -> { SCAN([IS T1, EQUALS q0.T1_ID]) | FLATMAP q1 -> { COVERING(T3_T2_ID [EQUALS q0.ID] -> [ID: KEY:[2], T2_ID: KEY:[0]]) | MAP (@c14 AS _0) | DEFAULT NULL AS q2 RETURN (q1 AS _0, q2 AS _1) } AS q3 RETURN (q3._0.ID AS ID, q0.ID AS T2_ID, exists(q3._1) AS HAS_T3) }"
+      - unorderedResult: [{ID: 1, T2_ID: 100, HAS_T3: true},
+                          {ID: 1, T2_ID: 200, HAS_T3: false},
+                          {ID: 3, T2_ID: 300, HAS_T3: true}]
+    -
+      # exists in projection with two joins (t1 -> t2 -> t3)
+      - query: select t1.id, t2.id as t2_id, t3.label,
+               exists (select 1 from t1 as x where x.col1 = 10) as has_col1_10
+               from t1 join t2 on t1.id = t2.t1_id
+                        join t3 on t2.id = t3.t2_id
+      - explain: "ISCAN(T3_T2_ID <,>) | FLATMAP q0 -> { SCAN([IS T2, EQUALS q0.T2_ID]) | FLATMAP q1 -> { SCAN([IS T1, EQUALS q1.T1_ID]) | FLATMAP q2 -> { SCAN([IS T1]) | FILTER _.COL1 EQUALS promote(@c28 AS LONG) | MAP (@c18 AS _0) | DEFAULT NULL AS q3 RETURN (q2 AS _0, q3 AS _1) } AS q4 RETURN (q4._0 AS _0, q1 AS _1, q4._1 AS _2) } AS q5 RETURN (q5._0.ID AS ID, q5._1.ID AS T2_ID, q0.LABEL AS LABEL, exists(q5._2) AS HAS_COL1_10) }"
+      - unorderedResult: [{ID: 1, T2_ID: 100, LABEL: 'a', HAS_COL1_10: true},
+                          {ID: 1, T2_ID: 100, LABEL: 'b', HAS_COL1_10: true},
+                          {ID: 3, T2_ID: 300, LABEL: 'c', HAS_COL1_10: true}]
+    -
+      # correlated exists in projection with two joins, referencing outer join column
+      - query: select t1.id, t2.id as t2_id, t3.label,
+               exists (select 1 from t1 as x where x.col1 = t1.col1 and x.id <> t1.id) as has_sibling
+               from t1 join t2 on t1.id = t2.t1_id
+                        join t3 on t2.id = t3.t2_id
+      - explain: "ISCAN(T3_T2_ID <,>) | FLATMAP q0 -> { SCAN([IS T2, EQUALS q0.T2_ID]) | FLATMAP q1 -> { SCAN([IS T1, EQUALS q1.T1_ID]) | FLATMAP q2 -> { SCAN([IS T1]) | FILTER _.COL1 EQUALS q2.COL1 AND _.ID NOT_EQUALS q2.ID | MAP (@c18 AS _0) | DEFAULT NULL AS q3 RETURN (q2 AS _0, q3 AS _1) } AS q4 RETURN (q4._0 AS _0, q1 AS _1, q4._1 AS _2) } AS q5 RETURN (q5._0.ID AS ID, q5._1.ID AS T2_ID, q0.LABEL AS LABEL, exists(q5._2) AS HAS_SIBLING) }"
+      - unorderedResult: [{ID: 1, T2_ID: 100, LABEL: 'a', HAS_SIBLING: false},
+                          {ID: 1, T2_ID: 100, LABEL: 'b', HAS_SIBLING: false},
+                          {ID: 3, T2_ID: 300, LABEL: 'c', HAS_SIBLING: false}]
+    -
+      # exists in projection combined with exists in where clause
+      - query: select t1.id,
+               exists (select 1 from t3, t2 where t3.t2_id = t2.id and t2.t1_id = t1.id) as has_t3
+               from t1
+               where exists (select 1 from t2 where t2.t1_id = t1.id)
+      - explain: "SCAN([IS T1]) | FLATMAP q0 -> { SCAN([IS T2]) | FILTER _.T1_ID EQUALS q0.ID | MAP (@c38 AS _0) | DEFAULT NULL | FILTER _ NOT_NULL AS q1 RETURN q0 } | FLATMAP q0 -> { SCAN([IS T2]) | FILTER _.T1_ID EQUALS q0.ID | FLATMAP q3 -> { ISCAN(T3_T2_ID [EQUALS q3.ID]) AS q4 RETURN (@c38 AS _0) } | DEFAULT NULL AS q5 RETURN (q0.ID AS ID, exists(q5) AS HAS_T3) }"
+      - result: [{ID: 1, HAS_T3: true},
+                 {ID: 3, HAS_T3: true}]
+    -
+      # multiple exists in projection
+      - query: select t1.id,
+               exists (select 1 from t2 where t2.t1_id = t1.id) as has_t2,
+               exists (select 1 from t3, t2 where t3.t2_id = t2.id and t2.t1_id = t1.id) as has_t3
+               from t1
+      - explain: "SCAN([IS T1]) | FLATMAP q0 -> { SCAN([IS T2]) | FILTER _.T1_ID EQUALS q0.ID | FLATMAP q1 -> { ISCAN(T3_T2_ID [EQUALS q1.ID]) AS q2 RETURN (@c8 AS _0) } | DEFAULT NULL | FLATMAP q3 -> { SCAN([IS T2]) | FILTER _.T1_ID EQUALS q0.ID | MAP (@c8 AS _0) | DEFAULT NULL AS q4 RETURN (q4 AS _0, q3 AS _1) } AS q5 RETURN (q0.ID AS ID, exists(q5._0) AS HAS_T2, exists(q5._1) AS HAS_T3) }"
+      - result: [{ID: 1, HAS_T2: true, HAS_T3: true},
+                 {ID: 2, HAS_T2: false, HAS_T3: false},
+                 {ID: 3, HAS_T2: true, HAS_T3: true}]
+    -
+      # exists in projection with cross join
+      - query: select t1.id as t1_id, t2.id as t2_id,
+               exists (select 1 from t3 where t3.t2_id = t2.id) as has_t3
+               from t1, t2
+               where t1.id = 1
+      - explain: "SCAN([IS T1, EQUALS promote(@c39 AS LONG)]) | FLATMAP q0 -> { SCAN([IS T2]) | FLATMAP q1 -> { COVERING(T3_T2_ID [EQUALS q1.ID] -> [ID: KEY:[2], T2_ID: KEY:[0]]) | MAP (@c39 AS _0) | DEFAULT NULL AS q2 RETURN (q1 AS _0, q2 AS _1) } AS q3 RETURN (q0.ID AS T1_ID, q3._0.ID AS T2_ID, exists(q3._1) AS HAS_T3) }"
+      - unorderedResult: [{T1_ID: 1, T2_ID: 100, HAS_T3: true},
+                          {T1_ID: 1, T2_ID: 200, HAS_T3: false},
+                          {T1_ID: 1, T2_ID: 300, HAS_T3: true}]
+    -
+      # not exists in projection
+      - query: select id, not exists (select 1 from t2 where t2.t1_id = t1.id) as no_t2 from t1
+      - explain: "SCAN([IS T1]) | FLATMAP q0 -> { SCAN([IS T2]) | FILTER _.T1_ID EQUALS q0.ID | MAP (@c7 AS _0) | DEFAULT NULL AS q1 RETURN (q0.ID AS ID, NOT exists(q1) AS NO_T2) }"
+      - result: [{ID: 1, NO_T2: false},
+                 {ID: 2, NO_T2: true},
+                 {ID: 3, NO_T2: false}]
+    -
+      # exists in projection with single join, filtering on exists result via where
+      - query: select t1.id, t2.id as t2_id
+               from t1 join t2 on t1.id = t2.t1_id
+               where exists (select 1 from t3 where t3.t2_id = t2.id)
+      - explain: "SCAN([IS T2]) | FLATMAP q0 -> { COVERING(T3_T2_ID [EQUALS q0.ID] -> [ID: KEY:[2], T2_ID: KEY:[0]]) | MAP (@c26 AS _0) | DEFAULT NULL | FILTER _ NOT_NULL AS q1 RETURN q0 } | FLATMAP q0 -> { SCAN([IS T1, EQUALS q0.T1_ID]) AS q3 RETURN (q3.ID AS ID, q0.ID AS T2_ID) }"
+      - unorderedResult: [{ID: 1, T2_ID: 100},
+                          {ID: 3, T2_ID: 300}]
+    -
+      # exists in projection where outer query uses the t3_t2_id index
+      - query: select t3.id, t3.label,
+               exists (select 1 from t2 where t2.id = t3.t2_id) as has_t2
+               from t3
+               where t3.t2_id = 100
+      - explain: "ISCAN(T3_T2_ID [EQUALS promote(@c33 AS LONG)]) | FLATMAP q0 -> { SCAN([IS T2, EQUALS q0.T2_ID]) | MAP (@c12 AS _0) | DEFAULT NULL AS q1 RETURN (q0.ID AS ID, q0.LABEL AS LABEL, exists(q1) AS HAS_T2) }"
+      - result: [{ID: 1000, LABEL: 'a', HAS_T2: true},
+                 {ID: 2000, LABEL: 'b', HAS_T2: true}]
+...

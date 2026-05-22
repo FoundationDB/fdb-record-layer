@@ -20,12 +20,14 @@
 
 package com.apple.foundationdb.record.query.plan.cascades;
 
+import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.AndPredicate;
-import com.apple.foundationdb.record.query.plan.cascades.predicates.ExistsPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.Placeholder;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.PredicateWithValueAndRanges;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
+import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
@@ -337,7 +339,7 @@ public class GraphExpansion {
 
     @Nonnull
     public static GraphExpansion ofExists(@Nonnull final Quantifier.Existential existentialQuantifier) {
-        final var existsPredicate = new ExistsPredicate(existentialQuantifier.getAlias());
+        final var existsPredicate = new ValuePredicate(QuantifiedObjectValue.of(existentialQuantifier), new Comparisons.NullComparison(Comparisons.Type.NOT_NULL));
         return of(ImmutableList.of(), ImmutableList.of(existsPredicate), ImmutableList.of(existentialQuantifier), ImmutableList.of());
     }
 

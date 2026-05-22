@@ -43,7 +43,6 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.InsertExpre
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalSortExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalTypeFilterExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.UpdateExpression;
-import com.apple.foundationdb.record.query.plan.cascades.predicates.ExistsPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.NotPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
@@ -713,7 +712,7 @@ public class FDBModificationQueryTest extends FDBRecordStoreQueryTestBase {
                         graphExpansionBuilder = GraphExpansion.builder();
                         graphExpansionBuilder.addQuantifier(outerQun);
                         graphExpansionBuilder.addQuantifier(innerQun);
-                        graphExpansionBuilder.addPredicate(NotPredicate.not(new ExistsPredicate(innerQun.getAlias())));
+                        graphExpansionBuilder.addPredicate(NotPredicate.not(new ValuePredicate(QuantifiedObjectValue.of(innerQun), new Comparisons.NullComparison(Comparisons.Type.NOT_NULL))));
                         qun = Quantifier.forEach(Reference.initialOf(graphExpansionBuilder.build().buildSelectWithResultValue(outerQun.getFlowedObjectValue())));
 
                         qun = Quantifier.forEach(Reference.initialOf(new InsertExpression(qun,

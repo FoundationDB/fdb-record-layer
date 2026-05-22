@@ -1,0 +1,28 @@
+exists-in-where:
+-   query: EXPLAIN select id from array_table where exists (select 1 from array_table.fruits
+        f where f = 'apple')
+    ref: exists-in-where.yamsql:40
+    explain: 'COVERING(FRUITS [EQUALS @c17] -> [ID: KEY:[2]]) | MAP (_.ID AS ID)'
+    task_count: 461
+    task_total_time_ms: 203
+    transform_count: 136
+    transform_time_ms: 142
+    transform_yield_count: 34
+    insert_time_ms: 2
+    insert_new_count: 44
+    insert_reused_count: 0
+-   query: EXPLAIN select id from array_table where exists (select 1 from array_table.fruits
+        f where f = 'apple') and exists (select 1 from array_table.numbers n where
+        n > 50)
+    ref: exists-in-where.yamsql:46
+    explain: ISCAN(FRUITS [EQUALS @c17]) | FLATMAP q0 -> { EXPLODE q0.NUMBERS | FILTER
+        _ GREATER_THAN promote(@c32 AS LONG) | MAP (@c8 AS _0) | DEFAULT NULL | FILTER
+        _ NOT_NULL AS q1 RETURN (q0.ID AS ID) }
+    task_count: 1495
+    task_total_time_ms: 312
+    transform_count: 508
+    transform_time_ms: 158
+    transform_yield_count: 81
+    insert_time_ms: 23
+    insert_new_count: 177
+    insert_reused_count: 32

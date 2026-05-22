@@ -446,16 +446,16 @@ versions-queries:
 -   query: EXPLAIN select "__ROW_VERSION", id, col1 from t4 where exists (select 1
         from t4.col4 where col4 = 3)
     ref: versions-tests.yamsql:457
-    explain: ISCAN(T4_COL4_VERSION [EQUALS promote(@c21 AS LONG)]) | MAP (_.__ROW_VERSION
+    explain: ISCAN(T4_COL4_VERSION [EQUALS promote(@c20 AS LONG)]) | MAP (_.__ROW_VERSION
         AS __ROW_VERSION, _.ID AS ID, _.COL1 AS COL1)
-    task_count: 696
-    task_total_time_ms: 114
-    transform_count: 216
-    transform_time_ms: 55
-    transform_yield_count: 64
-    insert_time_ms: 2
-    insert_new_count: 80
-    insert_reused_count: 1
+    task_count: 637
+    task_total_time_ms: 46
+    transform_count: 189
+    transform_time_ms: 19
+    transform_yield_count: 61
+    insert_time_ms: 0
+    insert_new_count: 73
+    insert_reused_count: 0
 -   query: EXPLAIN select "__ROW_VERSION", id, col1 from t4 where 3 in t4.col4
     ref: versions-tests.yamsql:474
     explain: ISCAN(T4_COL2 <,>) | FLATMAP q0 -> { EXPLODE arrayDistinct(q0.COL4) |
@@ -563,14 +563,14 @@ versions-queries:
         [EQUALS q0.COL2, EQUALS promote(@c69 AS LONG)]) | FILTER _.COL1 EQUALS promote(@c41
         AS STRING) AS q1 RETURN (q0.__ROW_VERSION AS VERSION3, q0.ID AS ID3, q1.__ROW_VERSION
         AS VERSION4, q1.ID AS ID4, q0.COL2 AS COL2, q1.COL4 AS COL4) }'
-    task_count: 2519
-    task_total_time_ms: 260
-    transform_count: 835
-    transform_time_ms: 99
-    transform_yield_count: 190
-    insert_time_ms: 7
-    insert_new_count: 363
-    insert_reused_count: 34
+    task_count: 2436
+    task_total_time_ms: 269
+    transform_count: 796
+    transform_time_ms: 106
+    transform_yield_count: 188
+    insert_time_ms: 8
+    insert_new_count: 355
+    insert_reused_count: 33
 -   query: EXPLAIN select t3.id AS id3, t4."__ROW_VERSION" AS version4, t4.id AS id4,
         t3.col2, t4.col4 from t3, t4 where t3.col1 = 'b' and t4.col1 = 'b' and t4.col2
         = t3.col2 and exists (select 1 from t4.col4 x where x = 2)
@@ -580,14 +580,14 @@ versions-queries:
         [EQUALS q0.COL2, EQUALS promote(@c63 AS LONG)]) | FILTER _.COL1 EQUALS promote(@c35
         AS STRING) AS q1 RETURN (q0.ID AS ID3, q1.__ROW_VERSION AS VERSION4, q1.ID
         AS ID4, q0.COL2 AS COL2, q1.COL4 AS COL4) }'
-    task_count: 2519
-    task_total_time_ms: 232
-    transform_count: 834
-    transform_time_ms: 82
-    transform_yield_count: 190
-    insert_time_ms: 5
-    insert_new_count: 363
-    insert_reused_count: 34
+    task_count: 2436
+    task_total_time_ms: 125
+    transform_count: 795
+    transform_time_ms: 51
+    transform_yield_count: 188
+    insert_time_ms: 4
+    insert_new_count: 355
+    insert_reused_count: 33
 -   query: EXPLAIN select a.version AS version3, a.r.id AS id3, b.version AS version4,
         b.r.id AS id4, a.r.col2, b.r.col4 from t3_by_col1('b') a, t4_by_col1('b')
         b where 2 in b.r.col4 and b.r.col2 = a.r.col2

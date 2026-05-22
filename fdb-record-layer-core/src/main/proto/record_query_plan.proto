@@ -489,7 +489,8 @@ message PEmptyValue {
 
 message PExistsValue {
   optional PQuantifiedObjectValue child = 1; // deprecated
-  optional string alias = 2;
+  optional string alias = 2; //deprecated
+  optional PValue value = 3;
 }
 
 enum PEvaluation {
@@ -1641,7 +1642,8 @@ message PDatabaseObjectDependenciesPredicate {
 
 message PExistsPredicate {
   optional PAbstractQueryPredicate super = 1;
-  optional string existential_alias = 2;
+  optional string existential_alias = 2; // deprecated
+  optional PValue value = 3;
 }
 
 message PNotPredicate {

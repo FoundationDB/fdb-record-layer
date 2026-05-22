@@ -49,7 +49,6 @@ import com.apple.foundationdb.record.query.plan.cascades.matching.structure.Valu
 import com.apple.foundationdb.record.query.plan.cascades.predicates.CompatibleTypeEvolutionPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ConstantPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.DatabaseObjectDependenciesPredicate;
-import com.apple.foundationdb.record.query.plan.cascades.predicates.ExistsPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type.Record;
@@ -471,7 +470,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
                     qun = Quantifier.forEach(Reference.initialOf(GraphExpansion.builder()
                             .addQuantifier(qun)
                             .addQuantifier(existentialQun)
-                            .addPredicate(new ExistsPredicate(existentialQun.getAlias()))
+                            .addPredicate(new ValuePredicate(QuantifiedObjectValue.of(existentialQun), new Comparisons.NullComparison(Comparisons.Type.NOT_NULL)))
                             .addResultColumn(projectColumn(qun.getFlowedObjectValue(), "name"))
                             .build()
                             .buildSelect()));
@@ -539,7 +538,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
                             .addQuantifier(qun)
                             .addQuantifier(existentialQun)
                             .addPredicate(new ValuePredicate(FieldValue.ofFieldName(qun.getFlowedObjectValue(), "name"), new Comparisons.ParameterComparison(Comparisons.Type.IN, nameValueParam)))
-                            .addPredicate(new ExistsPredicate(existentialQun.getAlias()))
+                            .addPredicate(new ValuePredicate(QuantifiedObjectValue.of(existentialQun), new Comparisons.NullComparison(Comparisons.Type.NOT_NULL)))
                             .addResultColumn(projectColumn(qun.getFlowedObjectValue(), "rest_no"))
                             .build()
                             .buildSelect()));
@@ -1204,7 +1203,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
                     final var existential1Quantifier = Quantifier.existential(Reference.initialOf(reviewsGraphExpansionBuilder.build().buildSelect()));
 
                     graphExpansionBuilder.addQuantifier(existential1Quantifier);
-                    graphExpansionBuilder.addPredicate(new ExistsPredicate(existential1Quantifier.getAlias()));
+                    graphExpansionBuilder.addPredicate(new ValuePredicate(QuantifiedObjectValue.of(existential1Quantifier), new Comparisons.NullComparison(Comparisons.Type.NOT_NULL)));
 
                     reviewsGraphExpansionBuilder = GraphExpansion.builder();
 
@@ -1221,7 +1220,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
                     var existential2Quantifier = Quantifier.existential(Reference.initialOf(reviewsGraphExpansionBuilder.build().buildSelect()));
 
                     graphExpansionBuilder.addQuantifier(existential2Quantifier);
-                    graphExpansionBuilder.addPredicate(new ExistsPredicate(existential2Quantifier.getAlias()));
+                    graphExpansionBuilder.addPredicate(new ValuePredicate(QuantifiedObjectValue.of(existential2Quantifier), new Comparisons.NullComparison(Comparisons.Type.NOT_NULL)));
 
                     final var reviewer1QuantifiedValue = QuantifiedObjectValue.of(reviewer1Qun.getAlias(), reviewer1Qun.getFlowedObjectType());
                     final var reviewer2QuantifiedValue = QuantifiedObjectValue.of(reviewer2Qun.getAlias(), reviewer2Qun.getFlowedObjectType());
@@ -1279,7 +1278,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
                     final var existential1Quantifier = Quantifier.existential(Reference.initialOf(reviewsGraphExpansionBuilder.build().buildSelect()));
 
                     graphExpansionBuilder.addQuantifier(existential1Quantifier);
-                    graphExpansionBuilder.addPredicate(new ExistsPredicate(existential1Quantifier.getAlias()));
+                    graphExpansionBuilder.addPredicate(new ValuePredicate(QuantifiedObjectValue.of(existential1Quantifier), new Comparisons.NullComparison(Comparisons.Type.NOT_NULL)));
 
                     reviewsGraphExpansionBuilder = GraphExpansion.builder();
 
@@ -1296,7 +1295,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
                     var existential2Quantifier = Quantifier.existential(Reference.initialOf(reviewsGraphExpansionBuilder.build().buildSelect()));
 
                     graphExpansionBuilder.addQuantifier(existential2Quantifier);
-                    graphExpansionBuilder.addPredicate(new ExistsPredicate(existential2Quantifier.getAlias()));
+                    graphExpansionBuilder.addPredicate(new ValuePredicate(QuantifiedObjectValue.of((existential2Quantifier)), new Comparisons.NullComparison(Comparisons.Type.NOT_NULL)));
 
                     final var reviewer1QuantifiedValue = QuantifiedObjectValue.of(reviewer1Qun.getAlias(), reviewer1Qun.getFlowedObjectType());
                     final var reviewer2QuantifiedValue = QuantifiedObjectValue.of(reviewer2Qun.getAlias(), reviewer2Qun.getFlowedObjectType());

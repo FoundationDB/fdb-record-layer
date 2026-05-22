@@ -37,7 +37,7 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalUnio
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.TableFunctionExpression;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ConstantPredicate;
-import com.apple.foundationdb.record.query.plan.cascades.predicates.ExistsPredicate;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
 import com.apple.foundationdb.record.query.plan.cascades.properties.CardinalitiesProperty;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.AggregateValue;
@@ -49,6 +49,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.NullValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.NumericAggregationValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.PromoteValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RangeValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.StreamingValue;
@@ -375,7 +376,7 @@ class DecorrelateValuesRuleTest {
 
         final SelectExpression selectExpression = join(valuesBox, base, existsQun)
                 .addResultColumn(projectColumn(base, "a"))
-                .addPredicate(new ExistsPredicate(existsQun.getAlias()))
+                .addPredicate(new ValuePredicate(QuantifiedObjectValue.of(existsQun), new Comparisons.NullComparison(Comparisons.Type.NOT_NULL)))
                 .build().buildSelect();
 
         final Quantifier newExistsQun = exists(new SelectExpression(explodeQun.getFlowedObjectValue(),
@@ -383,7 +384,7 @@ class DecorrelateValuesRuleTest {
                 ImmutableList.of(fieldPredicate(explodeQun, "three", new Comparisons.ValueComparison(Comparisons.Type.EQUALS, valuesBox.getFlowedObjectValue())))));
         final SelectExpression expected = join(base, newExistsQun)
                 .addResultColumn(projectColumn(base, "a"))
-                .addPredicate(new ExistsPredicate(newExistsQun.getAlias()))
+                .addPredicate(new ValuePredicate(QuantifiedObjectValue.of(newExistsQun), new Comparisons.NullComparison(Comparisons.Type.NOT_NULL)))
                 .build().buildSelect();
 
         testHelper.assertYields(selectExpression, expected);
@@ -1260,7 +1261,7 @@ class DecorrelateValuesRuleTest {
         final Quantifier base = baseT();
         final SelectExpression selectExpression = join(base, existsValues)
                 .addResultColumn(projectColumn(base, "a"))
-                .addPredicate(new ExistsPredicate(existsValues.getAlias()))
+                .addPredicate(new ValuePredicate(QuantifiedObjectValue.of(existsValues), new Comparisons.NullComparison(Comparisons.Type.NOT_NULL)))
                 .build().buildSelect();
 
         testHelper.assertYieldsNothing(selectExpression, true);
@@ -1280,8 +1281,8 @@ class DecorrelateValuesRuleTest {
                 fieldPredicate(base, "a", EQUALS_42)));
         final SelectExpression selectExpression = join(existsValues, existsT)
                 .addResultColumn(Column.of(Optional.of("x"), LiteralValue.ofScalar("y")))
-                .addPredicate(new ExistsPredicate(existsValues.getAlias()))
-                .addPredicate(new ExistsPredicate(existsT.getAlias()))
+                .addPredicate(new ValuePredicate(QuantifiedObjectValue.of(existsValues), new Comparisons.NullComparison(Comparisons.Type.NOT_NULL)))
+                .addPredicate(new ValuePredicate(QuantifiedObjectValue.of(existsT), new Comparisons.NullComparison(Comparisons.Type.NOT_NULL)))
                 .build().buildSelect();
 
         // Note: it seems like we should _not_ match the rule here (rather than matching but

@@ -25,8 +25,9 @@ import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.AndPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ConstantPredicate;
-import com.apple.foundationdb.record.query.plan.cascades.predicates.ExistsPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.OrPredicate;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
+import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -65,7 +66,7 @@ class RewritingCostModelTest {
         graphABuilder.addResultColumn(column(innerQuantifierA, "a", "a"));
         graphABuilder.addAllPredicates(List.of(
                 fieldPredicate(innerQuantifierA, "a", EQUALS_42),
-                new ExistsPredicate(existentialQun.getAlias())
+                new ValuePredicate(QuantifiedObjectValue.of(existentialQun), new Comparisons.NullComparison(Comparisons.Type.NOT_NULL))
         ));
         final SelectExpression expressionA = graphABuilder.build().buildSelect();
 
@@ -76,7 +77,7 @@ class RewritingCostModelTest {
         final GraphExpansion.Builder graphBBuilder = GraphExpansion.builder()
                 .addQuantifier(innerQuantifierB).addQuantifier(existentialQun);
         graphBBuilder.addResultColumn(column(innerQuantifierB, "a", "a"));
-        graphBBuilder.addAllPredicates(List.of(new ExistsPredicate(existentialQun.getAlias())));
+        graphBBuilder.addAllPredicates(List.of(new ValuePredicate(QuantifiedObjectValue.of(existentialQun), new Comparisons.NullComparison(Comparisons.Type.NOT_NULL))));
         final SelectExpression expressionB = graphBBuilder.build().buildSelect();
 
         assertThat(PlannerPhase.REWRITING
@@ -194,7 +195,7 @@ class RewritingCostModelTest {
         graphABuilder.addResultColumn(column(innerQuantifierA, "a", "a"));
         graphABuilder.addAllPredicates(List.of(
                 fieldPredicate(innerQuantifierA, "a", EQUALS_42),
-                new ExistsPredicate(existentialQun.getAlias())
+                new ValuePredicate(QuantifiedObjectValue.of(existentialQun), new Comparisons.NullComparison(Comparisons.Type.NOT_NULL))
         ));
         final SelectExpression expressionA = graphABuilder.build().buildSelect();
 
@@ -205,7 +206,7 @@ class RewritingCostModelTest {
         final GraphExpansion.Builder graphBBuilder = GraphExpansion.builder()
                 .addQuantifier(innerQuantifierB).addQuantifier(existentialQun);
         graphBBuilder.addResultColumn(column(innerQuantifierB, "a", "a"));
-        graphBBuilder.addAllPredicates(List.of(new ExistsPredicate(existentialQun.getAlias())));
+        graphBBuilder.addAllPredicates(List.of(new ValuePredicate(QuantifiedObjectValue.of(existentialQun), new Comparisons.NullComparison(Comparisons.Type.NOT_NULL))));
         final SelectExpression expressionB = graphBBuilder.build().buildSelect();
 
         assertThat(PlannerPhase.REWRITING
