@@ -388,7 +388,6 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
-    @MaintainYamlTestConfig(YamlTestConfigFilters.CORRECT_EXPECTATIONS)
     public void existsInWhere(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("exists-in-where.yamsql");
     }
@@ -451,6 +450,7 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
+    @MaintainYamlTestConfig(YamlTestConfigFilters.CORRECT_EXPECTATIONS)
     public void versionsTests(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("versions-tests.yamsql");
     }

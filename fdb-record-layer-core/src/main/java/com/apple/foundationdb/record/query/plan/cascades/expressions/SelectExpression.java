@@ -50,9 +50,11 @@ import com.apple.foundationdb.record.query.plan.cascades.predicates.OrPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.Placeholder;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.PredicateWithValue;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.PredicateWithValueAndRanges;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.QuantifiedValuePredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.RangeConstraints;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
+import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.Values;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.MaxMatchMap;
@@ -596,8 +598,10 @@ public class SelectExpression extends AbstractRelationalExpressionWithChildren i
     }
 
     private static boolean isExistentialOverQuantifier(@Nonnull final QueryPredicate predicate, @Nonnull final CorrelationIdentifier correlationIdentifier) {
-        if (predicate instanceof ValuePredicate valuePredicate && valuePredicate.hasExistentialPattern()) {
-            final var correlatedTo = valuePredicate.getCorrelatedTo();
+        if (predicate instanceof QuantifiedValuePredicate quantifiedValuePredicate) {
+//        if (predicate instanceof ValuePredicate valuePredicate && valuePredicate.hasExistentialPattern()) {
+            final var correlatedTo = quantifiedValuePredicate.getCorrelatedTo();
+//            final var correlatedTo = valuePredicate.getCorrelatedTo();
             return Iterables.size(correlatedTo) == 1 && Iterables.getOnlyElement(correlatedTo).equals(correlationIdentifier);
         }
         return false;
@@ -738,8 +742,11 @@ public class SelectExpression extends AbstractRelationalExpressionWithChildren i
         final var rangeBuilder = RangeConstraints.newBuilder();
 
         for (final var predicate : predicates) {
+            if (predicate instanceof QuantifiedValuePredicate) {
+                result.add(predicate);
+            } else
             if (predicate instanceof ValuePredicate valuePredicate) {
-                if (valuePredicate.hasExistentialPattern() || !rangeBuilder.addComparisonMaybe(valuePredicate.getComparison())) {
+                if (!rangeBuilder.addComparisonMaybe(valuePredicate.getComparison())) {
                     result.add(value.withComparison(valuePredicate.getComparison()));  // give up.
                 }
             } else if (predicate instanceof PredicateWithValueAndRanges && ((PredicateWithValueAndRanges)predicate).isSargable()) {
