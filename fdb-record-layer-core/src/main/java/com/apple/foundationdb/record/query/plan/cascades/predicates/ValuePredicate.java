@@ -218,41 +218,6 @@ public class ValuePredicate extends AbstractQueryPredicate implements PredicateW
                         .addNested(Precedence.COMPARISONS.parenthesizeChild(comparison.explain())));
     }
 
-    /**
-     * Checks if this predicate represents an existential: a {@link QuantifiedObjectValue} with a
-     * {@link Comparisons.Type#NOT_NULL} comparison.
-     */
-    public boolean hasExistentialPattern() {
-        return value instanceof QuantifiedObjectValue && comparison.getType() == Comparisons.Type.NOT_NULL;
-    }
-
-    @Nonnull
-    @Override
-    public PredicateMultiMap.PredicateCompensationFunction computeCompensationFunction(@Nonnull final PartialMatch partialMatch,
-                                                                                       @Nonnull final QueryPredicate originalQueryPredicate,
-                                                                                       @Nonnull final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap,
-                                                                                       @Nonnull final List<PredicateMultiMap.PredicateCompensationFunction> childrenResults,
-                                                                                       @Nonnull final PullUp pullUp) {
-        Verify.verify(childrenResults.isEmpty());
-        if (originalQueryPredicate instanceof ValuePredicate originalValuePredicate && originalValuePredicate.hasExistentialPattern()) {
-            final var alias = ((QuantifiedObjectValue) originalValuePredicate.getValue()).getAlias();
-            final var regularMatchInfo = partialMatch.getRegularMatchInfo();
-            final var matchesAnyExistentialQuantifier = partialMatch.getQueryExpression().getQuantifiers().stream()
-                    .anyMatch(quantifier -> quantifier.getAlias().equals(alias));
-            if (matchesAnyExistentialQuantifier) {
-                final var childPartialMatchOptional = regularMatchInfo.getChildPartialMatchMaybe(alias);
-                final var compensationOptional =
-                        childPartialMatchOptional.map(childPartialMatch ->
-                                childPartialMatch.compensateExistential(boundParameterPrefixMap));
-                if (compensationOptional.isEmpty() || compensationOptional.get().isNeededForFiltering()) {
-                    return PredicateMultiMap.PredicateCompensationFunction.ofExistentialValuePredicate(this);
-                }
-            }
-            return PredicateMultiMap.PredicateCompensationFunction.noCompensationNeeded();
-        }
-        return computeCompensationFunctionForLeaf(pullUp);
-    }
-
     @Nonnull
     @Override
     public PValuePredicate toProto(@Nonnull final PlanSerializationContext serializationContext) {

@@ -25,7 +25,6 @@ import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.planprotos.PQuantifiedValuePredicate;
 import com.apple.foundationdb.record.planprotos.PQueryPredicate;
-import com.apple.foundationdb.record.planprotos.PValuePredicate;
 import com.apple.foundationdb.record.query.expressions.Comparisons.Comparison;
 import com.apple.foundationdb.record.query.plan.cascades.ComparisonRange;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
@@ -43,16 +42,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
-/**
- * A {@link ValuePredicate} whose value is a {@link QuantifiedObjectValue} — i.e., it references a quantifier directly.
- * This is used to represent existential predicates (EXISTS) as {@code QOV IS NOT NULL}, where the quantifier is
- * existential and produces null when the subquery has no rows.
- *
- * <p>This subclass provides specialized compensation logic (inherited from {@link ValuePredicate#computeCompensationFunction}):
- * during index matching, it checks whether the referenced quantifier's child partial match fully covers the subquery.
- * If not, compensation re-introduces the predicate (untranslated) so the existential quantifier gets pulled up and
- * re-executed.</p>
- */
 @API(API.Status.EXPERIMENTAL)
 public class QuantifiedValuePredicate extends ValuePredicate {
 

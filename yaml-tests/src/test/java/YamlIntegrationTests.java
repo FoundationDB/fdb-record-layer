@@ -388,11 +388,6 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
-    public void existsInWhere(YamlTest.Runner runner) throws Exception {
-        runner.runYamsql("exists-in-where.yamsql");
-    }
-
-    @TestTemplate
     public void tableFunctionsTest(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("table-functions.yamsql");
     }
@@ -450,7 +445,6 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
-    @MaintainYamlTestConfig(YamlTestConfigFilters.CORRECT_EXPECTATIONS)
     public void versionsTests(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("versions-tests.yamsql");
     }

@@ -599,9 +599,7 @@ public class SelectExpression extends AbstractRelationalExpressionWithChildren i
 
     private static boolean isExistentialOverQuantifier(@Nonnull final QueryPredicate predicate, @Nonnull final CorrelationIdentifier correlationIdentifier) {
         if (predicate instanceof QuantifiedValuePredicate quantifiedValuePredicate) {
-//        if (predicate instanceof ValuePredicate valuePredicate && valuePredicate.hasExistentialPattern()) {
             final var correlatedTo = quantifiedValuePredicate.getCorrelatedTo();
-//            final var correlatedTo = valuePredicate.getCorrelatedTo();
             return Iterables.size(correlatedTo) == 1 && Iterables.getOnlyElement(correlatedTo).equals(correlationIdentifier);
         }
         return false;
@@ -744,8 +742,7 @@ public class SelectExpression extends AbstractRelationalExpressionWithChildren i
         for (final var predicate : predicates) {
             if (predicate instanceof QuantifiedValuePredicate) {
                 result.add(predicate);
-            } else
-            if (predicate instanceof ValuePredicate valuePredicate) {
+            } else if (predicate instanceof ValuePredicate valuePredicate) {
                 if (!rangeBuilder.addComparisonMaybe(valuePredicate.getComparison())) {
                     result.add(value.withComparison(valuePredicate.getComparison()));  // give up.
                 }
