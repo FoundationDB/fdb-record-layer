@@ -41,7 +41,9 @@ setup:
     - query: INSERT INTO Person("first_name", "last_name", "id", "address")
         VALUES ('Alice', 'Smith', 1, ('123 Main St', 'Springfield')),
                ('Bob',   'Jones', 2, ('456 Oak Ave', 'Shelbyville')),
-               ('Carol', 'White', 3, null)
+               ('Carol', 'White', 3, null),
+               ('Dave',  'Brown', 4, ('789 Pine Rd', 'Shelbyville')),
+               ('Eve',   'Davis', 5, null)
 ---
 test_block:
   connect: "jdbc:embed:/FRL/SKIPPED_FIELD_NUMBER_PROTO_YAML?schema=TEST"
@@ -51,7 +53,9 @@ test_block:
       - query: select * from Person order by "id"
       - result: [{FIRST_NAME: 'Alice', LAST_NAME: 'Smith', ID: !l 1, ADDRESS: {STREET: '123 Main St', CITY: 'Springfield'}},
                  {FIRST_NAME: 'Bob',   LAST_NAME: 'Jones', ID: !l 2, ADDRESS: {STREET: '456 Oak Ave', CITY: 'Shelbyville'}},
-                 {FIRST_NAME: 'Carol', LAST_NAME: 'White', ID: !l 3, ADDRESS: !null }]
+                 {FIRST_NAME: 'Carol', LAST_NAME: 'White', ID: !l 3, ADDRESS: !null },
+                 {FIRST_NAME: 'Dave',  LAST_NAME: 'Brown', ID: !l 4, ADDRESS: {STREET: '789 Pine Rd', CITY: 'Shelbyville'}},
+                 {FIRST_NAME: 'Eve',   LAST_NAME: 'Davis', ID: !l 5, ADDRESS: !null }]
     -
       - query: select "first_name", "last_name" from Person where "id" = 2
       - result: [{FIRST_NAME: 'Bob', LAST_NAME: 'Jones'}]

@@ -31,8 +31,8 @@ setup:
     # TODO a7 float add insert support
     # TODO a9 bytes add insert support
     - query: insert into A(a1, a2, a3, a4, a6(t1), a8) values (1, 1, '1', true, (1), 1.0)
-    - query: insert into B values (1, 2), (3, null), (null, 4), (null, null)
-    - query: insert into C values (1, (2, 'b', 2.0)), (2, (3, 'c', 3.0)), (3, (4, 'd', 4.0)), (4, null)
+    - query: insert into B values (1, 2), (3, null), (null, 4), (null, null), (5, 5.0)
+    - query: insert into C values (1, (2, 'b', 2.0)), (2, (3, 'c', 3.0)), (3, (4, 'd', 4.0)), (4, null), (5, (6, 'f', 6.0))
 ---
 test_block:
   tests:
@@ -101,31 +101,36 @@ test_block:
           {b1: 1, b2: 2.0, 1.0},
           {b1: 3, b2: !null _, 3.0},
           {b1: !null _, b2: 4.0, 4.0},
-          {b1: !null _, b2: !null _, 42.0}]
+          {b1: !null _, b2: !null _, 42.0},
+          {b1: 5, b2: 5.0, 5.0}]
     -
       - query: select coalesce(null, null, st, null) from C
       - unorderedResult: [
           {{ T1: 2, A: 'b', B: 2.0}},
           {{ T1: 3, A: 'c', B: 3.0}},
           {{ T1: 4, A: 'd', B: 4.0}},
-          {!null _}]
+          {!null _},
+          {{ T1: 6, A: 'f', B: 6.0}}]
     -
       - query: select coalesce(st, st) from C
       - unorderedResult: [
           {{ T1: 2, A: 'b', B: 2.0}},
           {{ T1: 3, A: 'c', B: 3.0}},
           {{ T1: 4, A: 'd', B: 4.0}},
-          {!null _}]
+          {!null _},
+          {{ T1: 6, A: 'f', B: 6.0}}]
     -
       - query: select coalesce(null, st) from C
       - unorderedResult: [
           {{ T1: 2, A: 'b', B: 2.0}},
           {{ T1: 3, A: 'c', B: 3.0}},
           {{ T1: 4, A: 'd', B: 4.0}},
-          {!null _}]
+          {!null _},
+          {{ T1: 6, A: 'f', B: 6.0}}]
     -
       - query: select coalesce(null, (1, 1.0, 'a', true)) from C
       - unorderedResult: [
+          {{ _0: 1, _1: 1.0, _2: 'a', _3: true}},
           {{ _0: 1, _1: 1.0, _2: 'a', _3: true}},
           {{ _0: 1, _1: 1.0, _2: 'a', _3: true}},
           {{ _0: 1, _1: 1.0, _2: 'a', _3: true}},
