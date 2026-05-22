@@ -1,373 +1,374 @@
 agg-empty-table-tests:
 -   query: EXPLAIN select count(*) from T1;
     ref: aggregate-empty-table.yamsql:39
-    explain: SCAN([IS T1]) | MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY
-        NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)
+    explain: SCAN([IS T1]) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY ()
+        | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)
     task_count: 247
-    task_total_time_ms: 6
+    task_total_time_ms: 14
     transform_count: 62
-    transform_time_ms: 1
+    transform_time_ms: 4
     transform_yield_count: 17
-    insert_time_ms: 0
+    insert_time_ms: 1
     insert_new_count: 21
     insert_reused_count: 2
 -   query: EXPLAIN select count(*) from T1 where col1 = 0;
-    ref: aggregate-empty-table.yamsql:43
+    ref: aggregate-empty-table.yamsql:44
     explain: SCAN([IS T1]) | FILTER _.COL1 EQUALS promote(@c10 AS LONG) | MAP (_ AS
-        _0) | AGG (count_star(*) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0,
+        _0) | AGG (count_star(*) AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0,
         promote(0l AS LONG)) AS _0)
     task_count: 307
-    task_total_time_ms: 10
+    task_total_time_ms: 18
     transform_count: 81
-    transform_time_ms: 2
+    transform_time_ms: 6
     transform_yield_count: 19
-    insert_time_ms: 0
+    insert_time_ms: 1
     insert_new_count: 27
     insert_reused_count: 2
 -   query: EXPLAIN select count(*) from T1 where col1 > 0;
-    ref: aggregate-empty-table.yamsql:47
+    ref: aggregate-empty-table.yamsql:49
     explain: SCAN([IS T1]) | FILTER _.COL1 GREATER_THAN promote(@c10 AS LONG) | MAP
-        (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0,
+        (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0,
         promote(0l AS LONG)) AS _0)
     task_count: 307
-    task_total_time_ms: 13
+    task_total_time_ms: 165
     transform_count: 81
-    transform_time_ms: 3
+    transform_time_ms: 104
     transform_yield_count: 19
-    insert_time_ms: 0
+    insert_time_ms: 5
     insert_new_count: 27
     insert_reused_count: 2
 -   query: EXPLAIN select count(*) from T2;
-    ref: aggregate-empty-table.yamsql:66
+    ref: aggregate-empty-table.yamsql:69
     explain: 'AISCAN(T2_I1 <,> BY_GROUP -> [_0: VALUE:[0]]) | MAP (_ AS _0) | ON EMPTY
         NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)'
     task_count: 595
-    task_total_time_ms: 19
+    task_total_time_ms: 36
     transform_count: 182
-    transform_time_ms: 10
+    transform_time_ms: 27
     transform_yield_count: 60
-    insert_time_ms: 0
+    insert_time_ms: 1
     insert_new_count: 52
     insert_reused_count: 6
 -   query: EXPLAIN select count(*) from T2 where col1 = 0;
-    ref: aggregate-empty-table.yamsql:73
+    ref: aggregate-empty-table.yamsql:76
     explain: 'AISCAN(T2_I2 [EQUALS promote(@c10 AS LONG)] BY_GROUP -> [_0: KEY:[0],
         _1: VALUE:[0]]) | MAP ((_._1 AS _0) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0,
         promote(0l AS LONG)) AS _0)'
     task_count: 538
-    task_total_time_ms: 13
+    task_total_time_ms: 36
     transform_count: 170
-    transform_time_ms: 7
+    transform_time_ms: 24
     transform_yield_count: 58
-    insert_time_ms: 0
+    insert_time_ms: 1
     insert_new_count: 44
     insert_reused_count: 4
 -   query: EXPLAIN select count(*) from T2 where col1 > 0;
-    ref: aggregate-empty-table.yamsql:77
-    explain: 'AISCAN(T2_I2 [[GREATER_THAN promote(@c10 AS LONG)]] BY_GROUP -> [_0:
-        KEY:[0], _1: VALUE:[0]]) | AGG sum_l(_._1) GROUP BY () | MAP ((_._1 AS _0)
-        AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG))
-        AS _0)'
-    task_count: 560
-    task_total_time_ms: 29
-    transform_count: 172
-    transform_time_ms: 18
-    transform_yield_count: 58
-    insert_time_ms: 0
-    insert_new_count: 47
-    insert_reused_count: 4
--   query: EXPLAIN select count(*) from T2 group by col1;
     ref: aggregate-empty-table.yamsql:81
-    explain: 'AISCAN(T2_I2 <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._1
-        AS _0)'
-    task_count: 364
-    task_total_time_ms: 10
-    transform_count: 118
-    transform_time_ms: 7
-    transform_yield_count: 48
-    insert_time_ms: 0
-    insert_new_count: 24
-    insert_reused_count: 1
--   query: EXPLAIN select count(*) from T2 where col1 = 0 group by col1;
-    ref: aggregate-empty-table.yamsql:85
-    explain: 'AISCAN(T2_I2 [EQUALS promote(@c10 AS LONG)] BY_GROUP -> [_0: KEY:[0],
-        _1: VALUE:[0]]) | MAP (_._1 AS _0)'
-    task_count: 364
-    task_total_time_ms: 17
-    transform_count: 119
-    transform_time_ms: 10
-    transform_yield_count: 48
-    insert_time_ms: 0
-    insert_new_count: 24
-    insert_reused_count: 1
--   query: EXPLAIN select count(*) from T2 where col1 > 0 group by col1;
-    ref: aggregate-empty-table.yamsql:89
     explain: 'AISCAN(T2_I2 [[GREATER_THAN promote(@c10 AS LONG)]] BY_GROUP -> [_0:
-        KEY:[0], _1: VALUE:[0]]) | MAP (_._1 AS _0)'
-    task_count: 364
-    task_total_time_ms: 8
-    transform_count: 119
-    transform_time_ms: 4
-    transform_yield_count: 48
-    insert_time_ms: 0
-    insert_new_count: 24
-    insert_reused_count: 1
--   query: EXPLAIN select count(*) from T3;
-    ref: aggregate-empty-table.yamsql:93
-    explain: ISCAN(T3_I2 <,>) | MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY
-        NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)
-    task_count: 391
-    task_total_time_ms: 19
-    transform_count: 90
-    transform_time_ms: 8
-    transform_yield_count: 37
-    insert_time_ms: 0
-    insert_new_count: 45
-    insert_reused_count: 6
--   query: EXPLAIN select count(*) from T3 where col1 = 0;
-    ref: aggregate-empty-table.yamsql:97
-    explain: ISCAN(T3_I1 [EQUALS promote(@c10 AS LONG)]) | MAP (_ AS _0) | AGG (count_star(*)
-        AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG))
-        AS _0)
-    task_count: 611
-    task_total_time_ms: 19
-    transform_count: 156
-    transform_time_ms: 7
-    transform_yield_count: 45
-    insert_time_ms: 0
-    insert_new_count: 67
-    insert_reused_count: 5
--   query: EXPLAIN select count(*) from T3 where col1 > 0;
-    ref: aggregate-empty-table.yamsql:101
-    explain: ISCAN(T3_I1 [[GREATER_THAN promote(@c10 AS LONG)]]) | MAP (_ AS _0) |
-        AGG (count_star(*) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l
-        AS LONG)) AS _0)
-    task_count: 626
-    task_total_time_ms: 21
-    transform_count: 157
-    transform_time_ms: 7
-    transform_yield_count: 46
-    insert_time_ms: 0
-    insert_new_count: 69
-    insert_reused_count: 5
--   query: EXPLAIN select count(*) from T3 group by col1;
-    ref: aggregate-empty-table.yamsql:105
-    explain: ISCAN(T3_I1 <,>) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY
-        (_._0.COL1 AS _0) | MAP (_._1._0 AS _0)
-    task_count: 285
-    task_total_time_ms: 11
-    transform_count: 74
-    transform_time_ms: 4
-    transform_yield_count: 30
-    insert_time_ms: 0
-    insert_new_count: 25
-    insert_reused_count: 2
--   query: EXPLAIN select count(*) from T3 where col1 = 0 group by col1;
-    ref: aggregate-empty-table.yamsql:109
-    explain: ISCAN(T3_I1 [EQUALS promote(@c11 AS LONG)]) | MAP (_ AS _0) | AGG (count_star(*)
-        AS _0) GROUP BY (_._0.COL1 AS _0) | MAP (_._1._0 AS _0)
-    task_count: 382
-    task_total_time_ms: 16
-    transform_count: 100
-    transform_time_ms: 5
-    transform_yield_count: 34
-    insert_time_ms: 0
-    insert_new_count: 35
-    insert_reused_count: 1
--   query: EXPLAIN select count(*) from T3 where col1 > 0 group by col1;
-    ref: aggregate-empty-table.yamsql:113
-    explain: ISCAN(T3_I1 [[GREATER_THAN promote(@c11 AS LONG)]]) | MAP (_ AS _0) |
-        AGG (count_star(*) AS _0) GROUP BY (_._0.COL1 AS _0) | MAP (_._1._0 AS _0)
-    task_count: 382
-    task_total_time_ms: 16
-    transform_count: 100
-    transform_time_ms: 6
-    transform_yield_count: 34
-    insert_time_ms: 0
-    insert_new_count: 35
-    insert_reused_count: 1
--   query: EXPLAIN select count(col2) from T1;
-    ref: aggregate-empty-table.yamsql:117
-    explain: SCAN([IS T1]) | MAP (_ AS _0) | AGG (count(_._0.COL2) AS _0) | ON EMPTY
-        NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)
-    task_count: 247
-    task_total_time_ms: 5
-    transform_count: 62
-    transform_time_ms: 1
-    transform_yield_count: 17
-    insert_time_ms: 0
-    insert_new_count: 21
-    insert_reused_count: 2
--   query: EXPLAIN select count(col2) from T1 where col1 = 0;
-    ref: aggregate-empty-table.yamsql:121
-    explain: SCAN([IS T1]) | FILTER _.COL1 EQUALS promote(@c10 AS LONG) | MAP (_ AS
-        _0) | AGG (count(_._0.COL2) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0,
-        promote(0l AS LONG)) AS _0)
-    task_count: 307
-    task_total_time_ms: 13
-    transform_count: 81
-    transform_time_ms: 3
-    transform_yield_count: 19
-    insert_time_ms: 0
-    insert_new_count: 27
-    insert_reused_count: 2
--   query: EXPLAIN select count(col2) from T1 where col1 > 0;
-    ref: aggregate-empty-table.yamsql:125
-    explain: SCAN([IS T1]) | FILTER _.COL1 GREATER_THAN promote(@c10 AS LONG) | MAP
-        (_ AS _0) | AGG (count(_._0.COL2) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0,
-        promote(0l AS LONG)) AS _0)
-    task_count: 307
-    task_total_time_ms: 15
-    transform_count: 81
-    transform_time_ms: 4
-    transform_yield_count: 19
-    insert_time_ms: 0
-    insert_new_count: 27
-    insert_reused_count: 2
--   query: EXPLAIN select count(col2) from T2;
-    ref: aggregate-empty-table.yamsql:144
-    explain: 'AISCAN(T2_I3 <,> BY_GROUP -> [_0: VALUE:[0]]) | MAP (_ AS _0) | ON EMPTY
-        NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)'
-    task_count: 595
-    task_total_time_ms: 17
-    transform_count: 182
-    transform_time_ms: 11
-    transform_yield_count: 60
-    insert_time_ms: 0
-    insert_new_count: 52
-    insert_reused_count: 6
--   query: EXPLAIN select count(col2) from T2 where col1 = 0;
-    ref: aggregate-empty-table.yamsql:151
-    explain: 'AISCAN(T2_I4 [EQUALS promote(@c10 AS LONG)] BY_GROUP -> [_0: KEY:[0],
-        _1: VALUE:[0]]) | MAP ((_._1 AS _0) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0,
-        promote(0l AS LONG)) AS _0)'
-    task_count: 538
-    task_total_time_ms: 32
-    transform_count: 170
-    transform_time_ms: 21
-    transform_yield_count: 58
-    insert_time_ms: 0
-    insert_new_count: 44
-    insert_reused_count: 4
--   query: EXPLAIN select count(col2) from T2 where col1 > 0;
-    ref: aggregate-empty-table.yamsql:155
-    explain: 'AISCAN(T2_I4 [[GREATER_THAN promote(@c10 AS LONG)]] BY_GROUP -> [_0:
         KEY:[0], _1: VALUE:[0]]) | AGG sum_l(_._1) GROUP BY () | MAP ((_._1 AS _0)
         AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG))
         AS _0)'
     task_count: 560
     task_total_time_ms: 33
     transform_count: 172
-    transform_time_ms: 20
+    transform_time_ms: 21
     transform_yield_count: 58
+    insert_time_ms: 1
+    insert_new_count: 47
+    insert_reused_count: 4
+-   query: EXPLAIN select count(*) from T2 group by col1;
+    ref: aggregate-empty-table.yamsql:86
+    explain: 'AISCAN(T2_I2 <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._1
+        AS _0)'
+    task_count: 364
+    task_total_time_ms: 37
+    transform_count: 118
+    transform_time_ms: 25
+    transform_yield_count: 48
     insert_time_ms: 0
+    insert_new_count: 24
+    insert_reused_count: 1
+-   query: EXPLAIN select count(*) from T2 where col1 = 0 group by col1;
+    ref: aggregate-empty-table.yamsql:91
+    explain: 'AISCAN(T2_I2 [EQUALS promote(@c10 AS LONG)] BY_GROUP -> [_0: KEY:[0],
+        _1: VALUE:[0]]) | MAP (_._1 AS _0)'
+    task_count: 364
+    task_total_time_ms: 44
+    transform_count: 119
+    transform_time_ms: 28
+    transform_yield_count: 48
+    insert_time_ms: 0
+    insert_new_count: 24
+    insert_reused_count: 1
+-   query: EXPLAIN select count(*) from T2 where col1 > 0 group by col1;
+    ref: aggregate-empty-table.yamsql:96
+    explain: 'AISCAN(T2_I2 [[GREATER_THAN promote(@c10 AS LONG)]] BY_GROUP -> [_0:
+        KEY:[0], _1: VALUE:[0]]) | MAP (_._1 AS _0)'
+    task_count: 364
+    task_total_time_ms: 17
+    transform_count: 119
+    transform_time_ms: 10
+    transform_yield_count: 48
+    insert_time_ms: 0
+    insert_new_count: 24
+    insert_reused_count: 1
+-   query: EXPLAIN select count(*) from T3;
+    ref: aggregate-empty-table.yamsql:101
+    explain: ISCAN(T3_I2 <,>) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY
+        () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)
+    task_count: 391
+    task_total_time_ms: 37
+    transform_count: 90
+    transform_time_ms: 15
+    transform_yield_count: 37
+    insert_time_ms: 2
+    insert_new_count: 45
+    insert_reused_count: 6
+-   query: EXPLAIN select count(*) from T3 where col1 = 0;
+    ref: aggregate-empty-table.yamsql:106
+    explain: ISCAN(T3_I1 [EQUALS promote(@c10 AS LONG)]) | MAP (_ AS _0) | AGG (count_star(*)
+        AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l
+        AS LONG)) AS _0)
+    task_count: 611
+    task_total_time_ms: 35
+    transform_count: 156
+    transform_time_ms: 14
+    transform_yield_count: 45
+    insert_time_ms: 2
+    insert_new_count: 67
+    insert_reused_count: 5
+-   query: EXPLAIN select count(*) from T3 where col1 > 0;
+    ref: aggregate-empty-table.yamsql:111
+    explain: ISCAN(T3_I1 [[GREATER_THAN promote(@c10 AS LONG)]]) | MAP (_ AS _0) |
+        AGG (count_star(*) AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0,
+        promote(0l AS LONG)) AS _0)
+    task_count: 626
+    task_total_time_ms: 22
+    transform_count: 157
+    transform_time_ms: 8
+    transform_yield_count: 46
+    insert_time_ms: 1
+    insert_new_count: 69
+    insert_reused_count: 5
+-   query: EXPLAIN select count(*) from T3 group by col1;
+    ref: aggregate-empty-table.yamsql:116
+    explain: ISCAN(T3_I1 <,>) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY
+        (_._0.COL1 AS _0) | MAP (_._1._0 AS _0)
+    task_count: 285
+    task_total_time_ms: 163
+    transform_count: 74
+    transform_time_ms: 97
+    transform_yield_count: 30
+    insert_time_ms: 3
+    insert_new_count: 25
+    insert_reused_count: 2
+-   query: EXPLAIN select count(*) from T3 where col1 = 0 group by col1;
+    ref: aggregate-empty-table.yamsql:121
+    explain: ISCAN(T3_I1 [EQUALS promote(@c10 AS LONG)]) | MAP (_ AS _0) | AGG (count_star(*)
+        AS _0) GROUP BY (_._0.COL1 AS _0) | MAP (_._1._0 AS _0)
+    task_count: 382
+    task_total_time_ms: 17
+    transform_count: 100
+    transform_time_ms: 8
+    transform_yield_count: 34
+    insert_time_ms: 0
+    insert_new_count: 35
+    insert_reused_count: 1
+-   query: EXPLAIN select count(*) from T3 where col1 > 0 group by col1;
+    ref: aggregate-empty-table.yamsql:126
+    explain: ISCAN(T3_I1 [[GREATER_THAN promote(@c10 AS LONG)]]) | MAP (_ AS _0) |
+        AGG (count_star(*) AS _0) GROUP BY (_._0.COL1 AS _0) | MAP (_._1._0 AS _0)
+    task_count: 382
+    task_total_time_ms: 14
+    transform_count: 100
+    transform_time_ms: 5
+    transform_yield_count: 34
+    insert_time_ms: 0
+    insert_new_count: 35
+    insert_reused_count: 1
+-   query: EXPLAIN select count(col2) from T1;
+    ref: aggregate-empty-table.yamsql:131
+    explain: SCAN([IS T1]) | MAP (_ AS _0) | AGG (count(_._0.COL2) AS _0) GROUP BY
+        () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)
+    task_count: 247
+    task_total_time_ms: 15
+    transform_count: 62
+    transform_time_ms: 4
+    transform_yield_count: 17
+    insert_time_ms: 0
+    insert_new_count: 21
+    insert_reused_count: 2
+-   query: EXPLAIN select count(col2) from T1 where col1 = 0;
+    ref: aggregate-empty-table.yamsql:136
+    explain: SCAN([IS T1]) | FILTER _.COL1 EQUALS promote(@c10 AS LONG) | MAP (_ AS
+        _0) | AGG (count(_._0.COL2) AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0,
+        promote(0l AS LONG)) AS _0)
+    task_count: 307
+    task_total_time_ms: 6
+    transform_count: 81
+    transform_time_ms: 2
+    transform_yield_count: 19
+    insert_time_ms: 0
+    insert_new_count: 27
+    insert_reused_count: 2
+-   query: EXPLAIN select count(col2) from T1 where col1 > 0;
+    ref: aggregate-empty-table.yamsql:141
+    explain: SCAN([IS T1]) | FILTER _.COL1 GREATER_THAN promote(@c10 AS LONG) | MAP
+        (_ AS _0) | AGG (count(_._0.COL2) AS _0) GROUP BY () | ON EMPTY NULL | MAP
+        (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)
+    task_count: 307
+    task_total_time_ms: 8
+    transform_count: 81
+    transform_time_ms: 2
+    transform_yield_count: 19
+    insert_time_ms: 0
+    insert_new_count: 27
+    insert_reused_count: 2
+-   query: EXPLAIN select count(col2) from T2;
+    ref: aggregate-empty-table.yamsql:161
+    explain: 'AISCAN(T2_I3 <,> BY_GROUP -> [_0: VALUE:[0]]) | MAP (_ AS _0) | ON EMPTY
+        NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)'
+    task_count: 595
+    task_total_time_ms: 227
+    transform_count: 182
+    transform_time_ms: 146
+    transform_yield_count: 60
+    insert_time_ms: 13
+    insert_new_count: 52
+    insert_reused_count: 6
+-   query: EXPLAIN select count(col2) from T2 where col1 = 0;
+    ref: aggregate-empty-table.yamsql:168
+    explain: 'AISCAN(T2_I4 [EQUALS promote(@c10 AS LONG)] BY_GROUP -> [_0: KEY:[0],
+        _1: VALUE:[0]]) | MAP ((_._1 AS _0) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0,
+        promote(0l AS LONG)) AS _0)'
+    task_count: 538
+    task_total_time_ms: 42
+    transform_count: 170
+    transform_time_ms: 27
+    transform_yield_count: 58
+    insert_time_ms: 1
+    insert_new_count: 44
+    insert_reused_count: 4
+-   query: EXPLAIN select count(col2) from T2 where col1 > 0;
+    ref: aggregate-empty-table.yamsql:173
+    explain: 'AISCAN(T2_I4 [[GREATER_THAN promote(@c10 AS LONG)]] BY_GROUP -> [_0:
+        KEY:[0], _1: VALUE:[0]]) | AGG sum_l(_._1) GROUP BY () | MAP ((_._1 AS _0)
+        AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG))
+        AS _0)'
+    task_count: 560
+    task_total_time_ms: 64
+    transform_count: 172
+    transform_time_ms: 42
+    transform_yield_count: 58
+    insert_time_ms: 3
     insert_new_count: 47
     insert_reused_count: 4
 -   query: EXPLAIN select count(col2) from T2 group by col1;
-    ref: aggregate-empty-table.yamsql:159
+    ref: aggregate-empty-table.yamsql:178
     explain: 'AISCAN(T2_I4 <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._1
         AS _0)'
     task_count: 364
-    task_total_time_ms: 23
+    task_total_time_ms: 29
     transform_count: 118
-    transform_time_ms: 16
+    transform_time_ms: 19
     transform_yield_count: 48
     insert_time_ms: 0
     insert_new_count: 24
     insert_reused_count: 1
 -   query: EXPLAIN select count(col2) from T2 where col1 = 0 group by col1;
-    ref: aggregate-empty-table.yamsql:163
+    ref: aggregate-empty-table.yamsql:183
     explain: 'AISCAN(T2_I4 [EQUALS promote(@c10 AS LONG)] BY_GROUP -> [_0: KEY:[0],
         _1: VALUE:[0]]) | MAP (_._1 AS _0)'
     task_count: 364
-    task_total_time_ms: 11
+    task_total_time_ms: 15
     transform_count: 119
-    transform_time_ms: 7
+    transform_time_ms: 9
     transform_yield_count: 48
     insert_time_ms: 0
     insert_new_count: 24
     insert_reused_count: 1
 -   query: EXPLAIN select count(col2) from T2 where col1 > 0 group by col1;
-    ref: aggregate-empty-table.yamsql:167
+    ref: aggregate-empty-table.yamsql:188
     explain: 'AISCAN(T2_I4 [[GREATER_THAN promote(@c10 AS LONG)]] BY_GROUP -> [_0:
         KEY:[0], _1: VALUE:[0]]) | MAP (_._1 AS _0)'
     task_count: 364
-    task_total_time_ms: 19
+    task_total_time_ms: 22
     transform_count: 119
-    transform_time_ms: 13
+    transform_time_ms: 15
     transform_yield_count: 48
     insert_time_ms: 0
     insert_new_count: 24
     insert_reused_count: 1
 -   query: EXPLAIN select count(col2) from T3;
-    ref: aggregate-empty-table.yamsql:171
-    explain: ISCAN(T3_I1 <,>) | MAP (_ AS _0) | AGG (count(_._0.COL2) AS _0) | ON
-        EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)
+    ref: aggregate-empty-table.yamsql:193
+    explain: ISCAN(T3_I1 <,>) | MAP (_ AS _0) | AGG (count(_._0.COL2) AS _0) GROUP
+        BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS
+        _0)
     task_count: 391
-    task_total_time_ms: 8
+    task_total_time_ms: 26
     transform_count: 90
-    transform_time_ms: 3
+    transform_time_ms: 13
     transform_yield_count: 37
-    insert_time_ms: 0
+    insert_time_ms: 1
     insert_new_count: 45
     insert_reused_count: 6
 -   query: EXPLAIN select count(col2) from T3 where col1 = 0;
-    ref: aggregate-empty-table.yamsql:175
+    ref: aggregate-empty-table.yamsql:198
     explain: ISCAN(T3_I1 [EQUALS promote(@c10 AS LONG)]) | MAP (_ AS _0) | AGG (count(_._0.COL2)
-        AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG))
-        AS _0)
+        AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l
+        AS LONG)) AS _0)
     task_count: 611
-    task_total_time_ms: 30
+    task_total_time_ms: 38
     transform_count: 156
-    transform_time_ms: 13
+    transform_time_ms: 22
     transform_yield_count: 45
-    insert_time_ms: 0
+    insert_time_ms: 1
     insert_new_count: 67
     insert_reused_count: 5
 -   query: EXPLAIN select count(col2) from T3 where col1 > 0;
-    ref: aggregate-empty-table.yamsql:179
+    ref: aggregate-empty-table.yamsql:203
     explain: ISCAN(T3_I1 [[GREATER_THAN promote(@c10 AS LONG)]]) | MAP (_ AS _0) |
-        AGG (count(_._0.COL2) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0,
+        AGG (count(_._0.COL2) AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0,
         promote(0l AS LONG)) AS _0)
     task_count: 626
-    task_total_time_ms: 14
+    task_total_time_ms: 40
     transform_count: 157
-    transform_time_ms: 4
+    transform_time_ms: 18
     transform_yield_count: 46
-    insert_time_ms: 0
+    insert_time_ms: 4
     insert_new_count: 69
     insert_reused_count: 5
 -   query: EXPLAIN select count(col2) from T3 group by col1;
-    ref: aggregate-empty-table.yamsql:183
+    ref: aggregate-empty-table.yamsql:208
     explain: ISCAN(T3_I1 <,>) | MAP (_ AS _0) | AGG (count(_._0.COL2) AS _0) GROUP
         BY (_._0.COL1 AS _0) | MAP (_._1._0 AS _0)
     task_count: 285
-    task_total_time_ms: 12
+    task_total_time_ms: 164
     transform_count: 74
-    transform_time_ms: 5
+    transform_time_ms: 98
     transform_yield_count: 30
-    insert_time_ms: 0
+    insert_time_ms: 3
     insert_new_count: 25
     insert_reused_count: 2
 -   query: EXPLAIN select count(col2) from T3 where col1 = 0 group by col1;
-    ref: aggregate-empty-table.yamsql:187
-    explain: ISCAN(T3_I1 [EQUALS promote(@c11 AS LONG)]) | MAP (_ AS _0) | AGG (count(_._0.COL2)
+    ref: aggregate-empty-table.yamsql:213
+    explain: ISCAN(T3_I1 [EQUALS promote(@c10 AS LONG)]) | MAP (_ AS _0) | AGG (count(_._0.COL2)
         AS _0) GROUP BY (_._0.COL1 AS _0) | MAP (_._1._0 AS _0)
     task_count: 382
-    task_total_time_ms: 7
+    task_total_time_ms: 16
     transform_count: 100
-    transform_time_ms: 3
+    transform_time_ms: 9
     transform_yield_count: 34
     insert_time_ms: 0
     insert_new_count: 35
     insert_reused_count: 1
 -   query: EXPLAIN select count(col2) from T3 where col1 > 0 group by col1;
-    ref: aggregate-empty-table.yamsql:191
-    explain: ISCAN(T3_I1 [[GREATER_THAN promote(@c11 AS LONG)]]) | MAP (_ AS _0) |
+    ref: aggregate-empty-table.yamsql:218
+    explain: ISCAN(T3_I1 [[GREATER_THAN promote(@c10 AS LONG)]]) | MAP (_ AS _0) |
         AGG (count(_._0.COL2) AS _0) GROUP BY (_._0.COL1 AS _0) | MAP (_._1._0 AS
         _0)
     task_count: 382
-    task_total_time_ms: 15
+    task_total_time_ms: 20
     transform_count: 100
     transform_time_ms: 5
     transform_yield_count: 34
@@ -375,48 +376,50 @@ agg-empty-table-tests:
     insert_new_count: 35
     insert_reused_count: 1
 -   query: EXPLAIN select sum(col1) from T1;
-    ref: aggregate-empty-table.yamsql:195
-    explain: SCAN([IS T1]) | MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0) | ON EMPTY
-        NULL | MAP (_._0._0 AS _0)
+    ref: aggregate-empty-table.yamsql:223
+    explain: SCAN([IS T1]) | MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0) GROUP BY
+        () | ON EMPTY NULL | MAP (_._0._0 AS _0)
     task_count: 247
-    task_total_time_ms: 5
+    task_total_time_ms: 10
     transform_count: 62
-    transform_time_ms: 1
+    transform_time_ms: 3
     transform_yield_count: 17
     insert_time_ms: 0
     insert_new_count: 21
     insert_reused_count: 2
 -   query: EXPLAIN select sum(col1) from T1 where col1 = 0;
-    ref: aggregate-empty-table.yamsql:199
+    ref: aggregate-empty-table.yamsql:228
     explain: SCAN([IS T1]) | FILTER _.COL1 EQUALS promote(@c10 AS LONG) | MAP (_ AS
-        _0) | AGG (sum_l(_._0.COL1) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)
+        _0) | AGG (sum_l(_._0.COL1) AS _0) GROUP BY () | ON EMPTY NULL | MAP (_._0._0
+        AS _0)
     task_count: 307
-    task_total_time_ms: 9
+    task_total_time_ms: 28
     transform_count: 81
-    transform_time_ms: 2
+    transform_time_ms: 15
     transform_yield_count: 19
     insert_time_ms: 0
     insert_new_count: 27
     insert_reused_count: 2
 -   query: EXPLAIN select sum(col1) from T1 where col2 = 0;
-    ref: aggregate-empty-table.yamsql:203
+    ref: aggregate-empty-table.yamsql:233
     explain: SCAN([IS T1]) | FILTER _.COL2 EQUALS promote(@c10 AS LONG) | MAP (_ AS
-        _0) | AGG (sum_l(_._0.COL1) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)
+        _0) | AGG (sum_l(_._0.COL1) AS _0) GROUP BY () | ON EMPTY NULL | MAP (_._0._0
+        AS _0)
     task_count: 307
-    task_total_time_ms: 18
+    task_total_time_ms: 8
     transform_count: 81
-    transform_time_ms: 5
+    transform_time_ms: 3
     transform_yield_count: 19
     insert_time_ms: 0
     insert_new_count: 27
     insert_reused_count: 2
 -   query: EXPLAIN select sum(col1) from T1 where col1 > 0;
-    ref: aggregate-empty-table.yamsql:207
+    ref: aggregate-empty-table.yamsql:238
     explain: SCAN([IS T1]) | FILTER _.COL1 GREATER_THAN promote(@c10 AS LONG) | MAP
-        (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS
-        _0)
+        (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0) GROUP BY () | ON EMPTY NULL | MAP
+        (_._0._0 AS _0)
     task_count: 307
-    task_total_time_ms: 7
+    task_total_time_ms: 13
     transform_count: 81
     transform_time_ms: 2
     transform_yield_count: 19
@@ -424,70 +427,71 @@ agg-empty-table-tests:
     insert_new_count: 27
     insert_reused_count: 2
 -   query: EXPLAIN select sum(col1) from T1 where col2 > 0;
-    ref: aggregate-empty-table.yamsql:211
+    ref: aggregate-empty-table.yamsql:243
     explain: SCAN([IS T1]) | FILTER _.COL2 GREATER_THAN promote(@c10 AS LONG) | MAP
-        (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS
-        _0)
+        (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0) GROUP BY () | ON EMPTY NULL | MAP
+        (_._0._0 AS _0)
     task_count: 307
-    task_total_time_ms: 5
+    task_total_time_ms: 12
     transform_count: 81
-    transform_time_ms: 1
+    transform_time_ms: 4
     transform_yield_count: 19
     insert_time_ms: 0
     insert_new_count: 27
     insert_reused_count: 2
 -   query: EXPLAIN select sum(col1) from T2;
-    ref: aggregate-empty-table.yamsql:215
+    ref: aggregate-empty-table.yamsql:248
     explain: 'AISCAN(T2_I5 <,> BY_GROUP -> [_0: VALUE:[0]]) | MAP (_ AS _0) | ON EMPTY
         NULL | MAP (_._0._0 AS _0)'
     task_count: 595
-    task_total_time_ms: 14
+    task_total_time_ms: 41
     transform_count: 182
-    transform_time_ms: 8
+    transform_time_ms: 28
     transform_yield_count: 60
-    insert_time_ms: 0
+    insert_time_ms: 1
     insert_new_count: 52
     insert_reused_count: 6
 -   query: EXPLAIN select sum(col1) from T2 where col1 = 0;
-    ref: aggregate-empty-table.yamsql:222
+    ref: aggregate-empty-table.yamsql:255
     explain: SCAN([IS T2]) | FILTER _.COL1 EQUALS promote(@c10 AS LONG) | MAP (_ AS
-        _0) | AGG (sum_l(_._0.COL1) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)
+        _0) | AGG (sum_l(_._0.COL1) AS _0) GROUP BY () | ON EMPTY NULL | MAP (_._0._0
+        AS _0)
     task_count: 365
-    task_total_time_ms: 25
+    task_total_time_ms: 23
     transform_count: 112
-    transform_time_ms: 17
+    transform_time_ms: 15
     transform_yield_count: 48
     insert_time_ms: 0
     insert_new_count: 29
     insert_reused_count: 2
 -   query: EXPLAIN select sum(col1) from T2 where col2 = 0;
-    ref: aggregate-empty-table.yamsql:226
+    ref: aggregate-empty-table.yamsql:260
     explain: 'AISCAN(T2_I6 [EQUALS promote(@c10 AS LONG)] BY_GROUP -> [_0: KEY:[0],
         _1: VALUE:[0]]) | MAP ((_._1 AS _0) AS _0) | ON EMPTY NULL | MAP (_._0._0
         AS _0)'
     task_count: 538
-    task_total_time_ms: 35
+    task_total_time_ms: 25
     transform_count: 170
-    transform_time_ms: 22
+    transform_time_ms: 14
     transform_yield_count: 58
-    insert_time_ms: 0
+    insert_time_ms: 1
     insert_new_count: 44
     insert_reused_count: 4
 -   query: EXPLAIN select sum(col1) from T2 where col1 > 0;
-    ref: aggregate-empty-table.yamsql:230
+    ref: aggregate-empty-table.yamsql:265
     explain: SCAN([IS T2]) | FILTER _.COL1 GREATER_THAN promote(@c10 AS LONG) | MAP
-        (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS
-        _0)
+        (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0) GROUP BY () | ON EMPTY NULL | MAP
+        (_._0._0 AS _0)
     task_count: 365
-    task_total_time_ms: 23
+    task_total_time_ms: 38
     transform_count: 112
-    transform_time_ms: 16
+    transform_time_ms: 27
     transform_yield_count: 48
     insert_time_ms: 0
     insert_new_count: 29
     insert_reused_count: 2
 -   query: EXPLAIN select sum(col1) from T2 where col2 > 0;
-    ref: aggregate-empty-table.yamsql:234
+    ref: aggregate-empty-table.yamsql:270
     explain: 'AISCAN(T2_I6 [[GREATER_THAN promote(@c10 AS LONG)]] BY_GROUP -> [_0:
         KEY:[0], _1: VALUE:[0]]) | AGG sum_l(_._1) GROUP BY () | MAP ((_._1 AS _0)
         AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)'
@@ -496,303 +500,306 @@ agg-empty-table-tests:
     transform_count: 172
     transform_time_ms: 22
     transform_yield_count: 58
-    insert_time_ms: 0
+    insert_time_ms: 1
     insert_new_count: 47
     insert_reused_count: 4
 -   query: EXPLAIN select sum(col1) from T2 where col2 = 0 group by col2;
-    ref: aggregate-empty-table.yamsql:241
+    ref: aggregate-empty-table.yamsql:278
     explain: 'AISCAN(T2_I6 [EQUALS promote(@c10 AS LONG)] BY_GROUP -> [_0: KEY:[0],
         _1: VALUE:[0]]) | MAP (_._1 AS _0)'
     task_count: 364
-    task_total_time_ms: 28
+    task_total_time_ms: 47
     transform_count: 119
-    transform_time_ms: 18
+    transform_time_ms: 32
     transform_yield_count: 48
     insert_time_ms: 0
     insert_new_count: 24
     insert_reused_count: 1
 -   query: EXPLAIN select sum(col1) from T2 where col2 > 0 group by col2;
-    ref: aggregate-empty-table.yamsql:248
+    ref: aggregate-empty-table.yamsql:286
     explain: 'AISCAN(T2_I6 [[GREATER_THAN promote(@c10 AS LONG)]] BY_GROUP -> [_0:
         KEY:[0], _1: VALUE:[0]]) | MAP (_._1 AS _0)'
     task_count: 364
-    task_total_time_ms: 14
+    task_total_time_ms: 22
     transform_count: 119
-    transform_time_ms: 10
+    transform_time_ms: 13
     transform_yield_count: 48
     insert_time_ms: 0
     insert_new_count: 24
     insert_reused_count: 1
 -   query: EXPLAIN select sum(col1) from T3;
-    ref: aggregate-empty-table.yamsql:252
-    explain: ISCAN(T3_I1 <,>) | MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0) | ON
-        EMPTY NULL | MAP (_._0._0 AS _0)
+    ref: aggregate-empty-table.yamsql:291
+    explain: ISCAN(T3_I1 <,>) | MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0) GROUP
+        BY () | ON EMPTY NULL | MAP (_._0._0 AS _0)
     task_count: 391
-    task_total_time_ms: 10
+    task_total_time_ms: 16
     transform_count: 90
-    transform_time_ms: 5
+    transform_time_ms: 6
     transform_yield_count: 37
     insert_time_ms: 0
     insert_new_count: 45
     insert_reused_count: 6
 -   query: EXPLAIN select sum(col1) from T3 where col1 = 0;
-    ref: aggregate-empty-table.yamsql:256
+    ref: aggregate-empty-table.yamsql:296
     explain: ISCAN(T3_I1 [EQUALS promote(@c10 AS LONG)]) | MAP (_ AS _0) | AGG (sum_l(_._0.COL1)
-        AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)
+        AS _0) GROUP BY () | ON EMPTY NULL | MAP (_._0._0 AS _0)
     task_count: 611
-    task_total_time_ms: 17
+    task_total_time_ms: 35
     transform_count: 156
-    transform_time_ms: 7
+    transform_time_ms: 11
     transform_yield_count: 45
-    insert_time_ms: 0
+    insert_time_ms: 1
     insert_new_count: 67
     insert_reused_count: 5
 -   query: EXPLAIN select sum(col1) from T3 where col2 = 0;
-    ref: aggregate-empty-table.yamsql:260
+    ref: aggregate-empty-table.yamsql:301
     explain: ISCAN(T3_I2 [EQUALS promote(@c10 AS LONG)]) | MAP (_ AS _0) | AGG (sum_l(_._0.COL1)
-        AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)
+        AS _0) GROUP BY () | ON EMPTY NULL | MAP (_._0._0 AS _0)
     task_count: 611
-    task_total_time_ms: 22
+    task_total_time_ms: 30
     transform_count: 156
-    transform_time_ms: 8
+    transform_time_ms: 7
     transform_yield_count: 45
-    insert_time_ms: 0
+    insert_time_ms: 1
     insert_new_count: 67
     insert_reused_count: 5
 -   query: EXPLAIN select sum(col1) from T3 where col1 > 0;
-    ref: aggregate-empty-table.yamsql:264
+    ref: aggregate-empty-table.yamsql:306
     explain: ISCAN(T3_I1 [[GREATER_THAN promote(@c10 AS LONG)]]) | MAP (_ AS _0) |
-        AGG (sum_l(_._0.COL1) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)
+        AGG (sum_l(_._0.COL1) AS _0) GROUP BY () | ON EMPTY NULL | MAP (_._0._0 AS
+        _0)
     task_count: 626
-    task_total_time_ms: 21
+    task_total_time_ms: 43
     transform_count: 157
-    transform_time_ms: 7
+    transform_time_ms: 16
     transform_yield_count: 46
-    insert_time_ms: 0
+    insert_time_ms: 3
     insert_new_count: 69
     insert_reused_count: 5
 -   query: EXPLAIN select sum(col1) from T3 where col2 > 0;
-    ref: aggregate-empty-table.yamsql:268
+    ref: aggregate-empty-table.yamsql:311
     explain: ISCAN(T3_I2 [[GREATER_THAN promote(@c10 AS LONG)]]) | MAP (_ AS _0) |
-        AGG (sum_l(_._0.COL1) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)
+        AGG (sum_l(_._0.COL1) AS _0) GROUP BY () | ON EMPTY NULL | MAP (_._0._0 AS
+        _0)
     task_count: 626
-    task_total_time_ms: 15
+    task_total_time_ms: 78
     transform_count: 157
-    transform_time_ms: 6
+    transform_time_ms: 40
     transform_yield_count: 46
-    insert_time_ms: 0
+    insert_time_ms: 5
     insert_new_count: 69
     insert_reused_count: 5
 -   query: EXPLAIN select sum(col1) from T3 where col1 = 0 group by col2;
-    ref: aggregate-empty-table.yamsql:272
-    explain: ISCAN(T3_I2 <,>) | FILTER _.COL1 EQUALS promote(@c11 AS LONG) | MAP (_
+    ref: aggregate-empty-table.yamsql:316
+    explain: ISCAN(T3_I2 <,>) | FILTER _.COL1 EQUALS promote(@c10 AS LONG) | MAP (_
         AS _0) | AGG (sum_l(_._0.COL1) AS _0) GROUP BY (_._0.COL2 AS _0) | MAP (_._1._0
         AS _0)
     task_count: 363
-    task_total_time_ms: 15
+    task_total_time_ms: 26
     transform_count: 98
-    transform_time_ms: 5
+    transform_time_ms: 9
     transform_yield_count: 33
     insert_time_ms: 0
     insert_new_count: 33
     insert_reused_count: 2
 -   query: EXPLAIN select sum(col1) from T3 where col2 = 0 group by col2;
-    ref: aggregate-empty-table.yamsql:276
-    explain: ISCAN(T3_I2 [EQUALS promote(@c11 AS LONG)]) | MAP (_ AS _0) | AGG (sum_l(_._0.COL1)
+    ref: aggregate-empty-table.yamsql:321
+    explain: ISCAN(T3_I2 [EQUALS promote(@c10 AS LONG)]) | MAP (_ AS _0) | AGG (sum_l(_._0.COL1)
         AS _0) GROUP BY (_._0.COL2 AS _0) | MAP (_._1._0 AS _0)
     task_count: 382
-    task_total_time_ms: 14
+    task_total_time_ms: 180
     transform_count: 100
-    transform_time_ms: 4
+    transform_time_ms: 104
     transform_yield_count: 34
-    insert_time_ms: 0
+    insert_time_ms: 4
     insert_new_count: 35
     insert_reused_count: 1
 -   query: EXPLAIN select sum(col1) from T3 where col1 > 0 group by col2;
-    ref: aggregate-empty-table.yamsql:280
-    explain: ISCAN(T3_I2 <,>) | FILTER _.COL1 GREATER_THAN promote(@c11 AS LONG) |
+    ref: aggregate-empty-table.yamsql:326
+    explain: ISCAN(T3_I2 <,>) | FILTER _.COL1 GREATER_THAN promote(@c10 AS LONG) |
         MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0) GROUP BY (_._0.COL2 AS _0) |
         MAP (_._1._0 AS _0)
     task_count: 363
-    task_total_time_ms: 10
+    task_total_time_ms: 18
     transform_count: 98
-    transform_time_ms: 3
+    transform_time_ms: 6
     transform_yield_count: 33
-    insert_time_ms: 0
+    insert_time_ms: 2
     insert_new_count: 33
     insert_reused_count: 2
 -   query: EXPLAIN select sum(col1) from T3 where col2 > 0 group by col2;
-    ref: aggregate-empty-table.yamsql:284
-    explain: ISCAN(T3_I2 [[GREATER_THAN promote(@c11 AS LONG)]]) | MAP (_ AS _0) |
+    ref: aggregate-empty-table.yamsql:331
+    explain: ISCAN(T3_I2 [[GREATER_THAN promote(@c10 AS LONG)]]) | MAP (_ AS _0) |
         AGG (sum_l(_._0.COL1) AS _0) GROUP BY (_._0.COL2 AS _0) | MAP (_._1._0 AS
         _0)
     task_count: 382
-    task_total_time_ms: 12
+    task_total_time_ms: 14
     transform_count: 100
-    transform_time_ms: 4
+    transform_time_ms: 6
     transform_yield_count: 34
     insert_time_ms: 0
     insert_new_count: 35
     insert_reused_count: 1
 agg-empty-table-tests-after-modifications:
 -   query: EXPLAIN select count(*) from T1;
-    ref: aggregate-empty-table.yamsql:314
-    explain: SCAN([IS T1]) | MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY
-        NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)
+    ref: aggregate-empty-table.yamsql:362
+    explain: SCAN([IS T1]) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY ()
+        | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)
     task_count: 247
-    task_total_time_ms: 6
+    task_total_time_ms: 14
     transform_count: 62
-    transform_time_ms: 1
+    transform_time_ms: 4
     transform_yield_count: 17
-    insert_time_ms: 0
+    insert_time_ms: 1
     insert_new_count: 21
     insert_reused_count: 2
 -   query: EXPLAIN select count(*) from T1 where col1 = 0;
-    ref: aggregate-empty-table.yamsql:318
+    ref: aggregate-empty-table.yamsql:367
     explain: SCAN([IS T1]) | FILTER _.COL1 EQUALS promote(@c10 AS LONG) | MAP (_ AS
-        _0) | AGG (count_star(*) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0,
+        _0) | AGG (count_star(*) AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0,
         promote(0l AS LONG)) AS _0)
     task_count: 307
-    task_total_time_ms: 10
+    task_total_time_ms: 18
     transform_count: 81
-    transform_time_ms: 2
+    transform_time_ms: 6
     transform_yield_count: 19
-    insert_time_ms: 0
+    insert_time_ms: 1
     insert_new_count: 27
     insert_reused_count: 2
 -   query: EXPLAIN select count(*) from T1 where col1 > 0;
-    ref: aggregate-empty-table.yamsql:322
+    ref: aggregate-empty-table.yamsql:372
     explain: SCAN([IS T1]) | FILTER _.COL1 GREATER_THAN promote(@c10 AS LONG) | MAP
-        (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0,
+        (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0,
         promote(0l AS LONG)) AS _0)
     task_count: 307
-    task_total_time_ms: 13
+    task_total_time_ms: 165
     transform_count: 81
-    transform_time_ms: 3
+    transform_time_ms: 104
     transform_yield_count: 19
-    insert_time_ms: 0
+    insert_time_ms: 5
     insert_new_count: 27
     insert_reused_count: 2
 -   query: EXPLAIN select count(*) from T2;
-    ref: aggregate-empty-table.yamsql:341
+    ref: aggregate-empty-table.yamsql:392
     explain: 'AISCAN(T2_I1 <,> BY_GROUP -> [_0: VALUE:[0]]) | MAP (_ AS _0) | ON EMPTY
         NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)'
     task_count: 595
-    task_total_time_ms: 19
+    task_total_time_ms: 36
     transform_count: 182
-    transform_time_ms: 10
+    transform_time_ms: 27
     transform_yield_count: 60
-    insert_time_ms: 0
+    insert_time_ms: 1
     insert_new_count: 52
     insert_reused_count: 6
 -   query: EXPLAIN select count(col2) from T2;
-    ref: aggregate-empty-table.yamsql:404
+    ref: aggregate-empty-table.yamsql:468
     explain: 'AISCAN(T2_I3 <,> BY_GROUP -> [_0: VALUE:[0]]) | MAP (_ AS _0) | ON EMPTY
         NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)'
     task_count: 595
-    task_total_time_ms: 17
+    task_total_time_ms: 227
     transform_count: 182
-    transform_time_ms: 11
+    transform_time_ms: 146
     transform_yield_count: 60
-    insert_time_ms: 0
+    insert_time_ms: 13
     insert_new_count: 52
     insert_reused_count: 6
 -   query: EXPLAIN select count(col2) from T2 where col1 = 0;
-    ref: aggregate-empty-table.yamsql:408
+    ref: aggregate-empty-table.yamsql:473
     explain: 'AISCAN(T2_I4 [EQUALS promote(@c10 AS LONG)] BY_GROUP -> [_0: KEY:[0],
         _1: VALUE:[0]]) | MAP ((_._1 AS _0) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0,
         promote(0l AS LONG)) AS _0)'
     task_count: 538
-    task_total_time_ms: 32
+    task_total_time_ms: 42
     transform_count: 170
-    transform_time_ms: 21
+    transform_time_ms: 27
     transform_yield_count: 58
-    insert_time_ms: 0
+    insert_time_ms: 1
     insert_new_count: 44
     insert_reused_count: 4
 -   query: EXPLAIN select count(col2) from T2 where col1 > 0;
-    ref: aggregate-empty-table.yamsql:412
+    ref: aggregate-empty-table.yamsql:478
     explain: 'AISCAN(T2_I4 [[GREATER_THAN promote(@c10 AS LONG)]] BY_GROUP -> [_0:
         KEY:[0], _1: VALUE:[0]]) | AGG sum_l(_._1) GROUP BY () | MAP ((_._1 AS _0)
         AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG))
         AS _0)'
     task_count: 560
-    task_total_time_ms: 33
+    task_total_time_ms: 64
     transform_count: 172
-    transform_time_ms: 20
+    transform_time_ms: 42
     transform_yield_count: 58
-    insert_time_ms: 0
+    insert_time_ms: 3
     insert_new_count: 47
     insert_reused_count: 4
 -   query: EXPLAIN select count(col2) from T3;
-    ref: aggregate-empty-table.yamsql:427
-    explain: ISCAN(T3_I1 <,>) | MAP (_ AS _0) | AGG (count(_._0.COL2) AS _0) | ON
-        EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)
+    ref: aggregate-empty-table.yamsql:495
+    explain: ISCAN(T3_I1 <,>) | MAP (_ AS _0) | AGG (count(_._0.COL2) AS _0) GROUP
+        BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS
+        _0)
     task_count: 391
-    task_total_time_ms: 8
+    task_total_time_ms: 26
     transform_count: 90
-    transform_time_ms: 3
+    transform_time_ms: 13
     transform_yield_count: 37
-    insert_time_ms: 0
+    insert_time_ms: 1
     insert_new_count: 45
     insert_reused_count: 6
 -   query: EXPLAIN select count(col2) from T3 where col1 = 0;
-    ref: aggregate-empty-table.yamsql:431
+    ref: aggregate-empty-table.yamsql:500
     explain: ISCAN(T3_I1 [EQUALS promote(@c10 AS LONG)]) | MAP (_ AS _0) | AGG (count(_._0.COL2)
-        AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG))
-        AS _0)
+        AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l
+        AS LONG)) AS _0)
     task_count: 611
-    task_total_time_ms: 30
+    task_total_time_ms: 38
     transform_count: 156
-    transform_time_ms: 13
+    transform_time_ms: 22
     transform_yield_count: 45
-    insert_time_ms: 0
+    insert_time_ms: 1
     insert_new_count: 67
     insert_reused_count: 5
 -   query: EXPLAIN select count(col2) from T3 where col1 > 0;
-    ref: aggregate-empty-table.yamsql:435
+    ref: aggregate-empty-table.yamsql:505
     explain: ISCAN(T3_I1 [[GREATER_THAN promote(@c10 AS LONG)]]) | MAP (_ AS _0) |
-        AGG (count(_._0.COL2) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0,
+        AGG (count(_._0.COL2) AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0,
         promote(0l AS LONG)) AS _0)
     task_count: 626
-    task_total_time_ms: 14
+    task_total_time_ms: 40
     transform_count: 157
-    transform_time_ms: 4
+    transform_time_ms: 18
     transform_yield_count: 46
-    insert_time_ms: 0
+    insert_time_ms: 4
     insert_new_count: 69
     insert_reused_count: 5
 -   query: EXPLAIN select count(col2) from T3 group by col1;
-    ref: aggregate-empty-table.yamsql:439
+    ref: aggregate-empty-table.yamsql:510
     explain: ISCAN(T3_I1 <,>) | MAP (_ AS _0) | AGG (count(_._0.COL2) AS _0) GROUP
         BY (_._0.COL1 AS _0) | MAP (_._1._0 AS _0)
     task_count: 285
-    task_total_time_ms: 12
+    task_total_time_ms: 164
     transform_count: 74
-    transform_time_ms: 5
+    transform_time_ms: 98
     transform_yield_count: 30
-    insert_time_ms: 0
+    insert_time_ms: 3
     insert_new_count: 25
     insert_reused_count: 2
 -   query: EXPLAIN select count(col2) from T3 where col1 = 0 group by col1;
-    ref: aggregate-empty-table.yamsql:443
-    explain: ISCAN(T3_I1 [EQUALS promote(@c11 AS LONG)]) | MAP (_ AS _0) | AGG (count(_._0.COL2)
+    ref: aggregate-empty-table.yamsql:515
+    explain: ISCAN(T3_I1 [EQUALS promote(@c10 AS LONG)]) | MAP (_ AS _0) | AGG (count(_._0.COL2)
         AS _0) GROUP BY (_._0.COL1 AS _0) | MAP (_._1._0 AS _0)
     task_count: 382
-    task_total_time_ms: 7
+    task_total_time_ms: 16
     transform_count: 100
-    transform_time_ms: 3
+    transform_time_ms: 9
     transform_yield_count: 34
     insert_time_ms: 0
     insert_new_count: 35
     insert_reused_count: 1
 -   query: EXPLAIN select count(col2) from T3 where col1 > 0 group by col1;
-    ref: aggregate-empty-table.yamsql:447
-    explain: ISCAN(T3_I1 [[GREATER_THAN promote(@c11 AS LONG)]]) | MAP (_ AS _0) |
+    ref: aggregate-empty-table.yamsql:520
+    explain: ISCAN(T3_I1 [[GREATER_THAN promote(@c10 AS LONG)]]) | MAP (_ AS _0) |
         AGG (count(_._0.COL2) AS _0) GROUP BY (_._0.COL1 AS _0) | MAP (_._1._0 AS
         _0)
     task_count: 382
-    task_total_time_ms: 15
+    task_total_time_ms: 20
     transform_count: 100
     transform_time_ms: 5
     transform_yield_count: 34
@@ -800,48 +807,50 @@ agg-empty-table-tests-after-modifications:
     insert_new_count: 35
     insert_reused_count: 1
 -   query: EXPLAIN select sum(col1) from T1;
-    ref: aggregate-empty-table.yamsql:451
-    explain: SCAN([IS T1]) | MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0) | ON EMPTY
-        NULL | MAP (_._0._0 AS _0)
+    ref: aggregate-empty-table.yamsql:525
+    explain: SCAN([IS T1]) | MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0) GROUP BY
+        () | ON EMPTY NULL | MAP (_._0._0 AS _0)
     task_count: 247
-    task_total_time_ms: 5
+    task_total_time_ms: 10
     transform_count: 62
-    transform_time_ms: 1
+    transform_time_ms: 3
     transform_yield_count: 17
     insert_time_ms: 0
     insert_new_count: 21
     insert_reused_count: 2
 -   query: EXPLAIN select sum(col1) from T1 where col1 = 0;
-    ref: aggregate-empty-table.yamsql:455
+    ref: aggregate-empty-table.yamsql:530
     explain: SCAN([IS T1]) | FILTER _.COL1 EQUALS promote(@c10 AS LONG) | MAP (_ AS
-        _0) | AGG (sum_l(_._0.COL1) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)
+        _0) | AGG (sum_l(_._0.COL1) AS _0) GROUP BY () | ON EMPTY NULL | MAP (_._0._0
+        AS _0)
     task_count: 307
-    task_total_time_ms: 9
+    task_total_time_ms: 28
     transform_count: 81
-    transform_time_ms: 2
+    transform_time_ms: 15
     transform_yield_count: 19
     insert_time_ms: 0
     insert_new_count: 27
     insert_reused_count: 2
 -   query: EXPLAIN select sum(col1) from T1 where col2 = 0;
-    ref: aggregate-empty-table.yamsql:459
+    ref: aggregate-empty-table.yamsql:535
     explain: SCAN([IS T1]) | FILTER _.COL2 EQUALS promote(@c10 AS LONG) | MAP (_ AS
-        _0) | AGG (sum_l(_._0.COL1) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)
+        _0) | AGG (sum_l(_._0.COL1) AS _0) GROUP BY () | ON EMPTY NULL | MAP (_._0._0
+        AS _0)
     task_count: 307
-    task_total_time_ms: 18
+    task_total_time_ms: 8
     transform_count: 81
-    transform_time_ms: 5
+    transform_time_ms: 3
     transform_yield_count: 19
     insert_time_ms: 0
     insert_new_count: 27
     insert_reused_count: 2
 -   query: EXPLAIN select sum(col1) from T1 where col1 > 0;
-    ref: aggregate-empty-table.yamsql:463
+    ref: aggregate-empty-table.yamsql:540
     explain: SCAN([IS T1]) | FILTER _.COL1 GREATER_THAN promote(@c10 AS LONG) | MAP
-        (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS
-        _0)
+        (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0) GROUP BY () | ON EMPTY NULL | MAP
+        (_._0._0 AS _0)
     task_count: 307
-    task_total_time_ms: 7
+    task_total_time_ms: 13
     transform_count: 81
     transform_time_ms: 2
     transform_yield_count: 19
@@ -849,58 +858,58 @@ agg-empty-table-tests-after-modifications:
     insert_new_count: 27
     insert_reused_count: 2
 -   query: EXPLAIN select sum(col1) from T1 where col2 > 0;
-    ref: aggregate-empty-table.yamsql:467
+    ref: aggregate-empty-table.yamsql:545
     explain: SCAN([IS T1]) | FILTER _.COL2 GREATER_THAN promote(@c10 AS LONG) | MAP
-        (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS
-        _0)
+        (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0) GROUP BY () | ON EMPTY NULL | MAP
+        (_._0._0 AS _0)
     task_count: 307
-    task_total_time_ms: 5
+    task_total_time_ms: 12
     transform_count: 81
-    transform_time_ms: 1
+    transform_time_ms: 4
     transform_yield_count: 19
     insert_time_ms: 0
     insert_new_count: 27
     insert_reused_count: 2
 -   query: EXPLAIN select sum(col1) from T2;
-    ref: aggregate-empty-table.yamsql:476
+    ref: aggregate-empty-table.yamsql:555
     explain: 'AISCAN(T2_I5 <,> BY_GROUP -> [_0: VALUE:[0]]) | MAP (_ AS _0) | ON EMPTY
         NULL | MAP (_._0._0 AS _0)'
     task_count: 595
-    task_total_time_ms: 14
+    task_total_time_ms: 41
     transform_count: 182
-    transform_time_ms: 8
+    transform_time_ms: 28
     transform_yield_count: 60
-    insert_time_ms: 0
+    insert_time_ms: 1
     insert_new_count: 52
     insert_reused_count: 6
 -   query: EXPLAIN select sum(col1) from T2 where col2 = 0;
-    ref: aggregate-empty-table.yamsql:483
+    ref: aggregate-empty-table.yamsql:564
     explain: 'AISCAN(T2_I6 [EQUALS promote(@c10 AS LONG)] BY_GROUP -> [_0: KEY:[0],
         _1: VALUE:[0]]) | MAP ((_._1 AS _0) AS _0) | ON EMPTY NULL | MAP (_._0._0
         AS _0)'
     task_count: 538
-    task_total_time_ms: 35
+    task_total_time_ms: 25
     transform_count: 170
-    transform_time_ms: 22
+    transform_time_ms: 14
     transform_yield_count: 58
-    insert_time_ms: 0
+    insert_time_ms: 1
     insert_new_count: 44
     insert_reused_count: 4
 -   query: EXPLAIN select sum(col1) from T2 where col1 > 0;
-    ref: aggregate-empty-table.yamsql:487
+    ref: aggregate-empty-table.yamsql:569
     explain: SCAN([IS T2]) | FILTER _.COL1 GREATER_THAN promote(@c10 AS LONG) | MAP
-        (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS
-        _0)
+        (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0) GROUP BY () | ON EMPTY NULL | MAP
+        (_._0._0 AS _0)
     task_count: 365
-    task_total_time_ms: 23
+    task_total_time_ms: 38
     transform_count: 112
-    transform_time_ms: 16
+    transform_time_ms: 27
     transform_yield_count: 48
     insert_time_ms: 0
     insert_new_count: 29
     insert_reused_count: 2
 -   query: EXPLAIN select sum(col1) from T2 where col2 > 0;
-    ref: aggregate-empty-table.yamsql:492
+    ref: aggregate-empty-table.yamsql:575
     explain: 'AISCAN(T2_I6 [[GREATER_THAN promote(@c10 AS LONG)]] BY_GROUP -> [_0:
         KEY:[0], _1: VALUE:[0]]) | AGG sum_l(_._1) GROUP BY () | MAP ((_._1 AS _0)
         AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)'
@@ -909,54 +918,189 @@ agg-empty-table-tests-after-modifications:
     transform_count: 172
     transform_time_ms: 22
     transform_yield_count: 58
-    insert_time_ms: 0
+    insert_time_ms: 1
     insert_new_count: 47
     insert_reused_count: 4
 -   query: EXPLAIN select sum(col1) from T3 where col1 = 0;
-    ref: aggregate-empty-table.yamsql:512
+    ref: aggregate-empty-table.yamsql:598
     explain: ISCAN(T3_I1 [EQUALS promote(@c10 AS LONG)]) | MAP (_ AS _0) | AGG (sum_l(_._0.COL1)
-        AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)
+        AS _0) GROUP BY () | ON EMPTY NULL | MAP (_._0._0 AS _0)
     task_count: 611
-    task_total_time_ms: 17
+    task_total_time_ms: 35
     transform_count: 156
-    transform_time_ms: 7
+    transform_time_ms: 11
     transform_yield_count: 45
-    insert_time_ms: 0
+    insert_time_ms: 1
     insert_new_count: 67
     insert_reused_count: 5
 -   query: EXPLAIN select sum(col1) from T3 where col2 = 0;
-    ref: aggregate-empty-table.yamsql:516
+    ref: aggregate-empty-table.yamsql:603
     explain: ISCAN(T3_I2 [EQUALS promote(@c10 AS LONG)]) | MAP (_ AS _0) | AGG (sum_l(_._0.COL1)
-        AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)
+        AS _0) GROUP BY () | ON EMPTY NULL | MAP (_._0._0 AS _0)
     task_count: 611
-    task_total_time_ms: 22
+    task_total_time_ms: 30
     transform_count: 156
-    transform_time_ms: 8
+    transform_time_ms: 7
     transform_yield_count: 45
-    insert_time_ms: 0
+    insert_time_ms: 1
     insert_new_count: 67
     insert_reused_count: 5
 -   query: EXPLAIN select sum(col1) from T3 where col1 > 0;
-    ref: aggregate-empty-table.yamsql:520
+    ref: aggregate-empty-table.yamsql:608
     explain: ISCAN(T3_I1 [[GREATER_THAN promote(@c10 AS LONG)]]) | MAP (_ AS _0) |
-        AGG (sum_l(_._0.COL1) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)
+        AGG (sum_l(_._0.COL1) AS _0) GROUP BY () | ON EMPTY NULL | MAP (_._0._0 AS
+        _0)
     task_count: 626
-    task_total_time_ms: 21
+    task_total_time_ms: 43
     transform_count: 157
-    transform_time_ms: 7
+    transform_time_ms: 16
     transform_yield_count: 46
-    insert_time_ms: 0
+    insert_time_ms: 3
     insert_new_count: 69
     insert_reused_count: 5
 -   query: EXPLAIN select sum(col1) from T3 where col2 > 0;
-    ref: aggregate-empty-table.yamsql:524
+    ref: aggregate-empty-table.yamsql:613
     explain: ISCAN(T3_I2 [[GREATER_THAN promote(@c10 AS LONG)]]) | MAP (_ AS _0) |
-        AGG (sum_l(_._0.COL1) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)
+        AGG (sum_l(_._0.COL1) AS _0) GROUP BY () | ON EMPTY NULL | MAP (_._0._0 AS
+        _0)
     task_count: 626
-    task_total_time_ms: 15
+    task_total_time_ms: 78
     transform_count: 157
-    transform_time_ms: 6
+    transform_time_ms: 40
     transform_yield_count: 46
-    insert_time_ms: 0
+    insert_time_ms: 5
     insert_new_count: 69
     insert_reused_count: 5
+-   query: EXPLAIN select sum(col1) from t3 having sum(col1) is null
+    ref: aggregate-empty-table.yamsql:635
+    explain: ISCAN(T3_I1 <,>) | MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0) GROUP
+        BY () | ON EMPTY NULL | FILTER _._0._0 IS_NULL | MAP (_._0._0 AS _0)
+    task_count: 402
+    task_total_time_ms: 11
+    transform_count: 92
+    transform_time_ms: 5
+    transform_yield_count: 37
+    insert_time_ms: 1
+    insert_new_count: 46
+    insert_reused_count: 6
+-   query: EXPLAIN select count(col1) from t3 having count(col1) is null
+    ref: aggregate-empty-table.yamsql:640
+    explain: ISCAN(T3_I1 <,>) | MAP (_ AS _0) | AGG (count(_._0.COL1) AS _0) GROUP
+        BY () | ON EMPTY NULL | FILTER coalesce_long(_._0._0, promote(0l AS LONG))
+        IS_NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)
+    task_count: 418
+    task_total_time_ms: 15
+    transform_count: 96
+    transform_time_ms: 7
+    transform_yield_count: 39
+    insert_time_ms: 1
+    insert_new_count: 50
+    insert_reused_count: 6
+-   query: EXPLAIN select count(*) from t3 having count(*) is null
+    ref: aggregate-empty-table.yamsql:645
+    explain: ISCAN(T3_I2 <,>) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY
+        () | ON EMPTY NULL | FILTER coalesce_long(_._0._0, 0l) IS_NULL | MAP (coalesce_long(_._0._0,
+        promote(0l AS LONG)) AS _0)
+    task_count: 418
+    task_total_time_ms: 12
+    transform_count: 96
+    transform_time_ms: 5
+    transform_yield_count: 39
+    insert_time_ms: 0
+    insert_new_count: 50
+    insert_reused_count: 6
+-   query: EXPLAIN select max(col1) from t3 group by col2 having col2 is null
+    ref: aggregate-empty-table.yamsql:650
+    explain: ISCAN(T3_I2 <,>) | MAP (_ AS _0) | AGG (max_l(_._0.COL1) AS _0) GROUP
+        BY (_._0.COL2 AS _0) | FILTER _._0._0 IS_NULL | MAP (_._1._0 AS _0)
+    task_count: 296
+    task_total_time_ms: 14
+    transform_count: 76
+    transform_time_ms: 6
+    transform_yield_count: 30
+    insert_time_ms: 0
+    insert_new_count: 26
+    insert_reused_count: 2
+-   query: EXPLAIN select count(col1) from t3 group by col2 having col2 is null
+    ref: aggregate-empty-table.yamsql:655
+    explain: ISCAN(T3_I2 <,>) | MAP (_ AS _0) | AGG (count(_._0.COL1) AS _0) GROUP
+        BY (_._0.COL2 AS _0) | FILTER _._0._0 IS_NULL | MAP (_._1._0 AS _0)
+    task_count: 296
+    task_total_time_ms: 16
+    transform_count: 76
+    transform_time_ms: 7
+    transform_yield_count: 30
+    insert_time_ms: 0
+    insert_new_count: 26
+    insert_reused_count: 2
+-   query: EXPLAIN select count(col1) from t3 group by col2 having col2 is null or
+        col2 = 42
+    ref: aggregate-empty-table.yamsql:660
+    explain: ISCAN(T3_I2 <,>) | MAP (_ AS _0) | AGG (count(_._0.COL1) AS _0) GROUP
+        BY (_._0.COL2 AS _0) | FILTER _._0._0 IS_NULL OR _._0._0 EQUALS promote(@c17
+        AS LONG) | MAP (_._1._0 AS _0)
+    task_count: 296
+    task_total_time_ms: 10
+    transform_count: 76
+    transform_time_ms: 4
+    transform_yield_count: 30
+    insert_time_ms: 0
+    insert_new_count: 26
+    insert_reused_count: 2
+-   query: EXPLAIN select count(col1) from t3 having count(col1) is null or count(col1)
+        > 100
+    ref: aggregate-empty-table.yamsql:665
+    explain: ISCAN(T3_I1 <,>) | MAP (_ AS _0) | AGG (count(_._0.COL1) AS _0) GROUP
+        BY () | ON EMPTY NULL | FILTER coalesce_long(_._0._0, promote(0l AS LONG))
+        IS_NULL OR coalesce_long(_._0._0, promote(0l AS LONG)) GREATER_THAN promote(@c20
+        AS LONG) | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)
+    task_count: 418
+    task_total_time_ms: 37
+    transform_count: 96
+    transform_time_ms: 12
+    transform_yield_count: 39
+    insert_time_ms: 1
+    insert_new_count: 50
+    insert_reused_count: 6
+-   query: EXPLAIN select count(*) from t3 having count(*) is null or count(*) > 100
+    ref: aggregate-empty-table.yamsql:670
+    explain: ISCAN(T3_I2 <,>) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY
+        () | ON EMPTY NULL | FILTER coalesce_long(_._0._0, 0l) IS_NULL OR coalesce_long(_._0._0,
+        0l) GREATER_THAN promote(@c20 AS LONG) | MAP (coalesce_long(_._0._0, promote(0l
+        AS LONG)) AS _0)
+    task_count: 418
+    task_total_time_ms: 13
+    transform_count: 96
+    transform_time_ms: 5
+    transform_yield_count: 39
+    insert_time_ms: 1
+    insert_new_count: 50
+    insert_reused_count: 6
+-   query: EXPLAIN select sum(col1) from t3 having sum(col1) is null or sum(col1)
+        > 100
+    ref: aggregate-empty-table.yamsql:675
+    explain: ISCAN(T3_I1 <,>) | MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0) GROUP
+        BY () | ON EMPTY NULL | FILTER _._0._0 IS_NULL OR _._0._0 GREATER_THAN promote(@c20
+        AS LONG) | MAP (_._0._0 AS _0)
+    task_count: 402
+    task_total_time_ms: 16
+    transform_count: 92
+    transform_time_ms: 8
+    transform_yield_count: 37
+    insert_time_ms: 1
+    insert_new_count: 46
+    insert_reused_count: 6
+-   query: EXPLAIN select count(col1) from t3 having count(col1) = 0
+    ref: aggregate-empty-table.yamsql:680
+    explain: ISCAN(T3_I1 <,>) | MAP (_ AS _0) | AGG (count(_._0.COL1) AS _0) GROUP
+        BY () | ON EMPTY NULL | FILTER coalesce_long(_._0._0, promote(0l AS LONG))
+        EQUALS promote(@c13 AS LONG) | MAP (coalesce_long(_._0._0, promote(0l AS LONG))
+        AS _0)
+    task_count: 418
+    task_total_time_ms: 35
+    transform_count: 96
+    transform_time_ms: 9
+    transform_yield_count: 39
+    insert_time_ms: 1
+    insert_new_count: 50
+    insert_reused_count: 6

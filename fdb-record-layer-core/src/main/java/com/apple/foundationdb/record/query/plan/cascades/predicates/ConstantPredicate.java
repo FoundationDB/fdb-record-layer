@@ -66,6 +66,19 @@ public class ConstantPredicate extends AbstractQueryPredicate implements LeafQue
     @Nullable
     private final Boolean value;
 
+    /**
+     * Returns the {@link ConstantPredicate} singleton corresponding to the given boolean value.
+     *
+     * @return {@link #TRUE} for {@code true}, {@link #FALSE} for {@code false}, {@link #NULL} for {@code null}
+     */
+    @Nonnull
+    public static ConstantPredicate of(@Nullable final Boolean value) {
+        if (value == null) {
+            return NULL;
+        }
+        return value ? TRUE : FALSE;
+    }
+
     public ConstantPredicate(@Nonnull final PlanSerializationContext serializationContext,
                              @Nonnull final PConstantPredicate constantPredicateProto) {
         super(serializationContext, Objects.requireNonNull(constantPredicateProto.getSuper()));

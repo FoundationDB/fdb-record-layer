@@ -22,7 +22,7 @@
 ---
 options:
   required_clusters: 2
-  supported_version: !current_version
+  supported_version: 4.12.3.0
 ---
 # Cleanup cluster 0
 setup:

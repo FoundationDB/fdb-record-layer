@@ -25,6 +25,8 @@ import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TestRecordsGroupedParentChildProto;
+import com.apple.foundationdb.record.lucene.directory.FDBDirectory;
+import com.apple.foundationdb.record.lucene.directory.FDBDirectoryManager;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexPredicate;
 import com.apple.foundationdb.record.metadata.JoinedRecordTypeBuilder;
@@ -35,6 +37,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
+import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
 import com.apple.foundationdb.record.provider.foundationdb.OnlineIndexScrubber;
 import com.apple.foundationdb.record.provider.foundationdb.OnlineIndexer;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
@@ -404,6 +407,25 @@ public class LuceneIndexTestDataModel {
         }
     }
 
+    /**
+     * Sets the "ongoing merge" indicator for the given partition, activating the pending-write queue so that
+     * subsequent record saves are routed to the queue rather than written directly to Lucene.
+     * The caller is responsible for committing the context after this call.
+     *
+     * @param context the open record context to use
+     * @param groupingKey the grouping key for the partition, or {@code null} for non-grouped indexes
+     * @param partitionId the partition id, or {@code null} for non-partitioned indexes
+     */
+    public void setOngoingMergeIndicator(@Nonnull final FDBRecordContext context,
+                                         @Nullable final Tuple groupingKey,
+                                         @Nullable final Integer partitionId) {
+        FDBRecordStore store = Objects.requireNonNull(schemaSetup.apply(context));
+        final IndexMaintainerState state = new IndexMaintainerState(store, index, store.getIndexMaintenanceFilter());
+        final FDBDirectoryManager directoryManager = FDBDirectoryManager.getManager(state);
+        final FDBDirectory directory = directoryManager.getDirectory(groupingKey, partitionId);
+        directory.setOngoingMergeIndicator();
+    }
+
     public long findMissingIndexEntries(final FDBRecordContext context, @Nullable FDBStoreTimer timer) {
         FDBRecordStore recordStore = Objects.requireNonNull(schemaSetup.apply(context));
         try (OnlineIndexScrubber indexBuilder = OnlineIndexScrubber.newBuilder()
@@ -452,6 +474,7 @@ public class LuceneIndexTestDataModel {
         boolean isSynthetic;
         boolean primaryKeySegmentIndexEnabled = true;
         int partitionHighWatermark;
+        boolean enablePendingWriteQueueDuringMerge = true;
         @Nullable
         private Index index;
         @Nullable
@@ -486,6 +509,12 @@ public class LuceneIndexTestDataModel {
 
         public Builder setPartitionHighWatermark(final int partitionHighWatermark) {
             this.partitionHighWatermark = partitionHighWatermark;
+            metadata = null;
+            return this;
+        }
+
+        public Builder setEnablePendingWriteQueueDuringMerge(final boolean enablePendingWriteQueueDuringMerge) {
+            this.enablePendingWriteQueueDuringMerge = enablePendingWriteQueueDuringMerge;
             metadata = null;
             return this;
         }
@@ -537,6 +566,10 @@ public class LuceneIndexTestDataModel {
             if (partitionHighWatermark > 0) {
                 options.put(LuceneIndexOptions.INDEX_PARTITION_BY_FIELD_NAME, isSynthetic ? "parent.timestamp" : "timestamp");
                 options.put(LuceneIndexOptions.INDEX_PARTITION_HIGH_WATERMARK, String.valueOf(partitionHighWatermark));
+            }
+            if (enablePendingWriteQueueDuringMerge) {
+                options.put(LuceneIndexOptions.ENABLE_PENDING_WRITE_QUEUE_DURING_MERGE, "true");
+                options.put(LuceneIndexOptions.PENDING_WRITE_QUEUE_INCARNATION_ENABLED, "true");
             }
             return options;
         }

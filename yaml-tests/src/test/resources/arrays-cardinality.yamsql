@@ -19,7 +19,7 @@
 
 ---
 options:
-  supported_version: !current_version
+  supported_version: 4.12.3.0
 ---
 # Create three analogous base tables, with a CARDINALITY() index defined for two of them. With these we exercise both a
 # nullable and a non-nullable ARRAY column. Nullable arrays are special in that a `values` field gets wrapped around the

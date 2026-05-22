@@ -833,6 +833,7 @@ public class SemanticAnalyzer {
         if (value instanceof ArithmeticValue ||
                 value instanceof RecordConstructorValue ||
                 value instanceof RelOpValue.BinaryRelOpValue ||
+                value instanceof RelOpValue.UnaryRelOpValue ||
                 value instanceof AndOrValue ||
                 value instanceof NotValue ||
                 value instanceof InOpValue) {
