@@ -588,4 +588,26 @@ public class DelegatingVisitorTest {
         final Object result = delegating.visitIncarnationOption(context);
         Assertions.assertThat(result).isSameAs(mockResult);
     }
+
+    @Test
+    void visitExplainColumnList() {
+        final TypedVisitor baseVisitor = Mockito.mock(TypedVisitor.class);
+        final DelegatingVisitor<TypedVisitor> delegating = new DelegatingVisitor<>(baseVisitor);
+        final RelationalParser.ExplainColumnListContext context = new RelationalParser.ExplainColumnListContext(null, -1);
+        final Object mockResult = new Object();
+        Mockito.when(baseVisitor.visitExplainColumnList(context)).thenReturn(mockResult);
+        final Object result = delegating.visitExplainColumnList(context);
+        Assertions.assertThat(result).isSameAs(mockResult);
+    }
+
+    @Test
+    void visitExplainColumnOption() {
+        final TypedVisitor baseVisitor = Mockito.mock(TypedVisitor.class);
+        final DelegatingVisitor<TypedVisitor> delegating = new DelegatingVisitor<>(baseVisitor);
+        final RelationalParser.ExplainColumnOptionContext context = new RelationalParser.ExplainColumnOptionContext(null, -1);
+        final Object mockResult = new Object();
+        Mockito.when(baseVisitor.visitExplainColumnOption(context)).thenReturn(mockResult);
+        final Object result = delegating.visitExplainColumnOption(context);
+        Assertions.assertThat(result).isSameAs(mockResult);
+    }
 }
