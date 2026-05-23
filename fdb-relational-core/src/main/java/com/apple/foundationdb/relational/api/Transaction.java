@@ -68,7 +68,7 @@ public interface Transaction extends AutoCloseable {
     /**
      * Sets a transaction-scoped local variable. The variable lives for the duration of this transaction only.
      *
-     * @param name  the variable name (case-insensitive; stored in upper-case)
+     * @param name  the variable name (caller is responsible for normalization)
      * @param value the variable value
      */
     void setLocalVariable(@Nonnull String name, @Nullable Object value);

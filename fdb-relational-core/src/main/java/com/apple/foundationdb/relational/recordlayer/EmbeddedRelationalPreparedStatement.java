@@ -36,6 +36,7 @@ import com.apple.foundationdb.relational.util.Assert;
 import javax.annotation.Nonnull;
 import java.sql.Array;
 import java.sql.SQLException;
+import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
 import java.util.TreeMap;
@@ -230,9 +231,9 @@ public class EmbeddedRelationalPreparedStatement extends AbstractEmbeddedStateme
     }
 
     private static Map<String, Object> mergeNamedParams(Map<String, Object> explicit, Map<String, Object> vars) {
-        final var merged = new java.util.HashMap<>(vars);
+        final var merged = new HashMap<>(vars);
         for (final var entry : explicit.entrySet()) {
-            Assert.thatUnchecked(!merged.containsKey(entry.getKey()) || merged.get(entry.getKey()) == explicit.get(entry.getKey()),
+            Assert.thatUnchecked(!merged.containsKey(entry.getKey()),
                     ErrorCode.INVALID_PARAMETER,
                     () -> "Parameter name '" + entry.getKey() + "' conflicts with a local variable of the same name");
             merged.put(entry.getKey(), entry.getValue());
