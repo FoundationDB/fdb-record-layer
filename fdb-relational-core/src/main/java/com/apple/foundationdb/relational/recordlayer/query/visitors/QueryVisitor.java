@@ -31,6 +31,7 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.UpdateExpre
 import com.apple.foundationdb.record.query.plan.cascades.predicates.CompatibleTypeEvolutionPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
@@ -222,11 +223,20 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
     @Nonnull
     @Override
     public LogicalOperator visitSimpleTable(@Nonnull RelationalParser.SimpleTableContext simpleTableContext) {
-        Assert.notNullUnchecked(simpleTableContext.fromClause(), ErrorCode.UNSUPPORTED_QUERY, "query is not supported");
         getDelegate().pushPlanFragment();
-        simpleTableContext.fromClause().accept(this);
+        if (simpleTableContext.fromClause() != null) {
+            simpleTableContext.fromClause().accept(this);
+        } else {
+            // No FROM clause: synthesize a single-row source so constant expressions
+            // can be projected over exactly one output row (standard SQL semantics).
+            final var dummyElement = Expression.fromUnderlying(LiteralValue.ofScalar(true));
+            final var arrayOfOne = getDelegate().resolveFunction("__internal_array", false, dummyElement);
+            final var explodeExpr = new ExplodeExpression(arrayOfOne.getUnderlying());
+            final var syntheticQuantifier = Quantifier.forEach(Reference.initialOf(explodeExpr));
+            getDelegate().getCurrentPlanFragment().setOperator(LogicalOperator.newUnnamedOperator(Expressions.empty(), syntheticQuantifier));
+        }
 
-        var where = Optional.ofNullable(simpleTableContext.fromClause().whereExpr() == null ?
+        var where = Optional.ofNullable(simpleTableContext.fromClause() == null || simpleTableContext.fromClause().whereExpr() == null ?
                 null :
                 visitWhereExpr(simpleTableContext.fromClause().whereExpr()));
 
