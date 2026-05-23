@@ -63,7 +63,7 @@ public class DoubleRealVector extends AbstractRealVector {
     }
 
     @Nonnull
-    public HalfRealVector computeHalfRealVector() {
+    protected HalfRealVector computeHalfRealVector() {
         return new HalfRealVector(data);
     }
 
@@ -74,7 +74,7 @@ public class DoubleRealVector extends AbstractRealVector {
     }
 
     @Nonnull
-    private FloatRealVector computeFloatRealVector() {
+    protected FloatRealVector computeFloatRealVector() {
         return new FloatRealVector(data);
     }
 
@@ -121,7 +121,7 @@ public class DoubleRealVector extends AbstractRealVector {
     }
 
     @Nonnull
-    private static double[] computeDoubleData(@Nonnull Double[] doubleData) {
+    protected static double[] computeDoubleData(@Nonnull Double[] doubleData) {
         double[] result = new double[doubleData.length];
         for (int i = 0; i < doubleData.length; i++) {
             result[i] = doubleData[i];
