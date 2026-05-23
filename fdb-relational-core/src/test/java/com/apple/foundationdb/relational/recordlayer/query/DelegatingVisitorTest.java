@@ -35,6 +35,7 @@ import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerTable;
 import com.apple.foundationdb.relational.recordlayer.query.visitors.BaseVisitor;
 import com.apple.foundationdb.relational.recordlayer.query.visitors.DelegatingVisitor;
 import com.apple.foundationdb.relational.recordlayer.query.visitors.TypedVisitor;
+import com.apple.foundationdb.relational.api.ddl.ConstantAction;
 import org.antlr.v4.runtime.CommonTokenStream;
 import org.apache.commons.lang3.mutable.MutableBoolean;
 import org.assertj.core.api.Assertions;
@@ -579,13 +580,36 @@ public class DelegatingVisitorTest {
     }
 
     @Test
-    void visitIncarnationOption() {
+    void visitSetLocalVariableTest() {
         final TypedVisitor baseVisitor = Mockito.mock(TypedVisitor.class);
         final DelegatingVisitor<TypedVisitor> delegating = new DelegatingVisitor<>(baseVisitor);
-        final RelationalParser.IncarnationOptionContext context = new RelationalParser.IncarnationOptionContext(null, -1);
+        final RelationalParser.SetLocalVariableContext context = new RelationalParser.SetLocalVariableContext(null, -1);
+        final ProceduralPlan plan = ProceduralPlan.of(Mockito.mock(ConstantAction.class));
+        Mockito.when(baseVisitor.visitSetLocalVariable(context)).thenReturn(plan);
+        final ProceduralPlan result = delegating.visitSetLocalVariable(context);
+        Assertions.assertThat(result).isSameAs(plan);
+    }
+
+    @Test
+    void visitVariableRefTest() {
+        final TypedVisitor baseVisitor = Mockito.mock(TypedVisitor.class);
+        final DelegatingVisitor<TypedVisitor> delegating = new DelegatingVisitor<>(baseVisitor);
+        final RelationalParser.VariableRefContext context = new RelationalParser.VariableRefContext(null, -1);
         final Object mockResult = new Object();
-        Mockito.when(baseVisitor.visitIncarnationOption(context)).thenReturn(mockResult);
-        final Object result = delegating.visitIncarnationOption(context);
+        Mockito.when(baseVisitor.visitVariableRef(context)).thenReturn(mockResult);
+        final Object result = delegating.visitVariableRef(context);
+        Assertions.assertThat(result).isSameAs(mockResult);
+    }
+
+    @Test
+    void visitVariableRefAtomTest() {
+        final TypedVisitor baseVisitor = Mockito.mock(TypedVisitor.class);
+        final DelegatingVisitor<TypedVisitor> delegating = new DelegatingVisitor<>(baseVisitor);
+        final RelationalParser.VariableRefAtomContext context = new RelationalParser.VariableRefAtomContext(new RelationalParser.ExpressionAtomContext());
+        final Object mockResult = new Object();
+        Mockito.when(baseVisitor.visitVariableRefAtom(context)).thenReturn(mockResult);
+        final Object result = delegating.visitVariableRefAtom(context);
         Assertions.assertThat(result).isSameAs(mockResult);
     }
 }
+
