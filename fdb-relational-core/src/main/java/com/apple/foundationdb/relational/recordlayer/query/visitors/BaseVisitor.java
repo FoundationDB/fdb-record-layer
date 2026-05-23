@@ -59,6 +59,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.net.URI;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
@@ -72,12 +73,13 @@ import java.util.Set;
 public class BaseVisitor extends RelationalParserBaseVisitor<Object> implements TypedVisitor {
 
     /**
-     * Carries the SELECT-time {@link PreparedParams} into the memoized lambda that compiles a temporary
-     * function body, so that local variable refs inside the body resolve to their actual runtime types
-     * (not to the empty CREATE-time params).  Set in {@link #resolveTableValuedFunction} and cleared
-     * after each TVF lookup completes.
+     * Carries the SELECT-time local variable bindings into the memoized lambda that compiles a temporary
+     * function body, so that local variable refs inside the body resolve to their actual runtime types.
+     * Set in {@link #resolveTableValuedFunction} and cleared after each TVF lookup completes.
+     * Only local variables (@var) are carried, never prepared-statement parameters (?param), so the
+     * CREATE-time ?param bindings in the function body are preserved as-is.
      */
-    static final ThreadLocal<PreparedParams> TVFUNCTION_COMPILATION_PARAMS = new ThreadLocal<>();
+    static final ThreadLocal<Map<String, Object>> TVFUNCTION_COMPILATION_PARAMS = new ThreadLocal<>();
 
     private final boolean caseSensitive;
 
@@ -254,7 +256,7 @@ public class BaseVisitor extends RelationalParserBaseVisitor<Object> implements 
 
     @Nonnull
     public LogicalOperator resolveTableValuedFunction(@Nonnull Identifier functionName, @Nonnull Expressions arguments) {
-        TVFUNCTION_COMPILATION_PARAMS.set(mutablePlanGenerationContext.getPreparedParams());
+        TVFUNCTION_COMPILATION_PARAMS.set(mutablePlanGenerationContext.getLocalVariables());
         try {
             return getSemanticAnalyzer().resolveTableFunction(functionName, arguments, true);
         } finally {

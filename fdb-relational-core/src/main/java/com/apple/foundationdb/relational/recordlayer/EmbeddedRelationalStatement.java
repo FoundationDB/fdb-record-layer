@@ -68,6 +68,7 @@ public class EmbeddedRelationalStatement extends AbstractEmbeddedStatement imple
                 .withMetricsCollector(Assert.notNullUnchecked(conn.getMetricCollector()))
                 .withSchemaTemplate(conn.getTransaction().getBoundSchemaTemplateMaybe().orElse(conn.getSchemaTemplate()))
                 .withPreparedParameters(params)
+                .withLocalVariables(localVars)
                 .build();
     }
 

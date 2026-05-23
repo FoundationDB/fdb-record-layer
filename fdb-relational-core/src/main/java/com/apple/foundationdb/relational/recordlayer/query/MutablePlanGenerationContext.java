@@ -57,6 +57,7 @@ import java.sql.Struct;
 import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.function.Supplier;
 
@@ -70,6 +71,9 @@ import static com.apple.foundationdb.relational.api.exceptions.ErrorCode.DATATYP
 public class MutablePlanGenerationContext implements QueryExecutionContext {
     @Nonnull
     private PreparedParams preparedParams;
+
+    @Nonnull
+    private Map<String, Object> localVariables = Map.of();
 
     @Nonnull
     private final Literals.Builder literalsBuilder;
@@ -291,6 +295,15 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
 
     public void setPreparedParams(@Nonnull PreparedParams newParams) {
         this.preparedParams = newParams;
+    }
+
+    @Nonnull
+    public Map<String, Object> getLocalVariables() {
+        return localVariables;
+    }
+
+    public void setLocalVariables(@Nonnull Map<String, Object> localVariables) {
+        this.localVariables = localVariables;
     }
 
 

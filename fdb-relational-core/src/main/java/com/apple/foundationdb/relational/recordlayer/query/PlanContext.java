@@ -37,6 +37,7 @@ import com.google.common.annotations.VisibleForTesting;
 
 import javax.annotation.Nonnull;
 import java.net.URI;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -66,6 +67,9 @@ public final class PlanContext {
 
     private final boolean isCaseSensitive;
 
+    @Nonnull
+    private final Map<String, Object> localVariables;
+
     /**
      * Creates a new instance of {@link PlanContext} needed for generating plans.
      *
@@ -90,7 +94,8 @@ public final class PlanContext {
                         @Nonnull URI dbUri,
                         @Nonnull PreparedParams preparedStatementParameters,
                         final int userVersion,
-                        boolean isCaseSensitive) {
+                        boolean isCaseSensitive,
+                        @Nonnull Map<String, Object> localVariables) {
         this.metaData = metaData;
         this.metricCollector = metricCollector;
         this.schemaTemplate = schemaTemplate;
@@ -101,6 +106,7 @@ public final class PlanContext {
         this.preparedStatementParameters = preparedStatementParameters;
         this.userVersion = userVersion;
         this.isCaseSensitive = isCaseSensitive;
+        this.localVariables = localVariables;
     }
 
     @Nonnull
@@ -149,6 +155,11 @@ public final class PlanContext {
     }
 
     @Nonnull
+    public Map<String, Object> getLocalVariables() {
+        return localVariables;
+    }
+
+    @Nonnull
     public SchemaTemplate getSchemaTemplate() {
         return schemaTemplate;
     }
@@ -183,6 +194,8 @@ public final class PlanContext {
         private PreparedParams preparedStatementParameters;
 
         private boolean isCaseSensitive;
+
+        private Map<String, Object> localVariables = Map.of();
 
         private Builder() {
         }
@@ -252,6 +265,12 @@ public final class PlanContext {
         }
 
         @Nonnull
+        public Builder withLocalVariables(@Nonnull Map<String, Object> localVariables) {
+            this.localVariables = localVariables;
+            return this;
+        }
+
+        @Nonnull
         private static Optional<Set<String>> getReadableIndexes(@Nonnull RecordMetaData metaData,
                                                                 @Nonnull RecordStoreState storeState) {
             // (yhatem) we should cache this somewhere, or embed it in the caching logic of the {@code FDBRecordStoreBase#createOrOpen}.
@@ -298,7 +317,7 @@ public final class PlanContext {
         public PlanContext build() throws RelationalException {
             verify();
             return new PlanContext(metaData, metricCollector, schemaTemplate, plannerConfiguration, metadataOperationsFactory,
-                    ddlQueryFactory, dbUri, preparedStatementParameters, userVersion, isCaseSensitive);
+                    ddlQueryFactory, dbUri, preparedStatementParameters, userVersion, isCaseSensitive, localVariables);
         }
 
         @Nonnull
@@ -318,6 +337,7 @@ public final class PlanContext {
                     .withPlannerConfiguration(planContext.plannerConfiguration)
                     .withUserVersion(planContext.userVersion)
                     .withPreparedParameters(planContext.preparedStatementParameters)
+                    .withLocalVariables(planContext.localVariables)
                     .isCaseSensitive(planContext.isCaseSensitive);
         }
     }
