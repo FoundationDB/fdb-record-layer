@@ -121,6 +121,27 @@ public class TransactionBoundDatabaseTest {
     }
 
     @Test
+    void setLocalVariableViaTransactionBoundDatabase() throws RelationalException, SQLException {
+        final var embeddedConnection = connRule.getUnderlyingEmbeddedConnection();
+        withTransactionBoundConnection(embeddedConnection, Options.NONE, (KeySpace) null, conn -> {
+            try (RelationalStatement stmt = conn.createStatement()) {
+                stmt.executeInsert("RESTAURANT", EmbeddedRelationalStruct.newBuilder()
+                        .addLong("REST_NO", 77)
+                        .addString("NAME", "transbound-place")
+                        .build());
+            }
+            try (RelationalStatement stmt = conn.createStatement()) {
+                stmt.execute("SET LOCAL target_no = 77");
+                try (RelationalResultSet rs = stmt.executeQuery("SELECT NAME FROM RESTAURANT WHERE REST_NO = @target_no")) {
+                    Assertions.assertThat(rs.next()).isTrue();
+                    Assertions.assertThat(rs.getString("NAME")).isEqualTo("transbound-place");
+                    Assertions.assertThat(rs.next()).isFalse();
+                }
+            }
+        });
+    }
+
+    @Test
     void selectWithIncludedPlanCache() throws RelationalException, SQLException {
         final var embeddedConnection = connRule.getUnderlyingEmbeddedConnection();
 

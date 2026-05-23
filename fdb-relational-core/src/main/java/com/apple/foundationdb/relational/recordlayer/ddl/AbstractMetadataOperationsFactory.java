@@ -87,6 +87,6 @@ public abstract class AbstractMetadataOperationsFactory implements MetadataOpera
     @Nonnull
     @Override
     public ConstantAction getSetLocalVariableConstantAction(@Nonnull String name, @Nullable Object value) {
-        return NoOpMetadataOperationsFactory.INSTANCE.getSetLocalVariableConstantAction(name, value);
+        return new SetLocalVariableConstantAction(name, value);
     }
 }
