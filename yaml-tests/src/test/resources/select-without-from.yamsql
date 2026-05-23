@@ -51,4 +51,9 @@ test_block:
       - query: SELECT 41
       - resultMetadata: [{_0: INTEGER}]
       - result: [{41}]
+    -
+      # WHERE without FROM is a syntax error: WHERE is part of fromClause in the grammar
+      # and cannot appear without a preceding FROM.
+      - query: SELECT 'bob' WHERE true
+      - error: "42601"
 ...
