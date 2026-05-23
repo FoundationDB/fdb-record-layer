@@ -53,7 +53,7 @@ test_block:
       - result: [{A1: 1 , 10, 1}, {A1: 2, 10, 2}, {A1: 3, 10, 3}]
     -
       - query: select A.* from A group by A1;
-      - error: "42803"
+      - error: GROUPING_ERROR
     -
       - query: select * from A, B where A.A1 = B.B1;
       - result: [{A1: 1 , A2: 10, A3: 1, B1: 1, B2: 20, B3: {4, 40}},
@@ -76,7 +76,7 @@ test_block:
                  {B1: 3, B2: 20, B3: {6, 60}, A1: 3, A2: 10, A3: 3}]
     -
       - query: select A.*, B.* from A, B where A.A1 = B.B1 group by A1;
-      - error: "42803"
+      - error: GROUPING_ERROR
     -
       - query: select B1 from B where exists (select A.*, B1 from A group by A1,A2,A3);
       - explain: "SCAN([IS B]) | FLATMAP q0 -> { ISCAN(A_IDX <,>) | MAP (_ AS _0) | AGG () GROUP BY (_._0.A1 AS _0, _._0.A2 AS _1, _._0.A3 AS _2) | MAP (_._0._0 AS A1, _._0._1 AS A2, _._0._2 AS A3, q0.B1 AS B1) | DEFAULT NULL | FILTER _ NOT_NULL AS q0 RETURN (q0.B1 AS B1) }"
@@ -90,15 +90,15 @@ test_block:
     -
       # Not yet supported
       - query: select B.B3.* from B;
-      - error: "42601"
+      - error: SYNTAX_ERROR
     -
       # Should never be supported
       - query: select B.*.S1 from B;
-      - error: "42601"
+      - error: SYNTAX_ERROR
     -
       # Ambiguous column A1 (error code is now correct).
       - query: select A1 from (select A.*, A.* from A) as nested
-      - error: "42702"
+      - error: AMBIGUOUS_COLUMN
 #    -
 #      - query: select A.*, SUM(B1) from A, B where A.A1 = B.B1 group by A1, A2, A3;
 #      - result: [{A1: 1 , A2: 10, A3: 1, 1},

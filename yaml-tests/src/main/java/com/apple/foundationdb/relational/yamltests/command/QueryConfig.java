@@ -21,6 +21,7 @@
 package com.apple.foundationdb.relational.yamltests.command;
 
 import com.apple.foundationdb.relational.api.RelationalResultSet;
+import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.recordlayer.ErrorCapturingResultSet;
 import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.yamltests.CustomYamlConstructor;
@@ -242,6 +243,7 @@ public abstract class QueryConfig {
     }
 
     private static QueryConfig getCheckErrorConfig(@Nullable Object value, @Nonnull final YamlReference reference) {
+        final String expectedCode = resolveErrorCode(value, reference);
         return new QueryConfig(QUERY_CONFIG_ERROR, value, reference) {
 
             @Override
@@ -269,13 +271,49 @@ public abstract class QueryConfig {
             @Override
             void checkErrorInternal(@Nonnull SQLException e, @Nonnull String queryDescription) {
                 logger.debug("⛳️ Checking error code resulted from executing '{}'", queryDescription);
-                if (!e.getSQLState().equals(getVal())) {
-                    reportTestFailure("‼️ expecting '" + getVal() + "' error code, got '" + e.getSQLState() + "' instead at " + getReference() + "!", e);
+                final String actualCode = e.getSQLState();
+                if (!actualCode.equals(expectedCode)) {
+                    reportTestFailure("‼️ expecting '" + formatErrorCode(expectedCode) + "' error code, got '" + formatErrorCode(actualCode) + "' instead at " + getReference() + "!", e);
                 } else {
-                    logger.debug("✅ error codes '{}' match!", getVal());
+                    logger.debug("✅ error codes '{}' match!", expectedCode);
                 }
             }
         };
+    }
+
+    /**
+     * Resolves an error value from a yamsql file to a 5-character SQLSTATE code.
+     * Accepts either a raw 5-character SQLSTATE code (e.g. {@code "42601"}) or an
+     * {@link ErrorCode} enum name (e.g. {@code "SYNTAX_ERROR"}) for readability.
+     */
+    private static String resolveErrorCode(@Nullable Object value, @Nonnull YamlReference reference) {
+        if (value == null) {
+            return null;
+        }
+        final String str = value.toString();
+        if (str.length() == 5) {
+            return str;
+        }
+        try {
+            return ErrorCode.valueOf(str).getErrorCode();
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException("'" + str + "' is not a valid ErrorCode enum name or a 5-character SQLSTATE code at " + reference);
+        }
+    }
+
+    /**
+     * Formats a 5-character SQLSTATE code for display. If the code maps to a known
+     * {@link ErrorCode}, returns {@code "ENUM_NAME (code)"}; otherwise returns the raw code.
+     */
+    private static String formatErrorCode(@Nullable String code) {
+        if (code == null) {
+            return "null";
+        }
+        final ErrorCode errorCode = ErrorCode.get(code);
+        if (errorCode == ErrorCode.UNKNOWN) {
+            return code;
+        }
+        return errorCode.name() + " (" + code + ")";
     }
 
     private static QueryConfig getCheckCountConfig(@Nullable Object value, @Nonnull final YamlReference reference) {
