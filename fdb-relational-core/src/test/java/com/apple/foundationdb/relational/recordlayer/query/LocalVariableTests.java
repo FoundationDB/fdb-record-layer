@@ -466,4 +466,50 @@ public class LocalVariableTests {
             }
         }
     }
+
+    @Test
+    void tempFunctionAndLocalVariableCoexist() throws Exception {
+        // Verifies that SET LOCAL and CREATE TEMPORARY FUNCTION are independent:
+        // - the temp function survives a SET LOCAL in the same transaction
+        // - the local variable survives a CREATE TEMPORARY FUNCTION in the same transaction
+        // - both can be used together in the same query (variable passed as a function argument)
+        final String schemaTemplate = "create table coexist(pk bigint, val bigint, primary key(pk))";
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/LV")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            try (var stmt = ddl.setSchemaAndGetConnection().createStatement()) {
+                stmt.executeUpdate("insert into coexist values (1, 10), (2, 20), (3, 30)");
+            }
+            final var conn = ddl.getConnection();
+            conn.setAutoCommit(false);
+            try (var stmt = conn.createStatement()) {
+                // Create a temp function, then set a variable — function must still work
+                stmt.execute("create temporary function find_val(in threshold bigint) on commit drop function as select pk from coexist where val > threshold");
+                stmt.execute("set local limit_val = 15");
+
+                // Temp function still works after SET LOCAL
+                try (var rs = stmt.executeQuery("select pk from find_val(threshold => 15)")) {
+                    ResultSetAssert.assertThat(rs)
+                            .hasNextRow().isRowExactly(2L)
+                            .hasNextRow().isRowExactly(3L)
+                            .hasNoNextRow();
+                }
+
+                // Local variable still works after CREATE TEMPORARY FUNCTION
+                try (var rs = stmt.executeQuery("select pk from coexist where val > @limit_val")) {
+                    ResultSetAssert.assertThat(rs)
+                            .hasNextRow().isRowExactly(2L)
+                            .hasNextRow().isRowExactly(3L)
+                            .hasNoNextRow();
+                }
+
+                // Both together: variable as argument to the temp function
+                try (var rs = stmt.executeQuery("select pk from find_val(threshold => @limit_val)")) {
+                    ResultSetAssert.assertThat(rs)
+                            .hasNextRow().isRowExactly(2L)
+                            .hasNextRow().isRowExactly(3L)
+                            .hasNoNextRow();
+                }
+            }
+            conn.rollback();
+        }
+    }
 }
