@@ -29,17 +29,22 @@ test_block:
   tests:
     -
       - query: SELECT 'bob' AS greeting
+      - resultMetadata: [{GREETING: STRING}]
       - result: [{'bob'}]
     -
       - query: SELECT 42 AS answer
+      - resultMetadata: [{ANSWER: INTEGER}]
       - result: [{42}]
     -
       - query: SELECT 1 + 1 AS result
+      - resultMetadata: [{RESULT: INTEGER}]
       - result: [{2}]
     -
       - query: SELECT 'hello' AS a, 'world' AS b
+      - resultMetadata: [{A: STRING}, {B: STRING}]
       - result: [{'hello', 'world'}]
     -
       - query: SELECT true AS flag
+      - resultMetadata: [{FLAG: BOOLEAN}]
       - result: [{true}]
 ...
