@@ -468,6 +468,52 @@ public class LocalVariableTests {
     }
 
     @Test
+    void variableInTempFunctionBodyResolvesAtCallTime() throws Exception {
+        // @body_var referenced directly inside a temp TVF body requires the variable to exist
+        // at CREATE TEMPORARY FUNCTION time (AstNormalizer resolves it then), but the function
+        // uses a live reference to the transaction's local-variable map, so it always reflects
+        // the current value of @body_var at the time the function is called.
+        final String schemaTemplate = "create table tvfbody(pk bigint, name string, primary key(pk))";
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/LV")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            try (var stmt = ddl.setSchemaAndGetConnection().createStatement()) {
+                stmt.executeUpdate("insert into tvfbody values (1, 'alice'), (2, 'bob'), (3, 'carol')");
+            }
+            final var conn = ddl.getConnection();
+
+            // --- attempt 1: CREATE before @body_var is set → fails at normalization time ---
+            conn.setAutoCommit(false);
+            try (var stmt = conn.createStatement()) {
+                RelationalAssertions.assertThrowsSqlException(
+                        () -> stmt.execute("create temporary function find_by_body_var() on commit drop function " +
+                                "as select pk, name from tvfbody where name = @body_var"))
+                        .hasErrorCode(ErrorCode.UNDEFINED_PARAMETER);
+            }
+            conn.rollback();
+
+            // --- attempt 2: set @body_var BEFORE creating the function → CREATE succeeds ---
+            conn.unwrap(EmbeddedRelationalConnection.class).createNewTransaction();
+            conn.setAutoCommit(false);
+            try (var stmt = conn.createStatement()) {
+                stmt.execute("set local body_var = 'alice'");
+                stmt.execute("create temporary function find_by_body_var() on commit drop function " +
+                        "as select pk, name from tvfbody where name = @body_var");
+
+                // first call: @body_var = 'alice' → returns only alice
+                try (var rs = stmt.executeQuery("select pk, name from find_by_body_var()")) {
+                    ResultSetAssert.assertThat(rs).hasNextRow().isRowExactly(1L, "alice").hasNoNextRow();
+                }
+
+                // overwrite @body_var to 'bob' → same function now returns bob (live reference)
+                stmt.execute("set local body_var = 'bob'");
+                try (var rs = stmt.executeQuery("select pk, name from find_by_body_var()")) {
+                    ResultSetAssert.assertThat(rs).hasNextRow().isRowExactly(2L, "bob").hasNoNextRow();
+                }
+            }
+            conn.rollback();
+        }
+    }
+
+    @Test
     void tempFunctionAndLocalVariableCoexist() throws Exception {
         // Verifies that SET LOCAL and CREATE TEMPORARY FUNCTION are independent:
         // - the temp function survives a SET LOCAL in the same transaction
