@@ -47,4 +47,8 @@ test_block:
       - query: SELECT true AS flag
       - resultMetadata: [{FLAG: BOOLEAN}]
       - result: [{true}]
+    -
+      - query: SELECT 41
+      - resultMetadata: [{_0: INTEGER}]
+      - result: [{41}]
 ...
