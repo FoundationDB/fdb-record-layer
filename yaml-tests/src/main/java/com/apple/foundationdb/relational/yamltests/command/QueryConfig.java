@@ -297,7 +297,7 @@ public abstract class QueryConfig {
         try {
             return ErrorCode.valueOf(str).getErrorCode();
         } catch (IllegalArgumentException e) {
-            throw new IllegalArgumentException("'" + str + "' is not a valid ErrorCode enum name or a 5-character SQLSTATE code at " + reference);
+            throw new IllegalArgumentException("'" + str + "' is not a valid ErrorCode enum name or a 5-character SQLSTATE code at " + reference, e);
         }
     }
 
