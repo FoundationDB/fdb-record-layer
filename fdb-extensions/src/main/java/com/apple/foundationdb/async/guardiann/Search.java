@@ -463,6 +463,9 @@ public class Search {
                         if (numEnrichedResults >= k) {
                             break;
                         }
+                        if (vectorReferenceAndDistance == null) {
+                            continue;
+                        }
                         enrichedResultsBuilder.add(new VectorReferenceAndDistance(
                                 enrichVectorReference(primaryKeyToVectorMetadataFutureMap,
                                         vectorReferenceAndDistance.vectorReference()),
