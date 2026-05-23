@@ -36,7 +36,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
 import java.net.URI;
-import java.sql.SQLException;
 
 /**
  * Tests for transaction-scoped local variables (SET LOCAL / @variable).
