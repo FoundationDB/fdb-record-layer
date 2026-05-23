@@ -300,6 +300,21 @@ public class DelegatingVisitor<D extends TypedVisitor> implements TypedVisitor {
     }
 
     @Override
+    public ProceduralPlan visitSetLocalVariable(final RelationalParser.SetLocalVariableContext ctx) {
+        return getDelegate().visitSetLocalVariable(ctx);
+    }
+
+    @Override
+    public Object visitVariableRef(final RelationalParser.VariableRefContext ctx) {
+        return getDelegate().visitVariableRef(ctx);
+    }
+
+    @Override
+    public Object visitVariableRefAtom(final RelationalParser.VariableRefAtomContext ctx) {
+        return getDelegate().visitVariableRefAtom(ctx);
+    }
+
+    @Override
     public Object visitViewDefinition(final RelationalParser.ViewDefinitionContext ctx) {
         return getDelegate().visitViewDefinition(ctx);
     }

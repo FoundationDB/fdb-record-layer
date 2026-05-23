@@ -59,6 +59,7 @@ ddlStatement
     | dropStatement
     | createTempFunction
     | dropTempFunction
+    | setLocalVariable
     ;
 
 transactionStatement
@@ -240,6 +241,10 @@ createTempFunction
 
 dropTempFunction
     : DROP TEMPORARY FUNCTION (IF EXISTS)? schemaQualifiedRoutineName=fullId
+    ;
+
+setLocalVariable
+    : SET LOCAL varName=uid ('=' | ':=') varValue=constant
     ;
 
 viewDefinition
@@ -667,7 +672,7 @@ setStatement
 // details
 
 variableClause
-    : LOCAL_ID | ( ('@' '@')? (GLOBAL | SESSION | LOCAL)  )? uid
+    : LOCAL_ID | ( ('@' '@')? (GLOBAL | SESSION)  )? uid
     ;
 
 //    Other administrative statements
@@ -1241,6 +1246,7 @@ expressionAtom
     | fullColumnName                                                                      #fullColumnNameExpressionAtom // done
     | functionCall                                                                        #functionCallExpressionAtom // done
     | preparedStatementParameter                                                          #preparedStatementParameterAtom // done
+    | variableRef                                                                         #variableRefAtom // done
     | recordConstructor                                                                   #recordConstructorExpressionAtom // done
     | arrayConstructor                                                                    #arrayConstructorExpressionAtom // done
     | base=expressionAtom LEFT_SQUARE_BRACKET index=expressionAtom RIGHT_SQUARE_BRACKET   #subscriptExpression // done
@@ -1258,6 +1264,10 @@ inList
 preparedStatementParameter
     : QUESTION
     | NAMED_PARAMETER
+    ;
+
+variableRef
+    : LOCAL_ID
     ;
 
 unaryOperator

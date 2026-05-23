@@ -218,13 +218,26 @@ public class EmbeddedRelationalPreparedStatement extends AbstractEmbeddedStateme
     @Override
     @Nonnull
     PlanContext createPlanContext(@Nonnull final FDBRecordStoreBase<?> store, @Nonnull final Options options) throws RelationalException {
+        final var localVars = conn.getTransaction().getLocalVariables();
+        final var mergedNamed = localVars.isEmpty() ? namedParameters : mergeNamedParams(namedParameters, localVars);
         return PlanContext.builder()
                 .fromRecordStore(store, options)
                 .fromDatabase(conn.getRecordLayerDatabase())
                 .withMetricsCollector(Assert.notNullUnchecked(conn.getMetricCollector()))
-                .withPreparedParameters(PreparedParams.of(parameters, namedParameters))
+                .withPreparedParameters(PreparedParams.of(parameters, mergedNamed))
                 .withSchemaTemplate(conn.getTransaction().getBoundSchemaTemplateMaybe().orElse(conn.getSchemaTemplate()))
                 .build();
+    }
+
+    private static Map<String, Object> mergeNamedParams(Map<String, Object> explicit, Map<String, Object> vars) {
+        final var merged = new java.util.HashMap<>(vars);
+        for (final var entry : explicit.entrySet()) {
+            Assert.thatUnchecked(!merged.containsKey(entry.getKey()) || merged.get(entry.getKey()) == explicit.get(entry.getKey()),
+                    ErrorCode.INVALID_PARAMETER,
+                    () -> "Parameter name '" + entry.getKey() + "' conflicts with a local variable of the same name");
+            merged.put(entry.getKey(), entry.getValue());
+        }
+        return merged;
     }
 
     @Override

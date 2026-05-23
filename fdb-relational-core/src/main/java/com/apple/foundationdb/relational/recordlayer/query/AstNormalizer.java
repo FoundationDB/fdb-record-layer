@@ -194,6 +194,15 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
     }
 
     @Override
+    public Object visitVariableRef(@Nonnull RelationalParser.VariableRefContext ctx) {
+        final var rawName = ctx.LOCAL_ID().getText().substring(1); // strip leading '@'
+        final var varName = Assert.notNullUnchecked(SemanticAnalyzer.normalizeString(rawName, caseSensitive));
+        final var value = preparedStatementParameters.namedParamValue(varName);
+        processNamedParameter(value, varName, ctx.LOCAL_ID().getSymbol().getTokenIndex());
+        return value;
+    }
+
+    @Override
     public Value visitUid(@Nonnull RelationalParser.UidContext ctx) {
         String uid = SemanticAnalyzer.normalizeString(ctx.getText(), caseSensitive);
         sqlCanonicalizer.append("\"").append(uid).append("\"").append(" ");

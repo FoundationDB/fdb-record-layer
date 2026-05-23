@@ -50,6 +50,7 @@ import com.apple.foundationdb.relational.recordlayer.query.Expressions;
 import com.apple.foundationdb.relational.recordlayer.query.Identifier;
 import com.apple.foundationdb.relational.recordlayer.query.LogicalOperator;
 import com.apple.foundationdb.relational.recordlayer.query.LogicalOperators;
+import com.apple.foundationdb.relational.recordlayer.query.ParseHelpers;
 import com.apple.foundationdb.relational.recordlayer.query.PreparedParams;
 import com.apple.foundationdb.relational.recordlayer.query.ProceduralPlan;
 import com.apple.foundationdb.relational.recordlayer.query.QueryParser;
@@ -584,6 +585,32 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
         final var functionName = visitFullId(ctx.schemaQualifiedRoutineName).toString();
         var throwIfNotExists = ctx.IF() == null && ctx.EXISTS() == null;
         return ProceduralPlan.of(metadataOperationsFactory.getDropTemporaryFunctionConstantAction(throwIfNotExists, functionName));
+    }
+
+    @Override
+    public ProceduralPlan visitSetLocalVariable(@Nonnull RelationalParser.SetLocalVariableContext ctx) {
+        final var varName = getDelegate().normalizeString(ctx.varName.getText());
+        final var value = evalConstant(ctx.varValue);
+        return ProceduralPlan.of(metadataOperationsFactory.getSetLocalVariableConstantAction(varName, value));
+    }
+
+    @Nullable
+    private Object evalConstant(@Nonnull RelationalParser.ConstantContext ctx) {
+        if (ctx instanceof RelationalParser.StringConstantContext) {
+            return SemanticAnalyzer.normalizeString(ctx.getText(), false);
+        } else if (ctx instanceof RelationalParser.DecimalConstantContext) {
+            return ParseHelpers.parseDecimal(ctx.getText());
+        } else if (ctx instanceof RelationalParser.NegativeDecimalConstantContext) {
+            return ParseHelpers.parseDecimal(ctx.getText());
+        } else if (ctx instanceof RelationalParser.BooleanConstantContext) {
+            return ((RelationalParser.BooleanConstantContext) ctx).booleanLiteral().FALSE() == null;
+        } else if (ctx instanceof RelationalParser.NullConstantContext) {
+            return null;
+        } else {
+            Assert.failUnchecked(ErrorCode.UNSUPPORTED_QUERY,
+                    "Unsupported constant type for SET LOCAL: " + ctx.getText());
+            return null; // unreachable
+        }
     }
 
     @Override

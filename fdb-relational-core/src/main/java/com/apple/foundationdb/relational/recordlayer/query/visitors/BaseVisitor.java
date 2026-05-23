@@ -443,6 +443,21 @@ public class BaseVisitor extends RelationalParserBaseVisitor<Object> implements 
     }
 
     @Override
+    public ProceduralPlan visitSetLocalVariable(final RelationalParser.SetLocalVariableContext ctx) {
+        return ddlVisitor.visitSetLocalVariable(ctx);
+    }
+
+    @Override
+    public Expression visitVariableRef(final RelationalParser.VariableRefContext ctx) {
+        return expressionVisitor.visitVariableRef(ctx);
+    }
+
+    @Override
+    public Expression visitVariableRefAtom(final RelationalParser.VariableRefAtomContext ctx) {
+        return expressionVisitor.visitVariableRefAtom(ctx);
+    }
+
+    @Override
     public CompiledSqlFunction visitTempSqlInvokedFunction(final RelationalParser.TempSqlInvokedFunctionContext ctx) {
         return ddlVisitor.visitTempSqlInvokedFunction(ctx);
     }

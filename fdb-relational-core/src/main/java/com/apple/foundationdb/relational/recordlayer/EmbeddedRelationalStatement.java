@@ -35,6 +35,7 @@ import com.apple.foundationdb.relational.api.RelationalStruct;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.query.PlanContext;
+import com.apple.foundationdb.relational.recordlayer.query.PreparedParams;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.util.Supplier;
@@ -59,11 +60,14 @@ public class EmbeddedRelationalStatement extends AbstractEmbeddedStatement imple
     @Override
     @Nonnull
     PlanContext createPlanContext(@Nonnull final FDBRecordStoreBase<?> store, @Nonnull final Options options) throws RelationalException {
+        final var localVars = conn.getTransaction().getLocalVariables();
+        final var params = localVars.isEmpty() ? PreparedParams.empty() : PreparedParams.ofNamed(localVars);
         return PlanContext.builder()
                 .fromRecordStore(store, options)
                 .fromDatabase(conn.getRecordLayerDatabase())
                 .withMetricsCollector(Assert.notNullUnchecked(conn.getMetricCollector()))
                 .withSchemaTemplate(conn.getTransaction().getBoundSchemaTemplateMaybe().orElse(conn.getSchemaTemplate()))
+                .withPreparedParameters(params)
                 .build();
     }
 

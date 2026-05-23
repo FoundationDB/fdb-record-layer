@@ -200,6 +200,15 @@ public interface TypedVisitor extends RelationalParserVisitor<Object> {
     ProceduralPlan visitDropTempFunction(RelationalParser.DropTempFunctionContext ctx);
 
     @Override
+    ProceduralPlan visitSetLocalVariable(RelationalParser.SetLocalVariableContext ctx);
+
+    @Override
+    Object visitVariableRef(RelationalParser.VariableRefContext ctx);
+
+    @Override
+    Object visitVariableRefAtom(RelationalParser.VariableRefAtomContext ctx);
+
+    @Override
     CompiledSqlFunction visitTempSqlInvokedFunction(RelationalParser.TempSqlInvokedFunctionContext ctx);
 
     @Override
