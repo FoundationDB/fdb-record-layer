@@ -51,6 +51,7 @@ import com.apple.foundationdb.relational.recordlayer.query.QueryPlan;
 import com.apple.foundationdb.relational.recordlayer.query.SemanticAnalyzer;
 import com.apple.foundationdb.relational.recordlayer.query.functions.CompiledSqlFunction;
 import com.apple.foundationdb.relational.recordlayer.query.functions.SqlFunctionCatalog;
+import com.apple.foundationdb.relational.recordlayer.query.PreparedParams;
 import com.apple.foundationdb.relational.util.Assert;
 import org.antlr.v4.runtime.tree.ParseTree;
 
@@ -61,6 +62,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
+
 /**
  * This class is a composition of different, specialized AST visitors. It holds that visitation and some other
  * cross-functional state.
@@ -68,6 +70,14 @@ import java.util.Set;
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 @API(API.Status.EXPERIMENTAL)
 public class BaseVisitor extends RelationalParserBaseVisitor<Object> implements TypedVisitor {
+
+    /**
+     * Carries the SELECT-time {@link PreparedParams} into the memoized lambda that compiles a temporary
+     * function body, so that local variable refs inside the body resolve to their actual runtime types
+     * (not to the empty CREATE-time params).  Set in {@link #resolveTableValuedFunction} and cleared
+     * after each TVF lookup completes.
+     */
+    static final ThreadLocal<PreparedParams> TVFUNCTION_COMPILATION_PARAMS = new ThreadLocal<>();
 
     private final boolean caseSensitive;
 
@@ -82,6 +92,8 @@ public class BaseVisitor extends RelationalParserBaseVisitor<Object> implements 
 
     @Nonnull
     protected Optional<LogicalPlanFragment> currentPlanFragment;
+
+    private boolean deferMissingLocalVars = false;
 
     @Nonnull
     private final ExpressionVisitor expressionVisitor;
@@ -133,6 +145,14 @@ public class BaseVisitor extends RelationalParserBaseVisitor<Object> implements 
     @Nonnull
     public MutablePlanGenerationContext getPlanGenerationContext() {
         return mutablePlanGenerationContext;
+    }
+
+    public void setDeferMissingLocalVars(boolean defer) {
+        this.deferMissingLocalVars = defer;
+    }
+
+    public boolean isDeferMissingLocalVars() {
+        return deferMissingLocalVars;
     }
 
     @Nonnull
@@ -234,7 +254,12 @@ public class BaseVisitor extends RelationalParserBaseVisitor<Object> implements 
 
     @Nonnull
     public LogicalOperator resolveTableValuedFunction(@Nonnull Identifier functionName, @Nonnull Expressions arguments) {
-        return getSemanticAnalyzer().resolveTableFunction(functionName, arguments, true);
+        TVFUNCTION_COMPILATION_PARAMS.set(mutablePlanGenerationContext.getPreparedParams());
+        try {
+            return getSemanticAnalyzer().resolveTableFunction(functionName, arguments, true);
+        } finally {
+            TVFUNCTION_COMPILATION_PARAMS.remove();
+        }
     }
 
     @Override

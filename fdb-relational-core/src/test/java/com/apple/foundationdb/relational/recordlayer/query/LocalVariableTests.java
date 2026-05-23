@@ -22,6 +22,7 @@ package com.apple.foundationdb.relational.recordlayer.query;
 
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
+import com.apple.foundationdb.relational.recordlayer.ContinuationImpl;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalConnection;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalExtension;
 import com.apple.foundationdb.relational.recordlayer.LogAppenderRule;
@@ -36,6 +37,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
 import java.net.URI;
+import java.util.Base64;
 
 /**
  * Tests for transaction-scoped local variables (SET LOCAL / @variable).
@@ -469,36 +471,28 @@ public class LocalVariableTests {
 
     @Test
     void variableInTempFunctionBodyResolvesAtCallTime() throws Exception {
-        // @body_var referenced directly inside a temp TVF body requires the variable to exist
-        // at CREATE TEMPORARY FUNCTION time (AstNormalizer resolves it then), but the function
-        // uses a live reference to the transaction's local-variable map, so it always reflects
-        // the current value of @body_var at the time the function is called.
+        // @body_var directly inside a temp TVF body is resolved at invocation time, not at CREATE
+        // TEMPORARY FUNCTION time. The function can be created before the variable exists; the error
+        // surfaces only if @body_var is still absent when the function is actually called.
         final String schemaTemplate = "create table tvfbody(pk bigint, name string, primary key(pk))";
         try (var ddl = Ddl.builder().database(URI.create("/TEST/LV")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var stmt = ddl.setSchemaAndGetConnection().createStatement()) {
                 stmt.executeUpdate("insert into tvfbody values (1, 'alice'), (2, 'bob'), (3, 'carol')");
             }
             final var conn = ddl.getConnection();
-
-            // --- attempt 1: CREATE before @body_var is set → fails at normalization time ---
             conn.setAutoCommit(false);
             try (var stmt = conn.createStatement()) {
-                RelationalAssertions.assertThrowsSqlException(
-                        () -> stmt.execute("create temporary function find_by_body_var() on commit drop function " +
-                                "as select pk, name from tvfbody where name = @body_var"))
-                        .hasErrorCode(ErrorCode.UNDEFINED_PARAMETER);
-            }
-            conn.rollback();
-
-            // --- attempt 2: set @body_var BEFORE creating the function → CREATE succeeds ---
-            conn.unwrap(EmbeddedRelationalConnection.class).createNewTransaction();
-            conn.setAutoCommit(false);
-            try (var stmt = conn.createStatement()) {
-                stmt.execute("set local body_var = 'alice'");
+                // CREATE succeeds even though @body_var is not set yet
                 stmt.execute("create temporary function find_by_body_var() on commit drop function " +
                         "as select pk, name from tvfbody where name = @body_var");
 
-                // first call: @body_var = 'alice' → returns only alice
+                // calling before @body_var is set → UNDEFINED_PARAMETER at invocation time
+                RelationalAssertions.assertThrowsSqlException(
+                        () -> stmt.executeQuery("select pk, name from find_by_body_var()"))
+                        .hasErrorCode(ErrorCode.UNDEFINED_PARAMETER);
+
+                // set @body_var = 'alice' → first call returns alice
+                stmt.execute("set local body_var = 'alice'");
                 try (var rs = stmt.executeQuery("select pk, name from find_by_body_var()")) {
                     ResultSetAssert.assertThat(rs).hasNextRow().isRowExactly(1L, "alice").hasNoNextRow();
                 }
@@ -553,6 +547,48 @@ public class LocalVariableTests {
                             .hasNextRow().isRowExactly(2L)
                             .hasNextRow().isRowExactly(3L)
                             .hasNoNextRow();
+                }
+            }
+            conn.rollback();
+        }
+    }
+
+    @Test
+    void variableValueCapturedInContinuation() throws Exception {
+        // Verifies that the value bound to a local variable at the time a query is first executed
+        // is captured in the continuation, just like a bound prepared-statement parameter.
+        // Changing the variable after the first page is fetched must NOT affect the continuation.
+        final String schemaTemplate = "create table conttbl(pk bigint, name string, primary key(pk))";
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/LV")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            try (var stmt = ddl.setSchemaAndGetConnection().createStatement()) {
+                stmt.executeUpdate("insert into conttbl values (1, 'alice'), (2, 'bob'), (3, 'carol'), (4, 'dave'), (5, 'eve')");
+            }
+            final var conn = ddl.getConnection();
+            conn.setAutoCommit(false);
+            try (var stmt = conn.createStatement()) {
+                // Filter: pk >= @min_pk  (= 2 → rows 2,3,4,5)
+                stmt.execute("set local min_pk = 2");
+                stmt.setMaxRows(2);
+                // First page: rows 2 and 3
+                final byte[] continuationBytes;
+                try (var rs = stmt.executeQuery("select pk, name from conttbl where pk >= @min_pk")) {
+                    ResultSetAssert.assertThat(rs)
+                            .hasNextRow().isRowExactly(2L, "bob")
+                            .hasNextRow().isRowExactly(3L, "carol")
+                            .hasNoNextRow();
+                    continuationBytes = rs.getContinuation().serialize();
+                }
+                // Change @min_pk to a different value — the continuation must ignore this
+                stmt.execute("set local min_pk = 99");
+                stmt.setMaxRows(10);
+                // Resume via continuation: should still see rows 4 and 5 (original binding min_pk=2)
+                final String encoded = Base64.getEncoder().encodeToString(continuationBytes);
+                try (var rs = stmt.executeQuery("EXECUTE CONTINUATION B64'" + encoded + "'")) {
+                    ResultSetAssert.assertThat(rs)
+                            .hasNextRow().isRowExactly(4L, "dave")
+                            .hasNextRow().isRowExactly(5L, "eve")
+                            .hasNoNextRow();
+                    Assertions.assertTrue(rs.getContinuation().atEnd(), "continuation should be at end after last row");
                 }
             }
             conn.rollback();

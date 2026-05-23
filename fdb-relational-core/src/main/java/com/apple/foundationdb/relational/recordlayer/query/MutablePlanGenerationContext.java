@@ -69,7 +69,7 @@ import static com.apple.foundationdb.relational.api.exceptions.ErrorCode.DATATYP
 @API(API.Status.EXPERIMENTAL)
 public class MutablePlanGenerationContext implements QueryExecutionContext {
     @Nonnull
-    private final PreparedParams preparedParams;
+    private PreparedParams preparedParams;
 
     @Nonnull
     private final Literals.Builder literalsBuilder;
@@ -289,6 +289,11 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
         return preparedParams;
     }
 
+    public void setPreparedParams(@Nonnull PreparedParams newParams) {
+        this.preparedParams = newParams;
+    }
+
+
     public void startArrayLiteral() {
         literalsBuilder.startArrayLiteral();
     }
@@ -467,6 +472,14 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
         final var value = preparedParams.namedParamValue(param);
         //TODO type should probably be Type.any() instead of null
         return processPreparedStatementParameter(value, getObjectType(value), null, param, tokenIndex);
+    }
+
+    @Nonnull
+    public Value processNamedPreparedParamDeferred(@Nonnull String param, int tokenIndex) {
+        // With SELECT-time PreparedParams injected via BaseVisitor.TVFUNCTION_COMPILATION_PARAMS,
+        // the variable will be present when the plan is compiled. If it is still missing here,
+        // normalization already threw UNDEFINED_PARAMETER, so we should not reach this point.
+        return processNamedPreparedParam(param, tokenIndex);
     }
 
     @Nonnull

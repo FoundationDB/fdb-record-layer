@@ -523,7 +523,22 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
         if (!isScalar && isTemporary) {
             // delay the compilation of table-valued temporary functions for later
             return builder
-                    .withUserDefinedFunctionProvider(ignore -> visitSqlInvokedFunction(functionSpecCtx, bodyCtx, isTemporary))
+                    .withUserDefinedFunctionProvider(ignore -> {
+                        // Use SELECT-time PreparedParams (set by resolveTableValuedFunction via thread-local)
+                        // so that local variable refs inside the body resolve to their actual types,
+                        // not to the empty CREATE-time params.
+                        final var selectTimeParams = BaseVisitor.TVFUNCTION_COMPILATION_PARAMS.get();
+                        if (selectTimeParams != null) {
+                            final var prev = getDelegate().getPlanGenerationContext().getPreparedParams();
+                            getDelegate().getPlanGenerationContext().setPreparedParams(selectTimeParams);
+                            try {
+                                return visitSqlInvokedFunction(functionSpecCtx, bodyCtx, isTemporary);
+                            } finally {
+                                getDelegate().getPlanGenerationContext().setPreparedParams(prev);
+                            }
+                        }
+                        return visitSqlInvokedFunction(functionSpecCtx, bodyCtx, isTemporary);
+                    })
                     .withSerializableFunction(new RawSqlFunction(functionName, functionDefinition))
                     .build();
         } else {
@@ -682,7 +697,12 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
             parametersCorrelation.ifPresent(quantifier -> fragment.addOperator(LogicalOperator.newUnnamedOperator(
                     Expressions.fromQuantifier(quantifier), quantifier)));
             if (isTemporary) {
-                body = Assert.castUnchecked(visit(bodyCtx), LogicalOperator.class);
+                getDelegate().setDeferMissingLocalVars(true);
+                try {
+                    body = Assert.castUnchecked(visit(bodyCtx), LogicalOperator.class);
+                } finally {
+                    getDelegate().setDeferMissingLocalVars(false);
+                }
             } else {
                 body = getDelegate().getPlanGenerationContext().withDisabledLiteralProcessing(() ->
                         Assert.castUnchecked(visit(bodyCtx), LogicalOperator.class));
