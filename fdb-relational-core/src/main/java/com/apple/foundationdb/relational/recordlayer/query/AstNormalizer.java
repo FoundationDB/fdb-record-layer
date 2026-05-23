@@ -172,6 +172,11 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
         this.deferMissingVarsInFunctionBodies = deferMissingVarsInFunctionBodies;
     }
 
+    private AstNormalizer(@Nonnull final PreparedParams preparedStatementParameters, boolean caseSensitive,
+                          @Nonnull final PlanHashable.PlanHashMode currentPlanHashMode, boolean forExplain) {
+        this(preparedStatementParameters, caseSensitive, currentPlanHashMode, forExplain, false);
+    }
+
     @Override
     public Void visitChildren(@Nonnull RuleNode node) {
         if (literalNodes.containsKey(node.getClass())) {
@@ -614,7 +619,8 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
                         context.getPlannerConfiguration(),
                         isCaseSensitive,
                         currentPlanHashMode,
-                        query
+                        query,
+                        context.getLocalVariables()
                 ));
     }
 
@@ -628,6 +634,20 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
                                                    boolean caseSensitive,
                                                    @Nonnull final PlanHashable.PlanHashMode currentPlanHashMode,
                                                    @Nonnull final String query) throws RelationalException {
+        return normalizeAst(schemaTemplate, parseTreeInfo, preparedStatementParameters, userVersion,
+                plannerConfiguration, caseSensitive, currentPlanHashMode, query, Map.of());
+    }
+
+    @Nonnull
+    private static NormalizationResult normalizeAst(@Nonnull final SchemaTemplate schemaTemplate,
+                                                    @Nonnull final ParseTreeInfoImpl parseTreeInfo,
+                                                    @Nonnull final PreparedParams preparedStatementParameters,
+                                                    int userVersion,
+                                                    @Nonnull final PlannerConfiguration plannerConfiguration,
+                                                    boolean caseSensitive,
+                                                    @Nonnull final PlanHashable.PlanHashMode currentPlanHashMode,
+                                                    @Nonnull final String query,
+                                                    @Nonnull final Map<String, Object> localVariables) throws RelationalException {
         final var astNormalizer = new AstNormalizer(preparedStatementParameters, caseSensitive, currentPlanHashMode, parseTreeInfo.getQueryType() == ParseTreeInfo.QueryType.DESCRIBE_QUERY, true);
         astNormalizer.visit(parseTreeInfo.getRootContext());
         final var recordLayerSchemaTemplate = Assert.castUnchecked(schemaTemplate, RecordLayerSchemaTemplate.class);
@@ -650,9 +670,14 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
                     continue;
                 }
                 final var recordLayerRoutine = (RecordLayerInvokedRoutine)temporaryRoutine;
+                // For the function body cache-key normalization: use the CREATE-time ?param bindings from
+                // the routine itself, merged with SELECT-time @var bindings. This preserves the function
+                // body’s own prepared-statement semantics while allowing local variables to resolve.
+                final var bodyParams = PreparedParams.withAdditionalNamed(
+                        recordLayerRoutine.getPreparedParams(), localVariables);
                 final var functionAstResult = normalizeFunctionBody(schemaTemplate,
                         QueryParser.parse(recordLayerRoutine.getDescription()),
-                        preparedStatementParameters,
+                        bodyParams,
                         userVersion,
                         plannerConfiguration,
                         caseSensitive,
