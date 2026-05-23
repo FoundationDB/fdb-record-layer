@@ -300,6 +300,16 @@ public class DelegatingVisitor<D extends TypedVisitor> implements TypedVisitor {
     }
 
     @Override
+    public Object visitViewDefinition(final RelationalParser.ViewDefinitionContext ctx) {
+        return getDelegate().visitViewDefinition(ctx);
+    }
+
+    @Override
+    public CompiledSqlFunction visitTempSqlInvokedFunction(final RelationalParser.TempSqlInvokedFunctionContext ctx) {
+        return getDelegate().visitTempSqlInvokedFunction(ctx);
+    }
+
+    @Override
     public ProceduralPlan visitSetLocalVariable(final RelationalParser.SetLocalVariableContext ctx) {
         return getDelegate().visitSetLocalVariable(ctx);
     }
@@ -312,16 +322,6 @@ public class DelegatingVisitor<D extends TypedVisitor> implements TypedVisitor {
     @Override
     public Object visitVariableRefAtom(final RelationalParser.VariableRefAtomContext ctx) {
         return getDelegate().visitVariableRefAtom(ctx);
-    }
-
-    @Override
-    public Object visitViewDefinition(final RelationalParser.ViewDefinitionContext ctx) {
-        return getDelegate().visitViewDefinition(ctx);
-    }
-
-    @Override
-    public CompiledSqlFunction visitTempSqlInvokedFunction(final RelationalParser.TempSqlInvokedFunctionContext ctx) {
-        return getDelegate().visitTempSqlInvokedFunction(ctx);
     }
 
     @Override

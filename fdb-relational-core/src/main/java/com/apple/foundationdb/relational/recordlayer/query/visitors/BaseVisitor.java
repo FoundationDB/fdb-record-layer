@@ -474,11 +474,6 @@ public class BaseVisitor extends RelationalParserBaseVisitor<Object> implements 
     }
 
     @Override
-    public Expression visitVariableRef(final RelationalParser.VariableRefContext ctx) {
-        return expressionVisitor.visitVariableRef(ctx);
-    }
-
-    @Override
     public Expression visitVariableRefAtom(final RelationalParser.VariableRefAtomContext ctx) {
         return expressionVisitor.visitVariableRefAtom(ctx);
     }

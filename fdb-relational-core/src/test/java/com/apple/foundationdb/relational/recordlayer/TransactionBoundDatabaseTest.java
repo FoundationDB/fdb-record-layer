@@ -536,6 +536,29 @@ public class TransactionBoundDatabaseTest {
         }
     }
 
+    @Test
+    void localVariableDelegationInRecordStoreAndRecordContextTransaction() throws RelationalException, SQLException {
+        final var embeddedConnection = connRule.getUnderlyingEmbeddedConnection();
+        try (FDBRecordContext context = createNewContext(embeddedConnection)) {
+            try (Transaction transaction = createRecordStoreAndRecordContextTransaction(embeddedConnection, context)) {
+                Assertions.assertThat(transaction.getLocalVariables()).isEmpty();
+
+                transaction.setLocalVariable("foo", "bar");
+                transaction.setLocalVariable("count", 42L);
+
+                final var vars = transaction.getLocalVariables();
+                Assertions.assertThat(vars).containsEntry("foo", "bar");
+                Assertions.assertThat(vars).containsEntry("count", 42L);
+                Assertions.assertThat(vars).hasSize(2);
+
+                transaction.setLocalVariable("foo", "updated");
+                Assertions.assertThat(transaction.getLocalVariables()).containsEntry("foo", "updated");
+
+                context.commit();
+            }
+        }
+    }
+
     private Transaction createRecordStoreAndRecordContextTransaction(@Nonnull final EmbeddedRelationalConnection embeddedConnection,
                                                                      @Nonnull final FDBRecordContext context) throws SQLException, RelationalException {
         final FDBRecordStore store = getStore(embeddedConnection);
