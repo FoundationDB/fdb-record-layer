@@ -21,6 +21,7 @@
 package com.apple.foundationdb.relational.recordlayer.query.visitors;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
 import com.apple.foundationdb.record.query.plan.cascades.UserDefinedFunction;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.CompatibleTypeEvolutionPredicate;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
@@ -310,16 +311,19 @@ public class DelegatingVisitor<D extends TypedVisitor> implements TypedVisitor {
     }
 
     @Override
+    @ExcludeFromJacocoGeneratedReport
     public ProceduralPlan visitSetLocalVariable(final RelationalParser.SetLocalVariableContext ctx) {
         return getDelegate().visitSetLocalVariable(ctx);
     }
 
     @Override
+    @ExcludeFromJacocoGeneratedReport
     public Object visitVariableRef(final RelationalParser.VariableRefContext ctx) {
         return getDelegate().visitVariableRef(ctx);
     }
 
     @Override
+    @ExcludeFromJacocoGeneratedReport
     public Object visitVariableRefAtom(final RelationalParser.VariableRefAtomContext ctx) {
         return getDelegate().visitVariableRefAtom(ctx);
     }
