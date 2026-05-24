@@ -84,6 +84,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryScoreForRankPla
 import com.apple.foundationdb.record.query.plan.plans.RecordQuerySelectorPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQuerySetPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryStreamingAggregationPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryStoreBindingPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryTableFunctionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryTextIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryTypeFilterPlan;
@@ -571,6 +572,12 @@ public class DerivationsProperty implements ExpressionProperty<DerivationsProper
                 resultValuesBuilder.add(replacedChildResultValueOptional.get());
             }
             return new Derivations(resultValuesBuilder.build(), childDerivations.getLocalValues());
+        }
+
+        @Nonnull
+        @Override
+        public Derivations visitStoreBindingPlan(@Nonnull final RecordQueryStoreBindingPlan storeBindingPlan) {
+            return visit(storeBindingPlan.getChild());
         }
 
         @Nonnull
