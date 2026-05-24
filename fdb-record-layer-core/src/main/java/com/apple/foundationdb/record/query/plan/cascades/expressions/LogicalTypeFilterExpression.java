@@ -35,6 +35,7 @@ import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
+import com.apple.foundationdb.record.query.plan.cascades.SchemaIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.ValueEquivalence;
 import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
 import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
@@ -84,13 +85,17 @@ public class LogicalTypeFilterExpression extends AbstractRelationalExpressionWit
     private final Quantifier innerQuantifier;
     @Nonnull
     private final Type resultType;
+    @Nonnull
+    private final SchemaIdentifier schemaId;
 
     private LogicalTypeFilterExpression(@Nonnull QueryPredicate recordTypePredicate, @Nonnull Set<String> recordTypes,
-                                        @Nonnull Quantifier innerQuantifier, @Nonnull Type resultType) {
+                                        @Nonnull Quantifier innerQuantifier, @Nonnull Type resultType,
+                                        @Nonnull SchemaIdentifier schemaId) {
         this.recordTypePredicate = recordTypePredicate;
         this.recordTypes = ImmutableSet.copyOf(recordTypes);
         this.innerQuantifier = innerQuantifier;
         this.resultType = resultType;
+        this.schemaId = schemaId;
     }
 
     @Nonnull
@@ -116,6 +121,11 @@ public class LogicalTypeFilterExpression extends AbstractRelationalExpressionWit
         return recordTypePredicate;
     }
 
+    @Nonnull
+    public SchemaIdentifier getSchemaId() {
+        return schemaId;
+    }
+
     @Override
     public int getRelationalChildCount() {
         return 1;
@@ -139,7 +149,7 @@ public class LogicalTypeFilterExpression extends AbstractRelationalExpressionWit
                                                              @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
         final var translatedPredicates = recordTypePredicate.translateCorrelations(translationMap, shouldSimplifyValues);
         return new LogicalTypeFilterExpression(translatedPredicates, getRecordTypes(), Iterables.getOnlyElement(translatedQuantifiers),
-                resultType);
+                resultType, schemaId);
     }
 
     @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
@@ -438,6 +448,15 @@ public class LogicalTypeFilterExpression extends AbstractRelationalExpressionWit
                                                                 @Nonnull final Quantifier innerQuantifier,
                                                                 @Nonnull final Type resultType,
                                                                 @Nullable final CorrelationIdentifier recordTypeKeyParameterAlias) {
+        return forMatchCandidate(recordTypes, innerQuantifier, resultType, recordTypeKeyParameterAlias, SchemaIdentifier.current());
+    }
+
+    @Nonnull
+    public static LogicalTypeFilterExpression forMatchCandidate(@Nonnull final Set<String> recordTypes,
+                                                                @Nonnull final Quantifier innerQuantifier,
+                                                                @Nonnull final Type resultType,
+                                                                @Nullable final CorrelationIdentifier recordTypeKeyParameterAlias,
+                                                                @Nonnull final SchemaIdentifier schemaId) {
         final var value = new RecordTypeValue(QuantifiedObjectValue.of(innerQuantifier));
         final var rangeConstraints = recordTypeNamesToRangeConstraints(recordTypes);
 
@@ -452,7 +471,7 @@ public class LogicalTypeFilterExpression extends AbstractRelationalExpressionWit
             predicate = PredicateWithValueAndRanges.ofRanges(value, rangeConstraints);
         }
 
-        return new LogicalTypeFilterExpression(predicate, recordTypes, innerQuantifier, resultType);
+        return new LogicalTypeFilterExpression(predicate, recordTypes, innerQuantifier, resultType, schemaId);
     }
 
     /**
@@ -467,11 +486,19 @@ public class LogicalTypeFilterExpression extends AbstractRelationalExpressionWit
     public static LogicalTypeFilterExpression of(@Nonnull final Set<String> recordTypes,
                                                  @Nonnull final Quantifier innerQuantifier,
                                                  @Nonnull final Type resultType) {
+        return of(recordTypes, innerQuantifier, resultType, SchemaIdentifier.current());
+    }
+
+    @Nonnull
+    public static LogicalTypeFilterExpression of(@Nonnull final Set<String> recordTypes,
+                                                 @Nonnull final Quantifier innerQuantifier,
+                                                 @Nonnull final Type resultType,
+                                                 @Nonnull final SchemaIdentifier schemaId) {
         final var value = new RecordTypeValue(QuantifiedObjectValue.of(innerQuantifier));
         final var rangeConstraints = recordTypeNamesToRangeConstraints(recordTypes);
 
         final var recordTypePredicate = PredicateWithValueAndRanges.ofRanges(value, rangeConstraints);
-        return new LogicalTypeFilterExpression(recordTypePredicate, recordTypes, innerQuantifier, resultType);
+        return new LogicalTypeFilterExpression(recordTypePredicate, recordTypes, innerQuantifier, resultType, schemaId);
     }
 
     @Nonnull
