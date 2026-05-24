@@ -60,6 +60,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryPredicatesFilte
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryRangePlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryScoreForRankPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryStoreBindingPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQuerySelectorPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryStreamingAggregationPlan;
 import com.apple.foundationdb.record.query.plan.plans.TempTableScanPlan;
@@ -311,6 +312,12 @@ public class StoredRecordProperty implements ExpressionProperty<Boolean> {
         @Override
         public Boolean visitTypeFilterPlan(@Nonnull final RecordQueryTypeFilterPlan typeFilterPlan) {
             return storedRecordsFromSingleChild(typeFilterPlan);
+        }
+
+        @Nonnull
+        @Override
+        public Boolean visitStoreBindingPlan(@Nonnull final RecordQueryStoreBindingPlan storeBindingPlan) {
+            return visit(storeBindingPlan.getChild());
         }
 
         @Nonnull
