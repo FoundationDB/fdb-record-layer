@@ -31,6 +31,7 @@ import com.apple.foundationdb.record.provider.foundationdb.IndexMatchCandidateRe
 import com.apple.foundationdb.record.query.IndexQueryabilityFilter;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
+import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 
@@ -39,6 +40,7 @@ import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -179,6 +181,61 @@ public class MetaDataPlanContext implements PlanContext {
             return new MetaDataPlanContext(plannerConfiguration, ImmutableSet.of());
         }
 
+        return new MetaDataPlanContext(plannerConfiguration,
+                buildMatchCandidates(metaData, recordStoreState, matchCandidateRegistry,
+                        queriedRecordTypeNames, allowedIndexesOptional, indexQueryabilityFilter));
+    }
+
+    /**
+     * Build a plan context pooling match candidates from the primary schema and all additional schemas.
+     * Used when a query references tables from more than one schema.
+     *
+     * @param plannerConfiguration planner configuration
+     * @param metaData primary schema metadata
+     * @param recordStoreState primary schema store state
+     * @param matchCandidateRegistry registry for match candidates
+     * @param rootReference root reference of the query
+     * @param allowedIndexesOptional optional set of allowed index names
+     * @param indexQueryabilityFilter filter for queryable indexes
+     * @param additionalSchemas map from secondary schema identifier to (metadata, store state) pair
+     * @return a plan context with match candidates from all schemas
+     */
+    public static PlanContext forRootReferenceWithAdditionalSchemas(
+            @Nonnull final RecordQueryPlannerConfiguration plannerConfiguration,
+            @Nonnull final RecordMetaData metaData,
+            @Nonnull final RecordStoreState recordStoreState,
+            @Nonnull final IndexMatchCandidateRegistry matchCandidateRegistry,
+            @Nonnull final Reference rootReference,
+            @Nonnull final Optional<Collection<String>> allowedIndexesOptional,
+            @Nonnull final IndexQueryabilityFilter indexQueryabilityFilter,
+            @Nonnull final Map<SchemaIdentifier, NonnullPair<RecordMetaData, RecordStoreState>> additionalSchemas) {
+        final var queriedRecordTypeNames = recordTypes().evaluate(rootReference);
+        final ImmutableSet.Builder<MatchCandidate> allCandidates = ImmutableSet.builder();
+
+        if (!queriedRecordTypeNames.isEmpty()) {
+            allCandidates.addAll(buildMatchCandidates(metaData, recordStoreState, matchCandidateRegistry,
+                    queriedRecordTypeNames, allowedIndexesOptional, indexQueryabilityFilter));
+        }
+
+        for (final NonnullPair<RecordMetaData, RecordStoreState> schemaEntry : additionalSchemas.values()) {
+            final RecordMetaData secondaryMetaData = schemaEntry.getLeft();
+            final RecordStoreState secondaryState = schemaEntry.getRight();
+            final Set<String> allTypes = secondaryMetaData.getRecordTypes().keySet();
+            allCandidates.addAll(buildMatchCandidates(secondaryMetaData, secondaryState, matchCandidateRegistry,
+                    allTypes, allowedIndexesOptional, indexQueryabilityFilter));
+        }
+
+        return new MetaDataPlanContext(plannerConfiguration, allCandidates.build());
+    }
+
+    @Nonnull
+    private static ImmutableSet<MatchCandidate> buildMatchCandidates(
+            @Nonnull final RecordMetaData metaData,
+            @Nonnull final RecordStoreState recordStoreState,
+            @Nonnull final IndexMatchCandidateRegistry matchCandidateRegistry,
+            @Nonnull final Set<String> queriedRecordTypeNames,
+            @Nonnull final Optional<Collection<String>> allowedIndexesOptional,
+            @Nonnull final IndexQueryabilityFilter indexQueryabilityFilter) {
         final var queriedRecordTypes =
                 queriedRecordTypeNames.stream().map(metaData::getRecordType).collect(Collectors.toList());
         final var indexList = Lists.<Index>newArrayList();
@@ -218,6 +275,6 @@ public class MetaDataPlanContext implements PlanContext {
                     .ifPresent(matchCandidatesBuilder::add);
         }
 
-        return new MetaDataPlanContext(plannerConfiguration, matchCandidatesBuilder.build());
+        return matchCandidatesBuilder.build();
     }
 }
