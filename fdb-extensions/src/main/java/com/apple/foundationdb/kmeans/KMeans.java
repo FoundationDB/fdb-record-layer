@@ -1,5 +1,5 @@
 /*
- * BoundedKMeans.java
+ * KMeans.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -48,8 +48,8 @@ import java.util.SplittableRandom;
  * <p>
  * Soft size balancing is optional.
  */
-public final class BoundedKMeans {
-    private BoundedKMeans() {
+public final class KMeans {
+    private KMeans() {
         // nothing
     }
 
@@ -111,39 +111,14 @@ public final class BoundedKMeans {
                     shuffleInPlace(random, order);
                 }
 
-                int changed = 0;
-
                 //
                 // Projected sizes updated online during assignment to implement size bias.
                 // If balancing is disabled, this behaves like normal clusterSizes accumulation.
                 //
                 final int[] projected = new int[k];
 
-                // assignment step
-                for (int t = 0; t < n; t++) {
-                    final int i = order[t];
-                    final RealVector vector = getVector(vectorLens, vectors, i);
-
-                    int bestC = 0;
-                    double bestScore = score(metricAdapter, vector, 0, centroids, projected, targetSize,
-                            lambda, sizePenalty);
-
-                    for (int c = 1; c < k; c++) {
-                        final double s = score(metricAdapter, vector, c, centroids, projected, targetSize,
-                                lambda, sizePenalty);
-                        if (s < bestScore) {
-                            bestScore = s;
-                            bestC = c;
-                        }
-                    }
-
-                    if (assignment[i] != bestC) {
-                        assignment[i] = bestC;
-                        changed++;
-                    }
-
-                    projected[bestC]++; // commit this vector to the projected size
-                }
+                final int changed = assignmentStep(metricAdapter, vectorLens, vectors, centroids,
+                        k, order, assignment, projected, targetSize, lambda, sizePenalty);
 
                 // Use projected sizes as current sizes.
                 System.arraycopy(projected, 0, clusterSizes, 0, k);
@@ -185,6 +160,23 @@ public final class BoundedKMeans {
 
                 centroids = newCentroids;
             }
+
+            //
+            // Final assignment pass. The main loop exits either via convergence
+            // (changed == 0, in which case assignment is already consistent with centroids) or
+            // via maxIterations (in which case centroids was just updated and assignment is one
+            // step behind). Run one more assignment step against the final centroids using the
+            // same scoring as the loop, so the returned result is self-consistent: when
+            // lambda == 0 this gives geometric local optimality; when lambda > 0 the size bias
+            // is preserved with the same order-dependent semantics as the loop's iterations.
+            //
+            if (shuffleEachIteration) {
+                shuffleInPlace(random, order);
+            }
+            final int[] finalProjected = new int[k];
+            assignmentStep(metricAdapter, vectorLens, vectors, centroids, k,
+                    order, assignment, finalProjected, targetSize, lambda, sizePenalty);
+            System.arraycopy(finalProjected, 0, clusterSizes, 0, k);
 
             // objective: sum of individual objective per-vector contributions, excluding any size penalty,
             // so restarts are compared on the geometric objective alone.
@@ -233,6 +225,60 @@ public final class BoundedKMeans {
 
         final int proj = projectedSizes[c] + 1;
         return objective + lambda * sizePenalty.penalty(proj, targetSize);
+    }
+
+    /**
+     * One assignment-step pass over {@code vectors} in the order specified by {@code order}.
+     * <p>
+     * For each vector this assigns it to the cluster minimizing
+     * {@link #score(MetricAdapter, RealVector, int, List, int[], int, double, SizePenalty)},
+     * accumulating into {@code projected} as we go (so the size-bias is applied online with the
+     * same order-dependent semantics as the main loop).
+     *
+     * @param assignment the existing per-vector assignment, updated in place; an entry of
+     *        {@code -1} (the initial value) is treated as different from any valid cluster index
+     * @param projected the running projected sizes; must be all-zero on entry and is incremented
+     *        as each vector is assigned
+     * @return the number of vectors whose assignment differs from its prior value in
+     *         {@code assignment}
+     */
+    private static <V> int assignmentStep(@Nonnull final MetricAdapter metricAdapter,
+                                          @Nonnull final Lens<V, RealVector> vectorLens,
+                                          @Nonnull final List<V> vectors,
+                                          @Nonnull final List<MutableDoubleRealVector> centroids,
+                                          final int k,
+                                          @Nonnull final int[] order,
+                                          @Nonnull final int[] assignment,
+                                          @Nonnull final int[] projected,
+                                          final int targetSize,
+                                          final double lambda,
+                                          @Nullable final SizePenalty sizePenalty) {
+        int changed = 0;
+        for (int t = 0; t < order.length; t++) {
+            final int i = order[t];
+            final RealVector vector = getVector(vectorLens, vectors, i);
+
+            int bestC = 0;
+            double bestScore = score(metricAdapter, vector, 0, centroids, projected, targetSize,
+                    lambda, sizePenalty);
+
+            for (int c = 1; c < k; c++) {
+                final double s = score(metricAdapter, vector, c, centroids, projected, targetSize,
+                        lambda, sizePenalty);
+                if (s < bestScore) {
+                    bestScore = s;
+                    bestC = c;
+                }
+            }
+
+            if (assignment[i] != bestC) {
+                assignment[i] = bestC;
+                changed++;
+            }
+
+            projected[bestC]++; // commit this vector to the projected size
+        }
+        return changed;
     }
 
     /**

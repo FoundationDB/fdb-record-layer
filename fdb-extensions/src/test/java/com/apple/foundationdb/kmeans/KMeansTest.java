@@ -1,5 +1,5 @@
 /*
- * BoundedKMeansTest.java
+ * KMeansTest.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.kmeans;
 
-import com.apple.foundationdb.async.common.RandomHelpers;
 import com.apple.foundationdb.linear.DoubleRealVector;
 import com.apple.foundationdb.linear.Estimator;
 import com.apple.foundationdb.linear.Metric;
@@ -31,6 +30,7 @@ import com.apple.foundationdb.util.Lens;
 import com.apple.test.RandomSeedSource;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.slf4j.Logger;
@@ -49,11 +49,22 @@ import java.util.SplittableRandom;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-class BoundedKMeansTest {
-    private static final Logger logger = LoggerFactory.getLogger(BoundedKMeansTest.class);
+class KMeansTest {
+    private static final Logger logger = LoggerFactory.getLogger(KMeansTest.class);
+
+    /** Number of vectors sampled from the SIFT-small base dataset for property tests. */
+    private static final int SIFT_SAMPLE_SIZE = 2000;
+
+    /** Cached SIFT-small base dataset. Loaded once per test class to amortize file I/O. */
+    private static List<DoubleRealVector> siftSmallBase;
 
     @TempDir
     Path tempDir;
+
+    @BeforeAll
+    static void loadSiftSmall() throws IOException {
+        siftSmallBase = KMeansTestHelpers.loadSiftSmall();
+    }
 
     /**
      * Generates two Gaussian blobs in 3D, runs k=2, and checks.
@@ -75,28 +86,23 @@ class BoundedKMeansTest {
 
         final List<RealVector> vectors = Lists.newArrayListWithCapacity(2 * nPer);
         for (int i = 0; i < nPer; i++) {
-            vectors.add(gaussianND(rnd, m0, sigma));
+            vectors.add(KMeansTestHelpers.gaussianND(rnd, m0, sigma));
         }
         for (int i = 0; i < nPer; i++) {
-            vectors.add(gaussianND(rnd, m1, sigma));
+            vectors.add(KMeansTestHelpers.gaussianND(rnd, m1, sigma));
         }
 
         Collections.shuffle(vectors, new Random(rnd.nextLong()));
 
         final Estimator estimator = Estimator.ofMetric(Metric.EUCLIDEAN_METRIC);
-        final BoundedKMeans.Result<RealVector> res = BoundedKMeans.fit(
+        final KMeans.Result<RealVector> res = KMeans.fit(
                 rnd, estimator,
                 Lens.identity(), Lens.identity(),
                 vectors,
                 2, 15, 3, 0.0,
                 null, true);
 
-        assertThat(res.getAssignment().length).isEqualTo(vectors.size());
-        assertThat(res.getClusterCentroids().size()).isEqualTo(2);
-        assertThat(res.getClusterSizes().length).isEqualTo(2);
-
-        assertThat(res.getClusterSizes()[0]).isGreaterThan(0);
-        assertThat(res.getClusterSizes()[1]).isGreaterThan(0);
+        KMeansTestHelpers.assertKMeansInvariants(res, vectors, 2, estimator, 0.0d);
 
         final RealVector c0 = res.getClusterCentroids().get(0);
         final RealVector c1 = res.getClusterCentroids().get(1);
@@ -114,10 +120,6 @@ class BoundedKMeansTest {
 
         final double baseline = baselineObjectiveSameCentroidTwice(vectors);
         assertThat(res.getObjective()).isLessThan(baseline * 0.65);
-
-//        System.out.println(tempDir);
-//        dumpVectors(tempDir, "vectors", vectors);
-//        dumpVectors(tempDir, "centroids", res.getClusterCentroids());
     }
 
     @ParameterizedTest
@@ -133,32 +135,23 @@ class BoundedKMeansTest {
 
         final List<RealVector> vectors = Lists.newArrayListWithCapacity(nPer);
         for (int i = 0; i < nPer; i++) {
-            vectors.add(gaussianND(rnd, m0, sigma));
+            vectors.add(KMeansTestHelpers.gaussianND(rnd, m0, sigma));
         }
 
         Collections.shuffle(vectors, new Random(rnd.nextLong()));
 
         final Estimator estimator = Estimator.ofMetric(Metric.EUCLIDEAN_METRIC);
-        final BoundedKMeans.Result<RealVector> res = BoundedKMeans.fit(
+        final KMeans.Result<RealVector> res = KMeans.fit(
                 rnd, estimator,
                 Lens.identity(), Lens.identity(),
                 vectors,
                 2, 15, 3, 0.0,
                 null, true);
 
-        assertThat(res.getAssignment().length).isEqualTo(vectors.size());
-        assertThat(res.getClusterCentroids().size()).isEqualTo(2);
-        assertThat(res.getClusterSizes().length).isEqualTo(2);
+        KMeansTestHelpers.assertKMeansInvariants(res, vectors, 2, estimator, 0.0d);
 
         assertThat(res.getClusterSizes()[0]).isGreaterThan(0);
         assertThat(res.getClusterSizes()[1]).isGreaterThan(0);
-
-        final double baseline = baselineObjectiveSameCentroidTwice(vectors);
-        // assertThat(res.getObjective()).isLessThan(baseline * 0.65);
-
-        System.out.println(tempDir);
-        dumpVectors(tempDir, "vectors", vectors);
-        dumpVectors(tempDir, "centroids", res.getClusterCentroids());
     }
 
     /**
@@ -184,23 +177,23 @@ class BoundedKMeansTest {
         final List<RealVector> vectors = Lists.newArrayListWithCapacity(3 * nPer);
         for (final RealVector m : means) {
             for (int i = 0; i < nPer; i++) {
-                vectors.add(gaussianND(rnd, m, sigma));
+                vectors.add(KMeansTestHelpers.gaussianND(rnd, m, sigma));
             }
         }
         Collections.shuffle(vectors, new Random(rnd.nextLong()));
 
         final int k = 3;
+        final double lambda = 0.08d;
         final Estimator estimator = Estimator.ofMetric(Metric.EUCLIDEAN_METRIC);
-        final BoundedKMeans.Result<RealVector> res = BoundedKMeans.fit(
+        final KMeans.Result<RealVector> res = KMeans.fit(
                 rnd, estimator,
                 Lens.identity(), Lens.identity(),
                 vectors,
-                k, 20, 3, 0.08,
-                BoundedKMeans.overflowQuadraticPenalty(),
+                k, 20, 3, lambda,
+                KMeans.overflowQuadraticPenalty(),
                 true);
 
-        assertThat(res.getClusterCentroids().size()).isEqualTo(k);
-        assertThat(res.getClusterSizes().length).isEqualTo(k);
+        KMeansTestHelpers.assertKMeansInvariants(res, vectors, k, estimator, lambda);
 
         for (int c = 0; c < k; c++) {
             assertThat(res.getClusterSizes()[c]).isGreaterThan(0);
@@ -209,10 +202,6 @@ class BoundedKMeansTest {
         final int min = Arrays.stream(res.getClusterSizes()).min().orElseThrow();
         final int max = Arrays.stream(res.getClusterSizes()).max().orElseThrow();
         assertThat(max).isLessThanOrEqualTo(min * 2);
-
-        System.out.println(tempDir);
-        dumpVectors(tempDir, "vectors", vectors);
-        dumpVectors(tempDir, "centroids", res.getClusterCentroids());
     }
 
     @ParameterizedTest
@@ -235,23 +224,23 @@ class BoundedKMeansTest {
         final List<RealVector> vectors = Lists.newArrayListWithCapacity(3 * nPer);
         for (final RealVector m : means) {
             for (int i = 0; i < nPer; i++) {
-                vectors.add(gaussianND(splittableRandom, m, sigma));
+                vectors.add(KMeansTestHelpers.gaussianND(splittableRandom, m, sigma));
             }
         }
         Collections.shuffle(vectors, random);
 
         final int k = 3;
+        final double lambda = 0.08d;
         final Estimator estimator = Estimator.ofMetric(Metric.EUCLIDEAN_METRIC);
-        final BoundedKMeans.Result<RealVector> res = BoundedKMeans.fit(
+        final KMeans.Result<RealVector> res = KMeans.fit(
                 splittableRandom, estimator,
                 Lens.identity(), Lens.identity(),
                 vectors,
-                k, 20, 3, 0.08,
-                BoundedKMeans.overflowQuadraticPenalty(),
+                k, 20, 3, lambda,
+                KMeans.overflowQuadraticPenalty(),
                 true);
 
-        assertThat(res.getClusterCentroids().size()).isEqualTo(k);
-        assertThat(res.getClusterSizes().length).isEqualTo(k);
+        KMeansTestHelpers.assertKMeansInvariants(res, vectors, k, estimator, lambda);
 
         for (int c = 0; c < k; c++) {
             assertThat(res.getClusterSizes()[c]).isGreaterThan(0);
@@ -269,7 +258,6 @@ class BoundedKMeansTest {
     void twoSeparatedUnitNormalizedBlobsFindsTwoClustersCosine3D(final long seed) throws Exception {
         final SplittableRandom rnd = new SplittableRandom(seed);
 
-        // Two opposite directions on the unit sphere.
         final RealVector m0 = new DoubleRealVector(new double[] {-1.0, 0.0, 0.0}).normalize();
         final RealVector m1 = new DoubleRealVector(new double[] {+1.0, 0.0, 0.0}).normalize();
 
@@ -278,27 +266,22 @@ class BoundedKMeansTest {
 
         final List<RealVector> vectors = Lists.newArrayListWithCapacity(2 * nPer);
         for (int i = 0; i < nPer; i++) {
-            vectors.add(noisyUnitVector(rnd, m0, sigma));
+            vectors.add(KMeansTestHelpers.noisyUnitVector(rnd, m0, sigma));
         }
         for (int i = 0; i < nPer; i++) {
-            vectors.add(noisyUnitVector(rnd, m1, sigma));
+            vectors.add(KMeansTestHelpers.noisyUnitVector(rnd, m1, sigma));
         }
 
         Collections.shuffle(vectors, new Random(rnd.nextLong()));
 
         final Estimator estimator = Estimator.ofMetric(Metric.COSINE_METRIC);
-        final BoundedKMeans.Result<RealVector> res = BoundedKMeans.fit(
+        final KMeans.Result<RealVector> res = KMeans.fit(
                 rnd, estimator,
                 Lens.identity(), Lens.identity(),
                 vectors, 2, 15, 3, 0.0,
                 null, true);
 
-        assertThat(res.getAssignment().length).isEqualTo(vectors.size());
-        assertThat(res.getClusterCentroids().size()).isEqualTo(2);
-        assertThat(res.getClusterSizes().length).isEqualTo(2);
-
-        assertThat(res.getClusterSizes()[0]).isGreaterThan(0);
-        assertThat(res.getClusterSizes()[1]).isGreaterThan(0);
+        KMeansTestHelpers.assertKMeansInvariants(res, vectors, 2, estimator, 0.0d);
 
         final RealVector c0 = res.getClusterCentroids().get(0).normalize();
         final RealVector c1 = res.getClusterCentroids().get(1).normalize();
@@ -330,32 +313,22 @@ class BoundedKMeansTest {
 
         final List<RealVector> vectors = Lists.newArrayListWithCapacity(nPer);
         for (int i = 0; i < nPer; i++) {
-            vectors.add(noisyUnitVector(rnd, m0, sigma));
+            vectors.add(KMeansTestHelpers.noisyUnitVector(rnd, m0, sigma));
         }
 
         Collections.shuffle(vectors, new Random(rnd.nextLong()));
 
         final Estimator estimator = Estimator.ofMetric(Metric.COSINE_METRIC);
-        final BoundedKMeans.Result<RealVector> res = BoundedKMeans.fit(
+        final KMeans.Result<RealVector> res = KMeans.fit(
                 rnd, estimator,
                 Lens.identity(), Lens.identity(),
                 vectors, 2, 15, 3, 0.0,
                 null, true);
 
-        assertThat(res.getAssignment().length).isEqualTo(vectors.size());
-        assertThat(res.getClusterCentroids().size()).isEqualTo(2);
-        assertThat(res.getClusterSizes().length).isEqualTo(2);
+        KMeansTestHelpers.assertKMeansInvariants(res, vectors, 2, estimator, 0.0d);
 
         assertThat(res.getClusterSizes()[0]).isGreaterThan(0);
         assertThat(res.getClusterSizes()[1]).isGreaterThan(0);
-
-        final double baseline = baselineObjectiveSameCentroidTwiceNormalized(vectors, estimator);
-        // As in your Euclidean counterpart, this is mainly a smoke / sanity test.
-        // assertThat(res.getObjective()).isLessThan(baseline * 0.65d);
-
-        System.out.println(tempDir);
-        dumpVectors(tempDir, "cosine_vectors_3d", vectors);
-        dumpVectors(tempDir, "cosine_centroids_3d", res.getClusterCentroids());
     }
 
     @ParameterizedTest
@@ -375,22 +348,22 @@ class BoundedKMeansTest {
         final List<RealVector> vectors = Lists.newArrayListWithCapacity(3 * nPer);
         for (final RealVector m : means) {
             for (int i = 0; i < nPer; i++) {
-                vectors.add(noisyUnitVector(rnd, m, sigma));
+                vectors.add(KMeansTestHelpers.noisyUnitVector(rnd, m, sigma));
             }
         }
         Collections.shuffle(vectors, new Random(rnd.nextLong()));
 
         final int k = 3;
+        final double lambda = 0.08d;
         final Estimator estimator = Estimator.ofMetric(Metric.COSINE_METRIC);
-        final BoundedKMeans.Result<RealVector> res = BoundedKMeans.fit(
+        final KMeans.Result<RealVector> res = KMeans.fit(
                 rnd, estimator,
                 Lens.identity(), Lens.identity(),
-                vectors, k, 20, 3, 0.08,
-                BoundedKMeans.overflowQuadraticPenalty(),
+                vectors, k, 20, 3, lambda,
+                KMeans.overflowQuadraticPenalty(),
                 true);
 
-        assertThat(res.getClusterCentroids().size()).isEqualTo(k);
-        assertThat(res.getClusterSizes().length).isEqualTo(k);
+        KMeansTestHelpers.assertKMeansInvariants(res, vectors, k, estimator, lambda);
 
         for (int c = 0; c < k; c++) {
             assertThat(res.getClusterSizes()[c]).isGreaterThan(0);
@@ -399,10 +372,6 @@ class BoundedKMeansTest {
         final int min = Arrays.stream(res.getClusterSizes()).min().orElseThrow();
         final int max = Arrays.stream(res.getClusterSizes()).max().orElseThrow();
         assertThat(max).isLessThanOrEqualTo(min * 2);
-
-        System.out.println(tempDir);
-        dumpVectors(tempDir, "cosine_vectors_3blob_3d", vectors);
-        dumpVectors(tempDir, "cosine_centroids_3blob_3d", res.getClusterCentroids());
     }
 
     @ParameterizedTest
@@ -424,22 +393,22 @@ class BoundedKMeansTest {
         final List<RealVector> vectors = Lists.newArrayListWithCapacity(3 * nPer);
         for (final RealVector m : means) {
             for (int i = 0; i < nPer; i++) {
-                vectors.add(noisyUnitVector(splittableRandom, m, sigma));
+                vectors.add(KMeansTestHelpers.noisyUnitVector(splittableRandom, m, sigma));
             }
         }
         Collections.shuffle(vectors, random);
 
         final int k = 3;
+        final double lambda = 0.08d;
         final Estimator estimator = Estimator.ofMetric(Metric.COSINE_METRIC);
-        final BoundedKMeans.Result<RealVector> res = BoundedKMeans.fit(
+        final KMeans.Result<RealVector> res = KMeans.fit(
                 splittableRandom, estimator,
                 Lens.identity(), Lens.identity(),
-                vectors, k, 20, 3, 0.08,
-                BoundedKMeans.overflowQuadraticPenalty(),
+                vectors, k, 20, 3, lambda,
+                KMeans.overflowQuadraticPenalty(),
                 true);
 
-        assertThat(res.getClusterCentroids().size()).isEqualTo(k);
-        assertThat(res.getClusterSizes().length).isEqualTo(k);
+        KMeansTestHelpers.assertKMeansInvariants(res, vectors, k, estimator, lambda);
 
         for (int c = 0; c < k; c++) {
             assertThat(res.getClusterSizes()[c]).isGreaterThan(0);
@@ -452,27 +421,186 @@ class BoundedKMeansTest {
         logger.info("cosine cluster sizes = {}", res.getClusterSizes());
     }
 
-    @Nonnull
-    private static RealVector noisyUnitVector(@Nonnull final SplittableRandom random,
-                                              @Nonnull final RealVector meanUnitVector,
-                                              final double sigma) {
-        final RealVector perturbed = gaussianND(random, meanUnitVector, sigma);
-        return perturbed.normalize();
+    /**
+     * Property-based: sample {@value SIFT_SAMPLE_SIZE} vectors from SIFT-small, run {@code fit}
+     * across a grid of {@code k} and {@code lambda} values under the Euclidean metric, and
+     * verify the structural and (where {@code lambda == 0}) algorithmic invariants of every
+     * result.
+     */
+    @ParameterizedTest
+    @RandomSeedSource({0x0fdbL, 0x5ca1eL})
+    void siftSmallEuclideanInvariants(final long seed) {
+        final List<RealVector> sample = ImmutableList.copyOf(
+                KMeansTestHelpers.pickRandomSubset(new Random(seed), siftSmallBase, SIFT_SAMPLE_SIZE));
+        final Estimator estimator = Estimator.ofMetric(Metric.EUCLIDEAN_METRIC);
+
+        for (final int k : new int[] {2, 5, 25, 100}) {
+            for (final double lambda : new double[] {0.0d, 0.08d}) {
+                final KMeans.Result<RealVector> res = KMeans.fit(
+                        new SplittableRandom(seed),
+                        estimator,
+                        Lens.identity(), Lens.identity(),
+                        sample,
+                        k, /*maxIterations=*/30, /*maxRestarts=*/2, lambda,
+                        lambda > 0.0d ? KMeans.overflowQuadraticPenalty() : null,
+                        /*shuffleEachIteration=*/true);
+
+                logger.info("siftSmallEuclidean seed={} k={} lambda={} sse={} sizes={}",
+                        seed, k, lambda, res.getObjective(), res.getClusterSizes());
+
+                KMeansTestHelpers.assertKMeansInvariants(res, sample, k, estimator, lambda);
+            }
+        }
     }
 
-    @Nonnull
-    static RealVector gaussianND(@Nonnull final SplittableRandom random,
-                                 @Nonnull final RealVector mean,
-                                 final double sigma) {
-        final RandomHelpers.GaussianSampler sampler = new RandomHelpers.GaussianSampler(random);
-        final int d = mean.getNumDimensions();
-        final double[] v = new double[d];
-        for (int i = 0; i < d; i++) {
-            final double z = sampler.nextGaussian();
-            v[i] = mean.getComponent(i) + sigma * z;
-        }
+    /**
+     * Cosine variant of {@link #siftSmallEuclideanInvariants}: vectors are L2-normalized first so
+     * the cosine metric and the unit-norm centroid invariant make sense.
+     */
+    @ParameterizedTest
+    @RandomSeedSource({0x0fdbL, 0x5ca1eL})
+    void siftSmallCosineInvariants(final long seed) {
+        final List<RealVector> raw = ImmutableList.copyOf(
+                KMeansTestHelpers.pickRandomSubset(new Random(seed), siftSmallBase, SIFT_SAMPLE_SIZE));
+        final List<RealVector> sample = KMeansTestHelpers.normalizeAll(raw);
+        final Estimator estimator = Estimator.ofMetric(Metric.COSINE_METRIC);
 
-        return new DoubleRealVector(v);
+        for (final int k : new int[] {2, 5, 25, 100}) {
+            for (final double lambda : new double[] {0.0d, 0.08d}) {
+                final KMeans.Result<RealVector> res = KMeans.fit(
+                        new SplittableRandom(seed),
+                        estimator,
+                        Lens.identity(), Lens.identity(),
+                        sample,
+                        k, /*maxIterations=*/30, /*maxRestarts=*/2, lambda,
+                        lambda > 0.0d ? KMeans.overflowQuadraticPenalty() : null,
+                        /*shuffleEachIteration=*/true);
+
+                logger.info("siftSmallCosine seed={} k={} lambda={} obj={} sizes={}",
+                        seed, k, lambda, res.getObjective(), res.getClusterSizes());
+
+                KMeansTestHelpers.assertKMeansInvariants(res, sample, k, estimator, lambda);
+            }
+        }
+    }
+
+    /**
+     * Two runs with the same seed on the same data and parameters must produce bit-identical
+     * results: assignment, centroid coordinates, distances, and overall objective.
+     */
+    @ParameterizedTest
+    @RandomSeedSource({0x0fdbL})
+    void siftSmallDeterminism(final long seed) {
+        final List<RealVector> sample = ImmutableList.copyOf(
+                KMeansTestHelpers.pickRandomSubset(new Random(seed), siftSmallBase, SIFT_SAMPLE_SIZE));
+        final Estimator estimator = Estimator.ofMetric(Metric.EUCLIDEAN_METRIC);
+        final int k = 10;
+
+        final KMeans.Result<RealVector> a = KMeans.fit(
+                new SplittableRandom(seed), estimator,
+                Lens.identity(), Lens.identity(),
+                sample, k, 20, 2, 0.0d, null, true);
+        final KMeans.Result<RealVector> b = KMeans.fit(
+                new SplittableRandom(seed), estimator,
+                Lens.identity(), Lens.identity(),
+                sample, k, 20, 2, 0.0d, null, true);
+
+        assertThat(a.getAssignment()).containsExactly(b.getAssignment());
+        assertThat(a.getClusterSizes()).containsExactly(b.getClusterSizes());
+        assertThat(a.getDistances()).containsExactly(b.getDistances());
+        assertThat(a.getObjective()).isEqualTo(b.getObjective());
+
+        for (int c = 0; c < k; c++) {
+            final RealVector ca = a.getClusterCentroids().get(c);
+            final RealVector cb = b.getClusterCentroids().get(c);
+            for (int d = 0; d < ca.getNumDimensions(); d++) {
+                assertThat(ca.getComponent(d)).isEqualTo(cb.getComponent(d));
+            }
+        }
+    }
+
+    /**
+     * Extra restarts can only help: the best-of-R objective must be monotonically non-increasing
+     * in {@code R}.
+     */
+    @ParameterizedTest
+    @RandomSeedSource({0x0fdbL})
+    void siftSmallRestartsImproveObjective(final long seed) {
+        final List<RealVector> sample = ImmutableList.copyOf(
+                KMeansTestHelpers.pickRandomSubset(new Random(seed), siftSmallBase, SIFT_SAMPLE_SIZE));
+        final Estimator estimator = Estimator.ofMetric(Metric.EUCLIDEAN_METRIC);
+        final int k = 10;
+
+        final double obj0 = KMeans.fit(new SplittableRandom(seed), estimator,
+                Lens.identity(), Lens.identity(), sample, k, 30, 0, 0.0d, null, true).getObjective();
+        final double obj1 = KMeans.fit(new SplittableRandom(seed), estimator,
+                Lens.identity(), Lens.identity(), sample, k, 30, 1, 0.0d, null, true).getObjective();
+        final double obj3 = KMeans.fit(new SplittableRandom(seed), estimator,
+                Lens.identity(), Lens.identity(), sample, k, 30, 3, 0.0d, null, true).getObjective();
+
+        logger.info("restarts: 0->{}, 1->{}, 3->{}", obj0, obj1, obj3);
+        assertThat(obj1).isLessThanOrEqualTo(obj0);
+        assertThat(obj3).isLessThanOrEqualTo(obj1);
+    }
+
+    /**
+     * More clusters cannot increase the squared-L2 objective: with sufficient iterations and
+     * restarts, SSE should be non-increasing as {@code k} grows.
+     */
+    @ParameterizedTest
+    @RandomSeedSource({0x0fdbL})
+    void siftSmallMoreClustersLowerSse(final long seed) {
+        final List<RealVector> sample = ImmutableList.copyOf(
+                KMeansTestHelpers.pickRandomSubset(new Random(seed), siftSmallBase, SIFT_SAMPLE_SIZE));
+        final Estimator estimator = Estimator.ofMetric(Metric.EUCLIDEAN_METRIC);
+
+        final double sse2 = KMeans.fit(new SplittableRandom(seed), estimator,
+                Lens.identity(), Lens.identity(), sample, 2, 50, 3, 0.0d, null, true).getObjective();
+        final double sse10 = KMeans.fit(new SplittableRandom(seed), estimator,
+                Lens.identity(), Lens.identity(), sample, 10, 50, 3, 0.0d, null, true).getObjective();
+        final double sse25 = KMeans.fit(new SplittableRandom(seed), estimator,
+                Lens.identity(), Lens.identity(), sample, 25, 50, 3, 0.0d, null, true).getObjective();
+
+        logger.info("k-monotonic SSE: 2->{}, 10->{}, 25->{}", sse2, sse10, sse25);
+        // Generous slack accounts for the local-optimum nature of Lloyd; in pathological cases a
+        // higher-k run might not strictly beat a lower-k run, but it should be no worse than a
+        // small relative slack.
+        assertThat(sse10).isLessThanOrEqualTo(sse2 * 1.001d);
+        assertThat(sse25).isLessThanOrEqualTo(sse10 * 1.001d);
+    }
+
+    /**
+     * Soft size balancing should reduce cluster-size variance: with {@code lambda > 0} and the
+     * default overflow penalty, the largest-cluster fraction is no larger than without
+     * balancing on the same sample/seed.
+     */
+    @ParameterizedTest
+    @RandomSeedSource({0x0fdbL})
+    void siftSmallLambdaImprovesBalance(final long seed) {
+        final List<RealVector> sample = ImmutableList.copyOf(
+                KMeansTestHelpers.pickRandomSubset(new Random(seed), siftSmallBase, SIFT_SAMPLE_SIZE));
+        final Estimator estimator = Estimator.ofMetric(Metric.EUCLIDEAN_METRIC);
+        final int k = 10;
+
+        final KMeans.Result<RealVector> unbalanced = KMeans.fit(
+                new SplittableRandom(seed), estimator,
+                Lens.identity(), Lens.identity(),
+                sample, k, 30, 2, 0.0d, null, true);
+        final KMeans.Result<RealVector> balanced = KMeans.fit(
+                new SplittableRandom(seed), estimator,
+                Lens.identity(), Lens.identity(),
+                sample, k, 30, 2, 0.08d,
+                KMeans.overflowQuadraticPenalty(),
+                true);
+
+        final int unbalancedMax = Arrays.stream(unbalanced.getClusterSizes()).max().orElseThrow();
+        final int balancedMax = Arrays.stream(balanced.getClusterSizes()).max().orElseThrow();
+
+        logger.info("balance: unbalanced sizes={}, balanced sizes={}",
+                unbalanced.getClusterSizes(), balanced.getClusterSizes());
+
+        // Allow a small tolerance: tiny lambdas don't always strictly tighten balance.
+        assertThat(balancedMax).isLessThanOrEqualTo((int)Math.round(unbalancedMax * 1.05d));
     }
 
     /**
@@ -520,6 +648,7 @@ class BoundedKMeansTest {
         return obj;
     }
 
+    @SuppressWarnings("unused")
     static void dumpVectors(@Nonnull final Path tempDir,
                             @Nonnull final String prefix,
                             @Nonnull final List<RealVector> vectors) throws IOException {
