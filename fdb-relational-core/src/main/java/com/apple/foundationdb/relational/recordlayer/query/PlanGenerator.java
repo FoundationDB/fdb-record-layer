@@ -173,7 +173,7 @@ public final class PlanGenerator {
             final var planEquivalence = PhysicalPlanEquivalence.of(astHashResult.getQueryExecutionContext().getEvaluationContext());
             return planContext.getMetricsCollector().clock(RelationalMetric.RelationalEvent.CACHE_LOOKUP, () ->
                     cache.get().reduce(
-                            astHashResult.getSchemaTemplateName(),
+                            astHashResult.getSchemaKey(),
                             astHashResult.getQueryCacheKey(),
                             planEquivalence,
                             () -> {
