@@ -73,13 +73,13 @@ public abstract class AbstractMetadataOperationsFactory implements MetadataOpera
     @Override
     public ConstantAction getCreateTemporaryFunctionConstantAction(@Nonnull final SchemaTemplate template, boolean throwIfExists,
                                                                    @Nonnull final RecordLayerInvokedRoutine invokedRoutine) {
-        return NoOpMetadataOperationsFactory.INSTANCE.getCreateTemporaryFunctionConstantAction(template, throwIfExists, invokedRoutine);
+        return new CreateTemporaryFunctionConstantAction(template, throwIfExists, invokedRoutine);
     }
 
     @Nonnull
     @Override
     public ConstantAction getDropTemporaryFunctionConstantAction(boolean throwIfNotExists,
                                                                  @Nonnull final String temporaryFunctionName) {
-        return NoOpMetadataOperationsFactory.INSTANCE.getDropTemporaryFunctionConstantAction(throwIfNotExists, temporaryFunctionName);
+        return new DropTemporaryFunctionConstantAction(throwIfNotExists, temporaryFunctionName);
     }
 }
