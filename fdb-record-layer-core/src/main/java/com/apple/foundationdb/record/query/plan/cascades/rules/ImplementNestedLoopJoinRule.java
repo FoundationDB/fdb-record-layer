@@ -358,13 +358,20 @@ public class ImplementNestedLoopJoinRule extends ImplementationCascadesRule<Sele
 
     /**
      * Returns the {@link SchemaIdentifier} of the first {@link LogicalTypeFilterExpression} found in the
-     * exploratory expressions of {@code ref}, or {@link SchemaIdentifier#current()} if none is found.
+     * exploratory expressions of {@code ref} (or recursively in their quantifiers' referenced groups),
+     * or {@link SchemaIdentifier#current()} if none is found.
      */
     @Nonnull
     private static SchemaIdentifier schemaIdFromReference(@Nonnull final Reference ref) {
         for (final RelationalExpression expr : ref.getExploratoryExpressions()) {
             if (expr instanceof LogicalTypeFilterExpression) {
                 return ((LogicalTypeFilterExpression) expr).getSchemaId();
+            }
+            for (final Quantifier q : expr.getQuantifiers()) {
+                final SchemaIdentifier sid = schemaIdFromReference(q.getRangesOver());
+                if (!sid.isCurrentSchema()) {
+                    return sid;
+                }
             }
         }
         return SchemaIdentifier.current();
