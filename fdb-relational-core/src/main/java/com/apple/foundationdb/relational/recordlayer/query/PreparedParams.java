@@ -125,21 +125,4 @@ public final class PreparedParams {
             return new PreparedParams(other.unnamedParams, other.namedParams);
         }
     }
-
-    /**
-     * Returns a new {@link PreparedParams} that is identical to {@code base} but with the entries in
-     * {@code additionalNamed} added to (or overriding) its named-parameter map.  Used to inject local
-     * variable bindings into a function body's compilation context while keeping the CREATE-time
-     * positional / named parameters unchanged.
-     */
-    @Nonnull
-    public static PreparedParams withAdditionalNamed(@Nonnull PreparedParams base,
-                                                     @Nonnull Map<String, Object> additionalNamed) {
-        if (additionalNamed.isEmpty()) {
-            return base;
-        }
-        final var merged = new java.util.HashMap<>(base.namedParams);
-        merged.putAll(additionalNamed);
-        return new PreparedParams(base.unnamedParams, merged, base.nextParam);
-    }
 }

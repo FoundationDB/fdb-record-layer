@@ -593,4 +593,32 @@ public class LocalVariableTests {
             conn.rollback();
         }
     }
+
+    @Test
+    void sameNameVariableAndNamedParamAreIndependent() throws Exception {
+        // @x and ?x share the same underlying name "x" but are independent namespaces:
+        // @x resolves from the transaction's local-variable map, ?x from the prepared-parameter map.
+        final String schemaTemplate = "create table tns(pk bigint, primary key(pk))";
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/LV")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            try (var stmt = ddl.setSchemaAndGetConnection().createStatement()) {
+                stmt.executeUpdate("insert into tns values (1), (2), (3)");
+            }
+            final var conn = ddl.getConnection();
+            conn.setAutoCommit(false);
+            try (var stmt = conn.createStatement()) {
+                stmt.execute("set local x = 1");
+            }
+            // @x = 1 (from SET LOCAL), ?x = 2 (from named prepared param) — both resolve independently
+            try (var ps = conn.prepareStatement("select pk from tns where pk = @x or pk = ?x")) {
+                ps.setLong("x", 2L);
+                try (var rs = ps.executeQuery()) {
+                    ResultSetAssert.assertThat(rs)
+                            .hasNextRow().isRowExactly(1L)
+                            .hasNextRow().isRowExactly(2L)
+                            .hasNoNextRow();
+                }
+            }
+            conn.rollback();
+        }
+    }
 }
