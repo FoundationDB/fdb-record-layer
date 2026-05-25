@@ -49,6 +49,11 @@ public class RecordLayerInvokedRoutine implements InvokedRoutine {
 
     private final boolean isTemporary;
 
+    // The raw (un-memoized) provider, kept so that toBuilder() can hand it back to the builder
+    // without triggering a second memoize() wrap in the constructor.
+    @Nonnull
+    private final BiFunction<Boolean, Map<String, Object>, UserDefinedFunction> rawUserDefinedFunctionProvider;
+
     @Nonnull
     private final BiFunction<Boolean, Map<String, Object>, UserDefinedFunction> userDefinedFunctionProvider;
 
@@ -67,6 +72,7 @@ public class RecordLayerInvokedRoutine implements InvokedRoutine {
         this.name = name;
         this.preparedParams = preparedParams;
         this.isTemporary = isTemporary;
+        this.rawUserDefinedFunctionProvider = userDefinedFunctionProvider;
         this.userDefinedFunctionProvider = memoize(userDefinedFunctionProvider);
         this.serializableFunction = serializableFunction;
     }
@@ -76,6 +82,9 @@ public class RecordLayerInvokedRoutine implements InvokedRoutine {
     //   assertSame guarantee that plan-sharing relies on), and
     // - a new compilation is triggered when local variable values change (fixing the stale-value
     //   bug that existed when the old memoization keyed only on isCaseSensitive).
+    // The cache is bounded by the transaction lifetime: RecordLayerInvokedRoutine is created by
+    // CREATE TEMPORARY FUNCTION (per-transaction) and discarded when the transaction ends, so at
+    // most one entry per distinct localVars snapshot seen within a single transaction is retained.
     @Nonnull
     private static BiFunction<Boolean, Map<String, Object>, UserDefinedFunction> memoize(
             @Nonnull final BiFunction<Boolean, Map<String, Object>, UserDefinedFunction> fn) {
@@ -158,7 +167,7 @@ public class RecordLayerInvokedRoutine implements InvokedRoutine {
                 .setDescription(getDescription())
                 .setNormalizedDescription(getNormalizedDescription())
                 .setTemporary(isTemporary())
-                .withUserDefinedFunctionProvider(getUserDefinedFunctionProvider())
+                .withUserDefinedFunctionProvider(rawUserDefinedFunctionProvider)
                 .withSerializableFunction(asSerializableFunction());
     }
 
