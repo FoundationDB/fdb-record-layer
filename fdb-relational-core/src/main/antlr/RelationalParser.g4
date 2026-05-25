@@ -59,7 +59,6 @@ ddlStatement
     | dropStatement
     | createTempFunction
     | dropTempFunction
-    | setLocalVariable
     ;
 
 transactionStatement
@@ -241,10 +240,6 @@ createTempFunction
 
 dropTempFunction
     : DROP TEMPORARY FUNCTION (IF EXISTS)? schemaQualifiedRoutineName=fullId
-    ;
-
-setLocalVariable
-    : SET LOCAL varName=uid '=' varValue=constant
     ;
 
 viewDefinition
@@ -657,7 +652,8 @@ showStatement
     ;
 
 setStatement
-    : SET charSet (charsetName | DEFAULT)          #setCharset
+    : SET LOCAL varName=uid '=' varValue=constant                                #setLocalVariable
+    | SET charSet (charsetName | DEFAULT)          #setCharset
     | SET NAMES
         (charsetName (COLLATE collationName)? | DEFAULT)                        #setNames
     | setTransactionStatement                                                   #setTransaction
