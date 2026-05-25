@@ -34,6 +34,7 @@ import com.google.common.collect.ImmutableMap;
 
 import javax.annotation.Nonnull;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
 
@@ -50,14 +51,15 @@ final class SqlFunctionCatalogImpl implements SqlFunctionCatalog {
     private final UserDefinedFunctionCatalog userDefinedFunctionCatalog;
 
     private SqlFunctionCatalogImpl(boolean isCaseSensitive) {
-        this.userDefinedFunctionCatalog = new UserDefinedFunctionCatalog(isCaseSensitive);
+        this.userDefinedFunctionCatalog = new UserDefinedFunctionCatalog();
     }
 
     @Nonnull
     @Override
-    public CatalogedFunction lookupFunction(@Nonnull final String name, @Nonnull final Expressions arguments) {
+    public CatalogedFunction lookupFunction(@Nonnull final String name, @Nonnull final Expressions arguments,
+                                            @Nonnull final Map<String, Object> localVariables) {
         final var builtInFunctionMaybe = lookupBuiltInFunction(name, arguments);
-        final var userDefinedFunctionMaybe = lookupUserDefinedFunction(name, arguments);
+        final var userDefinedFunctionMaybe = lookupUserDefinedFunction(name, arguments, localVariables);
         if (builtInFunctionMaybe.isPresent() && userDefinedFunctionMaybe.isPresent()) {
             // this should never happen.
             Assert.failUnchecked(ErrorCode.INTERNAL_ERROR, "multiple definition of '" + name + "' found in the catalog");
@@ -84,8 +86,9 @@ final class SqlFunctionCatalogImpl implements SqlFunctionCatalog {
 
     @Nonnull
     private Optional<? extends CatalogedFunction> lookupUserDefinedFunction(@Nonnull final String name,
-                                                                            @Nonnull final Expressions expressions) {
-        return userDefinedFunctionCatalog.lookup(name, expressions);
+                                                                            @Nonnull final Expressions expressions,
+                                                                            @Nonnull final Map<String, Object> localVariables) {
+        return userDefinedFunctionCatalog.lookup(name, expressions, localVariables);
     }
 
     @Override
@@ -100,7 +103,7 @@ final class SqlFunctionCatalogImpl implements SqlFunctionCatalog {
     }
 
     public void registerUserDefinedFunction(@Nonnull final String functionName,
-                                            @Nonnull final Function<Boolean, ? extends UserDefinedFunction> functionSupplier) {
+                                            @Nonnull final Function<Map<String, Object>, ? extends UserDefinedFunction> functionSupplier) {
         userDefinedFunctionCatalog.registerFunction(functionName, functionSupplier);
     }
 
@@ -167,7 +170,7 @@ final class SqlFunctionCatalogImpl implements SqlFunctionCatalog {
         metadata.getInvokedRoutines().forEach(func ->
                 functionCatalog.registerUserDefinedFunction(
                         Assert.notNullUnchecked(func.getName()),
-                        func.getUserDefinedFunctionProvider()));
+                        localVars -> func.getUserDefinedFunctionProvider().apply(isCaseSensitive, localVars)));
         return functionCatalog;
     }
 }

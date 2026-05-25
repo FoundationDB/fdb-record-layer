@@ -488,14 +488,6 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
     }
 
     @Nonnull
-    public Value processNamedPreparedParamDeferred(@Nonnull String param, int tokenIndex) {
-        // With SELECT-time PreparedParams injected via BaseVisitor.TVFUNCTION_COMPILATION_PARAMS,
-        // the variable will be present when the plan is compiled. If it is still missing here,
-        // normalization already threw UNDEFINED_PARAMETER, so we should not reach this point.
-        return processNamedPreparedParam(param, tokenIndex);
-    }
-
-    @Nonnull
     public Value processUnnamedPreparedParam(int tokenIndex) {
         // TODO (Make prepared statement parameters stateless)
         final int currentUnnamedParameterIndex = preparedParams.currentUnnamedParamIndex();

@@ -71,15 +71,6 @@ import java.util.Set;
 @API(API.Status.EXPERIMENTAL)
 public class BaseVisitor extends RelationalParserBaseVisitor<Object> implements TypedVisitor {
 
-    /**
-     * Carries the SELECT-time local variable bindings into the memoized lambda that compiles a temporary
-     * function body, so that local variable refs inside the body resolve to their actual runtime types.
-     * Set in {@link #resolveTableValuedFunction} and cleared after each TVF lookup completes.
-     * Only local variables (@var) are carried, never prepared-statement parameters (?param), so the
-     * CREATE-time ?param bindings in the function body are preserved as-is.
-     */
-    static final ThreadLocal<Map<String, Object>> TVFUNCTION_COMPILATION_PARAMS = new ThreadLocal<>();
-
     private final boolean caseSensitive;
 
     @Nonnull
@@ -93,8 +84,6 @@ public class BaseVisitor extends RelationalParserBaseVisitor<Object> implements 
 
     @Nonnull
     protected Optional<LogicalPlanFragment> currentPlanFragment;
-
-    private boolean deferMissingLocalVars = false;
 
     @Nonnull
     private final ExpressionVisitor expressionVisitor;
@@ -146,14 +135,6 @@ public class BaseVisitor extends RelationalParserBaseVisitor<Object> implements 
     @Nonnull
     public MutablePlanGenerationContext getPlanGenerationContext() {
         return mutablePlanGenerationContext;
-    }
-
-    public void setDeferMissingLocalVars(boolean defer) {
-        this.deferMissingLocalVars = defer;
-    }
-
-    public boolean isDeferMissingLocalVars() {
-        return deferMissingLocalVars;
     }
 
     @Nonnull
@@ -255,12 +236,8 @@ public class BaseVisitor extends RelationalParserBaseVisitor<Object> implements 
 
     @Nonnull
     public LogicalOperator resolveTableValuedFunction(@Nonnull Identifier functionName, @Nonnull Expressions arguments) {
-        TVFUNCTION_COMPILATION_PARAMS.set(mutablePlanGenerationContext.getLocalVariables());
-        try {
-            return getSemanticAnalyzer().resolveTableFunction(functionName, arguments, true);
-        } finally {
-            TVFUNCTION_COMPILATION_PARAMS.remove();
-        }
+        return getSemanticAnalyzer().resolveTableFunction(functionName, arguments, true,
+                mutablePlanGenerationContext.getLocalVariables());
     }
 
     @Override

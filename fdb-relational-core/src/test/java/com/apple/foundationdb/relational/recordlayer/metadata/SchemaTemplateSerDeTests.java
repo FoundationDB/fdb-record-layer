@@ -71,6 +71,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.TreeMap;
+import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -583,7 +584,7 @@ public class SchemaTemplateSerDeTests {
                 .setName(funcName)
                 .setDescription(funcDescription)
                 .setTemporary(true)
-                .withUserDefinedFunctionProvider(ignored -> new CompiledFunctionStub())
+                .withUserDefinedFunctionProvider((ignored, localVars) -> new CompiledFunctionStub())
                 .withSerializableFunction(new RawSqlFunction(funcName, funcDescription))
                 .build());
 
@@ -627,7 +628,7 @@ public class SchemaTemplateSerDeTests {
             schemaTemplateBuilder.addInvokedRoutine(RecordLayerInvokedRoutine.newBuilder()
                     .setName(functionName)
                     .setDescription(functionDescription)
-                    .withUserDefinedFunctionProvider(igored -> new CompiledFunctionStub())
+                    .withUserDefinedFunctionProvider((igored, localVars) -> new CompiledFunctionStub())
                     .withSerializableFunction(new RawSqlFunction(functionName, functionDescription))
                     .build());
         }
@@ -1035,11 +1036,11 @@ public class SchemaTemplateSerDeTests {
             final List<RecordLayerInvokedRoutine> invokedRoutines = schemaBuilder.getInvokedRoutines();
             for (RecordLayerInvokedRoutine routine : invokedRoutines) {
                 final String name = routine.getName();
-                final Function<Boolean, UserDefinedFunction> provider = routine.getUserDefinedFunctionProvider();
+                final BiFunction<Boolean, Map<String, Object>, UserDefinedFunction> provider = routine.getUserDefinedFunctionProvider();
                 final RecordLayerInvokedRoutine.Builder routineBuilder = routine.toBuilder();
-                routineBuilder.withUserDefinedFunctionProvider(isCaseSensitive -> {
+                routineBuilder.withUserDefinedFunctionProvider((isCaseSensitive, localVars) -> {
                     invocationsCount.merge(name, 1, Integer::sum);
-                    return provider.apply(isCaseSensitive);
+                    return provider.apply(isCaseSensitive, localVars);
                 });
                 schemaBuilder.removeInvokedRoutine(name);
                 schemaBuilder.addInvokedRoutine(routineBuilder.build());

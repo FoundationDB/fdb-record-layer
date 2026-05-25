@@ -488,12 +488,7 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
         final var rawName = ctx.LOCAL_ID().getText().substring(1); // strip leading '@'
         final var varName = getDelegate().normalizeString(rawName);
         final var tokenIndex = ctx.LOCAL_ID().getSymbol().getTokenIndex();
-        final Value value;
-        if (getDelegate().isDeferMissingLocalVars()) {
-            value = getDelegate().getPlanGenerationContext().processNamedPreparedParamDeferred(varName, tokenIndex);
-        } else {
-            value = getDelegate().getPlanGenerationContext().processNamedPreparedParam(varName, tokenIndex);
-        }
+        final Value value = getDelegate().getPlanGenerationContext().processNamedPreparedParam(varName, tokenIndex);
         final var type = DataTypeUtils.toRelationalType(value.getResultType());
         return Expression.ofUnnamed(type, value);
     }

@@ -523,12 +523,10 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
         if (!isScalar && isTemporary) {
             // delay the compilation of table-valued temporary functions for later
             return builder
-                    .withUserDefinedFunctionProvider(ignore -> {
-                        // Merge SELECT-time local variable bindings (set by resolveTableValuedFunction via
-                        // thread-local) into the CREATE-time PreparedParams so that @var refs inside the
-                        // body resolve to their current values. We add (not replace) so that ?param
-                        // bindings already present from the CREATE-time context are preserved.
-                        final var localVarsMap = BaseVisitor.TVFUNCTION_COMPILATION_PARAMS.get();
+                    .withUserDefinedFunctionProvider((ignore, localVarsMap) -> {
+                        // Merge SELECT-time local variable bindings into the CREATE-time PreparedParams so that
+                        // @var refs inside the body resolve to their current values. We add (not replace) so
+                        // that ?param bindings already present from the CREATE-time context are preserved.
                         if (localVarsMap != null && !localVarsMap.isEmpty()) {
                             final var prev = getDelegate().getPlanGenerationContext().getPreparedParams();
                             final var merged = PreparedParams.withAdditionalNamed(prev, localVarsMap);
@@ -545,7 +543,7 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
                     .build();
         } else {
             final var userDefinedFunction = visitSqlInvokedFunction(functionSpecCtx, bodyCtx, isTemporary);
-            builder.withUserDefinedFunctionProvider(ignore -> userDefinedFunction);
+            builder.withUserDefinedFunctionProvider((ignore, localVars) -> userDefinedFunction);
             if (isScalar) {
                 return builder.withSerializableFunction(userDefinedFunction).build();
             } else {
@@ -699,12 +697,7 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
             parametersCorrelation.ifPresent(quantifier -> fragment.addOperator(LogicalOperator.newUnnamedOperator(
                     Expressions.fromQuantifier(quantifier), quantifier)));
             if (isTemporary) {
-                getDelegate().setDeferMissingLocalVars(true);
-                try {
-                    body = Assert.castUnchecked(visit(bodyCtx), LogicalOperator.class);
-                } finally {
-                    getDelegate().setDeferMissingLocalVars(false);
-                }
+                body = Assert.castUnchecked(visit(bodyCtx), LogicalOperator.class);
             } else {
                 body = getDelegate().getPlanGenerationContext().withDisabledLiteralProcessing(() ->
                         Assert.castUnchecked(visit(bodyCtx), LogicalOperator.class));

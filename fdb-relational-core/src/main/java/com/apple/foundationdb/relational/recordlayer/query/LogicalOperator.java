@@ -68,6 +68,7 @@ import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -211,7 +212,7 @@ public class LogicalOperator {
                     () -> String.format(Locale.ROOT,
                             "AT clause requires an array-typed column, but '%s' is a function",
                             identifier));
-            return semanticAnalyzer.resolveTableFunction(identifier, Expressions.empty(), false)
+            return semanticAnalyzer.resolveTableFunction(identifier, Expressions.empty(), false, Map.of())
                     .withNewSharedReferenceAndAlias(alias);
         } else {
             final var correlatedField = semanticAnalyzer.resolveCorrelatedIdentifier(identifier,

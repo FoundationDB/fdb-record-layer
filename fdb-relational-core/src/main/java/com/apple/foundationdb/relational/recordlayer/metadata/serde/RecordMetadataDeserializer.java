@@ -48,6 +48,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -147,10 +148,10 @@ public class RecordMetadataDeserializer {
 
     @Nonnull
     @VisibleForTesting
-    protected static Function<Boolean, UserDefinedFunction> getSqlFunctionCompiler(@Nonnull final String name,
+    protected static BiFunction<Boolean, Map<String, Object>, UserDefinedFunction> getSqlFunctionCompiler(@Nonnull final String name,
                                                                                    @Nonnull final Supplier<RecordLayerSchemaTemplate> metadata,
                                                                                    @Nonnull final String functionBody) {
-        return isCaseSensitive -> RoutineParser.sqlFunctionParser(metadata.get()).parseFunction(functionBody, isCaseSensitive);
+        return (isCaseSensitive, localVars) -> RoutineParser.sqlFunctionParser(metadata.get()).parseFunction(functionBody, isCaseSensitive);
     }
 
     @Nonnull
@@ -180,7 +181,7 @@ public class RecordMetadataDeserializer {
         return RecordLayerInvokedRoutine.newBuilder()
                 .setName(name)
                 .setDescription(body)
-                .withUserDefinedFunctionProvider(ignored -> userDefinedScalarFunction)
+                .withUserDefinedFunctionProvider((ignored, localVars) -> userDefinedScalarFunction)
                 .withSerializableFunction(userDefinedScalarFunction);
     }
 
