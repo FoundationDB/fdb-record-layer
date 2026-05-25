@@ -583,7 +583,7 @@ public class DelegatingVisitorTest {
     void visitSetLocalVariableTest() {
         final TypedVisitor baseVisitor = Mockito.mock(TypedVisitor.class);
         final DelegatingVisitor<TypedVisitor> delegating = new DelegatingVisitor<>(baseVisitor);
-        final RelationalParser.SetLocalVariableContext context = new RelationalParser.SetLocalVariableContext(null, -1);
+        final RelationalParser.SetLocalVariableContext context = new RelationalParser.SetLocalVariableContext(new RelationalParser.SetStatementContext(null, -1));
         final ProceduralPlan plan = ProceduralPlan.of(Mockito.mock(ConstantAction.class));
         Mockito.when(baseVisitor.visitSetLocalVariable(context)).thenReturn(plan);
         final ProceduralPlan result = delegating.visitSetLocalVariable(context);

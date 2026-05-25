@@ -62,6 +62,7 @@ import java.util.Optional;
 import java.util.function.Supplier;
 
 import static com.apple.foundationdb.relational.api.exceptions.ErrorCode.DATATYPE_MISMATCH;
+import static com.apple.foundationdb.relational.api.exceptions.ErrorCode.UNDEFINED_PARAMETER;
 
 /**
  * Context keeping state related to plan generation, it also captures execution-specific attributes that influences
@@ -478,6 +479,14 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
             duplicateLiteralMaybe.ifPresent(prev -> addEqualityConstraint(prev.getConstantId(), literal.getConstantId(), literalValue.getResultType()));
             constantObjectValues.add(ConstantObjectValue.of(Quantifier.constant(), literal.getConstantId(), literalValue.getResultType()));
         }
+    }
+
+    @Nonnull
+    public Value processLocalVariable(@Nonnull String varName, int tokenIndex) {
+        Assert.thatUnchecked(localVariables.containsKey(varName), UNDEFINED_PARAMETER,
+                () -> "No value found for parameter " + varName);
+        final var value = localVariables.get(varName);
+        return processPreparedStatementParameter(value, getObjectType(value), null, varName, tokenIndex);
     }
 
     @Nonnull

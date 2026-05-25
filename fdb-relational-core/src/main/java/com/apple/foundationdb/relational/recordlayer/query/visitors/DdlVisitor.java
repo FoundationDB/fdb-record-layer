@@ -526,19 +526,16 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
             // delay the compilation of table-valued temporary functions for later
             return builder
                     .withUserDefinedFunctionProvider(ignore -> {
-                        // Merge SELECT-time local variable bindings (set by resolveTableValuedFunction via
-                        // thread-local) into the CREATE-time PreparedParams so that @var refs inside the
-                        // body resolve to their current values. We add (not replace) so that ?param
-                        // bindings already present from the CREATE-time context are preserved.
+                        // Inject SELECT-time local variable bindings (set by resolveTableValuedFunction via
+                        // thread-local) so that @var refs inside the body resolve to their current values.
                         final var localVarsMap = BaseVisitor.TVFUNCTION_COMPILATION_PARAMS.get();
                         if (localVarsMap != null && !localVarsMap.isEmpty()) {
-                            final var prev = getDelegate().getPlanGenerationContext().getPreparedParams();
-                            final var merged = PreparedParams.withAdditionalNamed(prev, localVarsMap);
-                            getDelegate().getPlanGenerationContext().setPreparedParams(merged);
+                            final var prev = getDelegate().getPlanGenerationContext().getLocalVariables();
+                            getDelegate().getPlanGenerationContext().setLocalVariables(localVarsMap);
                             try {
                                 return visitSqlInvokedFunction(functionSpecCtx, bodyCtx, isTemporary);
                             } finally {
-                                getDelegate().getPlanGenerationContext().setPreparedParams(prev);
+                                getDelegate().getPlanGenerationContext().setLocalVariables(prev);
                             }
                         }
                         return visitSqlInvokedFunction(functionSpecCtx, bodyCtx, isTemporary);
