@@ -107,6 +107,9 @@ public class RecordContextTransaction implements Transaction {
     @SuppressWarnings("unchecked")
     @Override
     public void setLocalVariable(@Nonnull String name, @Nullable Object value) {
+        // Transactions are accessed single-threaded; no external synchronization is needed here.
+        // getInSession/putInSessionIfAbsent are synchronized on FDBRecordContext, making the
+        // map initialization safe. The subsequent put() is safe under the single-threaded contract.
         Map<String, Object> vars = context.getInSession(LocalVariables.SESSION_KEY, Map.class);
         if (vars == null) {
             context.putInSessionIfAbsent(LocalVariables.SESSION_KEY, new LinkedHashMap<String, Object>());
