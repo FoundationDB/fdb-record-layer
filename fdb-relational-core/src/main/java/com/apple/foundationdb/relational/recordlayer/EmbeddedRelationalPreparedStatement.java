@@ -36,7 +36,6 @@ import com.apple.foundationdb.relational.util.Assert;
 import javax.annotation.Nonnull;
 import java.sql.Array;
 import java.sql.SQLException;
-import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
 import java.util.TreeMap;
