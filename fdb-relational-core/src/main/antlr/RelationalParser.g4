@@ -652,8 +652,6 @@ showStatement
     ;
 
 setStatement
-    // varValue is intentionally restricted to constant literals; arithmetic expressions and
-    // prepared-statement parameters (?param) are not supported in SET LOCAL.
     : SET LOCAL varName=uid '=' varValue=constant                                #setLocalVariable
     | SET charSet (charsetName | DEFAULT)          #setCharset
     | SET NAMES
