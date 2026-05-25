@@ -283,15 +283,21 @@ public class LogicalOperator {
                         new AccessHints(indexAccessHints.toArray(new AccessHint[0])))));
         final var table = semanticAnalyzer.getTable(tableId);
         Type.Record type = Assert.castUnchecked(table, RecordLayerTable.class).getType();
+        // For secondary schemas, namespace the proto type name to avoid TypeRepository collisions
+        // when two schemas define identically-named tables. The scan key (FDB record type name)
+        // must stay as the original table name.
+        final String scanKey = type.getStorageName();
+        if (!schemaId.isCurrentSchema()) {
+            type = type.withName(schemaId.getSchemaName() + "." + type.getName());
+        }
         if (effectiveTemplate.isStoreRowVersions()) {
             // Ideally, the RecordLayerTable would have the full type with all the pseudo-fields,
             // but we need star expansion to skip over these fields. That would be made easier
             // if we fully supported invisible columns (see: https://github.com/FoundationDB/fdb-record-layer/pull/3787)
             type = type.addPseudoFields();
         }
-        final String storageName = type.getStorageName();
-        Assert.thatUnchecked(storageName != null, "storage name for table access must not be null");
-        final var typeFilterExpression = LogicalTypeFilterExpression.of(ImmutableSet.of(storageName), scanExpression, type, schemaId);
+        Assert.thatUnchecked(scanKey != null, "storage name for table access must not be null");
+        final var typeFilterExpression = LogicalTypeFilterExpression.of(ImmutableSet.of(scanKey), scanExpression, type, schemaId);
         final var resultingQuantifier = Quantifier.forEach(Reference.initialOf(typeFilterExpression));
         final ImmutableList.Builder<Expression> attributesBuilder = ImmutableList.builder();
         int colCount = 0;
