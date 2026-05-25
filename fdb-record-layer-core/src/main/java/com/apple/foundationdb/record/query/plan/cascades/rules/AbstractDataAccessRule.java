@@ -181,6 +181,23 @@ public abstract class AbstractDataAccessRule extends CascadesRule<MatchPartition
             secondarySchemaId = sid;
         }
 
+        // Filter match candidates to only those belonging to the expected schema, preventing
+        // same-named tables from different schemas from generating mixed plans in the same group.
+        final var planContext = call.getContext();
+        final var schemaFilteredMatches = completeMatches.stream()
+                .filter(match -> {
+                    final SchemaIdentifier candidateSchema = planContext.getSchemaIdForMatchCandidate(match.getMatchCandidate());
+                    if (secondarySchemaId != null) {
+                        return secondarySchemaId.equals(candidateSchema);
+                    } else {
+                        return candidateSchema.isCurrentSchema();
+                    }
+                })
+                .collect(ImmutableList.toImmutableList());
+        if (schemaFilteredMatches.isEmpty()) {
+            return;
+        }
+
         //
         // return if there is no pre-determined interesting ordering
         //
@@ -196,7 +213,7 @@ public abstract class AbstractDataAccessRule extends CascadesRule<MatchPartition
 
         // group all successful matches by their sets of compensated aliases
         final var matchPartitionByMatchAliasMap =
-                completeMatches
+                schemaFilteredMatches
                         .stream()
                         .flatMap(match -> {
                             final var compensatedAliases = match.getCompensatedAliases();
@@ -257,20 +274,7 @@ public abstract class AbstractDataAccessRule extends CascadesRule<MatchPartition
                         dataAccessForMatchPartition(call,
                                 requestedOrderings,
                                 matchPartition);
-                if (secondarySchemaId != null) {
-                    final LinkedIdentitySet<RelationalExpression> wrapped = new LinkedIdentitySet<>();
-                    for (final RelationalExpression expr : dataAccessExpressions) {
-                        if (expr instanceof RecordQueryPlan) {
-                            final Reference innerRef = call.memoizePlan((RecordQueryPlan) expr);
-                            wrapped.add(new RecordQueryStoreBindingPlan(Quantifier.physical(innerRef), secondarySchemaId));
-                        } else {
-                            wrapped.add(expr);
-                        }
-                    }
-                    call.yieldMixedUnknownExpressions(wrapped);
-                } else {
-                    call.yieldMixedUnknownExpressions(dataAccessExpressions);
-                }
+                call.yieldMixedUnknownExpressions(dataAccessExpressions);
             }
         }
     }
@@ -914,9 +918,16 @@ public abstract class AbstractDataAccessRule extends CascadesRule<MatchPartition
                         singleMatchedAccessVectored ->  {
                             final var singleMatchedAccess = singleMatchedAccessVectored.getElement();
                             final var partialMatch = singleMatchedAccess.getPartialMatch();
-                            return partialMatch.getMatchCandidate()
+                            final RecordQueryPlan plan = partialMatch.getMatchCandidate()
                                     .toEquivalentPlan(partialMatch, planContext, memoizer,
                                             singleMatchedAccess.isReverseScanOrder());
+                            final SchemaIdentifier schemaId =
+                                    planContext.getSchemaIdForMatchCandidate(partialMatch.getMatchCandidate());
+                            if (!schemaId.isCurrentSchema()) {
+                                return new RecordQueryStoreBindingPlan(
+                                        Quantifier.physical(memoizer.memoizePlan(plan)), schemaId);
+                            }
+                            return plan;
                         }));
     }
 

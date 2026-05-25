@@ -25,10 +25,12 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.planprotos.PRecordQueryPlan;
+import com.apple.foundationdb.record.planprotos.PRecordQueryStoreBindingPlan;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
@@ -47,6 +49,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.auto.service.AutoService;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
@@ -223,13 +226,51 @@ public class RecordQueryStoreBindingPlan extends AbstractRelationalExpressionWit
     @Nonnull
     @Override
     public Message toProto(@Nonnull final PlanSerializationContext serializationContext) {
-        throw new RecordCoreException("RecordQueryStoreBindingPlan proto serialization not yet implemented");
+        return toStoreBindingPlanProto(serializationContext);
     }
 
     @Nonnull
     @Override
     public PRecordQueryPlan toRecordQueryPlanProto(@Nonnull final PlanSerializationContext serializationContext) {
-        throw new RecordCoreException("RecordQueryStoreBindingPlan proto serialization not yet implemented");
+        return PRecordQueryPlan.newBuilder().setStoreBindingPlan(toStoreBindingPlanProto(serializationContext)).build();
+    }
+
+    @Nonnull
+    public PRecordQueryStoreBindingPlan toStoreBindingPlanProto(@Nonnull final PlanSerializationContext serializationContext) {
+        final String schemaName = Objects.requireNonNull(schemaId.getSchemaName(),
+                "RecordQueryStoreBindingPlan requires a named schema for serialization");
+        return PRecordQueryStoreBindingPlan.newBuilder()
+                .setInner(inner.toProto(serializationContext))
+                .setSchemaName(schemaName)
+                .build();
+    }
+
+    @Nonnull
+    public static RecordQueryStoreBindingPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                        @Nonnull final PRecordQueryStoreBindingPlan proto) {
+        final Quantifier.Physical q =
+                Quantifier.Physical.fromProto(serializationContext, Objects.requireNonNull(proto.getInner()));
+        final String schemaName = Objects.requireNonNull(proto.getSchemaName());
+        return new RecordQueryStoreBindingPlan(q, SchemaIdentifier.of(schemaName));
+    }
+
+    /**
+     * Deserializer.
+     */
+    @AutoService(PlanDeserializer.class)
+    public static class Deserializer implements PlanDeserializer<PRecordQueryStoreBindingPlan, RecordQueryStoreBindingPlan> {
+        @Nonnull
+        @Override
+        public Class<PRecordQueryStoreBindingPlan> getProtoMessageClass() {
+            return PRecordQueryStoreBindingPlan.class;
+        }
+
+        @Nonnull
+        @Override
+        public RecordQueryStoreBindingPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                     @Nonnull final PRecordQueryStoreBindingPlan proto) {
+            return RecordQueryStoreBindingPlan.fromProto(serializationContext, proto);
+        }
     }
 
     @Nonnull
