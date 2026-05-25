@@ -61,16 +61,32 @@ public class MetaDataPlanContext implements PlanContext {
     @Nonnull
     private final Set<MatchCandidate> matchCandidates;
 
+    @Nonnull
+    private final Map<MatchCandidate, SchemaIdentifier> matchCandidateSchemaMap;
+
     private MetaDataPlanContext(@Nonnull final RecordQueryPlannerConfiguration plannerConfiguration,
                                 @Nonnull final Set<MatchCandidate> matchCandidates) {
+        this(plannerConfiguration, matchCandidates, Map.of());
+    }
+
+    private MetaDataPlanContext(@Nonnull final RecordQueryPlannerConfiguration plannerConfiguration,
+                                @Nonnull final Set<MatchCandidate> matchCandidates,
+                                @Nonnull final Map<MatchCandidate, SchemaIdentifier> matchCandidateSchemaMap) {
         this.plannerConfiguration = plannerConfiguration;
         this.matchCandidates = ImmutableSet.copyOf(matchCandidates);
+        this.matchCandidateSchemaMap = Map.copyOf(matchCandidateSchemaMap);
     }
 
     @Nonnull
     @Override
     public RecordQueryPlannerConfiguration getPlannerConfiguration() {
         return plannerConfiguration;
+    }
+
+    @Nonnull
+    @Override
+    public SchemaIdentifier getSchemaIdForMatchCandidate(@Nonnull final MatchCandidate candidate) {
+        return matchCandidateSchemaMap.getOrDefault(candidate, SchemaIdentifier.current());
     }
 
     @Nullable
@@ -211,21 +227,28 @@ public class MetaDataPlanContext implements PlanContext {
             @Nonnull final Map<SchemaIdentifier, NonnullPair<RecordMetaData, RecordStoreState>> additionalSchemas) {
         final var queriedRecordTypeNames = recordTypes().evaluate(rootReference);
         final ImmutableSet.Builder<MatchCandidate> allCandidates = ImmutableSet.builder();
+        final Map<MatchCandidate, SchemaIdentifier> schemaMap = new java.util.LinkedHashMap<>();
 
-        if (!queriedRecordTypeNames.isEmpty()) {
+        final var primaryTypeNames = queriedRecordTypeNames.stream()
+                .filter(name -> metaData.getRecordTypes().containsKey(name))
+                .collect(ImmutableSet.toImmutableSet());
+        if (!primaryTypeNames.isEmpty()) {
             allCandidates.addAll(buildMatchCandidates(metaData, recordStoreState, matchCandidateRegistry,
-                    queriedRecordTypeNames, allowedIndexesOptional, indexQueryabilityFilter));
+                    primaryTypeNames, allowedIndexesOptional, indexQueryabilityFilter));
         }
 
-        for (final NonnullPair<RecordMetaData, RecordStoreState> schemaEntry : additionalSchemas.values()) {
-            final RecordMetaData secondaryMetaData = schemaEntry.getLeft();
-            final RecordStoreState secondaryState = schemaEntry.getRight();
+        for (final Map.Entry<SchemaIdentifier, NonnullPair<RecordMetaData, RecordStoreState>> entry : additionalSchemas.entrySet()) {
+            final SchemaIdentifier schemaId = entry.getKey();
+            final RecordMetaData secondaryMetaData = entry.getValue().getLeft();
+            final RecordStoreState secondaryState = entry.getValue().getRight();
             final Set<String> allTypes = secondaryMetaData.getRecordTypes().keySet();
-            allCandidates.addAll(buildMatchCandidates(secondaryMetaData, secondaryState, matchCandidateRegistry,
-                    allTypes, allowedIndexesOptional, indexQueryabilityFilter));
+            final ImmutableSet<MatchCandidate> secondaryCandidates = buildMatchCandidates(secondaryMetaData, secondaryState, matchCandidateRegistry,
+                    allTypes, allowedIndexesOptional, indexQueryabilityFilter);
+            allCandidates.addAll(secondaryCandidates);
+            secondaryCandidates.forEach(c -> schemaMap.put(c, schemaId));
         }
 
-        return new MetaDataPlanContext(plannerConfiguration, allCandidates.build());
+        return new MetaDataPlanContext(plannerConfiguration, allCandidates.build(), schemaMap);
     }
 
     @Nonnull

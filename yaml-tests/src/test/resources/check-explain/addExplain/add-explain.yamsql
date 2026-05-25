@@ -32,6 +32,5 @@ test_block:
   tests:
     -
       - query: SELECT id FROM t1
-      - explain: "SCAN([IS T1])"
       - result: [{!l 1}]
 ...
