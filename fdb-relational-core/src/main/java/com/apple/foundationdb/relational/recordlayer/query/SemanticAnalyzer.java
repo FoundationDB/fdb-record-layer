@@ -24,6 +24,7 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.query.plan.cascades.AccessHint;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
+import com.apple.foundationdb.record.query.plan.cascades.SchemaIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInTableFunction;
 import com.apple.foundationdb.record.query.plan.cascades.CatalogedFunction;
@@ -81,6 +82,8 @@ import org.antlr.v4.runtime.tree.ParseTree;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.net.URI;
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -121,6 +124,12 @@ public class SemanticAnalyzer {
 
     private final boolean isCaseSensitive;
 
+    @Nonnull
+    private java.util.function.Function<String, Optional<SchemaTemplate>> secondarySchemaLookup;
+
+    @Nonnull
+    private final LinkedHashMap<String, SchemaTemplate> loadedSecondarySchemas;
+
     public SemanticAnalyzer(@Nonnull SchemaTemplate metadataCatalog,
                             @Nonnull SqlFunctionCatalog functionCatalog,
                             @Nonnull MutablePlanGenerationContext mutablePlanGenerationContext,
@@ -129,6 +138,13 @@ public class SemanticAnalyzer {
         this.functionCatalog = functionCatalog;
         this.mutablePlanGenerationContext = mutablePlanGenerationContext;
         this.isCaseSensitive = isCaseSensitive;
+        this.secondarySchemaLookup = s -> Optional.empty();
+        this.loadedSecondarySchemas = new LinkedHashMap<>();
+    }
+
+    public void setSecondarySchemaLookup(
+            @Nonnull final java.util.function.Function<String, Optional<SchemaTemplate>> lookup) {
+        this.secondarySchemaLookup = lookup;
     }
 
     /**
@@ -194,7 +210,15 @@ public class SemanticAnalyzer {
         if (tableIdentifier.isQualified()) {
             final var qualifier = tableIdentifier.getQualifier().get(0);
             if (!metadataCatalog.getName().equals(qualifier)) {
-                return false;
+                return tryLoadSecondarySchema(qualifier)
+                        .map(template -> {
+                            try {
+                                return template.findTableByName(tableIdentifier.getName()).isPresent();
+                            } catch (RelationalException e) {
+                                throw e.toUncheckedWrappedException();
+                            }
+                        })
+                        .orElse(false);
             }
         }
 
@@ -204,6 +228,17 @@ public class SemanticAnalyzer {
         } catch (RelationalException e) {
             throw e.toUncheckedWrappedException();
         }
+    }
+
+    @Nonnull
+    private Optional<SchemaTemplate> tryLoadSecondarySchema(@Nonnull final String schemaName) {
+        final var cached = loadedSecondarySchemas.get(schemaName);
+        if (cached != null) {
+            return Optional.of(cached);
+        }
+        final var result = secondarySchemaLookup.apply(schemaName);
+        result.ifPresent(template -> loadedSecondarySchemas.put(schemaName, template));
+        return result;
     }
 
     public boolean viewExists(@Nonnull final Identifier viewIdentifier) {
@@ -238,13 +273,22 @@ public class SemanticAnalyzer {
     @Nonnull
     public Table getTable(@Nonnull Identifier tableIdentifier) {
         Assert.thatUnchecked(tableIdentifier.getQualifier().size() <= 1, ErrorCode.INTERNAL_ERROR, () -> String.format(Locale.ROOT, "Unknown table %s", tableIdentifier));
+        final SchemaTemplate targetCatalog;
         if (tableIdentifier.isQualified()) {
             final var qualifier = tableIdentifier.getQualifier().get(0);
-            Assert.thatUnchecked(metadataCatalog.getName().equals(qualifier), ErrorCode.UNDEFINED_DATABASE, () -> String.format(Locale.ROOT, "Unknown schema template %s", qualifier));
+            if (metadataCatalog.getName().equals(qualifier)) {
+                targetCatalog = metadataCatalog;
+            } else {
+                final var secondaryTemplate = tryLoadSecondarySchema(qualifier);
+                Assert.thatUnchecked(secondaryTemplate.isPresent(), ErrorCode.UNDEFINED_DATABASE, () -> String.format(Locale.ROOT, "Unknown schema template %s", qualifier));
+                targetCatalog = secondaryTemplate.get();
+            }
+        } else {
+            targetCatalog = metadataCatalog;
         }
         final var tableName = tableIdentifier.getName();
         try {
-            final var tableMaybe = metadataCatalog.findTableByName(tableName);
+            final var tableMaybe = targetCatalog.findTableByName(tableName);
             Assert.thatUnchecked(tableMaybe.isPresent(), ErrorCode.UNDEFINED_TABLE, () -> String.format(Locale.ROOT, "Unknown table %s", tableName));
             return tableMaybe.get();
         } catch (RelationalException e) {
@@ -294,6 +338,35 @@ public class SemanticAnalyzer {
         } catch (RelationalException e) {
             throw e.toUncheckedWrappedException();
         }
+    }
+
+    @Nonnull
+    public Set<String> getAllTableStorageNamesForTemplate(@Nonnull final SchemaTemplate template) {
+        try {
+            return template.getTables().stream()
+                    .map(table -> Assert.castUnchecked(table, RecordLayerTable.class))
+                    .map(table -> Assert.notNullUnchecked(table.getType().getStorageName()))
+                    .collect(ImmutableSet.toImmutableSet());
+        } catch (RelationalException e) {
+            throw e.toUncheckedWrappedException();
+        }
+    }
+
+    @Nonnull
+    public SchemaIdentifier getSchemaIdFor(@Nonnull final Identifier tableId) {
+        if (!tableId.isQualified()) {
+            return SchemaIdentifier.current();
+        }
+        final var qualifier = tableId.getQualifier().get(0);
+        if (metadataCatalog.getName().equals(qualifier)) {
+            return SchemaIdentifier.current();
+        }
+        return SchemaIdentifier.of(qualifier);
+    }
+
+    @Nonnull
+    public Map<String, SchemaTemplate> getLoadedSecondarySchemas() {
+        return Collections.unmodifiableMap(loadedSecondarySchemas);
     }
 
     @Nonnull
