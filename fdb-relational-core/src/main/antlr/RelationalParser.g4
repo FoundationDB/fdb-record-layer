@@ -244,7 +244,7 @@ dropTempFunction
     ;
 
 setLocalVariable
-    : SET LOCAL varName=uid ('=' | ':=') varValue=constant
+    : SET LOCAL varName=uid '=' varValue=constant
     ;
 
 viewDefinition
