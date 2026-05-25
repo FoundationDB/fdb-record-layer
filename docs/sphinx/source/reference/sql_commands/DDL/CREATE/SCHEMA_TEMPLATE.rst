@@ -1,8 +1,8 @@
+.. _create-schema-template:
+
 ======================
 CREATE SCHEMA TEMPLATE
 ======================
-
-.. _create-schema-template:
 
 A schema template is a predefined structure that defines the set of ``TABLE`` and ``INDEX`` definitions. This can then
 used as a blueprint to create ``SCHEMA`` in a database. See: :doc:`../../../Databases_Schemas_SchemaTemplates` for more

@@ -704,4 +704,3 @@ See Also
 
 - :ref:`create-schema-template` - Schema template definition
 - :ref:`index_definition` - Detailed index definition and limitations
-- :ref:`CREATE VIEW <create-view>` - Creating views for use with INDEX ON
