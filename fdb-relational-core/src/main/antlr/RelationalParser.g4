@@ -657,22 +657,13 @@ showStatement
     ;
 
 setStatement
-    : SET variableClause ('=' | ':=') expression
-      (',' variableClause ('=' | ':=') expression)*                             #setVariable
-    | SET charSet (charsetName | DEFAULT)          #setCharset
+    : SET charSet (charsetName | DEFAULT)          #setCharset
     | SET NAMES
         (charsetName (COLLATE collationName)? | DEFAULT)                        #setNames
     | setTransactionStatement                                                   #setTransaction
     | setAutocommitStatement                                                    #setAutocommit
     | SET fullId ('=' | ':=') expression
       (',' fullId ('=' | ':=') expression)*                                     #setNewValueInsideTrigger
-    ;
-
-
-// details
-
-variableClause
-    : LOCAL_ID | ( ('@' '@')? (GLOBAL | SESSION)  )? uid
     ;
 
 //    Other administrative statements

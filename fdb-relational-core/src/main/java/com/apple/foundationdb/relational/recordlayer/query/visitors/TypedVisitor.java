@@ -496,10 +496,6 @@ public interface TypedVisitor extends RelationalParserVisitor<Object> {
 
     @Nonnull
     @Override
-    Object visitSetVariable(@Nonnull RelationalParser.SetVariableContext ctx);
-
-    @Nonnull
-    @Override
     Object visitSetCharset(@Nonnull RelationalParser.SetCharsetContext ctx);
 
     @Nonnull
@@ -517,10 +513,6 @@ public interface TypedVisitor extends RelationalParserVisitor<Object> {
     @Nonnull
     @Override
     Object visitSetNewValueInsideTrigger(@Nonnull RelationalParser.SetNewValueInsideTriggerContext ctx);
-
-    @Nonnull
-    @Override
-    Object visitVariableClause(@Nonnull RelationalParser.VariableClauseContext ctx);
 
     @Nonnull
     @Override
