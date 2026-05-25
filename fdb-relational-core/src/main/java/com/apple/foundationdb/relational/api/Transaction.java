@@ -74,7 +74,7 @@ public interface Transaction extends AutoCloseable {
     void setLocalVariable(@Nonnull String name, @Nullable Object value);
 
     /**
-     * Returns an immutable snapshot of all local variables set in this transaction.
+     * Returns an unmodifiable view of all local variables set in this transaction.
      *
      * @return map from variable name to value; empty if no variables have been set
      */
