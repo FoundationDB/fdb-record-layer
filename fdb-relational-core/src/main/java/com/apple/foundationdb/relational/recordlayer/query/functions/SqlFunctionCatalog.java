@@ -68,7 +68,7 @@ public interface SqlFunctionCatalog {
      *     <ul>user-defined table-valued functions, lazily-compiled</ul>
      * </li>
      * The user-defined functions are loaded from the passed {@code metadata} argument, they are only compiled when
-     * looked up with {@link SqlFunctionCatalog#lookupFunction(String, Expressions)}, and their compiled version is
+     * looked up with {@link SqlFunctionCatalog#lookupFunction(String, Expressions, java.util.Map)}, and their compiled version is
      * cached so it is done at most once.
      *
      * @param metadata The metadata used to load any user-defined functions.
