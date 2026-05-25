@@ -49,9 +49,12 @@ import com.apple.foundationdb.record.query.plan.cascades.RequestedOrdering;
 import com.apple.foundationdb.record.query.plan.cascades.RequestedOrderingConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.ValueIndexScanMatchCandidate;
 import com.apple.foundationdb.record.query.plan.cascades.events.PlannerEvent.Location;
+import com.apple.foundationdb.record.query.plan.cascades.SchemaIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalDistinctExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalIntersectionExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalTypeFilterExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryStoreBindingPlan;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.properties.CardinalitiesProperty.Cardinality;
 
@@ -144,6 +147,40 @@ public abstract class AbstractDataAccessRule extends CascadesRule<MatchPartition
 
         final var expression = bindings.get(getExpressionMatcher());
 
+        final SchemaIdentifier secondarySchemaId;
+        if (expression instanceof LogicalTypeFilterExpression) {
+            final SchemaIdentifier sid = ((LogicalTypeFilterExpression) expression).getSchemaId();
+            secondarySchemaId = sid.isCurrentSchema() ? null : sid;
+        } else {
+            // The expression is not an LTFE. Determine the schema via three fallback sources:
+            // (a) sibling exploratory expressions in the current group (non-correlated SelectExpression
+            //     added to the same group as the LTFE by exploration rules),
+            // (b) exploratory expressions in each quantifier's directly-referenced child group
+            //     (correlated SelectExpression placed in a new child group by predicate-pushdown whose
+            //     quantifier still ranges over the LTFE's group), and
+            // (c) the PlanContext's match candidate schema map (correlated SelectExpression in a deeper
+            //     child group, where the quantifier ranges over the scan group rather than the LTFE group).
+            SchemaIdentifier sid = secondarySchemaIdFromGroup(call.getRoot());
+            if (sid == null) {
+                sid = expression.getQuantifiers().stream()
+                        .map(Quantifier::getRangesOver)
+                        .map(AbstractDataAccessRule::secondarySchemaIdFromGroup)
+                        .filter(Objects::nonNull)
+                        .findFirst()
+                        .orElse(null);
+            }
+            if (sid == null) {
+                final var planContext = call.getContext();
+                sid = completeMatches.stream()
+                        .map(PartialMatch::getMatchCandidate)
+                        .map(planContext::getSchemaIdForMatchCandidate)
+                        .filter(s -> !s.isCurrentSchema())
+                        .findFirst()
+                        .orElse(null);
+            }
+            secondarySchemaId = sid;
+        }
+
         //
         // return if there is no pre-determined interesting ordering
         //
@@ -220,7 +257,20 @@ public abstract class AbstractDataAccessRule extends CascadesRule<MatchPartition
                         dataAccessForMatchPartition(call,
                                 requestedOrderings,
                                 matchPartition);
-                call.yieldMixedUnknownExpressions(dataAccessExpressions);
+                if (secondarySchemaId != null) {
+                    final LinkedIdentitySet<RelationalExpression> wrapped = new LinkedIdentitySet<>();
+                    for (final RelationalExpression expr : dataAccessExpressions) {
+                        if (expr instanceof RecordQueryPlan) {
+                            final Reference innerRef = call.memoizePlan((RecordQueryPlan) expr);
+                            wrapped.add(new RecordQueryStoreBindingPlan(Quantifier.physical(innerRef), secondarySchemaId));
+                        } else {
+                            wrapped.add(expr);
+                        }
+                    }
+                    call.yieldMixedUnknownExpressions(wrapped);
+                } else {
+                    call.yieldMixedUnknownExpressions(dataAccessExpressions);
+                }
             }
         }
     }
@@ -1346,6 +1396,19 @@ public abstract class AbstractDataAccessRule extends CascadesRule<MatchPartition
         public static <T> Vectored<T> of(@Nonnull final T element, final int position) {
             return new Vectored<>(element, position);
         }
+    }
+
+    @Nullable
+    private static SchemaIdentifier secondarySchemaIdFromGroup(@Nonnull final Reference ref) {
+        for (final RelationalExpression expr : ref.getExploratoryExpressions()) {
+            if (expr instanceof LogicalTypeFilterExpression) {
+                final SchemaIdentifier sid = ((LogicalTypeFilterExpression) expr).getSchemaId();
+                if (!sid.isCurrentSchema()) {
+                    return sid;
+                }
+            }
+        }
+        return null;
     }
 
     protected static class IntersectionResult {

@@ -32,6 +32,5 @@ test_block:
   tests:
     -
       - query: SELECT id FROM t1
-      - resultMetadata: [{ID: BIGINT}]
       - result: [{!l 1}]
 ...
