@@ -10,15 +10,8 @@ statement executed within that transaction using the ``@name`` syntax.
 Syntax
 ======
 
-.. code-block:: sql
-
-    SET LOCAL name = constant
-
-``@name`` reference syntax:
-
-.. code-block:: sql
-
-    SELECT ... WHERE column = @name
+.. raw:: html
+    :file: SET_LOCAL.diagram.svg
 
 Parameters
 ==========
