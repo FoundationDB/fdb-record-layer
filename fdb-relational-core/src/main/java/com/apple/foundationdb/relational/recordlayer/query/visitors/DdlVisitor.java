@@ -29,6 +29,8 @@ import com.apple.foundationdb.record.query.plan.cascades.RawSqlFunction;
 import com.apple.foundationdb.record.query.plan.cascades.UserDefinedFunction;
 import com.apple.foundationdb.record.query.plan.cascades.UserDefinedMacroFunction;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalSortExpression;
+import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.NullValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.PromoteValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.ThrowsValue;
@@ -607,27 +609,12 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
     @Override
     public ProceduralPlan visitSetLocalVariable(@Nonnull RelationalParser.SetLocalVariableContext ctx) {
         final var varName = getDelegate().normalizeString(ctx.varName.getText());
-        final var value = evalConstant(ctx.varValue);
+        final var expr = getDelegate().getPlanGenerationContext().withDisabledLiteralProcessing(
+                () -> Assert.castUnchecked(visit(ctx.varValue), Expression.class));
+        final var underlying = expr.getUnderlying();
+        final Object value = underlying instanceof NullValue ? null
+                : Assert.castUnchecked(underlying, LiteralValue.class).getLiteralValue();
         return ProceduralPlan.of(metadataOperationsFactory.getSetLocalVariableConstantAction(varName, value));
-    }
-
-    @Nullable
-    private Object evalConstant(@Nonnull RelationalParser.ConstantContext ctx) {
-        if (ctx instanceof RelationalParser.StringConstantContext) {
-            return SemanticAnalyzer.normalizeString(ctx.getText(), false);
-        } else if (ctx instanceof RelationalParser.DecimalConstantContext) {
-            return ParseHelpers.parseDecimal(ctx.getText());
-        } else if (ctx instanceof RelationalParser.NegativeDecimalConstantContext) {
-            return ParseHelpers.parseDecimal(ctx.getText());
-        } else if (ctx instanceof RelationalParser.BooleanConstantContext) {
-            return ((RelationalParser.BooleanConstantContext) ctx).booleanLiteral().FALSE() == null;
-        } else if (ctx instanceof RelationalParser.NullConstantContext) {
-            return null;
-        } else {
-            Assert.failUnchecked(ErrorCode.UNSUPPORTED_QUERY,
-                    "Unsupported constant type for SET LOCAL: " + ctx.getText());
-            return null; // unreachable
-        }
     }
 
     @Override
