@@ -50,7 +50,7 @@ final class SqlFunctionCatalogImpl implements SqlFunctionCatalog {
     @Nonnull
     private final UserDefinedFunctionCatalog userDefinedFunctionCatalog;
 
-    private SqlFunctionCatalogImpl(boolean isCaseSensitive) {
+    private SqlFunctionCatalogImpl() {
         this.userDefinedFunctionCatalog = new UserDefinedFunctionCatalog();
     }
 
@@ -166,7 +166,7 @@ final class SqlFunctionCatalogImpl implements SqlFunctionCatalog {
     @Nonnull
     public static SqlFunctionCatalogImpl newInstance(@Nonnull final RecordLayerSchemaTemplate metadata,
                                                      boolean isCaseSensitive) {
-        final var functionCatalog = new SqlFunctionCatalogImpl(isCaseSensitive);
+        final var functionCatalog = new SqlFunctionCatalogImpl();
         metadata.getInvokedRoutines().forEach(func ->
                 functionCatalog.registerUserDefinedFunction(
                         Assert.notNullUnchecked(func.getName()),
