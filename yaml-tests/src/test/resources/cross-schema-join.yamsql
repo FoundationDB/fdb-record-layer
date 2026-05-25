@@ -1,0 +1,141 @@
+#
+# cross-schema-join.yamsql
+#
+# This source file is part of the FoundationDB open source project
+#
+# Copyright 2021-2025 Apple Inc. and the FoundationDB project authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Integration tests for cross-schema query support.
+# Verifies that tables from different schemas within the same database can be
+# joined or queried using the schema_name.table_name syntax.
+---
+options:
+  supported_version: !current_version
+---
+# Cleanup from any previous run
+setup:
+  connect: "jdbc:embed:/__SYS?schema=CATALOG"
+  steps:
+    - query: drop database if exists /FRL/CROSS_SCHEMA_JOIN
+    - query: drop schema template if exists cross_schema_items_template
+    - query: drop schema template if exists cross_schema_tags_template
+    - query: drop schema template if exists cross_schema_prices_template
+    - query: drop schema template if exists cross_schema_things_v1_template
+    - query: drop schema template if exists cross_schema_things_v2_template
+---
+# Create templates, database, and all schemas
+setup:
+  connect: "jdbc:embed:/__SYS?schema=CATALOG"
+  steps:
+    - query: create schema template cross_schema_items_template
+             create table items(id bigint, name string, primary key(id))
+    - query: create schema template cross_schema_tags_template
+             create table tags(item_id bigint, tag string, primary key(item_id))
+    - query: create schema template cross_schema_prices_template
+             create table prices(item_id bigint, price bigint, primary key(item_id))
+    # Two templates with identically-named tables but different columns,
+    # to exercise type-namespace collision avoidance.
+    - query: create schema template cross_schema_things_v1_template
+             create table things(id bigint, description string, primary key(id))
+    - query: create schema template cross_schema_things_v2_template
+             create table things(id bigint, quantity bigint, primary key(id))
+    - query: create database /FRL/CROSS_SCHEMA_JOIN
+    - query: create schema /FRL/CROSS_SCHEMA_JOIN/ITEMS_SCHEMA  with template cross_schema_items_template
+    - query: create schema /FRL/CROSS_SCHEMA_JOIN/TAGS_SCHEMA   with template cross_schema_tags_template
+    - query: create schema /FRL/CROSS_SCHEMA_JOIN/PRICES_SCHEMA with template cross_schema_prices_template
+    - query: create schema /FRL/CROSS_SCHEMA_JOIN/DESCRIPTION_SCHEMA with template cross_schema_things_v1_template
+    - query: create schema /FRL/CROSS_SCHEMA_JOIN/QUANTITY_SCHEMA    with template cross_schema_things_v2_template
+---
+setup:
+  connect: "jdbc:embed:/FRL/CROSS_SCHEMA_JOIN?schema=ITEMS_SCHEMA"
+  steps:
+    - query: INSERT INTO ITEMS VALUES (1, 'Apple'), (2, 'Banana'), (3, 'Cherry')
+---
+setup:
+  connect: "jdbc:embed:/FRL/CROSS_SCHEMA_JOIN?schema=TAGS_SCHEMA"
+  steps:
+    - query: INSERT INTO TAGS VALUES (1, 'fruit'), (2, 'yellow'), (3, 'red')
+---
+setup:
+  connect: "jdbc:embed:/FRL/CROSS_SCHEMA_JOIN?schema=PRICES_SCHEMA"
+  steps:
+    - query: INSERT INTO PRICES VALUES (1, 100), (2, 200), (3, 300)
+---
+setup:
+  connect: "jdbc:embed:/FRL/CROSS_SCHEMA_JOIN?schema=DESCRIPTION_SCHEMA"
+  steps:
+    - query: INSERT INTO THINGS VALUES (1, 'Widget'), (2, 'Gadget'), (3, 'Doohickey')
+---
+setup:
+  connect: "jdbc:embed:/FRL/CROSS_SCHEMA_JOIN?schema=QUANTITY_SCHEMA"
+  steps:
+    - query: INSERT INTO THINGS VALUES (1, 10), (2, 20), (3, 30)
+---
+test_block:
+  connect: "jdbc:embed:/FRL/CROSS_SCHEMA_JOIN?schema=ITEMS_SCHEMA"
+  preset: multi_repetition_ordered
+  name: cross-schema-join-tests
+  tests:
+    -
+      # Basic inner join: primary-schema table joined to a secondary-schema table.
+      # The plan must contain STORE_BIND to route the inner scan to the secondary store.
+      - query: SELECT items.name, tags.tag FROM ITEMS AS items
+               JOIN TAGS_SCHEMA.TAGS AS tags ON items.id = tags.item_id
+               ORDER BY items.id
+      - explainContains: "STORE_BIND TAGS_SCHEMA"
+      - result: [{'Apple', 'fruit'}, {'Banana', 'yellow'}, {'Cherry', 'red'}]
+    -
+      # Cross-schema join with a WHERE predicate on the outer (primary) table.
+      - query: SELECT items.name, tags.tag FROM ITEMS AS items
+               JOIN TAGS_SCHEMA.TAGS AS tags ON items.id = tags.item_id
+               WHERE items.id = 2
+      - result: [{'Banana', 'yellow'}]
+    -
+      # Standalone SELECT from a secondary schema — no join involved.
+      - query: SELECT tag FROM TAGS_SCHEMA.TAGS ORDER BY item_id
+      - explainContains: "STORE_BIND TAGS_SCHEMA"
+      - result: [{'fruit'}, {'yellow'}, {'red'}]
+    -
+      # Three-schema join: primary + two secondaries in the same query.
+      - query: SELECT items.name, tags.tag, prices.price
+               FROM ITEMS AS items
+               JOIN TAGS_SCHEMA.TAGS     AS tags   ON items.id = tags.item_id
+               JOIN PRICES_SCHEMA.PRICES AS prices ON items.id = prices.item_id
+               ORDER BY items.id
+      - result: [{'Apple', 'fruit', !l 100}, {'Banana', 'yellow', !l 200}, {'Cherry', 'red', !l 300}]
+---
+test_block:
+  # Connect as DESCRIPTION_SCHEMA; the THINGS table here has a "description" column.
+  # QUANTITY_SCHEMA.THINGS has a "quantity" column.  Both templates use the same table name,
+  # which exercises type-namespace collision avoidance in the TypeRepository.
+  connect: "jdbc:embed:/FRL/CROSS_SCHEMA_JOIN?schema=DESCRIPTION_SCHEMA"
+  preset: multi_repetition_ordered
+  name: cross-schema-type-collision-tests
+  tests:
+    -
+      # Joining same-named tables from two schemas must not cause a TypeRepository collision.
+      - query: SELECT a.description, b.quantity
+               FROM THINGS AS a
+               JOIN QUANTITY_SCHEMA.THINGS AS b ON a.id = b.id
+               ORDER BY a.id
+      - result: [{'Widget', !l 10}, {'Gadget', !l 20}, {'Doohickey', !l 30}]
+    -
+      # Standalone query from the primary schema's THINGS table.
+      - query: SELECT description FROM THINGS ORDER BY id
+      - result: [{'Widget'}, {'Gadget'}, {'Doohickey'}]
+    -
+      # Standalone query from the secondary schema's THINGS table.
+      - query: SELECT quantity FROM QUANTITY_SCHEMA.THINGS ORDER BY id
+      - result: [{!l 10}, {!l 20}, {!l 30}]
