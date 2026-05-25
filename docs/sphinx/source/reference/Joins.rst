@@ -354,6 +354,37 @@ Join results from user-defined functions:
 
 User-defined functions can be used like tables in the FROM clause and joined with join conditions in the WHERE clause.
 
+Cross-Schema Joins
+==================
+
+Tables from different schemas within the same database can be joined using the ``schema_name.table_name``
+qualifier on any table reference in a FROM clause or JOIN target:
+
+.. code-block:: sql
+
+    SELECT a.name, b.tag
+    FROM items AS a
+    JOIN other_schema.tags AS b ON a.id = b.item_id
+
+The qualifier ``other_schema`` must name a schema in the **same database** as the current connection.
+Cross-database joins are not supported.
+
+Unqualified names always resolve to the current connection schema. The qualified form can appear
+on either or both sides of a join, or as a standalone table reference without any join:
+
+.. code-block:: sql
+
+    SELECT tag FROM other_schema.tags ORDER BY item_id
+
+Joins spanning more than two schemas are also supported:
+
+.. code-block:: sql
+
+    SELECT a.name, b.tag, c.price
+    FROM items AS a
+    JOIN schema_b.tags   AS b ON a.id = b.item_id
+    JOIN schema_c.prices AS c ON a.id = c.item_id
+
 Important Notes
 ===============
 
