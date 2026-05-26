@@ -38,12 +38,17 @@ import java.util.stream.Collectors;
 
 /**
  * A key expression within a nested subrecord.
- * If the parent field is repeated, then the parent field must have fan type <code>FanType.FanOut</code>.
- * In that case, this will return the nested expression evaluated against every subrecord (possibly returning
- * no <code>Key.Evaluated</code>s if the parent field is empty). If the parent field is not repeated and not set,
- * then this will evaluate the nested expression on the <code>null</code> record. This should return the same
- * result as if the field were set to the empty message. If this expression is evaluated on the <code>null</code>
- * record, then it will evaluate the same as if the parent field is unset or empty (depending on the fan type).
+ *
+ * <p>If the parent field is {@code repeated}, then the parent {@code field()} expression must have fan type
+ * {@code FanType.FanOut}. In that case, this will return the nested expression evaluated against every subrecord
+ * (possibly returning no <code>Key.Evaluated</code> entries at all if the parent field is empty).
+ *
+ * <p>If the parent field is singular (not {@code repeated}) and {@code optional} and not set, then this will evaluate
+ * the nested expression on the <code>null</code> record. See {@link FieldKeyExpression} for the exact semantics in this
+ * scenario.
+ *
+ * <p>If this expression is evaluated on the <code>null</code> record, then it will evaluate the same as if the parent
+ * field is unset or empty (depending on the fan type).
  */
 @API(API.Status.UNSTABLE)
 public class NestingKeyExpression extends BaseKeyExpression implements KeyExpressionWithChild, AtomKeyExpression {

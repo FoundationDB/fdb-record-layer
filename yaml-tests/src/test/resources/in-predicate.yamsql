@@ -18,12 +18,28 @@
 # limitations under the License.
 ---
 schema_template:
-    create type as struct ts(sa bigint, sb bigint)
-    create type as struct fruit_type(name string, color string)
-    create table ta(a bigint, b bigint, c double, d boolean, e string, f ts, primary key(a))
-    create index f1 as select f.sa, f.sb from ta order by f.sa, f.sb
-    create table array_table(id bigint, fruits string array, numbers bigint array, fruit_records fruit_type array, primary key(id))
-    create index fruits as select fruits from array_table
+  - initialVersionLessThan: "4.12.1.0"
+    definition: |
+      create type as struct ts(sa bigint, sb bigint)
+      create type as struct fruit_type(name string, color string)
+      create table ta(a bigint, b bigint, c double, d boolean, e string, f ts, primary key(a))
+      create index f1 as select f.sa, f.sb from ta order by f.sa, f.sb
+      create table array_table(id bigint, fruits string array, numbers bigint array, fruit_records fruit_type array, primary key(id))
+      create index fruits as select fruits from array_table
+      create table t_parent(id string, lst string array, primary key(id))
+      create table t_child(id string, t_link fruit_type, num bigint, primary key(id))
+      CREATE FUNCTION get_key(IN r TYPE fruit_type) RETURNS STRING AS r.name
+  - initialVersionAtLeast: "4.12.1.0"
+    definition: |
+      create type as struct ts(sa bigint, sb bigint)
+      create type as struct fruit_type(name string, color string)
+      create table ta(a bigint, b bigint, c double, d boolean, e string, f ts, primary key(a))
+      create index f1 as select f.sa, f.sb from ta order by f.sa, f.sb
+      create table array_table(id bigint, fruits string array, numbers bigint array, fruit_records fruit_type array, primary key(id))
+      create index fruits as select "fruit" from array_table as t, t.fruits as "fruit"
+      create table t_parent(id string, lst string array, primary key(id))
+      create table t_child(id string, t_link fruit_type, num bigint, primary key(id))
+      CREATE FUNCTION get_key(IN r TYPE fruit_type) RETURNS STRING AS r.name
 ---
 setup:
   steps:
@@ -47,28 +63,42 @@ setup:
                (3, ['apple', 'grape', 'mango'], [10, 60, 70], [('mango' as name, 'orange' as color), ('apple' as name, 'green' as color)]),
                (4, ['kiwi'], [80], [('kiwi' as name, 'brown' as color)]),
                (5, ['banana', 'cherry', 'date'], [20, 90, 100], [('date' as name, 'brown' as color), ('cherry' as name, 'red' as color)])
+    - query: INSERT INTO t_parent (id, lst)
+        VALUES ('p1', ['tag_a']),
+               ('p2', ['tag_b']),
+               ('p3', ['tag_a'])
+    - query: INSERT INTO t_child (id, t_link, num)
+        VALUES ('c1', ('p1', null), 1),
+               ('c2', ('p1', null), 2),
+               ('c3', ('p1', null), 4),
+               ('c4', ('p2', null), 1),
+               ('c5', ('p3', null), 1)
 ---
 test_block:
   tests:
     -
       # LONG value matched against IN list of only LONG values
       - query: select a, b from ta where b in (1, 3, 5, 7)
+      - explain: "ISCAN(F1 <,>) | FLATMAP q0 -> { EXPLODE arrayDistinct(promote(@c9 AS ARRAY(LONG))) | FILTER q0.B EQUALS _ AS q1 RETURN (q0.A AS A, q0.B AS B) }"
       - unorderedResult: [{A: 2, 7}, {A: 4, 5}, {A: 6, 3}, {A: 8, 1}]
     -
       # LONG value matched against singleton IN list
       - query: select a, b from ta where b in (6)
+      - explain: "ISCAN(F1 <,>) | FLATMAP q0 -> { EXPLODE arrayDistinct(promote(@c9 AS ARRAY(LONG))) | FILTER q0.B EQUALS _ AS q1 RETURN (q0.A AS A, q0.B AS B) }"
       - result: [{A: 3, 6}]
     -
       # LONG value matched against empty IN list
       - query: select a, b from ta where b in ()
-      - error: "42601"
+      - error: SYNTAX_ERROR
     -
       # LONG value matched against IN list with no matches
       - query: select a, b from ta where b in (10, 33, 66)
+      - explain: "ISCAN(F1 <,>) | FLATMAP q0 -> { EXPLODE arrayDistinct(promote(@c9 AS ARRAY(LONG))) | FILTER q0.B EQUALS _ AS q1 RETURN (q0.A AS A, q0.B AS B) }"
       - result: []
     -
       # LONG value matched against IN list of LONG-resultant arithmetic values
       - query: select a, b from ta where b in (1 + 0, 3 + 0, 5, 7)
+      - explain: "ISCAN(F1 <,>) | FLATMAP q0 -> { EXPLODE arrayDistinct(promote(array(@c10 + @c12, @c14 + @c12, @c18, @c20) AS ARRAY(LONG))) | FILTER q0.B EQUALS _ AS q1 RETURN (q0.A AS A, q0.B AS B) }"
       - unorderedResult: [{A: 2, 7}, {A: 4, 5}, {A: 6, 3}, {A: 8, 1}]
     -
       # LONG value matched against IN list of repeated LONG values
@@ -109,7 +139,7 @@ test_block:
     -
       # _ matched against IN list containing NULL value
       - query: select a, b from ta where b in (1, null, 2, 1, 3, null)
-      - error: "42809"
+      - error: WRONG_OBJECT_TYPE
     -
       # DOUBLE value matched against IN list of DOUBLE values
       - query: select a, c from ta where c in (4.56, 3.45, 2.34)
@@ -118,35 +148,43 @@ test_block:
     -
       # DOUBLE value matched against singleton IN list of DOUBLE value
       - query: select a, c from ta where c in (9.01)
+      - explain: "ISCAN(F1 <,>) | FLATMAP q0 -> { EXPLODE arrayDistinct(@c9) | FILTER q0.C EQUALS _ AS q1 RETURN (q0.A AS A, q0.C AS C) }"
       - result: [{A: 6, 9.01}]
     -
       # DOUBLE value matched against singleton IN list of DOUBLE-resultant simple expressions
       - query: select a, c from ta where c in (3.01 + 6)
+      - explain: "ISCAN(F1 <,>) | FLATMAP q0 -> { EXPLODE arrayDistinct(array(@c10 + @c12)) | FILTER q0.C EQUALS _ AS q1 RETURN (q0.A AS A, q0.C AS C) }"
       - result: [{A: 6, 9.01}]
     -
       # BOOLEAN value matched against IN list of BOOLEAN values
       - query: select a, d from ta where d in (true, false)
+      - explain: "ISCAN(F1 <,>) | FLATMAP q0 -> { EXPLODE arrayDistinct(@c9) | FILTER q0.D EQUALS _ AS q1 RETURN (q0.A AS A, q0.D AS D) }"
       - unorderedResult: [{A: 0, !ignore x}, {A: 2, !ignore x}, {A: 4, !ignore x}, {A: 6, !ignore x}, {A: 8, !ignore x},
                     {A: 1, !ignore x}, {A: 3, !ignore x}, {A: 5, !ignore x}, {A: 7, !ignore x}, {A: 9, !ignore x}]
     -
       # BOOLEAN value matched against singleton IN list of BOOLEAN values
       - query: select a, d from ta where d in (true)
+      - explain: "ISCAN(F1 <,>) | FLATMAP q0 -> { EXPLODE arrayDistinct(@c9) | FILTER q0.D EQUALS _ AS q1 RETURN (q0.A AS A, q0.D AS D) }"
       - unorderedResult: [{A: 0, !ignore x}, {A: 2, !ignore x}, {A: 4, !ignore x}, {A: 6, !ignore x}, {A: 8, !ignore x}]
     -
       # BOOLEAN value matched against singleton IN list of BOOLEAN-resultant simple expressions
       - query: select a, d from ta where d in (3 < 4)
+      - explain: "ISCAN(F1 <,>) | FLATMAP q0 -> { EXPLODE arrayDistinct(array(@c10 lt @c12)) | FILTER q0.D EQUALS _ AS q1 RETURN (q0.A AS A, q0.D AS D) }"
       - unorderedResult: [{A: 0, !ignore x}, {A: 2, !ignore x}, {A: 4, !ignore x}, {A: 6, !ignore x}, {A: 8, !ignore x}]
     -
       # STRING value matched against IN list of STRING values
       - query: select a, e from ta where e in ('bar', 'doe')
+      - explain: "ISCAN(F1 <,>) | FLATMAP q0 -> { EXPLODE arrayDistinct(@c9) | FILTER q0.E EQUALS _ AS q1 RETURN (q0.A AS A, q0.E AS E) }"
       - unorderedResult: [{ A: 1, !ignore x }, { A: 8, !ignore x }, { A: 2, !ignore x }, { A: 5, !ignore x }, { A: 9, !ignore x }]
     -
       # STRING value matched against singleton IN list of STRING values
       - query: select a, e from ta where e in ('foo')
+      - explain: "ISCAN(F1 <,>) | FLATMAP q0 -> { EXPLODE arrayDistinct(@c9) | FILTER q0.E EQUALS _ AS q1 RETURN (q0.A AS A, q0.E AS E) }"
       - unorderedResult: [ { A: 0, !ignore x }, { A: 6, !ignore x }]
     -
       # STRING value matched against IN list of BOOLEAN-resultant simple expressions
       - query: select a, e from ta where e in ('b' + 'a' + 'r', 'doe')
+      - explain: "ISCAN(F1 <,>) | FLATMAP q0 -> { EXPLODE arrayDistinct(array(@c10 + @c12 + @c14, @c16)) | FILTER q0.E EQUALS _ AS q1 RETURN (q0.A AS A, q0.E AS E) }"
       - unorderedResult: [{ A: 1, !ignore x }, { A: 8, !ignore x }, { A: 2, !ignore x }, { A: 5, !ignore x }, { A: 9, !ignore x }]
     -
       # struct value matched against IN list of Tuple values
@@ -156,6 +194,7 @@ test_block:
     -
       # struct column with an index matched against IN list of Tuple values
       - query: select a, b from ta where f in ((90L, 9L), (81L, 18L))
+      - explain: "EXPLODE arrayDistinct(array((@c11 AS _0, @c13 AS _1), (@c17 AS _0, @c19 AS _1))) | FLATMAP q0 -> { ISCAN(F1 [EQUALS promote(q0._0 AS LONG), EQUALS promote(q0._1 AS LONG)]) AS q1 RETURN (q1.A AS A, q1.B AS B) }"
       - unorderedResult: [ { A: 0, 9 }, { A: 1, 8 } ]
     -
       # struct column with an index matched against IN list of repeated Tuple values
@@ -170,25 +209,28 @@ test_block:
       # `NOT IN`
       - query: select e, a from ta where e not in ('foo' , 'bar', 'doe', 'arc', 'something')
       - supported_version: 4.5.13.0
+      - explain: "ISCAN(F1 <,>) | FILTER NOT _.E IN @c10 | MAP (_.E AS E, _.A AS A)"
       - unorderedResult: [{ E: "per", A: 4 }]
     -
       # `NOT IN` with incompatible types
       - query: select a, e from ta where e not in ('foo' , 35)
       - initialVersionAtLeast: 4.5.13.0
-      - error: "42804"
+      - error: DATATYPE_MISMATCH
       - initialVersionLessThan: 4.5.13.0
-      - error: "42601"
+      - error: SYNTAX_ERROR
     -
       # Values of incompatible types in the IN list
       - query: select a, e from ta where e in ('foo' , 35 + 4)
-      - error: "22000"
+      - error: CANNOT_CONVERT_TYPE
     -
       # constant LONG value matched against IN list of LONG values
       - query: select a, e from ta where 1 in (2, 3)
+      - explain: "EXPLODE arrayDistinct(@c9) | FILTER @c7 EQUALS _ | FLATMAP q0 -> { ISCAN(F1 <,>) AS q1 RETURN (q1.A AS A, q1.E AS E) }"
       - result: []
     -
       # constant LONG value matched against IN list of LONG values.
       - query: select a from ta where 1 in (1, 2, 3)
+      - explain: "EXPLODE arrayDistinct(@c7) | FLATMAP q0 -> { COVERING(F1 <,> -> [A: KEY:[3], F: [SA: KEY:[0], SB: KEY:[1]]]) | FILTER @c5 EQUALS q0 | MAP (_.A AS A) AS q1 RETURN q1 }"
       - unorderedResult: [{0}, {1}, {2}, {3}, {4}, {5}, {6}, {7}, {8}, {9}]
     -
       # Test alternate IN-like predicate with primitive array column - string in string array
@@ -208,11 +250,13 @@ test_block:
       # Test IN predicate with primitive array column - multiple matches
       - query: select id from array_table where 'banana' in fruits
       - supported_version: 4.8.1.0
+      - explain: "SCAN([IS ARRAY_TABLE]) | FLATMAP q0 -> { EXPLODE arrayDistinct(q0.FRUITS) | FILTER @c5 EQUALS _ AS q1 RETURN (q0.ID AS ID) }"
       - unorderedResult: [{1}, {5}]
     -
       # Test IN predicate with primitive array column - no match
       - query: select id from array_table where 'pineapple' in fruits
       - supported_version: 4.8.1.0
+      - explain: "SCAN([IS ARRAY_TABLE]) | FLATMAP q0 -> { EXPLODE arrayDistinct(q0.FRUITS) | FILTER @c5 EQUALS _ AS q1 RETURN (q0.ID AS ID) }"
       - result: []
     -
       # Test alternate IN-like predicate with primitive array column - int in int array
@@ -231,37 +275,123 @@ test_block:
       # Test IN predicate with primitive array column - bigint no match
       - query: select id from array_table where 15 in numbers
       - supported_version: 4.8.1.0
+      - explain: "SCAN([IS ARRAY_TABLE]) | FLATMAP q0 -> { EXPLODE arrayDistinct(q0.NUMBERS) | FILTER promote(@c5 AS LONG) EQUALS _ AS q1 RETURN (q0.ID AS ID) }"
       - result: []
     -
       # Test IN predicate with record array column - struct in struct array
       - query: select id from array_table where ('apple', 'red') in fruit_records
       - supported_version: 4.8.1.0
+      - explain: "SCAN([IS ARRAY_TABLE]) | FILTER (@c6 AS _0, @c8 AS _1) IN _.FRUIT_RECORDS | MAP (_.ID AS ID)"
       - unorderedResult: [{1}]
     -
       # Test IN predicate with record array column - different struct match
       - query: select id from array_table where ('mango', 'orange') in fruit_records
       - supported_version: 4.8.1.0
+      - explain: "SCAN([IS ARRAY_TABLE]) | FILTER (@c6 AS _0, @c8 AS _1) IN _.FRUIT_RECORDS | MAP (_.ID AS ID)"
       - unorderedResult: [{3}]
     -
       # Test IN predicate with record array column - no match
       - query: select id from array_table where ('apple', 'blue') in fruit_records
       - supported_version: 4.8.1.0
+      - explain: "SCAN([IS ARRAY_TABLE]) | FILTER (@c6 AS _0, @c8 AS _1) IN _.FRUIT_RECORDS | MAP (_.ID AS ID)"
       - result: []
     -
       # Test IN predicate with record array column - partial field match (should not match)
       - query: select id from array_table where ('grape', 'green') in fruit_records
       - supported_version: 4.8.1.0
+      - explain: "SCAN([IS ARRAY_TABLE]) | FILTER (@c6 AS _0, @c8 AS _1) IN _.FRUIT_RECORDS | MAP (_.ID AS ID)"
       - result: []
     -
       # Test NOT IN predicate with primitive array column
       - query: select id from array_table where 'apple' not in fruits
       - supported_version: 4.8.1.0
+      - explain: "SCAN([IS ARRAY_TABLE]) | FILTER NOT @c5 IN _.FRUITS | MAP (_.ID AS ID)"
       - unorderedResult: [{2}, {4}, {5}]
     -
       # Test NOT IN predicate with record array column
       - query: select id from array_table where ('apple', 'red') not in fruit_records
       - supported_version: 4.8.1.0
+      - explain: "SCAN([IS ARRAY_TABLE]) | FILTER NOT (@c6 AS _0, @c8 AS _1) IN _.FRUIT_RECORDS | MAP (_.ID AS ID)"
       - unorderedResult: [{2}, {3}, {4}, {5}]
+    -
+      # Test get_key() UDF on a struct column used as a join key, combined with
+      # literal IN string-array and bigint IN value-list predicates.
+      # c1 (num=1) and c2 (num=2) match; c3 excluded by num NOT IN (1,2,3);
+      # c4 excluded because p2 lacks 'tag_a'; c5 excluded because p3 != 'p1'.
+      - query: SELECT
+                   t_child.id AS child_id,
+                   t_child.num AS num,
+                   t_parent.id AS parent_id
+               FROM
+                   t_parent,
+                   t_child
+               WHERE
+                   get_key(t_child.t_link) = t_parent.id
+                   AND 'tag_a' IN t_parent.lst
+                   AND t_parent.id = 'p1'
+                   AND t_child.num IN (1, 2, 3)
+      - supported_version: 4.12.5.0
+      - explain: "SCAN([IS T_PARENT, EQUALS promote(@c44 AS STRING)]) | FLATMAP q0 -> { EXPLODE arrayDistinct(q0.LST) | FLATMAP q1 -> { [IN arrayDistinct(promote(@c50 AS ARRAY(LONG)))] | INJOIN q2 -> { SCAN([IS T_CHILD]) | FILTER _.T_LINK.NAME EQUALS q0.ID AND _.NUM EQUALS q2 } | FILTER @c34 EQUALS q1 AS q3 RETURN q3 } AS q4 RETURN (q4.ID AS CHILD_ID, q4.NUM AS NUM, q0.ID AS PARENT_ID) }"
+      - unorderedResult: [
+          { child_id: 'c1', num: 1, parent_id: 'p1' },
+          { child_id: 'c2', num: 2, parent_id: 'p1' }
+        ]
+    -
+      # PartiQL join with array of longs combined with IN predicate on the unnested elements.
+      # This exercises the case where a SelectExpression has a naked primitive result value (a bigint from the
+      # unnested numbers array), which previously caused SplitSelectExtractIndependentQuantifiersRule to throw.
+      - query: SELECT t.id, n FROM array_table AS t, t.numbers AS n WHERE n IN (10, 20)
+      - supported_version: 4.12.5.0
+      - explain: "EXPLODE arrayDistinct(promote(@c19 AS ARRAY(LONG))) | FLATMAP q0 -> { SCAN([IS ARRAY_TABLE]) | FLATMAP q1 -> { EXPLODE q1.NUMBERS | FILTER _ EQUALS q0 AS q2 RETURN (q1.ID AS ID, q2 AS N) } AS q3 RETURN q3 }"
+      - unorderedResult: [{ID: 1, N: 10}, {ID: 1, N: 20}, {ID: 3, N: 10}, {ID: 5, N: 20}]
+    -
+      # PartiQL join AT on bigint array: unnest numbers with ordinal position.
+      - query: SELECT t.id, n, idx FROM array_table AS t, t.numbers AS n AT idx
+      - supported_version: 4.12.5.0
+      - explain: "SCAN([IS ARRAY_TABLE]) | FLATMAP q0 -> { EXPLODE q0.NUMBERS WITH ORDINALITY AS q1 RETURN (q0.ID AS ID, q1._0 AS N, q1._1 AS IDX) }"
+      - unorderedResult: [
+          {ID: 1, N: 10,  IDX: 1}, {ID: 1, N: 20,  IDX: 2}, {ID: 1, N: 30,  IDX: 3},
+          {ID: 2, N: 40,  IDX: 1}, {ID: 2, N: 50,  IDX: 2},
+          {ID: 3, N: 10,  IDX: 1}, {ID: 3, N: 60,  IDX: 2}, {ID: 3, N: 70,  IDX: 3},
+          {ID: 4, N: 80,  IDX: 1},
+          {ID: 5, N: 20,  IDX: 1}, {ID: 5, N: 90,  IDX: 2}, {ID: 5, N: 100, IDX: 3}]
+    -
+      # PartiQL join AT on bigint array with IN predicate on the unnested value.
+      # The ordinal (IDX) reflects the position in the original array, not the rank among filtered rows.
+      - query: SELECT t.id, n, idx FROM array_table AS t, t.numbers AS n AT idx WHERE n IN (10, 20)
+      - supported_version: 4.12.5.0
+      - explain: "EXPLODE arrayDistinct(promote(@c23 AS ARRAY(LONG))) | FLATMAP q0 -> { SCAN([IS ARRAY_TABLE]) | FLATMAP q1 -> { EXPLODE q1.NUMBERS WITH ORDINALITY | FILTER _._0 EQUALS q0 AS q2 RETURN (q1.ID AS ID, q2._0 AS N, q2._1 AS IDX) } AS q3 RETURN q3 }"
+      - unorderedResult: [
+          {ID: 1, N: 10, IDX: 1}, {ID: 1, N: 20, IDX: 2},
+          {ID: 3, N: 10, IDX: 1},
+          {ID: 5, N: 20, IDX: 1}]
+    -
+      # PartiQL join AT on bigint array with IN predicate on the ordinal.
+      - query: SELECT t.id, n, idx FROM array_table AS t, t.numbers AS n AT idx WHERE idx IN (1, 3)
+      - supported_version: 4.12.5.0
+      - explain: "EXPLODE arrayDistinct(@c23) | FLATMAP q0 -> { SCAN([IS ARRAY_TABLE]) | FLATMAP q1 -> { EXPLODE q1.NUMBERS WITH ORDINALITY | FILTER _._1 EQUALS q0 AS q2 RETURN (q1.ID AS ID, q2._0 AS N, q2._1 AS IDX) } AS q3 RETURN q3 }"
+      - unorderedResult: [
+          {ID: 1, N: 10,  IDX: 1}, {ID: 1, N: 30,  IDX: 3},
+          {ID: 2, N: 40,  IDX: 1},
+          {ID: 3, N: 10,  IDX: 1}, {ID: 3, N: 70,  IDX: 3},
+          {ID: 4, N: 80,  IDX: 1},
+          {ID: 5, N: 20,  IDX: 1}, {ID: 5, N: 100, IDX: 3}]
+    -
+      # PartiQL join AT on bigint array with IN predicate on the primary key.
+      - query: SELECT t.id, n, idx FROM array_table AS t, t.numbers AS n AT idx WHERE t.id IN (2, 4)
+      - supported_version: 4.12.5.0
+      - explain: "[IN arrayDistinct(promote(@c25 AS ARRAY(LONG)))] | INJOIN q0 -> { SCAN([IS ARRAY_TABLE, EQUALS q0]) } | FLATMAP q1 -> { EXPLODE q1.NUMBERS WITH ORDINALITY AS q2 RETURN (q1.ID AS ID, q2._0 AS N, q2._1 AS IDX) }"
+      - unorderedResult: [
+          {ID: 2, N: 40, IDX: 1}, {ID: 2, N: 50, IDX: 2},
+          {ID: 4, N: 80, IDX: 1}]
+    -
+      # PartiQL join AT on string array with IN predicate on the unnested value.
+      - query: SELECT t.id, f, idx FROM array_table AS t, t.fruits AS f AT idx WHERE f IN ('apple', 'mango')
+      - supported_version: 4.12.5.0
+      - explain: "EXPLODE arrayDistinct(@c23) | FLATMAP q0 -> { SCAN([IS ARRAY_TABLE]) | FLATMAP q1 -> { EXPLODE q1.FRUITS WITH ORDINALITY | FILTER _._0 EQUALS q0 AS q2 RETURN (q1.ID AS ID, q2._0 AS F, q2._1 AS IDX) } AS q3 RETURN q3 }"
+      - unorderedResult: [
+          {ID: 1, F: 'apple', IDX: 1},
+          {ID: 3, F: 'apple', IDX: 1}, {ID: 3, F: 'mango', IDX: 3}]
 ---
 # Following tests are run once because running them the second time around causes the error to be different. This is
 # "expected" as the point of error is different in both the cases.
@@ -275,29 +405,29 @@ test_block:
         # clear whether we want to support it as it would probably
         # make plan lookup in the cache much more expensive.
         - query: select a, b from ta where b in (1, 3.0, 5, 7.0)
-        - error: "XX000"
+        - error: INTERNAL_ERROR
       -
         # Values of incompatible types in the IN list
         - query: select a, e from ta where e in ('foo' , 35)
-        - error: "XX000"
+        - error: INTERNAL_ERROR
       -
         # Values of incompatible types in the IN list
         - query: select a, e from ta where e in (35, '23')
-        - error: "XX000"
+        - error: INTERNAL_ERROR
       -
         # Values of incompatible types in the IN list
         - query: select a, e from ta where e in (true, 75.34)
-        - error: "XX000"
+        - error: INTERNAL_ERROR
       -
         # Left type (STRING) is not compatible with right type (type of the IN List)
         - query: select a, e from ta where e in (35, 75.34)
-        - error: "XX000"
+        - error: INTERNAL_ERROR
       -
         # Left type (STRING) is not compatible with right type (type of the IN List)
         - query: select a, e from ta where e in (35.34, 32)
-        - error: "XX000"
+        - error: INTERNAL_ERROR
       -
         # Complex (STRUCT) left type matched against IN list
         - query: select a, e from ta where f in (34, 23)
-        - error: "22000"
+        - error: CANNOT_CONVERT_TYPE
 ...

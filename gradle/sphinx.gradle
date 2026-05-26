@@ -22,6 +22,12 @@ var sphinxRoot = "${rootDir}/docs/sphinx"
 var venvDir = "${sphinxRoot}/.venv"
 var sphinxBuildDir = "${sphinxRoot}/.out"
 
+// Gives tasks access to an injected `ExecOperations` for running external processes from a `doLast` block.
+interface InjectedExecOps {
+    @javax.inject.Inject
+    org.gradle.process.ExecOperations getExecOps()
+}
+
 var documented_subprojects = [
         "fdb-java-annotations",
         "fdb-extensions",
@@ -40,11 +46,12 @@ task sphinxEnv {
     inputs.file("${sphinxRoot}/requirements.txt")
     outputs.dir(venvDir)
 
+    def execOps = objects.newInstance(InjectedExecOps).execOps
     doLast {
-        exec {
+        execOps.exec {
             commandLine 'python3', '-m', 'venv', venvDir
         }
-        exec {
+        execOps.exec {
             commandLine "${venvDir}/bin/pip", 'install', '-r', "${sphinxRoot}/requirements.txt"
         }
     }

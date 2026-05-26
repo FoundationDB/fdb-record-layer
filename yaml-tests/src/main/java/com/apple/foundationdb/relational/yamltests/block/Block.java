@@ -41,7 +41,10 @@ import java.util.List;
  *   <tr><td>{@code schema_template}</td><td>{@link SetupBlock} (SchemaTemplateBlock)</td>
  *       <td>Declarative schema creation from DDL statements. The framework creates a temporary database and schema
  *       automatically, and cleans them up after all blocks execute. Referenced by 1-based index in
- *       {@code connect}.</td></tr>
+ *       {@code connect}. The value can also be a list of any number of variants, each holding a {@code definition}
+ *       body and gated by {@code initialVersionAtLeast} or {@code initialVersionLessThan} (or both). In that case the
+ *       variant whose version range contains the initial version of the catalog connection is the one whose DDL is
+ *       executed. The variants must be mutually exclusive and must comprehensively cover all possible versions.</td></tr>
  *   <tr><td>{@code setup}</td><td>{@link SetupBlock} (ManualSetupBlock)</td>
  *       <td>Arbitrary SQL steps for environment setup/teardown. Supports {@code connect} (integer index, {@code 0}
  *       for catalog, or full JDBC URI) and {@code steps} (list of queries).</td></tr>
@@ -93,6 +96,8 @@ public interface Block {
                     return PreambleBlock.parse(entry.getValue(), executionContext);
                 case IncludeBlock.INCLUDE:
                     return IncludeBlock.parse(reference, entry.getValue(), executionContext);
+                case CopyBlock.COPY_BLOCK:
+                    return CopyBlock.parse(reference, entry.getValue(), executionContext);
                 default:
                     throw new RuntimeException("Cannot recognize the type of block");
             }

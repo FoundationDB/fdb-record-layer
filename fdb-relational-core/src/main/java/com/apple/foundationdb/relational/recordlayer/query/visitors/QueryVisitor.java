@@ -262,6 +262,7 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
                     selectExpressions, where, outerCorrelations, literals);
             if (groupByExpressions.isEmpty() && !getDelegate().isForDdl()) {
                 selectExpressions = LogicalOperator.adjustCountOnEmpty(selectExpressions);
+                where = where.map(e -> LogicalOperator.adjustCountOnEmpty(Expressions.ofSingle(e)).getSingleItem());
             }
             selectExpressions = selectExpressions.dereferenced(literals).expanded().pullUp(Expression.ofUnnamed(groupBy.getQuantifier().getRangesOver().get().getResultValue()).dereferenced(literals).getSingleItem().getUnderlying(), groupBy.getQuantifier().getAlias(), outerCorrelations).clearQualifier();
             final var finalOuterCorrelation = outerCorrelations;
@@ -373,9 +374,12 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
         final var tableIdentifier = Assert.castUnchecked(atomTableItemContext.tableName().accept(this), Identifier.class);
         final var tableAlias = Optional.of(atomTableItemContext.alias == null ? visitTableName(atomTableItemContext.tableName())
                                                                               : visitUid(atomTableItemContext.alias));
+        final var atAlias = atomTableItemContext.atAlias == null
+                ? Optional.<Identifier>empty()
+                : Optional.of(visitUid(atomTableItemContext.atAlias));
         final var requestedIndexes = atomTableItemContext.indexHint()
                 .stream().flatMap(indexHint -> visitIndexHint(indexHint).stream()).collect(ImmutableSet.toImmutableSet());
-        return LogicalOperator.generateAccess(tableIdentifier, tableAlias, requestedIndexes, getDelegate().getSemanticAnalyzer(),
+        return LogicalOperator.generateAccess(tableIdentifier, tableAlias, atAlias, requestedIndexes, getDelegate().getSemanticAnalyzer(),
                 getDelegate().getCurrentPlanFragment(), getDelegate().getLogicalOperatorCatalog());
     }
 

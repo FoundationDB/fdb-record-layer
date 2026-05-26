@@ -103,11 +103,11 @@ test_block:
     -
       # ORDER BY on the array is not possible without an index.
       - query: SELECT "items" FROM T1 ORDER BY "items"
-      - error: "0AF00"  # "Cascades planner could not plan query"
+      - error: UNSUPPORTED_QUERY
     -
       # Likewise on the `T1_indexed` table; the `T1_index` does not match.
       - query: SELECT "items" FROM "T1_indexed" ORDER BY "items"
-      - error: "0AF00"  # "Cascades planner could not plan query"
+      - error: UNSUPPORTED_QUERY
     -
       # Unnesting the array using PartiQL-style unnesting.
       - query: SELECT "id", "item" FROM "T1_indexed" AS "row", "row"."items" AS "item"
@@ -141,11 +141,11 @@ test_block:
       # Same query but with an added `ORDER BY "item"`.
       # TODO Issue #3896: The `T1_index` is not leveraged here.
       - query: SELECT SQ."item" FROM "T1_indexed" AS "row", (SELECT "item" FROM "row"."items" AS "item") AS SQ ORDER BY SQ."item"
-      - error: "0AF00"  # "Cascades planner could not plan query"
+      - error: UNSUPPORTED_QUERY
     -
       # Same ORDER BY on the array, but on the view-indexed table.
       - query: SELECT "items" FROM "T2" ORDER BY "items"
-      - error: "0AF00"  # "Cascades planner could not plan query"
+      - error: UNSUPPORTED_QUERY
     -
       # Example query from the SQL reference (`Indexes.rst`, section "Indexes on nested fields").
       - query: SELECT SQ."rating" FROM "restaurant" AS RR, (SELECT "rating" FROM RR."reviews") SQ
@@ -158,11 +158,11 @@ test_block:
       # Unnesting an ARRAY of scalars (integers) directly.
       # The `"integer".*` syntax is disallowed because "integer" is a scalar here, not a STRUCT.
       - query: SELECT "id", "integer".* FROM T3, T3."integers" AS "integer"
-      - error: "42F10"
+      - error: INVALID_COLUMN_REFERENCE
     -
       # Same `.*` rejection as above, but here the array comes from a table function rather than a base-table column.
       - query: SELECT "b".* FROM (SELECT "a" FROM VALUES ([1, 2, 3, 4]) AS T("a")) AS "sq", "sq"."a" AS "b"
-      - error: "42F10"
+      - error: INVALID_COLUMN_REFERENCE
     -
       # Wrapping the unnested scalar into a one-field struct lifts it back into a record type, so `.*` expansion is allowed.
       - query: SELECT "b".* FROM (SELECT "a" FROM VALUES ([1, 2, 3, 4]) AS T("a")) AS "sq", (SELECT ("x") AS wrapped FROM "sq"."a" AS "x") AS "b"
@@ -170,7 +170,7 @@ test_block:
     -
       # Same .* rejection as above, but on an unnested VECTOR element. VECTOR has no fields to expand.
       - query: SELECT "id", "v".* FROM T4, T4."vectors" AS "v"
-      - error: "42F10"
+      - error: INVALID_COLUMN_REFERENCE
     -
       # Unnest the ARRAY of integers via a subquery and wrap each integer into a tuple with a `( … )` expression.
       # Note: As an alternative to the `AS "wrapped_int"` we might write `AS SQ ("wrapped_int")`, but this is not

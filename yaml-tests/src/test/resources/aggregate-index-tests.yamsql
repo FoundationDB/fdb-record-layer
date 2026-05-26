@@ -381,7 +381,7 @@ test_block:
       - query: select b, c, d, e, max(x) from t5 where a = 0 group by a, b, c, d, e order by b, max(x), c, d, e
       - explain: "AISCAN(MV16 [EQUALS promote(@c18 AS LONG)] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[4], _4: KEY:[5], _5: KEY:[2]]) | MAP (_._1 AS B, _._2 AS C, _._3 AS D, _._4 AS E, _._5 AS _4)"
       - initialVersionLessThan: 4.3.5.0
-      - error: "0AF00"
+      - error: UNSUPPORTED_QUERY
       - initialVersionAtLeast: 4.3.5.0
       - resultMetadata: [{B: STRING}, {C: BIGINT}, {D: BIGINT}, {E: STRING}, {_4: BIGINT}]
       - result: [
@@ -412,7 +412,7 @@ test_block:
       - query: select b, c, d, e, min(x) from t5 where a = 0 group by a, b, c, d, e order by b, min(x), c, d, e
       - explain: "AISCAN(MV17 [EQUALS promote(@c18 AS LONG)] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[4], _4: KEY:[5], _5: KEY:[2]]) | MAP (_._1 AS B, _._2 AS C, _._3 AS D, _._4 AS E, _._5 AS _4)"
       - initialVersionLessThan: 4.3.5.0
-      - error: "0AF00"
+      - error: UNSUPPORTED_QUERY
       - initialVersionAtLeast: 4.3.5.0
       - resultMetadata: [{B: STRING}, {C: BIGINT}, {D: BIGINT}, {E: STRING}, {_4: BIGINT}]
       - result: [
@@ -443,7 +443,7 @@ test_block:
       - query: select b, c, d, e, max(x) from t5 where a = 0 group by a, b, c, d, e order by b, c, max(x), d, e
       - explain: "AISCAN(MV18 [EQUALS promote(@c18 AS LONG)] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[2], _3: KEY:[4], _4: KEY:[5], _5: KEY:[3]]) | MAP (_._1 AS B, _._2 AS C, _._3 AS D, _._4 AS E, _._5 AS _4)"
       - initialVersionLessThan: 4.3.5.0
-      - error: "0AF00"
+      - error: UNSUPPORTED_QUERY
       - initialVersionAtLeast: 4.3.5.0
       - resultMetadata: [{B: STRING}, {C: BIGINT}, {D: BIGINT}, {E: STRING}, {_4: BIGINT}]
       - result: [
@@ -474,7 +474,7 @@ test_block:
       - query: select b, c, d, e, min(x) from t5 where a = 0 group by a, b, c, d, e order by b, c, min(x), d, e
       - explain: "AISCAN(MV19 [EQUALS promote(@c18 AS LONG)] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[2], _3: KEY:[4], _4: KEY:[5], _5: KEY:[3]]) | MAP (_._1 AS B, _._2 AS C, _._3 AS D, _._4 AS E, _._5 AS _4)"
       - initialVersionLessThan: 4.3.5.0
-      - error: "0AF00"
+      - error: UNSUPPORTED_QUERY
       - initialVersionAtLeast: 4.3.5.0
       - resultMetadata: [{B: STRING}, {C: BIGINT}, {D: BIGINT}, {E: STRING}, {_4: BIGINT}]
       - result: [
@@ -583,7 +583,7 @@ test_block:
       - query: select b, c, d, e, max(x) from t5 where a = 0 group by a, b, c, d, e having b IN ('foo', 'bar') and d IN (1, 2) order by max(x), c, e
       - explain: "[IN arrayDistinct(@c33)] INUNION q0 -> { [IN arrayDistinct(promote(@c41 AS ARRAY(LONG)))] INUNION q1 -> { AISCAN(MV16 [EQUALS promote(@c18 AS LONG), EQUALS q0] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[4], _4: KEY:[5], _5: KEY:[2]]) | FILTER _._3 EQUALS q1 | MAP (_._1 AS B, _._2 AS C, _._3 AS D, _._4 AS E, _._5 AS _4) } COMPARE BY (_._4, _.C, _.E, _.D) } COMPARE BY (_._4, _.C, _.E, _.B)"
       - initialVersionLessThan: 4.3.5.0
-      - error: "0AF00"
+      - error: UNSUPPORTED_QUERY
       - initialVersionAtLeast: 4.3.5.0
       - resultMetadata: [{B: STRING}, {C: BIGINT}, {D: BIGINT}, {E: STRING}, {_4: BIGINT}]
       - result: [
@@ -600,7 +600,7 @@ test_block:
       - query: select b, c, d, e, min(x) from t5 where a = 0 group by a, b, c, d, e having b IN ('foo', 'bar') and d IN (1, 2) order by min(x), c, e
       - explain: "[IN arrayDistinct(@c33)] INUNION q0 -> { [IN arrayDistinct(promote(@c41 AS ARRAY(LONG)))] INUNION q1 -> { AISCAN(MV17 [EQUALS promote(@c18 AS LONG), EQUALS q0] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[4], _4: KEY:[5], _5: KEY:[2]]) | FILTER _._3 EQUALS q1 | MAP (_._1 AS B, _._2 AS C, _._3 AS D, _._4 AS E, _._5 AS _4) } COMPARE BY (_._4, _.C, _.E, _.D) } COMPARE BY (_._4, _.C, _.E, _.B)"
       - initialVersionLessThan: 4.3.5.0
-      - error: "0AF00"
+      - error: UNSUPPORTED_QUERY
       - initialVersionAtLeast: 4.3.5.0
       - resultMetadata: [{B: STRING}, {C: BIGINT}, {D: BIGINT}, {E: STRING}, {_4: BIGINT}]
       - result: [
@@ -688,7 +688,7 @@ test_block:
       # Even though the aggregate index will be rolled-up to col2 because of the implicit grouping produced by the equality
       # predicate, it is not possible to reference it in the projected columns.
       - query: select col2, sum(col3) as s from T2 where col2 = 2
-      - error: "42803"
+      - error: GROUPING_ERROR
     -
       # A sum aggregate that matches no records should return null
       - query: select sum(col3) as s from T2 where col2 = 90

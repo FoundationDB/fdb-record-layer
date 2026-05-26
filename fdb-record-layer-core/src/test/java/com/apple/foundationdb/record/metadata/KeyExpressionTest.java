@@ -23,12 +23,14 @@ package com.apple.foundationdb.record.metadata;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.TypeTestProto;
 import com.apple.foundationdb.record.UnstoredRecord;
 import com.apple.foundationdb.record.metadata.ExpressionTestsProto.Customer;
 import com.apple.foundationdb.record.metadata.ExpressionTestsProto.NestedField;
 import com.apple.foundationdb.record.metadata.ExpressionTestsProto.SubString;
 import com.apple.foundationdb.record.metadata.ExpressionTestsProto.SubStrings;
 import com.apple.foundationdb.record.metadata.ExpressionTestsProto.TestScalarFieldAccess;
+import com.apple.foundationdb.record.metadata.expressions.CardinalityFunctionKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.EmptyKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.FieldKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.FunctionKeyExpression;
@@ -46,6 +48,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.auto.service.AutoService;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
+import com.google.protobuf.ByteString;
 import com.google.protobuf.Message;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -84,6 +87,7 @@ import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.not;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
@@ -325,10 +329,10 @@ public class KeyExpressionTest {
         List<Key.Evaluated> results = evaluate(expression, subString);
         assertEquals(4, results.size(), "Wrong number of results");
         assertEquals(ImmutableList.of(
-                    Key.Evaluated.scalar("co"),
-                    Key.Evaluated.scalar("ke"),
-                    Key.Evaluated.scalar("j"),
-                    Key.Evaluated.scalar("tos")),
+                        Key.Evaluated.scalar("co"),
+                        Key.Evaluated.scalar("ke"),
+                        Key.Evaluated.scalar("j"),
+                        Key.Evaluated.scalar("tos")),
                 results);
     }
 
@@ -339,9 +343,11 @@ public class KeyExpressionTest {
         assertFalse(expression.createsDuplicates());
         assertEquals(Collections.singletonList(scalar(Arrays.asList("Boxes", "Bowls"))),
                 evaluate(expression, plantsBoxesAndBowls));
+        // `repeat_me` has 0 repetitions: Concatenate yields the empty list.
         assertEquals(Collections.singletonList(scalar(Collections.emptyList())),
                 evaluate(expression, emptyScalar));
-        assertEquals(Collections.singletonList(scalar(Collections.emptyList())),
+        // Null record: Concatenate propagates the field’s null standin (here NULL, by default).
+        assertEquals(Collections.singletonList(scalar(NULL)),
                 evaluate(expression, null));
     }
 
@@ -353,9 +359,11 @@ public class KeyExpressionTest {
         assertFalse(expression.createsDuplicates());
         assertEquals(Collections.singletonList(Key.Evaluated.concatenate("Plants", Arrays.asList("Boxes", "Bowls"))),
                 evaluate(expression, plantsBoxesAndBowls));
+        // Both fields unset: The scalar `field` yields the NULL standin; concatenate yields the empty list.
         assertEquals(Collections.singletonList(Key.Evaluated.concatenate(NULL, Collections.emptyList())),
                 evaluate(expression, emptyScalar));
-        assertEquals(Collections.singletonList(Key.Evaluated.concatenate(NULL, Collections.emptyList())),
+        // Null record: Both parts propagate their null standin (by default NULL) and yield NULL.
+        assertEquals(Collections.singletonList(Key.Evaluated.concatenate(NULL, NULL)),
                 evaluate(expression, null));
     }
 
@@ -524,7 +532,7 @@ public class KeyExpressionTest {
         // For the parent, NOT_NULL substitutes an empty sub-message; the child then sees a set-but-empty message,
         // so the child’s NOT_NULL substitutes the proto default "".
         // NULL/NULL_UNIQUE on the parent funnel null to the child, which then takes its own null path; and for
-        // `None`, `getNullResult()` emits the standin verbatim, so the child NOT_NULL yields the NOT_NULL
+        // `FanType.None`, `getNullResult()` emits the standin verbatim, so the child NOT_NULL yields the NOT_NULL
         // sentinel rather than "".
         // TODO Issue #4141: This seems to be a bug; the NOT_NULL standin is not supposed to be emitted as is.
         final NestSingularSingularCase expr3 = (parentStandin, childStandin, expected) ->
@@ -697,6 +705,8 @@ public class KeyExpressionTest {
         final var emptyList = Collections.emptyList();
         final var emptyListEntry = ImmutableList.of(scalar(emptyList));
         final ImmutableList<Key.Evaluated> noEntry = ImmutableList.of();
+        final var nullEntry = ImmutableList.of(scalar(NULL));
+        final var nullUniqueEntry = ImmutableList.of(scalar(NULL_UNIQUE));
 
         // Case: Parent present, child present.
         //
@@ -755,17 +765,16 @@ public class KeyExpressionTest {
         // Case: Parent absent (but on a non-null record)
         //
         // The `emptyNested` record has `nesty` absent. On the parent, the NOT_NULL standin effectively substitutes an
-        // empty sub-message, so the child sees 0 repetitions and goes through its repeated-field branch. For parent
-        // NULL/NULL_UNIQUE the parent funnels a `null` record to the child, which then takes its own null path; for
-        // both Concatenate and FanOut, `getNullResult()` does not consult the child standin either, so the child standin
-        // has no observable effect. FanOut yields no entries; Concatenate yields a single entry holding the empty list.
+        // empty sub-message, so the child sees 0 repetitions; whereas NULL/NULL_UNIQUE funnel a `null` record to the
+        // child, which then takes its own null path. For `FanOut` both code branches collapse to [], so we get no entry
+        // at all. For Concatenate the child standin has an observable effect only when the parent funnels null.
         final NestSingularRepeatedCase expr3 = (parentStandin, childStandin, childFanType, expected) ->
                 assertEquals(expected, evaluate(buildNestSingularRepeatedExpr(parentStandin, childStandin, childFanType), emptyNested));
-        expr3.verify(NULL,        NULL,        Concatenate, emptyListEntry);
-        expr3.verify(NULL,        NULL_UNIQUE, Concatenate, emptyListEntry);
+        expr3.verify(NULL,        NULL,        Concatenate, nullEntry);
+        expr3.verify(NULL,        NULL_UNIQUE, Concatenate, nullUniqueEntry);
         expr3.verify(NULL,        NOT_NULL,    Concatenate, emptyListEntry);
-        expr3.verify(NULL_UNIQUE, NULL,        Concatenate, emptyListEntry);
-        expr3.verify(NULL_UNIQUE, NULL_UNIQUE, Concatenate, emptyListEntry);
+        expr3.verify(NULL_UNIQUE, NULL,        Concatenate, nullEntry);
+        expr3.verify(NULL_UNIQUE, NULL_UNIQUE, Concatenate, nullUniqueEntry);
         expr3.verify(NULL_UNIQUE, NOT_NULL,    Concatenate, emptyListEntry);
         expr3.verify(NOT_NULL,    NULL,        Concatenate, emptyListEntry);
         expr3.verify(NOT_NULL,    NULL_UNIQUE, Concatenate, emptyListEntry);
@@ -783,20 +792,19 @@ public class KeyExpressionTest {
         // Case: Null record
         //
         // The parent standin doesn’t matter, as `FieldKeyExpression` short-circuits on `message == null` before
-        // consulting the parent standin. The child standin doesn’t matter either: for both Concatenate and FanOut,
-        // `getNullResult()` does not consult the standin. FanOut yields no entries; Concatenate yields a single entry
-        // holding the empty list.
+        // consulting the parent standin. Only the child’s null standin matters. For `FanOut` the null code path yields
+        // no entries regardless of the child standin.
         final NestSingularRepeatedCase expr4 = (parentStandin, childStandin, childFanType, expected) ->
                 assertEquals(expected,
                         evaluate(buildNestSingularRepeatedExpr(parentStandin, childStandin, childFanType), null));
-        expr4.verify(NULL,        NULL,        Concatenate, emptyListEntry);
-        expr4.verify(NULL,        NULL_UNIQUE, Concatenate, emptyListEntry);
+        expr4.verify(NULL,        NULL,        Concatenate, nullEntry);
+        expr4.verify(NULL,        NULL_UNIQUE, Concatenate, nullUniqueEntry);
         expr4.verify(NULL,        NOT_NULL,    Concatenate, emptyListEntry);
-        expr4.verify(NULL_UNIQUE, NULL,        Concatenate, emptyListEntry);
-        expr4.verify(NULL_UNIQUE, NULL_UNIQUE, Concatenate, emptyListEntry);
+        expr4.verify(NULL_UNIQUE, NULL,        Concatenate, nullEntry);
+        expr4.verify(NULL_UNIQUE, NULL_UNIQUE, Concatenate, nullUniqueEntry);
         expr4.verify(NULL_UNIQUE, NOT_NULL,    Concatenate, emptyListEntry);
-        expr4.verify(NOT_NULL,    NULL,        Concatenate, emptyListEntry);
-        expr4.verify(NOT_NULL,    NULL_UNIQUE, Concatenate, emptyListEntry);
+        expr4.verify(NOT_NULL,    NULL,        Concatenate, nullEntry);
+        expr4.verify(NOT_NULL,    NULL_UNIQUE, Concatenate, nullUniqueEntry);
         expr4.verify(NOT_NULL,    NOT_NULL,    Concatenate, emptyListEntry);
         expr4.verify(NULL,        NULL,        FanOut,      noEntry);
         expr4.verify(NULL,        NULL_UNIQUE, FanOut,      noEntry);
@@ -869,8 +877,8 @@ public class KeyExpressionTest {
         assertEquals(Collections.emptyList(),
                 evaluate(expression, emptyNested));
         assertEquals(Arrays.asList(
-                Key.Evaluated.concatenate("Lonely", NULL),
-                Key.Evaluated.concatenate("Lonely", NULL)),
+                        Key.Evaluated.concatenate("Lonely", NULL),
+                        Key.Evaluated.concatenate("Lonely", NULL)),
                 evaluate(expression, lonelyDoll));
         assertEquals(Collections.emptyList(),
                 evaluate(expression, null));
@@ -975,7 +983,7 @@ public class KeyExpressionTest {
         final KeyExpression concat = concat(field("f1"),
                 concat(field("f2"), field("f3")),
                 field("f4"));
-        ThenKeyExpression then = (ThenKeyExpression) concat;
+        ThenKeyExpression then = (ThenKeyExpression)concat;
         assertFalse(then.createsDuplicates());
         assertEquals(4, then.getChildren().size());
         for (KeyExpression child : then.getChildren()) {
@@ -990,8 +998,8 @@ public class KeyExpressionTest {
         final KeyExpression list = list(field("field"), field("repeat_me", Concatenate));
         list.validate(TestScalarFieldAccess.getDescriptor());
         assertEquals(Collections.singletonList(concatenate(
-                scalar("Plants").values(),
-                scalar(concatenate("Boxes", "Bowls").values()).values())),
+                        scalar("Plants").values(),
+                        scalar(concatenate("Boxes", "Bowls").values()).values())),
                 evaluate(list, plantsBoxesAndBowls));
     }
 
@@ -1025,7 +1033,7 @@ public class KeyExpressionTest {
         final NestingKeyExpression nest = field("f1").nest(field("f2", FanOut).nest("f3"));
         final NestingKeyExpression reserialized = new NestingKeyExpression(nest.toProto());
         assertEquals("f1", reserialized.getParent().getFieldName());
-        final NestingKeyExpression child = (NestingKeyExpression) reserialized.getChild();
+        final NestingKeyExpression child = (NestingKeyExpression)reserialized.getChild();
         assertEquals("f2", child.getParent().getFieldName());
         assertEquals(FanOut, child.getParent().getFanType());
     }
@@ -1035,9 +1043,9 @@ public class KeyExpressionTest {
         final SplitKeyExpression split = field("repeat_me", FanOut).split(3);
         split.validate(TestScalarFieldAccess.getDescriptor());
         assertEquals(Arrays.asList(
-                concatenate("one", "two", "three"),
-                concatenate("four", "five", "six"),
-                concatenate("seven", "eight", "nine")),
+                        concatenate("one", "two", "three"),
+                        concatenate("four", "five", "six"),
+                        concatenate("seven", "eight", "nine")),
                 evaluate(split, numbers));
         assertEquals(Collections.emptyList(), evaluate(split, null));
     }
@@ -1057,9 +1065,9 @@ public class KeyExpressionTest {
                 field("repeat_me", FanOut).split(3));
         splitConcat.validate(TestScalarFieldAccess.getDescriptor());
         assertEquals(Arrays.asList(
-                concatenate("numbers", "one", "two", "three"),
-                concatenate("numbers", "four", "five", "six"),
-                concatenate("numbers", "seven", "eight", "nine")),
+                        concatenate("numbers", "one", "two", "three"),
+                        concatenate("numbers", "four", "five", "six"),
+                        concatenate("numbers", "seven", "eight", "nine")),
                 evaluate(splitConcat, numbers));
     }
 
@@ -1244,7 +1252,7 @@ public class KeyExpressionTest {
     @MethodSource
     void testRecordTypePrefix(@Nonnull KeyExpression key, boolean hasRecordTypePrefix) {
         assertEquals(hasRecordTypePrefix, Key.Expressions.hasRecordTypePrefix(key),
-                () ->  key + " should" + (hasRecordTypePrefix ? "" : " not") + " have a record type prefix");
+                () -> key + " should" + (hasRecordTypePrefix ? "" : " not") + " have a record type prefix");
     }
 
     @SuppressWarnings("unused")
@@ -1576,5 +1584,71 @@ public class KeyExpressionTest {
         public Value toValue(@Nonnull final List<? extends Value> argumentValues) {
             throw new UnsupportedOperationException("not implemented");
         }
+    }
+
+    /**
+     * Basic tests for {@link CardinalityFunctionKeyExpression}.
+     */
+    @Test
+    void testCardinalityFunctionKeyExpression() {
+        // CARDINALITY() is not meant to be applied to a repeated field with `FanOut`, as that produces duplicates.
+        assertThrows(KeyExpression.InvalidExpressionException.class, () -> function("cardinality", field("repeat_me", FanType.FanOut)).validate(TestScalarFieldAccess.getDescriptor()));
+
+        // A basic application of CARDINALITY() to a plain repeated field (i.e., a non-nullable array).
+        final KeyExpression expr1 = function("cardinality", field("repeat_me", FanType.Concatenate));
+        expr1.validate(TestScalarFieldAccess.getDescriptor());
+        assertFalse(expr1.createsDuplicates());
+        assertEquals(1, expr1.getColumnSize());
+        // On a non-empty repeated field, CARDINALITY() is the element count.
+        assertEquals(Collections.singletonList(scalar(2)), evaluate(expr1, plantsBoxesAndBowls));
+        // On an empty repeated field, CARDINALITY() is 0.
+        assertEquals(Collections.singletonList(scalar(0)), evaluate(expr1, emptyScalar));
+        // A NULL record means there is no record to count; CARDINALITY() yields NULL.
+        assertEquals(Collections.singletonList(Key.Evaluated.NULL), evaluate(expr1, null));
+
+        // Applying CARDINALITY() to a nullable array (i.e., an optional field/sub-message containing a repeated field
+        // named `values`). For added "realism" we reuse the protos from {@link TypeTestProto} here, set up as follows:
+        // `arr_boolean_field` is an array of size 2; `arr_bytes_field` is an empty array; `arr_double_field` is NULL.
+        final TypeTestProto.PrimitiveFields message = TypeTestProto.PrimitiveFields.newBuilder()
+                .setReqBooleanField(false).setReqBytesField(ByteString.EMPTY).setReqDoubleField(0).setReqFloatField(0).setReqIntField(0).setReqLongField(0).setReqStringField("")
+                .setArrBooleanField(TypeTestProto.PrimitiveFields.BooleanArray.newBuilder().addValues(false).addValues(true).build())
+                .setArrBytesField(TypeTestProto.PrimitiveFields.BytesArray.newBuilder().build()).build();
+        // CARDINALITY() on an array of size 2.
+        final KeyExpression expr2 = function("cardinality", field("arr_boolean_field").nest(field("values", FanType.Concatenate)));
+        expr2.validate(TypeTestProto.PrimitiveFields.getDescriptor());
+        assertFalse(expr2.createsDuplicates());
+        assertEquals(Collections.singletonList(Key.Evaluated.concatenate(2)), evaluate(expr2, message));
+        // CARDINALITY() on an array of size 0.
+        final KeyExpression expr3 = function("cardinality", field("arr_bytes_field").nest(field("values", FanType.Concatenate)));
+        assertEquals(Collections.singletonList(Key.Evaluated.concatenate(0)), evaluate(expr3, message));
+        // CARDINALITY() on a NULL array: the wrapper field is absent, so the result is NULL (not 0).
+        final KeyExpression expr4 = function("cardinality", field("arr_double_field").nest(field("values", FanType.Concatenate)));
+        assertEquals(Collections.singletonList(Key.Evaluated.NULL), evaluate(expr4, message));
+        // A null record implies the wrapper field is absent, so CARDINALITY() also yields NULL.
+        assertEquals(Collections.singletonList(Key.Evaluated.NULL), evaluate(expr4, null));
+
+        // Test a deeper nesting case that’s not the nullable-array wrapper pattern (since the inner repeated field is
+        // not named `values`). These shapes bypass the fast paths in `evaluateMessage()`.
+        final KeyExpression exprNested = function("cardinality",
+                field("nesty").nest(field("repeated_field", FanType.Concatenate)));
+        exprNested.validate(NestedField.getDescriptor());
+        // `matryoshkaDolls.nesty.repeated_field = ["lily", "rose"]`, so CARDINALITY() is 2.
+        assertEquals(Collections.singletonList(Key.Evaluated.concatenate(2)), evaluate(exprNested, matryoshkaDolls));
+        // `lonelyDoll.nesty` is set (to an empty sub-message), so `repeated_field` is the empty list.
+        assertEquals(Collections.singletonList(Key.Evaluated.concatenate(0)), evaluate(exprNested, lonelyDoll));
+        // `emptyNested.nesty` is absent, so `evaluateFunction()` sees a NULL.
+        assertEquals(Collections.singletonList(Key.Evaluated.NULL), evaluate(exprNested, emptyNested));
+        // A null record propagates the same way.
+        assertEquals(Collections.singletonList(Key.Evaluated.NULL), evaluate(exprNested, null));
+
+        // Some coverage for `CardinalityFunctionKeyExpression#planHash()`.
+        // Check that `planHash()` is deterministic.
+        final var expr5 = (CardinalityFunctionKeyExpression)function("cardinality", field("field"));
+        assertEquals(expr5.planHash(PlanHashable.CURRENT_LEGACY), expr5.planHash(PlanHashable.CURRENT_LEGACY));
+        assertEquals(expr5.planHash(PlanHashable.CURRENT_FOR_CONTINUATION), expr5.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
+        // Check that `planHash()` depends on the argument expression.
+        final var expr6 = (CardinalityFunctionKeyExpression)function("cardinality", field("other_field"));
+        assertNotEquals(expr5.planHash(PlanHashable.CURRENT_LEGACY), expr6.planHash(PlanHashable.CURRENT_LEGACY));
+        assertNotEquals(expr5.planHash(PlanHashable.CURRENT_FOR_CONTINUATION), expr6.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
     }
 }

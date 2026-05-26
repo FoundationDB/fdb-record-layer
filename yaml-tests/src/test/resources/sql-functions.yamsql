@@ -168,19 +168,19 @@ test_block:
       - result: [{100, 'a'}]
     -
       - query: select col1, col2 from f1('b', 103);
-      - error: "42883"
+      - error: UNDEFINED_FUNCTION
     -
       - query: select col1, col2 from f1(102, 103);
-      - error: "42883"
+      - error: UNDEFINED_FUNCTION
     -
       - query: select col1, col2 from f1(103);
-      - error: "42883"
+      - error: UNDEFINED_FUNCTION
     -
       - query: select col1, col2 from f1(103);
-      - error: "42883"
+      - error: UNDEFINED_FUNCTION
     -
       - query: select col1, col2 from f1(a => 103, a => 104);
-      - error: "42601"
+      - error: SYNTAX_ERROR
 ---
 test_block:
   name: parenthesis-less-function-calls
@@ -192,6 +192,6 @@ test_block:
       - result: [{101, 'b'}, {102, 'b'}]
     -
       - query: select * from f1;
-      - error: '42883'
+      - error: UNDEFINED_FUNCTION
 
 ...

@@ -71,6 +71,11 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
+    void arrayJoinAt(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("array-join-at.yamsql");
+    }
+
+    @TestTemplate
     void arraysCardinality(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("arrays-cardinality.yamsql");
     }
@@ -98,6 +103,11 @@ public class YamlIntegrationTests {
     @TestTemplate
     void booleanTypes(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("boolean.yamsql");
+    }
+
+    @TestTemplate
+    void boolLiteralPredicate(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("boolean-ddl.yamsql");
     }
 
     @TestTemplate
@@ -248,6 +258,11 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
+    public void copyBasic(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("copy-basic.yamsql");
+    }
+
+    @TestTemplate
     public void indexDdl(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("index-ddl.yamsql");
     }
@@ -375,6 +390,11 @@ public class YamlIntegrationTests {
     @TestTemplate
     public void standardTestsWithProto(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("standard-tests-proto.yamsql");
+    }
+
+    @TestTemplate
+    public void starExpressionColumnNames(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("star-expression-metadata.yamsql");
     }
 
     @TestTemplate

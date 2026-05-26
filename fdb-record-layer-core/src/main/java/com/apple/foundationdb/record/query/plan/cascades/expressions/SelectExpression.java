@@ -129,7 +129,8 @@ public class SelectExpression extends AbstractRelationalExpressionWithChildren i
 
     @Nonnull
     public List<? extends Value> getResultValues() {
-        return Values.deconstructRecord(getResultValue());
+        final var resultValue = getResultValue();
+        return resultValue.getResultType().isRecord() ? Values.deconstructRecord(getResultValue()) : ImmutableList.of(resultValue);
     }
 
     @Nonnull

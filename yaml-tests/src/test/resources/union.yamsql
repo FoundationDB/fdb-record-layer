@@ -167,13 +167,13 @@ test_block:
       - result: [{1}, {2}, {6}, {7}]
     -
       - query: select col1, col2 from t1 union all select col1 from t1
-      - error: "42F64"
+      - error: UNION_INCORRECT_COLUMN_COUNT
     -
       - query: select col1, col2 from t1 union select col1 from t1
-      - error: "0AF00"
+      - error: UNSUPPORTED_QUERY
     -
       - query: select col1, col2 from t1 union all select a, b from t5
-      - error: "42F65"
+      - error: UNION_INCOMPATIBLE_COLUMNS
     -
       - query: select sum(Y) as S from (select count(*) as Y from t6 union all select count(*) from t7) as X
       - explain: "AISCAN(MV11 <,> BY_GROUP -> [_0: VALUE:[0]]) | MAP (_ AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS Y) ⊎ AISCAN(MV12 <,> BY_GROUP -> [_0: VALUE:[0]]) | MAP (_ AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0) | MAP (_ AS _0) | AGG (sum_l(_._0.Y) AS _0) GROUP BY () | ON EMPTY NULL | MAP (_._0._0 AS S)"
