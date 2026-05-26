@@ -296,7 +296,7 @@ public class RecordQueryRecursiveLevelUnionPlan extends AbstractRelationalExpres
 
     @Override
     public int computeHashCodeWithoutChildren() {
-        return Objects.hash(tempTableInsertAlias, tempTableInsertAlias);
+        return Objects.hash(tempTableScanAlias, tempTableInsertAlias);
     }
 
     @Override
