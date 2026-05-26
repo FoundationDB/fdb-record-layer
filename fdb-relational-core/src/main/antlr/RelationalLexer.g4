@@ -1248,7 +1248,7 @@ OR_ASSIGN:                           '|=';
 
 STAR:                                '*';
 DIVIDE:                              '/';
-MODULE:                              '%';
+MODULO:                              '%';
 PLUS:                                '+';
 MINUS:                               '-';
 DIV:                                 'DIV';
@@ -1269,7 +1269,13 @@ BIT_NOT_OP:                          '~';
 BIT_OR_OP:                           '|';
 BIT_AND_OP:                          '&';
 BIT_XOR_OP:                          '^';
+BIT_SHIFT_LEFT_OP:                   '<<';
+BIT_SHIFT_RIGHT_OP:                  '>>';
 
+// Operators. Logical
+
+LOGICAL_AND_AND:                     '&&';
+LOGICAL_OR_OR:                       '||';
 
 // Constructors symbols
 
