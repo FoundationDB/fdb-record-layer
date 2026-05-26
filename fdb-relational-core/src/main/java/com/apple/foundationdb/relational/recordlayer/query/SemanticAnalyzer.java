@@ -371,18 +371,12 @@ public class SemanticAnalyzer {
     public Expression resolveIdentifier(@Nonnull Identifier identifier,
                                         @Nonnull LogicalPlanFragment planFragment) {
         // Column resolution takes priority over table-row resolution across all visible fragments.
-        var resolved = resolveAcrossFragments(identifier, planFragment, this::resolveIdentifierMaybe);
-        if (resolved.isPresent()) {
-            return resolved.get();
-        }
         // Fallback: if the identifier names a table or alias in scope, return the full row as a struct.
         // This makes SELECT FOO FROM FOO equivalent to SELECT (*) FROM FOO when no column named FOO exists.
-        resolved = resolveAcrossFragments(identifier, planFragment, this::resolveAsTableRowMaybe);
-        if (resolved.isPresent()) {
-            return resolved.get();
-        }
-        Assert.failUnchecked(ErrorCode.UNDEFINED_COLUMN, String.format(Locale.ROOT, "Attempting to query non existing column %s", identifier));
-        return null; // unreachable.
+        final var resolved = resolveAcrossFragments(identifier, planFragment, this::resolveIdentifierMaybe)
+                .or(() -> resolveAcrossFragments(identifier, planFragment, this::resolveAsTableRowMaybe));
+        return Assert.optionalUnchecked(resolved, ErrorCode.UNDEFINED_COLUMN,
+                () -> String.format(Locale.ROOT, "Attempting to query non existing column %s", identifier));
     }
 
     @Nonnull
@@ -390,6 +384,9 @@ public class SemanticAnalyzer {
             @Nonnull Identifier identifier,
             @Nonnull LogicalPlanFragment planFragment,
             @Nonnull BiFunction<Identifier, LogicalOperators, Optional<Expression>> resolver) {
+        // Search through all visible plan fragments:
+        // - in each plan fragment, search operators left to right.
+        // - if identifier is not resolved, go to parent plan fragment.
         LogicalPlanFragment current = planFragment;
         Optional<Expression> result = resolver.apply(identifier, current.getLogicalOperators());
         if (result.isPresent()) {
@@ -408,13 +405,11 @@ public class SemanticAnalyzer {
     @Nonnull
     private Optional<Expression> resolveAsTableRowMaybe(@Nonnull Identifier identifier,
                                                          @Nonnull LogicalOperators operators) {
-        final boolean matchesTableName = Streams.stream(operators.forEachOnly())
-                .anyMatch(op -> op.getName().isPresent() && op.getName().get().equals(identifier));
-        if (!matchesTableName) {
-            return Optional.empty();
-        }
-        final var star = expandStar(Optional.of(identifier), operators);
-        return Optional.of(Expression.of(star.getUnderlying(), identifier));
+        final var identifierOptional = Optional.of(identifier);
+        return Streams.stream(operators.forEachOnly())
+                .filter(op -> op.getName().equals(identifierOptional))
+                .findFirst()
+                .map(op -> Expression.of(expandStar(identifierOptional, operators).getUnderlying(), identifier));
     }
 
     @Nonnull
