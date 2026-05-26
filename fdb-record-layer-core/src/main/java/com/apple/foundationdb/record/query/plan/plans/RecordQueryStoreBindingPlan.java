@@ -172,6 +172,7 @@ public class RecordQueryStoreBindingPlan extends AbstractRelationalExpressionWit
     }
 
     @Override
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
     public boolean equalsWithoutChildren(@Nonnull final RelationalExpression otherExpression,
                                          @Nonnull final AliasMap equivalencesMap) {
         if (this == otherExpression) {

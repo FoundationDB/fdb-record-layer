@@ -128,7 +128,7 @@ public class SemanticAnalyzer {
     private java.util.function.Function<String, Optional<SchemaTemplate>> secondarySchemaLookup;
 
     @Nonnull
-    private final LinkedHashMap<String, SchemaTemplate> loadedSecondarySchemas;
+    private final Map<String, SchemaTemplate> loadedSecondarySchemas;
 
     public SemanticAnalyzer(@Nonnull SchemaTemplate metadataCatalog,
                             @Nonnull SqlFunctionCatalog functionCatalog,
