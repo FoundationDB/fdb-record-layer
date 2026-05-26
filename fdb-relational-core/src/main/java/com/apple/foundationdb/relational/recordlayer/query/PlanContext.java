@@ -248,11 +248,18 @@ public final class PlanContext {
 
         @Nonnull
         public Builder fromRecordStore(@Nonnull FDBRecordStoreBase<?> recordStore, @Nonnull final Options options) {
-            final var plannerConfig = recordStore.getRecordStoreState().allIndexesReadable() ?
+            return fromMetaDataAndState(recordStore.getRecordMetaData(), recordStore.getRecordStoreState(), options);
+        }
+
+        @Nonnull
+        public Builder fromMetaDataAndState(@Nonnull RecordMetaData metaData,
+                                            @Nonnull RecordStoreState recordStoreState,
+                                            @Nonnull final Options options) {
+            final var plannerConfig = recordStoreState.allIndexesReadable() ?
                     PlannerConfiguration.ofAllAvailableIndexes(options) :
-                    PlannerConfiguration.of(getReadableIndexes(recordStore.getRecordMetaData(), recordStore.getRecordStoreState()), options);
+                    PlannerConfiguration.of(getReadableIndexes(metaData, recordStoreState), options);
             return withPlannerConfiguration(plannerConfig)
-                    .withMetadata(recordStore.getRecordMetaData())
+                    .withMetadata(metaData)
                     .isCaseSensitive(options.getOption(Options.Name.CASE_SENSITIVE_IDENTIFIERS));
         }
 
