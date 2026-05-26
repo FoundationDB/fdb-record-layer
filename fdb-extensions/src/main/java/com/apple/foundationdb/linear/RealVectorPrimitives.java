@@ -21,99 +21,135 @@
 package com.apple.foundationdb.linear;
 
 import com.google.common.base.Preconditions;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 
 /**
- * Package-private vector primitives that can be shared by all vector implementations (including those not extending
- * from {@link AbstractRealVector}. All methods contained in this class do not assume an immutable or mutable vector
- * they operate on.
+ * Package-private vector primitives that can be shared by all vector implementations (including
+ * those not extending from {@link AbstractRealVector}). All methods contained in this class do not
+ * assume an immutable or mutable vector they operate on.
+ * <p>
+ * Loops delegate to a {@link Backend} chosen at static-init time:
+ * <ul>
+ *   <li>Default ({@code auto}): try {@code com.apple.foundationdb.linear.simd.SimdBackend}; fall
+ *       back to {@link ScalarBackend} if it can't be loaded (typically because
+ *       {@code --add-modules jdk.incubator.vector} wasn't passed at runtime).</li>
+ *   <li>{@code -Dfdb.vector.simd=scalar}: force {@link ScalarBackend} regardless.</li>
+ *   <li>{@code -Dfdb.vector.simd=simd}: try the SIMD backend and propagate failure (useful in
+ *       tests that want to guarantee SIMD is active).</li>
+ * </ul>
  */
 public final class RealVectorPrimitives {
+    private static final Logger LOGGER = LoggerFactory.getLogger(RealVectorPrimitives.class);
+    private static final String SIMD_BACKEND_CLASS = "com.apple.foundationdb.linear.simd.SimdBackend";
+    private static final String SIMD_PROPERTY = "fdb.vector.simd";
+
+    private static final Backend BACKEND = selectBackend();
+
     private RealVectorPrimitives() {
         // nothing
     }
 
     @Nonnull
-    static double[] normalizeInto(@Nonnull final RealVector in, @Nonnull final double[] target) {
-        double n = in.l2Norm();
-        final int numDimensions = in.getNumDimensions();
-        Preconditions.checkArgument(target.length == numDimensions);
+    static Backend backend() {
+        return BACKEND;
+    }
 
-        if (n == 0.0 || !Double.isFinite(n)) {
+    @Nonnull
+    private static Backend selectBackend() {
+        final String mode = System.getProperty(SIMD_PROPERTY, "auto").toLowerCase();
+        if ("scalar".equals(mode)) {
+            LOGGER.info("RealVectorPrimitives backend forced to scalar via -D{}", SIMD_PROPERTY);
+            return new ScalarBackend();
+        }
+        final boolean strict = "simd".equals(mode);
+        try {
+            final Class<?> cls = Class.forName(
+                    SIMD_BACKEND_CLASS, true, RealVectorPrimitives.class.getClassLoader());
+            final Backend candidate = (Backend) cls.getDeclaredConstructor().newInstance();
+            LOGGER.info("RealVectorPrimitives backend = {}", candidate.name());
+            return candidate;
+        } catch (final Throwable t) {
+            if (strict) {
+                throw new IllegalStateException(
+                        "SIMD backend required (-D" + SIMD_PROPERTY + "=simd) but not loadable: " + t, t);
+            }
+            LOGGER.info("SIMD vector backend unavailable, using scalar: {}", t.toString());
+            return new ScalarBackend();
+        }
+    }
+
+    @Nonnull
+    static double[] normalizeInto(@Nonnull final double[] in, @Nonnull final double[] target) {
+        Preconditions.checkArgument(target.length == in.length);
+        final double n = Math.sqrt(BACKEND.l2SquaredNorm(in));
+        if (n == 0.0d || !Double.isFinite(n)) {
             throw new IllegalArgumentException("vector has an L2 norm of infinite, not a number, or 0");
         }
-        double inv = 1.0 / n;
-        for (int i = 0; i < numDimensions; i++) {
-            target[i] = in.getComponent(i) * inv;
-        }
+        BACKEND.multiplyInto(in, 1.0d / n, target);
         return target;
     }
 
     @Nonnull
-    static double[] addInto(@Nonnull final RealVector in,
-                            @Nonnull final RealVector other,
+    static double[] addInto(@Nonnull final double[] a,
+                            @Nonnull final double[] b,
                             @Nonnull final double[] target) {
-        final int numDimensions = in.getNumDimensions();
-        Preconditions.checkArgument(numDimensions == other.getNumDimensions());
-        Preconditions.checkArgument(target.length == numDimensions);
-
-        for (int i = 0; i < numDimensions; i ++) {
-            target[i] = in.getComponent(i) + other.getComponent(i);
-        }
+        Preconditions.checkArgument(a.length == b.length);
+        Preconditions.checkArgument(target.length == a.length);
+        BACKEND.addInto(a, b, target);
         return target;
     }
 
     @Nonnull
-    static double[] addInto(@Nonnull final RealVector in,
+    static double[] addInto(@Nonnull final double[] a,
                             final double scalar,
                             @Nonnull final double[] target) {
-        final int numDimensions = in.getNumDimensions();
-        Preconditions.checkArgument(target.length == numDimensions);
-
-        for (int i = 0; i < numDimensions; i ++) {
-            target[i] = in.getComponent(i) + scalar;
-        }
+        Preconditions.checkArgument(target.length == a.length);
+        BACKEND.addInto(a, scalar, target);
         return target;
     }
 
     @Nonnull
-    static double[] subtractInto(@Nonnull final RealVector in,
-                                 @Nonnull final RealVector other,
+    static double[] subtractInto(@Nonnull final double[] a,
+                                 @Nonnull final double[] b,
                                  @Nonnull final double[] target) {
-        final int numDimensions = in.getNumDimensions();
-        Preconditions.checkArgument(numDimensions == other.getNumDimensions());
-        Preconditions.checkArgument(target.length == numDimensions);
-
-        for (int i = 0; i < numDimensions; i ++) {
-            target[i] = in.getComponent(i) - other.getComponent(i);
-        }
+        Preconditions.checkArgument(a.length == b.length);
+        Preconditions.checkArgument(target.length == a.length);
+        BACKEND.subtractInto(a, b, target);
         return target;
     }
 
     @Nonnull
-    static double[] subtractInto(@Nonnull final RealVector in,
+    static double[] subtractInto(@Nonnull final double[] a,
                                  final double scalar,
                                  @Nonnull final double[] target) {
-        final int numDimensions = in.getNumDimensions();
-        Preconditions.checkArgument(target.length == numDimensions);
-
-        for (int i = 0; i < numDimensions; i ++) {
-            target[i] = in.getComponent(i) - scalar;
-        }
+        Preconditions.checkArgument(target.length == a.length);
+        BACKEND.subtractInto(a, scalar, target);
         return target;
     }
 
     @Nonnull
-    static double[] multiplyInto(@Nonnull final RealVector in,
+    static double[] multiplyInto(@Nonnull final double[] a,
                                  final double scalar,
                                  @Nonnull final double[] target) {
-        final int numDimensions = in.getNumDimensions();
-        Preconditions.checkArgument(target.length == numDimensions);
-
-        for (int i = 0; i < numDimensions; i ++) {
-            target[i] = in.getComponent(i) * scalar;
-        }
+        Preconditions.checkArgument(target.length == a.length);
+        BACKEND.multiplyInto(a, scalar, target);
         return target;
+    }
+
+    static double dot(@Nonnull final double[] a, @Nonnull final double[] b) {
+        Preconditions.checkArgument(a.length == b.length);
+        return BACKEND.dot(a, b);
+    }
+
+    static double l2SquaredNorm(@Nonnull final double[] a) {
+        return BACKEND.l2SquaredNorm(a);
+    }
+
+    static double euclideanSquared(@Nonnull final double[] a, @Nonnull final double[] b) {
+        Preconditions.checkArgument(a.length == b.length);
+        return BACKEND.euclideanSquared(a, b);
     }
 }
