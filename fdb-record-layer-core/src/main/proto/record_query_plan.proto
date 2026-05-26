@@ -1739,6 +1739,7 @@ message PRecordQueryPlan {
     PRecordQueryStreamingAggregationPlan2 streaming_aggregation_plan2 = 38;
     PRecordQueryMultiIntersectionOnValuesPlan multi_intersection_on_values_plan = 39;
     PRecordQueryRecursiveDfsJoinPlan recursive_dfs_join_plan = 40;
+    PRecordQueryStoreBindingPlan store_binding_plan = 41;
   }
 }
 
@@ -2385,4 +2386,12 @@ message PRecordQueryRecursiveDfsJoinPlan {
   optional PPhysicalQuantifier child_quantifier = 2;
   optional string prior_value_correlation = 3;
   optional PDfsTraversalStrategy dfs_traversal_strategy = 4;
+}
+
+//
+// PRecordQueryStoreBindingPlan
+//
+message PRecordQueryStoreBindingPlan {
+  optional PPhysicalQuantifier inner = 1;
+  optional string schema_name = 2;
 }

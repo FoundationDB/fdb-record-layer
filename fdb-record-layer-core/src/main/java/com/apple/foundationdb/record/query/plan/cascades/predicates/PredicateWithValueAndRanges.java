@@ -44,6 +44,7 @@ import com.apple.foundationdb.record.query.plan.explain.ExplainTokens;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence.Precedence;
 import com.google.auto.service.AutoService;
+import com.apple.foundationdb.record.query.plan.cascades.ComparisonRange;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -345,7 +346,28 @@ public class PredicateWithValueAndRanges extends AbstractQueryPredicate implemen
                             PredicateMapping.regularMappingBuilder(originalQueryPredicate, this, candidatePredicate)
                                     .setPredicateCompensation((ignore, boundParameterPrefixMap, pullUp) -> {
                                         if (boundParameterPrefixMap.containsKey(alias)) {
-                                            return PredicateCompensationFunction.noCompensationNeeded();
+                                            // The scan key used one comparison from this range; any remaining
+                                            // comparisons (residuals dropped by asComparisonRange()) must still
+                                            // be applied as a filter.
+                                            final var singleRange = Iterables.getOnlyElement(compensatedQueryPredicate.getRanges());
+                                            var sargRange = ComparisonRange.EMPTY;
+                                            final ImmutableList.Builder<Comparisons.Comparison> residualBuilder = ImmutableList.builder();
+                                            for (final var comparison : singleRange.getComparisons()) {
+                                                final var mergeResult = sargRange.merge(comparison);
+                                                sargRange = mergeResult.getComparisonRange();
+                                                residualBuilder.addAll(mergeResult.getResidualComparisons());
+                                            }
+                                            final var residuals = residualBuilder.build();
+                                            if (residuals.isEmpty()) {
+                                                return PredicateCompensationFunction.noCompensationNeeded();
+                                            }
+                                            final var rangeBuilder = RangeConstraints.newBuilder();
+                                            residuals.forEach(rangeBuilder::addComparisonMaybe);
+                                            return rangeBuilder.build()
+                                                    .map(residualRange -> PredicateWithValueAndRanges.sargable(
+                                                                    compensatedQueryPredicate.getValue(), residualRange)
+                                                            .computeCompensationFunctionForLeaf(pullUp))
+                                                    .orElseGet(() -> computeCompensationFunctionForLeaf(pullUp));
                                         }
                                         return computeCompensationFunctionForLeaf(pullUp);
                                     })

@@ -27,12 +27,14 @@ import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentitySet;
 import com.apple.foundationdb.record.query.plan.cascades.PlanPartition;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
+import com.apple.foundationdb.record.query.plan.cascades.SchemaIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalTypeFilterExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.properties.RecordTypesProperty.RecordTypesVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.properties.StoredRecordProperty;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryStoreBindingPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryTypeFilterPlan;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.Sets;
@@ -93,17 +95,29 @@ public class ImplementTypeFilterRule extends ImplementationCascadesRule<LogicalT
         }
 
         final var unsatisfiedMap = unsatisfiedMapBuilder.build();
+        final SchemaIdentifier schemaId = logicalTypeFilterExpression.getSchemaId();
 
         if (!noTypeFilterNeeded.isEmpty()) {
-            call.yieldPlans(noTypeFilterNeeded);
+            if (schemaId.isCurrentSchema()) {
+                call.yieldPlans(noTypeFilterNeeded);
+            } else {
+                for (final var plan : noTypeFilterNeeded) {
+                    call.yieldPlan(RecordQueryStoreBindingPlan.of(plan, schemaId));
+                }
+            }
         }
 
         for (Map.Entry<Set<String>, Collection<RecordQueryPlan>> unsatisfiedEntry : unsatisfiedMap.asMap().entrySet()) {
-            call.yieldPlan(
+            final RecordQueryTypeFilterPlan typeFilterPlan =
                     new RecordQueryTypeFilterPlan(
                             Quantifier.physical(call.memoizeMemberPlansFromOther(innerReference, unsatisfiedEntry.getValue())),
                             unsatisfiedEntry.getKey(),
-                            Type.Relation.scalarOf(logicalTypeFilterExpression.getResultType())));
+                            Type.Relation.scalarOf(logicalTypeFilterExpression.getResultType()));
+            if (schemaId.isCurrentSchema()) {
+                call.yieldPlan(typeFilterPlan);
+            } else {
+                call.yieldPlan(RecordQueryStoreBindingPlan.of(typeFilterPlan, schemaId));
+            }
         }
     }
 }

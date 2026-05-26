@@ -35,7 +35,10 @@ import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.RequestedOrdering;
 import com.apple.foundationdb.record.query.plan.cascades.RequestedOrderingConstraint;
+import com.apple.foundationdb.record.query.plan.cascades.SchemaIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalTypeFilterExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
@@ -46,6 +49,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryDefaultOnEmptyP
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFirstOrDefaultPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFlatMapPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPredicatesFilterPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryStoreBindingPlan;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.google.common.base.Function;
 import com.google.common.base.Verify;
@@ -184,7 +188,7 @@ public class ImplementNestedLoopJoinRule extends ImplementationCascadesRule<Sele
                 for (final PlanPartition innerPlanPartition : rollUpIfSatisfyOrdering(requestedOrdering, innerQuantifier, bindings.getAll(innerPlanPartitionsMatcher), Ordering.empty(),
                         o -> pullUpOrderingFromSelectChild(o, selectExpression, innerAlias))) {
                     final Quantifier.Physical newInnerQuantifier = planPartitionToPhysical(call, innerQuantifier, innerReference, outerInnerPredicates, innerPlanPartition);
-                    call.yieldPlan(new RecordQueryFlatMapPlan(newOuterQuantifier, newInnerQuantifier, selectExpression.getResultValue(), innerQuantifier instanceof Quantifier.Existential));
+                    call.yieldPlan(new RecordQueryFlatMapPlan(newOuterQuantifier, wrapCrossSchema(call, newInnerQuantifier, innerQuantifier, innerReference), selectExpression.getResultValue(), innerQuantifier instanceof Quantifier.Existential));
                 }
             }
 
@@ -198,7 +202,7 @@ public class ImplementNestedLoopJoinRule extends ImplementationCascadesRule<Sele
                 final Quantifier.Physical newOuterQuantifier = planPartitionToPhysical(call, outerQuantifier, outerReference, outerPredicates, outerPlanPartition);
                 for (final PlanPartition innerPlanPartition : PlanPartitions.rollUpTo(bindings.getAll(innerPlanPartitionsMatcher), ImmutableSet.of())) {
                     final Quantifier.Physical newInnerQuantifier = planPartitionToPhysical(call, innerQuantifier, innerReference, outerInnerPredicates, innerPlanPartition);
-                    call.yieldPlan(new RecordQueryFlatMapPlan(newOuterQuantifier, newInnerQuantifier, selectExpression.getResultValue(), innerQuantifier instanceof Quantifier.Existential));
+                    call.yieldPlan(new RecordQueryFlatMapPlan(newOuterQuantifier, wrapCrossSchema(call, newInnerQuantifier, innerQuantifier, innerReference), selectExpression.getResultValue(), innerQuantifier instanceof Quantifier.Existential));
                 }
             }
 
@@ -211,7 +215,7 @@ public class ImplementNestedLoopJoinRule extends ImplementationCascadesRule<Sele
                 for (final PlanPartition innerPlanPartition : rollUpIfSatisfyOrdering(requestedOrdering, innerQuantifier, bindings.getAll(innerPlanPartitionsMatcher), outerOrdering,
                         o -> pullUpOrderingFromSelectChild(o, selectExpression, innerAlias))) {
                     final Quantifier.Physical newInnerQuantifier = planPartitionToPhysical(call, innerQuantifier, innerReference, outerInnerPredicates, innerPlanPartition);
-                    call.yieldPlan(new RecordQueryFlatMapPlan(newOuterQuantifier, newInnerQuantifier, selectExpression.getResultValue(), innerQuantifier instanceof Quantifier.Existential));
+                    call.yieldPlan(new RecordQueryFlatMapPlan(newOuterQuantifier, wrapCrossSchema(call, newInnerQuantifier, innerQuantifier, innerReference), selectExpression.getResultValue(), innerQuantifier instanceof Quantifier.Existential));
                 }
             }
         }
@@ -327,5 +331,49 @@ public class ImplementNestedLoopJoinRule extends ImplementationCascadesRule<Sele
         }
 
         return Quantifier.physicalBuilder().withAlias(quantifier.getAlias()).build(ref);
+    }
+
+    /**
+     * If the inner reference belongs to a non-current schema, wraps all plans in the inner quantifier's
+     * reference with a {@link RecordQueryStoreBindingPlan} so that execution redirects to the correct store.
+     * Same-schema joins are returned unchanged.
+     */
+    @Nonnull
+    private Quantifier.Physical wrapCrossSchema(@Nonnull final ImplementationCascadesRuleCall call,
+                                                 @Nonnull final Quantifier.Physical newInnerQuantifier,
+                                                 @Nonnull final Quantifier originalInnerQuantifier,
+                                                 @Nonnull final Reference innerLogicalReference) {
+        final SchemaIdentifier schemaId = schemaIdFromReference(innerLogicalReference);
+        if (schemaId.isCurrentSchema()) {
+            return newInnerQuantifier;
+        }
+        final var innerRef = newInnerQuantifier.getRangesOver();
+        final var wrappedPlans = innerRef.getFinalExpressions().stream()
+                .map(e -> (com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan) e)
+                .map(p -> (com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan) RecordQueryStoreBindingPlan.of(p, schemaId))
+                .collect(ImmutableList.toImmutableList());
+        final var wrappedRef = call.memoizePlansBuilder(wrappedPlans).reference();
+        return Quantifier.physicalBuilder().withAlias(originalInnerQuantifier.getAlias()).build(wrappedRef);
+    }
+
+    /**
+     * Returns the {@link SchemaIdentifier} of the first {@link LogicalTypeFilterExpression} found in the
+     * exploratory expressions of {@code ref} (or recursively in their quantifiers' referenced groups),
+     * or {@link SchemaIdentifier#current()} if none is found.
+     */
+    @Nonnull
+    private static SchemaIdentifier schemaIdFromReference(@Nonnull final Reference ref) {
+        for (final RelationalExpression expr : ref.getExploratoryExpressions()) {
+            if (expr instanceof LogicalTypeFilterExpression) {
+                return ((LogicalTypeFilterExpression) expr).getSchemaId();
+            }
+            for (final Quantifier q : expr.getQuantifiers()) {
+                final SchemaIdentifier sid = schemaIdFromReference(q.getRangesOver());
+                if (!sid.isCurrentSchema()) {
+                    return sid;
+                }
+            }
+        }
+        return SchemaIdentifier.current();
     }
 }

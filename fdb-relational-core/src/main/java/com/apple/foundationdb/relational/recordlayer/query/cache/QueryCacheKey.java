@@ -24,6 +24,7 @@ import com.apple.foundationdb.annotation.API;
 
 import com.apple.foundationdb.relational.recordlayer.query.AstNormalizer;
 import com.apple.foundationdb.relational.recordlayer.query.PlannerConfiguration;
+import com.google.common.collect.ImmutableSortedMap;
 
 import javax.annotation.Nonnull;
 import java.util.Objects;
@@ -32,53 +33,13 @@ import java.util.Objects;
  * This is used to look up a plan in the primary cache (see {@link MultiStageCache} for more information).
  * It comprises the following fields:
  * <ul>
- *     <li>The schema template name to which the query is bound. It is necessary to use it so we can segregate
- *     the otherwise identical plans but coming from different schemas (see Example 1 below)</li>
- *     <li>The schema template version, user version, and a bit-set of all readable indexes</li>
- *     <li>The canonical query string where all literals are removed and white spaces are normalised (see example 2)</li>
+ *     <li>The schema template versions to which the query is bound, keyed by schema template name. A plan is
+ *     invalidated when <em>any</em> participating schema bumps its version.</li>
+ *     <li>The user version and a bit-set of all readable indexes.</li>
+ *     <li>The canonical query string where all literals are removed and white spaces are normalised (see example below).</li>
  *     <li>The hash of the query, see {@link AstNormalizer} for more information on how is this generated.</li>
  * </ul>
- * <b>Example1</b>
- * <br>
- * Let us assume we have two schema templates ({@code s1} and {@code s2}) defined as the following:
- * <pre>
- * {@code
- * create schema template s1
- * create table t1(id bigint, col1 bigint, primary key(id))
- *
- * create schema template s2
- * create table t1(id bigint, col1 bigint, col3 bigint, primary key(id))
- * }
- * </pre>
- * If we run a query like this:
- * <pre>
- * {@code
- * create schema /FRL/YOUSSEF/s1s with s1
- * connect: "jdbc:embed:/FRL/YOUSSEF?schema=S1S"
- * select * from t1 where col1 > 42;
- * }
- * </pre>
- * we would compile the query and return a result set comprising two columns {@code id, col1}.
- * we will also cache this query using a {@link QueryCacheKey} key of something like {@code "s1", "select * from t1 where col1 > ? ", 123456789}
- * <br>
- * if we run the <i>same</i> query, however after connecting to a schema that uses a {@code s2} instead:
- * <pre>
- * {@code
- * create schema /FRL/YOUSSEF/s2s with s2
- * connect: "jdbc:embed:/FRL/YOUSSEF?schema=S2S"
- * select * from t1 where col1 > 53;
- * }
- * </pre>
- * we would correctly compile this query and return a result set comprising three columns {@code id, col1, col2}.
- * we will also cache this query using {@link QueryCacheKey} key of something like {@code "s2", "select * from t1 where col1 > ? ", 123456789}
- * <br>
- * Note that without having the schema template name as part of the {@link QueryCacheKey} both keys would be identical.
- * Therefore, we might incorrectly choose the compiled plan of the first query to execute the second query (because we find
- * a match in the cache) causing an error since the result set structure is different because table {@code T1} is defined
- * differently in {@code S1} and {@code S2}.
- * <br>
- * <br>
- * <b>Example 2</b>
+ * <b>Example</b>
  * <br>
  * Although these queries appear different, their canonical representation is the same, and will end up using the same
  * compiled plan.
@@ -108,7 +69,12 @@ public final class QueryCacheKey {
     @Nonnull
     private final String auxiliaryMetadata;
 
-    private final int schemaTemplateVersion;
+    /**
+     * Maps each participating schema template name to its version. A cache miss is triggered when
+     * any entry in this map changes, which is the correct behaviour for cross-schema queries.
+     */
+    @Nonnull
+    private final ImmutableSortedMap<String, Integer> schemaVersions;
 
     private final int userVersion;
 
@@ -117,18 +83,15 @@ public final class QueryCacheKey {
     private QueryCacheKey(@Nonnull final String canonicalQueryString,
                           @Nonnull final PlannerConfiguration plannerConfiguration,
                           @Nonnull final String auxiliaryMetadata,
-                          int schemaTemplateVersion,
+                          @Nonnull final ImmutableSortedMap<String, Integer> schemaVersions,
                           int userVersion) {
         this.canonicalQueryString = canonicalQueryString;
-        this.schemaTemplateVersion = schemaTemplateVersion;
+        this.schemaVersions = schemaVersions;
         this.userVersion = userVersion;
         this.auxiliaryMetadata = auxiliaryMetadata;
         this.plannerConfiguration = plannerConfiguration;
 
-        // Memoize the hash code. Because this object is used as a key in a hash map, it is important that
-        // hashCode() be quick. Note that this includes information about the query (canonicalQueryString is like the query hash),
-        // the schema template version, and the schema (like the set of readable indexes)
-        this.memoizedHashCode = Objects.hash(canonicalQueryString, schemaTemplateVersion, plannerConfiguration, userVersion, auxiliaryMetadata);
+        this.memoizedHashCode = Objects.hash(canonicalQueryString, schemaVersions, plannerConfiguration, userVersion, auxiliaryMetadata);
     }
 
     @Override
@@ -140,11 +103,11 @@ public final class QueryCacheKey {
             return false;
         }
         final var that = (QueryCacheKey) other;
-        return schemaTemplateVersion == that.schemaTemplateVersion &&
-                userVersion == that.userVersion &&
+        return userVersion == that.userVersion &&
                 Objects.equals(canonicalQueryString, that.canonicalQueryString) &&
                 Objects.equals(auxiliaryMetadata, that.auxiliaryMetadata) &&
-                Objects.equals(plannerConfiguration, that.plannerConfiguration);
+                Objects.equals(plannerConfiguration, that.plannerConfiguration) &&
+                Objects.equals(schemaVersions, that.schemaVersions);
     }
 
     @Override
@@ -157,8 +120,9 @@ public final class QueryCacheKey {
         return canonicalQueryString;
     }
 
-    public int getSchemaTemplateVersion() {
-        return schemaTemplateVersion;
+    @Nonnull
+    public ImmutableSortedMap<String, Integer> getSchemaVersions() {
+        return schemaVersions;
     }
 
     @Nonnull
@@ -177,16 +141,15 @@ public final class QueryCacheKey {
 
     @Override
     public String toString() {
-        return "(" + schemaTemplateVersion + " || " + auxiliaryMetadata + ")" + "||" + canonicalQueryString + "||" + memoizedHashCode;
+        return "(" + schemaVersions + " || " + auxiliaryMetadata + ")" + "||" + canonicalQueryString + "||" + memoizedHashCode;
     }
 
     @Nonnull
     public static QueryCacheKey of(@Nonnull final String query,
                                    @Nonnull final PlannerConfiguration plannerConfiguration,
                                    @Nonnull final String auxiliaryMetadata,
-                                   int schemaTemplateVersion,
+                                   @Nonnull final ImmutableSortedMap<String, Integer> schemaVersions,
                                    int userVersion) {
-        return new QueryCacheKey(query, plannerConfiguration, auxiliaryMetadata, schemaTemplateVersion,
-                userVersion);
+        return new QueryCacheKey(query, plannerConfiguration, auxiliaryMetadata, schemaVersions, userVersion);
     }
 }
