@@ -104,8 +104,8 @@ class KMeansTest {
 
         KMeansTestHelpers.assertKMeansInvariants(res, vectors, 2, estimator, 0.0d);
 
-        final RealVector c0 = res.getClusterCentroids().get(0);
-        final RealVector c1 = res.getClusterCentroids().get(1);
+        final RealVector c0 = res.clusterCentroids().get(0);
+        final RealVector c1 = res.clusterCentroids().get(1);
 
         final double d00 = estimator.distance(m0, c0);
         final double d01 = estimator.distance(m0, c1);
@@ -119,7 +119,7 @@ class KMeansTest {
         assertThat(bestMatch).isLessThan(2.0d);
 
         final double baseline = baselineObjectiveSameCentroidTwice(vectors);
-        assertThat(res.getObjective()).isLessThan(baseline * 0.65);
+        assertThat(res.objective()).isLessThan(baseline * 0.65);
     }
 
     @ParameterizedTest
@@ -150,8 +150,8 @@ class KMeansTest {
 
         KMeansTestHelpers.assertKMeansInvariants(res, vectors, 2, estimator, 0.0d);
 
-        assertThat(res.getClusterSizes()[0]).isGreaterThan(0);
-        assertThat(res.getClusterSizes()[1]).isGreaterThan(0);
+        assertThat(res.clusterSizes()[0]).isGreaterThan(0);
+        assertThat(res.clusterSizes()[1]).isGreaterThan(0);
     }
 
     /**
@@ -196,11 +196,11 @@ class KMeansTest {
         KMeansTestHelpers.assertKMeansInvariants(res, vectors, k, estimator, lambda);
 
         for (int c = 0; c < k; c++) {
-            assertThat(res.getClusterSizes()[c]).isGreaterThan(0);
+            assertThat(res.clusterSizes()[c]).isGreaterThan(0);
         }
 
-        final int min = Arrays.stream(res.getClusterSizes()).min().orElseThrow();
-        final int max = Arrays.stream(res.getClusterSizes()).max().orElseThrow();
+        final int min = Arrays.stream(res.clusterSizes()).min().orElseThrow();
+        final int max = Arrays.stream(res.clusterSizes()).max().orElseThrow();
         assertThat(max).isLessThanOrEqualTo(min * 2);
     }
 
@@ -243,14 +243,14 @@ class KMeansTest {
         KMeansTestHelpers.assertKMeansInvariants(res, vectors, k, estimator, lambda);
 
         for (int c = 0; c < k; c++) {
-            assertThat(res.getClusterSizes()[c]).isGreaterThan(0);
+            assertThat(res.clusterSizes()[c]).isGreaterThan(0);
         }
 
-        final int min = Arrays.stream(res.getClusterSizes()).min().orElseThrow();
-        final int max = Arrays.stream(res.getClusterSizes()).max().orElseThrow();
+        final int min = Arrays.stream(res.clusterSizes()).min().orElseThrow();
+        final int max = Arrays.stream(res.clusterSizes()).max().orElseThrow();
         assertThat(max).isLessThanOrEqualTo(min * 2);
 
-        logger.info("cluster sizes = {}", res.getClusterSizes());
+        logger.info("cluster sizes = {}", res.clusterSizes());
     }
 
     @ParameterizedTest
@@ -283,8 +283,8 @@ class KMeansTest {
 
         KMeansTestHelpers.assertKMeansInvariants(res, vectors, 2, estimator, 0.0d);
 
-        final RealVector c0 = res.getClusterCentroids().get(0).normalize();
-        final RealVector c1 = res.getClusterCentroids().get(1).normalize();
+        final RealVector c0 = res.clusterCentroids().get(0).normalize();
+        final RealVector c1 = res.clusterCentroids().get(1).normalize();
 
         final double d00 = estimator.distance(m0, c0);
         final double d01 = estimator.distance(m0, c1);
@@ -298,7 +298,7 @@ class KMeansTest {
         assertThat(bestMatch).isLessThan(0.20d);
 
         final double baseline = baselineObjectiveSameCentroidTwiceNormalized(vectors, estimator);
-        assertThat(res.getObjective()).isLessThan(baseline * 0.65d);
+        assertThat(res.objective()).isLessThan(baseline * 0.65d);
     }
 
     @ParameterizedTest
@@ -327,8 +327,8 @@ class KMeansTest {
 
         KMeansTestHelpers.assertKMeansInvariants(res, vectors, 2, estimator, 0.0d);
 
-        assertThat(res.getClusterSizes()[0]).isGreaterThan(0);
-        assertThat(res.getClusterSizes()[1]).isGreaterThan(0);
+        assertThat(res.clusterSizes()[0]).isGreaterThan(0);
+        assertThat(res.clusterSizes()[1]).isGreaterThan(0);
     }
 
     @ParameterizedTest
@@ -366,11 +366,11 @@ class KMeansTest {
         KMeansTestHelpers.assertKMeansInvariants(res, vectors, k, estimator, lambda);
 
         for (int c = 0; c < k; c++) {
-            assertThat(res.getClusterSizes()[c]).isGreaterThan(0);
+            assertThat(res.clusterSizes()[c]).isGreaterThan(0);
         }
 
-        final int min = Arrays.stream(res.getClusterSizes()).min().orElseThrow();
-        final int max = Arrays.stream(res.getClusterSizes()).max().orElseThrow();
+        final int min = Arrays.stream(res.clusterSizes()).min().orElseThrow();
+        final int max = Arrays.stream(res.clusterSizes()).max().orElseThrow();
         assertThat(max).isLessThanOrEqualTo(min * 2);
     }
 
@@ -411,14 +411,14 @@ class KMeansTest {
         KMeansTestHelpers.assertKMeansInvariants(res, vectors, k, estimator, lambda);
 
         for (int c = 0; c < k; c++) {
-            assertThat(res.getClusterSizes()[c]).isGreaterThan(0);
+            assertThat(res.clusterSizes()[c]).isGreaterThan(0);
         }
 
-        final int min = Arrays.stream(res.getClusterSizes()).min().orElseThrow();
-        final int max = Arrays.stream(res.getClusterSizes()).max().orElseThrow();
+        final int min = Arrays.stream(res.clusterSizes()).min().orElseThrow();
+        final int max = Arrays.stream(res.clusterSizes()).max().orElseThrow();
         assertThat(max).isLessThanOrEqualTo(min * 2);
 
-        logger.info("cosine cluster sizes = {}", res.getClusterSizes());
+        logger.info("cosine cluster sizes = {}", res.clusterSizes());
     }
 
     /**
@@ -446,7 +446,7 @@ class KMeansTest {
                         /*shuffleEachIteration=*/true);
 
                 logger.info("siftSmallEuclidean seed={} k={} lambda={} sse={} sizes={}",
-                        seed, k, lambda, res.getObjective(), res.getClusterSizes());
+                        seed, k, lambda, res.objective(), res.clusterSizes());
 
                 KMeansTestHelpers.assertKMeansInvariants(res, sample, k, estimator, lambda);
             }
@@ -477,7 +477,7 @@ class KMeansTest {
                         /*shuffleEachIteration=*/true);
 
                 logger.info("siftSmallCosine seed={} k={} lambda={} obj={} sizes={}",
-                        seed, k, lambda, res.getObjective(), res.getClusterSizes());
+                        seed, k, lambda, res.objective(), res.clusterSizes());
 
                 KMeansTestHelpers.assertKMeansInvariants(res, sample, k, estimator, lambda);
             }
@@ -505,14 +505,14 @@ class KMeansTest {
                 Lens.identity(), Lens.identity(),
                 sample, k, 20, 2, 0.0d, null, true);
 
-        assertThat(a.getAssignment()).containsExactly(b.getAssignment());
-        assertThat(a.getClusterSizes()).containsExactly(b.getClusterSizes());
-        assertThat(a.getDistances()).containsExactly(b.getDistances());
-        assertThat(a.getObjective()).isEqualTo(b.getObjective());
+        assertThat(a.assignment()).containsExactly(b.assignment());
+        assertThat(a.clusterSizes()).containsExactly(b.clusterSizes());
+        assertThat(a.distances()).containsExactly(b.distances());
+        assertThat(a.objective()).isEqualTo(b.objective());
 
         for (int c = 0; c < k; c++) {
-            final RealVector ca = a.getClusterCentroids().get(c);
-            final RealVector cb = b.getClusterCentroids().get(c);
+            final RealVector ca = a.clusterCentroids().get(c);
+            final RealVector cb = b.clusterCentroids().get(c);
             for (int d = 0; d < ca.getNumDimensions(); d++) {
                 assertThat(ca.getComponent(d)).isEqualTo(cb.getComponent(d));
             }
@@ -532,11 +532,11 @@ class KMeansTest {
         final int k = 10;
 
         final double obj0 = KMeans.fit(new SplittableRandom(seed), estimator,
-                Lens.identity(), Lens.identity(), sample, k, 30, 0, 0.0d, null, true).getObjective();
+                Lens.identity(), Lens.identity(), sample, k, 30, 0, 0.0d, null, true).objective();
         final double obj1 = KMeans.fit(new SplittableRandom(seed), estimator,
-                Lens.identity(), Lens.identity(), sample, k, 30, 1, 0.0d, null, true).getObjective();
+                Lens.identity(), Lens.identity(), sample, k, 30, 1, 0.0d, null, true).objective();
         final double obj3 = KMeans.fit(new SplittableRandom(seed), estimator,
-                Lens.identity(), Lens.identity(), sample, k, 30, 3, 0.0d, null, true).getObjective();
+                Lens.identity(), Lens.identity(), sample, k, 30, 3, 0.0d, null, true).objective();
 
         logger.info("restarts: 0->{}, 1->{}, 3->{}", obj0, obj1, obj3);
         assertThat(obj1).isLessThanOrEqualTo(obj0);
@@ -555,11 +555,11 @@ class KMeansTest {
         final Estimator estimator = Estimator.ofMetric(Metric.EUCLIDEAN_METRIC);
 
         final double sse2 = KMeans.fit(new SplittableRandom(seed), estimator,
-                Lens.identity(), Lens.identity(), sample, 2, 50, 3, 0.0d, null, true).getObjective();
+                Lens.identity(), Lens.identity(), sample, 2, 50, 3, 0.0d, null, true).objective();
         final double sse10 = KMeans.fit(new SplittableRandom(seed), estimator,
-                Lens.identity(), Lens.identity(), sample, 10, 50, 3, 0.0d, null, true).getObjective();
+                Lens.identity(), Lens.identity(), sample, 10, 50, 3, 0.0d, null, true).objective();
         final double sse25 = KMeans.fit(new SplittableRandom(seed), estimator,
-                Lens.identity(), Lens.identity(), sample, 25, 50, 3, 0.0d, null, true).getObjective();
+                Lens.identity(), Lens.identity(), sample, 25, 50, 3, 0.0d, null, true).objective();
 
         logger.info("k-monotonic SSE: 2->{}, 10->{}, 25->{}", sse2, sse10, sse25);
         // Generous slack accounts for the local-optimum nature of Lloyd; in pathological cases a
@@ -593,11 +593,11 @@ class KMeansTest {
                 KMeans.overflowQuadraticPenalty(),
                 true);
 
-        final int unbalancedMax = Arrays.stream(unbalanced.getClusterSizes()).max().orElseThrow();
-        final int balancedMax = Arrays.stream(balanced.getClusterSizes()).max().orElseThrow();
+        final int unbalancedMax = Arrays.stream(unbalanced.clusterSizes()).max().orElseThrow();
+        final int balancedMax = Arrays.stream(balanced.clusterSizes()).max().orElseThrow();
 
         logger.info("balance: unbalanced sizes={}, balanced sizes={}",
-                unbalanced.getClusterSizes(), balanced.getClusterSizes());
+                unbalanced.clusterSizes(), balanced.clusterSizes());
 
         // Allow a small tolerance: tiny lambdas don't always strictly tighten balance.
         assertThat(balancedMax).isLessThanOrEqualTo((int)Math.round(unbalancedMax * 1.05d));

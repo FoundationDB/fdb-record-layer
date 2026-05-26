@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.util;
 
+import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
@@ -51,6 +52,7 @@ public interface Lens<C, A> {
     C set(@Nullable C c, @Nullable A a);
 
     @Nonnull
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
     default C map(@Nonnull final C c, @Nonnull final UnaryOperator<A> operator) {
         final A oldA = get(c);
         final A newA = operator.apply(oldA);
@@ -70,6 +72,7 @@ public interface Lens<C, A> {
 
             @Nonnull
             @Override
+            @SpotBugsSuppressWarnings("NP_PARAMETER_MUST_BE_NONNULL_BUT_MARKED_AS_NULLABLE")
             public C set(@Nullable final C c, @Nullable final A2 a2) {
                 return Lens.this.set(c, downstream.set(Lens.this.get(c), a2));
             }
@@ -87,6 +90,7 @@ public interface Lens<C, A> {
 
             @Nonnull
             @Override
+            @SpotBugsSuppressWarnings("NP_PARAMETER_MUST_BE_NONNULL_BUT_MARKED_AS_NULLABLE")
             public T set(@Nullable final T t, @Nullable final T t2) {
                 return Objects.requireNonNull(t2);
             }
