@@ -213,7 +213,7 @@ public class ValuePredicate extends AbstractQueryPredicate implements PredicateW
 
     @Nonnull
     @Override
-    public PValuePredicate toProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public Message toProto(@Nonnull final PlanSerializationContext serializationContext) {
         return PValuePredicate.newBuilder()
                 .setSuper(toAbstractQueryPredicateProto(serializationContext))
                 .setValue(value.toValueProto(serializationContext))
@@ -224,7 +224,7 @@ public class ValuePredicate extends AbstractQueryPredicate implements PredicateW
     @Nonnull
     @Override
     public PQueryPredicate toQueryPredicateProto(@Nonnull final PlanSerializationContext serializationContext) {
-        return PQueryPredicate.newBuilder().setValuePredicate(toProto(serializationContext)).build();
+        return PQueryPredicate.newBuilder().setValuePredicate((PValuePredicate) toProto(serializationContext)).build();
     }
 
     @Nonnull

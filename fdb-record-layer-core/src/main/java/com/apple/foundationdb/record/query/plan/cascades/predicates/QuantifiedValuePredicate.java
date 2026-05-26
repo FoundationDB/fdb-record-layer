@@ -25,6 +25,7 @@ import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.planprotos.PQuantifiedValuePredicate;
 import com.apple.foundationdb.record.planprotos.PQueryPredicate;
+import com.apple.foundationdb.record.planprotos.PValuePredicate;
 import com.apple.foundationdb.record.query.expressions.Comparisons.Comparison;
 import com.apple.foundationdb.record.query.plan.cascades.ComparisonRange;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
@@ -57,7 +58,7 @@ public class QuantifiedValuePredicate extends ValuePredicate {
     }
 
     @Nonnull
-    public CorrelationIdentifier getQuantifierAlias() {
+    private CorrelationIdentifier getQuantifierAlias() {
         return ((QuantifiedObjectValue) getValue()).getAlias();
     }
 
@@ -100,10 +101,14 @@ public class QuantifiedValuePredicate extends ValuePredicate {
     @Nonnull
     @Override
     public PQueryPredicate toQueryPredicateProto(@Nonnull final PlanSerializationContext serializationContext) {
-        return PQueryPredicate.newBuilder()
-                .setQuantifiedValuePredicate(PQuantifiedValuePredicate.newBuilder()
-                        .setSuper(toProto(serializationContext))
-                        .build())
+        return PQueryPredicate.newBuilder().setQuantifiedValuePredicate(toProto(serializationContext)).build();
+    }
+
+    @Nonnull
+    @Override
+    public PQuantifiedValuePredicate toProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return PQuantifiedValuePredicate.newBuilder()
+                .setSuper((PValuePredicate) super.toProto(serializationContext))
                 .build();
     }
 
