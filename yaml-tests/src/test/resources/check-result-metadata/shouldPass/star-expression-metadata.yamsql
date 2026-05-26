@@ -30,6 +30,9 @@
 schema_template:
     create table foo(id bigint, val bigint, primary key(id))
     create table bar(bid bigint, bval bigint, primary key(bid))
+    create type as struct s1(a bigint, b bigint)
+    create type as struct s2(c bigint, d s1 array)
+    create table t1(col1 bigint, col2 s2 array, primary key(col1))
 ---
 transaction_setups:
   tvf_sq: create temporary function sq(in x bigint) on commit drop function AS
@@ -39,6 +42,7 @@ setup:
   steps:
     - query: INSERT INTO foo VALUES (1, 10)
     - query: INSERT INTO bar VALUES (1, 20)
+    - query: INSERT INTO t1 VALUES (1, [(10, [(100, 200)])])
 ---
 test_block:
   name: table-source
@@ -112,6 +116,11 @@ test_block:
       - query: SELECT (*) FROM VALUES (1, 2), (3, 4)
       - resultMetadata: [{_0: [{_0: INTEGER}, {_1: INTEGER}]}]
       - unorderedResult: [{_0: {_0: 1, _1: 2}}, {_0: {_0: 3, _1: 4}}]
+    -
+      # VALUES with in-line table definition → column named after the table alias
+      - query: SELECT (*) FROM VALUES (1, 2), (3, 4) AS X(A, B)
+      - resultMetadata: [{X: [{A: INTEGER}, {B: INTEGER}]}]
+      - unorderedResult: [{X: {A: 1, B: 2}}, {X: {A: 3, B: 4}}]
 ---
 test_block:
   name: ambiguous-join-source
@@ -121,4 +130,57 @@ test_block:
       - query: SELECT (*) FROM foo, bar WHERE foo.id = bar.bid
       - resultMetadata: [{_0: [{ID: BIGINT}, {VAL: BIGINT}, {BID: BIGINT}, {BVAL: BIGINT}]}]
       - result: [{_0: {ID: 1, VAL: 10, BID: 1, BVAL: 20}}]
+---
+test_block:
+  name: partiql-unnest-source
+  tests:
+    -
+      # PartiQL unnest introduces two for-each quantifiers (t1 and k) → source is ambiguous,
+      # column is anonymous even though only one base table is in scope
+      - query: SELECT (*) FROM t1, t1.col2 AS k
+      - resultMetadata:
+        - _0:
+          - {COL1: BIGINT}
+          - COL2: {array: [{C: BIGINT}, {D: {array: [{A: BIGINT}, {B: BIGINT}]}}]}
+          - {C: BIGINT}
+          - D: {array: [{A: BIGINT}, {B: BIGINT}]}
+      - result: [{_0: {COL1: 1, COL2: [{C: 10, D: [{A: 100, B: 200}]}], C: 10, D: [{A: 100, B: 200}]}}]
+    -
+      # Wrapping the multi-level unnest in a subquery alias gives exactly one for-each
+      # quantifier in the outer scope → column named after the alias
+      - query: SELECT (*) FROM (SELECT * FROM t1, t1.col2 AS k, k.d AS m) AS p
+      - resultMetadata:
+        - P:
+          - {COL1: BIGINT}
+          - COL2: {array: [{C: BIGINT}, {D: {array: [{A: BIGINT}, {B: BIGINT}]}}]}
+          - {C: BIGINT}
+          - D: {array: [{A: BIGINT}, {B: BIGINT}]}
+          - {A: BIGINT}
+          - {B: BIGINT}
+      - result: [{P: {COL1: 1, COL2: [{C: 10, D: [{A: 100, B: 200}]}], C: 10, D: [{A: 100, B: 200}], A: 100, B: 200}}]
+    -
+      # Explicit (p.*) qualifier gives the same column name as the inferred case above
+      - query: SELECT (p.*) FROM (SELECT * FROM t1, t1.col2 AS k, k.d AS m) AS p
+      - resultMetadata:
+        - P:
+          - {COL1: BIGINT}
+          - COL2: {array: [{C: BIGINT}, {D: {array: [{A: BIGINT}, {B: BIGINT}]}}]}
+          - {C: BIGINT}
+          - D: {array: [{A: BIGINT}, {B: BIGINT}]}
+          - {A: BIGINT}
+          - {B: BIGINT}
+      - result: [{P: {COL1: 1, COL2: [{C: 10, D: [{A: 100, B: 200}]}], C: 10, D: [{A: 100, B: 200}], A: 100, B: 200}}]
+    -
+      # Nesting: inner (*) names the column after alias h; outer (*) names the column after alias q
+      - query: SELECT (*) FROM (SELECT (*) FROM (SELECT * FROM t1, t1.col2 AS k, k.d AS m) AS h) AS q
+      - resultMetadata:
+        - Q:
+          - H:
+            - {COL1: BIGINT}
+            - COL2: {array: [{C: BIGINT}, {D: {array: [{A: BIGINT}, {B: BIGINT}]}}]}
+            - {C: BIGINT}
+            - D: {array: [{A: BIGINT}, {B: BIGINT}]}
+            - {A: BIGINT}
+            - {B: BIGINT}
+      - result: [{Q: {H: {COL1: 1, COL2: [{C: 10, D: [{A: 100, B: 200}]}], C: 10, D: [{A: 100, B: 200}], A: 100, B: 200}}}]
 ...

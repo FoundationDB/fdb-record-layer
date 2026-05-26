@@ -899,14 +899,15 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
         if (ctx.STAR() != null) {
             final var star = getDelegate().getSemanticAnalyzer().expandStar(Optional.empty(), getDelegate().getLogicalOperators());
             final var resultValue = star.getUnderlying();
-            // When there is exactly one table in scope, name the column after that table/alias.
-            // With multiple tables the expansion is ambiguous, so fall back to an unnamed column.
+            // Name the column after the sole for-each quantifier in scope.
+            // Both standard joins and PartiQL unnest expansions introduce multiple for-each
+            // quantifiers (attributes originating from different sources), so fall back to
+            // an unnamed column whenever there is more than one.
             final var forEachOps = getDelegate().getLogicalOperators().forEachOnly();
             if (Iterables.size(forEachOps) == 1) {
-                final Optional<Identifier> tableName = Iterables.getOnlyElement(forEachOps).getName();
-                if (tableName.isPresent()) {
-                    return Expression.of(resultValue, tableName.get());
-                }
+                return Iterables.getOnlyElement(forEachOps).getName()
+                        .map(name -> Expression.of(resultValue, name))
+                        .orElse(Expression.ofUnnamed(resultValue));
             }
             return Expression.ofUnnamed(resultValue);
         }
