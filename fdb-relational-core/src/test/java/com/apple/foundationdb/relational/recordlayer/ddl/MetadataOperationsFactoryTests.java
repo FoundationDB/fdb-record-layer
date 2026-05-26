@@ -56,12 +56,10 @@ public class MetadataOperationsFactoryTests {
         final var mockedSchemaTemplate = Mockito.mock(SchemaTemplate.class);
         return Stream.of(
                 Arguments.of((Function<MetadataOperationsFactory, ConstantAction>)factory -> factory.getCreateSchemaConstantAction(dummyURI, dummyString, dummyString, Options.NONE)),
-                Arguments.of((Function<MetadataOperationsFactory, ConstantAction>)factory -> factory.getCreateTemporaryFunctionConstantAction(mockedSchemaTemplate, dummyBoolean, Mockito.mock(RecordLayerInvokedRoutine.class))),
                 Arguments.of((Function<MetadataOperationsFactory, ConstantAction>)factory -> factory.getCreateDatabaseConstantAction(dummyURI, Options.NONE)),
                 Arguments.of((Function<MetadataOperationsFactory, ConstantAction>)factory -> factory.getSaveSchemaTemplateConstantAction(mockedSchemaTemplate, Options.NONE)),
                 Arguments.of((Function<MetadataOperationsFactory, ConstantAction>)factory -> factory.getDropSchemaConstantAction(dummyURI, dummyString, Options.NONE)),
                 Arguments.of((Function<MetadataOperationsFactory, ConstantAction>)factory -> factory.getDropSchemaTemplateConstantAction(dummyString, dummyBoolean, Options.NONE)),
-                Arguments.of((Function<MetadataOperationsFactory, ConstantAction>)factory -> factory.getDropTemporaryFunctionConstantAction(dummyBoolean, dummyString)),
                 Arguments.of((Function<MetadataOperationsFactory, ConstantAction>)factory -> factory.getDropDatabaseConstantAction(dummyURI, dummyBoolean, Options.NONE))
         );
     }
