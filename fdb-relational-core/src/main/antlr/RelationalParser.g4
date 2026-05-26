@@ -1248,12 +1248,12 @@ expressionAtom
     | recordConstructor                                                                             #recordConstructorExpressionAtom // done
     | arrayConstructor                                                                              #arrayConstructorExpressionAtom // done
     | base=expressionAtom LEFT_SQUARE_BRACKET index=expressionAtom RIGHT_SQUARE_BRACKET             #subscriptExpression // done
+    | left=expressionAtom operator=(BIT_SHIFT_LEFT_OP | BIT_SHIFT_RIGHT_OP) right=expressionAtom    #bitExpressionAtom // done
+    | left=expressionAtom operator=BIT_AND_OP right=expressionAtom                                  #bitExpressionAtom //   done
+    | left=expressionAtom operator=(BIT_XOR_OP | BIT_OR_OP) right=expressionAtom                    #bitExpressionAtom // done
     | left=expressionAtom operator=(STAR|DIVIDE) right=expressionAtom                               #mathExpressionAtom // done
     | left=expressionAtom operator=(MODULO|DIV|MOD) right=expressionAtom                            #mathExpressionAtom // done
     | left=expressionAtom operator=(PLUS|MINUS) right=expressionAtom                                #mathExpressionAtom // done
-    | left=expressionAtom operator=(BIT_SHIFT_LEFT_OP | BIT_SHIFT_RIGHT_OP) right=expressionAtom    #bitExpressionAtom // done
-    | left=expressionAtom operator=BIT_AND_OP right=expressionAtom                                  #bitExpressionAtom // done
-    | left=expressionAtom operator=(BIT_XOR_OP | BIT_OR_OP) right=expressionAtom                    #bitExpressionAtom // done
     ;
 
 inList

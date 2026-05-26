@@ -92,6 +92,12 @@ test_block:
     -
       - query: select 5 | (6 & 4) from range(1, 2)
       - unorderedResult: [ { 5 } ]
+    -
+      - query: select a1 from A where a1 & 1l = 1l AND a1 & 1l > 0
+      - unorderedResult: [ { !l 1 } ]
+    -
+      - query: select 5 & 6 + 4 from range(1, 2)
+      - unorderedResult: [ { 8 } ]
 ---
 test_block:
   name: logical-operators
