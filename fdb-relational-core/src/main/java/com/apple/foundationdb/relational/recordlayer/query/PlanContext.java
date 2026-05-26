@@ -25,6 +25,7 @@ import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordStoreState;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
+import com.apple.foundationdb.record.query.plan.cascades.SchemaIdentifier;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.ddl.DdlQueryFactory;
 import com.apple.foundationdb.relational.api.ddl.MetadataOperationsFactory;
@@ -33,12 +34,15 @@ import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 import com.apple.foundationdb.relational.api.metrics.MetricCollector;
 import com.apple.foundationdb.relational.recordlayer.AbstractDatabase;
 import com.apple.foundationdb.relational.util.Assert;
+import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableMap;
 
 import javax.annotation.Nonnull;
 import java.net.URI;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 @API(API.Status.EXPERIMENTAL)
@@ -66,6 +70,12 @@ public final class PlanContext {
 
     private final boolean isCaseSensitive;
 
+    @Nonnull
+    private final Function<String, Optional<SchemaTemplate>> secondarySchemaLookup;
+
+    @Nonnull
+    private final ImmutableMap<SchemaIdentifier, NonnullPair<RecordMetaData, RecordStoreState>> additionalSchemas;
+
     /**
      * Creates a new instance of {@link PlanContext} needed for generating plans.
      *
@@ -90,7 +100,9 @@ public final class PlanContext {
                         @Nonnull URI dbUri,
                         @Nonnull PreparedParams preparedStatementParameters,
                         final int userVersion,
-                        boolean isCaseSensitive) {
+                        boolean isCaseSensitive,
+                        @Nonnull Function<String, Optional<SchemaTemplate>> secondarySchemaLookup,
+                        @Nonnull ImmutableMap<SchemaIdentifier, NonnullPair<RecordMetaData, RecordStoreState>> additionalSchemas) {
         this.metaData = metaData;
         this.metricCollector = metricCollector;
         this.schemaTemplate = schemaTemplate;
@@ -101,6 +113,8 @@ public final class PlanContext {
         this.preparedStatementParameters = preparedStatementParameters;
         this.userVersion = userVersion;
         this.isCaseSensitive = isCaseSensitive;
+        this.secondarySchemaLookup = secondarySchemaLookup;
+        this.additionalSchemas = additionalSchemas;
     }
 
     @Nonnull
@@ -158,6 +172,24 @@ public final class PlanContext {
     }
 
     @Nonnull
+    public Function<String, Optional<SchemaTemplate>> getSecondarySchemaLookup() {
+        return secondarySchemaLookup;
+    }
+
+    @Nonnull
+    public ImmutableMap<SchemaIdentifier, NonnullPair<RecordMetaData, RecordStoreState>> getAdditionalSchemas() {
+        return additionalSchemas;
+    }
+
+    @Nonnull
+    public PlanContext withAdditionalSchemas(
+            @Nonnull final ImmutableMap<SchemaIdentifier, NonnullPair<RecordMetaData, RecordStoreState>> newAdditionalSchemas) {
+        return new PlanContext(metaData, metricCollector, schemaTemplate, plannerConfiguration,
+                metadataOperationsFactory, ddlQueryFactory, dbUri, preparedStatementParameters,
+                userVersion, isCaseSensitive, secondarySchemaLookup, newAdditionalSchemas);
+    }
+
+    @Nonnull
     public static Builder builder() {
         return new Builder();
     }
@@ -183,6 +215,9 @@ public final class PlanContext {
         private PreparedParams preparedStatementParameters;
 
         private boolean isCaseSensitive;
+
+        @Nonnull
+        private Function<String, Optional<SchemaTemplate>> secondarySchemaLookup = s -> Optional.empty();
 
         private Builder() {
         }
@@ -265,6 +300,12 @@ public final class PlanContext {
         }
 
         @Nonnull
+        public Builder withSecondarySchemaLookup(@Nonnull final Function<String, Optional<SchemaTemplate>> lookup) {
+            this.secondarySchemaLookup = lookup;
+            return this;
+        }
+
+        @Nonnull
         public Builder fromRecordStore(@Nonnull FDBRecordStoreBase<?> recordStore, @Nonnull final Options options) {
             final var plannerConfig = recordStore.getRecordStoreState().allIndexesReadable() ?
                     PlannerConfiguration.ofAllAvailableIndexes(options) :
@@ -298,7 +339,8 @@ public final class PlanContext {
         public PlanContext build() throws RelationalException {
             verify();
             return new PlanContext(metaData, metricCollector, schemaTemplate, plannerConfiguration, metadataOperationsFactory,
-                    ddlQueryFactory, dbUri, preparedStatementParameters, userVersion, isCaseSensitive);
+                    ddlQueryFactory, dbUri, preparedStatementParameters, userVersion, isCaseSensitive,
+                    secondarySchemaLookup, ImmutableMap.of());
         }
 
         @Nonnull
@@ -318,7 +360,8 @@ public final class PlanContext {
                     .withPlannerConfiguration(planContext.plannerConfiguration)
                     .withUserVersion(planContext.userVersion)
                     .withPreparedParameters(planContext.preparedStatementParameters)
-                    .isCaseSensitive(planContext.isCaseSensitive);
+                    .isCaseSensitive(planContext.isCaseSensitive)
+                    .withSecondarySchemaLookup(planContext.secondarySchemaLookup);
         }
     }
 }
