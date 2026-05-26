@@ -24,7 +24,6 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.expressions.RecordKeyExpressionProto;
-import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.relational.api.RelationalDatabaseMetaData;
@@ -114,14 +113,31 @@ public class CatalogMetaData implements RelationalDatabaseMetaData {
         if (database == null) {
             throw new SQLFeatureNotSupportedException("Cannot scan across Databases yet", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
         }
-        if (schema == null) {
-            throw new SQLFeatureNotSupportedException("Cannot scan across Schemas yet", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
-        }
         if (tableName != null) {
             throw new SQLFeatureNotSupportedException("Table filters on getTables() is not supported yet", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
         }
         if (types != null) {
             throw new SQLFeatureNotSupportedException("Type filters on getTables() is not supported yet", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+        }
+        if (schema == null) {
+            return conn.runIsolatedInTransactionIfPossible(() -> {
+                final List<Row> tableList = new ArrayList<>();
+                for (final String schemaName : listAllSchemaNames(database)) {
+                    loadSchemaMetadata(database, schemaName).getRecordTypesList().stream()
+                            .map(type -> new ArrayRow(new Object[]{
+                                    database, schemaName, type.getName(),
+                                    type.hasSinceVersion() ? type.getSinceVersion() : null
+                            }))
+                            .forEach(tableList::add);
+                }
+                final var tablesStructType = DataType.StructType.from("TABLES", List.of(
+                        DataType.StructType.Field.from("TABLE_CAT", DataType.Primitives.NULLABLE_STRING.type(), 0),
+                        DataType.StructType.Field.from("TABLE_SCHEM", DataType.Primitives.NULLABLE_STRING.type(), 1),
+                        DataType.StructType.Field.from("TABLE_NAME", DataType.Primitives.NULLABLE_STRING.type(), 2),
+                        DataType.StructType.Field.from("TABLE_VERSION", DataType.Primitives.NULLABLE_LONG.type(), 3)
+                ), true);
+                return new IteratorResultSet(RelationalStructMetaData.of(tablesStructType), tableList.iterator(), 0);
+            });
         }
         return conn.runIsolatedInTransactionIfPossible(() -> {
             final RecordMetaDataProto.MetaData schemaInfo = loadSchemaMetadata(database, schema);
@@ -187,86 +203,22 @@ public class CatalogMetaData implements RelationalDatabaseMetaData {
         if (database == null || database.isEmpty()) {
             throw new SQLFeatureNotSupportedException("Cannot scan across Databases yet", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
         }
-        if (schema == null || schema.isEmpty()) {
-            throw new SQLFeatureNotSupportedException("Cannot scan across Schemas yet", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
-        }
         if (tablePattern == null || tablePattern.isEmpty()) {
             throw new SQLFeatureNotSupportedException("Table must be specified", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
         }
         if (columnPattern != null) {
             throw new SQLFeatureNotSupportedException("Column filters on getColumns() is not supported yet", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
         }
-        return conn.runIsolatedInTransactionIfPossible(() -> {
-            //TODO(bfines) this is a weird way of doing this, is there a better way?
-            RecordMetaData rmd = new CatalogMetaDataProvider(this.catalog, URI.create(database), schema, conn.getTransaction()).getRecordMetaData();
-            Descriptors.FileDescriptor fileDesc = rmd.getRecordsDescriptor();
-            //verify that it is in fact a table
-            try {
-                rmd.getRecordType(tablePattern);
-            } catch (MetaDataException mde) {
-                throw new RelationalException("table <" + tablePattern + "> does not exist", ErrorCode.UNDEFINED_TABLE);
-            }
-            //now get its column data
-            final Descriptors.Descriptor tableDescriptor = fileDesc.findMessageTypeByName(tablePattern);
-            final List<Row> columnDefs = tableDescriptor.getFields().stream()
-                    .map(field -> {
-                        Object[] row = {
-                                database,
-                                schema,
-                                tablePattern,
-                                field.getName(),
-                                ProtobufDdlUtil.getSqlType(field),
-                                ProtobufDdlUtil.getTypeName(field),
-                                -1,
-                                0,
-                                null,
-                                null,
-                                DatabaseMetaData.columnNullableUnknown, //TODO(bfines) we can probably figure this out
-                                null,
-                                field.getJavaType() != Descriptors.FieldDescriptor.JavaType.MESSAGE ? field.getDefaultValue() : null,
-                                -1,
-                                -1,
-                                -1,
-                                field.getIndex() + 1,
-                                "YES",
-                                null,
-                                null,
-                                null,
-                                null,
-                                "NO",
-                                "NO"
-                        };
-                        return new ArrayRow(row);
-                    }).collect(Collectors.toList());
-
-            final var columnsStructType = DataType.StructType.from("PRIMARY_KEYS", List.of(
-                    DataType.StructType.Field.from("TABLE_CAT", DataType.Primitives.NULLABLE_STRING.type(), 0),
-                    DataType.StructType.Field.from("TABLE_SCHEM", DataType.Primitives.NULLABLE_STRING.type(), 1),
-                    DataType.StructType.Field.from("TABLE_NAME", DataType.Primitives.NULLABLE_STRING.type(), 2),
-                    DataType.StructType.Field.from("COLUMN_NAME", DataType.Primitives.NULLABLE_STRING.type(), 3),
-                    DataType.StructType.Field.from("DATA_TYPE", DataType.Primitives.NULLABLE_STRING.type(), 4),
-                    DataType.StructType.Field.from("TYPE_NAME", DataType.Primitives.NULLABLE_STRING.type(), 5),
-                    DataType.StructType.Field.from("COLUMN_SIZE", DataType.Primitives.NULLABLE_INTEGER.type(), 6),
-                    DataType.StructType.Field.from("BUFFER_LENGTH", DataType.Primitives.NULLABLE_INTEGER.type(), 7),
-                    DataType.StructType.Field.from("DECIMAL_DIGITS", DataType.Primitives.NULLABLE_INTEGER.type(), 8),
-                    DataType.StructType.Field.from("NUM_PREC_RADIX", DataType.Primitives.NULLABLE_INTEGER.type(), 9),
-                    DataType.StructType.Field.from("NULLABLE", DataType.Primitives.NULLABLE_INTEGER.type(), 10),
-                    DataType.StructType.Field.from("REMARKS", DataType.Primitives.NULLABLE_STRING.type(), 11),
-                    DataType.StructType.Field.from("COLUMN_DEF", DataType.Primitives.NULLABLE_STRING.type(), 12),
-                    DataType.StructType.Field.from("SQL_DATA_TYPE", DataType.Primitives.NULLABLE_INTEGER.type(), 13),
-                    DataType.StructType.Field.from("SQL_DATETIME_SUB", DataType.Primitives.NULLABLE_INTEGER.type(), 14),
-                    DataType.StructType.Field.from("CHAR_OCTET_LENGTH", DataType.Primitives.NULLABLE_INTEGER.type(), 15),
-                    DataType.StructType.Field.from("ORDINAL_POSITION", DataType.Primitives.NULLABLE_INTEGER.type(), 16),
-                    DataType.StructType.Field.from("IS_NULLABLE", DataType.Primitives.NULLABLE_STRING.type(), 17),
-                    DataType.StructType.Field.from("SCOPE_CATALOG", DataType.Primitives.NULLABLE_STRING.type(), 18),
-                    DataType.StructType.Field.from("SCOPE_SCHEMA", DataType.Primitives.NULLABLE_STRING.type(), 19),
-                    DataType.StructType.Field.from("SCOPE_TABLE", DataType.Primitives.NULLABLE_STRING.type(), 20),
-                    DataType.StructType.Field.from("SOURCE_DATA_TYPE", DataType.Primitives.NULLABLE_INTEGER.type(), 21),
-                    DataType.StructType.Field.from("IS_AUTOINCREMENT", DataType.Primitives.NULLABLE_STRING.type(), 22),
-                    DataType.StructType.Field.from("IS_GENERATEDCOLUMN", DataType.Primitives.NULLABLE_STRING.type(), 23)
-            ), true);
-            return new IteratorResultSet(RelationalStructMetaData.of(columnsStructType), columnDefs.iterator(), 0);
-        });
+        if (schema == null || schema.isEmpty()) {
+            return conn.runIsolatedInTransactionIfPossible(() -> {
+                final List<Row> columnDefs = new ArrayList<>();
+                for (final String schemaName : listAllSchemaNames(database)) {
+                    columnDefs.addAll(loadColumnsForTable(database, schemaName, tablePattern));
+                }
+                return buildColumnsResultSet(columnDefs);
+            });
+        }
+        return conn.runIsolatedInTransactionIfPossible(() -> buildColumnsResultSet(loadColumnsForTable(database, schema, tablePattern)));
     }
 
     // note that approximate is ignored
@@ -283,66 +235,132 @@ public class CatalogMetaData implements RelationalDatabaseMetaData {
             throw new SQLFeatureNotSupportedException("Cannot scan across Databases yet", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
         }
         if (schema == null || schema.isEmpty()) {
-            throw new SQLFeatureNotSupportedException("Cannot scan across Schemas yet", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+            return conn.runIsolatedInTransactionIfPossible(() -> {
+                final List<Row> indexDefs = new ArrayList<>();
+                for (final String schemaName : listAllSchemaNames(database)) {
+                    indexDefs.addAll(loadIndexInfoForTable(database, schemaName, tablePattern));
+                }
+                return buildIndexInfoResultSet(indexDefs);
+            });
         }
         if (tablePattern == null || tablePattern.isEmpty()) {
             throw new SQLFeatureNotSupportedException("Table must be specified", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
         }
-        return conn.runIsolatedInTransactionIfPossible(() -> {
-            RecordMetaData rmd = RecordMetaData.build(loadSchemaMetadata(database, schema));
-            //verify that it is in fact a table
-            List<Row> indexDefs;
-            try {
-                final RecordType recordType = rmd.getRecordType(tablePattern);
-                final List<Index> indexes = recordType.getIndexes();
-                indexDefs = indexes.stream()
-                        .map(index -> {
-                            Object[] row = {
-                                    database,
-                                    schema,
-                                    recordType.getName(),
-                                    index.isUnique(),
-                                    index.getType(),
-                                    index.getName(),
-                                    DatabaseMetaData.tableIndexOther, //default value--create our own for different index types?
-                                    -1,
-                                    null,
-                                    null, // TODO(bfines) get asc/desc order from options maybe?
-                                    -1,
-                                    -1,
-                                    null //TODO(bfines) filter condition? SQL supports index filters?
-                            };
-                            return new ArrayRow(row);
-                        })
-                        .collect(Collectors.toList());
-            } catch (MetaDataException mde) {
-                throw new RelationalException("table <" + tablePattern + "> does not exist", ErrorCode.UNDEFINED_TABLE);
-            }
+        return conn.runIsolatedInTransactionIfPossible(() -> buildIndexInfoResultSet(loadIndexInfoForTable(database, schema, tablePattern)));
+    }
 
-            final var indexInfoStructType = DataType.StructType.from("PRIMARY_KEYS", List.of(
-                    DataType.StructType.Field.from("TABLE_CAT", DataType.Primitives.NULLABLE_STRING.type(), 0),
-                    DataType.StructType.Field.from("TABLE_SCHEM", DataType.Primitives.NULLABLE_STRING.type(), 1),
-                    DataType.StructType.Field.from("TABLE_NAME", DataType.Primitives.NULLABLE_STRING.type(), 2),
-                    DataType.StructType.Field.from("NON_UNIQUE", DataType.Primitives.NULLABLE_BOOLEAN.type(), 3),
-                    DataType.StructType.Field.from("INDEX_QUALIFIER", DataType.Primitives.NULLABLE_STRING.type(), 4),
-                    DataType.StructType.Field.from("INDEX_NAME", DataType.Primitives.NULLABLE_STRING.type(), 5),
-                    DataType.StructType.Field.from("TYPE", DataType.Primitives.NULLABLE_STRING.type(), 6),
-                    DataType.StructType.Field.from("ORDINAL_POSITION", DataType.Primitives.NULLABLE_INTEGER.type(), 7),
-                    DataType.StructType.Field.from("COLUMN_NAME", DataType.Primitives.NULLABLE_STRING.type(), 8),
-                    DataType.StructType.Field.from("ASC_OR_DESC", DataType.Primitives.NULLABLE_STRING.type(), 9),
-                    DataType.StructType.Field.from("CARDINALITY", DataType.Primitives.NULLABLE_INTEGER.type(), 10),
-                    DataType.StructType.Field.from("PAGES", DataType.Primitives.NULLABLE_INTEGER.type(), 11),
-                    DataType.StructType.Field.from("FILTER_CONDITION", DataType.Primitives.NULLABLE_STRING.type(), 12)
-            ), true);
-            return new IteratorResultSet(RelationalStructMetaData.of(indexInfoStructType), indexDefs.iterator(), 0);
-        });
+    @Nonnull
+    private List<Row> loadColumnsForTable(@Nonnull String database, @Nonnull String schema, @Nonnull String tableName) throws RelationalException {
+        //TODO(bfines) this is a weird way of doing this, is there a better way?
+        final RecordMetaData rmd = new CatalogMetaDataProvider(this.catalog, URI.create(database), schema, conn.getTransaction()).getRecordMetaData();
+        final Descriptors.Descriptor tableDescriptor;
+        try {
+            rmd.getRecordType(tableName);
+            tableDescriptor = rmd.getRecordsDescriptor().findMessageTypeByName(tableName);
+        } catch (MetaDataException mde) {
+            return List.of();
+        }
+        return tableDescriptor.getFields().stream()
+                .map(field -> new ArrayRow(new Object[]{
+                        database, schema, tableName, field.getName(),
+                        ProtobufDdlUtil.getSqlType(field), ProtobufDdlUtil.getTypeName(field),
+                        -1, 0, null, null,
+                        DatabaseMetaData.columnNullableUnknown,
+                        null,
+                        field.getJavaType() != Descriptors.FieldDescriptor.JavaType.MESSAGE ? field.getDefaultValue() : null,
+                        -1, -1, -1, field.getIndex() + 1,
+                        "YES", null, null, null, null, "NO", "NO"
+                }))
+                .collect(Collectors.toList());
+    }
+
+    @Nonnull
+    private IteratorResultSet buildColumnsResultSet(@Nonnull List<Row> columnDefs) {
+        final var columnsStructType = DataType.StructType.from("PRIMARY_KEYS", List.of(
+                DataType.StructType.Field.from("TABLE_CAT", DataType.Primitives.NULLABLE_STRING.type(), 0),
+                DataType.StructType.Field.from("TABLE_SCHEM", DataType.Primitives.NULLABLE_STRING.type(), 1),
+                DataType.StructType.Field.from("TABLE_NAME", DataType.Primitives.NULLABLE_STRING.type(), 2),
+                DataType.StructType.Field.from("COLUMN_NAME", DataType.Primitives.NULLABLE_STRING.type(), 3),
+                DataType.StructType.Field.from("DATA_TYPE", DataType.Primitives.NULLABLE_STRING.type(), 4),
+                DataType.StructType.Field.from("TYPE_NAME", DataType.Primitives.NULLABLE_STRING.type(), 5),
+                DataType.StructType.Field.from("COLUMN_SIZE", DataType.Primitives.NULLABLE_INTEGER.type(), 6),
+                DataType.StructType.Field.from("BUFFER_LENGTH", DataType.Primitives.NULLABLE_INTEGER.type(), 7),
+                DataType.StructType.Field.from("DECIMAL_DIGITS", DataType.Primitives.NULLABLE_INTEGER.type(), 8),
+                DataType.StructType.Field.from("NUM_PREC_RADIX", DataType.Primitives.NULLABLE_INTEGER.type(), 9),
+                DataType.StructType.Field.from("NULLABLE", DataType.Primitives.NULLABLE_INTEGER.type(), 10),
+                DataType.StructType.Field.from("REMARKS", DataType.Primitives.NULLABLE_STRING.type(), 11),
+                DataType.StructType.Field.from("COLUMN_DEF", DataType.Primitives.NULLABLE_STRING.type(), 12),
+                DataType.StructType.Field.from("SQL_DATA_TYPE", DataType.Primitives.NULLABLE_INTEGER.type(), 13),
+                DataType.StructType.Field.from("SQL_DATETIME_SUB", DataType.Primitives.NULLABLE_INTEGER.type(), 14),
+                DataType.StructType.Field.from("CHAR_OCTET_LENGTH", DataType.Primitives.NULLABLE_INTEGER.type(), 15),
+                DataType.StructType.Field.from("ORDINAL_POSITION", DataType.Primitives.NULLABLE_INTEGER.type(), 16),
+                DataType.StructType.Field.from("IS_NULLABLE", DataType.Primitives.NULLABLE_STRING.type(), 17),
+                DataType.StructType.Field.from("SCOPE_CATALOG", DataType.Primitives.NULLABLE_STRING.type(), 18),
+                DataType.StructType.Field.from("SCOPE_SCHEMA", DataType.Primitives.NULLABLE_STRING.type(), 19),
+                DataType.StructType.Field.from("SCOPE_TABLE", DataType.Primitives.NULLABLE_STRING.type(), 20),
+                DataType.StructType.Field.from("SOURCE_DATA_TYPE", DataType.Primitives.NULLABLE_INTEGER.type(), 21),
+                DataType.StructType.Field.from("IS_AUTOINCREMENT", DataType.Primitives.NULLABLE_STRING.type(), 22),
+                DataType.StructType.Field.from("IS_GENERATEDCOLUMN", DataType.Primitives.NULLABLE_STRING.type(), 23)
+        ), true);
+        return new IteratorResultSet(RelationalStructMetaData.of(columnsStructType), columnDefs.iterator(), 0);
+    }
+
+    @Nonnull
+    private List<Row> loadIndexInfoForTable(@Nonnull String database, @Nonnull String schema, @Nonnull String tableName) throws RelationalException {
+        final RecordMetaData rmd = RecordMetaData.build(loadSchemaMetadata(database, schema));
+        try {
+            final RecordType recordType = rmd.getRecordType(tableName);
+            return recordType.getIndexes().stream()
+                    .map(index -> new ArrayRow(new Object[]{
+                            database, schema, recordType.getName(),
+                            index.isUnique(), index.getType(), index.getName(),
+                            DatabaseMetaData.tableIndexOther,
+                            -1, null, null, -1, -1, null
+                    }))
+                    .collect(Collectors.toList());
+        } catch (MetaDataException mde) {
+            return List.of();
+        }
+    }
+
+    @Nonnull
+    private IteratorResultSet buildIndexInfoResultSet(@Nonnull List<Row> indexDefs) {
+        final var indexInfoStructType = DataType.StructType.from("PRIMARY_KEYS", List.of(
+                DataType.StructType.Field.from("TABLE_CAT", DataType.Primitives.NULLABLE_STRING.type(), 0),
+                DataType.StructType.Field.from("TABLE_SCHEM", DataType.Primitives.NULLABLE_STRING.type(), 1),
+                DataType.StructType.Field.from("TABLE_NAME", DataType.Primitives.NULLABLE_STRING.type(), 2),
+                DataType.StructType.Field.from("NON_UNIQUE", DataType.Primitives.NULLABLE_BOOLEAN.type(), 3),
+                DataType.StructType.Field.from("INDEX_QUALIFIER", DataType.Primitives.NULLABLE_STRING.type(), 4),
+                DataType.StructType.Field.from("INDEX_NAME", DataType.Primitives.NULLABLE_STRING.type(), 5),
+                DataType.StructType.Field.from("TYPE", DataType.Primitives.NULLABLE_STRING.type(), 6),
+                DataType.StructType.Field.from("ORDINAL_POSITION", DataType.Primitives.NULLABLE_INTEGER.type(), 7),
+                DataType.StructType.Field.from("COLUMN_NAME", DataType.Primitives.NULLABLE_STRING.type(), 8),
+                DataType.StructType.Field.from("ASC_OR_DESC", DataType.Primitives.NULLABLE_STRING.type(), 9),
+                DataType.StructType.Field.from("CARDINALITY", DataType.Primitives.NULLABLE_INTEGER.type(), 10),
+                DataType.StructType.Field.from("PAGES", DataType.Primitives.NULLABLE_INTEGER.type(), 11),
+                DataType.StructType.Field.from("FILTER_CONDITION", DataType.Primitives.NULLABLE_STRING.type(), 12)
+        ), true);
+        return new IteratorResultSet(RelationalStructMetaData.of(indexInfoStructType), indexDefs.iterator(), 0);
     }
 
     @Nonnull
     private RecordMetaDataProto.MetaData loadSchemaMetadata(@Nonnull final String database, @Nonnull final String schema) throws RelationalException {
         final var recLayerSchema = this.catalog.loadSchema(conn.getTransaction(), URI.create(database), schema);
         Assert.thatUnchecked(recLayerSchema instanceof RecordLayerSchema);
-        return (recLayerSchema.getSchemaTemplate().unwrap(RecordLayerSchemaTemplate.class).toRecordMetadata().toProto());
+        return recLayerSchema.getSchemaTemplate().unwrap(RecordLayerSchemaTemplate.class).toRecordMetadata().toProto();
+    }
+
+    @Nonnull
+    private List<String> listAllSchemaNames(@Nonnull String database) throws RelationalException {
+        final List<String> schemaNames = new ArrayList<>();
+        try (RelationalResultSet rrs = catalog.listSchemas(conn.getTransaction(), URI.create(database), ContinuationImpl.BEGIN)) {
+            while (rrs.next()) {
+                schemaNames.add(rrs.getString("SCHEMA_NAME"));
+            }
+        } catch (SQLException sqle) {
+            throw new RelationalException(sqle);
+        }
+        return schemaNames;
     }
 
     //the position in the array is the key sequence, the value is the name of the column

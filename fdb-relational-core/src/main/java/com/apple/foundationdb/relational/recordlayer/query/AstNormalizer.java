@@ -37,7 +37,9 @@ import com.apple.foundationdb.relational.generated.RelationalParserBaseVisitor;
 import com.apple.foundationdb.relational.recordlayer.metadata.DataTypeUtils;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerInvokedRoutine;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
+import com.apple.foundationdb.relational.recordlayer.query.cache.PlanCacheSchemaKey;
 import com.apple.foundationdb.relational.recordlayer.query.cache.QueryCacheKey;
+import com.google.common.collect.ImmutableSortedMap;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 import com.apple.foundationdb.relational.util.Assert;
 import com.google.common.annotations.VisibleForTesting;
@@ -630,10 +632,10 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
             }
         }
         return new NormalizationResult(
-                recordLayerSchemaTemplate.getName(),
+                PlanCacheSchemaKey.of(recordLayerSchemaTemplate.getName()),
                 QueryCacheKey.of(astNormalizer.getCanonicalSqlString(), getQuerySpecificPlannerConfig(plannerConfiguration, astNormalizer.getQueryOptions()),
                         recordLayerSchemaTemplate.getTransactionBoundMetadataAsString(),
-                        recordLayerSchemaTemplate.getVersion(), userVersion),
+                        ImmutableSortedMap.of(recordLayerSchemaTemplate.getName(), recordLayerSchemaTemplate.getVersion()), userVersion),
                 astNormalizer.getQueryExecutionParameters(),
                 parseTreeInfo.getRootContext(),
                 astNormalizer.getQueryCachingFlags(),
@@ -677,7 +679,7 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
         }
 
         @Nonnull
-        private final String schemaTemplateName;
+        private final PlanCacheSchemaKey schemaKey;
 
         @Nonnull
         private final QueryCacheKey queryCacheKey;
@@ -697,14 +699,14 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
         @Nonnull
         private final String query;
 
-        public NormalizationResult(@Nonnull final String schemaTemplateName,
+        public NormalizationResult(@Nonnull final PlanCacheSchemaKey schemaKey,
                                    @Nonnull final QueryCacheKey queryCacheKey,
                                    @Nonnull final QueryExecutionContext queryExecutionContext,
                                    @Nonnull final ParseTree parseTree,
                                    @Nonnull final Set<QueryCachingFlags> queryCachingFlags,
                                    @Nonnull final Options queryOptions,
                                    @Nonnull final String query) {
-            this.schemaTemplateName = schemaTemplateName;
+            this.schemaKey = schemaKey;
             this.queryCacheKey = queryCacheKey;
             this.queryExecutionContext = queryExecutionContext;
             this.parseTree = parseTree;
@@ -714,8 +716,8 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
         }
 
         @Nonnull
-        public String getSchemaTemplateName() {
-            return schemaTemplateName;
+        public PlanCacheSchemaKey getSchemaKey() {
+            return schemaKey;
         }
 
         @Nonnull

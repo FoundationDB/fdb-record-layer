@@ -61,6 +61,7 @@ import com.apple.foundationdb.record.query.plan.cascades.matching.structure.Bind
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlannerBindings;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
+import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
 import com.google.common.collect.Iterables;
@@ -71,6 +72,7 @@ import javax.annotation.Nonnull;
 import java.util.ArrayDeque;
 import java.util.Collection;
 import java.util.Deque;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -384,6 +386,38 @@ public class CascadesPlanner implements QueryPlanner {
                                     rootReference,
                                     allowedIndexesOptional,
                                     indexQueryabilityFilter
+                            ),
+                    evaluationContext);
+            final var plan = resultOrFail();
+            final var constraints = QueryPlanConstraint.collectConstraints(plan);
+            return new QueryPlanResult(plan,
+                    QueryPlanInfo.newBuilder()
+                            .put(QueryPlanInfoKeys.CONSTRAINTS, constraints)
+                            .put(QueryPlanInfoKeys.STATS_MAPS,
+                                    PlannerEventStatsCollector.flatMapCollector(PlannerEventStatsCollector::getStatsMaps)
+                                            .orElse(null))
+                            .build());
+        } finally {
+            PlannerEventListeners.dispatchOnDone();
+        }
+    }
+
+    public QueryPlanResult planGraph(@Nonnull final Supplier<Reference> referenceSupplier,
+                                     @Nonnull final Optional<Collection<String>> allowedIndexesOptional,
+                                     @Nonnull final IndexQueryabilityFilter indexQueryabilityFilter,
+                                     @Nonnull final EvaluationContext evaluationContext,
+                                     @Nonnull final Map<SchemaIdentifier, NonnullPair<RecordMetaData, RecordStoreState>> additionalSchemas) {
+        try {
+            planPartial(referenceSupplier,
+                    rootReference ->
+                            MetaDataPlanContext.forRootReferenceWithAdditionalSchemas(configuration,
+                                    metaData,
+                                    recordStoreState,
+                                    matchCandidateRegistry,
+                                    rootReference,
+                                    allowedIndexesOptional,
+                                    indexQueryabilityFilter,
+                                    additionalSchemas
                             ),
                     evaluationContext);
             final var plan = resultOrFail();

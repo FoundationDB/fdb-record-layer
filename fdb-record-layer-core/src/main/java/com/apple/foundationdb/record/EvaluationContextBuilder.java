@@ -21,8 +21,10 @@
 package com.apple.foundationdb.record;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
+import com.google.common.collect.ImmutableMap;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -37,12 +39,15 @@ import javax.annotation.Nullable;
 public class EvaluationContextBuilder {
     @Nonnull
     protected final Bindings.Builder bindings;
+    @Nonnull
+    protected ImmutableMap<String, FDBRecordStoreBase<?>> auxiliaryStores;
 
     /**
      * Create an empty builder.
      */
     protected EvaluationContextBuilder() {
         this.bindings = Bindings.newBuilder();
+        this.auxiliaryStores = ImmutableMap.of();
     }
 
     /**
@@ -54,6 +59,7 @@ public class EvaluationContextBuilder {
      */
     protected EvaluationContextBuilder(@Nonnull EvaluationContext original) {
         this.bindings = original.getBindings().childBuilder();
+        this.auxiliaryStores = ImmutableMap.of();
     }
 
     /**
@@ -116,6 +122,6 @@ public class EvaluationContextBuilder {
      */
     @Nonnull
     public EvaluationContext build(@Nonnull final TypeRepository typeRepository) {
-        return EvaluationContext.forBindingsAndTypeRepository(bindings.build(), typeRepository);
+        return EvaluationContext.forBindingsAndTypeRepository(bindings.build(), typeRepository, auxiliaryStores);
     }
 }
