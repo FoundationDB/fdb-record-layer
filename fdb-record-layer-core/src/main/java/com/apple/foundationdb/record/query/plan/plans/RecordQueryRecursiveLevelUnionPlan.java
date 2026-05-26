@@ -284,6 +284,9 @@ public class RecordQueryRecursiveLevelUnionPlan extends AbstractRelationalExpres
         if (!(otherExpression instanceof RecordQueryRecursiveLevelUnionPlan)) {
             return false;
         }
+        if (!semanticEqualsForResults(otherExpression, equivalences)) {
+            return false;
+        }
 
         final var otherRecursiveUnionQueryPlan = (RecordQueryRecursiveLevelUnionPlan)otherExpression;
 
