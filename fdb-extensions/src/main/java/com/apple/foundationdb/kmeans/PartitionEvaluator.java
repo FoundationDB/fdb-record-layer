@@ -269,29 +269,77 @@ public class PartitionEvaluator {
         Preconditions.checkArgument(partition.assignments().length == n,
                 "assignment length mismatch");
 
-        int[] childSizes = new int[k];
-        @SuppressWarnings({"unchecked"}) final List<Double>[] childRadii = (List<Double>[])new ArrayList<?>[k];
-        for (int i = 0; i < k; i++) {
-            childRadii[i] = new ArrayList<>();
-        }
+        final List<Double> assigned = assignedDistances(vectors, vectorLens, partition, estimator);
+        final double lowMarginThreshold =
+                computeLowMarginThreshold(parameters, percentile(assigned, 0.95d));
 
-        final List<Double> margins = new ArrayList<>(n);
-        final List<Double> assignedDistances = new ArrayList<>(n);
+        final SecondPassResult acc = accumulate(vectors, vectorLens, partition, estimator);
+        final SizeStats sizes = summarizeSizes(acc.childSizes(), n);
+        final double maxRadius95 = maxRadius95(acc.childRadii());
+        final double separation = separation(partition, estimator, maxRadius95);
+        final MarginStats margins = marginStats(acc.margins(), lowMarginThreshold, n, k);
 
-        double sse = 0.0;
+        return new PartitionStats(k, acc.sse(), sizes.imbalance(), separation,
+                sizes.largestFrac(), sizes.smallestFrac(), maxRadius95,
+                margins.median(), margins.p10(), margins.lowRate());
+    }
 
-        // First pass to support L2 threshold derivation.
+    /** Bundles the outputs of the second accumulation pass. */
+    private record SecondPassResult(double sse, @Nonnull int[] childSizes,
+                                    @Nonnull List<Double>[] childRadii,
+                                    @Nonnull List<Double> margins) {
+    }
+
+    /** Cluster-size summary derived from a partition's per-cluster sizes. */
+    private record SizeStats(double imbalance, double smallestFrac, double largestFrac) {
+    }
+
+    /** Margin-distribution summary; NaN/{@code 0.0} when {@code k < 2}. */
+    private record MarginStats(double median, double p10, double lowRate) {
+    }
+
+    /**
+     * First pass: collects the distance from each vector to its assigned centroid. The resulting
+     * distribution drives the data-derived {@code lowMarginThreshold}.
+     */
+    @Nonnull
+    private static <V> List<Double> assignedDistances(@Nonnull final List<V> vectors,
+                                                      @Nonnull final Lens<V, RealVector> vectorLens,
+                                                      @Nonnull final Partition<?> partition,
+                                                      @Nonnull final Estimator estimator) {
+        final int n = vectors.size();
+        final int k = partition.k();
+        final List<Double> distances = new ArrayList<>(n);
         for (int i = 0; i < n; i++) {
             final int own = partition.getAssignment(i);
             Preconditions.checkArgument(own >= 0 && own < k,
                     "invalid assignment at index " + i + ": " + own);
-
             final RealVector v = vectorLens.getNonnull(vectors.get(i));
             final RealVector c = partition.getCentroid(own);
-            assignedDistances.add(geometricDistance(estimator, v, c));
+            distances.add(geometricDistance(estimator, v, c));
         }
-        final double overallP95 = percentile(assignedDistances, 0.95d);
-        final double lowMarginThreshold = computeLowMarginThreshold(parameters, overallP95);
+        return distances;
+    }
+
+    /**
+     * Second pass: accumulates SSE, per-cluster sizes and radii, and per-vector margins. Margins
+     * are only computed when {@code k >= 2}; otherwise the returned {@code margins} list is empty.
+     */
+    @Nonnull
+    private static <V> SecondPassResult accumulate(@Nonnull final List<V> vectors,
+                                                   @Nonnull final Lens<V, RealVector> vectorLens,
+                                                   @Nonnull final Partition<?> partition,
+                                                   @Nonnull final Estimator estimator) {
+        final int n = vectors.size();
+        final int k = partition.k();
+
+        final int[] childSizes = new int[k];
+        @SuppressWarnings("unchecked") final List<Double>[] childRadii = (List<Double>[]) new ArrayList<?>[k];
+        for (int i = 0; i < k; i++) {
+            childRadii[i] = new ArrayList<>();
+        }
+        final List<Double> margins = new ArrayList<>(k >= 2 ? n : 0);
+        double sse = 0.0;
 
         for (int i = 0; i < n; i++) {
             final RealVector v = vectorLens.getNonnull(vectors.get(i));
@@ -299,107 +347,138 @@ public class PartitionEvaluator {
             final RealVector ownC = partition.getCentroid(own);
 
             childSizes[own]++;
-
             sse += distanceForSse(estimator, v, ownC);
-
-            double radiusD = geometricDistance(estimator, v, ownC);
-            childRadii[own].add(radiusD);
-
+            childRadii[own].add(geometricDistance(estimator, v, ownC));
             if (k >= 2) {
-                double margin;
-
-                switch (estimator.getMetric()) {
-                    case EUCLIDEAN_METRIC: {
-                        double ownD = estimator.distance(v, ownC);
-                        double secondBest = Double.POSITIVE_INFINITY;
-                        for (int j = 0; j < k; j++) {
-                            if (j == own) {
-                                continue;
-                            }
-                            secondBest = Math.min(secondBest, estimator.distance(v, partition.getCentroid(j)));
-                        }
-                        margin = secondBest - ownD;
-                        break;
-                    }
-                    case COSINE_METRIC: {
-                        double ownS = v.clampedDot(ownC);
-                        double secondBest = Double.NEGATIVE_INFINITY;
-                        for (int j = 0; j < k; j++) {
-                            if (j == own) {
-                                continue;
-                            }
-                            secondBest = Math.max(secondBest, v.clampedDot(partition.getCentroid(j)));
-                        }
-                        margin = ownS - secondBest;
-                        break;
-                    }
-
-                    default:
-                        throw new UnsupportedOperationException("metric currently unsupported.");
-                }
-                margins.add(margin);
+                margins.add(computeMargin(estimator, partition, v, own));
             }
         }
+        return new SecondPassResult(sse, childSizes, childRadii, margins);
+    }
 
-        double target = (double)n / k;
-        double imbalance = 0.0;
+    /**
+     * Computes the assignment margin for a single vector under the estimator's metric: how much
+     * better its assigned centroid is than the second-best alternative. For Euclidean this is
+     * {@code distance(secondBest) - distance(own)}; for cosine it is
+     * {@code clampedDot(own) - clampedDot(secondBest)}. Larger margins mean more confident
+     * assignments. Requires {@code partition.k() >= 2}.
+     *
+     * @throws UnsupportedOperationException if the estimator's metric is neither
+     *         {@code EUCLIDEAN_METRIC} nor {@code COSINE_METRIC}
+     */
+    private static double computeMargin(@Nonnull final Estimator estimator,
+                                        @Nonnull final Partition<?> partition,
+                                        @Nonnull final RealVector v,
+                                        final int own) {
+        final int k = partition.k();
+        final RealVector ownC = partition.getCentroid(own);
+        return switch (estimator.getMetric()) {
+            case EUCLIDEAN_METRIC -> {
+                final double ownD = estimator.distance(v, ownC);
+                double secondBest = Double.POSITIVE_INFINITY;
+                for (int j = 0; j < k; j++) {
+                    if (j == own) {
+                        continue;
+                    }
+                    secondBest = Math.min(secondBest, estimator.distance(v, partition.getCentroid(j)));
+                }
+                yield secondBest - ownD;
+            }
+            case COSINE_METRIC -> {
+                final double ownS = v.clampedDot(ownC);
+                double secondBest = Double.NEGATIVE_INFINITY;
+                for (int j = 0; j < k; j++) {
+                    if (j == own) {
+                        continue;
+                    }
+                    secondBest = Math.max(secondBest, v.clampedDot(partition.getCentroid(j)));
+                }
+                yield ownS - secondBest;
+            }
+            default -> throw new UnsupportedOperationException("metric currently unsupported.");
+        };
+    }
+
+    /**
+     * Computes the imbalance (sum of squared deviations from the per-cluster target size,
+     * normalized by {@code n^2}) and the smallest/largest per-cluster fractions.
+     */
+    @Nonnull
+    private static SizeStats summarizeSizes(@Nonnull final int[] childSizes, final int n) {
+        final int k = childSizes.length;
+        final double target = (double) n / k;
+        double sumSquaredDiff = 0.0;
         int minSize = Integer.MAX_VALUE;
         int maxSize = Integer.MIN_VALUE;
-
         for (final int sz : childSizes) {
-            final double d = (sz - target);
-            imbalance += d * d;
+            final double d = sz - target;
+            sumSquaredDiff += d * d;
             minSize = Math.min(minSize, sz);
             maxSize = Math.max(maxSize, sz);
         }
-        imbalance /= ((double)n * n);
+        return new SizeStats(sumSquaredDiff / ((double) n * n),
+                (double) minSize / n,
+                (double) maxSize / n);
+    }
 
-        final double largestFrac = (double)maxSize / n;
-        final double smallestFrac = (double)minSize / n;
-
-        double maxRadius95 = 0.0;
-        for (int i = 0; i < k; i++) {
-            if (!childRadii[i].isEmpty()) {
-                maxRadius95 = Math.max(maxRadius95, percentile(childRadii[i], 0.95d));
+    /**
+     * Returns the maximum across clusters of the 95th-percentile assigned distance for that
+     * cluster. Empty clusters do not contribute.
+     */
+    private static double maxRadius95(@Nonnull final List<Double>[] childRadii) {
+        double max = 0.0;
+        for (final List<Double> radii : childRadii) {
+            if (!radii.isEmpty()) {
+                max = Math.max(max, percentile(radii, 0.95d));
             }
         }
+        return max;
+    }
 
-        final double separation;
-        final double medianMargin;
-        final double p10Margin;
-        final double lowMarginRate;
-
+    /**
+     * Returns the inter-centroid separation: the minimum pairwise centroid distance divided by
+     * {@code maxRadius95} (floored at {@code 1e-12}). Returns {@link Double#NaN} when
+     * {@code partition.k() < 2}.
+     */
+    private static double separation(@Nonnull final Partition<?> partition,
+                                     @Nonnull final Estimator estimator,
+                                     final double maxRadius95) {
+        final int k = partition.k();
         if (k < 2) {
-            // These concepts are undefined for a single centroid partition.
-            separation = Double.NaN;
-            medianMargin = Double.NaN;
-            p10Margin = Double.NaN;
-            lowMarginRate = 0.0;
-        } else {
-            double minCentroidDistance = Double.POSITIVE_INFINITY;
-            for (int i = 0; i < k; i++) {
-                for (int j = i + 1; j < k; j++) {
-                    double d = geometricDistance(estimator, partition.getCentroid(i), partition.getCentroid(j));
-                    minCentroidDistance = Math.min(minCentroidDistance, d);
-                }
-            }
-
-            separation = minCentroidDistance / Math.max(maxRadius95, 1e-12);
-
-            medianMargin = percentile(margins, 0.5d);
-            p10Margin = percentile(margins, 0.1d);
-
-            int lowMarginCount = 0;
-            for (double m : margins) {
-                if (m < lowMarginThreshold) {
-                    lowMarginCount++;
-                }
-            }
-            lowMarginRate = (double)lowMarginCount / (double)n;
+            return Double.NaN;
         }
+        double minCentroidDistance = Double.POSITIVE_INFINITY;
+        for (int i = 0; i < k; i++) {
+            for (int j = i + 1; j < k; j++) {
+                final double d = geometricDistance(estimator, partition.getCentroid(i), partition.getCentroid(j));
+                minCentroidDistance = Math.min(minCentroidDistance, d);
+            }
+        }
+        return minCentroidDistance / Math.max(maxRadius95, 1e-12);
+    }
 
-        return new PartitionStats(k, sse, imbalance, separation, largestFrac, smallestFrac, maxRadius95, medianMargin,
-                p10Margin, lowMarginRate);
+    /**
+     * Summarizes the margin distribution: median, 10th percentile, and the fraction of vectors
+     * below {@code lowMarginThreshold}. Returns NaN medians/p10 and {@code 0.0} low-rate when
+     * {@code k < 2}, mirroring the {@link PartitionStats} convention.
+     */
+    @Nonnull
+    private static MarginStats marginStats(@Nonnull final List<Double> margins,
+                                           final double lowMarginThreshold,
+                                           final int n,
+                                           final int k) {
+        if (k < 2) {
+            return new MarginStats(Double.NaN, Double.NaN, 0.0);
+        }
+        final double median = percentile(margins, 0.5d);
+        final double p10 = percentile(margins, 0.1d);
+        int lowMarginCount = 0;
+        for (final double m : margins) {
+            if (m < lowMarginThreshold) {
+                lowMarginCount++;
+            }
+        }
+        return new MarginStats(median, p10, (double) lowMarginCount / (double) n);
     }
 
     /**
