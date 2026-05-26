@@ -53,7 +53,6 @@ import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.utils.SimpleDatabaseRule;
 import com.apple.foundationdb.relational.utils.TestSchemas;
 import com.apple.test.BooleanSource;
-import com.apple.foundationdb.relational.recordlayer.query.cache.PlanCacheSchemaKey;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.testing.FakeTicker;
