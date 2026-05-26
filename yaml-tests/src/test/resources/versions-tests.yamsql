@@ -285,9 +285,9 @@ test_block:
       - query: select "__ROW_VERSION" from (select * from t1) a;
       - supported_version: 4.9.1.0
       - initialVersionLessThan: 4.10.1.0
-      - error: 'XXXXX'
+      - error: UNKNOWN
       - initialVersionAtLeast: 4.10.1.0
-      - error: '42703'
+      - error: UNDEFINED_COLUMN
     -
       # Do not include __ROW_VERSION (as a pseudo-column) in nested (*) without identifier
       - query: select (*) from t1 where col1 = 10;
@@ -563,17 +563,17 @@ test_block:
     -
       - query: select "__ROW_VERSION", t1.id, t2.id
                  from t1, t2
-      - error: '42702'
+      - error: AMBIGUOUS_COLUMN
     -
       - query: select t1.id, t2.id
                  from t1, t2
                  order by "__ROW_VERSION"
-      - error: '42702'
+      - error: AMBIGUOUS_COLUMN
     -
       - query: select t1.id, t2.id
                  from t1, t2
                  where "__ROW_VERSION" is not null
-      - error: '42702'
+      - error: AMBIGUOUS_COLUMN
     -
       # Reference row version without a qualifier. Only one of the two sides of the join should surface the row version, though
       # so this shouldn't be ambiguous. Ideally, we'd assert that it came from the correct side, but barring that, we can inspect
@@ -585,7 +585,7 @@ test_block:
       - initialVersionLessThan: 4.10.1.0
       # Prior to 4.10.1.0, we did not keep track of which quantifiers actually had the version, so this would default to
       # assuming that the row version column was ambiguous
-      - error: '42702'
+      - error: AMBIGUOUS_COLUMN
       - initialVersionAtLeast: 4.10.1.0
       - unorderedResult: [
           { '__ROW_VERSION': !not_null _, { ID: 1, COL1: 10, COL2: 1 }, { ID:  1, COL1: 1, COL2: 'a' } },
@@ -786,7 +786,7 @@ test_block:
            where A.col2 = B.col1 AND B.col1 = C.col1
       - explain: "ISCAN(T3_VERSION_WITH_COL1 <,>) | FILTER _.COL2 EQUALS promote(@c27 AS LONG) | FLATMAP q0 -> { ISCAN(T3_VERSION_WITH_COL1 <,>) | FILTER _.COL2 EQUALS promote(@c27 AS LONG) AND q0.COL1 EQUALS _.COL1 | FLATMAP q1 -> { ISCAN(T2_COL2 [EQUALS q0.COL1]) | FILTER _.COL1 EQUALS promote(@c27 AS LONG) AS q2 RETURN (q2 AS _0, q1 AS _1) } AS q3 RETURN ((q3._0.__ROW_VERSION AS __ROW_VERSION, q3._0.ID AS ID, q3._0.COL1 AS COL1, q3._0.COL2 AS COL2) AS A, (q0.__ROW_VERSION AS __ROW_VERSION, q0.ID AS ID, q0.COL1 AS COL1, q0.COL2 AS COL2) AS B, (q3._1.__ROW_VERSION AS __ROW_VERSION, q3._1.ID AS ID, q3._1.COL1 AS COL1, q3._1.COL2 AS COL2) AS C) }"
       - initialVersionLessThan: 4.10.1.0
-      - error: 'XXXXX'
+      - error: UNKNOWN
       - initialVersionAtLeast: 4.10.1.0
       - unorderedResult: [
           { A: { '__ROW_VERSION': !not_null _, ID: 4, COL1: 2, COL2: 'b' }, B: { '__ROW_VERSION': !not_null _, ID: 4, COL1: 'b', COL2: 2 }, C: { '__ROW_VERSION': !not_null _, ID: 4, COL1: 'b', COL2: 2 } },
