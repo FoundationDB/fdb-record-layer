@@ -28,7 +28,7 @@
 #   SELECT (*) multi-table    → column is anonymous ("_0") — source is ambiguous
 ---
 options:
-    supported_version: !current_version
+    supported_version: 4.12.5.0
 ---
 schema_template:
     create table foo(id bigint, val bigint, primary key(id))
