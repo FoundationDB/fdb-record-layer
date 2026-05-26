@@ -401,8 +401,9 @@ public class SelectExpression extends AbstractRelationalExpressionWithChildren i
         // TODO this should be inverted, i.e. go through the predicates and make sure the referred alias is among the
         //      quantifiers owned by this expression
         //
-        // Go through all matched existential quantifiers. Make sure that there is a top level exists() predicate
-        // corresponding to each one.
+        // Go through all matched existential quantifiers. Make sure that there is a predicate, for sure, that owns
+        // the quantifier. This is a bit vague, bit still does ensure that we do not have unmatched existential
+        // quantifier. We probably need a more expressive way of suggesting that a predicate "owns" a quantifier.
         //
         if (getQuantifiers()
                 .stream()
@@ -410,8 +411,10 @@ public class SelectExpression extends AbstractRelationalExpressionWithChildren i
                         bindingAliasMap.containsSource(quantifier.getAlias()))
                 .anyMatch(quantifier -> getPredicates()
                         .stream()
-                        .noneMatch(predicate -> isExistentialOverQuantifier(predicate, quantifier.getAlias()))
-                )) {
+                        .noneMatch(predicate -> {
+                            final var correlatedTo = predicate.getCorrelatedTo();
+                            return correlatedTo.size() == 1 && correlatedTo.contains(quantifier.getAlias());
+                        }))) {
             return ImmutableList.of();
         }
 
@@ -595,14 +598,6 @@ public class SelectExpression extends AbstractRelationalExpressionWithChildren i
                             })
                             .orElse(ImmutableList.of());
                 });
-    }
-
-    private static boolean isExistentialOverQuantifier(@Nonnull final QueryPredicate predicate, @Nonnull final CorrelationIdentifier correlationIdentifier) {
-        if (predicate instanceof QuantifiedValuePredicate quantifiedValuePredicate) {
-            final var correlatedTo = quantifiedValuePredicate.getCorrelatedTo();
-            return Iterables.size(correlatedTo) == 1 && Iterables.getOnlyElement(correlatedTo).equals(correlationIdentifier);
-        }
-        return false;
     }
 
     @Nonnull

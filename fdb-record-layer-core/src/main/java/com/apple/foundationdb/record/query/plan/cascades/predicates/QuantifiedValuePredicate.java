@@ -118,7 +118,6 @@ public class QuantifiedValuePredicate extends ValuePredicate {
         return new QuantifiedValuePredicate(serializationContext, proto);
     }
 
-
     /**
      * Deserializer.
      */
