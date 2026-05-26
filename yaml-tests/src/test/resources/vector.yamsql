@@ -195,19 +195,19 @@ test_block:
       - initialVersionAtLeast: 4.8.12.0
       - result: [{200, !null _}]
       - initialVersionLessThan: 4.8.12.0
-      - error: "XXXXX"
+      - error: UNKNOWN
     -
       - query: select * from tFloatVector where a = 200
       - initialVersionAtLeast: 4.8.12.0
       - result: [{200, !null _}]
       - initialVersionLessThan: 4.8.12.0
-      - error: "XXXXX"
+      - error: UNKNOWN
     -
       - query: select * from tDoubleVector where a = 200
       - initialVersionAtLeast: 4.8.12.0
       - result: [{200, !null _}]
       - initialVersionLessThan: 4.8.12.0
-      - error: "XXXXX"
+      - error: UNKNOWN
     # IS NULL tests for NULL vectors
     -
       - query: select b is null from tHalfVector where a = 200
@@ -413,123 +413,123 @@ test_block:
     # STRING array to vector should fail
     -
       - query: select cast(['a', 'b', 'c'] as VECTOR(3, FLOAT)) from tDoubleVector where a = 100
-      - error: "22F3H"
+      - error: INVALID_CAST
     # BOOLEAN array to vector should fail
     -
       - query: select cast([true, false, true] as VECTOR(3, HALF)) from tDoubleVector where a = 100
-      - error: "22F3H"
+      - error: INVALID_CAST
     # Mismatched dimensions should fail (array has 4 elements, vector expects 3)
     -
       - query: select cast([1.0, 2.0, 3.0, 4.0] as VECTOR(3, FLOAT)) from tDoubleVector where a = 100
-      - error: "22F3H"
+      - error: INVALID_CAST
     # Mismatched dimensions should fail (array has 2 elements, vector expects 3)
     -
       - query: select cast([1.0, 2.0] as VECTOR(3, DOUBLE)) from tDoubleVector where a = 100
-      - error: "22F3H"
+      - error: INVALID_CAST
     # Tests for attempting to insert vectors of different precision / size
     # Wrong number of dimensions - HALF vector with 2 dimensions into table expecting 3
     -
       - query: insert into tHalfVector values (400, !! !v16 [1.1, 2.2] !!)
       - initialVersionAtLeast: 4.8.12.0
-      - error: "22000"
+      - error: CANNOT_CONVERT_TYPE
       - initialVersionLessThan: 4.8.12.0
       - count: 1
     # Wrong number of dimensions - HALF vector with 4 dimensions into table expecting 3
     -
       - query: insert into tHalfVector values (401, !! !v16 [1.1, 2.2, 3.3, 4.4] !!)
       - initialVersionAtLeast: 4.8.12.0
-      - error: "22000"
+      - error: CANNOT_CONVERT_TYPE
       - initialVersionLessThan: 4.8.12.0
       - count: 1
     # Wrong number of dimensions - FLOAT vector with 2 dimensions into table expecting 3
     -
       - query: insert into tFloatVector values (402, !! !v32 [1.1, 2.2] !!)
       - initialVersionAtLeast: 4.8.12.0
-      - error: "22000"
+      - error: CANNOT_CONVERT_TYPE
       - initialVersionLessThan: 4.8.12.0
       - count: 1
     # Wrong number of dimensions - FLOAT vector with 4 dimensions into table expecting 3
     -
       - query: insert into tFloatVector values (403, !! !v32 [1.1, 2.2, 3.3, 4.4] !!)
       - initialVersionAtLeast: 4.8.12.0
-      - error: "22000"
+      - error: CANNOT_CONVERT_TYPE
       - initialVersionLessThan: 4.8.12.0
       - count: 1
     # Wrong number of dimensions - DOUBLE vector with 2 dimensions into table expecting 3
     -
       - query: insert into tDoubleVector values (404, !! !v64 [1.1, 2.2] !!)
       - initialVersionAtLeast: 4.8.12.0
-      - error: "22000"
+      - error: CANNOT_CONVERT_TYPE
       - initialVersionLessThan: 4.8.12.0
       - count: 1
     # Wrong number of dimensions - DOUBLE vector with 4 dimensions into table expecting 3
     -
       - query: insert into tDoubleVector values (405, !! !v64 [1.1, 2.2, 3.3, 4.4] !!)
       - initialVersionAtLeast: 4.8.12.0
-      - error: "22000"
+      - error: CANNOT_CONVERT_TYPE
       - initialVersionLessThan: 4.8.12.0
       - count: 1
     # Wrong precision - FLOAT vector into HALF table
     -
       - query: insert into tHalfVector values (406, !! !v32 [1.1, 2.2, 3.3] !!)
       - initialVersionAtLeast: 4.8.12.0
-      - error: "22000"
+      - error: CANNOT_CONVERT_TYPE
       - initialVersionLessThan: 4.8.12.0
       - count: 1
     # Wrong precision - DOUBLE vector into HALF table
     -
       - query: insert into tHalfVector values (407, !! !v64 [1.1, 2.2, 3.3] !!)
       - initialVersionAtLeast: 4.8.12.0
-      - error: "22000"
+      - error: CANNOT_CONVERT_TYPE
       - initialVersionLessThan: 4.8.12.0
       - count: 1
     # Wrong precision - HALF vector into FLOAT table
     -
       - query: insert into tFloatVector values (408, !! !v16 [1.1, 2.2, 3.3] !!)
       - initialVersionAtLeast: 4.8.12.0
-      - error: "22000"
+      - error: CANNOT_CONVERT_TYPE
       - initialVersionLessThan: 4.8.12.0
       - count: 1
     # Wrong precision - DOUBLE vector into FLOAT table
     -
       - query: insert into tFloatVector values (409, !! !v64 [1.1, 2.2, 3.3] !!)
       - initialVersionAtLeast: 4.8.12.0
-      - error: "22000"
+      - error: CANNOT_CONVERT_TYPE
       - initialVersionLessThan: 4.8.12.0
       - count: 1
     # Wrong precision - HALF vector into DOUBLE table
     -
       - query: insert into tDoubleVector values (410, !! !v16 [1.1, 2.2, 3.3] !!)
       - initialVersionAtLeast: 4.8.12.0
-      - error: "22000"
+      - error: CANNOT_CONVERT_TYPE
       - initialVersionLessThan: 4.8.12.0
       - count: 1
     # Wrong precision - FLOAT vector into DOUBLE table
     -
       - query: insert into tDoubleVector values (411, !! !v32 [1.1, 2.2, 3.3] !!)
       - initialVersionAtLeast: 4.8.12.0
-      - error: "22000"
+      - error: CANNOT_CONVERT_TYPE
       - initialVersionLessThan: 4.8.12.0
       - count: 1
     # Wrong number of dimensions - HALF vector with 1 dimension into table expecting 3
     -
       - query: insert into tHalfVector values (412, !! !v16 [1.1] !!)
       - initialVersionAtLeast: 4.8.12.0
-      - error: "22000"
+      - error: CANNOT_CONVERT_TYPE
       - initialVersionLessThan: 4.8.12.0
       - count: 1
     # Wrong number of dimensions - FLOAT vector with 5 dimensions into table expecting 3
     -
       - query: insert into tFloatVector values (413, !! !v32 [1.1, 2.2, 3.3, 4.4, 5.5] !!)
       - initialVersionAtLeast: 4.8.12.0
-      - error: "22000"
+      - error: CANNOT_CONVERT_TYPE
       - initialVersionLessThan: 4.8.12.0
       - count: 1
     # Wrong number of dimensions - DOUBLE vector with 0 dimensions into table expecting 3
     -
       - query: insert into tDoubleVector values (414, !! !v64 [] !!)
       - initialVersionAtLeast: 4.8.12.0
-      - error: "22000"
+      - error: CANNOT_CONVERT_TYPE
       - initialVersionLessThan: 4.8.12.0
       - count: 1
     # Tests for tWithStruct (struct with HALF vector field)

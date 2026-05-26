@@ -51,7 +51,7 @@ test_block:
                     PARTITION BY zone, bookshelf
                     ORDER BY euclidean_distance(embedding, !! !v16 [1.0, 0.0, 0.0] !!) ASC
                 ) <= 1
-      - error: "42F21"
+      - error: WINDOWING_ERROR
 
     # Basic K-Nearest Neighbor Search using QUALIFY (documentation example)
     -

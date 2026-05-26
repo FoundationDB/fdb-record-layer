@@ -290,15 +290,15 @@ test_block:
     -
       # with select element alias prefixed with .
       - query: select "foo.tableA"."foo.tableA.A1" AS ".__." from "foo.tableA";
-      - error: "42602"
+      - error: INVALID_NAME
     -
       # with select element alias prefixed with $
       - query: select "foo.tableA"."foo.tableA.A1" AS "$__." from "foo.tableA";
-      - error: "42602"
+      - error: INVALID_NAME
     -
       # with select element alias with non-supported characters
       - query: select "foo.tableA"."foo.tableA.A1" AS "उपनाम" from "foo.tableA";
-      - error: "42602"
+      - error: INVALID_NAME
     -
       # multi-level CTEs
       - query: with "A$_$__$$" as (with "A$__$" as (select "foo.tableA.A1" as "A$" from "foo.tableA") select * from "A$__$") select * from "A$_$__$$"
@@ -614,46 +614,46 @@ test_block:
       # invalid table name
       - query: create schema template test_template_with_invalid_identifiers
                create table "$yay"(id2 bigint, col6 s2 ARRAY, primary key(id2))
-      - error: "42602"
+      - error: INVALID_NAME
     -
       # invalid table name
       - query: create schema template test_template_with_invalid_identifiers
                create table "नमस्ते"(id2 bigint, col6 s2 ARRAY, primary key(id2))
-      - error: "42602"
+      - error: INVALID_NAME
     -
       # invalid column name
       - query: create schema template test_template_with_invalid_identifiers
                create table T1("$yay" bigint, col6 s2 ARRAY, primary key(id2))
-      - error: "42602"
+      - error: INVALID_NAME
     -
       # invalid column name
       - query: create schema template test_template_with_invalid_identifiers
                create table T1("नमस्ते" bigint, col6 s2 ARRAY, primary key(id2))
-      - error: "42602"
+      - error: INVALID_NAME
     -
       # invalid struct name
       - query: create schema template test_template_with_invalid_identifiers
                CREATE TYPE AS STRUCT "$yay"(S1 bigint, S2 bigint)
                create table T1(id2 bigint, col6 "$yay", primary key(id2))
-      - error: "42602"
+      - error: INVALID_NAME
     -
       # invalid struct name
       - query: create schema template test_template_with_invalid_identifiers
                CREATE TYPE AS STRUCT "नमस्ते"(S1 bigint, S2 bigint)
                create table T1(id2 bigint, col6 "नमस्ते", primary key(id2))
-      - error: "42602"
+      - error: INVALID_NAME
     -
       # invalid function argument
       - query: create schema template test_template_with_invalid_identifiers
                create table T1(id2 bigint, id3 bigint, primary key(id2))
                create function func (in "$yay" bigint) as SELECT id3 from T1 where id2 > "$yay"
-      - error: "42602"
+      - error: INVALID_NAME
     -
       # invalid function argument
       - query: create schema template test_template_with_invalid_identifiers
                create table T1(id2 bigint, id3 bigint, primary key(id2))
                create function func (in "नमस्ते" bigint) as SELECT id3 from T1 where id2 > "नमस्ते"
-      - error: "42602"
+      - error: INVALID_NAME
 ---
 setup:
   connect: "jdbc:embed:/__SYS?schema=CATALOG"

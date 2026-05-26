@@ -183,22 +183,22 @@ test_block:
           select docId, title from multiTypePartitionDocs
           where zoneId = !! 3 !! and bookshelf = 'fiction'
           qualify row_number() over (partition by zoneId, bookshelf order by dot_product_distance(embedding, !! !v16 [0.0, 0.1, 0.9] !!) desc) <= !! 2 !!
-      - error: "0AF01"
+      - error: UNSUPPORTED_SORT
     -
       - query:
           select docId, title from multiTypePartitionDocs
           where zoneId = !! 3 !! and bookshelf = 'fiction'
           qualify row_number() over (partition by zoneId, bookshelf order by dot_product_distance(embedding, !! !v16 [0.0, 0.1, 0.9] !!) desc nulls first) <= !! 2 !!
-      - error: "0AF01"
+      - error: UNSUPPORTED_SORT
     -
       - query:
           select docId, title from multiTypePartitionDocs
           where zoneId = !! 3 !! and bookshelf = 'fiction'
           qualify row_number() over (partition by zoneId, bookshelf order by dot_product_distance(embedding, !! !v16 [0.0, 0.1, 0.9] !!) desc nulls last) <= !! 2 !!
-      - error: "0AF01"
+      - error: UNSUPPORTED_SORT
     -
       - query:
           select docId, title from multiTypePartitionDocs
           where zoneId = !! 3 !! and bookshelf = 'fiction'
           qualify row_number() over (partition by zoneId, bookshelf order by dot_product_distance(embedding, !! !v16 [0.0, 0.1, 0.9] !!) nulls last) <= !! 2 !!
-      - error: "0AF01"
+      - error: UNSUPPORTED_SORT

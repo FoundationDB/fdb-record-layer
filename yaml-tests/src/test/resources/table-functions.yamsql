@@ -79,16 +79,16 @@ test_block:
       - result: [{ID: 1}, {ID: 2}, {ID: 3}]
     -
       - query: select * from range(-1)
-      - error: XXXXX
+      - error: UNKNOWN
     -
       - query: select * from range(-1, 4)
-      - error: XXXXX
+      - error: UNKNOWN
     -
       - query: select * from range(1, 4, -1)
-      - error: XXXXX
+      - error: UNKNOWN
     -
       - query: select * from range(1, 4, 0)
-      - error: XXXXX
+      - error: UNKNOWN
     -
       - query: select * from range(0, 12, 5)
       - result: [{ID: 0}, {ID: 5}, {ID: 10}]
