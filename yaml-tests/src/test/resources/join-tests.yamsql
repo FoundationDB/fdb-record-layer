@@ -445,14 +445,14 @@ test_block:
     -
       # inner join with ON UNKNOWN: has the same effect as ON FALSE
       - query: select ja.c1, ja.c2, jb.c3 from ja inner join jb on cast(null as boolean);
-      - supported_version: 4.12.4.0
-      - explain: "SCAN([IS JB]) | FILTER CAST(NULL AS BOOLEAN) EQUALS true | FLATMAP q0 -> { SCAN([IS JA]) AS q1 RETURN (q1.C1 AS C1, q1.C2 AS C2, q0.C3 AS C3) }"
+      - supported_version: !current_version
+      - explain: "SCAN([IS JA]) | FLATMAP q0 -> { SCAN([IS JB]) | FILTER null AS q1 RETURN (q0.C1 AS C1, q0.C2 AS C2, q1.C3 AS C3) }"
       - result: []
     -
       # same join as above, but using an explicit WHERE NULL clause
       - query: select ja.c1, ja.c2, jb.c3 from ja, jb where cast(null as boolean);
-      - supported_version: 4.12.4.0
-      - explain: "SCAN([IS JB]) | FILTER CAST(NULL AS BOOLEAN) EQUALS true | FLATMAP q0 -> { SCAN([IS JA]) AS q1 RETURN (q1.C1 AS C1, q1.C2 AS C2, q0.C3 AS C3) }"
+      - supported_version: !current_version
+      - explain: "SCAN([IS JA]) | FLATMAP q0 -> { SCAN([IS JB]) | FILTER null AS q1 RETURN (q0.C1 AS C1, q0.C2 AS C2, q1.C3 AS C3) }"
       - result: []
     -
       # inner join with ON NULL: a plain NULL predicate is recognized as a null boolean and yields an empty result
