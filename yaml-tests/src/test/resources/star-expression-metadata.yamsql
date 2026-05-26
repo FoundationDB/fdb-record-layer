@@ -27,6 +27,9 @@
 #   SELECT (*) / (T.*) AS X  → explicit alias overrides inferred name
 #   SELECT (*) multi-table    → column is anonymous ("_0") — source is ambiguous
 ---
+options:
+    supported_version: !current_version
+---
 schema_template:
     create table foo(id bigint, val bigint, primary key(id))
     create table bar(bid bigint, bval bigint, primary key(bid))
