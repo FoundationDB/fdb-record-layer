@@ -123,11 +123,6 @@ public interface RealVector {
         return new MutableDoubleRealVector(getData().clone());
     }
 
-    default double clampedDot(@Nonnull final RealVector other) {
-        final double dot = dot(other);
-        return Math.max(-1.0d, Math.min(1.0d, dot));
-    }
-
     default double dot(@Nonnull final RealVector other) {
         Preconditions.checkArgument(getNumDimensions() == other.getNumDimensions());
         double sum = 0.0d;

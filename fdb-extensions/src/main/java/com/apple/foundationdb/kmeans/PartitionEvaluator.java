@@ -174,8 +174,10 @@ public class PartitionEvaluator {
                                                 @Nonnull final String reason) {
         currentStats.log(logger, "current stats");
         candidateStats.log(logger, "candidate stats");
-        logger.error("keep current candidate reason={}, relativeSseGain={}, scoreGain={}",
-                reason, relativeSseGain, scoreGain);
+        if (logger.isInfoEnabled()) {
+            logger.info("keep current candidate reason={}, relativeSseGain={}, scoreGain={}",
+                    reason, relativeSseGain, scoreGain);
+        }
         return new EvaluationResult(Decision.KEEP_CURRENT, currentStats, candidateStats,
                 relativeSseGain, scoreGain, reason);
     }
@@ -192,8 +194,10 @@ public class PartitionEvaluator {
                                             @Nonnull final String reason) {
         currentStats.log(logger, "current stats");
         candidateStats.log(logger, "candidate stats");
-        logger.error("invalid candidate reason={}, relativeSseGain={}, scoreGain={}",
-                reason, relativeSseGain, scoreGain);
+        if (logger.isInfoEnabled()) {
+            logger.info("invalid candidate reason={}, relativeSseGain={}, scoreGain={}",
+                    reason, relativeSseGain, scoreGain);
+        }
         return new EvaluationResult(Decision.INVALID_CANDIDATE, currentStats, candidateStats,
                 relativeSseGain, scoreGain, reason);
     }
@@ -209,7 +213,9 @@ public class PartitionEvaluator {
                                            @Nonnull final String reason) {
         currentStats.log(logger, "current stats");
         candidateStats.log(logger, "candidate stats");
-        logger.error("accepted candidate, relativeSseGain={}, scoreGain={}", relativeSseGain, scoreGain);
+        if (logger.isInfoEnabled()) {
+            logger.info("accepted candidate, relativeSseGain={}, scoreGain={}", relativeSseGain, scoreGain);
+        }
         return new EvaluationResult(Decision.ACCEPT_CANDIDATE, currentStats, candidateStats,
                 relativeSseGain, scoreGain, reason);
     }
@@ -385,18 +391,23 @@ public class PartitionEvaluator {
                 yield secondBest - ownD;
             }
             case COSINE_METRIC -> {
-                final double ownS = v.clampedDot(ownC);
+                final double ownS = clampedDot(v, ownC);
                 double secondBest = Double.NEGATIVE_INFINITY;
                 for (int j = 0; j < k; j++) {
                     if (j == own) {
                         continue;
                     }
-                    secondBest = Math.max(secondBest, v.clampedDot(partition.getCentroid(j)));
+                    secondBest = Math.max(secondBest, clampedDot(v, partition.getCentroid(j)));
                 }
                 yield ownS - secondBest;
             }
             default -> throw new UnsupportedOperationException("metric currently unsupported.");
         };
+    }
+
+    private static double clampedDot(@Nonnull final RealVector vector1, @Nonnull final RealVector vector2) {
+        final double dot = vector1.dot(vector2);
+        return Math.max(-1.0d, Math.min(1.0d, dot));
     }
 
     /**
@@ -683,8 +694,8 @@ public class PartitionEvaluator {
          * {@code messagePrefix}. No-op when error logging is disabled on {@code logger}.
          */
         public void log(@Nonnull final Logger logger, @Nonnull final String messagePrefix) {
-            if (logger.isErrorEnabled()) {
-                logger.error("{} k={}, sse={}, imbalance={}, separation={}, largestFrac={}, smallestFrac={}" +
+            if (logger.isDebugEnabled()) {
+                logger.debug("{} k={}, sse={}, imbalance={}, separation={}, largestFrac={}, smallestFrac={}" +
                                 ", maxRadius95={}, medianMargin={}, p10Margin={}, lowMarginRate={}",
                         messagePrefix, k, sse, imbalance, separation, largestFrac, smallestFrac,
                         maxRadius95, medianMargin, p10Margin, lowMarginRate);
