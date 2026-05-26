@@ -48,6 +48,25 @@ public interface Estimator {
     }
 
     /**
+     * Returns whether this estimator can compute the distance between {@code vector1} and
+     * {@code vector2} on a metric-specific fast path that bypasses the raw metric. For example,
+     * a quantization-aware estimator may report {@code true} when at least one of the vectors
+     * is in the encoded form it knows how to consume directly.
+     * <p>
+     * Default {@link #ofMetric ofMetric}-built estimators have no fast path and always return
+     * {@code false}. Callers can use this hint to skip work that is only worthwhile for the
+     * generic path (e.g. avoiding decode of an encoded vector if both will go through the
+     * estimator's fast path anyway).
+     *
+     * @param vector1 the first vector
+     * @param vector2 the second vector
+     * @return {@code true} iff this estimator has a metric-specific fast path for the given
+     *         pair
+     */
+    boolean isOptimized(@Nonnull RealVector vector1,
+                        @Nonnull RealVector vector2);
+
+    /**
      * Convenience overload of {@link #distance(RealVector, RealVector)} that unwraps the
      * underlying vectors from {@link Transformed} containers and forwards to the
      * {@code RealVector} variant.
@@ -73,25 +92,6 @@ public interface Estimator {
      */
     double distance(@Nonnull RealVector vector1,
                     @Nonnull RealVector vector2);
-
-    /**
-     * Returns whether this estimator can compute the distance between {@code vector1} and
-     * {@code vector2} on a metric-specific fast path that bypasses the raw metric. For example,
-     * a quantization-aware estimator may report {@code true} when at least one of the vectors
-     * is in the encoded form it knows how to consume directly.
-     * <p>
-     * Default {@link #ofMetric ofMetric}-built estimators have no fast path and always return
-     * {@code false}. Callers can use this hint to skip work that is only worthwhile for the
-     * generic path (e.g. avoiding decode of an encoded vector if both will go through the
-     * estimator's fast path anyway).
-     *
-     * @param vector1 the first vector
-     * @param vector2 the second vector
-     * @return {@code true} iff this estimator has a metric-specific fast path for the given
-     *         pair
-     */
-    boolean isOptimized(@Nonnull RealVector vector1,
-                        @Nonnull RealVector vector2);
 
     /**
      * Returns a plain {@link Estimator} that delegates straight to {@code metric.distance(...)}.

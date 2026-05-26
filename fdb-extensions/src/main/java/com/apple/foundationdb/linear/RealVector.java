@@ -139,6 +139,24 @@ public interface RealVector {
         return sum;
     }
 
+    /**
+     * Returns the squared Euclidean distance to {@code other}, i.e. {@code Σ (this[i] - other[i])^2}.
+     * Equivalent to but cheaper than {@code subtract(other).l2SquaredNorm()} (no temporary
+     * allocation), and cheaper than {@code Math.pow(estimator.distance(this, other), 2)} for the
+     * Euclidean metric (skips a {@code sqrt} that would just be squared again).
+     */
+    default double l2SquaredDistance(@Nonnull final RealVector other) {
+        Preconditions.checkArgument(getNumDimensions() == other.getNumDimensions());
+        double sum = 0.0d;
+        final double[] thisData = getData();
+        final double[] otherData = other.getData();
+        for (int i = 0; i < thisData.length; i++) {
+            final double diff = thisData[i] - otherData[i];
+            sum += diff * diff;
+        }
+        return sum;
+    }
+
     default boolean isNearlyZeroNorm() {
         return l2SquaredNorm() <= EPS * EPS;
     }

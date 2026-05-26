@@ -23,6 +23,7 @@ package com.apple.foundationdb.linear;
 import com.google.common.base.Preconditions;
 
 import javax.annotation.Nonnull;
+import java.util.Arrays;
 
 /**
  * A vector class encoding a vector over double components. Conversion to {@link HalfRealVector} is supported and
@@ -135,6 +136,12 @@ public class MutableDoubleRealVector extends DoubleRealVector {
     @Override
     public MutableDoubleRealVector multiply(final double scalar) {
         RealVectorPrimitives.multiplyInto(this, scalar, getData());
+        return this;
+    }
+
+    @Nonnull
+    public MutableDoubleRealVector zero() {
+        Arrays.fill(getData(), 0.0d);
         return this;
     }
 

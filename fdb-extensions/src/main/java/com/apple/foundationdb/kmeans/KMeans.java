@@ -151,6 +151,17 @@ public final class KMeans {
 
         Result<C> best = null;
 
+        //
+        // Reusable swap buffer for the centroid update step. Allocated once and reused across
+        // every iteration of every restart: each iteration zeros it, accumulates the new
+        // centroids into it, finalizes, and then swaps it with `centroids`. Avoids allocating
+        // k MutableDoubleRealVectors (each with their own double[d]) per iteration.
+        //
+        List<MutableDoubleRealVector> nextCentroids = new ArrayList<>(k);
+        for (int c = 0; c < k; c++) {
+            nextCentroids.add(MutableDoubleRealVector.zeroVector(numDimensions));
+        }
+
         for (int r = 0; r <= maxRestarts; r++) {
             List<MutableDoubleRealVector> centroids = initKMeansPP(metricAdapter, random, vectorLens, vectors, k);
             final int[] assignment = new int[n];
@@ -178,38 +189,41 @@ public final class KMeans {
                     break;
                 }
 
-                // Update step: arithmetic mean, correct for squared-L2 k-means.
-                final List<MutableDoubleRealVector> newCentroids = new ArrayList<>(k);
+                // Update step: arithmetic mean, correct for squared-L2 k-means. Zero the swap
+                // buffer in place, accumulate into it, then swap roles with `centroids` so the
+                // old centroid buffer becomes the next iteration's accumulator.
                 for (int c = 0; c < k; c++) {
-                    newCentroids.add(MutableDoubleRealVector.zeroVector(numDimensions));
+                    nextCentroids.get(c).zero();
                 }
 
                 for (int i = 0; i < n; i++) {
-                    newCentroids.get(assignment[i]).add(getVector(vectorLens, vectors, i));
+                    nextCentroids.get(assignment[i]).add(getVector(vectorLens, vectors, i));
                 }
 
                 for (int c = 0; c < k; c++) {
                     if (clusterSizes[c] == 0) {
                         // Reseed empty cluster with the "hardest" point under current centroids.
                         final int farthestVectorIndex = farthestVectorIndex(metricAdapter, vectorLens, vectors, centroids);
-                        newCentroids.set(c, getVector(vectorLens, vectors, farthestVectorIndex).toMutable());
+                        nextCentroids.get(c).withData(getVector(vectorLens, vectors, farthestVectorIndex).getData());
                         clusterSizes[c] = 1; // local guard only; next iteration recomputes true sizes
                     } else {
-                        final MutableDoubleRealVector centroid = newCentroids.get(c);
+                        final MutableDoubleRealVector centroid = nextCentroids.get(c);
                         centroid.multiply(1.0d / clusterSizes[c]);
                         if (metricAdapter.isMeaninglessNorm(centroid)) {
                             final int farthestVectorIndex =
                                     farthestVectorIndex(metricAdapter, vectorLens, vectors, centroids);
-                            final MutableDoubleRealVector reseed =
-                                    getVector(vectorLens, vectors, farthestVectorIndex).toMutable();
-                            newCentroids.set(c, reseed);
+                            centroid.withData(getVector(vectorLens, vectors, farthestVectorIndex).getData());
                         } else {
                             metricAdapter.renormalizeIfNecessary(centroid);
                         }
                     }
                 }
 
-                centroids = newCentroids;
+                // Swap roles: the buffer we just filled becomes `centroids`; the previous
+                // `centroids` becomes the swap target for the next iteration's accumulation.
+                final List<MutableDoubleRealVector> tmp = centroids;
+                centroids = nextCentroids;
+                nextCentroids = tmp;
             }
 
             //
@@ -364,16 +378,35 @@ public final class KMeans {
     }
 
     /**
-     * k-means++ initialization. Picks the first centroid uniformly at random from {@code vectors}
-     * and then samples each subsequent centroid with probability proportional to its (metric-
-     * specific) base objective to the nearest already-chosen centroid. This biases the initial
-     * centroids to be well-spread, which substantially improves Lloyd's convergence quality.
+     * <a href="https://en.wikipedia.org/wiki/K-means%2B%2B">k-means++</a> initialization.
      * <p>
-     * If at some point the cumulative weight is zero (e.g. all remaining points coincide with
-     * already-chosen centroids), the next centroid is picked uniformly at random as a fallback.
+     * Vanilla random initialization (just pick {@code k} random points) often hands Lloyd's
+     * algorithm a terrible starting point — two centroids placed near each other will fight
+     * over the same cluster forever, locking in a bad local minimum. K-means++ instead biases
+     * the initial centroids to be <em>well-spread</em>:
+     * <ol>
+     *   <li>Pick the first centroid uniformly at random.</li>
+     *   <li>For every other point {@code i}, let {@code d²(i)} be the squared distance to the
+     *       nearest already-chosen centroid.</li>
+     *   <li>Pick the next centroid by sampling the data with probability proportional to
+     *       {@code d²(i)}. Points poorly served by the current centroids are likely to be
+     *       picked, but the randomization avoids deterministically choosing outliers.</li>
+     *   <li>Repeat (2)–(3) until {@code k} centroids are chosen.</li>
+     * </ol>
+     * The squared-distance weighting is what gives k-means++ its theoretical guarantee that the
+     * expected SSE is within {@code O(log k)} of the optimum, independent of the data.
+     * <p>
+     * Implementation note: a textbook k-means++ recomputes step (2) from scratch every round,
+     * which is {@code O(k² · n)}. This implementation maintains {@code weights[i]} (the minimum
+     * over all already-chosen centroids of {@code d²(i, centroid)}) across rounds and updates
+     * it incrementally against the just-added centroid, bringing the total to {@code O(k · n)}.
+     * <p>
+     * Degenerate fallback: if the cumulative weight is zero (e.g. all remaining points coincide
+     * with already-chosen centroids), the next centroid is picked uniformly at random.
      *
      * @param metricAdapter adapter that computes the metric-specific base objective used as the
-     *                      sampling weight
+     *                      sampling weight (squared distance for Euclidean, cosine distance for
+     *                      cosine)
      * @param random the random source
      * @param vectorLens lens that extracts a {@link RealVector} from each {@code vectors} element
      * @param vectors the candidate points; must contain at least {@code k} elements
@@ -390,47 +423,71 @@ public final class KMeans {
                                                                   final int k) {
         final int n = vectors.size();
 
+        // Step 1: pick the first centroid uniformly at random.
         final List<MutableDoubleRealVector> centroids = new ArrayList<>(k);
-        centroids.add(getVector(vectorLens, vectors, random.nextInt(n)).toMutable());
+        MutableDoubleRealVector latestCentroid = getVector(vectorLens, vectors, random.nextInt(n)).toMutable();
+        centroids.add(latestCentroid);
 
+        //
+        // weights[i] holds the minimum base-objective distance from vectors[i] to any
+        // already-chosen centroid. Initialized against the first centroid here, then maintained
+        // incrementally inside the loop. total = Σ weights[i] is the denominator of the
+        // cumulative sampling distribution.
+        //
         final double[] weights = new double[n];
+        double total = 0.0d;
+        for (int i = 0; i < n; i++) {
+            final double d = metricAdapter.baseObjective(getVector(vectorLens, vectors, i), latestCentroid);
+            weights[i] = d;
+            total += d;
+        }
 
         while (centroids.size() < k) {
-            double total = 0.0d;
-
-            for (int i = 0; i < n; i++) {
-                final RealVector vector = getVector(vectorLens, vectors, i);
-                double minD = Double.MAX_VALUE;
-
-                for (final MutableDoubleRealVector centroid : centroids) {
-                    final double objective = metricAdapter.baseObjective(vector, centroid);
-                    if (objective < minD) {
-                        minD = objective;
+            //
+            // Step 3: weighted-sample the next centroid. Pick a uniform `pick` in [0, total),
+            // walk weights[] cumulatively, and take the first index where the running sum
+            // crosses `pick`. That picks index i with probability weights[i] / total =
+            // d²(i) / Σ d²(j) — exactly what k-means++ specifies.
+            //
+            final int chosen;
+            if (total == 0.0d) {
+                // Degenerate fallback: every point coincides with an already-chosen centroid.
+                chosen = random.nextInt(n);
+            } else {
+                final double pick = random.nextDouble() * total;
+                double cumulativeSum = 0.0d;
+                int idx = n - 1;
+                for (int i = 0; i < n; i++) {
+                    cumulativeSum += weights[i];
+                    if (cumulativeSum >= pick) {
+                        idx = i;
+                        break;
                     }
                 }
-
-                weights[i] = minD;
-                total += minD;
+                chosen = idx;
             }
 
-            if (total == 0.0d) {
-                centroids.add(getVector(vectorLens, vectors, random.nextInt(n)).toMutable());
-                continue;
-            }
+            latestCentroid = getVector(vectorLens, vectors, chosen).toMutable();
+            centroids.add(latestCentroid);
 
-            final double pick = random.nextDouble() * total;
-            double cumulativeSum = 0.0d;
-            int chosen = n - 1;
-
-            for (int i = 0; i < n; i++) {
-                cumulativeSum += weights[i];
-                if (cumulativeSum >= pick) {
-                    chosen = i;
-                    break;
+            //
+            // Step 2 (incremental): weights[i] should be the minimum over all chosen centroids
+            // of d²(i, centroid). Since weights[i] already holds the min over the previous
+            // centroids, the new centroid is the only one we haven't accounted for — so
+            // weights[i] = min(weights[i], d²(i, latestCentroid)). Skip when we just added the
+            // last centroid, since weights[] is consumed only by the next round's sampling and
+            // there won't be one.
+            //
+            if (centroids.size() < k) {
+                total = 0.0d;
+                for (int i = 0; i < n; i++) {
+                    final double d = metricAdapter.baseObjective(getVector(vectorLens, vectors, i), latestCentroid);
+                    if (d < weights[i]) {
+                        weights[i] = d;
+                    }
+                    total += weights[i];
                 }
             }
-
-            centroids.add(getVector(vectorLens, vectors, chosen).toMutable());
         }
 
         return centroids;
@@ -558,8 +615,21 @@ public final class KMeans {
 
     /**
      * {@link MetricAdapter} for the Euclidean metric. Base objective is squared Euclidean
-     * distance. No renormalization, no degenerate-norm handling — Euclidean centroids are
-     * always well-defined.
+     * distance.
+     * <p>
+     * For non-quantization-aware estimators (the common case: any
+     * {@link Estimator#ofMetric}-built estimator) this is computed directly via
+     * {@link RealVector#l2SquaredDistance} to skip the {@code sqrt} that
+     * {@link Estimator#distance Estimator.distance(...)} performs only to be squared again.
+     * <p>
+     * When {@link Estimator#isOptimized} reports that the estimator has a metric-specific fast
+     * path for the given pair (e.g. a {@code RaBitEstimator} acting on at least one encoded
+     * vector), the call is routed through {@code estimator.distance(...)} so the
+     * quantization-aware estimate is preserved — bypassing it via {@code getData()} would
+     * produce a different (more accurate, but not what the caller wants) value.
+     * <p>
+     * No renormalization, no degenerate-norm handling — Euclidean centroids are always
+     * well-defined.
      */
     private static class EuclideanMetricAdapter implements MetricAdapter {
         @Nonnull
@@ -572,8 +642,11 @@ public final class KMeans {
         @Override
         public double baseObjective(@Nonnull final RealVector vector,
                                     @Nonnull final RealVector centroid) {
-            final double d = estimator.distance(vector, centroid);
-            return d * d;
+            if (estimator.isOptimized(vector, centroid)) {
+                final double d = estimator.distance(vector, centroid);
+                return d * d;
+            }
+            return vector.l2SquaredDistance(centroid);
         }
 
         @Nonnull
