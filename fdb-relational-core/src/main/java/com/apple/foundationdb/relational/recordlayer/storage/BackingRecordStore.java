@@ -221,6 +221,10 @@ public final class BackingRecordStore implements BackingStore {
         return new BackingRecordStore(txn, txn.getRecordStore());
     }
 
+    public static BackingRecordStore fromTransactionAndStore(@Nonnull Transaction txn, @Nonnull FDBRecordStoreBase<Message> store) {
+        return new BackingRecordStore(txn, store);
+    }
+
     @SuppressWarnings("PMD.PreserveStackTrace")
     public static BackingRecordStore load(@Nonnull Transaction txn, @Nonnull StoreConfig config, @Nonnull FDBRecordStoreBase.StoreExistenceCheck existenceCheck) throws RelationalException {
         //TODO(bfines) error handling if this store doesn't exist
