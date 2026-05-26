@@ -64,6 +64,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryPredicatesFilte
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryRangePlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryScoreForRankPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryStoreBindingPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQuerySelectorPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryStreamingAggregationPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryTextIndexPlan;
@@ -351,6 +352,12 @@ public class PrimaryKeyProperty implements ExpressionProperty<Optional<List<Valu
         @Override
         public Optional<List<Value>> visitTypeFilterPlan(@Nonnull final RecordQueryTypeFilterPlan typeFilterPlan) {
             return primaryKeyFromSingleChild(typeFilterPlan);
+        }
+
+        @Nonnull
+        @Override
+        public Optional<List<Value>> visitStoreBindingPlan(@Nonnull final RecordQueryStoreBindingPlan storeBindingPlan) {
+            return visit(storeBindingPlan.getChild());
         }
 
         @Nonnull

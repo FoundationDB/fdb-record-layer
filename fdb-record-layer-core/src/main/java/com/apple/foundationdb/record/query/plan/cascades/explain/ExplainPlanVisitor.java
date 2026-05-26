@@ -73,6 +73,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryScoreForRankPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQuerySelectorPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryStreamingAggregationPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryStoreBindingPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryTableFunctionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryTextIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryTypeFilterPlan;
@@ -611,6 +612,13 @@ public class ExplainPlanVisitor extends ExplainTokens implements RecordQueryPlan
                                 .stream()
                                 .map(recordType -> new ExplainTokens().addIdentifier(recordType))
                                 .iterator());
+    }
+
+    @Nonnull
+    @Override
+    public ExplainTokens visitStoreBindingPlan(@Nonnull final RecordQueryStoreBindingPlan storeBindingPlan) {
+        visit(storeBindingPlan.getChild());
+        return pipe().addKeyword("STORE_BIND").addWhitespace().addToString(storeBindingPlan.getSchemaId().toString());
     }
 
     @Nonnull
