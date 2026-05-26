@@ -68,16 +68,19 @@ public class QuantifiedValuePredicate extends ValuePredicate {
                                                                                        @Nonnull final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap,
                                                                                        @Nonnull final List<PredicateMultiMap.PredicateCompensationFunction> childrenResults,
                                                                                        @Nonnull final PullUp pullUp) {
+        Verify.verify(childrenResults.isEmpty());
+        Verify.verify(originalQueryPredicate instanceof QuantifiedValuePredicate);
+        final var originalQuantifiedQueryPredicate = (QuantifiedValuePredicate) originalQueryPredicate;
         final var regularMatchInfo = partialMatch.getRegularMatchInfo();
         final var matchesAnyExistentialQuantifier = partialMatch.getQueryExpression().getQuantifiers().stream()
-                .anyMatch(quantifier -> quantifier.getAlias().equals(getQuantifierAlias()));
+                .anyMatch(quantifier -> quantifier.getAlias().equals(originalQuantifiedQueryPredicate.getQuantifierAlias()));
         if (matchesAnyExistentialQuantifier) {
-            final var childPartialMatchOptional = regularMatchInfo.getChildPartialMatchMaybe(getQuantifierAlias());
+            final var childPartialMatchOptional = regularMatchInfo.getChildPartialMatchMaybe(originalQuantifiedQueryPredicate.getQuantifierAlias());
             final var compensationOptional =
                     childPartialMatchOptional.map(childPartialMatch ->
                             childPartialMatch.compensateExistential(boundParameterPrefixMap));
             if (compensationOptional.isEmpty() || compensationOptional.get().isNeededForFiltering()) {
-                return PredicateMultiMap.PredicateCompensationFunction.ofExistentialValuePredicate(this);
+                return PredicateMultiMap.PredicateCompensationFunction.ofExistentialValuePredicate(originalQuantifiedQueryPredicate);
             }
         }
         return PredicateMultiMap.PredicateCompensationFunction.noCompensationNeeded();
