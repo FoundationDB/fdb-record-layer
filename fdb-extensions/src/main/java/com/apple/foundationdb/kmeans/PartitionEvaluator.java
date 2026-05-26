@@ -158,6 +158,9 @@ public class PartitionEvaluator {
      * Returns {@code 0.0} if {@code value} is {@link Double#NaN}, otherwise returns the value
      * unchanged. Used by the score formula to absorb the NaN that {@link PartitionStats}
      * reports for separation / low-margin rate when {@code k < 2}.
+     *
+     * @param value the value to coerce
+     * @return {@code value} if not NaN, otherwise {@code 0.0}
      */
     private static double nanToZero(final double value) {
         return Double.isNaN(value) ? 0.0d : value;
@@ -166,6 +169,14 @@ public class PartitionEvaluator {
     /**
      * Builds a {@link Decision#KEEP_CURRENT} {@link EvaluationResult} and logs the decision and
      * both partitions' statistics.
+     *
+     * @param currentStats statistics of the current partitioning
+     * @param candidateStats statistics of the candidate partitioning
+     * @param relativeSseGain relative SSE improvement of the candidate over the current
+     * @param scoreGain composite score improvement of the candidate over the current
+     * @param reason human-readable explanation for the {@code KEEP_CURRENT} verdict
+     * @return a populated {@link EvaluationResult} carrying the inputs and a
+     *         {@link Decision#KEEP_CURRENT} decision
      */
     @Nonnull
     private static EvaluationResult keepCurrent(@Nonnull final PartitionStats currentStats,
@@ -186,6 +197,14 @@ public class PartitionEvaluator {
      * Builds a {@link Decision#INVALID_CANDIDATE} {@link EvaluationResult} and logs the decision
      * and both partitions' statistics. Used for candidates that violate a structural hard reject
      * (currently: smallest cluster fraction below {@code minSmallestFrac}).
+     *
+     * @param currentStats statistics of the current partitioning
+     * @param candidateStats statistics of the candidate partitioning
+     * @param relativeSseGain relative SSE improvement of the candidate over the current
+     * @param scoreGain composite score improvement of the candidate over the current
+     * @param reason human-readable explanation for the {@code INVALID_CANDIDATE} verdict
+     * @return a populated {@link EvaluationResult} carrying the inputs and a
+     *         {@link Decision#INVALID_CANDIDATE} decision
      */
     @Nonnull
     private static EvaluationResult invalid(@Nonnull final PartitionStats currentStats,
@@ -205,6 +224,14 @@ public class PartitionEvaluator {
     /**
      * Builds a {@link Decision#ACCEPT_CANDIDATE} {@link EvaluationResult} and logs the decision
      * and both partitions' statistics.
+     *
+     * @param currentStats statistics of the current partitioning
+     * @param candidateStats statistics of the candidate partitioning
+     * @param relativeSseGain relative SSE improvement of the candidate over the current
+     * @param scoreGain composite score improvement of the candidate over the current
+     * @param reason human-readable explanation for the {@code ACCEPT_CANDIDATE} verdict
+     * @return a populated {@link EvaluationResult} carrying the inputs and a
+     *         {@link Decision#ACCEPT_CANDIDATE} decision
      */
     @Nonnull
     private static EvaluationResult accept(@Nonnull final PartitionStats currentStats,
@@ -226,6 +253,10 @@ public class PartitionEvaluator {
      * Throws {@link IllegalArgumentException} if any of the following holds: {@code vectors} is
      * empty, {@code partition.k() <= 0}, the assignment array length differs from
      * {@code vectors.size()}, or any assignment entry is outside {@code [0, k)}.
+     *
+     * @param vectors the input vectors associated with the partition
+     * @param partition the partitioning to validate
+     * @throws IllegalArgumentException if the partition is not well-formed
      */
     private static void validate(@Nonnull final List<?> vectors,
                                  @Nonnull final Partition<?> partition) {
@@ -290,23 +321,51 @@ public class PartitionEvaluator {
                 margins.median(), margins.p10(), margins.lowRate());
     }
 
-    /** Bundles the outputs of the second accumulation pass. */
+    /**
+     * Bundles the outputs of the second accumulation pass.
+     *
+     * @param sse total squared distance from each vector to its assigned centroid
+     * @param childSizes per-cluster vector counts; length {@code k}
+     * @param childRadii per-cluster lists of assigned-distance values; length {@code k}
+     * @param margins per-vector assignment margins (empty when {@code k < 2})
+     */
     private record SecondPassResult(double sse, @Nonnull int[] childSizes,
                                     @Nonnull List<Double>[] childRadii,
                                     @Nonnull List<Double> margins) {
     }
 
-    /** Cluster-size summary derived from a partition's per-cluster sizes. */
+    /**
+     * Cluster-size summary derived from a partition's per-cluster sizes.
+     *
+     * @param imbalance sum of squared per-cluster deviations from the target size, normalized by
+     *                  {@code n^2}
+     * @param smallestFrac fraction of vectors in the smallest cluster
+     * @param largestFrac fraction of vectors in the largest cluster
+     */
     private record SizeStats(double imbalance, double smallestFrac, double largestFrac) {
     }
 
-    /** Margin-distribution summary; NaN/{@code 0.0} when {@code k < 2}. */
+    /**
+     * Margin-distribution summary; NaN/{@code 0.0} when {@code k < 2}.
+     *
+     * @param median median assignment margin across all vectors
+     * @param p10 10th percentile of assignment margins
+     * @param lowRate fraction of vectors whose margin falls below the configured low-margin
+     *                threshold
+     */
     private record MarginStats(double median, double p10, double lowRate) {
     }
 
     /**
      * First pass: collects the distance from each vector to its assigned centroid. The resulting
      * distribution drives the data-derived {@code lowMarginThreshold}.
+     *
+     * @param vectors the input vectors
+     * @param vectorLens lens that extracts a {@link RealVector} from each {@code vectors} element
+     * @param partition the partitioning being evaluated
+     * @param estimator the distance estimator
+     * @param <V> caller's input vector representation
+     * @return a list of {@code n} assigned distances in input order
      */
     @Nonnull
     private static <V> List<Double> assignedDistances(@Nonnull final List<V> vectors,
@@ -330,6 +389,13 @@ public class PartitionEvaluator {
     /**
      * Second pass: accumulates SSE, per-cluster sizes and radii, and per-vector margins. Margins
      * are only computed when {@code k >= 2}; otherwise the returned {@code margins} list is empty.
+     *
+     * @param vectors the input vectors
+     * @param vectorLens lens that extracts a {@link RealVector} from each {@code vectors} element
+     * @param partition the partitioning being evaluated
+     * @param estimator the distance estimator
+     * @param <V> caller's input vector representation
+     * @return the accumulated SSE, per-cluster sizes, per-cluster radii, and margins
      */
     @Nonnull
     private static <V> SecondPassResult accumulate(@Nonnull final List<V> vectors,
@@ -369,6 +435,12 @@ public class PartitionEvaluator {
      * {@code clampedDot(own) - clampedDot(secondBest)}. Larger margins mean more confident
      * assignments. Requires {@code partition.k() >= 2}.
      *
+     * @param estimator the distance estimator
+     * @param partition the partitioning that owns the centroids
+     * @param v the vector whose assignment margin is being measured
+     * @param own the index of the centroid that {@code v} is currently assigned to
+     * @return the margin under the estimator's metric; positive values mean the assignment is
+     *         unambiguous
      * @throws UnsupportedOperationException if the estimator's metric is neither
      *         {@code EUCLIDEAN_METRIC} nor {@code COSINE_METRIC}
      */
@@ -405,6 +477,16 @@ public class PartitionEvaluator {
         };
     }
 
+    /**
+     * Returns the dot product of two vectors clamped to {@code [-1, 1]}. Intended for cosine-metric
+     * use where inputs are unit-norm, so the dot product is the cosine similarity modulo
+     * floating-point slack; the clamp guards against the slack pushing the value just outside the
+     * valid cosine range.
+     *
+     * @param vector1 left operand
+     * @param vector2 right operand
+     * @return {@code vector1 · vector2} clamped to {@code [-1, 1]}
+     */
     private static double clampedDot(@Nonnull final RealVector vector1, @Nonnull final RealVector vector2) {
         final double dot = vector1.dot(vector2);
         return Math.max(-1.0d, Math.min(1.0d, dot));
@@ -413,6 +495,10 @@ public class PartitionEvaluator {
     /**
      * Computes the imbalance (sum of squared deviations from the per-cluster target size,
      * normalized by {@code n^2}) and the smallest/largest per-cluster fractions.
+     *
+     * @param childSizes per-cluster vector counts; length {@code k}
+     * @param n total vector count
+     * @return the imbalance and the smallest/largest cluster fractions
      */
     @Nonnull
     private static SizeStats summarizeSizes(@Nonnull final int[] childSizes, final int n) {
@@ -435,6 +521,10 @@ public class PartitionEvaluator {
     /**
      * Returns the maximum across clusters of the 95th-percentile assigned distance for that
      * cluster. Empty clusters do not contribute.
+     *
+     * @param childRadii per-cluster lists of assigned distances
+     * @return the maximum p95 radius across non-empty clusters, or {@code 0.0} if every cluster is
+     *         empty
      */
     private static double maxRadius95(@Nonnull final List<Double>[] childRadii) {
         double max = 0.0;
@@ -450,6 +540,11 @@ public class PartitionEvaluator {
      * Returns the inter-centroid separation: the minimum pairwise centroid distance divided by
      * {@code maxRadius95} (floored at {@code 1e-12}). Returns {@link Double#NaN} when
      * {@code partition.k() < 2}.
+     *
+     * @param partition the partitioning whose centroids are compared
+     * @param estimator the distance estimator
+     * @param maxRadius95 scale reference used to normalize the minimum pairwise centroid distance
+     * @return the normalized inter-centroid separation, or {@link Double#NaN} if {@code k < 2}
      */
     private static double separation(@Nonnull final Partition<?> partition,
                                      @Nonnull final Estimator estimator,
@@ -472,6 +567,12 @@ public class PartitionEvaluator {
      * Summarizes the margin distribution: median, 10th percentile, and the fraction of vectors
      * below {@code lowMarginThreshold}. Returns NaN medians/p10 and {@code 0.0} low-rate when
      * {@code k < 2}, mirroring the {@link PartitionStats} convention.
+     *
+     * @param margins per-vector assignment margins
+     * @param lowMarginThreshold cutoff below which a margin counts as "low"
+     * @param n total vector count, used as the denominator for {@code lowRate}
+     * @param k number of clusters in the partitioning
+     * @return the margin distribution summary, or NaN/{@code 0.0} sentinels when {@code k < 2}
      */
     @Nonnull
     private static MarginStats marginStats(@Nonnull final List<Double> margins,
@@ -496,10 +597,13 @@ public class PartitionEvaluator {
      * Resolves the threshold below which an assignment margin counts as "low" (used to compute
      * {@link PartitionStats#lowMarginRate()}).
      * <p>
-     * If {@link Parameters#lowMarginThreshold()} is positive, that explicit value is used.
-     * Otherwise the threshold is derived metric-dependently: a fixed {@code 0.02} for cosine,
-     * or {@code 5%} of the 95th-percentile assigned distance for Euclidean (a
-     * scale-relative cutoff suitable for arbitrary L2 magnitudes).
+     * If {@link Parameters#lowMarginThreshold()} is positive, that explicit value is used. Otherwise, the threshold is
+     * derived metric-dependently: a fixed {@code 0.02} for cosine, or {@code 5%} of the 95th-percentile assigned
+     * distance for Euclidean (a scale-relative cutoff suitable for arbitrary L2 magnitudes).
+     *
+     * @param parameters supplies the configured {@code lowMarginThreshold} override and the metric
+     * @param overallP95 the 95th-percentile assigned distance, used by the Euclidean default
+     * @return the resolved low-margin threshold
      */
     @SuppressWarnings("SwitchStatementWithTooFewBranches")
     private static double computeLowMarginThreshold(@Nonnull final Parameters parameters,
@@ -515,6 +619,10 @@ public class PartitionEvaluator {
      * supported metrics this is just {@code estimator.distance(a, b)}; the indirection exists so
      * the SSE-specific transform in {@link #distanceForSse} stays separate.
      *
+     * @param estimator the distance estimator
+     * @param a left operand
+     * @param b right operand
+     * @return the geometric distance between {@code a} and {@code b}
      * @throws UnsupportedOperationException if the estimator's metric is neither
      *         {@code EUCLIDEAN_METRIC} nor {@code COSINE_METRIC}
      */
@@ -537,6 +645,10 @@ public class PartitionEvaluator {
      *       keeps SSE comparable in scale to the Euclidean case.</li>
      * </ul>
      *
+     * @param estimator the distance estimator
+     * @param v the data vector
+     * @param c the centroid
+     * @return the SSE contribution for the pair {@code (v, c)}
      * @throws UnsupportedOperationException if the estimator's metric is neither
      *         {@code EUCLIDEAN_METRIC} nor {@code COSINE_METRIC}
      */
@@ -624,6 +736,9 @@ public class PartitionEvaluator {
         /**
          * Returns the cluster index assigned to the {@code index}-th vector in the corresponding
          * point list.
+         *
+         * @param index vector index into the corresponding point list
+         * @return the cluster index assigned to the vector at {@code index}
          */
         public int getAssignment(final int index) {
             return assignments[index];
@@ -690,8 +805,11 @@ public class PartitionEvaluator {
                                  double smallestFrac, double maxRadius95, double medianMargin, double p10Margin,
                                  double lowMarginRate) {
         /**
-         * Logs every component of these stats at error level, prefixed with
-         * {@code messagePrefix}. No-op when error logging is disabled on {@code logger}.
+         * Logs every component of these stats at debug level, prefixed with
+         * {@code messagePrefix}. No-op when debug logging is disabled on {@code logger}.
+         *
+         * @param logger the SLF4J logger to write to
+         * @param messagePrefix free-form prefix prepended to the structured log line
          */
         public void log(@Nonnull final Logger logger, @Nonnull final String messagePrefix) {
             if (logger.isDebugEnabled()) {

@@ -536,6 +536,12 @@ public final class KMeans {
     /**
      * Convenience accessor that extracts the {@link RealVector} for {@code vectors.get(index)}
      * via {@code vectorLens}, throwing on a null result.
+     *
+     * @param vectorLens lens that extracts a {@link RealVector} from a caller element
+     * @param vectors the input list
+     * @param index index into {@code vectors}
+     * @param <V> caller's input vector representation
+     * @return the extracted vector; never {@code null}
      */
     @Nonnull
     private static <V> RealVector getVector(@Nonnull final Lens<V, RealVector> vectorLens,
@@ -589,6 +595,10 @@ public final class KMeans {
          * Returns the per-pair contribution to the clustering objective. For Euclidean this is
          * the squared Euclidean distance; for cosine it is the cosine distance (i.e. the
          * estimator's distance directly, which is already in {@code [0, 2]}).
+         *
+         * @param vector the data vector
+         * @param centroid the centroid being scored against
+         * @return the per-pair contribution to the clustering objective
          */
         double baseObjective(@Nonnull RealVector vector, @Nonnull RealVector centroid);
 
@@ -609,6 +619,9 @@ public final class KMeans {
          * Returns whether the given vector has a "meaningless" norm under this metric — for
          * example, near-zero magnitude in cosine mode where direction is undefined. Used by
          * the centroid update to detect degenerate centroids that need reseeding.
+         *
+         * @param vector the vector to test
+         * @return {@code true} if the vector's norm is meaningless under this metric
          */
         boolean isMeaninglessNorm(@Nonnull RealVector vector);
     }
