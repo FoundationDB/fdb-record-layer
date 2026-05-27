@@ -37,8 +37,6 @@ import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ExistentialValuePredicate;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokens;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence;
-import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
-import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
@@ -168,12 +166,7 @@ public class ExistsValue extends AbstractValue implements BooleanValue, ValueWit
             // the call is already validated against the resolved function
             Verify.verify(arguments.size() == 1);
             final Typed in = arguments.get(0);
-            Verify.verify(in instanceof RelationalExpression);
-
-            // create an existential quantifier
-            final Quantifier.Existential existsQuantifier = Quantifier.existential(Reference.initialOf((RelationalExpression)in));
-
-            return new ExistsValue(existsQuantifier.getFlowedObjectValue());
+            return new ExistsValue((Value) in);
         }
     }
 
