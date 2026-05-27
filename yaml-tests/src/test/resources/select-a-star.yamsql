@@ -133,7 +133,7 @@ test_block:
     -
       # When the table has an alias, the original table name is no longer in scope
       - query: select t1 from t1 t where pk = 1
-      - error: "42703"
+      - error: UNDEFINED_COLUMN
     -
       # In a join, the table name selects that table's row as a struct
       - query: select t1 from t1, colname
