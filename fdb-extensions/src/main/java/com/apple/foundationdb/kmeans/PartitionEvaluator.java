@@ -677,7 +677,7 @@ public class PartitionEvaluator {
                                          @Nonnull final RealVector c) {
         return switch (distanceEstimator.getMetric()) {
             case COSINE_METRIC -> 2.0d * distanceEstimator.distance(v, c);
-            case EUCLIDEAN_METRIC -> v.subtract(c).l2SquaredNorm();
+            case EUCLIDEAN_METRIC -> v.l2SquaredDistance(c);
             default -> throw new UnsupportedOperationException("metric is not supported");
         };
     }

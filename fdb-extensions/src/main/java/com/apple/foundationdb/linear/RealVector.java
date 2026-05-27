@@ -206,14 +206,7 @@ public interface RealVector {
      */
     default double l2SquaredDistance(@Nonnull final RealVector other) {
         Preconditions.checkArgument(getNumDimensions() == other.getNumDimensions());
-        double sum = 0.0d;
-        final double[] thisData = getData();
-        final double[] otherData = other.getData();
-        for (int i = 0; i < thisData.length; i++) {
-            final double diff = thisData[i] - otherData[i];
-            sum += diff * diff;
-        }
-        return sum;
+        return RealVectorPrimitives.euclideanSquared(getData(), other.getData());
     }
 
     /**
