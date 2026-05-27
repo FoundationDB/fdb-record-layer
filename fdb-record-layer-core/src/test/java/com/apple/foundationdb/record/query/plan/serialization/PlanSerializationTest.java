@@ -22,13 +22,18 @@ package com.apple.foundationdb.record.query.plan.serialization;
 
 import com.apple.foundationdb.record.IndexFetchMethod;
 import com.apple.foundationdb.record.PlanSerializationContext;
+import com.apple.foundationdb.record.planprotos.PExistentialValuePredicate;
 import com.apple.foundationdb.record.planprotos.PPlanReference;
+import com.apple.foundationdb.record.planprotos.PQueryPredicate;
 import com.apple.foundationdb.record.planprotos.PValue;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanComparisons;
+import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
+import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.ExistentialValuePredicate;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.IncarnationValue;
@@ -170,5 +175,29 @@ public class PlanSerializationTest {
         final RecordQueryPlan parsedPlan = planSerializationContext.fromPlanReferenceProto(parsedProto);
         Verify.verify(parsedPlan instanceof RecordQueryDefaultOnEmptyPlan);
         Assertions.assertTrue(plan.semanticEquals(parsedPlan));
+    }
+
+    @Test
+    void existentialValuePredicateSerializationTest() throws Exception {
+        final var alias = CorrelationIdentifier.of("existentialAlias");
+        final var quantifiedObjectValue = QuantifiedObjectValue.of(alias, Type.primitiveType(Type.TypeCode.BOOLEAN, true));
+        final var comparison = new Comparisons.NullComparison(Comparisons.Type.NOT_NULL);
+        final var predicate = new ExistentialValuePredicate(quantifiedObjectValue, comparison);
+
+        // Serialize
+        final var serializationContext = PlanSerializationContext.newForCurrentMode();
+        final var proto = predicate.toProto(serializationContext);
+        assertThat(proto).isInstanceOf(PExistentialValuePredicate.class);
+
+        final var queryPredicateProto = predicate.toQueryPredicateProto(serializationContext);
+        final byte[] bytes = queryPredicateProto.toByteArray();
+        final var parsedQueryPredicateProto = PQueryPredicate.parseFrom(bytes);
+        assertThat(parsedQueryPredicateProto.hasExistentialValuePredicate()).isTrue();
+
+        // Deserialize
+        final var deserializationContext = PlanSerializationContext.newForCurrentMode();
+        final var deserialized = ExistentialValuePredicate.fromProto(deserializationContext, parsedQueryPredicateProto.getExistentialValuePredicate());
+        assertThat(deserialized).isInstanceOf(com.apple.foundationdb.record.query.plan.cascades.predicates.ExistentialValuePredicate.class);
+        assertThat(deserialized.semanticEquals(predicate, AliasMap.identitiesFor(predicate.getCorrelatedTo()))).isTrue();
     }
 }
