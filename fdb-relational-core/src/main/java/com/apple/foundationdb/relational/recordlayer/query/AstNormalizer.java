@@ -646,7 +646,6 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
                 () -> normalizeAst(
                         context.getSchemaTemplate(), parseTreeInfo,
                         PreparedParams.copyOf(context.getPreparedStatementParameters()),
-                        context.getUserVersion(),
                         context.getPlannerConfiguration(),
                         isCaseSensitive,
                         currentPlanHashMode,
@@ -660,12 +659,11 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
     public static NormalizationResult normalizeAst(@Nonnull final SchemaTemplate schemaTemplate,
                                                    @Nonnull final ParseTreeInfoImpl parseTreeInfo,
                                                    @Nonnull final PreparedParams preparedStatementParameters,
-                                                   int userVersion,
                                                    @Nonnull final PlannerConfiguration plannerConfiguration,
                                                    boolean caseSensitive,
                                                    @Nonnull final PlanHashable.PlanHashMode currentPlanHashMode,
                                                    @Nonnull final String query) throws RelationalException {
-        return normalizeAst(schemaTemplate, parseTreeInfo, preparedStatementParameters, userVersion,
+        return normalizeAst(schemaTemplate, parseTreeInfo, preparedStatementParameters,
                 plannerConfiguration, caseSensitive, currentPlanHashMode, query, Map.of());
     }
 
@@ -673,7 +671,6 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
     private static NormalizationResult normalizeAst(@Nonnull final SchemaTemplate schemaTemplate,
                                                     @Nonnull final ParseTreeInfoImpl parseTreeInfo,
                                                     @Nonnull final PreparedParams preparedStatementParameters,
-                                                    int userVersion,
                                                     @Nonnull final PlannerConfiguration plannerConfiguration,
                                                     boolean caseSensitive,
                                                     @Nonnull final PlanHashable.PlanHashMode currentPlanHashMode,
@@ -708,7 +705,6 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
                         QueryParser.parse(recordLayerRoutine.getDescription()),
                         recordLayerRoutine.getPreparedParams(),
                         localVariables,
-                        userVersion,
                         plannerConfiguration,
                         caseSensitive,
                         currentPlanHashMode,
@@ -720,7 +716,7 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
                 recordLayerSchemaTemplate.getName(),
                 QueryCacheKey.of(astNormalizer.getCanonicalSqlString(), getQuerySpecificPlannerConfig(plannerConfiguration, astNormalizer.getQueryOptions()),
                         recordLayerSchemaTemplate.getTransactionBoundMetadataAsString(),
-                        recordLayerSchemaTemplate.getVersion(), userVersion),
+                        recordLayerSchemaTemplate.getVersion()),
                 astNormalizer.getQueryExecutionParameters(),
                 parseTreeInfo.getRootContext(),
                 astNormalizer.getQueryCachingFlags(),
@@ -735,7 +731,6 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
                                                               @Nonnull final ParseTreeInfoImpl parseTreeInfo,
                                                               @Nonnull final PreparedParams preparedStatementParameters,
                                                               @Nonnull final Map<String, Object> localVariables,
-                                                              int userVersion,
                                                               @Nonnull final PlannerConfiguration plannerConfiguration,
                                                               boolean caseSensitive,
                                                               @Nonnull final PlanHashable.PlanHashMode currentPlanHashMode,
@@ -748,7 +743,7 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
                 recordLayerSchemaTemplate.getName(),
                 QueryCacheKey.of(astNormalizer.getCanonicalSqlString(), getQuerySpecificPlannerConfig(plannerConfiguration, astNormalizer.getQueryOptions()),
                         recordLayerSchemaTemplate.getTransactionBoundMetadataAsString(),
-                        recordLayerSchemaTemplate.getVersion(), userVersion),
+                        recordLayerSchemaTemplate.getVersion()),
                 astNormalizer.getQueryExecutionParameters(),
                 parseTreeInfo.getRootContext(),
                 astNormalizer.getQueryCachingFlags(),
