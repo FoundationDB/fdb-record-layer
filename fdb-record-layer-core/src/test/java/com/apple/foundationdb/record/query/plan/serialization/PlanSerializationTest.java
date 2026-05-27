@@ -34,6 +34,7 @@ import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ExistentialValuePredicate;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.IncarnationValue;
@@ -194,10 +195,16 @@ public class PlanSerializationTest {
         final var parsedQueryPredicateProto = PQueryPredicate.parseFrom(bytes);
         assertThat(parsedQueryPredicateProto.hasExistentialValuePredicate()).isTrue();
 
-        // Deserialize
+        // Deserialize directly via fromProto
         final var deserializationContext = PlanSerializationContext.newForCurrentMode();
         final var deserialized = ExistentialValuePredicate.fromProto(deserializationContext, parsedQueryPredicateProto.getExistentialValuePredicate());
-        assertThat(deserialized).isInstanceOf(com.apple.foundationdb.record.query.plan.cascades.predicates.ExistentialValuePredicate.class);
+        assertThat(deserialized).isInstanceOf(ExistentialValuePredicate.class);
         assertThat(deserialized.semanticEquals(predicate, AliasMap.identitiesFor(predicate.getCorrelatedTo()))).isTrue();
+
+        // Deserialize via generic dispatch (exercises @AutoService Deserializer inner class)
+        final var dispatchDeserialized = QueryPredicate.fromQueryPredicateProto(
+                PlanSerializationContext.newForCurrentMode(), parsedQueryPredicateProto);
+        assertThat(dispatchDeserialized).isInstanceOf(ExistentialValuePredicate.class);
+        assertThat(dispatchDeserialized.semanticEquals(predicate, AliasMap.identitiesFor(predicate.getCorrelatedTo()))).isTrue();
     }
 }
