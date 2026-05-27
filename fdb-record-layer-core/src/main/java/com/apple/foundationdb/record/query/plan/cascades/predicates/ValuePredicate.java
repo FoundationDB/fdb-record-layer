@@ -214,17 +214,21 @@ public class ValuePredicate extends AbstractQueryPredicate implements PredicateW
     @Nonnull
     @Override
     public Message toProto(@Nonnull final PlanSerializationContext serializationContext) {
-        return PValuePredicate.newBuilder()
-                .setSuper(toAbstractQueryPredicateProto(serializationContext))
-                .setValue(value.toValueProto(serializationContext))
-                .setComparison(comparison.toComparisonProto(serializationContext))
-                .build();
+        return toValuePredicateProto(serializationContext);
     }
 
     @Nonnull
     @Override
     public PQueryPredicate toQueryPredicateProto(@Nonnull final PlanSerializationContext serializationContext) {
-        return PQueryPredicate.newBuilder().setValuePredicate((PValuePredicate) toProto(serializationContext)).build();
+        return PQueryPredicate.newBuilder().setValuePredicate(toValuePredicateProto(serializationContext)).build();
+    }
+
+    public PValuePredicate toValuePredicateProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return PValuePredicate.newBuilder()
+                .setSuper(toAbstractQueryPredicateProto(serializationContext))
+                .setValue(value.toValueProto(serializationContext))
+                .setComparison(comparison.toComparisonProto(serializationContext))
+                .build();
     }
 
     @Nonnull

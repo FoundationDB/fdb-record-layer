@@ -82,7 +82,7 @@ public class RecordQueryFirstOrDefaultPlan extends AbstractRelationalExpressionW
         this.inner = inner;
         this.onEmptyResultValue = onEmptyResultValue;
         this.resultValue = new DerivedValue(ImmutableList.of(inner.getFlowedObjectValue(), onEmptyResultValue),
-                innerType.isNullable() ? innerType : onEmptyResultValue.getResultType());
+                innerType.withNullability(onEmptyResultValue.getResultType().isNullable()));
     }
 
     @Nonnull

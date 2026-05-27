@@ -99,9 +99,9 @@ public class ExistentialValuePredicate extends ValuePredicate {
         return this;
     }
 
-    // This is only needed in the interim to maintain backward compatibility while replacing earlier-existing
-    // ExistsPredicate with this class. This essentially enforces that the predicate applied over the join is a
-    // ValuePredicate.
+    // TODO: This is only needed in the interim to maintain backward compatibility while replacing earlier-existing
+    //  ExistsPredicate with this class. This essentially enforces that the predicate applied over the join is a
+    //  ValuePredicate.
     @Nonnull
     @Override
     public QueryPredicate toResidualPredicate() {
