@@ -140,6 +140,27 @@ class OnlineIndexScrubberTest extends OnlineIndexerTest {
     }
 
     @Test
+    void testScrubberClearsRangeSetSubspaceWhenComplete() {
+        final long numRecords = 50;
+        Index tgtIndex = createValueIndexAndPopulateData(numRecords, true);
+
+        try (OnlineIndexScrubber indexScrubber = newScrubberBuilder(tgtIndex)
+                .setScrubbingPolicy(OnlineIndexScrubber.ScrubbingPolicy.newBuilder().build())
+                .build()) {
+            indexScrubber.scrubMissingIndexEntries();
+            indexScrubber.scrubDanglingIndexEntries();
+        }
+
+        // After a full scrub, both rangeSet subspaces (rangeId 0) should be physically cleared.
+        try (FDBRecordContext context = openContext()) {
+   // TODO:         IndexingSubspaces.eraseAllIndexingScrubbingData(context, recordStore, tgtIndex);
+            assertTrue(IndexingRangeSet.forScrubbingRecords(recordStore, tgtIndex, 0).isEmptyAsync().join());
+            assertTrue(IndexingRangeSet.forScrubbingIndex(recordStore, tgtIndex, 0).isEmptyAsync().join());
+            context.commit();
+        }
+    }
+
+    @Test
     void testScrubberLimits() {
         final int numRecords = 52;
         final int chunkSize = 7;
