@@ -153,7 +153,6 @@ class OnlineIndexScrubberTest extends OnlineIndexerTest {
 
         // After a full scrub, both rangeSet subspaces (rangeId 0) should be physically cleared.
         try (FDBRecordContext context = openContext()) {
-   // TODO:         IndexingSubspaces.eraseAllIndexingScrubbingData(context, recordStore, tgtIndex);
             assertTrue(IndexingRangeSet.forScrubbingRecords(recordStore, tgtIndex, 0).isEmptyAsync().join());
             assertTrue(IndexingRangeSet.forScrubbingIndex(recordStore, tgtIndex, 0).isEmptyAsync().join());
             context.commit();

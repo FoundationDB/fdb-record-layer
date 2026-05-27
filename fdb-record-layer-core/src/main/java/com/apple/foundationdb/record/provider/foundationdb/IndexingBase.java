@@ -956,10 +956,10 @@ public abstract class IndexingBase {
         store.getIndexDeferredMaintenanceControl().setAutoMergeDuringCommit(false);
     }
 
-    protected static boolean notAllRangesExhausted(Tuple cont, Tuple end) {
+    protected static boolean allRangesAreExhausted(Tuple cont, Tuple end) {
         // if cont isn't null, it means that the cursor was not exhausted
         // if end isn't null, it means that the range is a segment (i.e. closed or half-open interval) - the rangeSet may contain more unbuilt ranges
-        return end != null || cont != null;
+        return end == null && cont == null;
     }
 
     protected ScanProperties scanPropertiesWithLimits(boolean isIdempotent) {

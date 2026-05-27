@@ -187,9 +187,15 @@ public class IndexScrubbing extends IndexingBase {
                 });
     }
 
-    private static CompletableFuture<Boolean> updateRangeAndCheckIfExhausted(final IndexingRangeSet rangeSet, final Tuple rangeStart, final Tuple rangeEnd, final Tuple continuation) {
+    private CompletableFuture<Boolean> updateRangeAndCheckIfExhausted(final IndexingRangeSet rangeSet, final Tuple rangeStart, final Tuple rangeEnd, final Tuple continuation) {
+        if (allRangesAreExhausted(continuation, rangeEnd)) {
+            // Last missing range just got covered. Clear so the next scrubbing session starts fresh.
+            logScrubberRangeReset("range exhausted at iteration end");
+            rangeSet.clear();
+            return AsyncUtil.READY_FALSE;
+        }
         return rangeSet.insertRangeAsync(packOrNull(rangeStart), packOrNull(continuation), true)
-                .thenApply(ignore -> notAllRangesExhausted(continuation, rangeEnd));
+                .thenApply(ignore -> true);
     }
 
     private Boolean checkScanLimit(final Boolean ret, final @Nonnull AtomicLong recordsScanned, final long scanLimit) {
