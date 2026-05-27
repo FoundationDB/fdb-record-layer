@@ -29,6 +29,7 @@ import com.apple.foundationdb.record.TestHierarchiesProto;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.query.IndexQueryabilityFilter;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
+import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.cascades.AccessHints;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
@@ -54,6 +55,7 @@ import com.apple.foundationdb.record.query.plan.plans.QueryResult;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryRecursiveDfsJoinPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryRecursiveLevelUnionPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan;
 import com.apple.foundationdb.record.util.pair.Pair;
 import com.google.common.base.Stopwatch;
 import com.google.common.base.Verify;
@@ -89,6 +91,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.expressions.Recu
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -721,6 +724,34 @@ class RecursiveQueriesTest extends TempTableTestBase {
                         .combine(AliasMap.ofAliases(scanAlias, otherScanAlias)))));
         final var expression4 = getRecursiveUnionExpression(seedingAlias, insertAlias, scanAlias, predicate, LEVEL);
         assertFalse(expression1.equalsWithoutChildren(expression4, AliasMap.emptyMap()));
+    }
+
+    @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
+    void testRecursiveLevelUnionPlanHashCode() {
+        Assumptions.assumeTrue(isUseCascadesPlanner());
+        final var scanAlias = CorrelationIdentifier.of("scan");
+        final var insertAlias = CorrelationIdentifier.of("insert");
+        final var otherScanAlias = CorrelationIdentifier.of("otherScan");
+        final var otherInsertAlias = CorrelationIdentifier.of("otherInsert");
+        final var plan = newLevelUnionPlan(scanAlias, insertAlias);
+        assertEquals(Objects.hash(scanAlias, insertAlias), plan.computeHashCodeWithoutChildren());
+        assertNotEquals(plan.computeHashCodeWithoutChildren(),
+                newLevelUnionPlan(otherScanAlias, insertAlias).computeHashCodeWithoutChildren());
+        assertNotEquals(plan.computeHashCodeWithoutChildren(),
+                newLevelUnionPlan(scanAlias, otherInsertAlias).computeHashCodeWithoutChildren());
+    }
+
+    @Nonnull
+    private static RecordQueryRecursiveLevelUnionPlan newLevelUnionPlan(@Nonnull final CorrelationIdentifier scanAlias,
+                                                                        @Nonnull final CorrelationIdentifier insertAlias) {
+        final var initialQun = Quantifier.physical(Reference.plannedOf(emptyScan()));
+        final var recursiveQun = Quantifier.physical(Reference.plannedOf(emptyScan()));
+        return new RecordQueryRecursiveLevelUnionPlan(initialQun, recursiveQun, scanAlias, insertAlias);
+    }
+
+    @Nonnull
+    private static RecordQueryScanPlan emptyScan() {
+        return new RecordQueryScanPlan(ScanComparisons.EMPTY, false);
     }
 
 

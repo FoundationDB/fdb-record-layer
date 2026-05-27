@@ -41,7 +41,7 @@ test_block:
       # maxRows value is negative
       - query: select ta.* from ta;
       - maxRows: -27525
-      - error: "22023"
+      - error: INVALID_PARAMETER
     -
       # maxRows value 1
       - query: select ta.* from ta;
@@ -96,7 +96,7 @@ test_block:
     -
       # limit value offset value is not supported
       - query: select ta.* from ta LIMIT 2 OFFSET 2;
-      - error: "0AF00"
+      - error: UNSUPPORTED_QUERY
 #    -
 #      # offset value is negative
 #      - query: select ta.* from ta LIMIT 2 OFFSET -27525;
@@ -138,15 +138,15 @@ test_block:
     -
       # limit not supported as it was replaced by maxRows for now
       - query: select * from ta limit 5
-      - error: "0AF00"
+      - error: UNSUPPORTED_QUERY
     -
       # limit clause when from has a nested statement
       - query: select p.* from (select ta.* from ta where ta.a > 5 limit 1) as p;
-      - error: "0AF00"
+      - error: UNSUPPORTED_QUERY
     -
       # limit clause when where has existential statement
       - query: select p.* FROM ta as p where exists (select * from ta where ta.a = p.a limit 1);
-      - error: "0AF00"
+      - error: UNSUPPORTED_QUERY
     -
       # limit clause with continuation
       - query: select ta.* from ta;

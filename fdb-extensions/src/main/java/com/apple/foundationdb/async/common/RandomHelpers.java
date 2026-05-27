@@ -22,6 +22,7 @@ package com.apple.foundationdb.async.common;
 
 import java.util.SplittableRandom;
 
+@SuppressWarnings("PMD.MissingStaticMethodInNonInstantiatableClass") // TODO remove once the GuardiANN code gets merged
 public final class RandomHelpers {
     private RandomHelpers() {
         // nothing

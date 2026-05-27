@@ -172,11 +172,11 @@ final class KMeansTestHelpers {
                                        @Nonnull final Estimator estimator,
                                        final double lambda) {
         final int n = vectors.size();
-        final int[] assignment = result.getAssignment();
-        final List<RealVector> centroids = result.getClusterCentroids();
-        final int[] clusterSizes = result.getClusterSizes();
-        final double[] distances = result.getDistances();
-        final double objective = result.getObjective();
+        final int[] assignment = result.assignment();
+        final List<RealVector> centroids = result.clusterCentroids();
+        final int[] clusterSizes = result.clusterSizes();
+        final double[] distances = result.distances();
+        final double objective = result.objective();
 
         // --- structural invariants ---
         assertThat(assignment).as("assignment length").hasSize(n);

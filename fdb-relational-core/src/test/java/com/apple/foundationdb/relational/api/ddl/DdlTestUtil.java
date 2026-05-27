@@ -71,7 +71,6 @@ public class DdlTestUtil {
                 .withMetadata(RecordMetaData.build(md))
                 .withMetricsCollector(Assert.notNullUnchecked(connection.getMetricCollector()))
                 .withPlannerConfiguration(PlannerConfiguration.ofAllAvailableIndexes())
-                .withUserVersion(0)
                 .withDbUri(URI.create(databaseUri))
                 .withDdlQueryFactory(NoOpQueryFactory.INSTANCE)
                 .withConstantActionFactory(NoOpMetadataOperationsFactory.INSTANCE)

@@ -51,6 +51,7 @@ class PartitionEvaluatorTest {
     private static final Logger logger = LoggerFactory.getLogger(PartitionEvaluatorTest.class);
 
     private static final Estimator EUCLIDEAN = Estimator.ofMetric(Metric.EUCLIDEAN_METRIC);
+    private static final Estimator COSINE = Estimator.ofMetric(Metric.COSINE_METRIC);
 
     // ---------------- 1 → 2: split on well-separated data is ACCEPTed ----------------
 
@@ -401,6 +402,138 @@ class PartitionEvaluatorTest {
     }
 
     // ============================================================================================
+    // cosine-metric coverage: mirror selected Euclidean cases so the cosine arms of
+    // distanceForSse / computeMargin and the cosine-default lowMarginThreshold are exercised.
+    // ============================================================================================
+
+    // ---------------- 1 → 2: split on well-separated unit directions is ACCEPTed (cosine) ----------------
+
+    @ParameterizedTest
+    @RandomSeedSource({0x0fdbL, 0x5ca1eL})
+    void splitOneToTwoOnWellSeparatedDirectionsAcceptedCosine(final long seed) {
+        final SplittableRandom rnd = new SplittableRandom(seed);
+        final List<RealVector> vectors = twoDirections(rnd, 600);
+
+        final PartitionEvaluator.Partition<RealVector> current = singleClusterPartition(vectors);
+        final List<RealVector> twoCentroids = ImmutableList.of(
+                unit(new double[] {1.0d, 0.0d, 0.0d}),
+                unit(new double[] {0.0d, 1.0d, 0.0d}));
+        final PartitionEvaluator.Partition<RealVector> candidate =
+                nearestPartition(twoCentroids, vectors, COSINE);
+
+        final PartitionEvaluator.EvaluationResult result =
+                PartitionEvaluator.evaluate(vectors, current, vectors, candidate,
+                        Lens.identity(), new PartitionEvaluator.Parameters(COSINE));
+
+        logger.info("cosine 1->2 well-separated: {} reason='{}'", result.decision(), result.reason());
+        assertThat(result.decision()).isEqualTo(PartitionEvaluator.Decision.ACCEPT_CANDIDATE);
+        assertThat(result.relativeSseGain()).isGreaterThan(0.0d);
+    }
+
+    // ---------------- 1 → 2: split on a single direction is rejected (cosine) ----------------
+
+    @ParameterizedTest
+    @RandomSeedSource({0x0fdbL, 0x5ca1eL})
+    void splitOneToTwoOnSingleDirectionRejectedCosine(final long seed) {
+        final SplittableRandom rnd = new SplittableRandom(seed);
+        final List<RealVector> vectors = oneDirection(rnd, 600);
+
+        final PartitionEvaluator.Partition<RealVector> current = singleClusterPartition(vectors);
+        final List<RealVector> twoCentroids = ImmutableList.of(
+                vectors.get(0), vectors.get(vectors.size() - 1));
+        final PartitionEvaluator.Partition<RealVector> candidate =
+                nearestPartition(twoCentroids, vectors, COSINE);
+
+        final PartitionEvaluator.EvaluationResult result =
+                PartitionEvaluator.evaluate(vectors, current, vectors, candidate,
+                        Lens.identity(), new PartitionEvaluator.Parameters(COSINE));
+
+        logger.info("cosine 1->2 single direction: {} reason='{}'", result.decision(), result.reason());
+        assertThat(result.decision()).isNotEqualTo(PartitionEvaluator.Decision.ACCEPT_CANDIDATE);
+    }
+
+    // ---------------- separation hard reject still fires for k >= 2 candidates (cosine) ----------------
+
+    @ParameterizedTest
+    @RandomSeedSource({0x0fdbL})
+    void multiClusterCandidateStillEnforcesSeparationCosine(final long seed) {
+        final SplittableRandom rnd = new SplittableRandom(seed);
+        final List<RealVector> vectors = oneDirection(rnd, 400);
+
+        final PartitionEvaluator.Partition<RealVector> current = singleClusterPartition(vectors);
+        // Two near-identical unit centroids: poor cosine separation.
+        final List<RealVector> twoCentroids = ImmutableList.of(
+                unit(new double[] {1.0d, 0.0d, 0.0d}),
+                unit(new double[] {1.0d, 0.01d, 0.0d}));
+        final PartitionEvaluator.Partition<RealVector> candidate =
+                nearestPartition(twoCentroids, vectors, COSINE);
+
+        final PartitionEvaluator.Parameters strict = new PartitionEvaluator.Parameters(
+                COSINE,
+                /*minRelativeSseGain*/ -10.0d,
+                /*minSeparation*/ 100.0d,
+                /*maxLowMarginRate*/ 1.0d,
+                /*minSmallestFrac*/ 0.0d,
+                /*maxLargestFrac*/ 1.0d,
+                /*lowMarginThreshold*/ -1.0d,
+                /*alphaSseGain*/ 1.0d, /*betaSeparationGain*/ 1.0d,
+                /*gammaImbalancePenalty*/ 1.0d, /*deltaLowMarginPenalty*/ 1.0d,
+                /*minScoreGain*/ -10.0d);
+
+        final PartitionEvaluator.EvaluationResult result =
+                PartitionEvaluator.evaluate(vectors, current, vectors, candidate,
+                        Lens.identity(), strict);
+
+        assertThat(result.decision()).isEqualTo(PartitionEvaluator.Decision.KEEP_CURRENT);
+        assertThat(result.reason()).contains("separation too low");
+    }
+
+    // ---------------- cosine default lowMarginThreshold (0.02) is applied ----------------
+
+    @ParameterizedTest
+    @RandomSeedSource({0x0fdbL})
+    void cosineDefaultLowMarginThresholdApplied(final long seed) {
+        final SplittableRandom rnd = new SplittableRandom(seed);
+        // Tight blob along (+x); two candidate centroids both near (+x), differing only on the
+        // y axis, so cosine margins (cos(v, own) - cos(v, secondBest)) are uniformly tiny and
+        // many of them fall below the cosine-default 0.02 lowMarginThreshold.
+        final List<RealVector> vectors = oneDirection(rnd, 600);
+
+        final PartitionEvaluator.Partition<RealVector> current = singleClusterPartition(vectors);
+        final List<RealVector> twoCentroids = ImmutableList.of(
+                unit(new double[] {1.0d,  0.05d, 0.0d}),
+                unit(new double[] {1.0d, -0.05d, 0.0d}));
+        final PartitionEvaluator.Partition<RealVector> candidate =
+                nearestPartition(twoCentroids, vectors, COSINE);
+
+        // lowMarginThreshold = -1 triggers the cosine default of 0.02; maxLowMarginRate = 0.10
+        // is strict enough that "many tiny margins" trips the low-margin hard reject. This
+        // proves both (a) the cosine arm of computeMargin produces sensible numbers and (b) the
+        // cosine-default threshold is in fact applied.
+        final PartitionEvaluator.Parameters strict = new PartitionEvaluator.Parameters(
+                COSINE,
+                /*minRelativeSseGain*/ -10.0d,
+                /*minSeparation*/ 0.0d,
+                /*maxLowMarginRate*/ 0.10d,
+                /*minSmallestFrac*/ 0.0d,
+                /*maxLargestFrac*/ 1.0d,
+                /*lowMarginThreshold*/ -1.0d,
+                /*alphaSseGain*/ 1.0d, /*betaSeparationGain*/ 1.0d,
+                /*gammaImbalancePenalty*/ 1.0d, /*deltaLowMarginPenalty*/ 1.0d,
+                /*minScoreGain*/ -10.0d);
+
+        final PartitionEvaluator.EvaluationResult result =
+                PartitionEvaluator.evaluate(vectors, current, vectors, candidate,
+                        Lens.identity(), strict);
+
+        logger.info("cosine default low-margin: {} reason='{}', lowMarginRate={}",
+                result.decision(), result.reason(), result.candidateStats().lowMarginRate());
+        assertThat(result.candidateStats().lowMarginRate()).isGreaterThan(0.10d);
+        assertThat(result.decision()).isEqualTo(PartitionEvaluator.Decision.KEEP_CURRENT);
+        assertThat(result.reason()).contains("low-margin rate too high");
+    }
+
+    // ============================================================================================
     // helpers
     // ============================================================================================
 
@@ -440,6 +573,48 @@ class PartitionEvaluatorTest {
             for (int i = 0; i < nPer; i++) {
                 result.add(KMeansTestHelpers.gaussianND(rnd, m, 1.0d));
             }
+        }
+        Collections.shuffle(result, new Random(rnd.nextLong()));
+        return result;
+    }
+
+    /**
+     * Returns the L2-normalized form of the given components as a {@link RealVector}. Convenience
+     * for constructing unit-norm centroids in cosine-metric tests.
+     */
+    @Nonnull
+    private static RealVector unit(@Nonnull final double[] components) {
+        return new DoubleRealVector(components).normalize();
+    }
+
+    /**
+     * Cosine analogue of {@link #oneBlob}: a single tight cluster of noisy unit vectors around the
+     * {@code (+x)} direction.
+     */
+    @Nonnull
+    private static List<RealVector> oneDirection(@Nonnull final SplittableRandom rnd, final int n) {
+        final RealVector m = unit(new double[] {1.0d, 0.0d, 0.0d});
+        final List<RealVector> result = Lists.newArrayListWithCapacity(n);
+        for (int i = 0; i < n; i++) {
+            result.add(KMeansTestHelpers.noisyUnitVector(rnd, m, 0.1d));
+        }
+        return result;
+    }
+
+    /**
+     * Cosine analogue of {@link #twoBlobs}: two clusters of noisy unit vectors around orthogonal
+     * unit directions {@code (+x)} and {@code (+y)}.
+     */
+    @Nonnull
+    private static List<RealVector> twoDirections(@Nonnull final SplittableRandom rnd, final int nPer) {
+        final RealVector m0 = unit(new double[] {1.0d, 0.0d, 0.0d});
+        final RealVector m1 = unit(new double[] {0.0d, 1.0d, 0.0d});
+        final List<RealVector> result = Lists.newArrayListWithCapacity(2 * nPer);
+        for (int i = 0; i < nPer; i++) {
+            result.add(KMeansTestHelpers.noisyUnitVector(rnd, m0, 0.1d));
+        }
+        for (int i = 0; i < nPer; i++) {
+            result.add(KMeansTestHelpers.noisyUnitVector(rnd, m1, 0.1d));
         }
         Collections.shuffle(result, new Random(rnd.nextLong()));
         return result;
