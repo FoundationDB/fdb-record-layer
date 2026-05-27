@@ -62,6 +62,7 @@ test_block:
       - query: select sum(cnt) from (select count(*) as cnt, template_name, template_version from schemas
           group by template_name, template_version having template_name = 'TEST_TEMPLATE_1') as t;
       - explain: "AISCAN(TEMPLATES_COUNT_INDEX [EQUALS promote(@c28 AS STRING)] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: VALUE:[0]]) | MAP ((_._2 AS CNT, _._0 AS TEMPLATE_NAME, _._1 AS TEMPLATE_VERSION) AS _0) | AGG (sum_l(_._0.CNT) AS _0) GROUP BY () | ON EMPTY NULL | MAP (_._0._0 AS _0)"
+      - resultMetadata: [{_0: BIGINT}]
       - result: [{4}]
     -
       # How many schemas with the specified schemaTemplateName and schemaTemplateVersion exist in this cluster?
@@ -72,6 +73,7 @@ test_block:
       - query: select sum(cnt) from (select count(*) as cnt, template_name, template_version from schemas
           group by template_name, template_version having template_name = 'TEST_TEMPLATE_1' and template_version = 1) as t;
       - explain: "AISCAN(TEMPLATES_COUNT_INDEX [EQUALS promote(@c28 AS STRING), EQUALS promote(@c32 AS INT)] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: VALUE:[0]]) | MAP ((_._2 AS CNT, _._0 AS TEMPLATE_NAME, _._1 AS TEMPLATE_VERSION) AS _0) | AGG (sum_l(_._0.CNT) AS _0) GROUP BY () | ON EMPTY NULL | MAP (_._0._0 AS _0)"
+      - resultMetadata: [{_0: BIGINT}]
       - result: [{4}]
     -
       # how many unique templates in a cluster?
@@ -94,6 +96,7 @@ test_block:
       - explainContains: 'COVERING(TEMPLATES_VALUE_INDEX'
     -
       - query: select database_id, schema_name from schemas where template_name = 'TEST_TEMPLATE_1';
+      - resultMetadata: [{DATABASE_ID: STRING}, {SCHEMA_NAME: STRING}]
       - result: [{/FRL/TEST_DB_1, S_11}, {/FRL/TEST_DB_1, S_12}, {/FRL/TEST_DB_2, S_21}, {/FRL/TEST_DB_2, S_22}]
     -
       # which schemas have the specified schemaTemplateName and a schemaTemplateVersion lower than X?
@@ -101,9 +104,11 @@ test_block:
       - explainContains: 'COVERING(TEMPLATES_VALUE_INDEX'
     -
       - query: select database_id, schema_name from schemas where template_name = 'TEST_TEMPLATE_1' and template_version < 2;
+      - resultMetadata: [{DATABASE_ID: STRING}, {SCHEMA_NAME: STRING}]
       - result: [{/FRL/TEST_DB_1, S_11}, {/FRL/TEST_DB_1, S_12}, {/FRL/TEST_DB_2, S_21}, {/FRL/TEST_DB_2, S_22}]
     -
       - query: select database_id, schema_name from schemas where template_name = 'TEST_TEMPLATE_1' and template_version < 1;
+      - resultMetadata: [{DATABASE_ID: STRING}, {SCHEMA_NAME: STRING}]
       - result: []
 ---
 setup:

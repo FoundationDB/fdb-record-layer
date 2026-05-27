@@ -88,15 +88,19 @@ test_block:
       - unorderedResult: [{!null _}, {!null _}, {0}, {1}, {2}]
     - # WHERE CARDINALITY() IS NULL on a nullable array column matches only the row with NULL array.
       - query: SELECT "id" FROM "tab1" WHERE CARDINALITY("int_arr") IS NULL
+      - resultMetadata: [{id: INTEGER}]
       - unorderedResult: [{id: 0}]
     - # WHERE CARDINALITY() IS NOT NULL on a nullable array column matches all non-NULL rows (including the empty array).
       - query: SELECT "id" FROM "tab1" WHERE CARDINALITY("int_arr") IS NOT NULL
+      - resultMetadata: [{id: INTEGER}]
       - unorderedResult: [{id: 1}, {id: 2}, {id: 3}]
     - # WHERE CARDINALITY() IS NULL on a NOT-NULL array column returns no rows.
       - query: SELECT "id" FROM "tab1_nn" WHERE CARDINALITY("int_arr") IS NULL
+      - resultMetadata: [{id: INTEGER}]
       - unorderedResult: []
     - # WHERE CARDINALITY() IS NOT NULL on a NOT-NULL array column matches all rows.
       - query: SELECT "id" FROM "tab1_nn" WHERE CARDINALITY("int_arr") IS NOT NULL
+      - resultMetadata: [{id: INTEGER}]
       - unorderedResult: [{id: 1}, {id: 2}, {id: 3}]
 ---
 test_block:
@@ -114,8 +118,10 @@ test_block:
     - # Just `SELECT "id"`, no CARDINALITY() involved.
       - query: SELECT "id" FROM "tab1_indexed_nn"
       - explain: "COVERING(tab1_indexed_nn_index <,> -> [id: KEY:[2]]) | MAP (_.id AS id)"
+      - resultMetadata: [{id: INTEGER}]
       - unorderedResult: [{id: 1}, {id: 2}, {id: 3}]
     - - query: SELECT "id" FROM "tab1_indexed"
+    - resultMetadata: [{id: INTEGER}]
       - explain: "COVERING(tab1_indexed_index <,> -> [id: KEY:[2]]) | MAP (_.id AS id)"
       - unorderedResult: [{id: 0}, {id: 1}, {id: 2}, {id: 3}]
     - # Just `SELECT "id", CARDINALITY()`.
@@ -126,20 +132,25 @@ test_block:
       - resultMetadata: [{id: INTEGER}, {card: INTEGER}]
       - unorderedResult: [{id: 1, card: 0}, {id: 2, card: 1}, {id: 3, card: 2}]
     - - query: SELECT "id", CARDINALITY("int_arr") AS "card" FROM "tab1_indexed"
+    - resultMetadata: [{id: INTEGER}, {card: INTEGER}]
       - explain: "ISCAN(tab1_indexed_index <,>) | MAP (_.id AS id, cardinality(_.int_arr) AS card)"
       - unorderedResult: [{id: 0, card: !null _}, {id: 1, card: 0}, {id: 2, card: 1}, {id: 3, card: 2}]
     - # SELECT + ORDER BY "id", which is not compatible with the index order.
       - query: SELECT "id" FROM "tab1_indexed_nn" ORDER BY "id" DESC
       - explain: "SCAN([IS tab1_indexed_nn]) | MAP (_.id AS id)"
+      - resultMetadata: [{id: INTEGER}]
       - result: [{id: 3}, {id: 2}, {id: 1}]
     - - query: SELECT "id" FROM "tab1_indexed" ORDER BY "id" DESC
+    - resultMetadata: [{id: INTEGER}]
       - explain: "SCAN([IS tab1_indexed]) | MAP (_.id AS id)"
       - result: [{id: 3}, {id: 2}, {id: 1}, {id: 0}]
     - # SELECT + ORDER BY CARDINALITY(), which is compatible with the index order.
       - query: SELECT "id" FROM "tab1_indexed_nn" ORDER BY CARDINALITY("int_arr") DESC
       - explain: "ISCAN(tab1_indexed_nn_index <,> REVERSE) | MAP (_.id AS id, cardinality(_.int_arr) AS _1) | MAP (_.id AS id)"
+      - resultMetadata: [{id: INTEGER}]
       - result: [{id: 3}, {id: 2}, {id: 1}]
     - - query: SELECT "id" FROM "tab1_indexed" ORDER BY CARDINALITY("int_arr") DESC
+    - resultMetadata: [{id: INTEGER}]
       - explain: "ISCAN(tab1_indexed_index <,> REVERSE) | MAP (_.id AS id, cardinality(_.int_arr) AS _1) | MAP (_.id AS id)"
       - result: [{id: 3}, {id: 2}, {id: 1}, {id: 0}]
     - # SELECT + ORDER BY CARDINALITY(), but also include the CARDINALITY() in the target list.
@@ -154,23 +165,29 @@ test_block:
     - # SELECT + WHERE CARDINALITY(). The index is leveraged to evaluate the predicate.
       - query: SELECT "id" FROM "tab1_indexed_nn" WHERE CARDINALITY("int_arr") = 1
       - explain: "COVERING(tab1_indexed_nn_index [EQUALS promote(@c10 AS INT)] -> [id: KEY:[2]]) | MAP (_.id AS id)"
+      - resultMetadata: [{id: INTEGER}]
       - result: [{id: 2}]
     - - query: SELECT "id" FROM "tab1_indexed" WHERE CARDINALITY("int_arr") = 1
+    - resultMetadata: [{id: INTEGER}]
       - explain: "COVERING(tab1_indexed_index [EQUALS promote(@c10 AS INT)] -> [id: KEY:[2]]) | MAP (_.id AS id)"
       - result: [{id: 2}]
     - # SELECT + WHERE CARDINALITY() IS [NOT] NULL. The index should be leveraged for the predicate.
       - query: SELECT "id" FROM "tab1_indexed" WHERE CARDINALITY("int_arr") IS NULL
       - explain: "COVERING(tab1_indexed_index [[null],[null]] -> [id: KEY:[2]]) | MAP (_.id AS id)"
+      - resultMetadata: [{id: INTEGER}]
       - unorderedResult: [{id: 0}]
     - - query: SELECT "id" FROM "tab1_indexed" WHERE CARDINALITY("int_arr") IS NOT NULL
+    - resultMetadata: [{id: INTEGER}]
       - explain: "COVERING(tab1_indexed_index ([null],> -> [id: KEY:[2]]) | MAP (_.id AS id)"
       - unorderedResult: [{id: 1}, {id: 2}, {id: 3}]
     - - query: SELECT "id" FROM "tab1_indexed_nn" WHERE CARDINALITY("int_arr") IS NULL
+    - resultMetadata: [{id: INTEGER}]
       # Future optimization: The planner emits a `[null]` range scan despite the NOT NULL constraint. If it considered
       # the constraint it could simplify the predicate to a constant FALSE/TRUE at plan time.
       - explain: "COVERING(tab1_indexed_nn_index [[null],[null]] -> [id: KEY:[2]]) | MAP (_.id AS id)"
       - unorderedResult: []
     - - query: SELECT "id" FROM "tab1_indexed_nn" WHERE CARDINALITY("int_arr") IS NOT NULL
+    - resultMetadata: [{id: INTEGER}]
       - explain: "COVERING(tab1_indexed_nn_index ([null],> -> [id: KEY:[2]]) | MAP (_.id AS id)"
       - unorderedResult: [{id: 1}, {id: 2}, {id: 3}]
     - # WHERE CARDINALITY() = NULL. By SQL semantics this should always return 0 rows (the predicate evaluates to
@@ -179,15 +196,19 @@ test_block:
       # mapped to an IS NULL index range scan. The tests below document the current behavior. See also Issue #4170.
       - query: SELECT "id" FROM "tab1" WHERE CARDINALITY("int_arr") = NULL
       - explain: "SCAN([IS tab1]) | FILTER null | MAP (_.id AS id)"
+      - resultMetadata: [{id: INTEGER}]
       - unorderedResult: []
     - - query: SELECT "id" FROM "tab1_nn" WHERE CARDINALITY("int_arr") = NULL
+    - resultMetadata: [{id: INTEGER}]
       - explain: "SCAN([IS tab1_nn]) | FILTER null | MAP (_.id AS id)"
       - unorderedResult: []
     - # TODO Issue #4170: This should return [].
       - query: SELECT "id" FROM "tab1_indexed" WHERE CARDINALITY("int_arr") = NULL
       - explain: "COVERING(tab1_indexed_index [EQUALS NULL] -> [id: KEY:[2]]) | MAP (_.id AS id)"
+      - resultMetadata: [{id: INTEGER}]
       - unorderedResult: [{id: 0}]
     - - query: SELECT "id" FROM "tab1_indexed_nn" WHERE CARDINALITY("int_arr") = NULL
+    - resultMetadata: [{id: INTEGER}]
       - explain: "COVERING(tab1_indexed_nn_index [EQUALS NULL] -> [id: KEY:[2]]) | MAP (_.id AS id)"
       - unorderedResult: []
     - # SELECT + WHERE + ORDER BY.

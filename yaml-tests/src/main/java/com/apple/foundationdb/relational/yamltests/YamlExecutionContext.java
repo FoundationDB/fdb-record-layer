@@ -527,8 +527,12 @@ public final class YamlExecutionContext {
             final String itemPrefix = " ".repeat(indentOf(lines.get(queryLineIdx)));
             // Scan forward past any query-string continuation lines to find the first config entry
             // at the same indentation level, and insert the explain line before it.
-            final int insertIdx = findInsertionPoint(lines, queryLineIdx + 1, itemPrefix,
+            // supported_version must remain the first config after query, so skip past it if present.
+            final int firstConfigIdx = findInsertionPoint(lines, queryLineIdx + 1, itemPrefix,
                     line -> line.startsWith(itemPrefix + "- "));
+            final int insertIdx = (firstConfigIdx < lines.size() && lines.get(firstConfigIdx).startsWith(itemPrefix + "- supported_version:"))
+                    ? findInsertionPoint(lines, firstConfigIdx + 1, itemPrefix, line -> line.startsWith(itemPrefix + "- "))
+                    : firstConfigIdx;
             lines.add(insertIdx, itemPrefix + "- explain: \"" + actual + "\"");
         }
     }

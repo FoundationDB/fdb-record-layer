@@ -30,6 +30,7 @@ test_block:
   tests:
     -
       - query: select b from lb
+      - resultMetadata: [{B: BINARY}]
       - result: [ { x'deadbeef'}, { x'cafe' }, { !null } ]
     -
       - query: select x'0' from lb where a = 1
@@ -42,38 +43,48 @@ test_block:
       - error: INVALID_BINARY_REPRESENTATION
     -
       - query: select a from lb where b = x'cafe'
+      - resultMetadata: [{A: BIGINT}]
       - result: [ { 2 } ]
     -
       - query: select a from lb where b IN (x'cafe', x'deadbeef')
+      - resultMetadata: [{A: BIGINT}]
       - unorderedResult: [ { 1 }, { 2 } ]
     -
       - query: select a from lb where b <> x'cafe'
+      - resultMetadata: [{A: BIGINT}]
       - unorderedResult: [ { 1 } ]
     -
       - query: select a from lb where b IS NULL
+      - resultMetadata: [{A: BIGINT}]
       - unorderedResult: [ { 3 } ]
     -
       - query: select a from lb where b IS NOT NULL
+      - resultMetadata: [{A: BIGINT}]
       - unorderedResult: [ { 1 }, { 2 } ]
     -
       - query: select a from lb where b = null
       - supported_version: 4.9.6.0
+      - resultMetadata: [{A: BIGINT}]
       - result: []
     -
       - query: select a from lb where b is not distinct from null
       - supported_version: 4.9.6.0
+      - resultMetadata: [{A: BIGINT}]
       - result: [ { 3 } ]
     -
       - query: select a from lb where b is distinct from null
       - supported_version: 4.9.6.0
+      - resultMetadata: [{A: BIGINT}]
       - unorderedResult: [ { 1 }, { 2 } ]
 ---
 test_block:
   tests:
     -
       - query: select x'' from lb where a = 1
+      - resultMetadata: [{_0: BINARY}]
       - result: [ {x''} ]
     -
       - query: select x'0ff1ce' from lb where a = 1
+      - resultMetadata: [{_0: BINARY}]
       - result: [ {x'0ff1ce'}]
 ...

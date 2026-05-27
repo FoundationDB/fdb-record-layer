@@ -47,6 +47,7 @@ test_block:
       - count: 3
     -
       - query: SELECT * FROM A_NOT_NULL
+      - resultMetadata: [{PK: INTEGER}, {X: {array: INTEGER}}]
       - result: [{0, []}, {1, [1]}, {2, [1, 2]}]
     -
       # INSERT + basic SELECT for a nullable INTEGER ARRAY, including a NULL array value.
@@ -56,6 +57,7 @@ test_block:
     -
       - query: SELECT * FROM A_NULL
       - supported_version: 4.11.1.0
+      - resultMetadata: [{PK: INTEGER}, {X: {array: INTEGER}}]
       - result: [{-1, !null _}, {0, []}, {1, [1]}, {2, [1, 2]}]
     -
       # INSERT + basic SELECT for a nullable INTEGER ARRAY.
@@ -78,6 +80,7 @@ test_block:
     -
       - query: SELECT * FROM A
       - supported_version: 4.11.1.0
+      - resultMetadata: [{PK: INTEGER}, {X: {array: INTEGER}}]
       - result: [{-1, !null _}, {0, []}, {1, [1, 2, 3]}, {2, [2, 3, 4]}, {3, [3, 4, 5]}]
     -
       # INSERT for a nullable STRING ARRAY.
@@ -104,6 +107,7 @@ test_block:
     -
       - query: select x from c
       - supported_version: 4.11.1.0
+      - resultMetadata: [{X: {array: DOUBLE}}]
       - result: [{!null _}, {[1.1, 2.1, 3.1]}, {[2.1, 3.1, 4.1]}, {[3.1, 4.1, 5.1]}]
     -
       # INSERT for an ARRAY of a 1-element STRUCT type.
@@ -150,6 +154,7 @@ test_block:
       # Note: `"new"` should not be quoted here and below! TODO [Post] Fix identifiers case-sensitivity matching in plan generator
       - query: UPDATE A_NOT_NULL SET X = [11, 12, 13] WHERE PK = 1 RETURNING "new".X
       - supported_version: 4.11.1.0
+      - resultMetadata: [{X: {array: INTEGER}}]
       - result: [{[11, 12, 13]}]
     -
       # UPDATE for a nullable INTEGER ARRAY.
@@ -164,21 +169,25 @@ test_block:
       # UPDATE nullable array to empty array.
       - query: UPDATE A SET X = CAST([] AS INTEGER ARRAY) WHERE PK = 0 RETURNING "new".X
       - supported_version: 4.11.1.0
+      - resultMetadata: [{X: {array: INTEGER}}]
       - result: [{[]}]
     -
       # UPDATE nullable array to NULL.
       - query: UPDATE A SET X = NULL WHERE PK = -1 RETURNING "new".X
       - supported_version: 4.11.1.0
+      - resultMetadata: [{X: {array: INTEGER}}]
       - result: [{!null _}]
     -
       # UPDATE NOT NULL array to empty array.
       - query: UPDATE A_NOT_NULL SET X = CAST([] AS INTEGER ARRAY) WHERE PK = 1 RETURNING "new".X
       - supported_version: 4.11.1.0
+      - resultMetadata: [{X: {array: INTEGER}}]
       - result: [{[]}]
     -
       # UPDATE explicitly-nullable column from NULL to non-null array.
       - query: UPDATE A_NULL SET X = [99] WHERE PK = -1 RETURNING "new".X
       - supported_version: 4.11.1.0
+      - resultMetadata: [{X: {array: INTEGER}}]
       - result: [{[99]}]
     -
       - query: select X[3] from A where PK = 1

@@ -65,18 +65,21 @@ test_block:
   tests:
     -
       - query: with c1 as (select col1, col2 from Table1) select col1, col2 from c1
+      - resultMetadata: [{col1: BIGINT}, {col2: BIGINT}]
       - unorderedResult: [{COL1: 10, COL2: 1},
                           {COL1: 10, COL2: 2},
                           {COL1: 20, COL2: 6},
                           {COL1: 20, COL2: 7}]
     -
       - query: select * from Table1, TaBlE1 where col1 = 10
+      - resultMetadata: [{id: BIGINT}, {col1: BIGINT}, {col2: BIGINT}, {x: BIGINT}, {y: STRING}]
       - unorderedResult: [{ID: 1, COL1: 10, COL2: 1, X: 1, Y: 'foo'},
                           {ID: 2, COL1: 10, COL2: 2, X: 1, Y: 'foo'},
                           {ID: 1, COL1: 10, COL2: 1, X: 2, Y: 'bar'},
                           {ID: 2, COL1: 10, COL2: 2, X: 2, Y: 'bar'}]
     -
       - query: select * from "Table1", "TaBlE1" where "col1" = 10
+      - resultMetadata: [{id: BIGINT}, {col1: BIGINT}, {col2: BIGINT}, {x: BIGINT}, {y: STRING}]
       - unorderedResult: [{ID: 1, COL1: 10, COL2: 1, X: 1, Y: 'foo'},
                           {ID: 2, COL1: 10, COL2: 2, X: 1, Y: 'foo'},
                           {ID: 1, COL1: 10, COL2: 1, X: 2, Y: 'bar'},
@@ -86,6 +89,7 @@ test_block:
       - error: UNDEFINED_TABLE
     -
       - query: select * from TABLE2
+      - resultMetadata: [{a: BIGINT}, {b: STRING}]
       - unorderedResult: [{A: 10, B: 'blah'},
                           {A: 20, B: 'bleh'}]
 ---
@@ -98,9 +102,11 @@ test_block:
   tests:
     -
       - query: select * from f2(0)
+      - resultMetadata: [{x: BIGINT}, {col2: BIGINT}]
       - unorderedResult: [{x: 10, col2: 1}]
     -
       - query: select * from F2(0)
+      - resultMetadata: [{X: BIGINT}, {col2: BIGINT}]
       - unorderedResult: [{X: 110, col2: 1}]
 ---
 test_block:
@@ -118,22 +124,26 @@ test_block:
       - error: UNDEFINED_COLUMN
     -
       - query: with c1 as (select "col1", "col2" from "Table1") select "col1", "col2" from c1
+      - resultMetadata: [{col1: BIGINT}, {col2: BIGINT}]
       - unorderedResult: [{COL1: 10, COL2: 1},
                           {COL1: 10, COL2: 2},
                           {COL1: 20, COL2: 6},
                           {COL1: 20, COL2: 7}]
     -
       - query: select * from "Table1", "TaBlE1" where "col1" = 10
+      - resultMetadata: [{id: BIGINT}, {col1: BIGINT}, {col2: BIGINT}, {x: BIGINT}, {y: STRING}]
       - unorderedResult: [{ID: 1, COL1: 10, COL2: 1, X: 1, Y: 'foo'},
                           {ID: 2, COL1: 10, COL2: 2, X: 1, Y: 'foo'},
                           {ID: 1, COL1: 10, COL2: 1, X: 2, Y: 'bar'},
                           {ID: 2, COL1: 10, COL2: 2, X: 2, Y: 'bar'}]
     -
       - query: select * from "TABLE2"
+      - resultMetadata: [{a: BIGINT}, {b: STRING}]
       - unorderedResult: [{A: 10, B: 'blah'},
                           {A: 20, B: 'bleh'}]
     -
       - query: select * from TABLE2
+      - resultMetadata: [{a: BIGINT}, {b: STRING}]
       - unorderedResult: [{A: 10, B: 'blah'},
                           {A: 20, B: 'bleh'}]
 # when case-sensitivity is off, identifiers are upper-cased, so the following query works, however
@@ -141,11 +151,13 @@ test_block:
 # since CASE_SENSITIVE_IDENTIFIERS was set to 'true' when it was created.
     -
       - query: select * from table2
+      - resultMetadata: [{a: BIGINT}, {b: STRING}]
       - unorderedResult: [{A: 10, B: 'blah'},
                           {A: 20, B: 'bleh'}]
     -
 # it is still possible, though, to query the table in case-sensitive.
       - query: select * from "table2"
+      - resultMetadata: [{id: BIGINT}, {col1: BIGINT}, {col2: BIGINT}]
       - unorderedResult: [{ID: 10, COL1: 100, COL2: 10},
                           {ID: 20, COL1: 100, COL2: 20},
                           {ID: 60, COL1: 200, COL2: 60},

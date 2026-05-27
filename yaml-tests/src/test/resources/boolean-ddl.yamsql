@@ -39,5 +39,6 @@ test_block:
     -
       # Just confirm the table is usable.
       - query: SELECT "col1" FROM T ORDER BY "col1"
+      - resultMetadata: [{col1: INTEGER}]
       - result: [{col1: 100}]
 ...

@@ -48,24 +48,30 @@ test_block:
   tests:
     -
       - query: select * from t1 WHERE col2 BETWEEN 4 AND 6
+      - resultMetadata: [{ID: INTEGER}, {COL1: INTEGER}, {COL2: INTEGER}]
       - result: [{ID: 4, 10, 4}, {ID: 5, 10, 5}, {ID: 6, 20, 6}]
     -
       - query: select * from t1 WHERE col2 BETWEEN 4 AND 4
+      - resultMetadata: [{ID: INTEGER}, {COL1: INTEGER}, {COL2: INTEGER}]
       - result: [{ID: 4, 10, 4}]
     -
       - query: select * from t1 WHERE col2 BETWEEN 4 AND 3
+      - resultMetadata: [{ID: INTEGER}, {COL1: INTEGER}, {COL2: INTEGER}]
       - result: []
     -
       - query: select * from t1 WHERE col2 NOT BETWEEN 2 AND 12
+      - resultMetadata: [{ID: INTEGER}, {COL1: INTEGER}, {COL2: INTEGER}]
       - result: [{ID: 1, 10, 1}, {ID: 13, 30, 13}]
     -
       - query: select * from t1 WHERE col2 NOT BETWEEN 12 AND 2
+      - resultMetadata: [{ID: INTEGER}, {COL1: INTEGER}, {COL2: INTEGER}]
       - result: [
               {ID: 1, 10, 1}, {ID: 2, 10, 2}, {ID: 3, 10, 3}, {ID: 4, 10, 4}, {ID: 5, 10, 5},
               {ID: 6, 20, 6}, {ID: 7, 20, 7}, {ID: 8, 20, 8}, {ID: 9, 20, 9}, {ID: 10, 20, 10},
               {ID: 11, 30, 11}, {ID: 12, 30, 12}, {ID: 13, 30, 13}]
     -
       - query: select * from t1 WHERE col2 BETWEEN 2 AND 4 OR col2 BETWEEN 6 AND 7
+      - resultMetadata: [{ID: INTEGER}, {COL1: INTEGER}, {COL2: INTEGER}]
       - result: [{ID: 2, 10, 2}, {ID: 3, 10, 3}, {ID: 4, 10, 4}, {ID: 6, 20, 6}, {ID: 7, 20, 7}]
 
 ---
@@ -75,18 +81,21 @@ test_block:
     -
       - query: select * from t1 WHERE col1 BETWEEN 10 AND 10
       - explain: "ISCAN(I1 [[GREATER_THAN_OR_EQUALS promote(@c7 AS INT) && LESS_THAN_OR_EQUALS promote(@c7 AS INT)]])"
+      - resultMetadata: [{ID: INTEGER}, {COL1: INTEGER}, {COL2: INTEGER}]
       - result: [
               {ID: 1, 10, 1}, {ID: 2, 10, 2}, {ID: 3, 10, 3}, {ID: 4, 10, 4}, {ID: 5, 10, 5}
       ]
     -
       - query: select * from t1 WHERE col1 + 5 BETWEEN 10 AND 20
       - explain: "ISCAN(I1 <,>) | FILTER _.COL1 + @c7 GREATER_THAN_OR_EQUALS promote(@c9 AS INT) AND _.COL1 + @c7 LESS_THAN_OR_EQUALS promote(@c11 AS INT)"
+      - resultMetadata: [{ID: INTEGER}, {COL1: INTEGER}, {COL2: INTEGER}]
       - result: [
               {ID: 1, 10, 1}, {ID: 2, 10, 2}, {ID: 3, 10, 3}, {ID: 4, 10, 4}, {ID: 5, 10, 5}
       ]
     -
       - query: select * from t1 WHERE col1 + 5 NOT BETWEEN 10 AND 20
       - explain: "ISCAN(I1 <,>) | FILTER _.COL1 + @c7 LESS_THAN promote(@c10 AS INT) OR _.COL1 + @c7 GREATER_THAN promote(@c12 AS INT)"
+      - resultMetadata: [{ID: INTEGER}, {COL1: INTEGER}, {COL2: INTEGER}]
       - result: [
               {ID: 6, 20, 6}, {ID: 7, 20, 7}, {ID: 8, 20, 8}, {ID: 9, 20, 9}, {ID: 10, 20, 10},
               {ID: 11, 30, 11}, {ID: 12, 30, 12}, {ID: 13, 30, 13}
@@ -114,15 +123,19 @@ test_block:
   tests:
     -
       - query: select * from t1 WHERE col2 BETWEEN 4 AND 6.2
+      - resultMetadata: [{ID: INTEGER}, {COL1: INTEGER}, {COL2: INTEGER}]
       - result: [{ID: 4, 10, 4}, {ID: 5, 10, 5}, {ID: 6, 20, 6}]
     -
       - query: select * from t1 WHERE col2 BETWEEN 4.0 AND 6
+      - resultMetadata: [{ID: INTEGER}, {COL1: INTEGER}, {COL2: INTEGER}]
       - result: [{ID: 4, 10, 4}, {ID: 5, 10, 5}, {ID: 6, 20, 6}]
     -
       - query: select * from t1 WHERE col2 BETWEEN 4.1 AND 6
+      - resultMetadata: [{ID: INTEGER}, {COL1: INTEGER}, {COL2: INTEGER}]
       - result: [{ID: 5, 10, 5}, {ID: 6, 20, 6}]
     -
       - query: select count(*) from t1 WHERE 4.5 BETWEEN 4 AND 6
+      - resultMetadata: [{_0: BIGINT}]
       - result: [{13}]
 ---
 test_block:
@@ -130,6 +143,7 @@ test_block:
   tests:
     -
       - query: select count(*) from t1 WHERE 2+2 BETWEEN 1+1 AND 3+3
+      - resultMetadata: [{_0: BIGINT}]
       - result: [{13}]
 ---
 test_block:
@@ -137,20 +151,26 @@ test_block:
   tests:
     -
       - query: select count(*) from t1 WHERE null BETWEEN 1 AND 2
+      - resultMetadata: [{_0: BIGINT}]
       - result: [{0}]
     -
       - query: select count(*) from t1 WHERE col2 BETWEEN null AND 2
+      - resultMetadata: [{_0: BIGINT}]
       - result: [{0}]
     -
       - query: select count(*) from t1 WHERE col2 BETWEEN 1 AND null
+      - resultMetadata: [{_0: BIGINT}]
       - result: [{0}]
     -
       - query: select count(*) from t1 WHERE null NOT BETWEEN 1 AND 2
+      - resultMetadata: [{_0: BIGINT}]
       - result: [{0}]
     -
       - query: select count(*) from t1 WHERE col2 NOT BETWEEN null AND 2
+      - resultMetadata: [{_0: BIGINT}]
       - result: [{11}]
     -
       - query: select count(*) from t1 WHERE col2 NOT BETWEEN 1 AND null
+      - resultMetadata: [{_0: BIGINT}]
       - result: [{0}]
 ...

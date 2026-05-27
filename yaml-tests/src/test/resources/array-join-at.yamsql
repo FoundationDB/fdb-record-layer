@@ -45,6 +45,7 @@ test_block:
       - query: SELECT "id", "val" FROM T1, T1."arr1" AS "val" ORDER BY "id"
       - explain: "SCAN([IS T1]) | FLATMAP q0 -> { EXPLODE q0.arr1 AS q1 RETURN (q0.id AS id, q1 AS val) }"
                                                 # ^ Notice the absence of WITH ORDINALITY here.
+      - resultMetadata: [{id: BIGINT}, {val: INTEGER}]
       - unorderedResult: [
           {id: 1, val: 101},
           {id: 2, val: 201},
@@ -74,6 +75,7 @@ test_block:
     -
       # Leaving out the optional AS keyword in `T1."arr1" AS "val" AT "at"`.
       - query: SELECT T1."id", "val", "at" FROM T1, T1."arr1" "val" AT "at"
+      - resultMetadata: [{id: BIGINT}, {val: INTEGER}, {at: INTEGER}]
       - unorderedResult: [
           {id: 1, val: 101, at: 1},
           {id: 2, val: 201, at: 1},
@@ -82,6 +84,7 @@ test_block:
     -
       # With `SELECT *`, the star expansion includes both the AS field and the AT field.
       - query: SELECT "id", "val", "at" FROM (SELECT * FROM T1, T1."arr1" AS "val" AT "at") AS subquery
+      - resultMetadata: [{id: BIGINT}, {val: INTEGER}, {at: INTEGER}]
       - unorderedResult: [
           {id: 1, val: 101, at: 1},
           {id: 2, val: 201, at: 1},
@@ -105,6 +108,7 @@ test_block:
                  FROM (SELECT "id" + 100 AS "id", "arr1" FROM T1) AS "subquery",
                       "subquery"."arr1" AS "val" AT "at"
       - explain: "SCAN([IS T1]) | FLATMAP q0 -> { EXPLODE q0.arr1 WITH ORDINALITY AS q1 RETURN (q0.id + @c17 - @c17 AS id, q1._1 AS at, q1._0 AS val) }"
+      - resultMetadata: [{id: BIGINT}, {at: INTEGER}, {val: INTEGER}]
       - unorderedResult: [
           {id: 1, at: 1, val: 101},
           {id: 2, at: 1, val: 201},
@@ -116,6 +120,7 @@ test_block:
                  FROM VALUES (1, [101]), (2, [201, 202, 203]) AS "values" ("id", "arr"),
                       "values"."arr" AS "val" AT "at"
       - explain: "EXPLODE array((@c11 AS id, array(@c14) AS arr), (@c19 AS id, array(@c22, @c24, @c26) AS arr)) | FLATMAP q0 -> { EXPLODE q0.arr WITH ORDINALITY AS q1 RETURN (q0.id AS id, q1._0 AS val, q1._1 AS at) }"
+      - resultMetadata: [{id: INTEGER}, {val: INTEGER}, {at: INTEGER}]
       - unorderedResult: [
           {id: 1, val: 101, at: 1},
           {id: 2, val: 201, at: 1},
@@ -124,18 +129,21 @@ test_block:
     -
       # Unnesting with AT on specifically the NULL array (from T1) produces no rows.
       - query: SELECT "id", "val", "at" FROM T1, T1."arr1" AS "val" AT "at" WHERE T1."id" = 3
+      - resultMetadata: [{id: BIGINT}, {val: INTEGER}, {at: INTEGER}]
       - unorderedResult: []
     -
       # Unnesting with AT on specifically the NULL array (from VALUES) produces no rows.
       - query: SELECT "id", "val", "at"
                  FROM VALUES (1, CAST(NULL AS INTEGER ARRAY)) AS "values" ("id", "arr"),
                       "values"."arr" AS "val" AT "at"
+      - resultMetadata: [{id: INTEGER}, {val: INTEGER}, {at: INTEGER}]
       - unorderedResult: []
     -
       # Unnesting with AT on specifically the [] array (from VALUES) produces no rows.
       - query: SELECT "id", "val", "at"
                  FROM VALUES (1, CAST([] AS INTEGER ARRAY)) AS "values" ("id", "arr"),
                       "values"."arr" AS "val" AT "at"
+      - resultMetadata: [{id: INTEGER}, {val: INTEGER}, {at: INTEGER}]
       - unorderedResult: []
     -
       # The AT index is an INTEGER and can be used in arithmetic expressions.
@@ -152,6 +160,7 @@ test_block:
       # element’s ordinal is its 1-based position in the original array, not its rank among the filtered rows.
       - query: SELECT "id", "val", "at" FROM T1, T1."arr1_nn" AS "val" AT "at" WHERE "val" > 201
       - explain: "SCAN([IS T1]) | FLATMAP q0 -> { EXPLODE q0.arr1_nn WITH ORDINALITY | FILTER _._0 GREATER_THAN promote(@c19 AS INT) AS q1 RETURN (q0.id AS id, q1._0 AS val, q1._1 AS at) }"
+      - resultMetadata: [{id: BIGINT}, {val: INTEGER}, {at: INTEGER}]
       - unorderedResult: [
           {id: 2, val: 202, at: 2},
           {id: 2, val: 203, at: 3},
@@ -160,6 +169,7 @@ test_block:
       # Unnesting with AT and a WHERE filter on the AT value.
       - query: SELECT "id", "val", "at" FROM T1, T1."arr1_nn" AS "val" AT "at" WHERE "at" + 1 = 3
       - explain: "SCAN([IS T1]) | FLATMAP q0 -> { EXPLODE q0.arr1_nn WITH ORDINALITY | FILTER _._1 + @c19 EQUALS promote(@c21 AS INT) AS q1 RETURN (q0.id AS id, q1._0 AS val, q1._1 AS at) }"
+      - resultMetadata: [{id: BIGINT}, {val: INTEGER}, {at: INTEGER}]
       - unorderedResult: [
           {id: 2, val: 202, at: 2}]
     -
@@ -206,6 +216,7 @@ test_block:
       # unnesting of two arrays within the same row.
       - query: SELECT "id", "at", "arr1_val", T1."arr1_nn"["at"] AS "arr1_nn_val" FROM T1, T1."arr1" AS "arr1_val" AT "at"
       - explain: "SCAN([IS T1]) | FLATMAP q0 -> { EXPLODE q0.arr1 WITH ORDINALITY AS q1 RETURN (q0.id AS id, q1._1 AS at, q1._0 AS arr1_val, q0.arr1_nn[q1._1> AS arr1_nn_val) }"
+      - resultMetadata: [{id: BIGINT}, {at: INTEGER}, {arr1_val: INTEGER}, {arr1_nn_val: INTEGER}]
       - unorderedResult: [
           {id: 1, at: 1, arr1_val: 101, arr1_nn_val: 101},
           {id: 2, at: 1, arr1_val: 201, arr1_nn_val: 201},
@@ -245,6 +256,7 @@ test_block:
       # Struct array with AT. The alias "val" refers to struct S1, and its fields are accessed via qualified names.
       - query: SELECT "id", "val"."a" AS "a", "val"."b" AS "b", "at"
                  FROM T3, T3."arr" AS "val" AT "at"
+      - resultMetadata: [{id: BIGINT}, {a: INTEGER}, {b: STRING}, {at: INTEGER}]
       - unorderedResult: [
           {id: 1, a: 10, b: 's11', at: 1},
           {id: 1, a: 11, b: 's12', at: 2},
@@ -265,6 +277,7 @@ test_block:
                       T2."arr1" AS "val1" AT "at1",
                       T2."arr2" AS "val2"
       - explain: "SCAN([IS T2]) | FLATMAP q0 -> { EXPLODE q0.arr2 | FLATMAP q1 -> { EXPLODE q0.arr1 WITH ORDINALITY AS q2 RETURN (q2 AS _0, q1 AS _1) } AS q3 RETURN (q0.id AS id, q3._0._0 AS val1, q3._0._1 AS at1, q3._1 AS val2) }"
+      - resultMetadata: [{id: BIGINT}, {val1: INTEGER}, {at1: INTEGER}, {val2: INTEGER}]
       - unorderedResult: [
           {id: 1, val1: 110, at1: 1, val2: 120},
           {id: 1, val1: 110, at1: 1, val2: 121},
@@ -284,6 +297,7 @@ test_block:
       - query: SELECT "val", "at"
                  FROM VALUES (1, ['s12', 's12', 's13']) AS "values" ("id", "arr"),
                       "values"."arr" AS "val" AT "at"
+      - resultMetadata: [{val: STRING}, {at: INTEGER}]
       - unorderedResult: [
           {val: 's12', at: 1},
           {val: 's12', at: 2},
@@ -306,6 +320,7 @@ test_block:
                  FROM T1, T1."arr1_nn" AS "val" AT "at"
                 WHERE T1."id" IN (1, 2)
       - explain: "[IN arrayDistinct(promote(@c21 AS ARRAY(LONG)))] | INJOIN q0 -> { SCAN([IS T1, EQUALS q0]) | FLATMAP q1 -> { EXPLODE q1.arr1_nn WITH ORDINALITY AS q2 RETURN (q1.id AS id, q2._0 AS val, q2._1 AS at) } }"
+      - resultMetadata: [{id: BIGINT}, {val: INTEGER}, {at: INTEGER}]
       - unorderedResult: [
           {id: 1, val: 101, at: 1},
           {id: 2, val: 201, at: 1},

@@ -35,14 +35,17 @@ test_block:
   tests:
     -
       - query: select cast([ arr[1] + arr[2], arr[2] + arr[3] ] as string array) from test_cast_arrays
+      - resultMetadata: [{_0: {array: STRING}}]
       - result: [{['3', '5']}, {['110', '1100']}]
     -
       - query: select CAST([1, 2, 3] AS STRING ARRAY) from test_cast where id = 1
       - explain: "SCAN([IS TEST_CAST, EQUALS promote(@c19 AS LONG)]) | MAP (CAST(array(@c19, @c6, @c8) AS ARRAY(STRING)) AS _0)"
+      - resultMetadata: [{_0: {array: STRING}}]
       - result: [{['1', '2', '3']}]
     -
       - query: select CAST([] AS STRING ARRAY) from test_cast where id = 1
       - explain: "SCAN([IS TEST_CAST, EQUALS promote(@c14 AS LONG)]) | MAP (array() AS _0)"
+      - resultMetadata: [{_0: {array: STRING}}]
       - result: [{[]}]
     -
       - query: select [] from test_cast where id = 1
@@ -51,44 +54,53 @@ test_block:
       # Array casting: INT array to DOUBLE array
       - query: select CAST([1, 2, 3] AS DOUBLE ARRAY) from test_cast where id = 1
       - explain: "SCAN([IS TEST_CAST, EQUALS promote(@c19 AS LONG)]) | MAP (CAST(array(@c19, @c6, @c8) AS ARRAY(DOUBLE)) AS _0)"
+      - resultMetadata: [{_0: {array: DOUBLE}}]
       - result: [{[1.0, 2.0, 3.0]}]
     -
       # Array casting: DOUBLE array to INT array
       - query: select CAST([1.2d, 4.3d, 5.9d] AS INTEGER ARRAY) from test_cast where id = 1
       - explain: "SCAN([IS TEST_CAST, EQUALS promote(@c19 AS LONG)]) | MAP (CAST(array(@c4, @c6, @c8) AS ARRAY(INT)) AS _0)"
+      - resultMetadata: [{_0: {array: INTEGER}}]
       - result: [{[1, 4, 6]}]
     -
       # Array casting: FLOAT array to INT array
       - query: select CAST([80.90f, 25.76f, 16.7f] AS INTEGER ARRAY) from test_cast where id = 1
       - explain: "SCAN([IS TEST_CAST, EQUALS promote(@c19 AS LONG)]) | MAP (CAST(array(@c4, @c6, @c8) AS ARRAY(INT)) AS _0)"
+      - resultMetadata: [{_0: {array: INTEGER}}]
       - result: [{[81, 26, 17]}]
     -
       # Array casting: STRING array to INT array
       - query: select CAST(['42', '100', '7'] AS INTEGER ARRAY) from test_cast where id = 1
       - explain: "SCAN([IS TEST_CAST, EQUALS promote(@c19 AS LONG)]) | MAP (CAST(array(@c4, @c6, @c8) AS ARRAY(INT)) AS _0)"
+      - resultMetadata: [{_0: {array: INTEGER}}]
       - result: [{[42, 100, 7]}]
     -
       # Array casting: BOOLEAN array to INT array
       - query: select CAST([true, false, true] AS INTEGER ARRAY) from test_cast where id = 1
       - explain: "SCAN([IS TEST_CAST, EQUALS promote(@c19 AS LONG)]) | MAP (CAST(array(@c4, @c6, @c4) AS ARRAY(INT)) AS _0)"
+      - resultMetadata: [{_0: {array: INTEGER}}]
       - result: [{[1, 0, 1]}]
     -
       # Array casting: INT array to BOOLEAN array (non-zero = true, zero = false)
       - query: select CAST([1, 0, 42] AS BOOLEAN ARRAY) from test_cast where id = 1
       - explain: "SCAN([IS TEST_CAST, EQUALS promote(@c19 AS LONG)]) | MAP (CAST(array(@c19, @c6, @c8) AS ARRAY(BOOLEAN)) AS _0)"
+      - resultMetadata: [{_0: {array: BOOLEAN}}]
       - result: [{[true, false, true]}]
     -
       # Array casting: Empty array to different types
       - query: select CAST([] AS INTEGER ARRAY) from test_cast where id = 1
       - explain: "SCAN([IS TEST_CAST, EQUALS promote(@c14 AS LONG)]) | MAP (array() AS _0)"
+      - resultMetadata: [{_0: {array: INTEGER}}]
       - result: [{[]}]
     -
       - query: select CAST([] AS DOUBLE ARRAY) from test_cast where id = 1
       - explain: "SCAN([IS TEST_CAST, EQUALS promote(@c14 AS LONG)]) | MAP (array() AS _0)"
+      - resultMetadata: [{_0: {array: DOUBLE}}]
       - result: [{[]}]
     -
       - query: select CAST([] AS BOOLEAN ARRAY) from test_cast where id = 1
       - explain: "SCAN([IS TEST_CAST, EQUALS promote(@c14 AS LONG)]) | MAP (array() AS _0)"
+      - resultMetadata: [{_0: {array: BOOLEAN}}]
       - result: [{[]}]
 #    -
       # Array casting: Arrays with null elements, enable this once we have support for adding `null` elements in arrays.
@@ -104,11 +116,13 @@ test_block:
       # Array casting: Same type (should be identity)
       - query: select CAST([1, 2, 3] AS INTEGER ARRAY) from test_cast where id = 1
       - explain: "SCAN([IS TEST_CAST, EQUALS promote(@c19 AS LONG)]) | MAP (array(@c19, @c6, @c8) AS _0)"
+      - resultMetadata: [{_0: {array: INTEGER}}]
       - result: [{[1, 2, 3]}]
     -
       # Array casting: Large arrays
       - query: select CAST([1, 2, 3, 4, 5, 6, 7, 8, 9, 10] AS STRING ARRAY) from test_cast where id = 1
       - explain: "SCAN([IS TEST_CAST, EQUALS promote(@c33 AS LONG)]) | MAP (CAST(array(@c33, @c6, @c8, @c10, @c12, @c14, @c16, @c18, @c20, @c22) AS ARRAY(STRING)) AS _0)"
+      - resultMetadata: [{_0: {array: STRING}}]
       - result: [{['1', '2', '3', '4', '5', '6', '7', '8', '9', '10']}]
     -
       # Array casting: Invalid string to number conversion (should error)
@@ -121,57 +135,69 @@ test_block:
     -
       - query: select CAST(num_col AS STRING) as casted_value from test_cast where id = 1
       - explain: "SCAN([IS TEST_CAST, EQUALS promote(@c14 AS LONG)]) | MAP (CAST(_.NUM_COL AS STRING) AS CASTED_VALUE)"
+      - resultMetadata: [{CASTED_VALUE: STRING}]
       - result: [{'123'}]
     -
       - query: select CAST(num_col AS DOUBLE) as casted_value from test_cast where id = 1
       - explain: "SCAN([IS TEST_CAST, EQUALS promote(@c14 AS LONG)]) | MAP (CAST(_.NUM_COL AS DOUBLE) AS CASTED_VALUE)"
+      - resultMetadata: [{CASTED_VALUE: DOUBLE}]
       - result: [{123.0}]
     -
       - query: select CAST(bool_col AS INTEGER) as casted_value from test_cast where id = 1
       - explain: "SCAN([IS TEST_CAST, EQUALS promote(@c14 AS LONG)]) | MAP (CAST(_.BOOL_COL AS INT) AS CASTED_VALUE)"
+      - resultMetadata: [{CASTED_VALUE: INTEGER}]
       - result: [{1}]
     -
       - query: select CAST(bool_col AS INTEGER) as casted_value from test_cast where id = 2
       - explain: "SCAN([IS TEST_CAST, EQUALS promote(@c14 AS LONG)]) | MAP (CAST(_.BOOL_COL AS INT) AS CASTED_VALUE)"
+      - resultMetadata: [{CASTED_VALUE: INTEGER}]
       - result: [{0}]
     -
       - query: select CAST(str_col AS INTEGER) as casted_value from test_cast where id = 3
       - explain: "SCAN([IS TEST_CAST, EQUALS promote(@c14 AS LONG)]) | MAP (CAST(_.STR_COL AS INT) AS CASTED_VALUE)"
+      - resultMetadata: [{CASTED_VALUE: INTEGER}]
       - result: [{123}]
     -
       # Nested CAST expressions
       - query: select CAST(CAST(CAST(num_col AS STRING) AS INTEGER) AS DOUBLE) as nested_cast from test_cast where id = 1
       - explain: "SCAN([IS TEST_CAST, EQUALS promote(@c24 AS LONG)]) | MAP (CAST(CAST(CAST(_.NUM_COL AS STRING) AS INT) AS DOUBLE) AS NESTED_CAST)"
+      - resultMetadata: [{NESTED_CAST: DOUBLE}]
       - result: [{123.0}]
     -
       # CAST with arithmetic operations
       - query: select CAST(num_col AS DOUBLE) * 2.5 as cast_arithmetic from test_cast where id = 1
       - explain: "SCAN([IS TEST_CAST, EQUALS promote(@c16 AS LONG)]) | MAP (CAST(_.NUM_COL AS DOUBLE) * @c8 AS CAST_ARITHMETIC)"
+      - resultMetadata: [{CAST_ARITHMETIC: DOUBLE}]
       - result: [{307.5}]
     -
       # CAST in arithmetic expression
       - query: select CAST(num_col AS BIGINT) + CAST(456 AS BIGINT) as cast_sum from test_cast where id = 1
       - explain: "SCAN([IS TEST_CAST, EQUALS promote(@c21 AS LONG)]) | MAP (CAST(_.NUM_COL AS LONG) + CAST(@c10 AS LONG) AS CAST_SUM)"
+      - resultMetadata: [{CAST_SUM: BIGINT}]
       - result: [{579}]
     -
       # CAST with CASE expression
       - query: select CASE WHEN CAST(bool_col AS INTEGER) = 1 THEN 'TRUE_CASE' ELSE 'FALSE_CASE' END as cast_case from test_cast where id = 1
       - explain: "SCAN([IS TEST_CAST, EQUALS promote(@c23 AS LONG)]) | MAP (pick(ConditionSelector(CAST(_.BOOL_COL AS INT) equals @c23, TRUE), @c12, @c14) AS CAST_CASE)"
+      - resultMetadata: [{CAST_CASE: STRING}]
       - result: [{'TRUE_CASE'}]
     -
       # Multiple CAST operations in WHERE clause
       - query: select id from test_cast where CAST(num_col AS STRING) = CAST(123 AS STRING)
       - explain: "SCAN([IS TEST_CAST]) | FILTER CAST(_.NUM_COL AS STRING) EQUALS CAST(@c14 AS STRING) | MAP (_.ID AS ID)"
+      - resultMetadata: [{ID: BIGINT}]
       - result: [{1}]
     -
       # CAST with boolean arithmetic and comparison
       - query: select id from test_cast where CAST(bool_col AS INTEGER) + 1 > 1
       - explain: "SCAN([IS TEST_CAST]) | FILTER CAST(_.BOOL_COL AS INT) + @c12 GREATER_THAN promote(@c12 AS INT) | MAP (_.ID AS ID)"
+      - resultMetadata: [{ID: BIGINT}]
       - result: [{1}]
     -
       # CAST with aggregation
       - query: select SUM(CAST(num_col AS DOUBLE)) as total from test_cast
       - explain: "SCAN([IS TEST_CAST]) | MAP (_ AS _0) | AGG (sum_d(CAST(_._0.NUM_COL AS DOUBLE)) AS _0) GROUP BY () | ON EMPTY NULL | MAP (_._0._0 AS TOTAL)"
+      - resultMetadata: [{TOTAL: DOUBLE}]
       - result: [{1368.0}]
     -
       # LONG to INT overflow (should throw error)
@@ -185,6 +211,7 @@ test_block:
       - initialVersionLessThan: 4.9.6.0
       - error: UNKNOWN
       - initialVersionAtLeast: 4.9.6.0
+      - resultMetadata: [{A: INTEGER}, {B: BIGINT}, {C: STRING}, {D: DOUBLE}, {E: BOOLEAN}, {F: STRING}]
       - result: [
           { A: !null _, B: !null _, C: !null _, D: !null _, E: !null _, F: !null _ },
           { A: !null _, B: !null _, C: !null _, D: !null _, E: !null _, F: !null _ },
@@ -197,23 +224,27 @@ test_block:
       - initialVersionLessThan: 4.9.6.0
       - error: UNKNOWN
       - initialVersionAtLeast: 4.9.6.0
+      - resultMetadata: [{_0: OTHER}]
       - result: [{ !null _ }, { !null _ }]
     -
       # Floats are only supported starting with 4.9.6.0 because the JDBC façade was missing support for them
       - query: select cast(null as float) from values (1), (2) as X(X)
       - supported_version: 4.9.6.0
       - explain: "EXPLODE array((@c10 AS X), (@c14 AS X)) | MAP (CAST(NULL AS FLOAT) AS _0)"
+      - resultMetadata: [{_0: FLOAT}]
       - result: [{ !null _ }, { !null _ }]
     -
       # Bytes are only supported starting with 4.9.6.0 because CastValue was missing a PhysicalOperator for them
       - query: select cast(null as bytes) from values (1), (2) as X(X)
       - supported_version: 4.9.6.0
       - explain: "EXPLODE array((@c10 AS X), (@c14 AS X)) | MAP (CAST(NULL AS BYTES) AS _0)"
+      - resultMetadata: [{_0: BINARY}]
       - result: [{ !null _ }, { !null _ }]
     -
       - query: select cast(null as vector(10, half)) as a, cast(null as vector(15, float)) as b, cast(null as vector(30, double)) as c from values (1), (2) as X(X)
       - supported_version: 4.9.6.0
       - explain: "EXPLODE array((@c45 AS X), (@c49 AS X)) | MAP (CAST(NULL AS VECTOR(16, 10)) AS A, CAST(NULL AS VECTOR(32, 15)) AS B, CAST(NULL AS VECTOR(64, 30)) AS C)"
+      - resultMetadata: [{A: OTHER}, {B: OTHER}, {C: OTHER}]
       - result: [
           { A: !null _, B: !null _, C: !null _ },
           { A: !null _, B: !null _, C: !null _ },
@@ -224,6 +255,7 @@ test_block:
       - initialVersionLessThan: 4.9.6.0
       - error: UNKNOWN
       - initialVersionAtLeast: 4.9.6.0
+      - resultMetadata: [{A: {array: INTEGER}}, {B: {array: BIGINT}}, {C: {array: STRING}}, {D: {array: DOUBLE}}, {E: {array: BOOLEAN}}, {F: {array: STRING}}]
       - result: [
           { A: !null _, B: !null _, C: !null _, D: !null _, E: !null _, F: !null _, },
           { A: !null _, B: !null _, C: !null _, D: !null _, E: !null _, F: !null _, },
@@ -236,6 +268,7 @@ test_block:
       - initialVersionLessThan: 4.9.6.0
       - error: UNKNOWN
       - initialVersionAtLeast: 4.9.6.0
+      - resultMetadata: [{_0: {array: OTHER}}]
       - result: [{ !null _ }, { !null _ }]
     -
       # Unlike float scalars, float arrays are supported on versions older than 4.9.6.0 when continuing
@@ -244,6 +277,7 @@ test_block:
       - initialVersionLessThan: 4.9.6.0
       - error: UNKNOWN
       - initialVersionAtLeast: 4.9.6.0
+      - resultMetadata: [{_0: {array: FLOAT}}]
       - result: [{ !null _ }, { !null _ }]
     -
       # Arrays of bytes are supported when continuing as they use a different physical operator from scalar bytes fields
@@ -252,6 +286,7 @@ test_block:
       - initialVersionLessThan: 4.9.6.0
       - error: UNKNOWN
       - initialVersionAtLeast: 4.9.6.0
+      - resultMetadata: [{_0: {array: BINARY}}]
       - result: [{ !null _ }, { !null _ }]
     -
       - query: select cast(null as vector(10, half) array) as a, cast(null as vector(15, float) array) as b, cast(null as vector(30, double) array) as c from values (1), (2) as X(X)
@@ -259,6 +294,7 @@ test_block:
       - initialVersionLessThan: 4.9.6.0
       - error: UNKNOWN
       - initialVersionAtLeast: 4.9.6.0
+      - resultMetadata: [{A: {array: OTHER}}, {B: {array: OTHER}}, {C: {array: OTHER}}]
       - result: [
           { A: !null _, B: !null _, C: !null _ },
           { A: !null _, B: !null _, C: !null _ },

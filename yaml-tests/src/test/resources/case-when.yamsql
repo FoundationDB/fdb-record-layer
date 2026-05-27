@@ -37,6 +37,7 @@ test_block:
   tests:
     -
       - query: select * from A;
+      - resultMetadata: [{A1: BIGINT}, {A2: BIGINT}, {A3: BIGINT}]
       - result: [ { A1: 1, A2: 10, A3: 10 },
                   { A1: 2, A2: 11, A3: 20 },
                   { A1: 3, A2: 12, A3: 30 } ]
@@ -45,17 +46,20 @@ test_block:
   tests:
     -
       - query: select a3, case when a3 > 15 then 'foo' else 'bar' end from A;
+      - resultMetadata: [{A3: BIGINT}, {_1: STRING}]
       - result: [ { A3: 10, 'bar' },
                   { A3: 20, 'foo' },
                   { A3: 30, 'foo' } ]
     -
       - query: select b2, case when b2 then 'foo' else 'bar' end from b;
       - supported_version: 4.3.5.0
+      - resultMetadata: [{B2: BOOLEAN}, {_1: STRING}]
       - result: [ { B2: true, 'foo' },
                   { B2: false, 'bar' } ]
     -
       - query: select a3, case when a3 > 15 then 10 else 3.14 end from A;
       - supported_version: 4.3.5.0
+      - resultMetadata: [{A3: BIGINT}, {_1: DOUBLE}]
       - result: [ { A3: 10, 3.14 },
                   { A3: 20, 10.0 },
                   { A3: 30, 10.0 } ]
@@ -68,6 +72,7 @@ test_block:
   tests:
     -
       - query: select * from A;
+      - resultMetadata: [{A1: BIGINT}, {A2: BIGINT}, {A3: BIGINT}]
       - result: [ { A1: 1, A2: 4444, A3: 10 },
                   { A1: 2, A2: !null x, A3: 20 },
                   { A1: 3, A2: !null x, A3: 30 } ]
@@ -80,6 +85,7 @@ test_block:
   tests:
     -
       - query: select * from A;
+      - resultMetadata: [{A1: BIGINT}, {A2: BIGINT}, {A3: BIGINT}]
       - result: [ { A1: 1, A2: 2222, A3: 10 },
                   { A1: 2, A2: 8888, A3: 20 },
                   { A1: 3, A2: 8888, A3: 30 } ]
@@ -92,6 +98,7 @@ test_block:
   tests:
     -
       - query: select * from A;
+      - resultMetadata: [{A1: BIGINT}, {A2: BIGINT}, {A3: BIGINT}]
       - result: [ { A1: 1, A2: 4444, A3: 10 },
                   { A1: 2, A2: 6666, A3: 20 },
                   { A1: 3, A2: 6666, A3: 30 } ]

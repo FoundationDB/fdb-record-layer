@@ -640,6 +640,7 @@ test_block:
     -
       - query: select sum(col3) from T2 group by col2
       - explain: "AISCAN(MV21 <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[2], _3: VALUE:[0]]) | AGG sum_l(_._3) GROUP BY (_._0 AS _0) | MAP (_._3 AS _0)"
+      - resultMetadata: [{_0: BIGINT}]
       - result: [{!l 1504}, {!l 202}]
     -
       # The aggregate index MV21 can't be used as the query's grouping value is not a prefix of the index grouping values.
@@ -654,6 +655,7 @@ test_block:
        # of the index grouping values.
       - query: select col1, col2, sum(col3) as s from T2 group by col1, col2
       - explain: "AISCAN(MV21 <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[2], _3: VALUE:[0]]) | AGG sum_l(_._3) GROUP BY (_._0 AS _0, _._1 AS _1) | MAP (_._1 AS COL1, _._0 AS COL2, _._3 AS S)"
+      - resultMetadata: [{COL1: BIGINT}, {COL2: BIGINT}, {S: BIGINT}]
       - unorderedResult: [{col1: 1, col2: 1, s: 101},
                           {col1: 1, col2: 2, s: 202},
                           {col1: 2, col2: 1, s: 1403}]
@@ -662,6 +664,7 @@ test_block:
       # grouping due to the equality predicate) are subsumed by a prefix of the index grouping values.
       - query: select col1, sum(col3) as s from T2 where col2 = 2 group by col1
       - explain: "AISCAN(MV21 [EQUALS promote(@c14 AS LONG)] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[2], _3: VALUE:[0]]) | AGG sum_l(_._3) GROUP BY (_._0 AS _0, _._1 AS _1) | MAP (_._1 AS COL1, _._3 AS S)"
+      - resultMetadata: [{COL1: BIGINT}, {S: BIGINT}]
       - unorderedResult: [{col1: 1, s: 202}]
     -
       # TODO: It should have been possible to use the aggregate index MV21 here as the query's grouping value is a prefix
@@ -669,12 +672,14 @@ test_block:
       #       applying a roll-up, which will be tackled as part of https://github.com/FoundationDB/fdb-record-layer/issues/4115.
       - query: select col2, sum(col3) as s from T2 where col3 = 200 group by col2
       - explain: "ISCAN(VI2 <,>) | FILTER _.COL3 EQUALS promote(@c14 AS LONG) | MAP (_ AS _0) | AGG (sum_l(_._0.COL3) AS _0) GROUP BY (_._0.COL2 AS _0) | MAP (_._0._0 AS COL2, _._1._0 AS S)"
+      - resultMetadata: [{COL2: BIGINT}, {S: BIGINT}]
       - unorderedResult: [ { col2: 1, s: 200 }, { col2: 2, s: 200 } ]
     -
       # The aggregate index MV21 can't be used here as the query's requested ordering is not compatible with the
       # index's ordering.
       - query: select col1, col2, sum(col3) as s from T2 group by col1, col2 order by col1, col2
       - explain: "ISCAN(MV2 <,>) | MAP (_ AS _0) | AGG (sum_l(_._0.COL3) AS _0) GROUP BY (_._0.COL1 AS _0, _._0.COL2 AS _1) | MAP (_._0._0 AS COL1, _._0._1 AS COL2, _._1._0 AS S)"
+      - resultMetadata: [{COL1: BIGINT}, {COL2: BIGINT}, {S: BIGINT}]
       - unorderedResult: [{col1: 1, col2: 1, s: 101},
                           {col1: 1, col2: 2, s: 202},
                           {col1: 2, col2: 1, s: 1403}]
@@ -683,6 +688,7 @@ test_block:
       # implicitly grouped by col2 due to the equality predicate on it.
       - query: select sum(col3) as s from T2 where col2 = 2
       - explain: "AISCAN(MV21 [EQUALS promote(@c12 AS LONG)] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[2], _3: VALUE:[0]]) | AGG sum_l(_._3) GROUP BY (_._0 AS _0) | MAP ((_._3 AS _0) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS S)"
+      - resultMetadata: [{S: BIGINT}]
       - unorderedResult: [{s: 202}]
     -
       # Even though the aggregate index will be rolled-up to col2 because of the implicit grouping produced by the equality
@@ -693,15 +699,18 @@ test_block:
       # A sum aggregate that matches no records should return null
       - query: select sum(col3) as s from T2 where col2 = 90
       - explain: "AISCAN(MV21 [EQUALS promote(@c12 AS LONG)] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[2], _3: VALUE:[0]]) | AGG sum_l(_._3) GROUP BY (_._0 AS _0) | MAP ((_._3 AS _0) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS S)"
+      - resultMetadata: [{S: BIGINT}]
       - unorderedResult: [{s: !null _}]
     -
       - query: select sum(col3) from T2;
       - explain: "AISCAN(MV21 <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[2], _3: VALUE:[0]]) | AGG sum_l(_._3) GROUP BY () | MAP ((_._3 AS _0) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)"
+      - resultMetadata: [{_0: BIGINT}]
       - result: [{!l 1706}]
     -
       # Permuted max index with fan-out grouping element over nested repeated field (t6/mv20)
       - query: select a, ek.k, b, max(d) from t6, (select k from t6.c) as ek group by a, ek.k, b
       - explain: "AISCAN(MV20 <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[2]]) | MAP (_._0 AS A, _._1 AS K, _._2 AS B, _._3 AS _3)"
+      - resultMetadata: [{A: BIGINT}, {K: STRING}, {B: BIGINT}, {_3: BIGINT}]
       - result: [{a: 1, k: 'p', b: 10, _3: 150},
                  {a: 1, k: 'q', b: 10, _3: 150},
                  {a: 1, k: 'r', b: 10, _3: 100},
@@ -713,12 +722,14 @@ test_block:
       # Filter on a uses the leading key of the permuted max index
       - query: select ek.k, b, max(d) from t6, (select k from t6.c) as ek where a = 1 group by a, ek.k, b
       - explain: "AISCAN(MV20 [EQUALS promote(@c27 AS LONG)] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[2]]) | MAP (_._1 AS K, _._2 AS B, _._3 AS _2)"
+      - resultMetadata: [{K: STRING}, {B: BIGINT}, {_2: BIGINT}]
       - result: [{k: 'p', b: 10, _2: 150},
                  {k: 'q', b: 10, _2: 150},
                  {k: 'r', b: 10, _2: 100}]
     -
       - query: select ek.k, b, max(d) from t6, (select k from t6.c) as ek where a = 2 group by ek.k, b
       - explain: "AISCAN(MV20 [EQUALS promote(@c27 AS LONG)] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[2]]) | MAP (_._1 AS K, _._2 AS B, _._3 AS _2)"
+      - resultMetadata: [{K: STRING}, {B: BIGINT}, {_2: BIGINT}]
       - result: [{k: 'p', b: 10, _2:  50},
                  {k: 'q', b: 10, _2:  50},
                  {k: 'q', b: 20, _2: 400},
@@ -726,27 +737,32 @@ test_block:
     -
       - query: select ek.k, b, max(d) from t6, (select k from t6.c where k = 'q') as ek where a = 2 group by a, ek.k, b
       - explain: "AISCAN(MV20 [EQUALS promote(@c31 AS LONG), EQUALS promote(@c24 AS STRING)] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[2]]) | MAP (_._1 AS K, _._2 AS B, _._3 AS _2)"
+      - resultMetadata: [{K: STRING}, {B: BIGINT}, {_2: BIGINT}]
       - result: [{k: 'q', b: 10, _2:  50},
                  {k: 'q', b: 20, _2: 400}]
     -
       - query: select b, max(d) from t6, (select k from t6.c where k = 'q') as ek where a = 2 group by b
       - explain: "AISCAN(MV20 [EQUALS promote(@c27 AS LONG), EQUALS promote(@c20 AS STRING)] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[2]]) | MAP (_._2 AS B, _._3 AS _1)"
+      - resultMetadata: [{B: BIGINT}, {_1: BIGINT}]
       - result: [{b: 10, _1:  50},
                   {b: 20, _1: 400}]
     -
       - query: select b, max(d) from t6, (select k from t6.c where k = 'q') as ek where a = 2 group by b order by max(d)
       - explain: "AISCAN(MV20 [EQUALS promote(@c27 AS LONG), EQUALS promote(@c20 AS STRING)] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[2]]) | MAP (_._2 AS B, _._3 AS _1)"
+      - resultMetadata: [{B: BIGINT}, {_1: BIGINT}]
       - result: [{b: 10, _1:  50},
                   {b: 20, _1: 400}]
     -
       - query: select b, max(d) from t6, (select k from t6.c where k = 'q') as ek where a = 2 group by b order by max(d) desc
       - explain: "AISCAN(MV20 [EQUALS promote(@c27 AS LONG), EQUALS promote(@c20 AS STRING)] BY_GROUP REVERSE -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[2]]) | MAP (_._2 AS B, _._3 AS _1)"
+      - resultMetadata: [{B: BIGINT}, {_1: BIGINT}]
       - result: [{b: 20, _1: 400},
                   {b: 10, _1:  50}]
     -
       # HAVING on the aggregate — keep only groups where max(d) > 100
       - query: select a, ek.k, b, max(d) from t6, (select k from t6.c) as ek group by a, ek.k, b having max(d) > 100
       - explain: "AISCAN(MV20 <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[2]]) | FILTER _._3 GREATER_THAN promote(@c41 AS LONG) | MAP (_._0 AS A, _._1 AS K, _._2 AS B, _._3 AS _3)"
+      - resultMetadata: [{A: BIGINT}, {K: STRING}, {B: BIGINT}, {_3: BIGINT}]
       - result: [{a: 1, k: 'p', b: 10, _3: 150},
                  {a: 1, k: 'q', b: 10, _3: 150},
                  {a: 2, k: 'q', b: 20, _3: 400},
@@ -755,12 +771,14 @@ test_block:
       # WHERE on outer + HAVING on aggregate
       - query: select ek.k, b, max(d) from t6, (select k from t6.c) as ek where a = 1 group by a, ek.k, b having max(d) >= 150
       - explain: "AISCAN(MV20 [EQUALS promote(@c27 AS LONG)] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[2]]) | FILTER _._3 GREATER_THAN_OR_EQUALS promote(@c44 AS LONG) | MAP (_._1 AS K, _._2 AS B, _._3 AS _2)"
+      - resultMetadata: [{K: STRING}, {B: BIGINT}, {_2: BIGINT}]
       - result: [{k: 'p', b: 10, _2: 150},
                  {k: 'q', b: 10, _2: 150}]
     -
       # Inner select predicate + HAVING
       - query: select a, ek.k, b, max(d) from t6, (select k from t6.c where k = 'q') as ek group by a, ek.k, b having a = 1 and max(d) > 100
       - explain: "AISCAN(MV20 [EQUALS promote(@c42 AS LONG), EQUALS promote(@c26 AS STRING), [GREATER_THAN promote(@c49 AS LONG)]] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[2]]) | MAP (_._0 AS A, _._1 AS K, _._2 AS B, _._3 AS _3)"
+      - resultMetadata: [{A: BIGINT}, {K: STRING}, {B: BIGINT}, {_3: BIGINT}]
       - result: [{a: 1, k: 'q', b: 10, _3: 150}]
 ---
 transaction_setups:
@@ -782,6 +800,7 @@ test_block:
       - query: select a, ek.k, b, max(d) from "t6v", (select k from "t6v".c) as ek group by a, ek.k, b
       - setupReference: t6_all
       - explain: "AISCAN(MV20 <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[2]]) | MAP (_._0 AS A, _._1 AS K, _._2 AS B, _._3 AS _3)"
+      - resultMetadata: [{A: BIGINT}, {K: STRING}, {B: BIGINT}, {_3: BIGINT}]
       - result: [{a: 1, k: 'p', b: 10, _3: 150},
                  {a: 1, k: 'q', b: 10, _3: 150},
                  {a: 1, k: 'r', b: 10, _3: 100},
@@ -794,6 +813,7 @@ test_block:
       - query: select ek.k, b, max(d) from "t6v", (select k from "t6v".c) as ek group by ek.k, b
       - setupReference: t6_a1
       - explain: "AISCAN(MV20 [EQUALS promote(@ct6v18 AS LONG)] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[2]]) | MAP (_._1 AS K, _._2 AS B, _._3 AS _2)"
+      - resultMetadata: [{K: STRING}, {B: BIGINT}, {_2: BIGINT}]
       - result: [{k: 'p', b: 10, _2: 150},
                  {k: 'q', b: 10, _2: 150},
                  {k: 'r', b: 10, _2: 100}]
@@ -802,6 +822,7 @@ test_block:
       - query: select ek.k, b, max(d) from "t6v", (select k from "t6v".c) as ek group by ek.k, b
       - setupReference: t6_a2
       - explain: "AISCAN(MV20 [EQUALS promote(@ct6v18 AS LONG)] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[2]]) | MAP (_._1 AS K, _._2 AS B, _._3 AS _2)"
+      - resultMetadata: [{K: STRING}, {B: BIGINT}, {_2: BIGINT}]
       - result: [{k: 'p', b: 10, _2:  50},
                  {k: 'q', b: 10, _2:  50},
                  {k: 'q', b: 20, _2: 400},
@@ -811,6 +832,7 @@ test_block:
       - query: select ek.k, b, max(d) from "t6v", (select k from "t6v".c where k = 'q') as ek group by ek.k, b
       - setupReference: t6_a2
       - explain: "AISCAN(MV20 [EQUALS promote(@ct6v18 AS LONG), EQUALS promote(@c24 AS STRING)] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[2]]) | MAP (_._1 AS K, _._2 AS B, _._3 AS _2)"
+      - resultMetadata: [{K: STRING}, {B: BIGINT}, {_2: BIGINT}]
       - result: [{k: 'q', b: 10, _2:  50},
                  {k: 'q', b: 20, _2: 400}]
     -
@@ -818,6 +840,7 @@ test_block:
       - query: select ek.k, b, max(d) from "t6v", (select k from "t6v".c) as ek group by ek.k, b having max(d) >= 150
       - setupReference: t6_a1
       - explain: "AISCAN(MV20 [EQUALS promote(@ct6v18 AS LONG)] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[2]]) | FILTER _._3 GREATER_THAN_OR_EQUALS promote(@c38 AS LONG) | MAP (_._1 AS K, _._2 AS B, _._3 AS _2)"
+      - resultMetadata: [{K: STRING}, {B: BIGINT}, {_2: BIGINT}]
       - result: [{k: 'p', b: 10, _2: 150},
                  {k: 'q', b: 10, _2: 150}]
     -
@@ -825,5 +848,6 @@ test_block:
       - query: select a, ek.k, b, max(d) from "t6v", (select k from "t6v".c where k = 'q') as ek group by a, ek.k, b having max(d) > 100
       - setupReference: t6_a2
       - explain: "AISCAN(MV20 [EQUALS promote(@ct6v18 AS LONG), EQUALS promote(@c26 AS STRING), [GREATER_THAN promote(@c45 AS LONG)]] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[2]]) | MAP (_._0 AS A, _._1 AS K, _._2 AS B, _._3 AS _3)"
+      - resultMetadata: [{A: BIGINT}, {K: STRING}, {B: BIGINT}, {_3: BIGINT}]
       - result: [{a: 2, k: 'q', b: 20, _3: 400}]
 ...

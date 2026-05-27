@@ -30,84 +30,111 @@ test_block:
   tests:
     -
       - query: select lb.* from lb where B = true
+      - resultMetadata: [{A: BIGINT}, {B: BOOLEAN}]
       - result: [ { 1,true } ]
     -
       - query: select lb.* from lb where B = false
+      - resultMetadata: [{A: BIGINT}, {B: BOOLEAN}]
       - result: [ { 2, false } ]
     -
       - query: select lb.* from lb where B <> TRUE
+      - resultMetadata: [{A: BIGINT}, {B: BOOLEAN}]
       - result: [ { 2, false } ]
     -
       - query: select lb.* from lb where B <> FALSE
+      - resultMetadata: [{A: BIGINT}, {B: BOOLEAN}]
       - result: [ { 1, true } ]
     -
       - query: select lb.* from lb where B is true
+      - resultMetadata: [{A: BIGINT}, {B: BOOLEAN}]
       - result: [ { 1,true } ]
     -
       - query: select lb.* from lb where B is false
+      - resultMetadata: [{A: BIGINT}, {B: BOOLEAN}]
       - result: [ { 2,false } ]
     -
       - query: select lb.* from lb where B is null
+      - resultMetadata: [{A: BIGINT}, {B: BOOLEAN}]
       - result: [ { 3, !null } ]
     -
       - query: select lb.* from lb where B is not true
+      - resultMetadata: [{A: BIGINT}, {B: BOOLEAN}]
       - result: [ { A: 2, B: false }, { A: 3, B: !null } ]
     -
       - query: select lb.* from lb where B is not false
+      - resultMetadata: [{A: BIGINT}, {B: BOOLEAN}]
       - result: [ { 1,true }, { 3, !null } ]
     -
       - query: select lb.* from lb where B is not null
+      - resultMetadata: [{A: BIGINT}, {B: BOOLEAN}]
       - result: [ { 1,true }, { 2, false } ]
     -
       - query: select B = true from lb
+      - resultMetadata: [{_0: BOOLEAN}]
       - result: [ { true }, { false }, { !null } ]
     -
       - query: select B = false from lb
+      - resultMetadata: [{_0: BOOLEAN}]
       - result: [ { false }, { true }, { !null } ]
     -
       - query: select B <> TRUE from lb
+      - resultMetadata: [{_0: BOOLEAN}]
       - result: [ { false }, { true }, { !null } ]
     -
       - query: select B <> FALSE from lb
+      - resultMetadata: [{_0: BOOLEAN}]
       - result: [ { true }, { false }, { !null } ]
     -
       - query: select B IS TRUE from lb
+      - resultMetadata: [{_0: BOOLEAN}]
       - result: [ { true }, { false }, { false } ]
     -
       - query: select B IS FALSE from lb
+      - resultMetadata: [{_0: BOOLEAN}]
       - result: [ { false }, { true }, { false} ]
     -
       - query: select B IS NULL FROM lb
+      - resultMetadata: [{_0: BOOLEAN}]
       - result: [ { false }, { false }, { true } ]
     -
       - query: select B IS NOT TRUE from lb
+      - resultMetadata: [{_0: BOOLEAN}]
       - result: [ { false }, { true }, { true } ]
     -
       - query: select B IS NOT FALSE from lb
+      - resultMetadata: [{_0: BOOLEAN}]
       - result: [ { true }, { false }, { true } ]
     -
       - query: select B IS NOT NULL from lb
+      - resultMetadata: [{_0: BOOLEAN}]
       - result: [ { true }, { true }, { false } ]
     -
       - query: select B AND TRUE from lb
+      - resultMetadata: [{_0: BOOLEAN}]
       - result: [ { true }, { false }, { !null } ]
     -
       - query: select B AND FALSE from lb
+      - resultMetadata: [{_0: BOOLEAN}]
       - result: [ { false }, { false }, { false } ]
     -
       - query: select B AND NULL from lb
+      - resultMetadata: [{_0: BOOLEAN}]
       - result: [ { !null }, { false }, { !null } ]
     -
       - query: select B OR TRUE from lb
+      - resultMetadata: [{_0: BOOLEAN}]
       - result: [ { true }, { true }, { true } ]
     -
       - query: select B OR FALSE from lb
+      - resultMetadata: [{_0: BOOLEAN}]
       - result: [ { true }, { false }, { !null } ]
     -
       - query: select B OR NULL from lb
+      - resultMetadata: [{_0: BOOLEAN}]
       - result: [ { true }, { !null }, { !null } ]
     -
       - query: select NOT B from lb
+      - resultMetadata: [{_0: BOOLEAN}]
       - result: [ { false }, { true }, { !null } ]
 ...
 
