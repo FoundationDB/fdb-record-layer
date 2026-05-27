@@ -173,7 +173,7 @@ test_block:
     -
       # Wrapping the unnested scalar into a one-field struct lifts it back into a record type, so `.*` expansion is allowed.
       - query: SELECT "b".* FROM (SELECT "a" FROM VALUES ([1, 2, 3, 4]) AS T("a")) AS "sq", (SELECT ("x") AS wrapped FROM "sq"."a" AS "x") AS "b"
-      - resultMetadata: [{WRAPPED: [__type__019aed3f_0e7f_4920_8288_cf8941a11b35, {x: INTEGER}]}]
+      - resultMetadata: [{WRAPPED: [{x: INTEGER}]}]
       - result: [{wrapped: {1}}, {wrapped: {2}}, {wrapped: {3}}, {wrapped: {4}}]
     -
       # Same .* rejection as above, but on an unnested VECTOR element. VECTOR has no fields to expand.
@@ -184,12 +184,12 @@ test_block:
       # Note: As an alternative to the `AS "wrapped_int"` we might write `AS SQ ("wrapped_int")`, but this is not
       #       possible currently, as the SQL `AS table-alias ( column-alias … )` notation is not yet supported.
       - query: SELECT "id", SQ.* FROM T3, (SELECT ("integer") AS "wrapped_int" FROM T3."integers" AS "integer") AS SQ
-      - resultMetadata: [{id: BIGINT}, {wrapped_int: [__type__17fb39cd_3002_42d0_bac3_16856ae205b4, {integer: INTEGER}]}]
+      - resultMetadata: [{id: BIGINT}, {wrapped_int: [{integer: INTEGER}]}]
       - unorderedResult: [{1, wrapped_int: {101}}, {1, wrapped_int: {102}}, {2, wrapped_int: {201}}, {2, wrapped_int: {202}}]
     -
       # Similar wrapping as in the previous query, but here we don’t even bind an "integer" variable to the unnested
       # integer; instead we refer to it using a nested star (*) expression.
       - query: SELECT "id", SQ.* FROM T3, (SELECT (*) AS "wrapped_int" FROM T3."integers") AS SQ
-      - resultMetadata: [{id: BIGINT}, {wrapped_int: [__type__5a8ab51c_b75d_4527_9313_38cac82c3de6, {integers: INTEGER}]}]
+      - resultMetadata: [{id: BIGINT}, {wrapped_int: [{integers: INTEGER}]}]
       - unorderedResult: [{1, wrapped_int: {101}}, {1, wrapped_int: {102}}, {2, wrapped_int: {201}}, {2, wrapped_int: {202}}]
 ...

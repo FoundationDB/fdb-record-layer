@@ -312,6 +312,10 @@ public class CheckResultMetadataConfig extends QueryConfig {
                                                @Nonnull final ColumnDescriptor actualCol) {
         if (!valueList.isEmpty() && valueList.get(0) instanceof String) {
             final String expectedTypeName = (String)valueList.get(0);
+            // Internal anonymous type names are not user-visible and must not be checked.
+            if (expectedTypeName.startsWith("__type__")) {
+                return valueList.subList(1, valueList.size());
+            }
             if (actualCol.structTypeName == null || !expectedTypeName.equalsIgnoreCase(actualCol.structTypeName)) {
                 return null;
             }

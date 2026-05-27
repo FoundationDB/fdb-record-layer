@@ -253,7 +253,6 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
-    @MaintainYamlTestConfig(YamlTestConfigFilters.ADD_RESULT_METADATA)
     public void copyBasic(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("copy-basic.yamsql");
     }

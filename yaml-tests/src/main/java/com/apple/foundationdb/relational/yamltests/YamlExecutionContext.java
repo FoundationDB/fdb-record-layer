@@ -376,18 +376,22 @@ public final class YamlExecutionContext {
      */
     static String buildInlineDescriptor(@Nonnull final CheckResultMetadataConfig.ColumnDescriptor col) {
         if (col.isArray && col.fields != null) {
-            final String typePrefix = col.structTypeName != null ? col.structTypeName + ", " : "";
+            final String typePrefix = isUserVisibleTypeName(col.structTypeName) ? col.structTypeName + ", " : "";
             final String fields = col.fields.stream().map(YamlExecutionContext::buildInlineDescriptor)
                     .collect(Collectors.joining(", "));
             return "{" + col.name + ": {array: [" + typePrefix + fields + "]}}";
         } else if (col.fields != null) {
-            final String typePrefix = col.structTypeName != null ? col.structTypeName + ", " : "";
+            final String typePrefix = isUserVisibleTypeName(col.structTypeName) ? col.structTypeName + ", " : "";
             final String fields = col.fields.stream().map(YamlExecutionContext::buildInlineDescriptor)
                     .collect(Collectors.joining(", "));
             return "{" + col.name + ": [" + typePrefix + fields + "]}";
         } else {
             return "{" + col.name + ": " + typeNameToInlineValue(col.typeName) + "}";
         }
+    }
+
+    private static boolean isUserVisibleTypeName(@Nullable final String typeName) {
+        return typeName != null && !typeName.startsWith("__type__");
     }
 
     /**
