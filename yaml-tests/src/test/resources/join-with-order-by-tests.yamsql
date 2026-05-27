@@ -211,7 +211,7 @@ test_block:
                 order by x.a2 desc
       - explain: "ISCAN(t1$a1_a2 [EQUALS promote(@c9 AS LONG)] REVERSE) | FLATMAP q0 -> { COVERING(t2$b1_b3 [EQUALS promote(@c9 AS LONG)] -> [b1: KEY:[0], b3: KEY:[1], id: KEY:[2]]) | FILTER q0.a3 EQUALS _.b3 | FETCH AS q1 RETURN ((q1.__ROW_VERSION AS __ROW_VERSION, q1.id AS id, q1.b1 AS b1, q1.b2 AS b2, q1.b3 AS b3) AS y, q0.a2 AS a2) } | MAP (_.y AS y)"
       - initialVersionLessThan: 4.10.5.0
-      - error: 'XX000'
+      - error: INTERNAL_ERROR
       - initialVersionAtLeast: 4.10.5.0
       - result: [
           { { '__ROW_VERSION': !not_null _, id: 2003, b1: 1, b2: 18, b3: "b" } },
@@ -248,7 +248,7 @@ test_block:
                 order by x.the_a2 desc
       - explain: "ISCAN(t1$a1_a2 [EQUALS promote(@c9 AS LONG)] REVERSE) | FLATMAP q0 -> { COVERING(t2$b1_b3 [EQUALS promote(@c9 AS LONG)] -> [b1: KEY:[0], b3: KEY:[1], id: KEY:[2]]) | FILTER q0.a3 EQUALS _.b3 | FETCH AS q1 RETURN ((q1.__ROW_VERSION AS __ROW_VERSION, q1.id AS id, q1.b1 AS b1, q1.b2 AS b2, q1.b3 AS b3, q1.b2 AS the_b2) AS y, q0.a2 AS the_a2) } | MAP (_.y AS y)"
       - initialVersionLessThan: 4.10.5.0
-      - error: 'XX000'
+      - error: INTERNAL_ERROR
       - initialVersionAtLeast: 4.10.5.0
       - result: [
           { { '__ROW_VERSION': !not_null _, id: 2003, b1: 1, b2: 18, b3: "b", the_b2: 18 } },
@@ -360,7 +360,7 @@ test_block:
                  from t1, t2
                  where t1.a1 = 1 and t2.b1 = 1
                  order by t1.a2, t2.b3
-      - error: '0AF00'
+      - error: UNSUPPORTED_QUERY
     -
       # This should be possible to plan, but it requires noting that if the outer is on t2 and ordered by t2.b3,
       # then the join is executed with an equality predicate on t1.a3, and thus the order is satisfied
@@ -368,7 +368,7 @@ test_block:
                  from t1, t2
                  where t1.a1 = 1 and t2.b1 = 1 and t1.a3 = t2.b3
                  order by t2.b3, t1.a3
-      - error: '0AF00'
+      - error: UNSUPPORTED_QUERY
     -
       - query: select (t1.*), (t3.*)
                  from t1, t3
@@ -434,7 +434,7 @@ test_block:
                 order by t3.c3 desc
       # This can't be planned because it can't figure out that m has max cardinality 1 (coming from the fact that the group by columns are all equality bound by the having)
       # See: https://github.com/FoundationDB/fdb-record-layer/issues/3975
-      - error: '0AF00'
+      - error: UNSUPPORTED_QUERY
     -
       - query: select t1.*
                  from t1, (select max(t1.a2) as maxA2 from t1 where t1.a1 = 1) as m
@@ -546,7 +546,7 @@ test_block:
       # This should be possible to plan, as there is an equality predicate on t1.id, so we should be able to freely
       # introduce it into the ordering
       # See: https://github.com/FoundationDB/fdb-record-layer/issues/3974
-      - error: '0AF00'
+      - error: UNSUPPORTED_QUERY
     -
       - query: select (t1.*), (t2.*)
                  from t1, t2
@@ -555,7 +555,7 @@ test_block:
       # This should be possible to plan, as the fact that the max cardinality on the t1 quantifier should allow us to move
       # the order around as we want
       # See: https://github.com/FoundationDB/fdb-record-layer/issues/3974
-      - error: '0AF00'
+      - error: UNSUPPORTED_QUERY
     -
       - query: select (t1.*), (t3.*)
                  from t1, t3
@@ -601,7 +601,7 @@ test_block:
       # will give us the right order, as the index scan on t3$c1_c2 produces distinct elements. However, this
       # fails as we are unable to parlay the uniqueness constraint into a distinct ordering
       # See: https://github.com/FoundationDB/fdb-record-layer/issues/3976
-      - error: '0AF00'
+      - error: UNSUPPORTED_QUERY
 
     #
     # Ternary joins. Assert that we can get joins with three constituents and an order by correct.
@@ -837,5 +837,5 @@ test_block:
                 where c.aRef = a.id
                 order by x1 desc, a.a2 asc
       # Error: VerifyException when translating the ordering part. Needs more analysis
-      - error: 'XX000'
+      - error: INTERNAL_ERROR
 ...

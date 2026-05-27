@@ -388,6 +388,11 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
+    public void starExpressionColumnNames(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("star-expression-metadata.yamsql");
+    }
+
+    @TestTemplate
     public void structTypeNullabilityVariants(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("struct-type-nullability-variants.yamsql");
     }

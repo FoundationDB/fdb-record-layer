@@ -7,6 +7,73 @@ As the [versioning guide](Versioning.md) details, it cannot always be determined
 
 ## 4.10
 
+### 4.12.5.0
+
+<h4> New Features </h4>
+
+* Name struct columns from parenthesised-star expressions after their source - [PR #4182](https://github.com/FoundationDB/fdb-record-layer/pull/4182)
+* Fix bug when SplitSelectExtractIndependentQuantifiersRule selects from an exploded primitive array - [PR #4007](https://github.com/FoundationDB/fdb-record-layer/pull/4007)
+<h4> Bug Fixes </h4>
+
+* Fix `RecordQueryRecursiveLevelUnionPlan#computeHashCodeWithoutChildren()` - [PR #4189](https://github.com/FoundationDB/fdb-record-layer/pull/4189)
+* Make `RelationalExpression#equalsWithoutChildren()` compare the result values where necessary - [PR #4185](https://github.com/FoundationDB/fdb-record-layer/pull/4185)
+
+<details>
+<summary>
+
+<h4> Build/Test/Documentation/Style Improvements (click to expand) </h4>
+
+</summary>
+
+* Allow ErrorCode enum names in yamsql error directives - [PR #4200](https://github.com/FoundationDB/fdb-record-layer/pull/4200)
+
+</details>
+
+
+**[Full Changelog (4.12.4.0...4.12.5.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.12.4.0...4.12.5.0)**
+
+#### Mixed Mode Test Results
+
+Mixed mode testing run against the following previous versions:
+
+✅`4.10.16.0`, ✅`4.10.17.0`, ✅`4.10.18.0`, ✅`4.10.19.0`, ✅`4.10.20.0`, ✅`4.11.1.0`, ✅`4.12.1.0`, ✅`4.12.2.0`, ✅`4.12.3.0`, ✅`4.12.4.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/26464186416)
+
+
+
+### 4.12.4.0
+
+<h4> New Features </h4>
+
+* Allow more types of boolean expressions as top-level `WHERE`/`ON` predicates - [PR #4162](https://github.com/FoundationDB/fdb-record-layer/pull/4162)
+* Queue size in metadata - [PR #4181](https://github.com/FoundationDB/fdb-record-layer/pull/4181)
+
+<details>
+<summary>
+
+<h4> Build/Test/Documentation/Style Improvements (click to expand) </h4>
+
+</summary>
+
+* Remove jacoco-report from our pull_request builds - [PR #4173](https://github.com/FoundationDB/fdb-record-layer/pull/4173)
+* Remove FDB Binaries Cache - [PR #4175](https://github.com/FoundationDB/fdb-record-layer/pull/4175)
+
+</details>
+
+
+**[Full Changelog (4.12.3.0...4.12.4.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.12.3.0...4.12.4.0)**
+
+#### Mixed Mode Test Results
+
+Mixed mode testing run against the following previous versions:
+
+✅`4.10.15.0`, ✅`4.10.16.0`, ✅`4.10.17.0`, ✅`4.10.18.0`, ✅`4.10.19.0`, ✅`4.10.20.0`, ✅`4.11.1.0`, ✅`4.12.1.0`, ✅`4.12.2.0`, ✅`4.12.3.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/26309943491)
+
+
+
 ### 4.12.3.0
 
 <h4> Breaking Changes </h4>

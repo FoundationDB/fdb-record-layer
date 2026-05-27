@@ -56,10 +56,10 @@ test_block:
   tests:
     - # Incorrect argument type: Passing a non-array (here: INTEGER) raises error 22000.
       - query: SELECT CARDINALITY("id") FROM "dummy"
-      - error: "22000"
+      - error: CANNOT_CONVERT_TYPE
     - # Incorrect argument type (constant case)
       - query: SELECT CARDINALITY(1) FROM "dummy"
-      - error: "22000"
+      - error: CANNOT_CONVERT_TYPE
     - # NULL argument array (constant case): NULL gets mapped to NULL.
       - query: SELECT CARDINALITY(CAST(NULL AS INTEGER ARRAY)) FROM "tab1" WHERE "id" = 1
       - resultMetadata: [{_0: INTEGER}]
