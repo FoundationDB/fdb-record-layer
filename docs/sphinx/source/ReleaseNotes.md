@@ -5,7 +5,7 @@ This document contains a log of changes to the FoundationDB Record Layer. It aim
 
 As the [versioning guide](Versioning.md) details, it cannot always be determined solely by looking at the version numbers whether one Record Layer version contains all changes included in another. In particular, bug fixes and backwards-compatible changes might be back-ported to or introduced as patches against older versions. To track when a patch version has been included in the main release train, some releases will say as a note that they contain all changes from a specific patch.
 
-## 4.10
+## 4.12
 
 ### 4.12.5.0
 
@@ -213,6 +213,8 @@ Mixed mode testing run against the following previous versions:
 
 
 
+## 4.11
+
 ### 4.11.1.0
 
 <h4> Breaking Changes </h4>
@@ -259,6 +261,8 @@ Mixed mode testing run against the following previous versions:
 [See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/24841938252)
 
 
+
+## 4.10
 
 ### 4.10.20.0
 
