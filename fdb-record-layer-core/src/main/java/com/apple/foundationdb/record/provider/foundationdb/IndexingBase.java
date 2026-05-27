@@ -318,9 +318,15 @@ public abstract class IndexingBase {
                 common.getRecordStoreBuilder().copyBuilder().setContext(context).openAsync()
                         .thenCompose(store -> {
                             clearHeartbeatForIndex(store, index);
-                            return policy.shouldAllowUniquePendingState(store) ?
-                                   store.markIndexReadableOrUniquePending(index) :
-                                   store.markIndexReadable(index);
+                            CompletableFuture<Boolean> markFuture =
+                                    policy.shouldAllowUniquePendingState(store) ?
+                                    store.markIndexReadableOrUniquePending(index) :
+                                    store.markIndexReadable(index);
+                            return markFuture.thenApply(changed -> {
+                                // Once the index is readable there is no need for this data
+                                IndexingSubspaces.eraseAllIndexingDataButTheLockAndRangeSet(store.getContext(), store, index);
+                                return changed;
+                            });
                         })
         ).handle((changed, ex) -> {
             if (ex == null) {

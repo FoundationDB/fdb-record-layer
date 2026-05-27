@@ -119,6 +119,29 @@ public class OnlineIndexerSimpleTest extends OnlineIndexerTest {
         }
     }
 
+    @SuppressWarnings("try")
+    @Test
+    void buildMetadataClearedWhenMarkedReadable() {
+        // Verify that after a successful build is marked readable, the build metadata is cleared.
+        final Index index = new Index("simple$value_2", field("num_value_2"), IndexTypes.VALUE);
+        openSimpleMetaData(metaDataBuilder -> metaDataBuilder.addIndex("MySimpleRecord", index));
+
+        try (FDBRecordContext context = openContext()) {
+            LongStream.range(0, 5).forEach(val -> recordStore.saveRecord(TestRecords1Proto.MySimpleRecord.newBuilder()
+                    .setRecNo(val).setNumValue2((int)val).build()));
+            context.commit();
+        }
+
+        try (OnlineIndexer indexBuilder = newIndexerBuilder().setIndex(index).build()) {
+            indexBuilder.buildIndex();
+        }
+
+        try (FDBRecordContext context = openContext()) {
+            assertEquals(0L, IndexBuildState.loadRecordsScannedAsync(recordStore, index).join().longValue());
+            assertNull(recordStore.loadIndexingTypeStampAsync(index).join());
+        }
+    }
+
     @Test
     public void logsEnd() {
         List<TestRecords1Proto.MySimpleRecord> records = LongStream.range(0, 50).mapToObj(val ->
