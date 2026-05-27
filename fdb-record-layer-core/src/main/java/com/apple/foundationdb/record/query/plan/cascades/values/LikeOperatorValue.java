@@ -56,7 +56,6 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Supplier;
-import java.util.regex.Pattern;
 
 /**
  * A {@link Value} that applies a like operator on its child expressions.
@@ -94,8 +93,50 @@ public class LikeOperatorValue extends AbstractValue implements BooleanValue {
         if (lhs == null || rhs == null) {
             return null;
         }
-        Pattern pattern = Pattern.compile(rhs);
-        return pattern.matcher(lhs).find();
+        return matchLike(lhs, rhs);
+    }
+
+    /**
+     * Linear-time SQL LIKE matcher. The {@code pattern} is a normalized LIKE pattern produced by
+     * {@link PatternForLikeValue}: {@code %} matches any sequence of characters, {@code _} matches
+     * exactly one character, and {@code \} escapes the next character as a literal (so {@code \%},
+     * {@code \_}, and {@code \\} are literals). All other characters match themselves.
+     */
+    private static boolean matchLike(final String text, final String pattern) {
+        int t = 0, p = 0;
+        int starP = -1, starT = -1;
+        final int tLen = text.length();
+        final int pLen = pattern.length();
+
+        while (t < tLen) {
+            if (p < pLen && pattern.charAt(p) == '\\') {
+                final char literal = (p + 1 < pLen) ? pattern.charAt(p + 1) : 0;
+                if (literal != 0 && literal == text.charAt(t)) {
+                    t++;
+                    p += 2;
+                } else if (starP >= 0) {
+                    p = starP + 1;
+                    t = ++starT;
+                } else {
+                    return false;
+                }
+            } else if (p < pLen && (pattern.charAt(p) == '_' || pattern.charAt(p) == text.charAt(t))) {
+                t++;
+                p++;
+            } else if (p < pLen && pattern.charAt(p) == '%') {
+                starP = p++;
+                starT = t;
+            } else if (starP >= 0) {
+                p = starP + 1;
+                t = ++starT;
+            } else {
+                return false;
+            }
+        }
+        while (p < pLen && pattern.charAt(p) == '%') {
+            p++;
+        }
+        return p == pLen;
     }
 
     @Override
