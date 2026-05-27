@@ -280,15 +280,6 @@ public abstract class OnlineIndexOperationBaseBuilder<B extends OnlineIndexOpera
     }
 
     /**
-     * Get the enforced delay, in milliseconds, applied after each transaction.
-     * @return the enforced post-transaction delay in milliseconds
-     * @see #setEnforcedPostTransactionDelay(long)
-     */
-    public long getEnforcedPostTransactionDelay() {
-        return configBuilder.getEnforcedPostTransactionDelay();
-    }
-
-    /**
      * Set the enforced delay, in milliseconds, applied after each transaction. When set to a positive value, the
      * indexer waits for this many milliseconds (capped at 10 seconds) between transactions, bypassing the
      * records-per-second based throttling.
