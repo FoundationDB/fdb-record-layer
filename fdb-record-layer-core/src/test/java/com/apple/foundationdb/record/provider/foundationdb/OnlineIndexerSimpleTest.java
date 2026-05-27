@@ -41,6 +41,7 @@ import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -773,13 +774,14 @@ public class OnlineIndexerSimpleTest extends OnlineIndexerTest {
         }
     }
 
-    @Test
-    void testIndexingThrottleBookerEnforcedPostTransactionDelay() {
+    @ParameterizedTest
+    @CsvSource({"10", "250", "1000", "3000", "10000", "60000"})
+    void testIndexingThrottleBookerEnforcedPostTransactionDelay(int enforcedDelay) {
         final OnlineIndexOperationConfig config = OnlineIndexOperationConfig.newBuilder()
                 .setInitialLimit(100)
                 .setRecordsPerSecond(100)
                 .setMaxLimit(1000)
-                .setEnforcedPostTransactionDelay(250)
+                .setEnforcedPostTransactionDelay(enforcedDelay)
                 .build();
         openSimpleMetaData();
         try (FDBRecordContext context = openContext()) {
@@ -791,24 +793,10 @@ public class OnlineIndexerSimpleTest extends OnlineIndexerTest {
                     config,
                     false);
 
-            // 1. Positive value: enforced delay is returned, regardless of recent scan volume.
+            // Enforced delay is returned (up to 10 seconds), regardless of recent scan volume.
             IndexingThrottle.Booker booker = new IndexingThrottle.Booker(common);
             postTransaction(booker, 1, 1_000_000, false); // would otherwise force a near-999ms wait
-            assertEquals(250, booker.waitTimeMilliseconds());
-
-            // 2. Cap at 10 seconds.
-            final OnlineIndexOperationConfig huge = config.toBuilder()
-                    .setEnforcedPostTransactionDelay(60_000)
-                    .build();
-            final IndexingCommon commonHuge = new IndexingCommon(context.newRunner(),
-                    recordStore.asBuilder(),
-                    Collections.emptyList(),
-                    Collections.emptyList(),
-                    null,
-                    huge,
-                    false);
-            booker = new IndexingThrottle.Booker(commonHuge);
-            assertEquals(10_000, booker.waitTimeMilliseconds());
+            assertEquals(Math.min(enforcedDelay, 10_000), booker.waitTimeMilliseconds());
         }
     }
 
