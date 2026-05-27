@@ -110,9 +110,6 @@ test_block:
 #                 {A1: 3, A2: 10, A3: 3, 3}]
 ...
 ---
-options:
-    supported_version: !current_version
----
 test_block:
   name: table-as-column-tests
   preset: single_repetition_ordered

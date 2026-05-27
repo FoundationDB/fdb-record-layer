@@ -409,7 +409,7 @@ public class SemanticAnalyzer {
         return Streams.stream(operators.forEachOnly())
                 .filter(op -> op.getName().equals(identifierOptional))
                 .findFirst()
-                .map(op -> Expression.of(expandStar(identifierOptional, operators).getUnderlying(), identifier));
+                .map(ignored -> Expression.of(expandStar(identifierOptional, operators).getUnderlying(), identifier));
     }
 
     @Nonnull
