@@ -108,11 +108,11 @@ test_block:
 #      - result: [{A1: 1 , A2: 10, A3: 1, 1},
 #                 {A1: 2, A2: 10, A3: 2, 2},
 #                 {A1: 3, A2: 10, A3: 3, 3}]
-...
 ---
 test_block:
   name: table-as-column-tests
-  preset: single_repetition_ordered
+  options:
+    supported_version: !current_version
   tests:
     -
       # Table name used as SELECT item returns the full row as a struct
