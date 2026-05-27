@@ -556,7 +556,7 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
     }
 
     @Test
-    void duplicateWindowKeyValues() throws Exception {
+    void duplicateWindowKeyValuesCase1() throws Exception {
         try (FDBRecordContext context = openContext()) {
             openStore(context, 3, Direction.DESC);
             rec(1, 100);
@@ -573,15 +573,69 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
     }
 
     @Test
+    void duplicateHandlingCase4() throws Exception {
+        try (FDBRecordContext context = openContext()) {
+            openStore(context, 3, Direction.DESC);
+            rec(1, 500);
+            rec(3, 200);
+            rec(5, 100);
+            assertWindowContains(1, 3, 5);
+            deleteRec(3);
+
+            Set<Long> window = scanIndexRecNos();
+            assertEquals(2, window.size());
+            assertWindowContains(1L, 5L);
+            commit(context);
+        }
+    }
+
+    @Test
+    void duplicateWindowKeyValuesCase2() throws Exception {
+        try (FDBRecordContext context = openContext()) {
+            openStore(context, 2, Direction.DESC);
+            rec(10, 100);
+            rec(33, 100);
+            rec(5, 100);
+            rec(6, 40);
+            assertWindowContains(10, 33);
+            deleteRec(33);
+
+            Set<Long> window = scanIndexRecNos();
+            assertEquals(2, window.size());
+            assertWindowContains(10L, 5L);
+            commit(context);
+        }
+    }
+
+    @Test
+    void duplicateWindowKeyValuesCase3() throws Exception {
+        try (FDBRecordContext context = openContext()) {
+            openStore(context, 2, Direction.DESC);
+            rec(1, 25);
+            rec(2, 100);
+            rec(3, 100);
+            rec(4, 100);
+            rec(5, 500);
+            assertWindowContains(4, 5);
+            deleteRec(5);
+
+            Set<Long> window = scanIndexRecNos();
+            assertEquals(2, window.size());
+            assertWindowContains(3L, 4L);
+            commit(context);
+        }
+    }
+
+    @Test
     void exactBoundaryValue() throws Exception {
         try (FDBRecordContext context = openContext()) {
             openStore(context, 2, Direction.DESC);
             rec(1, 100);
             rec(2, 200);
 
-            // Same window key as worst → NOT better (strict) → overflow
+            // pk is used a tie-breaker using the DESC sort semantics, the window must slide
             rec(3, 100);
-            assertWindowContains(1, 2);
+            assertWindowContains(2, 3);
             commit(context);
         }
     }
