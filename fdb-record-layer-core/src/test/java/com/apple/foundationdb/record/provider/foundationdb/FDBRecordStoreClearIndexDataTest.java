@@ -82,7 +82,7 @@ class FDBRecordStoreClearIndexDataTest extends FDBRecordStoreTestBase {
     );
 
     /**
-     * For each per-index keyspace, the {@link Tuple} suffix to write a sentinel under within
+     * For each per-index keyspace, the {@link Tuple} suffix to write a sentinel within
      * {@code (keyspace.key(), index.getSubspaceTupleKey(), suffix...)} for the
      * {@code clearAndMarkIndexWriteOnly} test.
      *
@@ -282,8 +282,7 @@ class FDBRecordStoreClearIndexDataTest extends FDBRecordStoreTestBase {
 
     private byte[] lockSentinelKey(Index index) {
         // Lock subspace lives at sub-key 0L under INDEX_BUILD_SPACE — see IndexingSubspaces.
-        return recordStore.getSubspace()
-                .subspace(Tuple.from(FDBRecordStoreKeyspace.INDEX_BUILD_SPACE.key(), index.getSubspaceTupleKey()))
-                .pack(Tuple.from(0L, "lock-sentinel"));
+        return IndexingSubspaces.indexBuildLockSubspace(recordStore, index)
+                .pack(Tuple.from("lock-sentinel"));
     }
 }
