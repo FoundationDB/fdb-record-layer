@@ -42,6 +42,7 @@ import com.google.protobuf.Message;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
@@ -139,22 +140,31 @@ class OnlineIndexScrubberTest extends OnlineIndexerTest {
         assertFullIterationNoFix(tgtIndex, 0, numRecords, false, false);
     }
 
-    @Test
-    void testScrubberClearsRangeSetSubspaceWhenComplete() {
+    @ParameterizedTest
+    @CsvSource({"0", "1", "10000"})
+    void testScrubberClearsRangeSetSubspaceWhenComplete(int rangeId) {
         final long numRecords = 50;
         Index tgtIndex = createValueIndexAndPopulateData(numRecords, true);
 
         try (OnlineIndexScrubber indexScrubber = newScrubberBuilder(tgtIndex)
-                .setScrubbingPolicy(OnlineIndexScrubber.ScrubbingPolicy.newBuilder().build())
+                .setScrubbingPolicy(OnlineIndexScrubber.ScrubbingPolicy.newBuilder()
+                        .setScrubbingRangeId(rangeId)
+                        .build())
                 .build()) {
             indexScrubber.scrubMissingIndexEntries();
             indexScrubber.scrubDanglingIndexEntries();
         }
 
-        // After a full scrub, both rangeSet subspaces (rangeId 0) should be physically cleared.
+        // After a full scrub, both rangeSet subspaces should be physically cleared.
         try (FDBRecordContext context = openContext()) {
-            assertTrue(IndexingRangeSet.forScrubbingRecords(recordStore, tgtIndex, 0).isEmptyAsync().join());
-            assertTrue(IndexingRangeSet.forScrubbingIndex(recordStore, tgtIndex, 0).isEmptyAsync().join());
+            assertTrue(IndexingRangeSet.forScrubbingRecords(recordStore, tgtIndex, rangeId).isEmptyAsync().join());
+            assertTrue(IndexingRangeSet.forScrubbingIndex(recordStore, tgtIndex, rangeId).isEmptyAsync().join());
+            // assert that the subspaces are empty
+            Subspace recordsSub = IndexingSubspaces.indexScrubRecordsRangeSubspace(recordStore, tgtIndex, rangeId);
+            assertTrue(context.ensureActive().getRange(recordsSub.range(), 1).asList().join().isEmpty());
+            Subspace indexSub   = IndexingSubspaces.indexScrubIndexRangeSubspace(recordStore, tgtIndex, rangeId);
+            assertTrue(context.ensureActive().getRange(indexSub.range(), 1).asList().join().isEmpty());
+
             context.commit();
         }
     }
