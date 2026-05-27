@@ -43,6 +43,10 @@ public class OnlineIndexOperationConfig {
      */
     public static final int DEFAULT_RECORDS_PER_SECOND = 10_000;
     /**
+     * Default enforced delay, in milliseconds, after each transaction. Zero means no enforced delay.
+     */
+    public static final long DEFAULT_ENFORCED_POST_TRANSACTION_DELAY = 0;
+    /**
      * Default number of times to retry a single range rebuild.
      */
     public static final int DEFAULT_MAX_RETRIES = 100;
@@ -72,6 +76,7 @@ public class OnlineIndexOperationConfig {
     private final int maxWriteLimitBytes;
     private final int maxRetries;
     private final int recordsPerSecond;
+    private final long enforcedPostTransactionDelay;
     private final long progressLogIntervalMillis;
     private final int increaseLimitAfter;
     private final long timeLimitMilliseconds;
@@ -82,7 +87,7 @@ public class OnlineIndexOperationConfig {
 
     OnlineIndexOperationConfig(int maxLimit, int initialLimit, int maxRetries, int recordsPerSecond, long progressLogIntervalMillis, int increaseLimitAfter,
                                int maxWriteLimitBytes, long timeLimitMilliseconds, long transactionTimeLimitMilliseconds,
-                               long leaseLengthMillis) {
+                               long leaseLengthMillis, long enforcedPostTransactionDelay) {
         this.maxLimit = maxLimit;
         this.initialLimit = initialLimit;
         this.maxRetries = maxRetries;
@@ -93,6 +98,7 @@ public class OnlineIndexOperationConfig {
         this.timeLimitMilliseconds = timeLimitMilliseconds;
         this.transactionTimeLimitMilliseconds = transactionTimeLimitMilliseconds;
         this.leaseLengthMillis = leaseLengthMillis;
+        this.enforcedPostTransactionDelay = enforcedPostTransactionDelay;
     }
 
     /**
@@ -129,6 +135,16 @@ public class OnlineIndexOperationConfig {
      */
     public int getRecordsPerSecond() {
         return recordsPerSecond;
+    }
+
+    /**
+     * Get the enforced delay, in milliseconds, applied after each transaction. A non-positive value means no
+     * enforced delay (the records-per-second algorithm is used instead).
+     *
+     * @return the enforced post-transaction delay in milliseconds
+     */
+    public long getEnforcedPostTransactionDelay() {
+        return enforcedPostTransactionDelay;
     }
 
     /**
@@ -218,7 +234,8 @@ public class OnlineIndexOperationConfig {
                 .setMaxRetries(this.maxRetries)
                 .setTimeLimitMilliseconds(timeLimitMilliseconds)
                 .setTransactionTimeLimitMilliseconds(this.transactionTimeLimitMilliseconds)
-                .setLeaseLengthMillis(leaseLengthMillis);
+                .setLeaseLengthMillis(leaseLengthMillis)
+                .setEnforcedPostTransactionDelay(this.enforcedPostTransactionDelay);
     }
 
     /**
@@ -233,6 +250,7 @@ public class OnlineIndexOperationConfig {
         private int maxWriteLimitBytes = DEFAULT_WRITE_LIMIT_BYTES;
         private int maxRetries = DEFAULT_MAX_RETRIES;
         private int recordsPerSecond = DEFAULT_RECORDS_PER_SECOND;
+        private long enforcedPostTransactionDelay = DEFAULT_ENFORCED_POST_TRANSACTION_DELAY;
         private long progressLogIntervalMillis = DEFAULT_PROGRESS_LOG_INTERVAL;
         private int increaseLimitAfter = DO_NOT_RE_INCREASE_LIMIT;
         private long timeLimitMilliseconds = UNLIMITED_TIME;
@@ -368,6 +386,34 @@ public class OnlineIndexOperationConfig {
         @Nonnull
         public Builder setRecordsPerSecond(int recordsPerSecond) {
             this.recordsPerSecond = recordsPerSecond;
+            return this;
+        }
+
+        /**
+         * Get the enforced delay, in milliseconds, applied after each transaction.
+         *
+         * @return the enforced post-transaction delay in milliseconds
+         *
+         * @see #setEnforcedPostTransactionDelay(long)
+         */
+        public long getEnforcedPostTransactionDelay() {
+            return enforcedPostTransactionDelay;
+        }
+
+        /**
+         * Set the enforced delay, in milliseconds, applied after each transaction. When set to a positive value,
+         * the indexer waits for this many milliseconds (capped at 10 seconds) between transactions, bypassing the
+         * records-per-second based throttling. A non-positive value disables the enforced delay.
+         * <p>
+         * The default value is {@link #DEFAULT_ENFORCED_POST_TRANSACTION_DELAY} = {@value #DEFAULT_ENFORCED_POST_TRANSACTION_DELAY}.
+         *
+         * @param enforcedPostTransactionDelay the enforced post-transaction delay in milliseconds
+         *
+         * @return this builder
+         */
+        @Nonnull
+        public Builder setEnforcedPostTransactionDelay(long enforcedPostTransactionDelay) {
+            this.enforcedPostTransactionDelay = enforcedPostTransactionDelay;
             return this;
         }
 
@@ -522,7 +568,7 @@ public class OnlineIndexOperationConfig {
         public OnlineIndexOperationConfig build() {
             return new OnlineIndexOperationConfig(maxLimit, initialLimit, maxRetries, recordsPerSecond, progressLogIntervalMillis, increaseLimitAfter,
                     maxWriteLimitBytes, timeLimitMilliseconds, transactionTimeLimitMilliseconds,
-                    leaseLengthMillis);
+                    leaseLengthMillis, enforcedPostTransactionDelay);
         }
     }
 }

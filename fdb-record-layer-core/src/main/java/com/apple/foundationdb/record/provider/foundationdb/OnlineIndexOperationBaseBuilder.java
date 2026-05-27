@@ -280,6 +280,29 @@ public abstract class OnlineIndexOperationBaseBuilder<B extends OnlineIndexOpera
     }
 
     /**
+     * Get the enforced delay, in milliseconds, applied after each transaction.
+     * @return the enforced post-transaction delay in milliseconds
+     * @see #setEnforcedPostTransactionDelay(long)
+     */
+    public long getEnforcedPostTransactionDelay() {
+        return configBuilder.getEnforcedPostTransactionDelay();
+    }
+
+    /**
+     * Set the enforced delay, in milliseconds, applied after each transaction. When set to a positive value, the
+     * indexer waits for this many milliseconds (capped at 10 seconds) between transactions, bypassing the
+     * records-per-second based throttling.
+     * The default value is {@link OnlineIndexOperationConfig#DEFAULT_ENFORCED_POST_TRANSACTION_DELAY} = {@value OnlineIndexOperationConfig#DEFAULT_ENFORCED_POST_TRANSACTION_DELAY}.
+     * @param enforcedPostTransactionDelay the enforced post-transaction delay in milliseconds
+     * @return this builder
+     */
+    @Nonnull
+    public B setEnforcedPostTransactionDelay(long enforcedPostTransactionDelay) {
+        configBuilder.setEnforcedPostTransactionDelay(enforcedPostTransactionDelay);
+        return self();
+    }
+
+    /**
      * Get the timer used during the online index operation.
      * @return the timer or <code>null</code> if none is set
      */
