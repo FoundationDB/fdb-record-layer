@@ -142,15 +142,15 @@ test_block:
     -
       - query: SELECT * From TABLE_A where "mood" = 'NOT_A_VALID_MOOD'
       - initialVersionAtLeast: 4.7.3.0
-      - error: "XX000"
+      - error: INTERNAL_ERROR
       - initialVersionLessThan: 4.7.3.0
-      - error: "XXXXX"
+      - error: UNKNOWN
     -
       - query: SELECT * From TABLE_A where "mood" < 'NOT_A_VALID_MOOD'
       - initialVersionAtLeast: 4.7.3.0
-      - error: "XX000"
+      - error: INTERNAL_ERROR
       - initialVersionLessThan: 4.7.3.0
-      - error: "XXXXX"
+      - error: UNKNOWN
 
     -
       - query: SELECT * From TABLE_B where "mood" = 'CONFUSED'

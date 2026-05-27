@@ -33,13 +33,13 @@ test_block:
       - result: [ { x'deadbeef'}, { x'cafe' }, { !null } ]
     -
       - query: select x'0' from lb where a = 1
-      - error: 22F03
+      - error: INVALID_BINARY_REPRESENTATION
     -
       - query: select x'ABCDMN' from lb where a = 1
-      - error: 22F03
+      - error: INVALID_BINARY_REPRESENTATION
     -
       - query: select b64'***' from lb where a = 1
-      - error: 22F03
+      - error: INVALID_BINARY_REPRESENTATION
     -
       - query: select a from lb where b = x'cafe'
       - result: [ { 2 } ]
