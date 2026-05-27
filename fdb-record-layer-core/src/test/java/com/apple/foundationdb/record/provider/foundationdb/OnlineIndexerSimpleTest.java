@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.provider.foundationdb;
 
 import com.apple.foundationdb.FDBException;
+import com.apple.foundationdb.KeyValue;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.RangeSet;
 import com.apple.foundationdb.record.RecordCoreException;
@@ -139,6 +140,10 @@ public class OnlineIndexerSimpleTest extends OnlineIndexerTest {
         try (FDBRecordContext context = openContext()) {
             assertEquals(0L, IndexBuildState.loadRecordsScannedAsync(recordStore, index).join().longValue());
             assertNull(recordStore.loadIndexingTypeStampAsync(index).join());
+            // Make sure there is nothing left under the indexBuildSubspace
+            final List<KeyValue> remaining = context.ensureActive()
+                    .getRange(recordStore.indexBuildSubspace(index).range()).asList().join();
+            assertThat(remaining, Matchers.empty());
         }
     }
 
