@@ -31,6 +31,7 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
 import javax.annotation.Nonnull;
+import java.util.Arrays;
 import java.util.Random;
 import java.util.stream.Stream;
 
@@ -101,10 +102,18 @@ public class RealVectorTest {
         final Random random = new Random(seed);
 
         final DoubleRealVector doubleVector = createRandomDoubleVector(random, numDimensions);
+        final DoubleRealVector doubleVectorCopy =
+                new DoubleRealVector(Arrays.copyOf(doubleVector.getData(), doubleVector.getData().length));
+
         final DoubleRealVector secondDoubleVector = createRandomDoubleVector(random, numDimensions);
 
         final DoubleRealVector newDoubleVector = doubleVector.withData(secondDoubleVector.getData());
+        assertThat(newDoubleVector).isEqualTo(secondDoubleVector);
+        assertThat(doubleVector).isEqualTo(doubleVectorCopy);
 
+        final MutableDoubleRealVector anotherDoubleVector = doubleVector.toMutable();
+        anotherDoubleVector.withData(secondDoubleVector.getData());
+        assertThat(anotherDoubleVector).isEqualTo(secondDoubleVector);
     }
 
     @Test
