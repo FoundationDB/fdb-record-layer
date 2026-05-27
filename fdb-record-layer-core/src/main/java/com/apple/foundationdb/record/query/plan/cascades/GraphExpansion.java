@@ -27,7 +27,6 @@ import com.apple.foundationdb.record.query.plan.cascades.predicates.Placeholder;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.PredicateWithValueAndRanges;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QuantifiedValuePredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
-import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
