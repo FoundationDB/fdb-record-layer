@@ -1596,7 +1596,7 @@ message PQueryPredicate {
       google.protobuf.Any additional_query_predicates = 1;
       PAndPredicate and_predicate = 2;
       PConstantPredicate constant_predicate = 3;
-      PQuantifiedValuePredicate quantified_value_predicate = 4;
+      PExistentialValuePredicate existential_value_predicate = 4;
       PNotPredicate not_predicate = 5;
       POrPredicate or_predicate = 6;
       PPredicateWithValueAndRanges predicate_with_value_and_ranges = 7;
@@ -1640,7 +1640,7 @@ message PDatabaseObjectDependenciesPredicate {
   repeated PUsedIndex used_indexes = 1;
 }
 
-message PQuantifiedValuePredicate {
+message PExistentialValuePredicate {
   optional PValuePredicate super = 1;
 }
 

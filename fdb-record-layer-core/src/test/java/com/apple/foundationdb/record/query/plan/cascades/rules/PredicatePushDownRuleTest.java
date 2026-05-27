@@ -43,7 +43,7 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalE
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ConstantPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.OrPredicate;
-import com.apple.foundationdb.record.query.plan.cascades.predicates.QuantifiedValuePredicate;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.ExistentialValuePredicate;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.AggregateValue;
@@ -158,7 +158,7 @@ public class PredicatePushDownRuleTest {
         builder.addResultColumn(column(lowerQun, "b", "b"));
         builder.addAllPredicates(ImmutableList.of(
                 fieldPredicate(lowerQun, "a", EQUALS_42),
-                new QuantifiedValuePredicate(QuantifiedObjectValue.of(existentialQun), new Comparisons.NullComparison(Comparisons.Type.NOT_NULL))
+                new ExistentialValuePredicate(QuantifiedObjectValue.of(existentialQun), new Comparisons.NullComparison(Comparisons.Type.NOT_NULL))
         ));
         SelectExpression higher = builder.build().buildSelect();
 
@@ -171,7 +171,7 @@ public class PredicatePushDownRuleTest {
         GraphExpansion.Builder newBuilder = GraphExpansion.builder().addQuantifier(newLowerQun).addQuantifier(existentialQun);
         newBuilder.addResultColumn(column(newLowerQun, "b", "b"));
         newBuilder.addAllPredicates(ImmutableList.of(
-                new QuantifiedValuePredicate(QuantifiedObjectValue.of(existentialQun), new Comparisons.NullComparison(Comparisons.Type.NOT_NULL))
+                new ExistentialValuePredicate(QuantifiedObjectValue.of(existentialQun), new Comparisons.NullComparison(Comparisons.Type.NOT_NULL))
         ));
         SelectExpression newHigher = newBuilder.build().buildSelect();
 
@@ -517,7 +517,7 @@ public class PredicatePushDownRuleTest {
         ));
         SelectExpression topSelect = join(baseQun, nestedExistsQun)
                 .addResultColumn(projectColumn(baseQun, "a"))
-                .addPredicate(new QuantifiedValuePredicate(QuantifiedObjectValue.of(nestedExistsQun), new Comparisons.NullComparison(Comparisons.Type.NOT_NULL)))
+                .addPredicate(new ExistentialValuePredicate(QuantifiedObjectValue.of(nestedExistsQun), new Comparisons.NullComparison(Comparisons.Type.NOT_NULL)))
                 .addPredicate(fieldPredicate(baseQun, "b", GREATER_THAN_HELLO))
                 .build()
                 .buildSelect();

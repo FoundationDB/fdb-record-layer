@@ -34,7 +34,7 @@ import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.cascades.predicates.QuantifiedValuePredicate;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.ExistentialValuePredicate;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokens;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
@@ -75,7 +75,7 @@ public class ExistsValue extends AbstractValue implements BooleanValue, ValueWit
     @SpotBugsSuppressWarnings("NP_NONNULL_PARAM_VIOLATION")
     public Optional<QueryPredicate> toQueryPredicate(@Nullable final TypeRepository typeRepository,
                                                      @Nonnull final Set<CorrelationIdentifier> localAliases) {
-        return Optional.of(new QuantifiedValuePredicate(value, new Comparisons.NullComparison(Comparisons.Type.NOT_NULL)));
+        return Optional.of(new ExistentialValuePredicate(value, new Comparisons.NullComparison(Comparisons.Type.NOT_NULL)));
     }
 
     @Override

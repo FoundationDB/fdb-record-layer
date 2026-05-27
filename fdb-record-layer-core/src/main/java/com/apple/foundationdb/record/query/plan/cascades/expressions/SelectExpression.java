@@ -50,7 +50,7 @@ import com.apple.foundationdb.record.query.plan.cascades.predicates.OrPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.Placeholder;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.PredicateWithValue;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.PredicateWithValueAndRanges;
-import com.apple.foundationdb.record.query.plan.cascades.predicates.QuantifiedValuePredicate;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.ExistentialValuePredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.RangeConstraints;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
@@ -412,6 +412,9 @@ public class SelectExpression extends AbstractRelationalExpressionWithChildren i
                 .anyMatch(quantifier -> getPredicates()
                         .stream()
                         .noneMatch(predicate -> {
+                            if (!(predicate instanceof ExistentialValuePredicate)) {
+                                return false;
+                            }
                             final var correlatedTo = predicate.getCorrelatedTo();
                             return correlatedTo.size() == 1 && correlatedTo.contains(quantifier.getAlias());
                         }))) {
@@ -735,7 +738,7 @@ public class SelectExpression extends AbstractRelationalExpressionWithChildren i
         final var rangeBuilder = RangeConstraints.newBuilder();
 
         for (final var predicate : predicates) {
-            if (predicate instanceof QuantifiedValuePredicate) {
+            if (predicate instanceof ExistentialValuePredicate) {
                 result.add(predicate);
             } else if (predicate instanceof ValuePredicate valuePredicate) {
                 if (!rangeBuilder.addComparisonMaybe(valuePredicate.getComparison())) {

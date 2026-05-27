@@ -25,6 +25,7 @@ import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.Predi
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.ResultCompensationFunction;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalFilterExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.ExistentialValuePredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
@@ -274,7 +275,7 @@ public interface Compensation {
     /**
      * Returns if this compensation object needs to be applied in order to filter to the correct records. This is
      * important when a situation calls for the correct filtering but does not care about the actual result.
-     * For instance, {@link com.apple.foundationdb.record.query.plan.cascades.predicates.QuantifiedValuePredicate}
+     * For instance, {@link ExistentialValuePredicate}
      * needs to reapply if its child compensation is needed for filtering but that condition only cares for the
      * existence but not the actual value.
      * Note that it holds that if this method implied {@link #isNeeded()}.

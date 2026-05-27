@@ -23,9 +23,10 @@ package com.apple.foundationdb.record.query.plan.cascades.predicates;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanSerializationContext;
-import com.apple.foundationdb.record.planprotos.PQuantifiedValuePredicate;
+import com.apple.foundationdb.record.planprotos.PExistentialValuePredicate;
 import com.apple.foundationdb.record.planprotos.PQueryPredicate;
 import com.apple.foundationdb.record.planprotos.PValuePredicate;
+import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.expressions.Comparisons.Comparison;
 import com.apple.foundationdb.record.query.plan.cascades.ComparisonRange;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
@@ -44,15 +45,15 @@ import java.util.Map;
 import java.util.Objects;
 
 @API(API.Status.EXPERIMENTAL)
-public class QuantifiedValuePredicate extends ValuePredicate {
+public class ExistentialValuePredicate extends ValuePredicate {
 
-    public QuantifiedValuePredicate(@Nonnull final Value value, @Nonnull final Comparison comparison) {
+    public ExistentialValuePredicate(@Nonnull final Value value, @Nonnull final Comparison comparison) {
         super(value, comparison);
         Verify.verify(value instanceof QuantifiedObjectValue);
     }
 
-    private QuantifiedValuePredicate(@Nonnull final PlanSerializationContext serializationContext,
-                                     @Nonnull final PQuantifiedValuePredicate proto) {
+    private ExistentialValuePredicate(@Nonnull final PlanSerializationContext serializationContext,
+                                      @Nonnull final PExistentialValuePredicate proto) {
         super(Value.fromValueProto(serializationContext, Objects.requireNonNull(proto.getSuper().getValue())),
                 Comparison.fromComparisonProto(serializationContext, Objects.requireNonNull(proto.getSuper().getComparison())));
     }
@@ -70,8 +71,8 @@ public class QuantifiedValuePredicate extends ValuePredicate {
                                                                                        @Nonnull final List<PredicateMultiMap.PredicateCompensationFunction> childrenResults,
                                                                                        @Nonnull final PullUp pullUp) {
         Verify.verify(childrenResults.isEmpty());
-        Verify.verify(originalQueryPredicate instanceof QuantifiedValuePredicate);
-        final var originalQuantifiedQueryPredicate = (QuantifiedValuePredicate) originalQueryPredicate;
+        Verify.verify(originalQueryPredicate instanceof ExistentialValuePredicate);
+        final var originalQuantifiedQueryPredicate = (ExistentialValuePredicate) originalQueryPredicate;
         final var regularMatchInfo = partialMatch.getRegularMatchInfo();
         final var matchesAnyExistentialQuantifier = partialMatch.getQueryExpression().getQuantifiers().stream()
                 .anyMatch(quantifier -> quantifier.getAlias().equals(originalQuantifiedQueryPredicate.getQuantifierAlias()));
@@ -93,47 +94,54 @@ public class QuantifiedValuePredicate extends ValuePredicate {
     public QueryPredicate translateLeafPredicate(@Nonnull final TranslationMap translationMap, final boolean shouldSimplifyValues) {
         final var translatedValue = getValue().translateCorrelations(translationMap, shouldSimplifyValues);
         if (getValue() != translatedValue) {
-            return new QuantifiedValuePredicate(translatedValue, getComparison());
+            return new ExistentialValuePredicate(translatedValue, getComparison());
         }
         return this;
+    }
+
+    // Only to enforce
+    @Nonnull
+    @Override
+    public QueryPredicate toResidualPredicate() {
+        return new ValuePredicate(getValue(), new Comparisons.NullComparison(Comparisons.Type.NOT_NULL));
     }
 
     @Nonnull
     @Override
     public PQueryPredicate toQueryPredicateProto(@Nonnull final PlanSerializationContext serializationContext) {
-        return PQueryPredicate.newBuilder().setQuantifiedValuePredicate(toProto(serializationContext)).build();
+        return PQueryPredicate.newBuilder().setExistentialValuePredicate(toProto(serializationContext)).build();
     }
 
     @Nonnull
     @Override
-    public PQuantifiedValuePredicate toProto(@Nonnull final PlanSerializationContext serializationContext) {
-        return PQuantifiedValuePredicate.newBuilder()
+    public PExistentialValuePredicate toProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return PExistentialValuePredicate.newBuilder()
                 .setSuper((PValuePredicate) super.toProto(serializationContext))
                 .build();
     }
 
     @Nonnull
-    public static QuantifiedValuePredicate fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                     @Nonnull final PQuantifiedValuePredicate proto) {
-        return new QuantifiedValuePredicate(serializationContext, proto);
+    public static ExistentialValuePredicate fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                      @Nonnull final PExistentialValuePredicate proto) {
+        return new ExistentialValuePredicate(serializationContext, proto);
     }
 
     /**
      * Deserializer.
      */
     @AutoService(PlanDeserializer.class)
-    public static class Deserializer implements PlanDeserializer<PQuantifiedValuePredicate, QuantifiedValuePredicate> {
+    public static class Deserializer implements PlanDeserializer<PExistentialValuePredicate, ExistentialValuePredicate> {
         @Nonnull
         @Override
-        public Class<PQuantifiedValuePredicate> getProtoMessageClass() {
-            return PQuantifiedValuePredicate.class;
+        public Class<PExistentialValuePredicate> getProtoMessageClass() {
+            return PExistentialValuePredicate.class;
         }
 
         @Nonnull
         @Override
-        public QuantifiedValuePredicate fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                  @Nonnull final PQuantifiedValuePredicate proto) {
-            return QuantifiedValuePredicate.fromProto(serializationContext, proto);
+        public ExistentialValuePredicate fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                   @Nonnull final PExistentialValuePredicate proto) {
+            return ExistentialValuePredicate.fromProto(serializationContext, proto);
         }
     }
 }
