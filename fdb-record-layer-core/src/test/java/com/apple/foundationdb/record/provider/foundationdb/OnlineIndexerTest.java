@@ -106,6 +106,7 @@ public abstract class OnlineIndexerTest {
         fdb.database().run(tr -> {
             tr.clear(Range.startsWith(recordStore.indexSubspace(index).pack()));
             tr.clear(recordStore.indexSecondarySubspace(index).range());
+            tr.clear(recordStore.indexSlidingWindowSubspace(index).range());
             tr.clear(recordStore.indexRangeSubspace(index).range());
             tr.clear(recordStore.indexBuildSubspace(index).range());
             return null;

@@ -885,6 +885,40 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
         }
     }
 
+    // ===== Regression test for clearIndexData =====
+
+    @Test
+    void clearAndMarkWriteOnlyClearsSlidingWindowSubspace() throws Exception {
+        // Regression test: previously FDBRecordStore.clearIndexData did not clear the sliding window
+        // subspace, so calling clearAndMarkIndexWriteOnly (which routes through clearIndexData)
+        // would leave stale window/overflow bookkeeping behind. After a subsequent rebuild that
+        // bookkeeping would be reconciled with the records seen during the build, but any data
+        // that persisted across the clear (e.g. boundary pointer, overflow entries) could be
+        // observed by callers reading the subspace directly and could corrupt re-election logic.
+        try (FDBRecordContext context = openContext()) {
+            openStore(context, 2, Direction.DESC);
+            rec(1, 100);   // window
+            rec(2, 200);   // window
+            rec(3, 50);    // overflow
+            commit(context);
+        }
+        try (FDBRecordContext context = openContext()) {
+            openStore(context, 2, Direction.DESC);
+            final Index index = recordStore.getRecordMetaData().getIndex(INDEX_NAME);
+            // Sanity: sliding window subspace is populated before the clear.
+            final Subspace slidingWindowSubspace = recordStore.indexSlidingWindowSubspace(index);
+            assertFalse(context.ensureActive().getRange(slidingWindowSubspace.range()).asList().join().isEmpty(),
+                    "sliding window subspace should be populated before clearAndMarkIndexWriteOnly");
+
+            recordStore.clearAndMarkIndexWriteOnly(index).join();
+
+            // After the fix to clearIndexData, the sliding window subspace must be empty.
+            assertTrue(context.ensureActive().getRange(slidingWindowSubspace.range()).asList().join().isEmpty(),
+                    "sliding window subspace should be empty after clearAndMarkIndexWriteOnly");
+            commit(context);
+        }
+    }
+
     // ===== Serialization tests =====
 
     @Test
