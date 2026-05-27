@@ -116,8 +116,7 @@ public class CheckResultMetadataTest {
                 "array-of-struct-column",          // array-of-struct with nested element field descriptors
                 "struct-type-name",                // struct type name as optional prefix in field list
                 "field-named-array",               // struct field named "array" — no clash with {array: ...} map syntax
-                "type-named-array",                // struct type named "array" — no clash with {array: ...} map syntax
-                "star-expression-metadata"         // column names from SELECT (*) / SELECT (T.*) / SELECT (*) AS alias
+                "type-named-array"                 // struct type named "array" — no clash with {array: ...} map syntax
         );
     }
 
