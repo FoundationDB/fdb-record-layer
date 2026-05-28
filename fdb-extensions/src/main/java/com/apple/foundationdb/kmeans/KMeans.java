@@ -24,6 +24,7 @@ import com.apple.foundationdb.linear.Estimator;
 import com.apple.foundationdb.linear.MutableDoubleRealVector;
 import com.apple.foundationdb.linear.RealVector;
 import com.apple.foundationdb.util.Lens;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
@@ -506,10 +507,21 @@ public final class KMeans {
      * @param <V> caller's input vector representation
      * @return the index in {@code vectors} of the farthest point
      */
-    private static <V> int farthestVectorIndex(@Nonnull final MetricAdapter metricAdapter,
-                                               @Nonnull final Lens<V, RealVector> vectorLens,
-                                               @Nonnull final List<V> vectors,
-                                               @Nonnull final List<MutableDoubleRealVector> centroids) {
+    @VisibleForTesting
+    static <V> int farthestVectorIndex(@Nonnull final MetricAdapter metricAdapter,
+                                       @Nonnull final Lens<V, RealVector> vectorLens,
+                                       @Nonnull final List<V> vectors,
+                                       @Nonnull final List<? extends RealVector> centroids) {
+        //
+        // Defensive snapshot: A MutableDoubleRealVector centroid would be mutated in place by any
+        // baseObjective implementation that uses chained mutate-in-place ops (subtract/add/...);
+        // Immutable centroid types are passed through.
+        //
+        final List<RealVector> frozenCentroids = new ArrayList<>(centroids.size());
+        for (final RealVector centroid : centroids) {
+            frozenCentroids.add(centroid.toImmutable());
+        }
+
         double best = -1.0d;
         int bestIdx = 0;
 
@@ -517,7 +529,7 @@ public final class KMeans {
             final RealVector vector = getVector(vectorLens, vectors, i);
 
             double min = Double.MAX_VALUE;
-            for (final MutableDoubleRealVector centroid : centroids) {
+            for (final RealVector centroid : frozenCentroids) {
                 final double objective = metricAdapter.baseObjective(vector, centroid);
                 if (objective < min) {
                     min = objective;
@@ -577,7 +589,8 @@ public final class KMeans {
      *         {@code EUCLIDEAN_METRIC} nor {@code COSINE_METRIC}
      */
     @Nonnull
-    private static MetricAdapter fromEstimator(@Nonnull final Estimator estimator) {
+    @VisibleForTesting
+    static MetricAdapter fromEstimator(@Nonnull final Estimator estimator) {
         return switch (estimator.getMetric()) {
             case EUCLIDEAN_METRIC -> new EuclideanMetricAdapter(estimator);
             case COSINE_METRIC -> new CosineMetricAdapter(estimator);
@@ -590,7 +603,8 @@ public final class KMeans {
      * objective consistently across the supported metrics. There is one implementation per
      * supported metric; the right one is chosen by {@link #fromEstimator}.
      */
-    private interface MetricAdapter {
+    @VisibleForTesting
+    interface MetricAdapter {
         /**
          * Returns the per-pair contribution to the clustering objective. For Euclidean this is
          * the squared Euclidean distance; for cosine it is the cosine distance (i.e. the

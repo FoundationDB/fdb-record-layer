@@ -31,7 +31,6 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
 import javax.annotation.Nonnull;
-import java.util.Arrays;
 import java.util.Random;
 import java.util.stream.Stream;
 
@@ -77,21 +76,26 @@ public class RealVectorTest {
         for (int i = 0; i < 1000; i ++) {
             final DoubleRealVector doubleVector = createRandomDoubleVector(random, numDimensions);
             assertThat(doubleVector.toDoubleRealVector()).isEqualTo(doubleVector);
+            assertThat(doubleVector.toDoubleRealVector()).isSameAs(doubleVector);
+            assertThat(doubleVector.toImmutable()).isSameAs(doubleVector);
 
             final MutableDoubleRealVector mutableDoubleRealVector = doubleVector.toMutable();
             assertThat(mutableDoubleRealVector.toDoubleRealVector()).isEqualTo(doubleVector);
             assertThat(mutableDoubleRealVector.toDoubleRealVector()).isInstanceOf(MutableDoubleRealVector.class);
             assertThat(mutableDoubleRealVector.toImmutable()).isNotInstanceOf(MutableDoubleRealVector.class);
+            assertThat(mutableDoubleRealVector.toImmutable()).isEqualTo(doubleVector);
 
             final FloatRealVector floatVector = mutableDoubleRealVector.toFloatRealVector();
             assertThat(floatVector).isEqualTo(doubleVector.toFloatRealVector());
             assertThat(floatVector.toFloatRealVector()).isEqualTo(floatVector);
             assertThat(floatVector.toDoubleRealVector().toFloatRealVector()).isEqualTo(floatVector);
+            assertThat(floatVector.toImmutable()).isSameAs(floatVector);
 
-            final HalfRealVector halfVector = floatVector.toHalfRealVector();
+            final HalfRealVector halfVector = mutableDoubleRealVector.toHalfRealVector();
             assertThat(halfVector).isEqualTo(doubleVector.toHalfRealVector());
             assertThat(halfVector.toHalfRealVector()).isEqualTo(halfVector);
             assertThat(halfVector.toFloatRealVector().toHalfRealVector()).isEqualTo(halfVector);
+            assertThat(halfVector.toImmutable()).isSameAs(halfVector);
         }
     }
 
@@ -103,7 +107,7 @@ public class RealVectorTest {
 
         final DoubleRealVector doubleVector = createRandomDoubleVector(random, numDimensions);
         final DoubleRealVector doubleVectorCopy =
-                new DoubleRealVector(Arrays.copyOf(doubleVector.getData(), doubleVector.getData().length));
+                new DoubleRealVector(doubleVector.getData().clone());
 
         final DoubleRealVector secondDoubleVector = createRandomDoubleVector(random, numDimensions);
 
@@ -251,6 +255,28 @@ public class RealVectorTest {
                             assertThat(Metric.EUCLIDEAN_METRIC.distance(doubleVector, v))
                                     .isCloseTo(0, Offset.offset(2E-14)));
 
+            final FloatRealVector floatVector = createRandomFloatVector(random, numDimensions);
+            assertThat(floatVector.add(floatVector))
+                    .satisfies(v ->
+                            assertThat(Metric.EUCLIDEAN_METRIC.distance(floatVector.multiply(2.0d), v))
+                                    .isCloseTo(0, Offset.offset(2E-5)));
+
+            assertThat(floatVector.add(1.0d).add(-1.0d))
+                    .satisfies(v ->
+                            assertThat(Metric.EUCLIDEAN_METRIC.distance(floatVector, v))
+                                    .isCloseTo(0, Offset.offset(2E-5)));
+
+            final HalfRealVector halfVector = createRandomHalfVector(random, numDimensions);
+            assertThat(halfVector.add(halfVector))
+                    .satisfies(v ->
+                            assertThat(Metric.EUCLIDEAN_METRIC.distance(halfVector.multiply(2.0d), v))
+                                    .isCloseTo(0, Offset.offset(2E-2)));
+
+            assertThat(halfVector.add(1.0d).add(-1.0d))
+                    .satisfies(v ->
+                            assertThat(Metric.EUCLIDEAN_METRIC.distance(halfVector, v))
+                                    .isCloseTo(0, Offset.offset(2E-2)));
+
             MutableDoubleRealVector mutableDoubleRealVector = doubleVector.toMutable();
             assertThat(mutableDoubleRealVector.add(doubleVector))
                     .satisfies(v ->
@@ -281,6 +307,28 @@ public class RealVectorTest {
                     .satisfies(v ->
                             assertThat(Metric.EUCLIDEAN_METRIC.distance(doubleVector, v))
                                     .isCloseTo(0, Offset.offset(2E-14)));
+
+            final FloatRealVector floatVector = createRandomFloatVector(random, numDimensions);
+            assertThat(floatVector.subtract(floatVector))
+                    .satisfies(v ->
+                            assertThat(Metric.EUCLIDEAN_METRIC.distance(v, FloatRealVector.zeroVector(numDimensions)))
+                                    .isCloseTo(0, Offset.offset(2E-5)));
+
+            assertThat(floatVector.subtract(-1.0d).subtract(1.0d))
+                    .satisfies(v ->
+                            assertThat(Metric.EUCLIDEAN_METRIC.distance(floatVector, v))
+                                    .isCloseTo(0, Offset.offset(2E-5)));
+
+            final HalfRealVector halfVector = createRandomHalfVector(random, numDimensions);
+            assertThat(halfVector.subtract(halfVector))
+                    .satisfies(v ->
+                            assertThat(Metric.EUCLIDEAN_METRIC.distance(v, HalfRealVector.zeroVector(numDimensions)))
+                                    .isCloseTo(0, Offset.offset(2E-2)));
+
+            assertThat(halfVector.subtract(-1.0d).subtract(1.0d))
+                    .satisfies(v ->
+                            assertThat(Metric.EUCLIDEAN_METRIC.distance(halfVector, v))
+                                    .isCloseTo(0, Offset.offset(2E-2)));
 
             MutableDoubleRealVector mutableDoubleRealVector = doubleVector.toMutable();
             assertThat(mutableDoubleRealVector.subtract(mutableDoubleRealVector))

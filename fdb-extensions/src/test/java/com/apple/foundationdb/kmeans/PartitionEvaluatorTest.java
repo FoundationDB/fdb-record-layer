@@ -53,6 +53,25 @@ class PartitionEvaluatorTest {
     private static final Estimator EUCLIDEAN = Estimator.ofMetric(Metric.EUCLIDEAN_METRIC);
     private static final Estimator COSINE = Estimator.ofMetric(Metric.COSINE_METRIC);
 
+    @ParameterizedTest
+    @RandomSeedSource({0x0fdbL, 0x5ca1eL})
+    void partitionHashCodeAndEquals(final long seed) {
+        final SplittableRandom rnd = new SplittableRandom(seed);
+        final List<RealVector> vectors = twoBlobs(rnd, 600);
+
+        final List<RealVector> twoCentroids = ImmutableList.of(
+                new DoubleRealVector(new double[] {-5.0d, 0.0d, 0.0d}),
+                new DoubleRealVector(new double[] {+5.0d, 0.0d, 0.0d}));
+
+        // create identical partitions but with different assignment arrays (different by reference; not by content)
+        final PartitionEvaluator.Partition<RealVector> one =
+                nearestPartition(twoCentroids, vectors, EUCLIDEAN);
+        final PartitionEvaluator.Partition<RealVector> other =
+                nearestPartition(twoCentroids, vectors, EUCLIDEAN);
+        assertThat(one).hasSameHashCodeAs(other);
+        assertThat(one).isEqualTo(other);
+    }
+
     // ---------------- 1 → 2: split on well-separated data is ACCEPTed ----------------
 
     @ParameterizedTest
@@ -625,10 +644,10 @@ class PartitionEvaluatorTest {
      * {@link KMeansTestHelpers#baseObjective}.
      */
     @Nonnull
-    private static PartitionEvaluator.Partition<RealVector> nearestPartition(
-            @Nonnull final List<RealVector> centroids,
-            @Nonnull final List<RealVector> vectors,
-            @Nonnull final Estimator estimator) {
+    private static PartitionEvaluator.Partition<RealVector>
+            nearestPartition(@Nonnull final List<RealVector> centroids,
+                             @Nonnull final List<RealVector> vectors,
+                             @Nonnull final Estimator estimator) {
         final int[] assignments = new int[vectors.size()];
         for (int i = 0; i < vectors.size(); i++) {
             double best = Double.POSITIVE_INFINITY;
@@ -649,8 +668,7 @@ class PartitionEvaluatorTest {
      * Builds a single-cluster partition whose centroid is the mean of all input vectors.
      */
     @Nonnull
-    private static PartitionEvaluator.Partition<RealVector> singleClusterPartition(
-            @Nonnull final List<RealVector> vectors) {
+    private static PartitionEvaluator.Partition<RealVector> singleClusterPartition(@Nonnull final List<RealVector> vectors) {
         final int d = vectors.get(0).getNumDimensions();
         final MutableDoubleRealVector sum = MutableDoubleRealVector.zeroVector(d);
         for (final RealVector v : vectors) {

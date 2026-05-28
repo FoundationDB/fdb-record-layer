@@ -156,6 +156,12 @@ public class HalfRealVector extends AbstractRealVector {
         return result;
     }
 
+    @Nonnull
+    @Override
+    public HalfRealVector toImmutable() {
+        return this;
+    }
+
     /**
      * Creates a {@link HalfRealVector} from a byte array.
      * <p>

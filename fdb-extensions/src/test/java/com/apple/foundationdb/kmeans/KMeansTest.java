@@ -31,6 +31,7 @@ import com.apple.test.RandomSeedSource;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.slf4j.Logger;
@@ -601,6 +602,68 @@ class KMeansTest {
 
         // Allow a small tolerance: tiny lambdas don't always strictly tighten balance.
         assertThat(balancedMax).isLessThanOrEqualTo((int)Math.round(unbalancedMax * 1.05d));
+    }
+
+    // ============================================================================================
+    // unit tests for the internal reseed helper
+    // ============================================================================================
+
+    /**
+     * {@link KMeans#farthestVectorIndex} returns the index of the data point whose minimum
+     * (metric-specific) base objective to any centroid is maximal — i.e. the point currently
+     * <i>worst</i>-served by the centroid set. The {@code fit} loop calls it to reseed empty or
+     * degenerate clusters during the centroid-update step.
+     * <p>
+     * This test pins the contract on a hand-built configuration where the answer is unambiguous:
+     * with two centroids on the x-axis at {@code ±5}, a point sitting far up the y-axis is
+     * roughly equidistant from both centroids and much farther than any nearby x-axis point.
+     */
+    @Test
+    void farthestVectorIndexPicksWorstServedPointEuclidean() {
+        final Estimator estimator = Estimator.ofMetric(Metric.EUCLIDEAN_METRIC);
+        final KMeans.MetricAdapter adapter = KMeans.fromEstimator(estimator);
+
+        final List<RealVector> centroids = ImmutableList.of(
+                new DoubleRealVector(new double[] {-5.0d, 0.0d, 0.0d}),
+                new DoubleRealVector(new double[] {+5.0d, 0.0d, 0.0d}));
+
+        final List<RealVector> vectors = ImmutableList.of(
+                // index 0: hugs the -5 centroid (sq-dist to nearest = 1)
+                new DoubleRealVector(new double[] {-4.0d,  0.0d, 0.0d}),
+                // index 1: hugs the +5 centroid (sq-dist to nearest = 1)
+                new DoubleRealVector(new double[] { 4.0d,  0.0d, 0.0d}),
+                // index 2: between centroids, near origin (sq-dist to nearest ≈ 26)
+                new DoubleRealVector(new double[] { 0.0d,  5.0d, 0.0d}),
+                // index 3: far up the y-axis (sq-dist to nearest ≈ 2525) <-- the worst served
+                new DoubleRealVector(new double[] { 0.0d, 50.0d, 0.0d}));
+
+        final int idx = KMeans.farthestVectorIndex(adapter, Lens.identity(), vectors, centroids);
+
+        assertThat(idx).isEqualTo(3);
+    }
+
+    /**
+     * On ties, the loop's strict {@code >} preserves the earliest worst-served point. We pin
+     * that behavior here so a future refactor that flips to {@code >=} (which would silently
+     * shift the reseed target) is caught.
+     */
+    @Test
+    void farthestVectorIndexBreaksTiesByEarliestIndex() {
+        final Estimator estimator = Estimator.ofMetric(Metric.EUCLIDEAN_METRIC);
+        final KMeans.MetricAdapter adapter = KMeans.fromEstimator(estimator);
+
+        final List<RealVector> centroids = ImmutableList.of(
+                new DoubleRealVector(new double[] {0.0d, 0.0d, 0.0d}));
+
+        // Three points on a sphere of radius 10 around the single centroid: all equally bad.
+        final List<RealVector> vectors = ImmutableList.of(
+                new DoubleRealVector(new double[] {10.0d,  0.0d,  0.0d}),
+                new DoubleRealVector(new double[] { 0.0d, 10.0d,  0.0d}),
+                new DoubleRealVector(new double[] { 0.0d,  0.0d, 10.0d}));
+
+        final int idx = KMeans.farthestVectorIndex(adapter, Lens.identity(), vectors, centroids);
+
+        assertThat(idx).isEqualTo(0);
     }
 
     /**

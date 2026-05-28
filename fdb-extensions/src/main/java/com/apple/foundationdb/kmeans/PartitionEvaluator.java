@@ -744,17 +744,21 @@ public class PartitionEvaluator {
             return assignments[index];
         }
 
-        /** Returns the number of clusters in this partitioning, i.e. {@code centroids.size()}. */
+        /**
+         * Returns the number of clusters in this partitioning, i.e. {@code centroids.size()}.
+         * @return the number of centroids {@code k} in this partition.
+         */
         @SuppressWarnings("checkstyle:MethodName")
         public int k() {
             return centroids.size();
         }
 
         /**
-         * Custom equality: the auto-generated record {@code equals} would compare
-         * {@code assignments} by reference. This implementation compares the arrays element-wise
-         * via {@link Arrays#equals(int[], int[])} and the other components via
-         * {@link Objects#equals(Object, Object)}.
+         * Custom equality: the auto-generated record {@code equals} would compare {@code vectorLens} as well as
+         * {@code assignments} by reference. This implementation ignores the lens and compares the arrays element-wise
+         * via {@link Arrays#equals(int[], int[])} and the other components via {@link Objects#equals(Object, Object)}.
+         * @param o the other object to compare this object to
+         * @return indicator whether this partition is equal to the object {@code o} passed in
          */
         @Override
         public boolean equals(final Object o) {
@@ -766,14 +770,17 @@ public class PartitionEvaluator {
             }
             final Partition<?> that = (Partition<?>)o;
             return Objects.equals(centroids, that.centroids) &&
-                    Objects.equals(vectorLens, that.vectorLens) &&
                     Arrays.equals(assignments, that.assignments);
         }
 
-        /** Custom hash code consistent with {@link #equals}. */
+        /**
+         * Custom hash code consistent with {@link #equals}. Ignores {@code vectorLens} and uses element-wise hashing
+         * of the {@code assignments} array.
+         * @return the hash code of this partition
+         */
         @Override
         public int hashCode() {
-            int result = Objects.hash(centroids, vectorLens);
+            int result = centroids.hashCode();
             result = 31 * result + Arrays.hashCode(assignments);
             return result;
         }
