@@ -102,7 +102,6 @@ public class InMemoryRelationalStatement implements RelationalStatement {
                     .withMetadata(relationalConn.getSchemaTemplate().unwrap(RecordLayerSchemaTemplate.class).toRecordMetadata())
                     .withSchemaTemplate(relationalConn.getSchemaTemplate())
                     .withPlannerConfiguration(PlannerConfiguration.ofAllAvailableIndexes())
-                    .withUserVersion(0)
                     .build();
 
             final var planGenerator = PlanGenerator.create(Optional.empty(), ctx, ctx.getMetaData(), new RecordStoreState(null, Map.of()), IndexMaintainerFactoryRegistryImpl.instance(), Options.NONE);

@@ -235,7 +235,7 @@ test_block:
     -
       # Comparison of an INTEGER ARRAY field to [], casted to an ARRAY type that is not compatible with INTEGER ARRAY.
       - query: SELECT * FROM T1 WHERE "arr" = CAST([] AS STRING ARRAY)
-      - error: "42804"
+      - error: DATATYPE_MISMATCH
     -
       # Comparison of a nullable ARRAY field to [], casted to the correct type.
       - query: SELECT "pk" FROM T1 WHERE "arr" = CAST([] AS INTEGER ARRAY)
@@ -268,8 +268,8 @@ test_block:
       # Comparison of an INTEGER ARRAY to a constant BIGINT ARRAY. The INTEGER ARRAY could be promoted to a BIGINT ARRAY
       # but this is not yet supported.
       - query: SELECT "pk" FROM T1 WHERE "arr" = CAST([1] AS BIGINT ARRAY)
-      - error: "42804"
+      - error: DATATYPE_MISMATCH
     - # Some more constant comparisons of different but promotable ARRAY types. This is not yet supported.
       - query: SELECT 1I = 1L, [1I] = [1L] FROM "dummy"
-      - error: "42804"
+      - error: DATATYPE_MISMATCH
 ...

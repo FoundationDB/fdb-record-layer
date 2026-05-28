@@ -206,5 +206,5 @@ test_block:
     -
       # wrong function name
       - query: select zz(r) from nested group by z(r)
-      - error: "0AF00"
+      - error: UNSUPPORTED_QUERY
 ...

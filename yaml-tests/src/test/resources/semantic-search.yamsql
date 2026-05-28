@@ -105,7 +105,7 @@ test_block:
           select docId, title, euclidean_distance(embedding, !! !v16 [1.0, 0.0, 0.0] !!) from documents
           where zone = 'zone1' and bookshelf = 'fiction'
           and row_number() over (partition by zone, bookshelf order by euclidean_distance(embedding, !! !v16 [1.0, 0.0, 0.0] !!) asc) <= 1
-      - error: "42F21"
+      - error: WINDOWING_ERROR
     -
       - query:
           select docId, euclidean_distance(embedding, !! !v16 [1.0, 0.0, 0.0] !!) from documents
@@ -262,7 +262,7 @@ test_block:
           join documents d2 on d2.zone = d1.zone and d2.bookshelf = 'science'
           where r.zone = 'zone1'
           qualify row_number() over (partition by d2.zone, d2.bookshelf order by manhattan_distance(d2.embedding, d1.embedding) asc options ef_search = 100) < 2
-      - error: "0AF00"
+      - error: UNSUPPORTED_QUERY
 # Test HNSW index with mixed-type partition columns (bigint and string)
     -
       - query:
@@ -326,25 +326,25 @@ test_block:
           select docId, title from multiTypePartitionDocs
           where zoneId = !! 2 !! and bookshelf = 'fiction'
           qualify row_number() over (partition by zoneId, bookshelf order by euclidean_distance(embedding, !! !v16 [0.0, 0.1, 0.9] !!) desc) <= !! 2 !!
-      - error: "0AF01"
+      - error: UNSUPPORTED_SORT
     -
       - query:
           select docId, title from multiTypePartitionDocs
           where zoneId = !! 2 !! and bookshelf = 'fiction'
           qualify row_number() over (partition by zoneId, bookshelf order by euclidean_distance(embedding, !! !v16 [0.0, 0.1, 0.9] !!) desc nulls first) <= !! 2 !!
-      - error: "0AF01"
+      - error: UNSUPPORTED_SORT
     -
       - query:
           select docId, title from multiTypePartitionDocs
           where zoneId = !! 2 !! and bookshelf = 'fiction'
           qualify row_number() over (partition by zoneId, bookshelf order by euclidean_distance(embedding, !! !v16 [0.0, 0.1, 0.9] !!) desc nulls last) <= !! 2 !!
-      - error: "0AF01"
+      - error: UNSUPPORTED_SORT
     -
       - query:
           select docId, title from multiTypePartitionDocs
           where zoneId = !! 2 !! and bookshelf = 'fiction'
           qualify row_number() over (partition by zoneId, bookshelf order by euclidean_distance(embedding, !! !v16 [0.0, 0.1, 0.9] !!) nulls last) <= !! 2 !!
-      - error: "0AF01"
+      - error: UNSUPPORTED_SORT
 ---
 test_block:
   preset: single_repetition_ordered
