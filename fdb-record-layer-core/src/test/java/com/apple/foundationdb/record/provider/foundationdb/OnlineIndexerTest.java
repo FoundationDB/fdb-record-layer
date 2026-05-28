@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
-import com.apple.foundationdb.Range;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.TestRecords1Proto;
@@ -100,17 +99,6 @@ public abstract class OnlineIndexerTest {
         fdb = dbExtension.getDatabase();
         fdb.setAsyncToSyncTimeout(5, TimeUnit.MINUTES);
         path = pathManager.createPath(TestKeySpace.RECORD_STORE);
-    }
-
-    void clearIndexData(@Nonnull Index index) {
-        fdb.database().run(tr -> {
-            tr.clear(Range.startsWith(recordStore.indexSubspace(index).pack()));
-            tr.clear(recordStore.indexSecondarySubspace(index).range());
-            tr.clear(recordStore.indexSlidingWindowSubspace(index).range());
-            tr.clear(recordStore.indexRangeSubspace(index).range());
-            tr.clear(recordStore.indexBuildSubspace(index).range());
-            return null;
-        });
     }
 
     void openMetaData(@Nonnull Descriptors.FileDescriptor descriptor, @Nonnull RecordMetaDataHook hook) {
