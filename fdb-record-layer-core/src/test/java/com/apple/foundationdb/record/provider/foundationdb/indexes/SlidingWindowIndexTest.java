@@ -1034,12 +1034,12 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
             assertThat(groupedSlidingWindow(Tuple.from("A")))
                     .hasSizeOf(2)
                     .underlyingHnsw()
-                    .containsInAnyOrder(1L, 2L); // hnsw skip scan
+                    .containsInAnyOrder(1L, 2L);
 
             assertThat(groupedSlidingWindow(Tuple.from("B")))
                     .hasSizeOf(2)
                     .underlyingHnsw()
-                    .containsInAnyOrder(3L, 4L); // hnsw skip scan
+                    .containsInAnyOrder(3L, 4L);
 
             final Index index = recordStore.getRecordMetaData().getIndex(INDEX_NAME);
             final IndexMaintainer maintainer = recordStore.getIndexMaintainer(index);
@@ -1052,7 +1052,7 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
             assertThat(groupedSlidingWindow(Tuple.from("B")))
                     .hasSizeOf(2)
                     .underlyingHnsw()
-                    .containsInAnyOrder(3L, 4L); // hnsw skip scan
+                    .containsInAnyOrder(3L, 4L);
 
             commit(context);
         }

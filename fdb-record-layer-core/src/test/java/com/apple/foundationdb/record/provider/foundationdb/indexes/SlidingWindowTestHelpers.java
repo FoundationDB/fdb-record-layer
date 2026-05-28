@@ -142,24 +142,7 @@ public final class SlidingWindowTestHelpers {
      * {@code .underlyingHnsw().containsInAnyOrder(...)} stay scoped to the same
      * group.
      */
-    public static final class SlidingWindow {
-        private final long size;
-        @Nonnull
-        private final Set<Long> hnswRecNos;
-
-        SlidingWindow(final long size, @Nonnull final Set<Long> hnswRecNos) {
-            this.size = size;
-            this.hnswRecNos = hnswRecNos;
-        }
-
-        public long size() {
-            return size;
-        }
-
-        @Nonnull
-        public Set<Long> hnswRecNos() {
-            return hnswRecNos;
-        }
+    record SlidingWindow(long size, @Nonnull Set<Long> hnswRecNos) {
     }
 
     /**
