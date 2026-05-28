@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2019 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2026 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -47,6 +47,7 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.MatchableSo
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RecursiveUnionExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpressionVisitor;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.OuterJoinExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.TableFunctionExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.TempTableInsertExpression;
@@ -629,6 +630,19 @@ public class CardinalitiesProperty implements ExpressionProperty<CardinalitiesPr
                     .orElseThrow(() -> new RecordCoreException("must have at least one quantifier"));
         }
 
+        /**
+         * Estimates cardinalities for a left or right outer join. The maximum is the product of both sides (as for an
+         * inner join). The minimum is floored to the minimum cardinality of the preserved side, since every
+         * preserved-side row produces at least one output (whether matched or null-padded).
+         */
+        @Nonnull
+        @Override
+        public Cardinalities visitOuterJoinExpression(@Nonnull final OuterJoinExpression outerJoinExpression) {
+            final Cardinalities preserved = fromQuantifier(outerJoinExpression.getPreservedQuantifier());
+            final Cardinalities nullSupplying = fromQuantifier(outerJoinExpression.getNullSupplyingQuantifier());
+            return preserved.times(nullSupplying).floor(preserved.getMinCardinality());
+        }
+
         @Nonnull
         @Override
         public Cardinalities visitExplodeExpression(@Nonnull final ExplodeExpression element) {
@@ -902,6 +916,13 @@ public class CardinalitiesProperty implements ExpressionProperty<CardinalitiesPr
                     getMaxCardinality().times(otherCardinalities.getMaxCardinality()));
         }
 
+        /**
+         * Returns a new {@code Cardinalities} object whose minimum and maximum are each raised to at least
+         * {@code minimum}. If both are already at or above the {@code minimum}, returns {@code this} as is.
+         *
+         * @param minimum the lower bound to enforce
+         * @return the adjusted cardinalities
+         */
         @Nonnull
         public Cardinalities floor(long minimum) {
             Cardinality newMin = minCardinality.floor(minimum);
@@ -910,6 +931,18 @@ public class CardinalitiesProperty implements ExpressionProperty<CardinalitiesPr
                 return this;
             }
             return new Cardinalities(newMin, newMax);
+        }
+
+        /**
+         * Returns a new {@code Cardinalities} object whose minimum and maximum are each raised to at least
+         * {@code minimum}. If {@code minimum} is unknown, returns {@code this} unchanged.
+         *
+         * @param minimum the lower bound to enforce
+         * @return the adjusted cardinalities
+         */
+        @Nonnull
+        public Cardinalities floor(@Nonnull final Cardinality minimum) {
+            return minimum.isUnknown() ? this : floor(minimum.getCardinality());
         }
 
         @Override
@@ -985,10 +1018,31 @@ public class CardinalitiesProperty implements ExpressionProperty<CardinalitiesPr
 
         @Nonnull
         public Cardinality floor(long minimum) {
-            if (cardinalityOptional.isEmpty() || cardinalityOptional.getAsLong() >= minimum) {
+            if (isUnknown() || cardinalityOptional.getAsLong() >= minimum) {
                 return this;
             }
             return new Cardinality(OptionalLong.of(minimum));
+        }
+
+        /**
+         * Returns a {@code Cardinality} that is at least as large as {@code minimum}. If {@code minimum} is unknown,
+         * returns {@code this} unchanged.
+         */
+        @Nonnull
+        public Cardinality floor(@Nonnull final Cardinality minimum) {
+            return minimum.isUnknown() ? this : floor(minimum.getCardinality());
+        }
+
+        /**
+         * Returns the larger of this cardinality and {@code other}. An unknown cardinality is treated as larger than
+         * any known value.
+         */
+        @Nonnull
+        public Cardinality max(@Nonnull final Cardinality other) {
+            if (isUnknown() || other.isUnknown()) {
+                return unknownCardinality();
+            }
+            return getCardinality() >= other.getCardinality() ? this : other;
         }
 
         public static Cardinality ofCardinality(final long cardinality) {

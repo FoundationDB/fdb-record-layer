@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.provider.foundationdb;
 
 import com.apple.foundationdb.FDBException;
+import com.apple.foundationdb.KeyValue;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.RangeSet;
 import com.apple.foundationdb.record.RecordCoreException;
@@ -117,6 +118,33 @@ public class OnlineIndexerSimpleTest extends OnlineIndexerTest {
 
         try (FDBRecordContext context = openContext()) {
             assertTrue(recordStore.getRecordStoreState().allIndexesReadable());
+        }
+    }
+
+    @SuppressWarnings("try")
+    @Test
+    void buildMetadataClearedWhenMarkedReadable() {
+        // Verify that after a successful build is marked readable, the build metadata is cleared.
+        final Index index = new Index("simple$value_2", field("num_value_2"), IndexTypes.VALUE);
+        openSimpleMetaData(metaDataBuilder -> metaDataBuilder.addIndex("MySimpleRecord", index));
+
+        try (FDBRecordContext context = openContext()) {
+            LongStream.range(0, 5).forEach(val -> recordStore.saveRecord(TestRecords1Proto.MySimpleRecord.newBuilder()
+                    .setRecNo(val).setNumValue2((int)val).build()));
+            context.commit();
+        }
+
+        try (OnlineIndexer indexBuilder = newIndexerBuilder().setIndex(index).build()) {
+            indexBuilder.buildIndex();
+        }
+
+        try (FDBRecordContext context = openContext()) {
+            assertEquals(0L, IndexBuildState.loadRecordsScannedAsync(recordStore, index).join().longValue());
+            assertNull(recordStore.loadIndexingTypeStampAsync(index).join());
+            // Make sure there is nothing left under the indexBuildSubspace
+            final List<KeyValue> remaining = context.ensureActive()
+                    .getRange(recordStore.indexBuildSubspace(index).range()).asList().join();
+            assertThat(remaining, Matchers.empty());
         }
     }
 
