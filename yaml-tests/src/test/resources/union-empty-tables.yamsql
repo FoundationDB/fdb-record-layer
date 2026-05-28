@@ -90,11 +90,11 @@ test_block:
       - unorderedResult: []
     -
       - query: select col1, col2 from t1 union all select col1 from t1
-      - error: "42F64"
+      - error: UNION_INCORRECT_COLUMN_COUNT
     -
       - query: select col1, col2 from t1 union select col1 from t1
-      - error: "0AF00"
+      - error: UNSUPPORTED_QUERY
     -
       - query: select col1, col2 from t1 union all select a, b from t5
-      - error: "42F65"
+      - error: UNION_INCOMPATIBLE_COLUMNS
 ...

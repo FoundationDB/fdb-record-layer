@@ -1,0 +1,189 @@
+#
+# star-expression-metadata.yamsql
+#
+# This source file is part of the FoundationDB open source project
+#
+# Copyright 2015-2026 Apple Inc. and the FoundationDB project authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Tests the result-set column names produced by parenthesised-star SELECT expressions.
+#
+# Parenthesised-star forms — SELECT (*) and SELECT (T.*) — pack the entire row into a
+# single struct-typed column.  The outer column name is inferred as follows:
+#
+#   SELECT (T.*)              → column named T  (explicit qualifier used as name)
+#   SELECT (*) single source  → column named after the sole table/alias/function in scope
+#   SELECT (*) / (T.*) AS X  → explicit alias overrides inferred name
+#   SELECT (*) multi-table    → column is anonymous ("_0") — source is ambiguous
+---
+options:
+    supported_version: 4.12.5.0
+---
+schema_template:
+    create table foo(id bigint, val bigint, primary key(id))
+    create table bar(bid bigint, bval bigint, primary key(bid))
+    create type as struct s1(a bigint, b bigint)
+    create type as struct s2(c bigint, d s1 array)
+    create table t1(col1 bigint, col2 s2 array, primary key(col1))
+---
+transaction_setups:
+  tvf_sq: create temporary function sq(in x bigint) on commit drop function AS
+    SELECT id, val FROM foo WHERE id > x
+---
+setup:
+  steps:
+    - query: INSERT INTO foo VALUES (1, 10)
+    - query: INSERT INTO bar VALUES (1, 20)
+    - query: INSERT INTO t1 VALUES (1, [(10, [(100, 200)])])
+---
+test_block:
+  name: table-source
+  tests:
+    -
+      # Case 1: SELECT (*) FROM FOO  →  single table in scope → column named FOO
+      - query: SELECT (*) FROM foo
+      - resultMetadata: [{FOO: [{ID: BIGINT}, {VAL: BIGINT}]}]
+      - result: [{FOO: {ID: 1, VAL: 10}}]
+    -
+      # Case 2: SELECT (FOO.*) FROM FOO  →  qualifier is used as column name
+      - query: SELECT (foo.*) FROM foo
+      - resultMetadata: [{FOO: [{ID: BIGINT}, {VAL: BIGINT}]}]
+      - result: [{FOO: {ID: 1, VAL: 10}}]
+    -
+      # Case 3: SELECT (*) FROM FOO AS BAR  →  table alias in scope → column named BAR
+      - query: SELECT (*) FROM foo AS bar
+      - resultMetadata: [{BAR: [{ID: BIGINT}, {VAL: BIGINT}]}]
+      - result: [{BAR: {ID: 1, VAL: 10}}]
+    -
+      # Case 4: SELECT (BAR.*) FROM FOO AS BAR  →  qualifier (the alias) is used as column name
+      - query: SELECT (bar.*) FROM foo AS bar
+      - resultMetadata: [{BAR: [{ID: BIGINT}, {VAL: BIGINT}]}]
+      - result: [{BAR: {ID: 1, VAL: 10}}]
+    -
+      # Case 5: SELECT (*) AS BAR FROM FOO  →  explicit alias overrides inferred name
+      - query: SELECT (*) AS bar FROM foo
+      - resultMetadata: [{BAR: [{ID: BIGINT}, {VAL: BIGINT}]}]
+      - result: [{BAR: {ID: 1, VAL: 10}}]
+    -
+      # Case 6: SELECT (FOO.*) AS BAR FROM FOO  →  explicit alias overrides qualifier name
+      - query: SELECT (foo.*) AS bar FROM foo
+      - resultMetadata: [{BAR: [{ID: BIGINT}, {VAL: BIGINT}]}]
+      - result: [{BAR: {ID: 1, VAL: 10}}]
+---
+test_block:
+  name: subquery-source
+  tests:
+    -
+      # Subquery with alias → column named after the alias
+      - query: SELECT (*) FROM (SELECT id, val FROM foo) AS sub
+      - resultMetadata: [{SUB: [{ID: BIGINT}, {VAL: BIGINT}]}]
+      - result: [{SUB: {ID: 1, VAL: 10}}]
+    -
+      # (T.*) where T is a subquery alias → same rule as for a table alias
+      - query: SELECT (sub.*) FROM (SELECT id, val FROM foo) AS sub
+      - resultMetadata: [{SUB: [{ID: BIGINT}, {VAL: BIGINT}]}]
+      - result: [{SUB: {ID: 1, VAL: 10}}]
+---
+test_block:
+  name: function-source
+  tests:
+    -
+      # TVF without alias → column named after the function
+      - query: SELECT (*) FROM sq(0)
+      - setupReference: tvf_sq
+      - resultMetadata: [{SQ: [{ID: BIGINT}, {VAL: BIGINT}]}]
+      - result: [{SQ: {ID: 1, VAL: 10}}]
+    -
+      # TVF with alias → alias wins
+      - query: SELECT (*) FROM sq(0) AS f
+      - setupReference: tvf_sq
+      - resultMetadata: [{F: [{ID: BIGINT}, {VAL: BIGINT}]}]
+      - result: [{F: {ID: 1, VAL: 10}}]
+---
+test_block:
+  name: values-source
+  tests:
+    -
+      # VALUES without alias has no name → source is anonymous, column is _0
+      - query: SELECT (*) FROM VALUES (1, 2), (3, 4)
+      - resultMetadata: [{_0: [{_0: INTEGER}, {_1: INTEGER}]}]
+      - unorderedResult: [{_0: {_0: 1, _1: 2}}, {_0: {_0: 3, _1: 4}}]
+    -
+      # VALUES with in-line table definition → column named after the table alias
+      - query: SELECT (*) FROM VALUES (1, 2), (3, 4) AS X(A, B)
+      - resultMetadata: [{X: [{A: INTEGER}, {B: INTEGER}]}]
+      - unorderedResult: [{X: {A: 1, B: 2}}, {X: {A: 3, B: 4}}]
+---
+test_block:
+  name: ambiguous-join-source
+  tests:
+    -
+      # Two tables in scope → source is ambiguous, column is anonymous
+      - query: SELECT (*) FROM foo, bar WHERE foo.id = bar.bid
+      - resultMetadata: [{_0: [{ID: BIGINT}, {VAL: BIGINT}, {BID: BIGINT}, {BVAL: BIGINT}]}]
+      - result: [{_0: {ID: 1, VAL: 10, BID: 1, BVAL: 20}}]
+---
+test_block:
+  name: partiql-unnest-source
+  tests:
+    -
+      # PartiQL unnest introduces two for-each quantifiers (t1 and k) → source is ambiguous,
+      # column is anonymous even though only one base table is in scope
+      - query: SELECT (*) FROM t1, t1.col2 AS k
+      - resultMetadata:
+        - _0:
+          - {COL1: BIGINT}
+          - COL2: {array: [{C: BIGINT}, {D: {array: [{A: BIGINT}, {B: BIGINT}]}}]}
+          - {C: BIGINT}
+          - D: {array: [{A: BIGINT}, {B: BIGINT}]}
+      - result: [{_0: {COL1: 1, COL2: [{C: 10, D: [{A: 100, B: 200}]}], C: 10, D: [{A: 100, B: 200}]}}]
+    -
+      # Wrapping the multi-level unnest in a subquery alias gives exactly one for-each
+      # quantifier in the outer scope → column named after the alias
+      - query: SELECT (*) FROM (SELECT * FROM t1, t1.col2 AS k, k.d AS m) AS p
+      - resultMetadata:
+        - P:
+          - {COL1: BIGINT}
+          - COL2: {array: [{C: BIGINT}, {D: {array: [{A: BIGINT}, {B: BIGINT}]}}]}
+          - {C: BIGINT}
+          - D: {array: [{A: BIGINT}, {B: BIGINT}]}
+          - {A: BIGINT}
+          - {B: BIGINT}
+      - result: [{P: {COL1: 1, COL2: [{C: 10, D: [{A: 100, B: 200}]}], C: 10, D: [{A: 100, B: 200}], A: 100, B: 200}}]
+    -
+      # Explicit (p.*) qualifier gives the same column name as the inferred case above
+      - query: SELECT (p.*) FROM (SELECT * FROM t1, t1.col2 AS k, k.d AS m) AS p
+      - resultMetadata:
+        - P:
+          - {COL1: BIGINT}
+          - COL2: {array: [{C: BIGINT}, {D: {array: [{A: BIGINT}, {B: BIGINT}]}}]}
+          - {C: BIGINT}
+          - D: {array: [{A: BIGINT}, {B: BIGINT}]}
+          - {A: BIGINT}
+          - {B: BIGINT}
+      - result: [{P: {COL1: 1, COL2: [{C: 10, D: [{A: 100, B: 200}]}], C: 10, D: [{A: 100, B: 200}], A: 100, B: 200}}]
+    -
+      # Nesting: inner (*) names the column after alias h; outer (*) names the column after alias q
+      - query: SELECT (*) FROM (SELECT (*) FROM (SELECT * FROM t1, t1.col2 AS k, k.d AS m) AS h) AS q
+      - resultMetadata:
+        - Q:
+          - H:
+            - {COL1: BIGINT}
+            - COL2: {array: [{C: BIGINT}, {D: {array: [{A: BIGINT}, {B: BIGINT}]}}]}
+            - {C: BIGINT}
+            - D: {array: [{A: BIGINT}, {B: BIGINT}]}
+            - {A: BIGINT}
+            - {B: BIGINT}
+      - result: [{Q: {H: {COL1: 1, COL2: [{C: 10, D: [{A: 100, B: 200}]}], C: 10, D: [{A: 100, B: 200}], A: 100, B: 200}}}]
+...
