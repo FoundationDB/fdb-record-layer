@@ -19,7 +19,7 @@
 
 ---
 options:
-  supported_version: !current_version
+  supported_version: 4.12.6.0
 ---
 schema_template:
     CREATE TABLE "emp" ("id" BIGINT, "fname" STRING, "lname" STRING, "dept_id" BIGINT, PRIMARY KEY ("id"))
