@@ -265,7 +265,7 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
      * {@link #impliesCandidatePredicateMaybe(ValueEquivalence, QueryPredicate, QueryPredicate, EvaluationContext)} using
      * a tautology predicate as candidate which should by contract should return a {@link PredicateMapping}.
      * @param valueEquivalence the current alias map together with some other known equalities
-     * @param candidatePredicates an {@link Iterable} of candiate predicates
+     * @param candidatePredicates an {@link Iterable} of candidate predicates
      * @param evaluationContext the evaluation context used to examine predicate implication.
      * @return a non-empty collection of {@link PredicateMapping}s
      */
