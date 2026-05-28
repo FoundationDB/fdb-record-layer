@@ -305,6 +305,11 @@ def copyTempLogs = tasks.register("copyTempLogs", Copy) {
 }
 
 tasks.withType(Test).configureEach {
+    // Override the global debug-level log4j config; yaml-tests has its own tuned config
+    systemProperty('log4j2.configurationFile', project.file('src/test/resources/log4j2-test.properties').toURI())
+}
+
+tasks.withType(Test).configureEach {
     if (project.hasProperty("tests.ci") || project.hasProperty("tests.saveServerLogs")) {
         systemProperties['tests.saveServerLogs'] = "true"
         finalizedBy(copyTempLogs)

@@ -1267,6 +1267,52 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
         }
     }
 
+    // ===== Regression test for clearIndexData =====
+
+    @Test
+    void clearAndMarkWriteOnlyClearsSlidingWindowSubspace() throws Exception {
+        // Regression test for the originally reported bug: FDBRecordStore.clearIndexData did
+        // not clear the sliding window subspace, so calling clearAndMarkIndexWriteOnly (which
+        // routes through clearIndexData) left stale window bookkeeping (count, boundary,
+        // entries) behind. Subsequent writes under the WRITE_ONLY state go through
+        // SlidingWindowIndexMaintainer.updateWhileWriteOnly → handleInsert, which reads the
+        // count and boundary from the subspace to decide whether to add to the window or
+        // evict. With stale state, the maintainer would incorrectly believe the window is
+        // already full and trigger a phantom eviction (against a delegate that has already
+        // been cleared), leaving the window's count out of sync with the records actually
+        // indexed since the clear.
+        //
+        // This test exercises that path directly: after a clear + a single new write, the
+        // count must be exactly 1. Without the fix, the count would be 2 (the stale pre-clear
+        // value, preserved through a window-full eviction).
+        try (FDBRecordContext context = openContext()) {
+            openStore(context, 2, Direction.DESC);
+            rec(1, 100);   // window: count becomes 1
+            rec(2, 200);   // window: count becomes 2, boundary becomes (100, 1)
+            assertEquals(2L, readWindowCount());
+            commit(context);
+        }
+        try (FDBRecordContext context = openContext()) {
+            openStore(context, 2, Direction.DESC);
+            final Index index = recordStore.getRecordMetaData().getIndex(INDEX_NAME);
+            recordStore.clearAndMarkIndexWriteOnly(index).join();
+
+            // Save a single record under the now-WRITE_ONLY state. With the fix, the sliding
+            // window subspace was emptied by clearAndMarkIndexWriteOnly, so this is the first
+            // entry: count must be 1. Without the fix, the maintainer reads the stale count=2,
+            // takes the "window full" branch, evicts the stale (100, 1) boundary entry, and
+            // leaves count at 2 — a value that no longer reflects the records actually present
+            // in the (rebuilt-from-empty) delegate index.
+            rec(3, 300);
+            assertEquals(1L, readWindowCount(),
+                    "After clearAndMarkIndexWriteOnly + one write, the sliding window count must "
+                            + "reflect only the new record. A count > 1 means clearIndexData left "
+                            + "stale window bookkeeping behind, corrupting the window's internal "
+                            + "accounting.");
+            commit(context);
+        }
+    }
+
     // ===== Serialization tests =====
 
     @Test
