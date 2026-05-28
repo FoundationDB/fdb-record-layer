@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.provider.foundationdb.indexes;
 
 import com.apple.foundationdb.KeyValue;
+import com.apple.foundationdb.MutationType;
 import com.apple.foundationdb.Range;
 import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.annotation.API;
@@ -448,14 +449,21 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
         final byte[] counterKey = metaSubspace.pack(COUNT_KEY);
         final byte[] boundaryMetaKey = metaSubspace.pack(BOUNDARY_KEY);
 
-        return tr.get(counterKey).thenCompose(counterBytes -> {
+        return tr.snapshot().get(counterKey).thenCompose(counterBytes -> {
             final long count = counterBytes == null ? 0L : decodeLong(counterBytes);
 
             if (count < windowSize) {
-                // Window not full: add to delegate, update count, maybe update boundary
+                //
+                // the window is not full, add the item to delegate, update count, maybe update boundary
+                //
                 return delegate.update(null, savedRecord).thenCompose(vignore ->
-                        tr.get(boundaryMetaKey).thenAccept(boundaryBytes -> {
-                            tr.set(counterKey, encodeLong(count + 1));
+                        tr.snapshot().get(boundaryMetaKey).thenAccept(boundaryBytes -> {
+                            tr.mutate(MutationType.ADD, counterKey, encodeLong(1));
+                            //
+                            // only update the boundary key if it not yet set or the newly added
+                            // item replaces the current boundary by being worse than the current
+                            // boundary
+                            //
                             if (boundaryBytes == null || extremumType.isWorseOrEqual(entryKey,
                                     Tuple.fromBytes(boundaryBytes))) {
                                 tr.set(boundaryMetaKey, entryKey.pack());
@@ -463,8 +471,10 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
                         })
                 );
             } else {
-                // Window full: read boundary to compare
-                return tr.get(boundaryMetaKey).thenCompose(boundaryBytes -> {
+                //
+                // Window full, read boundary to compare
+                //
+                return tr.snapshot().get(boundaryMetaKey).thenCompose(boundaryBytes -> {
                     if (boundaryBytes == null) {
                         throw new RecordCoreException("sliding window boundary is missing but count >= windowSize, possible corruption")
                                 .addLogInfo(LogMessageKeys.INDEX_NAME, state.index.getName());
@@ -477,7 +487,7 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
                         // subspace on the overflow side. Nothing more to do.
                         return AsyncUtil.DONE;
                     }
-
+                    tr.addReadConflictKey(boundaryMetaKey);
                     // New entry is better: evict boundary from delegate, add new to delegate
                     return evictBoundaryAndReplace(savedRecord, entryKey, entriesSubspace, tr,
                             boundaryEntryKey, boundaryMetaKey);
@@ -500,8 +510,7 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
         final Subspace metaSubspace = partitionSubspace.subspace(META_SUBSPACE_KEY);
 
         final Key.Evaluated windowEval = windowKey.evaluateSingleton(savedRecord);
-        final Tuple windowValue = windowEval.toTuple();
-        final Tuple entryKey = windowValue.addAll(primaryKey);
+        final Tuple entryKey = windowEval.toTuple().addAll(primaryKey);
         final byte[] packedEntryKey = entriesSubspace.pack(entryKey);
 
         // Check if this entry exists in the entries subspace
@@ -517,7 +526,7 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
             final byte[] counterKey = metaSubspace.pack(COUNT_KEY);
             final byte[] boundaryMetaKey = metaSubspace.pack(BOUNDARY_KEY);
 
-            return tr.get(boundaryMetaKey).thenCompose(boundaryBytes -> {
+            return tr.snapshot().get(boundaryMetaKey).thenCompose(boundaryBytes -> {
                 if (boundaryBytes == null) {
                     throw new RecordCoreException("sliding window boundary is missing but entry exists, possible corruption")
                             .addLogInfo(LogMessageKeys.INDEX_NAME, state.index.getName());
@@ -528,7 +537,7 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
                     // Entry was in overflow: already removed from entries, nothing else to do
                     return AsyncUtil.DONE;
                 }
-
+                tr.addReadConflictKey(boundaryMetaKey);
                 // Entry was in the window: remove from delegate, update count, re-elect
                 return tr.get(counterKey).thenCompose(counterBytes -> {
                     final long count = counterBytes == null ? 0L : decodeLong(counterBytes);
