@@ -369,7 +369,7 @@ public interface TypedVisitor extends RelationalParserVisitor<Object> {
     @Override
     Object visitStraightJoin(@Nonnull RelationalParser.StraightJoinContext ctx);
 
-    @Nonnull
+    @Nullable
     @Override
     Object visitOuterJoin(@Nonnull RelationalParser.OuterJoinContext ctx);
 
