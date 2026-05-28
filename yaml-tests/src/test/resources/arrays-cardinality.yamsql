@@ -173,22 +173,21 @@ test_block:
     - - query: SELECT "id" FROM "tab1_indexed_nn" WHERE CARDINALITY("int_arr") IS NOT NULL
       - explain: "COVERING(tab1_indexed_nn_index ([null],> -> [id: KEY:[2]]) | MAP (_.id AS id)"
       - unorderedResult: [{id: 1}, {id: 2}, {id: 3}]
-    - # WHERE CARDINALITY() = NULL. By SQL semantics this should always return 0 rows (the predicate evaluates to
-      # UNKNOWN). The non-indexed cases get this right (the planner constant-folds the predicate to `null`), but the
-      # indexed nullable case currently exhibits a general planner bug where `«indexed_field» = NULL` is incorrectly
-      # mapped to an IS NULL index range scan. The tests below document the current behavior. See also Issue #4170.
+    - # WHERE CARDINALITY() = NULL. By SQL semantics this should always return 0 rows (the predicate evaluates to UNKNOWN).
       - query: SELECT "id" FROM "tab1" WHERE CARDINALITY("int_arr") = NULL
       - explain: "SCAN([IS tab1]) | FILTER null | MAP (_.id AS id)"
       - unorderedResult: []
     - - query: SELECT "id" FROM "tab1_nn" WHERE CARDINALITY("int_arr") = NULL
       - explain: "SCAN([IS tab1_nn]) | FILTER null | MAP (_.id AS id)"
       - unorderedResult: []
-    - # TODO Issue #4170: This should return [].
-      - query: SELECT "id" FROM "tab1_indexed" WHERE CARDINALITY("int_arr") = NULL
-      - explain: "COVERING(tab1_indexed_index [EQUALS NULL] -> [id: KEY:[2]]) | MAP (_.id AS id)"
+    - - query: SELECT "id" FROM "tab1_indexed" WHERE CARDINALITY("int_arr") = NULL
+      - explain: "COVERING(tab1_indexed_index <,> -> [id: KEY:[2]]) | FILTER null | MAP (_.id AS id)"
+      - initialVersionLessThan: !current_version
       - unorderedResult: [{id: 0}]
+      - initialVersionAtLeast: !current_version
+      - unorderedResult: []
     - - query: SELECT "id" FROM "tab1_indexed_nn" WHERE CARDINALITY("int_arr") = NULL
-      - explain: "COVERING(tab1_indexed_nn_index [EQUALS NULL] -> [id: KEY:[2]]) | MAP (_.id AS id)"
+      - explain: "COVERING(tab1_indexed_nn_index <,> -> [id: KEY:[2]]) | FILTER null | MAP (_.id AS id)"
       - unorderedResult: []
     - # SELECT + WHERE + ORDER BY.
       - query: SELECT CARDINALITY("int_arr") AS "card", "id" FROM "tab1_indexed_nn" WHERE CARDINALITY("int_arr") = 1 ORDER BY CARDINALITY("int_arr")

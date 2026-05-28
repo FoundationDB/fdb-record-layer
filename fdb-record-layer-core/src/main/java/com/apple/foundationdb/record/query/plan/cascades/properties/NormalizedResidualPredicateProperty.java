@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2019 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2026 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,35 +27,38 @@ import com.apple.foundationdb.record.query.plan.cascades.SimpleExpressionVisitor
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpressionWithPredicates;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.AndPredicate;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.ConstantPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.OrPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.planning.BooleanPredicateNormalizer;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnionOnValuesPlan;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 
 import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Objects;
 
 /**
- * This property collects a {@link QueryPredicate} that represents the entirety of all accumulated residual predicates.
- * This predicate cannot be applied in any meaningful way to a stream of data, but it can be reasoned over using boolean
- * algebra. In addition, this approach also allows us to unify set operations such a UNION and INTERSECTION with their
- * boolean counterparts OR and AND.
- * One particular use of the collected residual predicate is to derive the number of effective boolean factors of its
- * CNF which is a direct measure of the number of residual filters that have to be applied and therefore its static
- * filter factor. Note that such a number can always be computed without actually materializing the CNF.
+ * A property that summarizes all <em>residual</em> filtering work in an expression tree as a single synthetic
+ * {@link QueryPredicate}.
+ *
+ * <p>A <em>residual predicate</em> is a predicate that the planner cannot push down into an index range and thus
+ * survives in the plan as a row-by-row filter (for example, a {@code FILTER} node somewhere above a {@code SCAN}). The
+ * <em>accumulated</em> residual predicate is the recursive boolean combination of every such filter in the tree.
+ * Filters at ordinary nodes are combined with {@code AND}; filters at union-like plans are combined with {@code OR}.
+ * Tautologies and constant predicates are excluded, since they incur no meaningful work at runtime.</p>
+ *
+ * <p>The returned predicate is purely analytical; it cannot be evaluated against a stream of data. Its only purpose is
+ * to be reasoned about as a boolean formula. The main consumer is {@link #countNormalizedConjuncts}, which serves
+ * as a cost-model tie-breaker (lower means less residual filtering, hence preferred).</p>
  */
 @API(API.Status.EXPERIMENTAL)
-public class NormalizedResidualPredicateProperty implements ExpressionProperty<QueryPredicate> {
+public final class NormalizedResidualPredicateProperty implements ExpressionProperty<QueryPredicate> {
     @Nonnull
-    private static final NormalizedResidualPredicateProperty NORMALIZED_RESIDUAL_PREDICATE =
-            new NormalizedResidualPredicateProperty();
+    private static final NormalizedResidualPredicateProperty INSTANCE = new NormalizedResidualPredicateProperty();
 
     private NormalizedResidualPredicateProperty() {
-        // prevent outside instantiation
     }
 
     @Nonnull
@@ -76,26 +79,34 @@ public class NormalizedResidualPredicateProperty implements ExpressionProperty<Q
 
     @Nonnull
     public static NormalizedResidualPredicateProperty normalizedResidualPredicate() {
-        return NORMALIZED_RESIDUAL_PREDICATE;
+        return INSTANCE;
     }
 
-    public static long countNormalizedConjuncts(@Nonnull RelationalExpression expression) {
-        final var magicPredicate = normalizedResidualPredicate().evaluate(expression);
-        return magicPredicate.isTautology()
+    /**
+     * Counts the conjuncts in the CNF of the residual predicate accumulated across {@code expression}. A return value
+     * of {@code 0} means the residual is a tautology and the expression has no residual filtering work at runtime.
+     *
+     * @param expression the expression to inspect
+     * @return the CNF conjunct count of the accumulated residual predicate, or {@code 0} if it is a tautology
+     */
+    public static long countNormalizedConjuncts(@Nonnull final RelationalExpression expression) {
+        final QueryPredicate residual = normalizedResidualPredicate().evaluate(expression);
+        return residual.isTautology()
                ? 0
                : BooleanPredicateNormalizer
-                       .getDefaultInstanceForCnf()
-                       .getMetrics(magicPredicate)
-                       .getNormalFormFullSize();
+                 .getDefaultInstanceForCnf()
+                 .getMetrics(residual)
+                 .getNormalFormFullSize();
     }
 
-    public static class NormalizedResidualPredicateVisitor implements SimpleExpressionVisitor<QueryPredicate> {
+    public static final class NormalizedResidualPredicateVisitor implements SimpleExpressionVisitor<QueryPredicate> {
         @Nonnull
         @Override
         public QueryPredicate visitRecordQueryUnionOnValuesPlan(@Nonnull final RecordQueryUnionOnValuesPlan unionPlan) {
+            // For UNION-like plans, the predicates from the quantifiers must be combined using OR.
             final var predicatesFromQuantifiers = visitQuantifiers(unionPlan).stream()
                     .filter(Objects::nonNull)
-                    .filter(predicate -> !predicate.isTautology())
+                    .filter(NormalizedResidualPredicateVisitor::isResidual)
                     .collect(ImmutableList.toImmutableList());
             return OrPredicate.orOrTrue(predicatesFromQuantifiers);
         }
@@ -104,20 +115,29 @@ public class NormalizedResidualPredicateProperty implements ExpressionProperty<Q
         @Override
         public QueryPredicate evaluateAtExpression(@Nonnull final RelationalExpression expression,
                                                    @Nonnull final List<QueryPredicate> childResults) {
-            final var resultPredicatesBuilder = ImmutableList.<QueryPredicate>builder();
+            final var builder = ImmutableList.<QueryPredicate>builder();
 
             childResults.stream()
                     .filter(Objects::nonNull)
-                    .filter(predicate -> !predicate.isTautology())
-                    .forEach(resultPredicatesBuilder::add);
+                    .filter(NormalizedResidualPredicateVisitor::isResidual)
+                    .forEach(builder::add);
 
-            if (expression instanceof RelationalExpressionWithPredicates) {
-                ((RelationalExpressionWithPredicates)expression).getPredicates()
+            if (expression instanceof RelationalExpressionWithPredicates withPredicates) {
+                withPredicates.getPredicates()
                         .stream()
-                        .filter(predicate -> !predicate.isTautology())
-                        .forEach(resultPredicatesBuilder::add);
+                        .filter(NormalizedResidualPredicateVisitor::isResidual)
+                        .forEach(builder::add);
             }
-            return AndPredicate.and(resultPredicatesBuilder.build());
+            return AndPredicate.and(builder.build());
+        }
+
+        /**
+         * A predicate is a runtime residual only if it actually has to be evaluated against rows. Tautologies and
+         * {@link ConstantPredicate} objects (including {@code FALSE} and {@code NULL}) reduce to fixed plan-time values
+         * and therefore do not contribute to the residual conjunct count used by the cost model.
+         */
+        private static boolean isResidual(@Nonnull final QueryPredicate predicate) {
+            return !(predicate instanceof ConstantPredicate) && !predicate.isTautology();
         }
 
         @Nonnull
@@ -125,7 +145,7 @@ public class NormalizedResidualPredicateProperty implements ExpressionProperty<Q
         public QueryPredicate evaluateAtRef(@Nonnull final Reference ref,
                                             @Nonnull final List<QueryPredicate> memberResults) {
             Verify.verify(memberResults.size() == 1);
-            return Iterables.getOnlyElement(memberResults);
+            return memberResults.get(0);
         }
     }
 }

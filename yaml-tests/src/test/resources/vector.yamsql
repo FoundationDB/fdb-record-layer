@@ -257,7 +257,7 @@ test_block:
     -
       - query: select a from tFloatVector where b != null
       - supported_version: 4.9.6.0
-      - explain: "SCAN([IS TFLOATVECTOR]) | FILTER _.B NOT_EQUALS NULL | MAP (_.A AS A)"
+      - explain: "SCAN([IS TFLOATVECTOR]) | FILTER null | MAP (_.A AS A)"
       - result: []
     -
       - query: select a from tHalfVector where null = b
@@ -267,7 +267,7 @@ test_block:
     -
       - query: select a from tFloatVector where null != b
       - supported_version: 4.9.6.0
-      - explain: "SCAN([IS TFLOATVECTOR]) | FILTER _.B NOT_EQUALS NULL | MAP (_.A AS A)"
+      - explain: "SCAN([IS TFLOATVECTOR]) | FILTER null | MAP (_.A AS A)"
       - result: []
     -
       - query: select a from tDoubleVector where b is distinct from null
