@@ -1289,7 +1289,7 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
             openStore(context, 2, Direction.DESC);
             rec(1, 100);   // window: count becomes 1
             rec(2, 200);   // window: count becomes 2, boundary becomes (100, 1)
-            assertEquals(2L, readWindowCount());
+            assertThat(slidingWindow()).hasSizeOf(2);
             commit(context);
         }
         try (FDBRecordContext context = openContext()) {
@@ -1304,11 +1304,12 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
             // leaves count at 2 — a value that no longer reflects the records actually present
             // in the (rebuilt-from-empty) delegate index.
             rec(3, 300);
-            assertEquals(1L, readWindowCount(),
-                    "After clearAndMarkIndexWriteOnly + one write, the sliding window count must "
+            assertThat(slidingWindow())
+                    .as("After clearAndMarkIndexWriteOnly + one write, the sliding window count must "
                             + "reflect only the new record. A count > 1 means clearIndexData left "
                             + "stale window bookkeeping behind, corrupting the window's internal "
-                            + "accounting.");
+                            + "accounting.")
+                    .hasSizeOf(1);
             commit(context);
         }
     }

@@ -147,35 +147,52 @@ public final class SlidingWindowTestHelpers {
 
     /**
      * Fluent assertion over a {@link SlidingWindow} probe. Static-import
-     * {@link #assertThat(SlidingWindow)} to use the chained API.
+     * {@link #assertThat(SlidingWindow)} to use the chained API. An optional
+     * description set via {@link #as(String)} is prefixed to any failure message
+     * and propagated to {@link #underlyingHnsw()}.
      */
     public static final class SlidingWindowAssert {
         @Nonnull
         private final SlidingWindow window;
+        @Nullable
+        private final String description;
 
-        private SlidingWindowAssert(@Nonnull final SlidingWindow window) {
+        private SlidingWindowAssert(@Nonnull final SlidingWindow window, @Nullable final String description) {
             this.window = window;
+            this.description = description;
         }
 
         @Nonnull
         public static SlidingWindowAssert assertThat(@Nonnull final SlidingWindow window) {
-            return new SlidingWindowAssert(window);
+            return new SlidingWindowAssert(window, null);
+        }
+
+        /**
+         * Attaches a description that will be prefixed to any failure message
+         * produced by subsequent assertions in this chain (including those on
+         * the {@link HnswAssert} returned by {@link #underlyingHnsw()}).
+         */
+        @Nonnull
+        public SlidingWindowAssert as(@Nonnull final String description) {
+            return new SlidingWindowAssert(window, description);
         }
 
         @Nonnull
         public SlidingWindowAssert hasSizeOf(final int expectedSize) {
             assertEquals(expectedSize, window.size(),
-                    "Sliding window should have size " + expectedSize + " but was " + window.size());
+                    describe(description,
+                            "Sliding window should have size " + expectedSize + " but was " + window.size()));
             return this;
         }
 
         /**
          * Returns a fluent assertion over the HNSW state captured by this probe,
-         * scoped to the same group.
+         * scoped to the same group. The {@link #as(String) description} (if any)
+         * is propagated.
          */
         @Nonnull
         public HnswAssert underlyingHnsw() {
-            return new HnswAssert(window.hnswRecNos());
+            return new HnswAssert(window.hnswRecNos(), description);
         }
     }
 
@@ -185,31 +202,52 @@ public final class SlidingWindowTestHelpers {
     public static final class HnswAssert {
         @Nonnull
         private final Set<Long> recNos;
+        @Nullable
+        private final String description;
 
         HnswAssert(@Nonnull final Set<Long> recNos) {
+            this(recNos, null);
+        }
+
+        HnswAssert(@Nonnull final Set<Long> recNos, @Nullable final String description) {
             this.recNos = recNos;
+            this.description = description;
+        }
+
+        /**
+         * Attaches a description that will be prefixed to any failure message
+         * produced by subsequent assertions in this chain.
+         */
+        @Nonnull
+        public HnswAssert as(@Nonnull final String description) {
+            return new HnswAssert(recNos, description);
         }
 
         @Nonnull
         public HnswAssert containsInAnyOrder(final long... expectedRecNos) {
             final Set<Long> expected = LongStream.of(expectedRecNos).boxed().collect(Collectors.toSet());
             assertEquals(expected, recNos,
-                    "HNSW should contain " + expected + " but was " + recNos);
+                    describe(description, "HNSW should contain " + expected + " but was " + recNos));
             return this;
         }
 
         @Nonnull
         public HnswAssert contains(final long expectedRecNo) {
             assertTrue(recNos.contains(expectedRecNo),
-                    "HNSW should contain " + expectedRecNo + " but was " + recNos);
+                    describe(description, "HNSW should contain " + expectedRecNo + " but was " + recNos));
             return this;
         }
 
         @Nonnull
         public HnswAssert isEmpty() {
             assertTrue(recNos.isEmpty(),
-                    "HNSW should be empty but contained " + recNos);
+                    describe(description, "HNSW should be empty but contained " + recNos));
             return this;
         }
+    }
+
+    @Nonnull
+    private static String describe(@Nullable final String description, @Nonnull final String defaultMessage) {
+        return description == null ? defaultMessage : description + System.lineSeparator() + defaultMessage;
     }
 }
