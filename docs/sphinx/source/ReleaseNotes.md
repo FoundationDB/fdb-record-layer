@@ -7,6 +7,25 @@ As the [versioning guide](Versioning.md) details, it cannot always be determined
 
 ## 4.12
 
+### 4.12.7.0
+
+<h4> Bug Fixes </h4>
+
+* Make `CastValue.hashCodeWithoutChildren()` stable - [PR #4241](https://github.com/FoundationDB/fdb-record-layer/pull/4241)
+
+
+**[Full Changelog (4.12.6.0...4.12.7.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.12.6.0...4.12.7.0)**
+
+#### Mixed Mode Test Results
+
+Mixed mode testing run against the following previous versions:
+
+✅`4.10.17.0`, ✅`4.10.18.0`, ✅`4.10.19.0`, ✅`4.10.20.0`, ✅`4.11.1.0`, ✅`4.12.1.0`, ✅`4.12.2.0`, ✅`4.12.3.0`, ✅`4.12.4.0`, ✅`4.12.5.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/26599506639)
+
+
+
 ### 4.12.6.0
 
 <h4> New Features </h4>
