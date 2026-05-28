@@ -113,7 +113,7 @@ public class IndexingThrottle {
             // - Ignore failed transactions (they should be rare, and limited in number)
             final long enforcedPostTransactionDelay = common.config.getEnforcedPostTransactionDelay();
             if (enforcedPostTransactionDelay > 0) {
-                return Math.min(enforcedPostTransactionDelay, 10_000);
+                return enforcedPostTransactionDelay;
             }
             int recordsPerSecond = common.config.getRecordsPerSecond();
             if (recordsPerSecond == IndexingCommon.UNLIMITED) {

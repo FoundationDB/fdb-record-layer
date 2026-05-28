@@ -41,7 +41,7 @@ import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -775,7 +775,7 @@ public class OnlineIndexerSimpleTest extends OnlineIndexerTest {
     }
 
     @ParameterizedTest
-    @CsvSource({"10", "250", "1000", "3000", "10000", "60000"})
+    @ValueSource(ints = {10, 250, 1000, 3000, 10_000, 60_000})
     void testIndexingThrottleBookerEnforcedPostTransactionDelay(int enforcedDelay) {
         final OnlineIndexOperationConfig config = OnlineIndexOperationConfig.newBuilder()
                 .setInitialLimit(100)
@@ -793,10 +793,10 @@ public class OnlineIndexerSimpleTest extends OnlineIndexerTest {
                     config,
                     false);
 
-            // Enforced delay is returned (up to 10 seconds), regardless of recent scan volume.
+            // Enforced delay is returned, regardless of recent scan volume.
             IndexingThrottle.Booker booker = new IndexingThrottle.Booker(common);
             postTransaction(booker, 1, 1_000_000, false); // would otherwise force a near-999ms wait
-            assertEquals(Math.min(enforcedDelay, 10_000), booker.waitTimeMilliseconds());
+            assertEquals(enforcedDelay, booker.waitTimeMilliseconds());
         }
     }
 

@@ -281,8 +281,8 @@ public abstract class OnlineIndexOperationBaseBuilder<B extends OnlineIndexOpera
 
     /**
      * Set the enforced delay, in milliseconds, applied after each transaction. When set to a positive value, the
-     * indexer waits for this many milliseconds (capped at 10 seconds) between transactions, bypassing the
-     * records-per-second based throttling.
+     * indexer waits for this many milliseconds between transactions, bypassing the records-per-second based
+     * throttling.
      * The default value is {@link OnlineIndexOperationConfig#DEFAULT_ENFORCED_POST_TRANSACTION_DELAY} = {@value OnlineIndexOperationConfig#DEFAULT_ENFORCED_POST_TRANSACTION_DELAY}.
      * @param enforcedPostTransactionDelay the enforced post-transaction delay in milliseconds
      * @return this builder

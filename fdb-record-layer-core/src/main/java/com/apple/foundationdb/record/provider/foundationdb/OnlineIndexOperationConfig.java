@@ -402,8 +402,8 @@ public class OnlineIndexOperationConfig {
 
         /**
          * Set the enforced delay, in milliseconds, applied after each transaction. When set to a positive value,
-         * the indexer waits for this many milliseconds (capped at 10 seconds) between transactions, bypassing the
-         * records-per-second based throttling. A non-positive value disables the enforced delay.
+         * the indexer waits for this many milliseconds between transactions, bypassing the records-per-second
+         * based throttling. A non-positive value disables the enforced delay.
          * <p>
          * The default value is {@link #DEFAULT_ENFORCED_POST_TRANSACTION_DELAY} = {@value #DEFAULT_ENFORCED_POST_TRANSACTION_DELAY}.
          *
