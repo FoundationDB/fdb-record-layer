@@ -73,6 +73,7 @@ public class MutableDoubleRealVector extends DoubleRealVector {
     }
 
     @Nonnull
+    @Override
     public DoubleRealVector toImmutable() {
         return new DoubleRealVector(getData().clone());
     }

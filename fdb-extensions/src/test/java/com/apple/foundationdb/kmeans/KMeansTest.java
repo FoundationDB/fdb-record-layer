@@ -32,7 +32,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -59,9 +58,6 @@ class KMeansTest {
     /** Cached SIFT-small base dataset. Loaded once per test class to amortize file I/O. */
     private static List<DoubleRealVector> siftSmallBase;
 
-    @TempDir
-    Path tempDir;
-
     @BeforeAll
     static void loadSiftSmall() throws IOException {
         siftSmallBase = KMeansTestHelpers.loadSiftSmall();
@@ -75,7 +71,7 @@ class KMeansTest {
      */
     @ParameterizedTest
     @RandomSeedSource({0x0fdbL, 0x5ca1eL, 123456L, 78910L, 1123581321345589L})
-    void twoSeparatedBlobsFindsTwoClusters(final long seed) throws Exception {
+    void twoSeparatedBlobsFindsTwoClusters(final long seed) {
         final SplittableRandom rnd = new SplittableRandom(seed);
 
         // Two well-separated means in 3D.
@@ -125,7 +121,7 @@ class KMeansTest {
 
     @ParameterizedTest
     @RandomSeedSource({0x0fdbL, 0x5ca1eL, 123456L, 78910L, 1123581321345589L})
-    void oneBlobFindsTwoClusters(final long seed) throws Exception {
+    void oneBlobFindsTwoClusters(final long seed) {
         final SplittableRandom rnd = new SplittableRandom(seed);
 
         // One compact blob in 3D.
@@ -163,7 +159,7 @@ class KMeansTest {
      */
     @ParameterizedTest
     @RandomSeedSource({0x0fdbL, 0x5ca1eL, 123456L, 78910L, 1123581321345589L})
-    void threeBlobsWithSoftBalancingProducesReasonableSizes(final long seed) throws Exception {
+    void threeBlobsWithSoftBalancingProducesReasonableSizes(final long seed) {
         final SplittableRandom rnd = new SplittableRandom(seed);
 
         final List<RealVector> means = ImmutableList.of(
@@ -256,7 +252,7 @@ class KMeansTest {
 
     @ParameterizedTest
     @RandomSeedSource({0x0fdbL, 0x5ca1eL, 123456L, 78910L, 1123581321345589L})
-    void twoSeparatedUnitNormalizedBlobsFindsTwoClustersCosine3D(final long seed) throws Exception {
+    void twoSeparatedUnitNormalizedBlobsFindsTwoClustersCosine3D(final long seed) {
         final SplittableRandom rnd = new SplittableRandom(seed);
 
         final RealVector m0 = new DoubleRealVector(new double[] {-1.0, 0.0, 0.0}).normalize();
@@ -304,7 +300,7 @@ class KMeansTest {
 
     @ParameterizedTest
     @RandomSeedSource({0x0fdbL, 0x5ca1eL, 123456L, 78910L, 1123581321345589L})
-    void oneUnitNormalizedBlobFindsTwoClustersCosine3D(final long seed) throws Exception {
+    void oneUnitNormalizedBlobFindsTwoClustersCosine3D(final long seed) {
         final SplittableRandom rnd = new SplittableRandom(seed);
 
         final RealVector m0 = new DoubleRealVector(new double[] {-1.0, 0.0, 0.0}).normalize();
@@ -334,7 +330,7 @@ class KMeansTest {
 
     @ParameterizedTest
     @RandomSeedSource({0x0fdbL, 0x5ca1eL, 123456L, 78910L, 1123581321345589L})
-    void threeUnitNormalizedBlobsWithSoftBalancingProducesReasonableSizesCosine3D(final long seed) throws Exception {
+    void threeUnitNormalizedBlobsWithSoftBalancingProducesReasonableSizesCosine3D(final long seed) {
         final SplittableRandom rnd = new SplittableRandom(seed);
 
         final List<RealVector> means = ImmutableList.of(

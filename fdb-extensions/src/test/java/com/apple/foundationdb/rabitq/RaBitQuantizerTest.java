@@ -373,5 +373,11 @@ public class RaBitQuantizerTest {
                         reconstructedDoubleVector.toFloatRealVector())).isCloseTo(0, Offset.offset(0.1));
         Assertions.assertThat(Metric.EUCLIDEAN_METRIC.distance(encodedVector.toHalfRealVector(),
                 reconstructedDoubleVector.toHalfRealVector())).isCloseTo(0, Offset.offset(0.1));
+
+        Assertions.assertThat(encodedVector.toImmutable()).isSameAs(encodedVector);
+        Assertions.assertThat(encodedVector.toImmutable()).isEqualTo(encodedVector);
+        Assertions.assertThat(Metric.EUCLIDEAN_METRIC.distance(encodedVector.toImmutable(),
+                reconstructedDoubleVector)).isCloseTo(0, Offset.offset(0.1));
+
     }
 }
