@@ -25,6 +25,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
+import java.util.Locale;
 
 /**
  * Package-private vector primitives that can be shared by all vector implementations (including
@@ -58,8 +59,9 @@ public final class RealVectorPrimitives {
     }
 
     @Nonnull
+    @SuppressWarnings("PMD.UseProperClassLoader")
     private static Backend selectBackend() {
-        final String mode = System.getProperty(SIMD_PROPERTY, "auto").toLowerCase();
+        final String mode = System.getProperty(SIMD_PROPERTY, "auto").toLowerCase(Locale.getDefault());
         if ("scalar".equals(mode)) {
             LOGGER.info("RealVectorPrimitives backend forced to scalar via -D{}", SIMD_PROPERTY);
             return new ScalarBackend();
@@ -69,14 +71,18 @@ public final class RealVectorPrimitives {
             final Class<?> cls = Class.forName(
                     SIMD_BACKEND_CLASS, true, RealVectorPrimitives.class.getClassLoader());
             final Backend candidate = (Backend) cls.getDeclaredConstructor().newInstance();
-            LOGGER.info("RealVectorPrimitives backend = {}", candidate.name());
+            if (LOGGER.isInfoEnabled()) {
+                LOGGER.info("RealVectorPrimitives backend = {}", candidate.name());
+            }
             return candidate;
-        } catch (final Throwable t) {
+        } catch (final RuntimeException | ReflectiveOperationException e) {
             if (strict) {
                 throw new IllegalStateException(
-                        "SIMD backend required (-D" + SIMD_PROPERTY + "=simd) but not loadable: " + t, t);
+                        "SIMD backend required (-D" + SIMD_PROPERTY + "=simd) but not loadable: " + e, e);
             }
-            LOGGER.info("SIMD vector backend unavailable, using scalar: {}", t.toString());
+            if (LOGGER.isInfoEnabled()) {
+                LOGGER.info("SIMD vector backend unavailable, using scalar: {}", e.toString());
+            }
             return new ScalarBackend();
         }
     }
