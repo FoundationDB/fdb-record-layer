@@ -36,6 +36,8 @@ import com.apple.foundationdb.tuple.Tuple;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.LongStream;
@@ -133,7 +135,7 @@ public final class SlidingWindowTestHelpers {
         if (counterBytes == null) {
             return 0L;
         }
-        return Tuple.fromBytes(counterBytes).getLong(0);
+        return decodeLong(counterBytes);
     }
 
     /**
@@ -249,5 +251,11 @@ public final class SlidingWindowTestHelpers {
     @Nonnull
     private static String describe(@Nullable final String description, @Nonnull final String defaultMessage) {
         return description == null ? defaultMessage : description + System.lineSeparator() + defaultMessage;
+    }
+
+    private static long decodeLong(byte[] bytes) {
+        return ByteBuffer.wrap(bytes)
+                .order(ByteOrder.LITTLE_ENDIAN)
+                .getLong();
     }
 }

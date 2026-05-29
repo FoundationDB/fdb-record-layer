@@ -62,6 +62,8 @@ import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.util.Comparator;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -664,10 +666,16 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
     }
 
     private static byte[] encodeLong(long value) {
-        return Tuple.from(value).pack();
+        return ByteBuffer.allocate(Long.BYTES)
+                .order(ByteOrder.LITTLE_ENDIAN)
+                .putLong(value)
+                .array();
+
     }
 
     private static long decodeLong(byte[] bytes) {
-        return Tuple.fromBytes(bytes).getLong(0);
+        return ByteBuffer.wrap(bytes)
+                .order(ByteOrder.LITTLE_ENDIAN)
+                .getLong();
     }
 }
