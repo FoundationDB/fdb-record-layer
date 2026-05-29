@@ -77,9 +77,8 @@ class RealVectorSerializationTest {
         final MutableDoubleRealVector randomVector =
                 RealVectorTest.createRandomDoubleVector(random, numDimensions).toMutable();
         final RealVector deserializedVector =
-                RealVector.fromBytes(randomVector.getRawData());
-        Assertions.assertThat(deserializedVector).isInstanceOf(DoubleRealVector.class);
-        Assertions.assertThat(deserializedVector).isNotInstanceOf(MutableDoubleRealVector.class);
+                MutableDoubleRealVector.fromBytes(randomVector.getRawData());
+        Assertions.assertThat(deserializedVector).isInstanceOf(MutableDoubleRealVector.class);
         Assertions.assertThat(deserializedVector).isEqualTo(randomVector);
     }
 }

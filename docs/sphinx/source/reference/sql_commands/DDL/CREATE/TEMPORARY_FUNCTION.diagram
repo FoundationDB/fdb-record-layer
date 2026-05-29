@@ -1,0 +1,28 @@
+Diagram(
+    Stack(
+        Sequence(
+            Terminal('CREATE'),
+            Optional(
+                Sequence(Terminal('OR'), Terminal('REPLACE'))
+            ),
+            Terminal('TEMPORARY'),
+            Terminal('FUNCTION'),
+            NonTerminal('functionName')
+        ),
+        Sequence(
+            Terminal('('),
+            Optional(
+                NonTerminal('functionParameters')
+            ),
+            Terminal(')')
+        ),
+        Sequence(
+            Terminal('ON'),
+            Terminal('COMMIT'),
+            Terminal('DROP'),
+            Terminal('FUNCTION'),
+            Terminal('AS'),
+            NonTerminal('selectStatement')
+        )
+    )
+)

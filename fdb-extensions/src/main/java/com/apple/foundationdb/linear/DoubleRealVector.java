@@ -90,6 +90,12 @@ public class DoubleRealVector extends AbstractRealVector {
         return new DoubleRealVector(data);
     }
 
+    @Nonnull
+    @Override
+    public DoubleRealVector toImmutable() {
+        return this;
+    }
+
     /**
      * Converts this {@link RealVector} of {@code double} precision floating-point numbers into a byte array.
      * <p>

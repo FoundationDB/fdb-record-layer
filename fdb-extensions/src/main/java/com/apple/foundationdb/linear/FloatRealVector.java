@@ -86,6 +86,12 @@ public class FloatRealVector extends AbstractRealVector {
         return new FloatRealVector(data);
     }
 
+    @Nonnull
+    @Override
+    public FloatRealVector toImmutable() {
+        return this;
+    }
+
     /**
      * Converts this {@link RealVector} of single precision floating-point numbers into a byte array.
      * <p>

@@ -250,6 +250,12 @@ public class EncodedRealVector implements RealVector {
     }
 
     @Nonnull
+    @Override
+    public EncodedRealVector toImmutable() {
+        return this;
+    }
+
+    @Nonnull
     public static EncodedRealVector fromBytes(@Nonnull final byte[] vectorBytes,
                                               final int numDimensions,
                                               final int numExBits) {

@@ -583,6 +583,7 @@ public class KeySpaceTreeResolver {
                 case INDEX_RANGE_SPACE:
                 case INDEX_UNIQUENESS_VIOLATIONS_SPACE:
                 case INDEX_BUILD_SPACE:
+                case INDEX_SLIDING_WINDOW_SPACE:
                     // TODO: As of now, INDEX_STATE_SPACE has the index _name_, which doesn't really need resolving.
                     // Once https://github.com/FoundationDB/fdb-record-layer/issues/514 is addressed, that will need this, too.
                     if (distance == 0 && object != null) {

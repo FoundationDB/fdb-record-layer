@@ -123,6 +123,9 @@ public interface RealVector {
         return new MutableDoubleRealVector(getData().clone());
     }
 
+    @Nonnull
+    RealVector toImmutable();
+
     default double dot(@Nonnull final RealVector other) {
         Preconditions.checkArgument(getNumDimensions() == other.getNumDimensions());
         return RealVectorPrimitives.dot(getData(), other.getData());
