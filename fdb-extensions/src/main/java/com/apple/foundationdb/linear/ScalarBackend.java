@@ -81,8 +81,8 @@ final class ScalarBackend implements Backend {
     @Override
     public double l2SquaredNorm(@Nonnull final double[] a) {
         double sum = 0.0d;
-        for (int i = 0; i < a.length; i++) {
-            sum += a[i] * a[i];
+        for (final double v : a) {
+            sum += v * v;
         }
         return sum;
     }
