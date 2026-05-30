@@ -773,6 +773,65 @@ public class RecordTypeKeyTest extends FDBRecordStoreQueryTestBase {
         }
     }
 
+    @Test
+    void testOnlineIndexBuilderRecordTypeKeyZero() throws Exception {
+        final int numRecords = 201; // Exceed MAX_RECORDS_FOR_REBUILD so the new index stays disabled.
+
+        // MySimpleRecord gets explicit record type key 0; MyOtherRecord keeps its default (= 2).
+        final RecordMetaDataHook setupHook = metaData -> {
+            BASIC_HOOK.apply(metaData);
+            metaData.getRecordType("MySimpleRecord").setRecordTypeKey(0L);
+        };
+
+        // Create the store and save records of the type-key-0 type, plus a few of the other type
+        // to verify the OnlineIndexer only indexes records matching the index's record type.
+        try (FDBRecordContext context = openContext()) {
+            uncheckedOpenSimpleRecordStore(context, setupHook);
+            recordStore.checkVersion(null, FDBRecordStoreBase.StoreExistenceCheck.ERROR_IF_EXISTS).join();
+            for (int j = 0; j < numRecords; j++) {
+                recordStore.saveRecord(TestRecords1Proto.MySimpleRecord.newBuilder()
+                        .setRecNo(j)
+                        .setNumValue2(j)
+                        .build());
+            }
+            for (int j = 0; j < 3; j++) {
+                recordStore.saveRecord(TestRecords1Proto.MyOtherRecord.newBuilder()
+                        .setRecNo(j)
+                        .setNumValue2(j)
+                        .build());
+            }
+            context.commit();
+        }
+
+        // Add a value index on MySimpleRecord.num_value_2; >200 records keeps it disabled on reopen.
+        final RecordMetaDataHook addIndex = metaData -> {
+            setupHook.apply(metaData);
+            metaData.addIndex("MySimpleRecord", "newIndex", "num_value_2");
+        };
+        try (FDBRecordContext context = openContext()) {
+            uncheckedOpenSimpleRecordStore(context, addIndex);
+            recordStore.checkVersion(null, FDBRecordStoreBase.StoreExistenceCheck.ERROR_IF_NOT_EXISTS).join();
+            assertTrue(recordStore.isIndexDisabled("newIndex"));
+            context.commit();
+        }
+
+        // Build the index online.
+        try (OnlineIndexer indexBuilder = OnlineIndexer.forRecordStoreAndIndex(recordStore, "newIndex")) {
+            indexBuilder.buildIndex();
+        }
+
+        // Verify readable and that exactly the 201 MySimpleRecord entries are indexed (with type key 0L).
+        try (FDBRecordContext context = openContext()) {
+            uncheckedOpenSimpleRecordStore(context, addIndex);
+            recordStore.checkVersion(null, FDBRecordStoreBase.StoreExistenceCheck.ERROR_IF_NOT_EXISTS).join();
+            assertTrue(recordStore.isIndexReadable("newIndex"));
+            assertEquals(IntStream.range(0, numRecords).mapToObj(j -> Tuple.from(j, 0L, j)).collect(Collectors.toList()),
+                    recordStore.scanIndex(recordStore.getRecordMetaData().getIndex("newIndex"),
+                            IndexScanType.BY_VALUE, TupleRange.ALL, null, ScanProperties.FORWARD_SCAN)
+                            .map(IndexEntry::getKey).asList().join());
+        }
+    }
+
     private List<FDBStoredRecord<Message>> saveSomeRecords(@Nonnull RecordMetaDataHook hook) throws Exception {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
