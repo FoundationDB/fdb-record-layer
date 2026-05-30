@@ -803,7 +803,6 @@ public class RecordTypeKeyTest extends FDBRecordStoreQueryTestBase {
             context.commit();
         }
 
-        // Add a value index on MySimpleRecord.num_value_2; >200 records keeps it disabled on reopen.
         final RecordMetaDataHook addIndex = metaData -> {
             setupHook.apply(metaData);
             metaData.addIndex("MySimpleRecord", "newIndex", "num_value_2");
@@ -815,12 +814,10 @@ public class RecordTypeKeyTest extends FDBRecordStoreQueryTestBase {
             context.commit();
         }
 
-        // Build the index online.
         try (OnlineIndexer indexBuilder = OnlineIndexer.forRecordStoreAndIndex(recordStore, "newIndex")) {
             indexBuilder.buildIndex();
         }
 
-        // Verify readable and that exactly the 201 MySimpleRecord entries are indexed (with type key 0L).
         try (FDBRecordContext context = openContext()) {
             uncheckedOpenSimpleRecordStore(context, addIndex);
             recordStore.checkVersion(null, FDBRecordStoreBase.StoreExistenceCheck.ERROR_IF_NOT_EXISTS).join();

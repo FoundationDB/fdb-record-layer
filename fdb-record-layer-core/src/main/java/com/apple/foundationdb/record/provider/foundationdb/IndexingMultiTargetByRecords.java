@@ -24,9 +24,11 @@ import com.apple.foundationdb.Range;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.RangeSet;
+import com.apple.foundationdb.record.EndpointType;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.IndexBuildProto;
 import com.apple.foundationdb.record.IsolationLevel;
+import com.apple.foundationdb.record.KeyRange;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.ScanProperties;
@@ -34,7 +36,6 @@ import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.provider.foundationdb.indexing.IndexingRangeSet;
-import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.protobuf.Message;
 
@@ -125,9 +126,7 @@ public class IndexingMultiTargetByRecords extends IndexingBase {
         } else {
             final Range range = tupleRange.toRange();
             rangeStart = range.begin;
-            // tupleRange has an inclusive high endpoint, so end isn't a valid tuple.
-            // But buildRangeOnly needs to convert missing Ranges back to TupleRanges, so round up.
-            rangeEnd = ByteArrayUtil.strinc(range.end);
+            rangeEnd = range.end;
         }
 
         final CompletableFuture<FDBRecordStore> maybePresetRangeFuture =
@@ -172,12 +171,18 @@ public class IndexingMultiTargetByRecords extends IndexingBase {
             if (range == null) {
                 return AsyncUtil.READY_FALSE; // no more missing ranges - all done
             }
-            final Tuple rangeStart = RangeSet.isFirstKey(range.begin) ? null : Tuple.fromBytes(range.begin);
-            final Tuple rangeEnd = RangeSet.isFinalKey(range.end) ? null : Tuple.fromBytes(range.end);
-            final TupleRange tupleRange = TupleRange.between(rangeStart, rangeEnd);
+            // Keep the boundaries as (opaque) raw bytes.
+            final byte[] rangeStart = RangeSet.isFirstKey(range.begin) ? null : range.begin;
+            final byte[] rangeEnd = RangeSet.isFinalKey(range.end) ? null : range.end;
 
             RecordCursor<FDBStoredRecord<Message>> cursor =
-                    store.scanRecords(tupleRange, null, scanProperties);
+                    store.scanRecords(
+                            new KeyRange(
+                                    rangeStart != null ? rangeStart : new byte[0],
+                                    rangeStart == null ? EndpointType.TREE_START : EndpointType.RANGE_INCLUSIVE,
+                                    rangeEnd != null ? rangeEnd : new byte[0],
+                                    rangeEnd == null ? EndpointType.TREE_END : EndpointType.RANGE_EXCLUSIVE),
+                            null, scanProperties);
 
             final AtomicReference<RecordCursorResult<FDBStoredRecord<Message>>> lastResult = new AtomicReference<>(RecordCursorResult.exhausted());
             final AtomicBoolean hasMore = new AtomicBoolean(true);
@@ -195,14 +200,14 @@ public class IndexingMultiTargetByRecords extends IndexingBase {
 
     private CompletableFuture<Boolean> postIterateRangeOnly(List<IndexingRangeSet> targetRangeSets, boolean hasMore,
                                                             AtomicReference<RecordCursorResult<FDBStoredRecord<Message>>> lastResult,
-                                                            Tuple rangeStart, Tuple rangeEnd, boolean isReverse) {
+                                                            byte[] rangeStart, byte[] rangeEnd, boolean isReverse) {
         if (isReverse) {
-            Tuple continuation = hasMore ? lastResult.get().get().getPrimaryKey() : rangeStart;
-            return insertRanges(targetRangeSets, packOrNull(continuation), packOrNull(rangeEnd))
+            byte[] continuation = hasMore ? lastResult.get().get().getPrimaryKey().pack() : rangeStart;
+            return insertRanges(targetRangeSets, continuation, rangeEnd)
                     .thenApply(ignore -> hasMore || rangeStart != null);
         } else {
-            Tuple continuation = hasMore ? lastResult.get().get().getPrimaryKey() : rangeEnd;
-            return insertRanges(targetRangeSets, packOrNull(rangeStart), packOrNull(continuation))
+            byte[] continuation = hasMore ? lastResult.get().get().getPrimaryKey().pack() : rangeEnd;
+            return insertRanges(targetRangeSets, rangeStart, continuation)
                     .thenApply(ignore -> hasMore || rangeEnd != null);
         }
     }

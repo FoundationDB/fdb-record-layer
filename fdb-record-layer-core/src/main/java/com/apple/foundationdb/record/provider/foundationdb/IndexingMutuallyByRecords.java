@@ -24,7 +24,9 @@ import com.apple.foundationdb.FDBException;
 import com.apple.foundationdb.Range;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.RangeSet;
+import com.apple.foundationdb.record.EndpointType;
 import com.apple.foundationdb.record.IndexBuildProto;
+import com.apple.foundationdb.record.KeyRange;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.ScanProperties;
@@ -417,12 +419,18 @@ public class IndexingMutuallyByRecords extends IndexingBase {
             if (range == null) {
                 return AsyncUtil.READY_FALSE; // no more missing ranges - all done
             }
-            final Tuple rangeStart = RangeSet.isFirstKey(range.begin) ? null : Tuple.fromBytes(range.begin);
-            final Tuple rangeEnd = RangeSet.isFinalKey(range.end) ? null : Tuple.fromBytes(range.end);
-            final TupleRange tupleRange = TupleRange.between(rangeStart, rangeEnd);
+            // Keep the boundaries as (opaque) raw bytes
+            final byte[] rangeStart = RangeSet.isFirstKey(range.begin) ? null : range.begin;
+            final byte[] rangeEnd = RangeSet.isFinalKey(range.end) ? null : range.end;
 
             RecordCursor<FDBStoredRecord<Message>> cursor =
-                    store.scanRecords(tupleRange, null, scanProperties);
+                    store.scanRecords(
+                            new KeyRange(
+                                    rangeStart != null ? rangeStart : new byte[0],
+                                    rangeStart == null ? EndpointType.TREE_START : EndpointType.RANGE_INCLUSIVE,
+                                    rangeEnd != null ? rangeEnd : new byte[0],
+                                    rangeEnd == null ? EndpointType.TREE_END : EndpointType.RANGE_EXCLUSIVE),
+                            null, scanProperties);
 
             final AtomicReference<RecordCursorResult<FDBStoredRecord<Message>>> lastResult = new AtomicReference<>(RecordCursorResult.exhausted());
             final AtomicBoolean hasMore = new AtomicBoolean(true);
@@ -431,10 +439,10 @@ public class IndexingMutuallyByRecords extends IndexingBase {
                     this::getRecordIfTypeMatch,
                     lastResult, hasMore, recordsScanned, isIdempotent)
                     .thenApply(vignore -> hasMore.get() ?
-                                          lastResult.get().get().getPrimaryKey() :
+                                          lastResult.get().get().getPrimaryKey().pack() :
                                           rangeEnd)
-                    .thenCompose(cont -> insertRanges(targetRangeSets, packOrNull(rangeStart), packOrNull(cont))
-                            .thenApply(ignore -> !allRangesAreExhausted(cont, rangeEnd)));
+                    .thenCompose(cont -> insertRanges(targetRangeSets, rangeStart, cont)
+                            .thenApply(ignore -> !(cont == null && rangeEnd == null)));
         });
     }
 
