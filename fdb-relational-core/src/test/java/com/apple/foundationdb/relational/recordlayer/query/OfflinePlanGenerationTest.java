@@ -24,12 +24,9 @@ import com.apple.foundationdb.record.RecordStoreState;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
-import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerFactoryRegistryImpl;
 import com.apple.foundationdb.relational.api.Options;
-import com.apple.foundationdb.relational.api.ddl.NoOpQueryFactory;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metadata.DataType;
-import com.apple.foundationdb.relational.recordlayer.ddl.NoOpMetadataOperationsFactory;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerColumn;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerIndex;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
@@ -39,7 +36,6 @@ import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import javax.annotation.Nonnull;
-import java.net.URI;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -81,24 +77,13 @@ class OfflinePlanGenerationTest {
 
     @Nonnull
     private static PlanGenerator createOfflinePlanGenerator(@Nonnull final RecordLayerSchemaTemplate schemaTemplate,
-                                                            @Nonnull final RecordStoreState storeState,
-                                                            @Nonnull final Options options) throws RelationalException {
-        final var metaData = schemaTemplate.toRecordMetadata();
-        final var planContext = PlanContext.Builder.create()
-                .fromMetaDataAndState(metaData, storeState, options)
-                .withSchemaTemplate(schemaTemplate)
-                .withMetricsCollector(NoOpMetricCollector.INSTANCE)
-                .withConstantActionFactory(NoOpMetadataOperationsFactory.INSTANCE)
-                .withDdlQueryFactory(NoOpQueryFactory.INSTANCE)
-                .withDbUri(URI.create("embed:offline"))
-                .build();
-        return PlanGenerator.create(
+                                                            @Nonnull final RecordStoreState storeState) throws RelationalException {
+        return PlanGenerator.createOfflineDql(
                 Optional.empty(),
-                planContext,
-                metaData,
+                schemaTemplate,
                 storeState,
-                IndexMaintainerFactoryRegistryImpl.instance(),
-                options);
+                NoOpMetricCollector.INSTANCE,
+                Options.NONE);
     }
 
     @Test
@@ -106,7 +91,7 @@ class OfflinePlanGenerationTest {
         final var schemaTemplate = createTemplate();
         final var storeState = new RecordStoreState(null, Map.of());
 
-        final var planGenerator = createOfflinePlanGenerator(schemaTemplate, storeState, Options.NONE);
+        final var planGenerator = createOfflinePlanGenerator(schemaTemplate, storeState);
         final var plan = planGenerator.getPlan("SELECT * FROM BOOKS WHERE YEAR > 1980");
 
         Assertions.assertThat(plan).isInstanceOf(QueryPlan.PhysicalQueryPlan.class);
