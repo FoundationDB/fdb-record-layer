@@ -541,8 +541,45 @@ public final class MetricsDiffAnalyzer {
                         report.append("  - No regressions! 🎉\n");
                     }
                     report.append("\n"); // End with blank line
+                    appendHistogram(report, fieldName, fieldStats.sortedPercentDiffs);
                 }
             }
+        }
+
+        private void appendHistogram(@Nonnull final StringBuilder report,
+                                     @Nonnull final String fieldName,
+                                     @Nonnull final List<Double> sortedPercentDiffs) {
+            if (sortedPercentDiffs.size() < 3) {
+                return;
+            }
+            final double BIN_WIDTH = 2.0;
+            final int BAR_WIDTH = 30;
+            final double lo = Math.floor(sortedPercentDiffs.get(0) / BIN_WIDTH) * BIN_WIDTH;
+            final double hi = Math.ceil(sortedPercentDiffs.get(sortedPercentDiffs.size() - 1) / BIN_WIDTH) * BIN_WIDTH;
+
+            final Map<Double, Integer> bins = new TreeMap<>();
+            for (double b = lo; b < hi; b += BIN_WIDTH) {
+                bins.put(b, 0);
+            }
+            for (final double p : sortedPercentDiffs) {
+                final double b = Math.floor(p / BIN_WIDTH) * BIN_WIDTH;
+                bins.merge(b, 1, Integer::sum);
+            }
+
+            final int maxCount = bins.values().stream().mapToInt(Integer::intValue).max().orElse(1);
+
+            report.append(String.format(Locale.ROOT, "`%s` %% change distribution (%d queries, bin = 2%%):%n%n", fieldName, sortedPercentDiffs.size()));
+            report.append("```\n");
+            report.append(String.format(Locale.ROOT, "%14s  %-30s  n%n", "Range", ""));
+            report.append(String.format(Locale.ROOT, "%14s  %-30s  ---%n", "-".repeat(14), "-".repeat(BAR_WIDTH)));
+            for (final Map.Entry<Double, Integer> entry : bins.entrySet()) {
+                final double b = entry.getKey();
+                final int count = entry.getValue();
+                final String bar = "█".repeat((int)Math.round((double)count / maxCount * BAR_WIDTH));
+                final String label = String.format(Locale.ROOT, "[%+.0f%%, %+.0f%%)", b, b + BIN_WIDTH);
+                report.append(String.format(Locale.ROOT, "%14s  %-30s  %d%n", label, bar, count));
+            }
+            report.append("```\n\n");
         }
 
         private void appendChangesList(@Nonnull final StringBuilder report, @Nonnull List<QueryChange> changes, @Nonnull String title, @Nonnull String explanation) {

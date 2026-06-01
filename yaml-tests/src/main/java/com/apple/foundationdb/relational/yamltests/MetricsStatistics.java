@@ -59,17 +59,21 @@ public final class MetricsStatistics {
      */
     public static class FieldStatistics {
         @Nonnull
-        public static final FieldStatistics EMPTY = new FieldStatistics(ImmutableList.of(), 0.0, 0.0);
+        public static final FieldStatistics EMPTY = new FieldStatistics(ImmutableList.of(), ImmutableList.of(), 0.0, 0.0);
 
         @Nonnull
         public final List<Long> sortedValues;
+        @Nonnull
+        public final List<Double> sortedPercentDiffs;
         public final double mean;
         public final double standardDeviation;
 
         private FieldStatistics(@Nonnull final List<Long> sortedValues,
+                                @Nonnull final List<Double> sortedPercentDiffs,
                                 final double mean,
                                 final double standardDeviation) {
             this.sortedValues = ImmutableList.copyOf(sortedValues);
+            this.sortedPercentDiffs = ImmutableList.copyOf(sortedPercentDiffs);
             this.mean = mean;
             this.standardDeviation = standardDeviation;
         }
@@ -132,6 +136,8 @@ public final class MetricsStatistics {
         private final Map<String, List<Long>> differences = new HashMap<>();
         @Nonnull
         private final Map<String, List<Long>> regressions = new HashMap<>();
+        @Nonnull
+        private final Map<String, List<Double>> percentDifferences = new HashMap<>();
 
         @Nonnull
         public Builder addDifference(@Nonnull final String fieldName, final long baseValue, final long headValue) {
@@ -139,6 +145,10 @@ public final class MetricsStatistics {
             differences.computeIfAbsent(fieldName, k -> new ArrayList<>()).add(difference);
             if (difference > 0) {
                 regressions.computeIfAbsent(fieldName, k -> new ArrayList<>()).add(difference);
+            }
+            if (baseValue != 0) {
+                percentDifferences.computeIfAbsent(fieldName, k -> new ArrayList<>())
+                        .add(difference * 100.0 / baseValue);
             }
             return this;
         }
@@ -165,7 +175,11 @@ public final class MetricsStatistics {
                         .average().orElse(0.0);
                 final var standardDeviation = Math.sqrt(variance);
 
-                builder.put(fieldName, new FieldStatistics(values, mean, standardDeviation));
+                final List<Double> sortedPcts = percentDifferences.getOrDefault(fieldName, ImmutableList.of());
+                final List<Double> mutablePcts = new ArrayList<>(sortedPcts);
+                Collections.sort(mutablePcts);
+
+                builder.put(fieldName, new FieldStatistics(values, mutablePcts, mean, standardDeviation));
             }
 
             return builder.build();
