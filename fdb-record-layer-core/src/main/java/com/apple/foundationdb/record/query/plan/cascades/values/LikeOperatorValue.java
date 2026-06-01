@@ -120,12 +120,12 @@ public class LikeOperatorValue extends AbstractValue implements BooleanValue {
                 } else {
                     return false;
                 }
-            } else if (p < pLen && (pattern.charAt(p) == '_' || pattern.charAt(p) == text.charAt(t))) {
-                t++;
-                p++;
             } else if (p < pLen && pattern.charAt(p) == '%') {
                 starP = p++;
                 starT = t;
+            } else if (p < pLen && (pattern.charAt(p) == '_' || pattern.charAt(p) == text.charAt(t))) {
+                t++;
+                p++;
             } else if (starP >= 0) {
                 p = starP + 1;
                 t = ++starT;
