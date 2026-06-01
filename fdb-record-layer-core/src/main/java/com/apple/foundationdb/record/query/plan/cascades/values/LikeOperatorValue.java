@@ -103,8 +103,10 @@ public class LikeOperatorValue extends AbstractValue implements BooleanValue {
      * {@code \_}, and {@code \\} are literals). All other characters match themselves.
      */
     private static boolean matchLike(final String text, final String pattern) {
-        int t = 0, p = 0;
-        int starP = -1, starT = -1;
+        int t = 0;
+        int p = 0;
+        int starP = -1;
+        int starT = -1;
         final int tLen = text.length();
         final int pLen = pattern.length();
 
