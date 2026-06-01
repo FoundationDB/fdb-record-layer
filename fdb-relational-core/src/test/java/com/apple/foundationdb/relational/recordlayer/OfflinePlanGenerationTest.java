@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
+import com.apple.foundationdb.record.IndexState;
 import com.apple.foundationdb.record.RecordStoreState;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
@@ -34,6 +35,7 @@ import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
+import java.util.Map;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -114,6 +116,27 @@ class OfflinePlanGenerationTest {
         assertThat(plan).isInstanceOf(QueryPlan.PhysicalQueryPlan.class);
         final var physicalPlan = (QueryPlan.PhysicalQueryPlan) plan;
         assertThat(physicalPlan.getRecordQueryPlan().toString()).hasToString("ISCAN(RECORD_NAME_IDX [EQUALS promote(@c7 AS STRING)])");
+    }
+
+    @Test
+    void offlinePlanSelectByDisabledIndex() throws Exception {
+        final var query = "select * from restaurant where name = 'foo'";
+
+        final var disabledStoreState = new RecordStoreState(
+                null,
+                Map.of("RECORD_NAME_IDX", IndexState.DISABLED));
+
+        final var plan = PlanGenerator.createOfflineDql(
+                Optional.empty(),
+                schemaTemplate,
+                disabledStoreState,
+                NoOpMetricCollector.INSTANCE,
+                connection.getOptions())
+                .getPlan(query);
+
+        assertThat(plan).isInstanceOf(QueryPlan.PhysicalQueryPlan.class);
+        final var physicalPlan = (QueryPlan.PhysicalQueryPlan) plan;
+        assertThat(physicalPlan.getRecordQueryPlan().toString()).hasToString("SCAN([IS RESTAURANT]) | FILTER q18.NAME EQUALS promote(@c7 AS STRING)");
     }
 
     @Test
