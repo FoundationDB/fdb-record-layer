@@ -382,7 +382,7 @@ public class CastValue extends AbstractValue implements ValueWithChild, Value.Ra
 
     @Override
     public int hashCodeWithoutChildren() {
-        return Objects.hash(castToType, physicalOperator);
+        return Objects.hash(castToType, physicalOperator.name());
     }
 
     @Override

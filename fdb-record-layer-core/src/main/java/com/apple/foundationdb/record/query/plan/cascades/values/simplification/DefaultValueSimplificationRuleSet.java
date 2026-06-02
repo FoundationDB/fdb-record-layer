@@ -42,8 +42,13 @@ public class DefaultValueSimplificationRuleSet extends AbstractValueRuleSet<Valu
     @Nonnull
     protected static final ValueSimplificationRule<? extends Value> collapseRecordConstructorOverFieldsToStarRule = new CollapseRecordConstructorOverFieldsToStarRule();
     @Nonnull
-    protected static final Set<ValueSimplificationRule<? extends Value>> SIMPLIFICATION_RULES =
-            ImmutableSet.of(composeFieldValueOverRecordConstructorRule, composeFieldValueOverFieldValueRule, collapseRecordConstructorOverFieldsToStarRule);
+    protected static final ValueSimplificationRule<? extends Value> collapseNullStrictValueOverNullValueRule = new CollapseNullStrictValueOverNullValueRule();
+    @Nonnull
+    protected static final Set<ValueSimplificationRule<? extends Value>> SIMPLIFICATION_RULES = ImmutableSet.of(
+            composeFieldValueOverRecordConstructorRule,
+            composeFieldValueOverFieldValueRule,
+            collapseRecordConstructorOverFieldsToStarRule,
+            collapseNullStrictValueOverNullValueRule);
     @Nonnull
     protected static final SetMultimap<ValueSimplificationRule<? extends Value>, ValueSimplificationRule<? extends Value>> SIMPLIFICATION_DEPENDS_ON =
             ImmutableSetMultimap.of();

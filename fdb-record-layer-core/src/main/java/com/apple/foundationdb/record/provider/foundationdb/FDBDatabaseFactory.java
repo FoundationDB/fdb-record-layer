@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.provider.foundationdb;
 
 import com.apple.foundationdb.Database;
+import com.apple.foundationdb.FDB;
 import com.apple.foundationdb.NetworkOptions;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
@@ -665,6 +666,39 @@ public abstract class FDBDatabaseFactory {
      * @see FDBTraceFormat
      */
     public abstract void setTraceFormat(@Nonnull FDBTraceFormat traceFormat);
+
+    /**
+     * Disable the FDB shutdown hook. By default, the FDB client will register a shutdown hook that stops
+     * the FDB client and cleans up native resources upon application shutdown. However, as the order of
+     * shutdown hooks is not defined, the shutdown hook can conflict with other shutdown tasks. If the
+     * user wants to have more control, they should consider disabling the shutdown hook via this method, and
+     * then invoking {@link #shutdown()} in a hook that they control.
+     *
+     * <p>
+     * This method can be called before or after {@link FDB} initialization. If it is called before the
+     * FDB client is initialized, then the shutdown hook will never be registered. If it is called after
+     * the client is initialized, then the previously registered shutdown hook will be removed. That does
+     * mean that if an instance is shut down between FDB client initialization and the invocation of
+     * this method, the shutdown hook <em>will</em> run. To avoid that case, it is generally suggested that
+     * the user invoke this before client initialization. If this method is invoked multiple times, it has
+     * no effect.
+     * </p>
+     *
+     * @see #shutdown()
+     * @see FDB#disableShutdownHook()
+     */
+    public abstract void disableShutdownHook();
+
+    /**
+     * Whether the FDB shutdown hook has been disabled. By default, the FDB shutdown hook will run, but
+     * the user can invoke {@link #disableShutdownHook()} to assert more control over shutdown hook order.
+     * Once disabled, there is no way to re-enable the default hook, so this method will return {@code true}
+     * if {@link #disableShutdownHook()} has ever been invoked.
+     *
+     * @return whether the FDB shutdown hook has been disabled
+     * @see #disableShutdownHook()
+     */
+    public abstract boolean isShutdownHookDisabled();
 
     /**
      * Set whether additional run-loop profiling of the FDB client is enabled. This can be useful for debugging

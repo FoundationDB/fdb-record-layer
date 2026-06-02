@@ -34,6 +34,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.NullValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.PromoteValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.WindowedValue;
@@ -565,8 +566,10 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
          */
         final var selectOperator = visitQuery(ctx.query());
         final var asExistential = selectOperator.withQuantifier(Quantifier.existential(selectOperator.getQuantifier().getRangesOver()));
-        final var underlyingValue = new ExistsValue(asExistential.getQuantifier().getAlias());
-        getDelegate().getCurrentPlanFragment().addOperator(asExistential);
+        final var underlyingValue = new ExistsValue(QuantifiedObjectValue.of(asExistential.getQuantifier()));
+        if (getDelegate().getPlanGenerationContext().shouldProcessLiteral()) {
+            getDelegate().getCurrentPlanFragment().addOperator(asExistential);
+        }
         return Expression.ofUnnamed(underlyingValue);
     }
 

@@ -182,14 +182,14 @@ unnamed-1:
         AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l
         AS LONG)) AS _0) | MAP (_ AS _0) | AGG (sum_l(_._0.Y) AS _0) GROUP BY () |
         ON EMPTY NULL | MAP (_._0._0 AS S)'
-    task_count: 900
-    task_total_time_ms: 31
-    transform_count: 240
-    transform_time_ms: 17
-    transform_yield_count: 61
-    insert_time_ms: 3
-    insert_new_count: 82
-    insert_reused_count: 6
+    task_count: 775
+    task_total_time_ms: 27
+    transform_count: 196
+    transform_time_ms: 9
+    transform_yield_count: 54
+    insert_time_ms: 0
+    insert_new_count: 70
+    insert_reused_count: 5
 -   query: EXPLAIN select col2 from t1 where exists (select a from t3 where col2 <=
         id union all select b from t4 where col2 <= id)
     ref: union-empty-tables.yamsql:89
