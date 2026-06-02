@@ -25,8 +25,9 @@ import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.async.MoreAsyncUtil;
 import com.apple.foundationdb.async.common.PrimaryKeyAndVector;
 import com.apple.foundationdb.async.common.ResultEntry;
+import com.apple.foundationdb.async.common.StorageTransform;
+import com.apple.foundationdb.async.hnsw.HNSW;
 import com.apple.foundationdb.linear.DoubleRealVector;
-import com.apple.foundationdb.linear.HalfRealVector;
 import com.apple.foundationdb.linear.RealVector;
 import com.apple.foundationdb.linear.StoredVecsIterator;
 import com.apple.foundationdb.tuple.Tuple;
@@ -123,18 +124,62 @@ class TestHelpers {
         }).get(2, TimeUnit.MINUTES); // set a timeout for inserting a single batch including retries so setup won't run forever
     }
 
-    static List<PrimaryKeyAndVector> insertSIFTSmall(@Nonnull final Database db,
-                                                     @Nonnull final Guardiann guardiann) throws Exception {
-        return insertSIFT(db, guardiann, ".out/extracted/siftsmall/siftsmall_base.fvecs",
-                10000, 50);
+    static void insertSIFTSmall(@Nonnull final Database db,
+                                @Nonnull final Guardiann guardiann) throws Exception {
+        insertVectors(db, guardiann, SIFT_SMALL_BASE_PATH, 10_000, 50);
     }
 
-    static List<PrimaryKeyAndVector> insertSIFT100k(@Nonnull final Database db,
-                                                    @Nonnull final Guardiann guardiann,
-                                                    final int numVectors,
-                                                    final int batchSize) throws Exception {
-        return insertSIFT(db, guardiann, "/Users/nseemann/downloads/embeddings-unified-model-100k-1.0.0.fvecs",
-                numVectors, batchSize);
+    static void insertSIFT1m(@Nonnull final Database db,
+                             @Nonnull final Guardiann guardiann,
+                             final int numVectors,
+                             final int batchSize) throws Exception {
+        insertVectors(db, guardiann, SIFT_1M_BASE_PATH, numVectors, batchSize);
+    }
+
+    /** Path to the SIFT-small base vectors {@code .fvecs} file (10k × 128). Produced by the
+     *  gradle {@code extractSiftSmall} task. */
+    static final String SIFT_SMALL_BASE_PATH = ".out/extracted/siftsmall/siftsmall_base.fvecs";
+
+    /** Path to the SIFT-small query vectors {@code .fvecs} file (100 × 128). */
+    static final String SIFT_SMALL_QUERY_PATH = ".out/extracted/siftsmall/siftsmall_query.fvecs";
+
+    /** Path to the SIFT-small ground-truth top-k indices {@code .ivecs} file. */
+    static final String SIFT_SMALL_GROUNDTRUTH_PATH = ".out/extracted/siftsmall/siftsmall_groundtruth.ivecs";
+
+    /** Path to the SIFT-1M base vectors {@code .fvecs} file (1M × 128). Downloaded by gradle to
+     *  {@code .out/downloads/sift_base.fvecs}. */
+    static final String SIFT_1M_BASE_PATH = ".out/downloads/sift_base.fvecs";
+
+    /** Path to the SIFT-1M query vectors {@code .fvecs} file (10k × 128). */
+    static final String SIFT_1M_QUERY_PATH = ".out/downloads/sift_query.fvecs";
+
+    /** Path to the SIFT-1M ground-truth top-k indices {@code .ivecs} file. */
+    static final String SIFT_1M_GROUNDTRUTH_PATH = ".out/downloads/sift_groundtruth.ivecs";
+
+    /**
+     * Loads the SIFT-small base vectors as a list of {@code (primaryKey, vector)} records, in
+     * insertion order. Useful for tests that need to look up the original vector for a given
+     * item id (since {@link #insertSIFTSmall} no longer surfaces it).
+     */
+    @Nonnull
+    static List<PrimaryKeyAndVector> loadSiftSmall() throws Exception {
+        return loadVectors(SIFT_SMALL_BASE_PATH, 10_000);
+    }
+
+    /**
+     * Loads the first {@code numVectors} SIFT-1M base vectors as a list of
+     * {@code (primaryKey, vector)} records, in insertion order. See {@link #loadSiftSmall} for
+     * usage notes.
+     * <p>
+     * <b>Memory warning:</b> the entire requested slice is materialized in memory. SIFT-1M
+     * vectors are 128-dim doubles, so each entry is roughly 1 KB; calling this with
+     * {@code numVectors = 1_000_000} allocates about 1 GB. If the caller only needs to
+     * <i>insert</i> vectors (not look them up later), use {@link #insertSIFT1m} instead — that
+     * streams the file one batch at a time and never holds the whole dataset in memory.
+     */
+    @Nonnull
+    static List<PrimaryKeyAndVector> loadSift1m(final int numVectors) throws Exception {
+        return loadVectors(SIFT_1M_BASE_PATH, numVectors);
     }
 
     @Nonnull
@@ -157,15 +202,12 @@ class TestHelpers {
         return insertedDataBuilder.build();
     }
 
-    @Nonnull
-    static List<PrimaryKeyAndVector> insertSIFT(@Nonnull final Database db,
-                                                @Nonnull final Guardiann guardiann,
-                                                @Nonnull final String baseFile,
-                                                final int numVectors,
-                                                final int desiredBatchSize) throws Exception {
+    static void insertVectors(@Nonnull final Database db,
+                              @Nonnull final Guardiann guardiann,
+                              @Nonnull final String baseFile,
+                              final int numVectors,
+                              final int desiredBatchSize) throws Exception {
         final Path siftPath = Paths.get(baseFile);
-
-        final ImmutableList.Builder<PrimaryKeyAndVector> insertedDataBuilder = ImmutableList.builder();
 
         final TestOnReadListener onReadListener = (TestOnReadListener)guardiann.getOnReadListener();
         final TestOnWriteListener onWriteListener = (TestOnWriteListener)guardiann.getOnWriteListener();
@@ -197,7 +239,6 @@ class TestHelpers {
                                         final DoubleRealVector doubleVector = remainingBatch.get(indexInBatch);
                                         return new PrimaryKeyAndVector(currentPrimaryKey, doubleVector);
                                     });
-                    //insertedDataBuilder.addAll(insertedInBatch);
                     final int numInsertedInBatch = insertedInBatch.size();
                     i += numInsertedInBatch;
                     remainingBatch.subList(0, numInsertedInBatch).clear();
@@ -220,7 +261,6 @@ class TestHelpers {
 
         onWriteListener.popFrame();
         onReadListener.popFrame();
-        return insertedDataBuilder.build();
     }
 
     static void insertFirstRepeatedly(@Nonnull final Database db,
@@ -266,73 +306,159 @@ class TestHelpers {
         }
     }
 
-    static void validateSIFT(@Nonnull final Database db,
+    static void queryVectors(@Nonnull final Database db,
                              @Nonnull final Guardiann guardiann,
                              @Nonnull final String queriesFile,
                              @Nonnull final String groundTruthFile,
                              final int k) throws IOException {
-        validateSIFT(db, guardiann, queriesFile, groundTruthFile, k, -1);
+        queryVectors(db, guardiann, queriesFile, groundTruthFile, k, -1);
     }
 
-    static void validateSIFT(@Nonnull final Database db,
+    /**
+     * Observational variant of recall validation: runs every query in {@code queriesFile}, logs
+     * per-query timing/read-bytes/recall, and does not assert any threshold. Use
+     * {@link #assertRecallAtKAtLeast} when a test wants to enforce a recall floor.
+     * <p>
+     * Recall is computed via {@link #singleQueryRecall} (set-based intersection of deduplicated
+     * results against ground truth) so duplicate primary keys in the result set don't inflate
+     * the per-query score.
+     */
+    static void queryVectors(@Nonnull final Database db,
                              @Nonnull final Guardiann guardiann,
                              @Nonnull final String queriesFile,
                              @Nonnull final String groundTruthFile,
                              final int k,
                              final int maxIndex) throws IOException {
-        final Path siftQueryPath = Paths.get(queriesFile);
-        final Path siftGroundTruthPath = Paths.get(groundTruthFile);
+        final List<DoubleRealVector> queries = loadSiftQueryVectors(queriesFile);
+        final List<Set<Integer>> groundTruth = loadSiftGroundTruth(groundTruthFile, maxIndex);
+        Verify.verify(queries.size() == groundTruth.size(),
+                "queries (%s) and ground truth (%s) must align", queries.size(), groundTruth.size());
 
-        final TestOnReadListener onReadListener = (TestOnReadListener)guardiann.getOnReadListener();
+        final TestOnReadListener onReadListener = (TestOnReadListener) guardiann.getOnReadListener();
+        final int efSearch = (int) ((double) k * 1.15);
 
-        try (final var queryChannel = FileChannel.open(siftQueryPath, StandardOpenOption.READ);
-                 final var groundTruthChannel = FileChannel.open(siftGroundTruthPath, StandardOpenOption.READ)) {
-            final Iterator<DoubleRealVector> queryIterator = new StoredVecsIterator.StoredFVecsIterator(queryChannel);
-            final Iterator<List<Integer>> groundTruthIterator = new StoredVecsIterator.StoredIVecsIterator(groundTruthChannel);
+        for (int i = 0; i < queries.size(); i++) {
+            final Set<Integer> truth = groundTruth.get(i);
+            if (truth.isEmpty()) {
+                logger.info("query ground truth does not have indices that have been inserted yet");
+                continue;
+            }
+            final DoubleRealVector queryVector = queries.get(i);
+            onReadListener.pushFrame();
+            final long beginTs = System.nanoTime();
+            final List<? extends ResultEntry> results =
+                    db.run(tr -> guardiann.kNearestNeighborsSearch(tr, k, efSearch,
+                            48, 16, 1.50d, true, queryVector).join());
+            final long endTs = System.nanoTime();
+            logger.info("retrieved result in elapsedTimeMs={}, reading readBytes={}",
+                    TimeUnit.NANOSECONDS.toMillis(endTs - beginTs), onReadListener.getBytesRead());
 
-            Verify.verify(queryIterator.hasNext() == groundTruthIterator.hasNext());
+            final double recall = singleQueryRecall(truth, results);
+            logger.info("query returned results recall={}, k={}",
+                    String.format(Locale.ROOT, "%.2f", recall * 100.0d), truth.size());
+            onReadListener.popFrame();
+        }
+    }
 
-            final int efSearch = (int)((double)k * 1.15);
+    /**
+     * Set-based recall@k for a single query: {@code |dedup(results) ∩ groundTruth| / |groundTruth|}.
+     * Deduplicating the result set by primary key matters when the search can surface multiple
+     * references to the same primary (e.g. a primary and its replicas both appearing in the
+     * top-k); without dedup, a single in-truth primary would otherwise be counted once per
+     * duplicate.
+     */
+    private static double singleQueryRecall(@Nonnull final Set<Integer> groundTruthIndices,
+                                            @Nonnull final List<? extends ResultEntry> results) {
+        final Set<Integer> resultIndices = results.stream()
+                .map(re -> (int) re.primaryKey().getLong(0))
+                .collect(ImmutableSet.toImmutableSet());
+        final long hits = resultIndices.stream().filter(groundTruthIndices::contains).count();
+        return (double) hits / groundTruthIndices.size();
+    }
 
-            while (queryIterator.hasNext()) {
-                final HalfRealVector queryVector = queryIterator.next().toHalfRealVector();
-                final Set<Integer> groundTruthIndices =
-                        groundTruthIterator.next()
-                                .stream()
-                                .filter(index -> maxIndex < 0 || index <= maxIndex)
-                                .collect(ImmutableSet.toImmutableSet());
-                if (groundTruthIndices.isEmpty()) {
-                    logger.info("query ground truth does not have indices that have been inserted yet");
-                    continue;
-                }
-                onReadListener.pushFrame();
-                final long beginTs = System.nanoTime();
-                final List<? extends ResultEntry> results =
-                        db.run(tr -> guardiann.kNearestNeighborsSearch(tr, k, efSearch,
-                                48, 16, 1.50d, true, queryVector).join());
-                final long endTs = System.nanoTime();
-                logger.info("retrieved result in elapsedTimeMs={}, reading readBytes={}",
-                        TimeUnit.NANOSECONDS.toMillis(endTs - beginTs), onReadListener.getBytesRead());
-
-                int recallCount = 0;
-                for (final ResultEntry resultEntry : results) {
-                    final int primaryKeyIndex = (int)resultEntry.primaryKey().getLong(0);
-
-                    logger.trace("retrieved result nodeId = {} at distance = {} ",
-                            primaryKeyIndex, resultEntry.distance());
-                    if (groundTruthIndices.contains(primaryKeyIndex)) {
-                        recallCount ++;
-                    }
-                }
-
-                final double recall = (double)recallCount / groundTruthIndices.size();
-                //assertThat(recall).isGreaterThan(0.93);
-
-                logger.info("query returned results recall={}, k={}",
-                        String.format(Locale.ROOT, "%.2f", recall * 100.0d), groundTruthIndices.size());
-                onReadListener.popFrame();
+    /**
+     * Loads query vectors from a SIFT-style {@code .fvecs} file as {@link DoubleRealVector}s
+     * (matching the representation used by the insert helpers — {@link Guardiann}'s public API
+     * accepts any {@link RealVector}, so there's no need to pre-quantize to half-precision).
+     */
+    @Nonnull
+    static List<DoubleRealVector> loadSiftQueryVectors(@Nonnull final String queriesFile) throws IOException {
+        final ImmutableList.Builder<DoubleRealVector> queries = ImmutableList.builder();
+        try (final var channel = FileChannel.open(Paths.get(queriesFile), StandardOpenOption.READ)) {
+            final Iterator<DoubleRealVector> iterator = new StoredVecsIterator.StoredFVecsIterator(channel);
+            while (iterator.hasNext()) {
+                queries.add(iterator.next());
             }
         }
+        return queries.build();
+    }
+
+    /**
+     * Loads per-query ground-truth top-k index sets from a SIFT-style {@code .ivecs} file.
+     * Indices greater than {@code maxIndex} are filtered out; pass {@code -1} to keep all.
+     */
+    @Nonnull
+    static List<Set<Integer>> loadSiftGroundTruth(@Nonnull final String groundTruthFile,
+                                                  final int maxIndex) throws IOException {
+        final ImmutableList.Builder<Set<Integer>> truth = ImmutableList.builder();
+        try (final var channel = FileChannel.open(Paths.get(groundTruthFile), StandardOpenOption.READ)) {
+            final Iterator<List<Integer>> iterator = new StoredVecsIterator.StoredIVecsIterator(channel);
+            while (iterator.hasNext()) {
+                truth.add(iterator.next().stream()
+                        .filter(idx -> maxIndex < 0 || idx <= maxIndex)
+                        .collect(ImmutableSet.toImmutableSet()));
+            }
+        }
+        return truth.build();
+    }
+
+    /**
+     * Asserts that the mean set-based recall@k across the given queries meets or exceeds
+     * {@code minMeanRecall}. Queries whose ground-truth set is empty (e.g. when {@code maxIndex}
+     * excluded every truth index for that query) are skipped.
+     * <p>
+     * Recall is computed via {@link #singleQueryRecall} — deduplicated result-set intersection
+     * with ground truth. Search parameters ({@code efSearch}, etc.) match {@link #queryVectors}
+     * so the two helpers report comparable numbers.
+     *
+     * @param queries pre-loaded query vectors (see {@link #loadSiftQueryVectors})
+     * @param groundTruth pre-loaded per-query ground-truth index sets (see
+     *        {@link #loadSiftGroundTruth}); must have the same size as {@code queries}
+     * @param k top-k to retrieve per query
+     * @param minMeanRecall floor that the mean recall must meet or exceed
+     */
+    static void assertRecallAtKAtLeast(@Nonnull final Database db,
+                                       @Nonnull final Guardiann guardiann,
+                                       @Nonnull final List<? extends RealVector> queries,
+                                       @Nonnull final List<? extends Set<Integer>> groundTruth,
+                                       final int k,
+                                       final double minMeanRecall) {
+        Verify.verify(queries.size() == groundTruth.size(),
+                "queries (%s) and groundTruth (%s) must align", queries.size(), groundTruth.size());
+        final int efSearch = (int) ((double) k * 1.15);
+        double sumRecall = 0.0;
+        int countedQueries = 0;
+        for (int i = 0; i < queries.size(); i++) {
+            final Set<Integer> truth = ImmutableSet.copyOf(groundTruth.get(i));
+            if (truth.isEmpty()) {
+                continue;
+            }
+            final RealVector q = queries.get(i);
+            final List<? extends ResultEntry> results =
+                    db.run(tr -> guardiann.kNearestNeighborsSearch(tr, k, efSearch,
+                            48, 16, 1.50d, true, q).join());
+            sumRecall += singleQueryRecall(truth, results);
+            countedQueries++;
+        }
+        assertThat(countedQueries)
+                .as("at least one query must have non-empty ground truth")
+                .isGreaterThan(0);
+        final double meanRecall = sumRecall / countedQueries;
+        logger.info("assertRecallAtKAtLeast: mean recall@{} = {} over {} queries (threshold {})",
+                k, String.format(Locale.ROOT, "%.4f", meanRecall), countedQueries, minMeanRecall);
+        assertThat(meanRecall)
+                .as("mean recall@%d over %d queries", k, countedQueries)
+                .isGreaterThanOrEqualTo(minMeanRecall);
     }
 
     static List<RealVector> readQueryVectors(@Nonnull final String queriesFile) throws IOException {
@@ -444,5 +570,274 @@ class TestHelpers {
         public void popFrame() {
             frames.pop();
         }
+    }
+
+    /**
+     * Safety bound for {@link #runToQuiescence}. A healthy drain finishes well under this; if it
+     * doesn't, the structure is producing tasks faster than they get retired and something is
+     * wrong.
+     */
+    private static final int MAX_DRAIN_ITERATIONS = 1_000;
+
+    /**
+     * Drains all pending deferred tasks from {@code guardiann} by repeatedly fetching one task
+     * and executing it in its own transaction until the tasks subspace is empty.
+     * <p>
+     * Insertions and deletions piggy-back deferred-task execution onto themselves (one task per
+     * op, via {@link Primitives#doSomeDeferredTasks}). Once those producer ops stop, pending
+     * tasks remain in the tasks subspace until something pulls them out — this method is that
+     * something. Tests typically call it before checking post-condition invariants so the
+     * structure is observed at a quiescent state.
+     * <p>
+     * Note that {@link BounceTask} is a state machine: each invocation executes one of its
+     * dependent tasks and then either re-enqueues a new BounceTask with the remaining
+     * dependents OR fires the final task once the last dependent has run. Draining therefore
+     * takes roughly N+1 iterations per BounceTask (N dependents + the final task), and
+     * additional tasks (e.g. a split firing a follow-up) may be enqueued mid-drain. The loop
+     * here simply keeps going until the tasks subspace reads empty.
+     *
+     * @return the number of tasks executed during the drain
+     */
+    static int runToQuiescence(@Nonnull final Database db, @Nonnull final Guardiann guardiann) {
+        final Primitives primitives = guardiann.getLocator().primitives();
+        int executed = 0;
+        for (int i = 0; i < MAX_DRAIN_ITERATIONS; i++) {
+            final boolean didWork = db.run(transaction -> {
+                final AccessInfo accessInfo = primitives.fetchAccessInfo(transaction).join();
+                if (accessInfo == null) {
+                    return false;
+                }
+                final List<AbstractDeferredTask> pending =
+                        primitives.fetchSomeDeferredTasks(transaction, accessInfo, 1).join();
+                if (pending.isEmpty()) {
+                    return false;
+                }
+                primitives.doDeferredTask(transaction, pending.get(0)).join();
+                return true;
+            });
+            if (!didWork) {
+                if (executed > 0) {
+                    logger.info("runToQuiescence drained {} tasks", executed);
+                }
+                return executed;
+            }
+            executed++;
+        }
+        throw new IllegalStateException("runToQuiescence did not converge after "
+                + MAX_DRAIN_ITERATIONS + " iterations; possible task-loop bug");
+    }
+
+    /**
+     * Asserts that the tasks subspace is empty — i.e. {@link #runToQuiescence} would execute
+     * zero tasks if called now. Tests typically call {@link #runToQuiescence} first, then this,
+     * to confirm the drain truly settled.
+     */
+    static void assertQuiescence(@Nonnull final Database db, @Nonnull final Guardiann guardiann) {
+        final Primitives primitives = guardiann.getLocator().primitives();
+        final int pending = db.run(transaction -> {
+            final AccessInfo accessInfo = primitives.fetchAccessInfo(transaction).join();
+            if (accessInfo == null) {
+                return 0;
+            }
+            return primitives.fetchSomeDeferredTasks(transaction, accessInfo, 1).join().size();
+        });
+        assertThat(pending).as("deferred tasks remaining at quiescence check").isEqualTo(0);
+    }
+
+    /**
+     * Per-cluster view captured by {@link #snapshotStructure}. The vector-reference sets are keyed
+     * by {@link VectorId} (primary key + UUID), which uniquely identifies a vector across the
+     * structure and supports cross-cluster cross-referencing (e.g. linking a replica to its
+     * primary).
+     *
+     * @param clusterId the cluster's UUID
+     * @param centroid the centroid in the client (untransformed) coordinate space, taken from the
+     *        centroid HNSW. Useful for stable cross-snapshot comparison
+     * @param metadata the cluster's stored {@link ClusterMetadata}
+     * @param primaries primary-copy vector references (whether or not underreplicated; collapsed
+     *        primaries are excluded from this set and appear in {@code collapsedRefs} instead)
+     * @param replicas replicated copies held in this cluster for search recall
+     * @param collapsedRefs collapsed references; each carries its signature in its {@code id()}'s
+     *        primary-key tuple
+     */
+    record ClusterView(@Nonnull UUID clusterId,
+                       @Nonnull RealVector centroid,
+                       @Nonnull ClusterMetadata metadata,
+                       @Nonnull Set<VectorId> primaries,
+                       @Nonnull Set<VectorId> replicas,
+                       @Nonnull Set<VectorId> collapsedRefs) {
+    }
+
+    /**
+     * Compact, immutable view of the Guardiann's cluster topology at a point in time: per-cluster
+     * metadata, primary vectors, replicas, and collapsed references. Tests build one (typically
+     * right after {@link #runToQuiescence}) and feed it to the {@code assert*} invariant helpers
+     * below. The same snapshots are intended for diff-based scenario tests in a later phase
+     * ("after this op, exactly these clusters changed"); the diff API isn't built yet.
+     *
+     * @param clusters per-cluster views, keyed by cluster id (immutable)
+     */
+    record StructureSnapshot(@Nonnull Map<UUID, ClusterView> clusters) {
+        /** Returns the number of clusters in this snapshot. */
+        public int numClusters() {
+            return clusters.size();
+        }
+
+        /** Returns the total primary-copy count across all clusters. */
+        public int totalPrimaries() {
+            return clusters.values().stream().mapToInt(c -> c.primaries().size()).sum();
+        }
+
+        /** Returns the total replica count across all clusters (counts each replica copy once). */
+        public int totalReplicas() {
+            return clusters.values().stream().mapToInt(c -> c.replicas().size()).sum();
+        }
+
+        /** Returns the total collapsed-reference count across all clusters. */
+        public int totalCollapsedRefs() {
+            return clusters.values().stream().mapToInt(c -> c.collapsedRefs().size()).sum();
+        }
+
+        /**
+         * Returns the reverse mapping primary {@link VectorId} → owning cluster id. The build
+         * itself fails via {@link Verify} if a primary appears in more than one cluster, so the
+         * returned map is guaranteed unique by construction.
+         */
+        @Nonnull
+        public Map<VectorId, UUID> primaryOwners() {
+            final Map<VectorId, UUID> owners = Maps.newHashMapWithExpectedSize(totalPrimaries());
+            for (final ClusterView cv : clusters.values()) {
+                for (final VectorId id : cv.primaries()) {
+                    final UUID prior = owners.put(id, cv.clusterId());
+                    Verify.verify(prior == null,
+                            "primary %s appears in clusters %s and %s", id, prior, cv.clusterId());
+                }
+            }
+            return owners;
+        }
+    }
+
+    /**
+     * Snapshots the current Guardiann cluster topology. Returns {@code null} if the structure is
+     * empty (no clusters yet — common before the first insert).
+     * <p>
+     * Implementation: scan the centroid HNSW for cluster ids and centroids (this uses its own
+     * internal transactions), then fetch each cluster's metadata and vector references in a
+     * single follow-up read transaction.
+     */
+    @Nullable
+    static StructureSnapshot snapshotStructure(@Nonnull final Database db,
+                                               @Nonnull final Guardiann guardiann) {
+        final Primitives primitives = guardiann.getLocator().primitives();
+        final HNSW centroidsHnsw = primitives.getClusterCentroidsHnsw();
+
+        // First, pull (clusterId, untransformedCentroid) pairs from the centroid HNSW.
+        final List<ResultEntry> centroidEntries = Lists.newArrayList();
+        HNSW.scanLayer(centroidsHnsw.getConfig(), centroidsHnsw.getSubspace(), db, 0, 100,
+                centroidEntries::add);
+        if (centroidEntries.isEmpty()) {
+            return null;
+        }
+
+        // Then, in one read transaction, fetch every cluster's metadata + vector references and
+        // bucketize the references into primaries / replicas / collapsed.
+        final Map<UUID, ClusterView> views = db.run(transaction -> {
+            final AccessInfo accessInfo = primitives.fetchAccessInfo(transaction).join();
+            Verify.verifyNotNull(accessInfo,
+                    "centroid HNSW had entries but AccessInfo is missing");
+            final StorageTransform storageTransform = primitives.storageTransform(accessInfo);
+
+            final Map<UUID, ClusterView> built = Maps.newHashMapWithExpectedSize(centroidEntries.size());
+            for (final ResultEntry entry : centroidEntries) {
+                final UUID clusterId = StorageAdapter.clusterIdFromTuple(entry.primaryKey());
+                final RealVector untransformedCentroid =
+                        Objects.requireNonNull(entry.vector(), "centroid HNSW must yield vectors");
+                final Cluster cluster = primitives.fetchCluster(transaction, storageTransform,
+                        clusterId, untransformedCentroid).join();
+
+                final ImmutableSet.Builder<VectorId> primariesBuilder = ImmutableSet.builder();
+                final ImmutableSet.Builder<VectorId> replicasBuilder = ImmutableSet.builder();
+                final ImmutableSet.Builder<VectorId> collapsedBuilder = ImmutableSet.builder();
+                for (final VectorReference ref : cluster.vectorReferences()) {
+                    if (ref.isCollapsed()) {
+                        collapsedBuilder.add(ref.id());
+                    } else if (ref.isPrimaryCopy()) {
+                        primariesBuilder.add(ref.id());
+                    } else {
+                        replicasBuilder.add(ref.id());
+                    }
+                }
+                built.put(clusterId, new ClusterView(clusterId, untransformedCentroid,
+                        cluster.clusterMetadata(),
+                        primariesBuilder.build(), replicasBuilder.build(), collapsedBuilder.build()));
+            }
+            return built;
+        });
+        return new StructureSnapshot(Map.copyOf(views));
+    }
+
+    /**
+     * Asserts that every primary {@link VectorId} appears in exactly one cluster's primary set —
+     * no orphans, no duplicates across clusters. The construction of
+     * {@link StructureSnapshot#primaryOwners()} performs this check internally via
+     * {@link Verify}; this method exposes it as a named assertion for tests that want to opt in
+     * explicitly. Empty snapshots (no clusters) trivially pass.
+     */
+    static void assertEveryPrimaryUniqueAndAccountedFor(@Nullable final StructureSnapshot snapshot) {
+        if (snapshot == null) {
+            return;
+        }
+        // primaryOwners() rebuilds the reverse map; the build asserts uniqueness via Verify.
+        final Map<VectorId, UUID> owners = snapshot.primaryOwners();
+        assertThat(owners.size())
+                .as("primaryOwners size must match total primary count")
+                .isEqualTo(snapshot.totalPrimaries());
+    }
+
+    /**
+     * Asserts that every replica {@link VectorId} in any cluster has a corresponding primary copy
+     * somewhere in the structure. A dangling replica (no live primary with the same VectorId)
+     * indicates the primary was deleted but its replicas weren't reaped, or that a replicate-only
+     * insert path slipped through.
+     */
+    static void assertReplicasReferenceLivePrimaries(@Nullable final StructureSnapshot snapshot) {
+        if (snapshot == null) {
+            return;
+        }
+        final Set<VectorId> livePrimaries = snapshot.primaryOwners().keySet();
+        for (final ClusterView cv : snapshot.clusters().values()) {
+            for (final VectorId replicaId : cv.replicas()) {
+                assertThat(livePrimaries)
+                        .as("replica %s in cluster %s has no live primary", replicaId, cv.clusterId())
+                        .contains(replicaId);
+            }
+        }
+    }
+
+    /**
+     * Umbrella post-condition check for any test that has just performed structural operations
+     * (inserts, deletes, repartitions, etc.). Runs the deferred-task queue to quiescence,
+     * verifies that nothing remains pending, then snapshots and validates every structural
+     * invariant currently checkable on a quiescent snapshot.
+     * <p>
+     * Equivalent to the explicit sequence:
+     * <pre>{@code
+     * runToQuiescence(db, guardiann);
+     * assertQuiescence(db, guardiann);
+     * final StructureSnapshot s = snapshotStructure(db, guardiann);
+     * assertEveryPrimaryUniqueAndAccountedFor(s);
+     * assertReplicasReferenceLivePrimaries(s);
+     * }</pre>
+     * but bundled into one call so scenario tests don't have to repeat the boilerplate. Tests
+     * that want finer control (e.g. snapshotting before and after for a diff) should call the
+     * individual helpers instead.
+     */
+    static void assertGuardiannInvariants(@Nonnull final Database db,
+                                          @Nonnull final Guardiann guardiann) {
+        runToQuiescence(db, guardiann);
+        assertQuiescence(db, guardiann);
+        final StructureSnapshot snapshot = snapshotStructure(db, guardiann);
+        assertEveryPrimaryUniqueAndAccountedFor(snapshot);
+        assertReplicasReferenceLivePrimaries(snapshot);
     }
 }

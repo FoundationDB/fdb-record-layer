@@ -22,7 +22,6 @@ package com.apple.foundationdb.async.guardiann;
 
 import com.apple.foundationdb.Database;
 import com.apple.foundationdb.async.common.BaseTest;
-import com.apple.foundationdb.async.common.PrimaryKeyAndVector;
 import com.apple.foundationdb.async.common.ResultEntry;
 import com.apple.foundationdb.async.hnsw.HNSW;
 import com.apple.foundationdb.linear.Metric;
@@ -44,7 +43,6 @@ import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import java.nio.file.Path;
-import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
@@ -65,7 +63,6 @@ public class SiftTest implements BaseTest {
 
     private static Database db;
     private static Guardiann guardiann;
-    private static List<PrimaryKeyAndVector> insertedData;
 
     @Nonnull
     @Override
@@ -114,17 +111,18 @@ public class SiftTest implements BaseTest {
                 onReadListener);
 
         logger.info("Preparing db and inserting SIFT small dataset...");
-        //insertedData = TestHelpers.insertSIFTSmall(db, guardiann);
-        insertedData = TestHelpers.insertSIFTSmall(db, guardiann);
+        TestHelpers.insertSIFTSmall(db, guardiann);
     }
 
     @SuppressWarnings("checkstyle:AbbreviationAsWordInName")
     @Test
     void testInsertSIFTSmall() throws Exception {
         final int k = 100;
-        TestHelpers.validateSIFT(getDb(), guardiann,
-                ".out/extracted/siftsmall/siftsmall_query.fvecs",
-                ".out/extracted/siftsmall/siftsmall_groundtruth.ivecs", k);
+        TestHelpers.assertGuardiannInvariants(getDb(), guardiann);
+
+        TestHelpers.queryVectors(getDb(), guardiann,
+                TestHelpers.SIFT_SMALL_QUERY_PATH,
+                TestHelpers.SIFT_SMALL_GROUNDTRUTH_PATH, k);
 
         final HNSW centroidHnsw = guardiann.getLocator().primitives().getClusterCentroidsHnsw();
 
