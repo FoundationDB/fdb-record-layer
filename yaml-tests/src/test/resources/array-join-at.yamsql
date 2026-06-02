@@ -18,7 +18,7 @@
 # limitations under the License.
 ---
 options:
-  supported_version: !current_version
+  supported_version: 4.12.3.0
 ---
 # Comprehensive integration tests for the PartiQL AT construct.
 schema_template:
@@ -165,7 +165,7 @@ test_block:
     -
       # Applying AT to a normal table source item (that does not produce an array) is invalid.
       - query: SELECT "id", "at" FROM T1 AT "at"
-      - error: "42809" # "AT clause requires an array-typed column, but 'T1' is a table"
+      - error: WRONG_OBJECT_TYPE
     -
       # Unnesting two arrays from the same row, with AT on both, in a cross-product manner.
       # Notice the ordinals are independent; each `at2` restarts at 1 for each element of the outer array.
@@ -196,11 +196,11 @@ test_block:
     -
       # Unnesting the same array twice, but with the same AS alias assigned both.
       - query: SELECT T2."id", "val", "at1", "at2" FROM T2, T2."arr1" AS "val" AT "at1", T2."arr1" AS "val" AT "at2"
-      - error: "42702"  # "Ambiguous reference val"
+      - error: AMBIGUOUS_COLUMN
     -
       # Unnesting the same array twice, but with the same AT alias on both.
       - query: SELECT T2."id", "at", "val1", "val2" FROM T2, T2."arr1" AS "val1" AT "at", T2."arr1" AS "val2" AT "at"
-      - error: "42702"  # "Ambiguous reference at"
+      - error: AMBIGUOUS_COLUMN
     -
       # An AT variable can be used within the subscript [] operator to access another array. This enables “parallel”
       # unnesting of two arrays within the same row.
@@ -274,11 +274,11 @@ test_block:
     -
       # Applying AT to a common table expression is invalid (CTE is not an array).
       - query: WITH "cte" AS (SELECT * FROM T1) SELECT "id" FROM "cte" AT "at"
-      - error: "42809"
+      - error: WRONG_OBJECT_TYPE
     -
       # ORDER BY on the AT ordinal cannot be planned without and index.
       - query: SELECT "id", "val", "at" FROM T1, T1."arr1_nn" AS "val" AT "at" WHERE T1."id" = 2 ORDER BY "at" DESC
-      - error: "0AF00"
+      - error: UNSUPPORTED_QUERY
     -
       # STRING array with AT via VALUES. Verifies ordinals also work with non-integer element types.
       - query: SELECT "val", "at"

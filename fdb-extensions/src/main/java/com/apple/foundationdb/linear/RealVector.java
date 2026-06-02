@@ -123,20 +123,23 @@ public interface RealVector {
         return new MutableDoubleRealVector(getData().clone());
     }
 
-    default double clampedDot(@Nonnull final RealVector other) {
-        final double dot = dot(other);
-        return Math.max(-1.0d, Math.min(1.0d, dot));
-    }
+    @Nonnull
+    RealVector toImmutable();
 
     default double dot(@Nonnull final RealVector other) {
         Preconditions.checkArgument(getNumDimensions() == other.getNumDimensions());
-        double sum = 0.0d;
-        final double[] thisData = getData();
-        final double[] otherData = other.getData();
-        for (int i = 0; i < thisData.length; i++) {
-            sum += thisData[i] * otherData[i];
-        }
-        return sum;
+        return RealVectorPrimitives.dot(getData(), other.getData());
+    }
+
+    /**
+     * Returns the squared Euclidean distance to {@code other}, i.e. {@code Σ (this[i] - other[i])^2}.
+     * Equivalent to but cheaper than {@code subtract(other).l2SquaredNorm()} (no temporary
+     * allocation), and cheaper than {@code Math.pow(estimator.distance(this, other), 2)} for the
+     * Euclidean metric (skips a {@code sqrt} that would just be squared again).
+     */
+    default double l2SquaredDistance(@Nonnull final RealVector other) {
+        Preconditions.checkArgument(getNumDimensions() == other.getNumDimensions());
+        return RealVectorPrimitives.euclideanSquared(getData(), other.getData());
     }
 
     default boolean isNearlyZeroNorm() {
@@ -148,37 +151,37 @@ public interface RealVector {
     }
 
     default double l2SquaredNorm() {
-        return dot(this);
+        return RealVectorPrimitives.l2SquaredNorm(getData());
     }
 
     @Nonnull
     default RealVector normalize() {
-        return withData(RealVectorPrimitives.normalizeInto(this, new double[getNumDimensions()]));
+        return withData(RealVectorPrimitives.normalizeInto(this.getData(), new double[getNumDimensions()]));
     }
 
     @Nonnull
     default RealVector add(@Nonnull final RealVector other) {
-        return withData(RealVectorPrimitives.addInto(this, other, new double[getNumDimensions()]));
+        return withData(RealVectorPrimitives.addInto(this.getData(), other.getData(), new double[getNumDimensions()]));
     }
 
     @Nonnull
     default RealVector add(final double scalar) {
-        return withData(RealVectorPrimitives.addInto(this, scalar, new double[getNumDimensions()]));
+        return withData(RealVectorPrimitives.addInto(this.getData(), scalar, new double[getNumDimensions()]));
     }
 
     @Nonnull
     default RealVector subtract(@Nonnull final RealVector other) {
-        return withData(RealVectorPrimitives.subtractInto(this, other, new double[getNumDimensions()]));
+        return withData(RealVectorPrimitives.subtractInto(this.getData(), other.getData(), new double[getNumDimensions()]));
     }
 
     @Nonnull
     default RealVector subtract(final double scalar) {
-        return withData(RealVectorPrimitives.subtractInto(this, scalar, new double[getNumDimensions()]));
+        return withData(RealVectorPrimitives.subtractInto(this.getData(), scalar, new double[getNumDimensions()]));
     }
 
     @Nonnull
     default RealVector multiply(final double scalar) {
-        return withData(RealVectorPrimitives.multiplyInto(this, scalar, new double[getNumDimensions()]));
+        return withData(RealVectorPrimitives.multiplyInto(this.getData(), scalar, new double[getNumDimensions()]));
     }
 
     @Nonnull
@@ -212,15 +215,11 @@ public interface RealVector {
      */
     @Nonnull
     static RealVector fromBytes(@Nonnull final VectorType vectorType, @Nonnull final byte[] vectorBytes) {
-        switch (vectorType) {
-            case HALF:
-                return HalfRealVector.fromBytes(vectorBytes);
-            case SINGLE:
-                return FloatRealVector.fromBytes(vectorBytes);
-            case DOUBLE:
-                return DoubleRealVector.fromBytes(vectorBytes);
-            default:
-                throw new RuntimeException("unable to deserialize vector");
-        }
+        return switch (vectorType) {
+            case HALF -> HalfRealVector.fromBytes(vectorBytes);
+            case SINGLE -> FloatRealVector.fromBytes(vectorBytes);
+            case DOUBLE -> DoubleRealVector.fromBytes(vectorBytes);
+            default -> throw new RuntimeException("unable to deserialize vector");
+        };
     }
 }

@@ -21,16 +21,15 @@
 package com.apple.foundationdb.linear;
 
 import com.google.common.base.Preconditions;
-import com.google.common.base.Verify;
 
 import javax.annotation.Nonnull;
-import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
+import java.util.Arrays;
 
 /**
  * A vector class encoding a vector over double components. Conversion to {@link HalfRealVector} is supported and
  * memoized.
  */
+@SuppressWarnings("PMD.OverrideBothEqualsAndHashcode")
 public class MutableDoubleRealVector extends DoubleRealVector {
 
     public MutableDoubleRealVector(@Nonnull final Double[] doubleData) {
@@ -74,6 +73,7 @@ public class MutableDoubleRealVector extends DoubleRealVector {
     }
 
     @Nonnull
+    @Override
     public DoubleRealVector toImmutable() {
         return new DoubleRealVector(getData().clone());
     }
@@ -94,48 +94,55 @@ public class MutableDoubleRealVector extends DoubleRealVector {
 
     @Override
     public int hashCode() {
+        // this hashCode() implementation cannot rely on a memoized hash code
         return computeHashCode();
     }
 
     @Nonnull
     @Override
     public MutableDoubleRealVector normalize() {
-        RealVectorPrimitives.normalizeInto(this, getData());
+        RealVectorPrimitives.normalizeInto(this.getData(), getData());
         return this;
     }
 
     @Nonnull
     @Override
     public MutableDoubleRealVector add(@Nonnull final RealVector other) {
-        RealVectorPrimitives.addInto(this, other, getData());
+        RealVectorPrimitives.addInto(this.getData(), other.getData(), getData());
         return this;
     }
 
     @Nonnull
     @Override
     public MutableDoubleRealVector add(final double scalar) {
-        RealVectorPrimitives.addInto(this, scalar, getData());
+        RealVectorPrimitives.addInto(this.getData(), scalar, getData());
         return this;
     }
 
     @Nonnull
     @Override
     public MutableDoubleRealVector subtract(@Nonnull final RealVector other) {
-        RealVectorPrimitives.subtractInto(this, other, getData());
+        RealVectorPrimitives.subtractInto(this.getData(), other.getData(), getData());
         return this;
     }
 
     @Nonnull
     @Override
     public MutableDoubleRealVector subtract(final double scalar) {
-        RealVectorPrimitives.subtractInto(this, scalar, getData());
+        RealVectorPrimitives.subtractInto(this.getData(), scalar, getData());
         return this;
     }
 
     @Nonnull
     @Override
     public MutableDoubleRealVector multiply(final double scalar) {
-        RealVectorPrimitives.multiplyInto(this, scalar, getData());
+        RealVectorPrimitives.multiplyInto(this.getData(), scalar, getData());
+        return this;
+    }
+
+    @Nonnull
+    public MutableDoubleRealVector zero() {
+        Arrays.fill(getData(), 0.0d);
         return this;
     }
 
@@ -160,13 +167,6 @@ public class MutableDoubleRealVector extends DoubleRealVector {
      */
     @Nonnull
     public static MutableDoubleRealVector fromBytes(@Nonnull final byte[] vectorBytes) {
-        final ByteBuffer buffer = ByteBuffer.wrap(vectorBytes).order(ByteOrder.BIG_ENDIAN);
-        Verify.verify(buffer.get() == VectorType.DOUBLE.ordinal());
-        final int numDimensions = vectorBytes.length >> 3;
-        final double[] vectorComponents = new double[numDimensions];
-        for (int i = 0; i < numDimensions; i ++) {
-            vectorComponents[i] = buffer.getDouble();
-        }
-        return new MutableDoubleRealVector(vectorComponents);
+        return new MutableDoubleRealVector(DoubleRealVector.decodeDoubleBytes(vectorBytes));
     }
 }

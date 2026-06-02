@@ -128,7 +128,7 @@ test_block:
       # incorrect, this should throw SYNTAX_ERROR error whose SQL state is 42601
       # the `query` command has a configuration `error` implemented to check that.
       - query: selec * from t1;
-      - error: "42601"
+      - error: SYNTAX_ERROR  # equivalent to: error: "42601"
 
     # ------------------------------------------------------------------
     # Result checking with partial matching (!ignore, !l tags)

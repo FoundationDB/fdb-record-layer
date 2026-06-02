@@ -26,9 +26,10 @@ import com.apple.foundationdb.async.MoreAsyncUtil;
 import com.apple.foundationdb.async.common.RandomHelpers;
 import com.apple.foundationdb.async.common.StorageHelpers;
 import com.apple.foundationdb.async.common.StorageTransform;
-import com.apple.foundationdb.async.guardiann.SplitMergeEvaluator.UpgradeResult;
 import com.apple.foundationdb.async.hnsw.HNSW;
 import com.apple.foundationdb.kmeans.BoundedKMeans;
+import com.apple.foundationdb.kmeans.PartitionEvaluator;
+import com.apple.foundationdb.kmeans.PartitionEvaluator.EvaluationResult;
 import com.apple.foundationdb.linear.Estimator;
 import com.apple.foundationdb.linear.Quantizer;
 import com.apple.foundationdb.linear.RealVector;
@@ -68,7 +69,7 @@ import java.util.concurrent.Executor;
  *
  * <p>
  * The task operates in two phases: first, it evaluates candidate repartitionings (potentially trying
- * both 1-to-2 and 2-to-3 splits) and selects the best one using {@link SplitMergeEvaluator}. Second,
+ * both 1-to-2 and 2-to-3 splits) and selects the best one using {@link PartitionEvaluator}. Second,
  * it executes the chosen repartitioning by reassigning vectors, updating the HNSW centroid index,
  * and propagating replication information. If no valid repartitioning exists (e.g., due to duplicate
  * vectors), the task may fall back to enqueuing a {@link CollapseTask} instead.
@@ -200,7 +201,7 @@ public class SplitMergeTask extends AbstractDeferredTask {
      *       and, if the neighborhood is large enough, a 2-to-3 split (splitting the target and its nearest
      *       neighbor into 3).</li>
      *   <li>Runs bounded k-means on the primary vectors to compute new cluster centroids for each candidate.</li>
-     *   <li>Selects the best valid candidate via {@link SplitMergeEvaluator}, or falls back to a collapse
+     *   <li>Selects the best valid candidate via {@link PartitionEvaluator}, or falls back to a collapse
      *       task if no valid split exists.</li>
      *   <li>Assigns vectors to new clusters, updates the HNSW centroid index, and writes the new
      *       cluster metadata.</li>
@@ -291,23 +292,23 @@ public class SplitMergeTask extends AbstractDeferredTask {
                                                                         config.kMeansMaxIterations(), config.kMeansMaxRestarts()));
                                             }, config.splitMergeConcurrency(), executor)
                                     .<RepartitioningCandidate>thenApply(assignmentCandidates -> {
-                                        final Map<RepartitioningCandidate, UpgradeResult> candidateToUpgradeResultMap = Maps.newIdentityHashMap();
+                                        final Map<RepartitioningCandidate, EvaluationResult> candidateToEvaluationResultMap = Maps.newIdentityHashMap();
                                         final RepartitioningCandidate split1to2Candidate =
                                                 Objects.requireNonNull(assignmentCandidates.get(0));
-                                        final UpgradeResult upgradeResult1to2 =
+                                        final EvaluationResult evaluationResult1to2 =
                                                 scoreCandidate(estimator, ImmutableList.of(innerClusters.get(0)),
                                                         split1to2Candidate);
-                                        candidateToUpgradeResultMap.put(split1to2Candidate, upgradeResult1to2);
+                                        candidateToEvaluationResultMap.put(split1to2Candidate, evaluationResult1to2);
                                         final RepartitioningCandidate split2to3Candidate = assignmentCandidates.get(1);
                                         if (split2to3Candidate != null) {
                                             Verify.verify(innerClusters.size() > 1);
-                                            final UpgradeResult upgradeResult2to3 =
+                                            final EvaluationResult evaluationResult2to3 =
                                                     scoreCandidate(estimator, innerClusters,
                                                             split2to3Candidate);
-                                            candidateToUpgradeResultMap.put(split2to3Candidate, upgradeResult2to3);
+                                            candidateToEvaluationResultMap.put(split2to3Candidate, evaluationResult2to3);
                                         }
                                         final Optional<RepartitioningCandidate> bestValidCandidateOptional =
-                                                selectBestCandidateMaybe(candidateToUpgradeResultMap);
+                                                selectBestCandidateMaybe(candidateToEvaluationResultMap);
                                         if (bestValidCandidateOptional.isEmpty()) {
                                             if (enqueueCollapseIfNecessary(transaction, random,
                                                     split1to2Candidate.primaryVectorReferences(),
@@ -350,7 +351,7 @@ public class SplitMergeTask extends AbstractDeferredTask {
      *       nearest neighbor) and, if the neighborhood is large enough, a 3-to-2 merge (dissolving
      *       3 clusters into 2).</li>
      *   <li>Runs bounded k-means on the primary vectors for each candidate.</li>
-     *   <li>Selects the best valid candidate via {@link SplitMergeEvaluator}.</li>
+     *   <li>Selects the best valid candidate via {@link PartitionEvaluator}.</li>
      *   <li>Assigns vectors to the reduced set of clusters, updates the HNSW centroid index, and
      *       writes new cluster metadata.</li>
      * </ol>
@@ -441,24 +442,24 @@ public class SplitMergeTask extends AbstractDeferredTask {
                                                                         config.kMeansMaxIterations(), config.kMeansMaxRestarts()));
                                             }, config.splitMergeConcurrency(), executor)
                                     .<RepartitioningCandidate>thenApply(mergeCandidates -> {
-                                        final Map<RepartitioningCandidate, UpgradeResult> candidateToUpgradeResultMap = Maps.newIdentityHashMap();
+                                        final Map<RepartitioningCandidate, EvaluationResult> candidateToEvaluationResultMap = Maps.newIdentityHashMap();
                                         final RepartitioningCandidate merge2to1Candidate =
                                                 Objects.requireNonNull(mergeCandidates.get(0));
-                                        final UpgradeResult upgradeResult2to1 =
+                                        final EvaluationResult evaluationResult2to1 =
                                                 scoreCandidate(estimator,
                                                         innerClusters.subList(0, neighborhoods2To1.innerNeighborhood().size()),
                                                         merge2to1Candidate);
-                                        candidateToUpgradeResultMap.put(merge2to1Candidate, upgradeResult2to1);
+                                        candidateToEvaluationResultMap.put(merge2to1Candidate, evaluationResult2to1);
                                         final RepartitioningCandidate merge3to2Candidate = mergeCandidates.get(1);
                                         if (merge3to2Candidate != null) {
                                             Verify.verify(innerClusters.size() > 2);
-                                            final UpgradeResult upgradeResult3to2 =
+                                            final EvaluationResult evaluationResult3to2 =
                                                     scoreCandidate(estimator, innerClusters,
                                                             merge3to2Candidate);
-                                            candidateToUpgradeResultMap.put(merge3to2Candidate, upgradeResult3to2);
+                                            candidateToEvaluationResultMap.put(merge3to2Candidate, evaluationResult3to2);
                                         }
                                         final Optional<RepartitioningCandidate> bestValidCandidateOptional =
-                                                selectBestCandidateMaybe(candidateToUpgradeResultMap);
+                                                selectBestCandidateMaybe(candidateToEvaluationResultMap);
                                         return bestValidCandidateOptional.orElse(merge2to1Candidate);
                                     }))
                             .thenCompose(repartitioningCandidate -> {
@@ -988,7 +989,7 @@ public class SplitMergeTask extends AbstractDeferredTask {
      * @return the evaluation result containing the decision and score gain
      */
     @Nonnull
-    private static UpgradeResult
+    private static EvaluationResult
             scoreCandidate(@Nonnull final Estimator estimator,
                            @Nonnull final List<Cluster> currentClusters,
                            @Nonnull final RepartitioningCandidate repartitioningCandidate) {
@@ -1016,41 +1017,79 @@ public class SplitMergeTask extends AbstractDeferredTask {
             }
         }
 
-        final SplitMergeEvaluator.Partition<Transformed<RealVector>> currentPartition =
-                new SplitMergeEvaluator.Partition<>(clusterCentroidsBuilder.build(),
+        final PartitionEvaluator.Partition<Transformed<RealVector>> currentPartition =
+                new PartitionEvaluator.Partition<>(clusterCentroidsBuilder.build(),
                         Transformed.underlyingLens(), assignment);
         final var kMeansResult = repartitioningCandidate.kMeansResult();
-        return SplitMergeEvaluator.evaluateUpgrade(primaryVectorReferencesBuilder.build(),
+        final PartitionEvaluator.Partition<Transformed<RealVector>> candidatePartition =
+                new PartitionEvaluator.Partition<>(kMeansResult.getClusterCentroids(),
+                        Transformed.underlyingLens(), kMeansResult.getAssignment());
+        return PartitionEvaluator.evaluate(primaryVectorReferencesBuilder.build(),
                 currentPartition,
                 repartitioningCandidate.primaryVectorReferences(),
-                new SplitMergeEvaluator.Partition<>(kMeansResult.getClusterCentroids(),
-                        Transformed.underlyingLens(), kMeansResult.getAssignment()),
+                candidatePartition,
                 VectorReference.vectorLens(),
-                new SplitMergeEvaluator.Parameters(estimator));
+                parametersFor(estimator, currentPartition.k(), candidatePartition.k()));
+    }
+
+    /**
+     * Returns the {@link PartitionEvaluator.Parameters} appropriate for the given transition. The
+     * generalized {@link PartitionEvaluator.Parameters} record has a single {@code minSmallestFrac}
+     * / {@code maxLargestFrac} pair, so the caller picks values per transition kind:
+     * <ul>
+     *   <li>{@code 1 → 2}: {@code minSmallestFrac=0.03}, no upper bound on the largest cluster.
+     *   <li>{@code 2 → 3}: {@code minSmallestFrac=0.015}, {@code maxLargestFrac=0.55}.
+     *   <li>{@code 2 → 1} / {@code 3 → 2} merges: permissive (no smallest/largest constraints).
+     * </ul>
+     */
+    @Nonnull
+    private static PartitionEvaluator.Parameters parametersFor(@Nonnull final Estimator estimator,
+                                                               final int currentK,
+                                                               final int candidateK) {
+        final PartitionEvaluator.Parameters defaults = new PartitionEvaluator.Parameters(estimator);
+        final double minSmallestFrac;
+        final double maxLargestFrac;
+        if (currentK == 1 && candidateK == 2) {
+            minSmallestFrac = 0.03d;
+            maxLargestFrac = 1.0d;
+        } else if (currentK == 2 && candidateK == 3) {
+            minSmallestFrac = 0.015d;
+            maxLargestFrac = 0.55d;
+        } else {
+            // merges (2 → 1, 3 → 2): permissive
+            minSmallestFrac = 0.0d;
+            maxLargestFrac = 1.0d;
+        }
+        return new PartitionEvaluator.Parameters(estimator,
+                defaults.minRelativeSseGain(), defaults.minSeparation(), defaults.maxLowMarginRate(),
+                minSmallestFrac, maxLargestFrac, defaults.lowMarginThreshold(),
+                defaults.alphaSseGain(), defaults.betaSeparationGain(),
+                defaults.gammaImbalancePenalty(), defaults.deltaLowMarginPenalty(),
+                defaults.minScoreGain());
     }
 
     /**
      * Selects the best valid candidate from the evaluated candidates map. A candidate is valid if
-     * the evaluator did not mark it as {@link SplitMergeEvaluator.Decision#INVALID_CANDIDATE}.
+     * the evaluator did not mark it as {@link PartitionEvaluator.Decision#INVALID_CANDIDATE}.
      * Among valid candidates, the one with the highest score gain is preferred.
      *
-     * @param candidateToUpgradeResultMap map of candidates to their evaluation results
+     * @param candidateToEvaluationResultMap map of candidates to their evaluation results
      * @return the best valid candidate, or empty if no valid candidate exists
      */
     @Nonnull
-    private Optional<RepartitioningCandidate> selectBestCandidateMaybe(@Nonnull final Map<RepartitioningCandidate, UpgradeResult> candidateToUpgradeResultMap) {
+    private Optional<RepartitioningCandidate> selectBestCandidateMaybe(@Nonnull final Map<RepartitioningCandidate, EvaluationResult> candidateToEvaluationResultMap) {
         RepartitioningCandidate bestCandidate = null;
-        UpgradeResult bestUpgradeResult = null;
-        for (final Map.Entry<RepartitioningCandidate, UpgradeResult> entry : candidateToUpgradeResultMap.entrySet()) {
+        EvaluationResult bestEvaluationResult = null;
+        for (final Map.Entry<RepartitioningCandidate, EvaluationResult> entry : candidateToEvaluationResultMap.entrySet()) {
             final RepartitioningCandidate candidate = entry.getKey();
-            final UpgradeResult upgradeResult = entry.getValue();
-            if (upgradeResult.decision() != SplitMergeEvaluator.Decision.INVALID_CANDIDATE) {
-                if (bestUpgradeResult == null) {
-                    bestUpgradeResult = upgradeResult;
+            final EvaluationResult evaluationResult = entry.getValue();
+            if (evaluationResult.decision() != PartitionEvaluator.Decision.INVALID_CANDIDATE) {
+                if (bestEvaluationResult == null) {
+                    bestEvaluationResult = evaluationResult;
                     bestCandidate = candidate;
                 } else {
-                    if (upgradeResult.scoreGain() > bestUpgradeResult.scoreGain()) {
-                        bestUpgradeResult = upgradeResult;
+                    if (evaluationResult.scoreGain() > bestEvaluationResult.scoreGain()) {
+                        bestEvaluationResult = evaluationResult;
                         bestCandidate = candidate;
                     }
                 }

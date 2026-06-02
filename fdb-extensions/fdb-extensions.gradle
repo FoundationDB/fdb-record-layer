@@ -99,6 +99,66 @@ test {
     dependsOn tasks.named('extractSiftSmall')
     inputs.dir extractDir
     maxHeapSize = "4g"
+    // SIMD path: make the jdk.incubator.vector module visible at runtime so SimdBackend loads.
+    jvmArgs '--add-modules=jdk.incubator.vector'
+}
+
+//
+// SIMD compilation: the linear.simd sub-package imports jdk.incubator.vector.*, which requires
+// the incubator module to be added at compile time. Applied to both main and test compilations
+// so the test source set can reference Backend implementations directly if needed.
+//
+// javac emits an unconditional "using incubating module(s)" warning whenever an incubator
+// module is added. JDK 17 doesn't expose a lint category to suppress it (the `incubating`
+// category was added later), so we drop -Werror only for these two tasks. The doFirst hook
+// ensures the removal happens after strict.gradle has added -Werror via its own configureEach.
+//
+compileJava {
+    options.compilerArgs += ['--add-modules', 'jdk.incubator.vector']
+    doFirst {
+        options.compilerArgs = options.compilerArgs.findAll { it != '-Werror' }
+    }
+}
+compileTestJava {
+    options.compilerArgs += ['--add-modules', 'jdk.incubator.vector']
+    doFirst {
+        options.compilerArgs = options.compilerArgs.findAll { it != '-Werror' }
+    }
+}
+javadoc {
+    // Exclude the SIMD sub-package from javadoc: it imports jdk.incubator.vector.* which
+    // would (a) require --add-modules to be visible to javadoc and (b) trigger an unconditional
+    // "using incubating module(s)" warning that the project's -Xwerror would elevate to an
+    // error. SimdBackend is an implementation detail loaded reflectively by
+    // RealVectorPrimitives; the public surface lives in the parent linear package.
+    exclude 'com/apple/foundationdb/linear/simd/**'
+}
+
+//
+// Focused verification of the scalar fallback path: runs the parity test, backend-selection
+// test, and the determinism test under scalar mode. Does NOT pass --add-modules, so loading
+// SimdBackend fails with NoClassDefFoundError; the fdb.vector.simd=scalar system property also
+// forces scalar selection (and is what activates the @EnabledIfSystemProperty gating on
+// siftSmallDeterminism).
+//
+task testScalarFallback(type: Test) {
+    description = 'Runs a focused subset of tests without --add-modules to exercise the scalar fallback.'
+    group = 'verification'
+    useJUnitPlatform()
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath       = sourceSets.test.runtimeClasspath
+    dependsOn tasks.named('extractSiftSmall')
+    inputs.dir extractDir
+    systemProperty 'fdb.vector.simd', 'scalar'
+    filter {
+        includeTestsMatching 'com.apple.foundationdb.linear.RealVectorPrimitivesParityTest'
+        includeTestsMatching 'com.apple.foundationdb.linear.BackendSelectionTest'
+        includeTestsMatching 'com.apple.foundationdb.kmeans.KMeansTest.siftSmallDeterminism*'
+        includeTestsMatching 'com.apple.foundationdb.kmeans.KMeansTest.siftSmallCosineInvariants*'
+    }
+}
+tasks.named('check').configure {
+    dependsOn 'testScalarFallback'
 }
 
 publishing {

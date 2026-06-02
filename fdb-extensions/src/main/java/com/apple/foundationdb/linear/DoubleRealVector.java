@@ -86,8 +86,14 @@ public class DoubleRealVector extends AbstractRealVector {
 
     @Nonnull
     @Override
-    public RealVector withData(@Nonnull final double[] data) {
+    public DoubleRealVector withData(@Nonnull final double[] data) {
         return new DoubleRealVector(data);
+    }
+
+    @Nonnull
+    @Override
+    public DoubleRealVector toImmutable() {
+        return this;
     }
 
     /**
@@ -108,6 +114,42 @@ public class DoubleRealVector extends AbstractRealVector {
             buffer.putDouble(getComponent(i));
         }
         return vectorBytes;
+    }
+
+    @Nonnull
+    @Override
+    public DoubleRealVector normalize() {
+        return withData(RealVectorPrimitives.normalizeInto(this.getData(), new double[getNumDimensions()]));
+    }
+
+    @Nonnull
+    @Override
+    public DoubleRealVector add(@Nonnull final RealVector other) {
+        return withData(RealVectorPrimitives.addInto(this.getData(), other.getData(), new double[getNumDimensions()]));
+    }
+
+    @Nonnull
+    @Override
+    public DoubleRealVector add(final double scalar) {
+        return withData(RealVectorPrimitives.addInto(this.getData(), scalar, new double[getNumDimensions()]));
+    }
+
+    @Nonnull
+    @Override
+    public DoubleRealVector subtract(@Nonnull final RealVector other) {
+        return withData(RealVectorPrimitives.subtractInto(this.getData(), other.getData(), new double[getNumDimensions()]));
+    }
+
+    @Nonnull
+    @Override
+    public DoubleRealVector subtract(final double scalar) {
+        return withData(RealVectorPrimitives.subtractInto(this.getData(), scalar, new double[getNumDimensions()]));
+    }
+
+    @Nonnull
+    @Override
+    public DoubleRealVector multiply(final double scalar) {
+        return withData(RealVectorPrimitives.multiplyInto(this.getData(), scalar, new double[getNumDimensions()]));
     }
 
     /**
@@ -140,13 +182,27 @@ public class DoubleRealVector extends AbstractRealVector {
      */
     @Nonnull
     public static DoubleRealVector fromBytes(@Nonnull final byte[] vectorBytes) {
+        return new DoubleRealVector(decodeDoubleBytes(vectorBytes));
+    }
+
+    /**
+     * Decodes a serialized double-precision vector byte array into its raw {@code double[]}
+     * components, shared between {@link DoubleRealVector#fromBytes(byte[])} and
+     * {@link MutableDoubleRealVector#fromBytes(byte[])}. The first byte must be the
+     * {@link VectorType#DOUBLE} ordinal; the remainder is read as big-endian 64-bit doubles.
+     *
+     * @param vectorBytes the non-null byte array to decode
+     * @return a freshly allocated {@code double[]} with the decoded components
+     */
+    @Nonnull
+    protected static double[] decodeDoubleBytes(@Nonnull final byte[] vectorBytes) {
         final ByteBuffer buffer = ByteBuffer.wrap(vectorBytes).order(ByteOrder.BIG_ENDIAN);
         Verify.verify(buffer.get() == VectorType.DOUBLE.ordinal());
         final int numDimensions = vectorBytes.length >> 3;
         final double[] vectorComponents = new double[numDimensions];
-        for (int i = 0; i < numDimensions; i ++) {
+        for (int i = 0; i < numDimensions; i++) {
             vectorComponents[i] = buffer.getDouble();
         }
-        return new DoubleRealVector(vectorComponents);
+        return vectorComponents;
     }
 }

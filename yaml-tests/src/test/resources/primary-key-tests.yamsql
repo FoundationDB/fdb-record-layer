@@ -30,7 +30,7 @@ test_block:
       - query: INSERT INTO T1
            VALUES ((1, 2, 3, 4), 5),
                   ((1, 2, 30, 40), 50)
-      - error: "23505"
+      - error: UNIQUE_CONSTRAINT_VIOLATION
     -
       - query: SELECT COUNT(*) FROM T1
       - explain: "SCAN([IS T1]) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"

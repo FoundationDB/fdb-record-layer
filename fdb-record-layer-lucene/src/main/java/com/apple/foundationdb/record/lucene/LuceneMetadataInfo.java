@@ -72,6 +72,7 @@ public class LuceneMetadataInfo extends IndexOperationResult {
         private final int fieldInfoCount;
         @Nullable
         private final List<LuceneFileInfo> detailedFileInfos;
+        private final long pendingWritesQueueSize;
 
         @API(API.Status.DEPRECATED)
         public LuceneInfo(final int documentCount, final Collection<String> files, final int fieldInfoCount) {
@@ -79,15 +80,24 @@ public class LuceneMetadataInfo extends IndexOperationResult {
             this.files = files;
             this.fieldInfoCount = fieldInfoCount;
             this.detailedFileInfos = null;
+            this.pendingWritesQueueSize = 0;
         }
 
         public LuceneInfo(final int documentCount,
                           final int fieldInfoCount,
                           @Nonnull final List<LuceneFileInfo> detailedFileInfos) {
+            this(documentCount, fieldInfoCount, detailedFileInfos, 0);
+        }
+
+        public LuceneInfo(final int documentCount,
+                          final int fieldInfoCount,
+                          @Nonnull final List<LuceneFileInfo> detailedFileInfos,
+                          final long pendingWritesQueueSize) {
             this.documentCount = documentCount;
             this.files = detailedFileInfos.stream().map(LuceneFileInfo::getName).collect(Collectors.toList());
             this.fieldInfoCount = fieldInfoCount;
             this.detailedFileInfos = Collections.unmodifiableList(detailedFileInfos);
+            this.pendingWritesQueueSize = pendingWritesQueueSize;
         }
 
         /**
@@ -126,6 +136,15 @@ public class LuceneMetadataInfo extends IndexOperationResult {
             return detailedFileInfos;
         }
 
+        /**
+         * The size of the pending writes queue for this partition.
+         * A value of {@code 0} means the queue is empty or has never been initialised.
+         * @return the number of entries currently in the pending writes queue
+         */
+        public long getPendingWritesQueueSize() {
+            return pendingWritesQueueSize;
+        }
+
         @Override
         public boolean equals(final Object o) {
             if (this == o) {
@@ -137,13 +156,14 @@ public class LuceneMetadataInfo extends IndexOperationResult {
             final LuceneInfo that = (LuceneInfo)o;
             return documentCount == that.documentCount &&
                     fieldInfoCount == that.fieldInfoCount &&
+                    pendingWritesQueueSize == that.pendingWritesQueueSize &&
                     Objects.equals(files, that.files) &&
                     Objects.equals(detailedFileInfos, that.detailedFileInfos);
         }
 
         @Override
         public int hashCode() {
-            return Objects.hash(documentCount, files, fieldInfoCount, detailedFileInfos);
+            return Objects.hash(documentCount, files, fieldInfoCount, detailedFileInfos, pendingWritesQueueSize);
         }
     }
 

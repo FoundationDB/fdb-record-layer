@@ -82,8 +82,14 @@ public class FloatRealVector extends AbstractRealVector {
 
     @Nonnull
     @Override
-    public RealVector withData(@Nonnull final double[] data) {
+    public FloatRealVector withData(@Nonnull final double[] data) {
         return new FloatRealVector(data);
+    }
+
+    @Nonnull
+    @Override
+    public FloatRealVector toImmutable() {
+        return this;
     }
 
     /**
@@ -104,6 +110,42 @@ public class FloatRealVector extends AbstractRealVector {
             buffer.putFloat((float)data[i]);
         }
         return vectorBytes;
+    }
+
+    @Nonnull
+    @Override
+    public FloatRealVector normalize() {
+        return withData(RealVectorPrimitives.normalizeInto(this.getData(), new double[getNumDimensions()]));
+    }
+
+    @Nonnull
+    @Override
+    public FloatRealVector add(@Nonnull final RealVector other) {
+        return withData(RealVectorPrimitives.addInto(this.getData(), other.getData(), new double[getNumDimensions()]));
+    }
+
+    @Nonnull
+    @Override
+    public FloatRealVector add(final double scalar) {
+        return withData(RealVectorPrimitives.addInto(this.getData(), scalar, new double[getNumDimensions()]));
+    }
+
+    @Nonnull
+    @Override
+    public FloatRealVector subtract(@Nonnull final RealVector other) {
+        return withData(RealVectorPrimitives.subtractInto(this.getData(), other.getData(), new double[getNumDimensions()]));
+    }
+
+    @Nonnull
+    @Override
+    public FloatRealVector subtract(final double scalar) {
+        return withData(RealVectorPrimitives.subtractInto(this.getData(), scalar, new double[getNumDimensions()]));
+    }
+
+    @Nonnull
+    @Override
+    public FloatRealVector multiply(final double scalar) {
+        return withData(RealVectorPrimitives.multiplyInto(this.getData(), scalar, new double[getNumDimensions()]));
     }
 
     /**

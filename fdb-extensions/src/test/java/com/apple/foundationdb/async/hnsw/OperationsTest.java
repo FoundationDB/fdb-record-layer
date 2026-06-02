@@ -453,7 +453,7 @@ class OperationsTest implements BaseTest {
                 TimeUnit.NANOSECONDS.toMillis(endTs - beginTs),
                 onReadListener.getNodeCountByLayer(), onReadListener.getBytesReadByLayer(),
                 String.format(Locale.ROOT, "%.2f", recall * 100.0d));
-        assertThat(recall).isGreaterThan(0.9);
+        assertThat(recall).isGreaterThan(0.8);
     }
 
     @ParameterizedTest

@@ -129,10 +129,10 @@ digraph G {
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">MV8</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS COL1, LONG AS COL2)" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}‹
+}€
 D
-agg-index-tests1EXPLAIN select max(col2) from T1 use index (mv8);ì
-ﬁò¬çâ Õ∫≤("0û¶#8.@ïAISCAN(MV8 <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[1]]) | AGG max_l(_._1) GROUP BY () | MAP ((_._1 AS _0) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)‹digraph G {
+agg-index-tests1EXPLAIN select max(col2) from T1 use index (mv8);í
+·”ﬂœ] ≈À≥(0Øé)8"@ïAISCAN(MV8 <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[1]]) | AGG max_l(_._1) GROUP BY () | MAP ((_._1 AS _0) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)‹digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -189,10 +189,10 @@ H
   4 -> 3 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   5 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}Ù
+}Û
 4
-agg-index-tests!EXPLAIN select max(col2) from t2;ª
-™ñøÈ$– »≥ó(]0”˝π8a@¢AISCAN(MV9 <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[2], _2: KEY:[1]]) | AGG max_l(_._2) GROUP BY () | MAP ((_._2 AS _0) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)ˆdigraph G {
+agg-index-tests!EXPLAIN select max(col2) from t2;∫
+âîº•† ∑Ä˚(R0¨ßb8M@¢AISCAN(MV9 <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[2], _2: KEY:[1]]) | AGG max_l(_._2) GROUP BY () | MAP ((_._2 AS _0) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)ˆdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -396,10 +396,10 @@ H
   4 -> 3 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   5 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}ì
+}í
 8
-agg-index-tests%EXPLAIN select min_ever(col3) from t2÷
-Ñ⁄√€Iø ªÅÊ8(P0äÌ…8D@aAISCAN(MV7 <,> BY_GROUP -> [_0: VALUE:[0]]) | MAP (_ AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)”digraph G {
+agg-index-tests%EXPLAIN select min_ever(col3) from t2’
+∞ò™ò ƒπˆ(L0µ«H8<@aAISCAN(MV7 <,> BY_GROUP -> [_0: VALUE:[0]]) | MAP (_ AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)”digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -1043,8 +1043,7 @@ l
 }Û
 G
 agg-index-tests4EXPLAIN select sum(col3) as s from T2 where col2 = 2ß
-â
-ÍêA” Æ€‘(n0¯è™8ë@	÷AISCAN(MV21 [EQUALS promote(@c12 AS LONG)] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[2], _3: VALUE:[0]]) | AGG sum_l(_._3) GROUP BY (_._0 AS _0) | MAP ((_._3 AS _0) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS S)≠digraph G {
+˙ÆÂ¬0• §ﬂì(e0öç8Å@÷AISCAN(MV21 [EQUALS promote(@c12 AS LONG)] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[2], _3: VALUE:[0]]) | AGG sum_l(_._3) GROUP BY (_._0 AS _0) | MAP ((_._3 AS _0) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS S)≠digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -1062,8 +1061,7 @@ G
 }Ù
 H
 agg-index-tests5EXPLAIN select sum(col3) as s from T2 where col2 = 90ß
-â
-⁄´Û+” Ã¯´(n0ı±ã8ë@	÷AISCAN(MV21 [EQUALS promote(@c12 AS LONG)] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[2], _3: VALUE:[0]]) | AGG sum_l(_._3) GROUP BY (_._0 AS _0) | MAP ((_._3 AS _0) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS S)≠digraph G {
+˙ÆÂ¬0• §ﬂì(e0öç8Å@÷AISCAN(MV21 [EQUALS promote(@c12 AS LONG)] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[2], _3: VALUE:[0]]) | AGG sum_l(_._3) GROUP BY (_._0 AS _0) | MAP ((_._3 AS _0) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS S)≠digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -1078,10 +1076,10 @@ H
   5 -> 4 [ label=<&nbsp;q218> label="q218" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   6 -> 5 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}ë
+}ê
 4
-agg-index-tests!EXPLAIN select sum(col3) from T2;ÿ
-™Ó◊É$– µåÊ(]0ﬁ¬–8a@≤AISCAN(MV21 <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[2], _3: VALUE:[0]]) | AGG sum_l(_._3) GROUP BY () | MAP ((_._3 AS _0) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)Édigraph G {
+agg-index-tests!EXPLAIN select sum(col3) from T2;◊
+âΩ◊∑† °”â(R0Ø…`8M@≤AISCAN(MV21 <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[2], _3: VALUE:[0]]) | AGG sum_l(_._3) GROUP BY () | MAP ((_._3 AS _0) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)Édigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;

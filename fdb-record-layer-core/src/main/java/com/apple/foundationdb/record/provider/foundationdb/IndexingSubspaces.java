@@ -205,7 +205,7 @@ public final class IndexingSubspaces {
      * @param store store
      * @param index index
      */
-    public static void eraseAllIndexingDataButTheLock(@Nonnull FDBRecordContext context, @Nonnull FDBRecordStore store, @Nonnull Index index) {
+    public static void eraseAllIndexingDataButTheLockAndRangeSet(@Nonnull FDBRecordContext context, @Nonnull FDBRecordStore store, @Nonnull Index index) {
         eraseAllIndexingScrubbingData(context, store, index);
         context.clear(Range.startsWith(indexBuildScannedRecordsSubspace(store, index).pack()));
         context.clear(Range.startsWith(indexBuildTypeSubspace(store, index).pack()));

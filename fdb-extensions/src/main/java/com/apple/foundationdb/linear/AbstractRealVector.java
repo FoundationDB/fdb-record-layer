@@ -135,10 +135,9 @@ public abstract class AbstractRealVector implements RealVector {
      */
     @Override
     public boolean equals(final Object o) {
-        if (!(o instanceof AbstractRealVector)) {
+        if (!(o instanceof final AbstractRealVector vector)) {
             return false;
         }
-        final AbstractRealVector vector = (AbstractRealVector)o;
         return Arrays.equals(data, vector.data);
     }
 
