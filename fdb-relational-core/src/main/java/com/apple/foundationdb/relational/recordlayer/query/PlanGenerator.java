@@ -42,7 +42,7 @@ import com.apple.foundationdb.record.query.plan.serialization.DefaultPlanSeriali
 import com.apple.foundationdb.record.util.ProtoUtils;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.relational.api.Options;
-import com.apple.foundationdb.relational.api.ddl.NoOpQueryFactory;
+import com.apple.foundationdb.relational.api.ddl.ThrowingQueryFactory;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.exceptions.UncheckedRelationalException;
@@ -52,7 +52,7 @@ import com.apple.foundationdb.relational.api.metrics.RelationalMetric;
 import com.apple.foundationdb.relational.continuation.CompiledStatement;
 import com.apple.foundationdb.relational.continuation.TypedQueryArgument;
 import com.apple.foundationdb.relational.recordlayer.ContinuationImpl;
-import com.apple.foundationdb.relational.recordlayer.ddl.NoOpMetadataOperationsFactory;
+import com.apple.foundationdb.relational.recordlayer.ddl.ThrowingMetadataOperationsFactory;
 import com.apple.foundationdb.relational.recordlayer.metadata.DataTypeUtils;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.query.cache.PhysicalPlanEquivalence;
@@ -525,18 +525,18 @@ public final class PlanGenerator {
      * @throws RelationalException if creation fails
      */
     @Nonnull
-    public static PlanGenerator createOfflineDql(@Nonnull final Optional<RelationalPlanCache> cache,
-                                                 @Nonnull final RecordLayerSchemaTemplate schemaTemplate,
-                                                 @Nonnull final RecordStoreState recordStoreState,
-                                                 @Nonnull final MetricCollector metricCollector,
-                                                 @Nonnull final Options options) throws RelationalException {
+    public static PlanGenerator create(@Nonnull final Optional<RelationalPlanCache> cache,
+                                       @Nonnull final RecordLayerSchemaTemplate schemaTemplate,
+                                       @Nonnull final RecordStoreState recordStoreState,
+                                       @Nonnull final MetricCollector metricCollector,
+                                       @Nonnull final Options options) throws RelationalException {
         final var metaData = schemaTemplate.toRecordMetadata();
         final var planContext = PlanContext.Builder.create()
                 .fromMetaDataAndState(metaData, recordStoreState, options)
                 .withSchemaTemplate(schemaTemplate)
                 .withMetricsCollector(metricCollector)
-                .withConstantActionFactory(NoOpMetadataOperationsFactory.INSTANCE)
-                .withDdlQueryFactory(NoOpQueryFactory.INSTANCE)
+                .withConstantActionFactory(ThrowingMetadataOperationsFactory.INSTANCE)
+                .withDdlQueryFactory(ThrowingQueryFactory.INSTANCE)
                 .withDbUri(URI.create("embed:offline"))
                 .build();
         return create(cache, planContext, metaData, recordStoreState,
