@@ -318,9 +318,15 @@ public abstract class IndexingBase {
                 common.getRecordStoreBuilder().copyBuilder().setContext(context).openAsync()
                         .thenCompose(store -> {
                             clearHeartbeatForIndex(store, index);
-                            return policy.shouldAllowUniquePendingState(store) ?
-                                   store.markIndexReadableOrUniquePending(index) :
-                                   store.markIndexReadable(index);
+                            CompletableFuture<Boolean> markFuture =
+                                    policy.shouldAllowUniquePendingState(store) ?
+                                    store.markIndexReadableOrUniquePending(index) :
+                                    store.markIndexReadable(index);
+                            return markFuture.thenApply(changed -> {
+                                // Once the index is readable there is no need for this data
+                                IndexingSubspaces.eraseAllIndexingDataButTheLockAndRangeSet(store.getContext(), store, index);
+                                return changed;
+                            });
                         })
         ).handle((changed, ex) -> {
             if (ex == null) {
@@ -956,10 +962,10 @@ public abstract class IndexingBase {
         store.getIndexDeferredMaintenanceControl().setAutoMergeDuringCommit(false);
     }
 
-    protected static boolean notAllRangesExhausted(Tuple cont, Tuple end) {
+    protected static boolean allRangesAreExhausted(Tuple cont, Tuple end) {
         // if cont isn't null, it means that the cursor was not exhausted
         // if end isn't null, it means that the range is a segment (i.e. closed or half-open interval) - the rangeSet may contain more unbuilt ranges
-        return end != null || cont != null;
+        return end == null && cont == null;
     }
 
     protected ScanProperties scanPropertiesWithLimits(boolean isIdempotent) {

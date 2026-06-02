@@ -404,6 +404,12 @@ public abstract class Quantifier implements Correlated<Quantifier> {
 
         @Nonnull
         @Override
+        public Type getFlowedObjectType() {
+            return super.getFlowedObjectType().nullable();
+        }
+
+        @Nonnull
+        @Override
         public List<Column<? extends FieldValue>> computeFlowedColumns() {
             throw new IllegalStateException("should not be called");
         }
