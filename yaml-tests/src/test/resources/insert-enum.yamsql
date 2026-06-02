@@ -38,8 +38,10 @@ test_block:
     -
       - query: SELECT * From "TableA"
       - explain: "SCAN(<,>) | TFILTER TableA"
+      - resultMetadata: [{field1: OTHER}, {field2: BIGINT}]
       - result: [{'OWNING', 42}]
     -
       - query: SELECT * From "TableB"
+      - resultMetadata: [{field3: OTHER}, {field4: BIGINT}]
       - result: [{'VALIDATING', 3536}]
 ...

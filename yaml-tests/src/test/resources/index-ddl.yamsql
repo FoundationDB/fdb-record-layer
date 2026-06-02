@@ -110,28 +110,34 @@ test_block:
     -
       - query: select name from customers_materialized_view where name = 'Alice'
       - explain: "COVERING(IDX_MV_INCLUDE [EQUALS promote(@c7 AS STRING)] -> [COUNTRY: VALUE:[1], EMAIL: VALUE:[0], ID: KEY:[2], NAME: KEY:[0]]) | MAP (_.NAME AS NAME)"
+      - resultMetadata: [{NAME: STRING}]
       - result: [{ Alice }]
     -
       - query: select name from customers_index_on_table where name = 'Alice'
       - explain: "COVERING(IDX_IOT_INCLUDE [EQUALS promote(@c7 AS STRING)] -> [COUNTRY: VALUE:[1], EMAIL: VALUE:[0], ID: KEY:[2], NAME: KEY:[0]]) | MAP (_.NAME AS NAME)"
+      - resultMetadata: [{NAME: STRING}]
       - result: [{ Alice }]
     # Test descending email index
     -
       - query: select email from customers_materialized_view order by email desc
       - explain: "COVERING(IDX_MV_EMAIL <,> -> [EMAIL: from_ordered_bytes(KEY:[0], DESC_NULLS_LAST), ID: KEY:[2]]) | MAP (_.EMAIL AS EMAIL)"
+      - resultMetadata: [{EMAIL: STRING}]
       - result: [{ null@example.com }, { bob@example.com }, { alice@example.com }, { !null }]
     -
       - query: select email from customers_index_on_table order by email desc
       - explain: "COVERING(IDX_IOT_EMAIL <,> -> [EMAIL: from_ordered_bytes(KEY:[0], DESC_NULLS_LAST), ID: KEY:[2]]) | MAP (_.EMAIL AS EMAIL)"
+      - resultMetadata: [{EMAIL: STRING}]
       - result: [{ null@example.com }, { bob@example.com }, { alice@example.com }, { !null }]
     # Test multi-column index - should use correct indexes now
     -
       - query: select age, city from customers_materialized_view where age > 25 order by age, city
       - explain: "COVERING(IDX_MV_MULTI [[GREATER_THAN promote(@c9 AS INT)]] -> [AGE: KEY:[0], CITY: KEY:[1], ID: KEY:[3]]) | MAP (_.AGE AS AGE, _.CITY AS CITY)"
+      - resultMetadata: [{AGE: INTEGER}, {CITY: STRING}]
       - result: [{ 30, !null }, { 35, Paris }]
     -
       - query: select age, city from customers_index_on_table where age > 25 order by age, city
       - explain: "COVERING(IDX_IOT_MULTI [[GREATER_THAN promote(@c9 AS INT)]] -> [AGE: KEY:[0], CITY: KEY:[1], ID: KEY:[3]]) | MAP (_.AGE AS AGE, _.CITY AS CITY)"
+      - resultMetadata: [{AGE: INTEGER}, {CITY: STRING}]
       - result: [{ 30, !null }, { 35, Paris }]
 ---
 test_block:
@@ -140,10 +146,12 @@ test_block:
     -
       - query: select name, email, country from customers_materialized_view where name = 'Alice'
       - explain: "COVERING(IDX_MV_INCLUDE [EQUALS promote(@c11 AS STRING)] -> [COUNTRY: VALUE:[1], EMAIL: VALUE:[0], ID: KEY:[2], NAME: KEY:[0]]) | MAP (_.NAME AS NAME, _.EMAIL AS EMAIL, _.COUNTRY AS COUNTRY)"
+      - resultMetadata: [{NAME: STRING}, {EMAIL: STRING}, {COUNTRY: STRING}]
       - result: [{ Alice, alice@example.com, USA }]
     -
       - query: select name, email, country from customers_index_on_table where name = 'Alice'
       - explain: "COVERING(IDX_IOT_INCLUDE [EQUALS promote(@c11 AS STRING)] -> [COUNTRY: VALUE:[1], EMAIL: VALUE:[0], ID: KEY:[2], NAME: KEY:[0]]) | MAP (_.NAME AS NAME, _.EMAIL AS EMAIL, _.COUNTRY AS COUNTRY)"
+      - resultMetadata: [{NAME: STRING}, {EMAIL: STRING}, {COUNTRY: STRING}]
       - result: [{ Alice, alice@example.com, USA }]
 ---
 test_block:
@@ -153,28 +161,34 @@ test_block:
     -
       - query: select age, city from customers_materialized_view where age > 30 order by age asc, city desc
       - explain: "COVERING(IDX_MV_ASC_DESC [[GREATER_THAN promote(@c9 AS INT)]] -> [AGE: KEY:[0], CITY: from_ordered_bytes(KEY:[1], DESC_NULLS_LAST), ID: KEY:[3]]) | MAP (_.AGE AS AGE, _.CITY AS CITY)"
+      - resultMetadata: [{AGE: INTEGER}, {CITY: STRING}]
       - result: [{ 35, Paris }]
     -
       - query: select age, city from customers_index_on_table where age > 30 order by age asc, city desc
       - explain: "COVERING(IDX_IOT_ASC_DESC [[GREATER_THAN promote(@c9 AS INT)]] -> [AGE: KEY:[0], CITY: from_ordered_bytes(KEY:[1], DESC_NULLS_LAST), ID: KEY:[3]]) | MAP (_.AGE AS AGE, _.CITY AS CITY)"
+      - resultMetadata: [{AGE: INTEGER}, {CITY: STRING}]
       - result: [{ 35, Paris }]
     # Test DESC DESC ordering (should use REVERSE on ASC ASC index)
     -
       - query: select age, city from customers_materialized_view where age < 40 order by age desc, city desc
       - explain: "COVERING(IDX_MV_MULTI [[LESS_THAN promote(@c9 AS INT)]] REVERSE -> [AGE: KEY:[0], CITY: KEY:[1], ID: KEY:[3]]) | MAP (_.AGE AS AGE, _.CITY AS CITY)"
+      - resultMetadata: [{AGE: INTEGER}, {CITY: STRING}]
       - result: [{ 35, Paris }, { 30, !null }, { 25, New York }]
     -
       - query: select age, city from customers_index_on_table where age < 40 order by age desc, city desc
       - explain: "COVERING(IDX_IOT_MULTI [[LESS_THAN promote(@c9 AS INT)]] REVERSE -> [AGE: KEY:[0], CITY: KEY:[1], ID: KEY:[3]]) | MAP (_.AGE AS AGE, _.CITY AS CITY)"
+      - resultMetadata: [{AGE: INTEGER}, {CITY: STRING}]
       - result: [{ 35, Paris }, { 30, !null }, { 25, New York }]
     # Test DESC ASC ordering (should use REVERSE on ASC DESC index)
     -
       - query: select age, city from customers_materialized_view where age < 50 order by age desc, city asc
       - explain: "COVERING(IDX_MV_ASC_DESC [[LESS_THAN promote(@c9 AS INT)]] REVERSE -> [AGE: KEY:[0], CITY: from_ordered_bytes(KEY:[1], DESC_NULLS_LAST), ID: KEY:[3]]) | MAP (_.AGE AS AGE, _.CITY AS CITY)"
+      - resultMetadata: [{AGE: INTEGER}, {CITY: STRING}]
       - result: [{ 35, Paris }, { 30, !null }, { 25, New York }]
     -
       - query: select age, city from customers_index_on_table where age < 50 order by age desc, city asc
       - explain: "COVERING(IDX_IOT_ASC_DESC [[LESS_THAN promote(@c9 AS INT)]] REVERSE -> [AGE: KEY:[0], CITY: from_ordered_bytes(KEY:[1], DESC_NULLS_LAST), ID: KEY:[3]]) | MAP (_.AGE AS AGE, _.CITY AS CITY)"
+      - resultMetadata: [{AGE: INTEGER}, {CITY: STRING}]
       - result: [{ 35, Paris }, { 30, !null }, { 25, New York }]
 ---
 test_block:
@@ -184,34 +198,42 @@ test_block:
     -
       - query: SELECT country FROM customers_materialized_view ORDER BY country ASC NULLS FIRST
       - explain: "COVERING(IDX_MV_NULLS_FIRST <,> -> [COUNTRY: KEY:[0], ID: KEY:[2]]) | MAP (_.COUNTRY AS COUNTRY)"
+      - resultMetadata: [{COUNTRY: STRING}]
       - result: [{ !null }, { Canada }, { France }, { USA }]
     -
       - query: SELECT country FROM customers_index_on_table ORDER BY country ASC NULLS FIRST
       - explain: "COVERING(IDX_IOT_NULLS_FIRST <,> -> [COUNTRY: KEY:[0], ID: KEY:[2]]) | MAP (_.COUNTRY AS COUNTRY)"
+      - resultMetadata: [{COUNTRY: STRING}]
       - result: [{ !null }, { Canada }, { France }, { USA }]
     -
       - query: SELECT country FROM customers_materialized_view ORDER BY country ASC NULLS LAST
       - explain: "COVERING(IDX_MV_NULLS_LAST <,> -> [COUNTRY: from_ordered_bytes(KEY:[0], ASC_NULLS_LAST), ID: KEY:[2]]) | MAP (_.COUNTRY AS COUNTRY)"
+      - resultMetadata: [{COUNTRY: STRING}]
       - result: [{ Canada }, { France }, { USA }, { !null }]
     -
       - query: SELECT country FROM customers_index_on_table ORDER BY country ASC NULLS LAST
       - explain: "COVERING(IDX_IOT_NULLS_LAST <,> -> [COUNTRY: from_ordered_bytes(KEY:[0], ASC_NULLS_LAST), ID: KEY:[2]]) | MAP (_.COUNTRY AS COUNTRY)"
+      - resultMetadata: [{COUNTRY: STRING}]
       - result: [{ Canada }, { France }, { USA }, { !null }]
     -
       - query: SELECT age FROM customers_materialized_view ORDER BY age DESC NULLS FIRST
       - explain: "COVERING(IDX_MV_DESC_NULLS_FIRST <,> -> [AGE: from_ordered_bytes(KEY:[0], DESC_NULLS_FIRST), ID: KEY:[2]]) | MAP (_.AGE AS AGE)"
+      - resultMetadata: [{AGE: INTEGER}]
       - result: [{ !null }, { 35 }, { 30 }, { 25 }]
     -
       - query: SELECT age FROM customers_index_on_table ORDER BY age DESC NULLS FIRST
       - explain: "COVERING(IDX_IOT_DESC_NULLS_FIRST <,> -> [AGE: from_ordered_bytes(KEY:[0], DESC_NULLS_FIRST), ID: KEY:[2]]) | MAP (_.AGE AS AGE)"
+      - resultMetadata: [{AGE: INTEGER}]
       - result: [{ !null }, { 35 }, { 30 }, { 25 }]
     -
       - query: SELECT age FROM customers_materialized_view ORDER BY age DESC NULLS LAST
       - explain: "COVERING(IDX_MV_DESC_NULLS_LAST <,> -> [AGE: from_ordered_bytes(KEY:[0], DESC_NULLS_LAST), ID: KEY:[2]]) | MAP (_.AGE AS AGE)"
+      - resultMetadata: [{AGE: INTEGER}]
       - result: [{ 35 }, { 30 }, { 25 }, { !null }]
     -
       - query: SELECT age FROM customers_index_on_table ORDER BY age DESC NULLS LAST
       - explain: "COVERING(IDX_IOT_DESC_NULLS_LAST <,> -> [AGE: from_ordered_bytes(KEY:[0], DESC_NULLS_LAST), ID: KEY:[2]]) | MAP (_.AGE AS AGE)"
+      - resultMetadata: [{AGE: INTEGER}]
       - result: [{ 35 }, { 30 }, { 25 }, { !null }]
 ---
 test_block:
@@ -243,46 +265,56 @@ test_block:
     -
       - query: SELECT country, min_ever(age) FROM customers_materialized_view WHERE country = 'USA' GROUP BY country
       - explain: "AISCAN(IDX_MV_AGE_MIN_NO_LEGACY [EQUALS promote(@c12 AS STRING)] BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0 AS COUNTRY, _._1 AS _1)"
+      - resultMetadata: [{COUNTRY: STRING}, {_1: INTEGER}]
       - result: [{USA, 25}]
     -
       - query: SELECT country, min_ever(age) FROM customers_index_on_table WHERE country = 'USA' GROUP BY country
       - explain: "AISCAN(IDX_IOT_AGE_MIN_EXTREMUM [EQUALS promote(@c12 AS STRING)] BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0 AS COUNTRY, _._1 AS _1)"
+      - resultMetadata: [{COUNTRY: STRING}, {_1: INTEGER}]
       - result: [{USA, 25}]
     # Test MAX_EVER with specific country filter
     -
       - query: SELECT country, max_ever(age) FROM customers_materialized_view WHERE country = 'Canada' GROUP BY country
       - explain: "AISCAN(IDX_MV_AGE_MAX_NO_LEGACY [EQUALS promote(@c12 AS STRING)] BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0 AS COUNTRY, _._1 AS _1)"
+      - resultMetadata: [{COUNTRY: STRING}, {_1: INTEGER}]
       - result: [{Canada, 30}]
     -
       - query: SELECT country, max_ever(age) FROM customers_index_on_table WHERE country = 'Canada' GROUP BY country
       - explain: "AISCAN(IDX_IOT_AGE_MAX_EXTREMUM [EQUALS promote(@c12 AS STRING)] BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0 AS COUNTRY, _._1 AS _1)"
+      - resultMetadata: [{COUNTRY: STRING}, {_1: INTEGER}]
       - result: [{Canada, 30}]
     # Test combined MIN_EVER and MAX_EVER in same query
     -
       - query: SELECT country, min_ever(age), max_ever(age) FROM customers_materialized_view WHERE country = 'USA' GROUP BY country
       - explain: "AISCAN(IDX_MV_AGE_MIN_NO_LEGACY [EQUALS promote(@c17 AS STRING)] BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) ∩ AISCAN(IDX_MV_AGE_MAX_NO_LEGACY [EQUALS promote(@c17 AS STRING)] BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) COMPARE BY () WITH q0, q1 RETURN (q0._0 AS _0, q0._1 AS _1, q1._1 AS _2) | MAP (_._0 AS COUNTRY, _._1 AS _1, _._2 AS _2)"
+      - resultMetadata: [{COUNTRY: STRING}, {_1: INTEGER}, {_2: INTEGER}]
       - result: [{USA, 25, 28}]
     -
       - query: SELECT country, min_ever(age), max_ever(age) FROM customers_index_on_table WHERE country = 'USA' GROUP BY country
       - explain: "AISCAN(IDX_IOT_AGE_MIN_NO_LEGACY [EQUALS promote(@c17 AS STRING)] BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) ∩ AISCAN(IDX_IOT_AGE_MAX_NO_LEGACY [EQUALS promote(@c17 AS STRING)] BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) COMPARE BY () WITH q0, q1 RETURN (q0._0 AS _0, q0._1 AS _1, q1._1 AS _2) | MAP (_._0 AS COUNTRY, _._1 AS _1, _._2 AS _2)"
+      - resultMetadata: [{COUNTRY: STRING}, {_1: INTEGER}, {_2: INTEGER}]
       - result: [{USA, 25, 28}]
     # Test with France to verify different data point
     -
       - query: SELECT country, min_ever(age) FROM customers_materialized_view WHERE country = 'France' GROUP BY country
       - explain: "AISCAN(IDX_MV_AGE_MIN_NO_LEGACY [EQUALS promote(@c12 AS STRING)] BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0 AS COUNTRY, _._1 AS _1)"
+      - resultMetadata: [{COUNTRY: STRING}, {_1: INTEGER}]
       - result: [{France, 35}]
     -
       - query: SELECT country, min_ever(age) FROM customers_index_on_table WHERE country = 'France' GROUP BY country
       - explain: "AISCAN(IDX_IOT_AGE_MIN_EXTREMUM [EQUALS promote(@c12 AS STRING)] BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0 AS COUNTRY, _._1 AS _1)"
+      - resultMetadata: [{COUNTRY: STRING}, {_1: INTEGER}]
       - result: [{France, 35}]
     # Test MAX_EVER with France
     -
       - query: SELECT country, max_ever(age) FROM customers_materialized_view WHERE country = 'France' GROUP BY country
       - explain: "AISCAN(IDX_MV_AGE_MAX_NO_LEGACY [EQUALS promote(@c12 AS STRING)] BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0 AS COUNTRY, _._1 AS _1)"
+      - resultMetadata: [{COUNTRY: STRING}, {_1: INTEGER}]
       - result: [{France, 35}]
     -
       - query: SELECT country, max_ever(age) FROM customers_index_on_table WHERE country = 'France' GROUP BY country
       - explain: "AISCAN(IDX_IOT_AGE_MAX_EXTREMUM [EQUALS promote(@c12 AS STRING)] BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0 AS COUNTRY, _._1 AS _1)"
+      - resultMetadata: [{COUNTRY: STRING}, {_1: INTEGER}]
       - result: [{France, 35}]
 ---
 test_block:
@@ -295,45 +327,55 @@ test_block:
     -
       - query: SELECT country, min_ever(age) FROM customers_materialized_view WHERE country = 'USA' GROUP BY country
       - explain: "AISCAN(IDX_MV_AGE_MIN_NO_LEGACY [EQUALS promote(@c12 AS STRING)] BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0 AS COUNTRY, _._1 AS _1)"
+      - resultMetadata: [{COUNTRY: STRING}, {_1: INTEGER}]
       - result: [{USA, 25}]
     -
       - query: SELECT country, min_ever(age) FROM customers_index_on_table WHERE country = 'USA' GROUP BY country
       - explain: "AISCAN(IDX_IOT_AGE_MIN_EXTREMUM [EQUALS promote(@c12 AS STRING)] BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0 AS COUNTRY, _._1 AS _1)"
+      - resultMetadata: [{COUNTRY: STRING}, {_1: INTEGER}]
       - result: [{USA, 25}]
     # Test MAX_EVER with specific country filter
     -
       - query: SELECT country, max_ever(age) FROM customers_materialized_view WHERE country = 'Canada' GROUP BY country
       - explain: "AISCAN(IDX_MV_AGE_MAX_NO_LEGACY [EQUALS promote(@c12 AS STRING)] BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0 AS COUNTRY, _._1 AS _1)"
+      - resultMetadata: [{COUNTRY: STRING}, {_1: INTEGER}]
       - result: [{Canada, 30}]
     -
       - query: SELECT country, max_ever(age) FROM customers_index_on_table WHERE country = 'Canada' GROUP BY country
       - explain: "AISCAN(IDX_IOT_AGE_MAX_EXTREMUM [EQUALS promote(@c12 AS STRING)] BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0 AS COUNTRY, _._1 AS _1)"
+      - resultMetadata: [{COUNTRY: STRING}, {_1: INTEGER}]
       - result: [{Canada, 30}]
     # Test combined MIN_EVER and MAX_EVER in same query
     -
       - query: SELECT country, min_ever(age), max_ever(age) FROM customers_materialized_view WHERE country = 'USA' GROUP BY country
       - explain: "AISCAN(IDX_MV_AGE_MIN_NO_LEGACY [EQUALS promote(@c17 AS STRING)] BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) ∩ AISCAN(IDX_MV_AGE_MAX_NO_LEGACY [EQUALS promote(@c17 AS STRING)] BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) COMPARE BY () WITH q0, q1 RETURN (q0._0 AS _0, q0._1 AS _1, q1._1 AS _2) | MAP (_._0 AS COUNTRY, _._1 AS _1, _._2 AS _2)"
+      - resultMetadata: [{COUNTRY: STRING}, {_1: INTEGER}, {_2: INTEGER}]
       - result: [{USA, 25, 28}]
     -
       - query: SELECT country, min_ever(age), max_ever(age) FROM customers_index_on_table WHERE country = 'USA' GROUP BY country
       - explain: "AISCAN(IDX_IOT_AGE_MIN_NO_LEGACY [EQUALS promote(@c17 AS STRING)] BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) ∩ AISCAN(IDX_IOT_AGE_MAX_NO_LEGACY [EQUALS promote(@c17 AS STRING)] BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) COMPARE BY () WITH q0, q1 RETURN (q0._0 AS _0, q0._1 AS _1, q1._1 AS _2) | MAP (_._0 AS COUNTRY, _._1 AS _1, _._2 AS _2)"
+      - resultMetadata: [{COUNTRY: STRING}, {_1: INTEGER}, {_2: INTEGER}]
       - result: [{USA, 25, 28}]
     # Test with France to verify different data point
     -
       - query: SELECT country, min_ever(age) FROM customers_materialized_view WHERE country = 'France' GROUP BY country
       - explain: "AISCAN(IDX_MV_AGE_MIN_NO_LEGACY [EQUALS promote(@c12 AS STRING)] BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0 AS COUNTRY, _._1 AS _1)"
+      - resultMetadata: [{COUNTRY: STRING}, {_1: INTEGER}]
       - result: [{France, 35}]
     -
       - query: SELECT country, min_ever(age) FROM customers_index_on_table WHERE country = 'France' GROUP BY country
       - explain: "AISCAN(IDX_IOT_AGE_MIN_EXTREMUM [EQUALS promote(@c12 AS STRING)] BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0 AS COUNTRY, _._1 AS _1)"
+      - resultMetadata: [{COUNTRY: STRING}, {_1: INTEGER}]
       - result: [{France, 35}]
     # Test MAX_EVER with France
     -
       - query: SELECT country, max_ever(age) FROM customers_materialized_view WHERE country = 'France' GROUP BY country
       - explain: "AISCAN(IDX_MV_AGE_MAX_NO_LEGACY [EQUALS promote(@c12 AS STRING)] BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0 AS COUNTRY, _._1 AS _1)"
+      - resultMetadata: [{COUNTRY: STRING}, {_1: INTEGER}]
       - result: [{France, 35}]
     -
       - query: SELECT country, max_ever(age) FROM customers_index_on_table WHERE country = 'France' GROUP BY country
       - explain: "AISCAN(IDX_IOT_AGE_MAX_EXTREMUM [EQUALS promote(@c12 AS STRING)] BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0 AS COUNTRY, _._1 AS _1)"
+      - resultMetadata: [{COUNTRY: STRING}, {_1: INTEGER}]
       - result: [{France, 35}]
 ...

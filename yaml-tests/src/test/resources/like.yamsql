@@ -77,9 +77,11 @@ test_block:
   tests:
     -
       - query: select * from B WHERE B2 LIKE 'X'
+      - resultMetadata: [{B1: INTEGER}, {B2: STRING}]
       - result: []
     -
       - query: select * from B WHERE B2 LIKE 'Y'
+      - resultMetadata: [{B1: INTEGER}, {B2: STRING}]
       - result: [{1, 'Y'}]
     -
       # Issue #3099 found that the pattern was being put in the escape part of the LIKE on continuation
@@ -87,32 +89,40 @@ test_block:
       # I added these queries to see if that issue would expose differently if the query was only one character,
       # and it kind of did, it ended up exposing issue: https://github.com/FoundationDB/fdb-record-layer/issues/3216
       - query: select * from B WHERE B2 NOT LIKE 'Z'
+      - resultMetadata: [{B1: INTEGER}, {B2: STRING}]
       - result: [{1, 'Y'}, {3, 'A'}, {5, 'B'}]
     -
       - query: select * from B WHERE B2 NOT LIKE 'Z' ESCAPE 'Z'
       # This should error; see https://github.com/FoundationDB/fdb-record-layer/issues/3216
+      - resultMetadata: [{B1: INTEGER}, {B2: STRING}]
       - result: [{1, 'Y'}, {3, 'A'}, {5, 'B'}]
     -
       - query: select * from B WHERE B2 NOT LIKE '\'
       # This should error; see https://github.com/FoundationDB/fdb-record-layer/issues/3216
+      - resultMetadata: [{B1: INTEGER}, {B2: STRING}]
       - result: [{1, 'Y'}, {2, 'Z'}, {3, 'A'}, {4, Z}, {5, 'B'}]
     -
       - query: select * from B WHERE B2 LIKE 'Z'
+      - resultMetadata: [{B1: INTEGER}, {B2: STRING}]
       - result: [{2, 'Z'}, {4, 'Z'}]
 ---
 test_block:
   tests:
     -
       - query: select * from A WHERE A1 LIKE 'A'
+      - resultMetadata: [{A1: STRING}]
       - result: []
     -
       - query: select * from A WHERE A1 LIKE 'abc'
+      - resultMetadata: [{A1: STRING}]
       - result: []
     -
       - query: select * from A WHERE A1 LIKE '%abc'
+      - resultMetadata: [{A1: STRING}]
       - result: []
     -
       - query: select * from A WHERE A1 LIKE '%abc%'
+      - resultMetadata: [{A1: STRING}]
       - unorderedResult: [
           {'abcdefghijklmnopqrstuvwxyz'},
           {'___abcdef'},
@@ -123,6 +133,7 @@ test_block:
           {'{abcdefghijk}'}]
     -
       - query: select * from A WHERE A1 LIKE '_abc%'
+      - resultMetadata: [{A1: STRING}]
       - unorderedResult: [
           {'(abcdefghijk)'},
           {'[abcdefghijk]'},
@@ -130,20 +141,25 @@ test_block:
           {'*abcdef'}]
     -
       - query: select * from A WHERE A1 LIKE '%ABC%'
+      - resultMetadata: [{A1: STRING}]
       - unorderedResult: [{'ABCDEFGHIJKLMNOPQRSTUVWXYZ'}]
     -
       - query: select * from A WHERE A1 LIKE '%ABC%X_Z'
+      - resultMetadata: [{A1: STRING}]
       - unorderedResult: [{'ABCDEFGHIJKLMNOPQRSTUVWXYZ'}]
     -
       - query: select * from A WHERE A1 LIKE '%ABC%XY_Z'
+      - resultMetadata: [{A1: STRING}]
       - unorderedResult: []
     -
       - query: select * from A WHERE A1 LIKE '__'
+      - resultMetadata: [{A1: STRING}]
       - unorderedResult: [
           {'学校'},
           {'^$'}]
     -
       - query: select * from A WHERE A1 LIKE '_____'
+      - resultMetadata: [{A1: STRING}]
       - unorderedResult: [
           {'école'},
           {'ありがとう'},
@@ -152,6 +168,7 @@ test_block:
     -
       - query: select * from C WHERE C2 LIKE '%'
       - explain: "COVERING(C2 <,> -> [C1: KEY:[2], C2: KEY:[0]]) | FILTER _.C2 LIKE @c7 ESCAPE 'null' | FETCH"
+      - resultMetadata: [{C1: INTEGER}, {C2: STRING}]
       - result: [
           { C1:  1, C2: alphabet},
           { C1:  2, C2: anticipation},
@@ -176,6 +193,7 @@ test_block:
     -
       - query: select * from C WHERE C2 LIKE 'a%'
       - explain: "COVERING(C2 <,> -> [C1: KEY:[2], C2: KEY:[0]]) | FILTER _.C2 LIKE @c7 ESCAPE 'null' | FETCH"
+      - resultMetadata: [{C1: INTEGER}, {C2: STRING}]
       - result: [
           { C1:  1, C2: alphabet},
           { C1:  2, C2: anticipation},
@@ -188,6 +206,7 @@ test_block:
     -
       - query: select * from C WHERE C2 LIKE 'ap%'
       - explain: "COVERING(C2 <,> -> [C1: KEY:[2], C2: KEY:[0]]) | FILTER _.C2 LIKE @c7 ESCAPE 'null' | FETCH"
+      - resultMetadata: [{C1: INTEGER}, {C2: STRING}]
       - result: [
           { C1:  3, C2: aplomb},
           { C1:  4, C2: apple},
@@ -197,6 +216,7 @@ test_block:
     -
       - query: select * from C WHERE C2 LIKE 'a%l%'
       - explain: "COVERING(C2 <,> -> [C1: KEY:[2], C2: KEY:[0]]) | FILTER _.C2 LIKE @c7 ESCAPE 'null' | FETCH"
+      - resultMetadata: [{C1: INTEGER}, {C2: STRING}]
       - result: [
           { C1:  1, C2: alphabet},
           { C1:  3, C2: aplomb},
@@ -206,6 +226,7 @@ test_block:
         ]
     -
       - query: select * from C WHERE C2 LIKE 'app%'
+      - resultMetadata: [{C1: INTEGER}, {C2: STRING}]
       - result: [
           { C1:  4, C2: apple},
           { C1:  5, C2: appliance},
@@ -213,6 +234,7 @@ test_block:
         ]
     -
       - query: select * from C WHERE C2 LIKE 'b%'
+      - resultMetadata: [{C1: INTEGER}, {C2: STRING}]
       - result: [
           { C1:  8, C2: banal},
           { C1:  9, C2: banana},
@@ -221,46 +243,54 @@ test_block:
         ]
     -
       - query: select * from C WHERE C2 LIKE 'ba%'
+      - resultMetadata: [{C1: INTEGER}, {C2: STRING}]
       - result: [
           { C1:  8, C2: banal},
           { C1:  9, C2: banana},
         ]
     -
       - query: select * from C WHERE C2 LIKE 'ban%'
+      - resultMetadata: [{C1: INTEGER}, {C2: STRING}]
       - result: [
           { C1:  8, C2: banal},
           { C1:  9, C2: banana},
         ]
     -
       - query: select * from C WHERE C2 LIKE 'bana%'
+      - resultMetadata: [{C1: INTEGER}, {C2: STRING}]
       - result: [
           { C1:  8, C2: banal},
           { C1:  9, C2: banana},
         ]
     -
       - query: select * from C WHERE C2 LIKE 'banal%'
+      - resultMetadata: [{C1: INTEGER}, {C2: STRING}]
       - result: [
           { C1:  8, C2: banal},
         ]
     -
       - query: select * from C WHERE C2 LIKE 'be%'
+      - resultMetadata: [{C1: INTEGER}, {C2: STRING}]
       - result: [
           { C1: 10, C2: bench},
           { C1: 11, C2: bento},
         ]
     -
       - query: select * from C WHERE C2 LIKE 'ben%'
+      - resultMetadata: [{C1: INTEGER}, {C2: STRING}]
       - result: [
           { C1: 10, C2: bench},
           { C1: 11, C2: bento},
         ]
     -
       - query: select * from C WHERE C2 LIKE 'bent%'
+      - resultMetadata: [{C1: INTEGER}, {C2: STRING}]
       - result: [
           { C1: 11, C2: bento},
         ]
     -
       - query: select * from C WHERE C2 LIKE 'c%'
+      - resultMetadata: [{C1: INTEGER}, {C2: STRING}]
       - result: [
           { C1: 12, C2: c},
           { C1: 13, C2: cabal},
@@ -276,6 +306,7 @@ test_block:
       # In theory, this could be executed optimally with prefix string scan with the prefix "ca"
 
       - explain: "COVERING(C2 <,> -> [C1: KEY:[2], C2: KEY:[0]]) | FILTER _.C2 LIKE @c7 ESCAPE 'null' | FETCH"
+      - resultMetadata: [{C1: INTEGER}, {C2: STRING}]
       - result: [
           { C1: 13, C2: cabal},
           { C1: 14, C2: camel},
@@ -289,6 +320,7 @@ test_block:
       # In theory, this could be optimized with prefix string scan with the prefix "ca" followed by compensation
       # to handle filtering out based on the tail
       - explain: "COVERING(C2 <,> -> [C1: KEY:[2], C2: KEY:[0]]) | FILTER _.C2 LIKE @c7 ESCAPE 'null' | FETCH"
+      - resultMetadata: [{C1: INTEGER}, {C2: STRING}]
       - result: [
           { C1: 13, C2: cabal},
           { C1: 15, C2: canal},
@@ -298,6 +330,7 @@ test_block:
       # In theory, this could be optimized with prefix string scan with the prefix "ca" followed by compensation
       # to handle matching the tail
       - explain: "COVERING(C2 <,> -> [C1: KEY:[2], C2: KEY:[0]]) | FILTER _.C2 LIKE @c7 ESCAPE 'null' | FETCH"
+      - resultMetadata: [{C1: INTEGER}, {C2: STRING}]
       - result: [
           { C1: 13, C2: cabal},
           { C1: 15, C2: canal},
@@ -306,6 +339,7 @@ test_block:
     -
       - query: select * from C WHERE C2 LIKE 'ca_al%'
       - explain: "COVERING(C2 <,> -> [C1: KEY:[2], C2: KEY:[0]]) | FILTER _.C2 LIKE @c7 ESCAPE 'null' | FETCH"
+      - resultMetadata: [{C1: INTEGER}, {C2: STRING}]
       - result: [
           { C1: 13, C2: cabal},
           { C1: 15, C2: canal},
@@ -314,6 +348,7 @@ test_block:
     -
       - query: select * from C WHERE C2 LIKE 'ca%al%'
       - explain: "COVERING(C2 <,> -> [C1: KEY:[2], C2: KEY:[0]]) | FILTER _.C2 LIKE @c7 ESCAPE 'null' | FETCH"
+      - resultMetadata: [{C1: INTEGER}, {C2: STRING}]
       - result: [
           { C1: 13, C2: cabal},
           { C1: 15, C2: canal},
@@ -323,6 +358,7 @@ test_block:
         ]
     -
       - query: select * from C WHERE C2 LIKE 'd%'
+      - resultMetadata: [{C1: INTEGER}, {C2: STRING}]
       - result: [
         ]
 ---
@@ -330,33 +366,43 @@ test_block:
   tests:
     -
       - query: select * from A WHERE A1 LIKE '|_|_%' ESCAPE '|'
+      - resultMetadata: [{A1: STRING}]
       - result: [{'___abcdef'}]
     -
       - query: select * from A WHERE A1 LIKE '\_%' ESCAPE '\'
+      - resultMetadata: [{A1: STRING}]
       - result: [{'___abcdef'}]
     -
       - query: select * from A WHERE A1 LIKE '\_%' ESCAPE '|'
+      - resultMetadata: [{A1: STRING}]
       - result: [{'\\||%'}]
     -
       - query: select * from A WHERE A1 LIKE '\_%'
+      - resultMetadata: [{A1: STRING}]
       - result: [{'\\||%'}]
     -
       - query: select * from A WHERE A1 LIKE '\_\_\_abcdef' ESCAPE '\'
+      - resultMetadata: [{A1: STRING}]
       - result: [{'___abcdef'}]
     -
       - query: select * from A WHERE A1 LIKE '\_\_\_______' ESCAPE '\'
+      - resultMetadata: [{A1: STRING}]
       - result: [{'___abcdef'}]
     -
       - query: select * from A WHERE A1 LIKE '\__\_______' ESCAPE '\'
+      - resultMetadata: [{A1: STRING}]
       - result: [{'___abcdef'}]
     -
       - query: select * from A WHERE A1 LIKE '\__\______\_' ESCAPE '\'
+      - resultMetadata: [{A1: STRING}]
       - result: []
     -
       - query: select * from A WHERE A1 LIKE '%\%' ESCAPE '\'
+      - resultMetadata: [{A1: STRING}]
       - result: [{'\\||%'}]
     -
       - query: select * from A WHERE A1 NOT LIKE '|_|_%' ESCAPE '|'
+      - resultMetadata: [{A1: STRING}]
       - unorderedResult: [
           {'abcdefghijklmnopqrstuvwxyz'},
           {'%%abcdef'},
@@ -374,9 +420,11 @@ test_block:
           ]
     -
       - query: select * from A WHERE A1 NOT LIKE '%'
+      - resultMetadata: [{A1: STRING}]
       - unorderedResult: []
     -
       - query: select * from A WHERE A1 NOT LIKE '%abcde%'
+      - resultMetadata: [{A1: STRING}]
       - unorderedResult: [
           {'ABCDEFGHIJKLMNOPQRSTUVWXYZ'},
           {'école'},

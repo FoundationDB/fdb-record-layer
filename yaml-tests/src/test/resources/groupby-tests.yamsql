@@ -59,12 +59,15 @@ test_block:
   tests:
     -
       - query: select max(q.s) from nested group by r.v.z having r.v.z > 120
+      - resultMetadata: [{_0: BIGINT}]
       - result: [{330}]
     -
       - query: select max(id) from t1 group by col1 having min(id) > 0 and col1 = 20;
+      - resultMetadata: [{_0: BIGINT}]
       - result: [{13}]
     -
       - query: select max(id) from t1 group by col1
+      - resultMetadata: [{_0: BIGINT}]
       - result: [{5}, {13}]
 #    -
 #        # grouping by constant is not yet supported.
@@ -81,67 +84,87 @@ test_block:
       - error: UNDEFINED_COLUMN
     -
       - query: select col1 from T1 group by col1;
+      - resultMetadata: [{COL1: BIGINT}]
       - result: [{COL1: !l 10}, {COL1: !l 20}]
     -
       - query: select col1 from T1 group by col1 AS Y;
+      - resultMetadata: [{COL1: BIGINT}]
       - result: [{COL1: !l 10}, {COL1: !l 20}]
     -
       - query: select Y from T1 group by col1 AS Y;
+      - resultMetadata: [{Y: BIGINT}]
       - result: [{Y: !l 10}, {Y: !l 20}]
     -
       - query: select * from (select col1 from T1) as X group by col1;
+      - resultMetadata: [{COL1: BIGINT}]
       - result: [{COL1: !l 10}, {COL1: !l 20}]
     -
       - query: select * from (select col1 from T1) as X group by col1 AS Y;
+      - resultMetadata: [{COL1: BIGINT}]
       - result: [{COL1: !l 10}, {COL1: !l 20}]
     -
       - query: select col1 as XX from T1 group by col1;
+      - resultMetadata: [{XX: BIGINT}]
       - result: [{XX: !l 10}, {XX: !l 20}]
     -
       # named group by columns resolution rule gives precedence to the SELECT
       - query: select col1 as XX from T1 group by col1 AS YY;
+      - resultMetadata: [{XX: BIGINT}]
       - result: [{XX: !l 10}, {XX: !l 20}]
     -
       - query: select YY as XX from T1 group by col1 AS YY;
+      - resultMetadata: [{XX: BIGINT}]
       - result: [{XX: !l 10}, {XX: !l 20}]
     -
       - query: select x from T1 group by col1 as x;
+      - resultMetadata: [{X: BIGINT}]
       - result: [{!l 10}, {!l 20}]
     -
       - query: select col1 from (select col1 from t1) as x group by col1;
+      - resultMetadata: [{COL1: BIGINT}]
       - result: [{!l 10}, {!l 20}]
     -
       - query: select y from (select col1 from t1) as x group by col1 as y;
+      - resultMetadata: [{Y: BIGINT}]
       - result: [{!l 10}, {!l 20}]
     -
       - query: select col1 from (select col1 from t1) as x group by x.col1;
+      - resultMetadata: [{COL1: BIGINT}]
       - result: [{!l 10}, {!l 20}]
     -
       - query: select MAX(x.col1) from (select col1 from t1) as x group by x.col1;
+      - resultMetadata: [{_0: BIGINT}]
       - result: [{!l 10}, {!l 20}]
     -
       - query: select MAX(z) from (select col1 from t1) as x group by x.col1 as z;
+      - resultMetadata: [{_0: BIGINT}]
       - result: [{!l 10}, {!l 20}]
     -
       - query: select MAX(x.col2) from (select col1,col2 from t1) as x group by x.col1;
+      - resultMetadata: [{_0: BIGINT}]
       - result: [{!l 5}, {!l 13}]
     -
       - query: select MIN(x.col2) from (select col1,col2 from t1) as x group by x.col1;
+      - resultMetadata: [{_0: BIGINT}]
       - result: [{!l 1}, {!l 6}]
     -
       - query: select COUNT(x.col2) from (select col1,col2 from t1) as x group by x.col1;
+      - resultMetadata: [{_0: BIGINT}]
       - result: [{!l 5}, {!l 8}]
     -
       - query: select AVG(x.col2) from (select col1,col2 from t1) as x group by x.col1;
       - explain: "ISCAN(I1 <,>) | MAP ((_.COL1 AS COL1, _.COL2 AS COL2) AS _0) | AGG (avg_l(_._0.COL2) AS _0) GROUP BY (_._0.COL1 AS _0) | MAP (_._1._0 AS _0)"
+      - resultMetadata: [{_0: DOUBLE}]
       - result: [{3.0}, {9.5}]
     -
       - query: select SUM(x.col2) from (select col1,col2 from t1) as x group by x.col1;
+      - resultMetadata: [{_0: BIGINT}]
       - result: [{!l 15}, {!l 76}]
     -
       # result is correct since we don't use (not support, yet) explicit casting.
       - query: select SUM(x.col2) / COUNT(x.col2), AVG(x.col2) from (select col1,col2 from t1) as x group by x.col1;
       - explain: "ISCAN(I1 <,>) | MAP ((_.COL1 AS COL1, _.COL2 AS COL2) AS _0) | AGG (sum_l(_._0.COL2) AS _0, count(_._0.COL2) AS _1, avg_l(_._0.COL2) AS _2) GROUP BY (_._0.COL1 AS _0) | MAP (_._1._0 / _._1._1 AS _0, _._1._2 AS _1)"
+      - resultMetadata: [{_0: BIGINT}, {_1: DOUBLE}]
       - result: [{!l 3, 3.0}, {!l 9, 9.5}]
     -
       - query: select MAX(x.col2) from (select col1 from t1) as x group by x.col1;
@@ -152,41 +175,51 @@ test_block:
     -
       - query: select MAX(x.col2) from (select col1,col2 from t1) as x;
       - explain: "ISCAN(I1 <,>) | MAP ((_.COL1 AS COL1, _.COL2 AS COL2) AS _0) | AGG (max_l(_._0.COL2) AS _0) GROUP BY () | ON EMPTY NULL | MAP (_._0._0 AS _0)"
+      - resultMetadata: [{_0: BIGINT}]
       - result: [{!l 13}]
     -
       - query: select MIN(x.col2) from (select col1,col2 from t1) as x;
       - explain: "ISCAN(I1 <,>) | MAP ((_.COL1 AS COL1, _.COL2 AS COL2) AS _0) | AGG (min_l(_._0.COL2) AS _0) GROUP BY () | ON EMPTY NULL | MAP (_._0._0 AS _0)"
+      - resultMetadata: [{_0: BIGINT}]
       - result: [{!l 1}]
     -
       - query: select COUNT(x.col2) from (select col1,col2 from t1) as x;
       - explain: "ISCAN(I1 <,>) | MAP ((_.COL1 AS COL1, _.COL2 AS COL2) AS _0) | AGG (count(_._0.COL2) AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
+      - resultMetadata: [{_0: BIGINT}]
       - result: [{!l 13}]
     -
       - query: select AVG(x.col2) from (select col1,col2 from t1) as x;
       - explain: "ISCAN(I1 <,>) | MAP ((_.COL1 AS COL1, _.COL2 AS COL2) AS _0) | AGG (avg_l(_._0.COL2) AS _0) GROUP BY () | ON EMPTY NULL | MAP (_._0._0 AS _0)"
+      - resultMetadata: [{_0: DOUBLE}]
       - result: [{7.0}]
     -
       - query: select x.col1 + 10 from (select col1 from t1) as x group by x.col1;
+      - resultMetadata: [{_0: BIGINT}]
       - result: [{!l 20}, {!l 30}]
     -
       - query: select x.col1 + x.col2 from (select col1, col2 from t1) as x group by x.col1;
       - error: GROUPING_ERROR
     -
       - query: select x.col1 + x.col1 from (select col1, col2 from t1) as x group by x.col1;
+      - resultMetadata: [{_0: BIGINT}]
       - result: [{!l 20}, {!l 40}]
     -
       - query: select G + 4 from (select MIN(x.col2) as G from (select col1,col2 from t1) as x group by x.col1) as Y where G > 5;
+      - resultMetadata: [{_0: BIGINT}]
       - result: [{!l 10}]
     -
       - query: select G + 4 from (select MIN(x.col2) as G from (select col1,col2 from t1) as x group by x.col1 as K) as Y where G > 5;
+      - resultMetadata: [{_0: BIGINT}]
       - result: [{!l 10}]
     -
       - query: select COUNT(*) from T1;
       - explain: "ISCAN(I1 <,>) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
+      - resultMetadata: [{_0: BIGINT}]
       - result: [{!l 13}]
     -
       - query: select COUNT(col1) from T1;
       - explain: "ISCAN(I1 <,>) | MAP (_ AS _0) | AGG (count(_._0.COL1) AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
+      - resultMetadata: [{_0: BIGINT}]
       - result: [{!l 13}]
     -
       - query: select x from t1 group by col1 as x, col2 as x;
@@ -194,6 +227,7 @@ test_block:
     -
       - query: SELECT COUNT(*) from T1 WHERE col1 = 20 or col2 = 5
       - explain: "ISCAN(I1 <,>) | FILTER _.COL1 EQUALS promote(@c10 AS LONG) OR _.COL2 EQUALS promote(@c14 AS LONG) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
+      - resultMetadata: [{_0: BIGINT}]
       - result: [{!l 9}]
     -
       # This used to be planned as a union with an unordered distinct by primary key on top of it, which led
@@ -203,6 +237,7 @@ test_block:
       - query: SELECT COUNT(*) from T1 WHERE col1 = 20 or col2 = 10
       - supported_version: 4.12.1.0
       - explain: "ISCAN(I1 <,>) | FILTER _.COL1 EQUALS promote(@c10 AS LONG) OR _.COL2 EQUALS promote(@c14 AS LONG) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
+      - resultMetadata: [{_0: BIGINT}]
       - result: [{!l 8}]
 ---
 test_block:
@@ -224,6 +259,7 @@ test_block:
       - result: [{!l 8}]
     -
       - query: SELECT col1, COUNT(*) from T1 where col1 > 0 group by col1
+      - resultMetadata: [{COL1: BIGINT}, {_1: BIGINT}]
       - result: [{!l 10, !l 5}]
       - result: []
       - result: [{!l 20, !l 8}]

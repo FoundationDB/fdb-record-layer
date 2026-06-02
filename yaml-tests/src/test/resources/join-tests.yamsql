@@ -65,14 +65,17 @@ test_block:
   tests:
     -
       - query: select ida from a where exists (select ida from a where ida = 1);
+      - resultMetadata: [{IDA: BIGINT}]
       - result: [{!l 1}]
     -
       - query: select sq2.y, sq1.x from (select ida as x from a) sq1, (select idb as y from b) sq2;
+      - resultMetadata: [{Y: BIGINT}, {X: BIGINT}]
       - result: [{!l 4, !l 1}]
     -
       # simple inner join
       - query: select fname, lname, name from emp inner join dept on emp.dept_id = dept.id;
       - supported_version: 4.9.1.0
+      - resultMetadata: [{FNAME: STRING}, {LNAME: STRING}, {NAME: STRING}]
       - unorderedResult: [
                 {'Jack', 'Williams', 'Engineering'},
                 {'Thomas', 'Johnson', 'Engineering'},
@@ -87,6 +90,7 @@ test_block:
       # as previous with table names
       - query: select emp.fname, emp.lname, dept.name from emp inner join dept on emp.dept_id = dept.id;
       - supported_version: 4.9.1.0
+      - resultMetadata: [{FNAME: STRING}, {LNAME: STRING}, {NAME: STRING}]
       - unorderedResult: [
                 {'Jack', 'Williams', 'Engineering'},
                 {'Thomas', 'Johnson', 'Engineering'},
@@ -100,6 +104,7 @@ test_block:
     -
       # Get names of people working in Engineering:
       - query: select fname, lname from emp, dept where emp.dept_id = dept.id and dept.name = 'Engineering';
+      - resultMetadata: [{FNAME: STRING}, {LNAME: STRING}]
       - unorderedResult: [{"Jack", "Williams"},
                           {"Thomas", "Johnson"},
                           {"Emily", "Martinez"},
@@ -108,6 +113,7 @@ test_block:
       # inner join version of previous
       - query: select fname, lname from emp inner join dept on emp.dept_id = dept.id and dept.name = 'Engineering';
       - supported_version: 4.9.1.0
+      - resultMetadata: [{FNAME: STRING}, {LNAME: STRING}]
       - unorderedResult: [{"Jack", "Williams"},
                           {"Thomas", "Johnson"},
                           {"Emily", "Martinez"},
@@ -115,6 +121,7 @@ test_block:
     -
       # Get names of people working on a project
       - query: select fname, lname from emp where exists (select * from project where emp_id = emp.id);
+      - resultMetadata: [{FNAME: STRING}, {LNAME: STRING}]
       - unorderedResult: [{"Emily", "Martinez"},
                           {"Daniel", "Miller"},
                           {"Megan", "Miller"}]
@@ -122,6 +129,7 @@ test_block:
       # inner join version of previous
       - query: select fname, lname from emp inner join project on project.emp_id = emp.id;
       - supported_version: 4.9.1.0
+      - resultMetadata: [{FNAME: STRING}, {LNAME: STRING}]
       - unorderedResult: [{"Emily", "Martinez"},
                           {"Daniel", "Miller"},
                           {"Megan", "Miller"}]
@@ -132,18 +140,21 @@ test_block:
                   (select fname, lname, dept_id from emp where exists (select * from project where emp_id = emp.id)) as sq,
                   dept
                where sq.dept_id = dept.id and dept.name = 'Sales';
+      - resultMetadata: [{FNAME: STRING}, {LNAME: STRING}]
       - unorderedResult: [{"Daniel", "Miller"}]
     -
       # inner join version of previous
       - query: select fname, lname from emp inner join project on emp_id = emp.id inner join dept on dept_id = dept.id and dept.name = 'Sales';
       - supported_version: 4.9.1.0
       - explain: "SCAN([IS DEPT]) | FILTER _.NAME EQUALS promote(@c29 AS STRING) | FLATMAP q0 -> { SCAN([IS PROJECT]) | FLATMAP q1 -> { SCAN([IS EMP]) | FILTER q1.EMP_ID EQUALS _.ID AND _.DEPT_ID EQUALS q0.ID AS q2 RETURN q2 } AS q2 RETURN (q2.FNAME AS FNAME, q2.LNAME AS LNAME) }"
+      - resultMetadata: [{FNAME: STRING}, {LNAME: STRING}]
       - unorderedResult: [{"Daniel", "Miller"}]
 
     -
       # three-way join to find which departments' corresponding projects.
       - query: select dept.name, project.name from emp, dept, project where emp.dept_id = dept.id and project.emp_id = emp.id;
       - explain: "SCAN([IS PROJECT]) | FLATMAP q0 -> { SCAN([IS DEPT]) | FLATMAP q1 -> { SCAN([IS EMP]) | FILTER _.DEPT_ID EQUALS q1.ID AND q0.EMP_ID EQUALS _.ID AS q2 RETURN q1 } AS q1 RETURN (q1.NAME AS _0, q0.NAME AS _1) }"
+      - resultMetadata: [{NAME: STRING}, {NAME: STRING}]
       - unorderedResult: [{"Engineering", "OLAP"},
                           {"Sales", "Feedback"},
                           {"Marketing", "SEO"}]
@@ -152,6 +163,7 @@ test_block:
       - query: select dept.name, project.name from emp inner join dept on emp.dept_id = dept.id inner join project on project.emp_id = emp.id;
       - supported_version: 4.9.1.0
       - explain: "SCAN([IS PROJECT]) | FLATMAP q0 -> { SCAN([IS DEPT]) | FLATMAP q1 -> { SCAN([IS EMP]) | FILTER _.DEPT_ID EQUALS q1.ID AND q0.EMP_ID EQUALS _.ID AS q2 RETURN q1 } AS q1 RETURN (q1.NAME AS _0, q0.NAME AS _1) }"
+      - resultMetadata: [{NAME: STRING}, {NAME: STRING}]
       - unorderedResult: [{"Engineering", "OLAP"},
                           {"Sales", "Feedback"},
                           {"Marketing", "SEO"}]
@@ -159,6 +171,7 @@ test_block:
     -
       # two-level left-nested join to find which departments' corresponding projects.
       - query: select sq.name, project.name from (select dept.name, emp.id from emp, dept where emp.dept_id = dept.id) as sq, project where project.emp_id = sq.id;
+      - resultMetadata: [{NAME: STRING}, {NAME: STRING}]
       - unorderedResult: [{"Engineering", "OLAP"},
                           {"Sales", "Feedback"},
                           {"Marketing", "SEO"}]
@@ -166,6 +179,7 @@ test_block:
       # inner join version of previous #1
       - query: select sq.name, project.name from (select dept.name, emp.id from emp, dept where emp.dept_id = dept.id) as sq inner join project on project.emp_id = sq.id;
       - supported_version: 4.9.1.0
+      - resultMetadata: [{NAME: STRING}, {NAME: STRING}]
       - unorderedResult: [{"Engineering", "OLAP"},
                           {"Sales", "Feedback"},
                           {"Marketing", "SEO"}]
@@ -173,6 +187,7 @@ test_block:
       # inner join version of previous #2
       - query: select sq.name, project.name from project inner join (select dept.name, emp.id from emp, dept where emp.dept_id = dept.id) as sq on project.emp_id = sq.id;
       - supported_version: 4.9.1.0
+      - resultMetadata: [{NAME: STRING}, {NAME: STRING}]
       - unorderedResult: [{"Engineering", "OLAP"},
                           {"Sales", "Feedback"},
                           {"Marketing", "SEO"}]
@@ -181,12 +196,14 @@ test_block:
       - query: select dept.name, project.name from emp inner join dept on emp.dept_id = dept.id inner join project on project.emp_id = emp.id;
       - supported_version: 4.9.1.0
       - explain: "SCAN([IS PROJECT]) | FLATMAP q0 -> { SCAN([IS DEPT]) | FLATMAP q1 -> { SCAN([IS EMP]) | FILTER _.DEPT_ID EQUALS q1.ID AND q0.EMP_ID EQUALS _.ID AS q2 RETURN q1 } AS q1 RETURN (q1.NAME AS _0, q0.NAME AS _1) }"
+      - resultMetadata: [{NAME: STRING}, {NAME: STRING}]
       - unorderedResult: [{"Engineering", "OLAP"},
                           {"Sales", "Feedback"},
                           {"Marketing", "SEO"}]
     -
       # two-level right-nested join to find which departments' corresponding projects.
       - query: select sq.name, project.name from project, (select dept.name, emp.id from emp, dept where emp.dept_id = dept.id) as sq where project.emp_id = sq.id;
+      - resultMetadata: [{NAME: STRING}, {NAME: STRING}]
       - unorderedResult: [{"Engineering", "OLAP"},
                           {"Sales", "Feedback"},
                           {"Marketing", "SEO"}]
@@ -194,6 +211,7 @@ test_block:
       # ambiguous sub select is fine if the top-level query does not specify column names
       - query: select * from (select dept.name, project.name from emp, dept, project where emp.dept_id = dept.id and project.emp_id = emp.id) X;
       - explain: "SCAN([IS PROJECT]) | FLATMAP q0 -> { SCAN([IS DEPT]) | FLATMAP q1 -> { SCAN([IS EMP]) | FILTER _.DEPT_ID EQUALS q1.ID AND q0.EMP_ID EQUALS _.ID AS q2 RETURN q1 } AS q1 RETURN (q1.NAME AS _0, q0.NAME AS _1) }"
+      - resultMetadata: [{NAME: STRING}, {NAME: STRING}]
       - unorderedResult: [{"Engineering", "OLAP"},
                           {"Sales", "Feedback"},
                           {"Marketing", "SEO"}]
@@ -201,6 +219,7 @@ test_block:
       # ambiguous sub select is fine if the top-level query does not specify column names
       - query: select (*) from (select dept.name, project.name from emp, dept, project where emp.dept_id = dept.id and project.emp_id = emp.id) X;
       - explain: "SCAN([IS DEPT]) | FLATMAP q0 -> { SCAN([IS PROJECT]) | FLATMAP q1 -> { SCAN([IS EMP]) | FILTER _.DEPT_ID EQUALS q0.ID AND q1.EMP_ID EQUALS _.ID AS q2 RETURN q1 } AS q1 RETURN ((q0.NAME AS _0, q1.NAME AS _1) AS X) }"
+      - resultMetadata: [{X: [{_0: STRING}, {_1: STRING}]}]
       - unorderedResult: [{{"Engineering", "OLAP"}},
                           {{"Sales", "Feedback"}},
                           {{"Marketing", "SEO"}}]
@@ -213,33 +232,39 @@ test_block:
       - query: select dept.name, project.name from project inner join emp on emp.id = project.emp_id inner join dept on emp.dept_id = dept.id;
       - supported_version: 4.9.1.0
       - explain: "SCAN([IS DEPT]) | FLATMAP q0 -> { SCAN([IS PROJECT]) | FLATMAP q1 -> { SCAN([IS EMP, EQUALS q1.EMP_ID]) | FILTER _.DEPT_ID EQUALS q0.ID AS q2 RETURN q1 } AS q1 RETURN (q0.NAME AS _0, q1.NAME AS _1) }"
+      - resultMetadata: [{NAME: STRING}, {NAME: STRING}]
       - unorderedResult: [{"Engineering", "OLAP"},
                           {"Sales", "Feedback"},
                           {"Marketing", "SEO"}]
     -
       # Join with NOT IN - get employees in Engineering excluding specific employee ids
       - query: select emp.id, fname, lname from emp, dept where emp.dept_id = dept.id and dept.name = 'Engineering' and emp.id not in (1, 3)
+      - resultMetadata: [{ID: BIGINT}, {FNAME: STRING}, {LNAME: STRING}]
       - unorderedResult: [{ID: 2, FNAME: "Thomas", LNAME: "Johnson"},
                           {ID: 4, FNAME: "Amelia", LNAME: "Johnson"}]
     -
       # inner join version of previous
       - query: select emp.id, fname, lname from emp inner join dept on emp.dept_id = dept.id and dept.name = 'Engineering' and emp.id not in (1, 3)
       - supported_version: 4.9.1.0
+      - resultMetadata: [{ID: BIGINT}, {FNAME: STRING}, {LNAME: STRING}]
       - unorderedResult: [{ID: 2, FNAME: "Thomas", LNAME: "Johnson"},
                           {ID: 4, FNAME: "Amelia", LNAME: "Johnson"}]
     -
       # Join with NOT IN - get projects excluding certain project ids
       - query: select project.id, project.name from emp, project where project.emp_id = emp.id and project.id not in (1, 2)
+      - resultMetadata: [{ID: BIGINT}, {NAME: STRING}]
       - unorderedResult: [{ID: 3, NAME: "Feedback"}]
     -
       # inner join version of previous
       - query: select project.id, project.name from emp inner join project on project.emp_id = emp.id where project.id not in (1, 2)
       - supported_version: 4.9.1.0
+      - resultMetadata: [{ID: BIGINT}, {NAME: STRING}]
       - unorderedResult: [{ID: 3, NAME: "Feedback"}]
     -
       # Three-way join with NOT IN - departments with projects, excluding specific departments
       - query: select dept.id, dept.name, project.name from emp, dept, project where emp.dept_id = dept.id and project.emp_id = emp.id and dept.id not in (1)
       - explain: "SCAN([IS DEPT]) | FILTER NOT _.ID IN promote(@c40 AS ARRAY(LONG)) | FLATMAP q0 -> { SCAN([IS PROJECT]) | FLATMAP q1 -> { SCAN([IS EMP]) | FILTER _.DEPT_ID EQUALS q0.ID AND q1.EMP_ID EQUALS _.ID AS q2 RETURN q1 } AS q1 RETURN (q0.ID AS ID, q0.NAME AS _1, q1.NAME AS _2) }"
+      - resultMetadata: [{ID: BIGINT}, {NAME: STRING}, {NAME: STRING}]
       - unorderedResult: [{ID: 2, "Sales", "Feedback"},
                           {ID: 3, "Marketing", "SEO"}]
     -
@@ -247,20 +272,24 @@ test_block:
       - query: select dept.id, dept.name, project.name from emp inner join dept on emp.dept_id = dept.id and dept.id not in (1) inner join project on project.emp_id = emp.id
       - supported_version: 4.9.1.0
       - explain: "SCAN([IS DEPT]) | FILTER NOT _.ID IN promote(@c31 AS ARRAY(LONG)) | FLATMAP q0 -> { SCAN([IS PROJECT]) | FLATMAP q1 -> { SCAN([IS EMP]) | FILTER _.DEPT_ID EQUALS q0.ID AND q1.EMP_ID EQUALS _.ID AS q2 RETURN q1 } AS q1 RETURN (q0.ID AS ID, q0.NAME AS _1, q1.NAME AS _2) }"
+      - resultMetadata: [{ID: BIGINT}, {NAME: STRING}, {NAME: STRING}]
       - unorderedResult: [{ID: 2, "Sales", "Feedback"},
                           {ID: 3, "Marketing", "SEO"}]
     -
       # Join with NOT IN - employees in Sales department excluding specific ids
       - query: select emp.id from emp, dept where emp.dept_id = dept.id and dept.id = 2 and emp.id not in (5, 6)
+      - resultMetadata: [{ID: BIGINT}]
       - unorderedResult: [{7}]
     -
       # inner join version of previous
       - query: select emp.id from emp inner join dept on emp.dept_id = dept.id and dept.id = 2 and emp.id not in (5, 6)
       - supported_version: 4.9.1.0
+      - resultMetadata: [{ID: BIGINT}]
       - unorderedResult: [{7}]
     -
       # Join with NOT IN - all employees except those in excluded departments
       - query: select emp.id, fname from emp, dept where emp.dept_id = dept.id and dept.id not in (1, 3)
+      - resultMetadata: [{ID: BIGINT}, {FNAME: STRING}]
       - unorderedResult: [{ID: 5, FNAME: "Daniel"},
                           {ID: 6, FNAME: "Chloe"},
                           {ID: 7, FNAME: "Charlotte"}]
@@ -268,47 +297,56 @@ test_block:
       # inner join version of previous
       - query: select emp.id, fname from emp inner join dept on emp.dept_id = dept.id where dept.id not in (1, 3)
       - supported_version: 4.9.1.0
+      - resultMetadata: [{ID: BIGINT}, {FNAME: STRING}]
       - unorderedResult: [{ID: 5, FNAME: "Daniel"},
                           {ID: 6, FNAME: "Chloe"},
                           {ID: 7, FNAME: "Charlotte"}]
     -
       # Join with NOT IN on non-existent values (should return all matching rows)
       - query: select emp.id from emp, dept where emp.dept_id = dept.id and dept.id = 1 and emp.id not in (10, 20, 30)
+      - resultMetadata: [{ID: BIGINT}]
       - unorderedResult: [{1}, {2}, {3}, {4}]
     -
       # inner join version of previous
       - query: select emp.id from emp inner join dept on emp.dept_id = dept.id and dept.id = 1 and emp.id not in (10, 20, 30)
       - supported_version: 4.9.1.0
+      - resultMetadata: [{ID: BIGINT}]
       - unorderedResult: [{1}, {2}, {3}, {4}]
     -
       # Subquery join with NOT IN
       - query: select fname, lname from (select fname, lname, emp.id from emp, dept where emp.dept_id = dept.id and dept.name = 'Engineering') as sq where sq.id not in (1, 4)
+      - resultMetadata: [{FNAME: STRING}, {LNAME: STRING}]
       - unorderedResult: [{"Thomas", "Johnson"},
                           {"Emily", "Martinez"}]
     -
       # Join with multiple NOT IN conditions
       - query: select project.id, project.name from emp, dept, project where emp.dept_id = dept.id and project.emp_id = emp.id and dept.id not in (3) and project.id not in (3)
       - explain: "SCAN([IS EMP]) | FLATMAP q0 -> { SCAN([IS PROJECT]) | FILTER NOT _.ID IN promote(@c36 AS ARRAY(LONG)) AND _.EMP_ID EQUALS q0.ID | FLATMAP q1 -> { SCAN([IS DEPT]) | FILTER NOT _.ID IN promote(@c36 AS ARRAY(LONG)) AND q0.DEPT_ID EQUALS _.ID AS q2 RETURN q1 } AS q1 RETURN (q1.ID AS ID, q1.NAME AS NAME) }"
+      - resultMetadata: [{ID: BIGINT}, {NAME: STRING}]
       - unorderedResult: [{ID: 1, NAME: "OLAP"}]
     -
       # Join with IN - get specific employees in Engineering
       - query: select emp.id, fname, lname from emp, dept where emp.dept_id = dept.id and dept.name = 'Engineering' and emp.id in (1, 3)
+      - resultMetadata: [{ID: BIGINT}, {FNAME: STRING}, {LNAME: STRING}]
       - unorderedResult: [{ID: 1, FNAME: "Jack", LNAME: "Williams"},
                           {ID: 3, FNAME: "Emily", LNAME: "Martinez"}]
     -
       # Join with IN - get specific projects
       - query: select project.id, project.name from emp, project where project.emp_id = emp.id and project.id in (1, 2)
+      - resultMetadata: [{ID: BIGINT}, {NAME: STRING}]
       - unorderedResult: [{ID: 1, NAME: "OLAP"},
                           {ID: 2, NAME: "SEO"}]
     -
       # Three-way join with IN - departments with projects, including only specific departments
       - query: select dept.id, dept.name, project.name from emp, dept, project where emp.dept_id = dept.id and project.emp_id = emp.id and dept.id in (1, 2)
       - explain: "[IN arrayDistinct(promote(@c39 AS ARRAY(LONG)))] | INJOIN q0 -> { SCAN([IS DEPT, EQUALS q0]) } | FLATMAP q1 -> { SCAN([IS PROJECT]) | FLATMAP q2 -> { SCAN([IS EMP]) | FILTER _.DEPT_ID EQUALS q1.ID AND q2.EMP_ID EQUALS _.ID AS q3 RETURN q2 } AS q2 RETURN (q1.ID AS ID, q1.NAME AS _1, q2.NAME AS _2) }"
+      - resultMetadata: [{ID: BIGINT}, {NAME: STRING}, {NAME: STRING}]
       - unorderedResult: [{ID: 1, "Engineering", "OLAP"},
                           {ID: 2, "Sales", "Feedback"}]
     -
       # Join with IN - employees in specific departments
       - query: select emp.id, fname from emp, dept where emp.dept_id = dept.id and dept.id in (2, 3)
+      - resultMetadata: [{ID: BIGINT}, {FNAME: STRING}]
       - unorderedResult: [{ID: 5, FNAME: "Daniel"},
                           {ID: 6, FNAME: "Chloe"},
                           {ID: 7, FNAME: "Charlotte"},
@@ -317,25 +355,30 @@ test_block:
     -
       # Join with IN - single value in list
       - query: select emp.id, fname, lname from emp, dept where emp.dept_id = dept.id and dept.id = 1 and emp.id in (2)
+      - resultMetadata: [{ID: BIGINT}, {FNAME: STRING}, {LNAME: STRING}]
       - unorderedResult: [{ID: 2, FNAME: "Thomas", LNAME: "Johnson"}]
     -
       # Join with IN - employees in Sales department with specific ids
       - query: select emp.id from emp, dept where emp.dept_id = dept.id and dept.id = 2 and emp.id in (5, 6, 7)
+      - resultMetadata: [{ID: BIGINT}]
       - unorderedResult: [{5}, {6}, {7}]
     -
       # Subquery join with IN
       - query: select fname, lname from (select fname, lname, emp.id from emp, dept where emp.dept_id = dept.id and dept.name = 'Engineering') as sq where sq.id in (1, 4)
+      - resultMetadata: [{FNAME: STRING}, {LNAME: STRING}]
       - unorderedResult: [{"Jack", "Williams"},
                           {"Amelia", "Johnson"}]
     -
       # inner join version of previous
       - query: select fname, lname from (select fname, lname, emp.id from emp inner join dept on emp.dept_id = dept.id and dept.name = 'Engineering') as sq where sq.id in (1, 4)
       - supported_version: 4.9.1.0
+      - resultMetadata: [{FNAME: STRING}, {LNAME: STRING}]
       - unorderedResult: [{"Jack", "Williams"},
                           {"Amelia", "Johnson"}]
     -
       # Join with both IN and NOT IN conditions
       - query: select emp.id, fname from emp, dept where emp.dept_id = dept.id and dept.id in (1, 2) and emp.id not in (1, 5)
+      - resultMetadata: [{ID: BIGINT}, {FNAME: STRING}]
       - unorderedResult: [{ID: 2, FNAME: "Thomas"},
                           {ID: 3, FNAME: "Emily"},
                           {ID: 4, FNAME: "Amelia"},
@@ -344,33 +387,39 @@ test_block:
     -
       # Join with IN on non-existent values (should return empty)
       - query: select emp.id from emp, dept where emp.dept_id = dept.id and dept.id = 1 and emp.id in (10, 20, 30)
+      - resultMetadata: [{ID: BIGINT}]
       - result: []
     -
       # inner join with using: select one field
       - query: select ja.c1 from ja join jb using(c1);
       - supported_version: 4.10.4.0
+      - resultMetadata: [{C1: BIGINT}]
       - result: [{1}]
     -
       # inner join with using: select * t
       - query: select * from ja join jb using(c1);
       - supported_version: 4.10.4.0
+      - resultMetadata: [{C1: BIGINT}, {C2: BIGINT}, {C3: BIGINT}]
       - result: [{c1: 1, c2: 2, c3: 3}]
     -
       # inner join with using: access to both c1
       - query: select ja.c1, jb.c1 from ja join jb using(c1);
       - supported_version: 4.10.4.0
+      - resultMetadata: [{C1: BIGINT}, {C1: BIGINT}]
       - result: [{!pos 1: 1, !pos 2: 1}]
     -
       # inner join with using: double join
       - query: select * from ja join jb using(c1) join jd using(c1);
       - supported_version: 4.10.4.0
       - explain: "SCAN([IS JD]) | FLATMAP q0 -> { SCAN([IS JB]) | FLATMAP q1 -> { SCAN([IS JA, EQUALS q1.C1]) AS q2 RETURN (q2 AS _0, q1 AS _1) } AS q3 RETURN (q3._0.C1 AS C1, q3._0.C2 AS C2, q3._1.C3 AS C3, q0.C4 AS C4) }"
+      - resultMetadata: [{C1: BIGINT}, {C2: BIGINT}, {C3: BIGINT}, {C4: BIGINT}]
       - result: [{c1: 1, c2: 2, c3: 3, c4: 4}]
     -
       # inner join with using: same additional column
       - query: select jua.c5, jub.c5, jud.c5 from jua join jub using(c1) join jud using(c1);
       - supported_version: 4.10.4.0
       - explain: "SCAN([IS JUD]) | FLATMAP q0 -> { SCAN([IS JUB]) | FLATMAP q1 -> { SCAN([IS JUA, EQUALS q1.C1]) AS q2 RETURN (q2 AS _0, q1 AS _1) } AS q3 RETURN (q3._0.C5 AS _0, q3._1.C5 AS _1, q0.C5 AS _2) }"
+      - resultMetadata: [{C5: BIGINT}, {C5: BIGINT}, {C5: BIGINT}]
       - result: [{!pos 1: 5, !pos 2: 5, !pos 3: 5}]
     -
       # inner join with using: ambiguity left
@@ -386,85 +435,100 @@ test_block:
       # inner join with using: muli using
       - query: select * from jua join jub using(c1, c5);
       - supported_version: 4.10.4.0
+      - resultMetadata: [{C1: BIGINT}, {C2: BIGINT}, {C5: BIGINT}, {C3: BIGINT}]
       - result: [{c1: 1, c2: 2, c5: 5, c3: 3}]
     -
       # inner join with using: unnamed columns left
       - query: select * from (select c1, c2 + 5 from jua) as X join jub as Y using (c1);
       - supported_version: 4.10.4.0
+      - resultMetadata: [{C1: BIGINT}, {_1: BIGINT}, {C3: BIGINT}, {C5: BIGINT}]
       - result: [{c1: 1, _1: 7, c3: 3, c5: 5}]
     -
       # inner join with using: unnamed columns right
       - query: select * from jub as Y join (select c1, c2 + 5 from jua) as X using (c1);
       - supported_version: 4.10.4.0
+      - resultMetadata: [{C1: BIGINT}, {C3: BIGINT}, {C5: BIGINT}, {_3: BIGINT}]
       - result: [{c1: 1, c3: 3, c5: 5, _3: 7}]
     -
       # inner join with using: right column is already hidden
       - query: select * from jua join (select * from jub join jud using(c1)) as X using (c1);
       - supported_version: 4.10.4.0
       - explain: "SCAN([IS JUD]) | FLATMAP q0 -> { SCAN([IS JUB, EQUALS q0.C1]) | FLATMAP q1 -> { SCAN([IS JUA, EQUALS q1.C1]) AS q2 RETURN (q2 AS _0, q1 AS _1) } AS q3 RETURN (q3._0.C1 AS C1, q3._0.C2 AS C2, q3._0.C5 AS _2, q3._1.C3 AS C3, q3._1.C5 AS _4, q0.C4 AS C4, q0.C5 AS _6) }"
+      - resultMetadata: [{C1: BIGINT}, {C2: BIGINT}, {C5: BIGINT}, {C3: BIGINT}, {C5: BIGINT}, {C4: BIGINT}, {C5: BIGINT}]
       - result: [{!pos 1: 1, !pos 2: 2, !pos 3: 5, !pos 4: 3, !pos 5: 5, !pos 6: 4, !pos 7: 5}]
     -
       # inner join with using: using named
       - query: select * from (select c3 - 2 as c1, c3 from jub) as Y join (select c2 - 1 as c1, c5 from jua) as X using (c1);
       - supported_version: 4.10.4.0
+      - resultMetadata: [{C1: BIGINT}, {C3: BIGINT}, {C5: BIGINT}]
       - result: [{c1: 1, c3: 3, c5: 5}]
     -
       # inner join with using: using named from named
       - query: select * from (select c2 - 1 as c1, c3 from (select c3 - 1 as c2, c3 from jub) as Z) as Y join (select c2 - 1 as c1, c5 from jua) as X using (c1);
       - supported_version: 4.10.4.0
+      - resultMetadata: [{C1: BIGINT}, {C3: BIGINT}, {C5: BIGINT}]
       - result: [{c1: 1, c3: 3, c5: 5}]
     -
       # inner join with using: using named from named
       - query: select * from (select c11 as c1, c3 from (select c3 - 2 as c11, c3 from jub) as Z) as Y join (select c2 - 1 as c1, c5 from jua) as X using (c1);
       - supported_version: 4.10.4.0
+      - resultMetadata: [{C1: BIGINT}, {C3: BIGINT}, {C5: BIGINT}]
       - result: [{c1: 1, c3: 3, c5: 5}]
     -
       # inner join with ON TRUE: yields the cross product
       - query: select ja.c1, ja.c2, jb.c3 from ja inner join jb on true;
       - supported_version: 4.12.4.0
       - explain: "SCAN([IS JA]) | FLATMAP q0 -> { SCAN([IS JB]) AS q1 RETURN (q0.C1 AS C1, q0.C2 AS C2, q1.C3 AS C3) }"
+      - resultMetadata: [{C1: BIGINT}, {C2: BIGINT}, {C3: BIGINT}]
       - result: [{c1: 1, c2: 2, c3: 3}]
     -
       # same cross product, but expressed using a comma-separated list and an explicit WHERE TRUE clause
       - query: select ja.c1, ja.c2, jb.c3 from ja, jb where true;
       - supported_version: 4.12.4.0
       - explain: "SCAN([IS JA]) | FLATMAP q0 -> { SCAN([IS JB]) AS q1 RETURN (q0.C1 AS C1, q0.C2 AS C2, q1.C3 AS C3) }"
+      - resultMetadata: [{C1: BIGINT}, {C2: BIGINT}, {C3: BIGINT}]
       - result: [{c1: 1, c2: 2, c3: 3}]
     -
       # inner join with ON FALSE: yields an empty result
       - query: select ja.c1, ja.c2, jb.c3 from ja inner join jb on false;
       - supported_version: 4.12.4.0
       - explain: "SCAN([IS JA]) | FLATMAP q0 -> { SCAN([IS JB]) | FILTER false AS q1 RETURN (q0.C1 AS C1, q0.C2 AS C2, q1.C3 AS C3) }"
+      - resultMetadata: [{C1: BIGINT}, {C2: BIGINT}, {C3: BIGINT}]
       - result: []
     -
       # same join as above, but using an explicit WHERE FALSE clause
       - query: select ja.c1, ja.c2, jb.c3 from ja, jb where false;
       - supported_version: 4.12.4.0
       - explain: "SCAN([IS JA]) | FLATMAP q0 -> { SCAN([IS JB]) | FILTER false AS q1 RETURN (q0.C1 AS C1, q0.C2 AS C2, q1.C3 AS C3) }"
+      - resultMetadata: [{C1: BIGINT}, {C2: BIGINT}, {C3: BIGINT}]
       - result: []
     -
       # inner join with ON UNKNOWN: has the same effect as ON FALSE
       - query: select ja.c1, ja.c2, jb.c3 from ja inner join jb on cast(null as boolean);
       - supported_version: 4.12.4.0
       - explain: "SCAN([IS JB]) | FILTER CAST(NULL AS BOOLEAN) EQUALS true | FLATMAP q0 -> { SCAN([IS JA]) AS q1 RETURN (q1.C1 AS C1, q1.C2 AS C2, q0.C3 AS C3) }"
+      - resultMetadata: [{C1: BIGINT}, {C2: BIGINT}, {C3: BIGINT}]
       - result: []
     -
       # same join as above, but using an explicit WHERE NULL clause
       - query: select ja.c1, ja.c2, jb.c3 from ja, jb where cast(null as boolean);
       - supported_version: 4.12.4.0
       - explain: "SCAN([IS JB]) | FILTER CAST(NULL AS BOOLEAN) EQUALS true | FLATMAP q0 -> { SCAN([IS JA]) AS q1 RETURN (q1.C1 AS C1, q1.C2 AS C2, q0.C3 AS C3) }"
+      - resultMetadata: [{C1: BIGINT}, {C2: BIGINT}, {C3: BIGINT}]
       - result: []
     -
       # inner join with ON NULL: a plain NULL predicate is recognized as a null boolean and yields an empty result
       - query: select ja.c1, ja.c2, jb.c3 from ja inner join jb on null;
       - supported_version: 4.12.4.0
       - explain: "SCAN([IS JA]) | FLATMAP q0 -> { SCAN([IS JB]) | FILTER null AS q1 RETURN (q0.C1 AS C1, q0.C2 AS C2, q1.C3 AS C3) }"
+      - resultMetadata: [{C1: BIGINT}, {C2: BIGINT}, {C3: BIGINT}]
       - result: []
     -
       # same join as above, but using an explicit WHERE NULL clause
       - query: select ja.c1, ja.c2, jb.c3 from ja, jb where null;
       - supported_version: 4.12.4.0
       - explain: "SCAN([IS JA]) | FLATMAP q0 -> { SCAN([IS JB]) | FILTER null AS q1 RETURN (q0.C1 AS C1, q0.C2 AS C2, q1.C3 AS C3) }"
+      - resultMetadata: [{C1: BIGINT}, {C2: BIGINT}, {C3: BIGINT}]
       - result: []
 ---
 # All 3-way (or more) join queries from above, repeated with PLAN_RIGHT_DEEP enabled.
@@ -479,11 +543,13 @@ test_block:
       # inner join version: two consecutive joins with filter on dept.name
       - query: select fname, lname from emp inner join project on emp_id = emp.id inner join dept on dept_id = dept.id and dept.name = 'Sales';
       - explain: "SCAN([IS DEPT]) | FILTER _.NAME EQUALS promote(@c29 AS STRING) | FLATMAP q0 -> { SCAN([IS PROJECT]) | FLATMAP q1 -> { SCAN([IS EMP]) | FILTER q1.EMP_ID EQUALS _.ID AND _.DEPT_ID EQUALS q0.ID AS q2 RETURN q2 } AS q2 RETURN (q2.FNAME AS FNAME, q2.LNAME AS LNAME) }"
+      - resultMetadata: [{FNAME: STRING}, {LNAME: STRING}]
       - unorderedResult: [{"Daniel", "Miller"}]
     -
       # three-way join to find which departments' corresponding projects
       - query: select dept.name, project.name from emp, dept, project where emp.dept_id = dept.id and project.emp_id = emp.id;
       - explain: "SCAN([IS PROJECT]) | FLATMAP q0 -> { SCAN([IS DEPT]) | FLATMAP q1 -> { SCAN([IS EMP]) | FILTER _.DEPT_ID EQUALS q1.ID AND q0.EMP_ID EQUALS _.ID AS q2 RETURN q1 } AS q1 RETURN (q1.NAME AS _0, q0.NAME AS _1) }"
+      - resultMetadata: [{NAME: STRING}, {NAME: STRING}]
       - unorderedResult: [{"Engineering", "OLAP"},
                           {"Sales", "Feedback"},
                           {"Marketing", "SEO"}]
@@ -491,6 +557,7 @@ test_block:
       # inner join version of three-way join
       - query: select dept.name, project.name from emp inner join dept on emp.dept_id = dept.id inner join project on project.emp_id = emp.id;
       - explain: "SCAN([IS PROJECT]) | FLATMAP q0 -> { SCAN([IS DEPT]) | FLATMAP q1 -> { SCAN([IS EMP]) | FILTER _.DEPT_ID EQUALS q1.ID AND q0.EMP_ID EQUALS _.ID AS q2 RETURN q1 } AS q1 RETURN (q1.NAME AS _0, q0.NAME AS _1) }"
+      - resultMetadata: [{NAME: STRING}, {NAME: STRING}]
       - unorderedResult: [{"Engineering", "OLAP"},
                           {"Sales", "Feedback"},
                           {"Marketing", "SEO"}]
@@ -498,6 +565,7 @@ test_block:
       # ambiguous sub-select is fine if the top-level query does not specify column names (select *)
       - query: select * from (select dept.name, project.name from emp, dept, project where emp.dept_id = dept.id and project.emp_id = emp.id) X;
       - explain: "SCAN([IS PROJECT]) | FLATMAP q0 -> { SCAN([IS DEPT]) | FLATMAP q1 -> { SCAN([IS EMP]) | FILTER _.DEPT_ID EQUALS q1.ID AND q0.EMP_ID EQUALS _.ID AS q2 RETURN q1 } AS q1 RETURN (q1.NAME AS _0, q0.NAME AS _1) }"
+      - resultMetadata: [{NAME: STRING}, {NAME: STRING}]
       - unorderedResult: [{"Engineering", "OLAP"},
                           {"Sales", "Feedback"},
                           {"Marketing", "SEO"}]
@@ -505,6 +573,7 @@ test_block:
       # ambiguous sub-select is fine if the top-level query does not specify column names (select (*))
       - query: select (*) from (select dept.name, project.name from emp, dept, project where emp.dept_id = dept.id and project.emp_id = emp.id) X;
       - explain: "SCAN([IS DEPT]) | FLATMAP q0 -> { SCAN([IS PROJECT]) | FLATMAP q1 -> { SCAN([IS EMP]) | FILTER _.DEPT_ID EQUALS q0.ID AND q1.EMP_ID EQUALS _.ID AS q2 RETURN q1 } AS q1 RETURN ((q0.NAME AS _0, q1.NAME AS _1) AS X) }"
+      - resultMetadata: [{X: [{_0: STRING}, {_1: STRING}]}]
       - unorderedResult: [{{"Engineering", "OLAP"}},
                           {{"Sales", "Feedback"}},
                           {{"Marketing", "SEO"}}]
@@ -512,6 +581,7 @@ test_block:
       # inner join version: different table order
       - query: select dept.name, project.name from project inner join emp on emp.id = project.emp_id inner join dept on emp.dept_id = dept.id;
       - explain: "SCAN([IS DEPT]) | FLATMAP q0 -> { SCAN([IS PROJECT]) | FLATMAP q1 -> { SCAN([IS EMP, EQUALS q1.EMP_ID]) | FILTER _.DEPT_ID EQUALS q0.ID AS q2 RETURN q1 } AS q1 RETURN (q0.NAME AS _0, q1.NAME AS _1) }"
+      - resultMetadata: [{NAME: STRING}, {NAME: STRING}]
       - unorderedResult: [{"Engineering", "OLAP"},
                           {"Sales", "Feedback"},
                           {"Marketing", "SEO"}]
@@ -519,39 +589,46 @@ test_block:
       # three-way join with NOT IN on dept
       - query: select dept.id, dept.name, project.name from emp, dept, project where emp.dept_id = dept.id and project.emp_id = emp.id and dept.id not in (1)
       - explain: "SCAN([IS DEPT]) | FILTER NOT _.ID IN promote(@c40 AS ARRAY(LONG)) | FLATMAP q0 -> { SCAN([IS PROJECT]) | FLATMAP q1 -> { SCAN([IS EMP]) | FILTER _.DEPT_ID EQUALS q0.ID AND q1.EMP_ID EQUALS _.ID AS q2 RETURN q1 } AS q1 RETURN (q0.ID AS ID, q0.NAME AS _1, q1.NAME AS _2) }"
+      - resultMetadata: [{ID: BIGINT}, {NAME: STRING}, {NAME: STRING}]
       - unorderedResult: [{ID: 2, "Sales", "Feedback"},
                           {ID: 3, "Marketing", "SEO"}]
     -
       # inner join version with NOT IN on dept
       - query: select dept.id, dept.name, project.name from emp inner join dept on emp.dept_id = dept.id and dept.id not in (1) inner join project on project.emp_id = emp.id
       - explain: "SCAN([IS DEPT]) | FILTER NOT _.ID IN promote(@c31 AS ARRAY(LONG)) | FLATMAP q0 -> { SCAN([IS PROJECT]) | FLATMAP q1 -> { SCAN([IS EMP]) | FILTER _.DEPT_ID EQUALS q0.ID AND q1.EMP_ID EQUALS _.ID AS q2 RETURN q1 } AS q1 RETURN (q0.ID AS ID, q0.NAME AS _1, q1.NAME AS _2) }"
+      - resultMetadata: [{ID: BIGINT}, {NAME: STRING}, {NAME: STRING}]
       - unorderedResult: [{ID: 2, "Sales", "Feedback"},
                           {ID: 3, "Marketing", "SEO"}]
     -
       # three-way join with multiple NOT IN conditions
       - query: select project.id, project.name from emp, dept, project where emp.dept_id = dept.id and project.emp_id = emp.id and dept.id not in (3) and project.id not in (3)
       - explain: "SCAN([IS EMP]) | FLATMAP q0 -> { SCAN([IS PROJECT]) | FILTER NOT _.ID IN promote(@c36 AS ARRAY(LONG)) AND _.EMP_ID EQUALS q0.ID | FLATMAP q1 -> { SCAN([IS DEPT]) | FILTER NOT _.ID IN promote(@c36 AS ARRAY(LONG)) AND q0.DEPT_ID EQUALS _.ID AS q2 RETURN q1 } AS q1 RETURN (q1.ID AS ID, q1.NAME AS NAME) }"
+      - resultMetadata: [{ID: BIGINT}, {NAME: STRING}]
       - unorderedResult: [{ID: 1, NAME: "OLAP"}]
     -
       # three-way join with IN on dept
       - query: select dept.id, dept.name, project.name from emp, dept, project where emp.dept_id = dept.id and project.emp_id = emp.id and dept.id in (1, 2)
       - explain: "[IN arrayDistinct(promote(@c39 AS ARRAY(LONG)))] | INJOIN q0 -> { SCAN([IS DEPT, EQUALS q0]) } | FLATMAP q1 -> { SCAN([IS PROJECT]) | FLATMAP q2 -> { SCAN([IS EMP]) | FILTER _.DEPT_ID EQUALS q1.ID AND q2.EMP_ID EQUALS _.ID AS q3 RETURN q2 } AS q2 RETURN (q1.ID AS ID, q1.NAME AS _1, q2.NAME AS _2) }"
+      - resultMetadata: [{ID: BIGINT}, {NAME: STRING}, {NAME: STRING}]
       - unorderedResult: [{ID: 1, "Engineering", "OLAP"},
                           {ID: 2, "Sales", "Feedback"}]
     -
       # double join with USING
       - query: select * from ja join jb using(c1) join jd using(c1);
       - explain: "SCAN([IS JD]) | FLATMAP q0 -> { SCAN([IS JB]) | FLATMAP q1 -> { SCAN([IS JA, EQUALS q1.C1]) AS q2 RETURN (q2 AS _0, q1 AS _1) } AS q3 RETURN (q3._0.C1 AS C1, q3._0.C2 AS C2, q3._1.C3 AS C3, q0.C4 AS C4) }"
+      - resultMetadata: [{C1: BIGINT}, {C2: BIGINT}, {C3: BIGINT}, {C4: BIGINT}]
       - result: [{c1: 1, c2: 2, c3: 3, c4: 4}]
     -
       # double join with USING: extra column
       - query: select jua.c5, jub.c5, jud.c5 from jua join jub using(c1) join jud using(c1);
       - explain: "SCAN([IS JUD]) | FLATMAP q0 -> { SCAN([IS JUB]) | FLATMAP q1 -> { SCAN([IS JUA, EQUALS q1.C1]) AS q2 RETURN (q2 AS _0, q1 AS _1) } AS q3 RETURN (q3._0.C5 AS _0, q3._1.C5 AS _1, q0.C5 AS _2) }"
+      - resultMetadata: [{C5: BIGINT}, {C5: BIGINT}, {C5: BIGINT}]
       - result: [{!pos 1: 5, !pos 2: 5, !pos 3: 5}]
     -
       # double join with USING: right column already hidden
       - query: select * from jua join (select * from jub join jud using(c1)) as X using (c1);
       - explain: "SCAN([IS JUD]) | FLATMAP q0 -> { SCAN([IS JUB, EQUALS q0.C1]) | FLATMAP q1 -> { SCAN([IS JUA, EQUALS q1.C1]) AS q2 RETURN (q2 AS _0, q1 AS _1) } AS q3 RETURN (q3._0.C1 AS C1, q3._0.C2 AS C2, q3._0.C5 AS _2, q3._1.C3 AS C3, q3._1.C5 AS _4, q0.C4 AS C4, q0.C5 AS _6) }"
+      - resultMetadata: [{C1: BIGINT}, {C2: BIGINT}, {C5: BIGINT}, {C3: BIGINT}, {C5: BIGINT}, {C4: BIGINT}, {C5: BIGINT}]
       - result: [{!pos 1: 1, !pos 2: 2, !pos 3: 5, !pos 4: 3, !pos 5: 5, !pos 6: 4, !pos 7: 5}]
     -
       # NATURAL JOIN (inner) is not yet supported.`
