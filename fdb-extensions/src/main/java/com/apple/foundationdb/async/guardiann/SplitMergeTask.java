@@ -27,7 +27,7 @@ import com.apple.foundationdb.async.common.RandomHelpers;
 import com.apple.foundationdb.async.common.StorageHelpers;
 import com.apple.foundationdb.async.common.StorageTransform;
 import com.apple.foundationdb.async.hnsw.HNSW;
-import com.apple.foundationdb.kmeans.BoundedKMeans;
+import com.apple.foundationdb.kmeans.KMeans;
 import com.apple.foundationdb.kmeans.PartitionEvaluator;
 import com.apple.foundationdb.kmeans.PartitionEvaluator.EvaluationResult;
 import com.apple.foundationdb.linear.Estimator;
@@ -497,12 +497,12 @@ public class SplitMergeTask extends AbstractDeferredTask {
     private Repartitioning assignPrimaryVectorReferences(@Nonnull final Estimator estimator,
                                                          @Nonnull final List<ClusterMetadataWithDistance> outerNeighborhood,
                                                          @Nonnull final List<VectorReference> primaryVectorReferences,
-                                                         @Nonnull final BoundedKMeans.Result<Transformed<RealVector>> kMeansResult,
+                                                         @Nonnull final KMeans.Result<Transformed<RealVector>> kMeansResult,
                                                          final int targetNumPartitions) {
         final Config config = getConfig();
 
         final List<Transformed<RealVector>> clusterCentroids =
-                kMeansResult.getClusterCentroids();
+                kMeansResult.clusterCentroids();
         Verify.verify(clusterCentroids.size() == targetNumPartitions);
 
         final ImmutableMap.Builder<UUID, ClusterMetadataWithDistance> clusterIdMetadataMapBuilder =
@@ -971,10 +971,10 @@ public class SplitMergeTask extends AbstractDeferredTask {
 
         // re-fit only the primary vectors
         return new RepartitioningCandidate(neighborhoods, primaryVectorReferences,
-                BoundedKMeans.fit(random, estimator, VectorReference.vectorLens(),
+                KMeans.fit(random, estimator, VectorReference.vectorLens(),
                         Transformed.underlyingLens(), primaryVectorReferences,
                         targetNumPartitions, maxIterations,
-                        maxRestarts, 0.00, BoundedKMeans.overflowQuadraticPenalty(),
+                        maxRestarts, 0.00, KMeans.overflowQuadraticPenalty(),
                         true));
     }
 
@@ -1022,8 +1022,8 @@ public class SplitMergeTask extends AbstractDeferredTask {
                         Transformed.underlyingLens(), assignment);
         final var kMeansResult = repartitioningCandidate.kMeansResult();
         final PartitionEvaluator.Partition<Transformed<RealVector>> candidatePartition =
-                new PartitionEvaluator.Partition<>(kMeansResult.getClusterCentroids(),
-                        Transformed.underlyingLens(), kMeansResult.getAssignment());
+                new PartitionEvaluator.Partition<>(kMeansResult.clusterCentroids(),
+                        Transformed.underlyingLens(), kMeansResult.assignment());
         return PartitionEvaluator.evaluate(primaryVectorReferencesBuilder.build(),
                 currentPartition,
                 repartitioningCandidate.primaryVectorReferences(),
@@ -1104,7 +1104,7 @@ public class SplitMergeTask extends AbstractDeferredTask {
      */
     private record RepartitioningCandidate(@Nonnull Neighborhoods neighborhoods,
                                            @Nonnull List<VectorReference> primaryVectorReferences,
-                                           @Nonnull @SuppressWarnings("checkstyle:MemberName") BoundedKMeans.Result<Transformed<RealVector>> kMeansResult) {
+                                           @Nonnull @SuppressWarnings("checkstyle:MemberName") KMeans.Result<Transformed<RealVector>> kMeansResult) {
     }
 
     /**

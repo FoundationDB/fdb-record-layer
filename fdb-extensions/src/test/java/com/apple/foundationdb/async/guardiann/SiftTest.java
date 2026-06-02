@@ -93,7 +93,7 @@ public class SiftTest implements BaseTest {
         final TestHelpers.TestOnWriteListener onWriteListener = new TestHelpers.TestOnWriteListener();
         final TestHelpers.TestOnReadListener onReadListener = new TestHelpers.TestOnReadListener();
 
-        final Metric metric = Metric.COSINE_METRIC;
+        final Metric metric = Metric.EUCLIDEAN_METRIC;
         final Config config =
                 Guardiann.newConfigBuilder()
                         .setUseRaBitQ(true)
@@ -105,7 +105,7 @@ public class SiftTest implements BaseTest {
                         .setReplicationPriorityMin(0.65d)
                         .setReplicatedClusterTarget(500)
                         .setReplicatedClusterMaxWrites(2000)
-                        .build(512);
+                        .build(128);
 
         guardiann = new Guardiann(subspaceExtension.getSubspace(),
                 TestExecutors.defaultThreadPool(),
@@ -115,7 +115,7 @@ public class SiftTest implements BaseTest {
 
         logger.info("Preparing db and inserting SIFT small dataset...");
         //insertedData = TestHelpers.insertSIFTSmall(db, guardiann);
-        insertedData = TestHelpers.insertSIFT100k(db, guardiann, 100_000, 50);
+        insertedData = TestHelpers.insertSIFTSmall(db, guardiann);
     }
 
     @SuppressWarnings("checkstyle:AbbreviationAsWordInName")
@@ -123,8 +123,8 @@ public class SiftTest implements BaseTest {
     void testInsertSIFTSmall() throws Exception {
         final int k = 100;
         TestHelpers.validateSIFT(getDb(), guardiann,
-                "/Users/nseemann/Downloads/embeddings-unified-model-100k-queries-1.0.0.fvecs",
-                "/Users/nseemann/Downloads/embeddings-unified-model-100k-groundtruth-1.0.0.ivecs", k);
+                ".out/extracted/siftsmall/siftsmall_query.fvecs",
+                ".out/extracted/siftsmall/siftsmall_groundtruth.ivecs", k);
 
         final HNSW centroidHnsw = guardiann.getLocator().primitives().getClusterCentroidsHnsw();
 

@@ -126,7 +126,7 @@ class TestHelpers {
     static List<PrimaryKeyAndVector> insertSIFTSmall(@Nonnull final Database db,
                                                      @Nonnull final Guardiann guardiann) throws Exception {
         return insertSIFT(db, guardiann, ".out/extracted/siftsmall/siftsmall_base.fvecs",
-                10000, 20);
+                10000, 50);
     }
 
     static List<PrimaryKeyAndVector> insertSIFT100k(@Nonnull final Database db,
