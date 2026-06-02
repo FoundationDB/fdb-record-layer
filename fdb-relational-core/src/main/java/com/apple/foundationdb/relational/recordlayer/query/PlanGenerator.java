@@ -524,7 +524,6 @@ public final class PlanGenerator {
      * @return a new plan generator
      * @throws RelationalException if creation fails
      */
-    @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
     @Nonnull
     public static PlanGenerator createOfflineDql(@Nonnull final Optional<RelationalPlanCache> cache,
                                                  @Nonnull final RecordLayerSchemaTemplate schemaTemplate,
