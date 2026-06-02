@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
-import com.apple.foundationdb.Range;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.RangeSet;
@@ -118,38 +117,8 @@ public class IndexingMultiTargetByRecords extends IndexingBase {
 
     @Nonnull
     private CompletableFuture<Void> buildMultiTargetIndex() {
-        final TupleRange tupleRange = common.computeRecordsRange();
-        final byte[] rangeStart;
-        final byte[] rangeEnd;
-        if (tupleRange == null) {
-            rangeStart = rangeEnd = null;
-        } else {
-            final Range range = tupleRange.toRange();
-            rangeStart = range.begin;
-            rangeEnd = range.end;
-        }
-
-        final CompletableFuture<FDBRecordStore> maybePresetRangeFuture =
-                rangeStart == null ?
-                CompletableFuture.completedFuture(null) :
-                buildCommitRetryAsync((store, recordsScanned) -> {
-                    // Here: only records inside the defined records-range are relevant to the index. Hence, the completing range
-                    // can be preemptively marked as indexed.
-                    final List<Index> targetIndexes = common.getTargetIndexes();
-                    final List<IndexingRangeSet> targetRangeSets = targetIndexes.stream()
-                            .map(targetIndex -> IndexingRangeSet.forIndexBuild(store, targetIndex))
-                            .collect(Collectors.toList());
-                    return CompletableFuture.allOf(
-                            insertRanges(targetRangeSets, null, rangeStart),
-                                    insertRanges(targetRangeSets, rangeEnd, null))
-                            .thenApply(ignore -> null);
-                }, null);
-
-        final List<Object> additionalLogMessageKeyValues = Arrays.asList(LogMessageKeys.CALLING_METHOD, "buildMultiTargetIndex",
-                LogMessageKeys.RANGE_START, rangeStart,
-                LogMessageKeys.RANGE_END, rangeEnd);
-
-        return maybePresetRangeFuture.thenCompose(ignore ->
+        final List<Object> additionalLogMessageKeyValues = Arrays.asList(LogMessageKeys.CALLING_METHOD, "buildMultiTargetIndex");
+        return maybePresetRangeFuture().thenCompose(ignore ->
                         iterateAllRanges(additionalLogMessageKeyValues, this::buildRangeOnly));
     }
 
@@ -210,11 +179,6 @@ public class IndexingMultiTargetByRecords extends IndexingBase {
             return insertRanges(targetRangeSets, rangeStart, continuation)
                     .thenApply(ignore -> hasMore || rangeEnd != null);
         }
-    }
-
-    private static CompletableFuture<Void> insertRanges(List<IndexingRangeSet> rangeSets,
-                                                        byte[] start, byte[] end) {
-        return AsyncUtil.whenAll(rangeSets.stream().map(set -> set.insertRangeAsync(start, end, true)).collect(Collectors.toList()));
     }
 
     @SuppressWarnings("unused")

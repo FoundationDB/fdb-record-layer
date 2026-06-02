@@ -1282,7 +1282,18 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         return scanTypedRecords(serializer, low, high, lowEndpoint, highEndpoint, continuation, scanProperties);
     }
 
+    /**
+     * Scan the records in the database in a rang - using {@link KeyRange} raw key bytes boundaries. This can be useful when the
+     * range should be opaque.
+     *
+     * @param range the range of records to scan, expressed as raw key bytes within the records subspace
+     * @param continuation any continuation from a previous scan invocation
+     * @param scanProperties skip, limit and other properties of the scan
+     *
+     * @return a cursor over the stored records in the given range
+     */
     @Nonnull
+    @API(API.Status.INTERNAL)
     public RecordCursor<FDBStoredRecord<Message>> scanRecords(@Nonnull final KeyRange range,
                                                               @Nullable byte[] continuation,
                                                               @Nonnull ScanProperties scanProperties) {

@@ -816,6 +816,9 @@ public class RecordTypeKeyTest extends FDBRecordStoreQueryTestBase {
 
         try (OnlineIndexer indexBuilder = OnlineIndexer.forRecordStoreAndIndex(recordStore, "newIndex")) {
             indexBuilder.buildIndex();
+            // The typed-records optimization restricts the scan to MySimpleRecord's record-type range, so only the
+            // matching records are scanned - the 3 MyOtherRecord records are skipped.
+            assertEquals(numRecords, indexBuilder.getTotalRecordsScanned());
         }
 
         try (FDBRecordContext context = openContext()) {

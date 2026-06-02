@@ -172,13 +172,18 @@ public class IndexingMutuallyByRecords extends IndexingBase {
             boundaries.add(0, null);
             boundaries.add(null);
         } else {
-            // Here: add the endpoints, unless they are already included
+            // Add the low endpoint (an inclusive record-type-key prefix) as the bottom boundary, unless an existing
+            // boundary already precedes it.
             if (boundaries.isEmpty() || tupleRange.getLow() == null || tupleRange.getLow().compareTo(boundaries.get(0)) < 0) {
                 boundaries.add(0, tupleRange.getLow());
             }
-            if (tupleRange.getHigh() == null || tupleRange.getHigh().compareTo(boundaries.get(boundaries.size() - 1)) > 0) {
-                boundaries.add(tupleRange.getHigh());
-            }
+            // The high endpoint is an inclusive record-type-key prefix; it cannot be used directly as an (exclusive)
+            // fragment boundary, since all of that type's records sort after it - and when low == high (a single
+            // record type) it would otherwise collapse the boundaries into a single empty fragment, leaving no range
+            // to build. Leave the top open instead: maybePresetRangeFuture has already marked every key beyond the
+            // records range as built, so each fragment is clamped back to the records range when its missing
+            // sub-range is computed.
+            boundaries.add(null);
         }
 
         if (LOGGER.isDebugEnabled()) {
@@ -291,38 +296,8 @@ public class IndexingMutuallyByRecords extends IndexingBase {
 
     @Nonnull
     private CompletableFuture<Void> buildMultiTargetIndex() {
-        final TupleRange tupleRange = common.computeRecordsRange();
-        final byte[] rangeStart;
-        final byte[] rangeEnd;
-        if (tupleRange == null) {
-            rangeStart = rangeEnd = null;
-        } else {
-            final Range range = tupleRange.toRange();
-            rangeStart = range.begin;
-            rangeEnd = range.end;
-        }
-
-        final CompletableFuture<FDBRecordStore> maybePresetRangeFuture =
-                rangeStart == null ?
-                CompletableFuture.completedFuture(null) :
-                buildCommitRetryAsync((store, recordsScanned) -> {
-                    // Here: only records inside the defined records-range are relevant to the index. Hence, the completing range
-                    // can be preemptively marked as indexed.
-                    final List<Index> targetIndexes = common.getTargetIndexes();
-                    final List<IndexingRangeSet> targetRangeSets = targetIndexes.stream()
-                            .map(targetIndex -> IndexingRangeSet.forIndexBuild(store, targetIndex))
-                            .collect(Collectors.toList());
-                    return CompletableFuture.allOf(
-                                    insertRanges(targetRangeSets, null, rangeStart),
-                                    insertRanges(targetRangeSets, rangeEnd, null))
-                            .thenApply(ignore -> null);
-                }, null);
-
-        final List<Object> additionalLogMessageKeyValues = Arrays.asList(LogMessageKeys.CALLING_METHOD, "mutualMultiTargetIndex-wrapper",
-                LogMessageKeys.RANGE_START, rangeStart,
-                LogMessageKeys.RANGE_END, rangeEnd);
-
-        return maybePresetRangeFuture.thenCompose(ignore ->
+        final List<Object> additionalLogMessageKeyValues = Arrays.asList(LogMessageKeys.CALLING_METHOD, "mutualMultiTargetIndex-wrapper");
+        return maybePresetRangeFuture().thenCompose(ignore ->
                 iterateAllRanges(additionalLogMessageKeyValues,
                         (store, recordsScanned) -> buildRangeOnly(store)));
     }
@@ -516,11 +491,6 @@ public class IndexingMutuallyByRecords extends IndexingBase {
         return squasshed ?
                ranges.stream().filter(Objects::nonNull).collect(Collectors.toList()) :
                ranges;
-    }
-
-    private static CompletableFuture<Void> insertRanges(List<IndexingRangeSet> rangeSets,
-                                                        byte[] start, byte[] end) {
-        return AsyncUtil.whenAll(rangeSets.stream().map(set -> set.insertRangeAsync(start, end, true)).collect(Collectors.toList()));
     }
 
     private void infiniteLoopProtection(final Range range, final List<Range> missingRanges) {
