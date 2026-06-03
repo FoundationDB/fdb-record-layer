@@ -35,6 +35,16 @@ import javax.annotation.Nonnull;
  * data type conversions and raw data representation.
  */
 public interface RealVector {
+    /**
+     * Threshold (in L2-norm units) below which a vector is treated as "effectively zero" — i.e.
+     * its direction is considered undefined for metrics that depend on it, principally cosine
+     * similarity. Used by {@link #isNearlyZeroNorm()}, which compares the squared L2 norm
+     * against {@code EPS * EPS} to avoid a {@code sqrt}.
+     * <p>
+     * The value is sized to sit well above the floating-point noise of typical double-precision
+     * accumulations and well below any norm a meaningful vector would have in practice. Callers
+     * generally shouldn't need to consult this constant directly; prefer {@link #isNearlyZeroNorm()}.
+     */
     double EPS = 1.0e-12;
 
     ImmutableList<VectorType> VECTOR_TYPES = ImmutableList.copyOf(VectorType.values());

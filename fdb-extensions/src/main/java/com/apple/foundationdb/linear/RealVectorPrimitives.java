@@ -36,9 +36,9 @@ public final class RealVectorPrimitives {
 
     @Nonnull
     static double[] normalizeInto(@Nonnull final RealVector in, @Nonnull final double[] target) {
-        double n = in.l2Norm();
         final int numDimensions = in.getNumDimensions();
-        Preconditions.checkArgument(target.length == numDimensions);
+        Preconditions.checkArgument(target.length == in.getNumDimensions());
+        double n = in.l2Norm();
 
         if (n == 0.0 || !Double.isFinite(n)) {
             throw new IllegalArgumentException("vector has an L2 norm of infinite, not a number, or 0");

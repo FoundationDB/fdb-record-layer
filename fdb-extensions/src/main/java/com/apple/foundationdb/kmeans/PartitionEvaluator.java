@@ -21,6 +21,7 @@
 package com.apple.foundationdb.kmeans;
 
 import com.apple.foundationdb.linear.Estimator;
+import com.apple.foundationdb.linear.Metric;
 import com.apple.foundationdb.linear.RealVector;
 import com.apple.foundationdb.util.Lens;
 import com.google.common.base.Preconditions;
@@ -30,8 +31,10 @@ import org.slf4j.LoggerFactory;
 import javax.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
+import java.util.PriorityQueue;
 
 /**
  * Evaluates whether a candidate partitioning should replace a current partitioning. Works
@@ -277,12 +280,18 @@ public class PartitionEvaluator {
     }
 
     /**
-     * Computes the full panel of {@link PartitionStats} for a single partitioning. The work is
-     * done in two passes: the first builds the distribution of assigned-distance values so the
-     * {@code lowMarginThreshold} can be derived from its 95th percentile; the second accumulates
-     * SSE, per-cluster radii and per-vector margins. Inter-centroid separation, median/p10
-     * margin, and low-margin rate are computed only when {@code k >= 2} and reported as
-     * {@link Double#NaN} (or {@code 0.0} for {@code lowMarginRate}) otherwise.
+     * Computes the full panel of {@link PartitionStats} for a single partitioning in a single pass
+     * over {@code vectors}. SSE, per-cluster radii, per-vector margins, and (optionally) the
+     * approximate 95th-percentile assigned distance are accumulated inside
+     * {@link #accumulate(List, Lens, Partition, Estimator, boolean)}; size summaries and
+     * margin summaries are derived from those accumulators. Inter-centroid separation,
+     * median/p10 margin, and low-margin rate are computed only when {@code k >= 2} and reported
+     * as {@link Double#NaN} (or {@code 0.0} for {@code lowMarginRate}) otherwise.
+     * <p>
+     * The 95th-percentile assigned distance is only needed when the metric is Euclidean AND no
+     * explicit {@link Parameters#lowMarginThreshold()} override is set — in every other case,
+     * {@link #computeLowMarginThreshold} ignores it. We compute that condition upfront and skip
+     * the heap maintenance in {@code accumulate} when it's not needed.
      *
      * @param vectors the vectors belonging to {@code partition}; must be non-empty
      * @param vectorLens lens that extracts a {@link RealVector} from each {@code vectors} element
@@ -306,11 +315,14 @@ public class PartitionEvaluator {
         Preconditions.checkArgument(partition.assignments().length == n,
                 "assignment length mismatch");
 
-        final List<Double> assigned = assignedDistances(vectors, vectorLens, partition, estimator);
-        final double lowMarginThreshold =
-                computeLowMarginThreshold(parameters, percentile(assigned, 0.95d));
+        final boolean needOverallP95 =
+                estimator.getMetric() != Metric.COSINE_METRIC
+                        && parameters.lowMarginThreshold() <= 0.0d;
 
-        final SecondPassResult acc = accumulate(vectors, vectorLens, partition, estimator);
+        final SecondPassResult acc =
+                accumulate(vectors, vectorLens, partition, estimator, needOverallP95);
+        final double lowMarginThreshold =
+                computeLowMarginThreshold(parameters, acc.overallP95());
         final SizeStats sizes = summarizeSizes(acc.childSizes(), n);
         final double maxRadius95 = maxRadius95(acc.childRadii());
         final double separation = separation(partition, estimator, maxRadius95);
@@ -328,10 +340,15 @@ public class PartitionEvaluator {
      * @param childSizes per-cluster vector counts; length {@code k}
      * @param childRadii per-cluster lists of assigned-distance values; length {@code k}
      * @param margins per-vector assignment margins (empty when {@code k < 2})
+     * @param overallP95 the 95th percentile (approximated as the rank-{@code (n-m)} value, where
+     *                   {@code m = ceil(0.05 * n)}) of all assigned distances; {@link Double#NaN}
+     *                   when the caller did not request it (i.e. when the low-margin threshold is
+     *                   either explicitly overridden or fixed by the metric)
      */
     private record SecondPassResult(double sse, @Nonnull int[] childSizes,
                                     @Nonnull List<Double>[] childRadii,
-                                    @Nonnull List<Double> margins) {
+                                    @Nonnull List<Double> margins,
+                                    double overallP95) {
     }
 
     /**
@@ -357,51 +374,36 @@ public class PartitionEvaluator {
     }
 
     /**
-     * First pass: collects the distance from each vector to its assigned centroid. The resulting
-     * distribution drives the data-derived {@code lowMarginThreshold}.
+     * Single pass over the input that accumulates SSE, per-cluster sizes and radii, per-vector
+     * margins, and (optionally) the approximate 95th-percentile assigned distance.
+     * <p>
+     * Margins are only computed when {@code k >= 2}; otherwise the returned {@code margins} list
+     * is empty.
+     * <p>
+     * The {@code overallP95} computation is opt-in via {@code computeOverallP95} because most
+     * paths through {@link #computeLowMarginThreshold} don't read it (cosine uses a fixed
+     * constant; Euclidean with an explicit override doesn't need it either). When requested, we
+     * maintain a min-heap of size {@code m = ceil(0.05 * n)} containing the largest {@code m}
+     * assigned distances seen so far; after the pass the root of that heap is the rank-{@code
+     * (n - m)} value, which approximates the p95. This avoids materializing an {@code O(n)} flat
+     * list and replaces an {@code O(n log n)} sort with an {@code O(n log m)} heap maintenance.
      *
      * @param vectors the input vectors
      * @param vectorLens lens that extracts a {@link RealVector} from each {@code vectors} element
      * @param partition the partitioning being evaluated
      * @param estimator the distance estimator
+     * @param computeOverallP95 if true, also produce the approximate 95th-percentile assigned
+     *                          distance in {@link SecondPassResult#overallP95()}; otherwise that
+     *                          field is {@link Double#NaN}
      * @param <V> caller's input vector representation
-     * @return a list of {@code n} assigned distances in input order
-     */
-    @Nonnull
-    private static <V> List<Double> assignedDistances(@Nonnull final List<V> vectors,
-                                                      @Nonnull final Lens<V, RealVector> vectorLens,
-                                                      @Nonnull final Partition<?> partition,
-                                                      @Nonnull final Estimator estimator) {
-        final int n = vectors.size();
-        final int k = partition.k();
-        final List<Double> distances = new ArrayList<>(n);
-        for (int i = 0; i < n; i++) {
-            final int own = partition.getAssignment(i);
-            Preconditions.checkArgument(own >= 0 && own < k,
-                    "invalid assignment at index " + i + ": " + own);
-            final RealVector v = vectorLens.getNonnull(vectors.get(i));
-            final RealVector c = partition.getCentroid(own);
-            distances.add(geometricDistance(estimator, v, c));
-        }
-        return distances;
-    }
-
-    /**
-     * Second pass: accumulates SSE, per-cluster sizes and radii, and per-vector margins. Margins
-     * are only computed when {@code k >= 2}; otherwise the returned {@code margins} list is empty.
-     *
-     * @param vectors the input vectors
-     * @param vectorLens lens that extracts a {@link RealVector} from each {@code vectors} element
-     * @param partition the partitioning being evaluated
-     * @param estimator the distance estimator
-     * @param <V> caller's input vector representation
-     * @return the accumulated SSE, per-cluster sizes, per-cluster radii, and margins
+     * @return the accumulated results
      */
     @Nonnull
     private static <V> SecondPassResult accumulate(@Nonnull final List<V> vectors,
                                                    @Nonnull final Lens<V, RealVector> vectorLens,
                                                    @Nonnull final Partition<?> partition,
-                                                   @Nonnull final Estimator estimator) {
+                                                   @Nonnull final Estimator estimator,
+                                                   final boolean computeOverallP95) {
         final int n = vectors.size();
         final int k = partition.k();
 
@@ -413,19 +415,38 @@ public class PartitionEvaluator {
         final List<Double> margins = new ArrayList<>(k >= 2 ? n : 0);
         double sse = 0.0;
 
+        // Top-m heap for the optional p95: a min-heap that keeps the largest m distances seen.
+        // After the pass, its root is the m-th largest = rank (n - m) of the assigned-distance
+        // distribution, which is the p95 approximation we report. Allocated only when needed.
+        final int p95HeapSize = computeOverallP95 ? Math.max(1, (int) Math.ceil(0.05d * n)) : 0;
+        final PriorityQueue<Double> p95Heap =
+                computeOverallP95 ? new PriorityQueue<>(p95HeapSize, Comparator.naturalOrder()) : null;
+
         for (int i = 0; i < n; i++) {
             final RealVector v = vectorLens.getNonnull(vectors.get(i));
             final int own = partition.getAssignment(i);
+            Preconditions.checkArgument(own >= 0 && own < k,
+                    "invalid assignment at index " + i + ": " + own);
             final RealVector ownC = partition.getCentroid(own);
 
             childSizes[own]++;
             sse += distanceForSse(estimator, v, ownC);
-            childRadii[own].add(geometricDistance(estimator, v, ownC));
+            final double d = geometricDistance(estimator, v, ownC);
+            childRadii[own].add(d);
+            if (p95Heap != null) {
+                if (p95Heap.size() < p95HeapSize) {
+                    p95Heap.offer(d);
+                } else if (d > p95Heap.peek()) {
+                    p95Heap.poll();
+                    p95Heap.offer(d);
+                }
+            }
             if (k >= 2) {
                 margins.add(computeMargin(estimator, partition, v, own));
             }
         }
-        return new SecondPassResult(sse, childSizes, childRadii, margins);
+        final double overallP95 = (p95Heap != null && !p95Heap.isEmpty()) ? p95Heap.peek() : Double.NaN;
+        return new SecondPassResult(sse, childSizes, childRadii, margins, overallP95);
     }
 
     /**
@@ -672,14 +693,19 @@ public class PartitionEvaluator {
      *         {@code p}
      */
     private static double percentile(@Nonnull final List<Double> values, double p) {
+        Preconditions.checkArgument(p >= 0.0d, "desired percentile should be >= 0");
+        Preconditions.checkArgument(p <= 1.0d, "desired percentile should be <= 1");
+
         if (values.isEmpty()) {
             return Double.NaN;
         }
+
+        if (values.size() == 1) {
+            return values.get(0);
+        }
+
         final List<Double> copy = new ArrayList<>(values);
         copy.sort(Double::compare);
-        if (copy.size() == 1) {
-            return copy.get(0);
-        }
 
         final double rank = p * (copy.size() - 1);
         final int lo = (int)Math.floor(rank);
@@ -706,7 +732,7 @@ public class PartitionEvaluator {
     }
 
     /**
-     * A partition of a point set into {@code k} clusters, as passed to {@link #evaluate}. Each
+     * Represents a partitioning of a set of vectors into {@code k} clusters, as passed to {@link #evaluate}. Each
      * vector is assigned to exactly one centroid via the {@code assignments} array, where
      * {@code assignments[i]} is the index into {@code centroids} that owns
      * {@code vectors.get(i)}.

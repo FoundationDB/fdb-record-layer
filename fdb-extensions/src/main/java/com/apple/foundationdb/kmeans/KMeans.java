@@ -93,7 +93,8 @@ public final class KMeans {
      * <p>
      * Setting {@code shuffleEachIteration} to {@code true} reduces order-dependence when using
      * projected-size penalties (see {@link SizePenalty}) and usually improves balance quality
-     * when {@code lambda > 0}; with {@code lambda == 0} it has no effect on results because the
+     * when {@code lambda > 0}; as imbalance grows during the assignment process, distance penalties
+     * grow as well; with {@code lambda == 0} it has no effect on results because the
      * assignment is order-independent.
      *
      * @param random the random source; consumed by k-means++ initialization, restart seeding,
