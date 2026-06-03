@@ -42,9 +42,9 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.TreeSet;
 import java.util.stream.Collectors;
 import java.util.stream.LongStream;
 
@@ -198,6 +198,22 @@ public final class SlidingWindowTestHelpers {
     }
 
     /**
+     * Scans the underlying value delegate index and returns the set of primary key longs
+     * present in the delegate. Mirrors {@link #scanIndexRecNos(FDBRecordStore, String, Tuple)}
+     * but for a value-backed sliding window where the test schema uses a single-column
+     * {@code int64} primary key.
+     */
+    @Nonnull
+    public static List<IndexEntry> scanValueIndexEntries(@Nonnull final FDBRecordStore recordStore,
+                                                 @Nonnull final String indexName) {
+        final Index index = recordStore.getRecordMetaData().getIndex(indexName);
+        final IndexMaintainer maintainer = recordStore.getIndexMaintainer(index);
+        try (var cursor = maintainer.scan(IndexScanType.BY_VALUE, TupleRange.ALL, null, ScanProperties.FORWARD_SCAN)) {
+            return cursor.asList().join();
+        }
+    }
+
+    /**
      * Asserts the central sliding-window invariant: the boundary key separates every entry
      * present in the delegate index from every entry tracked in the entries subspace but
      * not in the delegate.
@@ -237,12 +253,13 @@ public final class SlidingWindowTestHelpers {
         final List<Tuple> entries = scanWindowEntries(recordStore, indexName, null);
         final Tuple boundary = readBoundaryKey(recordStore, indexName, null);
         final long count = readWindowCount(recordStore, indexName, null);
-        final Set<Long> delegatePks = scanValueIndexRecNos(recordStore, indexName);
+        final List<IndexEntry> delegateEntries = scanValueIndexEntries(recordStore, indexName);
+        final Set<Tuple> delegateEntriesForWindow = delegateEntries.stream().map(IndexEntry::getKey).collect(Collectors.toCollection(TreeSet::new));
 
         if (entries.isEmpty()) {
             assertNull(boundary, "boundary should be null when entries subspace is empty");
             assertEquals(0L, count, "count should be 0 when entries subspace is empty");
-            assertTrue(delegatePks.isEmpty(), "delegate should be empty when entries subspace is empty but contained: " + delegatePks);
+            assertTrue(delegateEntries.isEmpty(), "delegate should be empty when entries subspace is empty but contained: " + delegateEntriesForWindow);
             return;
         }
 
@@ -264,20 +281,21 @@ public final class SlidingWindowTestHelpers {
             }
         }
 
-        final Set<Long> inWindowPks = inWindow.stream()
-                .map(e -> TupleHelpers.subTuple(e, windowKeyColumnSize, e.size()).getLong(0))
-                .collect(Collectors.toCollection(HashSet::new));
-        final Set<Long> overflowPks = overflow.stream()
-                .map(e -> TupleHelpers.subTuple(e, windowKeyColumnSize, e.size()).getLong(0))
-                .collect(Collectors.toCollection(HashSet::new));
+        final Set<Tuple> inWindowEntries = inWindow.stream()
+                //.map(e -> TupleHelpers.subTuple(e, windowKeyColumnSize, e.size()).getLong(0))
+                .collect(Collectors.toCollection(TreeSet::new));
+        final Set<Tuple> overflowEntries = overflow.stream()
+                //.map(e -> TupleHelpers.subTuple(e, windowKeyColumnSize, e.size()).getLong(0))
+                .collect(Collectors.toCollection(TreeSet::new));
 
-        assertEquals(inWindowPks, delegatePks,
+        assertEquals(inWindowEntries, delegateEntriesForWindow,
                 "delegate pks must equal in-window pks (boundary-separates invariant). "
-                        + "boundary=" + boundary + ", inWindow=" + inWindowPks + ", delegate=" + delegatePks);
+                        + "\nboundary=" + boundary + ", \ninWindow=" + inWindowEntries + ", \ndelegate=" + delegateEntriesForWindow +
+                ", \noverflow=" + overflowEntries);
 
-        for (Long overflowPk : overflowPks) {
-            assertTrue(!delegatePks.contains(overflowPk),
-                    "overflow pk " + overflowPk + " unexpectedly present in delegate " + delegatePks);
+        for (Tuple overflowEntry : overflowEntries) {
+            assertTrue(!delegateEntriesForWindow.contains(overflowEntry),
+                    "overflow pk " + overflowEntry + " unexpectedly present in delegate " + delegateEntriesForWindow);
         }
 
         assertEquals((long) inWindow.size(), count,
