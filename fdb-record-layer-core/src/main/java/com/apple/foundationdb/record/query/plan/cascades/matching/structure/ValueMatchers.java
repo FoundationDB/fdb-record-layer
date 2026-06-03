@@ -37,6 +37,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.VariadicFunctionValue;
 import com.apple.foundationdb.tuple.TupleOrdering;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
 import java.util.Arrays;
@@ -57,9 +58,21 @@ public class ValueMatchers {
         // do not instantiate
     }
 
+    /**
+     * Returns a matcher that binds any {@link Value}.
+     */
     @Nonnull
     public static BindingMatcher<Value> anyValue() {
         return typed(Value.class);
+    }
+
+    /**
+     * Returns a matcher that binds any {@link Value} whose concrete class is one of the given {@code subclasses}.
+     * @see MultiTypedMatcher
+     */
+    @Nonnull
+    public static BindingMatcher<Value> anyValueOfType(@Nonnull final ImmutableSet<Class<? extends Value>> subclasses) {
+        return new MultiTypedMatcher<>(Value.class, subclasses);
     }
 
     @Nonnull

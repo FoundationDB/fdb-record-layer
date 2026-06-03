@@ -51,7 +51,6 @@ import javax.annotation.Nonnull;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -160,8 +159,8 @@ public class MatchIntermediateRule extends CascadesRule<RelationalExpression> {
 
     @Nonnull
     @Override
-    public Optional<Class<?>> getRootOperator() {
-        return Optional.empty();
+    public Set<Class<?>> getRootOperators() {
+        return Set.of();
     }
 
     @Override

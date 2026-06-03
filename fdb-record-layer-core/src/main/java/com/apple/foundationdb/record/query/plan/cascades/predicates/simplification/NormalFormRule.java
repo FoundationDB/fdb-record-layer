@@ -26,7 +26,7 @@ import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredica
 import com.apple.foundationdb.record.query.plan.planning.BooleanPredicateNormalizer;
 
 import javax.annotation.Nonnull;
-import java.util.Optional;
+import java.util.Set;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QueryPredicateMatchers.anyPredicate;
 
@@ -48,9 +48,8 @@ public class NormalFormRule extends QueryPredicateSimplificationRule<QueryPredic
 
     @Nonnull
     @Override
-    public Optional<Class<?>> getRootOperator() {
-        // always-rule
-        return Optional.empty();
+    public Set<Class<?>> getRootOperators() {
+        return Set.of();
     }
 
     @Override

@@ -34,7 +34,7 @@ import com.google.common.collect.Sets;
 
 import javax.annotation.Nonnull;
 import java.util.Collection;
-import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.MultiMatcher.all;
@@ -68,8 +68,8 @@ public class AbsorptionRule<P extends AndOrPredicate> extends QueryPredicateSimp
 
     @Nonnull
     @Override
-    public Optional<Class<?>> getRootOperator() {
-        return Optional.empty();
+    public Set<Class<?>> getRootOperators() {
+        return Set.of();
     }
 
     @Override

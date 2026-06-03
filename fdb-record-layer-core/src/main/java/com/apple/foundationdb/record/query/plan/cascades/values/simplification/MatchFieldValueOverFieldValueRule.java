@@ -29,7 +29,6 @@ import com.apple.foundationdb.record.util.pair.NonnullPair;
 
 import javax.annotation.Nonnull;
 import java.util.Map;
-import java.util.Optional;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.anyFieldValue;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.fieldValue;
@@ -48,12 +47,6 @@ public class MatchFieldValueOverFieldValueRule extends ValueComputationRule<Valu
 
     public MatchFieldValueOverFieldValueRule() {
         super(rootMatcher);
-    }
-
-    @Nonnull
-    @Override
-    public Optional<Class<?>> getRootOperator() {
-        return Optional.of(FieldValue.class);
     }
 
     @Override

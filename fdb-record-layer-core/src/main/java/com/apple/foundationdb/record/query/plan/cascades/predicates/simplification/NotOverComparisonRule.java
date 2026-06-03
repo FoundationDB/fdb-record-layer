@@ -29,7 +29,6 @@ import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredica
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 
 import javax.annotation.Nonnull;
-import java.util.Optional;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QueryPredicateMatchers.anyComparison;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QueryPredicateMatchers.notPredicate;
@@ -54,12 +53,6 @@ public class NotOverComparisonRule extends QueryPredicateSimplificationRule<NotP
 
     public NotOverComparisonRule() {
         super(rootMatcher);
-    }
-
-    @Nonnull
-    @Override
-    public Optional<Class<?>> getRootOperator() {
-        return Optional.of(NotPredicate.class);
     }
 
     @Override

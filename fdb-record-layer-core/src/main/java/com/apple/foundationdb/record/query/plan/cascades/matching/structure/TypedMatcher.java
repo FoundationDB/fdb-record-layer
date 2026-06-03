@@ -22,8 +22,12 @@ package com.apple.foundationdb.record.query.plan.cascades.matching.structure;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
+import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
+import com.google.common.base.Verify;
+import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
+import java.util.Set;
 import java.util.stream.Stream;
 
 /**
@@ -40,15 +44,33 @@ import java.util.stream.Stream;
 public class TypedMatcher<T> implements BindingMatcher<T> {
     @Nonnull
     private final Class<T> bindableClass;
+    @Nonnull
+    private final Set<Class<?>> rootClasses;
 
     public TypedMatcher(@Nonnull final Class<T> bindableClass) {
+        this(bindableClass, ImmutableSet.of(bindableClass));
+    }
+
+    public TypedMatcher(@Nonnull final Class<T> bindableClass,
+                        @Nonnull final Set<? extends Class<?>> rootClasses) {
+        // Sanity-check that every advertised root class is a (sub-)type of `bindableClass`.
+        Debugger.sanityCheck(() -> rootClasses.forEach(c -> Verify.verify(bindableClass.isAssignableFrom(c),
+                "rootClass %s is not assignable from bindableClass %s", c, bindableClass)));
+
         this.bindableClass = bindableClass;
+        this.rootClasses = ImmutableSet.copyOf(rootClasses);
     }
 
     @Nonnull
     @Override
     public Class<T> getRootClass() {
         return bindableClass;
+    }
+
+    @Nonnull
+    @Override
+    public Set<Class<?>> getRootClasses() {
+        return rootClasses;
     }
 
     @Nonnull

@@ -30,7 +30,6 @@ import com.google.common.collect.Iterables;
 
 import javax.annotation.Nonnull;
 import java.util.Map;
-import java.util.Optional;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.anyValue;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.toOrderedBytesValue;
@@ -48,12 +47,6 @@ public class CompensateToOrderedBytesValueRule extends ValueComputationRule<Valu
 
     public CompensateToOrderedBytesValueRule() {
         super(rootMatcher);
-    }
-
-    @Nonnull
-    @Override
-    public Optional<Class<?>> getRootOperator() {
-        return Optional.of(ToOrderedBytesValue.class);
     }
 
     @Override

@@ -35,7 +35,7 @@ import com.google.common.collect.Multimaps;
 
 import javax.annotation.Nonnull;
 import java.util.Objects;
-import java.util.Optional;
+import java.util.Set;
 
 /**
  * A rule that matches any {@link Value} (with the argument values) that is a constant expression.
@@ -53,8 +53,8 @@ public class MatchConstantValueRule extends ValueComputationRule<Iterable<? exte
 
     @Nonnull
     @Override
-    public Optional<Class<?>> getRootOperator() {
-        return Optional.empty(); // this is an always-rule
+    public Set<Class<?>> getRootOperators() {
+        return Set.of();
     }
 
     @Override

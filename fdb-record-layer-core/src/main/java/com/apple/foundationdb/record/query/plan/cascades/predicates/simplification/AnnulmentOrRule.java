@@ -28,7 +28,6 @@ import com.apple.foundationdb.record.query.plan.cascades.predicates.OrPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 
 import javax.annotation.Nonnull;
-import java.util.Optional;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.MultiMatcher.all;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QueryPredicateMatchers.anyPredicate;
@@ -49,12 +48,6 @@ public class AnnulmentOrRule extends QueryPredicateSimplificationRule<OrPredicat
 
     public AnnulmentOrRule() {
         super(rootMatcher);
-    }
-
-    @Nonnull
-    @Override
-    public Optional<Class<?>> getRootOperator() {
-        return Optional.of(OrPredicate.class);
     }
 
     @Override
