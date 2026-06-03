@@ -36,19 +36,22 @@ import java.util.Set;
 @SuppressWarnings("java:S1452")
 public class DefaultValueSimplificationRuleSet extends AbstractValueRuleSet<Value, ValueSimplificationRuleCall> {
     @Nonnull
+    protected static final ValueSimplificationRule<? extends Value> collapseNullStrictValueOverNullValueRule = new CollapseNullStrictValueOverNullValueRule();
+    @Nonnull
     protected static final ValueSimplificationRule<? extends Value> composeFieldValueOverRecordConstructorRule = new ComposeFieldValueOverRecordConstructorRule();
     @Nonnull
     protected static final ValueSimplificationRule<? extends Value> composeFieldValueOverFieldValueRule = new ComposeFieldValueOverFieldValueRule();
     @Nonnull
     protected static final ValueSimplificationRule<? extends Value> collapseRecordConstructorOverFieldsToStarRule = new CollapseRecordConstructorOverFieldsToStarRule();
-    @Nonnull
-    protected static final ValueSimplificationRule<? extends Value> collapseNullStrictValueOverNullValueRule = new CollapseNullStrictValueOverNullValueRule();
+
+    // Note: the order of rules is important, since we potentially go through all the rules again when a rule produces a match.
+    // See Simplification.executeRuleSetIteratively for more details.
     @Nonnull
     protected static final Set<ValueSimplificationRule<? extends Value>> SIMPLIFICATION_RULES = ImmutableSet.of(
+            collapseNullStrictValueOverNullValueRule,
             composeFieldValueOverRecordConstructorRule,
             composeFieldValueOverFieldValueRule,
-            collapseRecordConstructorOverFieldsToStarRule,
-            collapseNullStrictValueOverNullValueRule);
+            collapseRecordConstructorOverFieldsToStarRule);
     @Nonnull
     protected static final SetMultimap<ValueSimplificationRule<? extends Value>, ValueSimplificationRule<? extends Value>> SIMPLIFICATION_DEPENDS_ON =
             ImmutableSetMultimap.of();
