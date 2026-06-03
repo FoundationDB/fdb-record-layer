@@ -117,7 +117,7 @@ public class IndexingMultiTargetByRecords extends IndexingBase {
     @Nonnull
     private CompletableFuture<Void> buildMultiTargetIndex() {
         final List<Object> additionalLogMessageKeyValues = Arrays.asList(LogMessageKeys.CALLING_METHOD, "buildMultiTargetIndex");
-        return maybePresetRangeFuture().thenCompose(ignore ->
+        return maybePresetRecordsRangeAsync().thenCompose(ignore ->
                         iterateAllRanges(additionalLogMessageKeyValues, this::buildRangeOnly));
     }
 
@@ -140,8 +140,8 @@ public class IndexingMultiTargetByRecords extends IndexingBase {
                 return AsyncUtil.READY_FALSE; // no more missing ranges - all done
             }
             // Keep the boundaries as (opaque) raw bytes.
-            final byte[] rangeStart = RangeSet.isFirstKey(range.begin) ? null : range.begin;
-            final byte[] rangeEnd = RangeSet.isFinalKey(range.end) ? null : range.end;
+            final byte[] rangeStart = RangeSet.nullIfFirst(range.begin);
+            final byte[] rangeEnd = RangeSet.nullIfFinal(range.end);
 
             RecordCursor<FDBStoredRecord<Message>> cursor =
                     store.scanRecords(new KeyRange(rangeStart, rangeEnd), null, scanProperties);

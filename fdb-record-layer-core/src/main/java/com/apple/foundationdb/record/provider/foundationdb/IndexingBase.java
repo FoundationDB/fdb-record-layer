@@ -593,7 +593,7 @@ public abstract class IndexingBase {
      * @return a future that completes once the out-of-range key ranges (if any) have been marked as indexed
      */
     @Nonnull
-    protected CompletableFuture<Void> maybePresetRangeFuture() {
+    protected CompletableFuture<Void> maybePresetRecordsRangeAsync() {
         final TupleRange tupleRange = common.computeRecordsRange();
         if (tupleRange == null) {
             return AsyncUtil.DONE;

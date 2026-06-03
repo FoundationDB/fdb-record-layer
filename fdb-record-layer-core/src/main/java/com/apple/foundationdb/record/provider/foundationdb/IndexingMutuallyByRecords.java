@@ -165,25 +165,9 @@ public class IndexingMutuallyByRecords extends IndexingBase {
             boundaries = new ArrayList<>();
         }
 
-        // Add the two endpoints to the range
-        if (tupleRange == null) {
-            // Here: make sure that the boundaries cover everything
-            boundaries.add(0, null);
-            boundaries.add(null);
-        } else {
-            // Add the low endpoint (an inclusive record-type-key prefix) as the bottom boundary, unless an existing
-            // boundary already precedes it.
-            if (boundaries.isEmpty() || tupleRange.getLow() == null || tupleRange.getLow().compareTo(boundaries.get(0)) < 0) {
-                boundaries.add(0, tupleRange.getLow());
-            }
-            // The high endpoint is an inclusive record-type-key prefix; it cannot be used directly as an (exclusive)
-            // fragment boundary, since all of that type's records sort after it - and when low == high (a single
-            // record type) it would otherwise collapse the boundaries into a single empty fragment, leaving no range
-            // to build. Leave the top open instead: maybePresetRangeFuture has already marked every key beyond the
-            // records range as built, so each fragment is clamped back to the records range when its missing
-            // sub-range is computed.
-            boundaries.add(null);
-        }
+        // Add the two endpoints to the range, making sure that the boundaries cover everything
+        boundaries.add(0, null);
+        boundaries.add(null);
 
         if (LOGGER.isDebugEnabled()) {
             LOGGER.debug(KeyValueLogMessage.of("got boundaries",
@@ -296,7 +280,7 @@ public class IndexingMutuallyByRecords extends IndexingBase {
     @Nonnull
     private CompletableFuture<Void> buildMultiTargetIndex() {
         final List<Object> additionalLogMessageKeyValues = Arrays.asList(LogMessageKeys.CALLING_METHOD, "mutualMultiTargetIndex-wrapper");
-        return maybePresetRangeFuture().thenCompose(ignore ->
+        return maybePresetRecordsRangeAsync().thenCompose(ignore ->
                 iterateAllRanges(additionalLogMessageKeyValues,
                         (store, recordsScanned) -> buildRangeOnly(store)));
     }
@@ -394,8 +378,8 @@ public class IndexingMutuallyByRecords extends IndexingBase {
                 return AsyncUtil.READY_FALSE; // no more missing ranges - all done
             }
             // Keep the boundaries as (opaque) raw bytes
-            final byte[] rangeStart = RangeSet.isFirstKey(range.begin) ? null : range.begin;
-            final byte[] rangeEnd = RangeSet.isFinalKey(range.end) ? null : range.end;
+            final byte[] rangeStart = RangeSet.nullIfFirst(range.begin);
+            final byte[] rangeEnd = RangeSet.nullIfFinal(range.end);
 
             RecordCursor<FDBStoredRecord<Message>> cursor =
                     store.scanRecords(new KeyRange(rangeStart, rangeEnd), null, scanProperties);

@@ -1283,8 +1283,8 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     }
 
     /**
-     * Scan the records in the database in a rang - using {@link KeyRange} raw key bytes boundaries. This can be useful when the
-     * range should be opaque.
+     * Scan the records in the database in a range - using {@link KeyRange} raw key bytes boundaries. This can be useful
+     * when it is not possible to arrange for strict primary key scan boundaries, which is typically during an internal use.
      *
      * @param range the range of records to scan, expressed as raw key bytes within the records subspace
      * @param continuation any continuation from a previous scan invocation
