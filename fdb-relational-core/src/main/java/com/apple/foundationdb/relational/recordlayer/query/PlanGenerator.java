@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.RecordStoreState;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
+import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerFactoryRegistryImpl;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMatchCandidateRegistry;
 import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
@@ -41,14 +42,17 @@ import com.apple.foundationdb.record.query.plan.serialization.DefaultPlanSeriali
 import com.apple.foundationdb.record.util.ProtoUtils;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.relational.api.Options;
+import com.apple.foundationdb.relational.api.ddl.ThrowingQueryFactory;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.exceptions.UncheckedRelationalException;
 import com.apple.foundationdb.relational.api.metadata.DataType;
+import com.apple.foundationdb.relational.api.metrics.MetricCollector;
 import com.apple.foundationdb.relational.api.metrics.RelationalMetric;
 import com.apple.foundationdb.relational.continuation.CompiledStatement;
 import com.apple.foundationdb.relational.continuation.TypedQueryArgument;
 import com.apple.foundationdb.relational.recordlayer.ContinuationImpl;
+import com.apple.foundationdb.relational.recordlayer.ddl.ThrowingMetadataOperationsFactory;
 import com.apple.foundationdb.relational.recordlayer.metadata.DataTypeUtils;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.query.cache.PhysicalPlanEquivalence;
@@ -65,6 +69,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import javax.annotation.Nonnull;
+import java.net.URI;
 import java.sql.SQLException;
 import java.util.Arrays;
 import java.util.List;
@@ -499,5 +504,42 @@ public final class PlanGenerator {
                                        @Nonnull FDBRecordStoreBase<?> store,
                                        @Nonnull final Options options) throws RelationalException {
         return create(cache, planContext, store.getRecordMetaData(), store.getRecordStoreState(), store.getIndexMaintainerRegistry(), options);
+    }
+
+    /**
+     * Create a plan generator for offline DQL planning &mdash; does not require an open record store
+     * or a database connection. Suitable for SELECT-only planning where DDL paths are not exercised.
+     *
+     * <p>Internally builds a {@link PlanContext} from the schema template and store state, with
+     * no-op DDL factories and a placeholder {@code embed:offline} URI.
+     * The default {@link IndexMaintainerFactoryRegistryImpl} singleton is used &mdash; the same
+     * registry production paths use.</p>
+     *
+     * @param cache             optional plan cache
+     * @param schemaTemplate    schema template; {@link RecordMetaData} is derived via
+     *                          {@link RecordLayerSchemaTemplate#toRecordMetadata()}
+     * @param recordStoreState  record store state (index readability, store header, etc.)
+     * @param metricCollector   metric collector &mdash; required at runtime by {@link #getPlan(String)}
+     * @param options           planner options
+     * @return a new plan generator
+     * @throws RelationalException if creation fails
+     */
+    @Nonnull
+    public static PlanGenerator create(@Nonnull final Optional<RelationalPlanCache> cache,
+                                       @Nonnull final RecordLayerSchemaTemplate schemaTemplate,
+                                       @Nonnull final RecordStoreState recordStoreState,
+                                       @Nonnull final MetricCollector metricCollector,
+                                       @Nonnull final Options options) throws RelationalException {
+        final var metaData = schemaTemplate.toRecordMetadata();
+        final var planContext = PlanContext.Builder.create()
+                .fromMetaDataAndState(metaData, recordStoreState, options)
+                .withSchemaTemplate(schemaTemplate)
+                .withMetricsCollector(metricCollector)
+                .withConstantActionFactory(ThrowingMetadataOperationsFactory.INSTANCE)
+                .withDdlQueryFactory(ThrowingQueryFactory.INSTANCE)
+                .withDbUri(URI.create("embed:offline"))
+                .build();
+        return create(cache, planContext, metaData, recordStoreState,
+                IndexMaintainerFactoryRegistryImpl.instance(), options);
     }
 }
