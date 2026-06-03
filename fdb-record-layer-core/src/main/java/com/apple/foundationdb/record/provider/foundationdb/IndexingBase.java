@@ -1003,6 +1003,10 @@ public abstract class IndexingBase {
         return end == null && cont == null;
     }
 
+    protected static boolean rangesAreNotExhausted(boolean hasMore, byte[]rangeBoundary) {
+        return hasMore || rangeBoundary != null;
+    }
+
     protected ScanProperties scanPropertiesWithLimits(boolean isIdempotent) {
         final IsolationLevel isolationLevel =
                 isIdempotent ?

@@ -23,7 +23,6 @@ package com.apple.foundationdb.record.provider.foundationdb;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.RangeSet;
-import com.apple.foundationdb.record.EndpointType;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.IndexBuildProto;
 import com.apple.foundationdb.record.IsolationLevel;
@@ -145,13 +144,7 @@ public class IndexingMultiTargetByRecords extends IndexingBase {
             final byte[] rangeEnd = RangeSet.isFinalKey(range.end) ? null : range.end;
 
             RecordCursor<FDBStoredRecord<Message>> cursor =
-                    store.scanRecords(
-                            new KeyRange(
-                                    rangeStart != null ? rangeStart : new byte[0],
-                                    rangeStart == null ? EndpointType.TREE_START : EndpointType.RANGE_INCLUSIVE,
-                                    rangeEnd != null ? rangeEnd : new byte[0],
-                                    rangeEnd == null ? EndpointType.TREE_END : EndpointType.RANGE_EXCLUSIVE),
-                            null, scanProperties);
+                    store.scanRecords(new KeyRange(rangeStart, rangeEnd), null, scanProperties);
 
             final AtomicReference<RecordCursorResult<FDBStoredRecord<Message>>> lastResult = new AtomicReference<>(RecordCursorResult.exhausted());
             final AtomicBoolean hasMore = new AtomicBoolean(true);
@@ -173,11 +166,11 @@ public class IndexingMultiTargetByRecords extends IndexingBase {
         if (isReverse) {
             byte[] continuation = hasMore ? lastResult.get().get().getPrimaryKey().pack() : rangeStart;
             return insertRanges(targetRangeSets, continuation, rangeEnd)
-                    .thenApply(ignore -> hasMore || rangeStart != null);
+                    .thenApply(ignore -> rangesAreNotExhausted(hasMore, rangeStart));
         } else {
             byte[] continuation = hasMore ? lastResult.get().get().getPrimaryKey().pack() : rangeEnd;
             return insertRanges(targetRangeSets, rangeStart, continuation)
-                    .thenApply(ignore -> hasMore || rangeEnd != null);
+                    .thenApply(ignore -> rangesAreNotExhausted(hasMore, rangeEnd));
         }
     }
 

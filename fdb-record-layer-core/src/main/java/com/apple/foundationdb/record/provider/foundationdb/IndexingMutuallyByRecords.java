@@ -24,7 +24,6 @@ import com.apple.foundationdb.FDBException;
 import com.apple.foundationdb.Range;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.RangeSet;
-import com.apple.foundationdb.record.EndpointType;
 import com.apple.foundationdb.record.IndexBuildProto;
 import com.apple.foundationdb.record.KeyRange;
 import com.apple.foundationdb.record.RecordCursor;
@@ -399,13 +398,7 @@ public class IndexingMutuallyByRecords extends IndexingBase {
             final byte[] rangeEnd = RangeSet.isFinalKey(range.end) ? null : range.end;
 
             RecordCursor<FDBStoredRecord<Message>> cursor =
-                    store.scanRecords(
-                            new KeyRange(
-                                    rangeStart != null ? rangeStart : new byte[0],
-                                    rangeStart == null ? EndpointType.TREE_START : EndpointType.RANGE_INCLUSIVE,
-                                    rangeEnd != null ? rangeEnd : new byte[0],
-                                    rangeEnd == null ? EndpointType.TREE_END : EndpointType.RANGE_EXCLUSIVE),
-                            null, scanProperties);
+                    store.scanRecords(new KeyRange(rangeStart, rangeEnd), null, scanProperties);
 
             final AtomicReference<RecordCursorResult<FDBStoredRecord<Message>>> lastResult = new AtomicReference<>(RecordCursorResult.exhausted());
             final AtomicBoolean hasMore = new AtomicBoolean(true);
@@ -417,7 +410,7 @@ public class IndexingMutuallyByRecords extends IndexingBase {
                                           lastResult.get().get().getPrimaryKey().pack() :
                                           rangeEnd)
                     .thenCompose(cont -> insertRanges(targetRangeSets, rangeStart, cont)
-                            .thenApply(ignore -> !(cont == null && rangeEnd == null)));
+                            .thenApply(ignore -> rangesAreNotExhausted(cont != null, rangeEnd)));
         });
     }
 
