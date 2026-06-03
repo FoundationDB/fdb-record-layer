@@ -7,6 +7,71 @@ As the [versioning guide](Versioning.md) details, it cannot always be determined
 
 ## 4.12
 
+### 4.12.7.0
+
+<h4> Bug Fixes </h4>
+
+* Make `CastValue.hashCodeWithoutChildren()` stable - [PR #4241](https://github.com/FoundationDB/fdb-record-layer/pull/4241)
+
+
+**[Full Changelog (4.12.6.0...4.12.7.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.12.6.0...4.12.7.0)**
+
+#### Mixed Mode Test Results
+
+Mixed mode testing run against the following previous versions:
+
+✅`4.10.17.0`, ✅`4.10.18.0`, ✅`4.10.19.0`, ✅`4.10.20.0`, ✅`4.11.1.0`, ✅`4.12.1.0`, ✅`4.12.2.0`, ✅`4.12.3.0`, ✅`4.12.4.0`, ✅`4.12.5.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/26599506639)
+
+
+
+### 4.12.6.0
+
+<h4> New Features </h4>
+
+* Indexer: New feature: setEnforcedPostTransactionDelay - [PR #4229](https://github.com/FoundationDB/fdb-record-layer/pull/4229)
+* Indexer: Remove indexing metadata after successfully marking the index as readable - [PR #4233](https://github.com/FoundationDB/fdb-record-layer/pull/4233)
+* Support LEFT OUTER JOIN and RIGHT OUTER JOIN - [PR #4122](https://github.com/FoundationDB/fdb-record-layer/pull/4122)
+* Support EXISTS subqueries in projection list - [PR #4168](https://github.com/FoundationDB/fdb-record-layer/pull/4168)
+* Replace `PullUpNullOnEmptyRule` with `EliminateNullOnEmptyRule` - [PR #4186](https://github.com/FoundationDB/fdb-record-layer/pull/4186)
+* Improve constant folding of `NULL` operands in predicates and values - [PR #4224](https://github.com/FoundationDB/fdb-record-layer/pull/4224)
+* Remove userVersion from plan caching pipeline - [PR #4193](https://github.com/FoundationDB/fdb-record-layer/pull/4193)
+<h4> Bug Fixes </h4>
+
+* Use full entry key as boundary tiebreaker in sliding window admission - [PR #4231](https://github.com/FoundationDB/fdb-record-layer/pull/4231)
+* Clear INDEX_SLIDING_WINDOW_SPACE in clearIndexData and related lifecycle paths - [PR #4232](https://github.com/FoundationDB/fdb-record-layer/pull/4232)
+* Index scrubbing iteration may leave behind a rangeSet key - [PR #4226](https://github.com/FoundationDB/fdb-record-layer/pull/4226)
+* Restrict `ExpandRecordRule` to non-nullable values - [PR #4220](https://github.com/FoundationDB/fdb-record-layer/pull/4220)
+
+<details>
+<summary>
+
+<h4> Build/Test/Documentation/Style Improvements (click to expand) </h4>
+
+</summary>
+
+* Temporarily disable some `join-tests.yamsql` tests - [PR #4238](https://github.com/FoundationDB/fdb-record-layer/pull/4238)
+* Update the documentation for SQL joins - [PR #4144](https://github.com/FoundationDB/fdb-record-layer/pull/4144)
+* Document CREATE/DROP TEMPORARY FUNCTION - [PR #4207](https://github.com/FoundationDB/fdb-record-layer/pull/4207)
+* Reduce yaml-tests log verbosity - [PR #4202](https://github.com/FoundationDB/fdb-record-layer/pull/4202)
+* Fix release notes script to handle two-digit minor versions - [PR #4225](https://github.com/FoundationDB/fdb-record-layer/pull/4225)
+
+</details>
+
+
+**[Full Changelog (4.12.5.0...4.12.6.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.12.5.0...4.12.6.0)**
+
+#### Mixed Mode Test Results
+
+Mixed mode testing run against the following previous versions:
+
+✅`4.10.17.0`, ✅`4.10.18.0`, ✅`4.10.19.0`, ✅`4.10.20.0`, ✅`4.11.1.0`, ✅`4.12.1.0`, ✅`4.12.2.0`, ✅`4.12.3.0`, ✅`4.12.4.0`, ✅`4.12.5.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/26593427982)
+
+
+
 ### 4.12.5.0
 
 <h4> New Features </h4>

@@ -678,9 +678,9 @@ class KMeansTest {
         final int d = pts.get(0).getNumDimensions();
         final MutableDoubleRealVector sum = MutableDoubleRealVector.zeroVector(d);
         for (final RealVector p : pts) {
-            sum.add(p);
+            sum.addToThis(p);
         }
-        final RealVector m = sum.multiply(1.0d / pts.size()).toImmutable();
+        final RealVector m = sum.multiplyThisBy(1.0d / pts.size()).toImmutable();
 
         double obj = 0.0;
         for (final RealVector p : pts) {
@@ -703,10 +703,10 @@ class KMeansTest {
         final int d = pts.get(0).getNumDimensions();
         final MutableDoubleRealVector sum = MutableDoubleRealVector.zeroVector(d);
         for (final RealVector p : pts) {
-            sum.add(p);
+            sum.addToThis(p);
         }
 
-        final RealVector meanDirection = sum.normalize().toImmutable();
+        final RealVector meanDirection = sum.normalizeThis().toImmutable();
 
         double obj = 0.0d;
         for (final RealVector p : pts) {

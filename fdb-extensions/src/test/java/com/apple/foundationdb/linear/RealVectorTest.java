@@ -116,7 +116,7 @@ public class RealVectorTest {
         assertThat(doubleVector).isEqualTo(doubleVectorCopy);
 
         final MutableDoubleRealVector anotherDoubleVector = doubleVector.toMutable();
-        anotherDoubleVector.withData(secondDoubleVector.getData());
+        anotherDoubleVector.setData(secondDoubleVector.getData());
         assertThat(anotherDoubleVector).isEqualTo(secondDoubleVector);
     }
 
@@ -229,12 +229,27 @@ public class RealVectorTest {
                     .satisfies(v -> assertThat(Metric.EUCLIDEAN_METRIC.distance(halfVector, v))
                             .isCloseTo(0, Offset.offset(2E-2)));
 
-            final MutableDoubleRealVector mutableDoubleRealVector = doubleVector.toMutable();
-            mutableDoubleRealVector.normalize();
-            assertThat(mutableDoubleRealVector.multiply(doubleVector.l2Norm()))
-                    .satisfies(v -> assertThat(Metric.EUCLIDEAN_METRIC.distance(doubleVector, v))
+            final DoubleRealVector originalVector = createRandomNonNormalDoubleVector(random, numDimensions);
+            MutableDoubleRealVector mutableDoubleRealVector = originalVector.toMutable();
+            mutableDoubleRealVector.normalizeThis();
+            assertThat(mutableDoubleRealVector)
+                    .satisfies(v -> assertThat(Metric.EUCLIDEAN_METRIC.distance(originalVector, v))
+                            .isNotCloseTo(0, Offset.offset(2E-14)));
+            mutableDoubleRealVector.multiplyThisBy(originalVector.l2Norm());
+            assertThat(mutableDoubleRealVector)
+                    .satisfies(v -> assertThat(Metric.EUCLIDEAN_METRIC.distance(originalVector, v))
                             .isCloseTo(0, Offset.offset(2E-14)));
 
+            // also test that normalize() does not modify the mutable object
+            mutableDoubleRealVector = originalVector.toMutable();
+            mutableDoubleRealVector.normalize();
+            assertThat(mutableDoubleRealVector)
+                    .satisfies(v -> assertThat(Metric.EUCLIDEAN_METRIC.distance(originalVector, v))
+                            .isCloseTo(0, Offset.offset(2E-14)));
+            mutableDoubleRealVector.multiply(originalVector.l2Norm());
+            assertThat(mutableDoubleRealVector)
+                    .satisfies(v -> assertThat(Metric.EUCLIDEAN_METRIC.distance(originalVector, v))
+                            .isCloseTo(0, Offset.offset(2E-14)));
         }
     }
 
@@ -278,6 +293,19 @@ public class RealVectorTest {
                                     .isCloseTo(0, Offset.offset(2E-2)));
 
             MutableDoubleRealVector mutableDoubleRealVector = doubleVector.toMutable();
+            assertThat(mutableDoubleRealVector.addToThis(doubleVector))
+                    .satisfies(v ->
+                            assertThat(Metric.EUCLIDEAN_METRIC.distance(doubleVector.multiply(2.0d), v))
+                                    .isCloseTo(0, Offset.offset(2E-14)));
+
+            mutableDoubleRealVector = doubleVector.toMutable();
+            assertThat(mutableDoubleRealVector.addToThis(1.0d).addToThis(-1.0d))
+                    .satisfies(v ->
+                            assertThat(Metric.EUCLIDEAN_METRIC.distance(doubleVector, v))
+                                    .isCloseTo(0, Offset.offset(2E-14)));
+
+            // make sure that regular adds still work correctly ...
+            mutableDoubleRealVector = doubleVector.toMutable();
             assertThat(mutableDoubleRealVector.add(doubleVector))
                     .satisfies(v ->
                             assertThat(Metric.EUCLIDEAN_METRIC.distance(doubleVector.multiply(2.0d), v))
@@ -285,6 +313,14 @@ public class RealVectorTest {
 
             mutableDoubleRealVector = doubleVector.toMutable();
             assertThat(mutableDoubleRealVector.add(1.0d).add(-1.0d))
+                    .satisfies(v ->
+                            assertThat(Metric.EUCLIDEAN_METRIC.distance(doubleVector, v))
+                                    .isCloseTo(0, Offset.offset(2E-14)));
+
+            // ... and do not modify the inner state of the mutable vector
+            mutableDoubleRealVector = doubleVector.toMutable();
+            mutableDoubleRealVector.add(doubleVector).add(1.0d);
+            assertThat(mutableDoubleRealVector)
                     .satisfies(v ->
                             assertThat(Metric.EUCLIDEAN_METRIC.distance(doubleVector, v))
                                     .isCloseTo(0, Offset.offset(2E-14)));
@@ -331,7 +367,20 @@ public class RealVectorTest {
                                     .isCloseTo(0, Offset.offset(2E-2)));
 
             MutableDoubleRealVector mutableDoubleRealVector = doubleVector.toMutable();
-            assertThat(mutableDoubleRealVector.subtract(mutableDoubleRealVector))
+            assertThat(mutableDoubleRealVector.subtractFromThis(doubleVector))
+                    .satisfies(v ->
+                            assertThat(Metric.EUCLIDEAN_METRIC.distance(v, DoubleRealVector.zeroVector(numDimensions)))
+                                    .isCloseTo(0, Offset.offset(2E-14)));
+
+            mutableDoubleRealVector = doubleVector.toMutable();
+            assertThat(mutableDoubleRealVector.subtractFromThis(-1.0d).subtractFromThis(1.0d))
+                    .satisfies(v ->
+                            assertThat(Metric.EUCLIDEAN_METRIC.distance(doubleVector, v))
+                                    .isCloseTo(0, Offset.offset(2E-14)));
+
+            // make sure that regular subtracts still work correctly ...
+            mutableDoubleRealVector = doubleVector.toMutable();
+            assertThat(mutableDoubleRealVector.subtract(doubleVector))
                     .satisfies(v ->
                             assertThat(Metric.EUCLIDEAN_METRIC.distance(v, DoubleRealVector.zeroVector(numDimensions)))
                                     .isCloseTo(0, Offset.offset(2E-14)));
@@ -342,6 +391,13 @@ public class RealVectorTest {
                             assertThat(Metric.EUCLIDEAN_METRIC.distance(doubleVector, v))
                                     .isCloseTo(0, Offset.offset(2E-14)));
 
+            // ... and do not modify the inner state of the mutable vector
+            mutableDoubleRealVector = doubleVector.toMutable();
+            mutableDoubleRealVector.subtract(doubleVector).subtract(1.0d);
+            assertThat(mutableDoubleRealVector)
+                    .satisfies(v ->
+                            assertThat(Metric.EUCLIDEAN_METRIC.distance(doubleVector, v))
+                                    .isCloseTo(0, Offset.offset(2E-14)));
         }
     }
 
@@ -455,6 +511,16 @@ public class RealVectorTest {
     @Nonnull
     public static DoubleRealVector createRandomDoubleVector(@Nonnull final Random random, final int numDimensions) {
         return new DoubleRealVector(createRandomVectorData(random, numDimensions));
+    }
+
+    @Nonnull
+    public static DoubleRealVector createRandomNonNormalDoubleVector(@Nonnull final Random random, final int numDimensions) {
+        DoubleRealVector randomVector;
+        do {
+            final double[] randomVectorData = createRandomVectorData(random, numDimensions);
+            randomVector = new DoubleRealVector(randomVectorData);
+        } while (Math.abs(randomVector.l2Norm() - 1) < 2E-14);
+        return randomVector;
     }
 
     @Nonnull

@@ -194,26 +194,26 @@ public final class KMeans {
                 // buffer in place, accumulate into it, then swap roles with `centroids` so the
                 // old centroid buffer becomes the next iteration's accumulator.
                 for (int c = 0; c < k; c++) {
-                    nextCentroids.get(c).zero();
+                    nextCentroids.get(c).zeroThis();
                 }
 
                 for (int i = 0; i < n; i++) {
-                    nextCentroids.get(assignment[i]).add(getVector(vectorLens, vectors, i));
+                    nextCentroids.get(assignment[i]).addToThis(getVector(vectorLens, vectors, i));
                 }
 
                 for (int c = 0; c < k; c++) {
                     if (clusterSizes[c] == 0) {
                         // Reseed empty cluster with the "hardest" point under current centroids.
                         final int farthestVectorIndex = farthestVectorIndex(metricAdapter, vectorLens, vectors, centroids);
-                        nextCentroids.get(c).withData(getVector(vectorLens, vectors, farthestVectorIndex).getData());
+                        nextCentroids.get(c).setData(getVector(vectorLens, vectors, farthestVectorIndex).getData());
                         clusterSizes[c] = 1; // local guard only; next iteration recomputes true sizes
                     } else {
                         final MutableDoubleRealVector centroid = nextCentroids.get(c);
-                        centroid.multiply(1.0d / clusterSizes[c]);
+                        centroid.multiplyThisBy(1.0d / clusterSizes[c]);
                         if (metricAdapter.isMeaninglessNorm(centroid)) {
                             final int farthestVectorIndex =
                                     farthestVectorIndex(metricAdapter, vectorLens, vectors, centroids);
-                            centroid.withData(getVector(vectorLens, vectors, farthestVectorIndex).getData());
+                            centroid.setData(getVector(vectorLens, vectors, farthestVectorIndex).getData());
                         } else {
                             metricAdapter.renormalizeIfNecessary(centroid);
                         }
@@ -512,16 +512,6 @@ public final class KMeans {
                                        @Nonnull final Lens<V, RealVector> vectorLens,
                                        @Nonnull final List<V> vectors,
                                        @Nonnull final List<? extends RealVector> centroids) {
-        //
-        // Defensive snapshot: A MutableDoubleRealVector centroid would be mutated in place by any
-        // baseObjective implementation that uses chained mutate-in-place ops (subtract/add/...);
-        // Immutable centroid types are passed through.
-        //
-        final List<RealVector> frozenCentroids = new ArrayList<>(centroids.size());
-        for (final RealVector centroid : centroids) {
-            frozenCentroids.add(centroid.toImmutable());
-        }
-
         double best = -1.0d;
         int bestIdx = 0;
 
@@ -529,7 +519,7 @@ public final class KMeans {
             final RealVector vector = getVector(vectorLens, vectors, i);
 
             double min = Double.MAX_VALUE;
-            for (final RealVector centroid : frozenCentroids) {
+            for (final RealVector centroid : centroids) {
                 final double objective = metricAdapter.baseObjective(vector, centroid);
                 if (objective < min) {
                     min = objective;
@@ -710,7 +700,7 @@ public final class KMeans {
         @Nonnull
         @Override
         public MutableDoubleRealVector renormalizeIfNecessary(@Nonnull final MutableDoubleRealVector vector) {
-            return vector.normalize();
+            return vector.normalizeThis();
         }
 
         @Override
