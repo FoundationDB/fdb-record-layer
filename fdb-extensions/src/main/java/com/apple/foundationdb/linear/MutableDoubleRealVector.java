@@ -21,6 +21,7 @@
 package com.apple.foundationdb.linear;
 
 import com.google.common.base.Preconditions;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 
 import javax.annotation.Nonnull;
 import java.util.Arrays;
@@ -79,8 +80,7 @@ public class MutableDoubleRealVector extends DoubleRealVector {
     }
 
     @Nonnull
-    @Override
-    public MutableDoubleRealVector withData(@Nonnull final double[] data) {
+    public MutableDoubleRealVector setData(@Nonnull final double[] data) {
         Preconditions.checkArgument(this.data.length == data.length);
         System.arraycopy(data, 0, this.data, 0, this.data.length);
         return this;
@@ -99,49 +99,44 @@ public class MutableDoubleRealVector extends DoubleRealVector {
     }
 
     @Nonnull
-    @Override
-    public MutableDoubleRealVector normalize() {
+    public MutableDoubleRealVector normalizeThis() {
         RealVectorPrimitives.normalizeInto(this, getData());
         return this;
     }
 
     @Nonnull
-    @Override
-    public MutableDoubleRealVector add(@Nonnull final RealVector other) {
+    public MutableDoubleRealVector addToThis(@Nonnull final RealVector other) {
         RealVectorPrimitives.addInto(this, other, getData());
         return this;
     }
 
     @Nonnull
-    @Override
-    public MutableDoubleRealVector add(final double scalar) {
+    public MutableDoubleRealVector addToThis(final double scalar) {
         RealVectorPrimitives.addInto(this, scalar, getData());
         return this;
     }
 
     @Nonnull
-    @Override
-    public MutableDoubleRealVector subtract(@Nonnull final RealVector other) {
+    public MutableDoubleRealVector subtractFromThis(@Nonnull final RealVector other) {
         RealVectorPrimitives.subtractInto(this, other, getData());
         return this;
     }
 
     @Nonnull
-    @Override
-    public MutableDoubleRealVector subtract(final double scalar) {
+    public MutableDoubleRealVector subtractFromThis(final double scalar) {
         RealVectorPrimitives.subtractInto(this, scalar, getData());
         return this;
     }
 
     @Nonnull
-    @Override
-    public MutableDoubleRealVector multiply(final double scalar) {
+    public MutableDoubleRealVector multiplyThisBy(final double scalar) {
         RealVectorPrimitives.multiplyInto(this, scalar, getData());
         return this;
     }
 
+    @CanIgnoreReturnValue
     @Nonnull
-    public MutableDoubleRealVector zero() {
+    public MutableDoubleRealVector zeroThis() {
         Arrays.fill(getData(), 0.0d);
         return this;
     }

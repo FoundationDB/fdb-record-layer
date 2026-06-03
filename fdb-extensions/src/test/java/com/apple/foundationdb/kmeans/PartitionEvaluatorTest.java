@@ -672,9 +672,9 @@ class PartitionEvaluatorTest {
         final int d = vectors.get(0).getNumDimensions();
         final MutableDoubleRealVector sum = MutableDoubleRealVector.zeroVector(d);
         for (final RealVector v : vectors) {
-            sum.add(v);
+            sum.addToThis(v);
         }
-        final RealVector centroid = sum.multiply(1.0d / vectors.size()).toImmutable();
+        final RealVector centroid = sum.multiplyThisBy(1.0d / vectors.size()).toImmutable();
         return new PartitionEvaluator.Partition<>(
                 ImmutableList.of(centroid), Lens.identity(), new int[vectors.size()]);
     }
