@@ -39,6 +39,8 @@ import javax.annotation.Nonnull;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Deterministic sanity tests for {@link SlidingWindowIndexMaintainer} when the underlying
@@ -134,7 +136,7 @@ class SlidingWindowValueIndexTest extends FDBRecordStoreTestBase {
             // The new record must be in the delegate.
             assertEquals(WINDOW_SIZE, count());
             final Set<Long> pks = delegatePks();
-            org.junit.jupiter.api.Assertions.assertTrue(pks.contains(99L),
+            assertTrue(pks.contains(99L),
                     "evicted-by-better insert: new record not present in delegate, got " + pks);
             // Exactly one of the original five must have been evicted.
             assertEquals(WINDOW_SIZE, pks.size());
@@ -215,9 +217,9 @@ class SlidingWindowValueIndexTest extends FDBRecordStoreTestBase {
 
             assertEquals(WINDOW_SIZE, count(), "count must remain windowSize after re-election from overflow");
             final Set<Long> pks = delegatePks();
-            org.junit.jupiter.api.Assertions.assertTrue(pks.contains(99L),
+            assertTrue(pks.contains(99L),
                     "promoted overflow record must be in the delegate after re-election, got " + pks);
-            org.junit.jupiter.api.Assertions.assertFalse(pks.contains(boundaryPk),
+            assertFalse(pks.contains(boundaryPk),
                     "deleted boundary record must not be in the delegate, got " + pks);
             verify(direction);
             commit(context);
