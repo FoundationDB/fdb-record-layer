@@ -241,7 +241,7 @@ public class ConstrainedBoolean implements Constrained<Boolean> {
      */
     @Nonnull
     public static ConstrainedBoolean trueWithConstraint(@Nonnull final QueryPlanConstraint constraint) {
-        if (constraint.isTautology()) {
+        if (!constraint.isConstrained()) {
             return alwaysTrue();
         }
         return new ConstrainedBoolean(true, constraint);

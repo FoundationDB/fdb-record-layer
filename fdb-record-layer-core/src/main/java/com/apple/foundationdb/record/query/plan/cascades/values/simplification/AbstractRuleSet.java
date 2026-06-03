@@ -94,7 +94,12 @@ public class AbstractRuleSet<CALL extends PlannerRuleCall, BASE> {
                                         .addAll(ruleIndex.get(key))
                                         .addAll(alwaysRules)
                                         .build();
-                        if (applicableRules.isEmpty() || dependsOn.isEmpty()) {
+                        if (applicableRules.isEmpty()) {
+                            return ImmutableList.of();
+                        }
+
+                        // No need for topological sorting if there are no dependencies
+                        if (dependsOn.isEmpty()) {
                             return applicableRules.asList();
                         }
                         return TopologicalSort.anyTopologicalOrderPermutation(PartiallyOrderedSet.of(applicableRules, dependsOn)).orElseThrow(() -> new RecordCoreException("circular dependency among simplification rules"));

@@ -75,8 +75,9 @@ public class CollapseNullStrictValueOverNullValueRule extends ValueSimplificatio
 
     @Override
     public void onMatch(@Nonnull final ValueSimplificationRuleCall call) {
+        final Value value = call.getBindings().get(rootMatcher);
         // Note that the `NullValue` will always have a nullable result type even if the value’s result type is not.
-        call.yieldResult(new NullValue(call.getBindings().get(rootMatcher).getResultType()));
+        call.yieldResult(new NullValue(value.getResultType()));
     }
 
     private static boolean hasNullValueChild(@Nonnull final Value value) {
