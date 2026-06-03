@@ -89,7 +89,9 @@ public class SlidingWindowIndexMaintainerFactory implements IndexMaintainerFacto
      * @return {@code true} if the index is a vector index with a sliding window predicate
      */
     public static boolean isSlidingWindowIndex(@Nonnull Index index) {
-        return IndexTypes.VECTOR.equals(index.getType()) && findRowNumberWindowPredicate(index.getPredicate()) != null;
+        final String type = index.getType();
+        return (IndexTypes.VECTOR.equals(type) || IndexTypes.VALUE.equals(type))
+                && findRowNumberWindowPredicate(index.getPredicate()) != null;
     }
 
     /**
@@ -224,8 +226,8 @@ public class SlidingWindowIndexMaintainerFactory implements IndexMaintainerFacto
                 throw new MetaDataException("sliding window index is on synthetic record types",
                         LogMessageKeys.INDEX_NAME, index.getName());
             }
-            if (!IndexTypes.VECTOR.equals(index.getType())) {
-                throw new MetaDataException("sliding window index can only be defined on vector indexes");
+            if (!IndexTypes.VECTOR.equals(index.getType()) && !IndexTypes.VALUE.equals(index.getType())) {
+                throw new MetaDataException("sliding window index can only be defined on vector or value indexes");
             }
             @Nullable final IndexPredicate predicate = index.getPredicate();
             if (predicate == null) {
