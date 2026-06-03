@@ -48,12 +48,18 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.PriorityQueue;
+import java.util.Random;
 import java.util.Set;
+import java.util.SplittableRandom;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
@@ -122,6 +128,60 @@ class TestHelpers {
                         onReadListener.popFrame();
                     });
         }).get(2, TimeUnit.MINUTES); // set a timeout for inserting a single batch including retries so setup won't run forever
+    }
+
+    /**
+     * Symmetric to {@link #basicInsertBatch} for deletion. Deletes every record in
+     * {@code recordsToDelete} from {@code guardiann} inside a single transaction, with the same
+     * bail-out-on-deferred-task semantics: if a deferred maintenance task executes mid-batch, the
+     * loop stops and the caller is expected to re-invoke with the un-deleted tail.
+     * <p>
+     * Returns the records that were actually issued for deletion (i.e. the prefix of
+     * {@code recordsToDelete} processed before any bail-out). The caller is responsible for
+     * advancing past those records on the next call. This mirrors the contract of
+     * {@link #basicInsertBatch}.
+     */
+    @Nonnull
+    static List<PrimaryKeyAndVector> basicDeleteBatch(@Nonnull final Database db,
+                                                      @Nonnull final Guardiann guardiann,
+                                                      @Nonnull final List<PrimaryKeyAndVector> recordsToDelete)
+            throws ExecutionException, InterruptedException, TimeoutException {
+
+        final int batchSize = recordsToDelete.size();
+        return db.runAsync(tr -> {
+            final TestOnWriteListener onWriteListener = (TestOnWriteListener) guardiann.getOnWriteListener();
+            onWriteListener.pushFrame();
+            final TestOnReadListener onReadListener = (TestOnReadListener) guardiann.getOnReadListener();
+            onReadListener.pushFrame();
+
+            final ImmutableList.Builder<PrimaryKeyAndVector> data = ImmutableList.builder();
+            final long beginTs = System.nanoTime();
+
+            final CompletableFuture<Integer> loopFuture =
+                    MoreAsyncUtil.forLoop(0, 0,
+                            (i, u) ->
+                                    i < batchSize && (int) u == i && onWriteListener.getSumTaskExecutedCounters() == 0,
+                            i -> i + 1,
+                            (i, u) -> {
+                                final PrimaryKeyAndVector record = recordsToDelete.get(i);
+                                data.add(record);
+                                return guardiann.delete(tr, record.getPrimaryKey(), record.getVector())
+                                        .thenApply(ignored -> i + 1);
+                            }, guardiann.getExecutor());
+            return loopFuture.thenApply(vignore -> data.build())
+                    .whenComplete((result, error) -> {
+                        if (error != null) {
+                            logger.trace("failed to delete batchSize={}", batchSize);
+                        } else {
+                            final long endTs = System.nanoTime();
+                            logger.trace("deleted batchSize={} records={} took elapsedTime={}ms, readBytes={}",
+                                    batchSize, result.size(), TimeUnit.NANOSECONDS.toMillis(endTs - beginTs),
+                                    onReadListener);
+                        }
+                        onWriteListener.popFrame();
+                        onReadListener.popFrame();
+                    });
+        }).get(2, TimeUnit.MINUTES);
     }
 
     static void insertSIFTSmall(@Nonnull final Database db,
@@ -200,6 +260,91 @@ class TestHelpers {
             }
         }
         return insertedDataBuilder.build();
+    }
+
+    /**
+     * Two disjoint deterministic samples drawn from the SIFT-1M base file in a single streaming
+     * pass, never holding the full dataset in memory.
+     *
+     * @param a first sample
+     * @param b second sample, disjoint from {@code a}
+     */
+    record Samples(@Nonnull List<PrimaryKeyAndVector> a, @Nonnull List<PrimaryKeyAndVector> b) {
+    }
+
+    /**
+     * Single-pass reservoir-sampled disjoint pair of samples drawn from
+     * {@link #SIFT_1M_BASE_PATH}. Streams the file once; resident memory is bounded at roughly
+     * {@code (sizeA + sizeB) * 1KB} regardless of how big the source file is. The two returned
+     * lists are guaranteed disjoint by primary key (since each PK is the original index in the
+     * SIFT-1M stream).
+     * <p>
+     * The whole sampling process is deterministic given {@code seed}: same seed → same two lists,
+     * in the same order. The order within each list is a fresh deterministic shuffle of the
+     * combined reservoir before splitting, so callers get a reasonable insertion/deletion order
+     * for free without having to reshuffle.
+     *
+     * @param seed seed for the reservoir's random replacement decisions and the post-pass shuffle
+     * @param sizeA size of the first sample
+     * @param sizeB size of the second sample
+     * @return a {@link Samples} pair
+     */
+    @Nonnull
+    static Samples loadDisjointSamplesFromSift1m(final long seed,
+                                                 final int sizeA,
+                                                 final int sizeB) throws IOException {
+        Verify.verify(sizeA > 0 && sizeB > 0, "sample sizes must be positive (sizeA=%s, sizeB=%s)", sizeA, sizeB);
+        final int totalSize = sizeA + sizeB;
+
+        // Two parallel arrays so we don't pay an Object[] indirection per slot.
+        final long[] reservoirIndices = new long[totalSize];
+        final DoubleRealVector[] reservoirVectors = new DoubleRealVector[totalSize];
+
+        // SplittableRandom for the reservoir replacement decisions; deterministic from seed.
+        final SplittableRandom rnd = new SplittableRandom(seed);
+
+        long total = 0L;
+        final Path basePath = Paths.get(SIFT_1M_BASE_PATH);
+        try (final var fileChannel = FileChannel.open(basePath, StandardOpenOption.READ)) {
+            final Iterator<DoubleRealVector> it = new StoredVecsIterator.StoredFVecsIterator(fileChannel);
+            while (it.hasNext()) {
+                final DoubleRealVector v = it.next();
+                if (total < totalSize) {
+                    // Initial fill: items go to slot=total unconditionally.
+                    reservoirIndices[(int) total] = total;
+                    reservoirVectors[(int) total] = v;
+                } else {
+                    // Algorithm R: pick j uniformly in [0, total]; if j < totalSize, replace.
+                    // total fits in long but the modulus we need is total + 1 ≤ 1M for SIFT-1M;
+                    // call out the cast and let JVM verify.
+                    final long bound = total + 1L;
+                    final long j = rnd.nextLong(bound);
+                    if (j < totalSize) {
+                        reservoirIndices[(int) j] = total;
+                        reservoirVectors[(int) j] = v;
+                    }
+                }
+                total++;
+            }
+        }
+
+        Verify.verify(total >= totalSize,
+                "SIFT-1M file produced %s records, fewer than requested totalSize=%s", total, totalSize);
+
+        // Build records and shuffle deterministically before splitting. The shuffle randomizes
+        // which reservoir slots end up in setA vs setB and gives callers a usable iteration order.
+        final List<PrimaryKeyAndVector> sampled = new ArrayList<>(totalSize);
+        for (int i = 0; i < totalSize; i++) {
+            sampled.add(new PrimaryKeyAndVector(
+                    createPrimaryKey(reservoirIndices[i]),
+                    reservoirVectors[i]));
+        }
+        // Mix the seed with a salt so the reservoir RNG and the shuffle RNG don't share state.
+        Collections.shuffle(sampled, new Random(seed ^ 0xA5A5_5A5A_A5A5_5A5AL));
+
+        return new Samples(
+                ImmutableList.copyOf(sampled.subList(0, sizeA)),
+                ImmutableList.copyOf(sampled.subList(sizeA, totalSize)));
     }
 
     static void insertVectors(@Nonnull final Database db,
@@ -459,6 +604,90 @@ class TestHelpers {
         assertThat(meanRecall)
                 .as("mean recall@%d over %d queries", k, countedQueries)
                 .isGreaterThanOrEqualTo(minMeanRecall);
+    }
+
+    /**
+     * Like {@link #assertRecallAtKAtLeast} but computes ground truth on the fly from the given
+     * {@code active} map of {@code (primaryKey, vector)} entries — i.e. brute-force squared-L2
+     * top-{@code k} per query. Useful when the active set is a moving subset of the original
+     * universe (insert/delete churn) so the static {@code .ivecs} ground truth no longer applies.
+     * <p>
+     * Implementation note: scoring uses {@link RealVector#l2SquaredDistance} for ordering — the
+     * monotonic-square shortcut to skip a {@code sqrt} that the Euclidean estimator would just
+     * undo. Results are compared with the kNN search via {@link #singleQueryRecall} (deduplicated
+     * set intersection) so the threshold is comparable to the static-truth helper.
+     *
+     * @param queries query vectors to score against
+     * @param active the current active set, keyed by {@link Tuple} primary key
+     * @param k top-k to retrieve from both brute force and the index
+     * @param minMeanRecall floor that the mean recall must meet or exceed
+     * @return the observed mean recall (for logging/assertions in the caller)
+     */
+    static double assertRecallAtKAtLeastDynamic(@Nonnull final Database db,
+                                                @Nonnull final Guardiann guardiann,
+                                                @Nonnull final List<? extends RealVector> queries,
+                                                @Nonnull final Map<Tuple, ? extends RealVector> active,
+                                                final int k,
+                                                final double minMeanRecall) {
+        Verify.verify(active.size() >= k,
+                "active set (%s) must have at least k=%s entries for a meaningful recall check",
+                active.size(), k);
+        final int efSearch = (int) ((double) k * 1.15);
+        double sumRecall = 0.0d;
+        int countedQueries = 0;
+        for (final RealVector query : queries) {
+            final Set<Integer> truth = bruteForceTopKByEuclidean(query, active, k);
+            if (truth.isEmpty()) {
+                continue;
+            }
+            final List<? extends ResultEntry> results =
+                    db.run(tr -> guardiann.kNearestNeighborsSearch(tr, k, efSearch,
+                            48, 16, 1.50d, true, query).join());
+            sumRecall += singleQueryRecall(truth, results);
+            countedQueries++;
+        }
+        assertThat(countedQueries)
+                .as("at least one query must produce non-empty truth (active=%s, k=%s)", active.size(), k)
+                .isGreaterThan(0);
+        final double meanRecall = sumRecall / countedQueries;
+        logger.info("assertRecallAtKAtLeastDynamic: mean recall@{} = {} over {} queries (active={}, threshold={})",
+                k, String.format(Locale.ROOT, "%.4f", meanRecall),
+                countedQueries, active.size(), minMeanRecall);
+        assertThat(meanRecall)
+                .as("dynamic mean recall@%d over %d queries (active=%d)",
+                        k, countedQueries, active.size())
+                .isGreaterThanOrEqualTo(minMeanRecall);
+        return meanRecall;
+    }
+
+    /**
+     * Brute-force top-{@code k} primary-key indices in {@code active} by squared Euclidean
+     * distance to {@code query}. Maintains a max-heap of size {@code k} so the per-query work is
+     * {@code O(|active| * log k)} (and {@code O(|active| * d)} for the dot products); for the
+     * test workloads here that's sub-second on 10k × 128-dim vectors per query.
+     * <p>
+     * Returned indices are extracted as {@code (int) primaryKey.getLong(0)}, matching the
+     * convention used by {@link #singleQueryRecall} so the two are directly comparable.
+     */
+    @Nonnull
+    static Set<Integer> bruteForceTopKByEuclidean(@Nonnull final RealVector query,
+                                                  @Nonnull final Map<Tuple, ? extends RealVector> active,
+                                                  final int k) {
+        // Local record so we don't need a top-level helper class.
+        record IndexedDistance(double distance, int index) { }
+        final PriorityQueue<IndexedDistance> heap = new PriorityQueue<>(Math.max(1, k),
+                Comparator.comparingDouble(IndexedDistance::distance).reversed());
+        for (final Map.Entry<Tuple, ? extends RealVector> e : active.entrySet()) {
+            final double d = query.l2SquaredDistance(e.getValue());
+            final int idx = (int) e.getKey().getLong(0);
+            if (heap.size() < k) {
+                heap.add(new IndexedDistance(d, idx));
+            } else if (d < Objects.requireNonNull(heap.peek()).distance()) {
+                heap.poll();
+                heap.add(new IndexedDistance(d, idx));
+            }
+        }
+        return heap.stream().map(IndexedDistance::index).collect(ImmutableSet.toImmutableSet());
     }
 
     static List<RealVector> readQueryVectors(@Nonnull final String queriesFile) throws IOException {
