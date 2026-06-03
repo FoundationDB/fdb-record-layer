@@ -178,6 +178,33 @@ class ValueSimplificationTest {
     }
 
     @Test
+    void testSimpleFieldValueComposition6() {
+        // record { a: record { b: record { c: record { d: string } } } }
+        final Type.Record dType = Type.Record.fromFields(ImmutableList.of(
+                Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("d"))));
+        final Type.Record cType = Type.Record.fromFields(ImmutableList.of(
+                Type.Record.Field.of(dType, Optional.of("c"))));
+        final Type.Record bType = Type.Record.fromFields(ImmutableList.of(
+                Type.Record.Field.of(cType, Optional.of("b"))));
+        final Type.Record rootType = Type.Record.fromFields(ImmutableList.of(
+                Type.Record.Field.of(bType, Optional.of("a"))));
+
+        // _
+        final ObjectValue someCurrentValue = ObjectValue.of(ALIAS, rootType);
+
+        // _.a.b
+        final FieldValue inner = FieldValue.ofFieldNames(someCurrentValue, ImmutableList.of("a", "b"));
+        // (_.a.b).c.d
+        final FieldValue outer = FieldValue.ofFieldNames(inner, ImmutableList.of("c", "d"));
+
+        final Value simplifiedValue = defaultSimplify(outer);
+
+        // (_.a.b).c.d => _.a.b.c.d
+        Assertions.assertEquals(FieldValue.ofFieldNames(someCurrentValue, ImmutableList.of("a", "b", "c", "d")),
+                simplifiedValue);
+    }
+
+    @Test
     void testSimpleOrdinalFieldValueComposition1() {
         // _
         final var someCurrentValue = ObjectValue.of(ALIAS, someRecordType());
