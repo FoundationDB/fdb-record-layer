@@ -23,10 +23,13 @@ package com.apple.foundationdb.record.provider.foundationdb.indexes;
 import com.apple.foundationdb.half.Half;
 import com.apple.foundationdb.linear.HalfRealVector;
 import com.apple.foundationdb.linear.Metric;
+import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.metadata.Index;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreTestBase;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainer;
 import com.apple.foundationdb.record.provider.foundationdb.VectorIndexScanBounds;
 import com.apple.foundationdb.record.provider.foundationdb.VectorIndexScanOptions;
@@ -38,6 +41,10 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.Random;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.LongStream;
@@ -46,9 +53,10 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Test helpers and fluent matchers for sliding-window HNSW indexes.
- * Holds the probe utilities (vector construction, HNSW scan, sliding-window
- * snapshot) and the {@link SlidingWindowAssert} / {@link HnswAssert} fluent DSL.
+ * Test helpers and fluent matchers for sliding-window indexes.
+ * Holds the probe utilities (vector construction, delegate scans for HNSW and value indexes,
+ * sliding-window snapshot) and the {@link SlidingWindowAssert} / {@link DelegateAssert}
+ * fluent DSL.
  */
 public final class SlidingWindowTestHelpers {
 
@@ -100,6 +108,25 @@ public final class SlidingWindowTestHelpers {
     }
 
     /**
+     * Scans a value-index delegate (BY_VALUE) and returns the primary keys of every entry,
+     * optionally restricted to a single group.
+     */
+    @Nonnull
+    public static Set<Long> scanIndexRecNosViaValueIndex(@Nonnull final FDBRecordStore recordStore,
+                                                        @Nonnull final String indexName,
+                                                        @Nullable final Tuple groupingKey) {
+        final Index index = recordStore.getRecordMetaData().getIndex(indexName);
+        final IndexMaintainer maintainer = recordStore.getIndexMaintainer(index);
+        final TupleRange range = groupingKey == null ? TupleRange.ALL : TupleRange.allOf(groupingKey);
+        return maintainer.scan(IndexScanType.BY_VALUE, range, null, ScanProperties.FORWARD_SCAN)
+                .asList()
+                .join()
+                .stream()
+                .map(e -> e.getPrimaryKey().getLong(0))
+                .collect(Collectors.toSet());
+    }
+
+    /**
      * Returns a snapshot of the sliding-window state for the ungrouped index.
      */
     @Nonnull
@@ -119,6 +146,30 @@ public final class SlidingWindowTestHelpers {
                                                      @Nullable final Tuple groupingKey) {
         return new SlidingWindow(readWindowCount(recordStore, indexName, groupingKey),
                                  scanIndexRecNos(recordStore, indexName, groupingKey));
+    }
+
+    /**
+     * Returns a snapshot of the sliding-window state for the ungrouped index,
+     * enumerating the delegate via a BY_VALUE scan (use this when the delegate is
+     * a value index, not HNSW).
+     */
+    @Nonnull
+    public static SlidingWindow slidingWindowViaValueIndex(@Nonnull final FDBRecordStore recordStore,
+                                                          @Nonnull final String indexName) {
+        return groupedSlidingWindowViaValueIndex(recordStore, indexName, null);
+    }
+
+    /**
+     * Returns a snapshot of the sliding-window state for the given group,
+     * enumerating the delegate via a BY_VALUE scan (use this when the delegate is
+     * a value index, not HNSW).
+     */
+    @Nonnull
+    public static SlidingWindow groupedSlidingWindowViaValueIndex(@Nonnull final FDBRecordStore recordStore,
+                                                                 @Nonnull final String indexName,
+                                                                 @Nullable final Tuple groupingKey) {
+        return new SlidingWindow(readWindowCount(recordStore, indexName, groupingKey),
+                                 scanIndexRecNosViaValueIndex(recordStore, indexName, groupingKey));
     }
 
     private static long readWindowCount(@Nonnull final FDBRecordStore recordStore,
@@ -172,7 +223,7 @@ public final class SlidingWindowTestHelpers {
         /**
          * Attaches a description that will be prefixed to any failure message
          * produced by subsequent assertions in this chain (including those on
-         * the {@link HnswAssert} returned by {@link #underlyingHnsw()}).
+         * the {@link DelegateAssert} returned by {@link #underlyingHnsw()}).
          */
         @Nonnull
         public SlidingWindowAssert as(@Nonnull final String description) {
@@ -193,25 +244,38 @@ public final class SlidingWindowTestHelpers {
          * is propagated.
          */
         @Nonnull
-        public HnswAssert underlyingHnsw() {
-            return new HnswAssert(window.hnswRecNos(), description);
+        public DelegateAssert underlyingHnsw() {
+            return new DelegateAssert("HNSW", window.hnswRecNos(), description);
+        }
+
+        /**
+         * Returns a fluent assertion over the value-index delegate state captured
+         * by this probe, scoped to the same group. The {@link #as(String) description}
+         * (if any) is propagated.
+         */
+        @Nonnull
+        public DelegateAssert underlyingValueIndex() {
+            return new DelegateAssert("Value index", window.hnswRecNos(), description);
         }
     }
 
     /**
-     * Fluent assertion over a snapshot of HNSW recNos.
+     * Fluent assertion over a snapshot of recNos in the underlying delegate index.
+     * The {@code label} is woven into failure messages (e.g. {@code "HNSW"} vs
+     * {@code "Value index"}) so the same shape works for any delegate type.
      */
-    public static final class HnswAssert {
+    public static final class DelegateAssert {
+        @Nonnull
+        private final String label;
         @Nonnull
         private final Set<Long> recNos;
         @Nullable
         private final String description;
 
-        HnswAssert(@Nonnull final Set<Long> recNos) {
-            this(recNos, null);
-        }
-
-        HnswAssert(@Nonnull final Set<Long> recNos, @Nullable final String description) {
+        DelegateAssert(@Nonnull final String label,
+                       @Nonnull final Set<Long> recNos,
+                       @Nullable final String description) {
+            this.label = label;
             this.recNos = recNos;
             this.description = description;
         }
@@ -221,29 +285,29 @@ public final class SlidingWindowTestHelpers {
          * produced by subsequent assertions in this chain.
          */
         @Nonnull
-        public HnswAssert as(@Nonnull final String description) {
-            return new HnswAssert(recNos, description);
+        public DelegateAssert as(@Nonnull final String description) {
+            return new DelegateAssert(label, recNos, description);
         }
 
         @Nonnull
-        public HnswAssert containsInAnyOrder(final long... expectedRecNos) {
+        public DelegateAssert containsInAnyOrder(final long... expectedRecNos) {
             final Set<Long> expected = LongStream.of(expectedRecNos).boxed().collect(Collectors.toSet());
             assertEquals(expected, recNos,
-                    describe(description, "HNSW should contain " + expected + " but was " + recNos));
+                    describe(description, label + " should contain " + expected + " but was " + recNos));
             return this;
         }
 
         @Nonnull
-        public HnswAssert contains(final long expectedRecNo) {
+        public DelegateAssert contains(final long expectedRecNo) {
             assertTrue(recNos.contains(expectedRecNo),
-                    describe(description, "HNSW should contain " + expectedRecNo + " but was " + recNos));
+                    describe(description, label + " should contain " + expectedRecNo + " but was " + recNos));
             return this;
         }
 
         @Nonnull
-        public HnswAssert isEmpty() {
+        public DelegateAssert isEmpty() {
             assertTrue(recNos.isEmpty(),
-                    describe(description, "HNSW should be empty but contained " + recNos));
+                    describe(description, label + " should be empty but contained " + recNos));
             return this;
         }
     }
@@ -257,5 +321,215 @@ public final class SlidingWindowTestHelpers {
         return ByteBuffer.wrap(bytes)
                 .order(ByteOrder.LITTLE_ENDIAN)
                 .getLong();
+    }
+
+    // ===== Concurrent-transaction fluent harness =====
+
+    /**
+     * Entry point for the fluent concurrent-transaction harness. Mirrors the manual
+     * pattern of opening N contexts, binding the test's {@code recordStore} field to
+     * each one in turn, running per-context actions, and committing in declared order.
+     *
+     * <p>Example:</p>
+     * <pre>{@code
+     * concurrent(this, ctx -> openStore(ctx, 5, Direction.DESC))
+     *         .tx("A", () -> rec(4, 400))
+     *         .tx("B", () -> rec(5, 500))
+     *         .commitAll()
+     *         .expectNoConflicts();
+     * }</pre>
+     *
+     * @param testBase the test instance whose {@code openContext()} / {@code commit()}
+     *                 / {@code recordStore} are driven by the harness
+     * @param storeOpener binds the test's {@code recordStore} field to the given context
+     *                    (typically {@code ctx -> openStore(ctx, ...)})
+     */
+    @Nonnull
+    public static ConcurrentScenario concurrent(@Nonnull final FDBRecordStoreTestBase testBase,
+                                                @Nonnull final ContextSetup storeOpener) {
+        return new ConcurrentScenario(testBase, storeOpener);
+    }
+
+    /**
+     * Binds a context to the {@link FDBRecordStore} instance under test (e.g. by calling
+     * the test's {@code openStore(ctx, ...)}). Invoked once per registered transaction
+     * before its action runs.
+     */
+    @FunctionalInterface
+    public interface ContextSetup {
+        void setup(@Nonnull FDBRecordContext context) throws Exception;
+    }
+
+    /**
+     * Action run inside a transaction. The test's {@code recordStore} is bound to the
+     * matching context before the action runs, so callers can use the test's normal
+     * helpers (e.g. {@code rec(...)}) without thinking about which context is active.
+     */
+    @FunctionalInterface
+    public interface ThrowingRunnable {
+        void run() throws Exception;
+    }
+
+    /**
+     * A scenario builder. Each {@link #tx(String, ThrowingRunnable)} call registers a
+     * named transaction; {@link #commitAll()} opens all contexts, runs the actions in
+     * declared order against their respective stores, then commits each context in
+     * declared order — capturing per-tx commit outcomes for later assertions.
+     */
+    public static final class ConcurrentScenario {
+        @Nonnull
+        private final FDBRecordStoreTestBase testBase;
+        @Nonnull
+        private final ContextSetup storeOpener;
+        @Nonnull
+        private final List<NamedTx> transactions = new ArrayList<>();
+
+        ConcurrentScenario(@Nonnull final FDBRecordStoreTestBase testBase,
+                           @Nonnull final ContextSetup storeOpener) {
+            this.testBase = testBase;
+            this.storeOpener = storeOpener;
+        }
+
+        /**
+         * Registers a named transaction. The {@code action} runs against a freshly
+         * opened context whose store has been wired up via the scenario's store opener.
+         */
+        @Nonnull
+        public ConcurrentScenario tx(@Nonnull final String name, @Nonnull final ThrowingRunnable action) {
+            transactions.add(new NamedTx(name, action));
+            return this;
+        }
+
+        /**
+         * Opens all registered contexts (so they overlap), runs each action with its
+         * context's store bound, then commits each context in declared order. Commit
+         * failures are captured per-tx rather than bubbled out, so subsequent commits
+         * still attempt to run and the resulting {@link CommitOutcome} can describe the
+         * full picture.
+         */
+        @Nonnull
+        public CommitOutcome commitAll() {
+            return runAndCommit(transactions);
+        }
+
+        /**
+         * Same as {@link #commitAll()} but shuffles the commit order using the given
+         * {@link Random}. Useful when the test asserts an outcome that should hold
+         * regardless of which transaction commits first; pair with
+         * {@code @ParameterizedTest @RandomSeedSource} so the test can vary the seed
+         * across runs while still being reproducible from a logged seed on failure.
+         */
+        @Nonnull
+        public CommitOutcome commitInAnyOrder(@Nonnull final Random random) {
+            final List<NamedTx> shuffled = new ArrayList<>(transactions);
+            Collections.shuffle(shuffled, random);
+            return runAndCommit(shuffled);
+        }
+
+        @Nonnull
+        private CommitOutcome runAndCommit(@Nonnull final List<NamedTx> commitOrder) {
+            for (NamedTx tx : transactions) {
+                tx.context = testBase.openContext();
+            }
+            try {
+                for (NamedTx tx : transactions) {
+                    storeOpener.setup(tx.context);
+                    tx.action.run();
+                }
+                for (NamedTx tx : commitOrder) {
+                    try {
+                        testBase.commit(tx.context);
+                    } catch (Throwable t) {
+                        tx.commitError = t;
+                    }
+                }
+            } catch (Exception e) {
+                throw new RuntimeException("scenario action failed before commit phase", e);
+            } finally {
+                for (NamedTx tx : transactions) {
+                    if (tx.context != null) {
+                        tx.context.close();
+                    }
+                }
+            }
+            return new CommitOutcome(transactions);
+        }
+    }
+
+    /**
+     * Result of {@link ConcurrentScenario#commitAll()}. Provides expectation-style
+     * assertions over the per-tx commit outcomes.
+     */
+    public static final class CommitOutcome {
+        @Nonnull
+        private final List<NamedTx> transactions;
+
+        CommitOutcome(@Nonnull final List<NamedTx> transactions) {
+            this.transactions = transactions;
+        }
+
+        /**
+         * Asserts that every registered transaction committed successfully (no
+         * conflicts, no other commit-time failures).
+         */
+        @Nonnull
+        public CommitOutcome expectNoConflicts() {
+            for (NamedTx tx : transactions) {
+                if (tx.commitError != null) {
+                    throw new AssertionError(
+                            "Expected no commit conflicts but tx '" + tx.name + "' failed: " + tx.commitError,
+                            tx.commitError);
+                }
+            }
+            return this;
+        }
+
+        /**
+         * Asserts that the named transaction failed to commit (typically with a
+         * conflict). Other transactions are not checked.
+         */
+        @Nonnull
+        public CommitOutcome expectConflictOn(@Nonnull final String txName) {
+            final NamedTx tx = find(txName);
+            if (tx.commitError == null) {
+                throw new AssertionError(
+                        "Expected tx '" + txName + "' to fail commit, but it committed successfully");
+            }
+            return this;
+        }
+
+        /**
+         * Asserts that the named transaction committed successfully.
+         */
+        @Nonnull
+        public CommitOutcome expectCommitted(@Nonnull final String txName) {
+            final NamedTx tx = find(txName);
+            if (tx.commitError != null) {
+                throw new AssertionError(
+                        "Expected tx '" + txName + "' to commit, but it failed: " + tx.commitError,
+                        tx.commitError);
+            }
+            return this;
+        }
+
+        @Nonnull
+        private NamedTx find(@Nonnull final String txName) {
+            return transactions.stream()
+                    .filter(t -> t.name.equals(txName))
+                    .findFirst()
+                    .orElseThrow(() -> new AssertionError("Unknown tx: " + txName));
+        }
+    }
+
+    private static final class NamedTx {
+        @Nonnull final String name;
+        @Nonnull final ThrowingRunnable action;
+        @Nullable FDBRecordContext context;
+        @Nullable Throwable commitError;
+
+        NamedTx(@Nonnull final String name, @Nonnull final ThrowingRunnable action) {
+            this.name = name;
+            this.action = action;
+        }
     }
 }

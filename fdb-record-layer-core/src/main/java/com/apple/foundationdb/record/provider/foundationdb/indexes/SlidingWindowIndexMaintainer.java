@@ -70,12 +70,12 @@ import java.util.concurrent.CompletableFuture;
 
 /**
  * An index maintainer decorator that keeps only the top-N records based on a window key,
- * optionally grouped by a partition key. It wraps a vector (HNSW)
- * {@link IndexMaintainer} and applies sliding window semantics for mutations before delegating
- * the actual index operations. This bounds the size of the HNSW graph while maintaining search
- * quality over a curated subset of vectors.
+ * optionally grouped by a partition key. It wraps an underlying {@link IndexMaintainer}
+ * (vector or value) and applies sliding window semantics for mutations before delegating
+ * the actual index operations. This bounds the size of the delegate index while maintaining
+ * coverage of a curated subset of records.
  *
- * <p>Currently, only vector indexes are supported as the delegate. This restriction is enforced
+ * <p>Vector (HNSW) and value indexes are supported as delegates. This restriction is enforced
  * by {@link SlidingWindowIndexMaintainerFactory#isSlidingWindowIndex(Index)} and validated by
  * {@link SlidingWindowIndexMaintainerFactory}.</p>
  *
@@ -468,6 +468,7 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
                             //
                             if (boundaryBytes == null || extremumType.isWorseOrEqual(entryKey,
                                     Tuple.fromBytes(boundaryBytes))) {
+                                tr.addReadConflictKey(boundaryMetaKey);
                                 tr.set(boundaryMetaKey, entryKey.pack());
                             }
                         })
@@ -544,7 +545,6 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
                     final long count = counterBytes == null ? 0L : decodeLong(counterBytes);
                     final long newCount = Math.max(0, count - 1);
                     tr.set(counterKey, encodeLong(newCount));
-
                     return delegate.update(savedRecord, null)
                             .thenCompose(vignore -> updateBoundaryAfterDelete(
                                     entriesSubspace, tr, entryKey, boundaryEntryKey,
