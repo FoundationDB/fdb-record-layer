@@ -191,10 +191,12 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
     private static final Tuple ENTRIES_SUBSPACE_KEY = Tuple.from(0);
     /** Subspace key for the metadata region within a partition. */
     private static final Tuple META_SUBSPACE_KEY = Tuple.from(1);
-    /** Meta key for the window count (long). */
+    /** Legacy meta key for the window count (long). */
     private static final Tuple COUNT_KEY = Tuple.from(3);
     /** Meta key for the boundary pointer (packed tuple of windowValue + primaryKey). */
     private static final Tuple BOUNDARY_KEY = Tuple.from(4);
+    /** Meta key for the window count (long) - little endian. */
+    private static final Tuple COUNT_KEY_LE = Tuple.from(5);
 
     @Nonnull
     private final IndexMaintainer delegate;
