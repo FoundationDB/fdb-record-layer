@@ -126,6 +126,7 @@ public class RaBitQuantizerTest {
     void basicEncodeWithEstimationCosineMetricTest(final long seed, final int numDimensions, final int numExBits) {
         final Random random = new Random(seed);
         final RealVector v = createRandomDoubleVector(random, numDimensions).normalize();
+        Assertions.assertThat(v.l2SquaredNorm()).isCloseTo(1.0d, Offset.offset(2E-9));
         final RaBitQuantizer quantizer = new RaBitQuantizer(Metric.COSINE_METRIC, numExBits);
         final EncodedRealVector encodedV = quantizer.encode(v);
         final RaBitDistanceEstimator estimator = quantizer.estimator();

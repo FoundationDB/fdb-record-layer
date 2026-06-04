@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.linear;
 
-import com.apple.foundationdb.half.Half;
 import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
 
