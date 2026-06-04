@@ -22,7 +22,7 @@ package com.apple.foundationdb.kmeans;
 
 import com.apple.foundationdb.async.common.RandomHelpers;
 import com.apple.foundationdb.linear.DoubleRealVector;
-import com.apple.foundationdb.linear.Estimator;
+import com.apple.foundationdb.linear.DistanceEstimator;
 import com.apple.foundationdb.linear.Metric;
 import com.apple.foundationdb.linear.RealVector;
 import com.apple.foundationdb.linear.StoredVecsIterator;
@@ -131,18 +131,18 @@ final class KMeansTestHelpers {
      * Euclidean and cosine distance for cosine. {@link KMeans.Result#getDistances()} entries
      * and {@link KMeans.Result#getObjective()} are sums of this quantity.
      */
-    static double baseObjective(@Nonnull final Estimator estimator,
+    static double baseObjective(@Nonnull final DistanceEstimator distanceEstimator,
                                 @Nonnull final RealVector v,
                                 @Nonnull final RealVector c) {
-        switch (estimator.getMetric()) {
+        switch (distanceEstimator.getMetric()) {
             case EUCLIDEAN_METRIC: {
-                final double d = estimator.distance(v, c);
+                final double d = distanceEstimator.distance(v, c);
                 return d * d;
             }
             case COSINE_METRIC:
-                return estimator.distance(v, c);
+                return distanceEstimator.distance(v, c);
             default:
-                throw new UnsupportedOperationException("metric not supported in tests: " + estimator.getMetric());
+                throw new UnsupportedOperationException("metric not supported in tests: " + distanceEstimator.getMetric());
         }
     }
 
@@ -169,7 +169,7 @@ final class KMeansTestHelpers {
     static void assertKMeansInvariants(@Nonnull final KMeans.Result<RealVector> result,
                                        @Nonnull final List<? extends RealVector> vectors,
                                        final int k,
-                                       @Nonnull final Estimator estimator,
+                                       @Nonnull final DistanceEstimator distanceEstimator,
                                        final double lambda) {
         final int n = vectors.size();
         final int[] assignment = result.assignment();
@@ -209,7 +209,7 @@ final class KMeansTestHelpers {
         double sumDistances = 0.0d;
         for (int i = 0; i < n; i++) {
             final RealVector centroid = centroids.get(assignment[i]);
-            final double recomputed = baseObjective(estimator, vectors.get(i), centroid);
+            final double recomputed = baseObjective(distanceEstimator, vectors.get(i), centroid);
             assertThat(distances[i])
                     .as("distances[%d] matches baseObjective(vector, centroids[assignment])", i)
                     .isCloseTo(recomputed, withinRelative(recomputed, 1.0e-9d));
@@ -220,7 +220,7 @@ final class KMeansTestHelpers {
                 .isCloseTo(sumDistances, withinRelative(sumDistances, 1.0e-9d));
 
         // --- cosine: centroids should be unit-norm (or near-zero, the reseed edge case) ---
-        if (estimator.getMetric() == Metric.COSINE_METRIC) {
+        if (distanceEstimator.getMetric() == Metric.COSINE_METRIC) {
             for (int c = 0; c < k; c++) {
                 final RealVector centroid = centroids.get(c);
                 final double norm = centroid.l2Norm();
@@ -237,7 +237,7 @@ final class KMeansTestHelpers {
             for (int i = 0; i < n; i++) {
                 double best = Double.POSITIVE_INFINITY;
                 for (int c = 0; c < k; c++) {
-                    best = Math.min(best, baseObjective(estimator, vectors.get(i), centroids.get(c)));
+                    best = Math.min(best, baseObjective(distanceEstimator, vectors.get(i), centroids.get(c)));
                 }
                 assertThat(distances[i])
                         .as("local assignment optimality at index %d", i)

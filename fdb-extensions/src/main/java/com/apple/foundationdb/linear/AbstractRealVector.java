@@ -30,12 +30,18 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 /**
- * An abstract base class representing a mathematical vector.
+ * Common implementation skeleton for every {@link RealVector} subtype in this package. Holds
+ * the canonical {@code double[]} storage, memoizes the three derived values that are pure
+ * functions of the data ({@link #hashCode()}, {@link #getRawData()}, {@link #l2SquaredNorm()}),
+ * and delegates the precision-specific bits (raw-byte format, conversions to other vector
+ * representations) to concrete subclasses.
  * <p>
- * This class provides a generic framework for vectors of different numerical types,
- * where {@code R} is a subtype of {@link Number}. It includes common operations and functionalities like size,
- * component access, equality checks, and conversions. Concrete implementations must provide specific logic for
- * data type conversions and raw data representation.
+ * The class is intentionally precision-agnostic at this level — every accessor returns
+ * {@code double}, and subclasses only differ in <em>storage</em> resolution (which they truncate
+ * to in their constructors) and in the wire format produced by {@link #computeRawData()}.
+ * Mutable storage is the special case modeled by {@link MutableDoubleRealVector}; everything
+ * else inheriting from this class is treated as immutable for the lifetime of the instance
+ * (per the {@link #AbstractRealVector(double[]) constructor contract}).
  */
 public abstract class AbstractRealVector implements RealVector {
     @Nonnull
@@ -48,6 +54,10 @@ public abstract class AbstractRealVector implements RealVector {
     @Nonnull
     @SuppressWarnings("this-escape")
     private final Supplier<byte[]> toRawDataSupplier = Suppliers.memoize(this::computeRawData);
+
+    @Nonnull
+    @SuppressWarnings("this-escape")
+    private final Supplier<Double> l2SquaredNormSupplier = Suppliers.memoize(this::computeL2SquaredNorm);
 
     /**
      * Constructs a new RealVector with the given data.
@@ -79,7 +89,7 @@ public abstract class AbstractRealVector implements RealVector {
      * x-component, 1 to the y-component, and 2 to the z-component. This method provides direct access to the
      * underlying data element.
      * @param dimension the zero-based index of the component to retrieve.
-     * @return the component at the specified dimension, which is guaranteed to be non-null.
+     * @return the component at the specified dimension as a {@code double}.
      * @throws IndexOutOfBoundsException if the {@code dimension} is negative or
      *         greater than or equal to the number of dimensions of this object.
      */
@@ -89,11 +99,12 @@ public abstract class AbstractRealVector implements RealVector {
     }
 
     /**
-     * Returns the underlying data array.
+     * Returns the underlying {@code double[]} data array.
      * <p>
      * The returned array is guaranteed to be non-null. Note that this method
-     * returns a direct reference to the internal array, not a copy.
-     * @return the data array of type {@code R[]}, never {@code null}.
+     * returns a direct reference to the internal array, not a copy — callers must not mutate it
+     * unless the concrete subtype is {@link MutableDoubleRealVector}.
+     * @return the data array, never {@code null}.
      */
     @Nonnull
     @Override
@@ -195,6 +206,37 @@ public abstract class AbstractRealVector implements RealVector {
         }
     }
 
+    /**
+     * {@inheritDoc}
+     *
+     * <p>Memoized via the {@code l2SquaredNormSupplier} so repeated calls — including the ones
+     * driving {@link #l2Norm()} — share a single computation.
+     */
+    @Override
+    public double l2SquaredNorm() {
+        return l2SquaredNormSupplier.get();
+    }
+
+    /**
+     * Computes the squared L2 norm from scratch as {@code dot(this)}. Backs the memoizing
+     * supplier behind {@link #l2SquaredNorm()}; subclasses normally don't need to call it
+     * directly.
+     *
+     * @return the squared L2 norm of this vector
+     */
+    protected double computeL2SquaredNorm() {
+        return dot(this);
+    }
+
+    /**
+     * Widens an {@code int[]} to a freshly allocated {@code double[]} suitable for handing to
+     * {@link #AbstractRealVector(double[]) the array-by-reference constructor}. Used by
+     * subclass int-constructors so the call site does not need to manage the widening copy.
+     *
+     * @param ints the source components
+     * @return a new {@code double[]} of the same length, each element widened from the
+     *         corresponding {@code ints[i]}
+     */
     @Nonnull
     protected static double[] fromInts(@Nonnull final int[] ints) {
         final double[] result = new double[ints.length];
@@ -204,6 +246,17 @@ public abstract class AbstractRealVector implements RealVector {
         return result;
     }
 
+    /**
+     * Widens a {@code long[]} to a freshly allocated {@code double[]} suitable for handing to
+     * {@link #AbstractRealVector(double[]) the array-by-reference constructor}. Used by
+     * subclass long-constructors so the call site does not need to manage the widening copy.
+     * Note that {@code long} values outside the 53-bit mantissa of {@code double} may lose
+     * precision in the widening.
+     *
+     * @param longs the source components
+     * @return a new {@code double[]} of the same length, each element widened from the
+     *         corresponding {@code longs[i]}
+     */
     @Nonnull
     protected static double[] fromLongs(@Nonnull final long[] longs) {
         final double[] result = new double[longs.length];

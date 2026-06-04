@@ -20,7 +20,7 @@
 
 package com.apple.foundationdb.kmeans;
 
-import com.apple.foundationdb.linear.Estimator;
+import com.apple.foundationdb.linear.DistanceEstimator;
 import com.apple.foundationdb.linear.Metric;
 import com.apple.foundationdb.linear.RealVector;
 import com.apple.foundationdb.util.Lens;
@@ -283,7 +283,7 @@ public class PartitionEvaluator {
      * Computes the full panel of {@link PartitionStats} for a single partitioning in a single pass
      * over {@code vectors}. SSE, per-cluster radii, per-vector margins, and (optionally) the
      * approximate 95th-percentile assigned distance are accumulated inside
-     * {@link #accumulate(List, Lens, Partition, Estimator, boolean)}; size summaries and
+     * {@link #accumulate(List, Lens, Partition, DistanceEstimator, boolean)}; size summaries and
      * margin summaries are derived from those accumulators. Inter-centroid separation,
      * median/p10 margin, and low-margin rate are computed only when {@code k >= 2} and reported
      * as {@link Double#NaN} (or {@code 0.0} for {@code lowMarginRate}) otherwise.
@@ -306,7 +306,7 @@ public class PartitionEvaluator {
                                                         @Nonnull final Lens<V, RealVector> vectorLens,
                                                         @Nonnull final Partition<?> partition,
                                                         @Nonnull final Parameters parameters) {
-        final Estimator estimator = parameters.estimator();
+        final DistanceEstimator distanceEstimator = parameters.distanceEstimator();
         final int n = vectors.size();
         final int k = partition.k();
 
@@ -316,16 +316,16 @@ public class PartitionEvaluator {
                 "assignment length mismatch");
 
         final boolean needOverallP95 =
-                estimator.getMetric() != Metric.COSINE_METRIC
+                distanceEstimator.getMetric() != Metric.COSINE_METRIC
                         && parameters.lowMarginThreshold() <= 0.0d;
 
         final SecondPassResult acc =
-                accumulate(vectors, vectorLens, partition, estimator, needOverallP95);
+                accumulate(vectors, vectorLens, partition, distanceEstimator, needOverallP95);
         final double lowMarginThreshold =
                 computeLowMarginThreshold(parameters, acc.overallP95());
         final SizeStats sizes = summarizeSizes(acc.childSizes(), n);
         final double maxRadius95 = maxRadius95(acc.childRadii());
-        final double separation = separation(partition, estimator, maxRadius95);
+        final double separation = separation(partition, distanceEstimator, maxRadius95);
         final MarginStats margins = marginStats(acc.margins(), lowMarginThreshold, n, k);
 
         return new PartitionStats(k, acc.sse(), sizes.imbalance(), separation,
@@ -391,7 +391,7 @@ public class PartitionEvaluator {
      * @param vectors the input vectors
      * @param vectorLens lens that extracts a {@link RealVector} from each {@code vectors} element
      * @param partition the partitioning being evaluated
-     * @param estimator the distance estimator
+     * @param distanceEstimator the distance estimator
      * @param computeOverallP95 if true, also produce the approximate 95th-percentile assigned
      *                          distance in {@link SecondPassResult#overallP95()}; otherwise that
      *                          field is {@link Double#NaN}
@@ -402,7 +402,7 @@ public class PartitionEvaluator {
     private static <V> SecondPassResult accumulate(@Nonnull final List<V> vectors,
                                                    @Nonnull final Lens<V, RealVector> vectorLens,
                                                    @Nonnull final Partition<?> partition,
-                                                   @Nonnull final Estimator estimator,
+                                                   @Nonnull final DistanceEstimator distanceEstimator,
                                                    final boolean computeOverallP95) {
         final int n = vectors.size();
         final int k = partition.k();
@@ -430,8 +430,8 @@ public class PartitionEvaluator {
             final RealVector ownC = partition.getCentroid(own);
 
             childSizes[own]++;
-            sse += distanceForSse(estimator, v, ownC);
-            final double d = geometricDistance(estimator, v, ownC);
+            sse += distanceForSse(distanceEstimator, v, ownC);
+            final double d = geometricDistance(distanceEstimator, v, ownC);
             childRadii[own].add(d);
             if (p95Heap != null) {
                 if (p95Heap.size() < p95HeapSize) {
@@ -442,7 +442,7 @@ public class PartitionEvaluator {
                 }
             }
             if (k >= 2) {
-                margins.add(computeMargin(estimator, partition, v, own));
+                margins.add(computeMargin(distanceEstimator, partition, v, own));
             }
         }
         final double overallP95 = (p95Heap != null && !p95Heap.isEmpty()) ? p95Heap.peek() : Double.NaN;
@@ -456,7 +456,7 @@ public class PartitionEvaluator {
      * {@code clampedDot(own) - clampedDot(secondBest)}. Larger margins mean more confident
      * assignments. Requires {@code partition.k() >= 2}.
      *
-     * @param estimator the distance estimator
+     * @param distanceEstimator the distance estimator
      * @param partition the partitioning that owns the centroids
      * @param v the vector whose assignment margin is being measured
      * @param own the index of the centroid that {@code v} is currently assigned to
@@ -465,21 +465,21 @@ public class PartitionEvaluator {
      * @throws UnsupportedOperationException if the estimator's metric is neither
      *         {@code EUCLIDEAN_METRIC} nor {@code COSINE_METRIC}
      */
-    private static double computeMargin(@Nonnull final Estimator estimator,
+    private static double computeMargin(@Nonnull final DistanceEstimator distanceEstimator,
                                         @Nonnull final Partition<?> partition,
                                         @Nonnull final RealVector v,
                                         final int own) {
         final int k = partition.k();
         final RealVector ownC = partition.getCentroid(own);
-        return switch (estimator.getMetric()) {
+        return switch (distanceEstimator.getMetric()) {
             case EUCLIDEAN_METRIC -> {
-                final double ownD = estimator.distance(v, ownC);
+                final double ownD = distanceEstimator.distance(v, ownC);
                 double secondBest = Double.POSITIVE_INFINITY;
                 for (int j = 0; j < k; j++) {
                     if (j == own) {
                         continue;
                     }
-                    secondBest = Math.min(secondBest, estimator.distance(v, partition.getCentroid(j)));
+                    secondBest = Math.min(secondBest, distanceEstimator.distance(v, partition.getCentroid(j)));
                 }
                 yield secondBest - ownD;
             }
@@ -563,12 +563,12 @@ public class PartitionEvaluator {
      * {@code partition.k() < 2}.
      *
      * @param partition the partitioning whose centroids are compared
-     * @param estimator the distance estimator
+     * @param distanceEstimator the distance estimator
      * @param maxRadius95 scale reference used to normalize the minimum pairwise centroid distance
      * @return the normalized inter-centroid separation, or {@link Double#NaN} if {@code k < 2}
      */
     private static double separation(@Nonnull final Partition<?> partition,
-                                     @Nonnull final Estimator estimator,
+                                     @Nonnull final DistanceEstimator distanceEstimator,
                                      final double maxRadius95) {
         final int k = partition.k();
         if (k < 2) {
@@ -577,7 +577,7 @@ public class PartitionEvaluator {
         double minCentroidDistance = Double.POSITIVE_INFINITY;
         for (int i = 0; i < k; i++) {
             for (int j = i + 1; j < k; j++) {
-                final double d = geometricDistance(estimator, partition.getCentroid(i), partition.getCentroid(j));
+                final double d = geometricDistance(distanceEstimator, partition.getCentroid(i), partition.getCentroid(j));
                 minCentroidDistance = Math.min(minCentroidDistance, d);
             }
         }
@@ -629,7 +629,7 @@ public class PartitionEvaluator {
     @SuppressWarnings("SwitchStatementWithTooFewBranches")
     private static double computeLowMarginThreshold(@Nonnull final Parameters parameters,
                                                     final double overallP95) {
-        return switch (parameters.estimator.getMetric()) {
+        return switch (parameters.distanceEstimator.getMetric()) {
             case COSINE_METRIC -> parameters.lowMarginThreshold > 0.0 ? parameters.lowMarginThreshold : 0.02;
             default -> parameters.lowMarginThreshold > 0.0 ? parameters.lowMarginThreshold : 0.05 * overallP95;
         };
@@ -640,17 +640,17 @@ public class PartitionEvaluator {
      * supported metrics this is just {@code estimator.distance(a, b)}; the indirection exists so
      * the SSE-specific transform in {@link #distanceForSse} stays separate.
      *
-     * @param estimator the distance estimator
+     * @param distanceEstimator the distance estimator
      * @param a left operand
      * @param b right operand
      * @return the geometric distance between {@code a} and {@code b}
      * @throws UnsupportedOperationException if the estimator's metric is neither
      *         {@code EUCLIDEAN_METRIC} nor {@code COSINE_METRIC}
      */
-    private static double geometricDistance(@Nonnull final Estimator estimator, @Nonnull final RealVector a,
+    private static double geometricDistance(@Nonnull final DistanceEstimator distanceEstimator, @Nonnull final RealVector a,
                                             @Nonnull final RealVector b) {
-        return switch (estimator.getMetric()) {
-            case COSINE_METRIC, EUCLIDEAN_METRIC -> estimator.distance(a, b);
+        return switch (distanceEstimator.getMetric()) {
+            case COSINE_METRIC, EUCLIDEAN_METRIC -> distanceEstimator.distance(a, b);
             default -> throw new UnsupportedOperationException("metric is not supported");
         };
     }
@@ -666,17 +666,17 @@ public class PartitionEvaluator {
      *       keeps SSE comparable in scale to the Euclidean case.</li>
      * </ul>
      *
-     * @param estimator the distance estimator
+     * @param distanceEstimator the distance estimator
      * @param v the data vector
      * @param c the centroid
      * @return the SSE contribution for the pair {@code (v, c)}
      * @throws UnsupportedOperationException if the estimator's metric is neither
      *         {@code EUCLIDEAN_METRIC} nor {@code COSINE_METRIC}
      */
-    private static double distanceForSse(@Nonnull final Estimator estimator, @Nonnull final RealVector v,
+    private static double distanceForSse(@Nonnull final DistanceEstimator distanceEstimator, @Nonnull final RealVector v,
                                          @Nonnull final RealVector c) {
-        return switch (estimator.getMetric()) {
-            case COSINE_METRIC -> 2.0d * estimator.distance(v, c);
+        return switch (distanceEstimator.getMetric()) {
+            case COSINE_METRIC -> 2.0d * distanceEstimator.distance(v, c);
             case EUCLIDEAN_METRIC -> v.subtract(c).l2SquaredNorm();
             default -> throw new UnsupportedOperationException("metric is not supported");
         };
@@ -866,7 +866,7 @@ public class PartitionEvaluator {
      * {@code maxLargestFrac} based on their transition (e.g. tighter for an initial 1 → 2 split,
      * looser for 2 → 3 or for merges).
      *
-     * @param estimator the distance estimator used for all distance computations
+     * @param distanceEstimator the distance estimator used for all distance computations
      * @param minRelativeSseGain minimum relative SSE (sum of squared errors) improvement required;
      *        candidates with less improvement are rejected. May be negative if the caller wants to
      *        accept some SSE increase (e.g. for merges).
@@ -889,7 +889,7 @@ public class PartitionEvaluator {
      * @param minScoreGain minimum composite score improvement the candidate must achieve over the
      *        current partitioning to be accepted
      */
-    public record Parameters(@Nonnull Estimator estimator, double minRelativeSseGain, double minSeparation,
+    public record Parameters(@Nonnull DistanceEstimator distanceEstimator, double minRelativeSseGain, double minSeparation,
                              double maxLowMarginRate, double minSmallestFrac, double maxLargestFrac,
                              double lowMarginThreshold, double alphaSseGain, double betaSeparationGain,
                              double gammaImbalancePenalty, double deltaLowMarginPenalty, double minScoreGain) {
@@ -901,10 +901,10 @@ public class PartitionEvaluator {
          * {@code (alpha=1.0, beta=0.5, gamma=1.0, delta=0.75)} with a {@code minScoreGain} of
          * {@code 0.05}. Tighten or loosen via the canonical constructor as needed.
          *
-         * @param estimator the distance estimator used for all distance computations
+         * @param distanceEstimator the distance estimator used for all distance computations
          */
-        public Parameters(@Nonnull final Estimator estimator) {
-            this(estimator,
+        public Parameters(@Nonnull final DistanceEstimator distanceEstimator) {
+            this(distanceEstimator,
                     0.10d,
                     0.3d,
                     0.25d,

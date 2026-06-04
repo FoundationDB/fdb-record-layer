@@ -20,7 +20,7 @@
 
 package com.apple.foundationdb.kmeans;
 
-import com.apple.foundationdb.linear.Estimator;
+import com.apple.foundationdb.linear.DistanceEstimator;
 import com.apple.foundationdb.linear.MutableDoubleRealVector;
 import com.apple.foundationdb.linear.RealVector;
 import com.apple.foundationdb.util.Lens;
@@ -91,15 +91,16 @@ public final class KMeans {
      * final assignment pass against the produced centroids is run so the returned partitioning
      * is self-consistent.
      * <p>
-     * Setting {@code shuffleEachIteration} to {@code true} reduces order-dependence when using
-     * projected-size penalties (see {@link SizePenalty}) and usually improves balance quality
-     * when {@code lambda > 0}; as imbalance grows during the assignment process, distance penalties
-     * grow as well; with {@code lambda == 0} it has no effect on results because the
-     * assignment is order-independent.
+     * When {@code lambda > 0} the assignment step becomes order-dependent (each vector's
+     * size-balance penalty is evaluated against the running projected sizes of all clusters
+     * assigned <em>before</em> it). To stop a fixed input ordering from biasing the final
+     * partitioning, {@code fit} reshuffles the assignment order via Fisher–Yates at the top of
+     * every iteration whenever {@code lambda > 0}. With {@code lambda == 0} the assignment is
+     * order-independent and shuffling is skipped as wasted work.
      *
      * @param random the random source; consumed by k-means++ initialization, restart seeding,
-     *               and per-iteration shuffling
-     * @param estimator the distance estimator. Its metric must be either
+     *               and per-iteration shuffling (when active)
+     * @param distanceEstimator the distance estimator. Its metric must be either
      *                  {@code EUCLIDEAN_METRIC} or {@code COSINE_METRIC}; other metrics are
      *                  rejected with an {@link UnsupportedOperationException}
      * @param vectorLens lens that extracts a {@link RealVector} from each input element
@@ -115,14 +116,12 @@ public final class KMeans {
      * @param sizePenalty penalty function applied to projected cluster sizes during
      *                    assignment; {@code null} disables balancing. Ignored when
      *                    {@code lambda == 0}
-     * @param shuffleEachIteration whether to Fisher–Yates-shuffle the per-iteration
-     *                             assignment order
      * @param <V> caller's input vector representation
      * @param <C> caller's centroid representation
      * @return the best partitioning found across all restarts, ranked by geometric SSE
      */
     public static <V, C> Result<C> fit(@Nonnull final SplittableRandom random,
-                                       @Nonnull final Estimator estimator,
+                                       @Nonnull final DistanceEstimator distanceEstimator,
                                        @Nonnull final Lens<V, RealVector> vectorLens,
                                        @Nonnull final Lens<C, RealVector> centroidLens,
                                        @Nonnull final List<V> vectors,
@@ -130,8 +129,7 @@ public final class KMeans {
                                        final int maxIterations,
                                        final int maxRestarts,
                                        final double lambda,
-                                       @Nullable final SizePenalty sizePenalty,
-                                       final boolean shuffleEachIteration) {
+                                       @Nullable final SizePenalty sizePenalty) {
 
         Preconditions.checkArgument(k >= 2, "k must be >= 2");
         Preconditions.checkArgument(vectors.size() >= k, "vectors.size() must be >= k");
@@ -139,7 +137,12 @@ public final class KMeans {
         Preconditions.checkArgument(maxRestarts >= 0, "maxRestarts must be >= 0");
         Preconditions.checkArgument(lambda >= 0, "lambda must be >= 0");
 
-        final MetricAdapter metricAdapter = fromEstimator(estimator);
+        // Order-dependence of the assignment step is fully determined by lambda:
+        // lambda > 0 → score depends on running projected sizes → shuffle to spread the bias;
+        // lambda == 0 → score is purely geometric → shuffling is wasted work.
+        final boolean shuffleEachIteration = lambda > 0.0d;
+
+        final MetricAdapter metricAdapter = fromEstimator(distanceEstimator);
 
         final int numDimensions = getVector(vectorLens, vectors, 0).getNumDimensions();
         final int n = vectors.size();
@@ -574,17 +577,17 @@ public final class KMeans {
     /**
      * Returns the {@link MetricAdapter} that matches the metric exposed by {@code estimator}.
      *
-     * @param estimator the distance estimator
+     * @param distanceEstimator the distance estimator
      * @return a metric adapter for {@code estimator}'s metric
      * @throws UnsupportedOperationException if the estimator's metric is neither
      *         {@code EUCLIDEAN_METRIC} nor {@code COSINE_METRIC}
      */
     @Nonnull
     @VisibleForTesting
-    static MetricAdapter fromEstimator(@Nonnull final Estimator estimator) {
-        return switch (estimator.getMetric()) {
-            case EUCLIDEAN_METRIC -> new EuclideanMetricAdapter(estimator);
-            case COSINE_METRIC -> new CosineMetricAdapter(estimator);
+    static MetricAdapter fromEstimator(@Nonnull final DistanceEstimator distanceEstimator) {
+        return switch (distanceEstimator.getMetric()) {
+            case EUCLIDEAN_METRIC -> new EuclideanMetricAdapter(distanceEstimator);
+            case COSINE_METRIC -> new CosineMetricAdapter(distanceEstimator);
             default -> throw new UnsupportedOperationException("metric is not supported");
         };
     }
@@ -636,11 +639,11 @@ public final class KMeans {
      * distance.
      * <p>
      * For non-quantization-aware estimators (the common case: any
-     * {@link Estimator#ofMetric}-built estimator) this is computed directly via
+     * {@link DistanceEstimator#ofMetric}-built estimator) this is computed directly via
      * {@link RealVector#l2SquaredDistance} to skip the {@code sqrt} that
-     * {@link Estimator#distance Estimator.distance(...)} performs only to be squared again.
+     * {@link DistanceEstimator#distance Estimator.distance(...)} performs only to be squared again.
      * <p>
-     * When {@link Estimator#isOptimized} reports that the estimator has a metric-specific fast
+     * When {@link DistanceEstimator#isOptimized} reports that the estimator has a metric-specific fast
      * path for the given pair (e.g. a {@code RaBitEstimator} acting on at least one encoded
      * vector), the call is routed through {@code estimator.distance(...)} so the
      * quantization-aware estimate is preserved — bypassing it via {@code getData()} would
@@ -651,17 +654,17 @@ public final class KMeans {
      */
     private static class EuclideanMetricAdapter implements MetricAdapter {
         @Nonnull
-        private final Estimator estimator;
+        private final DistanceEstimator distanceEstimator;
 
-        public EuclideanMetricAdapter(@Nonnull final Estimator estimator) {
-            this.estimator = estimator;
+        public EuclideanMetricAdapter(@Nonnull final DistanceEstimator distanceEstimator) {
+            this.distanceEstimator = distanceEstimator;
         }
 
         @Override
         public double baseObjective(@Nonnull final RealVector vector,
                                     @Nonnull final RealVector centroid) {
-            if (estimator.isOptimized(vector, centroid)) {
-                final double d = estimator.distance(vector, centroid);
+            if (distanceEstimator.isOptimized(vector, centroid)) {
+                final double d = distanceEstimator.distance(vector, centroid);
                 return d * d;
             }
             return vector.l2SquaredDistance(centroid);
@@ -686,16 +689,16 @@ public final class KMeans {
      */
     private static class CosineMetricAdapter implements MetricAdapter {
         @Nonnull
-        private final Estimator estimator;
+        private final DistanceEstimator distanceEstimator;
 
-        public CosineMetricAdapter(@Nonnull final Estimator estimator) {
-            this.estimator = estimator;
+        public CosineMetricAdapter(@Nonnull final DistanceEstimator distanceEstimator) {
+            this.distanceEstimator = distanceEstimator;
         }
 
         @Override
         public double baseObjective(@Nonnull final RealVector vector,
                                     @Nonnull final RealVector centroid) {
-            return estimator.distance(vector, centroid);
+            return distanceEstimator.distance(vector, centroid);
         }
 
         @Nonnull

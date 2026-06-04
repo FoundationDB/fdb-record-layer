@@ -20,8 +20,8 @@
 
 package com.apple.foundationdb.kmeans;
 
+import com.apple.foundationdb.linear.DistanceEstimator;
 import com.apple.foundationdb.linear.DoubleRealVector;
-import com.apple.foundationdb.linear.Estimator;
 import com.apple.foundationdb.linear.Metric;
 import com.apple.foundationdb.linear.MutableDoubleRealVector;
 import com.apple.foundationdb.linear.RealVector;
@@ -50,8 +50,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 class PartitionEvaluatorTest {
     private static final Logger logger = LoggerFactory.getLogger(PartitionEvaluatorTest.class);
 
-    private static final Estimator EUCLIDEAN = Estimator.ofMetric(Metric.EUCLIDEAN_METRIC);
-    private static final Estimator COSINE = Estimator.ofMetric(Metric.COSINE_METRIC);
+    private static final DistanceEstimator EUCLIDEAN = DistanceEstimator.ofMetric(Metric.EUCLIDEAN_METRIC);
+    private static final DistanceEstimator COSINE = DistanceEstimator.ofMetric(Metric.COSINE_METRIC);
 
     @ParameterizedTest
     @RandomSeedSource({0x0fdbL, 0x5ca1eL})
@@ -647,13 +647,13 @@ class PartitionEvaluatorTest {
     private static PartitionEvaluator.Partition<RealVector>
             nearestPartition(@Nonnull final List<RealVector> centroids,
                              @Nonnull final List<RealVector> vectors,
-                             @Nonnull final Estimator estimator) {
+                             @Nonnull final DistanceEstimator distanceEstimator) {
         final int[] assignments = new int[vectors.size()];
         for (int i = 0; i < vectors.size(); i++) {
             double best = Double.POSITIVE_INFINITY;
             int bestC = 0;
             for (int c = 0; c < centroids.size(); c++) {
-                final double d = KMeansTestHelpers.baseObjective(estimator, vectors.get(i), centroids.get(c));
+                final double d = KMeansTestHelpers.baseObjective(distanceEstimator, vectors.get(i), centroids.get(c));
                 if (d < best) {
                     best = d;
                     bestC = c;
@@ -693,7 +693,7 @@ class PartitionEvaluatorTest {
     @Nonnull
     private static PartitionEvaluator.Parameters withMinSmallestFrac(
             @Nonnull final PartitionEvaluator.Parameters p, final double v) {
-        return new PartitionEvaluator.Parameters(p.estimator(), p.minRelativeSseGain(), p.minSeparation(),
+        return new PartitionEvaluator.Parameters(p.distanceEstimator(), p.minRelativeSseGain(), p.minSeparation(),
                 p.maxLowMarginRate(), v, p.maxLargestFrac(), p.lowMarginThreshold(),
                 p.alphaSseGain(), p.betaSeparationGain(), p.gammaImbalancePenalty(),
                 p.deltaLowMarginPenalty(), p.minScoreGain());
@@ -702,7 +702,7 @@ class PartitionEvaluatorTest {
     @Nonnull
     private static PartitionEvaluator.Parameters withMaxLargestFrac(
             @Nonnull final PartitionEvaluator.Parameters p, final double v) {
-        return new PartitionEvaluator.Parameters(p.estimator(), p.minRelativeSseGain(), p.minSeparation(),
+        return new PartitionEvaluator.Parameters(p.distanceEstimator(), p.minRelativeSseGain(), p.minSeparation(),
                 p.maxLowMarginRate(), p.minSmallestFrac(), v, p.lowMarginThreshold(),
                 p.alphaSseGain(), p.betaSeparationGain(), p.gammaImbalancePenalty(),
                 p.deltaLowMarginPenalty(), p.minScoreGain());

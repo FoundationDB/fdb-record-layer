@@ -20,8 +20,8 @@
 
 package com.apple.foundationdb.kmeans;
 
+import com.apple.foundationdb.linear.DistanceEstimator;
 import com.apple.foundationdb.linear.DoubleRealVector;
-import com.apple.foundationdb.linear.Estimator;
 import com.apple.foundationdb.linear.Metric;
 import com.apple.foundationdb.linear.MutableDoubleRealVector;
 import com.apple.foundationdb.linear.RealVector;
@@ -91,23 +91,23 @@ class KMeansTest {
 
         Collections.shuffle(vectors, new Random(rnd.nextLong()));
 
-        final Estimator estimator = Estimator.ofMetric(Metric.EUCLIDEAN_METRIC);
+        final DistanceEstimator distanceEstimator = DistanceEstimator.ofMetric(Metric.EUCLIDEAN_METRIC);
         final KMeans.Result<RealVector> res = KMeans.fit(
-                rnd, estimator,
+                rnd, distanceEstimator,
                 Lens.identity(), Lens.identity(),
                 vectors,
                 2, 15, 3, 0.0,
-                null, true);
+                null);
 
-        KMeansTestHelpers.assertKMeansInvariants(res, vectors, 2, estimator, 0.0d);
+        KMeansTestHelpers.assertKMeansInvariants(res, vectors, 2, distanceEstimator, 0.0d);
 
         final RealVector c0 = res.clusterCentroids().get(0);
         final RealVector c1 = res.clusterCentroids().get(1);
 
-        final double d00 = estimator.distance(m0, c0);
-        final double d01 = estimator.distance(m0, c1);
-        final double d10 = estimator.distance(m1, c0);
-        final double d11 = estimator.distance(m1, c1);
+        final double d00 = distanceEstimator.distance(m0, c0);
+        final double d01 = distanceEstimator.distance(m0, c1);
+        final double d10 = distanceEstimator.distance(m1, c0);
+        final double d11 = distanceEstimator.distance(m1, c1);
 
         final double matchA = d00 + d11;
         final double matchB = d01 + d10;
@@ -137,15 +137,15 @@ class KMeansTest {
 
         Collections.shuffle(vectors, new Random(rnd.nextLong()));
 
-        final Estimator estimator = Estimator.ofMetric(Metric.EUCLIDEAN_METRIC);
+        final DistanceEstimator distanceEstimator = DistanceEstimator.ofMetric(Metric.EUCLIDEAN_METRIC);
         final KMeans.Result<RealVector> res = KMeans.fit(
-                rnd, estimator,
+                rnd, distanceEstimator,
                 Lens.identity(), Lens.identity(),
                 vectors,
                 2, 15, 3, 0.0,
-                null, true);
+                null);
 
-        KMeansTestHelpers.assertKMeansInvariants(res, vectors, 2, estimator, 0.0d);
+        KMeansTestHelpers.assertKMeansInvariants(res, vectors, 2, distanceEstimator, 0.0d);
 
         assertThat(res.clusterSizes()[0]).isGreaterThan(0);
         assertThat(res.clusterSizes()[1]).isGreaterThan(0);
@@ -181,16 +181,15 @@ class KMeansTest {
 
         final int k = 3;
         final double lambda = 0.08d;
-        final Estimator estimator = Estimator.ofMetric(Metric.EUCLIDEAN_METRIC);
+        final DistanceEstimator distanceEstimator = DistanceEstimator.ofMetric(Metric.EUCLIDEAN_METRIC);
         final KMeans.Result<RealVector> res = KMeans.fit(
-                rnd, estimator,
+                rnd, distanceEstimator,
                 Lens.identity(), Lens.identity(),
                 vectors,
                 k, 20, 3, lambda,
-                KMeans.overflowQuadraticPenalty(),
-                true);
+                KMeans.overflowQuadraticPenalty());
 
-        KMeansTestHelpers.assertKMeansInvariants(res, vectors, k, estimator, lambda);
+        KMeansTestHelpers.assertKMeansInvariants(res, vectors, k, distanceEstimator, lambda);
 
         for (int c = 0; c < k; c++) {
             assertThat(res.clusterSizes()[c]).isGreaterThan(0);
@@ -228,16 +227,15 @@ class KMeansTest {
 
         final int k = 3;
         final double lambda = 0.08d;
-        final Estimator estimator = Estimator.ofMetric(Metric.EUCLIDEAN_METRIC);
+        final DistanceEstimator distanceEstimator = DistanceEstimator.ofMetric(Metric.EUCLIDEAN_METRIC);
         final KMeans.Result<RealVector> res = KMeans.fit(
-                splittableRandom, estimator,
+                splittableRandom, distanceEstimator,
                 Lens.identity(), Lens.identity(),
                 vectors,
                 k, 20, 3, lambda,
-                KMeans.overflowQuadraticPenalty(),
-                true);
+                KMeans.overflowQuadraticPenalty());
 
-        KMeansTestHelpers.assertKMeansInvariants(res, vectors, k, estimator, lambda);
+        KMeansTestHelpers.assertKMeansInvariants(res, vectors, k, distanceEstimator, lambda);
 
         for (int c = 0; c < k; c++) {
             assertThat(res.clusterSizes()[c]).isGreaterThan(0);
@@ -271,22 +269,22 @@ class KMeansTest {
 
         Collections.shuffle(vectors, new Random(rnd.nextLong()));
 
-        final Estimator estimator = Estimator.ofMetric(Metric.COSINE_METRIC);
+        final DistanceEstimator distanceEstimator = DistanceEstimator.ofMetric(Metric.COSINE_METRIC);
         final KMeans.Result<RealVector> res = KMeans.fit(
-                rnd, estimator,
+                rnd, distanceEstimator,
                 Lens.identity(), Lens.identity(),
                 vectors, 2, 15, 3, 0.0,
-                null, true);
+                null);
 
-        KMeansTestHelpers.assertKMeansInvariants(res, vectors, 2, estimator, 0.0d);
+        KMeansTestHelpers.assertKMeansInvariants(res, vectors, 2, distanceEstimator, 0.0d);
 
         final RealVector c0 = res.clusterCentroids().get(0).normalize();
         final RealVector c1 = res.clusterCentroids().get(1).normalize();
 
-        final double d00 = estimator.distance(m0, c0);
-        final double d01 = estimator.distance(m0, c1);
-        final double d10 = estimator.distance(m1, c0);
-        final double d11 = estimator.distance(m1, c1);
+        final double d00 = distanceEstimator.distance(m0, c0);
+        final double d01 = distanceEstimator.distance(m0, c1);
+        final double d10 = distanceEstimator.distance(m1, c0);
+        final double d11 = distanceEstimator.distance(m1, c1);
 
         final double matchA = d00 + d11;
         final double matchB = d01 + d10;
@@ -294,7 +292,7 @@ class KMeansTest {
 
         assertThat(bestMatch).isLessThan(0.20d);
 
-        final double baseline = baselineObjectiveSameCentroidTwiceNormalized(vectors, estimator);
+        final double baseline = baselineObjectiveSameCentroidTwiceNormalized(vectors, distanceEstimator);
         assertThat(res.objective()).isLessThan(baseline * 0.65d);
     }
 
@@ -315,14 +313,14 @@ class KMeansTest {
 
         Collections.shuffle(vectors, new Random(rnd.nextLong()));
 
-        final Estimator estimator = Estimator.ofMetric(Metric.COSINE_METRIC);
+        final DistanceEstimator distanceEstimator = DistanceEstimator.ofMetric(Metric.COSINE_METRIC);
         final KMeans.Result<RealVector> res = KMeans.fit(
-                rnd, estimator,
+                rnd, distanceEstimator,
                 Lens.identity(), Lens.identity(),
                 vectors, 2, 15, 3, 0.0,
-                null, true);
+                null);
 
-        KMeansTestHelpers.assertKMeansInvariants(res, vectors, 2, estimator, 0.0d);
+        KMeansTestHelpers.assertKMeansInvariants(res, vectors, 2, distanceEstimator, 0.0d);
 
         assertThat(res.clusterSizes()[0]).isGreaterThan(0);
         assertThat(res.clusterSizes()[1]).isGreaterThan(0);
@@ -352,15 +350,14 @@ class KMeansTest {
 
         final int k = 3;
         final double lambda = 0.08d;
-        final Estimator estimator = Estimator.ofMetric(Metric.COSINE_METRIC);
+        final DistanceEstimator distanceEstimator = DistanceEstimator.ofMetric(Metric.COSINE_METRIC);
         final KMeans.Result<RealVector> res = KMeans.fit(
-                rnd, estimator,
+                rnd, distanceEstimator,
                 Lens.identity(), Lens.identity(),
                 vectors, k, 20, 3, lambda,
-                KMeans.overflowQuadraticPenalty(),
-                true);
+                KMeans.overflowQuadraticPenalty());
 
-        KMeansTestHelpers.assertKMeansInvariants(res, vectors, k, estimator, lambda);
+        KMeansTestHelpers.assertKMeansInvariants(res, vectors, k, distanceEstimator, lambda);
 
         for (int c = 0; c < k; c++) {
             assertThat(res.clusterSizes()[c]).isGreaterThan(0);
@@ -397,15 +394,14 @@ class KMeansTest {
 
         final int k = 3;
         final double lambda = 0.08d;
-        final Estimator estimator = Estimator.ofMetric(Metric.COSINE_METRIC);
+        final DistanceEstimator distanceEstimator = DistanceEstimator.ofMetric(Metric.COSINE_METRIC);
         final KMeans.Result<RealVector> res = KMeans.fit(
-                splittableRandom, estimator,
+                splittableRandom, distanceEstimator,
                 Lens.identity(), Lens.identity(),
                 vectors, k, 20, 3, lambda,
-                KMeans.overflowQuadraticPenalty(),
-                true);
+                KMeans.overflowQuadraticPenalty());
 
-        KMeansTestHelpers.assertKMeansInvariants(res, vectors, k, estimator, lambda);
+        KMeansTestHelpers.assertKMeansInvariants(res, vectors, k, distanceEstimator, lambda);
 
         for (int c = 0; c < k; c++) {
             assertThat(res.clusterSizes()[c]).isGreaterThan(0);
@@ -429,23 +425,22 @@ class KMeansTest {
     void siftSmallEuclideanInvariants(final long seed) {
         final List<RealVector> sample = ImmutableList.copyOf(
                 KMeansTestHelpers.pickRandomSubset(new Random(seed), siftSmallBase, SIFT_SAMPLE_SIZE));
-        final Estimator estimator = Estimator.ofMetric(Metric.EUCLIDEAN_METRIC);
+        final DistanceEstimator distanceEstimator = DistanceEstimator.ofMetric(Metric.EUCLIDEAN_METRIC);
 
         for (final int k : new int[] {2, 5, 25, 100}) {
             for (final double lambda : new double[] {0.0d, 0.08d}) {
                 final KMeans.Result<RealVector> res = KMeans.fit(
                         new SplittableRandom(seed),
-                        estimator,
+                        distanceEstimator,
                         Lens.identity(), Lens.identity(),
                         sample,
                         k, /*maxIterations=*/30, /*maxRestarts=*/2, lambda,
-                        lambda > 0.0d ? KMeans.overflowQuadraticPenalty() : null,
-                        /*shuffleEachIteration=*/true);
+                        lambda > 0.0d ? KMeans.overflowQuadraticPenalty() : null);
 
                 logger.info("siftSmallEuclidean seed={} k={} lambda={} sse={} sizes={}",
                         seed, k, lambda, res.objective(), res.clusterSizes());
 
-                KMeansTestHelpers.assertKMeansInvariants(res, sample, k, estimator, lambda);
+                KMeansTestHelpers.assertKMeansInvariants(res, sample, k, distanceEstimator, lambda);
             }
         }
     }
@@ -460,23 +455,22 @@ class KMeansTest {
         final List<RealVector> raw = ImmutableList.copyOf(
                 KMeansTestHelpers.pickRandomSubset(new Random(seed), siftSmallBase, SIFT_SAMPLE_SIZE));
         final List<RealVector> sample = KMeansTestHelpers.normalizeAll(raw);
-        final Estimator estimator = Estimator.ofMetric(Metric.COSINE_METRIC);
+        final DistanceEstimator distanceEstimator = DistanceEstimator.ofMetric(Metric.COSINE_METRIC);
 
         for (final int k : new int[] {2, 5, 25, 100}) {
             for (final double lambda : new double[] {0.0d, 0.08d}) {
                 final KMeans.Result<RealVector> res = KMeans.fit(
                         new SplittableRandom(seed),
-                        estimator,
+                        distanceEstimator,
                         Lens.identity(), Lens.identity(),
                         sample,
                         k, /*maxIterations=*/30, /*maxRestarts=*/2, lambda,
-                        lambda > 0.0d ? KMeans.overflowQuadraticPenalty() : null,
-                        /*shuffleEachIteration=*/true);
+                        lambda > 0.0d ? KMeans.overflowQuadraticPenalty() : null);
 
                 logger.info("siftSmallCosine seed={} k={} lambda={} obj={} sizes={}",
                         seed, k, lambda, res.objective(), res.clusterSizes());
 
-                KMeansTestHelpers.assertKMeansInvariants(res, sample, k, estimator, lambda);
+                KMeansTestHelpers.assertKMeansInvariants(res, sample, k, distanceEstimator, lambda);
             }
         }
     }
@@ -490,17 +484,17 @@ class KMeansTest {
     void siftSmallDeterminism(final long seed) {
         final List<RealVector> sample = ImmutableList.copyOf(
                 KMeansTestHelpers.pickRandomSubset(new Random(seed), siftSmallBase, SIFT_SAMPLE_SIZE));
-        final Estimator estimator = Estimator.ofMetric(Metric.EUCLIDEAN_METRIC);
+        final DistanceEstimator distanceEstimator = DistanceEstimator.ofMetric(Metric.EUCLIDEAN_METRIC);
         final int k = 10;
 
         final KMeans.Result<RealVector> a = KMeans.fit(
-                new SplittableRandom(seed), estimator,
+                new SplittableRandom(seed), distanceEstimator,
                 Lens.identity(), Lens.identity(),
-                sample, k, 20, 2, 0.0d, null, true);
+                sample, k, 20, 2, 0.0d, null);
         final KMeans.Result<RealVector> b = KMeans.fit(
-                new SplittableRandom(seed), estimator,
+                new SplittableRandom(seed), distanceEstimator,
                 Lens.identity(), Lens.identity(),
-                sample, k, 20, 2, 0.0d, null, true);
+                sample, k, 20, 2, 0.0d, null);
 
         assertThat(a.assignment()).containsExactly(b.assignment());
         assertThat(a.clusterSizes()).containsExactly(b.clusterSizes());
@@ -525,15 +519,15 @@ class KMeansTest {
     void siftSmallRestartsImproveObjective(final long seed) {
         final List<RealVector> sample = ImmutableList.copyOf(
                 KMeansTestHelpers.pickRandomSubset(new Random(seed), siftSmallBase, SIFT_SAMPLE_SIZE));
-        final Estimator estimator = Estimator.ofMetric(Metric.EUCLIDEAN_METRIC);
+        final DistanceEstimator distanceEstimator = DistanceEstimator.ofMetric(Metric.EUCLIDEAN_METRIC);
         final int k = 10;
 
-        final double obj0 = KMeans.fit(new SplittableRandom(seed), estimator,
-                Lens.identity(), Lens.identity(), sample, k, 30, 0, 0.0d, null, true).objective();
-        final double obj1 = KMeans.fit(new SplittableRandom(seed), estimator,
-                Lens.identity(), Lens.identity(), sample, k, 30, 1, 0.0d, null, true).objective();
-        final double obj3 = KMeans.fit(new SplittableRandom(seed), estimator,
-                Lens.identity(), Lens.identity(), sample, k, 30, 3, 0.0d, null, true).objective();
+        final double obj0 = KMeans.fit(new SplittableRandom(seed), distanceEstimator,
+                Lens.identity(), Lens.identity(), sample, k, 30, 0, 0.0d, null).objective();
+        final double obj1 = KMeans.fit(new SplittableRandom(seed), distanceEstimator,
+                Lens.identity(), Lens.identity(), sample, k, 30, 1, 0.0d, null).objective();
+        final double obj3 = KMeans.fit(new SplittableRandom(seed), distanceEstimator,
+                Lens.identity(), Lens.identity(), sample, k, 30, 3, 0.0d, null).objective();
 
         logger.info("restarts: 0->{}, 1->{}, 3->{}", obj0, obj1, obj3);
         assertThat(obj1).isLessThanOrEqualTo(obj0);
@@ -549,14 +543,14 @@ class KMeansTest {
     void siftSmallMoreClustersLowerSse(final long seed) {
         final List<RealVector> sample = ImmutableList.copyOf(
                 KMeansTestHelpers.pickRandomSubset(new Random(seed), siftSmallBase, SIFT_SAMPLE_SIZE));
-        final Estimator estimator = Estimator.ofMetric(Metric.EUCLIDEAN_METRIC);
+        final DistanceEstimator distanceEstimator = DistanceEstimator.ofMetric(Metric.EUCLIDEAN_METRIC);
 
-        final double sse2 = KMeans.fit(new SplittableRandom(seed), estimator,
-                Lens.identity(), Lens.identity(), sample, 2, 50, 3, 0.0d, null, true).objective();
-        final double sse10 = KMeans.fit(new SplittableRandom(seed), estimator,
-                Lens.identity(), Lens.identity(), sample, 10, 50, 3, 0.0d, null, true).objective();
-        final double sse25 = KMeans.fit(new SplittableRandom(seed), estimator,
-                Lens.identity(), Lens.identity(), sample, 25, 50, 3, 0.0d, null, true).objective();
+        final double sse2 = KMeans.fit(new SplittableRandom(seed), distanceEstimator,
+                Lens.identity(), Lens.identity(), sample, 2, 50, 3, 0.0d, null).objective();
+        final double sse10 = KMeans.fit(new SplittableRandom(seed), distanceEstimator,
+                Lens.identity(), Lens.identity(), sample, 10, 50, 3, 0.0d, null).objective();
+        final double sse25 = KMeans.fit(new SplittableRandom(seed), distanceEstimator,
+                Lens.identity(), Lens.identity(), sample, 25, 50, 3, 0.0d, null).objective();
 
         logger.info("k-monotonic SSE: 2->{}, 10->{}, 25->{}", sse2, sse10, sse25);
         // Generous slack accounts for the local-optimum nature of Lloyd; in pathological cases a
@@ -576,19 +570,18 @@ class KMeansTest {
     void siftSmallLambdaImprovesBalance(final long seed) {
         final List<RealVector> sample = ImmutableList.copyOf(
                 KMeansTestHelpers.pickRandomSubset(new Random(seed), siftSmallBase, SIFT_SAMPLE_SIZE));
-        final Estimator estimator = Estimator.ofMetric(Metric.EUCLIDEAN_METRIC);
+        final DistanceEstimator distanceEstimator = DistanceEstimator.ofMetric(Metric.EUCLIDEAN_METRIC);
         final int k = 10;
 
         final KMeans.Result<RealVector> unbalanced = KMeans.fit(
-                new SplittableRandom(seed), estimator,
+                new SplittableRandom(seed), distanceEstimator,
                 Lens.identity(), Lens.identity(),
-                sample, k, 30, 2, 0.0d, null, true);
+                sample, k, 30, 2, 0.0d, null);
         final KMeans.Result<RealVector> balanced = KMeans.fit(
-                new SplittableRandom(seed), estimator,
+                new SplittableRandom(seed), distanceEstimator,
                 Lens.identity(), Lens.identity(),
                 sample, k, 30, 2, 0.08d,
-                KMeans.overflowQuadraticPenalty(),
-                true);
+                KMeans.overflowQuadraticPenalty());
 
         final int unbalancedMax = Arrays.stream(unbalanced.clusterSizes()).max().orElseThrow();
         final int balancedMax = Arrays.stream(balanced.clusterSizes()).max().orElseThrow();
@@ -616,8 +609,8 @@ class KMeansTest {
      */
     @Test
     void farthestVectorIndexPicksWorstServedPointEuclidean() {
-        final Estimator estimator = Estimator.ofMetric(Metric.EUCLIDEAN_METRIC);
-        final KMeans.MetricAdapter adapter = KMeans.fromEstimator(estimator);
+        final DistanceEstimator distanceEstimator = DistanceEstimator.ofMetric(Metric.EUCLIDEAN_METRIC);
+        final KMeans.MetricAdapter adapter = KMeans.fromEstimator(distanceEstimator);
 
         final List<RealVector> centroids = ImmutableList.of(
                 new DoubleRealVector(new double[] {-5.0d, 0.0d, 0.0d}),
@@ -645,8 +638,8 @@ class KMeansTest {
      */
     @Test
     void farthestVectorIndexBreaksTiesByEarliestIndex() {
-        final Estimator estimator = Estimator.ofMetric(Metric.EUCLIDEAN_METRIC);
-        final KMeans.MetricAdapter adapter = KMeans.fromEstimator(estimator);
+        final DistanceEstimator distanceEstimator = DistanceEstimator.ofMetric(Metric.EUCLIDEAN_METRIC);
+        final KMeans.MetricAdapter adapter = KMeans.fromEstimator(distanceEstimator);
 
         final List<RealVector> centroids = ImmutableList.of(
                 new DoubleRealVector(new double[] {0.0d, 0.0d, 0.0d}));
@@ -691,7 +684,7 @@ class KMeansTest {
      * Objective is computed using the provided estimator.
      */
     private static double baselineObjectiveSameCentroidTwiceNormalized(@Nonnull final List<RealVector> pts,
-                                                                       @Nonnull final Estimator estimator) {
+                                                                       @Nonnull final DistanceEstimator distanceEstimator) {
         final int d = pts.get(0).getNumDimensions();
         final MutableDoubleRealVector sum = MutableDoubleRealVector.zeroVector(d);
         for (final RealVector p : pts) {
@@ -702,7 +695,7 @@ class KMeansTest {
 
         double obj = 0.0d;
         for (final RealVector p : pts) {
-            obj += estimator.distance(p, meanDirection);
+            obj += distanceEstimator.distance(p, meanDirection);
         }
         return obj;
     }

@@ -214,6 +214,11 @@ public class MutableDoubleRealVector extends DoubleRealVector {
         return computeHashCode();
     }
 
+    @Override
+    public double l2SquaredNorm() {
+        return computeL2SquaredNorm(); // always compute it fresh as this instance is mutable
+    }
+
     /**
      * Normalizes this vector to unit L2 norm in place.
      *

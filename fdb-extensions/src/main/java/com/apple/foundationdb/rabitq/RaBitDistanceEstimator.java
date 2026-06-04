@@ -21,19 +21,19 @@
 package com.apple.foundationdb.rabitq;
 
 import com.apple.foundationdb.linear.DoubleRealVector;
-import com.apple.foundationdb.linear.Estimator;
+import com.apple.foundationdb.linear.DistanceEstimator;
 import com.apple.foundationdb.linear.Metric;
 import com.apple.foundationdb.linear.RealVector;
 
 import javax.annotation.Nonnull;
 
-public class RaBitEstimator implements Estimator {
+public class RaBitDistanceEstimator implements DistanceEstimator {
     @Nonnull
     private final Metric metric;
     private final int numExBits;
 
-    public RaBitEstimator(@Nonnull final Metric metric,
-                          final int numExBits) {
+    public RaBitDistanceEstimator(@Nonnull final Metric metric,
+                                  final int numExBits) {
         this.metric = metric;
         this.numExBits = numExBits;
     }
