@@ -37,13 +37,11 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.MatchableSo
 import com.apple.foundationdb.record.query.plan.cascades.predicates.Placeholder;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.PredicateWithValueAndRanges;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
-import com.apple.foundationdb.record.query.plan.cascades.predicates.simplification.ConstantFoldingRuleSet;
 import com.apple.foundationdb.record.query.plan.cascades.values.CosineDistanceRowNumberValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.DotProductDistanceRowNumberValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.EuclideanDistanceRowNumberValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.EuclideanSquareDistanceRowNumberValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
-import com.apple.foundationdb.record.query.plan.cascades.values.simplification.Simplification;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
