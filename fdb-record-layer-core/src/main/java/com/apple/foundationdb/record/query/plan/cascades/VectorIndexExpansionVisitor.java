@@ -143,11 +143,6 @@ public class VectorIndexExpansionVisitor extends KeyExpressionExpansionVisitor i
             if (!filteredIndexPredicate.isTautology()) {
                 final var valueRangesMaybe = IndexPredicateExpansion.dnfPredicateToRanges(filteredIndexPredicate);
                 final var predicateExpansionBuilder = GraphExpansion.builder();
-                Simplification.optimize(filteredIndexPredicate,
-                        EvaluationContext.EMPTY,
-                        AliasMap.emptyMap(),
-                        ImmutableSet.of(),
-                        ConstantFoldingRuleSet.ofSimplificationRules());
                 if (valueRangesMaybe.isEmpty()) { // could not create DNF, store the predicate as-is.
                     allExpansionsBuilder.add(GraphExpansion.ofPredicate(filteredIndexPredicate));
                 } else {
