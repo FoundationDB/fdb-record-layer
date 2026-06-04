@@ -562,35 +562,87 @@ class KMeansTest {
 
     /**
      * Soft size balancing should reduce cluster-size variance: with {@code lambda > 0} and the
-     * default overflow penalty, the largest-cluster fraction is no larger than without
-     * balancing on the same sample/seed.
+     * default overflow penalty, the standard deviation of cluster sizes should — <i>averaged
+     * across seeds</i> — be smaller than without balancing.
+     * <p>
+     * The metric is intentionally the standard deviation, not the maximum cluster size. The
+     * overflow-quadratic penalty literally minimizes a sum of squared overflows, so what it
+     * actually optimizes is closer to variance than to max — and max alone is a fragile proxy
+     * that can go up while variance goes down (the penalty might be redistributing the small
+     * clusters more than shaving the largest). Asserting on standard deviation tracks the
+     * property the penalty is optimizing.
+     * <p>
+     * Aggregating across multiple seeds smooths out single-seed variance in the local-minimum
+     * landscape both runs are converging into.
+     * <p>
+     * The {@code lambda} value used here ({@code 1000}) is large compared to the synthetic-blob
+     * tests above ({@code lambda = 0.08}). That's because {@code lambda} is dimensional: the
+     * penalty term is added to the per-vector base objective (squared L2 distance to the
+     * centroid), and SIFT-small components run 0–127 so per-vector squared distances are in the
+     * thousands. To make the penalty visible against that, {@code lambda} has to be in the
+     * thousands too. The 3D-blob tests get away with tiny {@code lambda} because their
+     * geometric scores are in the single digits.
      */
-    @ParameterizedTest
-    @RandomSeedSource({0x0fdbL})
-    void siftSmallLambdaImprovesBalance(final long seed) {
-        final List<RealVector> sample = ImmutableList.copyOf(
-                KMeansTestHelpers.pickRandomSubset(new Random(seed), siftSmallBase, SIFT_SAMPLE_SIZE));
+    @Test
+    void siftSmallLambdaImprovesBalance() {
+        final long[] seeds = {0x0fdbL, 0x5ca1eL, 0xC0FFEEL, 123456L, 78910L,
+                0xDEADBEEFL, 0xBADCAFEL, 1123581321345589L};
         final DistanceEstimator distanceEstimator = DistanceEstimator.ofMetric(Metric.EUCLIDEAN_METRIC);
         final int k = 10;
 
-        final KMeans.Result<RealVector> unbalanced = KMeans.fit(
-                new SplittableRandom(seed), distanceEstimator,
-                Lens.identity(), Lens.identity(),
-                sample, k, 30, 2, 0.0d, null);
-        final KMeans.Result<RealVector> balanced = KMeans.fit(
-                new SplittableRandom(seed), distanceEstimator,
-                Lens.identity(), Lens.identity(),
-                sample, k, 30, 2, 0.08d,
-                KMeans.overflowQuadraticPenalty());
+        double ratioSum = 0.0d;
+        int balancedWins = 0;
+        for (final long seed : seeds) {
+            final List<RealVector> sample = ImmutableList.copyOf(
+                    KMeansTestHelpers.pickRandomSubset(new Random(seed), siftSmallBase, SIFT_SAMPLE_SIZE));
 
-        final int unbalancedMax = Arrays.stream(unbalanced.clusterSizes()).max().orElseThrow();
-        final int balancedMax = Arrays.stream(balanced.clusterSizes()).max().orElseThrow();
+            final KMeans.Result<RealVector> unbalanced = KMeans.fit(
+                    new SplittableRandom(seed), distanceEstimator,
+                    Lens.identity(), Lens.identity(),
+                    sample, k, 30, 2, 0.0d, null);
+            final KMeans.Result<RealVector> balanced = KMeans.fit(
+                    new SplittableRandom(seed), distanceEstimator,
+                    Lens.identity(), Lens.identity(),
+                    sample, k, 30, 2, 1000d,
+                    KMeans.overflowQuadraticPenalty());
 
-        logger.info("balance: unbalanced sizes={}, balanced sizes={}",
-                unbalanced.clusterSizes(), balanced.clusterSizes());
+            final double unbalancedStddev = clusterSizeStddev(unbalanced.clusterSizes());
+            final double balancedStddev = clusterSizeStddev(balanced.clusterSizes());
+            final double ratio = balancedStddev / unbalancedStddev;
+            ratioSum += ratio;
+            if (balancedStddev <= unbalancedStddev) {
+                balancedWins++;
+            }
 
-        // Allow a small tolerance: tiny lambdas don't always strictly tighten balance.
-        assertThat(balancedMax).isLessThanOrEqualTo((int)Math.round(unbalancedMax * 1.05d));
+            logger.info("balance@seed={}: unbalanced stddev={}, balanced stddev={}, ratio={}",
+                    Long.toHexString(seed), unbalancedStddev, balancedStddev, ratio);
+        }
+
+        final double meanRatio = ratioSum / seeds.length;
+        logger.info("siftSmallLambdaImprovesBalance: meanRatio={} over {} seeds, balanced won {}/{}",
+                meanRatio, seeds.length, balancedWins, seeds.length);
+
+        // Averaged across seeds, balancing should reduce the standard deviation of cluster sizes
+        // — that's the quantity the overflow-quadratic penalty literally targets.
+        assertThat(meanRatio)
+                .as("mean balancedStddev / unbalancedStddev across %d seeds (per-seed ratios in the log)",
+                        seeds.length)
+                .isLessThanOrEqualTo(1.0d);
+    }
+
+    /**
+     * Standard deviation of an {@code int[]} treated as a sample, using the population formula
+     * (divide by {@code n}, not {@code n-1}). Used by
+     * {@link #siftSmallLambdaImprovesBalance()} to measure cluster-size dispersion.
+     */
+    private static double clusterSizeStddev(@Nonnull final int[] sizes) {
+        final double mean = Arrays.stream(sizes).average().orElseThrow();
+        double sumSquared = 0.0d;
+        for (final int s : sizes) {
+            final double delta = s - mean;
+            sumSquared += delta * delta;
+        }
+        return Math.sqrt(sumSquared / sizes.length);
     }
 
     // ============================================================================================
