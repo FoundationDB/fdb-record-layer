@@ -37,7 +37,6 @@ import javax.annotation.Nonnull;
 import java.util.Optional;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.TypedMatcherWithPredicate.typedMatcherWithPredicate;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.anyValue;
 
 /**
  * A rule that collapses a {@link Value} into a {@link NullValue} if it is strictly null-propagating and has at least
@@ -61,9 +60,8 @@ public class CollapseNullStrictValueOverNullValueRule extends ValueSimplificatio
             SubscriptValue.class);
 
     @Nonnull
-    private static final BindingMatcher<Value> rootMatcher = anyValue()
-            .where(typedMatcherWithPredicate(Value.class,
-                    v -> VALUE_CLASSES.contains(v.getClass()) && hasNullValueChild(v)));
+    private static final BindingMatcher<Value> rootMatcher = typedMatcherWithPredicate(Value.class,
+            v -> VALUE_CLASSES.contains(v.getClass()) && hasNullValueChild(v));
 
     public CollapseNullStrictValueOverNullValueRule() {
         super(rootMatcher);
