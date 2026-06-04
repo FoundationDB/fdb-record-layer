@@ -70,15 +70,6 @@ import java.util.function.Supplier;
 @SuppressWarnings("checkstyle:MemberName")
 public class EncodedRealVector implements RealVector {
     /**
-     * The {@code ε₀} constant from the RaBitQ paper's error-bound formula. Used both by the
-     * encoder ({@link RaBitQuantizer}, when filling in {@link #fErrorEx}) and here in
-     * {@link #computeData()} when inverting the rescale to recover an approximate dense form.
-     * The numerical value (1.9) is the paper's calibration; do not change it without going back
-     * to the source.
-     */
-    private static final double EPS0 = 1.9d;
-
-    /**
      * Number of magnitude bits per dimension, in addition to the implicit sign bit. The total
      * bit budget per component is {@code numExBits + 1}.
      */
@@ -117,7 +108,7 @@ public class EncodedRealVector implements RealVector {
     private final Supplier<Integer> hashCodeSupplier = Suppliers.memoize(this::computeHashCode);
     @Nonnull
     @SuppressWarnings("this-escape")
-    private final Supplier<double[]> dataSupplier = Suppliers.memoize(this::computeData2);
+    private final Supplier<double[]> dataSupplier = Suppliers.memoize(this::computeData);
     @Nonnull
     @SuppressWarnings("this-escape")
     private final Supplier<byte[]> rawDataSupplier = Suppliers.memoize(this::computeRawData);
@@ -286,54 +277,42 @@ public class EncodedRealVector implements RealVector {
     }
 
     /**
-     * Reconstructs an approximate dense representation of the original (rotated, residual-form)
-     * vector from the integer codes plus the three calibration constants. Backs the memoizing
-     * supplier behind {@link #getData()}.
+     * Reconstructs an approximate dense {@code double[]} from the encoded codes plus
+     * {@link #fAddEx}. Backs the memoizing supplier behind {@link #getData()}; callers should
+     * normally go through that path.
      *
-     * <p>The math, in summary:
-     * <ol>
-     *   <li>Un-shift the codes by {@code cB = (1 << numExBits) - 0.5} to recover a
-     *       symmetric-range vector {@code z}.</li>
-     *   <li>Estimate the per-vector confidence weight {@code ρ} from the ratio of
-     *       {@link #fErrorEx} to {@code (ε₀-scaled) ||z|| * fRescaleEx}, clamped to
-     *       {@code [0, 1]}.</li>
-     *   <li>Return {@code z} scaled by {@code -0.5 * fRescaleEx * ρ}.</li>
-     * </ol>
-     * The reconstruction is lossy by design — RaBitQ trades reconstruction fidelity for
-     * compact storage and fast distance estimation.
+     * <p>The reconstruction is a <em>norm-matched</em> dequantization. The codes carry the
+     * sign-and-magnitude pattern of the original residual {@code r} but at the integer scale of
+     * the encoder; this method centers them by subtracting {@code cb = 2^numExBits - 0.5} and
+     * rescales the result so its L2 norm equals {@code ||r||}, which is recoverable as
+     * {@code √fAddEx}. Concretely, with {@code z = encoded - cb}:
+     * <pre>{@code
+     *   output[i] = z[i] · (||r|| / ||z||)
+     * }</pre>
+     * The returned vector therefore has direction equal to {@code z}'s direction (an
+     * approximation of {@code r}'s direction, modulo quantization error) and magnitude exactly
+     * equal to the original residual's norm. This is the right reconstruction whenever the
+     * caller wants to treat the encoded vector "like a normal {@link RealVector}" — distances
+     * against non-encoded vectors come out at the original scale, k-means input vectors mix
+     * cleanly with non-encoded ones, etc.
      *
-     * @return the reconstructed dense components
-     * @throws com.google.common.base.VerifyException if the denominator that scales the error
-     *         estimate is zero (a degenerate parameter combination that should never occur for
-     *         a well-formed encoding)
+     * <p>Note that the per-vector estimator constants {@link #fRescaleEx} and {@link #fErrorEx}
+     * are intentionally <em>not</em> used here. Those drive the
+     * {@link RaBitDistanceEstimator}'s internal distance formula, where the scaling and
+     * confidence shrinkage live; pulling them into the dequantization would produce a
+     * confidence-weighted "view" suitable for reversing the estimator's math but not for
+     * treating the result as a stand-in for the original residual.
+     *
+     * <p>Degenerate inputs: if {@link #fAddEx} is non-positive (the original residual was
+     * effectively zero) or if every {@code encoded[i] = cb} (the centered codes have zero
+     * norm), there's no meaningful direction to recover and a zero vector is returned. No
+     * exception is thrown for these cases.
+     *
+     * @return a freshly allocated {@code double[]} with the reconstructed components; never
+     *         {@code null}
      */
     @Nonnull
-    public double[] computeData() {
-        final int numDimensions = getNumDimensions();
-        final double cB = (1 << numExBits) - 0.5;
-        final RealVector z = new DoubleRealVector(encoded).subtract(cB);
-        final double normZ = z.l2Norm();
-
-        // Solve for rho and Δx from fErrorEx and fRescaleEx
-        final double a = (2.0 * EPS0) / Math.sqrt(numDimensions - 1.0);
-        final double denom = a * Math.abs(fRescaleEx) * normZ;
-        Verify.verify(denom != 0.0, "degenerate parameters: denom == 0");
-
-        final double r = Math.min(1.0, (2.0 * Math.abs(fErrorEx)) / denom); // clamp for safety
-        final double rho = Math.sqrt(Math.max(0.0, 1.0 - r * r));
-
-        final double deltaX = -0.5 * fRescaleEx * rho;
-
-        // ô = c + Δx * r
-        return z.multiply(deltaX).getData();
-    }
-
-    /**
-     * Returns the memoized wire-format serialization of this vector (see
-     * {@link #computeRawData()} for the format).
-     */
-    @Nonnull
-    double[] computeData2() {
+    double[] computeData() {
         final int numDimensions = getNumDimensions();
         final double cb = (1 << numExBits) - 0.5;
         final double[] xucData = new double[numDimensions];
@@ -358,6 +337,10 @@ public class EncodedRealVector implements RealVector {
         return xucData;
     }
 
+    /**
+     * Returns the memoized wire-format serialization of this vector (see
+     * {@link #computeRawData()} for the format).
+     */
     @Nonnull
     @Override
     public byte[] getRawData() {

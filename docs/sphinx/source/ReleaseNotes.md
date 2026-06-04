@@ -7,6 +7,40 @@ As the [versioning guide](Versioning.md) details, it cannot always be determined
 
 ## 4.12
 
+### 4.12.8.0
+
+<h4> New Features </h4>
+
+* Implement some optimisations for value simplification and ConstrainedBooleans - [PR #4251](https://github.com/FoundationDB/fdb-record-layer/pull/4251)
+* Generate plan offline - [PR #4223](https://github.com/FoundationDB/fdb-record-layer/pull/4223)
+* Expose shutdown hook disablement through `FDBDatabaseFactory` - [PR #4246](https://github.com/FoundationDB/fdb-record-layer/pull/4246)
+
+<details>
+<summary>
+
+<h4> Build/Test/Documentation/Style Improvements (click to expand) </h4>
+
+</summary>
+
+* Update Gradle from 8.14 to 9.5.1 - [PR #4138](https://github.com/FoundationDB/fdb-record-layer/pull/4138)
+* Indexer test: assert that no heartbeat is committed during index rebuild - [PR #4248](https://github.com/FoundationDB/fdb-record-layer/pull/4248)
+* Bump Python deps with reported CVEs - [PR #4201](https://github.com/FoundationDB/fdb-record-layer/pull/4201)
+
+</details>
+
+
+**[Full Changelog (4.12.7.0...4.12.8.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.12.7.0...4.12.8.0)**
+
+#### Mixed Mode Test Results
+
+Mixed mode testing run against the following previous versions:
+
+✅`4.10.19.0`, ✅`4.10.20.0`, ✅`4.11.1.0`, ✅`4.12.1.0`, ✅`4.12.2.0`, ✅`4.12.3.0`, ✅`4.12.4.0`, ✅`4.12.5.0`, ✅`4.12.6.0`, ✅`4.12.7.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/26950367850)
+
+
+
 ### 4.12.7.0
 
 <h4> Bug Fixes </h4>

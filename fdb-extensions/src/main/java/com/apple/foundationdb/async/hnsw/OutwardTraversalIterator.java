@@ -239,10 +239,10 @@ class OutwardTraversalIterator implements AsyncIterator<NodeReferenceAndNode<Nod
             return primitives.fetchNodeIfNotCached(storageAdapter, readTransaction, storageTransform, 0, nodeReference, nodeCache)
                     .thenApply(node -> new NodeReferenceAndNode<>(nodeReference, node));
         }).thenApply(nextNodeReferenceAndNode -> {
-//            if (logger.isTraceEnabled()) {
-//                logger.trace("iterating for efOutwardSearch={} with result=={}", efOutwardSearch,
-//                        nextNodeReferenceAndNode == null ? null : nextNodeReferenceAndNode.getNodeReference().getPrimaryKey());
-//            }
+            if (logger.isTraceEnabled()) {
+                logger.trace("iterating for efOutwardSearch={} with result=={}", efOutwardSearch,
+                        nextNodeReferenceAndNode == null ? null : nextNodeReferenceAndNode.getNodeReference().getPrimaryKey());
+            }
             return nextNodeReferenceAndNode;
         });
     }
