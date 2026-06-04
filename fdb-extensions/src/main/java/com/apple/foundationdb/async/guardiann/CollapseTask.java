@@ -25,7 +25,7 @@ import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.common.RandomHelpers;
 import com.apple.foundationdb.async.common.StorageHelpers;
 import com.apple.foundationdb.async.common.StorageTransform;
-import com.apple.foundationdb.linear.Estimator;
+import com.apple.foundationdb.linear.DistanceEstimator;
 import com.apple.foundationdb.linear.Quantizer;
 import com.apple.foundationdb.linear.RealVector;
 import com.apple.foundationdb.linear.Transformed;
@@ -131,7 +131,7 @@ public class CollapseTask extends AbstractDeferredTask {
         final AccessInfo accessInfo = getAccessInfo();
         final StorageTransform storageTransform = primitives.storageTransform(accessInfo);
         final Quantizer quantizer = primitives.quantizer(accessInfo);
-        final Estimator estimator = quantizer.estimator();
+        final DistanceEstimator estimator = quantizer.estimator();
 
         return primitives.fetchClusterMetadataWithDistance(transaction,
                                 targetClusterMetadata.id(),
@@ -151,7 +151,7 @@ public class CollapseTask extends AbstractDeferredTask {
     }
 
     @Nonnull
-    private CollapseAssignments computeCollapseAssignments(@Nonnull final Estimator estimator,
+    private CollapseAssignments computeCollapseAssignments(@Nonnull final DistanceEstimator estimator,
                                                            @Nonnull final ClusterMetadataWithDistance targetClusterMetadataWithDistance,
                                                            @Nonnull final List<VectorReference> vectorReferences) {
         final Config config = getConfig();

@@ -25,7 +25,7 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.common.RandomHelpers;
 import com.apple.foundationdb.async.common.StorageTransform;
-import com.apple.foundationdb.linear.Estimator;
+import com.apple.foundationdb.linear.DistanceEstimator;
 import com.apple.foundationdb.linear.Quantizer;
 import com.apple.foundationdb.linear.RealVector;
 import com.apple.foundationdb.linear.Transformed;
@@ -293,7 +293,7 @@ class Delete {
             logger.trace("begin delete key={} at layer={}", toBeDeletedPrimaryKey, layer);
         }
         final Primitives primitives = primitives();
-        final Estimator estimator = quantizer.estimator();
+        final DistanceEstimator distanceEstimator = quantizer.estimator();
         final Map<Tuple, AbstractNode<N>> nodeCache = Maps.newConcurrentMap();
         final Map<Tuple /* primaryKey */, NeighborsChangeSet<N>> candidateChangeSetMap =
                 Maps.newConcurrentMap();
@@ -319,7 +319,7 @@ class Delete {
                                 return forEach(primaryNeighbors,
                                         neighborReference ->
                                                 repairNeighbor(storageAdapter, transaction,
-                                                        storageTransform, estimator, layer, neighborReference,
+                                                        storageTransform, distanceEstimator, layer, neighborReference,
                                                         candidates, candidateChangeSetMap, nodeCache),
                                         getConfig().maxNumConcurrentNeighborhoodFetches(), getExecutor())
                                         .thenApply(ignored -> {
@@ -349,7 +349,7 @@ class Delete {
                                                     Objects.requireNonNull(candidateReferencesMap.get(changeSetEntry.getKey()));
                                             final NeighborsChangeSet<N> candidateChangeSet = changeSetEntry.getValue();
                                             return primitives.pruneNeighborsIfNecessary(storageAdapter, transaction,
-                                                    storageTransform, estimator, layer, candidateReference,
+                                                    storageTransform, distanceEstimator, layer, candidateReference,
                                                     currentMMax, candidateChangeSet, nodeCache)
                                                     .thenApply(nodeReferencesAndNodes -> {
                                                         if (nodeReferencesAndNodes == null) {
@@ -495,7 +495,7 @@ class Delete {
      * @param storageAdapter the storage adapter for the layer
      * @param transaction the transaction
      * @param storageTransform the storage transform
-     * @param estimator an estimator for distances
+     * @param distanceEstimator an estimator for distances
      * @param layer the layer
      * @param neighborReference the reference for which this method repairs incoming references
      * @param candidates the set of candidates
@@ -507,7 +507,7 @@ class Delete {
             repairNeighbor(@Nonnull final StorageAdapter<N> storageAdapter,
                            @Nonnull final Transaction transaction,
                            @Nonnull final StorageTransform storageTransform,
-                           @Nonnull final Estimator estimator,
+                           @Nonnull final DistanceEstimator distanceEstimator,
                            final int layer,
                            @Nonnull final N neighborReference,
                            @Nonnull final Collection<NodeReferenceAndNode<NodeReferenceWithVector, N>> candidates,
@@ -528,12 +528,12 @@ class Delete {
                             final Transformed<RealVector> candidateVector =
                                     candidate.getNodeReference().getVector();
                             final double distance =
-                                    estimator.distance(candidateVector, neighborVector);
+                                    distanceEstimator.distance(candidateVector, neighborVector);
                             candidatesReferencesBuilder.add(new NodeReferenceWithDistance(
                                     candidate.getNode().getPrimaryKey(), candidateVector, distance));
                         }
                     }
-                    return repairInsForNeighborNode(storageAdapter, transaction, storageTransform, estimator,
+                    return repairInsForNeighborNode(storageAdapter, transaction, storageTransform, distanceEstimator,
                             layer, neighborReference, candidatesReferencesBuilder.build(),
                             neighborChangeSetMap, nodeCache);
                 });
@@ -550,7 +550,7 @@ class Delete {
      * @param storageAdapter the storage adapter for the layer
      * @param transaction the transaction
      * @param storageTransform the storage transform
-     * @param estimator an estimator for distances
+     * @param distanceEstimator an estimator for distances
      * @param layer the layer
      * @param neighborReference the reference for which this method repairs incoming references
      * @param candidates the set of candidates
@@ -562,13 +562,13 @@ class Delete {
             repairInsForNeighborNode(@Nonnull final StorageAdapter<N> storageAdapter,
                                      @Nonnull final Transaction transaction,
                                      @Nonnull final StorageTransform storageTransform,
-                                     @Nonnull final Estimator estimator,
+                                     @Nonnull final DistanceEstimator distanceEstimator,
                                      final int layer,
                                      @Nonnull final N neighborReference,
                                      @Nonnull final Iterable<NodeReferenceWithDistance> candidates,
                                      @Nonnull final Map<Tuple /* primaryKey */, NeighborsChangeSet<N>> neighborChangeSetMap,
                                      final Map<Tuple, AbstractNode<N>> nodeCache) {
-        return primitives().selectCandidates(storageAdapter, transaction, storageTransform, estimator, candidates,
+        return primitives().selectCandidates(storageAdapter, transaction, storageTransform, distanceEstimator, candidates,
                 layer, getConfig().m(), nodeCache)
                 .thenApply(selectedCandidates -> {
                     if (logger.isTraceEnabled()) {

@@ -108,7 +108,7 @@ public class RaBitQuantizerTest {
         final RealVector v = createRandomDoubleVector(random, numDimensions);
         final RaBitQuantizer quantizer = new RaBitQuantizer(Metric.EUCLIDEAN_SQUARE_METRIC, numExBits);
         final EncodedRealVector encodedV = quantizer.encode(v);
-        final RaBitEstimator estimator = quantizer.estimator();
+        final RaBitDistanceEstimator estimator = quantizer.estimator();
         Assertions.assertThat(estimator.isOptimized(v, encodedV)).isTrue();
         final double estimatedDistance = estimator.distance(v, encodedV);
         Assertions.assertThat(estimatedDistance).isCloseTo(0.0d, Offset.offset(0.01));
@@ -128,7 +128,8 @@ public class RaBitQuantizerTest {
         final RealVector v = createRandomDoubleVector(random, numDimensions).normalize();
         final RaBitQuantizer quantizer = new RaBitQuantizer(Metric.COSINE_METRIC, numExBits);
         final EncodedRealVector encodedV = quantizer.encode(v);
-        final RaBitEstimator estimator = quantizer.estimator();
+        Assertions.assertThat(encodedV.l2SquaredNorm()).isCloseTo(1.0d, Offset.offset(0.01));
+        final RaBitDistanceEstimator estimator = quantizer.estimator();
         Assertions.assertThat(estimator.isOptimized(v, encodedV)).isTrue();
         final double estimatedDistance = estimator.distance(v, encodedV);
         Assertions.assertThat(estimatedDistance).isCloseTo(0.0d, Offset.offset(0.01));
@@ -148,7 +149,7 @@ public class RaBitQuantizerTest {
         final RealVector v = createRandomDoubleVector(random, numDimensions).normalize();
         final RaBitQuantizer quantizer = new RaBitQuantizer(Metric.DOT_PRODUCT_METRIC, numExBits);
         final EncodedRealVector encodedV = quantizer.encode(v);
-        final RaBitEstimator estimator = quantizer.estimator();
+        final RaBitDistanceEstimator estimator = quantizer.estimator();
         Assertions.assertThat(estimator.isOptimized(v, encodedV)).isTrue();
         final double estimatedDistance = estimator.distance(v, encodedV);
         Assertions.assertThat(estimatedDistance).isCloseTo(-1.0d, Offset.offset(0.01));
@@ -174,9 +175,9 @@ public class RaBitQuantizerTest {
 
         final RaBitQuantizer quantizer = new RaBitQuantizer(Metric.EUCLIDEAN_SQUARE_METRIC, 7);
         final Transformed<RealVector> encodedVector = quantizer.encode(v);
-        final RaBitEstimator estimator = quantizer.estimator();
+        final RaBitDistanceEstimator estimator = quantizer.estimator();
         Assertions.assertThat(estimator.isOptimized(q, encodedVector)).isTrue();
-        final RaBitEstimator.Result estimatedDistanceResult =
+        final RaBitDistanceEstimator.Result estimatedDistanceResult =
                 estimator.estimateDistanceAndErrorBound(q.getUnderlyingVector(),
                         (EncodedRealVector)encodedVector.getUnderlyingVector());
         logger.info("estimated distance result = {}", estimatedDistanceResult);
@@ -239,11 +240,11 @@ public class RaBitQuantizerTest {
             final RaBitQuantizer quantizer = new RaBitQuantizer(Metric.EUCLIDEAN_SQUARE_METRIC, numExBits);
             final Transformed<RealVector> encodedV = quantizer.encode(vTrans);
             final Transformed<RealVector> encodedQ = quantizer.encode(qTrans);
-            final RaBitEstimator estimator = quantizer.estimator();
+            final RaBitDistanceEstimator estimator = quantizer.estimator();
             final RealVector reconstructedQ = operator.untransform(encodedQ);
             final RealVector reconstructedV = operator.untransform(encodedV);
             Assertions.assertThat(estimator.isOptimized(qTrans, encodedV)).isTrue();
-            final RaBitEstimator.Result estimatedDistance =
+            final RaBitDistanceEstimator.Result estimatedDistance =
                     estimator.estimateDistanceAndErrorBound(qTrans.getUnderlyingVector(),
                             (EncodedRealVector)encodedV.getUnderlyingVector());
             logger.trace("estimated ||qRot - vRot||^2 = {}", estimatedDistance);
@@ -305,10 +306,10 @@ public class RaBitQuantizerTest {
             final RaBitQuantizer quantizer = new RaBitQuantizer(metric, numExBits);
             final Transformed<RealVector> encodedV = quantizer.encode(vRot);
             final Transformed<RealVector> encodedQ = quantizer.encode(qRot);
-            final RaBitEstimator estimator = quantizer.estimator();
+            final RaBitDistanceEstimator estimator = quantizer.estimator();
             final RealVector reconstructedQ = operator.untransform(encodedQ);
             final RealVector reconstructedV = operator.untransform(encodedV);
-            final RaBitEstimator.Result estimatedDistance =
+            final RaBitDistanceEstimator.Result estimatedDistance =
                     estimator.estimateDistanceAndErrorBound(qRot.getUnderlyingVector(),
                             (EncodedRealVector)encodedV.getUnderlyingVector());
             logger.trace("estimated distance(qRot, vRot) = {}", estimatedDistance);

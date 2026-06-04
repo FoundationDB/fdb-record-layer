@@ -22,7 +22,7 @@ package com.apple.foundationdb.async.guardiann;
 
 import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.async.common.RandomHelpers;
-import com.apple.foundationdb.linear.Estimator;
+import com.apple.foundationdb.linear.DistanceEstimator;
 import com.apple.foundationdb.linear.RealVector;
 import com.apple.foundationdb.linear.Transformed;
 import com.apple.foundationdb.tuple.Tuple;
@@ -290,7 +290,7 @@ public abstract class AbstractDeferredTask {
      * @return the nearest cluster assignments and accumulated standard deviation updates
      */
     @Nonnull
-    static NearestClustersResult computeNearestClusters(@Nonnull final Estimator estimator,
+    static NearestClustersResult computeNearestClusters(@Nonnull final DistanceEstimator estimator,
                                                         @Nonnull final List<VectorReference> vectorReferences,
                                                         @Nonnull final Map<UUID, ClusterMetadataWithDistance> candidateClusters) {
         final ImmutableListMultimap.Builder<UUID, ClusterMetadataWithDistance> invertedAssignmentsMapBuilder =

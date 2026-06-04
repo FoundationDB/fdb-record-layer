@@ -25,7 +25,7 @@ import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.async.AsyncIterator;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.common.StorageTransform;
-import com.apple.foundationdb.linear.Estimator;
+import com.apple.foundationdb.linear.DistanceEstimator;
 import com.apple.foundationdb.linear.RealVector;
 import com.apple.foundationdb.linear.Transformed;
 import com.apple.foundationdb.tuple.Tuple;
@@ -151,12 +151,12 @@ class OutwardTraversalIterator implements AsyncIterator<NodeReferenceAndNode<Nod
                 new PriorityQueue<>(efOutwardSearch + 1, // prevent reallocation further down
                         NodeReferenceWithDistance.comparator());
 
-        final Estimator estimator = primitives().quantizer(zoomInResult.getAccessInfo()).estimator();
+        final DistanceEstimator distanceEstimator = primitives().quantizer(zoomInResult.getAccessInfo()).estimator();
 
         // rekey the distances to distance around the center
         for (final NodeReferenceAndNode<NodeReferenceWithDistance, NodeReference> referenceAndNode : zoomInResult.getNearestReferenceAndNodes()) {
             final Transformed<RealVector> vector = referenceAndNode.getNodeReference().getVector();
-            final double distance = estimator.distance(transformedCenterVector, vector);
+            final double distance = distanceEstimator.distance(transformedCenterVector, vector);
             final Tuple primaryKey = referenceAndNode.getNode().getPrimaryKey();
 
             final NodeReferenceWithDistance nodeReferenceWithDistance =
@@ -167,7 +167,7 @@ class OutwardTraversalIterator implements AsyncIterator<NodeReferenceAndNode<Nod
                 quickStart.add(nodeReferenceWithDistance);
             }
         }
-        return new OutwardTraversalState(storageTransform, estimator,
+        return new OutwardTraversalState(storageTransform, distanceEstimator,
                 transformedCenterVector, candidates, visited, out, quickStart, zoomInResult.getNodeCache());
     }
 
@@ -176,7 +176,7 @@ class OutwardTraversalIterator implements AsyncIterator<NodeReferenceAndNode<Nod
         final Primitives primitives = primitives();
         final OutwardTraversalState localTraversalState = getTraversalState();
         final StorageTransform storageTransform = localTraversalState.getStorageTransform();
-        final Estimator estimator = localTraversalState.getEstimator();
+        final DistanceEstimator distanceEstimator = localTraversalState.getEstimator();
         final Transformed<RealVector> transformedCenterVector = localTraversalState.getTransformedCenterVector();
         final Queue<NodeReferenceWithDistance> candidates = localTraversalState.getCandidates();
         final SpatialRestrictions spatialRestrictions = localTraversalState.getSpatialRestrictions();
@@ -214,7 +214,7 @@ class OutwardTraversalIterator implements AsyncIterator<NodeReferenceAndNode<Nod
                         for (final NodeReferenceWithVector current : neighborReferences) {
                             final Tuple primaryKey = current.getPrimaryKey();
                             final double distance =
-                                    estimator.distance(transformedCenterVector, current.getVector());
+                                    distanceEstimator.distance(transformedCenterVector, current.getVector());
                             final NodeReferenceWithDistance nodeReferenceWithDistance =
                                     new NodeReferenceWithDistance(primaryKey, current.getVector(), distance);
 
@@ -239,10 +239,10 @@ class OutwardTraversalIterator implements AsyncIterator<NodeReferenceAndNode<Nod
             return primitives.fetchNodeIfNotCached(storageAdapter, readTransaction, storageTransform, 0, nodeReference, nodeCache)
                     .thenApply(node -> new NodeReferenceAndNode<>(nodeReference, node));
         }).thenApply(nextNodeReferenceAndNode -> {
-            if (logger.isTraceEnabled()) {
-                logger.trace("iterating for efOutwardSearch={} with result=={}", efOutwardSearch,
-                        nextNodeReferenceAndNode.getNodeReference().getPrimaryKey());
-            }
+//            if (logger.isTraceEnabled()) {
+//                logger.trace("iterating for efOutwardSearch={} with result=={}", efOutwardSearch,
+//                        nextNodeReferenceAndNode == null ? null : nextNodeReferenceAndNode.getNodeReference().getPrimaryKey());
+//            }
             return nextNodeReferenceAndNode;
         });
     }
@@ -275,7 +275,7 @@ class OutwardTraversalIterator implements AsyncIterator<NodeReferenceAndNode<Nod
         @Nonnull
         private final StorageTransform storageTransform;
         @Nonnull
-        private final Estimator estimator;
+        private final DistanceEstimator distanceEstimator;
         @Nonnull
         private final Transformed<RealVector> transformedCenterVector;
         @Nonnull
@@ -292,7 +292,7 @@ class OutwardTraversalIterator implements AsyncIterator<NodeReferenceAndNode<Nod
         private final Map<Tuple, AbstractNode<NodeReference>> nodeCache;
 
         public OutwardTraversalState(@Nonnull final StorageTransform storageTransform,
-                                     @Nonnull final Estimator estimator,
+                                     @Nonnull final DistanceEstimator distanceEstimator,
                                      @Nonnull final Transformed<RealVector> transformedCenterVector,
                                      @Nonnull final Queue<NodeReferenceWithDistance> candidates,
                                      @Nonnull final SpatialRestrictions spatialRestrictions,
@@ -300,7 +300,7 @@ class OutwardTraversalIterator implements AsyncIterator<NodeReferenceAndNode<Nod
                                      @Nonnull final Queue<NodeReferenceWithDistance> quickStart,
                                      @Nonnull final Map<Tuple, AbstractNode<NodeReference>> nodeCache) {
             this.storageTransform = storageTransform;
-            this.estimator = estimator;
+            this.distanceEstimator = distanceEstimator;
             this.transformedCenterVector = transformedCenterVector;
             this.candidates = candidates;
             this.spatialRestrictions = spatialRestrictions;
@@ -320,8 +320,8 @@ class OutwardTraversalIterator implements AsyncIterator<NodeReferenceAndNode<Nod
         }
 
         @Nonnull
-        public Estimator getEstimator() {
-            return estimator;
+        public DistanceEstimator getEstimator() {
+            return distanceEstimator;
         }
 
         @Nonnull

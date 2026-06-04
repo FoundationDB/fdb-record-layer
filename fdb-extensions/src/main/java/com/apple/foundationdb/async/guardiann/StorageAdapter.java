@@ -23,7 +23,7 @@ package com.apple.foundationdb.async.guardiann;
 import com.apple.foundationdb.async.common.StorageHelpers;
 import com.apple.foundationdb.async.common.StorageTransform;
 import com.apple.foundationdb.async.hnsw.HNSW;
-import com.apple.foundationdb.linear.Estimator;
+import com.apple.foundationdb.linear.DistanceEstimator;
 import com.apple.foundationdb.linear.Quantizer;
 import com.apple.foundationdb.linear.RealVector;
 import com.apple.foundationdb.linear.Transformed;
@@ -400,7 +400,7 @@ class StorageAdapter {
         return 1.0d * r + 0.00d * z;
     }
 
-    static boolean isOccluded(@Nonnull final Estimator estimator,
+    static boolean isOccluded(@Nonnull final DistanceEstimator estimator,
                               @Nonnull final ClusterMetadataWithDistance replicationCandidate,
                               @Nonnull final List<ClusterMetadataWithDistance> selectedReplicationClusters) {
         final double vectorToCentroidDistance = replicationCandidate.distance();

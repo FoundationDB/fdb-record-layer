@@ -29,7 +29,7 @@ import com.apple.foundationdb.async.common.StorageTransform;
 import com.apple.foundationdb.async.hnsw.HNSW;
 import com.apple.foundationdb.directory.DirectoryLayer;
 import com.apple.foundationdb.linear.DoubleRealVector;
-import com.apple.foundationdb.linear.Estimator;
+import com.apple.foundationdb.linear.DistanceEstimator;
 import com.apple.foundationdb.linear.HalfRealVector;
 import com.apple.foundationdb.linear.Metric;
 import com.apple.foundationdb.linear.RealVector;
@@ -328,7 +328,7 @@ public class DebugIndexTest implements BaseTest {
         final Path siftQueryPath = Paths.get("/Users/nseemann/Downloads/embeddings-100k-queries.fvecs");
         final Path siftGroundTruthPath = Paths.get("/Users/nseemann/Downloads/embeddings-100k-groundtruth.ivecs");
 
-        final Estimator estimator = Estimator.ofMetric(Metric.COSINE_METRIC);
+        final DistanceEstimator estimator = DistanceEstimator.ofMetric(Metric.COSINE_METRIC);
 
         try (final var queryChannel = FileChannel.open(siftQueryPath, StandardOpenOption.READ);
                  final var groundTruthChannel = FileChannel.open(siftGroundTruthPath, StandardOpenOption.READ)) {

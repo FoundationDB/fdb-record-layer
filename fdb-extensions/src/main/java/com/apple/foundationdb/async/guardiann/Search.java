@@ -27,7 +27,7 @@ import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.MoreAsyncUtil;
 import com.apple.foundationdb.async.common.ResultEntry;
 import com.apple.foundationdb.async.common.StorageTransform;
-import com.apple.foundationdb.linear.Estimator;
+import com.apple.foundationdb.linear.DistanceEstimator;
 import com.apple.foundationdb.linear.RealVector;
 import com.apple.foundationdb.linear.Transformed;
 import com.apple.foundationdb.subspace.Subspace;
@@ -217,7 +217,7 @@ public class Search {
                     }
                     final StorageTransform storageTransform = primitives.storageTransform(accessInfo);
                     final Transformed<RealVector> transformedQueryVector = storageTransform.transform(queryVector);
-                    final Estimator estimator = primitives.quantizer(accessInfo).estimator();
+                    final DistanceEstimator estimator = primitives.quantizer(accessInfo).estimator();
 
                     return fetchCandidateClusters(readTransaction, primitives, storageTransform, queryVector, searchMaxClusters)
                             .thenApply(clusters -> pruneClusters(clusters, searchMinClustersBeforePruning, searchDistanceRatioCutoff))
@@ -330,7 +330,7 @@ public class Search {
             retrieveVectorReferencesFromClusters(@Nonnull final ReadTransaction readTransaction,
                                                  @Nonnull final Primitives primitives,
                                                  @Nonnull final StorageTransform storageTransform,
-                                                 @Nonnull final Estimator estimator,
+                                                 @Nonnull final DistanceEstimator estimator,
                                                  @Nonnull final Transformed<RealVector> transformedQueryVector,
                                                  @Nonnull final List<ClusterMetadataWithDistance> clusters,
                                                  final int efSearch) {
@@ -499,7 +499,7 @@ public class Search {
                     }
                     final StorageTransform storageTransform = primitives.storageTransform(accessInfo);
                     final Transformed<RealVector> transformedQueryVector = storageTransform.transform(queryVector);
-                    final Estimator estimator = primitives.quantizer(accessInfo).estimator();
+                    final DistanceEstimator estimator = primitives.quantizer(accessInfo).estimator();
 
                     final AsyncIterable<ResultEntry> clusterCentroidEntriesByDistanceIterable =
                             MoreAsyncUtil.limitIterable(MoreAsyncUtil.iterableOf(() ->
@@ -652,7 +652,7 @@ public class Search {
                         return CompletableFuture.completedFuture(null);
                     }
                     final StorageTransform storageTransform = primitives.storageTransform(accessInfo);
-                    final Estimator estimator = primitives.quantizer(accessInfo).estimator();
+                    final DistanceEstimator estimator = primitives.quantizer(accessInfo).estimator();
 
                     return MoreAsyncUtil.forEach(centroids,
                                     centroid -> {
@@ -760,7 +760,7 @@ public class Search {
                         return CompletableFuture.completedFuture(ImmutableList.of());
                     }
                     final StorageTransform storageTransform = primitives.storageTransform(accessInfo);
-                    final Estimator estimator = primitives.quantizer(accessInfo).estimator();
+                    final DistanceEstimator estimator = primitives.quantizer(accessInfo).estimator();
 
                     return MoreAsyncUtil.forEach(centroids,
                                     centroid -> {

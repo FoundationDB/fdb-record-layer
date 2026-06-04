@@ -1,5 +1,5 @@
 /*
- * RaBitEstimator.java
+ * RaBitDistanceEstimator.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -21,19 +21,19 @@
 package com.apple.foundationdb.rabitq;
 
 import com.apple.foundationdb.linear.DoubleRealVector;
-import com.apple.foundationdb.linear.Estimator;
+import com.apple.foundationdb.linear.DistanceEstimator;
 import com.apple.foundationdb.linear.Metric;
 import com.apple.foundationdb.linear.RealVector;
 
 import javax.annotation.Nonnull;
 
-public class RaBitEstimator implements Estimator {
+public class RaBitDistanceEstimator implements DistanceEstimator {
     @Nonnull
     private final Metric metric;
     private final int numExBits;
 
-    public RaBitEstimator(@Nonnull final Metric metric,
-                          final int numExBits) {
+    public RaBitDistanceEstimator(@Nonnull final Metric metric,
+                                  final int numExBits) {
         this.metric = metric;
         this.numExBits = numExBits;
     }
@@ -81,27 +81,27 @@ public class RaBitEstimator implements Estimator {
     @Nonnull
     public Result estimateDistanceAndErrorBound(@Nonnull final RealVector query,
                                                 @Nonnull final EncodedRealVector encodedVector) {
+        final double qNormSqr = query.l2SquaredNorm();
+
         if (metric == Metric.COSINE_METRIC) {
             //
             // In cosine metric there is a special case that conventionally if one vector is the zero vector, the
             // distance is NaN as the norm of the zero vector is 0, and we therefore divide by zero.
             //
-            final double qNormSqr = query.dot(query);
             if (!(qNormSqr > 0.0) || !Double.isFinite(qNormSqr)) {
                 return new Result(Double.NaN, 0.0);
             }
         }
 
         final double cb = (1 << numExBits) - 0.5;
-        final double gAdd = query.dot(query);
-        final double gError = Math.sqrt(gAdd);
+        final double gError = Math.sqrt(qNormSqr);
 
         final RealVector totalCode = new DoubleRealVector(encodedVector.getEncodedData());
         final RealVector xuc = totalCode.subtract(cb);
         final double dot = query.dot(xuc);
 
         final double euclideanSquareRaw =
-                encodedVector.getAddEx() + gAdd + encodedVector.getRescaleEx() * dot;
+                encodedVector.getAddEx() + qNormSqr + encodedVector.getRescaleEx() * dot;
         final double euclideanSquare = Math.max(0.0, euclideanSquareRaw);
         final double euclideanSquareError = encodedVector.getErrorEx() * gError;
 

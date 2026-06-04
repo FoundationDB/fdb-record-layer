@@ -27,8 +27,8 @@ import com.apple.foundationdb.async.MoreAsyncUtil;
 import com.apple.foundationdb.async.common.AggregatedVector;
 import com.apple.foundationdb.async.common.RandomHelpers;
 import com.apple.foundationdb.async.common.StorageTransform;
+import com.apple.foundationdb.linear.DistanceEstimator;
 import com.apple.foundationdb.linear.DoubleRealVector;
-import com.apple.foundationdb.linear.Estimator;
 import com.apple.foundationdb.linear.FhtKacRotator;
 import com.apple.foundationdb.linear.Quantizer;
 import com.apple.foundationdb.linear.RealVector;
@@ -206,7 +206,7 @@ public class Insert {
                     final StorageTransform storageTransform = primitives.storageTransform(accessInfo);
                     final Transformed<RealVector> transformedNewVector = storageTransform.transform(newVector);
                     final Quantizer quantizer = primitives.quantizer(accessInfo);
-                    final Estimator estimator = quantizer.estimator();
+                    final DistanceEstimator distanceEstimator = quantizer.estimator();
 
                     final AccessInfo currentAccessInfo;
 
@@ -233,7 +233,7 @@ public class Insert {
                     }
 
                     final ToDoubleFunction<Transformed<RealVector>> objectiveFunction =
-                            Search.distanceToTargetVector(estimator, transformedNewVector);
+                            Search.distanceToTargetVector(distanceEstimator, transformedNewVector);
                     final NodeReferenceWithDistance initialNodeReference =
                             new NodeReferenceWithDistance(entryNodeReference.getPrimaryKey(),
                                     entryNodeReference.getVector(),
@@ -257,7 +257,6 @@ public class Insert {
                                     addToStatsIfNecessary(transaction, random, currentAccessInfo, transformedNewVector));
                 }).thenCompose(ignored -> AsyncUtil.DONE);
     }
-
 
     private void firstInsert(@Nonnull final Transaction transaction,
                              @Nonnull final Tuple newPrimaryKey,
@@ -311,10 +310,10 @@ public class Insert {
      * e.g. RaBitQ as RaBitQ needs a stable somewhat correct centroid in order to function properly.
      * <p>
      * Specifically for RaBitQ, we add vectors to a set of sampled vectors in a designated subspace of the HNSW
-     * structure. The parameter {@link Config#getSampleVectorStatsProbability()} governs when we do sample. Another
-     * parameter, {@link Config#getMaintainStatsProbability()}, determines how many times we add-up/replace (consume)
+     * structure. The parameter {@link Config#sampleVectorStatsProbability()} governs when we do sample. Another
+     * parameter, {@link Config#maintainStatsProbability()}, determines how many times we add-up/replace (consume)
      * vectors from this sampled-vector space and aggregate them in the typical running count/running sum scheme
-     * in order to finally compute the centroid if {@link Config#getStatsThreshold()} number of vectors have been
+     * in order to finally compute the centroid if {@link Config#statsThreshold()} number of vectors have been
      * sampled and aggregated. That centroid is then used to update the access info.
      *
      * @param transaction the transaction
@@ -501,16 +500,16 @@ public class Insert {
         }
         final Primitives primitives = primitives();
         final Map<Tuple, AbstractNode<N>> nodeCache = Maps.newConcurrentMap();
-        final Estimator estimator = quantizer.estimator();
+        final DistanceEstimator distanceEstimator = quantizer.estimator();
 
         return searcher().beamSearchLayer(storageAdapter, transaction, storageTransform,
                 nearestNeighbors, layer, getConfig().efConstruction(),
-                Search.distanceToTargetVector(estimator, newVector), nodeCache)
+                Search.distanceToTargetVector(distanceEstimator, newVector), nodeCache)
                 .thenCompose(searchResult ->
-                        primitives.extendCandidatesIfNecessary(storageAdapter, transaction, storageTransform, estimator,
+                        primitives.extendCandidatesIfNecessary(storageAdapter, transaction, storageTransform, distanceEstimator,
                                 searchResult, layer, getConfig().extendCandidates(), nodeCache, newVector)
                                 .thenCompose(extendedCandidates ->
-                                        primitives.selectCandidates(storageAdapter, transaction, storageTransform, estimator,
+                                        primitives.selectCandidates(storageAdapter, transaction, storageTransform, distanceEstimator,
                                                 extendedCandidates, layer, getConfig().m(), nodeCache))
                                 .thenCompose(selectedNeighbors -> {
                                     final NodeFactory<N> nodeFactory = storageAdapter.getNodeFactory();
@@ -553,7 +552,7 @@ public class Insert {
                                                 final NeighborsChangeSet<N> changeSet =
                                                         Objects.requireNonNull(neighborChangeSetMap.get(selectedNeighborNode.getPrimaryKey()));
                                                 return primitives.pruneNeighborsIfNecessary(storageAdapter, transaction,
-                                                        storageTransform, estimator, layer, selectedNeighborReference,
+                                                        storageTransform, distanceEstimator, layer, selectedNeighborReference,
                                                         currentMMax, changeSet, nodeCache)
                                                         .thenApply(nodeReferencesAndNodes -> {
                                                             if (nodeReferencesAndNodes == null) {

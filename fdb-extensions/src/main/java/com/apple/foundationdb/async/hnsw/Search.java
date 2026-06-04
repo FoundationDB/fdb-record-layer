@@ -26,7 +26,7 @@ import com.apple.foundationdb.async.AsyncIterator;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.common.ResultEntry;
 import com.apple.foundationdb.async.common.StorageTransform;
-import com.apple.foundationdb.linear.Estimator;
+import com.apple.foundationdb.linear.DistanceEstimator;
 import com.apple.foundationdb.linear.Quantizer;
 import com.apple.foundationdb.linear.RealVector;
 import com.apple.foundationdb.linear.Transformed;
@@ -234,9 +234,9 @@ public class Search {
                     final StorageTransform storageTransform = primitives.storageTransform(accessInfo);
                     final Transformed<RealVector> transformedQueryVector = storageTransform.transform(queryVector);
                     final Quantizer quantizer = primitives.quantizer(accessInfo);
-                    final Estimator estimator = quantizer.estimator();
+                    final DistanceEstimator distanceEstimator = quantizer.estimator();
                     final ToDoubleFunction<Transformed<RealVector>> objectiveFunction =
-                            objectiveFunctionCreator.create(estimator, transformedQueryVector);
+                            objectiveFunctionCreator.create(distanceEstimator, transformedQueryVector);
 
                     final List<NodeReferenceWithDistance> entryState =
                             ImmutableList.of(new NodeReferenceWithDistance(entryNodeReference.getPrimaryKey(),
@@ -681,16 +681,16 @@ public class Search {
     }
 
     @Nonnull
-    static ToDoubleFunction<Transformed<RealVector>> distanceToTargetVector(@Nonnull final Estimator estimator,
+    static ToDoubleFunction<Transformed<RealVector>> distanceToTargetVector(@Nonnull final DistanceEstimator distanceEstimator,
                                                                             @Nonnull final Transformed<RealVector> targetVector) {
-        return vector -> estimator.distance(targetVector, vector);
+        return vector -> distanceEstimator.distance(targetVector, vector);
     }
 
     @Nonnull
-    static ToDoubleFunction<Transformed<RealVector>> distanceToSphericalSurface(@Nonnull final Estimator estimator,
+    static ToDoubleFunction<Transformed<RealVector>> distanceToSphericalSurface(@Nonnull final DistanceEstimator distanceEstimator,
                                                                                 @Nonnull final Transformed<RealVector> targetVector,
                                                                                 final double radius) {
-        return vector -> Math.abs(estimator.distance(targetVector, vector) - radius);
+        return vector -> Math.abs(distanceEstimator.distance(targetVector, vector) - radius);
     }
 
     static class SearchResult {
@@ -737,6 +737,6 @@ public class Search {
     @FunctionalInterface
     private interface ObjectiveFunctionCreator {
         @Nonnull
-        ToDoubleFunction<Transformed<RealVector>> create(@Nonnull Estimator estimator, @Nonnull Transformed<RealVector> targetVector);
+        ToDoubleFunction<Transformed<RealVector>> create(@Nonnull DistanceEstimator distanceEstimator, @Nonnull Transformed<RealVector> targetVector);
     }
 }

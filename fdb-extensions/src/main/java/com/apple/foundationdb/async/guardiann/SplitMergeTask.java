@@ -30,7 +30,7 @@ import com.apple.foundationdb.async.hnsw.HNSW;
 import com.apple.foundationdb.kmeans.KMeans;
 import com.apple.foundationdb.kmeans.PartitionEvaluator;
 import com.apple.foundationdb.kmeans.PartitionEvaluator.EvaluationResult;
-import com.apple.foundationdb.linear.Estimator;
+import com.apple.foundationdb.linear.DistanceEstimator;
 import com.apple.foundationdb.linear.Quantizer;
 import com.apple.foundationdb.linear.RealVector;
 import com.apple.foundationdb.linear.Transformed;
@@ -223,7 +223,7 @@ public class SplitMergeTask extends AbstractDeferredTask {
         final AccessInfo accessInfo = getAccessInfo();
         final StorageTransform storageTransform = primitives.storageTransform(accessInfo);
         final Quantizer quantizer = primitives.quantizer(accessInfo);
-        final Estimator estimator = quantizer.estimator();
+        final DistanceEstimator estimator = quantizer.estimator();
 
         final int numNeighborhood = config.splitNeighborhoodSize();
 
@@ -372,7 +372,7 @@ public class SplitMergeTask extends AbstractDeferredTask {
         final AccessInfo accessInfo = getAccessInfo();
         final StorageTransform storageTransform = primitives.storageTransform(accessInfo);
         final Quantizer quantizer = primitives.quantizer(accessInfo);
-        final Estimator estimator = quantizer.estimator();
+        final DistanceEstimator estimator = quantizer.estimator();
 
         final int numInnerNeighborhood = config.mergeInnerNeighborhoodSize();
         final int numOuterNeighborhood = config.mergeOuterNeighborhoodSize();
@@ -494,7 +494,7 @@ public class SplitMergeTask extends AbstractDeferredTask {
      * @return an assignment result containing the vector-to-cluster mapping and updated statistics
      */
     @Nonnull
-    private Repartitioning assignPrimaryVectorReferences(@Nonnull final Estimator estimator,
+    private Repartitioning assignPrimaryVectorReferences(@Nonnull final DistanceEstimator estimator,
                                                          @Nonnull final List<ClusterMetadataWithDistance> outerNeighborhood,
                                                          @Nonnull final List<VectorReference> primaryVectorReferences,
                                                          @Nonnull final KMeans.Result<Transformed<RealVector>> kMeansResult,
@@ -956,7 +956,7 @@ public class SplitMergeTask extends AbstractDeferredTask {
     private static RepartitioningCandidate kMeans(@Nonnull final Neighborhoods neighborhoods,
                                                   @Nonnull final List<VectorReference> vectorReferences,
                                                   @Nonnull final SplittableRandom random,
-                                                  @Nonnull final Estimator estimator,
+                                                  @Nonnull final DistanceEstimator estimator,
                                                   final int targetNumPartitions,
                                                   final int maxIterations,
                                                   final int maxRestarts) {
@@ -974,8 +974,7 @@ public class SplitMergeTask extends AbstractDeferredTask {
                 KMeans.fit(random, estimator, VectorReference.vectorLens(),
                         Transformed.underlyingLens(), primaryVectorReferences,
                         targetNumPartitions, maxIterations,
-                        maxRestarts, 0.00, KMeans.overflowQuadraticPenalty(),
-                        true));
+                        maxRestarts, 0.00, KMeans.overflowQuadraticPenalty()));
     }
 
     /**
@@ -990,7 +989,7 @@ public class SplitMergeTask extends AbstractDeferredTask {
      */
     @Nonnull
     private static EvaluationResult
-            scoreCandidate(@Nonnull final Estimator estimator,
+            scoreCandidate(@Nonnull final DistanceEstimator estimator,
                            @Nonnull final List<Cluster> currentClusters,
                            @Nonnull final RepartitioningCandidate repartitioningCandidate) {
         int vectorCount = 0;
@@ -1043,7 +1042,7 @@ public class SplitMergeTask extends AbstractDeferredTask {
      * </ul>
      */
     @Nonnull
-    private static PartitionEvaluator.Parameters parametersFor(@Nonnull final Estimator estimator,
+    private static PartitionEvaluator.Parameters parametersFor(@Nonnull final DistanceEstimator estimator,
                                                                final int currentK,
                                                                final int candidateK) {
         final PartitionEvaluator.Parameters defaults = new PartitionEvaluator.Parameters(estimator);

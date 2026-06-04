@@ -1,5 +1,5 @@
 /*
- * Estimator.java
+ * DistanceEstimator.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -30,7 +30,7 @@ import javax.annotation.Nonnull;
  * Search and clustering algorithms drive vector comparisons through this interface so they can
  * stay agnostic of how distances are actually computed (raw metric, rabitq estimator, etc.).
  */
-public interface Estimator {
+public interface DistanceEstimator {
     /**
      * Returns the underlying {@link Metric} this estimator computes.
      */
@@ -94,7 +94,7 @@ public interface Estimator {
                     @Nonnull RealVector vector2);
 
     /**
-     * Returns a plain {@link Estimator} that delegates straight to {@code metric.distance(...)}.
+     * Returns a plain {@link DistanceEstimator} that delegates straight to {@code metric.distance(...)}.
      * The result has no fast path ({@link #isOptimized} is always {@code false}) and rejects
      * non-finite distances with an {@link IllegalArgumentException}.
      *
@@ -102,8 +102,8 @@ public interface Estimator {
      * @return a non-null estimator that computes {@code metric}'s distance directly
      */
     @Nonnull
-    static Estimator ofMetric(@Nonnull final Metric metric) {
-        return new Estimator() {
+    static DistanceEstimator ofMetric(@Nonnull final Metric metric) {
+        return new DistanceEstimator() {
             @Nonnull
             @Override
             public Metric getMetric() {

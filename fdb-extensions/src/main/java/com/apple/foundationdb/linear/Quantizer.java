@@ -31,15 +31,15 @@ import javax.annotation.Nonnull;
  */
 public interface Quantizer {
     /**
-     * Returns the {@code Estimator} instance associated with this object.
+     * Returns the {@code DistanceEstimator} instance associated with this object.
      * <p>
      * The estimator is responsible for performing the primary distance estimation or calculation logic. This method
      * provides access to that underlying component.
      *
-     * @return the {@link Estimator} instance, which is guaranteed to be non-null.
+     * @return the {@link DistanceEstimator} instance, which is guaranteed to be non-null.
      */
     @Nonnull
-    Estimator estimator();
+    DistanceEstimator estimator();
 
     @Nonnull
     default Transformed<RealVector> encode(@Nonnull final Transformed<RealVector> vector) {
@@ -78,8 +78,8 @@ public interface Quantizer {
         return new Quantizer() {
             @Nonnull
             @Override
-            public Estimator estimator() {
-                return Estimator.ofMetric(metric);
+            public DistanceEstimator estimator() {
+                return DistanceEstimator.ofMetric(metric);
             }
 
             @Nonnull

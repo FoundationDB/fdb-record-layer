@@ -26,7 +26,7 @@ import com.apple.foundationdb.async.MoreAsyncUtil;
 import com.apple.foundationdb.async.common.RandomHelpers;
 import com.apple.foundationdb.async.common.StorageHelpers;
 import com.apple.foundationdb.async.common.StorageTransform;
-import com.apple.foundationdb.linear.Estimator;
+import com.apple.foundationdb.linear.DistanceEstimator;
 import com.apple.foundationdb.linear.Quantizer;
 import com.apple.foundationdb.linear.RealVector;
 import com.apple.foundationdb.linear.Transformed;
@@ -169,7 +169,7 @@ public class ReassignTask extends AbstractDeferredTask {
         final AccessInfo accessInfo = getAccessInfo();
         final StorageTransform storageTransform = primitives.storageTransform(accessInfo);
         final Quantizer quantizer = primitives.quantizer(accessInfo);
-        final Estimator estimator = quantizer.estimator();
+        final DistanceEstimator estimator = quantizer.estimator();
 
         final int numInnerNeighborhood = config.reassignInnerNeighborhoodSize();
         final int numOuterNeighborhood = config.reassignOuterNeighborhoodSize();
@@ -232,7 +232,7 @@ public class ReassignTask extends AbstractDeferredTask {
     }
 
     @Nonnull
-    private Reassignment reassignVectorReferences(@Nonnull final Estimator estimator,
+    private Reassignment reassignVectorReferences(@Nonnull final DistanceEstimator estimator,
                                                   @Nonnull final ClusterMetadataWithDistance targetClusterMetadataWithDistance,
                                                   @Nonnull final List<ClusterMetadataWithDistance> outerNeighborhood,
                                                   @Nonnull final List<VectorReference> vectorReferences) {
