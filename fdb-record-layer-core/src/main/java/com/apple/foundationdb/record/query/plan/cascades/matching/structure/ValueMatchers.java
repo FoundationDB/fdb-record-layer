@@ -68,11 +68,12 @@ public class ValueMatchers {
 
     /**
      * Returns a matcher that binds any {@link Value} whose concrete class is one of the given {@code subclasses}.
-     * @see MultiTypedMatcher
+     * The resulting matcher advertises the {@code subclasses} via {@link BindingMatcher#getRootClasses()} so that the
+     * rule set indexes the enclosing rule under each concrete subclass individually.
      */
     @Nonnull
     public static BindingMatcher<Value> anyValueOfType(@Nonnull final ImmutableSet<Class<? extends Value>> subclasses) {
-        return new MultiTypedMatcher<>(Value.class, subclasses);
+        return new TypedMatcher<>(Value.class, subclasses);
     }
 
     @Nonnull
