@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2021-2025 Apple Inc. and the FoundationDB project authors
+ * Copyright 2021-2026 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -229,21 +229,10 @@ public class DirectAccessVsQueryBenchmark extends EmbeddedRelationalBenchmark {
         }
     }
 
-    // ── Connection holder (one connection per JMH thread) ────────────────────
-
     @State(Scope.Thread)
-    public static class ConnHolder {
-        Connection connection;
-
-        @Setup
-        public void init() throws SQLException {
-            connection = DriverManager.getConnection("jdbc:embed:" + dbUri);
-            connection.setSchema(schema);
-        }
-
-        @TearDown
-        public void stop() throws SQLException {
-            connection.close();
+    public static class ConnHolder extends BenchmarkConnHolder {
+        public ConnHolder() {
+            super(DirectAccessVsQueryBenchmark.dbUri, DirectAccessVsQueryBenchmark.schema);
         }
     }
 
