@@ -229,7 +229,9 @@ public class RecordQueryFetchFromPartialRecordPlan extends AbstractRelationalExp
         if (getClass() != otherExpression.getClass()) {
             return false;
         }
-
+        if (!semanticEqualsForResults(otherExpression, equivalences)) {
+            return false;
+        }
         final var otherFetchPlan = (RecordQueryFetchFromPartialRecordPlan)otherExpression;
         return fetchIndexRecords == otherFetchPlan.fetchIndexRecords;
     }

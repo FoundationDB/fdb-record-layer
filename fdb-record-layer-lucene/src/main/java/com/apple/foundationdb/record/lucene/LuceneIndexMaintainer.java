@@ -583,13 +583,21 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
         try {
             try (IndexReader indexReader = directoryManager.getIndexReader(groupingKey, partitionId)) {
                 final FDBDirectory directory = getDirectory(groupingKey, partitionId);
-                final CompletableFuture<Integer> fieldInfosFuture = directory.getFieldInfosCount();
-                return directory.getAllAsync()
-                        .thenCombine(fieldInfosFuture, (fileList, fieldInfosCount) ->
-                                new LuceneMetadataInfo.LuceneInfo(
-                                        indexReader.numDocs(),
-                                        fieldInfosCount,
-                                        toLuceneFileInfo(fileList)));
+                final CompletableFuture<Map<String, FDBLuceneFileReference>> filesFuture =
+                        directory.getAllAsync();
+                final CompletableFuture<Integer> fieldInfosFuture =
+                        directory.getFieldInfosCount();
+                final CompletableFuture<Long> queueSizeFuture =
+                        directoryManager.getPendingWriteQueue(groupingKey, partitionId)
+                                        .getQueueSize(state.context);
+                return filesFuture.thenCompose(fileList ->
+                        fieldInfosFuture.thenCompose(fieldInfosCount ->
+                                queueSizeFuture.thenApply(queueSize ->
+                                        new LuceneMetadataInfo.LuceneInfo(
+                                                indexReader.numDocs(),
+                                                fieldInfosCount,
+                                                toLuceneFileInfo(fileList),
+                                                queueSize != null ? queueSize : 0L))));
             }
         } catch (IOException e) {
             return CompletableFuture.failedFuture(e);

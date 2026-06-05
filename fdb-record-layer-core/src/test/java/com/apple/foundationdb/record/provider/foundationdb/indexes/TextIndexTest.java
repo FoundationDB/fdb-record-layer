@@ -50,6 +50,7 @@ import com.apple.foundationdb.record.logging.TestLogMessageKeys;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexTypes;
+import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.metadata.RecordTypeBuilder;
 import com.apple.foundationdb.record.metadata.expressions.EmptyKeyExpression;
@@ -183,6 +184,7 @@ import static org.hamcrest.Matchers.lessThanOrEqualTo;
 import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -3262,5 +3264,12 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
         long endTime = System.nanoTime();
         LOGGER.info("performed 1000 parallel insertions in {} seconds.", (endTime - startTime) * 1e-9);
         printUsage();
+    }
+
+    @Test
+    void textIndexAttributesNotOptimizedForMutualIndexing() {
+        final TextIndexMaintainerFactory factory = new TextIndexMaintainerFactory();
+        final Index textIndex = new Index("test", Key.Expressions.field("field"), IndexTypes.TEXT);
+        assertFalse(factory.getIndexGeneralAttributes(textIndex).isOptimizedForMutualIndexing());
     }
 }

@@ -209,6 +209,9 @@ public abstract class RecordQueryInJoinPlan extends AbstractRelationalExpression
         if (getClass() != otherExpression.getClass()) {
             return false;
         }
+        if (!semanticEqualsForResults(otherExpression, equivalencesMap)) {
+            return false;
+        }
         final RecordQueryInJoinPlan other = (RecordQueryInJoinPlan)otherExpression;
         return inSource.equals(other.inSource);
     }

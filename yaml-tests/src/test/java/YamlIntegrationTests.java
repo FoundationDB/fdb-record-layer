@@ -71,6 +71,11 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
+    void arrayJoinAt(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("array-join-at.yamsql");
+    }
+
+    @TestTemplate
     void arraysCardinality(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("arrays-cardinality.yamsql");
     }
@@ -98,6 +103,11 @@ public class YamlIntegrationTests {
     @TestTemplate
     void booleanTypes(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("boolean.yamsql");
+    }
+
+    @TestTemplate
+    void boolLiteralPredicate(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("boolean-ddl.yamsql");
     }
 
     @TestTemplate
@@ -168,6 +178,11 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
+    public void existsInSelect(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("exists-in-select.yamsql");
+    }
+
+    @TestTemplate
     public void fieldIndexTestsProto(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("field-index-tests-proto.yamsql");
     }
@@ -208,6 +223,11 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
+    public void joinTestsOuter(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("join-tests-outer.yamsql");
+    }
+
+    @TestTemplate
     public void joinRowVersionTests(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("join-tests-row-version.yamsql");
     }
@@ -240,6 +260,11 @@ public class YamlIntegrationTests {
     @TestTemplate
     public void multiClusterIsolation(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("multi-cluster-isolation.yamsql");
+    }
+
+    @TestTemplate
+    public void copyBasic(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("copy-basic.yamsql");
     }
 
     @TestTemplate
@@ -338,6 +363,11 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
+    public void skippedFieldNumberProto(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("skipped-field-number-proto.yamsql");
+    }
+
+    @TestTemplate
     public void slidingWindowSemanticSearchTest(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("sliding-window-semantic-search.yamsql");
     }
@@ -365,6 +395,11 @@ public class YamlIntegrationTests {
     @TestTemplate
     public void standardTestsWithProto(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("standard-tests-proto.yamsql");
+    }
+
+    @TestTemplate
+    public void starExpressionColumnNames(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("star-expression-metadata.yamsql");
     }
 
     @TestTemplate

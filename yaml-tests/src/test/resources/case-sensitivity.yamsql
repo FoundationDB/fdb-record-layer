@@ -83,7 +83,7 @@ test_block:
                           {ID: 2, COL1: 10, COL2: 2, X: 2, Y: 'bar'}]
     -
       - query: select * from table1
-      - error: "42F01"
+      - error: UNDEFINED_TABLE
     -
       - query: select * from TABLE2
       - unorderedResult: [{A: 10, B: 'blah'},
@@ -112,10 +112,10 @@ test_block:
   tests:
     -
       - query: with c1 as (select col1, col2 from Table1) select col1, col2 from c1
-      - error: "42F01"
+      - error: UNDEFINED_TABLE
     -
       - query: with c1 as (select col1, col2 from "Table1") select col1, col2 from c1
-      - error: "42703"
+      - error: UNDEFINED_COLUMN
     -
       - query: with c1 as (select "col1", "col2" from "Table1") select "col1", "col2" from c1
       - unorderedResult: [{COL1: 10, COL2: 1},

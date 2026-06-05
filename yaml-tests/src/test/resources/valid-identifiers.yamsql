@@ -21,69 +21,134 @@ options:
     supported_version: 4.8.15.0
 ---
 schema_template:
-    create type as struct "nested.type$level2" ("level2$field.1" bigint, "level2$field.2" bigint)
-    create type as struct "nested.type$level1" ("level1$field.1" "nested.type$level2", "level1$field.2" "nested.type$level2")
-    create table "foo.table$nested" (id bigint, "level0.field1" "nested.type$level1", primary key(id))
-    create index "foo.table$nested.idx" as select "level0.field1"."level1$field.1"."level2$field.1" from "foo.table$nested" order by "level0.field1"."level1$field.1"."level2$field.1"
-
-    create type as struct "nested.repeated.type$level2" ("level2$array.field.1" bigint, "level2$field.2" bigint)
-    create type as struct "nested.repeated.type$level1" ("level1$field.1" "nested.repeated.type$level2" array, "level1$field.2" "nested.type$level2", "level1$field.3" bigint)
-    create table "foo.table$nested.repeated" (id bigint, "level0.field1" "nested.repeated.type$level1" array, primary key(id))
-    create index "foo.table$nested.repeated.idx.field.1.3"   as select "nested$level1"."level1$field.3"                  from "foo.table$nested.repeated" as "level0$t", "level0$t"."level0.field1" AS "nested$level1"
-    create index "foo.table$nested.repeated.idx.field.1.2.1" as select "nested$level1"."level1$field.2"."level2$field.1" from "foo.table$nested.repeated" as "level0$t", "level0$t"."level0.field1" AS "nested$level1"
-    create index "foo.table$nested.repeated.idx.field.1.1.1" as select "nested$level2"."level2$array.field.1"            from "foo.table$nested.repeated" as "level0$t", "level0$t"."level0.field1" AS "nested$level1", "nested$level1"."level1$field.1" AS "nested$level2"
-
-    create table "foo.table$repeated" (id bigint, "field.0$array" bigint array, "field.1$array" string array, primary key (id))
-    create index "foo.table$repeated.1" as select "e" from "foo.table$repeated" AS t, t."field.0$array" as "e"
-    create index "foo.table$repeated.2" as select "e" from "foo.table$repeated" AS t, t."field.1$array" as "e"
-
-    create type as struct "foo.struct"(S1 bigint, S2 bigint)
-    create table "foo.tableA"("foo.tableA.A1" bigint, "foo.tableA.A2" bigint, "foo.tableA.A3" bigint, primary key("foo.tableA.A1"))
-    create index "foo.tableA.idx" as select "foo.tableA.A1", "foo.tableA.A2", "foo.tableA.A3" FROM "foo.tableA" order by "foo.tableA.A1", "foo.tableA.A2", "foo.tableA.A3"
-    create index "foo.tableA.idx2" as select sum("foo.tableA.A1") FROM "foo.tableA" group by "foo.tableA.A2"
-    create index "foo.tableA.idx3" as select "foo.tableA.A2" FROM "foo.tableA" order by "foo.tableA.A2"
-
-    create table "foo.tableB"("foo.tableB.B1" bigint, "foo.tableB.B2" bigint, "foo.tableB.B3" "foo.struct", primary key("foo.tableB.B1"))
-
-    create table "foo$tableC"("foo$tableC$C1" bigint, "foo$tableC$C2" bigint, "foo$tableC$C3" bigint, primary key("foo$tableC$C1"))
-    create index "foo$tableC$idx" as select "foo$tableC$C1", "foo$tableC$C2", "foo$tableC$C3" FROM "foo$tableC" order by "foo$tableC$C1", "foo$tableC$C2", "foo$tableC$C3"
-    create index "foo$tableC$idx2" as select sum("foo$tableC$C1") FROM "foo$tableC" group by "foo$tableC$C2"
-
-    create table "__foo__tableD"("__foo__tableD$D1" bigint, "__foo__tableD$D2" bigint, "__foo__tableD$D3" bigint, primary key("__foo__tableD$D1"))
-    create index "__foo__tableD$idx" as select "__foo__tableD$D1", "__foo__tableD$D2", "__foo__tableD$D3" FROM "__foo__tableD" order by "__foo__tableD$D1", "__foo__tableD$D2", "__foo__tableD$D3"
-    create index "__foo__tableD$idx2" as select sum("__foo__tableD$D1") FROM "__foo__tableD" group by "__foo__tableD$D2"
-
-    create table "foo.tableE"("foo.tableE.E1" bigint, "foo.tableE.E2" bigint array, "foo.tableE.E3" "foo.struct", primary key("foo.tableE.E1"))
-
-    create function "$yay" (in "_1$blah" bigint)
-       as select "foo.tableE"."foo.tableE.E1" as "_$x.id" from "foo.tableE" where "foo.tableE"."foo.tableE.E3".S1 = "_1$blah"
-    create function "__2yay" (in "_2$blah" bigint)
-       as select "foo.tableE"."foo.tableE.E1" as "_$y.id" from "foo.tableE" where "foo.tableE"."foo.tableE.E3".S1 = "_2$blah"
-    create function "नमस्त" (in "x.y" bigint)
-       as select "foo.tableE"."foo.tableE.E1" as "_$z.id" from "foo.tableE" where "foo.tableE"."foo.tableE.E3".S1 = "x.y"
-
-    create function "alpha__f" (in "__in__foo.struct" TYPE "foo.struct") RETURNS bigint AS "__in__foo.struct".S1
-    create function "βήτα__f" (in "__in__foo.struct" TYPE "foo.struct") RETURNS bigint AS "__in__foo.struct".S2
-
-    create view "$yay__view"
-       as select "foo.tableE"."foo.tableE.E1" as "_$x.id" from "foo.tableE" where "foo.tableE"."foo.tableE.E3".S1 = 4
-    create view "__2yay__view"
-       as select "foo.tableE"."foo.tableE.E1" as "_$y.id" from "foo.tableE" where "foo.tableE"."foo.tableE.E3".S1 = 5
-    create view "வணக்கம்"
-       as select "foo.tableE"."foo.tableE.E1" as "_$z.id" from "foo.tableE" where "foo.tableE"."foo.tableE.E3".S1 = 6
-
-    create table "my$adjacency$list"("me" bigint, "my__parent" bigint, primary key("me"))
-    create function "__$func1" ( in "__$func1$A" bigint, in "__$func1$B" bigint )
-       as select "me" as "__A", "my__parent" as "__B" from "my$adjacency$list" where "me" < "__$func1$A" and "my$adjacency$list"."my__parent" = "__$func1$B"
-    create function "__$func2" ( "__$func2$A" bigint )
-       as select "me" as "__A", "my__parent" as "__B" from "my$adjacency$list" where "me" = "__$func2$A"
-    create function "__$func3" ( in "__$func3$A" bigint, in "__$func3$B" bigint, in "__$func3$C" bigint) as select "__..f1"."__A", "__..f1"."__B", "__..f2"."__A", "__..f2"."__B" from "__$func1"("__$func3$A", "__$func3$B") "__..f1", "__$func2"("__$func3$C") "__..f2"
-
-    create type as enum "foo.enum"('A', 'B$C', 'C.D', 'E__F', '__G$H')
-    create table "foo.enum.type"("enum_type.id" bigint, "enum_type.enum__1" "foo.enum", "enum_type.enum__2" "foo.enum", primary key ("enum_type.id"))
-
-    create index "foo.enum.type$enum__1" as select "enum_type.enum__1" from "foo.enum.type"
-
+  - initialVersionLessThan: "4.12.1.0"
+    definition: |
+      create type as struct "nested.type$level2" ("level2$field.1" bigint, "level2$field.2" bigint)
+      create type as struct "nested.type$level1" ("level1$field.1" "nested.type$level2", "level1$field.2" "nested.type$level2")
+      create table "foo.table$nested" (id bigint, "level0.field1" "nested.type$level1", primary key(id))
+      create index "foo.table$nested.idx" as select "level0.field1"."level1$field.1"."level2$field.1" from "foo.table$nested" order by "level0.field1"."level1$field.1"."level2$field.1"
+      
+      create type as struct "nested.repeated.type$level2" ("level2$array.field.1" bigint, "level2$field.2" bigint)
+      create type as struct "nested.repeated.type$level1" ("level1$field.1" "nested.repeated.type$level2" array, "level1$field.2" "nested.type$level2", "level1$field.3" bigint)
+      create table "foo.table$nested.repeated" (id bigint, "level0.field1" "nested.repeated.type$level1" array, primary key(id))
+      create index "foo.table$nested.repeated.idx.field.1.3"   as select "nested$level1"."level1$field.3"                  from "foo.table$nested.repeated" as "level0$t", "level0$t"."level0.field1" AS "nested$level1"
+      create index "foo.table$nested.repeated.idx.field.1.2.1" as select "nested$level1"."level1$field.2"."level2$field.1" from "foo.table$nested.repeated" as "level0$t", "level0$t"."level0.field1" AS "nested$level1"
+      create index "foo.table$nested.repeated.idx.field.1.1.1" as select "nested$level2"."level2$array.field.1"            from "foo.table$nested.repeated" as "level0$t", "level0$t"."level0.field1" AS "nested$level1", "nested$level1"."level1$field.1" AS "nested$level2"
+      
+      create table "foo.table$repeated" (id bigint, "field.0$array" bigint array, "field.1$array" string array, primary key (id))
+      create index "foo.table$repeated.1" as select t."field.0$array" from "foo.table$repeated" AS t
+      create index "foo.table$repeated.2" as select t."field.1$array" from "foo.table$repeated" AS t
+      
+      create type as struct "foo.struct"(S1 bigint, S2 bigint)
+      create table "foo.tableA"("foo.tableA.A1" bigint, "foo.tableA.A2" bigint, "foo.tableA.A3" bigint, primary key("foo.tableA.A1"))
+      create index "foo.tableA.idx" as select "foo.tableA.A1", "foo.tableA.A2", "foo.tableA.A3" FROM "foo.tableA" order by "foo.tableA.A1", "foo.tableA.A2", "foo.tableA.A3"
+      create index "foo.tableA.idx2" as select sum("foo.tableA.A1") FROM "foo.tableA" group by "foo.tableA.A2"
+      create index "foo.tableA.idx3" as select "foo.tableA.A2" FROM "foo.tableA" order by "foo.tableA.A2"
+      
+      create table "foo.tableB"("foo.tableB.B1" bigint, "foo.tableB.B2" bigint, "foo.tableB.B3" "foo.struct", primary key("foo.tableB.B1"))
+      
+      create table "foo$tableC"("foo$tableC$C1" bigint, "foo$tableC$C2" bigint, "foo$tableC$C3" bigint, primary key("foo$tableC$C1"))
+      create index "foo$tableC$idx" as select "foo$tableC$C1", "foo$tableC$C2", "foo$tableC$C3" FROM "foo$tableC" order by "foo$tableC$C1", "foo$tableC$C2", "foo$tableC$C3"
+      create index "foo$tableC$idx2" as select sum("foo$tableC$C1") FROM "foo$tableC" group by "foo$tableC$C2"
+      
+      create table "__foo__tableD"("__foo__tableD$D1" bigint, "__foo__tableD$D2" bigint, "__foo__tableD$D3" bigint, primary key("__foo__tableD$D1"))
+      create index "__foo__tableD$idx" as select "__foo__tableD$D1", "__foo__tableD$D2", "__foo__tableD$D3" FROM "__foo__tableD" order by "__foo__tableD$D1", "__foo__tableD$D2", "__foo__tableD$D3"
+      create index "__foo__tableD$idx2" as select sum("__foo__tableD$D1") FROM "__foo__tableD" group by "__foo__tableD$D2"
+      
+      create table "foo.tableE"("foo.tableE.E1" bigint, "foo.tableE.E2" bigint array, "foo.tableE.E3" "foo.struct", primary key("foo.tableE.E1"))
+      
+      create function "$yay" (in "_1$blah" bigint)
+         as select "foo.tableE"."foo.tableE.E1" as "_$x.id" from "foo.tableE" where "foo.tableE"."foo.tableE.E3".S1 = "_1$blah"
+      create function "__2yay" (in "_2$blah" bigint)
+         as select "foo.tableE"."foo.tableE.E1" as "_$y.id" from "foo.tableE" where "foo.tableE"."foo.tableE.E3".S1 = "_2$blah"
+      create function "नमस्त" (in "x.y" bigint)
+         as select "foo.tableE"."foo.tableE.E1" as "_$z.id" from "foo.tableE" where "foo.tableE"."foo.tableE.E3".S1 = "x.y"
+      
+      create function "alpha__f" (in "__in__foo.struct" TYPE "foo.struct") RETURNS bigint AS "__in__foo.struct".S1
+      create function "βήτα__f" (in "__in__foo.struct" TYPE "foo.struct") RETURNS bigint AS "__in__foo.struct".S2
+      
+      create view "$yay__view"
+         as select "foo.tableE"."foo.tableE.E1" as "_$x.id" from "foo.tableE" where "foo.tableE"."foo.tableE.E3".S1 = 4
+      create view "__2yay__view"
+         as select "foo.tableE"."foo.tableE.E1" as "_$y.id" from "foo.tableE" where "foo.tableE"."foo.tableE.E3".S1 = 5
+      create view "வணக்கம்"
+         as select "foo.tableE"."foo.tableE.E1" as "_$z.id" from "foo.tableE" where "foo.tableE"."foo.tableE.E3".S1 = 6
+      
+      create table "my$adjacency$list"("me" bigint, "my__parent" bigint, primary key("me"))
+      create function "__$func1" ( in "__$func1$A" bigint, in "__$func1$B" bigint )
+         as select "me" as "__A", "my__parent" as "__B" from "my$adjacency$list" where "me" < "__$func1$A" and "my$adjacency$list"."my__parent" = "__$func1$B"
+      create function "__$func2" ( "__$func2$A" bigint )
+         as select "me" as "__A", "my__parent" as "__B" from "my$adjacency$list" where "me" = "__$func2$A"
+      create function "__$func3" ( in "__$func3$A" bigint, in "__$func3$B" bigint, in "__$func3$C" bigint) as select "__..f1"."__A", "__..f1"."__B", "__..f2"."__A", "__..f2"."__B" from "__$func1"("__$func3$A", "__$func3$B") "__..f1", "__$func2"("__$func3$C") "__..f2"
+      
+      create type as enum "foo.enum"('A', 'B$C', 'C.D', 'E__F', '__G$H')
+      create table "foo.enum.type"("enum_type.id" bigint, "enum_type.enum__1" "foo.enum", "enum_type.enum__2" "foo.enum", primary key ("enum_type.id"))
+      
+      create index "foo.enum.type$enum__1" as select "enum_type.enum__1" from "foo.enum.type"
+  - initialVersionAtLeast: "4.12.1.0"
+    definition: |
+      create type as struct "nested.type$level2" ("level2$field.1" bigint, "level2$field.2" bigint)
+      create type as struct "nested.type$level1" ("level1$field.1" "nested.type$level2", "level1$field.2" "nested.type$level2")
+      create table "foo.table$nested" (id bigint, "level0.field1" "nested.type$level1", primary key(id))
+      create index "foo.table$nested.idx" as select "level0.field1"."level1$field.1"."level2$field.1" from "foo.table$nested" order by "level0.field1"."level1$field.1"."level2$field.1"
+      
+      create type as struct "nested.repeated.type$level2" ("level2$array.field.1" bigint, "level2$field.2" bigint)
+      create type as struct "nested.repeated.type$level1" ("level1$field.1" "nested.repeated.type$level2" array, "level1$field.2" "nested.type$level2", "level1$field.3" bigint)
+      create table "foo.table$nested.repeated" (id bigint, "level0.field1" "nested.repeated.type$level1" array, primary key(id))
+      create index "foo.table$nested.repeated.idx.field.1.3"   as select "nested$level1"."level1$field.3"                  from "foo.table$nested.repeated" as "level0$t", "level0$t"."level0.field1" AS "nested$level1"
+      create index "foo.table$nested.repeated.idx.field.1.2.1" as select "nested$level1"."level1$field.2"."level2$field.1" from "foo.table$nested.repeated" as "level0$t", "level0$t"."level0.field1" AS "nested$level1"
+      create index "foo.table$nested.repeated.idx.field.1.1.1" as select "nested$level2"."level2$array.field.1"            from "foo.table$nested.repeated" as "level0$t", "level0$t"."level0.field1" AS "nested$level1", "nested$level1"."level1$field.1" AS "nested$level2"
+      
+      create table "foo.table$repeated" (id bigint, "field.0$array" bigint array, "field.1$array" string array, primary key (id))
+      create index "foo.table$repeated.1" as select "e" from "foo.table$repeated" AS t, t."field.0$array" as "e"
+      create index "foo.table$repeated.2" as select "e" from "foo.table$repeated" AS t, t."field.1$array" as "e"
+      
+      create type as struct "foo.struct"(S1 bigint, S2 bigint)
+      create table "foo.tableA"("foo.tableA.A1" bigint, "foo.tableA.A2" bigint, "foo.tableA.A3" bigint, primary key("foo.tableA.A1"))
+      create index "foo.tableA.idx" as select "foo.tableA.A1", "foo.tableA.A2", "foo.tableA.A3" FROM "foo.tableA" order by "foo.tableA.A1", "foo.tableA.A2", "foo.tableA.A3"
+      create index "foo.tableA.idx2" as select sum("foo.tableA.A1") FROM "foo.tableA" group by "foo.tableA.A2"
+      create index "foo.tableA.idx3" as select "foo.tableA.A2" FROM "foo.tableA" order by "foo.tableA.A2"
+      
+      create table "foo.tableB"("foo.tableB.B1" bigint, "foo.tableB.B2" bigint, "foo.tableB.B3" "foo.struct", primary key("foo.tableB.B1"))
+      
+      create table "foo$tableC"("foo$tableC$C1" bigint, "foo$tableC$C2" bigint, "foo$tableC$C3" bigint, primary key("foo$tableC$C1"))
+      create index "foo$tableC$idx" as select "foo$tableC$C1", "foo$tableC$C2", "foo$tableC$C3" FROM "foo$tableC" order by "foo$tableC$C1", "foo$tableC$C2", "foo$tableC$C3"
+      create index "foo$tableC$idx2" as select sum("foo$tableC$C1") FROM "foo$tableC" group by "foo$tableC$C2"
+      
+      create table "__foo__tableD"("__foo__tableD$D1" bigint, "__foo__tableD$D2" bigint, "__foo__tableD$D3" bigint, primary key("__foo__tableD$D1"))
+      create index "__foo__tableD$idx" as select "__foo__tableD$D1", "__foo__tableD$D2", "__foo__tableD$D3" FROM "__foo__tableD" order by "__foo__tableD$D1", "__foo__tableD$D2", "__foo__tableD$D3"
+      create index "__foo__tableD$idx2" as select sum("__foo__tableD$D1") FROM "__foo__tableD" group by "__foo__tableD$D2"
+      
+      create table "foo.tableE"("foo.tableE.E1" bigint, "foo.tableE.E2" bigint array, "foo.tableE.E3" "foo.struct", primary key("foo.tableE.E1"))
+      
+      create function "$yay" (in "_1$blah" bigint)
+         as select "foo.tableE"."foo.tableE.E1" as "_$x.id" from "foo.tableE" where "foo.tableE"."foo.tableE.E3".S1 = "_1$blah"
+      create function "__2yay" (in "_2$blah" bigint)
+         as select "foo.tableE"."foo.tableE.E1" as "_$y.id" from "foo.tableE" where "foo.tableE"."foo.tableE.E3".S1 = "_2$blah"
+      create function "नमस्त" (in "x.y" bigint)
+         as select "foo.tableE"."foo.tableE.E1" as "_$z.id" from "foo.tableE" where "foo.tableE"."foo.tableE.E3".S1 = "x.y"
+      
+      create function "alpha__f" (in "__in__foo.struct" TYPE "foo.struct") RETURNS bigint AS "__in__foo.struct".S1
+      create function "βήτα__f" (in "__in__foo.struct" TYPE "foo.struct") RETURNS bigint AS "__in__foo.struct".S2
+      
+      create view "$yay__view"
+         as select "foo.tableE"."foo.tableE.E1" as "_$x.id" from "foo.tableE" where "foo.tableE"."foo.tableE.E3".S1 = 4
+      create view "__2yay__view"
+         as select "foo.tableE"."foo.tableE.E1" as "_$y.id" from "foo.tableE" where "foo.tableE"."foo.tableE.E3".S1 = 5
+      create view "வணக்கம்"
+         as select "foo.tableE"."foo.tableE.E1" as "_$z.id" from "foo.tableE" where "foo.tableE"."foo.tableE.E3".S1 = 6
+      
+      create table "my$adjacency$list"("me" bigint, "my__parent" bigint, primary key("me"))
+      create function "__$func1" ( in "__$func1$A" bigint, in "__$func1$B" bigint )
+         as select "me" as "__A", "my__parent" as "__B" from "my$adjacency$list" where "me" < "__$func1$A" and "my$adjacency$list"."my__parent" = "__$func1$B"
+      create function "__$func2" ( "__$func2$A" bigint )
+         as select "me" as "__A", "my__parent" as "__B" from "my$adjacency$list" where "me" = "__$func2$A"
+      create function "__$func3" ( in "__$func3$A" bigint, in "__$func3$B" bigint, in "__$func3$C" bigint) as select "__..f1"."__A", "__..f1"."__B", "__..f2"."__A", "__..f2"."__B" from "__$func1"("__$func3$A", "__$func3$B") "__..f1", "__$func2"("__$func3$C") "__..f2"
+      
+      create type as enum "foo.enum"('A', 'B$C', 'C.D', 'E__F', '__G$H')
+      create table "foo.enum.type"("enum_type.id" bigint, "enum_type.enum__1" "foo.enum", "enum_type.enum__2" "foo.enum", primary key ("enum_type.id"))
+      
+      create index "foo.enum.type$enum__1" as select "enum_type.enum__1" from "foo.enum.type"
 ---
 setup:
   steps:
@@ -225,15 +290,15 @@ test_block:
     -
       # with select element alias prefixed with .
       - query: select "foo.tableA"."foo.tableA.A1" AS ".__." from "foo.tableA";
-      - error: "42602"
+      - error: INVALID_NAME
     -
       # with select element alias prefixed with $
       - query: select "foo.tableA"."foo.tableA.A1" AS "$__." from "foo.tableA";
-      - error: "42602"
+      - error: INVALID_NAME
     -
       # with select element alias with non-supported characters
       - query: select "foo.tableA"."foo.tableA.A1" AS "उपनाम" from "foo.tableA";
-      - error: "42602"
+      - error: INVALID_NAME
     -
       # multi-level CTEs
       - query: with "A$_$__$$" as (with "A$__$" as (select "foo.tableA.A1" as "A$" from "foo.tableA") select * from "A$__$") select * from "A$_$__$$"
@@ -395,7 +460,7 @@ test_block:
     -
       # named record construction with uid star
       - query: select struct "x$$" ("foo.tableA".*) from "foo.tableA"
-      - explain: "ISCAN(foo.tableA.idx3 <,>) | MAP (_ AS _0)"
+      - explain: "ISCAN(foo.tableA.idx3 <,>) | MAP (_ AS foo.tableA)"
       - result: [{{"foo.tableA.A1": 1 , "foo.tableA.A2": 10, "foo.tableA.A3": 1}}, {{"foo.tableA.A1": 2, "foo.tableA.A2": 10, "foo.tableA.A3": 2}}, {{"foo.tableA.A1": 3, "foo.tableA.A2": 10, "foo.tableA.A3": 3}}]
     -
       # named record construction with aliased expressions
@@ -549,46 +614,46 @@ test_block:
       # invalid table name
       - query: create schema template test_template_with_invalid_identifiers
                create table "$yay"(id2 bigint, col6 s2 ARRAY, primary key(id2))
-      - error: "42602"
+      - error: INVALID_NAME
     -
       # invalid table name
       - query: create schema template test_template_with_invalid_identifiers
                create table "नमस्ते"(id2 bigint, col6 s2 ARRAY, primary key(id2))
-      - error: "42602"
+      - error: INVALID_NAME
     -
       # invalid column name
       - query: create schema template test_template_with_invalid_identifiers
                create table T1("$yay" bigint, col6 s2 ARRAY, primary key(id2))
-      - error: "42602"
+      - error: INVALID_NAME
     -
       # invalid column name
       - query: create schema template test_template_with_invalid_identifiers
                create table T1("नमस्ते" bigint, col6 s2 ARRAY, primary key(id2))
-      - error: "42602"
+      - error: INVALID_NAME
     -
       # invalid struct name
       - query: create schema template test_template_with_invalid_identifiers
                CREATE TYPE AS STRUCT "$yay"(S1 bigint, S2 bigint)
                create table T1(id2 bigint, col6 "$yay", primary key(id2))
-      - error: "42602"
+      - error: INVALID_NAME
     -
       # invalid struct name
       - query: create schema template test_template_with_invalid_identifiers
                CREATE TYPE AS STRUCT "नमस्ते"(S1 bigint, S2 bigint)
                create table T1(id2 bigint, col6 "नमस्ते", primary key(id2))
-      - error: "42602"
+      - error: INVALID_NAME
     -
       # invalid function argument
       - query: create schema template test_template_with_invalid_identifiers
                create table T1(id2 bigint, id3 bigint, primary key(id2))
                create function func (in "$yay" bigint) as SELECT id3 from T1 where id2 > "$yay"
-      - error: "42602"
+      - error: INVALID_NAME
     -
       # invalid function argument
       - query: create schema template test_template_with_invalid_identifiers
                create table T1(id2 bigint, id3 bigint, primary key(id2))
                create function func (in "नमस्ते" bigint) as SELECT id3 from T1 where id2 > "नमस्ते"
-      - error: "42602"
+      - error: INVALID_NAME
 ---
 setup:
   connect: "jdbc:embed:/__SYS?schema=CATALOG"

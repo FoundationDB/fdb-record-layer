@@ -34,8 +34,14 @@ import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexTypes;
+import com.apple.foundationdb.record.metadata.IndexValidator;
 import com.apple.foundationdb.record.metadata.expressions.EmptyKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
+import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
+import com.apple.foundationdb.record.provider.foundationdb.indexes.AtomicMutationIndexMaintainerFactory;
+import com.apple.foundationdb.record.provider.foundationdb.indexes.RankIndexMaintainerFactory;
+import com.apple.foundationdb.record.provider.foundationdb.indexes.ValueIndexMaintainerFactory;
+import com.apple.foundationdb.record.provider.foundationdb.indexes.VersionIndexMaintainerFactory;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.BooleanSource;
 import com.apple.test.Tags;
@@ -46,6 +52,7 @@ import org.junit.jupiter.params.provider.CsvSource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -63,7 +70,9 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.LongStream;
 
+import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
+import static com.apple.foundationdb.record.metadata.Key.Expressions.recordType;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -120,6 +129,76 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
         }
         assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
         assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
+        assertReadable(indexes);
+        scrubAndValidate(indexes);
+    }
+
+    @ParameterizedTest
+    @BooleanSource
+    void testMutualIndexingTypedRecords(boolean splitLongRecords) {
+        // Exercise the byte-range (non-Tuple) typed-records optimization for mutual indexing, with the indexed record
+        // type using record type key 0.
+
+        final FDBStoreTimer timer = new FDBStoreTimer();
+        final int numRecords = 90;
+        final int numRecordsOther = 30;
+
+        final Index indexA = new Index("indexA", field("num_value_2"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS);
+        final Index indexB = new Index("indexB", field("num_value_3_indexed"), IndexTypes.VALUE);
+        final Index indexC = new Index("indexC", field("num_value_unique"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS);
+        final List<Index> indexes = Arrays.asList(indexA, indexB, indexC);
+
+        final FDBRecordStoreTestBase.RecordMetaDataHook hook = metaDataBuilder -> {
+            // Prefix both record types' primary keys with the record type, so the indexer can restrict the scan to a
+            // single record-type byte range.
+            final KeyExpression pkey = concat(recordType(), field("rec_no"));
+            metaDataBuilder.getRecordType("MySimpleRecord").setPrimaryKey(pkey);
+            metaDataBuilder.getRecordType("MyOtherRecord").setPrimaryKey(pkey);
+            // Give the indexed type the record type key 0 - the byte-range boundary (the Tuple encoding of 0).
+            metaDataBuilder.getRecordType("MySimpleRecord").setRecordTypeKey(0L);
+            metaDataBuilder.setSplitLongRecords(splitLongRecords);
+            for (Index index : indexes) {
+                metaDataBuilder.addIndex("MySimpleRecord", index);
+            }
+        };
+
+        // Populate both record types using the prefixed-primary-key meta-data.
+        openSimpleMetaData(hook);
+        try (FDBRecordContext context = openContext()) {
+            for (int i = 0; i < numRecords; i++) {
+                recordStore.saveRecord(TestRecords1Proto.MySimpleRecord.newBuilder()
+                        .setRecNo(i)
+                        .setNumValue2(i * 7)
+                        .setNumValue3Indexed(i * 11)
+                        .setNumValueUnique(i * 13)
+                        .build());
+            }
+            for (int i = 0; i < numRecordsOther; i++) {
+                recordStore.saveRecord(TestRecords1Proto.MyOtherRecord.newBuilder()
+                        .setRecNo(i)
+                        .setNumValue2(i)
+                        .build());
+            }
+            context.commit();
+        }
+
+        disableAll(indexes);
+        try (OnlineIndexer indexBuilder = newIndexerBuilder(indexes, timer)
+                .setLimit(13)
+                .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
+                        .setMutualIndexing() // no boundaries -> self detection (single shard for this small data set)
+                        .build())
+                .build()) {
+
+            indexBuilder.buildIndex(true);
+        }
+
+        // Only the MySimpleRecord records are scanned/indexed - the preset MyOtherRecord byte range is skipped.
+        assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
+        assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
+
+        // All target indexes are fully built and consistent with the scanned records.
+        openSimpleMetaData(hook);
         assertReadable(indexes);
         scrubAndValidate(indexes);
     }
@@ -1769,5 +1848,47 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
                 .build()) {
             assertThrows(RecordCoreException.class, indexBuilder::buildIndex);
         }
+    }
+
+    @Test
+    void standardIndexAttributesOptimizedForMutualIndexing() {
+        final Index index = new Index("test", "field");
+        List<IndexMaintainerFactory> factories = List.of(
+                new ValueIndexMaintainerFactory(),
+                new AtomicMutationIndexMaintainerFactory(),
+                new VersionIndexMaintainerFactory(),
+                new RankIndexMaintainerFactory()
+        );
+        for (IndexMaintainerFactory factory : factories) {
+            assertTrue(factory.getIndexGeneralAttributes(index).isOptimizedForMutualIndexing(),
+                    factory.getClass().getSimpleName() + " should be optimized for mutual indexing");
+        }
+    }
+
+    @Test
+    void defaultIndexGeneralAttributesNotOptimizedForMutualIndexing() {
+        // Check a generic index maintainer factory that doesn't implement getIndexGeneralAttributes
+        final Index index = new Index("test", "field");
+        // Anonymous implementation that doesn't override getIndexGeneralAttributes
+        IndexMaintainerFactory factory = new IndexMaintainerFactory() {
+            @Nonnull
+            @Override
+            public Iterable<String> getIndexTypes() {
+                return List.of("test");
+            }
+
+            @Nonnull
+            @Override
+            public IndexValidator getIndexValidator(final Index index) {
+                return new IndexValidator(index);
+            }
+
+            @Nonnull
+            @Override
+            public IndexMaintainer getIndexMaintainer(@Nonnull final IndexMaintainerState state) {
+                throw new UnsupportedOperationException();
+            }
+        };
+        assertFalse(factory.getIndexGeneralAttributes(index).isOptimizedForMutualIndexing());
     }
 }

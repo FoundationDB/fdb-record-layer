@@ -37,6 +37,7 @@ import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.IndexValidator;
+import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.metadata.MetaDataValidator;
 import com.apple.foundationdb.record.metadata.expressions.KeyWithValueExpression;
@@ -566,5 +567,12 @@ class VectorIndexTest extends VectorIndexTestBase {
                     .allSatisfy(recallCounter ->
                             assertThat((double)recallCounter / k).isGreaterThan(0.9));
         }
+    }
+
+    @Test
+    void vectorIndexAttributesNotOptimizedForMutualIndexing() {
+        final VectorIndexMaintainerFactory factory = new VectorIndexMaintainerFactory();
+        final Index vectorIndex = new Index("test", Key.Expressions.field("field"), IndexTypes.VECTOR);
+        Assertions.assertThat(factory.getIndexGeneralAttributes(vectorIndex).isOptimizedForMutualIndexing()).isFalse();
     }
 }

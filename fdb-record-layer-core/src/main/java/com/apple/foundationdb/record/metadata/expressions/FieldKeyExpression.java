@@ -44,15 +44,56 @@ import java.util.Collections;
 import java.util.List;
 
 /**
- * Take keys from a record field.
- * If <code>fieldName</code> is a <code>repeated</code> field, then <code>FanType.Concatenate</code> turns all the
- * field values into a single <code>Key.Evaluated</code>. If <code>FanType.FanOut</code>, there is one (singleton)
- * <code>Key.Evaluated</code> for each repeated value. If this is evaluated on the <code>null</code> record, then
- * it will the same value as if it were evaluated on a record where the field is either unset (in the case of scalar
- * fields) or empty (in the case of repeated fields). In particular, if <code>FanType.None</code>, then this returns
- * a single <code>Key.Evaluated</code> containing <code>null</code>; if <code>FanType.FanOut</code>, then
- * this returns no <code>Key.Evaluated</code>s; and if <code>FanType.Concatenate</code>, then this returns a single
- * <code>Key.Evaluated</code> containing the empty list.
+ * A {@code field()} key expression.
+ *
+ * <p>The {@code field()} expression takes keys from a record field specified by name. Besides the field name, it
+ * carries two properties that control the behavior for {@code optional} or {@code repeated} fields:
+ * <ul>
+ * <li>The fan type ({@link com.apple.foundationdb.record.metadata.expressions.KeyExpression.FanType FanType}).</li>
+ * <li>The null standin ({@link Key.Evaluated.NullStandin NullStandin}).</li>
+ * </ul>
+ *
+ * <p>If the field is singular and {@code required}, the fan type is irrelevant and must be set to {@code None}.
+ * In this case, {@code field()} always yields a single {@link Key.Evaluated} holding the scalar value.
+ *
+ * <p>If the field is singular and marked as {@code optional}, the fan type must be set to {@code None} (like for
+ * {@code required} fields), and the {@code NullStandin} property drives the behavior in the “absent” case where the
+ * field is not set on the processed message:
+ * <ul>
+ * <li>For {@code NULL} and {@code NULL_UNIQUE}, the {@code field()} expression yields a single {@code Key.Evaluated}
+ *     carrying the standin, which represents an indexable null value in this case.
+ * <li>For {@code NOT_NULL}, it substitutes the default value of the Protobuf type, such as 0 or {@code ""}.
+ * </ul>
+ *
+ * <p>If the field is {@code repeated}, the fan type comes into play and must be set to either {@code FanOut} or
+ * {@code Concatenate}:
+ * <ul>
+ * <li>For {@code FanOut}, the {@code field()} expression yields one {@code Key.Evaluated} per element of the repeated
+ *     field.
+ * <li>For {@code Concatenate}, it yields a single {@code Key.Evaluated} holding the entire repeated field as a
+ *     {@link java.util.List List} object.
+ * </ul>
+ * Note that a {@code repeated} field cannot be “absent” in the sense of {@code optional}. If the {@code repeated} field
+ * has 0 repetitions, {@code FanOut} will yield nothing while {@code Concatenate} will yield a single key holding an
+ * empty list (since the empty list is the proto default for a repeated field).
+ *
+ * <p>A {@code field()} expression may also be evaluated on a message that itself is {@code null}. In this case, the
+ * result depending on the fan type and the null standin is as follows:
+ * <ul>
+ * <li>For a singular field and fan type {@code None}, the {@code field()} expression yields a single key carrying the
+ *     {@code NullStandin}.
+ *     (TODO <a href="https://github.com/FoundationDB/fdb-record-layer/issues/4141/">Issue [#4141](#4141)</a>: NOT_NULL is currently returned as-is in this case instead of the proto default value.)
+ * <li>For a repeated field and fan type {@code FanOut}, it yields no entries.
+ * <li>For a repeated field and fan type {@code Concatenate}, if the standin is {@code NOT_NULL}, it behaves “as if 0
+ *     repetitions” and yields a single entry holding the empty list. Otherwise, it behaves like {@code None} and emits
+ *     a single key carrying the null standin.
+ * </ul>
+ * One common scenario where the message will be {@code null} is when the {@code field()} expression is the child
+ * of a {@link NestingKeyExpression nest()} key expression, and the parent field evaluates to null.
+ * For example, in the expression {@code field("array1").nest(field("values", Concatenate))}, if {@code array1} is an
+ * {@code optional} field that is absent, then the outer {@code field("array1")} will yield its null standin and
+ * {@code nest()} will funnel that as a {@code null} message to the inner {@code field("values", …)} expression,
+ * which will in turn yield its null standin.
  */
 @API(API.Status.UNSTABLE)
 public class FieldKeyExpression extends BaseKeyExpression implements AtomKeyExpression, KeyExpressionWithoutChildren {
@@ -174,13 +215,26 @@ public class FieldKeyExpression extends BaseKeyExpression implements AtomKeyExpr
         }
     }
 
+    /**
+     * Evaluates the case where no value can be extracted for this field. This method is called from
+     * {@link #evaluateMessage} in three cases:
+     * <ul>
+     * <li>The input {@code message} is {@code null}.
+     * <li>The {@code fieldDescriptor} is {@code null} (meaning the field does not exist, i.e., incorrect metadata).
+     * <li>For a singular (non-{@code repeated}), {@code optional} field when that field is absent on the message, and
+     *     the {@link #nullStandin} is not {@code NOT_NULL} (i.e., the type-default substitution does not apply).
+     * </ul>
+     * See {@link FieldKeyExpression} for a detailed explanation of the semantics.
+     */
     private List<Key.Evaluated> getNullResult() {
-        // As opposed to default value, in order to get indexable NULL.
         switch (fanType) {
             case FanOut:
                 return Collections.emptyList();
             case Concatenate:
-                return Collections.singletonList(Key.Evaluated.scalar(Collections.emptyList()));
+                Key.Evaluated result = (nullStandin == Key.Evaluated.NullStandin.NOT_NULL)
+                                       ? Key.Evaluated.scalar(Collections.emptyList())
+                                       : Key.Evaluated.scalar(nullStandin);
+                return Collections.singletonList(result);
             case None:
                 return Collections.singletonList(Key.Evaluated.scalar(nullStandin));
             default:

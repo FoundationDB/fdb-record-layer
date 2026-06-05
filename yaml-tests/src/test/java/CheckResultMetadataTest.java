@@ -33,6 +33,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -143,11 +144,17 @@ public class CheckResultMetadataTest {
         final Path filePath = Path.of(System.getProperty("user.dir"), "src", "test", "resources", resourcePath);
 
         // Strip any resultMetadata: line left by a previous run so we always start without one.
-        final List<String> original = Files.readAllLines(filePath, StandardCharsets.UTF_8);
+        // This needs to overwrite the contents of both the original yamsql file and the copied
+        // resource file in the classpath, since the latter is what is read by the YamlRunner.
+        final ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
+        final Path realFilePath = Path.of(System.getProperty("user.dir"), "src", "test", "resources", resourcePath);
+        final var resourcefilePath = Path.of(classLoader.resources(resourcePath).findFirst().orElseThrow().toURI());
+        final List<String> original = Files.readAllLines(resourcefilePath, StandardCharsets.UTF_8);
         final List<String> stripped = original.stream()
                 .filter(line -> !line.stripLeading().startsWith("- resultMetadata:"))
                 .collect(Collectors.toList());
-        Files.write(filePath, stripped, StandardCharsets.UTF_8);
+        Files.write(resourcefilePath, stripped, StandardCharsets.UTF_8);
+        Files.copy(resourcefilePath, realFilePath, StandardCopyOption.REPLACE_EXISTING);
 
         // Run with OPTION_ADD_RESULT_METADATA: the missing block is detected and written back.
         new YamlRunner(resourcePath, config.createConnectionFactory(),
