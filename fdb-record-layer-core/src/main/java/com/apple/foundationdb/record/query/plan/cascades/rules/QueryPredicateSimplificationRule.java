@@ -116,7 +116,7 @@ public class QueryPredicateSimplificationRule extends ExplorationCascadesRule<Se
             return;
         }
 
-        final Value resultValue = selectExpression.getResultValue();
+        final var resultValue = selectExpression.getResultValue();
         final var quantifier = selectExpression.getQuantifiers();
         final SelectExpression simplifiedSelectExpression;
         final List<? extends QueryPredicate> newPredicates;
