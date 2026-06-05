@@ -23,10 +23,12 @@ package com.apple.foundationdb.record.provider.foundationdb.indexes;
 import com.apple.foundationdb.half.Half;
 import com.apple.foundationdb.linear.HalfRealVector;
 import com.apple.foundationdb.linear.Metric;
+import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.metadata.Index;
+import com.apple.foundationdb.record.metadata.IndexPredicate;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreTestBase;
@@ -36,6 +38,7 @@ import com.apple.foundationdb.record.provider.foundationdb.VectorIndexScanOption
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
+import com.apple.foundationdb.tuple.TupleHelpers;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -43,13 +46,17 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Random;
 import java.util.Set;
+import java.util.TreeSet;
 import java.util.stream.Collectors;
 import java.util.stream.LongStream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -137,15 +144,19 @@ public final class SlidingWindowTestHelpers {
 
     /**
      * Returns a snapshot of the sliding-window state for the given group.
-     * Captures both the window counter and the underlying HNSW recNos for that
-     * group, so chained assertions on the underlying index stay group-scoped.
+     * Captures the window counter, the delegate (HNSW) recNos, and the recNos
+     * the entries subspace claims are on the window side of the boundary —
+     * scoped to the same group across all three.
      */
     @Nonnull
     public static SlidingWindow groupedSlidingWindow(@Nonnull final FDBRecordStore recordStore,
                                                      @Nonnull final String indexName,
                                                      @Nullable final Tuple groupingKey) {
+        final IndexPredicate.RowNumberWindowPredicate.Direction direction =
+                directionOf(recordStore.getRecordMetaData().getIndex(indexName));
         return new SlidingWindow(readWindowCount(recordStore, indexName, groupingKey),
-                                 scanIndexRecNos(recordStore, indexName, groupingKey));
+                                 scanIndexRecNos(recordStore, indexName, groupingKey),
+                                 windowSideEntryRecNos(recordStore, indexName, groupingKey, direction));
     }
 
     /**
@@ -168,8 +179,33 @@ public final class SlidingWindowTestHelpers {
     public static SlidingWindow groupedSlidingWindowViaValueIndex(@Nonnull final FDBRecordStore recordStore,
                                                                  @Nonnull final String indexName,
                                                                  @Nullable final Tuple groupingKey) {
+        final IndexPredicate.RowNumberWindowPredicate.Direction direction =
+                directionOf(recordStore.getRecordMetaData().getIndex(indexName));
         return new SlidingWindow(readWindowCount(recordStore, indexName, groupingKey),
-                                 scanIndexRecNosViaValueIndex(recordStore, indexName, groupingKey));
+                                 scanIndexRecNosViaValueIndex(recordStore, indexName, groupingKey),
+                                 windowSideEntryRecNos(recordStore, indexName, groupingKey, direction));
+    }
+
+    /**
+     * Extracts the {@link IndexPredicate.RowNumberWindowPredicate.Direction} from
+     * a sliding-window index's predicate tree. The predicate may be the qualifier
+     * directly or a child of an {@code AndPredicate}.
+     */
+    @Nonnull
+    private static IndexPredicate.RowNumberWindowPredicate.Direction directionOf(@Nonnull final Index index) {
+        final IndexPredicate predicate = index.getPredicate();
+        if (predicate instanceof IndexPredicate.RowNumberWindowPredicate) {
+            return ((IndexPredicate.RowNumberWindowPredicate) predicate).getDirection();
+        }
+        if (predicate instanceof IndexPredicate.AndPredicate) {
+            for (IndexPredicate child : ((IndexPredicate.AndPredicate) predicate).getChildren()) {
+                if (child instanceof IndexPredicate.RowNumberWindowPredicate) {
+                    return ((IndexPredicate.RowNumberWindowPredicate) child).getDirection();
+                }
+            }
+        }
+        throw new IllegalStateException(
+                "index '" + index.getName() + "' is not a sliding-window index — no RowNumberWindowPredicate found");
     }
 
     private static long readWindowCount(@Nonnull final FDBRecordStore recordStore,
@@ -190,12 +226,60 @@ public final class SlidingWindowTestHelpers {
     }
 
     /**
-     * Snapshot of the sliding-window state. Carries both the window counter and
-     * the underlying HNSW recNos so chained assertions like
-     * {@code .underlyingHnsw().containsInAnyOrder(...)} stay scoped to the same
-     * group.
+     * Reads the entries subspace and returns the primary keys of entries that fall on
+     * the window side of the boundary — i.e. the records the maintainer's bookkeeping
+     * claims are inside the window. For a maintainer in a consistent state, this set
+     * must exactly equal the delegate's contents; a divergence means the entries
+     * subspace and the delegate are out of sync.
      */
-    record SlidingWindow(long size, @Nonnull Set<Long> hnswRecNos) {
+    @Nonnull
+    public static Set<Long> windowSideEntryRecNos(@Nonnull final FDBRecordStore recordStore,
+                                                  @Nonnull final String indexName,
+                                                  @Nullable final Tuple groupingKey,
+                                                  @Nonnull final IndexPredicate.RowNumberWindowPredicate.Direction direction) {
+        final Index index = recordStore.getRecordMetaData().getIndex(indexName);
+        Subspace swSubspace = recordStore.indexSlidingWindowSubspace(index);
+        if (groupingKey != null) {
+            swSubspace = swSubspace.subspace(groupingKey);
+        }
+        final Subspace partitionSubspace = swSubspace.subspace(Tuple.from());
+        final Subspace entriesSubspace = partitionSubspace.subspace(Tuple.from(0));
+        final Subspace metaSubspace = partitionSubspace.subspace(Tuple.from(1));
+
+        final byte[] boundaryBytes =
+                recordStore.ensureContextActive().get(metaSubspace.pack(Tuple.from(4))).join();
+        if (boundaryBytes == null) {
+            // No boundary set => no window
+            return Set.of();
+        }
+        final Tuple boundaryEntryKey = Tuple.fromBytes(boundaryBytes);
+
+        return recordStore.ensureContextActive().getRange(entriesSubspace.range())
+                .asList().join().stream()
+                .filter(kv -> isOnWindowSide(entriesSubspace.unpack(kv.getKey()), boundaryEntryKey, direction))
+                .map(kv -> Tuple.fromBytes(kv.getValue()).getLong(0))
+                .collect(Collectors.toSet());
+    }
+
+    private static boolean isOnWindowSide(@Nonnull final Tuple entryKey,
+                                          @Nonnull final Tuple boundaryEntryKey,
+                                          @Nonnull final IndexPredicate.RowNumberWindowPredicate.Direction direction) {
+        final int cmp = entryKey.compareTo(boundaryEntryKey);
+        // ASC/MIN: window = entries ≤ boundary. DESC/MAX: window = entries ≥ boundary.
+        return direction == IndexPredicate.RowNumberWindowPredicate.Direction.ASC ? cmp <= 0 : cmp >= 0;
+    }
+
+    /**
+     * Snapshot of the sliding-window state. Carries the window counter, the
+     * delegate's recNos (HNSW or value index, depending on which builder
+     * captured the snapshot), and the recNos from the entries subspace that
+     * fall on the window side of the boundary. Chained assertions like
+     * {@code .underlyingValueIndex().containsInAnyOrder(...)} or
+     * {@code .hasEntriesOf(...)} stay scoped to the same group.
+     */
+    record SlidingWindow(long size,
+                         @Nonnull Set<Long> hnswRecNos,
+                         @Nonnull Set<Long> windowEntryRecNos) {
     }
 
     /**
@@ -235,6 +319,22 @@ public final class SlidingWindowTestHelpers {
             assertEquals(expectedSize, window.size(),
                     describe(description,
                             "Sliding window should have size " + expectedSize + " but was " + window.size()));
+            return this;
+        }
+
+        /**
+         * Asserts that the entries subspace's window-side recNos exactly match
+         * {@code expectedRecNos}. The window-side set is the maintainer's own
+         * claim about which records belong inside the window — pinning down the
+         * invariant that it must agree with the delegate.
+         */
+        @Nonnull
+        public SlidingWindowAssert hasEntriesOf(final long... expectedRecNos) {
+            final Set<Long> expected = LongStream.of(expectedRecNos).boxed().collect(Collectors.toSet());
+            assertEquals(expected, window.windowEntryRecNos(),
+                    describe(description,
+                            "Entries subspace (window side) should contain " + expected
+                                    + " but was " + window.windowEntryRecNos()));
             return this;
         }
 
@@ -531,5 +631,168 @@ public final class SlidingWindowTestHelpers {
             this.name = name;
             this.action = action;
         }
+    }
+
+    public static void verifySlidingWindowInvariant(@Nonnull final FDBRecordStore recordStore,
+                                                    @Nonnull final String indexName,
+                                                    final int windowSize,
+                                                    @Nonnull final IndexPredicate.RowNumberWindowPredicate.Direction direction,
+                                                    final long countUpperBound) {
+        final Index index = recordStore.getRecordMetaData().getIndex(indexName);
+        final IndexPredicate.RowNumberWindowPredicate predicate = findRowNumberWindowPredicate(index.getPredicate());
+        assertNotNull(predicate, "index " + indexName + " is missing a RowNumberWindowPredicate");
+
+        final int windowKeyColumnSize = predicate.getOrderingKey().getColumnSize();
+
+        final List<Tuple> entries = scanWindowEntries(recordStore, indexName, null);
+        final Tuple boundary = readBoundaryKey(recordStore, indexName, null);
+        final long count = readWindowCount(recordStore, indexName, null);
+        final List<IndexEntry> delegateEntries = scanValueIndexEntries(recordStore, indexName);
+        final Set<Tuple> delegateEntriesForWindow = delegateEntries.stream().map(IndexEntry::getKey).collect(Collectors.toCollection(TreeSet::new));
+
+        if (entries.isEmpty()) {
+            assertNull(boundary, "boundary should be null when entries subspace is empty");
+            assertEquals(0L, count, "count should be 0 when entries subspace is empty");
+            assertTrue(delegateEntries.isEmpty(), "delegate should be empty when entries subspace is empty but contained: " + delegateEntriesForWindow);
+            return;
+        }
+
+        assertNotNull(boundary, "boundary must not be null when entries subspace is non-empty");
+        assertTrue(entries.contains(boundary),
+                "boundary " + boundary + " is not present among entries " + entries);
+
+        final Comparator<Tuple> comparator = direction == IndexPredicate.RowNumberWindowPredicate.Direction.ASC
+                                             ? Comparator.naturalOrder()
+                                             : Comparator.reverseOrder();
+        final List<Tuple> inWindow = new ArrayList<>();
+        final List<Tuple> overflow = new ArrayList<>();
+        for (Tuple entry : entries) {
+            // in-window iff entry is better-or-equal-to boundary (good side, inclusive of the boundary itself)
+            if (comparator.compare(entry, boundary) <= 0) {
+                inWindow.add(entry);
+            } else {
+                overflow.add(entry);
+            }
+        }
+
+        final Set<Tuple> inWindowEntries = inWindow.stream()
+                //.map(e -> TupleHelpers.subTuple(e, windowKeyColumnSize, e.size()).getLong(0))
+                .collect(Collectors.toCollection(TreeSet::new));
+        final Set<Tuple> overflowEntries = overflow.stream()
+                //.map(e -> TupleHelpers.subTuple(e, windowKeyColumnSize, e.size()).getLong(0))
+                .collect(Collectors.toCollection(TreeSet::new));
+
+        assertEquals(inWindowEntries, delegateEntriesForWindow,
+                "delegate pks must equal in-window pks (boundary-separates invariant). "
+                        + "\nboundary=" + boundary + ", \ninWindow=" + inWindowEntries + ", \ndelegate=" + delegateEntriesForWindow +
+                        ", \noverflow=" + overflowEntries);
+
+        for (Tuple overflowEntry : overflowEntries) {
+            assertTrue(!delegateEntriesForWindow.contains(overflowEntry),
+                    "overflow pk " + overflowEntry + " unexpectedly present in delegate " + delegateEntriesForWindow);
+        }
+
+        assertEquals((long) inWindow.size(), count,
+                "persisted counter " + count + " does not match in-window size " + inWindow.size());
+
+        assertTrue(count <= countUpperBound,
+                "count " + count + " exceeded upper bound " + countUpperBound + " (windowSize=" + windowSize + ")");
+
+        for (Tuple entry : entries) {
+            final Tuple pkTuple = TupleHelpers.subTuple(entry, windowKeyColumnSize, entry.size());
+            assertTrue(recordStore.recordExists(pkTuple),
+                    "orphan entry: window references pk " + pkTuple + " but no such record exists");
+        }
+    }
+
+    /**
+     * Scans the underlying value delegate index and returns the set of primary key longs
+     * present in the delegate. Mirrors {@link #scanIndexRecNos(FDBRecordStore, String, Tuple)}
+     * but for a value-backed sliding window where the test schema uses a single-column
+     * {@code int64} primary key.
+     */
+    @Nonnull
+    public static List<IndexEntry> scanValueIndexEntries(@Nonnull final FDBRecordStore recordStore,
+                                                         @Nonnull final String indexName) {
+        final Index index = recordStore.getRecordMetaData().getIndex(indexName);
+        final IndexMaintainer maintainer = recordStore.getIndexMaintainer(index);
+        try (var cursor = maintainer.scan(IndexScanType.BY_VALUE, TupleRange.ALL, null, ScanProperties.FORWARD_SCAN)) {
+            return cursor.asList().join();
+        }
+    }
+
+    @Nullable
+    private static IndexPredicate.RowNumberWindowPredicate findRowNumberWindowPredicate(@Nullable final IndexPredicate predicate) {
+        if (predicate == null) {
+            return null;
+        }
+        if (predicate instanceof IndexPredicate.RowNumberWindowPredicate) {
+            return (IndexPredicate.RowNumberWindowPredicate) predicate;
+        }
+        if (predicate instanceof IndexPredicate.AndPredicate) {
+            for (IndexPredicate child : ((IndexPredicate.AndPredicate) predicate).getChildren()) {
+                final IndexPredicate.RowNumberWindowPredicate found = findRowNumberWindowPredicate(child);
+                if (found != null) {
+                    return found;
+                }
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Reads the boundary entry key for the (possibly grouped) sliding window, or {@code null}
+     * if no boundary has been established yet (e.g. the window is empty).
+     */
+    @Nullable
+    static Tuple readBoundaryKey(@Nonnull final FDBRecordStore recordStore,
+                                 @Nonnull final String indexName,
+                                 @Nullable final Tuple groupingKey) {
+        final Subspace metaSubspace = metaSubspace(recordStore, indexName, groupingKey);
+        final byte[] boundaryKey = metaSubspace.pack(Tuple.from(4));
+        final byte[] boundaryBytes = recordStore.ensureContextActive().get(boundaryKey).join();
+        if (boundaryBytes == null) {
+            return null;
+        }
+        return Tuple.fromBytes(boundaryBytes);
+    }
+
+    /**
+     * Range-scans the sliding-window entries subspace and returns every entry key in ascending
+     * tuple order. Each entry key is {@code [windowValue..., primaryKey...]}.
+     */
+    @Nonnull
+    static List<Tuple> scanWindowEntries(@Nonnull final FDBRecordStore recordStore,
+                                         @Nonnull final String indexName,
+                                         @Nullable final Tuple groupingKey) {
+        final Subspace entriesSubspace = entriesSubspace(recordStore, indexName, groupingKey);
+        return recordStore.ensureContextActive().getRange(entriesSubspace.range()).asList().join()
+                .stream()
+                .map(kv -> entriesSubspace.unpack(kv.getKey()))
+                .collect(Collectors.toList());
+    }
+
+    @Nonnull
+    private static Subspace metaSubspace(@Nonnull final FDBRecordStore recordStore,
+                                         @Nonnull final String indexName,
+                                         @Nullable final Tuple groupingKey) {
+        final Index index = recordStore.getRecordMetaData().getIndex(indexName);
+        Subspace swSubspace = recordStore.indexSlidingWindowSubspace(index);
+        if (groupingKey != null) {
+            swSubspace = swSubspace.subspace(groupingKey);
+        }
+        return swSubspace.subspace(Tuple.from()).subspace(Tuple.from(1));
+    }
+
+    @Nonnull
+    private static Subspace entriesSubspace(@Nonnull final FDBRecordStore recordStore,
+                                            @Nonnull final String indexName,
+                                            @Nullable final Tuple groupingKey) {
+        final Index index = recordStore.getRecordMetaData().getIndex(indexName);
+        Subspace swSubspace = recordStore.indexSlidingWindowSubspace(index);
+        if (groupingKey != null) {
+            swSubspace = swSubspace.subspace(groupingKey);
+        }
+        return swSubspace.subspace(Tuple.from()).subspace(Tuple.from(0));
     }
 }
