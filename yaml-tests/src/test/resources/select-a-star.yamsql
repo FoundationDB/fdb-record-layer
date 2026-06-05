@@ -139,6 +139,13 @@ test_block:
       - query: select t1 from t1, colname
       - unorderedResult: [ { {PK: 1, A: 10, B: 20} }, { {PK: 2, A: 30, B: 40} } ]
     -
+      # In a join, mixed styles
+      - query: select t1, (colname.*) from t1, colname
+      - result: [
+          { T1: {PK: 1, A: 10, B: 20}, COLNAME: {COLNAME: 99, OTHER: 42} },
+          { {PK: 2, A: 30, B: 40} , COLNAME: {COLNAME: 99, OTHER: 42 } }
+        ]
+    -
       # Double-wrapped (*) nesting is unaffected
       - query: select ((*)) from t1 where pk = 1
       - result: [ { { {PK: 1, A: 10, B: 20} } } ]

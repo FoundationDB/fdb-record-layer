@@ -387,18 +387,16 @@ public class SemanticAnalyzer {
         // Search through all visible plan fragments:
         // - in each plan fragment, search operators left to right.
         // - if identifier is not resolved, go to parent plan fragment.
-        LogicalPlanFragment current = planFragment;
-        Optional<Expression> result = resolver.apply(identifier, current.getLogicalOperators());
-        if (result.isPresent()) {
-            return result;
-        }
-        while (current.hasParent()) {
-            current = current.getParent();
-            result = resolver.apply(identifier, current.getLogicalOperators());
-            if (result.isPresent()) {
-                return result;
+
+        var currentMaybe = Optional.of(planFragment);
+        while (currentMaybe.isPresent()) {
+            final var resultMaybe = resolver.apply(identifier, currentMaybe.get().getLogicalOperators());
+            if (resultMaybe.isPresent()) {
+                return resultMaybe;
             }
+            currentMaybe = currentMaybe.get().getParentMaybe();
         }
+
         return Optional.empty();
     }
 
