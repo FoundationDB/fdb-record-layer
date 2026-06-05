@@ -330,6 +330,30 @@ test_block:
       - explain: "ISCAN(emp$fname <,>) | FLATMAP q0 -> { COVERING(dept$name <,> -> [id: KEY:[2], name: KEY:[0]]) | FILTER q0.dept_id EQUALS _.id | FILTER _.name GREATER_THAN promote(@c28 AS STRING) | FETCH AS q1 RETURN (q0.fname AS fname, q1.name AS name) }"
       - unorderedResult: [
           {'Carol', 'Sales'}]
+    -
+      # Row constructor in the SELECT list, projecting fields from the null-producing side of a LEFT JOIN.
+      # This exercises the propagation of nullability through a freshly-constructed record over an outer-join field.
+      - query: SELECT "e"."fname", ("d"."id", "d"."name") FROM "emp" "e" LEFT JOIN "dept" "d" ON "e"."dept_id" = "d"."id";
+      - supported_version: !current_version
+      - explain: "ISCAN(emp$fname <,>) | FLATMAP q0 -> { COVERING(dept$name <,> -> [id: KEY:[2], name: KEY:[0]]) | FILTER q0.dept_id EQUALS _.id | FETCH | ON EMPTY NULL AS q1 RETURN (q0.fname AS fname, (q1.id AS id, q1.name AS name) AS _1) }"
+      - unorderedResult: [
+          {'Alice', {!l 1, 'Engineering'}},
+          {'Bob', {!l 1, 'Engineering'}},
+          {'Carol', {!l 2, 'Sales'}},
+          {'Dave', {!pos 1: !null _, !pos 2: !null _}}]
+    -
+      # Similar shape, but the row constructor sits in a derived table on the null-producing side of the LEFT JOIN.
+      # Here the entire `sq.info` field is NULL for unmatched rows (because the outer join null-pads the whole derived
+      # row), rather than a record with NULL fields as in the previous case where the row constructor is built freshly
+      # in the outer SELECT.
+      - query: SELECT "e"."fname", "sq"."info" FROM "emp" "e" LEFT JOIN (SELECT "id" AS "k", ("id", "name") AS "info" FROM "dept") "sq" ON "e"."dept_id" = "sq"."k";
+      - supported_version: !current_version
+      - explain: "ISCAN(emp$fname <,>) | FLATMAP q0 -> { SCAN([IS dept]) | FILTER q0.dept_id EQUALS _.id | MAP (_.id AS k, _ AS info) | ON EMPTY NULL AS q1 RETURN (q0.fname AS fname, q1.info AS info) }"
+      - unorderedResult: [
+          {'Alice', {!l 1, 'Engineering'}},
+          {'Bob', {!l 1, 'Engineering'}},
+          {'Carol', {!l 2, 'Sales'}},
+          {'Dave', !null _}]
 ---
 test_block:
   name: right-outer-join
@@ -413,6 +437,17 @@ test_block:
           {'Bob', 'Engineering'},
           {'Carol', 'Sales'},
           {'None', 'Marketing'}]
+    -
+      # Row constructor in the SELECT list, projecting fields from the null-producing (SQL-left) side of a RIGHT JOIN.
+      # Symmetric to the corresponding LEFT JOIN test above.
+      - query: SELECT ("e"."id", "e"."fname"), "d"."name" FROM "emp" "e" RIGHT JOIN "dept" "d" ON "e"."dept_id" = "d"."id";
+      - supported_version: !current_version
+      - explain: "ISCAN(dept$name <,>) | FLATMAP q0 -> { ISCAN(emp$fname <,>) | FILTER _.dept_id EQUALS q0.id | ON EMPTY NULL AS q1 RETURN ((q1.id AS id, q1.fname AS fname) AS _0, q0.name AS name) }"
+      - unorderedResult: [
+          {{!l 1, 'Alice'}, 'Engineering'},
+          {{!l 2, 'Bob'}, 'Engineering'},
+          {{!l 3, 'Carol'}, 'Sales'},
+          {{!pos 1: !null _, !pos 2: !null _}, 'Marketing'}]
 ---
 test_block:
   name: full-outer-join
