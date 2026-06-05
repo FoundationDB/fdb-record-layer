@@ -40,7 +40,7 @@ test_block:
       # Attempting to insert a NULL value into a not-nullable ARRAY column.
       - query: INSERT INTO A_NOT_NULL VALUES (0, NULL)
       - supported_version: 4.11.1.0
-      - error: "XX000"
+      - error: INTERNAL_ERROR
     -
       # INSERT + basic SELECT for a not-nullable INTEGER ARRAY.
       - query: INSERT INTO A_NOT_NULL VALUES (0, []), (1, [1]), (2, [1, 2])

@@ -208,11 +208,11 @@ arrays-cardinality-index-tests:
     explain: 'COVERING(tab1_indexed_index [[null],[null]] -> [id: KEY:[2]]) | MAP
         (_.id AS id)'
     task_count: 379
-    task_total_time_ms: 15
+    task_total_time_ms: 2
     transform_count: 99
-    transform_time_ms: 6
+    transform_time_ms: 1
     transform_yield_count: 31
-    insert_time_ms: 1
+    insert_time_ms: 0
     insert_new_count: 38
     insert_reused_count: 3
 -   query: EXPLAIN SELECT "id" FROM "tab1_indexed" WHERE CARDINALITY("int_arr") IS
@@ -221,9 +221,9 @@ arrays-cardinality-index-tests:
     explain: 'COVERING(tab1_indexed_index ([null],> -> [id: KEY:[2]]) | MAP (_.id
         AS id)'
     task_count: 379
-    task_total_time_ms: 12
+    task_total_time_ms: 2
     transform_count: 99
-    transform_time_ms: 5
+    transform_time_ms: 1
     transform_yield_count: 31
     insert_time_ms: 0
     insert_new_count: 38
@@ -234,9 +234,9 @@ arrays-cardinality-index-tests:
     explain: 'COVERING(tab1_indexed_nn_index [[null],[null]] -> [id: KEY:[2]]) | MAP
         (_.id AS id)'
     task_count: 379
-    task_total_time_ms: 11
+    task_total_time_ms: 4
     transform_count: 99
-    transform_time_ms: 5
+    transform_time_ms: 2
     transform_yield_count: 31
     insert_time_ms: 0
     insert_new_count: 38
@@ -247,9 +247,9 @@ arrays-cardinality-index-tests:
     explain: 'COVERING(tab1_indexed_nn_index ([null],> -> [id: KEY:[2]]) | MAP (_.id
         AS id)'
     task_count: 379
-    task_total_time_ms: 10
+    task_total_time_ms: 2
     transform_count: 99
-    transform_time_ms: 4
+    transform_time_ms: 1
     transform_yield_count: 31
     insert_time_ms: 0
     insert_new_count: 38
@@ -258,9 +258,9 @@ arrays-cardinality-index-tests:
     ref: arrays-cardinality.yamsql:181
     explain: SCAN([IS tab1]) | FILTER null | MAP (_.id AS id)
     task_count: 222
-    task_total_time_ms: 6
+    task_total_time_ms: 1
     transform_count: 64
-    transform_time_ms: 3
+    transform_time_ms: 0
     transform_yield_count: 17
     insert_time_ms: 0
     insert_new_count: 22
@@ -269,9 +269,9 @@ arrays-cardinality-index-tests:
     ref: arrays-cardinality.yamsql:184
     explain: SCAN([IS tab1_nn]) | FILTER null | MAP (_.id AS id)
     task_count: 222
-    task_total_time_ms: 5
+    task_total_time_ms: 1
     transform_count: 64
-    transform_time_ms: 2
+    transform_time_ms: 0
     transform_yield_count: 17
     insert_time_ms: 0
     insert_new_count: 22
@@ -282,9 +282,9 @@ arrays-cardinality-index-tests:
     explain: 'COVERING(tab1_indexed_index [EQUALS NULL] -> [id: KEY:[2]]) | MAP (_.id
         AS id)'
     task_count: 395
-    task_total_time_ms: 14
+    task_total_time_ms: 3
     transform_count: 104
-    transform_time_ms: 7
+    transform_time_ms: 1
     transform_yield_count: 33
     insert_time_ms: 0
     insert_new_count: 42
@@ -295,9 +295,9 @@ arrays-cardinality-index-tests:
     explain: 'COVERING(tab1_indexed_nn_index [EQUALS NULL] -> [id: KEY:[2]]) | MAP
         (_.id AS id)'
     task_count: 395
-    task_total_time_ms: 14
+    task_total_time_ms: 2
     transform_count: 104
-    transform_time_ms: 6
+    transform_time_ms: 1
     transform_yield_count: 33
     insert_time_ms: 0
     insert_new_count: 42

@@ -46,6 +46,7 @@ import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.IndexState;
 import com.apple.foundationdb.record.IsolationLevel;
+import com.apple.foundationdb.record.KeyRange;
 import com.apple.foundationdb.record.MutableRecordStoreState;
 import com.apple.foundationdb.record.PipelineOperation;
 import com.apple.foundationdb.record.PlanHashable;
@@ -1281,6 +1282,24 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         return scanTypedRecords(serializer, low, high, lowEndpoint, highEndpoint, continuation, scanProperties);
     }
 
+    /**
+     * Scan the records in the database in a range - using {@link KeyRange} raw key bytes boundaries. This can be useful
+     * when it is not possible to arrange for strict primary key scan boundaries, which is typically during an internal use.
+     *
+     * @param range the range of records to scan, expressed as raw key bytes within the records subspace
+     * @param continuation any continuation from a previous scan invocation
+     * @param scanProperties skip, limit and other properties of the scan
+     *
+     * @return a cursor over the stored records in the given range
+     */
+    @Nonnull
+    @API(API.Status.INTERNAL)
+    public RecordCursor<FDBStoredRecord<Message>> scanRecords(@Nonnull final KeyRange range,
+                                                              @Nullable byte[] continuation,
+                                                              @Nonnull ScanProperties scanProperties) {
+        return scanTypedRecords(serializer, range, continuation, scanProperties);
+    }
+
     @Nonnull
     @Override
     @SuppressWarnings("PMD.CloseResource")
@@ -1335,6 +1354,33 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                                                                                  @Nonnull final EndpointType lowEndpoint, @Nonnull final EndpointType highEndpoint,
                                                                                  @Nullable byte[] continuation,
                                                                                  @Nonnull ScanProperties scanProperties) {
+        final Subspace recordsSubspace = recordsSubspace();
+        return scanTypedRecords(typedSerializer,
+                low != null ? recordsSubspace.pack(low) : recordsSubspace.pack(), lowEndpoint,
+                high != null ? recordsSubspace.pack(high) : recordsSubspace.pack(), highEndpoint,
+                continuation, scanProperties);
+    }
+
+    @Nonnull
+    @SuppressWarnings("PMD.CloseResource")
+    public <M extends Message> RecordCursor<FDBStoredRecord<M>> scanTypedRecords(@Nonnull RecordSerializer<M> typedSerializer,
+                                                                                 @Nonnull final KeyRange range,
+                                                                                 @Nullable byte[] continuation,
+                                                                                 @Nonnull ScanProperties scanProperties) {
+        final byte[] subspacePrefix = recordsSubspace().pack();
+        return scanTypedRecords(typedSerializer,
+                ByteArrayUtil.join(subspacePrefix, range.getLowKey()), range.getLowEndpoint(),
+                ByteArrayUtil.join(subspacePrefix, range.getHighKey()), range.getHighEndpoint(),
+                continuation, scanProperties);
+    }
+
+    @Nonnull
+    @SuppressWarnings("PMD.CloseResource")
+    private <M extends Message> RecordCursor<FDBStoredRecord<M>> scanTypedRecords(@Nonnull RecordSerializer<M> typedSerializer,
+                                                                                  @Nonnull byte[] lowBytes, @Nonnull EndpointType lowEndpoint,
+                                                                                  @Nonnull byte[] highBytes, @Nonnull EndpointType highEndpoint,
+                                                                                  @Nullable byte[] continuation,
+                                                                                  @Nonnull ScanProperties scanProperties) {
         final RecordMetaData metaData = metaDataProvider.getRecordMetaData();
         final Subspace recordsSubspace = recordsSubspace();
         final SplitHelper.SizeInfo sizeInfo = new SplitHelper.SizeInfo();
@@ -1342,8 +1388,8 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         if (metaData.isSplitLongRecords()) {
             RecordCursor<KeyValue> keyValues = KeyValueCursor.Builder.withSubspace(recordsSubspace)
                     .setContext(context).setContinuation(continuation)
-                    .setLow(low, lowEndpoint)
-                    .setHigh(high, highEndpoint)
+                    .setLow(lowBytes, lowEndpoint)
+                    .setHigh(highBytes, highEndpoint)
                     .setScanProperties(scanProperties.with(ExecuteProperties::clearRowAndTimeLimits).with(ExecuteProperties::clearSkipAndLimit).with(ExecuteProperties::clearState))
                     .build();
             rawRecords = new SplitHelper.KeyValueUnsplitter(context, recordsSubspace, keyValues, useOldVersionFormat(), sizeInfo, scanProperties.isReverse(),
@@ -1353,8 +1399,8 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         } else {
             KeyValueCursor.Builder keyValuesBuilder = KeyValueCursor.Builder.withSubspace(recordsSubspace)
                     .setContext(context).setContinuation(continuation)
-                    .setLow(low, lowEndpoint)
-                    .setHigh(high, highEndpoint);
+                    .setLow(lowBytes, lowEndpoint)
+                    .setHigh(highBytes, highEndpoint);
             if (omitUnsplitRecordSuffix) {
                 rawRecords = keyValuesBuilder.setScanProperties(scanProperties).build().map(kv -> {
                     sizeInfo.set(kv);
@@ -5046,12 +5092,13 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     void clearIndexData(@Nonnull Index index) {
         context.clear(Range.startsWith(indexSubspace(index).pack())); // startsWith to handle ungrouped aggregate indexes
         context.clear(indexSecondarySubspace(index).range());
+        context.clear(indexSlidingWindowSubspace(index).range());
         IndexingRangeSet.forIndexBuild(this, index).clear();
         // clear even if non-unique in case the index was previously unique
         context.clear(indexUniquenessViolationsSubspace(index).range());
         // Under the index build subspace, there are multiple lower level subspaces - the lock subspace and few others. We are
         // not supposed to clear the lock subspace, which might have been used to an online index job that had invoked this method.
-        IndexingSubspaces.eraseAllIndexingDataButTheLock(context, this, index);
+        IndexingSubspaces.eraseAllIndexingDataButTheLockAndRangeSet(context, this, index);
     }
 
     @SuppressWarnings("PMD.CloseResource")
