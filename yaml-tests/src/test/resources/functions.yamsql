@@ -44,10 +44,10 @@ test_block:
       - result: [{_0: true, _1: true, _2: !null _, false}]
     -
       - query: select greatest(a5, a5) from A
-      - error: '22F00'
+      - error: INVALID_ARGUMENT_FOR_FUNCTION
     -
       - query: select greatest(a6, a6) from A
-      - error: '22F00'
+      - error: INVALID_ARGUMENT_FOR_FUNCTION
       # Note: the following query has been disabled since July 2023
 #    -
 #      - query: select greatest(a7, 0), greatest(a7, 1), greatest(a7, 2), greatest(a7, null) from A
@@ -57,7 +57,7 @@ test_block:
       - result: [{_0: 1.0, _1: 1.0, _2: 2.0, !null _}]
     -
       - query: select greatest(a9, '0'), greatest(a9, '1'), greatest(a9, '2'), greatest(a9, null) from A
-      - error: '22000'
+      - error: CANNOT_CONVERT_TYPE
     -
       - query: select greatest(a1, a2, a8), greatest(1, 2, 3.0, 4, 5) from A
       - result: [{_0: 1.0, _1: 5.0}]
@@ -75,10 +75,10 @@ test_block:
       - result: [{_0: false, _1: true, _2: !null _, _3: false, _4: true}]
     -
       - query: select least(a5, a5) from A
-      - error: '22F00'
+      - error: INVALID_ARGUMENT_FOR_FUNCTION
     -
       - query: select least(a6, a6) from A
-      - error: '22F00'
+      - error: INVALID_ARGUMENT_FOR_FUNCTION
       # Note: the following query has been disabled since July 2023
 #    -
 #      - query: select least(a7, 0), least(a7, 1), least(a7, 2), least(a7, null) from A
@@ -88,7 +88,7 @@ test_block:
       - result: [{_0: 0.0, _1: 1.0, _2: 1.0, !null _}]
     -
       - query: select least(a9, '0'), least(a9, '1'), least(a9, '2'), least(a9, null) from A
-      - error: '22000'
+      - error: CANNOT_CONVERT_TYPE
     -
       - query: select least(a1, a2, a8), least(1, 2, 3.0, 4, 5) from A
       - result: [{_0: 1.0, _1: 1.0}]

@@ -1,0 +1,9 @@
+Diagram(
+    Terminal('DROP'),
+    Terminal('TEMPORARY'),
+    Terminal('FUNCTION'),
+    Optional(
+        Sequence(Terminal('IF'), Terminal('EXISTS'))
+    ),
+    NonTerminal('functionName')
+)

@@ -178,6 +178,11 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
+    public void existsInSelect(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("exists-in-select.yamsql");
+    }
+
+    @TestTemplate
     public void fieldIndexTestsProto(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("field-index-tests-proto.yamsql");
     }
@@ -215,6 +220,11 @@ public class YamlIntegrationTests {
     @TestTemplate
     public void joinTests(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("join-tests.yamsql");
+    }
+
+    @TestTemplate
+    public void joinTestsOuter(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("join-tests-outer.yamsql");
     }
 
     @TestTemplate
@@ -385,6 +395,11 @@ public class YamlIntegrationTests {
     @TestTemplate
     public void standardTestsWithProto(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("standard-tests-proto.yamsql");
+    }
+
+    @TestTemplate
+    public void starExpressionColumnNames(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("star-expression-metadata.yamsql");
     }
 
     @TestTemplate

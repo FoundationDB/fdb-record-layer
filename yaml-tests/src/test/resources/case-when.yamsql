@@ -111,5 +111,5 @@ test_block:
                   { A1: 5, A2: 6666, A3: 50 } ]
     -
       - query: update A set A2 = case when A2 = 4444 then 1 else 2.2 end
-      - error: "22000"
+      - error: CANNOT_CONVERT_TYPE
 ...

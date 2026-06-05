@@ -117,10 +117,10 @@ test_block:
       - result: [{ID: 1}, {ID: 2}, {ID: 3}, {ID: 4}]
     -
       - query: select id from t1 use index (i1)
-      - error: "0AF00"
+      - error: UNSUPPORTED_QUERY
     -
       - query: select id from t1 use index (i2)
-      - error: "0AF00"
+      - error: UNSUPPORTED_QUERY
     -
       - query: select id from t1
       # Without a predicate matching any of these sparse indexes, this needs to fall back to a scan
