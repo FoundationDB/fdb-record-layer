@@ -29,6 +29,10 @@ configurations {
 }
 
 protobuf {
+    generatedFilesBaseDir = "${projectDir}/protogen"
+    clean {
+        delete generatedFilesBaseDir
+    }
     protoc {
         artifact = "com.google.protobuf:protoc:${libs.versions.protobuf.get()}"
     }
