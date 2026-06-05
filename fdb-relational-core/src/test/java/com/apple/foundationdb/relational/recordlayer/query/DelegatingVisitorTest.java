@@ -556,6 +556,35 @@ public class DelegatingVisitorTest {
                 });
     }
 
+    /**
+     * Covers {@link DelegatingVisitor#visitFunctionNameKeyword}.
+     */
+    @Test
+    void visitFunctionNameKeywordTest() {
+        testSimple("LEFT",
+                RelationalParser::functionNameKeyword,
+                DelegatingVisitor::visitFunctionNameKeyword,
+                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42),
+                        generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
+                    @Nonnull
+                    @Override
+                    public Object visitFunctionNameKeyword(@Nonnull RelationalParser.FunctionNameKeywordContext ctx) {
+                        called.setTrue();
+                        return null;
+                    }
+                });
+    }
+
+    /**
+     * Covers {@link BaseVisitor#visitFunctionNameKeyword}.
+     */
+    @Test
+    void baseVisitorVisitFunctionNameKeywordTest() {
+        final var visitor = createBaseVisitor("LEFT", new MutableBoolean(false));
+        final var context = parseQuery("LEFT", RelationalParser::functionNameKeyword);
+        Assertions.assertThat(visitor.visitFunctionNameKeyword(context)).isNull();
+    }
+
     @Test
     void visitCopyImport() {
         final TypedVisitor baseVisitor = Mockito.mock(TypedVisitor.class);
