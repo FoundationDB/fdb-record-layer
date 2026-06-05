@@ -22,15 +22,18 @@ package com.apple.foundationdb.record.query.plan.cascades.rules;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
+import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.ImplementationCascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.ImplementationCascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.Memoizer;
 import com.apple.foundationdb.record.query.plan.cascades.PlanPartition;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
+import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.NullValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
@@ -38,6 +41,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryDefaultOnEmptyP
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFirstOrDefaultPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryMapPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPredicatesFilterPlan;
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
@@ -53,8 +57,21 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.selectExpression;
 
 /**
- * A rule that implements a select expression without predicates over a single partition as a
- * {@link RecordQueryMapPlan}.
+ * A rule that implements a {@link SelectExpression} over a single inner quantifier as a chain of physical plans.
+ *
+ * <p>The emitted plan has up to four nodes, each node added only when needed:
+ * <pre>{@code
+ *   «inner plan»
+ *   | ON EMPTY NULL          (if the inner quantifier is a null-on-empty for-each)
+ *   | FIRST_OR_DEFAULT NULL  (if the inner quantifier is Existential)
+ *   | FILTER <predicates>    (if there are non-tautology predicates)
+ *   | MAP <resultValue>      (if the result value is not a passthrough of the inner quantifier)
+ * }</pre>
+ *
+ * <p>The {@code MAP} node is omitted when the {@code resultValue} is a {@link QuantifiedObjectValue} referencing the
+ * inner quantifier.
+ *
+ * <p>If none of the conditions apply, the rule simply yields the inner plan partition unchanged.
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
@@ -100,64 +117,74 @@ public class ImplementSimpleSelectRule extends ImplementationCascadesRule<Select
                                                                              @Nonnull final Reference innerReference,
                                                                              @Nonnull final Quantifier innerQuantifier,
                                                                              @Nonnull final PlanPartition innerPlanPartition) {
-        var resultValue = result;
-        var referenceBuilder = call.memoizeMemberPlansBuilder(innerReference, innerPlanPartition.getPlans());
+        Value resultValue = result;
+        Memoizer.ReferenceOfPlansBuilder builder = call.memoizeMemberPlansBuilder(innerReference, innerPlanPartition.getPlans());
 
-        final var isSimpleResultValue =
-                resultValue instanceof QuantifiedObjectValue &&
-                        ((QuantifiedObjectValue)resultValue).getAlias().equals(innerQuantifier.getAlias());
+        // Check if the `resultValue` is a simple passthrough of the inner quantifier and the outer MAP can be omitted.
+        // To skip the MAP, the passthrough must have *exactly* the same type that the inner quantifier flows; if the
+        // type just “widens” the nullability, we keep the MAP so it expresses the type widening at runtime. Anything
+        // beyond these two cases would indicate a retyping bug elsewhere and is caught by the sanity check below.
+        final CorrelationIdentifier alias = innerQuantifier.getAlias();
+        final boolean isPassthrough = QuantifiedObjectValue.isSimpleQuantifiedObjectValueOver(resultValue, alias);
+        final boolean isSimpleResultValue = isPassthrough
+                && resultValue.getResultType().equals(innerQuantifier.getFlowedObjectType());
+        if (isPassthrough && !isSimpleResultValue) {
+            final Type resultType = resultValue.getResultType();
+            Debugger.sanityCheck(() -> Verify.verify(
+                    resultType.equals(innerQuantifier.getFlowedObjectType().nullable()),
+                    "result type %s does not match inner quantifier flowed type %s",
+                    resultType, innerQuantifier.getFlowedObjectType()));
+        }
 
+        // Add a FIRST_OR_DEFAULT NULL if the quantifier is existential.
+        // Add a ON EMPTY NULL if the quantifier is a null-on-empty for-each.
         if (innerQuantifier instanceof Quantifier.Existential) {
-            referenceBuilder = call.memoizePlanBuilder(
+            builder = call.memoizePlanBuilder(
                     new RecordQueryFirstOrDefaultPlan(
                             Quantifier.physicalBuilder()
-                                    .withAlias(innerQuantifier.getAlias())
-                                    .build(referenceBuilder.reference()),
+                                    .withAlias(alias)
+                                    .build(builder.reference()),
                             new NullValue(innerQuantifier.getFlowedObjectType())));
-        } else if (innerQuantifier instanceof Quantifier.ForEach && ((Quantifier.ForEach)innerQuantifier).isNullOnEmpty()) {
-            referenceBuilder = call.memoizePlanBuilder(
+        } else if (innerQuantifier instanceof Quantifier.ForEach forEach && forEach.isNullOnEmpty()) {
+            builder = call.memoizePlanBuilder(
                     new RecordQueryDefaultOnEmptyPlan(
                             Quantifier.physicalBuilder()
-                                    .withAlias(innerQuantifier.getAlias())
-                                    .build(referenceBuilder.reference()),
+                                    .withAlias(alias)
+                                    .build(builder.reference()),
                             new NullValue(innerQuantifier.getFlowedObjectType())));
         }
 
+        // Add a FILTER if there are non-tautology predicates.
         final var nonTautologyPredicates =
                 predicates.stream()
                         .filter(predicate -> !predicate.isTautology())
                         .collect(ImmutableList.toImmutableList());
-        if (nonTautologyPredicates.isEmpty() &&
-                isSimpleResultValue) {
-            return referenceBuilder;
-        }
-
         if (!nonTautologyPredicates.isEmpty()) {
-            referenceBuilder = call.memoizePlanBuilder(
+            builder = call.memoizePlanBuilder(
                     new RecordQueryPredicatesFilterPlan(
                             Quantifier.physicalBuilder()
-                                    .withAlias(innerQuantifier.getAlias())
-                                    .build(referenceBuilder.reference()),
+                                    .withAlias(alias)
+                                    .build(builder.reference()),
                             nonTautologyPredicates.stream()
                                     .map(QueryPredicate::toResidualPredicate)
                                     .collect(ImmutableList.toImmutableList())));
         }
 
+        // Add a MAP if the result value is not a simple passthrough.
         if (!isSimpleResultValue) {
             final Quantifier.Physical beforeMapQuantifier;
             if (!nonTautologyPredicates.isEmpty()) {
-                final var lowerAlias = innerQuantifier.getAlias();
-                beforeMapQuantifier = Quantifier.physical(referenceBuilder.reference());
-                resultValue = resultValue.rebase(AliasMap.ofAliases(lowerAlias, beforeMapQuantifier.getAlias()));
+                beforeMapQuantifier = Quantifier.physical(builder.reference());
+                resultValue = resultValue.rebase(AliasMap.ofAliases(alias, beforeMapQuantifier.getAlias()));
             } else {
                 beforeMapQuantifier = Quantifier.physicalBuilder()
-                        .withAlias(innerQuantifier.getAlias())
-                        .build(referenceBuilder.reference());
+                        .withAlias(alias)
+                        .build(builder.reference());
             }
 
-            referenceBuilder = call.memoizePlanBuilder(new RecordQueryMapPlan(beforeMapQuantifier, resultValue));
+            builder = call.memoizePlanBuilder(new RecordQueryMapPlan(beforeMapQuantifier, resultValue));
         }
 
-        return referenceBuilder;
+        return builder;
     }
 }
