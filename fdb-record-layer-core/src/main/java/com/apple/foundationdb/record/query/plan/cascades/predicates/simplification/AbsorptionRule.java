@@ -34,7 +34,6 @@ import com.google.common.collect.Sets;
 
 import javax.annotation.Nonnull;
 import java.util.Collection;
-import java.util.Optional;
 import java.util.stream.Collectors;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.MultiMatcher.all;
@@ -52,24 +51,18 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
-public class AbsorptionRule<P extends AndOrPredicate> extends QueryPredicateSimplificationRule<P> {
+public final class AbsorptionRule<P extends AndOrPredicate> extends QueryPredicateSimplificationRule<P> {
     @Nonnull
     private final Class<P> majorClass;
     @Nonnull
     private final BindingMatcher<QueryPredicate> termMatcher;
 
-    public AbsorptionRule(@Nonnull final Class<P> majorClass,
-                          @Nonnull final BindingMatcher<QueryPredicate> termMatcher,
-                          @Nonnull final BindingMatcher<P> rootMatcher) {
+    private AbsorptionRule(@Nonnull final Class<P> majorClass,
+                           @Nonnull final BindingMatcher<QueryPredicate> termMatcher,
+                           @Nonnull final BindingMatcher<P> rootMatcher) {
         super(rootMatcher);
         this.majorClass = majorClass;
         this.termMatcher = termMatcher;
-    }
-
-    @Nonnull
-    @Override
-    public Optional<Class<?>> getRootOperator() {
-        return Optional.empty();
     }
 
     @Override
