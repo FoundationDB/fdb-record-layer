@@ -43,7 +43,8 @@ setup:
                ('Bob',   'Jones', 2, ('456 Oak Ave', 'Shelbyville')),
                ('Carol', 'White', 3, null),
                ('Dave',  'Brown', 4, ('789 Pine Rd', 'Shelbyville')),
-               ('Eve',   'Davis', 5, null)
+               ('Eve',   'Davis', 5, null),
+               ('Frank', 'White', 6, ('202 Maple Dr', 'Springfield'))
 ---
 test_block:
   connect: "jdbc:embed:/FRL/SKIPPED_FIELD_NUMBER_PROTO_YAML?schema=TEST"
@@ -55,13 +56,15 @@ test_block:
                  {FIRST_NAME: 'Bob',   LAST_NAME: 'Jones', ID: !l 2, ADDRESS: {STREET: '456 Oak Ave', CITY: 'Shelbyville'}},
                  {FIRST_NAME: 'Carol', LAST_NAME: 'White', ID: !l 3, ADDRESS: !null },
                  {FIRST_NAME: 'Dave',  LAST_NAME: 'Brown', ID: !l 4, ADDRESS: {STREET: '789 Pine Rd', CITY: 'Shelbyville'}},
-                 {FIRST_NAME: 'Eve',   LAST_NAME: 'Davis', ID: !l 5, ADDRESS: !null }]
+                 {FIRST_NAME: 'Eve',   LAST_NAME: 'Davis', ID: !l 5, ADDRESS: !null },
+                 {FIRST_NAME: 'Frank', LAST_NAME: 'White', ID: !l 6, ADDRESS: {STREET: '202 Maple Dr', CITY: 'Springfield'}}]
     -
       - query: select "first_name", "last_name" from Person where "id" = 2
       - result: [{FIRST_NAME: 'Bob', LAST_NAME: 'Jones'}]
     -
       - query: select "id", "first_name" from Person where "last_name" = 'White'
-      - result: [{ID: !l 3, FIRST_NAME: 'Carol'}]
+      - result: [{ID: !l 3, FIRST_NAME: 'Carol'},
+                 {ID: !l 6, FIRST_NAME: 'Frank'}]
     -
       - query: select "address" from Person where "id" = 1
       - result: [{ADDRESS: {STREET: '123 Main St', CITY: 'Springfield'}}]

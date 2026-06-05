@@ -30,7 +30,7 @@ setup:
     # TODO a5 integer array add support
     # TODO a7 float add insert support
     # TODO a9 bytes add insert support
-    - query: insert into A(a1, a2, a3, a4, a6(t1), a8) values (1, 1, '1', true, (1), 1.0)
+    - query: insert into A(a1, a2, a3, a4, a6(t1), a8) values (1, 1, '1', true, (1), 1.0), (2, 2, '2', false, (2), 2.0)
     - query: insert into B values (1, 2), (3, null), (null, 4), (null, null), (5, 5.0)
     - query: insert into C values (1, (2, 'b', 2.0)), (2, (3, 'c', 3.0)), (3, (4, 'd', 4.0)), (4, null), (5, (6, 'f', 6.0))
 ---
@@ -38,10 +38,10 @@ test_block:
   tests:
     -
       - query: select greatest(a3, '0'), greatest(a3, '1'), greatest(a3, '2'), greatest(a3, null) from A
-      - result: [{_0: '1', _1: '1', _2: '2', !null _}]
+      - result: [{_0: '1', _1: '1', _2: '2', !null _}, {_0: '2', _1: '2', _2: '2', !null _}]
     -
       - query: select greatest(a4, false), greatest(a4, true), greatest(a4, null), greatest(false, false) from A
-      - result: [{_0: true, _1: true, _2: !null _, false}]
+      - result: [{_0: true, _1: true, _2: !null _, false}, {_0: false, _1: true, _2: !null _, false}]
     -
       - query: select greatest(a5, a5) from A
       - error: INVALID_ARGUMENT_FOR_FUNCTION
@@ -54,25 +54,25 @@ test_block:
 #       - result: [{_0: 1.0, _1: 1.0, _2: 2.0, !null _}]
     -
       - query: select greatest(a8, 0), greatest(a8, 1), greatest(a8, 2), greatest(a8, null) from A
-      - result: [{_0: 1.0, _1: 1.0, _2: 2.0, !null _}]
+      - result: [{_0: 1.0, _1: 1.0, _2: 2.0, !null _}, {_0: 2.0, _1: 2.0, _2: 2.0, !null _}]
     -
       - query: select greatest(a9, '0'), greatest(a9, '1'), greatest(a9, '2'), greatest(a9, null) from A
       - error: CANNOT_CONVERT_TYPE
     -
       - query: select greatest(a1, a2, a8), greatest(1, 2, 3.0, 4, 5) from A
-      - result: [{_0: 1.0, _1: 5.0}]
+      - result: [{_0: 1.0, _1: 5.0}, {_0: 2.0, _1: 5.0}]
     -
       - query: select least(a1, 0), least(a1, 1), least(a1, 2), least(a1, null) from A
-      - result: [{_0: 0, _1: 1, _2: 1, !null _}]
+      - result: [{_0: 0, _1: 1, _2: 1, !null _}, {_0: 0, _1: 1, _2: 2, !null _}]
     -
       - query: select least(a2, 0), least(a2, 1), least(a2, 2), least(a2, null) from A
-      - result: [{_0: 0, _1: 1, _2: 1, !null _}]
+      - result: [{_0: 0, _1: 1, _2: 1, !null _}, {_0: 0, _1: 1, _2: 2, !null _}]
     -
       - query: select least(a3, '0'), least(a3, '1'), least(a3, '2'), least(a3, null) from A
-      - result: [{_0: '0', _1: '1', _2: '1', !null _}]
+      - result: [{_0: '0', _1: '1', _2: '1', !null _}, {_0: '0', _1: '1', _2: '2', !null _}]
     -
       - query: select least(a4, false), least(a4, true), least(a4, null), least(false, false), least(true, true) from A
-      - result: [{_0: false, _1: true, _2: !null _, _3: false, _4: true}]
+      - result: [{_0: false, _1: true, _2: !null _, _3: false, _4: true}, {_0: false, _1: false, _2: !null _, _3: false, _4: true}]
     -
       - query: select least(a5, a5) from A
       - error: INVALID_ARGUMENT_FOR_FUNCTION
@@ -85,27 +85,27 @@ test_block:
 #      - result: [{_0: 0.0, _1: 1.0, _2: 1.0, !null _}]
     -
       - query: select least(a8, 0), least(a8, 1), least(a8, 2), least(a8, null) from A
-      - result: [{_0: 0.0, _1: 1.0, _2: 1.0, !null _}]
+      - result: [{_0: 0.0, _1: 1.0, _2: 1.0, !null _}, {_0: 0.0, _1: 1.0, _2: 2.0, !null _}]
     -
       - query: select least(a9, '0'), least(a9, '1'), least(a9, '2'), least(a9, null) from A
       - error: CANNOT_CONVERT_TYPE
     -
       - query: select least(a1, a2, a8), least(1, 2, 3.0, 4, 5) from A
-      - result: [{_0: 1.0, _1: 1.0}]
+      - result: [{_0: 1.0, _1: 1.0}, {_0: 2.0, _1: 1.0}]
     -
       - query: select coalesce(null, null, 5), coalesce(null, 1, null), coalesce(null, a1, a8) from A
-      - result: [{_0: 5, _1: 1, _2: 1.0}]
+      - result: [{_0: 5, _1: 1, _2: 1.0}, {_0: 5, _1: 1, _2: 2.0}]
     -
       - query: select b1, b2, coalesce(b1, b2, 42) from B
-      - unorderedResult: [
+      - result: [
+          {b1: !null _, b2: !null _, 42.0},
+          {b1: !null _, b2: 4.0, 4.0},
           {b1: 1, b2: 2.0, 1.0},
           {b1: 3, b2: !null _, 3.0},
-          {b1: !null _, b2: 4.0, 4.0},
-          {b1: !null _, b2: !null _, 42.0},
           {b1: 5, b2: 5.0, 5.0}]
     -
       - query: select coalesce(null, null, st, null) from C
-      - unorderedResult: [
+      - result: [
           {{ T1: 2, A: 'b', B: 2.0}},
           {{ T1: 3, A: 'c', B: 3.0}},
           {{ T1: 4, A: 'd', B: 4.0}},
@@ -113,7 +113,7 @@ test_block:
           {{ T1: 6, A: 'f', B: 6.0}}]
     -
       - query: select coalesce(st, st) from C
-      - unorderedResult: [
+      - result: [
           {{ T1: 2, A: 'b', B: 2.0}},
           {{ T1: 3, A: 'c', B: 3.0}},
           {{ T1: 4, A: 'd', B: 4.0}},
@@ -121,7 +121,7 @@ test_block:
           {{ T1: 6, A: 'f', B: 6.0}}]
     -
       - query: select coalesce(null, st) from C
-      - unorderedResult: [
+      - result: [
           {{ T1: 2, A: 'b', B: 2.0}},
           {{ T1: 3, A: 'c', B: 3.0}},
           {{ T1: 4, A: 'd', B: 4.0}},
@@ -129,7 +129,7 @@ test_block:
           {{ T1: 6, A: 'f', B: 6.0}}]
     -
       - query: select coalesce(null, (1, 1.0, 'a', true)) from C
-      - unorderedResult: [
+      - result: [
           {{ _0: 1, _1: 1.0, _2: 'a', _3: true}},
           {{ _0: 1, _1: 1.0, _2: 'a', _3: true}},
           {{ _0: 1, _1: 1.0, _2: 'a', _3: true}},
@@ -141,17 +141,17 @@ test_block:
   tests:
     -
       - query: select coalesce(st, (5, 'e', 5.0)) from C where c1 = 4
-      - unorderedResult: [
+      - result: [
           {{ _0: 5, _1: 'e', _2: 5.0}}]
     -
       # "new" should not be quoted. TODO ([Post] Fix identifiers case-sensitivity matching in plan generator)
       - query: update C set st = coalesce(st, null) where c1 = 4 returning "new".st
-      - unorderedResult: [
+      - result: [
           {!null _}]
     -
       # "new" should not be quoted. TODO ([Post] Fix identifiers case-sensitivity matching in plan generator)
       - query: update C set st = coalesce(st, (5, 'e', 5.0)) where c1 = 4 returning "new".st
-      - unorderedResult: [
+      - result: [
             {{ T1: 5, A: 'e', B: 5.0}}]
 ...
 
