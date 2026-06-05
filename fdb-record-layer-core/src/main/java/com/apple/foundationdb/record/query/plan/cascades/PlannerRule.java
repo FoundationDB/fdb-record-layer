@@ -24,7 +24,7 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 
 import javax.annotation.Nonnull;
-import java.util.Optional;
+import java.util.Set;
 
 /**
  * Basic rule interface.
@@ -37,13 +37,15 @@ import java.util.Optional;
 @API(API.Status.EXPERIMENTAL)
 public interface PlannerRule<C extends PlannerRuleCall, T> {
     /**
-     * Returns the class of the operator at the root of the binding expression, if this rule uses a non-trivial binding.
-     * Used primarily for indexing rules for more efficient rule search.
-     * @return the class of the root of this rule's binding, or <code>Optional.empty()</code> if the rule matches anything
+     * Returns the set of concrete operator classes that this rule should be indexed under in a rule set. This is used
+     * by the planner to quickly pick the subset of rules that could possibly fire on a visited node. If the set is
+     * empty, the rule will go into the always-rules bucket. Otherwise, the rule is indexed under each class returned.
+     * @return a (possibly empty) set of classes
      * @see PlanningRuleSet
+     * @see BindingMatcher#getRootClasses()
      */
     @Nonnull
-    Optional<Class<?>> getRootOperator();
+    Set<Class<?>> getRootOperators();
 
     void onMatch(@Nonnull C call);
 

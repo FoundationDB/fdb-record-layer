@@ -40,7 +40,6 @@ import com.apple.foundationdb.record.query.plan.cascades.matching.structure.Coll
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers;
 
 import javax.annotation.Nonnull;
-import java.util.Optional;
 import java.util.Set;
 
 /**
@@ -59,17 +58,13 @@ public class MatchLeafRule extends CascadesRule<RelationalExpression> {
         super(root);
     }
 
-    /**
-     * Note: Transformation rules for expressions are partitioned by the class of the root matcher. This does not work
-     * here as this rule is non-specific which means that it matches sub classes of {@link RelationalExpression} and not
-     * just {@link RelationalExpression} itself. In order for this rule to fall into the set of rules that is always
-     * utilized we return {@code Optional.empty()} here.
-     * @return {@code Optional.empty()}
-     */
     @Nonnull
     @Override
-    public Optional<Class<?>> getRootOperator() {
-        return Optional.empty();
+    public Set<Class<?>> getRootOperators() {
+        // Note: Transformation rules for expressions are partitioned by the class of the root matcher. This does not
+        // work here as this rule is non-specific, which means that it matches subclasses of `RelationalExpression` and
+        // not just `RelationalExpression` itself. So we need to make this an always-rule.
+        return Set.of();
     }
 
     @Override

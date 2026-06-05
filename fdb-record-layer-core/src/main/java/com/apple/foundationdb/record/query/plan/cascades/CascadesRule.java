@@ -27,7 +27,6 @@ import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
 import java.util.Collection;
-import java.util.Optional;
 import java.util.Set;
 
 /**
@@ -77,15 +76,15 @@ public abstract class CascadesRule<T> implements PlannerRule<CascadesRuleCall, T
     }
 
     /**
-     * Returns the class of the operator at the root of the binding expression, if this rule uses a non-trivial binding.
-     * Used primarily for indexing rules for more efficient rule search.
-     * @return the class of the root of this rule's binding, or <code>Optional.empty()</code> if the rule matches anything
-     * @see PlanningRuleSet
+     * {@inheritDoc}
+     *
+     * <p>By default, this is derived from {@link BindingMatcher#getRootClasses()}. Subclasses that need to opt into the
+     * always-rules bucket should override this to return an empty set.
      */
     @Nonnull
     @Override
-    public Optional<Class<?>> getRootOperator() {
-        return Optional.of(matcher.getRootClass());
+    public Set<Class<?>> getRootOperators() {
+        return matcher.getRootClasses();
     }
 
     @Nonnull

@@ -32,7 +32,6 @@ import com.google.common.base.Verify;
 import javax.annotation.Nonnull;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.fieldValue;
 
@@ -48,12 +47,6 @@ public class MatchSimpleFieldValueRule extends ValueComputationRule<Value, Map<V
 
     public MatchSimpleFieldValueRule() {
         super(rootMatcher);
-    }
-
-    @Nonnull
-    @Override
-    public Optional<Class<?>> getRootOperator() {
-        return Optional.of(FieldValue.class);
     }
 
     @Override

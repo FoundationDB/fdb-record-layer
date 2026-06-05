@@ -33,7 +33,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Streams;
 
 import javax.annotation.Nonnull;
-import java.util.Optional;
+import java.util.Set;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.AnyMatcher.any;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ExpressionsPartitionMatchers.anyExpressionPartition;
@@ -74,9 +74,8 @@ public class FinalizeExpressionsRule extends ImplementationCascadesRule<Relation
 
     @Nonnull
     @Override
-    public Optional<Class<?>> getRootOperator() {
-        // this is an all-rule
-        return Optional.empty();
+    public Set<Class<?>> getRootOperators() {
+        return Set.of();
     }
 
     @Override

@@ -24,6 +24,7 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
 
 import javax.annotation.Nonnull;
+import java.util.Set;
 import java.util.stream.Stream;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher.newLine;
@@ -44,6 +45,15 @@ public class TypedMatcherWithExtractAndDownstream<T> extends TypedMatcher<T> {
                                                    @Nonnull final Extractor<? super T, ?> extractor,
                                                    @Nonnull final BindingMatcher<?> downstream) {
         super(bindableClass);
+        this.extractor = extractor;
+        this.downstream = downstream;
+    }
+
+    protected TypedMatcherWithExtractAndDownstream(@Nonnull final Class<T> bindableClass,
+                                                   @Nonnull final Extractor<? super T, ?> extractor,
+                                                   @Nonnull final BindingMatcher<?> downstream,
+                                                   @Nonnull final Set<? extends Class<?>> rootClasses) {
+        super(bindableClass, rootClasses);
         this.extractor = extractor;
         this.downstream = downstream;
     }
@@ -90,5 +100,13 @@ public class TypedMatcherWithExtractAndDownstream<T> extends TypedMatcher<T> {
                                                                                                @Nonnull final Extractor<? super T, ?> extractor,
                                                                                                @Nonnull final BindingMatcher<?> downstream) {
         return new TypedMatcherWithExtractAndDownstream<>(bindableClass, extractor, downstream);
+    }
+
+    @Nonnull
+    public static <S, T extends S> TypedMatcherWithExtractAndDownstream<T> typedWithDownstream(@Nonnull final Class<T> bindableClass,
+                                                                                               @Nonnull final Extractor<? super T, ?> extractor,
+                                                                                               @Nonnull final BindingMatcher<?> downstream,
+                                                                                               @Nonnull final Set<? extends Class<?>> concreteRootClasses) {
+        return new TypedMatcherWithExtractAndDownstream<>(bindableClass, extractor, downstream, concreteRootClasses);
     }
 }

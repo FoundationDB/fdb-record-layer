@@ -28,7 +28,6 @@ import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredica
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
-import java.util.Optional;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.MultiMatcher.all;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QueryPredicateMatchers.anyPredicate;
@@ -48,12 +47,6 @@ public class IdentityAndRule extends QueryPredicateSimplificationRule<AndPredica
 
     public IdentityAndRule() {
         super(rootMatcher);
-    }
-
-    @Nonnull
-    @Override
-    public Optional<Class<?>> getRootOperator() {
-        return Optional.of(AndPredicate.class);
     }
 
     @Override

@@ -39,7 +39,6 @@ import com.google.common.collect.SetMultimap;
 import javax.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.function.Predicate;
@@ -69,18 +68,21 @@ public class AbstractRuleSet<CALL extends PlannerRuleCall, BASE> {
     @SpotBugsSuppressWarnings("NP_NULL_ON_SOME_PATH_FROM_RETURN_VALUE")
     protected AbstractRuleSet(@Nonnull final Set<? extends PlannerRule<CALL, ? extends BASE>> rules,
                               @Nonnull final SetMultimap<? extends PlannerRule<CALL, ? extends BASE>, ? extends PlannerRule<CALL, ? extends BASE>> dependencies) {
+        // Derive the `ruleIndex` and the list of `alwaysRules` from the root operators advertised by the rules.
         this.ruleIndex = MultimapBuilder.hashKeys().arrayListValues().build();
         this.alwaysRules = new ArrayList<>();
-        this.dependsOn = MultimapBuilder.hashKeys().hashSetValues().build();
         for (final var rule : rules) {
-            Optional<Class<?>> root = rule.getRootOperator();
-            if (root.isPresent()) {
-                ruleIndex.put(root.get(), rule);
-            } else {
+            final Set<Class<?>> roots = rule.getRootOperators();
+            if (roots.isEmpty()) {
                 alwaysRules.add(rule);
+            } else {
+                for (final Class<?> root : roots) {
+                    ruleIndex.put(root, rule);
+                }
             }
         }
 
+        this.dependsOn = MultimapBuilder.hashKeys().hashSetValues().build();
         this.dependsOn.putAll(dependencies);
 
         this.rulesCache = CacheBuilder.newBuilder()

@@ -33,7 +33,7 @@ import com.google.common.collect.ImmutableList;
 import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
+import java.util.Set;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.MultiMatcher.all;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.NotMatcher.not;
@@ -72,8 +72,8 @@ public class ExpandRecordRule extends ValueSimplificationRule<Value> {
 
     @Nonnull
     @Override
-    public Optional<Class<?>> getRootOperator() {
-        return Optional.empty();
+    public Set<Class<?>> getRootOperators() {
+        return Set.of();
     }
 
     @Override

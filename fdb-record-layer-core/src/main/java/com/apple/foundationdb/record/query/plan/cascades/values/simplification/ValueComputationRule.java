@@ -29,7 +29,7 @@ import com.google.common.collect.Streams;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
-import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
@@ -62,8 +62,8 @@ public abstract class ValueComputationRule<A, R, T extends Value> extends Abstra
         return new ValueComputationRule<>(simplificationRule.getMatcher()) {
             @Nonnull
             @Override
-            public Optional<Class<?>> getRootOperator() {
-                return simplificationRule.getRootOperator();
+            public Set<Class<?>> getRootOperators() {
+                return simplificationRule.getRootOperators();
             }
 
             @Override

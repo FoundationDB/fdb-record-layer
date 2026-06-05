@@ -30,6 +30,7 @@ import javax.annotation.Nonnull;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Stream;
 
 /**
@@ -52,14 +53,26 @@ public interface BindingMatcher<T> {
     String INDENTATION = "    ";
 
     /**
-     * Get a class that this matcher can match. Ideally, it should be the lowest such class, but it may not be.
-     * A planner will generally use this method to quickly determine a set of rules that could match an expression,
-     * without considering each rule and trying to apply it. A good implementation of this method helps the planner
-     * match rules efficiently.
-     * @return a class object for a class that is a super class of every planner expression this matcher can match
+     * Returns the dispatch class for this matcher, i.e., the upper bound of the type {@code T} that this matcher binds
+     * to. The class returned here is used by {@link #bindMatches} to gate the dispatching; it is also the class on
+     * which {@code where(…)} constraints operate. For purposes of rule-set indexing (i.e., picking the subset of rules
+     * that could possibly fire on a given visited node), see {@link #getRootClasses()}, which can be narrower than the
+     * upper-bound class returned here.
+     * @return the class object for the dispatch class
      */
     @Nonnull
     Class<T> getRootClass();
+
+    /**
+     * Get the set of concrete classes under which the enclosing rule of this matcher should be indexed in a rule set.
+     *
+     * <p>The default returns {@code Set.of(getRootClass())}, which is appropriate for most matchers. Matchers that need
+     * to bind more than one subclass should override this in order to benefit from targeted indexing.
+     */
+    @Nonnull
+    default Set<Class<?>> getRootClasses() {
+        return Set.of(getRootClass());
+    }
 
     /**
      * Attempt to match this matcher against the given object.
@@ -105,7 +118,8 @@ public interface BindingMatcher<T> {
     default BindingMatcher<T> where(@Nonnull final BindingMatcher<? super T> downstream) {
         return TypedMatcherWithExtractAndDownstream.typedWithDownstream(getRootClass(),
                 Extractor.identity(),
-                AllOfMatcher.matchingAllOf(getRootClass(), ImmutableList.of(this, downstream)));
+                AllOfMatcher.matchingAllOf(getRootClass(), ImmutableList.of(this, downstream)),
+                getRootClasses());
     }
 
     /**

@@ -33,7 +33,6 @@ import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
 import java.util.Collection;
-import java.util.Optional;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.MultiMatcher.all;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QueryPredicateMatchers.anyPredicate;
@@ -63,12 +62,6 @@ public class DeMorgansTheoremRule<P extends AndOrPredicate> extends QueryPredica
         this.majorClass = majorClass;
         this.andOrPredicateMatcher = andOrPredicateMatcher;
         this.termMatcher = termMatcher;
-    }
-
-    @Nonnull
-    @Override
-    public Optional<Class<?>> getRootOperator() {
-        return Optional.of(NotPredicate.class);
     }
 
     @Override

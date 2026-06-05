@@ -52,8 +52,8 @@ public class ValuePredicateSimplificationRule extends QueryPredicateSimplificati
 
     @Nonnull
     @Override
-    public Optional<Class<?>> getRootOperator() {
-        return Optional.empty();
+    public Set<Class<?>> getRootOperators() {
+        return Set.of();
     }
 
     @Override
