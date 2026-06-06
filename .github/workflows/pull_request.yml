@@ -64,7 +64,7 @@ jobs:
         uses: ./actions/gradle-test
         with:
           gradle_command: :${{ matrix.subproject }}:jar :${{ matrix.subproject }}:test :${{ matrix.subproject }}:destructiveTest
-          gradle_args: -PreleaseBuild=false -PpublishBuild=false
+          gradle_args: --info -PreleaseBuild=false -PpublishBuild=false
           report_name: ${{ matrix.subproject }}-test-reports
       - name: Publish Coverage Data
         uses: actions/upload-artifact@v7.0.1
