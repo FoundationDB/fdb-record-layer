@@ -530,6 +530,7 @@ public final class SlidingWindowTestHelpers {
         private CommitOutcome runAndCommit(@Nonnull final List<NamedTx> commitOrder) {
             for (NamedTx tx : transactions) {
                 tx.context = testBase.openContext();
+                tx.context.getReadVersion();
             }
             try {
                 for (NamedTx tx : transactions) {

@@ -1,5 +1,5 @@
 /*
- * SlidingWindowIndexConcurrencyTest.java
+ * SlidingWindowIndexConcurrencyStressTest.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -37,7 +37,6 @@ import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath
 import com.apple.foundationdb.record.test.TestKeySpace;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
-import com.google.common.collect.ImmutableList;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -49,35 +48,36 @@ import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Random;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
-import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Stream;
 
 /**
- * Concurrency stress tests for {@link SlidingWindowIndexMaintainer}.
+ * Concurrency stress tests for {@link SlidingWindowIndexMaintainer} over a value-index
+ * delegate. Hammers a single sliding window with random concurrent inserts and deletes
+ * whose window keys straddle the boundary, then asserts the "boundary separates"
+ * invariant on the post-state: every primary key in the delegate sits on the window
+ * side of the boundary, and every entries-subspace key absent from the delegate sits
+ * on the overflow side.
  *
- * <p>Hammers a single sliding window with many concurrent inserts and deletes whose window
- * keys are drawn from a range that straddles the eventual boundary (so traffic falls both
- * above and below the window). After the workload completes, asserts the central
- * "boundary separates" invariant: every primary key in the underlying delegate index is on
- * the in-window side of the boundary, and every entry tracked in the sliding-window
- * subspace but missing from the delegate is on the overflow side.</p>
+ * <p>Two drivers exercise the same workload at different concurrency layers:</p>
+ * <ul>
+ *     <li>{@code interleavedTransactions} — opens N {@link FDBRecordContext}s
+ *         simultaneously and commits them in order, tallying boundary-meta-key
+ *         conflicts.</li>
+ *     <li>{@code realThreadedConcurrency} — spawns N worker threads, each running its
+ *         iterations through a retrying {@link FDBDatabaseRunner}.</li>
+ * </ul>
  *
- * <p>Uses a VALUE delegate (rather than HNSW) so the workload can run with thousands of
- * mutations in seconds.</p>
- *
- * <p>Each parameterization runs under one of three pre-seed regimes ({@link PreSeed}):
- * an empty window that grows under contention, a half-full window that crosses the fill
- * threshold mid-workload, and a pre-full window that exercises eviction and re-election
- * from the first iteration.</p>
+ * <p>Every scenario runs under three {@link PreSeed} regimes (empty, crossing, full)
+ * to cover window growth, the fill-threshold crossing, and steady-state eviction.</p>
  */
 @Tag(Tags.RequiresFDB)
 @Tag(Tags.Slow)
@@ -111,12 +111,11 @@ class SlidingWindowIndexConcurrencyStressTest extends FDBRecordStoreConcurrentTe
     private RecordMetaData buildMetaData(@Nonnull final Direction direction) {
         final RecordMetaDataBuilder builder = RecordMetaData.newBuilder()
                 .setRecords(TestRecords1Proto.getDescriptor());
-        final IndexPredicate.RowNumberWindowPredicate predicate =
-                new IndexPredicate.RowNumberWindowPredicate(
-                        ImmutableList.of("num_value_2"), direction, WINDOW_SIZE, ImmutableList.of());
+        final IndexPredicate predicate =
+                new IndexPredicate.RowNumberWindowPredicate("num_value_2", direction, WINDOW_SIZE);
         builder.addIndex("MySimpleRecord",
                 new Index(INDEX_NAME, Key.Expressions.field("num_value_2"), IndexTypes.VALUE,
-                        Collections.emptyMap(), predicate));
+                        Map.of(), predicate));
         return builder.getRecordMetaData();
     }
 
@@ -127,9 +126,9 @@ class SlidingWindowIndexConcurrencyStressTest extends FDBRecordStoreConcurrentTe
     }
 
     /**
-     * Pre-seed records prior to running the concurrent workload. Seeded primary keys are
-     * disjoint from the worker primary-key pool so that workers cannot accidentally delete
-     * the seed records and reduce the test to an empty window.
+     * Pre-seed records so the workload starts in the requested fill state. Seeded
+     * primary keys live above {@link #REC_POOL} so workers cannot accidentally delete
+     * them and reduce the test to an empty window.
      */
     private void preSeed(@Nonnull final PreSeed preSeed,
                          @Nonnull final RecordMetaData metaData,
@@ -153,16 +152,14 @@ class SlidingWindowIndexConcurrencyStressTest extends FDBRecordStoreConcurrentTe
     }
 
     /**
-     * Pick a primary key from {@code [pkStart, pkStart + pkSize)} and either insert or delete it.
-     * Each worker (thread in Driver 2, simultaneous context in Driver 1) is assigned a disjoint
-     * slice of the pk space so that workers cannot collide on the same record key — leaving the
-     * boundary meta-key as the only intended source of write conflicts.
+     * Insert or delete a primary key drawn from {@code [pkStart, pkStart + pkSize)}.
+     * Each worker is assigned a disjoint slice so the only intended source of write
+     * conflicts is the shared boundary meta-key.
      */
     private void doRandomMutation(@Nonnull final FDBRecordStore store, @Nonnull final Random rnd,
                                   final long pkStart, final int pkSize) {
-        final boolean insert = rnd.nextBoolean();
         final long pk = pkStart + rnd.nextInt(pkSize);
-        if (insert) {
+        if (rnd.nextBoolean()) {
             store.saveRecord(TestRecords1Proto.MySimpleRecord.newBuilder()
                     .setRecNo(pk)
                     .setStrValueIndexed("w")
@@ -174,15 +171,11 @@ class SlidingWindowIndexConcurrencyStressTest extends FDBRecordStoreConcurrentTe
         }
     }
 
-    // ===== Driver 1: single-threaded interleaving of multiple FDBRecordContexts =====
-
     /**
-     * Opens {@code K} {@link FDBRecordContext}s simultaneously, issues a random mutation on
-     * each, then commits them in order. Commits past the first against the same boundary
-     * meta-key are expected to throw {@link FDBExceptions.FDBStoreTransactionConflictException}
-     * (because the boundary-mutation path adds a read conflict on the boundary key); the
-     * test catches these and treats them as informational. Whatever subset of transactions
-     * commits successfully must leave the invariant intact at the end of the workload.
+     * Driver 1: opens {@code concurrentTxns} contexts simultaneously, runs a random
+     * mutation in each, and commits them in order. Boundary-meta-key conflicts are
+     * caught and tallied; whatever subset commits must still satisfy the
+     * boundary-separates invariant.
      */
     @ParameterizedTest(name = "interleaved[seed={0}, direction={1}, preSeed={2}]")
     @MethodSource("scenarios")
@@ -193,8 +186,6 @@ class SlidingWindowIndexConcurrencyStressTest extends FDBRecordStoreConcurrentTe
 
         final int concurrentTxns = 4;
         final int cycles = 16;
-        // Disjoint pk slice per context: prevents workers from racing on record keys, so any
-        // observed conflict is a boundary-meta-key conflict — the case under test.
         final int pkSlice = REC_POOL / concurrentTxns;
         long conflicts = 0L;
         long commits = 0L;
@@ -204,7 +195,7 @@ class SlidingWindowIndexConcurrencyStressTest extends FDBRecordStoreConcurrentTe
                 for (int i = 0; i < concurrentTxns; i++) {
                     contexts.add(openContext());
                 }
-                // Force all transactions to obtain a read version up front so subsequent
+                // Force all transactions to take a read version up front so subsequent
                 // commits actually race rather than serializing through GRV.
                 for (FDBRecordContext ctx : contexts) {
                     ctx.getReadVersion();
@@ -238,20 +229,18 @@ class SlidingWindowIndexConcurrencyStressTest extends FDBRecordStoreConcurrentTe
 
         try (FDBRecordContext context = openContext()) {
             final FDBRecordStore store = openStore(context, metaData);
-            // Bound the count by windowSize + concurrentTxns: each in-flight transaction
-            // can over-add at most once when racing on the snapshot-read counter.
+            // Each in-flight tx can over-add at most once on the snapshot-read counter,
+            // so the count is bounded by windowSize + concurrentTxns.
             SlidingWindowTestHelpers.verifySlidingWindowInvariant(
                     store, INDEX_NAME, WINDOW_SIZE, direction, WINDOW_SIZE + concurrentTxns);
         }
     }
 
-    // ===== Driver 2: real threads driving cross-transaction concurrency via FDBDatabaseRunner =====
-
     /**
-     * Spawns {@code numWorkers} real threads. Each worker runs a loop of
-     * {@code iterationsPerWorker} random mutations, each in its own
-     * {@link FDBRecordContext} obtained via {@link FDBDatabaseRunner#run} (which retries
-     * automatically on transient conflicts). After all workers complete, asserts the
+     * Driver 2: spawns {@code numWorkers} real threads. Each runs
+     * {@code iterationsPerWorker} random mutations in their own
+     * {@link FDBRecordContext} via {@link FDBDatabaseRunner#run} (which retries on
+     * transient conflicts). After all workers complete, asserts the
      * boundary-separates invariant.
      */
     @ParameterizedTest(name = "threaded[seed={0}, direction={1}, preSeed={2}]")
@@ -259,21 +248,17 @@ class SlidingWindowIndexConcurrencyStressTest extends FDBRecordStoreConcurrentTe
     void realThreadedConcurrency(final long seed, @Nonnull final Direction direction, @Nonnull final PreSeed preSeed) throws Exception {
         final int numWorkers = 8;
         final int iterationsPerWorker = 200;
-        // Disjoint pk slice per worker thread: see Driver 1 comment.
         final int pkSlice = REC_POOL / numWorkers;
         final RecordMetaData metaData = buildMetaData(direction);
         final Random random = new Random(seed);
         preSeed(preSeed, metaData, random);
 
         final AtomicLong totalRetries = new AtomicLong(0L);
-        final ExecutorService executor = Executors.newFixedThreadPool(numWorkers, new ThreadFactory() {
-            private final AtomicInteger idx = new AtomicInteger();
-            @Override
-            public Thread newThread(@Nonnull Runnable r) {
-                final Thread t = new Thread(r, "sliding-window-worker-" + idx.getAndIncrement());
-                t.setDaemon(true);
-                return t;
-            }
+        final AtomicInteger threadIdx = new AtomicInteger();
+        final ExecutorService executor = Executors.newFixedThreadPool(numWorkers, r -> {
+            final Thread t = new Thread(r, "sliding-window-worker-" + threadIdx.getAndIncrement());
+            t.setDaemon(true);
+            return t;
         });
 
         try {
@@ -290,8 +275,7 @@ class SlidingWindowIndexConcurrencyStressTest extends FDBRecordStoreConcurrentTe
                                 if (attempts.getAndIncrement() > 0) {
                                     totalRetries.incrementAndGet();
                                 }
-                                final FDBRecordStore store = openStore(ctx, metaData);
-                                doRandomMutation(store, workerRnd, pkStart, pkSlice);
+                                doRandomMutation(openStore(ctx, metaData), workerRnd, pkStart, pkSlice);
                                 return null;
                             });
                         }
@@ -299,7 +283,6 @@ class SlidingWindowIndexConcurrencyStressTest extends FDBRecordStoreConcurrentTe
                 }));
             }
             for (Future<?> f : futures) {
-                // Surface worker exceptions: f.get() will throw ExecutionException wrapping the cause.
                 f.get(2, TimeUnit.MINUTES);
             }
         } catch (Exception exception) {
@@ -321,8 +304,6 @@ class SlidingWindowIndexConcurrencyStressTest extends FDBRecordStoreConcurrentTe
 
         try (FDBRecordContext context = openContext()) {
             final FDBRecordStore store = openStore(context, metaData);
-            // Bound the count by windowSize + numWorkers: each in-flight worker can
-            // over-add at most once when racing on the snapshot-read counter.
             SlidingWindowTestHelpers.verifySlidingWindowInvariant(
                     store, INDEX_NAME, WINDOW_SIZE, direction, WINDOW_SIZE + numWorkers);
         }
