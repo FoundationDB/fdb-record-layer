@@ -111,28 +111,33 @@ public class LikeOperatorValue extends AbstractValue implements BooleanValue {
         final int pLen = pattern.length();
 
         while (t < tLen) {
-            if (p < pLen && pattern.charAt(p) == '\\') {
-                final char literal = (p + 1 < pLen) ? pattern.charAt(p + 1) : 0;
-                if (literal != 0 && literal == text.charAt(t)) {
+            boolean matched = false;
+            if (p < pLen) {
+                final char pc = pattern.charAt(p);
+                if (pc == '\\') {
+                    final char literal = (p + 1 < pLen) ? pattern.charAt(p + 1) : 0;
+                    if (literal != 0 && literal == text.charAt(t)) {
+                        t++;
+                        p += 2;
+                        matched = true;
+                    }
+                } else if (pc == '%') {
+                    starP = p++;
+                    starT = t;
+                    matched = true;
+                } else if (pc == '_' || pc == text.charAt(t)) {
                     t++;
-                    p += 2;
-                } else if (starP >= 0) {
+                    p++;
+                    matched = true;
+                }
+            }
+            if (!matched) {
+                if (starP >= 0) {
                     p = starP + 1;
                     t = ++starT;
                 } else {
                     return false;
                 }
-            } else if (p < pLen && pattern.charAt(p) == '%') {
-                starP = p++;
-                starT = t;
-            } else if (p < pLen && (pattern.charAt(p) == '_' || pattern.charAt(p) == text.charAt(t))) {
-                t++;
-                p++;
-            } else if (starP >= 0) {
-                p = starP + 1;
-                t = ++starT;
-            } else {
-                return false;
             }
         }
         while (p < pLen && pattern.charAt(p) == '%') {
