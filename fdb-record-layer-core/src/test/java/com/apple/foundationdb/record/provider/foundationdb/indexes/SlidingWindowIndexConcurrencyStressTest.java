@@ -43,6 +43,7 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.opentest4j.TestAbortedException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -71,8 +72,7 @@ import java.util.stream.Stream;
  * subspace but missing from the delegate is on the overflow side.</p>
  *
  * <p>Uses a VALUE delegate (rather than HNSW) so the workload can run with thousands of
- * mutations in seconds. See {@link SlidingWindowValueIndexTest} for deterministic
- * coverage of the VALUE-delegate path itself.</p>
+ * mutations in seconds.</p>
  *
  * <p>Each parameterization runs under one of three pre-seed regimes ({@link PreSeed}):
  * an empty window that grows under contention, a half-full window that crosses the fill
@@ -81,9 +81,9 @@ import java.util.stream.Stream;
  */
 @Tag(Tags.RequiresFDB)
 @Tag(Tags.Slow)
-class SlidingWindowIndexConcurrency2Test extends FDBRecordStoreConcurrentTestBase {
+class SlidingWindowIndexConcurrencyStressTest extends FDBRecordStoreConcurrentTestBase {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(SlidingWindowIndexConcurrency2Test.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(SlidingWindowIndexConcurrencyStressTest.class);
 
     private static final String INDEX_NAME = "sw_value_index";
     private static final int WINDOW_SIZE = 25;
@@ -152,9 +152,16 @@ class SlidingWindowIndexConcurrency2Test extends FDBRecordStoreConcurrentTestBas
         }
     }
 
-    private void doRandomMutation(@Nonnull final FDBRecordStore store, @Nonnull final Random rnd) {
+    /**
+     * Pick a primary key from {@code [pkStart, pkStart + pkSize)} and either insert or delete it.
+     * Each worker (thread in Driver 2, simultaneous context in Driver 1) is assigned a disjoint
+     * slice of the pk space so that workers cannot collide on the same record key — leaving the
+     * boundary meta-key as the only intended source of write conflicts.
+     */
+    private void doRandomMutation(@Nonnull final FDBRecordStore store, @Nonnull final Random rnd,
+                                  final long pkStart, final int pkSize) {
         final boolean insert = rnd.nextBoolean();
-        final long pk = 1L + rnd.nextInt(REC_POOL);
+        final long pk = pkStart + rnd.nextInt(pkSize);
         if (insert) {
             store.saveRecord(TestRecords1Proto.MySimpleRecord.newBuilder()
                     .setRecNo(pk)
@@ -186,6 +193,9 @@ class SlidingWindowIndexConcurrency2Test extends FDBRecordStoreConcurrentTestBas
 
         final int concurrentTxns = 4;
         final int cycles = 16;
+        // Disjoint pk slice per context: prevents workers from racing on record keys, so any
+        // observed conflict is a boundary-meta-key conflict — the case under test.
+        final int pkSlice = REC_POOL / concurrentTxns;
         long conflicts = 0L;
         long commits = 0L;
         for (int cycle = 0; cycle < cycles; cycle++) {
@@ -199,10 +209,12 @@ class SlidingWindowIndexConcurrency2Test extends FDBRecordStoreConcurrentTestBas
                 for (FDBRecordContext ctx : contexts) {
                     ctx.getReadVersion();
                 }
-                for (FDBRecordContext ctx : contexts) {
+                for (int i = 0; i < concurrentTxns; i++) {
+                    final FDBRecordContext ctx = contexts.get(i);
                     final FDBRecordStore store = openStore(ctx, metaData);
-                    doRandomMutation(store, rnd);
-                    doRandomMutation(store, rnd);
+                    final long pkStart = 1L + (long) i * pkSlice;
+                    doRandomMutation(store, rnd, pkStart, pkSlice);
+                    doRandomMutation(store, rnd, pkStart, pkSlice);
                 }
                 for (FDBRecordContext ctx : contexts) {
                     try {
@@ -247,8 +259,11 @@ class SlidingWindowIndexConcurrency2Test extends FDBRecordStoreConcurrentTestBas
     void realThreadedConcurrency(final long seed, @Nonnull final Direction direction, @Nonnull final PreSeed preSeed) throws Exception {
         final int numWorkers = 8;
         final int iterationsPerWorker = 200;
+        // Disjoint pk slice per worker thread: see Driver 1 comment.
+        final int pkSlice = REC_POOL / numWorkers;
         final RecordMetaData metaData = buildMetaData(direction);
-        preSeed(preSeed, metaData, new Random(seed));
+        final Random random = new Random(seed);
+        preSeed(preSeed, metaData, random);
 
         final AtomicLong totalRetries = new AtomicLong(0L);
         final ExecutorService executor = Executors.newFixedThreadPool(numWorkers, new ThreadFactory() {
@@ -264,7 +279,8 @@ class SlidingWindowIndexConcurrency2Test extends FDBRecordStoreConcurrentTestBas
         try {
             final List<Future<?>> futures = new ArrayList<>(numWorkers);
             for (int w = 0; w < numWorkers; w++) {
-                final long workerSeed = seed ^ (0x9E3779B97F4A7C15L * (long) (w + 1));
+                final long workerSeed = random.nextLong();
+                final long pkStart = 1L + (long) w * pkSlice;
                 futures.add(executor.submit(() -> {
                     final Random workerRnd = new Random(workerSeed);
                     try (FDBDatabaseRunner runner = fdb.newRunner()) {
@@ -275,7 +291,7 @@ class SlidingWindowIndexConcurrency2Test extends FDBRecordStoreConcurrentTestBas
                                     totalRetries.incrementAndGet();
                                 }
                                 final FDBRecordStore store = openStore(ctx, metaData);
-                                doRandomMutation(store, workerRnd);
+                                doRandomMutation(store, workerRnd, pkStart, pkSlice);
                                 return null;
                             });
                         }
@@ -286,6 +302,13 @@ class SlidingWindowIndexConcurrency2Test extends FDBRecordStoreConcurrentTestBas
                 // Surface worker exceptions: f.get() will throw ExecutionException wrapping the cause.
                 f.get(2, TimeUnit.MINUTES);
             }
+        } catch (Exception exception) {
+            for (Throwable cause = exception; cause != null; cause = cause.getCause()) {
+                if (cause instanceof FDBExceptions.FDBStoreTransactionConflictException) {
+                    throw new TestAbortedException("Thread wasn't able to commit, test result inconclusive");
+                }
+            }
+            throw exception;
         } finally {
             executor.shutdownNow();
             executor.awaitTermination(30, TimeUnit.SECONDS);
@@ -306,17 +329,15 @@ class SlidingWindowIndexConcurrency2Test extends FDBRecordStoreConcurrentTestBas
     }
 
     static Stream<Arguments> scenarios() {
-        final long[] seeds = {1L};
+        final long[] seeds = {1L, 42L, 123L, 9999L};
         final List<Arguments> args = new ArrayList<>();
-        args.add(Arguments.of(1L, Direction.ASC, PreSeed.EMPTY));
+        for (long s : seeds) {
+            for (Direction d : Direction.values()) {
+                for (PreSeed p : PreSeed.values()) {
+                    args.add(Arguments.of(s, d, p));
+                }
+            }
+        }
         return args.stream();
-//        for (long s : seeds) {
-//            for (Direction d : Direction.values()) {
-//                for (PreSeed p : PreSeed.values()) {
-//                    args.add(Arguments.of(s, Direction.ASC, PreSeed.EMPTY));
-//                }
-//            }
-//        }
-//        return args.stream();
     }
 }

@@ -261,42 +261,41 @@ class SlidingWindowIndexConcurrencyTest extends FDBRecordStoreTestBase {
     }
 
     @Test
-    void ascOverflowInsertRacingWithBoundaryDeleteOrphansEntry() throws Exception {
-        // KNOWN BUG — this test pins down a race that produces an inconsistent
-        // post-state.
+    void ascOverflowInsertConflictsWithConcurrentBoundaryDelete() throws Exception {
+        // Without the conflict-tracking fix, an overflow insert racing a
+        // boundary delete used to leave the new entry orphaned in the entries
+        // subspace — better than the post-race boundary, but absent from the
+        // delegate. The fix lives in two places:
+        //   - Type.getBestInOverflow now declares write- AND read-conflict
+        //     ranges over the entries-subspace slice it scanned during
+        //     re-election, instead of only the slice's read.
+        //   - handleInsert adds a read-conflict on its own (windowValue,
+        //     primaryKey) entry key before writing it.
+        // Together those ranges intersect, so the optimistic resolver aborts
+        // the insert (TX A) when it commits after the re-electing TX B.
         //
         // Initial state (ASC, window = 5):
         //   Window:   rec 1..5 with relevances 10, 20, 30, 40, 50 — boundary
         //             is (50, 5).
         //   Overflow: rec 6, 7, 8 with relevances 60, 70, 80.
         //
-        // TX A inserts rec(9, 55). The window is full and 55 is not better than
-        // the boundary 50 for ASC, so handleInsert short-circuits the full
-        // branch with only the entriesSubspace write at (55, 9). Both reads
-        // (count, boundary) go through tr.snapshot(), so TX A adds *no*
-        // read-conflict ranges anywhere.
+        // TX A inserts rec(9, 55). The window is full and 55 is not better
+        // than the boundary 50 for ASC, so handleInsert short-circuits the
+        // full branch with only the entries-subspace write at (55, 9) — but
+        // it also declares a read-conflict on (55, 9) before writing.
         //
-        // TX B (concurrent) deletes rec 5 — the boundary record. handleDelete
-        // clears (50, 5), decrements the counter, picks (40, 4) as the
-        // post-eviction boundary, then re-elects from overflow, finds (60, 6),
-        // and promotes rec 6 into the delegate (final boundary (60, 6)). TX B
-        // does add read-conflict ranges in the entries subspace — including
-        // the forward scan from keyAfter((40, 4)) used by re-election — that
-        // would catch a concurrent write at (55, 9). But that only matters
-        // if TX A commits first.
+        // TX B deletes rec 5 — the boundary record. handleDelete clears
+        // (50, 5), decrements the counter, picks (40, 4) as the post-eviction
+        // boundary, then re-elects from overflow via getBestInOverflow's
+        // forward scan from keyAfter((40, 4)). That scan now also declares
+        // both a read-conflict and a write-conflict range over
+        // [keyAfter((40, 4)), keyAfter((60, 6))) — the slice it actually
+        // visited — and promotes rec 6 into the delegate (final boundary
+        // (60, 6)).
         //
-        // Commit order: B then A. TX A has no read-conflict ranges to
-        // invalidate, so it commits cleanly even though B's writes have
-        // already been applied. Final state:
-        //
-        //   Delegate = {1, 2, 3, 4, 6}, boundary = (60, 6), counter = 5.
-        //   Entries subspace contains (55, 9), but the delegate does not.
-        //
-        // 55 is better than the new boundary 60 for ASC, so by the
-        // maintainer's own classification rec 9 belongs *inside* the window
-        // — yet it is missing from the delegate. That is the bug. When the
-        // race is fixed, this assertion will need to flip to expect rec 9
-        // in the delegate (and rec 6 either evicted or never promoted).
+        // Commit order: B then A. B commits cleanly. A's read-conflict on
+        // (55, 9) sits inside the slice B declared as a write range, so the
+        // resolver aborts A. Only B's effects survive.
         try (FDBRecordContext context = openContext()) {
             openStore(context, 5, Direction.ASC);
             rec(1, 10);
@@ -313,65 +312,56 @@ class SlidingWindowIndexConcurrencyTest extends FDBRecordStoreTestBase {
         concurrent(this, ctx -> openStore(ctx, 5, Direction.ASC))
                 .tx("B", () -> deleteRec(5))
                 .tx("A", () -> rec(9, 55))
-                .commitAll()  // B commits first (declared order), then A
-                .expectNoConflicts();
+                .commitAll()  // B commits first (declared order); A is aborted
+                .expectCommitted("B")
+                .expectConflictOn("A");
 
-        // Buggy post-state: rec 9 is orphaned in the entries subspace —
-        // better than the new boundary (60, 6) but absent from the delegate.
-        try (FDBRecordContext context = openContext()) {
-            openStore(context, 5, Direction.ASC);
-            assertThat(SlidingWindowTestHelpers.slidingWindowViaValueIndex(recordStore, INDEX_NAME))
-                    .hasSizeOf(5)
-                    .hasEntriesOf(1L, 2L, 3L, 4L, 6L, 9L)
-                    .underlyingValueIndex()
-                    .containsInAnyOrder(1L, 2L, 3L, 4L, 6L); // bug! should also contain 9L
-            commit(context);
-        }
+        // B's effects landed: rec 5 evicted, rec 6 promoted, boundary advanced
+        // to (60, 6). A was rolled back, so rec 9 is gone everywhere — the
+        // entries subspace, the delegate, and the records subspace. The
+        // maintainer invariant holds: window-side entries == delegate.
+        assertFinalWindow(5, Direction.ASC, 1L, 2L, 3L, 4L, 6L);
     }
 
     @Test
-    void ascOverflowDeleteRacingWithBoundaryDeleteOrphansPromotedRecord() throws Exception {
-        // KNOWN BUG — a different shape of the same family: instead of an insert
-        // racing a boundary delete, this is two deletes racing each other where
-        // one of them is the boundary itself. T2 re-elects the very record T1
-        // is concurrently deleting; the maintainer ends up with a delegate
-        // entry whose backing entries-subspace key is gone.
+    void ascBoundaryDeleteConflictsWithConcurrentOverflowDelete() throws Exception {
+        // Same family of race as the insert/delete one: two concurrent deletes
+        // — one of an overflow record, one of the boundary itself — used to
+        // both commit even though the boundary-delete's re-election promoted
+        // the very record the other tx was deleting. The result was a
+        // delegate entry whose backing entries-subspace key was gone (boundary
+        // dangling, delegate over-counting the window).
+        //
+        // The same fix that closes the insert/delete race closes this one
+        // too: Type.getBestInOverflow now declares write- AND read-conflict
+        // ranges over the entries-subspace slice it scanned during
+        // re-election. Any concurrent transaction whose read or write set
+        // touches that slice (here, T1's get/clear of the would-be promotion
+        // target) will lose the resolver race.
         //
         // Initial state (ASC, window = 5):
         //   Window:   rec 1..5 with relevances 10, 20, 30, 40, 50 — boundary
         //             is (50, 5).
         //   Overflow: rec 6, 7 with relevances 60, 70.
         //
-        // T1 deletes rec 6 (an overflow record). handleDelete clears (60, 6)
-        // from the entries subspace, snapshot-reads the boundary (50, 5),
-        // finds isInWindow false, and short-circuits — no read-conflict on
-        // boundaryMetaKey, no delegate touch. Effective read/write set is
-        // just (60, 6).
+        // T1 deletes rec 6 (an overflow record). handleDelete reads and
+        // clears (60, 6) — both go through the non-snapshot `tr.get` /
+        // `tr.clear`, so the read-conflict and write sets cover (60, 6). It
+        // snapshot-reads the boundary, finds isInWindow false, and short-
+        // circuits.
         //
-        // T2 deletes rec 5 — the boundary record. handleDelete clears (50, 5),
-        // takes the in-window branch, decrements the counter to 4, removes
-        // rec 5 from the delegate, picks (40, 4) as the post-eviction
-        // boundary, then re-elects from overflow. The forward scan from
-        // keyAfter((40, 4)) returns (60, 6) in T2's transactional view (T1
-        // hasn't committed yet) and promotes rec 6 into the delegate, setting
-        // boundary to (60, 6) and counter back to 5. T2's read range covers
-        // (60, 6).
+        // T2 deletes rec 5 — the boundary record. handleDelete clears
+        // (50, 5), decrements the counter, picks (40, 4) as the post-eviction
+        // boundary, then re-elects from overflow via getBestInOverflow's
+        // forward scan from keyAfter((40, 4)). That scan now declares both a
+        // read- and a write-conflict range over [keyAfter((40, 4)),
+        // keyAfter((60, 6))) — the slice it actually visited — and promotes
+        // rec 6 into the delegate.
         //
-        // Commit order: T2 then T1. T2 commits cleanly. T1's only read set is
-        // (60, 6) — not written by T2, since T2 only touched (50, 5), the
-        // counter, the boundary, and delegate writes for rec 5/6. T1 commits
-        // cleanly too. Resulting state:
-        //
-        //   Delegate = {1, 2, 3, 4, 6}, boundary = (60, 6), counter = 5.
-        //   Entries subspace = {(10,1), (20,2), (30,3), (40,4), (70, 7)} —
-        //                      both (50, 5) [T2] and (60, 6) [T1] are gone.
-        //
-        // Three invariants fail:
-        //   - The boundary (60, 6) points at an entry that no longer exists.
-        //   - The window-side entries (≤ (60, 6)) are {1, 2, 3, 4}, but the
-        //     delegate has {1, 2, 3, 4, 6}. The delegate over-counts the
-        //     window — exactly the failure being pinned down here.
-        //   - Counter 5 ≠ window-side size 4.
+        // Commit order: T1 then T2. T1 commits cleanly. T2's read range over
+        // the overflow slice includes (60, 6); T1's committed write at
+        // (60, 6) sits inside it, so the resolver aborts T2. Only T1's
+        // effects survive.
         try (FDBRecordContext context = openContext()) {
             openStore(context, 5, Direction.ASC);
             rec(1, 10);
@@ -385,23 +375,16 @@ class SlidingWindowIndexConcurrencyTest extends FDBRecordStoreTestBase {
         }
 
         concurrent(this, ctx -> openStore(ctx, 5, Direction.ASC))
-                .tx("T2", () -> deleteRec(5))  // delete the boundary
                 .tx("T1", () -> deleteRec(6))  // delete an overflow record
-                .commitAll()  // T2 commits first (declared order), then T1
-                .expectNoConflicts();
+                .tx("T2", () -> deleteRec(5))  // delete the boundary
+                .commitAll()  // T1 commits first (declared order); T2 is aborted
+                .expectCommitted("T1")
+                .expectConflictOn("T2");
 
-        // Buggy post-state: the delegate carries rec 6 promoted by T2, but
-        // T1's commit cleared rec 6's entry from the entries subspace; the
-        // boundary (60, 6) is dangling. Counter (5) overstates the actual
-        // window-side entry count (4).
-        try (FDBRecordContext context = openContext()) {
-            openStore(context, 5, Direction.ASC);
-            assertThat(SlidingWindowTestHelpers.slidingWindowViaValueIndex(recordStore, INDEX_NAME))
-                    .hasSizeOf(5)                                  // bug! window-side has only 4
-                    .hasEntriesOf(1L, 2L, 3L, 4L)                  // entries subspace ≤ boundary
-                    .underlyingValueIndex()
-                    .containsInAnyOrder(1L, 2L, 3L, 4L, 6L);       // bug! rec 6 has no backing entry
-            commit(context);
-        }
+        // T1's effects landed: rec 6 is gone everywhere (record, entries
+        // subspace). T2 was rolled back, so the window remains {1..5} with
+        // boundary (50, 5) and rec 5 still in the delegate. The maintainer
+        // invariant holds: window-side entries == delegate == {1..5}.
+        assertFinalWindow(5, Direction.ASC, 1L, 2L, 3L, 4L, 5L);
     }
 }
