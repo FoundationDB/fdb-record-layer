@@ -46,7 +46,7 @@ import java.util.PriorityQueue;
  * C++ implementation that can be found <a href="https://github.com/VectorDB-NTU/RaBitQ-Library">here</a>.
  *
  * @see Quantizer
- * @see RaBitEstimator
+ * @see RaBitDistanceEstimator
  * @see EncodedRealVector
  */
 public final class RaBitQuantizer implements Quantizer {
@@ -85,19 +85,19 @@ public final class RaBitQuantizer implements Quantizer {
     }
 
     /**
-     * Creates and returns a new {@link RaBitEstimator} instance.
+     * Creates and returns a new {@link RaBitDistanceEstimator} instance.
      * <p>
      * This method acts as a factory, constructing the estimator based on the
      * {@code metric} and {@code numExBits} configuration of this object.
      * The {@code @Override} annotation indicates that this is an implementation
      * of a method from a superclass or interface.
      *
-     * @return a new, non-null instance of {@link RaBitEstimator}
+     * @return a new, non-null instance of {@link RaBitDistanceEstimator}
      */
     @Nonnull
     @Override
-    public RaBitEstimator estimator() {
-        return new RaBitEstimator(metric, numExBits);
+    public RaBitDistanceEstimator estimator() {
+        return new RaBitDistanceEstimator(metric, numExBits);
     }
 
     /**

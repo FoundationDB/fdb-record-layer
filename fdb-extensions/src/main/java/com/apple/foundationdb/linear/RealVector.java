@@ -27,14 +27,50 @@ import com.google.common.collect.ImmutableList;
 import javax.annotation.Nonnull;
 
 /**
- * An abstract base class representing a mathematical vector.
- * <p>
- * This class provides a generic framework for vectors of different numerical types,
- * where {@code R} is a subtype of {@link Number}. It includes common operations and functionalities like size,
- * component access, equality checks, and conversions. Concrete implementations must provide specific logic for
- * data type conversions and raw data representation.
+ * Real-valued mathematical vector — the common API every dense vector representation in this
+ * package implements. Concrete subtypes differ only in element precision and storage layout:
+ * {@link DoubleRealVector} stores 64-bit doubles, {@link FloatRealVector} stores 32-bit floats
+ * truncated to doubles, {@link HalfRealVector} stores 16-bit halves likewise. All numerical
+ * methods on this interface return values in {@code double} regardless of the underlying
+ * precision; the precision difference shows up as round-trip loss in
+ * {@link #toHalfRealVector()} / {@link #toFloatRealVector()} conversions, not in arithmetic.
+ *
+ * <p>The interface exposes three families of operations:
+ * <ul>
+ *   <li><b>Shape and access</b> — {@link #getNumDimensions()}, {@link #getComponent(int)},
+ *       {@link #getData()}.</li>
+ *   <li><b>Arithmetic</b> — {@link #add(RealVector) add}, {@link #subtract(RealVector) subtract},
+ *       {@link #multiply(double) multiply}, {@link #dot(RealVector) dot},
+ *       {@link #normalize() normalize}, plus the squared-/raw-norm pair
+ *       {@link #l2SquaredNorm()} and {@link #l2Norm()} and the cheaper
+ *       {@link #l2SquaredDistance(RealVector)} pairwise distance. Default implementations
+ *       allocate a fresh result vector and never mutate the receiver; the mutating variants live
+ *       on {@link MutableDoubleRealVector}.</li>
+ *   <li><b>Conversion and serialization</b> — precision conversions
+ *       ({@link #toHalfRealVector()}, {@link #toFloatRealVector()},
+ *       {@link #toDoubleRealVector()}), mutability swaps
+ *       ({@link #toMutable()}, {@link #toImmutable()}), and the
+ *       byte-array round-trip ({@link #getRawData()} / {@link #fromBytes(byte[])}).</li>
+ * </ul>
  */
 public interface RealVector {
+    /**
+     * Threshold (in L2-norm units) below which a vector is treated as "effectively zero" — i.e.
+     * its direction is considered undefined for metrics that depend on it, principally cosine
+     * similarity. Used by {@link #isNearlyZeroNorm()}, which compares the squared L2 norm
+     * against {@code EPS * EPS} to avoid a {@code sqrt}.
+     * <p>
+     * The value is sized to sit well above the floating-point noise of typical double-precision
+     * accumulations and well below any norm a meaningful vector would have in practice. Callers
+     * generally shouldn't need to consult this constant directly; prefer {@link #isNearlyZeroNorm()}.
+     */
+    double EPS = 1.0e-12;
+
+    /**
+     * Cached snapshot of {@link VectorType#values()} as an immutable list. Used by
+     * {@link #fromVectorTypeOrdinal(int)} so the type lookup avoids re-cloning the enum's
+     * value array on every call.
+     */
     ImmutableList<VectorType> VECTOR_TYPES = ImmutableList.copyOf(VectorType.values());
 
     /**
@@ -66,6 +102,15 @@ public interface RealVector {
     @Nonnull
     double[] getData();
 
+    /**
+     * Returns a new vector of the same precision and length as the receiver but with the given
+     * component data. Implementations decide whether the returned vector aliases {@code data}
+     * (immutable subtypes typically do; mutable subtypes copy through their existing storage).
+     *
+     * @param data the components for the new vector; length must match this vector's
+     *        dimensionality
+     * @return a non-null vector with the given data
+     */
     @Nonnull
     RealVector withData(@Nonnull double[] data);
 
@@ -116,6 +161,38 @@ public interface RealVector {
     @Nonnull
     DoubleRealVector toDoubleRealVector();
 
+    /**
+     * Returns a {@link MutableDoubleRealVector} carrying the same components as this vector.
+     * The default implementation clones the underlying data so the returned mutable instance is
+     * independent of the receiver; {@link MutableDoubleRealVector#toMutable()} overrides this
+     * to return {@code this} since it's already mutable.
+     *
+     * @return a fresh (or in the case of {@link MutableDoubleRealVector}, the same) mutable
+     *         double-precision vector
+     */
+    @Nonnull
+    default MutableDoubleRealVector toMutable() {
+        return new MutableDoubleRealVector(getData().clone());
+    }
+
+    /**
+     * Returns an immutable view of this vector — i.e. one whose components cannot be subsequently
+     * mutated through any reference. Immutable subtypes return {@code this};
+     * {@link MutableDoubleRealVector#toImmutable()} returns a fresh
+     * {@link DoubleRealVector} with cloned data.
+     *
+     * @return a non-null immutable vector with the same components as this vector
+     */
+    @Nonnull
+    RealVector toImmutable();
+
+    /**
+     * Returns the dot product {@code Σ_i this[i] * other[i]}. The receiver is not mutated.
+     *
+     * @param other the right operand; must have the same dimensionality as this vector
+     * @return the dot product
+     * @throws IllegalArgumentException if {@code other} has a different dimensionality
+     */
     default double dot(@Nonnull final RealVector other) {
         Preconditions.checkArgument(getNumDimensions() == other.getNumDimensions());
         double sum = 0.0d;
@@ -127,72 +204,140 @@ public interface RealVector {
         return sum;
     }
 
-    default double l2Norm() {
-        return Math.sqrt(dot(this));
+    /**
+     * Returns the squared Euclidean distance to {@code other}, i.e. {@code Σ_i (this[i] - other[i])^2}.
+     * Equivalent to but cheaper than {@code subtract(other).l2SquaredNorm()} (no temporary
+     * allocation), and cheaper than {@code Math.pow(estimator.distance(this, other), 2)} for the
+     * Euclidean metric (skips a {@code sqrt} that would just be squared again).
+     */
+    default double l2SquaredDistance(@Nonnull final RealVector other) {
+        Preconditions.checkArgument(getNumDimensions() == other.getNumDimensions());
+        double sum = 0.0d;
+        final double[] thisData = getData();
+        final double[] otherData = other.getData();
+        for (int i = 0; i < thisData.length; i++) {
+            final double diff = thisData[i] - otherData[i];
+            sum += diff * diff;
+        }
+        return sum;
     }
 
+    /**
+     * Returns {@code true} when this vector's L2 norm is at or below the {@link #EPS} threshold,
+     * i.e. when the vector is "effectively zero" and its direction is undefined for cosine-style
+     * metrics. Implemented as a squared-norm comparison so no {@code sqrt} is needed.
+     *
+     * @return {@code true} if this vector is effectively zero
+     */
+    default boolean isNearlyZeroNorm() {
+        return l2SquaredNorm() <= EPS * EPS;
+    }
+
+    /**
+     * Returns the L2 (Euclidean) norm {@code sqrt(Σ_i this[i]^2)}. Prefer
+     * {@link #l2SquaredNorm()} when you only need to compare or threshold magnitudes — it skips
+     * the {@code sqrt}.
+     *
+     * @return the L2 norm of this vector
+     */
+    default double l2Norm() {
+        return Math.sqrt(l2SquaredNorm());
+    }
+
+    /**
+     * Returns the squared L2 norm {@code Σ_i this[i]^2}. Implementations typically memoize this
+     * since the value is reused by {@link #l2Norm()} and several distance helpers.
+     *
+     * @return the squared L2 norm of this vector
+     */
+    double l2SquaredNorm();
+
+    /**
+     * Returns a new vector pointing in the same direction as this vector but scaled to unit L2
+     * norm. The receiver is not mutated; the result is a fresh allocation of the same precision
+     * type.
+     *
+     * @return a non-null unit-norm vector
+     * @throws IllegalArgumentException if this vector's L2 norm is zero, infinite, or NaN —
+     *         direction is undefined in those cases
+     */
     @Nonnull
     default RealVector normalize() {
-        double n = l2Norm();
-        final int numDimensions = getNumDimensions();
-        double[] y = new double[numDimensions];
-        if (n == 0.0 || !Double.isFinite(n)) {
-            throw new IllegalArgumentException("vector has an L2 norm of infinite, not a number, or 0");
-        }
-        double inv = 1.0 / n;
-        for (int i = 0; i < numDimensions; i++) {
-            y[i] = getComponent(i) * inv;
-        }
-        return withData(y);
+        return withData(RealVectorPrimitives.normalizeInto(this, new double[getNumDimensions()]));
     }
 
+    /**
+     * Returns a new vector whose components are the element-wise sum of this vector and
+     * {@code other}. The receiver is not mutated.
+     *
+     * @param other the right operand; must have the same dimensionality as this vector
+     * @return a non-null vector with {@code result[i] = this[i] + other[i]}
+     * @throws IllegalArgumentException if {@code other} has a different dimensionality
+     */
     @Nonnull
     default RealVector add(@Nonnull final RealVector other) {
-        Preconditions.checkArgument(getNumDimensions() == other.getNumDimensions());
-        final double[] result = new double[getNumDimensions()];
-        for (int i = 0; i < getNumDimensions(); i ++) {
-            result[i] = getComponent(i) + other.getComponent(i);
-        }
-        return withData(result);
+        return withData(RealVectorPrimitives.addInto(this, other, new double[getNumDimensions()]));
     }
 
+    /**
+     * Returns a new vector with {@code scalar} added to every component of this vector. The
+     * receiver is not mutated.
+     *
+     * @param scalar the value to add to each component
+     * @return a non-null vector with {@code result[i] = this[i] + scalar}
+     */
     @Nonnull
     default RealVector add(final double scalar) {
-        final double[] result = new double[getNumDimensions()];
-        for (int i = 0; i < getNumDimensions(); i ++) {
-            result[i] = getComponent(i) + scalar;
-        }
-        return withData(result);
+        return withData(RealVectorPrimitives.addInto(this, scalar, new double[getNumDimensions()]));
     }
 
+    /**
+     * Returns a new vector whose components are the element-wise difference of this vector and
+     * {@code other}. The receiver is not mutated.
+     *
+     * @param other the right operand; must have the same dimensionality as this vector
+     * @return a non-null vector with {@code result[i] = this[i] - other[i]}
+     * @throws IllegalArgumentException if {@code other} has a different dimensionality
+     */
     @Nonnull
     default RealVector subtract(@Nonnull final RealVector other) {
-        Preconditions.checkArgument(getNumDimensions() == other.getNumDimensions());
-        final double[] result = new double[getNumDimensions()];
-        for (int i = 0; i < getNumDimensions(); i ++) {
-            result[i] = getComponent(i) - other.getComponent(i);
-        }
-        return withData(result);
+        return withData(RealVectorPrimitives.subtractInto(this, other, new double[getNumDimensions()]));
     }
 
+    /**
+     * Returns a new vector with {@code scalar} subtracted from every component of this vector.
+     * The receiver is not mutated.
+     *
+     * @param scalar the value to subtract from each component
+     * @return a non-null vector with {@code result[i] = this[i] - scalar}
+     */
     @Nonnull
     default RealVector subtract(final double scalar) {
-        final double[] result = new double[getNumDimensions()];
-        for (int i = 0; i < getNumDimensions(); i ++) {
-            result[i] = getComponent(i) - scalar;
-        }
-        return withData(result);
+        return withData(RealVectorPrimitives.subtractInto(this, scalar, new double[getNumDimensions()]));
     }
 
+    /**
+     * Returns a new vector with every component of this vector scaled by {@code scalar}. The
+     * receiver is not mutated.
+     *
+     * @param scalar the factor to scale each component by
+     * @return a non-null vector with {@code result[i] = this[i] * scalar}
+     */
     @Nonnull
-    default RealVector multiply(final double scalarFactor) {
-        final double[] result = new double[getNumDimensions()];
-        for (int i = 0; i < getNumDimensions(); i ++) {
-            result[i] = getComponent(i) * scalarFactor;
-        }
-        return withData(result);
+    default RealVector multiply(final double scalar) {
+        return withData(RealVectorPrimitives.multiplyInto(this, scalar, new double[getNumDimensions()]));
     }
 
+    /**
+     * Returns the {@link VectorType} with the given ordinal in
+     * {@link VectorType#values() VectorType.values()}, looked up from the cached
+     * {@link #VECTOR_TYPES} list. Used while deserializing a vector to dispatch to the right
+     * subtype's {@code fromBytes}.
+     *
+     * @param ordinal the type's enum ordinal
+     * @return the matching {@link VectorType}; never {@code null}
+     * @throws IndexOutOfBoundsException if {@code ordinal} is not a valid enum ordinal
+     */
     @Nonnull
     static VectorType fromVectorTypeOrdinal(final int ordinal) {
         return VECTOR_TYPES.get(ordinal);
