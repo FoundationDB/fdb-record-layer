@@ -177,6 +177,16 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
          * After evicting the boundary entry, find the new boundary (the next entry inward).
          * ASC/MIN: new boundary = entry just before old boundary (reverse scan).
          * DESC/MAX: new boundary = entry just after old boundary (forward scan).
+         *
+         * <p>Both branches declare an explicit read+write conflict range over the slice
+         * they actually visited (or the full requested range when the scan returns
+         * nothing). Without these declarations, a concurrent insert that lands in the
+         * gap between the new and old boundary — or anywhere on the window side when
+         * the deleted entry was the last in-window entry and
+         * {@link #reElectFromOverflow}'s {@link #getBestInOverflow} short-circuits —
+         * could slip past the resolver and orphan an entry whose primary key is in
+         * the delegate but whose entries-subspace key sits outside the post-eviction
+         * boundary (or has no boundary at all).</p>
          */
         @Nonnull
         public CompletableFuture<KeyValue> getNewBoundaryAfterEviction(@Nonnull Subspace entriesSubspace,
@@ -187,14 +197,24 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
                 final byte[] begin = entriesSubspace.range().begin;
                 return tr.getRange(begin, oldBoundaryPackedKey, 1, true)
                         .asList()
-                        .thenApply(entries -> entries.isEmpty() ? null : entries.get(0));
+                        .thenApply(entries -> {
+                            final byte[] scannedBegin = entries.isEmpty() ? begin : entries.get(0).getKey();
+                            tr.addWriteConflictRange(scannedBegin, oldBoundaryPackedKey);
+                            tr.addReadConflictRange(scannedBegin, oldBoundaryPackedKey);
+                            return entries.isEmpty() ? null : entries.get(0);
+                        });
             } else {
                 // Window is on the right; new boundary = entry just after old boundary
                 final byte[] begin = ByteArrayUtil.keyAfter(oldBoundaryPackedKey);
                 final byte[] end = entriesSubspace.range().end;
                 return tr.getRange(begin, end, 1, false)
                         .asList()
-                        .thenApply(entries -> entries.isEmpty() ? null : entries.get(0));
+                        .thenApply(entries -> {
+                            final byte[] scannedEnd = entries.isEmpty() ? end : ByteArrayUtil.keyAfter(entries.get(0).getKey());
+                            tr.addWriteConflictRange(begin, scannedEnd);
+                            tr.addReadConflictRange(begin, scannedEnd);
+                            return entries.isEmpty() ? null : entries.get(0);
+                        });
             }
         }
     }

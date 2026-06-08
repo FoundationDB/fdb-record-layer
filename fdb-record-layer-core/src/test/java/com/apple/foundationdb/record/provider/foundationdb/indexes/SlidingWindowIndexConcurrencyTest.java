@@ -387,4 +387,82 @@ class SlidingWindowIndexConcurrencyTest extends FDBRecordStoreTestBase {
         // invariant holds: window-side entries == delegate == {1..5}.
         assertFinalWindow(5, Direction.ASC, 1L, 2L, 3L, 4L, 5L);
     }
+
+    @Test
+    void ascBetterInsertRacingWithLastInWindowDeleteOrphansEntry() throws Exception {
+        // Regression for the symmetric counterpart of
+        // ascOverflowInsertConflictsWithConcurrentBoundaryDelete. The
+        // companion fix in Type.getBestInOverflow already declares explicit
+        // read+write conflict ranges over the slice it scans during
+        // re-election, which covers most of the gap. But reElectFromOverflow
+        // short-circuits when the post-eviction boundary is null — i.e. when
+        // the deleted entry was the *last* in-window entry — so
+        // getBestInOverflow never runs in that path, and the conflict
+        // tracking has to come from getNewBoundaryAfterEviction itself.
+        // Without that, a concurrent better-than-boundary insert could
+        // commit cleanly alongside the delete and end up with rec in the
+        // delegate but boundary = null, breaking the
+        // "window-side == delegate" invariant.
+        //
+        // Initial state (ASC, window = 5, count = 1):
+        //   Window:   rec 1 with relevance 50 — boundary (50, 1).
+        //   No overflow.
+        //
+        // TX A inserts rec(2, 30). count=1 < 5 → not-full branch:
+        //   delegate.update(null, rec2), addReadConflictKey on (30, 2),
+        //   ADD-1 on counter, snapshot-reads boundary (50, 1). (30, 2) is
+        //   better than (50, 1) for ASC, so NO boundary write, NO
+        //   addReadConflictKey on boundaryMetaKey.
+        //
+        // TX B deletes rec 1 (the only in-window entry, also the boundary).
+        // handleDelete clears (50, 1), addReadConflictKey on boundaryMetaKey,
+        // decrements counter, then re-elects via updateBoundaryAfterDelete →
+        // getNewBoundaryAfterEviction's reverse scan returns null (no entries
+        // remain). updateBoundaryAfterDelete clears boundaryMetaKey and
+        // returns null. reElectFromOverflow then sees
+        // currentBoundaryPacked == null and short-circuits — getBestInOverflow
+        // never runs.
+        //
+        // The fix lives inside getNewBoundaryAfterEviction itself: it now
+        // declares explicit read+write conflict ranges over the slice it
+        // scanned (or the full requested range when the scan returned null).
+        // For MIN that's [scannedKey, oldBoundary) — here, [begin,
+        // packed((50, 1))) — which covers A's write at (30, 2). So A's
+        // read-conflict on (30, 2) intersects B's declared write-conflict
+        // slice, and the resolver aborts A.
+        //
+        // Commit order: B then A. B commits cleanly (no prior committed
+        // writes); A's commit sees B's declared write range covering A's
+        // read of (30, 2) and is aborted.
+        try (FDBRecordContext context = openContext()) {
+            openStore(context, 5, Direction.ASC);
+            rec(1, 50);  // single in-window entry, also the boundary
+            commit(context);
+        }
+
+        concurrent(this, ctx -> openStore(ctx, 5, Direction.ASC))
+                .tx("B", () -> deleteRec(1))
+                .tx("A", () -> rec(2, 30))
+                .commitAll()  // B commits first; A is aborted by the resolver
+                .expectCommitted("B")
+                .expectConflictOn("A");
+
+        // After the fix: getNewBoundaryAfterEviction declares an explicit
+        // read+write conflict range over [begin, oldBoundary) for MIN
+        // (covering the full requested range when the scan returns null,
+        // as it does here — the entries subspace is empty in B's view
+        // after clearing (50, 1)). A's read-conflict on (30, 2) sits
+        // inside that range, so the resolver aborts A. B's effects land
+        // alone: rec 1 is gone, the window is empty, and the maintainer
+        // invariant holds (window-side == delegate == ∅).
+        try (FDBRecordContext context = openContext()) {
+            openStore(context, 5, Direction.ASC);
+            assertThat(SlidingWindowTestHelpers.slidingWindowViaValueIndex(recordStore, INDEX_NAME))
+                    .hasSizeOf(0)
+                    .hasEntriesOf()
+                    .underlyingValueIndex()
+                    .isEmpty();
+            commit(context);
+        }
+    }
 }
