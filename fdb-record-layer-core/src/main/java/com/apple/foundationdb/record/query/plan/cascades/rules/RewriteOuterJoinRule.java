@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.cascades.rules;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.query.plan.cascades.AbstractCascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.ExplorationCascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.ExplorationCascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
@@ -65,7 +66,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  * directly into it (sharing its quantifiers and result value) instead of introducing another select box.
  */
 @API(API.Status.EXPERIMENTAL)
-public class RewriteOuterJoinRule extends ExplorationCascadesRule<OuterJoinExpression> {
+public class RewriteOuterJoinRule extends AbstractCascadesRule<OuterJoinExpression> implements ExplorationCascadesRule<OuterJoinExpression> {
 
     @Nonnull
     private static final BindingMatcher<OuterJoinExpression> root =
