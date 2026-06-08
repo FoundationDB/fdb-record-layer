@@ -266,21 +266,8 @@ class SlidingWindowIndexConcurrencyStressTest extends FDBRecordStoreConcurrentTe
             for (int w = 0; w < numWorkers; w++) {
                 final long workerSeed = random.nextLong();
                 final long pkStart = 1L + (long) w * pkSlice;
-                futures.add(executor.submit(() -> {
-                    final Random workerRnd = new Random(workerSeed);
-                    try (FDBDatabaseRunner runner = fdb.newRunner()) {
-                        for (int it = 0; it < iterationsPerWorker; it++) {
-                            final AtomicInteger attempts = new AtomicInteger(0);
-                            runner.run(ctx -> {
-                                if (attempts.getAndIncrement() > 0) {
-                                    totalRetries.incrementAndGet();
-                                }
-                                doRandomMutation(openStore(ctx, metaData), workerRnd, pkStart, pkSlice);
-                                return null;
-                            });
-                        }
-                    }
-                }));
+                futures.add(executor.submit(() ->
+                        runWorker(metaData, workerSeed, pkStart, pkSlice, iterationsPerWorker, totalRetries)));
             }
             for (Future<?> f : futures) {
                 f.get(2, TimeUnit.MINUTES);
@@ -307,6 +294,24 @@ class SlidingWindowIndexConcurrencyStressTest extends FDBRecordStoreConcurrentTe
             
             SlidingWindowTestHelpers.verifySlidingWindowInvariant(
                     store, INDEX_NAME, WINDOW_SIZE, direction, WINDOW_SIZE + numWorkers);
+        }
+    }
+
+    private void runWorker(@Nonnull final RecordMetaData metaData, final long workerSeed,
+                           final long pkStart, final int pkSlice, final int iterationsPerWorker,
+                           @Nonnull final AtomicLong totalRetries) {
+        final Random workerRnd = new Random(workerSeed);
+        try (FDBDatabaseRunner runner = fdb.newRunner()) {
+            for (int it = 0; it < iterationsPerWorker; it++) {
+                final AtomicInteger attempts = new AtomicInteger(0);
+                runner.run(ctx -> {
+                    if (attempts.getAndIncrement() > 0) {
+                        totalRetries.incrementAndGet();
+                    }
+                    doRandomMutation(openStore(ctx, metaData), workerRnd, pkStart, pkSlice);
+                    return null;
+                });
+            }
         }
     }
 
