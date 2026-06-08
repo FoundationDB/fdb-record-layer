@@ -138,12 +138,12 @@ public class RuleTestHelper {
     }
 
     @Nonnull
-    private final CascadesRule<? extends RelationalExpression> rule;
+    private final AbstractCascadesRule<? extends RelationalExpression> rule;
 
     @Nonnull
     private final PlannerPhase plannerPhase;
 
-    public RuleTestHelper(@Nonnull CascadesRule<? extends RelationalExpression> rule, @Nonnull PlannerPhase plannerPhase) {
+    public RuleTestHelper(@Nonnull AbstractCascadesRule<? extends RelationalExpression> rule, @Nonnull PlannerPhase plannerPhase) {
         this.rule = rule;
         this.plannerPhase = plannerPhase;
     }
