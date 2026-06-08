@@ -238,6 +238,9 @@ tasks.withType(Test) { theTask ->
     testClassesDirs = sourceSets.test.output.classesDirs
     classpath = sourceSets.test.runtimeClasspath
 
+    // Raise the default heap size for the forked worker JVMs that run the tests. (Gradle’s default is only 512 MB.)
+    maxHeapSize = '4g'
+
     configureTestTask('allTest', theTask)
     configureTestTask(theTask.name, theTask)
     testLogging {

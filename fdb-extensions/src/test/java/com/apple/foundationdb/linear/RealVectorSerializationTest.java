@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2025 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2026 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,13 +18,8 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.async.hnsw;
+package com.apple.foundationdb.linear;
 
-import com.apple.foundationdb.linear.DoubleRealVector;
-import com.apple.foundationdb.linear.FloatRealVector;
-import com.apple.foundationdb.linear.HalfRealVector;
-import com.apple.foundationdb.linear.RealVector;
-import com.apple.foundationdb.linear.RealVectorTest;
 import com.apple.test.RandomizedTestUtils;
 import com.google.common.collect.ImmutableSet;
 import org.assertj.core.api.Assertions;
@@ -49,8 +44,7 @@ class RealVectorSerializationTest {
     void testSerializationDeserializationHalfVector(final long seed, final int numDimensions) {
         final Random random = new Random(seed);
         final HalfRealVector randomVector = RealVectorTest.createRandomHalfVector(random, numDimensions);
-        final RealVector deserializedVector =
-                StorageAdapter.vectorFromBytes(HNSW.newConfigBuilder().build(numDimensions), randomVector.getRawData());
+        final RealVector deserializedVector = RealVector.fromBytes(randomVector.getRawData());
         Assertions.assertThat(deserializedVector).isInstanceOf(HalfRealVector.class);
         Assertions.assertThat(deserializedVector).isEqualTo(randomVector);
     }
@@ -60,8 +54,7 @@ class RealVectorSerializationTest {
     void testSerializationDeserializationFloatVector(final long seed, final int numDimensions) {
         final Random random = new Random(seed);
         final FloatRealVector randomVector = RealVectorTest.createRandomFloatVector(random, numDimensions);
-        final RealVector deserializedVector =
-                StorageAdapter.vectorFromBytes(HNSW.newConfigBuilder().build(numDimensions), randomVector.getRawData());
+        final RealVector deserializedVector = RealVector.fromBytes(randomVector.getRawData());
         Assertions.assertThat(deserializedVector).isInstanceOf(FloatRealVector.class);
         Assertions.assertThat(deserializedVector).isEqualTo(randomVector);
     }
@@ -72,8 +65,20 @@ class RealVectorSerializationTest {
         final Random random = new Random(seed);
         final DoubleRealVector randomVector = RealVectorTest.createRandomDoubleVector(random, numDimensions);
         final RealVector deserializedVector =
-                StorageAdapter.vectorFromBytes(HNSW.newConfigBuilder().build(numDimensions), randomVector.getRawData());
+                RealVector.fromBytes(randomVector.getRawData());
         Assertions.assertThat(deserializedVector).isInstanceOf(DoubleRealVector.class);
+        Assertions.assertThat(deserializedVector).isEqualTo(randomVector);
+    }
+
+    @ParameterizedTest
+    @MethodSource("randomSeedsWithNumDimensions")
+    void testSerializationDeserializationMutableDoubleVector(final long seed, final int numDimensions) {
+        final Random random = new Random(seed);
+        final MutableDoubleRealVector randomVector =
+                RealVectorTest.createRandomDoubleVector(random, numDimensions).toMutable();
+        final RealVector deserializedVector =
+                MutableDoubleRealVector.fromBytes(randomVector.getRawData());
+        Assertions.assertThat(deserializedVector).isInstanceOf(MutableDoubleRealVector.class);
         Assertions.assertThat(deserializedVector).isEqualTo(randomVector);
     }
 }

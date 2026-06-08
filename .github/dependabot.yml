@@ -21,7 +21,7 @@ updates:
     schedule:
       interval: "weekly"
       day: "thursday"
-  
+
   - package-ecosystem: "pip"
     directory: "/docs/sphinx"
     cooldown:
@@ -29,11 +29,11 @@ updates:
     schedule:
       interval: "weekly"
       day: "thursday"
-  
+
   - package-ecosystem: "github-actions"
     cooldown:
       default-days: 14
     schedule:
       interval: "weekly"
       day: "thursday"
-  
+
