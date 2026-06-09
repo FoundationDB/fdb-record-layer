@@ -860,16 +860,22 @@ public class CascadesPlanner implements QueryPlanner {
 
         private void pushTransformTask(@Nonnull CascadesRule<? extends RelationalExpression> rule) {
             if (rule instanceof ConditionalCascadesRule<?, ?>) {
-                taskStack.push(new ConditionalTransformExpression(getPlannerPhase(), getGroup(), getExpression(),
-                        getRules((ConditionalCascadesRule<?, ?>)rule)));
+                final List<? extends AbstractCascadesRule<? extends RelationalExpression>> enabledRules =
+                        getEnabledRules((ConditionalCascadesRule<?, ?>)rule);
+                if (!enabledRules.isEmpty()) {
+                    taskStack.push(new ConditionalTransformExpression(getPlannerPhase(), getGroup(), getExpression(),
+                            enabledRules));
+                }
             } else {
                 taskStack.push(new TransformExpression(getPlannerPhase(), getGroup(), getExpression(), rule));
             }
         }
-        
+
         @SuppressWarnings("unchecked")
-        private <T extends RelationalExpression> List<AbstractCascadesRule<T>> getRules(ConditionalCascadesRule<?, ?> rule) {
-            return (List<AbstractCascadesRule<T>>)rule.getRules();
+        private <T extends RelationalExpression> List<AbstractCascadesRule<T>> getEnabledRules(ConditionalCascadesRule<?, ?> rule) {
+            return ((List<AbstractCascadesRule<T>>)rule.getRules()).stream()
+                    .filter(configuration::isRuleEnabled)
+                    .collect(ImmutableList.toImmutableList());
         }
 
         private void pushTransformMatchPartition(AbstractCascadesRule<? extends MatchPartition> rule) {
