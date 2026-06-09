@@ -275,48 +275,48 @@ all-tests:
         q0 -> { SCAN([IS my__1adjacency__1list, [LESS_THAN promote(@c5 AS LONG)]])
         | FILTER _.my__parent EQUALS promote(@c7 AS LONG) AS q1 RETURN (q1.me AS _0,
         q1.my__parent AS _1, q0.me AS _2, q0.my__parent AS _3) }
-    task_count: 1455
-    task_total_time_ms: 187
-    transform_count: 321
-    transform_time_ms: 61
+    task_count: 1423
+    task_total_time_ms: 177
+    transform_count: 278
+    transform_time_ms: 46
     transform_yield_count: 117
-    insert_time_ms: 13
+    insert_time_ms: 5
     insert_new_count: 279
     insert_reused_count: 17
 -   query: EXPLAIN select * from "$yay"(5);
     ref: valid-identifiers.yamsql:426
     explain: SCAN([IS foo__2tableE]) | FILTER _.foo.tableE.E3.S1 EQUALS promote(@c5
         AS LONG) | MAP (_.foo.tableE.E1 AS _$x.id)
-    task_count: 358
-    task_total_time_ms: 27
-    transform_count: 88
-    transform_time_ms: 8
+    task_count: 354
+    task_total_time_ms: 21
+    transform_count: 83
+    transform_time_ms: 4
     transform_yield_count: 28
-    insert_time_ms: 1
+    insert_time_ms: 0
     insert_new_count: 47
     insert_reused_count: 2
 -   query: EXPLAIN select * from "__2yay"(6);
     ref: valid-identifiers.yamsql:430
     explain: SCAN([IS foo__2tableE]) | FILTER _.foo.tableE.E3.S1 EQUALS promote(@c5
         AS LONG) | MAP (_.foo.tableE.E1 AS _$y.id)
-    task_count: 358
-    task_total_time_ms: 37
-    transform_count: 88
-    transform_time_ms: 12
+    task_count: 354
+    task_total_time_ms: 21
+    transform_count: 83
+    transform_time_ms: 4
     transform_yield_count: 28
-    insert_time_ms: 1
+    insert_time_ms: 0
     insert_new_count: 47
     insert_reused_count: 2
 -   query: EXPLAIN select * from "नमस्त"(4);
     ref: valid-identifiers.yamsql:434
     explain: SCAN([IS foo__2tableE]) | FILTER _.foo.tableE.E3.S1 EQUALS promote(@c5
         AS LONG) | MAP (_.foo.tableE.E1 AS _$z.id)
-    task_count: 358
+    task_count: 354
     task_total_time_ms: 20
-    transform_count: 88
-    transform_time_ms: 7
+    transform_count: 83
+    transform_time_ms: 4
     transform_yield_count: 28
-    insert_time_ms: 1
+    insert_time_ms: 0
     insert_new_count: 47
     insert_reused_count: 2
 -   query: EXPLAIN select * from "$yay__view";
@@ -648,12 +648,12 @@ unnamed-12:
     ref: valid-identifiers.yamsql:768
     explain: SCAN([IS __T3]) | FILTER _.__T3$COL2 EQUALS promote(@c5 AS LONG) | MAP
         (_.__T3$COL1 AS c.1, _.__T3$COL3 AS c.2)
-    task_count: 358
+    task_count: 354
     task_total_time_ms: 17
-    transform_count: 88
-    transform_time_ms: 8
+    transform_count: 83
+    transform_time_ms: 4
     transform_yield_count: 28
-    insert_time_ms: 1
+    insert_time_ms: 0
     insert_new_count: 47
     insert_reused_count: 2
 -   query: EXPLAIN SELECT * FROM T4
