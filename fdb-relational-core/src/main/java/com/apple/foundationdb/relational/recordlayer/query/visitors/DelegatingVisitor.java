@@ -1680,6 +1680,12 @@ public class DelegatingVisitor<D extends TypedVisitor> implements TypedVisitor {
         return getDelegate().visitFunctionNameBase(ctx);
     }
 
+    @Nonnull
+    @Override
+    public Object visitFunctionNameKeyword(@Nonnull RelationalParser.FunctionNameKeywordContext ctx) {
+        return getDelegate().visitFunctionNameKeyword(ctx);
+    }
+
     @Override
     public Object visit(ParseTree tree) {
         return getDelegate().visit(tree);
