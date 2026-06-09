@@ -43,11 +43,11 @@ import java.util.Locale;
  * </ul>
  */
 public final class RealVectorPrimitives {
-    private static final Logger LOGGER = LoggerFactory.getLogger(RealVectorPrimitives.class);
-    private static final String SIMD_BACKEND_CLASS = "com.apple.foundationdb.linear.simd.SimdBackend";
-    private static final String SIMD_PROPERTY = "fdb.vector.simd";
+    private static final Logger logger = LoggerFactory.getLogger(RealVectorPrimitives.class);
+    private static final String simdBackendClassName = "com.apple.foundationdb.linear.simd.SimdBackend";
+    private static final String simdPropertyName = "fdb.vector.simd";
 
-    private static final Backend BACKEND = selectBackend();
+    private static final Backend backend = selectBackend();
 
     private RealVectorPrimitives() {
         // nothing
@@ -55,33 +55,33 @@ public final class RealVectorPrimitives {
 
     @Nonnull
     static Backend backend() {
-        return BACKEND;
+        return backend;
     }
 
     @Nonnull
     @SuppressWarnings("PMD.UseProperClassLoader")
     private static Backend selectBackend() {
-        final String mode = System.getProperty(SIMD_PROPERTY, "auto").toLowerCase(Locale.getDefault());
+        final String mode = System.getProperty(simdPropertyName, "auto").toLowerCase(Locale.getDefault());
         if ("scalar".equals(mode)) {
-            LOGGER.info("RealVectorPrimitives backend forced to scalar via -D{}", SIMD_PROPERTY);
+            logger.info("RealVectorPrimitives backend forced to scalar via -D{}", simdPropertyName);
             return new ScalarBackend();
         }
         final boolean strict = "simd".equals(mode);
         try {
             final Class<?> cls = Class.forName(
-                    SIMD_BACKEND_CLASS, true, RealVectorPrimitives.class.getClassLoader());
+                    simdBackendClassName, true, RealVectorPrimitives.class.getClassLoader());
             final Backend candidate = (Backend) cls.getDeclaredConstructor().newInstance();
-            if (LOGGER.isInfoEnabled()) {
-                LOGGER.info("RealVectorPrimitives backend = {}", candidate.name());
+            if (logger.isInfoEnabled()) {
+                logger.info("RealVectorPrimitives backend = {}", candidate.name());
             }
             return candidate;
         } catch (final RuntimeException | ReflectiveOperationException e) {
             if (strict) {
                 throw new IllegalStateException(
-                        "SIMD backend required (-D" + SIMD_PROPERTY + "=simd) but not loadable: " + e, e);
+                        "SIMD backend required (-D" + simdPropertyName + "=simd) but not loadable: " + e, e);
             }
-            if (LOGGER.isInfoEnabled()) {
-                LOGGER.info("SIMD vector backend unavailable, using scalar: {}", e.toString());
+            if (logger.isInfoEnabled()) {
+                logger.info("SIMD vector backend unavailable, using scalar: {}", e.toString());
             }
             return new ScalarBackend();
         }
@@ -90,11 +90,11 @@ public final class RealVectorPrimitives {
     @Nonnull
     static double[] normalizeInto(@Nonnull final double[] in, @Nonnull final double[] target) {
         Preconditions.checkArgument(target.length == in.length);
-        final double n = Math.sqrt(BACKEND.l2SquaredNorm(in));
+        final double n = Math.sqrt(backend.l2SquaredNorm(in));
         if (n == 0.0d || !Double.isFinite(n)) {
             throw new IllegalArgumentException("vector has an L2 norm of infinite, not a number, or 0");
         }
-        BACKEND.multiplyInto(in, 1.0d / n, target);
+        backend.multiplyInto(in, 1.0d / n, target);
         return target;
     }
 
@@ -104,7 +104,7 @@ public final class RealVectorPrimitives {
                             @Nonnull final double[] target) {
         Preconditions.checkArgument(a.length == b.length);
         Preconditions.checkArgument(target.length == a.length);
-        BACKEND.addInto(a, b, target);
+        backend.addInto(a, b, target);
         return target;
     }
 
@@ -113,7 +113,7 @@ public final class RealVectorPrimitives {
                             final double scalar,
                             @Nonnull final double[] target) {
         Preconditions.checkArgument(target.length == a.length);
-        BACKEND.addInto(a, scalar, target);
+        backend.addInto(a, scalar, target);
         return target;
     }
 
@@ -123,7 +123,7 @@ public final class RealVectorPrimitives {
                                  @Nonnull final double[] target) {
         Preconditions.checkArgument(a.length == b.length);
         Preconditions.checkArgument(target.length == a.length);
-        BACKEND.subtractInto(a, b, target);
+        backend.subtractInto(a, b, target);
         return target;
     }
 
@@ -132,7 +132,7 @@ public final class RealVectorPrimitives {
                                  final double scalar,
                                  @Nonnull final double[] target) {
         Preconditions.checkArgument(target.length == a.length);
-        BACKEND.subtractInto(a, scalar, target);
+        backend.subtractInto(a, scalar, target);
         return target;
     }
 
@@ -141,21 +141,21 @@ public final class RealVectorPrimitives {
                                  final double scalar,
                                  @Nonnull final double[] target) {
         Preconditions.checkArgument(target.length == a.length);
-        BACKEND.multiplyInto(a, scalar, target);
+        backend.multiplyInto(a, scalar, target);
         return target;
     }
 
     static double dot(@Nonnull final double[] a, @Nonnull final double[] b) {
         Preconditions.checkArgument(a.length == b.length);
-        return BACKEND.dot(a, b);
+        return backend.dot(a, b);
     }
 
     static double l2SquaredNorm(@Nonnull final double[] a) {
-        return BACKEND.l2SquaredNorm(a);
+        return backend.l2SquaredNorm(a);
     }
 
     static double euclideanSquared(@Nonnull final double[] a, @Nonnull final double[] b) {
         Preconditions.checkArgument(a.length == b.length);
-        return BACKEND.euclideanSquared(a, b);
+        return backend.euclideanSquared(a, b);
     }
 }

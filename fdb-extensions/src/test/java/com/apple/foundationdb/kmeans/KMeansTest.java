@@ -65,10 +65,15 @@ class KMeansTest {
     }
 
     /**
-     * Generates two Gaussian blobs in 3D, runs k=2, and checks.
-     * - both clusters non-empty
-     * - centroids near the generating means (within a tolerance)
-     * - objective significantly better than a "bad" baseline (single centroid at global mean, duplicated)
+     * Generates two Gaussian blobs in 3D, runs {@code k=2}, and checks the result.
+     * <p>
+     * Specifically:
+     * <ul>
+     *   <li>both clusters non-empty;</li>
+     *   <li>centroids near the generating means (within a tolerance);</li>
+     *   <li>objective significantly better than a "bad" baseline (single centroid at the global
+     *       mean, duplicated).</li>
+     * </ul>
      */
     @ParameterizedTest
     @RandomSeedSource({0x0fdbL, 0x5ca1eL, 123456L, 78910L, 1123581321345589L})
@@ -153,10 +158,14 @@ class KMeansTest {
     }
 
     /**
-     * Exercises k>2 plus balancing: 3 blobs in 3D, ask for k=3 and enable soft size balancing.
+     * Exercises {@code k > 2} plus balancing: 3 blobs in 3D, ask for {@code k=3} and enable soft
+     * size balancing.
+     * <p>
      * Checks:
-     * - all clusters non-empty
-     * - cluster sizes not wildly imbalanced
+     * <ul>
+     *   <li>all clusters non-empty;</li>
+     *   <li>cluster sizes not wildly imbalanced.</li>
+     * </ul>
      */
     @ParameterizedTest
     @RandomSeedSource({0x0fdbL, 0x5ca1eL, 123456L, 78910L, 1123581321345589L})
@@ -416,7 +425,7 @@ class KMeansTest {
     }
 
     /**
-     * Property-based: sample {@value SIFT_SAMPLE_SIZE} vectors from SIFT-small, run {@code fit}
+     * Property-based: sample {@value #SIFT_SAMPLE_SIZE} vectors from SIFT-small, run {@code fit}
      * across a grid of {@code k} and {@code lambda} values under the Euclidean metric, and
      * verify the structural and (where {@code lambda == 0}) algorithmic invariants of every
      * result.
@@ -452,7 +461,6 @@ class KMeansTest {
      */
     @ParameterizedTest
     @RandomSeedSource({0x0fdbL, 0x5ca1eL})
-    //@EnabledIfSystemProperty(named = "fdb.vector.simd", matches = "scalar")
     void siftSmallCosineInvariants(final long seed) {
         final List<RealVector> raw = ImmutableList.copyOf(
                 KMeansTestHelpers.pickRandomSubset(new Random(seed), siftSmallBase, SIFT_SAMPLE_SIZE));
@@ -716,8 +724,11 @@ class KMeansTest {
     }
 
     /**
-     * Baseline: compute global mean, then pretend k=2 but both centroids are identical at global mean.
-     * Objective = sum squared distances to that mean.
+     * Computes a "bad" baseline objective for the squared-L2 case.
+     * <p>
+     * Computes the global mean, then pretends {@code k=2} but both centroids are identical at
+     * the global mean. The objective is the sum of squared distances from each point to that
+     * mean.
      */
     private static double baselineObjectiveSameCentroidTwice(@Nonnull final List<RealVector> pts) {
         final int d = pts.get(0).getNumDimensions();
@@ -739,9 +750,10 @@ class KMeansTest {
     }
 
     /**
-     * Baseline for cosine / normalized tests:
-     * compute the global mean, normalize it to a unit vector, then pretend both centroids are that same vector.
-     * Objective is computed using the provided estimator.
+     * Computes a "bad" baseline objective for the cosine / normalized case.
+     * <p>
+     * Computes the global mean, normalizes it to a unit vector, then pretends both centroids are
+     * that same vector. The objective is computed using the provided {@link DistanceEstimator}.
      */
     private static double baselineObjectiveSameCentroidTwiceNormalized(@Nonnull final List<RealVector> pts,
                                                                        @Nonnull final DistanceEstimator distanceEstimator) {
