@@ -288,10 +288,10 @@ agg-index-tests:
     explain: 'AISCAN(MV9 [EQUALS promote(@c20 AS LONG), [LESS_THAN promote(@c32 AS
         LONG)]] BY_GROUP REVERSE -> [_0: KEY:[0], _1: KEY:[2], _2: KEY:[1]]) | MAP
         (_._1 AS COL3, _._2 AS M)'
-    task_count: 473
-    task_total_time_ms: 33
-    transform_count: 146
-    transform_time_ms: 22
+    task_count: 472
+    task_total_time_ms: 61
+    transform_count: 145
+    transform_time_ms: 37
     transform_yield_count: 73
     insert_time_ms: 0
     insert_new_count: 36
