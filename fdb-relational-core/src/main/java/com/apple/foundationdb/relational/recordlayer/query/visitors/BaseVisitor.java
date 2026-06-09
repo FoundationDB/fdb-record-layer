@@ -1752,6 +1752,12 @@ public class BaseVisitor extends RelationalParserBaseVisitor<Object> implements 
 
     @Nonnull
     @Override
+    public Object visitFunctionNameKeyword(@Nonnull RelationalParser.FunctionNameKeywordContext ctx) {
+        return visitChildren(ctx);
+    }
+
+    @Nonnull
+    @Override
     public Object visitExecuteContinuationStatement(@Nonnull RelationalParser.ExecuteContinuationStatementContext ctx) {
         return visitChildren(ctx);
     }
