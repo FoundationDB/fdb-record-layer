@@ -159,4 +159,3 @@ nexus = { id = "io.github.gradle-nexus.publish-plugin", version = "2.0.0" }
 protobuf = { id = "com.google.protobuf", version = "0.9.6" }
 shadow = { id = "com.gradleup.shadow", version = "8.3.10" }
 spotbugs = { id = "com.github.spotbugs", version = "6.5.5" }
-versions = { id = "com.github.ben-manes.versions", version = "0.54.0" }
