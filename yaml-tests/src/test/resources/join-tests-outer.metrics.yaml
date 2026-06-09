@@ -34,12 +34,12 @@ left-outer-join:
         | FLATMAP q0 -> { COVERING(dept$name <,> -> [id: KEY:[2], name: KEY:[0]])
         | FILTER q0.dept_id EQUALS _.id | FETCH | ON EMPTY NULL AS q1 RETURN (q0.fname
         AS fname, q1.name AS name) }'
-    task_count: 711
-    task_total_time_ms: 41
-    transform_count: 198
-    transform_time_ms: 21
+    task_count: 710
+    task_total_time_ms: 7
+    transform_count: 197
+    transform_time_ms: 3
     transform_yield_count: 65
-    insert_time_ms: 3
+    insert_time_ms: 0
     insert_new_count: 95
     insert_reused_count: 8
 -   query: EXPLAIN SELECT "e"."fname", "d"."name" FROM "emp" "e" LEFT JOIN "dept"
@@ -49,14 +49,14 @@ left-outer-join:
         KEY:[2], name: KEY:[0]]) | FILTER q0.dept_id EQUALS _.id | FILTER _.name EQUALS
         promote(@c28 AS STRING) | FETCH AS q1 RETURN (q0.fname AS fname, q1.name AS
         name) }'
-    task_count: 949
-    task_total_time_ms: 53
-    transform_count: 237
-    transform_time_ms: 20
-    transform_yield_count: 71
-    insert_time_ms: 4
-    insert_new_count: 130
-    insert_reused_count: 13
+    task_count: 921
+    task_total_time_ms: 12
+    transform_count: 231
+    transform_time_ms: 4
+    transform_yield_count: 68
+    insert_time_ms: 0
+    insert_new_count: 123
+    insert_reused_count: 11
 -   query: EXPLAIN SELECT "e"."fname", "e"."lname" FROM "emp" "e" LEFT JOIN "dept"
         "d" ON "e"."dept_id" = "d"."id" WHERE "d"."id" IS NULL;
     ref: join-tests-outer.yamsql:93
@@ -64,12 +64,12 @@ left-outer-join:
         KEY:[2], name: KEY:[0]]) | FILTER q0.dept_id EQUALS _.id | FETCH | ON EMPTY
         NULL | FILTER _.id IS_NULL AS q1 RETURN (q0.fname AS fname, q0.lname AS lname)
         }'
-    task_count: 710
-    task_total_time_ms: 24
-    transform_count: 182
-    transform_time_ms: 12
+    task_count: 709
+    task_total_time_ms: 7
+    transform_count: 181
+    transform_time_ms: 3
     transform_yield_count: 57
-    insert_time_ms: 1
+    insert_time_ms: 0
     insert_new_count: 90
     insert_reused_count: 9
 -   query: EXPLAIN SELECT "d"."name", "p"."name" FROM "dept" "d" LEFT JOIN "project"
@@ -302,12 +302,12 @@ left-outer-join:
         { COVERING(dept$name <,> -> [id: KEY:[2], name: KEY:[0]]) | FILTER q0.dept_id
         EQUALS _.id | FETCH | ON EMPTY NULL | FILTER _.id IS_NULL AS q1 RETURN (q0.fname
         AS fname) }'
-    task_count: 912
-    task_total_time_ms: 23
-    transform_count: 228
-    transform_time_ms: 12
+    task_count: 911
+    task_total_time_ms: 9
+    transform_count: 227
+    transform_time_ms: 4
     transform_yield_count: 70
-    insert_time_ms: 1
+    insert_time_ms: 0
     insert_new_count: 116
     insert_reused_count: 12
 -   query: EXPLAIN SELECT "e"."fname", COALESCE("d"."name", 'None') FROM "emp" "e"
@@ -331,12 +331,12 @@ left-outer-join:
     explain: 'ISCAN(emp$fname <,>) | FLATMAP q0 -> { COVERING(emp$fname <,> -> [fname:
         KEY:[0], id: KEY:[2]]) | FILTER q0.dept_id EQUALS _.id | FETCH | ON EMPTY
         NULL | FILTER _.id IS_NULL AS q1 RETURN (q0.fname AS fname) }'
-    task_count: 676
-    task_total_time_ms: 16
-    transform_count: 170
-    transform_time_ms: 8
+    task_count: 675
+    task_total_time_ms: 6
+    transform_count: 169
+    transform_time_ms: 3
     transform_yield_count: 49
-    insert_time_ms: 1
+    insert_time_ms: 0
     insert_new_count: 87
     insert_reused_count: 9
 -   query: EXPLAIN SELECT "e"."fname", "d"."name" FROM "emp" "e" JOIN "dept" "d" ON
@@ -375,14 +375,14 @@ left-outer-join:
         q0 -> { COVERING(dept$name <,> -> [id: KEY:[2], name: KEY:[0]]) | FILTER q0.dept_id
         EQUALS _.id | FETCH | ON EMPTY NULL AS q1 RETURN (q0.fname AS fname, q1.name
         AS name) }'
-    task_count: 806
-    task_total_time_ms: 19
-    transform_count: 212
-    transform_time_ms: 9
-    transform_yield_count: 72
-    insert_time_ms: 1
-    insert_new_count: 113
-    insert_reused_count: 10
+    task_count: 778
+    task_total_time_ms: 8
+    transform_count: 206
+    transform_time_ms: 3
+    transform_yield_count: 69
+    insert_time_ms: 0
+    insert_new_count: 106
+    insert_reused_count: 8
 -   query: EXPLAIN SELECT "e"."fname", "d"."name" FROM "emp" "e" LEFT JOIN "dept"
         "d" ON "e"."dept_id" = "d"."id" AND "d"."name" > 'M';
     ref: join-tests-outer.yamsql:317
@@ -405,14 +405,14 @@ left-outer-join:
         KEY:[2], name: KEY:[0]]) | FILTER q0.dept_id EQUALS _.id | FILTER _.name GREATER_THAN
         promote(@c28 AS STRING) | FETCH AS q1 RETURN (q0.fname AS fname, q1.name AS
         name) }'
-    task_count: 949
-    task_total_time_ms: 20
-    transform_count: 237
-    transform_time_ms: 9
-    transform_yield_count: 71
-    insert_time_ms: 2
-    insert_new_count: 130
-    insert_reused_count: 13
+    task_count: 921
+    task_total_time_ms: 10
+    transform_count: 231
+    transform_time_ms: 4
+    transform_yield_count: 68
+    insert_time_ms: 0
+    insert_new_count: 123
+    insert_reused_count: 11
 right-outer-join:
 -   query: EXPLAIN SELECT "e"."fname", "d"."name" FROM "emp" "e" RIGHT JOIN "dept"
         "d" ON "e"."dept_id" = "d"."id";
@@ -462,12 +462,12 @@ right-outer-join:
     explain: SCAN([IS dept, [LESS_THAN promote(@c28 AS LONG)]]) | FLATMAP q0 -> {
         ISCAN(emp$fname <,>) | FILTER _.dept_id EQUALS q0.id | ON EMPTY NULL AS q1
         RETURN (q1.fname AS fname, q0.name AS name) }
-    task_count: 741
-    task_total_time_ms: 32
-    transform_count: 201
-    transform_time_ms: 18
+    task_count: 740
+    task_total_time_ms: 8
+    transform_count: 200
+    transform_time_ms: 4
     transform_yield_count: 67
-    insert_time_ms: 1
+    insert_time_ms: 0
     insert_new_count: 97
     insert_reused_count: 7
 -   query: EXPLAIN SELECT "d"."name" FROM "emp" "e" RIGHT JOIN "dept" "d" ON "e"."dept_id"
@@ -476,12 +476,12 @@ right-outer-join:
     explain: ISCAN(dept$name <,>) | FLATMAP q0 -> { ISCAN(emp$fname <,>) | FILTER
         _.dept_id EQUALS q0.id | ON EMPTY NULL | FILTER _.id IS_NULL AS q1 RETURN
         (q0.name AS name) }
-    task_count: 675
-    task_total_time_ms: 15
-    transform_count: 178
-    transform_time_ms: 7
+    task_count: 674
+    task_total_time_ms: 7
+    transform_count: 177
+    transform_time_ms: 3
     transform_yield_count: 56
-    insert_time_ms: 1
+    insert_time_ms: 0
     insert_new_count: 83
     insert_reused_count: 8
 -   query: EXPLAIN SELECT "d"."name", "p"."name" FROM "project" "p" RIGHT JOIN "dept"

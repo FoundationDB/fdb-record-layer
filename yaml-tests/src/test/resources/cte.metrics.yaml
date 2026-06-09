@@ -26,11 +26,11 @@ cte-tests:
 -   query: EXPLAIN select x from (select col1 as x, col2 as y from t1) as sub where
         y < 3
     ref: cte.yamsql:121
-    explain: 'COVERING(I1 [[LESS_THAN promote(@c21 AS LONG)]] -> [COL1: KEY[1], COL2:
-        KEY[0], ID: KEY[3]]) | MAP (_.COL1 AS X)'
-    task_count: 498
-    task_total_time_ms: 4
-    transform_count: 120
+    explain: 'COVERING(I1 [[LESS_THAN promote(@c20 AS LONG)]] -> [COL1: KEY:[1], COL2:
+        KEY:[0], ID: KEY:[3]]) | MAP (_.COL1 AS X)'
+    task_count: 497
+    task_total_time_ms: 3
+    transform_count: 119
     transform_time_ms: 1
     transform_yield_count: 39
     insert_time_ms: 0
@@ -39,11 +39,11 @@ cte-tests:
 -   query: EXPLAIN with c1(x, y) as (select col1, col2 from t1) select x from c1 where
         y < 3
     ref: cte.yamsql:124
-    explain: 'COVERING(I1 [[LESS_THAN promote(@c24 AS LONG)]] -> [COL1: KEY[1], COL2:
-        KEY[0], ID: KEY[3]]) | MAP (_.COL1 AS X)'
-    task_count: 498
-    task_total_time_ms: 4
-    transform_count: 120
+    explain: 'COVERING(I1 [[LESS_THAN promote(@c23 AS LONG)]] -> [COL1: KEY:[1], COL2:
+        KEY:[0], ID: KEY:[3]]) | MAP (_.COL1 AS X)'
+    task_count: 497
+    task_total_time_ms: 3
+    transform_count: 119
     transform_time_ms: 1
     transform_yield_count: 39
     insert_time_ms: 0
@@ -55,10 +55,10 @@ cte-tests:
     ref: cte.yamsql:138
     explain: 'COVERING(I1 [[GREATER_THAN_OR_EQUALS promote(@c43 AS LONG)]] -> [COL1:
         KEY:[1], COL2: KEY:[0], ID: KEY:[3]]) | MAP (_.COL1 AS DEPT, _.ID AS ID)'
-    task_count: 524
-    task_total_time_ms: 12
-    transform_count: 125
-    transform_time_ms: 4
+    task_count: 523
+    task_total_time_ms: 6
+    transform_count: 124
+    transform_time_ms: 3
     transform_yield_count: 41
     insert_time_ms: 0
     insert_new_count: 60
@@ -70,12 +70,12 @@ cte-tests:
     explain: 'COVERING(I1 [[GREATER_THAN promote(@c42 AS LONG)]] -> [COL1: KEY:[1],
         COL2: KEY:[0], ID: KEY:[3]]) | FILTER _.COL1 EQUALS promote(@c62 AS LONG)
         | MAP (_.COL1 AS DEPT, _.ID AS IDENT)'
-    task_count: 693
-    task_total_time_ms: 16
-    transform_count: 162
-    transform_time_ms: 6
+    task_count: 690
+    task_total_time_ms: 7
+    transform_count: 159
+    transform_time_ms: 3
     transform_yield_count: 53
-    insert_time_ms: 1
+    insert_time_ms: 0
     insert_new_count: 92
     insert_reused_count: 11
 -   query: EXPLAIN with c1(x, y) as (select id, col1 from t1 where col2 < 3), c2(a,

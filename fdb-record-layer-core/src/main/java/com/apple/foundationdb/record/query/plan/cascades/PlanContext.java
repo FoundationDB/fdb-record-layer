@@ -27,9 +27,9 @@ import javax.annotation.Nonnull;
 import java.util.Set;
 
 /**
- * A basic context object that stores all of the metadata about a record store, such as the available indexes.
+ * A basic context object that stores all metadata about a record store, such as the available indexes.
  * It provides access to this information to the planner and the
- * {@link CascadesRule#onMatch(CascadesRuleCall)} method.
+ * {@link AbstractCascadesRule#onMatch(PlannerRuleCall)} method.
  */
 @API(API.Status.EXPERIMENTAL)
 public interface PlanContext {
