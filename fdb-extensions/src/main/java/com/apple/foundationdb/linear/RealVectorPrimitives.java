@@ -75,7 +75,7 @@ public final class RealVectorPrimitives {
                 logger.info("RealVectorPrimitives backend = {}", candidate.name());
             }
             return candidate;
-        } catch (final RuntimeException | ReflectiveOperationException e) {
+        } catch (final RuntimeException | ReflectiveOperationException | NoClassDefFoundError e) {
             if (strict) {
                 throw new IllegalStateException(
                         "SIMD backend required (-D" + simdPropertyName + "=simd) but not loadable: " + e, e);
