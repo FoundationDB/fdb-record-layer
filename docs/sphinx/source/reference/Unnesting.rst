@@ -58,9 +58,11 @@ The element alias is optional when ``AT`` is used. In the rare case where only t
 
     SELECT table.*, ordinal FROM table, table.array_column AT ordinal
 
-The ``AT`` clause is only valid on an array-typed source. Applying it to a base table, view, or CTE raises SQLSTATE 42809.
+The ``AT`` clause is only valid on an array-typed source. Applying it to a base table, view, or CTE raises a ``WRONG_OBJECT_TYPE`` error (SQLSTATE 42809).
 
-Sorting on the ``AT`` ordinal is not supported.
+.. note::
+
+   Sorting on the ``AT`` ordinal is not supported.
 
 Examples
 ========
@@ -210,6 +212,24 @@ If you only care about the positions, omit the element alias:
 .. code-block:: sql
 
     SELECT order_id, at FROM orders, orders.items AT at
+
+.. list-table::
+    :header-rows: 1
+
+    * - :sql:`order_id`
+      - :sql:`at`
+    * - :json:`1`
+      - :json:`1`
+    * - :json:`1`
+      - :json:`2`
+    * - :json:`2`
+      - :json:`1`
+    * - :json:`3`
+      - :json:`1`
+    * - :json:`3`
+      - :json:`2`
+    * - :json:`3`
+      - :json:`3`
 
 This does not bind any alias to the elements themselves; only the ``at`` ordinal is in scope.
 

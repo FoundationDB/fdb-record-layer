@@ -8,8 +8,8 @@ Defining indexes
 ################
 
 It is possible to define indexes in the Relational Layer as materialized views of :doc:`SELECT <sql_commands/DQL/SELECT>`
-statements. To be used in an index, the query must able to be incrementally updated. That is, when a row on an indexed
-table is inserted, updated, or deleted, it must be possible to construct a finite set up modifications to the index
+statements. To be used in an index, the query must be able to be incrementally updated. That is, when a row on an indexed
+table is inserted, updated, or deleted, it must be possible to construct a finite set of modifications to the index
 structure to reflect the new query results.
 
 In practice, that means that indexes are translated into a Record Layer key expression and index type. Indexes currently
@@ -211,19 +211,17 @@ To optimize queries involving restaurant ratings, it may make sense to have an i
 
 .. code-block:: sql
 
-    CREATE INDEX mv AS
+    CREATE INDEX idx_review_rating AS
         SELECT review.rating FROM restaurant AS RR, RR.reviews AS review;
 
 As a (less terse) alternative, the same index can also be written with an explicit subquery as follows:
 
 .. code-block:: sql
 
-    CREATE INDEX mv AS
+    CREATE INDEX idx_review_rating AS
         SELECT SQ.rating FROM restaurant AS RR, (SELECT rating FROM RR.reviews) SQ;
 
 Both forms produce the same underlying key expression, ``field("reviews", FAN_OUT).nest(field("rating"))``. For each row of ``restaurant``, the index emits one entry per element of ``reviews``, keyed on the ``rating`` of the element. The general translation rule is described under :ref:`Implementation details <implementation_details>` below.
-
-Note that the planner currently leverages indexes of this form only in a limited way; broader support is planned for the future.
 
 Partitioning for Vector Indexes
 ################################
@@ -251,7 +249,7 @@ the INDEX AS SELECT or INDEX ON syntax.
 Index rules
 ###########
 
-Defining a index must adhere to these rules:
+Defining an index must adhere to these rules:
 
 * The index body must involve only a single base table. Unnestings may be chained, however: an unnesting of a
   nested repeated field may itself contain a further unnesting of another nested repeated field within it.
@@ -293,4 +291,4 @@ See Also
 ########
 
 * :doc:`CREATE INDEX <sql_commands/DDL/CREATE/INDEX>` - Complete CREATE INDEX command reference with detailed syntax and examples
-* :doc:`Unnesting` - PartiQL array unnesting (the construct used in the body of nested-field indexes)
+* :doc:`Unnesting` - Array unnesting (used in the body of nested-field indexes)

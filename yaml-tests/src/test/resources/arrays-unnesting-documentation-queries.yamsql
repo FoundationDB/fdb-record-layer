@@ -145,4 +145,16 @@ test_block:
       - unorderedResult: [
           {order_id: 1, sku: 'A2', matched_price: 19.99},
           {order_id: 3, sku: 'C1', matched_price: 29.99}]
+    -
+      # Claim: "Applying AT to a base table raises SQLSTATE 42809."
+      - query: SELECT order_id, at FROM orders AT at
+      - error: WRONG_OBJECT_TYPE
+    -
+      # Claim: "Applying AT to a CTE raises SQLSTATE 42809."
+      - query: WITH cte AS (SELECT order_id FROM orders) SELECT order_id FROM cte AT at
+      - error: WRONG_OBJECT_TYPE
+    -
+      # Claim: `SELECT tag.* FROM orders, orders.tags AS tag` is invalid because the element type is a scalar.
+      - query: SELECT tag.* FROM orders, orders.tags AS tag
+      - error: INVALID_COLUMN_REFERENCE
 ...
