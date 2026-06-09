@@ -4040,20 +4040,6 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     }
 
     /**
-     * Add a read conflict key for all records.
-     */
-    @SuppressWarnings("PMD.CloseResource")
-    private void addRecordsReadConflict() {
-        if (recordsReadConflict) {
-            return;
-        }
-        recordsReadConflict = true;
-        Transaction tr = ensureContextActive();
-        byte[] recordKey = getSubspace().pack(Tuple.from(RECORD_KEY));
-        tr.addReadConflictRange(recordKey, ByteArrayUtil.strinc(recordKey));
-    }
-
-    /**
      * Add a read conflict key so that the transaction will fail if the index state has changed.
      * @param indexName the index to conflict on, if it's state changes
      */
@@ -4753,10 +4739,10 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             removeFormerIndex(formerIndex);
         }
 
-        return checkRebuildIndexes(userVersionChecker, info, oldFormatVersion, metaData, oldMetaDataVersion, rebuildRecordCounts, work);
+        return checkRebuildIndexes(userVersionChecker, oldFormatVersion, metaData, oldMetaDataVersion, rebuildRecordCounts, work);
     }
 
-    private CompletableFuture<Void> checkRebuildIndexes(@Nullable UserVersionChecker userVersionChecker, @Nonnull RecordMetaDataProto.DataStoreInfo.Builder info,
+    private CompletableFuture<Void> checkRebuildIndexes(@Nullable UserVersionChecker userVersionChecker,
                                                         int oldFormatVersion, @Nonnull RecordMetaData metaData, int oldMetaDataVersion,
                                                         boolean rebuildRecordCounts, List<CompletableFuture<Void>> work) {
         final boolean newStore = oldFormatVersion == 0;
