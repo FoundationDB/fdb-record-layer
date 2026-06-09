@@ -96,7 +96,7 @@ class PartitionEvaluatorTest {
         assertThat(result.relativeSseGain()).isGreaterThan(0.0d);
     }
 
-    // ---------------- 1 → 2: split on a single blob is rejected as KEEP_CURRENT ----------------
+    // ---------------- 1 → 2: split on a single blob is rejected under a strict SSE-gain gate ----------------
 
     @ParameterizedTest
     @RandomSeedSource({0x0fdbL, 0x5ca1eL})
@@ -105,16 +105,21 @@ class PartitionEvaluatorTest {
         final List<RealVector> vectors = oneBlob(rnd, 600);
 
         final PartitionEvaluator.Partition<RealVector> current = singleClusterPartition(vectors);
-        // Candidate: pick two arbitrary points and assign by nearest. The split won't materially
-        // reduce SSE because the data is already a tight cluster.
+        // Candidate: pick two arbitrary points and assign by nearest. For a 3D isotropic
+        // Gaussian, even an optimal 2-means split caps the relative SSE reduction at
+        // (2/pi)/3 ~= 21%, and arbitrary-sample centroids do worse. With minRelativeSseGain
+        // raised to 0.50, no split of a single blob can cross the gate, so the candidate is
+        // rejected as KEEP_CURRENT regardless of seed — that's the property this test pins.
         final List<RealVector> twoCentroids = ImmutableList.of(
                 vectors.get(0), vectors.get(vectors.size() - 1));
         final PartitionEvaluator.Partition<RealVector> candidate =
                 nearestPartition(twoCentroids, vectors, EUCLIDEAN);
 
+        final PartitionEvaluator.Parameters strictSse = withMinRelativeSseGain(
+                new PartitionEvaluator.Parameters(EUCLIDEAN), 0.50d);
         final PartitionEvaluator.EvaluationResult result =
                 PartitionEvaluator.evaluate(vectors, current, vectors, candidate,
-                        Lens.identity(), new PartitionEvaluator.Parameters(EUCLIDEAN));
+                        Lens.identity(), strictSse);
 
         logger.info("1->2 single blob: {} reason='{}'", result.decision(), result.reason());
         assertThat(result.decision()).isNotEqualTo(PartitionEvaluator.Decision.ACCEPT_CANDIDATE);
@@ -688,6 +693,15 @@ class PartitionEvaluatorTest {
             }
         }
         return n;
+    }
+
+    @Nonnull
+    private static PartitionEvaluator.Parameters withMinRelativeSseGain(
+            @Nonnull final PartitionEvaluator.Parameters p, final double v) {
+        return new PartitionEvaluator.Parameters(p.distanceEstimator(), v, p.minSeparation(),
+                p.maxLowMarginRate(), p.minSmallestFrac(), p.maxLargestFrac(), p.lowMarginThreshold(),
+                p.alphaSseGain(), p.betaSeparationGain(), p.gammaImbalancePenalty(),
+                p.deltaLowMarginPenalty(), p.minScoreGain());
     }
 
     @Nonnull
