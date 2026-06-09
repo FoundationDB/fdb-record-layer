@@ -608,7 +608,8 @@ class CommandsTest {
         }
 
         @Override
-        public void execute() {
+        public boolean execute() {
+            return false;
         }
 
         @Override
