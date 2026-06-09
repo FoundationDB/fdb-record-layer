@@ -4771,34 +4771,6 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             AtomicLong recordsSizeRef = new AtomicLong(-1);
             final Supplier<CompletableFuture<Long>> lazyRecordsSize = getAndRememberFutureLong(recordsSizeRef,
                     () -> getRecordSizeForRebuildIndexes(singleRecordTypeWithPrefixKey));
-            if (singleRecordTypeWithPrefixKey == null
-                    && formatVersion.isAtLeast(FormatVersion.SAVE_UNSPLIT_WITH_SUFFIX)
-                    && omitUnsplitRecordSuffix) {
-                // Check to see if the unsplit format can be upgraded on an empty store.
-                // Only works if singleRecordTypeWithPrefixKey is null as otherwise, the recordCount will not contain
-                // all records
-                work.add(lazyRecordCount.get().thenAccept(recordCount -> {
-                    if (recordCount == 0) {
-                        if (newStore ? LOGGER.isDebugEnabled() : LOGGER.isInfoEnabled()) {
-                            KeyValueLogMessage msg = KeyValueLogMessage.build("upgrading unsplit format on empty store",
-                                    LogMessageKeys.NEW_FORMAT_VERSION, formatVersion,
-                                    subspaceProvider.logKey(), subspaceProvider.toString(context));
-                            if (newStore) {
-                                if (LOGGER.isDebugEnabled()) {
-                                    LOGGER.debug(msg.toString());
-                                }
-                            } else {
-                                if (LOGGER.isInfoEnabled()) {
-                                    LOGGER.info(msg.toString());
-                                }
-                            }
-                        }
-                        omitUnsplitRecordSuffix = !formatVersion.isAtLeast(FormatVersion.SAVE_UNSPLIT_WITH_SUFFIX);
-                        info.clearOmitUnsplitRecordSuffix();
-                        addRecordsReadConflict(); // We used snapshot to determine emptiness, and are now acting on it.
-                    }
-                }));
-            }
 
             Map<Index, CompletableFuture<IndexState>> newStates = getStatesForRebuildIndexes(userVersionChecker, indexes, lazyRecordCount, lazyRecordsSize, newStore, oldMetaDataVersion, oldFormatVersion);
             return rebuildIndexes(indexes, newStates, work, newStore ? RebuildIndexReason.NEW_STORE : RebuildIndexReason.FEW_RECORDS, oldMetaDataVersion).thenRun(() -> {
