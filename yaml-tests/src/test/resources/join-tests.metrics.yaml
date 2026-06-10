@@ -258,25 +258,25 @@ unnamed-2:
     ref: join-tests.yamsql:449
     explain: SCAN([IS JA]) | FLATMAP q0 -> { SCAN([IS JB]) | FILTER null AS q1 RETURN
         (q0.C1 AS C1, q0.C2 AS C2, q1.C3 AS C3) }
-    task_count: 466
-    task_total_time_ms: 47
-    transform_count: 149
-    transform_time_ms: 14
-    transform_yield_count: 38
+    task_count: 447
+    task_total_time_ms: 43
+    transform_count: 143
+    transform_time_ms: 13
+    transform_yield_count: 36
     insert_time_ms: 0
-    insert_new_count: 54
+    insert_new_count: 49
     insert_reused_count: 6
 -   query: EXPLAIN select ja.c1, ja.c2, jb.c3 from ja, jb where cast(null as boolean);
     ref: join-tests.yamsql:455
     explain: SCAN([IS JA]) | FLATMAP q0 -> { SCAN([IS JB]) | FILTER null AS q1 RETURN
         (q0.C1 AS C1, q0.C2 AS C2, q1.C3 AS C3) }
-    task_count: 466
-    task_total_time_ms: 43
-    transform_count: 149
-    transform_time_ms: 13
-    transform_yield_count: 38
-    insert_time_ms: 0
-    insert_new_count: 54
+    task_count: 447
+    task_total_time_ms: 51
+    transform_count: 143
+    transform_time_ms: 16
+    transform_yield_count: 36
+    insert_time_ms: 1
+    insert_new_count: 49
     insert_reused_count: 6
 -   query: EXPLAIN select ja.c1, ja.c2, jb.c3 from ja inner join jb on null;
     ref: join-tests.yamsql:461
