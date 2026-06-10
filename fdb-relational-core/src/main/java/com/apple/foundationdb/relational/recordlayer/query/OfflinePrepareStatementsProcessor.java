@@ -39,6 +39,7 @@ import javax.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Pre-warms the shared {@link RelationalPlanCache} at engine startup by planning every
@@ -78,6 +79,7 @@ public final class OfflinePrepareStatementsProcessor {
     }
 
     public void run() {
+        final long startNanos = System.nanoTime();
         final List<RecordLayerSchemaTemplate> templates;
         try {
             templates = getSchemaTemplates();
@@ -85,14 +87,23 @@ public final class OfflinePrepareStatementsProcessor {
             logger.error(KeyValueLogMessage.of("OfflinePrepareStatementsProcessor failed to read catalog"), e);
             return;
         }
+        int statementsPrepared = 0;
+        int templatesFailed = 0;
         for (final RecordLayerSchemaTemplate template : templates) {
             try {
                 prepareStatementsForSchemaTemplate(template);
+                statementsPrepared += template.getPrepareStatements().size();
             } catch (RelationalException e) {
+                templatesFailed++;
                 logger.error(KeyValueLogMessage.of("OfflinePrepareStatementsProcessor failed to process schema template",
                         "schemaTemplate", template.getName() + ":" + template.getVersion()), e);
             }
         }
+        logger.info(KeyValueLogMessage.of("OfflinePrepareStatementsProcessor finished",
+                "templates", templates.size(),
+                "templatesFailed", templatesFailed,
+                "statementsPrepared", statementsPrepared,
+                "durationMicros", TimeUnit.NANOSECONDS.toMicros(System.nanoTime() - startNanos)));
     }
 
     @Nonnull
