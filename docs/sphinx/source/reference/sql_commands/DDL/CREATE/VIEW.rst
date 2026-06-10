@@ -4,9 +4,7 @@ CREATE VIEW
 
 .. _create-view:
 
-Clause in a :ref:`schema template definition <create-schema-template>` to create a non-materialized view.
-A view is a virtual table whose contents are defined by a SQL query. Views do not store data themselves;
-each query against a view executes the underlying query against the base tables.
+Clause in a :ref:`schema template definition <create-schema-template>` to create a non-materialized view. A view is a virtual table whose contents are defined by a SQL query. Views do not store data themselves; each query against a view executes the underlying query against the base tables. Views are read-only and cannot be the target of ``INSERT``, ``UPDATE``, or ``DELETE`` statements. ``CREATE VIEW`` is a clause within a schema template and cannot be a standalone statement. View names must not collide with table, type, or function names in the same schema template.
 
 Syntax
 ======
@@ -18,13 +16,10 @@ Parameters
 ==========
 
 ``viewName``
-    The name of the view. Must be unique within the schema template — cannot collide with table, type,
-    or other view names.
+    The name of the view. Must be unique within the schema template — cannot collide with table, type, or other view names.
 
 ``query``
-    The SQL ``SELECT`` statement that defines the view. The query can reference tables, other views,
-    and functions defined in the same schema template, including those defined after the view
-    (forward references are allowed).
+    The SQL ``SELECT`` statement that defines the view. The query can reference tables, other views, and functions defined in the same schema template.
 
 Examples
 ========
@@ -32,7 +27,7 @@ Examples
 Setup
 -----
 
-For these examples, assume the following schema template:
+``CREATE VIEW`` must appear inside a :ref:`schema template <create-schema-template>` definition and cannot be a standalone statement. For the examples on this page, assume the following schema template:
 
 .. code-block:: sql
 
@@ -107,7 +102,7 @@ Views can reference other views. The following creates a second view on top of t
 View with JOIN
 --------------
 
-Views support joins, including self-joins:
+Views support joins, including self-joins (see :ref:`inner_join` for join syntax):
 
 .. code-block:: sql
 
@@ -119,7 +114,7 @@ Views support joins, including self-joins:
 View with CTE
 -------------
 
-Views can use Common Table Expressions (CTEs):
+Views can use Common Table Expressions (see :doc:`WITH` for CTE syntax):
 
 .. code-block:: sql
 
@@ -131,56 +126,15 @@ Views can use Common Table Expressions (CTEs):
         )
         SELECT * FROM filtered
 
-Forward References
-------------------
-
-A view may reference tables or types that are defined later in the same schema template:
-
-.. code-block:: sql
-
-    CREATE SCHEMA TEMPLATE my_template
-        CREATE VIEW v AS SELECT * FROM orders
-        CREATE TABLE orders (id BIGINT, amount BIGINT, PRIMARY KEY(id))
-
 Indexes on Views
 ----------------
 
-Indexes can be defined on views using the standard ``CREATE INDEX`` syntax.
-This is particularly useful for pre-computing joins or array unnesting:
-
-.. code-block:: sql
-
-    CREATE TABLE products (
-        id      BIGINT,
-        tags    STRING ARRAY,
-        PRIMARY KEY(id))
-
-    CREATE VIEW product_tags AS
-        SELECT id, tag FROM products AS p, p.tags AS tag
-
-    CREATE INDEX idx_tags ON product_tags ORDER BY tag
-
-See :doc:`INDEX` for full index syntax.
-
-Limitations
-===========
-
-* **Non-materialized only**: Views are virtual — no data is stored. Each query re-executes the
-  underlying query.
-* **Read-only**: Views cannot be the target of ``INSERT``, ``UPDATE``, or ``DELETE`` statements.
-* **No** :sql:`DROP VIEW`: Views are defined as part of a schema template. To remove a view,
-  drop and recreate the schema template.
-* **No prepared parameters**: View definitions cannot contain ``?`` placeholders.
-* **Name uniqueness**: View names must not collide with table, type, or function names within
-  the same schema template.
-* **Functions referencing views**: A function defined in the same schema template cannot
-  reference a view in its body if that view is also referenced in another view via a CTE
-  (see `issue #3493 <https://github.com/FoundationDB/fdb-record-layer/issues/3493>`_).
+Indexes can be defined on views using the standard ``CREATE INDEX`` syntax. For a self-contained example including array unnesting, see :ref:`index-on-syntax` in :doc:`INDEX`.
 
 See Also
 ========
 
 * :ref:`create-schema-template` — Schema templates and their clauses
 * :doc:`TABLE` — Defining tables within a schema template
-* :doc:`INDEX` — Defining indexes, including indexes on views
+* :doc:`INDEX` — Defining indexes, including :ref:`index-on-syntax` for indexes on views
 * :doc:`FUNCTION` — User-defined functions
