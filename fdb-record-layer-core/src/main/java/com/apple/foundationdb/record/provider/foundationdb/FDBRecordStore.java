@@ -310,8 +310,6 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     @Nonnull
     private final FDBPreloadRecordCache preloadCache;
 
-    private boolean recordsReadConflict;
-
     private boolean storeStateReadConflict;
     private IndexDeferredMaintenanceControl indexDeferredMaintenanceControl;
 
