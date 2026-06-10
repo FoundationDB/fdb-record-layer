@@ -26,7 +26,6 @@ import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordStoreState;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
-import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerFactoryRegistryImpl;
