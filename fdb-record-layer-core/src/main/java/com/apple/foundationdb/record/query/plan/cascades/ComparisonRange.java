@@ -466,7 +466,7 @@ public class ComparisonRange implements PlanHashable, Correlated<ComparisonRange
      */
     public static class MergeResult {
         @Nonnull
-        private static final MergeResult EMPTY = MergeResult.of(ComparisonRange.EMPTY, ImmutableList.of());
+        private static final MergeResult EMPTY = new MergeResult(ComparisonRange.EMPTY, ImmutableList.of());
 
         @Nonnull
         private final ComparisonRange comparisonRange;
@@ -525,6 +525,9 @@ public class ComparisonRange implements PlanHashable, Correlated<ComparisonRange
         @Nonnull
         public static MergeResult of(@Nonnull final ComparisonRange comparisonRange,
                                      @Nonnull final List<Comparisons.Comparison> residualComparisons) {
+            if (comparisonRange.isEmpty() && residualComparisons.isEmpty()) {
+                return empty();
+            }
             return new MergeResult(comparisonRange, residualComparisons);
         }
     }

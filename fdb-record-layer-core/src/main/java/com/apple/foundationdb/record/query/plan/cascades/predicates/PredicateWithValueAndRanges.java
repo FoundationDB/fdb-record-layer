@@ -278,7 +278,6 @@ public class PredicateWithValueAndRanges extends AbstractQueryPredicate implemen
                                                           @Nonnull final Set<RangeConstraints> ranges) {
         return new PredicateWithValueAndRanges(value, ranges);
     }
-
     /**
      * Checks whether this predicate implies a {@code candidatePredicate}, if so, we return a {@link PredicateMapping}
      * reflecting the implication itself in addition to a context needed to effectively implement the mapping (i.e. the
@@ -340,45 +339,8 @@ public class PredicateWithValueAndRanges extends AbstractQueryPredicate implemen
 
             // candidate has no ranges (i.e. it is not filtered).
             if (candidatePredicateWithValuesAndRanges.getRanges().isEmpty()) {
-                if (candidatePredicateWithValuesAndRanges instanceof WithAlias) {
-                    final var alias = ((WithAlias)candidatePredicateWithValuesAndRanges).getParameterAlias();
-                    final var predicateMappingBuilder =
-                            PredicateMapping.regularMappingBuilder(originalQueryPredicate, this, candidatePredicate)
-                                    .setParameterAlias(alias)
-                                    .setConstraint(constraint);
-
-                    Verify.verify(isSargable() == compensatedQueryPredicate.isSargable());
-                    final QueryPredicate residualPredicate;
-                    if (compensatedQueryPredicate.isSargable()) {
-                        predicateMappingBuilder.setParameterAlias(alias);
-                        final ComparisonRange.MergeResult mergeResult = Iterables.getOnlyElement(compensatedQueryPredicate.getRanges()).asMergedComparisonRange();
-                        predicateMappingBuilder.setComparisonRange(mergeResult.getComparisonRange());
-                        if (mergeResult.getResidualComparisons().isEmpty()) {
-                            residualPredicate = null;
-                        } else {
-                            final RangeConstraints.Builder newRangeConstraintsBuilder = RangeConstraints.newBuilder();
-                            boolean allComparisonsAdded = mergeResult.getResidualComparisons().stream().allMatch(newRangeConstraintsBuilder::addComparisonMaybe);
-                            final Optional<RangeConstraints> newRangeConstraints = newRangeConstraintsBuilder.build();
-                            if (allComparisonsAdded && newRangeConstraints.isPresent()) {
-                                residualPredicate = new PredicateWithValueAndRanges(((PredicateWithValueAndRanges)candidatePredicate).getValue(), ImmutableSet.of(newRangeConstraints.get()));
-                            } else {
-                                residualPredicate = compensatedQueryPredicate;
-                            }
-                        }
-                    } else {
-                        residualPredicate = null;
-                    }
-                    predicateMappingBuilder.setPredicateCompensation(((partialMatch, boundParameterPrefixMap, pullUp) -> {
-                        if (boundParameterPrefixMap.containsKey(alias)) {
-                            if (residualPredicate == null) {
-                                return PredicateCompensationFunction.noCompensationNeeded();
-                            } else {
-                                return residualPredicate.computeCompensationFunction(partialMatch, originalQueryPredicate, boundParameterPrefixMap, pullUp);
-                            }
-                        }
-                        return computeCompensationFunctionForLeaf(pullUp);
-                    }));
-                    return Optional.of(predicateMappingBuilder.build());
+                if (candidatePredicateWithValuesAndRanges instanceof Placeholder) {
+                    return Optional.of(mapPredicateToPlaceholder(originalQueryPredicate, compensatedQueryPredicate, (Placeholder) candidatePredicateWithValuesAndRanges, constraint));
                 } else {
                     return Optional.empty();
                 }
@@ -389,43 +351,9 @@ public class PredicateWithValueAndRanges extends AbstractQueryPredicate implemen
                     .stream()
                     .allMatch(range -> candidateRanges.stream()
                             .anyMatch(candidateRange -> candidateRange.encloses(range, evaluationContext)))) {
-                if (candidatePredicateWithValuesAndRanges instanceof WithAlias) {
-                    final var alias = ((WithAlias)candidatePredicateWithValuesAndRanges).getParameterAlias();
-                    final var predicateMappingBuilder =
-                            PredicateMapping.regularMappingBuilder(originalQueryPredicate, this, candidatePredicate)
-                                    .setConstraint(constraint.compose(captureConstraint(candidatePredicateWithValuesAndRanges)));
-                    Verify.verify(isSargable() == compensatedQueryPredicate.isSargable());
-                    final QueryPredicate residualPredicate;
-                    if (compensatedQueryPredicate.isSargable()) {
-                        predicateMappingBuilder.setParameterAlias(alias);
-                        final ComparisonRange.MergeResult mergeResult = Iterables.getOnlyElement(compensatedQueryPredicate.getRanges()).asMergedComparisonRange();
-                        predicateMappingBuilder.setComparisonRange(mergeResult.getComparisonRange());
-                        if (mergeResult.getResidualComparisons().isEmpty()) {
-                            residualPredicate = null;
-                        } else {
-                            final RangeConstraints.Builder newRangeConstraintsBuilder = RangeConstraints.newBuilder();
-                            boolean allComparisonsAdded = mergeResult.getResidualComparisons().stream().allMatch(newRangeConstraintsBuilder::addComparisonMaybe);
-                            final Optional<RangeConstraints> newRangeConstraints = newRangeConstraintsBuilder.build();
-                            if (allComparisonsAdded && newRangeConstraints.isPresent()) {
-                                residualPredicate = new PredicateWithValueAndRanges(((PredicateWithValueAndRanges)candidatePredicate).getValue(), ImmutableSet.of(newRangeConstraints.get()));
-                            } else {
-                                residualPredicate = compensatedQueryPredicate;
-                            }
-                        }
-                    } else {
-                        residualPredicate = null;
-                    }
-                    predicateMappingBuilder.setPredicateCompensation(((partialMatch, boundParameterPrefixMap, pullUp) -> {
-                        if (boundParameterPrefixMap.containsKey(alias)) {
-                            if (residualPredicate == null) {
-                                return PredicateCompensationFunction.noCompensationNeeded();
-                            } else {
-                                return residualPredicate.computeCompensationFunction(partialMatch, compensatedQueryPredicate, boundParameterPrefixMap, pullUp);
-                            }
-                        }
-                        return computeCompensationFunctionForLeaf(pullUp);
-                    }));
-                    return Optional.of(predicateMappingBuilder.build());
+                if (candidatePredicateWithValuesAndRanges instanceof Placeholder) {
+                    return Optional.of(mapPredicateToPlaceholder(originalQueryPredicate, compensatedQueryPredicate, (Placeholder) candidatePredicateWithValuesAndRanges,
+                            constraint.compose(captureConstraint(candidatePredicateWithValuesAndRanges))));
                 } else {
                     return Optional.of(
                             PredicateMapping.regularMappingBuilder(originalQueryPredicate, this, candidatePredicate)
@@ -477,6 +405,71 @@ public class PredicateWithValueAndRanges extends AbstractQueryPredicate implemen
                 PredicateMapping.regularMappingBuilder(originalQueryPredicate, this, candidatePredicate)
                         .setConstraint(semanticEquals.getConstraint())
                         .build());
+    }
+
+    @Nonnull
+    private PredicateMapping mapPredicateToPlaceholder(@Nonnull final QueryPredicate originalQueryPredicate,
+                                                       @Nonnull final PredicateWithValueAndRanges compensatedQueryPredicate,
+                                                       @Nonnull final Placeholder candidatePredicate,
+                                                       @Nonnull final QueryPlanConstraint constraint) {
+        final var alias = candidatePredicate.getParameterAlias();
+        final var predicateMappingBuilder =
+                PredicateMapping.regularMappingBuilder(originalQueryPredicate, this, candidatePredicate)
+                        .setParameterAlias(alias)
+                        .setConstraint(constraint);
+        Verify.verify(isSargable() == compensatedQueryPredicate.isSargable());
+
+        final QueryPredicate residualPredicate = extractComparisonRangeAndResidualPredicate(predicateMappingBuilder, compensatedQueryPredicate);
+
+        predicateMappingBuilder.setPredicateCompensation(((partialMatch, boundParameterPrefixMap, pullUp) -> {
+            if (boundParameterPrefixMap.containsKey(alias)) {
+                if (residualPredicate == null) {
+                    return PredicateCompensationFunction.noCompensationNeeded();
+                } else {
+                    return residualPredicate.computeCompensationFunction(partialMatch, originalQueryPredicate, boundParameterPrefixMap, pullUp);
+                }
+            }
+            return computeCompensationFunctionForLeaf(pullUp);
+        }));
+        return predicateMappingBuilder.build();
+    }
+
+    /**
+     * Update the predicate mapping with the predicate's comparison range if it is sargable. If it is
+     * sargable, it will also return a residual predicate that was not pushed down. For example, if the
+     * {@code compensatedQueryPredicate} contains two different ranges that cannot be merged into one, then
+     * one range might get pushed onto the {@link Placeholder} whereas one will not.
+     *
+     * @param predicateMappingBuilder an in-progress predicate mapping builder that the comparison range will get written into
+     * @param compensatedQueryPredicate a predicate from the original query
+     * @return a residual predicate or {@code null} if no residual remains
+     */
+    @Nullable
+    private QueryPredicate extractComparisonRangeAndResidualPredicate(@Nonnull PredicateMapping.Builder predicateMappingBuilder,
+                                                                      @Nonnull PredicateWithValueAndRanges compensatedQueryPredicate) {
+        if (!compensatedQueryPredicate.isSargable()) {
+            // This predicate cannot be pushed into the scan. Return the entire original predicate as a "residual"
+            return compensatedQueryPredicate;
+        }
+        final ComparisonRange.MergeResult mergeResult = Iterables.getOnlyElement(compensatedQueryPredicate.getRanges()).asMergedComparisonRange();
+        predicateMappingBuilder.setComparisonRange(mergeResult.getComparisonRange());
+        if (mergeResult.getResidualComparisons().isEmpty()) {
+            // Nothing to compensate. Return null to indicate no compensation needed
+            return null;
+        }
+        // Attempt to create a residual predicate with all the un-matched ranges
+        final RangeConstraints.Builder newRangeConstraintsBuilder = RangeConstraints.newBuilder();
+        boolean allComparisonsAdded = mergeResult.getResidualComparisons().stream()
+                .allMatch(newRangeConstraintsBuilder::addComparisonMaybe);
+        final Optional<RangeConstraints> newRangeConstraints = newRangeConstraintsBuilder.build();
+        if (allComparisonsAdded && newRangeConstraints.isPresent()) {
+            // We were able to create the new, smaller predicate. As we were able to create a single range constraint
+            // before, this generally _should_ succeed, so we shouldn't need to go down the other path
+            return PredicateWithValueAndRanges.sargable(compensatedQueryPredicate.getValue(), newRangeConstraints.get());
+        } else {
+            // Extracting the subset failed, for some reason. Go back to the original
+            return compensatedQueryPredicate;
+        }
     }
 
     /**
