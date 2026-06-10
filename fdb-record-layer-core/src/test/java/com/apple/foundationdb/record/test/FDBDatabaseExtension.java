@@ -36,16 +36,18 @@ import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.Executor;
 import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Extension that allows the user to specify the database. It ensures that FDB has been properly initialized
@@ -104,6 +106,9 @@ public class FDBDatabaseExtension implements AfterEachCallback {
                         baseFactory.setTrace(".", "fdb_record_layer_test");
                     }
                     baseFactory.setAPIVersion(getAPIVersion());
+                    assertFalse(baseFactory.isShutdownHookDisabled());
+                    baseFactory.disableShutdownHook();
+                    assertTrue(baseFactory.isShutdownHookDisabled());
                     baseFactory.setUnclosedWarning(true);
                     for (final String clusterFile : FDBTestEnvironment.allClusterFiles()) {
                         FDBDatabase unused = baseFactory.getDatabase(clusterFile);

@@ -1,0 +1,39 @@
+version: 2
+
+updates:
+  - package-ecosystem: gradle
+    directory: "/"
+    cooldown:
+      default-days: 14
+    ignore:
+      # Auto-service is handled in a special way to avoid adding a run-time dependency
+      - dependency-name: "com.google.auto.service:auto-service"
+      # Guava has historically made backwards incompatible changes, and we want to be more intentional about these updates
+      - dependency-name: "com.google.guava:guava"
+      # Protobuf is effectively part of our public API, and we want to be more considerate about when we update it
+      - dependency-name: "com.google.protobuf:*"
+      # Lucene classes are sometimes overridden internally, and so updating it requires more care and attention
+      - dependency-name: "org.apache.lucene:*"
+      # FDB dependency version has implications for which server and client versions can be used
+      - dependency-name: "org.foundationdb:fdb-java"
+      # slf4j is generally safe to update, but due to its ubiquity, it can lead to conflicts in downstream dependencies if we are too aggressive
+      - dependency-name: "org.slf4j:*"
+    schedule:
+      interval: "weekly"
+      day: "thursday"
+
+  - package-ecosystem: "pip"
+    directory: "/docs/sphinx"
+    cooldown:
+      default-days: 14
+    schedule:
+      interval: "weekly"
+      day: "thursday"
+
+  - package-ecosystem: "github-actions"
+    cooldown:
+      default-days: 14
+    schedule:
+      interval: "weekly"
+      day: "thursday"
+

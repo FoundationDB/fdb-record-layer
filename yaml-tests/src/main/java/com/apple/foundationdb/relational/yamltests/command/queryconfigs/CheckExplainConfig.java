@@ -97,8 +97,7 @@ public class CheckExplainConfig extends QueryConfig {
         checkExplain(queryDescription, actualPlan, actualDot, expectedDot);
 
         final var actualPlannerMetrics = resultSet.getStruct(6);
-        if (isExact && getVal() != null && actualPlannerMetrics != null
-                && (expectedPlannerMetricsInfo != null || executionContext.shouldCorrectMetrics())) {
+        if (isExact && getVal() != null && actualPlannerMetrics != null) {
             Objects.requireNonNull(actualDot);
             checkMetrics(currentQuery, setups, actualPlannerMetrics, expectedPlannerMetricsInfo, actualPlan, actualDot);
         }

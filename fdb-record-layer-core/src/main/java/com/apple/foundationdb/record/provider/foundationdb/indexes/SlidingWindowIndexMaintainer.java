@@ -470,9 +470,8 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
                                 .addLogInfo(LogMessageKeys.INDEX_NAME, state.index.getName());
                     }
                     final Tuple boundaryEntryKey = Tuple.fromBytes(boundaryBytes);
-                    final Tuple boundaryWindowTuple = TupleHelpers.subTuple(boundaryEntryKey, 0, windowKeyColumnSize);
 
-                    if (!extremumType.isBetter(windowValue, boundaryWindowTuple)) {
+                    if (!extremumType.isBetter(entryKey, boundaryEntryKey)) {
                         // New entry is not better than boundary: it's already written to entries
                         // subspace on the overflow side. Nothing more to do.
                         return AsyncUtil.DONE;

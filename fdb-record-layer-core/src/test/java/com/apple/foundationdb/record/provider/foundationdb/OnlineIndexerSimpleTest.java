@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.provider.foundationdb;
 
 import com.apple.foundationdb.FDBException;
+import com.apple.foundationdb.KeyValue;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.RangeSet;
 import com.apple.foundationdb.record.RecordCoreException;
@@ -41,6 +42,7 @@ import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -116,6 +118,33 @@ public class OnlineIndexerSimpleTest extends OnlineIndexerTest {
 
         try (FDBRecordContext context = openContext()) {
             assertTrue(recordStore.getRecordStoreState().allIndexesReadable());
+        }
+    }
+
+    @SuppressWarnings("try")
+    @Test
+    void buildMetadataClearedWhenMarkedReadable() {
+        // Verify that after a successful build is marked readable, the build metadata is cleared.
+        final Index index = new Index("simple$value_2", field("num_value_2"), IndexTypes.VALUE);
+        openSimpleMetaData(metaDataBuilder -> metaDataBuilder.addIndex("MySimpleRecord", index));
+
+        try (FDBRecordContext context = openContext()) {
+            LongStream.range(0, 5).forEach(val -> recordStore.saveRecord(TestRecords1Proto.MySimpleRecord.newBuilder()
+                    .setRecNo(val).setNumValue2((int)val).build()));
+            context.commit();
+        }
+
+        try (OnlineIndexer indexBuilder = newIndexerBuilder().setIndex(index).build()) {
+            indexBuilder.buildIndex();
+        }
+
+        try (FDBRecordContext context = openContext()) {
+            assertEquals(0L, IndexBuildState.loadRecordsScannedAsync(recordStore, index).join().longValue());
+            assertNull(recordStore.loadIndexingTypeStampAsync(index).join());
+            // Make sure there is nothing left under the indexBuildSubspace
+            final List<KeyValue> remaining = context.ensureActive()
+                    .getRange(recordStore.indexBuildSubspace(index).range()).asList().join();
+            assertThat(remaining, Matchers.empty());
         }
     }
 
@@ -770,6 +799,51 @@ public class OnlineIndexerSimpleTest extends OnlineIndexerTest {
             waitTime = booker.waitTimeMilliseconds();
             assertThat("wait time should be smaller than a second", waitTime < 1000);
             assertThat("wait time should be big (after not doing much)", waitTime > 900);
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {10, 250, 1000, 3000, 10_000, 60_000})
+    void testIndexingThrottleBookerEnforcedPostTransactionDelay(int enforcedDelay) {
+        final OnlineIndexOperationConfig config = OnlineIndexOperationConfig.newBuilder()
+                .setInitialLimit(100)
+                .setRecordsPerSecond(100)
+                .setMaxLimit(1000)
+                .setEnforcedPostTransactionDelay(enforcedDelay)
+                .build();
+        openSimpleMetaData();
+        try (FDBRecordContext context = openContext()) {
+            final IndexingCommon common = new IndexingCommon(context.newRunner(),
+                    recordStore.asBuilder(),
+                    Collections.emptyList(),
+                    Collections.emptyList(),
+                    null,
+                    config,
+                    false);
+
+            // Enforced delay is returned, regardless of recent scan volume.
+            IndexingThrottle.Booker booker = new IndexingThrottle.Booker(common);
+            postTransaction(booker, 1, 1_000_000, false); // would otherwise force a near-999ms wait
+            assertEquals(enforcedDelay, booker.waitTimeMilliseconds());
+        }
+    }
+
+    @Test
+    void testEnforcedPostTransactionDelayBuilderApi() {
+        // Verifies the OnlineIndexOperationBaseBuilder API for enforcedPostTransactionDelay:
+        Index index = runAsyncSetup();
+
+        // Default: zero.
+        try (OnlineIndexer indexer = newIndexerBuilder().setIndex(index).build()) {
+            assertEquals(0, indexer.getConfig().getEnforcedPostTransactionDelay());
+        }
+
+        // Setter on the builder propagates to getEnforcedPostTransactionDelay() and to the built config.
+        try (OnlineIndexer indexer = newIndexerBuilder()
+                .setIndex(index)
+                .setEnforcedPostTransactionDelay(750)
+                .build()) {
+            assertEquals(750, indexer.getConfig().getEnforcedPostTransactionDelay());
         }
     }
 

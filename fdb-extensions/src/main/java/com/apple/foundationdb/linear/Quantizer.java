@@ -36,10 +36,10 @@ public interface Quantizer {
      * The estimator is responsible for performing the primary distance estimation or calculation logic. This method
      * provides access to that underlying component.
      *
-     * @return the {@link Estimator} instance, which is guaranteed to be non-null.
+     * @return the {@link DistanceEstimator} instance, which is guaranteed to be non-null.
      */
     @Nonnull
-    Estimator estimator();
+    DistanceEstimator estimator();
 
     @Nonnull
     default Transformed<RealVector> encode(@Nonnull final Transformed<RealVector> vector) {
@@ -78,14 +78,8 @@ public interface Quantizer {
         return new Quantizer() {
             @Nonnull
             @Override
-            public Estimator estimator() {
-                return (vector1, vector2) -> {
-                    final double distance = metric.distance(vector1, vector2);
-                    if (!Double.isFinite(distance)) {
-                        throw new IllegalArgumentException("vector has an L2 norm of infinite, not a number, or 0");
-                    }
-                    return distance;
-                };
+            public DistanceEstimator estimator() {
+                return DistanceEstimator.ofMetric(metric);
             }
 
             @Nonnull
