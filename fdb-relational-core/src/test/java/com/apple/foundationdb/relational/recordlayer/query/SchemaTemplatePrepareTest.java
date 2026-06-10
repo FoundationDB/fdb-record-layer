@@ -27,6 +27,7 @@ import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalExtension
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.query.cache.QueryCacheKey;
 import com.apple.foundationdb.relational.recordlayer.query.cache.RelationalPlanCache;
+import com.apple.foundationdb.relational.utils.ConnectionUtils;
 import com.apple.foundationdb.relational.utils.Ddl;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Order;
@@ -54,8 +55,14 @@ public class SchemaTemplatePrepareTest {
         if (cache == null) {
             return 0;
         }
-        final Long count = cache.getStats().numSecondaryEntries(templateName);
-        return count != null ? count : 0;
+        // Count actual L3 entries (stored plans), not L2 keys. A failed planning attempt leaves
+        // an empty L2 bucket in the cache (see MultiStageCache.reduce()), which numSecondaryEntries
+        // would still count. We want only the plans that were successfully stored.
+        long total = 0;
+        for (QueryCacheKey secondaryKey : cache.getStats().getAllSecondaryKeys(templateName)) {
+            total += cache.getStats().getAllTertiaryMappings(templateName, secondaryKey).size();
+        }
+        return total;
     }
 
     private void showCache(RelationalConnection connection) throws SQLException {
@@ -69,11 +76,11 @@ public class SchemaTemplatePrepareTest {
             System.out.println("[CACHE] template: " + key);
             for (QueryCacheKey secondaryKey : cache.getStats().getAllSecondaryKeys(key)) {
                 System.out.println("[CACHE]   query: " + secondaryKey.getCanonicalQueryString()
-                        + " (version=" + secondaryKey.getSchemaTemplateVersion()
-                        + ", userVersion=" + secondaryKey.getUserVersion() + ")");
+                        + " (version=" + secondaryKey.getSchemaTemplateVersion() + ")");
                 var tertiaryMappings = cache.getStats().getAllTertiaryMappings(key, secondaryKey);
                 for (var entry : tertiaryMappings.entrySet()) {
-                    System.out.println("[CACHE]     plan: " + entry.getValue().explain());
+                    System.out.println("[CACHE]     key: " + entry.getKey().toString());
+                    System.out.println("[CACHE]         plan: " + entry.getValue().explain());
                 }
             }
         }
@@ -97,130 +104,247 @@ public class SchemaTemplatePrepareTest {
             Assertions.assertEquals(2, prepareStatements.size());
             Assertions.assertEquals("select * from t1 where col1 = 10", prepareStatements.get("BY_COL1"));
             Assertions.assertEquals("select * from t1 where id = 1", prepareStatements.get("BY_ID"));
-            Assertions.assertEquals(0, countCachedPlans(connection, ddl.getSchemaTemplateName())); // this is not good
+            Assertions.assertEquals(0, countCachedPlans(connection, ddl.getSchemaTemplateName())); // we do not generate plans at ddl execution for now
         }
     }
 
     @Test
-    void prepareStatementsAfterFirstQuery() throws Exception {
+    void startupPlanGeneration() throws Exception {
         try (var ddl = Ddl.builder()
-                .database(URI.create("/TEST/PREPARE_DB3"))
+                .database(URI.create("/TEST/RESTART_DB"))
                 .relationalExtension(relationalExtension)
                 .schemaTemplate(SCHEMA_TEMPLATE)
                 .build()) {
-            final var connection = ddl.setSchemaAndGetConnection();
-            Assertions.assertEquals(0, countCachedPlans(connection, ddl.getSchemaTemplateName()));
+            final String templateName = ddl.getSchemaTemplateName();
 
-            try (var stmt = connection.createStatement()) {
-                stmt.execute("INSERT INTO T1 VALUES (1, 10, 1)");
-            }
-            Assertions.assertEquals(2, countCachedPlans(connection, ddl.getSchemaTemplateName()));
+            // create a new engine
+            final var freshDriver = relationalExtension.getDriver(
+                    com.apple.foundationdb.record.provider.foundationdb.FormatVersion.getDefaultFormatVersion());
+
+            // Connect via the fresh driver and verify the fresh engine's cache has the plans
+            Assertions.assertEquals(Long.valueOf(2), new ConnectionUtils(freshDriver).getFromCatalog(
+                    conn -> countCachedPlans(conn, templateName)));
         }
     }
 
     @Test
     void prepareStatementsUsage() throws Exception {
+        final String dbUri = "/TEST/PREPARE_DB2";
         try (var ddl = Ddl.builder()
-                .database(URI.create("/TEST/PREPARE_DB2"))
+                .database(URI.create(dbUri))
                 .relationalExtension(relationalExtension)
                 .schemaTemplate(SCHEMA_TEMPLATE)
                 .build()) {
             final var connection = ddl.setSchemaAndGetConnection();
-            Assertions.assertEquals(0, countCachedPlans(connection, ddl.getSchemaTemplateName()));
+            final String templateName = ddl.getSchemaTemplateName();
+            final String schemaName = connection.getSchema();
+
+            Assertions.assertEquals(0, countCachedPlans(connection, templateName));
 
             try (var stmt = connection.createStatement()) {
                 stmt.execute("INSERT INTO T1 VALUES (1, 10, 1)");
+                stmt.execute("INSERT INTO T1 VALUES (2, 20, 2)");
+                stmt.execute("INSERT INTO T1 VALUES (3, 30, 3)");
             }
-            Assertions.assertEquals(2, countCachedPlans(connection, ddl.getSchemaTemplateName()));
+            Assertions.assertEquals(0, countCachedPlans(connection, templateName)); // we do not generate plans at ddl execution for now
 
-            try (var stmt = connection.createStatement(); RelationalResultSet rs = stmt.executeQuery("select * from t1 where col1 = 10")) {
-                Assertions.assertTrue(rs.next());
-                Assertions.assertEquals(1, rs.getLong("ID"));
-                Assertions.assertFalse(rs.next());
-            }
-            Assertions.assertEquals(2, countCachedPlans(connection, ddl.getSchemaTemplateName()));
+            // create a new engine
+            final var freshDriver = relationalExtension.getDriver(
+                    com.apple.foundationdb.record.provider.foundationdb.FormatVersion.getDefaultFormatVersion());
+            final var freshUtils = new ConnectionUtils(freshDriver);
 
-            try (var stmt = connection.createStatement(); RelationalResultSet rs = stmt.executeQuery("select * from t1 where id = 1")) {
-                Assertions.assertTrue(rs.next());
-                Assertions.assertEquals(1, rs.getLong("ID"));
-                Assertions.assertEquals(10, rs.getLong("COL1"));
-                Assertions.assertEquals(1, rs.getLong("COL2"));
-                Assertions.assertFalse(rs.next());
-            }
-            Assertions.assertEquals(2, countCachedPlans(connection, ddl.getSchemaTemplateName()));
+            // Connect via the fresh driver and verify the fresh engine's cache has the plans
+            Assertions.assertEquals(Long.valueOf(2), freshUtils.getFromCatalog(c -> countCachedPlans(c, templateName)));
+
+            // select statement should hit cache, no new entries
+            freshUtils.runAgainstConnection(dbUri, schemaName, c -> {
+                try (var stmt = c.createStatement(); RelationalResultSet rs = stmt.executeQuery("select * from t1 where col1 = 10")) {
+                    Assertions.assertTrue(rs.next());
+                    Assertions.assertEquals(1, rs.getLong("ID"));
+                    Assertions.assertFalse(rs.next());
+                }
+            });
+            Assertions.assertEquals(Long.valueOf(2), freshUtils.getFromCatalog(c -> countCachedPlans(c, templateName)));
+
+            // select statement should hit another cache, no new entries
+            freshUtils.runAgainstConnection(dbUri, schemaName, c -> {
+                try (var stmt = c.createStatement(); RelationalResultSet rs = stmt.executeQuery("select * from t1 where id = 1")) {
+                    Assertions.assertTrue(rs.next());
+                    Assertions.assertEquals(1, rs.getLong("ID"));
+                    Assertions.assertFalse(rs.next());
+                }
+            });
+            Assertions.assertEquals(Long.valueOf(2), freshUtils.getFromCatalog(c -> countCachedPlans(c, templateName)));
+
+            // non prepared statements, new record in the cache
+            freshUtils.runAgainstConnection(dbUri, schemaName, c -> {
+                try (var stmt = c.createStatement(); RelationalResultSet rs = stmt.executeQuery("select * from t1 where col2 = 1")) {
+                    Assertions.assertTrue(rs.next());
+                    Assertions.assertEquals(1, rs.getLong("ID"));
+                    Assertions.assertFalse(rs.next());
+                }
+            });
+            Assertions.assertEquals(Long.valueOf(3), freshUtils.getFromCatalog(c -> countCachedPlans(c, templateName)));
         }
     }
 
     @Test
     void prepareStatementsUsageParams() throws Exception {
+        final String dbUri = "/TEST/PREPARE_DB3";
         try (var ddl = Ddl.builder()
-                .database(URI.create("/TEST/PREPARE_DB2"))
+                .database(URI.create(dbUri))
                 .relationalExtension(relationalExtension)
                 .schemaTemplate(SCHEMA_TEMPLATE)
                 .build()) {
             final var connection = ddl.setSchemaAndGetConnection();
-            Assertions.assertEquals(0, countCachedPlans(connection, ddl.getSchemaTemplateName()));
+            final String templateName = ddl.getSchemaTemplateName();
+            final String schemaName = connection.getSchema();
+
+            Assertions.assertEquals(0, countCachedPlans(connection, templateName));
 
             try (var stmt = connection.createStatement()) {
                 stmt.execute("INSERT INTO T1 VALUES (1, 10, 1)");
                 stmt.execute("INSERT INTO T1 VALUES (2, 20, 2)");
+                stmt.execute("INSERT INTO T1 VALUES (3, 30, 3)");
             }
-            Assertions.assertEquals(2, countCachedPlans(connection, ddl.getSchemaTemplateName()));
+            Assertions.assertEquals(0, countCachedPlans(connection, templateName)); // we do not generate plans at ddl execution for now
 
-            try (var stmt = connection.createStatement(); RelationalResultSet rs = stmt.executeQuery("select * from t1 where col1 = 20")) {
-                Assertions.assertTrue(rs.next());
-                Assertions.assertEquals(2, rs.getLong("ID"));
-                Assertions.assertFalse(rs.next());
-            }
-            Assertions.assertEquals(2, countCachedPlans(connection, ddl.getSchemaTemplateName()));
+            // create a new engine
+            final var freshDriver = relationalExtension.getDriver(
+                    com.apple.foundationdb.record.provider.foundationdb.FormatVersion.getDefaultFormatVersion());
+            final var freshUtils = new ConnectionUtils(freshDriver);
 
-            try (var stmt = connection.createStatement(); RelationalResultSet rs = stmt.executeQuery("select * from t1 where id = 2")) {
-                Assertions.assertTrue(rs.next());
-                Assertions.assertEquals(2, rs.getLong("ID"));
-                Assertions.assertEquals(20, rs.getLong("COL1"));
-                Assertions.assertEquals(2, rs.getLong("COL2"));
-                Assertions.assertFalse(rs.next());
-            }
-            Assertions.assertEquals(2, countCachedPlans(connection, ddl.getSchemaTemplateName()));
+            // Connect via the fresh driver and verify the fresh engine's cache has the plans
+            Assertions.assertEquals(Long.valueOf(2), freshUtils.getFromCatalog(c -> countCachedPlans(c, templateName)));
+
+            // select with different literal than prepared — canonical SQL matches, cache hit
+            freshUtils.runAgainstConnection(dbUri, schemaName, c -> {
+                try (var stmt = c.createStatement(); RelationalResultSet rs = stmt.executeQuery("select * from t1 where col1 = 20")) {
+                    Assertions.assertTrue(rs.next());
+                    Assertions.assertEquals(2, rs.getLong("ID"));
+                    Assertions.assertFalse(rs.next());
+                }
+            });
+            Assertions.assertEquals(Long.valueOf(2), freshUtils.getFromCatalog(c -> countCachedPlans(c, templateName)));
+
+            // select with different literal than prepared — canonical SQL matches, cache hit
+            freshUtils.runAgainstConnection(dbUri, schemaName, c -> {
+                try (var stmt = c.createStatement(); RelationalResultSet rs = stmt.executeQuery("select * from t1 where id = 2")) {
+                    Assertions.assertTrue(rs.next());
+                    Assertions.assertEquals(2, rs.getLong("ID"));
+                    Assertions.assertFalse(rs.next());
+                }
+            });
+            Assertions.assertEquals(Long.valueOf(2), freshUtils.getFromCatalog(c -> countCachedPlans(c, templateName)));
         }
     }
 
     @Test
     void prepareStatementsUsageJdbcPrepare() throws Exception {
+        final String dbUri = "/TEST/PREPARE_DB4";
         try (var ddl = Ddl.builder()
-                .database(URI.create("/TEST/PREPARE_DB4"))
+                .database(URI.create(dbUri))
                 .relationalExtension(relationalExtension)
                 .schemaTemplate(SCHEMA_TEMPLATE)
                 .build()) {
             final var connection = ddl.setSchemaAndGetConnection();
+            final String templateName = ddl.getSchemaTemplateName();
+            final String schemaName = connection.getSchema();
+
+            Assertions.assertEquals(0, countCachedPlans(connection, templateName));
 
             try (var stmt = connection.createStatement()) {
                 stmt.execute("INSERT INTO T1 VALUES (1, 10, 1)");
                 stmt.execute("INSERT INTO T1 VALUES (2, 20, 2)");
+                stmt.execute("INSERT INTO T1 VALUES (3, 30, 3)");
             }
-            Assertions.assertEquals(2, countCachedPlans(connection, ddl.getSchemaTemplateName()));
+            Assertions.assertEquals(0, countCachedPlans(connection, templateName)); // we do not generate plans at ddl execution for now
 
-            try (var ps = connection.prepareStatement("select * from t1 where col1 = ?")) {
-                ps.setLong(1, 20);
-                try (RelationalResultSet rs = ps.executeQuery()) {
-                    Assertions.assertTrue(rs.next());
-                    Assertions.assertEquals(2, rs.getLong("ID"));
-                    Assertions.assertFalse(rs.next());
-                }
-            }
-            Assertions.assertEquals(2, countCachedPlans(connection, ddl.getSchemaTemplateName()));
+            // create a new engine
+            final var freshDriver = relationalExtension.getDriver(
+                    com.apple.foundationdb.record.provider.foundationdb.FormatVersion.getDefaultFormatVersion());
+            final var freshUtils = new ConnectionUtils(freshDriver);
 
-            try (var ps = connection.prepareStatement("select * from t1 where id = ?")) {
-                ps.setLong(1, 2);
-                try (RelationalResultSet rs = ps.executeQuery()) {
-                    Assertions.assertTrue(rs.next());
-                    Assertions.assertEquals(2, rs.getLong("ID"));
-                    Assertions.assertEquals(20, rs.getLong("COL1"));
-                    Assertions.assertEquals(2, rs.getLong("COL2"));
-                    Assertions.assertFalse(rs.next());
+            // Connect via the fresh driver and verify the fresh engine's cache has the plans
+            Assertions.assertEquals(Long.valueOf(2), freshUtils.getFromCatalog(c -> countCachedPlans(c, templateName)));
+
+            // JDBC PreparedStatement on col1 with bound parameter — canonical SQL matches PREPARE BY_COL1, cache hit
+            freshUtils.runAgainstConnection(dbUri, schemaName, c -> {
+                try (var ps = c.prepareStatement("select * from t1 where col1 = ?")) {
+                    ps.setInt(1, 20);
+                    try (RelationalResultSet rs = ps.executeQuery()) {
+                        Assertions.assertTrue(rs.next());
+                        Assertions.assertEquals(2, rs.getLong("ID"));
+                        Assertions.assertFalse(rs.next());
+                    }
                 }
-            }
-            Assertions.assertEquals(2, countCachedPlans(connection, ddl.getSchemaTemplateName()));
+            });
+            Assertions.assertEquals(Long.valueOf(2), freshUtils.getFromCatalog(c -> countCachedPlans(c, templateName)));
+
+            // JDBC PreparedStatement on id with bound parameter — canonical SQL matches PREPARE BY_ID, cache hit
+            freshUtils.runAgainstConnection(dbUri, schemaName, c -> {
+                try (var ps = c.prepareStatement("select * from t1 where id = ?")) {
+                    ps.setInt(1, 2);
+                    try (RelationalResultSet rs = ps.executeQuery()) {
+                        Assertions.assertTrue(rs.next());
+                        Assertions.assertEquals(2, rs.getLong("ID"));
+                        Assertions.assertFalse(rs.next());
+                    }
+                }
+            });
+            Assertions.assertEquals(Long.valueOf(2), freshUtils.getFromCatalog(c -> countCachedPlans(c, templateName)));
+        }
+    }
+
+    @Test
+    void badPrepareStatement() throws Exception {
+        final String badTemplate =
+                "CREATE TABLE t1(id bigint, col1 bigint, col2 bigint, PRIMARY KEY(id))" +
+                        " CREATE INDEX i1 AS SELECT col1 FROM t1" +
+                        " PREPARE by_col1 FROM 'select1 * from t1 where col1 = 10'" +   // bad
+                        " PREPARE by_col4 FROM 'select * from t1 where col4 = 10'" +    // bad
+                        " PREPARE by_id FROM 'select * from t1 where id = 1'";
+
+        try (var ddl = Ddl.builder()
+                .database(URI.create("/TEST/BADPREPARE_DB"))
+                .relationalExtension(relationalExtension)
+                .schemaTemplate(badTemplate)
+                .build()) {
+            final String templateName = ddl.getSchemaTemplateName();
+
+            // create a new engine
+            final var freshDriver = relationalExtension.getDriver(
+                    com.apple.foundationdb.record.provider.foundationdb.FormatVersion.getDefaultFormatVersion());
+
+            // only one plan in cache, others are failed
+            Assertions.assertEquals(Long.valueOf(1), new ConnectionUtils(freshDriver).getFromCatalog(
+                    conn -> countCachedPlans(conn, templateName)));
+        }
+    }
+
+    @Test
+    void prepareStatementDdl() throws Exception {
+        final String badTemplate =
+                "CREATE TABLE t1(id bigint, col1 bigint, col2 bigint, PRIMARY KEY(id))" +
+                        " CREATE INDEX i1 AS SELECT col1 FROM t1" +
+                        " PREPARE ddl_t FROM 'CREATE TABLE t2(id bigint, col1 bigint, PRIMARY KEY(id))'" +      // ddl
+                        " PREPARE ddl_i FROM 'CREATE INDEX i2 AS SELECT col1 FROM t1'" +                        // ddl
+                        " PREPARE by_id FROM 'select * from t1 where id = 1'";
+
+        try (var ddl = Ddl.builder()
+                .database(URI.create("/TEST/DDLPREPARE_DB"))
+                .relationalExtension(relationalExtension)
+                .schemaTemplate(badTemplate)
+                .build()) {
+            final String templateName = ddl.getSchemaTemplateName();
+
+            // create a new engine
+            final var freshDriver = relationalExtension.getDriver(
+                    com.apple.foundationdb.record.provider.foundationdb.FormatVersion.getDefaultFormatVersion());
+
+            // only one plan in cache, others are failed
+            Assertions.assertEquals(Long.valueOf(1), new ConnectionUtils(freshDriver).getFromCatalog(
+                    conn -> countCachedPlans(conn, templateName)));
         }
     }
 }

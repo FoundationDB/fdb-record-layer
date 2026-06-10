@@ -131,8 +131,12 @@ public final class PlanGenerator {
      */
     @Nonnull
     public Plan<?> getPlan(@Nonnull final String query) throws RelationalException {
+        return getPlanAndLog(query, KeyValueLogMessage.build("PlanGenerator"));
+    }
+
+    @Nonnull
+    private Plan<?> getPlanAndLog(@Nonnull final String query, @Nonnull KeyValueLogMessage message) throws RelationalException {
         resetTimer();
-        KeyValueLogMessage message = KeyValueLogMessage.build("PlanGenerator");
         Plan<?> plan = null;
         RelationalException exception = null;
         try {
@@ -163,13 +167,15 @@ public final class PlanGenerator {
         if (cache.get().isPrepared(templateKey)) {
             return;
         }
-        for (final var entry : schemaTemplate.getPrepareStatements().entrySet()) {
+        for (final var statement : schemaTemplate.getPrepareStatements().entrySet()) {
             try {
-                getPlan(entry.getValue());
+                KeyValueLogMessage message = KeyValueLogMessage.build("PrepareStatements");
+                message.addKeyAndValue("schemaTemplate", templateKey);
+                message.addKeyAndValue("prepareStatementKey", statement.getKey());
+                message.addKeyAndValue("prepareStatementValue", statement.getValue());
+                getPlanAndLog(statement.getValue(), message);
             } catch (RelationalException e) {
-                if (logger.isErrorEnabled()) {
-                    logger.error(KeyValueLogMessage.of("prepare statement", LogMessageKeys.QUERY, entry.getValue()), e);
-                }
+                // do nothing here, error is already logged
             }
         }
         cache.get().markPrepared(templateKey);
@@ -515,9 +521,7 @@ public final class PlanGenerator {
                                        @Nonnull final Options options) throws RelationalException {
         final var planner = new CascadesPlanner(metaData, recordStoreState, matchCandidateRegistry);
         planner.setConfiguration(planContext.getRecordQueryPlannerConfiguration());
-        final var planGenerator = new PlanGenerator(cache, planContext, planner, options);
-        planGenerator.prepareStatements();
-        return planGenerator;
+        return new PlanGenerator(cache, planContext, planner, options);
     }
 
     /**
