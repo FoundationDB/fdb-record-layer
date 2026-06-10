@@ -29,9 +29,10 @@ import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexPredicate;
+import com.apple.foundationdb.record.metadata.Key;
+import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
-import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreTestBase;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainer;
 import com.apple.foundationdb.record.provider.foundationdb.VectorIndexScanBounds;
 import com.apple.foundationdb.record.provider.foundationdb.VectorIndexScanOptions;
@@ -45,16 +46,15 @@ import javax.annotation.Nullable;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
-import java.util.Random;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.stream.Collectors;
 import java.util.stream.LongStream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -193,19 +193,12 @@ public final class SlidingWindowTestHelpers {
      */
     @Nonnull
     private static IndexPredicate.RowNumberWindowPredicate.Direction directionOf(@Nonnull final Index index) {
-        final IndexPredicate predicate = index.getPredicate();
-        if (predicate instanceof IndexPredicate.RowNumberWindowPredicate) {
-            return ((IndexPredicate.RowNumberWindowPredicate) predicate).getDirection();
+        final var predicate = findRowNumberWindowPredicate(index.getPredicate());
+        if (predicate == null) {
+            throw new IllegalStateException(
+                    "index '" + index.getName() + "' is not a sliding-window index — no RowNumberWindowPredicate found");
         }
-        if (predicate instanceof IndexPredicate.AndPredicate) {
-            for (IndexPredicate child : ((IndexPredicate.AndPredicate) predicate).getChildren()) {
-                if (child instanceof IndexPredicate.RowNumberWindowPredicate) {
-                    return ((IndexPredicate.RowNumberWindowPredicate) child).getDirection();
-                }
-            }
-        }
-        throw new IllegalStateException(
-                "index '" + index.getName() + "' is not a sliding-window index — no RowNumberWindowPredicate found");
+        return predicate.getDirection();
     }
 
     private static long readWindowCount(@Nonnull final FDBRecordStore recordStore,
@@ -249,7 +242,11 @@ public final class SlidingWindowTestHelpers {
         final byte[] boundaryBytes =
                 recordStore.ensureContextActive().get(metaSubspace.pack(Tuple.from(4))).join();
         if (boundaryBytes == null) {
-            // No boundary set => no window
+            // No boundary set => no window. The maintainer invariant says
+            // the entries subspace must also be empty in that case.
+            final List<Tuple> entries = scanWindowEntries(recordStore, indexName, groupingKey);
+            assertTrue(entries.isEmpty(),
+                    "boundary is null but entries subspace contains: " + entries);
             return Set.of();
         }
         final Tuple boundaryEntryKey = Tuple.fromBytes(boundaryBytes);
@@ -278,7 +275,7 @@ public final class SlidingWindowTestHelpers {
      * {@code .hasEntriesOf(...)} stay scoped to the same group.
      */
     record SlidingWindow(long size,
-                         @Nonnull Set<Long> hnswRecNos,
+                         @Nonnull Set<Long> delegateRecNos,
                          @Nonnull Set<Long> windowEntryRecNos) {
     }
 
@@ -325,8 +322,7 @@ public final class SlidingWindowTestHelpers {
         /**
          * Asserts that the entries subspace's window-side recNos exactly match
          * {@code expectedRecNos}. The window-side set is the maintainer's own
-         * claim about which records belong inside the window — pinning down the
-         * invariant that it must agree with the delegate.
+         * claim about which records belong inside the window.
          */
         @Nonnull
         public SlidingWindowAssert hasEntriesOf(final long... expectedRecNos) {
@@ -345,7 +341,7 @@ public final class SlidingWindowTestHelpers {
          */
         @Nonnull
         public DelegateAssert underlyingHnsw() {
-            return new DelegateAssert("HNSW", window.hnswRecNos(), description);
+            return new DelegateAssert("HNSW", window.delegateRecNos(), description);
         }
 
         /**
@@ -355,7 +351,7 @@ public final class SlidingWindowTestHelpers {
          */
         @Nonnull
         public DelegateAssert underlyingValueIndex() {
-            return new DelegateAssert("Value index", window.hnswRecNos(), description);
+            return new DelegateAssert("Value index", window.delegateRecNos(), description);
         }
     }
 
@@ -423,216 +419,7 @@ public final class SlidingWindowTestHelpers {
                 .getLong();
     }
 
-    // ===== Concurrent-transaction fluent harness =====
-
-    /**
-     * Entry point for the fluent concurrent-transaction harness. Mirrors the manual
-     * pattern of opening N contexts, binding the test's {@code recordStore} field to
-     * each one in turn, running per-context actions, and committing in declared order.
-     *
-     * <p>Example:</p>
-     * <pre>{@code
-     * concurrent(this, ctx -> openStore(ctx, 5, Direction.DESC))
-     *         .tx("A", () -> rec(4, 400))
-     *         .tx("B", () -> rec(5, 500))
-     *         .commitAll()
-     *         .expectNoConflicts();
-     * }</pre>
-     *
-     * @param testBase the test instance whose {@code openContext()} / {@code commit()}
-     *                 / {@code recordStore} are driven by the harness
-     * @param storeOpener binds the test's {@code recordStore} field to the given context
-     *                    (typically {@code ctx -> openStore(ctx, ...)})
-     */
-    @Nonnull
-    public static ConcurrentScenario concurrent(@Nonnull final FDBRecordStoreTestBase testBase,
-                                                @Nonnull final ContextSetup storeOpener) {
-        return new ConcurrentScenario(testBase, storeOpener);
-    }
-
-    /**
-     * Binds a context to the {@link FDBRecordStore} instance under test (e.g. by calling
-     * the test's {@code openStore(ctx, ...)}). Invoked once per registered transaction
-     * before its action runs.
-     */
-    @FunctionalInterface
-    public interface ContextSetup {
-        void setup(@Nonnull FDBRecordContext context) throws Exception;
-    }
-
-    /**
-     * Action run inside a transaction. The test's {@code recordStore} is bound to the
-     * matching context before the action runs, so callers can use the test's normal
-     * helpers (e.g. {@code rec(...)}) without thinking about which context is active.
-     */
-    @FunctionalInterface
-    public interface ThrowingRunnable {
-        void run() throws Exception;
-    }
-
-    /**
-     * A scenario builder. Each {@link #tx(String, ThrowingRunnable)} call registers a
-     * named transaction; {@link #commitAll()} opens all contexts, runs the actions in
-     * declared order against their respective stores, then commits each context in
-     * declared order — capturing per-tx commit outcomes for later assertions.
-     */
-    public static final class ConcurrentScenario {
-        @Nonnull
-        private final FDBRecordStoreTestBase testBase;
-        @Nonnull
-        private final ContextSetup storeOpener;
-        @Nonnull
-        private final List<NamedTx> transactions = new ArrayList<>();
-
-        ConcurrentScenario(@Nonnull final FDBRecordStoreTestBase testBase,
-                           @Nonnull final ContextSetup storeOpener) {
-            this.testBase = testBase;
-            this.storeOpener = storeOpener;
-        }
-
-        /**
-         * Registers a named transaction. The {@code action} runs against a freshly
-         * opened context whose store has been wired up via the scenario's store opener.
-         */
-        @Nonnull
-        public ConcurrentScenario tx(@Nonnull final String name, @Nonnull final ThrowingRunnable action) {
-            transactions.add(new NamedTx(name, action));
-            return this;
-        }
-
-        /**
-         * Opens all registered contexts (so they overlap), runs each action with its
-         * context's store bound, then commits each context in declared order. Commit
-         * failures are captured per-tx rather than bubbled out, so subsequent commits
-         * still attempt to run and the resulting {@link CommitOutcome} can describe the
-         * full picture.
-         */
-        @Nonnull
-        public CommitOutcome commitAll() {
-            return runAndCommit(transactions);
-        }
-
-        /**
-         * Same as {@link #commitAll()} but shuffles the commit order using the given
-         * {@link Random}. Useful when the test asserts an outcome that should hold
-         * regardless of which transaction commits first; pair with
-         * {@code @ParameterizedTest @RandomSeedSource} so the test can vary the seed
-         * across runs while still being reproducible from a logged seed on failure.
-         */
-        @Nonnull
-        public CommitOutcome commitInAnyOrder(@Nonnull final Random random) {
-            final List<NamedTx> shuffled = new ArrayList<>(transactions);
-            Collections.shuffle(shuffled, random);
-            return runAndCommit(shuffled);
-        }
-
-        @Nonnull
-        private CommitOutcome runAndCommit(@Nonnull final List<NamedTx> commitOrder) {
-            for (NamedTx tx : transactions) {
-                tx.context = testBase.openContext();
-                tx.context.getReadVersion();
-            }
-            try {
-                for (NamedTx tx : transactions) {
-                    storeOpener.setup(tx.context);
-                    tx.action.run();
-                }
-                for (NamedTx tx : commitOrder) {
-                    try {
-                        testBase.commit(tx.context);
-                    } catch (Throwable t) {
-                        tx.commitError = t;
-                    }
-                }
-            } catch (Exception e) {
-                throw new RuntimeException("scenario action failed before commit phase", e);
-            } finally {
-                for (NamedTx tx : transactions) {
-                    if (tx.context != null) {
-                        tx.context.close();
-                    }
-                }
-            }
-            return new CommitOutcome(transactions);
-        }
-    }
-
-    /**
-     * Result of {@link ConcurrentScenario#commitAll()}. Provides expectation-style
-     * assertions over the per-tx commit outcomes.
-     */
-    public static final class CommitOutcome {
-        @Nonnull
-        private final List<NamedTx> transactions;
-
-        CommitOutcome(@Nonnull final List<NamedTx> transactions) {
-            this.transactions = transactions;
-        }
-
-        /**
-         * Asserts that every registered transaction committed successfully (no
-         * conflicts, no other commit-time failures).
-         */
-        @Nonnull
-        public CommitOutcome expectNoConflicts() {
-            for (NamedTx tx : transactions) {
-                if (tx.commitError != null) {
-                    throw new AssertionError(
-                            "Expected no commit conflicts but tx '" + tx.name + "' failed: " + tx.commitError,
-                            tx.commitError);
-                }
-            }
-            return this;
-        }
-
-        /**
-         * Asserts that the named transaction failed to commit (typically with a
-         * conflict). Other transactions are not checked.
-         */
-        @Nonnull
-        public CommitOutcome expectConflictOn(@Nonnull final String txName) {
-            final NamedTx tx = find(txName);
-            if (tx.commitError == null) {
-                throw new AssertionError(
-                        "Expected tx '" + txName + "' to fail commit, but it committed successfully");
-            }
-            return this;
-        }
-
-        /**
-         * Asserts that the named transaction committed successfully.
-         */
-        @Nonnull
-        public CommitOutcome expectCommitted(@Nonnull final String txName) {
-            final NamedTx tx = find(txName);
-            if (tx.commitError != null) {
-                throw new AssertionError(
-                        "Expected tx '" + txName + "' to commit, but it failed: " + tx.commitError,
-                        tx.commitError);
-            }
-            return this;
-        }
-
-        @Nonnull
-        private NamedTx find(@Nonnull final String txName) {
-            return transactions.stream()
-                    .filter(t -> t.name.equals(txName))
-                    .findFirst()
-                    .orElseThrow(() -> new AssertionError("Unknown tx: " + txName));
-        }
-    }
-
-    private static final class NamedTx {
-        @Nonnull final String name;
-        @Nonnull final ThrowingRunnable action;
-        @Nullable FDBRecordContext context;
-        @Nullable Throwable commitError;
-
-        NamedTx(@Nonnull final String name, @Nonnull final ThrowingRunnable action) {
-            this.name = name;
-            this.action = action;
-        }
-    }
+    // ===== Sliding-window invariant verification =====
 
     public static void verifySlidingWindowInvariant(@Nonnull final FDBRecordStore recordStore,
                                                     @Nonnull final String indexName,
@@ -649,12 +436,14 @@ public final class SlidingWindowTestHelpers {
         final Tuple boundary = readBoundaryKey(recordStore, indexName, null);
         final long count = readWindowCount(recordStore, indexName, null);
         final List<IndexEntry> delegateEntries = scanValueIndexEntries(recordStore, indexName);
-        final Set<Tuple> delegateEntriesForWindow = delegateEntries.stream().map(IndexEntry::getKey).collect(Collectors.toCollection(TreeSet::new));
+        final Set<Tuple> delegatePks = delegateEntries.stream()
+                .map(IndexEntry::getPrimaryKey)
+                .collect(Collectors.toCollection(TreeSet::new));
 
         if (entries.isEmpty()) {
             assertNull(boundary, "boundary should be null when entries subspace is empty");
             assertEquals(0L, count, "count should be 0 when entries subspace is empty");
-            assertTrue(delegateEntries.isEmpty(), "delegate should be empty when entries subspace is empty but contained: " + delegateEntriesForWindow);
+            assertTrue(delegateEntries.isEmpty(), "delegate should be empty when entries subspace is empty but contained: " + delegatePks);
             return;
         }
 
@@ -676,24 +465,23 @@ public final class SlidingWindowTestHelpers {
             }
         }
 
-        final Set<Tuple> inWindowEntries = inWindow.stream()
-                //.map(e -> TupleHelpers.subTuple(e, windowKeyColumnSize, e.size()).getLong(0))
+        final Set<Tuple> inWindowPks = inWindow.stream()
+                .map(entry -> TupleHelpers.subTuple(entry, windowKeyColumnSize, entry.size()))
                 .collect(Collectors.toCollection(TreeSet::new));
-        final Set<Tuple> overflowEntries = overflow.stream()
-                //.map(e -> TupleHelpers.subTuple(e, windowKeyColumnSize, e.size()).getLong(0))
+        final Set<Tuple> overflowPks = overflow.stream()
+                .map(entry -> TupleHelpers.subTuple(entry, windowKeyColumnSize, entry.size()))
                 .collect(Collectors.toCollection(TreeSet::new));
 
-        assertEquals(inWindowEntries, delegateEntriesForWindow,
+        assertEquals(inWindowPks, delegatePks,
                 "delegate pks must equal in-window pks (boundary-separates invariant). "
-                        + "\nboundary=" + boundary + ", \ninWindow=" + inWindowEntries + ", \ndelegate=" + delegateEntriesForWindow +
-                        ", \noverflow=" + overflowEntries);
+                        + "\nboundary=" + boundary + ", \ninWindowPks=" + inWindowPks + ", \ndelegatePks=" + delegatePks +
+                        ", \noverflowPks=" + overflowPks);
 
-        for (Tuple overflowEntry : overflowEntries) {
-            assertTrue(!delegateEntriesForWindow.contains(overflowEntry),
-                    "overflow pk " + overflowEntry + " unexpectedly present in delegate " + delegateEntriesForWindow);
+        for (Tuple overflowPk : overflowPks) {
+            assertFalse(delegatePks.contains(overflowPk), "overflow pk " + overflowPk + " unexpectedly present in delegate " + delegatePks);
         }
 
-        assertEquals((long) inWindow.size(), count,
+        assertEquals(inWindow.size(), count,
                 "persisted counter " + count + " does not match in-window size " + inWindow.size());
 
         assertTrue(count <= countUpperBound,

@@ -49,9 +49,12 @@ import java.util.Collection;
  *
  * <p>Sliding window semantics are supported on vector (HNSW) and value indexes. The sliding
  * window limits the number of entries maintained in the underlying delegate by evicting the
- * worst entries and re-electing from overflow when entries are deleted. This is particularly
- * useful for bounding the size of expensive HNSW structures while maintaining search quality
- * over a curated subset.</p>
+ * worst entries and re-electing from overflow when entries are deleted. The configured size
+ * acts as an <em>approximate</em> cap: to keep concurrent inserts and deletes from spuriously
+ * conflicting, the maintainer uses atomic counter mutations and snapshot reads of the boundary
+ * metadata, so under concurrency the in-window count may transiently exceed the configured
+ * size. This is particularly useful for bounding the size of expensive HNSW structures while
+ * maintaining search quality over a curated subset.</p>
  *
  * <p>This factory does not register its own index types via {@link #getIndexTypes()} (it returns
  * an empty list). Instead, the {@link com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerFactoryRegistryImpl}

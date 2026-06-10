@@ -31,19 +31,21 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreTestBase;
 import com.apple.foundationdb.record.slidingwindowvector.TestRecordsSlidingWindowVectorProto;
 import com.apple.foundationdb.record.slidingwindowvector.TestRecordsSlidingWindowVectorProto.SlidingWindowVectorRecord;
+import com.apple.foundationdb.record.util.ConcurrentTransactionHarness;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.RandomSeedSource;
 import com.apple.test.Tags;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 
 import javax.annotation.Nonnull;
 import java.util.Map;
 import java.util.Random;
 
 import static com.apple.foundationdb.record.provider.foundationdb.indexes.SlidingWindowTestHelpers.SlidingWindowAssert.assertThat;
-import static com.apple.foundationdb.record.provider.foundationdb.indexes.SlidingWindowTestHelpers.concurrent;
+import static com.apple.foundationdb.record.provider.foundationdb.indexes.SlidingWindowTestHelpers.verifySlidingWindowInvariant;
 
 /**
  * Concurrency tests for the sliding window index maintainer with a value-index delegate.
@@ -91,25 +93,40 @@ class SlidingWindowIndexConcurrencyTest extends FDBRecordStoreTestBase {
     }
 
     /**
-     * Opens a fresh transaction, seeds records 1..N with the given relevances, asserts
-     * the window contains all of them, and commits. The post-seed boundary is the
-     * lowest-sorting entry under {@code direction} — i.e. {@code (relevances[0], 1)}
-     * for DESC if the inputs are presented in increasing order.
+     * Opens a fresh {@link ConcurrentTransactionHarness.ConcurrentScenario} pre-wired
+     * to this test's {@code openStore(ctx, windowSize, direction)}, so call sites
+     * can write {@code concurrent(5, Direction.DESC).tx(...)} instead of
+     * threading the lambda by hand.
+     */
+    @Nonnull
+    private ConcurrentTransactionHarness.ConcurrentScenario concurrent(int windowSize, @Nonnull Direction direction) {
+        return ConcurrentTransactionHarness.concurrent(this::openContext, ctx -> openStore(ctx, windowSize, direction));
+    }
+
+    /**
+     * Opens a fresh transaction, seeds records 1..N with the given relevances,
+     * asserts the post-state, and commits. Inputs are presumed to be in
+     * increasing order. When {@code N > windowSize}, ASC keeps the first
+     * {@code windowSize} recNos in the delegate and the rest land in overflow;
+     * DESC keeps the last {@code windowSize}.
      */
     private void seedWindow(int windowSize, @Nonnull Direction direction,
                             long... relevances) throws Exception {
+        final int expectedInWindow = Math.min(windowSize, relevances.length);
         try (FDBRecordContext context = openContext()) {
             openStore(context, windowSize, direction);
-            final long[] expectedRecNos = new long[relevances.length];
             for (int i = 0; i < relevances.length; i++) {
-                final long recNo = i + 1;
-                rec(recNo, relevances[i]);
-                expectedRecNos[i] = recNo;
+                rec(i + 1, relevances[i]);
+            }
+            final long[] expectedInWindowRecNos = new long[expectedInWindow];
+            final int offset = direction == Direction.ASC ? 0 : relevances.length - expectedInWindow;
+            for (int i = 0; i < expectedInWindow; i++) {
+                expectedInWindowRecNos[i] = offset + i + 1;
             }
             assertThat(SlidingWindowTestHelpers.slidingWindowViaValueIndex(recordStore, INDEX_NAME))
-                    .hasSizeOf(relevances.length)
+                    .hasSizeOf(expectedInWindow)
                     .underlyingValueIndex()
-                    .containsInAnyOrder(expectedRecNos);
+                    .containsInAnyOrder(expectedInWindowRecNos);
             commit(context);
         }
     }
@@ -135,6 +152,13 @@ class SlidingWindowIndexConcurrencyTest extends FDBRecordStoreTestBase {
                     .hasEntriesOf(expectedRecNos)
                     .underlyingValueIndex()
                     .containsInAnyOrder(expectedRecNos);
+
+            verifySlidingWindowInvariant(recordStore,
+                    INDEX_NAME,
+                    windowSize,
+                    direction,
+                    expectedRecNos.length);
+
             commit(context);
         }
     }
@@ -150,7 +174,7 @@ class SlidingWindowIndexConcurrencyTest extends FDBRecordStoreTestBase {
         // shuffle exercises that.
         seedWindow(5, Direction.DESC, 100, 200, 300);
 
-        concurrent(this, ctx -> openStore(ctx, 5, Direction.DESC))
+        concurrent(5, Direction.DESC)
                 .tx("A", () -> rec(4, 400))
                 .tx("B", () -> rec(5, 500))
                 .commitInAnyOrder(new Random(seed))
@@ -160,7 +184,7 @@ class SlidingWindowIndexConcurrencyTest extends FDBRecordStoreTestBase {
     }
 
     @Test
-    void descWorseInsertsIntoNonFullWindowConflictOnBoundary() throws Exception {
+    void descWorseInsertsIntoNonFullWindowConflictOnBoundaryCase1() throws Exception {
         // Window has spare capacity (3 of 5), but A=(50, 4) and B=(75, 5) are both
         // worse than the seeded boundary (100, 1) for DESC, so each tx rewrites
         // the boundary. The maintainer pairs that tr.set(boundaryMetaKey, ...)
@@ -170,7 +194,7 @@ class SlidingWindowIndexConcurrencyTest extends FDBRecordStoreTestBase {
         // one can commit: A wins (declared order), B fails.
         seedWindow(5, Direction.DESC, 100, 200, 300);
 
-        concurrent(this, ctx -> openStore(ctx, 5, Direction.DESC))
+        concurrent(5, Direction.DESC)
                 .tx("A", () -> rec(4, 50))
                 .tx("B", () -> rec(5, 75))
                 .commitAll()
@@ -178,6 +202,22 @@ class SlidingWindowIndexConcurrencyTest extends FDBRecordStoreTestBase {
                 .expectCommitted("A");
 
         assertFinalWindow(5, Direction.DESC, 1L, 2L, 3L, 4L);
+    }
+
+    @Test
+    void descWorseInsertsIntoNonFullWindowConflictOnBoundaryCase2() throws Exception {
+        // This is the same setup in descWorseInsertsIntoNonFullWindowConflictOnBoundaryCase1
+        // but in this test B wins, and so, A fails
+        seedWindow(5, Direction.DESC, 100, 200, 300);
+
+        concurrent(5, Direction.DESC)
+                .tx("B", () -> rec(5, 75))
+                .tx("A", () -> rec(4, 50))
+                .commitAll()
+                .expectConflictOn("A")
+                .expectCommitted("B");
+
+        assertFinalWindow(5, Direction.DESC, 1L, 2L, 3L, 5L);
     }
 
     @ParameterizedTest
@@ -191,7 +231,7 @@ class SlidingWindowIndexConcurrencyTest extends FDBRecordStoreTestBase {
         // range and all six commit in any order.
         seedWindow(5, Direction.DESC, 100, 200, 300, 400, 500);
 
-        concurrent(this, ctx -> openStore(ctx, 5, Direction.DESC))
+        concurrent(5, Direction.DESC)
                 .tx("A", () -> rec(6, 70))
                 .tx("B", () -> rec(7, 80))
                 .tx("C", () -> rec(8, 90))
@@ -220,7 +260,7 @@ class SlidingWindowIndexConcurrencyTest extends FDBRecordStoreTestBase {
         // order.
         seedWindow(5, Direction.DESC, 100, 200, 300, 400, 500);
 
-        concurrent(this, ctx -> openStore(ctx, 5, Direction.DESC))
+        concurrent(5, Direction.DESC)
                 .tx("A", () -> rec(6, 70))
                 .tx("B", () -> rec(7, 80))
                 .tx("C", () -> rec(8, 90))
@@ -247,7 +287,7 @@ class SlidingWindowIndexConcurrencyTest extends FDBRecordStoreTestBase {
         // fails.
         seedWindow(5, Direction.DESC, 100, 200, 300, 400, 500);
 
-        concurrent(this, ctx -> openStore(ctx, 5, Direction.DESC))
+        concurrent(5, Direction.DESC)
                 .tx("A", () -> rec(6, 5000))
                 .tx("B", () -> rec(7, 8000))
                 .commitAll()
@@ -296,20 +336,9 @@ class SlidingWindowIndexConcurrencyTest extends FDBRecordStoreTestBase {
         // Commit order: B then A. B commits cleanly. A's read-conflict on
         // (55, 9) sits inside the slice B declared as a write range, so the
         // resolver aborts A. Only B's effects survive.
-        try (FDBRecordContext context = openContext()) {
-            openStore(context, 5, Direction.ASC);
-            rec(1, 10);
-            rec(2, 20);
-            rec(3, 30);
-            rec(4, 40);
-            rec(5, 50);  // boundary
-            rec(6, 60);  // overflow
-            rec(7, 70);  // overflow
-            rec(8, 80);  // overflow
-            commit(context);
-        }
+        seedWindow(5, Direction.ASC, 10, 20, 30, 40, 50, 60, 70, 80);
 
-        concurrent(this, ctx -> openStore(ctx, 5, Direction.ASC))
+        concurrent(5, Direction.ASC)
                 .tx("B", () -> deleteRec(5))
                 .tx("A", () -> rec(9, 55))
                 .commitAll()  // B commits first (declared order); A is aborted
@@ -362,19 +391,9 @@ class SlidingWindowIndexConcurrencyTest extends FDBRecordStoreTestBase {
         // the overflow slice includes (60, 6); T1's committed write at
         // (60, 6) sits inside it, so the resolver aborts T2. Only T1's
         // effects survive.
-        try (FDBRecordContext context = openContext()) {
-            openStore(context, 5, Direction.ASC);
-            rec(1, 10);
-            rec(2, 20);
-            rec(3, 30);
-            rec(4, 40);
-            rec(5, 50);  // boundary
-            rec(6, 60);  // overflow
-            rec(7, 70);  // overflow
-            commit(context);
-        }
+        seedWindow(5, Direction.ASC, 10, 20, 30, 40, 50, 60, 70);
 
-        concurrent(this, ctx -> openStore(ctx, 5, Direction.ASC))
+        concurrent(5, Direction.ASC)
                 .tx("T1", () -> deleteRec(6))  // delete an overflow record
                 .tx("T2", () -> deleteRec(5))  // delete the boundary
                 .commitAll()  // T1 commits first (declared order); T2 is aborted
@@ -434,13 +453,9 @@ class SlidingWindowIndexConcurrencyTest extends FDBRecordStoreTestBase {
         // Commit order: B then A. B commits cleanly (no prior committed
         // writes); A's commit sees B's declared write range covering A's
         // read of (30, 2) and is aborted.
-        try (FDBRecordContext context = openContext()) {
-            openStore(context, 5, Direction.ASC);
-            rec(1, 50);  // single in-window entry, also the boundary
-            commit(context);
-        }
+        seedWindow(5, Direction.ASC, 50);
 
-        concurrent(this, ctx -> openStore(ctx, 5, Direction.ASC))
+        concurrent(5, Direction.ASC)
                 .tx("B", () -> deleteRec(1))
                 .tx("A", () -> rec(2, 30))
                 .commitAll()  // B commits first; A is aborted by the resolver
@@ -464,5 +479,68 @@ class SlidingWindowIndexConcurrencyTest extends FDBRecordStoreTestBase {
                     .isEmpty();
             commit(context);
         }
+    }
+
+    @ParameterizedTest
+    @EnumSource(Direction.class)
+    void competingInsertsIntoEmptyWindowConflictOnBoundary(Direction direction) throws Exception {
+        // Initial state (window = 5): the window is empty — no entries,
+        // boundary unset, count = 0. Direction-agnostic: the conflict pattern
+        // here is the same for ASC and DESC.
+        //
+        // Both A=(1, 100) and B=(2, 200) take the not-full branch of
+        // handleInsert (count = 0 < 5). Each snapshot-reads boundaryMetaKey
+        // and sees null; the `boundaryBytes == null` branch then both
+        // addReadConflictKey on boundaryMetaKey AND tr.set it to its own
+        // entry key — every first-insert is forced to establish the boundary.
+        // With both A and B reading AND writing the same boundaryMetaKey,
+        // FDB's resolver picks one: A commits (declared order), B fails.
+        seedWindow(5, direction);
+
+        concurrent(5, direction)
+                .tx("A", () -> rec(1, 100))
+                .tx("B", () -> rec(2, 200))
+                .commitAll()
+                .expectCommitted("A")
+                .expectConflictOn("B");
+
+        // Only A's insert survives: rec 1 in the delegate, boundary (100, 1),
+        // count = 1.
+        assertFinalWindow(5, direction, 1L);
+    }
+
+    @ParameterizedTest
+    @EnumSource(Direction.class)
+    void competingDeletesOfOnlyEntryConflict(Direction direction) throws Exception {
+        // Initial state (window = 5): a single in-window entry rec 1 with
+        // relevance 50 — it is also the boundary (50, 1). Direction-agnostic:
+        // the conflict pattern here is the same for ASC and DESC.
+        //
+        // Both A and B delete rec 1. Each handleDelete tr.get's (50, 1)
+        // — non-snapshot, so a read-conflict on (50, 1) — sees it exists,
+        // and clears it. Then each addReadConflictKey on boundaryMetaKey
+        // and runs updateBoundaryAfterDelete: entryKey == boundaryEntryKey,
+        // so getNewBoundaryAfterEviction scans for a replacement, finds
+        // none (only entry is the one being deleted), and clears
+        // boundaryMetaKey. reElectFromOverflow short-circuits on the null
+        // boundary and ADD-1s the counter.
+        //
+        // Both transactions therefore write to the same (50, 1) entry key
+        // and to boundaryMetaKey. A commits (declared order); B's read of
+        // (50, 1) overlaps A's committed write at (50, 1), so the resolver
+        // aborts B.
+        seedWindow(5, direction, 50);
+
+        concurrent(5, direction)
+                .tx("A", () -> deleteRec(1))
+                .tx("B", () -> deleteRec(1))
+                .commitAll()
+                .expectCommitted("A")
+                .expectConflictOn("B");
+
+        // A's delete drained the window: no entries, no boundary, count = 0,
+        // delegate empty. B was rolled back. The maintainer invariant holds
+        // (window-side == delegate == ∅).
+        assertFinalWindow(5, direction);
     }
 }

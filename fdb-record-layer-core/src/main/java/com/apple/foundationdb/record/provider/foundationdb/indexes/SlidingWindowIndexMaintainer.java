@@ -70,12 +70,22 @@ import java.util.concurrent.CompletableFuture;
 
 /**
  * An index maintainer decorator that keeps only the top-N records based on a window key,
- * optionally grouped by a partition key. It wraps a vector (HNSW)
+ * optionally grouped by a partition key. It wraps a vector (HNSW) or value
  * {@link IndexMaintainer} and applies sliding window semantics for mutations before delegating
- * the actual index operations. This bounds the size of the HNSW graph while maintaining search
- * quality over a curated subset of vectors.
+ * the actual index operations. This bounds the size of the underlying delegate (e.g. an HNSW
+ * graph) while maintaining search or scan quality over a curated subset of records.
  *
- * <p>Currently, only vector indexes are supported as the delegate. This restriction is enforced
+ * <p>The window-size cap is <em>approximate</em>. To let concurrent inserts and deletes commit
+ * without spurious conflicts, the maintainer reads the in-window count and the boundary pointer
+ * via {@code tr.snapshot()} reads and mutates the count via atomic {@code ADD} mutations. Two
+ * concurrent inserts can therefore both observe a non-full window, both add to the delegate,
+ * and both ADD-1 the counter — leaving the in-window count transiently above the configured
+ * size. Subsequent operations that observe the over-count fall through the full-branch
+ * eviction path. The maintainer's transactional invariants (boundary points at a present
+ * entry, delegate contents == window-side entries) hold in every committed state; only the
+ * size bound is best-effort.</p>
+ *
+ * <p>Vector (HNSW) and value indexes are supported as the delegate. Eligibility is enforced
  * by {@link SlidingWindowIndexMaintainerFactory#isSlidingWindowIndex(Index)} and validated by
  * {@link SlidingWindowIndexMaintainerFactory}.</p>
  *
@@ -140,6 +150,17 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
          * Get the best overflow entry (first entry on the overflow side of the boundary).
          * ASC/MIN: overflow is after boundary → forward scan from boundary (exclusive).
          * DESC/MAX: overflow is before boundary → reverse scan up to boundary (exclusive).
+         *
+         * <p>Both branches declare an explicit write-conflict range over the slice they
+         * actually visited. This is the symmetric counterpart to the read-conflict the
+         * non-snapshot {@code getRange} already provides: the read-conflict aborts us if
+         * a concurrent writer lands in the slice and commits before us, and the explicit
+         * write-conflict aborts any concurrent transaction that read from this slice and
+         * commits after us — typically another caller (e.g. a parallel {@code handleInsert})
+         * whose own read-conflict on a key in the slice was used to decide where to route
+         * its entry. Without it, that reader could base its routing decision on a
+         * pre-promotion view of the slice and commit cleanly, breaking the maintainer's
+         * "delegate contents == window-side entries" invariant.</p>
          */
         @Nonnull
         public CompletableFuture<KeyValue> getBestInOverflow(@Nonnull Subspace entriesSubspace,
@@ -155,7 +176,6 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
                         .thenApply(entries -> {
                             final byte[] scannedEnd = entries.isEmpty() ? end : ByteArrayUtil.keyAfter(entries.get(0).getKey());
                             tr.addWriteConflictRange(begin, scannedEnd);
-                            tr.addReadConflictRange(begin, scannedEnd);
                             return entries.isEmpty() ? null : entries.get(0);
                         });
             } else {
@@ -166,10 +186,8 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
                         .thenApply(entries -> {
                             final byte[] scannedBegin = entries.isEmpty() ? begin : entries.get(0).getKey();
                             tr.addWriteConflictRange(scannedBegin, boundaryPackedKey);
-                            tr.addReadConflictRange(scannedBegin, boundaryPackedKey);
                             return entries.isEmpty() ? null : entries.get(0);
                         });
-
             }
         }
 
@@ -200,7 +218,6 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
                         .thenApply(entries -> {
                             final byte[] scannedBegin = entries.isEmpty() ? begin : entries.get(0).getKey();
                             tr.addWriteConflictRange(scannedBegin, oldBoundaryPackedKey);
-                            tr.addReadConflictRange(scannedBegin, oldBoundaryPackedKey);
                             return entries.isEmpty() ? null : entries.get(0);
                         });
             } else {
@@ -212,7 +229,6 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
                         .thenApply(entries -> {
                             final byte[] scannedEnd = entries.isEmpty() ? end : ByteArrayUtil.keyAfter(entries.get(0).getKey());
                             tr.addWriteConflictRange(begin, scannedEnd);
-                            tr.addReadConflictRange(begin, scannedEnd);
                             return entries.isEmpty() ? null : entries.get(0);
                         });
             }
@@ -676,7 +692,6 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
                     }
                     final Tuple bestEntryKey = entriesSubspace.unpack(bestKV.getKey());
                     final Tuple bestPrimaryKey = Tuple.fromBytes(bestKV.getValue());
-                    // tr.addWriteConflictKey(bestKV.getKey()); // make sure to conflict with any transaction trying to modify the to-be boundary
                     tr.set(boundaryMetaKey, bestEntryKey.pack());
                     return state.store.loadRecordAsync(bestPrimaryKey)
                             .thenCompose(promotedRecord -> promotedRecord != null

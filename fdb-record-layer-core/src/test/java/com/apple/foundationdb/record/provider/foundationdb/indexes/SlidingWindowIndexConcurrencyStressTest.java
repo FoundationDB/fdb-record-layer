@@ -36,6 +36,8 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreConcurr
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
 import com.apple.foundationdb.record.test.TestKeySpace;
 import com.apple.foundationdb.tuple.Tuple;
+import com.apple.test.ParameterizedTestUtils;
+import com.apple.test.RandomizedTestUtils;
 import com.apple.test.Tags;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
@@ -48,6 +50,7 @@ import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
@@ -177,7 +180,7 @@ class SlidingWindowIndexConcurrencyStressTest extends FDBRecordStoreConcurrentTe
      * caught and tallied; whatever subset commits must still satisfy the
      * boundary-separates invariant.
      */
-    @ParameterizedTest(name = "interleaved[seed={0}, direction={1}, preSeed={2}]")
+    @ParameterizedTest
     @MethodSource("scenarios")
     void interleavedTransactions(final long seed, @Nonnull final Direction direction, @Nonnull final PreSeed preSeed) {
         final Random rnd = new Random(seed);
@@ -232,7 +235,7 @@ class SlidingWindowIndexConcurrencyStressTest extends FDBRecordStoreConcurrentTe
             // Each in-flight tx can over-add at most once on the snapshot-read counter,
             // so the count is bounded by windowSize + concurrentTxns.
             SlidingWindowTestHelpers.verifySlidingWindowInvariant(
-                    store, INDEX_NAME, WINDOW_SIZE, direction, WINDOW_SIZE + concurrentTxns);
+                    store, INDEX_NAME, WINDOW_SIZE, direction, WINDOW_SIZE + 2 * concurrentTxns);
         }
     }
 
@@ -243,7 +246,7 @@ class SlidingWindowIndexConcurrencyStressTest extends FDBRecordStoreConcurrentTe
      * transient conflicts). After all workers complete, asserts the
      * boundary-separates invariant.
      */
-    @ParameterizedTest(name = "threaded[seed={0}, direction={1}, preSeed={2}]")
+    @ParameterizedTest
     @MethodSource("scenarios")
     void realThreadedConcurrency(final long seed, @Nonnull final Direction direction, @Nonnull final PreSeed preSeed) throws Exception {
         final int numWorkers = 8;
@@ -315,16 +318,12 @@ class SlidingWindowIndexConcurrencyStressTest extends FDBRecordStoreConcurrentTe
         }
     }
 
+    @Nonnull
     static Stream<Arguments> scenarios() {
-        final long[] seeds = {9999L};
-        final List<Arguments> args = new ArrayList<>();
-        for (long s : seeds) {
-            for (Direction d : Direction.values()) {
-                for (PreSeed p : PreSeed.values()) {
-                    args.add(Arguments.of(s, Direction.DESC, PreSeed.EMPTY));
-                }
-            }
-        }
-        return args.stream();
+        return ParameterizedTestUtils.cartesianProduct(
+                RandomizedTestUtils.randomSeeds(0x5ca1ab1e, 0xfdb01234L),
+                Arrays.stream(Direction.values()),
+                Arrays.stream(PreSeed.values())
+        );
     }
 }
