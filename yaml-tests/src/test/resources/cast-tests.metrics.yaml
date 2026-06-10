@@ -5,11 +5,11 @@ cast-operator-tests:
     explain: SCAN([IS TEST_CAST, EQUALS promote(@c19 AS LONG)]) | MAP (CAST(array(@c19,
         @c6, @c8) AS ARRAY(STRING)) AS _0)
     task_count: 206
-    task_total_time_ms: 3
+    task_total_time_ms: 48
     transform_count: 57
-    transform_time_ms: 1
+    transform_time_ms: 27
     transform_yield_count: 16
-    insert_time_ms: 0
+    insert_time_ms: 1
     insert_new_count: 17
     insert_reused_count: 1
 -   query: EXPLAIN select CAST([] AS STRING ARRAY) from test_cast where id = 1
@@ -17,11 +17,11 @@ cast-operator-tests:
     explain: SCAN([IS TEST_CAST, EQUALS promote(@c14 AS LONG)]) | MAP (array() AS
         _0)
     task_count: 206
-    task_total_time_ms: 3
+    task_total_time_ms: 20
     transform_count: 57
-    transform_time_ms: 1
+    transform_time_ms: 9
     transform_yield_count: 16
-    insert_time_ms: 0
+    insert_time_ms: 1
     insert_new_count: 17
     insert_reused_count: 1
 -   query: EXPLAIN select CAST([1, 2, 3] AS DOUBLE ARRAY) from test_cast where id
@@ -30,9 +30,9 @@ cast-operator-tests:
     explain: SCAN([IS TEST_CAST, EQUALS promote(@c19 AS LONG)]) | MAP (CAST(array(@c19,
         @c6, @c8) AS ARRAY(DOUBLE)) AS _0)
     task_count: 206
-    task_total_time_ms: 4
+    task_total_time_ms: 21
     transform_count: 57
-    transform_time_ms: 2
+    transform_time_ms: 8
     transform_yield_count: 16
     insert_time_ms: 0
     insert_new_count: 17
@@ -43,9 +43,9 @@ cast-operator-tests:
     explain: SCAN([IS TEST_CAST, EQUALS promote(@c19 AS LONG)]) | MAP (CAST(array(@c4,
         @c6, @c8) AS ARRAY(INT)) AS _0)
     task_count: 206
-    task_total_time_ms: 3
+    task_total_time_ms: 20
     transform_count: 57
-    transform_time_ms: 1
+    transform_time_ms: 9
     transform_yield_count: 16
     insert_time_ms: 0
     insert_new_count: 17
@@ -56,9 +56,9 @@ cast-operator-tests:
     explain: SCAN([IS TEST_CAST, EQUALS promote(@c19 AS LONG)]) | MAP (CAST(array(@c4,
         @c6, @c8) AS ARRAY(INT)) AS _0)
     task_count: 206
-    task_total_time_ms: 3
+    task_total_time_ms: 20
     transform_count: 57
-    transform_time_ms: 1
+    transform_time_ms: 8
     transform_yield_count: 16
     insert_time_ms: 0
     insert_new_count: 17
@@ -69,9 +69,9 @@ cast-operator-tests:
     explain: SCAN([IS TEST_CAST, EQUALS promote(@c19 AS LONG)]) | MAP (CAST(array(@c4,
         @c6, @c8) AS ARRAY(INT)) AS _0)
     task_count: 206
-    task_total_time_ms: 3
+    task_total_time_ms: 17
     transform_count: 57
-    transform_time_ms: 1
+    transform_time_ms: 8
     transform_yield_count: 16
     insert_time_ms: 0
     insert_new_count: 17
@@ -82,9 +82,9 @@ cast-operator-tests:
     explain: SCAN([IS TEST_CAST, EQUALS promote(@c19 AS LONG)]) | MAP (CAST(array(@c4,
         @c6, @c4) AS ARRAY(INT)) AS _0)
     task_count: 206
-    task_total_time_ms: 3
+    task_total_time_ms: 15
     transform_count: 57
-    transform_time_ms: 1
+    transform_time_ms: 6
     transform_yield_count: 16
     insert_time_ms: 0
     insert_new_count: 17
@@ -95,9 +95,9 @@ cast-operator-tests:
     explain: SCAN([IS TEST_CAST, EQUALS promote(@c19 AS LONG)]) | MAP (CAST(array(@c19,
         @c6, @c8) AS ARRAY(BOOLEAN)) AS _0)
     task_count: 206
-    task_total_time_ms: 3
+    task_total_time_ms: 14
     transform_count: 57
-    transform_time_ms: 1
+    transform_time_ms: 6
     transform_yield_count: 16
     insert_time_ms: 0
     insert_new_count: 17
@@ -107,9 +107,9 @@ cast-operator-tests:
     explain: SCAN([IS TEST_CAST, EQUALS promote(@c14 AS LONG)]) | MAP (array() AS
         _0)
     task_count: 206
-    task_total_time_ms: 3
+    task_total_time_ms: 21
     transform_count: 57
-    transform_time_ms: 1
+    transform_time_ms: 6
     transform_yield_count: 16
     insert_time_ms: 0
     insert_new_count: 17
@@ -119,9 +119,9 @@ cast-operator-tests:
     explain: SCAN([IS TEST_CAST, EQUALS promote(@c14 AS LONG)]) | MAP (array() AS
         _0)
     task_count: 206
-    task_total_time_ms: 3
+    task_total_time_ms: 14
     transform_count: 57
-    transform_time_ms: 1
+    transform_time_ms: 6
     transform_yield_count: 16
     insert_time_ms: 0
     insert_new_count: 17
@@ -131,9 +131,9 @@ cast-operator-tests:
     explain: SCAN([IS TEST_CAST, EQUALS promote(@c14 AS LONG)]) | MAP (array() AS
         _0)
     task_count: 206
-    task_total_time_ms: 4
+    task_total_time_ms: 16
     transform_count: 57
-    transform_time_ms: 1
+    transform_time_ms: 7
     transform_yield_count: 16
     insert_time_ms: 0
     insert_new_count: 17
@@ -144,9 +144,9 @@ cast-operator-tests:
     explain: SCAN([IS TEST_CAST, EQUALS promote(@c19 AS LONG)]) | MAP (array(@c19,
         @c6, @c8) AS _0)
     task_count: 206
-    task_total_time_ms: 3
+    task_total_time_ms: 16
     transform_count: 57
-    transform_time_ms: 1
+    transform_time_ms: 8
     transform_yield_count: 16
     insert_time_ms: 0
     insert_new_count: 17
@@ -157,9 +157,9 @@ cast-operator-tests:
     explain: SCAN([IS TEST_CAST, EQUALS promote(@c33 AS LONG)]) | MAP (CAST(array(@c33,
         @c6, @c8, @c10, @c12, @c14, @c16, @c18, @c20, @c22) AS ARRAY(STRING)) AS _0)
     task_count: 206
-    task_total_time_ms: 5
+    task_total_time_ms: 15
     transform_count: 57
-    transform_time_ms: 1
+    transform_time_ms: 7
     transform_yield_count: 16
     insert_time_ms: 0
     insert_new_count: 17
@@ -170,9 +170,9 @@ cast-operator-tests:
     explain: SCAN([IS TEST_CAST, EQUALS promote(@c14 AS LONG)]) | MAP (CAST(_.NUM_COL
         AS STRING) AS CASTED_VALUE)
     task_count: 206
-    task_total_time_ms: 3
+    task_total_time_ms: 11
     transform_count: 57
-    transform_time_ms: 1
+    transform_time_ms: 5
     transform_yield_count: 16
     insert_time_ms: 0
     insert_new_count: 17
@@ -183,9 +183,9 @@ cast-operator-tests:
     explain: SCAN([IS TEST_CAST, EQUALS promote(@c14 AS LONG)]) | MAP (CAST(_.NUM_COL
         AS DOUBLE) AS CASTED_VALUE)
     task_count: 206
-    task_total_time_ms: 3
+    task_total_time_ms: 12
     transform_count: 57
-    transform_time_ms: 1
+    transform_time_ms: 5
     transform_yield_count: 16
     insert_time_ms: 0
     insert_new_count: 17
@@ -196,9 +196,9 @@ cast-operator-tests:
     explain: SCAN([IS TEST_CAST, EQUALS promote(@c14 AS LONG)]) | MAP (CAST(_.BOOL_COL
         AS INT) AS CASTED_VALUE)
     task_count: 206
-    task_total_time_ms: 3
+    task_total_time_ms: 14
     transform_count: 57
-    transform_time_ms: 1
+    transform_time_ms: 5
     transform_yield_count: 16
     insert_time_ms: 0
     insert_new_count: 17
@@ -209,9 +209,9 @@ cast-operator-tests:
     explain: SCAN([IS TEST_CAST, EQUALS promote(@c14 AS LONG)]) | MAP (CAST(_.BOOL_COL
         AS INT) AS CASTED_VALUE)
     task_count: 206
-    task_total_time_ms: 3
+    task_total_time_ms: 14
     transform_count: 57
-    transform_time_ms: 1
+    transform_time_ms: 5
     transform_yield_count: 16
     insert_time_ms: 0
     insert_new_count: 17
@@ -222,9 +222,9 @@ cast-operator-tests:
     explain: SCAN([IS TEST_CAST, EQUALS promote(@c14 AS LONG)]) | MAP (CAST(_.STR_COL
         AS INT) AS CASTED_VALUE)
     task_count: 206
-    task_total_time_ms: 3
+    task_total_time_ms: 13
     transform_count: 57
-    transform_time_ms: 1
+    transform_time_ms: 5
     transform_yield_count: 16
     insert_time_ms: 0
     insert_new_count: 17
@@ -235,9 +235,9 @@ cast-operator-tests:
     explain: SCAN([IS TEST_CAST, EQUALS promote(@c24 AS LONG)]) | MAP (CAST(CAST(CAST(_.NUM_COL
         AS STRING) AS INT) AS DOUBLE) AS NESTED_CAST)
     task_count: 206
-    task_total_time_ms: 3
+    task_total_time_ms: 11
     transform_count: 57
-    transform_time_ms: 1
+    transform_time_ms: 5
     transform_yield_count: 16
     insert_time_ms: 0
     insert_new_count: 17
@@ -248,9 +248,9 @@ cast-operator-tests:
     explain: SCAN([IS TEST_CAST, EQUALS promote(@c16 AS LONG)]) | MAP (CAST(_.NUM_COL
         AS DOUBLE) * @c8 AS CAST_ARITHMETIC)
     task_count: 206
-    task_total_time_ms: 3
+    task_total_time_ms: 12
     transform_count: 57
-    transform_time_ms: 1
+    transform_time_ms: 5
     transform_yield_count: 16
     insert_time_ms: 0
     insert_new_count: 17
@@ -261,9 +261,9 @@ cast-operator-tests:
     explain: SCAN([IS TEST_CAST, EQUALS promote(@c21 AS LONG)]) | MAP (CAST(_.NUM_COL
         AS LONG) + CAST(@c10 AS LONG) AS CAST_SUM)
     task_count: 206
-    task_total_time_ms: 3
+    task_total_time_ms: 17
     transform_count: 57
-    transform_time_ms: 1
+    transform_time_ms: 6
     transform_yield_count: 16
     insert_time_ms: 0
     insert_new_count: 17
@@ -274,9 +274,9 @@ cast-operator-tests:
     explain: SCAN([IS TEST_CAST, EQUALS promote(@c23 AS LONG)]) | MAP (pick(ConditionSelector(CAST(_.BOOL_COL
         AS INT) equals @c23, TRUE), @c12, @c14) AS CAST_CASE)
     task_count: 206
-    task_total_time_ms: 4
+    task_total_time_ms: 11
     transform_count: 57
-    transform_time_ms: 1
+    transform_time_ms: 5
     transform_yield_count: 16
     insert_time_ms: 0
     insert_new_count: 17
@@ -287,11 +287,11 @@ cast-operator-tests:
     explain: SCAN([IS TEST_CAST]) | FILTER CAST(_.NUM_COL AS STRING) EQUALS CAST(@c14
         AS STRING) | MAP (_.ID AS ID)
     task_count: 206
-    task_total_time_ms: 3
+    task_total_time_ms: 14
     transform_count: 59
-    transform_time_ms: 2
+    transform_time_ms: 8
     transform_yield_count: 15
-    insert_time_ms: 0
+    insert_time_ms: 1
     insert_new_count: 18
     insert_reused_count: 2
 -   query: EXPLAIN select id from test_cast where CAST(bool_col AS INTEGER) + 1 >
@@ -300,21 +300,21 @@ cast-operator-tests:
     explain: SCAN([IS TEST_CAST]) | FILTER CAST(_.BOOL_COL AS INT) + @c12 GREATER_THAN
         promote(@c12 AS INT) | MAP (_.ID AS ID)
     task_count: 222
-    task_total_time_ms: 4
+    task_total_time_ms: 22
     transform_count: 64
-    transform_time_ms: 2
+    transform_time_ms: 7
     transform_yield_count: 17
-    insert_time_ms: 0
+    insert_time_ms: 1
     insert_new_count: 22
     insert_reused_count: 2
 -   query: EXPLAIN select SUM(CAST(num_col AS DOUBLE)) as total from test_cast
     ref: cast-tests.yamsql:174
     explain: SCAN([IS TEST_CAST]) | MAP (_ AS _0) | AGG (sum_d(CAST(_._0.NUM_COL AS
-        DOUBLE)) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS TOTAL)
+        DOUBLE)) AS _0) GROUP BY () | ON EMPTY NULL | MAP (_._0._0 AS TOTAL)
     task_count: 247
-    task_total_time_ms: 3
+    task_total_time_ms: 14
     transform_count: 62
-    transform_time_ms: 1
+    transform_time_ms: 6
     transform_yield_count: 17
     insert_time_ms: 0
     insert_new_count: 21
@@ -323,9 +323,8 @@ cast-operator-tests:
         as string) as c, cast(null as double) as d, cast(null as boolean) as e, cast(null
         as string) as f from values (1), (2) as X(X)
     ref: cast-tests.yamsql:184
-    explain: EXPLODE array((@c58 AS X), (@c62 AS X)) | MAP (CAST(NULL AS INT) AS A,
-        CAST(NULL AS LONG) AS B, CAST(NULL AS STRING) AS C, CAST(NULL AS DOUBLE) AS
-        D, CAST(NULL AS BOOLEAN) AS E, CAST(NULL AS STRING) AS F)
+    explain: EXPLODE array((@c57 AS X), (@c61 AS X)) | MAP (NULL AS A, NULL AS B,
+        NULL AS C, NULL AS D, NULL AS E, NULL AS F)
     task_count: 116
     task_total_time_ms: 3
     transform_count: 27
@@ -336,10 +335,9 @@ cast-operator-tests:
     insert_reused_count: 0
 -   query: EXPLAIN select cast(null as uuid) from values (1), (2) as X(X)
     ref: cast-tests.yamsql:196
-    explain: EXPLODE array((@c11 AS X), (@c15 AS X)) | MAP (CAST(NULL AS UUID) AS
-        _0)
+    explain: EXPLODE array((@c10 AS X), (@c14 AS X)) | MAP (NULL AS _0)
     task_count: 116
-    task_total_time_ms: 1
+    task_total_time_ms: 2
     transform_count: 27
     transform_time_ms: 0
     transform_yield_count: 6
@@ -348,10 +346,9 @@ cast-operator-tests:
     insert_reused_count: 0
 -   query: EXPLAIN select cast(null as float) from values (1), (2) as X(X)
     ref: cast-tests.yamsql:205
-    explain: EXPLODE array((@c11 AS X), (@c15 AS X)) | MAP (CAST(NULL AS FLOAT) AS
-        _0)
+    explain: EXPLODE array((@c10 AS X), (@c14 AS X)) | MAP (NULL AS _0)
     task_count: 116
-    task_total_time_ms: 1
+    task_total_time_ms: 2
     transform_count: 27
     transform_time_ms: 0
     transform_yield_count: 6
@@ -360,10 +357,9 @@ cast-operator-tests:
     insert_reused_count: 0
 -   query: EXPLAIN select cast(null as bytes) from values (1), (2) as X(X)
     ref: cast-tests.yamsql:211
-    explain: EXPLODE array((@c11 AS X), (@c15 AS X)) | MAP (CAST(NULL AS BYTES) AS
-        _0)
+    explain: EXPLODE array((@c10 AS X), (@c14 AS X)) | MAP (NULL AS _0)
     task_count: 116
-    task_total_time_ms: 1
+    task_total_time_ms: 2
     transform_count: 27
     transform_time_ms: 0
     transform_yield_count: 6
@@ -374,11 +370,10 @@ cast-operator-tests:
         float)) as b, cast(null as vector(30, double)) as c from values (1), (2) as
         X(X)
     ref: cast-tests.yamsql:216
-    explain: EXPLODE array((@c46 AS X), (@c50 AS X)) | MAP (CAST(NULL AS VECTOR(16,
-        10)) AS A, CAST(NULL AS VECTOR(32, 15)) AS B, CAST(NULL AS VECTOR(64, 30))
-        AS C)
+    explain: EXPLODE array((@c45 AS X), (@c49 AS X)) | MAP (NULL AS A, NULL AS B,
+        NULL AS C)
     task_count: 116
-    task_total_time_ms: 1
+    task_total_time_ms: 3
     transform_count: 27
     transform_time_ms: 0
     transform_yield_count: 6
@@ -390,12 +385,10 @@ cast-operator-tests:
         as boolean array) as e, cast(null as string array) as f from values (1), (2)
         as X(X)
     ref: cast-tests.yamsql:223
-    explain: EXPLODE array((@c64 AS X), (@c68 AS X)) | MAP (CAST(NULL AS ARRAY(INT))
-        AS A, CAST(NULL AS ARRAY(LONG)) AS B, CAST(NULL AS ARRAY(STRING)) AS C, CAST(NULL
-        AS ARRAY(DOUBLE)) AS D, CAST(NULL AS ARRAY(BOOLEAN)) AS E, CAST(NULL AS ARRAY(STRING))
-        AS F)
+    explain: EXPLODE array((@c63 AS X), (@c67 AS X)) | MAP (NULL AS A, NULL AS B,
+        NULL AS C, NULL AS D, NULL AS E, NULL AS F)
     task_count: 116
-    task_total_time_ms: 1
+    task_total_time_ms: 2
     transform_count: 27
     transform_time_ms: 0
     transform_yield_count: 6
@@ -404,10 +397,9 @@ cast-operator-tests:
     insert_reused_count: 0
 -   query: EXPLAIN select cast(null as uuid array) from values (1), (2) as X(X)
     ref: cast-tests.yamsql:235
-    explain: EXPLODE array((@c12 AS X), (@c16 AS X)) | MAP (CAST(NULL AS ARRAY(UUID))
-        AS _0)
+    explain: EXPLODE array((@c11 AS X), (@c15 AS X)) | MAP (NULL AS _0)
     task_count: 116
-    task_total_time_ms: 1
+    task_total_time_ms: 7
     transform_count: 27
     transform_time_ms: 0
     transform_yield_count: 6
@@ -416,10 +408,9 @@ cast-operator-tests:
     insert_reused_count: 0
 -   query: EXPLAIN select cast(null as float array) from values (1), (2) as X(X)
     ref: cast-tests.yamsql:243
-    explain: EXPLODE array((@c12 AS X), (@c16 AS X)) | MAP (CAST(NULL AS ARRAY(FLOAT))
-        AS _0)
+    explain: EXPLODE array((@c11 AS X), (@c15 AS X)) | MAP (NULL AS _0)
     task_count: 116
-    task_total_time_ms: 1
+    task_total_time_ms: 2
     transform_count: 27
     transform_time_ms: 0
     transform_yield_count: 6
@@ -428,10 +419,9 @@ cast-operator-tests:
     insert_reused_count: 0
 -   query: EXPLAIN select cast(null as bytes array) from values (1), (2) as X(X)
     ref: cast-tests.yamsql:251
-    explain: EXPLODE array((@c12 AS X), (@c16 AS X)) | MAP (CAST(NULL AS ARRAY(BYTES))
-        AS _0)
+    explain: EXPLODE array((@c11 AS X), (@c15 AS X)) | MAP (NULL AS _0)
     task_count: 116
-    task_total_time_ms: 1
+    task_total_time_ms: 2
     transform_count: 27
     transform_time_ms: 0
     transform_yield_count: 6
@@ -442,11 +432,10 @@ cast-operator-tests:
         vector(15, float) array) as b, cast(null as vector(30, double) array) as c
         from values (1), (2) as X(X)
     ref: cast-tests.yamsql:258
-    explain: EXPLODE array((@c49 AS X), (@c53 AS X)) | MAP (CAST(NULL AS ARRAY(VECTOR(16,
-        10))) AS A, CAST(NULL AS ARRAY(VECTOR(32, 15))) AS B, CAST(NULL AS ARRAY(VECTOR(64,
-        30))) AS C)
+    explain: EXPLODE array((@c48 AS X), (@c52 AS X)) | MAP (NULL AS A, NULL AS B,
+        NULL AS C)
     task_count: 116
-    task_total_time_ms: 1
+    task_total_time_ms: 2
     transform_count: 27
     transform_time_ms: 0
     transform_yield_count: 6
