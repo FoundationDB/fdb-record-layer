@@ -93,6 +93,7 @@ test_block:
                 from t1, t2
                 where t1.a1 = 1 and t2.b1 = 1 and t1.a3 = t2.b3
       - explain: "ISCAN(t2$b1 [EQUALS promote(@c21 AS LONG)]) | FLATMAP q0 -> { ISCAN(t1$a1 [EQUALS promote(@c21 AS LONG)]) | FILTER _.a3 EQUALS q0.b3 AS q1 RETURN ((q1.id AS id, q1.a1 AS a1, q1.a2 AS a2, q1.a3 AS a3) AS t1, (q0.id AS id, q0.b1 AS b1, q0.b2 AS b2, q0.b3 AS b3) AS t2) }"
+      - resultMetadata: [{t1: [{id: BIGINT}, {a1: BIGINT}, {a2: BIGINT}, {a3: STRING}]}, {t2: [{id: BIGINT}, {b1: BIGINT}, {b2: BIGINT}, {b3: STRING}]}]
       - unorderedResult: [
           { { id: 1001, a1: 1, a2: 10, a3: "a" }, { id: 2001, b1: 1, b2: 20, b3: "a" } },
           { { id: 1001, a1: 1, a2: 10, a3: "a" }, { id: 2002, b1: 1, b2: 19, b3: "a" } },
@@ -109,6 +110,7 @@ test_block:
                 where t1.a1 = 1 and t2.b1 = 1 and t1.a3 = t2.b3
                 order by t1.a2
       - explain: "ISCAN(t1$a1_a2 [EQUALS promote(@c21 AS LONG)]) | FLATMAP q0 -> { COVERING(t2$b1_b3 [EQUALS promote(@c21 AS LONG)] -> [b1: KEY:[0], b3: KEY:[1], id: KEY:[2]]) | FILTER q0.a3 EQUALS _.b3 | FETCH AS q1 RETURN ((q0.id AS id, q0.a1 AS a1, q0.a2 AS a2, q0.a3 AS a3) AS t1, (q1.id AS id, q1.b1 AS b1, q1.b2 AS b2, q1.b3 AS b3) AS t2) }"
+      - resultMetadata: [{t1: [{id: BIGINT}, {a1: BIGINT}, {a2: BIGINT}, {a3: STRING}]}, {t2: [{id: BIGINT}, {b1: BIGINT}, {b2: BIGINT}, {b3: STRING}]}]
       - result: [
           { { id: 1001, a1: 1, a2: 10, a3: "a" }, { id: 2001, b1: 1, b2: 20, b3: "a" } },
           { { id: 1001, a1: 1, a2: 10, a3: "a" }, { id: 2002, b1: 1, b2: 19, b3: "a" } },
@@ -125,6 +127,7 @@ test_block:
                 where t1.a1 = 1 and t2.b1 = 1 and t1.a3 = t2.b3
                 order by t1.a2 desc
       - explain: "ISCAN(t1$a1_a2 [EQUALS promote(@c21 AS LONG)] REVERSE) | FLATMAP q0 -> { COVERING(t2$b1_b3 [EQUALS promote(@c21 AS LONG)] -> [b1: KEY:[0], b3: KEY:[1], id: KEY:[2]]) | FILTER q0.a3 EQUALS _.b3 | FETCH AS q1 RETURN ((q0.id AS id, q0.a1 AS a1, q0.a2 AS a2, q0.a3 AS a3) AS t1, (q1.id AS id, q1.b1 AS b1, q1.b2 AS b2, q1.b3 AS b3) AS t2) }"
+      - resultMetadata: [{t1: [{id: BIGINT}, {a1: BIGINT}, {a2: BIGINT}, {a3: STRING}]}, {t2: [{id: BIGINT}, {b1: BIGINT}, {b2: BIGINT}, {b3: STRING}]}]
       - result: [
           { { id: 1004, a1: 1, a2: 13, a3: "b" }, { id: 2003, b1: 1, b2: 18, b3: "b" } },
           { { id: 1004, a1: 1, a2: 13, a3: "b" }, { id: 2004, b1: 1, b2: 17, b3: "b" } },
@@ -142,6 +145,7 @@ test_block:
                 where t1.a1 = 1 and t2.b1 = 1 and t1.a3 = t2.b3
                 order by t1.a2 desc
       - explain: "ISCAN(t1$a1_a2 [EQUALS promote(@c15 AS LONG)] REVERSE) | FLATMAP q0 -> { COVERING(t2$b1_b3 [EQUALS promote(@c15 AS LONG)] -> [b1: KEY:[0], b3: KEY:[1], id: KEY:[2]]) | FILTER q0.a3 EQUALS _.b3 | FETCH AS q1 RETURN ((q1.id AS id, q1.b1 AS b1, q1.b2 AS b2, q1.b3 AS b3) AS t2, q0.a2 AS a2) } | MAP (_.t2 AS t2)"
+      - resultMetadata: [{t2: [{id: BIGINT}, {b1: BIGINT}, {b2: BIGINT}, {b3: STRING}]}]
       - result: [
           { { id: 2003, b1: 1, b2: 18, b3: "b" } },
           { { id: 2004, b1: 1, b2: 17, b3: "b" } },
@@ -159,6 +163,7 @@ test_block:
                 where t1.a1 = 1 and t2.b1 = 1 and t1.a3 = t2.b3
                 order by t1.a2 desc
       - explain: "ISCAN(t1$a1_a2 [EQUALS promote(@c25 AS LONG)] REVERSE) | FLATMAP q0 -> { COVERING(t2$b1_b3 [EQUALS promote(@c25 AS LONG)] -> [b1: KEY:[0], b3: KEY:[1], id: KEY:[2]]) | FILTER q0.a3 EQUALS _.b3 | FETCH AS q1 RETURN (q0.a2 AS a2, q0.a3 AS a3, q1.b2 AS b2, q1.b3 AS b3) }"
+      - resultMetadata: [{a2: BIGINT}, {a3: STRING}, {b2: BIGINT}, {b3: STRING}]
       - result: [
           { a2: 13, a3: "b", b2: 18, b3: "b" },
           { a2: 13, a3: "b", b2: 17, b3: "b" },
@@ -176,6 +181,7 @@ test_block:
                 where t1.a1 = 1 and t2.b1 = 1 and t1.a3 = t2.b3
                 order by t1.a2 desc
       - explain: "ISCAN(t1$a1_a2 [EQUALS promote(@c21 AS LONG)] REVERSE) | FLATMAP q0 -> { COVERING(t2$b1_b3 [EQUALS promote(@c21 AS LONG)] -> [b1: KEY:[0], b3: KEY:[1], id: KEY:[2]]) | FILTER q0.a3 EQUALS _.b3 | FETCH AS q1 RETURN (q0.a3 AS a3, q1.b2 AS b2, q1.b3 AS b3, q0.a2 AS a2) } | MAP (_.a3 AS a3, _.b2 AS b2, _.b3 AS b3)"
+      - resultMetadata: [{a3: STRING}, {b2: BIGINT}, {b3: STRING}]
       - result: [
           { a3: "b", b2: 18, b3: "b" },
           { a3: "b", b2: 17, b3: "b" },
@@ -193,6 +199,7 @@ test_block:
                 where x.a3 = y.b3
                 order by x.a2 desc
       - explain: "ISCAN(t1$a1_a2 [EQUALS promote(@c15 AS LONG)] REVERSE) | FLATMAP q0 -> { COVERING(t2$b1_b3 [EQUALS promote(@c15 AS LONG)] -> [b1: KEY:[0], b3: KEY:[1], id: KEY:[2]]) | FILTER q0.a3 EQUALS _.b3 | FETCH AS q1 RETURN ((q0.__ROW_VERSION AS __ROW_VERSION, q0.id AS id, q0.a1 AS a1, q0.a2 AS a2, q0.a3 AS a3) AS x, (q1.__ROW_VERSION AS __ROW_VERSION, q1.id AS id, q1.b1 AS b1, q1.b2 AS b2, q1.b3 AS b3) AS y) }"
+      - resultMetadata: [{x: [{__ROW_VERSION: BINARY}, {id: BIGINT}, {a1: BIGINT}, {a2: BIGINT}, {a3: STRING}]}, {y: [{__ROW_VERSION: BINARY}, {id: BIGINT}, {b1: BIGINT}, {b2: BIGINT}, {b3: STRING}]}]
       - result: [
           { { '__ROW_VERSION': !not_null _, id: 1004, a1: 1, a2: 13, a3: "b" }, { '__ROW_VERSION': !not_null _, id: 2003, b1: 1, b2: 18, b3: "b" } },
           { { '__ROW_VERSION': !not_null _, id: 1004, a1: 1, a2: 13, a3: "b" }, { '__ROW_VERSION': !not_null _, id: 2004, b1: 1, b2: 17, b3: "b" } },
@@ -213,6 +220,7 @@ test_block:
       - initialVersionLessThan: 4.10.5.0
       - error: INTERNAL_ERROR
       - initialVersionAtLeast: 4.10.5.0
+      - resultMetadata: [{y: [{__ROW_VERSION: BINARY}, {id: BIGINT}, {b1: BIGINT}, {b2: BIGINT}, {b3: STRING}]}]
       - result: [
           { { '__ROW_VERSION': !not_null _, id: 2003, b1: 1, b2: 18, b3: "b" } },
           { { '__ROW_VERSION': !not_null _, id: 2004, b1: 1, b2: 17, b3: "b" } },
@@ -230,6 +238,7 @@ test_block:
                 where x.a3 = y.b3
                 order by x.the_a2 desc
       - explain: "ISCAN(t1$a1_a2 [EQUALS promote(@c15 AS LONG)] REVERSE) | FLATMAP q0 -> { COVERING(t2$b1_b3 [EQUALS promote(@c15 AS LONG)] -> [b1: KEY:[0], b3: KEY:[1], id: KEY:[2]]) | FILTER q0.a3 EQUALS _.b3 | FETCH AS q1 RETURN ((q0.__ROW_VERSION AS __ROW_VERSION, q0.id AS id, q0.a1 AS a1, q0.a2 AS a2, q0.a3 AS a3, q0.a2 AS the_a2) AS x, (q1.__ROW_VERSION AS __ROW_VERSION, q1.id AS id, q1.b1 AS b1, q1.b2 AS b2, q1.b3 AS b3, q1.b2 AS the_b2) AS y) }"
+      - resultMetadata: [{x: [{__ROW_VERSION: BINARY}, {id: BIGINT}, {a1: BIGINT}, {a2: BIGINT}, {a3: STRING}, {the_a2: BIGINT}]}, {y: [{__ROW_VERSION: BINARY}, {id: BIGINT}, {b1: BIGINT}, {b2: BIGINT}, {b3: STRING}, {the_b2: BIGINT}]}]
       - result: [
           { { '__ROW_VERSION': !not_null _, id: 1004, a1: 1, a2: 13, a3: "b", the_a2: 13 }, { '__ROW_VERSION': !not_null _, id: 2003, b1: 1, b2: 18, b3: "b", the_b2: 18 } },
           { { '__ROW_VERSION': !not_null _, id: 1004, a1: 1, a2: 13, a3: "b", the_a2: 13 }, { '__ROW_VERSION': !not_null _, id: 2004, b1: 1, b2: 17, b3: "b", the_b2: 17 } },
@@ -250,6 +259,7 @@ test_block:
       - initialVersionLessThan: 4.10.5.0
       - error: INTERNAL_ERROR
       - initialVersionAtLeast: 4.10.5.0
+      - resultMetadata: [{y: [{__ROW_VERSION: BINARY}, {id: BIGINT}, {b1: BIGINT}, {b2: BIGINT}, {b3: STRING}, {the_b2: BIGINT}]}]
       - result: [
           { { '__ROW_VERSION': !not_null _, id: 2003, b1: 1, b2: 18, b3: "b", the_b2: 18 } },
           { { '__ROW_VERSION': !not_null _, id: 2004, b1: 1, b2: 17, b3: "b", the_b2: 17 } },
@@ -267,6 +277,7 @@ test_block:
                 where x.a3 = y.b3
                 order by x.the_a2 desc
       - explain: "ISCAN(t1$a1_a2 [EQUALS promote(@c19 AS LONG)] REVERSE) | FLATMAP q0 -> { COVERING(t2$b1_b3 [EQUALS promote(@c19 AS LONG)] -> [b1: KEY:[0], b3: KEY:[1], id: KEY:[2]]) | FILTER q0.a3 EQUALS _.b3 | FETCH AS q1 RETURN (q0.a2 AS a2, q0.a3 AS a3, q1.b2 AS b2, q1.b3 AS b3, q0.a2 AS the_a2) } | MAP (_.a2 AS a2, _.a3 AS a3, _.b2 AS b2, _.b3 AS b3)"
+      - resultMetadata: [{a2: BIGINT}, {a3: STRING}, {b2: BIGINT}, {b3: STRING}]
       - result: [
           { a2: 13, a3: "b", b2: 18, b3: "b" },
           { a2: 13, a3: "b", b2: 17, b3: "b" },
@@ -283,6 +294,7 @@ test_block:
                 where t1.a1 = 1 and t2.b1 = 1 and t2.b3 = t1.a3
                 order by t1.a1 asc, t1.a2 desc
       - explain: "ISCAN(t1$a1_a2 [EQUALS promote(@c21 AS LONG)] REVERSE) | FLATMAP q0 -> { ISCAN(t2$b1_b3 [EQUALS promote(@c21 AS LONG), EQUALS q0.a3]) AS q1 RETURN ((q0.id AS id, q0.a1 AS a1, q0.a2 AS a2, q0.a3 AS a3) AS t1, (q1.id AS id, q1.b1 AS b1, q1.b2 AS b2, q1.b3 AS b3) AS t2) }"
+      - resultMetadata: [{t1: [{id: BIGINT}, {a1: BIGINT}, {a2: BIGINT}, {a3: STRING}]}, {t2: [{id: BIGINT}, {b1: BIGINT}, {b2: BIGINT}, {b3: STRING}]}]
       - result: [
           { { id: 1004, a1: 1, a2: 13, a3: "b" }, { id: 2003, b1: 1, b2: 18, b3: "b" } },
           { { id: 1004, a1: 1, a2: 13, a3: "b" }, { id: 2004, b1: 1, b2: 17, b3: "b" } },
@@ -299,6 +311,7 @@ test_block:
                  where t1.a1 = 1 and t2.b1 = 1 and t1.a3 = t2.b3
                  order by t2.b3 asc
       - explain: "ISCAN(t2$b1_b3 [EQUALS promote(@c21 AS LONG)]) | FLATMAP q0 -> { ISCAN(t1$a1 [EQUALS promote(@c21 AS LONG)]) | FILTER _.a3 EQUALS q0.b3 AS q1 RETURN ((q1.id AS id, q1.a1 AS a1, q1.a2 AS a2, q1.a3 AS a3) AS t1, (q0.id AS id, q0.b1 AS b1, q0.b2 AS b2, q0.b3 AS b3) AS t2) }"
+      - resultMetadata: [{t1: [{id: BIGINT}, {a1: BIGINT}, {a2: BIGINT}, {a3: STRING}]}, {t2: [{id: BIGINT}, {b1: BIGINT}, {b2: BIGINT}, {b3: STRING}]}]
       - result: [
           { { id: 1001, a1: 1, a2: 10, a3: "a" }, { id: 2001, b1: 1, b2: 20, b3: "a" } },
           { { id: 1003, a1: 1, a2: 12, a3: "a" }, { id: 2001, b1: 1, b2: 20, b3: "a" } },
@@ -315,6 +328,7 @@ test_block:
                  where t1.a1 = 1 and t2.b1 = 1 and t1.a3 = t2.b3
                  order by t2.b3 desc
       - explain: "ISCAN(t2$b1_b3 [EQUALS promote(@c21 AS LONG)] REVERSE) | FLATMAP q0 -> { ISCAN(t1$a1 [EQUALS promote(@c21 AS LONG)]) | FILTER _.a3 EQUALS q0.b3 AS q1 RETURN ((q1.id AS id, q1.a1 AS a1, q1.a2 AS a2, q1.a3 AS a3) AS t1, (q0.id AS id, q0.b1 AS b1, q0.b2 AS b2, q0.b3 AS b3) AS t2) }"
+      - resultMetadata: [{t1: [{id: BIGINT}, {a1: BIGINT}, {a2: BIGINT}, {a3: STRING}]}, {t2: [{id: BIGINT}, {b1: BIGINT}, {b2: BIGINT}, {b3: STRING}]}]
       - result: [
           { { id: 1002, a1: 1, a2: 11, a3: "b" }, { id: 2004, b1: 1, b2: 17, b3: "b" } },
           { { id: 1004, a1: 1, a2: 13, a3: "b" }, { id: 2004, b1: 1, b2: 17, b3: "b" } },
@@ -331,6 +345,7 @@ test_block:
                  where t1.a1 = 1 and t2.b1 = 1
                  order by t1.a2
       - explain: "ISCAN(t1$a1_a2 [EQUALS promote(@c21 AS LONG)]) | FLATMAP q0 -> { ISCAN(t2$b1 [EQUALS promote(@c21 AS LONG)]) AS q1 RETURN ((q0.id AS id, q0.a1 AS a1, q0.a2 AS a2, q0.a3 AS a3) AS t1, (q1.id AS id, q1.b1 AS b1, q1.b2 AS b2, q1.b3 AS b3) AS t2) }"
+      - resultMetadata: [{t1: [{id: BIGINT}, {a1: BIGINT}, {a2: BIGINT}, {a3: STRING}]}, {t2: [{id: BIGINT}, {b1: BIGINT}, {b2: BIGINT}, {b3: STRING}]}]
       - result: [
           { { id: 1001, a1: 1, a2: 10, a3: "a" }, { id: 2001, b1: 1, b2: 20, b3: "a" } },
           { { id: 1001, a1: 1, a2: 10, a3: "a" }, { id: 2002, b1: 1, b2: 19, b3: "a" } },
@@ -374,6 +389,7 @@ test_block:
                  from t1, t3
                where t1.a1 = 1 and t3.aRef = t1.id
       - explain: "ISCAN(t1$a1 [EQUALS promote(@c21 AS LONG)]) | FLATMAP q0 -> { ISCAN(t3$aRef [EQUALS q0.id]) AS q1 RETURN ((q0.id AS id, q0.a1 AS a1, q0.a2 AS a2, q0.a3 AS a3) AS t1, (q1.id AS id, q1.c1 AS c1, q1.c2 AS c2, q1.c3 AS c3, q1.aRef AS aRef) AS t3) }"
+      - resultMetadata: [{t1: [{id: BIGINT}, {a1: BIGINT}, {a2: BIGINT}, {a3: STRING}]}, {t3: [{id: BIGINT}, {c1: BIGINT}, {c2: BIGINT}, {c3: STRING}, {aRef: BIGINT}]}]
       - unorderedResult: [
           { { id: 1001, a1: 1, a2: 10, a3: "a" }, { id: 3001, c1: 1, c2: 10, c3: "a", aRef: 1001 } },
           { { id: 1002, a1: 1, a2: 11, a3: "b" }, { id: 3002, c1: 1, c2: 11, c3: "a", aRef: 1002 } },
@@ -386,6 +402,7 @@ test_block:
                where t1.a1 = 1 and t3.aRef = t1.id
                order by t1.a2 desc
       - explain: "ISCAN(t1$a1_a2 [EQUALS promote(@c21 AS LONG)] REVERSE) | FLATMAP q0 -> { ISCAN(t3$aRef [EQUALS q0.id]) AS q1 RETURN ((q0.id AS id, q0.a1 AS a1, q0.a2 AS a2, q0.a3 AS a3) AS t1, (q1.id AS id, q1.c1 AS c1, q1.c2 AS c2, q1.c3 AS c3, q1.aRef AS aRef) AS t3) }"
+      - resultMetadata: [{t1: [{id: BIGINT}, {a1: BIGINT}, {a2: BIGINT}, {a3: STRING}]}, {t3: [{id: BIGINT}, {c1: BIGINT}, {c2: BIGINT}, {c3: STRING}, {aRef: BIGINT}]}]
       - result: [
           { { id: 1004, a1: 1, a2: 13, a3: "b" }, { id: 3004, c1: 1, c2: 13, c3: "b", aRef: 1004 } },
           { { id: 1003, a1: 1, a2: 12, a3: "a" }, { id: 3003, c1: 1, c2: 12, c3: "b", aRef: 1003 } },
@@ -398,6 +415,7 @@ test_block:
                where t1.a1 = 1 and t3.aRef = t1.id
                order by t3.c1, t3.c2
       - explain: "ISCAN(t3$c1_c2 <,>) | FLATMAP q0 -> { COVERING(t1$a1 [EQUALS promote(@c21 AS LONG)] -> [a1: KEY:[0], id: KEY:[1]]) | FILTER q0.aRef EQUALS _.id | FETCH AS q1 RETURN ((q1.id AS id, q1.a1 AS a1, q1.a2 AS a2, q1.a3 AS a3) AS t1, (q0.id AS id, q0.c1 AS c1, q0.c2 AS c2, q0.c3 AS c3, q0.aRef AS aRef) AS t3) }"
+      - resultMetadata: [{t1: [{id: BIGINT}, {a1: BIGINT}, {a2: BIGINT}, {a3: STRING}]}, {t3: [{id: BIGINT}, {c1: BIGINT}, {c2: BIGINT}, {c3: STRING}, {aRef: BIGINT}]}]
       - result: [
           { { id: 1001, a1: 1, a2: 10, a3: "a" }, { id: 3001, c1: 1, c2: 10, c3: "a", aRef: 1001 } },
           { { id: 1002, a1: 1, a2: 11, a3: "b" }, { id: 3002, c1: 1, c2: 11, c3: "a", aRef: 1002 } },
@@ -411,6 +429,7 @@ test_block:
                where t1.a1 = 1 and t1.id = t3.aRef
                order by t3.c1, t3.c2
       - explain: "ISCAN(t3$c1_c2 <,>) | FLATMAP q0 -> { ISCAN(t1$a1 [EQUALS promote(@c21 AS LONG), EQUALS q0.aRef]) AS q1 RETURN ((q1.id AS id, q1.a1 AS a1, q1.a2 AS a2, q1.a3 AS a3) AS t1, (q0.id AS id, q0.c1 AS c1, q0.c2 AS c2, q0.c3 AS c3, q0.aRef AS aRef) AS t3) }"
+      - resultMetadata: [{t1: [{id: BIGINT}, {a1: BIGINT}, {a2: BIGINT}, {a3: STRING}]}, {t3: [{id: BIGINT}, {c1: BIGINT}, {c2: BIGINT}, {c3: STRING}, {aRef: BIGINT}]}]
       - result: [
           { { id: 1001, a1: 1, a2: 10, a3: "a" }, { id: 3001, c1: 1, c2: 10, c3: "a", aRef: 1001 } },
           { { id: 1002, a1: 1, a2: 11, a3: "b" }, { id: 3002, c1: 1, c2: 11, c3: "a", aRef: 1002 } },
@@ -424,6 +443,7 @@ test_block:
                 order by t3.c3 desc
       # Note: m can be planned as the outer of the nested loop join because its max cardinality is 1
       - explain: "ISCAN(t1$a1 [EQUALS promote(@c24 AS LONG)]) | MAP (_ AS _0) | AGG (max_l(_._0.a2) AS _0) GROUP BY () | FLATMAP q0 -> { ISCAN(t3$c1_c2_c3 [EQUALS promote(@c24 AS LONG), EQUALS q0._0._0] REVERSE) AS q1 RETURN (q1.id AS id, q1.c1 AS c1, q1.c2 AS c2, q1.c3 AS c3, q1.aRef AS aRef) }"
+      - resultMetadata: [{id: BIGINT}, {c1: BIGINT}, {c2: BIGINT}, {c3: STRING}, {aRef: BIGINT}]
       - result: [
           { id: 3004, c1: 1, c2: 13, c3: "b", aRef: 1004 }
         ]
@@ -442,6 +462,7 @@ test_block:
                 order by t1.id desc
       # Self-join.
       - explain: "ISCAN(t1$a1 [EQUALS promote(@c24 AS LONG)]) | MAP (_ AS _0) | AGG (max_l(_._0.a2) AS _0) GROUP BY () | FLATMAP q0 -> { ISCAN(t1$a1_a2 [EQUALS promote(@c24 AS LONG), EQUALS q0._0._0] REVERSE) AS q1 RETURN (q1.id AS id, q1.a1 AS a1, q1.a2 AS a2, q1.a3 AS a3) }"
+      - resultMetadata: [{id: BIGINT}, {a1: BIGINT}, {a2: BIGINT}, {a3: STRING}]
       - result: [
           { id: 1004, a1: 1, a2: 13, a3: "b" },
         ]
@@ -452,6 +473,7 @@ test_block:
                 order by id desc
       # Self-join. Remove as many type aliases as possible
       - explain: "ISCAN(t1$a1 [EQUALS promote(@c18 AS LONG)]) | MAP (_ AS _0) | AGG (max_l(_._0.a2) AS _0) GROUP BY () | FLATMAP q0 -> { ISCAN(t1$a1_a2 [EQUALS promote(@c18 AS LONG), EQUALS q0._0._0] REVERSE) AS q1 RETURN (q1.id AS id, q1.a1 AS a1, q1.a2 AS a2, q1.a3 AS a3, q0._0._0 AS maxA2) }"
+      - resultMetadata: [{id: BIGINT}, {a1: BIGINT}, {a2: BIGINT}, {a3: STRING}, {maxA2: BIGINT}]
       - result: [
           { id: 1004, a1: 1, a2: 13, a3: "b", maxA2: 13 },
         ]
@@ -462,6 +484,7 @@ test_block:
                 order by a.id desc
       # The same self-join as above, but with aliases to clarify that the two legs reference two separate t1
       - explain: "ISCAN(t1$a1 [EQUALS promote(@c28 AS LONG)]) | MAP (_ AS _0) | AGG (max_l(_._0.a2) AS _0) GROUP BY () | FLATMAP q0 -> { ISCAN(t1$a1_a2 [EQUALS promote(@c28 AS LONG), EQUALS q0._0._0] REVERSE) AS q1 RETURN (q1.id AS id, q1.a1 AS a1, q1.a2 AS a2, q1.a3 AS a3) }"
+      - resultMetadata: [{id: BIGINT}, {a1: BIGINT}, {a2: BIGINT}, {a3: STRING}]
       - result: [
           { id: 1004, a1: 1, a2: 13, a3: "b" },
         ]
@@ -472,6 +495,7 @@ test_block:
                 order by a.id desc
       # The same self-join as above, but with aliases to make that the two legs reference the same t1
       - explain: "ISCAN(t1$a1 [EQUALS promote(@c26 AS LONG)]) | MAP (_ AS _0) | AGG (max_l(_._0.a2) AS _0) GROUP BY () | FLATMAP q0 -> { ISCAN(t1$a1_a2 [EQUALS promote(@c26 AS LONG), EQUALS q0._0._0] REVERSE) AS q1 RETURN (q1.id AS id, q1.a1 AS a1, q1.a2 AS a2, q1.a3 AS a3) }"
+      - resultMetadata: [{id: BIGINT}, {a1: BIGINT}, {a2: BIGINT}, {a3: STRING}]
       - result: [
           { id: 1004, a1: 1, a2: 13, a3: "b" },
         ]
@@ -482,6 +506,7 @@ test_block:
                 order by t1.id desc
       # This _should_ have the same plan as the previous few, as it represents the same join, though it reverses the order of the operands in the t1.a2 = maxA2 predicate
       - explain: "ISCAN(t1$a1 [EQUALS promote(@c24 AS LONG)] REVERSE) | FLATMAP q0 -> { ISCAN(t1$a1 [EQUALS promote(@c24 AS LONG)]) | MAP (_ AS _0) | AGG (max_l(_._0.a2) AS _0) GROUP BY () | ON EMPTY NULL | FILTER _._0._0 EQUALS q0.a2 AS q0 RETURN (q0.id AS id, q0.a1 AS a1, q0.a2 AS a2, q0.a3 AS a3) }"
+      - resultMetadata: [{id: BIGINT}, {a1: BIGINT}, {a2: BIGINT}, {a3: STRING}]
       - result: [
           { id: 1004, a1: 1, a2: 13, a3: "b" },
         ]
@@ -494,6 +519,7 @@ test_block:
                order by t1.a2 desc
       # Existential implementation must go in the inner as it is correlated to the outer. The order of the inner plan should not disrupt the outer here
       - explain: "ISCAN(t1$a1_a2 [EQUALS promote(@c10 AS LONG)] REVERSE) | FLATMAP q0 -> { ISCAN(t2$b1 <,>) | FILTER _.b2 EQUALS q0.a2 + @c22 | MAP (@c10 AS _0) | DEFAULT NULL | FILTER _ NOT_NULL | MAP (1 AS _0) AS q1 RETURN (q0.id AS id, q0.a1 AS a1, q0.a2 AS a2, q0.a3 AS a3) }"
+      - resultMetadata: [{id: BIGINT}, {a1: BIGINT}, {a2: BIGINT}, {a3: STRING}]
       - result: [
           { id: 1002, a1: 1, a2: 11, a3: "b" },
           { id: 1001, a1: 1, a2: 10, a3: "a" },
@@ -511,6 +537,7 @@ test_block:
       # - explain: "COVERING(t2$b1 [EQUALS promote(@c18 AS LONG)] -> [b1: KEY:[0], id: KEY:[1]]) | MAP (@c10 AS _0) | DEFAULT NULL | FILTER _ NOT_NULL | MAP (1 AS _0) | FLATMAP q0 -> { ISCAN(t1$a1_a2 [EQUALS promote(@c10 AS LONG)] REVERSE) AS q1 RETURN (q1.id AS id, q1.a1 AS a1, q1.a2 AS a2, q1.a3 AS a3) }"
       # - explain: "COVERING(t2$b1 [EQUALS promote(@c18 AS LONG)] -> [b1: KEY:[0], id: KEY:[1]]) | MAP (@c18 AS _0) | DEFAULT NULL | FILTER _ NOT_NULL | MAP (1 AS _0) | FLATMAP q0 -> { ISCAN(t1$a1_a2 [EQUALS promote(@c18 AS LONG)] REVERSE) AS q1 RETURN (q1.id AS id, q1.a1 AS a1, q1.a2 AS a2, q1.a3 AS a3) }"
       - explainContains: "COVERING(t2$b1 [EQUALS promote(@c18 AS LONG)] -> [b1: KEY:[0], id: KEY:[1]]) | MAP (@c1"
+      - resultMetadata: [{id: BIGINT}, {a1: BIGINT}, {a2: BIGINT}, {a3: STRING}]
       - result: [
           { id: 1004, a1: 1, a2: 13, a3: "b" },
           { id: 1003, a1: 1, a2: 12, a3: "a" },
@@ -523,6 +550,7 @@ test_block:
                where exists (select 1 from t2 where t2.b1 = 3)
                  and t1.a1 = 1
                order by t1.a2 desc
+      - resultMetadata: [{id: BIGINT}, {a1: BIGINT}, {a2: BIGINT}, {a3: STRING}]
       - result: [
         ]
     -
@@ -532,6 +560,7 @@ test_block:
                 order by t2.b3
       # The predicate on t1's primary key means that we can plan the t2 as the inner
       - explain: "SCAN([EQUALS promote(@c21 AS LONG)]) | TFILTER t1 | FLATMAP q0 -> { ISCAN(t2$b1_b3 [EQUALS promote(@c36 AS LONG), [GREATER_THAN_OR_EQUALS q0.a3]]) AS q1 RETURN ((q0.id AS id, q0.a1 AS a1, q0.a2 AS a2, q0.a3 AS a3) AS t1, (q1.id AS id, q1.b1 AS b1, q1.b2 AS b2, q1.b3 AS b3) AS t2) }"
+      - resultMetadata: [{t1: [{id: BIGINT}, {a1: BIGINT}, {a2: BIGINT}, {a3: STRING}]}, {t2: [{id: BIGINT}, {b1: BIGINT}, {b2: BIGINT}, {b3: STRING}]}]
       - result: [
           { { id: 1003, a1: 1, a2: 12, a3: "a" }, { id: 2001, b1: 1, b2: 20, b3: "a" } },
           { { id: 1003, a1: 1, a2: 12, a3: "a" }, { id: 2002, b1: 1, b2: 19, b3: "a" } },
@@ -564,6 +593,7 @@ test_block:
                 order by t1.a2 desc
       # Uniqueness constraint on t3.(c1, c2) means that we can ensure the max cardinality of the t3 quantifier is 1, so it can be planned as the outer
       - explain: "ISCAN(t3$c1_c2 [EQUALS promote(@c21 AS LONG), EQUALS promote(@c27 AS LONG)]) | FLATMAP q0 -> { ISCAN(t1$a1_a2 [EQUALS q0.c1, [GREATER_THAN_OR_EQUALS q0.c2]] REVERSE) AS q1 RETURN ((q1.id AS id, q1.a1 AS a1, q1.a2 AS a2, q1.a3 AS a3) AS t1, (q0.id AS id, q0.c1 AS c1, q0.c2 AS c2, q0.c3 AS c3, q0.aRef AS aRef) AS t3) }"
+      - resultMetadata: [{t1: [{id: BIGINT}, {a1: BIGINT}, {a2: BIGINT}, {a3: STRING}]}, {t3: [{id: BIGINT}, {c1: BIGINT}, {c2: BIGINT}, {c3: STRING}, {aRef: BIGINT}]}]
       - result: [
           { { id: 1004, a1: 1, a2: 13, a3: "b" }, { id: 3003, c1: 1, c2: 12, c3: "b", aRef: 1003 } },
           { { id: 1003, a1: 1, a2: 12, a3: "a" }, { id: 3003, c1: 1, c2: 12, c3: "b", aRef: 1003 } },
@@ -575,6 +605,7 @@ test_block:
                   and t1.a1 = t3.c1 and t1.a2 >= t3.c2
                 order by t3.c2 desc
       - explain: "ISCAN(t3$c1_c2 [EQUALS promote(@c21 AS LONG)] REVERSE) | FLATMAP q0 -> { ISCAN(t1$a1_a2 [EQUALS q0.c1, [GREATER_THAN_OR_EQUALS q0.c2]]) AS q1 RETURN ((q1.id AS id, q1.a1 AS a1, q1.a2 AS a2, q1.a3 AS a3) AS t1, (q0.id AS id, q0.c1 AS c1, q0.c2 AS c2, q0.c3 AS c3, q0.aRef AS aRef) AS t3) }"
+      - resultMetadata: [{t1: [{id: BIGINT}, {a1: BIGINT}, {a2: BIGINT}, {a3: STRING}]}, {t3: [{id: BIGINT}, {c1: BIGINT}, {c2: BIGINT}, {c3: STRING}, {aRef: BIGINT}]}]
       - result: [
           { { id: 1004, a1: 1, a2: 13, a3: "b" }, { id: 3004, c1: 1, c2: 13, c3: "b", aRef: 1004 } },
 
@@ -614,6 +645,7 @@ test_block:
                    and t3.c2 = t1.a2
                    and t3.c3 = t2.b3
       - explain: "ISCAN(t1$a1 [EQUALS promote(@c35 AS LONG)]) | FLATMAP q0 -> { ISCAN(t2$b1_b3 [EQUALS promote(@c35 AS LONG), EQUALS q0.a3]) | FLATMAP q1 -> { ISCAN(t3$c1_c2 [EQUALS promote(@c35 AS LONG), EQUALS q0.a2]) | FILTER _.c3 EQUALS q1.b3 AS q2 RETURN (q2 AS _0, q1 AS _1) } AS q3 RETURN ((q0.id AS id, q0.a1 AS a1, q0.a2 AS a2, q0.a3 AS a3) AS a, (q3._1.id AS id, q3._1.b1 AS b1, q3._1.b2 AS b2, q3._1.b3 AS b3) AS b, (q3._0.id AS id, q3._0.c1 AS c1, q3._0.c2 AS c2, q3._0.c3 AS c3, q3._0.aRef AS aRef) AS c) }"
+      - resultMetadata: [{a: [{id: BIGINT}, {a1: BIGINT}, {a2: BIGINT}, {a3: STRING}]}, {b: [{id: BIGINT}, {b1: BIGINT}, {b2: BIGINT}, {b3: STRING}]}, {c: [{id: BIGINT}, {c1: BIGINT}, {c2: BIGINT}, {c3: STRING}, {aRef: BIGINT}]}]
       - unorderedResult: [
           { a: { id: 1001, a1: 1, a2: 10, a3: "a" }, b: { id: 2001, b1: 1, b2: 20, b3: "a" }, c: { id: 3001, c1: 1, c2: 10, c3: "a", aRef: 1001 } },
           { a: { id: 1001, a1: 1, a2: 10, a3: "a" }, b: { id: 2002, b1: 1, b2: 19, b3: "a" }, c: { id: 3001, c1: 1, c2: 10, c3: "a", aRef: 1001 } },
@@ -629,6 +661,7 @@ test_block:
                    and t3.c3 = t2.b3
                  order by t1.a2
       - explain: "ISCAN(t1$a1_a2 [EQUALS promote(@c35 AS LONG)]) | FLATMAP q0 -> { ISCAN(t2$b1_b3 [EQUALS promote(@c35 AS LONG), EQUALS q0.a3]) | FLATMAP q1 -> { ISCAN(t3$c1_c2 [EQUALS promote(@c35 AS LONG), EQUALS q0.a2]) | FILTER _.c3 EQUALS q1.b3 AS q2 RETURN (q2 AS _0, q1 AS _1) } AS q3 RETURN ((q0.id AS id, q0.a1 AS a1, q0.a2 AS a2, q0.a3 AS a3) AS a, (q3._1.id AS id, q3._1.b1 AS b1, q3._1.b2 AS b2, q3._1.b3 AS b3) AS b, (q3._0.id AS id, q3._0.c1 AS c1, q3._0.c2 AS c2, q3._0.c3 AS c3, q3._0.aRef AS aRef) AS c) }"
+      - resultMetadata: [{a: [{id: BIGINT}, {a1: BIGINT}, {a2: BIGINT}, {a3: STRING}]}, {b: [{id: BIGINT}, {b1: BIGINT}, {b2: BIGINT}, {b3: STRING}]}, {c: [{id: BIGINT}, {c1: BIGINT}, {c2: BIGINT}, {c3: STRING}, {aRef: BIGINT}]}]
       - result: [
           { a: { id: 1001, a1: 1, a2: 10, a3: "a" }, b: { id: 2001, b1: 1, b2: 20, b3: "a" }, c: { id: 3001, c1: 1, c2: 10, c3: "a", aRef: 1001 } },
           { a: { id: 1001, a1: 1, a2: 10, a3: "a" }, b: { id: 2002, b1: 1, b2: 19, b3: "a" }, c: { id: 3001, c1: 1, c2: 10, c3: "a", aRef: 1001 } },
@@ -644,6 +677,7 @@ test_block:
                    and t3.c3 = t2.b3
                  order by t2.b3
       - explain: "ISCAN(t2$b1_b3 [EQUALS promote(@c35 AS LONG)]) | FLATMAP q0 -> { ISCAN(t1$a1 [EQUALS promote(@c35 AS LONG)]) | FILTER q0.b3 EQUALS _.a3 | FLATMAP q1 -> { ISCAN(t3$c1_c2 [EQUALS promote(@c35 AS LONG), EQUALS q1.a2]) | FILTER _.c3 EQUALS q0.b3 AS q2 RETURN (q1 AS _0, q2 AS _1) } AS q3 RETURN ((q3._0.id AS id, q3._0.a1 AS a1, q3._0.a2 AS a2, q3._0.a3 AS a3) AS a, (q0.id AS id, q0.b1 AS b1, q0.b2 AS b2, q0.b3 AS b3) AS b, (q3._1.id AS id, q3._1.c1 AS c1, q3._1.c2 AS c2, q3._1.c3 AS c3, q3._1.aRef AS aRef) AS c) }"
+      - resultMetadata: [{a: [{id: BIGINT}, {a1: BIGINT}, {a2: BIGINT}, {a3: STRING}]}, {b: [{id: BIGINT}, {b1: BIGINT}, {b2: BIGINT}, {b3: STRING}]}, {c: [{id: BIGINT}, {c1: BIGINT}, {c2: BIGINT}, {c3: STRING}, {aRef: BIGINT}]}]
       - result: [
           { a: { id: 1001, a1: 1, a2: 10, a3: "a" }, b: { id: 2001, b1: 1, b2: 20, b3: "a" }, c: { id: 3001, c1: 1, c2: 10, c3: "a", aRef: 1001 } },
           { a: { id: 1001, a1: 1, a2: 10, a3: "a" }, b: { id: 2002, b1: 1, b2: 19, b3: "a" }, c: { id: 3001, c1: 1, c2: 10, c3: "a", aRef: 1001 } },
@@ -659,6 +693,7 @@ test_block:
                    and t3.c3 = t2.b3
                  order by t3.c2
       - explain: "ISCAN(t3$c1_c2 [EQUALS promote(@c35 AS LONG)]) | FLATMAP q0 -> { COVERING(t1$a1_a2 [EQUALS promote(@c35 AS LONG)] -> [a1: KEY:[0], a2: KEY:[1], id: KEY:[2]]) | FILTER q0.c2 EQUALS _.a2 | FETCH | FLATMAP q1 -> { COVERING(t2$b1_b3 [EQUALS promote(@c35 AS LONG), EQUALS q1.a3] -> [b1: KEY:[0], b3: KEY:[1], id: KEY:[2]]) | FILTER q0.c3 EQUALS _.b3 | FETCH AS q2 RETURN (q1 AS _0, q2 AS _1) } AS q3 RETURN ((q3._0.id AS id, q3._0.a1 AS a1, q3._0.a2 AS a2, q3._0.a3 AS a3) AS a, (q3._1.id AS id, q3._1.b1 AS b1, q3._1.b2 AS b2, q3._1.b3 AS b3) AS b, (q0.id AS id, q0.c1 AS c1, q0.c2 AS c2, q0.c3 AS c3, q0.aRef AS aRef) AS c) }"
+      - resultMetadata: [{a: [{id: BIGINT}, {a1: BIGINT}, {a2: BIGINT}, {a3: STRING}]}, {b: [{id: BIGINT}, {b1: BIGINT}, {b2: BIGINT}, {b3: STRING}]}, {c: [{id: BIGINT}, {c1: BIGINT}, {c2: BIGINT}, {c3: STRING}, {aRef: BIGINT}]}]
       - result: [
           { a: { id: 1001, a1: 1, a2: 10, a3: "a" }, b: { id: 2001, b1: 1, b2: 20, b3: "a" }, c: { id: 3001, c1: 1, c2: 10, c3: "a", aRef: 1001 } },
           { a: { id: 1001, a1: 1, a2: 10, a3: "a" }, b: { id: 2002, b1: 1, b2: 19, b3: "a" }, c: { id: 3001, c1: 1, c2: 10, c3: "a", aRef: 1001 } },
@@ -674,6 +709,7 @@ test_block:
                    and t3.c3 = t2.b3
                  order by t3.c2, t3.c3
       - explain: "ISCAN(t3$c1_c2_c3 [EQUALS promote(@c35 AS LONG)]) | FLATMAP q0 -> { COVERING(t1$a1_a2 [EQUALS promote(@c35 AS LONG)] -> [a1: KEY:[0], a2: KEY:[1], id: KEY:[2]]) | FILTER q0.c2 EQUALS _.a2 | FETCH | FLATMAP q1 -> { COVERING(t2$b1_b3 [EQUALS promote(@c35 AS LONG), EQUALS q1.a3] -> [b1: KEY:[0], b3: KEY:[1], id: KEY:[2]]) | FILTER q0.c3 EQUALS _.b3 | FETCH AS q2 RETURN (q1 AS _0, q2 AS _1) } AS q3 RETURN ((q3._0.id AS id, q3._0.a1 AS a1, q3._0.a2 AS a2, q3._0.a3 AS a3) AS a, (q3._1.id AS id, q3._1.b1 AS b1, q3._1.b2 AS b2, q3._1.b3 AS b3) AS b, (q0.id AS id, q0.c1 AS c1, q0.c2 AS c2, q0.c3 AS c3, q0.aRef AS aRef) AS c) }"
+      - resultMetadata: [{a: [{id: BIGINT}, {a1: BIGINT}, {a2: BIGINT}, {a3: STRING}]}, {b: [{id: BIGINT}, {b1: BIGINT}, {b2: BIGINT}, {b3: STRING}]}, {c: [{id: BIGINT}, {c1: BIGINT}, {c2: BIGINT}, {c3: STRING}, {aRef: BIGINT}]}]
       - result: [
           { a: { id: 1001, a1: 1, a2: 10, a3: "a" }, b: { id: 2001, b1: 1, b2: 20, b3: "a" }, c: { id: 3001, c1: 1, c2: 10, c3: "a", aRef: 1001 } },
           { a: { id: 1001, a1: 1, a2: 10, a3: "a" }, b: { id: 2002, b1: 1, b2: 19, b3: "a" }, c: { id: 3001, c1: 1, c2: 10, c3: "a", aRef: 1001 } },
@@ -688,6 +724,7 @@ test_block:
                   and t3.c2 = t1.a2
                 order by t1.a2 desc
       - explain: "ISCAN(t1$a1_a2 [EQUALS promote(@c25 AS LONG)] REVERSE) | FLATMAP q0 -> { COVERING(t2$b1 [EQUALS q0.a1] -> [b1: KEY:[0], id: KEY:[1]]) | MAP (@c25 AS _0) | DEFAULT NULL | FILTER _ NOT_NULL AS q1 RETURN q0 } | FLATMAP q0 -> { ISCAN(t3$c1_c2 [EQUALS promote(@c25 AS LONG), EQUALS q0.a2]) AS q3 RETURN ((q0.id AS id, q0.a1 AS a1, q0.a2 AS a2, q0.a3 AS a3) AS a, (q3.id AS id, q3.c1 AS c1, q3.c2 AS c2, q3.c3 AS c3, q3.aRef AS aRef) AS b) }"
+      - resultMetadata: [{a: [{id: BIGINT}, {a1: BIGINT}, {a2: BIGINT}, {a3: STRING}]}, {b: [{id: BIGINT}, {c1: BIGINT}, {c2: BIGINT}, {c3: STRING}, {aRef: BIGINT}]}]
       - result: [
           { a: { id: 1004, a1: 1, a2: 13, a3: "b" }, b: { id: 3004, c1: 1, c2: 13, c3: "b", aRef: 1004 } },
           { a: { id: 1003, a1: 1, a2: 12, a3: "a" }, b: { id: 3003, c1: 1, c2: 12, c3: "b", aRef: 1003 } },
@@ -705,6 +742,7 @@ test_block:
                 order by t1.a2
       # Order by just a2 gives us an in-union
       - explain: "[IN arrayDistinct(promote(@c21 AS ARRAY(LONG)))] INUNION q0 -> { COVERING(t1$a1_a2 [EQUALS q0] -> [a1: KEY:[0], a2: KEY:[1], id: KEY:[2]]) } COMPARE BY (_.a2, _.id, _.a1) | FETCH | FLATMAP q1 -> { ISCAN(t3$aRef [EQUALS q1.id]) AS q2 RETURN ((q1.id AS id, q1.a1 AS a1, q1.a2 AS a2, q1.a3 AS a3) AS t1, (q2.id AS id, q2.c1 AS c1, q2.c2 AS c2, q2.c3 AS c3, q2.aRef AS aRef) AS t3) }"
+      - resultMetadata: [{t1: [{id: BIGINT}, {a1: BIGINT}, {a2: BIGINT}, {a3: STRING}]}, {t3: [{id: BIGINT}, {c1: BIGINT}, {c2: BIGINT}, {c3: STRING}, {aRef: BIGINT}]}]
       - result: [
          { { id: 1101, a1: 2, a2:  5, a3: "a" }, { id: 3101, c1: 2, c2:  7, c3: "c", aRef: 1101 } },
          { { id: 1102, a1: 2, a2:  5, a3: "b" }, { id: 3102, c1: 2, c2:  8, c3: "d", aRef: 1102 } },
@@ -722,6 +760,7 @@ test_block:
                 order by t1.a1, t1.a2
       # Order by a1, a2 also gives us an in join.
       - explain: "[IN arrayDistinct(promote(@c21 AS ARRAY(LONG))) SORTED] | INJOIN q0 -> { ISCAN(t1$a1_a2 [EQUALS q0]) } | FLATMAP q1 -> { ISCAN(t3$aRef [EQUALS q1.id]) AS q2 RETURN ((q1.id AS id, q1.a1 AS a1, q1.a2 AS a2, q1.a3 AS a3) AS t1, (q2.id AS id, q2.c1 AS c1, q2.c2 AS c2, q2.c3 AS c3, q2.aRef AS aRef) AS t3) }"
+      - resultMetadata: [{t1: [{id: BIGINT}, {a1: BIGINT}, {a2: BIGINT}, {a3: STRING}]}, {t3: [{id: BIGINT}, {c1: BIGINT}, {c2: BIGINT}, {c3: STRING}, {aRef: BIGINT}]}]
       - result: [
          { { id: 1001, a1: 1, a2: 10, a3: "a" }, { id: 3001, c1: 1, c2: 10, c3: "a", aRef: 1001 } },
          { { id: 1002, a1: 1, a2: 11, a3: "b" }, { id: 3002, c1: 1, c2: 11, c3: "a", aRef: 1002 } },
@@ -739,6 +778,7 @@ test_block:
                 order by t1.a1 asc, t1.a2 desc
       # Order by a1, a2 also gives us an in join.
       - explain: "[IN arrayDistinct(promote(@c21 AS ARRAY(LONG))) SORTED] | INJOIN q0 -> { ISCAN(t1$a1_a2 [EQUALS q0] REVERSE) } | FLATMAP q1 -> { ISCAN(t3$aRef [EQUALS q1.id]) AS q2 RETURN ((q1.id AS id, q1.a1 AS a1, q1.a2 AS a2, q1.a3 AS a3) AS t1, (q2.id AS id, q2.c1 AS c1, q2.c2 AS c2, q2.c3 AS c3, q2.aRef AS aRef) AS t3) }"
+      - resultMetadata: [{t1: [{id: BIGINT}, {a1: BIGINT}, {a2: BIGINT}, {a3: STRING}]}, {t3: [{id: BIGINT}, {c1: BIGINT}, {c2: BIGINT}, {c3: STRING}, {aRef: BIGINT}]}]
       - result: [
          { { id: 1004, a1: 1, a2: 13, a3: "b" }, { id: 3004, c1: 1, c2: 13, c3: "b", aRef: 1004 } },
          { { id: 1003, a1: 1, a2: 12, a3: "a" }, { id: 3003, c1: 1, c2: 12, c3: "b", aRef: 1003 } },
@@ -756,6 +796,7 @@ test_block:
                 order by t1.a1 desc, t1.a2 asc
       # Order by a1, a2 also gives us an in join.
       - explain: "[IN arrayDistinct(promote(@c21 AS ARRAY(LONG))) SORTED DESC] | INJOIN q0 -> { ISCAN(t1$a1_a2 [EQUALS q0]) } | FLATMAP q1 -> { ISCAN(t3$aRef [EQUALS q1.id]) AS q2 RETURN ((q1.id AS id, q1.a1 AS a1, q1.a2 AS a2, q1.a3 AS a3) AS t1, (q2.id AS id, q2.c1 AS c1, q2.c2 AS c2, q2.c3 AS c3, q2.aRef AS aRef) AS t3) }"
+      - resultMetadata: [{t1: [{id: BIGINT}, {a1: BIGINT}, {a2: BIGINT}, {a3: STRING}]}, {t3: [{id: BIGINT}, {c1: BIGINT}, {c2: BIGINT}, {c3: STRING}, {aRef: BIGINT}]}]
       - result: [
          { { id: 1101, a1: 2, a2:  5, a3: "a" }, { id: 3101, c1: 2, c2:  7, c3: "c", aRef: 1101 } },
          { { id: 1102, a1: 2, a2:  5, a3: "b" }, { id: 3102, c1: 2, c2:  8, c3: "d", aRef: 1102 } },
@@ -774,6 +815,7 @@ test_block:
                   and t3.c2 = t1.a2
                 order by t1.a1 asc, t1.a2 desc
       - explain: "[IN arrayDistinct(promote(@c25 AS ARRAY(LONG))) SORTED] | INJOIN q0 -> { ISCAN(t1$a1_a2 [EQUALS q0] REVERSE) } | FLATMAP q1 -> { COVERING(t2$b1 [EQUALS q1.a1] -> [b1: KEY:[0], id: KEY:[1]]) | MAP (@c42 AS _0) | DEFAULT NULL | FILTER _ NOT_NULL AS q2 RETURN q1 } | FLATMAP q1 -> { ISCAN(t3$c1_c2 [EQUALS q1.a1, EQUALS q1.a2]) AS q4 RETURN ((q1.id AS id, q1.a1 AS a1, q1.a2 AS a2, q1.a3 AS a3) AS a, (q4.id AS id, q4.c1 AS c1, q4.c2 AS c2, q4.c3 AS c3, q4.aRef AS aRef) AS b) }"
+      - resultMetadata: [{a: [{id: BIGINT}, {a1: BIGINT}, {a2: BIGINT}, {a3: STRING}]}, {b: [{id: BIGINT}, {c1: BIGINT}, {c2: BIGINT}, {c3: STRING}, {aRef: BIGINT}]}]
       - result: [
           { a: { id: 1004, a1: 1, a2: 13, a3: "b" }, b: { id: 3004, c1: 1, c2: 13, c3: "b", aRef: 1004 } },
           { a: { id: 1003, a1: 1, a2: 12, a3: "a" }, b: { id: 3003, c1: 1, c2: 12, c3: "b", aRef: 1003 } },
@@ -789,6 +831,7 @@ test_block:
                 from t1_f(1) as a, t2_f(1) as b
                 where a.a3 = b.b3
       - explain: "ISCAN(t2$b1 [EQUALS promote(@c15 AS LONG)]) | FLATMAP q0 -> { ISCAN(t1$a1 [EQUALS promote(@c15 AS LONG)]) | FILTER _.a3 EQUALS q0.b3 AS q1 RETURN ((q1.__ROW_VERSION AS __ROW_VERSION, q1.id AS id, q1.a1 AS a1, q1.a2 AS a2, q1.a3 AS a3) AS a, (q0.__ROW_VERSION AS __ROW_VERSION, q0.id AS id, q0.b1 AS b1, q0.b2 AS b2, q0.b3 AS b3) AS b) }"
+      - resultMetadata: [{a: [{__ROW_VERSION: BINARY}, {id: BIGINT}, {a1: BIGINT}, {a2: BIGINT}, {a3: STRING}]}, {b: [{__ROW_VERSION: BINARY}, {id: BIGINT}, {b1: BIGINT}, {b2: BIGINT}, {b3: STRING}]}]
       - unorderedResult: [
           { { '__ROW_VERSION': !not_null _, id: 1001, a1: 1, a2: 10, a3: "a" }, { '__ROW_VERSION': !not_null _, id: 2001, b1: 1, b2: 20, b3: "a" } },
           { { '__ROW_VERSION': !not_null _, id: 1001, a1: 1, a2: 10, a3: "a" }, { '__ROW_VERSION': !not_null _, id: 2002, b1: 1, b2: 19, b3: "a" } },
@@ -805,6 +848,7 @@ test_block:
                 where a.a3 = b.b3
                 order by a.a2
       - explain: "ISCAN(t1$a1_a2 [EQUALS promote(@c15 AS LONG)]) | FLATMAP q0 -> { COVERING(t2$b1_b3 [EQUALS promote(@c15 AS LONG)] -> [b1: KEY:[0], b3: KEY:[1], id: KEY:[2]]) | FILTER q0.a3 EQUALS _.b3 | FETCH AS q1 RETURN ((q0.__ROW_VERSION AS __ROW_VERSION, q0.id AS id, q0.a1 AS a1, q0.a2 AS a2, q0.a3 AS a3) AS a, (q1.__ROW_VERSION AS __ROW_VERSION, q1.id AS id, q1.b1 AS b1, q1.b2 AS b2, q1.b3 AS b3) AS b) }"
+      - resultMetadata: [{a: [{__ROW_VERSION: BINARY}, {id: BIGINT}, {a1: BIGINT}, {a2: BIGINT}, {a3: STRING}]}, {b: [{__ROW_VERSION: BINARY}, {id: BIGINT}, {b1: BIGINT}, {b2: BIGINT}, {b3: STRING}]}]
       - result: [
           { { '__ROW_VERSION': !not_null _, id: 1001, a1: 1, a2: 10, a3: "a" }, { '__ROW_VERSION': !not_null _, id: 2001, b1: 1, b2: 20, b3: "a" } },
           { { '__ROW_VERSION': !not_null _, id: 1001, a1: 1, a2: 10, a3: "a" }, { '__ROW_VERSION': !not_null _, id: 2002, b1: 1, b2: 19, b3: "a" } },
@@ -821,6 +865,7 @@ test_block:
                 where a.a3 = b.b3
                 order by b.b3
       - explain: "ISCAN(t2$b1_b3 [EQUALS promote(@c15 AS LONG)]) | FLATMAP q0 -> { ISCAN(t1$a1 [EQUALS promote(@c15 AS LONG)]) | FILTER _.a3 EQUALS q0.b3 AS q1 RETURN ((q1.__ROW_VERSION AS __ROW_VERSION, q1.id AS id, q1.a1 AS a1, q1.a2 AS a2, q1.a3 AS a3) AS a, (q0.__ROW_VERSION AS __ROW_VERSION, q0.id AS id, q0.b1 AS b1, q0.b2 AS b2, q0.b3 AS b3) AS b) }"
+      - resultMetadata: [{a: [{__ROW_VERSION: BINARY}, {id: BIGINT}, {a1: BIGINT}, {a2: BIGINT}, {a3: STRING}]}, {b: [{__ROW_VERSION: BINARY}, {id: BIGINT}, {b1: BIGINT}, {b2: BIGINT}, {b3: STRING}]}]
       - result: [
           { { '__ROW_VERSION': !not_null _, id: 1001, a1: 1, a2: 10, a3: "a" }, { '__ROW_VERSION': !not_null _, id: 2001, b1: 1, b2: 20, b3: "a" } },
           { { '__ROW_VERSION': !not_null _, id: 1003, a1: 1, a2: 12, a3: "a" }, { '__ROW_VERSION': !not_null _, id: 2001, b1: 1, b2: 20, b3: "a" } },

@@ -33,15 +33,18 @@ test_block:
     -
       # dummy test
       - query: select * from jua where c1=2;
+      - resultMetadata: [{C1: BIGINT}, {C2: BIGINT}, {C5: BIGINT}]
       - result: []
     -
       # union join to the same table using row version
       - query: select X.c1 from jua as X join jua using("__ROW_VERSION");
       - supported_version: 4.10.4.0
+      - resultMetadata: [{C1: BIGINT}]
       - result: [{1}]
     -
       # union join on row version
       - query: select * from jua join jub using("__ROW_VERSION");
       - supported_version: 4.10.4.0
+      - resultMetadata: [{C1: BIGINT}, {C2: BIGINT}, {C5: BIGINT}, {C1: BIGINT}, {C3: BIGINT}, {C5: BIGINT}]
       - result: []
 ...

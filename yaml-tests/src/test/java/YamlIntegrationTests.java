@@ -141,6 +141,11 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
+    public void copyBasic(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("copy-basic.yamsql");
+    }
+
+    @TestTemplate
     void createDrop(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("create-drop.yamsql");
     }
@@ -203,6 +208,21 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
+    public void indexDdl(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("index-ddl.yamsql");
+    }
+
+    @TestTemplate
+    public void indexDdlValuesOnly(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("index-ddl-values-only.yamsql");
+    }
+
+    @TestTemplate
+    public void indexDdlAggregatesOnly(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("index-ddl-aggregates-only.yamsql");
+    }
+
+    @TestTemplate
     public void indexedFunctions(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("indexed-functions.yamsql");
     }
@@ -260,26 +280,6 @@ public class YamlIntegrationTests {
     @TestTemplate
     public void multiClusterIsolation(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("multi-cluster-isolation.yamsql");
-    }
-
-    @TestTemplate
-    public void copyBasic(YamlTest.Runner runner) throws Exception {
-        runner.runYamsql("copy-basic.yamsql");
-    }
-
-    @TestTemplate
-    public void indexDdl(YamlTest.Runner runner) throws Exception {
-        runner.runYamsql("index-ddl.yamsql");
-    }
-
-    @TestTemplate
-    public void indexDdlValuesOnly(YamlTest.Runner runner) throws Exception {
-        runner.runYamsql("index-ddl-values-only.yamsql");
-    }
-
-    @TestTemplate
-    public void indexDdlAggregatesOnly(YamlTest.Runner runner) throws Exception {
-        runner.runYamsql("index-ddl-aggregates-only.yamsql");
     }
 
     @TestTemplate

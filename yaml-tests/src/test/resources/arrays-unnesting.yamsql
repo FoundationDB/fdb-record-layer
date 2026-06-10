@@ -80,6 +80,7 @@ test_block:
       # Selecting the entire array (on an unindexed table) is allowed; no implicit unnesting/fanout happens.
       - query: SELECT "id", "items" FROM T1
       - explain: "SCAN([IS T1])"
+      - resultMetadata: [{id: BIGINT}, {items: {array: STRING}}]
       - unorderedResult: [
           {id: 1, ['a', 'b', 'c']},
           {id: 2, ['d', 'e']},
@@ -88,6 +89,7 @@ test_block:
       # Same query as above, but on the indexed table.
       - query: SELECT "id", "items" FROM "T1_indexed"
       - explain: "SCAN([IS T1_indexed])"
+      - resultMetadata: [{id: BIGINT}, {items: {array: STRING}}]
       - unorderedResult: [
           {id: 1, items: ['a', 'b', 'c']},
           {id: 2, items: ['d', 'e']},
@@ -96,6 +98,7 @@ test_block:
       # Selecting the array only: no unnesting/fanout happens.
       - query: SELECT "items" FROM "T1_indexed"
       - explain: "SCAN([IS T1_indexed]) | MAP (_.items AS items)"
+      - resultMetadata: [{items: {array: STRING}}]
       - unorderedResult: [
           {items: ['a', 'b', 'c']},
           {items: ['d', 'e']},
@@ -112,6 +115,7 @@ test_block:
       # Unnesting the array using PartiQL-style unnesting.
       - query: SELECT "id", "item" FROM "T1_indexed" AS "row", "row"."items" AS "item"
       - explain: "SCAN([IS T1_indexed]) | FLATMAP q0 -> { EXPLODE q0.items AS q1 RETURN (q0.id AS id, q1 AS item) }"
+      - resultMetadata: [{id: BIGINT}, {item: STRING}]
       - unorderedResult: [
           {id: 1, item: 'a'},
           {id: 1, item: 'b'},
@@ -128,6 +132,7 @@ test_block:
       # The planner is able to produce the same EXPLODE plan as for PartiQL-style unnesting.
       - query: SELECT "id", SQ."item" FROM "T1_indexed" AS "row", (SELECT "item" FROM "row"."items" AS "item") AS SQ
       - explain: "SCAN([IS T1_indexed]) | FLATMAP q0 -> { EXPLODE q0.items AS q1 RETURN (q0.id AS id, q1 AS item) }"
+      - resultMetadata: [{id: BIGINT}, {item: STRING}]
       - unorderedResult: [
           {id: 1, item: 'a'},
           {id: 1, item: 'b'},
@@ -149,10 +154,12 @@ test_block:
     -
       # Example query from the SQL reference (`Indexes.rst`, section "Indexes on nested fields").
       - query: SELECT SQ."rating" FROM "restaurant" AS RR, (SELECT "rating" FROM RR."reviews") SQ
+      - resultMetadata: [{rating: BIGINT}]
       - unorderedResult: [{5}, {3}, {4}, {2}, {4}, {5}]
     -
       # Unnesting an ARRAY of STRUCT (as opposed to an ARRAY of scalar values) and extracting the scalar integer value therein.
       - query: SELECT "id", "struct"."integer" FROM T3, T3."structs" AS "struct"
+      - resultMetadata: [{id: BIGINT}, {integer: INTEGER}]
       - unorderedResult: [{1, 101}, {1, 102}, {2, 201}, {2, 202}]
     -
       # Unnesting an ARRAY of scalars (integers) directly.
@@ -166,6 +173,7 @@ test_block:
     -
       # Wrapping the unnested scalar into a one-field struct lifts it back into a record type, so `.*` expansion is allowed.
       - query: SELECT "b".* FROM (SELECT "a" FROM VALUES ([1, 2, 3, 4]) AS T("a")) AS "sq", (SELECT ("x") AS wrapped FROM "sq"."a" AS "x") AS "b"
+      - resultMetadata: [{WRAPPED: [{x: INTEGER}]}]
       - result: [{wrapped: {1}}, {wrapped: {2}}, {wrapped: {3}}, {wrapped: {4}}]
     -
       # Same .* rejection as above, but on an unnested VECTOR element. VECTOR has no fields to expand.
@@ -176,10 +184,12 @@ test_block:
       # Note: As an alternative to the `AS "wrapped_int"` we might write `AS SQ ("wrapped_int")`, but this is not
       #       possible currently, as the SQL `AS table-alias ( column-alias … )` notation is not yet supported.
       - query: SELECT "id", SQ.* FROM T3, (SELECT ("integer") AS "wrapped_int" FROM T3."integers" AS "integer") AS SQ
+      - resultMetadata: [{id: BIGINT}, {wrapped_int: [{integer: INTEGER}]}]
       - unorderedResult: [{1, wrapped_int: {101}}, {1, wrapped_int: {102}}, {2, wrapped_int: {201}}, {2, wrapped_int: {202}}]
     -
       # Similar wrapping as in the previous query, but here we don’t even bind an "integer" variable to the unnested
       # integer; instead we refer to it using a nested star (*) expression.
       - query: SELECT "id", SQ.* FROM T3, (SELECT (*) AS "wrapped_int" FROM T3."integers") AS SQ
+      - resultMetadata: [{id: BIGINT}, {wrapped_int: [{integers: INTEGER}]}]
       - unorderedResult: [{1, wrapped_int: {101}}, {1, wrapped_int: {102}}, {2, wrapped_int: {201}}, {2, wrapped_int: {202}}]
 ...

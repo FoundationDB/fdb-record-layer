@@ -32,6 +32,7 @@ test_block:
       - count: 3
     -
       - query: select * from A
+      - resultMetadata: [{A1: BIGINT}, {A2: BIGINT}, {A3: BIGINT}]
       - result: [{A1: 1, A2: 10, A3: 1},
                  {A1: 2, A2: 10, A3: 2},
                  {A1: 3, A2: 10, A3: 3}]
@@ -44,6 +45,7 @@ test_block:
       - count: 4
     -
       - query: select * from B
+      - resultMetadata: [{B1: BIGINT}, {B2: BIGINT}, {B3: [S, {S1: BIGINT}, {S2: BIGINT}]}]
       - result: [{B1: 1, B2: 20, B3: {S1: 4, S2: 40}},
                  {B1: 2, B2: 20, B3: {S1: 5, S2: 50}},
                  {B1: 3, B2: 20, B3: {S1: 6, S2: 60}},
@@ -53,12 +55,14 @@ test_block:
       - count: 1
     -
       - query: select * from B where B1 = 5;
+      - resultMetadata: [{B1: BIGINT}, {B2: BIGINT}, {B3: [S, {S1: BIGINT}, {S2: BIGINT}]}]
       - result: [{B1: 5, B2: 20, B3: !null }]
     -
       - query: insert into B select b1 * 10, b2, b3 from B where b1 < 10;
       - count: 5
     -
       - query: select * from B where b1 >= 10;
+      - resultMetadata: [{B1: BIGINT}, {B2: BIGINT}, {B3: [S, {S1: BIGINT}, {S2: BIGINT}]}]
       - result: [{B1: 10, B2: 20, B3: {4, 40}},
                  {B1: 20, B2: 20, B3: {5, 50}},
                  {B1: 30, B2: 20, B3: {6, 60}},
@@ -69,6 +73,7 @@ test_block:
       - count: 5
     -
       - query: select * from B where b2 = 30;
+      - resultMetadata: [{B1: BIGINT}, {B2: BIGINT}, {B3: [S, {S1: BIGINT}, {S2: BIGINT}]}]
       - result: [{B1: 1, B2: 30, B3: {S1: 100, S2: 100}},
                  {B1: 2, B2: 30, B3: {S1: 100, S2: 100}},
                  {B1: 3, B2: 30, B3: {S1: 100, S2: 100}},
@@ -79,9 +84,11 @@ test_block:
       - count: 5
     -
       - query: select * from B where b1 <10;
+      - resultMetadata: [{B1: BIGINT}, {B2: BIGINT}, {B3: [S, {S1: BIGINT}, {S2: BIGINT}]}]
       - result: []
     -
       - query: select * from B where b1 >=10;
+      - resultMetadata: [{B1: BIGINT}, {B2: BIGINT}, {B3: [S, {S1: BIGINT}, {S2: BIGINT}]}]
       - result: [{ B1: 10, B2: 20, B3: { 4, 40 } },
                  { B1: 20, B2: 20, B3: { 5, 50 } },
                  { B1: 30, B2: 20, B3: { 6, 60 } },
@@ -92,6 +99,7 @@ test_block:
       - count: 5
     -
       - query: select * from B
+      - resultMetadata: [{B1: BIGINT}, {B2: BIGINT}, {B3: [S, {S1: BIGINT}, {S2: BIGINT}]}]
       - result: [{ B1: 10, B2: 21, B3: { 4, 40 } },
                  { B1: 20, B2: 21, B3: { 5, 50 } },
                  { B1: 30, B2: 21, B3: { 6, 60 } },
@@ -102,6 +110,7 @@ test_block:
       - count: 3
     -
       - query: select * from B where b1 < 40;
+      - resultMetadata: [{B1: BIGINT}, {B2: BIGINT}, {B3: [S, {S1: BIGINT}, {S2: BIGINT}]}]
       - result: [{ B1: 10, B2: 22, B3: { 5, 41 } },
                  { B1: 20, B2: 22, B3: { 6, 51 } },
                  { B1: 30, B2: 22, B3: { 7, 61 } } ]
@@ -146,5 +155,6 @@ test_block:
       - result: []
     -
       - query: select * from A where A1 = 6
+      - resultMetadata: [{A1: BIGINT}, {A2: BIGINT}, {A3: BIGINT}]
       - result: [{ A1: 6, A2: !null , A3: 7 }]
 ...

@@ -376,18 +376,22 @@ public final class YamlExecutionContext {
      */
     static String buildInlineDescriptor(@Nonnull final CheckResultMetadataConfig.ColumnDescriptor col) {
         if (col.isArray && col.fields != null) {
-            final String typePrefix = col.structTypeName != null ? col.structTypeName + ", " : "";
+            final String typePrefix = isUserVisibleTypeName(col.structTypeName) ? col.structTypeName + ", " : "";
             final String fields = col.fields.stream().map(YamlExecutionContext::buildInlineDescriptor)
                     .collect(Collectors.joining(", "));
             return "{" + col.name + ": {array: [" + typePrefix + fields + "]}}";
         } else if (col.fields != null) {
-            final String typePrefix = col.structTypeName != null ? col.structTypeName + ", " : "";
+            final String typePrefix = isUserVisibleTypeName(col.structTypeName) ? col.structTypeName + ", " : "";
             final String fields = col.fields.stream().map(YamlExecutionContext::buildInlineDescriptor)
                     .collect(Collectors.joining(", "));
             return "{" + col.name + ": [" + typePrefix + fields + "]}";
         } else {
             return "{" + col.name + ": " + typeNameToInlineValue(col.typeName) + "}";
         }
+    }
+
+    private static boolean isUserVisibleTypeName(@Nullable final String typeName) {
+        return typeName != null && !typeName.startsWith("__type__");
     }
 
     /**
@@ -527,8 +531,12 @@ public final class YamlExecutionContext {
             final String itemPrefix = " ".repeat(indentOf(lines.get(queryLineIdx)));
             // Scan forward past any query-string continuation lines to find the first config entry
             // at the same indentation level, and insert the explain line before it.
-            final int insertIdx = findInsertionPoint(lines, queryLineIdx + 1, itemPrefix,
+            // supported_version must remain the first config after query, so skip past it if present.
+            final int firstConfigIdx = findInsertionPoint(lines, queryLineIdx + 1, itemPrefix,
                     line -> line.startsWith(itemPrefix + "- "));
+            final int insertIdx = (firstConfigIdx < lines.size() && lines.get(firstConfigIdx).startsWith(itemPrefix + "- supported_version:"))
+                    ? findInsertionPoint(lines, firstConfigIdx + 1, itemPrefix, line -> line.startsWith(itemPrefix + "- "))
+                    : firstConfigIdx;
             lines.add(insertIdx, itemPrefix + "- explain: \"" + actual + "\"");
         }
     }

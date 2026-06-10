@@ -71,11 +71,13 @@ test_block:
     -
       - query: SELECT * From TABLE_A where "mood" = 'CONFUSED'
       - explain: "SCAN([IS TABLE_A]) | FILTER _.mood EQUALS promote(@c7 AS ENUM<JOYFUL(0), HAPPY(1), RELAXED(2), INDIFFERENT(3), CONFUSED(4), SAD(5), ANXIOUS(6), ANGRY(7)>)"
+      - resultMetadata: [{id: BIGINT}, {name: STRING}, {mood: OTHER}]
       - unorderedResult: [{2, 'bar', 'CONFUSED'},
                           {11, 'plugh', 'CONFUSED'}]
     -
       - query: SELECT * From TABLE_A where "mood" > 'INDIFFERENT'
       - explain: "SCAN([IS TABLE_A]) | FILTER _.mood GREATER_THAN promote(@c7 AS ENUM<JOYFUL(0), HAPPY(1), RELAXED(2), INDIFFERENT(3), CONFUSED(4), SAD(5), ANXIOUS(6), ANGRY(7)>)"
+      - resultMetadata: [{id: BIGINT}, {name: STRING}, {mood: OTHER}]
       - unorderedResult: [{2, 'bar', 'CONFUSED'},
                           {4, 'qux', 'ANGRY'},
                           {7, 'grault', 'ANXIOUS'},
@@ -85,6 +87,7 @@ test_block:
     -
       - query: SELECT * From TABLE_A where "mood" >= 'INDIFFERENT'
       - explain: "SCAN([IS TABLE_A]) | FILTER _.mood GREATER_THAN_OR_EQUALS promote(@c8 AS ENUM<JOYFUL(0), HAPPY(1), RELAXED(2), INDIFFERENT(3), CONFUSED(4), SAD(5), ANXIOUS(6), ANGRY(7)>)"
+      - resultMetadata: [{id: BIGINT}, {name: STRING}, {mood: OTHER}]
       - unorderedResult: [{2, 'bar', 'CONFUSED'},
                           {4, 'qux', 'ANGRY'},
                           {7, 'grault', 'ANXIOUS'},
@@ -95,6 +98,7 @@ test_block:
                           {13, 'thud', 'SAD'}]
     -
       - query: SELECT * From TABLE_A where "mood" < 'INDIFFERENT'
+      - resultMetadata: [{id: BIGINT}, {name: STRING}, {mood: OTHER}]
       - unorderedResult: [{1, 'foo', 'HAPPY'},
                           {3, 'baz', 'JOYFUL'},
                           {5, 'quux', 'RELAXED'},
@@ -102,6 +106,7 @@ test_block:
                           {9, 'waldo', 'JOYFUL'}]
     -
       - query: SELECT * From TABLE_A where "mood" <= 'INDIFFERENT'
+      - resultMetadata: [{id: BIGINT}, {name: STRING}, {mood: OTHER}]
       - unorderedResult: [{1, 'foo', 'HAPPY'},
                           {3, 'baz', 'JOYFUL'},
                           {5, 'quux', 'RELAXED'},
@@ -111,6 +116,7 @@ test_block:
                           {12, 'xyzzy', 'INDIFFERENT'}]
     -
       - query: SELECT * From TABLE_A where "mood" != 'INDIFFERENT'
+      - resultMetadata: [{id: BIGINT}, {name: STRING}, {mood: OTHER}]
       - unorderedResult: [{1, 'foo', 'HAPPY'},
                           {2, 'bar', 'CONFUSED'},
                           {3, 'baz', 'JOYFUL'},
@@ -124,19 +130,23 @@ test_block:
                           {13, 'thud', 'SAD'}]
     -
       - query: SELECT * From TABLE_A where 'mood' < 'INDIFFERENT'
+      - resultMetadata: [{id: BIGINT}, {name: STRING}, {mood: OTHER}]
       - unorderedResult: []
     -
       - query: SELECT * From TABLE_A where "mood" < "mood"
       - explain: "SCAN([IS TABLE_A]) | FILTER _.mood LESS_THAN _.mood"
+      - resultMetadata: [{id: BIGINT}, {name: STRING}, {mood: OTHER}]
       - unorderedResult: []
     -
       - query: SELECT * From TABLE_A where "mood" IS NOT NULL AND "id" < 5
+      - resultMetadata: [{id: BIGINT}, {name: STRING}, {mood: OTHER}]
       - unorderedResult: [{1, 'foo', 'HAPPY'},
                           {2, 'bar', 'CONFUSED'},
                           {3, 'baz', 'JOYFUL'},
                           {4, 'qux', 'ANGRY'}]
     -
       - query: SELECT * From TABLE_A where "mood" IS NULL
+      - resultMetadata: [{id: BIGINT}, {name: STRING}, {mood: OTHER}]
       - unorderedResult: [{14, 'alice', !null },
                           {15, 'bob', !null }]
     -
@@ -157,6 +167,7 @@ test_block:
       - explain: "ISCAN(B$MOOD [EQUALS promote(@c7 AS ENUM<JOYFUL(0), HAPPY(1), RELAXED(2), INDIFFERENT(3), CONFUSED(4), SAD(5), ANXIOUS(6), ANGRY(7)>)])"
       # Disable force_continuations on this plan until we resolve: https://github.com/FoundationDB/fdb-record-layer/issues/3734
       - maxRows: 0
+      - resultMetadata: [{id: BIGINT}, {name: STRING}, {mood: OTHER}]
       - unorderedResult: [{2, 'bar', 'CONFUSED'},
                           {11, 'plugh', 'CONFUSED'}]
     -
@@ -164,6 +175,7 @@ test_block:
       # Same as above, but with force continuations enabled.
       # This can be combined with the previous query once we no longer care about backwards compatibility with versions older than 4.9.1.0
       - supported_version: 4.9.1.0
+      - resultMetadata: [{id: BIGINT}, {name: STRING}, {mood: OTHER}]
       - unorderedResult: [{2, 'bar', 'CONFUSED'},
                           {11, 'plugh', 'CONFUSED'}]
     -
@@ -171,6 +183,7 @@ test_block:
       - explain: "ISCAN(B$MOOD [[GREATER_THAN promote(@c7 AS ENUM<JOYFUL(0), HAPPY(1), RELAXED(2), INDIFFERENT(3), CONFUSED(4), SAD(5), ANXIOUS(6), ANGRY(7)>)]])"
       # Disable force_continuations on this plan until we resolve: https://github.com/FoundationDB/fdb-record-layer/issues/3734
       - maxRows: 0
+      - resultMetadata: [{id: BIGINT}, {name: STRING}, {mood: OTHER}]
       - unorderedResult: [{2, 'bar', 'CONFUSED'},
                           {4, 'qux', 'ANGRY'},
                           {7, 'grault', 'ANXIOUS'},
@@ -182,6 +195,7 @@ test_block:
       # Same as above, but with force continuations enabled.
       # This can be combined with the previous query once we no longer care about backwards compatibility with versions older than 4.9.1.0
       - supported_version: 4.9.1.0
+      - resultMetadata: [{id: BIGINT}, {name: STRING}, {mood: OTHER}]
       - unorderedResult: [{2, 'bar', 'CONFUSED'},
                           {4, 'qux', 'ANGRY'},
                           {7, 'grault', 'ANXIOUS'},
@@ -191,6 +205,7 @@ test_block:
     -
       - query: SELECT * From TABLE_A where "mood" != 'INDIFFERENT'
       - explain: "SCAN([IS TABLE_A]) | FILTER _.mood NOT_EQUALS promote(@c8 AS ENUM<JOYFUL(0), HAPPY(1), RELAXED(2), INDIFFERENT(3), CONFUSED(4), SAD(5), ANXIOUS(6), ANGRY(7)>)"
+      - resultMetadata: [{id: BIGINT}, {name: STRING}, {mood: OTHER}]
       - unorderedResult: [{1, 'foo', 'HAPPY'},
                           {2, 'bar', 'CONFUSED'},
                           {3, 'baz', 'JOYFUL'},
