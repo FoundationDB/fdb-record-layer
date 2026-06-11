@@ -22,8 +22,10 @@ package com.apple.foundationdb.linear;
 
 import com.apple.test.RandomSeedSource;
 import com.apple.test.RandomizedTestUtils;
+import com.apple.test.Tags;
 import com.google.common.collect.ImmutableList;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -47,9 +49,10 @@ import static org.assertj.core.api.Assertions.within;
  * <p>
  * The test runs against whichever backend {@link RealVectorPrimitives} resolves — so under the
  * default {@code test} task it validates SIMD-vs-scalar parity, and under
- * {@code testScalarFallback} it degenerates into scalar-vs-scalar (still a useful smoke check of
+ * {@code scalarFallbackTest} it degenerates into scalar-vs-scalar (still a useful smoke check of
  * the new {@code double[]} primitives).
  */
+@Tag(Tags.DualScalarSIMD)
 class RealVectorPrimitivesParityTest {
     private static final ImmutableList<Integer> LENGTHS =
             ImmutableList.of(1, 2, 3, 7, 8, 15, 16, 17, 64, 65, 128, 1024);

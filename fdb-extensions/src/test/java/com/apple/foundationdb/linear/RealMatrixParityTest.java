@@ -21,8 +21,10 @@
 package com.apple.foundationdb.linear;
 
 import com.apple.test.RandomSeedSource;
+import com.apple.test.Tags;
 import com.google.common.collect.ImmutableList;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.params.ParameterizedTest;
 
 import javax.annotation.Nonnull;
@@ -38,10 +40,11 @@ import static org.assertj.core.api.Assertions.within;
  * matrix-multiply fast path and the four {@code apply}/{@code transposedApply} overrides.
  * <p>
  * Under the default {@code test} task this verifies SIMD-vs-scalar parity; under
- * {@code testScalarFallback} (where {@link RealVectorPrimitives} resolves to scalar) it
+ * {@code scalarFallbackTest} (where {@link RealVectorPrimitives} resolves to scalar) it
  * degenerates into scalar-vs-scalar — still useful as a smoke check that the matrix paths
  * produce identical results to the lower-level primitive reference.
  */
+@Tag(Tags.DualScalarSIMD)
 class RealMatrixParityTest {
     private static final ImmutableList<Integer> DIMS = ImmutableList.of(3, 7, 16, 17, 65, 128);
 

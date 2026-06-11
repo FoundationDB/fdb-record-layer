@@ -34,6 +34,9 @@ test {
     useJUnitPlatform {
         excludeTags 'WipesFDB'
         excludeTags 'AutomatedTest'
+        // Scalar-only tests run in a dedicated scalar-fallback task (e.g. fdb-extensions'
+        // scalarFallbackTest); the default task always loads the SIMD backend when available.
+        excludeTags 'RequiresScalar'
     }
 }
 

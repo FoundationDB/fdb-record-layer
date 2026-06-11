@@ -28,10 +28,11 @@ import com.apple.foundationdb.linear.RealVector;
 import com.apple.foundationdb.linear.RealVectorTest;
 import com.apple.foundationdb.util.Lens;
 import com.apple.test.RandomSeedSource;
+import com.apple.test.Tags;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.slf4j.Logger;
@@ -461,6 +462,7 @@ class KMeansTest {
      */
     @ParameterizedTest
     @RandomSeedSource({0x0fdbL, 0x5ca1eL})
+    @Tag(Tags.DualScalarSIMD)
     void siftSmallCosineInvariants(final long seed) {
         final List<RealVector> raw = ImmutableList.copyOf(
                 KMeansTestHelpers.pickRandomSubset(new Random(seed), siftSmallBase, SIFT_SAMPLE_SIZE));
@@ -489,14 +491,14 @@ class KMeansTest {
      * Two runs with the same seed on the same data and parameters must produce bit-identical
      * results: assignment, centroid coordinates, distances, and overall objective.
      * <p>
-     * Gated to scalar mode via {@link EnabledIfSystemProperty} because SIMD reductions sum
-     * partial lanes in a different order than scalar accumulation, which breaks bit-exact
-     * equality on the distances and objective comparisons below. The test still executes under
-     * {@code testScalarFallback} (which sets {@code fdb.vector.simd=scalar}).
+     * Tagged {@link Tags#RequiresScalar} so it runs only under {@code scalarFallbackTest} (which
+     * sets {@code fdb.vector.simd=scalar}). SIMD reductions sum partial lanes in a different order
+     * than scalar accumulation, which breaks the bit-exact equality on the distances and objective
+     * comparisons below.
      */
     @ParameterizedTest
     @RandomSeedSource({0x0fdbL})
-    @EnabledIfSystemProperty(named = "fdb.vector.simd", matches = "scalar")
+    @Tag(Tags.RequiresScalar)
     void siftSmallDeterminism(final long seed) {
         final List<RealVector> sample = ImmutableList.copyOf(
                 KMeansTestHelpers.pickRandomSubset(new Random(seed), siftSmallBase, SIFT_SAMPLE_SIZE));

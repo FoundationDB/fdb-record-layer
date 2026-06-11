@@ -21,8 +21,10 @@
 package com.apple.foundationdb.linear;
 
 import com.apple.test.RandomizedTestUtils;
+import com.apple.test.Tags;
 import com.google.common.collect.ImmutableSet;
 import org.assertj.core.api.Assertions;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -34,6 +36,7 @@ import java.util.stream.Stream;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.within;
 
+@Tag(Tags.DualScalarSIMD)
 class RealMatrixTest {
     @Nonnull
     private static Stream<Arguments> randomSeedsWithNumDimensions() {

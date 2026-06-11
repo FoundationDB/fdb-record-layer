@@ -20,27 +20,26 @@
 
 package com.apple.foundationdb.linear;
 
+import com.apple.test.Tags;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.condition.DisabledIfSystemProperty;
-import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Asserts that {@link RealVectorPrimitives} resolves to the backend that the current task's JVM
- * setup implies. Each test is gated by the {@code fdb.vector.simd} system property the gradle task
- * sets:
+ * setup implies. Each test is routed by a JUnit tag to the gradle task whose backend it needs:
  * <ul>
- *   <li>Default {@code test} task: no system property, JVM has {@code --add-modules
- *       jdk.incubator.vector}. Backend should be SIMD.</li>
- *   <li>{@code testScalarFallback}: {@code fdb.vector.simd=scalar}, no {@code --add-modules}.
- *       Backend should be scalar.</li>
+ *   <li>{@link Tags#RequiresSIMD}: runs in the default {@code test} task, which passes
+ *       {@code --add-modules jdk.incubator.vector} so the SIMD backend loads.</li>
+ *   <li>{@link Tags#RequiresScalar}: runs in {@code scalarFallbackTest}, which sets
+ *       {@code fdb.vector.simd=scalar} and omits {@code --add-modules}.</li>
  * </ul>
  */
 class BackendSelectionTest {
 
     @Test
-    @DisabledIfSystemProperty(named = "fdb.vector.simd", matches = "(?i)scalar")
+    @Tag(Tags.RequiresSIMD)
     void simdBackendIsActiveWhenIncubatorModuleAvailable() {
         final String backendName = RealVectorPrimitives.backend().name();
         assertThat(backendName)
@@ -50,7 +49,7 @@ class BackendSelectionTest {
     }
 
     @Test
-    @EnabledIfSystemProperty(named = "fdb.vector.simd", matches = "scalar")
+    @Tag(Tags.RequiresScalar)
     void scalarBackendIsActiveWhenForcedToScalar() {
         final String backendName = RealVectorPrimitives.backend().name();
         assertThat(backendName)
