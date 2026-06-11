@@ -278,6 +278,7 @@ public class PredicateWithValueAndRanges extends AbstractQueryPredicate implemen
                                                           @Nonnull final Set<RangeConstraints> ranges) {
         return new PredicateWithValueAndRanges(value, ranges);
     }
+
     /**
      * Checks whether this predicate implies a {@code candidatePredicate}, if so, we return a {@link PredicateMapping}
      * reflecting the implication itself in addition to a context needed to effectively implement the mapping (i.e. the
