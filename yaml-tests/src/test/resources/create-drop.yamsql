@@ -39,10 +39,10 @@ test_block:
   tests:
     -
       - query: drop schema template temp
-      - error: "42F55"
+      - error: UNKNOWN_SCHEMA_TEMPLATE
     -
       - query: drop database /frl/DB
-      - error: "42F63"
+      - error: UNKNOWN_DATABASE
 ---
 setup:
   connect: "jdbc:embed:/__SYS?schema=CATALOG"

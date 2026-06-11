@@ -1066,7 +1066,6 @@ public class SchemaTemplateSerDeTests {
                     .withMetadata(getRecordMetaData())
                     .withSchemaTemplate(getSchemaTemplate("testSchema", 42))
                     .withPlannerConfiguration(PlannerConfiguration.ofAllAvailableIndexes())
-                    .withUserVersion(0)
                     .build();
             return PlanGenerator.create(Optional.empty(), ctx, ctx.getMetaData(), new RecordStoreState(null, Map.of()),
                    IndexMaintainerFactoryRegistryImpl.instance(), Options.builder().withOption(Options.Name.CASE_SENSITIVE_IDENTIFIERS, true).build());

@@ -21,26 +21,32 @@
 package com.apple.foundationdb.rabitq;
 
 import com.apple.foundationdb.linear.DoubleRealVector;
-import com.apple.foundationdb.linear.Estimator;
+import com.apple.foundationdb.linear.DistanceEstimator;
 import com.apple.foundationdb.linear.Metric;
 import com.apple.foundationdb.linear.RealVector;
 
 import javax.annotation.Nonnull;
 
-public class RaBitEstimator implements Estimator {
+public class RaBitDistanceEstimator implements DistanceEstimator {
     @Nonnull
     private final Metric metric;
     private final int numExBits;
 
-    public RaBitEstimator(@Nonnull final Metric metric,
-                          final int numExBits) {
+    public RaBitDistanceEstimator(@Nonnull final Metric metric,
+                                  final int numExBits) {
         this.metric = metric;
         this.numExBits = numExBits;
     }
 
     @Nonnull
+    @Override
     public Metric getMetric() {
         return metric;
+    }
+
+    @Override
+    public boolean isOptimized(@Nonnull final RealVector vector1, @Nonnull final RealVector vector2) {
+        return vector1 instanceof EncodedRealVector || vector2 instanceof EncodedRealVector;
     }
 
     public int getNumExBits() {
@@ -48,17 +54,17 @@ public class RaBitEstimator implements Estimator {
     }
 
     @Override
-    public double distance(@Nonnull final RealVector query, @Nonnull final RealVector storedVector) {
+    public double distance(@Nonnull final RealVector vector1, @Nonnull final RealVector vector2) {
         final double distance;
-        if (!(query instanceof EncodedRealVector) && storedVector instanceof EncodedRealVector) {
+        if (!(vector1 instanceof EncodedRealVector) && vector2 instanceof EncodedRealVector) {
             // use the estimator if the first vector is not encoded, but the second is
-            distance = distance(query, (EncodedRealVector)storedVector);
-        } else if (query instanceof EncodedRealVector && !(storedVector instanceof EncodedRealVector)) {
+            distance = distance(vector1, (EncodedRealVector)vector2);
+        } else if (vector1 instanceof EncodedRealVector && !(vector2 instanceof EncodedRealVector)) {
             // use the estimator if the second vector is not encoded, but the first is
-            distance = distance(storedVector, (EncodedRealVector)query);
+            distance = distance(vector2, (EncodedRealVector)vector1);
         } else {
             // use the regular metric for all other cases
-            distance = metric.distance(query, storedVector);
+            distance = metric.distance(vector1, vector2);
         }
 
         // if the distance is not finite, raise an exception
@@ -75,26 +81,28 @@ public class RaBitEstimator implements Estimator {
     @Nonnull
     public Result estimateDistanceAndErrorBound(@Nonnull final RealVector query,
                                                 @Nonnull final EncodedRealVector encodedVector) {
+        final double qNormSqr = query.l2SquaredNorm();
+
         if (metric == Metric.COSINE_METRIC) {
             //
             // In cosine metric there is a special case that conventionally if one vector is the zero vector, the
             // distance is NaN as the norm of the zero vector is 0, and we therefore divide by zero.
             //
-            final double qNormSqr = query.dot(query);
             if (!(qNormSqr > 0.0) || !Double.isFinite(qNormSqr)) {
                 return new Result(Double.NaN, 0.0);
             }
         }
 
         final double cb = (1 << numExBits) - 0.5;
-        final double gAdd = query.dot(query);
-        final double gError = Math.sqrt(gAdd);
+        final double gError = Math.sqrt(qNormSqr);
 
         final RealVector totalCode = new DoubleRealVector(encodedVector.getEncodedData());
         final RealVector xuc = totalCode.subtract(cb);
         final double dot = query.dot(xuc);
 
-        final double euclideanSquare = encodedVector.getAddEx() + gAdd + encodedVector.getRescaleEx() * dot;
+        final double euclideanSquareRaw =
+                encodedVector.getAddEx() + qNormSqr + encodedVector.getRescaleEx() * dot;
+        final double euclideanSquare = Math.max(0.0, euclideanSquareRaw);
         final double euclideanSquareError = encodedVector.getErrorEx() * gError;
 
         switch (metric) {
@@ -109,7 +117,7 @@ public class RaBitEstimator implements Estimator {
                 // ==> v * q = (2 - ||v - q||^2) / 2 = 1 - 1/2 * ||v - q||^2
                 // ==> 1 - v * q = 1/2 * ||v - q||^2
                 //
-                return new Result(0.5 * euclideanSquare, 0.5 * euclideanSquareError);
+                return new Result(0.5 * euclideanSquareRaw, 0.5 * euclideanSquareError);
             case DOT_PRODUCT_METRIC:
                 //
                 // We derive the result from the Euclidean square metric:
@@ -121,7 +129,7 @@ public class RaBitEstimator implements Estimator {
                 // ==> v * q = (2 - ||v - q||^2) / 2 = 1 - 1/2 * ||v - q||^2
                 // ==> - v * q = 1/2 * ||v - q||^2 - 1
                 //
-                return new Result(0.5 * euclideanSquare - 1, 0.5 * euclideanSquareError);
+                return new Result(0.5 * euclideanSquareRaw - 1, 0.5 * euclideanSquareError);
             case EUCLIDEAN_SQUARE_METRIC:
                 return new Result(euclideanSquare, euclideanSquareError);
             case EUCLIDEAN_METRIC:

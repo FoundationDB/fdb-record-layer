@@ -111,6 +111,10 @@ public class IndexingThrottle {
             // - For simplicity and locality, assume that the next chunk starts at nowMillis+waitMillis
             // - Avoiding negative delta and restricting toWait's range implies self initialization
             // - Ignore failed transactions (they should be rare, and limited in number)
+            final long enforcedPostTransactionDelay = common.config.getEnforcedPostTransactionDelay();
+            if (enforcedPostTransactionDelay > 0) {
+                return enforcedPostTransactionDelay;
+            }
             int recordsPerSecond = common.config.getRecordsPerSecond();
             if (recordsPerSecond == IndexingCommon.UNLIMITED) {
                 // in case config loader changes this value from UNLIMITED to limit

@@ -54,14 +54,13 @@ import com.apple.foundationdb.record.provider.foundationdb.IndexOperationResult;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanBounds;
 import com.apple.foundationdb.record.provider.foundationdb.VectorIndexScanBounds;
 import com.apple.foundationdb.record.provider.foundationdb.VectorIndexScanOptions;
+import com.apple.foundationdb.record.provider.foundationdb.indexes.SlidingWindowTestHelpers.SlidingWindow;
 import com.apple.foundationdb.record.query.QueryToKeyMatcher;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.slidingwindowvector.TestRecordsSlidingWindowVectorProto;
 import com.apple.foundationdb.record.slidingwindowvector.TestRecordsSlidingWindowVectorProto.SlidingWindowVectorRecord;
-import com.apple.foundationdb.half.Half;
 import com.apple.foundationdb.linear.HalfRealVector;
 import com.apple.foundationdb.linear.Metric;
-import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
 import com.google.common.collect.ImmutableList;
@@ -75,10 +74,11 @@ import javax.annotation.Nullable;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.stream.Collectors;
 
+import static com.apple.foundationdb.record.provider.foundationdb.indexes.SlidingWindowTestHelpers.SlidingWindowAssert.assertThat;
+import static com.apple.foundationdb.record.provider.foundationdb.indexes.SlidingWindowTestHelpers.makeVector;
+import static com.apple.foundationdb.record.provider.foundationdb.indexes.SlidingWindowTestHelpers.sampleVector;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -98,18 +98,8 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
     private static final String INDEX_NAME = "sw_vector_index";
     private static final int VECTOR_DIMS = 4;
 
-    // ===== Helpers =====
-
-    private static HalfRealVector makeVector(float... values) {
-        final Half[] components = new Half[values.length];
-        for (int i = 0; i < values.length; i++) {
-            components[i] = Half.valueOf(values[i]);
-        }
-        return new HalfRealVector(components);
-    }
-
     /**
-     * Opens a store with a sliding window HNSW index. No partitioning.
+     * Opens a store with a sliding window HNSW index. No grouping.
      * Window key = relevance, index key = vector_data.
      */
     private void openStore(@Nonnull FDBRecordContext context, int windowSize,
@@ -118,11 +108,11 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
     }
 
     /**
-     * Opens a store with a partitioned sliding window HNSW index.
+     * Opens a store with a grouped sliding window HNSW index.
      */
     private void openStore(@Nonnull FDBRecordContext context, int windowSize,
                            @Nonnull Direction direction,
-                           @Nonnull List<List<String>> partitionFields) throws Exception {
+                           @Nonnull List<List<String>> groupingFields) throws Exception {
         RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder()
                 .setRecords(TestRecordsSlidingWindowVectorProto.getDescriptor());
         metaDataBuilder.getRecordType("SlidingWindowVectorRecord")
@@ -130,27 +120,27 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
 
         final IndexPredicate.RowNumberWindowPredicate windowPredicate =
                 new IndexPredicate.RowNumberWindowPredicate(
-                        ImmutableList.of("relevance"), direction, windowSize, partitionFields);
+                        ImmutableList.of("relevance"), direction, windowSize, groupingFields);
 
         final Map<String, String> options = new HashMap<>();
         options.put(IndexOptions.HNSW_METRIC, Metric.EUCLIDEAN_METRIC.name());
         options.put(IndexOptions.HNSW_NUM_DIMENSIONS, Integer.toString(VECTOR_DIMS));
 
-        // Build key expression: for partitioned indexes, prefix with partition columns
-        // e.g. PARTITION BY(zone) → KeyWithValue(concat(zone, vector_data), 1)
-        // e.g. PARTITION BY(zone, category) → KeyWithValue(concat(zone, category, vector_data), 2)
+        // Build key expression: for grouped indexes, prefix with group columns
+        // e.g. one grouping column (zone) → KeyWithValue(concat(zone, vector_data), 1)
+        // e.g. two grouping columns (zone, category) → KeyWithValue(concat(zone, category, vector_data), 2)
         final com.apple.foundationdb.record.metadata.expressions.KeyExpression keyExpr;
-        if (partitionFields.isEmpty()) {
+        if (groupingFields.isEmpty()) {
             keyExpr = new KeyWithValueExpression(Key.Expressions.field("vector_data"), 0);
         } else {
             com.apple.foundationdb.record.metadata.expressions.KeyExpression prefix =
-                    Key.Expressions.field(partitionFields.get(0).get(0));
-            for (int i = 1; i < partitionFields.size(); i++) {
-                prefix = Key.Expressions.concat(prefix, Key.Expressions.field(partitionFields.get(i).get(0)));
+                    Key.Expressions.field(groupingFields.get(0).get(0));
+            for (int i = 1; i < groupingFields.size(); i++) {
+                prefix = Key.Expressions.concat(prefix, Key.Expressions.field(groupingFields.get(i).get(0)));
             }
             keyExpr = new KeyWithValueExpression(
                     Key.Expressions.concat(prefix, Key.Expressions.field("vector_data")),
-                    partitionFields.size());
+                    groupingFields.size());
         }
 
         metaDataBuilder.addIndex("SlidingWindowVectorRecord",
@@ -163,11 +153,10 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
      * Inserts a record with the given fields. Vector is arbitrary (unique per record).
      */
     private void rec(long recNo, long relevance) {
-        rec(recNo, "z", "c", relevance, 0, uniqueVector(recNo));
+        rec(recNo, "z", "c", relevance, 0, sampleVector());
     }
 
-    private void rec(long recNo, String zone, String category, long relevance, long score, float... vec) {
-        final HalfRealVector vector = makeVector(vec);
+    private void rec(long recNo, String zone, String category, long relevance, long score, HalfRealVector vector) {
         recordStore.saveRecord(SlidingWindowVectorRecord.newBuilder()
                 .setRecNo(recNo)
                 .setZone(zone)
@@ -183,54 +172,19 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
     }
 
     /**
-     * Creates a unique vector for a given recNo so HNSW can distinguish records.
+     * Probe: snapshot of the sliding-window state for the ungrouped index.
      */
-    private static float[] uniqueVector(long recNo) {
-        float v = (float)(recNo % 100) / 100.0f;
-        return new float[]{v, 1.0f - v, v * 0.5f, 0.1f};
+    @Nonnull
+    private SlidingWindow slidingWindow() {
+        return SlidingWindowTestHelpers.slidingWindow(recordStore, INDEX_NAME);
     }
 
     /**
-     * Scans the HNSW index with a broad query to find all indexed records.
+     * Probe: snapshot of the sliding-window state for the given group.
      */
     @Nonnull
-    private Set<Long> scanIndexRecNos() {
-        final Index index = recordStore.getRecordMetaData().getIndex(INDEX_NAME);
-        final IndexMaintainer maintainer = recordStore.getIndexMaintainer(index);
-        final HalfRealVector queryVector = makeVector(0.5f, 0.5f, 0.5f, 0.5f);
-        final VectorIndexScanBounds bounds = new VectorIndexScanBounds(
-                TupleRange.ALL,
-                Comparisons.Type.DISTANCE_RANK_LESS_THAN_OR_EQUAL,
-                queryVector,
-                100,
-                VectorIndexScanOptions.empty());
-        return maintainer.scan(bounds, null, com.apple.foundationdb.record.ScanProperties.FORWARD_SCAN)
-                .asList()
-                .join()
-                .stream()
-                .map(e -> e.getPrimaryKey().getLong(0))
-                .collect(Collectors.toSet());
-    }
-
-    private void assertWindowContains(long... expectedRecNos) {
-        final Set<Long> actual = scanIndexRecNos();
-        final Set<Long> expected = java.util.Arrays.stream(expectedRecNos)
-                .boxed()
-                .collect(Collectors.toSet());
-        assertEquals(expected, actual,
-                "Window should contain recNos " + expected + " but was " + actual);
-    }
-
-    private long readWindowCount() {
-        final Index index = recordStore.getRecordMetaData().getIndex(INDEX_NAME);
-        final Subspace swSubspace = recordStore.indexSlidingWindowSubspace(index);
-        final Subspace metaSubspace = swSubspace.subspace(Tuple.from()).subspace(Tuple.from(1));
-        final byte[] counterKey = metaSubspace.pack(Tuple.from(3));
-        final byte[] counterBytes = recordStore.ensureContextActive().get(counterKey).join();
-        if (counterBytes == null) {
-            return 0L;
-        }
-        return Tuple.fromBytes(counterBytes).getLong(0);
+    private SlidingWindow groupedSlidingWindow(@Nullable final Tuple groupingKey) {
+        return SlidingWindowTestHelpers.groupedSlidingWindow(recordStore, INDEX_NAME, groupingKey);
     }
 
     // ===== DESC tests (keep highest relevance) =====
@@ -242,7 +196,10 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
             rec(1, 100);
             rec(2, 200);
             rec(3, 300);
-            assertWindowContains(1, 2, 3);
+            assertThat(slidingWindow())
+                    .hasSizeOf(3)
+                    .underlyingHnsw()
+                    .containsInAnyOrder(1L, 2L, 3L);
             commit(context);
         }
     }
@@ -254,10 +211,16 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
             rec(1, 100);
             rec(2, 200);
             rec(3, 300);
-            assertWindowContains(1, 2, 3);
+            assertThat(slidingWindow())
+                    .hasSizeOf(3)
+                    .underlyingHnsw()
+                    .containsInAnyOrder(1L, 2L, 3L);
 
             rec(4, 400);  // evicts rec1 (lowest relevance for DESC)
-            assertWindowContains(2, 3, 4);
+            assertThat(slidingWindow())
+                    .hasSizeOf(3)
+                    .underlyingHnsw()
+                    .containsInAnyOrder(2L, 3L, 4L);
             commit(context);
         }
     }
@@ -271,7 +234,10 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
             rec(3, 300);
 
             rec(4, 50);  // worse than worst (100) → overflow
-            assertWindowContains(1, 2, 3);
+            assertThat(slidingWindow())
+                    .hasSizeOf(3)
+                    .underlyingHnsw()
+                    .containsInAnyOrder(1L, 2L, 3L);
             commit(context);
         }
     }
@@ -282,16 +248,28 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
             openStore(context, 2, Direction.DESC);
             rec(1, 100);
             rec(2, 200);
-            assertWindowContains(1, 2);
+            assertThat(slidingWindow())
+                    .hasSizeOf(2)
+                    .underlyingHnsw()
+                    .containsInAnyOrder(1L, 2L);
 
             rec(3, 300);  // evicts rec1
-            assertWindowContains(2, 3);
+            assertThat(slidingWindow())
+                    .hasSizeOf(2)
+                    .underlyingHnsw()
+                    .containsInAnyOrder(2L, 3L);
 
             rec(4, 400);  // evicts rec2
-            assertWindowContains(3, 4);
+            assertThat(slidingWindow())
+                    .hasSizeOf(2)
+                    .underlyingHnsw()
+                    .containsInAnyOrder(3L, 4L);
 
             rec(5, 500);  // evicts rec3
-            assertWindowContains(4, 5);
+            assertThat(slidingWindow())
+                    .hasSizeOf(2)
+                    .underlyingHnsw()
+                    .containsInAnyOrder(4L, 5L);
             commit(context);
         }
     }
@@ -305,7 +283,10 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
             rec(1, 100);
             rec(2, 200);
             rec(3, 300);
-            assertWindowContains(1, 2, 3);
+            assertThat(slidingWindow())
+                    .hasSizeOf(3)
+                    .underlyingHnsw()
+                    .containsInAnyOrder(1L, 2L, 3L);
             commit(context);
         }
     }
@@ -317,10 +298,16 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
             rec(1, 100);
             rec(2, 200);
             rec(3, 300);
-            assertWindowContains(1, 2, 3);
+            assertThat(slidingWindow())
+                    .hasSizeOf(3)
+                    .underlyingHnsw()
+                    .containsInAnyOrder(1L, 2L, 3L);
 
             rec(4, 50);  // evicts rec3 (highest relevance for ASC)
-            assertWindowContains(1, 2, 4);
+            assertThat(slidingWindow())
+                    .hasSizeOf(3)
+                    .underlyingHnsw()
+                    .containsInAnyOrder(1L, 2L, 4L);
             commit(context);
         }
     }
@@ -334,7 +321,10 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
             rec(3, 300);
 
             rec(4, 400);  // worse than worst (300) → overflow
-            assertWindowContains(1, 2, 3);
+            assertThat(slidingWindow())
+                    .hasSizeOf(3)
+                    .underlyingHnsw()
+                    .containsInAnyOrder(1L, 2L, 3L);
             commit(context);
         }
     }
@@ -345,16 +335,28 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
             openStore(context, 2, Direction.ASC);
             rec(1, 300);
             rec(2, 200);
-            assertWindowContains(1, 2);
+            assertThat(slidingWindow())
+                    .hasSizeOf(2)
+                    .underlyingHnsw()
+                    .containsInAnyOrder(1L, 2L);
 
             rec(3, 100);  // evicts rec1 (300)
-            assertWindowContains(2, 3);
+            assertThat(slidingWindow())
+                    .hasSizeOf(2)
+                    .underlyingHnsw()
+                    .containsInAnyOrder(2L, 3L);
 
             rec(4, 50);   // evicts rec2 (200)
-            assertWindowContains(3, 4);
+            assertThat(slidingWindow())
+                    .hasSizeOf(2)
+                    .underlyingHnsw()
+                    .containsInAnyOrder(3L, 4L);
 
             rec(5, 10);   // evicts rec3 (100)
-            assertWindowContains(4, 5);
+            assertThat(slidingWindow())
+                    .hasSizeOf(2)
+                    .underlyingHnsw()
+                    .containsInAnyOrder(4L, 5L);
             commit(context);
         }
     }
@@ -368,10 +370,16 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
             rec(1, 100);
             rec(2, 200);
             rec(3, 300);
-            assertWindowContains(1, 2, 3);
+            assertThat(slidingWindow())
+                    .hasSizeOf(3)
+                    .underlyingHnsw()
+                    .containsInAnyOrder(1L, 2L, 3L);
 
             deleteRec(2);
-            assertWindowContains(1, 3);
+            assertThat(slidingWindow())
+                    .hasSizeOf(2)
+                    .underlyingHnsw()
+                    .containsInAnyOrder(1L, 3L);
             commit(context);
         }
     }
@@ -382,13 +390,22 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
             openStore(context, 2, Direction.DESC);
             rec(1, 100);
             rec(2, 200);
-            assertWindowContains(1, 2);
+            assertThat(slidingWindow())
+                    .hasSizeOf(2)
+                    .underlyingHnsw()
+                    .containsInAnyOrder(1L, 2L);
 
             deleteRec(1);
-            assertWindowContains(2);
+            assertThat(slidingWindow())
+                    .hasSizeOf(1)
+                    .underlyingHnsw()
+                    .containsInAnyOrder(2L);
 
             rec(3, 300);
-            assertWindowContains(2, 3);
+            assertThat(slidingWindow())
+                    .hasSizeOf(2)
+                    .underlyingHnsw()
+                    .containsInAnyOrder(2L, 3L);
             commit(context);
         }
     }
@@ -399,15 +416,24 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
             openStore(context, 2, Direction.DESC);
             rec(1, 100);
             rec(2, 200);
-            assertWindowContains(1, 2);
+            assertThat(slidingWindow())
+                    .hasSizeOf(2)
+                    .underlyingHnsw()
+                    .containsInAnyOrder(1L, 2L);
 
             deleteRec(1);
             deleteRec(2);
-            assertWindowContains();
+            assertThat(slidingWindow())
+                    .hasSizeOf(0)
+                    .underlyingHnsw()
+                    .isEmpty();
 
             rec(3, 300);
             rec(4, 400);
-            assertWindowContains(3, 4);
+            assertThat(slidingWindow())
+                    .hasSizeOf(2)
+                    .underlyingHnsw()
+                    .containsInAnyOrder(3L, 4L);
             commit(context);
         }
     }
@@ -421,10 +447,16 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
             rec(1, 100);  // window
             rec(2, 200);  // window
             rec(3, 50);   // overflow
-            assertWindowContains(1, 2);
+            assertThat(slidingWindow())
+                    .hasSizeOf(2)
+                    .underlyingHnsw()
+                    .containsInAnyOrder(1L, 2L);
 
             deleteRec(1);  // promotes rec3 from overflow
-            assertWindowContains(2, 3);
+            assertThat(slidingWindow())
+                    .hasSizeOf(2)
+                    .underlyingHnsw()
+                    .containsInAnyOrder(2L, 3L);
             commit(context);
         }
     }
@@ -436,10 +468,16 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
             rec(1, 100);  // window
             rec(2, 200);  // window
             rec(3, 300);  // overflow
-            assertWindowContains(1, 2);
+            assertThat(slidingWindow())
+                    .hasSizeOf(2)
+                    .underlyingHnsw()
+                    .containsInAnyOrder(1L, 2L);
 
             deleteRec(2);  // promotes rec3 from overflow
-            assertWindowContains(1, 3);
+            assertThat(slidingWindow())
+                    .hasSizeOf(2)
+                    .underlyingHnsw()
+                    .containsInAnyOrder(1L, 3L);
             commit(context);
         }
     }
@@ -451,10 +489,16 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
             rec(1, 100);
             rec(2, 200);
             rec(3, 50);   // overflow
-            assertWindowContains(1, 2);
+            assertThat(slidingWindow())
+                    .hasSizeOf(2)
+                    .underlyingHnsw()
+                    .containsInAnyOrder(1L, 2L);
 
             deleteRec(3);  // overflow delete
-            assertWindowContains(1, 2);
+            assertThat(slidingWindow())
+                    .hasSizeOf(2)
+                    .underlyingHnsw()
+                    .containsInAnyOrder(1L, 2L);
             commit(context);
         }
     }
@@ -467,13 +511,22 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
             rec(2, 200);
             rec(3, 50);   // overflow
             rec(4, 30);   // overflow
-            assertWindowContains(1, 2);
+            assertThat(slidingWindow())
+                    .hasSizeOf(2)
+                    .underlyingHnsw()
+                    .containsInAnyOrder(1L, 2L);
 
             deleteRec(1);
-            assertWindowContains(2, 3);
+            assertThat(slidingWindow())
+                    .hasSizeOf(2)
+                    .underlyingHnsw()
+                    .containsInAnyOrder(2L, 3L);
 
             deleteRec(2);
-            assertWindowContains(3, 4);
+            assertThat(slidingWindow())
+                    .hasSizeOf(2)
+                    .underlyingHnsw()
+                    .containsInAnyOrder(3L, 4L);
             commit(context);
         }
     }
@@ -486,13 +539,22 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
             rec(2, 200);
             rec(3, 300);  // overflow
             rec(4, 400);  // overflow
-            assertWindowContains(1, 2);
+            assertThat(slidingWindow())
+                    .hasSizeOf(2)
+                    .underlyingHnsw()
+                    .containsInAnyOrder(1L, 2L);
 
             deleteRec(2);
-            assertWindowContains(1, 3);
+            assertThat(slidingWindow())
+                    .hasSizeOf(2)
+                    .underlyingHnsw()
+                    .containsInAnyOrder(1L, 3L);
 
             deleteRec(3);
-            assertWindowContains(1, 4);
+            assertThat(slidingWindow())
+                    .hasSizeOf(2)
+                    .underlyingHnsw()
+                    .containsInAnyOrder(1L, 4L);
             commit(context);
         }
     }
@@ -503,10 +565,16 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
             openStore(context, 2, Direction.DESC);
             rec(1, 100);
             rec(2, 200);
-            assertWindowContains(1, 2);
+            assertThat(slidingWindow())
+                    .hasSizeOf(2)
+                    .underlyingHnsw()
+                    .containsInAnyOrder(1L, 2L);
 
             deleteRec(1);
-            assertWindowContains(2);
+            assertThat(slidingWindow())
+                    .hasSizeOf(1)
+                    .underlyingHnsw()
+                    .containsInAnyOrder(2L);
             commit(context);
         }
     }
@@ -518,16 +586,28 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             openStore(context, 1, Direction.DESC);
             rec(1, 100);
-            assertWindowContains(1);
+            assertThat(slidingWindow())
+                    .hasSizeOf(1)
+                    .underlyingHnsw()
+                    .containsInAnyOrder(1L);
 
             rec(2, 200);  // evicts rec1
-            assertWindowContains(2);
+            assertThat(slidingWindow())
+                    .hasSizeOf(1)
+                    .underlyingHnsw()
+                    .containsInAnyOrder(2L);
 
             rec(3, 300);  // evicts rec2
-            assertWindowContains(3);
+            assertThat(slidingWindow())
+                    .hasSizeOf(1)
+                    .underlyingHnsw()
+                    .containsInAnyOrder(3L);
 
             rec(4, 50);   // worse → overflow
-            assertWindowContains(3);
+            assertThat(slidingWindow())
+                    .hasSizeOf(1)
+                    .underlyingHnsw()
+                    .containsInAnyOrder(3L);
             commit(context);
         }
     }
@@ -537,37 +617,202 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             openStore(context, 1, Direction.DESC);
             rec(1, 100);
-            assertWindowContains(1);
-            assertEquals(1, readWindowCount());
+            assertThat(slidingWindow())
+                    .hasSizeOf(1)
+                    .underlyingHnsw()
+                    .containsInAnyOrder(1L);
 
             // Evicts rec1 — getNewBoundaryAfterEviction returns null (no inward entry),
             // so the new entry (rec2) itself becomes the boundary.
             rec(2, 200);
-            assertWindowContains(2);
-            assertEquals(1, readWindowCount());
+            assertThat(slidingWindow())
+                    .hasSizeOf(1)
+                    .underlyingHnsw()
+                    .containsInAnyOrder(2L);
 
             // Verify boundary was correctly set: rec3(50) is worse than rec2(200)
             // for DESC, so it should go to overflow, not evict.
             rec(3, 50);
-            assertWindowContains(2);
-            assertEquals(1, readWindowCount());
+            assertThat(slidingWindow())
+                    .hasSizeOf(1)
+                    .underlyingHnsw()
+                    .containsInAnyOrder(2L);
             commit(context);
         }
     }
 
     @Test
-    void duplicateWindowKeyValues() throws Exception {
+    void duplicateWindowKeyValuesCase1() throws Exception {
         try (FDBRecordContext context = openContext()) {
             openStore(context, 3, Direction.DESC);
             rec(1, 100);
             rec(2, 100);
             rec(3, 100);
-            assertWindowContains(1, 2, 3);
+            assertThat(slidingWindow())
+                    .hasSizeOf(3)
+                    .underlyingHnsw()
+                    .containsInAnyOrder(1L, 2L, 3L);
 
             rec(4, 200);  // evicts one of the 100s
-            Set<Long> window = scanIndexRecNos();
-            assertEquals(3, window.size());
-            assertTrue(window.contains(4L), "rec4 should be in window");
+            assertThat(slidingWindow())
+                    .hasSizeOf(3)
+                    .underlyingHnsw()
+                    .contains(4L);
+            commit(context);
+        }
+    }
+
+    @Test
+    void duplicateWindowKeyValuesCase2() throws Exception {
+        try (FDBRecordContext context = openContext()) {
+            openStore(context, 3, Direction.ASC);
+            rec(1, 100);
+            rec(2, 100);
+            rec(3, 100);
+            assertThat(slidingWindow())
+                    .hasSizeOf(3)
+                    .underlyingHnsw()
+                    .containsInAnyOrder(1L, 2L, 3L);
+
+            rec(4, 200);  // must be ignored, pk used here as tiebreaker, it is worse than the boundary
+            assertThat(slidingWindow())
+                    .hasSizeOf(3)
+                    .underlyingHnsw()
+                    .containsInAnyOrder(1L, 2L, 3L);
+            commit(context);
+        }
+    }
+
+
+
+    @Test
+    void duplicateWindowKeyValuesCase3() throws Exception {
+        try (FDBRecordContext context = openContext()) {
+            openStore(context, 2, Direction.DESC);
+            rec(10, 100);
+            rec(33, 100);
+            rec(5, 100);
+            rec(6, 40);
+            assertThat(slidingWindow())
+                    .hasSizeOf(2)
+                    .underlyingHnsw()
+                    .containsInAnyOrder(10L, 33L);
+            deleteRec(33);
+
+            assertThat(slidingWindow())
+                    .hasSizeOf(2)
+                    .underlyingHnsw()
+                    .containsInAnyOrder(10L, 5L);
+            commit(context);
+        }
+    }
+
+    @Test
+    void duplicateWindowKeyValuesCase4() throws Exception {
+        try (FDBRecordContext context = openContext()) {
+            openStore(context, 2, Direction.ASC);
+            rec(10, 100);
+            rec(33, 100);
+            rec(5, 100);
+            rec(6, 40);
+            assertThat(slidingWindow())
+                    .hasSizeOf(2)
+                    .underlyingHnsw()
+                    .containsInAnyOrder(5L, 6L);
+            deleteRec(6);
+
+            assertThat(slidingWindow())
+                    .hasSizeOf(2)
+                    .underlyingHnsw()
+                    .containsInAnyOrder(10L, 5L);
+            commit(context);
+        }
+    }
+
+    @Test
+    void duplicateWindowKeyValuesCase5() throws Exception {
+        try (FDBRecordContext context = openContext()) {
+            openStore(context, 2, Direction.DESC);
+            rec(1, 25);
+            rec(2, 100);
+            rec(3, 100);
+            rec(4, 100);
+            rec(5, 500);
+            assertThat(slidingWindow())
+                    .hasSizeOf(2)
+                    .underlyingHnsw()
+                    .containsInAnyOrder(4L, 5L);
+            deleteRec(5);
+
+            assertThat(slidingWindow())
+                    .hasSizeOf(2)
+                    .underlyingHnsw()
+                    .containsInAnyOrder(3L, 4L);
+            commit(context);
+        }
+    }
+
+    @Test
+    void duplicateWindowKeyValuesCase6() throws Exception {
+        try (FDBRecordContext context = openContext()) {
+            openStore(context, 2, Direction.ASC);
+            rec(1, 25);
+            rec(2, 100);
+            rec(3, 100);
+            rec(4, 100);
+            rec(5, 500);
+            assertThat(slidingWindow())
+                    .hasSizeOf(2)
+                    .underlyingHnsw()
+                    .containsInAnyOrder(1L, 2L);
+            deleteRec(1);
+
+            assertThat(slidingWindow())
+                    .hasSizeOf(2)
+                    .underlyingHnsw()
+                    .containsInAnyOrder(2L, 3L);
+            commit(context);
+        }
+    }
+
+    @Test
+    void duplicateWindowKeyValuesCase7() throws Exception {
+        try (FDBRecordContext context = openContext()) {
+            openStore(context, 2, Direction.ASC);
+            rec(10, 100);
+            rec(11, 100);
+            rec(3, 100); // causes eviction
+            assertThat(slidingWindow())
+                    .hasSizeOf(2)
+                    .underlyingHnsw()
+                    .containsInAnyOrder(3L, 10L);
+            deleteRec(10);
+
+            assertThat(slidingWindow())
+                    .hasSizeOf(2)
+                    .underlyingHnsw()
+                    .containsInAnyOrder(3L, 11L);
+            commit(context);
+        }
+    }
+
+    @Test
+    void duplicateWindowKeyValuesCase8() throws Exception {
+        try (FDBRecordContext context = openContext()) {
+            openStore(context, 2, Direction.DESC);
+            rec(3, 100);
+            rec(5, 100);
+            rec(10, 100); // causes eviction
+            assertThat(slidingWindow())
+                    .hasSizeOf(2)
+                    .underlyingHnsw()
+                    .containsInAnyOrder(10L, 5L);
+            deleteRec(10);
+
+            assertThat(slidingWindow())
+                    .hasSizeOf(2)
+                    .underlyingHnsw()
+                    .containsInAnyOrder(3L, 5L);
             commit(context);
         }
     }
@@ -579,9 +824,12 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
             rec(1, 100);
             rec(2, 200);
 
-            // Same window key as worst → NOT better (strict) → overflow
+            // pk is used a tie-breaker using the DESC sort semantics, the window must slide
             rec(3, 100);
-            assertWindowContains(1, 2);
+            assertThat(slidingWindow())
+                    .hasSizeOf(2)
+                    .underlyingHnsw()
+                    .containsInAnyOrder(2L, 3L);
             commit(context);
         }
     }
@@ -594,10 +842,16 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
             openStore(context, 2, Direction.DESC);
             rec(1, 100);
             rec(2, 200);
-            assertWindowContains(1, 2);
+            assertThat(slidingWindow())
+                    .hasSizeOf(2)
+                    .underlyingHnsw()
+                    .containsInAnyOrder(1L, 2L);
 
             rec(1, 300);  // update: 100 → 300
-            assertWindowContains(1, 2);
+            assertThat(slidingWindow())
+                    .hasSizeOf(2)
+                    .underlyingHnsw()
+                    .containsInAnyOrder(1L, 2L);
             commit(context);
         }
     }
@@ -609,10 +863,16 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
             rec(1, 200);
             rec(2, 300);
             rec(3, 100);  // overflow
-            assertWindowContains(1, 2);
+            assertThat(slidingWindow())
+                    .hasSizeOf(2)
+                    .underlyingHnsw()
+                    .containsInAnyOrder(1L, 2L);
 
             rec(1, 50);   // update: 200 → 50 (worse for DESC) → leaves window, rec3 re-elected
-            assertWindowContains(2, 3);
+            assertThat(slidingWindow())
+                    .hasSizeOf(2)
+                    .underlyingHnsw()
+                    .containsInAnyOrder(2L, 3L);
             commit(context);
         }
     }
@@ -624,10 +884,16 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
             rec(1, 200);
             rec(2, 300);
             rec(3, 50);   // overflow
-            assertWindowContains(1, 2);
+            assertThat(slidingWindow())
+                    .hasSizeOf(2)
+                    .underlyingHnsw()
+                    .containsInAnyOrder(1L, 2L);
 
             rec(3, 400);  // update: 50 → 400 → enters window, evicts rec1
-            assertWindowContains(2, 3);
+            assertThat(slidingWindow())
+                    .hasSizeOf(2)
+                    .underlyingHnsw()
+                    .containsInAnyOrder(2L, 3L);
             commit(context);
         }
     }
@@ -639,104 +905,198 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
             rec(1, 100);
             rec(2, 200);
             rec(3, 50);   // overflow
-            assertWindowContains(1, 2);
+            assertThat(slidingWindow())
+                    .hasSizeOf(2)
+                    .underlyingHnsw()
+                    .containsInAnyOrder(1L, 2L);
 
             rec(3, 150);  // 150 > boundary(100) → evicts rec1
-            assertWindowContains(2, 3);
+            assertThat(slidingWindow())
+                    .hasSizeOf(2)
+                    .underlyingHnsw()
+                    .containsInAnyOrder(2L, 3L);
 
             rec(3, 250);  // still in window, update
-            assertWindowContains(2, 3);
+            assertThat(slidingWindow())
+                    .hasSizeOf(2)
+                    .underlyingHnsw()
+                    .containsInAnyOrder(2L, 3L);
 
             rec(3, 350);  // still in window, update
-            assertWindowContains(2, 3);
+            assertThat(slidingWindow())
+                    .hasSizeOf(2)
+                    .underlyingHnsw()
+                    .containsInAnyOrder(2L, 3L);
             commit(context);
         }
     }
 
-    // ===== deleteWhere tests (partitioned) =====
+    // ===== deleteWhere tests (grouped) =====
 
     @Test
-    void deleteWhereClearsEntirePartition() throws Exception {
+    void deleteWhereClearsEntireGroup() throws Exception {
         try (FDBRecordContext context = openContext()) {
             openStore(context, 3, Direction.DESC, ImmutableList.of(ImmutableList.of("zone")));
 
-            rec(1, "A", "c", 100, 0, uniqueVector(1));
-            rec(2, "A", "c", 200, 0, uniqueVector(2));
-            rec(3, "B", "c", 300, 0, uniqueVector(3));
-            rec(4, "B", "c", 400, 0, uniqueVector(4));
-            assertWindowContains(1, 2, 3, 4);
+            rec(1, "A", "c", 100, 0, sampleVector());
+            rec(2, "A", "c", 200, 0, sampleVector());
+            rec(3, "B", "c", 300, 0, sampleVector());
+            rec(4, "B", "c", 400, 0, sampleVector());
+            assertThat(slidingWindow())
+                    .underlyingHnsw()
+                    .containsInAnyOrder(1L, 2L, 3L, 4L); // hnsw skip scan
+
+            assertThat(groupedSlidingWindow(Tuple.from("A")))
+                    .hasSizeOf(2)
+                    .underlyingHnsw()
+                    .containsInAnyOrder(1L, 2L);
+
+            assertThat(groupedSlidingWindow(Tuple.from("B")))
+                    .hasSizeOf(2)
+                    .underlyingHnsw()
+                    .containsInAnyOrder(3L, 4L);
 
             final Index index = recordStore.getRecordMetaData().getIndex(INDEX_NAME);
             final IndexMaintainer maintainer = recordStore.getIndexMaintainer(index);
             maintainer.deleteWhere(context.ensureActive(), Tuple.from("A")).join();
 
-            assertWindowContains(3, 4);
+            assertThat(slidingWindow())
+                    .underlyingHnsw()
+                    .containsInAnyOrder(3L, 4L); // hnsw skip scan
+
+            assertThat(groupedSlidingWindow(Tuple.from("B")))
+                    .hasSizeOf(2)
+                    .underlyingHnsw()
+                    .containsInAnyOrder(3L, 4L);
+
             commit(context);
         }
     }
 
     @Test
-    void deleteWhereOnNonExistentPartition() throws Exception {
+    void deleteWhereOnNonExistentGroup() throws Exception {
         try (FDBRecordContext context = openContext()) {
             openStore(context, 3, Direction.DESC, ImmutableList.of(ImmutableList.of("zone")));
 
-            rec(1, "A", "c", 100, 0, uniqueVector(1));
-            rec(2, "B", "c", 200, 0, uniqueVector(2));
-            assertWindowContains(1, 2);
+            rec(1, "A", "c", 100, 0, sampleVector());
+            rec(2, "B", "c", 200, 0, sampleVector());
+            assertThat(slidingWindow())
+                    .underlyingHnsw()
+                    .containsInAnyOrder(1L, 2L); // hnsw skip scan
+
+            assertThat(groupedSlidingWindow(Tuple.from("A")))
+                    .hasSizeOf(1)
+                    .underlyingHnsw()
+                    .containsInAnyOrder(1L);
+
+            assertThat(groupedSlidingWindow(Tuple.from("B")))
+                    .hasSizeOf(1)
+                    .underlyingHnsw()
+                    .containsInAnyOrder(2L);
+
 
             final Index index = recordStore.getRecordMetaData().getIndex(INDEX_NAME);
             final IndexMaintainer maintainer = recordStore.getIndexMaintainer(index);
             maintainer.deleteWhere(context.ensureActive(), Tuple.from("Z")).join();
 
-            assertWindowContains(1, 2);
+            assertThat(slidingWindow())
+                    .underlyingHnsw()
+                    .containsInAnyOrder(1L, 2L); // hnsw skip scan
+
+            assertThat(groupedSlidingWindow(Tuple.from("A")))
+                    .hasSizeOf(1)
+                    .underlyingHnsw()
+                    .containsInAnyOrder(1L);
+
+            assertThat(groupedSlidingWindow(Tuple.from("B")))
+                    .hasSizeOf(1)
+                    .underlyingHnsw()
+                    .containsInAnyOrder(2L);
+
             commit(context);
         }
     }
 
     @Test
-    void deleteWherePartitionWithOverflow() throws Exception {
+    void deleteWhereGroupWithOverflow() throws Exception {
         try (FDBRecordContext context = openContext()) {
             openStore(context, 2, Direction.DESC, ImmutableList.of(ImmutableList.of("zone")));
 
-            rec(1, "A", "c", 100, 0, uniqueVector(1));
-            rec(2, "A", "c", 200, 0, uniqueVector(2));
-            rec(5, "A", "c", 50, 0, uniqueVector(5));   // overflow in partition A
-            rec(3, "B", "c", 300, 0, uniqueVector(3));
-            rec(4, "B", "c", 400, 0, uniqueVector(4));
-            assertWindowContains(1, 2, 3, 4);
+            rec(1, "A", "c", 100, 0, sampleVector());
+            rec(2, "A", "c", 200, 0, sampleVector());
+            rec(5, "A", "c", 50, 0, sampleVector());   // overflow in group A
+            rec(3, "B", "c", 300, 0, sampleVector());
+            rec(4, "B", "c", 400, 0, sampleVector());
+            assertThat(slidingWindow())
+                    .underlyingHnsw()
+                    .containsInAnyOrder(1L, 2L, 3L, 4L);
+
+            assertThat(groupedSlidingWindow(Tuple.from("A")))
+                    .hasSizeOf(2)
+                    .underlyingHnsw()
+                    .containsInAnyOrder(1L, 2L);
+
+            assertThat(groupedSlidingWindow(Tuple.from("B")))
+                    .hasSizeOf(2)
+                    .underlyingHnsw()
+                    .containsInAnyOrder(3L, 4L);
 
             final Index index = recordStore.getRecordMetaData().getIndex(INDEX_NAME);
             final IndexMaintainer maintainer = recordStore.getIndexMaintainer(index);
             maintainer.deleteWhere(context.ensureActive(), Tuple.from("A")).join();
 
-            assertWindowContains(3, 4);
+            assertThat(slidingWindow())
+                    .underlyingHnsw()
+                    .containsInAnyOrder(3L, 4L); // hnsw skip scan
+
+            assertThat(groupedSlidingWindow(Tuple.from("B")))
+                    .hasSizeOf(2)
+                    .underlyingHnsw()
+                    .containsInAnyOrder(3L, 4L);
+
             commit(context);
         }
     }
 
     @Test
-    void twoColumnPartitionDeleteWhere() throws Exception {
+    void twoColumnGroupDeleteWhere() throws Exception {
         try (FDBRecordContext context = openContext()) {
             openStore(context, 2, Direction.DESC,
                     ImmutableList.of(ImmutableList.of("zone"), ImmutableList.of("category")));
 
-            rec(1, "A", "x", 100, 0, uniqueVector(1));
-            rec(2, "A", "x", 200, 0, uniqueVector(2));
-            rec(3, "A", "y", 300, 0, uniqueVector(3));
-            rec(4, "B", "x", 400, 0, uniqueVector(4));
-            rec(5, "B", "x", 500, 0, uniqueVector(5));
-            assertWindowContains(1, 2, 3, 4, 5);
+            rec(1, "A", "x", 100, 0, sampleVector());
+            rec(2, "A", "x", 200, 0, sampleVector());
+            rec(3, "A", "y", 300, 0, sampleVector());
+            rec(4, "B", "x", 400, 0, sampleVector());
+            rec(5, "B", "x", 500, 0, sampleVector());
+            assertThat(slidingWindow())
+                    .underlyingHnsw()
+                    .containsInAnyOrder(1L, 2L, 3L, 4L, 5L); // hnsw skip scan
 
             final Index index = recordStore.getRecordMetaData().getIndex(INDEX_NAME);
             final IndexMaintainer maintainer = recordStore.getIndexMaintainer(index);
 
-            // Delete partition ("A", "x")
+            // Delete group ("A", "x")
             maintainer.deleteWhere(context.ensureActive(), Tuple.from("A", "x")).join();
-            assertWindowContains(3, 4, 5);
+            assertThat(slidingWindow())
+                    .underlyingHnsw()
+                    .containsInAnyOrder(3L, 4L, 5L);
 
-            // Delete partial prefix ("A") — clears remaining partition ("A", "y")
+            assertThat(groupedSlidingWindow(Tuple.from("A", "y")))
+                    .hasSizeOf(1)
+                    .underlyingHnsw()
+                    .containsInAnyOrder(3L);
+
+            assertThat(groupedSlidingWindow(Tuple.from("B", "x")))
+                    .hasSizeOf(2)
+                    .underlyingHnsw()
+                    .containsInAnyOrder(4L, 5L);
+
+            // Delete partial prefix ("A") — clears remaining group ("A", "y")
             maintainer.deleteWhere(context.ensureActive(), Tuple.from("A")).join();
-            assertWindowContains(4, 5);
+            assertThat(slidingWindow())
+                    .underlyingHnsw()
+                    .containsInAnyOrder(4L, 5L);
             commit(context);
         }
     }
@@ -749,19 +1109,23 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
             openStore(context, 3, Direction.DESC);
             rec(1, 100);
             rec(2, 200);
-            assertWindowContains(1, 2);
-            assertEquals(2, readWindowCount());
+            assertThat(slidingWindow())
+                    .hasSizeOf(2)
+                    .underlyingHnsw()
+                    .containsInAnyOrder(1L, 2L);
 
             final var newRec = SlidingWindowVectorRecord.newBuilder()
                     .setRecNo(3).setZone("z").setCategory("c").setRelevance(300).setScore(0)
-                    .setVectorData(ByteString.copyFrom(makeVector(uniqueVector(3)).getRawData()))
+                    .setVectorData(ByteString.copyFrom(sampleVector().getRawData()))
                     .build();
             final Index index = recordStore.getRecordMetaData().getIndex(INDEX_NAME);
             final IndexMaintainer maintainer = recordStore.getIndexMaintainer(index);
             maintainer.updateWhileWriteOnly(null, recordStore.saveRecord(newRec)).join();
 
-            assertWindowContains(1, 2, 3);
-            assertEquals(3, readWindowCount());
+            assertThat(slidingWindow())
+                    .hasSizeOf(3)
+                    .underlyingHnsw()
+                    .containsInAnyOrder(1L, 2L, 3L);
             commit(context);
         }
     }
@@ -772,20 +1136,24 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
             openStore(context, 3, Direction.DESC);
             rec(1, 100);
             rec(2, 200);
-            assertWindowContains(1, 2);
-            assertEquals(2, readWindowCount());
+            assertThat(slidingWindow())
+                    .hasSizeOf(2)
+                    .underlyingHnsw()
+                    .containsInAnyOrder(1L, 2L);
 
             // rec2 already exists. Should remove then re-insert. Counter stays at 2.
             final var rec2Again = SlidingWindowVectorRecord.newBuilder()
                     .setRecNo(2).setZone("z").setCategory("c").setRelevance(200).setScore(0)
-                    .setVectorData(ByteString.copyFrom(makeVector(uniqueVector(2)).getRawData()))
+                    .setVectorData(ByteString.copyFrom(sampleVector().getRawData()))
                     .build();
             final Index index = recordStore.getRecordMetaData().getIndex(INDEX_NAME);
             final IndexMaintainer maintainer = recordStore.getIndexMaintainer(index);
             maintainer.updateWhileWriteOnly(null, recordStore.saveRecord(rec2Again)).join();
 
-            assertWindowContains(1, 2);
-            assertEquals(2, readWindowCount());
+            assertThat(slidingWindow())
+                    .hasSizeOf(2)
+                    .underlyingHnsw()
+                    .containsInAnyOrder(1L, 2L);
             commit(context);
         }
     }
@@ -797,20 +1165,24 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
             rec(1, 100);
             rec(2, 200);
             rec(3, 300);
-            assertWindowContains(1, 2, 3);
-            assertEquals(3, readWindowCount());
+            assertThat(slidingWindow())
+                    .hasSizeOf(3)
+                    .underlyingHnsw()
+                    .containsInAnyOrder(1L, 2L, 3L);
 
             final var oldRec2 = recordStore.loadRecord(Tuple.from(2L));
             final var newRec2 = SlidingWindowVectorRecord.newBuilder()
                     .setRecNo(2).setZone("z").setCategory("c").setRelevance(250).setScore(0)
-                    .setVectorData(ByteString.copyFrom(makeVector(uniqueVector(2)).getRawData()))
+                    .setVectorData(ByteString.copyFrom(sampleVector().getRawData()))
                     .build();
             final Index index = recordStore.getRecordMetaData().getIndex(INDEX_NAME);
             final IndexMaintainer maintainer = recordStore.getIndexMaintainer(index);
             maintainer.updateWhileWriteOnly(oldRec2, recordStore.saveRecord(newRec2)).join();
 
-            assertWindowContains(1, 2, 3);
-            assertEquals(3, readWindowCount());
+            assertThat(slidingWindow())
+                    .hasSizeOf(3)
+                    .underlyingHnsw()
+                    .containsInAnyOrder(1L, 2L, 3L);
             commit(context);
         }
     }
@@ -821,24 +1193,28 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
             openStore(context, 3, Direction.DESC);
             rec(1, 100);
             rec(2, 200);
-            assertWindowContains(1, 2);
-            assertEquals(2, readWindowCount());
+            assertThat(slidingWindow())
+                    .hasSizeOf(2)
+                    .underlyingHnsw()
+                    .containsInAnyOrder(1L, 2L);
 
             final var oldRec5 = SlidingWindowVectorRecord.newBuilder()
                     .setRecNo(5).setZone("z").setCategory("c").setRelevance(500).setScore(0)
-                    .setVectorData(ByteString.copyFrom(makeVector(uniqueVector(5)).getRawData()))
+                    .setVectorData(ByteString.copyFrom(sampleVector().getRawData()))
                     .build();
             final var savedOld = recordStore.saveRecord(oldRec5);
             final var newRec5 = SlidingWindowVectorRecord.newBuilder()
                     .setRecNo(5).setZone("z").setCategory("c").setRelevance(500).setScore(0)
-                    .setVectorData(ByteString.copyFrom(makeVector(uniqueVector(5)).getRawData()))
+                    .setVectorData(ByteString.copyFrom(sampleVector().getRawData()))
                     .build();
             final Index index = recordStore.getRecordMetaData().getIndex(INDEX_NAME);
             final IndexMaintainer maintainer = recordStore.getIndexMaintainer(index);
             maintainer.updateWhileWriteOnly(savedOld, recordStore.saveRecord(newRec5)).join();
 
-            assertWindowContains(1, 2, 5);
-            assertEquals(3, readWindowCount());
+            assertThat(slidingWindow())
+                    .hasSizeOf(3)
+                    .underlyingHnsw()
+                    .containsInAnyOrder(1L, 2L, 5L);
             commit(context);
         }
     }
@@ -860,7 +1236,10 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
             openStore(context, 3, Direction.DESC);
             recordStore.rebuildAllIndexes().join();
             // DESC window=3: keeps {rec2(200), rec3(300), rec4(400)}
-            assertWindowContains(2, 3, 4);
+            assertThat(slidingWindow())
+                    .hasSizeOf(3)
+                    .underlyingHnsw()
+                    .containsInAnyOrder(2L, 3L, 4L);
             commit(context);
         }
     }
@@ -880,7 +1259,57 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
             openStore(context, 3, Direction.ASC);
             recordStore.rebuildAllIndexes().join();
             // ASC window=3: keeps {rec3(300), rec4(200), rec5(100)}
-            assertWindowContains(3, 4, 5);
+            assertThat(slidingWindow())
+                    .hasSizeOf(3)
+                    .underlyingHnsw()
+                    .containsInAnyOrder(3L, 4L, 5L);
+            commit(context);
+        }
+    }
+
+    // ===== Regression test for clearIndexData =====
+
+    @Test
+    void clearAndMarkWriteOnlyClearsSlidingWindowSubspace() throws Exception {
+        // Regression test for the originally reported bug: FDBRecordStore.clearIndexData did
+        // not clear the sliding window subspace, so calling clearAndMarkIndexWriteOnly (which
+        // routes through clearIndexData) left stale window bookkeeping (count, boundary,
+        // entries) behind. Subsequent writes under the WRITE_ONLY state go through
+        // SlidingWindowIndexMaintainer.updateWhileWriteOnly → handleInsert, which reads the
+        // count and boundary from the subspace to decide whether to add to the window or
+        // evict. With stale state, the maintainer would incorrectly believe the window is
+        // already full and trigger a phantom eviction (against a delegate that has already
+        // been cleared), leaving the window's count out of sync with the records actually
+        // indexed since the clear.
+        //
+        // This test exercises that path directly: after a clear + a single new write, the
+        // count must be exactly 1. Without the fix, the count would be 2 (the stale pre-clear
+        // value, preserved through a window-full eviction).
+        try (FDBRecordContext context = openContext()) {
+            openStore(context, 2, Direction.DESC);
+            rec(1, 100);   // window: count becomes 1
+            rec(2, 200);   // window: count becomes 2, boundary becomes (100, 1)
+            assertThat(slidingWindow()).hasSizeOf(2);
+            commit(context);
+        }
+        try (FDBRecordContext context = openContext()) {
+            openStore(context, 2, Direction.DESC);
+            final Index index = recordStore.getRecordMetaData().getIndex(INDEX_NAME);
+            recordStore.clearAndMarkIndexWriteOnly(index).join();
+
+            // Save a single record under the now-WRITE_ONLY state. With the fix, the sliding
+            // window subspace was emptied by clearAndMarkIndexWriteOnly, so this is the first
+            // entry: count must be 1. Without the fix, the maintainer reads the stale count=2,
+            // takes the "window full" branch, evicts the stale (100, 1) boundary entry, and
+            // leaves count at 2 — a value that no longer reflects the records actually present
+            // in the (rebuilt-from-empty) delegate index.
+            rec(3, 300);
+            assertThat(slidingWindow())
+                    .as("After clearAndMarkIndexWriteOnly + one write, the sliding window count must "
+                            + "reflect only the new record. A count > 1 means clearIndexData left "
+                            + "stale window bookkeeping behind, corrupting the window's internal "
+                            + "accounting.")
+                    .hasSizeOf(1);
             commit(context);
         }
     }
@@ -968,12 +1397,12 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
                 new IndexPredicate.RowNumberWindowPredicate("score", Direction.DESC, 100);
         assertEquals("QualifyRowNumber(score, DESC) <= 100", simple.toString());
 
-        final IndexPredicate.RowNumberWindowPredicate partitioned =
+        final IndexPredicate.RowNumberWindowPredicate grouped =
                 new IndexPredicate.RowNumberWindowPredicate(
                         ImmutableList.of("score"), Direction.ASC, 50,
                         ImmutableList.of(ImmutableList.of("zone"), ImmutableList.of("category")));
         assertEquals("QualifyRowNumber(PARTITION BY zone, category ORDER BY score, ASC) <= 50",
-                partitioned.toString());
+                grouped.toString());
     }
 
     @Test
@@ -1026,9 +1455,12 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
             final IndexMaintainer maintainer = recordStore.getIndexMaintainer(index);
 
             // scan(IndexScanType, TupleRange, continuation, ScanProperties) is used by scanIndexRecNos
-            assertWindowContains(1, 2);
+            assertThat(slidingWindow())
+                    .hasSizeOf(2)
+                    .underlyingHnsw()
+                    .containsInAnyOrder(1L, 2L);
 
-            // canDeleteWhere — no partition key → should return false
+            // canDeleteWhere — no group key → should return false
             final com.apple.foundationdb.record.query.QueryToKeyMatcher matcher =
                     new com.apple.foundationdb.record.query.QueryToKeyMatcher(
                             com.apple.foundationdb.record.query.expressions.Query.field("zone")
@@ -1068,10 +1500,10 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
     }
 
     @Test
-    void canDeleteWhereWithPartition() throws Exception {
+    void canDeleteWhereWithGroup() throws Exception {
         try (FDBRecordContext context = openContext()) {
             openStore(context, 3, Direction.DESC, ImmutableList.of(ImmutableList.of("zone")));
-            rec(1, "A", "c", 100, 0, uniqueVector(1));
+            rec(1, "A", "c", 100, 0, sampleVector());
 
             final Index index = recordStore.getRecordMetaData().getIndex(INDEX_NAME);
             final IndexMaintainer maintainer = recordStore.getIndexMaintainer(index);

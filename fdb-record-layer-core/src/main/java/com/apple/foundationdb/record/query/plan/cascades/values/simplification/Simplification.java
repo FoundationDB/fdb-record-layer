@@ -341,7 +341,6 @@ public class Simplification {
                                                                   @Nonnull final Collection<BASE> results,
                                                                   @Nonnull final QueryPlanConstraint queryPlanConstraint) {
         Verify.verify(results.size() <= 1);
-
         final var result = Iterables.getOnlyElement(results);
         constrainstsMap.put(result, queryPlanConstraint);
         return result;
