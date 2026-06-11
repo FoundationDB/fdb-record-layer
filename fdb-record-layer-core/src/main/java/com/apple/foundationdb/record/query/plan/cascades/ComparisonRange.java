@@ -380,31 +380,22 @@ public class ComparisonRange implements PlanHashable, Correlated<ComparisonRange
 
     @Nonnull
     public MergeResult merge(@Nonnull ComparisonRange comparisonRange) {
-        if (comparisonRange.isEmpty()) {
-            return MergeResult.of(this);
-        }
+        return switch (comparisonRange.getRangeType()) {
+            case EMPTY -> MergeResult.of(this);
+            case EQUALITY -> merge(comparisonRange.getEqualityComparison());
+            case INEQUALITY -> {
+                final List<Comparisons.Comparison> comparisons = comparisonRange.getInequalityComparisons();
+                ComparisonRange resultRange = this;
+                final ImmutableList.Builder<Comparisons.Comparison> residualPredicatesBuilder = ImmutableList.builder();
+                for (final Comparisons.Comparison comparison : comparisons) {
+                    MergeResult mergeResult = resultRange.merge(comparison);
+                    resultRange = mergeResult.getComparisonRange();
+                    residualPredicatesBuilder.addAll(mergeResult.getResidualComparisons());
+                }
 
-        if (isEmpty()) {
-            return MergeResult.of(comparisonRange);
-        }
-
-        if (comparisonRange.isEquality()) {
-            return merge(comparisonRange.getEqualityComparison());
-        }
-
-        Verify.verify(comparisonRange.isInequality());
-        final List<Comparisons.Comparison> comparisons =
-                Objects.requireNonNull(comparisonRange.getInequalityComparisons());
-
-        ComparisonRange resultRange = this;
-        final ImmutableList.Builder<Comparisons.Comparison> residualPredicatesBuilder = ImmutableList.builder();
-        for (final Comparisons.Comparison comparison : comparisons) {
-            MergeResult mergeResult = resultRange.merge(comparison);
-            resultRange = mergeResult.getComparisonRange();
-            residualPredicatesBuilder.addAll(mergeResult.getResidualComparisons());
-        }
-
-        return MergeResult.of(resultRange, residualPredicatesBuilder.build());
+                yield MergeResult.of(resultRange, residualPredicatesBuilder.build());
+            }
+        };
     }
 
     @Override
@@ -462,7 +453,28 @@ public class ComparisonRange implements PlanHashable, Correlated<ComparisonRange
     }
 
     /**
-     * Class to represent the outcome of a merge operation.
+     * Class to represent the outcome of merging multiple comparison ranges together. It exists so that if
+     * we start with a collection of {@link ComparisonRange}s representing various comparisons, we can consolidate
+     * those into a single range by repeatedly calling {@link #merge(Comparisons.Comparison)}. The result will
+     * then contain:
+     *
+     * <ul>
+     *     <li>A {@linkplain #getComparisonRange() comparison range} that spans as many of the original comparisons as possible</li>
+     *     <li>A list of {@linkplain #getResidualComparisons() residual comparisons} that contains any range that was not merged in</li>
+     * </ul>
+     *
+     * <p>
+     * Combining a set of {@link Comparisons.Comparison}s can then be done with something like:
+     * </p>
+     *
+     * <pre>{@code
+     *    final List<Comparisons.Comparison> comparisons = getComparisonsList();
+     *    MergeResult merged = MergeResult.empty();
+     *    for (Comparisons.Comparison comparison : comparisons) {
+     *        merged = merged.merge(comparison);
+     *    }
+     *    return merged;
+     * }</pre>
      */
     public static class MergeResult {
         @Nonnull
@@ -479,28 +491,59 @@ public class ComparisonRange implements PlanHashable, Correlated<ComparisonRange
             this.residualComparisons = ImmutableList.copyOf(residualComparison);
         }
 
+        /**
+         * Merge a new comparison into a pre-existing {@link MergeResult}. If the {@code comparison}
+         * is not merge-able with this object's {@linkplain #getComparisonRange() comparison range}, then
+         * it will be added as an additional {@linkplain #getResidualComparisons() residual comparison}.
+         * This can happen if, for example, there are multiple conflicting equality comparisons,
+         * only one of them can be pushed into the comparison range; the rest will be in the list of
+         * residuals.
+         *
+         * @param comparison a new comparison to merge in
+         * @return a new {@code MergeResult} spanning both this object's comparisons and the new comparison
+         * @see ComparisonRange#merge(Comparisons.Comparison) for merging a single comparison into a comparison range
+         */
         @Nonnull
         public MergeResult merge(@Nonnull Comparisons.Comparison comparison) {
-            final MergeResult mergedRange = comparisonRange.merge(comparison);
-            if (residualComparisons.isEmpty()) {
-                return mergedRange;
-            } else if (mergedRange.getResidualComparisons().isEmpty()) {
-                return MergeResult.of(mergedRange.getComparisonRange(), residualComparisons);
-            } else {
-                final List<Comparisons.Comparison> combinedResiduals = ImmutableList.<Comparisons.Comparison>builderWithExpectedSize(residualComparisons.size() + mergedRange.getResidualComparisons().size())
-                        .addAll(residualComparisons)
-                        .addAll(mergedRange.getResidualComparisons())
-                        .build();
+            // Construct a new merge result that merges in the comparison to this object's comparison range if possible
+            final MergeResult rangeMergeResult = comparisonRange.merge(comparison);
 
-                return MergeResult.of(mergedRange.getComparisonRange(), combinedResiduals);
+            // After the merge call above, we definitely want to take the new ComparisonRange from that
+            // mergedRange call. Construct a new merge result with that merge result's ComparisonRange
+            // and combined list of residual comparisons from both
+            if (residualComparisons.isEmpty()) {
+                // Shortcut to avoid creating a new object
+                return rangeMergeResult;
+            } else {
+                final ComparisonRange newComparisonRange = rangeMergeResult.getComparisonRange();
+                final List<Comparisons.Comparison> newResidualComparisons;
+                if (rangeMergeResult.getResidualComparisons().isEmpty()) {
+                    newResidualComparisons = residualComparisons;
+                } else {
+                    newResidualComparisons = ImmutableList.<Comparisons.Comparison>builderWithExpectedSize(residualComparisons.size() + rangeMergeResult.getResidualComparisons().size())
+                            .addAll(residualComparisons)
+                            .addAll(rangeMergeResult.getResidualComparisons())
+                            .build();
+                }
+                return MergeResult.of(newComparisonRange, newResidualComparisons);
             }
         }
 
+        /**
+         * A single {@link ComparisonRange} spanning as much of the pre-merged set of comparisons as possible.
+         *
+         * @return a single {@link ComparisonRange}
+         */
         @Nonnull
         public ComparisonRange getComparisonRange() {
             return comparisonRange;
         }
 
+        /**
+         * A list of {@link Comparisons.Comparison}s that could not be pushed into the {@linkplain #getComparisonRange() comparison range}.
+         *
+         * @return a list of residual comparisons
+         */
         @Nonnull
         public List<Comparisons.Comparison> getResidualComparisons() {
             return residualComparisons;
