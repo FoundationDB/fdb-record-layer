@@ -160,7 +160,7 @@ test_block:
       # LEFT and RIGHT are classified as `functionNameKeyword`, not `functionNameBase`, in the grammar. This prevents
       # the use of bare `left` as a valid alias (which would constitute an ANTLR parser ambiguity).
       - query: SELECT * FROM "emp" left JOIN "dept" ON "emp"."dept_id" = "dept"."id";
-      - supported_version: !current_version
+      - supported_version: 4.12.9.0
       - unorderedResult: [
           {!pos 1: !l 1, !pos 2: 'Alice', !pos 3: 'Smith', !pos 4: !l 1, !pos 5: !l 1, !pos 6: 'Engineering'},
           {!pos 1: !l 2, !pos 2: 'Bob', !pos 3: 'Jones', !pos 4: !l 1, !pos 5: !l 1, !pos 6: 'Engineering'},
@@ -169,7 +169,7 @@ test_block:
     -
       # “left” and “right” can be used as table aliases (and identifiers in general), but they must be double-quoted.
       - query: SELECT "left"."fname", "right"."name" FROM "emp" "left" LEFT JOIN "dept" "right" ON "left"."dept_id" = "right"."id";
-      - supported_version: !current_version
+      - supported_version: 4.12.9.0
       - unorderedResult: [
           {'Alice', 'Engineering'},
           {'Bob', 'Engineering'},
@@ -178,7 +178,7 @@ test_block:
     -
       # Same as the previous test but with the explicit AS form.
       - query: SELECT "left"."fname", "right"."name" FROM "emp" AS "left" LEFT JOIN "dept" AS "right" ON "left"."dept_id" = "right"."id";
-      - supported_version: !current_version
+      - supported_version: 4.12.9.0
       - unorderedResult: [
           {'Alice', 'Engineering'},
           {'Bob', 'Engineering'},
@@ -187,7 +187,7 @@ test_block:
     -
       # A bare `left` cannot be used as a table alias even with the AS form.
       - query: SELECT * FROM "emp" AS left JOIN "dept" ON "emp"."dept_id" = "dept"."id";
-      - supported_version: !current_version
+      - supported_version: 4.12.9.0
       - error: SYNTAX_ERROR
     -
       # LEFT JOIN with compound ON condition (two predicates in the ON clause, combined with AND).
@@ -368,7 +368,7 @@ test_block:
       # Row constructor in the SELECT list, projecting fields from the null-producing side of a LEFT JOIN.
       # This exercises the propagation of nullability through a freshly-constructed record over an outer-join field.
       - query: SELECT "e"."fname", ("d"."id", "d"."name") FROM "emp" "e" LEFT JOIN "dept" "d" ON "e"."dept_id" = "d"."id";
-      - supported_version: !current_version
+      - supported_version: 4.12.9.0
       - explain: "ISCAN(emp$fname <,>) | FLATMAP q0 -> { COVERING(dept$name <,> -> [id: KEY:[2], name: KEY:[0]]) | FILTER q0.dept_id EQUALS _.id | FETCH | ON EMPTY NULL AS q1 RETURN (q0.fname AS fname, (q1.id AS id, q1.name AS name) AS _1) }"
       - unorderedResult: [
           {'Alice', {!l 1, 'Engineering'}},
@@ -381,7 +381,7 @@ test_block:
       # row), rather than a record with NULL fields as in the previous case where the row constructor is built freshly
       # in the outer SELECT.
       - query: SELECT "e"."fname", "sq"."info" FROM "emp" "e" LEFT JOIN (SELECT "id" AS "k", ("id", "name") AS "info" FROM "dept") "sq" ON "e"."dept_id" = "sq"."k";
-      - supported_version: !current_version
+      - supported_version: 4.12.9.0
       - explain: "ISCAN(emp$fname <,>) | FLATMAP q0 -> { SCAN([IS dept]) | FILTER q0.dept_id EQUALS _.id | MAP (_.id AS k, _ AS info) | ON EMPTY NULL AS q1 RETURN (q0.fname AS fname, q1.info AS info) }"
       - unorderedResult: [
           {'Alice', {!l 1, 'Engineering'}},
@@ -415,7 +415,7 @@ test_block:
     -
       # RIGHT JOIN with no table aliases; see the corresponding LEFT JOIN case above.
       - query: SELECT * FROM "emp" RIGHT JOIN "dept" ON "emp"."dept_id" = "dept"."id";
-      - supported_version: !current_version
+      - supported_version: 4.12.9.0
       - unorderedResult: [
           {!pos 1: !l 1, !pos 2: 'Alice', !pos 3: 'Smith', !pos 4: !l 1, !pos 5: !l 1, !pos 6: 'Engineering'},
           {!pos 1: !l 2, !pos 2: 'Bob', !pos 3: 'Jones', !pos 4: !l 1, !pos 5: !l 1, !pos 6: 'Engineering'},
@@ -424,7 +424,7 @@ test_block:
     -
       # “right” and “left” can be used as table aliases (and identifiers in general), but they must be double-quoted.
       - query: SELECT "right"."fname", "left"."name" FROM "emp" "right" RIGHT JOIN "dept" "left" ON "right"."dept_id" = "left"."id";
-      - supported_version: !current_version
+      - supported_version: 4.12.9.0
       - unorderedResult: [
           {'Alice', 'Engineering'},
           {'Bob', 'Engineering'},
@@ -433,7 +433,7 @@ test_block:
     -
       # A bare `right` cannot be used as a table alias even with the AS form.
       - query: SELECT * FROM "emp" AS right JOIN "dept" ON "emp"."dept_id" = "dept"."id";
-      - supported_version: !current_version
+      - supported_version: 4.12.9.0
       - error: SYNTAX_ERROR
     -
       # RIGHT JOIN equivalent to a LEFT JOIN with the operand order flipped: `dept RIGHT JOIN emp` should produce the
@@ -498,7 +498,7 @@ test_block:
       # Row constructor in the SELECT list, projecting fields from the null-producing (SQL-left) side of a RIGHT JOIN.
       # Symmetric to the corresponding LEFT JOIN test above.
       - query: SELECT ("e"."id", "e"."fname"), "d"."name" FROM "emp" "e" RIGHT JOIN "dept" "d" ON "e"."dept_id" = "d"."id";
-      - supported_version: !current_version
+      - supported_version: 4.12.9.0
       - explain: "ISCAN(dept$name <,>) | FLATMAP q0 -> { ISCAN(emp$fname <,>) | FILTER _.dept_id EQUALS q0.id | ON EMPTY NULL AS q1 RETURN ((q1.id AS id, q1.fname AS fname) AS _0, q0.name AS name) }"
       - unorderedResult: [
           {{!l 1, 'Alice'}, 'Engineering'},

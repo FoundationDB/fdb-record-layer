@@ -57,7 +57,7 @@ Thus, an array could be of a single primitive type:
 
 .. code-block:: sql
 
-    CREATE TABLE foo (a STRING, b STRING ARRAY);
+    CREATE TABLE T1 (a STRING, b STRING ARRAY);
 
 In this example, `b` is an array with a single :sql:`STRING` column.
 
@@ -66,11 +66,13 @@ Arrays can also be created with struct columns:
 .. code-block:: sql
 
     CREATE TYPE AS STRUCT nested_struct (b STRING, d STRING)
-    CREATE TABLE structArray (a STRING, c nested_struct array);
+    CREATE TABLE T2 (a STRING, c nested_struct ARRAY);
 
 In this example, `c` is an array, and each record within the array is a struct of type :sql:`nested_struct`. You can generally treat an array as a "nested `ResultSet`"--that is to say, you can just pull up a `ResultSet` of an array type, and interrogate it as if it were the output of its own query.
 
 It is possible to nest arrays within structs, and structs within arrays, to an arbitrary depth (limited by the JVM's stack size, currently).
+
+An array column can be expanded into a stream of rows using the SQL constructs described under :doc:`Unnesting`.
 
 .. _vector_types:
 

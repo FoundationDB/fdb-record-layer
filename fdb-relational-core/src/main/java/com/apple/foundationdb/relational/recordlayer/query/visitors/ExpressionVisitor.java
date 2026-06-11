@@ -436,8 +436,9 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
             final var targetDataType = getDelegate().getSemanticAnalyzer().lookupBuiltInType(typeInfo);
             final var targetType = DataTypeUtils.toRecordLayerType(targetDataType);
             final var underlyingType = sourceExpression.getUnderlying().getResultType();
-            final var castValue = CastValue.inject(sourceExpression.getUnderlying(), targetType.withNullability(underlyingType.isNullable()));
-            return Expression.ofUnnamed(targetDataType, castValue);
+            // Note: `inject()` does not necessarily return a `CastValue`.
+            final var value = CastValue.inject(sourceExpression.getUnderlying(), targetType.withNullability(underlyingType.isNullable()));
+            return Expression.ofUnnamed(targetDataType, value);
         }
 
         Assert.failUnchecked(ErrorCode.UNSUPPORTED_OPERATION, "CONVERT function is not yet supported");

@@ -66,16 +66,18 @@ message DataStoreInfo {
   optional uint64 lastUpdateTime = 5;
   // This was introduced with FormatVersion.SAVE_UNSPLIT_WITH_SUFFIX to maintain backwards compatibility on stores
   // that have a metadata with splitLongRecords disabled.
-  // If the format version is at least 5, and the metadata has splitLongRecords disabled, and this is true, we will
-  // not insert or expect a split suffix. If splitLongRecords is enabled, or this is false records will always have
-  // a split suffix on the key, regardless of the record size.
-  // Without the suffix, you cannot start splitting long records, so by enabling the suffix you sacrifice a byte
-  // per-record, in exchange for be able to allow larger records in the future.
-  // Additionally, if the suffix is not used, and isStoreRecordVersions is enabled on the metaData, then they are placed
-  // in a disjoint space. This is less efficient, because it requires an additional read anytime you load a record.
-  // The existing of this means that upgrading the format version can happen transactionally, but the stores will not
-  // get the advantages of having the split-record-suffix.
-  // Ideally we would have a way to migrate stores: https://github.com/FoundationDB/fdb-record-layer/issues/3303
+  // Prior to format version 5, we would save split records with an additional suffix that was left off of unsplit
+  // records. This was more space efficient, but it meant that upgrading from unsplit to split records was impossible
+  // without a much more involved data migration. However, if we open a store with unsplit records that was written
+  // with an older format version, this flag needs to be set in order to correctly read previous data. Note that as
+  // we never try to migrate the old data from the old format to the new (instead reverting to the old behavior for
+  // reads and new writes), this is a one-way flag. Once set on a store, it will not be unset.
+  // Additionally, if the suffix is not used, and isStoreRecordVersions is enabled on the metaData, then record
+  // versions are not stored next to a record but instead in their own space. This is less efficient, because it
+  // requires an additional read any time a record is loaded.
+  // This backwards compatibility flag is employed instead of a migration as it allows us to update the format version
+  // without performing an unbounded amount of work in checkVersion. However, ideally, we would have a way to migrate
+  // stores to the new format. See: https://github.com/FoundationDB/fdb-record-layer/issues/3303
   optional bool omit_unsplit_record_suffix = 6;
   // Whether this store's store header should be cached using MetaDataVersionStampStoreStateCache
   // This is most important for very active stores that rarely change their metadata to avoid creating a hot shard on
