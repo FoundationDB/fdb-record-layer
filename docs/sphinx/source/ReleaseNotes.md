@@ -7,6 +7,37 @@ As the [versioning guide](Versioning.md) details, it cannot always be determined
 
 ## 4.12
 
+### 4.12.10.0
+
+<h4> New Features </h4>
+
+* Define sliding window counters and timing events - [PR #4278](https://github.com/FoundationDB/fdb-record-layer/pull/4278)
+* Allow table name as column reference to return row as struct (`SELECT t from t`) - [PR #4195](https://github.com/FoundationDB/fdb-record-layer/pull/4195)
+
+<details>
+<summary>
+
+<h4> Build/Test/Documentation/Style Improvements (click to expand) </h4>
+
+</summary>
+
+* Add CREATE VIEW documentation - [PR #4208](https://github.com/FoundationDB/fdb-record-layer/pull/4208)
+
+</details>
+
+
+**[Full Changelog (4.12.9.0...4.12.10.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.12.9.0...4.12.10.0)**
+
+#### Mixed Mode Test Results
+
+Mixed mode testing run against the following previous versions:
+
+✅`4.11.1.0`, ✅`4.12.1.0`, ✅`4.12.2.0`, ✅`4.12.3.0`, ✅`4.12.4.0`, ✅`4.12.5.0`, ✅`4.12.6.0`, ✅`4.12.7.0`, ✅`4.12.8.0`, ✅`4.12.9.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/27360184639)
+
+
+
 ### 4.12.9.0
 
 <h4> Breaking Changes </h4>
