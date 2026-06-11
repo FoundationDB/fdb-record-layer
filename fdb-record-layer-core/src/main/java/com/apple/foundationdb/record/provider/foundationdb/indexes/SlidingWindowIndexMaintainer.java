@@ -459,7 +459,8 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
             if (count < windowSize) {
                 incrementCounter(SlidingWindowCounter.SW_ITEM_ADDED_TO_WINDOW_FILLING);
                 // Window not full: add to delegate, update count, maybe update boundary
-                return delegate.update(null, savedRecord).thenCompose(vignore ->
+                return instrument(SlidingWindowEvent.SW_DELEGATE_INSERT,
+                        delegate.update(null, savedRecord)).thenCompose(vignore ->
                         tr.get(boundaryMetaKey).thenAccept(boundaryBytes -> {
                             tr.set(counterKey, encodeLong(count + 1));
                             recordSize(SlidingWindowSizeEvent.SW_WINDOW_COUNT, count + 1);
@@ -545,7 +546,8 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
                     tr.set(counterKey, encodeLong(newCount));
                     recordSize(SlidingWindowSizeEvent.SW_WINDOW_COUNT, newCount);
 
-                    return delegate.update(savedRecord, null)
+                    return instrument(SlidingWindowEvent.SW_DELEGATE_DELETE,
+                            delegate.update(savedRecord, null))
                             .thenCompose(vignore -> updateBoundaryAfterDelete(
                                     entriesSubspace, tr, entryKey, boundaryEntryKey,
                                     boundaryMetaKey, packedEntryKey))
@@ -581,9 +583,11 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
                         incrementCounter(SlidingWindowCounter.SW_EVICTED_RECORD_MISSING);
                         return AsyncUtil.DONE;
                     }
-                    return delegate.update(evictedRecord, null);
+                    return instrument(SlidingWindowEvent.SW_DELEGATE_DELETE,
+                            delegate.update(evictedRecord, null));
                 })
-                .thenCompose(v -> delegate.update(null, newRecord))
+                .thenCompose(v -> instrument(SlidingWindowEvent.SW_DELEGATE_INSERT,
+                        delegate.update(null, newRecord)))
                 .thenCompose(v -> instrument(SlidingWindowEvent.SW_BOUNDARY_RESCAN_AFTER_EVICT,
                         extremumType.getNewBoundaryAfterEviction(entriesSubspace, tr,
                                 oldBoundaryPackedKey)))
@@ -665,7 +669,8 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
                                     incrementCounter(SlidingWindowCounter.SW_PROMOTED_RECORD_MISSING);
                                     return AsyncUtil.DONE;
                                 }
-                                return delegate.update(null, promotedRecord);
+                                return instrument(SlidingWindowEvent.SW_DELEGATE_INSERT,
+                                        delegate.update(null, promotedRecord));
                             });
                 });
     }
@@ -752,7 +757,9 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
         SW_EVICT_AND_REPLACE("evict boundary and insert better entry"),
         SW_RE_ELECT_FROM_OVERFLOW("re-elect overflow entry into window"),
         SW_BOUNDARY_RESCAN_AFTER_EVICT("rescan to locate new boundary after eviction"),
-        SW_BOUNDARY_RESCAN_AFTER_DELETE("rescan to locate new boundary after boundary delete");
+        SW_BOUNDARY_RESCAN_AFTER_DELETE("rescan to locate new boundary after boundary delete"),
+        SW_DELEGATE_INSERT("insert into the delegate index"),
+        SW_DELEGATE_DELETE("delete from the delegate index");
 
         @Nonnull
         private final String title;

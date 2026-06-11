@@ -354,6 +354,64 @@ class SlidingWindowIndexMetricsTest extends FDBRecordStoreTestBase {
         }
     }
 
+    @Test
+    void delegateInsertEventFiresOnFillAndOnEvictionAndOnPromotion() throws Exception {
+        try (FDBRecordContext context = openContext()) {
+            openStore(context, 2, Direction.DESC);
+
+            // Fill phase: each record goes into the delegate (2 inserts).
+            rec(1, 100);
+            rec(2, 200);
+            assertEquals(2, eventCount(SlidingWindowEvent.SW_DELEGATE_INSERT));
+
+            // Eviction: insert rec3 into the delegate (3 inserts total).
+            rec(3, 300);
+            assertEquals(3, eventCount(SlidingWindowEvent.SW_DELEGATE_INSERT));
+
+            // Overflow add does NOT touch the delegate.
+            rec(4, 50);
+            assertEquals(3, eventCount(SlidingWindowEvent.SW_DELEGATE_INSERT));
+
+            // Window delete + promotion from overflow inserts rec4 into the delegate (4 total).
+            deleteRec(2);
+            assertEquals(4, eventCount(SlidingWindowEvent.SW_DELEGATE_INSERT));
+
+            assertTrue(timeNanos(SlidingWindowEvent.SW_DELEGATE_INSERT) > 0,
+                    "SW_DELEGATE_INSERT duration should be positive");
+            commit(context);
+        }
+    }
+
+    @Test
+    void delegateDeleteEventFiresOnEvictionAndOnWindowDelete() throws Exception {
+        try (FDBRecordContext context = openContext()) {
+            openStore(context, 2, Direction.DESC);
+            rec(1, 100);
+            rec(2, 200);
+            assertEquals(0, eventCount(SlidingWindowEvent.SW_DELEGATE_DELETE));
+
+            // Eviction removes rec1 from the delegate.
+            rec(3, 300);
+            assertEquals(1, eventCount(SlidingWindowEvent.SW_DELEGATE_DELETE));
+
+            // Overflow add does NOT touch the delegate, neither for insert nor for delete.
+            rec(4, 50);
+            assertEquals(1, eventCount(SlidingWindowEvent.SW_DELEGATE_DELETE));
+
+            // Overflow delete does NOT touch the delegate either.
+            deleteRec(4);
+            assertEquals(1, eventCount(SlidingWindowEvent.SW_DELEGATE_DELETE));
+
+            // Window delete removes rec2 from the delegate.
+            deleteRec(2);
+            assertEquals(2, eventCount(SlidingWindowEvent.SW_DELEGATE_DELETE));
+
+            assertTrue(timeNanos(SlidingWindowEvent.SW_DELEGATE_DELETE) > 0,
+                    "SW_DELEGATE_DELETE duration should be positive");
+            commit(context);
+        }
+    }
+
     // ===== Robustness =====
 
     @Test
