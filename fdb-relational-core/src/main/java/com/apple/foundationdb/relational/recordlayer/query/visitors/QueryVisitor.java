@@ -633,26 +633,29 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
                 aliases,
                 getDelegate().isForDdl());
 
-        // Build the result value: a flat record combining all flowed values from both sides (left then right). The
-        // result column ordering is independent of the join type: LEFT JOIN and RIGHT JOIN both produce the SQL outputs
-        // in the source order.
-        final ImmutableList<Value> values = ImmutableList.<Value>builder()
-                .addAll(leftQun.getFlowedValues())
-                .addAll(rightQun.getFlowedValues())
-                .build();
-        final RecordConstructorValue resultValue = ofUnnamed(values);
-
-        // Set up the preserved/null-supplying quantifiers for `OuterJoinExpression`. A LEFT OUTER JOIN preserves the
-        // left side; a RIGHT OUTER JOIN preserves the right side.
+        // Build the result value, a flat record combining the flowed values from both sides.
+        // 1. Determine the preserved/null-supplying quantifiers for `OuterJoinExpression` as per the LEFT/RIGHT type.
+        // 2. Ensure that the flowed values of the null-supplying side are nullable.
+        // 3. Assemble the result values in source order (left then right).
         final Quantifier.ForEach preservedQun;
         final Quantifier.ForEach nullSupplyingQun;
+        final ImmutableList<Value> values;
         if (joinType == JoinType.LEFT) {
             preservedQun = leftQun;
             nullSupplyingQun = rightQun;
+            values = ImmutableList.<Value>builder()
+                    .addAll(leftQun.getFlowedValues())
+                    .addAll(rightQun.pullUpResultColumnsWithNullability(true))
+                    .build();
         } else {
             preservedQun = rightQun;
             nullSupplyingQun = leftQun;
+            values = ImmutableList.<Value>builder()
+                    .addAll(leftQun.pullUpResultColumnsWithNullability(true))
+                    .addAll(rightQun.getFlowedValues())
+                    .build();
         }
+        final RecordConstructorValue resultValue = ofUnnamed(values);
 
         final OuterJoinExpression outerJoinExpression = new OuterJoinExpression(
                 preservedQun, nullSupplyingQun,

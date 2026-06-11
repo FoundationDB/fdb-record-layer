@@ -37,15 +37,6 @@ A subquery that references columns from the outer query:
     SELECT columns FROM table1 AS t1
     WHERE EXISTS (SELECT * FROM table2 WHERE table2.col = t1.col)
 
-Array Unnesting
----------------
-
-FDB supports PartiQL-style array unnesting:
-
-.. code-block:: sql
-
-    SELECT columns FROM table, table.array_column AS alias
-
 Examples
 ========
 
@@ -124,24 +115,10 @@ Use a correlated subquery as a derived table:
 
 The subquery ``(SELECT * FROM r WHERE r.idr = a.x)`` is correlated because it references ``a.x`` from the outer query.
 
-Array Unnesting with PartiQL
------------------------------
+Unnesting Arrays with a Subquery
+--------------------------------
 
-Unnest an array column using PartiQL syntax:
-
-.. code-block:: sql
-
-    SELECT idr FROM r, r.nr AS nest WHERE nest.f = 23
-
-.. list-table::
-    :header-rows: 1
-
-    * - :sql:`idr`
-    * - :json:`2`
-
-This query iterates over the ``nr`` array in each row of ``r`` and returns rows where the nested struct's ``f`` field equals 23.
-
-You can also use a subquery for array unnesting:
+A subquery in the ``FROM`` clause can be used to unnest an array column:
 
 .. code-block:: sql
 
@@ -152,6 +129,10 @@ You can also use a subquery for array unnesting:
 
     * - :sql:`idr`
     * - :json:`2`
+
+Here the subquery iterates over the ``nr`` array in each row of ``r`` and returns rows where the nested struct’s ``f`` field equals 23.
+
+For more information about unnesting arrays, see :doc:`Unnesting`.
 
 Correlated Subquery with GROUP BY
 ----------------------------------
@@ -223,4 +204,5 @@ See Also
 * :doc:`sql_commands/DQL/Operators/Logical/EXISTS` - EXISTS operator documentation
 * :doc:`sql_commands/DQL/WHERE` - WHERE clause filtering
 * :doc:`sql_commands/DQL/SELECT` - SELECT statement syntax
+* :doc:`Unnesting` - Array unnesting
 

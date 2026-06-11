@@ -1,0 +1,160 @@
+#
+# arrays-unnesting-documentation-queries.yamsql
+#
+# This source file is part of the FoundationDB open source project
+#
+# Copyright 2023-2026 Apple Inc. and the FoundationDB project authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+---
+options:
+  supported_version: 4.12.9.0
+  connection_options:
+    CASE_SENSITIVE_IDENTIFIERS: true
+---
+# Tests for the example queries shown in `Unnesting.rst`. Each test below corresponds to one of the example queries
+# in that document.
+schema_template:
+  CREATE TYPE AS STRUCT line_item (sku STRING, qty INTEGER)
+  CREATE TABLE orders (
+      order_id BIGINT,
+      tags STRING ARRAY,
+      items line_item ARRAY,
+      prices DOUBLE ARRAY,
+      PRIMARY KEY (order_id))
+---
+setup:
+  steps:
+    - query: INSERT INTO orders VALUES
+               (1, ['priority', 'gift'], [('A1', 2), ('A2', 1)],            [9.99, 19.99]),
+               (2, ['backorder'],        [('B1', 3)],                       [4.50]),
+               (3, NULL,                 [('C1', 1), ('C2', 2), ('C3', 1)], [29.99, 14.50, 5.00]),
+               (4, [],                   [],                                [])
+---
+test_block:
+  name: arrays-unnesting-documentation-queries
+  tests:
+    -
+      # "Unnesting a Scalar Array" example.
+      - query: SELECT order_id, tag FROM orders, orders.tags AS tag
+      - unorderedResult: [
+          {order_id: 1, tag: 'priority'},
+          {order_id: 1, tag: 'gift'},
+          {order_id: 2, tag: 'backorder'}]
+    -
+      # "Unnesting a STRUCT Array" example.
+      - query: SELECT order_id, item.sku AS sku, item.qty AS qty
+                 FROM orders, orders.items AS item
+      - unorderedResult: [
+          {order_id: 1, sku: 'A1', qty: 2},
+          {order_id: 1, sku: 'A2', qty: 1},
+          {order_id: 2, sku: 'B1', qty: 3},
+          {order_id: 3, sku: 'C1', qty: 1},
+          {order_id: 3, sku: 'C2', qty: 2},
+          {order_id: 3, sku: 'C3', qty: 1}]
+    -
+      # "Star Expansion on a STRUCT Element" example.
+      - query: SELECT order_id, item.* FROM orders, orders.items AS item
+      - unorderedResult: [
+          {order_id: 1, sku: 'A1', qty: 2},
+          {order_id: 1, sku: 'A2', qty: 1},
+          {order_id: 2, sku: 'B1', qty: 3},
+          {order_id: 3, sku: 'C1', qty: 1},
+          {order_id: 3, sku: 'C2', qty: 2},
+          {order_id: 3, sku: 'C3', qty: 1}]
+    -
+      # "Unnesting in a Lateral Subquery" example.
+      - query: SELECT order_id, item.sku AS sku, item.qty AS qty
+                 FROM orders, (SELECT sku, qty FROM orders.items) AS item
+      - unorderedResult: [
+          {order_id: 1, sku: 'A1', qty: 2},
+          {order_id: 1, sku: 'A2', qty: 1},
+          {order_id: 2, sku: 'B1', qty: 3},
+          {order_id: 3, sku: 'C1', qty: 1},
+          {order_id: 3, sku: 'C2', qty: 2},
+          {order_id: 3, sku: 'C3', qty: 1}]
+    -
+      # "Element Ordinals with AT" example.
+      - query: SELECT order_id, tag, at FROM orders, orders.tags AS tag AT at
+      - unorderedResult: [
+          {order_id: 1, tag: 'priority', at: 1},
+          {order_id: 1, tag: 'gift', at: 2},
+          {order_id: 2, tag: 'backorder', at: 1}]
+    -
+      # "Element Ordinals with AT" example, omitting the element alias.
+      - query: SELECT order_id, at FROM orders, orders.items AT at
+      - unorderedResult: [
+          {order_id: 1, at: 1},
+          {order_id: 1, at: 2},
+          {order_id: 2, at: 1},
+          {order_id: 3, at: 1},
+          {order_id: 3, at: 2},
+          {order_id: 3, at: 3}]
+    -
+      # "Ordinals and Filtering" example.
+      - query: SELECT order_id, item.sku AS sku, item.qty AS qty, at
+                 FROM orders, orders.items AS item AT at
+                WHERE item.qty >= 2
+      - unorderedResult: [
+          {order_id: 1, sku: 'A1', qty: 2, at: 1},
+          {order_id: 2, sku: 'B1', qty: 3, at: 1},
+          {order_id: 3, sku: 'C2', qty: 2, at: 2}]
+    -
+      # "Unnesting Two Arrays in Parallel using AT as a Subscript" example.
+      - query: SELECT order_id, item.sku AS sku, item.qty AS qty,
+                      orders.prices[at] AS price
+                 FROM orders, orders.items AS item AT at
+      - unorderedResult: [
+          {order_id: 1, sku: 'A1', qty: 2, price: 9.99},
+          {order_id: 1, sku: 'A2', qty: 1, price: 19.99},
+          {order_id: 2, sku: 'B1', qty: 3, price: 4.50},
+          {order_id: 3, sku: 'C1', qty: 1, price: 29.99},
+          {order_id: 3, sku: 'C2', qty: 2, price: 14.50},
+          {order_id: 3, sku: 'C3', qty: 1, price: 5.00}]
+    -
+      # "Computing the Cross Product of Two Unnested Arrays" example.
+      - query: SELECT order_id, tag, item.sku AS sku, at_t, at_i
+                 FROM orders,
+                      orders.tags AS tag AT at_t,
+                      orders.items AS item AT at_i
+      - unorderedResult: [
+          {order_id: 1, tag: 'priority',  sku: 'A1', at_t: 1, at_i: 1},
+          {order_id: 1, tag: 'priority',  sku: 'A2', at_t: 1, at_i: 2},
+          {order_id: 1, tag: 'gift',      sku: 'A1', at_t: 2, at_i: 1},
+          {order_id: 1, tag: 'gift',      sku: 'A2', at_t: 2, at_i: 2},
+          {order_id: 2, tag: 'backorder', sku: 'B1', at_t: 1, at_i: 1}]
+    -
+      # "AT in a Correlated Subquery" example.
+      - query: SELECT order_id, item.sku AS sku, sq.matched_price
+                 FROM orders,
+                      orders.items AS item AT at,
+                      (SELECT price AS matched_price
+                         FROM orders.prices AS price AT at2
+                        WHERE at2 = at AND price >= 15.0
+                      ) AS sq
+      - unorderedResult: [
+          {order_id: 1, sku: 'A2', matched_price: 19.99},
+          {order_id: 3, sku: 'C1', matched_price: 29.99}]
+    -
+      # Claim: "Applying AT to a base table raises SQLSTATE 42809."
+      - query: SELECT order_id, at FROM orders AT at
+      - error: WRONG_OBJECT_TYPE
+    -
+      # Claim: "Applying AT to a CTE raises SQLSTATE 42809."
+      - query: WITH cte AS (SELECT order_id FROM orders) SELECT order_id FROM cte AT at
+      - error: WRONG_OBJECT_TYPE
+    -
+      # Claim: `SELECT tag.* FROM orders, orders.tags AS tag` is invalid because the element type is a scalar.
+      - query: SELECT tag.* FROM orders, orders.tags AS tag
+      - error: INVALID_COLUMN_REFERENCE
+...

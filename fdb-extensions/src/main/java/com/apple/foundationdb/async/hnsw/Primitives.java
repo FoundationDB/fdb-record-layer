@@ -24,7 +24,7 @@ import com.apple.foundationdb.Database;
 import com.apple.foundationdb.ReadTransaction;
 import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.linear.Estimator;
+import com.apple.foundationdb.linear.DistanceEstimator;
 import com.apple.foundationdb.linear.FhtKacRotator;
 import com.apple.foundationdb.linear.LinearOperator;
 import com.apple.foundationdb.linear.Metric;
@@ -531,7 +531,7 @@ public class Primitives {
      * @param <N> the type of the node reference, extending {@link NodeReference}
      * @param storageAdapter the storage adapter to fetch nodes from the database
      * @param transaction the transaction context for database operations
-     * @param estimator an estimator to estimate distances
+     * @param distanceEstimator an estimator to estimate distances
      * @param storageTransform an affine transformation operator that is used to transform the fetched vector into the
      *        storage space that is currently being used
      * @param nodeReferenceWithVector the node reference of the node whose neighborhood is being considered for pruning
@@ -549,7 +549,7 @@ public class Primitives {
             pruneNeighborsIfNecessary(@Nonnull final StorageAdapter<N> storageAdapter,
                                       @Nonnull final Transaction transaction,
                                       @Nonnull final StorageTransform storageTransform,
-                                      @Nonnull final Estimator estimator,
+                                      @Nonnull final DistanceEstimator distanceEstimator,
                                       final int layer,
                                       @Nonnull final NodeReferenceWithVector nodeReferenceWithVector,
                                       final int mMax,
@@ -570,7 +570,7 @@ public class Primitives {
                                 ImmutableList.builder();
                         for (final NodeReferenceWithVector neighborReferenceWithVector : neighborReferenceWithVectors) {
                             final var neighborVector = neighborReferenceWithVector.getVector();
-                            final double distance = estimator.distance(neighborVector, nodeReferenceWithVector.getVector());
+                            final double distance = distanceEstimator.distance(neighborVector, nodeReferenceWithVector.getVector());
                             nodeReferencesWithDistancesBuilder.add(
                                     new NodeReferenceWithDistance(neighborReferenceWithVector.getPrimaryKey(),
                                             neighborVector, distance));
@@ -578,7 +578,7 @@ public class Primitives {
                         return nodeReferencesWithDistancesBuilder.build();
                     })
                     .thenCompose(nodeReferencesAndNodes ->
-                            selectCandidates(storageAdapter, transaction, storageTransform, estimator,
+                            selectCandidates(storageAdapter, transaction, storageTransform, distanceEstimator,
                                     nodeReferencesAndNodes, layer,
                                     mMax, nodeCache));
         }
@@ -603,7 +603,7 @@ public class Primitives {
      * @param <N> the type of the node reference, extending {@link NodeReference}
      * @param storageAdapter the storage adapter to fetch nodes and their neighbors
      * @param readTransaction the transaction for performing database reads
-     * @param estimator the estimator in use
+     * @param distanceEstimator the estimator in use
      * @param storageTransform an affine transformation operator that is used to transform the fetched vector into the
      *        storage space that is currently being used
      * @param initialCandidates the initial pool of candidate neighbors, typically from a search in a higher layer
@@ -619,7 +619,7 @@ public class Primitives {
             selectCandidates(@Nonnull final StorageAdapter<N> storageAdapter,
                              @Nonnull final ReadTransaction readTransaction,
                              @Nonnull final StorageTransform storageTransform,
-                             @Nonnull final Estimator estimator,
+                             @Nonnull final DistanceEstimator distanceEstimator,
                              @Nonnull final Iterable<NodeReferenceWithDistance> initialCandidates,
                              final int layer,
                              final int m,
@@ -640,7 +640,7 @@ public class Primitives {
             // if the metric does not support triangle inequality, we shold not use the heuristic
             if (metric.satisfiesTriangleInequality()) {
                 for (final NodeReferenceWithDistance alreadySelected : selected) {
-                    if (estimator.distance(nearestCandidate.getVector(),
+                    if (distanceEstimator.distance(nearestCandidate.getVector(),
                             alreadySelected.getVector()) < nearestCandidate.getDistance()) {
                         shouldSelect = false;
                         break;
@@ -689,7 +689,7 @@ public class Primitives {
      * @param <N> the type of the {@link NodeReference}
      * @param storageAdapter the {@link StorageAdapter} used to access node data from storage
      * @param readTransaction the active {@link ReadTransaction} for database access
-     * @param estimator the estimator
+     * @param distanceEstimator the estimator
      * @param storageTransform an affine transformation operator that is used to transform the fetched vector into the
      *        storage space that is currently being used
      * @param candidates an {@link Collection} of initial candidate nodes, which have already been evaluated
@@ -705,7 +705,7 @@ public class Primitives {
             extendCandidatesIfNecessary(@Nonnull final StorageAdapter<N> storageAdapter,
                                         @Nonnull final ReadTransaction readTransaction,
                                         @Nonnull final StorageTransform storageTransform,
-                                        @Nonnull final Estimator estimator,
+                                        @Nonnull final DistanceEstimator distanceEstimator,
                                         @Nonnull final Collection<NodeReferenceAndNode<NodeReferenceWithDistance, N>> candidates,
                                         final int layer,
                                         final boolean isExtendCandidates,
@@ -718,7 +718,7 @@ public class Primitives {
                     CandidatePredicate.tautology(), layer, nodeCache)
                     .thenApply(neighborsOfCandidates -> {
                         for (final NodeReferenceWithVector nodeReferenceWithVector : neighborsOfCandidates) {
-                            final double distance = estimator.distance(nodeReferenceWithVector.getVector(), vector);
+                            final double distance = distanceEstimator.distance(nodeReferenceWithVector.getVector(), vector);
                             resultBuilder.add(new NodeReferenceWithDistance(nodeReferenceWithVector.getPrimaryKey(),
                                     nodeReferenceWithVector.getVector(), distance));
                         }
