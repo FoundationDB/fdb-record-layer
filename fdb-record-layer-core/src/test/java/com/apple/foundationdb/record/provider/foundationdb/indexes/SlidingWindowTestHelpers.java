@@ -23,19 +23,33 @@ package com.apple.foundationdb.record.provider.foundationdb.indexes;
 import com.apple.foundationdb.half.Half;
 import com.apple.foundationdb.linear.HalfRealVector;
 import com.apple.foundationdb.linear.Metric;
+import com.apple.foundationdb.record.RecordMetaData;
+import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.metadata.Index;
+import com.apple.foundationdb.record.metadata.IndexOptions;
+import com.apple.foundationdb.record.metadata.IndexPredicate;
+import com.apple.foundationdb.record.metadata.IndexPredicate.RowNumberWindowPredicate.Direction;
+import com.apple.foundationdb.record.metadata.IndexTypes;
+import com.apple.foundationdb.record.metadata.Key;
+import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
+import com.apple.foundationdb.record.metadata.expressions.KeyWithValueExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainer;
 import com.apple.foundationdb.record.provider.foundationdb.VectorIndexScanBounds;
 import com.apple.foundationdb.record.provider.foundationdb.VectorIndexScanOptions;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
+import com.apple.foundationdb.record.slidingwindowvector.TestRecordsSlidingWindowVectorProto;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
+import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.LongStream;
@@ -51,6 +65,53 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 public final class SlidingWindowTestHelpers {
 
     private SlidingWindowTestHelpers() {
+    }
+
+    /**
+     * Builds a {@link RecordMetaData} for a sliding-window HNSW vector index over
+     * {@link TestRecordsSlidingWindowVectorProto.SlidingWindowVectorRecord}. The window
+     * orders by the {@code relevance} field; the index value is {@code vector_data},
+     * optionally prefixed by the columns named in {@code groupingFields}.
+     */
+    @Nonnull
+    public static RecordMetaData buildSlidingWindowVectorMetaData(@Nonnull String indexName,
+                                                                  int windowSize,
+                                                                  int vectorDims,
+                                                                  @Nonnull Direction direction,
+                                                                  @Nonnull List<List<String>> groupingFields) {
+        final RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder()
+                .setRecords(TestRecordsSlidingWindowVectorProto.getDescriptor());
+        metaDataBuilder.getRecordType("SlidingWindowVectorRecord")
+                .setPrimaryKey(Key.Expressions.field("rec_no"));
+
+        final IndexPredicate.RowNumberWindowPredicate windowPredicate =
+                new IndexPredicate.RowNumberWindowPredicate(
+                        ImmutableList.of("relevance"), direction, windowSize, groupingFields);
+
+        final Map<String, String> options = new HashMap<>();
+        options.put(IndexOptions.HNSW_METRIC, Metric.EUCLIDEAN_METRIC.name());
+        options.put(IndexOptions.HNSW_NUM_DIMENSIONS, Integer.toString(vectorDims));
+
+        // Build key expression: for grouped indexes, prefix with group columns
+        // e.g. one grouping column (zone) → KeyWithValue(concat(zone, vector_data), 1)
+        // e.g. two grouping columns (zone, category) → KeyWithValue(concat(zone, category, vector_data), 2)
+        final KeyExpression keyExpr;
+        if (groupingFields.isEmpty()) {
+            keyExpr = new KeyWithValueExpression(Key.Expressions.field("vector_data"), 0);
+        } else {
+            KeyExpression prefix = Key.Expressions.field(groupingFields.get(0).get(0));
+            for (int i = 1; i < groupingFields.size(); i++) {
+                prefix = Key.Expressions.concat(prefix, Key.Expressions.field(groupingFields.get(i).get(0)));
+            }
+            keyExpr = new KeyWithValueExpression(
+                    Key.Expressions.concat(prefix, Key.Expressions.field("vector_data")),
+                    groupingFields.size());
+        }
+
+        metaDataBuilder.addIndex("SlidingWindowVectorRecord",
+                new Index(indexName, keyExpr, IndexTypes.VECTOR, options, windowPredicate));
+
+        return metaDataBuilder.getRecordMetaData();
     }
 
     @Nonnull
