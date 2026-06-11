@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.provider.foundationdb.indexes;
 
 import com.apple.foundationdb.KeyValue;
+import com.apple.foundationdb.MutationType;
 import com.apple.foundationdb.Range;
 import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.annotation.API;
@@ -61,18 +62,30 @@ import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.util.Comparator;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
 /**
  * An index maintainer decorator that keeps only the top-N records based on a window key,
- * optionally grouped by a partition key. It wraps a vector (HNSW)
+ * optionally grouped by a partition key. It wraps a vector (HNSW) or value
  * {@link IndexMaintainer} and applies sliding window semantics for mutations before delegating
- * the actual index operations. This bounds the size of the HNSW graph while maintaining search
- * quality over a curated subset of vectors.
+ * the actual index operations. This bounds the size of the underlying delegate (e.g. an HNSW
+ * graph) while maintaining search or scan quality over a curated subset of records.
  *
- * <p>Currently, only vector indexes are supported as the delegate. This restriction is enforced
+ * <p>The window-size cap is <em>approximate</em>. To let concurrent inserts and deletes commit
+ * without spurious conflicts, the maintainer reads the in-window count and the boundary pointer
+ * via {@code tr.snapshot()} reads and mutates the count via atomic {@code ADD} mutations. Two
+ * concurrent inserts can therefore both observe a non-full window, both add to the delegate,
+ * and both ADD-1 the counter — leaving the in-window count transiently above the configured
+ * size. Subsequent operations that observe the over-count fall through the full-branch
+ * eviction path. The maintainer's transactional invariants (boundary points at a present
+ * entry, delegate contents == window-side entries) hold in every committed state; only the
+ * size bound is best-effort.</p>
+ *
+ * <p>Vector (HNSW) and value indexes are supported as the delegate. Eligibility is enforced
  * by {@link SlidingWindowIndexMaintainerFactory#isSlidingWindowIndex(Index)} and validated by
  * {@link SlidingWindowIndexMaintainerFactory}.</p>
  *
@@ -137,6 +150,17 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
          * Get the best overflow entry (first entry on the overflow side of the boundary).
          * ASC/MIN: overflow is after boundary → forward scan from boundary (exclusive).
          * DESC/MAX: overflow is before boundary → reverse scan up to boundary (exclusive).
+         *
+         * <p>Both branches declare an explicit write-conflict range over the slice they
+         * actually visited. This is the symmetric counterpart to the read-conflict the
+         * non-snapshot {@code getRange} already provides: the read-conflict aborts us if
+         * a concurrent writer lands in the slice and commits before us, and the explicit
+         * write-conflict aborts any concurrent transaction that read from this slice and
+         * commits after us — typically another caller (e.g. a parallel {@code handleInsert})
+         * whose own read-conflict on a key in the slice was used to decide where to route
+         * its entry. Without it, that reader could base its routing decision on a
+         * pre-promotion view of the slice and commit cleanly, breaking the maintainer's
+         * "delegate contents == window-side entries" invariant.</p>
          */
         @Nonnull
         public CompletableFuture<KeyValue> getBestInOverflow(@Nonnull Subspace entriesSubspace,
@@ -146,15 +170,24 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
                 // Overflow is after boundary: scan forward starting just after boundary
                 final byte[] begin = ByteArrayUtil.keyAfter(boundaryPackedKey);
                 final byte[] end = entriesSubspace.range().end;
+
                 return tr.getRange(begin, end, 1, false)
                         .asList()
-                        .thenApply(entries -> entries.isEmpty() ? null : entries.get(0));
+                        .thenApply(entries -> {
+                            final byte[] scannedEnd = entries.isEmpty() ? end : ByteArrayUtil.keyAfter(entries.get(0).getKey());
+                            tr.addWriteConflictRange(begin, scannedEnd);
+                            return entries.isEmpty() ? null : entries.get(0);
+                        });
             } else {
                 // Overflow is before boundary: scan reverse ending just before boundary
                 final byte[] begin = entriesSubspace.range().begin;
                 return tr.getRange(begin, boundaryPackedKey, 1, true)
                         .asList()
-                        .thenApply(entries -> entries.isEmpty() ? null : entries.get(0));
+                        .thenApply(entries -> {
+                            final byte[] scannedBegin = entries.isEmpty() ? begin : entries.get(0).getKey();
+                            tr.addWriteConflictRange(scannedBegin, boundaryPackedKey);
+                            return entries.isEmpty() ? null : entries.get(0);
+                        });
             }
         }
 
@@ -162,6 +195,16 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
          * After evicting the boundary entry, find the new boundary (the next entry inward).
          * ASC/MIN: new boundary = entry just before old boundary (reverse scan).
          * DESC/MAX: new boundary = entry just after old boundary (forward scan).
+         *
+         * <p>Both branches declare an explicit read+write conflict range over the slice
+         * they actually visited (or the full requested range when the scan returns
+         * nothing). Without these declarations, a concurrent insert that lands in the
+         * gap between the new and old boundary — or anywhere on the window side when
+         * the deleted entry was the last in-window entry and
+         * {@link #reElectFromOverflow}'s {@link #getBestInOverflow} short-circuits —
+         * could slip past the resolver and orphan an entry whose primary key is in
+         * the delegate but whose entries-subspace key sits outside the post-eviction
+         * boundary (or has no boundary at all).</p>
          */
         @Nonnull
         public CompletableFuture<KeyValue> getNewBoundaryAfterEviction(@Nonnull Subspace entriesSubspace,
@@ -172,14 +215,22 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
                 final byte[] begin = entriesSubspace.range().begin;
                 return tr.getRange(begin, oldBoundaryPackedKey, 1, true)
                         .asList()
-                        .thenApply(entries -> entries.isEmpty() ? null : entries.get(0));
+                        .thenApply(entries -> {
+                            final byte[] scannedBegin = entries.isEmpty() ? begin : entries.get(0).getKey();
+                            tr.addWriteConflictRange(scannedBegin, oldBoundaryPackedKey);
+                            return entries.isEmpty() ? null : entries.get(0);
+                        });
             } else {
                 // Window is on the right; new boundary = entry just after old boundary
                 final byte[] begin = ByteArrayUtil.keyAfter(oldBoundaryPackedKey);
                 final byte[] end = entriesSubspace.range().end;
                 return tr.getRange(begin, end, 1, false)
                         .asList()
-                        .thenApply(entries -> entries.isEmpty() ? null : entries.get(0));
+                        .thenApply(entries -> {
+                            final byte[] scannedEnd = entries.isEmpty() ? end : ByteArrayUtil.keyAfter(entries.get(0).getKey());
+                            tr.addWriteConflictRange(begin, scannedEnd);
+                            return entries.isEmpty() ? null : entries.get(0);
+                        });
             }
         }
     }
@@ -443,28 +494,39 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
         final Tuple entryKey = windowValue.addAll(primaryKey);
 
         // Always write the entry to the entries subspace
+        tr.addReadConflictKey(entriesSubspace.pack(entryKey));
         tr.set(entriesSubspace.pack(entryKey), primaryKey.pack());
 
         final byte[] counterKey = metaSubspace.pack(COUNT_KEY);
         final byte[] boundaryMetaKey = metaSubspace.pack(BOUNDARY_KEY);
 
-        return tr.get(counterKey).thenCompose(counterBytes -> {
+        return tr.snapshot().get(counterKey).thenCompose(counterBytes -> {
             final long count = counterBytes == null ? 0L : decodeLong(counterBytes);
 
             if (count < windowSize) {
-                // Window not full: add to delegate, update count, maybe update boundary
+                //
+                // the window is not full, add the item to delegate, update count, maybe update boundary
+                //
                 return delegate.update(null, savedRecord).thenCompose(vignore ->
-                        tr.get(boundaryMetaKey).thenAccept(boundaryBytes -> {
-                            tr.set(counterKey, encodeLong(count + 1));
+                        tr.snapshot().get(boundaryMetaKey).thenAccept(boundaryBytes -> {
+                            tr.mutate(MutationType.ADD, counterKey, encodeLong(1));
+                            //
+                            // only update the boundary key if it not yet set or the newly added
+                            // item replaces the current boundary by being worse than the current
+                            // boundary
+                            //
                             if (boundaryBytes == null || extremumType.isWorseOrEqual(entryKey,
                                     Tuple.fromBytes(boundaryBytes))) {
+                                tr.addReadConflictKey(boundaryMetaKey);
                                 tr.set(boundaryMetaKey, entryKey.pack());
                             }
                         })
                 );
             } else {
-                // Window full: read boundary to compare
-                return tr.get(boundaryMetaKey).thenCompose(boundaryBytes -> {
+                //
+                // Window full, read boundary to compare
+                //
+                return tr.snapshot().get(boundaryMetaKey).thenCompose(boundaryBytes -> {
                     if (boundaryBytes == null) {
                         throw new RecordCoreException("sliding window boundary is missing but count >= windowSize, possible corruption")
                                 .addLogInfo(LogMessageKeys.INDEX_NAME, state.index.getName());
@@ -476,7 +538,7 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
                         // subspace on the overflow side. Nothing more to do.
                         return AsyncUtil.DONE;
                     }
-
+                    tr.addReadConflictKey(boundaryMetaKey);
                     // New entry is better: evict boundary from delegate, add new to delegate
                     return evictBoundaryAndReplace(savedRecord, entryKey, entriesSubspace, tr,
                             boundaryEntryKey, boundaryMetaKey);
@@ -499,8 +561,7 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
         final Subspace metaSubspace = partitionSubspace.subspace(META_SUBSPACE_KEY);
 
         final Key.Evaluated windowEval = windowKey.evaluateSingleton(savedRecord);
-        final Tuple windowValue = windowEval.toTuple();
-        final Tuple entryKey = windowValue.addAll(primaryKey);
+        final Tuple entryKey = windowEval.toTuple().addAll(primaryKey);
         final byte[] packedEntryKey = entriesSubspace.pack(entryKey);
 
         // Check if this entry exists in the entries subspace
@@ -516,7 +577,7 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
             final byte[] counterKey = metaSubspace.pack(COUNT_KEY);
             final byte[] boundaryMetaKey = metaSubspace.pack(BOUNDARY_KEY);
 
-            return tr.get(boundaryMetaKey).thenCompose(boundaryBytes -> {
+            return tr.snapshot().get(boundaryMetaKey).thenCompose(boundaryBytes -> {
                 if (boundaryBytes == null) {
                     throw new RecordCoreException("sliding window boundary is missing but entry exists, possible corruption")
                             .addLogInfo(LogMessageKeys.INDEX_NAME, state.index.getName());
@@ -528,20 +589,15 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
                     return AsyncUtil.DONE;
                 }
 
-                // Entry was in the window: remove from delegate, update count, re-elect
-                return tr.get(counterKey).thenCompose(counterBytes -> {
-                    final long count = counterBytes == null ? 0L : decodeLong(counterBytes);
-                    final long newCount = Math.max(0, count - 1);
-                    tr.set(counterKey, encodeLong(newCount));
-
-                    return delegate.update(savedRecord, null)
-                            .thenCompose(vignore -> updateBoundaryAfterDelete(
-                                    entriesSubspace, tr, entryKey, boundaryEntryKey,
-                                    boundaryMetaKey, packedEntryKey))
-                            .thenCompose(currentBoundaryPacked -> reElectFromOverflow(
-                                    entriesSubspace, tr, currentBoundaryPacked,
-                                    boundaryMetaKey, counterKey, newCount));
-                });
+                tr.addReadConflictKey(boundaryMetaKey);
+                // Entry was in the window: remove from delegate and re-elect
+                return tr.snapshot().get(counterKey).thenCompose(counterBytes -> delegate.update(savedRecord, null)
+                        .thenCompose(vignore -> updateBoundaryAfterDelete(
+                                entriesSubspace, tr, entryKey, boundaryEntryKey,
+                                boundaryMetaKey, packedEntryKey))
+                        .thenCompose(currentBoundaryPacked -> reElectFromOverflow(
+                                entriesSubspace, tr, currentBoundaryPacked,
+                                boundaryMetaKey, counterKey, counterBytes)));
             });
         });
     }
@@ -622,22 +678,24 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
             @Nullable byte[] currentBoundaryPacked,
             @Nonnull byte[] boundaryMetaKey,
             @Nonnull byte[] counterKey,
-            long newCount) {
+            @Nullable byte[] counterBytes) {
+        final byte[] decrement = encodeLong((counterBytes == null ? 0L : decodeLong(counterBytes)) > 0 ? -1 : 0);
         if (currentBoundaryPacked == null) {
+            tr.mutate(MutationType.ADD, counterKey, decrement);
             return AsyncUtil.DONE;
         }
         return extremumType.getBestInOverflow(entriesSubspace, tr, currentBoundaryPacked)
                 .thenCompose(bestKV -> {
                     if (bestKV == null) {
+                        tr.mutate(MutationType.ADD, counterKey, decrement);
                         return AsyncUtil.DONE;
                     }
                     final Tuple bestEntryKey = entriesSubspace.unpack(bestKV.getKey());
                     final Tuple bestPrimaryKey = Tuple.fromBytes(bestKV.getValue());
                     tr.set(boundaryMetaKey, bestEntryKey.pack());
-                    tr.set(counterKey, encodeLong(newCount + 1));
                     return state.store.loadRecordAsync(bestPrimaryKey)
                             .thenCompose(promotedRecord -> promotedRecord != null
-                                    ? delegate.update(null, promotedRecord) : AsyncUtil.DONE);
+                                                           ? delegate.update(null, promotedRecord) : AsyncUtil.DONE);
                 });
     }
 
@@ -655,10 +713,15 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
     }
 
     private static byte[] encodeLong(long value) {
-        return Tuple.from(value).pack();
+        return ByteBuffer.allocate(Long.BYTES)
+                .order(ByteOrder.LITTLE_ENDIAN)
+                .putLong(value)
+                .array();
     }
 
     private static long decodeLong(byte[] bytes) {
-        return Tuple.fromBytes(bytes).getLong(0);
+        return ByteBuffer.wrap(bytes)
+                .order(ByteOrder.LITTLE_ENDIAN)
+                .getLong();
     }
 }

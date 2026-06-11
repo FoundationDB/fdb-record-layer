@@ -47,11 +47,14 @@ import java.util.Collection;
  * {@link SlidingWindowIndexMaintainer} when the index carries a
  * {@link IndexPredicate.RowNumberWindowPredicate}.
  *
- * <p>Currently, sliding window semantics are only supported on
- * vector (HNSW) indexes. The sliding window limits the number of
- * vectors maintained in the HNSW graph by evicting the worst entries and re-electing from
- * overflow when entries are deleted. This is particularly useful for bounding the size of
- * expensive HNSW structures while maintaining search quality over a curated subset.</p>
+ * <p>Sliding window semantics are supported on vector (HNSW) and value indexes. The sliding
+ * window limits the number of entries maintained in the underlying delegate by evicting the
+ * worst entries and re-electing from overflow when entries are deleted. The configured size
+ * acts as an <em>approximate</em> cap: to keep concurrent inserts and deletes from spuriously
+ * conflicting, the maintainer uses atomic counter mutations and snapshot reads of the boundary
+ * metadata, so under concurrency the in-window count may transiently exceed the configured
+ * size. This is particularly useful for bounding the size of expensive HNSW structures while
+ * maintaining search quality over a curated subset.</p>
  *
  * <p>This factory does not register its own index types via {@link #getIndexTypes()} (it returns
  * an empty list). Instead, the {@link com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerFactoryRegistryImpl}
@@ -81,15 +84,19 @@ public class SlidingWindowIndexMaintainerFactory implements IndexMaintainerFacto
     }
 
     /**
-     * Checks whether the given index is a vector index with a
-     * {@link IndexPredicate.RowNumberWindowPredicate} in its predicate tree, indicating it
-     * should be wrapped with sliding window semantics. Only vector indexes are eligible for sliding window decoration.
+     * Checks whether the given index has a {@link IndexPredicate.RowNumberWindowPredicate}
+     * in its predicate tree and a delegate type (vector or value) eligible for sliding
+     * window decoration.
      *
      * @param index the index to check
-     * @return {@code true} if the index is a vector index with a sliding window predicate
+     * @return {@code true} if the index has a sliding window predicate and an eligible delegate type
      */
     public static boolean isSlidingWindowIndex(@Nonnull Index index) {
-        return IndexTypes.VECTOR.equals(index.getType()) && findRowNumberWindowPredicate(index.getPredicate()) != null;
+        return isSupportedDelegateType(index.getType()) && findRowNumberWindowPredicate(index.getPredicate()) != null;
+    }
+
+    private static boolean isSupportedDelegateType(@Nonnull String indexType) {
+        return IndexTypes.VECTOR.equals(indexType) || IndexTypes.VALUE.equals(indexType);
     }
 
     /**
@@ -224,8 +231,8 @@ public class SlidingWindowIndexMaintainerFactory implements IndexMaintainerFacto
                 throw new MetaDataException("sliding window index is on synthetic record types",
                         LogMessageKeys.INDEX_NAME, index.getName());
             }
-            if (!IndexTypes.VECTOR.equals(index.getType())) {
-                throw new MetaDataException("sliding window index can only be defined on vector indexes");
+            if (!isSupportedDelegateType(index.getType())) {
+                throw new MetaDataException("sliding window index can only be defined on vector or value indexes");
             }
             @Nullable final IndexPredicate predicate = index.getPredicate();
             if (predicate == null) {
