@@ -2,6 +2,7 @@ name: Upload Coverage to Teamscale
 
 permissions:
   actions: read
+  contents: read
 
 # This is a separate workflow from pull_request.yml because it needs to run with access
 # to the secrets
@@ -19,9 +20,9 @@ jobs:
       # This checks out the latest commit on main, not teh PRs head
       # This is needed to get the teamscale-upload action
       - name: Checkout sources
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - name: 'Download artifact'
-        uses: actions/github-script@v9.0.0
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
           script: |
             let allArtifacts = await github.rest.actions.listWorkflowRunArtifacts({
@@ -47,7 +48,7 @@ jobs:
             fs.writeFileSync(path.join(temp, 'coverage-report.zip'), Buffer.from(download.data));
 
       - name: 'Unzip artifact'
-        run: unzip "${{ runner.temp }}/artifacts/coverage-report.zip" -d "${{ runner.temp }}/artifacts"
+        run: unzip "${RUNNER_TEMP}/artifacts/coverage-report.zip" -d "${RUNNER_TEMP}/artifacts"
       - name: 'Upload coverage'
         uses: ./actions/teamscale-upload
         with:

@@ -1004,5 +1004,9 @@ public interface TypedVisitor extends RelationalParserVisitor<Object> {
 
     @Nonnull
     @Override
+    Object visitFunctionNameKeyword(@Nonnull RelationalParser.FunctionNameKeywordContext ctx);
+
+    @Nonnull
+    @Override
     Object visitExecuteContinuationStatement(@Nonnull RelationalParser.ExecuteContinuationStatementContext ctx);
 }

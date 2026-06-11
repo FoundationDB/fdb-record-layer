@@ -135,30 +135,34 @@ javadoc {
 }
 
 //
-// Focused verification of the scalar fallback path: runs the parity test, backend-selection
-// test, and the determinism test under scalar mode. Does NOT pass --add-modules, so loading
-// SimdBackend fails with NoClassDefFoundError; the fdb.vector.simd=scalar system property also
-// forces scalar selection (and is what activates the @EnabledIfSystemProperty gating on
-// siftSmallDeterminism).
+// Focused verification of the scalar fallback path: runs every test that must pass under the
+// scalar backend, selected by JUnit tags rather than an explicit class allowlist:
+//   - RequiresScalar   — tests that assert scalar-specific behavior (e.g. the backend name, or
+//                        bit-exact determinism that SIMD lane-reordering would break). These run
+//                        ONLY here (the default test task excludes the tag).
+//   - DualScalarSIMD   — parity/correctness tests that must hold under both backends. These run
+//                        TWICE in CI: under SIMD in the default test task, and again under scalar
+//                        here. That double-run is the point — it's how SIMD-vs-scalar parity is
+//                        actually exercised (the default run covers SIMD, this run confirms scalar
+//                        agrees).
+// Does NOT pass --add-modules, so loading SimdBackend fails with NoClassDefFoundError; the
+// fdb.vector.simd=scalar system property also forces scalar selection (so RealVectorPrimitives
+// resolves to the scalar backend even though the SIMD class is technically on the classpath).
 //
-task testScalarFallback(type: Test) {
-    description = 'Runs a focused subset of tests without --add-modules to exercise the scalar fallback.'
+task scalarFallbackTest(type: Test) {
+    description = 'Runs the RequiresScalar and DualScalarSIMD tagged tests without --add-modules to exercise the scalar fallback.'
     group = 'verification'
-    useJUnitPlatform()
+    useJUnitPlatform {
+        includeTags 'RequiresScalar', 'DualScalarSIMD'
+    }
     testClassesDirs = sourceSets.test.output.classesDirs
     classpath       = sourceSets.test.runtimeClasspath
     dependsOn tasks.named('extractSiftSmall')
     inputs.dir extractDir
     systemProperty 'fdb.vector.simd', 'scalar'
-    filter {
-        includeTestsMatching 'com.apple.foundationdb.linear.RealVectorPrimitivesParityTest'
-        includeTestsMatching 'com.apple.foundationdb.linear.BackendSelectionTest'
-        includeTestsMatching 'com.apple.foundationdb.kmeans.KMeansTest.siftSmallDeterminism*'
-        includeTestsMatching 'com.apple.foundationdb.kmeans.KMeansTest.siftSmallCosineInvariants*'
-    }
 }
 tasks.named('check').configure {
-    dependsOn 'testScalarFallback'
+    dependsOn 'scalarFallbackTest'
 }
 
 publishing {

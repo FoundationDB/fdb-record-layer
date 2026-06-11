@@ -212,8 +212,9 @@ public class FDBRecordStoreSplitRecordsTest extends FDBRecordStoreTestBase {
             );
             recordStore = recordStore.asBuilder().setFormatVersion(FormatVersion.SAVE_UNSPLIT_WITH_SUFFIX).open();
             assertEquals(FormatVersion.SAVE_UNSPLIT_WITH_SUFFIX, recordStore.getFormatVersionEnum());
+            assertTrue(recordStore.getRecordStoreState().getStoreHeader().getOmitUnsplitRecordSuffix(), "store header should still be in compatibility mode");
 
-            final byte[] rec1Key = recordStore.getSubspace().pack(Tuple.from(FDBRecordStore.RECORD_KEY, 1415L, SplitHelper.UNSPLIT_RECORD));
+            final byte[] rec1Key = recordStore.getSubspace().pack(Tuple.from(FDBRecordStore.RECORD_KEY, 1415L));
             FDBStoredRecord<Message> writtenRec1 = recordStore.saveRecord(rec1);
             assertNotNull(writtenRec1);
             assertFalse(writtenRec1.isSplit());
@@ -237,8 +238,9 @@ public class FDBRecordStoreSplitRecordsTest extends FDBRecordStoreTestBase {
             );
             recordStore = recordStore.asBuilder().setFormatVersion(FormatVersionTestUtils.previous(FormatVersion.SAVE_UNSPLIT_WITH_SUFFIX)).open();
             assertEquals(FormatVersion.SAVE_UNSPLIT_WITH_SUFFIX, recordStore.getFormatVersionEnum());
+            assertTrue(recordStore.getRecordStoreState().getStoreHeader().getOmitUnsplitRecordSuffix(), "store header should still be in compatibility mode");
 
-            final byte[] rawKey1 = recordStore.getSubspace().pack(Tuple.from(FDBRecordStore.RECORD_KEY, 1415L, SplitHelper.UNSPLIT_RECORD));
+            final byte[] rawKey1 = recordStore.getSubspace().pack(Tuple.from(FDBRecordStore.RECORD_KEY, 1415L));
             FDBStoredRecord<Message> writtenRec1 = recordStore.loadRecord(Tuple.from(1415L));
             assertNotNull(writtenRec1);
             assertEquals(rec1, writtenRec1.getRecord());
@@ -246,7 +248,7 @@ public class FDBRecordStoreSplitRecordsTest extends FDBRecordStoreTestBase {
             assertEquals(rawKey1.length, writtenRec1.getKeySize());
 
             final TestRecords1Proto.MySimpleRecord rec2 = rec1.toBuilder().setRecNo(1623L).build();
-            final byte[] rawKey2 = recordStore.getSubspace().pack(Tuple.from(FDBRecordStore.RECORD_KEY, 1623L, SplitHelper.UNSPLIT_RECORD));
+            final byte[] rawKey2 = recordStore.getSubspace().pack(Tuple.from(FDBRecordStore.RECORD_KEY, 1623L));
             FDBStoredRecord<Message> writtenRec2 = recordStore.saveRecord(rec1.toBuilder().setRecNo(1623L).build());
             assertEquals(rec2, writtenRec2.getRecord());
             assertEquals(1, writtenRec2.getKeyCount());
@@ -262,15 +264,17 @@ public class FDBRecordStoreSplitRecordsTest extends FDBRecordStoreTestBase {
     }
 
     /**
-     * Test mode for {@link #clearOmitUnsplitRecordSuffix(ClearOmitUnsplitRecordSuffixMode)}.
+     * Test mode for {@link #doNotClearOmitUnsplitRecordSuffix(SplitFormatVersionUpdateMode)}.
      */
-    public enum ClearOmitUnsplitRecordSuffixMode {
-        EMPTY, SAVE, DELETE
+    public enum SplitFormatVersionUpdateMode {
+        EMPTY,  // The store should never have been written into
+        SAVE,   // The store has at least one record
+        DELETE, // The store used to have records, but they were deleted
     }
 
-    @EnumSource(ClearOmitUnsplitRecordSuffixMode.class)
-    @ParameterizedTest(name = "clearOmitUnsplitRecordSuffix [mode = {0}]")
-    public void clearOmitUnsplitRecordSuffix(ClearOmitUnsplitRecordSuffixMode mode) {
+    @EnumSource(SplitFormatVersionUpdateMode.class)
+    @ParameterizedTest(name = "doNotClearOmitUnsplitRecordSuffix [mode = {0}]")
+    public void doNotClearOmitUnsplitRecordSuffix(SplitFormatVersionUpdateMode mode) {
         final RecordMetaDataBuilder metaData = RecordMetaData.newBuilder().setRecords(TestRecords1Proto.getDescriptor());
 
         FDBRecordStore.Builder builder = FDBRecordStore.newBuilder()
@@ -280,7 +284,7 @@ public class FDBRecordStoreSplitRecordsTest extends FDBRecordStoreTestBase {
 
         try (FDBRecordContext context = openContext()) {
             recordStore = builder.setContext(context).create();
-            if (mode != ClearOmitUnsplitRecordSuffixMode.EMPTY) {
+            if (mode != SplitFormatVersionUpdateMode.EMPTY) {
                 TestRecords1Proto.MySimpleRecord record = TestRecords1Proto.MySimpleRecord.newBuilder()
                         .setRecNo(1L)
                         .setStrValueIndexed("abc")
@@ -290,7 +294,7 @@ public class FDBRecordStoreSplitRecordsTest extends FDBRecordStoreTestBase {
             commit(context);
         }
 
-        if (mode == ClearOmitUnsplitRecordSuffixMode.DELETE) {
+        if (mode == SplitFormatVersionUpdateMode.DELETE) {
             try (FDBRecordContext context = openContext()) {
                 recordStore = builder.setContext(context).open();
                 recordStore.deleteRecord(Tuple.from(1L));
@@ -302,14 +306,18 @@ public class FDBRecordStoreSplitRecordsTest extends FDBRecordStoreTestBase {
         builder.setFormatVersion(FormatVersion.getMaximumSupportedVersion());
 
         try (FDBRecordContext context = openContext()) {
+            // The omit_unsplit_records_suffix flag is set as the store was initially opened
+            // in the legacy mode, and we need to remember that. In theory, if the store is empty,
+            // we could clear it out, but that's hard to get right without accidentally reading
+            // too much data. (See: https://github.com/FoundationDB/fdb-record-layer/issues/4275)
+            // For that reason, we always expect it to still be here, even if the store was empty
             recordStore = builder.setContext(context).open();
-            assertEquals(mode == ClearOmitUnsplitRecordSuffixMode.SAVE,
-                    recordStore.getRecordStoreState().getStoreHeader().getOmitUnsplitRecordSuffix());
+            assertTrue(recordStore.getRecordStoreState().getStoreHeader().getOmitUnsplitRecordSuffix());
         }
     }
 
     @Test
-    public void clearOmitUnsplitRecordSuffixTyped() {
+    public void doNotClearOmitUnsplitRecordSuffixWithRecordsPrefixedByRecordType() {
         final RecordMetaDataBuilder metaData = RecordMetaData.newBuilder().setRecords(TestRecords1Proto.getDescriptor());
         final KeyExpression pkey = concat(Key.Expressions.recordType(), field("rec_no"));
         metaData.getRecordType("MySimpleRecord").setPrimaryKey(pkey);
@@ -343,7 +351,7 @@ public class FDBRecordStoreSplitRecordsTest extends FDBRecordStoreTestBase {
     }
 
     @Test
-    public void clearOmitUnsplitRecordSuffixOverlapping() {
+    public void updateFormatVersionToOmitUnsplitOverlappingWithWrite() {
         final RecordMetaDataBuilder metaData = RecordMetaData.newBuilder().setRecords(TestRecords1Proto.getDescriptor());
 
         FDBRecordStore.Builder builder = FDBRecordStore.newBuilder()
@@ -356,6 +364,7 @@ public class FDBRecordStoreSplitRecordsTest extends FDBRecordStoreTestBase {
             commit(context);
         }
 
+        // Save a record on an old meta-data and format version
         FDBRecordContext context1 = openContext();
         FDBRecordStore recordStore = builder.setContext(context1).open();
         TestRecords1Proto.MySimpleRecord record = TestRecords1Proto.MySimpleRecord.newBuilder()
@@ -364,11 +373,11 @@ public class FDBRecordStoreSplitRecordsTest extends FDBRecordStoreTestBase {
                 .build();
         FDBStoredRecord<Message> saved = recordStore.saveRecord(record);
 
+        // Update the meta-data and format version
         metaData.addIndex("MySimpleRecord", "num_value_2");
         builder.setFormatVersion(FormatVersion.getMaximumSupportedVersion());
 
-        // If we did build, we'd create a read confict on the new index.
-        // We want to test that a conflict comes from the clearing itself.
+        // If we did build, we'd create a read conflict on the new index. Without building, we don't care about the concurrent record write
         final FDBRecordStoreBase.UserVersionChecker dontBuild = new FDBRecordStoreBase.UserVersionChecker() {
             @Override
             public CompletableFuture<Integer> checkUserVersion(@Nonnull final RecordMetaDataProto.DataStoreInfo storeHeader, final RecordMetaDataProvider metaData) {
@@ -390,13 +399,16 @@ public class FDBRecordStoreSplitRecordsTest extends FDBRecordStoreTestBase {
 
         FDBRecordContext context2 = openContext();
         FDBRecordStore recordStore2 = builder.setContext(context2).open();
-        assertFalse(recordStore2.getRecordStoreState().getStoreHeader().getOmitUnsplitRecordSuffix());
+        assertTrue(recordStore2.getRecordStoreState().getStoreHeader().getOmitUnsplitRecordSuffix());
 
         commit(context1);
-        assertThrows(FDBExceptions.FDBStoreTransactionConflictException.class, () -> commit(context2));
+        commit(context2);
 
+        // Downgrade the format version in the builder so that when we open the store, we know it came from the original store
+        builder.setFormatVersion(FormatVersionTestUtils.previous(FormatVersion.SAVE_UNSPLIT_WITH_SUFFIX));
         try (FDBRecordContext context = openContext()) {
             recordStore = builder.setContext(context).open();
+            assertEquals(FormatVersion.getMaximumSupportedVersion(), recordStore.getFormatVersionEnum());
             FDBStoredRecord<Message> loaded = recordStore.loadRecord(saved.getPrimaryKey());
             assertNotNull(loaded);
             assertEquals(saved.getRecord(), loaded.getRecord());
