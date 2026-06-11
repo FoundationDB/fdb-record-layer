@@ -23,6 +23,8 @@ schema_template:
     create table A(A1 bigint, A2 bigint, A3 bigint, primary key(A1))
     create table B(B1 bigint, B2 bigint, B3 S, primary key(B1))
     create index A_idx as select A1, A2, A3 FROM A order by A1, A2, A3
+    create table t1(pk bigint, a bigint, b bigint, primary key(pk))
+    create table colname(colname bigint, other bigint, primary key(colname))
 ---
 setup:
   steps:
@@ -34,6 +36,8 @@ setup:
         VALUES (1, 20, (4, 40)),
                (2, 20, (5, 50)),
                (3, 20, (6, 60))
+    - query: INSERT INTO t1 VALUES (1, 10, 20), (2, 30, 40)
+    - query: INSERT INTO colname VALUES (99, 42)
 ---
 test_block:
   name: select-star-tests
@@ -104,4 +108,45 @@ test_block:
 #      - result: [{A1: 1 , A2: 10, A3: 1, 1},
 #                 {A1: 2, A2: 10, A3: 2, 2},
 #                 {A1: 3, A2: 10, A3: 3, 3}]
+---
+test_block:
+  name: table-as-column-tests
+  options:
+    supported_version: !current_version
+  tests:
+    -
+      # Table name used as SELECT item returns the full row as a struct
+      - query: select t1 from t1 where pk = 1
+      - result: [ { {PK: 1, A: 10, B: 20} } ]
+    -
+      # Equivalent to SELECT (*) FROM T1 — both forms return the same struct
+      - query: select (*) from t1 where pk = 1
+      - result: [ { {PK: 1, A: 10, B: 20} } ]
+    -
+      # Alias form: SELECT <alias> FROM <table> <alias> returns the full row as a struct
+      - query: select t from t1 t where pk = 1
+      - result: [ { {PK: 1, A: 10, B: 20} } ]
+    -
+      # Column name takes priority over table name when both share the same identifier
+      - query: select colname from colname
+      - result: [ {99} ]
+    -
+      # When the table has an alias, the original table name is no longer in scope
+      - query: select t1 from t1 t where pk = 1
+      - error: UNDEFINED_COLUMN
+    -
+      # In a join, the table name selects that table's row as a struct
+      - query: select t1 from t1, colname
+      - unorderedResult: [ { {PK: 1, A: 10, B: 20} }, { {PK: 2, A: 30, B: 40} } ]
+    -
+      # In a join, mixed styles
+      - query: select t1, (colname.*) from t1, colname
+      - result: [
+          { T1: {PK: 1, A: 10, B: 20}, COLNAME: {COLNAME: 99, OTHER: 42} },
+          { {PK: 2, A: 30, B: 40} , COLNAME: {COLNAME: 99, OTHER: 42 } }
+        ]
+    -
+      # Double-wrapped (*) nesting is unaffected
+      - query: select ((*)) from t1 where pk = 1
+      - result: [ { { {PK: 1, A: 10, B: 20} } } ]
 ...
