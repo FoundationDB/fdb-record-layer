@@ -172,8 +172,7 @@ class RealMatrixTest {
         for (int i = 0; i < product.getNumRowDimensions(); i++) {
             for (int j = 0; j < product.getNumColumnDimensions(); j++) {
                 final double expected = new DoubleRealVector(m1.getRow(i)).dot(new DoubleRealVector(m2.getColumn(j)));
-                assertThat(Math.abs(product.getEntry(i, j) - expected))
-                        .isCloseTo(0, within(2E-14));
+                assertThat(product.getEntry(i, j)).isEqualTo(expected);
             }
         }
 

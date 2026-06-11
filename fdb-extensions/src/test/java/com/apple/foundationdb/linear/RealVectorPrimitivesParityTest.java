@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.linear;
 
+import com.apple.test.RandomSeedSource;
 import com.apple.test.RandomizedTestUtils;
 import com.google.common.collect.ImmutableList;
 import org.junit.jupiter.api.DisplayName;
@@ -28,6 +29,8 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
 import javax.annotation.Nonnull;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Random;
 import java.util.stream.Stream;
 
@@ -209,6 +212,129 @@ class RealVectorPrimitivesParityTest {
         new ScalarBackend().multiplyInto(a, 1.0d / norm, expected);
 
         assertVectorClose(expected, actual);
+    }
+
+    @ParameterizedTest
+    @RandomSeedSource({0x0fdbL, 0x5ca1eL, 123456L, 78910L, 1123581321345589L})
+    @DisplayName("dot(a, b, from, length)")
+    void dotSliced(final long seed) {
+        final Random rnd = new Random(seed);
+        for (final int len : LENGTHS) {
+            final double[] a = randomVector(rnd, len);
+            final double[] b = randomVector(rnd, len);
+            for (final int[] slice : slices(len)) {
+                final int from = slice[0];
+                final int length = slice[1];
+                final double actual = RealVectorPrimitives.dot(a, b, from, length);
+                final double expected = new ScalarBackend().dot(a, b, from, length);
+                assertThat(actual)
+                        .as("len=%d, from=%d, length=%d", len, from, length)
+                        .isCloseTo(expected, within(reductionTol(length, expected)));
+            }
+        }
+    }
+
+    @ParameterizedTest
+    @RandomSeedSource({0x0fdbL, 0x5ca1eL, 123456L, 78910L, 1123581321345589L})
+    @DisplayName("l2SquaredNorm(a, from, length)")
+    void l2SquaredNormSliced(final long seed) {
+        final Random rnd = new Random(seed);
+        for (final int len : LENGTHS) {
+            final double[] a = randomVector(rnd, len);
+            for (final int[] slice : slices(len)) {
+                final int from = slice[0];
+                final int length = slice[1];
+                final double actual = RealVectorPrimitives.l2SquaredNorm(a, from, length);
+                final double expected = new ScalarBackend().l2SquaredNorm(a, from, length);
+                assertThat(actual)
+                        .as("len=%d, from=%d, length=%d", len, from, length)
+                        .isCloseTo(expected, within(reductionTol(length, expected)));
+            }
+        }
+    }
+
+    @ParameterizedTest
+    @RandomSeedSource({0x0fdbL, 0x5ca1eL, 123456L, 78910L, 1123581321345589L})
+    @DisplayName("multiplyAddInto(scalar, x, y, from, length): in-place AXPY")
+    void multiplyAddIntoInPlace(final long seed) {
+        final Random rnd = new Random(seed);
+        for (final int len : LENGTHS) {
+            final double[] x = randomVector(rnd, len);
+            final double[] yOriginal = randomVector(rnd, len);
+            final double scalar = (rnd.nextDouble() - 0.5d) * 2.0d;
+            for (final int[] slice : slices(len)) {
+                final int from = slice[0];
+                final int length = slice[1];
+
+                final double[] actual = yOriginal.clone();
+                RealVectorPrimitives.multiplyAddInto(scalar, x, actual, from, length);
+
+                final double[] expected = yOriginal.clone();
+                // ScalarBackend only exposes the general 3-operand form; in-place == out aliased to y.
+                new ScalarBackend().multiplyAddInto(scalar, x, expected, expected, from, length);
+
+                for (int i = 0; i < len; i++) {
+                    assertThat(actual[i])
+                            .as("len=%d, from=%d, length=%d, i=%d", len, from, length, i)
+                            .isCloseTo(expected[i], within(ELEMENT_ABS_TOL));
+                }
+            }
+        }
+    }
+
+    @ParameterizedTest
+    @RandomSeedSource({0x0fdbL, 0x5ca1eL, 123456L, 78910L, 1123581321345589L})
+    @DisplayName("multiplyAddInto(scalar, x, y, out, from, length): 3-operand AXPY")
+    void multiplyAddIntoThreeOperand(final long seed) {
+        final Random rnd = new Random(seed);
+        for (final int len : LENGTHS) {
+            final double[] x = randomVector(rnd, len);
+            final double[] y = randomVector(rnd, len);
+            final double[] outOriginal = randomVector(rnd, len);
+            final double scalar = (rnd.nextDouble() - 0.5d) * 2.0d;
+            for (final int[] slice : slices(len)) {
+                final int from = slice[0];
+                final int length = slice[1];
+
+                final double[] actual = outOriginal.clone();
+                RealVectorPrimitives.multiplyAddInto(scalar, x, y, actual, from, length);
+
+                final double[] expected = outOriginal.clone();
+                new ScalarBackend().multiplyAddInto(scalar, x, y, expected, from, length);
+
+                for (int i = 0; i < len; i++) {
+                    assertThat(actual[i])
+                            .as("len=%d, from=%d, length=%d, i=%d", len, from, length, i)
+                            .isCloseTo(expected[i], within(ELEMENT_ABS_TOL));
+                }
+            }
+        }
+    }
+
+    /**
+     * Returns representative {@code (from, length)} slice tuples for an array of size {@code len}:
+     * the empty slice, prefixes/suffixes, an interior slice, and a slice straddling lane-aligned
+     * boundaries. Filters to those that fit inside {@code [0, len]}.
+     */
+    @Nonnull
+    private static List<int[]> slices(final int len) {
+        final List<int[]> result = new ArrayList<>();
+        result.add(new int[] {0, 0});
+        result.add(new int[] {0, len});
+        if (len >= 1) {
+            result.add(new int[] {0, 1});
+            result.add(new int[] {len - 1, 1});
+        }
+        if (len >= 4) {
+            result.add(new int[] {1, len - 2});
+            result.add(new int[] {3, len - 3});
+        }
+        if (len >= 17) {
+            // Straddle a typical SIMD lane boundary (4-double AVX2, 8-double AVX-512).
+            result.add(new int[] {1, len - 1});
+            result.add(new int[] {7, len - 7});
+        }
+        return result;
     }
 
     private static void assertVectorClose(@Nonnull final double[] expected, @Nonnull final double[] actual) {

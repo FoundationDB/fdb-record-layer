@@ -70,9 +70,24 @@ final class ScalarBackend implements Backend {
     }
 
     @Override
+    public void multiplyAddInto(final double scalar, @Nonnull final double[] x, @Nonnull final double[] y,
+                                @Nonnull final double[] out, final int from, final int length) {
+        final int end = from + length;
+        for (int i = from; i < end; i++) {
+            out[i] = scalar * x[i] + y[i];
+        }
+    }
+
+    @Override
     public double dot(@Nonnull final double[] a, @Nonnull final double[] b) {
+        return dot(a, b, 0, a.length);
+    }
+
+    @Override
+    public double dot(@Nonnull final double[] a, @Nonnull final double[] b, final int from, final int length) {
         double sum = 0.0d;
-        for (int i = 0; i < a.length; i++) {
+        final int end = from + length;
+        for (int i = from; i < end; i++) {
             sum += a[i] * b[i];
         }
         return sum;
@@ -80,8 +95,15 @@ final class ScalarBackend implements Backend {
 
     @Override
     public double l2SquaredNorm(@Nonnull final double[] a) {
+        return l2SquaredNorm(a, 0, a.length);
+    }
+
+    @Override
+    public double l2SquaredNorm(@Nonnull final double[] a, final int from, final int length) {
         double sum = 0.0d;
-        for (final double v : a) {
+        final int end = from + length;
+        for (int i = from; i < end; i++) {
+            final double v = a[i];
             sum += v * v;
         }
         return sum;

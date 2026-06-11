@@ -118,10 +118,35 @@ public final class SimdBackend implements Backend {
     }
 
     @Override
-    public double dot(@Nonnull final double[] a, @Nonnull final double[] b) {
-        final int len = a.length;
+    public void multiplyAddInto(final double scalar, @Nonnull final double[] x, @Nonnull final double[] y,
+                                @Nonnull final double[] out, final int from, final int length) {
         final int laneCount = SPECIES.length();
-        final int bound = SPECIES.loopBound(len);
+        final int simdEnd = from + SPECIES.loopBound(length);
+        // Hoist the scalar broadcast out of the loop: jdk.incubator.vector has fma(Vec,Vec,Vec)
+        // and fma(scalar,scalar) but no fma(scalar,Vec), so we materialize the scalar lane vector
+        // once and reuse it.
+        final DoubleVector vScalar = DoubleVector.broadcast(SPECIES, scalar);
+        int i = from;
+        for (; i < simdEnd; i += laneCount) {
+            final DoubleVector vX = DoubleVector.fromArray(SPECIES, x, i);
+            final DoubleVector vY = DoubleVector.fromArray(SPECIES, y, i);
+            vX.fma(vScalar, vY).intoArray(out, i);
+        }
+        final int end = from + length;
+        for (; i < end; i++) {
+            out[i] = scalar * x[i] + y[i];
+        }
+    }
+
+    @Override
+    public double dot(@Nonnull final double[] a, @Nonnull final double[] b) {
+        return dot(a, b, 0, a.length);
+    }
+
+    @Override
+    public double dot(@Nonnull final double[] a, @Nonnull final double[] b, final int from, final int length) {
+        final int laneCount = SPECIES.length();
+        final int simdEnd = from + SPECIES.loopBound(length);
         // Four independent FMA accumulators break the loop-carried dependency on a single
         // accumulator and let the CPU pipeline 4 FMAs per FMA-latency window instead of 1.
         DoubleVector acc0 = DoubleVector.zero(SPECIES);
@@ -129,9 +154,10 @@ public final class SimdBackend implements Backend {
         DoubleVector acc2 = DoubleVector.zero(SPECIES);
         DoubleVector acc3 = DoubleVector.zero(SPECIES);
 
-        final int unrolledBound = bound - (4 * laneCount - 1);
-        int i = 0;
-        for (; i < unrolledBound; i += 4 * laneCount) {
+        final int chunk4 = 4 * laneCount;
+        final int unrolled4End = from + (length / chunk4) * chunk4;
+        int i = from;
+        for (; i < unrolled4End; i += chunk4) {
             acc0 = DoubleVector.fromArray(SPECIES, a, i)
                     .fma(DoubleVector.fromArray(SPECIES, b, i), acc0);
             acc1 = DoubleVector.fromArray(SPECIES, a, i + laneCount)
@@ -141,14 +167,15 @@ public final class SimdBackend implements Backend {
             acc3 = DoubleVector.fromArray(SPECIES, a, i + 3 * laneCount)
                     .fma(DoubleVector.fromArray(SPECIES, b, i + 3 * laneCount), acc3);
         }
-        // Trailing full-width SIMD iterations (when len/laneCount mod 4 != 0).
-        for (; i < bound; i += laneCount) {
+        // Trailing full-width SIMD iterations (when length/laneCount mod 4 != 0).
+        for (; i < simdEnd; i += laneCount) {
             acc0 = DoubleVector.fromArray(SPECIES, a, i)
                     .fma(DoubleVector.fromArray(SPECIES, b, i), acc0);
         }
         double sum = acc0.add(acc1).add(acc2).add(acc3).reduceLanes(VectorOperators.ADD);
         // Scalar tail.
-        for (; i < len; i++) {
+        final int end = from + length;
+        for (; i < end; i++) {
             sum += a[i] * b[i];
         }
         return sum;
@@ -156,17 +183,22 @@ public final class SimdBackend implements Backend {
 
     @Override
     public double l2SquaredNorm(@Nonnull final double[] a) {
-        final int len = a.length;
+        return l2SquaredNorm(a, 0, a.length);
+    }
+
+    @Override
+    public double l2SquaredNorm(@Nonnull final double[] a, final int from, final int length) {
         final int laneCount = SPECIES.length();
-        final int bound = SPECIES.loopBound(len);
+        final int simdEnd = from + SPECIES.loopBound(length);
         DoubleVector acc0 = DoubleVector.zero(SPECIES);
         DoubleVector acc1 = DoubleVector.zero(SPECIES);
         DoubleVector acc2 = DoubleVector.zero(SPECIES);
         DoubleVector acc3 = DoubleVector.zero(SPECIES);
 
-        final int unrolledBound = bound - (4 * laneCount - 1);
-        int i = 0;
-        for (; i < unrolledBound; i += 4 * laneCount) {
+        final int chunk4 = 4 * laneCount;
+        final int unrolled4End = from + (length / chunk4) * chunk4;
+        int i = from;
+        for (; i < unrolled4End; i += chunk4) {
             final DoubleVector v0 = DoubleVector.fromArray(SPECIES, a, i);
             final DoubleVector v1 = DoubleVector.fromArray(SPECIES, a, i + laneCount);
             final DoubleVector v2 = DoubleVector.fromArray(SPECIES, a, i + 2 * laneCount);
@@ -176,13 +208,15 @@ public final class SimdBackend implements Backend {
             acc2 = v2.fma(v2, acc2);
             acc3 = v3.fma(v3, acc3);
         }
-        for (; i < bound; i += laneCount) {
+        for (; i < simdEnd; i += laneCount) {
             final DoubleVector va = DoubleVector.fromArray(SPECIES, a, i);
             acc0 = va.fma(va, acc0);
         }
         double sum = acc0.add(acc1).add(acc2).add(acc3).reduceLanes(VectorOperators.ADD);
-        for (; i < len; i++) {
-            sum += a[i] * a[i];
+        final int end = from + length;
+        for (; i < end; i++) {
+            final double v = a[i];
+            sum += v * v;
         }
         return sum;
     }

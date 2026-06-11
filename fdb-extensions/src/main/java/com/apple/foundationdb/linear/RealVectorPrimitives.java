@@ -145,13 +145,34 @@ public final class RealVectorPrimitives {
         return target;
     }
 
+    static void multiplyAddInto(final double scalar, @Nonnull final double[] x, @Nonnull final double[] y,
+                                final int from, final int length) {
+        // BLAS-style in-place AXPY: y := scalar * x + y over the slice. Delegates to the
+        // backend's general 3-operand form with out aliased to y; the per-lane FMA is the
+        // same instruction either way.
+        backend.multiplyAddInto(scalar, x, y, y, from, length);
+    }
+
+    static void multiplyAddInto(final double scalar, @Nonnull final double[] x, @Nonnull final double[] y,
+                                @Nonnull final double[] out, final int from, final int length) {
+        backend.multiplyAddInto(scalar, x, y, out, from, length);
+    }
+
     static double dot(@Nonnull final double[] a, @Nonnull final double[] b) {
         Preconditions.checkArgument(a.length == b.length);
         return backend.dot(a, b);
     }
 
+    static double dot(@Nonnull final double[] a, @Nonnull final double[] b, final int from, final int length) {
+        return backend.dot(a, b, from, length);
+    }
+
     static double l2SquaredNorm(@Nonnull final double[] a) {
         return backend.l2SquaredNorm(a);
+    }
+
+    static double l2SquaredNorm(@Nonnull final double[] a, final int from, final int length) {
+        return backend.l2SquaredNorm(a, from, length);
     }
 
     static double euclideanSquared(@Nonnull final double[] a, @Nonnull final double[] b) {
