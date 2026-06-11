@@ -27,20 +27,15 @@ import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.IsolationLevel;
 import com.apple.foundationdb.record.RecordCursor;
-import com.apple.foundationdb.record.RecordMetaData;
-import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexAggregateFunction;
-import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexPredicate;
 import com.apple.foundationdb.record.metadata.IndexPredicate.RowNumberWindowPredicate.Direction;
 import com.apple.foundationdb.record.metadata.IndexRecordFunction;
-import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.Key;
-import com.apple.foundationdb.record.metadata.expressions.KeyWithValueExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBIndexableRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBIndexedRawRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
@@ -57,10 +52,8 @@ import com.apple.foundationdb.record.provider.foundationdb.VectorIndexScanOption
 import com.apple.foundationdb.record.provider.foundationdb.indexes.SlidingWindowTestHelpers.SlidingWindow;
 import com.apple.foundationdb.record.query.QueryToKeyMatcher;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
-import com.apple.foundationdb.record.slidingwindowvector.TestRecordsSlidingWindowVectorProto;
 import com.apple.foundationdb.record.slidingwindowvector.TestRecordsSlidingWindowVectorProto.SlidingWindowVectorRecord;
 import com.apple.foundationdb.linear.HalfRealVector;
-import com.apple.foundationdb.linear.Metric;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
 import com.google.common.collect.ImmutableList;
@@ -71,9 +64,7 @@ import org.junit.jupiter.api.Test;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
 import static com.apple.foundationdb.record.provider.foundationdb.indexes.SlidingWindowTestHelpers.SlidingWindowAssert.assertThat;
@@ -113,40 +104,9 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
     private void openStore(@Nonnull FDBRecordContext context, int windowSize,
                            @Nonnull Direction direction,
                            @Nonnull List<List<String>> groupingFields) throws Exception {
-        RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder()
-                .setRecords(TestRecordsSlidingWindowVectorProto.getDescriptor());
-        metaDataBuilder.getRecordType("SlidingWindowVectorRecord")
-                .setPrimaryKey(Key.Expressions.field("rec_no"));
-
-        final IndexPredicate.RowNumberWindowPredicate windowPredicate =
-                new IndexPredicate.RowNumberWindowPredicate(
-                        ImmutableList.of("relevance"), direction, windowSize, groupingFields);
-
-        final Map<String, String> options = new HashMap<>();
-        options.put(IndexOptions.HNSW_METRIC, Metric.EUCLIDEAN_METRIC.name());
-        options.put(IndexOptions.HNSW_NUM_DIMENSIONS, Integer.toString(VECTOR_DIMS));
-
-        // Build key expression: for grouped indexes, prefix with group columns
-        // e.g. one grouping column (zone) → KeyWithValue(concat(zone, vector_data), 1)
-        // e.g. two grouping columns (zone, category) → KeyWithValue(concat(zone, category, vector_data), 2)
-        final com.apple.foundationdb.record.metadata.expressions.KeyExpression keyExpr;
-        if (groupingFields.isEmpty()) {
-            keyExpr = new KeyWithValueExpression(Key.Expressions.field("vector_data"), 0);
-        } else {
-            com.apple.foundationdb.record.metadata.expressions.KeyExpression prefix =
-                    Key.Expressions.field(groupingFields.get(0).get(0));
-            for (int i = 1; i < groupingFields.size(); i++) {
-                prefix = Key.Expressions.concat(prefix, Key.Expressions.field(groupingFields.get(i).get(0)));
-            }
-            keyExpr = new KeyWithValueExpression(
-                    Key.Expressions.concat(prefix, Key.Expressions.field("vector_data")),
-                    groupingFields.size());
-        }
-
-        metaDataBuilder.addIndex("SlidingWindowVectorRecord",
-                new Index(INDEX_NAME, keyExpr, IndexTypes.VECTOR, options, windowPredicate));
-
-        createOrOpenRecordStore(context, metaDataBuilder.getRecordMetaData());
+        createOrOpenRecordStore(context,
+                SlidingWindowTestHelpers.buildSlidingWindowVectorMetaData(
+                        INDEX_NAME, windowSize, VECTOR_DIMS, direction, groupingFields));
     }
 
     /**

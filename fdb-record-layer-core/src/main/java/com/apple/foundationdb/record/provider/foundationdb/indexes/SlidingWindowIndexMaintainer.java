@@ -413,7 +413,7 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
         // The net effect is that after this method completes, newRecord is indexed exactly
         // once with its current values, and the counter accurately reflects the window size.
         if (newRecord != null) {
-            incrementCounter(SlidingWindowCounter.PREEMPTIVE_DELETE_WRITE_ONLY);
+            incrementCounter(SlidingWindowCounter.SW_PREEMPTIVE_DELETE_WRITE_ONLY);
         }
         update(newRecord, null);
         return update(oldRecord, newRecord);
@@ -457,11 +457,12 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
             final long count = counterBytes == null ? 0L : decodeLong(counterBytes);
 
             if (count < windowSize) {
-                incrementCounter(SlidingWindowCounter.ITEM_ADDED_TO_WINDOW_FILLING);
+                incrementCounter(SlidingWindowCounter.SW_ITEM_ADDED_TO_WINDOW_FILLING);
                 // Window not full: add to delegate, update count, maybe update boundary
                 return delegate.update(null, savedRecord).thenCompose(vignore ->
                         tr.get(boundaryMetaKey).thenAccept(boundaryBytes -> {
                             tr.set(counterKey, encodeLong(count + 1));
+                            recordSize(SlidingWindowSizeEvent.SW_WINDOW_COUNT, count + 1);
                             if (boundaryBytes == null || extremumType.isWorseOrEqual(entryKey,
                                     Tuple.fromBytes(boundaryBytes))) {
                                 tr.set(boundaryMetaKey, entryKey.pack());
@@ -477,14 +478,14 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
                     }
                     final Tuple boundaryEntryKey = Tuple.fromBytes(boundaryBytes);
                     if (!extremumType.isBetter(entryKey, boundaryEntryKey)) {
-                        incrementCounter(SlidingWindowCounter.ITEM_ADDED_TO_ENTRIES_ONLY);
+                        incrementCounter(SlidingWindowCounter.SW_ITEM_ADDED_TO_ENTRIES_ONLY);
                         // New entry is not better than boundary: it's already written to entries
                         // subspace on the overflow side. Nothing more to do.
                         return AsyncUtil.DONE;
                     }
 
                     // New entry is better: evict boundary from delegate, add new to delegate
-                    return instrument(SlidingWindowEvent.EVICT_AND_REPLACE,
+                    return instrument(SlidingWindowEvent.SW_EVICT_AND_REPLACE,
                             evictBoundaryAndReplace(savedRecord, entryKey, entriesSubspace, tr,
                                     boundaryEntryKey, boundaryMetaKey));
                 });
@@ -513,7 +514,7 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
         // Check if this entry exists in the entries subspace
         return tr.get(packedEntryKey).thenCompose(entryValue -> {
             if (entryValue == null) {
-                incrementCounter(SlidingWindowCounter.DELETE_UNTRACKED);
+                incrementCounter(SlidingWindowCounter.SW_DELETE_UNTRACKED);
                 // Not tracked, no-op
                 return AsyncUtil.DONE;
             }
@@ -532,7 +533,7 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
                 final Tuple boundaryEntryKey = Tuple.fromBytes(boundaryBytes);
 
                 if (!extremumType.isInWindow(entryKey, boundaryEntryKey)) {
-                    incrementCounter(SlidingWindowCounter.OVERFLOW_ENTRY_DELETED);
+                    incrementCounter(SlidingWindowCounter.SW_OVERFLOW_ENTRY_DELETED);
                     // Entry was in overflow: already removed from entries, nothing else to do
                     return AsyncUtil.DONE;
                 }
@@ -542,13 +543,14 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
                     final long count = counterBytes == null ? 0L : decodeLong(counterBytes);
                     final long newCount = Math.max(0, count - 1);
                     tr.set(counterKey, encodeLong(newCount));
+                    recordSize(SlidingWindowSizeEvent.SW_WINDOW_COUNT, newCount);
 
                     return delegate.update(savedRecord, null)
                             .thenCompose(vignore -> updateBoundaryAfterDelete(
                                     entriesSubspace, tr, entryKey, boundaryEntryKey,
                                     boundaryMetaKey, packedEntryKey))
                             .thenCompose(currentBoundaryPacked -> instrument(
-                                    SlidingWindowEvent.RE_ELECT_FROM_OVERFLOW,
+                                    SlidingWindowEvent.SW_RE_ELECT_FROM_OVERFLOW,
                                     reElectFromOverflow(entriesSubspace, tr, currentBoundaryPacked,
                                             boundaryMetaKey, counterKey, newCount)));
                 });
@@ -569,7 +571,6 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
             @Nonnull Transaction tr,
             @Nonnull Tuple boundaryEntryKey,
             @Nonnull byte[] boundaryMetaKey) {
-        incrementCounter(SlidingWindowCounter.BOUNDARY_EVICTED_AND_REPLACED);
         final Tuple boundaryPrimaryKey = TupleHelpers.subTuple(boundaryEntryKey,
                 windowKeyColumnSize, boundaryEntryKey.size());
         final byte[] oldBoundaryPackedKey = entriesSubspace.pack(boundaryEntryKey);
@@ -577,13 +578,13 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
         return state.store.loadRecordAsync(boundaryPrimaryKey)
                 .thenCompose(evictedRecord -> {
                     if (evictedRecord == null) {
-                        incrementCounter(SlidingWindowCounter.EVICTED_RECORD_MISSING);
+                        incrementCounter(SlidingWindowCounter.SW_EVICTED_RECORD_MISSING);
                         return AsyncUtil.DONE;
                     }
                     return delegate.update(evictedRecord, null);
                 })
                 .thenCompose(v -> delegate.update(null, newRecord))
-                .thenCompose(v -> instrument(SlidingWindowEvent.BOUNDARY_RESCAN,
+                .thenCompose(v -> instrument(SlidingWindowEvent.SW_BOUNDARY_RESCAN_AFTER_EVICT,
                         extremumType.getNewBoundaryAfterEviction(entriesSubspace, tr,
                                 oldBoundaryPackedKey)))
                 .thenAccept(newBoundaryKV -> {
@@ -613,11 +614,10 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
             @Nonnull byte[] boundaryMetaKey,
             @Nonnull byte[] packedEntryKey) {
         if (!entryKey.equals(boundaryEntryKey)) {
-            incrementCounter(SlidingWindowCounter.WINDOW_ENTRY_DELETED);
+            incrementCounter(SlidingWindowCounter.SW_WINDOW_ENTRY_DELETED);
             return CompletableFuture.completedFuture(entriesSubspace.pack(boundaryEntryKey));
         }
-        incrementCounter(SlidingWindowCounter.BOUNDARY_ENTRY_DELETED);
-        return instrument(SlidingWindowEvent.BOUNDARY_RESCAN,
+        return instrument(SlidingWindowEvent.SW_BOUNDARY_RESCAN_AFTER_DELETE,
                 extremumType.getNewBoundaryAfterEviction(entriesSubspace, tr, packedEntryKey))
                 .thenApply(newBoundaryKV -> {
                     if (newBoundaryKV != null) {
@@ -625,7 +625,7 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
                         tr.set(boundaryMetaKey, newBKey.pack());
                         return newBoundaryKV.getKey();
                     } else {
-                        incrementCounter(SlidingWindowCounter.PARTITION_EMPTIED);
+                        incrementCounter(SlidingWindowCounter.SW_PARTITION_EMPTIED);
                         tr.clear(boundaryMetaKey);
                         return null;
                     }
@@ -650,18 +650,19 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
         return extremumType.getBestInOverflow(entriesSubspace, tr, currentBoundaryPacked)
                 .thenCompose(bestKV -> {
                     if (bestKV == null) {
-                        incrementCounter(SlidingWindowCounter.WINDOW_SHRUNK_NO_OVERFLOW);
+                        incrementCounter(SlidingWindowCounter.SW_WINDOW_SHRUNK_NO_OVERFLOW);
                         return AsyncUtil.DONE;
                     }
-                    incrementCounter(SlidingWindowCounter.ITEM_PROMOTED_FROM_OVERFLOW);
+                    incrementCounter(SlidingWindowCounter.SW_ITEM_PROMOTED_FROM_OVERFLOW);
                     final Tuple bestEntryKey = entriesSubspace.unpack(bestKV.getKey());
                     final Tuple bestPrimaryKey = Tuple.fromBytes(bestKV.getValue());
                     tr.set(boundaryMetaKey, bestEntryKey.pack());
                     tr.set(counterKey, encodeLong(newCount + 1));
+                    recordSize(SlidingWindowSizeEvent.SW_WINDOW_COUNT, newCount + 1);
                     return state.store.loadRecordAsync(bestPrimaryKey)
                             .thenCompose(promotedRecord -> {
                                 if (promotedRecord == null) {
-                                    incrementCounter(SlidingWindowCounter.PROMOTED_RECORD_MISSING);
+                                    incrementCounter(SlidingWindowCounter.SW_PROMOTED_RECORD_MISSING);
                                     return AsyncUtil.DONE;
                                 }
                                 return delegate.update(null, promotedRecord);
@@ -676,7 +677,7 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
         Verify.verify(partitionKeyColumnSize >= prefix.size(),
                 "deleteWhere prefix size %s exceeds partition key column size %s",
                 prefix.size(), partitionKeyColumnSize);
-        incrementCounter(SlidingWindowCounter.PARTITION_CLEARED);
+        incrementCounter(SlidingWindowCounter.SW_PARTITION_CLEARED);
         final byte[] key = getSlidingWindowSubspace().pack(prefix);
         Range indexRange = new Range(key, ByteArrayUtil.strinc(key));
         state.context.clear(indexRange);
@@ -698,6 +699,13 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
         }
     }
 
+    private void recordSize(@Nonnull SlidingWindowSizeEvent event, long size) {
+        final FDBStoreTimer timer = state.context.getTimer();
+        if (timer != null) {
+            timer.recordSize(event, size);
+        }
+    }
+
     @Nonnull
     private <T> CompletableFuture<T> instrument(@Nonnull final SlidingWindowEvent event,
                                                 @Nonnull final CompletableFuture<T> future) {
@@ -709,20 +717,18 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
     }
 
     public enum SlidingWindowCounter implements StoreTimer.Count {
-        ITEM_ADDED_TO_WINDOW_FILLING("item added to window while filling up"),
-        ITEM_ADDED_TO_ENTRIES_ONLY("item worse than boundary added to entries"),
-        BOUNDARY_EVICTED_AND_REPLACED("boundary evicted and replaced by better item"),
-        DELETE_UNTRACKED("delete called for untracked record"),
-        OVERFLOW_ENTRY_DELETED("overflow entry deleted from entries"),
-        WINDOW_ENTRY_DELETED("in-window non-boundary entry deleted"),
-        BOUNDARY_ENTRY_DELETED("boundary entry deleted (triggered rescan)"),
-        ITEM_PROMOTED_FROM_OVERFLOW("item promoted from overflow into window"),
-        WINDOW_SHRUNK_NO_OVERFLOW("window shrunk: no overflow available for re-election"),
-        PARTITION_EMPTIED("partition emptied (no entries remain)"),
-        EVICTED_RECORD_MISSING("boundary record could not be loaded for eviction"),
-        PROMOTED_RECORD_MISSING("overflow record could not be loaded for promotion"),
-        PREEMPTIVE_DELETE_WRITE_ONLY("preemptive delete during write-only index build"),
-        PARTITION_CLEARED("partition cleared via deleteWhere");
+        SW_ITEM_ADDED_TO_WINDOW_FILLING("item added to window while filling up"),
+        SW_ITEM_ADDED_TO_ENTRIES_ONLY("item worse than boundary added to entries"),
+        SW_DELETE_UNTRACKED("delete called for untracked record"),
+        SW_OVERFLOW_ENTRY_DELETED("overflow entry deleted from entries"),
+        SW_WINDOW_ENTRY_DELETED("in-window non-boundary entry deleted"),
+        SW_ITEM_PROMOTED_FROM_OVERFLOW("item promoted from overflow into window"),
+        SW_WINDOW_SHRUNK_NO_OVERFLOW("window shrunk: no overflow available for re-election"),
+        SW_PARTITION_EMPTIED("partition emptied (no entries remain)"),
+        SW_EVICTED_RECORD_MISSING("boundary record could not be loaded for eviction"),
+        SW_PROMOTED_RECORD_MISSING("overflow record could not be loaded for promotion"),
+        SW_PREEMPTIVE_DELETE_WRITE_ONLY("preemptive delete during write-only index build"),
+        SW_PARTITION_CLEARED("partition cleared via deleteWhere");
 
         @Nonnull
         private final String title;
@@ -742,15 +748,32 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
         }
     }
 
-    public enum SlidingWindowEvent implements StoreTimer.Event {
-        EVICT_AND_REPLACE("evict boundary and insert better entry"),
-        RE_ELECT_FROM_OVERFLOW("re-elect overflow entry into window"),
-        BOUNDARY_RESCAN("rescan to locate new boundary");
+    public enum SlidingWindowEvent implements StoreTimer.DetailEvent {
+        SW_EVICT_AND_REPLACE("evict boundary and insert better entry"),
+        SW_RE_ELECT_FROM_OVERFLOW("re-elect overflow entry into window"),
+        SW_BOUNDARY_RESCAN_AFTER_EVICT("rescan to locate new boundary after eviction"),
+        SW_BOUNDARY_RESCAN_AFTER_DELETE("rescan to locate new boundary after boundary delete");
 
         @Nonnull
         private final String title;
 
         SlidingWindowEvent(@Nonnull final String title) {
+            this.title = title;
+        }
+
+        @Override
+        public String title() {
+            return title;
+        }
+    }
+
+    public enum SlidingWindowSizeEvent implements StoreTimer.SizeEvent {
+        SW_WINDOW_COUNT("window count after update");
+
+        @Nonnull
+        private final String title;
+
+        SlidingWindowSizeEvent(@Nonnull final String title) {
             this.title = title;
         }
 
