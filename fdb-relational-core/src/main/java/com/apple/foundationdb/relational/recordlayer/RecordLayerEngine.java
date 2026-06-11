@@ -27,7 +27,6 @@ import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
 import com.apple.foundationdb.relational.api.EmbeddedRelationalEngine;
 import com.apple.foundationdb.relational.api.StorageCluster;
 import com.apple.foundationdb.relational.api.catalog.StoreCatalog;
-import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metrics.NoOpMetricRegistry;
 import com.apple.foundationdb.relational.recordlayer.ddl.RecordLayerMetadataOperationsFactory;
 import com.apple.foundationdb.relational.recordlayer.query.OfflinePrepareStatementsProcessor;
@@ -63,7 +62,7 @@ public final class RecordLayerEngine {
                 .collect(Collectors.toList());
 
         if (planCache != null && !connections.isEmpty()) {
-            new OfflinePrepareStatementsProcessor(planCache, schemaCatalog, connections.get(0)).run();
+            new OfflinePrepareStatementsProcessor(planCache, schemaCatalog, connections.get(0), mEngine).run();
         }
 
         return new EmbeddedRelationalEngine(clusters, mEngine);

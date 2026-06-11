@@ -21,35 +21,76 @@
 package com.apple.foundationdb.relational.recordlayer.query.cache;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.provider.common.StoreTimer;
+import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metrics.MetricCollector;
 import com.apple.foundationdb.relational.api.metrics.RelationalMetric;
+import com.apple.foundationdb.relational.recordlayer.util.MetricRegistryStoreTimer;
+import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.util.Supplier;
+import com.codahale.metrics.MetricRegistry;
 
 import javax.annotation.Nonnull;
+import java.util.concurrent.TimeUnit;
 
 /**
- * A {@link MetricCollector} used by offline planning paths that have no transaction or
- * connection scope to attach per-query metrics to.
+ * A {@link MetricCollector} for offline planning paths that have no transaction context.
  *
- * <p>Currently a no-op. Process-level observability for offline planning should be added
- * separately (e.g. {@link com.codahale.metrics.MetricRegistry} counters and structured
- * log lines emitted by the caller), not via this collector.</p>
+ * <p>Mirrors {@link com.apple.foundationdb.relational.recordlayer.metric.RecordLayerMetricCollector}'s
+ * design but owns its own {@link MetricRegistryStoreTimer} (rather than borrowing one from an
+ * {@link com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext}). Increments and
+ * timings are forwarded to the wrapped {@link MetricRegistry} as Codahale Counter/Timer updates,
+ * so they end up alongside online-query metrics under the same event names.</p>
  */
 @API(API.Status.EXPERIMENTAL)
 public final class OfflineMetricCollector implements MetricCollector {
 
-    public static final OfflineMetricCollector INSTANCE = new OfflineMetricCollector();
+    @Nonnull
+    private final MetricRegistryStoreTimer storeTimer;
 
-    private OfflineMetricCollector() {
+    public OfflineMetricCollector(@Nonnull final MetricRegistry registry) {
+        this.storeTimer = new MetricRegistryStoreTimer(registry);
     }
 
     @Override
     public void increment(@Nonnull final RelationalMetric.RelationalCount count, final int val) {
+        storeTimer.increment(count, val);
     }
 
     @Override
     public <T> T clock(@Nonnull final RelationalMetric.RelationalEvent event, final Supplier<T> supplier) throws RelationalException {
-        return supplier.get();
+        final long startNanos = System.nanoTime();
+        try {
+            return supplier.get();
+        } finally {
+            storeTimer.record(event, System.nanoTime() - startNanos);
+        }
+    }
+
+    @Override
+    public double getAverageTimeMicrosForEvent(@Nonnull final RelationalMetric.RelationalEvent event) {
+        final StoreTimer.Counter maybeCounter = storeTimer.getCounter(event);
+        Assert.notNullUnchecked(maybeCounter, ErrorCode.INTERNAL_ERROR,
+                "Cannot find metrics associated for requested event: %s", event.title());
+        if (maybeCounter.getCount() == 0) {
+            return 0.0;
+        }
+        return ((double) TimeUnit.NANOSECONDS.toMicros(maybeCounter.getTimeNanos())) / maybeCounter.getCount();
+    }
+
+    @Override
+    public long getCountsForCounter(@Nonnull final RelationalMetric.RelationalCount count) {
+        Assert.thatUnchecked(hasCounter(count), ErrorCode.INTERNAL_ERROR,
+                "Cannot find metrics associated for requested event: %s", count.title());
+        final StoreTimer.Counter counter = storeTimer.getCounter(count);
+        Assert.thatUnchecked(counter.getTimeNanos() == 0, ErrorCode.INTERNAL_ERROR,
+                "Event: %s records time and is probably a event timer", count.title());
+        return counter.getCount();
+    }
+
+    @Override
+    public boolean hasCounter(@Nonnull final RelationalMetric.RelationalCount count) {
+        return storeTimer.getCounter(count) != null;
     }
 }

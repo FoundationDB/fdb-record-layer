@@ -22,6 +22,7 @@ package com.apple.foundationdb.relational.recordlayer.query;
 
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
+import com.apple.foundationdb.relational.api.metrics.RelationalMetric;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalConnection;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalExtension;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
@@ -29,7 +30,9 @@ import com.apple.foundationdb.relational.recordlayer.query.cache.QueryCacheKey;
 import com.apple.foundationdb.relational.recordlayer.query.cache.RelationalPlanCache;
 import com.apple.foundationdb.relational.utils.ConnectionUtils;
 import com.apple.foundationdb.relational.utils.Ddl;
+import com.codahale.metrics.MetricFilter;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
@@ -48,6 +51,23 @@ public class SchemaTemplatePrepareTest {
     @RegisterExtension
     @Order(0)
     public final EmbeddedRelationalExtension relationalExtension = new EmbeddedRelationalExtension();
+
+    @BeforeEach
+    void clearMetrics() {
+        // Codahale registry is shared across tests in this class — reset so each test
+        // can assert absolute metric values rather than computing deltas.
+        relationalExtension.getMetricRegistry().removeMatching(MetricFilter.ALL);
+    }
+
+    /** Cumulative count of times the given timed event has been recorded into the shared registry. */
+    private long eventTimerCount(RelationalMetric.RelationalEvent event) {
+        return relationalExtension.getMetricRegistry().timer(event.title()).getCount();
+    }
+
+    /** Cumulative value of the given counter in the shared registry. */
+    private long eventCounterCount(RelationalMetric.RelationalCount count) {
+        return relationalExtension.getMetricRegistry().counter(count.title()).getCount();
+    }
 
     private long countCachedPlans(RelationalConnection connection, String templateName) throws SQLException {
         final var embeddedConnection = connection.unwrap(EmbeddedRelationalConnection.class);
@@ -153,10 +173,15 @@ public class SchemaTemplatePrepareTest {
                     com.apple.foundationdb.record.provider.foundationdb.FormatVersion.getDefaultFormatVersion());
             final var freshUtils = new ConnectionUtils(freshDriver);
 
+            // OfflinePrepareStatementsProcessor ran during fresh-engine construction and
+            // warmed both prepare statements: 2 plan-query events, 2 L3 cache misses.
+            Assertions.assertEquals(2, eventCounterCount(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_MISS));
+            Assertions.assertEquals(0, eventCounterCount(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_HIT));
+
             // Connect via the fresh driver and verify the fresh engine's cache has the plans
             Assertions.assertEquals(Long.valueOf(2), freshUtils.getFromCatalog(c -> countCachedPlans(c, templateName)));
 
-            // select statement should hit cache, no new entries
+            // select statement should hit the cache, no new entries
             freshUtils.runAgainstConnection(dbUri, schemaName, c -> {
                 try (var stmt = c.createStatement(); RelationalResultSet rs = stmt.executeQuery("select * from t1 where col1 = 10")) {
                     Assertions.assertTrue(rs.next());
@@ -165,6 +190,9 @@ public class SchemaTemplatePrepareTest {
                 }
             });
             Assertions.assertEquals(Long.valueOf(2), freshUtils.getFromCatalog(c -> countCachedPlans(c, templateName)));
+            // query hit the cache: hit counter +1, miss counter unchanged.
+            Assertions.assertEquals(1, eventCounterCount(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_HIT));
+            Assertions.assertEquals(2, eventCounterCount(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_MISS));
 
             // select statement should hit another cache, no new entries
             freshUtils.runAgainstConnection(dbUri, schemaName, c -> {
@@ -175,6 +203,9 @@ public class SchemaTemplatePrepareTest {
                 }
             });
             Assertions.assertEquals(Long.valueOf(2), freshUtils.getFromCatalog(c -> countCachedPlans(c, templateName)));
+            // query hit the cache too: hit counter +1, miss counter still unchanged.
+            Assertions.assertEquals(2, eventCounterCount(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_HIT));
+            Assertions.assertEquals(2, eventCounterCount(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_MISS));
 
             // non prepared statements, new record in the cache
             freshUtils.runAgainstConnection(dbUri, schemaName, c -> {
@@ -185,6 +216,9 @@ public class SchemaTemplatePrepareTest {
                 }
             });
             Assertions.assertEquals(Long.valueOf(3), freshUtils.getFromCatalog(c -> countCachedPlans(c, templateName)));
+            // SELECT col2 is NOT pre-warmed: miss counter +1, hit counter unchanged.
+            Assertions.assertEquals(2, eventCounterCount(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_HIT));
+            Assertions.assertEquals(3, eventCounterCount(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_MISS));
         }
     }
 

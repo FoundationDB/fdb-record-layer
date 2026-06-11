@@ -32,6 +32,7 @@ import com.apple.foundationdb.relational.recordlayer.catalog.systables.SystemTab
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.query.cache.OfflineMetricCollector;
 import com.apple.foundationdb.relational.recordlayer.query.cache.RelationalPlanCache;
+import com.codahale.metrics.MetricRegistry;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -70,12 +71,17 @@ public final class OfflinePrepareStatementsProcessor {
     @Nonnull
     private final FdbConnection fdbConnection;
 
+    @Nonnull
+    private final OfflineMetricCollector metricCollector;
+
     public OfflinePrepareStatementsProcessor(@Nonnull final RelationalPlanCache cache,
                                              @Nonnull final StoreCatalog storeCatalog,
-                                             @Nonnull final FdbConnection fdbConnection) {
+                                             @Nonnull final FdbConnection fdbConnection,
+                                             @Nonnull final MetricRegistry metricRegistry) {
         this.cache = cache;
         this.storeCatalog = storeCatalog;
         this.fdbConnection = fdbConnection;
+        this.metricCollector = new OfflineMetricCollector(metricRegistry);
     }
 
     public void run() {
@@ -132,7 +138,7 @@ public final class OfflinePrepareStatementsProcessor {
                 Optional.of(cache),
                 template,
                 new RecordStoreState(null, null),
-                OfflineMetricCollector.INSTANCE,
+                metricCollector,
                 Options.NONE);                      // assume this is standard set of options
         generator.prepareStatements();
     }
