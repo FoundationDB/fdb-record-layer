@@ -40,6 +40,7 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalUnio
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.TempTableInsertExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.TempTableScanExpression;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.typing.PseudoField;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.CountValue;
@@ -464,12 +465,24 @@ public class LogicalOperator {
                                                        @Nonnull Optional<Identifier> alias,
                                                        @Nonnull Set<CorrelationIdentifier> outerCorrelations,
                                                        boolean isForDdl) {
+        return generateSimpleSelect(output, logicalOperators, where, alias, outerCorrelations, ImmutableList.of(), isForDdl);
+    }
+
+    @Nonnull
+    public static LogicalOperator generateSimpleSelect(@Nonnull Expressions output,
+                                                       @Nonnull LogicalOperators logicalOperators,
+                                                       @Nonnull Optional<Expression> where,
+                                                       @Nonnull Optional<Identifier> alias,
+                                                       @Nonnull Set<CorrelationIdentifier> outerCorrelations,
+                                                       @Nonnull List<? extends QueryPredicate> additionalPredicates,
+                                                       boolean isForDdl) {
         final var quantifiers = logicalOperators.getQuantifiers();
         final var selectBuilder = GraphExpansion.builder().addAllQuantifiers(quantifiers);
         where.ifPresent(predicate -> {
             final var localAliases = quantifiers.stream().map(Quantifier::getAlias).collect(ImmutableSet.toImmutableSet());
             selectBuilder.addPredicate(Expression.Utils.toUnderlyingPredicate(predicate, localAliases, isForDdl));
         });
+        selectBuilder.addAllPredicates(additionalPredicates);
         final var expandedOutput = output.expanded();
         SelectExpression selectExpression;
 

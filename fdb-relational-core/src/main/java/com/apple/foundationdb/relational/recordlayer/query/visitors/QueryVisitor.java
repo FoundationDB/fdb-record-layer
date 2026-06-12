@@ -34,6 +34,7 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.UpdateExpre
 import com.apple.foundationdb.record.query.plan.cascades.predicates.CompatibleTypeEvolutionPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
@@ -55,6 +56,7 @@ import com.apple.foundationdb.relational.recordlayer.query.ParseHelpers;
 import com.apple.foundationdb.relational.recordlayer.query.QueryPlan;
 import com.apple.foundationdb.relational.recordlayer.query.SemanticAnalyzer;
 import com.apple.foundationdb.relational.recordlayer.query.StringTrieNode;
+import com.apple.foundationdb.relational.recordlayer.query.ViewUpdatabilityInfo;
 import com.apple.foundationdb.relational.recordlayer.util.MemoizedFunction;
 import com.apple.foundationdb.relational.recordlayer.util.TypeUtils;
 import com.apple.foundationdb.relational.util.Assert;
@@ -750,8 +752,15 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
     @Override
     public LogicalOperator visitInsertStatement(@Nonnull RelationalParser.InsertStatementContext ctx) {
         final var table = visitTableName(ctx.tableName());
-        final var tableType = getDelegate().getSemanticAnalyzer().getTable(table);
-        final var targetType = Assert.castUnchecked(tableType, RecordLayerTable.class).getType();
+        final var semanticAnalyzer = getDelegate().getSemanticAnalyzer();
+        final RecordLayerTable targetTable;
+        if (semanticAnalyzer.viewExists(table)) {
+            final ViewUpdatabilityInfo vui = semanticAnalyzer.resolveUpdatableView(table);
+            targetTable = vui.baseTable();
+        } else {
+            targetTable = Assert.castUnchecked(semanticAnalyzer.getTable(table), RecordLayerTable.class);
+        }
+        final var targetType = targetTable.getType();
         getDelegate().pushPlanFragment();
         // TODO (Refactor insert parse rules)
         // (yhatem) leave it like this until the old plan generator is removed.
@@ -771,7 +780,7 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
             getDelegate().getCurrentPlanFragment().setState(stateBuilder.build());
             insertSource = Assert.castUnchecked(ctx.insertStatementValue().accept(this), LogicalOperator.class);
         }
-        final var resultingInsert = LogicalOperator.generateInsert(insertSource, tableType);
+        final var resultingInsert = LogicalOperator.generateInsert(insertSource, targetTable);
         getDelegate().popPlanFragment();
         return resultingInsert;
     }
@@ -810,9 +819,23 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
     public LogicalOperator visitUpdateStatement(@Nonnull RelationalParser.UpdateStatementContext ctx) {
         final Identifier tableId = visitFullId(ctx.tableName().fullId());
         final SemanticAnalyzer semanticAnalyzer = getDelegate().getSemanticAnalyzer();
-        final RecordLayerTable table = Assert.castUnchecked(semanticAnalyzer.getTable(tableId), RecordLayerTable.class);
+        final RecordLayerTable table;
+        final LogicalOperator tableAccess;
+        final List<QueryPredicate> viewPredicates;
+        if (semanticAnalyzer.viewExists(tableId)) {
+            final ViewUpdatabilityInfo vui = semanticAnalyzer.resolveUpdatableView(tableId);
+            table = vui.baseTable();
+            // Use the full base table access, aliased as the view name, so that column references
+            // like "myView.col" still resolve correctly.
+            tableAccess = getDelegate().getLogicalOperatorCatalog().lookupTableAccess(
+                    vui.baseTableIdentifier(), Optional.of(tableId), ImmutableSet.of(), semanticAnalyzer);
+            viewPredicates = translateViewPredicates(vui, tableAccess);
+        } else {
+            table = Assert.castUnchecked(semanticAnalyzer.getTable(tableId), RecordLayerTable.class);
+            tableAccess = getDelegate().getLogicalOperatorCatalog().lookupTableAccess(tableId, semanticAnalyzer);
+            viewPredicates = ImmutableList.of();
+        }
         final Type.Record tableType = table.getType();
-        final LogicalOperator tableAccess = getDelegate().getLogicalOperatorCatalog().lookupTableAccess(tableId, semanticAnalyzer);
 
         getDelegate().pushPlanFragment().setOperator(tableAccess);
         // Note: doing an expansion here means that we don't have access to the pseudo-columns during the update
@@ -821,7 +844,7 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
         final var output = Expressions.ofSingle(semanticAnalyzer.expandStar(Optional.empty(), getDelegate().getLogicalOperators()));
 
         Optional<Expression> whereMaybe = ctx.whereExpr() == null ? Optional.empty() : Optional.of(visitWhereExpr(ctx.whereExpr()));
-        final var updateSource = LogicalOperator.generateSimpleSelect(output, getDelegate().getLogicalOperators(), whereMaybe, Optional.of(tableId), ImmutableSet.of(), false);
+        final var updateSource = LogicalOperator.generateSimpleSelect(output, getDelegate().getLogicalOperators(), whereMaybe, Optional.of(tableId), ImmutableSet.of(), viewPredicates, false);
 
         getDelegate().getCurrentPlanFragment().setOperator(updateSource);
         final ImmutableMap.Builder<FieldValue.FieldPath, Value> transformMapBuilder = ImmutableMap.builder();
@@ -864,14 +887,26 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
         Assert.thatUnchecked(ctx.limitClause() == null, "limit is not supported");
         final Identifier tableId = visitFullId(ctx.tableName().fullId());
         final SemanticAnalyzer semanticAnalyzer = getDelegate().getSemanticAnalyzer();
-        final RecordLayerTable table = Assert.castUnchecked(semanticAnalyzer.getTable(tableId), RecordLayerTable.class);
-        final LogicalOperator tableAccess = getDelegate().getLogicalOperatorCatalog().lookupTableAccess(tableId, semanticAnalyzer);
+        final RecordLayerTable table;
+        final LogicalOperator tableAccess;
+        final List<QueryPredicate> viewPredicates;
+        if (semanticAnalyzer.viewExists(tableId)) {
+            final ViewUpdatabilityInfo vui = semanticAnalyzer.resolveUpdatableView(tableId);
+            table = vui.baseTable();
+            tableAccess = getDelegate().getLogicalOperatorCatalog().lookupTableAccess(
+                    vui.baseTableIdentifier(), Optional.of(tableId), ImmutableSet.of(), semanticAnalyzer);
+            viewPredicates = translateViewPredicates(vui, tableAccess);
+        } else {
+            table = Assert.castUnchecked(semanticAnalyzer.getTable(tableId), RecordLayerTable.class);
+            tableAccess = getDelegate().getLogicalOperatorCatalog().lookupTableAccess(tableId, semanticAnalyzer);
+            viewPredicates = ImmutableList.of();
+        }
 
         getDelegate().pushPlanFragment().setOperator(tableAccess);
         final var output = Expressions.ofSingle(semanticAnalyzer.expandStar(Optional.empty(), getDelegate().getLogicalOperators()));
 
         Optional<Expression> whereMaybe = ctx.whereExpr() == null ? Optional.empty() : Optional.of(visitWhereExpr(ctx.whereExpr()));
-        final var deleteSource = LogicalOperator.generateSimpleSelect(output, getDelegate().getLogicalOperators(), whereMaybe, Optional.of(tableId), ImmutableSet.of(), false);
+        final var deleteSource = LogicalOperator.generateSimpleSelect(output, getDelegate().getLogicalOperators(), whereMaybe, Optional.of(tableId), ImmutableSet.of(), viewPredicates, false);
 
         final var deleteExpression = new DeleteExpression(Assert.castUnchecked(deleteSource.getQuantifier(), Quantifier.ForEach.class), table.getType().getStorageName());
         final var deleteQuantifier = Quantifier.forEach(Reference.initialOf(deleteExpression));
@@ -891,6 +926,25 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
         final var result = LogicalOperator.generateSort(resultingDelete, List.of(), Set.of(), Optional.empty());
         getDelegate().popPlanFragment();
         return result;
+    }
+
+    /**
+     * Translates view-level predicates (the view's own WHERE clause) from the quantifier context
+     * used when the view was compiled to the quantifier context of the DML's base-table access.
+     * This is necessary because the view predicates reference the view's inner quantifier alias,
+     * while DML operates on a freshly-created base-table access quantifier.
+     */
+    @Nonnull
+    private static List<QueryPredicate> translateViewPredicates(@Nonnull final ViewUpdatabilityInfo vui,
+                                                                @Nonnull final LogicalOperator tableAccess) {
+        if (vui.viewPredicates().isEmpty()) {
+            return ImmutableList.of();
+        }
+        final var translationMap = TranslationMap.ofAliases(
+                vui.viewInnerAlias(), tableAccess.getQuantifier().getAlias());
+        return vui.viewPredicates().stream()
+                .map(p -> p.translateCorrelations(translationMap, false))
+                .collect(ImmutableList.toImmutableList());
     }
 
     @Nonnull
