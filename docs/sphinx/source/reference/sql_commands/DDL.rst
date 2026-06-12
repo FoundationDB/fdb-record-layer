@@ -10,3 +10,4 @@ as well as indexes. See :doc:`../Databases_Schemas_SchemaTemplates` for more inf
 
     DDL/CREATE
     DDL/DROP
+    DDL/SET_LOCAL

@@ -310,6 +310,21 @@ public class DelegatingVisitor<D extends TypedVisitor> implements TypedVisitor {
     }
 
     @Override
+    public ProceduralPlan visitSetLocalVariable(final RelationalParser.SetLocalVariableContext ctx) {
+        return getDelegate().visitSetLocalVariable(ctx);
+    }
+
+    @Override
+    public Object visitVariableRef(final RelationalParser.VariableRefContext ctx) {
+        return getDelegate().visitVariableRef(ctx);
+    }
+
+    @Override
+    public Object visitVariableRefAtom(final RelationalParser.VariableRefAtomContext ctx) {
+        return getDelegate().visitVariableRefAtom(ctx);
+    }
+
+    @Override
     public UserDefinedFunction visitSqlInvokedFunction(@Nonnull RelationalParser.SqlInvokedFunctionContext ctx) {
         return getDelegate().visitSqlInvokedFunction(ctx);
     }
@@ -842,12 +857,6 @@ public class DelegatingVisitor<D extends TypedVisitor> implements TypedVisitor {
 
     @Nonnull
     @Override
-    public Object visitSetVariable(@Nonnull RelationalParser.SetVariableContext ctx) {
-        return getDelegate().visitSetVariable(ctx);
-    }
-
-    @Nonnull
-    @Override
     public Object visitSetCharset(@Nonnull RelationalParser.SetCharsetContext ctx) {
         return getDelegate().visitSetCharset(ctx);
     }
@@ -874,12 +883,6 @@ public class DelegatingVisitor<D extends TypedVisitor> implements TypedVisitor {
     @Override
     public Object visitSetNewValueInsideTrigger(@Nonnull RelationalParser.SetNewValueInsideTriggerContext ctx) {
         return getDelegate().visitSetNewValueInsideTrigger(ctx);
-    }
-
-    @Nonnull
-    @Override
-    public Object visitVariableClause(@Nonnull RelationalParser.VariableClauseContext ctx) {
-        return getDelegate().visitVariableClause(ctx);
     }
 
     @Nonnull

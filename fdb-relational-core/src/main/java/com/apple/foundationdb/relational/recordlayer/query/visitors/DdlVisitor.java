@@ -29,6 +29,8 @@ import com.apple.foundationdb.record.query.plan.cascades.RawSqlFunction;
 import com.apple.foundationdb.record.query.plan.cascades.UserDefinedFunction;
 import com.apple.foundationdb.record.query.plan.cascades.UserDefinedMacroFunction;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalSortExpression;
+import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.NullValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.PromoteValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.ThrowsValue;
@@ -522,12 +524,26 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
         if (!isScalar && isTemporary) {
             // delay the compilation of table-valued temporary functions for later
             return builder
-                    .withUserDefinedFunctionProvider(ignore -> visitSqlInvokedFunction(functionSpecCtx, bodyCtx, isTemporary))
+                    .withUserDefinedFunctionProvider((ignore, localVarsMap) -> {
+                        // Merge SELECT-time local variable bindings into the CREATE-time PreparedParams so that
+                        // @var refs inside the body resolve to their current values. We add (not replace) so
+                        // that ?param bindings already present from the CREATE-time context are preserved.
+                        if (localVarsMap != null && !localVarsMap.isEmpty()) {
+                            final var prev = getDelegate().getPlanGenerationContext().getLocalVariables();
+                            getDelegate().getPlanGenerationContext().setLocalVariables(localVarsMap);
+                            try {
+                                return visitSqlInvokedFunction(functionSpecCtx, bodyCtx, isTemporary);
+                            } finally {
+                                getDelegate().getPlanGenerationContext().setLocalVariables(prev);
+                            }
+                        }
+                        return visitSqlInvokedFunction(functionSpecCtx, bodyCtx, isTemporary);
+                    })
                     .withSerializableFunction(new RawSqlFunction(functionName, functionDefinition))
                     .build();
         } else {
             final var userDefinedFunction = visitSqlInvokedFunction(functionSpecCtx, bodyCtx, isTemporary);
-            builder.withUserDefinedFunctionProvider(ignore -> userDefinedFunction);
+            builder.withUserDefinedFunctionProvider((ignore, localVars) -> userDefinedFunction);
             if (isScalar) {
                 return builder.withSerializableFunction(userDefinedFunction).build();
             } else {
@@ -584,6 +600,17 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
         final var functionName = visitFullId(ctx.schemaQualifiedRoutineName).toString();
         var throwIfNotExists = ctx.IF() == null && ctx.EXISTS() == null;
         return ProceduralPlan.of(metadataOperationsFactory.getDropTemporaryFunctionConstantAction(throwIfNotExists, functionName));
+    }
+
+    @Override
+    public ProceduralPlan visitSetLocalVariable(@Nonnull RelationalParser.SetLocalVariableContext ctx) {
+        final var varName = getDelegate().normalizeString(ctx.varName.getText());
+        final var expr = getDelegate().getPlanGenerationContext().withDisabledLiteralProcessing(
+                () -> Assert.castUnchecked(visit(ctx.varValue), Expression.class));
+        final var underlying = expr.getUnderlying();
+        final Object value = underlying instanceof NullValue ? null
+                : Assert.castUnchecked(underlying, LiteralValue.class).getLiteralValue();
+        return ProceduralPlan.of(metadataOperationsFactory.getSetLocalVariableConstantAction(varName, value));
     }
 
     @Override

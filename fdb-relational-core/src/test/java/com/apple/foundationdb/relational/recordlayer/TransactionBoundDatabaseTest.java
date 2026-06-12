@@ -121,6 +121,27 @@ public class TransactionBoundDatabaseTest {
     }
 
     @Test
+    void setLocalVariableViaTransactionBoundDatabase() throws RelationalException, SQLException {
+        final var embeddedConnection = connRule.getUnderlyingEmbeddedConnection();
+        withTransactionBoundConnection(embeddedConnection, Options.NONE, (KeySpace) null, conn -> {
+            try (RelationalStatement stmt = conn.createStatement()) {
+                stmt.executeInsert("RESTAURANT", EmbeddedRelationalStruct.newBuilder()
+                        .addLong("REST_NO", 77)
+                        .addString("NAME", "transbound-place")
+                        .build());
+            }
+            try (RelationalStatement stmt = conn.createStatement()) {
+                stmt.execute("SET LOCAL target_no = 77");
+                try (RelationalResultSet rs = stmt.executeQuery("SELECT NAME FROM RESTAURANT WHERE REST_NO = @target_no")) {
+                    Assertions.assertThat(rs.next()).isTrue();
+                    Assertions.assertThat(rs.getString("NAME")).isEqualTo("transbound-place");
+                    Assertions.assertThat(rs.next()).isFalse();
+                }
+            }
+        });
+    }
+
+    @Test
     void selectWithIncludedPlanCache() throws RelationalException, SQLException {
         final var embeddedConnection = connRule.getUnderlyingEmbeddedConnection();
 
@@ -511,6 +532,29 @@ public class TransactionBoundDatabaseTest {
             try (Transaction transaction = createRecordStoreAndRecordContextTransaction(embeddedConnection, context)) {
                 EmbeddedRelationalEngine engine = new TransactionBoundEmbeddedRelationalEngine(engineOptions, keySpace);
                 withTransactionBoundConnection(engine, transaction, context, action);
+            }
+        }
+    }
+
+    @Test
+    void localVariableDelegationInRecordStoreAndRecordContextTransaction() throws RelationalException, SQLException {
+        final var embeddedConnection = connRule.getUnderlyingEmbeddedConnection();
+        try (FDBRecordContext context = createNewContext(embeddedConnection)) {
+            try (Transaction transaction = createRecordStoreAndRecordContextTransaction(embeddedConnection, context)) {
+                Assertions.assertThat(transaction.getLocalVariables()).isEmpty();
+
+                transaction.setLocalVariable("foo", "bar");
+                transaction.setLocalVariable("count", 42L);
+
+                final var vars = transaction.getLocalVariables();
+                Assertions.assertThat(vars).containsEntry("foo", "bar");
+                Assertions.assertThat(vars).containsEntry("count", 42L);
+                Assertions.assertThat(vars).hasSize(2);
+
+                transaction.setLocalVariable("foo", "updated");
+                Assertions.assertThat(transaction.getLocalVariables()).containsEntry("foo", "updated");
+
+                context.commit();
             }
         }
     }

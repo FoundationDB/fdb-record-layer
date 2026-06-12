@@ -61,6 +61,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
+
 /**
  * This class is a composition of different, specialized AST visitors. It holds that visitation and some other
  * cross-functional state.
@@ -262,7 +263,8 @@ public class BaseVisitor extends RelationalParserBaseVisitor<Object> implements 
 
     @Nonnull
     public LogicalOperator resolveTableValuedFunction(@Nonnull Identifier functionName, @Nonnull Expressions arguments) {
-        return getSemanticAnalyzer().resolveTableFunction(functionName, arguments, true);
+        return getSemanticAnalyzer().resolveTableFunction(functionName, arguments, true,
+                mutablePlanGenerationContext.getLocalVariables());
     }
 
     @Override
@@ -468,6 +470,16 @@ public class BaseVisitor extends RelationalParserBaseVisitor<Object> implements 
     @Override
     public ProceduralPlan visitDropTempFunction(final RelationalParser.DropTempFunctionContext ctx) {
         return ddlVisitor.visitDropTempFunction(ctx);
+    }
+
+    @Override
+    public ProceduralPlan visitSetLocalVariable(final RelationalParser.SetLocalVariableContext ctx) {
+        return ddlVisitor.visitSetLocalVariable(ctx);
+    }
+
+    @Override
+    public Expression visitVariableRefAtom(final RelationalParser.VariableRefAtomContext ctx) {
+        return expressionVisitor.visitVariableRefAtom(ctx);
     }
 
     @Override
@@ -973,12 +985,6 @@ public class BaseVisitor extends RelationalParserBaseVisitor<Object> implements 
 
     @Nonnull
     @Override
-    public Object visitSetVariable(@Nonnull RelationalParser.SetVariableContext ctx) {
-        return visitChildren(ctx);
-    }
-
-    @Nonnull
-    @Override
     public Object visitSetCharset(@Nonnull RelationalParser.SetCharsetContext ctx) {
         return visitChildren(ctx);
     }
@@ -1004,12 +1010,6 @@ public class BaseVisitor extends RelationalParserBaseVisitor<Object> implements 
     @Nonnull
     @Override
     public Object visitSetNewValueInsideTrigger(@Nonnull RelationalParser.SetNewValueInsideTriggerContext ctx) {
-        return visitChildren(ctx);
-    }
-
-    @Nonnull
-    @Override
-    public Object visitVariableClause(@Nonnull RelationalParser.VariableClauseContext ctx) {
         return visitChildren(ctx);
     }
 

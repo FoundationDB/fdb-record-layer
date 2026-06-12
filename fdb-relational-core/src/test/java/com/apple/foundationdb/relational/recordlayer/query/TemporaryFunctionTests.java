@@ -65,6 +65,7 @@ import org.mockito.Mockito;
 import javax.annotation.Nonnull;
 import java.net.URI;
 import java.sql.SQLException;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -271,7 +272,7 @@ public class TemporaryFunctionTests {
         Assertions.assertTrue(invokedRoutineMaybe.isPresent());
         Assertions.assertTrue(invokedRoutineMaybe.get().isTemporary());
         Assertions.assertInstanceOf(RecordLayerInvokedRoutine.class, invokedRoutineMaybe.get());
-        return ((RecordLayerInvokedRoutine) invokedRoutineMaybe.get()).getUserDefinedFunctionProvider().apply(true);
+        return ((RecordLayerInvokedRoutine) invokedRoutineMaybe.get()).getUserDefinedFunctionProvider().apply(true, Map.of());
     }
 
     @Test

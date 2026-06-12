@@ -652,8 +652,7 @@ showStatement
     ;
 
 setStatement
-    : SET variableClause ('=' | ':=') expression
-      (',' variableClause ('=' | ':=') expression)*                             #setVariable
+    : SET LOCAL varName=uid '=' varValue=constant                                #setLocalVariable
     | SET charSet (charsetName | DEFAULT)          #setCharset
     | SET NAMES
         (charsetName (COLLATE collationName)? | DEFAULT)                        #setNames
@@ -661,13 +660,6 @@ setStatement
     | setAutocommitStatement                                                    #setAutocommit
     | SET fullId ('=' | ':=') expression
       (',' fullId ('=' | ':=') expression)*                                     #setNewValueInsideTrigger
-    ;
-
-
-// details
-
-variableClause
-    : LOCAL_ID | ( ('@' '@')? (GLOBAL | SESSION | LOCAL)  )? uid
     ;
 
 //    Other administrative statements
@@ -1242,6 +1234,7 @@ expressionAtom
     | fullColumnName                                                                      #fullColumnNameExpressionAtom // done
     | functionCall                                                                        #functionCallExpressionAtom // done
     | preparedStatementParameter                                                          #preparedStatementParameterAtom // done
+    | variableRef                                                                         #variableRefAtom // done
     | recordConstructor                                                                   #recordConstructorExpressionAtom // done
     | arrayConstructor                                                                    #arrayConstructorExpressionAtom // done
     | base=expressionAtom LEFT_SQUARE_BRACKET index=expressionAtom RIGHT_SQUARE_BRACKET   #subscriptExpression // done
@@ -1259,6 +1252,10 @@ inList
 preparedStatementParameter
     : QUESTION
     | NAMED_PARAMETER
+    ;
+
+variableRef
+    : LOCAL_ID
     ;
 
 unaryOperator
