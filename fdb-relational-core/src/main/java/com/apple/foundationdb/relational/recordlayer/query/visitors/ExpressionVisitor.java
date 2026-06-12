@@ -163,9 +163,18 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
     @Nonnull
     @Override
     public Expressions visitSelectElements(@Nonnull RelationalParser.SelectElementsContext selectElementsContext) {
-        return Expressions.of(selectElementsContext.selectElement().stream()
+        final var selectElements = Expressions.of(selectElementsContext.selectElement().stream()
                 .map(selectElement -> Assert.castUnchecked(selectElement.accept(this), Expression.class))
                 .collect(ImmutableList.toImmutableList()));
+
+        Assert.thatUnchecked(
+                selectElements.stream().noneMatch(
+                        exp -> exp.getDataType().getCode() == DataType.Code.ARRAY &&
+                                ((DataType.ArrayType)exp.getDataType()).getElementType().getCode() == DataType.Code.ARRAY),
+                ErrorCode.UNSUPPORTED_OPERATION,
+                "nested arrays are not supported");
+
+        return selectElements;
     }
 
     @Nonnull
@@ -1092,22 +1101,16 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
 
     @Nonnull
     private Expression handleArray(@Nonnull RelationalParser.ArrayConstructorContext ctx) {
-        final var elements = visitExpressions(ctx.expressions()).underlying();
+        // Promote array elements to its non-nullable type as record layer doesn't nullable array elements.
+        final var arrayElementValues = visitExpressions(ctx.expressions()).underlying();
+        final var elements =
+                Streams.stream(arrayElementValues)
+                        .map(arrayElementValue ->
+                                Expression.fromUnderlying(
+                                        PromoteValue.inject(arrayElementValue, arrayElementValue.getResultType().notNullable())))
+                        .collect(ImmutableList.toImmutableList());
 
-        //
-        // TODO This absolutely must call the encapsulator to create the array constructor. The reason being that
-        //      we cannot otherwise guarantee that the proper promotions get injected BEFORE the array is constructed.
-        //
-        //        final var arrayFunctionOptional = FunctionCatalog.resolve("array", elementValues.size());
-        //        Assert.thatUnchecked(arrayFunctionOptional.isPresent());
-        //        final var arrayFunction = arrayFunctionOptional.get();
-        //        return arrayFunction.encapsulate(elementValues);
-        //
-        // TODO The commented out code does not work yet as we cannot properly compute the max type over complicated
-        //      records. Fix that!
-        //
-        return Expression.ofUnnamed(AbstractArrayConstructorValue
-                .LightArrayConstructorValue.of(Streams.stream(elements).collect(ImmutableList.toImmutableList())));
+        return getDelegate().resolveFunction("__internal_array", false, elements.toArray(new Expression[0]));
     }
 
     @Nonnull
