@@ -73,6 +73,7 @@ protogen/
 /.idea_build
 .out
 .dist/
+.downloaded-build-assets
 
 # Temporary files.
 .tmp
