@@ -140,6 +140,17 @@ public class LucenePlanner extends RecordQueryPlanner {
             if (!getSort(state, sort, sortReverse, commonPrimaryKey, groupingKey)) {
                 return null;
             }
+            if (!filterMask.allSatisfied() && index.getBooleanOption("tryBitmapValueIndexes", false)) {
+                LuceneQueryClause bitmapQuery = LuceneBitmapValueQuery.tryBuild(this,
+                        recordTypes.iterator().next(), filterMask, groupingKey);
+                if (bitmapQuery != null) {
+                    if (query instanceof LuceneBooleanQuery && ((LuceneBooleanQuery)query).getOccur() == BooleanClause.Occur.MUST) {
+                        ((LuceneBooleanQuery)query).getChildren().add(bitmapQuery);
+                    } else {
+                        query = new LuceneBooleanQuery(query.getQueryType(), List.of(query, bitmapQuery), BooleanClause.Occur.MUST);
+                    }
+                }
+            }
             getStoredFields(state);
             LuceneScanQueryParameters.LuceneQueryHighlightParameters highlightParameters = getHighlightParameters(queryComponent);
             scanParameters = new LuceneScanQueryParameters(groupingComparisons, query,
