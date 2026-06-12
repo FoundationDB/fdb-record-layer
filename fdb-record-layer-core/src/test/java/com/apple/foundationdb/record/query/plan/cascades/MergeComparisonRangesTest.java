@@ -24,6 +24,7 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import org.junit.jupiter.api.Test;
 
+import javax.annotation.Nonnull;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -281,6 +282,8 @@ class MergeComparisonRangesTest {
                 .isTrue();
         assertThat(merged.getComparisonRange().getInequalityComparisons())
                 .containsExactlyInAnyOrder(gt, lt);
+
+        assertMergesTo(merged, gt, lt);
     }
 
     /**
@@ -298,11 +301,13 @@ class MergeComparisonRangesTest {
         merged = merged.merge(ne);
         assertThat(merged.getResidualComparisons())
                 .containsExactly(ne);
+        assertMergesTo(merged, ne);
 
         // Now merge an inequality that CAN be absorbed -> still residuals = [ne]
         merged = merged.merge(gt);
         assertThat(merged.getResidualComparisons())
                 .containsExactly(ne);
+        assertMergesTo(merged, ne, gt);
 
         // And another absorbable inequality.
         merged = merged.merge(lt);
@@ -312,6 +317,7 @@ class MergeComparisonRangesTest {
                 .isTrue();
         assertThat(merged.getComparisonRange().getInequalityComparisons())
                 .containsExactlyInAnyOrder(gt, lt);
+        assertMergesTo(merged, ne, gt, lt);
     }
 
     /**
@@ -330,6 +336,7 @@ class MergeComparisonRangesTest {
         merged = merged.merge(ne1);   // ne1 -> residual; range stays EMPTY
         assertThat(merged.getResidualComparisons())
                 .containsExactly(ne1);
+        assertMergesTo(merged, ne1);
 
         // Now merge an equality so that the range becomes EQUALITY.
         merged = merged.merge(eq);
@@ -339,6 +346,7 @@ class MergeComparisonRangesTest {
                 .isTrue();
         assertThat(merged.getComparisonRange().getEqualityComparison())
                 .isEqualTo(eq);
+        assertMergesTo(merged, ne1, eq);
 
         // Now merge another NONE-type comparison -- it also becomes a residual.
         merged = merged.merge(ne2);
@@ -348,6 +356,7 @@ class MergeComparisonRangesTest {
                 .isTrue();
         assertThat(merged.getComparisonRange().getEqualityComparison())
                 .isEqualTo(eq);
+        assertMergesTo(merged, ne1, eq, ne2);
 
         // And an inequality -- into an EQUALITY range it also becomes a residual.
         merged = merged.merge(gt);
@@ -357,6 +366,7 @@ class MergeComparisonRangesTest {
                 .isTrue();
         assertThat(merged.getComparisonRange().getEqualityComparison())
                 .isEqualTo(eq);
+        assertMergesTo(merged, ne1, eq, ne2, gt);
     }
 
     /**
@@ -371,6 +381,8 @@ class MergeComparisonRangesTest {
                 .isTrue();
         assertThat(empty.getResidualComparisons())
                 .isEmpty();
+
+        assertMergesTo(empty); // no comparisons
     }
 
     //
@@ -389,6 +401,8 @@ class MergeComparisonRangesTest {
                 .isEmpty();
         assertThat(merged.getComparisonRange())
                 .isEqualTo(range);
+
+        assertMergesTo(merged, gt(5));
     }
 
     /**
@@ -403,6 +417,8 @@ class MergeComparisonRangesTest {
                 .isEmpty();
         assertThat(result.getComparisonRange())
                 .isEqualTo(other);
+
+        assertMergesTo(result, gt(5));
     }
 
     /**
@@ -425,6 +441,8 @@ class MergeComparisonRangesTest {
                 .isTrue();
         assertThat(result.getComparisonRange().getInequalityComparisons())
                 .containsExactlyInAnyOrder(gt, lt, gte);
+
+        assertMergesTo(result, gt, lt, gte);
     }
 
     /**
@@ -447,6 +465,8 @@ class MergeComparisonRangesTest {
                 .isEqualTo(eq);
         assertThat(merged.getResidualComparisons())
                 .containsExactlyInAnyOrder(gt, lt);
+
+        assertMergesTo(merged, gt, lt, eq);
     }
 
     /**
@@ -471,6 +491,7 @@ class MergeComparisonRangesTest {
                 .isFalse();
         assertThat(merged.getComparisonRange().getInequalityComparisons())
                 .containsExactly(gt);
+        assertMergesTo(merged, gt);
 
         // Absorb lte -> inequality range [gt, lte], no residuals.
         merged = merged.merge(lte);
@@ -480,6 +501,7 @@ class MergeComparisonRangesTest {
                 .isFalse();
         assertThat(merged.getComparisonRange().getInequalityComparisons())
                 .containsExactlyInAnyOrder(gt, lte);
+        assertMergesTo(merged, gt, lte);
 
         // Merge ne1 (NONE type) -> becomes residual.
         merged = merged.merge(ne1);
@@ -489,6 +511,7 @@ class MergeComparisonRangesTest {
                 .isFalse();
         assertThat(merged.getComparisonRange().getInequalityComparisons())
                 .containsExactlyInAnyOrder(gt, lte);
+        assertMergesTo(merged, gt, lte, ne1);
 
         // Merge ne2 (NONE type) -> also becomes residual; total = 2.
         merged = merged.merge(ne2);
@@ -498,6 +521,7 @@ class MergeComparisonRangesTest {
                 .isFalse();
         assertThat(merged.getComparisonRange().getInequalityComparisons())
                 .containsExactlyInAnyOrder(gt, lte);
+        assertMergesTo(merged, gt, lte, ne1, ne2);
 
         // Merge eq into an INEQUALITY range -> eq wins and the existing inequalities [gt, lte]
         // become residuals, adding 2 more; total = 4.
@@ -508,6 +532,15 @@ class MergeComparisonRangesTest {
                 .isTrue();
         assertThat(merged.getComparisonRange().getEqualityComparison())
                 .isEqualTo(eq);
+        assertMergesTo(merged, gt, lte, ne1, ne2, eq);
+    }
+
+    private static void assertMergesTo(@Nonnull ComparisonRange.MergeResult mergeResult, Comparisons.Comparison... comparisons) {
+        final ComparisonRange.MergeResult mergedInOneShot = ComparisonRange.mergeAll(List.of(comparisons));
+        assertThat(mergedInOneShot.getComparisonRange())
+                .isEqualTo(mergeResult.getComparisonRange());
+        assertThat(mergedInOneShot.getResidualComparisons())
+                .containsExactlyInAnyOrderElementsOf(mergeResult.getResidualComparisons());
     }
 
     //

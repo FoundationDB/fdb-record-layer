@@ -317,9 +317,7 @@ public class PredicateWithValueAndRanges extends AbstractQueryPredicate implemen
             return Optional.empty();
         }
 
-        if (candidatePredicate instanceof PredicateWithValueAndRanges) {
-            final var candidatePredicateWithValuesAndRanges = (PredicateWithValueAndRanges)candidatePredicate;
-
+        if (candidatePredicate instanceof final PredicateWithValueAndRanges candidatePredicateWithValuesAndRanges) {
             final var matchPairOptional =
                     getValue().matchAndCompensateComparisonMaybe(candidatePredicateWithValuesAndRanges.getValue(),
                             valueEquivalence);
@@ -458,19 +456,22 @@ public class PredicateWithValueAndRanges extends AbstractQueryPredicate implemen
             // Nothing to compensate. Return null to indicate no compensation needed
             return null;
         }
-        // Attempt to create a residual predicate with all the un-matched ranges
+        // Attempt to create a residual predicate with all the un-matched ranges. If this fails, we will
+        // just default to the original predicate. In theory, this may mean that we apply the same predicate
+        // twice (once in the scan and once in the compensation), but generally, these predicates should
+        // be expressible as RangeConstraints as they came from a different RangeConstraints object.
+        // So the error-case paths are mostly just defensive.
         final RangeConstraints.Builder newRangeConstraintsBuilder = RangeConstraints.newBuilder();
-        boolean allComparisonsAdded = mergeResult.getResidualComparisons().stream()
-                .allMatch(newRangeConstraintsBuilder::addComparisonMaybe);
-        final Optional<RangeConstraints> newRangeConstraints = newRangeConstraintsBuilder.build();
-        if (allComparisonsAdded && newRangeConstraints.isPresent()) {
-            // We were able to create the new, smaller predicate. As we were able to create a single range constraint
-            // before, this generally _should_ succeed, so we shouldn't need to go down the other path
-            return PredicateWithValueAndRanges.sargable(compensatedQueryPredicate.getValue(), newRangeConstraints.get());
-        } else {
-            // Extracting the subset failed, for some reason. Go back to the original
-            return compensatedQueryPredicate;
+        for (final Comparisons.Comparison comparison : mergeResult.getResidualComparisons()) {
+            if (!newRangeConstraintsBuilder.addComparisonMaybe(comparison)) {
+                // Unable to add this range. Early out and return the original predicate
+                return compensatedQueryPredicate;
+            }
         }
+        final Optional<RangeConstraints> newRangeConstraints = newRangeConstraintsBuilder.build();
+        return newRangeConstraints
+                .map(rangeConstraints -> PredicateWithValueAndRanges.sargable(compensatedQueryPredicate.getValue(), rangeConstraints))
+                .orElse(compensatedQueryPredicate);
     }
 
     /**

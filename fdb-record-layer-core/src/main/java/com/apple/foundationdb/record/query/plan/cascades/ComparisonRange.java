@@ -39,6 +39,7 @@ import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
@@ -327,6 +328,24 @@ public class ComparisonRange implements PlanHashable, Correlated<ComparisonRange
     }
 
     /**
+     * Merge a collection of {@link Comparisons.Comparison} into a single {@link ComparisonRange} if possible.
+     * Given a set of comparisons, it's not always possible to construct a single {@link ComparisonRange} that
+     * covers everything, so this returns a {@link MergeResult} with a comparison range that covers
+     * as many of the comparisons as possible, and then any un-mergeable comparisons are returned as residuals.
+     *
+     * @param comparisons a collection of comparisons to merge into a compact range
+     * @return a {@link MergeResult} covering all the given comparisons
+     */
+    @API(API.Status.INTERNAL)
+    public static MergeResult mergeAll(@Nonnull Collection<? extends Comparisons.Comparison> comparisons) {
+        MergeResult mergeResult = MergeResult.empty();
+        for (final Comparisons.Comparison comparison : comparisons) {
+            mergeResult = mergeResult.merge(comparison);
+        }
+        return mergeResult;
+    }
+
+    /**
      * Checks whether the comparison is already defined in {@code this} {@link ComparisonRange}. If so, it returns a
      * {@link MergeResult} of {@code this}. Otherwise, it returns a {@link MergeResult} of {@code this} and adds the
      * {@code comparison} as a residual.
@@ -334,6 +353,7 @@ public class ComparisonRange implements PlanHashable, Correlated<ComparisonRange
      * @param comparison the comparison to check.
      * @return {@link MergeResult} of {@code this}, potentially with {@code comparison} as a residual.
      */
+    @API(API.Status.INTERNAL)
     @Nonnull
     public MergeResult merge(@Nonnull final Comparisons.Comparison comparison) {
         final ScanComparisons.ComparisonType comparisonType = ScanComparisons.getComparisonType(comparison);
@@ -378,6 +398,7 @@ public class ComparisonRange implements PlanHashable, Correlated<ComparisonRange
         return MergeResult.of(this, comparison);
     }
 
+    @API(API.Status.INTERNAL)
     @Nonnull
     public MergeResult merge(@Nonnull ComparisonRange comparisonRange) {
         return switch (comparisonRange.getRangeType()) {
@@ -464,17 +485,11 @@ public class ComparisonRange implements PlanHashable, Correlated<ComparisonRange
      * </ul>
      *
      * <p>
-     * Combining a set of {@link Comparisons.Comparison}s can then be done with something like:
+     * Multiple comparisons can be combined using {@link ComparisonRange#mergeAll(Collection)}.
      * </p>
      *
-     * <pre>{@code
-     *    final List<Comparisons.Comparison> comparisons = getComparisonsList();
-     *    MergeResult merged = MergeResult.empty();
-     *    for (Comparisons.Comparison comparison : comparisons) {
-     *        merged = merged.merge(comparison);
-     *    }
-     *    return merged;
-     * }</pre>
+     * @see ComparisonRange#merge(Comparisons.Comparison)
+     * @see ComparisonRange#mergeAll(Collection)
      */
     public static class MergeResult {
         @Nonnull

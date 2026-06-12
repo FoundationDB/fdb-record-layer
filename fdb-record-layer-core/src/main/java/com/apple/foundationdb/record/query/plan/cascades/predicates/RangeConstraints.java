@@ -33,18 +33,18 @@ import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.expressions.RecordTypeKeyComparison;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
-import com.apple.foundationdb.record.query.plan.cascades.ConstrainedBoolean;
 import com.apple.foundationdb.record.query.plan.cascades.ComparisonRange;
+import com.apple.foundationdb.record.query.plan.cascades.ConstrainedBoolean;
 import com.apple.foundationdb.record.query.plan.cascades.Correlated;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.explain.DefaultExplainFormatter;
-import com.apple.foundationdb.record.query.plan.explain.ExplainTokens;
-import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence;
-import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence.Precedence;
 import com.apple.foundationdb.record.query.plan.cascades.UsesValueEquivalence;
 import com.apple.foundationdb.record.query.plan.cascades.ValueEquivalence;
 import com.apple.foundationdb.record.query.plan.cascades.values.ConstantObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
+import com.apple.foundationdb.record.query.plan.explain.DefaultExplainFormatter;
+import com.apple.foundationdb.record.query.plan.explain.ExplainTokens;
+import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence;
+import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence.Precedence;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
@@ -153,18 +153,13 @@ public class RangeConstraints implements PlanHashable, Correlated<RangeConstrain
      * Returns an equivalent {@link ComparisonRange} along with any residual comparisons that
      * could not be pushed into the range. Values that cannot be combined into the single range
      * will need to be compensated for by the caller.
-     * Note: This method is created for compatibility reasons.
      *
      * @return An equivalent {@link ComparisonRange} along with a set of residual comparisons
      *     that require compensation
      */
     @Nonnull
     public ComparisonRange.MergeResult asMergedComparisonRange() {
-        ComparisonRange.MergeResult mergeResult = ComparisonRange.MergeResult.empty();
-        for (final Comparisons.Comparison comparison : getComparisons()) {
-            mergeResult = mergeResult.merge(comparison);
-        }
-        return mergeResult;
+        return ComparisonRange.mergeAll(getComparisons());
     }
 
     @Nonnull
