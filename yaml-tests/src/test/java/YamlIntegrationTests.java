@@ -513,4 +513,9 @@ public class YamlIntegrationTests {
     public void filterIndexTest(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("filter-index.yamsql");
     }
+
+    @TestTemplate
+    public void selectWithoutFrom(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("select-without-from.yamsql");
+    }
 }
