@@ -543,6 +543,14 @@ public interface TypedVisitor extends RelationalParserVisitor<Object> {
 
     @Nonnull
     @Override
+    Object visitExplainColumnList(@Nonnull RelationalParser.ExplainColumnListContext ctx);
+
+    @Nonnull
+    @Override
+    Object visitExplainColumnOption(@Nonnull RelationalParser.ExplainColumnOptionContext ctx);
+
+    @Nonnull
+    @Override
     Object visitHelpStatement(@Nonnull RelationalParser.HelpStatementContext ctx);
 
     @Nonnull

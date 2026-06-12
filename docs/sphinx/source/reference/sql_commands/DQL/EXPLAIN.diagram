@@ -1,4 +1,14 @@
 Diagram(
     Terminal('EXPLAIN'),
+    Optional(
+        Sequence(
+            Terminal('('),
+            OneOrMore(
+                NonTerminal('column'),
+                Terminal(',')
+            ),
+            Terminal(')')
+        )
+    ),
     NonTerminal('query')
 )
