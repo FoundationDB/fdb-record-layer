@@ -1,5 +1,5 @@
 /*
- * BaseTest.java
+ * ClusterMetadataWithDistance.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -18,22 +18,18 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.async.hnsw;
+package com.apple.foundationdb.async.guardiann;
 
-import com.apple.foundationdb.Database;
-import com.apple.foundationdb.subspace.Subspace;
+import com.apple.foundationdb.linear.RealVector;
+import com.apple.foundationdb.linear.Transformed;
 
 import javax.annotation.Nonnull;
-import java.nio.file.Path;
 
-public interface BaseTest {
-
+record ClusterMetadataWithDistance(@Nonnull ClusterMetadata clusterMetadata,
+                                   @Nonnull Transformed<RealVector> centroid,
+                                   double distance) {
     @Nonnull
-    Database getDb();
-
-    @Nonnull
-    Subspace getSubspace();
-
-    @Nonnull
-    Path getTempDir();
+    public ClusterMetadataWithDistance withNewDistance(final double newDistance) {
+        return new ClusterMetadataWithDistance(clusterMetadata(), centroid(), newDistance);
+    }
 }

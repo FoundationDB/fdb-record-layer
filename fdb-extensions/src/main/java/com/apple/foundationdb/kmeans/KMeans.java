@@ -641,10 +641,10 @@ public final class KMeans {
      * For non-quantization-aware estimators (the common case: any
      * {@link DistanceEstimator#ofMetric}-built estimator) this is computed directly via
      * {@link RealVector#l2SquaredDistance} to skip the {@code sqrt} that
-     * {@link DistanceEstimator#distance Estimator.distance(...)} performs only to be squared again.
+     * {@link DistanceEstimator#distance DistanceEstimator.distance(...)} performs only to be squared again.
      * <p>
      * When {@link DistanceEstimator#isOptimized} reports that the estimator has a metric-specific fast
-     * path for the given pair (e.g. a {@code RaBitEstimator} acting on at least one encoded
+     * path for the given pair (e.g. a {@code RaBitDistanceEstimator} acting on at least one encoded
      * vector), the call is routed through {@code estimator.distance(...)} so the
      * quantization-aware estimate is preserved — bypassing it via {@code getData()} would
      * produce a different (more accurate, but not what the caller wants) value.

@@ -22,8 +22,11 @@ package com.apple.foundationdb.async.hnsw;
 
 import com.apple.foundationdb.Database;
 import com.apple.foundationdb.async.AsyncIterator;
-import com.apple.foundationdb.async.hnsw.TestHelpers.PrimaryKeyAndVector;
-import com.apple.foundationdb.async.hnsw.TestHelpers.PrimaryKeyVectorAndDistance;
+import com.apple.foundationdb.async.common.BaseTest;
+import com.apple.foundationdb.async.common.CommonTestHelpers;
+import com.apple.foundationdb.async.common.PrimaryKeyAndVector;
+import com.apple.foundationdb.async.common.PrimaryKeyVectorAndDistance;
+import com.apple.foundationdb.async.common.ResultEntry;
 import com.apple.foundationdb.async.hnsw.TestHelpers.TestOnReadListener;
 import com.apple.foundationdb.async.hnsw.TestHelpers.TestOnWriteListener;
 import com.apple.foundationdb.linear.DoubleRealVector;
@@ -36,7 +39,6 @@ import com.apple.foundationdb.test.TestDatabaseExtension;
 import com.apple.foundationdb.test.TestExecutors;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.RandomSeedSource;
-import com.apple.test.SuperSlow;
 import com.apple.test.Tags;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -78,7 +80,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @Execution(ExecutionMode.SAME_THREAD)
 @SuppressWarnings("checkstyle:AbbreviationAsWordInName")
 @Tag(Tags.RequiresFDB)
-@SuperSlow
+//@SuperSlow
 class SiftTest implements BaseTest {
     private static final Logger logger = LoggerFactory.getLogger(SiftTest.class);
 
@@ -159,7 +161,7 @@ class SiftTest implements BaseTest {
         final var queryVector = readQuery(queryIndex);
 
         final NavigableSet<PrimaryKeyVectorAndDistance> orderedByDistances =
-                TestHelpers.orderedByDistances(Metric.EUCLIDEAN_METRIC, insertedData, queryVector);
+                CommonTestHelpers.orderedByDistances(Metric.EUCLIDEAN_METRIC, insertedData, queryVector);
 
         // pick a random marker and a non-zero length
         final int minIndex = random.nextInt(insertedData.size());
@@ -198,7 +200,8 @@ class SiftTest implements BaseTest {
                     final long startTs = System.nanoTime();
                     final AsyncIterator<ResultEntry> it =
                             hnsw.orderByDistance(tr, 100, 500, false, queryVector,
-                                    minVectorAndDistance.getDistance(), minVectorAndDistance.getPrimaryKey());
+                                    minVectorAndDistance.getDistance(), minVectorAndDistance.getPrimaryKey(),
+                                    false);
 
                     final ImmutableList.Builder<ResultEntry> resultsBuilder = ImmutableList.builder();
                     for (int resultCounter = 0; resultCounter < length && it.hasNext(); resultCounter ++) {
@@ -220,7 +223,7 @@ class SiftTest implements BaseTest {
             final ResultEntry previous = results.get(i - 1);
             final ResultEntry current = results.get(i);
 
-            if (previous.getDistance() > current.getDistance()) {
+            if (previous.distance() > current.distance()) {
                 numInversions++;
             }
         }
@@ -250,7 +253,7 @@ class SiftTest implements BaseTest {
 
         final ImmutableSet<Tuple> resultIds =
                 results.stream()
-                        .map(ResultEntry::getPrimaryKey)
+                        .map(ResultEntry::primaryKey)
                         .collect(ImmutableSet.toImmutableSet());
 
         final Set<Tuple> commonIds = Sets.intersection(groundTruthExpected, resultIds);

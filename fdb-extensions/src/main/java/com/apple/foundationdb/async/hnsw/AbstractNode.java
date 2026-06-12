@@ -78,6 +78,7 @@ abstract class AbstractNode<N extends NodeReference> implements Node<N> {
         return neighbors;
     }
 
+    public abstract boolean isCompactNode();
 
     /**
      * Converts this node into its {@link CompactNode} representation.
@@ -89,6 +90,9 @@ abstract class AbstractNode<N extends NodeReference> implements Node<N> {
      */
     @Nonnull
     public abstract CompactNode asCompactNode();
+
+
+    public abstract boolean isInliningNode();
 
     /**
      * Converts this node into its {@link InliningNode} representation.

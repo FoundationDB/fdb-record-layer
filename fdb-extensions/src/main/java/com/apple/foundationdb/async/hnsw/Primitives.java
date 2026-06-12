@@ -24,6 +24,9 @@ import com.apple.foundationdb.Database;
 import com.apple.foundationdb.ReadTransaction;
 import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.async.common.RandomHelpers;
+import com.apple.foundationdb.async.common.ResultEntry;
+import com.apple.foundationdb.async.common.StorageTransform;
 import com.apple.foundationdb.linear.DistanceEstimator;
 import com.apple.foundationdb.linear.FhtKacRotator;
 import com.apple.foundationdb.linear.LinearOperator;
@@ -144,7 +147,7 @@ public class Primitives {
     }
 
     boolean isMetricNeedsNormalizedVectors() {
-        return getConfig().getMetric() == Metric.COSINE_METRIC;
+        return getConfig().metric() == Metric.COSINE_METRIC;
     }
 
     @Nonnull
@@ -162,23 +165,19 @@ public class Primitives {
     StorageTransform storageTransform(@Nullable final Long rotatorSeed,
                                       @Nullable final RealVector negatedCentroid,
                                       final boolean normalizeVectors) {
-        final LinearOperator linearOperator =
-                rotatorSeed == null
-                ? null : new FhtKacRotator(rotatorSeed, getConfig().getNumDimensions(), 10);
-
-        return new StorageTransform(linearOperator, negatedCentroid, normalizeVectors);
+        return storageTransform(rotatorSeed, negatedCentroid, normalizeVectors, getConfig().numDimensions());
     }
 
     @Nonnull
     Quantizer quantizer(@Nullable final AccessInfo accessInfo) {
         if (accessInfo == null || !accessInfo.canUseRaBitQ()) {
-            return Quantizer.noOpQuantizer(getConfig().getMetric());
+            return Quantizer.noOpQuantizer(getConfig().metric());
         }
 
         final Config config = getConfig();
-        return config.isUseRaBitQ()
-               ? new RaBitQuantizer(config.getMetric(), config.getRaBitQNumExBits())
-               : Quantizer.noOpQuantizer(config.getMetric());
+        return config.useRaBitQ()
+               ? new RaBitQuantizer(config.metric(), config.raBitQNumExBits())
+               : Quantizer.noOpQuantizer(config.metric());
     }
 
     /**
@@ -311,10 +310,10 @@ public class Primitives {
      * nodes fetched from storage.
      *
      * @return a {@link CompletableFuture} that, upon completion, will contain a list of
-     * {@link NodeReferenceWithVector} objects for the specified neighbors
+     *         {@link NodeReferenceWithVectorAndAdditionalValues} objects for the specified neighbors
      */
     @Nonnull
-    <N extends NodeReference> CompletableFuture<List<NodeReferenceWithVector>>
+    <N extends NodeReference> CompletableFuture<List<NodeReferenceWithVectorAndAdditionalValues>>
             fetchNeighborhoodReferences(@Nonnull final StorageAdapter<N> storageAdapter,
                                         @Nonnull final ReadTransaction readTransaction,
                                         @Nonnull final StorageTransform storageTransform,
@@ -324,14 +323,18 @@ public class Primitives {
         return fetchSomeNodesAndApply(storageAdapter, readTransaction, storageTransform, layer, neighborReferences,
                 neighborReference -> {
                     if (storageAdapter.isInliningStorageAdapter() && neighborReference.isNodeReferenceWithVector()) {
-                        return neighborReference.asNodeReferenceWithVector();
+                        final NodeReferenceWithVector nodeReferenceWithVector =
+                                neighborReference.asNodeReferenceWithVector();
+                        return new NodeReferenceWithVectorAndAdditionalValues(nodeReferenceWithVector.getPrimaryKey(),
+                                nodeReferenceWithVector.getVector(), null);
                     }
                     final AbstractNode<N> neighborNode = nodeCache.get(neighborReference.getPrimaryKey());
                     if (neighborNode == null) {
                         return null;
                     }
-                    return new NodeReferenceWithVector(neighborReference.getPrimaryKey(),
-                            neighborNode.asCompactNode().getVector());
+                    final CompactNode compactNode = neighborNode.asCompactNode();
+                    return new NodeReferenceWithVectorAndAdditionalValues(neighborReference.getPrimaryKey(),
+                            compactNode.getVector(), compactNode.getAdditionalValues());
                 },
                 (neighborReference, neighborNode) -> {
                     if (neighborNode != null) {
@@ -341,8 +344,9 @@ public class Primitives {
                         // the nodes as compact nodes.
                         //
                         nodeCache.put(neighborReference.getPrimaryKey(), neighborNode);
-                        return new NodeReferenceWithVector(neighborReference.getPrimaryKey(),
-                                neighborNode.asCompactNode().getVector());
+                        final CompactNode compactNode = neighborNode.asCompactNode();
+                        return new NodeReferenceWithVectorAndAdditionalValues(neighborReference.getPrimaryKey(),
+                                compactNode.getVector(), compactNode.getAdditionalValues());
                     }
                     return null;
                 });
@@ -436,7 +440,7 @@ public class Primitives {
         return forEach(nodeReferences,
                 currentNeighborReference -> fetchNodeIfNecessaryAndApply(storageAdapter, readTransaction,
                         storageTransform, layer, currentNeighborReference, fetchBypassFunction, biMapFunction),
-                getConfig().getMaxNumConcurrentNodeFetches(),
+                getConfig().maxNumConcurrentNodeFetches(),
                 getExecutor())
                 .thenApply(results -> {
                     final ImmutableList.Builder<U> filteredListBuilder = ImmutableList.builder();
@@ -454,9 +458,14 @@ public class Primitives {
             filterExisting(@Nonnull final StorageAdapter<N> storageAdapter,
                            @Nonnull final ReadTransaction readTransaction,
                            @Nonnull final StorageTransform storageTransform,
-                           @Nonnull final Iterable<NodeReferenceAndNode<NodeReferenceWithVector, N>> nodeReferenceAndNodes) {
+                           @Nonnull final Iterable<? extends NodeReferenceAndNode<? extends NodeReferenceWithVector, N>> nodeReferenceAndNodes) {
         if (!storageAdapter.isInliningStorageAdapter()) {
-            return CompletableFuture.completedFuture(ImmutableList.copyOf(nodeReferenceAndNodes));
+            final var resultBuilder =
+                    ImmutableList.<NodeReferenceAndNode<NodeReferenceWithVector, N>>builder();
+            for (final NodeReferenceAndNode<? extends NodeReferenceWithVector, N> nodeReferenceAndNode : nodeReferenceAndNodes) {
+                resultBuilder.add(new NodeReferenceAndNode<>(nodeReferenceAndNode.getNodeReference(), nodeReferenceAndNode.getNode()));
+            }
+            return CompletableFuture.completedFuture(resultBuilder.build());
         }
 
         return forEach(nodeReferenceAndNodes,
@@ -480,7 +489,7 @@ public class Primitives {
                                 return new NodeReferenceAndNode<>(updatedNodeReference, node);
                             });
                 },
-                getConfig().getMaxNumConcurrentNodeFetches(),
+                getConfig().maxNumConcurrentNodeFetches(),
                 getExecutor())
                 .thenApply(results -> {
                     final ImmutableList.Builder<NodeReferenceAndNode<NodeReferenceWithVector, N>> filteredListBuilder =
@@ -503,6 +512,27 @@ public class Primitives {
         //
         return fetchBaseNode(readTransaction, StorageTransform.identity(), primaryKey)
                 .thenApply(Objects::nonNull);
+    }
+
+    @Nonnull
+    CompletableFuture<ResultEntry> fetch(@Nonnull final ReadTransaction readTransaction,
+                                         @Nonnull final Tuple primaryKey) {
+        return StorageAdapter.fetchAccessInfo(getConfig(), readTransaction, getSubspace(), getOnReadListener())
+                .thenCompose(accessInfo -> {
+                    if (accessInfo == null) {
+                        // not a single node in the index
+                        return CompletableFuture.completedFuture(null);
+                    }
+                    final StorageTransform storageTransform = storageTransform(accessInfo);
+                    return fetchBaseNode(readTransaction, storageTransform, primaryKey)
+                            .thenApply(node -> {
+                                if (node == null) {
+                                    return null;
+                                }
+                                return new ResultEntry(primaryKey, storageTransform.untransform(node.getVector()),
+                                        node.getAdditionalValues(), 0, -1);
+                            });
+                });
     }
 
     @Nonnull
@@ -624,15 +654,15 @@ public class Primitives {
                              final int layer,
                              final int m,
                              @Nonnull final Map<Tuple, AbstractNode<N>> nodeCache) {
-        final Metric metric = getConfig().getMetric();
+        final Metric metric = getConfig().metric();
 
         final List<NodeReferenceWithDistance> selected = Lists.newArrayListWithExpectedSize(m);
         final Queue<NodeReferenceWithDistance> candidates =
-                new PriorityQueue<>(getConfig().getM(), NodeReferenceWithDistance.comparator());
+                new PriorityQueue<>(getConfig().m(), NodeReferenceWithDistance.comparator());
         initialCandidates.forEach(candidates::add);
         final Queue<NodeReferenceWithDistance> discardedCandidates =
-                getConfig().isKeepPrunedConnections()
-                ? new PriorityQueue<>(getConfig().getM(), NodeReferenceWithDistance.comparator()) : null;
+                getConfig().keepPrunedConnections()
+                ? new PriorityQueue<>(getConfig().m(), NodeReferenceWithDistance.comparator()) : null;
 
         while (!candidates.isEmpty() && selected.size() < m) {
             final NodeReferenceWithDistance nearestCandidate = candidates.poll();
@@ -790,7 +820,7 @@ public class Primitives {
      *
      * @return a {@link CompletableFuture} which will complete with a list of {@link NodeReferenceWithVector}
      */
-    private <T extends NodeReference, N extends NodeReference> CompletableFuture<List<NodeReferenceWithVector>>
+    private <T extends NodeReference, N extends NodeReference> CompletableFuture<? extends List<? extends NodeReferenceWithVector>>
             neighborReferences(@Nonnull final StorageAdapter<N> storageAdapter,
                                @Nonnull final ReadTransaction readTransaction,
                                @Nonnull final StorageTransform storageTransform,
@@ -876,6 +906,7 @@ public class Primitives {
      * @param transaction the transaction to use for writing to the database
      * @param primaryKey the primary key of the record for which lonely nodes are being written
      * @param vector the search path vector that was followed to find this key
+     * @param additionalValues additional values that are associated with the vector that is written
      * @param highestLayerInclusive the highest layer (inclusive) to begin writing lonely nodes on
      * @param lowestLayerExclusive the lowest layer (exclusive) at which to stop writing lonely nodes
      */
@@ -883,11 +914,12 @@ public class Primitives {
                           @Nonnull final Transaction transaction,
                           @Nonnull final Tuple primaryKey,
                           @Nonnull final Transformed<RealVector> vector,
+                          @Nullable final Tuple additionalValues,
                           final int highestLayerInclusive,
                           final int lowestLayerExclusive) {
         for (int layer = highestLayerInclusive; layer > lowestLayerExclusive; layer --) {
             final StorageAdapter<?> storageAdapter = storageAdapterForLayer(layer);
-            writeLonelyNodeOnLayer(quantizer, storageAdapter, transaction, layer, primaryKey, vector);
+            writeLonelyNodeOnLayer(quantizer, storageAdapter, transaction, layer, primaryKey, vector, additionalValues);
         }
     }
 
@@ -906,16 +938,20 @@ public class Primitives {
      * @param layer the layer index where the new node will be written
      * @param primaryKey the primary key for the new node; must not be null
      * @param vector the vector data for the new node; must not be null
+     * @param additionalValues additional values associated with the vector that is written
      */
     <N extends NodeReference> void writeLonelyNodeOnLayer(@Nonnull final Quantizer quantizer,
                                                           @Nonnull final StorageAdapter<N> storageAdapter,
                                                           @Nonnull final Transaction transaction,
                                                           final int layer,
                                                           @Nonnull final Tuple primaryKey,
-                                                          @Nonnull final Transformed<RealVector> vector) {
+                                                          @Nonnull final Transformed<RealVector> vector,
+                                                          @Nullable final Tuple additionalValues) {
+        final AbstractNode<N> node =
+                storageAdapter.getNodeFactory()
+                        .create(primaryKey, vector, layer == 0 ? additionalValues : null, ImmutableList.of());
         storageAdapter.writeNode(transaction, quantizer,
-                layer, storageAdapter.getNodeFactory()
-                        .create(primaryKey, vector, ImmutableList.of()),
+                layer, node,
                 new BaseNeighborsChangeSet<>(ImmutableList.of()));
         if (logger.isTraceEnabled()) {
             logger.trace("written lonely node at key={} on layer={}", primaryKey, layer);
@@ -1030,11 +1066,6 @@ public class Primitives {
         return storageAdapterForLayer(getConfig(), getSubspace(), getOnWriteListener(), getOnReadListener(), layer);
     }
 
-    @Nonnull
-    static SplittableRandom random(@Nonnull final Tuple primaryKey) {
-        return new SplittableRandom(splitMixLong(primaryKey.hashCode()));
-    }
-
     /**
      * Calculates a layer for a new element to be inserted or for an element to be deleted from.
      * <p>
@@ -1046,9 +1077,45 @@ public class Primitives {
      * @return a non-negative integer representing the randomly selected layer
      */
     int topLayer(@Nonnull final Tuple primaryKey) {
-        double lambda = 1.0 / Math.log(getConfig().getM());
-        double u = 1.0 - splitMixDouble(primaryKey.hashCode());  // Avoid log(0)
+        double lambda = 1.0 / Math.log(getConfig().m());
+        double u = 1.0 - RandomHelpers.splitMixDouble(primaryKey.hashCode());  // Avoid log(0)
         return (int) Math.floor(-Math.log(u) * lambda);
+    }
+
+    @Nonnull
+    static StorageTransform storageTransform(@Nullable final Long rotatorSeed,
+                                             @Nullable final RealVector negatedCentroid,
+                                             final boolean normalizeVectors,
+                                             final int numDimensions) {
+        final LinearOperator linearOperator =
+                rotatorSeed == null
+                ? null : new FhtKacRotator(rotatorSeed, numDimensions, 10);
+
+        return new StorageTransform(linearOperator, negatedCentroid, normalizeVectors);
+    }
+
+    @VisibleForTesting
+    static void scanLayer(@Nonnull final Config config,
+                          @Nonnull final Subspace subspace,
+                          @Nonnull final Database db,
+                          final int layer,
+                          final int batchSize,
+                          @Nonnull final Consumer<ResultEntry> nodeConsumer) {
+        final AccessInfo accessInfo = db.run(readTransaction ->
+                StorageAdapter.fetchAccessInfo(config, readTransaction, subspace, OnReadListener.NOOP).join());
+        final StorageTransform storageTransform =
+                !accessInfo.canUseRaBitQ()
+                ? StorageTransform.identity() :
+                storageTransform(accessInfo.getRotatorSeed(), accessInfo.getNegatedCentroid(),
+                        config.metric() == Metric.COSINE_METRIC,
+                        config.numDimensions());
+
+        scanLayerInternal(config, subspace, db, layer, batchSize,
+                node ->
+                        nodeConsumer.accept(new ResultEntry(node.getPrimaryKey(),
+                                node.isCompactNode() ? storageTransform.untransform(node.asCompactNode().getVector()) : null,
+                                node.isCompactNode() ? node.asCompactNode().getAdditionalValues() : null,
+                                0.0d, -1)));
     }
 
     /**
@@ -1065,12 +1132,12 @@ public class Primitives {
      * found in the layer.
      */
     @VisibleForTesting
-    static void scanLayer(@Nonnull final Config config,
-                          @Nonnull final Subspace subspace,
-                          @Nonnull final Database db,
-                          final int layer,
-                          final int batchSize,
-                          @Nonnull final Consumer<AbstractNode<? extends NodeReference>> nodeConsumer) {
+    static void scanLayerInternal(@Nonnull final Config config,
+                                  @Nonnull final Subspace subspace,
+                                  @Nonnull final Database db,
+                                  final int layer,
+                                  final int batchSize,
+                                  @Nonnull final Consumer<AbstractNode<? extends NodeReference>> nodeConsumer) {
         final StorageAdapter<? extends NodeReference> storageAdapter =
                 storageAdapterForLayer(config, subspace, OnWriteListener.NOOP, OnReadListener.NOOP, layer);
         final AtomicReference<Tuple> lastPrimaryKeyAtomic = new AtomicReference<>();
@@ -1111,37 +1178,9 @@ public class Primitives {
                                    @Nonnull final OnWriteListener onWriteListener,
                                    @Nonnull final OnReadListener onReadListener,
                                    final int layer) {
-        return config.isUseInlining() && layer > 0
+        return config.useInlining() && layer > 0
                ? new InliningStorageAdapter(config, InliningNode.factory(), subspace, onWriteListener, onReadListener)
                : new CompactStorageAdapter(config, CompactNode.factory(), subspace, onWriteListener, onReadListener);
-    }
-
-    /**
-     * Returns a good double hash code for the argument of type {@code long}. It uses {@link #splitMixLong(long)}
-     * internally and then maps the {@code long} result to a {@code double} between {@code 0} and {@code 1}.
-     * This method is directly used in {@link #topLayer(Tuple)} to determine the top layer of a record given its
-     * primary key.
-     * @param x a {@code long}
-     * @return a high quality hash code of {@code x} as a {@code double} in the range {@code [0.0d, 1.0d)}.
-     */
-    static double splitMixDouble(final long x) {
-        return (splitMixLong(x) >>> 11) * 0x1.0p-53;
-    }
-
-    /**
-     * Returns a good long hash code for the argument of type {@code long}. It is an implementation of the
-     * output mixing function {@code SplitMix64} as employed by many PRNG such as {@link SplittableRandom}.
-     * See <a href="https://en.wikipedia.org/wiki/Linear_congruential_generator">Linear congruential generator</a> for
-     * more information.
-     * @param x a {@code long}
-     * @return a high quality hash code of {@code x}
-     */
-    static long splitMixLong(long x) {
-        x += 0x9e3779b97f4a7c15L;
-        x = (x ^ (x >>> 30)) * 0xbf58476d1ce4e5b9L;
-        x = (x ^ (x >>> 27)) * 0x94d049bb133111ebL;
-        x = x ^ (x >>> 31);
-        return x;
     }
 
     @Nonnull

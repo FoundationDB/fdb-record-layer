@@ -20,12 +20,114 @@
 
 package com.apple.foundationdb.async.common;
 
-import java.util.SplittableRandom;
+import com.apple.foundationdb.async.MoreAsyncUtil;
+import com.google.common.collect.Iterables;
 
-@SuppressWarnings("PMD.MissingStaticMethodInNonInstantiatableClass") // TODO remove once the GuardiANN code gets merged
+import javax.annotation.Nonnull;
+import java.util.List;
+import java.util.SplittableRandom;
+import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.BiFunction;
+
 public final class RandomHelpers {
     private RandomHelpers() {
         // nothing
+    }
+
+    /**
+     * Seed a {@link SplittableRandom} in a deterministic way using the primary key of a record.
+     * @param someIdentity something fairly unique
+     * @return a new {@link SplittableRandom}
+     */
+    @Nonnull
+    public static SplittableRandom random(@Nonnull final Object someIdentity) {
+        return new SplittableRandom(splitMixLong(someIdentity.hashCode()));
+    }
+
+    /**
+     * Returns a good double hash code for the argument of type {@code long}. It uses {@link #splitMixLong(long)}
+     * internally and then maps the {@code long} result to a {@code double} between {@code 0} and {@code 1}.
+     * @param x a {@code long}
+     * @return a high quality hash code of {@code x} as a {@code double} in the range {@code [0.0d, 1.0d)}.
+     */
+    public static double splitMixDouble(final long x) {
+        return (splitMixLong(x) >>> 11) * 0x1.0p-53;
+    }
+
+    /**
+     * Returns a good long hash code for the argument of type {@code long}. It is an implementation of the
+     * output mixing function {@code SplitMix64} as employed by many PRNG such as {@link SplittableRandom}.
+     * See <a href="https://en.wikipedia.org/wiki/Linear_congruential_generator">Linear congruential generator</a> for
+     * more information.
+     * @param x a {@code long}
+     * @return a high quality hash code of {@code x}
+     */
+    static long splitMixLong(long x) {
+        x += 0x9e3779b97f4a7c15L;
+        x = (x ^ (x >>> 30)) * 0xbf58476d1ce4e5b9L;
+        x = (x ^ (x >>> 27)) * 0x94d049bb133111ebL;
+        x = x ^ (x >>> 31);
+        return x;
+    }
+
+    @Nonnull
+    public static UUID randomUuid(final boolean deterministicRandomness) {
+        return deterministicRandomness ? SequentialUUID.getNext() : UUID.randomUUID();
+    }
+
+    @Nonnull
+    public static UUID randomUuid(@Nonnull final SplittableRandom random) {
+        long msb = random.nextLong();
+        long lsb = random.nextLong();
+
+        // Set version to 4
+        msb &= 0xffffffffffff0fffL;
+        msb |= 0x0000000000004000L;
+
+        // Set variant to IETF variant
+        lsb &= 0x3fffffffffffffffL;
+        lsb |= 0x8000000000000000L;
+
+        return new UUID(msb, lsb);
+    }
+
+    @Nonnull
+    public static <T, U> CompletableFuture<List<U>> forEach(@Nonnull final SplittableRandom splittableRandom,
+                                                            @Nonnull final Iterable<T> items,
+                                                            @Nonnull final BiFunction<T, SplittableRandom, CompletableFuture<U>> body,
+                                                            final int parallelism,
+                                                            @Nonnull final Executor executor) {
+        final Iterable<ItemRandomPair<T>> itemWithRandoms =
+                Iterables.transform(items, item -> new ItemRandomPair<>(item, splittableRandom.split()));
+
+        return MoreAsyncUtil.forEach(itemWithRandoms,
+                itemWithRandom -> body.apply(itemWithRandom.getItem(), itemWithRandom.getRandom()),
+                parallelism, executor);
+    }
+
+    private static class ItemRandomPair<T> {
+        @Nonnull
+        private final T item;
+        @Nonnull
+        private final SplittableRandom random;
+
+        public ItemRandomPair(@Nonnull final T item, @Nonnull final SplittableRandom random) {
+            this.item = item;
+            this.random = random;
+        }
+
+        @Nonnull
+        public T getItem() {
+            return item;
+        }
+
+        @Nonnull
+        public SplittableRandom getRandom() {
+            return random;
+        }
     }
 
     public static final class GaussianSampler {
@@ -59,6 +161,15 @@ public final class RandomHelpers {
             hasSpare = true;
 
             return u * mul;
+        }
+    }
+
+    private static class SequentialUUID {
+        private static final AtomicLong sequenceAtomic = new AtomicLong(0L);
+
+        @Nonnull
+        private static UUID getNext() {
+            return new UUID(0, sequenceAtomic.getAndIncrement());
         }
     }
 }

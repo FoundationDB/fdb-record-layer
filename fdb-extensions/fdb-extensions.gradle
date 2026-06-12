@@ -44,21 +44,44 @@ dependencies {
     testFixturesAnnotationProcessor(libs.autoService)
 }
 
-def siftSmallFile = layout.buildDirectory.file('downloads/siftsmall.tar.gz')
-def extractDir = layout.buildDirectory.dir("extracted")
+// Describe all files here
+def siftDownloads = [
+        siftsmall: [
+                url : 'https://huggingface.co/datasets/vecdata/siftsmall/resolve/3106e1b83049c44713b1ce06942d0ab474bbdfb6/siftsmall.tar.gz',
+                dest: layout.buildDirectory.file("downloads/siftsmall.tar.gz")
+        ],
+        sift1mbase: [
+                url : 'https://huggingface.co/datasets/qbo-odp/sift1m/resolve/main/sift_base.fvecs',
+                dest: layout.buildDirectory.file("downloads/sift_base.fvecs")
+        ],
+        sift1mgroundtruth: [
+                url : 'https://huggingface.co/datasets/qbo-odp/sift1m/resolve/main/sift_groundtruth.ivecs',
+                dest: layout.buildDirectory.file("downloads/sift_groundtruth.ivecs")
+        ],
+        sift1mquery: [
+                url : 'https://huggingface.co/datasets/qbo-odp/sift1m/resolve/main/sift_query.fvecs',
+                dest: layout.buildDirectory.file("downloads/sift_query.fvecs")
+        ],
+]
 
-// Task that downloads the CSV exactly once unless it changed
-tasks.register('downloadSiftSmall', de.undercouch.gradle.tasks.download.Download) {
-    src 'https://huggingface.co/datasets/vecdata/siftsmall/resolve/3106e1b83049c44713b1ce06942d0ab474bbdfb6/siftsmall.tar.gz'
-    dest siftSmallFile.get().asFile
-    onlyIfModified true
-    tempAndMove true
-    retries 3
+// Register one Download task per entry
+def downloadTasks = siftDownloads.collect { name, cfg ->
+    tasks.register("download${name.capitalize()}", Download) {
+        src cfg.url
+        dest cfg.dest.get().asFile
+        onlyIfModified true
+        tempAndMove true
+        retries 3
+        overwrite false
+        outputs.file(dest)
+    }
 }
 
+def extractDir = layout.buildDirectory.dir("extracted")
+
 tasks.register('extractSiftSmall', Copy) {
-    dependsOn 'downloadSiftSmall'
-    from(tarTree(resources.gzip(siftSmallFile)))
+    dependsOn downloadTasks
+    from(tarTree(resources.gzip(siftDownloads.siftsmall.dest)))
     into extractDir
 
     doLast {
@@ -72,8 +95,74 @@ tasks.register('extractSiftSmall', Copy) {
 }
 
 test {
+    dependsOn downloadTasks
     dependsOn tasks.named('extractSiftSmall')
     inputs.dir extractDir
+    maxHeapSize = "4g"
+    // SIMD path: make the jdk.incubator.vector module visible at runtime so SimdBackend loads.
+    jvmArgs '--add-modules=jdk.incubator.vector'
+}
+
+//
+// SIMD compilation: the linear.simd sub-package imports jdk.incubator.vector.*, which requires
+// the incubator module to be added at compile time. Applied to both main and test compilations
+// so the test source set can reference Backend implementations directly if needed.
+//
+// javac emits an unconditional "using incubating module(s)" warning whenever an incubator
+// module is added. JDK 17 doesn't expose a lint category to suppress it (the `incubating`
+// category was added later), so we drop -Werror only for these two tasks. The doFirst hook
+// ensures the removal happens after strict.gradle has added -Werror via its own configureEach.
+//
+compileJava {
+    options.compilerArgs += ['--add-modules', 'jdk.incubator.vector']
+    doFirst {
+        options.compilerArgs = options.compilerArgs.findAll { it != '-Werror' }
+    }
+}
+compileTestJava {
+    options.compilerArgs += ['--add-modules', 'jdk.incubator.vector']
+    doFirst {
+        options.compilerArgs = options.compilerArgs.findAll { it != '-Werror' }
+    }
+}
+javadoc {
+    // Exclude the SIMD sub-package from javadoc: it imports jdk.incubator.vector.* which
+    // would (a) require --add-modules to be visible to javadoc and (b) trigger an unconditional
+    // "using incubating module(s)" warning that the project's -Xwerror would elevate to an
+    // error. SimdBackend is an implementation detail loaded reflectively by
+    // RealVectorPrimitives; the public surface lives in the parent linear package.
+    exclude 'com/apple/foundationdb/linear/simd/**'
+}
+
+//
+// Focused verification of the scalar fallback path: runs every test that must pass under the
+// scalar backend, selected by JUnit tags rather than an explicit class allowlist:
+//   - RequiresScalar   — tests that assert scalar-specific behavior (e.g. the backend name, or
+//                        bit-exact determinism that SIMD lane-reordering would break). These run
+//                        ONLY here (the default test task excludes the tag).
+//   - DualScalarSIMD   — parity/correctness tests that must hold under both backends. These run
+//                        TWICE in CI: under SIMD in the default test task, and again under scalar
+//                        here. That double-run is the point — it's how SIMD-vs-scalar parity is
+//                        actually exercised (the default run covers SIMD, this run confirms scalar
+//                        agrees).
+// Does NOT pass --add-modules, so loading SimdBackend fails with NoClassDefFoundError; the
+// fdb.vector.simd=scalar system property also forces scalar selection (so RealVectorPrimitives
+// resolves to the scalar backend even though the SIMD class is technically on the classpath).
+//
+task scalarFallbackTest(type: Test) {
+    description = 'Runs the RequiresScalar and DualScalarSIMD tagged tests without --add-modules to exercise the scalar fallback.'
+    group = 'verification'
+    useJUnitPlatform {
+        includeTags 'RequiresScalar', 'DualScalarSIMD'
+    }
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath       = sourceSets.test.runtimeClasspath
+    dependsOn tasks.named('extractSiftSmall')
+    inputs.dir extractDir
+    systemProperty 'fdb.vector.simd', 'scalar'
+}
+tasks.named('check').configure {
+    dependsOn 'scalarFallbackTest'
 }
 
 publishing {

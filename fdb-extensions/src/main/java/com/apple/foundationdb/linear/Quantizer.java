@@ -31,7 +31,7 @@ import javax.annotation.Nonnull;
  */
 public interface Quantizer {
     /**
-     * Returns the {@code Estimator} instance associated with this object.
+     * Returns the {@code DistanceEstimator} instance associated with this object.
      * <p>
      * The estimator is responsible for performing the primary distance estimation or calculation logic. This method
      * provides access to that underlying component.
