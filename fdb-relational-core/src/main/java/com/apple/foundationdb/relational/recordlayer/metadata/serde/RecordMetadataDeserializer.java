@@ -106,6 +106,7 @@ public class RecordMetadataDeserializer {
             }
         }
         nameToTableBuilder.values().stream().map(RecordLayerTable.Builder::build).forEach(schemaTemplateBuilder::addTable);
+
         if (!recordMetaData.getUserDefinedFunctionMap().isEmpty()) {
             final var metadataProvider = Suppliers.memoize(schemaTemplateBuilder::build);
             // TODO: topsort deps of functions.
