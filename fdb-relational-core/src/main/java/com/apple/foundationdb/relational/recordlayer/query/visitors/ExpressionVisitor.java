@@ -506,7 +506,7 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
     public Expression visitLogicalExpression(@Nonnull RelationalParser.LogicalExpressionContext ctx) {
         final var left = Assert.castUnchecked(ctx.expression(0).accept(this), Expression.class);
         final var right = Assert.castUnchecked(ctx.expression(1).accept(this), Expression.class);
-        return getDelegate().resolveFunction(ctx.logicalOperator().getText(), left, right);
+        return getDelegate().resolveFunction(ctx.operator.getText(), left, right);
     }
 
     @Nonnull
@@ -688,12 +688,12 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
     public Expression visitBitExpressionAtom(@Nonnull RelationalParser.BitExpressionAtomContext ctx) {
         final var left = Assert.castUnchecked(ctx.left.accept(this), Expression.class);
         final var right = Assert.castUnchecked(ctx.right.accept(this), Expression.class);
-        return getDelegate().resolveFunction(ctx.bitOperator().getText(), left, right);
+        return getDelegate().resolveFunction(ctx.operator.getText(), left, right);
     }
 
     @Nonnull
     @Override
-    public Expression visitBinaryComparisonPredicate(@Nonnull RelationalParser.BinaryComparisonPredicateContext ctx) {
+    public Expression visitBinaryComparisonExpression(@Nonnull RelationalParser.BinaryComparisonExpressionContext ctx) {
         final var left = Assert.castUnchecked(ctx.left.accept(this), Expression.class);
         final var right = Assert.castUnchecked(ctx.right.accept(this), Expression.class);
         return getDelegate().resolveFunction(ctx.comparisonOperator().getText(), left, right);
@@ -728,7 +728,7 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
     public Expression visitMathExpressionAtom(@Nonnull RelationalParser.MathExpressionAtomContext ctx) {
         final var left = Assert.castUnchecked(ctx.left.accept(this), Expression.class);
         final var right = Assert.castUnchecked(ctx.right.accept(this), Expression.class);
-        return getDelegate().resolveFunction(ctx.mathOperator().getText(), left, right);
+        return getDelegate().resolveFunction(ctx.operator.getText(), left, right);
     }
 
     @Nonnull

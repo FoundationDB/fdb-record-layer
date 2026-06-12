@@ -1615,8 +1615,8 @@ public class BaseVisitor extends RelationalParserBaseVisitor<Object> implements 
 
     @Nonnull
     @Override
-    public Expression visitBinaryComparisonPredicate(@Nonnull RelationalParser.BinaryComparisonPredicateContext ctx) {
-        return expressionVisitor.visitBinaryComparisonPredicate(ctx);
+    public Expression visitBinaryComparisonExpression(@Nonnull RelationalParser.BinaryComparisonExpressionContext ctx) {
+        return expressionVisitor.visitBinaryComparisonExpression(ctx);
     }
 
     @Override
@@ -1699,24 +1699,6 @@ public class BaseVisitor extends RelationalParserBaseVisitor<Object> implements 
     @Nonnull
     @Override
     public Object visitComparisonOperator(@Nonnull RelationalParser.ComparisonOperatorContext ctx) {
-        return visitChildren(ctx);
-    }
-
-    @Nonnull
-    @Override
-    public Object visitLogicalOperator(@Nonnull RelationalParser.LogicalOperatorContext ctx) {
-        return visitChildren(ctx);
-    }
-
-    @Nonnull
-    @Override
-    public Object visitBitOperator(@Nonnull RelationalParser.BitOperatorContext ctx) {
-        return visitChildren(ctx);
-    }
-
-    @Nonnull
-    @Override
-    public Object visitMathOperator(@Nonnull RelationalParser.MathOperatorContext ctx) {
         return visitChildren(ctx);
     }
 
