@@ -29,6 +29,7 @@ import com.apple.foundationdb.relational.api.StorageCluster;
 import com.apple.foundationdb.relational.api.catalog.StoreCatalog;
 import com.apple.foundationdb.relational.api.metrics.NoOpMetricRegistry;
 import com.apple.foundationdb.relational.recordlayer.ddl.RecordLayerMetadataOperationsFactory;
+import com.apple.foundationdb.relational.recordlayer.query.OfflinePrepareStatementsProcessor;
 import com.apple.foundationdb.relational.recordlayer.query.cache.RelationalPlanCache;
 
 import com.codahale.metrics.MetricRegistry;
@@ -52,8 +53,17 @@ public final class RecordLayerEngine {
 
         MetricRegistry mEngine = convertToRecordLayerEngine(metricsEngine);
 
-        List<StorageCluster> clusters = databases.stream().map(db ->
-                new RecordLayerStorageCluster(new DirectFdbConnection(db, mEngine), baseKeySpace, cfg, schemaCatalog, planCache, ddlFactory)).collect(Collectors.toList());
+        List<FdbConnection> connections = databases.stream()
+                .map(db -> new DirectFdbConnection(db, mEngine))
+                .collect(Collectors.toList());
+
+        List<StorageCluster> clusters = connections.stream()
+                .map(conn -> new RecordLayerStorageCluster(conn, baseKeySpace, cfg, schemaCatalog, planCache, ddlFactory))
+                .collect(Collectors.toList());
+
+        if (planCache != null && !connections.isEmpty()) {
+            new OfflinePrepareStatementsProcessor(planCache, schemaCatalog, connections.get(0), mEngine).run();
+        }
 
         return new EmbeddedRelationalEngine(clusters, mEngine);
     }

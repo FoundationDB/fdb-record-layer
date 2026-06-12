@@ -130,8 +130,12 @@ public final class PlanGenerator {
      */
     @Nonnull
     public Plan<?> getPlan(@Nonnull final String query) throws RelationalException {
+        return getPlanAndLog(query, KeyValueLogMessage.build("PlanGenerator"));
+    }
+
+    @Nonnull
+    private Plan<?> getPlanAndLog(@Nonnull final String query, @Nonnull KeyValueLogMessage message) throws RelationalException {
         resetTimer();
-        KeyValueLogMessage message = KeyValueLogMessage.build("PlanGenerator");
         Plan<?> plan = null;
         RelationalException exception = null;
         try {
@@ -143,6 +147,37 @@ public final class PlanGenerator {
             RelationalLoggingUtil.publishPlanGenerationLogs(logger, message, plan, exception, totalTimeMicros(), options);
         }
         return plan;
+    }
+
+    /**
+     * Pre-generates and caches plans for the prepare statements defined in the schema template.
+     * This method is idempotent per template name and version — subsequent calls for the same
+     * template are no-ops.
+     */
+    public void prepareStatements() {
+        if (cache.isEmpty()) {
+            return;
+        }
+        final var schemaTemplate = planContext.getSchemaTemplate();
+        if (schemaTemplate.getPrepareStatements().isEmpty()) {
+            return;
+        }
+        final var templateKey = schemaTemplate.getName() + ":" + schemaTemplate.getVersion();
+        if (cache.get().isPrepared(templateKey)) {
+            return;
+        }
+        for (final var statement : schemaTemplate.getPrepareStatements().entrySet()) {
+            try {
+                KeyValueLogMessage message = KeyValueLogMessage.build("PrepareStatements");
+                message.addKeyAndValue("schemaTemplate", templateKey);
+                message.addKeyAndValue("prepareStatementKey", statement.getKey());
+                message.addKeyAndValue("prepareStatementValue", statement.getValue());
+                getPlanAndLog(statement.getValue(), message);
+            } catch (RelationalException e) {
+                // do nothing here, error is already logged
+            }
+        }
+        cache.get().markPrepared(templateKey);
     }
 
     private boolean isCaseSensitive() {
