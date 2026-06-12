@@ -41,7 +41,8 @@ import java.sql.SQLException;
  */
 public class UpdatableViewTest {
 
-    private static final class JoinViewSchema {}
+    private static final class JoinViewSchema {
+    }
 
     // Schema with a plain table, a row-filtered view, and a star view.
     private static final String SCHEMA_TEMPLATE =
