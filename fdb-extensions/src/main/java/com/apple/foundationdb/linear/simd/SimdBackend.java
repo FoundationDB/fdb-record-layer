@@ -28,12 +28,13 @@ import jdk.incubator.vector.VectorSpecies;
 import javax.annotation.Nonnull;
 
 /**
- * SIMD implementation of {@link Backend} using the {@code jdk.incubator.vector} API
+ * SIMD implementation of {@link Backend} using the {@link jdk.incubator.vector} API
  * ({@link DoubleVector} with {@link DoubleVector#SPECIES_PREFERRED}). Loaded reflectively by
  * {@code RealVectorPrimitives}; never imported directly from the parent package.
  * <p>
- * Each element-wise method walks the input in {@code SPECIES.length()}-sized chunks (vectorized
- * loop) and processes the remaining 0–{@code SPECIES.length()-1} elements with a scalar tail
+ * Each element-wise method walks the input in {@link VectorSpecies#length() SPECIES.length()}-sized
+ * chunks (vectorized loop) and processes the remaining
+ * 0–{@link VectorSpecies#length() SPECIES.length()}-1 elements with a scalar tail
  * loop. Reductions (dot, l2SquaredNorm, euclideanSquared) accumulate into a
  * {@link DoubleVector} via {@link DoubleVector#fma fused multiply-add} and reduce horizontally at
  * the end. The vectorized loop body is a no-op when the input is shorter than one vector lane,
@@ -46,6 +47,26 @@ public final class SimdBackend implements Backend {
     @Override
     public String name() {
         return "simd[" + SPECIES + "]";
+    }
+
+    /**
+     * Returns the length-relative end of the unrolled main loop: the largest multiple of
+     * {@code accCount * SPECIES.length()} that is {@code <= length}. This is the unrolled-loop
+     * analogue of {@link VectorSpecies#loopBound(int)} (which gives the end for a loop advancing a
+     * single vector per iteration) for a loop that advances {@code accCount} vectors per iteration.
+     * <p>
+     * Centralizing it keeps the off-by-one in one place: a reduction iterates this many leading
+     * elements in the unrolled loop, then {@link VectorSpecies#loopBound(int)} elements in a
+     * single-vector trailing loop, then the scalar tail. Callers add {@code from} to make the
+     * bound absolute.
+     *
+     * @param length number of elements in the (sub-)range being reduced
+     * @param accCount number of independent accumulators processed per unrolled iteration
+     * @return the number of leading elements covered by full unrolled iterations
+     */
+    private static int unrolledLoopBound(final int length, final int accCount) {
+        final int chunk = accCount * SPECIES.length();
+        return (length / chunk) * chunk;
     }
 
     @Override
@@ -155,7 +176,7 @@ public final class SimdBackend implements Backend {
         DoubleVector acc3 = DoubleVector.zero(SPECIES);
 
         final int chunk4 = 4 * laneCount;
-        final int unrolled4End = from + (length / chunk4) * chunk4;
+        final int unrolled4End = from + unrolledLoopBound(length, 4);
         int i = from;
         for (; i < unrolled4End; i += chunk4) {
             acc0 = DoubleVector.fromArray(SPECIES, a, i)
@@ -196,7 +217,7 @@ public final class SimdBackend implements Backend {
         DoubleVector acc3 = DoubleVector.zero(SPECIES);
 
         final int chunk4 = 4 * laneCount;
-        final int unrolled4End = from + (length / chunk4) * chunk4;
+        final int unrolled4End = from + unrolledLoopBound(length, 4);
         int i = from;
         for (; i < unrolled4End; i += chunk4) {
             final DoubleVector v0 = DoubleVector.fromArray(SPECIES, a, i);
@@ -231,7 +252,7 @@ public final class SimdBackend implements Backend {
         DoubleVector acc2 = DoubleVector.zero(SPECIES);
         DoubleVector acc3 = DoubleVector.zero(SPECIES);
 
-        final int unrolledBound = bound - (4 * laneCount - 1);
+        final int unrolledBound = unrolledLoopBound(len, 4);
         int i = 0;
         for (; i < unrolledBound; i += 4 * laneCount) {
             final DoubleVector d0 = DoubleVector.fromArray(SPECIES, a, i)

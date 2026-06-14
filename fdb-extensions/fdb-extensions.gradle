@@ -101,12 +101,26 @@ compileTestJava {
     }
 }
 javadoc {
-    // Exclude the SIMD sub-package from javadoc: it imports jdk.incubator.vector.* which
-    // would (a) require --add-modules to be visible to javadoc and (b) trigger an unconditional
-    // "using incubating module(s)" warning that the project's -Xwerror would elevate to an
-    // error. SimdBackend is an implementation detail loaded reflectively by
-    // RealVectorPrimitives; the public surface lives in the parent linear package.
-    exclude 'com/apple/foundationdb/linear/simd/**'
+    // Include the linear.simd sub-package (SimdBackend) in the published Javadoc: it's a
+    // documented, user-relevant code path (the user must add --add-modules jdk.incubator.vector
+    // to their JVM to use it), so it's worth documenting rather than hiding. Javadoc needs the
+    // incubator module on its module path to resolve the jdk.incubator.vector.* references.
+    options.addStringOption('-add-modules', 'jdk.incubator.vector')
+}
+
+//
+// Adding the incubator module above makes javadoc emit an unconditional "using incubating
+// module(s)" warning that JDK 17 offers no lint category to suppress. The root build turns on
+// -Xwerror for every subproject's Javadoc in its own afterEvaluate, which runs BEFORE this block
+// but AFTER the plain `javadoc {}` block above — so we override it here, in our own (later)
+// afterEvaluate, by re-adding the Xwerror option as false (Gradle keys Javadoc options by name,
+// and a false boolean option is not emitted). We accept losing -Xwerror for this one module's
+// Javadoc in exchange for documenting the SIMD backend.
+//
+afterEvaluate {
+    javadoc {
+        options.addBooleanOption('Xwerror', false)
+    }
 }
 
 //

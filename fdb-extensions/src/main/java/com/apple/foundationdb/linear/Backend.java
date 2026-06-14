@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.linear;
 
+import com.apple.foundationdb.annotation.API;
+
 import javax.annotation.Nonnull;
 
 /**
@@ -39,6 +41,7 @@ import javax.annotation.Nonnull;
  * Callers must ensure array length consistency before invoking these methods; implementations may
  * assume {@code a.length == b.length == out.length} and skip length checks for speed.
  */
+@API(API.Status.INTERNAL)
 public interface Backend {
     /**
      * Returns a short, human-readable identifier of this backend (e.g. {@code "scalar"} or

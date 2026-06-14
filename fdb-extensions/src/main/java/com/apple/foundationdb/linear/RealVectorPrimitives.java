@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.linear;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -58,19 +59,67 @@ public final class RealVectorPrimitives {
         return backend;
     }
 
+    /**
+     * Functional seam for loading the SIMD backend. Production wiring uses the reflective
+     * {@link #loadSimdBackend()}; tests pass a stub so {@link #selectBackend(String, SimdBackendLoader)}
+     * can exercise every branch without depending on whether {@code jdk.incubator.vector} is
+     * actually on the module path.
+     */
+    @FunctionalInterface
+    interface SimdBackendLoader {
+        @Nonnull
+        Backend load() throws ReflectiveOperationException;
+    }
+
     @Nonnull
-    @SuppressWarnings("PMD.UseProperClassLoader")
     private static Backend selectBackend() {
-        final String mode = System.getProperty(simdPropertyName, "auto").toLowerCase(Locale.getDefault());
+        return selectBackend(System.getProperty(simdPropertyName, "auto"), RealVectorPrimitives::loadSimdBackend);
+    }
+
+    /**
+     * Reflectively loads and instantiates the SIMD backend. Package-private and
+     * {@link VisibleForTesting} so an integration test running <em>without</em>
+     * {@code --add-modules jdk.incubator.vector} can pass this real loader to
+     * {@link #selectBackend(String, SimdBackendLoader)} and verify the genuine module-absent
+     * behavior (auto-fallback to scalar, or strict failure).
+     *
+     * @return a freshly instantiated SIMD backend
+     * @throws ReflectiveOperationException if the SIMD backend class cannot be loaded or instantiated
+     */
+    @Nonnull
+    @VisibleForTesting
+    @SuppressWarnings("PMD.UseProperClassLoader")
+    static Backend loadSimdBackend() throws ReflectiveOperationException {
+        final Class<?> cls = Class.forName(
+                simdBackendClassName, true, RealVectorPrimitives.class.getClassLoader());
+        return (Backend) cls.getDeclaredConstructor().newInstance();
+    }
+
+    /**
+     * Pure backend-selection logic, separated from the JVM-global system property and module state
+     * so every branch is unit-testable. The branches are:
+     * <ul>
+     *   <li>{@code mode == "scalar"} → {@link ScalarBackend} (the loader is never consulted);</li>
+     *   <li>otherwise attempt {@code simdLoader.load()}: on success use it; on failure either throw
+     *       (when {@code mode == "simd"}, the strict opt-in) or fall back to {@link ScalarBackend}
+     *       (the default {@code auto} mode).</li>
+     * </ul>
+     *
+     * @param modeProperty raw value of the {@code fdb.vector.simd} property ({@code auto} by default)
+     * @param simdLoader supplier of the SIMD backend; throws if it cannot be loaded
+     * @return the selected backend
+     */
+    @Nonnull
+    @VisibleForTesting
+    static Backend selectBackend(@Nonnull final String modeProperty, @Nonnull final SimdBackendLoader simdLoader) {
+        final String mode = modeProperty.toLowerCase(Locale.getDefault());
         if ("scalar".equals(mode)) {
             logger.info("RealVectorPrimitives backend forced to scalar via -D{}", simdPropertyName);
             return new ScalarBackend();
         }
         final boolean strict = "simd".equals(mode);
         try {
-            final Class<?> cls = Class.forName(
-                    simdBackendClassName, true, RealVectorPrimitives.class.getClassLoader());
-            final Backend candidate = (Backend) cls.getDeclaredConstructor().newInstance();
+            final Backend candidate = simdLoader.load();
             if (logger.isInfoEnabled()) {
                 logger.info("RealVectorPrimitives backend = {}", candidate.name());
             }
@@ -81,7 +130,7 @@ public final class RealVectorPrimitives {
                         "SIMD backend required (-D" + simdPropertyName + "=simd) but not loadable: " + e, e);
             }
             if (logger.isInfoEnabled()) {
-                logger.info("SIMD vector backend unavailable, using scalar: {}", e.toString());
+                logger.info("SIMD vector backend unavailable, using scalar: {}: {}", e.getClass().getSimpleName(), e.getMessage());
             }
             return new ScalarBackend();
         }
