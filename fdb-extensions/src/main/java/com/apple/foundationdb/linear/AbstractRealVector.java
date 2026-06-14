@@ -218,14 +218,16 @@ public abstract class AbstractRealVector implements RealVector {
     }
 
     /**
-     * Computes the squared L2 norm from scratch as {@code dot(this)}. Backs the memoizing
-     * supplier behind {@link #l2SquaredNorm()}; subclasses normally don't need to call it
-     * directly.
+     * Computes the squared L2 norm from scratch by delegating to the {@link RealVector} interface
+     * default ({@code RealVector.super.l2SquaredNorm()}). Backs the memoizing supplier behind
+     * {@link #l2SquaredNorm()} — this override is purely the memoization layer; the canonical
+     * "compute from data" implementation lives in the interface default. Subclasses normally
+     * don't need to call it directly.
      *
      * @return the squared L2 norm of this vector
      */
     protected double computeL2SquaredNorm() {
-        return dot(this);
+        return RealVector.super.l2SquaredNorm();
     }
 
     /**

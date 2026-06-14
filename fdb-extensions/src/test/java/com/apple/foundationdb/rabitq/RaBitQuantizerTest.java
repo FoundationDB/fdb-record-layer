@@ -94,6 +94,115 @@ public class RaBitQuantizerTest {
         Assertions.assertThat(v_bar.dot(reCenteredBar)).isCloseTo(1, Offset.offset(0.01));
     }
 
+    //
+    // The methods below pin the {@link RealVector} arithmetic that {@link EncodedRealVector}
+    // inherits as interface defaults ({@code l2SquaredNorm}, {@code add}, {@code subtract},
+    // {@code multiply}, {@code normalize}). These operate on the encoded vector's lazily
+    // reconstructed dense form, so — exactly like the corresponding tests in {@code RealVectorTest}
+    // — they assert algebraic identities with the encoded vector itself as the subject (not the
+    // original input {@code v}, since encoding is lossy). Each comparison therefore stays between
+    // operations over the same reconstructed {@code double[]}, which keeps the {@code 2E-14}
+    // tolerance from {@code RealVectorTest} applicable.
+    //
+
+    /**
+     * Encodes a random vector and checks {@link RealVector#l2SquaredNorm()} on the encoded form
+     * agrees with the Euclidean distance from the encoded vector to the zero vector. Compares the
+     * square root (the L2 norm) rather than the squared value directly so the magnitude stays at
+     * {@code O(sqrt(numDimensions))}, where the absolute tolerance is appropriate. Synthesized from
+     * {@code RealVectorTest.testNorm}.
+     */
+    @ParameterizedTest
+    @MethodSource("randomSeedsWithNumDimensionsAndNumExBits")
+    void encodedL2SquaredNormTest(final long seed, final int numDimensions, final int numExBits) {
+        final Random random = new Random(seed);
+        final RealVector v = createRandomDoubleVector(random, numDimensions);
+        final RaBitQuantizer quantizer = new RaBitQuantizer(Metric.EUCLIDEAN_SQUARE_METRIC, numExBits);
+        final EncodedRealVector encodedV = quantizer.encode(v);
+
+        final DoubleRealVector zeroVector = DoubleRealVector.zeroVector(numDimensions);
+        Assertions.assertThat(Math.sqrt(encodedV.l2SquaredNorm()))
+                .isCloseTo(Metric.EUCLIDEAN_METRIC.distance(encodedV, zeroVector), Offset.offset(2E-14));
+    }
+
+    /**
+     * Encodes a random vector and checks the inherited {@link RealVector#add} behaves: adding the
+     * encoded vector to itself equals scaling it by two, and adding then subtracting a scalar is a
+     * no-op. Synthesized from {@code RealVectorTest.testAdd}.
+     */
+    @ParameterizedTest
+    @MethodSource("randomSeedsWithNumDimensionsAndNumExBits")
+    void encodedAddTest(final long seed, final int numDimensions, final int numExBits) {
+        final Random random = new Random(seed);
+        final RealVector v = createRandomDoubleVector(random, numDimensions);
+        final RaBitQuantizer quantizer = new RaBitQuantizer(Metric.EUCLIDEAN_SQUARE_METRIC, numExBits);
+        final EncodedRealVector encodedV = quantizer.encode(v);
+
+        Assertions.assertThat(Metric.EUCLIDEAN_METRIC.distance(encodedV.add(encodedV), encodedV.multiply(2.0d)))
+                .isCloseTo(0, Offset.offset(2E-14));
+        Assertions.assertThat(Metric.EUCLIDEAN_METRIC.distance(encodedV.add(1.0d).add(-1.0d), encodedV))
+                .isCloseTo(0, Offset.offset(2E-14));
+    }
+
+    /**
+     * Encodes a random vector and checks the inherited {@link RealVector#subtract} behaves:
+     * subtracting the encoded vector from itself yields the zero vector, and subtracting then
+     * adding a scalar is a no-op. Synthesized from {@code RealVectorTest.testSubtract}.
+     */
+    @ParameterizedTest
+    @MethodSource("randomSeedsWithNumDimensionsAndNumExBits")
+    void encodedSubtractTest(final long seed, final int numDimensions, final int numExBits) {
+        final Random random = new Random(seed);
+        final RealVector v = createRandomDoubleVector(random, numDimensions);
+        final RaBitQuantizer quantizer = new RaBitQuantizer(Metric.EUCLIDEAN_SQUARE_METRIC, numExBits);
+        final EncodedRealVector encodedV = quantizer.encode(v);
+
+        final DoubleRealVector zeroVector = DoubleRealVector.zeroVector(numDimensions);
+        Assertions.assertThat(Metric.EUCLIDEAN_METRIC.distance(encodedV.subtract(encodedV), zeroVector))
+                .isCloseTo(0, Offset.offset(2E-14));
+        Assertions.assertThat(Metric.EUCLIDEAN_METRIC.distance(encodedV.subtract(-1.0d).subtract(1.0d), encodedV))
+                .isCloseTo(0, Offset.offset(2E-14));
+    }
+
+    /**
+     * Encodes a random vector and checks the inherited {@link RealVector#multiply}: scaling by two
+     * equals adding the encoded vector to itself, and adding the negated (scaled by {@code -1})
+     * vector back yields the zero vector. Synthesized from {@code RealVectorTest.testAdd}'s use of
+     * {@code multiply}.
+     */
+    @ParameterizedTest
+    @MethodSource("randomSeedsWithNumDimensionsAndNumExBits")
+    void encodedMultiplyTest(final long seed, final int numDimensions, final int numExBits) {
+        final Random random = new Random(seed);
+        final RealVector v = createRandomDoubleVector(random, numDimensions);
+        final RaBitQuantizer quantizer = new RaBitQuantizer(Metric.EUCLIDEAN_SQUARE_METRIC, numExBits);
+        final EncodedRealVector encodedV = quantizer.encode(v);
+
+        final DoubleRealVector zeroVector = DoubleRealVector.zeroVector(numDimensions);
+        Assertions.assertThat(Metric.EUCLIDEAN_METRIC.distance(encodedV.multiply(2.0d), encodedV.add(encodedV)))
+                .isCloseTo(0, Offset.offset(2E-14));
+        Assertions.assertThat(Metric.EUCLIDEAN_METRIC.distance(encodedV.add(encodedV.multiply(-1.0d)), zeroVector))
+                .isCloseTo(0, Offset.offset(2E-14));
+    }
+
+    /**
+     * Encodes a random vector and checks the inherited {@link RealVector#normalize}: normalizing
+     * then scaling back by the L2 norm recovers the encoded vector. Synthesized from
+     * {@code RealVectorTest.testNormalize}.
+     */
+    @ParameterizedTest
+    @MethodSource("randomSeedsWithNumDimensionsAndNumExBits")
+    void encodedNormalizeTest(final long seed, final int numDimensions, final int numExBits) {
+        final Random random = new Random(seed);
+        final RealVector v = createRandomDoubleVector(random, numDimensions);
+        final RaBitQuantizer quantizer = new RaBitQuantizer(Metric.EUCLIDEAN_SQUARE_METRIC, numExBits);
+        final EncodedRealVector encodedV = quantizer.encode(v);
+
+        final RealVector normalized = encodedV.normalize();
+        Assertions.assertThat(Metric.EUCLIDEAN_METRIC.distance(encodedV, normalized.multiply(encodedV.l2Norm())))
+                .isCloseTo(0, Offset.offset(2E-14));
+    }
+
     /**
      * Create a random vector {@code v}, encode it into {@code encodedV} and estimate the distance between {@code v} and
      * {@code encodedV} which should be very close to {@code 0}.

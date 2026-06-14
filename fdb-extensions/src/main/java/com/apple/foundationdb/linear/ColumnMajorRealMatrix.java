@@ -81,17 +81,62 @@ public class ColumnMajorRealMatrix implements RealMatrix {
 
     @Nonnull
     @Override
+    public DoubleRealVector apply(@Nonnull final RealVector vector) {
+        Preconditions.checkArgument(getNumColumnDimensions() == vector.getNumDimensions());
+        final int n = getNumRowDimensions();
+        final int m = getNumColumnDimensions();
+        final double[] vData = vector.getData();
+        final double[] result = new double[n];
+        // result[i] = Σ_j data[j][i] * v[j] reorganized as input-stationary AXPYs over the
+        // contiguous columns of the matrix: each iteration adds v[j] · col_j into the result.
+        for (int j = 0; j < m; j++) {
+            RealVectorPrimitives.multiplyAddInto(vData[j], data[j], result, 0, n);
+        }
+        return new DoubleRealVector(result);
+    }
+
+    @Nonnull
+    @Override
+    public DoubleRealVector transposedApply(@Nonnull final RealVector vector) {
+        Preconditions.checkArgument(getNumRowDimensions() == vector.getNumDimensions());
+        final int n = getNumRowDimensions();
+        final int m = getNumColumnDimensions();
+        final double[] vData = vector.getData();
+        final double[] result = new double[m];
+        for (int j = 0; j < m; j++) {
+            result[j] = RealVectorPrimitives.dot(data[j], vData, 0, n);
+        }
+        return new DoubleRealVector(result);
+    }
+
+    /**
+     * Multiplies this matrix by {@code otherMatrix} and returns the column-major product.
+     *
+     * <p>Single universal AXPY fast path: each output column is built by accumulating
+     * {@code this}'s contiguous columns scaled by the corresponding entries of {@code B}'s
+     * column. Works regardless of {@code B}'s layout because the only thing {@code B}
+     * contributes per inner step is a scalar from {@code getEntry}. See
+     * {@link RowMajorRealMatrix#multiply} for the longer story on why row-major {@code A}
+     * cannot share this shape and instead needs two specialized branches.
+     *
+     * @param otherMatrix the right-hand operand; must satisfy
+     *        {@code otherMatrix.getNumRowDimensions() == this.getNumColumnDimensions()}
+     * @return a new {@link ColumnMajorRealMatrix} containing the product
+     */
+    @Nonnull
+    @Override
     public ColumnMajorRealMatrix multiply(@Nonnull final RealMatrix otherMatrix) {
         Preconditions.checkArgument(getNumColumnDimensions() == otherMatrix.getNumRowDimensions());
-        int n = getNumRowDimensions();
-        int m = otherMatrix.getNumColumnDimensions();
-        int common = getNumColumnDimensions();
-        double[][] result = new double[m][n];
-        for (int i = 0; i < n; i++) {
-            for (int j = 0; j < m; j++) {
-                for (int k = 0; k < common; k++) {
-                    result[j][i] += getEntry(i, k) * otherMatrix.getEntry(k, j);
-                }
+        final int n = getNumRowDimensions();
+        final int m = otherMatrix.getNumColumnDimensions();
+        final int common = getNumColumnDimensions();
+        final double[][] result = new double[m][n];
+        // C.col(j) += B[k][j] · A.col(k). Both A.col(k) (= data[k]) and C.col(j) (= result[j])
+        // are contiguous; B[k][j] is a single virtual getEntry call amortized over an O(n) AXPY.
+        for (int j = 0; j < m; j++) {
+            final double[] target = result[j];
+            for (int k = 0; k < common; k++) {
+                RealVectorPrimitives.multiplyAddInto(otherMatrix.getEntry(k, j), data[k], target, 0, n);
             }
         }
         return new ColumnMajorRealMatrix(result);
