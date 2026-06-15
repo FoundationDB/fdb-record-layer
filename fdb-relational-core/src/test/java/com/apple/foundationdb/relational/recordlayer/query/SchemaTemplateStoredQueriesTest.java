@@ -22,6 +22,7 @@ package com.apple.foundationdb.relational.recordlayer.query;
 
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
+import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.metrics.RelationalMetric;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalConnection;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalExtension;
@@ -30,6 +31,7 @@ import com.apple.foundationdb.relational.recordlayer.query.cache.QueryCacheKey;
 import com.apple.foundationdb.relational.recordlayer.query.cache.RelationalPlanCache;
 import com.apple.foundationdb.relational.utils.ConnectionUtils;
 import com.apple.foundationdb.relational.utils.Ddl;
+import com.apple.foundationdb.relational.utils.RelationalAssertions;
 import com.codahale.metrics.MetricFilter;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -45,8 +47,8 @@ public class SchemaTemplateStoredQueriesTest {
     private static final String SCHEMA_TEMPLATE =
             "CREATE TABLE t1(id bigint, col1 bigint, col2 bigint, PRIMARY KEY(id))" +
                     " CREATE INDEX i1 AS SELECT col1 FROM t1" +
-                    " PREPARE by_col1 FROM 'select * from t1 where col1 = 10'" +
-                    " PREPARE by_id FROM 'select * from t1 where id = 1'";
+                    " CREATE QUERY by_col1 AS select * from t1 where col1 = 10" +
+                    " CREATE QUERY by_id AS select * from t1 where id = 1";
 
     @RegisterExtension
     @Order(0)
@@ -331,54 +333,42 @@ public class SchemaTemplateStoredQueriesTest {
     }
 
     @Test
-    void badStoredQuery() throws Exception {
+    void badStoredQuery() {
+        // A malformed inner SELECT is rejected at parse time of the schema-template DDL itself,
+        // because `CREATE QUERY ... AS <query>` parses the body inline (unlike the old
+        // `PREPARE name FROM '<sql>'` form, which deferred parsing until startup planning).
         final String badTemplate =
                 "CREATE TABLE t1(id bigint, col1 bigint, col2 bigint, PRIMARY KEY(id))" +
                         " CREATE INDEX i1 AS SELECT col1 FROM t1" +
-                        " PREPARE by_col1 FROM 'select1 * from t1 where col1 = 10'" +   // bad
-                        " PREPARE by_col4 FROM 'select * from t1 where col4 = 10'" +    // bad
-                        " PREPARE by_id FROM 'select * from t1 where id = 1'";
+                        " CREATE QUERY by_col1 AS select1 * from t1 where col1 = 10" +    // bad
+                        " CREATE QUERY by_id AS select * from t1 where id = 1";
 
-        try (var ddl = Ddl.builder()
-                .database(URI.create("/TEST/BADSTOREDQUERY_DB"))
-                .relationalExtension(relationalExtension)
-                .schemaTemplate(badTemplate)
-                .build()) {
-            final String templateName = ddl.getSchemaTemplateName();
-
-            // create a new engine
-            final var freshDriver = relationalExtension.getDriver(
-                    com.apple.foundationdb.record.provider.foundationdb.FormatVersion.getDefaultFormatVersion());
-
-            // only one plan in cache, others are failed
-            Assertions.assertEquals(Long.valueOf(1), new ConnectionUtils(freshDriver).getFromCatalog(
-                    conn -> countCachedPlans(conn, templateName)));
-        }
+        RelationalAssertions.assertThrowsSqlException(() ->
+                Ddl.builder()
+                        .database(URI.create("/TEST/BADSTOREDQUERY_DB"))
+                        .relationalExtension(relationalExtension)
+                        .schemaTemplate(badTemplate)
+                        .build())
+                .hasErrorCode(ErrorCode.SYNTAX_ERROR);
     }
 
     @Test
-    void storedQueryDdl() throws Exception {
+    void storedQueryDdl() {
+        // The new `CREATE QUERY ... AS <query>` grammar only accepts a SELECT-shaped body
+        // (selectStatement / CTE / UNION). DDL like CREATE TABLE / CREATE INDEX is rejected
+        // at parse time — the old `PREPARE` form accepted any string and failed later.
         final String badTemplate =
                 "CREATE TABLE t1(id bigint, col1 bigint, col2 bigint, PRIMARY KEY(id))" +
                         " CREATE INDEX i1 AS SELECT col1 FROM t1" +
-                        " PREPARE ddl_t FROM 'CREATE TABLE t2(id bigint, col1 bigint, PRIMARY KEY(id))'" +      // ddl
-                        " PREPARE ddl_i FROM 'CREATE INDEX i2 AS SELECT col1 FROM t1'" +                        // ddl
-                        " PREPARE by_id FROM 'select * from t1 where id = 1'";
+                        " CREATE QUERY ddl_t AS CREATE TABLE t2(id bigint, col1 bigint, PRIMARY KEY(id))" +    // ddl
+                        " CREATE QUERY by_id AS select * from t1 where id = 1";
 
-        try (var ddl = Ddl.builder()
-                .database(URI.create("/TEST/DDLSTOREDQUERY_DB"))
-                .relationalExtension(relationalExtension)
-                .schemaTemplate(badTemplate)
-                .build()) {
-            final String templateName = ddl.getSchemaTemplateName();
-
-            // create a new engine
-            final var freshDriver = relationalExtension.getDriver(
-                    com.apple.foundationdb.record.provider.foundationdb.FormatVersion.getDefaultFormatVersion());
-
-            // only one plan in cache, others are failed
-            Assertions.assertEquals(Long.valueOf(1), new ConnectionUtils(freshDriver).getFromCatalog(
-                    conn -> countCachedPlans(conn, templateName)));
-        }
+        RelationalAssertions.assertThrowsSqlException(() ->
+                Ddl.builder()
+                        .database(URI.create("/TEST/DDLSTOREDQUERY_DB"))
+                        .relationalExtension(relationalExtension)
+                        .schemaTemplate(badTemplate)
+                        .build())
+                .hasErrorCode(ErrorCode.SYNTAX_ERROR);
     }
 }

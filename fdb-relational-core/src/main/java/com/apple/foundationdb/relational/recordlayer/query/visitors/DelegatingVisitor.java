@@ -305,6 +305,11 @@ public class DelegatingVisitor<D extends TypedVisitor> implements TypedVisitor {
     }
 
     @Override
+    public Object visitQueryDefinition(final RelationalParser.QueryDefinitionContext ctx) {
+        return getDelegate().visitQueryDefinition(ctx);
+    }
+
+    @Override
     public CompiledSqlFunction visitTempSqlInvokedFunction(final RelationalParser.TempSqlInvokedFunctionContext ctx) {
         return getDelegate().visitTempSqlInvokedFunction(ctx);
     }

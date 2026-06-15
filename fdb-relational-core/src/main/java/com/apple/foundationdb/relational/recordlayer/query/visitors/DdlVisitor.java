@@ -414,16 +414,13 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
                 sqlInvokedFunctionClauses.add(templateClause.sqlInvokedFunction());
             } else if (templateClause.viewDefinition() != null) {
                 viewClauses.add(templateClause.viewDefinition());
-            } else if (templateClause.prepareStatement() != null) {
-                final var prepareCtx = templateClause.prepareStatement();
-                final var name = visitUid(prepareCtx.uid()).getName();
-                final String queryString;
-                if (prepareCtx.queryString != null) {
-                    final var text = prepareCtx.queryString.getText();
-                    queryString = text.substring(1, text.length() - 1);
-                } else {
-                    queryString = prepareCtx.variable.getText();
-                }
+            } else if (templateClause.queryDefinition() != null) {
+                final var queryCtx = templateClause.queryDefinition();
+                final var name = visitUid(queryCtx.queryName).getName();
+                final var sourceText = getDelegate().getPlanGenerationContext().getQuery();
+                final var start = queryCtx.storedQuery.start.getStartIndex();
+                final var stop = queryCtx.storedQuery.stop.getStopIndex() + 1;
+                final var queryString = sourceText.substring(start, stop);
                 metadataBuilder.addStoredQuery(name, queryString);
             } else {
                 Assert.thatUnchecked(templateClause.indexDefinition() != null);
