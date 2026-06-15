@@ -413,10 +413,40 @@ left-outer-join:
     insert_time_ms: 2
     insert_new_count: 130
     insert_reused_count: 13
+-   query: EXPLAIN SELECT "e"."fname", ("d"."id", "d"."name") FROM "emp" "e" LEFT
+        JOIN "dept" "d" ON "e"."dept_id" = "d"."id";
+    ref: join-tests-outer.yamsql:338
+    explain: 'ISCAN(emp$fname <,>) | FLATMAP q0 -> { COVERING(dept$name <,> -> [id:
+        KEY:[2], name: KEY:[0]]) | FILTER q0.dept_id EQUALS _.id | FETCH | ON EMPTY
+        NULL AS q1 RETURN (q0.fname AS fname, (q1.id AS id, q1.name AS name) AS _1)
+        }'
+    task_count: 489
+    task_total_time_ms: 8
+    transform_count: 130
+    transform_time_ms: 4
+    transform_yield_count: 50
+    insert_time_ms: 0
+    insert_new_count: 61
+    insert_reused_count: 4
+-   query: EXPLAIN SELECT "e"."fname", "sq"."info" FROM "emp" "e" LEFT JOIN (SELECT
+        "id" AS "k", ("id", "name") AS "info" FROM "dept") "sq" ON "e"."dept_id" =
+        "sq"."k";
+    ref: join-tests-outer.yamsql:351
+    explain: ISCAN(emp$fname <,>) | FLATMAP q0 -> { SCAN([IS dept]) | FILTER q0.dept_id
+        EQUALS _.id | MAP (_.id AS k, _ AS info) | ON EMPTY NULL AS q1 RETURN (q0.fname
+        AS fname, q1.info AS info) }
+    task_count: 652
+    task_total_time_ms: 8
+    transform_count: 169
+    transform_time_ms: 4
+    transform_yield_count: 56
+    insert_time_ms: 0
+    insert_new_count: 78
+    insert_reused_count: 2
 right-outer-join:
 -   query: EXPLAIN SELECT "e"."fname", "d"."name" FROM "emp" "e" RIGHT JOIN "dept"
         "d" ON "e"."dept_id" = "d"."id";
-    ref: join-tests-outer.yamsql:342
+    ref: join-tests-outer.yamsql:366
     explain: ISCAN(dept$name <,>) | FLATMAP q0 -> { ISCAN(emp$fname <,>) | FILTER
         _.dept_id EQUALS q0.id | ON EMPTY NULL AS q1 RETURN (q1.fname AS fname, q0.name
         AS name) }
@@ -430,7 +460,7 @@ right-outer-join:
     insert_reused_count: 3
 -   query: EXPLAIN SELECT "e"."fname", "d"."name" FROM "emp" "e" RIGHT OUTER JOIN
         "dept" "d" ON "e"."dept_id" = "d"."id";
-    ref: join-tests-outer.yamsql:351
+    ref: join-tests-outer.yamsql:375
     explain: ISCAN(dept$name <,>) | FLATMAP q0 -> { ISCAN(emp$fname <,>) | FILTER
         _.dept_id EQUALS q0.id | ON EMPTY NULL AS q1 RETURN (q1.fname AS fname, q0.name
         AS name) }
@@ -444,7 +474,7 @@ right-outer-join:
     insert_reused_count: 3
 -   query: EXPLAIN SELECT "e"."fname", "d"."name" FROM "dept" "d" RIGHT JOIN "emp"
         "e" ON "e"."dept_id" = "d"."id";
-    ref: join-tests-outer.yamsql:361
+    ref: join-tests-outer.yamsql:385
     explain: 'ISCAN(emp$fname <,>) | FLATMAP q0 -> { COVERING(dept$name <,> -> [id:
         KEY:[2], name: KEY:[0]]) | FILTER q0.dept_id EQUALS _.id | FETCH | ON EMPTY
         NULL AS q1 RETURN (q0.fname AS fname, q1.name AS name) }'
@@ -458,7 +488,7 @@ right-outer-join:
     insert_reused_count: 4
 -   query: EXPLAIN SELECT "e"."fname", "d"."name" FROM "emp" "e" RIGHT JOIN "dept"
         "d" ON "e"."dept_id" = "d"."id" WHERE "d"."id" < 3;
-    ref: join-tests-outer.yamsql:370
+    ref: join-tests-outer.yamsql:394
     explain: SCAN([IS dept, [LESS_THAN promote(@c28 AS LONG)]]) | FLATMAP q0 -> {
         ISCAN(emp$fname <,>) | FILTER _.dept_id EQUALS q0.id | ON EMPTY NULL AS q1
         RETURN (q1.fname AS fname, q0.name AS name) }
@@ -472,7 +502,7 @@ right-outer-join:
     insert_reused_count: 7
 -   query: EXPLAIN SELECT "d"."name" FROM "emp" "e" RIGHT JOIN "dept" "d" ON "e"."dept_id"
         = "d"."id" WHERE "e"."id" IS NULL;
-    ref: join-tests-outer.yamsql:379
+    ref: join-tests-outer.yamsql:403
     explain: ISCAN(dept$name <,>) | FLATMAP q0 -> { ISCAN(emp$fname <,>) | FILTER
         _.dept_id EQUALS q0.id | ON EMPTY NULL | FILTER _.id IS_NULL AS q1 RETURN
         (q0.name AS name) }
@@ -486,7 +516,7 @@ right-outer-join:
     insert_reused_count: 8
 -   query: EXPLAIN SELECT "d"."name", "p"."name" FROM "project" "p" RIGHT JOIN "dept"
         "d" ON "d"."id" = "p"."emp_id";
-    ref: join-tests-outer.yamsql:384
+    ref: join-tests-outer.yamsql:408
     explain: ISCAN(dept$name <,>) | FLATMAP q0 -> { SCAN([IS project]) | FILTER q0.id
         EQUALS _.emp_id | ON EMPTY NULL AS q1 RETURN (q0.name AS _0, q1.name AS _1)
         }
@@ -500,7 +530,7 @@ right-outer-join:
     insert_reused_count: 2
 -   query: EXPLAIN SELECT "a"."name", "d"."name" FROM "award" "a" RIGHT JOIN "dept"
         "d" ON "a"."emp_id" = "d"."id";
-    ref: join-tests-outer.yamsql:393
+    ref: join-tests-outer.yamsql:417
     explain: ISCAN(dept$name <,>) | FLATMAP q0 -> { SCAN([IS award]) | FILTER _.emp_id
         EQUALS q0.id | ON EMPTY NULL AS q1 RETURN (q1.name AS _0, q0.name AS _1) }
     task_count: 356
@@ -513,7 +543,7 @@ right-outer-join:
     insert_reused_count: 2
 -   query: EXPLAIN SELECT "e"."fname", "d"."name" FROM "emp" "e" RIGHT JOIN "dept"
         "d" USING ("id");
-    ref: join-tests-outer.yamsql:402
+    ref: join-tests-outer.yamsql:426
     explain: ISCAN(dept$name <,>) | FLATMAP q0 -> { SCAN([IS emp, EQUALS q0.id]) |
         ON EMPTY NULL AS q1 RETURN (q1.fname AS fname, q0.name AS name) }
     task_count: 479
@@ -526,7 +556,7 @@ right-outer-join:
     insert_reused_count: 3
 -   query: EXPLAIN SELECT COALESCE("e"."fname", 'None'), "d"."name" FROM "emp" "e"
         RIGHT JOIN "dept" "d" ON "e"."dept_id" = "d"."id";
-    ref: join-tests-outer.yamsql:410
+    ref: join-tests-outer.yamsql:434
     explain: ISCAN(dept$name <,>) | FLATMAP q0 -> { ISCAN(emp$fname <,>) | FILTER
         _.dept_id EQUALS q0.id | ON EMPTY NULL AS q1 RETURN (coalesce_string(q1.fname,
         promote(@c7 AS STRING)) AS _0, q0.name AS name) }
@@ -534,6 +564,20 @@ right-outer-join:
     task_total_time_ms: 12
     transform_count: 126
     transform_time_ms: 6
+    transform_yield_count: 49
+    insert_time_ms: 0
+    insert_new_count: 55
+    insert_reused_count: 3
+-   query: EXPLAIN SELECT ("e"."id", "e"."fname"), "d"."name" FROM "emp" "e" RIGHT
+        JOIN "dept" "d" ON "e"."dept_id" = "d"."id";
+    ref: join-tests-outer.yamsql:445
+    explain: ISCAN(dept$name <,>) | FLATMAP q0 -> { ISCAN(emp$fname <,>) | FILTER
+        _.dept_id EQUALS q0.id | ON EMPTY NULL AS q1 RETURN ((q1.id AS id, q1.fname
+        AS fname) AS _0, q0.name AS name) }
+    task_count: 460
+    task_total_time_ms: 6
+    transform_count: 126
+    transform_time_ms: 3
     transform_yield_count: 49
     insert_time_ms: 0
     insert_new_count: 55
