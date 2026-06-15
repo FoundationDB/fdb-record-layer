@@ -76,6 +76,13 @@ test {
     inputs.dir extractDir
     // SIMD path: make the jdk.incubator.vector module visible at runtime so SimdBackend loads.
     jvmArgs '--add-modules=jdk.incubator.vector'
+    // Scalar-only tests (RequiresScalar) assert scalar-backend behaviour and run in the dedicated
+    // scalarFallbackTest task below; the default test task always loads the SIMD backend (via the
+    // --add-modules above), so the scalar-only tag is excluded here. This exclusion lives in
+    // fdb-extensions rather than the shared gradle/testing.gradle because fdb-extensions is the only
+    // module that has RequiresScalar-tagged tests and the only one that sets the SIMD JVM flags.
+    useJUnitPlatform()
+    testFramework.options.excludeTags.add('RequiresScalar')
 }
 
 //
