@@ -85,10 +85,10 @@ test_block:
     -
       - query: select * from f1(103, 'c') where col1 = 104
       - explain: "COVERING(T1_IDX4 [EQUALS promote(@c12 AS LONG), EQUALS promote(@c7 AS STRING)] -> [COL1: KEY:[0], COL2: KEY:[1], COL3: KEY:[2]]) | FILTER _.COL1 LESS_THAN promote(@c5 AS LONG) | MAP (_.COL1 AS COL1, _.COL2 AS COL2)"
-      - initialVersionLessThan: !current_version
-      # Prior to !current_version, we used to drop the < 103 predicate from the function due to: https://github.com/FoundationDB/fdb-record-layer/pull/3965
+      - initialVersionLessThan: 4.12.11.0
+      # Prior to 4.12.11.0, we used to drop the < 103 predicate from the function due to: https://github.com/FoundationDB/fdb-record-layer/pull/3965
       - result: [{104, 'c'}]
-      - initialVersionAtLeast: !current_version
+      - initialVersionAtLeast: 4.12.11.0
       - result: []
     -
       - query: select * from f1(103 + 1, 'b')

@@ -353,7 +353,7 @@ test_block:
       # Same as previous query, but the lhs and rhs of the first predicate have been flipped
       - query: select emp.id, fname from emp, dept where dept.id = emp.dept_id and dept.id in (1, 2) and emp.id not in (1, 5)
       - explain: "[IN arrayDistinct(promote(@c23 AS ARRAY(LONG)))] | INJOIN q0 -> { SCAN([IS DEPT, EQUALS q0]) } | FLATMAP q1 -> { COVERING(EMPDEPT <,> -> [DEPT_ID: KEY:[0], ID: KEY:[2]]) | FILTER NOT _.ID IN promote(@c34 AS ARRAY(LONG)) AND q1.ID EQUALS _.DEPT_ID | FETCH AS q2 RETURN (q2.ID AS ID, q2.FNAME AS FNAME) }"
-      - initialVersionLessThan: !current_version
+      - initialVersionLessThan: 4.12.11.0
       # Older builds had a buggy plan which could result in extraneous data being returned
       - unorderedResult: [{ID: 2, FNAME: "Thomas"},
                           {ID: 2, FNAME: "Thomas"},
@@ -369,7 +369,7 @@ test_block:
                           {ID: 8, FNAME: "Megan"},
                           {ID: 9, FNAME: "Harry"},
                           {ID: 9, FNAME: "Harry"}]
-      - initialVersionAtLeast: !current_version
+      - initialVersionAtLeast: 4.12.11.0
       - unorderedResult: [{ID: 2, FNAME: "Thomas"},
                           {ID: 3, FNAME: "Emily"},
                           {ID: 4, FNAME: "Amelia"},
@@ -465,8 +465,8 @@ test_block:
       # Same query as above but with one comparison flipped. This should not result in a different result set
       - query: select emp.fname, emp.lname from emp, dept where dept.name < emp.lname and dept.name = 'Sales' and emp.lname < 'W'
       - explain: "ISCAN(EMPNAME [[LESS_THAN promote(@c31 AS STRING)]]) | FLATMAP q0 -> { COVERING(DEPTNAME [EQUALS promote(@c25 AS STRING)] -> [ID: KEY:[2], NAME: KEY:[0]]) | FILTER _.NAME LESS_THAN q0.LNAME | FETCH AS q1 RETURN (q0.FNAME AS FNAME, q0.LNAME AS LNAME) }"
-      - initialVersionLessThan: !current_version
-      # Prior to !current_version, we used to drop the "dept.name < emp.lname" predicate due to: https://github.com/FoundationDB/fdb-record-layer/pull/3965
+      - initialVersionLessThan: 4.12.11.0
+      # Prior to 4.12.11.0, we used to drop the "dept.name < emp.lname" predicate due to: https://github.com/FoundationDB/fdb-record-layer/pull/3965
       - unorderedResult: [
                { FNAME: "Thomas",    LNAME: "Johnson" },
                { FNAME: "Emily",     LNAME: "Martinez" },
@@ -477,7 +477,7 @@ test_block:
                { FNAME: "Megan",     LNAME: "Miller" },
                { FNAME: "Harry",     LNAME: "Smith" },
         ]
-      - initialVersionAtLeast: !current_version
+      - initialVersionAtLeast: 4.12.11.0
       - result: [
            { FNAME: "Harry", LNAME: "Smith" },
         ]
