@@ -175,6 +175,7 @@ public final class PlanGenerator {
                 getPlanAndLog(storedQuery.getValue(), message);
             } catch (RelationalException e) {
                 // do nothing here, error is already logged
+                assert e != null;
             }
         }
         cache.get().markPrepared(templateKey);
