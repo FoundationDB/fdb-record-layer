@@ -56,17 +56,9 @@ public class SchemaTemplateStoredQueriesTest {
 
     @BeforeEach
     void clearMetrics() {
-        // Codahale registry is shared across tests in this class — reset so each test
-        // can assert absolute metric values rather than computing deltas.
         relationalExtension.getMetricRegistry().removeMatching(MetricFilter.ALL);
     }
 
-    /** Cumulative count of times the given timed event has been recorded into the shared registry. */
-    private long eventTimerCount(RelationalMetric.RelationalEvent event) {
-        return relationalExtension.getMetricRegistry().timer(event.title()).getCount();
-    }
-
-    /** Cumulative value of the given counter in the shared registry. */
     private long eventCounterCount(RelationalMetric.RelationalCount count) {
         return relationalExtension.getMetricRegistry().counter(count.title()).getCount();
     }
@@ -77,9 +69,6 @@ public class SchemaTemplateStoredQueriesTest {
         if (cache == null) {
             return 0;
         }
-        // Count actual L3 entries (stored plans), not L2 keys. A failed planning attempt leaves
-        // an empty L2 bucket in the cache (see MultiStageCache.reduce()), which numSecondaryEntries
-        // would still count. We want only the plans that were successfully stored.
         long total = 0;
         for (QueryCacheKey secondaryKey : cache.getStats().getAllSecondaryKeys(templateName)) {
             total += cache.getStats().getAllTertiaryMappings(templateName, secondaryKey).size();
@@ -334,9 +323,6 @@ public class SchemaTemplateStoredQueriesTest {
 
     @Test
     void badStoredQuery() {
-        // A malformed inner SELECT is rejected at parse time of the schema-template DDL itself,
-        // because `CREATE QUERY ... AS <query>` parses the body inline (unlike the old
-        // `PREPARE name FROM '<sql>'` form, which deferred parsing until startup planning).
         final String badTemplate =
                 "CREATE TABLE t1(id bigint, col1 bigint, col2 bigint, PRIMARY KEY(id))" +
                         " CREATE INDEX i1 AS SELECT col1 FROM t1" +
@@ -354,9 +340,6 @@ public class SchemaTemplateStoredQueriesTest {
 
     @Test
     void storedQueryDdl() {
-        // The new `CREATE QUERY ... AS <query>` grammar only accepts a SELECT-shaped body
-        // (selectStatement / CTE / UNION). DDL like CREATE TABLE / CREATE INDEX is rejected
-        // at parse time — the old `PREPARE` form accepted any string and failed later.
         final String badTemplate =
                 "CREATE TABLE t1(id bigint, col1 bigint, col2 bigint, PRIMARY KEY(id))" +
                         " CREATE INDEX i1 AS SELECT col1 FROM t1" +
