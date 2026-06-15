@@ -36,7 +36,7 @@ jobs:
       - name: Run Gradle Test
         uses: ./actions/gradle-test
         with:
-          gradle_command: jar test destructiveTest codeCoverageReport
+          gradle_command: jar test destructiveTest :fdb-extensions:scalarFallbackTest codeCoverageReport
           gradle_args: -PreleaseBuild=false -PpublishBuild=false
       - name: Upload coverage to teamscale
         # temporary until we validate that this is working correctly
@@ -154,7 +154,7 @@ jobs:
       - name: Run Gradle Test
         uses: ./actions/gradle-test
         with:
-          gradle_command: jar test destructiveTest codeCoverageReport
+          gradle_command: jar test destructiveTest :fdb-extensions:scalarFallbackTest codeCoverageReport
           gradle_args: "-PreleaseBuild=false -PpublishBuild=false -PspotbugsEnableHtmlReport -Ptests.includeRandom -Ptests.iterations=2 -Ptests.nightly"
           report_name: nightly-test-reports
 

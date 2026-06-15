@@ -21,7 +21,9 @@
 package com.apple.foundationdb.linear;
 
 import com.apple.test.RandomizedTestUtils;
+import com.apple.test.Tags;
 import com.google.common.collect.ImmutableSet;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -35,6 +37,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.within;
 
 @SuppressWarnings("checkstyle:AbbreviationAsWordInName")
+@Tag(Tags.DualScalarSIMD)
 class QRDecompositionTest {
     @Nonnull
     private static Stream<Arguments> randomSeedsWithNumDimensions() {
