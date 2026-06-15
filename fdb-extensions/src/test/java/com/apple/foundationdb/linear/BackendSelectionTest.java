@@ -71,7 +71,7 @@ class BackendSelectionTest {
     // ---- selection-logic unit tests (stub loader; run in any JVM) ----
 
     @Test
-    void autoModeUsesSimdBackendWhenLoaderSucceeds() {
+    void autoModeUsesSentinelBackendWhenLoaderSucceeds() {
         final Backend stub = new ScalarBackend(); // sentinel; any Backend instance works here
         assertThat(RealVectorPrimitives.selectBackend("auto", () -> stub)).isSameAs(stub);
     }
