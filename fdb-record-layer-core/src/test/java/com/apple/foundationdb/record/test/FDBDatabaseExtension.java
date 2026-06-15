@@ -38,10 +38,10 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.stream.Collectors;
 
@@ -75,7 +75,7 @@ public class FDBDatabaseExtension implements AfterEachCallback {
     @Nullable
     private FDBDatabaseFactory databaseFactory;
     @Nonnull
-    private final Map<String, FDBDatabase> databases = new HashMap<>();
+    private final Map<String, FDBDatabase> databases = new ConcurrentHashMap<>();
     private String defaultClusterFile = FDBTestEnvironment.randomClusterFile();
 
 
