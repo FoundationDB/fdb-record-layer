@@ -90,7 +90,9 @@ public final class OfflineStoredQueriesProcessor {
         try {
             templates = getSchemaTemplates();
         } catch (RelationalException e) {
-            logger.error(KeyValueLogMessage.of("OfflineStoredQueriesProcessor failed to read catalog"), e);
+            if (logger.isErrorEnabled()) {
+                logger.error(KeyValueLogMessage.of("OfflineStoredQueriesProcessor failed to read catalog"), e);
+            }
             return;
         }
         int queriesPlanned = 0;
@@ -101,15 +103,19 @@ public final class OfflineStoredQueriesProcessor {
                 queriesPlanned += template.getStoredQueries().size();
             } catch (RelationalException e) {
                 templatesFailed++;
-                logger.error(KeyValueLogMessage.of("OfflineStoredQueriesProcessor failed to process schema template",
-                        "schemaTemplate", template.getName() + ":" + template.getVersion()), e);
+                if (logger.isErrorEnabled()) {
+                    logger.error(KeyValueLogMessage.of("OfflineStoredQueriesProcessor failed to process schema template",
+                            "schemaTemplate", template.getName() + ":" + template.getVersion()), e);
+                }
             }
         }
-        logger.info(KeyValueLogMessage.of("OfflineStoredQueriesProcessor finished",
-                "templates", templates.size(),
-                "templatesFailed", templatesFailed,
-                "queriesPlanned", queriesPlanned,
-                "durationMicros", TimeUnit.NANOSECONDS.toMicros(System.nanoTime() - startNanos)));
+        if (logger.isInfoEnabled()) {
+            logger.info(KeyValueLogMessage.of("OfflineStoredQueriesProcessor finished",
+                    "templates", templates.size(),
+                    "templatesFailed", templatesFailed,
+                    "queriesPlanned", queriesPlanned,
+                    "durationMicros", TimeUnit.NANOSECONDS.toMicros(System.nanoTime() - startNanos)));
+        }
     }
 
     @Nonnull
