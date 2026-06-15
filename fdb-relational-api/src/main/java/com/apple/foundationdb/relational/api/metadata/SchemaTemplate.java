@@ -132,12 +132,12 @@ public interface SchemaTemplate extends Metadata {
     Collection<? extends InvokedRoutine> getTemporaryInvokedRoutines() throws RelationalException;
 
     /**
-     * Returns the prepare statements defined in this schema template.
+     * Returns the stored queries defined in this schema template.
      *
-     * @return A map of prepare statement names to their SQL strings.
+     * @return A map of stored query names to their SQL strings.
      */
     @Nonnull
-    Map<String, String> getPrepareStatements();
+    Map<String, String> getStoredQueries();
 
     @Nonnull
     String getTransactionBoundMetadataAsString() throws RelationalException;

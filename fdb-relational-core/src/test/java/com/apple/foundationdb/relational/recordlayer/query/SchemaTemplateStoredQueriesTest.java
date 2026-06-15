@@ -1,5 +1,5 @@
 /*
- * SchemaTemplatePrepareTest.java
+ * SchemaTemplateStoredQueriesTest.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -40,7 +40,7 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 import java.net.URI;
 import java.sql.SQLException;
 
-public class SchemaTemplatePrepareTest {
+public class SchemaTemplateStoredQueriesTest {
 
     private static final String SCHEMA_TEMPLATE =
             "CREATE TABLE t1(id bigint, col1 bigint, col2 bigint, PRIMARY KEY(id))" +
@@ -107,9 +107,9 @@ public class SchemaTemplatePrepareTest {
     }
 
     @Test
-    void prepareStatementsStoredInTemplate() throws Exception {
+    void storedQueriesInTemplate() throws Exception {
         try (var ddl = Ddl.builder()
-                .database(URI.create("/TEST/PREPARE_DB"))
+                .database(URI.create("/TEST/STOREDQUERIES_DB"))
                 .relationalExtension(relationalExtension)
                 .schemaTemplate(SCHEMA_TEMPLATE)
                 .build()) {
@@ -120,10 +120,10 @@ public class SchemaTemplatePrepareTest {
             final var schemaTemplate = embeddedConnection.getSchemaTemplate().unwrap(RecordLayerSchemaTemplate.class);
             embeddedConnection.rollback();
             embeddedConnection.setAutoCommit(true);
-            final var prepareStatements = schemaTemplate.getPrepareStatements();
-            Assertions.assertEquals(2, prepareStatements.size());
-            Assertions.assertEquals("select * from t1 where col1 = 10", prepareStatements.get("BY_COL1"));
-            Assertions.assertEquals("select * from t1 where id = 1", prepareStatements.get("BY_ID"));
+            final var storedQueries = schemaTemplate.getStoredQueries();
+            Assertions.assertEquals(2, storedQueries.size());
+            Assertions.assertEquals("select * from t1 where col1 = 10", storedQueries.get("BY_COL1"));
+            Assertions.assertEquals("select * from t1 where id = 1", storedQueries.get("BY_ID"));
             Assertions.assertEquals(0, countCachedPlans(connection, ddl.getSchemaTemplateName())); // we do not generate plans at ddl execution for now
         }
     }
@@ -148,8 +148,8 @@ public class SchemaTemplatePrepareTest {
     }
 
     @Test
-    void prepareStatementsUsage() throws Exception {
-        final String dbUri = "/TEST/PREPARE_DB2";
+    void storedQueriesUsage() throws Exception {
+        final String dbUri = "/TEST/STOREDQUERIES_DB2";
         try (var ddl = Ddl.builder()
                 .database(URI.create(dbUri))
                 .relationalExtension(relationalExtension)
@@ -173,8 +173,8 @@ public class SchemaTemplatePrepareTest {
                     com.apple.foundationdb.record.provider.foundationdb.FormatVersion.getDefaultFormatVersion());
             final var freshUtils = new ConnectionUtils(freshDriver);
 
-            // OfflinePrepareStatementsProcessor ran during fresh-engine construction and
-            // warmed both prepare statements: 2 plan-query events, 2 L3 cache misses.
+            // OfflineStoredQueriesProcessor ran during fresh-engine construction and
+            // warmed both stored queries: 2 plan-query events, 2 L3 cache misses.
             Assertions.assertEquals(2, eventCounterCount(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_MISS));
             Assertions.assertEquals(0, eventCounterCount(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_HIT));
 
@@ -207,7 +207,7 @@ public class SchemaTemplatePrepareTest {
             Assertions.assertEquals(2, eventCounterCount(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_HIT));
             Assertions.assertEquals(2, eventCounterCount(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_MISS));
 
-            // non prepared statements, new record in the cache
+            // non-stored query, new record in the cache
             freshUtils.runAgainstConnection(dbUri, schemaName, c -> {
                 try (var stmt = c.createStatement(); RelationalResultSet rs = stmt.executeQuery("select * from t1 where col2 = 1")) {
                     Assertions.assertTrue(rs.next());
@@ -223,8 +223,8 @@ public class SchemaTemplatePrepareTest {
     }
 
     @Test
-    void prepareStatementsUsageParams() throws Exception {
-        final String dbUri = "/TEST/PREPARE_DB3";
+    void storedQueriesUsageParams() throws Exception {
+        final String dbUri = "/TEST/STOREDQUERIES_DB3";
         try (var ddl = Ddl.builder()
                 .database(URI.create(dbUri))
                 .relationalExtension(relationalExtension)
@@ -251,7 +251,7 @@ public class SchemaTemplatePrepareTest {
             // Connect via the fresh driver and verify the fresh engine's cache has the plans
             Assertions.assertEquals(Long.valueOf(2), freshUtils.getFromCatalog(c -> countCachedPlans(c, templateName)));
 
-            // select with different literal than prepared — canonical SQL matches, cache hit
+            // select with different literal than stored — canonical SQL matches, cache hit
             freshUtils.runAgainstConnection(dbUri, schemaName, c -> {
                 try (var stmt = c.createStatement(); RelationalResultSet rs = stmt.executeQuery("select * from t1 where col1 = 20")) {
                     Assertions.assertTrue(rs.next());
@@ -261,7 +261,7 @@ public class SchemaTemplatePrepareTest {
             });
             Assertions.assertEquals(Long.valueOf(2), freshUtils.getFromCatalog(c -> countCachedPlans(c, templateName)));
 
-            // select with different literal than prepared — canonical SQL matches, cache hit
+            // select with different literal than stored — canonical SQL matches, cache hit
             freshUtils.runAgainstConnection(dbUri, schemaName, c -> {
                 try (var stmt = c.createStatement(); RelationalResultSet rs = stmt.executeQuery("select * from t1 where id = 2")) {
                     Assertions.assertTrue(rs.next());
@@ -274,8 +274,8 @@ public class SchemaTemplatePrepareTest {
     }
 
     @Test
-    void prepareStatementsUsageJdbcPrepare() throws Exception {
-        final String dbUri = "/TEST/PREPARE_DB4";
+    void storedQueriesUsageJdbcPrepare() throws Exception {
+        final String dbUri = "/TEST/STOREDQUERIES_DB4";
         try (var ddl = Ddl.builder()
                 .database(URI.create(dbUri))
                 .relationalExtension(relationalExtension)
@@ -302,7 +302,7 @@ public class SchemaTemplatePrepareTest {
             // Connect via the fresh driver and verify the fresh engine's cache has the plans
             Assertions.assertEquals(Long.valueOf(2), freshUtils.getFromCatalog(c -> countCachedPlans(c, templateName)));
 
-            // JDBC PreparedStatement on col1 with bound parameter — canonical SQL matches PREPARE BY_COL1, cache hit
+            // JDBC PreparedStatement on col1 with bound parameter — canonical SQL matches stored BY_COL1, cache hit
             freshUtils.runAgainstConnection(dbUri, schemaName, c -> {
                 try (var ps = c.prepareStatement("select * from t1 where col1 = ?")) {
                     ps.setInt(1, 20);
@@ -315,7 +315,7 @@ public class SchemaTemplatePrepareTest {
             });
             Assertions.assertEquals(Long.valueOf(2), freshUtils.getFromCatalog(c -> countCachedPlans(c, templateName)));
 
-            // JDBC PreparedStatement on id with bound parameter — canonical SQL matches PREPARE BY_ID, cache hit
+            // JDBC PreparedStatement on id with bound parameter — canonical SQL matches stored BY_ID, cache hit
             freshUtils.runAgainstConnection(dbUri, schemaName, c -> {
                 try (var ps = c.prepareStatement("select * from t1 where id = ?")) {
                     ps.setInt(1, 2);
@@ -331,7 +331,7 @@ public class SchemaTemplatePrepareTest {
     }
 
     @Test
-    void badPrepareStatement() throws Exception {
+    void badStoredQuery() throws Exception {
         final String badTemplate =
                 "CREATE TABLE t1(id bigint, col1 bigint, col2 bigint, PRIMARY KEY(id))" +
                         " CREATE INDEX i1 AS SELECT col1 FROM t1" +
@@ -340,7 +340,7 @@ public class SchemaTemplatePrepareTest {
                         " PREPARE by_id FROM 'select * from t1 where id = 1'";
 
         try (var ddl = Ddl.builder()
-                .database(URI.create("/TEST/BADPREPARE_DB"))
+                .database(URI.create("/TEST/BADSTOREDQUERY_DB"))
                 .relationalExtension(relationalExtension)
                 .schemaTemplate(badTemplate)
                 .build()) {
@@ -357,7 +357,7 @@ public class SchemaTemplatePrepareTest {
     }
 
     @Test
-    void prepareStatementDdl() throws Exception {
+    void storedQueryDdl() throws Exception {
         final String badTemplate =
                 "CREATE TABLE t1(id bigint, col1 bigint, col2 bigint, PRIMARY KEY(id))" +
                         " CREATE INDEX i1 AS SELECT col1 FROM t1" +
@@ -366,7 +366,7 @@ public class SchemaTemplatePrepareTest {
                         " PREPARE by_id FROM 'select * from t1 where id = 1'";
 
         try (var ddl = Ddl.builder()
-                .database(URI.create("/TEST/DDLPREPARE_DB"))
+                .database(URI.create("/TEST/DDLSTOREDQUERY_DB"))
                 .relationalExtension(relationalExtension)
                 .schemaTemplate(badTemplate)
                 .build()) {

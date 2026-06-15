@@ -81,7 +81,7 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
     private final Set<RecordLayerView> views;
 
     @Nonnull
-    private final Map<String, String> prepareStatements;
+    private final Map<String, String> storedQueries;
 
     private final int version;
 
@@ -110,7 +110,7 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
                                       @Nonnull final Set<RecordLayerTable> tables,
                                       @Nonnull final Set<RecordLayerInvokedRoutine> invokedRoutines,
                                       @Nonnull final Set<RecordLayerView> views,
-                                      @Nonnull final Map<String, String> prepareStatements,
+                                      @Nonnull final Map<String, String> storedQueries,
                                       int version,
                                       boolean enableLongRows,
                                       boolean storeRowVersions,
@@ -119,7 +119,7 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
         this.tables = ImmutableSet.copyOf(tables);
         this.invokedRoutines = ImmutableSet.copyOf(invokedRoutines);
         this.views = ImmutableSet.copyOf(views);
-        this.prepareStatements = ImmutableMap.copyOf(prepareStatements);
+        this.storedQueries = ImmutableMap.copyOf(storedQueries);
         this.version = version;
         this.enableLongRows = enableLongRows;
         this.storeRowVersions = storeRowVersions;
@@ -135,7 +135,7 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
                                       @Nonnull final Set<RecordLayerTable> tables,
                                       @Nonnull final Set<RecordLayerInvokedRoutine> invokedRoutines,
                                       @Nonnull final Set<RecordLayerView> views,
-                                      @Nonnull final Map<String, String> prepareStatements,
+                                      @Nonnull final Map<String, String> storedQueries,
                                       int version,
                                       boolean enableLongRows,
                                       boolean storeRowVersions,
@@ -146,7 +146,7 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
         this.tables = ImmutableSet.copyOf(tables);
         this.invokedRoutines = ImmutableSet.copyOf(invokedRoutines);
         this.views = ImmutableSet.copyOf(views);
-        this.prepareStatements = ImmutableMap.copyOf(prepareStatements);
+        this.storedQueries = ImmutableMap.copyOf(storedQueries);
         this.enableLongRows = enableLongRows;
         this.storeRowVersions = storeRowVersions;
         this.intermingleTables = intermingleTables;
@@ -347,8 +347,8 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
 
     @Nonnull
     @Override
-    public Map<String, String> getPrepareStatements() {
-        return prepareStatements;
+    public Map<String, String> getStoredQueries() {
+        return storedQueries;
     }
 
     @Nonnull
@@ -428,7 +428,7 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
         private final Map<String, RecordLayerView> views;
 
         @Nonnull
-        private final Map<String, String> prepareStatements;
+        private final Map<String, String> storedQueries;
 
 
         private RecordMetaData cachedMetadata;
@@ -438,7 +438,7 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
             auxiliaryTypes = new LinkedHashMap<>();
             invokedRoutines = new LinkedHashMap<>();
             views = new LinkedHashMap<>();
-            prepareStatements = new LinkedHashMap<>();
+            storedQueries = new LinkedHashMap<>();
             // enable long rows is TRUE by default
             enableLongRows = true;
         }
@@ -558,14 +558,14 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
         }
 
         @Nonnull
-        public Builder addPrepareStatement(@Nonnull final String name, @Nonnull final String prepareStatement) {
-            prepareStatements.put(name, prepareStatement);
+        public Builder addStoredQuery(@Nonnull final String name, @Nonnull final String storedQuery) {
+            storedQueries.put(name, storedQuery);
             return this;
         }
 
         @Nonnull
-        public Builder addPrepareStatements(@Nonnull final Map<String, String> prepareStatements) {
-            this.prepareStatements.putAll(prepareStatements);
+        public Builder addStoredQueries(@Nonnull final Map<String, String> storedQueries) {
+            this.storedQueries.putAll(storedQueries);
             return this;
         }
 
@@ -661,10 +661,10 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
 
             if (cachedMetadata != null) {
                 return new RecordLayerSchemaTemplate(name, new LinkedHashSet<>(tables.values()),
-                        new LinkedHashSet<>(invokedRoutines.values()), new LinkedHashSet<>(views.values()), prepareStatements, version, enableLongRows, storeRowVersions, intermingleTables, cachedMetadata);
+                        new LinkedHashSet<>(invokedRoutines.values()), new LinkedHashSet<>(views.values()), storedQueries, version, enableLongRows, storeRowVersions, intermingleTables, cachedMetadata);
             } else {
                 return new RecordLayerSchemaTemplate(name, new LinkedHashSet<>(tables.values()),
-                        new LinkedHashSet<>(invokedRoutines.values()), new LinkedHashSet<>(views.values()), prepareStatements, version, enableLongRows, storeRowVersions, intermingleTables);
+                        new LinkedHashSet<>(invokedRoutines.values()), new LinkedHashSet<>(views.values()), storedQueries, version, enableLongRows, storeRowVersions, intermingleTables);
             }
         }
 
@@ -793,6 +793,6 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
                 .addTables(getTables())
                 .addInvokedRoutines(getInvokedRoutines())
                 .addViews(getViews())
-                .addPrepareStatements(getPrepareStatements());
+                .addStoredQueries(getStoredQueries());
     }
 }

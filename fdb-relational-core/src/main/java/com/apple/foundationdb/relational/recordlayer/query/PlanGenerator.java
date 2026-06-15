@@ -150,29 +150,29 @@ public final class PlanGenerator {
     }
 
     /**
-     * Pre-generates and caches plans for the prepare statements defined in the schema template.
+     * Pre-generates and caches plans for the stored queries defined in the schema template.
      * This method is idempotent per template name and version — subsequent calls for the same
      * template are no-ops.
      */
-    public void prepareStatements() {
+    public void planStoredQueries() {
         if (cache.isEmpty()) {
             return;
         }
         final var schemaTemplate = planContext.getSchemaTemplate();
-        if (schemaTemplate.getPrepareStatements().isEmpty()) {
+        if (schemaTemplate.getStoredQueries().isEmpty()) {
             return;
         }
         final var templateKey = schemaTemplate.getName() + ":" + schemaTemplate.getVersion();
         if (cache.get().isPrepared(templateKey)) {
             return;
         }
-        for (final var statement : schemaTemplate.getPrepareStatements().entrySet()) {
+        for (final var storedQuery : schemaTemplate.getStoredQueries().entrySet()) {
             try {
-                KeyValueLogMessage message = KeyValueLogMessage.build("PrepareStatements");
+                KeyValueLogMessage message = KeyValueLogMessage.build("PlanStoredQueries");
                 message.addKeyAndValue("schemaTemplate", templateKey);
-                message.addKeyAndValue("prepareStatementKey", statement.getKey());
-                message.addKeyAndValue("prepareStatementValue", statement.getValue());
-                getPlanAndLog(statement.getValue(), message);
+                message.addKeyAndValue("storedQueryName", storedQuery.getKey());
+                message.addKeyAndValue("storedQuerySql", storedQuery.getValue());
+                getPlanAndLog(storedQuery.getValue(), message);
             } catch (RelationalException e) {
                 // do nothing here, error is already logged
             }

@@ -29,7 +29,7 @@ import com.apple.foundationdb.relational.api.StorageCluster;
 import com.apple.foundationdb.relational.api.catalog.StoreCatalog;
 import com.apple.foundationdb.relational.api.metrics.NoOpMetricRegistry;
 import com.apple.foundationdb.relational.recordlayer.ddl.RecordLayerMetadataOperationsFactory;
-import com.apple.foundationdb.relational.recordlayer.query.OfflinePrepareStatementsProcessor;
+import com.apple.foundationdb.relational.recordlayer.query.OfflineStoredQueriesProcessor;
 import com.apple.foundationdb.relational.recordlayer.query.cache.RelationalPlanCache;
 
 import com.codahale.metrics.MetricRegistry;
@@ -62,7 +62,7 @@ public final class RecordLayerEngine {
                 .collect(Collectors.toList());
 
         if (planCache != null && !connections.isEmpty()) {
-            new OfflinePrepareStatementsProcessor(planCache, schemaCatalog, connections.get(0), mEngine).run();
+            new OfflineStoredQueriesProcessor(planCache, schemaCatalog, connections.get(0), mEngine).run();
         }
 
         return new EmbeddedRelationalEngine(clusters, mEngine);

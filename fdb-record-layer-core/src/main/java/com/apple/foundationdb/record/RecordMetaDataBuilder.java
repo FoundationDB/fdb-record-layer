@@ -116,7 +116,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
     @Nonnull
     private final Map<String, View> viewMap;
     @Nonnull
-    private final Map<String, String> prepareStatements;
+    private final Map<String, String> storedQueries;
     @Nonnull
     private final Map<String, Index> indexes;
     @Nonnull
@@ -154,7 +154,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
         syntheticRecordTypes = new HashMap<>();
         userDefinedFunctionMap = new HashMap<>();
         viewMap = new HashMap<>();
-        prepareStatements = new HashMap<>();
+        storedQueries = new HashMap<>();
     }
 
     private void processSchemaOptions(boolean processExtensionOptions) {
@@ -241,7 +241,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
             final View view = View.fromProto(viewProto);
             viewMap.put(view.getName(), view);
         }
-        prepareStatements.putAll(metaDataProto.getPrepareStatementsMap());
+        storedQueries.putAll(metaDataProto.getStoredQueriesMap());
         if (metaDataProto.hasSplitLongRecords()) {
             splitLongRecords = metaDataProto.getSplitLongRecords();
         }
@@ -1220,12 +1220,12 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
     }
 
     @Nonnull
-    public Map<String, String> getPrepareStatements() {
-        return prepareStatements;
+    public Map<String, String> getStoredQueries() {
+        return storedQueries;
     }
 
-    public void addPrepareStatement(@Nonnull String name, @Nonnull String prepareStatement) {
-        prepareStatements.put(name, prepareStatement);
+    public void addStoredQuery(@Nonnull String name, @Nonnull String storedQuery) {
+        storedQueries.put(name, storedQuery);
     }
 
     public boolean isSplitLongRecords() {
@@ -1469,7 +1469,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
         Map<Object, SyntheticRecordType<?>> recordTypeKeyToSyntheticRecordTypeMap = Maps.newHashMapWithExpectedSize(syntheticRecordTypes.size());
         RecordMetaData metaData = new RecordMetaData(recordsDescriptor, getUnionDescriptor(), unionFields,
                 builtRecordTypes, builtSyntheticRecordTypes, recordTypeKeyToSyntheticRecordTypeMap,
-                indexes, universalIndexes, formerIndexes, userDefinedFunctionMap, viewMap, prepareStatements,
+                indexes, universalIndexes, formerIndexes, userDefinedFunctionMap, viewMap, storedQueries,
                 splitLongRecords, storeRecordVersions, version, subspaceKeyCounter, usesSubspaceKeyCounter, recordCountKey, localFileDescriptor != null);
         for (RecordTypeBuilder recordTypeBuilder : recordTypes.values()) {
             KeyExpression primaryKey = recordTypeBuilder.getPrimaryKey();

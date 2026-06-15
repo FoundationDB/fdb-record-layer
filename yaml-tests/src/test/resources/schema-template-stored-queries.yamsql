@@ -1,5 +1,5 @@
 #
-# schema-template-prepare.yamsql
+# schema-template-stored-queries.yamsql
 #
 # This source file is part of the FoundationDB open source project
 #
@@ -37,7 +37,7 @@ setup:
                (5, 30, 5)
 ---
 test_block:
-  name: schema-template-prepare-tests
+  name: schema-template-stored-queries-tests
   tests:
     -
       - query: select * from T1 where col1 = 10

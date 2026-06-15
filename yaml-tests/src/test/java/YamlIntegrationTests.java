@@ -388,8 +388,8 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
-    public void schemaTemplatePrepare(YamlTest.Runner runner) throws Exception {
-        runner.runYamsql("schema-template-prepare.yamsql");
+    public void schemaTemplateStoredQueries(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("schema-template-stored-queries.yamsql");
     }
 
     @TestTemplate

@@ -236,9 +236,9 @@ public class NoOpSchemaTemplateTests {
     }
 
     @Test
-    public void testGetPrepareStatementsReturnsEmptyMap() {
+    public void testGetStoredQueriesReturnsEmptyMap() {
         final NoOpSchemaTemplate template = new NoOpSchemaTemplate("test", 1);
-        assertNotNull(template.getPrepareStatements());
-        assertEquals(0, template.getPrepareStatements().size());
+        assertNotNull(template.getStoredQueries());
+        assertEquals(0, template.getStoredQueries().size());
     }
 }

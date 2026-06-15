@@ -1,5 +1,5 @@
 /*
- * OfflinePrepareStatementsProcessor.java
+ * OfflineStoredQueriesProcessor.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -44,23 +44,23 @@ import java.util.concurrent.TimeUnit;
 
 /**
  * Pre-warms the shared {@link RelationalPlanCache} at engine startup by planning every
- * prepare statement declared on every schema template in the catalog.
+ * stored query declared on every schema template in the catalog.
  *
  * <p>Two-phase to respect FDB's transaction time bound:
  * <ol>
  *   <li>{@link #getSchemaTemplates()} — read-only catalog transaction. It iterates all
  *       schema templates in the catalog and stores only with
- *       non-empty {@code prepareStatements}</li>
- *   <li>{@link #prepareStatementsForSchemaTemplate} — Iterates stored schema templates,
+ *       non-empty {@code storedQueries}</li>
+ *   <li>{@link #planStoredQueriesForSchemaTemplate} — Iterates stored schema templates,
  *       for each of them builds an offline {@link PlanGenerator} and delegates to
- *       {@link PlanGenerator#prepareStatements()} which idempotently populates the cache.</li>
+ *       {@link PlanGenerator#planStoredQueries()} which idempotently populates the cache.</li>
  * </ol>
  *
  * <p>Per-template failures are swallowed so a single bad template cannot abort startup.</p>
  */
 @API(API.Status.EXPERIMENTAL)
-public final class OfflinePrepareStatementsProcessor {
-    private static final Logger logger = LogManager.getLogger(OfflinePrepareStatementsProcessor.class);
+public final class OfflineStoredQueriesProcessor {
+    private static final Logger logger = LogManager.getLogger(OfflineStoredQueriesProcessor.class);
 
     @Nonnull
     private final RelationalPlanCache cache;
@@ -74,10 +74,10 @@ public final class OfflinePrepareStatementsProcessor {
     @Nonnull
     private final OfflineMetricCollector metricCollector;
 
-    public OfflinePrepareStatementsProcessor(@Nonnull final RelationalPlanCache cache,
-                                             @Nonnull final StoreCatalog storeCatalog,
-                                             @Nonnull final FdbConnection fdbConnection,
-                                             @Nonnull final MetricRegistry metricRegistry) {
+    public OfflineStoredQueriesProcessor(@Nonnull final RelationalPlanCache cache,
+                                         @Nonnull final StoreCatalog storeCatalog,
+                                         @Nonnull final FdbConnection fdbConnection,
+                                         @Nonnull final MetricRegistry metricRegistry) {
         this.cache = cache;
         this.storeCatalog = storeCatalog;
         this.fdbConnection = fdbConnection;
@@ -90,25 +90,25 @@ public final class OfflinePrepareStatementsProcessor {
         try {
             templates = getSchemaTemplates();
         } catch (RelationalException e) {
-            logger.error(KeyValueLogMessage.of("OfflinePrepareStatementsProcessor failed to read catalog"), e);
+            logger.error(KeyValueLogMessage.of("OfflineStoredQueriesProcessor failed to read catalog"), e);
             return;
         }
-        int statementsPrepared = 0;
+        int queriesPlanned = 0;
         int templatesFailed = 0;
         for (final RecordLayerSchemaTemplate template : templates) {
             try {
-                prepareStatementsForSchemaTemplate(template);
-                statementsPrepared += template.getPrepareStatements().size();
+                planStoredQueriesForSchemaTemplate(template);
+                queriesPlanned += template.getStoredQueries().size();
             } catch (RelationalException e) {
                 templatesFailed++;
-                logger.error(KeyValueLogMessage.of("OfflinePrepareStatementsProcessor failed to process schema template",
+                logger.error(KeyValueLogMessage.of("OfflineStoredQueriesProcessor failed to process schema template",
                         "schemaTemplate", template.getName() + ":" + template.getVersion()), e);
             }
         }
-        logger.info(KeyValueLogMessage.of("OfflinePrepareStatementsProcessor finished",
+        logger.info(KeyValueLogMessage.of("OfflineStoredQueriesProcessor finished",
                 "templates", templates.size(),
                 "templatesFailed", templatesFailed,
-                "statementsPrepared", statementsPrepared,
+                "queriesPlanned", queriesPlanned,
                 "durationMicros", TimeUnit.NANOSECONDS.toMicros(System.nanoTime() - startNanos)));
     }
 
@@ -121,7 +121,7 @@ public final class OfflinePrepareStatementsProcessor {
                     final var template = storeCatalog.getSchemaTemplateCatalog()
                             .loadSchemaTemplate(txn, rs.getString(SystemTable.TEMPLATE_NAME))
                             .unwrap(RecordLayerSchemaTemplate.class);
-                    if (!template.getPrepareStatements().isEmpty()) {
+                    if (!template.getStoredQueries().isEmpty()) {
                         result.add(template);
                     }
                 }
@@ -133,13 +133,13 @@ public final class OfflinePrepareStatementsProcessor {
         return result;
     }
 
-    private void prepareStatementsForSchemaTemplate(@Nonnull final RecordLayerSchemaTemplate template) throws RelationalException {
+    private void planStoredQueriesForSchemaTemplate(@Nonnull final RecordLayerSchemaTemplate template) throws RelationalException {
         final var generator = PlanGenerator.create(
                 Optional.of(cache),
                 template,
                 new RecordStoreState(null, null),
                 metricCollector,
                 Options.NONE);                      // assume this is standard set of options
-        generator.prepareStatements();
+        generator.planStoredQueries();
     }
 }

@@ -111,8 +111,8 @@ public class RecordMetadataSerializer extends SkeletonVisitor {
         getBuilder().setSplitLongRecords(schemaTemplate.isEnableLongRows());
         getBuilder().setStoreRecordVersions(schemaTemplate.isStoreRowVersions());
         getBuilder().setVersion(schemaTemplate.getVersion());
-        for (final var entry : recLayerSchemaTemplate.getPrepareStatements().entrySet()) {
-            getBuilder().addPrepareStatement(entry.getKey(), entry.getValue());
+        for (final var entry : recLayerSchemaTemplate.getStoredQueries().entrySet()) {
+            getBuilder().addStoredQuery(entry.getKey(), entry.getValue());
         }
     }
 

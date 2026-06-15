@@ -424,7 +424,7 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
                 } else {
                     queryString = prepareCtx.variable.getText();
                 }
-                metadataBuilder.addPrepareStatement(name, queryString);
+                metadataBuilder.addStoredQuery(name, queryString);
             } else {
                 Assert.thatUnchecked(templateClause.indexDefinition() != null);
                 indexClauses.add(templateClause.indexDefinition());

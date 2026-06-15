@@ -143,7 +143,7 @@ public class NoOpSchemaTemplate implements SchemaTemplate {
 
     @Nonnull
     @Override
-    public Map<String, String> getPrepareStatements() {
+    public Map<String, String> getStoredQueries() {
         return Collections.emptyMap();
     }
 
