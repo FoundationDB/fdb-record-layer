@@ -120,8 +120,8 @@ public class ReassignTask extends AbstractDeferredTask {
     @Override
     protected void writeDeferredTask(@Nonnull final Transaction transaction) {
         super.writeDeferredTask(transaction);
-        if (logger.isInfoEnabled()) {
-            logger.info("enqueuing REASSIGN; taskId={}; clusterId={}",
+        if (logger.isDebugEnabled()) {
+            logger.debug("enqueuing REASSIGN; taskId={}; clusterId={}",
                     AbstractDeferredTask.taskIdToString(getTaskId()), getTargetClusterId());
         }
     }
@@ -183,8 +183,8 @@ public class ReassignTask extends AbstractDeferredTask {
                         final ReassignTask reassignTask = withHighPriorityAndNeighborhood(random,
                                 ClusterReference.fromClusterMetadataAndDistances(fetchedNeighborhood));
                         reassignTask.writeDeferredTask(transaction);
-                        if (logger.isTraceEnabled()) {
-                            logger.trace("enqueuing high priority REASSIGN due to refetch of neighborhood; taskId={}; neighborhoodSize={}",
+                        if (logger.isDebugEnabled()) {
+                            logger.debug("enqueuing high priority REASSIGN due to refetch of neighborhood; taskId={}; neighborhoodSize={}",
                                     AbstractDeferredTask.taskIdToString(reassignTask.getTaskId()),
                                     reassignTask.getNeighborhood().size());
                         }
@@ -505,7 +505,7 @@ public class ReassignTask extends AbstractDeferredTask {
                                 updatedStandardDeviation, EnumSet.noneOf(ClusterMetadata.State.class));
                 primitives.writeClusterMetadata(transaction, newTargetClusterMetadata);
             } else {
-                primitives.updateClusterMetadataAndEnqueueTaskMaybe(transaction, random, clusterMetadata,
+                primitives.updateClusterMetadataAndEnqueueSplitOrReassignTaskMaybe(transaction, random, clusterMetadata,
                         clusterMetadataWithDistance.centroid(), getAccessInfo(),
                         numPrimaryVectorsAdded, numPrimaryUnderreplicatedVectorsAdded, numReplicatedVectorsAdded,
                         updatedStandardDeviation, ImmutableSet.of());
@@ -521,9 +521,9 @@ public class ReassignTask extends AbstractDeferredTask {
             }
         }
 
-        if (logger.isInfoEnabled()) {
+        if (logger.isTraceEnabled()) {
             Objects.requireNonNull(newTargetClusterMetadata);
-            logger.info("reassign stats; old.numPrimary={}, new.numPrimary={}, old.numReplicated={}, " +
+            logger.trace("reassign stats; old.numPrimary={}, new.numPrimary={}, old.numReplicated={}, " +
                     "new.numReplicated={}, numDeleted={}, numUpdated={}, numPrimaryPushedOut={}, " +
                     "numReplicatedPushedOut={}", targetClusterMetadata.getNumPrimaryVectors(),
                     newTargetClusterMetadata.getNumPrimaryVectors(), targetClusterMetadata.numReplicatedVectors(),

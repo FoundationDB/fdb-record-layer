@@ -24,6 +24,8 @@ import com.apple.foundationdb.Database;
 import com.apple.foundationdb.ReadTransaction;
 import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.async.AsyncIterable;
+import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.common.RandomHelpers;
 import com.apple.foundationdb.async.common.ResultEntry;
 import com.apple.foundationdb.async.common.StorageTransform;
@@ -548,6 +550,35 @@ public class Primitives {
                     }
                     return node.asCompactNode();
                 });
+    }
+
+    /**
+     * Classifies how many nodes currently live on layer 0 (the base layer that holds every node) as
+     * {@link Cardinality#EMPTY}, {@link Cardinality#SINGLE} or {@link Cardinality#MULTIPLE}. The scan reads at
+     * most two nodes and is therefore independent of the actual graph size. See
+     * {@link HNSW#cardinality(ReadTransaction)} for the public entry point and the rationale.
+     *
+     * @param readTransaction the transaction to use for reading from the database
+     *
+     * @return a {@link CompletableFuture} that completes with the {@link Cardinality} of layer 0
+     */
+    @Nonnull
+    CompletableFuture<Cardinality> cardinality(@Nonnull final ReadTransaction readTransaction) {
+        return cardinality(readTransaction, storageAdapterForLayer(0));
+    }
+
+    @Nonnull
+    private <N extends NodeReference> CompletableFuture<Cardinality>
+            cardinality(@Nonnull final ReadTransaction readTransaction,
+                        @Nonnull final StorageAdapter<N> storageAdapter) {
+        // Reading just two nodes is enough to tell empty / single / multiple apart; passing maxNumRead == 2
+        // bounds the underlying range read to (at most) two key/value pairs, so the cost does not grow with the
+        // size of the graph. Layer 0 is always backed by a CompactStorageAdapter (inlining is only used for
+        // layers > 0), whose scanLayer returns an AsyncIterable, so we can collect it without blocking.
+        final AsyncIterable<AbstractNode<N>> layerZeroNodes =
+                (AsyncIterable<AbstractNode<N>>)storageAdapter.scanLayer(readTransaction, 0, null, 2);
+        return AsyncUtil.collect(layerZeroNodes, getExecutor())
+                .thenApply(nodes -> Cardinality.fromCount(nodes.size()));
     }
 
     /**

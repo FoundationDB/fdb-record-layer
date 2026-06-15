@@ -675,6 +675,7 @@ class TestHelpers {
                                                   final int k) {
         // Local record so we don't need a top-level helper class.
         record IndexedDistance(double distance, int index) { }
+
         final PriorityQueue<IndexedDistance> heap = new PriorityQueue<>(Math.max(1, k),
                 Comparator.comparingDouble(IndexedDistance::distance).reversed());
         for (final Map.Entry<Tuple, ? extends RealVector> e : active.entrySet()) {
@@ -1044,10 +1045,10 @@ class TestHelpers {
     }
 
     /**
-     * Umbrella post-condition check for any test that has just performed structural operations
-     * (inserts, deletes, repartitions, etc.). Runs the deferred-task queue to quiescence,
-     * verifies that nothing remains pending, then snapshots and validates every structural
-     * invariant currently checkable on a quiescent snapshot.
+     * Umbrella post-condition check for a test that has performed structural operations
+     * <em>without deletes</em> (inserts, repartitions, reassigns, etc.). Runs the deferred-task
+     * queue to quiescence, verifies nothing remains pending, then snapshots and validates every
+     * structural invariant — <em>including</em> {@link #assertReplicasReferenceLivePrimaries}.
      * <p>
      * Equivalent to the explicit sequence:
      * <pre>{@code
@@ -1057,16 +1058,52 @@ class TestHelpers {
      * assertEveryPrimaryUniqueAndAccountedFor(s);
      * assertReplicasReferenceLivePrimaries(s);
      * }</pre>
-     * but bundled into one call so scenario tests don't have to repeat the boilerplate. Tests
-     * that want finer control (e.g. snapshotting before and after for a diff) should call the
-     * individual helpers instead.
+     * but bundled into one call so scenario tests don't have to repeat the boilerplate.
+     * <p>
+     * <b>Do not use this after deletes.</b> Deleting a primary can legitimately leave dangling
+     * replica vectors behind (replicas are not necessarily reaped), so
+     * {@link #assertReplicasReferenceLivePrimaries} would spuriously fail. Delete-involving tests
+     * should call {@link #assertGuardiannInvariantsAfterDeletes} instead. Tests that want finer
+     * control (e.g. snapshotting before and after for a diff) should call the individual helpers.
      */
     static void assertGuardiannInvariants(@Nonnull final Database db,
                                           @Nonnull final Guardiann guardiann) {
+        assertGuardiannInvariants(db, guardiann, true);
+    }
+
+    /**
+     * Umbrella post-condition check for a test that may have performed deletes. Identical to
+     * {@link #assertGuardiannInvariants}, except it omits {@link #assertReplicasReferenceLivePrimaries}:
+     * after a delete it is valid for replica vectors to dangle (the primary is gone but its
+     * replicas haven't been reaped), so that check does not hold. The quiescence and
+     * primary-uniqueness invariants still do, and are still checked.
+     */
+    static void assertGuardiannInvariantsAfterDeletes(@Nonnull final Database db,
+                                                      @Nonnull final Guardiann guardiann) {
+        assertGuardiannInvariants(db, guardiann, false);
+    }
+
+    /**
+     * Shared implementation behind {@link #assertGuardiannInvariants} and
+     * {@link #assertGuardiannInvariantsAfterDeletes}. Runs to quiescence, asserts quiescence, then
+     * validates the structural invariants on the resulting snapshot. The replica/live-primary
+     * check is gated on {@code requireReplicasReferenceLivePrimaries} because it only holds in the
+     * absence of deletes.
+     *
+     * @param db the database
+     * @param guardiann the structure under test
+     * @param requireReplicasReferenceLivePrimaries whether to additionally assert that every
+     *        replica references a live primary (only valid when no deletes were performed)
+     */
+    private static void assertGuardiannInvariants(@Nonnull final Database db,
+                                                  @Nonnull final Guardiann guardiann,
+                                                  final boolean requireReplicasReferenceLivePrimaries) {
         runToQuiescence(db, guardiann);
         assertQuiescence(db, guardiann);
         final StructureSnapshot snapshot = snapshotStructure(db, guardiann);
         assertEveryPrimaryUniqueAndAccountedFor(snapshot);
-        assertReplicasReferenceLivePrimaries(snapshot);
+        if (requireReplicasReferenceLivePrimaries) {
+            assertReplicasReferenceLivePrimaries(snapshot);
+        }
     }
 }

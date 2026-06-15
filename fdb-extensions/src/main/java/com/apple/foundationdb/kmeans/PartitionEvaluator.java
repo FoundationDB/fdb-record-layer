@@ -188,8 +188,8 @@ public class PartitionEvaluator {
                                                 @Nonnull final String reason) {
         currentStats.log(logger, "current stats");
         candidateStats.log(logger, "candidate stats");
-        if (logger.isInfoEnabled()) {
-            logger.info("keep current candidate reason={}, relativeSseGain={}, scoreGain={}",
+        if (logger.isTraceEnabled()) {
+            logger.trace("keep current candidate reason={}, relativeSseGain={}, scoreGain={}",
                     reason, relativeSseGain, scoreGain);
         }
         return new EvaluationResult(Decision.KEEP_CURRENT, currentStats, candidateStats,
@@ -216,8 +216,8 @@ public class PartitionEvaluator {
                                             @Nonnull final String reason) {
         currentStats.log(logger, "current stats");
         candidateStats.log(logger, "candidate stats");
-        if (logger.isInfoEnabled()) {
-            logger.info("invalid candidate reason={}, relativeSseGain={}, scoreGain={}",
+        if (logger.isDebugEnabled()) {
+            logger.debug("invalid candidate reason={}, relativeSseGain={}, scoreGain={}",
                     reason, relativeSseGain, scoreGain);
         }
         return new EvaluationResult(Decision.INVALID_CANDIDATE, currentStats, candidateStats,
@@ -243,8 +243,8 @@ public class PartitionEvaluator {
                                            @Nonnull final String reason) {
         currentStats.log(logger, "current stats");
         candidateStats.log(logger, "candidate stats");
-        if (logger.isInfoEnabled()) {
-            logger.info("accepted candidate, relativeSseGain={}, scoreGain={}", relativeSseGain, scoreGain);
+        if (logger.isDebugEnabled()) {
+            logger.debug("accepted candidate, relativeSseGain={}, scoreGain={}", relativeSseGain, scoreGain);
         }
         return new EvaluationResult(Decision.ACCEPT_CANDIDATE, currentStats, candidateStats,
                 relativeSseGain, scoreGain, reason);
@@ -845,8 +845,8 @@ public class PartitionEvaluator {
          * @param messagePrefix free-form prefix prepended to the structured log line
          */
         public void log(@Nonnull final Logger logger, @Nonnull final String messagePrefix) {
-            if (logger.isDebugEnabled()) {
-                logger.debug("{} k={}, sse={}, imbalance={}, separation={}, largestFrac={}, smallestFrac={}" +
+            if (logger.isTraceEnabled()) {
+                logger.trace("{} k={}, sse={}, imbalance={}, separation={}, largestFrac={}, smallestFrac={}" +
                                 ", maxRadius95={}, medianMargin={}, p10Margin={}, lowMarginRate={}",
                         messagePrefix, k, sse, imbalance, separation, largestFrac, smallestFrac,
                         maxRadius95, medianMargin, p10Margin, lowMarginRate);

@@ -89,9 +89,9 @@ public class Delete {
      * Deletes a vector identified by its primary key from the Guardiann index.
      * <p>
      * Locates the vector's references in nearby clusters by querying the HNSW centroid index,
-     * removes them, adjusts cluster metadata, and enqueues a split/merge task via
-     * {@link Primitives#updateClusterMetadataAndEnqueueTaskMaybe} if the primary cluster's size drops below the
-     * configured minimum. Finally, removes the vector's metadata entry.
+     * removes them, adjusts cluster metadata, and enqueues a merge task via
+     * {@link Primitives#updateClusterMetadataAndEnqueueMergeTaskMaybe} if the primary cluster's size drops below the
+     * configured minimum (and a mergeable neighbor exists). Finally, removes the vector's metadata entry.
      *
      * @param transaction the {@link Transaction} context for all database operations
      * @param primaryKey the unique {@link Tuple} primary key of the vector to delete
@@ -166,8 +166,12 @@ public class Delete {
                                             clusterId, primaryKey);
                                 },
                                 config.deleteConcurrency(), getExecutor())
-                        .thenAccept(vectorReferences -> {
+                        .thenCompose(vectorReferences -> {
                             boolean foundPrimary = false;
+                            // Deleting a primary may drop its cluster below primaryClusterMin and trigger a
+                            // merge; whether a merge is possible depends on the centroid index, so that step is
+                            // asynchronous and is threaded through this future.
+                            CompletableFuture<Void> primaryUpdateFuture = AsyncUtil.DONE;
 
                             for (int i = 0; i < clusterMetadataWithDistances.size(); i++) {
                                 final VectorReference vectorReference = vectorReferences.get(i);
@@ -188,15 +192,14 @@ public class Delete {
                                             clusterMetadata.runningStandardDeviation().remove(
                                                     clusterMetadataWithDistance.distance());
 
-                                    primitives.updateClusterMetadataAndEnqueueTaskMaybe(transaction, random.split(),
-                                            clusterMetadata,
-                                            clusterMetadataWithDistance.centroid(), accessInfo,
-                                            -1, 0, 0,
-                                            updatedStandardDeviation,
-                                            ImmutableSet.of());
+                                    primaryUpdateFuture = primaryUpdateFuture.thenCompose(ignored ->
+                                            primitives.updateClusterMetadataAndEnqueueMergeTaskMaybe(transaction,
+                                                    random.split(), clusterMetadata,
+                                                    clusterMetadataWithDistance.centroid(), accessInfo,
+                                                    updatedStandardDeviation));
                                 } else {
-                                    primitives.updateClusterMetadataAndEnqueueTaskMaybe(transaction, random.split(),
-                                            clusterMetadata,
+                                    primitives.updateClusterMetadataAndEnqueueSplitOrReassignTaskMaybe(transaction,
+                                            random.split(), clusterMetadata,
                                             clusterMetadataWithDistance.centroid(), accessInfo,
                                             0, 0, -1,
                                             clusterMetadata.runningStandardDeviation(),
@@ -204,22 +207,25 @@ public class Delete {
                                 }
                             }
 
-                            if (!foundPrimary) {
-                                //
-                                // The vector was not found as a regular reference — it must be collapsed, or
-                                // we just didn't find it which should be rare. In any case, this gives us enough
-                                // ammunition to assume the vector is in a collapsed set.
-                                //
-                                final UUID signature = StorageAdapter.signatureUuid(storageTransform.transform(vector));
-                                primitives.deleteCollapsedVectorId(transaction, signature, primaryKey);
-                            }
+                            final boolean foundPrimaryFinal = foundPrimary;
+                            return primaryUpdateFuture.thenRun(() -> {
+                                if (!foundPrimaryFinal) {
+                                    //
+                                    // The vector was not found as a regular reference — it must be collapsed, or
+                                    // we just didn't find it which should be rare. In any case, this gives us enough
+                                    // ammunition to assume the vector is in a collapsed set.
+                                    //
+                                    final UUID signature = StorageAdapter.signatureUuid(storageTransform.transform(vector));
+                                    primitives.deleteCollapsedVectorId(transaction, signature, primaryKey);
+                                }
 
-                            primitives.deleteVectorMetadata(transaction, primaryKey);
+                                primitives.deleteVectorMetadata(transaction, primaryKey);
 
-                            if (logger.isDebugEnabled()) {
-                                logger.debug("deleted vector; primaryKey={}; clustersAffected={}",
-                                        primaryKey, clusterMetadataWithDistances.size());
-                            }
+                                if (logger.isDebugEnabled()) {
+                                    logger.debug("deleted vector; primaryKey={}; clustersAffected={}",
+                                            primaryKey, clusterMetadataWithDistances.size());
+                                }
+                            });
                         }));
     }
 }

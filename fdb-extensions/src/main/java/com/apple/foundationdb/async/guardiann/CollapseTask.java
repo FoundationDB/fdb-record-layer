@@ -87,8 +87,8 @@ public class CollapseTask extends AbstractDeferredTask {
     @Override
     protected void writeDeferredTask(@Nonnull final Transaction transaction) {
         super.writeDeferredTask(transaction);
-        if (logger.isTraceEnabled()) {
-            logger.trace("enqueuing COLLAPSE; taskId={}; targetClusterIds={}",
+        if (logger.isDebugEnabled()) {
+            logger.debug("enqueuing COLLAPSE; taskId={}; targetClusterIds={}",
                     taskIdToString(getTaskId()), getTargetClusterIds());
         }
     }
@@ -392,8 +392,8 @@ public class CollapseTask extends AbstractDeferredTask {
                         updatedStandardDeviation, newStates);
         primitives.writeClusterMetadata(transaction, newTargetClusterMetadata);
 
-        if (logger.isInfoEnabled()) {
-            logger.info("collapse stats; old.numPrimary={}, new.numPrimary={}, old.numReplicated={}, " +
+        if (logger.isTraceEnabled()) {
+            logger.trace("collapse stats; old.numPrimary={}, new.numPrimary={}, old.numReplicated={}, " +
                     "new.numReplicated={}, numDeleted={}, numWritten={}",
                     targetClusterMetadata.getNumPrimaryVectors(),
                     newTargetClusterMetadata.getNumPrimaryVectors(), targetClusterMetadata.numReplicatedVectors(),

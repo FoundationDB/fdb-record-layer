@@ -84,8 +84,8 @@ public class BounceTask extends AbstractDeferredTask {
     @Override
     protected void writeDeferredTask(@Nonnull final Transaction transaction) {
         super.writeDeferredTask(transaction);
-        if (logger.isInfoEnabled()) {
-            logger.info("enqueuing BOUNCE; taskId={}; targetClusterIds={}; newDependentTaskIds={}",
+        if (logger.isDebugEnabled()) {
+            logger.debug("enqueuing BOUNCE; taskId={}; targetClusterIds={}; newDependentTaskIds={}",
                     taskIdToString(getTaskId()), getTargetClusterIds(), getDependentTaskIds());
         }
     }
@@ -128,8 +128,8 @@ public class BounceTask extends AbstractDeferredTask {
 
                     final AbstractDeferredTask bounceTask = shuffledTasks.get(0);
 
-                    if (logger.isInfoEnabled()) {
-                        logger.info("bouncing task; taskKind={}, taskId={}",
+                    if (logger.isDebugEnabled()) {
+                        logger.debug("bouncing task; taskKind={}, taskId={}",
                                 bounceTask.getKind().name(), bounceTask.getTaskId());
                     }
 
@@ -175,8 +175,8 @@ public class BounceTask extends AbstractDeferredTask {
                                         .thenCombine(primitives.fetchClusterMetadata(transaction, targetClusterId),
                                                 (resultEntry, targetClusterMetadata) -> {
                                                     if (resultEntry == null) {
-                                                        if (logger.isTraceEnabled()) {
-                                                            logger.trace("unable to enqueue final task; kind={}; targetClusterIds={}",
+                                                        if (logger.isDebugEnabled()) {
+                                                            logger.debug("unable to enqueue final task; kind={}; targetClusterIds={}",
                                                                     getFinalTaskKind(), targetClusterId);
                                                         }
                                                         return AsyncUtil.DONE;
@@ -212,8 +212,8 @@ public class BounceTask extends AbstractDeferredTask {
                                                                 targetClusterMetadata.withNewStates(EnumSet.of(newState)));
 
                                                         finalTask.writeDeferredTask(transaction);
-                                                        if (logger.isInfoEnabled()) {
-                                                            logger.info("enqueued final task; taskId={}",
+                                                        if (logger.isDebugEnabled()) {
+                                                            logger.debug("enqueued final task; taskId={}",
                                                                     taskIdToString(finalTask.getTaskId()));
                                                         }
                                                     }

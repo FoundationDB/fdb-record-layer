@@ -106,8 +106,8 @@ public class SplitMergeTask extends AbstractDeferredTask {
     @Override
     protected void writeDeferredTask(@Nonnull final Transaction transaction) {
         super.writeDeferredTask(transaction);
-        if (logger.isInfoEnabled()) {
-            logger.info("enqueuing SPLIT_MERGE; taskId={}; clusterId={}",
+        if (logger.isDebugEnabled()) {
+            logger.debug("enqueuing SPLIT_MERGE; taskId={}; clusterId={}",
                     AbstractDeferredTask.taskIdToString(getTaskId()), getTargetClusterId());
         }
     }
@@ -237,15 +237,15 @@ public class SplitMergeTask extends AbstractDeferredTask {
                                 withHighPriorityAndNeighborhood(random,
                                         ClusterReference.fromClusterMetadataAndDistances(fetchedNeighborhood));
                         splitMergeTask.writeDeferredTask(transaction);
-                        if (logger.isTraceEnabled()) {
-                            logger.info("enqueued high priority SPLIT_MERGE due to refetch of the neighborhood; taskId={}; neighborhoodSize={}",
+                        if (logger.isDebugEnabled()) {
+                            logger.debug("enqueued high priority SPLIT_MERGE due to refetch of the neighborhood; taskId={}; neighborhoodSize={}",
                                     AbstractDeferredTask.taskIdToString(splitMergeTask.getTaskId()),
                                     splitMergeTask.getNeighborhood().size());
                         }
                     });
         } else {
             if (logger.isTraceEnabled()) {
-                logger.info("using precomputed neighborhood; taskId={}; neighborhoodSize={}",
+                logger.trace("using precomputed neighborhood; taskId={}; neighborhoodSize={}",
                         taskIdToString(getTaskId()), getNeighborhood().size());
             }
         }
@@ -387,15 +387,15 @@ public class SplitMergeTask extends AbstractDeferredTask {
                                 withHighPriorityAndNeighborhood(random,
                                         ClusterReference.fromClusterMetadataAndDistances(fetchedNeighborhood));
                         splitMergeTask.writeDeferredTask(transaction);
-                        if (logger.isTraceEnabled()) {
-                            logger.info("enqueued high priority SPLIT_MERGE (merge) due to refetch of the neighborhood; taskId={}; neighborhoodSize={}",
+                        if (logger.isDebugEnabled()) {
+                            logger.debug("enqueued high priority SPLIT_MERGE (merge) due to refetch of the neighborhood; taskId={}; neighborhoodSize={}",
                                     AbstractDeferredTask.taskIdToString(splitMergeTask.getTaskId()),
                                     splitMergeTask.getNeighborhood().size());
                         }
                     });
         } else {
             if (logger.isTraceEnabled()) {
-                logger.info("using precomputed neighborhood for merge; taskId={}; neighborhoodSize={}",
+                logger.trace("using precomputed neighborhood for merge; taskId={}; neighborhoodSize={}",
                         taskIdToString(getTaskId()), getNeighborhood().size());
             }
         }
@@ -412,6 +412,27 @@ public class SplitMergeTask extends AbstractDeferredTask {
                             neighborhoods(neighborhoodClusterMetadataWithDistances,
                                     targetClusterMetadata, getCentroid(),
                                     2, numNeighborhood - 2);
+
+                    // 2->1 is the required fallback merge. Its inner neighborhood is clamped to the
+                    // clusters actually available, so it collapses to just the target (size 1) when
+                    // there is no mergeable neighbor — e.g. the target is the last/only cluster, as
+                    // happens when a structure is drained toward empty. The delete path normally avoids
+                    // enqueuing a merge for a lone cluster (it gates on the centroid index cardinality),
+                    // so reaching here means the only neighbor disappeared between enqueue and execution.
+                    // No merge is possible at all (k-means would be asked for k == 0), so as a backstop we
+                    // clear the SPLIT_MERGE flag (as runTask's false-alarm branch does) and stop.
+                    if (neighborhoods2To1.innerNeighborhood().size() < 2) {
+                        if (logger.isDebugEnabled()) {
+                            logger.debug("skipping merge: no mergeable neighbor for cluster {}; taskId={}",
+                                    targetClusterMetadata.id(), taskIdToString(getTaskId()));
+                        }
+                        final EnumSet<ClusterMetadata.State> newStates =
+                                EnumSet.copyOf(targetClusterMetadata.states());
+                        newStates.remove(ClusterMetadata.State.SPLIT_MERGE);
+                        primitives.writeClusterMetadata(transaction, targetClusterMetadata.withNewStates(newStates));
+                        return AsyncUtil.DONE;
+                    }
+
                     final Neighborhoods neighborhoods3To2 =
                             neighborhood.size() < 3
                             ? null
@@ -426,7 +447,12 @@ public class SplitMergeTask extends AbstractDeferredTask {
                                     largestInnerNeighborhood(neighborhoods2To1, neighborhoods3To2), storageTransform)
                             .thenCompose(innerClusters -> RandomHelpers.forEach(random, allNeighborhoods,
                                             (neighborhoods, nestedRandom) -> {
-                                                if (neighborhoods == null) {
+                                                // Skip non-viable candidates: a merge needs at least
+                                                // two clusters in the inner neighborhood (k = size - 1
+                                                // must be >= 1). null is a candidate that wasn't built
+                                                // (3->2 when there are fewer than 3 clusters).
+                                                if (neighborhoods == null
+                                                        || neighborhoods.innerNeighborhood().size() < 2) {
                                                     return CompletableFuture.completedFuture(null);
                                                 }
                                                 final var innerNeighborhood = neighborhoods.innerNeighborhood();
@@ -806,7 +832,7 @@ public class SplitMergeTask extends AbstractDeferredTask {
 
             Verify.verify(clusterMetadata.getNumPrimaryVectors() + numPrimaryVectorsAdded > 0);
 
-            primitives().updateClusterMetadataAndEnqueueTaskMaybe(transaction, random, clusterMetadata,
+            primitives().updateClusterMetadataAndEnqueueSplitOrReassignTaskMaybe(transaction, random, clusterMetadata,
                             clusterMetadataWithDistance.centroid(), getAccessInfo(),
                             numPrimaryVectorsAdded, numPrimaryUnderreplicatedVectorsAdded, numReplicatedVectorsAdded,
                             updatedStandardDeviation, newClusterIds)

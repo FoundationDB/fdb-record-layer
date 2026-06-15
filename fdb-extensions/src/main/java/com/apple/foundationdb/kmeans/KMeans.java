@@ -106,7 +106,8 @@ public final class KMeans {
      * @param vectorLens lens that extracts a {@link RealVector} from each input element
      * @param centroidLens lens that wraps a {@link RealVector} as the caller's centroid type
      * @param vectors the input points to cluster; must contain at least {@code k} elements
-     * @param k number of clusters; must be at least 2
+     * @param k number of clusters; must be at least 1. {@code k == 1} is handled in closed form
+     *          (the single centroid is the mean of all vectors), bypassing iteration and restarts
      * @param maxIterations maximum Lloyd iterations per restart; must be at least 1
      * @param maxRestarts number of additional restarts beyond the first run; must be
      *                    non-negative. The total number of runs is {@code maxRestarts + 1};
@@ -131,21 +132,31 @@ public final class KMeans {
                                        final double lambda,
                                        @Nullable final SizePenalty sizePenalty) {
 
-        Preconditions.checkArgument(k >= 2, "k must be >= 2");
+        Preconditions.checkArgument(k >= 1, "k must be >= 1");
         Preconditions.checkArgument(vectors.size() >= k, "vectors.size() must be >= k");
         Preconditions.checkArgument(maxIterations >= 1, "maxIterations must be >= 1");
         Preconditions.checkArgument(maxRestarts >= 0, "maxRestarts must be >= 0");
         Preconditions.checkArgument(lambda >= 0, "lambda must be >= 0");
+
+        final MetricAdapter metricAdapter = fromEstimator(distanceEstimator);
+
+        final int numDimensions = getVector(vectorLens, vectors, 0).getNumDimensions();
+        final int n = vectors.size();
+
+        // k == 1 has a closed-form optimum: the single cluster holds every vector, so its
+        // SSE-optimal centroid is just their mean (renormalized for metrics that need it, e.g.
+        // cosine). This is the default path for 2->1 merges; short-circuit it rather than running
+        // k-means++ init plus Lloyd iterations that would deterministically reproduce the same
+        // mean on every one of the (otherwise pointless) restarts.
+        if (k == 1) {
+            return singleClusterResult(metricAdapter, vectorLens, centroidLens, vectors, numDimensions);
+        }
 
         // Order-dependence of the assignment step is fully determined by lambda:
         // lambda > 0 → score depends on running projected sizes → shuffle to spread the bias;
         // lambda == 0 → score is purely geometric → shuffling is wasted work.
         final boolean shuffleEachIteration = lambda > 0.0d;
 
-        final MetricAdapter metricAdapter = fromEstimator(distanceEstimator);
-
-        final int numDimensions = getVector(vectorLens, vectors, 0).getNumDimensions();
-        final int n = vectors.size();
         final int targetSize = Math.max(1, n / k);
 
         // Pre-build an index array so we can shuffle without moving data.
@@ -274,6 +285,60 @@ public final class KMeans {
         }
 
         return best;
+    }
+
+    /**
+     * Closed-form result for {@code k == 1}: a single cluster containing every vector, whose
+     * centroid is the arithmetic mean of all vectors. For squared-L2 this mean is exactly the
+     * SSE-minimizing single centroid, so there is nothing for Lloyd iteration or restarts to
+     * improve — running them would just recompute the same mean. This branch mirrors the
+     * non-empty-cluster handling of {@link #fit}'s update step, specialized to one cluster:
+     * average, then either fall back to the farthest vector when the averaged centroid has a
+     * meaningless norm (e.g. cosine vectors that cancel out) or renormalize as the metric requires.
+     *
+     * @param metricAdapter the metric adapter
+     * @param vectorLens lens unwrapping the caller's vector type
+     * @param centroidLens lens wrapping the caller's centroid type
+     * @param vectors the input points (all land in the single cluster)
+     * @param numDimensions dimensionality of the vectors
+     * @param <V> caller's vector representation
+     * @param <C> caller's centroid representation
+     * @return a single-cluster {@link Result}
+     */
+    @Nonnull
+    private static <V, C> Result<C> singleClusterResult(@Nonnull final MetricAdapter metricAdapter,
+                                                        @Nonnull final Lens<V, RealVector> vectorLens,
+                                                        @Nonnull final Lens<C, RealVector> centroidLens,
+                                                        @Nonnull final List<V> vectors,
+                                                        final int numDimensions) {
+        final int n = vectors.size();
+
+        final MutableDoubleRealVector centroid = MutableDoubleRealVector.zeroVector(numDimensions);
+        for (int i = 0; i < n; i++) {
+            centroid.addToThis(getVector(vectorLens, vectors, i));
+        }
+        centroid.multiplyThisBy(1.0d / n);
+
+        final List<MutableDoubleRealVector> centroids = ImmutableList.of(centroid);
+        if (metricAdapter.isMeaninglessNorm(centroid)) {
+            final int farthestVectorIndex = farthestVectorIndex(metricAdapter, vectorLens, vectors, centroids);
+            centroid.setData(getVector(vectorLens, vectors, farthestVectorIndex).getData());
+        } else {
+            metricAdapter.renormalizeIfNecessary(centroid);
+        }
+
+        // Every vector is in cluster 0; assignment is already all-zero from allocation.
+        final int[] assignment = new int[n];
+        final double[] distances = new double[n];
+        double sumObjective = 0.0d;
+        for (int i = 0; i < n; i++) {
+            final double obj = metricAdapter.baseObjective(getVector(vectorLens, vectors, i), centroid);
+            distances[i] = obj;
+            sumObjective += obj;
+        }
+
+        final List<C> centroidCopies = ImmutableList.of(centroidLens.wrap(centroid.toImmutable()));
+        return new Result<>(centroidCopies, new int[] {n}, assignment, distances, sumObjective);
     }
 
     /**

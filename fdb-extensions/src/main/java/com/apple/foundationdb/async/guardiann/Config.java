@@ -21,7 +21,6 @@
 package com.apple.foundationdb.async.guardiann;
 
 import com.apple.foundationdb.async.common.VectorEncodingConfig;
-import com.apple.foundationdb.async.hnsw.HNSW;
 import com.apple.foundationdb.linear.Metric;
 import com.google.common.base.Preconditions;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
@@ -207,7 +206,7 @@ public record Config(@Nonnull Metric metric,
     /**
      * Builder for {@link Config}.
      *
-     * @see HNSW#newConfigBuilder
+     * @see Guardiann#newConfigBuilder
      */
     @CanIgnoreReturnValue
     @SuppressWarnings("checkstyle:MemberName")

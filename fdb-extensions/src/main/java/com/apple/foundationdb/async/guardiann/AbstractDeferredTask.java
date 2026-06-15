@@ -114,15 +114,15 @@ public abstract class AbstractDeferredTask {
     public abstract CompletableFuture<Void> runTask(@Nonnull Transaction transaction);
 
     protected void logStart(@Nonnull final Logger logger) {
-        if (logger.isInfoEnabled()) {
-            logger.info("executing task kind={}, taskId={}, targetClusterId={}", getKind(), taskIdToString(getTaskId()),
+        if (logger.isDebugEnabled()) {
+            logger.debug("executing task kind={}, taskId={}, targetClusterId={}", getKind(), taskIdToString(getTaskId()),
                     getTargetClusterIds());
         }
     }
 
     protected void logSuccessful(@Nonnull final Logger logger) {
-        if (logger.isInfoEnabled()) {
-            logger.info("successfully finished executing task kind={}, taskId={}", getKind(),
+        if (logger.isDebugEnabled()) {
+            logger.debug("successfully finished executing task kind={}, taskId={}", getKind(),
                     taskIdToString(getTaskId()));
         }
     }

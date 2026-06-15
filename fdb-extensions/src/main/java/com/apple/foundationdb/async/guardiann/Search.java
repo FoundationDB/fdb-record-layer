@@ -291,8 +291,8 @@ public class Search {
                           final int searchMinClustersBeforePruning,
                           final double searchDistanceRatioCutoff) {
         if (clusterMetadataWithDistances.size() <= searchMinClustersBeforePruning) {
-            if (logger.isInfoEnabled()) {
-                logger.info("querying numClusters={}", clusterMetadataWithDistances.size());
+            if (logger.isTraceEnabled()) {
+                logger.trace("querying numClusters={}", clusterMetadataWithDistances.size());
             }
             return clusterMetadataWithDistances;
         }
@@ -305,8 +305,8 @@ public class Search {
                 break;
             }
         }
-        if (logger.isInfoEnabled()) {
-            logger.info("limiting query to numClusters={}", i);
+        if (logger.isTraceEnabled()) {
+            logger.trace("limiting query to numClusters={}", i);
         }
         return clusterMetadataWithDistances.subList(0, i);
     }
@@ -448,7 +448,8 @@ public class Search {
                                             primaryKey ->
                                                     primitives.fetchVectorMetadata(readTransaction, primaryKey));
                             return vectorMetadataFuture.thenApply(vectorMetadata -> {
-                                if (vectorMetadata.getUuid().equals(vectorReferenceId.getUuid())) {
+                                if (vectorMetadata != null &&
+                                        vectorMetadata.getUuid().equals(vectorReferenceId.getUuid())) {
                                     return vectorReferenceAndDistance;
                                 } else {
                                     return null;

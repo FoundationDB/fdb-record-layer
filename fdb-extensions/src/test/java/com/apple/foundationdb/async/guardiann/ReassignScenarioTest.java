@@ -73,7 +73,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  *       change with every split, but the "nearest cluster to vector v" choice does not), and</li>
  *   <li>inject {@code underreplicatedPrimaryClusterMax + 1} synthetic under-replicated primary
  *       copies of the query vector into that cluster via {@link Primitives}, then call
- *       {@link Primitives#updateClusterMetadataAndEnqueueTaskMaybe} once with the cumulative
+ *       {@link Primitives#updateClusterMetadataAndEnqueueSplitOrReassignTaskMaybe} once with the cumulative
  *       delta. That call pushes {@code numPrimaryUnderreplicatedVectors} past the trigger and
  *       enqueues a {@link ReassignTask}.</li>
  * </ol>
@@ -107,7 +107,7 @@ public class ReassignScenarioTest implements BaseTest {
      */
     private static final long INJECTION_PK_BASE = 1_000_000L;
 
-    /** Deterministic seed for the random passed into {@code updateClusterMetadataAndEnqueueTaskMaybe}. */
+    /** Deterministic seed for the random passed into {@code updateClusterMetadataAndEnqueueSplitOrReassignTaskMaybe}. */
     private static final long INJECTION_RANDOM_SEED = 0xC0FFEE_BABEL;
 
     @RegisterExtension
@@ -249,7 +249,7 @@ public class ReassignScenarioTest implements BaseTest {
                 }
 
                 final SplittableRandom rnd = new SplittableRandom(INJECTION_RANDOM_SEED);
-                final Optional<UUID> enqueued = primitives.updateClusterMetadataAndEnqueueTaskMaybe(
+                final Optional<UUID> enqueued = primitives.updateClusterMetadataAndEnqueueSplitOrReassignTaskMaybe(
                         tr, rnd, targetMeta, targetCentroid, accessInfo,
                         extra, extra, 0, updatedStandardDeviation, ImmutableSet.of());
                 assertThat(enqueued)

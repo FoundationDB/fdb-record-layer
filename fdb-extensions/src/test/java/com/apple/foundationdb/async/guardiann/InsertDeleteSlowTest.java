@@ -1,5 +1,5 @@
 /*
- * InsertDeleteInterleavedSlowTest.java
+ * InsertDeleteSlowTest.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -27,13 +27,15 @@ import com.apple.foundationdb.linear.DoubleRealVector;
 import com.apple.foundationdb.linear.Metric;
 import com.apple.foundationdb.linear.RealVector;
 import com.apple.foundationdb.subspace.Subspace;
-import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.test.TestDatabaseExtension;
 import com.apple.foundationdb.test.TestExecutors;
 import com.apple.foundationdb.test.TestSubspaceExtension;
+import com.apple.foundationdb.test.RootLogLevelExtension;
+import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.RandomizedTestUtils;
 import com.apple.test.SuperSlow;
 import com.google.common.collect.ImmutableSet;
+import org.apache.logging.log4j.Level;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.extension.RegisterExtension;
@@ -60,12 +62,19 @@ import java.util.stream.Stream;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Interleaved insert/delete scenario against SIFT-1M. Two disjoint reservoir samples (10k each)
- * are drawn from the SIFT-1M base file. The first sample seeds the structure; the second is
- * inserted in batches that are randomly interleaved with batches deleting the first sample,
- * until both samples are exhausted. After the churn settles, the structure must contain
- * <em>only</em> records from the second sample, and recall must hold above the configured floor
- * both during the churn and after final convergence.
+ * Insert/delete workload scenarios against SIFT-1M, each verifying that recall stays above the
+ * configured floor throughout and that the structure ends in the expected state. Two scenarios:
+ * <ul>
+ *   <li>{@code interleavedInsertsDeletesPreserveRecallAndConverge}: two disjoint 10k reservoir
+ *       samples are drawn; the first seeds the structure, the second is inserted in batches
+ *       randomly interleaved with batches deleting the first, until both are exhausted. The
+ *       structure must then contain <em>only</em> the second sample.</li>
+ *   <li>{@code insertThenDeleteAllPreservesRecallUntilEmpty}: a single 10k sample seeds the
+ *       structure, then every record is deleted in random batches (no further inserts). Recall
+ *       must hold until the active set falls below {@code k}, and the structure must end
+ *       <em>empty</em>. This drain (no replenishing inserts) reliably pushes clusters below
+ *       {@code primaryClusterMin}, exercising the 2→1 merge path.</li>
+ * </ul>
  * <p>
  * Gated under {@link SuperSlow} because the SIFT-1M base file (~516 MB) is only present in nightly
  * builds. Parameterized over a small set of seeds so the random batch schedule and reservoir
@@ -78,8 +87,8 @@ import static org.assertj.core.api.Assertions.assertThat;
  * from the live active map on the fly (see
  * {@link TestHelpers#assertRecallAtKAtLeastDynamic}).
  */
-public class InsertDeleteInterleavedSlowTest implements BaseTest {
-    private static final Logger logger = LoggerFactory.getLogger(InsertDeleteInterleavedSlowTest.class);
+public class InsertDeleteSlowTest implements BaseTest {
+    private static final Logger logger = LoggerFactory.getLogger(InsertDeleteSlowTest.class);
 
     /** Size of each disjoint sample. Total inserts/deletes = 2 * SAMPLE_SIZE. */
     private static final int SAMPLE_SIZE_A = 10_000;
@@ -108,6 +117,9 @@ public class InsertDeleteInterleavedSlowTest implements BaseTest {
 
     @RegisterExtension
     final TestSubspaceExtension subspaceExtension = new TestSubspaceExtension(dbExtension);
+
+    @RegisterExtension
+    final RootLogLevelExtension rootLogLevelExtension = new RootLogLevelExtension(Level.INFO);
 
     @TempDir
     Path tempDir;
@@ -247,7 +259,10 @@ public class InsertDeleteInterleavedSlowTest implements BaseTest {
                 totalBatches, totalDeleteBatches, totalInsertBatches, active.size());
 
         // ---- Phase 4: drain & invariants ----
-        TestHelpers.assertGuardiannInvariants(getDb(), guardiann);
+        // This run interleaves inserts and deletes, so dangling replica vectors are expected
+        // (a deleted primary's replicas aren't necessarily reaped). Use the after-deletes variant,
+        // which checks quiescence and primary-uniqueness but not replica/live-primary references.
+        TestHelpers.assertGuardiannInvariantsAfterDeletes(getDb(), guardiann);
 
         // ---- Phase 5: only setB remains ----
         final TestHelpers.StructureSnapshot snap = TestHelpers.snapshotStructure(getDb(), guardiann);
@@ -276,6 +291,103 @@ public class InsertDeleteInterleavedSlowTest implements BaseTest {
                 RECALL_K, MIN_RECALL);
     }
 
+    /**
+     * Seeds the structure with a single 10k sample, then deletes every record in random batches
+     * with no further inserts. Recall must stay above {@link #MIN_RECALL} at each checkpoint while
+     * the active set is still at least {@link #RECALL_K}; once the structure is fully drained it
+     * must be empty (no primaries remain).
+     * <p>
+     * Unlike {@code interleavedInsertsDeletesPreserveRecallAndConverge}, there are no replenishing
+     * inserts, so the per-cluster primary counts only ever shrink — this is the workload that
+     * reliably drives clusters below {@code primaryClusterMin} and therefore exercises the merge
+     * (2→1, {@code KMeans.fit} with {@code k == 1}) path end-to-end.
+     */
+    @ParameterizedTest(name = "[{index}] seed={0}")
+    @MethodSource("seeds")
+    //@SuperSlow
+    @Timeout(value = 4, unit = TimeUnit.HOURS)
+    void insertThenDeleteAllPreservesRecallUntilEmpty(final long seed) throws Exception {
+        // ---- Phase 0: deterministic startup sample + query subset ----
+        logger.info("seed=0x{} sampling startup size={} from SIFT-1M",
+                Long.toHexString(seed), SAMPLE_SIZE_A);
+        final TestHelpers.Samples samples =
+                TestHelpers.loadDisjointSamplesFromSift1m(seed, SAMPLE_SIZE_A, SAMPLE_SIZE_B);
+        final List<PrimaryKeyAndVector> startup = samples.a();
+
+        final List<DoubleRealVector> allQueries =
+                TestHelpers.loadSiftQueryVectors(TestHelpers.SIFT_1M_QUERY_PATH);
+        final List<DoubleRealVector> queries = List.copyOf(
+                allQueries.subList(0, Math.min(RECALL_NUM_QUERIES, allQueries.size())));
+
+        // ---- Phase 1: build a fresh Guardiann and seed it with the startup sample ----
+        final TestHelpers.TestOnWriteListener onWriteListener = new TestHelpers.TestOnWriteListener();
+        final TestHelpers.TestOnReadListener onReadListener = new TestHelpers.TestOnReadListener();
+        final Guardiann guardiann = new Guardiann(getSubspace(),
+                TestExecutors.defaultThreadPool(),
+                buildConfig(),
+                onWriteListener,
+                onReadListener);
+
+        logger.info("phase1: inserting startup sample ({} records) ...", startup.size());
+        insertAllRecordsBatched(guardiann, startup);
+        TestHelpers.runToQuiescence(getDb(), guardiann);
+
+        final Map<Tuple, RealVector> active = new HashMap<>();
+        for (final PrimaryKeyAndVector r : startup) {
+            active.put(r.getPrimaryKey(), r.getVector());
+        }
+
+        // ---- Phase 2: initial recall checkpoint ----
+        TestHelpers.assertRecallAtKAtLeastDynamic(getDb(), guardiann, queries, active,
+                RECALL_K, MIN_RECALL);
+
+        // ---- Phase 3: delete everything in random batches (no inserts) ----
+        final SplittableRandom deleteRng = new SplittableRandom(seed ^ INTERLEAVE_SEED_SALT);
+        final Deque<PrimaryKeyAndVector> deleteQueue = new ArrayDeque<>(shuffledCopy(startup, deleteRng));
+        int batchesSinceCheck = 0;
+        int totalDeleteBatches = 0;
+        while (!deleteQueue.isEmpty()) {
+            final List<PrimaryKeyAndVector> batch = takeUpTo(deleteQueue, BATCH_SIZE);
+            deleteOneBatch(guardiann, batch);
+            for (final PrimaryKeyAndVector r : batch) {
+                active.remove(r.getPrimaryKey());
+            }
+            totalDeleteBatches++;
+            batchesSinceCheck++;
+
+            if (batchesSinceCheck >= RECALL_CHECK_INTERVAL_BATCHES) {
+                batchesSinceCheck = 0;
+                logger.info("checkpoint after deleteBatches={}: active.size={}, queue left={}",
+                        totalDeleteBatches, active.size(), deleteQueue.size());
+                // Recall@k is only measurable while at least k records remain; once the active set
+                // dips below k (the tail of the drain), stop checking and just keep deleting.
+                if (active.size() >= RECALL_K) {
+                    TestHelpers.assertRecallAtKAtLeastDynamic(getDb(), guardiann, queries, active,
+                            RECALL_K, MIN_RECALL);
+                } else {
+                    logger.info("skipping recall check: active.size={} < k={}", active.size(), RECALL_K);
+                }
+            }
+        }
+        logger.info("phase3 complete: deleteBatches={}, active.size={}", totalDeleteBatches, active.size());
+
+        // ---- Phase 4: drain & invariants ----
+        // Everything was deleted, so dangling replica vectors are expected (a deleted primary's
+        // replicas aren't necessarily reaped). Use the after-deletes variant, which checks
+        // quiescence and primary-uniqueness but not replica/live-primary references.
+        TestHelpers.assertGuardiannInvariantsAfterDeletes(getDb(), guardiann);
+
+        // ---- Phase 5: the structure must be empty ----
+        assertThat(active)
+                .as("local active map must be empty after deleting the entire startup sample")
+                .isEmpty();
+        final TestHelpers.StructureSnapshot snap = TestHelpers.snapshotStructure(getDb(), guardiann);
+        final int remainingPrimaries = snap == null ? 0 : snap.totalPrimaries();
+        assertThat(remainingPrimaries)
+                .as("no primaries may remain after deleting every record")
+                .isZero();
+    }
+
     @Nonnull
     private static Config buildConfig() {
         return Guardiann.newConfigBuilder()
@@ -301,6 +413,23 @@ public class InsertDeleteInterleavedSlowTest implements BaseTest {
                     .as("setA and setB must be disjoint by primary key")
                     .doesNotContain(r.getPrimaryKey());
         }
+    }
+
+    /**
+     * Returns a freshly shuffled copy of {@code records}, using {@code rng} to drive an in-place
+     * Fisher–Yates shuffle of the copy. The input list is left untouched.
+     */
+    @Nonnull
+    private static List<PrimaryKeyAndVector> shuffledCopy(@Nonnull final List<PrimaryKeyAndVector> records,
+                                                          @Nonnull final SplittableRandom rng) {
+        final List<PrimaryKeyAndVector> copy = new ArrayList<>(records);
+        for (int i = copy.size() - 1; i > 0; i--) {
+            final int j = rng.nextInt(i + 1);
+            final PrimaryKeyAndVector tmp = copy.get(i);
+            copy.set(i, copy.get(j));
+            copy.set(j, tmp);
+        }
+        return copy;
     }
 
     /**

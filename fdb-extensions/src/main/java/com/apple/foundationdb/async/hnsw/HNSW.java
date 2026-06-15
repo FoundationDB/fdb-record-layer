@@ -188,6 +188,25 @@ public class HNSW {
     }
 
     /**
+     * Classifies how many nodes currently live on the base layer (layer 0) of the graph as
+     * {@link Cardinality#EMPTY}, {@link Cardinality#SINGLE} or {@link Cardinality#MULTIPLE}.
+     * <p>
+     * Since layer 0 holds every node, this doubles as a coarse classification of the whole graph: empty,
+     * holding exactly one node, or holding two or more nodes. The scan stops after the second node, so the cost
+     * is independent of the size of the graph. This is useful for callers that need to make a decision based on
+     * whether more than one node exists without paying to count them all — for example, deciding whether a merge
+     * with a neighbor is even possible.
+     *
+     * @param readTransaction the transaction to use for reading from the database
+     *
+     * @return a {@link CompletableFuture} that completes with the {@link Cardinality} of layer 0
+     */
+    @Nonnull
+    public CompletableFuture<Cardinality> cardinality(@Nonnull final ReadTransaction readTransaction) {
+        return primitives().cardinality(readTransaction);
+    }
+
+    /**
      * Performs a search for the k-nearest neighbors for a given query vector.
      *
      * @param readTransaction the transaction to use for reading from the database
