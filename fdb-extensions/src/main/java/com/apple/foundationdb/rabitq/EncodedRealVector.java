@@ -493,8 +493,8 @@ public class EncodedRealVector implements RealVector {
     /**
      * {@inheritDoc}
      *
-     * <p>Computed from the reconstructed dense form (it's {@code dot(this)} on the dequantized
-     * components) and memoized.
+     * <p>Computed from the reconstructed dense form (via the {@link RealVector} interface default)
+     * and memoized.
      */
     @Override
     public double l2SquaredNorm() {
@@ -502,13 +502,15 @@ public class EncodedRealVector implements RealVector {
     }
 
     /**
-     * Computes the squared L2 norm from scratch as {@code dot(this)}. Backs the memoizing
-     * supplier behind {@link #l2SquaredNorm()}.
+     * Computes the squared L2 norm from scratch by delegating to the {@link RealVector} interface
+     * default ({@code RealVector.super.l2SquaredNorm()}), which reduces over the reconstructed
+     * dense form. Backs the memoizing supplier behind {@link #l2SquaredNorm()}; this override is
+     * purely the memoization layer.
      *
      * @return the squared L2 norm of the reconstructed dense form
      */
     private double computeL2SquaredNorm() {
-        return dot(this);
+        return RealVector.super.l2SquaredNorm();
     }
 
     /**
