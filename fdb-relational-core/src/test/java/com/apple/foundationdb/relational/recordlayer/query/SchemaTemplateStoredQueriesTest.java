@@ -165,11 +165,10 @@ public class SchemaTemplateStoredQueriesTest {
             final var freshUtils = new ConnectionUtils(freshDriver);
 
             // OfflineStoredQueriesProcessor ran during fresh-engine construction and
-            // warmed both stored queries: 2 plan-query events, 2 L3 cache misses.
+            // warmed both stored queries: 2 L3 cache misses.
             Assertions.assertEquals(2, eventCounterCount(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_MISS));
             Assertions.assertEquals(0, eventCounterCount(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_HIT));
-
-            // Connect via the fresh driver and verify the fresh engine's cache has the plans
+            // Connect via the fresh driver and verify the fresh engine's cache has 2 plans
             Assertions.assertEquals(Long.valueOf(2), freshUtils.getFromCatalog(c -> countCachedPlans(c, templateName)));
 
             // select statement should hit the cache, no new entries
@@ -180,10 +179,11 @@ public class SchemaTemplateStoredQueriesTest {
                     Assertions.assertFalse(rs.next());
                 }
             });
-            Assertions.assertEquals(Long.valueOf(2), freshUtils.getFromCatalog(c -> countCachedPlans(c, templateName)));
             // query hit the cache: hit counter +1, miss counter unchanged.
             Assertions.assertEquals(1, eventCounterCount(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_HIT));
             Assertions.assertEquals(2, eventCounterCount(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_MISS));
+            // 2 plans in the cache
+            Assertions.assertEquals(Long.valueOf(2), freshUtils.getFromCatalog(c -> countCachedPlans(c, templateName)));
 
             // select statement should hit another cache, no new entries
             freshUtils.runAgainstConnection(dbUri, schemaName, c -> {
@@ -193,10 +193,11 @@ public class SchemaTemplateStoredQueriesTest {
                     Assertions.assertFalse(rs.next());
                 }
             });
-            Assertions.assertEquals(Long.valueOf(2), freshUtils.getFromCatalog(c -> countCachedPlans(c, templateName)));
             // query hit the cache too: hit counter +1, miss counter still unchanged.
             Assertions.assertEquals(2, eventCounterCount(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_HIT));
             Assertions.assertEquals(2, eventCounterCount(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_MISS));
+            // 2 plans in the cache
+            Assertions.assertEquals(Long.valueOf(2), freshUtils.getFromCatalog(c -> countCachedPlans(c, templateName)));
 
             // non-stored query, new record in the cache
             freshUtils.runAgainstConnection(dbUri, schemaName, c -> {
@@ -206,6 +207,7 @@ public class SchemaTemplateStoredQueriesTest {
                     Assertions.assertFalse(rs.next());
                 }
             });
+            // new (3) plan in the cache
             Assertions.assertEquals(Long.valueOf(3), freshUtils.getFromCatalog(c -> countCachedPlans(c, templateName)));
             // SELECT col2 is NOT pre-warmed: miss counter +1, hit counter unchanged.
             Assertions.assertEquals(2, eventCounterCount(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_HIT));
@@ -325,10 +327,7 @@ public class SchemaTemplateStoredQueriesTest {
     void badStoredQuery() {
         final String badTemplate =
                 "CREATE TABLE t1(id bigint, col1 bigint, col2 bigint, PRIMARY KEY(id))" +
-                        " CREATE INDEX i1 AS SELECT col1 FROM t1" +
-                        " CREATE QUERY by_col1 AS select1 * from t1 where col1 = 10" +    // bad
-                        " CREATE QUERY by_id AS select * from t1 where id = 1";
-
+                        " CREATE QUERY by_col1 AS select1 * from t1 where col1 = 10";
         RelationalAssertions.assertThrowsSqlException(() ->
                 Ddl.builder()
                         .database(URI.create("/TEST/BADSTOREDQUERY_DB"))
@@ -342,10 +341,7 @@ public class SchemaTemplateStoredQueriesTest {
     void storedQueryDdl() {
         final String badTemplate =
                 "CREATE TABLE t1(id bigint, col1 bigint, col2 bigint, PRIMARY KEY(id))" +
-                        " CREATE INDEX i1 AS SELECT col1 FROM t1" +
-                        " CREATE QUERY ddl_t AS CREATE TABLE t2(id bigint, col1 bigint, PRIMARY KEY(id))" +    // ddl
-                        " CREATE QUERY by_id AS select * from t1 where id = 1";
-
+                        " CREATE QUERY ddl_t AS CREATE TABLE t2(id bigint, col1 bigint, PRIMARY KEY(id))";
         RelationalAssertions.assertThrowsSqlException(() ->
                 Ddl.builder()
                         .database(URI.create("/TEST/DDLSTOREDQUERY_DB"))
@@ -353,5 +349,45 @@ public class SchemaTemplateStoredQueriesTest {
                         .schemaTemplate(badTemplate)
                         .build())
                 .hasErrorCode(ErrorCode.SYNTAX_ERROR);
+    }
+
+    @Test
+    void storedQueryBadColumn() throws Exception {
+        final String template =
+                "CREATE TABLE t1(id bigint, col1 bigint, col2 bigint, PRIMARY KEY(id))" +
+                        " CREATE INDEX i1 AS SELECT col1 FROM t1" +
+                        " CREATE QUERY by_col1 AS select * from t1 where col3 = 10" + // col3 does not exit
+                        " CREATE QUERY by_id AS select * from t1 where id = 1";
+        final String dbUri = "/TEST/STOREDQUERIES_DB5";
+        try (var ddl = Ddl.builder()
+                .database(URI.create(dbUri))
+                .relationalExtension(relationalExtension)
+                .schemaTemplate(template)
+                .build()) {
+            final var connection = ddl.setSchemaAndGetConnection();
+            final String templateName = ddl.getSchemaTemplateName();
+
+            Assertions.assertEquals(0, countCachedPlans(connection, templateName));
+
+            try (var stmt = connection.createStatement()) {
+                stmt.execute("INSERT INTO T1 VALUES (1, 10, 1)");
+                stmt.execute("INSERT INTO T1 VALUES (2, 20, 2)");
+                stmt.execute("INSERT INTO T1 VALUES (3, 30, 3)");
+            }
+            Assertions.assertEquals(0, countCachedPlans(connection, templateName)); // we do not generate plans at ddl execution for now
+
+            // create a new engine
+            final var freshDriver = relationalExtension.getDriver(
+                    com.apple.foundationdb.record.provider.foundationdb.FormatVersion.getDefaultFormatVersion());
+            final var freshUtils = new ConnectionUtils(freshDriver);
+
+            // OfflineStoredQueriesProcessor ran during fresh-engine construction and
+            // both stored queries attempted to generate plan
+            Assertions.assertEquals(2, eventCounterCount(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_MISS));
+            Assertions.assertEquals(0, eventCounterCount(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_HIT));
+
+            // but only one query has valid column and was planned
+            Assertions.assertEquals(Long.valueOf(1), freshUtils.getFromCatalog(c -> countCachedPlans(c, templateName)));
+        }
     }
 }
