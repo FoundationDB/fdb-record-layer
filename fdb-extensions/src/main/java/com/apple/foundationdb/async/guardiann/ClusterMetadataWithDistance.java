@@ -25,6 +25,15 @@ import com.apple.foundationdb.linear.Transformed;
 
 import javax.annotation.Nonnull;
 
+/**
+ * A {@link ClusterMetadata} paired with its centroid and the distance from a reference point (typically the query
+ * vector, or a target cluster's centroid during repartitioning) to that centroid. Carrying the distance alongside
+ * the metadata lets search and split/merge logic process clusters in order of increasing distance.
+ *
+ * @param clusterMetadata the cluster's metadata
+ * @param centroid the transformed centroid of the cluster
+ * @param distance the distance from the reference point to {@code centroid}
+ */
 record ClusterMetadataWithDistance(@Nonnull ClusterMetadata clusterMetadata,
                                    @Nonnull Transformed<RealVector> centroid,
                                    double distance) {

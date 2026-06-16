@@ -275,21 +275,49 @@ class StorageAdapter {
         return Tuple.from(clusterId);
     }
 
+    /**
+     * Serializes a set of cluster ids into a {@link Tuple} for storage.
+     *
+     * @param clusterIds the cluster ids to serialize
+     *
+     * @return a tuple encoding the cluster ids
+     */
     @Nonnull
     public static Tuple tupleFromClusterIds(@Nonnull final Set<UUID> clusterIds) {
         return tupleFromUuids(clusterIds);
     }
 
+    /**
+     * Deserializes a set of cluster ids from their {@link Tuple} representation.
+     *
+     * @param clusterIdsAsTuple the tuple holding the encoded cluster ids
+     *
+     * @return the decoded set of cluster ids
+     */
     @Nonnull
     public static Set<UUID> clusterIdsFromTuple(@Nonnull final Tuple clusterIdsAsTuple) {
         return uuidsFromTuple(clusterIdsAsTuple);
     }
 
+    /**
+     * Serializes a set of task ids into a {@link Tuple} for storage.
+     *
+     * @param taskIds the task ids to serialize
+     *
+     * @return a tuple encoding the task ids
+     */
     @Nonnull
     public static Tuple tupleFromTaskIds(@Nonnull final Set<UUID> taskIds) {
         return tupleFromUuids(taskIds);
     }
 
+    /**
+     * Deserializes a set of task ids from their {@link Tuple} representation.
+     *
+     * @param taskIdsAsTuple the tuple holding the encoded task ids
+     *
+     * @return the decoded set of task ids
+     */
     @Nonnull
     public static Set<UUID> taskIdsFromTuple(@Nonnull final Tuple taskIdsAsTuple) {
         return uuidsFromTuple(taskIdsAsTuple);

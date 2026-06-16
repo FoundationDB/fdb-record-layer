@@ -646,6 +646,18 @@ class Primitives {
      * (a replicated delete, or the non-merge fallback of the primary-delete path) may still call this method —
      * it will reassign or plain-write the decrement — but it will not split or merge them.
      *
+     * @param transaction the transaction to write the updated metadata and any enqueued task into
+     * @param random source of randomness for the id of any enqueued task
+     * @param clusterMetadata the current metadata of the cluster being updated
+     * @param clusterCentroid the transformed centroid of the cluster, carried into any task that is enqueued
+     * @param accessInfo the access context (subspace layout) of the index
+     * @param numPrimaryVectorsAdded the number of primary vectors added to the cluster (must be {@code >= 0} here)
+     * @param numPrimaryUnderreplicatedVectorsAdded the change in the number of primary underreplicated vectors
+     * @param numReplicatedVectorsAdded the change in the number of replicated vectors
+     * @param updatedStandardDeviation the recomputed running statistics of member distances to the centroid
+     * @param causeClusterIds the ids of clusters produced by the operation that triggered this update (for example
+     *        the clusters a split created); used by the reassign tail to decide whether a {@link ReassignTask} is needed
+     *
      * @return the id of an enqueued task, or {@link Optional#empty()} if none was enqueued
      */
     @Nonnull
@@ -691,6 +703,19 @@ class Primitives {
      * merges the cluster: it enqueues a {@link ReassignTask} if the cluster now violates a replication invariant
      * (or is a cluster we just split into), otherwise it just persists the updated metadata. Unlike the split
      * path, this accepts a negative primary delta (a primary was deleted) and writes it through.
+     *
+     * @param transaction the transaction to write the updated metadata and any enqueued reassign task into
+     * @param random source of randomness for the id of an enqueued reassign task
+     * @param clusterMetadata the current metadata of the cluster being updated
+     * @param clusterCentroid the transformed centroid of the cluster, carried into an enqueued {@link ReassignTask}
+     * @param accessInfo the access context (subspace layout) of the index
+     * @param numPrimaryVectorsAdded the change in the number of primary vectors (may be negative for a deletion)
+     * @param numPrimaryUnderreplicatedVectorsAdded the change in the number of primary underreplicated vectors
+     * @param numReplicatedVectorsAdded the change in the number of replicated vectors
+     * @param updatedStandardDeviation the recomputed running statistics of member distances to the centroid
+     * @param causeClusterIds the ids of clusters produced by the operation that triggered this update (for example
+     *        the clusters a split created); a cluster in this set is never reassigned, and a non-empty set forces a
+     *        reassign of clusters that are not in it
      *
      * @return the id of an enqueued reassign task, or {@link Optional#empty()} if none was enqueued
      */
@@ -980,6 +1005,13 @@ class Primitives {
                 });
     }
 
+    /**
+     * Bundles the resolved {@link AccessInfo} for an operation with whether the relevant centroid node already
+     * exists.
+     *
+     * @param accessInfo the access context, or {@code null} if it could not be resolved
+     * @param nodeExists {@code true} if the node already exists in the centroid index
+     */
     record AccessInfoAndNodeExistence(@Nullable AccessInfo accessInfo, boolean nodeExists) {
     }
 }

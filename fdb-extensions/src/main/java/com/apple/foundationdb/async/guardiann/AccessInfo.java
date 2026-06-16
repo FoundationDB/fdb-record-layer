@@ -44,6 +44,12 @@ import javax.annotation.Nullable;
  */
 record AccessInfo(long rotatorSeed, @Nullable RealVector negatedCentroid) {
 
+    /**
+     * Indicates whether RaBitQ quantization can be used for this access context, which requires a centroid to build
+     * the {@link StorageTransform}.
+     *
+     * @return {@code true} if a centroid is available and RaBitQ can be used
+     */
     @SuppressWarnings("BooleanMethodIsAlwaysInverted")
     public boolean canUseRaBitQ() {
         return negatedCentroid() != null;

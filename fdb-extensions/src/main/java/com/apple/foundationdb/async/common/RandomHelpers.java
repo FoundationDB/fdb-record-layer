@@ -72,11 +72,27 @@ public final class RandomHelpers {
         return x;
     }
 
+    /**
+     * Returns a fresh {@link UUID}, either a deterministic sequential one (for reproducible runs) or a true random
+     * one.
+     *
+     * @param deterministicRandomness whether to return a deterministic sequential id instead of a random one
+     *
+     * @return a new UUID
+     */
     @Nonnull
     public static UUID randomUuid(final boolean deterministicRandomness) {
         return deterministicRandomness ? SequentialUUID.getNext() : UUID.randomUUID();
     }
 
+    /**
+     * Derives a type-4 (random) {@link UUID} from the given {@link SplittableRandom}, so that UUID generation can be
+     * made reproducible by seeding the source.
+     *
+     * @param random the random source to draw the UUID bits from
+     *
+     * @return a type-4 UUID derived from {@code random}
+     */
     @Nonnull
     public static UUID randomUuid(@Nonnull final SplittableRandom random) {
         long msb = random.nextLong();
@@ -93,6 +109,20 @@ public final class RandomHelpers {
         return new UUID(msb, lsb);
     }
 
+    /**
+     * Applies an asynchronous body to each item, giving every invocation its own independent {@link SplittableRandom}
+     * split from {@code splittableRandom} so the work stays reproducible under deterministic randomness.
+     *
+     * @param splittableRandom the random source to split per item
+     * @param items the items to process
+     * @param body the asynchronous operation to apply to each item together with its own random stream
+     * @param parallelism the maximum number of items to process concurrently
+     * @param executor the executor to run on
+     * @param <T> the type of input item
+     * @param <U> the type of result produced per item
+     *
+     * @return a future completing with the per-item results
+     */
     @Nonnull
     public static <T, U> CompletableFuture<List<U>> forEach(@Nonnull final SplittableRandom splittableRandom,
                                                             @Nonnull final Iterable<T> items,
@@ -107,6 +137,12 @@ public final class RandomHelpers {
                 parallelism, executor);
     }
 
+    /**
+     * Pairs an item with its own {@link SplittableRandom} so that each item processed in parallel draws from an
+     * independent, deterministically split random stream.
+     *
+     * @param <T> the type of the paired item
+     */
     private static class ItemRandomPair<T> {
         @Nonnull
         private final T item;
@@ -163,6 +199,10 @@ public final class RandomHelpers {
         }
     }
 
+    /**
+     * Source of deterministic, monotonically increasing {@link UUID}s (counting up from zero) used in place of
+     * random UUIDs when deterministic randomness is requested, so that runs are reproducible.
+     */
     private static class SequentialUUID {
         private static final AtomicLong sequenceAtomic = new AtomicLong(0L);
 

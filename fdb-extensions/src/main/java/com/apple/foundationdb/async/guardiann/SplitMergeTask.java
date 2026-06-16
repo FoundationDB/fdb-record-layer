@@ -278,8 +278,8 @@ public class SplitMergeTask extends AbstractDeferredTask {
                                                 if (neighborhoods == null) {
                                                     return CompletableFuture.completedFuture(null);
                                                 }
-                                                final var innerNeighborhood = neighborhoods.innerNeighborhood();
-                                                final var clampedInnerClusters =
+                                                final List<ClusterMetadataWithDistance> innerNeighborhood = neighborhoods.innerNeighborhood();
+                                                final List<Cluster> clampedInnerClusters =
                                                         innerNeighborhood.size() == innerClusters.size()
                                                         ? innerClusters
                                                         : innerClusters.subList(0, innerNeighborhood.size());
@@ -454,8 +454,8 @@ public class SplitMergeTask extends AbstractDeferredTask {
                                                         || neighborhoods.innerNeighborhood().size() < 2) {
                                                     return CompletableFuture.completedFuture(null);
                                                 }
-                                                final var innerNeighborhood = neighborhoods.innerNeighborhood();
-                                                final var clampedInnerClusters =
+                                                final List<ClusterMetadataWithDistance> innerNeighborhood = neighborhoods.innerNeighborhood();
+                                                final List<Cluster> clampedInnerClusters =
                                                         innerNeighborhood.size() == innerClusters.size()
                                                         ? innerClusters
                                                         : innerClusters.subList(0, innerNeighborhood.size());
@@ -584,7 +584,7 @@ public class SplitMergeTask extends AbstractDeferredTask {
         int numOccluded = 0;
         // only considering primary copies here -- this will prune the replicated vectors
         for (final VectorReference vectorReference : primaryVectorReferences) {
-            final var nearestClusters =
+            final ImmutableList<ClusterMetadataWithDistance> nearestClusters =
                     Objects.requireNonNull(invertedAssignmentsMap.get(vectorReference.id().getUuid()));
             Verify.verify(!nearestClusters.isEmpty());
             final ClusterMetadataWithDistance primaryCluster = Objects.requireNonNull(nearestClusters.get(0));
@@ -636,7 +636,7 @@ public class SplitMergeTask extends AbstractDeferredTask {
                     final VectorReference newVectorReference =
                             vectorReference.toReplicatedCopy(replicationPriority);
                     if (newClusterIds.contains(replicationCandidateClusterMetadata.id())) {
-                        final var topK =
+                        final TopK<VectorReference> topK =
                                 replicatedAssignmentTopKMap.computeIfAbsent(replicationCandidateClusterMetadata.id(),
                                         ignored -> TopK.max(Comparator.comparing(VectorReference::replicationPriority),
                                                 config.replicatedClusterTarget()));
@@ -751,6 +751,9 @@ public class SplitMergeTask extends AbstractDeferredTask {
     /**
      * Removes all vector references and metadata for the clusters being dissolved by this
      * split or merge operation.
+     *
+     * @param transaction the transaction to delete from
+     * @param innerNeighborhood the clusters being dissolved, whose vector references and metadata are removed
      */
     private void deleteDissolvedClusters(@Nonnull final Transaction transaction,
                                          @Nonnull final List<ClusterMetadataWithDistance> innerNeighborhood) {
@@ -853,6 +856,11 @@ public class SplitMergeTask extends AbstractDeferredTask {
     /**
      * Enqueues a {@link BounceTask} that will trigger {@link ReassignTask}s for the new clusters once
      * all dependent tasks have completed. No-op if no dependent tasks were created.
+     *
+     * @param transaction the transaction to write the bounce task into
+     * @param random source of randomness for the bounce task id
+     * @param newClusterIds the ids of the clusters created by this split/merge that the bounce will reassign
+     * @param dependentTaskIds the ids of the tasks the bounce must wait for; no task is enqueued if this is empty
      */
     private void enqueueBounceIfNeeded(@Nonnull final Transaction transaction,
                                        @Nonnull final SplittableRandom random,
@@ -872,6 +880,11 @@ public class SplitMergeTask extends AbstractDeferredTask {
      * Creates a copy of this task with high priority and the given precomputed neighborhood, used
      * when the initial task did not have the neighborhood attached and needs to be re-enqueued
      * after fetching it.
+     *
+     * @param random source of randomness for the high-priority task id
+     * @param neighborhood the precomputed neighborhood to attach to the re-enqueued task
+     *
+     * @return a high-priority copy of this task carrying the given neighborhood
      */
     @Nonnull
     private SplitMergeTask withHighPriorityAndNeighborhood(@Nonnull final SplittableRandom random,
@@ -913,6 +926,14 @@ public class SplitMergeTask extends AbstractDeferredTask {
     /**
      * Creates a new {@code SplitMergeTask} without a precomputed neighborhood. The neighborhood will
      * be fetched from the HNSW centroid index when the task executes.
+     *
+     * @param locator the locator providing access to primitives and configuration
+     * @param accessInfo the access context for the current operation
+     * @param taskId the id to assign to the new task
+     * @param clusterId the id of the cluster to split or merge
+     * @param centroid the transformed centroid of the target cluster
+     *
+     * @return a new task without a precomputed neighborhood
      */
     @Nonnull
     static SplitMergeTask of(@Nonnull final Locator locator, @Nonnull final AccessInfo accessInfo,
@@ -924,6 +945,15 @@ public class SplitMergeTask extends AbstractDeferredTask {
     /**
      * Creates a new {@code SplitMergeTask} with a precomputed neighborhood, avoiding an additional
      * HNSW lookup at execution time.
+     *
+     * @param locator the locator providing access to primitives and configuration
+     * @param accessInfo the access context for the current operation
+     * @param taskId the id to assign to the new task
+     * @param clusterId the id of the cluster to split or merge
+     * @param centroid the transformed centroid of the target cluster
+     * @param neighborhood the precomputed neighborhood of the target cluster
+     *
+     * @return a new task carrying the given precomputed neighborhood
      */
     @Nonnull
     static SplitMergeTask of(@Nonnull final Locator locator, @Nonnull final AccessInfo accessInfo,
@@ -937,6 +967,11 @@ public class SplitMergeTask extends AbstractDeferredTask {
      * Returns the larger of the two inner neighborhoods. Since the 2-to-3 neighborhood is a superset
      * of the 1-to-2 neighborhood, this is used to determine the maximum set of clusters whose vectors
      * need to be fetched (avoiding duplicate reads).
+     *
+     * @param neighborhoods1 the first ({@code 1 → 2}) neighborhood partition, or {@code null} if not applicable
+     * @param neighborhoods2 the second ({@code 2 → 3}) neighborhood partition, or {@code null} if not applicable
+     *
+     * @return the larger of the two inner neighborhoods
      */
     @Nonnull
     private static List<ClusterMetadataWithDistance> largestInnerNeighborhood(@Nullable final Neighborhoods neighborhoods1,
@@ -1044,7 +1079,7 @@ public class SplitMergeTask extends AbstractDeferredTask {
         final PartitionEvaluator.Partition<Transformed<RealVector>> currentPartition =
                 new PartitionEvaluator.Partition<>(clusterCentroidsBuilder.build(),
                         Transformed.underlyingLens(), assignment);
-        final var kMeansResult = repartitioningCandidate.kMeansResult();
+        final KMeans.Result<Transformed<RealVector>> kMeansResult = repartitioningCandidate.kMeansResult();
         final PartitionEvaluator.Partition<Transformed<RealVector>> candidatePartition =
                 new PartitionEvaluator.Partition<>(kMeansResult.clusterCentroids(),
                         Transformed.underlyingLens(), kMeansResult.assignment());
@@ -1065,6 +1100,12 @@ public class SplitMergeTask extends AbstractDeferredTask {
      *   <li>{@code 2 → 3}: {@code minSmallestFrac=0.015}, {@code maxLargestFrac=0.55}.
      *   <li>{@code 2 → 1} / {@code 3 → 2} merges: permissive (no smallest/largest constraints).
      * </ul>
+     *
+     * @param estimator the distance estimator the evaluator uses to score partitions
+     * @param currentK the current number of clusters in the neighborhood
+     * @param candidateK the proposed number of clusters after the transition
+     *
+     * @return the evaluator parameters tuned for the {@code currentK → candidateK} transition
      */
     @Nonnull
     private static PartitionEvaluator.Parameters parametersFor(@Nonnull final DistanceEstimator estimator,
@@ -1125,6 +1166,10 @@ public class SplitMergeTask extends AbstractDeferredTask {
     /**
      * Bundles a candidate repartitioning: the neighborhood context, the primary vectors participating
      * in the split, and the k-means result that defines the proposed new cluster boundaries.
+     *
+     * @param neighborhoods the inner/outer neighborhood context of the repartitioning
+     * @param primaryVectorReferences the primary vectors participating in the split
+     * @param kMeansResult the k-means result defining the proposed new cluster boundaries
      */
     private record RepartitioningCandidate(@Nonnull Neighborhoods neighborhoods,
                                            @Nonnull List<VectorReference> primaryVectorReferences,
@@ -1135,6 +1180,11 @@ public class SplitMergeTask extends AbstractDeferredTask {
      * The outcome of the vector assignment phase: tracks which clusters are newly created, provides
      * a map from cluster ID to metadata, the multimap of vector-to-cluster assignments, and updated
      * running standard deviations for distance tracking.
+     *
+     * @param newClusterIds the ids of the clusters newly created by the repartitioning
+     * @param clusterIdMetadataMap a map from cluster id to the cluster's metadata
+     * @param assignmentMultimap the assignments of vectors to clusters
+     * @param updatedStandardDeviationsMap a map from cluster id to its updated running distance statistics
      */
     private record Repartitioning(@Nonnull Set<UUID> newClusterIds,
                                   @Nonnull Map<UUID, ClusterMetadataWithDistance> clusterIdMetadataMap,
@@ -1145,6 +1195,10 @@ public class SplitMergeTask extends AbstractDeferredTask {
     /**
      * Per-cluster counters produced by {@link #writeVectorReferences}, used by
      * {@link #writeClusterMetadataAndEnqueueTasks} to compute final cluster sizes.
+     *
+     * @param numPrimaryVectorsAdded a map from cluster id to the number of primary vectors written to it
+     * @param numPrimaryUnderreplicatedVectorsAdded a map from cluster id to the number of primary underreplicated vectors written to it
+     * @param numReplicatedVectorsAdded a map from cluster id to the number of replicated vectors written to it
      */
     private record VectorWriteCounters(@Nonnull Map<UUID, Integer> numPrimaryVectorsAdded,
                                        @Nonnull Map<UUID, Integer> numPrimaryUnderreplicatedVectorsAdded,

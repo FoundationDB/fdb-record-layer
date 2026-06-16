@@ -354,7 +354,7 @@ class OperationsTest implements BaseTest {
         for (int i = 0; i < 100; ) {
             i += TestHelpers.basicInsertBatch(getDb(), hnsw, 100, 0,
                     (tr, ignored) -> {
-                        final var primaryKey = CommonTestHelpers.createPrimaryKey(random.nextInt(1000));
+                        final Tuple primaryKey = CommonTestHelpers.createPrimaryKey(random.nextInt(1000));
                         final HalfRealVector dataVector = createRandomHalfVector(random, config.numDimensions());
                         return new PrimaryKeyAndVector(primaryKey, dataVector);
                     }).size();

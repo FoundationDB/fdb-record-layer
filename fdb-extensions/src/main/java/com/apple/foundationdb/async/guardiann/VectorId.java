@@ -26,6 +26,12 @@ import javax.annotation.Nonnull;
 import java.util.Objects;
 import java.util.UUID;
 
+/**
+ * Identifies a single stored vector by its primary key together with a UUID. The primary key ties the vector back
+ * to the record it was indexed from, while the UUID disambiguates copies of the same vector (for example a primary
+ * copy and its replicated copies) and provides a stable secondary ordering. Instances order by primary key first,
+ * then by UUID.
+ */
 class VectorId implements Comparable<VectorId> {
     @Nonnull
     private final Tuple primaryKey;

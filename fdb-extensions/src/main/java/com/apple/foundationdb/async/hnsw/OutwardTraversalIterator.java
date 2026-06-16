@@ -187,7 +187,7 @@ class OutwardTraversalIterator implements AsyncIterator<NodeReferenceAndNode<Nod
 
         return AsyncUtil.whileTrue(() -> {
             while (!quickStart.isEmpty()) {
-                final var currentQuickStart = quickStart.peek();
+                final NodeReferenceWithDistance currentQuickStart = quickStart.peek();
                 if (spatialRestrictions.isGreaterThanMinimum(currentQuickStart)) {
                     return AsyncUtil.READY_FALSE;
                 }

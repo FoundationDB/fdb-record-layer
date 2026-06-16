@@ -29,6 +29,14 @@ import javax.annotation.Nullable;
 import java.util.List;
 import java.util.UUID;
 
+/**
+ * A lightweight reference to a cluster, holding just its id and (transformed) centroid without the full
+ * {@link ClusterMetadata}. Used where only a cluster's identity and location are needed — for example in a task's
+ * precomputed neighborhood that is serialized into the deferred-task queue.
+ *
+ * @param clusterId the id of the referenced cluster
+ * @param centroid the transformed centroid of the referenced cluster
+ */
 record ClusterReference(@Nonnull UUID clusterId, @Nonnull Transformed<RealVector> centroid) {
 
     static final Lens<ClusterMetadataWithDistance, ClusterReference> FROM_CLUSTER_METADATA_AND_DISTANCE =

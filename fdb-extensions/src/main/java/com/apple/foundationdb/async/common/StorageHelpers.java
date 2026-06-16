@@ -42,11 +42,29 @@ import javax.annotation.Nullable;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
+/**
+ * Static helpers for the storage layer shared by the vector index implementations: (de)serializing vectors to and
+ * from their {@link com.apple.foundationdb.tuple.Tuple} and byte representations, and appending to, consuming,
+ * aggregating, and clearing the set of sampled vectors held in a subspace. Not instantiable.
+ */
 public final class StorageHelpers {
     private StorageHelpers() {
         // nothing
     }
 
+    /**
+     * Reads up to {@code numMaxVectors} sampled vectors from the given subspace and removes them as it goes,
+     * draining that portion of the sample buffer. Each consumed key is read on a snapshot, registered as a read
+     * conflict, cleared, and reported to the listener, so the transaction conflicts only on the keys actually
+     * consumed rather than on the whole range.
+     *
+     * @param transaction the transaction to read and clear within
+     * @param prefixSubspace the subspace holding the sampled vectors
+     * @param numMaxVectors the maximum number of sampled vectors to consume
+     * @param onReadListener the listener notified of each key/value read
+     *
+     * @return a future completing with the consumed sampled vectors
+     */
     @Nonnull
     public static CompletableFuture<List<AggregatedVector>> consumeSampledVectors(@Nonnull final Transaction transaction,
                                                                                   @Nonnull final Subspace prefixSubspace,
@@ -73,6 +91,14 @@ public final class StorageHelpers {
                 });
     }
 
+    /**
+     * Combines a collection of {@link AggregatedVector}s into a single aggregate by summing their partial vectors
+     * and counts.
+     *
+     * @param vectors the partial aggregates to combine
+     *
+     * @return the combined aggregate, or {@code null} if {@code vectors} contributes no elements
+     */
     @Nullable
     public static AggregatedVector aggregateVectors(@Nonnull final Iterable<AggregatedVector> vectors) {
         Transformed<RealVector> partialVector = null;
@@ -85,6 +111,17 @@ public final class StorageHelpers {
         return partialCount == 0 ? null : new AggregatedVector(partialCount, partialVector);
     }
 
+    /**
+     * Appends a single sampled vector to the sample buffer in the given subspace, under a key derived from its
+     * partial count and a fresh (optionally deterministic) random id.
+     *
+     * @param transaction the transaction to write within
+     * @param deterministicRandomness whether to derive the key's id deterministically rather than randomly
+     * @param prefixSubspace the subspace holding the sampled vectors
+     * @param partialCount the number of vectors this sample aggregates
+     * @param vector the sampled (partial) vector to store
+     * @param onWriteListener the listener notified of the written key/value
+     */
     public static void appendSampledVector(@Nonnull final Transaction transaction,
                                            final boolean deterministicRandomness,
                                            @Nonnull final Subspace prefixSubspace,
@@ -100,6 +137,13 @@ public final class StorageHelpers {
         onWriteListener.onKeyValueWritten(prefixKey, value);
     }
 
+    /**
+     * Clears all sampled vectors held in the given subspace.
+     *
+     * @param transaction the transaction to clear within
+     * @param prefixSubspace the subspace holding the sampled vectors
+     * @param onWriteListener the listener notified of the cleared range
+     */
     public static void deleteAllSampledVectors(@Nonnull final Transaction transaction, @Nonnull final Subspace prefixSubspace,
                                                @Nonnull final OnKeyValueWriteListener onWriteListener) {
         final byte[] prefixKey = prefixSubspace.pack();
@@ -143,6 +187,13 @@ public final class StorageHelpers {
         return Tuple.from(vector.getRawData());
     }
 
+    /**
+     * Returns the raw byte representation of a transformed vector's underlying data, as stored in the database.
+     *
+     * @param transformedVector the transformed vector whose underlying raw bytes are returned
+     *
+     * @return the raw bytes of the underlying vector
+     */
     @Nonnull
     public static byte[] bytesFromVector(@Nonnull final Transformed<RealVector> transformedVector) {
         return transformedVector.getUnderlyingVector().getRawData();

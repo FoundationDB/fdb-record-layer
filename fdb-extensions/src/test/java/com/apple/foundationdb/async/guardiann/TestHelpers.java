@@ -249,7 +249,7 @@ class TestHelpers {
 
         final ImmutableList.Builder<PrimaryKeyAndVector> insertedDataBuilder = ImmutableList.builder();
 
-        try (final var fileChannel = FileChannel.open(basePath, StandardOpenOption.READ)) {
+        try (final FileChannel fileChannel = FileChannel.open(basePath, StandardOpenOption.READ)) {
             final Iterator<DoubleRealVector> vectorIterator = new StoredVecsIterator.StoredFVecsIterator(fileChannel);
 
             int i = 0;
@@ -305,7 +305,7 @@ class TestHelpers {
 
         long total = 0L;
         final Path basePath = Paths.get(SIFT_1M_BASE_PATH);
-        try (final var fileChannel = FileChannel.open(basePath, StandardOpenOption.READ)) {
+        try (final FileChannel fileChannel = FileChannel.open(basePath, StandardOpenOption.READ)) {
             final Iterator<DoubleRealVector> it = new StoredVecsIterator.StoredFVecsIterator(fileChannel);
             while (it.hasNext()) {
                 final DoubleRealVector v = it.next();
@@ -359,7 +359,7 @@ class TestHelpers {
         onReadListener.pushFrame();
         onWriteListener.pushFrame();
 
-        try (final var fileChannel = FileChannel.open(siftPath, StandardOpenOption.READ)) {
+        try (final FileChannel fileChannel = FileChannel.open(siftPath, StandardOpenOption.READ)) {
             final Iterator<DoubleRealVector> vectorIterator = new StoredVecsIterator.StoredFVecsIterator(fileChannel);
 
             int i = 0;
@@ -415,7 +415,7 @@ class TestHelpers {
                                       final int desiredBatchSize) throws Exception {
         final Path siftPath = Paths.get(baseFile);
 
-        try (final var fileChannel = FileChannel.open(siftPath, StandardOpenOption.READ)) {
+        try (final FileChannel fileChannel = FileChannel.open(siftPath, StandardOpenOption.READ)) {
             final Iterator<DoubleRealVector> vectorIterator = new StoredVecsIterator.StoredFVecsIterator(fileChannel);
 
             if (!vectorIterator.hasNext()) {
@@ -529,7 +529,7 @@ class TestHelpers {
     @Nonnull
     static List<DoubleRealVector> loadSiftQueryVectors(@Nonnull final String queriesFile) throws IOException {
         final ImmutableList.Builder<DoubleRealVector> queries = ImmutableList.builder();
-        try (final var channel = FileChannel.open(Paths.get(queriesFile), StandardOpenOption.READ)) {
+        try (final FileChannel channel = FileChannel.open(Paths.get(queriesFile), StandardOpenOption.READ)) {
             final Iterator<DoubleRealVector> iterator = new StoredVecsIterator.StoredFVecsIterator(channel);
             while (iterator.hasNext()) {
                 queries.add(iterator.next());
@@ -546,7 +546,7 @@ class TestHelpers {
     static List<Set<Integer>> loadSiftGroundTruth(@Nonnull final String groundTruthFile,
                                                   final int maxIndex) throws IOException {
         final ImmutableList.Builder<Set<Integer>> truth = ImmutableList.builder();
-        try (final var channel = FileChannel.open(Paths.get(groundTruthFile), StandardOpenOption.READ)) {
+        try (final FileChannel channel = FileChannel.open(Paths.get(groundTruthFile), StandardOpenOption.READ)) {
             final Iterator<List<Integer>> iterator = new StoredVecsIterator.StoredIVecsIterator(channel);
             while (iterator.hasNext()) {
                 truth.add(iterator.next().stream()
@@ -695,7 +695,7 @@ class TestHelpers {
         final ImmutableList.Builder<RealVector> resultBuilder = ImmutableList.builder();
         final Path queryPath = Paths.get(queriesFile);
 
-        try (final var queryChannel = FileChannel.open(queryPath, StandardOpenOption.READ)) {
+        try (final FileChannel queryChannel = FileChannel.open(queryPath, StandardOpenOption.READ)) {
             final Iterator<DoubleRealVector> queryIterator = new StoredVecsIterator.StoredFVecsIterator(queryChannel);
 
             while (queryIterator.hasNext()) {

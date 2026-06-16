@@ -31,6 +31,19 @@ import java.util.Objects;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+/**
+ * Persistent metadata describing a single Guardiann cluster (a node in the centroid HNSW). It records the
+ * cluster's id, the number of primary-underreplicated and replicated vectors it holds, the running statistics of
+ * member distances to the centroid (from which the total primary count and standard deviation are derived), and
+ * the set of in-flight maintenance {@link State}s the cluster is currently subject to.
+ *
+ * @param id the unique id of the cluster
+ * @param numPrimaryUnderreplicatedVectors the number of primary vectors in the cluster that are underreplicated
+ * @param numReplicatedVectors the number of replicated (non-primary) vectors in the cluster
+ * @param runningStandardDeviation running statistics of member distances to the centroid; its element count is the
+ *        number of primary vectors
+ * @param states the set of maintenance operations currently in flight for this cluster
+ */
 record ClusterMetadata(@Nonnull UUID id, int numPrimaryUnderreplicatedVectors, int numReplicatedVectors,
                        @Nonnull RunningStats runningStandardDeviation, @Nonnull EnumSet<State> states) {
     public ClusterMetadata(@Nonnull final UUID id, final int numPrimaryUnderreplicatedVectors,
@@ -123,6 +136,11 @@ record ClusterMetadata(@Nonnull UUID id, int numPrimaryUnderreplicatedVectors, i
                 ']';
     }
 
+    /**
+     * The kinds of in-flight maintenance a cluster may be subject to. Each constant has a distinct power-of-two
+     * {@linkplain #getCode() code} so that a set of states can be packed into a single integer bit mask and
+     * restored via {@link #ofCode(int)}.
+     */
     public enum State {
         SPLIT_MERGE(1),
         REASSIGN(2),

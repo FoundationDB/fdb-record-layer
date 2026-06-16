@@ -34,6 +34,15 @@ import java.util.concurrent.Executor;
 
 import static com.apple.foundationdb.async.AsyncUtil.forEachRemaining;
 
+/**
+ * A fixed-capacity collector that retains the top {@code k} elements offered, as ordered by a {@link Comparator}
+ * (the {@code k} that compare greatest). Once at capacity, a new element is kept only if it compares strictly
+ * greater than the current worst, which it then evicts. Unlike {@link DistinctTopK} this does not deduplicate, so
+ * equal elements may be retained more than once. Backed by a bounded min-heap, giving {@code O(log k)}
+ * {@link #add(Object)}.
+ *
+ * @param <T> the type of element collected
+ */
 public class TopK<T> {
     @Nonnull
     private final PriorityQueue<T> queue;
@@ -45,6 +54,14 @@ public class TopK<T> {
         this.k = k;
     }
 
+    /**
+     * Offers an element to this collector. The element is kept if fewer than {@code k} elements are currently held,
+     * or if it compares strictly greater than the current worst, which it then evicts.
+     *
+     * @param item the element to offer
+     *
+     * @return {@code true} if the element was retained, {@code false} if it was rejected
+     */
     public boolean add(@Nonnull T item) {
         if (queue.size() < k) {
             return queue.add(item);
@@ -61,11 +78,21 @@ public class TopK<T> {
         return queue.add(item);
     }
 
+    /**
+     * Returns the currently retained elements in no particular order.
+     *
+     * @return the retained elements, unordered
+     */
     @Nonnull
     public List<T> toUnsortedList() {
         return ImmutableList.copyOf(queue);
     }
 
+    /**
+     * Returns the currently retained elements ordered from greatest to least, as ranked by the comparator.
+     *
+     * @return the retained elements, sorted from best (greatest) to worst (least)
+     */
     @SuppressWarnings("unchecked")
     public List<T> toSortedList() {
         final PriorityQueue<T> copy = new PriorityQueue<>(queue);
@@ -79,6 +106,11 @@ public class TopK<T> {
         return ImmutableList.copyOf(array);
     }
 
+    /**
+     * Returns the current worst retained element — the next one that would be evicted — or empty if none are held.
+     *
+     * @return the worst retained element, or {@link Optional#empty()} if the collector is empty
+     */
     @Nonnull
     public Optional<T> worstElement() {
         if (queue.isEmpty()) {
@@ -87,6 +119,15 @@ public class TopK<T> {
         return Optional.of(queue.peek());
     }
 
+    /**
+     * Offers every element produced by the given iterable to this collector and returns the retained top-K as a
+     * sorted list.
+     *
+     * @param iterable the elements to offer
+     * @param executor the executor to use for asynchronous iteration
+     *
+     * @return a future completing with the retained top-K elements, sorted from best to worst
+     */
     @Nonnull
     public CompletableFuture<List<T>> collect(final AsyncIterable<T> iterable,
                                               final Executor executor) {
@@ -107,11 +148,31 @@ public class TopK<T> {
         return forEachRemaining(iterator, this::add, executor).thenApply(ignored -> toSortedList());
     }
 
+    /**
+     * Creates a collector that retains the {@code k} <em>smallest</em> elements offered, as ordered by the given
+     * comparator.
+     *
+     * @param comparator the comparator defining element order
+     * @param k the maximum number of elements to retain
+     * @param <T> the type of element collected
+     *
+     * @return a new collector retaining the k smallest elements
+     */
     @Nonnull
     public static <T> TopK<T> min(@Nonnull final Comparator<T> comparator, final int k) {
         return new TopK<>(comparator.reversed(), k);
     }
 
+    /**
+     * Creates a collector that retains the {@code k} <em>largest</em> elements offered, as ordered by the given
+     * comparator.
+     *
+     * @param comparator the comparator defining element order
+     * @param k the maximum number of elements to retain
+     * @param <T> the type of element collected
+     *
+     * @return a new collector retaining the k largest elements
+     */
     @Nonnull
     public static <T> TopK<T> max(@Nonnull final Comparator<T> comparator, final int k) {
         return new TopK<>(comparator, k);

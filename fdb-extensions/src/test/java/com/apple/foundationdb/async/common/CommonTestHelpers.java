@@ -49,7 +49,7 @@ public final class CommonTestHelpers {
                                                           final int numberOfVectors) {
         final ImmutableList.Builder<PrimaryKeyAndVector> resultBuilder = ImmutableList.builder();
         for (int i = 0; i < numberOfVectors; i ++) {
-            final var primaryKey = createPrimaryKey(i);
+            final Tuple primaryKey = createPrimaryKey(i);
             final HalfRealVector dataVector = createRandomHalfVector(random, numDimensions);
             resultBuilder.add(new PrimaryKeyAndVector(primaryKey, dataVector));
         }

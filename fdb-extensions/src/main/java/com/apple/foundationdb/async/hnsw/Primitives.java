@@ -462,8 +462,8 @@ public class Primitives {
                            @Nonnull final StorageTransform storageTransform,
                            @Nonnull final Iterable<? extends NodeReferenceAndNode<? extends NodeReferenceWithVector, N>> nodeReferenceAndNodes) {
         if (!storageAdapter.isInliningStorageAdapter()) {
-            final var resultBuilder =
-                    ImmutableList.<NodeReferenceAndNode<NodeReferenceWithVector, N>>builder();
+            final ImmutableList.Builder<NodeReferenceAndNode<NodeReferenceWithVector, N>> resultBuilder =
+                    ImmutableList.builder();
             for (final NodeReferenceAndNode<? extends NodeReferenceWithVector, N> nodeReferenceAndNode : nodeReferenceAndNodes) {
                 resultBuilder.add(new NodeReferenceAndNode<>(nodeReferenceAndNode.getNodeReference(), nodeReferenceAndNode.getNode()));
             }

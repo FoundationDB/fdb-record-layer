@@ -27,6 +27,10 @@ import javax.annotation.Nullable;
 import java.util.Objects;
 import java.util.UUID;
 
+/**
+ * A {@link VectorId} extended with the additional ("covering") values stored alongside the vector, if any. These
+ * are the extra index-entry values carried so that queries can be answered without fetching the source record.
+ */
 class VectorMetadata extends VectorId {
     @Nullable
     private final Tuple additionalValues;

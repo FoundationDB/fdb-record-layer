@@ -337,7 +337,7 @@ public class Search {
                                                  final int efSearch) {
         final Config config = getConfig();
 
-        final var boundedClusterMetadataIterable =
+        final AsyncIterable<ClusterMetadataWithDistance> boundedClusterMetadataIterable =
                 MoreAsyncUtil.iterableFromCollection(
                         CompletableFuture.completedFuture(clusters), getExecutor());
 
@@ -391,7 +391,7 @@ public class Search {
             return CompletableFuture.completedFuture(topReferences);
         }
 
-        final var topReferencesIterable =
+        final AsyncIterable<VectorReferenceAndDistance> topReferencesIterable =
                 MoreAsyncUtil.iterableFromCollection(CompletableFuture.completedFuture(topReferences), getExecutor());
 
         final AsyncIterable<VectorReferenceAndDistance> expandedTopReferencesIterable =
@@ -840,7 +840,7 @@ public class Search {
     @Nonnull
     private static VectorReference enrichVectorReference(@Nonnull final Map<Tuple, CompletableFuture<VectorMetadata>> primaryKeyToVectorMetadataUuidFutureMap,
                                                          @Nonnull final VectorReference vectorReference) {
-        final var vectorMetadata =
+        final VectorMetadata vectorMetadata =
                 Objects.requireNonNull(
                         Objects.requireNonNull(
                                         primaryKeyToVectorMetadataUuidFutureMap.get(vectorReference.id().getPrimaryKey())).getNow(null));

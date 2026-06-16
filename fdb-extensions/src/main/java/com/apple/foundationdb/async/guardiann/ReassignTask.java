@@ -55,6 +55,13 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 
+/**
+ * A deferred task that reassigns a target cluster's vectors across its neighborhood to restore Guardiann's
+ * replication invariants — for example after a split or merge (identified by {@code causeClusterIds}), or when a
+ * cluster has accumulated too many underreplicated primary or replicated vectors. It recomputes each vector's
+ * nearest clusters over the precomputed {@link ClusterReference} neighborhood and rewrites the primary and
+ * replicated copies accordingly.
+ */
 public class ReassignTask extends AbstractDeferredTask {
     @Nonnull
     private static final Logger logger = LoggerFactory.getLogger(ReassignTask.class);
@@ -295,7 +302,7 @@ public class ReassignTask extends AbstractDeferredTask {
                 continue;
             }
 
-            final var nearestClusters =
+            final ImmutableList<ClusterMetadataWithDistance> nearestClusters =
                     Objects.requireNonNull(invertedAssignmentsMap.get(vectorReference.id().getUuid()));
             Verify.verify(!nearestClusters.isEmpty());
             final ClusterMetadataWithDistance primaryCluster = Objects.requireNonNull(nearestClusters.get(0));
@@ -583,11 +590,29 @@ public class ReassignTask extends AbstractDeferredTask {
         return new ReassignTask(locator, accessInfo, taskId, clusterId, centroid, causeClusterIds, neighborhood);
     }
 
+    /**
+     * The outcome of computing a reassignment: the metadata of the clusters involved, the new vector-to-cluster
+     * assignments, and the updated running distance statistics per cluster.
+     *
+     * @param clusterIdMetadataMap a map from cluster id to that cluster's metadata (with distance)
+     * @param assignmentMultimap the new assignments of vectors to clusters
+     * @param updatedStandardDeviationsMap a map from cluster id to its updated running distance statistics
+     */
     private record Reassignment(@Nonnull Map<UUID, ClusterMetadataWithDistance> clusterIdMetadataMap,
                                 @Nonnull ListMultimap<UUID, VectorReference> assignmentMultimap,
                                 @Nonnull Map<UUID, RunningStats> updatedStandardDeviationsMap) {
     }
 
+    /**
+     * Per-cluster counters produced while writing a reassignment: the number of primary, primary-underreplicated,
+     * and replicated vectors added to each cluster, together with the totals pushed out of the target cluster.
+     *
+     * @param numPrimaryVectorsAdded a map from cluster id to the number of primary vectors written to it
+     * @param numPrimaryUnderreplicatedVectorsAdded a map from cluster id to the number of primary underreplicated vectors written to it
+     * @param numReplicatedVectorsAdded a map from cluster id to the number of replicated vectors written to it
+     * @param numPrimaryPushedOut the number of primary vectors moved out of the target cluster
+     * @param numReplicatedPushedOut the number of replicated vectors moved out of the target cluster
+     */
     private record WriteCounters(@Nonnull Map<UUID, Integer> numPrimaryVectorsAdded,
                                  @Nonnull Map<UUID, Integer> numPrimaryUnderreplicatedVectorsAdded,
                                  @Nonnull Map<UUID, Integer> numReplicatedVectorsAdded,

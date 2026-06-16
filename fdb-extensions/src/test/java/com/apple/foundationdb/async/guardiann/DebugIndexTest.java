@@ -211,10 +211,10 @@ public class DebugIndexTest implements BaseTest {
         }
 
         // Inspect the farthest members of one suspicious cluster.
-        final var worstMembers = findTopNFarthestMembers(clusters.get(0),
+        final List<ClusterOutlierMember> worstMembers = findTopNFarthestMembers(clusters.get(0),
                 vectorProvider, 20);
 
-        for (final var member : worstMembers) {
+        for (final ClusterOutlierMember member : worstMembers) {
             System.out.println(member);
         }
 
@@ -241,7 +241,7 @@ public class DebugIndexTest implements BaseTest {
                 computeMissedItemPercentiles(missedItemIds, vectorProvider,
                         clusterLookupByItemId::get);
 
-        for (final var r : missedItemPercentileResults) {
+        for (final MissedItemPercentileResult r : missedItemPercentileResults) {
             logger.info(
                     "missedItemHomeClusterPercentile itemId={}, clusterId={}, clusterSize={}, itemToHomeCentroidDistance={}, " +
                             "fractionMembersCloserToCentroid={}, percentileAscending={}, percentileDescending={}",
@@ -273,7 +273,7 @@ public class DebugIndexTest implements BaseTest {
                         sortedCentroids.size()
                 );
 
-        for (final var r : rankResults) {
+        for (final HomeCentroidRankResult r : rankResults) {
             logger.info(
                     "missedItemHomeCentroidRank itemId={}, clusterId={}, queryToHomeCentroidDistance={}, homeCentroidRank={}, totalCentroids={}",
                     r.getItemId(),
@@ -330,8 +330,8 @@ public class DebugIndexTest implements BaseTest {
 
         final DistanceEstimator estimator = DistanceEstimator.ofMetric(Metric.COSINE_METRIC);
 
-        try (final var queryChannel = FileChannel.open(siftQueryPath, StandardOpenOption.READ);
-                 final var groundTruthChannel = FileChannel.open(siftGroundTruthPath, StandardOpenOption.READ)) {
+        try (final FileChannel queryChannel = FileChannel.open(siftQueryPath, StandardOpenOption.READ);
+                 final FileChannel groundTruthChannel = FileChannel.open(siftGroundTruthPath, StandardOpenOption.READ)) {
             final Iterator<DoubleRealVector> queryIterator = new StoredVecsIterator.StoredFVecsIterator(queryChannel);
             final Iterator<List<Integer>> groundTruthIterator = new StoredVecsIterator.StoredIVecsIterator(groundTruthChannel);
 
@@ -369,7 +369,7 @@ public class DebugIndexTest implements BaseTest {
     static RealVector findQuery(@Nonnull final String queriesFile, final int queryIndex) throws IOException {
         final Path queryPath = Paths.get(queriesFile);
 
-        try (final var queryChannel = FileChannel.open(queryPath, StandardOpenOption.READ)) {
+        try (final FileChannel queryChannel = FileChannel.open(queryPath, StandardOpenOption.READ)) {
             final Iterator<DoubleRealVector> queryIterator = new StoredVecsIterator.StoredFVecsIterator(queryChannel);
 
             int i = 0;
@@ -398,8 +398,8 @@ public class DebugIndexTest implements BaseTest {
 
         final TestHelpers.TestOnReadListener onReadListener = (TestHelpers.TestOnReadListener)guardiann.getOnReadListener();
 
-        try (final var queryChannel = FileChannel.open(siftQueryPath, StandardOpenOption.READ);
-                 final var groundTruthChannel = FileChannel.open(siftGroundTruthPath, StandardOpenOption.READ)) {
+        try (final FileChannel queryChannel = FileChannel.open(siftQueryPath, StandardOpenOption.READ);
+                 final FileChannel groundTruthChannel = FileChannel.open(siftGroundTruthPath, StandardOpenOption.READ)) {
             final Iterator<DoubleRealVector> queryIterator = new StoredVecsIterator.StoredFVecsIterator(queryChannel);
             final Iterator<List<Integer>> groundTruthIterator = new StoredVecsIterator.StoredIVecsIterator(groundTruthChannel);
 

@@ -47,6 +47,14 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
+/**
+ * Base class for the deferred (background) maintenance tasks Guardiann enqueues to keep its cluster structure
+ * healthy: {@link SplitMergeTask}, {@link ReassignTask}, {@link CollapseTask}, and {@link BounceTask}. Each task is
+ * persisted in a task queue keyed by a {@link #getTaskId() task id} whose high bit encodes its priority, carries the
+ * {@link AccessInfo access context} and the set of {@link #getTargetClusterIds() target cluster ids} it operates on,
+ * and is rehydrated from its tuple representation via its {@link Kind}. Subclasses implement the actual maintenance
+ * work.
+ */
 public abstract class AbstractDeferredTask {
     @Nonnull
     private final Locator locator;
@@ -110,6 +118,13 @@ public abstract class AbstractDeferredTask {
     @Nonnull
     public abstract Tuple valueTuple();
 
+    /**
+     * Executes this deferred task against the given transaction.
+     *
+     * @param transaction the transaction to perform the task's work within
+     *
+     * @return a future that completes when the task has finished
+     */
     @Nonnull
     public abstract CompletableFuture<Void> runTask(@Nonnull Transaction transaction);
 
@@ -127,6 +142,11 @@ public abstract class AbstractDeferredTask {
         }
     }
 
+    /**
+     * Persists this task into the deferred-task queue and notifies the write listener that it was enqueued.
+     *
+     * @param transaction the transaction to write the task within
+     */
     protected void writeDeferredTask(@Nonnull final Transaction transaction) {
         primitives().writeDeferredTask(transaction, this.getTaskId(), valueTuple());
         getOnWriteListener().onTaskEnqueued(this.getKind(), this.getTaskId(), this.getTargetClusterIds());
@@ -174,6 +194,15 @@ public abstract class AbstractDeferredTask {
         return kind.create(locator, accessInfo, keyTuple, valueTuple);
     }
 
+    /**
+     * Generates a task id that sorts as high priority: a (optionally deterministic) random UUID with its
+     * most-significant bit cleared, so that high-priority tasks order ahead of normal-priority ones in the queue.
+     *
+     * @param random the random source used to derive the id
+     * @param isDeterministic whether to derive the id deterministically from {@code random} rather than randomly
+     *
+     * @return a high-priority task id
+     */
     @Nonnull
     protected static UUID randomHighPriorityTaskId(@Nonnull final SplittableRandom random, final boolean isDeterministic) {
         return uuidToHighPriorityTaskId(isDeterministic ? RandomHelpers.randomUuid(random) : UUID.randomUUID());
@@ -185,6 +214,15 @@ public abstract class AbstractDeferredTask {
                 uuid.getLeastSignificantBits());
     }
 
+    /**
+     * Generates a task id that sorts as normal priority: a (optionally deterministic) random UUID with its
+     * most-significant bit set, so that normal-priority tasks order after high-priority ones in the queue.
+     *
+     * @param random the random source used to derive the id
+     * @param isDeterministic whether to derive the id deterministically from {@code random} rather than randomly
+     *
+     * @return a normal-priority task id
+     */
     @Nonnull
     protected static UUID randomNormalPriorityTaskId(@Nonnull final SplittableRandom random, final boolean isDeterministic) {
         return uuidToNormalPriorityTaskId(isDeterministic ? RandomHelpers.randomUuid(random) : UUID.randomUUID());
@@ -268,6 +306,13 @@ public abstract class AbstractDeferredTask {
         return new TargetClusterDelta(toWriteBuilder.build(), toDeleteBuilder.build());
     }
 
+    /**
+     * The change to apply to a single cluster's stored vectors: the vector references to write (insert or update)
+     * and the primary keys to delete.
+     *
+     * @param toWrite the vector references to write to the cluster
+     * @param toDelete the primary keys of vectors to delete from the cluster
+     */
     record TargetClusterDelta(@Nonnull ImmutableList<VectorReference> toWrite,
                               @Nonnull ImmutableList<Tuple> toDelete) {
     }
@@ -348,6 +393,15 @@ public abstract class AbstractDeferredTask {
      * Handles the rare edge case where the target cluster itself is not found in the HNSW results
      * by synthesizing it at position 0 of the inner neighborhood.
      * </p>
+     *
+     * @param clusterMetadataWithDistances the candidate clusters ordered by ascending distance to the target centroid
+     * @param targetClusterMetadata the cluster being repartitioned
+     * @param targetClusterCentroid the transformed centroid of the target cluster, used when the target is
+     *        synthesized at position 0
+     * @param numInnerNeighborhood the number of closest clusters to place in the inner neighborhood (must be {@code >= 1})
+     * @param numOuterNeighborhood the number of subsequent clusters to place in the outer neighborhood
+     *
+     * @return the inner/outer {@link Neighborhoods} partition of the given clusters
      */
     @Nonnull
     static Neighborhoods neighborhoods(@Nonnull final List<ClusterMetadataWithDistance> clusterMetadataWithDistances,
@@ -385,14 +439,35 @@ public abstract class AbstractDeferredTask {
         return new Neighborhoods(innerNeighborhood, outerNeighborhood);
     }
 
+    /**
+     * The result of computing each primary vector's nearest clusters: an inverted assignments multimap (keyed by
+     * vector UUID, with the nearest clusters in ascending distance order) together with the per-cluster running
+     * standard-deviation updates accumulated while doing so.
+     *
+     * @param invertedAssignments a multimap from vector UUID to its nearest clusters, in ascending distance order
+     * @param standardDeviationUpdates a map from cluster id to the running statistics update for that cluster
+     */
     record NearestClustersResult(@Nonnull ImmutableListMultimap<UUID, ClusterMetadataWithDistance> invertedAssignments,
                                  @Nonnull Map<UUID, RunningStats> standardDeviationUpdates) {
     }
 
+    /**
+     * A partition of a cluster's neighborhood into an inner and an outer neighborhood. The inner neighborhood holds
+     * the closest clusters (those dissolved or repartitioned by an operation); the outer neighborhood holds the next
+     * clusters out, which may receive overflow vectors.
+     *
+     * @param innerNeighborhood the closest clusters, to be dissolved or repartitioned
+     * @param outerNeighborhood the surrounding clusters that may receive overflow vectors
+     */
     record Neighborhoods(@Nonnull List<ClusterMetadataWithDistance> innerNeighborhood,
                          @Nonnull List<ClusterMetadataWithDistance> outerNeighborhood) {
     }
 
+    /**
+     * The kinds of deferred task. Each constant carries a stable integer {@linkplain #getCode() code} used in the
+     * task's serialized form and a factory that reconstructs the corresponding {@link AbstractDeferredTask} from its
+     * stored key and value tuples.
+     */
     public enum Kind {
         SPLIT_MERGE(0, SplitMergeTask::fromTuples),
         REASSIGN(1, ReassignTask::fromTuples),
@@ -433,6 +508,9 @@ public abstract class AbstractDeferredTask {
         }
     }
 
+    /**
+     * Factory that reconstructs an {@link AbstractDeferredTask} from its persisted key and value tuples.
+     */
     @FunctionalInterface
     private interface TaskCreationFunction {
         AbstractDeferredTask create(@Nonnull Locator locator,

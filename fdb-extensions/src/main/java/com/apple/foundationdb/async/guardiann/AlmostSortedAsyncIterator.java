@@ -33,6 +33,15 @@ import java.util.PriorityQueue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 
+/**
+ * A {@link CloseableAsyncIterator} that re-orders its input into approximately sorted order. It keeps a bounded
+ * look-ahead buffer of up to {@code efSearch} elements drawn from the input and always emits the smallest buffered
+ * element next, as ordered by the supplied {@link Comparator}. The ordering is only <em>approximate</em> because an
+ * element more than the window size away from its fully sorted position cannot be pulled forward; this trades exact
+ * ordering for bounded memory, which suits search pipelines that consume a roughly distance-ordered prefix.
+ *
+ * @param <T> the type of element produced
+ */
 class AlmostSortedAsyncIterator<T> implements CloseableAsyncIterator<T> {
     @Nonnull
     private final AsyncIterator<T> in;
@@ -72,7 +81,7 @@ class AlmostSortedAsyncIterator<T> implements CloseableAsyncIterator<T> {
             if (inDone || out.size() >= efSearch) {
                 return AsyncUtil.READY_FALSE; // break out of the loop
             }
-            final var inOnHasNextFuture = in.onHasNext();
+            final CompletableFuture<Boolean> inOnHasNextFuture = in.onHasNext();
             if (!MoreAsyncUtil.isCompletedNormally(inOnHasNextFuture)) {
                 // Whether there is a next input element isn't known yet: wait on this same future
                 // (do not issue a second onHasNext()), then re-evaluate the loop on the next turn.

@@ -36,6 +36,14 @@ import java.util.concurrent.Executor;
 
 import static com.apple.foundationdb.async.AsyncUtil.forEachRemaining;
 
+/**
+ * A fixed-capacity collector that retains the top {@code k} <em>distinct</em> elements offered, as ordered by a
+ * {@link Comparator} (the {@code k} that compare greatest). Duplicate elements are ignored, and once at capacity a
+ * new element is kept only if it compares strictly greater than the current worst, which it then evicts. Backed by
+ * a {@link TreeSet}, giving {@code O(log k)} {@link #add(Object)}.
+ *
+ * @param <T> the type of element collected
+ */
 public class DistinctTopK<T> {
     @Nonnull
     private final TreeSet<T> set;
@@ -47,6 +55,15 @@ public class DistinctTopK<T> {
         this.k = k;
     }
 
+    /**
+     * Offers an element to this collector. Elements already retained are ignored; otherwise the element is kept if
+     * fewer than {@code k} elements are held, or if it compares strictly greater than the current worst, which it
+     * then evicts.
+     *
+     * @param item the element to offer
+     *
+     * @return {@code true} if the element was retained, {@code false} if it was a duplicate or was rejected
+     */
     public boolean add(@Nonnull T item) {
         if (set.contains(item)) {
             return false;
@@ -67,10 +84,20 @@ public class DistinctTopK<T> {
         return set.add(item);
     }
 
+    /**
+     * Returns the currently retained distinct elements ordered from greatest to least, as ranked by the comparator.
+     *
+     * @return the retained elements, sorted from best (greatest) to worst (least)
+     */
     public List<T> toSortedList() {
         return ImmutableList.copyOf(set.descendingIterator());
     }
 
+    /**
+     * Returns the current worst retained element — the next one that would be evicted — or empty if none are held.
+     *
+     * @return the worst retained element, or {@link Optional#empty()} if the collector is empty
+     */
     @Nonnull
     public Optional<T> worstElement() {
         if (set.isEmpty()) {
@@ -79,6 +106,15 @@ public class DistinctTopK<T> {
         return Optional.of(set.first());
     }
 
+    /**
+     * Offers every element produced by the given iterable to this collector and returns the retained distinct
+     * top-K as a sorted list.
+     *
+     * @param iterable the elements to offer
+     * @param executor the executor to use for asynchronous iteration
+     *
+     * @return a future completing with the retained distinct top-K elements, sorted from best to worst
+     */
     @Nonnull
     public CompletableFuture<List<T>> collect(final AsyncIterable<T> iterable,
                                               final Executor executor) {
@@ -99,11 +135,31 @@ public class DistinctTopK<T> {
         return forEachRemaining(iterator, this::add, executor).thenApply(ignored -> toSortedList());
     }
 
+    /**
+     * Creates a collector that retains the {@code k} <em>smallest</em> distinct elements offered, as ordered by the
+     * given comparator.
+     *
+     * @param comparator the comparator defining element order
+     * @param k the maximum number of distinct elements to retain
+     * @param <T> the type of element collected
+     *
+     * @return a new collector retaining the k smallest distinct elements
+     */
     @Nonnull
     public static <T> DistinctTopK<T> min(@Nonnull final Comparator<T> comparator, final int k) {
         return new DistinctTopK<>(comparator.reversed(), k);
     }
 
+    /**
+     * Creates a collector that retains the {@code k} <em>largest</em> distinct elements offered, as ordered by the
+     * given comparator.
+     *
+     * @param comparator the comparator defining element order
+     * @param k the maximum number of distinct elements to retain
+     * @param <T> the type of element collected
+     *
+     * @return a new collector retaining the k largest distinct elements
+     */
     @Nonnull
     public static <T> DistinctTopK<T> max(@Nonnull final Comparator<T> comparator, final int k) {
         return new DistinctTopK<>(comparator, k);

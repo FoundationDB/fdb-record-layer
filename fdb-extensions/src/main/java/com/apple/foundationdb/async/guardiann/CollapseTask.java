@@ -50,6 +50,13 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
+/**
+ * A deferred task that collapses the vectors of a single target cluster: it folds groups of equivalent vectors into
+ * stored "collapsed" {@link VectorReference}s and records the absorbed vectors as collapsed-id mappings so they
+ * remain resolvable at query time. It then applies the resulting writes and deletions to the cluster, updates the
+ * cluster's metadata, and clears its {@link ClusterMetadata.State#COLLAPSE} state. The task is a no-op if the target
+ * cluster no longer exists or is no longer marked for collapse.
+ */
 public class CollapseTask extends AbstractDeferredTask {
     @Nonnull
     private static final Logger logger = LoggerFactory.getLogger(CollapseTask.class);
@@ -305,6 +312,12 @@ public class CollapseTask extends AbstractDeferredTask {
     /**
      * Persists the collapse results: applies the target cluster delta, writes collapsed vector IDs,
      * and updates the cluster metadata.
+     *
+     * @param transaction the transaction to write into
+     * @param targetClusterMetadataWithDistance the cluster receiving the collapsed vectors, with its centroid distance
+     * @param collapseAssignments the vectors to absorb and their collapsed-reference mappings
+     * @param delta the vectors to write to and delete from the target cluster
+     * @param quantizer the quantizer used to encode vectors before persisting
      */
     private void persistCollapse(@Nonnull final Transaction transaction,
                                  @Nonnull final ClusterMetadataWithDistance targetClusterMetadataWithDistance,
@@ -320,6 +333,10 @@ public class CollapseTask extends AbstractDeferredTask {
     /**
      * Counts underreplicated and replicated vectors in the collapse assignments for use
      * in the metadata update.
+     *
+     * @param collapseAssignments the assignments whose vectors are tallied
+     *
+     * @return the primary-underreplicated and replicated vector counts for the assignments
      */
     @Nonnull
     private CollapseCounters countAssignments(@Nonnull final CollapseAssignments collapseAssignments) {
@@ -341,6 +358,11 @@ public class CollapseTask extends AbstractDeferredTask {
 
     /**
      * Applies the target cluster delta by deleting removed vectors and writing changed/new vectors.
+     *
+     * @param transaction the transaction to write into
+     * @param quantizer the quantizer used to encode written vectors
+     * @param targetClusterId the id of the cluster the delta is applied to
+     * @param delta the vectors to delete from and write to the target cluster
      */
     private void persistTargetClusterDelta(@Nonnull final Transaction transaction,
                                            @Nonnull final Quantizer quantizer,
@@ -360,6 +382,9 @@ public class CollapseTask extends AbstractDeferredTask {
     /**
      * Writes the collapsed vector ID mappings (signature → vector ID) for all vectors that
      * were absorbed into a collapsed reference.
+     *
+     * @param transaction the transaction to write into
+     * @param collapseAssignments the assignments holding the collapsed vector-id mappings to persist
      */
     private void writeCollapsedVectorIds(@Nonnull final Transaction transaction,
                                          @Nonnull final CollapseAssignments collapseAssignments) {
@@ -373,6 +398,12 @@ public class CollapseTask extends AbstractDeferredTask {
     /**
      * Updates the target cluster metadata with new vector counts, clears the
      * {@link ClusterMetadata.State#COLLAPSE} state, and logs the result.
+     *
+     * @param transaction the transaction to write into
+     * @param targetClusterMetadataWithDistance the target cluster whose metadata is updated, with its centroid distance
+     * @param collapseAssignments the collapse assignments supplying the updated standard deviation
+     * @param counters the primary-underreplicated and replicated vector counts to store
+     * @param delta the applied delta, used only for trace logging of deleted/written counts
      */
     private void writeClusterMetadata(@Nonnull final Transaction transaction,
                                       @Nonnull final ClusterMetadataWithDistance targetClusterMetadataWithDistance,
@@ -405,6 +436,12 @@ public class CollapseTask extends AbstractDeferredTask {
         }
     }
 
+    /**
+     * The vector counts tallied from a set of collapse assignments, used to update the target cluster's metadata.
+     *
+     * @param numPrimaryUnderreplicatedVectors the number of primary underreplicated vectors among the assignments
+     * @param numReplicatedVectors the number of replicated vectors among the assignments
+     */
     private record CollapseCounters(int numPrimaryUnderreplicatedVectors,
                                     int numReplicatedVectors) {
     }
@@ -464,6 +501,14 @@ public class CollapseTask extends AbstractDeferredTask {
         return resultMapBuilder.build();
     }
 
+    /**
+     * The computed outcome of a collapse: the vector references the cluster retains, the updated distance
+     * statistics, and the mapping recording which vector ids were absorbed into each collapsed reference.
+     *
+     * @param assignments the vector references the cluster retains after collapsing
+     * @param updatedStandardDeviation the recomputed running statistics of member distances to the centroid
+     * @param collapsedAssignmentsMap a multimap from a collapsed reference's id to the {@link VectorId}s absorbed into it
+     */
     private record CollapseAssignments(@Nonnull List<VectorReference> assignments,
                                        @Nonnull RunningStats updatedStandardDeviation,
                                        @Nonnull ListMultimap<UUID, VectorId> collapsedAssignmentsMap) {

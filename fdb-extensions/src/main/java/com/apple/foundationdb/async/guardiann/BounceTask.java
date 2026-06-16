@@ -47,6 +47,13 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 
+/**
+ * A deferred task that acts as a join (barrier): it waits until a set of dependent tasks has completed and then
+ * enqueues a follow-up task of {@link Kind} {@code finalTaskKind} (for example a {@link ReassignTask}) for its
+ * target clusters. Guardiann uses it after a split or merge so that the reassignment of the newly created clusters
+ * only runs once all of the tasks they depend on have finished. While any dependent task is still outstanding the
+ * bounce re-enqueues itself.
+ */
 public class BounceTask extends AbstractDeferredTask {
     @Nonnull
     private static final Logger logger = LoggerFactory.getLogger(BounceTask.class);
