@@ -167,8 +167,8 @@ public final class StorageHelpers {
     /**
      * Creates a {@link RealVector} from a byte array.
      * <p>
-     * This method interprets the input byte array by interpreting the first byte of the array.
-     * It the delegates to {@link RealVector#fromBytes(VectorType, byte[])}.
+     * This method reads the leading vector-type byte and, based on it, delegates to the appropriate decoder:
+     * {@link EncodedRealVector} for RaBitQ-encoded vectors, otherwise {@link RealVector#fromBytes(byte[])}.
      * @param config a vector-encoding configuration
      * @param vectorBytes the non-null byte array to convert.
      * @return a new {@link RealVector} instance created from the byte array.

@@ -1,5 +1,5 @@
 /*
- * ClusterMetadata.java
+ * RunningStats.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -219,7 +219,7 @@ record RunningStats(long numElements, double runningMean, double runningSumSquar
                 runningSumSquaredDeviations() + ", " + runningMaxEver() + ']';
     }
 
-    /** Returns the empty accumulator (zero elements, NaN mean/variance/max). */
+    /** Returns the empty accumulator (zero elements). */
     @Nonnull
     public static RunningStats identity() {
         return IDENTITY;

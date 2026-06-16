@@ -29,7 +29,9 @@ import java.util.concurrent.Executor;
 import java.util.function.Supplier;
 
 /**
- * A basic wrapper around the fundamental access information we need to interact with an HNSW.
+ * Wires up and holds the shared collaborators of a Guardiann structure: its {@link StorageAdapter}, the
+ * {@link Executor}, and the lazily-created {@link Primitives}, {@link Search}, {@link Insert} and
+ * {@link Delete} operation objects.
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("checkstyle:AbbreviationAsWordInName")
@@ -53,16 +55,17 @@ public class Locator {
     private final Supplier<Delete> deleteSupplier = Suppliers.memoize(() -> new Delete(this));
 
     /**
-     * Constructs a new HNSW graph instance.
+     * Constructs a new {@code Locator}.
      * <p>
-     * This constructor initializes the HNSW graph with the necessary components for storage,
-     * execution, configuration, and event handling. All parameters are mandatory and must not be null.
+     * Initializes the Locator with the storage adapter (built from the given subspace, config and listeners) and
+     * the executor used for the Guardiann structure's asynchronous operations. All parameters are mandatory and
+     * must not be null.
      *
-     * @param subspace the {@link Subspace} where the graph data is stored.
+     * @param subspace the {@link Subspace} where the data is stored.
      * @param executor the {@link Executor} service to use for concurrent operations.
-     * @param config the {@link com.apple.foundationdb.async.hnsw.Config} object containing HNSW algorithm parameters.
-     * @param onWriteListener a listener to be notified of write events on the graph.
-     * @param onReadListener a listener to be notified of read events on the graph.
+     * @param config the {@link Config} containing the Guardiann parameters.
+     * @param onWriteListener a listener to be notified of write events.
+     * @param onReadListener a listener to be notified of read events.
      *
      * @throws NullPointerException if any of the parameters are {@code null}.
      */

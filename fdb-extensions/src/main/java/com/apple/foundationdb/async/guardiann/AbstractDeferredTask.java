@@ -115,7 +115,7 @@ public abstract class AbstractDeferredTask {
 
     protected void logStart(@Nonnull final Logger logger) {
         if (logger.isDebugEnabled()) {
-            logger.debug("executing task kind={}, taskId={}, targetClusterId={}", getKind(), taskIdToString(getTaskId()),
+            logger.debug("executing task kind={}, taskId={}, targetClusterIds={}", getKind(), taskIdToString(getTaskId()),
                     getTargetClusterIds());
         }
     }
@@ -198,10 +198,10 @@ public abstract class AbstractDeferredTask {
 
     @Nonnull
     static String taskIdToString(@Nonnull final UUID taskId) {
-        return (isHighPriority(taskId) ? "NORMAL" : "HIGH") + ":" + taskId;
+        return (isNormalPriority(taskId) ? "NORMAL" : "HIGH") + ":" + taskId;
     }
 
-    static boolean isHighPriority(@Nonnull final UUID taskId) {
+    static boolean isNormalPriority(@Nonnull final UUID taskId) {
         return (taskId.getMostSignificantBits() & 0x8000000000000000L) != 0;
     }
 
@@ -355,6 +355,7 @@ public abstract class AbstractDeferredTask {
                                        @Nonnull final Transformed<RealVector> targetClusterCentroid,
                                        final int numInnerNeighborhood,
                                        final int numOuterNeighborhood) {
+        Verify.verify(numInnerNeighborhood >= 1, "numInnerNeighborhood must be >= 1, got %s", numInnerNeighborhood);
         boolean foundPrimaryCluster = false;
         for (final ClusterMetadataWithDistance clusterMetadata : clusterMetadataWithDistances) {
             if (clusterMetadata.clusterMetadata().id().equals(targetClusterMetadata.id())) {

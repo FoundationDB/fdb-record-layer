@@ -1,5 +1,5 @@
 /*
- * SplitMergeTask.java
+ * BounceTask.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -176,10 +176,10 @@ public class BounceTask extends AbstractDeferredTask {
                                                 (resultEntry, targetClusterMetadata) -> {
                                                     if (resultEntry == null) {
                                                         if (logger.isDebugEnabled()) {
-                                                            logger.debug("unable to enqueue final task; kind={}; targetClusterIds={}",
+                                                            logger.debug("unable to enqueue final task; kind={}; targetClusterId={}",
                                                                     getFinalTaskKind(), targetClusterId);
                                                         }
-                                                        return AsyncUtil.DONE;
+                                                        return null;
                                                     }
                                                     final Transformed<RealVector> transformedCentroid =
                                                             storageTransform.transform(Objects.requireNonNull(resultEntry.vector()));
@@ -217,7 +217,7 @@ public class BounceTask extends AbstractDeferredTask {
                                                                     taskIdToString(finalTask.getTaskId()));
                                                         }
                                                     }
-                                                    return AsyncUtil.DONE;
+                                                    return null;
                                                 }), 10, executor)
                 .thenCompose(ignored2 -> AsyncUtil.DONE);
     }

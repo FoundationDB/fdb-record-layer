@@ -179,7 +179,6 @@ public class SplitMergeTask extends AbstractDeferredTask {
                         final EnumSet<ClusterMetadata.State> newStates = EnumSet.copyOf(clusterMetadata.states());
                         newStates.remove(ClusterMetadata.State.SPLIT_MERGE);
                         primitives.writeClusterMetadata(transaction, clusterMetadata.withNewStates(newStates));
-                        clusterMetadata.withNewStates(newStates);
                         return AsyncUtil.DONE;
                     }
 
@@ -509,8 +508,8 @@ public class SplitMergeTask extends AbstractDeferredTask {
      * Assigns each primary vector reference to its nearest cluster (from new + outer clusters) and
      * determines replication targets based on distance-based priority scoring. Vectors whose primary
      * assignment falls outside the new clusters are marked as underreplicated. Replicated copies are
-     * subject to occlusion filtering and bounded by {@link Config#replicatedClusterTarget()} via
-     * reservoir sampling.
+     * subject to occlusion filtering and bounded by {@link Config#replicatedClusterTarget()} via a
+     * bounded top-K by replication priority.
      *
      * @param estimator distance estimator for the vector space
      * @param outerNeighborhood clusters outside the split/merge region that may receive vectors
@@ -578,7 +577,7 @@ public class SplitMergeTask extends AbstractDeferredTask {
 
         final ImmutableListMultimap.Builder<UUID, VectorReference> assignmentMultimapBuilder =
                 ImmutableListMultimap.builder();
-        final Map<UUID, TopK<VectorReference>> replicatedAssignmentSamplerMap = Maps.newHashMap();
+        final Map<UUID, TopK<VectorReference>> replicatedAssignmentTopKMap = Maps.newHashMap();
 
         RunningStats replicationPriorityStandardDeviation = RunningStats.identity();
         int numReplicated = 0;
@@ -622,7 +621,7 @@ public class SplitMergeTask extends AbstractDeferredTask {
                                 standardDeviationsMap.get(replicationCandidateClusterMetadata.id()));
 
                 final double replicationPriority =
-                        StorageAdapter.replicationPriority(distance, distanceToPrimaryCentroid,
+                        StorageAdapter.replicationPriority(getConfig(), distance, distanceToPrimaryCentroid,
                                 Math.toIntExact(updatedStandardDeviation.numElements()),
                                 updatedStandardDeviation.mean(),
                                 updatedStandardDeviation.populationStandardDeviation());
@@ -637,11 +636,11 @@ public class SplitMergeTask extends AbstractDeferredTask {
                     final VectorReference newVectorReference =
                             vectorReference.toReplicatedCopy(replicationPriority);
                     if (newClusterIds.contains(replicationCandidateClusterMetadata.id())) {
-                        final var reservoirSampler =
-                                replicatedAssignmentSamplerMap.computeIfAbsent(replicationCandidateClusterMetadata.id(),
+                        final var topK =
+                                replicatedAssignmentTopKMap.computeIfAbsent(replicationCandidateClusterMetadata.id(),
                                         ignored -> TopK.max(Comparator.comparing(VectorReference::replicationPriority),
                                                 config.replicatedClusterTarget()));
-                        reservoirSampler.add(newVectorReference);
+                        topK.add(newVectorReference);
                     } else {
                         assignmentMultimapBuilder.put(replicationCandidateClusterMetadata.id(), newVectorReference);
                     }
@@ -659,7 +658,7 @@ public class SplitMergeTask extends AbstractDeferredTask {
                     numReplicated, numOccluded);
         }
 
-        for (final Map.Entry<UUID, TopK<VectorReference>> entry : replicatedAssignmentSamplerMap.entrySet()) {
+        for (final Map.Entry<UUID, TopK<VectorReference>> entry : replicatedAssignmentTopKMap.entrySet()) {
             assignmentMultimapBuilder.putAll(entry.getKey(), entry.getValue().toUnsortedList());
         }
 

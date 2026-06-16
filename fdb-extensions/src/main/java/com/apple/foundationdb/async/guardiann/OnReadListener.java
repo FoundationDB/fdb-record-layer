@@ -42,6 +42,7 @@ public interface OnReadListener extends OnKeyValueReadListener {
      * future. This method is intended to be used to measure elapsed time between the creation of a
      * {@link CompletableFuture} and its completion.
      * @param <N> the type of the {@code NodeReference}
+     * @param <T> the type of the {@code Node} that the read completes with
      * @param future the {@code CompletableFuture} representing the pending asynchronous read operation.
      * @return a {@code CompletableFuture} that will complete with the read {@code Node}.
      *         By default, this is the same future that was passed as an argument.

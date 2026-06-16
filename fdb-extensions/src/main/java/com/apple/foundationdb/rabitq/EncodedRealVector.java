@@ -98,8 +98,8 @@ public class EncodedRealVector implements RealVector {
 
     /**
      * Estimated upper bound on the per-vector encoding error, in the metric's native scale.
-     * Used by {@link #computeData()} to size the confidence weight when reconstructing the
-     * approximate dense form.
+     * Consumed during distance estimation (see the RaBitQ distance estimator); it is not used by
+     * {@link #computeData()}.
      */
     private final double fErrorEx;
 
@@ -170,8 +170,7 @@ public class EncodedRealVector implements RealVector {
     }
 
     /**
-     * Returns the per-vector error bound used during distance estimation and dequantization.
-     * See {@link #fErrorEx}.
+     * Returns the per-vector error bound used during distance estimation. See {@link #fErrorEx}.
      */
     public double getErrorEx() {
         return fErrorEx;

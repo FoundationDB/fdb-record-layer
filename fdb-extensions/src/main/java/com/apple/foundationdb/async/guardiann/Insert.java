@@ -66,7 +66,9 @@ import static com.apple.foundationdb.async.common.StorageHelpers.consumeSampledV
 import static com.apple.foundationdb.async.common.StorageHelpers.deleteAllSampledVectors;
 
 /**
- * TODO.
+ * Implements insertion of a vector into the Guardiann vector structure: it assigns the new vector to its
+ * nearest (primary) cluster, replicates it into nearby clusters as warranted, writes the vector's metadata
+ * and references, and maintains sampling statistics.
  */
 @API(API.Status.EXPERIMENTAL)
 public class Insert {
@@ -103,7 +105,7 @@ public class Insert {
     }
 
     /**
-     * Get the executor used by this hnsw.
+     * Get the executor used by this Guardiann structure.
      * @return executor used when running asynchronous tasks
      */
     @Nonnull
@@ -112,8 +114,8 @@ public class Insert {
     }
 
     /**
-     * Get the configuration of this hnsw.
-     * @return hnsw configuration
+     * Get the configuration of this Guardiann structure.
+     * @return the configuration
      */
     @Nonnull
     public Config getConfig() {
@@ -262,7 +264,7 @@ public class Insert {
                                         // into other clusters if it happens to be at the border between two (or more)
                                         // clusters.
                                         //
-                                        return StorageAdapter.replicationPriority(distance, distanceToPrimaryCentroid,
+                                        return StorageAdapter.replicationPriority(config, distance, distanceToPrimaryCentroid,
                                                 clusterMetadata.getNumPrimaryVectors(),
                                                 clusterMetadata.meanDistance(),
                                                 clusterMetadata.standardDeviation()) >= config.replicationPriorityMin();
@@ -307,7 +309,7 @@ public class Insert {
                                                 }
 
                                                 final double replicationPriority =
-                                                        StorageAdapter.replicationPriority(distance, distanceToPrimaryCentroid,
+                                                        StorageAdapter.replicationPriority(config, distance, distanceToPrimaryCentroid,
                                                                 clusterMetadata.getNumPrimaryVectors(),
                                                                 clusterMetadata.meanDistance(),
                                                                 clusterMetadata.standardDeviation());
@@ -334,7 +336,7 @@ public class Insert {
                                     });
 
                     return updatedNeighborhoodFuture
-                            .thenCompose(results ->
+                            .thenCompose(ignored ->
                                     addToStatsIfNecessary(transaction, random, accessInfo, transformedNewVector));
                 });
     }

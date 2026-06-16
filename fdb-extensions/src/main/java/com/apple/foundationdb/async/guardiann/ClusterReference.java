@@ -31,7 +31,7 @@ import java.util.UUID;
 
 record ClusterReference(@Nonnull UUID clusterId, @Nonnull Transformed<RealVector> centroid) {
 
-    static Lens<ClusterMetadataWithDistance, ClusterReference> FROM_CLUSTER_METADATA_AND_DISTANCE =
+    static final Lens<ClusterMetadataWithDistance, ClusterReference> FROM_CLUSTER_METADATA_AND_DISTANCE =
             new Lens<>() {
                 @Override
                 public ClusterReference get(@Nonnull final ClusterMetadataWithDistance clusterMetadataWithDistance) {

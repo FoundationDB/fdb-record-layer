@@ -73,15 +73,17 @@ class AlmostSortedAsyncIterator<T> implements CloseableAsyncIterator<T> {
                 return AsyncUtil.READY_FALSE; // break out of the loop
             }
             final var inOnHasNextFuture = in.onHasNext();
-            if (MoreAsyncUtil.isCompletedNormally(inOnHasNextFuture)) {
-                if (!inOnHasNextFuture.getNow(false)) {
-                    inDone = true;
-                } else {
-                    out.add(in.next());
-                }
+            if (!MoreAsyncUtil.isCompletedNormally(inOnHasNextFuture)) {
+                // Whether there is a next input element isn't known yet: wait on this same future
+                // (do not issue a second onHasNext()), then re-evaluate the loop on the next turn.
+                return inOnHasNextFuture.thenApply(ignored -> true);
             }
-            return in.onHasNext()
-                    .thenCompose(ignored -> AsyncUtil.READY_TRUE);
+            if (!inOnHasNextFuture.getNow(false)) {
+                inDone = true;
+            } else {
+                out.add(in.next());
+            }
+            return AsyncUtil.READY_TRUE;
         }, executor).thenApply(ignored -> {
             if (out.isEmpty()) {
                 return null;
@@ -108,6 +110,20 @@ class AlmostSortedAsyncIterator<T> implements CloseableAsyncIterator<T> {
 
     @Override
     public void close() {
+        cancelNextFuture();
         MoreAsyncUtil.closeIterator(in);
+    }
+
+    @Override
+    public void cancel() {
+        cancelNextFuture();
+        in.cancel();
+    }
+
+    private void cancelNextFuture() {
+        if (nextFuture != null) {
+            nextFuture.cancel(false);
+            nextFuture = null;
+        }
     }
 }

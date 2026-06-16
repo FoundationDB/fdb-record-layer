@@ -103,7 +103,6 @@ public class Delete {
     public CompletableFuture<Void> delete(@Nonnull final Transaction transaction,
                                           @Nonnull final Tuple primaryKey,
                                           @Nonnull final RealVector vector) {
-        final Config config = getConfig();
         final SplittableRandom random = RandomHelpers.random(primaryKey);
         final Primitives primitives = primitives();
 

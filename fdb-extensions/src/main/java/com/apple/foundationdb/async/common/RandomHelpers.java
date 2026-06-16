@@ -59,9 +59,8 @@ public final class RandomHelpers {
 
     /**
      * Returns a good long hash code for the argument of type {@code long}. It is an implementation of the
-     * output mixing function {@code SplitMix64} as employed by many PRNG such as {@link SplittableRandom}.
-     * See <a href="https://en.wikipedia.org/wiki/Linear_congruential_generator">Linear congruential generator</a> for
-     * more information.
+     * output mixing function {@code SplitMix64} (the finalizing mix of the SplitMix algorithm) as employed by many
+     * PRNGs such as {@link SplittableRandom}.
      * @param x a {@code long}
      * @return a high quality hash code of {@code x}
      */

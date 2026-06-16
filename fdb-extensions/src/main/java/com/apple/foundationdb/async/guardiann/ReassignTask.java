@@ -171,7 +171,7 @@ public class ReassignTask extends AbstractDeferredTask {
         final Quantizer quantizer = primitives.quantizer(accessInfo);
         final DistanceEstimator estimator = quantizer.estimator();
 
-        final int numInnerNeighborhood = config.reassignInnerNeighborhoodSize();
+        final int numInnerNeighborhood = 1; // reassign always dissolves exactly the single target cluster
         final int numOuterNeighborhood = config.reassignOuterNeighborhoodSize();
         final int numNeighborhood = numInnerNeighborhood + numOuterNeighborhood;
 
@@ -208,11 +208,13 @@ public class ReassignTask extends AbstractDeferredTask {
 
                     final List<ClusterMetadataWithDistance> innerNeighborhood = neighborhoods.innerNeighborhood();
                     final List<ClusterMetadataWithDistance> outerNeighborhood = neighborhoods.outerNeighborhood();
+                    Verify.verify(innerNeighborhood.size() == 1,
+                            "reassign expects exactly one inner (target) cluster, got %s", innerNeighborhood.size());
 
                     //
-                    // At this point innerNeighborhood contains the clusters we want to split into
-                    // innerNeighborhood.size() - 1 number of clusters and outerNeighborhood contains all clusters we
-                    // may assign some vectors from innerNeighborhood to.
+                    // At this point innerNeighborhood is the single target cluster whose vectors will be
+                    // reassigned; outerNeighborhood holds the candidate clusters those vectors may move or
+                    // replicate to.
                     //
                     return primitives.fetchInnerClusters(transaction, innerNeighborhood, storageTransform)
                             .thenCompose(innerClusters -> primitives.cleanUpVectorReferences(transaction,
@@ -341,7 +343,7 @@ public class ReassignTask extends AbstractDeferredTask {
                                 standardDeviationsMap.get(replicationCandidateClusterMetadata.id()));
 
                 final double replicationPriority =
-                        StorageAdapter.replicationPriority(distance, distanceToPrimaryCentroid,
+                        StorageAdapter.replicationPriority(getConfig(), distance, distanceToPrimaryCentroid,
                                 Math.toIntExact(updatedStandardDeviation.numElements()),
                                 updatedStandardDeviation.mean(),
                                 updatedStandardDeviation.populationStandardDeviation());
@@ -354,13 +356,15 @@ public class ReassignTask extends AbstractDeferredTask {
 
                     final VectorReference newVectorReference =
                             vectorReference.toReplicatedCopy(replicationPriority);
-                    if (targetClusterId.equals(replicationCandidateClusterMetadata.id())) {
-                        replicatedTopK.add(newVectorReference); // TODO remove this as this should never happen
-                    } else {
-                        assignmentBuilder.put(
-                                replicationCandidateClusterMetadata.id(),
-                                newVectorReference);
-                    }
+                    // A replication candidate can never be the target cluster: we only reach this loop when the
+                    // target is the vector's nearest cluster (index 0 of nearestClusters), the candidates are
+                    // nearestClusters.subList(1, ...) which excludes index 0, and each cluster appears at most
+                    // once in that distance-sorted list.
+                    Verify.verify(!targetClusterId.equals(replicationCandidateClusterMetadata.id()),
+                            "a replication candidate must never be the target cluster");
+                    assignmentBuilder.put(
+                            replicationCandidateClusterMetadata.id(),
+                            newVectorReference);
                     selectedReplicationClusters.add(replicationCandidate);
                     numReplicated++;
                 }

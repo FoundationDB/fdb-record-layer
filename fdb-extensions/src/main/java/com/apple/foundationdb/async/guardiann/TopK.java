@@ -94,13 +94,13 @@ public class TopK<T> {
     }
 
     /**
-     * Iterates over a set of items and returns the remaining results as a list.
+     * Exhausts the iterator, offering every element to this top-K collector, and returns the retained
+     * top-K elements as a sorted list.
      *
      * @param iterator the source of data over which to iterate. This function will exhaust the iterator.
      * @param executor the {@link Executor} to use for asynchronous operations
      *
-     * @return a {@code CompletableFuture} which will be set to the amalgamation of results
-     *  from iteration.
+     * @return a {@code CompletableFuture} completing with the retained top-K elements, sorted
      */
     public CompletableFuture<List<T>> collectRemaining(final AsyncIterator<T> iterator,
                                                        final Executor executor) {

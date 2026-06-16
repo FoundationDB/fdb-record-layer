@@ -63,7 +63,7 @@ import static com.apple.foundationdb.async.MoreAsyncUtil.mapIterablePipelined;
  *   <li><b>Candidate cluster selection</b> — queries the HNSW centroid index for the nearest cluster
  *       centroids to the query vector, up to {@code searchMaxClusters}.</li>
  *   <li><b>Distance-ratio pruning</b> — discards clusters whose centroid distance exceeds
- *       {@code earchDistanceRatioCutoff} times the nearest centroid distance, retaining
+ *       {@code searchDistanceRatioCutoff} times the nearest centroid distance, retaining
  *       at least {@code searchMinClustersBeforePruning} clusters.</li>
  *   <li><b>Vector reference retrieval</b> — scans the surviving clusters for individual vector
  *       references, computing distances to the query vector and collecting the top-{@code efSearch}
@@ -181,7 +181,9 @@ public class Search {
         return search(readTransaction, k, efSearch, searchMaxClusters, searchMinClustersBeforePruning,
                 searchDistanceRatioCutoff, queryVector)
                 .thenApply(searchResult ->
-                        postProcessSearchResult(searchResult.storageTransform(),
+                        searchResult == null
+                        ? ImmutableList.of()
+                        : postProcessSearchResult(searchResult.storageTransform(),
                                 searchResult.nearestReferences(), includeVectors));
     }
 
@@ -208,7 +210,6 @@ public class Search {
                                            final double searchDistanceRatioCutoff,
                                            @Nonnull final RealVector queryVector) {
         final Primitives primitives = primitives();
-        final Config config = getConfig();
 
         return primitives.fetchAccessInfo(readTransaction)
                 .thenCompose(accessInfo -> {
@@ -484,8 +485,8 @@ public class Search {
     @Nonnull
     CompletableFuture<SearchResult> searchOrderedByDistance(@Nonnull final ReadTransaction readTransaction,
                                                             final int k,
-                                                            final int searchMaxClusters,
                                                             final int efSearch,
+                                                            final int searchMaxClusters,
                                                             @Nonnull final RealVector queryVector,
                                                             final double minimumRadiusCluster,
                                                             final double minimumRadius,
@@ -585,7 +586,8 @@ public class Search {
                                                         primaryKey ->
                                                                 primitives.fetchVectorMetadata(readTransaction, primaryKey));
                                         return vectorMetadataFuture.thenApply(vectorMetadata ->
-                                                vectorMetadata.getUuid().equals(vectorReferenceId.getUuid()));
+                                                vectorMetadata != null
+                                                        && vectorMetadata.getUuid().equals(vectorReferenceId.getUuid()));
                                     }, config.searchConcurrency());
 
                     final Set<Tuple> seenPrimaryKeys = Sets.newHashSet();
@@ -602,8 +604,7 @@ public class Search {
                                                     k, getExecutor()),
                                             vectorReferenceAndDistance ->
                                                     new VectorReferenceAndDistance(
-                                                            enrichVectorReference(primaryKeyToVectorMetadataUuidFutureMap,
-                                                                    vectorReferenceAndDistance.vectorReference()),
+                                                            enrichVectorReference(primaryKeyToVectorMetadataUuidFutureMap, vectorReferenceAndDistance.vectorReference()),
                                                             vectorReferenceAndDistance.distance())), getExecutor());
                     return nearestKReferencesFuture.thenApply(nearestKReferences ->
                             new SearchResult(accessInfo, storageTransform, nearestKReferences));
@@ -676,7 +677,7 @@ public class Search {
                                     int numAllPrimaryAssignments = 0;
                                     int numWrongAssignments = 0;
                                     int numReplicatedVectors = 0;
-                                    final Map<Integer, Integer> wrongAssignmentsByRankMap = Maps.newHashMap();
+                                    final Map<Integer, Integer> assignmentsByRankMap = Maps.newHashMap();
                                     for (final VectorReference vectorReference : currentCluster.vectorReferences()) {
                                         if (vectorReference.isPrimaryCopy()) {
                                             assignmentsMap.put(currentClusterId, vectorReference.id().getPrimaryKey());
@@ -697,7 +698,7 @@ public class Search {
                                                         Objects.requireNonNull(trueClusterDistances.pollFirst())
                                                                 .clusterMetadata().id();
                                                 if (nextClusterId.equals(currentClusterId)) {
-                                                    wrongAssignmentsByRankMap.compute(rank, (r, oldCount) ->
+                                                    assignmentsByRankMap.compute(rank, (r, oldCount) ->
                                                             Objects.requireNonNullElse(oldCount, 0) + 1);
                                                     if (rank != 0) {
                                                         numWrongAssignments++;
@@ -716,7 +717,7 @@ public class Search {
                                         if (logger.isErrorEnabled()) {
                                             logger.error("""
                                                     cluster metadata count of primary vectors is wrong; \
-                                                    exected={}; actual={}
+                                                    expected={}; actual={}
                                                     """,
                                                     clusterMetadata.getNumPrimaryVectors(), numAllPrimaryAssignments);
                                         }
@@ -726,11 +727,11 @@ public class Search {
                                                 """
                                                 assignment stats; clusterId={}, numAllPrimaryAssignments={}, \
                                                 numWrongAssignments={}, numReplicated={}, stdDev={}, \
-                                                wrongAssignmentsByRankMap={} \
+                                                assignmentsByRankMap={} \
                                                 """,
                                                 currentClusterId, numAllPrimaryAssignments, numWrongAssignments,
                                                 numReplicatedVectors, clusterMetadata.standardDeviation(),
-                                                wrongAssignmentsByRankMap);
+                                                assignmentsByRankMap);
                                     }
                                 }
                                 return assignmentsMap;

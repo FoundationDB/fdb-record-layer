@@ -25,7 +25,8 @@ import com.apple.foundationdb.linear.Metric;
 import javax.annotation.Nonnull;
 
 /**
- * TODO.
+ * The minimal vector-encoding configuration shared by the HNSW and Guardiann configs: the metric, the number of
+ * dimensions, and the RaBitQ encoding parameters needed to (de)serialize stored vectors.
  */
 @SuppressWarnings("checkstyle:MemberName")
 public interface VectorEncodingConfig {

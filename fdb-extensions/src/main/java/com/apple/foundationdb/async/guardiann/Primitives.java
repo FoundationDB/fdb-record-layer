@@ -297,8 +297,8 @@ class Primitives {
     @Nonnull
     CompletableFuture<VectorMetadata> fetchVectorMetadata(@Nonnull final ReadTransaction readTransaction,
                                                           @Nonnull final Tuple primaryKey) {
-        final Subspace vectorStatesSubspace = getVectorMetadataSubspace();
-        final byte[] key = vectorStatesSubspace.pack(primaryKey);
+        final Subspace vectorMetadataSubspace = getVectorMetadataSubspace();
+        final byte[] key = vectorMetadataSubspace.pack(primaryKey);
 
         return readTransaction.get(key)
                 .thenApply(valueBytes -> {
@@ -344,7 +344,7 @@ class Primitives {
                                                                                     @Nonnull final UUID clusterId,
                                                                                     @Nonnull final Transformed<RealVector> centroid,
                                                                                     final double distance) {
-        return fetchClusterMetadata(readTransaction, clusterId)
+        return StorageAdapter.requireNonNull(fetchClusterMetadata(readTransaction, clusterId))
                 .thenApply(clusterState -> new ClusterMetadataWithDistance(clusterState, centroid, distance));
     }
 
@@ -362,7 +362,7 @@ class Primitives {
                                             @Nonnull final StorageTransform storageTransform,
                                             @Nonnull final UUID clusterId,
                                             @Nonnull final Transformed<RealVector> centroid) {
-        return fetchClusterMetadata(readTransaction, clusterId)
+        return StorageAdapter.requireNonNull(fetchClusterMetadata(readTransaction, clusterId))
                 .thenCombine(fetchVectorReferences(readTransaction, storageTransform, clusterId),
                         (clusterMetadata, vectorReferences) -> {
                             // TODO remove
@@ -569,12 +569,13 @@ class Primitives {
     CompletableFuture<Void> doDeferredTask(@Nonnull final Transaction transaction,
                                            @Nonnull final AbstractDeferredTask deferredTask) {
         deleteDeferredTask(transaction, deferredTask);
-        try {
-            return deferredTask.runTask(transaction);
-        } finally {
-            getOnWriteListener().onTaskExecuted(deferredTask.getKind(),
-                    deferredTask.getTaskId(), deferredTask.getTargetClusterIds());
-        }
+        return deferredTask.runTask(transaction)
+                .whenComplete((ignored, throwable) -> {
+                    if (throwable == null) {
+                        getOnWriteListener().onTaskExecuted(deferredTask.getKind(),
+                                deferredTask.getTaskId(), deferredTask.getTargetClusterIds());
+                    }
+                });
     }
 
     @Nonnull
@@ -585,7 +586,7 @@ class Primitives {
         final byte[] rangeKey = tasksSubspace.pack();
 
         return AsyncUtil.collect(readTransaction.getRange(Range.startsWith(rangeKey), numTasks, false,
-                        StreamingMode.WANT_ALL), readTransaction.getExecutor())
+                        StreamingMode.WANT_ALL), getExecutor())
                 .thenApply(keyValues -> {
                     final ImmutableList.Builder<AbstractDeferredTask> deferredTasksBuilder = ImmutableList.builder();
                     for (final KeyValue keyValue : keyValues) {
@@ -731,7 +732,7 @@ class Primitives {
                         numTotalReplicatedVectors={}, numTotalPrimaryUnderreplicatedVectors={} \
                         """,
                         reason, AbstractDeferredTask.taskIdToString(newTaskId), numTotalPrimaryVectors,
-                        numTotalReplicatedVectors, numPrimaryUnderreplicatedVectorsAdded);
+                        numTotalReplicatedVectors, numTotalPrimaryUnderreplicatedVectors);
             }
 
             final ClusterMetadata newClusterMetadata =

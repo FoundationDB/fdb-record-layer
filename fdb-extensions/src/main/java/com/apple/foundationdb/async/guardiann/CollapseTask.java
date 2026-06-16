@@ -133,21 +133,23 @@ public class CollapseTask extends AbstractDeferredTask {
         final Quantizer quantizer = primitives.quantizer(accessInfo);
         final DistanceEstimator estimator = quantizer.estimator();
 
-        return primitives.fetchClusterMetadataWithDistance(transaction,
-                                targetClusterMetadata.id(),
-                        storageTransform.transform(targetClusterCentroid), 0.0d)
-                .thenCompose(targetClusterMetadataWithDistance ->
-                        primitives.fetchInnerClusters(transaction, ImmutableList.of(targetClusterMetadataWithDistance), storageTransform)
-                                .thenAccept(innerClusters -> {
-                                    final Cluster targetCluster = Iterables.getOnlyElement(innerClusters);
-                                    final CollapseAssignments collapseAssignments =
-                                            computeCollapseAssignments(estimator, targetClusterMetadataWithDistance,
-                                                    targetCluster.vectorReferences());
-                                    final TargetClusterDelta delta =
-                                            computeCollapseTargetClusterDelta(targetCluster, collapseAssignments);
-                                    persistCollapse(transaction, targetClusterMetadataWithDistance,
-                                            collapseAssignments, delta, quantizer);
-                                }));
+        // The target cluster metadata was already fetched in runTask and passed in, so wrap it directly
+        // instead of re-reading it via fetchClusterMetadataWithDistance.
+        final ClusterMetadataWithDistance targetClusterMetadataWithDistance =
+                new ClusterMetadataWithDistance(targetClusterMetadata,
+                        storageTransform.transform(targetClusterCentroid), 0.0d);
+        return primitives.fetchInnerClusters(transaction,
+                        ImmutableList.of(targetClusterMetadataWithDistance), storageTransform)
+                .thenAccept(innerClusters -> {
+                    final Cluster targetCluster = Iterables.getOnlyElement(innerClusters);
+                    final CollapseAssignments collapseAssignments =
+                            computeCollapseAssignments(estimator, targetClusterMetadataWithDistance,
+                                    targetCluster.vectorReferences());
+                    final TargetClusterDelta delta =
+                            computeCollapseTargetClusterDelta(targetCluster, collapseAssignments);
+                    persistCollapse(transaction, targetClusterMetadataWithDistance,
+                            collapseAssignments, delta, quantizer);
+                });
     }
 
     @Nonnull
@@ -213,7 +215,7 @@ public class CollapseTask extends AbstractDeferredTask {
                                 vectorReferenceToVectorSignatureMap.get(vectorReference.id().getUuid()));
 
                 final ImmutableSet<UUID> identicalVectors = vectorSignatureToVectorUuidMap.get(signature);
-                if (identicalVectors.size() > getConfig().collapseMinDuplicates() && !blackHoleMap.containsKey(signature)) {
+                if (identicalVectors.size() > config.collapseMinDuplicates() && !blackHoleMap.containsKey(signature)) {
                     //
                     // This reference should be collapsed but is not collapsed (yet).
                     //
@@ -221,7 +223,7 @@ public class CollapseTask extends AbstractDeferredTask {
                     final VectorReference collapsedReference =
                             vectorReference.toCollapsed(signature, collapsedReferenceUuid);
                     blackHoleMap.put(signature, collapsedReference);
-                    // add the distance exactly one for the collapsed set
+                    // account for the collapsed reference's distance exactly once in the running stats
                     standardDeviation = standardDeviation.add(distanceToCentroid);
 
                     // add the collapsed reference to the regular assignments data structure
@@ -321,20 +323,20 @@ public class CollapseTask extends AbstractDeferredTask {
      */
     @Nonnull
     private CollapseCounters countAssignments(@Nonnull final CollapseAssignments collapseAssignments) {
-        int numPrimaryUnderreplicatedVectorsAdded = 0;
-        int numReplicatedVectorsAdded = 0;
+        int numPrimaryUnderreplicatedVectors = 0;
+        int numReplicatedVectors = 0;
 
         for (final VectorReference vectorReference : collapseAssignments.assignments()) {
             if (vectorReference.isPrimaryCopy()) {
                 if (vectorReference.isUnderreplicated()) {
-                    numPrimaryUnderreplicatedVectorsAdded++;
+                    numPrimaryUnderreplicatedVectors++;
                 }
             } else {
-                numReplicatedVectorsAdded++;
+                numReplicatedVectors++;
             }
         }
 
-        return new CollapseCounters(numPrimaryUnderreplicatedVectorsAdded, numReplicatedVectorsAdded);
+        return new CollapseCounters(numPrimaryUnderreplicatedVectors, numReplicatedVectors);
     }
 
     /**
@@ -386,9 +388,11 @@ public class CollapseTask extends AbstractDeferredTask {
         final EnumSet<ClusterMetadata.State> newStates = EnumSet.copyOf(targetClusterMetadata.states());
         newStates.remove(ClusterMetadata.State.COLLAPSE);
 
+        // withNewVectors REPLACES the cluster's counts, so these are full totals over the collapse
+        // assignments, not deltas.
         final ClusterMetadata newTargetClusterMetadata =
-                targetClusterMetadata.withNewVectors(counters.numPrimaryUnderreplicatedVectorsAdded(),
-                        counters.numReplicatedVectorsAdded(),
+                targetClusterMetadata.withNewVectors(counters.numPrimaryUnderreplicatedVectors(),
+                        counters.numReplicatedVectors(),
                         updatedStandardDeviation, newStates);
         primitives.writeClusterMetadata(transaction, newTargetClusterMetadata);
 
@@ -401,8 +405,8 @@ public class CollapseTask extends AbstractDeferredTask {
         }
     }
 
-    private record CollapseCounters(int numPrimaryUnderreplicatedVectorsAdded,
-                                    int numReplicatedVectorsAdded) {
+    private record CollapseCounters(int numPrimaryUnderreplicatedVectors,
+                                    int numReplicatedVectors) {
     }
 
     @Nonnull

@@ -24,6 +24,7 @@ import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.linear.RealVector;
 import com.apple.foundationdb.linear.Transformed;
 import com.apple.foundationdb.tuple.Tuple;
+import com.google.common.base.Verify;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -48,6 +49,7 @@ class InliningNode extends AbstractNode<NodeReferenceWithVector> {
                                                             @Nullable final Transformed<RealVector> vector,
                                                             @Nullable final Tuple additionalValues,
                                                             @Nonnull final List<? extends NodeReference> neighbors) {
+            Verify.verify(additionalValues == null, "inlining nodes do not carry additional values");
             return new InliningNode(primaryKey, (List<NodeReferenceWithVector>)neighbors);
         }
 

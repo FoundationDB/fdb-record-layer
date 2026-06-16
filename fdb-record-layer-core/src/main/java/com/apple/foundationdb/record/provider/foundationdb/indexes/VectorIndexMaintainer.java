@@ -247,7 +247,7 @@ public class VectorIndexMaintainer extends StandardIndexMaintainer {
         keyItems.addAll(resultEntry.primaryKey().getItems());
         final List<Object> valueItems = Lists.newArrayList();
         final RealVector vector = resultEntry.vector();
-        valueItems.add(vector == null ? null : resultEntry.vector().getRawData());
+        valueItems.add(vector == null ? null : vector.getRawData());
         return new IndexEntry(state.index, Tuple.fromList(keyItems),
                 Tuple.fromList(valueItems));
     }

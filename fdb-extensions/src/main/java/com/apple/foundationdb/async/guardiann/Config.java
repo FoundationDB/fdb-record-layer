@@ -42,6 +42,11 @@ import javax.annotation.Nonnull;
  * @param replicatedClusterTarget the number of replicated clusters we target whenever a split/merge or a reassign task
  *        is executed
  * @param replicationPriorityMin minimum threshold for the replication priority score
+ * @param replicationDistanceRatioWeight weight of the border-proximity distance ratio term in the replication priority
+ *        score
+ * @param replicationZScoreWeight weight of the distance z-score term in the replication priority score
+ * @param replicationStatsMinSampleSize minimum number of primary vectors in a cluster before its distance statistics
+ *        (mean/standard deviation) are trusted for the replication priority z-score term
  * @param sampleVectorStatsProbability probability of sampling a vector write for statistics computation
  * @param maintainStatsProbability probability of maintaining statistics when inserting a vector
  * @param statsThreshold number of sampled vectors that triggers centroid computation
@@ -60,7 +65,6 @@ import javax.annotation.Nonnull;
  * @param mergeOuterNeighborhoodSize number of outer clusters that may absorb overflow during merge
  * @param kMeansMaxIterations maximum Lloyd's iterations per k-means restart
  * @param kMeansMaxRestarts maximum number of random restarts for bounded k-means during split/merge
- * @param reassignInnerNeighborhoodSize inner neighborhood size for reassign (the target cluster itself)
  * @param reassignOuterNeighborhoodSize outer clusters considered as replication/migration targets during reassign
  * @param collapseMinDuplicates minimum identical vectors sharing a signature before collapse
  * @param splitMergeConcurrency concurrency for parallel operations during split/merge tasks
@@ -75,6 +79,9 @@ public record Config(@Nonnull Metric metric,
                      int replicatedClusterMaxWrites,
                      int replicatedClusterTarget,
                      double replicationPriorityMin,
+                     double replicationDistanceRatioWeight,
+                     double replicationZScoreWeight,
+                     int replicationStatsMinSampleSize,
                      double sampleVectorStatsProbability,
                      double maintainStatsProbability,
                      int statsThreshold,
@@ -98,7 +105,6 @@ public record Config(@Nonnull Metric metric,
                      int kMeansMaxIterations,
                      int kMeansMaxRestarts,
                      // reassign
-                     int reassignInnerNeighborhoodSize,
                      int reassignOuterNeighborhoodSize,
                      // collapse
                      int collapseMinDuplicates,
@@ -113,6 +119,9 @@ public record Config(@Nonnull Metric metric,
     public static final int DEFAULT_REPLICATED_CLUSTER_MAX_WRITES = 3 * DEFAULT_PRIMARY_CLUSTER_MAX / 10;
     public static final int DEFAULT_REPLICATED_CLUSTER_TARGET = DEFAULT_PRIMARY_CLUSTER_MAX / 10;
     public static final double DEFAULT_REPLICATION_PRIORITY_MIN = 0.89d;
+    public static final double DEFAULT_REPLICATION_DISTANCE_RATIO_WEIGHT = 1.0d;
+    public static final double DEFAULT_REPLICATION_Z_SCORE_WEIGHT = 0.0d;
+    public static final int DEFAULT_REPLICATION_STATS_MIN_SAMPLE_SIZE = 200;
 
     // stats
     public static final double DEFAULT_SAMPLE_VECTOR_STATS_PROBABILITY = 0.5d;
@@ -143,7 +152,6 @@ public record Config(@Nonnull Metric metric,
     public static final int DEFAULT_KMEANS_MAX_ITERATIONS = 8;
     public static final int DEFAULT_KMEANS_MAX_RESTARTS = 3;
     // reassign
-    public static final int DEFAULT_REASSIGN_INNER_NEIGHBORHOOD_SIZE = 1;
     public static final int DEFAULT_REASSIGN_OUTER_NEIGHBORHOOD_SIZE = 31;
     // collapse
     public static final int DEFAULT_COLLAPSE_MIN_DUPLICATES = 100;
@@ -152,21 +160,22 @@ public record Config(@Nonnull Metric metric,
     public static final int DEFAULT_REASSIGN_CONCURRENCY = 10;
 
     public Config {
-        Preconditions.checkArgument(numDimensions >= 1, "numDimensions must be (1, MAX_INT]");
+        Preconditions.checkArgument(numDimensions >= 1, "numDimensions must be >= 1");
     }
 
     @Nonnull
     public ConfigBuilder toBuilder() {
         return new ConfigBuilder(metric(), primaryClusterMin(), primaryClusterMax(),
                 underreplicatedPrimaryClusterMax(), replicatedClusterMaxWrites(), replicatedClusterTarget(),
-                replicationPriorityMin(), sampleVectorStatsProbability(), maintainStatsProbability(),
+                replicationPriorityMin(), replicationDistanceRatioWeight(), replicationZScoreWeight(),
+                replicationStatsMinSampleSize(), sampleVectorStatsProbability(), maintainStatsProbability(),
                 statsThreshold(), useRaBitQ(), raBitQNumExBits(), deterministicRandomness(),
                 maxNumConcurrentNodeFetches(), maxNumConcurrentNeighborhoodFetches(),
                 sampleBatchSize(), searchConcurrency(), insertMaxCandidateClusters(),
                 deleteMaxCandidateClusters(), deleteConcurrency(),
                 splitNeighborhoodSize(), mergeInnerNeighborhoodSize(), mergeOuterNeighborhoodSize(),
                 kMeansMaxIterations(), kMeansMaxRestarts(),
-                reassignInnerNeighborhoodSize(), reassignOuterNeighborhoodSize(),
+                reassignOuterNeighborhoodSize(),
                 collapseMinDuplicates(), splitMergeConcurrency(), reassignConcurrency());
     }
 
@@ -179,6 +188,9 @@ public record Config(@Nonnull Metric metric,
                 ", replicatedClusterMaxWrites=" + replicatedClusterMaxWrites() +
                 ", replicatedClusterTarget=" + replicatedClusterTarget() +
                 ", replicationPriorityMin=" + replicationPriorityMin() +
+                ", replicationDistanceRatioWeight=" + replicationDistanceRatioWeight() +
+                ", replicationZScoreWeight=" + replicationZScoreWeight() +
+                ", replicationStatsMinSampleSize=" + replicationStatsMinSampleSize() +
                 ", sampleVectorStatsProbability=" + sampleVectorStatsProbability() +
                 ", maintainStatsProbability=" + maintainStatsProbability() + ", statsThreshold=" + statsThreshold() +
                 ", useRaBitQ=" + useRaBitQ() + ", raBitQNumExBits=" + raBitQNumExBits() +
@@ -195,7 +207,6 @@ public record Config(@Nonnull Metric metric,
                 ", mergeOuterNeighborhoodSize=" + mergeOuterNeighborhoodSize() +
                 ", kMeansMaxIterations=" + kMeansMaxIterations() +
                 ", kMeansMaxRestarts=" + kMeansMaxRestarts() +
-                ", reassignInnerNeighborhoodSize=" + reassignInnerNeighborhoodSize() +
                 ", reassignOuterNeighborhoodSize=" + reassignOuterNeighborhoodSize() +
                 ", collapseMinDuplicates=" + collapseMinDuplicates() +
                 ", splitMergeConcurrency=" + splitMergeConcurrency() +
@@ -219,6 +230,9 @@ public record Config(@Nonnull Metric metric,
         private int replicatedClusterMaxWrites = DEFAULT_REPLICATED_CLUSTER_MAX_WRITES;
         private int replicatedClusterTarget = DEFAULT_REPLICATED_CLUSTER_TARGET;
         private double replicationPriorityMin = DEFAULT_REPLICATION_PRIORITY_MIN;
+        private double replicationDistanceRatioWeight = DEFAULT_REPLICATION_DISTANCE_RATIO_WEIGHT;
+        private double replicationZScoreWeight = DEFAULT_REPLICATION_Z_SCORE_WEIGHT;
+        private int replicationStatsMinSampleSize = DEFAULT_REPLICATION_STATS_MIN_SAMPLE_SIZE;
 
         private double sampleVectorStatsProbability = DEFAULT_SAMPLE_VECTOR_STATS_PROBABILITY;
         private double maintainStatsProbability = DEFAULT_MAINTAIN_STATS_PROBABILITY;
@@ -246,7 +260,6 @@ public record Config(@Nonnull Metric metric,
         private int kMeansMaxIterations = DEFAULT_KMEANS_MAX_ITERATIONS;
         private int kMeansMaxRestarts = DEFAULT_KMEANS_MAX_RESTARTS;
         // reassign
-        private int reassignInnerNeighborhoodSize = DEFAULT_REASSIGN_INNER_NEIGHBORHOOD_SIZE;
         private int reassignOuterNeighborhoodSize = DEFAULT_REASSIGN_OUTER_NEIGHBORHOOD_SIZE;
         // collapse
         private int collapseMinDuplicates = DEFAULT_COLLAPSE_MIN_DUPLICATES;
@@ -260,6 +273,8 @@ public record Config(@Nonnull Metric metric,
         public ConfigBuilder(@Nonnull final Metric metric, final int primaryClusterMin, final int primaryClusterMax,
                              final int underreplicatedPrimaryClusterMax, final int replicatedClusterMaxWrites,
                              final int replicatedClusterTarget, final double replicationPriorityMin,
+                             final double replicationDistanceRatioWeight, final double replicationZScoreWeight,
+                             final int replicationStatsMinSampleSize,
                              final double sampleVectorStatsProbability, final double maintainStatsProbability,
                              final int statsThreshold, final boolean useRaBitQ, final int raBitQNumExBits,
                              final boolean deterministicRandomness, final int maxNumConcurrentNodeFetches,
@@ -271,7 +286,7 @@ public record Config(@Nonnull Metric metric,
                              final int splitNeighborhoodSize, final int mergeInnerNeighborhoodSize,
                              final int mergeOuterNeighborhoodSize, final int kMeansMaxIterations,
                              final int kMeansMaxRestarts,
-                             final int reassignInnerNeighborhoodSize, final int reassignOuterNeighborhoodSize,
+                             final int reassignOuterNeighborhoodSize,
                              final int collapseMinDuplicates,
                              final int splitMergeConcurrency, final int reassignConcurrency) {
             this.metric = metric;
@@ -281,6 +296,9 @@ public record Config(@Nonnull Metric metric,
             this.replicatedClusterMaxWrites = replicatedClusterMaxWrites;
             this.replicatedClusterTarget = replicatedClusterTarget;
             this.replicationPriorityMin = replicationPriorityMin;
+            this.replicationDistanceRatioWeight = replicationDistanceRatioWeight;
+            this.replicationZScoreWeight = replicationZScoreWeight;
+            this.replicationStatsMinSampleSize = replicationStatsMinSampleSize;
             this.sampleVectorStatsProbability = sampleVectorStatsProbability;
             this.maintainStatsProbability = maintainStatsProbability;
             this.statsThreshold = statsThreshold;
@@ -299,7 +317,6 @@ public record Config(@Nonnull Metric metric,
             this.mergeOuterNeighborhoodSize = mergeOuterNeighborhoodSize;
             this.kMeansMaxIterations = kMeansMaxIterations;
             this.kMeansMaxRestarts = kMeansMaxRestarts;
-            this.reassignInnerNeighborhoodSize = reassignInnerNeighborhoodSize;
             this.reassignOuterNeighborhoodSize = reassignOuterNeighborhoodSize;
             this.collapseMinDuplicates = collapseMinDuplicates;
             this.splitMergeConcurrency = splitMergeConcurrency;
@@ -374,6 +391,36 @@ public record Config(@Nonnull Metric metric,
         @Nonnull
         public ConfigBuilder setReplicationPriorityMin(final double replicationPriorityMin) {
             this.replicationPriorityMin = replicationPriorityMin;
+            return this;
+        }
+
+        public double getReplicationDistanceRatioWeight() {
+            return replicationDistanceRatioWeight;
+        }
+
+        @Nonnull
+        public ConfigBuilder setReplicationDistanceRatioWeight(final double replicationDistanceRatioWeight) {
+            this.replicationDistanceRatioWeight = replicationDistanceRatioWeight;
+            return this;
+        }
+
+        public double getReplicationZScoreWeight() {
+            return replicationZScoreWeight;
+        }
+
+        @Nonnull
+        public ConfigBuilder setReplicationZScoreWeight(final double replicationZScoreWeight) {
+            this.replicationZScoreWeight = replicationZScoreWeight;
+            return this;
+        }
+
+        public int getReplicationStatsMinSampleSize() {
+            return replicationStatsMinSampleSize;
+        }
+
+        @Nonnull
+        public ConfigBuilder setReplicationStatsMinSampleSize(final int replicationStatsMinSampleSize) {
+            this.replicationStatsMinSampleSize = replicationStatsMinSampleSize;
             return this;
         }
 
@@ -545,15 +592,6 @@ public record Config(@Nonnull Metric metric,
             return this;
         }
 
-        public int getReassignInnerNeighborhoodSize() {
-            return reassignInnerNeighborhoodSize;
-        }
-
-        public ConfigBuilder setReassignInnerNeighborhoodSize(final int reassignInnerNeighborhoodSize) {
-            this.reassignInnerNeighborhoodSize = reassignInnerNeighborhoodSize;
-            return this;
-        }
-
         public int getReassignOuterNeighborhoodSize() {
             return reassignOuterNeighborhoodSize;
         }
@@ -593,7 +631,9 @@ public record Config(@Nonnull Metric metric,
         public Config build(final int numDimensions) {
             return new Config(getMetric(), numDimensions, getPrimaryClusterMin(), getPrimaryClusterMax(),
                     getUnderreplicatedPrimaryClusterMax(), getReplicatedClusterMaxWrites(),
-                    getReplicatedClusterTarget(), getReplicationPriorityMin(), getSampleVectorStatsProbability(),
+                    getReplicatedClusterTarget(), getReplicationPriorityMin(),
+                    getReplicationDistanceRatioWeight(), getReplicationZScoreWeight(),
+                    getReplicationStatsMinSampleSize(), getSampleVectorStatsProbability(),
                     getMaintainStatsProbability(), getStatsThreshold(), isUseRaBitQ(), getRaBitQNumExBits(),
                     isDeterministicRandomness(), getMaxNumConcurrentNodeFetches(),
                     getMaxNumConcurrentNeighborhoodFetches(),
@@ -601,7 +641,7 @@ public record Config(@Nonnull Metric metric,
                     getDeleteMaxCandidateClusters(), getDeleteConcurrency(),
                     getSplitNeighborhoodSize(), getMergeInnerNeighborhoodSize(), getMergeOuterNeighborhoodSize(),
                     getKMeansMaxIterations(), getKMeansMaxRestarts(),
-                    getReassignInnerNeighborhoodSize(), getReassignOuterNeighborhoodSize(),
+                    getReassignOuterNeighborhoodSize(),
                     getCollapseMinDuplicates(), getSplitMergeConcurrency(), getReassignConcurrency());
         }
     }

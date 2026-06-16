@@ -1,5 +1,5 @@
 /*
- * OnWriteListener.java
+ * OnKeyValueWriteListener.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -32,8 +32,7 @@ public interface OnKeyValueWriteListener {
      * Callback method that is invoked for each key/value pair that is written to the database.
      * <p>
      * This is a default method and its base implementation is a no-op. Implementors of the interface can override this
-     * method to react to the deletion of a neighbor node, for example, to clean up related resources or update internal
-     * state.
+     * method to react to key/value writes, for example to gather metrics on the number of bytes written.
      * @param key the key
      * @param value the value.
      */
@@ -46,8 +45,7 @@ public interface OnKeyValueWriteListener {
      * Callback method invoked when a key is deleted.
      * <p>
      * This is a default method and its base implementation is a no-op. Implementors of the interface can override this
-     * method to react to the deletion of a neighbor node, for example, to clean up related resources or update internal
-     * state.
+     * method to react to key deletions, for example to gather metrics or update internal state.
      * @param key the key that was deleted
      */
     @SuppressWarnings("unused")
@@ -59,8 +57,7 @@ public interface OnKeyValueWriteListener {
      * Callback method invoked when an entire range is deleted.
      * <p>
      * This is a default method and its base implementation is a no-op. Implementors of the interface can override this
-     * method to react to the deletion of a neighbor node, for example, to clean up related resources or update internal
-     * state.
+     * method to react to range deletions, for example to gather metrics or update internal state.
      * @param range the {@link Range} that was deleted
      */
     @SuppressWarnings("unused")

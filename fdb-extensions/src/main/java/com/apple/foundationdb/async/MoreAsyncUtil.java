@@ -127,7 +127,6 @@ public class MoreAsyncUtil {
 
             @Override
             public CompletableFuture<Boolean> onHasNext() {
-                //System.out.println("hNA " + count + " " + Thread.currentThread().getId() + " " + System.identityHashCode(this));
                 if (count < limit) {
                     return iterator.onHasNext();
                 } else {
@@ -138,15 +137,12 @@ public class MoreAsyncUtil {
             @Override
             public boolean hasNext() {
                 final boolean r = onHasNext().join();
-                //System.out.println("hN " + count + " " + Thread.currentThread().getId() + " " + System.identityHashCode(this) + " " + r);
                 return r;
             }
 
             @Override
             public T next() {
-                //System.out.println(count + " " + Thread.currentThread().getId() + " " + System.identityHashCode(this));
                 if (!hasNext()) {
-                    System.out.println("boom " + count + " " + Thread.currentThread().getId() + " " + System.identityHashCode(this));
                     throw new NoSuchElementException();
                 }
                 count++;
@@ -1235,6 +1231,9 @@ public class MoreAsyncUtil {
                                                             @Nonnull final Function<T, CompletableFuture<U>> body,
                                                             final int parallelism,
                                                             @Nonnull final Executor executor) {
+        if (parallelism < 1) {
+            throw new IllegalArgumentException("parallelism must be at least 1, got " + parallelism);
+        }
         final Object nullStandIn = new Object();
 
         // this deque is only modified by once upon creation

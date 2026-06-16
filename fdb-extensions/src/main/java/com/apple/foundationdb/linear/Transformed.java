@@ -131,7 +131,7 @@ public final class Transformed<V extends RealVector> {
         @Nonnull
         @Override
         public Transformed<V> set(@Nullable final Transformed<V> ignored, @Nullable final V v) {
-            return new Transformed<>(v);
+            return new Transformed<>(Objects.requireNonNull(v, "Transformed cannot wrap a null underlying vector"));
         }
     }
 }

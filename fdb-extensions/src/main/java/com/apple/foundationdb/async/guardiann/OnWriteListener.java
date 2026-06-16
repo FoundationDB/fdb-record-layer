@@ -36,6 +36,17 @@ public interface OnWriteListener extends OnKeyValueWriteListener {
     OnWriteListener NOOP = new OnWriteListener() {
     };
 
+    /**
+     * Callback method that is invoked after a {@link AbstractDeferredTask} has been enqueued.
+     * <p>
+     * This is a default method with an empty implementation, allowing implementing classes to override it only if
+     * they need to observe task enqueueing (e.g. for metrics).
+     *
+     * @param kind the kind of the enqueued task
+     * @param taskId the id of the enqueued task
+     * @param targetClusterIds the cluster ids the task targets
+     */
+    @SuppressWarnings("unused")
     default void onTaskEnqueued(@Nonnull final AbstractDeferredTask.Kind kind, @Nonnull UUID taskId,
                                 @Nonnull final Set<UUID> targetClusterIds) {
         // nothing

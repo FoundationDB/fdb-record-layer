@@ -140,6 +140,6 @@ public class DeferredTaskInvariantsTest implements BaseTest {
      */
     @Test
     void siftSmallRecallAtK100MeetsThreshold() {
-        TestHelpers.assertRecallAtKAtLeast(getDb(), guardiann, queries, groundTruth, 1000, 0.85d);
+        TestHelpers.assertRecallAtKAtLeast(getDb(), guardiann, queries, groundTruth, 100, 0.85d);
     }
 }

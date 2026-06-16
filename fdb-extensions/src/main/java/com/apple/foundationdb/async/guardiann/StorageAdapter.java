@@ -44,10 +44,12 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.Supplier;
 
 /**
- * TODO.
+ * Encapsulates the FoundationDB key/value layout for a Guardiann vector structure: it owns the subspaces for
+ * access info, cluster centroids, cluster metadata, vector references, collapsed vector ids, vector metadata,
+ * samples and deferred tasks, and provides the (de)serialization helpers between those records and FDB tuples.
  */
 class StorageAdapter {
-    private static double EPS = 1.0e-12;
+    private static final double EPS = 1.0e-12;
 
     /**
      * Subspace for the access info.
@@ -121,12 +123,11 @@ class StorageAdapter {
     /**
      * Constructs a new {@code StorageAdapter}.
      * <p>
-     * This constructor initializes the adapter with the necessary configuration,
-     * factories, and listeners for managing a guardian structure. It also sets up a
-     * dedicated data subspace within the provided main subspace for storing node data.
+     * This constructor initializes the adapter with the necessary configuration and listeners for managing a
+     * Guardiann structure, and sets up the dedicated subspaces within the provided main subspace.
      *
-     * @param config the HNSW graph configuration
-     * @param subspace the primary subspace for storing all graph-related data
+     * @param config the Guardiann configuration
+     * @param subspace the primary subspace for storing all Guardiann data
      * @param onWriteListener the listener to be called on write operations
      * @param onReadListener the listener to be called on read operations
      */
@@ -392,12 +393,18 @@ class StorageAdapter {
         return Tuple.from(vectorId.getUuid());
     }
 
-    static double replicationPriority(final double distance, final double distanceToPrimaryCentroid,
+    static double replicationPriority(@Nonnull final Config config,
+                                      final double distance, final double distanceToPrimaryCentroid,
                                       final int num, final double mean, final double standardDeviation) {
+        final double zWeight = config.replicationZScoreWeight();
         final double r = distanceToPrimaryCentroid / (distance + EPS);
+        // Skip the z term entirely when its weight is 0 (the default): avoids both the wasted work
+        // and the 0.0 * NaN == NaN footgun when a cluster's standard deviation is undefined.
         final double z =
-                num < 200 ? 0 : Math.max(0, (distanceToPrimaryCentroid - mean) / (standardDeviation + EPS));
-        return 1.0d * r + 0.00d * z;
+                (zWeight == 0.0d || num < config.replicationStatsMinSampleSize())
+                ? 0.0d
+                : Math.max(0.0d, (distanceToPrimaryCentroid - mean) / (standardDeviation + EPS));
+        return config.replicationDistanceRatioWeight() * r + zWeight * z;
     }
 
     static boolean isOccluded(@Nonnull final DistanceEstimator estimator,

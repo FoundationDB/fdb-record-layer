@@ -36,7 +36,7 @@ import java.util.Objects;
  */
 class NodeReferenceWithVectorAndAdditionalValues extends NodeReferenceWithVector {
     @Nullable
-    private final Tuple additionaValues;
+    private final Tuple additionalValues;
 
     /**
      * Constructs a new reference.
@@ -49,7 +49,7 @@ class NodeReferenceWithVectorAndAdditionalValues extends NodeReferenceWithVector
     public NodeReferenceWithVectorAndAdditionalValues(@Nonnull final Tuple primaryKey, @Nonnull final Transformed<RealVector> vector,
                                                       @Nullable final Tuple additionalValues) {
         super(primaryKey, vector);
-        this.additionaValues = additionalValues;
+        this.additionalValues = additionalValues;
     }
 
     /**
@@ -58,16 +58,15 @@ class NodeReferenceWithVectorAndAdditionalValues extends NodeReferenceWithVector
      */
     @Nullable
     public Tuple getAdditionalValues() {
-        return additionaValues;
+        return additionalValues;
     }
 
     /**
-     * Compares this {@code EntryNodeReference} to the specified object for equality.
+     * Compares this {@code NodeReferenceWithVectorAndAdditionalValues} to the specified object for equality.
      * <p>
-     * The result is {@code true} if and only if the argument is an instance of {@code EntryNodeReference}, the
-     * superclass's {@link #equals(Object)} method returns {@code true}, and the {@code layer} fields of both objects
-     * are equal.
-     * @param o the object to compare this {@code EntryNodeReference} against.
+     * The result is {@code true} if and only if the superclass's {@link #equals(Object)} method returns
+     * {@code true} and the {@code additionalValues} of both objects are equal.
+     * @param o the object to compare this reference against.
      * @return {@code true} if the given object is equal to this one; {@code false} otherwise.
      */
     @Override
@@ -76,14 +75,15 @@ class NodeReferenceWithVectorAndAdditionalValues extends NodeReferenceWithVector
             return false;
         }
         final NodeReferenceWithVectorAndAdditionalValues that = (NodeReferenceWithVectorAndAdditionalValues)o;
-        return Objects.equals(additionaValues, that.getAdditionalValues());
+        return Objects.equals(additionalValues, that.getAdditionalValues());
     }
 
     /**
      * Generates a hash code for this object.
      * <p>
-     * The hash code is computed by combining the hash code of the superclass with the hash code of the {@code layer}
-     * field. This implementation is consistent with the contract of {@link Object#hashCode()}.
+     * The hash code is computed by combining the hash code of the superclass with the hash code of the
+     * {@code additionalValues} field. This implementation is consistent with the contract of
+     * {@link Object#hashCode()}.
      * @return a hash code value for this object.
      */
     @Override

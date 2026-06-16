@@ -51,7 +51,7 @@ interface NodeFactory<N extends NodeReference> {
      * @param vector the optional transformed {@link RealVector} associated with the node. May be {@code null} if the
      *        node does not encode a vector (see {@link CompactNode} versus {@link InliningNode}).
      * @param additionalValues the optional additional values associated with the node. May be {@code null} if the
-     *        node does not encode a additional vectors (see {@link CompactNode} versus {@link InliningNode}).
+     *        node does not carry additional values (see {@link CompactNode} versus {@link InliningNode}).
      * @return a new, non-null {@link AbstractNode} instance configured with the provided parameters.
      */
     @Nonnull

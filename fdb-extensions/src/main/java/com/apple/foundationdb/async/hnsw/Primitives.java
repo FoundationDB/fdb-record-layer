@@ -1135,7 +1135,7 @@ public class Primitives {
         final AccessInfo accessInfo = db.run(readTransaction ->
                 StorageAdapter.fetchAccessInfo(config, readTransaction, subspace, OnReadListener.NOOP).join());
         final StorageTransform storageTransform =
-                !accessInfo.canUseRaBitQ()
+                (accessInfo == null || !accessInfo.canUseRaBitQ())
                 ? StorageTransform.identity() :
                 storageTransform(accessInfo.getRotatorSeed(), accessInfo.getNegatedCentroid(),
                         config.metric() == Metric.COSINE_METRIC,
