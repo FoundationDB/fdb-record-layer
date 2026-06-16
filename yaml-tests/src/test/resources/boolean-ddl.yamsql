@@ -31,7 +31,7 @@ schema_template:
 ---
 setup:
   steps:
-    - query: INSERT INTO T VALUES (1, 100)
+    - query: INSERT INTO T VALUES (1, 100), (2, 200), (3, 300), (4, 400), (5, 500)
 ---
 test_block:
   preset: single_repetition_ordered
@@ -39,5 +39,5 @@ test_block:
     -
       # Just confirm the table is usable.
       - query: SELECT "col1" FROM T ORDER BY "col1"
-      - result: [{col1: 100}]
+      - result: [{col1: 100}, {col1: 200}, {col1: 300}, {col1: 400}, {col1: 500}]
 ...

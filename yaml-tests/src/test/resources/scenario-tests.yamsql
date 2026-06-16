@@ -33,9 +33,29 @@ schema_template:
            address string,
            primary key(id));
 ---
+setup:
+  steps:
+    - query: INSERT INTO customer VALUES
+        (1, 'Alice', '555-0001', '1 Main St'),
+        (2, 'Bob',   '555-0002', '2 Oak Ave'),
+        (3, 'Carol', '555-0003', '3 Pine Rd'),
+        (4, 'Dave',  '555-0004', '4 Elm St'),
+        (5, 'Eve',   '555-0005', '5 Maple Dr')
+    - query: INSERT INTO messages VALUES
+        (101, 'Hello',        1000, 1, true),
+        (102, 'Hi there',     2000, 2, false),
+        (103, 'Hey',          3000, 3, true),
+        (104, 'Greetings',    4000, 4, false),
+        (105, 'Salutations',  5000, 5, true)
+---
 test_block:
   tests:
     -
-      # the query works now as expected, TODO: add data, verify results.
       - query: select name, sent, text, timestamp from messages m, customer c where m.other_party_id = c.id;
+      - unorderedResult: [
+          {NAME: 'Alice', SENT: true,  TEXT: 'Hello',       TIMESTAMP: 1000},
+          {NAME: 'Bob',   SENT: false, TEXT: 'Hi there',    TIMESTAMP: 2000},
+          {NAME: 'Carol', SENT: true,  TEXT: 'Hey',         TIMESTAMP: 3000},
+          {NAME: 'Dave',  SENT: false, TEXT: 'Greetings',   TIMESTAMP: 4000},
+          {NAME: 'Eve',   SENT: true,  TEXT: 'Salutations', TIMESTAMP: 5000}]
 ...
