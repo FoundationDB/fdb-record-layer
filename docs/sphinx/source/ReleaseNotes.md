@@ -7,6 +7,29 @@ As the [versioning guide](Versioning.md) details, it cannot always be determined
 
 ## 4.12
 
+### 4.12.11.0
+
+<h4> Bug Fixes </h4>
+
+* Avoid a case where the planner was erroneously dropping predicates - [PR #3965](https://github.com/FoundationDB/fdb-record-layer/pull/3965)
+* Stabilize hash codes used by the planner - [PR #4263](https://github.com/FoundationDB/fdb-record-layer/pull/4263)
+<h4> Performance Improvements </h4>
+
+* Simplify `ComposeFieldValueOverFieldValueRule` - [PR #4258](https://github.com/FoundationDB/fdb-record-layer/pull/4258)
+
+
+**[Full Changelog (4.12.10.0...4.12.11.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.12.10.0...4.12.11.0)**
+
+#### Mixed Mode Test Results
+
+Mixed mode testing run against the following previous versions:
+
+✅`4.12.1.0`, ✅`4.12.2.0`, ✅`4.12.3.0`, ✅`4.12.4.0`, ✅`4.12.5.0`, ✅`4.12.6.0`, ✅`4.12.7.0`, ✅`4.12.8.0`, ✅`4.12.9.0`, ✅`4.12.10.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/27554838526)
+
+
+
 ### 4.12.10.0
 
 <h4> New Features </h4>
