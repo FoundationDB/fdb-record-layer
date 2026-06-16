@@ -34,12 +34,19 @@ jobs:
       - name: Run Gradle Build
         uses: ./actions/run-gradle
         with:
-          gradle_command: build -x test -x destructiveTest -PreleaseBuild=false -PpublishBuild=false -PspotbugsEnableHtmlReport
+          gradle_command: build -x test -x destructiveTest -x scalarFallbackTest -PreleaseBuild=false -PpublishBuild=false -PspotbugsEnableHtmlReport
 
   tests:
     strategy:
       matrix:
         subproject: [fdb-extensions, fdb-record-layer-core, fdb-record-layer-lucene, yaml-tests]
+        # fdb-extensions also runs its scalar-fallback test task here (not in the style job, which
+        # is test-free) so its JaCoCo execution data is produced alongside the other test tasks and
+        # picked up by the coverage-data upload below. matrix.extra_tasks is unset (empty) for the
+        # other subprojects.
+        include:
+          - subproject: fdb-extensions
+            extra_tasks: ':fdb-extensions:scalarFallbackTest'
     runs-on: ubuntu-latest
     permissions:
       checks: write
@@ -56,7 +63,7 @@ jobs:
       - name: Run Gradle Test
         uses: ./actions/gradle-test
         with:
-          gradle_command: :${{ matrix.subproject }}:jar :${{ matrix.subproject }}:test :${{ matrix.subproject }}:destructiveTest
+          gradle_command: :${{ matrix.subproject }}:jar :${{ matrix.subproject }}:test :${{ matrix.subproject }}:destructiveTest ${{ matrix.extra_tasks }}
           gradle_args: -PreleaseBuild=false -PpublishBuild=false
           report_name: ${{ matrix.subproject }}-test-reports
       - name: Publish Coverage Data
