@@ -55,7 +55,6 @@ slf4j = "1.7.36"
 # Test-only dependency versions
 
 assertj = "3.26.3"
-apache-commonsCollections = "4.4"
 apache-commonsMath3 = "3.6.1"
 apache-httpclient = "5.2.1"
 bndtools = "6.3.1"
@@ -122,7 +121,6 @@ slf4j-julBridge = { module = "org.slf4j:jul-to-slf4j", version.ref = "slf4j" }
 # Test-only dependencies
 
 assertj = { module = "org.assertj:assertj-core", version.ref = "assertj" }
-apache-commonsCollections = { module = "org.apache.commons:commons-collections4", version.ref = "apache-commonsCollections" }
 apache-commonsMath3 = { module = "org.apache.commons:commons-math3", version.ref = "apache-commonsMath3" }
 apache-httpclient = { module = "org.apache.httpcomponents.client5:httpclient5", version.ref = "apache-httpclient" }
 bndtools = { module = "biz.aQute.bnd:biz.aQute.bnd.annotation", version.ref = "bndtools" } # see: https://bnd.bndtools.org/chapters/120-install.html
