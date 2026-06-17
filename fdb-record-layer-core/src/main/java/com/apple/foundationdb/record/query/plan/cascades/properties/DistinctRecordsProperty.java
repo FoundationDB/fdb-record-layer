@@ -226,7 +226,7 @@ public class DistinctRecordsProperty implements ExpressionProperty<Boolean> {
         @Nonnull
         @Override
         public Boolean visitExplodePlan(@Nonnull final RecordQueryExplodePlan element) {
-            return false;
+            return element.isWithOrdinality();
         }
 
         @Nonnull
