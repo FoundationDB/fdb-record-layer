@@ -57,7 +57,6 @@ slf4j = "1.7.36"
 assertj = "3.26.3"
 apache-commonsMath3 = "3.6.1"
 apache-httpclient = "5.2.1"
-bndtools = "6.3.1"
 diffutils = "4.12"
 hamcrest = "2.2"
 jcommander = "1.81"
@@ -123,7 +122,6 @@ slf4j-julBridge = { module = "org.slf4j:jul-to-slf4j", version.ref = "slf4j" }
 assertj = { module = "org.assertj:assertj-core", version.ref = "assertj" }
 apache-commonsMath3 = { module = "org.apache.commons:commons-math3", version.ref = "apache-commonsMath3" }
 apache-httpclient = { module = "org.apache.httpcomponents.client5:httpclient5", version.ref = "apache-httpclient" }
-bndtools = { module = "biz.aQute.bnd:biz.aQute.bnd.annotation", version.ref = "bndtools" } # see: https://bnd.bndtools.org/chapters/120-install.html
 diffutils = { module = "io.github.java-diff-utils:java-diff-utils", version.ref = "diffutils" }
 guava-testlib = { module = "com.google.guava:guava-testlib", version.ref = "guava" }
 grpc-testing = { module = "io.grpc:grpc-testing", version.ref = "grpc" }
@@ -144,7 +142,7 @@ spotbugs-annotations = { module = "com.github.spotbugs:spotbugs-annotations", ve
 
 [bundles]
 
-test-impl = [ "assertj", "hamcrest", "junit-api", "junit-params", "log4j-core", "mockito", "bndtools" ]
+test-impl = [ "assertj", "hamcrest", "junit-api", "junit-params", "log4j-core", "mockito" ]
 test-runtime = [ "junit-engine", "junit-platform", "log4j-slf4jBinding"]
 test-compileOnly = [ "autoService", "jsr305" ]
 
