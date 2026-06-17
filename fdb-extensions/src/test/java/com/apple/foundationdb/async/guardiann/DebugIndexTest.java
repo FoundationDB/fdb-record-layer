@@ -40,6 +40,7 @@ import com.apple.foundationdb.test.TestDatabaseExtension;
 import com.apple.foundationdb.test.TestExecutors;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.base.Verify;
+import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ListMultimap;
@@ -161,10 +162,17 @@ public class DebugIndexTest implements BaseTest {
         SiftTest.scanCentroids(db, centroidHnsw.getSubspace(), centroidHnsw.getConfig(), 0, 100, centroidEntries::add);
 
         logger.info("checking clusters numCentroids={}", centroidEntries.size());
-        final ListMultimap<UUID, Tuple> result = db.run(transaction -> {
-            final Search search = guardiann.getLocator().search();
-            return search.globalAssignmentCheck(transaction, ImmutableList.copyOf(centroidEntries)).join();
-        });
+        // Build clusterId -> assigned primary keys directly from a structure snapshot. (Search.globalAssignmentCheck
+        // has been removed; its assignment map was simply the primary copies held by each cluster.)
+        final ListMultimap<UUID, Tuple> assignmentsByCluster = ArrayListMultimap.create();
+        final StructureSnapshot snapshot = TestHelpers.snapshotStructure(db, guardiann);
+        if (snapshot != null) {
+            for (final ClusterView clusterView : snapshot.clusters().values()) {
+                for (final VectorId primaryId : clusterView.primaries()) {
+                    assignmentsByCluster.put(clusterView.clusterId(), primaryId.getPrimaryKey());
+                }
+            }
+        }
 
         final RealVector queryVector = findQuery(queriesFile, 795);
         final List<ClusterReferenceWithDistance> clusterReferenceWithDistances = Lists.newArrayList();
@@ -182,7 +190,7 @@ public class DebugIndexTest implements BaseTest {
         for (final ClusterReferenceWithDistance clusterReferenceWithDistance : clusterReferenceWithDistances) {
             final UUID clusterId = clusterReferenceWithDistance.clusterReference().clusterId();
             logger.info("cluster={}, distance={}, missingItems={}",
-                    clusterId, clusterReferenceWithDistance.distance(), result.get(clusterId));
+                    clusterId, clusterReferenceWithDistance.distance(), assignmentsByCluster.get(clusterId));
         }
 
         // Replace this with your actual vector lookup.
@@ -195,7 +203,7 @@ public class DebugIndexTest implements BaseTest {
             clusters.add(new ClusterData(
                     clusterReferenceWithDistance.clusterReference().clusterId(),
                     clusterReferenceWithDistance.clusterReference().centroid().getUnderlyingVector(),
-                    result.get(clusterReferenceWithDistance.clusterReference().clusterId())
+                    assignmentsByCluster.get(clusterReferenceWithDistance.clusterReference().clusterId())
                             .stream()
                             .map(tuple -> Math.toIntExact(tuple.getLong(0))).collect(Collectors.toList())));
         }

@@ -32,10 +32,8 @@ import com.apple.foundationdb.linear.RealVector;
 import com.apple.foundationdb.linear.Transformed;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
-import com.google.common.base.Verify;
-import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ListMultimap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import org.slf4j.Logger;
@@ -48,7 +46,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.TreeSet;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
@@ -643,102 +640,6 @@ public class Search {
         return resultBuilder.build();
     }
 
-    @SuppressWarnings("checkstyle:MethodName")
-    CompletableFuture<ListMultimap<UUID, Tuple>> globalAssignmentCheck(@Nonnull final ReadTransaction readTransaction,
-                                                                       @Nonnull final List<ResultEntry> centroids) {
-        final Primitives primitives = primitives();
-
-        return primitives.fetchAccessInfo(readTransaction)
-                .thenCompose(accessInfo -> {
-                    if (accessInfo == null) {
-                        return CompletableFuture.completedFuture(null);
-                    }
-                    final StorageTransform storageTransform = primitives.storageTransform(accessInfo);
-                    final DistanceEstimator estimator = primitives.quantizer(accessInfo).estimator();
-
-                    return MoreAsyncUtil.forEach(centroids,
-                                    centroid -> {
-                                        final UUID clusterId = StorageAdapter.clusterIdFromTuple(centroid.primaryKey());
-                                        return primitives.fetchClusterMetadata(readTransaction, clusterId)
-                                                .thenCompose(clusterMetadata -> {
-                                                    final Transformed<RealVector> transformedCentroid =
-                                                            storageTransform.transform(
-                                                                    Objects.requireNonNull(centroid.vector()));
-                                                    return primitives.fetchCluster(readTransaction,
-                                                            storageTransform, clusterId, transformedCentroid);
-                                                });
-                                    },
-                                    10, getExecutor())
-                            .thenApply(clusters -> {
-                                final ListMultimap<UUID, Tuple> assignmentsMap = ArrayListMultimap.create();
-                                for (final Cluster currentCluster : clusters) {
-                                    final ClusterMetadata clusterMetadata = currentCluster.clusterMetadata();
-                                    final UUID currentClusterId = clusterMetadata.id();
-                                    int numAllPrimaryAssignments = 0;
-                                    int numWrongAssignments = 0;
-                                    int numReplicatedVectors = 0;
-                                    final Map<Integer, Integer> assignmentsByRankMap = Maps.newHashMap();
-                                    for (final VectorReference vectorReference : currentCluster.vectorReferences()) {
-                                        if (vectorReference.isPrimaryCopy()) {
-                                            assignmentsMap.put(currentClusterId, vectorReference.id().getPrimaryKey());
-                                            numAllPrimaryAssignments++;
-                                            final TreeSet<ClusterMetadataWithDistance> trueClusterDistances =
-                                                    new TreeSet<>(Comparator.comparing(ClusterMetadataWithDistance::distance));
-                                            for (final Cluster cluster : clusters) {
-                                                final double distance =
-                                                        estimator.distance(cluster.centroid(), vectorReference.vector());
-                                                trueClusterDistances.add(
-                                                        new ClusterMetadataWithDistance(cluster.clusterMetadata(),
-                                                                cluster.centroid(), distance));
-                                            }
-                                            boolean found = false;
-                                            int rank = 0;
-                                            while (!trueClusterDistances.isEmpty()) {
-                                                final UUID nextClusterId =
-                                                        Objects.requireNonNull(trueClusterDistances.pollFirst())
-                                                                .clusterMetadata().id();
-                                                if (nextClusterId.equals(currentClusterId)) {
-                                                    assignmentsByRankMap.compute(rank, (r, oldCount) ->
-                                                            Objects.requireNonNullElse(oldCount, 0) + 1);
-                                                    if (rank != 0) {
-                                                        numWrongAssignments++;
-                                                    }
-                                                    found = true;
-                                                    break;
-                                                }
-                                                rank ++;
-                                            }
-                                            Verify.verify(found);
-                                        } else {
-                                            numReplicatedVectors ++;
-                                        }
-                                    }
-                                    if (numAllPrimaryAssignments != clusterMetadata.getNumPrimaryVectors()) {
-                                        if (logger.isErrorEnabled()) {
-                                            logger.error("""
-                                                    cluster metadata count of primary vectors is wrong; \
-                                                    expected={}; actual={}
-                                                    """,
-                                                    clusterMetadata.getNumPrimaryVectors(), numAllPrimaryAssignments);
-                                        }
-                                    }
-                                    if (logger.isInfoEnabled()) {
-                                        logger.info(
-                                                """
-                                                assignment stats; clusterId={}, numAllPrimaryAssignments={}, \
-                                                numWrongAssignments={}, numReplicated={}, stdDev={}, \
-                                                assignmentsByRankMap={} \
-                                                """,
-                                                currentClusterId, numAllPrimaryAssignments, numWrongAssignments,
-                                                numReplicatedVectors, clusterMetadata.standardDeviation(),
-                                                assignmentsByRankMap);
-                                    }
-                                }
-                                return assignmentsMap;
-                            });
-                });
-    }
-
     /**
      * Diagnostic method that computes cluster overlap statistics for a set of query vectors. For each
      * query vector, counts how many clusters "overlap" — i.e., the query falls within the cluster's ball
@@ -818,6 +719,78 @@ public class Search {
                                 return overlapCountsBuilder.build();
                             });
                 });
+    }
+
+    /**
+     * Snapshots the cluster topology for the given centroids: fetches every cluster's metadata and vector
+     * references, buckets them into primaries / replicas / collapsed, and captures the distance estimator so the
+     * snapshot can later rank vectors against centroids (see {@link StructureSnapshot#computeAssignmentRanking}).
+     * Follows the same diagnostic shape as {@link #clusterOverlapDiagnostics}.
+     *
+     * @param readTransaction the read transaction context
+     * @param centroids the cluster centroids (as returned by an HNSW scan)
+     * @return a future completing with the topology snapshot (an empty snapshot if the structure has no access
+     *         info yet)
+     */
+    @Nonnull
+    CompletableFuture<StructureSnapshot> snapshotStructure(@Nonnull final ReadTransaction readTransaction,
+                                                           @Nonnull final List<ResultEntry> centroids) {
+        final Primitives primitives = primitives();
+
+        return primitives.fetchAccessInfo(readTransaction)
+                .thenCompose(accessInfo -> {
+                    if (accessInfo == null) {
+                        return CompletableFuture.completedFuture(new StructureSnapshot(Map.of(), null));
+                    }
+                    final StorageTransform storageTransform = primitives.storageTransform(accessInfo);
+                    final DistanceEstimator estimator = primitives.quantizer(accessInfo).estimator();
+
+                    return MoreAsyncUtil.forEach(centroids,
+                                    centroid -> {
+                                        final UUID clusterId = StorageAdapter.clusterIdFromTuple(centroid.primaryKey());
+                                        final RealVector untransformedCentroid =
+                                                Objects.requireNonNull(centroid.vector(),
+                                                        "centroid HNSW must yield vectors");
+                                        return primitives.fetchCluster(readTransaction, storageTransform,
+                                                        clusterId, untransformedCentroid)
+                                                .thenApply(cluster ->
+                                                        buildClusterView(clusterId, untransformedCentroid, cluster));
+                                    },
+                                    getConfig().searchConcurrency(), getExecutor())
+                            .thenApply(clusterViews -> {
+                                final Map<UUID, ClusterView> built =
+                                        Maps.newHashMapWithExpectedSize(clusterViews.size());
+                                for (final ClusterView clusterView : clusterViews) {
+                                    built.put(clusterView.clusterId(), clusterView);
+                                }
+                                return new StructureSnapshot(Map.copyOf(built), estimator);
+                            });
+                });
+    }
+
+    /**
+     * Builds a single {@link ClusterView} from a fetched {@link Cluster}, bucketing its references into primaries,
+     * replicas and collapsed (a reference is collapsed first, then primary, else a replica).
+     */
+    @Nonnull
+    private static ClusterView buildClusterView(@Nonnull final UUID clusterId,
+                                                @Nonnull final RealVector untransformedCentroid,
+                                                @Nonnull final Cluster cluster) {
+        final ImmutableSet.Builder<VectorId> primariesBuilder = ImmutableSet.builder();
+        final ImmutableSet.Builder<VectorId> replicasBuilder = ImmutableSet.builder();
+        final ImmutableSet.Builder<VectorId> collapsedBuilder = ImmutableSet.builder();
+        for (final VectorReference reference : cluster.vectorReferences()) {
+            if (reference.isCollapsed()) {
+                collapsedBuilder.add(reference.id());
+            } else if (reference.isPrimaryCopy()) {
+                primariesBuilder.add(reference.id());
+            } else {
+                replicasBuilder.add(reference.id());
+            }
+        }
+        return new ClusterView(clusterId, untransformedCentroid, cluster.centroid(), cluster.clusterMetadata(),
+                primariesBuilder.build(), replicasBuilder.build(), collapsedBuilder.build(),
+                ImmutableList.copyOf(cluster.vectorReferences()));
     }
 
     @Nonnull

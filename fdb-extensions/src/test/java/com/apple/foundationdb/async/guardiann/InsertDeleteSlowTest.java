@@ -265,7 +265,7 @@ public class InsertDeleteSlowTest implements BaseTest {
         TestHelpers.assertGuardiannInvariantsAfterDeletes(getDb(), guardiann);
 
         // ---- Phase 5: only setB remains ----
-        final TestHelpers.StructureSnapshot snap = TestHelpers.snapshotStructure(getDb(), guardiann);
+        final StructureSnapshot snap = TestHelpers.snapshotStructure(getDb(), guardiann);
         assertThat(snap)
                 .as("structure snapshot must be non-null after the run")
                 .isNotNull();
@@ -381,7 +381,7 @@ public class InsertDeleteSlowTest implements BaseTest {
         assertThat(active)
                 .as("local active map must be empty after deleting the entire startup sample")
                 .isEmpty();
-        final TestHelpers.StructureSnapshot snap = TestHelpers.snapshotStructure(getDb(), guardiann);
+        final StructureSnapshot snap = TestHelpers.snapshotStructure(getDb(), guardiann);
         final int remainingPrimaries = snap == null ? 0 : snap.totalPrimaries();
         assertThat(remainingPrimaries)
                 .as("no primaries may remain after deleting every record")

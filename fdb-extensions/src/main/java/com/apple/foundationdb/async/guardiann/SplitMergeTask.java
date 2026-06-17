@@ -329,7 +329,7 @@ public class SplitMergeTask extends AbstractDeferredTask {
                                 final List<ClusterMetadataWithDistance> outerNeighborhood = neighborhoods.outerNeighborhood();
 
                                 final Repartitioning repartitioning =
-                                        assignPrimaryVectorReferences(estimator, outerNeighborhood,
+                                        assignPrimaryVectorReferences(random, estimator, outerNeighborhood,
                                                 repartitioningCandidate.primaryVectorReferences(),
                                                 repartitioningCandidate.kMeansResult(),
                                                 innerNeighborhood.size() + 1);
@@ -493,7 +493,7 @@ public class SplitMergeTask extends AbstractDeferredTask {
                                 final List<ClusterMetadataWithDistance> outerNeighborhood = neighborhoods.outerNeighborhood();
 
                                 final Repartitioning repartitioning =
-                                        assignPrimaryVectorReferences(estimator, outerNeighborhood,
+                                        assignPrimaryVectorReferences(random, estimator, outerNeighborhood,
                                                 repartitioningCandidate.primaryVectorReferences(),
                                                 repartitioningCandidate.kMeansResult(),
                                                 innerNeighborhood.size() - 1);
@@ -511,6 +511,7 @@ public class SplitMergeTask extends AbstractDeferredTask {
      * subject to occlusion filtering and bounded by {@link Config#replicatedClusterTarget()} via a
      * bounded top-K by replication priority.
      *
+     * @param random the deterministic random source used to mint the new cluster ids
      * @param estimator distance estimator for the vector space
      * @param outerNeighborhood clusters outside the split/merge region that may receive vectors
      * @param primaryVectorReferences the primary vector references to assign
@@ -519,7 +520,8 @@ public class SplitMergeTask extends AbstractDeferredTask {
      * @return an assignment result containing the vector-to-cluster mapping and updated statistics
      */
     @Nonnull
-    private Repartitioning assignPrimaryVectorReferences(@Nonnull final DistanceEstimator estimator,
+    private Repartitioning assignPrimaryVectorReferences(@Nonnull final SplittableRandom random,
+                                                         @Nonnull final DistanceEstimator estimator,
                                                          @Nonnull final List<ClusterMetadataWithDistance> outerNeighborhood,
                                                          @Nonnull final List<VectorReference> primaryVectorReferences,
                                                          @Nonnull final KMeans.Result<Transformed<RealVector>> kMeansResult,
@@ -534,7 +536,7 @@ public class SplitMergeTask extends AbstractDeferredTask {
                 ImmutableMap.builder();
         final ImmutableSet.Builder<UUID> newClusterIdsBuilder = ImmutableSet.builder();
         for (int i = 0; i < targetNumPartitions; i++) {
-            final UUID newClusterId = RandomHelpers.randomUuid(config.deterministicRandomness());
+            final UUID newClusterId = RandomHelpers.randomUuid(random, config.deterministicRandomness());
             newClusterIdsBuilder.add(newClusterId);
 
             clusterIdMetadataMapBuilder.put(newClusterId,

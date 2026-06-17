@@ -41,7 +41,6 @@ import javax.annotation.Nonnull;
 import java.nio.file.Path;
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 
 public class SiftTest implements BaseTest {
@@ -112,20 +111,10 @@ public class SiftTest implements BaseTest {
     @Test
     void testInsertSIFTSmall() throws Exception {
         final int k = 100;
-        TestHelpers.assertGuardiannInvariants(getDb(), guardiann);
-
         TestHelpers.queryVectors(getDb(), guardiann,
                 TestHelpers.SIFT_SMALL_QUERY_PATH,
                 TestHelpers.SIFT_SMALL_GROUNDTRUTH_PATH, k);
-    }
-
-    static long countNodesCentroidHnsw(@Nonnull final Database db,
-                                       @Nonnull final Subspace subspace,
-                                       @Nonnull final com.apple.foundationdb.async.hnsw.Config config, final int layer) {
-        final AtomicLong counter = new AtomicLong();
-        scanCentroids(db, subspace, config, layer, 100,
-                node -> counter.incrementAndGet());
-        return counter.get();
+        TestHelpers.assertGuardiannInvariants(getDb(), guardiann);
     }
 
     static void scanCentroids(@Nonnull final Database db,

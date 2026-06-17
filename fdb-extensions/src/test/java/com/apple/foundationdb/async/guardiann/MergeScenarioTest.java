@@ -164,7 +164,7 @@ public class MergeScenarioTest implements BaseTest {
         }
         TestHelpers.runToQuiescence(db, guardiann);
 
-        final TestHelpers.StructureSnapshot afterInsert = TestHelpers.snapshotStructure(db, guardiann);
+        final StructureSnapshot afterInsert = TestHelpers.snapshotStructure(db, guardiann);
         assertThat(afterInsert)
                 .as("structure snapshot must be non-null after inserts")
                 .isNotNull();
@@ -197,7 +197,7 @@ public class MergeScenarioTest implements BaseTest {
         // Deletes can leave dangling replicas, so use the after-deletes invariant variant.
         TestHelpers.assertGuardiannInvariantsAfterDeletes(db, guardiann);
 
-        final TestHelpers.StructureSnapshot afterDelete = TestHelpers.snapshotStructure(db, guardiann);
+        final StructureSnapshot afterDelete = TestHelpers.snapshotStructure(db, guardiann);
         assertThat(afterDelete)
                 .as("structure snapshot must be non-null after deletes")
                 .isNotNull();

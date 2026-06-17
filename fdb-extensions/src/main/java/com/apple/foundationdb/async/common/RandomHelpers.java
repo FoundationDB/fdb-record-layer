@@ -21,15 +21,16 @@
 package com.apple.foundationdb.async.common;
 
 import com.apple.foundationdb.async.MoreAsyncUtil;
+import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.collect.Iterables;
 
 import javax.annotation.Nonnull;
+import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.SplittableRandom;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BiFunction;
 
 public final class RandomHelpers {
@@ -38,13 +39,30 @@ public final class RandomHelpers {
     }
 
     /**
-     * Seed a {@link SplittableRandom} in a deterministic way using the primary key of a record.
-     * @param someIdentity something fairly unique
+     * Seed a {@link SplittableRandom} deterministically from a record's primary key, folding the key's full encoded
+     * bytes into the seed so distinct keys yield distinct streams. (Seeding from {@link Object#hashCode()} — only
+     * 32 bits — risks birthday collisions, which for ids derived from the stream would conflate distinct records.)
+     *
+     * @param primaryKey the record's primary key
+     *
      * @return a new {@link SplittableRandom}
      */
     @Nonnull
-    public static SplittableRandom random(@Nonnull final Object someIdentity) {
-        return new SplittableRandom(splitMixLong(someIdentity.hashCode()));
+    public static SplittableRandom random(@Nonnull final Tuple primaryKey) {
+        return new SplittableRandom(seedFromBytes(primaryKey.pack()));
+    }
+
+    /**
+     * Seed a {@link SplittableRandom} deterministically from a UUID identity (such as a task id), folding all 128
+     * bits into the seed.
+     *
+     * @param identity the UUID identity
+     *
+     * @return a new {@link SplittableRandom}
+     */
+    @Nonnull
+    public static SplittableRandom random(@Nonnull final UUID identity) {
+        return new SplittableRandom(seedFromBytes(bytesOf(identity)));
     }
 
     /**
@@ -73,16 +91,48 @@ public final class RandomHelpers {
     }
 
     /**
-     * Returns a fresh {@link UUID}, either a deterministic sequential one (for reproducible runs) or a true random
-     * one.
+     * Derives a high-entropy 64-bit seed from {@code bytes} by folding each byte through the SplitMix64 mix, so the
+     * full content of an identity (rather than a 32-bit {@link Object#hashCode()}) determines the seed.
      *
-     * @param deterministicRandomness whether to return a deterministic sequential id instead of a random one
+     * @param bytes the bytes to fold
+     *
+     * @return a 64-bit seed
+     */
+    private static long seedFromBytes(@Nonnull final byte[] bytes) {
+        long seed = 0L;
+        for (final byte b : bytes) {
+            seed = splitMixLong(seed ^ (b & 0xffL));
+        }
+        return seed;
+    }
+
+    /**
+     * Returns the 16-byte big-endian representation of {@code uuid} (most-significant bits first).
+     *
+     * @param uuid the UUID to encode
+     *
+     * @return its 16-byte representation
+     */
+    @Nonnull
+    private static byte[] bytesOf(@Nonnull final UUID uuid) {
+        return ByteBuffer.allocate(Long.BYTES * 2)
+                .putLong(uuid.getMostSignificantBits())
+                .putLong(uuid.getLeastSignificantBits())
+                .array();
+    }
+
+    /**
+     * Returns a fresh {@link UUID}: a reproducible one derived from {@code random} when deterministic randomness is
+     * requested, or a true random {@link UUID#randomUUID()} otherwise.
+     *
+     * @param random the random source to derive a reproducible UUID from when {@code deterministicRandomness} is set
+     * @param deterministicRandomness whether to derive the UUID deterministically from {@code random}
      *
      * @return a new UUID
      */
     @Nonnull
-    public static UUID randomUuid(final boolean deterministicRandomness) {
-        return deterministicRandomness ? SequentialUUID.getNext() : UUID.randomUUID();
+    public static UUID randomUuid(@Nonnull final SplittableRandom random, final boolean deterministicRandomness) {
+        return deterministicRandomness ? randomUuid(random) : UUID.randomUUID();
     }
 
     /**
@@ -107,6 +157,37 @@ public final class RandomHelpers {
         lsb |= 0x8000000000000000L;
 
         return new UUID(msb, lsb);
+    }
+
+    /**
+     * Returns a {@link UUID} for a record: a reproducible, collision-resistant 128-bit hash
+     * ({@link UUID#nameUUIDFromBytes}) of the primary key's encoded bytes when deterministic randomness is
+     * requested, or a random {@link UUID#randomUUID()} otherwise. Deriving the deterministic id straight from the
+     * full primary key (rather than from a low-entropy seeded stream) guarantees distinct records get distinct ids.
+     *
+     * @param primaryKey the record's primary key
+     * @param deterministicRandomness whether to derive the UUID deterministically from {@code primaryKey}
+     *
+     * @return a new UUID
+     */
+    @Nonnull
+    public static UUID randomUuid(@Nonnull final Tuple primaryKey, final boolean deterministicRandomness) {
+        return deterministicRandomness ? UUID.nameUUIDFromBytes(primaryKey.pack()) : UUID.randomUUID();
+    }
+
+    /**
+     * Returns a {@link UUID}: a reproducible, collision-resistant 128-bit hash ({@link UUID#nameUUIDFromBytes}) of
+     * the given UUID identity's bytes when deterministic randomness is requested, or a random
+     * {@link UUID#randomUUID()} otherwise.
+     *
+     * @param identity the UUID identity to derive from
+     * @param deterministicRandomness whether to derive the UUID deterministically from {@code identity}
+     *
+     * @return a new UUID
+     */
+    @Nonnull
+    public static UUID randomUuid(@Nonnull final UUID identity, final boolean deterministicRandomness) {
+        return deterministicRandomness ? UUID.nameUUIDFromBytes(bytesOf(identity)) : UUID.randomUUID();
     }
 
     /**
@@ -196,19 +277,6 @@ public final class RandomHelpers {
             hasSpare = true;
 
             return u * mul;
-        }
-    }
-
-    /**
-     * Source of deterministic, monotonically increasing {@link UUID}s (counting up from zero) used in place of
-     * random UUIDs when deterministic randomness is requested, so that runs are reproducible.
-     */
-    private static class SequentialUUID {
-        private static final AtomicLong sequenceAtomic = new AtomicLong(0L);
-
-        @Nonnull
-        private static UUID getNext() {
-            return new UUID(0, sequenceAtomic.getAndIncrement());
         }
     }
 }

@@ -219,11 +219,6 @@ public class Delete {
                                 }
 
                                 primitives.deleteVectorMetadata(transaction, primaryKey);
-
-                                if (logger.isDebugEnabled()) {
-                                    logger.debug("deleted vector; primaryKey={}; clustersAffected={}",
-                                            primaryKey, clusterMetadataWithDistances.size());
-                                }
                             });
                         }));
     }

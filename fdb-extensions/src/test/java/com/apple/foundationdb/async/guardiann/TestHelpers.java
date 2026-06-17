@@ -25,7 +25,6 @@ import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.async.MoreAsyncUtil;
 import com.apple.foundationdb.async.common.PrimaryKeyAndVector;
 import com.apple.foundationdb.async.common.ResultEntry;
-import com.apple.foundationdb.async.common.StorageTransform;
 import com.apple.foundationdb.async.hnsw.HNSW;
 import com.apple.foundationdb.linear.DoubleRealVector;
 import com.apple.foundationdb.linear.RealVector;
@@ -875,85 +874,12 @@ class TestHelpers {
     }
 
     /**
-     * Per-cluster view captured by {@link #snapshotStructure}. The vector-reference sets are keyed
-     * by {@link VectorId} (primary key + UUID), which uniquely identifies a vector across the
-     * structure and supports cross-cluster cross-referencing (e.g. linking a replica to its
-     * primary).
-     *
-     * @param clusterId the cluster's UUID
-     * @param centroid the centroid in the client (untransformed) coordinate space, taken from the
-     *        centroid HNSW. Useful for stable cross-snapshot comparison
-     * @param metadata the cluster's stored {@link ClusterMetadata}
-     * @param primaries primary-copy vector references (whether or not underreplicated; collapsed
-     *        primaries are excluded from this set and appear in {@code collapsedRefs} instead)
-     * @param replicas replicated copies held in this cluster for search recall
-     * @param collapsedRefs collapsed references; each carries its signature in its {@code id()}'s
-     *        primary-key tuple
-     */
-    record ClusterView(@Nonnull UUID clusterId,
-                       @Nonnull RealVector centroid,
-                       @Nonnull ClusterMetadata metadata,
-                       @Nonnull Set<VectorId> primaries,
-                       @Nonnull Set<VectorId> replicas,
-                       @Nonnull Set<VectorId> collapsedRefs) {
-    }
-
-    /**
-     * Compact, immutable view of the Guardiann's cluster topology at a point in time: per-cluster
-     * metadata, primary vectors, replicas, and collapsed references. Tests build one (typically
-     * right after {@link #runToQuiescence}) and feed it to the {@code assert*} invariant helpers
-     * below. The same snapshots are intended for diff-based scenario tests in a later phase
-     * ("after this op, exactly these clusters changed"); the diff API isn't built yet.
-     *
-     * @param clusters per-cluster views, keyed by cluster id (immutable)
-     */
-    record StructureSnapshot(@Nonnull Map<UUID, ClusterView> clusters) {
-        /** Returns the number of clusters in this snapshot. */
-        public int numClusters() {
-            return clusters.size();
-        }
-
-        /** Returns the total primary-copy count across all clusters. */
-        public int totalPrimaries() {
-            return clusters.values().stream().mapToInt(c -> c.primaries().size()).sum();
-        }
-
-        /** Returns the total replica count across all clusters (counts each replica copy once). */
-        public int totalReplicas() {
-            return clusters.values().stream().mapToInt(c -> c.replicas().size()).sum();
-        }
-
-        /** Returns the total collapsed-reference count across all clusters. */
-        public int totalCollapsedRefs() {
-            return clusters.values().stream().mapToInt(c -> c.collapsedRefs().size()).sum();
-        }
-
-        /**
-         * Returns the reverse mapping primary {@link VectorId} → owning cluster id. The build
-         * itself fails via {@link Verify} if a primary appears in more than one cluster, so the
-         * returned map is guaranteed unique by construction.
-         */
-        @Nonnull
-        public Map<VectorId, UUID> primaryOwners() {
-            final Map<VectorId, UUID> owners = Maps.newHashMapWithExpectedSize(totalPrimaries());
-            for (final ClusterView cv : clusters.values()) {
-                for (final VectorId id : cv.primaries()) {
-                    final UUID prior = owners.put(id, cv.clusterId());
-                    Verify.verify(prior == null,
-                            "primary %s appears in clusters %s and %s", id, prior, cv.clusterId());
-                }
-            }
-            return owners;
-        }
-    }
-
-    /**
-     * Snapshots the current Guardiann cluster topology. Returns {@code null} if the structure is
-     * empty (no clusters yet — common before the first insert).
+     * Snapshots the current Guardiann cluster topology via {@link Search#snapshotStructure}. Returns
+     * {@code null} if the structure is empty (no clusters yet — common before the first insert).
      * <p>
-     * Implementation: scan the centroid HNSW for cluster ids and centroids (this uses its own
-     * internal transactions), then fetch each cluster's metadata and vector references in a
-     * single follow-up read transaction.
+     * Implementation: scan the centroid HNSW for cluster ids and centroids (this uses its own internal
+     * transactions), then in one follow-up read transaction delegate to {@link Search#snapshotStructure}, which
+     * fetches every cluster's metadata and vector references and assembles the snapshot.
      */
     @Nullable
     static StructureSnapshot snapshotStructure(@Nonnull final Database db,
@@ -961,49 +887,15 @@ class TestHelpers {
         final Primitives primitives = guardiann.getLocator().primitives();
         final HNSW centroidsHnsw = primitives.getClusterCentroidsHnsw();
 
-        // First, pull (clusterId, untransformedCentroid) pairs from the centroid HNSW.
+        // Pull the (clusterId, centroid) entries from the centroid HNSW (this uses its own internal transactions).
         final List<ResultEntry> centroidEntries = Lists.newArrayList();
         HNSW.scanLayer(centroidsHnsw.getConfig(), centroidsHnsw.getSubspace(), db, 0, 100,
                 centroidEntries::add);
         if (centroidEntries.isEmpty()) {
             return null;
         }
-
-        // Then, in one read transaction, fetch every cluster's metadata + vector references and
-        // bucketize the references into primaries / replicas / collapsed.
-        final Map<UUID, ClusterView> views = db.run(transaction -> {
-            final AccessInfo accessInfo = primitives.fetchAccessInfo(transaction).join();
-            Verify.verifyNotNull(accessInfo,
-                    "centroid HNSW had entries but AccessInfo is missing");
-            final StorageTransform storageTransform = primitives.storageTransform(accessInfo);
-
-            final Map<UUID, ClusterView> built = Maps.newHashMapWithExpectedSize(centroidEntries.size());
-            for (final ResultEntry entry : centroidEntries) {
-                final UUID clusterId = StorageAdapter.clusterIdFromTuple(entry.primaryKey());
-                final RealVector untransformedCentroid =
-                        Objects.requireNonNull(entry.vector(), "centroid HNSW must yield vectors");
-                final Cluster cluster = primitives.fetchCluster(transaction, storageTransform,
-                        clusterId, untransformedCentroid).join();
-
-                final ImmutableSet.Builder<VectorId> primariesBuilder = ImmutableSet.builder();
-                final ImmutableSet.Builder<VectorId> replicasBuilder = ImmutableSet.builder();
-                final ImmutableSet.Builder<VectorId> collapsedBuilder = ImmutableSet.builder();
-                for (final VectorReference ref : cluster.vectorReferences()) {
-                    if (ref.isCollapsed()) {
-                        collapsedBuilder.add(ref.id());
-                    } else if (ref.isPrimaryCopy()) {
-                        primariesBuilder.add(ref.id());
-                    } else {
-                        replicasBuilder.add(ref.id());
-                    }
-                }
-                built.put(clusterId, new ClusterView(clusterId, untransformedCentroid,
-                        cluster.clusterMetadata(),
-                        primariesBuilder.build(), replicasBuilder.build(), collapsedBuilder.build()));
-            }
-            return built;
-        });
-        return new StructureSnapshot(Map.copyOf(views));
+        return db.run(transaction ->
+                guardiann.getLocator().search().snapshotStructure(transaction, centroidEntries).join());
     }
 
     /**
@@ -1042,6 +934,190 @@ class TestHelpers {
                         .contains(replicaId);
             }
         }
+    }
+
+    /**
+     * Tolerances (as fractions of the relevant vector population) and the deep-check size gate for the soft
+     * replication invariants. The deep, per-vector checks (invariants 2 and 3) run only when the structure has at
+     * most {@link #deepCheckMaxVectors} primaries, so large SIFT runs stay fast.
+     *
+     * @param maxUnderReplicatedFraction max fraction of primaries that may be flagged under-replicated (inv 1)
+     * @param maxReplicationShortfallFraction max fraction of the score-derived replication demand that may go unmet
+     *        (inv 2; generous, since occlusion and the replicated-writes cap legitimately suppress some)
+     * @param maxWrongPrimaryFraction max fraction of primaries whose home is not their nearest cluster (inv 3)
+     * @param maxSpuriousReplicaFraction max fraction of replicas whose stored replication priority is below the
+     *        threshold (inv 4)
+     * @param deepCheckMaxVectors run the deep checks (inv 2, 3) only at or below this many primaries
+     */
+    record ReplicationInvariants(double maxUnderReplicatedFraction,
+                                 double maxReplicationShortfallFraction,
+                                 double maxWrongPrimaryFraction,
+                                 double maxSpuriousReplicaFraction,
+                                 int deepCheckMaxVectors) {
+        /** Defaults for a quiesced structure that has not just had a delete storm. */
+        @Nonnull
+        static ReplicationInvariants standard() {
+            return new ReplicationInvariants(0.05d, 0.25d, 0.02d, 0.02d, 50_000);
+        }
+
+        /** Looser bounds for the post-delete state, where reassign may not yet have restored replication. */
+        @Nonnull
+        static ReplicationInvariants afterDeletes() {
+            return new ReplicationInvariants(0.20d, 0.60d, 0.05d, 0.10d, 50_000);
+        }
+    }
+
+    /**
+     * Soft invariant 1 — not an excessive number of under-replicated primary vectors. Counts primaries flagged
+     * {@code isUnderreplicated} across all clusters (the record precondition guarantees only primaries carry that
+     * flag) and asserts they are at most {@code maxFraction} of all primaries.
+     */
+    static void assertUnderReplicatedPrimariesBounded(@Nullable final StructureSnapshot snapshot,
+                                                      final double maxFraction) {
+        if (snapshot == null) {
+            return;
+        }
+        int totalPrimaries = 0;
+        int underReplicated = 0;
+        for (final ClusterView cv : snapshot.clusters().values()) {
+            for (final VectorReference ref : cv.references()) {
+                if (ref.isPrimaryCopy()) {
+                    totalPrimaries++;
+                    if (ref.isUnderreplicated()) {
+                        underReplicated++;
+                    }
+                }
+            }
+        }
+        if (totalPrimaries == 0) {
+            return;
+        }
+        final double fraction = (double) underReplicated / totalPrimaries;
+        logger.info("invariant[under-replicated]: {}/{} primaries under-replicated (fraction={}, limit={})",
+                underReplicated, totalPrimaries, fraction, maxFraction);
+        assertThat(fraction)
+                .as("under-replicated primaries (%d of %d) exceed the allowed fraction", underReplicated,
+                        totalPrimaries)
+                .isLessThanOrEqualTo(maxFraction);
+    }
+
+    /**
+     * Soft invariant 4 — not an excessive number of vectors replicated that should not have been. Every replica is
+     * created only because its replication priority reached {@link Config#replicationPriorityMin()}, so each
+     * replica's <em>stored</em> priority should still be at least that threshold. Counts replicas below it and
+     * asserts they are at most {@code maxFraction} of all replicas.
+     */
+    static void assertNoSpuriousReplicas(@Nullable final StructureSnapshot snapshot,
+                                         @Nonnull final Config config,
+                                         final double maxFraction) {
+        if (snapshot == null) {
+            return;
+        }
+        final double minPriority = config.replicationPriorityMin();
+        int totalReplicas = 0;
+        int spurious = 0;
+        for (final ClusterView cv : snapshot.clusters().values()) {
+            for (final VectorReference ref : cv.references()) {
+                if (!ref.isPrimaryCopy() && !ref.isCollapsed()) {
+                    totalReplicas++;
+                    if (ref.replicationPriority() < minPriority) {
+                        spurious++;
+                    }
+                }
+            }
+        }
+        if (totalReplicas == 0) {
+            return;
+        }
+        final double fraction = (double) spurious / totalReplicas;
+        logger.info("invariant[spurious-replicas]: {}/{} replicas below replicationPriorityMin={} "
+                        + "(fraction={}, limit={})", spurious, totalReplicas, minPriority, fraction, maxFraction);
+        assertThat(fraction)
+                .as("replicas stored below replicationPriorityMin=%s (%d of %d) exceed the allowed fraction",
+                        minPriority, spurious, totalReplicas)
+                .isLessThanOrEqualTo(maxFraction);
+    }
+
+    /**
+     * Soft invariant 2 — not too few replicated vectors. {@link StructureSnapshot#computeAssignmentRanking} derives,
+     * from each primary's nearest neighboring clusters, how many (primary, neighbor) pairs <em>should</em> be
+     * replicated (their {@link StorageAdapter#replicationPriority} reaches {@link Config#replicationPriorityMin()})
+     * and how many actually are. Asserts the unmet fraction of that demand is at most {@code maxShortfallFraction}.
+     * The bound is deliberately generous: occlusion and the {@code replicatedClusterMaxWrites} cap legitimately
+     * suppress some demanded replicas, and a structure with no demand at all (well-separated clusters) trivially
+     * passes.
+     */
+    static void assertReplicationNotTooLow(@Nonnull final StructureSnapshot.AssignmentRanking ranking,
+                                           final double maxShortfallFraction) {
+        if (ranking.replicationDemand() == 0) {
+            logger.info("invariant[replication-shortfall]: no score-derived replication demand; nothing to check");
+            return;
+        }
+        final int shortfall = ranking.replicationDemand() - ranking.replicationSatisfied();
+        final double fraction = (double) shortfall / ranking.replicationDemand();
+        logger.info("invariant[replication-shortfall]: {}/{} demanded replicas unmet (fraction={}, limit={})",
+                shortfall, ranking.replicationDemand(), fraction, maxShortfallFraction);
+        assertThat(fraction)
+                .as("replication shortfall (%d of %d demanded pairs unmet) exceeds the allowed fraction",
+                        shortfall, ranking.replicationDemand())
+                .isLessThanOrEqualTo(maxShortfallFraction);
+    }
+
+    /**
+     * Soft invariant 3 — not an excessive number of vectors with a wrong primary assignment. A primary is
+     * "wrong" when its owning cluster is not the cluster whose centroid is nearest to it (see
+     * {@link StructureSnapshot#computeAssignmentRanking}). Some misassignment is expected — a vector inserted before
+     * a later split, or one near a moving border, can end up off its nearest centroid — so this asserts only that
+     * the wrong fraction stays at or below {@code maxWrongFraction}.
+     */
+    static void assertPrimaryAssignmentsMostlyCorrect(@Nonnull final StructureSnapshot.AssignmentRanking ranking,
+                                                      final double maxWrongFraction) {
+        if (ranking.numPrimaries() == 0) {
+            return;
+        }
+        final double fraction = (double) ranking.numWrongAssignments() / ranking.numPrimaries();
+        logger.info("invariant[wrong-primary]: {}/{} primaries not in their nearest cluster (fraction={}, limit={})",
+                ranking.numWrongAssignments(), ranking.numPrimaries(), fraction, maxWrongFraction);
+        assertThat(fraction)
+                .as("primaries assigned to a non-nearest cluster (%d of %d) exceed the allowed fraction",
+                        ranking.numWrongAssignments(), ranking.numPrimaries())
+                .isLessThanOrEqualTo(maxWrongFraction);
+    }
+
+    /**
+     * Umbrella for the four soft replication invariants, all derived from a single {@link #snapshotStructure} fetch.
+     * The two cheap, snapshot-only checks (invariant 1, under-replicated primaries; invariant 4, spurious replicas)
+     * always run. The two deep, per-vector checks (invariant 2, replication shortfall; invariant 3, wrong primary
+     * assignment) rank every primary against every cluster via {@link StructureSnapshot#computeAssignmentRanking},
+     * so they run only when the structure has at most {@link ReplicationInvariants#deepCheckMaxVectors()} primaries;
+     * above that the deep checks are skipped (logged) so large SIFT runs stay fast while still getting the cheap
+     * checks.
+     *
+     * @param guardiann the structure under test, queried only for its {@link Guardiann#getConfig()}
+     * @param snapshot a snapshot of {@code guardiann}'s current topology, or {@code null} if the structure is empty
+     * @param invariants the tolerances and the deep-check size gate to apply
+     */
+    static void assertReplicationInvariants(@Nonnull final Guardiann guardiann,
+                                            @Nullable final StructureSnapshot snapshot,
+                                            @Nonnull final ReplicationInvariants invariants) {
+        // Cheap, snapshot-only checks — always run.
+        assertUnderReplicatedPrimariesBounded(snapshot, invariants.maxUnderReplicatedFraction());
+        assertNoSpuriousReplicas(snapshot, guardiann.getConfig(), invariants.maxSpuriousReplicaFraction());
+
+        // Deep, per-vector checks — gated on structure size so large runs stay fast.
+        final int totalPrimaries = snapshot == null ? 0 : snapshot.totalPrimaries();
+        if (totalPrimaries > invariants.deepCheckMaxVectors()) {
+            logger.info("invariant[deep-checks]: skipped — {} primaries exceeds deepCheckMaxVectors={}",
+                    totalPrimaries, invariants.deepCheckMaxVectors());
+            return;
+        }
+        if (snapshot == null) {
+            return;
+        }
+        final StructureSnapshot.AssignmentRanking ranking =
+                snapshot.computeAssignmentRanking(guardiann.getConfig());
+        assertReplicationNotTooLow(ranking, invariants.maxReplicationShortfallFraction());
+        assertPrimaryAssignmentsMostlyCorrect(ranking, invariants.maxWrongPrimaryFraction());
     }
 
     /**
@@ -1105,5 +1181,12 @@ class TestHelpers {
         if (requireReplicasReferenceLivePrimaries) {
             assertReplicasReferenceLivePrimaries(snapshot);
         }
+        // The four soft replication invariants, reusing the snapshot already taken above so the cheap checks add
+        // no extra scan. A delete storm can leave replication transiently degraded (reassign may not have caught
+        // up), so the post-delete path uses the looser tolerances.
+        assertReplicationInvariants(guardiann, snapshot,
+                requireReplicasReferenceLivePrimaries
+                        ? ReplicationInvariants.standard()
+                        : ReplicationInvariants.afterDeletes());
     }
 }

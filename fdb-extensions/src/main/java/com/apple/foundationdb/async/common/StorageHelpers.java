@@ -30,7 +30,6 @@ import com.apple.foundationdb.linear.AffineOperator;
 import com.apple.foundationdb.linear.DoubleRealVector;
 import com.apple.foundationdb.linear.RealVector;
 import com.apple.foundationdb.linear.Transformed;
-import com.apple.foundationdb.linear.VectorType;
 import com.apple.foundationdb.rabitq.EncodedRealVector;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
@@ -40,6 +39,7 @@ import com.google.common.collect.ImmutableList;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
+import java.util.SplittableRandom;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -116,6 +116,7 @@ public final class StorageHelpers {
      * partial count and a fresh (optionally deterministic) random id.
      *
      * @param transaction the transaction to write within
+     * @param random the random source for the key's id when {@code deterministicRandomness} is set
      * @param deterministicRandomness whether to derive the key's id deterministically rather than randomly
      * @param prefixSubspace the subspace holding the sampled vectors
      * @param partialCount the number of vectors this sample aggregates
@@ -123,13 +124,14 @@ public final class StorageHelpers {
      * @param onWriteListener the listener notified of the written key/value
      */
     public static void appendSampledVector(@Nonnull final Transaction transaction,
+                                           @Nonnull final SplittableRandom random,
                                            final boolean deterministicRandomness,
                                            @Nonnull final Subspace prefixSubspace,
                                            final int partialCount,
                                            @Nonnull final Transformed<RealVector> vector,
                                            @Nonnull final OnKeyValueWriteListener onWriteListener) {
         final Subspace keySubspace = prefixSubspace.subspace(Tuple.from(partialCount,
-                RandomHelpers.randomUuid(deterministicRandomness)));
+                RandomHelpers.randomUuid(random, deterministicRandomness)));
         final byte[] prefixKey = keySubspace.pack();
         // getting underlying is okay as it is only written to the database
         final byte[] value = tupleFromVector(vector.getUnderlyingVector().toDoubleRealVector()).pack();

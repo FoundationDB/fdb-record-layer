@@ -168,7 +168,7 @@ public class SplitMergeSplitScenarioTest implements BaseTest {
 
             TestHelpers.assertGuardiannInvariants(db, guardiann);
 
-            final TestHelpers.StructureSnapshot snap = TestHelpers.snapshotStructure(db, guardiann);
+            final StructureSnapshot snap = TestHelpers.snapshotStructure(db, guardiann);
             assertThat(snap)
                     .as("structure snapshot must be non-null after inserts")
                     .isNotNull();

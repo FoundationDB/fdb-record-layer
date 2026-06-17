@@ -272,7 +272,7 @@ public class Insert {
 
                     final VectorMetadata newVectorMetadata =
                             new VectorMetadata(newPrimaryKey,
-                                    RandomHelpers.randomUuid(config.deterministicRandomness()),
+                                    RandomHelpers.randomUuid(newPrimaryKey, config.deterministicRandomness()),
                                     newAdditionalValues);
                     primitives.writeVectorMetadata(transaction, newVectorMetadata);
 
@@ -324,7 +324,7 @@ public class Insert {
                                                 updatedStandardDeviation = runningStandardDeviation;
                                             }
 
-                                            primitives.updateClusterMetadataAndEnqueueSplitOrReassignTaskMaybe(transaction, random.split(),
+                                            primitives.updateClusterMetadataAndEnqueueSplitOrReassignTaskMaybe(transaction, random,
                                                     clusterMetadata,
                                                     replicationCandidate.centroid(), accessInfo,
                                                     isPrimaryCluster ? 1 : 0,
@@ -370,7 +370,7 @@ public class Insert {
             logger.trace("written initial access info");
         }
 
-        final UUID clusterId = RandomHelpers.randomUuid(config.deterministicRandomness());
+        final UUID clusterId = RandomHelpers.randomUuid(random, config.deterministicRandomness());
         primitives.writeClusterMetadata(transaction,
                 new ClusterMetadata(clusterId, 0, 0,
                         RunningStats.identity(), EnumSet.noneOf(ClusterMetadata.State.class)));
@@ -411,7 +411,7 @@ public class Insert {
                 !currentAccessInfo.canUseRaBitQ()) {
             final Primitives primitives = primitives();
             if (shouldSampleVector(random)) {
-                appendSampledVector(transaction, config.deterministicRandomness(),
+                appendSampledVector(transaction, random, config.deterministicRandomness(),
                         samplesSubspace, 1, transformedNewVector, getOnWriteListener());
             }
             if (shouldMaintainStats(random)) {
@@ -424,7 +424,7 @@ public class Insert {
                             if (aggregatedSampledVector != null) {
                                 final int partialCount = aggregatedSampledVector.partialCount();
                                 final Transformed<RealVector> partialVector = aggregatedSampledVector.partialVector();
-                                appendSampledVector(transaction, config.deterministicRandomness(),
+                                appendSampledVector(transaction, random, config.deterministicRandomness(),
                                         samplesSubspace, partialCount, partialVector, getOnWriteListener());
                                 if (logger.isTraceEnabled()) {
                                     logger.trace("updated stats with numVectors={}, partialCount={}, partialVector={}",

@@ -237,9 +237,10 @@ public class ReassignScenarioTest implements BaseTest {
                         targetMeta.getNumPrimaryVectors(), targetMeta.numPrimaryUnderreplicatedVectors());
 
                 RunningStats updatedStandardDeviation = targetMeta.runningStandardDeviation();
+                final SplittableRandom rnd = new SplittableRandom(INJECTION_RANDOM_SEED);
                 for (int i = 0; i < extra; i++) {
                     final Tuple syntheticPk = Tuple.from(INJECTION_PK_BASE + i);
-                    final UUID syntheticUuid = RandomHelpers.randomUuid(true);
+                    final UUID syntheticUuid = RandomHelpers.randomUuid(rnd, true);
                     final VectorMetadata vm = new VectorMetadata(syntheticPk, syntheticUuid, null);
                     primitives.writeVectorMetadata(tr, vm);
                     final VectorReference vr = new VectorReference(vm, true, true, false,
@@ -248,7 +249,6 @@ public class ReassignScenarioTest implements BaseTest {
                     updatedStandardDeviation = updatedStandardDeviation.add(distanceToTargetCentroid);
                 }
 
-                final SplittableRandom rnd = new SplittableRandom(INJECTION_RANDOM_SEED);
                 final Optional<UUID> enqueued = primitives.updateClusterMetadataAndEnqueueSplitOrReassignTaskMaybe(
                         tr, rnd, targetMeta, targetCentroid, accessInfo,
                         extra, extra, 0, updatedStandardDeviation, ImmutableSet.of());
@@ -274,11 +274,11 @@ public class ReassignScenarioTest implements BaseTest {
 
             TestHelpers.assertGuardiannInvariants(db, guardiann);
 
-            final TestHelpers.StructureSnapshot snap = TestHelpers.snapshotStructure(db, guardiann);
+            final StructureSnapshot snap = TestHelpers.snapshotStructure(db, guardiann);
             assertThat(snap)
                     .as("structure snapshot must be non-null after warmup + injection")
                     .isNotNull();
-            for (final TestHelpers.ClusterView cv : snap.clusters().values()) {
+            for (final ClusterView cv : snap.clusters().values()) {
                 assertThat(cv.metadata().numPrimaryUnderreplicatedVectors())
                         .as("post-reassign: cluster %s under-replicated count must not exceed %d "
                                 + "(otherwise REASSIGN would re-enqueue itself)",

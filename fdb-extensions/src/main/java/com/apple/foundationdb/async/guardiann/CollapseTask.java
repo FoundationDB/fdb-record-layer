@@ -47,6 +47,7 @@ import java.util.Comparator;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
+import java.util.SplittableRandom;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
@@ -139,6 +140,7 @@ public class CollapseTask extends AbstractDeferredTask {
         final StorageTransform storageTransform = primitives.storageTransform(accessInfo);
         final Quantizer quantizer = primitives.quantizer(accessInfo);
         final DistanceEstimator estimator = quantizer.estimator();
+        final SplittableRandom random = RandomHelpers.random(getTaskId());
 
         // The target cluster metadata was already fetched in runTask and passed in, so wrap it directly
         // instead of re-reading it via fetchClusterMetadataWithDistance.
@@ -150,7 +152,7 @@ public class CollapseTask extends AbstractDeferredTask {
                 .thenAccept(innerClusters -> {
                     final Cluster targetCluster = Iterables.getOnlyElement(innerClusters);
                     final CollapseAssignments collapseAssignments =
-                            computeCollapseAssignments(estimator, targetClusterMetadataWithDistance,
+                            computeCollapseAssignments(random, estimator, targetClusterMetadataWithDistance,
                                     targetCluster.vectorReferences());
                     final TargetClusterDelta delta =
                             computeCollapseTargetClusterDelta(targetCluster, collapseAssignments);
@@ -160,7 +162,8 @@ public class CollapseTask extends AbstractDeferredTask {
     }
 
     @Nonnull
-    private CollapseAssignments computeCollapseAssignments(@Nonnull final DistanceEstimator estimator,
+    private CollapseAssignments computeCollapseAssignments(@Nonnull final SplittableRandom random,
+                                                           @Nonnull final DistanceEstimator estimator,
                                                            @Nonnull final ClusterMetadataWithDistance targetClusterMetadataWithDistance,
                                                            @Nonnull final List<VectorReference> vectorReferences) {
         final Config config = getConfig();
@@ -226,7 +229,7 @@ public class CollapseTask extends AbstractDeferredTask {
                     //
                     // This reference should be collapsed but is not collapsed (yet).
                     //
-                    final UUID collapsedReferenceUuid = RandomHelpers.randomUuid(config.deterministicRandomness());
+                    final UUID collapsedReferenceUuid = RandomHelpers.randomUuid(random, config.deterministicRandomness());
                     final VectorReference collapsedReference =
                             vectorReference.toCollapsed(signature, collapsedReferenceUuid);
                     blackHoleMap.put(signature, collapsedReference);
