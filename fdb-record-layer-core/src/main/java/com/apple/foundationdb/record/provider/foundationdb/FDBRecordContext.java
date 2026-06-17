@@ -61,9 +61,11 @@ import java.nio.charset.Charset;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.Optional;
 import java.util.Queue;
 import java.util.concurrent.CompletableFuture;
@@ -136,6 +138,15 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
      * @see com.apple.foundationdb.TransactionOptions#setDebugTransactionIdentifier(String)
      */
     public static final int MAX_TR_ID_SIZE = 100;
+
+    /**
+     * Session key for the set of write-only index names updated in this transaction.
+     * Value type: {@code Set<String>}. Returns {@code null} if no write-only index was updated.
+     * Useful for diagnosing conflicts that may happen when an index is updated by the indexer.
+     *
+     * @see #getInSession(SessionKey)
+     */
+    public static final SessionKey<Set<String>> WRITE_ONLY_INDEXES_UPDATED = new SessionKey<>("writeOnlyIndexesUpdated");
 
     @Nullable
     private CompletableFuture<Long> readVersionFuture;
@@ -1551,6 +1562,19 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
     }
 
     /**
+     * Retrieve a typed value from the session data using a {@link SessionKey}.
+     *
+     * @param key the session key
+     * @param <T> the value type, as declared by the key constant
+     * @return the stored value for the transaction, or {@code null} if absent
+     */
+    @Nullable
+    @API(API.Status.EXPERIMENTAL)
+    public synchronized <T> T getInSession(@Nonnull SessionKey<T> key) {
+        return key.cast(session.get(key));
+    }
+
+    /**
      * Put an object into the session of the FDBRecordContext.
      *
      * @param key key
@@ -1559,6 +1583,18 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
      */
     @API(API.Status.EXPERIMENTAL)
     public synchronized <T extends Object> void putInSessionIfAbsent(@Nonnull Object key, @Nonnull T value) {
+        session.put(key, value);
+    }
+
+    /**
+     * Store a typed value in the session under the given {@link SessionKey}, replacing any existing value.
+     *
+     * @param key the session key
+     * @param value the value to store
+     * @param <T> the value type, as declared by the key constant
+     */
+    @API(API.Status.EXPERIMENTAL)
+    public synchronized <T> void putInSession(@Nonnull SessionKey<T> key, @Nonnull T value) {
         session.put(key, value);
     }
 
@@ -1574,6 +1610,20 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
     @API(API.Status.EXPERIMENTAL)
     public synchronized <T> T removeFromSession(@Nonnull String key, @Nonnull Class<T> clazz) {
         return (T) session.remove(key);
+    }
+
+    /**
+     * Remove and return the value stored under the given {@link SessionKey}.
+     * Returns {@code null} if no value was stored under this key.
+     *
+     * @param key the session key
+     * @param <T> the value type, as declared by the key constant
+     * @return the previously stored value, or {@code null} if absent
+     */
+    @Nullable
+    @API(API.Status.EXPERIMENTAL)
+    public synchronized <T> T removeFromSession(@Nonnull SessionKey<T> key) {
+        return key.cast(session.remove(key));
     }
 
     /**
@@ -1640,5 +1690,58 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
     @Nonnull
     public TempTable.Factory getTempTableFactory() {
         return tempTableFactory;
+    }
+
+    /**
+     * Record that a write-only index was written to in this transaction.
+     *
+     * @param indexName the name of the write-only index
+     */
+    @SuppressWarnings("unchecked")
+    synchronized void addTouchedWriteOnlyIndex(@Nonnull String indexName) {
+        Set<String> indexes = (Set<String>) session.computeIfAbsent(WRITE_ONLY_INDEXES_UPDATED, k -> new HashSet<>());
+        indexes.add(indexName);
+    }
+
+    /**
+     * A typed key for well-known values stored in the {@link FDBRecordContext} session data map.
+     * Keys are defined as {@code public static final} constants in this class.
+     * The constructor is private so no external code can introduce new keys.
+     *
+     * <p>Use {@link FDBRecordContext#getInSession(SessionKey)} to retrieve values.</p>
+     *
+     * @param <T> the value type for this key
+     */
+    @API(API.Status.EXPERIMENTAL)
+    public static final class SessionKey<T> {
+        @Nonnull
+        private final String name;
+
+        SessionKey(@Nonnull String name) {
+            this.name = name;
+        }
+
+        @SuppressWarnings("unchecked")
+        @Nullable
+        private T cast(@Nullable Object value) {
+            return (T) value;
+        }
+
+        @Override
+        public boolean equals(final Object o) {
+            if (this == o) {
+                return true;
+            }
+            if (!(o instanceof SessionKey)) {
+                return false;
+            }
+            final SessionKey<?> that = (SessionKey<?>) o;
+            return name.equals(that.name);
+        }
+
+        @Override
+        public int hashCode() {
+            return name.hashCode();
+        }
     }
 }

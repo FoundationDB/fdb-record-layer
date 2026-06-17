@@ -780,6 +780,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                 // process has already built the relevant ranges, and it
                 // may adjust the way the index is built in response.
                 future = maintainer.updateWhileWriteOnly(oldRecord, newRecord);
+                context.addTouchedWriteOnlyIndex(index.getName());
             } else {
                 future = maintainer.update(oldRecord, newRecord);
             }
