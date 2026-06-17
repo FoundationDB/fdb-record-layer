@@ -27,7 +27,9 @@ import com.apple.foundationdb.record.metadata.IndexPredicate;
 import com.apple.foundationdb.record.metadata.IndexPredicate.RowNumberWindowPredicate.Direction;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.Key;
+import com.apple.foundationdb.record.provider.foundationdb.FDBExceptions;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreTestBase;
 import com.apple.foundationdb.record.slidingwindowvector.TestRecordsSlidingWindowVectorProto;
 import com.apple.foundationdb.record.slidingwindowvector.TestRecordsSlidingWindowVectorProto.SlidingWindowVectorRecord;
@@ -46,6 +48,7 @@ import java.util.Random;
 
 import static com.apple.foundationdb.record.provider.foundationdb.indexes.SlidingWindowTestHelpers.SlidingWindowAssert.assertThat;
 import static com.apple.foundationdb.record.provider.foundationdb.indexes.SlidingWindowTestHelpers.verifySlidingWindowInvariant;
+import static org.junit.jupiter.api.Assertions.fail;
 
 /**
  * Concurrency tests for the sliding window index maintainer with a value-index delegate.
@@ -542,5 +545,113 @@ class SlidingWindowIndexConcurrencyTest extends FDBRecordStoreTestBase {
         // delegate empty. B was rolled back. The maintainer invariant holds
         // (window-side == delegate == ∅).
         assertFinalWindow(5, direction);
+    }
+
+    @Test
+    void descNonFullBoundaryDownConflictsWithConcurrentOverflowInFlipSlice() throws Exception {
+        // Reproduces the counter-undercount race fixed by the boundary-flip
+        // write-conflict in handleInsert's non-full-worse-or-equal branch.
+        //
+        // Two transactions race against each other with DIFFERENT read versions:
+        //
+        //   TX-B (R_B taken when count=1, boundary=(35, 1))
+        //     saves pk=7 V=9.  At its R, count<windowSize → non-full path.
+        //     (9, 7) is worse than (35, 1) for DESC, so it sets boundary=(9, 7).
+        //
+        //   TX-A (R_A taken when count=5 (full), boundary=(35, 1))
+        //     saves pk=6 V=26. Count≥windowSize → full path. (26, 6) is NOT
+        //     better than (35, 1), so it takes the silent overflow short-circuit:
+        //     it writes entries[(26, 6)] at the top of handleInsert and returns
+        //     done. No counter, no delegate, no read-conflict on boundaryMetaKey.
+        //
+        // With TX-B committing first, the live boundary becomes (9, 7) and
+        // (26, 6) — which TX-A wrote into entries-subspace under the
+        // assumption it'd be overflow per (35, 1) — is now window-side per
+        // (9, 7). It's not in delegate. Counter wasn't bumped. Bug.
+        //
+        // The fix: when TX-B sets the boundary down, it declares a write-conflict
+        // over the slice (9, 7) ≤ X < (35, 1) — exactly the entries that flipped
+        // from overflow to window. (26, 6).packedKey sits in that slice, and
+        // TX-A has a read-conflict on it (added at the top of handleInsert). The
+        // resolver therefore aborts TX-A on commit, preventing the bug.
+        final int windowSize = 5;
+
+        // [1] Seed pk=1 with relevance=35 → boundary=(35, 1), count=1.
+        try (FDBRecordContext ctx = openContext()) {
+            openStore(ctx, windowSize, Direction.DESC);
+            rec(1, 35);
+            commit(ctx);
+        }
+
+        // [2] Open ctxB and pin its read version (R_B) at count=1, boundary=(35, 1).
+        final FDBRecordContext ctxB = openContext();
+        openStore(ctxB, windowSize, Direction.DESC);
+        ctxB.getReadVersion();
+        final FDBRecordStore storeB = recordStore;
+
+        // [3] In a separate, independently-committed context, fill the window
+        //     with 4 records whose relevance > 35. After this commits, count=5
+        //     and the boundary is still (35, 1) (none of these saves rewrites
+        //     it because each new entry is BETTER than the boundary — non-full
+        //     path with isBetter=true skips the boundary write).
+        try (FDBRecordContext ctx = openContext()) {
+            openStore(ctx, windowSize, Direction.DESC);
+            rec(2, 40);
+            rec(3, 50);
+            rec(4, 60);
+            rec(5, 70);
+            commit(ctx);
+        }
+
+        // [4] Open ctxA. R_A sees count=5 (full), boundary=(35, 1).
+        final FDBRecordContext ctxA = openContext();
+        openStore(ctxA, windowSize, Direction.DESC);
+        ctxA.getReadVersion();
+        final FDBRecordStore storeA = recordStore;
+
+        // [5] TX-A: save pk=6 V=26. Full-path-overflow branch. Silent.
+        storeA.saveRecord(SlidingWindowVectorRecord.newBuilder()
+                .setRecNo(6)
+                .setRelevance(26)
+                .build());
+
+        // [6] TX-B: save pk=7 V=9. Non-full-worse-or-equal branch. Sets boundary=(9, 7).
+        storeB.saveRecord(SlidingWindowVectorRecord.newBuilder()
+                .setRecNo(7)
+                .setRelevance(9)
+                .build());
+
+        // [7] Commit ctxB. With or without the fix this succeeds — TX-B has
+        //     read+write on boundaryMetaKey but no other tx has written it.
+        commit(ctxB);
+
+        // [8] Commit ctxA. After the fix, TX-B's flip-slice declared write-range
+        //     [(9, 7).packed, (35, 1).packed) covers (26, 6).packedKey, and
+        //     TX-A's read-conflict on entries[(26, 6)] makes the resolver
+        //     abort it. Without the fix, this commit succeeds and the bug
+        //     manifests as window-side > delegate (assertion 1 in
+        //     verifySlidingWindowInvariant).
+        try {
+            commit(ctxA);
+            fail("expected ctxA to abort: TX-B's flip-slice write-conflict over "
+                    + "[(9, 7), (35, 1)) should intersect TX-A's read-conflict "
+                    + "on entries[(26, 6)]");
+        } catch (FDBExceptions.FDBStoreTransactionConflictException expected) {
+            // Expected: the fix engaged.
+        } finally {
+            ctxA.close();
+        }
+
+        // [9] Verify final state. Only TX-B's effects landed. The maintainer
+        //     invariant holds (delegate == window-side, boundary points at a
+        //     present entry, counter matches window-side count). After TX-B,
+        //     counter went from 5 → 6 (atomic ADD on snapshot=1 applied to
+        //     live=5), so countUpperBound = windowSize + 1.
+        try (FDBRecordContext ctx = openContext()) {
+            openStore(ctx, windowSize, Direction.DESC);
+            verifySlidingWindowInvariant(recordStore, INDEX_NAME, windowSize,
+                    Direction.DESC, windowSize + 1);
+            commit(ctx);
+        }
     }
 }

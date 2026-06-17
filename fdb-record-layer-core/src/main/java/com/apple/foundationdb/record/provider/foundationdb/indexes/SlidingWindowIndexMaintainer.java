@@ -233,6 +233,36 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
                         });
             }
         }
+
+        /**
+         * When the boundary is moved by the non-full-path-worse-or-equal branch (which sets
+         * the boundary directly to the new entry without scanning the entries-subspace), the
+         * slice between the new boundary and the old boundary "flips" from overflow to window.
+         * Any concurrent transaction that placed an entry in this slice via a stale-boundary
+         * overflow path needs to abort, otherwise its entry will be window-side per the new
+         * boundary while never having been added to the delegate or counted.
+         *
+         * <p>This declares an explicit write-conflict over the flipped slice so that those
+         * stale-overflow placers conflict at commit. The range is direction-aware:</p>
+         * <ul>
+         *     <li>ASC/MIN: overflow lives ABOVE the boundary, so the flip slice is
+         *         {@code (oldBoundary, newBoundary]}.</li>
+         *     <li>DESC/MAX: overflow lives BELOW the boundary, so the flip slice is
+         *         {@code [newBoundary, oldBoundary)}.</li>
+         * </ul>
+         */
+        public void addBoundaryFlipWriteConflict(@Nonnull Transaction tr,
+                                                  @Nonnull byte[] oldBoundaryPackedKey,
+                                                  @Nonnull byte[] newBoundaryPackedKey) {
+            if (this == MIN) {
+                // ASC: new boundary > old boundary; flip slice = (old, new]
+                tr.addWriteConflictRange(ByteArrayUtil.keyAfter(oldBoundaryPackedKey),
+                        ByteArrayUtil.keyAfter(newBoundaryPackedKey));
+            } else {
+                // DESC: new boundary < old boundary; flip slice = [new, old)
+                tr.addWriteConflictRange(newBoundaryPackedKey, oldBoundaryPackedKey);
+            }
+        }
     }
 
     /** Subspace key for the entries region within a partition. */
@@ -519,6 +549,17 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
                                     Tuple.fromBytes(boundaryBytes))) {
                                 tr.addReadConflictKey(boundaryMetaKey);
                                 tr.set(boundaryMetaKey, entryKey.pack());
+                                // Declare write-conflict over the slice that flipped from
+                                // overflow to window. This catches any concurrent tx that
+                                // placed an entry in that slice via a stale-boundary
+                                // overflow path: their read-conflict on the entry's packed
+                                // key intersects this declared write range, so they abort
+                                // and retry against the moved boundary.
+                                if (boundaryBytes != null) {
+                                    extremumType.addBoundaryFlipWriteConflict(tr,
+                                            entriesSubspace.pack(Tuple.fromBytes(boundaryBytes)),
+                                            entriesSubspace.pack(entryKey));
+                                }
                             }
                         })
                 );

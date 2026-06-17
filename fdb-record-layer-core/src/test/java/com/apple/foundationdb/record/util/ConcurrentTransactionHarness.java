@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.util;
 import com.apple.foundationdb.record.provider.foundationdb.FDBExceptions;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 
+import javax.annotation.CheckReturnValue;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayList;
@@ -140,6 +141,7 @@ public final class ConcurrentTransactionHarness {
          * across runs while still being reproducible from a logged seed on failure.
          */
         @Nonnull
+        @CheckReturnValue
         public CommitOutcome commitInAnyOrder(@Nonnull final Random random) {
             final List<NamedTx> shuffled = new ArrayList<>(transactions);
             Collections.shuffle(shuffled, random);
