@@ -99,7 +99,7 @@ class SlidingWindowValueIndexTest extends FDBRecordStoreTestBase {
                 .underlyingValueIndex()
                 .containsInAnyOrder(expectedRecNos);
         SlidingWindowTestHelpers.verifySlidingWindowInvariant(
-                recordStore, INDEX_NAME, windowSize, direction, windowSize);
+                recordStore, INDEX_NAME, windowSize, direction, windowSize, windowSize);
     }
 
     // ===== Basic insert / evict =====

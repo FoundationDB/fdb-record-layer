@@ -422,6 +422,7 @@ public final class SlidingWindowTestHelpers {
                                                     @Nonnull final String indexName,
                                                     final int windowSize,
                                                     @Nonnull final IndexPredicate.RowNumberWindowPredicate.Direction direction,
+                                                    final long countLowerBound,
                                                     final long countUpperBound) {
         final Index index = recordStore.getRecordMetaData().getIndex(indexName);
         final IndexPredicate.RowNumberWindowPredicate predicate = findRowNumberWindowPredicate(index.getPredicate());
@@ -483,6 +484,9 @@ public final class SlidingWindowTestHelpers {
 
         assertTrue(count <= countUpperBound,
                 "count " + count + " exceeded upper bound " + countUpperBound + " (windowSize=" + windowSize + ")");
+
+        assertTrue(count >= countLowerBound,
+                "count " + count + " fell below lower bound " + countLowerBound + " (windowSize=" + windowSize + ")");
 
         for (Tuple entry : entries) {
             final Tuple pkTuple = TupleHelpers.subTuple(entry, windowKeyColumnSize, entry.size());

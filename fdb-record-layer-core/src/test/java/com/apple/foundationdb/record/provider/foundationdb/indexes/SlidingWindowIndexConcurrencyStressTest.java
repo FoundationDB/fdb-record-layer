@@ -235,7 +235,7 @@ class SlidingWindowIndexConcurrencyStressTest extends FDBRecordStoreConcurrentTe
             // Each in-flight tx can over-add at most once on the snapshot-read counter,
             // so the count is bounded by windowSize + concurrentTxns.
             SlidingWindowTestHelpers.verifySlidingWindowInvariant(
-                    store, INDEX_NAME, WINDOW_SIZE, direction, WINDOW_SIZE + 2 * concurrentTxns);
+                    store, INDEX_NAME, WINDOW_SIZE, direction, WINDOW_SIZE - 2 * concurrentTxns, WINDOW_SIZE + 2 * concurrentTxns);
         }
     }
 
@@ -296,7 +296,7 @@ class SlidingWindowIndexConcurrencyStressTest extends FDBRecordStoreConcurrentTe
             final FDBRecordStore store = openStore(context, metaData);
             
             SlidingWindowTestHelpers.verifySlidingWindowInvariant(
-                    store, INDEX_NAME, WINDOW_SIZE, direction, WINDOW_SIZE + numWorkers);
+                    store, INDEX_NAME, WINDOW_SIZE, direction, WINDOW_SIZE - 2 * numWorkers, WINDOW_SIZE + numWorkers);
         }
     }
 

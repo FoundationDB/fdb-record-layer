@@ -160,6 +160,7 @@ class SlidingWindowIndexConcurrencyTest extends FDBRecordStoreTestBase {
                     INDEX_NAME,
                     windowSize,
                     direction,
+                    expectedRecNos.length,
                     expectedRecNos.length);
 
             commit(context);
@@ -301,6 +302,149 @@ class SlidingWindowIndexConcurrencyTest extends FDBRecordStoreTestBase {
         // in, the boundary advanced to (200, 2). B was rolled back, so rec 7
         // never reached the delegate.
         assertFinalWindow(5, Direction.DESC, 2L, 3L, 4L, 5L, 6L);
+    }
+
+    @ParameterizedTest
+    @RandomSeedSource({0x0fdbL, 0x5ca1eL})
+    void ascBetterInsertsIntoNonFullWindowDoNotConflict(long seed) throws Exception {
+        // ASC mirror of descBetterInsertsIntoNonFullWindowDoNotConflict.
+        // Window has spare capacity (3 of 5). Both new relevances (50, 25) are
+        // better than the seeded boundary (300, 1) for ASC, so neither rewrites
+        // the boundary key — the maintainer just ADD-1s the counter (atomic) and
+        // appends to the entries subspace at distinct keys. With no shared
+        // read-conflict range, both commits succeed in any order; the seeded
+        // shuffle exercises that.
+        seedWindow(5, Direction.ASC, 300, 200, 100);
+
+        concurrent(5, Direction.ASC)
+                .tx("A", () -> rec(4, 50))
+                .tx("B", () -> rec(5, 25))
+                .commitInAnyOrder(new Random(seed))
+                .expectNoConflicts();
+
+        assertFinalWindow(5, Direction.ASC, 1L, 2L, 3L, 4L, 5L);
+    }
+
+    @Test
+    void ascWorseInsertsIntoNonFullWindowConflictOnBoundaryCase1() throws Exception {
+        // ASC mirror of descWorseInsertsIntoNonFullWindowConflictOnBoundaryCase1.
+        // Window has spare capacity (3 of 5), but A=(400, 4) and B=(500, 5) are
+        // both worse than the seeded boundary (300, 1) for ASC, so each tx
+        // rewrites the boundary. The maintainer pairs that
+        // tr.set(boundaryMetaKey, ...) with an explicit
+        // tr.addReadConflictKey(boundaryMetaKey), turning the boundary update
+        // into a proper read-modify-write. The two transactions therefore share
+        // a read-conflict range on the boundary key and only one can commit:
+        // A wins (declared order), B fails.
+        seedWindow(5, Direction.ASC, 300, 200, 100);
+
+        concurrent(5, Direction.ASC)
+                .tx("A", () -> rec(4, 400))
+                .tx("B", () -> rec(5, 500))
+                .commitAll()
+                .expectConflictOn("B")
+                .expectCommitted("A");
+
+        assertFinalWindow(5, Direction.ASC, 1L, 2L, 3L, 4L);
+    }
+
+    @Test
+    void ascWorseInsertsIntoNonFullWindowConflictOnBoundaryCase2() throws Exception {
+        // This is the same setup as ascWorseInsertsIntoNonFullWindowConflictOnBoundaryCase1
+        // but in this test B wins, and so, A fails.
+        seedWindow(5, Direction.ASC, 300, 200, 100);
+
+        concurrent(5, Direction.ASC)
+                .tx("B", () -> rec(5, 500))
+                .tx("A", () -> rec(4, 400))
+                .commitAll()
+                .expectConflictOn("A")
+                .expectCommitted("B");
+
+        assertFinalWindow(5, Direction.ASC, 1L, 2L, 3L, 5L);
+    }
+
+    @ParameterizedTest
+    @RandomSeedSource({0x0fdbL, 0x5ca1eL})
+    void ascOverflowInsertsIntoFullWindowDoNotConflict(long seed) throws Exception {
+        // ASC mirror of descOverflowInsertsIntoFullWindowDoNotConflict.
+        // Window is full (5 of 5). Every new relevance is above the seeded
+        // boundary (500, 5) for ASC, so each tx takes the full-branch overflow
+        // short-circuit: no delegate touch, no read-conflict on boundaryMetaKey,
+        // no boundary rewrite. Each tx only appends its entry to the entries
+        // subspace at a disjoint key — no two transactions share a read-conflict
+        // range and all six commit in any order.
+        seedWindow(5, Direction.ASC, 100, 200, 300, 400, 500);
+
+        concurrent(5, Direction.ASC)
+                .tx("A", () -> rec(6, 700))
+                .tx("B", () -> rec(7, 800))
+                .tx("C", () -> rec(8, 900))
+                .tx("D", () -> rec(9, 1100))
+                .tx("E", () -> rec(10, 1200))
+                .tx("F", () -> rec(11, 1300))
+                .commitInAnyOrder(new Random(seed))
+                .expectNoConflicts();
+
+        // The delegate is untouched — the six new records all live in overflow.
+        assertFinalWindow(5, Direction.ASC, 1L, 2L, 3L, 4L, 5L);
+    }
+
+    @ParameterizedTest
+    @RandomSeedSource({0x0fdbL, 0x5ca1eL})
+    void ascOneEvictionAlongsideOverflowInsertsIntoFullWindowDoNotConflict(long seed) throws Exception {
+        // ASC mirror of descOneEvictionAlongsideOverflowInsertsIntoFullWindowDoNotConflict.
+        // Window is full. Five txns insert above the boundary (500, 5) and
+        // short-circuit out of the full branch — no delegate touch, no
+        // read-conflict on boundaryMetaKey. The sixth (E, relevance 70) is
+        // better than the boundary, so it goes through evictBoundaryAndReplace:
+        // it removes rec 5 from the delegate, takes a read-conflict on
+        // boundaryMetaKey, and picks the new boundary by scanning entries via
+        // a reverse scan from begin to packed((500, 5)). That scan only covers
+        // the original better-than-boundary entries (100..400) — disjoint from
+        // the overflow keys the others append above 500. So E's read set never
+        // overlaps anyone's write set; all six commit in any order.
+        seedWindow(5, Direction.ASC, 100, 200, 300, 400, 500);
+
+        concurrent(5, Direction.ASC)
+                .tx("A", () -> rec(6, 700))
+                .tx("B", () -> rec(7, 800))
+                .tx("C", () -> rec(8, 900))
+                .tx("D", () -> rec(9, 1100))
+                .tx("E", () -> rec(10, 70)) // maintenance tx
+                .tx("F", () -> rec(11, 1200))
+                .commitInAnyOrder(new Random(seed))
+                .expectNoConflicts();
+
+        // E's eviction landed: rec 5 (the previous boundary) is out, rec 10 is
+        // in, the boundary advanced to (400, 4). The five overflow records
+        // (rec 6, 7, 8, 9, 11) live in the entries subspace but not the delegate.
+        assertFinalWindow(5, Direction.ASC, 1L, 2L, 3L, 4L, 10L);
+    }
+
+    @Test
+    void ascCompetingEvictionsIntoFullWindowConflict() throws Exception {
+        // ASC mirror of descCompetingEvictionsIntoFullWindowConflict.
+        // Window is full. Both A=(6, 50) and B=(7, 25) are better than the
+        // boundary (500, 5) for ASC, so both take the eviction path. Each calls
+        // evictBoundaryAndReplace, which adds a read-conflict on boundaryMetaKey
+        // and rewrites it. With both A and B reading AND writing the same
+        // boundaryMetaKey, FDB's optimistic concurrency forces one to lose: A
+        // commits first (declared order), so B's read overlaps A's write and B
+        // fails.
+        seedWindow(5, Direction.ASC, 100, 200, 300, 400, 500);
+
+        concurrent(5, Direction.ASC)
+                .tx("A", () -> rec(6, 50))
+                .tx("B", () -> rec(7, 25))
+                .commitAll()
+                .expectConflictOn("B")
+                .expectCommitted("A");
+
+        // A's eviction landed: rec 5 (the previous boundary) is out, rec 6 is
+        // in, the boundary advanced to (400, 4). B was rolled back, so rec 7
+        // never reached the delegate.
+        assertFinalWindow(5, Direction.ASC, 1L, 2L, 3L, 4L, 6L);
     }
 
     @Test
@@ -547,6 +691,54 @@ class SlidingWindowIndexConcurrencyTest extends FDBRecordStoreTestBase {
         assertFinalWindow(5, direction);
     }
 
+    @ParameterizedTest
+    @EnumSource(Direction.class)
+    void competingDeletesOfBoundaryAndInWindowEntryConflict(Direction direction) throws Exception {
+        // Initial state (window = 5): two in-window entries — rec 1 (relevance
+        // 50) and rec 2 (relevance 100), count = 2. The "worst" entry is the
+        // boundary, so the boundary key differs by direction:
+        //   ASC/MIN  → boundary = (100, 2) (highest relevance)
+        //   DESC/MAX → boundary = (50, 1)  (lowest relevance)
+        //
+        // Each direction has one tx deleting the boundary and one tx deleting
+        // the other in-window entry. The roles flip between ASC and DESC, but
+        // the outcome is symmetric: A commits and B aborts.
+        //
+        // ASC: A deletes rec 1 (not boundary), B deletes rec 2 (boundary).
+        //   B's handleDelete runs updateBoundaryAfterDelete because the
+        //   deleted entry IS the boundary; getNewBoundaryAfterEviction's
+        //   reverse scan finds (50, 1) and declares an explicit
+        //   write-conflict range over [(50, 1), packed((100, 2))) — the slice
+        //   it actually visited. A's clear of (50, 1) lands inside that
+        //   slice; B also has a non-snapshot getRange read over it (from
+        //   getRange's implicit read-conflict). A commits first, so B's read
+        //   intersects A's committed write at (50, 1) and the resolver
+        //   aborts B.
+        //
+        // DESC: A deletes rec 1 (boundary), B deletes rec 2 (not boundary).
+        //   A's handleDelete runs updateBoundaryAfterDelete:
+        //   getNewBoundaryAfterEviction's forward scan finds (100, 2),
+        //   declares write-conflict over [keyAfter((50, 1)), keyAfter((100,
+        //   2))), and rewrites boundaryMetaKey to (100, 2). B's read of
+        //   (100, 2) (non-snapshot tr.get inside handleDelete) sits inside
+        //   A's declared write slice, and B's addReadConflictKey on
+        //   boundaryMetaKey overlaps A's write to it. A commits first, so
+        //   the resolver aborts B on either intersection.
+        seedWindow(5, direction, 50, 100);
+
+        concurrent(5, direction)
+                .tx("A", () -> deleteRec(1))
+                .tx("B", () -> deleteRec(2))
+                .commitAll()
+                .expectCommitted("A")
+                .expectConflictOn("B");
+
+        // Only A's delete survives: rec 2 remains in the delegate, count = 1,
+        // boundary = (100, 2) for both directions (the only remaining entry,
+        // either untouched in ASC or rewritten by A's re-election in DESC).
+        assertFinalWindow(5, direction, 2L);
+    }
+
     @Test
     void descNonFullBoundaryDownConflictsWithConcurrentOverflowInFlipSlice() throws Exception {
         // Reproduces the counter-undercount race fixed by the boundary-flip
@@ -650,7 +842,7 @@ class SlidingWindowIndexConcurrencyTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext ctx = openContext()) {
             openStore(ctx, windowSize, Direction.DESC);
             verifySlidingWindowInvariant(recordStore, INDEX_NAME, windowSize,
-                    Direction.DESC, windowSize + 1);
+                    Direction.DESC, windowSize + 1, windowSize + 1);
             commit(ctx);
         }
     }
