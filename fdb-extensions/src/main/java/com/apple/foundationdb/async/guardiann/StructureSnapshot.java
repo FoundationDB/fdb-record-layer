@@ -26,13 +26,8 @@ import com.google.common.collect.Maps;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
 /**
  * Compact, immutable view of a Guardiann's cluster topology at a point in time: per-cluster metadata, primary
@@ -87,92 +82,54 @@ record StructureSnapshot(@Nonnull Map<UUID, ClusterView> clusters,
     }
 
     /**
-     * Ranking-derived statistics behind the deep replication invariants (2 and 3), produced by
-     * {@link #computeAssignmentRanking}.
+     * Ranking-derived statistics behind soft invariant 3, produced by {@link #computeAssignmentRanking}.
      *
      * @param numPrimaries total number of primary vectors ranked
-     * @param numWrongAssignments primaries whose nearest cluster (by centroid distance) is not their owning
-     *        cluster (invariant 3)
-     * @param replicationDemand number of (primary, neighboring-cluster) pairs whose replication priority reaches
-     *        {@link Config#replicationPriorityMin()} — i.e. should be replicated (invariant 2)
-     * @param replicationSatisfied of those demanded pairs, how many are actually replicated into the neighbor
+     * @param numWrongAssignments primaries whose nearest cluster (by centroid distance) is not their owning cluster
      */
     record AssignmentRanking(int numPrimaries,
-                             int numWrongAssignments,
-                             int replicationDemand,
-                             int replicationSatisfied) {
+                             int numWrongAssignments) {
     }
 
     /**
-     * Ranks every primary in the snapshot against every cluster centroid (using this snapshot's
-     * {@link #estimator()} in the stored coordinate space) to derive the deep replication invariants: how many
-     * primaries sit off their nearest centroid (invariant 3), and how much of the score-derived replication demand
-     * is actually met (invariant 2). This is O(primaries × clusters), so callers gate it on structure size. An
-     * empty structure (no estimator) yields an all-zero result.
-     *
-     * @param config the configuration whose {@link Config#replicationPriorityMin()} and
-     *        {@link Config#insertMaxCandidateClusters()} govern the replication-demand decision
+     * Ranks every primary in the snapshot against every cluster centroid (using this snapshot's {@link #estimator()}
+     * in the stored coordinate space) and counts how many sit off their nearest centroid — i.e. whose owning cluster
+     * is not the nearest one (soft invariant 3). This is O(primaries × clusters), so callers gate it on structure
+     * size. An empty structure (no estimator) yields an all-zero result.
      *
      * @return the ranking-derived statistics
      */
     @Nonnull
-    public AssignmentRanking computeAssignmentRanking(@Nonnull final Config config) {
+    public AssignmentRanking computeAssignmentRanking() {
         if (estimator == null) {
-            return new AssignmentRanking(0, 0, 0, 0);
+            return new AssignmentRanking(0, 0);
         }
-        final int maxCandidates = config.insertMaxCandidateClusters();
-        final double minPriority = config.replicationPriorityMin();
-        final List<ClusterView> clusterList = new ArrayList<>(clusters.values());
-        // Per cluster, the set of vector UUIDs it currently holds as replicas — used to check whether a
-        // demanded replica is actually present.
-        final Map<UUID, Set<UUID>> replicaUuidsByCluster = Maps.newHashMapWithExpectedSize(clusterList.size());
-        for (final ClusterView cv : clusterList) {
-            replicaUuidsByCluster.put(cv.clusterId(),
-                    cv.replicas().stream().map(VectorId::getUuid).collect(Collectors.toSet()));
-        }
-
         int numPrimaries = 0;
         int numWrongAssignments = 0;
-        int replicationDemand = 0;
-        int replicationSatisfied = 0;
-        for (final ClusterView homeCluster : clusterList) {
+        for (final ClusterView homeCluster : clusters.values()) {
             for (final VectorReference reference : homeCluster.references()) {
                 if (!reference.isPrimaryCopy()) {
                     continue;
                 }
                 numPrimaries++;
-                final Map<UUID, Double> distanceByCluster =
-                        Maps.newHashMapWithExpectedSize(clusterList.size());
-                for (final ClusterView candidate : clusterList) {
-                    distanceByCluster.put(candidate.clusterId(),
-                            estimator.distance(candidate.transformedCentroid(), reference.vector()));
-                }
-                final List<ClusterView> ranked = new ArrayList<>(clusterList);
-                ranked.sort(Comparator.comparingDouble((ClusterView c) -> distanceByCluster.get(c.clusterId()))
-                        .thenComparing(ClusterView::clusterId));
-                if (!ranked.get(0).clusterId().equals(homeCluster.clusterId())) {
-                    numWrongAssignments++;
-                }
-                final double distToHome = distanceByCluster.get(ranked.get(0).clusterId());
-                final int candidateLimit = Math.min(ranked.size(), maxCandidates);
-                for (int j = 1; j < candidateLimit; j++) {
-                    final ClusterView candidate = ranked.get(j);
-                    final ClusterMetadata candidateMetadata = candidate.metadata();
-                    final double score = StorageAdapter.replicationPriority(config,
-                            distanceByCluster.get(candidate.clusterId()), distToHome,
-                            candidateMetadata.getNumPrimaryVectors(),
-                            candidateMetadata.meanDistance(),
-                            candidateMetadata.standardDeviation());
-                    if (score >= minPriority) {
-                        replicationDemand++;
-                        if (replicaUuidsByCluster.getOrDefault(candidate.clusterId(), Set.of())
-                                .contains(reference.id().getUuid())) {
-                            replicationSatisfied++;
-                        }
+                ClusterView nearest = null;
+                double nearestDistance = Double.POSITIVE_INFINITY;
+                for (final ClusterView candidate : clusters.values()) {
+                    final double distance =
+                            estimator.distance(candidate.transformedCentroid(), reference.vector());
+                    // Break ties on cluster id so the chosen "nearest" cluster is deterministic.
+                    if (distance < nearestDistance
+                            || (distance == nearestDistance && nearest != null
+                                    && candidate.clusterId().compareTo(nearest.clusterId()) < 0)) {
+                        nearestDistance = distance;
+                        nearest = candidate;
                     }
+                }
+                if (nearest != null && !nearest.clusterId().equals(homeCluster.clusterId())) {
+                    numWrongAssignments++;
                 }
             }
         }
-        return new AssignmentRanking(numPrimaries, numWrongAssignments, replicationDemand, replicationSatisfied);
+        return new AssignmentRanking(numPrimaries, numWrongAssignments);
     }
 }

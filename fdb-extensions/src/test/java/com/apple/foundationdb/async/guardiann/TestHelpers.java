@@ -938,32 +938,48 @@ class TestHelpers {
 
     /**
      * Tolerances (as fractions of the relevant vector population) and the deep-check size gate for the soft
-     * replication invariants. The deep, per-vector checks (invariants 2 and 3) run only when the structure has at
-     * most {@link #deepCheckMaxVectors} primaries, so large SIFT runs stay fast.
+     * replication invariants. The deep, per-vector check (invariant 3) runs only when the structure has at most
+     * {@link #deepCheckMaxVectors} primaries, so large SIFT runs stay fast.
      *
      * @param maxUnderReplicatedFraction max fraction of primaries that may be flagged under-replicated (inv 1)
-     * @param maxReplicationShortfallFraction max fraction of the score-derived replication demand that may go unmet
-     *        (inv 2; generous, since occlusion and the replicated-writes cap legitimately suppress some)
+     * @param minReplicatedFraction min replicas, as a fraction of primaries, the structure must carry — a coarse
+     *        floor that only catches globally-broken replication (inv 2). Defaults to {@code 0} (no requirement),
+     *        since well-separated clusters legitimately carry no replicas; tests that know their data is bordered
+     *        opt in via {@link #withMinReplicatedFraction}
      * @param maxWrongPrimaryFraction max fraction of primaries whose home is not their nearest cluster (inv 3)
      * @param maxSpuriousReplicaFraction max fraction of replicas whose stored replication priority is below the
      *        threshold (inv 4)
-     * @param deepCheckMaxVectors run the deep checks (inv 2, 3) only at or below this many primaries
+     * @param deepCheckMaxVectors run the deep check (inv 3) only at or below this many primaries
      */
     record ReplicationInvariants(double maxUnderReplicatedFraction,
-                                 double maxReplicationShortfallFraction,
+                                 double minReplicatedFraction,
                                  double maxWrongPrimaryFraction,
                                  double maxSpuriousReplicaFraction,
                                  int deepCheckMaxVectors) {
         /** Defaults for a quiesced structure that has not just had a delete storm. */
         @Nonnull
         static ReplicationInvariants standard() {
-            return new ReplicationInvariants(0.05d, 0.25d, 0.02d, 0.02d, 50_000);
+            return new ReplicationInvariants(0.05d, 0.0d, 0.02d, 0.02d, 50_000);
         }
 
         /** Looser bounds for the post-delete state, where reassign may not yet have restored replication. */
         @Nonnull
         static ReplicationInvariants afterDeletes() {
-            return new ReplicationInvariants(0.20d, 0.60d, 0.05d, 0.10d, 50_000);
+            return new ReplicationInvariants(0.20d, 0.0d, 0.05d, 0.10d, 50_000);
+        }
+
+        /**
+         * Returns a copy with a positive {@link #minReplicatedFraction}, for tests whose inserted data is dense
+         * enough that border replicas are expected (so a near-zero replica count signals broken replication).
+         *
+         * @param newMinReplicatedFraction the minimum replica fraction to require
+         *
+         * @return a copy of these invariants with the given replica floor
+         */
+        @Nonnull
+        ReplicationInvariants withMinReplicatedFraction(final double newMinReplicatedFraction) {
+            return new ReplicationInvariants(maxUnderReplicatedFraction, newMinReplicatedFraction,
+                    maxWrongPrimaryFraction, maxSpuriousReplicaFraction, deepCheckMaxVectors);
         }
     }
 
@@ -1039,28 +1055,33 @@ class TestHelpers {
     }
 
     /**
-     * Soft invariant 2 — not too few replicated vectors. {@link StructureSnapshot#computeAssignmentRanking} derives,
-     * from each primary's nearest neighboring clusters, how many (primary, neighbor) pairs <em>should</em> be
-     * replicated (their {@link StorageAdapter#replicationPriority} reaches {@link Config#replicationPriorityMin()})
-     * and how many actually are. Asserts the unmet fraction of that demand is at most {@code maxShortfallFraction}.
-     * The bound is deliberately generous: occlusion and the {@code replicatedClusterMaxWrites} cap legitimately
-     * suppress some demanded replicas, and a structure with no demand at all (well-separated clusters) trivially
-     * passes.
+     * Soft invariant 2 — not too few replicated vectors. A coarse, snapshot-only guard against globally-broken
+     * replication: asserts the structure carries at least {@code minReplicatedFraction} of its primaries as
+     * replicas. A fraction of {@code 0} (the default for {@link ReplicationInvariants#standard()} and
+     * {@link ReplicationInvariants#afterDeletes()}) disables the check, because well-separated clusters legitimately
+     * carry no replicas; tests whose inserted data is bordered opt in via
+     * {@link ReplicationInvariants#withMinReplicatedFraction}. This is intentionally <em>not</em> a
+     * fraction-of-demand check: replication is a bounded top-K-by-score per cluster (capped at
+     * {@link Config#replicatedClusterTarget()}) plus occlusion, so the actual replica count sits far below a naive
+     * "every pair above the priority threshold" demand and can't be reproduced cheaply post-hoc.
      */
-    static void assertReplicationNotTooLow(@Nonnull final StructureSnapshot.AssignmentRanking ranking,
-                                           final double maxShortfallFraction) {
-        if (ranking.replicationDemand() == 0) {
-            logger.info("invariant[replication-shortfall]: no score-derived replication demand; nothing to check");
+    static void assertReplicasNotTooFew(@Nullable final StructureSnapshot snapshot,
+                                        final double minReplicatedFraction) {
+        if (snapshot == null || minReplicatedFraction <= 0.0d) {
             return;
         }
-        final int shortfall = ranking.replicationDemand() - ranking.replicationSatisfied();
-        final double fraction = (double) shortfall / ranking.replicationDemand();
-        logger.info("invariant[replication-shortfall]: {}/{} demanded replicas unmet (fraction={}, limit={})",
-                shortfall, ranking.replicationDemand(), fraction, maxShortfallFraction);
+        final int totalPrimaries = snapshot.totalPrimaries();
+        if (totalPrimaries == 0) {
+            return;
+        }
+        final int totalReplicas = snapshot.totalReplicas();
+        final double fraction = (double) totalReplicas / totalPrimaries;
+        logger.info("invariant[too-few-replicas]: {} replicas / {} primaries (fraction={}, floor={})",
+                totalReplicas, totalPrimaries, fraction, minReplicatedFraction);
         assertThat(fraction)
-                .as("replication shortfall (%d of %d demanded pairs unmet) exceeds the allowed fraction",
-                        shortfall, ranking.replicationDemand())
-                .isLessThanOrEqualTo(maxShortfallFraction);
+                .as("replicas (%d) are too few relative to primaries (%d) — replication looks broken",
+                        totalReplicas, totalPrimaries)
+                .isGreaterThanOrEqualTo(minReplicatedFraction);
     }
 
     /**
@@ -1086,12 +1107,13 @@ class TestHelpers {
 
     /**
      * Umbrella for the four soft replication invariants, all derived from a single {@link #snapshotStructure} fetch.
-     * The two cheap, snapshot-only checks (invariant 1, under-replicated primaries; invariant 4, spurious replicas)
-     * always run. The two deep, per-vector checks (invariant 2, replication shortfall; invariant 3, wrong primary
-     * assignment) rank every primary against every cluster via {@link StructureSnapshot#computeAssignmentRanking},
-     * so they run only when the structure has at most {@link ReplicationInvariants#deepCheckMaxVectors()} primaries;
-     * above that the deep checks are skipped (logged) so large SIFT runs stay fast while still getting the cheap
-     * checks.
+     * The three cheap, snapshot-only checks always run: invariant 1 (under-replicated primaries), invariant 4
+     * (spurious replicas), and invariant 2 (a coarse floor on replica count — a no-op unless the caller opts into a
+     * positive {@link ReplicationInvariants#minReplicatedFraction()}). The one deep, per-vector check — invariant 3
+     * (wrong primary assignment) — ranks every primary against every cluster via
+     * {@link StructureSnapshot#computeAssignmentRanking}, so it runs only when the structure has at most
+     * {@link ReplicationInvariants#deepCheckMaxVectors()} primaries; above that it is skipped (logged) so large SIFT
+     * runs stay fast while still getting the cheap checks.
      *
      * @param guardiann the structure under test, queried only for its {@link Guardiann#getConfig()}
      * @param snapshot a snapshot of {@code guardiann}'s current topology, or {@code null} if the structure is empty
@@ -1103,8 +1125,9 @@ class TestHelpers {
         // Cheap, snapshot-only checks — always run.
         assertUnderReplicatedPrimariesBounded(snapshot, invariants.maxUnderReplicatedFraction());
         assertNoSpuriousReplicas(snapshot, guardiann.getConfig(), invariants.maxSpuriousReplicaFraction());
+        assertReplicasNotTooFew(snapshot, invariants.minReplicatedFraction());
 
-        // Deep, per-vector checks — gated on structure size so large runs stay fast.
+        // Deep, per-vector check (inv 3) — gated on structure size so large runs stay fast.
         final int totalPrimaries = snapshot == null ? 0 : snapshot.totalPrimaries();
         if (totalPrimaries > invariants.deepCheckMaxVectors()) {
             logger.info("invariant[deep-checks]: skipped — {} primaries exceeds deepCheckMaxVectors={}",
@@ -1114,10 +1137,8 @@ class TestHelpers {
         if (snapshot == null) {
             return;
         }
-        final StructureSnapshot.AssignmentRanking ranking =
-                snapshot.computeAssignmentRanking(guardiann.getConfig());
-        assertReplicationNotTooLow(ranking, invariants.maxReplicationShortfallFraction());
-        assertPrimaryAssignmentsMostlyCorrect(ranking, invariants.maxWrongPrimaryFraction());
+        assertPrimaryAssignmentsMostlyCorrect(snapshot.computeAssignmentRanking(),
+                invariants.maxWrongPrimaryFraction());
     }
 
     /**
@@ -1144,7 +1165,23 @@ class TestHelpers {
      */
     static void assertGuardiannInvariants(@Nonnull final Database db,
                                           @Nonnull final Guardiann guardiann) {
-        assertGuardiannInvariants(db, guardiann, true);
+        assertGuardiannInvariants(db, guardiann, true, ReplicationInvariants.standard());
+    }
+
+    /**
+     * As {@link #assertGuardiannInvariants(Database, Guardiann)} (no-deletes), but with caller-supplied replication
+     * tolerances — e.g. a dense-data test opting into a positive
+     * {@link ReplicationInvariants#minReplicatedFraction()} so that a near-zero replica count is treated as broken
+     * replication.
+     *
+     * @param db the database
+     * @param guardiann the structure under test
+     * @param invariants the replication tolerances to apply
+     */
+    static void assertGuardiannInvariants(@Nonnull final Database db,
+                                          @Nonnull final Guardiann guardiann,
+                                          @Nonnull final ReplicationInvariants invariants) {
+        assertGuardiannInvariants(db, guardiann, true, invariants);
     }
 
     /**
@@ -1156,7 +1193,7 @@ class TestHelpers {
      */
     static void assertGuardiannInvariantsAfterDeletes(@Nonnull final Database db,
                                                       @Nonnull final Guardiann guardiann) {
-        assertGuardiannInvariants(db, guardiann, false);
+        assertGuardiannInvariants(db, guardiann, false, ReplicationInvariants.afterDeletes());
     }
 
     /**
@@ -1170,10 +1207,12 @@ class TestHelpers {
      * @param guardiann the structure under test
      * @param requireReplicasReferenceLivePrimaries whether to additionally assert that every
      *        replica references a live primary (only valid when no deletes were performed)
+     * @param invariants the replication tolerances to apply
      */
     private static void assertGuardiannInvariants(@Nonnull final Database db,
                                                   @Nonnull final Guardiann guardiann,
-                                                  final boolean requireReplicasReferenceLivePrimaries) {
+                                                  final boolean requireReplicasReferenceLivePrimaries,
+                                                  @Nonnull final ReplicationInvariants invariants) {
         runToQuiescence(db, guardiann);
         assertQuiescence(db, guardiann);
         final StructureSnapshot snapshot = snapshotStructure(db, guardiann);
@@ -1182,11 +1221,7 @@ class TestHelpers {
             assertReplicasReferenceLivePrimaries(snapshot);
         }
         // The four soft replication invariants, reusing the snapshot already taken above so the cheap checks add
-        // no extra scan. A delete storm can leave replication transiently degraded (reassign may not have caught
-        // up), so the post-delete path uses the looser tolerances.
-        assertReplicationInvariants(guardiann, snapshot,
-                requireReplicasReferenceLivePrimaries
-                        ? ReplicationInvariants.standard()
-                        : ReplicationInvariants.afterDeletes());
+        // no extra scan.
+        assertReplicationInvariants(guardiann, snapshot, invariants);
     }
 }

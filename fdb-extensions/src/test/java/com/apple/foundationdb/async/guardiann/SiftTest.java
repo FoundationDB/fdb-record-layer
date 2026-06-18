@@ -114,7 +114,11 @@ public class SiftTest implements BaseTest {
         TestHelpers.queryVectors(getDb(), guardiann,
                 TestHelpers.SIFT_SMALL_QUERY_PATH,
                 TestHelpers.SIFT_SMALL_GROUNDTRUTH_PATH, k);
-        TestHelpers.assertGuardiannInvariants(getDb(), guardiann);
+        // SIFT-small is dense/overlapping, so the split sub-clusters have borders and must carry replicas; a
+        // near-zero replica count would mean replication is broken. (The exact replica count is governed by the
+        // per-cluster top-K-by-score cap, so this is a coarse floor, not a fraction-of-demand check.)
+        TestHelpers.assertGuardiannInvariants(getDb(), guardiann,
+                TestHelpers.ReplicationInvariants.standard().withMinReplicatedFraction(0.1d));
     }
 
     static void scanCentroids(@Nonnull final Database db,
