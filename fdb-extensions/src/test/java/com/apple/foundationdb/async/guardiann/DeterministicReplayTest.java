@@ -36,8 +36,10 @@ import com.apple.foundationdb.test.TestSubspaceExtension;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.RandomizedTestUtils;
+import com.apple.test.Tags;
 import com.google.common.base.Verify;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -81,7 +83,13 @@ import static org.assertj.core.api.Assertions.assertThat;
  * Inserting more vectors than fit in one cluster forces splits (and border replication / reassign); deleting a
  * fraction of them reorganizes the structure via merges / reassigns / bounces, but keeps each base's close
  * sub-clusters — and therefore their border replicas — alive, so the replicated structure survives to the end.
+ * <p>
+ * Tagged {@link Tags#RequiresScalar} so it runs only under the {@code scalarFallbackTest} task (which sets
+ * {@code fdb.vector.simd=scalar}), not the default SIMD test task. The replay assertions compare byte-identical
+ * stored state, which depends on bit-exact, reproducible floating-point results; SIMD lane-wise reductions sum in
+ * a different order than scalar accumulation, so that bit-exactness is only guaranteed on the scalar backend.
  */
+@Tag(Tags.RequiresScalar)
 public class DeterministicReplayTest implements BaseTest {
     private static final Logger logger = LoggerFactory.getLogger(DeterministicReplayTest.class);
 

@@ -33,7 +33,6 @@ import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterators;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import org.slf4j.Logger;
@@ -66,8 +65,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BiFunction;
-import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 
 import static com.apple.foundationdb.async.common.CommonTestHelpers.createPrimaryKey;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -92,9 +89,7 @@ class TestHelpers {
             onWriteListener.pushFrame();
             final TestOnReadListener onReadListener = (TestOnReadListener)guardiann.getOnReadListener();
             onReadListener.pushFrame();
-
             final ImmutableList.Builder<PrimaryKeyAndVector> data = ImmutableList.builder();
-
             final long beginTs = System.nanoTime();
 
             final CompletableFuture<Integer> loopFuture =
@@ -116,11 +111,13 @@ class TestHelpers {
             return loopFuture.thenApply(vignore -> data.build())
                     .whenComplete((result, error) -> {
                         if (error != null) {
-                            logger.trace("failed to insert batchSize={}", batchSize);
+                            logger.warn("failed to insert batchSize={}", batchSize);
                         } else {
                             final long endTs = System.nanoTime();
-                            logger.trace("inserted batchSize={} records={} starting at id={} took elapsedTime={}ms, readBytes={}",
-                                    batchSize, result.size(), firstId, TimeUnit.NANOSECONDS.toMillis(endTs - beginTs),
+                            logger.debug("inserted batchSize={} records={} startingAtPrimaryKey={} took elapsedTime={}ms, readBytes={}",
+                                    batchSize, result.size(),
+                                    result.isEmpty() ? "<none>" : result.get(0).getPrimaryKey(),
+                                    TimeUnit.NANOSECONDS.toMillis(endTs - beginTs),
                                     onReadListener);
                         }
                         onWriteListener.popFrame();
@@ -183,18 +180,6 @@ class TestHelpers {
         }).get(2, TimeUnit.MINUTES);
     }
 
-    static void insertSIFTSmall(@Nonnull final Database db,
-                                @Nonnull final Guardiann guardiann) throws Exception {
-        insertVectors(db, guardiann, SIFT_SMALL_BASE_PATH, 10_000, 50);
-    }
-
-    static void insertSIFT1m(@Nonnull final Database db,
-                             @Nonnull final Guardiann guardiann,
-                             final int numVectors,
-                             final int batchSize) throws Exception {
-        insertVectors(db, guardiann, SIFT_1M_BASE_PATH, numVectors, batchSize);
-    }
-
     /** Path to the SIFT-small base vectors {@code .fvecs} file (10k × 128). Produced by the
      *  gradle {@code extractSiftSmall} task. */
     static final String SIFT_SMALL_BASE_PATH = ".out/extracted/siftsmall/siftsmall_base.fvecs";
@@ -213,33 +198,8 @@ class TestHelpers {
     static final String SIFT_1M_QUERY_PATH = ".out/downloads/sift_query.fvecs";
 
     /** Path to the SIFT-1M ground-truth top-k indices {@code .ivecs} file. */
+    @SuppressWarnings("unused")
     static final String SIFT_1M_GROUNDTRUTH_PATH = ".out/downloads/sift_groundtruth.ivecs";
-
-    /**
-     * Loads the SIFT-small base vectors as a list of {@code (primaryKey, vector)} records, in
-     * insertion order. Useful for tests that need to look up the original vector for a given
-     * item id (since {@link #insertSIFTSmall} no longer surfaces it).
-     */
-    @Nonnull
-    static List<PrimaryKeyAndVector> loadSiftSmall() throws Exception {
-        return loadVectors(SIFT_SMALL_BASE_PATH, 10_000);
-    }
-
-    /**
-     * Loads the first {@code numVectors} SIFT-1M base vectors as a list of
-     * {@code (primaryKey, vector)} records, in insertion order. See {@link #loadSiftSmall} for
-     * usage notes.
-     * <p>
-     * <b>Memory warning:</b> the entire requested slice is materialized in memory. SIFT-1M
-     * vectors are 128-dim doubles, so each entry is roughly 1 KB; calling this with
-     * {@code numVectors = 1_000_000} allocates about 1 GB. If the caller only needs to
-     * <i>insert</i> vectors (not look them up later), use {@link #insertSIFT1m} instead — that
-     * streams the file one batch at a time and never holds the whole dataset in memory.
-     */
-    @Nonnull
-    static List<PrimaryKeyAndVector> loadSift1m(final int numVectors) throws Exception {
-        return loadVectors(SIFT_1M_BASE_PATH, numVectors);
-    }
 
     @Nonnull
     static List<PrimaryKeyAndVector> loadVectors(@Nonnull final String baseFile,
@@ -293,8 +253,38 @@ class TestHelpers {
                                                  final int sizeA,
                                                  final int sizeB) throws IOException {
         Verify.verify(sizeA > 0 && sizeB > 0, "sample sizes must be positive (sizeA=%s, sizeB=%s)", sizeA, sizeB);
-        final int totalSize = sizeA + sizeB;
+        final List<PrimaryKeyAndVector> sampled = reservoirSampleSift1m(seed, sizeA + sizeB);
+        return new Samples(
+                ImmutableList.copyOf(sampled.subList(0, sizeA)),
+                ImmutableList.copyOf(sampled.subList(sizeA, sizeA + sizeB)));
+    }
 
+    /**
+     * A single deterministic reservoir sample of {@code size} records drawn from {@link #SIFT_1M_BASE_PATH} in one
+     * streaming pass (the single-sample sibling of {@link #loadDisjointSamplesFromSift1m}). Same seed → same
+     * sample, in the same deterministically shuffled order. Useful for insert-only workloads that don't need a
+     * disjoint second set.
+     *
+     * @param seed seed for the reservoir's replacement decisions and the post-pass shuffle
+     * @param size number of records to sample
+     *
+     * @return the sampled records
+     */
+    @Nonnull
+    static List<PrimaryKeyAndVector> loadSampleFromSift1m(final long seed, final int size) throws IOException {
+        Verify.verify(size > 0, "sample size must be positive (size=%s)", size);
+        return ImmutableList.copyOf(reservoirSampleSift1m(seed, size));
+    }
+
+    /**
+     * Reservoir-samples {@code totalSize} records from {@link #SIFT_1M_BASE_PATH} in a single streaming pass
+     * (Algorithm R), then deterministically shuffles them. Resident memory is bounded at roughly
+     * {@code totalSize * 1KB} regardless of source-file size. Each record's primary key is its original index in
+     * the SIFT-1M stream, so any two disjoint slices of the result are collision-free by construction.
+     */
+    @Nonnull
+    private static List<PrimaryKeyAndVector> reservoirSampleSift1m(final long seed,
+                                                                   final int totalSize) throws IOException {
         // Two parallel arrays so we don't pay an Object[] indirection per slot.
         final long[] reservoirIndices = new long[totalSize];
         final DoubleRealVector[] reservoirVectors = new DoubleRealVector[totalSize];
@@ -314,8 +304,6 @@ class TestHelpers {
                     reservoirVectors[(int) total] = v;
                 } else {
                     // Algorithm R: pick j uniformly in [0, total]; if j < totalSize, replace.
-                    // total fits in long but the modulus we need is total + 1 ≤ 1M for SIFT-1M;
-                    // call out the cast and let JVM verify.
                     final long bound = total + 1L;
                     final long j = rnd.nextLong(bound);
                     if (j < totalSize) {
@@ -330,8 +318,8 @@ class TestHelpers {
         Verify.verify(total >= totalSize,
                 "SIFT-1M file produced %s records, fewer than requested totalSize=%s", total, totalSize);
 
-        // Build records and shuffle deterministically before splitting. The shuffle randomizes
-        // which reservoir slots end up in setA vs setB and gives callers a usable iteration order.
+        // Build records and shuffle deterministically. The shuffle randomizes which reservoir slots end up where
+        // (so disjoint slices are random) and gives callers a usable iteration order.
         final List<PrimaryKeyAndVector> sampled = new ArrayList<>(totalSize);
         for (int i = 0; i < totalSize; i++) {
             sampled.add(new PrimaryKeyAndVector(
@@ -340,168 +328,54 @@ class TestHelpers {
         }
         // Mix the seed with a salt so the reservoir RNG and the shuffle RNG don't share state.
         Collections.shuffle(sampled, new Random(seed ^ 0xA5A5_5A5A_A5A5_5A5AL));
-
-        return new Samples(
-                ImmutableList.copyOf(sampled.subList(0, sizeA)),
-                ImmutableList.copyOf(sampled.subList(sizeA, totalSize)));
-    }
-
-    static void insertVectors(@Nonnull final Database db,
-                              @Nonnull final Guardiann guardiann,
-                              @Nonnull final String baseFile,
-                              final int numVectors,
-                              final int desiredBatchSize) throws Exception {
-        final Path siftPath = Paths.get(baseFile);
-
-        final TestOnReadListener onReadListener = (TestOnReadListener)guardiann.getOnReadListener();
-        final TestOnWriteListener onWriteListener = (TestOnWriteListener)guardiann.getOnWriteListener();
-        onReadListener.pushFrame();
-        onWriteListener.pushFrame();
-
-        try (final FileChannel fileChannel = FileChannel.open(siftPath, StandardOpenOption.READ)) {
-            final Iterator<DoubleRealVector> vectorIterator = new StoredVecsIterator.StoredFVecsIterator(fileChannel);
-
-            int i = 0;
-            while (vectorIterator.hasNext() && i < numVectors) {
-                onReadListener.pushFrame();
-                onWriteListener.pushFrame();
-
-                final int batchSize = Math.min(desiredBatchSize, numVectors - i);
-                final long beginTs = System.nanoTime();
-                final List<DoubleRealVector> remainingBatch =
-                        Lists.newArrayList(Iterators.limit(vectorIterator, batchSize));
-                while (!remainingBatch.isEmpty()) {
-                    final long currentBatchStart = i;
-                    final List<PrimaryKeyAndVector> insertedInBatch =
-                            basicInsertBatch(db, guardiann, remainingBatch.size(), i,
-                                    (tr, nextId) -> {
-                                        final int indexInBatch = Math.toIntExact(nextId - currentBatchStart);
-                                        if (indexInBatch >= remainingBatch.size()) {
-                                            return null;
-                                        }
-                                        final Tuple currentPrimaryKey = createPrimaryKey(nextId);
-                                        final DoubleRealVector doubleVector = remainingBatch.get(indexInBatch);
-                                        return new PrimaryKeyAndVector(currentPrimaryKey, doubleVector);
-                                    });
-                    final int numInsertedInBatch = insertedInBatch.size();
-                    i += numInsertedInBatch;
-                    remainingBatch.subList(0, numInsertedInBatch).clear();
-                }
-                final long endTs = System.nanoTime();
-                final long bytesRead = onReadListener.getBytesRead();
-                final long bytesWritten = onWriteListener.getBytesWritten();
-
-                logger.info("inserted batchSize={} for a total of numRecords={} took elapsedTime={}ms, bytesRead={}, bytesWritten={}, taskCountByKind={}",
-                        batchSize, i, TimeUnit.NANOSECONDS.toMillis(endTs - beginTs),
-                        bytesRead, bytesWritten, onWriteListener.getNumTasksEnqueuedByKind());
-
-                onWriteListener.popFrame();
-                onReadListener.popFrame();
-            }
-            assertThat(i).isEqualTo(numVectors);
-        }
-        logger.info("total number of tasks enqueued by kind={}", onWriteListener.getNumTasksEnqueuedByKind());
-        logger.info("total number of tasks executed by kind={}", onWriteListener.getNumTasksExecutedByKind());
-
-        onWriteListener.popFrame();
-        onReadListener.popFrame();
-    }
-
-    static void insertFirstRepeatedly(@Nonnull final Database db,
-                                      @Nonnull final Guardiann guardiann,
-                                      @Nonnull final String baseFile,
-                                      final int numRepetitions,
-                                      final int desiredBatchSize) throws Exception {
-        final Path siftPath = Paths.get(baseFile);
-
-        try (final FileChannel fileChannel = FileChannel.open(siftPath, StandardOpenOption.READ)) {
-            final Iterator<DoubleRealVector> vectorIterator = new StoredVecsIterator.StoredFVecsIterator(fileChannel);
-
-            if (!vectorIterator.hasNext()) {
-                return;
-            }
-
-            int i = 0;
-            final DoubleRealVector onlyVector = vectorIterator.next();
-
-            while (i < numRepetitions) {
-                final int batchSize = Math.min(desiredBatchSize, numRepetitions - i);
-                final List<DoubleRealVector> remainingBatch =
-                        IntStream.range(0, batchSize).mapToObj(ignored -> onlyVector)
-                                .collect(Collectors.toList());
-                while (!remainingBatch.isEmpty()) {
-                    final long currentBatchStart = i;
-                    final List<PrimaryKeyAndVector> insertedInBatch =
-                            basicInsertBatch(db, guardiann, remainingBatch.size(), i,
-                                    (tr, nextId) -> {
-                                        final int indexInBatch = Math.toIntExact(nextId - currentBatchStart);
-                                        if (indexInBatch >= remainingBatch.size()) {
-                                            return null;
-                                        }
-                                        final Tuple currentPrimaryKey = createPrimaryKey(-1 - nextId);
-                                        final DoubleRealVector doubleVector = remainingBatch.get(indexInBatch);
-                                        return new PrimaryKeyAndVector(currentPrimaryKey, doubleVector);
-                                    });
-                    final int numInsertedInBatch = insertedInBatch.size();
-                    i += numInsertedInBatch;
-                    remainingBatch.subList(0, numInsertedInBatch).clear();
-                }
-            }
-        }
-    }
-
-    static void queryVectors(@Nonnull final Database db,
-                             @Nonnull final Guardiann guardiann,
-                             @Nonnull final String queriesFile,
-                             @Nonnull final String groundTruthFile,
-                             final int k) throws IOException {
-        queryVectors(db, guardiann, queriesFile, groundTruthFile, k, -1);
+        return sampled;
     }
 
     /**
-     * Observational variant of recall validation: runs every query in {@code queriesFile}, logs
-     * per-query timing/read-bytes/recall, and does not assert any threshold. Use
-     * {@link #assertRecallAtKAtLeast} when a test wants to enforce a recall floor.
-     * <p>
-     * Recall is computed via {@link #singleQueryRecall} (set-based intersection of deduplicated
-     * results against ground truth) so duplicate primary keys in the result set don't inflate
-     * the per-query score.
+     * Inserts {@code records} into {@code guardiann} in batches of {@code batchSize}, retrying the tail of any
+     * batch that bails out because a deferred maintenance task fired mid-transaction (see
+     * {@link #insertBatchWithRetry}). Each record keeps its own primary key. Callers that read vectors from a flat
+     * file load them with {@link #loadVectors} (or {@link #loadSampleFromSift1m}) and pass the resulting list here.
+     *
+     * @param db the database
+     * @param guardiann the structure to insert into
+     * @param records the records to insert, in order
+     * @param batchSize the number of records per insert transaction
      */
-    static void queryVectors(@Nonnull final Database db,
-                             @Nonnull final Guardiann guardiann,
-                             @Nonnull final String queriesFile,
-                             @Nonnull final String groundTruthFile,
-                             final int k,
-                             final int maxIndex) throws IOException {
-        final List<DoubleRealVector> queries = loadSiftQueryVectors(queriesFile);
-        final List<Set<Integer>> groundTruth = loadSiftGroundTruth(groundTruthFile, maxIndex);
-        Verify.verify(queries.size() == groundTruth.size(),
-                "queries (%s) and ground truth (%s) must align", queries.size(), groundTruth.size());
-
-        final TestOnReadListener onReadListener = (TestOnReadListener) guardiann.getOnReadListener();
-        final int efSearch = (int) ((double) k * 1.15);
-
-        for (int i = 0; i < queries.size(); i++) {
-            final Set<Integer> truth = groundTruth.get(i);
-            if (truth.isEmpty()) {
-                logger.info("query ground truth does not have indices that have been inserted yet");
-                continue;
-            }
-            final DoubleRealVector queryVector = queries.get(i);
-            onReadListener.pushFrame();
-            final long beginTs = System.nanoTime();
-            final List<? extends ResultEntry> results =
-                    db.run(tr -> guardiann.kNearestNeighborsSearch(tr, k, efSearch,
-                            48, 16, 1.50d, true, queryVector).join());
-            final long endTs = System.nanoTime();
-            logger.info("retrieved result in elapsedTimeMs={}, reading readBytes={}",
-                    TimeUnit.NANOSECONDS.toMillis(endTs - beginTs), onReadListener.getBytesRead());
-
-            final double recall = singleQueryRecall(truth, results);
-            logger.info("query returned results recall={}, k={}",
-                    String.format(Locale.ROOT, "%.2f", recall * 100.0d), truth.size());
-            onReadListener.popFrame();
+    static void insertRecords(@Nonnull final Database db,
+                              @Nonnull final Guardiann guardiann,
+                              @Nonnull final List<PrimaryKeyAndVector> records,
+                              final int batchSize) throws Exception {
+        for (int i = 0; i < records.size(); i += batchSize) {
+            final int end = Math.min(i + batchSize, records.size());
+            insertBatchWithRetry(db, guardiann, records.subList(i, end), i);
         }
+    }
+
+    /**
+     * Inserts one fully-materialized {@code batch} (records' primary keys already set) into {@code guardiann} via
+     * {@link #basicInsertBatch}, re-issuing the un-inserted tail whenever a deferred maintenance task fires
+     * mid-transaction, until the whole batch is inserted. {@code firstGlobalIndex} is only the index base handed to
+     * {@code basicInsertBatch}; the batch records carry their own primary keys.
+     */
+    private static void insertBatchWithRetry(@Nonnull final Database db,
+                                             @Nonnull final Guardiann guardiann,
+                                             @Nonnull final List<PrimaryKeyAndVector> batch,
+                                             final long firstGlobalIndex) throws Exception {
+        final List<PrimaryKeyAndVector> remaining = new ArrayList<>(batch);
+        long base = firstGlobalIndex;
+        while (!remaining.isEmpty()) {
+            final long batchStart = base;
+            final List<PrimaryKeyAndVector> inserted =
+                    basicInsertBatch(db, guardiann, remaining.size(), batchStart,
+                            (tr, nextId) -> {
+                                final int idx = Math.toIntExact(nextId - batchStart);
+                                return idx < remaining.size() ? remaining.get(idx) : null;
+                            });
+            base += inserted.size();
+            remaining.subList(0, inserted.size()).clear();
+        }
+        logger.info("inserted batch; globalIndex={}", base);
     }
 
     /**
@@ -562,8 +436,7 @@ class TestHelpers {
      * excluded every truth index for that query) are skipped.
      * <p>
      * Recall is computed via {@link #singleQueryRecall} — deduplicated result-set intersection
-     * with ground truth. Search parameters ({@code efSearch}, etc.) match {@link #queryVectors}
-     * so the two helpers report comparable numbers.
+     * with ground truth.
      *
      * @param queries pre-loaded query vectors (see {@link #loadSiftQueryVectors})
      * @param groundTruth pre-loaded per-query ground-truth index sets (see
@@ -591,7 +464,10 @@ class TestHelpers {
             final List<? extends ResultEntry> results =
                     db.run(tr -> guardiann.kNearestNeighborsSearch(tr, k, efSearch,
                             48, 16, 1.50d, true, q).join());
-            sumRecall += singleQueryRecall(truth, results);
+            final double recall = singleQueryRecall(truth, results);
+            logger.debug("assertRecallAtKAtLeast: recall@{} = {} for query {}",
+                    k, String.format(Locale.ROOT, "%.4f", recall), i);
+            sumRecall += recall;
             countedQueries++;
         }
         assertThat(countedQueries)
@@ -634,7 +510,8 @@ class TestHelpers {
         final int efSearch = (int) ((double) k * 1.15);
         double sumRecall = 0.0d;
         int countedQueries = 0;
-        for (final RealVector query : queries) {
+        for (int i = 0; i < queries.size(); i++) {
+            final RealVector query = queries.get(i);
             final Set<Integer> truth = bruteForceTopKByEuclidean(query, active, k);
             if (truth.isEmpty()) {
                 continue;
@@ -642,7 +519,10 @@ class TestHelpers {
             final List<? extends ResultEntry> results =
                     db.run(tr -> guardiann.kNearestNeighborsSearch(tr, k, efSearch,
                             48, 16, 1.50d, true, query).join());
-            sumRecall += singleQueryRecall(truth, results);
+            final double recall = singleQueryRecall(truth, results);
+            logger.debug("assertRecallAtKAtLeastDynamic: recall@{} = {} for query {}",
+                    k, String.format(Locale.ROOT, "%.4f", recall), i);
+            sumRecall += recall;
             countedQueries++;
         }
         assertThat(countedQueries)
@@ -927,12 +807,15 @@ class TestHelpers {
             return;
         }
         final Set<VectorId> livePrimaries = snapshot.primaryOwners().keySet();
+        // Use allMatch with an O(1) Set::contains predicate, NOT assertThat(livePrimaries).contains(replicaId) per
+        // replica: AssertJ's iterable contains/containsAll/isSubsetOf all linearly scan the actual (to honor a
+        // possible custom element comparator), so a per-replica contains would be O(replicas * primaries) — which
+        // hangs at SIFT scale. allMatch instead iterates the (smaller) replica set once, applying our own O(1)
+        // hash lookup.
         for (final ClusterView cv : snapshot.clusters().values()) {
-            for (final VectorId replicaId : cv.replicas()) {
-                assertThat(livePrimaries)
-                        .as("replica %s in cluster %s has no live primary", replicaId, cv.clusterId())
-                        .contains(replicaId);
-            }
+            assertThat(cv.replicas())
+                    .as("every replica in cluster %s must reference a live primary", cv.clusterId())
+                    .allMatch(livePrimaries::contains, "references a live primary");
         }
     }
 
@@ -1067,7 +950,7 @@ class TestHelpers {
      */
     static void assertReplicasNotTooFew(@Nullable final StructureSnapshot snapshot,
                                         final double minReplicatedFraction) {
-        if (snapshot == null || minReplicatedFraction <= 0.0d) {
+        if (snapshot == null) {
             return;
         }
         final int totalPrimaries = snapshot.totalPrimaries();
@@ -1076,8 +959,13 @@ class TestHelpers {
         }
         final int totalReplicas = snapshot.totalReplicas();
         final double fraction = (double) totalReplicas / totalPrimaries;
+        // Always log the observed fraction (even at floor 0, where the check is disabled) so a not-yet-calibrated
+        // test can be tuned from the logged value.
         logger.info("invariant[too-few-replicas]: {} replicas / {} primaries (fraction={}, floor={})",
                 totalReplicas, totalPrimaries, fraction, minReplicatedFraction);
+        if (minReplicatedFraction <= 0.0d) {
+            return;
+        }
         assertThat(fraction)
                 .as("replicas (%d) are too few relative to primaries (%d) — replication looks broken",
                         totalReplicas, totalPrimaries)

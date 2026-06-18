@@ -59,7 +59,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  * {@code Primitives}, a delete that takes a cluster under the minimum enqueues a
  * {@link SplitMergeTask} that takes the <em>merge</em> branch. The default 2→1 merge runs k-means
  * with {@code k == 1}, so this exercises the {@code KMeans.fit} k=1 path end-to-end — the path
- * that otherwise only runs in the multi-hour SIFT-1M {@code InsertDeleteSlowTest}.
+ * that otherwise only runs in the multi-hour SIFT-1M delete workloads in {@code SiftTest}.
  */
 public class MergeScenarioTest implements BaseTest {
     private static final Logger logger = LoggerFactory.getLogger(MergeScenarioTest.class);
