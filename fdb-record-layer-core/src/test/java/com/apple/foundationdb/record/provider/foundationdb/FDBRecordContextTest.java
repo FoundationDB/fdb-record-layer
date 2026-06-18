@@ -493,6 +493,11 @@ public class FDBRecordContextTest {
             // No cast needed at the call site — type safety provided by SessionKey<String>
             final String value = context.getInSession(key);
             assertEquals("hello", value);
+            // remove
+            final String removed = context.removeFromSession(key);
+            assertEquals("hello", removed);
+            assertNull(context.removeFromSession(key));
+            assertNull(context.getInSession(key));
         }
     }
 
