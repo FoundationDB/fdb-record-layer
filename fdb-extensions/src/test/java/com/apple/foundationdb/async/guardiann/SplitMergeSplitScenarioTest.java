@@ -134,7 +134,7 @@ public class SplitMergeSplitScenarioTest implements BaseTest {
         // Read just the first SIFT-small vector as the "center" of the near-duplicate cloud.
         // Stream a single entry via loadVectors rather than slurping all 10k via loadSiftSmall().
         final List<PrimaryKeyAndVector> baseLoaded =
-                TestHelpers.loadVectors(TestHelpers.SIFT_SMALL_BASE_PATH, 1);
+                TestHelpers.loadVectors(SiftTestHelpers.SIFT_SMALL_BASE_PATH, 1);
         Verify.verify(!baseLoaded.isEmpty(), "SIFT-small must contain at least one vector");
         final DoubleRealVector base = (DoubleRealVector) baseLoaded.get(0).getVector();
 

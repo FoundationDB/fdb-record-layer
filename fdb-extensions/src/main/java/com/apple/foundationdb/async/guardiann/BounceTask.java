@@ -104,6 +104,7 @@ public class BounceTask extends AbstractDeferredTask {
     }
 
     @Nonnull
+    @Override
     public CompletableFuture<Void> runTask(@Nonnull final Transaction transaction) {
         logStart(logger);
         final SplittableRandom splittableRandom = RandomHelpers.random(getTaskId());

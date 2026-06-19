@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.async.guardiann;
 
+import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.linear.RealVector;
 import com.apple.foundationdb.linear.Transformed;
 import com.apple.foundationdb.tuple.Tuple;
@@ -188,6 +189,7 @@ record VectorReference(@Nonnull VectorId id, boolean isPrimaryCopy, boolean isUn
 
         @Nonnull
         @Override
+        @SpotBugsSuppressWarnings("NP_PARAMETER_MUST_BE_NONNULL_BUT_MARKED_AS_NULLABLE")
         public VectorReference set(@Nullable final VectorReference vectorReference,
                                    @Nullable final Transformed<RealVector> transformed) {
             Objects.requireNonNull(vectorReference);

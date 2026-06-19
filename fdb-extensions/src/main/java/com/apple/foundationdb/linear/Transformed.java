@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.linear;
 
+import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.util.Lens;
 
 import javax.annotation.Nonnull;
@@ -130,6 +131,7 @@ public final class Transformed<V extends RealVector> {
 
         @Nonnull
         @Override
+        @SpotBugsSuppressWarnings("NP_PARAMETER_MUST_BE_NONNULL_BUT_MARKED_AS_NULLABLE")
         public Transformed<V> set(@Nullable final Transformed<V> ignored, @Nullable final V v) {
             return new Transformed<>(Objects.requireNonNull(v, "Transformed cannot wrap a null underlying vector"));
         }

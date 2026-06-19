@@ -108,6 +108,7 @@ public class CollapseTask extends AbstractDeferredTask {
     }
 
     @Nonnull
+    @Override
     public CompletableFuture<Void> runTask(@Nonnull final Transaction transaction) {
         logStart(logger);
 
@@ -199,7 +200,8 @@ public class CollapseTask extends AbstractDeferredTask {
         final ImmutableListMultimap.Builder<UUID, VectorId> collapsedAssignmentsMapBuilder =
                 ImmutableListMultimap.builder();
         final TopK<VectorReference> replicatedTopK =
-                TopK.max(Comparator.comparing(VectorReference::replicationPriority),
+                TopK.max(Comparator.comparing(VectorReference::replicationPriority)
+                        .thenComparing(VectorReference::id),
                         config.replicatedClusterTarget());
         RunningStats standardDeviation = RunningStats.identity();
 

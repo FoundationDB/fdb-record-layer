@@ -36,6 +36,7 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import org.slf4j.Logger;
 
 import javax.annotation.Nonnull;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
@@ -161,7 +162,6 @@ public abstract class AbstractDeferredTask {
                                        @Nonnull final UUID targetClusterId,
                                        @Nonnull final Transformed<RealVector> centroid) {
         final Config config = getConfig();
-        final Primitives primitives = primitives();
         final Map<UUID, Integer> collapsibleVectorsCountersMap =
                 CollapseTask.collapsibleVectorsCountersMap(primaryVectorReferences);
         final int maximumNumberCollapsibleVectorsPerDuplicate =
@@ -346,15 +346,17 @@ public abstract class AbstractDeferredTask {
                 continue;
             }
 
-            final TopK<ClusterMetadataWithDistance> nearestClusters =
-                    TopK.min(Comparator.comparing(ClusterMetadataWithDistance::distance), 32);
+            // Rank every candidate cluster by distance to this vector (ascending). The candidate set is already
+            // bounded by the caller's neighborhood (see reassignOuterNeighborhoodSize / splitNeighborhoodSize), and
+            // the eventual replication fan-out is bounded downstream by replicatedClusterTarget + occlusion, so there
+            // is no separate cap here: position 0 is the new primary owner, the rest are replication candidates.
+            final List<ClusterMetadataWithDistance> sortedNearestClusters = new ArrayList<>(candidateClusters.size());
             for (final ClusterMetadataWithDistance clusterMetadataWithDistance : candidateClusters.values()) {
                 final double distance =
                         estimator.distance(vectorReference.vector(), clusterMetadataWithDistance.centroid());
-                nearestClusters.add(clusterMetadataWithDistance.withNewDistance(distance));
+                sortedNearestClusters.add(clusterMetadataWithDistance.withNewDistance(distance));
             }
-
-            final List<ClusterMetadataWithDistance> sortedNearestClusters = nearestClusters.toSortedList();
+            sortedNearestClusters.sort(Comparator.comparing(ClusterMetadataWithDistance::distance));
             Verify.verify(!sortedNearestClusters.isEmpty());
 
             final ClusterMetadataWithDistance primaryClusterMetadataWithDistance = sortedNearestClusters.get(0);

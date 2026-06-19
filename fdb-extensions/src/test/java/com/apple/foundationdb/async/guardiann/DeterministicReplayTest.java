@@ -336,7 +336,7 @@ public class DeterministicReplayTest implements BaseTest {
     @Nonnull
     private List<PrimaryKeyAndVector> buildInserts(final long seed) throws Exception {
         final List<PrimaryKeyAndVector> baseLoaded =
-                TestHelpers.loadVectors(TestHelpers.SIFT_SMALL_BASE_PATH, NUM_BASES);
+                TestHelpers.loadVectors(SiftTestHelpers.SIFT_SMALL_BASE_PATH, NUM_BASES);
         Verify.verify(baseLoaded.size() == NUM_BASES, "SIFT-small must contain at least %s vectors", NUM_BASES);
         final List<DoubleRealVector> bases = new ArrayList<>(NUM_BASES);
         for (final PrimaryKeyAndVector pkv : baseLoaded) {

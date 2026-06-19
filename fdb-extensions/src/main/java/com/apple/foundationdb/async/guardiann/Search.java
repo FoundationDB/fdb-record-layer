@@ -32,6 +32,7 @@ import com.apple.foundationdb.linear.RealVector;
 import com.apple.foundationdb.linear.Transformed;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
@@ -143,11 +144,6 @@ public class Search {
     @Nonnull
     private Primitives primitives() {
         return getLocator().primitives();
-    }
-
-    @Nonnull
-    private StorageAdapter getStorageAdapter() {
-        return getLocator().getStorageAdapter();
     }
 
     /**
@@ -392,7 +388,7 @@ public class Search {
                 MoreAsyncUtil.iterableFromCollection(CompletableFuture.completedFuture(topReferences), getExecutor());
 
         final AsyncIterable<VectorReferenceAndDistance> expandedTopReferencesIterable =
-                MoreAsyncUtil.mapConcatIterable(getExecutor(), topReferencesIterable,
+                mapConcatIterable(getExecutor(), topReferencesIterable,
                         vectorReferenceAndDistance -> {
                             final VectorReference vectorReference = vectorReferenceAndDistance.vectorReference();
                             if (!vectorReference.isCollapsed()) {
@@ -536,7 +532,7 @@ public class Search {
                     // Expand collapsed references inline: a collapsed reference becomes one entry
                     // per vector ID behind the signature, all sharing the same distance.
                     final AsyncIterable<VectorReferenceAndDistance> expandedVectorReferenceAndDistancesIterable =
-                            MoreAsyncUtil.mapConcatIterable(getExecutor(), vectorReferenceAndDistancesIterable,
+                            mapConcatIterable(getExecutor(), vectorReferenceAndDistancesIterable,
                                     vectorReferenceAndDistance -> {
                                         final VectorReference vectorReference = vectorReferenceAndDistance.vectorReference();
                                         if (!vectorReference.isCollapsed()) {
@@ -601,7 +597,8 @@ public class Search {
                                                     k, getExecutor()),
                                             vectorReferenceAndDistance ->
                                                     new VectorReferenceAndDistance(
-                                                            enrichVectorReference(primaryKeyToVectorMetadataUuidFutureMap, vectorReferenceAndDistance.vectorReference()),
+                                                            enrichVectorReference(primaryKeyToVectorMetadataUuidFutureMap,
+                                                                    vectorReferenceAndDistance.vectorReference()),
                                                             vectorReferenceAndDistance.distance())), getExecutor());
                     return nearestKReferencesFuture.thenApply(nearestKReferences ->
                             new SearchResult(accessInfo, storageTransform, nearestKReferences));
@@ -798,7 +795,8 @@ public class Search {
             almostSortedVectorReferencesIterable(@Nonnull final AsyncIterable<VectorReferenceAndDistance> iterable,
                                                  final int maxQueueSize, @Nonnull final Executor executor) {
         return MoreAsyncUtil.iterableOf(() -> new AlmostSortedAsyncIterator<>(iterable.iterator(),
-                        Comparator.comparing(VectorReferenceAndDistance::distance), maxQueueSize, executor),
+                        Comparator.comparing(VectorReferenceAndDistance::distance)
+                                .thenComparing(d -> d.vectorReference().id()), maxQueueSize, executor),
                 executor);
     }
 
@@ -813,10 +811,12 @@ public class Search {
     @Nonnull
     private static VectorReference enrichVectorReference(@Nonnull final Map<Tuple, CompletableFuture<VectorMetadata>> primaryKeyToVectorMetadataUuidFutureMap,
                                                          @Nonnull final VectorReference vectorReference) {
-        final VectorMetadata vectorMetadata =
+        // Every metadata future was already awaited by the enclosing forEach(...).thenApply(...), so it is complete.
+        final CompletableFuture<VectorMetadata> metadataFuture =
                 Objects.requireNonNull(
-                        Objects.requireNonNull(
-                                        primaryKeyToVectorMetadataUuidFutureMap.get(vectorReference.id().getPrimaryKey())).getNow(null));
+                        primaryKeyToVectorMetadataUuidFutureMap.get(vectorReference.id().getPrimaryKey()));
+        Verify.verify(metadataFuture.isDone(), "metadata future must already be complete during enrichment");
+        final VectorMetadata vectorMetadata = Objects.requireNonNull(metadataFuture.join());
         return vectorReference.withVectorId(vectorMetadata);
     }
 

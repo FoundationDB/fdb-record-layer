@@ -38,6 +38,7 @@ public class RootLogLevelExtension implements BeforeEachCallback, AfterEachCallb
     }
 
     @Override
+    @SuppressWarnings("PMD.CloseResource") // shared/global LoggerContext owned by the logging system — must not be closed here
     public void beforeEach(ExtensionContext context) {
         LoggerContext ctx = (LoggerContext)LogManager.getContext(false);
         Configuration cfg = ctx.getConfiguration();

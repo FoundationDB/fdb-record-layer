@@ -136,8 +136,7 @@ public class MoreAsyncUtil {
 
             @Override
             public boolean hasNext() {
-                final boolean r = onHasNext().join();
-                return r;
+                return onHasNext().join();
             }
 
             @Override
@@ -1226,7 +1225,7 @@ public class MoreAsyncUtil {
      * @return a {@link CompletableFuture} containing a list of results collected from the individual body invocations
      */
     @Nonnull
-    @SuppressWarnings("unchecked")
+    @SuppressWarnings({"unchecked", "PMD.CompareObjectsWithEquals"}) // identity check against a null stand-in sentinel
     public static <T, U> CompletableFuture<List<U>> forEach(@Nonnull final Iterable<T> items,
                                                             @Nonnull final Function<T, CompletableFuture<U>> body,
                                                             final int parallelism,

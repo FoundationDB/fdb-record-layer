@@ -54,7 +54,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
-import java.util.PriorityQueue;
 import java.util.Random;
 import java.util.Set;
 import java.util.SplittableRandom;
@@ -180,27 +179,6 @@ class TestHelpers {
         }).get(2, TimeUnit.MINUTES);
     }
 
-    /** Path to the SIFT-small base vectors {@code .fvecs} file (10k × 128). Produced by the
-     *  gradle {@code extractSiftSmall} task. */
-    static final String SIFT_SMALL_BASE_PATH = ".out/extracted/siftsmall/siftsmall_base.fvecs";
-
-    /** Path to the SIFT-small query vectors {@code .fvecs} file (100 × 128). */
-    static final String SIFT_SMALL_QUERY_PATH = ".out/extracted/siftsmall/siftsmall_query.fvecs";
-
-    /** Path to the SIFT-small ground-truth top-k indices {@code .ivecs} file. */
-    static final String SIFT_SMALL_GROUNDTRUTH_PATH = ".out/extracted/siftsmall/siftsmall_groundtruth.ivecs";
-
-    /** Path to the SIFT-1M base vectors {@code .fvecs} file (1M × 128). Downloaded by gradle to
-     *  {@code .out/downloads/sift_base.fvecs}. */
-    static final String SIFT_1M_BASE_PATH = ".out/downloads/sift_base.fvecs";
-
-    /** Path to the SIFT-1M query vectors {@code .fvecs} file (10k × 128). */
-    static final String SIFT_1M_QUERY_PATH = ".out/downloads/sift_query.fvecs";
-
-    /** Path to the SIFT-1M ground-truth top-k indices {@code .ivecs} file. */
-    @SuppressWarnings("unused")
-    static final String SIFT_1M_GROUNDTRUTH_PATH = ".out/downloads/sift_groundtruth.ivecs";
-
     @Nonnull
     static List<PrimaryKeyAndVector> loadVectors(@Nonnull final String baseFile,
                                                  final int numVectors) throws Exception {
@@ -222,7 +200,7 @@ class TestHelpers {
     }
 
     /**
-     * Two disjoint deterministic samples drawn from the SIFT-1M base file in a single streaming
+     * Two disjoint deterministic samples drawn from an fvecs base file in a single streaming
      * pass, never holding the full dataset in memory.
      *
      * @param a first sample
@@ -232,59 +210,57 @@ class TestHelpers {
     }
 
     /**
-     * Single-pass reservoir-sampled disjoint pair of samples drawn from
-     * {@link #SIFT_1M_BASE_PATH}. Streams the file once; resident memory is bounded at roughly
-     * {@code (sizeA + sizeB) * 1KB} regardless of how big the source file is. The two returned
-     * lists are guaranteed disjoint by primary key (since each PK is the original index in the
-     * SIFT-1M stream).
+     * Single-pass reservoir-sampled disjoint pair of samples drawn from the {@code baseFile} {@code .fvecs} stream.
+     * Streams the file once; resident memory is bounded at roughly {@code (sizeA + sizeB) * 1KB} regardless of how
+     * big the source file is. The two returned lists are guaranteed disjoint by primary key (since each PK is the
+     * original index in the stream).
      * <p>
-     * The whole sampling process is deterministic given {@code seed}: same seed → same two lists,
+     * The whole sampling process is deterministic given {@code (baseFile, seed)}: same inputs → same two lists,
      * in the same order. The order within each list is a fresh deterministic shuffle of the
      * combined reservoir before splitting, so callers get a reasonable insertion/deletion order
      * for free without having to reshuffle.
      *
+     * @param baseFile path to the {@code .fvecs} base file to sample from
      * @param seed seed for the reservoir's random replacement decisions and the post-pass shuffle
      * @param sizeA size of the first sample
      * @param sizeB size of the second sample
      * @return a {@link Samples} pair
      */
     @Nonnull
-    static Samples loadDisjointSamplesFromSift1m(final long seed,
-                                                 final int sizeA,
-                                                 final int sizeB) throws IOException {
+    static Samples loadDisjointSamples(@Nonnull final String baseFile, final long seed, final int sizeA, final int sizeB) throws IOException {
         Verify.verify(sizeA > 0 && sizeB > 0, "sample sizes must be positive (sizeA=%s, sizeB=%s)", sizeA, sizeB);
-        final List<PrimaryKeyAndVector> sampled = reservoirSampleSift1m(seed, sizeA + sizeB);
+        final List<PrimaryKeyAndVector> sampled = reservoirSample(baseFile, seed, sizeA + sizeB);
         return new Samples(
                 ImmutableList.copyOf(sampled.subList(0, sizeA)),
                 ImmutableList.copyOf(sampled.subList(sizeA, sizeA + sizeB)));
     }
 
     /**
-     * A single deterministic reservoir sample of {@code size} records drawn from {@link #SIFT_1M_BASE_PATH} in one
-     * streaming pass (the single-sample sibling of {@link #loadDisjointSamplesFromSift1m}). Same seed → same
-     * sample, in the same deterministically shuffled order. Useful for insert-only workloads that don't need a
+     * A single deterministic reservoir sample of {@code size} records drawn from the {@code baseFile} {@code .fvecs}
+     * stream in one pass (the single-sample sibling of {@link #loadDisjointSamples}). Same {@code (baseFile, seed)} →
+     * same sample, in the same deterministically shuffled order. Useful for insert-only workloads that don't need a
      * disjoint second set.
      *
+     * @param baseFile path to the {@code .fvecs} base file to sample from
      * @param seed seed for the reservoir's replacement decisions and the post-pass shuffle
      * @param size number of records to sample
      *
      * @return the sampled records
      */
     @Nonnull
-    static List<PrimaryKeyAndVector> loadSampleFromSift1m(final long seed, final int size) throws IOException {
+    static List<PrimaryKeyAndVector> loadSample(@Nonnull final String baseFile, final long seed, final int size) throws IOException {
         Verify.verify(size > 0, "sample size must be positive (size=%s)", size);
-        return ImmutableList.copyOf(reservoirSampleSift1m(seed, size));
+        return ImmutableList.copyOf(reservoirSample(baseFile, seed, size));
     }
 
     /**
-     * Reservoir-samples {@code totalSize} records from {@link #SIFT_1M_BASE_PATH} in a single streaming pass
-     * (Algorithm R), then deterministically shuffles them. Resident memory is bounded at roughly
+     * Reservoir-samples {@code totalSize} records from the {@code baseFile} {@code .fvecs} stream in a single
+     * streaming pass (Algorithm R), then deterministically shuffles them. Resident memory is bounded at roughly
      * {@code totalSize * 1KB} regardless of source-file size. Each record's primary key is its original index in
-     * the SIFT-1M stream, so any two disjoint slices of the result are collision-free by construction.
+     * the stream, so any two disjoint slices of the result are collision-free by construction.
      */
     @Nonnull
-    private static List<PrimaryKeyAndVector> reservoirSampleSift1m(final long seed,
-                                                                   final int totalSize) throws IOException {
+    private static List<PrimaryKeyAndVector> reservoirSample(@Nonnull final String baseFile, final long seed, final int totalSize) throws IOException {
         // Two parallel arrays so we don't pay an Object[] indirection per slot.
         final long[] reservoirIndices = new long[totalSize];
         final DoubleRealVector[] reservoirVectors = new DoubleRealVector[totalSize];
@@ -293,7 +269,7 @@ class TestHelpers {
         final SplittableRandom rnd = new SplittableRandom(seed);
 
         long total = 0L;
-        final Path basePath = Paths.get(SIFT_1M_BASE_PATH);
+        final Path basePath = Paths.get(baseFile);
         try (final FileChannel fileChannel = FileChannel.open(basePath, StandardOpenOption.READ)) {
             final Iterator<DoubleRealVector> it = new StoredVecsIterator.StoredFVecsIterator(fileChannel);
             while (it.hasNext()) {
@@ -316,7 +292,7 @@ class TestHelpers {
         }
 
         Verify.verify(total >= totalSize,
-                "SIFT-1M file produced %s records, fewer than requested totalSize=%s", total, totalSize);
+                "base file produced %s records, fewer than requested totalSize=%s", total, totalSize);
 
         // Build records and shuffle deterministically. The shuffle randomizes which reservoir slots end up where
         // (so disjoint slices are random) and gives callers a usable iteration order.
@@ -335,7 +311,7 @@ class TestHelpers {
      * Inserts {@code records} into {@code guardiann} in batches of {@code batchSize}, retrying the tail of any
      * batch that bails out because a deferred maintenance task fired mid-transaction (see
      * {@link #insertBatchWithRetry}). Each record keeps its own primary key. Callers that read vectors from a flat
-     * file load them with {@link #loadVectors} (or {@link #loadSampleFromSift1m}) and pass the resulting list here.
+     * file load them with {@link #loadVectors} (or {@link #loadSample}) and pass the resulting list here.
      *
      * @param db the database
      * @param guardiann the structure to insert into
@@ -395,12 +371,12 @@ class TestHelpers {
     }
 
     /**
-     * Loads query vectors from a SIFT-style {@code .fvecs} file as {@link DoubleRealVector}s
+     * Loads query vectors from an {@code .fvecs} file as {@link DoubleRealVector}s
      * (matching the representation used by the insert helpers — {@link Guardiann}'s public API
      * accepts any {@link RealVector}, so there's no need to pre-quantize to half-precision).
      */
     @Nonnull
-    static List<DoubleRealVector> loadSiftQueryVectors(@Nonnull final String queriesFile) throws IOException {
+    static List<DoubleRealVector> loadQueryVectors(@Nonnull final String queriesFile) throws IOException {
         final ImmutableList.Builder<DoubleRealVector> queries = ImmutableList.builder();
         try (final FileChannel channel = FileChannel.open(Paths.get(queriesFile), StandardOpenOption.READ)) {
             final Iterator<DoubleRealVector> iterator = new StoredVecsIterator.StoredFVecsIterator(channel);
@@ -412,12 +388,11 @@ class TestHelpers {
     }
 
     /**
-     * Loads per-query ground-truth top-k index sets from a SIFT-style {@code .ivecs} file.
+     * Loads per-query ground-truth top-k index sets from an {@code .ivecs} file.
      * Indices greater than {@code maxIndex} are filtered out; pass {@code -1} to keep all.
      */
     @Nonnull
-    static List<Set<Integer>> loadSiftGroundTruth(@Nonnull final String groundTruthFile,
-                                                  final int maxIndex) throws IOException {
+    static List<Set<Integer>> loadGroundTruth(@Nonnull final String groundTruthFile, final int maxIndex) throws IOException {
         final ImmutableList.Builder<Set<Integer>> truth = ImmutableList.builder();
         try (final FileChannel channel = FileChannel.open(Paths.get(groundTruthFile), StandardOpenOption.READ)) {
             final Iterator<List<Integer>> iterator = new StoredVecsIterator.StoredIVecsIterator(channel);
@@ -438,9 +413,9 @@ class TestHelpers {
      * Recall is computed via {@link #singleQueryRecall} — deduplicated result-set intersection
      * with ground truth.
      *
-     * @param queries pre-loaded query vectors (see {@link #loadSiftQueryVectors})
+     * @param queries pre-loaded query vectors (see {@link #loadQueryVectors})
      * @param groundTruth pre-loaded per-query ground-truth index sets (see
-     *        {@link #loadSiftGroundTruth}); must have the same size as {@code queries}
+     *        {@link #loadGroundTruth}); must have the same size as {@code queries}
      * @param k top-k to retrieve per query
      * @param minMeanRecall floor that the mean recall must meet or exceed
      */
@@ -542,8 +517,7 @@ class TestHelpers {
     /**
      * Brute-force top-{@code k} primary-key indices in {@code active} by squared Euclidean
      * distance to {@code query}. Maintains a max-heap of size {@code k} so the per-query work is
-     * {@code O(|active| * log k)} (and {@code O(|active| * d)} for the dot products); for the
-     * test workloads here that's sub-second on 10k × 128-dim vectors per query.
+     * {@code O(|active| * log k)} (and {@code O(|active| * d)} for the dot products).
      * <p>
      * Returned indices are extracted as {@code (int) primaryKey.getLong(0)}, matching the
      * convention used by {@link #singleQueryRecall} so the two are directly comparable.
@@ -555,35 +529,12 @@ class TestHelpers {
         // Local record so we don't need a top-level helper class.
         record IndexedDistance(double distance, int index) { }
 
-        final PriorityQueue<IndexedDistance> heap = new PriorityQueue<>(Math.max(1, k),
-                Comparator.comparingDouble(IndexedDistance::distance).reversed());
+        final TopK<IndexedDistance> topK = TopK.min(
+                Comparator.comparingDouble(IndexedDistance::distance).thenComparingInt(IndexedDistance::index), k);
         for (final Map.Entry<Tuple, ? extends RealVector> e : active.entrySet()) {
-            final double d = query.l2SquaredDistance(e.getValue());
-            final int idx = (int) e.getKey().getLong(0);
-            if (heap.size() < k) {
-                heap.add(new IndexedDistance(d, idx));
-            } else if (d < Objects.requireNonNull(heap.peek()).distance()) {
-                heap.poll();
-                heap.add(new IndexedDistance(d, idx));
-            }
+            topK.add(new IndexedDistance(query.l2SquaredDistance(e.getValue()), (int) e.getKey().getLong(0)));
         }
-        return heap.stream().map(IndexedDistance::index).collect(ImmutableSet.toImmutableSet());
-    }
-
-    static List<RealVector> readQueryVectors(@Nonnull final String queriesFile) throws IOException {
-        final ImmutableList.Builder<RealVector> resultBuilder = ImmutableList.builder();
-        final Path queryPath = Paths.get(queriesFile);
-
-        try (final FileChannel queryChannel = FileChannel.open(queryPath, StandardOpenOption.READ)) {
-            final Iterator<DoubleRealVector> queryIterator = new StoredVecsIterator.StoredFVecsIterator(queryChannel);
-
-            while (queryIterator.hasNext()) {
-                final DoubleRealVector queryVector = queryIterator.next();
-
-                resultBuilder.add(queryVector);
-            }
-        }
-        return resultBuilder.build();
+        return topK.toSortedList().stream().map(IndexedDistance::index).collect(ImmutableSet.toImmutableSet());
     }
 
     static class TestOnWriteListener implements OnWriteListener {
@@ -807,11 +758,6 @@ class TestHelpers {
             return;
         }
         final Set<VectorId> livePrimaries = snapshot.primaryOwners().keySet();
-        // Use allMatch with an O(1) Set::contains predicate, NOT assertThat(livePrimaries).contains(replicaId) per
-        // replica: AssertJ's iterable contains/containsAll/isSubsetOf all linearly scan the actual (to honor a
-        // possible custom element comparator), so a per-replica contains would be O(replicas * primaries) — which
-        // hangs at SIFT scale. allMatch instead iterates the (smaller) replica set once, applying our own O(1)
-        // hash lookup.
         for (final ClusterView cv : snapshot.clusters().values()) {
             assertThat(cv.replicas())
                     .as("every replica in cluster %s must reference a live primary", cv.clusterId())
@@ -822,7 +768,7 @@ class TestHelpers {
     /**
      * Tolerances (as fractions of the relevant vector population) and the deep-check size gate for the soft
      * replication invariants. The deep, per-vector check (invariant 3) runs only when the structure has at most
-     * {@link #deepCheckMaxVectors} primaries, so large SIFT runs stay fast.
+     * {@link #deepCheckMaxVectors} primaries, so large runs stay fast.
      *
      * @param maxUnderReplicatedFraction max fraction of primaries that may be flagged under-replicated (inv 1)
      * @param minReplicatedFraction min replicas, as a fraction of primaries, the structure must carry — a coarse
@@ -1000,7 +946,7 @@ class TestHelpers {
      * positive {@link ReplicationInvariants#minReplicatedFraction()}). The one deep, per-vector check — invariant 3
      * (wrong primary assignment) — ranks every primary against every cluster via
      * {@link StructureSnapshot#computeAssignmentRanking}, so it runs only when the structure has at most
-     * {@link ReplicationInvariants#deepCheckMaxVectors()} primaries; above that it is skipped (logged) so large SIFT
+     * {@link ReplicationInvariants#deepCheckMaxVectors()} primaries; above that it is skipped (logged) so large
      * runs stay fast while still getting the cheap checks.
      *
      * @param guardiann the structure under test, queried only for its {@link Guardiann#getConfig()}

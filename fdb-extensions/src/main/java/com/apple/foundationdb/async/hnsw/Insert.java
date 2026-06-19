@@ -70,6 +70,7 @@ import static com.apple.foundationdb.async.common.StorageHelpers.deleteAllSample
  * this class directly.
  */
 @API(API.Status.EXPERIMENTAL)
+@SuppressWarnings("PMD.TooManyStaticImports")
 public class Insert {
     @Nonnull
     private static final Logger logger = LoggerFactory.getLogger(Insert.class);

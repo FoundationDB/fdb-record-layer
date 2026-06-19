@@ -60,6 +60,7 @@ import java.util.SplittableRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
+import static com.apple.foundationdb.async.guardiann.SiftTestHelpers.SIFT_1M_BASE_PATH;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
@@ -123,9 +124,6 @@ public class SiftTest implements BaseTest {
     @RegisterExtension
     final TestSubspaceExtension subspaceExtension = new TestSubspaceExtension(dbExtension);
 
-//    @RegisterExtension
-//    final RootLogLevelExtension rootLogLevelExtension = new RootLogLevelExtension(Level.INFO);
-
     @TempDir
     Path tempDir;
 
@@ -167,13 +165,13 @@ public class SiftTest implements BaseTest {
     @Timeout(value = 10, unit = TimeUnit.MINUTES)
     void insertSiftSmall() throws Exception {
         final List<PrimaryKeyAndVector> dataset =
-                TestHelpers.loadVectors(TestHelpers.SIFT_SMALL_BASE_PATH, SAMPLE_SIZE_SMALL);
+                TestHelpers.loadVectors(SiftTestHelpers.SIFT_SMALL_BASE_PATH, SAMPLE_SIZE_SMALL);
         final Guardiann guardiann = newGuardiann();
         insertAndQuiesce(guardiann, dataset);
 
-        final List<DoubleRealVector> queries = loadQueries(TestHelpers.SIFT_SMALL_QUERY_PATH);
+        final List<DoubleRealVector> queries = loadQueries(SiftTestHelpers.SIFT_SMALL_QUERY_PATH);
         final List<Set<Integer>> groundTruth =
-                TestHelpers.loadSiftGroundTruth(TestHelpers.SIFT_SMALL_GROUNDTRUTH_PATH, -1);
+                TestHelpers.loadGroundTruth(SiftTestHelpers.SIFT_SMALL_GROUNDTRUTH_PATH, -1);
         TestHelpers.assertRecallAtKAtLeast(getDb(), guardiann, queries, groundTruth, RECALL_K, MIN_RECALL);
 
         // SIFT-small is dense/overlapping, so the split sub-clusters have borders and must carry replicas; a
@@ -189,14 +187,14 @@ public class SiftTest implements BaseTest {
      */
     @ParameterizedTest(name = "[{index}] seed={0}")
     @RandomSeedSource
-    //@SuperSlow
+    @SuperSlow
     @Timeout(value = 2, unit = TimeUnit.HOURS)
     void insertSiftSubsampledSlow(final long seed) throws Exception {
-        final List<PrimaryKeyAndVector> dataset = TestHelpers.loadSampleFromSift1m(seed, SAMPLE_SIZE_LARGE);
+        final List<PrimaryKeyAndVector> dataset = TestHelpers.loadSample(SIFT_1M_BASE_PATH, seed, SAMPLE_SIZE_LARGE);
         final Guardiann guardiann = newGuardiann();
         insertAndQuiesce(guardiann, dataset);
 
-        final List<DoubleRealVector> queries = loadQueries(TestHelpers.SIFT_1M_QUERY_PATH);
+        final List<DoubleRealVector> queries = loadQueries(SiftTestHelpers.SIFT_1M_QUERY_PATH);
         TestHelpers.assertRecallAtKAtLeastDynamic(getDb(), guardiann, queries, activeMapOf(dataset),
                 RECALL_K, MIN_RECALL);
         // No replica floor yet for the sparse 1M subsample: assertReplicasNotTooFew logs the observed fraction so
@@ -232,8 +230,8 @@ public class SiftTest implements BaseTest {
     @Timeout(value = 10, unit = TimeUnit.MINUTES)
     void insertDeleteAllSiftSmall(final long seed) throws Exception {
         final List<PrimaryKeyAndVector> startup =
-                TestHelpers.loadVectors(TestHelpers.SIFT_SMALL_BASE_PATH, SAMPLE_SIZE_SMALL);
-        final List<DoubleRealVector> queries = loadQueries(TestHelpers.SIFT_SMALL_QUERY_PATH);
+                TestHelpers.loadVectors(SiftTestHelpers.SIFT_SMALL_BASE_PATH, SAMPLE_SIZE_SMALL);
+        final List<DoubleRealVector> queries = loadQueries(SiftTestHelpers.SIFT_SMALL_QUERY_PATH);
         runInsertThenDeleteAll(seed, startup, queries);
     }
 
@@ -242,8 +240,8 @@ public class SiftTest implements BaseTest {
     @SuperSlow
     @Timeout(value = 2, unit = TimeUnit.HOURS)
     void insertDeleteAllSiftSubsampledSlow(final long seed) throws Exception {
-        final List<PrimaryKeyAndVector> startup = TestHelpers.loadSampleFromSift1m(seed, SAMPLE_SIZE_LARGE);
-        final List<DoubleRealVector> queries = loadQueries(TestHelpers.SIFT_1M_QUERY_PATH);
+        final List<PrimaryKeyAndVector> startup = TestHelpers.loadSample(SIFT_1M_BASE_PATH, seed, SAMPLE_SIZE_LARGE);
+        final List<DoubleRealVector> queries = loadQueries(SiftTestHelpers.SIFT_1M_QUERY_PATH);
         runInsertThenDeleteAll(seed, startup, queries);
     }
 
@@ -259,11 +257,11 @@ public class SiftTest implements BaseTest {
     private void runInterleavedInsertDelete(final long seed, final int sampleSize) throws Exception {
         logger.info("seed=0x{} sampling sizeA={}, sizeB={} from SIFT-1M",
                 Long.toHexString(seed), sampleSize, sampleSize);
-        final TestHelpers.Samples samples = TestHelpers.loadDisjointSamplesFromSift1m(seed, sampleSize, sampleSize);
+        final TestHelpers.Samples samples = TestHelpers.loadDisjointSamples(SIFT_1M_BASE_PATH, seed, sampleSize, sampleSize);
         final List<PrimaryKeyAndVector> setA = samples.a();
         final List<PrimaryKeyAndVector> setB = samples.b();
         verifyDisjoint(setA, setB);
-        final List<DoubleRealVector> queries = loadQueries(TestHelpers.SIFT_1M_QUERY_PATH);
+        final List<DoubleRealVector> queries = loadQueries(SiftTestHelpers.SIFT_1M_QUERY_PATH);
 
         final Guardiann guardiann = newGuardiann();
         logger.info("phase1: inserting setA ({} records) ...", setA.size());
@@ -468,7 +466,7 @@ public class SiftTest implements BaseTest {
 
     @Nonnull
     private static List<DoubleRealVector> loadQueries(@Nonnull final String queryPath) throws IOException {
-        final List<DoubleRealVector> all = TestHelpers.loadSiftQueryVectors(queryPath);
+        final List<DoubleRealVector> all = TestHelpers.loadQueryVectors(queryPath);
         return List.copyOf(all.subList(0, Math.min(RECALL_NUM_QUERIES, all.size())));
     }
 

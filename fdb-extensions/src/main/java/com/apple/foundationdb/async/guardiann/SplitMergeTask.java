@@ -640,7 +640,8 @@ public class SplitMergeTask extends AbstractDeferredTask {
                     if (newClusterIds.contains(replicationCandidateClusterMetadata.id())) {
                         final TopK<VectorReference> topK =
                                 replicatedAssignmentTopKMap.computeIfAbsent(replicationCandidateClusterMetadata.id(),
-                                        ignored -> TopK.max(Comparator.comparing(VectorReference::replicationPriority),
+                                        ignored -> TopK.max(Comparator.comparing(VectorReference::replicationPriority)
+                                                .thenComparing(VectorReference::id),
                                                 config.replicatedClusterTarget()));
                         topK.add(newVectorReference);
                     } else {
@@ -1068,7 +1069,8 @@ public class SplitMergeTask extends AbstractDeferredTask {
         final int[] assignment = new int[vectorCount];
         final ImmutableList.Builder<VectorReference> primaryVectorReferencesBuilder =
                 ImmutableList.builder();
-        for (int c = 0, currentIndex = 0; c < currentClusters.size(); c++) {
+        int currentIndex = 0;
+        for (int c = 0; c < currentClusters.size(); c++) {
             final Cluster innerCluster = currentClusters.get(c);
             for (final VectorReference vectorReference : innerCluster.vectorReferences()) {
                 if (vectorReference.isPrimaryCopy()) {

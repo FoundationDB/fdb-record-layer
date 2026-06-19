@@ -176,7 +176,7 @@ public class ReassignScenarioTest implements BaseTest {
         // warmup; we don't track those — the only post-condition that matters here is a
         // quiescent multi-cluster shape to inject into.
         final List<PrimaryKeyAndVector> warmup =
-                TestHelpers.loadVectors(TestHelpers.SIFT_SMALL_BASE_PATH, NUM_WARMUP_INSERTS);
+                TestHelpers.loadVectors(SiftTestHelpers.SIFT_SMALL_BASE_PATH, NUM_WARMUP_INSERTS);
         for (final PrimaryKeyAndVector record : warmup) {
             db.run(tr -> {
                 guardiann.insert(tr, record.getPrimaryKey(), record.getVector(), null).join();

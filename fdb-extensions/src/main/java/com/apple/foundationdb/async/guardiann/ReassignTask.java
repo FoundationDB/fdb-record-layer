@@ -140,6 +140,7 @@ public class ReassignTask extends AbstractDeferredTask {
     }
 
     @Nonnull
+    @Override
     public CompletableFuture<Void> runTask(@Nonnull final Transaction transaction) {
         logStart(logger);
 
@@ -161,14 +162,30 @@ public class ReassignTask extends AbstractDeferredTask {
                         return AsyncUtil.DONE;
                     }
 
-                    return reassign(transaction, clusterMetadata, untransformedCentroid);
+                    return reassign(transaction, clusterMetadata, untransformedCentroid, true);
                 }).thenAccept(ignored -> logSuccessful(logger));
     }
 
+    /**
+     * Reassigns the target cluster's vectors across its neighborhood — re-homing each primary to its nearest
+     * cluster and re-establishing replication. When {@code enqueueFollowUpTasks} is {@code true} (the production
+     * path via {@link #runTask}) it may re-enqueue itself to fetch a missing neighborhood and may enqueue
+     * split/reassign follow-ups for outer clusters that received vectors. When {@code false} (used by controlled
+     * tests that drive reassign directly) it enqueues nothing: it requires a precomputed neighborhood and writes
+     * outer-cluster metadata updates without enqueuing any follow-up tasks.
+     *
+     * @param transaction the transaction
+     * @param targetClusterMetadata the metadata of the cluster being reassigned
+     * @param targetClusterCentroid the cluster's centroid in client (untransformed) space
+     * @param enqueueFollowUpTasks whether to enqueue follow-up deferred tasks (always {@code true} in production)
+     *
+     * @return a future that completes when the reassignment has been persisted
+     */
     @Nonnull
-    private CompletableFuture<Void> reassign(@Nonnull final Transaction transaction,
-                                             @Nonnull final ClusterMetadata targetClusterMetadata,
-                                             @Nonnull final RealVector targetClusterCentroid) {
+    CompletableFuture<Void> reassign(@Nonnull final Transaction transaction,
+                                     @Nonnull final ClusterMetadata targetClusterMetadata,
+                                     @Nonnull final RealVector targetClusterCentroid,
+                                     final boolean enqueueFollowUpTasks) {
         final SplittableRandom random = RandomHelpers.random(getTaskId());
         final Config config = getConfig();
         final Executor executor = getLocator().getExecutor();
@@ -184,6 +201,8 @@ public class ReassignTask extends AbstractDeferredTask {
 
         final List<ClusterReference> neighborhood = getNeighborhood();
         if (neighborhood.isEmpty()) {
+            Verify.verify(enqueueFollowUpTasks,
+                    "reassign with enqueueFollowUpTasks=false requires a precomputed (non-empty) neighborhood");
             return primitives.fetchNeighborhoodClusterMetadata(transaction, targetClusterMetadata,
                             targetClusterCentroid, storageTransform, numNeighborhood)
                     .thenAccept(fetchedNeighborhood -> {
@@ -235,7 +254,7 @@ public class ReassignTask extends AbstractDeferredTask {
                                                 computeTargetClusterDelta(targetCluster, reassignment,
                                                         targetClusterMetadata.id());
                                         persistReassignment(transaction, random, targetClusterMetadata,
-                                                reassignment, delta, quantizer);
+                                                reassignment, delta, quantizer, enqueueFollowUpTasks);
                                     }));
                 });
     }
@@ -290,7 +309,8 @@ public class ReassignTask extends AbstractDeferredTask {
         final ImmutableListMultimap.Builder<UUID, VectorReference> assignmentBuilder =
                 ImmutableListMultimap.builder();
         final TopK<VectorReference> replicatedTopK =
-                TopK.max(Comparator.comparing(VectorReference::replicationPriority),
+                TopK.max(Comparator.comparing(VectorReference::replicationPriority)
+                        .thenComparing(VectorReference::id),
                         config.replicatedClusterTarget());
 
         RunningStats replicationPriorityStandardDeviation = RunningStats.identity();
@@ -406,11 +426,13 @@ public class ReassignTask extends AbstractDeferredTask {
                                      @Nonnull final ClusterMetadata targetClusterMetadata,
                                      @Nonnull final Reassignment reassignment,
                                      @Nonnull final TargetClusterDelta delta,
-                                     @Nonnull final Quantizer quantizer) {
+                                     @Nonnull final Quantizer quantizer,
+                                     final boolean enqueueFollowUpTasks) {
         final WriteCounters counters = countAssignments(targetClusterMetadata, reassignment);
         writeOuterClusterVectors(transaction, quantizer, targetClusterMetadata, reassignment);
         persistTargetClusterDelta(transaction, quantizer, targetClusterMetadata.id(), delta);
-        writeClusterMetadata(transaction, random, targetClusterMetadata, reassignment, counters, delta);
+        writeClusterMetadata(transaction, random, targetClusterMetadata, reassignment, counters, delta,
+                enqueueFollowUpTasks);
     }
 
     @Nonnull
@@ -490,7 +512,8 @@ public class ReassignTask extends AbstractDeferredTask {
                                       @Nonnull final ClusterMetadata targetClusterMetadata,
                                       @Nonnull final Reassignment reassignment,
                                       @Nonnull final WriteCounters counters,
-                                      @Nonnull final TargetClusterDelta delta) {
+                                      @Nonnull final TargetClusterDelta delta,
+                                      final boolean enqueueFollowUpTasks) {
         final Primitives primitives = getLocator().primitives();
         final Map<UUID, ClusterMetadataWithDistance> clusterIdMetadataMap =
                 reassignment.clusterIdMetadataMap();
@@ -515,7 +538,7 @@ public class ReassignTask extends AbstractDeferredTask {
                         clusterMetadata.withNewVectors(0, numReplicatedVectorsAdded,
                                 updatedStandardDeviation, EnumSet.noneOf(ClusterMetadata.State.class));
                 primitives.writeClusterMetadata(transaction, newTargetClusterMetadata);
-            } else {
+            } else if (enqueueFollowUpTasks) {
                 primitives.updateClusterMetadataAndEnqueueSplitOrReassignTaskMaybe(transaction, random, clusterMetadata,
                         clusterMetadataWithDistance.centroid(), getAccessInfo(),
                         numPrimaryVectorsAdded, numPrimaryUnderreplicatedVectorsAdded, numReplicatedVectorsAdded,
@@ -529,6 +552,13 @@ public class ReassignTask extends AbstractDeferredTask {
                             clusterMetadata.numPrimaryUnderreplicatedVectors() + numPrimaryUnderreplicatedVectorsAdded, numPrimaryUnderreplicatedVectorsAdded,
                             clusterMetadata.numReplicatedVectors() + numReplicatedVectorsAdded, numReplicatedVectorsAdded);
                 }
+            } else if (numPrimaryVectorsAdded != 0 || numReplicatedVectorsAdded != 0) {
+                // Controlled-reassign mode (enqueueFollowUpTasks=false): update the outer cluster's metadata but
+                // enqueue no split/reassign follow-up. Mirrors the no-enqueue tail of
+                // Primitives.updateClusterMetadataAndEnqueueReassignTaskMaybe.
+                primitives.writeClusterMetadata(transaction,
+                        clusterMetadata.withAdditionalVectors(numPrimaryUnderreplicatedVectorsAdded,
+                                numReplicatedVectorsAdded, updatedStandardDeviation));
             }
         }
 

@@ -125,7 +125,7 @@ public class Delete {
                                 return primitives.doSomeDeferredTasks(transaction, accessInfo)
                                         .thenCompose(ignored ->
                                                 deleteFromClusters(transaction, random, accessInfo, primaryKey,
-                                                        vectorMetadata.getUuid(), vector));
+                                                        vector));
                             });
                 });
     }
@@ -135,7 +135,6 @@ public class Delete {
                                                        @Nonnull final SplittableRandom random,
                                                        @Nonnull final AccessInfo accessInfo,
                                                        @Nonnull final Tuple primaryKey,
-                                                       @Nonnull final UUID vectorUuid,
                                                        @Nonnull final RealVector vector) {
         final Config config = getConfig();
         final Primitives primitives = primitives();

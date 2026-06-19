@@ -144,7 +144,7 @@ public class MergeScenarioTest implements BaseTest {
     @Test
     void underpopulatedClusterTriggersMerge() throws Exception {
         final List<PrimaryKeyAndVector> baseLoaded =
-                TestHelpers.loadVectors(TestHelpers.SIFT_SMALL_BASE_PATH, 1);
+                TestHelpers.loadVectors(SiftTestHelpers.SIFT_SMALL_BASE_PATH, 1);
         Verify.verify(!baseLoaded.isEmpty(), "SIFT-small must contain at least one vector");
         final DoubleRealVector base = (DoubleRealVector) baseLoaded.get(0).getVector();
 

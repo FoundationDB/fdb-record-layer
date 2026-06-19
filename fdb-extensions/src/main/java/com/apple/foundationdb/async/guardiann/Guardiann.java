@@ -187,11 +187,6 @@ public class Guardiann {
     }
 
     @Nonnull
-    private Primitives primitives() {
-        return getLocator().primitives();
-    }
-
-    @Nonnull
     private Search search() {
         return getLocator().search();
     }

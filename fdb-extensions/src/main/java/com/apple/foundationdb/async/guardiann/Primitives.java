@@ -105,16 +105,6 @@ class Primitives {
     }
 
     /**
-     * Gets the subspace associated with this object.
-     *
-     * @return the non-null subspace
-     */
-    @Nonnull
-    private Subspace getSubspace() {
-        return getLocator().getSubspace();
-    }
-
-    /**
      * Get the executor used by this guardiann.
      * @return executor used when running asynchronous tasks
      */

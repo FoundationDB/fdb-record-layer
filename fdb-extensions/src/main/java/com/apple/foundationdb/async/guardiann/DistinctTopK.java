@@ -28,9 +28,9 @@ import com.google.common.collect.Sets;
 import javax.annotation.Nonnull;
 import java.util.Comparator;
 import java.util.List;
+import java.util.NavigableSet;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.TreeSet;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 
@@ -40,13 +40,13 @@ import static com.apple.foundationdb.async.AsyncUtil.forEachRemaining;
  * A fixed-capacity collector that retains the top {@code k} <em>distinct</em> elements offered, as ordered by a
  * {@link Comparator} (the {@code k} that compare greatest). Duplicate elements are ignored, and once at capacity a
  * new element is kept only if it compares strictly greater than the current worst, which it then evicts. Backed by
- * a {@link TreeSet}, giving {@code O(log k)} {@link #add(Object)}.
+ * a {@link java.util.TreeSet}, giving {@code O(log k)} {@link #add(Object)}.
  *
  * @param <T> the type of element collected
  */
 public class DistinctTopK<T> {
     @Nonnull
-    private final TreeSet<T> set;
+    private final NavigableSet<T> set;
     @SuppressWarnings("checkstyle:MemberName")
     final int k;
 
