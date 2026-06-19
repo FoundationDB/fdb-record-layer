@@ -163,11 +163,12 @@ public final class PlanGenerator {
         final var templateKey = schemaTemplate.getName() + ":" + schemaTemplate.getVersion();
         for (final var storedQuery : schemaTemplate.getStoredQueries().entrySet()) {
             try {
+                final var sql = storedQuery.getValue().getStoredQuery();
                 KeyValueLogMessage message = KeyValueLogMessage.build("PlanStoredQueries");
                 message.addKeyAndValue("schemaTemplate", templateKey);
                 message.addKeyAndValue("storedQueryName", storedQuery.getKey());
-                message.addKeyAndValue("storedQuerySql", storedQuery.getValue());
-                getPlanAndLog(storedQuery.getValue(), message);
+                message.addKeyAndValue("storedQuerySql", sql);
+                getPlanAndLog(sql, message);
             } catch (RelationalException e) {
                 // do nothing here, error is already logged
                 assert e != null;

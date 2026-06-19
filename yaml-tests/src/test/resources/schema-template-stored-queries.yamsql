@@ -26,6 +26,11 @@ schema_template:
     create index i1 as select col1 from t1
     create query by_col1 as select * from t1 where col1 = 1
     create query by_id as select * from t1 where id = 1
+    create query syntax_with_temp_funcs
+        with create temporary function helper1() on commit drop function as select id from t1 where id = 1
+        with create or replace temporary function helper2(in x bigint) on commit drop function as select id from t1 where id = x
+    as
+        select id from t1 where id = 999
 ---
 setup:
   steps:

@@ -55,6 +55,7 @@ import javax.annotation.Nullable;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
@@ -116,7 +117,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
     @Nonnull
     private final Map<String, View> viewMap;
     @Nonnull
-    private final Map<String, String> storedQueries;
+    private final Map<String, RecordMetaData.StoredQuery> storedQueries;
     @Nonnull
     private final Map<String, Index> indexes;
     @Nonnull
@@ -241,7 +242,14 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
             final View view = View.fromProto(viewProto);
             viewMap.put(view.getName(), view);
         }
-        storedQueries.putAll(metaDataProto.getStoredQueriesMap());
+        for (final Map.Entry<String, RecordMetaDataProto.PStoredQuery> entry :
+                metaDataProto.getStoredQueriesMap().entrySet()) {
+            final RecordMetaDataProto.PStoredQuery proto = entry.getValue();
+            final List<String> tempFunctions = proto.getTempFunctionCount() > 0
+                    ? new ArrayList<>(proto.getTempFunctionList())
+                    : Collections.emptyList();
+            storedQueries.put(entry.getKey(), new RecordMetaData.StoredQuery(proto.getStoredQuery(), tempFunctions));
+        }
         if (metaDataProto.hasSplitLongRecords()) {
             splitLongRecords = metaDataProto.getSplitLongRecords();
         }
@@ -1220,12 +1228,12 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
     }
 
     @Nonnull
-    public Map<String, String> getStoredQueries() {
+    public Map<String, RecordMetaData.StoredQuery> getStoredQueries() {
         return storedQueries;
     }
 
-    public void addStoredQuery(@Nonnull String name, @Nonnull String storedQuery) {
-        storedQueries.put(name, storedQuery);
+    public void addStoredQuery(@Nonnull String name, @Nonnull String storedQuery, @Nonnull List<String> tempFunctions) {
+        storedQueries.put(name, new RecordMetaData.StoredQuery(storedQuery, tempFunctions));
     }
 
     public boolean isSplitLongRecords() {

@@ -27,6 +27,7 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metadata.InvokedRoutine;
 import com.apple.foundationdb.relational.api.metadata.Schema;
 import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
+import com.apple.foundationdb.relational.api.metadata.StoredQuery;
 import com.apple.foundationdb.relational.api.metadata.Table;
 
 import com.apple.foundationdb.relational.api.metadata.View;
@@ -143,7 +144,7 @@ public class NoOpSchemaTemplate implements SchemaTemplate {
 
     @Nonnull
     @Override
-    public Map<String, String> getStoredQueries() {
+    public Map<String, StoredQuery> getStoredQueries() {
         return Collections.emptyMap();
     }
 
