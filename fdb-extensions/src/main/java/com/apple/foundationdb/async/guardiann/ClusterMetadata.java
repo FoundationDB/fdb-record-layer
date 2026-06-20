@@ -24,7 +24,6 @@ import com.google.common.base.Preconditions;
 
 import javax.annotation.Nonnull;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.EnumSet;
 import java.util.Map;
 import java.util.Objects;
@@ -92,24 +91,13 @@ record ClusterMetadata(@Nonnull UUID id, int numPrimaryUnderreplicatedVectors, i
                                                  final int numReplicatedVectorsAdded,
                                                  @Nonnull final RunningStats newStandardDeviation) {
         return withAdditionalVectorsAndStates(numPrimaryUnderreplicatedVectorsAdded,
-                numReplicatedVectorsAdded, newStandardDeviation);
+                numReplicatedVectorsAdded, newStandardDeviation, EnumSet.noneOf(State.class));
     }
 
     @Nonnull
     public ClusterMetadata withNewStates(@Nonnull final EnumSet<State> newStates) {
         return new ClusterMetadata(id(), numPrimaryUnderreplicatedVectors(), numReplicatedVectors(),
                 runningStandardDeviation(), newStates);
-    }
-
-    @Nonnull
-    public ClusterMetadata withAdditionalVectorsAndStates(final int numPrimaryUnderreplicatedVectorsAdded,
-                                                          final int numReplicatedVectorsAdded,
-                                                          @Nonnull final RunningStats newStandardDeviation,
-                                                          @Nonnull final State... additionalStates) {
-        final EnumSet<State> newStates = EnumSet.copyOf(states());
-        Collections.addAll(newStates, additionalStates);
-        return withAdditionalVectorsAndStates(numPrimaryUnderreplicatedVectorsAdded,
-                numReplicatedVectorsAdded, newStandardDeviation, newStates);
     }
 
     @Nonnull

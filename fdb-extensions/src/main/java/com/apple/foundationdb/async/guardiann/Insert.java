@@ -180,7 +180,6 @@ public class Insert {
     public CompletableFuture<Void> insert(@Nonnull final Transaction transaction, @Nonnull final Tuple newPrimaryKey,
                                           @Nonnull final RealVector newVector,
                                           @Nullable final Tuple newAdditionalValues) {
-        final Config config = getConfig();
         final SplittableRandom random = RandomHelpers.random(newPrimaryKey);
         final Primitives primitives = primitives();
 
@@ -205,141 +204,159 @@ public class Insert {
                     // do some deferred tasks
                     return primitives.doSomeDeferredTasks(transaction, accessInfo)
                             .thenApply(ignored -> accessInfoAndNodeExistence);
-                }).thenCompose(accessInfoAndNodeExistence -> {
-                    if (accessInfoAndNodeExistence.nodeExists()) {
-                        return AsyncUtil.DONE;
-                    }
+                }).thenCompose(accessInfoAndNodeExistence ->
+                        insertIntoClusters(transaction, random, accessInfoAndNodeExistence,
+                                newPrimaryKey, newVector, newAdditionalValues));
+    }
 
-                    final AccessInfo accessInfo = Objects.requireNonNull(accessInfoAndNodeExistence.accessInfo());
-                    final StorageTransform storageTransform = primitives.storageTransform(accessInfo);
-                    final Transformed<RealVector> transformedNewVector = storageTransform.transform(newVector);
-                    final Quantizer quantizer = primitives.quantizer(accessInfo);
-                    final DistanceEstimator estimator = quantizer.estimator();
+    @Nonnull
+    private CompletableFuture<Void> insertIntoClusters(@Nonnull final Transaction transaction,
+                                                       @Nonnull final SplittableRandom random,
+                                                       @Nonnull final AccessInfoAndNodeExistence accessInfoAndNodeExistence,
+                                                       @Nonnull final Tuple newPrimaryKey,
+                                                       @Nonnull final RealVector newVector,
+                                                       @Nullable final Tuple newAdditionalValues) {
+        if (accessInfoAndNodeExistence.nodeExists()) {
+            return AsyncUtil.DONE;
+        }
 
-                    final AsyncIterable<ResultEntry> clusterCentroidEntriesByDistanceIterable =
-                            MoreAsyncUtil.iterableOf(() ->
-                                    primitives.centroidsOrderedByDistance(transaction, newVector,
-                                            0.0d, null), getExecutor());
+        final Config config = getConfig();
+        final Primitives primitives = primitives();
+        final AccessInfo accessInfo = Objects.requireNonNull(accessInfoAndNodeExistence.accessInfo());
+        final StorageTransform storageTransform = primitives.storageTransform(accessInfo);
+        final Transformed<RealVector> transformedNewVector = storageTransform.transform(newVector);
+        final Quantizer quantizer = primitives.quantizer(accessInfo);
+        final DistanceEstimator estimator = quantizer.estimator();
 
-                    final AsyncIterable<ClusterMetadataWithDistance> clusterMetadataIterable =
-                            mapIterablePipelined(getExecutor(), clusterCentroidEntriesByDistanceIterable,
-                                    resultEntry ->
-                                            StorageAdapter.requireNonNull(primitives.fetchClusterMetadata(transaction,
-                                                            StorageAdapter.clusterIdFromTuple(resultEntry.primaryKey())))
-                                                    .thenApply(clusterMetadata -> {
-                                                        final Transformed<RealVector> transformedCentroid =
-                                                                storageTransform.transform(Objects.requireNonNull(resultEntry.vector()));
-                                                        return new ClusterMetadataWithDistance(clusterMetadata,
-                                                                        transformedCentroid,
-                                                                        resultEntry.distance());
-                                                    }),
-                                    1);
+        final AsyncIterable<ResultEntry> clusterCentroidEntriesByDistanceIterable =
+                MoreAsyncUtil.iterableOf(() ->
+                        primitives.centroidsOrderedByDistance(transaction, newVector,
+                                0.0d, null), getExecutor());
 
-                    final AtomicInteger indexAtomic = new AtomicInteger(0);
-                    final AtomicReference<UUID> primaryClusterIdAtomic = new AtomicReference<>();
-                    final AtomicDouble primaryDistanceAtomic = new AtomicDouble(Double.NaN);
+        final AsyncIterable<ClusterMetadataWithDistance> clusterMetadataIterable =
+                mapIterablePipelined(getExecutor(), clusterCentroidEntriesByDistanceIterable,
+                        resultEntry ->
+                                StorageAdapter.requireNonNull(primitives.fetchClusterMetadata(transaction,
+                                                StorageAdapter.clusterIdFromTuple(resultEntry.primaryKey())))
+                                        .thenApply(clusterMetadata -> {
+                                            final Transformed<RealVector> transformedCentroid =
+                                                    storageTransform.transform(Objects.requireNonNull(resultEntry.vector()));
+                                            return new ClusterMetadataWithDistance(clusterMetadata,
+                                                            transformedCentroid,
+                                                            resultEntry.distance());
+                                        }),
+                        1);
 
-                    final AsyncIterable<ClusterMetadataWithDistance> affectedNeighborhoodIterable =
-                            takeWhileIterable(limitIterable(clusterMetadataIterable, config.insertMaxCandidateClusters(),
-                                            getExecutor()),
-                                    clusterMetadataWithDistance -> {
-                                        final int index = indexAtomic.getAndIncrement();
-                                        final ClusterMetadata clusterMetadata = clusterMetadataWithDistance.clusterMetadata();
-                                        final double distance = clusterMetadataWithDistance.distance();
+        final AtomicInteger indexAtomic = new AtomicInteger(0);
+        final AtomicReference<UUID> primaryClusterIdAtomic = new AtomicReference<>();
+        final AtomicDouble primaryDistanceAtomic = new AtomicDouble(Double.NaN);
 
-                                        if (index == 0) {
-                                            // first and nearest cluster -- always accept
-                                            primaryClusterIdAtomic.set(
-                                                    clusterMetadataWithDistance.clusterMetadata().id());
-                                            primaryDistanceAtomic.set(distance);
-                                            return true;
-                                        }
+        final AsyncIterable<ClusterMetadataWithDistance> affectedNeighborhoodIterable =
+                takeWhileIterable(limitIterable(clusterMetadataIterable, config.insertMaxCandidateClusters(),
+                                getExecutor()),
+                        clusterMetadataWithDistance -> {
+                            final int index = indexAtomic.getAndIncrement();
+                            final ClusterMetadata clusterMetadata = clusterMetadataWithDistance.clusterMetadata();
+                            final double distance = clusterMetadataWithDistance.distance();
 
-                                        final double distanceToPrimaryCentroid = primaryDistanceAtomic.get();
-                                        Verify.verify(Double.isFinite(distanceToPrimaryCentroid));
+                            if (index == 0) {
+                                // first and nearest cluster -- always accept
+                                primaryClusterIdAtomic.set(
+                                        clusterMetadataWithDistance.clusterMetadata().id());
+                                primaryDistanceAtomic.set(distance);
+                                return true;
+                            }
 
-                                        //
-                                        // Distance should be greater than the distance to the primary cluster's
-                                        // centroid. So the fraction on the left should always be greater or equal
-                                        // to 1.0d. The config provides some fuzziness to replicate the new vector
-                                        // into other clusters if it happens to be at the border between two (or more)
-                                        // clusters.
-                                        //
-                                        return StorageAdapter.replicationPriority(config, distance, distanceToPrimaryCentroid,
-                                                clusterMetadata.getNumPrimaryVectors(),
-                                                clusterMetadata.meanDistance(),
-                                                clusterMetadata.standardDeviation()) >= config.replicationPriorityMin();
-                                    }, getExecutor());
+                            final double distanceToPrimaryCentroid = primaryDistanceAtomic.get();
+                            Verify.verify(Double.isFinite(distanceToPrimaryCentroid));
 
-                    final VectorMetadata newVectorMetadata =
-                            new VectorMetadata(newPrimaryKey,
-                                    RandomHelpers.randomUuid(newPrimaryKey, config.deterministicRandomness()),
-                                    newAdditionalValues);
-                    primitives.writeVectorMetadata(transaction, newVectorMetadata);
+                            // Distance should be greater than the distance to the primary cluster's centroid (the
+                            // fraction is >= 1.0); the config adds fuzziness to replicate vectors near cluster borders.
+                            return StorageAdapter.replicationPriority(config, distance, distanceToPrimaryCentroid,
+                                    clusterMetadata.getNumPrimaryVectors(),
+                                    clusterMetadata.meanDistance(),
+                                    clusterMetadata.standardDeviation()) >= config.replicationPriorityMin();
+                        }, getExecutor());
 
-                    final CompletableFuture<Void> updatedNeighborhoodFuture =
-                            AsyncUtil.collect(affectedNeighborhoodIterable, getExecutor())
-                                    .thenAccept(replicationCandidates -> {
-                                        final List<ClusterMetadataWithDistance> selectedReplicationClusters =
-                                                Lists.newArrayListWithExpectedSize(replicationCandidates.size());
+        final VectorMetadata newVectorMetadata =
+                new VectorMetadata(newPrimaryKey,
+                        RandomHelpers.randomUuid(newPrimaryKey, config.deterministicRandomness()),
+                        newAdditionalValues);
+        primitives.writeVectorMetadata(transaction, newVectorMetadata);
 
-                                        for (final ClusterMetadataWithDistance replicationCandidate : replicationCandidates) {
-                                            final ClusterMetadata clusterMetadata = replicationCandidate.clusterMetadata();
-                                            final RunningStats runningStandardDeviation =
-                                                    clusterMetadata.runningStandardDeviation();
-                                            final UUID clusterId = clusterMetadata.id();
-                                            final boolean isPrimaryCluster = clusterId.equals(primaryClusterIdAtomic.get());
+        return AsyncUtil.collect(affectedNeighborhoodIterable, getExecutor())
+                .thenAccept(replicationCandidates ->
+                        writeNeighborhoodReferences(transaction, random, accessInfo, quantizer, estimator,
+                                primaryClusterIdAtomic.get(), primaryDistanceAtomic.get(),
+                                newVectorMetadata, transformedNewVector, replicationCandidates))
+                .thenCompose(ignored ->
+                        addToStatsIfNecessary(transaction, random, accessInfo, transformedNewVector));
+    }
 
-                                            final double distance = replicationCandidate.distance();
-                                            final RunningStats updatedStandardDeviation;
-                                            if (isPrimaryCluster) {
-                                                primitives.writeVectorReference(transaction, quantizer, clusterId,
-                                                        new VectorReference(newVectorMetadata,
-                                                                true, false,
-                                                                false, transformedNewVector,
-                                                                -1.0d));
-                                                updatedStandardDeviation =
-                                                        runningStandardDeviation.add(distance);
-                                            } else {
-                                                final double distanceToPrimaryCentroid = primaryDistanceAtomic.get();
-                                                Verify.verify(Double.isFinite(distanceToPrimaryCentroid));
+    private void writeNeighborhoodReferences(@Nonnull final Transaction transaction,
+                                             @Nonnull final SplittableRandom random,
+                                             @Nonnull final AccessInfo accessInfo,
+                                             @Nonnull final Quantizer quantizer,
+                                             @Nonnull final DistanceEstimator estimator,
+                                             @Nullable final UUID primaryClusterId,
+                                             final double distanceToPrimaryCentroid,
+                                             @Nonnull final VectorMetadata newVectorMetadata,
+                                             @Nonnull final Transformed<RealVector> transformedNewVector,
+                                             @Nonnull final List<ClusterMetadataWithDistance> replicationCandidates) {
+        final Config config = getConfig();
+        final Primitives primitives = primitives();
+        final List<ClusterMetadataWithDistance> selectedReplicationClusters =
+                Lists.newArrayListWithExpectedSize(replicationCandidates.size());
 
-                                                if (StorageAdapter.isOccluded(estimator, replicationCandidate,
-                                                        selectedReplicationClusters)) {
-                                                    continue;
-                                                }
+        for (final ClusterMetadataWithDistance replicationCandidate : replicationCandidates) {
+            final ClusterMetadata clusterMetadata = replicationCandidate.clusterMetadata();
+            final RunningStats runningStandardDeviation = clusterMetadata.runningStandardDeviation();
+            final UUID clusterId = clusterMetadata.id();
+            final boolean isPrimaryCluster = clusterId.equals(primaryClusterId);
 
-                                                final double replicationPriority =
-                                                        StorageAdapter.replicationPriority(config, distance, distanceToPrimaryCentroid,
-                                                                clusterMetadata.getNumPrimaryVectors(),
-                                                                clusterMetadata.meanDistance(),
-                                                                clusterMetadata.standardDeviation());
+            final double distance = replicationCandidate.distance();
+            final RunningStats updatedStandardDeviation;
+            if (isPrimaryCluster) {
+                primitives.writeVectorReference(transaction, quantizer, clusterId,
+                        new VectorReference(newVectorMetadata,
+                                true, false,
+                                false, transformedNewVector,
+                                -1.0d));
+                updatedStandardDeviation =
+                        runningStandardDeviation.add(distance);
+            } else {
+                Verify.verify(Double.isFinite(distanceToPrimaryCentroid));
 
-                                                primitives.writeVectorReference(transaction, quantizer, clusterId,
-                                                        new VectorReference(newVectorMetadata,
-                                                                false, false,
-                                                                false, transformedNewVector,
-                                                                replicationPriority));
-                                                selectedReplicationClusters.add(replicationCandidate);
+                if (StorageAdapter.isOccluded(estimator, replicationCandidate,
+                        selectedReplicationClusters)) {
+                    continue;
+                }
 
-                                                updatedStandardDeviation = runningStandardDeviation;
-                                            }
+                final double replicationPriority =
+                        StorageAdapter.replicationPriority(config, distance, distanceToPrimaryCentroid,
+                                clusterMetadata.getNumPrimaryVectors(),
+                                clusterMetadata.meanDistance(),
+                                clusterMetadata.standardDeviation());
 
-                                            primitives.updateClusterMetadataAndEnqueueSplitOrReassignTaskMaybe(transaction, random,
-                                                    clusterMetadata,
-                                                    replicationCandidate.centroid(), accessInfo,
-                                                    isPrimaryCluster ? 1 : 0,
-                                                    0,
-                                                    isPrimaryCluster ? 0 : 1,
-                                                    updatedStandardDeviation,
-                                                    ImmutableSet.of());
-                                        }
-                                    });
+                primitives.writeVectorReference(transaction, quantizer, clusterId,
+                        new VectorReference(newVectorMetadata,
+                                false, false,
+                                false, transformedNewVector,
+                                replicationPriority));
+                selectedReplicationClusters.add(replicationCandidate);
 
-                    return updatedNeighborhoodFuture
-                            .thenCompose(ignored ->
-                                    addToStatsIfNecessary(transaction, random, accessInfo, transformedNewVector));
-                });
+                updatedStandardDeviation = runningStandardDeviation;
+            }
+
+            primitives.updateClusterMetadataAndEnqueueSplitOrReassignTaskMaybe(transaction, random,
+                    clusterMetadata,
+                    replicationCandidate.centroid(), accessInfo,
+                    isPrimaryCluster ? 1 : 0,
+                    0,
+                    isPrimaryCluster ? 0 : 1,
+                    updatedStandardDeviation,
+                    ImmutableSet.of());
+        }
     }
 
     @Nonnull

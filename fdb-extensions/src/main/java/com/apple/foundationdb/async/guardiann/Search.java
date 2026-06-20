@@ -529,80 +529,100 @@ public class Search {
                                         return new VectorReferenceAndDistance(vectorReference, distance);
                                     });
 
-                    // Expand collapsed references inline: a collapsed reference becomes one entry
-                    // per vector ID behind the signature, all sharing the same distance.
-                    final AsyncIterable<VectorReferenceAndDistance> expandedVectorReferenceAndDistancesIterable =
-                            mapConcatIterable(getExecutor(), vectorReferenceAndDistancesIterable,
-                                    vectorReferenceAndDistance -> {
-                                        final VectorReference vectorReference = vectorReferenceAndDistance.vectorReference();
-                                        if (!vectorReference.isCollapsed()) {
-                                            return MoreAsyncUtil.mapToIterable(vectorReferenceAndDistance,
-                                                    item -> CompletableFuture.completedFuture(vectorReferenceAndDistance));
-                                        }
-                                        final UUID signature = StorageAdapter.signatureUuid(vectorReference.vector());
-                                        return AsyncUtil.mapIterable(
-                                                primitives.fetchCollapsedVectorIdsIterable(readTransaction, signature),
-                                                vectorId -> vectorReferenceAndDistance.withVectorReference(
-                                                        vectorReference.withVectorId(vectorId)));
-                                    }, config.searchConcurrency());
-
-                    final AsyncIterable<VectorReferenceAndDistance> filteredVectorReferenceAndDistancesIterable =
-                            MoreAsyncUtil.filterIterable(getExecutor(), expandedVectorReferenceAndDistancesIterable,
-                                    vectorReferenceAndDistance -> {
-                                        final int distanceComparison = Double.compare(vectorReferenceAndDistance.distance(), minimumRadius);
-                                        if (distanceComparison != 0) {
-                                            return distanceComparison > 0; // keep the ones that are bigger than minimum radius
-                                        }
-                                        if (minimumPrimaryKey == null) {
-                                            return true;
-                                        }
-                                        final int tupleComparison =
-                                                Objects.compare(vectorReferenceAndDistance.vectorReference().id().getPrimaryKey(),
-                                                        minimumPrimaryKey, Comparator.naturalOrder());
-                                        return tupleComparison > 0;
-                                    });
-
-                    final AsyncIterable<VectorReferenceAndDistance> almostSortedVectorReferencesIterable =
-                            almostSortedVectorReferencesIterable(filteredVectorReferenceAndDistancesIterable,
-                                    efSearch, getExecutor());
-
-                    final Map<Tuple, CompletableFuture<VectorMetadata>> primaryKeyToVectorMetadataUuidFutureMap =
-                            Maps.newConcurrentMap();
-                    final AsyncIterable<VectorReferenceAndDistance> filteredByCurrentMetadataIterable =
-                            MoreAsyncUtil.filterIterablePipelined(getExecutor(), almostSortedVectorReferencesIterable,
-                                    vectorReferenceAndDistance -> {
-                                        final VectorId vectorReferenceId =
-                                                vectorReferenceAndDistance.vectorReference().id();
-                                        final CompletableFuture<VectorMetadata> vectorMetadataFuture =
-                                                primaryKeyToVectorMetadataUuidFutureMap.computeIfAbsent(
-                                                        vectorReferenceId.getPrimaryKey(),
-                                                        primaryKey ->
-                                                                primitives.fetchVectorMetadata(readTransaction, primaryKey));
-                                        return vectorMetadataFuture.thenApply(vectorMetadata ->
-                                                vectorMetadata != null
-                                                        && vectorMetadata.getUuid().equals(vectorReferenceId.getUuid()));
-                                    }, config.searchConcurrency());
-
-                    final Set<Tuple> seenPrimaryKeys = Sets.newHashSet();
-                    final AsyncIterable<VectorReferenceAndDistance> dedupedVectorReferenceAndDistancesIterable =
-                            MoreAsyncUtil.filterIterable(getExecutor(), filteredByCurrentMetadataIterable,
-                                    vectorReferenceAndDistance ->
-                                            seenPrimaryKeys.add(vectorReferenceAndDistance.vectorReference()
-                                                    .id().getPrimaryKey()));
-
-                    final CompletableFuture<List<VectorReferenceAndDistance>> nearestKReferencesFuture =
-                            AsyncUtil.collect(
-                                    AsyncUtil.mapIterable(
-                                            MoreAsyncUtil.limitIterable(dedupedVectorReferenceAndDistancesIterable,
-                                                    k, getExecutor()),
-                                            vectorReferenceAndDistance ->
-                                                    new VectorReferenceAndDistance(
-                                                            enrichVectorReference(primaryKeyToVectorMetadataUuidFutureMap,
-                                                                    vectorReferenceAndDistance.vectorReference()),
-                                                            vectorReferenceAndDistance.distance())), getExecutor());
-                    return nearestKReferencesFuture.thenApply(nearestKReferences ->
-                            new SearchResult(accessInfo, storageTransform, nearestKReferences));
+                    return collectNearestKOrderedByDistance(readTransaction, primitives,
+                            vectorReferenceAndDistancesIterable, k, efSearch, minimumRadius, minimumPrimaryKey)
+                            .thenApply(nearestKReferences ->
+                                    new SearchResult(accessInfo, storageTransform, nearestKReferences));
                 });
+    }
+
+    /**
+     * Tail of {@link #searchOrderedByDistance}: from the per-cluster {@link VectorReferenceAndDistance} stream,
+     * expands collapsed references, applies the minimum-radius / minimum-primary-key cutoff, reorders into
+     * (approximate) distance order, drops references whose metadata is stale, de-duplicates by primary key, then
+     * takes the nearest {@code k} and enriches each with its full metadata.
+     */
+    @Nonnull
+    private CompletableFuture<List<VectorReferenceAndDistance>> collectNearestKOrderedByDistance(
+            @Nonnull final ReadTransaction readTransaction,
+            @Nonnull final Primitives primitives,
+            @Nonnull final AsyncIterable<VectorReferenceAndDistance> vectorReferenceAndDistancesIterable,
+            final int k,
+            final int efSearch,
+            final double minimumRadius,
+            @Nullable final Tuple minimumPrimaryKey) {
+        final Config config = getConfig();
+
+        // Expand collapsed references inline: a collapsed reference becomes one entry
+        // per vector ID behind the signature, all sharing the same distance.
+        final AsyncIterable<VectorReferenceAndDistance> expandedVectorReferenceAndDistancesIterable =
+                mapConcatIterable(getExecutor(), vectorReferenceAndDistancesIterable,
+                        vectorReferenceAndDistance -> {
+                            final VectorReference vectorReference = vectorReferenceAndDistance.vectorReference();
+                            if (!vectorReference.isCollapsed()) {
+                                return MoreAsyncUtil.mapToIterable(vectorReferenceAndDistance,
+                                        item -> CompletableFuture.completedFuture(vectorReferenceAndDistance));
+                            }
+                            final UUID signature = StorageAdapter.signatureUuid(vectorReference.vector());
+                            return AsyncUtil.mapIterable(
+                                    primitives.fetchCollapsedVectorIdsIterable(readTransaction, signature),
+                                    vectorId -> vectorReferenceAndDistance.withVectorReference(
+                                            vectorReference.withVectorId(vectorId)));
+                        }, config.searchConcurrency());
+
+        final AsyncIterable<VectorReferenceAndDistance> filteredVectorReferenceAndDistancesIterable =
+                MoreAsyncUtil.filterIterable(getExecutor(), expandedVectorReferenceAndDistancesIterable,
+                        vectorReferenceAndDistance -> {
+                            final int distanceComparison = Double.compare(vectorReferenceAndDistance.distance(), minimumRadius);
+                            if (distanceComparison != 0) {
+                                return distanceComparison > 0; // keep the ones that are bigger than minimum radius
+                            }
+                            if (minimumPrimaryKey == null) {
+                                return true;
+                            }
+                            final int tupleComparison =
+                                    Objects.compare(vectorReferenceAndDistance.vectorReference().id().getPrimaryKey(),
+                                            minimumPrimaryKey, Comparator.naturalOrder());
+                            return tupleComparison > 0;
+                        });
+
+        final AsyncIterable<VectorReferenceAndDistance> almostSortedVectorReferencesIterable =
+                almostSortedVectorReferencesIterable(filteredVectorReferenceAndDistancesIterable,
+                        efSearch, getExecutor());
+
+        final Map<Tuple, CompletableFuture<VectorMetadata>> primaryKeyToVectorMetadataUuidFutureMap =
+                Maps.newConcurrentMap();
+        final AsyncIterable<VectorReferenceAndDistance> filteredByCurrentMetadataIterable =
+                MoreAsyncUtil.filterIterablePipelined(getExecutor(), almostSortedVectorReferencesIterable,
+                        vectorReferenceAndDistance -> {
+                            final VectorId vectorReferenceId =
+                                    vectorReferenceAndDistance.vectorReference().id();
+                            final CompletableFuture<VectorMetadata> vectorMetadataFuture =
+                                    primaryKeyToVectorMetadataUuidFutureMap.computeIfAbsent(
+                                            vectorReferenceId.getPrimaryKey(),
+                                            primaryKey ->
+                                                    primitives.fetchVectorMetadata(readTransaction, primaryKey));
+                            return vectorMetadataFuture.thenApply(vectorMetadata ->
+                                    vectorMetadata != null
+                                            && vectorMetadata.getUuid().equals(vectorReferenceId.getUuid()));
+                        }, config.searchConcurrency());
+
+        final Set<Tuple> seenPrimaryKeys = Sets.newHashSet();
+        final AsyncIterable<VectorReferenceAndDistance> dedupedVectorReferenceAndDistancesIterable =
+                MoreAsyncUtil.filterIterable(getExecutor(), filteredByCurrentMetadataIterable,
+                        vectorReferenceAndDistance ->
+                                seenPrimaryKeys.add(vectorReferenceAndDistance.vectorReference()
+                                        .id().getPrimaryKey()));
+
+        return AsyncUtil.collect(
+                AsyncUtil.mapIterable(
+                        MoreAsyncUtil.limitIterable(dedupedVectorReferenceAndDistancesIterable,
+                                k, getExecutor()),
+                        vectorReferenceAndDistance ->
+                                new VectorReferenceAndDistance(
+                                        enrichVectorReference(primaryKeyToVectorMetadataUuidFutureMap,
+                                                vectorReferenceAndDistance.vectorReference()),
+                                        vectorReferenceAndDistance.distance())), getExecutor());
     }
 
     /**

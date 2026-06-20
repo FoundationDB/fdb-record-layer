@@ -53,6 +53,7 @@ import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -753,7 +754,7 @@ class Primitives {
             final ClusterMetadata newClusterMetadata =
                     clusterMetadata.withAdditionalVectorsAndStates(numPrimaryUnderreplicatedVectorsAdded,
                             numReplicatedVectorsAdded, updatedStandardDeviation,
-                            ClusterMetadata.State.REASSIGN);
+                            EnumSet.of(ClusterMetadata.State.REASSIGN));
             writeClusterMetadata(transaction, newClusterMetadata);
 
             return Optional.of(newTaskId);
@@ -878,7 +879,7 @@ class Primitives {
         final ClusterMetadata newClusterMetadata =
                 clusterMetadata.withAdditionalVectorsAndStates(numPrimaryUnderreplicatedVectorsAdded,
                         numReplicatedVectorsAdded, updatedStandardDeviation,
-                        ClusterMetadata.State.SPLIT_MERGE);
+                        EnumSet.of(ClusterMetadata.State.SPLIT_MERGE));
         writeClusterMetadata(transaction, newClusterMetadata);
 
         return newTaskId;
@@ -951,25 +952,8 @@ class Primitives {
             for (final VectorReference vectorReference : cluster.vectorReferences()) {
                 if (!discardReplicatedVectorReferences || vectorReference.isPrimaryCopy()) {
                     vectorsByUuidMap.compute(vectorReference.id().getUuid(),
-                            (vectorUuid, oldVectorReference) -> {
-                                if (oldVectorReference == null) {
-                                    return vectorReference;
-                                }
-                                if (vectorReference.isPrimaryCopy()) {
-                                    if (oldVectorReference.isPrimaryCopy()) {
-                                        if (logger.isWarnEnabled()) {
-                                            logger.warn("duplicate primary vector references of the same vector reference, vectorReference={}", oldVectorReference);
-                                        }
-                                        return oldVectorReference;
-                                    }
-                                    return vectorReference;
-                                }
-                                // both of them are replicated vector references -- take the one with the higher
-                                // replication priority
-                                return oldVectorReference.replicationPriority() > vectorReference.replicationPriority()
-                                       ? oldVectorReference
-                                       : vectorReference;
-                            });
+                            (vectorUuid, oldVectorReference) ->
+                                    mergeVectorReference(oldVectorReference, vectorReference));
                 }
             }
         }
@@ -993,6 +977,32 @@ class Primitives {
                     }
                     return nonnullReferencesBuilder.build();
                 });
+    }
+
+    /**
+     * Resolves which of two {@link VectorReference}s sharing the same vector UUID to keep when de-duplicating:
+     * prefer a primary over a replica, warn on a duplicate primary, otherwise keep the higher replication priority.
+     */
+    @Nonnull
+    private static VectorReference mergeVectorReference(@Nullable final VectorReference oldVectorReference,
+                                                        @Nonnull final VectorReference vectorReference) {
+        if (oldVectorReference == null) {
+            return vectorReference;
+        }
+        if (vectorReference.isPrimaryCopy()) {
+            if (oldVectorReference.isPrimaryCopy()) {
+                if (logger.isWarnEnabled()) {
+                    logger.warn("duplicate primary vector references of the same vector reference, vectorReference={}", oldVectorReference);
+                }
+                return oldVectorReference;
+            }
+            return vectorReference;
+        }
+        // both of them are replicated vector references -- take the one with the higher
+        // replication priority
+        return oldVectorReference.replicationPriority() > vectorReference.replicationPriority()
+               ? oldVectorReference
+               : vectorReference;
     }
 
     /**

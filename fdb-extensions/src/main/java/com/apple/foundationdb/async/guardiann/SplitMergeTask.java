@@ -226,118 +226,180 @@ public class SplitMergeTask extends AbstractDeferredTask {
 
         final int numNeighborhood = config.splitNeighborhoodSize();
 
+        final CompletableFuture<Void> reenqueue = reenqueueWithFetchedNeighborhoodIfEmpty(
+                transaction, targetClusterMetadata, targetClusterCentroid, random, storageTransform, numNeighborhood);
+        if (reenqueue != null) {
+            return reenqueue;
+        }
         final List<ClusterReference> neighborhood = getNeighborhood();
-        if (neighborhood.isEmpty()) {
-            // if the neighborhoods are not set yet, fetch the neighborhood and write an urgent new task
-            return primitives.fetchNeighborhoodClusterMetadata(transaction, targetClusterMetadata,
-                    targetClusterCentroid, storageTransform, numNeighborhood)
-                    .thenAccept(fetchedNeighborhood -> {
-                        final SplitMergeTask splitMergeTask =
-                                withHighPriorityAndNeighborhood(random,
-                                        ClusterReference.fromClusterMetadataAndDistances(fetchedNeighborhood));
-                        splitMergeTask.writeDeferredTask(transaction);
-                        if (logger.isDebugEnabled()) {
-                            logger.debug("enqueued high priority SPLIT_MERGE due to refetch of the neighborhood; taskId={}; neighborhoodSize={}",
-                                    AbstractDeferredTask.taskIdToString(splitMergeTask.getTaskId()),
-                                    splitMergeTask.getNeighborhood().size());
-                        }
-                    });
-        } else {
+
+        return fetchNeighborhoodMetadata(transaction, neighborhood, executor)
+                .thenCompose(neighborhoodClusterMetadataWithDistances ->
+                        selectSplitCandidate(transaction, random, storageTransform, estimator, numNeighborhood,
+                                targetClusterMetadata, neighborhood, neighborhoodClusterMetadataWithDistances))
+                .thenCompose(repartitioningCandidate ->
+                        applyRepartitioning(transaction, random, storageTransform, quantizer, estimator,
+                                repartitioningCandidate));
+    }
+
+    /**
+     * If the neighborhood has not been precomputed yet, fetches it and re-enqueues this work as a high-priority
+     * task carrying that neighborhood, returning the (non-null) re-enqueue future so the caller can return it as an
+     * early-out. If a precomputed neighborhood is already present, returns {@code null} and the caller proceeds.
+     */
+    @Nullable
+    private CompletableFuture<Void> reenqueueWithFetchedNeighborhoodIfEmpty(@Nonnull final Transaction transaction,
+                                                                            @Nonnull final ClusterMetadata targetClusterMetadata,
+                                                                            @Nonnull final RealVector targetClusterCentroid,
+                                                                            @Nonnull final SplittableRandom random,
+                                                                            @Nonnull final StorageTransform storageTransform,
+                                                                            final int numNeighborhood) {
+        if (!getNeighborhood().isEmpty()) {
             if (logger.isTraceEnabled()) {
                 logger.trace("using precomputed neighborhood; taskId={}; neighborhoodSize={}",
                         taskIdToString(getTaskId()), getNeighborhood().size());
             }
+            return null;
+        }
+        // the neighborhood is not set yet: fetch it and write an urgent new task carrying it
+        return primitives().fetchNeighborhoodClusterMetadata(transaction, targetClusterMetadata,
+                        targetClusterCentroid, storageTransform, numNeighborhood)
+                .thenAccept(fetchedNeighborhood -> {
+                    final SplitMergeTask splitMergeTask =
+                            withHighPriorityAndNeighborhood(random,
+                                    ClusterReference.fromClusterMetadataAndDistances(fetchedNeighborhood));
+                    splitMergeTask.writeDeferredTask(transaction);
+                    if (logger.isDebugEnabled()) {
+                        logger.debug("enqueued high priority SPLIT_MERGE due to refetch of the neighborhood; taskId={}; neighborhoodSize={}",
+                                AbstractDeferredTask.taskIdToString(splitMergeTask.getTaskId()),
+                                splitMergeTask.getNeighborhood().size());
+                    }
+                });
+    }
+
+    @Nonnull
+    private CompletableFuture<List<ClusterMetadataWithDistance>> fetchNeighborhoodMetadata(@Nonnull final Transaction transaction,
+                                                                                           @Nonnull final List<ClusterReference> neighborhood,
+                                                                                           @Nonnull final Executor executor) {
+        return MoreAsyncUtil.forEach(neighborhood,
+                clusterIdAndCentroid -> primitives().fetchClusterMetadataWithDistance(transaction,
+                        clusterIdAndCentroid.clusterId(), clusterIdAndCentroid.centroid(), 0.0d),
+                getConfig().splitMergeConcurrency(), executor);
+    }
+
+    /**
+     * Applies a chosen repartitioning: assigns primaries to the new clusters, replaces the inner-neighborhood
+     * centroids in the HNSW index, and persists the result. A {@code null} candidate (split chose to collapse, or
+     * merge found no mergeable neighbor) is a no-op.
+     */
+    @Nonnull
+    private CompletableFuture<Void> applyRepartitioning(@Nonnull final Transaction transaction,
+                                                        @Nonnull final SplittableRandom random,
+                                                        @Nonnull final StorageTransform storageTransform,
+                                                        @Nonnull final Quantizer quantizer,
+                                                        @Nonnull final DistanceEstimator estimator,
+                                                        @Nullable final RepartitioningCandidate repartitioningCandidate) {
+        if (repartitioningCandidate == null) {
+            return AsyncUtil.DONE;
         }
 
-        return MoreAsyncUtil.forEach(neighborhood,
-                        clusterIdAndCentroid -> primitives.fetchClusterMetadataWithDistance(transaction,
-                                clusterIdAndCentroid.clusterId(), clusterIdAndCentroid.centroid(), 0.0d),
-                        config.splitMergeConcurrency(), executor)
-                .thenCompose(neighborhoodClusterMetadataWithDistances -> {
-                    // Compute two candidate split configurations:
-                    // 1-to-2: split the target into 2 clusters (1 inner + rest outer)
-                    // 2-to-3: split the target and its nearest neighbor into 3 (2 inner + rest outer)
-                    final Neighborhoods neighborhoods1To2 =
-                            neighborhoods(neighborhoodClusterMetadataWithDistances,
-                                    targetClusterMetadata, getCentroid(),
-                                    1, numNeighborhood - 1);
-                    final Neighborhoods neighborhoods2To3 =
-                            neighborhood.size() < 2
-                            ? null
-                            : neighborhoods(neighborhoodClusterMetadataWithDistances,
-                                    targetClusterMetadata, getCentroid(),
-                                    2, numNeighborhood - 2);
+        final Neighborhoods neighborhoods = repartitioningCandidate.neighborhoods();
+        final List<ClusterMetadataWithDistance> innerNeighborhood = neighborhoods.innerNeighborhood();
+        final List<ClusterMetadataWithDistance> outerNeighborhood = neighborhoods.outerNeighborhood();
 
-                    final List<Neighborhoods> allNeighborhoods =
-                            Lists.newArrayList(neighborhoods1To2, neighborhoods2To3);
+        final Repartitioning repartitioning =
+                assignPrimaryVectorReferences(random, estimator, outerNeighborhood,
+                        repartitioningCandidate.primaryVectorReferences(),
+                        repartitioningCandidate.kMeansResult(),
+                        repartitioningCandidate.kMeansResult().clusterCentroids().size());
+        return replaceCentroidsInHnsw(transaction, storageTransform, innerNeighborhood, repartitioning)
+                .thenAccept(ignored ->
+                        persistRepartitioning(transaction, random, innerNeighborhood, repartitioning, quantizer));
+    }
 
-                    return primitives.fetchInnerClusters(transaction,
-                                    largestInnerNeighborhood(neighborhoods1To2, neighborhoods2To3), storageTransform)
-                            .thenCompose(innerClusters -> RandomHelpers.forEach(random, allNeighborhoods,
-                                            (neighborhoods, nestedRandom) -> {
-                                                if (neighborhoods == null) {
-                                                    return CompletableFuture.completedFuture(null);
-                                                }
-                                                final List<ClusterMetadataWithDistance> innerNeighborhood = neighborhoods.innerNeighborhood();
-                                                final List<Cluster> clampedInnerClusters =
-                                                        innerNeighborhood.size() == innerClusters.size()
-                                                        ? innerClusters
-                                                        : innerClusters.subList(0, innerNeighborhood.size());
+    /**
+     * Builds the split repartitioning candidates (1&#8594;2, and 2&#8594;3 when there are at least two clusters),
+     * scores them, and returns the best; returns a future of {@code null} (after enqueueing a collapse when
+     * warranted) when neither candidate is viable.
+     */
+    @Nonnull
+    private CompletableFuture<RepartitioningCandidate> selectSplitCandidate(@Nonnull final Transaction transaction,
+                                                                            @Nonnull final SplittableRandom random,
+                                                                            @Nonnull final StorageTransform storageTransform,
+                                                                            @Nonnull final DistanceEstimator estimator,
+                                                                            final int numNeighborhood,
+                                                                            @Nonnull final ClusterMetadata targetClusterMetadata,
+                                                                            @Nonnull final List<ClusterReference> neighborhood,
+                                                                            @Nonnull final List<ClusterMetadataWithDistance> neighborhoodClusterMetadataWithDistances) {
+        final Config config = getConfig();
+        final Executor executor = getLocator().getExecutor();
+        final Primitives primitives = primitives();
 
-                                                return primitives.cleanUpVectorReferences(transaction, clampedInnerClusters, true)
-                                                        .thenApply(vectorReferences ->
-                                                                kMeans(neighborhoods, vectorReferences, nestedRandom, estimator,
-                                                                        neighborhoods.innerNeighborhood().size() + 1,
-                                                                        config.kMeansMaxIterations(), config.kMeansMaxRestarts()));
-                                            }, config.splitMergeConcurrency(), executor)
-                                    .<RepartitioningCandidate>thenApply(assignmentCandidates -> {
-                                        final Map<RepartitioningCandidate, EvaluationResult> candidateToEvaluationResultMap = Maps.newIdentityHashMap();
-                                        final RepartitioningCandidate split1to2Candidate =
-                                                Objects.requireNonNull(assignmentCandidates.get(0));
-                                        final EvaluationResult evaluationResult1to2 =
-                                                scoreCandidate(estimator, ImmutableList.of(innerClusters.get(0)),
-                                                        split1to2Candidate);
-                                        candidateToEvaluationResultMap.put(split1to2Candidate, evaluationResult1to2);
-                                        final RepartitioningCandidate split2to3Candidate = assignmentCandidates.get(1);
-                                        if (split2to3Candidate != null) {
-                                            Verify.verify(innerClusters.size() > 1);
-                                            final EvaluationResult evaluationResult2to3 =
-                                                    scoreCandidate(estimator, innerClusters,
-                                                            split2to3Candidate);
-                                            candidateToEvaluationResultMap.put(split2to3Candidate, evaluationResult2to3);
-                                        }
-                                        final Optional<RepartitioningCandidate> bestValidCandidateOptional =
-                                                selectBestCandidateMaybe(candidateToEvaluationResultMap);
-                                        if (bestValidCandidateOptional.isEmpty()) {
-                                            if (enqueueCollapseIfNecessary(transaction, random,
-                                                    split1to2Candidate.primaryVectorReferences(),
-                                                    getTargetClusterId(), centroid)) {
-                                                primitives.writeClusterMetadata(transaction,
-                                                        targetClusterMetadata.withNewStates(EnumSet.of(ClusterMetadata.State.COLLAPSE)));
-                                                return null;
-                                            }
-                                        }
-                                        return bestValidCandidateOptional.orElseThrow();
-                                    }))
-                            .thenCompose(repartitioningCandidate -> {
-                                if (repartitioningCandidate == null) {
-                                    return AsyncUtil.DONE;
+        // Compute two candidate split configurations:
+        // 1-to-2: split the target into 2 clusters (1 inner + rest outer)
+        // 2-to-3: split the target and its nearest neighbor into 3 (2 inner + rest outer)
+        final Neighborhoods neighborhoods1To2 =
+                neighborhoods(neighborhoodClusterMetadataWithDistances,
+                        targetClusterMetadata, getCentroid(),
+                        1, numNeighborhood - 1);
+        final Neighborhoods neighborhoods2To3 =
+                neighborhood.size() < 2
+                ? null
+                : neighborhoods(neighborhoodClusterMetadataWithDistances,
+                        targetClusterMetadata, getCentroid(),
+                        2, numNeighborhood - 2);
+
+        final List<Neighborhoods> allNeighborhoods =
+                Lists.newArrayList(neighborhoods1To2, neighborhoods2To3);
+
+        return primitives.fetchInnerClusters(transaction,
+                        largestInnerNeighborhood(neighborhoods1To2, neighborhoods2To3), storageTransform)
+                .thenCompose(innerClusters -> RandomHelpers.forEach(random, allNeighborhoods,
+                                (neighborhoods, nestedRandom) -> {
+                                    if (neighborhoods == null) {
+                                        return CompletableFuture.completedFuture(null);
+                                    }
+                                    final List<ClusterMetadataWithDistance> innerNeighborhood = neighborhoods.innerNeighborhood();
+                                    final List<Cluster> clampedInnerClusters =
+                                            innerNeighborhood.size() == innerClusters.size()
+                                            ? innerClusters
+                                            : innerClusters.subList(0, innerNeighborhood.size());
+
+                                    return primitives.cleanUpVectorReferences(transaction, clampedInnerClusters, true)
+                                            .thenApply(vectorReferences ->
+                                                    kMeans(neighborhoods, vectorReferences, nestedRandom, estimator,
+                                                            neighborhoods.innerNeighborhood().size() + 1,
+                                                            config.kMeansMaxIterations(), config.kMeansMaxRestarts()));
+                                }, config.splitMergeConcurrency(), executor)
+                        .<RepartitioningCandidate>thenApply(assignmentCandidates -> {
+                            final Map<RepartitioningCandidate, EvaluationResult> candidateToEvaluationResultMap = Maps.newIdentityHashMap();
+                            final RepartitioningCandidate split1to2Candidate =
+                                    Objects.requireNonNull(assignmentCandidates.get(0));
+                            final EvaluationResult evaluationResult1to2 =
+                                    scoreCandidate(estimator, ImmutableList.of(innerClusters.get(0)),
+                                            split1to2Candidate);
+                            candidateToEvaluationResultMap.put(split1to2Candidate, evaluationResult1to2);
+                            final RepartitioningCandidate split2to3Candidate = assignmentCandidates.get(1);
+                            if (split2to3Candidate != null) {
+                                Verify.verify(innerClusters.size() > 1);
+                                final EvaluationResult evaluationResult2to3 =
+                                        scoreCandidate(estimator, innerClusters,
+                                                split2to3Candidate);
+                                candidateToEvaluationResultMap.put(split2to3Candidate, evaluationResult2to3);
+                            }
+                            final Optional<RepartitioningCandidate> bestValidCandidateOptional =
+                                    selectBestCandidateMaybe(candidateToEvaluationResultMap);
+                            if (bestValidCandidateOptional.isEmpty()) {
+                                if (enqueueCollapseIfNecessary(transaction, random,
+                                        split1to2Candidate.primaryVectorReferences(),
+                                        getTargetClusterId(), centroid)) {
+                                    primitives.writeClusterMetadata(transaction,
+                                            targetClusterMetadata.withNewStates(EnumSet.of(ClusterMetadata.State.COLLAPSE)));
+                                    return null;
                                 }
-
-                                final Neighborhoods neighborhoods = repartitioningCandidate.neighborhoods();
-                                final List<ClusterMetadataWithDistance> innerNeighborhood = neighborhoods.innerNeighborhood();
-                                final List<ClusterMetadataWithDistance> outerNeighborhood = neighborhoods.outerNeighborhood();
-
-                                final Repartitioning repartitioning =
-                                        assignPrimaryVectorReferences(random, estimator, outerNeighborhood,
-                                                repartitioningCandidate.primaryVectorReferences(),
-                                                repartitioningCandidate.kMeansResult(),
-                                                innerNeighborhood.size() + 1);
-                                return replaceCentroidsInHnsw(transaction, storageTransform, innerNeighborhood, repartitioning)
-                                        .thenAccept(ignored ->
-                                                persistRepartitioning(transaction, random, innerNeighborhood, repartitioning, quantizer));
-                            });
-                });
+                            }
+                            return bestValidCandidateOptional.orElseThrow();
+                        }));
     }
 
     /**
@@ -373,135 +435,125 @@ public class SplitMergeTask extends AbstractDeferredTask {
         final Quantizer quantizer = primitives.quantizer(accessInfo);
         final DistanceEstimator estimator = quantizer.estimator();
 
-        final int numInnerNeighborhood = config.mergeInnerNeighborhoodSize();
-        final int numOuterNeighborhood = config.mergeOuterNeighborhoodSize();
-        final int numNeighborhood = numInnerNeighborhood + numOuterNeighborhood;
+        final int numNeighborhood = config.mergeInnerNeighborhoodSize() + config.mergeOuterNeighborhoodSize();
 
+        final CompletableFuture<Void> reenqueue = reenqueueWithFetchedNeighborhoodIfEmpty(
+                transaction, targetClusterMetadata, targetClusterCentroid, random, storageTransform, numNeighborhood);
+        if (reenqueue != null) {
+            return reenqueue;
+        }
         final List<ClusterReference> neighborhood = getNeighborhood();
-        if (neighborhood.isEmpty()) {
-            return primitives.fetchNeighborhoodClusterMetadata(transaction, targetClusterMetadata,
-                    targetClusterCentroid, storageTransform, numNeighborhood)
-                    .thenAccept(fetchedNeighborhood -> {
-                        final SplitMergeTask splitMergeTask =
-                                withHighPriorityAndNeighborhood(random,
-                                        ClusterReference.fromClusterMetadataAndDistances(fetchedNeighborhood));
-                        splitMergeTask.writeDeferredTask(transaction);
-                        if (logger.isDebugEnabled()) {
-                            logger.debug("enqueued high priority SPLIT_MERGE (merge) due to refetch of the neighborhood; taskId={}; neighborhoodSize={}",
-                                    AbstractDeferredTask.taskIdToString(splitMergeTask.getTaskId()),
-                                    splitMergeTask.getNeighborhood().size());
-                        }
-                    });
-        } else {
-            if (logger.isTraceEnabled()) {
-                logger.trace("using precomputed neighborhood for merge; taskId={}; neighborhoodSize={}",
-                        taskIdToString(getTaskId()), getNeighborhood().size());
+
+        return fetchNeighborhoodMetadata(transaction, neighborhood, executor)
+                .thenCompose(neighborhoodClusterMetadataWithDistances ->
+                        selectMergeCandidate(transaction, random, storageTransform, estimator, numNeighborhood,
+                                targetClusterMetadata, neighborhood, neighborhoodClusterMetadataWithDistances))
+                .thenCompose(repartitioningCandidate ->
+                        applyRepartitioning(transaction, random, storageTransform, quantizer, estimator,
+                                repartitioningCandidate));
+    }
+
+    /**
+     * Builds the merge repartitioning candidates (2&#8594;1, and 3&#8594;2 when there are at least three clusters),
+     * scores them, and returns the best (falling back to the 2&#8594;1 merge); returns a future of {@code null}
+     * (after clearing {@code SPLIT_MERGE}) when there is no mergeable neighbor at all.
+     */
+    @Nonnull
+    private CompletableFuture<RepartitioningCandidate> selectMergeCandidate(@Nonnull final Transaction transaction,
+                                                                            @Nonnull final SplittableRandom random,
+                                                                            @Nonnull final StorageTransform storageTransform,
+                                                                            @Nonnull final DistanceEstimator estimator,
+                                                                            final int numNeighborhood,
+                                                                            @Nonnull final ClusterMetadata targetClusterMetadata,
+                                                                            @Nonnull final List<ClusterReference> neighborhood,
+                                                                            @Nonnull final List<ClusterMetadataWithDistance> neighborhoodClusterMetadataWithDistances) {
+        final Config config = getConfig();
+        final Executor executor = getLocator().getExecutor();
+        final Primitives primitives = primitives();
+
+        // Compute two candidate merge configurations:
+        // 2-to-1: merge the target and its nearest neighbor into 1 cluster (2 inner + rest outer)
+        // 3-to-2: merge 3 nearest clusters into 2 (3 inner + rest outer)
+        final Neighborhoods neighborhoods2To1 =
+                neighborhoods(neighborhoodClusterMetadataWithDistances,
+                        targetClusterMetadata, getCentroid(),
+                        2, numNeighborhood - 2);
+
+        // 2->1 is the required fallback merge. Its inner neighborhood is clamped to the
+        // clusters actually available, so it collapses to just the target (size 1) when
+        // there is no mergeable neighbor — e.g. the target is the last/only cluster, as
+        // happens when a structure is drained toward empty. The delete path normally avoids
+        // enqueuing a merge for a lone cluster (it gates on the centroid index cardinality),
+        // so reaching here means the only neighbor disappeared between enqueue and execution.
+        // No merge is possible at all (k-means would be asked for k == 0), so as a backstop we
+        // clear the SPLIT_MERGE flag (as runTask's false-alarm branch does) and stop.
+        if (neighborhoods2To1.innerNeighborhood().size() < 2) {
+            if (logger.isDebugEnabled()) {
+                logger.debug("skipping merge: no mergeable neighbor for cluster {}; taskId={}",
+                        targetClusterMetadata.id(), taskIdToString(getTaskId()));
             }
+            final EnumSet<ClusterMetadata.State> newStates =
+                    EnumSet.copyOf(targetClusterMetadata.states());
+            newStates.remove(ClusterMetadata.State.SPLIT_MERGE);
+            primitives.writeClusterMetadata(transaction, targetClusterMetadata.withNewStates(newStates));
+            return CompletableFuture.completedFuture(null);
         }
 
-        return MoreAsyncUtil.forEach(neighborhood,
-                        clusterIdAndCentroid -> primitives.fetchClusterMetadataWithDistance(transaction,
-                                clusterIdAndCentroid.clusterId(), clusterIdAndCentroid.centroid(), 0.0d),
-                        config.splitMergeConcurrency(), executor)
-                .thenCompose(neighborhoodClusterMetadataWithDistances -> {
-                    // Compute two candidate merge configurations:
-                    // 2-to-1: merge the target and its nearest neighbor into 1 cluster (2 inner + rest outer)
-                    // 3-to-2: merge 3 nearest clusters into 2 (3 inner + rest outer)
-                    final Neighborhoods neighborhoods2To1 =
-                            neighborhoods(neighborhoodClusterMetadataWithDistances,
-                                    targetClusterMetadata, getCentroid(),
-                                    2, numNeighborhood - 2);
+        final Neighborhoods neighborhoods3To2 =
+                neighborhood.size() < 3
+                ? null
+                : neighborhoods(neighborhoodClusterMetadataWithDistances,
+                        targetClusterMetadata, getCentroid(),
+                        3, numNeighborhood - 3);
 
-                    // 2->1 is the required fallback merge. Its inner neighborhood is clamped to the
-                    // clusters actually available, so it collapses to just the target (size 1) when
-                    // there is no mergeable neighbor — e.g. the target is the last/only cluster, as
-                    // happens when a structure is drained toward empty. The delete path normally avoids
-                    // enqueuing a merge for a lone cluster (it gates on the centroid index cardinality),
-                    // so reaching here means the only neighbor disappeared between enqueue and execution.
-                    // No merge is possible at all (k-means would be asked for k == 0), so as a backstop we
-                    // clear the SPLIT_MERGE flag (as runTask's false-alarm branch does) and stop.
-                    if (neighborhoods2To1.innerNeighborhood().size() < 2) {
-                        if (logger.isDebugEnabled()) {
-                            logger.debug("skipping merge: no mergeable neighbor for cluster {}; taskId={}",
-                                    targetClusterMetadata.id(), taskIdToString(getTaskId()));
-                        }
-                        final EnumSet<ClusterMetadata.State> newStates =
-                                EnumSet.copyOf(targetClusterMetadata.states());
-                        newStates.remove(ClusterMetadata.State.SPLIT_MERGE);
-                        primitives.writeClusterMetadata(transaction, targetClusterMetadata.withNewStates(newStates));
-                        return AsyncUtil.DONE;
-                    }
+        final List<Neighborhoods> allNeighborhoods =
+                Lists.newArrayList(neighborhoods2To1, neighborhoods3To2);
 
-                    final Neighborhoods neighborhoods3To2 =
-                            neighborhood.size() < 3
-                            ? null
-                            : neighborhoods(neighborhoodClusterMetadataWithDistances,
-                                    targetClusterMetadata, getCentroid(),
-                                    3, numNeighborhood - 3);
+        return primitives.fetchInnerClusters(transaction,
+                        largestInnerNeighborhood(neighborhoods2To1, neighborhoods3To2), storageTransform)
+                .thenCompose(innerClusters -> RandomHelpers.forEach(random, allNeighborhoods,
+                                (neighborhoods, nestedRandom) -> {
+                                    // Skip non-viable candidates: a merge needs at least
+                                    // two clusters in the inner neighborhood (k = size - 1
+                                    // must be >= 1). null is a candidate that wasn't built
+                                    // (3->2 when there are fewer than 3 clusters).
+                                    if (neighborhoods == null
+                                            || neighborhoods.innerNeighborhood().size() < 2) {
+                                        return CompletableFuture.completedFuture(null);
+                                    }
+                                    final List<ClusterMetadataWithDistance> innerNeighborhood = neighborhoods.innerNeighborhood();
+                                    final List<Cluster> clampedInnerClusters =
+                                            innerNeighborhood.size() == innerClusters.size()
+                                            ? innerClusters
+                                            : innerClusters.subList(0, innerNeighborhood.size());
 
-                    final List<Neighborhoods> allNeighborhoods =
-                            Lists.newArrayList(neighborhoods2To1, neighborhoods3To2);
-
-                    return primitives.fetchInnerClusters(transaction,
-                                    largestInnerNeighborhood(neighborhoods2To1, neighborhoods3To2), storageTransform)
-                            .thenCompose(innerClusters -> RandomHelpers.forEach(random, allNeighborhoods,
-                                            (neighborhoods, nestedRandom) -> {
-                                                // Skip non-viable candidates: a merge needs at least
-                                                // two clusters in the inner neighborhood (k = size - 1
-                                                // must be >= 1). null is a candidate that wasn't built
-                                                // (3->2 when there are fewer than 3 clusters).
-                                                if (neighborhoods == null
-                                                        || neighborhoods.innerNeighborhood().size() < 2) {
-                                                    return CompletableFuture.completedFuture(null);
-                                                }
-                                                final List<ClusterMetadataWithDistance> innerNeighborhood = neighborhoods.innerNeighborhood();
-                                                final List<Cluster> clampedInnerClusters =
-                                                        innerNeighborhood.size() == innerClusters.size()
-                                                        ? innerClusters
-                                                        : innerClusters.subList(0, innerNeighborhood.size());
-
-                                                return primitives.cleanUpVectorReferences(transaction, clampedInnerClusters, true)
-                                                        .thenApply(vectorReferences ->
-                                                                kMeans(neighborhoods, vectorReferences, nestedRandom, estimator,
-                                                                        neighborhoods.innerNeighborhood().size() - 1,
-                                                                        config.kMeansMaxIterations(), config.kMeansMaxRestarts()));
-                                            }, config.splitMergeConcurrency(), executor)
-                                    .<RepartitioningCandidate>thenApply(mergeCandidates -> {
-                                        final Map<RepartitioningCandidate, EvaluationResult> candidateToEvaluationResultMap = Maps.newIdentityHashMap();
-                                        final RepartitioningCandidate merge2to1Candidate =
-                                                Objects.requireNonNull(mergeCandidates.get(0));
-                                        final EvaluationResult evaluationResult2to1 =
-                                                scoreCandidate(estimator,
-                                                        innerClusters.subList(0, neighborhoods2To1.innerNeighborhood().size()),
-                                                        merge2to1Candidate);
-                                        candidateToEvaluationResultMap.put(merge2to1Candidate, evaluationResult2to1);
-                                        final RepartitioningCandidate merge3to2Candidate = mergeCandidates.get(1);
-                                        if (merge3to2Candidate != null) {
-                                            Verify.verify(innerClusters.size() > 2);
-                                            final EvaluationResult evaluationResult3to2 =
-                                                    scoreCandidate(estimator, innerClusters,
-                                                            merge3to2Candidate);
-                                            candidateToEvaluationResultMap.put(merge3to2Candidate, evaluationResult3to2);
-                                        }
-                                        final Optional<RepartitioningCandidate> bestValidCandidateOptional =
-                                                selectBestCandidateMaybe(candidateToEvaluationResultMap);
-                                        return bestValidCandidateOptional.orElse(merge2to1Candidate);
-                                    }))
-                            .thenCompose(repartitioningCandidate -> {
-                                final Neighborhoods neighborhoods = repartitioningCandidate.neighborhoods();
-                                final List<ClusterMetadataWithDistance> innerNeighborhood = neighborhoods.innerNeighborhood();
-                                final List<ClusterMetadataWithDistance> outerNeighborhood = neighborhoods.outerNeighborhood();
-
-                                final Repartitioning repartitioning =
-                                        assignPrimaryVectorReferences(random, estimator, outerNeighborhood,
-                                                repartitioningCandidate.primaryVectorReferences(),
-                                                repartitioningCandidate.kMeansResult(),
-                                                innerNeighborhood.size() - 1);
-                                return replaceCentroidsInHnsw(transaction, storageTransform, innerNeighborhood, repartitioning)
-                                        .thenAccept(ignored ->
-                                                persistRepartitioning(transaction, random, innerNeighborhood, repartitioning, quantizer));
-                            });
-                });
+                                    return primitives.cleanUpVectorReferences(transaction, clampedInnerClusters, true)
+                                            .thenApply(vectorReferences ->
+                                                    kMeans(neighborhoods, vectorReferences, nestedRandom, estimator,
+                                                            neighborhoods.innerNeighborhood().size() - 1,
+                                                            config.kMeansMaxIterations(), config.kMeansMaxRestarts()));
+                                }, config.splitMergeConcurrency(), executor)
+                        .<RepartitioningCandidate>thenApply(mergeCandidates -> {
+                            final Map<RepartitioningCandidate, EvaluationResult> candidateToEvaluationResultMap = Maps.newIdentityHashMap();
+                            final RepartitioningCandidate merge2to1Candidate =
+                                    Objects.requireNonNull(mergeCandidates.get(0));
+                            final EvaluationResult evaluationResult2to1 =
+                                    scoreCandidate(estimator,
+                                            innerClusters.subList(0, neighborhoods2To1.innerNeighborhood().size()),
+                                            merge2to1Candidate);
+                            candidateToEvaluationResultMap.put(merge2to1Candidate, evaluationResult2to1);
+                            final RepartitioningCandidate merge3to2Candidate = mergeCandidates.get(1);
+                            if (merge3to2Candidate != null) {
+                                Verify.verify(innerClusters.size() > 2);
+                                final EvaluationResult evaluationResult3to2 =
+                                        scoreCandidate(estimator, innerClusters,
+                                                merge3to2Candidate);
+                                candidateToEvaluationResultMap.put(merge3to2Candidate, evaluationResult3to2);
+                            }
+                            final Optional<RepartitioningCandidate> bestValidCandidateOptional =
+                                    selectBestCandidateMaybe(candidateToEvaluationResultMap);
+                            return bestValidCandidateOptional.orElse(merge2to1Candidate);
+                        }));
     }
 
     /**
@@ -581,9 +633,7 @@ public class SplitMergeTask extends AbstractDeferredTask {
                 ImmutableListMultimap.builder();
         final Map<UUID, TopK<VectorReference>> replicatedAssignmentTopKMap = Maps.newHashMap();
 
-        RunningStats replicationPriorityStandardDeviation = RunningStats.identity();
-        int numReplicated = 0;
-        int numOccluded = 0;
+        ReplicationStats stats = ReplicationStats.identity();
         // only considering primary copies here -- this will prune the replicated vectors
         for (final VectorReference vectorReference : primaryVectorReferences) {
             final ImmutableList<ClusterMetadataWithDistance> nearestClusters =
@@ -609,56 +659,28 @@ public class SplitMergeTask extends AbstractDeferredTask {
 
             final ImmutableList<ClusterMetadataWithDistance> replicationCandidates =
                     nearestClusters.subList(1, nearestClusters.size());
-            final List<ClusterMetadataWithDistance> selectedReplicationClusters =
-                    Lists.newArrayListWithExpectedSize(replicationCandidates.size());
-
-            for (final ClusterMetadataWithDistance replicationCandidate : replicationCandidates) {
-                final double distance = replicationCandidate.distance();
-                Verify.verify(Double.isFinite(distance));
-
-                final ClusterMetadata replicationCandidateClusterMetadata = replicationCandidate.clusterMetadata();
-
-                final RunningStats updatedStandardDeviation =
-                        Objects.requireNonNull(
-                                standardDeviationsMap.get(replicationCandidateClusterMetadata.id()));
-
-                final double replicationPriority =
-                        StorageAdapter.replicationPriority(getConfig(), distance, distanceToPrimaryCentroid,
-                                Math.toIntExact(updatedStandardDeviation.numElements()),
-                                updatedStandardDeviation.mean(),
-                                updatedStandardDeviation.populationStandardDeviation());
-                replicationPriorityStandardDeviation = replicationPriorityStandardDeviation.add(replicationPriority);
-
-                if (replicationPriority >= config.replicationPriorityMin()) {
-                    if (StorageAdapter.isOccluded(estimator, replicationCandidate, selectedReplicationClusters)) {
-                        numOccluded ++;
-                        continue;
-                    }
-
-                    final VectorReference newVectorReference =
-                            vectorReference.toReplicatedCopy(replicationPriority);
-                    if (newClusterIds.contains(replicationCandidateClusterMetadata.id())) {
-                        final TopK<VectorReference> topK =
-                                replicatedAssignmentTopKMap.computeIfAbsent(replicationCandidateClusterMetadata.id(),
-                                        ignored -> TopK.max(Comparator.comparing(VectorReference::replicationPriority)
-                                                .thenComparing(VectorReference::id),
-                                                config.replicatedClusterTarget()));
-                        topK.add(newVectorReference);
-                    } else {
-                        assignmentMultimapBuilder.put(replicationCandidateClusterMetadata.id(), newVectorReference);
-                    }
-                    selectedReplicationClusters.add(replicationCandidate);
-                    numReplicated++;
+            final ReplicaSelection selection = selectReplicationAssignments(estimator, vectorReference,
+                    distanceToPrimaryCentroid, replicationCandidates, standardDeviationsMap);
+            for (final Map.Entry<UUID, VectorReference> placement : selection.replicasByCluster().entries()) {
+                final UUID clusterId = placement.getKey();
+                if (newClusterIds.contains(clusterId)) {
+                    replicatedAssignmentTopKMap.computeIfAbsent(clusterId,
+                                    ignored -> TopK.max(Comparator.comparing(VectorReference::replicationPriority)
+                                            .thenComparing(VectorReference::id), config.replicatedClusterTarget()))
+                            .add(placement.getValue());
+                } else {
+                    assignmentMultimapBuilder.put(clusterId, placement.getValue());
                 }
             }
+            stats = stats.combine(selection.stats());
         }
 
         if (logger.isTraceEnabled()) {
             logger.trace("replication priority num={}. mean={}, standard deviation={}, numReplicated={}, numOccluded={}",
-                    replicationPriorityStandardDeviation.numElements(),
-                    replicationPriorityStandardDeviation.mean(),
-                    replicationPriorityStandardDeviation.populationStandardDeviation(),
-                    numReplicated, numOccluded);
+                    stats.replicationPriorityStandardDeviation().numElements(),
+                    stats.replicationPriorityStandardDeviation().mean(),
+                    stats.replicationPriorityStandardDeviation().populationStandardDeviation(),
+                    stats.numReplicated(), stats.numOccluded());
         }
 
         for (final Map.Entry<UUID, TopK<VectorReference>> entry : replicatedAssignmentTopKMap.entrySet()) {
@@ -667,6 +689,59 @@ public class SplitMergeTask extends AbstractDeferredTask {
 
         return new Repartitioning(newClusterIds, clusterIdMetadataMap,
                 assignmentMultimapBuilder.build(), standardDeviationsMap);
+    }
+
+    /**
+     * Selects the replication assignments for a single primary {@code vectorReference}: for each nearby candidate
+     * cluster that should hold a replica, records a replicated copy keyed by that cluster. Pure — returns the
+     * replicas to place together with this primary's contribution to the replication trace counters.
+     */
+    @Nonnull
+    private ReplicaSelection selectReplicationAssignments(@Nonnull final DistanceEstimator estimator,
+                                                          @Nonnull final VectorReference vectorReference,
+                                                          final double distanceToPrimaryCentroid,
+                                                          @Nonnull final List<ClusterMetadataWithDistance> replicationCandidates,
+                                                          @Nonnull final Map<UUID, RunningStats> standardDeviationsMap) {
+        final Config config = getConfig();
+        final List<ClusterMetadataWithDistance> selectedReplicationClusters =
+                Lists.newArrayListWithExpectedSize(replicationCandidates.size());
+        final ImmutableListMultimap.Builder<UUID, VectorReference> replicasByCluster = ImmutableListMultimap.builder();
+
+        RunningStats replicationPriorityStandardDeviation = RunningStats.identity();
+        int numReplicated = 0;
+        int numOccluded = 0;
+
+        for (final ClusterMetadataWithDistance replicationCandidate : replicationCandidates) {
+            final double distance = replicationCandidate.distance();
+            Verify.verify(Double.isFinite(distance));
+
+            final ClusterMetadata replicationCandidateClusterMetadata = replicationCandidate.clusterMetadata();
+
+            final RunningStats updatedStandardDeviation =
+                    Objects.requireNonNull(
+                            standardDeviationsMap.get(replicationCandidateClusterMetadata.id()));
+
+            final double replicationPriority =
+                    StorageAdapter.replicationPriority(config, distance, distanceToPrimaryCentroid,
+                            Math.toIntExact(updatedStandardDeviation.numElements()),
+                            updatedStandardDeviation.mean(),
+                            updatedStandardDeviation.populationStandardDeviation());
+            replicationPriorityStandardDeviation = replicationPriorityStandardDeviation.add(replicationPriority);
+
+            if (replicationPriority >= config.replicationPriorityMin()) {
+                if (StorageAdapter.isOccluded(estimator, replicationCandidate, selectedReplicationClusters)) {
+                    numOccluded++;
+                    continue;
+                }
+
+                replicasByCluster.put(replicationCandidateClusterMetadata.id(),
+                        vectorReference.toReplicatedCopy(replicationPriority));
+                selectedReplicationClusters.add(replicationCandidate);
+                numReplicated++;
+            }
+        }
+        return new ReplicaSelection(replicasByCluster.build(),
+                new ReplicationStats(replicationPriorityStandardDeviation, numReplicated, numOccluded));
     }
 
     /**

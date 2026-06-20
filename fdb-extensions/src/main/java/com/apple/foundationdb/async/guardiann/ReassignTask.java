@@ -313,9 +313,7 @@ public class ReassignTask extends AbstractDeferredTask {
                         .thenComparing(VectorReference::id),
                         config.replicatedClusterTarget());
 
-        RunningStats replicationPriorityStandardDeviation = RunningStats.identity();
-        int numReplicated = 0;
-        int numOccluded = 0;
+        ReplicationStats stats = ReplicationStats.identity();
         for (final VectorReference vectorReference : vectorReferences) {
             if (!vectorReference.isPrimaryCopy()) {
                 replicatedTopK.add(vectorReference);
@@ -344,72 +342,101 @@ public class ReassignTask extends AbstractDeferredTask {
 
             final ImmutableList<ClusterMetadataWithDistance> replicationCandidates =
                     nearestClusters.subList(1, nearestClusters.size());
-            final List<ClusterMetadataWithDistance> selectedReplicationClusters =
-                    Lists.newArrayListWithExpectedSize(replicationCandidates.size());
 
-            for (final ClusterMetadataWithDistance replicationCandidate : replicationCandidates) {
-                final double distance = replicationCandidate.distance();
-                Verify.verify(Double.isFinite(distance));
-
-                final ClusterMetadata replicationCandidateClusterMetadata =
-                        replicationCandidate.clusterMetadata();
-
-                //
-                // The following test is written in a slightly more wordy but (I think) better to understand form.
-                // We need to create a replicated reference in a cluster if we either encounter an underreplicated
-                // primary vector OR if this REASSIGN-task as caused by a SPLIT task, and we need to repopulate its
-                // new cluster's replicated vectors.
-                //
-                if (!(vectorReference.isUnderreplicated() ||
-                              causeClusterIds.contains(replicationCandidateClusterMetadata.id()))) {
-                    continue;
-                }
-
-                final RunningStats updatedStandardDeviation =
-                        Objects.requireNonNull(
-                                standardDeviationsMap.get(replicationCandidateClusterMetadata.id()));
-
-                final double replicationPriority =
-                        StorageAdapter.replicationPriority(getConfig(), distance, distanceToPrimaryCentroid,
-                                Math.toIntExact(updatedStandardDeviation.numElements()),
-                                updatedStandardDeviation.mean(),
-                                updatedStandardDeviation.populationStandardDeviation());
-                replicationPriorityStandardDeviation = replicationPriorityStandardDeviation.add(replicationPriority);
-                if (replicationPriority >= config.replicationPriorityMin()) {
-                    if (StorageAdapter.isOccluded(estimator, replicationCandidate, selectedReplicationClusters)) {
-                        numOccluded++;
-                        continue;
-                    }
-
-                    final VectorReference newVectorReference =
-                            vectorReference.toReplicatedCopy(replicationPriority);
-                    // A replication candidate can never be the target cluster: we only reach this loop when the
-                    // target is the vector's nearest cluster (index 0 of nearestClusters), the candidates are
-                    // nearestClusters.subList(1, ...) which excludes index 0, and each cluster appears at most
-                    // once in that distance-sorted list.
-                    Verify.verify(!targetClusterId.equals(replicationCandidateClusterMetadata.id()),
-                            "a replication candidate must never be the target cluster");
-                    assignmentBuilder.put(
-                            replicationCandidateClusterMetadata.id(),
-                            newVectorReference);
-                    selectedReplicationClusters.add(replicationCandidate);
-                    numReplicated++;
-                }
-            }
+            final ReplicaSelection selection = selectReplicationAssignments(estimator, vectorReference,
+                    distanceToPrimaryCentroid, replicationCandidates, causeClusterIds, targetClusterId,
+                    standardDeviationsMap);
+            assignmentBuilder.putAll(selection.replicasByCluster());
+            stats = stats.combine(selection.stats());
         }
 
         assignmentBuilder.putAll(targetClusterId, replicatedTopK.toUnsortedList());
 
         if (logger.isTraceEnabled()) {
             logger.trace("replication priority num={}. mean={}, standard deviation={}, numReplicated={}, numOccluded={}, lowestReplicationPriority={}",
-                    replicationPriorityStandardDeviation.numElements(),
-                    replicationPriorityStandardDeviation.mean(),
-                    replicationPriorityStandardDeviation.populationStandardDeviation(),
-                    numReplicated, numOccluded, replicatedTopK.worstElement()
+                    stats.replicationPriorityStandardDeviation().numElements(),
+                    stats.replicationPriorityStandardDeviation().mean(),
+                    stats.replicationPriorityStandardDeviation().populationStandardDeviation(),
+                    stats.numReplicated(), stats.numOccluded(), replicatedTopK.worstElement()
                             .map(VectorReference::replicationPriority).orElse(0.0d));
         }
 
         return new Reassignment(clusterIdMetadataMap, assignmentBuilder.build(), standardDeviationsMap);
+    }
+
+    /**
+     * Selects the replication assignments for a single primary {@code vectorReference}: for each nearby candidate
+     * cluster that should hold a replica, records a replicated copy keyed by that cluster. Pure — returns the
+     * replicas to place together with this primary's contribution to the replication trace counters.
+     */
+    @Nonnull
+    private ReplicaSelection selectReplicationAssignments(@Nonnull final DistanceEstimator estimator,
+                                                          @Nonnull final VectorReference vectorReference,
+                                                          final double distanceToPrimaryCentroid,
+                                                          @Nonnull final List<ClusterMetadataWithDistance> replicationCandidates,
+                                                          @Nonnull final Set<UUID> causeClusterIds,
+                                                          @Nonnull final UUID targetClusterId,
+                                                          @Nonnull final Map<UUID, RunningStats> standardDeviationsMap) {
+        final Config config = getConfig();
+        final List<ClusterMetadataWithDistance> selectedReplicationClusters =
+                Lists.newArrayListWithExpectedSize(replicationCandidates.size());
+        final ImmutableListMultimap.Builder<UUID, VectorReference> replicasByCluster = ImmutableListMultimap.builder();
+
+        RunningStats replicationPriorityStandardDeviation = RunningStats.identity();
+        int numReplicated = 0;
+        int numOccluded = 0;
+
+        for (final ClusterMetadataWithDistance replicationCandidate : replicationCandidates) {
+            final double distance = replicationCandidate.distance();
+            Verify.verify(Double.isFinite(distance));
+
+            final ClusterMetadata replicationCandidateClusterMetadata =
+                    replicationCandidate.clusterMetadata();
+
+            //
+            // The following test is written in a slightly more wordy but (I think) better to understand form.
+            // We need to create a replicated reference in a cluster if we either encounter an underreplicated
+            // primary vector OR if this REASSIGN-task as caused by a SPLIT task, and we need to repopulate its
+            // new cluster's replicated vectors.
+            //
+            if (!(vectorReference.isUnderreplicated() ||
+                          causeClusterIds.contains(replicationCandidateClusterMetadata.id()))) {
+                continue;
+            }
+
+            final RunningStats updatedStandardDeviation =
+                    Objects.requireNonNull(
+                            standardDeviationsMap.get(replicationCandidateClusterMetadata.id()));
+
+            final double replicationPriority =
+                    StorageAdapter.replicationPriority(config, distance, distanceToPrimaryCentroid,
+                            Math.toIntExact(updatedStandardDeviation.numElements()),
+                            updatedStandardDeviation.mean(),
+                            updatedStandardDeviation.populationStandardDeviation());
+            replicationPriorityStandardDeviation = replicationPriorityStandardDeviation.add(replicationPriority);
+            if (replicationPriority >= config.replicationPriorityMin()) {
+                if (StorageAdapter.isOccluded(estimator, replicationCandidate, selectedReplicationClusters)) {
+                    numOccluded++;
+                    continue;
+                }
+
+                final VectorReference newVectorReference =
+                        vectorReference.toReplicatedCopy(replicationPriority);
+                // A replication candidate can never be the target cluster: we only reach this loop when the
+                // target is the vector's nearest cluster (index 0 of nearestClusters), the candidates are
+                // nearestClusters.subList(1, ...) which excludes index 0, and each cluster appears at most
+                // once in that distance-sorted list.
+                Verify.verify(!targetClusterId.equals(replicationCandidateClusterMetadata.id()),
+                        "a replication candidate must never be the target cluster");
+                replicasByCluster.put(
+                        replicationCandidateClusterMetadata.id(),
+                        newVectorReference);
+                selectedReplicationClusters.add(replicationCandidate);
+                numReplicated++;
+            }
+        }
+        return new ReplicaSelection(replicasByCluster.build(),
+                new ReplicationStats(replicationPriorityStandardDeviation, numReplicated, numOccluded));
     }
 
     @Nonnull

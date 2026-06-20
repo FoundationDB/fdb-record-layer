@@ -180,27 +180,30 @@ public class MoreAsyncUtil {
             public CompletableFuture<Boolean> onHasNext() {
                 if (nextFuture == null) {
                     if (!done) {
-                        nextFuture = iterator.onHasNext()
-                                .thenApply(hasNext -> {
-                                    if (hasNext) {
-                                        final T potentiallyNextItem = iterator.next();
-                                        if (whilePredicate.test(potentiallyNextItem)) {
-                                            next = potentiallyNextItem;
-                                            return true;
-                                        } else {
-                                            done = true;
-                                            return false;
-                                        }
-                                    } else {
-                                        done = true;
-                                        return false;
-                                    }
-                                });
+                        nextFuture = iterator.onHasNext().thenApply(this::advanceIfMatches);
                     } else {
                         nextFuture = AsyncUtil.READY_FALSE;
                     }
                 }
                 return nextFuture;
+            }
+
+            /**
+             * Maps the inner iterator's {@code onHasNext} result: when there is a next item that still satisfies the
+             * predicate, stashes it and reports {@code true}; otherwise marks the stream done and reports {@code false}.
+             */
+            private boolean advanceIfMatches(final boolean hasNext) {
+                if (!hasNext) {
+                    done = true;
+                    return false;
+                }
+                final T potentiallyNextItem = iterator.next();
+                if (whilePredicate.test(potentiallyNextItem)) {
+                    next = potentiallyNextItem;
+                    return true;
+                }
+                done = true;
+                return false;
             }
 
             @Override
