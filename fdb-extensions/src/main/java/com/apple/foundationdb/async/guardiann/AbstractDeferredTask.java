@@ -166,7 +166,7 @@ public abstract class AbstractDeferredTask {
                 CollapseTask.collapsibleVectorsCountersMap(primaryVectorReferences);
         final int maximumNumberCollapsibleVectorsPerDuplicate =
                 CollapseTask.maxDuplicateCount(collapsibleVectorsCountersMap);
-        if (maximumNumberCollapsibleVectorsPerDuplicate > 10) {
+        if (maximumNumberCollapsibleVectorsPerDuplicate > config.collapseMinDuplicates()) {
             final UUID collapseTaskId = AbstractDeferredTask.randomHighPriorityTaskId(random,
                     config.deterministicRandomness());
             final CollapseTask collapseTask =
@@ -268,7 +268,8 @@ public abstract class AbstractDeferredTask {
     /**
      * Computes the diff between the old cluster contents and the new assigned vectors. Vectors present
      * in both old and new are checked for status changes (primary/replicated/underreplicated toggling);
-     * vectors only in the old cluster are marked for deletion.
+     * vectors only in the old cluster are marked for deletion; assignments whose primary key was not in the
+     * old cluster (e.g. a freshly created collapsed reference) are insertions and are added to the write list.
      *
      * @param targetCluster the cluster as it currently exists
      * @param newAssignments the new vector references that should be in the cluster
@@ -286,8 +287,10 @@ public abstract class AbstractDeferredTask {
         final ImmutableList.Builder<Tuple> toDeleteBuilder = ImmutableList.builder();
         final ImmutableList.Builder<VectorReference> toWriteBuilder = ImmutableList.builder();
 
+        final ImmutableSet.Builder<Tuple> oldPrimaryKeysBuilder = ImmutableSet.builder();
         for (final VectorReference vectorReference : targetCluster.vectorReferences()) {
             final Tuple primaryKey = vectorReference.id().getPrimaryKey();
+            oldPrimaryKeysBuilder.add(primaryKey);
             final VectorReference assignedVectorReference = assignedByPrimaryKey.get(primaryKey);
 
             if (assignedVectorReference != null) {
@@ -300,6 +303,15 @@ public abstract class AbstractDeferredTask {
                 }
             } else {
                 toDeleteBuilder.add(primaryKey);
+            }
+        }
+
+        // Insertions: assignments whose primary key was not previously in the cluster (e.g. a freshly created
+        // collapsed reference) must be written; the loop above only visits keys that already existed.
+        final ImmutableSet<Tuple> oldPrimaryKeys = oldPrimaryKeysBuilder.build();
+        for (final Map.Entry<Tuple, VectorReference> entry : assignedByPrimaryKey.entrySet()) {
+            if (!oldPrimaryKeys.contains(entry.getKey())) {
+                toWriteBuilder.add(entry.getValue());
             }
         }
 

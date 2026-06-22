@@ -442,15 +442,6 @@ class Primitives {
                 });
     }
 
-    void writeVectorReferences(@Nonnull final Transaction transaction,
-                               @Nonnull final Quantizer quantizer,
-                               @Nonnull final UUID clusterId,
-                               @Nonnull final Iterable<VectorReference> vectorReferences) {
-        for (final VectorReference vectorReference : vectorReferences) {
-            writeVectorReference(transaction, quantizer, clusterId, vectorReference);
-        }
-    }
-
     void writeVectorReference(@Nonnull final Transaction transaction,
                               @Nonnull final Quantizer quantizer,
                               @Nonnull final UUID clusterId,
@@ -503,6 +494,34 @@ class Primitives {
                     final byte[] keyBytes = keyValue.getKey();
                     final byte[] valueBytes = keyValue.getValue();
                     getOnReadListener().onKeyValueRead(keyBytes, valueBytes);
+                    return StorageAdapter.collapsedVectorIdFromValueTuple(primaryKey, Tuple.fromBytes(valueBytes));
+                });
+    }
+
+    /**
+     * Point-fetches the collapsed-store entry for a single {@code (signature, primaryKey)}, returning the stored
+     * {@link VectorId} (the primary key plus the collapsed member's uuid) or {@code null} when that vector is not
+     * part of a collapsed set. Cheaper than {@link #fetchCollapsedVectorIds} when only one membership needs to be
+     * checked, as a collapsed set can hold a large number of members.
+     *
+     * @param readTransaction the read transaction
+     * @param signature the content signature shared by the collapsed members
+     * @param primaryKey the primary key whose membership is being checked
+     * @return a future of the stored {@link VectorId}, or {@code null} if there is no such collapsed entry
+     */
+    @Nonnull
+    CompletableFuture<VectorId> fetchCollapsedVectorId(@Nonnull final ReadTransaction readTransaction,
+                                                       @Nonnull final UUID signature,
+                                                       @Nonnull final Tuple primaryKey) {
+        final Subspace collapsedVectorIdsSubspace = getCollapsedVectorIdsSubspace();
+        final byte[] key = collapsedVectorIdsSubspace.pack(Tuple.from(signature, primaryKey));
+
+        return readTransaction.get(key)
+                .thenApply(valueBytes -> {
+                    getOnReadListener().onKeyValueRead(key, valueBytes);
+                    if (valueBytes == null) {
+                        return null; // not part of a collapsed set
+                    }
                     return StorageAdapter.collapsedVectorIdFromValueTuple(primaryKey, Tuple.fromBytes(valueBytes));
                 });
     }

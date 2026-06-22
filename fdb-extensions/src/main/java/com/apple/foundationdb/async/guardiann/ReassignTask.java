@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.async.guardiann;
 
+import com.apple.foundationdb.ReadTransaction;
 import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.MoreAsyncUtil;
@@ -44,11 +45,13 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.Comparator;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.PriorityQueue;
 import java.util.Set;
 import java.util.SplittableRandom;
 import java.util.UUID;
@@ -199,28 +202,13 @@ public class ReassignTask extends AbstractDeferredTask {
         final int numOuterNeighborhood = config.reassignOuterNeighborhoodSize();
         final int numNeighborhood = numInnerNeighborhood + numOuterNeighborhood;
 
-        final List<ClusterReference> neighborhood = getNeighborhood();
-        if (neighborhood.isEmpty()) {
-            Verify.verify(enqueueFollowUpTasks,
-                    "reassign with enqueueFollowUpTasks=false requires a precomputed (non-empty) neighborhood");
-            return primitives.fetchNeighborhoodClusterMetadata(transaction, targetClusterMetadata,
-                            targetClusterCentroid, storageTransform, numNeighborhood)
-                    .thenAccept(fetchedNeighborhood -> {
-                        final ReassignTask reassignTask = withHighPriorityAndNeighborhood(random,
-                                ClusterReference.fromClusterMetadataAndDistances(fetchedNeighborhood));
-                        reassignTask.writeDeferredTask(transaction);
-                        if (logger.isDebugEnabled()) {
-                            logger.debug("enqueuing high priority REASSIGN due to refetch of neighborhood; taskId={}; neighborhoodSize={}",
-                                    AbstractDeferredTask.taskIdToString(reassignTask.getTaskId()),
-                                    reassignTask.getNeighborhood().size());
-                        }
-                    });
-        } else {
-            if (logger.isTraceEnabled()) {
-                logger.trace("using precomputed neighborhood; taskId={}; neighborhoodSize={}",
-                        taskIdToString(getTaskId()), getNeighborhood().size());
-            }
+        final CompletableFuture<Void> reenqueue = reenqueueWithFetchedNeighborhoodIfEmpty(
+                transaction, targetClusterMetadata, targetClusterCentroid, random, storageTransform,
+                numNeighborhood, enqueueFollowUpTasks);
+        if (reenqueue != null) {
+            return reenqueue;
         }
+        final List<ClusterReference> neighborhood = getNeighborhood();
 
         return MoreAsyncUtil.forEach(neighborhood,
                         clusterIdAndCentroid -> primitives.fetchClusterMetadataWithDistance(transaction,
@@ -245,17 +233,59 @@ public class ReassignTask extends AbstractDeferredTask {
                     return primitives.fetchInnerClusters(transaction, innerNeighborhood, storageTransform)
                             .thenCompose(innerClusters -> primitives.cleanUpVectorReferences(transaction,
                                             innerClusters, false)
-                                    .thenAccept(cleanedUpVectorReferences -> {
-                                        final Reassignment reassignment =
+                                    .thenCompose(cleanedUpVectorReferences -> {
+                                        final Reassignment partialReassignment =
                                                 reassignVectorReferences(estimator, Iterables.getOnlyElement(innerNeighborhood),
                                                         outerNeighborhood, cleanedUpVectorReferences);
                                         final Cluster targetCluster = Iterables.getOnlyElement(innerClusters);
-                                        final TargetClusterDelta delta =
-                                                computeTargetClusterDelta(targetCluster, reassignment,
-                                                        targetClusterMetadata.id());
-                                        persistReassignment(transaction, random, targetClusterMetadata,
-                                                reassignment, delta, quantizer, enqueueFollowUpTasks);
+                                        return foldCollapsedReplicas(transaction, partialReassignment,
+                                                        targetClusterMetadata.id(), config.replicatedClusterTarget())
+                                                .thenAccept(reassignment -> {
+                                                    final TargetClusterDelta delta =
+                                                            computeTargetClusterDelta(targetCluster, reassignment,
+                                                                    targetClusterMetadata.id());
+                                                    persistReassignment(transaction, random, targetClusterMetadata,
+                                                            reassignment, delta, quantizer, enqueueFollowUpTasks);
+                                                });
                                     }));
+                });
+    }
+
+    /**
+     * If the neighborhood has not been precomputed yet, fetches it and re-enqueues this work as a high-priority
+     * REASSIGN carrying that neighborhood, returning the (non-null) re-enqueue future so the caller can return it as
+     * an early-out. If a precomputed neighborhood is already present, returns {@code null} and the caller proceeds.
+     * Requires {@code enqueueFollowUpTasks}: the test-only direct-drive path ({@code false}) must supply a
+     * precomputed neighborhood rather than re-enqueue.
+     */
+    @Nullable
+    private CompletableFuture<Void> reenqueueWithFetchedNeighborhoodIfEmpty(@Nonnull final Transaction transaction,
+                                                                            @Nonnull final ClusterMetadata targetClusterMetadata,
+                                                                            @Nonnull final RealVector targetClusterCentroid,
+                                                                            @Nonnull final SplittableRandom random,
+                                                                            @Nonnull final StorageTransform storageTransform,
+                                                                            final int numNeighborhood,
+                                                                            final boolean enqueueFollowUpTasks) {
+        if (!getNeighborhood().isEmpty()) {
+            if (logger.isTraceEnabled()) {
+                logger.trace("using precomputed neighborhood; taskId={}; neighborhoodSize={}",
+                        taskIdToString(getTaskId()), getNeighborhood().size());
+            }
+            return null;
+        }
+        Verify.verify(enqueueFollowUpTasks,
+                "reassign with enqueueFollowUpTasks=false requires a precomputed (non-empty) neighborhood");
+        return primitives().fetchNeighborhoodClusterMetadata(transaction, targetClusterMetadata,
+                        targetClusterCentroid, storageTransform, numNeighborhood)
+                .thenAccept(fetchedNeighborhood -> {
+                    final ReassignTask reassignTask = withHighPriorityAndNeighborhood(random,
+                            ClusterReference.fromClusterMetadataAndDistances(fetchedNeighborhood));
+                    reassignTask.writeDeferredTask(transaction);
+                    if (logger.isDebugEnabled()) {
+                        logger.debug("enqueuing high priority REASSIGN due to refetch of neighborhood; taskId={}; neighborhoodSize={}",
+                                AbstractDeferredTask.taskIdToString(reassignTask.getTaskId()),
+                                reassignTask.getNeighborhood().size());
+                    }
                 });
     }
 
@@ -264,8 +294,6 @@ public class ReassignTask extends AbstractDeferredTask {
                                                   @Nonnull final ClusterMetadataWithDistance targetClusterMetadataWithDistance,
                                                   @Nonnull final List<ClusterMetadataWithDistance> outerNeighborhood,
                                                   @Nonnull final List<VectorReference> vectorReferences) {
-        final Config config = getConfig();
-
         final ImmutableMap.Builder<UUID, ClusterMetadataWithDistance> clusterIdMetadataMapBuilder =
                 ImmutableMap.builder();
 
@@ -308,15 +336,21 @@ public class ReassignTask extends AbstractDeferredTask {
 
         final ImmutableListMultimap.Builder<UUID, VectorReference> assignmentBuilder =
                 ImmutableListMultimap.builder();
-        final TopK<VectorReference> replicatedTopK =
-                TopK.max(Comparator.comparing(VectorReference::replicationPriority)
-                        .thenComparing(VectorReference::id),
-                        config.replicatedClusterTarget());
+        //
+        // Collect the target cluster's replicated references into a priority queue ordered by replication priority,
+        // highest first. It is intentionally unbounded; the top-k cutoff plus the collapse-fold/dedup happens later,
+        // asynchronously, in foldCollapsedReplicas (it issues collapsed-store reads, which this synchronous method
+        // must not). We return the drained, ordered (but unprocessed) references on the Reassignment.
+        //
+        final PriorityQueue<VectorReference> replicaQueue =
+                new PriorityQueue<>(Comparator.comparing(VectorReference::replicationPriority)
+                        .thenComparing(VectorReference::id)
+                        .reversed());
 
         ReplicationStats stats = ReplicationStats.identity();
         for (final VectorReference vectorReference : vectorReferences) {
             if (!vectorReference.isPrimaryCopy()) {
-                replicatedTopK.add(vectorReference);
+                replicaQueue.add(vectorReference);
                 continue;
             }
 
@@ -350,18 +384,93 @@ public class ReassignTask extends AbstractDeferredTask {
             stats = stats.combine(selection.stats());
         }
 
-        assignmentBuilder.putAll(targetClusterId, replicatedTopK.toUnsortedList());
-
         if (logger.isTraceEnabled()) {
-            logger.trace("replication priority num={}. mean={}, standard deviation={}, numReplicated={}, numOccluded={}, lowestReplicationPriority={}",
+            logger.trace("replication priority num={}. mean={}, standard deviation={}, numReplicated={}, numOccluded={}",
                     stats.replicationPriorityStandardDeviation().numElements(),
                     stats.replicationPriorityStandardDeviation().mean(),
                     stats.replicationPriorityStandardDeviation().populationStandardDeviation(),
-                    stats.numReplicated(), stats.numOccluded(), replicatedTopK.worstElement()
-                            .map(VectorReference::replicationPriority).orElse(0.0d));
+                    stats.numReplicated(), stats.numOccluded());
         }
 
-        return new Reassignment(clusterIdMetadataMap, assignmentBuilder.build(), standardDeviationsMap);
+        //
+        // Drain the queue into an ordered list (highest priority first). The collapse-fold/dedup and the final
+        // top-k cutoff are applied by foldCollapsedReplicas, which the caller runs before persisting.
+        //
+        final ImmutableList.Builder<VectorReference> orderedReplicatedReferencesBuilder = ImmutableList.builder();
+        while (!replicaQueue.isEmpty()) {
+            orderedReplicatedReferencesBuilder.add(replicaQueue.poll());
+        }
+
+        return new Reassignment(clusterIdMetadataMap, assignmentBuilder.build(), standardDeviationsMap,
+                orderedReplicatedReferencesBuilder.build());
+    }
+
+    /**
+     * Folds the target cluster's collapsed replicas and applies the top-k cutoff. Walks {@code reassignment}'s
+     * ordered (highest-priority-first) replicated references and, for each one whose primary has since been folded
+     * into a collapsed set (a per-replica point lookup in the collapsed store), replaces it with a single reference
+     * to the collapsed area; a later replica that resolves to the same collapsed area is dropped. Because the list is
+     * in descending priority, a collapsed area inherits the highest priority among its members, and duplicates are
+     * recognised by their (synchronously computed) signature without an extra read. Walking stops once {@code k}
+     * references are kept, so the low-priority tail is never read. Returns a {@link Reassignment} whose
+     * {@code assignmentMultimap} additionally holds the kept references under {@code targetClusterId}.
+     *
+     * @param readTransaction the read transaction
+     * @param reassignment the synchronous reassignment, carrying the ordered, unprocessed replicated references
+     * @param targetClusterId the cluster the kept references are assigned to
+     * @param k the maximum number of references to keep
+     * @return a future of the finalized reassignment
+     */
+    @Nonnull
+    private CompletableFuture<Reassignment> foldCollapsedReplicas(@Nonnull final ReadTransaction readTransaction,
+                                                                  @Nonnull final Reassignment reassignment,
+                                                                  @Nonnull final UUID targetClusterId,
+                                                                  final int k) {
+        final Primitives primitives = getLocator().primitives();
+        final Executor executor = getLocator().getExecutor();
+        final List<VectorReference> orderedReplicatedReferences = reassignment.orderedReplicatedReferences();
+        final List<VectorReference> keptReplicas = Lists.newArrayList();
+        final Map<UUID, VectorReference> collapsedReplicasBySignature = Maps.newHashMap();
+
+        return MoreAsyncUtil.<Void>forLoop(0, null,
+                        i -> i < orderedReplicatedReferences.size() && keptReplicas.size() < k,
+                        i -> i + 1,
+                        (i, ignored) -> {
+                            final VectorReference replica = orderedReplicatedReferences.get(i);
+                            final UUID signature = StorageAdapter.signatureUuid(replica.vector());
+                            if (collapsedReplicasBySignature.containsKey(signature)) {
+                                // already represented by a collapsed-area reference we kept: this is a duplicate, drop it
+                                return AsyncUtil.DONE;
+                            }
+                            return primitives.fetchCollapsedVectorId(readTransaction, signature,
+                                            replica.id().getPrimaryKey())
+                                    .thenAccept(storedVectorId -> {
+                                        if (storedVectorId == null) {
+                                            keptReplicas.add(replica);
+                                        } else {
+                                            // The replica's primary has since been folded into a collapsed set.
+                                            // cleanUpVectorReferences has already removed stale references, so the
+                                            // stored id must equal this replica's id.
+                                            Verify.verify(storedVectorId.equals(replica.id()),
+                                                    "collapsed-store entry %s does not match replica %s",
+                                                    storedVectorId, replica.id());
+                                            final VectorReference collapsedReplica =
+                                                    replica.toCollapsed(signature, signature);
+                                            collapsedReplicasBySignature.put(signature, collapsedReplica);
+                                            keptReplicas.add(collapsedReplica);
+                                        }
+                                    });
+                        },
+                        executor)
+                .thenApply(ignored -> {
+                    final ImmutableListMultimap<UUID, VectorReference> assignmentMultimap =
+                            ImmutableListMultimap.<UUID, VectorReference>builder()
+                                    .putAll(reassignment.assignmentMultimap())
+                                    .putAll(targetClusterId, keptReplicas)
+                                    .build();
+                    return new Reassignment(reassignment.clusterIdMetadataMap(), assignmentMultimap,
+                            reassignment.updatedStandardDeviationsMap(), ImmutableList.of());
+                });
     }
 
     /**
@@ -654,10 +763,14 @@ public class ReassignTask extends AbstractDeferredTask {
      * @param clusterIdMetadataMap a map from cluster id to that cluster's metadata (with distance)
      * @param assignmentMultimap the new assignments of vectors to clusters
      * @param updatedStandardDeviationsMap a map from cluster id to its updated running distance statistics
+     * @param orderedReplicatedReferences the target cluster's replicated references, ordered by descending
+     *        replication priority but not yet top-k-truncated, deduplicated, or collapse-folded; consumed by
+     *        {@link #foldCollapsedReplicas}
      */
     private record Reassignment(@Nonnull Map<UUID, ClusterMetadataWithDistance> clusterIdMetadataMap,
                                 @Nonnull ListMultimap<UUID, VectorReference> assignmentMultimap,
-                                @Nonnull Map<UUID, RunningStats> updatedStandardDeviationsMap) {
+                                @Nonnull Map<UUID, RunningStats> updatedStandardDeviationsMap,
+                                @Nonnull List<VectorReference> orderedReplicatedReferences) {
     }
 
     /**

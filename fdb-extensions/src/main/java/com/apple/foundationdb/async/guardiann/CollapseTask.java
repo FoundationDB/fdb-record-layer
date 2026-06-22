@@ -33,7 +33,6 @@ import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Iterables;
@@ -156,7 +155,8 @@ public class CollapseTask extends AbstractDeferredTask {
                             computeCollapseAssignments(random, estimator, targetClusterMetadataWithDistance,
                                     targetCluster.vectorReferences());
                     final TargetClusterDelta delta =
-                            computeCollapseTargetClusterDelta(targetCluster, collapseAssignments);
+                            AbstractDeferredTask.computeTargetClusterDelta(targetCluster,
+                                    collapseAssignments.assignments());
                     persistCollapse(transaction, targetClusterMetadataWithDistance,
                             collapseAssignments, delta, quantizer);
                 });
@@ -268,50 +268,6 @@ public class CollapseTask extends AbstractDeferredTask {
 
         return new CollapseAssignments(targetAssignmentBuilder.build(), standardDeviation,
                 collapsedAssignmentsMapBuilder.build());
-    }
-
-    /**
-     * Computes the delta between the old target cluster state and the new collapse assignments. Delegates to
-     * {@link AbstractDeferredTask#computeTargetClusterDelta} for the standard diff logic (vectors whose status changed
-     * or that were removed), then additionally includes newly created collapsed references that did not previously
-     * exist in the cluster.
-     *
-     * @param targetCluster the cluster as it exists before collapsing
-     * @param collapseAssignments the computed collapse assignments
-     * @return the delta of writes and deletes to apply to the target cluster
-     */
-    @Nonnull
-    private TargetClusterDelta computeCollapseTargetClusterDelta(@Nonnull final Cluster targetCluster,
-                                                                  @Nonnull final CollapseAssignments collapseAssignments) {
-        final TargetClusterDelta baseDelta =
-                AbstractDeferredTask.computeTargetClusterDelta(targetCluster, collapseAssignments.assignments());
-
-        // Collapsed references are newly created and don't exist in the old cluster — they need
-        // to be added to the write list on top of the base delta.
-        final ImmutableMap.Builder<Tuple, VectorReference> oldPrimaryKeysBuilder = ImmutableMap.builder();
-        for (final VectorReference vectorReference : targetCluster.vectorReferences()) {
-            oldPrimaryKeysBuilder.put(vectorReference.id().getPrimaryKey(), vectorReference);
-        }
-        final ImmutableMap<Tuple, VectorReference> oldPrimaryKeys = oldPrimaryKeysBuilder.build();
-
-        final ImmutableList.Builder<VectorReference> additionalWritesBuilder = ImmutableList.builder();
-        for (final VectorReference assignedVector : collapseAssignments.assignments()) {
-            if (!oldPrimaryKeys.containsKey(assignedVector.id().getPrimaryKey())) {
-                additionalWritesBuilder.add(assignedVector);
-            }
-        }
-        final ImmutableList<VectorReference> additionalWrites = additionalWritesBuilder.build();
-
-        if (additionalWrites.isEmpty()) {
-            return baseDelta;
-        }
-
-        return new TargetClusterDelta(
-                ImmutableList.<VectorReference>builder()
-                        .addAll(baseDelta.toWrite())
-                        .addAll(additionalWrites)
-                        .build(),
-                baseDelta.toDelete());
     }
 
     /**
