@@ -329,44 +329,56 @@ public class TransformedRecordSerializer<M extends Message> implements RecordSer
         if (!TransformedRecordSerializerPrefix.decodePrefix(state, primaryKey)) {
             return inner.deserialize(metaData, primaryKey, serialized, timer);
         }
-        decryptAndDecompress(metaData, primaryKey, serialized, state, timer, 0);
+        decryptAndDecompressWithRetries(metaData, primaryKey, serialized, state, timer);
         return inner.deserialize(metaData, primaryKey, state.getDataArray(), timer);
+    }
+
+    private void decryptAndDecompressWithRetries(@Nonnull RecordMetaData metaData,
+                                                 @Nonnull Tuple primaryKey,
+                                                 @Nonnull byte[] serialized,
+                                                 @Nonnull TransformedRecordSerializerState state,
+                                                 @Nullable StoreTimer timer) {
+        TransformedRecordSerializerState attemptState = state;
+        RecordCoreException lastAttemptFailure = null;
+        int succeededAt = -1;
+        for (int attempt = 0; attempt <= deserializeReattemptCount; attempt++) {
+            if (attempt != 0) {
+                attemptState = new TransformedRecordSerializerState(serialized);
+                Verify.verify(TransformedRecordSerializerPrefix.decodePrefix(attemptState, primaryKey));
+            }
+            try {
+                decryptAndDecompress(metaData, primaryKey, attemptState, timer);
+                succeededAt = attempt;
+                break;
+            } catch (RecordCoreException failure) {
+                lastAttemptFailure = failure;
+            }
+        }
+        if (succeededAt < 0) {
+            throw Verify.verifyNotNull(lastAttemptFailure)
+                    .addLogInfo(LogMessageKeys.RETRY_COUNT, deserializeReattemptCount)
+                    .addLogInfo(LogMessageKeys.RESULT, "failure");
+        } else if (succeededAt > 0 && failOnDeserializeReattempt) {
+            // deserialization succeeded on retry; however since failOnDeserializeReattempt is set, we throw an error
+            throw new RecordSerializationException("deserialization error", lastAttemptFailure)
+                    .addLogInfo(LogMessageKeys.META_DATA_VERSION, metaData.getVersion())
+                    .addLogInfo(LogMessageKeys.PRIMARY_KEY, primaryKey)
+                    .addLogInfo(LogMessageKeys.RETRY_COUNT, succeededAt)
+                    .addLogInfo(LogMessageKeys.RESULT, "success");
+        } else if (succeededAt != 0) {
+            state.setDataArray(attemptState.getDataArray());
+        }
     }
 
     private void decryptAndDecompress(@Nonnull RecordMetaData metaData,
                                       @Nonnull Tuple primaryKey,
-                                      @Nonnull byte[] serialized,
                                       @Nonnull TransformedRecordSerializerState state,
-                                      @Nullable StoreTimer timer,
-                                      int retryAttempt) {
+                                      @Nullable StoreTimer timer) {
         if (state.isEncrypted()) {
             decryptOrThrow(metaData, primaryKey, state, timer);
         }
-        if (!state.isCompressed()) {
-            return;
-        }
-        RecordCoreException decompressException = null;
-        try {
+        if (state.isCompressed()) {
             decompressOrThrow(metaData, primaryKey, state, timer);
-        } catch (RecordCoreException ex) {
-            decompressException = ex;
-        }
-        if (decompressException != null) {
-            if (retryAttempt >= deserializeReattemptCount) {
-                throw decompressException.addLogInfo(LogMessageKeys.RETRY_COUNT, retryAttempt)
-                        .addLogInfo(LogMessageKeys.RESULT, "failure");
-            }
-            TransformedRecordSerializerState retryState = new TransformedRecordSerializerState(serialized);
-            Verify.verify(TransformedRecordSerializerPrefix.decodePrefix(retryState, primaryKey));
-            decryptAndDecompress(metaData, primaryKey, serialized, retryState, timer, retryAttempt + 1);
-            state.setDataArray(retryState.getDataArray());
-        } else if (retryAttempt > 0 && failOnDeserializeReattempt) {
-            // decompression succeeded on retry; however since failOnDeserializeReattempt is set, we throw an error
-            throw new RecordSerializationException("decompression error")
-                    .addLogInfo(LogMessageKeys.META_DATA_VERSION, metaData.getVersion())
-                    .addLogInfo(LogMessageKeys.PRIMARY_KEY, primaryKey)
-                    .addLogInfo(LogMessageKeys.RETRY_COUNT, retryAttempt)
-                    .addLogInfo(LogMessageKeys.RESULT, "success");
         }
     }
 
@@ -534,7 +546,7 @@ public class TransformedRecordSerializer<M extends Message> implements RecordSer
         }
 
         /**
-         * The number of times to reattempt deserialization when decompression fails.
+         * The number of times to reattempt deserialization when decryption or decompression fails.
          * Defaults to {@code 0} (no retries). Setting this to a positive value enables retries.
          * @param deserializeReattemptCount the maximum number of retry attempts
          * @return this <code>Builder</code>
