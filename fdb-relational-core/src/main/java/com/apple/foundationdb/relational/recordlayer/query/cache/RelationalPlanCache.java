@@ -27,8 +27,6 @@ import com.google.common.base.Ticker;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 
@@ -46,9 +44,6 @@ public final class RelationalPlanCache extends MultiStageCache<String, QueryCach
 
     @Nonnull
     private static final TimeUnit DEFAULT_TERTIARY_TTL_TIME_UNIT = TimeUnit.MILLISECONDS;
-
-    @Nonnull
-    private final Set<String> preparedTemplates = ConcurrentHashMap.newKeySet();
 
     private RelationalPlanCache(int size,
                               int secondarySize,
@@ -105,14 +100,6 @@ public final class RelationalPlanCache extends MultiStageCache<String, QueryCach
     @Nonnull
     public static RelationalPlanCache buildWithDefaults() {
         return newRelationalCacheBuilder().build();
-    }
-
-    public boolean isPrepared(@Nonnull String templateKey) {
-        return preparedTemplates.contains(templateKey);
-    }
-
-    public void markPrepared(@Nonnull String templateKey) {
-        preparedTemplates.add(templateKey);
     }
 
 }

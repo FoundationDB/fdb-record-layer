@@ -151,8 +151,6 @@ public final class PlanGenerator {
 
     /**
      * Pre-generates and caches plans for the stored queries defined in the schema template.
-     * This method is idempotent per template name and version — subsequent calls for the same
-     * template are no-ops.
      */
     public void planStoredQueries() {
         if (cache.isEmpty()) {
@@ -163,9 +161,6 @@ public final class PlanGenerator {
             return;
         }
         final var templateKey = schemaTemplate.getName() + ":" + schemaTemplate.getVersion();
-        if (cache.get().isPrepared(templateKey)) {
-            return;
-        }
         for (final var storedQuery : schemaTemplate.getStoredQueries().entrySet()) {
             try {
                 KeyValueLogMessage message = KeyValueLogMessage.build("PlanStoredQueries");
@@ -178,7 +173,6 @@ public final class PlanGenerator {
                 assert e != null;
             }
         }
-        cache.get().markPrepared(templateKey);
     }
 
     private boolean isCaseSensitive() {
