@@ -60,6 +60,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Random;
 import java.util.stream.Stream;
+import java.util.zip.DataFormatException;
 import java.util.zip.Deflater;
 
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -1003,6 +1004,13 @@ public class TransformedRecordSerializerTest {
                         () -> deserialize(deserializer, PRIMARY_KEY, serialized));
                 assertThat(e.getLogInfo(), hasEntry(LogMessageKeys.RETRY_COUNT.toString(), initialKFailures));
                 assertThat(e.getLogInfo(), hasEntry(LogMessageKeys.RESULT.toString(), "success"));
+                // The originating failure from the last failed attempt is threaded through as the cause.
+                // For this test, decrypt corrupts the post-header payload, so decompress fails inside
+                // Inflater with DataFormatException, which decompressOrThrow wraps into a
+                // RecordSerializationException.
+                assertNotNull(e.getCause());
+                assertThat(e.getCause(), instanceOf(RecordSerializationException.class));
+                assertThat(e.getCause().getCause(), instanceOf(DataFormatException.class));
             } else {
                 // No retry needed, or failOnDeserializeReattempt=false: success.
                 Message deserialized = deserialize(deserializer, PRIMARY_KEY, serialized);
@@ -1073,6 +1081,12 @@ public class TransformedRecordSerializerTest {
                         () -> deserialize(deserializer, PRIMARY_KEY, serialized));
                 assertThat(e.getLogInfo(), hasEntry(LogMessageKeys.RETRY_COUNT.toString(), initialKFailures));
                 assertThat(e.getLogInfo(), hasEntry(LogMessageKeys.RESULT.toString(), "success"));
+                // The originating failure from the last failed attempt is threaded through as the cause.
+                // For this test, decrypt threw GeneralSecurityException directly, which gets wrapped in
+                // RecordSerializationException by decryptOrThrow.
+                assertNotNull(e.getCause());
+                assertThat(e.getCause(), instanceOf(RecordSerializationException.class));
+                assertThat(e.getCause().getCause(), instanceOf(GeneralSecurityException.class));
             } else {
                 Message deserialized = deserialize(deserializer, PRIMARY_KEY, serialized);
                 assertEquals(mySimpleRecord, deserialized);
@@ -1087,7 +1101,7 @@ public class TransformedRecordSerializerTest {
     }
 
     /**
-     * Without compression the prior implementation had no retry path, so a transient decrypt
+     * Without compression a prior implementation had no retry path, so a transient decrypt
      * failure was always fatal. This verifies that with the change extending retries to cover
      * decryption, an encryption-only serializer recovers from a single transient decrypt
      * failure when {@code deserializeReattemptCount >= 1}.
@@ -1157,8 +1171,17 @@ public class TransformedRecordSerializerTest {
         protected void decrypt(@Nonnull TransformedRecordSerializerState state, @Nullable StoreTimer timer) throws GeneralSecurityException {
             super.decrypt(state, timer);
             if (decryptCallCount < initialFailCount) {
+                // Preserve the 5-byte compression header (version + uncompressed length) so that
+                // decompress reaches Inflater and fails with DataFormatException — which gets wrapped
+                // by decompressOrThrow into a RecordSerializationException with the DataFormatException
+                // as its cause. Wiping the header instead would short-circuit with "unknown compression
+                // version" and no cause, losing the failure-chain information.
                 byte[] data = state.getDataArray();
-                Arrays.fill(data, (byte) 0);
+                final int payloadStart = state.getOffset() + 5;
+                final int payloadEnd = state.getOffset() + state.getLength();
+                for (int i = payloadStart; i < payloadEnd; i++) {
+                    data[i] = (byte) 0xFF;
+                }
                 state.setDataArray(data);
             }
             decryptCallCount++;
