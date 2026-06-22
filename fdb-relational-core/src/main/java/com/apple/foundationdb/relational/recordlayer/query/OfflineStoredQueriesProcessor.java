@@ -160,11 +160,6 @@ public final class OfflineStoredQueriesProcessor {
     @Nonnull
     private Counts planStoredQueriesForSchemaTemplate(@Nonnull final RecordLayerSchemaTemplate template) {
         final Counts counts = new Counts();
-        final String templateKey = template.getName() + ":" + template.getVersion();
-        if (cache.isPrepared(templateKey)) {
-            return counts;
-        }
-
         for (final var storedQuery : template.getStoredQueries().entrySet()) {
             if (planStoredQuery(template, storedQuery.getKey(), storedQuery.getValue())) {
                 counts.planned++;
@@ -172,8 +167,6 @@ public final class OfflineStoredQueriesProcessor {
                 counts.failed++;
             }
         }
-
-        cache.markPrepared(templateKey);
         return counts;
     }
 
