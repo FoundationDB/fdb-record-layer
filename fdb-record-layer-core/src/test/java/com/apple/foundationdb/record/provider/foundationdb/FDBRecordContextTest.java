@@ -467,9 +467,9 @@ public class FDBRecordContextTest {
 
     @Test
     void sessionKeyEqualityBasedOnName() {
-        final FDBRecordContext.SessionKey<String> key1 = new FDBRecordContext.SessionKey<>("myKey");
-        final FDBRecordContext.SessionKey<String> key2 = new FDBRecordContext.SessionKey<>("myKey");
-        final FDBRecordContext.SessionKey<String> keyOther = new FDBRecordContext.SessionKey<>("otherKey");
+        final ContextSessionKey<String> key1 = new ContextSessionKey<>("myKey");
+        final ContextSessionKey<String> key2 = new ContextSessionKey<>("myKey");
+        final ContextSessionKey<String> keyOther = new ContextSessionKey<>("otherKey");
 
         assertEquals(key1, key2, "keys with the same name must be equal");
         assertEquals(key1.hashCode(), key2.hashCode(), "equal keys must have the same hash code");
@@ -479,7 +479,7 @@ public class FDBRecordContextTest {
 
     @Test
     void sessionKeyTypedGetReturnsNullWhenAbsent() {
-        final FDBRecordContext.SessionKey<String> key = new FDBRecordContext.SessionKey<>("absent");
+        final ContextSessionKey<String> key = new ContextSessionKey<>("absent");
         try (FDBRecordContext context = fdb.openContext()) {
             assertNull(context.getInSession(key));
         }
@@ -487,7 +487,7 @@ public class FDBRecordContextTest {
 
     @Test
     void sessionKeyTypedGetAndSet() {
-        final FDBRecordContext.SessionKey<String> key = new FDBRecordContext.SessionKey<>("myString");
+        final ContextSessionKey<String> key = new ContextSessionKey<>("myString");
         try (FDBRecordContext context = fdb.openContext()) {
             context.putInSession(key, "hello");
             // No cast needed at the call site — type safety provided by SessionKey<String>
@@ -503,8 +503,8 @@ public class FDBRecordContextTest {
 
     @Test
     void sessionKeyMultipleKeysOfDifferentTypes() {
-        final FDBRecordContext.SessionKey<String> stringKey = new FDBRecordContext.SessionKey<>("myString");
-        final FDBRecordContext.SessionKey<Integer> intKey = new FDBRecordContext.SessionKey<>("myInt");
+        final ContextSessionKey<String> stringKey = new ContextSessionKey<>("myString");
+        final ContextSessionKey<Integer> intKey = new ContextSessionKey<>("myInt");
         try (FDBRecordContext context = fdb.openContext()) {
             context.putInSession(stringKey, "hello");
             context.putInSession(intKey, 42);
@@ -519,8 +519,8 @@ public class FDBRecordContextTest {
 
     @Test
     void sessionKeyTwoKeysWithSameType() {
-        final FDBRecordContext.SessionKey<String> key1 = new FDBRecordContext.SessionKey<>("keyOne");
-        final FDBRecordContext.SessionKey<String> key2 = new FDBRecordContext.SessionKey<>("keyTwo");
+        final ContextSessionKey<String> key1 = new ContextSessionKey<>("keyOne");
+        final ContextSessionKey<String> key2 = new ContextSessionKey<>("keyTwo");
         try (FDBRecordContext context = fdb.openContext()) {
             context.putInSessionIfAbsent(key1, "value1");
             context.putInSessionIfAbsent(key2, "value2");
@@ -534,7 +534,7 @@ public class FDBRecordContextTest {
     void sessionKeyTypeMismatchCausesClassCastException() {
         // putInSessionIfAbsent accepts Object so a caller can store the wrong type.
         // getInSession will trigger a ClassCastException when the value is used.
-        final FDBRecordContext.SessionKey<String> key = new FDBRecordContext.SessionKey<>("typedKey");
+        final ContextSessionKey<String> key = new ContextSessionKey<>("typedKey");
         try (FDBRecordContext context = fdb.openContext()) {
             context.putInSessionIfAbsent(key, 42); // Integer stored under a String key
             assertThrows(ClassCastException.class, () -> {
