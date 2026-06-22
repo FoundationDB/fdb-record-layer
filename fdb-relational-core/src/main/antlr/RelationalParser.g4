@@ -1195,6 +1195,7 @@ partitionClause
 
 scalarFunctionName
     : functionNameBase
+    | functionNameKeyword
     | ASCII | CURDATE | CURRENT_DATE | CURRENT_TIME
     | CURRENT_TIMESTAMP | CURTIME | DATE_ADD | DATE_SUB
     | IF | INSERT | LOCALTIME | LOCALTIMESTAMP | MID | NOW
@@ -1398,7 +1399,7 @@ functionNameBase
     | ISCLOSED | ISEMPTY | ISNULL
     | ISSIMPLE | IS_FREE_LOCK | IS_IPV4 | IS_IPV4_COMPAT
     | IS_IPV4_MAPPED | IS_IPV6 | IS_USED_LOCK | LAG | LAST_INSERT_ID | LAST_VALUE
-    | LCASE | LEAD | LEAST | LEFT | LENGTH | LINEFROMTEXT | LINEFROMWKB
+    | LCASE | LEAD | LEAST | LENGTH | LINEFROMTEXT | LINEFROMWKB
     | LINESTRING | LINESTRINGFROMTEXT | LINESTRINGFROMWKB | LN
     | LOAD_FILE | LOCATE | LOG | LOG10 | LOG2 | LOWER | LPAD
     | LTRIM | MAKEDATE | MAKETIME | MAKE_SET | MASTER_POS_WAIT
@@ -1415,7 +1416,7 @@ functionNameBase
     | POINTFROMTEXT | POINTFROMWKB | POINTN | POLYFROMTEXT
     | POLYFROMWKB | POLYGON | POLYGONFROMTEXT | POLYGONFROMWKB
     | POSITION | POW | POWER | QUARTER | QUOTE | RADIANS | RAND | RANK
-    | RANDOM_BYTES | RELEASE_LOCK | REVERSE | RIGHT | ROUND
+    | RANDOM_BYTES | RELEASE_LOCK | REVERSE | ROUND
     | ROW_COUNT | ROW_NUMBER | RPAD | RTRIM | SECOND | SEC_TO_TIME
     | SCHEMA | SESSION_USER | SESSION_VARIABLES_ADMIN
     | SHA | SHA1 | SHA2 | SIGN | SIN | SLEEP
@@ -1457,4 +1458,15 @@ functionNameBase
     | JSON_VALID | JSON_TABLE | JSON_SCHEMA_VALID | JSON_SCHEMA_VALIDATION_REPORT
     | JSON_PRETTY | JSON_STORAGE_FREE | JSON_STORAGE_SIZE | JSON_ARRAYAGG
     | JSON_OBJECTAGG
+    ;
+
+// Tokens that may serve as function names but are also keywords. These are _not_ accepted as identifiers (`simpleId`)
+// because they also introduce other grammar constructs.
+//
+// For example, LEFT and RIGHT are included here because they introduce {LEFT|RIGHT} [OUTER] JOIN clauses, and allowing
+// them as table aliases would create a grammar ambiguity in `tableSourceItem`. They are, however, available as
+// function names via `scalarFunctionName`. To use them as identifiers, they must be double-quoted (e.g., "left").
+functionNameKeyword
+    : LEFT
+    | RIGHT
     ;

@@ -46,6 +46,7 @@ import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.IndexState;
 import com.apple.foundationdb.record.IsolationLevel;
+import com.apple.foundationdb.record.KeyRange;
 import com.apple.foundationdb.record.MutableRecordStoreState;
 import com.apple.foundationdb.record.PipelineOperation;
 import com.apple.foundationdb.record.PlanHashable;
@@ -308,8 +309,6 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
 
     @Nonnull
     private final FDBPreloadRecordCache preloadCache;
-
-    private boolean recordsReadConflict;
 
     private boolean storeStateReadConflict;
     private IndexDeferredMaintenanceControl indexDeferredMaintenanceControl;
@@ -1281,6 +1280,24 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         return scanTypedRecords(serializer, low, high, lowEndpoint, highEndpoint, continuation, scanProperties);
     }
 
+    /**
+     * Scan the records in the database in a range - using {@link KeyRange} raw key bytes boundaries. This can be useful
+     * when it is not possible to arrange for strict primary key scan boundaries, which is typically during an internal use.
+     *
+     * @param range the range of records to scan, expressed as raw key bytes within the records subspace
+     * @param continuation any continuation from a previous scan invocation
+     * @param scanProperties skip, limit and other properties of the scan
+     *
+     * @return a cursor over the stored records in the given range
+     */
+    @Nonnull
+    @API(API.Status.INTERNAL)
+    public RecordCursor<FDBStoredRecord<Message>> scanRecords(@Nonnull final KeyRange range,
+                                                              @Nullable byte[] continuation,
+                                                              @Nonnull ScanProperties scanProperties) {
+        return scanTypedRecords(serializer, range, continuation, scanProperties);
+    }
+
     @Nonnull
     @Override
     @SuppressWarnings("PMD.CloseResource")
@@ -1335,6 +1352,33 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                                                                                  @Nonnull final EndpointType lowEndpoint, @Nonnull final EndpointType highEndpoint,
                                                                                  @Nullable byte[] continuation,
                                                                                  @Nonnull ScanProperties scanProperties) {
+        final Subspace recordsSubspace = recordsSubspace();
+        return scanTypedRecords(typedSerializer,
+                low != null ? recordsSubspace.pack(low) : recordsSubspace.pack(), lowEndpoint,
+                high != null ? recordsSubspace.pack(high) : recordsSubspace.pack(), highEndpoint,
+                continuation, scanProperties);
+    }
+
+    @Nonnull
+    @SuppressWarnings("PMD.CloseResource")
+    public <M extends Message> RecordCursor<FDBStoredRecord<M>> scanTypedRecords(@Nonnull RecordSerializer<M> typedSerializer,
+                                                                                 @Nonnull final KeyRange range,
+                                                                                 @Nullable byte[] continuation,
+                                                                                 @Nonnull ScanProperties scanProperties) {
+        final byte[] subspacePrefix = recordsSubspace().pack();
+        return scanTypedRecords(typedSerializer,
+                ByteArrayUtil.join(subspacePrefix, range.getLowKey()), range.getLowEndpoint(),
+                ByteArrayUtil.join(subspacePrefix, range.getHighKey()), range.getHighEndpoint(),
+                continuation, scanProperties);
+    }
+
+    @Nonnull
+    @SuppressWarnings("PMD.CloseResource")
+    private <M extends Message> RecordCursor<FDBStoredRecord<M>> scanTypedRecords(@Nonnull RecordSerializer<M> typedSerializer,
+                                                                                  @Nonnull byte[] lowBytes, @Nonnull EndpointType lowEndpoint,
+                                                                                  @Nonnull byte[] highBytes, @Nonnull EndpointType highEndpoint,
+                                                                                  @Nullable byte[] continuation,
+                                                                                  @Nonnull ScanProperties scanProperties) {
         final RecordMetaData metaData = metaDataProvider.getRecordMetaData();
         final Subspace recordsSubspace = recordsSubspace();
         final SplitHelper.SizeInfo sizeInfo = new SplitHelper.SizeInfo();
@@ -1342,8 +1386,8 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         if (metaData.isSplitLongRecords()) {
             RecordCursor<KeyValue> keyValues = KeyValueCursor.Builder.withSubspace(recordsSubspace)
                     .setContext(context).setContinuation(continuation)
-                    .setLow(low, lowEndpoint)
-                    .setHigh(high, highEndpoint)
+                    .setLow(lowBytes, lowEndpoint)
+                    .setHigh(highBytes, highEndpoint)
                     .setScanProperties(scanProperties.with(ExecuteProperties::clearRowAndTimeLimits).with(ExecuteProperties::clearSkipAndLimit).with(ExecuteProperties::clearState))
                     .build();
             rawRecords = new SplitHelper.KeyValueUnsplitter(context, recordsSubspace, keyValues, useOldVersionFormat(), sizeInfo, scanProperties.isReverse(),
@@ -1353,8 +1397,8 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         } else {
             KeyValueCursor.Builder keyValuesBuilder = KeyValueCursor.Builder.withSubspace(recordsSubspace)
                     .setContext(context).setContinuation(continuation)
-                    .setLow(low, lowEndpoint)
-                    .setHigh(high, highEndpoint);
+                    .setLow(lowBytes, lowEndpoint)
+                    .setHigh(highBytes, highEndpoint);
             if (omitUnsplitRecordSuffix) {
                 rawRecords = keyValuesBuilder.setScanProperties(scanProperties).build().map(kv -> {
                     sizeInfo.set(kv);
@@ -3994,20 +4038,6 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     }
 
     /**
-     * Add a read conflict key for all records.
-     */
-    @SuppressWarnings("PMD.CloseResource")
-    private void addRecordsReadConflict() {
-        if (recordsReadConflict) {
-            return;
-        }
-        recordsReadConflict = true;
-        Transaction tr = ensureContextActive();
-        byte[] recordKey = getSubspace().pack(Tuple.from(RECORD_KEY));
-        tr.addReadConflictRange(recordKey, ByteArrayUtil.strinc(recordKey));
-    }
-
-    /**
      * Add a read conflict key so that the transaction will fail if the index state has changed.
      * @param indexName the index to conflict on, if it's state changes
      */
@@ -4707,10 +4737,10 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             removeFormerIndex(formerIndex);
         }
 
-        return checkRebuildIndexes(userVersionChecker, info, oldFormatVersion, metaData, oldMetaDataVersion, rebuildRecordCounts, work);
+        return checkRebuildIndexes(userVersionChecker, oldFormatVersion, metaData, oldMetaDataVersion, rebuildRecordCounts, work);
     }
 
-    private CompletableFuture<Void> checkRebuildIndexes(@Nullable UserVersionChecker userVersionChecker, @Nonnull RecordMetaDataProto.DataStoreInfo.Builder info,
+    private CompletableFuture<Void> checkRebuildIndexes(@Nullable UserVersionChecker userVersionChecker,
                                                         int oldFormatVersion, @Nonnull RecordMetaData metaData, int oldMetaDataVersion,
                                                         boolean rebuildRecordCounts, List<CompletableFuture<Void>> work) {
         final boolean newStore = oldFormatVersion == 0;
@@ -4725,34 +4755,6 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             AtomicLong recordsSizeRef = new AtomicLong(-1);
             final Supplier<CompletableFuture<Long>> lazyRecordsSize = getAndRememberFutureLong(recordsSizeRef,
                     () -> getRecordSizeForRebuildIndexes(singleRecordTypeWithPrefixKey));
-            if (singleRecordTypeWithPrefixKey == null
-                    && formatVersion.isAtLeast(FormatVersion.SAVE_UNSPLIT_WITH_SUFFIX)
-                    && omitUnsplitRecordSuffix) {
-                // Check to see if the unsplit format can be upgraded on an empty store.
-                // Only works if singleRecordTypeWithPrefixKey is null as otherwise, the recordCount will not contain
-                // all records
-                work.add(lazyRecordCount.get().thenAccept(recordCount -> {
-                    if (recordCount == 0) {
-                        if (newStore ? LOGGER.isDebugEnabled() : LOGGER.isInfoEnabled()) {
-                            KeyValueLogMessage msg = KeyValueLogMessage.build("upgrading unsplit format on empty store",
-                                    LogMessageKeys.NEW_FORMAT_VERSION, formatVersion,
-                                    subspaceProvider.logKey(), subspaceProvider.toString(context));
-                            if (newStore) {
-                                if (LOGGER.isDebugEnabled()) {
-                                    LOGGER.debug(msg.toString());
-                                }
-                            } else {
-                                if (LOGGER.isInfoEnabled()) {
-                                    LOGGER.info(msg.toString());
-                                }
-                            }
-                        }
-                        omitUnsplitRecordSuffix = !formatVersion.isAtLeast(FormatVersion.SAVE_UNSPLIT_WITH_SUFFIX);
-                        info.clearOmitUnsplitRecordSuffix();
-                        addRecordsReadConflict(); // We used snapshot to determine emptiness, and are now acting on it.
-                    }
-                }));
-            }
 
             Map<Index, CompletableFuture<IndexState>> newStates = getStatesForRebuildIndexes(userVersionChecker, indexes, lazyRecordCount, lazyRecordsSize, newStore, oldMetaDataVersion, oldFormatVersion);
             return rebuildIndexes(indexes, newStates, work, newStore ? RebuildIndexReason.NEW_STORE : RebuildIndexReason.FEW_RECORDS, oldMetaDataVersion).thenRun(() -> {

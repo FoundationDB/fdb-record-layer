@@ -54,19 +54,17 @@ slf4j = "1.7.36"
 
 # Test-only dependency versions
 
-assertj = "3.26.3"
-apache-commonsCollections = "4.4"
+assertj = "3.27.7"
 apache-commonsMath3 = "3.6.1"
-apache-httpclient = "5.2.1"
-bndtools = "6.3.1"
-diffutils = "4.12"
-hamcrest = "2.2"
-jcommander = "1.81"
-jline = "3.30.4"
-junit = "5.14.1"
-junit-platform = "1.14.1"
-mockito = "3.7.7"
-snakeyaml = "2.2"
+apache-httpclient = "5.6.1"
+diffutils = "4.15"
+hamcrest = "3.0"
+jcommander = "3.0"
+jline = "4.1.3"
+junit = "5.14.4"
+junit-platform = "1.14.4"
+mockito = "5.23.0"
+snakeyaml = "2.6"
 
 # Static analysis dependency versions
 
@@ -122,15 +120,13 @@ slf4j-julBridge = { module = "org.slf4j:jul-to-slf4j", version.ref = "slf4j" }
 # Test-only dependencies
 
 assertj = { module = "org.assertj:assertj-core", version.ref = "assertj" }
-apache-commonsCollections = { module = "org.apache.commons:commons-collections4", version.ref = "apache-commonsCollections" }
 apache-commonsMath3 = { module = "org.apache.commons:commons-math3", version.ref = "apache-commonsMath3" }
 apache-httpclient = { module = "org.apache.httpcomponents.client5:httpclient5", version.ref = "apache-httpclient" }
-bndtools = { module = "biz.aQute.bnd:biz.aQute.bnd.annotation", version.ref = "bndtools" } # see: https://bnd.bndtools.org/chapters/120-install.html
 diffutils = { module = "io.github.java-diff-utils:java-diff-utils", version.ref = "diffutils" }
 guava-testlib = { module = "com.google.guava:guava-testlib", version.ref = "guava" }
 grpc-testing = { module = "io.grpc:grpc-testing", version.ref = "grpc" }
 h2 = { module = "com.h2database:h2", version.ref = "h2" }
-jcommander = { module = "com.beust:jcommander", version.ref = "jcommander" }
+jcommander = { module = "org.jcommander:jcommander", version.ref = "jcommander" }
 jline = { module = "org.jline:jline", version.ref = "jline" }
 junit-api = { module = "org.junit.jupiter:junit-jupiter-api", version.ref = "junit" }
 junit-engine = { module = "org.junit.jupiter:junit-jupiter-engine", version.ref = "junit" }
@@ -146,17 +142,16 @@ spotbugs-annotations = { module = "com.github.spotbugs:spotbugs-annotations", ve
 
 [bundles]
 
-test-impl = [ "assertj", "hamcrest", "junit-api", "junit-params", "log4j-core", "mockito", "bndtools" ]
+test-impl = [ "assertj", "hamcrest", "junit-api", "junit-params", "log4j-core", "mockito" ]
 test-runtime = [ "junit-engine", "junit-platform", "log4j-slf4jBinding"]
 test-compileOnly = [ "autoService", "jsr305" ]
 
 [plugins]
 
-download = { id = "de.undercouch.download", version = "5.6.0" }
-gitversion = { id = "com.palantir.git-version", version = "3.1.0" }
+download = { id = "de.undercouch.download", version = "5.7.0" }
+gitversion = { id = "com.palantir.git-version", version = "5.0.0" }
 jmh = { id = "me.champeau.jmh", version = "0.7.3" }
 nexus = { id = "io.github.gradle-nexus.publish-plugin", version = "2.0.0" }
-protobuf = { id = "com.google.protobuf", version = "0.9.4" }
-shadow = { id = "com.gradleup.shadow", version = "8.3.5" }
-spotbugs = { id = "com.github.spotbugs", version = "6.1.3" }
-versions = { id = "com.github.ben-manes.versions", version = "0.52.0" }
+protobuf = { id = "com.google.protobuf", version = "0.9.6" }
+shadow = { id = "com.gradleup.shadow", version = "8.3.10" }
+spotbugs = { id = "com.github.spotbugs", version = "6.5.5" }

@@ -24,8 +24,8 @@ import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.MoreAsyncUtil;
+import com.apple.foundationdb.linear.DistanceEstimator;
 import com.apple.foundationdb.linear.DoubleRealVector;
-import com.apple.foundationdb.linear.Estimator;
 import com.apple.foundationdb.linear.FhtKacRotator;
 import com.apple.foundationdb.linear.Quantizer;
 import com.apple.foundationdb.linear.RealVector;
@@ -196,7 +196,7 @@ public class Insert {
                     final StorageTransform storageTransform = primitives.storageTransform(accessInfo);
                     final Transformed<RealVector> transformedNewVector = storageTransform.transform(newVector);
                     final Quantizer quantizer = primitives.quantizer(accessInfo);
-                    final Estimator estimator = quantizer.estimator();
+                    final DistanceEstimator distanceEstimator = quantizer.estimator();
 
                     final AccessInfo currentAccessInfo;
 
@@ -223,7 +223,7 @@ public class Insert {
                     }
 
                     final ToDoubleFunction<Transformed<RealVector>> objectiveFunction =
-                            Search.distanceToTargetVector(estimator, transformedNewVector);
+                            Search.distanceToTargetVector(distanceEstimator, transformedNewVector);
                     final NodeReferenceWithDistance initialNodeReference =
                             new NodeReferenceWithDistance(entryNodeReference.getPrimaryKey(),
                                     entryNodeReference.getVector(),
@@ -495,16 +495,16 @@ public class Insert {
         }
         final Primitives primitives = primitives();
         final Map<Tuple, AbstractNode<N>> nodeCache = Maps.newConcurrentMap();
-        final Estimator estimator = quantizer.estimator();
+        final DistanceEstimator distanceEstimator = quantizer.estimator();
 
         return searcher().beamSearchLayer(storageAdapter, transaction, storageTransform,
                 nearestNeighbors, layer, getConfig().getEfConstruction(),
-                Search.distanceToTargetVector(estimator, newVector), nodeCache)
+                Search.distanceToTargetVector(distanceEstimator, newVector), nodeCache)
                 .thenCompose(searchResult ->
-                        primitives.extendCandidatesIfNecessary(storageAdapter, transaction, storageTransform, estimator,
+                        primitives.extendCandidatesIfNecessary(storageAdapter, transaction, storageTransform, distanceEstimator,
                                 searchResult, layer, getConfig().isExtendCandidates(), nodeCache, newVector)
                                 .thenCompose(extendedCandidates ->
-                                        primitives.selectCandidates(storageAdapter, transaction, storageTransform, estimator,
+                                        primitives.selectCandidates(storageAdapter, transaction, storageTransform, distanceEstimator,
                                                 extendedCandidates, layer, getConfig().getM(), nodeCache))
                                 .thenCompose(selectedNeighbors -> {
                                     final NodeFactory<N> nodeFactory = storageAdapter.getNodeFactory();
@@ -546,7 +546,7 @@ public class Insert {
                                                 final NeighborsChangeSet<N> changeSet =
                                                         Objects.requireNonNull(neighborChangeSetMap.get(selectedNeighborNode.getPrimaryKey()));
                                                 return primitives.pruneNeighborsIfNecessary(storageAdapter, transaction,
-                                                        storageTransform, estimator, layer, selectedNeighborReference,
+                                                        storageTransform, distanceEstimator, layer, selectedNeighborReference,
                                                         currentMMax, changeSet, nodeCache)
                                                         .thenApply(nodeReferencesAndNodes -> {
                                                             if (nodeReferencesAndNodes == null) {

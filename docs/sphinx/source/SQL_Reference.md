@@ -1,7 +1,6 @@
 # SQL Reference
 
-The FDB relational subproject provides a SQL API for interacting with Record Layer databases. This SQL API is currently under active development and is expected
-to change frequently. This reference is currently also a work in progress to be updated as the SQL engine develops.
+The FDB relational subproject provides a SQL API for interacting with Record Layer databases. This SQL API is currently under active development and is expected to change frequently. This reference is currently also a work in progress to be updated as the SQL engine develops.
 
 
 ```{toctree}
@@ -13,6 +12,7 @@ reference/sql_commands
 reference/Functions
 reference/Subqueries
 reference/Joins
+reference/Unnesting
 ```
 
 ```{toctree}

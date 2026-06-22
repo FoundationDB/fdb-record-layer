@@ -131,6 +131,25 @@ Some tests have to work with global state in FDB, and need to wipe the entire da
 while running (or in `@Before*`/`@After*`). Those tests are annotated with `@Tag(Tags.WipesFDB)`,
 and are only run when you do `./gradlew destructiveTest`
 
+#### scalarFallbackTest
+
+The `fdb-extensions` module ships two interchangeable vector-math backends: a SIMD backend
+(`jdk.incubator.vector`) and a scalar fallback. The standard `test` target runs with the SIMD
+backend loaded; `scalarFallbackTest` re-runs the relevant tests with the scalar backend forced
+(`-Dfdb.vector.simd=scalar`, no `--add-modules`). It is wired into `check`, so a normal build runs
+both. Selection is by tag:
+
+- `@Tag(Tags.RequiresSIMD)` — asserts SIMD-specific behavior; runs only in the standard `test`
+  target (the target excludes nothing extra; `scalarFallbackTest` doesn't include this tag).
+- `@Tag(Tags.RequiresScalar)` — asserts scalar-specific behavior, e.g. bit-exact determinism that
+  SIMD lane-reordering would break; the standard `test` target excludes it, and
+  `scalarFallbackTest` includes it, so it runs only under scalar.
+- `@Tag(Tags.DualScalarSIMD)` — parity/correctness tests that must hold under both backends; they
+  run **twice**, under SIMD in `test` and under scalar in `scalarFallbackTest`. This is how
+  SIMD-vs-scalar parity is actually exercised.
+
+This can be run with `./gradlew :fdb-extensions:scalarFallbackTest`.
+
 #### performanceTest
 
 For tests that gather performance numbers, and aren't focused on correctness.
