@@ -58,16 +58,6 @@ jobs:
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - name: Setup Base Environment
         uses: ./actions/setup-base-env
-      - name: Cache Downloaded Build Assets
-        id: cache-donwloaded-build-assets
-        uses: actions/cache@v5.0.4
-        with:
-          path: .downloaded-build-assets
-          key: ${{ matrix.subproject }}-downloaded-build-assets-${{ hashFiles('**/*.gradle') }}
-      - if: ${{ steps.cache-donwloaded-build-assets.outputs.cache-hit == 'true' }}
-        name: List Cached Downloaded Build Assets
-        continue-on-error: true
-        run: find .downloaded-build-assets
       - name: Setup FDB
         uses: ./actions/setup-fdb
       - name: Run Gradle Test
@@ -100,16 +90,6 @@ jobs:
         uses: ./actions/setup-base-env
       - name: Setup FDB
         uses: ./actions/setup-fdb
-      - name: Cache Downloaded Build Assets
-        id: cache-donwloaded-build-assets
-        uses: actions/cache@v5.0.4
-        with:
-          path: .downloaded-build-assets
-          key: other-tests-downloaded-build-assets-${{ hashFiles('**/*.gradle') }}
-      - if: ${{ steps.cache-donwloaded-build-assets.outputs.cache-hit == 'true' }}
-        name: List Cached Downloaded Build Assets
-        continue-on-error: true
-        run: find .downloaded-build-assets
       - name: Run Gradle Test
         uses: ./actions/gradle-test
         with:
