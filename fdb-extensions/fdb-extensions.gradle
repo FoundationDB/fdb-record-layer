@@ -44,44 +44,67 @@ dependencies {
     testFixturesAnnotationProcessor(libs.autoService)
 }
 
-// Describe all files here
+// Describe all SIFT datasets here. Each is downloaded once into project.ext.downloadsDirectory
+// (the shared, clean-surviving asset cache introduced upstream) so it is reused across builds
+// instead of being re-fetched into build/ on every clean. Entries that declare a sha256 also get
+// a checksum Verify task.
 def siftDownloads = [
-        siftsmall: [
-                url : 'https://huggingface.co/datasets/vecdata/siftsmall/resolve/3106e1b83049c44713b1ce06942d0ab474bbdfb6/siftsmall.tar.gz',
-                dest: layout.buildDirectory.file("downloads/siftsmall.tar.gz")
+        siftsmall        : [
+                url   : 'https://huggingface.co/datasets/vecdata/siftsmall/resolve/3106e1b83049c44713b1ce06942d0ab474bbdfb6/siftsmall.tar.gz',
+                file  : 'siftsmall.tar.gz',
+                sha256: '987b526d24e749082ba27ee8068003836eb17a61b34f09b4db865750f8a43487'
         ],
-        sift1mbase: [
-                url : 'https://huggingface.co/datasets/qbo-odp/sift1m/resolve/main/sift_base.fvecs',
-                dest: layout.buildDirectory.file("downloads/sift_base.fvecs")
+        sift1mbase       : [
+                url   : 'https://huggingface.co/datasets/qbo-odp/sift1m/resolve/main/sift_base.fvecs',
+                file  : 'sift_base.fvecs',
+                sha256: '21f66e2975057b5728ba56de1c825bac4f4d89d596609ae985741c6242631816'
         ],
         sift1mgroundtruth: [
-                url : 'https://huggingface.co/datasets/qbo-odp/sift1m/resolve/main/sift_groundtruth.ivecs',
-                dest: layout.buildDirectory.file("downloads/sift_groundtruth.ivecs")
+                url   : 'https://huggingface.co/datasets/qbo-odp/sift1m/resolve/main/sift_groundtruth.ivecs',
+                file  : 'sift_groundtruth.ivecs',
+                sha256: '2b71de0a8d5a83e6a84eec3e23fb8b611d8801dd9b3a6cd62f070ab65ea65f4f'
         ],
-        sift1mquery: [
-                url : 'https://huggingface.co/datasets/qbo-odp/sift1m/resolve/main/sift_query.fvecs',
-                dest: layout.buildDirectory.file("downloads/sift_query.fvecs")
+        sift1mquery      : [
+                url   : 'https://huggingface.co/datasets/qbo-odp/sift1m/resolve/main/sift_query.fvecs',
+                file  : 'sift_query.fvecs',
+                sha256: 'f7fc9be140accdfd64116c2fa2365ecdb69b8f084970c6b0532db5ff79ac8fdc'
         ],
 ]
 
-// Register one Download task per entry
-def downloadTasks = siftDownloads.collect { name, cfg ->
-    tasks.register("download${name.capitalize()}", Download) {
+def downloadsDir = project.ext.downloadsDirectory
+
+// Register a Download (plus a checksum Verify when the entry declares a sha256) per dataset.
+// siftTasks maps each dataset name to its terminal task (the Verify if present, else the Download)
+// so downstream wiring can depend on "this dataset is present and validated". downloadTaskDir lives
+// under the cached downloads dir too, so onlyIfModified ETag state also survives `clean`.
+def siftTasks = siftDownloads.collectEntries { name, cfg ->
+    def download = tasks.register("download${name.capitalize()}", de.undercouch.gradle.tasks.download.Download) {
         src cfg.url
-        dest cfg.dest.get().asFile
+        dest downloadsDir.file(cfg.file).asFile
+        downloadTaskDir downloadsDir.dir("downloads-task")
         onlyIfModified true
         tempAndMove true
         retries 3
         overwrite false
-        outputs.file(dest)
     }
+    def terminal = download
+    if (cfg.sha256) {
+        terminal = tasks.register("verify${name.capitalize()}", de.undercouch.gradle.tasks.download.Verify) {
+            dependsOn download
+            src downloadsDir.file(cfg.file).asFile
+            algorithm 'SHA256'
+            checksum cfg.sha256
+        }
+    }
+    [(name): terminal]
 }
+def downloadTasks = siftTasks.values()
 
 def extractDir = layout.buildDirectory.dir("extracted")
 
 tasks.register('extractSiftSmall', Copy) {
-    dependsOn downloadTasks
-    from(tarTree(resources.gzip(siftDownloads.siftsmall.dest)))
+    dependsOn siftTasks.siftsmall
+    from(tarTree(resources.gzip(downloadsDir.file('siftsmall.tar.gz').asFile)))
     into extractDir
 
     doLast {
@@ -94,10 +117,21 @@ tasks.register('extractSiftSmall', Copy) {
     }
 }
 
+def sift1mDownloadsDir = layout.buildDirectory.dir("downloads")
+tasks.register('copySift1mDownloads', Copy) {
+    dependsOn siftTasks.sift1mbase, siftTasks.sift1mgroundtruth, siftTasks.sift1mquery
+    from downloadsDir.file('sift_base.fvecs').asFile
+    from downloadsDir.file('sift_query.fvecs').asFile
+    from downloadsDir.file('sift_groundtruth.ivecs').asFile
+    into sift1mDownloadsDir
+}
+
 test {
     dependsOn downloadTasks
     dependsOn tasks.named('extractSiftSmall')
+    dependsOn tasks.named('copySift1mDownloads')
     inputs.dir extractDir
+    inputs.dir sift1mDownloadsDir
     maxHeapSize = "4g"
     // SIMD path: make the jdk.incubator.vector module visible at runtime so SimdBackend loads.
     jvmArgs '--add-modules=jdk.incubator.vector'
