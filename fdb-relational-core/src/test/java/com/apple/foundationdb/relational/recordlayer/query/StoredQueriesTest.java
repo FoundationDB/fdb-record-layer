@@ -1,5 +1,5 @@
 /*
- * SchemaTemplateStoredQueriesTest.java
+ * StoredQueriesTest.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -42,13 +42,74 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 import java.net.URI;
 import java.sql.SQLException;
 
-public class SchemaTemplateStoredQueriesTest {
+public class StoredQueriesTest {
 
     private static final String SCHEMA_TEMPLATE =
             "CREATE TABLE t1(id bigint, col1 bigint, col2 bigint, PRIMARY KEY(id))" +
                     " CREATE INDEX i1 AS SELECT col1 FROM t1" +
                     " CREATE QUERY by_col1 AS select * from t1 where col1 = 10" +
                     " CREATE QUERY by_id AS select * from t1 where id = 1";
+
+    /** Stored query body has a typo (`select1` rather than `select`) — DDL fails to parse. */
+    private static final String SCHEMA_TEMPLATE_BAD_SYNTAX =
+            "CREATE TABLE t1(id bigint, col1 bigint, col2 bigint, PRIMARY KEY(id))" +
+                    " CREATE QUERY by_col1 AS select1 * from t1 where col1 = 10";
+
+    /** Stored query body is itself a DDL statement — rejected by the grammar. */
+    private static final String SCHEMA_TEMPLATE_DDL_IN_QUERY =
+            "CREATE TABLE t1(id bigint, col1 bigint, col2 bigint, PRIMARY KEY(id))" +
+                    " CREATE QUERY ddl_t AS CREATE TABLE t2(id bigint, col1 bigint, PRIMARY KEY(id))";
+
+    /** Stored query references a column that does not exist on the table. */
+    private static final String SCHEMA_TEMPLATE_BAD_COLUMN =
+            "CREATE TABLE t1(id bigint, col1 bigint, col2 bigint, PRIMARY KEY(id))" +
+                    " CREATE INDEX i1 AS SELECT col1 FROM t1" +
+                    " CREATE QUERY by_col1 AS select * from t1 where col3 = 10" + // col3 does not exit
+                    " CREATE QUERY by_id AS select * from t1 where id = 1";
+
+    /** One stored query whose body calls a single temp function. */
+    private static final String SCHEMA_TEMPLATE_TF_SINGLE =
+            "CREATE TABLE t1(id bigint, col1 bigint, col2 bigint, PRIMARY KEY(id))" +
+                    " CREATE INDEX i1 AS SELECT col1 FROM t1" +
+                    " CREATE QUERY by_x" +
+                    "   WITH CREATE TEMPORARY FUNCTION sq1(in x bigint) ON COMMIT DROP FUNCTION" +
+                    "       AS SELECT * FROM t1 WHERE col1 < 40 + x" +
+                    " AS SELECT * FROM sq1(10)";
+
+    /**
+     * Chained temp functions.
+     */
+    private static final String SCHEMA_TEMPLATE_TF_CHAINED =
+            "CREATE TABLE t1(id bigint, col1 bigint, col2 bigint, PRIMARY KEY(id))" +
+                    " CREATE INDEX i1 AS SELECT col1 FROM t1" +
+                    " CREATE QUERY by_chained" +
+                    "   WITH CREATE TEMPORARY FUNCTION sq1(in x bigint) ON COMMIT DROP FUNCTION" +
+                    "       AS SELECT * FROM t1 WHERE col1 < x" +
+                    "   WITH CREATE TEMPORARY FUNCTION sq2(in x bigint) ON COMMIT DROP FUNCTION" +
+                    "       AS SELECT * FROM sq1(x + 1)" +
+                    " AS SELECT * FROM sq2(50)";
+
+    /** The first stored query's temp function references a column that does not exist. */
+    private static final String SCHEMA_TEMPLATE_TF_BAD =
+            "CREATE TABLE t1(id bigint, col1 bigint, col2 bigint, PRIMARY KEY(id))" +
+                    " CREATE INDEX i1 AS SELECT col1 FROM t1" +
+                    " CREATE QUERY by_bad" +
+                    "   WITH CREATE TEMPORARY FUNCTION sq_bad() ON COMMIT DROP FUNCTION" +
+                    "       AS SELECT * FROM t1 WHERE col_does_not_exist = 1" +
+                    " AS SELECT * FROM sq_bad()" +
+                    " CREATE QUERY by_good" +
+                    "   WITH CREATE TEMPORARY FUNCTION sq_good() ON COMMIT DROP FUNCTION" +
+                    "       AS SELECT * FROM t1 WHERE col1 = 10" +
+                    " AS SELECT * FROM sq_good()";
+
+    /** Typo in the temp-function keyword  — DDL fails to parse. */
+    private static final String SCHEMA_TEMPLATE_TF_BAD_SYNTAX =
+            "CREATE TABLE t1(id bigint, col1 bigint, col2 bigint, PRIMARY KEY(id))" +
+                    " CREATE QUERY by_x" +
+                    "   WITH CREATE TEMPORARY FUNCTION1 sq1(in x bigint) ON COMMIT DROP FUNCTION" +
+                    "       AS SELECT * FROM t1 WHERE col1 < x" +
+                    " AS SELECT * FROM sq1(10)";
+
 
     @RegisterExtension
     @Order(0)
@@ -325,44 +386,33 @@ public class SchemaTemplateStoredQueriesTest {
 
     @Test
     void badStoredQuery() {
-        final String badTemplate =
-                "CREATE TABLE t1(id bigint, col1 bigint, col2 bigint, PRIMARY KEY(id))" +
-                        " CREATE QUERY by_col1 AS select1 * from t1 where col1 = 10";
         RelationalAssertions.assertThrowsSqlException(() ->
                 Ddl.builder()
                         .database(URI.create("/TEST/BADSTOREDQUERY_DB"))
                         .relationalExtension(relationalExtension)
-                        .schemaTemplate(badTemplate)
+                        .schemaTemplate(SCHEMA_TEMPLATE_BAD_SYNTAX)
                         .build())
                 .hasErrorCode(ErrorCode.SYNTAX_ERROR);
     }
 
     @Test
     void storedQueryDdl() {
-        final String badTemplate =
-                "CREATE TABLE t1(id bigint, col1 bigint, col2 bigint, PRIMARY KEY(id))" +
-                        " CREATE QUERY ddl_t AS CREATE TABLE t2(id bigint, col1 bigint, PRIMARY KEY(id))";
         RelationalAssertions.assertThrowsSqlException(() ->
                 Ddl.builder()
                         .database(URI.create("/TEST/DDLSTOREDQUERY_DB"))
                         .relationalExtension(relationalExtension)
-                        .schemaTemplate(badTemplate)
+                        .schemaTemplate(SCHEMA_TEMPLATE_DDL_IN_QUERY)
                         .build())
                 .hasErrorCode(ErrorCode.SYNTAX_ERROR);
     }
 
     @Test
     void storedQueryBadColumn() throws Exception {
-        final String template =
-                "CREATE TABLE t1(id bigint, col1 bigint, col2 bigint, PRIMARY KEY(id))" +
-                        " CREATE INDEX i1 AS SELECT col1 FROM t1" +
-                        " CREATE QUERY by_col1 AS select * from t1 where col3 = 10" + // col3 does not exit
-                        " CREATE QUERY by_id AS select * from t1 where id = 1";
         final String dbUri = "/TEST/STOREDQUERIES_DB5";
         try (var ddl = Ddl.builder()
                 .database(URI.create(dbUri))
                 .relationalExtension(relationalExtension)
-                .schemaTemplate(template)
+                .schemaTemplate(SCHEMA_TEMPLATE_BAD_COLUMN)
                 .build()) {
             final var connection = ddl.setSchemaAndGetConnection();
             final String templateName = ddl.getSchemaTemplateName();
@@ -389,5 +439,161 @@ public class SchemaTemplateStoredQueriesTest {
             // but only one query has valid column and was planned
             Assertions.assertEquals(Long.valueOf(1), freshUtils.getFromCatalog(c -> countCachedPlans(c, templateName)));
         }
+    }
+
+    @Test
+    void tempFuncIsStored() throws Exception {
+        try (var ddl = Ddl.builder()
+                .database(URI.create("/TEST/SQ_TF_PERSIST"))
+                .relationalExtension(relationalExtension)
+                .schemaTemplate(SCHEMA_TEMPLATE_TF_SINGLE)
+                .build()) {
+            final var connection = ddl.setSchemaAndGetConnection();
+            final var embeddedConnection = connection.unwrap(EmbeddedRelationalConnection.class);
+            embeddedConnection.setAutoCommit(false);
+            embeddedConnection.createNewTransaction();
+            final var schemaTemplate = embeddedConnection.getSchemaTemplate().unwrap(RecordLayerSchemaTemplate.class);
+            embeddedConnection.rollback();
+            embeddedConnection.setAutoCommit(true);
+
+            final var storedQueries = schemaTemplate.getStoredQueries();
+            Assertions.assertEquals(1, storedQueries.size());
+
+            final var sq = storedQueries.get("BY_X");
+            Assertions.assertNotNull(sq);
+            Assertions.assertEquals("SELECT * FROM sq1(10)", sq.getStoredQuery());
+            Assertions.assertEquals(1, sq.getTempFunctions().size());
+            final var tempFuncSource = sq.getTempFunctions().get(0);
+            Assertions.assertTrue(tempFuncSource.startsWith("CREATE TEMPORARY FUNCTION sq1"),
+                    "Expected CREATE TEMPORARY FUNCTION text, got: " + tempFuncSource);
+        }
+    }
+
+    @Test
+    void startupPlanGenerationWithTempFunc() throws Exception {
+        try (var ddl = Ddl.builder()
+                .database(URI.create("/TEST/SQ_TF_SINGLE"))
+                .relationalExtension(relationalExtension)
+                .schemaTemplate(SCHEMA_TEMPLATE_TF_SINGLE)
+                .build()) {
+            final String templateName = ddl.getSchemaTemplateName();
+
+            // fresh engine triggers OfflineStoredQueriesProcessor
+            final var freshDriver = relationalExtension.getDriver(
+                    com.apple.foundationdb.record.provider.foundationdb.FormatVersion.getDefaultFormatVersion());
+            final var freshUtils = new ConnectionUtils(freshDriver);
+
+            // The stored query SELECT (which calls the temp function) is planned and cached.
+            Assertions.assertEquals(Long.valueOf(1), freshUtils.getFromCatalog(c -> countCachedPlans(c, templateName)));
+            // exactly one TERTIARY_MISS — for the stored query SELECT (DDL planning of the temp
+            // function itself goes through CACHE_BYPASS and does not bump TERTIARY counters).
+            Assertions.assertEquals(1, eventCounterCount(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_MISS));
+            Assertions.assertEquals(0, eventCounterCount(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_HIT));
+        }
+    }
+
+    @Test
+    void storedQueriesUsageWithTempFunc() throws Exception {
+        final String dbUri = "/TEST/SQ_TF_USAGE";
+        try (var ddl = Ddl.builder()
+                .database(URI.create(dbUri))
+                .relationalExtension(relationalExtension)
+                .schemaTemplate(SCHEMA_TEMPLATE_TF_SINGLE)
+                .build()) {
+            final var connection = ddl.setSchemaAndGetConnection();
+            final String templateName = ddl.getSchemaTemplateName();
+            final String schemaName = connection.getSchema();
+
+            try (var stmt = connection.createStatement()) {
+                stmt.execute("INSERT INTO T1 VALUES (1, 10, 1)");
+                stmt.execute("INSERT INTO T1 VALUES (2, 20, 2)");
+                stmt.execute("INSERT INTO T1 VALUES (3, 30, 3)");
+            }
+
+            // fresh engine triggers OfflineStoredQueriesProcessor
+            final var freshDriver = relationalExtension.getDriver(
+                    com.apple.foundationdb.record.provider.foundationdb.FormatVersion.getDefaultFormatVersion());
+            final var freshUtils = new ConnectionUtils(freshDriver);
+
+            // pre-warmed: 1 stored query (SELECT * FROM sq1(10)) cached.
+            Assertions.assertEquals(1, eventCounterCount(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_MISS));
+            Assertions.assertEquals(0, eventCounterCount(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_HIT));
+            Assertions.assertEquals(Long.valueOf(1), freshUtils.getFromCatalog(c -> countCachedPlans(c, templateName)));
+
+            // The runtime user installs the same temp function in their session, then runs the
+            // canonical SELECT. The cache lookup should hit the pre-warmed plan.
+            freshUtils.runAgainstConnection(dbUri, schemaName, c -> {
+                c.setAutoCommit(false);
+                try (var stmt = c.createStatement()) {
+                    stmt.execute("CREATE TEMPORARY FUNCTION sq1(in x bigint) ON COMMIT DROP FUNCTION " +
+                            "AS SELECT * FROM t1 WHERE col1 < 40 + x");
+                    try (RelationalResultSet rs = stmt.executeQuery("SELECT * FROM sq1(10)")) {
+                        // sq1(10) → SELECT * FROM t1 WHERE col1 < 50 → all three rows.
+                        Assertions.assertTrue(rs.next());
+                        Assertions.assertEquals(1, rs.getLong("ID"));
+                        Assertions.assertTrue(rs.next());
+                        Assertions.assertEquals(2, rs.getLong("ID"));
+                        Assertions.assertTrue(rs.next());
+                        Assertions.assertEquals(3, rs.getLong("ID"));
+                        Assertions.assertFalse(rs.next());
+                    }
+                }
+                c.rollback();
+            });
+
+            // SELECT hit the pre-warmed cache: hit +1, miss unchanged, cache size unchanged.
+            Assertions.assertEquals(1, eventCounterCount(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_HIT));
+            Assertions.assertEquals(1, eventCounterCount(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_MISS));
+            Assertions.assertEquals(Long.valueOf(1), freshUtils.getFromCatalog(c -> countCachedPlans(c, templateName)));
+        }
+    }
+
+    @Test
+    void startupPlanGenerationChained() throws Exception {
+        try (var ddl = Ddl.builder()
+                .database(URI.create("/TEST/SQ_TF_CHAINED"))
+                .relationalExtension(relationalExtension)
+                .schemaTemplate(SCHEMA_TEMPLATE_TF_CHAINED)
+                .build()) {
+            final String templateName = ddl.getSchemaTemplateName();
+
+            final var freshDriver = relationalExtension.getDriver(
+                    com.apple.foundationdb.record.provider.foundationdb.FormatVersion.getDefaultFormatVersion());
+            final var freshUtils = new ConnectionUtils(freshDriver);
+
+            // sq2 references sq1; both must install correctly for the SELECT to plan.
+            Assertions.assertEquals(Long.valueOf(1), freshUtils.getFromCatalog(c -> countCachedPlans(c, templateName)));
+            Assertions.assertEquals(1, eventCounterCount(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_MISS));
+            Assertions.assertEquals(0, eventCounterCount(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_HIT));
+        }
+    }
+
+    @Test
+    void badTempFunc() throws Exception {
+        try (var ddl = Ddl.builder()
+                .database(URI.create("/TEST/SQ_TF_BAD"))
+                .relationalExtension(relationalExtension)
+                .schemaTemplate(SCHEMA_TEMPLATE_TF_BAD)
+                .build()) {
+            final String templateName = ddl.getSchemaTemplateName();
+
+            final var freshDriver = relationalExtension.getDriver(
+                    com.apple.foundationdb.record.provider.foundationdb.FormatVersion.getDefaultFormatVersion());
+            final var freshUtils = new ConnectionUtils(freshDriver);
+
+            // The stored query whose temp function fails to compile is skipped; the good one still plans.
+            Assertions.assertEquals(Long.valueOf(1), freshUtils.getFromCatalog(c -> countCachedPlans(c, templateName)));
+        }
+    }
+
+    @Test
+    void tempFuncBadSyntax() {
+        RelationalAssertions.assertThrowsSqlException(() ->
+                        Ddl.builder()
+                                .database(URI.create("/TEST/SQ_TF_BAD_SYNTAX_DB"))
+                                .relationalExtension(relationalExtension)
+                                .schemaTemplate(SCHEMA_TEMPLATE_TF_BAD_SYNTAX)
+                                .build())
+                .hasErrorCode(ErrorCode.SYNTAX_ERROR);
     }
 }

@@ -42,6 +42,7 @@ import com.apple.foundationdb.record.query.plan.serialization.DefaultPlanSeriali
 import com.apple.foundationdb.record.util.ProtoUtils;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.relational.api.Options;
+import com.apple.foundationdb.relational.api.ddl.MetadataOperationsFactory;
 import com.apple.foundationdb.relational.api.ddl.ThrowingQueryFactory;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
@@ -130,11 +131,11 @@ public final class PlanGenerator {
      */
     @Nonnull
     public Plan<?> getPlan(@Nonnull final String query) throws RelationalException {
-        return getPlanAndLog(query, KeyValueLogMessage.build("PlanGenerator"));
+        return getPlan(query, KeyValueLogMessage.build("PlanGenerator"));
     }
 
     @Nonnull
-    private Plan<?> getPlanAndLog(@Nonnull final String query, @Nonnull KeyValueLogMessage message) throws RelationalException {
+    public Plan<?> getPlan(@Nonnull final String query, @Nonnull KeyValueLogMessage message) throws RelationalException {
         resetTimer();
         Plan<?> plan = null;
         RelationalException exception = null;
@@ -147,33 +148,6 @@ public final class PlanGenerator {
             RelationalLoggingUtil.publishPlanGenerationLogs(logger, message, plan, exception, totalTimeMicros(), options);
         }
         return plan;
-    }
-
-    /**
-     * Pre-generates and caches plans for the stored queries defined in the schema template.
-     */
-    public void planStoredQueries() {
-        if (cache.isEmpty()) {
-            return;
-        }
-        final var schemaTemplate = planContext.getSchemaTemplate();
-        if (schemaTemplate.getStoredQueries().isEmpty()) {
-            return;
-        }
-        final var templateKey = schemaTemplate.getName() + ":" + schemaTemplate.getVersion();
-        for (final var storedQuery : schemaTemplate.getStoredQueries().entrySet()) {
-            try {
-                final var sql = storedQuery.getValue().getStoredQuery();
-                KeyValueLogMessage message = KeyValueLogMessage.build("PlanStoredQueries");
-                message.addKeyAndValue("schemaTemplate", templateKey);
-                message.addKeyAndValue("storedQueryName", storedQuery.getKey());
-                message.addKeyAndValue("storedQuerySql", sql);
-                getPlanAndLog(sql, message);
-            } catch (RelationalException e) {
-                // do nothing here, error is already logged
-                assert e != null;
-            }
-        }
     }
 
     private boolean isCaseSensitive() {
@@ -571,6 +545,37 @@ public final class PlanGenerator {
                 .withDbUri(URI.create("embed:offline"))
                 .build();
         return create(cache, planContext, metaData, recordStoreState,
+                IndexMaintainerFactoryRegistryImpl.instance(), options);
+    }
+
+    /**
+     * Create a plan generator for offline DDL queries &mdash; against a known
+     * schema template, with a caller-supplied {@link MetadataOperationsFactory} that captures
+     * the result of the query to the new {@link RecordLayerSchemaTemplate}.
+     *
+     * @param schemaTemplate            schema template used to resolve names in the function body
+     * @param metadataOperationsFactory caller-provided factory for DDL
+     * @param metricCollector           metric collector
+     * @param options                   planner options
+     * @return a new plan generator
+     * @throws RelationalException if creation fails
+     */
+    @Nonnull
+    public static PlanGenerator create(@Nonnull final RecordLayerSchemaTemplate schemaTemplate,
+                                       @Nonnull final MetadataOperationsFactory metadataOperationsFactory,
+                                       @Nonnull final MetricCollector metricCollector,
+                                       @Nonnull final Options options) throws RelationalException {
+        final var metaData = schemaTemplate.toRecordMetadata();
+        final var recordStoreState = new RecordStoreState(null, null);
+        final var planContext = PlanContext.Builder.create()
+                .fromMetaDataAndState(metaData, recordStoreState, options)
+                .withSchemaTemplate(schemaTemplate)
+                .withMetricsCollector(metricCollector)
+                .withConstantActionFactory(metadataOperationsFactory)
+                .withDdlQueryFactory(ThrowingQueryFactory.INSTANCE)
+                .withDbUri(URI.create("embed:offline"))
+                .build();
+        return create(Optional.empty(), planContext, metaData, recordStoreState,
                 IndexMaintainerFactoryRegistryImpl.instance(), options);
     }
 }
