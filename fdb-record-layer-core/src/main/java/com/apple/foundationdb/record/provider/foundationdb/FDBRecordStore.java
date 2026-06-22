@@ -3090,6 +3090,18 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     }
 
     /**
+     * Prepare an index for indexing via a write-pending queue by clearing any existing data and marking the
+     * index as {@link IndexState#WRITE_ONLY_WITH_QUEUE}.
+     * @param index the index to build
+     * @return a future that completes when the index has been cleared and marked write-only-with-queue for building
+     */
+    @Nonnull
+    public CompletableFuture<Void> clearAndMarkIndexWriteOnlyWithQueue(@Nonnull Index index) {
+        return markIndexWriteOnlyWithQueue(index)
+                .thenRun(() -> clearIndexData(index));
+    }
+
+    /**
      * Enum controlling how the store state cacheability flag should be changed when the store is opened.
      * By default, the store state data is not cacheable and must be re-read every time to ensure transactional
      * consistency between the store's meta-data and the rest of the data. To enable the transactional cache,
@@ -3651,6 +3663,32 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     @Nonnull
     public CompletableFuture<Boolean> markIndexWriteOnly(@Nonnull Index index) {
         return markIndexWriteOnly(index.getName());
+    }
+
+    /**
+     * Adds the given index to the list of write-only-with-queue indexes stored within the store.
+     * See {@link #markIndexWriteOnly(String)} for details on the mark semantics; the only difference is the target
+     * state is {@link IndexState#WRITE_ONLY_WITH_QUEUE}.
+     *
+     * @param indexName the name of the index to mark as write-only-with-queue
+     * @return a future that will contain <code>true</code> if the store was modified and <code>false</code>
+     * otherwise
+     * @throws IllegalArgumentException if the index is not present in the meta-data
+     */
+    @Nonnull
+    public CompletableFuture<Boolean> markIndexWriteOnlyWithQueue(@Nonnull String indexName) {
+        return markIndexNotReadable(indexName, IndexState.WRITE_ONLY_WITH_QUEUE);
+    }
+
+    /**
+     * Adds the given index to the list of write-only-with-queue indexes stored within the store.
+     * @param index the index to mark as write-only-with-queue
+     * @return a future that will contain <code>true</code> if the store was modified and
+     * <code>false</code> otherwise
+     */
+    @Nonnull
+    public CompletableFuture<Boolean> markIndexWriteOnlyWithQueue(@Nonnull Index index) {
+        return markIndexWriteOnlyWithQueue(index.getName());
     }
 
     /**
@@ -4519,6 +4557,9 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             case WRITE_ONLY:
                 errMessageBuilder.append("clear and mark index write only");
                 return clearAndMarkIndexWriteOnly(index).thenApply(b -> null);
+            case WRITE_ONLY_WITH_QUEUE:
+                errMessageBuilder.append("clear and mark index write only with queue");
+                return clearAndMarkIndexWriteOnlyWithQueue(index).thenApply(b -> null);
             case DISABLED:
                 errMessageBuilder.append("mark index disabled");
                 return markIndexDisabled(index).thenApply(b -> null);
