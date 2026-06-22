@@ -72,7 +72,6 @@ dependencies {
     testImplementation(libs.bundles.test.impl)
     testRuntimeOnly(libs.bundles.test.runtime)
     testCompileOnly(libs.bundles.test.compileOnly)
-    testImplementation(libs.apache.commonsCollections)
 
     antlr(libs.antlr)
 }
