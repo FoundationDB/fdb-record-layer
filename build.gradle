@@ -214,10 +214,12 @@ subprojects {
         }
     }
 
+    def projectName = it.name
     ext {
         coreProjectName = "fdb-record-layer-core"
         shadedProjectName = "fdb-record-layer-core-shaded"
         publishLibrary = true
+        downloadsDirectory = rootProject.layout.projectDirectory.dir(".downloaded-build-assets/${projectName}")
     }
 
     tasks.named('assemble') {
