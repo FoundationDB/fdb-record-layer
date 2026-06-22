@@ -754,18 +754,18 @@ public class RecordMetaData implements RecordMetaDataProvider {
      */
     public static final class StoredQuery {
         @Nonnull
-        private final String storedQuery;
+        private final String query;
         @Nonnull
         private final List<String> tempFunctions;
 
         public StoredQuery(@Nonnull final String storedQuery, @Nonnull final List<String> tempFunctions) {
-            this.storedQuery = storedQuery;
+            this.query = storedQuery;
             this.tempFunctions = List.copyOf(tempFunctions);
         }
 
         @Nonnull
         public String getStoredQuery() {
-            return storedQuery;
+            return query;
         }
 
         @Nonnull
