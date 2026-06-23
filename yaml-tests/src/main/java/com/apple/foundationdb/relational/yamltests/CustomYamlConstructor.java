@@ -31,6 +31,7 @@ import com.apple.foundationdb.relational.yamltests.block.TestBlock;
 import com.apple.foundationdb.relational.yamltests.block.TransactionSetupsBlock;
 import com.apple.foundationdb.relational.yamltests.command.Command;
 import com.apple.foundationdb.relational.yamltests.command.QueryConfig;
+import com.apple.foundationdb.relational.yamltests.command.VariantCommand;
 import com.apple.foundationdb.relational.yamltests.tags.CustomTag;
 import org.yaml.snakeyaml.LoaderOptions;
 import org.yaml.snakeyaml.constructor.SafeConstructor;
@@ -59,11 +60,11 @@ public class CustomYamlConstructor extends SafeConstructor {
         requireLineNumber.add(PreambleBlock.OPTIONS);
         requireLineNumber.add(SetupBlock.SETUP_BLOCK);
         requireLineNumber.add(SetupBlock.SchemaTemplateBlock.SCHEMA_TEMPLATE_BLOCK);
-        requireLineNumber.add(SetupBlock.SchemaTemplateBlock.SCHEMA_TEMPLATE_VARIANT_DEFINITION);
         requireLineNumber.add(TransactionSetupsBlock.TRANSACTION_SETUP);
         requireLineNumber.add(TestBlock.TEST_BLOCK);
         requireLineNumber.add(IncludeBlock.INCLUDE);
         requireLineNumber.add(CopyBlock.COPY_BLOCK);
+        requireLineNumber.add(VariantCommand.VARIANT_DEFINITION);
         // commands
         requireLineNumber.add(Command.COMMAND_LOAD_SCHEMA_TEMPLATE);
         requireLineNumber.add(Command.COMMAND_SET_SCHEMA_STATE);

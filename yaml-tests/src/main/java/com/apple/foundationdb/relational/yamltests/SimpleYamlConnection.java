@@ -123,6 +123,12 @@ public class SimpleYamlConnection implements YamlConnection {
         return versions.get(0);
     }
 
+    @Nonnull
+    @Override
+    public SemanticVersion getCurrentVersion() {
+        return getInitialVersion();
+    }
+
     @Override
     public <T> T executeTransactionally(final SQLFunction<YamlConnection, T> transactionalWork) throws SQLException, RelationalException {
         underlying.setAutoCommit(false);

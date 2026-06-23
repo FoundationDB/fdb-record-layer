@@ -1,5 +1,5 @@
 #
-# non-exhaustive-schema-template-variants.yamsql
+# overlapping-setup-variants.yamsql
 #
 # This source file is part of the FoundationDB open source project
 #
@@ -18,16 +18,24 @@
 # limitations under the License.
 
 ---
-# The `schema_template` variants here leave [MIN, 3.1.0.0) uncovered, so the file should fail at parse time regardless
-# of the version under test.
 schema_template:
-    - initialVersionAtLeast: "3.1.0.0"
-      definition: |
-          create table t1(id bigint, primary key(id))
+  CREATE TABLE T1 (id BIGINT, PRIMARY KEY (id))
+---
+setup:
+  steps:
+    # The two `setup` variants here both match versions in [3.0.0.0, 3.1.0.0), so the file should fail at
+    # parse time regardless of the version under test.
+    -
+      - currentVersionLessThan: "3.1.0.0"
+      - definition:
+        - query: INSERT INTO T1 VALUES (1)
+      - currentVersionAtLeast: "3.0.0.0"
+        definition:
+          - query: INSERT INTO T1 VALUES (1)
 ---
 test_block:
   preset: single_repetition_ordered
   tests:
     -
-      - query: select * from t1
+      - query: SELECT * FROM T
       - result: []

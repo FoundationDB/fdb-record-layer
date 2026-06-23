@@ -19,7 +19,7 @@
 
 ---
 schema_template:
-  - initialVersionLessThan: "4.12.1.0"
+  - currentVersionLessThan: "4.12.1.0"
     definition: |
       create table t1(id bigint, col1 bigint, col2 bigint, primary key(id))
       create index i1 as select col1 from t1
@@ -50,7 +50,7 @@ schema_template:
       create function t4_by_col1(in x string) as select "__ROW_VERSION" AS version, (t4.*) as r from t4 where t4.col1 = x
       
       with options (store_row_versions=true)
-  - initialVersionAtLeast: "4.12.1.0"
+  - currentVersionAtLeast: "4.12.1.0"
     definition: |
       create table t1(id bigint, col1 bigint, col2 bigint, primary key(id))
       create index i1 as select col1 from t1

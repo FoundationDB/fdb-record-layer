@@ -1,9 +1,9 @@
 /*
- * InitialVersionTest.java
+ * CurrentVersionTest.java
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2025 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2026 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -42,9 +42,9 @@ import java.util.stream.Stream;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
- * Tests that tests based on the initial version flags skip what they should and nothing else.
+ * Tests that tests with setup blocks based on the current version are executed correctly.
  */
-public class InitialVersionTest {
+class CurrentVersionTest {
     private static final SemanticVersion VERSION = SemanticVersion.parse("3.0.18.0");
     private static final String CLUSTER_FILE = FDBTestEnvironment.randomClusterFile();
     private static final EmbeddedConfig config = new EmbeddedConfig(List.of(CLUSTER_FILE));
@@ -59,16 +59,8 @@ public class InitialVersionTest {
         config.afterAll();
     }
 
-    private void doRunFixedVersion(String testName) throws Exception {
-        doRun(testName, createConnectionFactory());
-    }
-
-    private void doRunCurrentVersion(String testName) throws Exception {
-        doRun(testName, config.createConnectionFactory());
-    }
-
-    private void doRun(String testName, YamlConnectionFactory connectionFactory) throws Exception {
-        new YamlRunner("initial-version/" + testName + ".yamsql", connectionFactory, YamlExecutionContext.ContextOptions.EMPTY_OPTIONS).run();
+    private void doRun(String testName) throws Exception {
+        new YamlRunner("current-version/" + testName + ".yamsql", createConnectionFactory(), YamlExecutionContext.ContextOptions.EMPTY_OPTIONS).run();
     }
 
     YamlConnectionFactory createConnectionFactory() {
@@ -88,20 +80,14 @@ public class InitialVersionTest {
 
     static Stream<String> shouldFail() {
         return Stream.of(
-                "do-not-allow-max-rows-in-at-least",
-                "do-not-allow-max-rows-in-less-than",
-                "explain-after-version",
-                "mid-query",
-                "non-exhaustive-versions",
-                "non-exhaustive-current-version",
-                "wrong-result-at-least",
-                "wrong-result-less-than",
-                "wrong-count-at-least",
-                "wrong-count-less-than",
-                "wrong-unordered-at-least",
-                "wrong-unordered-less-than",
-                "wrong-error-at-least",
-                "wrong-error-less-than"
+                "malformed-version-schema-template-variants",
+                "malformed-version-setup-variants",
+                "missing-version-tag-schema-template-variants",
+                "missing-version-tag-setup-variants",
+                "non-exhaustive-schema-template-variants",
+                "non-exhaustive-setup-variants",
+                "overlapping-schema-template-variants",
+                "overlapping-setup-variants"
         );
     }
 
@@ -109,56 +95,22 @@ public class InitialVersionTest {
     @MethodSource
     void shouldFail(String testName) {
         assertThrows(YamlExecutionContext.YamlExecutionError.class, () ->
-                doRunFixedVersion(testName));
+                doRun(testName));
     }
 
 
     static Stream<String> shouldPass() {
         return Stream.of(
-                "less-than-version-tests",
-                "at-least-version-tests"
+                "schema-template-variants",
+                "setup-block-variants",
+                "multiple-schema-template-variants",
+                "multiple-setup-variants"
         );
     }
 
     @ParameterizedTest
     @MethodSource
     void shouldPass(String testName) throws Exception {
-        doRunFixedVersion(testName);
-    }
-
-    static Stream<String> shouldFailOnCurrent() {
-        return Stream.of(
-                "mid-query",
-                "non-exhaustive-versions",
-                "non-exhaustive-current-version",
-                "wrong-result-at-least",
-                "wrong-count-at-least",
-                "wrong-unordered-at-least",
-                "wrong-error-at-least"
-        );
-    }
-
-    @ParameterizedTest
-    @MethodSource
-    void shouldFailOnCurrent(String testName) {
-        assertThrows(YamlExecutionContext.YamlExecutionError.class, () ->
-                doRunCurrentVersion(testName));
-    }
-
-    static Stream<String> shouldPassOnCurrent() {
-        return Stream.of(
-                "at-least-current-version",
-                "at-least-version-tests",
-                "wrong-result-less-than",
-                "wrong-count-less-than",
-                "wrong-unordered-less-than",
-                "wrong-error-less-than"
-        );
-    }
-
-    @ParameterizedTest
-    @MethodSource
-    void shouldPassOnCurrent(String testName) throws Exception {
-        doRunCurrentVersion(testName);
+        doRun(testName);
     }
 }

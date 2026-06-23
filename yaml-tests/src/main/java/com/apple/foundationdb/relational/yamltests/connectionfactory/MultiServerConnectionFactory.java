@@ -210,6 +210,12 @@ public class MultiServerConnectionFactory implements YamlConnectionFactory {
             return versions.get(0);
         }
 
+        @Nonnull
+        @Override
+        public SemanticVersion getCurrentVersion() {
+            return getCurrentConnection(false, "get current version").getCurrentVersion();
+        }
+
         @Override
         public <T> T executeTransactionally(final SQLFunction<YamlConnection, T> transactionalWork)
                 throws SQLException, RelationalException {

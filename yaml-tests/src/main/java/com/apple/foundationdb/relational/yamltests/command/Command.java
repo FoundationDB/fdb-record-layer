@@ -62,7 +62,7 @@ public abstract class Command {
     private static final Logger logger = LogManager.getLogger(Command.class);
 
     @Nonnull
-    private final YamlReference reference;
+    final YamlReference reference;
     @Nonnull
     final YamlExecutionContext executionContext;
 

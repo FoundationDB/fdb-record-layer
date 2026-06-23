@@ -59,9 +59,10 @@
     <keywords4 keywords="connect:;query:;load schema template:;set schema state:;result:;unorderedResult:;explain:;
     explainContains:;count:;error:;planHash:;setup:;schema_template:;supported_version:;test_block:;options:;tests:;
     copy_block:;source:;dest:;export_limit:;import_chunk_size:;
-    include:;required_clusters:;
-    maxRows:;initialVersionAtLeast:;initialVersionLessThan:;;mode:;repetition:;seed:;setup:;transaction_setups:;
-    setupReference:;check_cache:;connection_lifecycle:;steps:;preset:;statement_type:;!r;!in;!a;" />
+    include:;required_clusters:;maxRows:;name:;
+    currentVersionAtLeast:;currentVersionLessThan:;initialVersionAtLeast:;initialVersionLessThan:;;mode:;definition:;
+    repetition:;seed:;setup:;transaction_setups:;setupReference:;check_cache:;connection_lifecycle:;steps:;preset:;
+    statement_type:;!r;!in;!a;" />
   </highlighting>
   <extensionMap>
     <mapping ext="yamsql" />

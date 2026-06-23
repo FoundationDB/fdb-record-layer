@@ -1,5 +1,5 @@
 #
-# missing-version-tag-schema-template-variants.yamsql
+# setup-block-variants.yamsql
 #
 # This source file is part of the FoundationDB open source project
 #
@@ -18,18 +18,26 @@
 # limitations under the License.
 
 ---
-# The second variant declares no version key, so its range defaults to [MIN, MAX). That overlaps with the first
-# variant's [MIN, 3.0.0.0), and the parser rejects the file at parse time via the overlap check.
 schema_template:
-    - initialVersionLessThan: "3.0.0.0"
-      definition: |
-          CREATE TABLE T1 (id BIGINT, PRIMARY KEY (id))
-    - definition: |
-          CREATE TABLE T1 (id BIGINT, PRIMARY KEY (id))
+  create table table_t1(id bigint, col1 bigint, primary key(id))
+---
+setup:
+  connect: 1
+  steps:
+    - query: INSERT INTO table_T1 VALUES (5, 9)
+    -
+      - currentVersionLessThan: "3.0.18.0"
+        definition:
+          - query: INSERT INTO table_T1 VALUES (10, 20)
+      - currentVersionAtLeast: "3.0.18.0"
+        definition:
+          - query: INSERT INTO table_T1 VALUES (30, 40)
+    - query: INSERT INTO table_T1 VALUES (50, 60)
+
 ---
 test_block:
-  preset: single_repetition_ordered
   tests:
     -
-      - query: SELECT * FROM T1
-      - result: []
+      - query: select * from table_T1;
+      - result: [{id: 5, col1: 9}, {id: 30, col1: 40}, {id: 50, col1: 60}]
+...

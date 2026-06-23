@@ -1,5 +1,5 @@
 #
-# multiple-schema-template-variants.yamsql
+# missing-version-tag-schema-template-variants.yamsql
 #
 # This source file is part of the FoundationDB open source project
 #
@@ -18,28 +18,18 @@
 # limitations under the License.
 
 ---
-# Exercises a `schema_template` list with three variants. The middle variant uses both `initialVersionAtLeast` and
-# `initialVersionLessThan` to bound a closed-open range; the low and high variants use a single bound each. All three
-# variants define T1 identically, so this test passes regardless of which variant is selected. The goal is to verify
-# that the parser, validator, and runtime selector all handle more than two variants.
+# The second variant declares no version key, so its range defaults to [MIN, MAX). That overlaps with the first
+# variant's [MIN, 3.0.0.0), and the parser rejects the file at parse time via the overlap check.
 schema_template:
-    - initialVersionLessThan: "1.0.0.0"
+    - currentVersionLessThan: "3.0.0.0"
       definition: |
           CREATE TABLE T1 (id BIGINT, PRIMARY KEY (id))
-    - initialVersionAtLeast: "1.0.0.0"
-      initialVersionLessThan: "100.0.0.0"
-      definition: |
-          CREATE TABLE T1 (id BIGINT, PRIMARY KEY (id))
-    - initialVersionAtLeast: "100.0.0.0"
-      definition: |
+    - definition: |
           CREATE TABLE T1 (id BIGINT, PRIMARY KEY (id))
 ---
 test_block:
   preset: single_repetition_ordered
   tests:
     -
-      - query: INSERT INTO T1 VALUES (1)
-      - count: 1
-    -
-      - query: SELECT id FROM T1
-      - result: [{id: !l 1}]
+      - query: SELECT * FROM T1
+      - result: []
