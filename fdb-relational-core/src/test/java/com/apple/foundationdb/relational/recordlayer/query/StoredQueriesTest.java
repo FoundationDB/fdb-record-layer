@@ -596,4 +596,5 @@ public class StoredQueriesTest {
                                 .build())
                 .hasErrorCode(ErrorCode.SYNTAX_ERROR);
     }
+
 }
