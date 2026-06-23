@@ -780,8 +780,11 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                 // process has already built the relevant ranges, and it
                 // may adjust the way the index is built in response.
                 future = maintainer.updateWhileWriteOnly(oldRecord, newRecord);
+                context.addToSessionSet(ContextSessionKey.WRITE_ONLY_INDEXES_UPDATED, index.getName());
             } else {
                 future = maintainer.update(oldRecord, newRecord);
+                // Both READABLE and READABLE_UNIQUE_PENDING will cause the index to be updated and so are captured here
+                context.addToSessionSet(ContextSessionKey.READABLE_INDEXES_UPDATED, index.getName());
             }
             if (!MoreAsyncUtil.isCompletedNormally(future)) {
                 futures.add(future);
