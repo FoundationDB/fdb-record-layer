@@ -38,6 +38,7 @@ dependencies {
     testImplementation(libs.bundles.test.impl)
     testImplementation(libs.lucene.testFramework)
     testRuntimeOnly(libs.bundles.test.runtime)
+    testRuntimeOnly(libs.junit.vintage)
     testCompileOnly(libs.bundles.test.compileOnly)
     testImplementation(libs.snakeyaml)
     testAnnotationProcessor(libs.autoService)
