@@ -154,6 +154,22 @@ public abstract class IndexMaintainer {
 
 
     /**
+     * While the index is in {@link com.apple.foundationdb.record.IndexState#WRITE_ONLY_WITH_QUEUE} mode, push the information
+     * to a write pending queue. The ongoing online indexer session will later drain the queue and call
+     * {@link #updateWhileWriteOnly(FDBIndexableRecord, FDBIndexableRecord)} with the parameters.
+     * This index state was designed to prevent repeating conflicts with indexer's transaction.
+     *
+     * @param oldRecord the previous stored record or <code>null</code> if a new record is being created
+     * @param newRecord the new record or <code>null</code> if an old record is being deleted
+     * @param <M> type of message
+     * @return a future that is complete when the index update is done
+     */
+    @Nonnull
+    public abstract <M extends Message> CompletableFuture<Void> updateWhileWriteOnlyWithQueue(@Nullable FDBIndexableRecord<M> oldRecord,
+                                                                                              @Nullable FDBIndexableRecord<M> newRecord);
+
+
+    /**
      * Scans through the list of uniqueness violations within the database.
      * <p>
      *     It will return a cursor of {@link IndexEntry} instances where the {@link IndexEntry#getKey() getKey()} will

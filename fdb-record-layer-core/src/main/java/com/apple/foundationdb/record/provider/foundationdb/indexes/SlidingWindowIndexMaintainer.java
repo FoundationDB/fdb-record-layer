@@ -419,6 +419,13 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
         return update(oldRecord, newRecord);
     }
 
+    @Nonnull
+    @Override
+    public <M extends Message> CompletableFuture<Void> updateWhileWriteOnlyWithQueue(@Nullable final FDBIndexableRecord<M> oldRecord, @Nullable final FDBIndexableRecord<M> newRecord) {
+        // TODO: push to queue
+        return AsyncUtil.DONE;
+    }
+
     /**
      * Evaluates the partition key from a record. Returns an empty tuple if there is no partition.
      */
