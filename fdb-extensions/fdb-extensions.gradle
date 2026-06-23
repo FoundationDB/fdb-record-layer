@@ -44,20 +44,26 @@ dependencies {
     testFixturesAnnotationProcessor(libs.autoService)
 }
 
-def siftSmallFile = layout.buildDirectory.file('downloads/siftsmall.tar.gz')
+def siftSmallFile = project.ext.downloadsDirectory.file("siftsmall.tar.gz")
 def extractDir = layout.buildDirectory.dir("extracted")
 
 // Task that downloads the CSV exactly once unless it changed
 tasks.register('downloadSiftSmall', de.undercouch.gradle.tasks.download.Download) {
     src 'https://huggingface.co/datasets/vecdata/siftsmall/resolve/3106e1b83049c44713b1ce06942d0ab474bbdfb6/siftsmall.tar.gz'
-    dest siftSmallFile.get().asFile
-    onlyIfModified true
-    tempAndMove true
-    retries 3
+    downloadTaskDir project.ext.downloadsDirectory.dir("downloads-task")
+    dest siftSmallFile.asFile
+    overwrite false
+}
+
+tasks.register('verifySiftSmall', de.undercouch.gradle.tasks.download.Verify) {
+    dependsOn 'downloadSiftSmall'
+    src siftSmallFile
+    algorithm 'SHA256'
+    checksum '987b526d24e749082ba27ee8068003836eb17a61b34f09b4db865750f8a43487'
 }
 
 tasks.register('extractSiftSmall', Copy) {
-    dependsOn 'downloadSiftSmall'
+    dependsOn 'verifySiftSmall'
     from(tarTree(resources.gzip(siftSmallFile)))
     into extractDir
 
@@ -74,6 +80,91 @@ tasks.register('extractSiftSmall', Copy) {
 test {
     dependsOn tasks.named('extractSiftSmall')
     inputs.dir extractDir
+    // SIMD path: make the jdk.incubator.vector module visible at runtime so SimdBackend loads.
+    jvmArgs '--add-modules=jdk.incubator.vector'
+    // Scalar-only tests (RequiresScalar) assert scalar-backend behaviour and run in the dedicated
+    // scalarFallbackTest task below; the default test task always loads the SIMD backend (via the
+    // --add-modules above), so the scalar-only tag is excluded here. This exclusion lives in
+    // fdb-extensions rather than the shared gradle/testing.gradle because fdb-extensions is the only
+    // module that has RequiresScalar-tagged tests and the only one that sets the SIMD JVM flags.
+    useJUnitPlatform()
+    testFramework.options.excludeTags.add('RequiresScalar')
+}
+
+//
+// SIMD compilation: the linear.simd sub-package imports jdk.incubator.vector.*, which requires
+// the incubator module to be added at compile time. Applied to both main and test compilations
+// so the test source set can reference Backend implementations directly if needed.
+//
+// javac emits an unconditional "using incubating module(s)" warning whenever an incubator
+// module is added. JDK 17 doesn't expose a lint category to suppress it (the `incubating`
+// category was added later), so we drop -Werror only for these two tasks. The doFirst hook
+// ensures the removal happens after strict.gradle has added -Werror via its own configureEach.
+//
+compileJava {
+    options.compilerArgs += ['--add-modules', 'jdk.incubator.vector']
+    doFirst {
+        options.compilerArgs = options.compilerArgs.findAll { it != '-Werror' }
+    }
+}
+compileTestJava {
+    options.compilerArgs += ['--add-modules', 'jdk.incubator.vector']
+    doFirst {
+        options.compilerArgs = options.compilerArgs.findAll { it != '-Werror' }
+    }
+}
+javadoc {
+    // Include the linear.simd sub-package (SimdBackend) in the published Javadoc: it's a
+    // documented, user-relevant code path (the user must add --add-modules jdk.incubator.vector
+    // to their JVM to use it), so it's worth documenting rather than hiding. Javadoc needs the
+    // incubator module on its module path to resolve the jdk.incubator.vector.* references.
+    options.addStringOption('-add-modules', 'jdk.incubator.vector')
+}
+
+//
+// Adding the incubator module above makes javadoc emit an unconditional "using incubating
+// module(s)" warning that JDK 17 offers no lint category to suppress. The root build turns on
+// -Xwerror for every subproject's Javadoc in its own afterEvaluate, which runs BEFORE this block
+// but AFTER the plain `javadoc {}` block above — so we override it here, in our own (later)
+// afterEvaluate, by re-adding the Xwerror option as false (Gradle keys Javadoc options by name,
+// and a false boolean option is not emitted). We accept losing -Xwerror for this one module's
+// Javadoc in exchange for documenting the SIMD backend.
+//
+afterEvaluate {
+    javadoc {
+        options.addBooleanOption('Xwerror', false)
+    }
+}
+
+//
+// Focused verification of the scalar fallback path: runs every test that must pass under the
+// scalar backend, selected by JUnit tags rather than an explicit class allowlist:
+//   - RequiresScalar   — tests that assert scalar-specific behavior (e.g. the backend name, or
+//                        bit-exact determinism that SIMD lane-reordering would break). These run
+//                        ONLY here (the default test task excludes the tag).
+//   - DualScalarSIMD   — parity/correctness tests that must hold under both backends. These run
+//                        TWICE in CI: under SIMD in the default test task, and again under scalar
+//                        here. That double-run is the point — it's how SIMD-vs-scalar parity is
+//                        actually exercised (the default run covers SIMD, this run confirms scalar
+//                        agrees).
+// Does NOT pass --add-modules, so loading SimdBackend fails with NoClassDefFoundError; the
+// fdb.vector.simd=scalar system property also forces scalar selection (so RealVectorPrimitives
+// resolves to the scalar backend even though the SIMD class is technically on the classpath).
+//
+task scalarFallbackTest(type: Test) {
+    description = 'Runs the RequiresScalar and DualScalarSIMD tagged tests without --add-modules to exercise the scalar fallback.'
+    group = 'verification'
+    useJUnitPlatform {
+        includeTags 'RequiresScalar', 'DualScalarSIMD'
+    }
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath       = sourceSets.test.runtimeClasspath
+    dependsOn tasks.named('extractSiftSmall')
+    inputs.dir extractDir
+    systemProperty 'fdb.vector.simd', 'scalar'
+}
+tasks.named('check').configure {
+    dependsOn 'scalarFallbackTest'
 }
 
 publishing {

@@ -48,7 +48,6 @@ import com.apple.foundationdb.record.sorting.MemorySorter;
 import com.apple.foundationdb.record.util.RandomSecretUtil;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
-import com.beust.jcommander.internal.Lists;
 import com.google.common.base.Verify;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
@@ -104,7 +103,7 @@ public class SortCursorTests extends FDBRecordStoreTestBase {
             }
             commit(context);
         }
-        sortedNums = Lists.newArrayList(insertedNums);
+        sortedNums = new ArrayList<>(insertedNums);
         Collections.sort(sortedNums);
     }
 

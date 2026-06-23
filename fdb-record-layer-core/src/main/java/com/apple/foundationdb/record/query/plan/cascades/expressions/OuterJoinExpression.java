@@ -30,6 +30,7 @@ import com.apple.foundationdb.record.query.plan.cascades.explain.InternalPlanner
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.AndPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
+import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.apple.foundationdb.record.query.plan.explain.WithIndentationsExplainFormatter;
@@ -113,6 +114,15 @@ public class OuterJoinExpression extends AbstractRelationalExpressionWithChildre
                                @Nonnull final Value resultValue) {
         Verify.verify(!preservedQuantifier.isNullOnEmpty());
         Verify.verify(!nullSupplyingQuantifier.isNullOnEmpty());
+        // Every reference to the null-supplying alias inside the result value must carry a nullable type.
+        final CorrelationIdentifier nullSupplyingAlias = nullSupplyingQuantifier.getAlias();
+        Verify.verify(
+                resultValue.preOrderStream()
+                        .filter(QuantifiedObjectValue.class::isInstance)
+                        .map(QuantifiedObjectValue.class::cast)
+                        .filter(qov -> qov.getAlias().equals(nullSupplyingAlias))
+                        .allMatch(qov -> qov.getResultType().isNullable()),
+                "The result value must reference the null-supplying side with a nullable type.");
         this.preservedQuantifier = preservedQuantifier;
         this.nullSupplyingQuantifier = nullSupplyingQuantifier;
         this.joinPredicates = ImmutableList.copyOf(joinPredicates);

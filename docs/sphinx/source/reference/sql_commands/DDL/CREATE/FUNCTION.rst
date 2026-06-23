@@ -308,3 +308,4 @@ See Also
 
 * :ref:`Subqueries <subqueries>` - Using functions in subqueries
 * :ref:`Joins <joins>` - Using functions in join operations
+* :ref:`CREATE VIEW <create-view>` - Views: reusable queries without parameters

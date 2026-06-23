@@ -238,6 +238,9 @@ tasks.withType(Test) { theTask ->
     testClassesDirs = sourceSets.test.output.classesDirs
     classpath = sourceSets.test.runtimeClasspath
 
+    // Raise the default heap size for the forked worker JVMs that run the tests. (Gradle’s default is only 512 MB.)
+    maxHeapSize = '4g'
+
     configureTestTask('allTest', theTask)
     configureTestTask(theTask.name, theTask)
     testLogging {
@@ -301,6 +304,13 @@ tasks.withType(Test) { theTask ->
 
 tasks.withType(Test).configureEach { task ->
     if (task.name != 'performanceTest') {
+        // Defensive: ensure the JUnit Platform framework is set before any code below reads
+        // `task.testFramework.options.excludeTags`. This callback fires at task-creation time, so
+        // tasks declared in subprojects that haven't yet had their configuration closure invoked
+        // would still be on the JUnit4 default (which has no excludeTags) without this. Calling
+        // useJUnitPlatform() here is a no-op for tasks that already have it.
+        task.useJUnitPlatform()
+
         // Configure whether or not tests will validate that asyncToSync isn't being called in async
         // context.  See BlockingInAsyncDetection class for details on values.
         // disable BLOCKING_DETECTION to better simulate performance

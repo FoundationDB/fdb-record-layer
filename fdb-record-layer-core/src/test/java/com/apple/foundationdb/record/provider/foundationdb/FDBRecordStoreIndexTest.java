@@ -3118,6 +3118,59 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
         database.close();
     }
 
+    @Test
+    void testWriteOnlyIndexUpdatesTrackedInSession() throws Exception {
+        final String indexName = "MySimpleRecord$num_value_3_indexed";
+
+        // Mark the index write-only in a committed transaction first
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context);
+            recordStore.markIndexWriteOnly(indexName).get();
+            commit(context);
+        }
+
+        // Save a record; the write-only index update should be registered in the session
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context);
+            recordStore.saveRecord(TestRecords1Proto.MySimpleRecord.newBuilder()
+                    .setRecNo(1066L)
+                    .setNumValue3Indexed(42)
+                    .build());
+
+            Set<String> tracked = context.getInSession(ContextSessionKey.WRITE_ONLY_INDEXES_UPDATED);
+            assertNotNull(tracked, "session should record write-only index updates");
+            assertEquals(1, tracked.size());
+            assertTrue(tracked.contains(indexName),
+                    "tracked set should contain the write-only index name");
+
+            tracked = context.getInSession(ContextSessionKey.READABLE_INDEXES_UPDATED);
+            assertFalse(tracked.contains(indexName), "index is not readable, should not be tracked");
+        }
+    }
+
+    @Test
+    void testReadableIndexUpdatesTrackedInSession() throws Exception {
+        final String indexName = "MySimpleRecord$num_value_3_indexed";
+
+        // All indexes are readable by default
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context);
+            recordStore.saveRecord(TestRecords1Proto.MySimpleRecord.newBuilder()
+                    .setRecNo(1066L)
+                    .setNumValue3Indexed(42)
+                    .build());
+
+            assertNull(context.getInSession(ContextSessionKey.WRITE_ONLY_INDEXES_UPDATED),
+                    "session should be empty when no write-only indexes were touched");
+
+            Set<String> tracked = context.getInSession(ContextSessionKey.READABLE_INDEXES_UPDATED);
+            assertNotNull(tracked, "session should record readable index updates");
+            assertFalse(tracked.isEmpty());
+            assertTrue(tracked.contains(indexName),
+                    "tracked set should contain the readable index name");
+        }
+    }
+
     private void testRangeCount(@Nonnull FDBRecordContext context, @Nonnull ArrayList<byte[]> keys, byte[] upperBound, int rangeCount) {
         MockedLocalityUtil.init(keys, rangeCount);
         CloseableAsyncIterator<byte[]> cursor = MockedLocalityUtil.instance().getBoundaryKeys(context.ensureActive(), keys.get(0), upperBound);

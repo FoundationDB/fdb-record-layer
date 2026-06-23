@@ -137,7 +137,7 @@ interface MetricDefinition {
         public double distance(@Nonnull final double[] vector1, @Nonnull final double[] vector2) {
             MetricDefinition.validate(vector1, vector2);
 
-            return Math.sqrt(EuclideanSquareMetric.distanceInternal(vector1, vector2));
+            return Math.sqrt(RealVectorPrimitives.euclideanSquared(vector1, vector2));
         }
 
         @Override
@@ -169,16 +169,7 @@ interface MetricDefinition {
         @Override
         public double distance(@Nonnull final double[] vector1, @Nonnull final double[] vector2) {
             MetricDefinition.validate(vector1, vector2);
-            return distanceInternal(vector1, vector2);
-        }
-
-        private static double distanceInternal(@Nonnull final double[] vector1, @Nonnull final double[] vector2) {
-            double sumOfSquares = 0.0d;
-            for (int i = 0; i < vector1.length; i++) {
-                double diff = vector1[i] - vector2[i];
-                sumOfSquares += diff * diff;
-            }
-            return sumOfSquares;
+            return RealVectorPrimitives.euclideanSquared(vector1, vector2);
         }
 
         @Override
@@ -212,26 +203,21 @@ interface MetricDefinition {
         public double distance(@Nonnull final double[] vector1, @Nonnull final double[] vector2) {
             MetricDefinition.validate(vector1, vector2);
 
-            double normA = 0.0;
-            double normB = 0.0;
-
-            for (int i = 0; i < vector1.length; i++) {
-                normA += vector1[i] * vector1[i];
-                normB += vector2[i] * vector2[i];
-            }
+            final double normA = RealVectorPrimitives.l2SquaredNorm(vector1);
+            final double normB = RealVectorPrimitives.l2SquaredNorm(vector2);
 
             // Handle the case of zero-vectors to avoid division by zero
             if (normA == 0.0 || normB == 0.0) {
                 return Double.POSITIVE_INFINITY;
             }
 
-            final double dotProduct = DotProductMetric.dotProduct(vector1, vector2);
+            final double dotProduct = RealVectorPrimitives.dot(vector1, vector2);
 
             if (!Double.isFinite(normA) || !Double.isFinite(normB) || !Double.isFinite(dotProduct)) {
                 return Double.NaN;
             }
 
-            return 1.0d - DotProductMetric.dotProduct(vector1, vector2) / (Math.sqrt(normA) * Math.sqrt(normB));
+            return 1.0d - dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
         }
 
         @Override
@@ -279,12 +265,7 @@ interface MetricDefinition {
 
         public static double dotProduct(@Nonnull final double[] vector1, @Nonnull final double[] vector2) {
             MetricDefinition.validate(vector1, vector2);
-
-            double product = 0.0d;
-            for (int i = 0; i < vector1.length; i++) {
-                product += vector1[i] * vector2[i];
-            }
-            return product;
+            return RealVectorPrimitives.dot(vector1, vector2);
         }
 
         @Override

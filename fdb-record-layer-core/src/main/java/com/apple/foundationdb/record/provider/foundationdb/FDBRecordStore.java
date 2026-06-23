@@ -310,8 +310,6 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     @Nonnull
     private final FDBPreloadRecordCache preloadCache;
 
-    private boolean recordsReadConflict;
-
     private boolean storeStateReadConflict;
     private IndexDeferredMaintenanceControl indexDeferredMaintenanceControl;
 
@@ -782,8 +780,11 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                 // process has already built the relevant ranges, and it
                 // may adjust the way the index is built in response.
                 future = maintainer.updateWhileWriteOnly(oldRecord, newRecord);
+                context.addToSessionSet(ContextSessionKey.WRITE_ONLY_INDEXES_UPDATED, index.getName());
             } else {
                 future = maintainer.update(oldRecord, newRecord);
+                // Both READABLE and READABLE_UNIQUE_PENDING will cause the index to be updated and so are captured here
+                context.addToSessionSet(ContextSessionKey.READABLE_INDEXES_UPDATED, index.getName());
             }
             if (!MoreAsyncUtil.isCompletedNormally(future)) {
                 futures.add(future);
@@ -4040,20 +4041,6 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     }
 
     /**
-     * Add a read conflict key for all records.
-     */
-    @SuppressWarnings("PMD.CloseResource")
-    private void addRecordsReadConflict() {
-        if (recordsReadConflict) {
-            return;
-        }
-        recordsReadConflict = true;
-        Transaction tr = ensureContextActive();
-        byte[] recordKey = getSubspace().pack(Tuple.from(RECORD_KEY));
-        tr.addReadConflictRange(recordKey, ByteArrayUtil.strinc(recordKey));
-    }
-
-    /**
      * Add a read conflict key so that the transaction will fail if the index state has changed.
      * @param indexName the index to conflict on, if it's state changes
      */
@@ -4753,10 +4740,10 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             removeFormerIndex(formerIndex);
         }
 
-        return checkRebuildIndexes(userVersionChecker, info, oldFormatVersion, metaData, oldMetaDataVersion, rebuildRecordCounts, work);
+        return checkRebuildIndexes(userVersionChecker, oldFormatVersion, metaData, oldMetaDataVersion, rebuildRecordCounts, work);
     }
 
-    private CompletableFuture<Void> checkRebuildIndexes(@Nullable UserVersionChecker userVersionChecker, @Nonnull RecordMetaDataProto.DataStoreInfo.Builder info,
+    private CompletableFuture<Void> checkRebuildIndexes(@Nullable UserVersionChecker userVersionChecker,
                                                         int oldFormatVersion, @Nonnull RecordMetaData metaData, int oldMetaDataVersion,
                                                         boolean rebuildRecordCounts, List<CompletableFuture<Void>> work) {
         final boolean newStore = oldFormatVersion == 0;
@@ -4771,34 +4758,6 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             AtomicLong recordsSizeRef = new AtomicLong(-1);
             final Supplier<CompletableFuture<Long>> lazyRecordsSize = getAndRememberFutureLong(recordsSizeRef,
                     () -> getRecordSizeForRebuildIndexes(singleRecordTypeWithPrefixKey));
-            if (singleRecordTypeWithPrefixKey == null
-                    && formatVersion.isAtLeast(FormatVersion.SAVE_UNSPLIT_WITH_SUFFIX)
-                    && omitUnsplitRecordSuffix) {
-                // Check to see if the unsplit format can be upgraded on an empty store.
-                // Only works if singleRecordTypeWithPrefixKey is null as otherwise, the recordCount will not contain
-                // all records
-                work.add(lazyRecordCount.get().thenAccept(recordCount -> {
-                    if (recordCount == 0) {
-                        if (newStore ? LOGGER.isDebugEnabled() : LOGGER.isInfoEnabled()) {
-                            KeyValueLogMessage msg = KeyValueLogMessage.build("upgrading unsplit format on empty store",
-                                    LogMessageKeys.NEW_FORMAT_VERSION, formatVersion,
-                                    subspaceProvider.logKey(), subspaceProvider.toString(context));
-                            if (newStore) {
-                                if (LOGGER.isDebugEnabled()) {
-                                    LOGGER.debug(msg.toString());
-                                }
-                            } else {
-                                if (LOGGER.isInfoEnabled()) {
-                                    LOGGER.info(msg.toString());
-                                }
-                            }
-                        }
-                        omitUnsplitRecordSuffix = !formatVersion.isAtLeast(FormatVersion.SAVE_UNSPLIT_WITH_SUFFIX);
-                        info.clearOmitUnsplitRecordSuffix();
-                        addRecordsReadConflict(); // We used snapshot to determine emptiness, and are now acting on it.
-                    }
-                }));
-            }
 
             Map<Index, CompletableFuture<IndexState>> newStates = getStatesForRebuildIndexes(userVersionChecker, indexes, lazyRecordCount, lazyRecordsSize, newStore, oldMetaDataVersion, oldFormatVersion);
             return rebuildIndexes(indexes, newStates, work, newStore ? RebuildIndexReason.NEW_STORE : RebuildIndexReason.FEW_RECORDS, oldMetaDataVersion).thenRun(() -> {
