@@ -263,7 +263,9 @@ public abstract class IndexingBase {
         if (continueBuild) {
             return AsyncUtil.DONE;
         }
-        return forEachTargetIndex(store::markIndexWriteOnly);
+        return forEachTargetIndex(index -> policy.useWritePendingQueue(index) ?
+                                           store.markIndexWriteOnlyWithQueue(index) :
+                                           store.markIndexWriteOnly(index));
     }
 
     @Nonnull
