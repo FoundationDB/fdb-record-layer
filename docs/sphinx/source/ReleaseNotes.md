@@ -7,6 +7,50 @@ As the [versioning guide](Versioning.md) details, it cannot always be determined
 
 ## 4.12
 
+### 4.12.12.0
+
+<h4> New Features </h4>
+
+* Add observability for the set of indexes updated in a transaction - [PR #4289](https://github.com/FoundationDB/fdb-record-layer/pull/4289)
+* Extend deserialize retry to cover decryption failures - [PR #4290](https://github.com/FoundationDB/fdb-record-layer/pull/4290)
+*   Refine DistinctRecordsProperty for EXPLODE WITH ORDINALITY - [PR #4285](https://github.com/FoundationDB/fdb-record-layer/pull/4285)
+* SIMD support for vector operations - [PR #4218](https://github.com/FoundationDB/fdb-record-layer/pull/4218)
+<h4> Bug Fixes </h4>
+
+* Update `RecordTypeTable` so that `RelationalStruct`s with UUID-valued fields can be converted appropriately - [PR #4243](https://github.com/FoundationDB/fdb-record-layer/pull/4243)
+
+<details>
+<summary>
+
+<h4> Build/Test/Documentation/Style Improvements (click to expand) </h4>
+
+</summary>
+
+* Cache downloaded build assets using GitHub actions - [PR #4264](https://github.com/FoundationDB/fdb-record-layer/pull/4264)
+* Use ArrayList rather than newArrayList from JCommander - [PR #4284](https://github.com/FoundationDB/fdb-record-layer/pull/4284)
+* Add AI assistant tooling: AGENTS.md, CLAUDE.md, skills - [PR #4286](https://github.com/FoundationDB/fdb-record-layer/pull/4286)
+* Update all test-only dependencies - [PR #4268](https://github.com/FoundationDB/fdb-record-layer/pull/4268)
+* Remove unused bndtools dependency - [PR #4283](https://github.com/FoundationDB/fdb-record-layer/pull/4283)
+* Add a test: online indexer takeover multi-target to single - [PR #4262](https://github.com/FoundationDB/fdb-record-layer/pull/4262)
+* Add enough data in yamsql tests for force-continuation testing - [PR #4197](https://github.com/FoundationDB/fdb-record-layer/pull/4197)
+* Introduce new microbenchmarks to compare perf of direct access API with SQL path - [PR #3996](https://github.com/FoundationDB/fdb-record-layer/pull/3996)
+* Remove commonsCollections dependency - [PR #4282](https://github.com/FoundationDB/fdb-record-layer/pull/4282)
+
+</details>
+
+
+**[Full Changelog (4.12.11.0...4.12.12.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.12.11.0...4.12.12.0)**
+
+#### Mixed Mode Test Results
+
+Mixed mode testing run against the following previous versions:
+
+✅`4.12.2.0`, ✅`4.12.3.0`, ✅`4.12.4.0`, ✅`4.12.5.0`, ✅`4.12.6.0`, ✅`4.12.7.0`, ✅`4.12.8.0`, ✅`4.12.9.0`, ✅`4.12.10.0`, ✅`4.12.11.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/28028771688)
+
+
+
 ### 4.12.11.0
 
 <h4> Bug Fixes </h4>
