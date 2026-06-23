@@ -327,6 +327,13 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
         }
     }
 
+    @Override
+    @Nonnull
+    public <M extends Message> CompletableFuture<Void> updateWhileWriteOnlyWithQueue(@Nullable final FDBIndexableRecord<M> oldRecord, @Nullable final FDBIndexableRecord<M> newRecord) {
+        // TODO: push items to the queue
+        return AsyncUtil.DONE;
+    }
+
     @Nullable
     private static <M extends Message> Tuple evaluateSingletonIndexKey(Index index, IndexMaintainer maintainer, @Nullable FDBIndexableRecord<M> record) {
         if (record == null) {
