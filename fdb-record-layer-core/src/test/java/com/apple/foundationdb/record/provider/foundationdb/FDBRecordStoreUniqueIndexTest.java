@@ -22,7 +22,6 @@ package com.apple.foundationdb.record.provider.foundationdb;
 
 import com.apple.foundationdb.KeyValue;
 import com.apple.foundationdb.Transaction;
-import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.MoreAsyncUtil;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.IndexEntry;
