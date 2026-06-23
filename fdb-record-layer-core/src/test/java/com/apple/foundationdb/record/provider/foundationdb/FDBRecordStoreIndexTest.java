@@ -953,6 +953,42 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
     }
 
     @Test
+    void writeOnlyWithQueueIndex() throws Exception {
+        final String standardIndexName = "MySimpleRecord$num_value_3_indexed";
+        final String permissiveIndexName = "permissive_index";
+        // The "permissive" index type is backed by NoOpIndexMaintainer, while the value index above is
+        // backed by StandardIndexMaintainer. Marking both WRITE_ONLY_WITH_QUEUE and then saving a record
+        // exercises updateWhileWriteOnlyWithQueue on both maintainers.
+        final RecordMetaDataHook hook = metaData ->
+                metaData.addIndex("MySimpleRecord", new Index(permissiveIndexName, field("num_value_3_indexed"), "permissive"));
+
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, hook);
+            final Index standardIndex = recordStore.getRecordMetaData().getIndex(standardIndexName);
+            final Index permissiveIndex = recordStore.getRecordMetaData().getIndex(permissiveIndexName);
+
+            recordStore.markIndexWriteOnlyWithQueue(standardIndex).get();
+            recordStore.markIndexWriteOnlyWithQueue(permissiveIndexName).get();
+
+            // Exercise both the Index and String overloads of isIndexWriteOnlyWithQueue.
+            assertThat(recordStore.isIndexWriteOnlyWithQueue(standardIndex), is(true));
+            assertThat(recordStore.isIndexWriteOnlyWithQueue(standardIndexName), is(true));
+            assertThat(recordStore.isIndexWriteOnlyWithQueue(permissiveIndex), is(true));
+            assertThat(recordStore.isIndexWriteOnlyWithQueue(permissiveIndexName), is(true));
+            assertThat(recordStore.isIndexWriteOnly(standardIndexName), is(false));
+            assertThat(recordStore.isIndexReadable(standardIndexName), is(false));
+
+            // Saving a record routes the update through updateWhileWriteOnlyWithQueue for each maintainer
+            // rather than writing the index entries directly.
+            recordStore.saveRecord(TestRecords1Proto.MySimpleRecord.newBuilder()
+                    .setRecNo(1066L)
+                    .setNumValue3Indexed(42)
+                    .build());
+            commit(context);
+        }
+    }
+
+    @Test
     void indexesToBuild() throws Exception {
         final String indexName = "MySimpleRecord$str_value_indexed";
         try (FDBRecordContext context = openContext()) {
