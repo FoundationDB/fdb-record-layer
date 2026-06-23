@@ -918,6 +918,7 @@ public class OnlineIndexer implements AutoCloseable {
         private final String allowUnblockId;
         private final long initialMergesCountLimit;
         private final boolean reverseScanOrder;
+        private final boolean useWritePendingQueue;
 
         /**
          * Possible actions when an index is already partially built.
@@ -965,6 +966,7 @@ public class OnlineIndexer implements AutoCloseable {
          * @param allowUnblockId if preset, allow unblocking only if the block ID matches this param
          * @param initialMergesCountLimit the initial max merges count for index merger
          * @param reverseScanOrder if true, scan records in reverse order
+         * @param useWritePendingQueue if true, accumulate user updates in a write pending queue during indexing
          */
         @SuppressWarnings("squid:S00107") // too many parameters
         private IndexingPolicy(@Nullable String sourceIndex, @Nullable Object sourceIndexSubspaceKey, boolean forbidRecordScan,
@@ -973,7 +975,8 @@ public class OnlineIndexer implements AutoCloseable {
                                boolean mutualIndexing, List<Tuple> mutualIndexingBoundaries,
                                boolean allowUnblock, String allowUnblockId,
                                long initialMergesCountLimit,
-                               boolean reverseScanOrder) {
+                               boolean reverseScanOrder,
+                               boolean useWritePendingQueue) {
             this.sourceIndex = sourceIndex;
             this.forbidRecordScan = forbidRecordScan;
             this.sourceIndexSubspaceKey = sourceIndexSubspaceKey;
@@ -989,6 +992,7 @@ public class OnlineIndexer implements AutoCloseable {
             this.allowUnblockId = allowUnblockId;
             this.initialMergesCountLimit = initialMergesCountLimit;
             this.reverseScanOrder = reverseScanOrder;
+            this.useWritePendingQueue = useWritePendingQueue;
         }
 
         /**
@@ -1196,6 +1200,16 @@ public class OnlineIndexer implements AutoCloseable {
         }
 
         /**
+         * If true, user updates are accumulated in a write pending queue during indexing, to be drained by the
+         * indexer, instead of being written directly to the index.
+         * @return true if a write pending queue should be used during indexing
+         */
+        @API(API.Status.EXPERIMENTAL)
+        public boolean useWritePendingQueue() {
+            return useWritePendingQueue;
+        }
+
+        /**
          * Builder for {@link IndexingPolicy}.
          *
          * <pre><code>
@@ -1225,6 +1239,7 @@ public class OnlineIndexer implements AutoCloseable {
             private String allowUnblockId = null;
             private long initialMergesCountLimit = 0;
             private boolean reverseScanOrder = false;
+            private boolean useWritePendingQueue = false;
 
             protected Builder() {
             }
@@ -1497,6 +1512,18 @@ public class OnlineIndexer implements AutoCloseable {
                 return this;
             }
 
+            /**
+             * If true, accumulate user updates in a write pending queue during indexing instead of writing them
+             * directly to the index. The indexer will drain this queue after every transaction. The default is false.
+             * @param useWritePendingQueue if true, use a write pending queue during indexing
+             * @return this builder
+             */
+            @API(API.Status.EXPERIMENTAL)
+            public Builder setUseWritePendingQueue(final boolean useWritePendingQueue) {
+                this.useWritePendingQueue = useWritePendingQueue;
+                return this;
+            }
+
             public IndexingPolicy build() {
                 if (useMutualIndexingBoundaries != null) {
                     useMutualIndexing = true;
@@ -1505,7 +1532,7 @@ public class OnlineIndexer implements AutoCloseable {
                         ifDisabled, ifWriteOnly, ifMismatchPrevious, ifReadable,
                         doAllowUniquePendingState, allowedTakeoverSet,
                         useMutualIndexing, useMutualIndexingBoundaries, allowUnblock, allowUnblockId,
-                        initialMergesCountLimit, reverseScanOrder);
+                        initialMergesCountLimit, reverseScanOrder, useWritePendingQueue);
             }
         }
     }
