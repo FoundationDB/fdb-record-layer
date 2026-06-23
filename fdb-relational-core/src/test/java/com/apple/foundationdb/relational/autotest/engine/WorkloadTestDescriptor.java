@@ -146,11 +146,6 @@ class WorkloadTestDescriptor extends NestedClassTestDescriptor {
         return context;
     }
 
-    @Override
-    public ExecutionMode getExecutionMode() {
-        return super.getExecutionMode();
-    }
-
     private void invokeTestExecutionExceptionHandlers(MutableExtensionRegistry registry, ExtensionContext context, Throwable t) {
         JunitUtils.invokeExecutionExceptionHandlers(this, TestExecutionExceptionHandler.class, registry, t,
                 (handler, handledT) -> handler.handleTestExecutionException(context, handledT));
