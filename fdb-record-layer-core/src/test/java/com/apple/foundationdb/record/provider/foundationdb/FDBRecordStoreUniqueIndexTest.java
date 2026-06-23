@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.provider.foundationdb;
 
 import com.apple.foundationdb.KeyValue;
 import com.apple.foundationdb.Transaction;
+import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.MoreAsyncUtil;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.IndexEntry;
@@ -848,6 +849,12 @@ public class FDBRecordStoreUniqueIndexTest extends FDBRecordStoreTestBase {
         @Override
         public <M extends Message> CompletableFuture<Void> updateWhileWriteOnly(@Nullable final FDBIndexableRecord<M> oldRecord, @Nullable final FDBIndexableRecord<M> newRecord) {
             return underlying.updateWhileWriteOnly(oldRecord, newRecord);
+        }
+
+        @Nonnull
+        @Override
+        public <M extends Message> CompletableFuture<Void> updateWhileWriteOnlyWithQueue(@Nullable final FDBIndexableRecord<M> oldRecord, @Nullable final FDBIndexableRecord<M> newRecord) {
+            return underlying.updateWhileWriteOnlyWithQueue(oldRecord, newRecord);
         }
 
         @Nonnull

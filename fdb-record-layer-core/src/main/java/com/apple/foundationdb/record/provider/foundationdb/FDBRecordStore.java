@@ -773,18 +773,35 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         }
         for (Index index : indexes) {
             final IndexMaintainer maintainer = getIndexMaintainer(index);
+            final IndexState indexState = getIndexState(index);
             final CompletableFuture<Void> future;
-            if (isIndexWriteOnly(index)) {
-                // In this case, the index is still being built. For some index
-                // types, the index update needs to check whether indexing
-                // process has already built the relevant ranges, and it
-                // may adjust the way the index is built in response.
-                future = maintainer.updateWhileWriteOnly(oldRecord, newRecord);
-                context.addToSessionSet(ContextSessionKey.WRITE_ONLY_INDEXES_UPDATED, index.getName());
-            } else {
-                future = maintainer.update(oldRecord, newRecord);
-                // Both READABLE and READABLE_UNIQUE_PENDING will cause the index to be updated and so are captured here
-                context.addToSessionSet(ContextSessionKey.READABLE_INDEXES_UPDATED, index.getName());
+            switch (indexState) {
+                case WRITE_ONLY_WITH_QUEUE:
+                    // Push the old/new record to a write pending queue instead of updating the index directly. The
+                    // ongoing online indexer will drain the queue and perform the actual index update.
+                    future = maintainer.updateWhileWriteOnlyWithQueue(oldRecord, newRecord);
+                    context.addToSessionSet(ContextSessionKey.WRITE_ONLY_INDEXES_UPDATED, index.getName());
+                    break;
+
+                case WRITE_ONLY:
+                    // The index is still being built. For some index
+                    // types, the index update needs to check whether indexing
+                    // process has already built the relevant ranges, and it
+                    // may adjust the way the index is built in response.
+                    future = maintainer.updateWhileWriteOnly(oldRecord, newRecord);
+                    context.addToSessionSet(ContextSessionKey.WRITE_ONLY_INDEXES_UPDATED, index.getName());
+                    break;
+
+                case DISABLED:
+                    // No-op
+                    future = AsyncUtil.DONE;
+                    break;
+
+                default:
+                    // Both READABLE and READABLE_UNIQUE_PENDING will cause the index to be updated and so are captured here
+                    future = maintainer.update(oldRecord, newRecord);
+                    context.addToSessionSet(ContextSessionKey.READABLE_INDEXES_UPDATED, index.getName());
+                    break;
             }
             if (!MoreAsyncUtil.isCompletedNormally(future)) {
                 futures.add(future);
@@ -4258,6 +4275,34 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      */
     public boolean isIndexWriteOnly(@Nonnull String indexName) {
         return getIndexState(indexName).equals(IndexState.WRITE_ONLY);
+    }
+
+    /**
+     * Determine if the index is write-only with a pending queue for this record store. This method will not perform
+     * any queries to the underlying database and instead satisfies the answer based on the
+     * in-memory cache of store state. However, if another operation in a different transaction
+     * happens concurrently that changes the index's state, operations using the same {@link FDBRecordContext}
+     * as this record store will fail to commit due to conflicts.
+     *
+     * @param index the index to check if write-only with a queue
+     * @return <code>true</code> if the index is write-only with a queue and <code>false</code> otherwise
+     * @throws IllegalArgumentException if no index in the metadata has the same name as this index
+     */
+    public boolean isIndexWriteOnlyWithQueue(@Nonnull Index index) {
+        return isIndexWriteOnlyWithQueue(index.getName());
+    }
+
+    /**
+     * Determine if the index with the given name is write-only with a pending queue for this record store.
+     * This method will not perform any queries to the underlying database and instead
+     * satisfies the answer based on the in-memory cache of store state.
+     *
+     * @param indexName the name of the index to check if write-only with a queue
+     * @return <code>true</code> if the named index is write-only with a queue and <code>false</code> otherwise
+     * @throws IllegalArgumentException if no index in the metadata has the given name
+     */
+    public boolean isIndexWriteOnlyWithQueue(@Nonnull String indexName) {
+        return getIndexState(indexName).equals(IndexState.WRITE_ONLY_WITH_QUEUE);
     }
 
     /**
