@@ -19,7 +19,7 @@
 
 ---
 options:
-  supported_version: !current_version
+  supported_version: 4.12.3.0
 ---
 # Create three analogous base tables, with a CARDINALITY() index defined for two of them. With these we exercise both a
 # nullable and a non-nullable ARRAY column. Nullable arrays are special in that a `values` field gets wrapped around the
@@ -47,7 +47,13 @@ setup:
     - query: INSERT INTO "tab1_indexed" ("id", "int_arr") VALUES (0, NULL), (1, []), (2, [1]), (3, [1, 2])
     # For `tab2`, also include a row with the entire struct NULL and a row where the struct is set but the inner array
     # is NULL. Both should evaluate `CARDINALITY("struct"."int_arr")` to NULL.
-    - query: INSERT INTO "tab2" ("id", "struct")  VALUES (1, STRUCT ([])), (2, STRUCT ([1])), (3, STRUCT ([1, 2])), (4, NULL), (5, (NULL))
+    -
+      - currentVersionLessThan: !current_version
+        definition:
+          - query: INSERT INTO "tab2" ("id", "struct")  VALUES (1, ([])), (2, ([1])), (3, ([1, 2])), (4, NULL), (5, (NULL))
+      - currentVersionAtLeast: !current_version
+        definition:
+          - query: INSERT INTO "tab2" ("id", "struct")  VALUES (1, STRUCT ([])), (2, STRUCT ([1])), (3, STRUCT ([1, 2])), (4, NULL), (5, STRUCT (NULL))
 ---
 test_block:
   # Basic tests for CARDINALITY().
