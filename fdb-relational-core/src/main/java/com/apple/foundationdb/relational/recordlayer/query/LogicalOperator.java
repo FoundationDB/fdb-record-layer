@@ -40,6 +40,7 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalUnio
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.TempTableInsertExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.TempTableScanExpression;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.typing.PseudoField;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.CountValue;
@@ -64,6 +65,7 @@ import com.google.common.collect.Sets;
 import com.google.common.collect.Streams;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
@@ -464,12 +466,24 @@ public class LogicalOperator {
                                                        @Nonnull Optional<Identifier> alias,
                                                        @Nonnull Set<CorrelationIdentifier> outerCorrelations,
                                                        boolean isForDdl) {
+        return generateSimpleSelect(output, logicalOperators, where.orElse(null), alias.orElse(null), outerCorrelations, List.of(), isForDdl);
+    }
+
+    @Nonnull
+    public static LogicalOperator generateSimpleSelect(@Nonnull Expressions output,
+                                                       @Nonnull LogicalOperators logicalOperators,
+                                                       @Nullable Expression where,
+                                                       @Nullable Identifier alias,
+                                                       @Nonnull Set<CorrelationIdentifier> outerCorrelations,
+                                                       @Nonnull List<? extends QueryPredicate> additionalPredicates,
+                                                       boolean isForDdl) {
         final var quantifiers = logicalOperators.getQuantifiers();
         final var selectBuilder = GraphExpansion.builder().addAllQuantifiers(quantifiers);
-        where.ifPresent(predicate -> {
+        if (where != null) {
             final var localAliases = quantifiers.stream().map(Quantifier::getAlias).collect(ImmutableSet.toImmutableSet());
-            selectBuilder.addPredicate(Expression.Utils.toUnderlyingPredicate(predicate, localAliases, isForDdl));
-        });
+            selectBuilder.addPredicate(Expression.Utils.toUnderlyingPredicate(where, localAliases, isForDdl));
+        }
+        selectBuilder.addAllPredicates(additionalPredicates);
         final var expandedOutput = output.expanded();
         SelectExpression selectExpression;
 
@@ -483,8 +497,8 @@ public class LogicalOperator {
 
         final var resultingQuantifier = Quantifier.forEach(Reference.initialOf(selectExpression));
         var resultingExpressions = expandedOutput.rewireQov(resultingQuantifier.getFlowedObjectValue());
-        resultingExpressions = alias.map(resultingExpressions::withQualifier).orElseGet(resultingExpressions::clearQualifier);
-        return LogicalOperator.newOperator(alias, resultingExpressions, resultingQuantifier);
+        resultingExpressions = alias != null ? resultingExpressions.withQualifier(alias) : resultingExpressions.clearQualifier();
+        return LogicalOperator.newOperator(Optional.ofNullable(alias), resultingExpressions, resultingQuantifier);
     }
 
     /**
