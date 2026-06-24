@@ -1,0 +1,38 @@
+/*
+ * package-info.java
+ *
+ * This source file is part of the FoundationDB open source project
+ *
+ * Copyright 2015-2026 Apple Inc. and the FoundationDB project authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+/**
+ * A Hamcrest matcher DSL for asserting the structure of compiled
+ * {@link com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan} trees. The entry
+ * point is {@link com.apple.foundationdb.record.query.plan.match.PlanMatchers}, whose static
+ * factory methods compose matchers from the per-node-kind classes in this package; tests
+ * typically read as {@code assertThat(plan, indexScan(indexName("foo")))}.
+ *
+ * <p>
+ * There is no production package of this name. This package was migrated from
+ * {@code src/test/java} as part of the {@code java-test-fixtures} adoption and is closely
+ * coupled to the legacy
+ * {@link com.apple.foundationdb.record.query.plan.RecordQueryPlanner} plan shape; it may
+ * make sense to restructure or shrink as the Cascades planner's
+ * {@link com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher}
+ * facility absorbs more use cases.
+ * </p>
+ */
+package com.apple.foundationdb.record.query.plan.match;
