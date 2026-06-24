@@ -709,7 +709,12 @@ public class RecordMetaData implements RecordMetaDataProvider {
 
         builder.addAllUserDefinedFunctions(userDefinedFunctionMap.values().stream().map(UserDefinedFunction::toProto).collect(Collectors.toList()));
         builder.addAllViews(viewMap.values().stream().map(View::toProto).collect(Collectors.toList()));
-        builder.putAllStoredQueries(storedQueries);
+        for (final Map.Entry<String, String> entry : storedQueries.entrySet()) {
+            builder.addStoredQueries(RecordMetaDataProto.PStoredQuery.newBuilder()
+                    .setName(entry.getKey())
+                    .setDefinition(entry.getValue())
+                    .build());
+        }
         builder.setSplitLongRecords(splitLongRecords);
         builder.setStoreRecordVersions(storeRecordVersions);
         builder.setVersion(version);
