@@ -1,5 +1,5 @@
 /*
- * FDBCollateQueryTest.java
+ * FDBCollateQueryTestBase.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -32,6 +32,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.test.Tags;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.Test;
 
 import javax.annotation.Nonnull;
 import java.util.Arrays;
@@ -52,26 +53,18 @@ import static org.hamcrest.Matchers.allOf;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
- * Tests related to planning and executing queries with string collation.
+ * Test base for queries with string collation. Concrete subclasses supply a collator
+ * function name (e.g. JRE-based or ICU-based) and inherit the shared
+ * {@link Test @Test} methods defined here.
  */
 @Tag(Tags.RequiresFDB)
-public abstract class FDBCollateQueryTest extends FDBRecordStoreQueryTestBase {
+public abstract class FDBCollateQueryTestBase extends FDBRecordStoreQueryTestBase {
 
     @Nonnull
     protected final String collateFunctionName;
 
-    protected FDBCollateQueryTest(@Nonnull String collateFunctionName) {
+    protected FDBCollateQueryTestBase(@Nonnull String collateFunctionName) {
         this.collateFunctionName = collateFunctionName;
-    }
-
-    /**
-     * Test with JRE collators.
-     */
-    @SuppressWarnings("checkstyle:abbreviationaswordinname") // Allow JRE here.
-    public static class FDBCollateJREQueryTest extends FDBCollateQueryTest {
-        public FDBCollateJREQueryTest() {
-            super(CollateFunctionKeyExpressionFactoryJRE.FUNCTION_NAME);
-        }
     }
 
     protected static final String[] NAMES = {

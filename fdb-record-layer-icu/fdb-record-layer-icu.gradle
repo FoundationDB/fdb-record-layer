@@ -29,7 +29,7 @@ dependencies {
     annotationProcessor(libs.autoService)
 
     testImplementation project(':fdb-test-utils')
-    testImplementation project(path: coreProject, configuration: 'tests')
+    testImplementation(testFixtures(project(coreProject)))
     testImplementation(libs.bundles.test.impl)
     testRuntimeOnly(libs.bundles.test.runtime)
     testCompileOnly(libs.bundles.test.compileOnly)

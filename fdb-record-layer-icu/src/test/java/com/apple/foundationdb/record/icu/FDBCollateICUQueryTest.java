@@ -20,14 +20,14 @@
 
 package com.apple.foundationdb.record.icu;
 
-import com.apple.foundationdb.record.provider.foundationdb.query.FDBCollateQueryTest;
+import com.apple.foundationdb.record.provider.foundationdb.query.FDBCollateQueryTestBase;
 import org.junit.jupiter.api.Test;
 
 /**
  * Tests for query execution using {@link CollateFunctionKeyExpressionFactoryICU}.
  */
 @SuppressWarnings("checkstyle:abbreviationaswordinname") // Allow ICU here.
-public class FDBCollateICUQueryTest extends FDBCollateQueryTest {
+public class FDBCollateICUQueryTest extends FDBCollateQueryTestBase {
 
     public FDBCollateICUQueryTest() {
         super(CollateFunctionKeyExpressionFactoryICU.FUNCTION_NAME);

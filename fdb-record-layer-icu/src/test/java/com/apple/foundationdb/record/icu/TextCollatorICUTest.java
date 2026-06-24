@@ -20,7 +20,7 @@
 
 package com.apple.foundationdb.record.icu;
 
-import com.apple.foundationdb.record.provider.common.text.TextCollatorTest;
+import com.apple.foundationdb.record.provider.common.text.TextCollatorTestBase;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
@@ -35,7 +35,7 @@ import static org.hamcrest.Matchers.not;
  * Tests for {@link TextCollatorRegistryICU}.
  */
 @SuppressWarnings("checkstyle:abbreviationaswordinname") // Allow ICU here.
-public class TextCollatorICUTest extends TextCollatorTest {
+public class TextCollatorICUTest extends TextCollatorTestBase {
 
     public TextCollatorICUTest() {
         super(TextCollatorRegistryICU.instance());
