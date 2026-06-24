@@ -771,10 +771,6 @@ public abstract class FDBRecordStoreQueryTestBase extends FDBRecordStoreTestBase
                 continuation, executeProperties).asIterator();
     }
 
-    protected static class Holder<T> {
-        public T value;
-    }
-
     protected static void assertMatches(@Nonnull final RecordQueryPlan plan, @Nonnull BindingMatcher<? extends RecordQueryPlan> planMatcher) {
         final boolean matches = planMatcher.matches(plan);
         if (matches) {

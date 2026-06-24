@@ -67,21 +67,21 @@ public abstract class FDBCollateQueryTestBase extends FDBRecordStoreQueryTestBas
         this.collateFunctionName = collateFunctionName;
     }
 
-    protected static final String[] NAMES = {
-        "Ampère", "Gauß", "Ørsted", "Faraday", "Ångström", "Stokes", "Maxwell"
-    };
+    private static final List<String> NAMES = List.of(
+            "Ampère", "Gauß", "Ørsted", "Faraday", "Ångström", "Stokes", "Maxwell"
+    );
 
     protected void loadNames(RecordMetaDataHook hook) throws Exception {
         loadNames(NAMES, hook);
     }
 
-    protected void loadNames(String[] names, RecordMetaDataHook hook) throws Exception {
+    protected void loadNames(List<String> names, RecordMetaDataHook hook) throws Exception {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
-            for (int i = 0; i < names.length; i++) {
+            for (int i = 0; i < names.size(); i++) {
                 TestRecords1Proto.MySimpleRecord record = TestRecords1Proto.MySimpleRecord.newBuilder()
                         .setRecNo(100 + i)
-                        .setStrValueIndexed(names[i])
+                        .setStrValueIndexed(names.get(i))
                         .build();
                 recordStore.saveRecord(record);
             }
@@ -111,7 +111,7 @@ public abstract class FDBCollateQueryTestBase extends FDBRecordStoreQueryTestBas
         sortOnly(locale, NAMES, expected);
     }
 
-    protected void sortOnly(String locale, String[] names, String... expected) throws Exception {
+    protected void sortOnly(String locale, List<String> names, String... expected) throws Exception {
         final KeyExpression key;
         final RecordMetaDataHook hook;
         if (locale == null) {
