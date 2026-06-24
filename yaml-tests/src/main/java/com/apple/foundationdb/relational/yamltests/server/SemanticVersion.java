@@ -110,7 +110,6 @@ public class SemanticVersion implements Comparable<SemanticVersion> {
     public enum SemanticVersionType {
         MIN("!min_version", true),
         NORMAL("", false),
-        RANGE("", false),
         CURRENT("!current_version", true),
         MAX("!max_version", true),
         ;
