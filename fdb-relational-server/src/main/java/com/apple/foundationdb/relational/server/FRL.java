@@ -78,6 +78,15 @@ import java.util.concurrent.TimeUnit;
 // Needs to be public so can be used by sub-packages; i.e. the JDBCService
 @API(API.Status.EXPERIMENTAL)
 public class FRL implements AutoCloseable {
+    /**
+     * JVM-wide lock guarding the parts of construction that mutate shared static state
+     * ({@link com.apple.foundationdb.relational.recordlayer.RelationalKeyspaceProvider#registerDomainIfNotExists})
+     * and write the catalog bootstrap to FDB. Without this, concurrent {@code new FRL(...)} calls (e.g. from
+     * parallel test {@code @BeforeAll} hooks) race on the catalog-init transaction commit and fail with
+     * "Transaction not committed due to conflict with another transaction".
+     */
+    private static final Object INIT_LOCK = new Object();
+
     private final FdbConnection fdbDatabase;
     private final RelationalDriver driver;
     private boolean registeredJDBCEmbedDriver;
@@ -102,13 +111,19 @@ public class FRL implements AutoCloseable {
         }
         this.fdbDatabase = new DirectFdbConnection(fdbDb, NoOpMetricRegistry.INSTANCE);
 
-        final RelationalKeyspaceProvider keyspaceProvider = RelationalKeyspaceProvider.instance();
-        keyspaceProvider.registerDomainIfNotExists("FRL");
-        KeySpace keySpace = keyspaceProvider.getKeySpace();
-        StoreCatalog storeCatalog;
-        try (Transaction txn = fdbDatabase.getTransactionManager().createTransaction(Options.NONE)) {
-            storeCatalog = StoreCatalogProvider.getCatalog(txn, keySpace);
-            txn.commit();
+        // Serialize the rest of construction: registerDomainIfNotExists mutates the shared keyspace, and
+        // the catalog-init transaction below races on commit when multiple FRLs are constructed concurrently
+        // against the same cluster (typical in parallel tests).
+        final StoreCatalog storeCatalog;
+        final KeySpace keySpace;
+        synchronized (INIT_LOCK) {
+            final RelationalKeyspaceProvider keyspaceProvider = RelationalKeyspaceProvider.instance();
+            keyspaceProvider.registerDomainIfNotExists("FRL");
+            keySpace = keyspaceProvider.getKeySpace();
+            try (Transaction txn = fdbDatabase.getTransactionManager().createTransaction(Options.NONE)) {
+                storeCatalog = StoreCatalogProvider.getCatalog(txn, keySpace);
+                txn.commit();
+            }
         }
 
         RecordLayerConfig rlConfig = RecordLayerConfig.getDefault();
