@@ -21,6 +21,8 @@
 package com.apple.foundationdb.relational.yamltests.block;
 
 import com.apple.foundationdb.relational.api.Options;
+import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
+import com.apple.foundationdb.relational.server.FRL;
 import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.yamltests.CustomYamlConstructor;
 import com.apple.foundationdb.relational.yamltests.Matchers;
@@ -71,12 +73,58 @@ public class SetupBlock extends ConnectedBlock {
     @Override
     public void execute() {
         try {
-            executeExecutables(executables);
+            runLockedWithRetry(() -> executeExecutables(executables));
         } catch (Throwable e) {
             throw YamlExecutionContext.wrapContext(e,
                     () -> "‼️ Failed to execute all the setup steps in Setup block at " + getReference(),
                     SETUP_BLOCK, getReference());
         }
+    }
+
+    /**
+     * Runs {@code runnable} under {@link FRL#catalogLock()} with a small retry loop on SQLSTATE
+     * 40001 transaction conflicts. The lock is shared with {@link FRL}'s catalog-bootstrap, so
+     * setup-block DDL (CREATE/DROP DATABASE, CREATE/DROP SCHEMA TEMPLATE, CREATE SCHEMA) is
+     * serialized against both other setup blocks and other test classes' FRL construction on the
+     * same JVM. The retry catches any residual conflicts caused by code paths that write the
+     * cluster-global meta-data version-stamp outside our control.
+     * <p>
+     * Retry is safe because the schema_template and destruct executable lists use {@code DROP …
+     * IF EXISTS} so a partial-success retry doesn't trip "unknown database" errors. Manual setup
+     * blocks that include catalog-mutating DDL are expected to follow the same convention.
+     */
+    private static void runLockedWithRetry(@Nonnull Runnable runnable) {
+        synchronized (FRL.catalogLock()) {
+            final int maxAttempts = 5;
+            for (int attempt = 1; ; attempt++) {
+                try {
+                    runnable.run();
+                    return;
+                } catch (Throwable e) {
+                    if (attempt >= maxAttempts || !isTransactionConflict(e)) {
+                        throw e;
+                    }
+                    try {
+                        Thread.sleep(10L * attempt);
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                        throw e;
+                    }
+                }
+            }
+        }
+    }
+
+    private static boolean isTransactionConflict(@Nonnull Throwable t) {
+        Throwable cursor = t;
+        while (cursor != null) {
+            if (cursor instanceof SQLException
+                    && ErrorCode.SERIALIZATION_FAILURE.getErrorCode().equals(((SQLException) cursor).getSQLState())) {
+                return true;
+            }
+            cursor = cursor.getCause();
+        }
+        return false;
     }
 
     public static final class ManualSetupBlock extends SetupBlock {
@@ -316,8 +364,11 @@ public class SetupBlock extends ConnectedBlock {
                                                                   @Nonnull String schemaTemplateName, @Nonnull String databasePath) {
             try {
                 final var steps = new ArrayList<String>();
-                steps.add("DROP DATABASE " + databasePath);
-                steps.add("DROP SCHEMA TEMPLATE " + schemaTemplateName);
+                // Use IF EXISTS so a retry after a partial success (first attempt dropped the
+                // database but conflicted on the schema-template DROP) doesn't fail on the second
+                // attempt's "Cannot delete unknown database" / "Schema template doesn't exist".
+                steps.add("DROP DATABASE IF EXISTS " + databasePath);
+                steps.add("DROP SCHEMA TEMPLATE IF EXISTS " + schemaTemplateName);
                 final var executables = new ArrayList<Consumer<YamlConnection>>();
                 for (final var step : steps) {
                     final var resolvedCommand = QueryCommand.withQueryString(reference, step, executionContext);
