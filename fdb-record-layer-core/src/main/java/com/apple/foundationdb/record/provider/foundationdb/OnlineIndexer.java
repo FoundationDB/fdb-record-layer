@@ -1207,7 +1207,7 @@ public class OnlineIndexer implements AutoCloseable {
          * @return true if the given index should be built with a write pending queue
          */
         @API(API.Status.EXPERIMENTAL)
-        public boolean useWritePendingQueue(@Nonnull Index index) {
+        public boolean shouldUseWritePendingQueue(@Nonnull Index index) {
             return writePendingQueueIndexes.contains(index);
         }
 
