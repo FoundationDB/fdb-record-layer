@@ -532,6 +532,33 @@ class TestHelpers {
     }
 
     /**
+     * Deterministically subsamples up to {@code count} elements of {@code items}, seeded by {@code seed}: a
+     * Fisher–Yates shuffle of a copy, then the first {@code count}. Returns the input unchanged when it already
+     * holds {@code count} or fewer. Handy for keeping per-element checks fast without losing run-to-run variety.
+     *
+     * @param items the elements to sample from (left untouched)
+     * @param seed the seed driving the shuffle, for reproducibility
+     * @param count the maximum number of elements to return
+     * @param <T> the element type
+     * @return up to {@code count} elements of {@code items} in a deterministic, seed-dependent order
+     */
+    @Nonnull
+    static <T> List<T> deterministicSample(@Nonnull final List<T> items, final long seed, final int count) {
+        if (items.size() <= count) {
+            return items;
+        }
+        final List<T> shuffled = new ArrayList<>(items);
+        final SplittableRandom rng = new SplittableRandom(seed);
+        for (int i = shuffled.size() - 1; i > 0; i--) {
+            final int j = rng.nextInt(i + 1);
+            final T tmp = shuffled.get(i);
+            shuffled.set(i, shuffled.get(j));
+            shuffled.set(j, tmp);
+        }
+        return List.copyOf(shuffled.subList(0, count));
+    }
+
+    /**
      * Runs {@link Guardiann#searchOrderedByDistance} for each query and asserts the mean result-ordering quality
      * meets or exceeds {@code minMeanQuality}. Unlike the recall helpers this needs <em>no ground truth</em> and
      * no {@code k}: it asks for the <em>entire</em> dataset ({@code k}, the reorder window, and the probed-cluster

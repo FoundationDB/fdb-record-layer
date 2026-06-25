@@ -113,11 +113,18 @@ public class SiftTest implements BaseTest {
     private static final double MIN_RECALL = 0.80d;
 
     /**
-     * Quality floor for {@link TestHelpers#assertOrderedByDistanceQualityAtLeast} (1.0 = a flawless
-     * ascending-distance result with all k slots filled). The helper logs the observed mean so this bar can be
-     * calibrated from a real run.
+     * Quality floor for {@link TestHelpers#assertOrderedByDistanceQualityAtLeast} (1.0 = a flawless result:
+     * every live vector returned in {@code (distance, primaryKey)} order). The helper logs the observed mean so
+     * this bar can be calibrated from a real run.
      */
     private static final double MIN_ORDERED_BY_DISTANCE_QUALITY = 0.90d;
+
+    /**
+     * Number of queries the {@code searchOrderedByDistance} quality check samples down to (deterministically,
+     * seeded by the test) before scoring. The check scans the whole index per query, so running all
+     * {@link #RECALL_NUM_QUERIES} queries per checkpoint is far too slow.
+     */
+    private static final int NUM_ORDERED_BY_DISTANCE_QUERIES = 10;
 
     /** Number of churn batches between recall checkpoints. */
     private static final int RECALL_CHECK_INTERVAL_BATCHES = 50;
@@ -180,7 +187,8 @@ public class SiftTest implements BaseTest {
         final List<Set<Integer>> groundTruth =
                 TestHelpers.loadGroundTruth(SiftTestHelpers.SIFT_SMALL_GROUNDTRUTH_PATH, -1);
         TestHelpers.assertRecallAtKAtLeast(getDb(), guardiann, queries, groundTruth, RECALL_K, MIN_RECALL);
-        TestHelpers.assertOrderedByDistanceQualityAtLeast(getDb(), guardiann, queries, dataset.size(),
+        TestHelpers.assertOrderedByDistanceQualityAtLeast(getDb(), guardiann,
+                TestHelpers.deterministicSample(queries, 0L, NUM_ORDERED_BY_DISTANCE_QUERIES), dataset.size(),
                 MIN_ORDERED_BY_DISTANCE_QUALITY);
 
         // SIFT-small is dense/overlapping, so the split sub-clusters have borders and must carry replicas; a
@@ -206,7 +214,8 @@ public class SiftTest implements BaseTest {
         final List<DoubleRealVector> queries = loadQueries(SiftTestHelpers.SIFT_1M_QUERY_PATH);
         TestHelpers.assertRecallAtKAtLeastDynamic(getDb(), guardiann, queries, activeMapOf(dataset),
                 RECALL_K, MIN_RECALL);
-        TestHelpers.assertOrderedByDistanceQualityAtLeast(getDb(), guardiann, queries, dataset.size(),
+        TestHelpers.assertOrderedByDistanceQualityAtLeast(getDb(), guardiann,
+                TestHelpers.deterministicSample(queries, seed, NUM_ORDERED_BY_DISTANCE_QUERIES), dataset.size(),
                 MIN_ORDERED_BY_DISTANCE_QUALITY);
         // No replica floor yet for the sparse 1M subsample: assertReplicasNotTooFew logs the observed fraction so
         // it can be calibrated from a real run before being enforced.
@@ -284,7 +293,8 @@ public class SiftTest implements BaseTest {
 
         // ---- initial recall checkpoint ----
         TestHelpers.assertRecallAtKAtLeastDynamic(getDb(), guardiann, queries, active, RECALL_K, MIN_RECALL);
-        TestHelpers.assertOrderedByDistanceQualityAtLeast(getDb(), guardiann, queries, active.size(),
+        TestHelpers.assertOrderedByDistanceQualityAtLeast(getDb(), guardiann,
+                TestHelpers.deterministicSample(queries, seed, NUM_ORDERED_BY_DISTANCE_QUERIES), active.size(),
                 MIN_ORDERED_BY_DISTANCE_QUALITY);
 
         // ---- interleaved churn: per-batch random choice between delete-from-A and insert-from-B ----
@@ -336,7 +346,8 @@ public class SiftTest implements BaseTest {
                 if (active.size() >= RECALL_K) {
                     TestHelpers.assertRecallAtKAtLeastDynamic(getDb(), guardiann, queries, active,
                             RECALL_K, MIN_RECALL);
-                    TestHelpers.assertOrderedByDistanceQualityAtLeast(getDb(), guardiann, queries, active.size(),
+                    TestHelpers.assertOrderedByDistanceQualityAtLeast(getDb(), guardiann,
+                            TestHelpers.deterministicSample(queries, seed, NUM_ORDERED_BY_DISTANCE_QUERIES), active.size(),
                             MIN_ORDERED_BY_DISTANCE_QUALITY);
                 } else {
                     logger.info("skipping mid-flight recall check: active.size={} < k={}", active.size(), RECALL_K);
@@ -370,7 +381,8 @@ public class SiftTest implements BaseTest {
         // ---- final recall checkpoint over setB ----
         TestHelpers.assertRecallAtKAtLeastDynamic(getDb(), guardiann, queries, activeMapOf(setB),
                 RECALL_K, MIN_RECALL);
-        TestHelpers.assertOrderedByDistanceQualityAtLeast(getDb(), guardiann, queries, setB.size(),
+        TestHelpers.assertOrderedByDistanceQualityAtLeast(getDb(), guardiann,
+                TestHelpers.deterministicSample(queries, seed, NUM_ORDERED_BY_DISTANCE_QUERIES), setB.size(),
                 MIN_ORDERED_BY_DISTANCE_QUALITY);
     }
 
@@ -391,7 +403,8 @@ public class SiftTest implements BaseTest {
 
         // ---- initial recall checkpoint ----
         TestHelpers.assertRecallAtKAtLeastDynamic(getDb(), guardiann, queries, active, RECALL_K, MIN_RECALL);
-        TestHelpers.assertOrderedByDistanceQualityAtLeast(getDb(), guardiann, queries, active.size(),
+        TestHelpers.assertOrderedByDistanceQualityAtLeast(getDb(), guardiann,
+                TestHelpers.deterministicSample(queries, seed, NUM_ORDERED_BY_DISTANCE_QUERIES), active.size(),
                 MIN_ORDERED_BY_DISTANCE_QUALITY);
 
         // ---- delete everything in random batches (no inserts) ----
@@ -417,7 +430,8 @@ public class SiftTest implements BaseTest {
                 if (active.size() >= RECALL_K) {
                     TestHelpers.assertRecallAtKAtLeastDynamic(getDb(), guardiann, queries, active,
                             RECALL_K, MIN_RECALL);
-                    TestHelpers.assertOrderedByDistanceQualityAtLeast(getDb(), guardiann, queries, active.size(),
+                    TestHelpers.assertOrderedByDistanceQualityAtLeast(getDb(), guardiann,
+                            TestHelpers.deterministicSample(queries, seed, NUM_ORDERED_BY_DISTANCE_QUERIES), active.size(),
                             MIN_ORDERED_BY_DISTANCE_QUALITY);
                 } else {
                     logger.info("skipping recall check: active.size={} < k={}", active.size(), RECALL_K);
