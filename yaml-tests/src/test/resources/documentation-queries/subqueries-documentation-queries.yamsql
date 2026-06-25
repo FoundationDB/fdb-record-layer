@@ -18,7 +18,7 @@ setup:
     -
       - currentVersionLessThan: !current_version
         definition:
-          - query: insert into r values (1, [STRUCT (11), STRUCT (12), STRUCT (13)]), (2, [(21), (22), (23)]), (3, [(31), (32), (33)])
+          - query: insert into r values (1, [(11), (12), (13)]), (2, [(21), (22), (23)]), (3, [(31), (32), (33)])
       - currentVersionAtLeast: !current_version
         definition:
           - query: insert into r values (1, [STRUCT (11), STRUCT (12), STRUCT (13)]), (2, [STRUCT (21), STRUCT (22), STRUCT (23)]), (3, [STRUCT (31), STRUCT (32), STRUCT (33)])
