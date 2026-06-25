@@ -233,9 +233,76 @@ class PendingWriteQueueTest extends FDBRecordStoreTestBase {
         }
     }
 
+    /**
+     * Structural mirror of the core {@code PendingWritesQueueTest}'s
+     * {@code testDrainScanAndClearDoesNotConflictWithConcurrentEnqueue}: a drain transaction
+     * that reads via the cursor under {@link IsolationLevel#SNAPSHOT} and clears every observed
+     * entry must NOT conflict with a concurrent enqueue. Both transactions commit cleanly and
+     * the queue ends up holding only the late-arrival entry.
+     *
+     * <p>This documents that the Lucene-specific {@link PendingWriteQueue} shares the same
+     * conflict-free drain behavior as the generalized core queue — it falls out of the shared
+     * versionstamped-key + atomic-counter idioms, not from anything queue-specific.</p>
+     */
     @Test
-    void testIterateWithContinuations() {
-        List<TestDocument> docs = createTestDocuments();
+    void testDrainScanAndClearDoesNotConflictWithConcurrentEnqueue() {
+        final int incarnation = 0;
+        final TestDocument seed1 = new TestDocument(primaryKey("seed-1"),
+                List.of(createField("f", "s1", LuceneIndexExpressions.DocumentFieldType.STRING, false, false)));
+        final TestDocument seed2 = new TestDocument(primaryKey("seed-2"),
+                List.of(createField("f", "s2", LuceneIndexExpressions.DocumentFieldType.STRING, false, false)));
+        final TestDocument seed3 = new TestDocument(primaryKey("seed-3"),
+                List.of(createField("f", "s3", LuceneIndexExpressions.DocumentFieldType.STRING, false, false)));
+        final TestDocument lateArrival = new TestDocument(primaryKey("late-arrival"),
+                List.of(createField("f", "late", LuceneIndexExpressions.DocumentFieldType.STRING, false, false)));
+
+        PendingWriteQueue queue;
+        try (FDBRecordContext context = openContext()) {
+            queue = getQueue(context);
+            queue.enqueueInsert(context, seed1.getPrimaryKey(), seed1.getFields(), incarnation);
+            queue.enqueueInsert(context, seed2.getPrimaryKey(), seed2.getFields(), incarnation);
+            queue.enqueueInsert(context, seed3.getPrimaryKey(), seed3.getFields(), incarnation);
+            commit(context);
+        }
+
+        // Snapshot-isolation scan so the read does NOT install a read-conflict range over the
+        // queue subspace. clearEntry only writes the (known, complete) versionstamp keys it
+        // already saw — those keys never collide with new versionstamps from another
+        // transaction, so no write conflict either.
+        ScanProperties snapshotScan = new ScanProperties(ExecuteProperties.newBuilder()
+                .setReturnedRowLimit(Integer.MAX_VALUE)
+                .setIsolationLevel(IsolationLevel.SNAPSHOT)
+                .build());
+
+        try (FDBRecordContext drainTx = openContext()) {
+            List<PendingWriteQueue.QueueEntry> drained =
+                    queue.getQueueCursor(drainTx, snapshotScan, null).asList().join();
+            assertEquals(3, drained.size());
+            for (PendingWriteQueue.QueueEntry entry : drained) {
+                queue.clearEntry(drainTx, entry);
+            }
+
+            // While the drain transaction is still open, another transaction enqueues a fresh
+            // entry. It must commit cleanly because enqueue never conflicts with anything.
+            try (FDBRecordContext enqueueTx = openContext()) {
+                queue.enqueueInsert(enqueueTx, lateArrival.getPrimaryKey(),
+                        lateArrival.getFields(), incarnation);
+                commit(enqueueTx);
+            }
+
+            // The drain commit must ALSO succeed — the snapshot scan installed no conflict
+            // range, and clearEntry only touched the three seed keys which the concurrent
+            // enqueue didn't touch.
+            commit(drainTx);
+        }
+
+        // Final state: only the late-arrival entry remains.
+        assertQueueEntries(queue, List.of(lateArrival),
+                LucenePendingWriteQueueProto.PendingWriteItem.OperationType.INSERT);
+    }
+
+    @Test
+    void testIterateWithContinuations() {        List<TestDocument> docs = createTestDocuments();
         List<TestDocument> moreDocs = createTestDocuments();
         int incarnationValue = 0xf00ba7;
 

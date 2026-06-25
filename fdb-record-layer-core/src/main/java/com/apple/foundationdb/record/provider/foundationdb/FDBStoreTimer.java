@@ -476,6 +476,10 @@ public class FDBStoreTimer extends StoreTimer {
         WAIT_LOAD_LUCENE_PARTITION_METADATA("wait to load lucene partition metadata"),
         /** Wait to run all the postClose hooks. */
         WAIT_RUN_CLOSE_HOOKS("Wait to run all postClose hooks"),
+        /** Wait to read the size of a {@code PendingWritesQueue}. */
+        WAIT_PENDING_WRITES_QUEUE_SIZE("wait reading the pending writes queue size"),
+        /** Wait to read items from a {@code PendingWritesQueue}. */
+        WAIT_PENDING_WRITES_QUEUE_GET_ITEM("wait reading items from the pending writes queue"),
         ;
 
         private final String title;
@@ -773,6 +777,10 @@ public class FDBStoreTimer extends StoreTimer {
         VECTOR_NODE_WRITE_BYTES("intermediate node bytes written", true),
         VECTOR_NODE0_WRITES("intermediate nodes written", false),
         VECTOR_NODE0_WRITE_BYTES("intermediate node bytes written", true),
+        /** Count of the writes to a {@code PendingWritesQueue}. */
+        PENDING_WRITES_QUEUE_WRITE("pending writes queue writes", false),
+        /** Count of the entries cleared from a {@code PendingWritesQueue}. */
+        PENDING_WRITES_QUEUE_CLEAR("pending writes queue clears", false),
         ;
 
         private final String title;
