@@ -152,7 +152,7 @@ public final class PlanGenerator {
     /**
      * Pre-generates and caches plans for the stored queries defined in the schema template.
      */
-    public void planStoredQueries() {
+    public void planStoredQueries() throws RelationalException {
         if (cache.isEmpty()) {
             return;
         }

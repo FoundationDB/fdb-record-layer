@@ -137,7 +137,7 @@ public interface SchemaTemplate extends Metadata {
      * @return A map of stored query names to their SQL strings.
      */
     @Nonnull
-    Map<String, String> getStoredQueries();
+    Map<String, String> getStoredQueries() throws RelationalException;
 
     @Nonnull
     String getTransactionBoundMetadataAsString() throws RelationalException;
