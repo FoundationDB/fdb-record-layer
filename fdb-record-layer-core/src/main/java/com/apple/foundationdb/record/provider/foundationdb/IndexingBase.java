@@ -263,7 +263,7 @@ public abstract class IndexingBase {
         if (continueBuild) {
             return AsyncUtil.DONE;
         }
-        return forEachTargetIndex(index -> policy.useWritePendingQueue(index) ?
+        return forEachTargetIndex(index -> policy.shouldUseWritePendingQueue(index) ?
                                            store.markIndexWriteOnlyWithQueue(index) :
                                            store.markIndexWriteOnly(index));
     }
@@ -959,12 +959,17 @@ public abstract class IndexingBase {
                     throttle.buildCommitRetryAsync(iterateRange, shouldReturnQuietly, additionalLogMessageKeyValues, true)
                             .handle((hasMore, ex) -> {
                                 if (ex == null) {
-                                    final Set<Index> indexSet = throttle.getAndResetMergeRequiredIndexes();
-                                    if (indexSet != null && !indexSet.isEmpty()) {
-                                        return mergeIndexes(indexSet)
-                                                .thenCompose(ignore -> doneOrThrottleDelayAndMaybeLogProgress(!hasMore, additionalLogMessageKeyValues));
+                                    final List<Index> indexesToDrain = throttle.getAndResetDrainRequiredIndexes();
+                                    final Set<Index> indexesToMerge = throttle.getAndResetMergeRequiredIndexes();
+                                    if ((indexesToDrain == null || indexesToDrain.isEmpty()) &&
+                                            (indexesToMerge == null || indexesToMerge.isEmpty())) {
+                                        // The common case - no drain nor merge
+                                        return doneOrThrottleDelayAndMaybeLogProgress(!hasMore, additionalLogMessageKeyValues);
                                     }
-                                    return doneOrThrottleDelayAndMaybeLogProgress(!hasMore, additionalLogMessageKeyValues);
+                                    // first drain, then merge
+                                    return drainIndexes(indexesToDrain)
+                                            .thenCompose(ignore -> mergeIndexes(indexesToMerge))
+                                            .thenCompose(ignore -> doneOrThrottleDelayAndMaybeLogProgress(!hasMore, additionalLogMessageKeyValues));
                                 }
                                 final RuntimeException unwrappedEx = getRunner().getDatabase().mapAsyncToSyncException(ex);
                                 if (LOGGER.isInfoEnabled()) {
@@ -981,10 +986,23 @@ public abstract class IndexingBase {
         return mergeIndexes(new HashSet<>(common.getTargetIndexes()));
     }
 
-    private CompletableFuture<Void> mergeIndexes(Set<Index> indexSet) {
-        return AsyncUtil.whenAll(indexSet.stream()
+    private CompletableFuture<Void> mergeIndexes(Set<Index> indexesToMerge) {
+        if (indexesToMerge == null || indexesToMerge.isEmpty()) {
+            return AsyncUtil.DONE;
+        }
+        return AsyncUtil.whenAll(indexesToMerge.stream()
                 .map(index -> getIndexingMerger(index).mergeIndex()
-        ).collect(Collectors.toList()));
+        ).toList());
+    }
+
+    private CompletableFuture<Void> drainIndexes(List<Index> indexesToDrain) {
+        if (indexesToDrain == null || indexesToDrain.isEmpty()) {
+            return AsyncUtil.DONE;
+        }
+        return AsyncUtil.whenAll(indexesToDrain.stream()
+                // TODO: drain, don't merge
+                .map(index -> getIndexingMerger(index).mergeIndex()
+                ).toList());
     }
 
     private synchronized IndexingMerger getIndexingMerger(Index index) {

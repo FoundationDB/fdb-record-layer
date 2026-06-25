@@ -105,6 +105,14 @@ public enum IndexState {
         return this.equals(WRITE_ONLY);
     }
 
+    public boolean isWriteOnlyWithQueue() {
+        return this.equals(WRITE_ONLY_WITH_QUEUE);
+    }
+
+    public boolean isWriteOnlyAny() {
+        return isWriteOnly() || isWriteOnlyWithQueue();
+    }
+
     public static IndexState fromCode(@Nonnull Object code) {
         for (IndexState state : IndexState.values()) {
             if (state.code().equals(code)) {
