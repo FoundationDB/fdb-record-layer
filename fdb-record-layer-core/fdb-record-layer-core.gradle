@@ -24,6 +24,13 @@ plugins {
 apply from: rootProject.file('gradle/proto.gradle')
 apply from: rootProject.file('gradle/publishing.gradle')
 
+configurations {
+    // Resolved to the mockito-core jar so it can be installed as a -javaagent on the test JVM.
+    // Required on JDK 21+ because Mockito's inline mock maker can no longer self-attach.
+    // See https://javadoc.io/doc/org.mockito/mockito-core/latest/org.mockito/org/mockito/Mockito.html#0.3
+    mockitoAgent
+}
+
 dependencies {
     annotationProcessor project(':fdb-java-annotations')
     api project(':fdb-extensions')
@@ -47,6 +54,12 @@ dependencies {
     testImplementation(libs.snakeyaml)
 
     testAnnotationProcessor(libs.autoService)
+
+    mockitoAgent(libs.mockito) { transitive = false }
+}
+
+tasks.withType(Test).configureEach {
+    jvmArgs("-javaagent:${configurations.mockitoAgent.asPath}")
 }
 
 sourceSets {
