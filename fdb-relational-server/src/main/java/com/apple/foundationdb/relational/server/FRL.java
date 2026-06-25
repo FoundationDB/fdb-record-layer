@@ -79,13 +79,29 @@ import java.util.concurrent.TimeUnit;
 @API(API.Status.EXPERIMENTAL)
 public class FRL implements AutoCloseable {
     /**
-     * JVM-wide lock guarding the parts of construction that mutate shared static state
-     * ({@link com.apple.foundationdb.relational.recordlayer.RelationalKeyspaceProvider#registerDomainIfNotExists})
-     * and write the catalog bootstrap to FDB. Without this, concurrent {@code new FRL(...)} calls (e.g. from
-     * parallel test {@code @BeforeAll} hooks) race on the catalog-init transaction commit and fail with
-     * "Transaction not committed due to conflict with another transaction".
+     * JVM-wide lock guarding any operation that mutates the shared catalog metadata or its underlying
+     * static state ({@link com.apple.foundationdb.relational.recordlayer.RelationalKeyspaceProvider#registerDomainIfNotExists}
+     * and the catalog-bootstrap transaction below). Without this, concurrent {@code new FRL(...)} calls
+     * — e.g. from parallel test {@code @BeforeAll} hooks — race on the catalog-init transaction commit
+     * and fail with "Transaction not committed due to conflict with another transaction".
+     * <p>
+     * Exposed (package-public to {@code .server}; referenced by reflection or test-only callers via
+     * {@link #catalogLock()}) so that test scaffolding that runs additional catalog-mutating DDL
+     * (CREATE/DROP DATABASE, CREATE/DROP SCHEMA TEMPLATE) can serialize against FRL initialization
+     * on the same JVM and avoid the same race.
      */
-    private static final Object INIT_LOCK = new Object();
+    private static final Object CATALOG_LOCK = new Object();
+
+    /**
+     * Returns the JVM-wide monitor used to serialize catalog-mutating DDL. Hold this when issuing
+     * CREATE/DROP DATABASE, CREATE/DROP SCHEMA TEMPLATE, or any other operation that writes the
+     * cluster-global catalog metadata, to avoid SQLSTATE 40001 conflicts with concurrent
+     * {@link #FRL(Options, String, boolean)} construction or other DDL on the same JVM.
+     */
+    @Nonnull
+    public static Object catalogLock() {
+        return CATALOG_LOCK;
+    }
 
     private final FdbConnection fdbDatabase;
     private final RelationalDriver driver;
@@ -116,7 +132,7 @@ public class FRL implements AutoCloseable {
         // against the same cluster (typical in parallel tests).
         final StoreCatalog storeCatalog;
         final KeySpace keySpace;
-        synchronized (INIT_LOCK) {
+        synchronized (CATALOG_LOCK) {
             final RelationalKeyspaceProvider keyspaceProvider = RelationalKeyspaceProvider.instance();
             keyspaceProvider.registerDomainIfNotExists("FRL");
             keySpace = keyspaceProvider.getKeySpace();
