@@ -53,14 +53,22 @@ public class IncludeBlock extends SupportBlock {
 
     public static final String INCLUDE = "include";
     private static final Logger logger = LogManager.getLogger(IncludeBlock.class);
-    private static final Yaml YAML_ENGINE;
 
-    static {
-        LoaderOptions loaderOptions = new LoaderOptions();
+    /**
+     * Builds a fresh {@link Yaml} instance for parsing an included resource.
+     * <p>
+     * SnakeYAML's {@link Yaml} (and its underlying {@code Scanner}/{@code Parser}/{@code StreamReader})
+     * is documented as not thread-safe. When yaml-tests run with class-level parallel execution
+     * enabled (see {@code gradle/testing.gradle}), multiple test classes call {@link #parse} concurrently,
+     * and a shared static engine corrupted into {@code ScannerException}/{@code ParserException}/
+     * {@code ConcurrentModificationException}/{@code ClassCastException} on parser-internal state.
+     */
+    @Nonnull
+    private static Yaml newYamlEngine() {
+        final LoaderOptions loaderOptions = new LoaderOptions();
         loaderOptions.setAllowDuplicateKeys(true);
-        DumperOptions dumperOptions = new DumperOptions();
-
-        YAML_ENGINE = new Yaml(new CustomYamlConstructor(loaderOptions), new Representer(dumperOptions),
+        final DumperOptions dumperOptions = new DumperOptions();
+        return new Yaml(new CustomYamlConstructor(loaderOptions), new Representer(dumperOptions),
                 new DumperOptions(), loaderOptions, new Resolver());
     }
 
@@ -88,7 +96,7 @@ public class IncludeBlock extends SupportBlock {
             int blockNumber = 0;
             executionContext.registerResource(resource);
             try (var inputStream = getInputStream(resource)) {
-                final var docs = StreamSupport.stream(YAML_ENGINE.loadAll(inputStream).spliterator(), false).collect(Collectors.toList());
+                final var docs = StreamSupport.stream(newYamlEngine().loadAll(inputStream).spliterator(), false).collect(Collectors.toList());
                 for (var doc : docs) {
                     final var blocks = Block.parse(resource, doc, blockNumber, executionContext, resource.isTopLevel());
                     allBlocks.addAll(blocks);
