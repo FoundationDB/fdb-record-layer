@@ -25,14 +25,20 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
 import com.apple.foundationdb.relational.api.EmbeddedRelationalEngine;
+import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.StorageCluster;
+import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.catalog.StoreCatalog;
+import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metrics.NoOpMetricRegistry;
 import com.apple.foundationdb.relational.recordlayer.ddl.RecordLayerMetadataOperationsFactory;
+import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.query.OfflineStoredQueriesProcessor;
 import com.apple.foundationdb.relational.recordlayer.query.cache.RelationalPlanCache;
 
 import com.codahale.metrics.MetricRegistry;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -42,6 +48,8 @@ import java.util.stream.Collectors;
 
 @API(API.Status.EXPERIMENTAL)
 public final class RecordLayerEngine {
+
+    private static final Logger logger = LogManager.getLogger(RecordLayerEngine.class);
 
     public static EmbeddedRelationalEngine makeEngine(@Nonnull RecordLayerConfig cfg,
                                                     @Nonnull List<FDBDatabase> databases,
@@ -62,7 +70,16 @@ public final class RecordLayerEngine {
                 .collect(Collectors.toList());
 
         if (planCache != null && !connections.isEmpty()) {
-            new OfflineStoredQueriesProcessor(planCache, schemaCatalog, connections.get(0), mEngine).run();
+            List<RecordLayerSchemaTemplate> templates = List.of();
+            try (Transaction txn = connections.get(0).getTransactionManager().createTransaction(Options.NONE)) {
+                templates = OfflineStoredQueriesProcessor.getSchemaTemplates(schemaCatalog, txn);
+                txn.commit();
+            } catch (RelationalException e) {
+                if (logger.isErrorEnabled()) {
+                    logger.error("Failed to open catalog transaction for offline stored-query pre-warm", e);
+                }
+            }
+            OfflineStoredQueriesProcessor.planStoredQueriesForSchemaTemplates(planCache, mEngine, templates);
         }
 
         return new EmbeddedRelationalEngine(clusters, mEngine);

@@ -28,7 +28,6 @@ import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.catalog.StoreCatalog;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metrics.MetricCollector;
-import com.apple.foundationdb.relational.recordlayer.FdbConnection;
 import com.apple.foundationdb.relational.recordlayer.catalog.systables.SystemTable;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.metric.StoreTimerMetricCollector;
@@ -44,65 +43,76 @@ import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
 /**
- * Pre-warms the shared {@link RelationalPlanCache} at engine startup by planning every
- * stored query declared on every schema template in the catalog.
+ * Pre-warms the shared {@link RelationalPlanCache} at engine startup by planning every stored
+ * query declared on every schema template in the catalog.
  *
- * <p>Two-phase to respect FDB's transaction time bound:
+ * <p>Used as two independent static calls so the caller owns the FDB transaction lifecycle (kept
+ * tight to respect FDB's transaction time bound):</p>
+ *
  * <ol>
- *   <li>{@link #getSchemaTemplates()} — read-only catalog transaction. It iterates all
- *       schema templates in the catalog and stores only with
- *       non-empty {@code storedQueries}</li>
- *   <li>{@link #planStoredQueriesForSchemaTemplate} — Iterates stored schema templates,
- *       for each of them builds an offline {@link PlanGenerator} and delegates to
- *       {@link PlanGenerator#planStoredQueries()} which idempotently populates the cache.</li>
+ *   <li>{@link #getSchemaTemplates(StoreCatalog, Transaction)} — runs inside a caller-supplied
+ *       transaction. Reads templates from the catalog and returns those with non-empty
+ *       {@code storedQueries}. All exceptions are caught and logged; on any failure an empty list
+ *       is returned, so the caller never sees a checked exception from this method.</li>
+ *   <li>{@link #planStoredQueriesForSchemaTemplates(RelationalPlanCache, MetricRegistry, List)} —
+ *       runs <b>after</b> the caller has closed the catalog-read transaction. For each template,
+ *       plans every stored query and inserts the resulting plans into the cache. Per-template
+ *       failures are caught and logged so a single bad template cannot abort startup.</li>
  * </ol>
- *
- * <p>Per-template failures are swallowed so a single bad template cannot abort startup.</p>
  */
 @API(API.Status.EXPERIMENTAL)
 public final class OfflineStoredQueriesProcessor {
     private static final Logger logger = LogManager.getLogger(OfflineStoredQueriesProcessor.class);
 
-    @Nonnull
-    private final RelationalPlanCache cache;
-
-    @Nonnull
-    private final StoreCatalog storeCatalog;
-
-    @Nonnull
-    private final FdbConnection fdbConnection;
-
-    @Nonnull
-    private final MetricCollector metricCollector;
-
-    public OfflineStoredQueriesProcessor(@Nonnull final RelationalPlanCache cache,
-                                         @Nonnull final StoreCatalog storeCatalog,
-                                         @Nonnull final FdbConnection fdbConnection,
-                                         @Nonnull final MetricRegistry metricRegistry) {
-        this.cache = cache;
-        this.storeCatalog = storeCatalog;
-        this.fdbConnection = fdbConnection;
-        this.metricCollector = StoreTimerMetricCollector.fromMetricRegistry(metricRegistry);
+    private OfflineStoredQueriesProcessor() {
     }
 
-    public void run() {
-        final long startNanos = System.nanoTime();
-        final List<RecordLayerSchemaTemplate> templates;
-        try {
-            templates = getSchemaTemplates();
-        } catch (RelationalException e) {
+    /**
+     * Reads schema templates from the catalog inside the caller-supplied transaction. The
+     * caller is responsible for the transaction's full lifecycle (open and commit/rollback);
+     * this method only reads. Any exception from catalog access is caught and logged at error
+     * level, and an empty list is returned in that case.
+     */
+    @Nonnull
+    public static List<RecordLayerSchemaTemplate> getSchemaTemplates(@Nonnull final StoreCatalog storeCatalog,
+                                                                     @Nonnull final Transaction txn) {
+        final List<RecordLayerSchemaTemplate> result = new ArrayList<>();
+        try (var rs = storeCatalog.getSchemaTemplateCatalog().listTemplates(txn)) {
+            while (rs.next()) {
+                final var template = storeCatalog.getSchemaTemplateCatalog()
+                        .loadSchemaTemplate(txn, rs.getString(SystemTable.TEMPLATE_NAME))
+                        .unwrap(RecordLayerSchemaTemplate.class);
+                if (!template.getStoredQueries().isEmpty()) {
+                    result.add(template);
+                }
+            }
+        } catch (java.sql.SQLException | RelationalException | RuntimeException e) {
             if (logger.isErrorEnabled()) {
                 logger.error(KeyValueLogMessage.of("OfflineStoredQueriesProcessor failed to read catalog"), e);
             }
-            return;
+            return List.of();
         }
+        return result;
+    }
+
+    /**
+     * Plans the stored queries for each given schema template and inserts the resulting plans
+     * into {@code cache}. The caller must have closed the catalog-read transaction before
+     * invoking this method — no FDB transaction is opened here. Per-template failures are
+     * caught and logged so a single bad template cannot abort startup.
+     */
+    public static void planStoredQueriesForSchemaTemplates(@Nonnull final RelationalPlanCache cache,
+                                                           @Nonnull final MetricRegistry metricRegistry,
+                                                           @Nonnull final List<RecordLayerSchemaTemplate> templates) {
+        final long startNanos = System.nanoTime();
+        final MetricCollector metricCollector = StoreTimerMetricCollector.fromMetricRegistry(metricRegistry);
         int queriesPlanned = 0;
         int templatesFailed = 0;
         for (final RecordLayerSchemaTemplate template : templates) {
             try {
-                planStoredQueriesForSchemaTemplate(template);
+                planStoredQueriesForOneTemplate(cache, metricCollector, template);
                 queriesPlanned += template.getStoredQueries().size();
-            } catch (RelationalException e) {
+            } catch (RelationalException | RuntimeException e) {
                 templatesFailed++;
                 if (logger.isErrorEnabled()) {
                     logger.error(KeyValueLogMessage.of("OfflineStoredQueriesProcessor failed to process schema template",
@@ -119,34 +129,15 @@ public final class OfflineStoredQueriesProcessor {
         }
     }
 
-    @Nonnull
-    private List<RecordLayerSchemaTemplate> getSchemaTemplates() throws RelationalException {
-        final List<RecordLayerSchemaTemplate> result = new ArrayList<>();
-        try (Transaction txn = fdbConnection.getTransactionManager().createTransaction(Options.NONE)) {
-            try (var rs = storeCatalog.getSchemaTemplateCatalog().listTemplates(txn)) {
-                while (rs.next()) {
-                    final var template = storeCatalog.getSchemaTemplateCatalog()
-                            .loadSchemaTemplate(txn, rs.getString(SystemTable.TEMPLATE_NAME))
-                            .unwrap(RecordLayerSchemaTemplate.class);
-                    if (!template.getStoredQueries().isEmpty()) {
-                        result.add(template);
-                    }
-                }
-            } catch (java.sql.SQLException e) {
-                throw new RelationalException(e);
-            }
-            txn.commit();
-        }
-        return result;
-    }
-
-    private void planStoredQueriesForSchemaTemplate(@Nonnull final RecordLayerSchemaTemplate template) throws RelationalException {
+    private static void planStoredQueriesForOneTemplate(@Nonnull final RelationalPlanCache cache,
+                                                        @Nonnull final MetricCollector metricCollector,
+                                                        @Nonnull final RecordLayerSchemaTemplate template) throws RelationalException {
         final var generator = PlanGenerator.create(
                 Optional.of(cache),
                 template,
                 new RecordStoreState(null, null),
                 metricCollector,
-                Options.NONE);                      // assume this is standard set of options
+                Options.NONE);
         generator.planStoredQueries();
     }
 }
