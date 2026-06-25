@@ -1,5 +1,5 @@
 /*
- * RecordLayerMetricCollectorTest.java
+ * StoreTimerMetricCollectorFromFDBRecordContextTest.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -39,7 +39,7 @@ import java.net.URI;
 import java.sql.SQLException;
 import java.util.function.Consumer;
 
-public class RecordLayerMetricCollectorTest {
+public class StoreTimerMetricCollectorFromFDBRecordContextTest {
 
     private static final String schemaTemplate =
             "CREATE TABLE simple_table(a bigint, PRIMARY KEY(a))";

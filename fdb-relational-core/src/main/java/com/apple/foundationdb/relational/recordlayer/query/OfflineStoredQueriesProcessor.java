@@ -30,7 +30,7 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.FdbConnection;
 import com.apple.foundationdb.relational.recordlayer.catalog.systables.SystemTable;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
-import com.apple.foundationdb.relational.recordlayer.query.cache.OfflineMetricCollector;
+import com.apple.foundationdb.relational.recordlayer.metric.StoreTimerMetricCollector;
 import com.apple.foundationdb.relational.recordlayer.query.cache.RelationalPlanCache;
 import com.codahale.metrics.MetricRegistry;
 import org.apache.logging.log4j.LogManager;
@@ -72,7 +72,7 @@ public final class OfflineStoredQueriesProcessor {
     private final FdbConnection fdbConnection;
 
     @Nonnull
-    private final OfflineMetricCollector metricCollector;
+    private final MetricCollector metricCollector;
 
     public OfflineStoredQueriesProcessor(@Nonnull final RelationalPlanCache cache,
                                          @Nonnull final StoreCatalog storeCatalog,
@@ -81,7 +81,7 @@ public final class OfflineStoredQueriesProcessor {
         this.cache = cache;
         this.storeCatalog = storeCatalog;
         this.fdbConnection = fdbConnection;
-        this.metricCollector = new OfflineMetricCollector(metricRegistry);
+        this.metricCollector = StoreTimerMetricCollector.fromMetricRegistry(metricRegistry);
     }
 
     public void run() {

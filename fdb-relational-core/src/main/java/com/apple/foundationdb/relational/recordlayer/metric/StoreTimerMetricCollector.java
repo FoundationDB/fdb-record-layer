@@ -1,5 +1,5 @@
 /*
- * OfflineMetricCollector.java
+ * StoreTimerMetricCollector.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -18,10 +18,11 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.relational.recordlayer.query.cache;
+package com.apple.foundationdb.relational.recordlayer.metric;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metrics.MetricCollector;
@@ -32,25 +33,49 @@ import com.apple.foundationdb.relational.util.Supplier;
 import com.codahale.metrics.MetricRegistry;
 
 import javax.annotation.Nonnull;
+import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 
 /**
- * A {@link MetricCollector} for offline planning paths that have no transaction context.
+ * A {@link MetricCollector} backed by a {@link StoreTimer}. The timer can be:
+ * <ul>
+ *   <li>borrowed from an {@link FDBRecordContext} via {@link #fromFDBRecordContext(FDBRecordContext)} — the
+ *       collector is then scoped to that transaction's metrics; or</li>
+ *   <li>built from a Codahale {@link MetricRegistry} via {@link #fromMetricRegistry(MetricRegistry)} —
+ *       suitable for non-transactional paths (e.g. engine startup work) that still want their
+ *       metrics surfaced on the engine-wide registry.</li>
+ * </ul>
  *
- * <p>Mirrors {@link com.apple.foundationdb.relational.recordlayer.metric.RecordLayerMetricCollector}'s
- * design but owns its own {@link MetricRegistryStoreTimer} (rather than borrowing one from an
- * {@link com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext}). Increments and
- * timings are forwarded to the wrapped {@link MetricRegistry} as Codahale Counter/Timer updates,
- * so they end up alongside online-query metrics under the same event names.</p>
+ * <p>Increments and timings are forwarded straight to the wrapped {@link StoreTimer}; the
+ * accessors ({@link #getAverageTimeMicrosForEvent}, {@link #getCountsForCounter},
+ * {@link #hasCounter}) read back from the same source.</p>
  */
 @API(API.Status.EXPERIMENTAL)
-public final class OfflineMetricCollector implements MetricCollector {
+public final class StoreTimerMetricCollector implements MetricCollector {
 
     @Nonnull
-    private final MetricRegistryStoreTimer storeTimer;
+    private final StoreTimer storeTimer;
 
-    public OfflineMetricCollector(@Nonnull final MetricRegistry registry) {
-        this.storeTimer = new MetricRegistryStoreTimer(registry);
+    private StoreTimerMetricCollector(@Nonnull final StoreTimer storeTimer) {
+        this.storeTimer = storeTimer;
+    }
+
+    /**
+     * Wraps the timer attached to {@code context}, so this collector's metrics are scoped to the
+     * given transaction.
+     */
+    @Nonnull
+    public static StoreTimerMetricCollector fromFDBRecordContext(@Nonnull final FDBRecordContext context) {
+        return new StoreTimerMetricCollector(Objects.requireNonNull(context.getTimer()));
+    }
+
+    /**
+     * Builds a fresh {@link MetricRegistryStoreTimer} over {@code registry} and wraps it, so this
+     * collector's metrics land on the supplied Codahale registry.
+     */
+    @Nonnull
+    public static StoreTimerMetricCollector fromMetricRegistry(@Nonnull final MetricRegistry registry) {
+        return new StoreTimerMetricCollector(new MetricRegistryStoreTimer(registry));
     }
 
     @Override

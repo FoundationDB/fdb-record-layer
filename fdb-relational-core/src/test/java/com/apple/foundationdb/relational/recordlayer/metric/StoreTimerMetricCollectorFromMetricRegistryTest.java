@@ -1,5 +1,5 @@
 /*
- * OfflineMetricCollectorTest.java
+ * StoreTimerMetricCollectorFromMetricRegistryTest.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -18,7 +18,7 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.relational.recordlayer.query.cache;
+package com.apple.foundationdb.relational.recordlayer.metric;
 
 import com.apple.foundationdb.relational.api.exceptions.UncheckedRelationalException;
 import com.apple.foundationdb.relational.api.metrics.RelationalMetric;
@@ -26,11 +26,15 @@ import com.codahale.metrics.MetricRegistry;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-public class OfflineMetricCollectorTest {
+/**
+ * Tests for {@link StoreTimerMetricCollector} when backed by a Codahale {@link MetricRegistry}
+ * (the {@link StoreTimerMetricCollector#fromMetricRegistry(MetricRegistry)} factory path).
+ */
+public class StoreTimerMetricCollectorFromMetricRegistryTest {
 
     @Test
     void hasCounterReturnsFalseBeforeAndTrueAfterIncrement() {
-        final var collector = new OfflineMetricCollector(new MetricRegistry());
+        final var collector = StoreTimerMetricCollector.fromMetricRegistry(new MetricRegistry());
         Assertions.assertFalse(collector.hasCounter(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_HIT));
 
         collector.increment(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_HIT, 1);
@@ -39,7 +43,7 @@ public class OfflineMetricCollectorTest {
 
     @Test
     void getCountsForCounterReturnsAccumulatedValue() {
-        final var collector = new OfflineMetricCollector(new MetricRegistry());
+        final var collector = StoreTimerMetricCollector.fromMetricRegistry(new MetricRegistry());
         collector.increment(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_HIT, 2);
         collector.increment(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_HIT, 3);
         Assertions.assertEquals(5L, collector.getCountsForCounter(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_HIT));
@@ -47,14 +51,14 @@ public class OfflineMetricCollectorTest {
 
     @Test
     void getCountsForCounterThrowsWhenAbsent() {
-        final var collector = new OfflineMetricCollector(new MetricRegistry());
+        final var collector = StoreTimerMetricCollector.fromMetricRegistry(new MetricRegistry());
         Assertions.assertThrows(UncheckedRelationalException.class, () ->
                 collector.getCountsForCounter(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_HIT));
     }
 
     @Test
     void getAverageTimeMicrosForEventReturnsAverageOfClockedSamples() throws Exception {
-        final var collector = new OfflineMetricCollector(new MetricRegistry());
+        final var collector = StoreTimerMetricCollector.fromMetricRegistry(new MetricRegistry());
         collector.clock(RelationalMetric.RelationalEvent.LEX_PARSE, () -> null);
         collector.clock(RelationalMetric.RelationalEvent.LEX_PARSE, () -> null);
         // Two samples were recorded; both ran to completion, so the average must be a finite non-negative number.
@@ -65,7 +69,7 @@ public class OfflineMetricCollectorTest {
 
     @Test
     void getAverageTimeMicrosForEventThrowsWhenAbsent() {
-        final var collector = new OfflineMetricCollector(new MetricRegistry());
+        final var collector = StoreTimerMetricCollector.fromMetricRegistry(new MetricRegistry());
         Assertions.assertThrows(UncheckedRelationalException.class, () ->
                 collector.getAverageTimeMicrosForEvent(RelationalMetric.RelationalEvent.LEX_PARSE));
     }
