@@ -233,6 +233,43 @@ public class Guardiann {
     }
 
     /**
+     * Performs a distance-ordered k-nearest-neighbor search — the streaming, paginatable sibling of
+     * {@link #kNearestNeighborsSearch}. Probes up to {@code searchMaxClusters} clusters and returns up to
+     * {@code k} results in ascending distance order, starting strictly after the
+     * {@code (minimumRadius, minimumPrimaryKey)} cursor (and skipping cluster centroids within
+     * {@code minimumRadiusCluster}). Pass {@code minimumRadiusCluster = 0.0},
+     * {@code minimumRadius = Double.NEGATIVE_INFINITY} and {@code minimumPrimaryKey = null} to search from the
+     * beginning; pass the {@code (distance, primaryKey)} of a page's last result to resume after it.
+     *
+     * @param readTransaction the transaction to use for reading from the database
+     * @param k the maximum number of nearest neighbors to return
+     * @param efSearch the size of the streaming reorder window (larger improves ordering accuracy)
+     * @param searchMaxClusters maximum number of clusters to probe
+     * @param minimumRadiusCluster exclusive lower bound on cluster-centroid distance (cluster-level cursor)
+     * @param minimumRadius exclusive lower bound on result distance (result-level cursor)
+     * @param minimumPrimaryKey tie-breaker applied at exactly {@code minimumRadius}; a result is kept only when
+     *        its primary key is strictly greater (may be {@code null} to disable the tie-break)
+     * @param includeVectors indicator if the caller would like the search to also include vectors in the result set
+     * @param queryVector the vector to find the nearest neighbors for
+     *
+     * @return a {@link CompletableFuture} completing with up to {@code k} results in ascending distance order
+     */
+    @Nonnull
+    CompletableFuture<List<? extends ResultEntry>>
+            searchOrderedByDistance(@Nonnull final ReadTransaction readTransaction,
+                                    final int k,
+                                    final int efSearch,
+                                    final int searchMaxClusters,
+                                    final double minimumRadiusCluster,
+                                    final double minimumRadius,
+                                    @Nullable final Tuple minimumPrimaryKey,
+                                    final boolean includeVectors,
+                                    @Nonnull final RealVector queryVector) {
+        return search().searchOrderedByDistanceResults(readTransaction, k, efSearch, searchMaxClusters,
+                queryVector, minimumRadiusCluster, minimumRadius, minimumPrimaryKey, includeVectors);
+    }
+
+    /**
      * Inserts a new vector with its associated primary key into the vector structure.
      * <p>
      * Finds the nearest cluster(s) for the new vector by querying the HNSW centroid index, writes a

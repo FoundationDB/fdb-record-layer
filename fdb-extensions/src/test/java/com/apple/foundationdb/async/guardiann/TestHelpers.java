@@ -75,6 +75,23 @@ import static org.assertj.core.api.Assertions.assertThat;
 class TestHelpers {
     private static final Logger logger = LoggerFactory.getLogger(TestHelpers.class);
 
+    // Parameters for assertOrderedByDistanceQualityAtLeast: it asks for the entire dataset (k, the reorder
+    // window, and the probed-cluster cap are all set to the index size), ordered from the start of the cursor,
+    // so a "perfect" result is every live vector in (distance, primaryKey) order.
+    /** "From the start" cluster cursor: skip no cluster centroid by radius. */
+    private static final double ORDERED_BY_DISTANCE_FROM_START_MIN_RADIUS_CLUSTER = 0.0d;
+    /** "From the start" result cursor: keep every result regardless of distance. */
+    private static final double ORDERED_BY_DISTANCE_FROM_START_MIN_RADIUS = Double.NEGATIVE_INFINITY;
+    /**
+     * Upper bound on the live-vector count for which {@link #assertOrderedByDistanceQualityAtLeast} actually runs.
+     * Unlike the pruned kNN search, {@code searchOrderedByDistance} scans every probed cluster and issues a
+     * metadata point-read per candidate, all within a single read transaction; above this many vectors that one
+     * transaction risks the ~5s limit, so the check self-skips. Sized with headroom over the 10k SIFT-small
+     * datasets and an order of magnitude under the 100k {@code @SuperSlow} samples; calibrate from a real run if
+     * needed.
+     */
+    private static final int MAX_ORDERED_BY_DISTANCE_INDEX_SIZE = 25_000;
+
     @Nonnull
     static List<PrimaryKeyAndVector> basicInsertBatch(@Nonnull final Database db,
                                                       @Nonnull final Guardiann guardiann,
@@ -512,6 +529,117 @@ class TestHelpers {
                         k, countedQueries, active.size())
                 .isGreaterThanOrEqualTo(minMeanRecall);
         return meanRecall;
+    }
+
+    /**
+     * Runs {@link Guardiann#searchOrderedByDistance} for each query and asserts the mean result-ordering quality
+     * meets or exceeds {@code minMeanQuality}. Unlike the recall helpers this needs <em>no ground truth</em> and
+     * no {@code k}: it asks for the <em>entire</em> dataset ({@code k}, the reorder window, and the probed-cluster
+     * cap are all set to {@code indexSize}), so a flawless result is every live vector returned in
+     * {@code (distance, primaryKey)} order. Each list is scored in {@code [0, 1]} by
+     * {@link #orderedByDistanceQuality}.
+     * <p>
+     * The whole check self-skips (returning {@link Double#NaN}, asserting nothing) when {@code indexSize} exceeds
+     * {@link #MAX_ORDERED_BY_DISTANCE_INDEX_SIZE}, so it is safe to call unconditionally — including from
+     * {@code @SuperSlow} workloads, where it begins running once their active set has drained under the limit.
+     * The observed mean is logged so the bar can be calibrated from a real run.
+     *
+     * @param db the database
+     * @param guardiann the structure to query
+     * @param queries the query vectors to score against
+     * @param indexSize the number of live vectors in the index; used both as the full result size to request and
+     *        as the completeness denominator. The check is skipped (returning {@link Double#NaN}) when this
+     *        exceeds {@link #MAX_ORDERED_BY_DISTANCE_INDEX_SIZE}
+     * @param minMeanQuality floor that the mean quality must meet or exceed
+     * @return the observed mean quality, or {@link Double#NaN} if the check was skipped
+     */
+    static double assertOrderedByDistanceQualityAtLeast(@Nonnull final Database db,
+                                                        @Nonnull final Guardiann guardiann,
+                                                        @Nonnull final List<? extends RealVector> queries,
+                                                        final int indexSize,
+                                                        final double minMeanQuality) {
+        if (indexSize > MAX_ORDERED_BY_DISTANCE_INDEX_SIZE) {
+            logger.info("skipping searchOrderedByDistance quality check: indexSize={} exceeds the "
+                    + "single-transaction limit {}", indexSize, MAX_ORDERED_BY_DISTANCE_INDEX_SIZE);
+            return Double.NaN;
+        }
+        double sumQuality = 0.0d;
+        int countedQueries = 0;
+        for (int i = 0; i < queries.size(); i++) {
+            final RealVector query = queries.get(i);
+            // Ask for the whole dataset, fully ordered: k, the reorder window, and the probed-cluster cap are all
+            // the index size, so a correct method returns every live vector in (distance, primaryKey) order.
+            final List<? extends ResultEntry> results =
+                    db.run(tr -> guardiann.searchOrderedByDistance(tr, indexSize, indexSize, indexSize,
+                            ORDERED_BY_DISTANCE_FROM_START_MIN_RADIUS_CLUSTER,
+                            ORDERED_BY_DISTANCE_FROM_START_MIN_RADIUS,
+                            null, false, query).join());
+            final double quality = orderedByDistanceQuality(results, indexSize);
+            logger.debug("assertOrderedByDistanceQualityAtLeast: quality = {} (returned {}/{}) for query {}",
+                    String.format(Locale.ROOT, "%.4f", quality), results.size(), indexSize, i);
+            sumQuality += quality;
+            countedQueries++;
+        }
+        assertThat(countedQueries)
+                .as("there must be at least one query to score")
+                .isGreaterThan(0);
+        final double meanQuality = sumQuality / countedQueries;
+        logger.info("assertOrderedByDistanceQualityAtLeast: mean quality = {} over {} queries (indexSize={}, threshold={})",
+                String.format(Locale.ROOT, "%.4f", meanQuality), countedQueries, indexSize, minMeanQuality);
+        assertThat(meanQuality)
+                .as("mean searchOrderedByDistance quality over %d queries (indexSize=%d)", countedQueries, indexSize)
+                .isGreaterThanOrEqualTo(minMeanQuality);
+        return meanQuality;
+    }
+
+    /**
+     * Scores a single {@code searchOrderedByDistance} result list in {@code [0, 1]} ({@code 1.0} = flawless),
+     * combining two ground-truth-free signals:
+     * <ul>
+     *   <li><b>Completeness</b> — {@code returned / indexSize}, penalizing missing items: the full ordered scan
+     *       should return every live vector, so returning only 9850 of 10000 docks the score.</li>
+     *   <li><b>Order</b> — position-weighted inversions under the {@code (distance, primaryKey)} total order the
+     *       method promises. Every out-of-order pair {@code (i < j)} whose earlier entry sorts <em>after</em> the
+     *       later one is a defect weighted {@code 1/(i + 1)}, so disorder near the front of the result counts
+     *       worse than near the tail; normalized against the worst case (a fully reversed sequence, where every
+     *       pair is inverted). {@code 1.0} = perfectly ordered.</li>
+     * </ul>
+     * The two are multiplied, so both must be good to score well: a flawless result (every vector, perfectly
+     * ordered) scores {@code 1.0}, and the worst case (empty, or fully reversed) scores {@code 0.0}.
+     *
+     * @param results the result list returned by {@code searchOrderedByDistance}, in result (rank) order
+     * @param indexSize the number of live vectors the scan should have returned (completeness denominator)
+     * @return the quality score in {@code [0, 1]}
+     */
+    private static double orderedByDistanceQuality(@Nonnull final List<? extends ResultEntry> results, final int indexSize) {
+        final int numReturned = results.size();
+        final double completenessScore =
+                indexSize <= 0 ? 1.0d : Math.min(1.0d, (double) numReturned / (double) indexSize);
+
+        // Position-weighted inversion count under the (distance, primaryKey) order, and the worst case it is
+        // normalized against (every pair inverted, i.e. a fully reversed result).
+        double weightedInversions = 0.0d;
+        double worstWeightedInversions = 0.0d;
+        for (int i = 0; i < numReturned; i++) {
+            final double positionWeight = 1.0d / (i + 1);
+            final ResultEntry earlier = results.get(i);
+            for (int j = i + 1; j < numReturned; j++) {
+                worstWeightedInversions += positionWeight;
+                final ResultEntry later = results.get(j);
+                int comparison = Double.compare(earlier.distance(), later.distance());
+                if (comparison == 0) {
+                    comparison = earlier.primaryKey().compareTo(later.primaryKey());
+                }
+                if (comparison > 0) {
+                    weightedInversions += positionWeight;
+                }
+            }
+        }
+        final double orderScore = worstWeightedInversions == 0.0d
+                ? 1.0d
+                : 1.0d - weightedInversions / worstWeightedInversions;
+
+        return orderScore * completenessScore;
     }
 
     /**

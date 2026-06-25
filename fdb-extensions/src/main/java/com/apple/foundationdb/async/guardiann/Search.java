@@ -537,6 +537,43 @@ public class Search {
     }
 
     /**
+     * {@link #searchOrderedByDistance} followed by {@link #postProcessSearchResult}: runs the distance-ordered
+     * search and converts the {@link SearchResult} into {@link ResultEntry} instances, mirroring how
+     * {@link #kNearestNeighborsSearch} wraps {@link #search}. Returns an empty list when the structure has no
+     * access info yet (an empty index).
+     *
+     * @param readTransaction the read transaction context
+     * @param k the maximum number of results to return
+     * @param efSearch the size of the streaming reorder window
+     * @param searchMaxClusters maximum number of clusters to probe
+     * @param queryVector the query vector
+     * @param minimumRadiusCluster exclusive lower bound on cluster-centroid distance (cluster-level cursor)
+     * @param minimumRadius exclusive lower bound on result distance (result-level cursor)
+     * @param minimumPrimaryKey tie-breaker applied at exactly {@code minimumRadius} (may be {@code null})
+     * @param includeVectors whether to include reconstructed vector data in the results
+     * @return a future completing with up to {@code k} results in ascending distance order
+     */
+    @Nonnull
+    CompletableFuture<List<? extends ResultEntry>>
+            searchOrderedByDistanceResults(@Nonnull final ReadTransaction readTransaction,
+                                           final int k,
+                                           final int efSearch,
+                                           final int searchMaxClusters,
+                                           @Nonnull final RealVector queryVector,
+                                           final double minimumRadiusCluster,
+                                           final double minimumRadius,
+                                           @Nullable final Tuple minimumPrimaryKey,
+                                           final boolean includeVectors) {
+        return searchOrderedByDistance(readTransaction, k, efSearch, searchMaxClusters, queryVector,
+                minimumRadiusCluster, minimumRadius, minimumPrimaryKey)
+                .thenApply(searchResult ->
+                        searchResult == null
+                        ? ImmutableList.of()
+                        : postProcessSearchResult(searchResult.storageTransform(),
+                                searchResult.nearestReferences(), includeVectors));
+    }
+
+    /**
      * Tail of {@link #searchOrderedByDistance}: from the per-cluster {@link VectorReferenceAndDistance} stream,
      * expands collapsed references, applies the minimum-radius / minimum-primary-key cutoff, reorders into
      * (approximate) distance order, drops references whose metadata is stale, de-duplicates by primary key, then
