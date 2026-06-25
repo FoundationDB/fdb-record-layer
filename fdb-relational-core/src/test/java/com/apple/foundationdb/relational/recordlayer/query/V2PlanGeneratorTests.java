@@ -759,7 +759,10 @@ public class V2PlanGeneratorTests {
                 final var relationalStatement = (EmbeddedRelationalStatement) statement;
                 relationalStatement.executeInternal("insert into A values (1, 1), (2, 2), (3, 3)");
                 relationalStatement.executeInternal("insert into X values (4, 10), (5, 20), (6, 30)");
-                relationalStatement.executeInternal("insert into R values (1, [(11), (12), (13)]), (2, [(21), (22), (23)]), (3, [(31), (32), (33)])");
+                relationalStatement.executeInternal("""
+                    insert into R values (1, [STRUCT (11), STRUCT (12), STRUCT (13)]),
+                                         (2, [STRUCT (21), STRUCT (22), STRUCT (23)]),
+                                         (3, [STRUCT (31), STRUCT (32), STRUCT (33)])""");
                 relationalStatement.executeInternal("insert into B values (1, 10, 100), (2, 20, 200), (3, 30, 300)");
 
                 relationalStatement.executeInternal("select ida from a where exists (select ida from a where ida = 1)");
@@ -974,7 +977,7 @@ public class V2PlanGeneratorTests {
         try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 final var relationalStatement = (EmbeddedRelationalStatement) statement;
-                relationalStatement.executeInternal("insert into t1 values (42, (((((34, 35))))))");
+                relationalStatement.executeInternal("insert into t1 values (42, STRUCT (STRUCT (STRUCT (STRUCT ((34, 35))))))");
                 relationalStatement.executeInternal("select x.c.m.n.p from (select a.b.c from t1) as x");
                 try (final RelationalResultSet resultSet = statement.getResultSet()) {
                     Assertions.assertTrue(resultSet.next());
