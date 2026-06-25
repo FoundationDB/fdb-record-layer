@@ -71,6 +71,7 @@ import static org.hamcrest.Matchers.hasEntry;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.lessThanOrEqualTo;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -461,6 +462,84 @@ public class FDBRecordContextTest {
             assertEquals("YOLO", context.getInSession("Yo", String.class));
             assertEquals("YOLO", context.removeFromSession("Yo", String.class));
             assertNull(context.getInSession("Yo", String.class));
+        }
+    }
+
+    @Test
+    void sessionKeyEqualityBasedOnName() {
+        final ContextSessionKey<String> key1 = new ContextSessionKey<>("myKey");
+        final ContextSessionKey<String> key2 = new ContextSessionKey<>("myKey");
+        final ContextSessionKey<String> keyOther = new ContextSessionKey<>("otherKey");
+
+        assertEquals(key1, key2, "keys with the same name must be equal");
+        assertEquals(key1.hashCode(), key2.hashCode(), "equal keys must have the same hash code");
+        assertNotEquals(key1, keyOther, "keys with different names must not be equal");
+        assertNotEquals(key1, null, "a key must not equal null");
+    }
+
+    @Test
+    void sessionKeyTypedGetReturnsNullWhenAbsent() {
+        final ContextSessionKey<String> key = new ContextSessionKey<>("absent");
+        try (FDBRecordContext context = fdb.openContext()) {
+            assertNull(context.getInSession(key));
+        }
+    }
+
+    @Test
+    void sessionKeyTypedGetAndSet() {
+        final ContextSessionKey<String> key = new ContextSessionKey<>("myString");
+        try (FDBRecordContext context = fdb.openContext()) {
+            context.putInSession(key, "hello");
+            // No cast needed at the call site — type safety provided by SessionKey<String>
+            final String value = context.getInSession(key);
+            assertEquals("hello", value);
+            // remove
+            final String removed = context.removeFromSession(key);
+            assertEquals("hello", removed);
+            assertNull(context.removeFromSession(key));
+            assertNull(context.getInSession(key));
+        }
+    }
+
+    @Test
+    void sessionKeyMultipleKeysOfDifferentTypes() {
+        final ContextSessionKey<String> stringKey = new ContextSessionKey<>("myString");
+        final ContextSessionKey<Integer> intKey = new ContextSessionKey<>("myInt");
+        try (FDBRecordContext context = fdb.openContext()) {
+            context.putInSession(stringKey, "hello");
+            context.putInSession(intKey, 42);
+
+            // Each key returns its own typed value — no cross-contamination
+            final String strVal = context.getInSession(stringKey);
+            final Integer intVal = context.getInSession(intKey);
+            assertEquals("hello", strVal);
+            assertEquals(42, intVal);
+        }
+    }
+
+    @Test
+    void sessionKeyTwoKeysWithSameType() {
+        final ContextSessionKey<String> key1 = new ContextSessionKey<>("keyOne");
+        final ContextSessionKey<String> key2 = new ContextSessionKey<>("keyTwo");
+        try (FDBRecordContext context = fdb.openContext()) {
+            context.putInSessionIfAbsent(key1, "value1");
+            context.putInSessionIfAbsent(key2, "value2");
+
+            assertEquals("value1", context.getInSession(key1));
+            assertEquals("value2", context.getInSession(key2));
+        }
+    }
+
+    @Test
+    void sessionKeyTypeMismatchCausesClassCastException() {
+        // putInSessionIfAbsent accepts Object so a caller can store the wrong type.
+        // getInSession will trigger a ClassCastException when the value is used.
+        final ContextSessionKey<String> key = new ContextSessionKey<>("typedKey");
+        try (FDBRecordContext context = fdb.openContext()) {
+            context.putInSessionIfAbsent(key, 42); // Integer stored under a String key
+            assertThrows(ClassCastException.class, () -> {
+                final String value = context.getInSession(key); // cast fails here
+            });
         }
     }
 
