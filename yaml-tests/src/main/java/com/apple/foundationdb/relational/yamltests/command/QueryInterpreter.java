@@ -95,7 +95,20 @@ public final class QueryInterpreter {
      */
     private final List<Pair<String, Parameter>> injections;
 
-    private static final Yaml INTERPRETER = new Yaml(new QueryParameterYamlConstructor(new LoaderOptions()));
+    /**
+     * Builds a fresh {@link Yaml} instance for parsing query parameter injections (the {@code !!…!!}
+     * snippets).
+     * <p>
+     * SnakeYAML's {@link Yaml} is not thread-safe: its underlying {@code Scanner}/{@code Parser}/
+     * {@code StreamReader} hold per-parse state. Tests run with class-level parallel execution (see
+     * {@code gradle/testing.gradle}), so a shared static instance would let two test classes corrupt
+     * each other's parse state — observed as {@code ScannerException}, {@code ParserException},
+     * {@code ClassCastException} (MappingEndEvent → NodeEvent), {@code NoSuchElementException}, etc.
+     */
+    @Nonnull
+    private static Yaml newInterpreter() {
+        return new Yaml(new QueryParameterYamlConstructor(new LoaderOptions()));
+    }
 
     private static final class QueryParameterYamlConstructor extends SafeConstructor {
         private static final Tag RANDOM_TAG = new Tag("!r");
@@ -301,7 +314,7 @@ public final class QueryInterpreter {
             int end = query.indexOf("!!", start + 2);
             Assert.thatUnchecked(end != -1, "Illegal format: Parameter injection not formed correctly in query " + query);
             cursor = end + 2;
-            lst.add(Pair.of(query.substring(start, end + 2), INTERPRETER.load(query.substring(start + 2, end))));
+            lst.add(Pair.of(query.substring(start, end + 2), newInterpreter().load(query.substring(start + 2, end))));
         }
         return lst;
     }
