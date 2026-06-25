@@ -33,7 +33,7 @@ import com.apple.foundationdb.relational.util.Supplier;
 import com.codahale.metrics.MetricRegistry;
 
 import javax.annotation.Nonnull;
-import java.util.Objects;
+import javax.annotation.Nullable;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -53,20 +53,24 @@ import java.util.concurrent.TimeUnit;
 @API(API.Status.EXPERIMENTAL)
 public final class StoreTimerMetricCollector implements MetricCollector {
 
-    @Nonnull
+    @Nullable
     private final StoreTimer storeTimer;
 
-    private StoreTimerMetricCollector(@Nonnull final StoreTimer storeTimer) {
+    private StoreTimerMetricCollector(@Nullable final StoreTimer storeTimer) {
         this.storeTimer = storeTimer;
     }
 
     /**
      * Wraps the timer attached to {@code context}, so this collector's metrics are scoped to the
      * given transaction.
+     *
+     * <p>If {@code context} has no timer attached (e.g. a transaction-bound database context),
+     * the collector silently drops writes and reads throw &mdash; mirroring the way
+     * {@link FDBRecordContext#increment(StoreTimer.Count, int)} handles a null timer.</p>
      */
     @Nonnull
     public static StoreTimerMetricCollector fromFDBRecordContext(@Nonnull final FDBRecordContext context) {
-        return new StoreTimerMetricCollector(Objects.requireNonNull(context.getTimer()));
+        return new StoreTimerMetricCollector(context.getTimer());
     }
 
     /**
@@ -80,7 +84,9 @@ public final class StoreTimerMetricCollector implements MetricCollector {
 
     @Override
     public void increment(@Nonnull final RelationalMetric.RelationalCount count, final int val) {
-        storeTimer.increment(count, val);
+        if (storeTimer != null) {
+            storeTimer.increment(count, val);
+        }
     }
 
     @Override
@@ -89,12 +95,16 @@ public final class StoreTimerMetricCollector implements MetricCollector {
         try {
             return supplier.get();
         } finally {
-            storeTimer.record(event, System.nanoTime() - startNanos);
+            if (storeTimer != null) {
+                storeTimer.record(event, System.nanoTime() - startNanos);
+            }
         }
     }
 
     @Override
     public double getAverageTimeMicrosForEvent(@Nonnull final RelationalMetric.RelationalEvent event) {
+        Assert.notNullUnchecked(storeTimer, ErrorCode.INTERNAL_ERROR,
+                "Cannot read metrics: this collector has no backing store timer");
         final StoreTimer.Counter maybeCounter = storeTimer.getCounter(event);
         Assert.notNullUnchecked(maybeCounter, ErrorCode.INTERNAL_ERROR,
                 "Cannot find metrics associated for requested event: %s", event.title());
@@ -106,6 +116,8 @@ public final class StoreTimerMetricCollector implements MetricCollector {
 
     @Override
     public long getCountsForCounter(@Nonnull final RelationalMetric.RelationalCount count) {
+        Assert.notNullUnchecked(storeTimer, ErrorCode.INTERNAL_ERROR,
+                "Cannot read metrics: this collector has no backing store timer");
         Assert.thatUnchecked(hasCounter(count), ErrorCode.INTERNAL_ERROR,
                 "Cannot find metrics associated for requested event: %s", count.title());
         final StoreTimer.Counter counter = storeTimer.getCounter(count);
@@ -116,6 +128,6 @@ public final class StoreTimerMetricCollector implements MetricCollector {
 
     @Override
     public boolean hasCounter(@Nonnull final RelationalMetric.RelationalCount count) {
-        return storeTimer.getCounter(count) != null;
+        return storeTimer != null && storeTimer.getCounter(count) != null;
     }
 }
