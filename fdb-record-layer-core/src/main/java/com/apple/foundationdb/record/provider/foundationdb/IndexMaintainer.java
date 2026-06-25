@@ -154,10 +154,11 @@ public abstract class IndexMaintainer {
 
 
     /**
-     * While the index is in {@link com.apple.foundationdb.record.IndexState#WRITE_ONLY_WITH_QUEUE} mode, push the information
+     * While the index state is in {@link com.apple.foundationdb.record.IndexState#WRITE_ONLY_WITH_QUEUE}, push the information
      * to a write pending queue. The ongoing online indexer session will later drain the queue and call
-     * {@link #updateWhileWriteOnly(FDBIndexableRecord, FDBIndexableRecord)} with the parameters.
-     * This index state was designed to prevent repeating conflicts with indexer's transaction.
+     * {@link #updateWhileWriteOnly(FDBIndexableRecord, FDBIndexableRecord)} with the same parameters.
+     * This index state was designed to prevent repeating conflicts with indexer's transaction when the index
+     * maintainer path includes bottlenecks.
      *
      * @param oldRecord the previous stored record or <code>null</code> if a new record is being created
      * @param newRecord the new record or <code>null</code> if an old record is being deleted
