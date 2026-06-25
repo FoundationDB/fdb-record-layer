@@ -24,8 +24,10 @@ In addition, the Relational Layer supports two distinct user-definable types tha
 Struct Types
 ############
 
-You can define a *struct type* (often interchangeably referred to as a *nested type*). A struct is a tuple of columns that allow the same types as a table does, but does _not_ have a primary key. Struct types are "nested" within another owning type, and are stored in the same location as their owning record. For example, a table :sql:`foo` can have the following layout (using the :doc:`DDL <sql_commands/DDL>` syntax):
+Struct Type Declaration
+=======================
 
+You can define a *struct type* (often interchangeably referred to as a *nested type*). A struct is a tuple of columns that allow the same types as a table does, but does _not_ have a primary key. Struct types are "nested" within another owning type, and are stored in the same location as their owning record. For example, a table :sql:`foo` can have the following layout (using the :doc:`DDL <sql_commands/DDL>` syntax):
 
 .. code-block:: sql
 
@@ -45,6 +47,45 @@ Struct types can have columns which are themselves struct types. Thus, this exam
 In this example, :sql:`nested_type` is a struct within the table :sql:`foo`, and :sql:`nested_nested_type` is a struct within the type :sql:`nested_type`.
 
 The Relational Layer makes no direct limitations on how many structs can be nested within a single type, nor does it limit how deeply nested struct types can be. It is probably worth noting that there are practical limits, like the JVM stack size, that should discourage an adopter from designing types which are nested thousands deep. The general expectation is that nesting depth is probably within the 10s, not 1000s. Note that such "soft" limits may be restructured into hard limits (such as throwing an error if structs are nested more than X level deep) in the future.
+
+Struct Literals
+===============
+
+A *struct literal* constructs a struct value inline, directly within a query, instead of reading it from a table. Struct literals are accepted anywhere a value is expected, most commonly in :sql:`INSERT` statements, :sql:`SELECT` projections, and :sql:`WHERE` comparisons.
+
+A struct literal can be constructed using the following syntax:
+
+.. code-block:: sql
+
+  STRUCT <structTypeName> (field1, field2, ...)
+
+The :sql:`STRUCT` keyword is **optional** for constructing a struct literal with multiple fields, but is **required** for constructing a struct literal with a single field, to disambiguate it from an expression that uses **grouping parentheses** to control evaluation precedence (e.g. :sql:`(9+5)*6` is evaluated as mathematical expression where the addition is evaluated before the multiplication, and not as an expression that constructs struct literal).
+
+Struct literals can have an anonymous type that is derived from the types of the field values, or they can have an explicit type by including the type name after the :sql:`STRUCT` keyword before the parentheses.
+
+The examples below show different queries with struct literals:
+
+.. code-block:: sql
+
+    CREATE TYPE AS STRUCT single_field_st (f STRING)
+    CREATE TYPE AS STRUCT multiple_field_st (a STRING, b STRING)
+    CREATE TABLE foo (a STRING, b single_field_st, c multiple_field_st, PRIMARY KEY(a));
+
+    INSERT INTO foo VALUES
+        ('Alice', STRUCT ('foo'), ('1 First St', 'Springfield')),
+        ('Bob', STRUCT ('bar'), ('2 Second Ave', 'Shelbyville'));
+
+    -- Construct an anonymous struct literal with two nested structs:
+    SELECT a, (b, c) FROM foo
+
+    -- Same as the above, but with the optional STRUCT keyword included:
+    SELECT a, STRUCT (b, c) FROM foo
+
+    -- Construct an anonymous struct literal with a nested struct field:
+    SELECT a, STRUCT (c) FROM foo
+
+    -- Construct a struct literal with named type with a nested struct field:
+    SELECT a, STRUCT namedType (b) FROM foo
 
 .. _array_types:
 

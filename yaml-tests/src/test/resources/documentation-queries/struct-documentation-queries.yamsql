@@ -1,0 +1,65 @@
+#
+# struct-documentation-queries.yamsql
+#
+# This source file is part of the FoundationDB open source project
+#
+# Copyright 2021-2026 Apple Inc. and the FoundationDB project authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+---
+schema_template:
+  create type as struct single_field_st (f string)
+  create type as struct multiple_field_st (a string, b string)
+  create table foo (a string, b single_field_st, c multiple_field_st, primary key(a));
+---
+setup:
+  steps:
+    -
+      - currentVersionLessThan: !current_version
+        definition:
+          - query: INSERT INTO foo VALUES ('Alice', ('foo'), ('1 First St', 'Springfield')),
+                                          ('Bob', ('bar'), ('2 Second Ave', 'Shelbyville'))
+      - currentVersionAtLeast: !current_version
+        definition:
+          - query: INSERT INTO foo VALUES ('Alice', STRUCT ('foo'), ('1 First St', 'Springfield')),
+                                          ('Bob', STRUCT ('bar'), ('2 Second Ave', 'Shelbyville'))
+---
+test_block:
+  name: struct-documentation-tests
+  preset: single_repetition_ordered
+  tests:
+    # Construct an anonymous struct literal with two nested structs (documentation example)
+    -
+      - query: SELECT a, (b, c) FROM foo
+      - result: [ {a: 'Alice', _1: { {f: 'foo'}, {a: '1 First St', b: 'Springfield'} } },
+                  {a: 'Bob', _1: { {f: 'bar'}, {a: '2 Second Ave', b: 'Shelbyville'} } } ]
+
+    # Same as the above, but with the optional STRUCT keyword included:
+    -
+      - query: SELECT a, STRUCT (b, c) FROM foo
+      - supported_version: !current_version
+      - result: [ {a: 'Alice', _1: { {f: 'foo'}, {a: '1 First St', b: 'Springfield'} } },
+                  {a: 'Bob', _1: { {f: 'bar'}, {a: '2 Second Ave', b: 'Shelbyville'} } } ]
+
+    # Construct an anonymous struct literal with a nested struct field
+    -
+      - query: SELECT a, STRUCT (c) FROM foo
+      - supported_version: !current_version
+      - result: [ { a: 'Alice', _1: { { a: '1 First St', b: 'Springfield' } } },
+                  { a: 'Bob', _1: { { a: '2 Second Ave', b: 'Shelbyville' } } } ]
+
+    # Construct a struct literal with named type with a nested struct field
+    -
+      - query: SELECT a, STRUCT namedType (b) FROM foo
+      - result: [ {a: 'Alice', _1: { {f: 'foo'} } },
+                  {a: 'Bob', _1: { {f: 'bar'} } } ]
