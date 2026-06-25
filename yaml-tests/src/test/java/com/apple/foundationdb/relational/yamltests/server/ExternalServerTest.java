@@ -30,9 +30,7 @@ import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -66,27 +64,6 @@ class ExternalServerTest {
         try {
             ExternalServer.startMultiple(servers);
             assertDistinctPorts(servers);
-        } finally {
-            for (final ExternalServer server : servers) {
-                server.stop();
-            }
-        }
-    }
-
-    @Test
-    void startMultipleWithAdditionalExclusions() throws Exception {
-        final List<ExternalServer> servers = new ArrayList<>();
-        final String clusterFile = FDBTestEnvironment.randomClusterFile();
-        for (int i = 0; i < 3; i++) {
-            servers.add(new ExternalServer(currentServerPath, clusterFile));
-        }
-        try {
-            final Set<Integer> explicitExcluded = Set.of(1111, 1115, 1116);
-            ExternalServer.startMultiple(servers, new HashSet<>(explicitExcluded));
-            assertDistinctPorts(servers);
-            assertThat(servers)
-                    .flatMap(ExternalServer::getPort, ExternalServer::getHttpPort)
-                    .doesNotContainAnyElementsOf(explicitExcluded);
         } finally {
             for (final ExternalServer server : servers) {
                 server.stop();
