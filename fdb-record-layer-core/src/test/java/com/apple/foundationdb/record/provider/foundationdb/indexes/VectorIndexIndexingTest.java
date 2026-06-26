@@ -34,6 +34,7 @@ import com.apple.foundationdb.record.vector.TestRecordsVectorsProto.VectorRecord
 import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.Message;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.Isolated;
 
 import javax.annotation.Nonnull;
 import java.util.List;
@@ -49,6 +50,8 @@ import static org.assertj.core.api.Assertions.assertThat;
  * Tests online indexing of vector indexes.
  * These tests verify that vector indexes can be built asynchronously after records are saved.
  */
+// TODO maybe change this to the same resource lock as the indexing tests
+@Isolated("Heavy vector index-builder trips FDB cluster's batch-priority GRV rate limit when run concurrently with other indexer tests")
 class VectorIndexIndexingTest extends VectorIndexTestBase {
 
     @Test
