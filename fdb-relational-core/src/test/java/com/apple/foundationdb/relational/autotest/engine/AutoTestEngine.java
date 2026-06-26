@@ -29,6 +29,7 @@ import org.junit.jupiter.engine.execution.JupiterEngineExecutionContext;
 import org.junit.jupiter.engine.execution.LauncherStoreFacade;
 import org.junit.platform.commons.support.AnnotationSupport;
 import org.junit.platform.commons.support.ReflectionSupport;
+import org.junit.platform.engine.DiscoveryIssue;
 import org.junit.platform.engine.EngineDiscoveryRequest;
 import org.junit.platform.engine.ExecutionRequest;
 import org.junit.platform.engine.TestDescriptor;
@@ -36,10 +37,12 @@ import org.junit.platform.engine.UniqueId;
 import org.junit.platform.engine.discovery.ClassSelector;
 import org.junit.platform.engine.discovery.ClasspathRootSelector;
 import org.junit.platform.engine.discovery.PackageSelector;
+import org.junit.platform.engine.support.discovery.DiscoveryIssueReporter;
 import org.junit.platform.engine.support.hierarchical.HierarchicalTestEngine;
 
 import javax.annotation.Nonnull;
 import java.net.URI;
+import java.util.Optional;
 import java.util.function.Predicate;
 
 public class AutoTestEngine extends HierarchicalTestEngine<JupiterEngineExecutionContext> {
@@ -53,19 +56,21 @@ public class AutoTestEngine extends HierarchicalTestEngine<JupiterEngineExecutio
 
     @Override
     public TestDescriptor discover(EngineDiscoveryRequest discoveryRequest, UniqueId uniqueId) {
+        DiscoveryIssueReporter issueReporter = DiscoveryIssueReporter.deduplicating(
+                DiscoveryIssueReporter.forwarding(discoveryRequest.getDiscoveryListener(), uniqueId));
         JupiterConfiguration config = new CachingJupiterConfiguration(
                 new DefaultJupiterConfiguration(discoveryRequest.getConfigurationParameters(),
-                        discoveryRequest.getOutputDirectoryCreator()));
+                        discoveryRequest.getOutputDirectoryCreator(), issueReporter));
         TestDescriptor rootDescriptor = new JupiterEngineDescriptor(uniqueId, config);
 
         discoveryRequest.getSelectorsByType(ClasspathRootSelector.class).forEach(selector ->
-                appendTestsInClasspathRoot(selector.getClasspathRoot(), rootDescriptor, config));
+                appendTestsInClasspathRoot(selector.getClasspathRoot(), rootDescriptor, config, issueReporter));
 
         discoveryRequest.getSelectorsByType(PackageSelector.class).forEach(selector ->
-                appendTestsInPackage(selector.getPackageName(), rootDescriptor, config));
+                appendTestsInPackage(selector.getPackageName(), rootDescriptor, config, issueReporter));
 
         discoveryRequest.getSelectorsByType(ClassSelector.class).forEach(selector ->
-                appendTestsInClass(selector.getJavaClass(), rootDescriptor, config));
+                appendTestsInClass(selector.getJavaClass(), rootDescriptor, config, issueReporter));
         return rootDescriptor;
     }
 
@@ -77,30 +82,40 @@ public class AutoTestEngine extends HierarchicalTestEngine<JupiterEngineExecutio
                 new LauncherStoreFacade(request.getStore()));
     }
 
-    private void appendTestsInClass(Class<?> javaClass, TestDescriptor engineDesc, JupiterConfiguration config) {
+    private void appendTestsInClass(Class<?> javaClass, TestDescriptor engineDesc, JupiterConfiguration config,
+                                     DiscoveryIssueReporter issueReporter) {
         if (AnnotationSupport.isAnnotated(javaClass, AutomatedTest.class)) {
-            final TestDescriptor classTestDescriptor = getClassTestDescriptor(engineDesc, config, javaClass);
-            engineDesc.addChild(classTestDescriptor);
+            getClassTestDescriptor(engineDesc, config, javaClass, issueReporter)
+                    .ifPresent(engineDesc::addChild);
         }
     }
 
-    private void appendTestsInPackage(String packageName, TestDescriptor engineDesc, JupiterConfiguration config) {
+    private void appendTestsInPackage(String packageName, TestDescriptor engineDesc, JupiterConfiguration config,
+                                       DiscoveryIssueReporter issueReporter) {
         ReflectionSupport.findAllClassesInPackage(packageName, IS_AUTO_TEST_CONTAINER, name -> true)
                 .stream()
-                .map(clazz -> getClassTestDescriptor(engineDesc, config, clazz))
+                .flatMap(clazz -> getClassTestDescriptor(engineDesc, config, clazz, issueReporter).stream())
                 .forEach(engineDesc::addChild);
     }
 
-    private void appendTestsInClasspathRoot(URI rootUri, TestDescriptor engineDesc, JupiterConfiguration config) {
+    private void appendTestsInClasspathRoot(URI rootUri, TestDescriptor engineDesc, JupiterConfiguration config,
+                                             DiscoveryIssueReporter issueReporter) {
         ReflectionSupport.findAllClassesInClasspathRoot(rootUri, IS_AUTO_TEST_CONTAINER, name -> true)
                 .stream()
-                .map(aClass -> getClassTestDescriptor(engineDesc, config, aClass))
+                .flatMap(aClass -> getClassTestDescriptor(engineDesc, config, aClass, issueReporter).stream())
                 .forEach(engineDesc::addChild);
     }
 
     @Nonnull
-    private TestDescriptor getClassTestDescriptor(TestDescriptor engineDesc, JupiterConfiguration config, Class<?> aClass) {
-        return new AutoTestResolver().resolveTest(engineDesc, config, aClass);
+    private Optional<TestDescriptor> getClassTestDescriptor(TestDescriptor engineDesc, JupiterConfiguration config,
+                                                             Class<?> aClass, DiscoveryIssueReporter issueReporter) {
+        try {
+            return Optional.of(new AutoTestResolver().resolveTest(engineDesc, config, aClass));
+        } catch (Exception e) {
+            issueReporter.reportIssue(DiscoveryIssue.builder(DiscoveryIssue.Severity.ERROR,
+                    "Failed to resolve auto-test class: " + aClass.getName()).cause(e).build());
+            return Optional.empty();
+        }
     }
 
     /*
