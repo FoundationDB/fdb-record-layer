@@ -152,30 +152,30 @@ public class ExternalServer implements Clusters.BoundToCluster {
                     "-jar", serverJar.getAbsolutePath(),
                     "--grpcPort", Integer.toString(grpcPort), "--httpPort", Integer.toString(httpPort));
             boolean saveServerLogs = Boolean.parseBoolean(System.getProperty("tests.saveServerLogs", "false"));
+            // Always capture stderr to a tempfile so we can include its tail in the failure message
+            // if the subprocess dies or never becomes available. Stdout is only retained when the
+            // tests.saveServerLogs sysProp is set, since it can be voluminous in the happy path.
+            // Include current time in file names so they sort nicely.
+            long currentTime = System.currentTimeMillis();
             @Nullable
             File outFile;
-            @Nullable
-            File errFile;
             if (saveServerLogs) {
-                // Include current time in file names so that things sort nicely. We want the out and err logs
-                // for the same server start to be adjacent, and it would be nice for the log files to sort
-                // chronologically
-                long currentTime = System.currentTimeMillis();
                 outFile = File.createTempFile("fdb-relational-server-" + version + "-" + currentTime + "-" + grpcPort + "-out.", ".log");
-                errFile = File.createTempFile("fdb-relational-server-" + version + "-" + currentTime + "-" + grpcPort + "-err.", ".log");
             } else {
                 outFile = null;
-                errFile = null;
             }
+            final File errFile = File.createTempFile("fdb-relational-server-" + version + "-" + currentTime + "-" + grpcPort + "-err.", ".log");
+            // Don't keep the diagnostic file around in the success path (clutters tmp on dev boxes).
+            errFile.deleteOnExit();
             ProcessBuilder.Redirect out = outFile == null ? ProcessBuilder.Redirect.DISCARD : ProcessBuilder.Redirect.to(outFile);
-            ProcessBuilder.Redirect err = errFile == null ? ProcessBuilder.Redirect.DISCARD : ProcessBuilder.Redirect.to(errFile);
             processBuilder.redirectOutput(out);
-            processBuilder.redirectError(err);
+            processBuilder.redirectError(ProcessBuilder.Redirect.to(errFile));
             if (clusterFile != null) {
                 processBuilder.environment().put("FDB_CLUSTER_FILE", clusterFile);
             }
 
             if (!startServer(processBuilder)) {
+                final String errTail = tailFile(errFile, 4096);
                 if (logger.isWarnEnabled()) {
                     logger.warn(KeyValueLogMessage.of("Failed to start external server",
                             "jar", serverJar,
@@ -183,9 +183,17 @@ public class ExternalServer implements Clusters.BoundToCluster {
                             "grpc_port", grpcPort,
                             "http_port", httpPort,
                             "out_file", outFile,
-                            "err_file", errFile));
+                            "err_file", errFile,
+                            "subprocess_alive", serverProcess != null && serverProcess.isAlive(),
+                            "exit_value", serverProcess != null && !serverProcess.isAlive() ? serverProcess.exitValue() : "n/a"));
                 }
-                Assertions.fail("Failed to start the external server");
+                Assertions.fail("Failed to start the external server (grpc_port=" + grpcPort
+                        + ", http_port=" + httpPort
+                        + ", alive=" + (serverProcess != null && serverProcess.isAlive())
+                        + (serverProcess != null && !serverProcess.isAlive() ? ", exit=" + serverProcess.exitValue() : "")
+                        + ")\n--- last bytes of subprocess stderr (" + errFile + ") ---\n"
+                        + errTail
+                        + "\n--- end ---");
             }
 
             if (logger.isInfoEnabled()) {
@@ -208,6 +216,23 @@ public class ExternalServer implements Clusters.BoundToCluster {
                 JVM_WIDE_CLAIMED_PORTS.remove(grpcPort);
                 JVM_WIDE_CLAIMED_PORTS.remove(httpPort);
             }
+        }
+    }
+
+    /** Read the trailing {@code maxBytes} of {@code file} as a UTF-8 string, never throwing. */
+    @Nonnull
+    private static String tailFile(@Nonnull File file, int maxBytes) {
+        try {
+            final long size = file.length();
+            try (java.io.RandomAccessFile raf = new java.io.RandomAccessFile(file, "r")) {
+                final int read = (int) Math.min(maxBytes, size);
+                raf.seek(size - read);
+                final byte[] buf = new byte[read];
+                raf.readFully(buf);
+                return (size > read ? "…(truncated)…\n" : "") + new String(buf, java.nio.charset.StandardCharsets.UTF_8);
+            }
+        } catch (IOException e) {
+            return "(failed to read " + file + ": " + e + ")";
         }
     }
 
@@ -252,12 +277,35 @@ public class ExternalServer implements Clusters.BoundToCluster {
     }
 
     private boolean attemptConnectionWithRetry() throws SQLException, InterruptedException {
-        final int maxAttempts = 20;
-        boolean started = false;
+        // Time-based budget rather than a fixed retry count: under JVM-wide contention from a
+        // parallel test run (e.g. many test classes each spawning their own external servers,
+        // YamlIntegrationTests starts ~5) the subprocess can take well over 10s to finish JVM
+        // warmup, FDB connect, and bind its gRPC port. In isolation the same start completes in
+        // ~3s, so the larger ceiling only kicks in on contended runs.
+        final long deadlineMillis = System.currentTimeMillis() + 30_000L;
         int attempts = 0;
-        while (!started && attempts < maxAttempts) {
-            long delay = 50L * attempts;
-            Thread.sleep(delay);
+        boolean started = false;
+        while (!started) {
+            // If the subprocess has died, no amount of retrying will help — bail immediately so
+            // the test fails quickly with an actionable signal instead of consuming the full budget.
+            if (serverProcess != null && !serverProcess.isAlive()) {
+                if (logger.isWarnEnabled()) {
+                    logger.warn(KeyValueLogMessage.of("External server subprocess exited before becoming available",
+                            LogMessageKeys.VERSION, version,
+                            "grpc_port", getPort(),
+                            "exit_value", serverProcess.exitValue(),
+                            "attempts", attempts));
+                }
+                return false;
+            }
+            if (System.currentTimeMillis() >= deadlineMillis) {
+                return false;
+            }
+            // Linear backoff capped at 1s so we don't pace much beyond steady state.
+            final long delay = Math.min(50L * attempts, 1000L);
+            if (delay > 0) {
+                Thread.sleep(delay);
+            }
             started = attemptConnection();
             attempts++;
             if (logger.isDebugEnabled()) {
