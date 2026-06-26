@@ -151,15 +151,20 @@ public final class PlanGenerator {
 
     /**
      * Pre-generates and caches plans for the stored queries defined in the schema template.
+     *
+     * @return the number of stored queries that were planned and cached successfully; queries that
+     *         failed to plan are counted as the difference between the template's stored-query count
+     *         and this return value
      */
-    public void planStoredQueries() throws RelationalException {
+    public int planStoredQueries() throws RelationalException {
         if (cache.isEmpty()) {
-            return;
+            return 0;
         }
         final var schemaTemplate = planContext.getSchemaTemplate();
         if (schemaTemplate.getStoredQueries().isEmpty()) {
-            return;
+            return 0;
         }
+        int queriesPlanned = 0;
         final var templateKey = schemaTemplate.getName() + ":" + schemaTemplate.getVersion();
         for (final var storedQuery : schemaTemplate.getStoredQueries().entrySet()) {
             try {
@@ -168,11 +173,13 @@ public final class PlanGenerator {
                 message.addKeyAndValue("storedQueryName", storedQuery.getKey());
                 message.addKeyAndValue("storedQuerySql", storedQuery.getValue());
                 getPlanAndLog(storedQuery.getValue(), message);
+                queriesPlanned++;
             } catch (RelationalException e) {
                 // do nothing here, error is already logged
                 assert e != null;
             }
         }
+        return queriesPlanned;
     }
 
     private boolean isCaseSensitive() {

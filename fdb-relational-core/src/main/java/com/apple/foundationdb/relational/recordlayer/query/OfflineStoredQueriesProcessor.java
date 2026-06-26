@@ -28,6 +28,7 @@ import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.catalog.StoreCatalog;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metrics.MetricCollector;
+import com.apple.foundationdb.relational.api.metrics.RelationalMetric;
 import com.apple.foundationdb.relational.recordlayer.catalog.systables.SystemTable;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.metric.StoreTimerMetricCollector;
@@ -40,7 +41,6 @@ import javax.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.TimeUnit;
 
 /**
  * Pre-warms the shared {@link RelationalPlanCache} at engine startup by planning every stored
@@ -97,47 +97,76 @@ public final class OfflineStoredQueriesProcessor {
 
     /**
      * Plans the stored queries for each given schema template and inserts the resulting plans
-     * into {@code cache}. The caller must have closed the catalog-read transaction before
-     * invoking this method — no FDB transaction is opened here. Per-template failures are
-     * caught and logged so a single bad template cannot abort startup.
+     * into {@code cache}. This is an offline operation and does not require an FDB transaction.
+     * Per-template failures are caught and logged so a single bad template cannot abort startup.
      */
     public static void planStoredQueriesForSchemaTemplates(@Nonnull final RelationalPlanCache cache,
                                                            @Nonnull final MetricRegistry metricRegistry,
                                                            @Nonnull final List<RecordLayerSchemaTemplate> templates) {
-        final long startNanos = System.nanoTime();
         final MetricCollector metricCollector = StoreTimerMetricCollector.fromMetricRegistry(metricRegistry);
-        int queriesPlanned = 0;
-        int templatesFailed = 0;
+        final Counts counts;
+        try {
+            counts = metricCollector.clock(RelationalMetric.RelationalEvent.OFFLINE_STORED_QUERIES_WARM_UP,
+                    () -> planStoredQueriesForSchemaTemplatesAll(cache, metricCollector, templates));
+        } catch (RelationalException e) {
+            if (logger.isErrorEnabled()) {
+                logger.error(KeyValueLogMessage.of("OfflineStoredQueriesProcessor failed unexpectedly"), e);
+            }
+            return;
+        }
+        metricCollector.increment(RelationalMetric.RelationalCount.OFFLINE_STORED_QUERIES_TEMPLATES_PROCESSED, counts.templatesProcessed);
+        metricCollector.increment(RelationalMetric.RelationalCount.OFFLINE_STORED_QUERIES_TEMPLATES_FAILED, counts.templatesFailed);
+        metricCollector.increment(RelationalMetric.RelationalCount.OFFLINE_STORED_QUERIES_QUERIES_PROCESSED, counts.queriesProcessed);
+        metricCollector.increment(RelationalMetric.RelationalCount.OFFLINE_STORED_QUERIES_QUERIES_FAILED, counts.queriesFailed);
+        if (logger.isInfoEnabled()) {
+            logger.info(KeyValueLogMessage.of("OfflineStoredQueriesProcessor finished",
+                    "templatesProcessed", counts.templatesProcessed,
+                    "templatesFailed", counts.templatesFailed,
+                    "storedQueriesProcessed", counts.queriesProcessed,
+                    "storedQueriesFailed", counts.queriesFailed,
+                    "durationMicros", (long) metricCollector.getAverageTimeMicrosForEvent(
+                            RelationalMetric.RelationalEvent.OFFLINE_STORED_QUERIES_WARM_UP)));
+        }
+    }
+
+    @Nonnull
+    private static Counts planStoredQueriesForSchemaTemplatesAll(@Nonnull final RelationalPlanCache cache,
+                                                                 @Nonnull final MetricCollector metricCollector,
+                                                                 @Nonnull final List<RecordLayerSchemaTemplate> templates) {
+        final Counts counts = new Counts();
         for (final RecordLayerSchemaTemplate template : templates) {
             try {
-                planStoredQueriesForOneTemplate(cache, metricCollector, template);
-                queriesPlanned += template.getStoredQueries().size();
+                final int queriesProcessed = planStoredQueriesForSchemaTemplate(cache, metricCollector, template);
+                counts.templatesProcessed++;
+                counts.queriesProcessed += queriesProcessed;
+                counts.queriesFailed += template.getStoredQueries().size() - queriesProcessed;
             } catch (RelationalException | RuntimeException e) {
-                templatesFailed++;
+                counts.templatesFailed++;
                 if (logger.isErrorEnabled()) {
                     logger.error(KeyValueLogMessage.of("OfflineStoredQueriesProcessor failed to process schema template",
                             "schemaTemplate", template.getName() + ":" + template.getVersion()), e);
                 }
             }
         }
-        if (logger.isInfoEnabled()) {
-            logger.info(KeyValueLogMessage.of("OfflineStoredQueriesProcessor finished",
-                    "templates", templates.size(),
-                    "templatesFailed", templatesFailed,
-                    "queriesPlanned", queriesPlanned,
-                    "durationMicros", TimeUnit.NANOSECONDS.toMicros(System.nanoTime() - startNanos)));
-        }
+        return counts;
     }
 
-    private static void planStoredQueriesForOneTemplate(@Nonnull final RelationalPlanCache cache,
-                                                        @Nonnull final MetricCollector metricCollector,
-                                                        @Nonnull final RecordLayerSchemaTemplate template) throws RelationalException {
+    private static int planStoredQueriesForSchemaTemplate(@Nonnull final RelationalPlanCache cache,
+                                                          @Nonnull final MetricCollector metricCollector,
+                                                          @Nonnull final RecordLayerSchemaTemplate template) throws RelationalException {
         final var generator = PlanGenerator.create(
                 Optional.of(cache),
                 template,
                 new RecordStoreState(null, null),
                 metricCollector,
                 Options.NONE);
-        generator.planStoredQueries();
+        return generator.planStoredQueries();
+    }
+
+    private static final class Counts {
+        int templatesProcessed;
+        int templatesFailed;
+        int queriesProcessed;
+        int queriesFailed;
     }
 }
