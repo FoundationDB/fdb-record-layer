@@ -25,6 +25,7 @@ import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseRunner;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContextConfig;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
 import org.slf4j.Logger;
@@ -89,6 +90,29 @@ public class TestKeySpacePathManager implements AutoCloseable {
                     LogMessageKeys.KEY_SPACE_PATH, path));
         }
         assertTrue(paths.add(path), "UUID collision");
+
+        // Eagerly resolve the path under a JVM-wide lock. Path resolution goes through
+        // FDBDatabase.resolverStateCache, an AsyncLoadingCache with a hardcoded 5-second
+        // deadline (AsyncLoadingCache.DEFAULT_DEADLINE_TIME_MILLIS). When many parallel
+        // tests resolve directory-layer entries concurrently, the FDB-side work appears
+        // to contend with itself (retries triggered by conflicting commits on the
+        // resolver state) and the 5-second deadline fires from random call sites in
+        // test bodies and afterEach hooks. Serialising the resolution here means the
+        // resolver-state cache is warm by the time the test actually uses the path,
+        // so KeySpacePath.toTuple / FDBRecordStore.createOrOpen / deleteAllData calls
+        // hit the cache instead of racing on directory-layer reads.
+        //
+        // TODO: investigate whether the directory layer / LocatableResolver has a bug
+        // where concurrent resolutions of distinct keys fail to make progress on
+        // retry (rather than just being slow). If yes, the production-side fix would
+        // remove the need for this workaround entirely. See e.g.
+        // FDBDatabase.resolverStateCache, LocatableResolver.loadResolverState.
+        synchronized (TestKeySpacePathManager.class) {
+            try (FDBRecordContext context = db.openContext()) {
+                path.toTuple(context);
+            }
+        }
+
         return path;
     }
 
