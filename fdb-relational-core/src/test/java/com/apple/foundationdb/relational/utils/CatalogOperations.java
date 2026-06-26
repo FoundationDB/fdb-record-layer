@@ -21,6 +21,7 @@
 package com.apple.foundationdb.relational.utils;
 
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
+import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
 import javax.annotation.Nonnull;
 import java.sql.SQLException;
@@ -65,6 +66,16 @@ public final class CatalogOperations {
     }
 
     /**
+     * Functional interface for catalog actions that may throw {@link RelationalException}
+     * (used by extensions that talk to the catalog via the lower-level Transaction API rather
+     * than JDBC, e.g. {@code EmbeddedRelationalExtension.makeDatabase}).
+     */
+    @FunctionalInterface
+    public interface RelationalThrowingRunnable {
+        void run() throws RelationalException;
+    }
+
+    /**
      * Runs {@code action} under the JVM-wide catalog lock with a small retry loop on SQLSTATE
      * 40001 transaction conflicts. Use for any CREATE/DROP DATABASE, CREATE/DROP SCHEMA TEMPLATE,
      * or CREATE/DROP SCHEMA executed against {@code /__SYS/CATALOG}.
@@ -83,14 +94,41 @@ public final class CatalogOperations {
                     if (attempt >= MAX_ATTEMPTS || !isTransactionConflict(e)) {
                         throw e;
                     }
-                    try {
-                        Thread.sleep(10L * attempt);
-                    } catch (InterruptedException ie) {
-                        Thread.currentThread().interrupt();
-                        throw e;
-                    }
+                    sleepBeforeRetry(attempt, e);
                 }
             }
+        }
+    }
+
+    /**
+     * {@link RelationalException}-throwing variant of {@link #runLockedWithRetry(ThrowingRunnable)}.
+     * Same lock and retry policy; detects conflicts via either {@link SQLException} SQLSTATE
+     * 40001 or {@link RelationalException} carrying {@link ErrorCode#SERIALIZATION_FAILURE}.
+     * Named distinctly because Java can't disambiguate lambdas between the two
+     * functional-interface overloads (their abstract methods differ only in their throws clause).
+     */
+    public static void runLockedWithRelationalRetry(@Nonnull final RelationalThrowingRunnable action) throws RelationalException {
+        synchronized (CATALOG_LOCK) {
+            for (int attempt = 1; ; attempt++) {
+                try {
+                    action.run();
+                    return;
+                } catch (RelationalException e) {
+                    if (attempt >= MAX_ATTEMPTS || !isTransactionConflict(e)) {
+                        throw e;
+                    }
+                    sleepBeforeRetry(attempt, e);
+                }
+            }
+        }
+    }
+
+    private static <E extends Exception> void sleepBeforeRetry(final int attempt, @Nonnull final E pending) throws E {
+        try {
+            Thread.sleep(10L * attempt);
+        } catch (InterruptedException ie) {
+            Thread.currentThread().interrupt();
+            throw pending;
         }
     }
 
@@ -99,6 +137,10 @@ public final class CatalogOperations {
         while (cursor != null) {
             if (cursor instanceof SQLException
                     && ErrorCode.SERIALIZATION_FAILURE.getErrorCode().equals(((SQLException) cursor).getSQLState())) {
+                return true;
+            }
+            if (cursor instanceof RelationalException
+                    && ((RelationalException) cursor).getErrorCode() == ErrorCode.SERIALIZATION_FAILURE) {
                 return true;
             }
             cursor = cursor.getCause();

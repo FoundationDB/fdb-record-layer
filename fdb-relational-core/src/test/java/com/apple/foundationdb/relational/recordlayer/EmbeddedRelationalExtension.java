@@ -35,6 +35,7 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.catalog.StoreCatalogProvider;
 import com.apple.foundationdb.relational.recordlayer.ddl.RecordLayerMetadataOperationsFactory;
 import com.apple.foundationdb.relational.recordlayer.query.cache.RelationalPlanCache;
+import com.apple.foundationdb.relational.utils.CatalogOperations;
 import com.apple.foundationdb.test.FDBTestEnvironment;
 import com.codahale.metrics.MetricRegistry;
 import org.junit.jupiter.api.extension.AfterEachCallback;
@@ -126,11 +127,17 @@ public class EmbeddedRelationalExtension implements RelationalExtension, BeforeE
 
     private void makeDatabase(String clusterFile) throws RelationalException {
         database = FDBDatabaseFactory.instance().getDatabase(clusterFile);
-        try (var connection = new DirectFdbConnection(database);
-                 Transaction txn = connection.getTransactionManager().createTransaction(Options.NONE)) {
-            storeCatalog = StoreCatalogProvider.getCatalog(txn, keySpace);
-            txn.commit();
-        }
+        // The catalog-bootstrap transaction below writes the cluster-wide catalog metadata, which
+        // races with every other test class's @BeforeEach. Without the JVM-wide lock, parallel
+        // class execution surfaces these races as `FDBStoreTransactionConflictException`. See
+        // CatalogOperations for the lock contract.
+        CatalogOperations.runLockedWithRelationalRetry(() -> {
+            try (var connection = new DirectFdbConnection(database);
+                     Transaction txn = connection.getTransactionManager().createTransaction(Options.NONE)) {
+                storeCatalog = StoreCatalogProvider.getCatalog(txn, keySpace);
+                txn.commit();
+            }
+        });
     }
 
     private EmbeddedRelationalEngine makeEngine(final @Nonnull FDBDatabase database, final @Nonnull FormatVersion formatVersion) {
