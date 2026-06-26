@@ -100,6 +100,15 @@ public final class OfflineStoredQueriesProcessor {
      * Plans the stored queries for each given schema template and inserts the resulting plans
      * into {@code cache}. This is an offline operation and does not require an FDB transaction.
      *
+     * <p>Stored queries are planned with {@link Options#NONE}, i.e. the planner's default
+     * options &mdash; this includes the default case-sensitivity setting
+     * ({@link Options.Name#CASE_SENSITIVE_IDENTIFIERS}) and every other planner-tunable. The
+     * planned-and-cached plans therefore reflect the engine defaults, not any per-connection or
+     * per-session overrides; adopters whose runtime queries depend on non-default options will
+     * not see this warm-up cache hit. Allowing callers to inject their own {@link Options} is a
+     * deliberate non-goal today but a likely future extension &mdash; if/when we do, this method
+     * will take an {@code Options} parameter and the planning loop will thread it through.</p>
+     *
      * <p>Failures are never propagated &mdash; a bad template or query must not abort startup.
      * Each failure is logged at {@code ERROR} level, and is also surfaced as a metric:
      * per-template failures bump
