@@ -1,5 +1,5 @@
 /*
- * PendingQritesQueueEntry.java
+ * PendingWritesQueueEntry.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -20,35 +20,45 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.queue;
 
-import com.apple.foundationdb.record.PendingWritesQueueProto;
 import com.apple.foundationdb.record.RecordCoreStorageException;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.tuple.Tuple;
+import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 
 /**
- * A single entry returned by {@link PendingWritesQueue#getQueueCursor(FDBRecordContext, ScanProperties, byte[])} Cursor.
- * Wraps the queue key (the {@code (incarnation, versionstamp)} tuple, needed for {@link PendingWritesQueue#clearEntry}) and the parsed
- * proto payload.
+ * A single entry returned by
+ * {@link PendingWritesQueue#getQueueCursor(FDBRecordContext, ScanProperties, byte[])}.
+ * Wraps the queue key (the {@code (incarnation, versionstamp)} tuple, needed for
+ * {@link PendingWritesQueue#clearEntry}) and the already-unpacked, type-checked payload.
+ *
+ * @param <T> the payload message type of the queue that produced this entry
  */
-public final class PendingWritesQueueEntry {
+public final class PendingWritesQueueEntry<T extends Message> {
     @Nonnull
     private final Tuple keyTuple;
     @Nonnull
-    private final PendingWritesQueueProto.PendingWriteItem item;
+    private final T payload;
+    @Nonnull
+    private final String payloadTypeUrl;
+    private final long enqueueTimestamp;
 
-    PendingWritesQueueEntry(@Nonnull Tuple keyTuple, @Nonnull PendingWritesQueueProto.PendingWriteItem item) {
+    PendingWritesQueueEntry(@Nonnull Tuple keyTuple,
+                            @Nonnull T payload,
+                            @Nonnull String payloadTypeUrl,
+                            long enqueueTimestamp) {
         // Sanity-check the key shape — the queue always writes (incarnation, versionstamp).
         if (keyTuple.size() != 2) {
             throw new RecordCoreStorageException("Unexpected queue key shape")
                     .addLogInfo(LogMessageKeys.KEY_TUPLE, keyTuple);
         }
         this.keyTuple = keyTuple;
-        this.item = item;
+        this.payload = payload;
+        this.payloadTypeUrl = payloadTypeUrl;
+        this.enqueueTimestamp = enqueueTimestamp;
     }
 
     @Nonnull
@@ -61,22 +71,28 @@ public final class PendingWritesQueueEntry {
     }
 
     public long getEnqueueTimestamp() {
-        return item.getEnqueueTimestamp();
+        return enqueueTimestamp;
     }
 
     /**
-     * @return the serialized "old" record bytes, or {@code null} if the entry represents an insert operation
+     * Returns the entry's payload, already unpacked from the on-disk {@code Any} and
+     * type-checked against the queue instance's bound message type.
+     *
+     * @return the unpacked, typed payload
      */
-    @Nullable
-    public byte[] getOldRecord() {
-        return item.hasOldRecord() ? item.getOldRecord().toByteArray() : null;
+    @Nonnull
+    public T getPayload() {
+        return payload;
     }
 
     /**
-     * @return the serialized "new" record bytes, or {@code null} if the entry represents a delete operation
+     * Returns the type URL of the on-disk {@code Any} that held this entry's payload; useful
+     * for diagnostics and logging.
+     *
+     * @return the on-disk {@code Any} type URL
      */
-    @Nullable
-    public byte[] getNewRecord() {
-        return item.hasNewRecord() ? item.getNewRecord().toByteArray() : null;
+    @Nonnull
+    public String getPayloadTypeUrl() {
+        return payloadTypeUrl;
     }
 }

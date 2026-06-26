@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.queue;
 
+import com.apple.foundationdb.record.PendingWritesQueueTestProto.TestQueuePayload;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
@@ -28,6 +29,7 @@ import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.Versionstamp;
 import com.apple.test.Tags;
+import com.google.protobuf.ByteString;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
@@ -46,7 +48,6 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
@@ -85,16 +86,15 @@ class PendingWritesQueueConcurrencyTest extends FDBRecordStoreTestBase {
      */
     @Test
     void testRandomizedConcurrentEnqueueAndScan() throws Exception {
-        PendingWritesQueue queue;
+        PendingWritesQueue<TestQueuePayload> queue;
         try (FDBRecordContext context = openContext()) {
             queue = getQueue(context, 0);
             commit(context);
         }
 
-        // Each enqueued payload is tagged with (workerId, sequenceWithinWorker) so we can
-        // verify exact multiset equality after draining, without depending on any global
-        // ordering across workers.
-        ConcurrentLinkedQueue<EnqueuedPayload> recorded = new ConcurrentLinkedQueue<>();
+        // Every enqueued payload is recorded here so we can verify exact multiset equality
+        // after draining, without depending on any global ordering across workers.
+        ConcurrentLinkedQueue<TestQueuePayload> recorded = new ConcurrentLinkedQueue<>();
 
         ExecutorService executor = Executors.newFixedThreadPool(WORKER_COUNT);
         List<Future<?>> futures = new ArrayList<>(WORKER_COUNT);
@@ -118,7 +118,7 @@ class PendingWritesQueueConcurrencyTest extends FDBRecordStoreTestBase {
         }
 
         // Drain & verify.
-        List<PendingWritesQueueEntry> drained;
+        List<PendingWritesQueueEntry<TestQueuePayload>> drained;
         try (FDBRecordContext context = openContext()) {
             drained = queue.getQueueCursor(context, ScanProperties.FORWARD_SCAN, null).asList().join();
         }
@@ -133,27 +133,26 @@ class PendingWritesQueueConcurrencyTest extends FDBRecordStoreTestBase {
         assertEntriesOrdered(drained);
 
         // 3. Multiset equality of payloads.
-        Map<EnqueuedPayload, Integer> expectedCounts = new HashMap<>();
-        for (EnqueuedPayload payload : recorded) {
+        Map<TestQueuePayload, Integer> expectedCounts = new HashMap<>();
+        for (TestQueuePayload payload : recorded) {
             expectedCounts.merge(payload, 1, Integer::sum);
         }
-        Map<EnqueuedPayload, Integer> actualCounts = new HashMap<>();
-        for (PendingWritesQueueEntry entry : drained) {
-            EnqueuedPayload payload = EnqueuedPayload.fromEntry(entry);
-            actualCounts.merge(payload, 1, Integer::sum);
+        Map<TestQueuePayload, Integer> actualCounts = new HashMap<>();
+        for (PendingWritesQueueEntry<TestQueuePayload> entry : drained) {
+            actualCounts.merge(entry.getPayload(), 1, Integer::sum);
         }
         assertEquals(expectedCounts, actualCounts,
                 "drained payloads must equal recorded enqueues as a multiset");
 
         // 4. Clear everything and verify the counter goes to 0 and isEmpty is true.
         try (FDBRecordContext context = openContext()) {
-            for (PendingWritesQueueEntry entry : drained) {
+            for (PendingWritesQueueEntry<TestQueuePayload> entry : drained) {
                 queue.clearEntry(context, entry);
             }
             commit(context);
         }
         try (FDBRecordContext context = openContext()) {
-            assertTrue(queue.isQueueEmptyAndFailOnConflict(context).join(),
+            assertTrue(queue.ensureQueueEmpty(context).join(),
                     "queue must be empty after draining everything");
             assertEquals(0L, queue.getQueueSizeNoConflict(context).join(),
                     "size counter must be 0 after draining everything");
@@ -167,8 +166,8 @@ class PendingWritesQueueConcurrencyTest extends FDBRecordStoreTestBase {
      * (close-out won, late enqueue retries and lands as the "next round" entry).
      */
     @Test
-    void testCloseoutVsEnqueueRace() throws Exception {
-        PendingWritesQueue queue;
+    void testCloseoutVsEnqueueRace() {
+        PendingWritesQueue<TestQueuePayload> queue;
         Subspace closeoutSpace;
         try (FDBRecordContext context = openContext()) {
             queue = getQueue(context, 0);
@@ -190,23 +189,26 @@ class PendingWritesQueueConcurrencyTest extends FDBRecordStoreTestBase {
             // Coin flip: whether to commit the enqueue before or after asking the close-out
             // transaction to commit. Both orderings exercise interesting interleavings.
             boolean enqueueFirst = random.nextBoolean();
-            byte[] enqueuePayload = ("race-" + round).getBytes(StandardCharsets.UTF_8);
+            TestQueuePayload enqueuePayload = TestQueuePayload.newBuilder()
+                    .setLabel("race-" + round)
+                    .setValue(round)
+                    .build();
 
             boolean closeoutCommitted = false;
             try (FDBRecordContext closeoutTx = openContext()) {
                 // Drain (vacuously, since pre-seeded) and assert emptiness.
-                List<PendingWritesQueueEntry> remaining =
+                List<PendingWritesQueueEntry<TestQueuePayload>> remaining =
                         queue.getQueueCursor(closeoutTx, ScanProperties.FORWARD_SCAN, null).asList().join();
-                for (PendingWritesQueueEntry entry : remaining) {
+                for (PendingWritesQueueEntry<TestQueuePayload> entry : remaining) {
                     queue.clearEntry(closeoutTx, entry);
                 }
-                assertTrue(queue.isQueueEmptyAndFailOnConflict(closeoutTx).join());
+                assertTrue(queue.ensureQueueEmpty(closeoutTx).join());
                 closeoutTx.ensureActive().set(closeoutSpace.pack(),
                         ("round-" + round).getBytes(StandardCharsets.UTF_8));
 
                 if (enqueueFirst) {
                     try (FDBRecordContext enqueueTx = openContext()) {
-                        queue.enqueue(enqueueTx, null, enqueuePayload, INCARNATIONS[0]).join();
+                        queue.enqueue(enqueueTx, enqueuePayload, INCARNATIONS[0]).join();
                         commit(enqueueTx);
                     }
                     enqueueWins++;
@@ -225,7 +227,7 @@ class PendingWritesQueueConcurrencyTest extends FDBRecordStoreTestBase {
                         // The post-close-out enqueue is unaffected by the close-out's commit;
                         // the queue keyspace itself wasn't read by the close-out's range
                         // scan (only the empty-check, which scans 1 row and finds none).
-                        queue.enqueue(enqueueTx, null, enqueuePayload, INCARNATIONS[0]).join();
+                        queue.enqueue(enqueueTx, enqueuePayload, INCARNATIONS[0]).join();
                         commit(enqueueTx);
                     }
                 }
@@ -253,18 +255,18 @@ class PendingWritesQueueConcurrencyTest extends FDBRecordStoreTestBase {
      * Single worker's loop: pick a random operation, do it, repeat. Enqueues run in their own
      * one-shot transactions so each commit is independent.
      */
-    private void workerLoop(@Nonnull PendingWritesQueue queue,
+    private void workerLoop(@Nonnull PendingWritesQueue<TestQueuePayload> queue,
                             int workerId,
                             @Nonnull Random random,
-                            @Nonnull ConcurrentLinkedQueue<EnqueuedPayload> recorded) {
+                            @Nonnull ConcurrentLinkedQueue<TestQueuePayload> recorded) {
         for (int seq = 0; seq < ITERATIONS_PER_WORKER; seq++) {
             int op = random.nextInt(10);
             if (op < 7) {
                 // 70% enqueue.
-                EnqueuedPayload payload = generatePayload(workerId, seq, random);
+                TestQueuePayload payload = generatePayload(workerId, seq, random);
                 int incarnation = INCARNATIONS[random.nextInt(INCARNATIONS.length)];
                 try (FDBRecordContext context = openContext()) {
-                    queue.enqueue(context, payload.oldRecord, payload.newRecord, incarnation).join();
+                    queue.enqueue(context, payload, incarnation).join();
                     commit(context);
                     recorded.add(payload);
                 }
@@ -279,7 +281,7 @@ class PendingWritesQueueConcurrencyTest extends FDBRecordStoreTestBase {
             } else {
                 // 10% cursor scan — entries are always in (incarnation, versionstamp) order.
                 try (FDBRecordContext context = openContext()) {
-                    List<PendingWritesQueueEntry> entries =
+                    List<PendingWritesQueueEntry<TestQueuePayload>> entries =
                             queue.getQueueCursor(context, ScanProperties.FORWARD_SCAN, null).asList().join();
                     assertEntriesOrdered(entries);
                 }
@@ -287,10 +289,10 @@ class PendingWritesQueueConcurrencyTest extends FDBRecordStoreTestBase {
         }
     }
 
-    private static void assertEntriesOrdered(@Nonnull List<PendingWritesQueueEntry> entries) {
+    private static void assertEntriesOrdered(@Nonnull List<PendingWritesQueueEntry<TestQueuePayload>> entries) {
         int lastIncarnation = Integer.MIN_VALUE;
         Versionstamp lastVersionstamp = null;
-        for (PendingWritesQueueEntry entry : entries) {
+        for (PendingWritesQueueEntry<TestQueuePayload> entry : entries) {
             int incarnation = entry.getIncarnation();
             Versionstamp versionstamp = (Versionstamp) entry.getKeyTuple().get(1);
             assertTrue(versionstamp.isComplete(),
@@ -310,15 +312,15 @@ class PendingWritesQueueConcurrencyTest extends FDBRecordStoreTestBase {
         }
     }
 
-    private void drainQueueFully(@Nonnull PendingWritesQueue queue) {
+    private void drainQueueFully(@Nonnull PendingWritesQueue<TestQueuePayload> queue) {
         while (true) {
-            List<PendingWritesQueueEntry> entries;
+            List<PendingWritesQueueEntry<TestQueuePayload>> entries;
             try (FDBRecordContext context = openContext()) {
                 entries = queue.getQueueCursor(context, ScanProperties.FORWARD_SCAN, null).asList().join();
                 if (entries.isEmpty()) {
                     return;
                 }
-                for (PendingWritesQueueEntry entry : entries) {
+                for (PendingWritesQueueEntry<TestQueuePayload> entry : entries) {
                     queue.clearEntry(context, entry);
                 }
                 commit(context);
@@ -327,78 +329,35 @@ class PendingWritesQueueConcurrencyTest extends FDBRecordStoreTestBase {
     }
 
     @Nonnull
-    private PendingWritesQueue getQueue(@Nonnull FDBRecordContext context, long maxQueueSize) {
+    private PendingWritesQueue<TestQueuePayload> getQueue(@Nonnull FDBRecordContext context, long maxQueueSize) {
         Subspace queueSubspace = path.toSubspace(context).subspace(Tuple.from("queue"));
         Subspace counterSubspace = path.toSubspace(context).subspace(Tuple.from("counter"));
-        return new PendingWritesQueue(queueSubspace, counterSubspace, maxQueueSize);
+        return new PendingWritesQueue<>(queueSubspace, counterSubspace, maxQueueSize,
+                TestQueuePayload.class);
     }
 
     @Nonnull
-    private static EnqueuedPayload generatePayload(int workerId, int seq, @Nonnull Random random) {
-        // 80% updates (both sides), 10% inserts (newRecord only), 10% deletes (oldRecord only).
-        int shape = random.nextInt(10);
-        int oldSize = 1 + random.nextInt(64);
-        int newSize = 1 + random.nextInt(64);
-        byte[] oldRecord;
-        byte[] newRecord;
-        if (shape == 0) {
-            // delete: new is null
-            oldRecord = filled(oldSize, (byte) (workerId & 0xFF), seq);
-            newRecord = null;
-        } else if (shape == 1) {
-            // insert: old is null
-            oldRecord = null;
-            newRecord = filled(newSize, (byte) ((workerId | 0x80) & 0xFF), seq);
-        } else {
-            // update
-            oldRecord = filled(oldSize, (byte) (workerId & 0xFF), seq);
-            newRecord = filled(newSize, (byte) ((workerId | 0x80) & 0xFF), seq);
-        }
-        return new EnqueuedPayload(oldRecord, newRecord);
+    private static TestQueuePayload generatePayload(int workerId, int seq, @Nonnull Random random) {
+        // Vary label + value + blob so each payload is distinct. Random blob size so we hit a
+        // range of FDB value lengths.
+        int blobSize = 1 + random.nextInt(64);
+        byte[] blob = filled(blobSize, (byte) (workerId & 0xFF), seq);
+        return TestQueuePayload.newBuilder()
+                .setLabel("w" + workerId + "-s" + seq)
+                .setValue((long) workerId * 1_000_000L + seq)
+                .setBlob(ByteString.copyFrom(blob))
+                .build();
     }
 
     @Nonnull
     private static byte[] filled(int size, byte marker, int seq) {
         byte[] b = new byte[size];
         Arrays.fill(b, marker);
-        // Sprinkle the sequence number into the first 4 bytes to make every payload unique
-        // even when workers happen to pick the same (size, marker) pair on the same iteration.
+        // Sprinkle the sequence number into the first 4 bytes to make every blob unique even
+        // when workers happen to pick the same (size, marker) pair on the same iteration.
         for (int i = 0; i < Math.min(4, size); i++) {
             b[i] = (byte) ((seq >> (i * 8)) & 0xFF);
         }
         return b;
-    }
-
-    /**
-     * Identity of a single enqueued payload — equality is by (oldRecord, newRecord) bytes so
-     * we can compare drained entries to recorded enqueues as a multiset.
-     */
-    private static final class EnqueuedPayload {
-        final byte[] oldRecord;
-        final byte[] newRecord;
-
-        EnqueuedPayload(byte[] oldRecord, byte[] newRecord) {
-            this.oldRecord = oldRecord;
-            this.newRecord = newRecord;
-        }
-
-        static EnqueuedPayload fromEntry(@Nonnull PendingWritesQueueEntry entry) {
-            return new EnqueuedPayload(entry.getOldRecord(), entry.getNewRecord());
-        }
-
-        @Override
-        public boolean equals(Object other) {
-            if (!(other instanceof EnqueuedPayload)) {
-                return false;
-            }
-            EnqueuedPayload that = (EnqueuedPayload) other;
-            return Arrays.equals(this.oldRecord, that.oldRecord)
-                    && Arrays.equals(this.newRecord, that.newRecord);
-        }
-
-        @Override
-        public int hashCode() {
-            return 31 * Arrays.hashCode(oldRecord) + Arrays.hashCode(newRecord);
-        }
     }
 }

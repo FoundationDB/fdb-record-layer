@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.queue;
 
+import com.apple.foundationdb.record.PendingWritesQueueTestProto.TestQueuePayload;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreTestBase;
@@ -31,7 +32,6 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 import javax.annotation.Nonnull;
-import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 /**
@@ -42,15 +42,15 @@ class PendingWritesQueueSizeTest extends FDBRecordStoreTestBase {
 
     /**
      * On a brand-new queue, the counter key has never been written, so {@code getQueueSize}
-     * returns {@code null}. {@code isQueueEmptyAndFailOnConflict} still correctly returns {@code true} because
-     * it goes to the queue keyspace.
+     * returns {@code null}. {@code isQueueEmptyAndFailOnConflict} still correctly returns
+     * {@code true} because it goes to the queue keyspace.
      */
     @Test
     void testQueueSizeUninitialized() {
         try (FDBRecordContext context = openContext()) {
-            PendingWritesQueue queue = getQueue(context, 100);
+            PendingWritesQueue<TestQueuePayload> queue = getQueue(context, 100);
             Assertions.assertThat(queue.getQueueSizeNoConflict(context).join()).isNull();
-            Assertions.assertThat(queue.isQueueEmptyAndFailOnConflict(context).join()).isTrue();
+            Assertions.assertThat(queue.ensureQueueEmpty(context).join()).isTrue();
             commit(context);
         }
     }
@@ -60,10 +60,10 @@ class PendingWritesQueueSizeTest extends FDBRecordStoreTestBase {
      */
     @Test
     void testQueueSizeIncrementOnEnqueue() {
-        PendingWritesQueue queue;
+        PendingWritesQueue<TestQueuePayload> queue;
         try (FDBRecordContext context = openContext()) {
             queue = getQueue(context, 100);
-            queue.enqueue(context, null, bytes("a"), 0).join();
+            queue.enqueue(context, payload("a"), 0).join();
             commit(context);
         }
         try (FDBRecordContext context = openContext()) {
@@ -71,8 +71,8 @@ class PendingWritesQueueSizeTest extends FDBRecordStoreTestBase {
         }
 
         try (FDBRecordContext context = openContext()) {
-            queue.enqueue(context, null, bytes("b"), 0).join();
-            queue.enqueue(context, null, bytes("c"), 0).join();
+            queue.enqueue(context, payload("b"), 0).join();
+            queue.enqueue(context, payload("c"), 0).join();
             commit(context);
         }
         try (FDBRecordContext context = openContext()) {
@@ -86,16 +86,16 @@ class PendingWritesQueueSizeTest extends FDBRecordStoreTestBase {
      */
     @Test
     void testQueueSizeDecrementOnClear() {
-        PendingWritesQueue queue;
+        PendingWritesQueue<TestQueuePayload> queue;
         try (FDBRecordContext context = openContext()) {
             queue = getQueue(context, 100);
-            queue.enqueue(context, null, bytes("a"), 0).join();
-            queue.enqueue(context, null, bytes("b"), 0).join();
-            queue.enqueue(context, bytes("c-old"), null, 0).join();
+            queue.enqueue(context, payload("a"), 0).join();
+            queue.enqueue(context, payload("b"), 0).join();
+            queue.enqueue(context, payload("c"), 0).join();
             commit(context);
         }
 
-        List<PendingWritesQueueEntry> entries;
+        List<PendingWritesQueueEntry<TestQueuePayload>> entries;
         try (FDBRecordContext context = openContext()) {
             entries = queue.getQueueCursor(context, ScanProperties.FORWARD_SCAN, null).asList().join();
             Assertions.assertThat(entries.size()).isEqualTo(3);
@@ -116,7 +116,7 @@ class PendingWritesQueueSizeTest extends FDBRecordStoreTestBase {
         }
         try (FDBRecordContext context = openContext()) {
             assertQueueSize(queue, context, 0L);
-            Assertions.assertThat(queue.isQueueEmptyAndFailOnConflict(context).join()).isTrue();
+            Assertions.assertThat(queue.ensureQueueEmpty(context).join()).isTrue();
         }
     }
 
@@ -127,11 +127,11 @@ class PendingWritesQueueSizeTest extends FDBRecordStoreTestBase {
     @Test
     void testEnqueueExceedsMaxQueueSize() {
         final int maxSize = 5;
-        PendingWritesQueue queue;
+        PendingWritesQueue<TestQueuePayload> queue;
         try (FDBRecordContext context = openContext()) {
             queue = getQueue(context, maxSize);
             for (int i = 0; i < maxSize; i++) {
-                queue.enqueue(context, null, bytes("p-" + i), 0).join();
+                queue.enqueue(context, payload("p-" + i), 0).join();
             }
             commit(context);
         }
@@ -142,7 +142,7 @@ class PendingWritesQueueSizeTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             // The capacity check runs as part of enqueue's returned future, so the failure
             // surfaces when we .join() it.
-            Assertions.assertThatThrownBy(() -> queue.enqueue(context, null, bytes("overflow"), 0).join())
+            Assertions.assertThatThrownBy(() -> queue.enqueue(context, payload("overflow"), 0).join())
                     .hasCauseInstanceOf(PendingWritesQueue.PendingWritesQueueTooLargeException.class);
         }
     }
@@ -153,17 +153,17 @@ class PendingWritesQueueSizeTest extends FDBRecordStoreTestBase {
     @Test
     void testUnlimitedQueueSize() {
         final int itemsToEnqueue = 11_000;
-        PendingWritesQueue queue;
+        PendingWritesQueue<TestQueuePayload> queue;
         try (FDBRecordContext context = openContext()) {
             queue = getQueue(context, 0);
             for (int i = 0; i < itemsToEnqueue; i++) {
-                queue.enqueue(context, null, bytes("p-" + i), 0).join();
+                queue.enqueue(context, payload("p-" + i), 0).join();
             }
             commit(context);
         }
         try (FDBRecordContext context = openContext()) {
             assertQueueSize(queue, context, (long) itemsToEnqueue);
-            List<PendingWritesQueueEntry> entries =
+            List<PendingWritesQueueEntry<TestQueuePayload>> entries =
                     queue.getQueueCursor(context, ScanProperties.FORWARD_SCAN, null).asList().join();
             Assertions.assertThat(entries.size()).isEqualTo(itemsToEnqueue);
         }
@@ -175,7 +175,7 @@ class PendingWritesQueueSizeTest extends FDBRecordStoreTestBase {
      */
     @Test
     void testQueueSizeAcrossMultipleTransactions() {
-        PendingWritesQueue queue;
+        PendingWritesQueue<TestQueuePayload> queue;
         try (FDBRecordContext context = openContext()) {
             queue = getQueue(context, 100);
             commit(context);
@@ -183,11 +183,11 @@ class PendingWritesQueueSizeTest extends FDBRecordStoreTestBase {
 
         try (FDBRecordContext ctx1 = openContext();
                 FDBRecordContext ctx2 = openContext()) {
-            queue.enqueue(ctx1, null, bytes("1"), 0).join();
-            queue.enqueue(ctx1, null, bytes("2"), 0).join();
-            queue.enqueue(ctx2, null, bytes("3"), 0).join();
-            queue.enqueue(ctx2, null, bytes("4"), 0).join();
-            queue.enqueue(ctx2, null, bytes("5"), 0).join();
+            queue.enqueue(ctx1, payload("1"), 0).join();
+            queue.enqueue(ctx1, payload("2"), 0).join();
+            queue.enqueue(ctx2, payload("3"), 0).join();
+            queue.enqueue(ctx2, payload("4"), 0).join();
+            queue.enqueue(ctx2, payload("5"), 0).join();
             commit(ctx1);
             commit(ctx2);
         }
@@ -196,54 +196,28 @@ class PendingWritesQueueSizeTest extends FDBRecordStoreTestBase {
         }
     }
 
-    /**
-     * Within a single transaction, the snapshot capacity check sees the pre-transaction
-     * counter value (which may be {@code null}), so a single transaction can enqueue more
-     * than {@code maxQueueSize} items. We don't claim this as a guarantee — the test simply
-     * documents the current behavior so future changes are deliberate. Once the counter is
-     * initialized, subsequent transactions see it and the cap kicks in.
-     */
-    @Test
-    void testExceedLimitWithinSingleTransactionThenCommitFails() {
-        final int maxSize = 3;
-        PendingWritesQueue queue;
-
-        try (FDBRecordContext context = openContext()) {
-            queue = getQueue(context, maxSize);
-            queue.enqueue(context, null, bytes("seed-0"), 0).join();
-            queue.enqueue(context, null, bytes("seed-1"), 0).join();
-            queue.enqueue(context, null, bytes("seed-2"), 0).join();
-            commit(context);
-        }
-        // Counter is now 3 (== maxSize). A new transaction's snapshot read should see that and
-        // reject the next enqueue.
-        try (FDBRecordContext context = openContext()) {
-            Assertions.assertThatThrownBy(() -> queue.enqueue(context, null, bytes("overflow"), 0).join())
-                    .hasCauseInstanceOf(PendingWritesQueue.PendingWritesQueueTooLargeException.class);
-        }
-    }
-
     @Nonnull
-    private PendingWritesQueue getQueue(@Nonnull FDBRecordContext context, long maxQueueSize) {
+    private PendingWritesQueue<TestQueuePayload> getQueue(@Nonnull FDBRecordContext context, long maxQueueSize) {
         Subspace queueSubspace = path.toSubspace(context).subspace(Tuple.from("queue"));
         Subspace counterSubspace = path.toSubspace(context).subspace(Tuple.from("counter"));
-        return new PendingWritesQueue(queueSubspace, counterSubspace, maxQueueSize);
+        return new PendingWritesQueue<>(queueSubspace, counterSubspace, maxQueueSize,
+                TestQueuePayload.class);
     }
 
-    private static void assertQueueSize(@Nonnull PendingWritesQueue queue,
+    private static void assertQueueSize(@Nonnull PendingWritesQueue<TestQueuePayload> queue,
                                         @Nonnull FDBRecordContext context,
                                         long expected) {
         Long size = queue.getQueueSizeNoConflict(context).join();
         Assertions.assertThat(size).isNotNull();
-        Assertions.assertThat(size).isEqualTo(expected);
+        Assertions.assertThat((long) size).isEqualTo(expected);
         // The exact-count from the cursor should match the counter.
-        List<PendingWritesQueueEntry> entries =
+        List<PendingWritesQueueEntry<TestQueuePayload>> entries =
                 queue.getQueueCursor(context, ScanProperties.FORWARD_SCAN, null).asList().join();
-        Assertions.assertThat(size).isEqualTo(entries.size());
+        Assertions.assertThat((long) entries.size()).isEqualTo((long) size);
     }
 
     @Nonnull
-    private static byte[] bytes(@Nonnull String s) {
-        return s.getBytes(StandardCharsets.UTF_8);
+    private static TestQueuePayload payload(@Nonnull String label) {
+        return TestQueuePayload.newBuilder().setLabel(label).build();
     }
 }
