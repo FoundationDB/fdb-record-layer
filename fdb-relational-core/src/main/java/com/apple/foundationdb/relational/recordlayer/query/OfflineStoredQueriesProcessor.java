@@ -52,12 +52,13 @@ import java.util.Optional;
  * <ol>
  *   <li>{@link #getSchemaTemplates(StoreCatalog, Transaction)} — runs inside a caller-supplied
  *       transaction. Reads templates from the catalog and returns those with non-empty
- *       {@code storedQueries}. All exceptions are caught and logged; on any failure an empty list
- *       is returned, so the caller never sees a checked exception from this method.</li>
+ *       {@code storedQueries}. Catalog-read failures are logged at {@code ERROR} level and an
+ *       empty list is returned, so the caller never sees a checked exception from this method.</li>
  *   <li>{@link #planStoredQueriesForSchemaTemplates(RelationalPlanCache, MetricRegistry, List)} —
- *       runs <b>after</b> the caller has closed the catalog-read transaction. For each template,
- *       plans every stored query and inserts the resulting plans into the cache. Per-template
- *       failures are caught and logged so a single bad template cannot abort startup.</li>
+ *       offline (no FDB transaction). For each template, plans every stored query and inserts the
+ *       resulting plans into the cache. Each per-template and per-query failure is logged at
+ *       {@code ERROR} level, and is also reflected in the {@code OFFLINE_STORED_QUERIES_*_FAILED}
+ *       counters and the summary {@code INFO} log line.</li>
  * </ol>
  */
 @API(API.Status.EXPERIMENTAL)
@@ -98,7 +99,13 @@ public final class OfflineStoredQueriesProcessor {
     /**
      * Plans the stored queries for each given schema template and inserts the resulting plans
      * into {@code cache}. This is an offline operation and does not require an FDB transaction.
-     * Per-template failures are caught and logged so a single bad template cannot abort startup.
+     *
+     * <p>Failures are never propagated &mdash; a bad template or query must not abort startup.
+     * Each failure is logged at {@code ERROR} level, and is also surfaced as a metric:
+     * per-template failures bump
+     * {@link RelationalMetric.RelationalCount#OFFLINE_STORED_QUERIES_TEMPLATES_FAILED}
+     * and per-query failures bump
+     * {@link RelationalMetric.RelationalCount#OFFLINE_STORED_QUERIES_QUERIES_FAILED}.</p>
      */
     public static void planStoredQueriesForSchemaTemplates(@Nonnull final RelationalPlanCache cache,
                                                            @Nonnull final MetricRegistry metricRegistry,
@@ -119,13 +126,19 @@ public final class OfflineStoredQueriesProcessor {
         metricCollector.increment(RelationalMetric.RelationalCount.OFFLINE_STORED_QUERIES_QUERIES_PROCESSED, counts.queriesProcessed);
         metricCollector.increment(RelationalMetric.RelationalCount.OFFLINE_STORED_QUERIES_QUERIES_FAILED, counts.queriesFailed);
         if (logger.isInfoEnabled()) {
+            long durationMicros = -1L;
+            try {
+                durationMicros = (long) metricCollector.getAverageTimeMicrosForEvent(
+                        RelationalMetric.RelationalEvent.OFFLINE_STORED_QUERIES_WARM_UP);
+            } catch (RelationalException e) {
+                // fall back to -1, duration is informational only
+            }
             logger.info(KeyValueLogMessage.of("OfflineStoredQueriesProcessor finished",
                     "templatesProcessed", counts.templatesProcessed,
                     "templatesFailed", counts.templatesFailed,
                     "storedQueriesProcessed", counts.queriesProcessed,
                     "storedQueriesFailed", counts.queriesFailed,
-                    "durationMicros", (long) metricCollector.getAverageTimeMicrosForEvent(
-                            RelationalMetric.RelationalEvent.OFFLINE_STORED_QUERIES_WARM_UP)));
+                    "durationMicros", durationMicros));
         }
     }
 
