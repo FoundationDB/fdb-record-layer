@@ -76,27 +76,6 @@ public class SchemaTemplateStoredQueriesTest {
         return total;
     }
 
-    private void showCache(RelationalConnection connection) throws SQLException {
-        final var embeddedConnection = connection.unwrap(EmbeddedRelationalConnection.class);
-        final RelationalPlanCache cache = embeddedConnection.getRecordLayerDatabase().getPlanCache();
-        if (cache == null) {
-            System.out.println("[CACHE] no plan cache");
-            return;
-        }
-        for (String key : cache.getStats().getAllKeys()) {
-            System.out.println("[CACHE] template: " + key);
-            for (QueryCacheKey secondaryKey : cache.getStats().getAllSecondaryKeys(key)) {
-                System.out.println("[CACHE]   query: " + secondaryKey.getCanonicalQueryString()
-                        + " (version=" + secondaryKey.getSchemaTemplateVersion() + ")");
-                var tertiaryMappings = cache.getStats().getAllTertiaryMappings(key, secondaryKey);
-                for (var entry : tertiaryMappings.entrySet()) {
-                    System.out.println("[CACHE]     key: " + entry.getKey().toString());
-                    System.out.println("[CACHE]         plan: " + entry.getValue().explain());
-                }
-            }
-        }
-    }
-
     @Test
     void storedQueriesInTemplate() throws Exception {
         try (var ddl = Ddl.builder()
