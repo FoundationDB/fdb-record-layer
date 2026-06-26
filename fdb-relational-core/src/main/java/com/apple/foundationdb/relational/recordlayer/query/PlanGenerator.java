@@ -174,7 +174,7 @@ public final class PlanGenerator {
         final var templateKey = schemaTemplate.getName() + ":" + schemaTemplate.getVersion();
         for (final var storedQuery : schemaTemplate.getStoredQueries().entrySet()) {
             try {
-                KeyValueLogMessage message = KeyValueLogMessage.build("PlanStoredQueries");
+                KeyValueLogMessage message = KeyValueLogMessage.build("PlanGenerator");
                 message.addKeyAndValue("schemaTemplate", templateKey);
                 message.addKeyAndValue("storedQueryName", storedQuery.getKey());
                 message.addKeyAndValue("storedQuerySql", storedQuery.getValue());
