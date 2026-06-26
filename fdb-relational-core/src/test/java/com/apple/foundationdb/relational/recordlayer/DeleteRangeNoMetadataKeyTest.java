@@ -397,7 +397,7 @@ public class DeleteRangeNoMetadataKeyTest {
 
     private Ddl getDdl(String templateSuffix) throws Exception {
         return Ddl.builder()
-                .database(URI.create("/TEST/QT"))
+                .database()
                 .relationalExtension(relationalExtension)
                 .schemaTemplate(SCHEMA_TEMPLATE + templateSuffix)
                 .schemaTemplateOptions(new SchemaTemplateRule.SchemaTemplateOptions(true, true))

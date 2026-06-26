@@ -93,7 +93,7 @@ public class TableTest {
 
     @Test
     void wrongSizeOfPrimaryKeyInGetLongerKey() throws Exception {
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate("CREATE TABLE FOO(A bigint, B bigint, C bigint, PRIMARY KEY(C, A))").build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate("CREATE TABLE FOO(A bigint, B bigint, C bigint, PRIMARY KEY(C, A))").build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 RelationalAssertions.assertThrowsSqlException(
                         () -> statement.executeGet("FOO", new KeySet().setKeyColumn("C", 5), Options.NONE))
@@ -324,7 +324,7 @@ public class TableTest {
         final String schema =
                 " CREATE TABLE tbl1 (id bigint, a string, b string, c string, PRIMARY KEY(id))" +
                         " CREATE INDEX c_name_idx as select c from tbl1";
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schema).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schema).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
 
                 var result = EmbeddedRelationalStruct.newBuilder().addLong("ID", 42L).addString("A", "valuea1").addString("B", "valueb1").addString("C", "valuec1").build();
@@ -357,7 +357,7 @@ public class TableTest {
         final String schema =
                 " CREATE TABLE tbl1 (id bigint, a string, b string, c string, d string, PRIMARY KEY(id))" +
                         " CREATE INDEX c_name_idx as select c, d from tbl1 order by c, d";
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schema).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schema).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
 
                 var result = EmbeddedRelationalStruct.newBuilder().addLong("ID", 42L).addString("A", "valuea1").addString("B", "valueb1").addString("C", "valuec1").addString("D", "valued1").build();
