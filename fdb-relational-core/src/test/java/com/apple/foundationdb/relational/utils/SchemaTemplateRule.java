@@ -93,28 +93,32 @@ public class SchemaTemplateRule implements BeforeEachCallback, AfterEachCallback
 
     @Override
     public void afterEach(ExtensionContext context) throws SQLException {
-        final StringBuilder dropStatement = new StringBuilder("DROP SCHEMA TEMPLATE \"").append(templateName).append("\"");
+        final StringBuilder dropStatement = new StringBuilder("DROP SCHEMA TEMPLATE IF EXISTS \"").append(templateName).append("\"");
 
-        try (Connection connection = DriverManager.getConnection("jdbc:embed:/__SYS")) {
-            connection.setSchema("CATALOG");
-            Utils.setConnectionOptions(connection, connectionOptions);
-            try (Statement statement = connection.createStatement()) {
-                statement.executeUpdate(dropStatement.toString());
+        CatalogOperations.runLockedWithRetry(() -> {
+            try (Connection connection = DriverManager.getConnection("jdbc:embed:/__SYS")) {
+                connection.setSchema("CATALOG");
+                Utils.setConnectionOptions(connection, connectionOptions);
+                try (Statement statement = connection.createStatement()) {
+                    statement.executeUpdate(dropStatement.toString());
+                }
             }
-        }
+        });
     }
 
     @Override
     public void beforeEach(ExtensionContext context) throws SQLException {
         final StringBuilder dropStatement = new StringBuilder("DROP SCHEMA TEMPLATE IF EXISTS\"").append(templateName).append("\"");
 
-        try (Connection connection = DriverManager.getConnection("jdbc:embed:/__SYS")) {
-            connection.setSchema("CATALOG");
-            Utils.setConnectionOptions(connection, connectionOptions);
-            try (Statement statement = connection.createStatement()) {
-                statement.executeUpdate(dropStatement.toString());
+        CatalogOperations.runLockedWithRetry(() -> {
+            try (Connection connection = DriverManager.getConnection("jdbc:embed:/__SYS")) {
+                connection.setSchema("CATALOG");
+                Utils.setConnectionOptions(connection, connectionOptions);
+                try (Statement statement = connection.createStatement()) {
+                    statement.executeUpdate(dropStatement.toString());
+                }
             }
-        }
+        });
         final StringBuilder createStatement = new StringBuilder("CREATE SCHEMA TEMPLATE \"").append(templateName).append("\" ");
         createStatement.append(typeCreator.getTypeDefinition());
         createStatement.append(tableCreator.getTypeDefinition());
@@ -123,13 +127,15 @@ public class SchemaTemplateRule implements BeforeEachCallback, AfterEachCallback
             createStatement.append(schemaTemplateOptions.getOptionsString());
         }
 
-        try (Connection connection = DriverManager.getConnection("jdbc:embed:/__SYS")) {
-            connection.setSchema("CATALOG");
-            Utils.setConnectionOptions(connection, connectionOptions);
-            try (Statement statement = connection.createStatement()) {
-                statement.executeUpdate(createStatement.toString());
+        CatalogOperations.runLockedWithRetry(() -> {
+            try (Connection connection = DriverManager.getConnection("jdbc:embed:/__SYS")) {
+                connection.setSchema("CATALOG");
+                Utils.setConnectionOptions(connection, connectionOptions);
+                try (Statement statement = connection.createStatement()) {
+                    statement.executeUpdate(createStatement.toString());
+                }
             }
-        }
+        });
     }
 
     public static final class SchemaTemplateOptions {

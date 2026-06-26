@@ -72,22 +72,26 @@ public class SchemaRule implements BeforeEachCallback, AfterEachCallback {
     }
 
     private void setup() throws Exception {
-        try (Connection connection = DriverManager.getConnection("jdbc:embed:/__SYS")) {
-            connection.setSchema("CATALOG");
-            Utils.setConnectionOptions(connection, connectionOptions);
-            try (Statement statement = connection.createStatement()) {
-                statement.executeUpdate("CREATE SCHEMA \"" + dbUri.getPath() + "/" + schemaName + "\" WITH TEMPLATE \"" + templateName + "\"");
+        CatalogOperations.runLockedWithRetry(() -> {
+            try (Connection connection = DriverManager.getConnection("jdbc:embed:/__SYS")) {
+                connection.setSchema("CATALOG");
+                Utils.setConnectionOptions(connection, connectionOptions);
+                try (Statement statement = connection.createStatement()) {
+                    statement.executeUpdate("CREATE SCHEMA \"" + dbUri.getPath() + "/" + schemaName + "\" WITH TEMPLATE \"" + templateName + "\"");
+                }
             }
-        }
+        });
     }
 
     private void tearDown() throws SQLException {
-        try (Connection connection = DriverManager.getConnection("jdbc:embed:/__SYS")) {
-            connection.setSchema("CATALOG");
-            Utils.setConnectionOptions(connection, connectionOptions);
-            try (Statement statement = connection.createStatement()) {
-                statement.executeUpdate("DROP SCHEMA \"" + dbUri.getPath() + "/" + schemaName + "\"");
+        CatalogOperations.runLockedWithRetry(() -> {
+            try (Connection connection = DriverManager.getConnection("jdbc:embed:/__SYS")) {
+                connection.setSchema("CATALOG");
+                Utils.setConnectionOptions(connection, connectionOptions);
+                try (Statement statement = connection.createStatement()) {
+                    statement.executeUpdate("DROP SCHEMA IF EXISTS \"" + dbUri.getPath() + "/" + schemaName + "\"");
+                }
             }
-        }
+        });
     }
 }

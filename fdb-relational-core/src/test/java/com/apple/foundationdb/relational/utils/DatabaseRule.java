@@ -69,24 +69,28 @@ public class DatabaseRule implements BeforeEachCallback, BeforeAllCallback, Afte
     }
 
     private void setup() throws SQLException {
-        try (Connection connection = DriverManager.getConnection("jdbc:embed:/__SYS")) {
-            Utils.setConnectionOptions(connection, options);
-            connection.setSchema("CATALOG");
-            try (Statement statement = connection.createStatement()) {
-                statement.executeUpdate("DROP DATABASE IF EXISTS \"" + databasePath.getPath() + "\"");
-                statement.executeUpdate("CREATE DATABASE \"" + databasePath.getPath() + "\"");
+        CatalogOperations.runLockedWithRetry(() -> {
+            try (Connection connection = DriverManager.getConnection("jdbc:embed:/__SYS")) {
+                Utils.setConnectionOptions(connection, options);
+                connection.setSchema("CATALOG");
+                try (Statement statement = connection.createStatement()) {
+                    statement.executeUpdate("DROP DATABASE IF EXISTS \"" + databasePath.getPath() + "\"");
+                    statement.executeUpdate("CREATE DATABASE \"" + databasePath.getPath() + "\"");
+                }
             }
-        }
+        });
     }
 
     private void tearDown() throws SQLException {
-        try (Connection connection = DriverManager.getConnection("jdbc:embed:/__SYS")) {
-            Utils.setConnectionOptions(connection, options);
-            connection.setSchema("CATALOG");
-            try (Statement statement = connection.createStatement()) {
-                statement.executeUpdate("DROP DATABASE \"" + databasePath.getPath() + "\"");
+        CatalogOperations.runLockedWithRetry(() -> {
+            try (Connection connection = DriverManager.getConnection("jdbc:embed:/__SYS")) {
+                Utils.setConnectionOptions(connection, options);
+                connection.setSchema("CATALOG");
+                try (Statement statement = connection.createStatement()) {
+                    statement.executeUpdate("DROP DATABASE IF EXISTS \"" + databasePath.getPath() + "\"");
+                }
             }
-        }
+        });
     }
 
     @Nonnull
