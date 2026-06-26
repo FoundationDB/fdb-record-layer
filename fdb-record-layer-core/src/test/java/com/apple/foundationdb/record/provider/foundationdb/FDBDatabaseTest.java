@@ -110,11 +110,18 @@ class FDBDatabaseTest {
 
         RecordMetaData metaData = RecordMetaData.build(TestRecords1Proto.getDescriptor());
 
+        // Create the path up-front so that the directory-layer resolution done by
+        // TestKeySpacePathManager.createPath has already warmed FDBDatabase.lastSeenFDBVersion
+        // by the time we capture readVersion1 below. Otherwise the cached version captured
+        // here would be stale relative to the one createPath puts in the cache, and the
+        // weak-read-semantics assertion at "assertEquals(readVersion1, context.getReadVersion())"
+        // would return the newer (post-createPath) cached version and fail.
+        final KeySpacePath path = pathManager.createPath(TestKeySpace.RECORD_STORE);
+
         // First time, does a GRV from FDB
         long readVersion1 = getReadVersion(database, 0L, 60_000L);
 
         // Store a record (advances future GRV, but not cached version)
-        final KeySpacePath path = pathManager.createPath(TestKeySpace.RECORD_STORE);
         final FDBDatabase.WeakReadSemantics weakReadSemantics = new FDBDatabase.WeakReadSemantics(0L, 60_000L, false);
         try (FDBRecordContext context = database.openContext(FDBRecordContextConfig.newBuilder().setWeakReadSemantics(weakReadSemantics).setMdcContext(MDC.getCopyOfContextMap()).build())) {
             assertEquals(readVersion1, context.getReadVersion());
