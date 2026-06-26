@@ -61,8 +61,7 @@ diffutils = "4.15"
 hamcrest = "3.0"
 jcommander = "3.0"
 jline = "4.1.3"
-junit = "5.14.4"
-junit-platform = "1.14.4"
+junit = "6.1.0"
 mockito = "5.23.0"
 snakeyaml = "2.6"
 
@@ -131,8 +130,8 @@ jline = { module = "org.jline:jline", version.ref = "jline" }
 junit-api = { module = "org.junit.jupiter:junit-jupiter-api", version.ref = "junit" }
 junit-engine = { module = "org.junit.jupiter:junit-jupiter-engine", version.ref = "junit" }
 junit-params = { module = "org.junit.jupiter:junit-jupiter-params", version.ref = "junit" }
-junit-platform = { module = "org.junit.platform:junit-platform-launcher", version.ref = "junit-platform" }
-junit-vintange = { module = "org.junit.vintage:junit-vintage-engine", version.ref = "junit" }
+junit-platform = { module = "org.junit.platform:junit-platform-launcher", version.ref = "junit" }
+junit-vintage = { module = "org.junit.vintage:junit-vintage-engine", version.ref = "junit" }
 lucene-testFramework = { module = "org.apache.lucene:lucene-test-framework", version.ref = "lucene" }
 opencsv = { module = "com.opencsv:opencsv", version.ref = "opencsv" }
 hamcrest = { module = "org.hamcrest:hamcrest", version.ref = "hamcrest" }
