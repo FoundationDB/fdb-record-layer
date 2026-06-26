@@ -72,7 +72,7 @@ interactively.
 
 ## JUnit tests
 
-- Use **JUnit 5** exclusively. No `junit.framework` or `org.junit.Assert` (checkstyle-banned).
+- Use **JUnit 6** exclusively. No `junit.framework` or `org.junit.Assert` (checkstyle-banned).
 - Use **AssertJ** for assertions (`org.assertj.core.api.Assertions`).
 - Test method naming: `<methodUnderTest><Condition><ExpectedResult>`.
 - Extract shared setup into `@BeforeEach` or helper methods; DRY up after writing.
