@@ -48,7 +48,7 @@ public class DistinctTopK<T> {
     @Nonnull
     private final NavigableSet<T> set;
     @SuppressWarnings("checkstyle:MemberName")
-    final int k;
+    private final int k;
 
     private DistinctTopK(@Nonnull final Comparator<T> comparator, final int k) {
         this.set = Sets.newTreeSet(comparator);

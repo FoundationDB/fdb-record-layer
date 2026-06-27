@@ -43,7 +43,7 @@ public interface Quantizer {
 
     @Nonnull
     default Transformed<RealVector> encode(@Nonnull final Transformed<RealVector> vector) {
-        return new Transformed<>(encode(vector.getUnderlyingVector()));
+        return Transformed.underlyingLens().identityTransform(encode(vector.getUnderlyingVector()));
     }
 
     /**

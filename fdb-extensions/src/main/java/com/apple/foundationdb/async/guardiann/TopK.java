@@ -47,7 +47,7 @@ public class TopK<T> {
     @Nonnull
     private final PriorityQueue<T> queue;
     @SuppressWarnings("checkstyle:MemberName")
-    final int k;
+    private final int k;
 
     private TopK(@Nonnull final Comparator<T> comparator, final int k) {
         this.queue = new PriorityQueue<>(comparator);

@@ -77,7 +77,7 @@ public final class Transformed<V extends RealVector> {
     @Nonnull
     private final V transformedVector;
 
-    Transformed(@Nonnull final V transformedVector) {
+    private Transformed(@Nonnull final V transformedVector) {
         this.transformedVector = transformedVector;
     }
 
@@ -113,7 +113,7 @@ public final class Transformed<V extends RealVector> {
         return transformedVector.toString();
     }
 
-    public static <V extends RealVector> Lens<Transformed<V>, V> underlyingLens() {
+    public static <V extends RealVector> UnderlyingLens<V> underlyingLens() {
         return new UnderlyingLens<>();
     }
 
@@ -122,7 +122,7 @@ public final class Transformed<V extends RealVector> {
      * both vectors and transformed vectors.
      * @param <V> type parameter for vector class
      */
-    private static class UnderlyingLens<V extends RealVector> implements Lens<Transformed<V>, V> {
+    public static class UnderlyingLens<V extends RealVector> implements Lens<Transformed<V>, V> {
         @Nullable
         @Override
         public V get(@Nonnull final Transformed<V> transformedVector) {
@@ -134,6 +134,11 @@ public final class Transformed<V extends RealVector> {
         @SpotBugsSuppressWarnings("NP_PARAMETER_MUST_BE_NONNULL_BUT_MARKED_AS_NULLABLE")
         public Transformed<V> set(@Nullable final Transformed<V> ignored, @Nullable final V v) {
             return new Transformed<>(Objects.requireNonNull(v, "Transformed cannot wrap a null underlying vector"));
+        }
+
+        @Nonnull
+        public Transformed<V> identityTransform(@Nullable final V v) {
+            return wrap(v);
         }
     }
 }
