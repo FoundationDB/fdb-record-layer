@@ -280,7 +280,7 @@ public abstract class AbstractDeferredTask {
                                                         @Nonnull final List<VectorReference> newAssignments) {
         final ImmutableMap.Builder<Tuple, VectorReference> assignedByPrimaryKeyBuilder = ImmutableMap.builder();
         for (final VectorReference assignedVector : newAssignments) {
-            assignedByPrimaryKeyBuilder.put(assignedVector.id().getPrimaryKey(), assignedVector);
+            assignedByPrimaryKeyBuilder.put(assignedVector.id().primaryKey(), assignedVector);
         }
         final ImmutableMap<Tuple, VectorReference> assignedByPrimaryKey = assignedByPrimaryKeyBuilder.build();
 
@@ -289,13 +289,13 @@ public abstract class AbstractDeferredTask {
 
         final ImmutableSet.Builder<Tuple> oldPrimaryKeysBuilder = ImmutableSet.builder();
         for (final VectorReference vectorReference : targetCluster.vectorReferences()) {
-            final Tuple primaryKey = vectorReference.id().getPrimaryKey();
+            final Tuple primaryKey = vectorReference.id().primaryKey();
             oldPrimaryKeysBuilder.add(primaryKey);
             final VectorReference assignedVectorReference = assignedByPrimaryKey.get(primaryKey);
 
             if (assignedVectorReference != null) {
-                Verify.verify(assignedVectorReference.id().getUuid()
-                        .equals(vectorReference.id().getUuid()));
+                Verify.verify(assignedVectorReference.id().uuid()
+                        .equals(vectorReference.id().uuid()));
 
                 if (assignedVectorReference.isPrimaryCopy() != vectorReference.isPrimaryCopy() ||
                         assignedVectorReference.isUnderreplicated() != vectorReference.isUnderreplicated()) {
@@ -377,7 +377,7 @@ public abstract class AbstractDeferredTask {
                     primaryClusterMetadataWithDistance.distance());
 
             for (final ClusterMetadataWithDistance clusterMetadataWithDistance : sortedNearestClusters) {
-                invertedAssignmentsMapBuilder.put(vectorReference.id().getUuid(),
+                invertedAssignmentsMapBuilder.put(vectorReference.id().uuid(),
                         clusterMetadataWithDistance);
             }
         }

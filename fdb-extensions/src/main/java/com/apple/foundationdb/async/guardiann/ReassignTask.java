@@ -355,7 +355,7 @@ public class ReassignTask extends AbstractDeferredTask {
             }
 
             final ImmutableList<ClusterMetadataWithDistance> nearestClusters =
-                    Objects.requireNonNull(invertedAssignmentsMap.get(vectorReference.id().getUuid()));
+                    Objects.requireNonNull(invertedAssignmentsMap.get(vectorReference.id().uuid()));
             Verify.verify(!nearestClusters.isEmpty());
             final ClusterMetadataWithDistance primaryCluster = Objects.requireNonNull(nearestClusters.get(0));
             final double distanceToPrimaryCentroid = primaryCluster.distance();
@@ -443,7 +443,7 @@ public class ReassignTask extends AbstractDeferredTask {
                                 return AsyncUtil.DONE;
                             }
                             return primitives.fetchCollapsedVectorId(readTransaction, signature,
-                                            replica.id().getPrimaryKey())
+                                            replica.id().primaryKey())
                                     .thenAccept(storedVectorId -> {
                                         if (storedVectorId == null) {
                                             keptReplicas.add(replica);

@@ -262,7 +262,7 @@ class StorageAdapter {
 
     @Nonnull
     static Tuple valueTupleFromVectorMetadata(@Nonnull final VectorMetadata vectorMetadata) {
-        return Tuple.from(vectorMetadata.getUuid(), vectorMetadata.getAdditionalValues());
+        return Tuple.from(vectorMetadata.vectorId().uuid(), vectorMetadata.additionalValues());
     }
 
     @Nonnull
@@ -404,7 +404,7 @@ class StorageAdapter {
                                                @Nonnull final VectorReference vectorReference) {
         final VectorId vectorId = vectorReference.id();
         final Transformed<RealVector> encodedVector = quantizer.encode(vectorReference.vector());
-        return Tuple.from(vectorId.getUuid(), vectorReference.isPrimaryCopy(),
+        return Tuple.from(vectorId.uuid(), vectorReference.isPrimaryCopy(),
                 vectorReference.isUnderreplicated(), vectorReference.isCollapsed(),
                 encodedVector.getUnderlyingVector().getRawData(),
                 vectorReference.isPrimaryCopy() ? null : vectorReference.replicationPriority());
@@ -418,7 +418,7 @@ class StorageAdapter {
 
     @Nonnull
     static Tuple valueTupleFromCollapsedVectorId(@Nonnull final VectorId vectorId) {
-        return Tuple.from(vectorId.getUuid());
+        return Tuple.from(vectorId.uuid());
     }
 
     static double replicationPriority(@Nonnull final Config config,

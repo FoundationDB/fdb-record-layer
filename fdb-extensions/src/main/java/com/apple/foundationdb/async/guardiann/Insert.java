@@ -318,7 +318,7 @@ public class Insert {
             final RunningStats updatedStandardDeviation;
             if (isPrimaryCluster) {
                 primitives.writeVectorReference(transaction, quantizer, clusterId,
-                        new VectorReference(newVectorMetadata,
+                        new VectorReference(newVectorMetadata.vectorId(),
                                 true, false,
                                 false, transformedNewVector,
                                 -1.0d));
@@ -339,7 +339,7 @@ public class Insert {
                                 clusterMetadata.standardDeviation());
 
                 primitives.writeVectorReference(transaction, quantizer, clusterId,
-                        new VectorReference(newVectorMetadata,
+                        new VectorReference(newVectorMetadata.vectorId(),
                                 false, false,
                                 false, transformedNewVector,
                                 replicationPriority));

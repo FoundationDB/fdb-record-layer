@@ -190,7 +190,7 @@ public class CollapseTask extends AbstractDeferredTask {
             //
             final UUID signature =
                     Iterables.getOnlyElement(
-                            vectorReferenceToVectorSignatureMap.get(vectorReference.id().getUuid()));
+                            vectorReferenceToVectorSignatureMap.get(vectorReference.id().uuid()));
 
             blackHoleMap.putIfAbsent(signature, vectorReference);
         }
@@ -224,7 +224,7 @@ public class CollapseTask extends AbstractDeferredTask {
                 //
                 final UUID signature =
                         Iterables.getOnlyElement(
-                                vectorReferenceToVectorSignatureMap.get(vectorReference.id().getUuid()));
+                                vectorReferenceToVectorSignatureMap.get(vectorReference.id().uuid()));
 
                 final ImmutableSet<UUID> identicalVectors = vectorSignatureToVectorUuidMap.get(signature);
                 if (identicalVectors.size() > config.collapseMinDuplicates() && !blackHoleMap.containsKey(signature)) {
@@ -455,7 +455,7 @@ public class CollapseTask extends AbstractDeferredTask {
         final ImmutableSetMultimap.Builder<UUID, UUID> resultMapBuilder = ImmutableSetMultimap.builder();
         for (final VectorReference vectorReference : vectorReferences) {
             if (vectorReference.isPrimaryCopy()) {
-                resultMapBuilder.put(vectorReference.id().getUuid(), StorageAdapter.signatureUuid(vectorReference.vector()));
+                resultMapBuilder.put(vectorReference.id().uuid(), StorageAdapter.signatureUuid(vectorReference.vector()));
             }
         }
 

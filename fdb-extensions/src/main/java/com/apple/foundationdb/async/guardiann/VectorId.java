@@ -23,7 +23,6 @@ package com.apple.foundationdb.async.guardiann;
 import com.apple.foundationdb.tuple.Tuple;
 
 import javax.annotation.Nonnull;
-import java.util.Objects;
 import java.util.UUID;
 
 /**
@@ -31,43 +30,12 @@ import java.util.UUID;
  * to the record it was indexed from, while the UUID disambiguates copies of the same vector (for example a primary
  * copy and its replicated copies) and provides a stable secondary ordering. Instances order by primary key first,
  * then by UUID.
+ *
+ * @param primaryKey the primary key tying the vector back to the record it was indexed from
+ * @param uuid the UUID disambiguating copies of the same vector and providing a stable secondary ordering
  */
-class VectorId implements Comparable<VectorId> {
+record VectorId(@Nonnull Tuple primaryKey, @Nonnull UUID uuid) implements Comparable<VectorId> {
     @Nonnull
-    private final Tuple primaryKey;
-    @Nonnull
-    private final UUID uuid;
-
-    VectorId(@Nonnull final Tuple primaryKey, @Nonnull final UUID uuid) {
-        this.primaryKey = primaryKey;
-        this.uuid = uuid;
-    }
-
-    @Nonnull
-    public Tuple getPrimaryKey() {
-        return primaryKey;
-    }
-
-    @Nonnull
-    public UUID getUuid() {
-        return uuid;
-    }
-
-    @Override
-    public boolean equals(final Object o) {
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-        final VectorId vectorId = (VectorId)o;
-        return Objects.equals(getPrimaryKey(), vectorId.getPrimaryKey()) &&
-                Objects.equals(getUuid(), vectorId.getUuid());
-    }
-
-    @Override
-    public int hashCode() {
-        return Objects.hash(getPrimaryKey(), getUuid());
-    }
-
     @Override
     public String toString() {
         return "VId[" + primaryKey + ";" + uuid + "]";
@@ -75,10 +43,10 @@ class VectorId implements Comparable<VectorId> {
 
     @Override
     public int compareTo(@Nonnull final VectorId o) {
-        final int cmp = primaryKey.compareTo(o.getPrimaryKey());
+        final int cmp = primaryKey.compareTo(o.primaryKey());
         if (cmp != 0) {
             return cmp;
         }
-        return uuid.compareTo(o.getUuid());
+        return uuid.compareTo(o.uuid());
     }
 }

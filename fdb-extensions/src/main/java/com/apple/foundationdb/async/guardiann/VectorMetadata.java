@@ -24,41 +24,28 @@ import com.apple.foundationdb.tuple.Tuple;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.Objects;
 import java.util.UUID;
 
 /**
- * A {@link VectorId} extended with the additional ("covering") values stored alongside the vector, if any. These
+ * A {@link VectorId} together with the additional ("covering") values stored alongside the vector, if any. These
  * are the extra index-entry values carried so that queries can be answered without fetching the source record.
+ *
+ * <p>
+ * This type <em>composes</em> a {@link VectorId} rather than extending it: the identity is available via
+ * {@link #vectorId()} and the covering values via {@link #additionalValues()}.
+ *
+ * @param vectorId the identity (primary key plus UUID) of the vector this metadata describes
+ * @param additionalValues the extra covering values stored with the vector, or {@code null} if there are none
  */
-class VectorMetadata extends VectorId {
-    @Nullable
-    private final Tuple additionalValues;
-
+record VectorMetadata(@Nonnull VectorId vectorId, @Nullable Tuple additionalValues) {
+    /**
+     * Convenience constructor that assembles the {@link VectorId} from its primary key and UUID components.
+     *
+     * @param primaryKey the primary key tying the vector back to the record it was indexed from
+     * @param uuid the UUID disambiguating copies of the same vector
+     * @param additionalValues the extra covering values stored with the vector, or {@code null} if there are none
+     */
     VectorMetadata(@Nonnull final Tuple primaryKey, @Nonnull final UUID uuid, @Nullable final Tuple additionalValues) {
-        super(primaryKey, uuid);
-        this.additionalValues = additionalValues;
-    }
-
-    @Nullable
-    public Tuple getAdditionalValues() {
-        return additionalValues;
-    }
-
-    @Override
-    public boolean equals(final Object o) {
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-        if (!super.equals(o)) {
-            return false;
-        }
-        final VectorMetadata that = (VectorMetadata)o;
-        return Objects.equals(getAdditionalValues(), that.getAdditionalValues());
-    }
-
-    @Override
-    public int hashCode() {
-        return Objects.hash(super.hashCode(), getAdditionalValues());
+        this(new VectorId(primaryKey, uuid), additionalValues);
     }
 }

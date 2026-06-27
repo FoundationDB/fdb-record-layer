@@ -366,7 +366,7 @@ public class SiftTest implements BaseTest {
                 .as("structure snapshot must be non-null after the run")
                 .isNotNull();
         final Set<Tuple> presentPks = snap.primaryOwners().keySet().stream()
-                .map(VectorId::getPrimaryKey)
+                .map(VectorId::primaryKey)
                 .collect(ImmutableSet.toImmutableSet());
         final Set<Tuple> expectedPks = setB.stream()
                 .map(PrimaryKeyAndVector::getPrimaryKey)

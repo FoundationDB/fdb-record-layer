@@ -31,7 +31,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 /**
- * Record-like class to wrap the results of a kNN-search.
+ * Record class to wrap the results of a kNN-search.
  *
  * @param primaryKey Primary key of the item in the HNSW.
  * @param vector The vector that is stored with the item in the structure. This vector is expressed in the client's

@@ -304,7 +304,7 @@ class Primitives {
     void writeVectorMetadata(@Nonnull final Transaction transaction,
                              @Nonnull final VectorMetadata vectorMetadata) {
         final Subspace vectorMetadataSubspace = getVectorMetadataSubspace();
-        final byte[] key = vectorMetadataSubspace.pack(vectorMetadata.getPrimaryKey());
+        final byte[] key = vectorMetadataSubspace.pack(vectorMetadata.vectorId().primaryKey());
         final byte[] value = StorageAdapter.valueTupleFromVectorMetadata(vectorMetadata).pack();
 
         getOnWriteListener().onKeyValueWritten(key, value);
@@ -447,7 +447,7 @@ class Primitives {
                               @Nonnull final UUID clusterId,
                               @Nonnull final VectorReference vectorReference) {
         final Subspace vectorReferencesSubspace = getVectorReferencesSubspace();
-        final byte[] key = vectorReferencesSubspace.pack(Tuple.from(clusterId, vectorReference.id().getPrimaryKey()));
+        final byte[] key = vectorReferencesSubspace.pack(Tuple.from(clusterId, vectorReference.id().primaryKey()));
         final byte[] value = StorageAdapter.valueTupleFromVectorReference(quantizer, vectorReference).pack();
 
         getOnWriteListener().onKeyValueWritten(key, value);
@@ -547,7 +547,7 @@ class Primitives {
                                 @Nonnull final UUID signature,
                                 @Nonnull final VectorId vectorId) {
         final Subspace collapsedVectorIdsSubspace = getCollapsedVectorIdsSubspace();
-        final byte[] key = collapsedVectorIdsSubspace.pack(Tuple.from(signature, vectorId.getPrimaryKey()));
+        final byte[] key = collapsedVectorIdsSubspace.pack(Tuple.from(signature, vectorId.primaryKey()));
         final byte[] value = StorageAdapter.valueTupleFromCollapsedVectorId(vectorId).pack();
 
         getOnWriteListener().onKeyValueWritten(key, value);
@@ -970,7 +970,7 @@ class Primitives {
         for (final Cluster cluster : clusters) {
             for (final VectorReference vectorReference : cluster.vectorReferences()) {
                 if (!discardReplicatedVectorReferences || vectorReference.isPrimaryCopy()) {
-                    vectorsByUuidMap.compute(vectorReference.id().getUuid(),
+                    vectorsByUuidMap.compute(vectorReference.id().uuid(),
                             (vectorUuid, oldVectorReference) ->
                                     mergeVectorReference(oldVectorReference, vectorReference));
                 }
@@ -979,11 +979,12 @@ class Primitives {
 
         return forEach(vectorsByUuidMap.values(),
                 vectorReference ->
-                        primitives.fetchVectorMetadata(transaction, vectorReference.id().getPrimaryKey())
+                        primitives.fetchVectorMetadata(transaction, vectorReference.id().primaryKey())
                                 .thenApply(vectorMetadata ->
                                         vectorReference.isCollapsed() ||
                                                 (vectorMetadata != null &&
-                                                         vectorMetadata.getUuid().equals(vectorReference.id().getUuid()))
+                                                         vectorMetadata.vectorId().uuid()
+                                                                 .equals(vectorReference.id().uuid()))
                                         ? vectorReference : null),
                 10,
                 executor)

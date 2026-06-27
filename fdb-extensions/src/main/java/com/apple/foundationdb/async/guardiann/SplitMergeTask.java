@@ -637,7 +637,7 @@ public class SplitMergeTask extends AbstractDeferredTask {
         // only considering primary copies here -- this will prune the replicated vectors
         for (final VectorReference vectorReference : primaryVectorReferences) {
             final ImmutableList<ClusterMetadataWithDistance> nearestClusters =
-                    Objects.requireNonNull(invertedAssignmentsMap.get(vectorReference.id().getUuid()));
+                    Objects.requireNonNull(invertedAssignmentsMap.get(vectorReference.id().uuid()));
             Verify.verify(!nearestClusters.isEmpty());
             final ClusterMetadataWithDistance primaryCluster = Objects.requireNonNull(nearestClusters.get(0));
             final double distanceToPrimaryCentroid = primaryCluster.distance();

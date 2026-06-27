@@ -230,7 +230,7 @@ public class CollapseScenarioTest implements BaseTest {
                 .as("round 1 must produce exactly one collapsed reference")
                 .hasSize(1);
         final VectorId collapsedRef = Iterables.getOnlyElement(afterFirst.collapsedRefs());
-        final UUID signature = collapsedRef.getPrimaryKey().getUUID(0);
+        final UUID signature = collapsedRef.primaryKey().getUUID(0);
         assertThat(fetchCollapsedIds(guardiann, signature))
                 .as("round 1 must absorb all %d identical vectors", firstBatch)
                 .hasSize(firstBatch);
@@ -312,7 +312,8 @@ public class CollapseScenarioTest implements BaseTest {
                 primitives.writeVectorMetadata(tr, vectorMetadata);
                 final double replicationPriority = 1.0d - 0.01d * i; // i == 0 is the maximum
                 primitives.writeVectorReference(tr, quantizer, clusterId,
-                        new VectorReference(vectorMetadata, false, false, false, transformedDuplicate,
+                        new VectorReference(vectorMetadata.vectorId(), false, false,
+                                false, transformedDuplicate,
                                 replicationPriority));
             }
             return null;
@@ -328,7 +329,7 @@ public class CollapseScenarioTest implements BaseTest {
                 .hasSize(numDanglingReplicas);
         final UUID signature = StorageAdapter.signatureUuid(stagedReplicas.get(0).vector());
         final List<Tuple> collapsedPrimaryKeys =
-                stagedReplicas.stream().map(ref -> ref.id().getPrimaryKey()).toList();
+                stagedReplicas.stream().map(ref -> ref.id().primaryKey()).toList();
         db.run(tr -> {
             for (final VectorReference replica : stagedReplicas) {
                 primitives.writeCollapsedVectorId(tr, signature, replica.id());
@@ -348,7 +349,7 @@ public class CollapseScenarioTest implements BaseTest {
                 .as("every dangling replica of the collapsed signature must be folded away")
                 .isEmpty();
         final List<VectorReference> collapsedAreaRefs = after.references().stream()
-                .filter(ref -> ref.isCollapsed() && Tuple.from(signature).equals(ref.id().getPrimaryKey()))
+                .filter(ref -> ref.isCollapsed() && Tuple.from(signature).equals(ref.id().primaryKey()))
                 .toList();
         assertThat(collapsedAreaRefs)
                 .as("the dangling replicas must fold into exactly one collapsed-area reference")

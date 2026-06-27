@@ -70,7 +70,6 @@ import static org.assertj.core.api.Assertions.assertThat;
  *       stable post-quiescence shape to inject into),</li>
  *   <li>find the cluster a fixed query vector would naturally belong to, using the exact
  *       neighborhood-discovery logic {@code Insert} uses (stable across reseeds — cluster UUIDs
- *       change with every split, but the "nearest cluster to vector v" choice does not), and</li>
  *   <li>inject {@code underreplicatedPrimaryClusterMax + 1} synthetic under-replicated primary
  *       copies of the query vector into that cluster via {@link Primitives}, then call
  *       {@link Primitives#updateClusterMetadataAndEnqueueSplitOrReassignTaskMaybe} once with the cumulative
@@ -243,7 +242,8 @@ public class ReassignScenarioTest implements BaseTest {
                     final UUID syntheticUuid = RandomHelpers.randomUuid(rnd, true);
                     final VectorMetadata vm = new VectorMetadata(syntheticPk, syntheticUuid, null);
                     primitives.writeVectorMetadata(tr, vm);
-                    final VectorReference vr = new VectorReference(vm, true, true, false,
+                    final VectorReference vr = new VectorReference(vm.vectorId(), true,
+                            true, false,
                             transformedFixedVector, -1.0d);
                     primitives.writeVectorReference(tr, quantizer, targetClusterId, vr);
                     updatedStandardDeviation = updatedStandardDeviation.add(distanceToTargetCentroid);
