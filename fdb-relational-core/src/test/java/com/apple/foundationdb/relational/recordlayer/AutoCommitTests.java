@@ -461,7 +461,7 @@ public class AutoCommitTests {
             conn = getConnectionWithExistingTransaction(conn, database.getConnectionUri(), alternateDriver);
         }
         setAutoCommit(conn, transactionType);
-        try (final var rs = conn.getMetaData().getTables("/TEST/AutoCommitTests", "TEST_SCHEMA", null, null)) {
+        try (final var rs = conn.getMetaData().getTables(database.getDatabasePath().getPath(), "TEST_SCHEMA", null, null)) {
             ResultSetAssert.assertThat(rs)
                     .hasNextRow()
                     .hasNextRow()

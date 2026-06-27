@@ -29,6 +29,7 @@ import org.junit.jupiter.api.extension.ExtensionContext;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.net.URI;
+import java.util.concurrent.ThreadLocalRandom;
 
 /**
  * A JUnit extension that automatically creates all the framework necessary for a unique database and schema.
@@ -55,7 +56,14 @@ public class SimpleDatabaseRule implements BeforeEachCallback, AfterEachCallback
                               @Nonnull Options connectionOptions,
                               @Nullable SchemaTemplateRule.SchemaTemplateOptions templateOptions) {
         final var schemaName = "TEST_SCHEMA";
-        final var dbPath = URI.create("/TEST/" + testClass.getSimpleName());
+        // Per-instance unique suffix so that two instances of this rule (whether from
+        // concurrent test classes, or from a fresh run after a prior run crashed without
+        // cleaning up) never collide on the same database path. The test class name is kept as
+        // a prefix to make path strings in error messages and FDB tracing self-identifying.
+        // 16 random hex chars = 64 bits of entropy — enough to avoid collisions across any
+        // realistic test run and short enough to keep names scannable.
+        final var uniqueSuffix = Long.toHexString(ThreadLocalRandom.current().nextLong());
+        final var dbPath = URI.create("/TEST/" + testClass.getSimpleName() + "_" + uniqueSuffix);
         final var templateName = dbPath.getPath().substring(dbPath.getPath().lastIndexOf("/") + 1);
 
         this.templateRule = new SchemaTemplateRule(templateName + "_TEMPLATE", Options.none(), templateOptions, templateDefinition);
