@@ -184,7 +184,7 @@ public class Insert {
         final Primitives primitives = primitives();
 
         return primitives.fetchAccessInfo(transaction)
-                .thenCombine(primitives.exists(transaction, newPrimaryKey),
+                .thenCombine(primitives.primaryKeyExists(transaction, newPrimaryKey),
                         (accessInfo, recordAlreadyExists) -> {
                             if (recordAlreadyExists) {
                                 if (logger.isDebugEnabled()) {
@@ -202,7 +202,7 @@ public class Insert {
                     }
 
                     // do some deferred tasks
-                    return primitives.doSomeDeferredTasks(transaction, accessInfo)
+                    return primitives.executeSomeDeferredTasks(transaction, accessInfo, 1)
                             .thenApply(ignored -> accessInfoAndNodeExistence);
                 }).thenCompose(accessInfoAndNodeExistence ->
                         insertIntoClusters(transaction, random, accessInfoAndNodeExistence,

@@ -123,7 +123,7 @@ public class CollapseScenarioTest implements BaseTest {
         final Guardiann guardiann = newGuardiann(80, 20);
         final RealVector duplicate = duplicateVector();
 
-        // Count COLLAPSE executions across both the inserts (which drain tasks via doSomeDeferredTasks) and the
+        // Count COLLAPSE executions across both the inserts (which drain tasks via executeSomeDeferredTasks) and the
         // explicit drain. The listener only tallies onto a pushed frame, so push one before any task can run.
         onWriteListener.pushFrame();
         try {

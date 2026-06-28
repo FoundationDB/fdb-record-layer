@@ -95,11 +95,21 @@ class Primitives {
         this.clusterCentroidsHnswSupplier = Suppliers.memoize(this::computeClusterCentroidsHnsw);
     }
 
+    /**
+     * Returns the {@link Locator} that ties this primitives instance to its stored data, configuration, and executor.
+     *
+     * @return the locator
+     */
     @Nonnull
     public Locator getLocator() {
         return locator;
     }
 
+    /**
+     * Returns the {@link StorageAdapter} defining this structure's subspace layout and tuple (de)serialization.
+     *
+     * @return the storage adapter
+     */
     @Nonnull
     StorageAdapter getStorageAdapter() {
         return locator.getStorageAdapter();
@@ -141,51 +151,104 @@ class Primitives {
         return getLocator().getOnReadListener();
     }
 
+    /**
+     * Returns the subspace holding the structure-wide {@link AccessInfo} entry.
+     *
+     * @return the access-info subspace
+     */
     @Nonnull
     Subspace getAccessInfoSubspace() {
         return getStorageAdapter().getAccessInfoSubspace();
     }
 
+    /**
+     * Returns the subspace holding the cluster-centroid HNSW (the centroids currently in use).
+     *
+     * @return the cluster-centroids subspace
+     */
     @Nonnull
     Subspace getClusterCentroidsSubspace() {
         return getStorageAdapter().getClusterCentroidsSubspace();
     }
 
+    /**
+     * Returns the subspace holding per-cluster {@link ClusterMetadata}, keyed by cluster id.
+     *
+     * @return the cluster-metadata subspace
+     */
     @Nonnull
     Subspace getClusterMetadataSubspace() {
         return getStorageAdapter().getClusterMetadataSubspace();
     }
 
+    /**
+     * Returns the subspace holding per-cluster {@link VectorReference} entries, keyed by {@code (clusterId, primaryKey)}.
+     *
+     * @return the vector-references subspace
+     */
     @Nonnull
     Subspace getVectorReferencesSubspace() {
         return getStorageAdapter().getVectorReferencesSubspace();
     }
 
+    /**
+     * Returns the subspace holding collapsed {@link VectorId} membership entries, keyed by {@code (signature, primaryKey)}.
+     *
+     * @return the collapsed-vector-ids subspace
+     */
     @Nonnull
     Subspace getCollapsedVectorIdsSubspace() {
         return getStorageAdapter().getCollapsedVectorIdsSubspace();
     }
 
+    /**
+     * Returns the subspace holding per-vector {@link VectorMetadata}, keyed by primary key.
+     *
+     * @return the vector-metadata subspace
+     */
     @Nonnull
     Subspace getVectorMetadataSubspace() {
         return getStorageAdapter().getVectorMetadataSubspace();
     }
 
+    /**
+     * Returns the subspace holding sampled vectors used for statistical analysis (for example centroid and
+     * distance-statistics computation).
+     *
+     * @return the samples subspace
+     */
     @Nonnull
     Subspace getSamplesSubspace() {
         return getStorageAdapter().getSamplesSubspace();
     }
 
+    /**
+     * Returns the subspace holding the deferred-task queue, keyed by task id.
+     *
+     * @return the tasks subspace
+     */
     @Nonnull
     Subspace getTasksSubspace() {
         return getStorageAdapter().getTasksSubspace();
     }
 
+    /**
+     * Returns the (memoized) cluster-centroid {@link HNSW}, used to find the clusters nearest a vector.
+     *
+     * @return the cluster-centroids HNSW
+     */
     @Nonnull
     HNSW getClusterCentroidsHnsw() {
         return clusterCentroidsHnswSupplier.get();
     }
 
+    /**
+     * Builds the cluster-centroid {@link HNSW}, wiring its read/write listeners through to this instance's
+     * {@link OnReadListener}/{@link OnWriteListener} so that key/value access on the centroid HNSW is reported
+     * alongside the rest of the structure's I/O. Memoized behind {@link #getClusterCentroidsHnsw()}.
+     *
+     * @return a newly constructed cluster-centroids HNSW
+     */
     @Nonnull
     private HNSW computeClusterCentroidsHnsw() {
         final com.apple.foundationdb.async.hnsw.OnWriteListener onWriteListener =
@@ -218,10 +281,25 @@ class Primitives {
                 getStorageAdapter().getClusterCentroidsHnswConfig(), onWriteListener, onReadListener);
     }
 
-    boolean isMetricNeedsNormalizedVectors() {
+    /**
+     * Whether the configured distance {@link Metric} is only meaningful on unit-length vectors, so vectors must be
+     * normalized before they are stored and compared. True for cosine distance, which compares directions.
+     *
+     * @return {@code true} if the configured metric requires normalized vectors
+     */
+    boolean storesNormalizedVectors() {
         return getConfig().metric() == Metric.COSINE_METRIC;
     }
 
+    /**
+     * Resolves the {@link StorageTransform} that maps a vector into the rotated/centered space it is actually stored
+     * in. Until an {@link AccessInfo} has been trained (or when RaBitQ cannot be used) there is no centroid to rotate
+     * around, so the identity transform is used; otherwise the transform is rebuilt from the access info's rotator
+     * seed and negated centroid, normalizing first when the metric demands it.
+     *
+     * @param accessInfo the trained access context, or {@code null} if none has been established yet
+     * @return the transform mapping vectors to and from their stored representation
+     */
     @Nonnull
     StorageTransform storageTransform(@Nullable final AccessInfo accessInfo) {
         if (accessInfo == null || !accessInfo.canUseRaBitQ()) {
@@ -230,13 +308,23 @@ class Primitives {
 
         return storageTransform(accessInfo.rotatorSeed(),
                 Objects.requireNonNull(accessInfo.negatedCentroid()),
-                isMetricNeedsNormalizedVectors());
+                storesNormalizedVectors());
     }
 
+    /**
+     * Assembles a {@link StorageTransform} straight from its components, for the paths that already hold the raw
+     * rotator seed and centroid rather than a whole {@link AccessInfo}. A {@code null} seed means the vectors are
+     * not rotated; a {@code null} centroid means they are not centered.
+     *
+     * @param rotatorSeed the seed selecting the {@link FhtKacRotator}, or {@code null} for no rotation
+     * @param negatedCentroid the negated centroid used to center vectors, or {@code null} for no centering
+     * @param normalizeVectors whether to normalize vectors as part of the transform
+     * @return the assembled storage transform
+     */
     @Nonnull
-    StorageTransform storageTransform(@Nullable final Long rotatorSeed,
-                                      @Nullable final RealVector negatedCentroid,
-                                      final boolean normalizeVectors) {
+    private StorageTransform storageTransform(@Nullable final Long rotatorSeed,
+                                              @Nullable final RealVector negatedCentroid,
+                                              final boolean normalizeVectors) {
         final LinearOperator linearOperator =
                 rotatorSeed == null
                 ? null : new FhtKacRotator(rotatorSeed, getConfig().numDimensions(), 10);
@@ -244,6 +332,14 @@ class Primitives {
         return new StorageTransform(linearOperator, negatedCentroid, normalizeVectors);
     }
 
+    /**
+     * Resolves the {@link Quantizer} used to compress stored vectors for cheap distance estimation. Falls back to a
+     * no-op quantizer until an {@link AccessInfo} has been trained, or when RaBitQ is disabled in the config; a
+     * trained, RaBitQ-enabled structure uses a {@link RaBitQuantizer}.
+     *
+     * @param accessInfo the trained access context, or {@code null} if none has been established yet
+     * @return the quantizer used to encode and decode stored vectors
+     */
     @Nonnull
     Quantizer quantizer(@Nullable final AccessInfo accessInfo) {
         if (accessInfo == null || !accessInfo.canUseRaBitQ()) {
@@ -256,6 +352,14 @@ class Primitives {
                : Quantizer.noOpQuantizer(config.metric());
     }
 
+    /**
+     * Fetches the structure-wide {@link AccessInfo} — the trained per-structure context (rotator seed, centroid)
+     * that every transform and quantizer is derived from. Its absence is the signal that the structure holds no
+     * vectors yet, so this returns {@code null} in that case rather than failing.
+     *
+     * @param readTransaction the read transaction
+     * @return a future of the access info, or {@code null} if the structure has not been initialized yet
+     */
     @Nonnull
     CompletableFuture<AccessInfo> fetchAccessInfo(@Nonnull final ReadTransaction readTransaction) {
         final Subspace accessInfoSubspace = getAccessInfoSubspace();
@@ -265,12 +369,19 @@ class Primitives {
                 .thenApply(valueBytes -> {
                     getOnReadListener().onKeyValueRead(key, valueBytes);
                     if (valueBytes == null) {
-                        return null; // not a single vector in the index
+                        return null; // not a single vector in the structure
                     }
                     return StorageAdapter.accessInfoFromTuple(getConfig(), Tuple.fromBytes(valueBytes));
                 });
     }
 
+    /**
+     * Persists the structure-wide {@link AccessInfo}. Written once when the structure is first trained; since every
+     * transform and quantizer is derived from it, it changes rarely thereafter.
+     *
+     * @param transaction the transaction to write within
+     * @param accessInfo the access info to persist
+     */
     void writeAccessInfo(@Nonnull final Transaction transaction,
                          @Nonnull final AccessInfo accessInfo) {
         final Subspace accessInfoSubspace = getAccessInfoSubspace();
@@ -280,11 +391,29 @@ class Primitives {
         getOnWriteListener().onKeyValueWritten(key, value);
     }
 
+    /**
+     * Tests whether a record identified by its primary key is part of the structure. The per-primary-key
+     * {@link VectorMetadata} entry is the single source of truth for membership — the per-cluster references are
+     * mutable copies — so existence is decided by probing for that entry.
+     *
+     * @param readTransaction the read transaction
+     * @param primaryKey the primary key to test
+     * @return a future completing {@code true} iff a metadata entry exists for the primary key
+     */
     @Nonnull
-    CompletableFuture<Boolean> exists(@Nonnull final ReadTransaction readTransaction, final Tuple primaryKey) {
+    CompletableFuture<Boolean> primaryKeyExists(@Nonnull final ReadTransaction readTransaction, final Tuple primaryKey) {
         return fetchVectorMetadata(readTransaction, primaryKey).thenApply(Objects::nonNull);
     }
 
+    /**
+     * Fetches a vector's {@link VectorMetadata} — the authoritative, per-primary-key record of the vector (its
+     * current UUID and any covering values). Search and clean-up rely on it to tell a live reference from a stale
+     * one. Returns {@code null} when no vector with that primary key is stored.
+     *
+     * @param readTransaction the read transaction
+     * @param primaryKey the primary key of the vector
+     * @return a future of the metadata, or {@code null} if no such vector exists
+     */
     @Nonnull
     CompletableFuture<VectorMetadata> fetchVectorMetadata(@Nonnull final ReadTransaction readTransaction,
                                                           @Nonnull final Tuple primaryKey) {
@@ -301,6 +430,13 @@ class Primitives {
                 });
     }
 
+    /**
+     * Persists a vector's {@link VectorMetadata} under its primary key. Writing this entry is what makes a vector
+     * part of the structure (see {@link #primaryKeyExists}).
+     *
+     * @param transaction the transaction to write within
+     * @param vectorMetadata the metadata to persist
+     */
     void writeVectorMetadata(@Nonnull final Transaction transaction,
                              @Nonnull final VectorMetadata vectorMetadata) {
         final Subspace vectorMetadataSubspace = getVectorMetadataSubspace();
@@ -311,6 +447,14 @@ class Primitives {
         transaction.set(key, value);
     }
 
+    /**
+     * Removes a vector's {@link VectorMetadata}, retiring the vector from the structure. Its per-cluster references
+     * are left behind and become stale; they are pruned lazily during search/clean-up rather than here, so a delete
+     * stays cheap and bounded.
+     *
+     * @param transaction the transaction to write within
+     * @param primaryKey the primary key whose metadata is removed
+     */
     void deleteVectorMetadata(@Nonnull final Transaction transaction,
                               @Nonnull final Tuple primaryKey) {
         final Subspace vectorMetadataSubspace = getVectorMetadataSubspace();
@@ -319,6 +463,18 @@ class Primitives {
         transaction.clear(key);
     }
 
+    /**
+     * Streams cluster centroids nearest-first around a query/insert point by walking the centroid {@link HNSW}.
+     * This is the entry point for "which clusters are even worth looking at" — both search and insert start here.
+     * The {@code minimumRadius}/{@code minimumPrimaryKey} pair is an exclusive lower bound, so a partially consumed
+     * walk can be resumed without revisiting centroids already seen.
+     *
+     * @param readTransaction the read transaction
+     * @param centerVector the query/insert point to order centroids around
+     * @param minimumRadius exclusive lower bound on distance to resume from ({@code 0} to start from the nearest)
+     * @param minimumPrimaryKey the centroid-key tiebreaker at exactly {@code minimumRadius}, or {@code null} to start fresh
+     * @return an iterator of centroids (as {@link ResultEntry}s), nearest first
+     */
     @Nonnull
     AsyncIterator<ResultEntry> centroidsOrderedByDistance(@Nonnull final ReadTransaction readTransaction,
                                                           @Nonnull final RealVector centerVector,
@@ -330,6 +486,17 @@ class Primitives {
                 centerVector, minimumRadius, minimumPrimaryKey, true);
     }
 
+    /**
+     * Loads a cluster's {@link ClusterMetadata} and bundles it with a centroid and an already-computed distance, so
+     * a caller walking the centroid HNSW can carry the distance forward instead of recomputing it. Fails fast if the
+     * metadata is missing — a cluster present in the centroid HNSW is expected to have metadata.
+     *
+     * @param readTransaction the read transaction
+     * @param clusterId the id of the cluster
+     * @param centroid the transformed centroid to attach
+     * @param distance the already-computed distance to attach
+     * @return a future of the metadata bundled with its centroid and distance
+     */
     @Nonnull
     CompletableFuture<ClusterMetadataWithDistance> fetchClusterMetadataWithDistance(@Nonnull final ReadTransaction readTransaction,
                                                                                     @Nonnull final UUID clusterId,
@@ -339,6 +506,17 @@ class Primitives {
                 .thenApply(clusterState -> new ClusterMetadataWithDistance(clusterState, centroid, distance));
     }
 
+    /**
+     * Convenience overload of {@link #fetchCluster(ReadTransaction, StorageTransform, UUID, Transformed)} for
+     * callers holding an untransformed centroid: it applies {@code storageTransform} to the centroid first, then
+     * fetches.
+     *
+     * @param readTransaction the read transaction
+     * @param storageTransform the transform used to map the centroid and reconstruct stored vectors
+     * @param clusterId the id of the cluster to fetch
+     * @param centroid the cluster centroid in the untransformed (client) coordinate space
+     * @return a future of the fetched cluster
+     */
     @Nonnull
     CompletableFuture<Cluster> fetchCluster(@Nonnull final ReadTransaction readTransaction,
                                             @Nonnull final StorageTransform storageTransform,
@@ -348,6 +526,17 @@ class Primitives {
         return fetchCluster(readTransaction, storageTransform, clusterId, transformedCentroid);
     }
 
+    /**
+     * Fetches a cluster as a single in-memory {@link Cluster}: its {@link ClusterMetadata} joined with all of its
+     * {@link VectorReference}s, which is the unit the maintenance tasks operate on. Fails fast if the metadata is
+     * missing, and (for now) asserts that the stored primary-vector count agrees with the references actually read.
+     *
+     * @param readTransaction the read transaction
+     * @param storageTransform the transform used to reconstruct stored vectors
+     * @param clusterId the id of the cluster to fetch
+     * @param centroid the cluster centroid in the transformed (stored) coordinate space
+     * @return a future of the fetched cluster
+     */
     @Nonnull
     CompletableFuture<Cluster> fetchCluster(@Nonnull final ReadTransaction readTransaction,
                                             @Nonnull final StorageTransform storageTransform,
@@ -363,6 +552,14 @@ class Primitives {
                         });
     }
 
+    /**
+     * Fetches a cluster's {@link ClusterMetadata} — its counts, running distance statistics, and pending-maintenance
+     * state — or {@code null} if the cluster no longer exists.
+     *
+     * @param readTransaction the read transaction
+     * @param clusterId the id of the cluster
+     * @return a future of the metadata, or {@code null} if the cluster does not exist
+     */
     @Nonnull
     CompletableFuture<ClusterMetadata> fetchClusterMetadata(@Nonnull final ReadTransaction readTransaction,
                                                             @Nonnull final UUID clusterId) {
@@ -377,6 +574,13 @@ class Primitives {
                 });
     }
 
+    /**
+     * Persists a cluster's {@link ClusterMetadata}. This is how vector-count deltas and maintenance-state flags
+     * (split/merge/reassign/collapse) become durable.
+     *
+     * @param transaction the transaction to write within
+     * @param clusterMetadata the metadata to persist
+     */
     void writeClusterMetadata(@Nonnull final Transaction transaction,
                               @Nonnull final ClusterMetadata clusterMetadata) {
         final Subspace clusterMetadataSubspace = getClusterMetadataSubspace();
@@ -387,6 +591,14 @@ class Primitives {
         transaction.set(key, value);
     }
 
+    /**
+     * Deletes a cluster's {@link ClusterMetadata} — used when a cluster is dissolved by a split or merge. The
+     * cluster's vector references are removed separately via {@link #deleteVectorReferencesForCluster}, since the
+     * two live in different subspaces.
+     *
+     * @param transaction the transaction to write within
+     * @param clusterId the id of the dissolved cluster
+     */
     void deleteClusterMetadata(@Nonnull final Transaction transaction,
                                @Nonnull final UUID clusterId) {
         final Subspace clusterMetadataSubspace = getClusterMetadataSubspace();
@@ -396,6 +608,15 @@ class Primitives {
         transaction.clear(key);
     }
 
+    /**
+     * Materializes all of a cluster's {@link VectorReference}s into a list. Prefer
+     * {@link #fetchVectorReferencesIterable} when the references can be streamed rather than held at once.
+     *
+     * @param readTransaction the read transaction
+     * @param storageTransform the transform used to reconstruct stored vectors
+     * @param clusterId the id of the cluster
+     * @return a future of the cluster's vector references
+     */
     @Nonnull
     CompletableFuture<List<VectorReference>> fetchVectorReferences(@Nonnull final ReadTransaction readTransaction,
                                                                    @Nonnull final StorageTransform storageTransform,
@@ -404,6 +625,16 @@ class Primitives {
                 getExecutor());
     }
 
+    /**
+     * Streams a cluster's {@link VectorReference}s by scanning its key range. A cluster holds many references — its
+     * own primaries plus replicas of neighboring clusters' vectors — so this streaming form is what the maintenance
+     * tasks use when they need to walk an entire cluster.
+     *
+     * @param readTransaction the read transaction
+     * @param storageTransform the transform used to reconstruct stored vectors
+     * @param clusterId the id of the cluster
+     * @return an iterable over the cluster's vector references
+     */
     @Nonnull
     AsyncIterable<VectorReference> fetchVectorReferencesIterable(@Nonnull final ReadTransaction readTransaction,
                                                                  @Nonnull final StorageTransform storageTransform,
@@ -423,6 +654,17 @@ class Primitives {
                 });
     }
 
+    /**
+     * Point-fetches one {@link VectorReference} within a cluster, or {@code null} if that cluster holds no reference
+     * for the primary key. The same vector can appear in several clusters (one primary copy plus replicas), so a
+     * reference is addressed by the {@code (clusterId, primaryKey)} pair, not the primary key alone.
+     *
+     * @param readTransaction the read transaction
+     * @param storageTransform the transform used to reconstruct the stored vector
+     * @param clusterId the id of the cluster
+     * @param primaryKey the primary key of the reference within the cluster
+     * @return a future of the reference, or {@code null} if absent from this cluster
+     */
     @Nonnull
     CompletableFuture<VectorReference> fetchVectorReference(@Nonnull final ReadTransaction readTransaction,
                                                             @Nonnull final StorageTransform storageTransform,
@@ -442,6 +684,15 @@ class Primitives {
                 });
     }
 
+    /**
+     * Writes a {@link VectorReference} into a cluster, encoding (quantizing) its vector for storage on the way in.
+     * The {@link Quantizer} is supplied by the caller so that a batch of writes can share one resolved quantizer.
+     *
+     * @param transaction the transaction to write within
+     * @param quantizer the quantizer used to encode the stored vector
+     * @param clusterId the id of the cluster to write the reference into
+     * @param vectorReference the reference to persist
+     */
     void writeVectorReference(@Nonnull final Transaction transaction,
                               @Nonnull final Quantizer quantizer,
                               @Nonnull final UUID clusterId,
@@ -454,6 +705,14 @@ class Primitives {
         transaction.set(key, value);
     }
 
+    /**
+     * Removes one {@link VectorReference} from a cluster — for example when a vector is reassigned to another
+     * cluster or a replica is pruned.
+     *
+     * @param transaction the transaction to write within
+     * @param clusterId the id of the cluster
+     * @param primaryKey the primary key of the reference to remove
+     */
     void deleteVectorReference(@Nonnull final Transaction transaction,
                                @Nonnull final UUID clusterId,
                                @Nonnull final Tuple primaryKey) {
@@ -464,6 +723,13 @@ class Primitives {
         transaction.clear(key);
     }
 
+    /**
+     * Drops every {@link VectorReference} of a cluster in a single range clear — the bulk counterpart to
+     * {@link #deleteVectorReference}, used when an entire cluster is dissolved rather than edited vector-by-vector.
+     *
+     * @param transaction the transaction to write within
+     * @param clusterId the id of the cluster being dissolved
+     */
     void deleteVectorReferencesForCluster(@Nonnull final Transaction transaction,
                                           @Nonnull final UUID clusterId) {
         final Subspace vectorReferencesSubspace = getVectorReferencesSubspace();
@@ -474,6 +740,14 @@ class Primitives {
         transaction.clear(range);
     }
 
+    /**
+     * Materializes the members of a collapsed set into a list. Collapsing replaces many identical vectors with a
+     * single representative reference; this expands that representative back into its individual member ids.
+     *
+     * @param readTransaction the read transaction
+     * @param signature the content signature identifying the collapsed set
+     * @return a future of the collapsed members' vector ids
+     */
     @Nonnull
     CompletableFuture<List<VectorId>> fetchCollapsedVectorIds(@Nonnull final ReadTransaction readTransaction,
                                                               @Nonnull final UUID signature) {
@@ -481,6 +755,15 @@ class Primitives {
                 getExecutor());
     }
 
+    /**
+     * Streams the members of a collapsed set — the individual vectors hidden behind one collapsed representative —
+     * by scanning the signature's key range. A set can be large, so this streaming form is what search uses when it
+     * has to expand a collapsed reference back into its members.
+     *
+     * @param readTransaction the read transaction
+     * @param signature the content signature identifying the collapsed set
+     * @return an iterable over the collapsed members' vector ids
+     */
     @Nonnull
     AsyncIterable<VectorId> fetchCollapsedVectorIdsIterable(@Nonnull final ReadTransaction readTransaction,
                                                             @Nonnull final UUID signature) {
@@ -526,6 +809,14 @@ class Primitives {
                 });
     }
 
+    /**
+     * Streams every collapsed-membership entry across all signatures (a full scan of the collapsed-vector-ids
+     * subspace). Exposed only for tests/diagnostics that need to inspect the entire collapsed store; production
+     * paths always scope the scan to a single signature via {@link #fetchCollapsedVectorIdsIterable}.
+     *
+     * @param readTransaction the read transaction
+     * @return an iterable over all collapsed vector ids in the structure
+     */
     @Nonnull
     @VisibleForTesting
     AsyncIterable<VectorId> scanCollapsedVectorIdsIterable(@Nonnull final ReadTransaction readTransaction) {
@@ -543,6 +834,14 @@ class Primitives {
                 });
     }
 
+    /**
+     * Records that a vector is a member of the collapsed set for {@code signature} — i.e. it is represented by, and
+     * folded behind, that signature's collapsed reference rather than carrying its own reference in a cluster.
+     *
+     * @param transaction the transaction to write within
+     * @param signature the content signature of the collapsed set
+     * @param vectorId the vector recorded as a collapsed member
+     */
     void writeCollapsedVectorId(@Nonnull final Transaction transaction,
                                 @Nonnull final UUID signature,
                                 @Nonnull final VectorId vectorId) {
@@ -554,6 +853,14 @@ class Primitives {
         transaction.set(key, value);
     }
 
+    /**
+     * Removes a single collapsed-membership entry — for example when a folded vector is deleted, or re-expanded out
+     * of its collapsed set.
+     *
+     * @param transaction the transaction to write within
+     * @param signature the content signature of the collapsed set
+     * @param primaryKey the primary key of the member to remove
+     */
     void deleteCollapsedVectorId(@Nonnull final Transaction transaction,
                                  @Nonnull final UUID signature,
                                  @Nonnull final Tuple primaryKey) {
@@ -564,20 +871,41 @@ class Primitives {
         transaction.clear(key);
     }
 
+    /**
+     * Drains up to {@code numTasks} pending maintenance tasks and runs them inline within this transaction. This is
+     * how background structure maintenance is paid for: each foreground insert/delete absorbs a small, bounded slice
+     * of queued work rather than relying on a separate sweeper.
+     *
+     * @param transaction the transaction to fetch and run the tasks within
+     * @param accessInfo the access context passed to each rehydrated task
+     * @param numTasks the maximum number of tasks to run
+     * @return a future that completes when the fetched tasks have all run
+     */
     @Nonnull
-    CompletableFuture<Void> doSomeDeferredTasks(@Nonnull final Transaction transaction,
-                                                @Nonnull final AccessInfo accessInfo) {
-        return fetchSomeDeferredTasks(transaction, accessInfo, 1)
+    CompletableFuture<Void> executeSomeDeferredTasks(@Nonnull final Transaction transaction,
+                                                     @Nonnull final AccessInfo accessInfo,
+                                                     final int numTasks) {
+        return fetchSomeDeferredTasks(transaction, accessInfo, numTasks)
                 .thenCompose(deferredTasks ->
                         forLoop(0, null,
                                 i -> i < deferredTasks.size(), i -> i + 1,
                                 (i, ignored) ->
-                                        doDeferredTask(transaction, deferredTasks.get(i)), getExecutor()));
+                                        executeSingleDeferredTask(transaction, deferredTasks.get(i)), getExecutor()));
     }
 
+    /**
+     * Runs one deferred task. The task is removed from the queue <em>before</em> it runs (not after), so a task that
+     * re-enqueues follow-up work cannot collide with its own still-present queue entry — and so a task is free to
+     * reuse its own just-freed slot. On success the {@link OnWriteListener} is notified; on failure the future
+     * completes exceptionally and the enclosing transaction will not commit, so the removal is rolled back with it.
+     *
+     * @param transaction the transaction to run the task within
+     * @param deferredTask the task to execute
+     * @return a future that completes when the task has run
+     */
     @Nonnull
-    CompletableFuture<Void> doDeferredTask(@Nonnull final Transaction transaction,
-                                           @Nonnull final AbstractDeferredTask deferredTask) {
+    CompletableFuture<Void> executeSingleDeferredTask(@Nonnull final Transaction transaction,
+                                                      @Nonnull final AbstractDeferredTask deferredTask) {
         deleteDeferredTask(transaction, deferredTask);
         return deferredTask.runTask(transaction)
                 .whenComplete((ignored, throwable) -> {
@@ -588,6 +916,16 @@ class Primitives {
                 });
     }
 
+    /**
+     * Fetches up to {@code numTasks} queued tasks in ascending task-id order and rehydrates each from its stored
+     * tuples. The order is meaningful: a task id's high bit encodes priority (see {@link AbstractDeferredTask}), so
+     * the lowest ids — the high-priority tasks — are returned first.
+     *
+     * @param readTransaction the read transaction
+     * @param accessInfo the access context passed to each rehydrated task
+     * @param numTasks the maximum number of tasks to fetch
+     * @return a future of the fetched tasks, in queue (priority) order
+     */
     @Nonnull
     CompletableFuture<List<AbstractDeferredTask>> fetchSomeDeferredTasks(@Nonnull final ReadTransaction readTransaction,
                                                                          @Nonnull final AccessInfo accessInfo,
@@ -612,6 +950,16 @@ class Primitives {
                 });
     }
 
+    /**
+     * Point-fetches a queued task by id, or {@code null} if it is no longer enqueued — for example a dependency a
+     * {@link BounceTask} is waiting on that has already run. Returning {@code null} rather than failing lets callers
+     * treat "already done" as a normal outcome.
+     *
+     * @param readTransaction the read transaction
+     * @param accessInfo the access context passed to the rehydrated task
+     * @param taskId the id of the task
+     * @return a future of the task, or {@code null} if it is not currently enqueued
+     */
     @Nonnull
     CompletableFuture<AbstractDeferredTask> fetchDeferredTask(@Nonnull final ReadTransaction readTransaction,
                                                               @Nonnull final AccessInfo accessInfo,
@@ -634,6 +982,15 @@ class Primitives {
                 });
     }
 
+    /**
+     * Enqueues a deferred task by writing its serialized value under its task id — the key that addresses the task
+     * within the task subspace, which behaves as a priority queue ordered by that key. The id's high bit fixes the
+     * task's scheduling priority relative to the others (see {@link AbstractDeferredTask}).
+     *
+     * @param transaction the transaction to write within
+     * @param taskId the task id the task is stored under
+     * @param valueTuple the task's serialized value
+     */
     void writeDeferredTask(@Nonnull final Transaction transaction,
                            @Nonnull final UUID taskId,
                            @Nonnull final Tuple valueTuple) {
@@ -652,7 +1009,7 @@ class Primitives {
      * <p>
      * This method <em>never</em> enqueues a merge. A merge is triggered only by deleting a primary vector and
      * is handled separately by {@link #updateClusterMetadataAndEnqueueMergeTaskMaybe}, because deciding whether a
-     * merge is even possible requires an asynchronous read of the centroid index. Callers that remove vectors
+     * merge is even possible requires an asynchronous read of the centroid HNSW. Callers that remove vectors
      * (a replicated delete, or the non-merge fallback of the primary-delete path) may still call this method —
      * it will reassign or plain-write the decrement — but it will not split or merge them.
      *
@@ -660,7 +1017,7 @@ class Primitives {
      * @param random source of randomness for the id of any enqueued task
      * @param clusterMetadata the current metadata of the cluster being updated
      * @param clusterCentroid the transformed centroid of the cluster, carried into any task that is enqueued
-     * @param accessInfo the access context (subspace layout) of the index
+     * @param accessInfo the access context (subspace layout) of the structure
      * @param numPrimaryVectorsAdded the number of primary vectors added to the cluster (must be {@code >= 0} here)
      * @param numPrimaryUnderreplicatedVectorsAdded the change in the number of primary underreplicated vectors
      * @param numReplicatedVectorsAdded the change in the number of replicated vectors
@@ -718,7 +1075,7 @@ class Primitives {
      * @param random source of randomness for the id of an enqueued reassign task
      * @param clusterMetadata the current metadata of the cluster being updated
      * @param clusterCentroid the transformed centroid of the cluster, carried into an enqueued {@link ReassignTask}
-     * @param accessInfo the access context (subspace layout) of the index
+     * @param accessInfo the access context (subspace layout) of the structure
      * @param numPrimaryVectorsAdded the change in the number of primary vectors (may be negative for a deletion)
      * @param numPrimaryUnderreplicatedVectorsAdded the change in the number of primary underreplicated vectors
      * @param numReplicatedVectorsAdded the change in the number of replicated vectors
@@ -904,6 +1261,12 @@ class Primitives {
         return newTaskId;
     }
 
+    /**
+     * Removes a task's queue entry. Used by {@link #executeSingleDeferredTask} to claim a task before running it.
+     *
+     * @param transaction the transaction to write within
+     * @param deferredTask the task whose queue entry is cleared
+     */
     void deleteDeferredTask(@Nonnull final Transaction transaction,
                             @Nonnull final AbstractDeferredTask deferredTask) {
         final Subspace tasksSubspace = getTasksSubspace();
@@ -912,6 +1275,19 @@ class Primitives {
         transaction.clear(key);
     }
 
+    /**
+     * Fetches a target cluster's neighborhood — that is the {@code numClusters} clusters whose centroids are nearest
+     * the target's — as the candidate set a split/merge/reassign repartitions over. Walks the centroid {@link HNSW} in
+     * ascending distance order; the target cluster itself is included at distance {@code 0} using the metadata
+     * already in hand, avoiding a redundant re-read of the very cluster that triggered the work.
+     *
+     * @param transaction the read transaction
+     * @param targetClusterMetadata the metadata of the cluster whose neighborhood is being fetched
+     * @param targetClusterCentroid the target's centroid in the untransformed (client) coordinate space
+     * @param storageTransform the transform mapping fetched centroids into the stored coordinate space
+     * @param numClusters the maximum number of nearest clusters to fetch (including the target)
+     * @return a future of the neighborhood clusters, nearest first
+     */
     @Nonnull
     CompletableFuture<List<ClusterMetadataWithDistance>>
             fetchNeighborhoodClusterMetadata(@Nonnull final ReadTransaction transaction,
@@ -919,13 +1295,12 @@ class Primitives {
                                              @Nonnull final RealVector targetClusterCentroid,
                                              @Nonnull final StorageTransform storageTransform,
                                              final int numClusters) {
-        final Primitives primitives = getLocator().primitives();
         final Executor executor = getLocator().getExecutor();
 
         return AsyncUtil.collect(
                 MoreAsyncUtil.mapIterablePipelined(executor,
                         MoreAsyncUtil.limitIterable(MoreAsyncUtil.iterableOf(() ->
-                                                primitives.centroidsOrderedByDistance(transaction,
+                                                centroidsOrderedByDistance(transaction,
                                                         targetClusterCentroid, 0.0d, null),
                                         executor),
                                 numClusters, executor),
@@ -937,13 +1312,22 @@ class Primitives {
                                 return CompletableFuture.completedFuture(new ClusterMetadataWithDistance(targetClusterMetadata,
                                         transformedClusterCentroid, 0.0d));
                             }
-                            return primitives.fetchClusterMetadataWithDistance(transaction,
+                            return fetchClusterMetadataWithDistance(transaction,
                                     clusterId,
                                     transformedClusterCentroid,
                                     0.0d);
                         }, 10));
     }
 
+    /**
+     * Fully loads each cluster of an inner neighborhood — the clusters a split/merge is going to dissolve and
+     * repartition — since repartitioning needs their actual vectors, not just their metadata and centroids.
+     *
+     * @param transaction the transaction
+     * @param innerNeighborhood the inner-neighborhood clusters to load in full
+     * @param storageTransform the transform used to reconstruct stored vectors
+     * @return a future of the fully-loaded clusters
+     */
     @Nonnull
     CompletableFuture<List<Cluster>> fetchInnerClusters(@Nonnull final Transaction transaction,
                                                         @Nonnull final List<ClusterMetadataWithDistance> innerNeighborhood,
@@ -959,6 +1343,19 @@ class Primitives {
                 executor);
     }
 
+    /**
+     * Collapses the references gathered from several clusters down to one current reference per vector, dropping
+     * duplicates and stale copies. This is the correctness filter that keeps repartitioning from acting on vectors
+     * that have since moved or been deleted: within a vector UUID, {@link #mergeVectorReference} keeps the best copy
+     * (primary over replica, then higher replication priority), and a survivor is retained only if it is collapsed,
+     * or its UUID still matches the vector's current {@link VectorMetadata}. When {@code discardReplicatedVectorReferences}
+     * is set, replicas are dropped up front so only primary copies are considered.
+     *
+     * @param transaction the transaction used to re-read current metadata
+     * @param clusters the clusters whose references are being reconciled
+     * @param discardReplicatedVectorReferences whether to drop replicas and keep only primary copies
+     * @return a future of the surviving, de-duplicated, still-current references
+     */
     @Nonnull
     CompletableFuture<List<VectorReference>> cleanUpVectorReferences(@Nonnull final Transaction transaction,
                                                                      @Nonnull final List<Cluster> clusters,
@@ -1030,7 +1427,7 @@ class Primitives {
      * exists.
      *
      * @param accessInfo the access context, or {@code null} if it could not be resolved
-     * @param nodeExists {@code true} if the node already exists in the centroid index
+     * @param nodeExists {@code true} if the node already exists in the centroid HNSW
      */
     record AccessInfoAndNodeExistence(@Nullable AccessInfo accessInfo, boolean nodeExists) {
     }

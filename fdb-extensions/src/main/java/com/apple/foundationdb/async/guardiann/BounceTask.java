@@ -141,7 +141,7 @@ public class BounceTask extends AbstractDeferredTask {
                                 bounceTask.getKind().name(), bounceTask.getTaskId());
                     }
 
-                    return primitives.doDeferredTask(transaction, bounceTask)
+                    return primitives.executeSingleDeferredTask(transaction, bounceTask)
                             .thenCompose(ignored -> {
                                 if (shuffledTasks.size() > 1) {
                                     final ImmutableSet.Builder<UUID> newDependentTaskIdsBuilder = ImmutableSet.builder();
