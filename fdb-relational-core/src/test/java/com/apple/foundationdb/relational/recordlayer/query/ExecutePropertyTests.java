@@ -66,13 +66,13 @@ public class ExecutePropertyTests {
 
     @RegisterExtension
     @Order(1)
-    public final SimpleDatabaseRule database = new SimpleDatabaseRule(
+    public final SimpleDatabaseRule database = new SimpleDatabaseRule(relationalExtension, 
             ExecutePropertyTests.class,
             schemaTemplate);
 
     @RegisterExtension
     @Order(2)
-    public final RelationalConnectionRule connection = new RelationalConnectionRule(database::getConnectionUri)
+    public final RelationalConnectionRule connection = new RelationalConnectionRule(relationalExtension, database::getConnectionUri)
             .withOptions(Options.NONE)
             .withSchema("TEST_SCHEMA");
 
@@ -99,7 +99,7 @@ public class ExecutePropertyTests {
         statement.executeUpdate("INSERT INTO FOO VALUES (10, '10'), (11, '11'), (12, '12'), (13, '13'), (14, '14'), (15, '15'), (16, '16')");
         Continuation continuation = ContinuationImpl.BEGIN;
         long nextCorrectResult = 10L;
-        final var driver = (RelationalDriver) DriverManager.getDriver(database.getConnectionUri().toString());
+        final var driver = relationalExtension.getDriver();
         try (var conn = driver.connect(database.getConnectionUri(), Options.builder().withOption(optionName, optionValue).build())) {
             conn.setSchema("TEST_SCHEMA");
             while (!continuation.atEnd()) {
@@ -137,7 +137,7 @@ public class ExecutePropertyTests {
     @Test
     public void multipleConnectionsDoNotAffectEachOthersLimit() throws Exception {
         statement.executeUpdate("INSERT INTO FOO VALUES (10, '10'), (11, '11'), (12, '12'), (13, '13'), (14, '14'), (15, '15'), (16, '16')");
-        final var driver = (RelationalDriver) DriverManager.getDriver(database.getConnectionUri().toString());
+        final var driver = relationalExtension.getDriver();
         try (var conn1 = driver.connect(database.getConnectionUri(), Options.builder().withOption(Options.Name.EXECUTION_SCANNED_ROWS_LIMIT, 2).build());
                 var conn2 = driver.connect(database.getConnectionUri(), Options.builder().withOption(Options.Name.EXECUTION_SCANNED_ROWS_LIMIT, 3).build())) {
             conn1.setSchema("TEST_SCHEMA");
@@ -165,7 +165,7 @@ public class ExecutePropertyTests {
     @Test
     public void limitIsKeptAcrossMultipleQueriesWithinTheSameTransaction() throws Exception {
         statement.executeUpdate("INSERT INTO FOO VALUES (10, '10'), (11, '11'), (12, '12')");
-        final var driver = (RelationalDriver) DriverManager.getDriver(database.getConnectionUri().toString());
+        final var driver = relationalExtension.getDriver();
         try (var conn = driver.connect(database.getConnectionUri(), Options.builder().withOption(Options.Name.EXECUTION_SCANNED_ROWS_LIMIT, 5).build())) {
             conn.setSchema("TEST_SCHEMA");
             conn.setAutoCommit(false);
@@ -192,7 +192,7 @@ public class ExecutePropertyTests {
     @Test
     public void limitIsKeptAcrossMultipleQueriesWithinTheSameTransactionSecondQueryFailsRightAway() throws Exception {
         statement.executeUpdate("INSERT INTO FOO VALUES (10, '10'), (11, '11'), (12, '12')");
-        final var driver = (RelationalDriver) DriverManager.getDriver(database.getConnectionUri().toString());
+        final var driver = relationalExtension.getDriver();
         try (var conn = driver.connect(database.getConnectionUri(), Options.builder().withOption(Options.Name.EXECUTION_SCANNED_ROWS_LIMIT, 1).build())) {
             conn.setSchema("TEST_SCHEMA");
             conn.setAutoCommit(false);
@@ -214,7 +214,7 @@ public class ExecutePropertyTests {
     @Test
     public void limitIsResetWithNewTransaction() throws Exception {
         statement.executeUpdate("INSERT INTO FOO VALUES (10, '10'), (11, '11')");
-        final var driver = (RelationalDriver) DriverManager.getDriver(database.getConnectionUri().toString());
+        final var driver = relationalExtension.getDriver();
         try (var conn = driver.connect(database.getConnectionUri(), Options.builder().withOption(Options.Name.EXECUTION_SCANNED_ROWS_LIMIT, 5).build())) {
             conn.setSchema("TEST_SCHEMA");
             conn.setAutoCommit(false);

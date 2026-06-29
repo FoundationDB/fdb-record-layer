@@ -21,6 +21,7 @@
 package com.apple.foundationdb.relational.recordlayer;
 
 import com.apple.foundationdb.relational.api.EmbeddedRelationalEngine;
+import com.apple.foundationdb.relational.api.RelationalDriver;
 import org.junit.jupiter.api.extension.Extension;
 
 import javax.annotation.Nullable;
@@ -29,5 +30,12 @@ public interface RelationalExtension extends Extension {
 
     @Nullable
     EmbeddedRelationalEngine getEngine();
+
+    /**
+     * @return the driver owned by this extension. May be {@code null} if the extension's
+     *         {@code beforeEach} has not run yet, or has been cleaned up.
+     */
+    @Nullable
+    RelationalDriver getDriver();
 
 }

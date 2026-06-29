@@ -22,6 +22,7 @@ package com.apple.foundationdb.relational.utils;
 
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.RelationalConnection;
+import com.apple.foundationdb.relational.api.RelationalDriver;
 import com.apple.foundationdb.relational.recordlayer.RelationalExtension;
 import com.apple.foundationdb.relational.recordlayer.Utils;
 import com.apple.foundationdb.relational.util.Assert;
@@ -32,8 +33,8 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.sql.DriverManager;
 import java.sql.SQLException;
+import java.util.Objects;
 import java.util.concurrent.ThreadLocalRandom;
 
 public class Ddl implements AutoCloseable {
@@ -60,9 +61,9 @@ public class Ddl implements AutoCloseable {
         final String templateName = dbPath.getPath().substring(dbPath.getPath().lastIndexOf("/") + 1);
 
         this.relationalExtension = relationalExtension;
-        this.templateRule = new SchemaTemplateRule(templateName + "_TEMPLATE", options, schemaTemplateOptions, templateDefinition);
-        this.databaseRule = new DatabaseRule(dbPath, options);
-        this.schemaRule = new SchemaRule(schemaName, dbPath, templateRule.getSchemaTemplateName(), options);
+        this.templateRule = new SchemaTemplateRule(relationalExtension, templateName + "_TEMPLATE", options, schemaTemplateOptions, templateDefinition);
+        this.databaseRule = new DatabaseRule(relationalExtension, dbPath, options);
+        this.schemaRule = new SchemaRule(relationalExtension, schemaName, dbPath, templateRule.getSchemaTemplateName(), options);
         this.extensionContext = extensionContext;
 
         try {
@@ -96,7 +97,10 @@ public class Ddl implements AutoCloseable {
             throw e;
         }
 
-        this.connection = DriverManager.getConnection("jdbc:embed://" + databaseRule.getDbUri().toString()).unwrap(RelationalConnection.class);
+        final RelationalDriver driver = Objects.requireNonNull(relationalExtension.getDriver(),
+                "RelationalExtension has no active driver — its @BeforeEach must have run first.");
+        this.connection = driver
+                .connect(URI.create("jdbc:embed://" + databaseRule.getDbUri().toString())).unwrap(RelationalConnection.class);
         Utils.setConnectionOptions(connection, options);
     }
 

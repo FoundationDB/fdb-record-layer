@@ -52,7 +52,7 @@ public class VectorDirectAccessTest {
 
     @RegisterExtension
     @Order(1)
-    public final SimpleDatabaseRule database = new SimpleDatabaseRule(VectorDirectAccessTest.class,
+    public final SimpleDatabaseRule database = new SimpleDatabaseRule(relationalExtension, VectorDirectAccessTest.class,
             "CREATE TABLE V(PK INTEGER, V1 VECTOR(4, FLOAT), V2 VECTOR(3, HALF), V3 VECTOR(2, DOUBLE), PRIMARY KEY(PK))\n" +
             "CREATE TABLE VHNSW(PK INTEGER, ZONE STRING, VEC VECTOR(3, FLOAT), PRIMARY KEY(PK))\n" +
             "CREATE VIEW VHNSW_VIEW AS SELECT VEC, ZONE, PK FROM VHNSW\n" +

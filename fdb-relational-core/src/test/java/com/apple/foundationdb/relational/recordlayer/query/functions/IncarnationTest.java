@@ -57,7 +57,7 @@ public class IncarnationTest {
 
     @RegisterExtension
     @Order(1)
-    public final SimpleDatabaseRule database = new SimpleDatabaseRule(
+    public final SimpleDatabaseRule database = new SimpleDatabaseRule(relationalExtension, 
             IncarnationTest.class,
             "CREATE TABLE my_record (key string, incarnation integer, data string, PRIMARY KEY(key))");
 

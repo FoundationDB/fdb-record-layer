@@ -28,7 +28,6 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.net.URI;
-import java.sql.DriverManager;
 import java.sql.SQLException;
 
 /** Utility for interacting with easily connections/statements. */
@@ -37,10 +36,6 @@ public final class ConnectionUtils {
     public static final String CATALOG_SCHEMA = "CATALOG";
     @Nonnull
     private final SqlFunction<String, RelationalConnection> getConnection;
-
-    public ConnectionUtils() {
-        getConnection = databaseName -> DriverManager.getConnection("jdbc:embed:" + databaseName).unwrap(RelationalConnection.class);
-    }
 
     public ConnectionUtils(@Nonnull RelationalDriver driver) {
         getConnection = databaseName -> driver.connect(URI.create("jdbc:embed:" + databaseName)).unwrap(RelationalConnection.class);

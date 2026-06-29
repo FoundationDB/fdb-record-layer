@@ -54,12 +54,12 @@ public class BasicMetadataTest {
 
     @RegisterExtension
     @Order(1)
-    public final SimpleDatabaseRule database = new SimpleDatabaseRule(
+    public final SimpleDatabaseRule database = new SimpleDatabaseRule(relationalExtension, 
             BasicMetadataTest.class, TestSchemas.restaurant());
 
     @RegisterExtension
     @Order(2)
-    public final RelationalConnectionRule dbConn = new RelationalConnectionRule(database::getConnectionUri);
+    public final RelationalConnectionRule dbConn = new RelationalConnectionRule(relationalExtension, database::getConnectionUri);
 
     @Test
     void canGetPrimaryKeysForTable() throws SQLException {

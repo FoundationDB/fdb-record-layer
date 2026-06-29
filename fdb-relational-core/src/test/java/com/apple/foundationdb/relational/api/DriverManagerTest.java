@@ -25,6 +25,8 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.Execution;
+import org.junit.jupiter.api.parallel.ExecutionMode;
 import org.mockito.ArgumentMatchers;
 import org.mockito.Mockito;
 
@@ -34,6 +36,11 @@ import java.sql.SQLException;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
+// Runs SAME_THREAD because @BeforeEach nukes every driver registered with java.sql.DriverManager
+// (which is JVM-global). Allowing this class to run concurrently with anything else that touches
+// DriverManager — i.e. most of the relational-core tests via EmbeddedRelationalExtension — would
+// race and pull the driver out from under those tests.
+@Execution(ExecutionMode.SAME_THREAD)
 class DriverManagerTest {
     RelationalDriver driver1 = Mockito.mock(RelationalDriver.class);
     RelationalDriver driver2 = Mockito.mock(RelationalDriver.class);

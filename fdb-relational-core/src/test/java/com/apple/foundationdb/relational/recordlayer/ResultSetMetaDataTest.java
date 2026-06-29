@@ -50,13 +50,13 @@ public abstract class ResultSetMetaDataTest {
 
     @RegisterExtension
     @Order(1)
-    public final SimpleDatabaseRule database = new SimpleDatabaseRule(
+    public final SimpleDatabaseRule database = new SimpleDatabaseRule(relationalExtension, 
             ResultSetMetaDataTest.class,
             TestSchemas.restaurant());
 
     @RegisterExtension
     @Order(2)
-    public final RelationalConnectionRule connection = new RelationalConnectionRule(database::getConnectionUri)
+    public final RelationalConnectionRule connection = new RelationalConnectionRule(relationalExtension, database::getConnectionUri)
             .withOptions(Options.NONE)
             .withSchema("TEST_SCHEMA");
 

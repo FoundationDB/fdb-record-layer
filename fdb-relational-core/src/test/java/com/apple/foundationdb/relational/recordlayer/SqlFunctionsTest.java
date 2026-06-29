@@ -53,12 +53,12 @@ public class SqlFunctionsTest {
 
     @RegisterExtension
     @Order(1)
-    public final SimpleDatabaseRule database = new SimpleDatabaseRule(CaseSensitiveDbObjectsTest.class,
+    public final SimpleDatabaseRule database = new SimpleDatabaseRule(relationalExtension, CaseSensitiveDbObjectsTest.class,
             SCHEMA_TEMPLATE, new SchemaTemplateRule.SchemaTemplateOptions(true, true));
 
     @RegisterExtension
     @Order(2)
-    public final RelationalConnectionRule connection = new RelationalConnectionRule(database::getConnectionUri)
+    public final RelationalConnectionRule connection = new RelationalConnectionRule(relationalExtension, database::getConnectionUri)
             .withSchema("TEST_SCHEMA");
 
     @RegisterExtension

@@ -31,6 +31,7 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.utils.ResultSetAssert;
 import com.apple.foundationdb.relational.utils.SimpleDatabaseRule;
 import com.apple.foundationdb.relational.utils.RelationalAssertions;
+import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalExtension;
 
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Order;
@@ -41,6 +42,7 @@ import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.Collections;
+import java.net.URI;
 
 /**
  * A table with no primary key (but with a record-type key can contain only one row.
@@ -52,12 +54,12 @@ public class TableWithNoPkTest {
 
     @RegisterExtension
     @Order(1)
-    public final SimpleDatabaseRule db = new SimpleDatabaseRule(TableWithNoPkTest.class,
+    public final SimpleDatabaseRule db = new SimpleDatabaseRule(relationalExtension, TableWithNoPkTest.class,
             "CREATE TABLE no_pk(a bigint, b bigint, SINGLE ROW ONLY)");
 
     @Test
     void simpleTest() throws RelationalException, SQLException {
-        try (RelationalConnection conn = DriverManager.getConnection("jdbc:embed://" + db.getDatabasePath().getPath()).unwrap(RelationalConnection.class)) {
+        try (RelationalConnection conn = relationalExtension.getDriver().connect(URI.create("jdbc:embed://" + db.getDatabasePath().getPath())).unwrap(RelationalConnection.class)) {
             conn.setSchema(db.getSchemaName());
 
             try (RelationalStatement s = conn.createStatement()) {
@@ -81,7 +83,7 @@ public class TableWithNoPkTest {
 
     @Test
     void twoInserts() throws RelationalException, SQLException {
-        try (RelationalConnection conn = DriverManager.getConnection("jdbc:embed://" + db.getDatabasePath().getPath()).unwrap(RelationalConnection.class)) {
+        try (RelationalConnection conn = relationalExtension.getDriver().connect(URI.create("jdbc:embed://" + db.getDatabasePath().getPath())).unwrap(RelationalConnection.class)) {
             conn.setSchema(db.getSchemaName());
 
             try (RelationalStatement s = conn.createStatement()) {
@@ -114,7 +116,7 @@ public class TableWithNoPkTest {
 
     @Test
     void testDelete() throws Exception {
-        try (RelationalConnection conn = DriverManager.getConnection("jdbc:embed://" + db.getDatabasePath().getPath()).unwrap(RelationalConnection.class)) {
+        try (RelationalConnection conn = relationalExtension.getDriver().connect(URI.create("jdbc:embed://" + db.getDatabasePath().getPath())).unwrap(RelationalConnection.class)) {
             conn.setSchema(db.getSchemaName());
 
             try (RelationalStatement s = conn.createStatement()) {
@@ -138,7 +140,7 @@ public class TableWithNoPkTest {
 
     @Test
     void testScan() throws Exception {
-        try (RelationalConnection conn = DriverManager.getConnection("jdbc:embed://" + db.getDatabasePath().getPath()).unwrap(RelationalConnection.class)) {
+        try (RelationalConnection conn = relationalExtension.getDriver().connect(URI.create("jdbc:embed://" + db.getDatabasePath().getPath())).unwrap(RelationalConnection.class)) {
             conn.setSchema(db.getSchemaName());
 
             try (RelationalStatement s = conn.createStatement()) {
@@ -160,7 +162,7 @@ public class TableWithNoPkTest {
 
     @Test
     void testQuery() throws Exception {
-        try (RelationalConnection conn = DriverManager.getConnection("jdbc:embed://" + db.getDatabasePath().getPath()).unwrap(RelationalConnection.class)) {
+        try (RelationalConnection conn = relationalExtension.getDriver().connect(URI.create("jdbc:embed://" + db.getDatabasePath().getPath())).unwrap(RelationalConnection.class)) {
             conn.setSchema(db.getSchemaName());
 
             try (RelationalStatement s = conn.createStatement()) {
@@ -190,7 +192,7 @@ public class TableWithNoPkTest {
 
     @Test
     void testCreateTableWithNoSingleRowOnlyClause() throws Exception {
-        try (RelationalConnection conn = DriverManager.getConnection("jdbc:embed:/__SYS").unwrap(RelationalConnection.class)) {
+        try (RelationalConnection conn = relationalExtension.getDriver().connect(URI.create("jdbc:embed:/__SYS")).unwrap(RelationalConnection.class)) {
             conn.setSchema("CATALOG");
             try (Statement statement = conn.createStatement()) {
                 //create a schema

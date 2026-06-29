@@ -52,7 +52,7 @@ public class SqlInsertTest {
 
     @RegisterExtension
     @Order(1)
-    public final SimpleDatabaseRule database = new SimpleDatabaseRule(BasicMetadataTest.class,
+    public final SimpleDatabaseRule database = new SimpleDatabaseRule(relationalExtension, BasicMetadataTest.class,
             """
             CREATE TABLE simple (rest_no bigint, name string, primary key(rest_no))
             CREATE TYPE AS STRUCT location (address string, latitude string, longitude string)

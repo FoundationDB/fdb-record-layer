@@ -52,11 +52,11 @@ public class DeleteRangeTest {
 
     @RegisterExtension
     @Order(1)
-    public final SimpleDatabaseRule database = new SimpleDatabaseRule(DeleteRangeTest.class, SCHEMA_TEMPLATE);
+    public final SimpleDatabaseRule database = new SimpleDatabaseRule(relationalExtension, DeleteRangeTest.class, SCHEMA_TEMPLATE);
 
     @RegisterExtension
     @Order(2)
-    public final RelationalConnectionRule connection = new RelationalConnectionRule(database::getConnectionUri)
+    public final RelationalConnectionRule connection = new RelationalConnectionRule(relationalExtension, database::getConnectionUri)
             .withOptions(Options.NONE)
             .withSchema("TEST_SCHEMA");
 

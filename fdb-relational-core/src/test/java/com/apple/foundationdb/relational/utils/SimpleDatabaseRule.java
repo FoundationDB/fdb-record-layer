@@ -21,6 +21,7 @@
 package com.apple.foundationdb.relational.utils;
 
 import com.apple.foundationdb.relational.api.Options;
+import com.apple.foundationdb.relational.recordlayer.RelationalExtension;
 
 import org.junit.jupiter.api.extension.AfterEachCallback;
 import org.junit.jupiter.api.extension.BeforeEachCallback;
@@ -51,7 +52,8 @@ public class SimpleDatabaseRule implements BeforeEachCallback, AfterEachCallback
     @Nonnull
     private final SchemaRule schemaRule;
 
-    public SimpleDatabaseRule(@Nonnull Class<?> testClass,
+    public SimpleDatabaseRule(@Nonnull RelationalExtension extension,
+                              @Nonnull Class<?> testClass,
                               @Nonnull String templateDefinition,
                               @Nonnull Options connectionOptions,
                               @Nullable SchemaTemplateRule.SchemaTemplateOptions templateOptions) {
@@ -66,26 +68,29 @@ public class SimpleDatabaseRule implements BeforeEachCallback, AfterEachCallback
         final var dbPath = URI.create("/TEST/" + testClass.getSimpleName() + "_" + uniqueSuffix);
         final var templateName = dbPath.getPath().substring(dbPath.getPath().lastIndexOf("/") + 1);
 
-        this.templateRule = new SchemaTemplateRule(templateName + "_TEMPLATE", Options.none(), templateOptions, templateDefinition);
-        this.databaseRule = new DatabaseRule(dbPath, connectionOptions);
-        this.schemaRule = new SchemaRule(schemaName, dbPath, templateRule.getSchemaTemplateName(), connectionOptions);
+        this.templateRule = new SchemaTemplateRule(extension, templateName + "_TEMPLATE", Options.none(), templateOptions, templateDefinition);
+        this.databaseRule = new DatabaseRule(extension, dbPath, connectionOptions);
+        this.schemaRule = new SchemaRule(extension, schemaName, dbPath, templateRule.getSchemaTemplateName(), connectionOptions);
     }
 
-    public SimpleDatabaseRule(@Nonnull final Class<?> testClass,
+    public SimpleDatabaseRule(@Nonnull final RelationalExtension extension,
+                              @Nonnull final Class<?> testClass,
                               @Nonnull final String templateDefinition,
                               @Nonnull final Options options) {
-        this(testClass, templateDefinition, options, null);
+        this(extension, testClass, templateDefinition, options, null);
     }
 
-    public SimpleDatabaseRule(@Nonnull final Class<?> testClass,
+    public SimpleDatabaseRule(@Nonnull final RelationalExtension extension,
+                              @Nonnull final Class<?> testClass,
                               @Nonnull final String templateDefinition,
                               @Nullable SchemaTemplateRule.SchemaTemplateOptions templateOptions) {
-        this(testClass, templateDefinition, Options.none(), templateOptions);
+        this(extension, testClass, templateDefinition, Options.none(), templateOptions);
     }
 
-    public SimpleDatabaseRule(@Nonnull final Class<?> testClass,
+    public SimpleDatabaseRule(@Nonnull final RelationalExtension extension,
+                              @Nonnull final Class<?> testClass,
                               @Nonnull final String templateDefinition) {
-        this(testClass, templateDefinition, Options.none(), null);
+        this(extension, testClass, templateDefinition, Options.none(), null);
     }
 
     @Override

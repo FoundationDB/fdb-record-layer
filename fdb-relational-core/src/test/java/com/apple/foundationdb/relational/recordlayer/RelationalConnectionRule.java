@@ -36,9 +36,9 @@ import org.junit.jupiter.api.extension.ExtensionContext;
 import javax.annotation.Nonnull;
 import java.net.URI;
 import java.sql.Array;
-import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.sql.Struct;
+import java.util.Objects;
 import java.util.function.Supplier;
 
 public class RelationalConnectionRule implements BeforeEachCallback, AfterEachCallback, RelationalConnection {
@@ -54,8 +54,13 @@ public class RelationalConnectionRule implements BeforeEachCallback, AfterEachCa
         this.dbPathSupplier = dbPathSupplier;
     }
 
-    public RelationalConnectionRule(Supplier<URI> dbPathSupplier) {
-        this(() -> (RelationalDriver) DriverManager.getDriver(dbPathSupplier.get().toString()),
+    public RelationalConnectionRule(@Nonnull RelationalExtension extension, Supplier<URI> dbPathSupplier) {
+        // Use the extension's driver directly rather than DriverManager. The previous pattern
+        // (DriverManager.getDriver) raced under parallel JUnit execution: another test class's
+        // afterEach could deregister the only driver between this rule's beforeEach and the
+        // getDriver() call, surfacing as `SQLException: No suitable driver`.
+        this(() -> Objects.requireNonNull(extension.getDriver(),
+                        "RelationalExtension has no active driver — its @BeforeEach must run before this rule's @BeforeEach."),
                 dbPathSupplier);
     }
 

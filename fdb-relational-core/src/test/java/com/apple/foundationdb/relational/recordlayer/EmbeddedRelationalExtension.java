@@ -51,6 +51,17 @@ import java.util.Collections;
 
 public class EmbeddedRelationalExtension implements RelationalExtension, BeforeEachCallback, AfterEachCallback {
 
+    /**
+     * One driver kept registered with {@link DriverManager} for the JVM's lifetime. A handful of
+     * test bodies still call {@code DriverManager.getConnection("jdbc:embed:...")} directly; they
+     * need at least one driver in the registry. Registered idempotently on the first extension
+     * setup, never deregistered, so it can never disappear mid-test the way the per-extension
+     * driver used to. Test helpers that go through this extension (Schema/Database/SchemaTemplate
+     * rules, {@code Ddl}, {@code RelationalConnectionRule}) instead use the per-extension
+     * {@link #getDriver() driver} directly and never touch DriverManager.
+     */
+    private static volatile RelationalDriver fallbackRegisteredDriver;
+
     @Nonnull
     private final KeySpace keySpace;
 
@@ -90,12 +101,10 @@ public class EmbeddedRelationalExtension implements RelationalExtension, BeforeE
 
     @Override
     public void afterEach(ExtensionContext ignored) throws Exception {
-        if (driver != null) {
-            if (register) {
-                DriverManager.deregisterDriver(driver);
-            }
-            driver = null;
-        }
+        // Drop the per-instance driver reference. We do NOT deregister from DriverManager —
+        // that's what caused the parallel-test race we used to hit (one class's afterEach pulled
+        // the driver out from under another class's mid-flight test).
+        driver = null;
     }
 
     @Override
@@ -117,7 +126,29 @@ public class EmbeddedRelationalExtension implements RelationalExtension, BeforeE
         engine = makeEngine(database, FormatVersion.getDefaultFormatVersion());
         driver = new EmbeddedRelationalDriver(engine);
         if (register) {
-            DriverManager.registerDriver(driver);
+            // Keep ONE driver permanently registered for the small number of test bodies that
+            // still call DriverManager.getConnection("jdbc:embed:...") directly. The fallback
+            // is a SEPARATE driver instance (not the per-extension `driver` above) so that
+            // tests which deregister/re-register their own driver — e.g. TransactionBoundQueryTest
+            // — can never knock the fallback out from under other concurrent tests.
+            ensureFallbackDriverRegistered(engine);
+        }
+    }
+
+    private static synchronized void ensureFallbackDriverRegistered(@Nonnull final EmbeddedRelationalEngine engineToWrap) throws SQLException {
+        if (fallbackRegisteredDriver == null) {
+            // Brand-new driver instance wrapping the first extension's engine. No test ever
+            // gets a reference to this object (extensions return their own `driver` field
+            // instead), so deregistering "the extension driver" can't pull this one out.
+            fallbackRegisteredDriver = new EmbeddedRelationalDriver(engineToWrap);
+        }
+        // Check on every call whether the fallback is still in DriverManager's registry —
+        // DriverManagerTest's @BeforeEach deliberately nukes every registered driver, so we may
+        // need to re-add ours each time a test that depends on it sets up.
+        final RelationalDriver fallback = fallbackRegisteredDriver;
+        final boolean stillRegistered = DriverManager.drivers().anyMatch(d -> d == fallback);
+        if (!stillRegistered) {
+            DriverManager.registerDriver(fallback);
         }
     }
 

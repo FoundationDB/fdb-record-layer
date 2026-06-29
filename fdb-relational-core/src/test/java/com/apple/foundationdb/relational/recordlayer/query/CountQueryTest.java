@@ -56,11 +56,11 @@ public class CountQueryTest {
 
     @RegisterExtension
     @Order(1)
-    final SimpleDatabaseRule database = new SimpleDatabaseRule(CountQueryTest.class, SCHEMA_TEMPLATE);
+    final SimpleDatabaseRule database = new SimpleDatabaseRule(relationalExtension, CountQueryTest.class, SCHEMA_TEMPLATE);
 
     @RegisterExtension
     @Order(2)
-    final RelationalConnectionRule connection = new RelationalConnectionRule(database::getConnectionUri).withSchema(database.getSchemaName());
+    final RelationalConnectionRule connection = new RelationalConnectionRule(relationalExtension, database::getConnectionUri).withSchema(database.getSchemaName());
 
     @RegisterExtension
     @Order(3)

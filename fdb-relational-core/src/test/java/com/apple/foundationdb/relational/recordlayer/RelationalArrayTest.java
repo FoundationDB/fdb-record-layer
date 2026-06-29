@@ -82,7 +82,7 @@ public class RelationalArrayTest {
 
     @RegisterExtension
     @Order(1)
-    public final SimpleDatabaseRule database = new SimpleDatabaseRule(RelationalArrayTest.class, SCHEMA_TEMPLATE);
+    public final SimpleDatabaseRule database = new SimpleDatabaseRule(relationalExtension, RelationalArrayTest.class, SCHEMA_TEMPLATE);
 
     public void insertQuery(@Nonnull String q) throws SQLException {
         try (final var conn = DriverManager.getConnection(database.getConnectionUri().toString())) {

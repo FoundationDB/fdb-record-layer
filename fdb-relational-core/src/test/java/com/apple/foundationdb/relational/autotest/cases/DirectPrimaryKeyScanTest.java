@@ -78,7 +78,7 @@ public class DirectPrimaryKeyScanTest {
     public Connector relationalConnector = new Connector() {
         @Override
         public RelationalConnection connect(URI dbUri) throws SQLException {
-            return DriverManager.getConnection("jdbc:embed:" + dbUri.getPath()).unwrap(RelationalConnection.class);
+            return relational.getDriver().connect(URI.create("jdbc:embed:" + dbUri.getPath())).unwrap(RelationalConnection.class);
         }
 
         @Override

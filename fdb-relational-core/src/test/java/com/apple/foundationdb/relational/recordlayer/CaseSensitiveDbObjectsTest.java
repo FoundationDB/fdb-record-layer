@@ -56,13 +56,13 @@ public class CaseSensitiveDbObjectsTest {
 
     @RegisterExtension
     @Order(1)
-    public final SimpleDatabaseRule database = new SimpleDatabaseRule(CaseSensitiveDbObjectsTest.class,
+    public final SimpleDatabaseRule database = new SimpleDatabaseRule(relationalExtension, CaseSensitiveDbObjectsTest.class,
             SCHEMA_TEMPLATE, Options.builder().withOption(Options.Name.CASE_SENSITIVE_IDENTIFIERS, true).build(),
             new SchemaTemplateRule.SchemaTemplateOptions(true, true));
 
     @RegisterExtension
     @Order(2)
-    public final RelationalConnectionRule connection = new RelationalConnectionRule(database::getConnectionUri)
+    public final RelationalConnectionRule connection = new RelationalConnectionRule(relationalExtension, database::getConnectionUri)
             .withOptions(Options.builder().withOption(Options.Name.CASE_SENSITIVE_IDENTIFIERS, true).build())
             .withSchema("TEST_SCHEMA");
 
