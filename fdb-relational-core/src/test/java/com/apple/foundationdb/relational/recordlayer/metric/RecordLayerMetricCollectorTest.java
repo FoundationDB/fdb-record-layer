@@ -108,7 +108,7 @@ public class RecordLayerMetricCollectorTest {
     }
 
     private void setupAndExecuteWithConnection(Consumer<EmbeddedRelationalConnection> execute) throws Exception {
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/METRIC_COLLECTOR_TESTS")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             final var connection = ddl.setSchemaAndGetConnection().unwrap(EmbeddedRelationalConnection.class);
             try (var statement = connection.createStatement()) {
                 for (int i = 0; i < 10; i++) {

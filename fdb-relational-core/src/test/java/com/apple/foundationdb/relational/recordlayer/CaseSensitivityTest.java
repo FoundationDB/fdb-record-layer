@@ -63,7 +63,7 @@ public class CaseSensitivityTest {
     @Test
     void selectFromCaseInsensitiveTable() throws Exception {
         final String schema = "CREATE TABLE tbl1 (id bigint, value bigint, PRIMARY KEY(id))";
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/CaseSensitivity")).relationalExtension(relationalExtension).schemaTemplate(schema).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schema).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 for (String tableName : List.of("tbl1", "TBL1", "TbL1", "\"TBL1\"")) {
                     Assertions.assertDoesNotThrow(() -> statement.execute("SELECT * FROM " + tableName));
