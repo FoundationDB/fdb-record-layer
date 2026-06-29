@@ -140,7 +140,7 @@ public final class OfflineStoredQueriesProcessor {
                 durationMicros = (long) metricCollector.getAverageTimeMicrosForEvent(
                         RelationalMetric.RelationalEvent.OFFLINE_STORED_QUERIES_WARM_UP);
             } catch (RelationalException e) {
-                // fall back to -1, duration is informational only
+                assert e != null;
             }
             logger.info(KeyValueLogMessage.of("OfflineStoredQueriesProcessor finished",
                     "templatesProcessed", counts.templatesProcessed,
