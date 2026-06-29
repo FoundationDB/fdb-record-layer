@@ -302,7 +302,8 @@ class PendingWriteQueueTest extends FDBRecordStoreTestBase {
     }
 
     @Test
-    void testIterateWithContinuations() {        List<TestDocument> docs = createTestDocuments();
+    void testIterateWithContinuations() {
+        List<TestDocument> docs = createTestDocuments();
         List<TestDocument> moreDocs = createTestDocuments();
         int incarnationValue = 0xf00ba7;
 
