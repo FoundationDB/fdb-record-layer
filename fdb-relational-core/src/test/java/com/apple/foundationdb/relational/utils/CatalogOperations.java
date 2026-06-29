@@ -175,6 +175,7 @@ public final class CatalogOperations {
                     action.run();
                     return;
                 } catch (SQLException e) {
+                    // TODO these retries were added when other code didn't pass through here, can it be removed now
                     if (attempt >= MAX_ATTEMPTS || !isRetriable(e)) {
                         throw e;
                     }
