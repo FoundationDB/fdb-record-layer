@@ -39,6 +39,7 @@ import org.junit.Assert;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
+import org.junit.jupiter.api.parallel.ResourceLock;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
@@ -51,6 +52,10 @@ import java.util.List;
 /**
  * Testing basic query logging: plan, time, cache hits, etc.
  */
+// Shares Log4j 'PlanGeneratorLogger' state (the global PlanGenerator logger) with sibling test
+// classes via {@link LogAppenderRule}. @ResourceLock serializes us against them so that
+// concurrent setLevel/addAppender/getLogs calls don't cross-pollinate or drop messages.
+@ResourceLock("PlanGeneratorLogger")
 public class QueryLoggingTest {
     @RegisterExtension
     @Order(0)

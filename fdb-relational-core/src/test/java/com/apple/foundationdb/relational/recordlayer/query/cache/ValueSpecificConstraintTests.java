@@ -37,12 +37,17 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
+import org.junit.jupiter.api.parallel.ResourceLock;
 
 import javax.annotation.Nonnull;
 import java.net.URI;
 import java.util.Map;
 import java.util.TreeMap;
 
+// Shares Log4j 'PlanGeneratorLogger' state (the global PlanGenerator logger) with sibling test
+// classes via {@link LogAppenderRule}. @ResourceLock serializes us against them so that
+// concurrent setLevel/addAppender/getLogs calls don't cross-pollinate or drop messages.
+@ResourceLock("PlanGeneratorLogger")
 public class ValueSpecificConstraintTests {
 
     @RegisterExtension

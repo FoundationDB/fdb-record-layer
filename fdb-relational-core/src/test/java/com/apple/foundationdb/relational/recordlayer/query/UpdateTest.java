@@ -43,6 +43,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
+import org.junit.jupiter.api.parallel.ResourceLock;
 import org.opentest4j.AssertionFailedError;
 
 import java.sql.SQLException;
@@ -51,6 +52,10 @@ import java.util.List;
 import java.util.function.Function;
 import java.net.URI;
 
+// Shares Log4j 'PlanGeneratorLogger' state (the global PlanGenerator logger) with sibling test
+// classes via {@link LogAppenderRule}. @ResourceLock serializes us against them so that
+// concurrent setLevel/addAppender/getLogs calls don't cross-pollinate or drop messages.
+@ResourceLock("PlanGeneratorLogger")
 public class UpdateTest {
 
     private static final String schemaTemplate =
