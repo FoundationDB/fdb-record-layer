@@ -242,9 +242,8 @@ public class ReassignScenarioTest implements BaseTest {
                     final UUID syntheticUuid = RandomHelpers.randomUuid(rnd, true);
                     final VectorMetadata vm = new VectorMetadata(syntheticPk, syntheticUuid, null);
                     primitives.writeVectorMetadata(tr, vm);
-                    final VectorReference vr = new VectorReference(vm.vectorId(), true,
-                            true, false,
-                            transformedFixedVector, -1.0d);
+                    final VectorReference vr = VectorReference.primaryCopy(vm.vectorId(), transformedFixedVector,
+                            true, false);
                     primitives.writeVectorReference(tr, quantizer, targetClusterId, vr);
                     updatedStandardDeviation = updatedStandardDeviation.add(distanceToTargetCentroid);
                 }

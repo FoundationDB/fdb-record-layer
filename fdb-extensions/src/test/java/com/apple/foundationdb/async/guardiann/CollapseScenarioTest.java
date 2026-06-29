@@ -312,9 +312,8 @@ public class CollapseScenarioTest implements BaseTest {
                 primitives.writeVectorMetadata(tr, vectorMetadata);
                 final double replicationPriority = 1.0d - 0.01d * i; // i == 0 is the maximum
                 primitives.writeVectorReference(tr, quantizer, clusterId,
-                        new VectorReference(vectorMetadata.vectorId(), false, false,
-                                false, transformedDuplicate,
-                                replicationPriority));
+                        VectorReference.replicatedCopy(vectorMetadata.vectorId(), transformedDuplicate,
+                                replicationPriority, false));
             }
             return null;
         });

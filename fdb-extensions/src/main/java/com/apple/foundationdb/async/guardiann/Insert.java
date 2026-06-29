@@ -318,10 +318,8 @@ public class Insert {
             final RunningStats updatedStandardDeviation;
             if (isPrimaryCluster) {
                 primitives.writeVectorReference(transaction, quantizer, clusterId,
-                        new VectorReference(newVectorMetadata.vectorId(),
-                                true, false,
-                                false, transformedNewVector,
-                                -1.0d));
+                        VectorReference.primaryCopy(newVectorMetadata.vectorId(), transformedNewVector,
+                                false, false));
                 updatedStandardDeviation =
                         runningStandardDeviation.add(distance);
             } else {
@@ -339,10 +337,8 @@ public class Insert {
                                 clusterMetadata.standardDeviation());
 
                 primitives.writeVectorReference(transaction, quantizer, clusterId,
-                        new VectorReference(newVectorMetadata.vectorId(),
-                                false, false,
-                                false, transformedNewVector,
-                                replicationPriority));
+                        VectorReference.replicatedCopy(newVectorMetadata.vectorId(), transformedNewVector,
+                                replicationPriority, false));
                 selectedReplicationClusters.add(replicationCandidate);
 
                 updatedStandardDeviation = runningStandardDeviation;

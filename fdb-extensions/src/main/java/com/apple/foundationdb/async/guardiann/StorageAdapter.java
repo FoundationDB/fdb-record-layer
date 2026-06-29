@@ -388,26 +388,33 @@ class StorageAdapter {
                                                      @Nonnull final Tuple primaryKey,
                                                      @Nonnull final Tuple valueTuple) {
         final VectorId vectorId = new VectorId(primaryKey, valueTuple.getUUID(0));
-
-        final boolean isPrimaryCopy = valueTuple.getBoolean(1);
-        final boolean isUnderreplicated = valueTuple.getBoolean(2);
-        final boolean isCollapsed = valueTuple.getBoolean(3);
+        final VectorReference.Role role = VectorReference.Role.ofCode((int)valueTuple.getLong(1));
+        final boolean isCollapsed = valueTuple.getBoolean(2);
         final Transformed<RealVector> vector =
-                storageTransform.transform(StorageHelpers.vectorFromBytes(config, valueTuple.getBytes(4)));
-        final double replicationPriority = isPrimaryCopy ? -1 : valueTuple.getDouble(5);
-        return new VectorReference(vectorId, isPrimaryCopy, isUnderreplicated, isCollapsed,
-                vector, replicationPriority);
+                storageTransform.transform(StorageHelpers.vectorFromBytes(config, valueTuple.getBytes(3)));
+        return switch (role) {
+            case PRIMARY -> VectorReference.primaryCopy(vectorId, vector, false, isCollapsed);
+            case UNDERREPLICATED_PRIMARY -> VectorReference.primaryCopy(vectorId, vector, true, isCollapsed);
+            case REPLICATED -> VectorReference.replicatedCopy(vectorId, vector, valueTuple.getDouble(4), isCollapsed);
+        };
     }
 
     @Nonnull
     static Tuple valueTupleFromVectorReference(@Nonnull final Quantizer quantizer,
                                                @Nonnull final VectorReference vectorReference) {
-        final VectorId vectorId = vectorReference.id();
-        final Transformed<RealVector> encodedVector = quantizer.encode(vectorReference.vector());
-        return Tuple.from(vectorId.uuid(), vectorReference.isPrimaryCopy(),
-                vectorReference.isUnderreplicated(), vectorReference.isCollapsed(),
-                encodedVector.getUnderlyingVector().getRawData(),
-                vectorReference.isPrimaryCopy() ? null : vectorReference.replicationPriority());
+        final UUID uuid = vectorReference.id().uuid();
+        final byte[] rawData = quantizer.encode(vectorReference.vector()).getUnderlyingVector().getRawData();
+        final boolean isCollapsed = vectorReference.isCollapsed();
+        if (vectorReference instanceof ReplicatedCopy replicatedCopy) {
+            return Tuple.from(uuid, VectorReference.Role.REPLICATED.getCode(), isCollapsed, rawData,
+                    replicatedCopy.replicationPriority());
+        }
+        // The only other sealed variant is a primary copy; underreplication is folded into the role code.
+        final VectorReference.Role role =
+                vectorReference.isUnderreplicated()
+                ? VectorReference.Role.UNDERREPLICATED_PRIMARY
+                : VectorReference.Role.PRIMARY;
+        return Tuple.from(uuid, role.getCode(), isCollapsed, rawData);
     }
 
     @Nonnull
