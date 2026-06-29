@@ -65,6 +65,13 @@ public class EmbeddedConfig implements YamlTestConfig {
                 // class-level parallel execution, plans accumulated across many sequential test
                 // methods in the same FRL don't get evicted before the framework's "should have
                 // hit the cache by now" assertion runs. Tertiary default (8) is the tight one.
+                //
+                // Larger sizes (e.g. 2000+) verified to expose a real cache-invalidation gap:
+                // SELECT/scan plans cached against a schema or record store that a subsequent
+                // test drops are not invalidated, so the next test that re-uses the cached plan
+                // fails with RecordStoreDoesNotExistException or "SchemaTemplate=… is not in
+                // catalog". Keeping the bump moderate sidesteps the gap until it's fixed
+                // separately.
                 .withOption(Options.Name.PLAN_CACHE_PRIMARY_MAX_ENTRIES, 100)
                 .withOption(Options.Name.PLAN_CACHE_SECONDARY_MAX_ENTRIES, 1000)
                 .withOption(Options.Name.PLAN_CACHE_TERTIARY_MAX_ENTRIES, 100)
