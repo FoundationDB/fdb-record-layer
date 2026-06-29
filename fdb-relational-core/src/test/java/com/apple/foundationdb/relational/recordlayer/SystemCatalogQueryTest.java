@@ -24,6 +24,7 @@ import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.relational.utils.CatalogOperations;
 import com.apple.foundationdb.relational.utils.ResultSetAssert;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalExtension;
 
@@ -72,12 +73,7 @@ public class SystemCatalogQueryTest {
     }
 
     private static void runDdl(@Nonnull final String ddl) throws Exception {
-        try (final var conn = relationalExtension.getDriver().connect(URI.create("jdbc:embed:/__SYS"))) {
-            conn.setSchema("CATALOG");
-            try (final var statement = conn.createStatement()) {
-                statement.executeUpdate(ddl);
-            }
-        }
+        CatalogOperations.runDdl(relationalExtension.getDriver(), ddl);
     }
 
     private static void createDb(@Nonnull final String dbName) throws Exception {

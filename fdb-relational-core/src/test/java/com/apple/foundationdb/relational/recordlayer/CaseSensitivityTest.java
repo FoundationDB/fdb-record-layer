@@ -28,6 +28,7 @@ import com.apple.foundationdb.relational.api.RelationalDatabaseMetaData;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
+import com.apple.foundationdb.relational.utils.CatalogOperations;
 import com.apple.foundationdb.relational.utils.Ddl;
 import com.apple.foundationdb.relational.utils.ResultSetAssert;
 import com.apple.foundationdb.relational.utils.RelationalAssertions;
@@ -77,8 +78,7 @@ public class CaseSensitivityTest {
 
     @Test
     public void databaseWithSameUpperName() throws Exception {
-        try (final var conn = relationalExtension.getDriver().connect(URI.create("jdbc:embed:/__SYS"))) {
-            conn.setSchema("CATALOG");
+        CatalogOperations.runOnCatalog(relationalExtension.getDriver(), conn -> {
             try (final var statement = conn.createStatement()) {
                 //create a database
                 statement.executeUpdate("CREATE DATABASE /test/upper");
@@ -91,7 +91,8 @@ public class CaseSensitivityTest {
                     statement.executeUpdate("DROP DATABASE /test/upper");
                 }
             }
-        }
+        });
+
     }
 
     private String quote(String dbObject, boolean quote) {
@@ -106,8 +107,7 @@ public class CaseSensitivityTest {
     @ValueSource(booleans = {true, false})
     public void variousDatabases(boolean quoted) throws Exception {
         List<String> databases = List.of("/TEST/ABC1", "/TEST/def2", "/TEST/Ghi3", "/TEST/jKL4");
-        try (final var conn = relationalExtension.getDriver().connect(URI.create("jdbc:embed:/__SYS"))) {
-            conn.setSchema("CATALOG");
+        CatalogOperations.runOnCatalog(relationalExtension.getDriver(), conn -> {
             try {
                 try (final var statement = conn.createStatement()) {
                     // Quoted databases
@@ -135,15 +135,15 @@ public class CaseSensitivityTest {
                     }
                 }
             }
-        }
+        });
+
     }
 
     @ParameterizedTest
     @ValueSource(booleans = {true, false})
     public void variousSchemas(boolean quoted) throws Exception {
         List<String> schemas = List.of("ABC2", "def3", "Ghi4", "jKL5");
-        try (final var conn = relationalExtension.getDriver().connect(URI.create("jdbc:embed:/__SYS"))) {
-            conn.setSchema("CATALOG");
+        CatalogOperations.runOnCatalog(relationalExtension.getDriver(), conn -> {
             try {
                 try (final var statement = conn.createStatement()) {
                     statement.executeUpdate("DROP DATABASE if exists /test/various_schemas");
@@ -168,7 +168,8 @@ public class CaseSensitivityTest {
                     statement.executeUpdate("DROP SCHEMA TEMPLATE temp_various_schemas");
                 }
             }
-        }
+        });
+
     }
 
     @ParameterizedTest
@@ -179,8 +180,8 @@ public class CaseSensitivityTest {
             "SchemaTemplateCatalog))")
     public void variousStructs(boolean quoted) throws Exception {
         List<String> structs = List.of(/*"ABC1",*/ "def2", "Ghi3", "jKL4");
-        try (RelationalConnection conn = relationalExtension.getDriver().connect(URI.create("jdbc:embed:/__SYS")).unwrap(RelationalConnection.class)) {
-            conn.setSchema("CATALOG");
+        CatalogOperations.runOnCatalog(relationalExtension.getDriver(), connection -> {
+                RelationalConnection conn = connection.unwrap(RelationalConnection.class);
             try {
                 try (RelationalStatement statement = conn.createStatement()) {
                     for (String struct : structs) {
@@ -197,15 +198,16 @@ public class CaseSensitivityTest {
                     }
                 }
             }
-        }
+        });
+
     }
 
     @ParameterizedTest
     @ValueSource(booleans = {true, false})
     public void variousTables(boolean quoted) throws Exception {
         List<String> tables = List.of("ABC1", "def2", "Ghi3", "jKL4");
-        try (RelationalConnection conn = relationalExtension.getDriver().connect(URI.create("jdbc:embed:/__SYS")).unwrap(RelationalConnection.class)) {
-            conn.setSchema("CATALOG");
+        CatalogOperations.runOnCatalog(relationalExtension.getDriver(), connection -> {
+                RelationalConnection conn = connection.unwrap(RelationalConnection.class);
             try {
                 try (RelationalStatement statement = conn.createStatement()) {
                     statement.executeUpdate("DROP DATABASE if exists /test/various_tables_db");
@@ -238,15 +240,16 @@ public class CaseSensitivityTest {
                     }
                 }
             }
-        }
+        });
+
     }
 
     @ParameterizedTest
     @ValueSource(booleans = {true, false})
     public void variousColumns(boolean quoted) throws Exception {
         List<String> columns = List.of("ABC1", "def2", "Ghi3", "jKL4");
-        try (RelationalConnection conn = relationalExtension.getDriver().connect(URI.create("jdbc:embed:/__SYS")).unwrap(RelationalConnection.class)) {
-            conn.setSchema("CATALOG");
+        CatalogOperations.runOnCatalog(relationalExtension.getDriver(), connection -> {
+                RelationalConnection conn = connection.unwrap(RelationalConnection.class);
             try {
                 try (RelationalStatement statement = conn.createStatement()) {
                     statement.executeUpdate("CREATE DATABASE /test/various_columns_db");
@@ -277,7 +280,8 @@ public class CaseSensitivityTest {
                     }
                 }
             }
-        }
+        });
+
     }
 
     @Test
@@ -286,8 +290,8 @@ public class CaseSensitivityTest {
         List<String> schemas = List.of("schema", "SCHEMA", "Schema", "ScHeMa");
         List<String> tables = List.of("table", "TABLE", "Table", "TaBlE");
         List<String> columns = List.of("column", "COLUMN", "Column", "CoLuMn");
-        try (RelationalConnection conn = relationalExtension.getDriver().connect(URI.create("jdbc:embed:/__SYS")).unwrap(RelationalConnection.class)) {
-            conn.setSchema("CATALOG");
+        CatalogOperations.runOnCatalog(relationalExtension.getDriver(), connection -> {
+                RelationalConnection conn = connection.unwrap(RelationalConnection.class);
             try {
                 try (RelationalStatement statement = conn.createStatement()) {
                     for (String schema : schemas) {
@@ -357,6 +361,7 @@ public class CaseSensitivityTest {
                     }
                 }
             }
-        }
+        });
+
     }
 }
