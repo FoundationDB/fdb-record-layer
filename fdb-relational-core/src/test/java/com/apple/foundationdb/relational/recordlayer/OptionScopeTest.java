@@ -35,7 +35,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
 import java.sql.Connection;
-import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
@@ -57,7 +56,7 @@ public class OptionScopeTest {
 
     @Test
     public void optionTakenFromConnection() throws SQLException, RelationalException {
-        final var driver = (RelationalDriver) DriverManager.getDriver(db.getConnectionUri().toString());
+        final var driver = relationalExtension.getDriver();
         try (Connection conn = driver.connect(db.getConnectionUri(), Options.builder().withOption(Options.Name.DRY_RUN, true).build())) {
             conn.setSchema(db.getSchemaName());
             try (Statement statement = conn.createStatement()) {
@@ -84,7 +83,7 @@ public class OptionScopeTest {
 
     @Test
     public void optionSetInConnectionButOverriddenInQuery() throws SQLException, RelationalException {
-        final var driver = (RelationalDriver) DriverManager.getDriver(db.getConnectionUri().toString());
+        final var driver = relationalExtension.getDriver();
         try (Connection conn = driver.connect(db.getConnectionUri(), Options.builder().withOption(Options.Name.DRY_RUN, false).build())) {
             conn.setSchema(db.getSchemaName());
             try (Statement statement = conn.createStatement()) {

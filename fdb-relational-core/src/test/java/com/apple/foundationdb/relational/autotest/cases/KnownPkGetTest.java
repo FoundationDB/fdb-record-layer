@@ -46,7 +46,6 @@ import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalExtension
 import org.junit.jupiter.api.extension.RegisterExtension;
 
 import java.net.URI;
-import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Collection;

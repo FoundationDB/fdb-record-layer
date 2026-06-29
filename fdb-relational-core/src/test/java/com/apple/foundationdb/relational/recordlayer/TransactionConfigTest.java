@@ -34,8 +34,8 @@ import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
-import java.sql.DriverManager;
 import java.sql.SQLException;
+import java.net.URI;
 
 public class TransactionConfigTest {
     @RegisterExtension
@@ -48,7 +48,7 @@ public class TransactionConfigTest {
 
     @Disabled // TODO (Bug: sporadic failure in `testRecordInsertionWithTimeOutInConfig`)
     void testRecordInsertionWithTimeOutInConfig() throws RelationalException, SQLException {
-        try (RelationalConnection conn = DriverManager.getConnection(database.getConnectionUri().toString()).unwrap(RelationalConnection.class)) {
+        try (RelationalConnection conn = relational.getDriver().connect(URI.create(database.getConnectionUri().toString())).unwrap(RelationalConnection.class)) {
             conn.setSchema("TEST_SCHEMA");
             conn.setOption(Options.Name.TRANSACTION_TIMEOUT, 1L);
             try (RelationalStatement s = conn.createStatement()) {

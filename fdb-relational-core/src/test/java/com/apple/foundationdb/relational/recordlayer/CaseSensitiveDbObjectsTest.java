@@ -37,8 +37,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
 import javax.annotation.Nonnull;
-import java.sql.DriverManager;
 import java.sql.SQLException;
+import java.net.URI;
 
 /**
  * Test case-sensitive db object connection option.
@@ -153,8 +153,8 @@ public class CaseSensitiveDbObjectsTest {
         Assertions.assertThat(logAppender.getLastLogEventMessage()).contains("select 'id' from 't1' where 'group' = ?");
         Assertions.assertThat(logAppender.getLastLogEventMessage()).contains("planCache=\"miss\"");
 
-        try (RelationalConnection caseInsensitiveConn = DriverManager.getConnection(database.getConnectionUri()
-                .toString()).unwrap(RelationalConnection.class)) {
+        try (RelationalConnection caseInsensitiveConn = relationalExtension.getDriver().connect(URI.create(database.getConnectionUri()
+                .toString())).unwrap(RelationalConnection.class)) {
             caseInsensitiveConn.setSchema("TEST_SCHEMA");
             try (RelationalStatement caseInsensitiveStatement = caseInsensitiveConn.createStatement()) {
                 try (RelationalResultSet resultSet = caseInsensitiveStatement.executeQuery(

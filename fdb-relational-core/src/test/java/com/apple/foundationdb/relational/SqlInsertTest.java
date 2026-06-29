@@ -41,8 +41,8 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
-import java.sql.DriverManager;
 import java.util.Map;
+import java.net.URI;
 
 public class SqlInsertTest {
 
@@ -63,7 +63,7 @@ public class SqlInsertTest {
     @ParameterizedTest
     @ValueSource(booleans = {true, false})
     void canInsertUsingSqlSyntaxAndSingleQuotes(boolean useNamed) throws Exception {
-        try (RelationalConnection conn = DriverManager.getConnection(database.getConnectionUri().toString()).unwrap(RelationalConnection.class)) {
+        try (RelationalConnection conn = relationalExtension.getDriver().connect(URI.create(database.getConnectionUri().toString())).unwrap(RelationalConnection.class)) {
             conn.setSchema(database.getSchemaName());
 
             try (RelationalStatement stmt = conn.createStatement()) {
@@ -83,7 +83,7 @@ public class SqlInsertTest {
 
     @Test
     void canInsertStructUnnamed() throws Exception {
-        try (RelationalConnection conn = DriverManager.getConnection(database.getConnectionUri().toString()).unwrap(RelationalConnection.class)) {
+        try (RelationalConnection conn = relationalExtension.getDriver().connect(URI.create(database.getConnectionUri().toString())).unwrap(RelationalConnection.class)) {
             conn.setSchema(database.getSchemaName());
 
             try (RelationalStatement stmt = conn.createStatement()) {
@@ -103,7 +103,7 @@ public class SqlInsertTest {
 
     @Test
     void canInsertStructNamed() throws Exception {
-        try (RelationalConnection conn = DriverManager.getConnection(database.getConnectionUri().toString()).unwrap(RelationalConnection.class)) {
+        try (RelationalConnection conn = relationalExtension.getDriver().connect(URI.create(database.getConnectionUri().toString())).unwrap(RelationalConnection.class)) {
             conn.setSchema(database.getSchemaName());
 
             try (RelationalStatement stmt = conn.createStatement()) {
@@ -123,7 +123,7 @@ public class SqlInsertTest {
 
     @Test
     void cannotInsertWithInsertRuleDisabled() throws Exception {
-        try (RelationalConnection conn = DriverManager.getConnection(database.getConnectionUri().toString()).unwrap(RelationalConnection.class)) {
+        try (RelationalConnection conn = relationalExtension.getDriver().connect(URI.create(database.getConnectionUri().toString())).unwrap(RelationalConnection.class)) {
             // Turn off the planner rule that allows for inserts to be planned
             conn.setOption(Options.Name.DISABLED_PLANNER_RULES, ImmutableSet.of(ImplementInsertRule.class.getSimpleName()));
             conn.setSchema(database.getSchemaName());
@@ -143,7 +143,7 @@ public class SqlInsertTest {
     @Test
     @Disabled()
     void canInsertStructWithStructFieldsNamed() throws Exception {
-        try (RelationalConnection conn = DriverManager.getConnection(database.getConnectionUri().toString()).unwrap(RelationalConnection.class)) {
+        try (RelationalConnection conn = relationalExtension.getDriver().connect(URI.create(database.getConnectionUri().toString())).unwrap(RelationalConnection.class)) {
             conn.setSchema(database.getSchemaName());
 
             try (RelationalStatement stmt = conn.createStatement()) {
