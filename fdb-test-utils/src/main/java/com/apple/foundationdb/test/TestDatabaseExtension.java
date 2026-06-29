@@ -31,6 +31,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Objects;
 import java.util.concurrent.Executor;
+import java.util.concurrent.ForkJoinPool;
 
 /**
  * Test extension to use to get a connection to an FDB {@link Database}. This handles setting up the FDB
@@ -107,7 +108,7 @@ public class TestDatabaseExtension implements BeforeAllCallback, AfterAllCallbac
     @Nonnull
     public Database getDatabase() {
         if (db == null) {
-            db = FDB.instance().open(FDBTestEnvironment.randomClusterFile(), threadPoolExecutor);
+            db = FDB.instance().open(FDBTestEnvironment.randomClusterFile(), ForkJoinPool.commonPool());
         }
         return db;
     }
