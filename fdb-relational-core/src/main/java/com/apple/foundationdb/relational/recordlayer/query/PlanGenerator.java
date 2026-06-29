@@ -73,6 +73,7 @@ import java.net.URI;
 import java.sql.SQLException;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -130,11 +131,13 @@ public final class PlanGenerator {
      */
     @Nonnull
     public Plan<?> getPlan(@Nonnull final String query) throws RelationalException {
-        return getPlanAndLog(query, KeyValueLogMessage.build("PlanGenerator"));
+        return getPlan(query, Map.of());
     }
 
     @Nonnull
-    private Plan<?> getPlanAndLog(@Nonnull final String query, @Nonnull KeyValueLogMessage message) throws RelationalException {
+    public Plan<?> getPlan(@Nonnull final String query, @Nonnull final Map<String, Object> logContext) throws RelationalException {
+        final KeyValueLogMessage message = KeyValueLogMessage.build("PlanGenerator");
+        message.addKeysAndValues(logContext);
         resetTimer();
         Plan<?> plan = null;
         RelationalException exception = null;
@@ -174,11 +177,10 @@ public final class PlanGenerator {
         final var templateKey = schemaTemplate.getName() + ":" + schemaTemplate.getVersion();
         for (final var storedQuery : schemaTemplate.getStoredQueries().entrySet()) {
             try {
-                KeyValueLogMessage message = KeyValueLogMessage.build("PlanGenerator");
-                message.addKeyAndValue("schemaTemplate", templateKey);
-                message.addKeyAndValue("storedQueryName", storedQuery.getKey());
-                message.addKeyAndValue("storedQuerySql", storedQuery.getValue());
-                getPlanAndLog(storedQuery.getValue(), message);
+                getPlan(storedQuery.getValue(), Map.of(
+                        "schemaTemplate", templateKey,
+                        "storedQueryName", storedQuery.getKey(),
+                        "storedQuerySql", storedQuery.getValue()));
                 queriesPlanned++;
             } catch (RelationalException e) {
                 // do nothing here, error is already logged
