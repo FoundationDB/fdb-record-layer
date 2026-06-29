@@ -138,7 +138,7 @@ public interface SchemaTemplate extends Metadata {
      *         the temp-function declarations that must precede it).
      */
     @Nonnull
-    Map<String, StoredQuery> getStoredQueries();
+    Map<String, StoredQuery> getStoredQueries() throws RelationalException;
 
     @Nonnull
     String getTransactionBoundMetadataAsString() throws RelationalException;

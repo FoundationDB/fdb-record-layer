@@ -137,27 +137,6 @@ public class StoredQueriesTest {
         return total;
     }
 
-    private void showCache(RelationalConnection connection) throws SQLException {
-        final var embeddedConnection = connection.unwrap(EmbeddedRelationalConnection.class);
-        final RelationalPlanCache cache = embeddedConnection.getRecordLayerDatabase().getPlanCache();
-        if (cache == null) {
-            System.out.println("[CACHE] no plan cache");
-            return;
-        }
-        for (String key : cache.getStats().getAllKeys()) {
-            System.out.println("[CACHE] template: " + key);
-            for (QueryCacheKey secondaryKey : cache.getStats().getAllSecondaryKeys(key)) {
-                System.out.println("[CACHE]   query: " + secondaryKey.getCanonicalQueryString()
-                        + " (version=" + secondaryKey.getSchemaTemplateVersion() + ")");
-                var tertiaryMappings = cache.getStats().getAllTertiaryMappings(key, secondaryKey);
-                for (var entry : tertiaryMappings.entrySet()) {
-                    System.out.println("[CACHE]     key: " + entry.getKey().toString());
-                    System.out.println("[CACHE]         plan: " + entry.getValue().explain());
-                }
-            }
-        }
-    }
-
     @Test
     void storedQueriesInTemplate() throws Exception {
         try (var ddl = Ddl.builder()
@@ -174,8 +153,8 @@ public class StoredQueriesTest {
             embeddedConnection.setAutoCommit(true);
             final var storedQueries = schemaTemplate.getStoredQueries();
             Assertions.assertEquals(2, storedQueries.size());
-            Assertions.assertEquals("select * from t1 where col1 = 10", storedQueries.get("BY_COL1").getStoredQuery());
-            Assertions.assertEquals("select * from t1 where id = 1", storedQueries.get("BY_ID").getStoredQuery());
+            Assertions.assertEquals("select * from t1 where col1 = 10", storedQueries.get("BY_COL1").getQuery());
+            Assertions.assertEquals("select * from t1 where id = 1", storedQueries.get("BY_ID").getQuery());
             Assertions.assertEquals(0, countCachedPlans(connection, ddl.getSchemaTemplateName())); // we do not generate plans at ddl execution for now
         }
     }
@@ -190,11 +169,11 @@ public class StoredQueriesTest {
             final String templateName = ddl.getSchemaTemplateName();
 
             // create a new engine
-            final var freshDriver = relationalExtension.getDriver(
+            final var engineDriver = relationalExtension.getDriver(
                     com.apple.foundationdb.record.provider.foundationdb.FormatVersion.getDefaultFormatVersion());
 
             // Connect via the fresh driver and verify the fresh engine's cache has the plans
-            Assertions.assertEquals(Long.valueOf(2), new ConnectionUtils(freshDriver).getFromCatalog(
+            Assertions.assertEquals(Long.valueOf(2), new ConnectionUtils(engineDriver).getFromCatalog(
                     conn -> countCachedPlans(conn, templateName)));
         }
     }
@@ -221,19 +200,19 @@ public class StoredQueriesTest {
             Assertions.assertEquals(0, countCachedPlans(connection, templateName)); // we do not generate plans at ddl execution for now
 
             // create a new engine
-            final var freshDriver = relationalExtension.getDriver(
+            final var engineDriver = relationalExtension.getDriver(
                     com.apple.foundationdb.record.provider.foundationdb.FormatVersion.getDefaultFormatVersion());
-            final var freshUtils = new ConnectionUtils(freshDriver);
+            final var connectionUtils = new ConnectionUtils(engineDriver);
 
             // OfflineStoredQueriesProcessor ran during fresh-engine construction and
             // warmed both stored queries: 2 L3 cache misses.
             Assertions.assertEquals(2, eventCounterCount(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_MISS));
             Assertions.assertEquals(0, eventCounterCount(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_HIT));
             // Connect via the fresh driver and verify the fresh engine's cache has 2 plans
-            Assertions.assertEquals(Long.valueOf(2), freshUtils.getFromCatalog(c -> countCachedPlans(c, templateName)));
+            Assertions.assertEquals(Long.valueOf(2), connectionUtils.getFromCatalog(c -> countCachedPlans(c, templateName)));
 
             // select statement should hit the cache, no new entries
-            freshUtils.runAgainstConnection(dbUri, schemaName, c -> {
+            connectionUtils.runAgainstConnection(dbUri, schemaName, c -> {
                 try (var stmt = c.createStatement(); RelationalResultSet rs = stmt.executeQuery("select * from t1 where col1 = 10")) {
                     Assertions.assertTrue(rs.next());
                     Assertions.assertEquals(1, rs.getLong("ID"));
@@ -244,10 +223,10 @@ public class StoredQueriesTest {
             Assertions.assertEquals(1, eventCounterCount(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_HIT));
             Assertions.assertEquals(2, eventCounterCount(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_MISS));
             // 2 plans in the cache
-            Assertions.assertEquals(Long.valueOf(2), freshUtils.getFromCatalog(c -> countCachedPlans(c, templateName)));
+            Assertions.assertEquals(Long.valueOf(2), connectionUtils.getFromCatalog(c -> countCachedPlans(c, templateName)));
 
             // select statement should hit another cache, no new entries
-            freshUtils.runAgainstConnection(dbUri, schemaName, c -> {
+            connectionUtils.runAgainstConnection(dbUri, schemaName, c -> {
                 try (var stmt = c.createStatement(); RelationalResultSet rs = stmt.executeQuery("select * from t1 where id = 1")) {
                     Assertions.assertTrue(rs.next());
                     Assertions.assertEquals(1, rs.getLong("ID"));
@@ -258,10 +237,10 @@ public class StoredQueriesTest {
             Assertions.assertEquals(2, eventCounterCount(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_HIT));
             Assertions.assertEquals(2, eventCounterCount(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_MISS));
             // 2 plans in the cache
-            Assertions.assertEquals(Long.valueOf(2), freshUtils.getFromCatalog(c -> countCachedPlans(c, templateName)));
+            Assertions.assertEquals(Long.valueOf(2), connectionUtils.getFromCatalog(c -> countCachedPlans(c, templateName)));
 
             // non-stored query, new record in the cache
-            freshUtils.runAgainstConnection(dbUri, schemaName, c -> {
+            connectionUtils.runAgainstConnection(dbUri, schemaName, c -> {
                 try (var stmt = c.createStatement(); RelationalResultSet rs = stmt.executeQuery("select * from t1 where col2 = 1")) {
                     Assertions.assertTrue(rs.next());
                     Assertions.assertEquals(1, rs.getLong("ID"));
@@ -269,7 +248,7 @@ public class StoredQueriesTest {
                 }
             });
             // new (3) plan in the cache
-            Assertions.assertEquals(Long.valueOf(3), freshUtils.getFromCatalog(c -> countCachedPlans(c, templateName)));
+            Assertions.assertEquals(Long.valueOf(3), connectionUtils.getFromCatalog(c -> countCachedPlans(c, templateName)));
             // SELECT col2 is NOT pre-warmed: miss counter +1, hit counter unchanged.
             Assertions.assertEquals(2, eventCounterCount(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_HIT));
             Assertions.assertEquals(3, eventCounterCount(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_MISS));
@@ -298,32 +277,32 @@ public class StoredQueriesTest {
             Assertions.assertEquals(0, countCachedPlans(connection, templateName)); // we do not generate plans at ddl execution for now
 
             // create a new engine
-            final var freshDriver = relationalExtension.getDriver(
+            final var engineDriver = relationalExtension.getDriver(
                     com.apple.foundationdb.record.provider.foundationdb.FormatVersion.getDefaultFormatVersion());
-            final var freshUtils = new ConnectionUtils(freshDriver);
+            final var connectionUtils = new ConnectionUtils(engineDriver);
 
             // Connect via the fresh driver and verify the fresh engine's cache has the plans
-            Assertions.assertEquals(Long.valueOf(2), freshUtils.getFromCatalog(c -> countCachedPlans(c, templateName)));
+            Assertions.assertEquals(Long.valueOf(2), connectionUtils.getFromCatalog(c -> countCachedPlans(c, templateName)));
 
             // select with different literal than stored — canonical SQL matches, cache hit
-            freshUtils.runAgainstConnection(dbUri, schemaName, c -> {
+            connectionUtils.runAgainstConnection(dbUri, schemaName, c -> {
                 try (var stmt = c.createStatement(); RelationalResultSet rs = stmt.executeQuery("select * from t1 where col1 = 20")) {
                     Assertions.assertTrue(rs.next());
                     Assertions.assertEquals(2, rs.getLong("ID"));
                     Assertions.assertFalse(rs.next());
                 }
             });
-            Assertions.assertEquals(Long.valueOf(2), freshUtils.getFromCatalog(c -> countCachedPlans(c, templateName)));
+            Assertions.assertEquals(Long.valueOf(2), connectionUtils.getFromCatalog(c -> countCachedPlans(c, templateName)));
 
             // select with different literal than stored — canonical SQL matches, cache hit
-            freshUtils.runAgainstConnection(dbUri, schemaName, c -> {
+            connectionUtils.runAgainstConnection(dbUri, schemaName, c -> {
                 try (var stmt = c.createStatement(); RelationalResultSet rs = stmt.executeQuery("select * from t1 where id = 2")) {
                     Assertions.assertTrue(rs.next());
                     Assertions.assertEquals(2, rs.getLong("ID"));
                     Assertions.assertFalse(rs.next());
                 }
             });
-            Assertions.assertEquals(Long.valueOf(2), freshUtils.getFromCatalog(c -> countCachedPlans(c, templateName)));
+            Assertions.assertEquals(Long.valueOf(2), connectionUtils.getFromCatalog(c -> countCachedPlans(c, templateName)));
         }
     }
 
@@ -349,15 +328,15 @@ public class StoredQueriesTest {
             Assertions.assertEquals(0, countCachedPlans(connection, templateName)); // we do not generate plans at ddl execution for now
 
             // create a new engine
-            final var freshDriver = relationalExtension.getDriver(
+            final var engineDriver = relationalExtension.getDriver(
                     com.apple.foundationdb.record.provider.foundationdb.FormatVersion.getDefaultFormatVersion());
-            final var freshUtils = new ConnectionUtils(freshDriver);
+            final var connectionUtils = new ConnectionUtils(engineDriver);
 
             // Connect via the fresh driver and verify the fresh engine's cache has the plans
-            Assertions.assertEquals(Long.valueOf(2), freshUtils.getFromCatalog(c -> countCachedPlans(c, templateName)));
+            Assertions.assertEquals(Long.valueOf(2), connectionUtils.getFromCatalog(c -> countCachedPlans(c, templateName)));
 
             // JDBC PreparedStatement on col1 with bound parameter — canonical SQL matches stored BY_COL1, cache hit
-            freshUtils.runAgainstConnection(dbUri, schemaName, c -> {
+            connectionUtils.runAgainstConnection(dbUri, schemaName, c -> {
                 try (var ps = c.prepareStatement("select * from t1 where col1 = ?")) {
                     ps.setInt(1, 20);
                     try (RelationalResultSet rs = ps.executeQuery()) {
@@ -367,10 +346,10 @@ public class StoredQueriesTest {
                     }
                 }
             });
-            Assertions.assertEquals(Long.valueOf(2), freshUtils.getFromCatalog(c -> countCachedPlans(c, templateName)));
+            Assertions.assertEquals(Long.valueOf(2), connectionUtils.getFromCatalog(c -> countCachedPlans(c, templateName)));
 
             // JDBC PreparedStatement on id with bound parameter — canonical SQL matches stored BY_ID, cache hit
-            freshUtils.runAgainstConnection(dbUri, schemaName, c -> {
+            connectionUtils.runAgainstConnection(dbUri, schemaName, c -> {
                 try (var ps = c.prepareStatement("select * from t1 where id = ?")) {
                     ps.setInt(1, 2);
                     try (RelationalResultSet rs = ps.executeQuery()) {
@@ -380,7 +359,7 @@ public class StoredQueriesTest {
                     }
                 }
             });
-            Assertions.assertEquals(Long.valueOf(2), freshUtils.getFromCatalog(c -> countCachedPlans(c, templateName)));
+            Assertions.assertEquals(Long.valueOf(2), connectionUtils.getFromCatalog(c -> countCachedPlans(c, templateName)));
         }
     }
 
@@ -427,9 +406,9 @@ public class StoredQueriesTest {
             Assertions.assertEquals(0, countCachedPlans(connection, templateName)); // we do not generate plans at ddl execution for now
 
             // create a new engine
-            final var freshDriver = relationalExtension.getDriver(
+            final var engineDriver = relationalExtension.getDriver(
                     com.apple.foundationdb.record.provider.foundationdb.FormatVersion.getDefaultFormatVersion());
-            final var freshUtils = new ConnectionUtils(freshDriver);
+            final var connectionUtils = new ConnectionUtils(engineDriver);
 
             // OfflineStoredQueriesProcessor ran during fresh-engine construction and
             // both stored queries attempted to generate plan
@@ -437,7 +416,7 @@ public class StoredQueriesTest {
             Assertions.assertEquals(0, eventCounterCount(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_HIT));
 
             // but only one query has valid column and was planned
-            Assertions.assertEquals(Long.valueOf(1), freshUtils.getFromCatalog(c -> countCachedPlans(c, templateName)));
+            Assertions.assertEquals(Long.valueOf(1), connectionUtils.getFromCatalog(c -> countCachedPlans(c, templateName)));
         }
     }
 
@@ -461,7 +440,7 @@ public class StoredQueriesTest {
 
             final var sq = storedQueries.get("BY_X");
             Assertions.assertNotNull(sq);
-            Assertions.assertEquals("SELECT * FROM sq1(10)", sq.getStoredQuery());
+            Assertions.assertEquals("SELECT * FROM sq1(10)", sq.getQuery());
             Assertions.assertEquals(1, sq.getTempFunctions().size());
             final var tempFuncSource = sq.getTempFunctions().get(0);
             Assertions.assertTrue(tempFuncSource.startsWith("CREATE TEMPORARY FUNCTION sq1"),

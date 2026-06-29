@@ -17,6 +17,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# NOTE: this test only covers the SYNTAX and execution of `CREATE QUERY` statements -
+# it does NOT verify the plan-cache warm-up that `OfflineStoredQueriesProcessor` performs.
+# The warm-up runs once, when the engine is constructed, against the templates already in
+# the catalog at that moment. yamsql tests create their schema template after the engine
+# is already up, and the framework can't tear down and rebuild the engine mid-test, so
+# the warm-up code path is unreachable from here. For warm-up coverage see
+# SchemaTemplateStoredQueriesTest (it opens a fresh driver after creating the template).
+
 ---
 options:
   supported_version: !current_version
@@ -24,6 +32,10 @@ options:
 schema_template:
     create table t1(id bigint, col1 bigint, col2 bigint, primary key(id))
     create index i1 as select col1 from t1
+    create table tree(id bigint, parent bigint, primary key(id))
+    create index parentIdx as select parent, id from tree order by parent, id
+    create table dept(id bigint, name string, primary key(id))
+    create index deptName as select name from dept
     create query by_col1 as select * from t1 where col1 = 1
     create query by_id as select * from t1 where id = 1
     create query syntax_with_temp_funcs
@@ -31,6 +43,12 @@ schema_template:
         with create or replace temporary function helper2(in x bigint) on commit drop function as select id from t1 where id = x
     as
         select id from t1 where id = 999
+    create query by_cte as with c1 as (select col1, col2 from t1) select col1, col2 from c1
+    create query tree_traversal as with recursive c1 as (
+        select id, parent from tree where parent = -1
+        union all
+        select b.id, b.parent from c1 as a, tree as b where a.id = b.parent) select id from c1
+    create query by_dept_join as select t1.id, dept.name from t1 inner join dept on t1.col1 = dept.id
 ---
 setup:
   steps:
@@ -40,6 +58,20 @@ setup:
                (3, 20, 3),
                (4, 20, 4),
                (5, 30, 5)
+    - query: INSERT INTO TREE
+        VALUES (1, -1),
+               (10, 1),
+               (20, 1),
+               (40, 10),
+               (50, 10),
+               (70, 10),
+               (100, 20),
+               (210, 20),
+               (250, 50)
+    - query: INSERT INTO DEPT
+        VALUES (10, 'Engineering'),
+               (20, 'Sales'),
+               (30, 'Marketing')
 ---
 test_block:
   name: schema-template-stored-queries-tests
@@ -51,3 +83,31 @@ test_block:
     -
       - query: select * from T1 where id = 3
       - result: [{ID: 3, COL1: 20, COL2: 3}]
+    -
+      - query: with c1 as (select col1, col2 from t1) select col1, col2 from c1
+      - unorderedResult: [{COL1: 10, COL2: 1},
+                          {COL1: 10, COL2: 2},
+                          {COL1: 20, COL2: 3},
+                          {COL1: 20, COL2: 4},
+                          {COL1: 30, COL2: 5}]
+    -
+      - query: with recursive c1 as (
+            select id, parent from tree where parent = -1
+            union all
+            select b.id, b.parent from c1 as a, tree as b where a.id = b.parent) select id from c1
+      - unorderedResult: [{ID: 1},
+                          {ID: 10},
+                          {ID: 20},
+                          {ID: 40},
+                          {ID: 50},
+                          {ID: 70},
+                          {ID: 100},
+                          {ID: 210},
+                          {ID: 250}]
+    -
+      - query: select t1.id, dept.name from t1 inner join dept on t1.col1 = dept.id
+      - unorderedResult: [{ID: 1, NAME: 'Engineering'},
+                          {ID: 2, NAME: 'Engineering'},
+                          {ID: 3, NAME: 'Sales'},
+                          {ID: 4, NAME: 'Sales'},
+                          {ID: 5, NAME: 'Marketing'}]

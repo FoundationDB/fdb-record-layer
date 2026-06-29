@@ -101,7 +101,12 @@ public class RelationalMetric {
         /**
          * Time taken to process a SQL query end-to-end.
          * */
-        TOTAL_PROCESS_QUERY("process the query")
+        TOTAL_PROCESS_QUERY("process the query"),
+        /**
+         * Time taken by the offline stored-queries processor to warm up the plan cache, planning every
+         * stored query declared on every schema template returned by the catalog read.
+         * */
+        OFFLINE_STORED_QUERIES_WARM_UP("warm up plan cache from stored queries")
         ;
 
         private final String title;
@@ -135,7 +140,13 @@ public class RelationalMetric {
         PLAN_CACHE_TERTIARY_LRU_EVICTION("tertiary cache LRU eviction", false),
         CONTINUATION_ACCEPTED("continuation accepted", false),
         CONTINUATION_REJECTED("continuation rejected", false),
-        CONTINUATION_DOWN_LEVEL("continuation accepted from down-level plan serialization mode", false)
+        CONTINUATION_DOWN_LEVEL("continuation accepted from down-level plan serialization mode", false),
+        OFFLINE_STORED_QUERIES_TEMPLATES_PROCESSED("schema templates successfully processed by offline stored-queries warm-up", false),
+        OFFLINE_STORED_QUERIES_TEMPLATES_FAILED("schema templates that failed offline stored-queries warm-up", false),
+        OFFLINE_STORED_QUERIES_QUERIES_PROCESSED("stored queries successfully planned by offline stored-queries warm-up", false),
+        OFFLINE_STORED_QUERIES_QUERIES_FAILED("stored queries that failed to plan during offline stored-queries warm-up", false),
+        OFFLINE_STORED_QUERIES_TEMP_FUNCTIONS_PROCESSED("temporary functions successfully planned by offline stored-queries warm-up", false),
+        OFFLINE_STORED_QUERIES_TEMP_FUNCTIONS_FAILED("temporary functions that failed to plan during offline stored-queries warm-up", false)
         ;
 
         private final String title;

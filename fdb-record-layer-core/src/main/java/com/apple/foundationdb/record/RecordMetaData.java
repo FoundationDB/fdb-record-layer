@@ -712,11 +712,12 @@ public class RecordMetaData implements RecordMetaDataProvider {
         for (final Map.Entry<String, StoredQuery> entry : storedQueries.entrySet()) {
             final StoredQuery storedQuery = entry.getValue();
             final RecordMetaDataProto.PStoredQuery.Builder storedQueryBuilder = RecordMetaDataProto.PStoredQuery.newBuilder()
-                    .setStoredQuery(storedQuery.getStoredQuery());
+                    .setName(entry.getKey())
+                    .setQuery(storedQuery.getQuery());
             if (!storedQuery.getTempFunctions().isEmpty()) {
                 storedQueryBuilder.addAllTempFunction(storedQuery.getTempFunctions());
             }
-            builder.putStoredQueries(entry.getKey(), storedQueryBuilder.build());
+            builder.addStoredQueries(storedQueryBuilder.build());
         }
         builder.setSplitLongRecords(splitLongRecords);
         builder.setStoreRecordVersions(storeRecordVersions);
@@ -764,7 +765,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
         }
 
         @Nonnull
-        public String getStoredQuery() {
+        public String getQuery() {
             return query;
         }
 

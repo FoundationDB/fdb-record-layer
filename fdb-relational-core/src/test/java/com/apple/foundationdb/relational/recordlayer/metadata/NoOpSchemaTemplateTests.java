@@ -236,9 +236,10 @@ public class NoOpSchemaTemplateTests {
     }
 
     @Test
-    public void testGetStoredQueriesReturnsEmptyMap() {
+    public void testGetStoredQueriesThrows() {
         final NoOpSchemaTemplate template = new NoOpSchemaTemplate("test", 1);
-        assertNotNull(template.getStoredQueries());
-        assertEquals(0, template.getStoredQueries().size());
+        final RelationalException exception = assertThrows(RelationalException.class,
+                template::getStoredQueries);
+        assertEquals(ErrorCode.INVALID_PARAMETER, exception.getErrorCode());
     }
 }

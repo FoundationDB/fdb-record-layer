@@ -45,7 +45,7 @@ import com.apple.foundationdb.relational.api.fluentsql.statement.StatementBuilde
 import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 import com.apple.foundationdb.relational.api.metrics.MetricCollector;
-import com.apple.foundationdb.relational.recordlayer.metric.RecordLayerMetricCollector;
+import com.apple.foundationdb.relational.recordlayer.metric.StoreTimerMetricCollector;
 import com.apple.foundationdb.relational.recordlayer.structuredsql.expression.ExpressionFactoryImpl;
 import com.apple.foundationdb.relational.recordlayer.structuredsql.statement.StatementBuilderFactoryImpl;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
@@ -118,7 +118,7 @@ public class EmbeddedRelationalConnection implements RelationalConnection {
         this.transaction = transaction;
         this.usingAnExternalTransaction = transaction != null;
         if (usingAnExternalTransaction) {
-            this.metricCollector = new RecordLayerMetricCollector(transaction.unwrap(RecordContextTransaction.class).getContext());
+            this.metricCollector = StoreTimerMetricCollector.fromFDBRecordContext(transaction.unwrap(RecordContextTransaction.class).getContext());
         }
         this.backingCatalog = backingCatalog;
         this.options = options;
@@ -392,7 +392,7 @@ public class EmbeddedRelationalConnection implements RelationalConnection {
             if (!inActiveTransaction()) {
                 transaction = txnManager.createTransaction(options);
                 executeProperties = newExecuteProperties();
-                metricCollector = new RecordLayerMetricCollector(transaction.unwrap(RecordContextTransaction.class).getContext());
+                metricCollector = StoreTimerMetricCollector.fromFDBRecordContext(transaction.unwrap(RecordContextTransaction.class).getContext());
                 addCloseListener(() -> {
                     if (metricCollector != null) {
                         metricCollector.flush();

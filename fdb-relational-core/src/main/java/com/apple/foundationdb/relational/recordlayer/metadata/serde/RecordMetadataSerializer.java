@@ -113,7 +113,7 @@ public class RecordMetadataSerializer extends SkeletonVisitor {
         getBuilder().setVersion(schemaTemplate.getVersion());
         for (final var entry : recLayerSchemaTemplate.getStoredQueries().entrySet()) {
             final var sq = entry.getValue();
-            getBuilder().addStoredQuery(entry.getKey(), sq.getStoredQuery(), sq.getTempFunctions());
+            getBuilder().addStoredQuery(entry.getKey(), sq.getQuery(), sq.getTempFunctions());
         }
     }
 

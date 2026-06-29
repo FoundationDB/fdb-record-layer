@@ -242,13 +242,11 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
             final View view = View.fromProto(viewProto);
             viewMap.put(view.getName(), view);
         }
-        for (final Map.Entry<String, RecordMetaDataProto.PStoredQuery> entry :
-                metaDataProto.getStoredQueriesMap().entrySet()) {
-            final RecordMetaDataProto.PStoredQuery proto = entry.getValue();
+        for (final RecordMetaDataProto.PStoredQuery proto : metaDataProto.getStoredQueriesList()) {
             final List<String> tempFunctions = proto.getTempFunctionCount() > 0
                     ? new ArrayList<>(proto.getTempFunctionList())
                     : Collections.emptyList();
-            storedQueries.put(entry.getKey(), new RecordMetaData.StoredQuery(proto.getStoredQuery(), tempFunctions));
+            storedQueries.put(proto.getName(), new RecordMetaData.StoredQuery(proto.getQuery(), tempFunctions));
         }
         if (metaDataProto.hasSplitLongRecords()) {
             splitLongRecords = metaDataProto.getSplitLongRecords();

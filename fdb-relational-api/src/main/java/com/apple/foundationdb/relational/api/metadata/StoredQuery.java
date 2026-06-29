@@ -44,7 +44,7 @@ public final class StoredQuery {
     }
 
     @Nonnull
-    public String getStoredQuery() {
+    public String getQuery() {
         return query;
     }
 
