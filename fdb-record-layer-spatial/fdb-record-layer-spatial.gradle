@@ -41,24 +41,50 @@ dependencies {
     testImplementation project(path: coreProject, configuration: 'tests')
 }
 
-def geonames_files = ['countryInfo.txt', 'cities15000.zip', 'shapes_all_low.zip']
+def geonamesFilesDirectory = project.ext.downloadsDirectory.dir("geonames")
+def geonamesFilesWithChecksums = [
+        [
+            name: 'countryInfo.txt',
+            sha256: '4b126d7e757c06572330bc1d26dce9e15701ed176f49c7e276a377fdb3d32f46'
+        ],
+        [
+            name: 'cities15000.zip',
+            sha256: 'e23157a1e6452ba876b3946a85c191ff6de0fd770266c1d9f4fb9c513e1a22b8'
+        ],
+        [
+            name: 'shapes_all_low.zip',
+            sha256: '456cf543e4d9e70db6885abe57877256941405f14242d4acd56f9031bc614ffc'
+        ]
+]
 
-task downloadGeonames(type: de.undercouch.gradle.tasks.download.Download) {
-    // src geonames_files.collect { file -> "http://download.geonames.org/export/dump/${file}" }
+tasks.register("downloadGeonames", de.undercouch.gradle.tasks.download.Download) {
+    // src geonamesFiles.collect { file -> "http://download.geonames.org/export/dump/${file}" }
     /* some times geonames times out or is otherwise unreliable, move files to
     an s3 bucket that we control for more consistent download behavior */
-    src geonames_files.collect { file -> "https://fdb-record-layer.s3.amazonaws.com/geonames/${file}" }
-    dest layout.buildDirectory.dir("geonames").get().asFile
+    src geonamesFilesWithChecksums.collect {fileWithChecksum ->
+        "https://fdb-record-layer.s3.amazonaws.com/geonames/${fileWithChecksum.name}"
+    }
+    dest geonamesFilesDirectory
     overwrite false         // Don't need the very latest.
 }
 
-task unzipGeonames(dependsOn: downloadGeonames, type: Copy) {
+def verifyGeonamesFilesTasks = geonamesFilesWithChecksums.collect { fileWithChecksum ->
+    tasks.register("verifyGeonamesFile-${fileWithChecksum.name}", de.undercouch.gradle.tasks.download.Verify) {
+        dependsOn 'downloadGeonames'
+        src geonamesFilesDirectory.file(fileWithChecksum.name).asFile
+        algorithm 'SHA256'
+        checksum fileWithChecksum.sha256
+    }
+}
+
+tasks.register("unzipGeonames", Copy) {
+    dependsOn verifyGeonamesFilesTasks
     into layout.buildDirectory.dir("geonames")
-    geonames_files.each { file ->
-        if (file.endsWith('.zip')) {
-            from zipTree(layout.buildDirectory.dir("geonames").map { d ->
-                d.file(file).asFile
-            }.get())
+    geonamesFilesWithChecksums.each { fileWithChecksum ->
+        if (fileWithChecksum.name.endsWith('.zip')) {
+            from zipTree(geonamesFilesDirectory.file(fileWithChecksum.name).asFile)
+        } else {
+            from geonamesFilesDirectory.file(fileWithChecksum.name).asFile
         }
     }
 }
