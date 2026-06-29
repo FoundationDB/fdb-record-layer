@@ -1516,6 +1516,13 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
 
         @Nonnull
         @Override
+        public <M extends Message> CompletableFuture<Void> updateWhileWriteOnlyWithQueue(@Nullable final FDBIndexableRecord<M> o,
+                                                                                         @Nullable final FDBIndexableRecord<M> n) {
+            return AsyncUtil.DONE;
+        }
+
+        @Nonnull
+        @Override
         public RecordCursor<IndexEntry> scanUniquenessViolations(@Nonnull TupleRange range,
                                                                   @Nullable byte[] continuation,
                                                                   @Nonnull ScanProperties scanProperties) {

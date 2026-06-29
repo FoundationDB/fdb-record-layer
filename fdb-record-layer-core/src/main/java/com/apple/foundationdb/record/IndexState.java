@@ -63,7 +63,13 @@ public enum IndexState {
      * In this mode, it is safe to consider an index as {@link #READABLE}
      * for queries as long as uniqueness is not assumed.
      */
-    READABLE_UNIQUE_PENDING(3L, "indexesReadableUniquePending");
+    READABLE_UNIQUE_PENDING(3L, "indexesReadableUniquePending"),
+    /**
+     * Similar to {@link #WRITE_ONLY}, but user updates are written
+     * to a write pending queue rather than directly into the index.
+     * Queries cannot use the index in this state.
+     */
+    WRITE_ONLY_WITH_QUEUE(4L, "indexesWriteOnlyWithQueue");
 
     private final long id;
     private final String logName;
@@ -97,6 +103,14 @@ public enum IndexState {
 
     public boolean isWriteOnly() {
         return this.equals(WRITE_ONLY);
+    }
+
+    public boolean isWriteOnlyWithQueue() {
+        return this.equals(WRITE_ONLY_WITH_QUEUE);
+    }
+
+    public boolean isWriteOnlyAny() {
+        return isWriteOnly() || isWriteOnlyWithQueue();
     }
 
     public static IndexState fromCode(@Nonnull Object code) {

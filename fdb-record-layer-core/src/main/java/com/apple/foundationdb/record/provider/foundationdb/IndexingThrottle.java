@@ -72,6 +72,7 @@ public class IndexingThrottle {
     @Nonnull private final Booker booker;
     private final boolean isScrubber;
     private Set<Index> mergeRequiredIndexes = new HashSet<>();
+    private List<Index> drainRequiredIndexes = null;
 
     static class Booker {
         /**
@@ -416,7 +417,13 @@ public class IndexingThrottle {
                     LogMessageKeys.INDEX_STATE, indexStates);
         }
         // Here: index building
-        if (indexStates.stream().allMatch(IndexState::isWriteOnly)) {
+        if (indexStates.stream().anyMatch(IndexState::isWriteOnlyWithQueue)) {
+            drainRequiredIndexes = common.getTargetIndexes().stream()
+                    .filter(index -> store.getIndexState(index).isWriteOnlyWithQueue())
+                    // TODO: only if the queue is not empty, may require converting to a future
+                    .toList();
+        }
+        if (indexStates.stream().allMatch(IndexState::isWriteOnlyAny)) {
             return;
         }
         // possible exceptions:
@@ -457,6 +464,13 @@ public class IndexingThrottle {
         Set<Index> indexSet = mergeRequiredIndexes;
         mergeRequiredIndexes = new HashSet<>();
         return indexSet;
+    }
+
+    @Nullable
+    public List<Index> getAndResetDrainRequiredIndexes() {
+        List<Index> indexesToDrain = drainRequiredIndexes;
+        drainRequiredIndexes = null;
+        return indexesToDrain;
     }
 }
 

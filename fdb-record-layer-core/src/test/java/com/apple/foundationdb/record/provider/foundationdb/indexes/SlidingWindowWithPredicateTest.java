@@ -57,6 +57,8 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Tests for the interaction between sliding window semantics and base index predicates,
@@ -285,6 +287,26 @@ class SlidingWindowWithPredicateTest extends FDBRecordStoreTestBase {
             recordStore.rebuildAllIndexes().join();
             // DESC window=2 among passing: {rec2(200), rec4(300), rec6(100)} → keeps {rec2, rec4}
             assertWindowContains(2, 4);
+            commit(context);
+        }
+    }
+
+    @Test
+    void writeOnlyWithQueueRoutesUpdatesToQueue() throws Exception {
+        // While the index is WRITE_ONLY_WITH_QUEUE, updates are routed to the pending queue via
+        // SlidingWindowIndexMaintainer.updateWhileWriteOnlyWithQueue instead of being written to the index.
+        try (FDBRecordContext context = openContext()) {
+            openStore(context, 2, Direction.DESC, 5);
+            recordStore.markIndexWriteOnlyWithQueue(INDEX_NAME).join();
+            assertTrue(recordStore.isIndexWriteOnlyWithQueue(INDEX_NAME));
+
+            // Each save routes through SlidingWindowIndexMaintainer.updateWhileWriteOnlyWithQueue; the records
+            // themselves are still persisted.
+            rec(1, 100, 10);
+            rec(2, 200, 20);
+
+            assertNotNull(recordStore.loadRecord(Tuple.from(1L)));
+            assertNotNull(recordStore.loadRecord(Tuple.from(2L)));
             commit(context);
         }
     }

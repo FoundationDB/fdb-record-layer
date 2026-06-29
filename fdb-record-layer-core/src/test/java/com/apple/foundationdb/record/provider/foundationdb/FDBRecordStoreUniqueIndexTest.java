@@ -852,6 +852,12 @@ public class FDBRecordStoreUniqueIndexTest extends FDBRecordStoreTestBase {
 
         @Nonnull
         @Override
+        public <M extends Message> CompletableFuture<Void> updateWhileWriteOnlyWithQueue(@Nullable final FDBIndexableRecord<M> oldRecord, @Nullable final FDBIndexableRecord<M> newRecord) {
+            return underlying.updateWhileWriteOnlyWithQueue(oldRecord, newRecord);
+        }
+
+        @Nonnull
+        @Override
         public RecordCursor<IndexEntry> scanUniquenessViolations(@Nonnull final TupleRange range, @Nullable final byte[] continuation, @Nonnull final ScanProperties scanProperties) {
             return underlying.scanUniquenessViolations(range, continuation, scanProperties);
         }
