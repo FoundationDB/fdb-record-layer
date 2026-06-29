@@ -32,6 +32,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
+import org.junit.jupiter.api.parallel.Isolated;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -352,6 +353,7 @@ public abstract class SynchronizedSessionTest {
     /**
      * Run {@link SynchronizedSessionRunner} synchronously.
      */
+    @Isolated("Lease-renewal tests Thread.sleep then assert the lease was renewed; under parallel CPU starvation the renewing thread misses its window and the assertion fails")
     public static class Run extends SynchronizedSessionTest {
         Run() {
             super(false);
@@ -361,6 +363,7 @@ public abstract class SynchronizedSessionTest {
     /**
      * Run {@link SynchronizedSessionRunner} asynchronously.
      */
+    @Isolated("Lease-renewal tests Thread.sleep then assert the lease was renewed; under parallel CPU starvation the renewing thread misses its window and the assertion fails")
     public static class RunAsync extends SynchronizedSessionTest {
         RunAsync() {
             super(true);

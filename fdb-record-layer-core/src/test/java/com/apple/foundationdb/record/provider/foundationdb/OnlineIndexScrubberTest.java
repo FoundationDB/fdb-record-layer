@@ -40,6 +40,7 @@ import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.protobuf.Message;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.Isolated;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.CsvSource;
@@ -63,6 +64,12 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * Tests for scrubbing readable indexes with {@link OnlineIndexer}.
  */
+// Scrubber tests issue many batch-priority GRVs per method and still trip the
+// FDB cluster's batch-GRV rate limit even when serialised with other indexer
+// tests via the inherited @ResourceLock from OnlineIndexerTest. @Isolated
+// escalates to full cross-class isolation so no other tests compete for FDB
+// resources while the scrubber runs.
+@Isolated("Scrubber tests inherently issue many batch-priority GRVs and trip FDB's batch-GRV rate limit when sharing the cluster with other parallel tests")
 class OnlineIndexScrubberTest extends OnlineIndexerTest {
 
     private FDBRecordStoreTestBase.RecordMetaDataHook myHook(Index index) {
