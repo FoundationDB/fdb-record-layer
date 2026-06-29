@@ -74,6 +74,7 @@ import java.net.URI;
 import java.sql.SQLException;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -131,11 +132,13 @@ public final class PlanGenerator {
      */
     @Nonnull
     public Plan<?> getPlan(@Nonnull final String query) throws RelationalException {
-        return getPlan(query, KeyValueLogMessage.build("PlanGenerator"));
+        return getPlan(query, Map.of());
     }
 
     @Nonnull
-    public Plan<?> getPlan(@Nonnull final String query, @Nonnull KeyValueLogMessage message) throws RelationalException {
+    public Plan<?> getPlan(@Nonnull final String query, @Nonnull final Map<String, Object> logContext) throws RelationalException {
+        final KeyValueLogMessage message = KeyValueLogMessage.build("PlanGenerator");
+        message.addKeysAndValues(logContext);
         resetTimer();
         Plan<?> plan = null;
         RelationalException exception = null;

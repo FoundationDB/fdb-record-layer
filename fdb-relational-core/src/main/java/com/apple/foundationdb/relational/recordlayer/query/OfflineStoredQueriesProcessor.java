@@ -46,6 +46,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 /**
@@ -215,12 +216,11 @@ public final class OfflineStoredQueriesProcessor {
 
         for (final var tempFunc : storedQuery.getTempFunctions()) {
             try {
-                final var message = KeyValueLogMessage.build("PlanGenerator");
-                message.addKeyAndValue("schemaTemplate", templateKey);
-                message.addKeyAndValue("storedQueryName", storedQueryName);
-                message.addKeyAndValue("tempFunction", tempFunc);
                 PlanGenerator.create(currentTemplate, tempFuncFactory, metricCollector, Options.NONE)
-                        .getPlan(tempFunc, message);
+                        .getPlan(tempFunc, Map.of(
+                                "schemaTemplate", templateKey,
+                                "storedQueryName", storedQueryName,
+                                "tempFunction", tempFunc));
                 currentTemplate = tempFuncFactory.updateTemplate(currentTemplate);
                 counts.tempFunctionsProcessed++;
             } catch (RelationalException e) {
@@ -231,17 +231,16 @@ public final class OfflineStoredQueriesProcessor {
         }
         try {
             final var sql = storedQuery.getQuery();
-            final var message = KeyValueLogMessage.build("PlanGenerator");
-            message.addKeyAndValue("schemaTemplate", templateKey);
-            message.addKeyAndValue("storedQueryName", storedQueryName);
-            message.addKeyAndValue("storedQuerySql", sql);
             PlanGenerator.create(
                             Optional.of(cache),
                             currentTemplate,
                             new RecordStoreState(null, null),
                             metricCollector,
                             Options.NONE)
-                    .getPlan(sql, message);
+                    .getPlan(sql, Map.of(
+                            "schemaTemplate", templateKey,
+                            "storedQueryName", storedQueryName,
+                            "storedQuerySql", sql));
         } catch (RelationalException e) {
             // error already logged inside getPlan's finally
             assert e != null;
