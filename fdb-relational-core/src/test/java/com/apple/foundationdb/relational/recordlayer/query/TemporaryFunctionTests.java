@@ -57,7 +57,7 @@ import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
-import org.junit.jupiter.api.parallel.ResourceLock;
+import org.junit.jupiter.api.parallel.Isolated;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
@@ -73,10 +73,13 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * This is for testing different aspects of temporary SQL functions. This test suite can migrate to YAML once we have
  *  <a href="https://github.com/FoundationDB/fdb-record-layer/issues/3366">support for multi-statement transactions in YAML</a>.
  */
-// Shares Log4j 'PlanGeneratorLogger' state (the global PlanGenerator logger) with sibling test
-// classes via {@link LogAppenderRule}. @ResourceLock serializes us against them so that
-// concurrent setLevel/addAppender/getLogs calls don't cross-pollinate or drop messages.
-@ResourceLock("PlanGeneratorLogger")
+// Marked @Isolated because this test asserts on captured log messages from the JVM-global
+// PlanGenerator logger via LogAppenderRule. The appender catches events from any test
+// running concurrently against the same logger, and a thread-id filter is not safe
+// because the relational engine dispatches work onto async pools (FDB callbacks,
+// CompletableFuture stages, etc.). @Isolated tells JUnit to suspend all other tests
+// while this class runs, so the captured events are guaranteed to be ours.
+@Isolated
 public class TemporaryFunctionTests {
 
     @RegisterExtension
