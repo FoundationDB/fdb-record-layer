@@ -330,6 +330,14 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
     @Override
     @Nonnull
     public <M extends Message> CompletableFuture<Void> updateWhileWriteOnlyWithQueue(@Nullable final FDBIndexableRecord<M> oldRecord, @Nullable final FDBIndexableRecord<M> newRecord) {
+        if (!isIdempotent()) {
+            // The indexer should have not allowed the WRITE_ONLY_WITH_QUEUE index state.
+            throw new UnsupportedOperationException("write pending queue is not yet supported for non-idempotent indexes");
+            // To support non-idempotent index, we should use the same "is included in built range" condition as updateWhileWriteOnly and
+            // only push to the queue items that were already indexed. (If being build by a source index, and only one of the old/new records
+            // had generated an "already indexed" source index key, the other one should be converted to a null in the queue).
+            // This, however can be done at a later step.
+        }
         // TODO: push items to the queue
         return AsyncUtil.DONE;
     }

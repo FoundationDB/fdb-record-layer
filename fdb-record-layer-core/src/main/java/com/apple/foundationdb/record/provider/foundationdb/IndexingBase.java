@@ -263,9 +263,14 @@ public abstract class IndexingBase {
         if (continueBuild) {
             return AsyncUtil.DONE;
         }
-        return forEachTargetIndex(index -> policy.shouldUseWritePendingQueue(index) ?
-                                           store.markIndexWriteOnlyWithQueue(index) :
-                                           store.markIndexWriteOnly(index));
+        return forEachTargetIndex(index -> markSingleIndexWriteOnly(store, index));
+    }
+
+    @Nonnull
+    private CompletableFuture<Boolean> markSingleIndexWriteOnly(final FDBRecordStore store, final Index index) {
+        return policy.shouldUseWritePendingQueue(index) && store.getIndexMaintainer(index).isIdempotent() ?
+                        store.markIndexWriteOnlyWithQueue(index) :
+                        store.markIndexWriteOnly(index);
     }
 
     @Nonnull
