@@ -21,7 +21,9 @@
 package com.apple.foundationdb.relational.utils;
 
 import com.apple.foundationdb.relational.api.Options;
+import com.apple.foundationdb.relational.api.RelationalDriver;
 
+import com.apple.foundationdb.relational.recordlayer.RelationalExtension;
 import com.apple.foundationdb.relational.recordlayer.Utils;
 import org.junit.jupiter.api.extension.AfterEachCallback;
 import org.junit.jupiter.api.extension.BeforeEachCallback;
@@ -30,11 +32,14 @@ import org.junit.jupiter.api.extension.ExtensionContext;
 import javax.annotation.Nonnull;
 import java.net.URI;
 import java.sql.Connection;
-import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.Objects;
 
 public class SchemaRule implements BeforeEachCallback, AfterEachCallback {
+
+    @Nonnull
+    private final RelationalExtension extension;
 
     @Nonnull
     private final String schemaName;
@@ -48,8 +53,12 @@ public class SchemaRule implements BeforeEachCallback, AfterEachCallback {
     @Nonnull
     private final Options connectionOptions;
 
-    public SchemaRule(@Nonnull final String schemaName, @Nonnull final URI dbUri, @Nonnull final String templateName,
+    public SchemaRule(@Nonnull final RelationalExtension extension,
+                      @Nonnull final String schemaName,
+                      @Nonnull final URI dbUri,
+                      @Nonnull final String templateName,
                       @Nonnull final Options connectionOptions) {
+        this.extension = extension;
         this.schemaName = schemaName;
         this.dbUri = dbUri;
         this.templateName = templateName;
@@ -71,23 +80,33 @@ public class SchemaRule implements BeforeEachCallback, AfterEachCallback {
         return schemaName;
     }
 
+    @Nonnull
+    private RelationalDriver driver() {
+        return Objects.requireNonNull(extension.getDriver(),
+                "RelationalExtension has no active driver — its @BeforeEach must run before this rule's @BeforeEach.");
+    }
+
     private void setup() throws Exception {
-        try (Connection connection = DriverManager.getConnection("jdbc:embed:/__SYS")) {
-            connection.setSchema("CATALOG");
-            Utils.setConnectionOptions(connection, connectionOptions);
-            try (Statement statement = connection.createStatement()) {
-                statement.executeUpdate("CREATE SCHEMA \"" + dbUri.getPath() + "/" + schemaName + "\" WITH TEMPLATE \"" + templateName + "\"");
+        CatalogOperations.runLockedWithRetry(() -> {
+            try (Connection connection = driver().connect(URI.create("jdbc:embed:/__SYS"))) {
+                connection.setSchema("CATALOG");
+                Utils.setConnectionOptions(connection, connectionOptions);
+                try (Statement statement = connection.createStatement()) {
+                    statement.executeUpdate("CREATE SCHEMA \"" + dbUri.getPath() + "/" + schemaName + "\" WITH TEMPLATE \"" + templateName + "\"");
+                }
             }
-        }
+        });
     }
 
     private void tearDown() throws SQLException {
-        try (Connection connection = DriverManager.getConnection("jdbc:embed:/__SYS")) {
-            connection.setSchema("CATALOG");
-            Utils.setConnectionOptions(connection, connectionOptions);
-            try (Statement statement = connection.createStatement()) {
-                statement.executeUpdate("DROP SCHEMA \"" + dbUri.getPath() + "/" + schemaName + "\"");
+        CatalogOperations.runLockedWithRetry(() -> {
+            try (Connection connection = driver().connect(URI.create("jdbc:embed:/__SYS"))) {
+                connection.setSchema("CATALOG");
+                Utils.setConnectionOptions(connection, connectionOptions);
+                try (Statement statement = connection.createStatement()) {
+                    statement.executeUpdate("DROP SCHEMA IF EXISTS \"" + dbUri.getPath() + "/" + schemaName + "\"");
+                }
             }
-        }
+        });
     }
 }

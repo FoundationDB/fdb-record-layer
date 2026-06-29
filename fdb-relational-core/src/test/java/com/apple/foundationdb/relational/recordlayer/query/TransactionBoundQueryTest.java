@@ -64,7 +64,6 @@ import org.junit.jupiter.params.provider.ValueSource;
 
 import javax.annotation.Nonnull;
 import java.sql.Connection;
-import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.util.Map;
 import java.util.function.Consumer;
@@ -85,7 +84,7 @@ public class TransactionBoundQueryTest {
     final EmbeddedRelationalExtension embeddedExtension = new EmbeddedRelationalExtension();
     @RegisterExtension
     @Order(1)
-    final SimpleDatabaseRule databaseRule = new SimpleDatabaseRule(TransactionBoundQueryTest.class, SCHEMA_TEMPLATE);
+    final SimpleDatabaseRule databaseRule = new SimpleDatabaseRule(embeddedExtension, TransactionBoundQueryTest.class, SCHEMA_TEMPLATE);
 
     @Nonnull
     private static Options engineOptions() throws SQLException {
@@ -98,7 +97,8 @@ public class TransactionBoundQueryTest {
 
     @Nonnull
     private EmbeddedRelationalConnection connectEmbedded() throws SQLException {
-        Connection connection = DriverManager.getConnection(databaseRule.getConnectionUri().toString());
+        Connection connection = embeddedExtension.getDriver()
+                .connect(databaseRule.getConnectionUri(), Options.NONE);
         connection.setSchema(databaseRule.getSchemaName());
         return connection.unwrap(EmbeddedRelationalConnection.class);
     }
@@ -128,23 +128,20 @@ public class TransactionBoundQueryTest {
                     .setContext(context)
                     .open();
 
-            final var originalDriver = embeddedExtension.getDriver();
-            DriverManager.deregisterDriver(originalDriver);
-            var newDriver = new EmbeddedRelationalDriver(new TransactionBoundEmbeddedRelationalEngine(engineOptions()));
-            DriverManager.registerDriver(newDriver);
-            final var driver = (EmbeddedRelationalDriver) DriverManager.getDriver(databaseRule.getConnectionUri().toString());
+            // Use the bound driver directly instead of going through DriverManager.
+            // Previously this test deregistered the extension's driver, registered its own, did
+            // a getDriver() lookup, then restored the original. Under parallel JUnit execution
+            // that dance both raced with other tests and depended on whatever DriverManager
+            // happened to hold — neither is necessary because the test already has both driver
+            // objects in scope.
+            final var newDriver = new EmbeddedRelationalDriver(new TransactionBoundEmbeddedRelationalEngine(engineOptions()));
             final var connectionOptions = Options.none();
-            try {
-                final var schemaTemplate = RecordLayerSchemaTemplate.fromRecordMetadata(metaData, databaseRule.getSchemaTemplateName(),
-                        metaData.getVersion());
-                final var transactionBoundConnection = driver.connect(databaseRule.getConnectionUri(),
-                        new RecordStoreAndRecordContextTransaction(newStore, context, schemaTemplate), connectionOptions);
-                transactionBoundConnection.setSchema(databaseRule.getSchemaName());
-                return transactionBoundConnection.unwrap(EmbeddedRelationalConnection.class);
-            } finally {
-                DriverManager.deregisterDriver(newDriver);
-                DriverManager.registerDriver(originalDriver);
-            }
+            final var schemaTemplate = RecordLayerSchemaTemplate.fromRecordMetadata(metaData, databaseRule.getSchemaTemplateName(),
+                    metaData.getVersion());
+            final var transactionBoundConnection = newDriver.connect(databaseRule.getConnectionUri(),
+                    new RecordStoreAndRecordContextTransaction(newStore, context, schemaTemplate), connectionOptions);
+            transactionBoundConnection.setSchema(databaseRule.getSchemaName());
+            return transactionBoundConnection.unwrap(EmbeddedRelationalConnection.class);
         }
     }
 

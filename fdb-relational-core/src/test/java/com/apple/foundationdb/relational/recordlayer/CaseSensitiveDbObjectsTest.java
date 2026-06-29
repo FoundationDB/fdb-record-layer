@@ -37,8 +37,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
 import javax.annotation.Nonnull;
-import java.sql.DriverManager;
 import java.sql.SQLException;
+import java.net.URI;
 
 /**
  * Test case-sensitive db object connection option.
@@ -56,13 +56,13 @@ public class CaseSensitiveDbObjectsTest {
 
     @RegisterExtension
     @Order(1)
-    public final SimpleDatabaseRule database = new SimpleDatabaseRule(CaseSensitiveDbObjectsTest.class,
+    public final SimpleDatabaseRule database = new SimpleDatabaseRule(relationalExtension, CaseSensitiveDbObjectsTest.class,
             SCHEMA_TEMPLATE, Options.builder().withOption(Options.Name.CASE_SENSITIVE_IDENTIFIERS, true).build(),
             new SchemaTemplateRule.SchemaTemplateOptions(true, true));
 
     @RegisterExtension
     @Order(2)
-    public final RelationalConnectionRule connection = new RelationalConnectionRule(database::getConnectionUri)
+    public final RelationalConnectionRule connection = new RelationalConnectionRule(relationalExtension, database::getConnectionUri)
             .withOptions(Options.builder().withOption(Options.Name.CASE_SENSITIVE_IDENTIFIERS, true).build())
             .withSchema("TEST_SCHEMA");
 
@@ -153,8 +153,8 @@ public class CaseSensitiveDbObjectsTest {
         Assertions.assertThat(logAppender.getLastLogEventMessage()).contains("select 'id' from 't1' where 'group' = ?");
         Assertions.assertThat(logAppender.getLastLogEventMessage()).contains("planCache=\"miss\"");
 
-        try (RelationalConnection caseInsensitiveConn = DriverManager.getConnection(database.getConnectionUri()
-                .toString()).unwrap(RelationalConnection.class)) {
+        try (RelationalConnection caseInsensitiveConn = relationalExtension.getDriver().connect(URI.create(database.getConnectionUri()
+                .toString())).unwrap(RelationalConnection.class)) {
             caseInsensitiveConn.setSchema("TEST_SCHEMA");
             try (RelationalStatement caseInsensitiveStatement = caseInsensitiveConn.createStatement()) {
                 try (RelationalResultSet resultSet = caseInsensitiveStatement.executeQuery(

@@ -31,6 +31,7 @@ import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.utils.Ddl;
 import com.apple.foundationdb.relational.utils.ResultSetAssert;
 import com.apple.foundationdb.relational.utils.RelationalAssertions;
+import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalExtension;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Disabled;
@@ -41,7 +42,6 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
 import java.net.URI;
-import java.sql.DriverManager;
 import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
@@ -62,7 +62,7 @@ public class CaseSensitivityTest {
     @Test
     void selectFromCaseInsensitiveTable() throws Exception {
         final String schema = "CREATE TABLE tbl1 (id bigint, value bigint, PRIMARY KEY(id))";
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/CaseSensitivity")).relationalExtension(relationalExtension).schemaTemplate(schema).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schema).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 for (String tableName : List.of("tbl1", "TBL1", "TbL1", "\"TBL1\"")) {
                     Assertions.assertDoesNotThrow(() -> statement.execute("SELECT * FROM " + tableName));
@@ -77,7 +77,7 @@ public class CaseSensitivityTest {
 
     @Test
     public void databaseWithSameUpperName() throws Exception {
-        try (final var conn = DriverManager.getConnection("jdbc:embed:/__SYS")) {
+        try (final var conn = relationalExtension.getDriver().connect(URI.create("jdbc:embed:/__SYS"))) {
             conn.setSchema("CATALOG");
             try (final var statement = conn.createStatement()) {
                 //create a database
@@ -106,7 +106,7 @@ public class CaseSensitivityTest {
     @ValueSource(booleans = {true, false})
     public void variousDatabases(boolean quoted) throws Exception {
         List<String> databases = List.of("/TEST/ABC1", "/TEST/def2", "/TEST/Ghi3", "/TEST/jKL4");
-        try (final var conn = DriverManager.getConnection("jdbc:embed:/__SYS")) {
+        try (final var conn = relationalExtension.getDriver().connect(URI.create("jdbc:embed:/__SYS"))) {
             conn.setSchema("CATALOG");
             try {
                 try (final var statement = conn.createStatement()) {
@@ -142,7 +142,7 @@ public class CaseSensitivityTest {
     @ValueSource(booleans = {true, false})
     public void variousSchemas(boolean quoted) throws Exception {
         List<String> schemas = List.of("ABC2", "def3", "Ghi4", "jKL5");
-        try (final var conn = DriverManager.getConnection("jdbc:embed:/__SYS")) {
+        try (final var conn = relationalExtension.getDriver().connect(URI.create("jdbc:embed:/__SYS"))) {
             conn.setSchema("CATALOG");
             try {
                 try (final var statement = conn.createStatement()) {
@@ -179,7 +179,7 @@ public class CaseSensitivityTest {
             "SchemaTemplateCatalog))")
     public void variousStructs(boolean quoted) throws Exception {
         List<String> structs = List.of(/*"ABC1",*/ "def2", "Ghi3", "jKL4");
-        try (RelationalConnection conn = DriverManager.getConnection("jdbc:embed:/__SYS").unwrap(RelationalConnection.class)) {
+        try (RelationalConnection conn = relationalExtension.getDriver().connect(URI.create("jdbc:embed:/__SYS")).unwrap(RelationalConnection.class)) {
             conn.setSchema("CATALOG");
             try {
                 try (RelationalStatement statement = conn.createStatement()) {
@@ -204,7 +204,7 @@ public class CaseSensitivityTest {
     @ValueSource(booleans = {true, false})
     public void variousTables(boolean quoted) throws Exception {
         List<String> tables = List.of("ABC1", "def2", "Ghi3", "jKL4");
-        try (RelationalConnection conn = DriverManager.getConnection("jdbc:embed:/__SYS").unwrap(RelationalConnection.class)) {
+        try (RelationalConnection conn = relationalExtension.getDriver().connect(URI.create("jdbc:embed:/__SYS")).unwrap(RelationalConnection.class)) {
             conn.setSchema("CATALOG");
             try {
                 try (RelationalStatement statement = conn.createStatement()) {
@@ -245,7 +245,7 @@ public class CaseSensitivityTest {
     @ValueSource(booleans = {true, false})
     public void variousColumns(boolean quoted) throws Exception {
         List<String> columns = List.of("ABC1", "def2", "Ghi3", "jKL4");
-        try (RelationalConnection conn = DriverManager.getConnection("jdbc:embed:/__SYS").unwrap(RelationalConnection.class)) {
+        try (RelationalConnection conn = relationalExtension.getDriver().connect(URI.create("jdbc:embed:/__SYS")).unwrap(RelationalConnection.class)) {
             conn.setSchema("CATALOG");
             try {
                 try (RelationalStatement statement = conn.createStatement()) {
@@ -286,7 +286,7 @@ public class CaseSensitivityTest {
         List<String> schemas = List.of("schema", "SCHEMA", "Schema", "ScHeMa");
         List<String> tables = List.of("table", "TABLE", "Table", "TaBlE");
         List<String> columns = List.of("column", "COLUMN", "Column", "CoLuMn");
-        try (RelationalConnection conn = DriverManager.getConnection("jdbc:embed:/__SYS").unwrap(RelationalConnection.class)) {
+        try (RelationalConnection conn = relationalExtension.getDriver().connect(URI.create("jdbc:embed:/__SYS")).unwrap(RelationalConnection.class)) {
             conn.setSchema("CATALOG");
             try {
                 try (RelationalStatement statement = conn.createStatement()) {
@@ -315,7 +315,7 @@ public class CaseSensitivityTest {
                     }
                     long value = 0;
                     // Data insertion
-                    try (RelationalConnection dbConn = DriverManager.getConnection("jdbc:embed:" + database).unwrap(RelationalConnection.class)) {
+                    try (RelationalConnection dbConn = relationalExtension.getDriver().connect(URI.create("jdbc:embed:" + database)).unwrap(RelationalConnection.class)) {
                         try (RelationalStatement statement = dbConn.createStatement()) {
                             for (String schema : schemas) {
                                 dbConn.setSchema(schema);
@@ -331,7 +331,7 @@ public class CaseSensitivityTest {
                     }
                     value = 0;
                     // Data retrieval
-                    try (RelationalConnection dbConn = DriverManager.getConnection("jdbc:embed:" + database).unwrap(RelationalConnection.class)) {
+                    try (RelationalConnection dbConn = relationalExtension.getDriver().connect(URI.create("jdbc:embed:" + database)).unwrap(RelationalConnection.class)) {
                         try (RelationalStatement statement = dbConn.createStatement()) {
                             for (String schema : schemas) {
                                 dbConn.setSchema(schema);

@@ -39,7 +39,6 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
 import javax.annotation.Nonnull;
-import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
@@ -47,6 +46,7 @@ import java.sql.Types;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Stream;
+import java.net.URI;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -82,10 +82,10 @@ public class RelationalArrayTest {
 
     @RegisterExtension
     @Order(1)
-    public final SimpleDatabaseRule database = new SimpleDatabaseRule(RelationalArrayTest.class, SCHEMA_TEMPLATE);
+    public final SimpleDatabaseRule database = new SimpleDatabaseRule(relationalExtension, RelationalArrayTest.class, SCHEMA_TEMPLATE);
 
     public void insertQuery(@Nonnull String q) throws SQLException {
-        try (final var conn = DriverManager.getConnection(database.getConnectionUri().toString())) {
+        try (final var conn = relationalExtension.getDriver().connect(URI.create(database.getConnectionUri().toString()))) {
             conn.setSchema(database.getSchemaName());
             conn.setAutoCommit(true);
             try (final var s = conn.createStatement()) {
@@ -158,10 +158,10 @@ public class RelationalArrayTest {
                 "?string_not_null, ?bytes_null, ?bytes_not_null, ?struct_null, ?struct_not_null, ?uuid_null, " +
                 "?uuid_not_null)";
 
-        try (final var conn = DriverManager.getConnection(database.getConnectionUri().toString())) {
+        try (final var conn = relationalExtension.getDriver().connect(URI.create(database.getConnectionUri().toString()))) {
             conn.setSchema(database.getSchemaName());
             conn.setAutoCommit(true);
-            try (final var ps = ((RelationalPreparedStatement) conn.prepareStatement(statement))) {
+            try (final var ps = conn.prepareStatement(statement)) {
                 ps.setInt("pk", 1);
                 ps.setArray("boolean_null", EmbeddedRelationalArray.newBuilder().addAll(true, false).build());
                 ps.setArray("boolean_not_null", EmbeddedRelationalArray.newBuilder().addAll(true, false).build());
@@ -185,10 +185,10 @@ public class RelationalArrayTest {
             }
         }
 
-        try (final var conn = DriverManager.getConnection(database.getConnectionUri().toString())) {
+        try (final var conn = relationalExtension.getDriver().connect(URI.create(database.getConnectionUri().toString()))) {
             conn.setSchema(database.getSchemaName());
             conn.setAutoCommit(true);
-            try (final var ps = ((RelationalPreparedStatement) conn.prepareStatement(statement))) {
+            try (final var ps = conn.prepareStatement(statement)) {
                 ps.setInt("pk", 2);
                 ps.setNull("boolean_null", Types.ARRAY);
                 ps.setArray("boolean_not_null", EmbeddedRelationalArray.newBuilder().addAll(true, false).build());
@@ -212,10 +212,10 @@ public class RelationalArrayTest {
             }
         }
 
-        try (final var conn = DriverManager.getConnection(database.getConnectionUri().toString())) {
+        try (final var conn = relationalExtension.getDriver().connect(URI.create(database.getConnectionUri().toString()))) {
             conn.setSchema(database.getSchemaName());
             conn.setAutoCommit(true);
-            try (final var ps = ((RelationalPreparedStatement) conn.prepareStatement(statement))) {
+            try (final var ps = conn.prepareStatement(statement)) {
                 ps.setInt("pk", 2);
                 ps.setArray("boolean_null", EmbeddedRelationalArray.newBuilder().addAll(true, false).build());
                 ps.setNull("boolean_not_null", Types.ARRAY);
@@ -253,10 +253,10 @@ public class RelationalArrayTest {
                         DataType.StructType.Field.from("B", DataType.StringType.nullable(), 2)),
                 false)).build();
 
-        try (final var conn = DriverManager.getConnection(database.getConnectionUri().toString())) {
+        try (final var conn = relationalExtension.getDriver().connect(URI.create(database.getConnectionUri().toString()))) {
             conn.setSchema(database.getSchemaName());
             conn.setAutoCommit(true);
-            try (final var ps = ((RelationalPreparedStatement) conn.prepareStatement(statement))) {
+            try (final var ps = conn.prepareStatement(statement)) {
                 ps.setInt("pk", 1);
                 ps.setArray("boolean_not_null", EmbeddedRelationalArray.newBuilder(DataType.BooleanType.notNullable()).build());
                 ps.setArray("integer_not_null", EmbeddedRelationalArray.newBuilder(DataType.IntegerType.notNullable()).build());
@@ -270,7 +270,7 @@ public class RelationalArrayTest {
                 Assertions.assertEquals(1, ps.executeUpdate());
             }
 
-            try (final var ps = (RelationalPreparedStatement) conn.prepareStatement("SELECT * from T where pk = 1")) {
+            try (final var ps = conn.prepareStatement("SELECT * from T where pk = 1")) {
                 ResultSetAssert.assertThat(ps.executeQuery())
                         .hasNextRow()
                         .hasColumn("boolean_not_null", List.of())
@@ -288,10 +288,10 @@ public class RelationalArrayTest {
 
     @Test
     void testMoreParametersThanColumns() throws SQLException {
-        try (final var conn = DriverManager.getConnection(database.getConnectionUri().toString())) {
+        try (final var conn = relationalExtension.getDriver().connect(URI.create(database.getConnectionUri().toString()))) {
             conn.setSchema(database.getSchemaName());
             conn.setAutoCommit(true);
-            try (final var ps = ((RelationalPreparedStatement) conn.prepareStatement("INSERT INTO T (pk) VALUES (?pk, ?boolean_null, ?boolean_not_null)"))) {
+            try (final var ps = conn.prepareStatement("INSERT INTO T (pk) VALUES (?pk, ?boolean_null, ?boolean_not_null)")) {
                 ps.setInt("pk", 1);
                 ps.setArray("boolean_null", EmbeddedRelationalArray.newBuilder().addAll(true, false).build());
                 ps.setArray("boolean_not_null", EmbeddedRelationalArray.newBuilder().addAll(true, false).build());
@@ -303,10 +303,10 @@ public class RelationalArrayTest {
 
     @Test
     void testNonNullViolation() throws SQLException {
-        try (final var conn = DriverManager.getConnection(database.getConnectionUri().toString())) {
+        try (final var conn = relationalExtension.getDriver().connect(URI.create(database.getConnectionUri().toString()))) {
             conn.setSchema(database.getSchemaName());
             conn.setAutoCommit(true);
-            try (final var ps = ((RelationalPreparedStatement) conn.prepareStatement("INSERT INTO T (pk) VALUES (?pk)"))) {
+            try (final var ps = conn.prepareStatement("INSERT INTO T (pk) VALUES (?pk)")) {
                 ps.setInt("pk", 1);
                 RelationalAssertions.assertThrowsSqlException(ps::executeUpdate).containsInMessage("violates not-null constraint")
                         .hasErrorCode(ErrorCode.NOT_NULL_VIOLATION);
@@ -316,13 +316,13 @@ public class RelationalArrayTest {
 
     @Test
     void testNullFieldsGetAutomaticallyFilled() throws SQLException {
-        try (final var conn = DriverManager.getConnection(database.getConnectionUri().toString())) {
+        try (final var conn = relationalExtension.getDriver().connect(URI.create(database.getConnectionUri().toString()))) {
             conn.setSchema(database.getSchemaName());
             conn.setAutoCommit(true);
-            try (final var ps = ((RelationalPreparedStatement) conn.prepareStatement("INSERT INTO T (pk, boolean_not_null, " +
+            try (final var ps = conn.prepareStatement("INSERT INTO T (pk, boolean_not_null, " +
                     "integer_not_null, bigint_not_null, float_not_null, double_not_null, string_not_null, bytes_not_null, " +
                     "struct_not_null, uuid_not_null) VALUES (?pk, ?boolean_not_null, ?integer_not_null, ?bigint_not_null, " +
-                    "?float_not_null, ?double_not_null, ?string_not_null, ?bytes_not_null, ?struct_not_null, ?uuid_not_null)"))) {
+                    "?float_not_null, ?double_not_null, ?string_not_null, ?bytes_not_null, ?struct_not_null, ?uuid_not_null)")) {
                 ps.setInt("pk", 2);
                 ps.setArray("boolean_not_null", EmbeddedRelationalArray.newBuilder().addAll(true, false).build());
                 ps.setArray("integer_not_null", EmbeddedRelationalArray.newBuilder().addAll(11, 22).build());
@@ -336,7 +336,7 @@ public class RelationalArrayTest {
                 assertEquals(1, ps.executeUpdate());
             }
 
-            try (final var ps = (RelationalPreparedStatement) conn.prepareStatement("SELECT * from T where pk = 2")) {
+            try (final var ps = conn.prepareStatement("SELECT * from T where pk = 2")) {
                 ResultSetAssert.assertThat(ps.executeQuery())
                         .hasNextRow()
                         .hasColumn("boolean_null", null)
@@ -354,13 +354,13 @@ public class RelationalArrayTest {
 
     @Test
     void testColumnRequiresValue() throws SQLException {
-        try (final var conn = DriverManager.getConnection(database.getConnectionUri().toString())) {
+        try (final var conn = relationalExtension.getDriver().connect(URI.create(database.getConnectionUri().toString()))) {
             conn.setSchema(database.getSchemaName());
             conn.setAutoCommit(true);
-            try (final var ps = ((RelationalPreparedStatement) conn.prepareStatement("INSERT INTO T (pk, boolean_not_null, " +
+            try (final var ps = conn.prepareStatement("INSERT INTO T (pk, boolean_not_null, " +
                     "integer_not_null, bigint_not_null, float_not_null, double_not_null, string_not_null, bytes_not_null, " +
                     "struct_not_null) VALUES (?pk, ?boolean_not_null, ?integer_not_null, ?bigint_not_null, ?float_not_null, " +
-                    "?double_not_null, ?string_not_null)"))) {
+                    "?double_not_null, ?string_not_null)")) {
                 ps.setInt("pk", 2);
                 ps.setArray("boolean_not_null", EmbeddedRelationalArray.newBuilder().addAll(true, false).build());
                 ps.setArray("integer_not_null", EmbeddedRelationalArray.newBuilder().addAll(11, 22).build());
@@ -405,7 +405,7 @@ public class RelationalArrayTest {
 
     private void testArrays(int nullArrayIdx, int nonNullArrayIdx, List<Object> nullArrayElements,
                             List<Object> nonNullArrayElements, int sqlType, int pk) throws SQLException {
-        try (final var conn = DriverManager.getConnection(database.getConnectionUri().toString())) {
+        try (final var conn = relationalExtension.getDriver().connect(URI.create(database.getConnectionUri().toString()))) {
             conn.setSchema(database.getSchemaName());
             try (final var s = conn.createStatement()) {
                 try (final var rs = s.executeQuery("SELECT * from T where pk = " + pk)) {

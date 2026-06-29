@@ -35,6 +35,7 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.catalog.StoreCatalogProvider;
 import com.apple.foundationdb.relational.recordlayer.ddl.RecordLayerMetadataOperationsFactory;
 import com.apple.foundationdb.relational.recordlayer.query.cache.RelationalPlanCache;
+import com.apple.foundationdb.relational.utils.CatalogOperations;
 import com.apple.foundationdb.test.FDBTestEnvironment;
 import com.codahale.metrics.MetricRegistry;
 import org.junit.jupiter.api.extension.AfterEachCallback;
@@ -44,7 +45,6 @@ import org.junit.jupiter.api.extension.ExtensionContext;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.io.Closeable;
-import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.util.Collections;
 
@@ -67,34 +67,31 @@ public class EmbeddedRelationalExtension implements RelationalExtension, BeforeE
     private StoreCatalog storeCatalog;
     private FDBDatabase database;
     private final String clusterFile;
-    private final boolean register;
 
     public EmbeddedRelationalExtension() {
         this(Options.none());
     }
 
     public EmbeddedRelationalExtension(@Nonnull final Options options) {
-        this(FDBTestEnvironment.randomClusterFile(), true, options);
+        this(FDBTestEnvironment.randomClusterFile(), options);
     }
 
-    public EmbeddedRelationalExtension(final String clusterFile, final boolean register, final Options options) {
+    public EmbeddedRelationalExtension(final String clusterFile, final Options options) {
         final RelationalKeyspaceProvider keyspaceProvider = RelationalKeyspaceProvider.instance();
         keyspaceProvider.registerDomainIfNotExists("TEST");
         this.keySpace = keyspaceProvider.getKeySpace();
         this.storeTimer = new MetricRegistry();
         this.clusterFile = clusterFile;
-        this.register = register;
         this.options = options;
     }
 
     @Override
     public void afterEach(ExtensionContext ignored) throws Exception {
-        if (driver != null) {
-            if (register) {
-                DriverManager.deregisterDriver(driver);
-            }
-            driver = null;
-        }
+        // Drop the per-instance driver reference. Nothing to do with java.sql.DriverManager —
+        // the extension never registers its driver there. Tests should use this extension's
+        // {@link #getDriver()} (via field injection into the rules and {@code Ddl}), not
+        // {@code DriverManager.getConnection}.
+        driver = null;
     }
 
     @Override
@@ -115,9 +112,6 @@ public class EmbeddedRelationalExtension implements RelationalExtension, BeforeE
         // most likely touch the catalog, and could affect mixed-mode tests
         engine = makeEngine(database, FormatVersion.getDefaultFormatVersion());
         driver = new EmbeddedRelationalDriver(engine);
-        if (register) {
-            DriverManager.registerDriver(driver);
-        }
     }
 
     public EmbeddedRelationalDriver getDriver(@Nonnull final FormatVersion formatVersion) throws SQLException {
@@ -126,11 +120,17 @@ public class EmbeddedRelationalExtension implements RelationalExtension, BeforeE
 
     private void makeDatabase(String clusterFile) throws RelationalException {
         database = FDBDatabaseFactory.instance().getDatabase(clusterFile);
-        try (var connection = new DirectFdbConnection(database);
-                 Transaction txn = connection.getTransactionManager().createTransaction(Options.NONE)) {
-            storeCatalog = StoreCatalogProvider.getCatalog(txn, keySpace);
-            txn.commit();
-        }
+        // The catalog-bootstrap transaction below writes the cluster-wide catalog metadata, which
+        // races with every other test class's @BeforeEach. Without the JVM-wide lock, parallel
+        // class execution surfaces these races as `FDBStoreTransactionConflictException`. See
+        // CatalogOperations for the lock contract.
+        CatalogOperations.runLockedWithRelationalRetry(() -> {
+            try (var connection = new DirectFdbConnection(database);
+                     Transaction txn = connection.getTransactionManager().createTransaction(Options.NONE)) {
+                storeCatalog = StoreCatalogProvider.getCatalog(txn, keySpace);
+                txn.commit();
+            }
+        });
     }
 
     private EmbeddedRelationalEngine makeEngine(final @Nonnull FDBDatabase database, final @Nonnull FormatVersion formatVersion) {
@@ -176,7 +176,7 @@ public class EmbeddedRelationalExtension implements RelationalExtension, BeforeE
         final String otherClusterFile = FDBTestEnvironment.allClusterFiles().stream()
                 .filter(clusterFile -> !clusterFile.equals(database.getClusterFile()))
                 .findAny().orElseThrow();
-        final EmbeddedRelationalExtension embeddedRelationalExtension = new EmbeddedRelationalExtension(otherClusterFile, false, options);
+        final EmbeddedRelationalExtension embeddedRelationalExtension = new EmbeddedRelationalExtension(otherClusterFile, options);
         embeddedRelationalExtension.setup();
         return embeddedRelationalExtension;
     }

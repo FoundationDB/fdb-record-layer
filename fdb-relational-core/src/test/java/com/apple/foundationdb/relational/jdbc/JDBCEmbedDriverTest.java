@@ -20,38 +20,21 @@
 
 package com.apple.foundationdb.relational.jdbc;
 
-import com.apple.foundationdb.record.provider.foundationdb.APIVersion;
-import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
-import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactory;
-import com.apple.foundationdb.test.FDBTestEnvironment;
-import com.apple.foundationdb.relational.api.EmbeddedRelationalDriver;
-import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.RelationalDriver;
-import com.apple.foundationdb.relational.api.catalog.StoreCatalog;
-import com.apple.foundationdb.relational.api.exceptions.RelationalException;
-import com.apple.foundationdb.relational.recordlayer.DirectFdbConnection;
-import com.apple.foundationdb.relational.recordlayer.RecordLayerConfig;
-import com.apple.foundationdb.relational.recordlayer.RecordLayerEngine;
+import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalExtension;
 import com.apple.foundationdb.relational.recordlayer.RelationalKeyspaceProvider;
-import com.apple.foundationdb.relational.recordlayer.catalog.StoreCatalogProvider;
-import com.apple.foundationdb.relational.recordlayer.ddl.RecordLayerMetadataOperationsFactory;
-import com.apple.foundationdb.relational.recordlayer.query.cache.RelationalPlanCache;
 import com.apple.foundationdb.relational.util.BuildVersion;
 
-import com.codahale.metrics.MetricRegistry;
-import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 
-import java.sql.Driver;
-import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.sql.Statement;
 import java.sql.Types;
-import java.util.Collections;
 
 /**
  * Run some simple Statement updates/executes against the JDBC Embed JDBC Driver.
@@ -61,54 +44,15 @@ import java.util.Collections;
  */
 public class JDBCEmbedDriverTest {
 
-    private static RelationalDriver driver;
-
-    @BeforeAll
-    public static void beforeAll() throws SQLException, RelationalException {
-        RelationalKeyspaceProvider.instance().registerDomainIfNotExists("FRL");
-
-        RecordLayerConfig rlCfg = RecordLayerConfig.getDefault();
-        //here we are extending the StorageCluster so that we can track which internal Databases were
-        // connected to and we can validate that they were all closed properly
-
-        // This needs to be done prior to the first call to factory.getDatabase()
-        FDBDatabaseFactory.instance().setAPIVersion(APIVersion.API_VERSION_7_1);
-
-        final FDBDatabase database = FDBDatabaseFactory.instance().getDatabase(FDBTestEnvironment.randomClusterFile());
-        StoreCatalog storeCatalog;
-        try (var txn = new DirectFdbConnection(database).getTransactionManager().createTransaction(Options.NONE)) {
-            storeCatalog = StoreCatalogProvider.getCatalog(txn, RelationalKeyspaceProvider.instance().getKeySpace());
-            txn.commit();
-        }
-
-        RecordLayerMetadataOperationsFactory ddlFactory = RecordLayerMetadataOperationsFactory.defaultFactory()
-                .setBaseKeySpace(RelationalKeyspaceProvider.instance().getKeySpace())
-                .setRlConfig(rlCfg)
-                .setStoreCatalog(storeCatalog)
-                .build();
-        driver = new EmbeddedRelationalDriver(RecordLayerEngine.makeEngine(
-                rlCfg,
-                Collections.singletonList(database),
-                RelationalKeyspaceProvider.instance().getKeySpace(),
-                storeCatalog,
-                new MetricRegistry(),
-                ddlFactory,
-                RelationalPlanCache.buildWithDefaults()));
-        DriverManager.registerDriver(driver); //register the engine driver
-    }
-
-    static Driver getDriver() throws SQLException {
-        // Use ANY valid URl to get hold of the driver. When we 'connect' we'll
-        // more specific about where we want to connect to.
-        return DriverManager.getDriver("jdbc:embed:" + SYSDBPATH);
-    }
+    @RegisterExtension
+    @Order(0)
+    static final EmbeddedRelationalExtension relationalExtension = new EmbeddedRelationalExtension();
 
     private static final String SYSDBPATH = "/" + RelationalKeyspaceProvider.SYS;
     private static final String TESTDB = "/FRL/jdbc_test_db";
 
-    @AfterAll
-    public static void afterAll() throws SQLException {
-        DriverManager.deregisterDriver(driver);
+    private static RelationalDriver getDriver() {
+        return relationalExtension.getDriver();
     }
 
     @Test
@@ -117,17 +61,17 @@ public class JDBCEmbedDriverTest {
     }
 
     @Test
-    public void testGetMajorVersion() throws SQLException, RelationalException {
+    public void testGetMajorVersion() throws Exception {
         Assertions.assertEquals(getDriver().getMajorVersion(), BuildVersion.getInstance().getMajorVersion());
     }
 
     @Test
-    public void testGetMinorVersion() throws SQLException, RelationalException {
+    public void testGetMinorVersion() throws Exception {
         Assertions.assertEquals(getDriver().getMinorVersion(), BuildVersion.getInstance().getMinorVersion());
     }
 
     @Test
-    public void testJDBCCompliant() throws SQLException {
+    public void testJDBCCompliant() {
         Assertions.assertFalse(getDriver().jdbcCompliant());
     }
 
@@ -139,6 +83,8 @@ public class JDBCEmbedDriverTest {
 
     @Test
     public void simpleStatement() throws SQLException {
+        // Register the FRL domain for this test's CREATE DATABASE call below.
+        RelationalKeyspaceProvider.instance().registerDomainIfNotExists("FRL");
         var jdbcStr = "jdbc:embed:" + SYSDBPATH + "?schema=" + RelationalKeyspaceProvider.CATALOG;
         try (final var connection = getDriver().connect(jdbcStr, null)) {
             try (Statement statement = connection.createStatement()) {

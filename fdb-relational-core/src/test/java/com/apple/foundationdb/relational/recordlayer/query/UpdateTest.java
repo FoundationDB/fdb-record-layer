@@ -45,11 +45,11 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.opentest4j.AssertionFailedError;
 
-import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.function.Function;
+import java.net.URI;
 
 public class UpdateTest {
 
@@ -66,7 +66,7 @@ public class UpdateTest {
 
     @RegisterExtension
     @Order(1)
-    public final SimpleDatabaseRule database = new SimpleDatabaseRule(UpdateTest.class, schemaTemplate, new SchemaTemplateRule.SchemaTemplateOptions(true, true));
+    public final SimpleDatabaseRule database = new SimpleDatabaseRule(relationalExtension, UpdateTest.class, schemaTemplate, new SchemaTemplateRule.SchemaTemplateOptions(true, true));
 
     @RegisterExtension
     @Order(4)
@@ -167,7 +167,7 @@ public class UpdateTest {
     }
 
     public void insertRecords(int numRecords) throws RelationalException, SQLException {
-        try (final var con = DriverManager.getConnection(database.getConnectionUri().toString())) {
+        try (final var con = relationalExtension.getDriver().connect(URI.create(database.getConnectionUri().toString()))) {
             con.setSchema(database.getSchemaName());
             final var builder = new StringBuilder("INSERT INTO RestaurantReviewer(id) VALUES");
             for (int i = 0; i < numRecords; i++) {
@@ -193,7 +193,7 @@ public class UpdateTest {
     }
 
     private void verifyUpdates(String updatedField, Object expectedValue, int updatedUpTill) throws SQLException {
-        try (final var con = DriverManager.getConnection(database.getConnectionUri().toString()).unwrap(RelationalConnection.class)) {
+        try (final var con = relationalExtension.getDriver().connect(URI.create(database.getConnectionUri().toString())).unwrap(RelationalConnection.class)) {
             con.setSchema(database.getSchemaName());
             final var statement = con.prepareStatement("SELECT id, " + updatedField + " from RestaurantReviewer WHERE id >= 0");
             try (final var resultSet = statement.executeQuery()) {
@@ -224,7 +224,7 @@ public class UpdateTest {
                                                                Options options) throws SQLException, RelationalException {
         var continuation = continuationAndNumUpdated.getLeft();
         var updatedUpTill = continuationAndNumUpdated.getRight();
-        final var driver = (RelationalDriver) DriverManager.getDriver(database.getConnectionUri().toString());
+        final var driver = relationalExtension.getDriver();
         try (final var con = (EmbeddedRelationalConnection) driver.connect(database.getConnectionUri(), options)) {
             con.setSchema(database.getSchemaName());
             final var statement = prepareUpdate(con, fieldToUpdate, updateValue.apply(con), continuation);

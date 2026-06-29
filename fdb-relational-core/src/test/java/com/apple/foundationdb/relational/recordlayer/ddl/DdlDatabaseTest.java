@@ -37,12 +37,12 @@ import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
-import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
+import java.net.URI;
 
 /**
  * End-to-end unit tests for the database ddl language built over RecordLayer.
@@ -52,14 +52,14 @@ public class DdlDatabaseTest {
     public static final EmbeddedRelationalExtension relational = new EmbeddedRelationalExtension();
 
     @RegisterExtension
-    public final SchemaTemplateRule baseTemplate = new SchemaTemplateRule(DdlDatabaseTest.class.getSimpleName() + "_TEMPLATE",
+    public final SchemaTemplateRule baseTemplate = new SchemaTemplateRule(relational, DdlDatabaseTest.class.getSimpleName() + "_TEMPLATE",
             Options.none(), null, Collections.singleton(new TableDefinition("FOO_TBL", List.of("string", "double"), List.of("col1"))),
             Collections.singleton(new TypeDefinition("FOO_NESTED_TYPE", List.of("string", "bigint"))));
 
     @Test
     public void canCreateDatabase() throws Exception {
         try {
-            try (final var conn = DriverManager.getConnection("jdbc:embed:/__SYS")) {
+            try (final var conn = relational.getDriver().connect(URI.create("jdbc:embed:/__SYS"))) {
                 conn.setSchema("CATALOG");
                 try (final var statement = conn.createStatement()) {
                     //create a database
@@ -67,7 +67,7 @@ public class DdlDatabaseTest {
                     statement.executeUpdate("CREATE SCHEMA /test/test_db/foo_schem with template \"" + baseTemplate.getSchemaTemplateName() + "\"");
                 }
             }
-            try (RelationalConnection conn = DriverManager.getConnection("jdbc:embed:/TEST/TEST_DB").unwrap(RelationalConnection.class)) {
+            try (RelationalConnection conn = relational.getDriver().connect(URI.create("jdbc:embed:/TEST/TEST_DB")).unwrap(RelationalConnection.class)) {
                 conn.setSchema("FOO_SCHEM");
                 try (RelationalStatement statement = conn.createStatement()) {
 
@@ -80,7 +80,7 @@ public class DdlDatabaseTest {
                 }
             }
         } finally {
-            try (final var conn = DriverManager.getConnection("jdbc:embed:/__SYS?schema=CATALOG")) {
+            try (final var conn = relational.getDriver().connect(URI.create("jdbc:embed:/__SYS?schema=CATALOG"))) {
                 try (final var statement = conn.createStatement()) {
                     statement.execute("DROP DATABASE /test/test_db");
                 }
@@ -92,7 +92,7 @@ public class DdlDatabaseTest {
     @Disabled("TODO")
     public void dropDatabaseRemovesFromList() throws Exception {
         final String listCommand = "SHOW DATABASES WITH PREFIX /test_db";
-        try (RelationalConnection conn = DriverManager.getConnection("jdbc:embed:/__SYS").unwrap(RelationalConnection.class)) {
+        try (RelationalConnection conn = relational.getDriver().connect(URI.create("jdbc:embed:/__SYS")).unwrap(RelationalConnection.class)) {
             conn.setSchema("CATALOG");
             try (RelationalStatement statement = conn.createStatement()) {
                 //create a database
@@ -122,7 +122,7 @@ public class DdlDatabaseTest {
          *
          * This is a drop database test that doesn't require listing the database
          */
-        try (final var conn = DriverManager.getConnection("jdbc:embed:/__SYS")) {
+        try (final var conn = relational.getDriver().connect(URI.create("jdbc:embed:/__SYS"))) {
             conn.setSchema("CATALOG");
             try (final var statement = conn.createStatement()) {
                 //create a database
@@ -145,7 +145,7 @@ public class DdlDatabaseTest {
 
     @Test
     public void cannotCreateDatabaseIfExists() throws Exception {
-        try (RelationalConnection conn = DriverManager.getConnection("jdbc:embed:/__SYS").unwrap(RelationalConnection.class)) {
+        try (RelationalConnection conn = relational.getDriver().connect(URI.create("jdbc:embed:/__SYS")).unwrap(RelationalConnection.class)) {
             conn.setSchema("CATALOG");
             // assure that there is not a database with the same name from before
             try (Statement statement = conn.createStatement()) {
@@ -168,7 +168,7 @@ public class DdlDatabaseTest {
 
     @Test
     public void cannotCreateSchemaWithoutDatabase() throws Exception {
-        try (RelationalConnection conn = DriverManager.getConnection("jdbc:embed:/__SYS").unwrap(RelationalConnection.class)) {
+        try (RelationalConnection conn = relational.getDriver().connect(URI.create("jdbc:embed:/__SYS")).unwrap(RelationalConnection.class)) {
             conn.setSchema("CATALOG");
             try (Statement statement = conn.createStatement()) {
                 //create a database

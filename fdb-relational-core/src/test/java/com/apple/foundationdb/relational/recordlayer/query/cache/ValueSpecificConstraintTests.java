@@ -94,7 +94,7 @@ public class ValueSpecificConstraintTests {
     @Test
     void constrainingLiteralTrueBooleanWorks() throws Exception {
         final String schemaTemplate = "create table t(pk bigint, a bigint, b boolean, primary key(pk))";
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             final var connection = ddl.setSchemaAndGetConnection();
             queryShouldMissCache(ddl.getConnection(), "select a + 42 from t where b = true");
             queryShouldHitCache(ddl.getConnection(), "select a + 42 from t where b = true");
@@ -112,7 +112,7 @@ public class ValueSpecificConstraintTests {
     @Test
     void constrainingPreparedTrueBooleanWorks() throws Exception {
         final String schemaTemplate = "create table t(pk bigint, a bigint, b boolean, primary key(pk))";
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             final var connection = ddl.setSchemaAndGetConnection();
             preparedQueryShouldMissCache(connection, "select a + 42 from t where b = ?", ImmutableMap.of(1, true));
             preparedQueryShouldHitCache(connection, "select a + 42 from t where b = ?", ImmutableMap.of(1, true));
@@ -132,7 +132,7 @@ public class ValueSpecificConstraintTests {
     @Test
     void constrainingLiteralFalseBooleanWorks() throws Exception {
         final String schemaTemplate = "create table t(pk bigint, a bigint, b boolean, primary key(pk))";
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             final var connection = ddl.setSchemaAndGetConnection();
             queryShouldMissCache(connection, "select a + 42 from t where b = false");
             queryShouldHitCache(connection, "select a + 42 from t where b = false");
@@ -151,7 +151,7 @@ public class ValueSpecificConstraintTests {
     @Test
     void constrainingPreparedFalseBooleanWorks() throws Exception {
         final String schemaTemplate = "create table t(pk bigint, a bigint, b boolean, primary key(pk))";
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             final var connection = ddl.setSchemaAndGetConnection();
             preparedQueryShouldMissCache(connection, "select a + 42 from t where b = ?", ImmutableMap.of(1, false));
             preparedQueryShouldHitCache(connection, "select a + 42 from t where b = ?", ImmutableMap.of(1, false));
@@ -171,7 +171,7 @@ public class ValueSpecificConstraintTests {
     @Test
     void constrainingLiteralNullBooleanWorks() throws Exception {
         final String schemaTemplate = "create table t(pk bigint, a bigint, b boolean, primary key(pk))";
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             final var connection = ddl.setSchemaAndGetConnection();
             queryShouldMissCache(connection, "select a + 42 from t where b = null");
             queryShouldHitCache(connection, "select a + 42 from t where b = null");
@@ -189,7 +189,7 @@ public class ValueSpecificConstraintTests {
     @Test
     void constrainingPreparedNullBooleanWorks() throws Exception {
         final String schemaTemplate = "create table t(pk bigint, a bigint, b boolean, primary key(pk))";
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             final var connection = ddl.setSchemaAndGetConnection();
             final Map<Integer, Object> map = new TreeMap<>();
             map.put(1, null);
@@ -209,7 +209,7 @@ public class ValueSpecificConstraintTests {
     @Test
     void constrainingNonNullLiteralWorks() throws Exception {
         final String schemaTemplate = "create table t(pk bigint, a bigint, b boolean, primary key(pk))";
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             final var connection = ddl.setSchemaAndGetConnection();
             queryShouldMissCache(connection, "select a + 43 from t where a = 42");
             queryShouldHitCache(connection, "select a + 43 from t where a = 45"); // different literals are ok here (no index filters)
@@ -223,7 +223,7 @@ public class ValueSpecificConstraintTests {
     @Test
     void constrainingPreparedNotNullWorks() throws Exception {
         final String schemaTemplate = "create table t(pk bigint, a bigint, b boolean, primary key(pk))";
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             final var connection = ddl.setSchemaAndGetConnection();
             preparedQueryShouldMissCache(connection, "select a + 43 from t where a = ?", ImmutableMap.of(1, 42));
             preparedQueryShouldHitCache(connection, "select a + 43 from t where a = ?", ImmutableMap.of(1, 45)); // different literals are ok here (no index filters)
@@ -239,7 +239,7 @@ public class ValueSpecificConstraintTests {
     @Test
     void constrainingNullLiteralWorks() throws Exception {
         final String schemaTemplate = "create table t(pk bigint, a bigint, b boolean, primary key(pk))";
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             final var connection = ddl.setSchemaAndGetConnection();
 
             queryShouldMissCache(connection, "select a + 43 from t where a = null");
@@ -254,7 +254,7 @@ public class ValueSpecificConstraintTests {
     @Test
     void constrainingPreparedNullWorks() throws Exception {
         final String schemaTemplate = "create table t(pk bigint, a bigint, b boolean, primary key(pk))";
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             final var connection = ddl.setSchemaAndGetConnection();
             final Map<Integer, Object> map = new TreeMap<>();
             map.put(1, null);
@@ -270,7 +270,7 @@ public class ValueSpecificConstraintTests {
     @Test
     void sameQueryDifferentRewriteRulesEnablement() throws Exception {
         final String schemaTemplate = "create table t(pk bigint, a bigint, b boolean, primary key(pk))";
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             final var connection = ddl.setSchemaAndGetConnection();
             final Map<Integer, Object> map = new TreeMap<>();
             map.put(1, null);
@@ -305,7 +305,7 @@ public class ValueSpecificConstraintTests {
 
         final var queryVector = new HalfRealVector(new double[] {1.2f, -0.4f, 3.14f});
 
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension)
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension)
                 .schemaTemplate(schemaTemplate).schemaTemplateOptions((new SchemaTemplateRule.SchemaTemplateOptions(true, true))).build()) {
             final var connection = ddl.setSchemaAndGetConnection();
 
@@ -344,7 +344,7 @@ public class ValueSpecificConstraintTests {
     @Test
     void sameQueryDifferentRightDeepJoinOption() throws Exception {
         final String schemaTemplate = "create table t(pk bigint, a bigint, b boolean, primary key(pk))";
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             final var connection = ddl.setSchemaAndGetConnection();
             final Map<Integer, Object> map = new TreeMap<>();
             map.put(1, null);

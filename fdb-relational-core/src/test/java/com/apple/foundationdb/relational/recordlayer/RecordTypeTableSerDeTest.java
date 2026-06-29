@@ -45,14 +45,14 @@ class RecordTypeTableSerDeTest {
 
     @RegisterExtension
     @Order(1)
-    public final SimpleDatabaseRule db = new SimpleDatabaseRule(RecordTypeTableSerDeTest.class,
+    public final SimpleDatabaseRule db = new SimpleDatabaseRule(relationalExtension, RecordTypeTableSerDeTest.class,
             """
             CREATE TABLE t1(a bigint, b string, c bytes, d boolean, e integer, f float, g double, h uuid, PRIMARY KEY(a))
             """);
 
     @RegisterExtension
     @Order(2)
-    public final RelationalConnectionRule connection = new RelationalConnectionRule(db::getConnectionUri)
+    public final RelationalConnectionRule connection = new RelationalConnectionRule(relationalExtension, db::getConnectionUri)
             .withOptions(Options.NONE)
             .withSchema(db.getSchemaName());
 

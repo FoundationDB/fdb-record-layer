@@ -42,7 +42,6 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
-import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -59,11 +58,11 @@ public class QueryLoggingTest {
 
     @RegisterExtension
     @Order(1)
-    public final SimpleDatabaseRule database = new SimpleDatabaseRule(QueryLoggingTest.class, TestSchemas.restaurantWithCoveringIndex());
+    public final SimpleDatabaseRule database = new SimpleDatabaseRule(relationalExtension, QueryLoggingTest.class, TestSchemas.restaurantWithCoveringIndex());
 
     @RegisterExtension
     @Order(2)
-    public final RelationalConnectionRule connection = new RelationalConnectionRule(database::getConnectionUri)
+    public final RelationalConnectionRule connection = new RelationalConnectionRule(relationalExtension, database::getConnectionUri)
             .withOptions(Options.NONE)
             .withSchema("TEST_SCHEMA");
 
@@ -133,7 +132,7 @@ public class QueryLoggingTest {
 
     @Test
     void testRelationalConnectionOptionPreparedStatement() throws Exception {
-        final var driver = (RelationalDriver) DriverManager.getDriver(database.getConnectionUri().toString());
+        final var driver = relationalExtension.getDriver();
         try (RelationalConnection conn = driver.connect(database.getConnectionUri(), Options.builder().withOption(Options.Name.LOG_QUERY, true).build())) {
             conn.setSchema(database.getSchemaName());
             try (PreparedStatement ps = conn.prepareStatement("SELECT name from restaurant where rest_no = ?")) {
@@ -154,7 +153,7 @@ public class QueryLoggingTest {
 
     @Test
     void testRelationalConnectionOptionExplicitlyDisabled() throws Exception {
-        final var driver = (RelationalDriver) DriverManager.getDriver(database.getConnectionUri().toString());
+        final var driver = relationalExtension.getDriver();
         try (RelationalConnection conn = driver.connect(database.getConnectionUri(), Options.builder().withOption(Options.Name.LOG_QUERY, false).build())) {
             conn.setSchema(database.getSchemaName());
             try (PreparedStatement ps = conn.prepareStatement("SELECT name from restaurant where rest_no = ?")) {
@@ -175,7 +174,7 @@ public class QueryLoggingTest {
 
     @Test
     void testRelationalConnectionSetLogOnThenOff() throws Exception {
-        final var driver = (RelationalDriver) DriverManager.getDriver(database.getConnectionUri().toString());
+        final var driver = relationalExtension.getDriver();
         try (RelationalConnection conn = driver.connect(database.getConnectionUri(), Options.NONE)) {
             conn.setSchema(database.getSchemaName());
             try (Statement stmt = conn.createStatement()) {
@@ -208,7 +207,7 @@ public class QueryLoggingTest {
 
     @Test
     void testRelationalConnectionSetLogIsOverriddenByQueryOption() throws Exception {
-        final var driver = (RelationalDriver) DriverManager.getDriver(database.getConnectionUri().toString());
+        final var driver = relationalExtension.getDriver();
         try (RelationalConnection conn = driver.connect(database.getConnectionUri(), Options.NONE)) {
             conn.setSchema(database.getSchemaName());
             conn.setOption(Options.Name.LOG_QUERY, false);
@@ -226,7 +225,7 @@ public class QueryLoggingTest {
     @Test
     void testRelationalConnectionSetLogIsOverriddenByExecuteContinuationQueryOption() throws Exception {
         insertRows();
-        final var driver = (RelationalDriver) DriverManager.getDriver(database.getConnectionUri().toString());
+        final var driver = relationalExtension.getDriver();
         try (RelationalConnection conn = driver.connect(database.getConnectionUri(), Options.NONE)) {
             Continuation continuation;
             conn.setSchema(database.getSchemaName());
@@ -254,7 +253,7 @@ public class QueryLoggingTest {
     @ValueSource(booleans = {true, false})
     void testRelationalConnectionSetLogWithExecuteContinuation(boolean setLogging) throws Exception {
         insertRows();
-        final var driver = (RelationalDriver) DriverManager.getDriver(database.getConnectionUri().toString());
+        final var driver = relationalExtension.getDriver();
         try (RelationalConnection conn = driver.connect(database.getConnectionUri(), Options.NONE)) {
             Continuation continuation;
             conn.setSchema(database.getSchemaName());
@@ -298,7 +297,7 @@ public class QueryLoggingTest {
             resultSet.next();
         }
         Assertions.assertThat(logAppender.getLogEvents()).isEmpty();
-        final var driver = (RelationalDriver) DriverManager.getDriver(database.getConnectionUri().toString());
+        final var driver = relationalExtension.getDriver();
         try (RelationalConnection conn = driver.connect(database.getConnectionUri(), Options.builder().withOption(Options.Name.LOG_SLOW_QUERY_THRESHOLD_MICROS, 1L).build())) {
             conn.setSchema(database.getSchemaName());
             try (PreparedStatement ps = conn.prepareStatement("SELECT NAME FROM RESTAURANT")) {
@@ -316,7 +315,7 @@ public class QueryLoggingTest {
             resultSet.next();
         }
         Assertions.assertThat(logAppender.getLogEvents()).isEmpty();
-        final var driver = (RelationalDriver) DriverManager.getDriver(database.getConnectionUri().toString());
+        final var driver = relationalExtension.getDriver();
         try (RelationalConnection conn = driver.connect(database.getConnectionUri(), Options.builder().withOption(Options.Name.LOG_SLOW_QUERY_THRESHOLD_MICROS, 1L).build())) {
             conn.setSchema(database.getSchemaName());
             try (PreparedStatement ps = conn.prepareStatement("SELECT * FROM RESTAURANT WHERE \"NAME\" = 'restaurant 1'")) {

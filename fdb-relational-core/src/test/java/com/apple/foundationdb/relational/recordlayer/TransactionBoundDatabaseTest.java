@@ -90,11 +90,11 @@ public class TransactionBoundDatabaseTest {
 
     @RegisterExtension
     @Order(1)
-    public final SimpleDatabaseRule dbRule = new SimpleDatabaseRule(TransactionBoundDatabaseTest.class, TestSchemas.restaurant());
+    public final SimpleDatabaseRule dbRule = new SimpleDatabaseRule(relational, TransactionBoundDatabaseTest.class, TestSchemas.restaurant());
 
     @RegisterExtension
     @Order(2)
-    public final RelationalConnectionRule connRule = new RelationalConnectionRule(dbRule::getConnectionUri)
+    public final RelationalConnectionRule connRule = new RelationalConnectionRule(relational, dbRule::getConnectionUri)
             .withOptions(Options.NONE)
             .withSchema("TEST_SCHEMA");
 

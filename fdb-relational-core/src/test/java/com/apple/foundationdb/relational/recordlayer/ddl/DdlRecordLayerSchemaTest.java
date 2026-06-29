@@ -38,7 +38,6 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 
 import java.net.URI;
 import java.sql.Array;
-import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.Statement;
 import java.util.Collections;
@@ -52,18 +51,18 @@ public class DdlRecordLayerSchemaTest {
 
     @RegisterExtension
     @Order(1)
-    public final SchemaTemplateRule baseTemplate = new SchemaTemplateRule(
+    public final SchemaTemplateRule baseTemplate = new SchemaTemplateRule(relational, 
             DdlRecordLayerSchemaTest.class.getSimpleName().toUpperCase(Locale.ROOT) + "_TEMPLATE",
             Options.none(), null, Collections.singleton(new TableDefinition("FOO_TBL", List.of("string", "double"), List.of("col0"))),
             Collections.singleton(new TypeDefinition("FOO_NESTED_TYPE", List.of("string", "bigint"))));
 
     @RegisterExtension
     @Order(2)
-    public final DatabaseRule db = new DatabaseRule(URI.create("/TEST/" + DdlRecordLayerSchemaTest.class.getSimpleName().toUpperCase(Locale.ROOT)), Options.none());
+    public final DatabaseRule db = new DatabaseRule(relational, URI.create("/TEST/" + DdlRecordLayerSchemaTest.class.getSimpleName().toUpperCase(Locale.ROOT)), Options.none());
 
     @Test
     void canCreateSchema() throws Exception {
-        try (final var conn = DriverManager.getConnection("jdbc:embed:/__SYS")) {
+        try (final var conn = relational.getDriver().connect(URI.create("jdbc:embed:/__SYS"))) {
             conn.setSchema("CATALOG");
             try (final var statement = conn.createStatement()) {
                 //create a schema
@@ -89,7 +88,7 @@ public class DdlRecordLayerSchemaTest {
 
     @Test
     void canCreateSchemaTemplateWhenConnectedToNonCatalogSchema() throws Exception {
-        try (final var conn = DriverManager.getConnection("jdbc:embed:/__SYS")) {
+        try (final var conn = relational.getDriver().connect(URI.create("jdbc:embed:/__SYS"))) {
             conn.setSchema("CATALOG");
             try (Statement statement = conn.createStatement()) {
                 //create a schema
@@ -99,7 +98,7 @@ public class DdlRecordLayerSchemaTest {
             }
         }
         //now create a new schema in the same db but using a different connection
-        try (final var conn = DriverManager.getConnection("jdbc:embed:" + db.getDbUri())) {
+        try (final var conn = relational.getDriver().connect(URI.create("jdbc:embed:" + db.getDbUri()))) {
             conn.setSchema("TEST_SCHEMA");
             try (Statement statement = conn.createStatement()) {
                 //create a schema
@@ -111,7 +110,7 @@ public class DdlRecordLayerSchemaTest {
 
     @Test
     void cannotCreateSchemaTwice() throws Exception {
-        try (final var conn = DriverManager.getConnection("jdbc:embed:/__SYS")) {
+        try (final var conn = relational.getDriver().connect(URI.create("jdbc:embed:/__SYS"))) {
             conn.setSchema("CATALOG");
             try (Statement statement = conn.createStatement()) {
 
@@ -127,7 +126,7 @@ public class DdlRecordLayerSchemaTest {
 
     @Test
     void dropSchema() throws Exception {
-        try (final var conn = DriverManager.getConnection("jdbc:embed:/__SYS")) {
+        try (final var conn = relational.getDriver().connect(URI.create("jdbc:embed:/__SYS"))) {
             conn.setSchema("CATALOG");
             try (final var statement = conn.createStatement()) {
 

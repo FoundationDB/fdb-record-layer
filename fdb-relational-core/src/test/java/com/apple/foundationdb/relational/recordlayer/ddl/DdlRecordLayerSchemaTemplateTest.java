@@ -41,7 +41,6 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
 import java.sql.Array;
-import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.HashSet;
@@ -49,6 +48,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Stream;
+import java.net.URI;
 
 /**
  * End-to-end unit tests for Schema Template language in the RecordLayer.
@@ -66,7 +66,7 @@ public class DdlRecordLayerSchemaTemplateTest {
     }
 
     private void run(ThrowingConsumer<? super RelationalStatement> operation) throws RelationalException, SQLException {
-        try (RelationalConnection conn = DriverManager.getConnection("jdbc:embed:/__SYS").unwrap(RelationalConnection.class)) {
+        try (RelationalConnection conn = relational.getDriver().connect(URI.create("jdbc:embed:/__SYS")).unwrap(RelationalConnection.class)) {
             conn.setSchema("CATALOG");
             try (RelationalStatement statement = conn.createStatement()) {
                 operation.accept(statement);
