@@ -36,6 +36,7 @@ import com.apple.test.Tags;
 import com.google.common.collect.Maps;
 import com.google.protobuf.Message;
 import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.parallel.Isolated;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -61,6 +62,11 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 /**
  * Tests for building a grouped count index.
  */
+// Parameterized invocations of buildWhileUpdatingGroupedCount issue many batch-priority
+// GRVs and trip the FDB cluster's batch-GRV rate limit even when the class is serialised
+// with other indexer tests via the inherited @ResourceLock from OnlineIndexerTest.
+// Escalate to full cross-class isolation, matching OnlineIndexScrubberTest.
+@Isolated("Grouped-count indexer tests issue many batch-priority GRVs and trip FDB's batch-GRV rate limit when sharing the cluster with other parallel tests")
 public class OnlineIndexerBuildGroupedCountIndexTest extends OnlineIndexerTest {
     private static final KeyExpression PRIMARY_KEY = concatenateFields("num_value_2", "rec_no");
 
