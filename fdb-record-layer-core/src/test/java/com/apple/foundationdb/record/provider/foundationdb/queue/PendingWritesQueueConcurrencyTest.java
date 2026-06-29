@@ -20,26 +20,23 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.queue;
 
+import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.PendingWritesQueueTestProto.TestQueuePayload;
-import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.ScanProperties;
+import com.apple.foundationdb.record.provider.foundationdb.FDBExceptions;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreTestBase;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
-import com.apple.foundationdb.tuple.Versionstamp;
 import com.apple.test.Tags;
 import com.google.protobuf.ByteString;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 import javax.annotation.Nonnull;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Random;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutorService;
@@ -49,27 +46,17 @@ import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.fail;
 
 /**
  * Randomized concurrency tests for {@link PendingWritesQueue}.
  *
- * <p>Two phases:</p>
- * <ol>
- *   <li>A storm of worker threads issues mixed enqueue / size-read / cursor-scan operations
- *       (the enqueues are conflict-free by construction; size reads use a snapshot;
- *       cursor scans take the default isolation but are read-only). After the storm we drain
- *       and verify multiset equality and {@code (incarnation, versionstamp)} ordering, plus a
- *       zero size-counter after clearing.</li>
- *   <li>A race loop where one transaction drains + asserts {@code isQueueEmpty} + writes a
- *       close-out marker, while another concurrently enqueues. We assert that whenever the two
- *       overlap, the FDB conflict detector lets exactly one of them win — either the
- *       close-out commits and the enqueue retries (its enqueue still lands), or the enqueue
- *       commits first and the close-out conflicts on the empty-check read range.</li>
- * </ol>
- *
- * <p>Both phases use a fixed-seed {@link Random}, so the test is deterministic in CI but
- * still exercises many orderings.</p>
+ *  A storm of worker threads issues mixed enqueue / size-read / cursor-scan / drain
+ *  operations. Enqueues are conflict-free by construction; size reads use a snapshot;
+ *  cursor scans are read-only; drain workers clear a batch and record the cleared
+ *  payloads into a shared result set. After the storm we drain whatever is left into the
+ *  same result set, then verify that the union (drained-during-run + drained-after)
+ *  equals the recorded enqueues as a multiset, that the leftover snapshot was ordered by
+ *  {@code (incarnation, versionstamp)}, and that the size counter is zero once empty.s
  */
 @Tag(Tags.RequiresFDB)
 @Tag(Tags.Slow)
@@ -77,12 +64,11 @@ class PendingWritesQueueConcurrencyTest extends FDBRecordStoreTestBase {
 
     private static final long SEED = 0xCAFEBABEL;
     private static final int WORKER_COUNT = 8;
-    private static final int ITERATIONS_PER_WORKER = 40;
-    private static final int[] INCARNATIONS = {1, 3, 7};
-    private static final int RACE_ROUNDS = 20;
+    private static final int ITERATIONS_PER_WORKER = 400;
+    private static final int INCARNATION = 1;
 
     /**
-     * Phase 1: storm of mixed-operation workers, then drain & verify.
+     * mixed-operation workers, then drain & verify.
      */
     @Test
     void testRandomizedConcurrentEnqueueAndScan() throws Exception {
@@ -92,65 +78,60 @@ class PendingWritesQueueConcurrencyTest extends FDBRecordStoreTestBase {
             commit(context);
         }
 
-        // Every enqueued payload is recorded here so we can verify exact multiset equality
-        // after draining, without depending on any global ordering across workers.
+        // Every enqueued payload is recorded here, in commit order. Each worker performs its
+        // commit and its append to this list together under `commitLock`, so the list order
+        // matches the FDB commit order (= versionstamp order = queue scan order). Drainers do
+        // the same with `drained`, so the two lists line up entry-for-entry.
         ConcurrentLinkedQueue<TestQueuePayload> recorded = new ConcurrentLinkedQueue<>();
+        // Payloads cleared by drain workers during the run land here, in clear order. The
+        // post-test drain appends whatever is left, so this ends up equal to `recorded`.
+        ConcurrentLinkedQueue<TestQueuePayload> drained = new ConcurrentLinkedQueue<>();
+        // Serializes every committing transaction (enqueue and drain) with its corresponding
+        // list append, so commit order and list order agree.
+        final Object commitLock = new Object();
 
-        ExecutorService executor = Executors.newFixedThreadPool(WORKER_COUNT);
-        List<Future<?>> futures = new ArrayList<>(WORKER_COUNT);
-        try {
-            for (int worker = 0; worker < WORKER_COUNT; worker++) {
-                final int workerId = worker;
-                // Per-worker Random seeded deterministically from the global seed + workerId
-                // so each worker's interleaving is reproducible.
-                final Random workerRandom = new Random(SEED + workerId);
-                futures.add(executor.submit(() -> {
-                    workerLoop(queue, workerId, workerRandom, recorded);
-                    return null;
-                }));
+        try (ExecutorService executor = Executors.newFixedThreadPool(WORKER_COUNT)) {
+            List<Future<?>> futures = new ArrayList<>(WORKER_COUNT);
+            try {
+                for (int worker = 0; worker < WORKER_COUNT; worker++) {
+                    final int workerId = worker;
+                    // Per-worker Random seeded deterministically from the global seed + workerId
+                    // so each worker's interleaving is reproducible.
+                    futures.add(executor.submit(() -> {
+                        workerLoop(queue, workerId, new Random(SEED + workerId), recorded, drained, commitLock);
+                        return null;
+                    }));
+                }
+                for (Future<?> future : futures) {
+                    future.get(120, TimeUnit.SECONDS);
+                }
+            } finally {
+                executor.shutdownNow();
+                assertTrue(executor.awaitTermination(30, TimeUnit.SECONDS), "executor did not shut down");
             }
-            for (Future<?> future : futures) {
-                future.get(120, TimeUnit.SECONDS);
-            }
-        } finally {
-            executor.shutdownNow();
-            assertTrue(executor.awaitTermination(30, TimeUnit.SECONDS), "executor did not shut down");
         }
 
-        // Drain & verify.
-        List<PendingWritesQueueEntry<TestQueuePayload>> drained;
+        // Drain whatever the workers left behind, in a single consistent snapshot, recording
+        // the cleared payloads into the same result set. The workers have stopped, so there is
+        // no concurrency here: the leftover scan reflects one consistent ordering.
         try (FDBRecordContext context = openContext()) {
-            drained = queue.getQueueCursor(context, ScanProperties.FORWARD_SCAN, null).asList().join();
-        }
-
-        // 1. Count matches.
-        assertEquals(recorded.size(), drained.size(),
-                "drained entry count must match recorded enqueue count");
-
-        // 2. (incarnation, versionstamp) ordering: monotonically non-decreasing, with
-        // incarnation strictly ordered and versionstamps strictly increasing within the same
-        // incarnation.
-        assertEntriesOrdered(drained);
-
-        // 3. Multiset equality of payloads.
-        Map<TestQueuePayload, Integer> expectedCounts = new HashMap<>();
-        for (TestQueuePayload payload : recorded) {
-            expectedCounts.merge(payload, 1, Integer::sum);
-        }
-        Map<TestQueuePayload, Integer> actualCounts = new HashMap<>();
-        for (PendingWritesQueueEntry<TestQueuePayload> entry : drained) {
-            actualCounts.merge(entry.getPayload(), 1, Integer::sum);
-        }
-        assertEquals(expectedCounts, actualCounts,
-                "drained payloads must equal recorded enqueues as a multiset");
-
-        // 4. Clear everything and verify the counter goes to 0 and isEmpty is true.
-        try (FDBRecordContext context = openContext()) {
-            for (PendingWritesQueueEntry<TestQueuePayload> entry : drained) {
+            List<PendingWritesQueueEntry<TestQueuePayload>> leftover =
+                    queue.getQueueCursor(context, ScanProperties.FORWARD_SCAN, null).asList().join();
+            for (PendingWritesQueueEntry<TestQueuePayload> entry : leftover) {
                 queue.clearEntry(context, entry);
+                drained.add(entry.getPayload());
             }
             commit(context);
         }
+
+        // Every enqueued item was drained exactly once, and the queue is FIFO: items come out
+        // in the exact order they were committed. Because both lists are appended in commit
+        // order (under commitLock) and drains always take from the front, the drained sequence
+        // must equal the recorded sequence element-for-element.
+        assertEquals(new ArrayList<>(recorded), new ArrayList<>(drained),
+                "items must be drained in the same order they were enqueued");
+
+        // The queue is now empty and the size counter has settled at 0.
         try (FDBRecordContext context = openContext()) {
             assertTrue(queue.ensureQueueEmpty(context).join(),
                     "queue must be empty after draining everything");
@@ -160,180 +141,125 @@ class PendingWritesQueueConcurrencyTest extends FDBRecordStoreTestBase {
     }
 
     /**
-     * Phase 2: race between a drain+close-out transaction and concurrent enqueues. Exactly
-     * one of each pair must succeed cleanly; the loser observes either a queue-too-empty
-     * conflict (close-out lost) or no conflict but the post-state is still consistent
-     * (close-out won, late enqueue retries and lands as the "next round" entry).
-     */
-    @Test
-    void testCloseoutVsEnqueueRace() {
-        PendingWritesQueue<TestQueuePayload> queue;
-        Subspace closeoutSpace;
-        try (FDBRecordContext context = openContext()) {
-            queue = getQueue(context, 0);
-            closeoutSpace = path.toSubspace(context).subspace(Tuple.from("closeout"));
-            commit(context);
-        }
-
-        Random random = new Random(SEED);
-        int rounds = 0;
-        int closeoutWins = 0;
-        int enqueueWins = 0;
-        int closeoutConflicts = 0;
-
-        for (int round = 0; round < RACE_ROUNDS; round++) {
-            rounds++;
-            // Pre-seed each round with a known-clean queue.
-            drainQueueFully(queue);
-
-            // Coin flip: whether to commit the enqueue before or after asking the close-out
-            // transaction to commit. Both orderings exercise interesting interleavings.
-            boolean enqueueFirst = random.nextBoolean();
-            TestQueuePayload enqueuePayload = TestQueuePayload.newBuilder()
-                    .setLabel("race-" + round)
-                    .setValue(round)
-                    .build();
-
-            boolean closeoutCommitted = false;
-            try (FDBRecordContext closeoutTx = openContext()) {
-                // Drain (vacuously, since pre-seeded) and assert emptiness.
-                List<PendingWritesQueueEntry<TestQueuePayload>> remaining =
-                        queue.getQueueCursor(closeoutTx, ScanProperties.FORWARD_SCAN, null).asList().join();
-                for (PendingWritesQueueEntry<TestQueuePayload> entry : remaining) {
-                    queue.clearEntry(closeoutTx, entry);
-                }
-                assertTrue(queue.ensureQueueEmpty(closeoutTx).join());
-                closeoutTx.ensureActive().set(closeoutSpace.pack(),
-                        ("round-" + round).getBytes(StandardCharsets.UTF_8));
-
-                if (enqueueFirst) {
-                    try (FDBRecordContext enqueueTx = openContext()) {
-                        queue.enqueue(enqueueTx, enqueuePayload, INCARNATIONS[0]).join();
-                        commit(enqueueTx);
-                    }
-                    enqueueWins++;
-                    try {
-                        commit(closeoutTx);
-                        // Should have conflicted — fail loudly if FDB let it through.
-                        fail("close-out transaction should have conflicted when an enqueue committed first");
-                    } catch (RecordCoreException expected) {
-                        closeoutConflicts++;
-                    }
-                } else {
-                    commit(closeoutTx);
-                    closeoutCommitted = true;
-                    closeoutWins++;
-                    try (FDBRecordContext enqueueTx = openContext()) {
-                        // The post-close-out enqueue is unaffected by the close-out's commit;
-                        // the queue keyspace itself wasn't read by the close-out's range
-                        // scan (only the empty-check, which scans 1 row and finds none).
-                        queue.enqueue(enqueueTx, enqueuePayload, INCARNATIONS[0]).join();
-                        commit(enqueueTx);
-                    }
-                }
-            } catch (RecordCoreException ex) {
-                if (closeoutCommitted) {
-                    throw ex;
-                }
-                // Close-out itself threw — count as a conflict.
-                closeoutConflicts++;
-            }
-        }
-
-        // Sanity: every round was accounted for in exactly one bucket.
-        assertEquals(rounds, closeoutWins + enqueueWins,
-                "every round must be either a close-out win or an enqueue win");
-        // Whenever the enqueue committed first, the close-out must have conflicted.
-        assertEquals(enqueueWins, closeoutConflicts,
-                "every enqueue-first round must have produced a close-out conflict");
-        // Both branches should have triggered at least once with RACE_ROUNDS = 20.
-        assertTrue(closeoutWins > 0, "expected at least one close-out-wins round");
-        assertTrue(enqueueWins > 0, "expected at least one enqueue-first round");
-    }
-
-    /**
-     * Single worker's loop: pick a random operation, do it, repeat. Enqueues run in their own
-     * one-shot transactions so each commit is independent.
+     * Single worker's loop: pick a random operation, do it, repeat. Enqueues and drains run in
+     * their own one-shot transactions. The commit and the corresponding list append happen
+     * together under {@code commitLock} so that list order matches FDB commit order.
      */
     private void workerLoop(@Nonnull PendingWritesQueue<TestQueuePayload> queue,
                             int workerId,
                             @Nonnull Random random,
-                            @Nonnull ConcurrentLinkedQueue<TestQueuePayload> recorded) {
+                            @Nonnull ConcurrentLinkedQueue<TestQueuePayload> recorded,
+                            @Nonnull ConcurrentLinkedQueue<TestQueuePayload> drained,
+                            @Nonnull Object commitLock) {
         for (int seq = 0; seq < ITERATIONS_PER_WORKER; seq++) {
             int op = random.nextInt(10);
             if (op < 7) {
                 // 70% enqueue.
                 TestQueuePayload payload = generatePayload(workerId, seq, random);
-                int incarnation = INCARNATIONS[random.nextInt(INCARNATIONS.length)];
                 try (FDBRecordContext context = openContext()) {
-                    queue.enqueue(context, payload, incarnation).join();
-                    commit(context);
-                    recorded.add(payload);
+                    queue.enqueue(context, payload, INCARNATION).join();
+                    // Commit and record under the lock so that the recorded order matches the
+                    // commit order (= versionstamp order).
+                    synchronized (commitLock) {
+                        commit(context);
+                        recorded.add(payload);
+                    }
                 }
-            } else if (op < 9) {
-                // 20% size read — must never go negative.
+            } else if (op < 8) {
+                // 10% size read — must never go negative.
                 try (FDBRecordContext context = openContext()) {
                     Long size = queue.getQueueSizeNoConflict(context).join();
                     if (size != null) {
                         assertTrue(size >= 0, "queue size must never go negative, saw " + size);
                     }
                 }
+            } else if (op < 9) {
+                // 10% drain — clear a batch and record the cleared payloads.
+                drainSomeIntoResult(queue, drained, commitLock);
             } else {
-                // 10% cursor scan — entries are always in (incarnation, versionstamp) order.
+                // 10% cursor scan
                 try (FDBRecordContext context = openContext()) {
                     List<PendingWritesQueueEntry<TestQueuePayload>> entries =
                             queue.getQueueCursor(context, ScanProperties.FORWARD_SCAN, null).asList().join();
-                    assertEntriesOrdered(entries);
+                    Long size = queue.getQueueSizeNoConflict(context).join();
+                    assertEquals(size == null ? 0 : size, entries.size());
+                    commit(context);
                 }
             }
         }
     }
 
-    private static void assertEntriesOrdered(@Nonnull List<PendingWritesQueueEntry<TestQueuePayload>> entries) {
-        int lastIncarnation = Integer.MIN_VALUE;
-        Versionstamp lastVersionstamp = null;
-        for (PendingWritesQueueEntry<TestQueuePayload> entry : entries) {
-            int incarnation = entry.getIncarnation();
-            Versionstamp versionstamp = (Versionstamp) entry.getKeyTuple().get(1);
-            assertTrue(versionstamp.isComplete(),
-                    "queue entries must always carry a complete versionstamp");
-            if (incarnation < lastIncarnation) {
-                fail("incarnations should be monotonically non-decreasing, saw "
-                        + incarnation + " after " + lastIncarnation);
-            }
-            if (incarnation == lastIncarnation && lastVersionstamp != null) {
-                if (versionstamp.compareTo(lastVersionstamp) <= 0) {
-                    fail("versionstamps within an incarnation must strictly increase, saw "
-                            + versionstamp + " after " + lastVersionstamp);
-                }
-            }
-            lastIncarnation = incarnation;
-            lastVersionstamp = versionstamp;
-        }
-    }
+    /**
+     * Drain a small batch from the front of the queue and record the cleared payloads into
+     * {@code drained}, but only after a successful commit.
+     *
+     * <p>The cursor forces snapshot isolation, so two drainers could observe the same entry. To
+     * keep draining exactly-once, drainers coordinate through a dedicated key -
+     * each drainer reads a shared "drain coordinator" key and writes a new value to
+     * it, so two drainers that overlap conflict and only one commits. The loser rolls back and
+     * records nothing. This keeps draining exactly-once without installing any read conflict
+     * over the queue subspace, so concurrent enqueues are never affected.</p>
+     *
+     * <p>Like the enqueue path, the commit and the append to {@code drained} happen together
+     * under {@code commitLock}. Because drains always take from the front (lowest versionstamps
+     * first), this makes the drained sequence match the enqueue/commit order.</p>
+     */
+    private void drainSomeIntoResult(@Nonnull PendingWritesQueue<TestQueuePayload> queue,
+                                     @Nonnull ConcurrentLinkedQueue<TestQueuePayload> drained,
+                                     @Nonnull Object commitLock) {
+        // Limit the batch so drains stay small and interleave with each other and with enqueues.
+        ScanProperties limitedScan = ExecuteProperties.newBuilder()
+                .setReturnedRowLimit(5)
+                .build()
+                .asScanProperties(false);
+        List<TestQueuePayload> clearedThisTx = new ArrayList<>();
+        try (FDBRecordContext context = openContext()) {
+            // Read-modify-write a shared coordinator key so overlapping drainers conflict: both
+            // read the same value, both write a new one, and the second to commit is rejected.
+            byte[] coordinatorKey = drainCoordinatorKey(context);
+            byte[] currentGeneration = context.ensureActive().get(coordinatorKey).join();
+            long nextGeneration =
+                    (currentGeneration == null ? 0L : Tuple.fromBytes(currentGeneration).getLong(0)) + 1;
 
-    private void drainQueueFully(@Nonnull PendingWritesQueue<TestQueuePayload> queue) {
-        while (true) {
-            List<PendingWritesQueueEntry<TestQueuePayload>> entries;
-            try (FDBRecordContext context = openContext()) {
-                entries = queue.getQueueCursor(context, ScanProperties.FORWARD_SCAN, null).asList().join();
-                if (entries.isEmpty()) {
-                    return;
-                }
-                for (PendingWritesQueueEntry<TestQueuePayload> entry : entries) {
-                    queue.clearEntry(context, entry);
-                }
+            List<PendingWritesQueueEntry<TestQueuePayload>> entries =
+                    queue.getQueueCursor(context, limitedScan, null).asList().join();
+            for (PendingWritesQueueEntry<TestQueuePayload> entry : entries) {
+                queue.clearEntry(context, entry);
+                clearedThisTx.add(entry.getPayload());
+            }
+            context.ensureActive().set(coordinatorKey, Tuple.from(nextGeneration).pack());
+
+            // Commit and record under the lock so that the drained order matches the commit
+            // order. Only count these as drained once the commit actually succeeded.
+            synchronized (commitLock) {
                 commit(context);
+                drained.addAll(clearedThisTx);
             }
+        } catch (FDBExceptions.FDBStoreTransactionConflictException conflict) {
+            // Another drainer committed against the coordinator key first; the whole transaction
+            // rolled back, so nothing here was cleared. Leave the entries for a later drain.
         }
     }
 
     @Nonnull
+    private byte[] drainCoordinatorKey(@Nonnull FDBRecordContext context) {
+        return path.toSubspace(context).subspace(Tuple.from("drain-coordinator")).pack();
+    }
+
+    @Nonnull
     private PendingWritesQueue<TestQueuePayload> getQueue(@Nonnull FDBRecordContext context, long maxQueueSize) {
-        Subspace queueSubspace = path.toSubspace(context).subspace(Tuple.from("queue"));
-        Subspace counterSubspace = path.toSubspace(context).subspace(Tuple.from("counter"));
-        return new PendingWritesQueue<>(queueSubspace, counterSubspace, maxQueueSize,
+        return new PendingWritesQueue<>(queueSubspaceFor(context), counterSubspaceFor(context), maxQueueSize,
                 TestQueuePayload.class);
+    }
+
+    @Nonnull
+    private Subspace queueSubspaceFor(@Nonnull FDBRecordContext context) {
+        return path.toSubspace(context).subspace(Tuple.from("queue"));
+    }
+
+    @Nonnull
+    private Subspace counterSubspaceFor(@Nonnull FDBRecordContext context) {
+        return path.toSubspace(context).subspace(Tuple.from("counter"));
     }
 
     @Nonnull

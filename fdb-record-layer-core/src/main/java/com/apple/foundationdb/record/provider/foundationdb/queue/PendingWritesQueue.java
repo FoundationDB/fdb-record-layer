@@ -70,7 +70,7 @@ import java.util.concurrent.CompletableFuture;
  *       instance, rejecting mismatches with a {@link RecordCoreStorageException}. Callers
  *       receive an already-unpacked {@code T} from
  *       {@link PendingWritesQueueEntry#getPayload()}.</li>
- *   <li><b>Conflict-free enqueue.</b> Each entry is keyed by an incomplete versionstamp,
+ *   <li><b>Conflict-free enqueue.</b> Each entry is keyed by a versionstamp,
  *       written through {@link SplitHelper#saveWithSplit} (which uses
  *       {@link MutationType#SET_VERSIONSTAMPED_KEY}). The size counter is mutated atomically
  *       with {@link MutationType#ADD}. The capacity check reads the counter via a snapshot
@@ -249,6 +249,8 @@ public class PendingWritesQueue<T extends Message> {
      *
      * @return a future resolving to {@code true} when the queue range is empty
      * @throws com.apple.foundationdb.record.provider.foundationdb.FDBExceptions.FDBStoreTransactionConflictException
+     * via the transaction's commit if another transaction enqueued into the queue between this
+     * read and the commit
      */
     @Nonnull
     public CompletableFuture<Boolean> ensureQueueEmpty(@Nonnull FDBRecordContext context) {
@@ -321,7 +323,8 @@ public class PendingWritesQueue<T extends Message> {
         }
         if (item.getVersion() > CURRENT_VERSION) {
             throw new RecordCoreStorageException("Pending writes queue entry version is newer than this reader supports")
-                    .addLogInfo(LogMessageKeys.VERSION, item.getVersion())
+                    .addLogInfo(LogMessageKeys.VERSION, CURRENT_VERSION)
+                    .addLogInfo(LogMessageKeys.STORED_VERSION, item.getVersion())
                     .addLogInfo(LogMessageKeys.KEY_TUPLE, keyTuple);
         }
         Any storedPayload = item.getPayload();

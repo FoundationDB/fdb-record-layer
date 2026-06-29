@@ -50,7 +50,6 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
-import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -75,7 +74,7 @@ class PendingWritesQueueTest extends FDBRecordStoreTestBase {
     @Test
     void testEnqueueAndIterate() {
         final int incarnation = 7;
-        final List<TestQueuePayload> payloads = randomPayloads(COUNT);
+        final List<TestQueuePayload> payloads = randomPayloads(COUNT, 0xC0FFEEL + COUNT);
 
         PendingWritesQueue<TestQueuePayload> queue;
         try (FDBRecordContext context = openContext()) {
@@ -264,7 +263,7 @@ class PendingWritesQueueTest extends FDBRecordStoreTestBase {
     }
 
     /**
-     * {@link PendingWritesQueue#ensureQueueEmpty} returns true on a virgin queue
+     * {@link PendingWritesQueue#ensureQueueEmpty} returns true on a new queue
      * and false once something has been enqueued.
      */
     @Test
@@ -285,8 +284,8 @@ class PendingWritesQueueTest extends FDBRecordStoreTestBase {
     }
 
     /**
-     * The "fail if conflicting insert" close-out: TX_A calls {@code isQueueEmpty} (which uses a
-     * non-snapshot read so FDB installs a read-conflict range over the queue). While TX_A is
+     * The "fail if conflicting insert" close-out: TX_A calls {@link  PendingWritesQueue#ensureQueueEmpty(FDBRecordContext)}
+     * (which uses a non-snapshot read so FDB installs a read-conflict range over the queue). While TX_A is
      * open, TX_B enqueues into the queue and commits first. TX_A's commit must fail with a
      * conflict.
      */
@@ -322,6 +321,61 @@ class PendingWritesQueueTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             assertFalse(queue.ensureQueueEmpty(context).join());
             assertEquals(1L, queue.getQueueSizeNoConflict(context).join());
+        }
+    }
+
+    /**
+     * The close-out path starting from a <em>full</em> queue: TX_A drains all 5 entries, then
+     * calls {@link PendingWritesQueue#ensureQueueEmpty(FDBRecordContext)} (which now sees the
+     * queue as empty within TX_A's own view, but installs a read-conflict range over the whole
+     * queue), and writes a close-out marker. While TX_A is open, TX_B enqueues a new item and
+     * commits. TX_A's commit must fail with a conflict — otherwise it would incorrectly conclude
+     * the queue was permanently drained while a write slipped in behind it.
+     */
+    @Test
+    void testDrainThenIsEmptyConflictsConcurrentEnqueue() {
+        PendingWritesQueue<TestQueuePayload> queue;
+        Subspace otherSubspace;
+        try (FDBRecordContext context = openContext()) {
+            queue = getQueue(context, 100);
+            otherSubspace = path.toSubspace(context).subspace(Tuple.from("other"));
+            // Start the queue full.
+            for (int i = 0; i < 5; i++) {
+                queue.enqueue(context, payload("seed-" + i), 0).join();
+            }
+            commit(context);
+        }
+
+        try (FDBRecordContext txA = openContext()) {
+            // TX_A drains every entry it can see ...
+            List<PendingWritesQueueEntry<TestQueuePayload>> entries =
+                    queue.getQueueCursor(txA, ScanProperties.FORWARD_SCAN, null).asList().join();
+            assertEquals(5, entries.size());
+            for (PendingWritesQueueEntry<TestQueuePayload> entry : entries) {
+                queue.clearEntry(txA, entry);
+            }
+            // ... then asserts the queue is now empty. This read installs a read-conflict range
+            // over the whole queue, since within TX_A's view the range is empty.
+            assertTrue(queue.ensureQueueEmpty(txA).join());
+            // Mark the operation complete (a write so the conflict matters at commit).
+            txA.ensureActive().set(otherSubspace.pack(), bytes("done"));
+
+            // While TX_A is open, TX_B enqueues a new item and commits.
+            try (FDBRecordContext txB = openContext()) {
+                queue.enqueue(txB, payload("late-arrival"), 0).join();
+                commit(txB);
+            }
+
+            // TX_A's commit should now conflict: the (now-empty) range it scanned in
+            // ensureQueueEmpty was written into by TX_B's enqueue.
+            assertThrows(FDBExceptions.FDBStoreTransactionConflictException.class, () -> commit(txA));
+        }
+
+        // TX_A rolled back, so its drain never happened: the 5 seed entries plus the
+        // late-arrival enqueue are all still present.
+        try (FDBRecordContext context = openContext()) {
+            assertFalse(queue.ensureQueueEmpty(context).join());
+            assertEquals(6L, queue.getQueueSizeNoConflict(context).join());
         }
     }
 
@@ -474,19 +528,9 @@ class PendingWritesQueueTest extends FDBRecordStoreTestBase {
             @Nonnull PendingWritesQueue<T> queue,
             @Nonnull Class<? extends Throwable> expected) {
         try (FDBRecordContext context = openContext()) {
-            CompletableFuture<List<PendingWritesQueueEntry<T>>> future =
-                    queue.getQueueCursor(context, ScanProperties.FORWARD_SCAN, null).asList();
-            CompletableFuture<List<PendingWritesQueueEntry<T>>> caught = future.handle((entries, ex) -> {
-                if (ex != null) {
-                    Throwable root = ex;
-                    while (root instanceof java.util.concurrent.CompletionException && root.getCause() != null) {
-                        root = root.getCause();
-                    }
-                    throw (RuntimeException) root;
-                }
-                return entries;
-            });
-            Assertions.assertThatThrownBy(caught::join).hasCauseInstanceOf(expected);
+            Assertions.assertThatThrownBy(() ->
+                    queue.getQueueCursor(context, ScanProperties.FORWARD_SCAN, null).asList().join())
+                    .hasCauseInstanceOf(expected);
         }
     }
 
@@ -537,13 +581,13 @@ class PendingWritesQueueTest extends FDBRecordStoreTestBase {
     }
 
     @Nonnull
-    private static List<TestQueuePayload> randomPayloads(int count) {
-        Random random = new Random(0xC0FFEEL + count);
+    private static List<TestQueuePayload> randomPayloads(int count, final long seed) {
+        Random random = new Random(seed);
         return IntStream.range(0, count)
                 .mapToObj(i -> TestQueuePayload.newBuilder()
                         .setLabel("p-" + i)
                         .setValue(random.nextLong())
-                        .setBlob(ByteString.copyFrom(randomBytes(32, random.nextLong())))
+                        .setBlob(ByteString.copyFrom(randomBytes(32, seed)))
                         .build())
                 .collect(Collectors.toList());
     }
