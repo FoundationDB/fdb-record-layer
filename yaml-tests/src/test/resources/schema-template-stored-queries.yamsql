@@ -17,6 +17,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# NOTE: this test only covers the SYNTAX and execution of `CREATE QUERY` statements -
+# it does NOT verify the plan-cache warm-up that `OfflineStoredQueriesProcessor` performs.
+# The warm-up runs once, when the engine is constructed, against the templates already in
+# the catalog at that moment. yamsql tests create their schema template after the engine
+# is already up, and the framework can't tear down and rebuild the engine mid-test, so
+# the warm-up code path is unreachable from here. For warm-up coverage see
+# SchemaTemplateStoredQueriesTest (it opens a fresh driver after creating the template).
+
 ---
 options:
   supported_version: !current_version
@@ -26,6 +34,8 @@ schema_template:
     create index i1 as select col1 from t1
     create table tree(id bigint, parent bigint, primary key(id))
     create index parentIdx as select parent, id from tree order by parent, id
+    create table dept(id bigint, name string, primary key(id))
+    create index deptName as select name from dept
     create query by_col1 as select * from t1 where col1 = 1
     create query by_id as select * from t1 where id = 1
     create query by_cte as with c1 as (select col1, col2 from t1) select col1, col2 from c1
@@ -33,6 +43,7 @@ schema_template:
         select id, parent from tree where parent = -1
         union all
         select b.id, b.parent from c1 as a, tree as b where a.id = b.parent) select id from c1
+    create query by_dept_join as select t1.id, dept.name from t1 inner join dept on t1.col1 = dept.id
 ---
 setup:
   steps:
@@ -52,6 +63,10 @@ setup:
                (100, 20),
                (210, 20),
                (250, 50)
+    - query: INSERT INTO DEPT
+        VALUES (10, 'Engineering'),
+               (20, 'Sales'),
+               (30, 'Marketing')
 ---
 test_block:
   name: schema-template-stored-queries-tests
@@ -84,3 +99,10 @@ test_block:
                           {ID: 100},
                           {ID: 210},
                           {ID: 250}]
+    -
+      - query: select t1.id, dept.name from t1 inner join dept on t1.col1 = dept.id
+      - unorderedResult: [{ID: 1, NAME: 'Engineering'},
+                          {ID: 2, NAME: 'Engineering'},
+                          {ID: 3, NAME: 'Sales'},
+                          {ID: 4, NAME: 'Sales'},
+                          {ID: 5, NAME: 'Marketing'}]
