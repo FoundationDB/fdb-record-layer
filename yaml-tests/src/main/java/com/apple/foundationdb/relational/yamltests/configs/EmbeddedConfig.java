@@ -61,7 +61,13 @@ public class EmbeddedConfig implements YamlTestConfig {
                 .withOption(Options.Name.PLAN_CACHE_PRIMARY_TIME_TO_LIVE_MILLIS, 3_600_000L)
                 .withOption(Options.Name.PLAN_CACHE_SECONDARY_TIME_TO_LIVE_MILLIS, 3_600_000L)
                 .withOption(Options.Name.PLAN_CACHE_TERTIARY_TIME_TO_LIVE_MILLIS, 3_600_000L)
-                .withOption(Options.Name.PLAN_CACHE_PRIMARY_MAX_ENTRIES, 10)
+                // Moderate bump (roughly 10x defaults) of all three tiers so that under heavy
+                // class-level parallel execution, plans accumulated across many sequential test
+                // methods in the same FRL don't get evicted before the framework's "should have
+                // hit the cache by now" assertion runs. Tertiary default (8) is the tight one.
+                .withOption(Options.Name.PLAN_CACHE_PRIMARY_MAX_ENTRIES, 100)
+                .withOption(Options.Name.PLAN_CACHE_SECONDARY_MAX_ENTRIES, 1000)
+                .withOption(Options.Name.PLAN_CACHE_TERTIARY_MAX_ENTRIES, 100)
                 .build();
         // The primary FRL registers its driver in DriverManager; additional ones do not
         // We register the primary one to make sure that everything works the same if it is registered vs not, to
