@@ -26,6 +26,7 @@ import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalExtension;
+import com.apple.foundationdb.relational.utils.CatalogOperations;
 import com.apple.foundationdb.relational.utils.ResultSetAssert;
 import com.apple.foundationdb.relational.utils.SchemaTemplateRule;
 import com.apple.foundationdb.relational.utils.TableDefinition;
@@ -40,8 +41,11 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
+import java.util.concurrent.ThreadLocalRandom;
 import java.net.URI;
 
 /**
@@ -58,33 +62,46 @@ public class DdlDatabaseTest {
 
     @Test
     public void canCreateDatabase() throws Exception {
+        // Use a unique-per-run database path so the SHOW DATABASES assertion below can't be
+        // satisfied by a sibling test's leftover database with the same name. The path is
+        // lower-cased here because the engine normalises identifiers to upper-case, and we want
+        // to verify the normalised form in the assertion (see jdbcConnectPath / showName below).
+        final String uniqueSuffix = Long.toHexString(ThreadLocalRandom.current().nextLong());
+        final String dbPathLower = "/test/test_db_" + uniqueSuffix;
+        final String dbPathUpper = "/TEST/TEST_DB_" + uniqueSuffix.toUpperCase(Locale.ROOT);
         try {
-            try (final var conn = relational.getDriver().connect(URI.create("jdbc:embed:/__SYS"))) {
-                conn.setSchema("CATALOG");
+            CatalogOperations.runOnCatalog(relational.getDriver(), conn -> {
                 try (final var statement = conn.createStatement()) {
                     //create a database
-                    statement.executeUpdate("CREATE DATABASE /test/test_db");
-                    statement.executeUpdate("CREATE SCHEMA /test/test_db/foo_schem with template \"" + baseTemplate.getSchemaTemplateName() + "\"");
+                    statement.executeUpdate("CREATE DATABASE " + dbPathLower);
+                    statement.executeUpdate("CREATE SCHEMA " + dbPathLower + "/foo_schem with template \"" + baseTemplate.getSchemaTemplateName() + "\"");
                 }
-            }
-            try (RelationalConnection conn = relational.getDriver().connect(URI.create("jdbc:embed:/TEST/TEST_DB")).unwrap(RelationalConnection.class)) {
+            });
+
+            try (RelationalConnection conn = relational.getDriver().connect(URI.create("jdbc:embed:" + dbPathUpper)).unwrap(RelationalConnection.class)) {
                 conn.setSchema("FOO_SCHEM");
                 try (RelationalStatement statement = conn.createStatement()) {
 
-                    //look to see if it's in the list
-                    Set<String> databases = Set.of("/TEST/TEST_DB", "/__SYS");
+                    // Assert that our database appears in SHOW DATABASES. We can't use a
+                    // meetsForAllRows-style "every row must be in {our DB, __SYS}" check because
+                    // under parallel execution the catalog also holds databases from
+                    // concurrently-running test classes. Just verify ours is in the list.
                     try (RelationalResultSet rs = statement.executeQuery("SHOW DATABASES")) {
-                        ResultSetAssert.assertThat(rs)
-                                .meetsForAllRows(ResultSetAssert.perRowCondition(resultSet -> databases.contains(resultSet.getString(1)), "Should be a valid database"));
+                        Set<String> seen = new HashSet<>();
+                        while (rs.next()) {
+                            seen.add(rs.getString(1));
+                        }
+                        Assertions.assertThat(seen).contains(dbPathUpper);
                     }
                 }
             }
         } finally {
-            try (final var conn = relational.getDriver().connect(URI.create("jdbc:embed:/__SYS?schema=CATALOG"))) {
+            CatalogOperations.runOnCatalog(relational.getDriver(), conn -> {
                 try (final var statement = conn.createStatement()) {
-                    statement.execute("DROP DATABASE /test/test_db");
+                    statement.execute("DROP DATABASE " + dbPathLower);
                 }
-            }
+            });
+
         }
     }
 
@@ -92,8 +109,8 @@ public class DdlDatabaseTest {
     @Disabled("TODO")
     public void dropDatabaseRemovesFromList() throws Exception {
         final String listCommand = "SHOW DATABASES WITH PREFIX /test_db";
-        try (RelationalConnection conn = relational.getDriver().connect(URI.create("jdbc:embed:/__SYS")).unwrap(RelationalConnection.class)) {
-            conn.setSchema("CATALOG");
+        CatalogOperations.runOnCatalog(relational.getDriver(), connection -> {
+                RelationalConnection conn = connection.unwrap(RelationalConnection.class);
             try (RelationalStatement statement = conn.createStatement()) {
                 //create a database
                 statement.executeUpdate("CREATE DATABASE /test_db");
@@ -111,7 +128,8 @@ public class DdlDatabaseTest {
                     ResultSetAssert.assertThat(rs).isEmpty();
                 }
             }
-        }
+        });
+
     }
 
     @Test
@@ -122,8 +140,7 @@ public class DdlDatabaseTest {
          *
          * This is a drop database test that doesn't require listing the database
          */
-        try (final var conn = relational.getDriver().connect(URI.create("jdbc:embed:/__SYS"))) {
-            conn.setSchema("CATALOG");
+        CatalogOperations.runOnCatalog(relational.getDriver(), conn -> {
             try (final var statement = conn.createStatement()) {
                 //create a database
                 statement.executeUpdate("CREATE DATABASE /test/test_db");
@@ -140,13 +157,14 @@ public class DdlDatabaseTest {
                         .extracting("SQLState")
                         .isEqualTo(ErrorCode.UNDEFINED_DATABASE.getErrorCode());
             }
-        }
+        });
+
     }
 
     @Test
     public void cannotCreateDatabaseIfExists() throws Exception {
-        try (RelationalConnection conn = relational.getDriver().connect(URI.create("jdbc:embed:/__SYS")).unwrap(RelationalConnection.class)) {
-            conn.setSchema("CATALOG");
+        CatalogOperations.runOnCatalog(relational.getDriver(), connection -> {
+                RelationalConnection conn = connection.unwrap(RelationalConnection.class);
             // assure that there is not a database with the same name from before
             try (Statement statement = conn.createStatement()) {
                 statement.executeUpdate("DROP DATABASE if exists /test/test_db");
@@ -163,19 +181,21 @@ public class DdlDatabaseTest {
                     statement.executeUpdate("DROP DATABASE /test/test_db");
                 }
             }
-        }
+        });
+
     }
 
     @Test
     public void cannotCreateSchemaWithoutDatabase() throws Exception {
-        try (RelationalConnection conn = relational.getDriver().connect(URI.create("jdbc:embed:/__SYS")).unwrap(RelationalConnection.class)) {
-            conn.setSchema("CATALOG");
+        CatalogOperations.runOnCatalog(relational.getDriver(), connection -> {
+                RelationalConnection conn = connection.unwrap(RelationalConnection.class);
             try (Statement statement = conn.createStatement()) {
                 //create a database
                 RelationalAssertions.assertThrowsSqlException(() ->
                         statement.executeUpdate("CREATE SCHEMA /database_that_does_not_exist/schema_that_cannot_be_created with template " + baseTemplate.getSchemaTemplateName()))
                         .hasErrorCode(ErrorCode.UNDEFINED_DATABASE);
             }
-        }
+        });
+
     }
 }

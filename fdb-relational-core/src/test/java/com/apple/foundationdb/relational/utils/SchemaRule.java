@@ -21,19 +21,15 @@
 package com.apple.foundationdb.relational.utils;
 
 import com.apple.foundationdb.relational.api.Options;
-import com.apple.foundationdb.relational.api.RelationalDriver;
 
 import com.apple.foundationdb.relational.recordlayer.RelationalExtension;
-import com.apple.foundationdb.relational.recordlayer.Utils;
 import org.junit.jupiter.api.extension.AfterEachCallback;
 import org.junit.jupiter.api.extension.BeforeEachCallback;
 import org.junit.jupiter.api.extension.ExtensionContext;
 
 import javax.annotation.Nonnull;
 import java.net.URI;
-import java.sql.Connection;
 import java.sql.SQLException;
-import java.sql.Statement;
 import java.util.Objects;
 
 public class SchemaRule implements BeforeEachCallback, AfterEachCallback {
@@ -80,33 +76,17 @@ public class SchemaRule implements BeforeEachCallback, AfterEachCallback {
         return schemaName;
     }
 
-    @Nonnull
-    private RelationalDriver driver() {
-        return Objects.requireNonNull(extension.getDriver(),
-                "RelationalExtension has no active driver — its @BeforeEach must run before this rule's @BeforeEach.");
-    }
-
-    private void setup() throws Exception {
-        CatalogOperations.runLockedWithRetry(() -> {
-            try (Connection connection = driver().connect(URI.create("jdbc:embed:/__SYS"))) {
-                connection.setSchema("CATALOG");
-                Utils.setConnectionOptions(connection, connectionOptions);
-                try (Statement statement = connection.createStatement()) {
-                    statement.executeUpdate("CREATE SCHEMA \"" + dbUri.getPath() + "/" + schemaName + "\" WITH TEMPLATE \"" + templateName + "\"");
-                }
-            }
-        });
+    private void setup() throws SQLException {
+        CatalogOperations.runDdl(
+                Objects.requireNonNull(extension.getDriver(), "extension has no active driver"),
+                connectionOptions,
+                "CREATE SCHEMA \"" + dbUri.getPath() + "/" + schemaName + "\" WITH TEMPLATE \"" + templateName + "\"");
     }
 
     private void tearDown() throws SQLException {
-        CatalogOperations.runLockedWithRetry(() -> {
-            try (Connection connection = driver().connect(URI.create("jdbc:embed:/__SYS"))) {
-                connection.setSchema("CATALOG");
-                Utils.setConnectionOptions(connection, connectionOptions);
-                try (Statement statement = connection.createStatement()) {
-                    statement.executeUpdate("DROP SCHEMA IF EXISTS \"" + dbUri.getPath() + "/" + schemaName + "\"");
-                }
-            }
-        });
+        CatalogOperations.runDdl(
+                Objects.requireNonNull(extension.getDriver(), "extension has no active driver"),
+                connectionOptions,
+                "DROP SCHEMA IF EXISTS \"" + dbUri.getPath() + "/" + schemaName + "\"");
     }
 }

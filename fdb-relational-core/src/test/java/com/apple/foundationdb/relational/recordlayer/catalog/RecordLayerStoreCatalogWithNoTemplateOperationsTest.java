@@ -37,9 +37,16 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.Isolated;
 
 import java.net.URI;
 
+// Marked @Isolated because @AfterEach calls FDBRecordStore.deleteStore on the SYS catalog
+// (/__SYS/CATALOG) — the very record store every other test depends on. Running concurrently
+// with any sibling test would wipe the catalog out from under it, surfacing as
+// RecordStoreDoesNotExistException in the other test's @BeforeEach. @Isolated tells JUnit to
+// suspend all other tests while this class runs.
+@Isolated
 public class RecordLayerStoreCatalogWithNoTemplateOperationsTest extends RecordLayerStoreCatalogTestBase {
 
     @BeforeEach

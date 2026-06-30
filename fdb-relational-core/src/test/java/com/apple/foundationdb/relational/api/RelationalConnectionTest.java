@@ -40,19 +40,20 @@ class RelationalConnectionTest {
     public final EmbeddedRelationalExtension relationalExtension = new EmbeddedRelationalExtension();
 
     @Test
-    void wrongScheme() {
-        RelationalAssertions.assertThrowsSqlException(() -> relationalExtension.getDriver().connect(URI.create("foo")))
-                .hasErrorCode(ErrorCode.UNABLE_TO_ESTABLISH_SQL_CONNECTION);
+    void wrongScheme() throws SQLException {
+        // The JDBC Driver contract says connect() returns null for URLs the driver doesn't
+        // accept (so DriverManager can chain to another driver). Calling driver.connect() with
+        // no-scheme / wrong-scheme URLs directly therefore returns null rather than throwing —
+        // which is correct per-spec. (Going through DriverManager.getConnection() would convert
+        // the null into a "No suitable driver found" SQLException; we deliberately avoid that
+        // here because DriverManagerTest is the single test that exercises DriverManager.)
+        Assertions.assertThat(relationalExtension.getDriver().connect(URI.create("foo"))).isNull();
+        Assertions.assertThat(relationalExtension.getDriver().connect(URI.create("foo:foo"))).isNull();
+        Assertions.assertThat(relationalExtension.getDriver().connect(URI.create("jdbc:foo"))).isNull();
+        Assertions.assertThat(relationalExtension.getDriver().connect(URI.create("jdbc:embed"))).isNull();
 
-        RelationalAssertions.assertThrowsSqlException(() -> relationalExtension.getDriver().connect(URI.create("foo:foo")))
-                .hasErrorCode(ErrorCode.UNABLE_TO_ESTABLISH_SQL_CONNECTION);
-
-        RelationalAssertions.assertThrowsSqlException(() -> relationalExtension.getDriver().connect(URI.create("jdbc:foo")))
-                .hasErrorCode(ErrorCode.UNABLE_TO_ESTABLISH_SQL_CONNECTION);
-
-        RelationalAssertions.assertThrowsSqlException(() -> relationalExtension.getDriver().connect(URI.create("jdbc:embed")))
-                .hasErrorCode(ErrorCode.UNABLE_TO_ESTABLISH_SQL_CONNECTION);
-
+        // The URL IS accepted (it starts with "jdbc:embed:"), but the path resolves to a
+        // database that doesn't exist. The driver throws here rather than returning null.
         RelationalAssertions.assertThrowsSqlException(() -> relationalExtension.getDriver().connect(URI.create("jdbc:embed:/i_am_not_a_database")))
                 .hasErrorCode(ErrorCode.UNDEFINED_DATABASE);
     }

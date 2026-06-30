@@ -35,6 +35,7 @@ import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
+import org.junit.jupiter.api.parallel.Isolated;
 
 import javax.annotation.Nonnull;
 import java.sql.SQLException;
@@ -43,6 +44,13 @@ import java.net.URI;
 /**
  * Test case-sensitive db object connection option.
  */
+// Marked @Isolated because this test asserts on captured log messages from the JVM-global
+// PlanGenerator logger via LogAppenderRule. The appender catches events from any test
+// running concurrently against the same logger, and a thread-id filter is not safe
+// because the relational engine dispatches work onto async pools (FDB callbacks,
+// CompletableFuture stages, etc.). @Isolated tells JUnit to suspend all other tests
+// while this class runs, so the captured events are guaranteed to be ours.
+@Isolated
 public class CaseSensitiveDbObjectsTest {
     @Nonnull
     private static final String SCHEMA_TEMPLATE =

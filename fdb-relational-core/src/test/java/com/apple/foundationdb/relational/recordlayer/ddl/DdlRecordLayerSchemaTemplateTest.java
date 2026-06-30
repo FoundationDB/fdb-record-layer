@@ -28,6 +28,7 @@ import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalExtension;
 import com.apple.foundationdb.relational.util.Assert;
+import com.apple.foundationdb.relational.utils.CatalogOperations;
 import com.apple.foundationdb.relational.utils.DdlPermutationGenerator;
 import com.apple.foundationdb.relational.utils.ResultSetAssert;
 import com.apple.foundationdb.relational.utils.RelationalAssertions;
@@ -66,16 +67,22 @@ public class DdlRecordLayerSchemaTemplateTest {
     }
 
     private void run(ThrowingConsumer<? super RelationalStatement> operation) throws RelationalException, SQLException {
-        try (RelationalConnection conn = relational.getDriver().connect(URI.create("jdbc:embed:/__SYS")).unwrap(RelationalConnection.class)) {
-            conn.setSchema("CATALOG");
-            try (RelationalStatement statement = conn.createStatement()) {
-                operation.accept(statement);
-            } catch (RelationalException | SQLException | RuntimeException err) {
-                throw err;
-            } catch (Throwable throwable) {
-                Assertions.fail("unexpected error type", throwable);
-            }
-        }
+        // Serialise via the JVM-wide catalog lock — `operation` typically issues catalog DDL
+        // (CREATE/DROP SCHEMA TEMPLATE etc.) against /__SYS/CATALOG. The lock prevents racing
+        // commits with other test classes; the retry handles residual SQLSTATE 40001 conflicts.
+        CatalogOperations.runLockedWithRetry(() -> {
+            CatalogOperations.runOnCatalog(relational.getDriver(), connection -> {
+                    RelationalConnection conn = connection.unwrap(RelationalConnection.class);
+                try (RelationalStatement statement = conn.createStatement()) {
+                    operation.accept(statement);
+                } catch (SQLException | RuntimeException err) {
+                    throw err;
+                } catch (Throwable throwable) {
+                    Assertions.fail("unexpected error type", throwable);
+                }
+            });
+
+        });
     }
 
     @Test

@@ -21,19 +21,14 @@
 package com.apple.foundationdb.relational.utils;
 
 import com.apple.foundationdb.relational.api.Options;
-import com.apple.foundationdb.relational.api.RelationalDriver;
 import com.apple.foundationdb.relational.recordlayer.RelationalExtension;
-import com.apple.foundationdb.relational.recordlayer.Utils;
 import org.junit.jupiter.api.extension.AfterEachCallback;
 import org.junit.jupiter.api.extension.BeforeEachCallback;
 import org.junit.jupiter.api.extension.ExtensionContext;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.net.URI;
-import java.sql.Connection;
 import java.sql.SQLException;
-import java.sql.Statement;
 import java.util.Collection;
 import java.util.Locale;
 import java.util.Objects;
@@ -105,40 +100,16 @@ public class SchemaTemplateRule implements BeforeEachCallback, AfterEachCallback
         return templateName;
     }
 
-    @Nonnull
-    private RelationalDriver driver() {
-        return Objects.requireNonNull(extension.getDriver(),
-                "RelationalExtension has no active driver — its @BeforeEach must run before this rule's @BeforeEach.");
-    }
-
     @Override
     public void afterEach(ExtensionContext context) throws SQLException {
-        final StringBuilder dropStatement = new StringBuilder("DROP SCHEMA TEMPLATE IF EXISTS \"").append(templateName).append("\"");
-
-        CatalogOperations.runLockedWithRetry(() -> {
-            try (Connection connection = driver().connect(URI.create("jdbc:embed:/__SYS"))) {
-                connection.setSchema("CATALOG");
-                Utils.setConnectionOptions(connection, connectionOptions);
-                try (Statement statement = connection.createStatement()) {
-                    statement.executeUpdate(dropStatement.toString());
-                }
-            }
-        });
+        CatalogOperations.runDdl(
+                Objects.requireNonNull(extension.getDriver(), "extension has no active driver"),
+                connectionOptions,
+                "DROP SCHEMA TEMPLATE IF EXISTS \"" + templateName + "\"");
     }
 
     @Override
     public void beforeEach(ExtensionContext context) throws SQLException {
-        final StringBuilder dropStatement = new StringBuilder("DROP SCHEMA TEMPLATE IF EXISTS\"").append(templateName).append("\"");
-
-        CatalogOperations.runLockedWithRetry(() -> {
-            try (Connection connection = driver().connect(URI.create("jdbc:embed:/__SYS"))) {
-                connection.setSchema("CATALOG");
-                Utils.setConnectionOptions(connection, connectionOptions);
-                try (Statement statement = connection.createStatement()) {
-                    statement.executeUpdate(dropStatement.toString());
-                }
-            }
-        });
         final StringBuilder createStatement = new StringBuilder("CREATE SCHEMA TEMPLATE \"").append(templateName).append("\" ");
         createStatement.append(typeCreator.getTypeDefinition());
         createStatement.append(tableCreator.getTypeDefinition());
@@ -147,15 +118,11 @@ public class SchemaTemplateRule implements BeforeEachCallback, AfterEachCallback
             createStatement.append(schemaTemplateOptions.getOptionsString());
         }
 
-        CatalogOperations.runLockedWithRetry(() -> {
-            try (Connection connection = driver().connect(URI.create("jdbc:embed:/__SYS"))) {
-                connection.setSchema("CATALOG");
-                Utils.setConnectionOptions(connection, connectionOptions);
-                try (Statement statement = connection.createStatement()) {
-                    statement.executeUpdate(createStatement.toString());
-                }
-            }
-        });
+        CatalogOperations.runDdl(
+                Objects.requireNonNull(extension.getDriver(), "extension has no active driver"),
+                connectionOptions,
+                "DROP SCHEMA TEMPLATE IF EXISTS \"" + templateName + "\"",
+                createStatement.toString());
     }
 
     public static final class SchemaTemplateOptions {
