@@ -115,7 +115,7 @@ public class PendingWritesQueue<T extends Message> {
      * a way readers must distinguish. Readers reject entries whose stored version exceeds this
      * constant.
      */
-    public static final int CURRENT_VERSION = 0;
+    public static final int CURRENT_VERSION = 1;
 
     private static final Logger LOGGER = LoggerFactory.getLogger(PendingWritesQueue.class);
 
