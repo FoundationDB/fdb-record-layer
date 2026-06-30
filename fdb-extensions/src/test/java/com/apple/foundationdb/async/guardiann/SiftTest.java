@@ -41,6 +41,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.api.parallel.Execution;
+import org.junit.jupiter.api.parallel.ExecutionMode;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -92,6 +94,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  * computed against a full base set, but our active set at any moment is a subsample (or a shrinking subset), so
  * the static {@code .ivecs} truth does not apply.
  */
+@Execution(ExecutionMode.CONCURRENT)
 public class SiftTest implements BaseTest {
     private static final Logger logger = LoggerFactory.getLogger(SiftTest.class);
 
