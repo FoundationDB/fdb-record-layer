@@ -324,78 +324,97 @@ class OperationsTest implements BaseTest {
     @ParameterizedTest
     @MethodSource("differentConfigsAndMetrics")
     void testBasicInsert(final long seed, final Config config) throws Exception {
-        final Random random = new Random(seed);
-        final int size = 1000;
-        final TestOnWriteListener onWriteListener = new TestOnWriteListener();
-        final TestOnReadListener onReadListener = new TestOnReadListener();
+        try (TestHelpers.TestLogFile logFile = TestHelpers.TestLogFile.create("OperationsTest.testBasicInsert", seed, config)) {
+            try {
+                final Random random = new Random(seed);
+                final int size = 1000;
+                final TestOnWriteListener onWriteListener = new TestOnWriteListener();
+                final TestOnReadListener onReadListener = new TestOnReadListener();
 
-        final HNSW hnsw = new HNSW(subspaceExtension.getSubspace(), TestExecutors.defaultThreadPool(), config,
-                onWriteListener, onReadListener);
+                final HNSW hnsw = new HNSW(subspaceExtension.getSubspace(), TestExecutors.defaultThreadPool(), config,
+                        onWriteListener, onReadListener);
+                logFile.log("HNSW constructed; size=%d", size);
 
-        final int k = 50;
-        final List<PrimaryKeyAndVector> insertedData = randomVectors(random, config.getNumDimensions(), size);
+                final int k = 50;
+                final List<PrimaryKeyAndVector> insertedData = randomVectors(random, config.getNumDimensions(), size);
+                logFile.log("Generated %d random vectors", insertedData.size());
 
-        TestHelpers.basicInsert(getDb(), hnsw, insertedData);
+                TestHelpers.basicInsert(getDb(), hnsw, insertedData, logFile);
+                logFile.log("primary insert loop complete");
 
-        final HalfRealVector queryVector = createRandomHalfVector(random, config.getNumDimensions());
+                final HalfRealVector queryVector = createRandomHalfVector(random, config.getNumDimensions());
 
-        //
-        // Attempt to mutate some records by updating them using the same primary keys but different random vectors.
-        // This should not fail but should be silently ignored. If this succeeds, the following searches will all
-        // return records that are not aligned with recordsOrderedByDistance.
-        //
-        for (int i = 0; i < 100; ) {
-            i += TestHelpers.basicInsertBatch(getDb(), hnsw, 100, 0,
-                    (tr, ignored) -> {
-                        final var primaryKey = TestHelpers.createPrimaryKey(random.nextInt(1000));
-                        final HalfRealVector dataVector = createRandomHalfVector(random, config.getNumDimensions());
-                        return new PrimaryKeyAndVector(primaryKey, dataVector);
-                    }).size();
-        }
+                //
+                // Attempt to mutate some records by updating them using the same primary keys but different random vectors.
+                // This should not fail but should be silently ignored. If this succeeds, the following searches will all
+                // return records that are not aligned with recordsOrderedByDistance.
+                //
+                for (int i = 0; i < 100; ) {
+                    logFile.log("mutation insert loop iter=%d", i);
+                    i += TestHelpers.basicInsertBatch(getDb(), hnsw, 100, 0,
+                            (tr, ignored) -> {
+                                final var primaryKey = TestHelpers.createPrimaryKey(random.nextInt(1000));
+                                final HalfRealVector dataVector = createRandomHalfVector(random, config.getNumDimensions());
+                                return new PrimaryKeyAndVector(primaryKey, dataVector);
+                            }, logFile).size();
+                }
+                logFile.log("mutation insert loop complete");
 
-        onReadListener.reset();
-        final long beginTs = System.nanoTime();
-        final List<? extends ResultEntry> results =
-                db.run(tr ->
-                        hnsw.kNearestNeighborsSearch(tr, k, 100, true, queryVector).join());
-        final long endTs = System.nanoTime();
+                onReadListener.reset();
+                final long beginTs = System.nanoTime();
+                final List<? extends ResultEntry> results =
+                        db.run(tr ->
+                                hnsw.kNearestNeighborsSearch(tr, k, 100, true, queryVector).join());
+                final long endTs = System.nanoTime();
+                logFile.log("kNN search completed in %d ms; resultCount=%d",
+                        TimeUnit.NANOSECONDS.toMillis(endTs - beginTs), results.size());
 
-        final ImmutableSet<Tuple> trueNN =
-                orderedByDistances(config.getMetric(), insertedData, queryVector).stream()
-                        .limit(k)
-                        .map(PrimaryKeyVectorAndDistance::getPrimaryKey)
-                        .collect(ImmutableSet.toImmutableSet());
+                final ImmutableSet<Tuple> trueNN =
+                        orderedByDistances(config.getMetric(), insertedData, queryVector).stream()
+                                .limit(k)
+                                .map(PrimaryKeyVectorAndDistance::getPrimaryKey)
+                                .collect(ImmutableSet.toImmutableSet());
 
-        int recallCount = 0;
-        for (ResultEntry resultEntry : results) {
-            logger.info("nodeId ={} at distance={}", resultEntry.getPrimaryKey().getLong(0),
-                    resultEntry.getDistance());
-            if (trueNN.contains(resultEntry.getPrimaryKey())) {
-                recallCount++;
+                int recallCount = 0;
+                for (ResultEntry resultEntry : results) {
+                    logger.info("nodeId ={} at distance={}", resultEntry.getPrimaryKey().getLong(0),
+                            resultEntry.getDistance());
+                    if (trueNN.contains(resultEntry.getPrimaryKey())) {
+                        recallCount++;
+                    }
+                }
+                final double recall = (double)recallCount / (double)k;
+                logger.info("search transaction took elapsedTime={}ms; read nodes={}, read bytes={}, recall={}",
+                        TimeUnit.NANOSECONDS.toMillis(endTs - beginTs),
+                        onReadListener.getNodeCountByLayer(), onReadListener.getBytesReadByLayer(),
+                        String.format(Locale.ROOT, "%.2f", recall * 100.0d));
+                logFile.log("recall=%.4f recallCount=%d/%d readCounts=%s readBytes=%s",
+                        recall, recallCount, k,
+                        onReadListener.getNodeCountByLayer(), onReadListener.getBytesReadByLayer());
+                assertThat(recall).isGreaterThan(0.9);
+
+                final Set<Long> insertedIds =
+                        LongStream.range(0, 1000)
+                                .boxed()
+                                .collect(Collectors.toSet());
+
+                final Set<Long> readIds = Sets.newHashSet();
+                TestHelpers.scanLayer(getDb(), getSubspace(), config, 0, 100,
+                        node ->
+                                assertThat(readIds.add(node.getPrimaryKey().getLong(0))).isTrue());
+                assertThat(readIds).isEqualTo(insertedIds);
+                logFile.log("scanLayer(0) ok readIds=%d", readIds.size());
+
+                readIds.clear();
+                TestHelpers.scanLayer(getDb(), getSubspace(), config, 1, 100,
+                        node -> assertThat(readIds.add(node.getPrimaryKey().getLong(0))).isTrue());
+                assertThat(readIds.size()).isBetween(10, 100);
+                logFile.log("scanLayer(1) ok readIds=%d", readIds.size());
+            } catch (Throwable t) {
+                logFile.logFailure("testBasicInsert seed=" + seed + " config=" + config, t);
+                throw t;
             }
         }
-        final double recall = (double)recallCount / (double)k;
-        logger.info("search transaction took elapsedTime={}ms; read nodes={}, read bytes={}, recall={}",
-                TimeUnit.NANOSECONDS.toMillis(endTs - beginTs),
-                onReadListener.getNodeCountByLayer(), onReadListener.getBytesReadByLayer(),
-                String.format(Locale.ROOT, "%.2f", recall * 100.0d));
-        assertThat(recall).isGreaterThan(0.9);
-
-        final Set<Long> insertedIds =
-                LongStream.range(0, 1000)
-                        .boxed()
-                        .collect(Collectors.toSet());
-
-        final Set<Long> readIds = Sets.newHashSet();
-        TestHelpers.scanLayer(getDb(), getSubspace(), config, 0, 100,
-                node ->
-                        assertThat(readIds.add(node.getPrimaryKey().getLong(0))).isTrue());
-        assertThat(readIds).isEqualTo(insertedIds);
-
-        readIds.clear();
-        TestHelpers.scanLayer(getDb(), getSubspace(), config, 1, 100,
-                node -> assertThat(readIds.add(node.getPrimaryKey().getLong(0))).isTrue());
-        assertThat(readIds.size()).isBetween(10, 100);
     }
 
     @ExtendWith(TestHelpers.DumpLayersIfFailure.class)
@@ -414,7 +433,7 @@ class OperationsTest implements BaseTest {
         final int k = 30;
         final List<PrimaryKeyAndVector> insertedData = randomVectors(random, config.getNumDimensions(), size);
 
-        TestHelpers.basicInsert(getDb(), hnsw, insertedData);
+        TestHelpers.basicInsert(getDb(), hnsw, insertedData, null);
 
         final double radius = 1d;
         final HalfRealVector queryVector = createRandomHalfVector(random, config.getNumDimensions());
@@ -460,7 +479,7 @@ class OperationsTest implements BaseTest {
         final int k = 50;
         final List<PrimaryKeyAndVector> insertedData = randomVectors(random, config.getNumDimensions(), size);
 
-        TestHelpers.basicInsert(getDb(), hnsw, insertedData);
+        TestHelpers.basicInsert(getDb(), hnsw, insertedData, null);
 
         final int numVectorsPerDeleteBatch = 50;
         List<PrimaryKeyAndVector> remainingData = insertedData;
@@ -559,7 +578,7 @@ class OperationsTest implements BaseTest {
         final int numRecords = 1000;
         final int k = 499;
         final List<PrimaryKeyAndVector> insertedData = randomVectors(random, numDimensions, numRecords);
-        TestHelpers.basicInsert(getDb(), hnsw, insertedData);
+        TestHelpers.basicInsert(getDb(), hnsw, insertedData, null);
 
         final DoubleRealVector queryVector = createRandomDoubleVector(random, numDimensions);
 
@@ -633,7 +652,7 @@ class OperationsTest implements BaseTest {
 
         final List<PrimaryKeyAndVector> insertedData = randomVectors(random, config.getNumDimensions(), size);
 
-        TestHelpers.basicInsert(getDb(), hnsw, insertedData);
+        TestHelpers.basicInsert(getDb(), hnsw, insertedData, null);
 
         final int skip = 100;
         final HalfRealVector queryVector = createRandomHalfVector(random, config.getNumDimensions());
