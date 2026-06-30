@@ -92,8 +92,8 @@ public class SystemCatalogQueryTest {
     @Test
     @SuppressWarnings("checkstyle:Indentation")
     public void selectSchemasWorks() throws SQLException {
-        try (RelationalConnection conn = relationalExtension.getDriver().connect(URI.create("jdbc:embed:/__SYS")).unwrap(RelationalConnection.class)) {
-            conn.setSchema("CATALOG");
+        CatalogOperations.runOnCatalog(relationalExtension.getDriver(), connection -> {
+                RelationalConnection conn = connection.unwrap(RelationalConnection.class);
             //we are selective here to make it easier to check the correctness of the row (otherwise we'd have to put
             //MetaData objects in for equality)
             try (RelationalStatement statement = conn.createStatement();
@@ -108,26 +108,26 @@ public class SystemCatalogQueryTest {
                         new Object[]{"CATALOG", "/__SYS"}
                 ));
             }
-        }
+        });
+
     }
 
     @Test
     public void selectSchemasWithPredicateAndProjectionWorks() throws SQLException {
-        try (final var conn = relationalExtension.getDriver().connect(URI.create("jdbc:embed:/__SYS"))) {
-            conn.setSchema("CATALOG");
+        CatalogOperations.runOnCatalog(relationalExtension.getDriver(), conn -> {
             try (final var statement = conn.createStatement(); final var rs = statement.executeQuery("SELECT schema_name FROM \"SCHEMAS\" WHERE database_id = '/__SYS'")) {
                 shouldBe(rs, Set.of(
                         List.of("CATALOG")
                 ));
             }
-        }
+        });
+
     }
 
     @Disabled // TODO (SystemCatalogQueryTest has fragile tests)
     @Test
     public void selectDatabaseInfoWorks() throws SQLException {
-        try (final var conn = relationalExtension.getDriver().connect(URI.create("jdbc:embed:/__SYS"))) {
-            conn.setSchema("CATALOG");
+        CatalogOperations.runOnCatalog(relationalExtension.getDriver(), conn -> {
             try (final var statement = conn.createStatement(); final var rs = statement.executeQuery("SELECT * FROM \"DATABASES\"")) {
                 shouldBe(rs, Set.of(
                         List.of("/TEST/DB1"),
@@ -136,14 +136,14 @@ public class SystemCatalogQueryTest {
                         List.of("/__SYS")
                 ));
             }
-        }
+        });
+
     }
 
     @Disabled // TODO (SystemCatalogQueryTest has fragile tests)
     @Test
     public void selectDatabaseInfoWithPredicateAndProjectionWorks() throws RelationalException, SQLException {
-        try (final var conn = relationalExtension.getDriver().connect(URI.create("jdbc:embed:/__SYS"))) {
-            conn.setSchema("CATALOG");
+        CatalogOperations.runOnCatalog(relationalExtension.getDriver(), conn -> {
             try (final var statement = conn.createStatement(); final var rs = statement.executeQuery("SELECT database_id FROM \"DATABASES\" WHERE database_id != '/__SYS'")) {
                 shouldBe(rs, Set.of(
                         List.of("/TEST/DB1"),
@@ -151,7 +151,8 @@ public class SystemCatalogQueryTest {
                         List.of("/TEST/DB3")
                 ));
             }
-        }
+        });
+
     }
 
     private static void shouldBe(@Nonnull final ResultSet resultSet, @Nonnull final Set<List<String>> expected) throws SQLException {

@@ -24,6 +24,7 @@ import com.apple.foundationdb.relational.api.RelationalDriver;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalExtension;
 import com.apple.foundationdb.relational.recordlayer.RelationalKeyspaceProvider;
 import com.apple.foundationdb.relational.util.BuildVersion;
+import com.apple.foundationdb.relational.utils.CatalogOperations;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Order;
@@ -85,8 +86,11 @@ public class JDBCEmbedDriverTest {
     public void simpleStatement() throws SQLException {
         // Register the FRL domain for this test's CREATE DATABASE call below.
         RelationalKeyspaceProvider.instance().registerDomainIfNotExists("FRL");
-        var jdbcStr = "jdbc:embed:" + SYSDBPATH + "?schema=" + RelationalKeyspaceProvider.CATALOG;
-        try (final var connection = getDriver().connect(jdbcStr, null)) {
+        // Catalog mutations + selects from system tables, all serialised + retried via
+        // CatalogOperations so we don't race other test classes' /__SYS work.
+        // Not all of this is DDL, but this is easier, and not worth trying to
+        // better parallelize our tests
+        CatalogOperations.runOnCatalog(getDriver(), connection -> {
             try (Statement statement = connection.createStatement()) {
                 // Make this better... currently returns zero how ever many rows we touch.
                 Assertions.assertEquals(0, statement.executeUpdate("Drop database if exists \"" + TESTDB + "\""));
@@ -129,7 +133,7 @@ public class JDBCEmbedDriverTest {
                     statement.executeUpdate("Drop schema template if exists test_template");
                 }
             }
-        }
+        });
     }
 
     private void checkSelectStarFromDatabasesResultSet(ResultSet resultSet) throws SQLException {

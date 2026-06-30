@@ -36,6 +36,7 @@ import com.apple.foundationdb.relational.recordlayer.RelationalKeyspaceProvider;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerColumn;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerTable;
+import com.apple.foundationdb.relational.utils.CatalogOperations;
 import com.apple.foundationdb.relational.utils.DescriptorAssert;
 
 import com.google.protobuf.Descriptors;
@@ -55,38 +56,52 @@ class CatalogMetaDataProviderTest {
         //now create a RecordStore in that Catalog
         FDBDatabaseFactory factory = FDBDatabaseFactory.instance();
         FdbConnection fdbConn = new DirectFdbConnection(factory.getDatabase(FDBTestEnvironment.randomClusterFile()));
-        StoreCatalog storeCatalog;
-        try (Transaction txn = fdbConn.getTransactionManager().createTransaction(Options.NONE)) {
-            //create the Catalog RecordStore
-            storeCatalog = StoreCatalogProvider.getCatalog(txn, RelationalKeyspaceProvider.instance().getKeySpace());
-            txn.commit();
-        }
+        // Use a holder so we can populate from inside the runLockedWithRelationalRetry lambda.
+        final StoreCatalog[] storeCatalogHolder = new StoreCatalog[1];
+        // Catalog bootstrap: writes the SYS catalog metadata. Serialise + retry against
+        // concurrent extension setups (which also bootstrap their own StoreCatalog instances).
+        CatalogOperations.runLockedWithRelationalRetry(() -> {
+            try (Transaction txn = fdbConn.getTransactionManager().createTransaction(Options.NONE)) {
+                //create the Catalog RecordStore
+                storeCatalogHolder[0] = StoreCatalogProvider.getCatalog(txn, RelationalKeyspaceProvider.instance().getKeySpace());
+                txn.commit();
+            }
+        });
+        final StoreCatalog storeCatalog = storeCatalogHolder[0];
 
         URI dbUri = URI.create("/testdb");
         String schemaName = "TEST_SCHEMA" + System.currentTimeMillis();
 
         RecordLayerSchemaTemplate schemaTemplate = createSchemaTemplate();
-        try (Transaction txn = fdbConn.getTransactionManager().createTransaction(Options.NONE)) {
-            //write template into template catalog
-            storeCatalog.getSchemaTemplateCatalog().createTemplate(txn, schemaTemplate);
-            //write schema info to the store
-            Schema schema = schemaTemplate.generateSchema(dbUri.getPath(), schemaName);
-            storeCatalog.createDatabase(txn, dbUri);
-            storeCatalog.saveSchema(txn, schema, false);
+        // Catalog writes (schema template / database / schema rows) — also under the lock.
+        CatalogOperations.runLockedWithRelationalRetry(() -> {
+            try (Transaction txn = fdbConn.getTransactionManager().createTransaction(Options.NONE)) {
+                //write template into template catalog
+                storeCatalog.getSchemaTemplateCatalog().createTemplate(txn, schemaTemplate);
+                //write schema info to the store
+                Schema schema = schemaTemplate.generateSchema(dbUri.getPath(), schemaName);
+                storeCatalog.createDatabase(txn, dbUri);
+                storeCatalog.saveSchema(txn, schema, false);
 
-            CatalogMetaDataProvider metaDataProvider = new CatalogMetaDataProvider(storeCatalog, dbUri, schemaName, txn);
-            final RecordMetaData recordMetaData = metaDataProvider.getRecordMetaData();
-            final Descriptors.FileDescriptor descriptor = recordMetaData.getRecordsDescriptor();
+                CatalogMetaDataProvider metaDataProvider = new CatalogMetaDataProvider(storeCatalog, dbUri, schemaName, txn);
+                final RecordMetaData recordMetaData = metaDataProvider.getRecordMetaData();
+                final Descriptors.FileDescriptor descriptor = recordMetaData.getRecordsDescriptor();
 
-            Descriptors.FileDescriptor expected = Descriptors.FileDescriptor.buildFrom(
-                    schemaTemplate.toRecordMetadata().getRecordsDescriptor().toProto(), // not sure this is correct
-                    new Descriptors.FileDescriptor[]{RecordMetaDataProto.getDescriptor()});
+                final Descriptors.FileDescriptor expected;
+                try {
+                    expected = Descriptors.FileDescriptor.buildFrom(
+                            schemaTemplate.toRecordMetadata().getRecordsDescriptor().toProto(),
+                            new Descriptors.FileDescriptor[]{RecordMetaDataProto.getDescriptor()});
+                } catch (Descriptors.DescriptorValidationException dve) {
+                    throw new RelationalException("buildFrom failed", null, dve);
+                }
 
-            for (Descriptors.Descriptor message : descriptor.getMessageTypes()) {
-                new DescriptorAssert(message).as("Incorrect descriptor for type %s", message.getName())
-                        .isContainedIn(expected.getMessageTypes());
+                for (Descriptors.Descriptor message : descriptor.getMessageTypes()) {
+                    new DescriptorAssert(message).as("Incorrect descriptor for type %s", message.getName())
+                            .isContainedIn(expected.getMessageTypes());
+                }
             }
-        }
+        });
     }
 
     private RecordLayerSchemaTemplate createSchemaTemplate() throws RelationalException {

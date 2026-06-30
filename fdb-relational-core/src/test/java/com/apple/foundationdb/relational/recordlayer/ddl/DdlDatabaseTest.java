@@ -26,6 +26,7 @@ import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalExtension;
+import com.apple.foundationdb.relational.utils.CatalogOperations;
 import com.apple.foundationdb.relational.utils.ResultSetAssert;
 import com.apple.foundationdb.relational.utils.SchemaTemplateRule;
 import com.apple.foundationdb.relational.utils.TableDefinition;
@@ -59,14 +60,14 @@ public class DdlDatabaseTest {
     @Test
     public void canCreateDatabase() throws Exception {
         try {
-            try (final var conn = relational.getDriver().connect(URI.create("jdbc:embed:/__SYS"))) {
-                conn.setSchema("CATALOG");
+            CatalogOperations.runOnCatalog(relational.getDriver(), conn -> {
                 try (final var statement = conn.createStatement()) {
                     //create a database
                     statement.executeUpdate("CREATE DATABASE /test/test_db");
                     statement.executeUpdate("CREATE SCHEMA /test/test_db/foo_schem with template \"" + baseTemplate.getSchemaTemplateName() + "\"");
                 }
-            }
+            });
+
             try (RelationalConnection conn = relational.getDriver().connect(URI.create("jdbc:embed:/TEST/TEST_DB")).unwrap(RelationalConnection.class)) {
                 conn.setSchema("FOO_SCHEM");
                 try (RelationalStatement statement = conn.createStatement()) {
@@ -80,11 +81,12 @@ public class DdlDatabaseTest {
                 }
             }
         } finally {
-            try (final var conn = relational.getDriver().connect(URI.create("jdbc:embed:/__SYS?schema=CATALOG"))) {
+            CatalogOperations.runOnCatalog(relational.getDriver(), conn -> {
                 try (final var statement = conn.createStatement()) {
                     statement.execute("DROP DATABASE /test/test_db");
                 }
-            }
+            });
+
         }
     }
 
@@ -92,8 +94,8 @@ public class DdlDatabaseTest {
     @Disabled("TODO")
     public void dropDatabaseRemovesFromList() throws Exception {
         final String listCommand = "SHOW DATABASES WITH PREFIX /test_db";
-        try (RelationalConnection conn = relational.getDriver().connect(URI.create("jdbc:embed:/__SYS")).unwrap(RelationalConnection.class)) {
-            conn.setSchema("CATALOG");
+        CatalogOperations.runOnCatalog(relational.getDriver(), connection -> {
+                RelationalConnection conn = connection.unwrap(RelationalConnection.class);
             try (RelationalStatement statement = conn.createStatement()) {
                 //create a database
                 statement.executeUpdate("CREATE DATABASE /test_db");
@@ -111,7 +113,8 @@ public class DdlDatabaseTest {
                     ResultSetAssert.assertThat(rs).isEmpty();
                 }
             }
-        }
+        });
+
     }
 
     @Test
@@ -122,8 +125,7 @@ public class DdlDatabaseTest {
          *
          * This is a drop database test that doesn't require listing the database
          */
-        try (final var conn = relational.getDriver().connect(URI.create("jdbc:embed:/__SYS"))) {
-            conn.setSchema("CATALOG");
+        CatalogOperations.runOnCatalog(relational.getDriver(), conn -> {
             try (final var statement = conn.createStatement()) {
                 //create a database
                 statement.executeUpdate("CREATE DATABASE /test/test_db");
@@ -140,13 +142,14 @@ public class DdlDatabaseTest {
                         .extracting("SQLState")
                         .isEqualTo(ErrorCode.UNDEFINED_DATABASE.getErrorCode());
             }
-        }
+        });
+
     }
 
     @Test
     public void cannotCreateDatabaseIfExists() throws Exception {
-        try (RelationalConnection conn = relational.getDriver().connect(URI.create("jdbc:embed:/__SYS")).unwrap(RelationalConnection.class)) {
-            conn.setSchema("CATALOG");
+        CatalogOperations.runOnCatalog(relational.getDriver(), connection -> {
+                RelationalConnection conn = connection.unwrap(RelationalConnection.class);
             // assure that there is not a database with the same name from before
             try (Statement statement = conn.createStatement()) {
                 statement.executeUpdate("DROP DATABASE if exists /test/test_db");
@@ -163,19 +166,21 @@ public class DdlDatabaseTest {
                     statement.executeUpdate("DROP DATABASE /test/test_db");
                 }
             }
-        }
+        });
+
     }
 
     @Test
     public void cannotCreateSchemaWithoutDatabase() throws Exception {
-        try (RelationalConnection conn = relational.getDriver().connect(URI.create("jdbc:embed:/__SYS")).unwrap(RelationalConnection.class)) {
-            conn.setSchema("CATALOG");
+        CatalogOperations.runOnCatalog(relational.getDriver(), connection -> {
+                RelationalConnection conn = connection.unwrap(RelationalConnection.class);
             try (Statement statement = conn.createStatement()) {
                 //create a database
                 RelationalAssertions.assertThrowsSqlException(() ->
                         statement.executeUpdate("CREATE SCHEMA /database_that_does_not_exist/schema_that_cannot_be_created with template " + baseTemplate.getSchemaTemplateName()))
                         .hasErrorCode(ErrorCode.UNDEFINED_DATABASE);
             }
-        }
+        });
+
     }
 }

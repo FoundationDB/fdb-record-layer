@@ -71,8 +71,8 @@ public class DdlRecordLayerSchemaTemplateTest {
         // (CREATE/DROP SCHEMA TEMPLATE etc.) against /__SYS/CATALOG. The lock prevents racing
         // commits with other test classes; the retry handles residual SQLSTATE 40001 conflicts.
         CatalogOperations.runLockedWithRetry(() -> {
-            try (RelationalConnection conn = relational.getDriver().connect(URI.create("jdbc:embed:/__SYS")).unwrap(RelationalConnection.class)) {
-                conn.setSchema("CATALOG");
+            CatalogOperations.runOnCatalog(relational.getDriver(), connection -> {
+                    RelationalConnection conn = connection.unwrap(RelationalConnection.class);
                 try (RelationalStatement statement = conn.createStatement()) {
                     operation.accept(statement);
                 } catch (SQLException | RuntimeException err) {
@@ -80,7 +80,8 @@ public class DdlRecordLayerSchemaTemplateTest {
                 } catch (Throwable throwable) {
                     Assertions.fail("unexpected error type", throwable);
                 }
-            }
+            });
+
         });
     }
 
