@@ -715,7 +715,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
                     .setName(entry.getKey())
                     .setQuery(storedQuery.getQuery());
             if (!storedQuery.getTempFunctions().isEmpty()) {
-                storedQueryBuilder.addAllTempFunction(storedQuery.getTempFunctions());
+                storedQueryBuilder.addAllTempFunctions(storedQuery.getTempFunctions());
             }
             builder.addStoredQueries(storedQueryBuilder.build());
         }

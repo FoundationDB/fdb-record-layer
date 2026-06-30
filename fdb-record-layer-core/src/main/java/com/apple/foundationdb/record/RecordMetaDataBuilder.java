@@ -243,8 +243,8 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
             viewMap.put(view.getName(), view);
         }
         for (final RecordMetaDataProto.PStoredQuery proto : metaDataProto.getStoredQueriesList()) {
-            final List<String> tempFunctions = proto.getTempFunctionCount() > 0
-                    ? new ArrayList<>(proto.getTempFunctionList())
+            final List<String> tempFunctions = proto.getTempFunctionsCount() > 0
+                    ? new ArrayList<>(proto.getTempFunctionsList())
                     : Collections.emptyList();
             storedQueries.put(proto.getName(), new RecordMetaData.StoredQuery(proto.getQuery(), tempFunctions));
         }
