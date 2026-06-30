@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.provider.foundationdb.queue;
 
 import com.apple.foundationdb.MutationType;
+import com.apple.foundationdb.Range;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.IsolationLevel;
@@ -33,6 +34,7 @@ import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRawRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordVersion;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.KeyValueCursor;
@@ -77,8 +79,9 @@ import java.util.concurrent.CompletableFuture;
  *       read. None of these paths install a read conflict, so concurrent enqueuers and a
  *       concurrent background worker never block each other.</li>
  *   <li><b>Strict ordering.</b> Keys are {@code (incarnation, versionstamp)} tuples, so entries
- *       are ordered first by incarnation (older incarnations sort before newer ones) and then
- *       by commit version within an incarnation.</li>
+ *       are ordered first by {@link FDBRecordStore#getIncarnation() incarnation} (older incarnations sort before newer ones) and then
+ *       by commit version within an incarnation. The use of incarnation here is meant to support multi-cluster
+ *       environments, so for a given store, all incarnations are expected to be the same until they are globally changed.</li>
  *   <li><b>Empty-queue invariant.</b> {@link #isQueueEmpty(FDBRecordContext)}
  *       performs a regular (non-snapshot) range read. FDB therefore installs a read-conflict
  *       range over the queue. A caller that drains the queue, calls
@@ -88,6 +91,8 @@ import java.util.concurrent.CompletableFuture;
  *       for "background work is done; no more writes are coming" close-out.</li>
  *   <li><b>Capacity.</b> A configurable maximum queue size; {@link #enqueue} fails with
  *       {@link PendingWritesQueueTooLargeException} once the size counter reaches the limit.
+ *       Note that the limit is read at {@link IsolationLevel#SNAPSHOT} to prevent conflicts so the actual
+ *       capacity can be above the maximum by the number of transactions enqueueing concurrently.
  *       A value of {@code 0} disables the cap.</li>
  *   <li><b>Schema versioning.</b> Each entry carries a {@code version} field on disk. Readers
  *       reject entries with a version newer than {@link #CURRENT_VERSION}, allowing forward
@@ -105,11 +110,6 @@ import java.util.concurrent.CompletableFuture;
  */
 @API(API.Status.INTERNAL)
 public class PendingWritesQueue<T extends Message> {
-    /**
-     * Default maximum queue size; protects against unbounded growth on persistent failure.
-     */
-    public static final int DEFAULT_MAX_QUEUE_SIZE = 100_000;
-
     /**
      * Current version of the on-disk entry payload. Increment when changing the proto schema in
      * a way readers must distinguish. Readers reject entries whose stored version exceeds this
@@ -227,12 +227,25 @@ public class PendingWritesQueue<T extends Message> {
      * <p>The entry's key tuple must already have been resolved to a complete versionstamp,
      * which is the case for any entry returned by {@link #getQueueCursor} (since the read sees
      * only committed entries).</p>
+     * <p>The {@link #clearEntry(FDBRecordContext, PendingWritesQueueEntry)} method installs a read conflict on the
+     * range of keys that will be cleared. This is done to prevent cases of concurrent clearing of the same queue
+     * elements that would then cause the queue size counter to drift. All but one of the concurrent clearing of the
+     * same item would conflict.</p>
      *
      * @param context the record context
      * @param entry the entry to clear
      */
     public void clearEntry(@Nonnull FDBRecordContext context, @Nonnull PendingWritesQueueEntry<T> entry) {
-        SplitHelper.deleteSplit(context, queueSubspace, entry.getKeyTuple(), true, false, false, null);
+        // Install a read-conflict range over the keys this entry occupies. Clears are blind
+        // writes that don't conflict with each other, so without this two transactions could
+        // concurrently clear the same entry and each decrement the size counter, making it
+        // drift. The read conflict ensures that if another transaction clears (writes to) this
+        // entry's keys first, this transaction conflicts on commit, so at most one clear of a
+        // given entry succeeds.
+        final Tuple key = entry.getKeyTuple();
+        Range entryRange = Range.startsWith(queueSubspace.pack(key));
+        context.ensureActive().addReadConflictRange(entryRange.begin, entryRange.end);
+        SplitHelper.deleteSplit(context, queueSubspace, key, true, false, false, null);
         mutateQueueSizeCounter(context, -1);
         context.increment(FDBStoreTimer.Counts.PENDING_WRITES_QUEUE_CLEAR);
         if (LOGGER.isDebugEnabled()) {
@@ -251,9 +264,6 @@ public class PendingWritesQueue<T extends Message> {
      * @param context the record context
      *
      * @return a future resolving to {@code true} when the queue range is empty
-     * @throws com.apple.foundationdb.record.provider.foundationdb.FDBExceptions.FDBStoreTransactionConflictException
-     * via the transaction's commit if another transaction enqueued into the queue between this
-     * read and the commit
      */
     @Nonnull
     public CompletableFuture<Boolean> isQueueEmpty(@Nonnull FDBRecordContext context) {
@@ -276,7 +286,11 @@ public class PendingWritesQueue<T extends Message> {
     @Nonnull
     public CompletableFuture<Long> getQueueSizeNoConflict(@Nonnull FDBRecordContext context) {
         return context.readTransaction(true).get(queueSizeSubspace.pack())
-                .thenApply(bytes -> bytes == null ? null : decodeQueueSize(bytes));
+                .thenApply(bytes -> {
+                    final Long size = bytes == null ? null : decodeQueueSize(bytes);
+                    context.recordSize(FDBStoreTimer.SizeEvents.PENDING_WRITES_QUEUE_SIZE, size == null ? 0 : size);
+                    return size;
+                });
     }
 
     private void writeEntry(@Nonnull FDBRecordContext context, @Nonnull T payload, int incarnation) {

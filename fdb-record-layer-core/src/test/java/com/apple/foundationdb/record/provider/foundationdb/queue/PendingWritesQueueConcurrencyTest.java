@@ -28,10 +28,11 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreTestBase;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
+import com.apple.test.RandomSeedSource;
 import com.apple.test.Tags;
 import com.google.protobuf.ByteString;
 import org.junit.jupiter.api.Tag;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
 
 import javax.annotation.Nonnull;
 import java.util.ArrayList;
@@ -61,8 +62,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 @Tag(Tags.RequiresFDB)
 @Tag(Tags.Slow)
 class PendingWritesQueueConcurrencyTest extends FDBRecordStoreTestBase {
-
-    private static final long SEED = 0xCAFEBABEL;
     private static final int WORKER_COUNT = 8;
     private static final int ITERATIONS_PER_WORKER = 400;
     private static final int INCARNATION = 1;
@@ -70,8 +69,9 @@ class PendingWritesQueueConcurrencyTest extends FDBRecordStoreTestBase {
     /**
      * mixed-operation workers, then drain & verify.
      */
-    @Test
-    void testRandomizedConcurrentEnqueueAndScan() throws Exception {
+    @ParameterizedTest
+    @RandomSeedSource(0xCAFEBABEL)
+    void testRandomizedConcurrentEnqueueAndScan(long seed) throws Exception {
         PendingWritesQueue<TestQueuePayload> queue;
         try (FDBRecordContext context = openContext()) {
             queue = getQueue(context, 0);
@@ -96,9 +96,8 @@ class PendingWritesQueueConcurrencyTest extends FDBRecordStoreTestBase {
                 for (int worker = 0; worker < WORKER_COUNT; worker++) {
                     final int workerId = worker;
                     // Per-worker Random seeded deterministically from the global seed + workerId
-                    // so each worker's interleaving is reproducible.
                     futures.add(executor.submit(() -> {
-                        workerLoop(queue, workerId, new Random(SEED + workerId), recorded, drained, commitLock);
+                        workerLoop(queue, workerId, new Random(seed + workerId), recorded, drained, commitLock);
                         return null;
                     }));
                 }
@@ -193,12 +192,9 @@ class PendingWritesQueueConcurrencyTest extends FDBRecordStoreTestBase {
      * Drain a small batch from the front of the queue and record the cleared payloads into
      * {@code drained}, but only after a successful commit.
      *
-     * <p>The cursor forces snapshot isolation, so two drainers could observe the same entry. To
-     * keep draining exactly-once, drainers coordinate through a dedicated key -
-     * each drainer reads a shared "drain coordinator" key and writes a new value to
-     * it, so two drainers that overlap conflict and only one commits. The loser rolls back and
-     * records nothing. This keeps draining exactly-once without installing any read conflict
-     * over the queue subspace, so concurrent enqueues are never affected.</p>
+     * <p>The cursor forces snapshot isolation, so two drainers could observe the same entry. Since clearEntry will
+     * conflict on two drains to the same entry, only one drainer can commit. The loser rolls back and
+     * records nothing. This keeps draining exactly-once. Enqueues are not affected (different key)</p>
      *
      * <p>Like the enqueue path, the commit and the append to {@code drained} happen together
      * under {@code commitLock}. Because drains always take from the front (lowest versionstamps
@@ -214,20 +210,13 @@ class PendingWritesQueueConcurrencyTest extends FDBRecordStoreTestBase {
                 .asScanProperties(false);
         List<TestQueuePayload> clearedThisTx = new ArrayList<>();
         try (FDBRecordContext context = openContext()) {
-            // Read-modify-write a shared coordinator key so overlapping drainers conflict: both
-            // read the same value, both write a new one, and the second to commit is rejected.
-            byte[] coordinatorKey = drainCoordinatorKey(context);
-            byte[] currentGeneration = context.ensureActive().get(coordinatorKey).join();
-            long nextGeneration =
-                    (currentGeneration == null ? 0L : Tuple.fromBytes(currentGeneration).getLong(0)) + 1;
-
             List<PendingWritesQueueEntry<TestQueuePayload>> entries =
                     queue.getQueueCursor(context, limitedScan, null).asList().join();
             for (PendingWritesQueueEntry<TestQueuePayload> entry : entries) {
+                // Since the clearEntry will conflict with another drainer, this may be rolled back
                 queue.clearEntry(context, entry);
                 clearedThisTx.add(entry.getPayload());
             }
-            context.ensureActive().set(coordinatorKey, Tuple.from(nextGeneration).pack());
 
             // Commit and record under the lock so that the drained order matches the commit
             // order. Only count these as drained once the commit actually succeeded.
@@ -236,14 +225,9 @@ class PendingWritesQueueConcurrencyTest extends FDBRecordStoreTestBase {
                 drained.addAll(clearedThisTx);
             }
         } catch (FDBExceptions.FDBStoreTransactionConflictException conflict) {
-            // Another drainer committed against the coordinator key first; the whole transaction
+            // Another drainer committed against the queue first; the whole transaction
             // rolled back, so nothing here was cleared. Leave the entries for a later drain.
         }
-    }
-
-    @Nonnull
-    private byte[] drainCoordinatorKey(@Nonnull FDBRecordContext context) {
-        return path.toSubspace(context).subspace(Tuple.from("drain-coordinator")).pack();
     }
 
     @Nonnull
@@ -267,6 +251,10 @@ class PendingWritesQueueConcurrencyTest extends FDBRecordStoreTestBase {
         // Vary label + value + blob so each payload is distinct. Random blob size so we hit a
         // range of FDB value lengths.
         int blobSize = 1 + random.nextInt(64);
+        if (random.nextInt(20) < 1) {
+            // at 5% make the size more than a split size
+            blobSize = 200_000;
+        }
         byte[] blob = filled(blobSize, (byte) (workerId & 0xFF), seq);
         return TestQueuePayload.newBuilder()
                 .setLabel("w" + workerId + "-s" + seq)

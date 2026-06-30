@@ -31,12 +31,15 @@ option java_outer_classname = "PendingWritesQueueProto";
  * layer, but each {@code PendingWritesQueue} instance is meant to store items of a certain type.
  */
 message PendingWriteItem {
+  // Leave the first few entries reserved for future use with a potential consolidation of this queue
+  // with a previous implementation.
+  reserved 1,2,3,4;
   // Schema version for the entry payload. Always written at the current value; readers reject
   // entries with a version newer than they understand.
-  required int32 version = 1;
+  required int32 version = 10;
   // The payload, packed inside an Any.
   // Entries whose stored type URL does not match are rejected on read.
-  required google.protobuf.Any payload = 2;
+  required google.protobuf.Any payload = 11;
   // System.currentTimeMillis() at enqueue time, recorded for diagnostics and troubleshooting.
-  required int64 enqueue_timestamp = 3;
+  required int64 enqueue_timestamp = 12;
 }

@@ -892,6 +892,38 @@ public class FDBStoreTimer extends StoreTimer {
         }
     }
 
+    /**
+     * Size Events.
+     */
+    public enum SizeEvents implements StoreTimer.SizeEvent {
+
+        /** The size of a pending writes queue (recorded when getQueueSize is called).*/
+        PENDING_WRITES_QUEUE_SIZE("Pending writes queue size"),
+        ;
+
+        private final String title;
+        private final boolean delayedUntilCommit;
+
+        SizeEvents(@Nonnull String title) {
+            this(title, false);
+        }
+
+        SizeEvents(@Nonnull String title, boolean delayedUntilCommit) {
+            this.title = title;
+            this.delayedUntilCommit = delayedUntilCommit;
+        }
+
+        @Override
+        public String title() {
+            return title;
+        }
+
+        @Override
+        public boolean isDelayedUntilCommit() {
+            return delayedUntilCommit;
+        }
+    }
+
     protected static final Set<Aggregate> ALL_AGGREGATES = new ImmutableSet.Builder<Aggregate>()
             .add(CountAggregates.values())
             .build();

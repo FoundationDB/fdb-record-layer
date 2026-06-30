@@ -38,12 +38,15 @@ import com.apple.foundationdb.record.provider.foundationdb.SplitHelper;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.Versionstamp;
+import com.apple.test.RandomSeedSource;
 import com.apple.test.Tags;
 import com.google.protobuf.Any;
 import com.google.protobuf.ByteString;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 
 import javax.annotation.Nonnull;
 import java.nio.charset.StandardCharsets;
@@ -71,14 +74,15 @@ class PendingWritesQueueTest extends FDBRecordStoreTestBase {
      * Enqueue several entries in a single transaction, then iterate them in another
      * transaction. Verifies payloads round-trip and ordering is preserved by versionstamp.
      */
-    @Test
-    void testEnqueueAndIterate() {
+    @ParameterizedTest
+    @RandomSeedSource(0xC0FFEEL)
+    void testEnqueueAndIterate(long seed) {
         final int incarnation = 7;
-        final List<TestQueuePayload> payloads = randomPayloads(COUNT, 0xC0FFEEL + COUNT);
+        final List<TestQueuePayload> payloads = randomPayloads(COUNT, new Random(seed));
 
         PendingWritesQueue<TestQueuePayload> queue;
         try (FDBRecordContext context = openContext()) {
-            queue = getQueue(context, PendingWritesQueue.DEFAULT_MAX_QUEUE_SIZE);
+            queue = getQueue(context, 100);
             for (int i = 0; i < COUNT; i++) {
                 queue.enqueue(context, payloads.get(i), incarnation).join();
             }
@@ -135,12 +139,15 @@ class PendingWritesQueueTest extends FDBRecordStoreTestBase {
         }
     }
 
+    private enum LimitType { ROW, BYTES }
+
     /**
      * Iterating in batches across multiple transactions via continuation tokens preserves
      * ordering and never repeats or skips an entry.
      */
-    @Test
-    void testIterateWithContinuations() {
+    @ParameterizedTest
+    @EnumSource
+    void testIterateWithContinuations(LimitType limitType) {
         final int total = 25;
         PendingWritesQueue<TestQueuePayload> queue;
         try (FDBRecordContext context = openContext()) {
@@ -153,25 +160,27 @@ class PendingWritesQueueTest extends FDBRecordStoreTestBase {
 
         List<PendingWritesQueueEntry<TestQueuePayload>> collected = new ArrayList<>();
         byte[] continuation = null;
-        do {
-            ScanProperties scanProps = ExecuteProperties.newBuilder()
+        int iterationCount = 0;
+        ScanProperties scanProps = switch (limitType) {
+            case ROW -> ExecuteProperties.newBuilder()
                     .setReturnedRowLimit(7)
                     .build()
                     .asScanProperties(false);
+            case BYTES -> ExecuteProperties.newBuilder()
+                    .setScannedBytesLimit(3000)
+                    .build()
+                    .asScanProperties(false);
+        };
+
+        do {
             try (FDBRecordContext context = openContext()) {
-                RecordCursor<PendingWritesQueueEntry<TestQueuePayload>> cursor =
-                        queue.getQueueCursor(context, scanProps, continuation);
-                RecordCursorResult<PendingWritesQueueEntry<TestQueuePayload>> last = null;
-                while (true) {
-                    RecordCursorResult<PendingWritesQueueEntry<TestQueuePayload>> next = cursor.getNext();
-                    if (!next.hasNext()) {
-                        last = next;
-                        break;
-                    }
-                    collected.add(next.get());
-                }
+                RecordCursor<PendingWritesQueueEntry<TestQueuePayload>> cursor = queue.getQueueCursor(context, scanProps, continuation);
+                RecordCursorResult<PendingWritesQueueEntry<TestQueuePayload>> last = cursor.forEachResult(result -> {
+                    collected.add(result.get());
+                }).join();
                 RecordCursorContinuation cont = last.getContinuation();
                 continuation = cont.isEnd() ? null : cont.toBytes();
+                iterationCount++;
             }
         } while (continuation != null);
 
@@ -179,6 +188,13 @@ class PendingWritesQueueTest extends FDBRecordStoreTestBase {
         for (int i = 0; i < total; i++) {
             assertEquals("payload-" + i, collected.get(i).getPayload().getLabel(),
                     "ordering broke at " + i);
+        }
+        if (limitType.equals(LimitType.ROW)) {
+            assertEquals(4, iterationCount);
+        }
+        if (limitType.equals(LimitType.BYTES)) {
+            // for bytes, allow some slack to reduce flakyness
+            assertTrue(iterationCount >= 2);
         }
     }
 
@@ -214,9 +230,10 @@ class PendingWritesQueueTest extends FDBRecordStoreTestBase {
      * Exercises the {@link SplitHelper} split path: a payload whose {@code blob} field is well
      * over the FDB 100KB value-size limit.
      */
-    @Test
-    void testLargeEntryUsesSplitHelper() {
-        byte[] bigBlob = randomBytes(250_000, 11L);
+    @ParameterizedTest
+    @RandomSeedSource(435552L)
+    void testLargeEntryUsesSplitHelper(long seed) {
+        byte[] bigBlob = randomBytes(250_000, new Random(seed));
         TestQueuePayload bigPayload = TestQueuePayload.newBuilder()
                 .setLabel("big")
                 .setValue(42L)
@@ -449,7 +466,7 @@ class PendingWritesQueueTest extends FDBRecordStoreTestBase {
             }
 
             // While the drain transaction is still open, another transaction enqueues a fresh
-            // entry. It must commit cleanly because enqueue never conflicts with anything.
+            // entry. It must commit cleanly because enqueue only conflicts with isQueueEmpty.
             try (FDBRecordContext enqueueTx = openContext()) {
                 queue.enqueue(enqueueTx, payload("late-arrival"), 0).join();
                 commit(enqueueTx);
@@ -524,8 +541,8 @@ class PendingWritesQueueTest extends FDBRecordStoreTestBase {
         assertScanThrows(readerQueue, RecordCoreStorageException.class);
     }
 
-    private <T extends com.google.protobuf.Message> void assertScanThrows(
-            @Nonnull PendingWritesQueue<T> queue,
+    private void assertScanThrows(
+            @Nonnull PendingWritesQueue<?> queue,
             @Nonnull Class<? extends Throwable> expected) {
         try (FDBRecordContext context = openContext()) {
             Assertions.assertThatThrownBy(() ->
@@ -581,21 +598,20 @@ class PendingWritesQueueTest extends FDBRecordStoreTestBase {
     }
 
     @Nonnull
-    private static List<TestQueuePayload> randomPayloads(int count, final long seed) {
-        Random random = new Random(seed);
+    private static List<TestQueuePayload> randomPayloads(int count, Random random) {
         return IntStream.range(0, count)
                 .mapToObj(i -> TestQueuePayload.newBuilder()
                         .setLabel("p-" + i)
                         .setValue(random.nextLong())
-                        .setBlob(ByteString.copyFrom(randomBytes(32, seed)))
+                        .setBlob(ByteString.copyFrom(randomBytes(32, random)))
                         .build())
                 .collect(Collectors.toList());
     }
 
     @Nonnull
-    private static byte[] randomBytes(int size, long seed) {
+    private static byte[] randomBytes(int size, Random random) {
         byte[] b = new byte[size];
-        new Random(seed).nextBytes(b);
+        random.nextBytes(b);
         return b;
     }
 }

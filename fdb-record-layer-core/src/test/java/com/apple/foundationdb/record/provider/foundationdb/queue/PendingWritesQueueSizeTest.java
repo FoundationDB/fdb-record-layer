@@ -152,20 +152,23 @@ class PendingWritesQueueSizeTest extends FDBRecordStoreTestBase {
      */
     @Test
     void testUnlimitedQueueSize() {
-        final int itemsToEnqueue = 11_000;
         PendingWritesQueue<TestQueuePayload> queue;
+        final int loopCount = 10;
+        final int itemsToEnqueue = 11_000;
         try (FDBRecordContext context = openContext()) {
             queue = getQueue(context, 0);
-            for (int i = 0; i < itemsToEnqueue; i++) {
-                queue.enqueue(context, payload("p-" + i), 0).join();
+        }
+        // Loop 10 times over 11K records since we cannot insert more than 64K local versions in a transaction
+        for (int j = 0; j < loopCount; j++) {
+            try (FDBRecordContext context = openContext()) {
+                for (int i = 0; i < itemsToEnqueue; i++) {
+                    queue.enqueue(context, payload("p-" + i), 0).join();
+                }
+                commit(context);
             }
-            commit(context);
         }
         try (FDBRecordContext context = openContext()) {
-            assertQueueSize(queue, context, (long) itemsToEnqueue);
-            List<PendingWritesQueueEntry<TestQueuePayload>> entries =
-                    queue.getQueueCursor(context, ScanProperties.FORWARD_SCAN, null).asList().join();
-            Assertions.assertThat(entries.size()).isEqualTo(itemsToEnqueue);
+            assertQueueSize(queue, context, (long) itemsToEnqueue * loopCount);
         }
     }
 
