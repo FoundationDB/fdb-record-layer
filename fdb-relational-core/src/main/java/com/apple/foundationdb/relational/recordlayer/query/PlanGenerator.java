@@ -155,6 +155,13 @@ public final class PlanGenerator {
     /**
      * Pre-generates and caches plans for the stored queries defined in the schema template.
      *
+     * <p>Iterates every stored query on the schema template and tries to plan it. Per-query
+     * planning errors are caught and logged (inside {@link #getPlan(String, Map)}'s {@code finally}
+     * block) &mdash; <em>not</em> propagated &mdash; so one bad stored query cannot abort the
+     * iteration. The returned count is the number of stored queries that planned <em>successfully</em>;
+     * queries that failed to plan are the difference between the template's stored-query count
+     * and this return value.</p>
+     *
      * @return the number of stored queries that were planned and cached successfully; queries that
      *         failed to plan are counted as the difference between the template's stored-query count
      *         and this return value
