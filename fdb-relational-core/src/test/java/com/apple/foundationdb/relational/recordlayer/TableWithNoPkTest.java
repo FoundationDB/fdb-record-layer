@@ -31,7 +31,6 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.utils.ResultSetAssert;
 import com.apple.foundationdb.relational.utils.SimpleDatabaseRule;
 import com.apple.foundationdb.relational.utils.RelationalAssertions;
-import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalExtension;
 
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Order;

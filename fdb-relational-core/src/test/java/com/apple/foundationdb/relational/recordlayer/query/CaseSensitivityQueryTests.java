@@ -33,7 +33,6 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
 import javax.annotation.Nonnull;
-import java.net.URI;
 import java.sql.SQLException;
 
 public class CaseSensitivityQueryTests {

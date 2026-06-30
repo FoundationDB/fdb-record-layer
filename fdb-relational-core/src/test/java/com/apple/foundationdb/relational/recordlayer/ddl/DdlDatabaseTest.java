@@ -110,7 +110,7 @@ public class DdlDatabaseTest {
     public void dropDatabaseRemovesFromList() throws Exception {
         final String listCommand = "SHOW DATABASES WITH PREFIX /test_db";
         CatalogOperations.runOnCatalog(relational.getDriver(), connection -> {
-                RelationalConnection conn = connection.unwrap(RelationalConnection.class);
+            RelationalConnection conn = connection.unwrap(RelationalConnection.class);
             try (RelationalStatement statement = conn.createStatement()) {
                 //create a database
                 statement.executeUpdate("CREATE DATABASE /test_db");
@@ -164,7 +164,7 @@ public class DdlDatabaseTest {
     @Test
     public void cannotCreateDatabaseIfExists() throws Exception {
         CatalogOperations.runOnCatalog(relational.getDriver(), connection -> {
-                RelationalConnection conn = connection.unwrap(RelationalConnection.class);
+            RelationalConnection conn = connection.unwrap(RelationalConnection.class);
             // assure that there is not a database with the same name from before
             try (Statement statement = conn.createStatement()) {
                 statement.executeUpdate("DROP DATABASE if exists /test/test_db");
@@ -188,7 +188,7 @@ public class DdlDatabaseTest {
     @Test
     public void cannotCreateSchemaWithoutDatabase() throws Exception {
         CatalogOperations.runOnCatalog(relational.getDriver(), connection -> {
-                RelationalConnection conn = connection.unwrap(RelationalConnection.class);
+            RelationalConnection conn = connection.unwrap(RelationalConnection.class);
             try (Statement statement = conn.createStatement()) {
                 //create a database
                 RelationalAssertions.assertThrowsSqlException(() ->

@@ -37,7 +37,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
 import javax.annotation.Nonnull;
-import java.net.URI;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;

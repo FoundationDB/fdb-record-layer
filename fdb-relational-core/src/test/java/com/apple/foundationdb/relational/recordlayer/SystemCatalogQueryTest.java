@@ -26,7 +26,6 @@ import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.utils.CatalogOperations;
 import com.apple.foundationdb.relational.utils.ResultSetAssert;
-import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalExtension;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -43,7 +42,6 @@ import java.sql.SQLException;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
-import java.net.URI;
 
 public class SystemCatalogQueryTest {
 

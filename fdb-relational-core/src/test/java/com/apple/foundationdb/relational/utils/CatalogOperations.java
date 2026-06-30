@@ -192,6 +192,10 @@ public final class CatalogOperations {
      * plus {@link RecordStoreDoesNotExistException}.
      * Named distinctly because Java can't disambiguate lambdas between the two
      * functional-interface overloads (their abstract methods differ only in their throws clause).
+     *
+     * @param action the catalog operation to run
+     * @throws RelationalException if the action ultimately fails (after retries, or with a
+     *                             non-retriable error)
      */
     public static void runLockedWithRelationalRetry(@Nonnull final RelationalThrowingRunnable action) throws RelationalException {
         synchronized (CATALOG_LOCK) {

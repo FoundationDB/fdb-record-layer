@@ -32,7 +32,6 @@ import com.apple.foundationdb.relational.utils.CatalogOperations;
 import com.apple.foundationdb.relational.utils.Ddl;
 import com.apple.foundationdb.relational.utils.ResultSetAssert;
 import com.apple.foundationdb.relational.utils.RelationalAssertions;
-import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalExtension;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Disabled;
@@ -181,7 +180,7 @@ public class CaseSensitivityTest {
     public void variousStructs(boolean quoted) throws Exception {
         List<String> structs = List.of(/*"ABC1",*/ "def2", "Ghi3", "jKL4");
         CatalogOperations.runOnCatalog(relationalExtension.getDriver(), connection -> {
-                RelationalConnection conn = connection.unwrap(RelationalConnection.class);
+            RelationalConnection conn = connection.unwrap(RelationalConnection.class);
             try {
                 try (RelationalStatement statement = conn.createStatement()) {
                     for (String struct : structs) {
@@ -207,7 +206,7 @@ public class CaseSensitivityTest {
     public void variousTables(boolean quoted) throws Exception {
         List<String> tables = List.of("ABC1", "def2", "Ghi3", "jKL4");
         CatalogOperations.runOnCatalog(relationalExtension.getDriver(), connection -> {
-                RelationalConnection conn = connection.unwrap(RelationalConnection.class);
+            RelationalConnection conn = connection.unwrap(RelationalConnection.class);
             try {
                 try (RelationalStatement statement = conn.createStatement()) {
                     statement.executeUpdate("DROP DATABASE if exists /test/various_tables_db");
@@ -249,7 +248,7 @@ public class CaseSensitivityTest {
     public void variousColumns(boolean quoted) throws Exception {
         List<String> columns = List.of("ABC1", "def2", "Ghi3", "jKL4");
         CatalogOperations.runOnCatalog(relationalExtension.getDriver(), connection -> {
-                RelationalConnection conn = connection.unwrap(RelationalConnection.class);
+            RelationalConnection conn = connection.unwrap(RelationalConnection.class);
             try {
                 try (RelationalStatement statement = conn.createStatement()) {
                     statement.executeUpdate("CREATE DATABASE /test/various_columns_db");
@@ -291,7 +290,7 @@ public class CaseSensitivityTest {
         List<String> tables = List.of("table", "TABLE", "Table", "TaBlE");
         List<String> columns = List.of("column", "COLUMN", "Column", "CoLuMn");
         CatalogOperations.runOnCatalog(relationalExtension.getDriver(), connection -> {
-                RelationalConnection conn = connection.unwrap(RelationalConnection.class);
+            RelationalConnection conn = connection.unwrap(RelationalConnection.class);
             try {
                 try (RelationalStatement statement = conn.createStatement()) {
                     for (String schema : schemas) {

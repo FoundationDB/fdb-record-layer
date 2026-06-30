@@ -40,7 +40,6 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.api.parallel.Isolated;
 
 import javax.annotation.Nonnull;
-import java.net.URI;
 import java.util.Map;
 import java.util.TreeMap;
 

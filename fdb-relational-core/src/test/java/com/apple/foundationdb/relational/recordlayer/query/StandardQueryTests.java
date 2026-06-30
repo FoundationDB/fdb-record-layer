@@ -59,7 +59,6 @@ import org.junit.jupiter.params.provider.MethodSource;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.sql.Array;
 import java.sql.Connection;

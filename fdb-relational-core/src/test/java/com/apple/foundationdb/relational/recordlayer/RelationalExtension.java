@@ -32,6 +32,8 @@ public interface RelationalExtension extends Extension {
     EmbeddedRelationalEngine getEngine();
 
     /**
+     * Get the driver owned by this extension.
+     *
      * @return the driver owned by this extension. May be {@code null} if the extension's
      *         {@code beforeEach} has not run yet, or has been cleaned up.
      */

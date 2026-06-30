@@ -36,7 +36,6 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
-import java.net.URI;
 import java.sql.ResultSet;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;

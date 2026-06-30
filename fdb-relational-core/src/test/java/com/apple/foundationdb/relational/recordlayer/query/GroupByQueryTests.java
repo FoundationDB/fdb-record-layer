@@ -34,7 +34,6 @@ import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
-import java.net.URI;
 
 import static com.apple.foundationdb.relational.recordlayer.query.QueryTestUtils.insertT1Record;
 import static com.apple.foundationdb.relational.recordlayer.query.QueryTestUtils.insertT1RecordColAIsNull;

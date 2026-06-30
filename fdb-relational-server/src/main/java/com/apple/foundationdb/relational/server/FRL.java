@@ -93,20 +93,22 @@ public class FRL implements AutoCloseable {
      */
     private static final Object CATALOG_LOCK = new Object();
 
+    private final FdbConnection fdbDatabase;
+    private final RelationalDriver driver;
+    private boolean registeredJDBCEmbedDriver;
+
     /**
      * Returns the JVM-wide monitor used to serialize catalog-mutating DDL. Hold this when issuing
      * CREATE/DROP DATABASE, CREATE/DROP SCHEMA TEMPLATE, or any other operation that writes the
      * cluster-global catalog metadata, to avoid SQLSTATE 40001 conflicts with concurrent
      * {@link #FRL(Options, String, boolean)} construction or other DDL on the same JVM.
+     *
+     * @return the JVM-wide catalog-mutation monitor
      */
     @Nonnull
     public static Object catalogLock() {
         return CATALOG_LOCK;
     }
-
-    private final FdbConnection fdbDatabase;
-    private final RelationalDriver driver;
-    private boolean registeredJDBCEmbedDriver;
 
     public FRL() throws RelationalException {
         this(Options.NONE, null);

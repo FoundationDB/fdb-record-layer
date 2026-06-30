@@ -35,7 +35,6 @@ import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
-import java.net.URI;
 
 public class V2PlanGeneratorTests {
     @RegisterExtension

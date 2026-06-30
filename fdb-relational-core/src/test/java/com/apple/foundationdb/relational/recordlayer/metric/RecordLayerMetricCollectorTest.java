@@ -35,7 +35,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
 import javax.annotation.Nonnull;
-import java.net.URI;
 import java.sql.SQLException;
 import java.util.function.Consumer;
 

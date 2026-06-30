@@ -35,7 +35,6 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
 import javax.annotation.Nonnull;
-import java.net.URI;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Stream;

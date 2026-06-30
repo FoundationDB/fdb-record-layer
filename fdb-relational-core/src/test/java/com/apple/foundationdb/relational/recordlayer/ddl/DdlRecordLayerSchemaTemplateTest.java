@@ -49,7 +49,6 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Stream;
-import java.net.URI;
 
 /**
  * End-to-end unit tests for Schema Template language in the RecordLayer.
@@ -72,7 +71,7 @@ public class DdlRecordLayerSchemaTemplateTest {
         // commits with other test classes; the retry handles residual SQLSTATE 40001 conflicts.
         CatalogOperations.runLockedWithRetry(() -> {
             CatalogOperations.runOnCatalog(relational.getDriver(), connection -> {
-                    RelationalConnection conn = connection.unwrap(RelationalConnection.class);
+                RelationalConnection conn = connection.unwrap(RelationalConnection.class);
                 try (RelationalStatement statement = conn.createStatement()) {
                     operation.accept(statement);
                 } catch (SQLException | RuntimeException err) {
