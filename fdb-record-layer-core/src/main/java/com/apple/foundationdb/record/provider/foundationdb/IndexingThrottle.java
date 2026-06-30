@@ -462,18 +462,18 @@ public class IndexingThrottle {
      * @return a future of the indexes that have a non-empty pending writes queue
      */
     private CompletableFuture<List<Index>> nonEmptyQueueIndexes(@Nonnull FDBRecordStore store, @Nonnull FDBRecordContext context, @Nonnull List<Index> indexes) {
-        final List<CompletableFuture<Index>> futures = indexes.stream()
-                .map(index -> {
-                    final PendingWritesQueue<IndexBuildProto.PendingWritesQueueEntry> queue = new PendingWritesQueue<>(
-                            IndexingSubspaces.indexWritePendingQueueSubspace(store, index),
-                            IndexingSubspaces.indexWritePendingQueueSizeSubspace(store, index),
-                            0L,
-                            IndexBuildProto.PendingWritesQueueEntry.class);
-                    return queue.getQueueSizeNoConflict(context)
-                            .thenApply(size -> size != null && size > 0 ? index : null);
-                })
-                .collect(Collectors.toList());
-        return AsyncUtil.getAll(futures)
+        return AsyncUtil.getAll(indexes.stream()
+                        .map(index -> {
+                            final PendingWritesQueue<IndexBuildProto.PendingWritesQueueEntry> queue = new PendingWritesQueue<>(
+                                    IndexingSubspaces.indexWritePendingQueueSubspace(store, index),
+                                    IndexingSubspaces.indexWritePendingQueueSizeSubspace(store, index),
+                                    0L,
+                                    IndexBuildProto.PendingWritesQueueEntry.class);
+                            return queue.getQueueSizeNoConflict(context)
+                                    .thenApply(size -> size != null && size > 0 ? index : null);
+                        })
+                        .toList()
+                )
                 .thenApply(results -> results.stream().filter(Objects::nonNull).toList());
     }
 
