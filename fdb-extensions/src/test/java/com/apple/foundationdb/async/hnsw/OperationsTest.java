@@ -339,11 +339,7 @@ class OperationsTest implements BaseTest {
                 final List<PrimaryKeyAndVector> insertedData = randomVectors(random, config.getNumDimensions(), size);
                 logFile.log("Generated %d random vectors", insertedData.size());
 
-                for (int i = 0; i < size;) {
-                    logFile.log("primary insert loop iter=%d size=%d", i, size);
-                    i += TestHelpers.basicInsertBatch(getDb(), hnsw, 100, i,
-                            (tr, nextId) -> insertedData.get(Math.toIntExact(nextId)), logFile).size();
-                }
+                TestHelpers.basicInsert(getDb(), hnsw, insertedData, logFile);
                 logFile.log("primary insert loop complete");
 
                 final HalfRealVector queryVector = createRandomHalfVector(random, config.getNumDimensions());
@@ -437,10 +433,7 @@ class OperationsTest implements BaseTest {
         final int k = 30;
         final List<PrimaryKeyAndVector> insertedData = randomVectors(random, config.getNumDimensions(), size);
 
-        for (int i = 0; i < size;) {
-            i += TestHelpers.basicInsertBatch(getDb(), hnsw, 100, i,
-                    (tr, nextId) -> insertedData.get(Math.toIntExact(nextId))).size();
-        }
+        TestHelpers.basicInsert(getDb(), hnsw, insertedData, null);
 
         final double radius = 1d;
         final HalfRealVector queryVector = createRandomHalfVector(random, config.getNumDimensions());
@@ -486,10 +479,7 @@ class OperationsTest implements BaseTest {
         final int k = 50;
         final List<PrimaryKeyAndVector> insertedData = randomVectors(random, config.getNumDimensions(), size);
 
-        for (int i = 0; i < size;) {
-            i += TestHelpers.basicInsertBatch(getDb(), hnsw, 100, i,
-                    (tr, nextId) -> insertedData.get(Math.toIntExact(nextId))).size();
-        }
+        TestHelpers.basicInsert(getDb(), hnsw, insertedData, null);
 
         final int numVectorsPerDeleteBatch = 50;
         List<PrimaryKeyAndVector> remainingData = insertedData;
@@ -588,10 +578,7 @@ class OperationsTest implements BaseTest {
         final int numRecords = 1000;
         final int k = 499;
         final List<PrimaryKeyAndVector> insertedData = randomVectors(random, numDimensions, numRecords);
-        for (int i = 0; i < numRecords;) {
-            i += TestHelpers.basicInsertBatch(getDb(), hnsw, 100, i,
-                    (tr, nextId) -> insertedData.get(Math.toIntExact(nextId))).size();
-        }
+        TestHelpers.basicInsert(getDb(), hnsw, insertedData, null);
 
         final DoubleRealVector queryVector = createRandomDoubleVector(random, numDimensions);
 
@@ -665,10 +652,7 @@ class OperationsTest implements BaseTest {
 
         final List<PrimaryKeyAndVector> insertedData = randomVectors(random, config.getNumDimensions(), size);
 
-        for (int i = 0; i < size;) {
-            i += TestHelpers.basicInsertBatch(getDb(), hnsw, 100, i,
-                    (tr, nextId) -> insertedData.get(Math.toIntExact(nextId))).size();
-        }
+        TestHelpers.basicInsert(getDb(), hnsw, insertedData, null);
 
         final int skip = 100;
         final HalfRealVector queryVector = createRandomHalfVector(random, config.getNumDimensions());

@@ -111,6 +111,25 @@ class TestHelpers {
         return basicInsertBatch(db, hnsw, batchSize, firstId, insertFunction, null);
     }
 
+    static void basicInsert(@Nonnull Database db, @Nonnull final HNSW hnsw,
+                            final List<PrimaryKeyAndVector> insertedData,
+                            TestLogFile logFile)
+            throws ExecutionException, InterruptedException, TimeoutException {
+        basicInsert(db, hnsw, insertedData.size(), (tr, nextId) -> insertedData.get(Math.toIntExact(nextId)), logFile);
+    }
+
+    static void basicInsert(@Nonnull final Database db,
+                            @Nonnull final HNSW hnsw,
+                            final int count,
+                            @Nonnull final BiFunction<Transaction, Long, PrimaryKeyAndVector> insertFunction, final TestLogFile logFile)
+            throws ExecutionException, InterruptedException, TimeoutException {
+        int inserted = 0;
+        while (inserted < count) {
+            inserted += basicInsertBatch(db, hnsw, Math.min(100, count - inserted), inserted, insertFunction, logFile)
+                    .size();
+        }
+    }
+
     @Nonnull
     static List<PrimaryKeyAndVector> basicInsertBatch(@Nonnull final Database db,
                                                       @Nonnull final HNSW hnsw,
@@ -136,7 +155,9 @@ class TestHelpers {
             // it's probably better to not test the concurrent handling of hnsw, even if it makes the tests slower.
             CompletableFuture<Void> future = CompletableFuture.completedFuture(null);
             final long beginTs = System.nanoTime();
-            final int attemptBatchSize = batchSize / attempt.get();
+            // This is a simplistic version of ThrottledRetryingIterator, but that cannot be used here because it depends
+            // on many classes from fdb-record-layer-core
+            final int attemptBatchSize = Math.max(1, batchSize / attempt.get());
             for (int i = 0; i < attemptBatchSize; i ++) {
                 final PrimaryKeyAndVector record = insertFunction.apply(tr, firstId + i);
                 if (record == null) {
