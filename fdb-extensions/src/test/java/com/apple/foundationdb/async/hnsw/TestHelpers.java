@@ -123,7 +123,7 @@ class TestHelpers {
             logFile.log("basicInsertBatch begin batchSize=%d firstId=%d", batchSize, firstId);
         }
         AtomicInteger attempt = new AtomicInteger(0);
-        try (Transaction tr = db.createTransaction()) {
+        return db.runAsync(tr -> {
             attempt.incrementAndGet();
             final TestOnWriteListener onWriteListener = (TestOnWriteListener)hnsw.getOnWriteListener();
             onWriteListener.reset();
@@ -151,9 +151,7 @@ class TestHelpers {
                     return hnsw.insert(tr, record.getPrimaryKey(), record.getVector());
                 });
             }
-            return future
-                    .thenCompose(vignore -> tr.commit())
-                    .thenApply(vignore -> data.build())
+            return future.thenApply(vignore -> data.build())
                     .whenComplete((result, error) -> {
                         if (error != null) {
                             logger.info("Failed to insert batchSize={}", error);
@@ -173,8 +171,8 @@ class TestHelpers {
                                         onReadListener.getNodeCountByLayer(), onReadListener.getBytesReadByLayer());
                             }
                         }
-                    }).get(2, TimeUnit.MINUTES);
-        }
+                    });
+        }).get(2, TimeUnit.MINUTES); // set a timeout for inserting a single batch including retries so setup won't run forever
     }
 
     static List<PrimaryKeyAndVector> insertSIFTSmall(@Nonnull final Database db,
