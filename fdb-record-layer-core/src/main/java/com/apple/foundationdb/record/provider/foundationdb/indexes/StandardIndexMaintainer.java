@@ -343,12 +343,6 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
             // had generated an "already indexed" source index key, the other one should be converted to a null in the queue).
             // This, however can be done at a later step.
         }
-        final PendingWritesQueue<IndexBuildProto.PendingWritesQueueEntry> pendingWritesQueue = new PendingWritesQueue<>(
-                IndexingSubspaces.indexWritePendingQueueSubspace(state.store, state.index),
-                IndexingSubspaces.indexWritePendingQueueSizeSubspace(state.store, state.index),
-                PendingWritesQueue.DEFAULT_MAX_QUEUE_SIZE,
-                IndexBuildProto.PendingWritesQueueEntry.class
-        );
         final RecordSerializer<Message> serializer = state.store.getSerializer();
         final IndexBuildProto.PendingWritesQueueEntry.Builder builder = IndexBuildProto.PendingWritesQueueEntry.newBuilder();
         if (oldRecord != null) {
@@ -357,8 +351,18 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
         if (newRecord != null) {
             builder.setNewRecord(serializeRecord(newRecord, serializer));
         }
-        pendingWritesQueue.enqueue(state.context, builder.build(), state.store.getIncarnation());
+        getPendingWritesQueue().enqueue(state.context, builder.build(), state.store.getIncarnation());
         return AsyncUtil.DONE;
+    }
+
+    @Nonnull
+    private PendingWritesQueue<IndexBuildProto.PendingWritesQueueEntry> getPendingWritesQueue() {
+        return new PendingWritesQueue<>(
+                IndexingSubspaces.indexWritePendingQueueSubspace(state.store, state.index),
+                IndexingSubspaces.indexWritePendingQueueSizeSubspace(state.store, state.index),
+                100_000, // TODO
+                IndexBuildProto.PendingWritesQueueEntry.class
+        );
     }
 
     @Nonnull

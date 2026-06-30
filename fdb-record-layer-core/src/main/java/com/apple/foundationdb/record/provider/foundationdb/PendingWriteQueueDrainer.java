@@ -1,0 +1,48 @@
+/*
+ * IndexingDrainer.java
+ *
+ * This source file is part of the FoundationDB open source project
+ *
+ * Copyright 2015-2023 Apple Inc. and the FoundationDB project authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package com.apple.foundationdb.record.provider.foundationdb;
+
+import com.apple.foundationdb.async.AsyncUtil;
+import com.apple.foundationdb.record.metadata.Index;
+
+import javax.annotation.ParametersAreNonnullByDefault;
+import java.util.concurrent.CompletableFuture;
+
+/**
+ * Drain an index's pending queue.
+ * Like {@link IndexingMerger}, this can be used either for an explicit drain call or during online indexing. In the
+ * latter case, keeping throttle values between calls has an overall impact on performance.
+ */
+@ParametersAreNonnullByDefault
+public class PendingWriteQueueDrainer {
+    private final Index index;
+    private final IndexingCommon common;
+
+    public PendingWriteQueueDrainer(final Index index, IndexingCommon common) {
+        this.index = index;
+        this.common = common;
+    }
+
+    CompletableFuture<Void> drainPendingQueue() {
+        // TODO: implement the pending queue drain.
+        return AsyncUtil.DONE;
+    }
+}
