@@ -141,7 +141,6 @@ class TestHelpers {
                 data.add(record);
                 final int finalI = i;
                 future = future.thenCompose((vignore) -> {
-                    logger.info("Inserting to batch {}", finalI);
                     if (logFile != null) {
                         logFile.log("Inserting to batch %d", finalI);
                     }
