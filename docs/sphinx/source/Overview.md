@@ -1,4 +1,4 @@
-# FoundationDB Record Layer Overview
+# Overview
 
 Records are instances of Protobuf messages. The core layer conventionalizes serialization
 and maintains secondary indexes. It supports simple predicate queries that use those indexes.
