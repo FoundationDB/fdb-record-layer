@@ -169,8 +169,9 @@ public final class CatalogOperations {
      *                      non-retriable error)
      */
     public static void runLockedWithRetry(@Nonnull final ThrowingRunnable action) throws SQLException {
-        synchronized (CATALOG_LOCK) {
-            for (int attempt = 1; ; attempt++) {
+        for (int attempt = 1; ; attempt++) {
+            final SQLException failure;
+            synchronized (CATALOG_LOCK) {
                 try {
                     action.run();
                     return;
@@ -179,9 +180,13 @@ public final class CatalogOperations {
                     if (attempt >= MAX_ATTEMPTS || !isRetriable(e)) {
                         throw e;
                     }
-                    sleepBeforeRetry(attempt, e);
+                    failure = e;
                 }
             }
+            // Backoff with the lock RELEASED so other catalog ops can make progress between
+            // retries. Sleeping under the monitor triggers SpotBugs SWL_SLEEP_WITH_LOCK_HELD
+            // and unnecessarily serialises unrelated work.
+            sleepBeforeRetry(attempt, failure);
         }
     }
 
@@ -198,8 +203,9 @@ public final class CatalogOperations {
      *                             non-retriable error)
      */
     public static void runLockedWithRelationalRetry(@Nonnull final RelationalThrowingRunnable action) throws RelationalException {
-        synchronized (CATALOG_LOCK) {
-            for (int attempt = 1; ; attempt++) {
+        for (int attempt = 1; ; attempt++) {
+            final RelationalException failure;
+            synchronized (CATALOG_LOCK) {
                 try {
                     action.run();
                     return;
@@ -207,9 +213,10 @@ public final class CatalogOperations {
                     if (attempt >= MAX_ATTEMPTS || !isRetriable(e)) {
                         throw e;
                     }
-                    sleepBeforeRetry(attempt, e);
+                    failure = e;
                 }
             }
+            sleepBeforeRetry(attempt, failure);
         }
     }
 

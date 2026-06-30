@@ -94,9 +94,10 @@ public class SetupBlock extends ConnectedBlock {
      * blocks that include catalog-mutating DDL are expected to follow the same convention.
      */
     private static void runLockedWithRetry(@Nonnull Runnable runnable) {
-        synchronized (FRL.catalogLock()) {
-            final int maxAttempts = 5;
-            for (int attempt = 1; ; attempt++) {
+        final int maxAttempts = 5;
+        for (int attempt = 1; ; attempt++) {
+            final Throwable failure;
+            synchronized (FRL.catalogLock()) {
                 try {
                     runnable.run();
                     return;
@@ -104,13 +105,21 @@ public class SetupBlock extends ConnectedBlock {
                     if (attempt >= maxAttempts || !isTransactionConflict(e)) {
                         throw e;
                     }
-                    try {
-                        Thread.sleep(10L * attempt);
-                    } catch (InterruptedException ie) {
-                        Thread.currentThread().interrupt();
-                        throw e;
-                    }
+                    failure = e;
                 }
+            }
+            // Sleep with the lock RELEASED — keeping it held during backoff would block other
+            // catalog ops unnecessarily and triggers SpotBugs SWL_SLEEP_WITH_LOCK_HELD. The
+            // retry races other catalog ops on the next iteration, which is what we want.
+            try {
+                Thread.sleep(10L * attempt);
+            } catch (InterruptedException ie) {
+                Thread.currentThread().interrupt();
+                // Wrap the interrupt as the cause to satisfy PMD's PreserveStackTrace; attach
+                // the original retriable failure as suppressed so its stack trace survives too.
+                final RuntimeException wrapped = new RuntimeException(ie);
+                wrapped.addSuppressed(failure);
+                throw wrapped;
             }
         }
     }
