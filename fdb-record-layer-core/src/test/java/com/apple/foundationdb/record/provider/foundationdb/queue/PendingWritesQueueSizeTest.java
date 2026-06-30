@@ -50,7 +50,7 @@ class PendingWritesQueueSizeTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             PendingWritesQueue<TestQueuePayload> queue = getQueue(context, 100);
             Assertions.assertThat(queue.getQueueSizeNoConflict(context).join()).isNull();
-            Assertions.assertThat(queue.ensureQueueEmpty(context).join()).isTrue();
+            Assertions.assertThat(queue.isQueueEmpty(context).join()).isTrue();
             commit(context);
         }
     }
@@ -116,7 +116,7 @@ class PendingWritesQueueSizeTest extends FDBRecordStoreTestBase {
         }
         try (FDBRecordContext context = openContext()) {
             assertQueueSize(queue, context, 0L);
-            Assertions.assertThat(queue.ensureQueueEmpty(context).join()).isTrue();
+            Assertions.assertThat(queue.isQueueEmpty(context).join()).isTrue();
         }
     }
 

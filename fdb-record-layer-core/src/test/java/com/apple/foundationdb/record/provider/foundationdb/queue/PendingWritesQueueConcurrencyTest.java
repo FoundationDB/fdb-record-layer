@@ -133,7 +133,7 @@ class PendingWritesQueueConcurrencyTest extends FDBRecordStoreTestBase {
 
         // The queue is now empty and the size counter has settled at 0.
         try (FDBRecordContext context = openContext()) {
-            assertTrue(queue.ensureQueueEmpty(context).join(),
+            assertTrue(queue.isQueueEmpty(context).join(),
                     "queue must be empty after draining everything");
             assertEquals(0L, queue.getQueueSizeNoConflict(context).join(),
                     "size counter must be 0 after draining everything");

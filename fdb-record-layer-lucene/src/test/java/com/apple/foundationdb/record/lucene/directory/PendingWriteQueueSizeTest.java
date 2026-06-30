@@ -184,7 +184,7 @@ class PendingWriteQueueSizeTest extends FDBRecordStoreTestBase {
     void testUnlimitedQueueSize() {
         // Test that maxQueueSize = 0 means unlimited
         PendingWriteQueue queue;
-        final int itemsToEnqueue = 11000;
+        final int itemsToEnqueue = 101000;
 
         try (FDBRecordContext context = openContext()) {
             queue = getQueue(context, 0); // 0 = unlimited

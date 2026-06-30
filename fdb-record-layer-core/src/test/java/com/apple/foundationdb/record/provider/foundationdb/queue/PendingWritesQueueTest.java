@@ -263,15 +263,15 @@ class PendingWritesQueueTest extends FDBRecordStoreTestBase {
     }
 
     /**
-     * {@link PendingWritesQueue#ensureQueueEmpty} returns true on a new queue
+     * {@link PendingWritesQueue#isQueueEmpty} returns true on a new queue
      * and false once something has been enqueued.
      */
     @Test
-    void testEnsureQueueEmpty() {
+    void testIsQueueEmpty() {
         PendingWritesQueue<TestQueuePayload> queue;
         try (FDBRecordContext context = openContext()) {
             queue = getQueue(context, 100);
-            assertTrue(queue.ensureQueueEmpty(context).join());
+            assertTrue(queue.isQueueEmpty(context).join());
             commit(context);
         }
         try (FDBRecordContext context = openContext()) {
@@ -279,12 +279,12 @@ class PendingWritesQueueTest extends FDBRecordStoreTestBase {
             commit(context);
         }
         try (FDBRecordContext context = openContext()) {
-            assertFalse(queue.ensureQueueEmpty(context).join());
+            assertFalse(queue.isQueueEmpty(context).join());
         }
     }
 
     /**
-     * The "fail if conflicting insert" close-out: TX_A calls {@link  PendingWritesQueue#ensureQueueEmpty(FDBRecordContext)}
+     * The "fail if conflicting insert" close-out: TX_A calls {@link  PendingWritesQueue#isQueueEmpty(FDBRecordContext)}
      * (which uses a non-snapshot read so FDB installs a read-conflict range over the queue). While TX_A is
      * open, TX_B enqueues into the queue and commits first. TX_A's commit must fail with a
      * conflict.
@@ -301,7 +301,7 @@ class PendingWritesQueueTest extends FDBRecordStoreTestBase {
 
         try (FDBRecordContext txA = openContext()) {
             // TX_A asserts the queue is empty
-            assertTrue(queue.ensureQueueEmpty(txA).join());
+            assertTrue(queue.isQueueEmpty(txA).join());
             // make another write on the transaction such that it will conflict
             // this simulates the user of the queue marking the entire operation as "complete"
             txA.ensureActive().set(otherSubspace.pack(), bytes("done"));
@@ -319,14 +319,14 @@ class PendingWritesQueueTest extends FDBRecordStoreTestBase {
 
         // The late-arrival enqueue did land.
         try (FDBRecordContext context = openContext()) {
-            assertFalse(queue.ensureQueueEmpty(context).join());
+            assertFalse(queue.isQueueEmpty(context).join());
             assertEquals(1L, queue.getQueueSizeNoConflict(context).join());
         }
     }
 
     /**
      * The close-out path starting from a <em>full</em> queue: TX_A drains all 5 entries, then
-     * calls {@link PendingWritesQueue#ensureQueueEmpty(FDBRecordContext)} (which now sees the
+     * calls {@link PendingWritesQueue#isQueueEmpty(FDBRecordContext)} (which now sees the
      * queue as empty within TX_A's own view, but installs a read-conflict range over the whole
      * queue), and writes a close-out marker. While TX_A is open, TX_B enqueues a new item and
      * commits. TX_A's commit must fail with a conflict — otherwise it would incorrectly conclude
@@ -356,7 +356,7 @@ class PendingWritesQueueTest extends FDBRecordStoreTestBase {
             }
             // ... then asserts the queue is now empty. This read installs a read-conflict range
             // over the whole queue, since within TX_A's view the range is empty.
-            assertTrue(queue.ensureQueueEmpty(txA).join());
+            assertTrue(queue.isQueueEmpty(txA).join());
             // Mark the operation complete (a write so the conflict matters at commit).
             txA.ensureActive().set(otherSubspace.pack(), bytes("done"));
 
@@ -374,7 +374,7 @@ class PendingWritesQueueTest extends FDBRecordStoreTestBase {
         // TX_A rolled back, so its drain never happened: the 5 seed entries plus the
         // late-arrival enqueue are all still present.
         try (FDBRecordContext context = openContext()) {
-            assertFalse(queue.ensureQueueEmpty(context).join());
+            assertFalse(queue.isQueueEmpty(context).join());
             assertEquals(6L, queue.getQueueSizeNoConflict(context).join());
         }
     }
@@ -404,12 +404,12 @@ class PendingWritesQueueTest extends FDBRecordStoreTestBase {
             }
             // Asserting emptiness in the same transaction that drained should be fine — there
             // is no other writer to conflict with.
-            assertTrue(queue.ensureQueueEmpty(context).join());
+            assertTrue(queue.isQueueEmpty(context).join());
             commit(context);
         }
 
         try (FDBRecordContext context = openContext()) {
-            assertTrue(queue.ensureQueueEmpty(context).join());
+            assertTrue(queue.isQueueEmpty(context).join());
             assertEquals(0L, queue.getQueueSizeNoConflict(context).join());
         }
     }
@@ -424,7 +424,7 @@ class PendingWritesQueueTest extends FDBRecordStoreTestBase {
      * The conflict-freeness comes from {@link PendingWritesQueue#getQueueCursor} forcing
      * snapshot isolation regardless of what the caller passes in {@code scanProperties}. The
      * close-out emptiness assertion uses {@link
-     * PendingWritesQueue#ensureQueueEmpty} (which IS conflict-installing) and is
+     * PendingWritesQueue#isQueueEmpty} (which IS conflict-installing) and is
      * covered separately by {@link #testIsEmptyConflictsConcurrentEnqueue}.</p>
      */
     @Test

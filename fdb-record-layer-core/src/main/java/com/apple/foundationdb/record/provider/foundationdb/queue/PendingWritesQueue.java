@@ -55,8 +55,8 @@ import java.util.concurrent.CompletableFuture;
 /**
  * A persistent FDB-backed queue of pending entries, each carrying a typed Protobuf payload.
  *
- * <p>The queue is intended to hold pending operations that arrive while a background indexer
- * (or any other background worker) is running. Front-end transactions enqueue items
+ * <p>The queue is intended to hold pending foreground operations that arrive while a background worker
+ * is running (and possibly holding resources). Front-end transactions enqueue items
  * conflict-free; the worker drains the queue and applies each entry.
  * The shape of the payload is determined by the caller — the queue is type-agnostic at the
  * proto layer but each {@code PendingWritesQueue} instance is homogeneous (bound to a single
@@ -79,10 +79,10 @@ import java.util.concurrent.CompletableFuture;
  *   <li><b>Strict ordering.</b> Keys are {@code (incarnation, versionstamp)} tuples, so entries
  *       are ordered first by incarnation (older incarnations sort before newer ones) and then
  *       by commit version within an incarnation.</li>
- *   <li><b>Empty-queue invariant.</b> {@link #ensureQueueEmpty(FDBRecordContext)}
+ *   <li><b>Empty-queue invariant.</b> {@link #isQueueEmpty(FDBRecordContext)}
  *       performs a regular (non-snapshot) range read. FDB therefore installs a read-conflict
  *       range over the queue. A caller that drains the queue, calls
- *       {@link #ensureQueueEmpty} (asserting it is empty), and then mutates other
+ *       {@link #isQueueEmpty} (asserting it is empty), and then mutates other
  *       state will conflict with any other transaction that enqueued an item, so once the
  *       caller's transaction commits the queue is provably empty. This is the core mechanism
  *       for "background work is done; no more writes are coming" close-out.</li>
@@ -93,6 +93,9 @@ import java.util.concurrent.CompletableFuture;
  *       reject entries with a version newer than {@link #CURRENT_VERSION}, allowing forward
  *       migrations to evolve the payload safely.</li>
  * </ul>
+ *
+ * Note: The queue does <i>NOT</i> guarantee that an enqueue will fail with a conflict when a previously committed
+ * transaction called {@link #isQueueEmpty(FDBRecordContext)}. The caller should ensure that happens via an external flag.
  *
  * <p>Callers supply two ready-made subspaces: one for the queue entries and one for the size
  * counter. The expected nesting is up to the caller (e.g. an indexer would typically place
@@ -105,7 +108,7 @@ public class PendingWritesQueue<T extends Message> {
     /**
      * Default maximum queue size; protects against unbounded growth on persistent failure.
      */
-    public static final int DEFAULT_MAX_QUEUE_SIZE = 10_000;
+    public static final int DEFAULT_MAX_QUEUE_SIZE = 100_000;
 
     /**
      * Current version of the on-disk entry payload. Increment when changing the proto schema in
@@ -179,7 +182,7 @@ public class PendingWritesQueue<T extends Message> {
      * passes in {@code scanProperties}. This is intentional: it lets a drain transaction
      * iterate the queue and clear entries without installing a read-conflict range that would
      * conflict with concurrent enqueues. Callers that want to fail-on-late-enqueue should
-     * combine the drain with {@link #ensureQueueEmpty}.</p>
+     * combine the drain with {@link #isQueueEmpty}.</p>
      *
      * @param context the record context to scan within
      * @param scanProperties scan properties; the isolation level is always forced to {@link IsolationLevel#SNAPSHOT}
@@ -253,7 +256,7 @@ public class PendingWritesQueue<T extends Message> {
      * read and the commit
      */
     @Nonnull
-    public CompletableFuture<Boolean> ensureQueueEmpty(@Nonnull FDBRecordContext context) {
+    public CompletableFuture<Boolean> isQueueEmpty(@Nonnull FDBRecordContext context) {
         return context.ensureActive()
                 .getRange(queueSubspace.range(), 1)
                 .asList()
