@@ -53,7 +53,6 @@ class ConfigTest {
         final int maxNumConcurrentNodeFetches = Config.DEFAULT_MAX_NUM_CONCURRENT_NODE_FETCHES + 1;
         final int maxNumConcurrentNeighborhoodFetches = Config.DEFAULT_MAX_NUM_CONCURRENT_NEIGHBOR_FETCHES + 1;
         final int sampleBatchSize = Config.DEFAULT_SAMPLE_BATCH_SIZE + 1;
-        final int searchConcurrency = Config.DEFAULT_SEARCH_CONCURRENCY + 1;
         final int insertMaxCandidateClusters = Config.DEFAULT_INSERT_MAX_CANDIDATE_CLUSTERS + 1;
         final int deleteMaxCandidateClusters = Config.DEFAULT_DELETE_MAX_CANDIDATE_CLUSTERS + 1;
         final int deleteConcurrency = Config.DEFAULT_DELETE_CONCURRENCY + 1;
@@ -65,6 +64,9 @@ class ConfigTest {
         final int collapseMinDuplicates = Config.DEFAULT_COLLAPSE_MIN_DUPLICATES + 1;
         final int splitMergeConcurrency = Config.DEFAULT_SPLIT_MERGE_CONCURRENCY + 1;
         final int reassignConcurrency = Config.DEFAULT_REASSIGN_CONCURRENCY + 1;
+        final SearchConfig constructionSearchConfig = new SearchConfig.SearchConfigBuilder()
+                .setCentroidEfRingSearch(SearchConfig.DEFAULT_CENTROID_EF_RING_SEARCH + 1)
+                .build();
 
         Assertions.assertThat(defaultConfig.metric()).isNotSameAs(metric);
         Assertions.assertThat(defaultConfig.primaryClusterMin()).isNotEqualTo(primaryClusterMin);
@@ -85,7 +87,6 @@ class ConfigTest {
         Assertions.assertThat(defaultConfig.maxNumConcurrentNodeFetches()).isNotEqualTo(maxNumConcurrentNodeFetches);
         Assertions.assertThat(defaultConfig.maxNumConcurrentNeighborhoodFetches()).isNotEqualTo(maxNumConcurrentNeighborhoodFetches);
         Assertions.assertThat(defaultConfig.sampleBatchSize()).isNotEqualTo(sampleBatchSize);
-        Assertions.assertThat(defaultConfig.searchConcurrency()).isNotEqualTo(searchConcurrency);
         Assertions.assertThat(defaultConfig.insertMaxCandidateClusters()).isNotEqualTo(insertMaxCandidateClusters);
         Assertions.assertThat(defaultConfig.deleteMaxCandidateClusters()).isNotEqualTo(deleteMaxCandidateClusters);
         Assertions.assertThat(defaultConfig.deleteConcurrency()).isNotEqualTo(deleteConcurrency);
@@ -97,6 +98,7 @@ class ConfigTest {
         Assertions.assertThat(defaultConfig.collapseMinDuplicates()).isNotEqualTo(collapseMinDuplicates);
         Assertions.assertThat(defaultConfig.splitMergeConcurrency()).isNotEqualTo(splitMergeConcurrency);
         Assertions.assertThat(defaultConfig.reassignConcurrency()).isNotEqualTo(reassignConcurrency);
+        Assertions.assertThat(defaultConfig.constructionSearchConfig()).isNotEqualTo(constructionSearchConfig);
 
         final Config newConfig =
                 defaultConfig.toBuilder()
@@ -119,7 +121,6 @@ class ConfigTest {
                         .setMaxNumConcurrentNodeFetches(maxNumConcurrentNodeFetches)
                         .setMaxNumConcurrentNeighborhoodFetches(maxNumConcurrentNeighborhoodFetches)
                         .setSampleBatchSize(sampleBatchSize)
-                        .setSearchConcurrency(searchConcurrency)
                         .setInsertMaxCandidateClusters(insertMaxCandidateClusters)
                         .setDeleteMaxCandidateClusters(deleteMaxCandidateClusters)
                         .setDeleteConcurrency(deleteConcurrency)
@@ -131,6 +132,7 @@ class ConfigTest {
                         .setCollapseMinDuplicates(collapseMinDuplicates)
                         .setSplitMergeConcurrency(splitMergeConcurrency)
                         .setReassignConcurrency(reassignConcurrency)
+                        .setConstructionSearchConfig(constructionSearchConfig)
                         .build(NUM_DIMENSIONS);
 
         Assertions.assertThat(newConfig.metric()).isSameAs(metric);
@@ -152,7 +154,6 @@ class ConfigTest {
         Assertions.assertThat(newConfig.maxNumConcurrentNodeFetches()).isEqualTo(maxNumConcurrentNodeFetches);
         Assertions.assertThat(newConfig.maxNumConcurrentNeighborhoodFetches()).isEqualTo(maxNumConcurrentNeighborhoodFetches);
         Assertions.assertThat(newConfig.sampleBatchSize()).isEqualTo(sampleBatchSize);
-        Assertions.assertThat(newConfig.searchConcurrency()).isEqualTo(searchConcurrency);
         Assertions.assertThat(newConfig.insertMaxCandidateClusters()).isEqualTo(insertMaxCandidateClusters);
         Assertions.assertThat(newConfig.deleteMaxCandidateClusters()).isEqualTo(deleteMaxCandidateClusters);
         Assertions.assertThat(newConfig.deleteConcurrency()).isEqualTo(deleteConcurrency);
@@ -164,6 +165,7 @@ class ConfigTest {
         Assertions.assertThat(newConfig.collapseMinDuplicates()).isEqualTo(collapseMinDuplicates);
         Assertions.assertThat(newConfig.splitMergeConcurrency()).isEqualTo(splitMergeConcurrency);
         Assertions.assertThat(newConfig.reassignConcurrency()).isEqualTo(reassignConcurrency);
+        Assertions.assertThat(newConfig.constructionSearchConfig()).isEqualTo(constructionSearchConfig);
     }
 
     @Test

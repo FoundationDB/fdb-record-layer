@@ -56,7 +56,6 @@ import javax.annotation.Nonnull;
  * @param maxNumConcurrentNodeFetches maximum concurrent node fetches (passed through to HNSW config)
  * @param maxNumConcurrentNeighborhoodFetches maximum concurrent neighborhood fetches (passed through to HNSW config)
  * @param sampleBatchSize number of sampled vectors consumed per statistics-computation pass
- * @param searchConcurrency concurrency for parallel metadata fetches during search
  * @param insertMaxCandidateClusters maximum clusters evaluated as insertion targets
  * @param deleteMaxCandidateClusters maximum clusters probed when locating a vector's references during delete
  * @param deleteConcurrency concurrency for parallel operations during delete
@@ -68,6 +67,9 @@ import javax.annotation.Nonnull;
  * @param collapseMinDuplicates minimum identical vectors sharing a signature before collapse
  * @param splitMergeConcurrency concurrency for parallel operations during split/merge tasks
  * @param reassignConcurrency concurrency for parallel operations during reassign tasks
+ * @param constructionSearchConfig centroid-walk tuning ({@link SearchConfig}) for the non-search insert/delete/maintenance
+ *        paths, which probe the centroid HNSW without a per-query {@code SearchConfig}; only its {@code centroidEf*}
+ *        knobs are consulted there
  */
 @SuppressWarnings("checkstyle:MemberName")
 public record Config(@Nonnull Metric metric,
@@ -90,8 +92,6 @@ public record Config(@Nonnull Metric metric,
                      int maxNumConcurrentNodeFetches,
                      int maxNumConcurrentNeighborhoodFetches,
                      int sampleBatchSize,
-                     // search
-                     int searchConcurrency,
                      // insert
                      int insertMaxCandidateClusters,
                      // delete
@@ -108,7 +108,9 @@ public record Config(@Nonnull Metric metric,
                      int collapseMinDuplicates,
                      // per-task concurrency
                      int splitMergeConcurrency,
-                     int reassignConcurrency) implements VectorEncodingConfig {
+                     int reassignConcurrency,
+                     // construction (centroid-walk tuning for the non-search insert/delete/maintenance paths)
+                     @Nonnull SearchConfig constructionSearchConfig) implements VectorEncodingConfig {
 
     @Nonnull public static final Metric DEFAULT_METRIC = Metric.EUCLIDEAN_METRIC;
     public static final int DEFAULT_PRIMARY_CLUSTER_MIN = 100;
@@ -136,8 +138,6 @@ public record Config(@Nonnull Metric metric,
     // stats sampling
     public static final int DEFAULT_SAMPLE_BATCH_SIZE = 50;
 
-    // search
-    public static final int DEFAULT_SEARCH_CONCURRENCY = 10;
     // insert
     public static final int DEFAULT_INSERT_MAX_CANDIDATE_CLUSTERS = 10;
     // delete
@@ -156,6 +156,10 @@ public record Config(@Nonnull Metric metric,
     // per-task concurrency
     public static final int DEFAULT_SPLIT_MERGE_CONCURRENCY = 10;
     public static final int DEFAULT_REASSIGN_CONCURRENCY = 10;
+    // construction (centroid-walk tuning for the non-search insert/delete/maintenance paths): the all-defaults
+    // SearchConfig, whose centroidEf* match the values these paths used before they were made configurable
+    @Nonnull
+    public static final SearchConfig DEFAULT_CONSTRUCTION_SEARCH_CONFIG = new SearchConfig.SearchConfigBuilder().build();
 
     public Config {
         Preconditions.checkArgument(numDimensions >= 1, "numDimensions must be >= 1");
@@ -169,12 +173,13 @@ public record Config(@Nonnull Metric metric,
                 replicationStatsMinSampleSize(), sampleVectorStatsProbability(), maintainStatsProbability(),
                 statsThreshold(), useRaBitQ(), raBitQNumExBits(), deterministicRandomness(),
                 maxNumConcurrentNodeFetches(), maxNumConcurrentNeighborhoodFetches(),
-                sampleBatchSize(), searchConcurrency(), insertMaxCandidateClusters(),
+                sampleBatchSize(), insertMaxCandidateClusters(),
                 deleteMaxCandidateClusters(), deleteConcurrency(),
                 splitNumNearestClusters(), mergeNumNearestClusters(),
                 kMeansMaxIterations(), kMeansMaxRestarts(),
                 reassignNumNeighboringClusters(),
-                collapseMinDuplicates(), splitMergeConcurrency(), reassignConcurrency());
+                collapseMinDuplicates(), splitMergeConcurrency(), reassignConcurrency(),
+                constructionSearchConfig());
     }
 
     @Override
@@ -196,7 +201,6 @@ public record Config(@Nonnull Metric metric,
                 ", maxNumConcurrentNodeFetches=" + maxNumConcurrentNodeFetches() +
                 ", maxNumConcurrentNeighborhoodFetches=" + maxNumConcurrentNeighborhoodFetches() +
                 ", sampleBatchSize=" + sampleBatchSize() +
-                ", searchConcurrency=" + searchConcurrency() +
                 ", insertMaxCandidateClusters=" + insertMaxCandidateClusters() +
                 ", deleteMaxCandidateClusters=" + deleteMaxCandidateClusters() +
                 ", deleteConcurrency=" + deleteConcurrency() +
@@ -208,6 +212,7 @@ public record Config(@Nonnull Metric metric,
                 ", collapseMinDuplicates=" + collapseMinDuplicates() +
                 ", splitMergeConcurrency=" + splitMergeConcurrency() +
                 ", reassignConcurrency=" + reassignConcurrency() +
+                ", constructionSearchConfig=" + constructionSearchConfig() +
                 "]";
     }
 
@@ -243,8 +248,6 @@ public record Config(@Nonnull Metric metric,
         private int maxNumConcurrentNeighborhoodFetches = DEFAULT_MAX_NUM_CONCURRENT_NEIGHBOR_FETCHES;
         private int sampleBatchSize = DEFAULT_SAMPLE_BATCH_SIZE;
 
-        // search
-        private int searchConcurrency = DEFAULT_SEARCH_CONCURRENCY;
         // insert
         private int insertMaxCandidateClusters = DEFAULT_INSERT_MAX_CANDIDATE_CLUSTERS;
         // delete
@@ -262,6 +265,9 @@ public record Config(@Nonnull Metric metric,
         // per-task concurrency
         private int splitMergeConcurrency = DEFAULT_SPLIT_MERGE_CONCURRENCY;
         private int reassignConcurrency = DEFAULT_REASSIGN_CONCURRENCY;
+        // construction (centroid-walk tuning for the non-search insert/delete/maintenance paths)
+        @Nonnull
+        private SearchConfig constructionSearchConfig = DEFAULT_CONSTRUCTION_SEARCH_CONFIG;
 
         public ConfigBuilder() {
         }
@@ -276,7 +282,6 @@ public record Config(@Nonnull Metric metric,
                              final boolean deterministicRandomness, final int maxNumConcurrentNodeFetches,
                              final int maxNumConcurrentNeighborhoodFetches,
                              final int sampleBatchSize,
-                             final int searchConcurrency,
                              final int insertMaxCandidateClusters,
                              final int deleteMaxCandidateClusters, final int deleteConcurrency,
                              final int splitNumNearestClusters, final int mergeNumNearestClusters,
@@ -284,7 +289,8 @@ public record Config(@Nonnull Metric metric,
                              final int kMeansMaxRestarts,
                              final int reassignNumNeighboringClusters,
                              final int collapseMinDuplicates,
-                             final int splitMergeConcurrency, final int reassignConcurrency) {
+                             final int splitMergeConcurrency, final int reassignConcurrency,
+                             @Nonnull final SearchConfig constructionSearchConfig) {
             this.metric = metric;
             this.primaryClusterMin = primaryClusterMin;
             this.primaryClusterMax = primaryClusterMax;
@@ -304,7 +310,6 @@ public record Config(@Nonnull Metric metric,
             this.maxNumConcurrentNodeFetches = maxNumConcurrentNodeFetches;
             this.maxNumConcurrentNeighborhoodFetches = maxNumConcurrentNeighborhoodFetches;
             this.sampleBatchSize = sampleBatchSize;
-            this.searchConcurrency = searchConcurrency;
             this.insertMaxCandidateClusters = insertMaxCandidateClusters;
             this.deleteMaxCandidateClusters = deleteMaxCandidateClusters;
             this.deleteConcurrency = deleteConcurrency;
@@ -316,6 +321,7 @@ public record Config(@Nonnull Metric metric,
             this.collapseMinDuplicates = collapseMinDuplicates;
             this.splitMergeConcurrency = splitMergeConcurrency;
             this.reassignConcurrency = reassignConcurrency;
+            this.constructionSearchConfig = constructionSearchConfig;
         }
 
         @Nonnull
@@ -506,15 +512,6 @@ public record Config(@Nonnull Metric metric,
             return this;
         }
 
-        public int getSearchConcurrency() {
-            return searchConcurrency;
-        }
-
-        public ConfigBuilder setSearchConcurrency(final int searchConcurrency) {
-            this.searchConcurrency = searchConcurrency;
-            return this;
-        }
-
         public int getInsertMaxCandidateClusters() {
             return insertMaxCandidateClusters;
         }
@@ -614,6 +611,17 @@ public record Config(@Nonnull Metric metric,
             return this;
         }
 
+        @Nonnull
+        public SearchConfig getConstructionSearchConfig() {
+            return constructionSearchConfig;
+        }
+
+        @Nonnull
+        public ConfigBuilder setConstructionSearchConfig(@Nonnull final SearchConfig constructionSearchConfig) {
+            this.constructionSearchConfig = constructionSearchConfig;
+            return this;
+        }
+
         public Config build(final int numDimensions) {
             return new Config(getMetric(), numDimensions, getPrimaryClusterMin(), getPrimaryClusterMax(),
                     getUnderreplicatedPrimaryClusterMax(), getReplicatedClusterMaxWrites(),
@@ -623,12 +631,13 @@ public record Config(@Nonnull Metric metric,
                     getMaintainStatsProbability(), getStatsThreshold(), isUseRaBitQ(), getRaBitQNumExBits(),
                     isDeterministicRandomness(), getMaxNumConcurrentNodeFetches(),
                     getMaxNumConcurrentNeighborhoodFetches(),
-                    getSampleBatchSize(), getSearchConcurrency(), getInsertMaxCandidateClusters(),
+                    getSampleBatchSize(), getInsertMaxCandidateClusters(),
                     getDeleteMaxCandidateClusters(), getDeleteConcurrency(),
                     getSplitNumNearestClusters(), getMergeNumNearestClusters(),
                     getKMeansMaxIterations(), getKMeansMaxRestarts(),
                     getReassignNumNeighboringClusters(),
-                    getCollapseMinDuplicates(), getSplitMergeConcurrency(), getReassignConcurrency());
+                    getCollapseMinDuplicates(), getSplitMergeConcurrency(), getReassignConcurrency(),
+                    getConstructionSearchConfig());
         }
     }
 }

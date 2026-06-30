@@ -56,17 +56,19 @@ import static com.apple.foundationdb.async.MoreAsyncUtil.mapConcatIterable;
 import static com.apple.foundationdb.async.MoreAsyncUtil.mapIterablePipelined;
 
 /**
- * Implements approximate nearest neighbor search over the Guardiann vector structure. The search
- * pipeline proceeds through the following stages:
+ * Implements approximate nearest neighbor search over the Guardiann vector structure. All performance/recall
+ * tuning knobs ({@code searchMaxClusters}, the candidate-pool size, the pruning thresholds, concurrency) are
+ * supplied as a single {@link SearchConfig}; the semantic inputs ({@code k}, the query, {@code includeVectors})
+ * stay direct arguments. The search pipeline proceeds through the following stages:
  * <ol>
  *   <li><b>Candidate cluster selection</b> — queries the HNSW centroid index for the nearest cluster
- *       centroids to the query vector, up to {@code searchMaxClusters}.</li>
+ *       centroids to the query vector, up to {@link SearchConfig#searchMaxClusters()}.</li>
  *   <li><b>Distance-ratio pruning</b> — discards clusters whose centroid distance exceeds
- *       {@code searchDistanceRatioCutoff} times the nearest centroid distance, retaining
- *       at least {@code searchMinClustersBeforePruning} clusters.</li>
+ *       {@link SearchConfig#searchDistanceRatioCutoff()} times the nearest centroid distance, retaining
+ *       at least {@link SearchConfig#searchMinClustersBeforePruning()} clusters.</li>
  *   <li><b>Vector reference retrieval</b> — scans the surviving clusters for individual vector
- *       references, computing distances to the query vector and collecting the top-{@code efSearch}
- *       closest candidates.</li>
+ *       references, computing distances to the query vector and collecting the top-{@link
+ *       SearchConfig#candidatePoolSize() candidatePoolSize} closest candidates.</li>
  *   <li><b>Collapsed reference expansion</b> — if any top candidates represent collapsed (deduplicated)
  *       vectors, expands them back into their constituent vector IDs.</li>
  *   <li><b>Validation and enrichment</b> — verifies each candidate against current vector metadata
@@ -153,10 +155,7 @@ public class Search {
      *
      * @param readTransaction the read transaction context
      * @param k the number of nearest neighbors to return
-     * @param efSearch the size of the candidate pool (larger values improve recall at the cost of latency)
-     * @param searchMaxClusters maximum number of clusters to probe
-     * @param searchMinClustersBeforePruning minimum clusters before distance-ratio pruning kicks in
-     * @param searchDistanceRatioCutoff distance ratio threshold for cluster pruning
+     * @param searchConfig the performance/recall tuning knobs for this search (see {@link SearchConfig})
      * @param includeVectors whether to include reconstructed vector data in the results
      * @param queryVector the query vector to search for
      * @return a future completing with up to {@code k} nearest neighbors sorted by distance
@@ -166,14 +165,10 @@ public class Search {
     public CompletableFuture<List<? extends ResultEntry>>
             kNearestNeighborsSearch(@Nonnull final ReadTransaction readTransaction,
                                     final int k,
-                                    final int efSearch,
-                                    final int searchMaxClusters,
-                                    final int searchMinClustersBeforePruning,
-                                    final double searchDistanceRatioCutoff,
+                                    @Nonnull final SearchConfig searchConfig,
                                     final boolean includeVectors,
                                     @Nonnull final RealVector queryVector) {
-        return search(readTransaction, k, efSearch, searchMaxClusters, searchMinClustersBeforePruning,
-                searchDistanceRatioCutoff, queryVector)
+        return search(readTransaction, k, searchConfig, queryVector)
                 .thenApply(searchResult ->
                         searchResult == null
                         ? ImmutableList.of()
@@ -188,20 +183,14 @@ public class Search {
      *
      * @param readTransaction the read transaction context
      * @param k the number of final results to return
-     * @param efSearch the candidate pool size for the top-K collection stages
-     * @param searchMaxClusters maximum number of clusters to probe
-     * @param searchMinClustersBeforePruning minimum clusters before pruning
-     * @param searchDistanceRatioCutoff distance ratio threshold for pruning
+     * @param searchConfig the performance/recall tuning knobs for this search (see {@link SearchConfig})
      * @param queryVector the query vector
      * @return a future completing with the search result, or {@code null} if no vectors exist yet
      */
     @Nonnull
     CompletableFuture<SearchResult> search(@Nonnull final ReadTransaction readTransaction,
                                            final int k,
-                                           final int efSearch,
-                                           final int searchMaxClusters,
-                                           final int searchMinClustersBeforePruning,
-                                           final double searchDistanceRatioCutoff,
+                                           @Nonnull final SearchConfig searchConfig,
                                            @Nonnull final RealVector queryVector) {
         final Primitives primitives = primitives();
 
@@ -214,28 +203,29 @@ public class Search {
                     final Transformed<RealVector> transformedQueryVector = storageTransform.transform(queryVector);
                     final DistanceEstimator estimator = primitives.quantizer(accessInfo).estimator();
 
-                    return fetchCandidateClusters(readTransaction, primitives, storageTransform, queryVector, searchMaxClusters)
-                            .thenApply(clusters -> pruneClusters(clusters, searchMinClustersBeforePruning, searchDistanceRatioCutoff))
+                    return fetchCandidateClusters(readTransaction, primitives, storageTransform, queryVector, searchConfig)
+                            .thenApply(clusters -> pruneClusters(clusters, searchConfig))
                             .thenCompose(clusters ->
                                     retrieveVectorReferencesFromClusters(readTransaction, primitives,
-                                            storageTransform, estimator, transformedQueryVector, clusters, efSearch))
+                                            storageTransform, estimator, transformedQueryVector, clusters, searchConfig))
                             .thenCompose(topReferences ->
-                                    expandCollapsedReferencesIfNecessary(readTransaction, primitives, topReferences, efSearch))
+                                    expandCollapsedReferencesIfNecessary(readTransaction, primitives, topReferences, searchConfig))
                             .thenCompose(expanded ->
-                                    enrichResults(readTransaction, primitives, expanded, k))
+                                    enrichResults(readTransaction, primitives, expanded, k, searchConfig))
                             .thenApply(results -> new SearchResult(accessInfo, storageTransform, results));
                 });
     }
 
     /**
      * Queries the HNSW centroid index for the nearest cluster centroids to the query vector, fetches
-     * their metadata, and returns up to {@code searchMaxClusters} candidates sorted by centroid distance.
+     * their metadata, and returns up to {@link SearchConfig#searchMaxClusters()} candidates sorted by
+     * centroid distance.
      *
      * @param readTransaction the read transaction context
      * @param primitives primitives for database access
      * @param storageTransform the transform for converting raw vectors into the stored coordinate space
      * @param queryVector the query vector in its original coordinate space
-     * @param searchMaxClusters maximum number of clusters to probe
+     * @param searchConfig the search tuning knobs (probed-cluster cap and centroid-walk exploration factors)
      * @return a future completing with the candidate clusters sorted by centroid distance (ascending)
      */
     @Nonnull
@@ -244,13 +234,12 @@ public class Search {
                                    @Nonnull final Primitives primitives,
                                    @Nonnull final StorageTransform storageTransform,
                                    @Nonnull final RealVector queryVector,
-                                   final int searchMaxClusters) {
-        final Config config = getConfig();
-
+                                   @Nonnull final SearchConfig searchConfig) {
         final AsyncIterable<ResultEntry> clusterCentroidEntriesByDistanceIterable =
                 MoreAsyncUtil.limitIterable(MoreAsyncUtil.iterableOf(() ->
-                        primitives.centroidsOrderedByDistance(readTransaction, queryVector,
-                                0.0d, null), getExecutor()), searchMaxClusters, getExecutor());
+                        primitives.centroidsOrderedByDistance(readTransaction, queryVector, 0.0d, null,
+                                searchConfig.centroidEfRingSearch(), searchConfig.centroidEfOutwardSearch()),
+                        getExecutor()), searchConfig.searchMaxClusters(), getExecutor());
 
         final AsyncIterable<ClusterMetadataWithDistance> clusterMetadataIterable =
                 mapIterablePipelined(getExecutor(), clusterCentroidEntriesByDistanceIterable,
@@ -265,7 +254,7 @@ public class Search {
                                                     transformedCentroid,
                                                     resultEntry.distance());
                                         }),
-                        config.searchConcurrency());
+                        searchConfig.searchConcurrency());
 
         return AsyncUtil.collect(clusterMetadataIterable, getExecutor());
     }
@@ -273,18 +262,18 @@ public class Search {
     /**
      * Prunes the candidate cluster list by removing clusters whose centroid distance exceeds the
      * given ratio relative to the nearest centroid. Always retains at least
-     * {@code searchMinClustersBeforePruning} clusters regardless of the ratio.
+     * {@link SearchConfig#searchMinClustersBeforePruning()} clusters regardless of the ratio.
      *
      * @param clusterMetadataWithDistances the candidate clusters sorted by centroid distance (ascending)
-     * @param searchMinClustersBeforePruning minimum clusters to retain before pruning
-     * @param searchDistanceRatioCutoff distance ratio threshold
+     * @param searchConfig the search tuning knobs (the min-clusters floor and distance-ratio cutoff)
      * @return the pruned sublist
      */
     @Nonnull
     private List<ClusterMetadataWithDistance>
             pruneClusters(@Nonnull final List<ClusterMetadataWithDistance> clusterMetadataWithDistances,
-                          final int searchMinClustersBeforePruning,
-                          final double searchDistanceRatioCutoff) {
+                          @Nonnull final SearchConfig searchConfig) {
+        final int searchMinClustersBeforePruning = searchConfig.searchMinClustersBeforePruning();
+        final double searchDistanceRatioCutoff = searchConfig.searchDistanceRatioCutoff();
         if (clusterMetadataWithDistances.size() <= searchMinClustersBeforePruning) {
             if (logger.isTraceEnabled()) {
                 logger.trace("querying numClusters={}", clusterMetadataWithDistances.size());
@@ -308,8 +297,8 @@ public class Search {
 
     /**
      * Scans all vector references in the given clusters, computes their distance to the query vector,
-     * and collects the top-{@code efSearch} closest candidates using a distinct top-K structure
-     * (deduplicating by vector ID).
+     * and collects the top-{@link SearchConfig#candidatePoolSize()} closest candidates using a distinct
+     * top-K structure (deduplicating by vector ID).
      *
      * @param readTransaction the read transaction context
      * @param primitives primitives for database access
@@ -317,7 +306,7 @@ public class Search {
      * @param estimator the distance estimator
      * @param transformedQueryVector the query vector in the transformed coordinate space
      * @param clusters the pruned candidate clusters to scan
-     * @param efSearch the candidate pool size
+     * @param searchConfig the search tuning knobs (candidate-pool size and fan-out concurrency)
      * @return a future completing with the top candidates sorted by distance (best first)
      */
     @Nonnull
@@ -328,9 +317,7 @@ public class Search {
                                                  @Nonnull final DistanceEstimator estimator,
                                                  @Nonnull final Transformed<RealVector> transformedQueryVector,
                                                  @Nonnull final List<ClusterMetadataWithDistance> clusters,
-                                                 final int efSearch) {
-        final Config config = getConfig();
-
+                                                 @Nonnull final SearchConfig searchConfig) {
         final AsyncIterable<ClusterMetadataWithDistance> boundedClusterMetadataIterable =
                 MoreAsyncUtil.iterableFromCollection(
                         CompletableFuture.completedFuture(clusters), getExecutor());
@@ -341,7 +328,7 @@ public class Search {
                                         primitives.fetchVectorReferencesIterable(readTransaction,
                                                 storageTransform,
                                                 clusterMetadataWithDistance.clusterMetadata().id()),
-                                config.searchConcurrency()),
+                                searchConfig.searchConcurrency()),
                         vectorReference -> {
                             final double distance =
                                     estimator.distance(transformedQueryVector, vectorReference.vector());
@@ -350,7 +337,7 @@ public class Search {
 
         final DistinctTopK<VectorReferenceAndDistance> distinctTopK =
                 DistinctTopK.min(Comparator.comparing(VectorReferenceAndDistance::distance)
-                        .thenComparing(d -> d.vectorReference().id()), efSearch);
+                        .thenComparing(d -> d.vectorReference().id()), searchConfig.candidatePoolSize());
 
         return distinctTopK.collect(vectorReferenceAndDistancesIterable, getExecutor());
     }
@@ -363,7 +350,7 @@ public class Search {
      * @param readTransaction the read transaction context
      * @param primitives primitives for database access
      * @param topReferences the current top-K candidates (may contain collapsed entries)
-     * @param efSearch the candidate pool size for the expanded top-K
+     * @param searchConfig the search tuning knobs (candidate-pool size for the expanded top-K and concurrency)
      * @return a future completing with the expanded top candidates
      */
     @Nonnull
@@ -371,9 +358,7 @@ public class Search {
             expandCollapsedReferencesIfNecessary(@Nonnull final ReadTransaction readTransaction,
                                                  @Nonnull final Primitives primitives,
                                                  @Nonnull final List<VectorReferenceAndDistance> topReferences,
-                                                 final int efSearch) {
-        final Config config = getConfig();
-
+                                                 @Nonnull final SearchConfig searchConfig) {
         boolean foundCollapsedReferences = false;
         for (final VectorReferenceAndDistance referenceAndDistance : topReferences) {
             if (referenceAndDistance.vectorReference().isCollapsed()) {
@@ -402,11 +387,11 @@ public class Search {
                                     primitives.fetchCollapsedVectorIdsIterable(readTransaction, signature),
                                     vectorId -> vectorReferenceAndDistance.withVectorReference(
                                             vectorReference.withVectorId(vectorId)));
-                        }, config.searchConcurrency());
+                        }, searchConfig.searchConcurrency());
 
         final DistinctTopK<VectorReferenceAndDistance> expandedDistinctTopK =
                 DistinctTopK.min(Comparator.comparing(VectorReferenceAndDistance::distance)
-                        .thenComparing(d -> d.vectorReference().id()), efSearch);
+                        .thenComparing(d -> d.vectorReference().id()), searchConfig.candidatePoolSize());
 
         return expandedDistinctTopK.collect(expandedTopReferencesIterable, getExecutor());
     }
@@ -421,6 +406,7 @@ public class Search {
      * @param primitives primitives for database access
      * @param topReferences the candidates to filter and enrich
      * @param k the maximum number of results to return
+     * @param searchConfig the search tuning knobs (fan-out concurrency)
      * @return a future completing with the filtered and enriched results
      */
     @Nonnull
@@ -428,8 +414,8 @@ public class Search {
             enrichResults(@Nonnull final ReadTransaction readTransaction,
                           @Nonnull final Primitives primitives,
                           @Nonnull final List<VectorReferenceAndDistance> topReferences,
-                          final int k) {
-        final Config config = getConfig();
+                          final int k,
+                          @Nonnull final SearchConfig searchConfig) {
         final Map<Tuple, CompletableFuture<VectorMetadata>> primaryKeyToVectorMetadataFutureMap =
                 Maps.newConcurrentMap();
 
@@ -450,7 +436,7 @@ public class Search {
                                     return null;
                                 }
                             });
-                        }, config.searchConcurrency(), getExecutor())
+                        }, searchConfig.searchConcurrency(), getExecutor())
                 .thenApply(vectorReferenceAndDistances -> {
                     final ImmutableList.Builder<VectorRecord> enrichedResultsBuilder =
                             ImmutableList.builder();
@@ -469,7 +455,7 @@ public class Search {
                         numEnrichedResults++;
                     }
                     if (numEnrichedResults < k) {
-                        logger.warn("Insufficient data to form result set (numResults={}). Consider increasing efSearch for k={}",
+                        logger.warn("Insufficient data to form result set (numResults={}). Consider increasing candidatePoolSize for k={}",
                                 numEnrichedResults, k);
                     }
                     return enrichedResultsBuilder.build();
@@ -479,14 +465,12 @@ public class Search {
     @Nonnull
     CompletableFuture<SearchResult> searchOrderedByDistance(@Nonnull final ReadTransaction readTransaction,
                                                             final int k,
-                                                            final int efSearch,
-                                                            final int searchMaxClusters,
+                                                            @Nonnull final SearchConfig searchConfig,
                                                             @Nonnull final RealVector queryVector,
                                                             final double minimumRadiusCluster,
                                                             final double minimumRadius,
                                                             @Nullable final Tuple minimumPrimaryKey) {
         final Primitives primitives = primitives();
-        final Config config = getConfig();
 
         return primitives.fetchAccessInfo(readTransaction)
                 .thenCompose(accessInfo -> {
@@ -500,8 +484,9 @@ public class Search {
                     final AsyncIterable<ResultEntry> clusterCentroidEntriesByDistanceIterable =
                             MoreAsyncUtil.limitIterable(MoreAsyncUtil.iterableOf(() ->
                                     primitives.centroidsOrderedByDistance(readTransaction, queryVector,
-                                            minimumRadiusCluster, null), getExecutor()),
-                                    searchMaxClusters, getExecutor());
+                                            minimumRadiusCluster, null, searchConfig.centroidEfRingSearch(),
+                                            searchConfig.centroidEfOutwardSearch()), getExecutor()),
+                                    searchConfig.searchMaxClusters(), getExecutor());
 
                     final AsyncIterable<ClusterMetadataWithDistance> clusterMetadataIterable =
                             mapIterablePipelined(getExecutor(), clusterCentroidEntriesByDistanceIterable,
@@ -515,7 +500,7 @@ public class Search {
                                                         return new ClusterMetadataWithDistance(clusterMetadata,
                                                                 transformedCentroid, resultEntry.distance());
                                                     }),
-                                    config.searchConcurrency());
+                                    searchConfig.searchConcurrency());
 
                     final AsyncIterable<VectorReferenceAndDistance> vectorReferenceAndDistancesIterable =
                             AsyncUtil.mapIterable(mapConcatIterable(getExecutor(), clusterMetadataIterable,
@@ -523,7 +508,7 @@ public class Search {
                                                     primitives.fetchVectorReferencesIterable(readTransaction,
                                                             storageTransform,
                                                             clusterMetadataWithDistance.clusterMetadata().id()),
-                                            config.searchConcurrency()),
+                                            searchConfig.searchConcurrency()),
                                     vectorReference -> {
                                         final double distance =
                                                 estimator.distance(transformedQueryVector, vectorReference.vector());
@@ -531,7 +516,7 @@ public class Search {
                                     });
 
                     return collectNearestKOrderedByDistance(readTransaction, primitives,
-                            vectorReferenceAndDistancesIterable, k, efSearch, minimumRadius, minimumPrimaryKey)
+                            vectorReferenceAndDistancesIterable, k, searchConfig, minimumRadius, minimumPrimaryKey)
                             .thenApply(nearestVectorRecords ->
                                     new SearchResult(accessInfo, storageTransform, nearestVectorRecords));
                 });
@@ -545,8 +530,7 @@ public class Search {
      *
      * @param readTransaction the read transaction context
      * @param k the maximum number of results to return
-     * @param efSearch the size of the streaming reorder window
-     * @param searchMaxClusters maximum number of clusters to probe
+     * @param searchConfig the performance/recall tuning knobs for this search (see {@link SearchConfig})
      * @param queryVector the query vector
      * @param minimumRadiusCluster exclusive lower bound on cluster-centroid distance (cluster-level cursor)
      * @param minimumRadius exclusive lower bound on result distance (result-level cursor)
@@ -558,14 +542,13 @@ public class Search {
     CompletableFuture<List<? extends ResultEntry>>
             searchOrderedByDistanceResults(@Nonnull final ReadTransaction readTransaction,
                                            final int k,
-                                           final int efSearch,
-                                           final int searchMaxClusters,
+                                           @Nonnull final SearchConfig searchConfig,
                                            @Nonnull final RealVector queryVector,
                                            final double minimumRadiusCluster,
                                            final double minimumRadius,
                                            @Nullable final Tuple minimumPrimaryKey,
                                            final boolean includeVectors) {
-        return searchOrderedByDistance(readTransaction, k, efSearch, searchMaxClusters, queryVector,
+        return searchOrderedByDistance(readTransaction, k, searchConfig, queryVector,
                 minimumRadiusCluster, minimumRadius, minimumPrimaryKey)
                 .thenApply(searchResult ->
                         searchResult == null
@@ -586,11 +569,9 @@ public class Search {
             @Nonnull final Primitives primitives,
             @Nonnull final AsyncIterable<VectorReferenceAndDistance> vectorReferenceAndDistancesIterable,
             final int k,
-            final int efSearch,
+            @Nonnull final SearchConfig searchConfig,
             final double minimumRadius,
             @Nullable final Tuple minimumPrimaryKey) {
-        final Config config = getConfig();
-
         // Expand collapsed references inline: a collapsed reference becomes one entry
         // per vector ID behind the signature, all sharing the same distance.
         final AsyncIterable<VectorReferenceAndDistance> expandedVectorReferenceAndDistancesIterable =
@@ -606,7 +587,7 @@ public class Search {
                                     primitives.fetchCollapsedVectorIdsIterable(readTransaction, signature),
                                     vectorId -> vectorReferenceAndDistance.withVectorReference(
                                             vectorReference.withVectorId(vectorId)));
-                        }, config.searchConcurrency());
+                        }, searchConfig.searchConcurrency());
 
         final AsyncIterable<VectorReferenceAndDistance> filteredVectorReferenceAndDistancesIterable =
                 MoreAsyncUtil.filterIterable(getExecutor(), expandedVectorReferenceAndDistancesIterable,
@@ -626,7 +607,7 @@ public class Search {
 
         final AsyncIterable<VectorReferenceAndDistance> almostSortedVectorReferencesIterable =
                 almostSortedVectorReferencesIterable(filteredVectorReferenceAndDistancesIterable,
-                        efSearch, getExecutor());
+                        searchConfig.candidatePoolSize(), getExecutor());
 
         final Map<Tuple, CompletableFuture<VectorMetadata>> primaryKeyToVectorMetadataUuidFutureMap =
                 Maps.newConcurrentMap();
@@ -643,7 +624,7 @@ public class Search {
                             return vectorMetadataFuture.thenApply(vectorMetadata ->
                                     vectorMetadata != null
                                             && vectorMetadata.vectorId().uuid().equals(vectorReferenceId.uuid()));
-                        }, config.searchConcurrency());
+                        }, searchConfig.searchConcurrency());
 
         final Set<Tuple> seenPrimaryKeys = Sets.newHashSet();
         final AsyncIterable<VectorReferenceAndDistance> dedupedVectorReferenceAndDistancesIterable =
@@ -702,12 +683,14 @@ public class Search {
      * @param readTransaction the read transaction context
      * @param queryVectors the query vectors to evaluate overlap for
      * @param centroids the list of all cluster centroids (as returned by an HNSW scan)
+     * @param searchConfig the search tuning knobs (fan-out concurrency)
      * @return a future completing with a list of overlap counts (one per query vector)
      */
     @Nonnull
     CompletableFuture<List<Integer>> clusterOverlapDiagnostics(@Nonnull final ReadTransaction readTransaction,
                                                                @Nonnull final List<RealVector> queryVectors,
-                                                               @Nonnull final List<ResultEntry> centroids) {
+                                                               @Nonnull final List<ResultEntry> centroids,
+                                                               @Nonnull final SearchConfig searchConfig) {
         final Primitives primitives = primitives();
 
         return primitives.fetchAccessInfo(readTransaction)
@@ -730,7 +713,7 @@ public class Search {
                                                             transformedCentroid, 0.0d);
                                                 });
                                     },
-                                    getConfig().searchConcurrency(), getExecutor())
+                                    searchConfig.searchConcurrency(), getExecutor())
                             .thenApply(clusterMetadataList -> {
                                 final ImmutableList.Builder<Integer> overlapCountsBuilder = ImmutableList.builder();
                                 int totalOverlaps = 0;
@@ -782,12 +765,14 @@ public class Search {
      *
      * @param readTransaction the read transaction context
      * @param centroids the cluster centroids (as returned by an HNSW scan)
+     * @param searchConfig the search tuning knobs (fan-out concurrency)
      * @return a future completing with the topology snapshot (an empty snapshot if the structure has no access
      *         info yet)
      */
     @Nonnull
     CompletableFuture<StructureSnapshot> snapshotStructure(@Nonnull final ReadTransaction readTransaction,
-                                                           @Nonnull final List<ResultEntry> centroids) {
+                                                           @Nonnull final List<ResultEntry> centroids,
+                                                           @Nonnull final SearchConfig searchConfig) {
         final Primitives primitives = primitives();
 
         return primitives.fetchAccessInfo(readTransaction)
@@ -809,7 +794,7 @@ public class Search {
                                                 .thenApply(cluster ->
                                                         buildClusterView(clusterId, untransformedCentroid, cluster));
                                     },
-                                    getConfig().searchConcurrency(), getExecutor())
+                                    searchConfig.searchConcurrency(), getExecutor())
                             .thenApply(clusterViews -> {
                                 final Map<UUID, ClusterView> built =
                                         Maps.newHashMapWithExpectedSize(clusterViews.size());

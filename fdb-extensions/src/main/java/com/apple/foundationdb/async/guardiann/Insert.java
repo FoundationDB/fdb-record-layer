@@ -231,7 +231,8 @@ public class Insert {
         final AsyncIterable<ResultEntry> clusterCentroidEntriesByDistanceIterable =
                 MoreAsyncUtil.iterableOf(() ->
                         primitives.centroidsOrderedByDistance(transaction, newVector,
-                                0.0d, null), getExecutor());
+                                0.0d, null, config.constructionSearchConfig().centroidEfRingSearch(),
+                                config.constructionSearchConfig().centroidEfOutwardSearch()), getExecutor());
 
         final AsyncIterable<ClusterMetadataWithDistance> clusterMetadataIterable =
                 mapIterablePipelined(getExecutor(), clusterCentroidEntriesByDistanceIterable,

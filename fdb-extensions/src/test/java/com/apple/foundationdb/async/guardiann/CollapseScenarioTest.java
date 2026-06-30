@@ -460,7 +460,9 @@ public class CollapseScenarioTest implements BaseTest {
                                      @Nonnull final List<Tuple> primaryKeys) {
         final int k = primaryKeys.size();
         final List<? extends ResultEntry> results = db.run(tr ->
-                guardiann.kNearestNeighborsSearch(tr, k, Math.max(2 * k, 128), 64, 16, 1.5d, false, vector).join());
+                guardiann.kNearestNeighborsSearch(tr, k,
+                        new SearchConfig.SearchConfigBuilder().setCandidatePoolSize(Math.max(2 * k, 128))
+                                .setSearchMaxClusters(64).build(), false, vector).join());
         assertThat(results)
                 .extracting(ResultEntry::primaryKey)
                 .as("all %d collapsed duplicates must remain queryable after collapse", primaryKeys.size())

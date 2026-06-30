@@ -31,7 +31,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 /**
- * A special operator that is used to rotated, translated, and potentially normalize vectors. This operator is used
+ * A special operator that is used to rotate, translate, and potentially normalize vectors. This operator is used
  * inside the HNSW and GuardiANN packages to transform back and forth between the coordinate
  * system of the client and the coordinate system that is currently employed in the structure.
  */

@@ -144,7 +144,9 @@ public class Delete {
                         limitIterable(
                                 mapIterablePipelined(getExecutor(),
                                         MoreAsyncUtil.iterableOf(() ->
-                                                        primitives.centroidsOrderedByDistance(transaction, vector, 0.0d, null),
+                                                        primitives.centroidsOrderedByDistance(transaction, vector, 0.0d, null,
+                                                                config.constructionSearchConfig().centroidEfRingSearch(),
+                                                                config.constructionSearchConfig().centroidEfOutwardSearch()),
                                                 getExecutor()),
                                         resultEntry ->
                                                 primitives.fetchClusterMetadataWithDistance(transaction,

@@ -206,9 +206,13 @@ public class ReassignScenarioTest implements BaseTest {
                 final Transformed<RealVector> transformedFixedVector = storageTransform.transform(fixedVector);
 
                 // Same nearest-cluster discovery logic Insert uses: ask the centroid HNSW for the
-                // nearest cluster to the raw (untransformed) query vector.
+                // nearest cluster to the raw (untransformed) query vector, with the same construction-time
+                // exploration factors the insert/maintenance paths use.
+                final SearchConfig constructionSearchConfig = guardiann.getLocator().getConfig().constructionSearchConfig();
                 final AsyncIterator<ResultEntry> centroidIter =
-                        primitives.centroidsOrderedByDistance(tr, fixedVector, 0.0d, null);
+                        primitives.centroidsOrderedByDistance(tr, fixedVector, 0.0d, null,
+                                constructionSearchConfig.centroidEfRingSearch(),
+                                constructionSearchConfig.centroidEfOutwardSearch());
                 if (!centroidIter.onHasNext().join()) {
                     throw new IllegalStateException("expected at least one cluster after warmup");
                 }

@@ -28,7 +28,7 @@ import javax.annotation.Nonnull;
 import java.util.concurrent.CompletableFuture;
 
 /**
- * Interface for call backs whenever we read node data from the database.
+ * Interface for callbacks whenever we read node data from the database.
  */
 public interface OnReadListener extends OnKeyValueReadListener {
     OnReadListener NOOP = new OnReadListener() {

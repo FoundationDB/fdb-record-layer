@@ -83,6 +83,14 @@ class Primitives {
     @Nonnull
     private final Supplier<HNSW> clusterCentroidsHnswSupplier;
 
+    // Traversal flags for the centroid-HNSW walk that ranks clusters around a point. includeVectors must be true
+    // because callers compute distances from the returned centroid vectors; quick-start is safe because the walk
+    // always starts at radius 0.0, where it cannot produce ordering inversions (see HNSW.orderByDistance). The
+    // ring/outward exploration factors are supplied per call: search passes its per-query SearchConfig, while
+    // insert/delete/maintenance pass Config.constructionSearchConfig().
+    private static final boolean CENTROID_INCLUDE_VECTORS = true;
+    private static final boolean CENTROID_SHOULD_QUICK_START = true;
+
     /**
      * Constructs a new primitives instance.
      *
@@ -473,17 +481,21 @@ class Primitives {
      * @param centerVector the query/insert point to order centroids around
      * @param minimumRadius exclusive lower bound on distance to resume from ({@code 0} to start from the nearest)
      * @param minimumPrimaryKey the centroid-key tiebreaker at exactly {@code minimumRadius}, or {@code null} to start fresh
+     * @param efRingSearch the ring-search exploration factor for the centroid HNSW walk
+     * @param efOutwardSearch the outward-search exploration factor (candidate-queue size) for the centroid HNSW walk
      * @return an iterator of centroids (as {@link ResultEntry}s), nearest first
      */
     @Nonnull
     AsyncIterator<ResultEntry> centroidsOrderedByDistance(@Nonnull final ReadTransaction readTransaction,
                                                           @Nonnull final RealVector centerVector,
                                                           final double minimumRadius,
-                                                          @Nullable final Tuple minimumPrimaryKey) {
+                                                          @Nullable final Tuple minimumPrimaryKey,
+                                                          final int efRingSearch,
+                                                          final int efOutwardSearch) {
         final HNSW centroidsHnsw = getClusterCentroidsHnsw();
 
-        return centroidsHnsw.orderByDistance(readTransaction, 100, 400, true,
-                centerVector, minimumRadius, minimumPrimaryKey, true);
+        return centroidsHnsw.orderByDistance(readTransaction, efRingSearch, efOutwardSearch,
+                CENTROID_INCLUDE_VECTORS, centerVector, minimumRadius, minimumPrimaryKey, CENTROID_SHOULD_QUICK_START);
     }
 
     /**
@@ -1301,7 +1313,9 @@ class Primitives {
                 MoreAsyncUtil.mapIterablePipelined(executor,
                         MoreAsyncUtil.limitIterable(MoreAsyncUtil.iterableOf(() ->
                                                 centroidsOrderedByDistance(transaction,
-                                                        targetClusterCentroid, 0.0d, null),
+                                                        targetClusterCentroid, 0.0d, null,
+                                                        getConfig().constructionSearchConfig().centroidEfRingSearch(),
+                                                        getConfig().constructionSearchConfig().centroidEfOutwardSearch()),
                                         executor),
                                 numClusters, executor),
                         resultEntry -> {

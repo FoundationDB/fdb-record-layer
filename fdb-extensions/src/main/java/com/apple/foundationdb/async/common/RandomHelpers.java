@@ -39,9 +39,9 @@ public final class RandomHelpers {
     }
 
     /**
-     * Seed a {@link SplittableRandom} deterministically from a record's primary key, folding the key's full encoded
-     * bytes into the seed so distinct keys yield distinct streams. (Seeding from {@link Object#hashCode()} — only
-     * 32 bits — risks birthday collisions, which for ids derived from the stream would conflate distinct records.)
+     * Returns a {@link SplittableRandom} seeded deterministically from a primary key. Distinct keys return distinct
+     * streams. Seeds the random deterministically from a record's primary key using 64 bits of entropy avoiding
+     * clashes.
      *
      * @param primaryKey the record's primary key
      *
@@ -53,7 +53,7 @@ public final class RandomHelpers {
     }
 
     /**
-     * Seed a {@link SplittableRandom} deterministically from a UUID identity (such as a task id), folding all 128
+     * Seed a {@link SplittableRandom} deterministically from a UUID identity (such as a task id), using all 128
      * bits into the seed.
      *
      * @param identity the UUID identity
@@ -66,8 +66,8 @@ public final class RandomHelpers {
     }
 
     /**
-     * Returns a good double hash code for the argument of type {@code long}. It uses {@link #splitMixLong(long)}
-     * internally and then maps the {@code long} result to a {@code double} between {@code 0} and {@code 1}.
+     * Returns high-quality double hash code between {@code 0} and {@code 1}. It uses {@link #splitMixLong(long)}
+     * internally.
      * @param x a {@code long}
      * @return a high quality hash code of {@code x} as a {@code double} in the range {@code [0.0d, 1.0d)}.
      */

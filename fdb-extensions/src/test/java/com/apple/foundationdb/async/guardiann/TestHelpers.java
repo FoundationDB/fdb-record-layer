@@ -424,6 +424,21 @@ class TestHelpers {
     }
 
     /**
+     * Builds the {@link SearchConfig} the recall checks use: a candidate pool sized to {@code 1.15 * k} (the
+     * dataset-dependent knob), with every other knob left at its builder default (which matches what these checks
+     * have always passed: 48 probed clusters, a min-of-16 prune floor, a 1.5 distance-ratio cutoff). This lives here
+     * rather than on {@code SearchConfig} because a sensible pool size depends on the dataset and the recall target.
+     *
+     * @param k the top-k the search will be asked for
+     * @return a search config tuned for a recall@k check
+     */
+    static SearchConfig searchConfigForK(final int k) {
+        return new SearchConfig.SearchConfigBuilder()
+                .setCandidatePoolSize((int) ((double) k * 1.15))
+                .build();
+    }
+
+    /**
      * Asserts that the mean set-based recall@k across the given queries meets or exceeds
      * {@code minMeanRecall}. Queries whose ground-truth set is empty (e.g. when {@code maxIndex}
      * excluded every truth index for that query) are skipped.
@@ -445,7 +460,6 @@ class TestHelpers {
                                        final double minMeanRecall) {
         Verify.verify(queries.size() == groundTruth.size(),
                 "queries (%s) and groundTruth (%s) must align", queries.size(), groundTruth.size());
-        final int efSearch = (int) ((double) k * 1.15);
         double sumRecall = 0.0;
         int countedQueries = 0;
         for (int i = 0; i < queries.size(); i++) {
@@ -455,8 +469,8 @@ class TestHelpers {
             }
             final RealVector q = queries.get(i);
             final List<? extends ResultEntry> results =
-                    db.run(tr -> guardiann.kNearestNeighborsSearch(tr, k, efSearch,
-                            48, 16, 1.50d, true, q).join());
+                    db.run(tr -> guardiann.kNearestNeighborsSearch(tr, k, searchConfigForK(k),
+                            true, q).join());
             final double recall = singleQueryRecall(truth, results);
             logger.debug("assertRecallAtKAtLeast: recall@{} = {} for query {}",
                     k, String.format(Locale.ROOT, "%.4f", recall), i);
@@ -500,7 +514,6 @@ class TestHelpers {
         Verify.verify(active.size() >= k,
                 "active set (%s) must have at least k=%s entries for a meaningful recall check",
                 active.size(), k);
-        final int efSearch = (int) ((double) k * 1.15);
         double sumRecall = 0.0d;
         int countedQueries = 0;
         for (int i = 0; i < queries.size(); i++) {
@@ -510,8 +523,8 @@ class TestHelpers {
                 continue;
             }
             final List<? extends ResultEntry> results =
-                    db.run(tr -> guardiann.kNearestNeighborsSearch(tr, k, efSearch,
-                            48, 16, 1.50d, true, query).join());
+                    db.run(tr -> guardiann.kNearestNeighborsSearch(tr, k, searchConfigForK(k),
+                            true, query).join());
             final double recall = singleQueryRecall(truth, results);
             logger.debug("assertRecallAtKAtLeastDynamic: recall@{} = {} for query {}",
                     k, String.format(Locale.ROOT, "%.4f", recall), i);
@@ -598,7 +611,9 @@ class TestHelpers {
             // Ask for the whole dataset, fully ordered: k, the reorder window, and the probed-cluster cap are all
             // the index size, so a correct method returns every live vector in (distance, primaryKey) order.
             final List<? extends ResultEntry> results =
-                    db.run(tr -> guardiann.searchOrderedByDistance(tr, indexSize, indexSize, indexSize,
+                    db.run(tr -> guardiann.searchOrderedByDistance(tr, indexSize,
+                            new SearchConfig.SearchConfigBuilder().setCandidatePoolSize(indexSize)
+                                    .setSearchMaxClusters(indexSize).build(),
                             ORDERED_BY_DISTANCE_FROM_START_MIN_RADIUS_CLUSTER,
                             ORDERED_BY_DISTANCE_FROM_START_MIN_RADIUS,
                             null, false, query).join());
@@ -882,7 +897,8 @@ class TestHelpers {
             return null;
         }
         return db.run(transaction ->
-                guardiann.getLocator().search().snapshotStructure(transaction, centroidEntries).join());
+                guardiann.getLocator().search().snapshotStructure(transaction, centroidEntries,
+                        new SearchConfig.SearchConfigBuilder().build()).join());
     }
 
     /**

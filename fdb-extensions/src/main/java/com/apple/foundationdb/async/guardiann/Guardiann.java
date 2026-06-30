@@ -206,30 +206,22 @@ public class Guardiann {
      *
      * @param readTransaction the transaction to use for reading from the database
      * @param k the number of nearest neighbors to return
-     * @param efSearch the size of the dynamic candidate list for the search. A larger value increases accuracy
-     *        at the cost of performance.
-     * @param searchMaxClusters maximum number of clusters to probe
-     * @param searchMinClustersBeforePruning minimum clusters before distance-ratio pruning
-     * @param searchDistanceRatioCutoff distance ratio threshold for cluster pruning
+     * @param searchConfig the performance/recall tuning knobs for this search (see {@link SearchConfig})
      * @param includeVectors indicator if the caller would like the search to also include vectors in the result set
-     * @param queryVector the vector to find the nearest neighbors for
+     * @param queryVector the vector to find the nearest neighbors of
      *
      * @return a {@link CompletableFuture} that will complete with a list of the {@code k} nearest neighbors,
      *         sorted by distance in ascending order.
      */
-    @SuppressWarnings("checkstyle:MethodName") // method name introduced by paper
+    @SuppressWarnings("checkstyle:MethodName") // method name normally used in literature
     @Nonnull
     public CompletableFuture<List<? extends ResultEntry>>
             kNearestNeighborsSearch(@Nonnull final ReadTransaction readTransaction,
                                     final int k,
-                                    final int efSearch,
-                                    final int searchMaxClusters,
-                                    final int searchMinClustersBeforePruning,
-                                    final double searchDistanceRatioCutoff,
+                                    @Nonnull final SearchConfig searchConfig,
                                     final boolean includeVectors,
                                     @Nonnull final RealVector queryVector) {
-        return search().kNearestNeighborsSearch(readTransaction, k, efSearch, searchMaxClusters,
-                searchMinClustersBeforePruning, searchDistanceRatioCutoff, includeVectors, queryVector);
+        return search().kNearestNeighborsSearch(readTransaction, k, searchConfig, includeVectors, queryVector);
     }
 
     /**
@@ -243,8 +235,8 @@ public class Guardiann {
      *
      * @param readTransaction the transaction to use for reading from the database
      * @param k the maximum number of nearest neighbors to return
-     * @param efSearch the size of the streaming reorder window (larger improves ordering accuracy)
-     * @param searchMaxClusters maximum number of clusters to probe
+     * @param searchConfig the performance/recall tuning knobs for this search (see {@link SearchConfig}); the
+     *        distance-ratio pruning knobs do not apply to this streaming variant
      * @param minimumRadiusCluster exclusive lower bound on cluster-centroid distance (cluster-level cursor)
      * @param minimumRadius exclusive lower bound on result distance (result-level cursor)
      * @param minimumPrimaryKey tie-breaker applied at exactly {@code minimumRadius}; a result is kept only when
@@ -258,14 +250,13 @@ public class Guardiann {
     CompletableFuture<List<? extends ResultEntry>>
             searchOrderedByDistance(@Nonnull final ReadTransaction readTransaction,
                                     final int k,
-                                    final int efSearch,
-                                    final int searchMaxClusters,
+                                    @Nonnull final SearchConfig searchConfig,
                                     final double minimumRadiusCluster,
                                     final double minimumRadius,
                                     @Nullable final Tuple minimumPrimaryKey,
                                     final boolean includeVectors,
                                     @Nonnull final RealVector queryVector) {
-        return search().searchOrderedByDistanceResults(readTransaction, k, efSearch, searchMaxClusters,
+        return search().searchOrderedByDistanceResults(readTransaction, k, searchConfig,
                 queryVector, minimumRadiusCluster, minimumRadius, minimumPrimaryKey, includeVectors);
     }
 

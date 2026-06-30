@@ -35,7 +35,7 @@ import java.util.concurrent.Executor;
 
 /**
  * A {@link CloseableAsyncIterator} that re-orders its input into approximately sorted order. It keeps a bounded
- * look-ahead buffer of up to {@code efSearch} elements drawn from the input and always emits the smallest buffered
+ * look-ahead buffer of up to {@code maxQueueSize} elements drawn from the input and always emits the smallest buffered
  * element next, as ordered by the supplied {@link Comparator}. The ordering is only <em>approximate</em> because an
  * element more than the window size away from its fully sorted position cannot be pulled forward; this trades exact
  * ordering for bounded memory, which suits search pipelines that consume a roughly distance-ordered prefix.
@@ -45,7 +45,7 @@ import java.util.concurrent.Executor;
 class AlmostSortedAsyncIterator<T> implements CloseableAsyncIterator<T> {
     @Nonnull
     private final AsyncIterator<T> in;
-    private final int efSearch;
+    private final int maxQueueSize;
     @Nonnull
     private final PriorityQueue<T> out;
 
@@ -57,10 +57,10 @@ class AlmostSortedAsyncIterator<T> implements CloseableAsyncIterator<T> {
 
     public AlmostSortedAsyncIterator(@Nonnull final AsyncIterator<T> in,
                                      @Nonnull Comparator<T> comparator,
-                                     final int efSearch,
+                                     final int maxQueueSize,
                                      @Nonnull final Executor executor) {
         this.in = in;
-        this.efSearch = efSearch;
+        this.maxQueueSize = maxQueueSize;
         this.out = new PriorityQueue<>(comparator);
         this.executor = executor;
         this.nextFuture = null;
@@ -78,7 +78,7 @@ class AlmostSortedAsyncIterator<T> implements CloseableAsyncIterator<T> {
     @Nonnull
     private CompletableFuture<T> computeNextRecord() {
         return AsyncUtil.whileTrue(() -> {
-            if (inDone || out.size() >= efSearch) {
+            if (inDone || out.size() >= maxQueueSize) {
                 return AsyncUtil.READY_FALSE; // break out of the loop
             }
             final CompletableFuture<Boolean> inOnHasNextFuture = in.onHasNext();
