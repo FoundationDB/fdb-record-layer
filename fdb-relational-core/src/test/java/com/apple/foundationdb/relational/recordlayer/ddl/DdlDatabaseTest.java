@@ -41,8 +41,11 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
+import java.util.concurrent.ThreadLocalRandom;
 import java.net.URI;
 
 /**
@@ -59,31 +62,43 @@ public class DdlDatabaseTest {
 
     @Test
     public void canCreateDatabase() throws Exception {
+        // Use a unique-per-run database path so the SHOW DATABASES assertion below can't be
+        // satisfied by a sibling test's leftover database with the same name. The path is
+        // lower-cased here because the engine normalises identifiers to upper-case, and we want
+        // to verify the normalised form in the assertion (see jdbcConnectPath / showName below).
+        final String uniqueSuffix = Long.toHexString(ThreadLocalRandom.current().nextLong());
+        final String dbPathLower = "/test/test_db_" + uniqueSuffix;
+        final String dbPathUpper = "/TEST/TEST_DB_" + uniqueSuffix.toUpperCase(Locale.ROOT);
         try {
             CatalogOperations.runOnCatalog(relational.getDriver(), conn -> {
                 try (final var statement = conn.createStatement()) {
                     //create a database
-                    statement.executeUpdate("CREATE DATABASE /test/test_db");
-                    statement.executeUpdate("CREATE SCHEMA /test/test_db/foo_schem with template \"" + baseTemplate.getSchemaTemplateName() + "\"");
+                    statement.executeUpdate("CREATE DATABASE " + dbPathLower);
+                    statement.executeUpdate("CREATE SCHEMA " + dbPathLower + "/foo_schem with template \"" + baseTemplate.getSchemaTemplateName() + "\"");
                 }
             });
 
-            try (RelationalConnection conn = relational.getDriver().connect(URI.create("jdbc:embed:/TEST/TEST_DB")).unwrap(RelationalConnection.class)) {
+            try (RelationalConnection conn = relational.getDriver().connect(URI.create("jdbc:embed:" + dbPathUpper)).unwrap(RelationalConnection.class)) {
                 conn.setSchema("FOO_SCHEM");
                 try (RelationalStatement statement = conn.createStatement()) {
 
-                    //look to see if it's in the list
-                    Set<String> databases = Set.of("/TEST/TEST_DB", "/__SYS");
+                    // Assert that our database appears in SHOW DATABASES. We can't use a
+                    // meetsForAllRows-style "every row must be in {our DB, __SYS}" check because
+                    // under parallel execution the catalog also holds databases from
+                    // concurrently-running test classes. Just verify ours is in the list.
                     try (RelationalResultSet rs = statement.executeQuery("SHOW DATABASES")) {
-                        ResultSetAssert.assertThat(rs)
-                                .meetsForAllRows(ResultSetAssert.perRowCondition(resultSet -> databases.contains(resultSet.getString(1)), "Should be a valid database"));
+                        Set<String> seen = new HashSet<>();
+                        while (rs.next()) {
+                            seen.add(rs.getString(1));
+                        }
+                        Assertions.assertThat(seen).contains(dbPathUpper);
                     }
                 }
             }
         } finally {
             CatalogOperations.runOnCatalog(relational.getDriver(), conn -> {
                 try (final var statement = conn.createStatement()) {
-                    statement.execute("DROP DATABASE /test/test_db");
+                    statement.execute("DROP DATABASE " + dbPathLower);
                 }
             });
 
