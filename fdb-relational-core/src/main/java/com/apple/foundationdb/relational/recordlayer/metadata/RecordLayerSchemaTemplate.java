@@ -80,6 +80,9 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
     @Nonnull
     private final Set<RecordLayerView> views;
 
+    @Nonnull
+    private final Map<String, DataType.Named> auxiliaryTypes;
+
     private final int version;
 
     private final boolean enableLongRows;
@@ -107,6 +110,7 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
                                       @Nonnull final Set<RecordLayerTable> tables,
                                       @Nonnull final Set<RecordLayerInvokedRoutine> invokedRoutines,
                                       @Nonnull final Set<RecordLayerView> views,
+                                      @Nonnull final Map<String, DataType.Named> auxiliaryTypes,
                                       int version,
                                       boolean enableLongRows,
                                       boolean storeRowVersions,
@@ -115,6 +119,7 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
         this.tables = ImmutableSet.copyOf(tables);
         this.invokedRoutines = ImmutableSet.copyOf(invokedRoutines);
         this.views = ImmutableSet.copyOf(views);
+        this.auxiliaryTypes = ImmutableMap.copyOf(auxiliaryTypes);
         this.version = version;
         this.enableLongRows = enableLongRows;
         this.storeRowVersions = storeRowVersions;
@@ -130,6 +135,7 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
                                       @Nonnull final Set<RecordLayerTable> tables,
                                       @Nonnull final Set<RecordLayerInvokedRoutine> invokedRoutines,
                                       @Nonnull final Set<RecordLayerView> views,
+                                      @Nonnull final Map<String, DataType.Named> auxiliaryTypes,
                                       int version,
                                       boolean enableLongRows,
                                       boolean storeRowVersions,
@@ -140,6 +146,7 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
         this.tables = ImmutableSet.copyOf(tables);
         this.invokedRoutines = ImmutableSet.copyOf(invokedRoutines);
         this.views = ImmutableSet.copyOf(views);
+        this.auxiliaryTypes = ImmutableMap.copyOf(auxiliaryTypes);
         this.enableLongRows = enableLongRows;
         this.storeRowVersions = storeRowVersions;
         this.intermingleTables = intermingleTables;
@@ -180,6 +187,27 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
     @Override
     public Set<RecordLayerTable> getTables() {
         return tables;
+    }
+
+    @Nonnull
+    public Optional<DataType> findType(@Nonnull final String name) {
+        if (auxiliaryTypes.containsKey(name)) {
+            return Optional.of((DataType) auxiliaryTypes.get(name));
+        }
+
+        // NOTE TO REVIEWER: Should this be populated when deserializing instead of traversing tables here?
+        for (final var table : tables) {
+            for (final var field : table.getDatatype().getFields()) {
+                if (field.getType() instanceof DataType.Named) {
+                    final var namedType = (DataType.Named) field.getType();
+                    if (namedType.getName().equals(name)) {
+                        return Optional.of((DataType) namedType);
+                    }
+                }
+            }
+        }
+
+        return Optional.empty();
     }
 
     @Nonnull
@@ -632,10 +660,12 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
 
             if (cachedMetadata != null) {
                 return new RecordLayerSchemaTemplate(name, new LinkedHashSet<>(tables.values()),
-                        new LinkedHashSet<>(invokedRoutines.values()), new LinkedHashSet<>(views.values()), version, enableLongRows, storeRowVersions, intermingleTables, cachedMetadata);
+                        new LinkedHashSet<>(invokedRoutines.values()), new LinkedHashSet<>(views.values()),
+                        auxiliaryTypes, version, enableLongRows, storeRowVersions, intermingleTables, cachedMetadata);
             } else {
                 return new RecordLayerSchemaTemplate(name, new LinkedHashSet<>(tables.values()),
-                        new LinkedHashSet<>(invokedRoutines.values()), new LinkedHashSet<>(views.values()), version, enableLongRows, storeRowVersions, intermingleTables);
+                        new LinkedHashSet<>(invokedRoutines.values()), new LinkedHashSet<>(views.values()),
+                        auxiliaryTypes, version, enableLongRows, storeRowVersions, intermingleTables);
             }
         }
 
@@ -763,6 +793,7 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
                 .setIntermingleTables(intermingleTables)
                 .addTables(getTables())
                 .addInvokedRoutines(getInvokedRoutines())
-                .addViews(getViews());
+                .addViews(getViews())
+                .addAuxiliaryTypes(auxiliaryTypes.values());
     }
 }

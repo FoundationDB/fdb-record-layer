@@ -45,6 +45,7 @@ import com.apple.foundationdb.relational.recordlayer.metadata.DataTypeUtils;
 import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
 
+import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.google.common.collect.ImmutableList;
 import com.google.protobuf.ZeroCopyByteString;
 
@@ -55,11 +56,15 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Struct;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
 import java.util.function.Supplier;
 
+import static com.apple.foundationdb.relational.api.exceptions.ErrorCode.CANNOT_CONVERT_TYPE;
 import static com.apple.foundationdb.relational.api.exceptions.ErrorCode.DATATYPE_MISMATCH;
 
 /**
@@ -97,6 +102,9 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
 
     @Nonnull
     private final ImmutableList.Builder<QueryPredicate> equalityConstraints;
+
+    @Nonnull
+    private final Map<String, DataType.StructType> dynamicStructDefinitions;
 
     private void startStructLiteral() {
         literalsBuilder.startStructLiteral();
@@ -282,6 +290,7 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
         forExplain = false;
         continuation = null;
         equalityConstraints = ImmutableList.builder();
+        dynamicStructDefinitions = new HashMap<>();
     }
 
     @Nonnull
@@ -492,5 +501,37 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
             }
         }
         return Type.fromObject(object);
+    }
+
+    /**
+     * Registers or validates a dynamic struct definition created within the query.
+     * If this is the first time seeing this struct name, registers it.
+     * If the struct name was already registered, validates that the new definition matches the previous one.
+     *
+     * @param structName The name of the struct type
+     * @param structType The struct type definition
+     */
+    public void registerOrValidateDynamicStruct(@Nonnull String structName, @Nonnull DataType.StructType structType) {
+        final var existing = dynamicStructDefinitions.get(structName);
+        if (existing == null) {
+            dynamicStructDefinitions.put(structName, structType);
+        } else {
+            Assert.thatUnchecked(
+                    existing.hasIdenticalStructure(structType),
+                    CANNOT_CONVERT_TYPE,
+                    "Struct type '%s' has incompatible signatures: first definition does not match second definition",
+                    structName);
+        }
+    }
+
+    /**
+     * Gets a previously registered dynamic struct type by name.
+     *
+     * @param structName The name of the struct type
+     * @return The struct type if it was previously registered, empty otherwise
+     */
+    @Nonnull
+    public Optional<DataType.StructType> getDynamicStructType(@Nonnull String structName) {
+        return Optional.ofNullable(dynamicStructDefinitions.get(structName));
     }
 }
