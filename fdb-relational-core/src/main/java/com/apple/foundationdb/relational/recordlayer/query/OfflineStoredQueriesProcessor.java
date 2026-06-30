@@ -167,10 +167,8 @@ public final class OfflineStoredQueriesProcessor {
         final Counts counts = new Counts();
         for (final RecordLayerSchemaTemplate template : templates) {
             try {
-                final int queriesProcessed = planStoredQueriesForSchemaTemplate(cache, metricCollector, template, counts);
+                planStoredQueriesForSchemaTemplate(cache, metricCollector, template, counts);
                 counts.templatesProcessed++;
-                counts.queriesProcessed += queriesProcessed;
-                counts.queriesFailed += template.getStoredQueries().size() - queriesProcessed;
             } catch (RuntimeException e) {
                 counts.templatesFailed++;
                 if (logger.isErrorEnabled()) {
@@ -185,32 +183,40 @@ public final class OfflineStoredQueriesProcessor {
     /**
      * Plans every stored query on {@code template}. For each {@link StoredQuery} the temp-function
      * declarations are compiled first (via {@link MetadataTempFuncFactory}) so the running
-     * template carries them when the SELECT body is planned. Per-query failures are caught and
-     * logged; the loop continues with the next query. Returns the number of queries that planned
-     * successfully &mdash; the caller derives per-query failures as {@code size() - returned}.
-     * Each successfully planned temp function bumps {@code counts.tempFunctionsProcessed}.
+     * template carries them when the SELECT body is planned. Per-query and per-temp-function
+     * outcomes are reported by {@link #planStoredQuery} directly into {@code counts}.
      */
-    private static int planStoredQueriesForSchemaTemplate(@Nonnull final RelationalPlanCache cache,
-                                                          @Nonnull final MetricCollector metricCollector,
-                                                          @Nonnull final RecordLayerSchemaTemplate template,
-                                                          @Nonnull final Counts counts) {
-        int succeeded = 0;
+    private static void planStoredQueriesForSchemaTemplate(@Nonnull final RelationalPlanCache cache,
+                                                           @Nonnull final MetricCollector metricCollector,
+                                                           @Nonnull final RecordLayerSchemaTemplate template,
+                                                           @Nonnull final Counts counts) {
         final String templateKey = template.getName() + ":" + template.getVersion();
         for (final var entry : template.getStoredQueries().entrySet()) {
-            if (planStoredQuery(cache, metricCollector, template, templateKey, entry.getKey(), entry.getValue(), counts)) {
-                succeeded++;
-            }
+            planStoredQuery(cache, metricCollector, template, templateKey, entry.getKey(), entry.getValue(), counts);
         }
-        return succeeded;
     }
 
-    private static boolean planStoredQuery(@Nonnull final RelationalPlanCache cache,
-                                           @Nonnull final MetricCollector metricCollector,
-                                           @Nonnull final RecordLayerSchemaTemplate template,
-                                           @Nonnull final String templateKey,
-                                           @Nonnull final String storedQueryName,
-                                           @Nonnull final StoredQuery storedQuery,
-                                           @Nonnull final Counts counts) {
+    /**
+     * Plans one stored query: first each {@code CREATE [OR REPLACE]? TEMPORARY FUNCTION ...}
+     * declaration (folding the captured routine back into the template), then the SELECT body
+     * with the cache wired up. Updates {@code counts} as follows:
+     * <ul>
+     *   <li>Each temp function that plans successfully bumps {@code tempFunctionsProcessed}.</li>
+     *   <li>A temp function that fails to plan bumps {@code tempFunctionsFailed} and
+     *       {@code queriesFailed}; the rest of this stored query is skipped.</li>
+     *   <li>The SELECT body planning bumps {@code queriesProcessed} on success or
+     *       {@code queriesFailed} on failure.</li>
+     * </ul>
+     * Planning errors are caught and logged inside {@code getPlan}'s {@code finally} block; this
+     * method never propagates them.
+     */
+    private static void planStoredQuery(@Nonnull final RelationalPlanCache cache,
+                                        @Nonnull final MetricCollector metricCollector,
+                                        @Nonnull final RecordLayerSchemaTemplate template,
+                                        @Nonnull final String templateKey,
+                                        @Nonnull final String storedQueryName,
+                                        @Nonnull final StoredQuery storedQuery,
+                                        @Nonnull final Counts counts) {
         final var tempFuncFactory = new MetadataTempFuncFactory();
         RecordLayerSchemaTemplate currentTemplate = template;
 
@@ -226,7 +232,8 @@ public final class OfflineStoredQueriesProcessor {
             } catch (RelationalException e) {
                 // error already logged inside getPlan's finally
                 counts.tempFunctionsFailed++;
-                return false;
+                counts.queriesFailed++;
+                return;
             }
         }
         try {
@@ -241,12 +248,12 @@ public final class OfflineStoredQueriesProcessor {
                             "schemaTemplate", templateKey,
                             "storedQueryName", storedQueryName,
                             "storedQuerySql", sql));
+            counts.queriesProcessed++;
         } catch (RelationalException e) {
             // error already logged inside getPlan's finally
             assert e != null;
-            return false;
+            counts.queriesFailed++;
         }
-        return true;
     }
 
     private static final class Counts {
