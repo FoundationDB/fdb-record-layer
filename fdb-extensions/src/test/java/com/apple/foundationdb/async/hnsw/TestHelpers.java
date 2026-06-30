@@ -73,6 +73,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
@@ -121,7 +122,9 @@ class TestHelpers {
         if (logFile != null) {
             logFile.log("basicInsertBatch begin batchSize=%d firstId=%d", batchSize, firstId);
         }
+        AtomicInteger attempt = new AtomicInteger(0);
         try (Transaction tr = db.createTransaction()) {
+            attempt.incrementAndGet();
             final TestOnWriteListener onWriteListener = (TestOnWriteListener)hnsw.getOnWriteListener();
             onWriteListener.reset();
             final TestOnReadListener onReadListener = (TestOnReadListener)hnsw.getOnReadListener();
@@ -133,7 +136,8 @@ class TestHelpers {
             // it's probably better to not test the concurrent handling of hnsw, even if it makes the tests slower.
             CompletableFuture<Void> future = CompletableFuture.completedFuture(null);
             final long beginTs = System.nanoTime();
-            for (int i = 0; i < batchSize; i ++) {
+            final int attemptBatchSize = batchSize / attempt.get();
+            for (int i = 0; i < attemptBatchSize; i ++) {
                 final PrimaryKeyAndVector record = insertFunction.apply(tr, firstId + i);
                 if (record == null) {
                     break;

@@ -341,7 +341,7 @@ class OperationsTest implements BaseTest {
 
                 for (int i = 0; i < size;) {
                     logFile.log("primary insert loop iter=%d size=%d", i, size);
-                    i += TestHelpers.basicInsertBatch(getDb(), hnsw, i < 800 ? 100 : 50, i,
+                    i += TestHelpers.basicInsertBatch(getDb(), hnsw, 100, i,
                             (tr, nextId) -> insertedData.get(Math.toIntExact(nextId)), logFile).size();
                 }
                 logFile.log("primary insert loop complete");
