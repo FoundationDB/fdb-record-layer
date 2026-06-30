@@ -100,6 +100,7 @@ public abstract class IndexingBase {
     private boolean forceStampOverwrite = false;
     private final long startingTimeMillis;
     private Map<String, IndexingMerger> indexingMergerMap = null;
+    private Map<String, PendingWriteQueueDrainer> indexingDrainerMap = null;
     @Nullable
     private IndexingHeartbeat heartbeat = null; // this will stay null for index scrubbing
 
@@ -1005,8 +1006,7 @@ public abstract class IndexingBase {
             return AsyncUtil.DONE;
         }
         return AsyncUtil.whenAll(indexesToDrain.stream()
-                // TODO: drain, don't merge
-                .map(index -> getIndexingMerger(index).mergeIndex()
+                .map(index -> getIndexingDrainer(index).drainPendingQueue()
                 ).toList());
     }
 
@@ -1015,6 +1015,13 @@ public abstract class IndexingBase {
             indexingMergerMap = new HashMap<>();
         }
         return indexingMergerMap.computeIfAbsent(index.getName(), k -> new IndexingMerger(index, common, policy.getInitialMergesCountLimit()));
+    }
+
+    private synchronized PendingWriteQueueDrainer getIndexingDrainer(Index index) {
+        if (indexingDrainerMap == null) {
+            indexingDrainerMap = new HashMap<>();
+        }
+        return indexingDrainerMap.computeIfAbsent(index.getName(), k -> new PendingWriteQueueDrainer(index, common));
     }
 
     private void deferAutoMergeDuringCommit(FDBRecordStore store) {
