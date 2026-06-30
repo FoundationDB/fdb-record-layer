@@ -473,21 +473,21 @@ public class CollapseScenarioTest implements BaseTest {
                                  @Nonnull final Transformed<RealVector> transformedCentroid) {
         final Locator locator = guardiann.getLocator();
         final Primitives primitives = locator.primitives();
-        final int numNeighborhood = 1 + guardiann.getConfig().reassignOuterNeighborhoodSize();
+        final int numNearestClusters = 1 + guardiann.getConfig().reassignNumNeighboringClusters();
         db.run(transaction -> {
             final AccessInfo accessInfo = Objects.requireNonNull(primitives.fetchAccessInfo(transaction).join());
             final ClusterMetadata clusterMetadata =
                     Objects.requireNonNull(primitives.fetchClusterMetadata(transaction, clusterId).join());
             final StorageTransform storageTransform = primitives.storageTransform(accessInfo);
             final RealVector untransformedCentroid = storageTransform.untransform(transformedCentroid);
-            final List<ClusterMetadataWithDistance> neighborhoodMetadata =
-                    primitives.fetchNeighborhoodClusterMetadata(transaction, clusterMetadata,
-                            untransformedCentroid, storageTransform, numNeighborhood).join();
-            final List<ClusterReference> neighborhood =
-                    ClusterReference.fromClusterMetadataAndDistances(neighborhoodMetadata);
+            final List<ClusterMetadataWithDistance> nearestClusterMetadata =
+                    primitives.fetchNearestClusterMetadata(transaction, clusterMetadata,
+                            untransformedCentroid, storageTransform, numNearestClusters).join();
+            final List<ClusterReference> neighboringClusters =
+                    ClusterReference.fromClusterMetadataAndDistances(nearestClusterMetadata);
             final UUID taskId = RandomHelpers.randomUuid(clusterId, true);
             final ReassignTask reassignTask = ReassignTask.of(locator, accessInfo, taskId, clusterId,
-                    transformedCentroid, Set.of(), neighborhood);
+                    transformedCentroid, Set.of(), neighboringClusters);
             reassignTask.reassign(transaction, clusterMetadata, untransformedCentroid, false).join();
             return null;
         });

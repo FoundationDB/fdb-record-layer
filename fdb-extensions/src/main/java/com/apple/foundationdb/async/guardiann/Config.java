@@ -60,12 +60,11 @@ import javax.annotation.Nonnull;
  * @param insertMaxCandidateClusters maximum clusters evaluated as insertion targets
  * @param deleteMaxCandidateClusters maximum clusters probed when locating a vector's references during delete
  * @param deleteConcurrency concurrency for parallel operations during delete
- * @param splitNeighborhoodSize number of nearest clusters fetched from HNSW for split candidate evaluation
- * @param mergeInnerNeighborhoodSize number of clusters dissolved during a merge
- * @param mergeOuterNeighborhoodSize number of outer clusters that may absorb overflow during merge
+ * @param splitNumNearestClusters number of nearest clusters fetched from HNSW for split candidate evaluation
+ * @param mergeNumNearestClusters number of nearest clusters fetched from HNSW for merge candidate evaluation
  * @param kMeansMaxIterations maximum Lloyd's iterations per k-means restart
  * @param kMeansMaxRestarts maximum number of random restarts for bounded k-means during split/merge
- * @param reassignOuterNeighborhoodSize outer clusters considered as replication/migration targets during reassign
+ * @param reassignNumNeighboringClusters outer clusters considered as replication/migration targets during reassign
  * @param collapseMinDuplicates minimum identical vectors sharing a signature before collapse
  * @param splitMergeConcurrency concurrency for parallel operations during split/merge tasks
  * @param reassignConcurrency concurrency for parallel operations during reassign tasks
@@ -99,13 +98,12 @@ public record Config(@Nonnull Metric metric,
                      int deleteMaxCandidateClusters,
                      int deleteConcurrency,
                      // split/merge
-                     int splitNeighborhoodSize,
-                     int mergeInnerNeighborhoodSize,
-                     int mergeOuterNeighborhoodSize,
+                     int splitNumNearestClusters,
+                     int mergeNumNearestClusters,
                      int kMeansMaxIterations,
                      int kMeansMaxRestarts,
                      // reassign
-                     int reassignOuterNeighborhoodSize,
+                     int reassignNumNeighboringClusters,
                      // collapse
                      int collapseMinDuplicates,
                      // per-task concurrency
@@ -146,13 +144,13 @@ public record Config(@Nonnull Metric metric,
     public static final int DEFAULT_DELETE_MAX_CANDIDATE_CLUSTERS = 10;
     public static final int DEFAULT_DELETE_CONCURRENCY = 10;
     // split/merge
-    public static final int DEFAULT_SPLIT_NEIGHBORHOOD_SIZE = 32;
-    public static final int DEFAULT_MERGE_INNER_NEIGHBORHOOD_SIZE = 3;
-    public static final int DEFAULT_MERGE_OUTER_NEIGHBORHOOD_SIZE = 8;
+    public static final int DEFAULT_SPLIT_NUM_NEAREST_CLUSTERS = 32;
+    // covers the largest merge candidate (3-to-2 dissolves 3 core clusters) plus ~8 absorbing neighbors
+    public static final int DEFAULT_MERGE_NUM_NEAREST_CLUSTERS = 11;
     public static final int DEFAULT_KMEANS_MAX_ITERATIONS = 8;
     public static final int DEFAULT_KMEANS_MAX_RESTARTS = 3;
     // reassign
-    public static final int DEFAULT_REASSIGN_OUTER_NEIGHBORHOOD_SIZE = 31;
+    public static final int DEFAULT_REASSIGN_NUM_NEIGHBORING_CLUSTERS = 31;
     // collapse
     public static final int DEFAULT_COLLAPSE_MIN_DUPLICATES = 100;
     // per-task concurrency
@@ -173,9 +171,9 @@ public record Config(@Nonnull Metric metric,
                 maxNumConcurrentNodeFetches(), maxNumConcurrentNeighborhoodFetches(),
                 sampleBatchSize(), searchConcurrency(), insertMaxCandidateClusters(),
                 deleteMaxCandidateClusters(), deleteConcurrency(),
-                splitNeighborhoodSize(), mergeInnerNeighborhoodSize(), mergeOuterNeighborhoodSize(),
+                splitNumNearestClusters(), mergeNumNearestClusters(),
                 kMeansMaxIterations(), kMeansMaxRestarts(),
-                reassignOuterNeighborhoodSize(),
+                reassignNumNeighboringClusters(),
                 collapseMinDuplicates(), splitMergeConcurrency(), reassignConcurrency());
     }
 
@@ -202,12 +200,11 @@ public record Config(@Nonnull Metric metric,
                 ", insertMaxCandidateClusters=" + insertMaxCandidateClusters() +
                 ", deleteMaxCandidateClusters=" + deleteMaxCandidateClusters() +
                 ", deleteConcurrency=" + deleteConcurrency() +
-                ", splitNeighborhoodSize=" + splitNeighborhoodSize() +
-                ", mergeInnerNeighborhoodSize=" + mergeInnerNeighborhoodSize() +
-                ", mergeOuterNeighborhoodSize=" + mergeOuterNeighborhoodSize() +
+                ", splitNumNearestClusters=" + splitNumNearestClusters() +
+                ", mergeNumNearestClusters=" + mergeNumNearestClusters() +
                 ", kMeansMaxIterations=" + kMeansMaxIterations() +
                 ", kMeansMaxRestarts=" + kMeansMaxRestarts() +
-                ", reassignOuterNeighborhoodSize=" + reassignOuterNeighborhoodSize() +
+                ", reassignNumNeighboringClusters=" + reassignNumNeighboringClusters() +
                 ", collapseMinDuplicates=" + collapseMinDuplicates() +
                 ", splitMergeConcurrency=" + splitMergeConcurrency() +
                 ", reassignConcurrency=" + reassignConcurrency() +
@@ -254,13 +251,12 @@ public record Config(@Nonnull Metric metric,
         private int deleteMaxCandidateClusters = DEFAULT_DELETE_MAX_CANDIDATE_CLUSTERS;
         private int deleteConcurrency = DEFAULT_DELETE_CONCURRENCY;
         // split/merge
-        private int splitNeighborhoodSize = DEFAULT_SPLIT_NEIGHBORHOOD_SIZE;
-        private int mergeInnerNeighborhoodSize = DEFAULT_MERGE_INNER_NEIGHBORHOOD_SIZE;
-        private int mergeOuterNeighborhoodSize = DEFAULT_MERGE_OUTER_NEIGHBORHOOD_SIZE;
+        private int splitNumNearestClusters = DEFAULT_SPLIT_NUM_NEAREST_CLUSTERS;
+        private int mergeNumNearestClusters = DEFAULT_MERGE_NUM_NEAREST_CLUSTERS;
         private int kMeansMaxIterations = DEFAULT_KMEANS_MAX_ITERATIONS;
         private int kMeansMaxRestarts = DEFAULT_KMEANS_MAX_RESTARTS;
         // reassign
-        private int reassignOuterNeighborhoodSize = DEFAULT_REASSIGN_OUTER_NEIGHBORHOOD_SIZE;
+        private int reassignNumNeighboringClusters = DEFAULT_REASSIGN_NUM_NEIGHBORING_CLUSTERS;
         // collapse
         private int collapseMinDuplicates = DEFAULT_COLLAPSE_MIN_DUPLICATES;
         // per-task concurrency
@@ -283,10 +279,10 @@ public record Config(@Nonnull Metric metric,
                              final int searchConcurrency,
                              final int insertMaxCandidateClusters,
                              final int deleteMaxCandidateClusters, final int deleteConcurrency,
-                             final int splitNeighborhoodSize, final int mergeInnerNeighborhoodSize,
-                             final int mergeOuterNeighborhoodSize, final int kMeansMaxIterations,
+                             final int splitNumNearestClusters, final int mergeNumNearestClusters,
+                             final int kMeansMaxIterations,
                              final int kMeansMaxRestarts,
-                             final int reassignOuterNeighborhoodSize,
+                             final int reassignNumNeighboringClusters,
                              final int collapseMinDuplicates,
                              final int splitMergeConcurrency, final int reassignConcurrency) {
             this.metric = metric;
@@ -312,12 +308,11 @@ public record Config(@Nonnull Metric metric,
             this.insertMaxCandidateClusters = insertMaxCandidateClusters;
             this.deleteMaxCandidateClusters = deleteMaxCandidateClusters;
             this.deleteConcurrency = deleteConcurrency;
-            this.splitNeighborhoodSize = splitNeighborhoodSize;
-            this.mergeInnerNeighborhoodSize = mergeInnerNeighborhoodSize;
-            this.mergeOuterNeighborhoodSize = mergeOuterNeighborhoodSize;
+            this.splitNumNearestClusters = splitNumNearestClusters;
+            this.mergeNumNearestClusters = mergeNumNearestClusters;
             this.kMeansMaxIterations = kMeansMaxIterations;
             this.kMeansMaxRestarts = kMeansMaxRestarts;
-            this.reassignOuterNeighborhoodSize = reassignOuterNeighborhoodSize;
+            this.reassignNumNeighboringClusters = reassignNumNeighboringClusters;
             this.collapseMinDuplicates = collapseMinDuplicates;
             this.splitMergeConcurrency = splitMergeConcurrency;
             this.reassignConcurrency = reassignConcurrency;
@@ -547,30 +542,21 @@ public record Config(@Nonnull Metric metric,
             return this;
         }
 
-        public int getSplitNeighborhoodSize() {
-            return splitNeighborhoodSize;
+        public int getSplitNumNearestClusters() {
+            return splitNumNearestClusters;
         }
 
-        public ConfigBuilder setSplitNeighborhoodSize(final int splitNeighborhoodSize) {
-            this.splitNeighborhoodSize = splitNeighborhoodSize;
+        public ConfigBuilder setSplitNumNearestClusters(final int splitNumNearestClusters) {
+            this.splitNumNearestClusters = splitNumNearestClusters;
             return this;
         }
 
-        public int getMergeInnerNeighborhoodSize() {
-            return mergeInnerNeighborhoodSize;
+        public int getMergeNumNearestClusters() {
+            return mergeNumNearestClusters;
         }
 
-        public ConfigBuilder setMergeInnerNeighborhoodSize(final int mergeInnerNeighborhoodSize) {
-            this.mergeInnerNeighborhoodSize = mergeInnerNeighborhoodSize;
-            return this;
-        }
-
-        public int getMergeOuterNeighborhoodSize() {
-            return mergeOuterNeighborhoodSize;
-        }
-
-        public ConfigBuilder setMergeOuterNeighborhoodSize(final int mergeOuterNeighborhoodSize) {
-            this.mergeOuterNeighborhoodSize = mergeOuterNeighborhoodSize;
+        public ConfigBuilder setMergeNumNearestClusters(final int mergeNumNearestClusters) {
+            this.mergeNumNearestClusters = mergeNumNearestClusters;
             return this;
         }
 
@@ -592,12 +578,12 @@ public record Config(@Nonnull Metric metric,
             return this;
         }
 
-        public int getReassignOuterNeighborhoodSize() {
-            return reassignOuterNeighborhoodSize;
+        public int getReassignNumNeighboringClusters() {
+            return reassignNumNeighboringClusters;
         }
 
-        public ConfigBuilder setReassignOuterNeighborhoodSize(final int reassignOuterNeighborhoodSize) {
-            this.reassignOuterNeighborhoodSize = reassignOuterNeighborhoodSize;
+        public ConfigBuilder setReassignNumNeighboringClusters(final int reassignNumNeighboringClusters) {
+            this.reassignNumNeighboringClusters = reassignNumNeighboringClusters;
             return this;
         }
 
@@ -639,9 +625,9 @@ public record Config(@Nonnull Metric metric,
                     getMaxNumConcurrentNeighborhoodFetches(),
                     getSampleBatchSize(), getSearchConcurrency(), getInsertMaxCandidateClusters(),
                     getDeleteMaxCandidateClusters(), getDeleteConcurrency(),
-                    getSplitNeighborhoodSize(), getMergeInnerNeighborhoodSize(), getMergeOuterNeighborhoodSize(),
+                    getSplitNumNearestClusters(), getMergeNumNearestClusters(),
                     getKMeansMaxIterations(), getKMeansMaxRestarts(),
-                    getReassignOuterNeighborhoodSize(),
+                    getReassignNumNeighboringClusters(),
                     getCollapseMinDuplicates(), getSplitMergeConcurrency(), getReassignConcurrency());
         }
     }

@@ -251,7 +251,7 @@ public class Insert {
         final AtomicReference<UUID> primaryClusterIdAtomic = new AtomicReference<>();
         final AtomicDouble primaryDistanceAtomic = new AtomicDouble(Double.NaN);
 
-        final AsyncIterable<ClusterMetadataWithDistance> affectedNeighborhoodIterable =
+        final AsyncIterable<ClusterMetadataWithDistance> affectedNearestClustersIterable =
                 takeWhileIterable(limitIterable(clusterMetadataIterable, config.insertMaxCandidateClusters(),
                                 getExecutor()),
                         clusterMetadataWithDistance -> {
@@ -284,25 +284,25 @@ public class Insert {
                         newAdditionalValues);
         primitives.writeVectorMetadata(transaction, newVectorMetadata);
 
-        return AsyncUtil.collect(affectedNeighborhoodIterable, getExecutor())
+        return AsyncUtil.collect(affectedNearestClustersIterable, getExecutor())
                 .thenAccept(replicationCandidates ->
-                        writeNeighborhoodReferences(transaction, random, accessInfo, quantizer, estimator,
+                        writeNeighboringClusterReferences(transaction, random, accessInfo, quantizer, estimator,
                                 primaryClusterIdAtomic.get(), primaryDistanceAtomic.get(),
                                 newVectorMetadata, transformedNewVector, replicationCandidates))
                 .thenCompose(ignored ->
                         addToStatsIfNecessary(transaction, random, accessInfo, transformedNewVector));
     }
 
-    private void writeNeighborhoodReferences(@Nonnull final Transaction transaction,
-                                             @Nonnull final SplittableRandom random,
-                                             @Nonnull final AccessInfo accessInfo,
-                                             @Nonnull final Quantizer quantizer,
-                                             @Nonnull final DistanceEstimator estimator,
-                                             @Nullable final UUID primaryClusterId,
-                                             final double distanceToPrimaryCentroid,
-                                             @Nonnull final VectorMetadata newVectorMetadata,
-                                             @Nonnull final Transformed<RealVector> transformedNewVector,
-                                             @Nonnull final List<ClusterMetadataWithDistance> replicationCandidates) {
+    private void writeNeighboringClusterReferences(@Nonnull final Transaction transaction,
+                                                   @Nonnull final SplittableRandom random,
+                                                   @Nonnull final AccessInfo accessInfo,
+                                                   @Nonnull final Quantizer quantizer,
+                                                   @Nonnull final DistanceEstimator estimator,
+                                                   @Nullable final UUID primaryClusterId,
+                                                   final double distanceToPrimaryCentroid,
+                                                   @Nonnull final VectorMetadata newVectorMetadata,
+                                                   @Nonnull final Transformed<RealVector> transformedNewVector,
+                                                   @Nonnull final List<ClusterMetadataWithDistance> replicationCandidates) {
         final Config config = getConfig();
         final Primitives primitives = primitives();
         final List<ClusterMetadataWithDistance> selectedReplicationClusters =

@@ -57,12 +57,11 @@ class ConfigTest {
         final int insertMaxCandidateClusters = Config.DEFAULT_INSERT_MAX_CANDIDATE_CLUSTERS + 1;
         final int deleteMaxCandidateClusters = Config.DEFAULT_DELETE_MAX_CANDIDATE_CLUSTERS + 1;
         final int deleteConcurrency = Config.DEFAULT_DELETE_CONCURRENCY + 1;
-        final int splitNeighborhoodSize = Config.DEFAULT_SPLIT_NEIGHBORHOOD_SIZE + 1;
-        final int mergeInnerNeighborhoodSize = Config.DEFAULT_MERGE_INNER_NEIGHBORHOOD_SIZE + 1;
-        final int mergeOuterNeighborhoodSize = Config.DEFAULT_MERGE_OUTER_NEIGHBORHOOD_SIZE + 1;
+        final int splitNumNearestClusters = Config.DEFAULT_SPLIT_NUM_NEAREST_CLUSTERS + 1;
+        final int mergeNumNearestClusters = Config.DEFAULT_MERGE_NUM_NEAREST_CLUSTERS + 1;
         final int kMeansMaxIterations = Config.DEFAULT_KMEANS_MAX_ITERATIONS + 1;
         final int kMeansMaxRestarts = Config.DEFAULT_KMEANS_MAX_RESTARTS + 1;
-        final int reassignOuterNeighborhoodSize = Config.DEFAULT_REASSIGN_OUTER_NEIGHBORHOOD_SIZE + 1;
+        final int reassignNumNeighboringClusters = Config.DEFAULT_REASSIGN_NUM_NEIGHBORING_CLUSTERS + 1;
         final int collapseMinDuplicates = Config.DEFAULT_COLLAPSE_MIN_DUPLICATES + 1;
         final int splitMergeConcurrency = Config.DEFAULT_SPLIT_MERGE_CONCURRENCY + 1;
         final int reassignConcurrency = Config.DEFAULT_REASSIGN_CONCURRENCY + 1;
@@ -90,12 +89,11 @@ class ConfigTest {
         Assertions.assertThat(defaultConfig.insertMaxCandidateClusters()).isNotEqualTo(insertMaxCandidateClusters);
         Assertions.assertThat(defaultConfig.deleteMaxCandidateClusters()).isNotEqualTo(deleteMaxCandidateClusters);
         Assertions.assertThat(defaultConfig.deleteConcurrency()).isNotEqualTo(deleteConcurrency);
-        Assertions.assertThat(defaultConfig.splitNeighborhoodSize()).isNotEqualTo(splitNeighborhoodSize);
-        Assertions.assertThat(defaultConfig.mergeInnerNeighborhoodSize()).isNotEqualTo(mergeInnerNeighborhoodSize);
-        Assertions.assertThat(defaultConfig.mergeOuterNeighborhoodSize()).isNotEqualTo(mergeOuterNeighborhoodSize);
+        Assertions.assertThat(defaultConfig.splitNumNearestClusters()).isNotEqualTo(splitNumNearestClusters);
+        Assertions.assertThat(defaultConfig.mergeNumNearestClusters()).isNotEqualTo(mergeNumNearestClusters);
         Assertions.assertThat(defaultConfig.kMeansMaxIterations()).isNotEqualTo(kMeansMaxIterations);
         Assertions.assertThat(defaultConfig.kMeansMaxRestarts()).isNotEqualTo(kMeansMaxRestarts);
-        Assertions.assertThat(defaultConfig.reassignOuterNeighborhoodSize()).isNotEqualTo(reassignOuterNeighborhoodSize);
+        Assertions.assertThat(defaultConfig.reassignNumNeighboringClusters()).isNotEqualTo(reassignNumNeighboringClusters);
         Assertions.assertThat(defaultConfig.collapseMinDuplicates()).isNotEqualTo(collapseMinDuplicates);
         Assertions.assertThat(defaultConfig.splitMergeConcurrency()).isNotEqualTo(splitMergeConcurrency);
         Assertions.assertThat(defaultConfig.reassignConcurrency()).isNotEqualTo(reassignConcurrency);
@@ -125,12 +123,11 @@ class ConfigTest {
                         .setInsertMaxCandidateClusters(insertMaxCandidateClusters)
                         .setDeleteMaxCandidateClusters(deleteMaxCandidateClusters)
                         .setDeleteConcurrency(deleteConcurrency)
-                        .setSplitNeighborhoodSize(splitNeighborhoodSize)
-                        .setMergeInnerNeighborhoodSize(mergeInnerNeighborhoodSize)
-                        .setMergeOuterNeighborhoodSize(mergeOuterNeighborhoodSize)
+                        .setSplitNumNearestClusters(splitNumNearestClusters)
+                        .setMergeNumNearestClusters(mergeNumNearestClusters)
                         .setKMeansMaxIterations(kMeansMaxIterations)
                         .setKMeansMaxRestarts(kMeansMaxRestarts)
-                        .setReassignOuterNeighborhoodSize(reassignOuterNeighborhoodSize)
+                        .setReassignNumNeighboringClusters(reassignNumNeighboringClusters)
                         .setCollapseMinDuplicates(collapseMinDuplicates)
                         .setSplitMergeConcurrency(splitMergeConcurrency)
                         .setReassignConcurrency(reassignConcurrency)
@@ -159,12 +156,11 @@ class ConfigTest {
         Assertions.assertThat(newConfig.insertMaxCandidateClusters()).isEqualTo(insertMaxCandidateClusters);
         Assertions.assertThat(newConfig.deleteMaxCandidateClusters()).isEqualTo(deleteMaxCandidateClusters);
         Assertions.assertThat(newConfig.deleteConcurrency()).isEqualTo(deleteConcurrency);
-        Assertions.assertThat(newConfig.splitNeighborhoodSize()).isEqualTo(splitNeighborhoodSize);
-        Assertions.assertThat(newConfig.mergeInnerNeighborhoodSize()).isEqualTo(mergeInnerNeighborhoodSize);
-        Assertions.assertThat(newConfig.mergeOuterNeighborhoodSize()).isEqualTo(mergeOuterNeighborhoodSize);
+        Assertions.assertThat(newConfig.splitNumNearestClusters()).isEqualTo(splitNumNearestClusters);
+        Assertions.assertThat(newConfig.mergeNumNearestClusters()).isEqualTo(mergeNumNearestClusters);
         Assertions.assertThat(newConfig.kMeansMaxIterations()).isEqualTo(kMeansMaxIterations);
         Assertions.assertThat(newConfig.kMeansMaxRestarts()).isEqualTo(kMeansMaxRestarts);
-        Assertions.assertThat(newConfig.reassignOuterNeighborhoodSize()).isEqualTo(reassignOuterNeighborhoodSize);
+        Assertions.assertThat(newConfig.reassignNumNeighboringClusters()).isEqualTo(reassignNumNeighboringClusters);
         Assertions.assertThat(newConfig.collapseMinDuplicates()).isEqualTo(collapseMinDuplicates);
         Assertions.assertThat(newConfig.splitMergeConcurrency()).isEqualTo(splitMergeConcurrency);
         Assertions.assertThat(newConfig.reassignConcurrency()).isEqualTo(reassignConcurrency);

@@ -25,6 +25,7 @@ import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.common.RandomHelpers;
 import com.apple.foundationdb.async.common.StorageHelpers;
 import com.apple.foundationdb.async.common.StorageTransform;
+import com.apple.foundationdb.async.common.TopK;
 import com.apple.foundationdb.linear.DistanceEstimator;
 import com.apple.foundationdb.linear.Quantizer;
 import com.apple.foundationdb.linear.RealVector;
@@ -147,10 +148,10 @@ public class CollapseTask extends AbstractDeferredTask {
         final ClusterMetadataWithDistance targetClusterMetadataWithDistance =
                 new ClusterMetadataWithDistance(targetClusterMetadata,
                         storageTransform.transform(targetClusterCentroid), 0.0d);
-        return primitives.fetchInnerClusters(transaction,
+        return primitives.fetchCoreClusters(transaction,
                         ImmutableList.of(targetClusterMetadataWithDistance), storageTransform)
-                .thenAccept(innerClusters -> {
-                    final Cluster targetCluster = Iterables.getOnlyElement(innerClusters);
+                .thenAccept(coreClusters -> {
+                    final Cluster targetCluster = Iterables.getOnlyElement(coreClusters);
                     final CollapseAssignments collapseAssignments =
                             computeCollapseAssignments(random, estimator, targetClusterMetadataWithDistance,
                                     targetCluster.vectorReferences());
@@ -172,7 +173,7 @@ public class CollapseTask extends AbstractDeferredTask {
 
         //
         // At this point clusterIdMetadataMap contains the target cluster and all the clusters
-        // from the outer neighborhood.
+        // from the neighboring clusters.
         //
         final ImmutableSetMultimap<UUID, UUID> vectorReferenceToVectorSignatureMap =
                 vectorReferenceToSignatureMap(vectorReferences);

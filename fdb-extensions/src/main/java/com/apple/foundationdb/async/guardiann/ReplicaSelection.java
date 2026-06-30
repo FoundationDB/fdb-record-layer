@@ -28,7 +28,8 @@ import java.util.UUID;
 /**
  * The per-primary output of replication selection: the replicas to place keyed by destination cluster id, together
  * with this primary's contribution to the replication trace counters. Pure data — the caller decides how to route the
- * placements into its assignment builders (e.g. directly, or via a bounded {@link TopK} for newly-minted clusters).
+ * placements into its assignment builders (e.g. directly, or via a bounded {@link com.apple.foundationdb.async.common.TopK}
+ * for newly-minted clusters).
  *
  * @param replicasByCluster the replicas to place, keyed by destination cluster id
  * @param stats this primary's contribution to the replication trace counters

@@ -18,7 +18,7 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.async.guardiann;
+package com.apple.foundationdb.async.common;
 
 import com.apple.foundationdb.async.AsyncIterable;
 import com.apple.foundationdb.async.AsyncIterator;
@@ -93,17 +93,15 @@ public class TopK<T> {
      *
      * @return the retained elements, sorted from best (greatest) to worst (least)
      */
-    @SuppressWarnings("unchecked")
     public List<T> toSortedList() {
         final PriorityQueue<T> copy = new PriorityQueue<>(queue);
-        final int size = copy.size();
-        final T[] array = (T[]) new Object[size];
-
-        for (int i = size - 1; i >= 0; i --) {
-            array[i] = copy.poll();
+        final ImmutableList.Builder<T> builder = ImmutableList.builderWithExpectedSize(copy.size());
+        while (!copy.isEmpty()) {
+            builder.add(copy.poll());
         }
-
-        return ImmutableList.copyOf(array);
+        // poll() drains the heap worst-first; ImmutableList.reverse() returns an O(1) reversed view (not a copy),
+        // so the result reads best-to-worst. The right-sized builder lets build() reuse its array without copying.
+        return builder.build().reverse();
     }
 
     /**

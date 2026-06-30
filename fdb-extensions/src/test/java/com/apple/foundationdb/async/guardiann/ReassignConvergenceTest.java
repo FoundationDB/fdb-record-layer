@@ -64,7 +64,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  * re-homed into new clusters (driving the <em>under-replication</em> count down).
  * <p>
  * Reassigns are driven directly, in memory, one cluster per transaction: for each cluster the test builds a
- * {@link ReassignTask} with a precomputed neighborhood and calls {@link ReassignTask#reassign} with
+ * {@link ReassignTask} with precomputed nearest clusters and calls {@link ReassignTask#reassign} with
  * {@code enqueueFollowUpTasks=false}, so the two rounds are the only work — no follow-up split/reassign tasks are
  * enqueued. This is the realization of the "reassign-convergence" idea: insert, observe imperfection, then show two
  * controlled reassign rounds reduce it.
@@ -215,7 +215,7 @@ public class ReassignConvergenceTest implements BaseTest {
                                     @Nonnull final Transformed<RealVector> centroid) {
         final Locator locator = guardiann.getLocator();
         final Primitives primitives = locator.primitives();
-        final int numNeighborhood = 1 + guardiann.getConfig().reassignOuterNeighborhoodSize();
+        final int numNearestClusters = 1 + guardiann.getConfig().reassignNumNeighboringClusters();
 
         getDb().run(transaction -> {
             final AccessInfo accessInfo = primitives.fetchAccessInfo(transaction).join();
@@ -226,16 +226,16 @@ public class ReassignConvergenceTest implements BaseTest {
             final StorageTransform storageTransform = primitives.storageTransform(accessInfo);
             final RealVector untransformedCentroid = storageTransform.untransform(centroid);
 
-            final List<ClusterMetadataWithDistance> neighborhoodMetadata =
-                    primitives.fetchNeighborhoodClusterMetadata(transaction, clusterMetadata,
-                            untransformedCentroid, storageTransform, numNeighborhood).join();
-            final List<ClusterReference> neighborhood =
-                    ClusterReference.fromClusterMetadataAndDistances(neighborhoodMetadata);
+            final List<ClusterMetadataWithDistance> nearestClusterMetadata =
+                    primitives.fetchNearestClusterMetadata(transaction, clusterMetadata,
+                            untransformedCentroid, storageTransform, numNearestClusters).join();
+            final List<ClusterReference> nearestClusters =
+                    ClusterReference.fromClusterMetadataAndDistances(nearestClusterMetadata);
 
             // Deterministic, in-memory-only task id (drives only the internal tie-break RNG; never enqueued).
             final UUID taskId = RandomHelpers.randomUuid(clusterId, true);
             final ReassignTask reassignTask = ReassignTask.of(locator, accessInfo, taskId, clusterId,
-                    centroid, Set.of(), neighborhood);
+                    centroid, Set.of(), nearestClusters);
             reassignTask.reassign(transaction, clusterMetadata, untransformedCentroid, false).join();
             return null;
         });

@@ -38,6 +38,7 @@ import org.slf4j.Logger;
 import javax.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -50,11 +51,18 @@ import java.util.stream.Collectors;
 
 /**
  * Base class for the deferred (background) maintenance tasks Guardiann enqueues to keep its cluster structure
- * healthy: {@link SplitMergeTask}, {@link ReassignTask}, {@link CollapseTask}, and {@link BounceTask}. Each task is
- * persisted in a task queue keyed by a {@link #getTaskId() task id} whose high bit encodes its priority, carries the
- * {@link AccessInfo access context} and the set of {@link #getTargetClusterIds() target cluster ids} it operates on,
- * and is rehydrated from its tuple representation via its {@link Kind}. Subclasses implement the actual maintenance
- * work.
+ * healthy: {@link SplitMergeTask}, {@link ReassignTask}, {@link CollapseTask}, and {@link BounceTask}.
+ *
+ * <p>
+ * Each task is persisted in a task queue and carries:
+ * <ul>
+ *   <li>a {@linkplain #getTaskId() task id} under which the task is stored in the queue; the id's high bit encodes
+ *       the task's scheduling priority, so high-priority ids sort ahead of normal-priority ones;</li>
+ *   <li>the {@link AccessInfo access context} it runs against; and</li>
+ *   <li>the set of {@linkplain #getTargetClusterIds() target cluster ids} it operates on.</li>
+ * </ul>
+ * A persisted task is rehydrated from its tuple representation via its {@link Kind}, and subclasses implement the
+ * actual maintenance work.
  */
 public abstract class AbstractDeferredTask {
     @Nonnull
@@ -266,8 +274,8 @@ public abstract class AbstractDeferredTask {
     }
 
     /**
-     * Computes the diff between the old cluster contents and the new assigned vectors. Vectors present
-     * in both old and new are checked for status changes (primary/replicated/underreplicated toggling);
+     * Computes the diff between the old and new contents of a single cluster. Vectors present in both old and new
+     * are checked for changes (a primary/replicated/underreplicated toggle, or a changed replication priority);
      * vectors only in the old cluster are marked for deletion; assignments whose primary key was not in the
      * old cluster (e.g. a freshly created collapsed reference) are insertions and are added to the write list.
      *
@@ -297,8 +305,12 @@ public abstract class AbstractDeferredTask {
                 Verify.verify(assignedVectorReference.id().uuid()
                         .equals(vectorReference.id().uuid()));
 
+                // Rewrite on a role transition (primary<->replica or underreplication toggle), or when the
+                // replicationPriority changed. A replica's priority is stable while its primary stays put and only
+                // shifts when that primary is reassigned to another cluster, so this rarely fires.
                 if (assignedVectorReference.isPrimaryCopy() != vectorReference.isPrimaryCopy() ||
-                        assignedVectorReference.isUnderreplicated() != vectorReference.isUnderreplicated()) {
+                        assignedVectorReference.isUnderreplicated() != vectorReference.isUnderreplicated() ||
+                        vectorReference.replicationPriorityChanged(assignedVectorReference)) {
                     toWriteBuilder.add(assignedVectorReference);
                 }
             } else {
@@ -325,8 +337,8 @@ public abstract class AbstractDeferredTask {
      * @param toWrite the vector references to write to the cluster
      * @param toDelete the primary keys of vectors to delete from the cluster
      */
-    record TargetClusterDelta(@Nonnull ImmutableList<VectorReference> toWrite,
-                              @Nonnull ImmutableList<Tuple> toDelete) {
+    record TargetClusterDelta(@Nonnull List<VectorReference> toWrite,
+                              @Nonnull List<Tuple> toDelete) {
     }
 
     /**
@@ -349,7 +361,7 @@ public abstract class AbstractDeferredTask {
     @Nonnull
     static NearestClustersResult computeNearestClusters(@Nonnull final DistanceEstimator estimator,
                                                         @Nonnull final List<VectorReference> vectorReferences,
-                                                        @Nonnull final Map<UUID, ClusterMetadataWithDistance> candidateClusters) {
+                                                        @Nonnull final Collection<ClusterMetadataWithDistance> candidateClusters) {
         final ImmutableListMultimap.Builder<UUID, ClusterMetadataWithDistance> invertedAssignmentsMapBuilder =
                 ImmutableListMultimap.builder();
         final Map<UUID, RunningStats> standardDeviationUpdates = Maps.newHashMap();
@@ -359,11 +371,11 @@ public abstract class AbstractDeferredTask {
             }
 
             // Rank every candidate cluster by distance to this vector (ascending). The candidate set is already
-            // bounded by the caller's neighborhood (see reassignOuterNeighborhoodSize / splitNeighborhoodSize), and
+            // bounded by the caller's nearest clusters (see reassignNumNeighboringClusters / splitNumNearestClusters), and
             // the eventual replication fan-out is bounded downstream by replicatedClusterTarget + occlusion, so there
             // is no separate cap here: position 0 is the new primary owner, the rest are replication candidates.
             final List<ClusterMetadataWithDistance> sortedNearestClusters = new ArrayList<>(candidateClusters.size());
-            for (final ClusterMetadataWithDistance clusterMetadataWithDistance : candidateClusters.values()) {
+            for (final ClusterMetadataWithDistance clusterMetadataWithDistance : candidateClusters) {
                 final double distance =
                         estimator.distance(vectorReference.vector(), clusterMetadataWithDistance.centroid());
                 sortedNearestClusters.add(clusterMetadataWithDistance.withNewDistance(distance));
@@ -399,31 +411,31 @@ public abstract class AbstractDeferredTask {
     }
 
     /**
-     * Partitions the given cluster neighborhood into inner and outer neighborhoods. The inner
-     * neighborhood contains the clusters closest to the target that will be dissolved/repartitioned;
-     * the outer neighborhood contains clusters that may receive overflow vectors.
+     * Partitions the given nearest clusters into core and neighboring clusters. The core clusters
+     * contain the clusters closest to the target that will be dissolved/repartitioned;
+     * the neighboring clusters contain clusters that may receive overflow vectors.
      *
      * <p>
      * Handles the rare edge case where the target cluster itself is not found in the HNSW results
-     * by synthesizing it at position 0 of the inner neighborhood.
+     * by synthesizing it at position 0 of the core clusters.
      * </p>
      *
      * @param clusterMetadataWithDistances the candidate clusters ordered by ascending distance to the target centroid
      * @param targetClusterMetadata the cluster being repartitioned
      * @param targetClusterCentroid the transformed centroid of the target cluster, used when the target is
      *        synthesized at position 0
-     * @param numInnerNeighborhood the number of closest clusters to place in the inner neighborhood (must be {@code >= 1})
-     * @param numOuterNeighborhood the number of subsequent clusters to place in the outer neighborhood
+     * @param numCoreClusters the number of closest clusters to place in the core clusters (must be {@code >= 1})
+     * @param numNeighboringClusters the number of subsequent clusters to place in the neighboring clusters
      *
-     * @return the inner/outer {@link Neighborhoods} partition of the given clusters
+     * @return the core/neighboring {@link ClusterClassification} partition of the given clusters
      */
     @Nonnull
-    static Neighborhoods neighborhoods(@Nonnull final List<ClusterMetadataWithDistance> clusterMetadataWithDistances,
+    static ClusterClassification classifyClusters(@Nonnull final List<ClusterMetadataWithDistance> clusterMetadataWithDistances,
                                        @Nonnull final ClusterMetadata targetClusterMetadata,
                                        @Nonnull final Transformed<RealVector> targetClusterCentroid,
-                                       final int numInnerNeighborhood,
-                                       final int numOuterNeighborhood) {
-        Verify.verify(numInnerNeighborhood >= 1, "numInnerNeighborhood must be >= 1, got %s", numInnerNeighborhood);
+                                       final int numCoreClusters,
+                                       final int numNeighboringClusters) {
+        Verify.verify(numCoreClusters >= 1, "numCoreClusters must be >= 1, got %s", numCoreClusters);
         boolean foundPrimaryCluster = false;
         for (final ClusterMetadataWithDistance clusterMetadata : clusterMetadataWithDistances) {
             if (clusterMetadata.clusterMetadata().id().equals(targetClusterMetadata.id())) {
@@ -433,24 +445,27 @@ public abstract class AbstractDeferredTask {
         }
 
         if (foundPrimaryCluster) {
-            final int cappedNumInnerNeighborhood = Math.min(numInnerNeighborhood, clusterMetadataWithDistances.size());
-            return new Neighborhoods(clusterMetadataWithDistances.subList(0, cappedNumInnerNeighborhood),
-                    clusterMetadataWithDistances.subList(cappedNumInnerNeighborhood, clusterMetadataWithDistances.size()));
+            final int cappedNumCoreClusters = Math.min(numCoreClusters, clusterMetadataWithDistances.size());
+            final int cappedNumNeighboringClusters = Math.min(numNeighboringClusters,
+                    clusterMetadataWithDistances.size() - cappedNumCoreClusters);
+            return new ClusterClassification(clusterMetadataWithDistances.subList(0, cappedNumCoreClusters),
+                    clusterMetadataWithDistances.subList(cappedNumCoreClusters,
+                            cappedNumCoreClusters + cappedNumNeighboringClusters));
         }
 
-        final ImmutableList.Builder<ClusterMetadataWithDistance> innerNeighborhoodBuilder = ImmutableList.builder();
-        innerNeighborhoodBuilder.add(
+        final ImmutableList.Builder<ClusterMetadataWithDistance> coreClustersBuilder = ImmutableList.builder();
+        coreClustersBuilder.add(
                 new ClusterMetadataWithDistance(targetClusterMetadata, targetClusterCentroid, 0.0d));
-        final int cappedNumInnerNeighborhood = Math.min(numInnerNeighborhood - 1, clusterMetadataWithDistances.size());
+        final int cappedNumCoreClusters = Math.min(numCoreClusters - 1, clusterMetadataWithDistances.size());
 
-        innerNeighborhoodBuilder.addAll(clusterMetadataWithDistances.subList(0, cappedNumInnerNeighborhood));
-        final List<ClusterMetadataWithDistance> innerNeighborhood = innerNeighborhoodBuilder.build();
+        coreClustersBuilder.addAll(clusterMetadataWithDistances.subList(0, cappedNumCoreClusters));
+        final List<ClusterMetadataWithDistance> coreClusters = coreClustersBuilder.build();
 
-        final int cappedNumOuterNeighborhood = Math.min(numOuterNeighborhood,
-                clusterMetadataWithDistances.size() - cappedNumInnerNeighborhood);
-        final List<ClusterMetadataWithDistance> outerNeighborhood = clusterMetadataWithDistances.subList(
-                cappedNumInnerNeighborhood, cappedNumInnerNeighborhood + cappedNumOuterNeighborhood);
-        return new Neighborhoods(innerNeighborhood, outerNeighborhood);
+        final int cappedNumNeighboringClusters = Math.min(numNeighboringClusters,
+                clusterMetadataWithDistances.size() - cappedNumCoreClusters);
+        final List<ClusterMetadataWithDistance> neighboringClusters = clusterMetadataWithDistances.subList(
+                cappedNumCoreClusters, cappedNumCoreClusters + cappedNumNeighboringClusters);
+        return new ClusterClassification(coreClusters, neighboringClusters);
     }
 
     /**
@@ -466,15 +481,15 @@ public abstract class AbstractDeferredTask {
     }
 
     /**
-     * A partition of a cluster's neighborhood into an inner and an outer neighborhood. The inner neighborhood holds
-     * the closest clusters (those dissolved or repartitioned by an operation); the outer neighborhood holds the next
+     * A classification of a cluster's nearest clusters into core clusters and neighboring clusters. The core clusters hold
+     * the closest clusters (those dissolved or repartitioned by an operation); the neighboring clusters hold the next
      * clusters out, which may receive overflow vectors.
      *
-     * @param innerNeighborhood the closest clusters, to be dissolved or repartitioned
-     * @param outerNeighborhood the surrounding clusters that may receive overflow vectors
+     * @param coreClusters the closest clusters, to be dissolved or repartitioned
+     * @param neighboringClusters the surrounding clusters that may receive overflow vectors
      */
-    record Neighborhoods(@Nonnull List<ClusterMetadataWithDistance> innerNeighborhood,
-                         @Nonnull List<ClusterMetadataWithDistance> outerNeighborhood) {
+    record ClusterClassification(@Nonnull List<ClusterMetadataWithDistance> coreClusters,
+                                 @Nonnull List<ClusterMetadataWithDistance> neighboringClusters) {
     }
 
     /**

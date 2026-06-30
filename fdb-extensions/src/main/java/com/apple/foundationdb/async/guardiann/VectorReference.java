@@ -114,6 +114,24 @@ sealed interface VectorReference permits PrimaryCopy, ReplicatedCopy {
     }
 
     /**
+     * Whether this reference's {@link #replicationPriority() replication priority} differs from {@code other}'s by
+     * more than floating-point noise — i.e. by enough to be worth persisting. The priority is derived from SIMD
+     * double-precision distance reductions, whose summation order is non-deterministic, so a logically-unchanged
+     * priority recomputes with roughly {@code 1e-13} relative jitter (a touch more once two distances are divided to
+     * form it). The threshold is {@link RealVector#EPS} (1e-12) — about an order of magnitude above that jitter
+     * floor, and far below the O(1)-relative shift a real change (the vector's primary moving to a different cluster,
+     * hence a different primary centroid) produces. The {@code (1 + |this|)} factor pairs an absolute floor with a
+     * relative band so the test holds across the priority's (unbounded) magnitude.
+     *
+     * @param other the reference to compare against (e.g. a freshly recomputed assignment of the same vector)
+     * @return {@code true} if the two priorities differ by more than the floating-point-noise floor
+     */
+    default boolean replicationPriorityChanged(@Nonnull final VectorReference other) {
+        return Math.abs(other.replicationPriority() - replicationPriority())
+                > RealVector.EPS * (1.0d + Math.abs(replicationPriority()));
+    }
+
+    /**
      * Returns a copy of this reference with a different vector id, preserving role and all other state.
      *
      * @param newVectorId the new vector id

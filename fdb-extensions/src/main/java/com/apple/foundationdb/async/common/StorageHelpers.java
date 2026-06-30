@@ -82,7 +82,11 @@ public final class StorageHelpers {
                         final byte[] key = keyValue.getKey();
                         final byte[] value = keyValue.getValue();
                         resultBuilder.add(aggregatedVectorFromRaw(prefixSubspace, key, value));
-                        // this is done to not lock the entire range we just read but jst the keys we did read
+                        //
+                        // This is done to not lock the entire range we just read but just the keys we did read.
+                        // We don't care which records we aggregate. Other records will be consumed later. It is
+                        // better, to not lock the entire range here, since we really do not need that.
+                        //
                         transaction.addReadConflictKey(key);
                         transaction.clear(key);
                         onReadListener.onKeyValueRead(key, value);

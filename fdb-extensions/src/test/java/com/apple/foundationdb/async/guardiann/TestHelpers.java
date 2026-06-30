@@ -25,6 +25,7 @@ import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.async.MoreAsyncUtil;
 import com.apple.foundationdb.async.common.PrimaryKeyAndVector;
 import com.apple.foundationdb.async.common.ResultEntry;
+import com.apple.foundationdb.async.common.TopK;
 import com.apple.foundationdb.async.hnsw.HNSW;
 import com.apple.foundationdb.linear.DoubleRealVector;
 import com.apple.foundationdb.linear.RealVector;

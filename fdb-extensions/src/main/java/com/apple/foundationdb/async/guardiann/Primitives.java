@@ -1276,21 +1276,21 @@ class Primitives {
     }
 
     /**
-     * Fetches a target cluster's neighborhood — that is the {@code numClusters} clusters whose centroids are nearest
+     * Fetches a target cluster's nearest clusters — that is the {@code numClusters} clusters whose centroids are nearest
      * the target's — as the candidate set a split/merge/reassign repartitions over. Walks the centroid {@link HNSW} in
      * ascending distance order; the target cluster itself is included at distance {@code 0} using the metadata
      * already in hand, avoiding a redundant re-read of the very cluster that triggered the work.
      *
      * @param transaction the read transaction
-     * @param targetClusterMetadata the metadata of the cluster whose neighborhood is being fetched
+     * @param targetClusterMetadata the metadata of the cluster whose nearest clusters are being fetched
      * @param targetClusterCentroid the target's centroid in the untransformed (client) coordinate space
      * @param storageTransform the transform mapping fetched centroids into the stored coordinate space
      * @param numClusters the maximum number of nearest clusters to fetch (including the target)
-     * @return a future of the neighborhood clusters, nearest first
+     * @return a future of the nearest clusters, nearest first
      */
     @Nonnull
     CompletableFuture<List<ClusterMetadataWithDistance>>
-            fetchNeighborhoodClusterMetadata(@Nonnull final ReadTransaction transaction,
+            fetchNearestClusterMetadata(@Nonnull final ReadTransaction transaction,
                                              @Nonnull final ClusterMetadata targetClusterMetadata,
                                              @Nonnull final RealVector targetClusterCentroid,
                                              @Nonnull final StorageTransform storageTransform,
@@ -1320,22 +1320,22 @@ class Primitives {
     }
 
     /**
-     * Fully loads each cluster of an inner neighborhood — the clusters a split/merge is going to dissolve and
+     * Fully loads each of the core clusters — the clusters a split/merge is going to dissolve and
      * repartition — since repartitioning needs their actual vectors, not just their metadata and centroids.
      *
      * @param transaction the transaction
-     * @param innerNeighborhood the inner-neighborhood clusters to load in full
+     * @param coreClusters the core clusters to load in full
      * @param storageTransform the transform used to reconstruct stored vectors
      * @return a future of the fully-loaded clusters
      */
     @Nonnull
-    CompletableFuture<List<Cluster>> fetchInnerClusters(@Nonnull final Transaction transaction,
-                                                        @Nonnull final List<ClusterMetadataWithDistance> innerNeighborhood,
+    CompletableFuture<List<Cluster>> fetchCoreClusters(@Nonnull final Transaction transaction,
+                                                        @Nonnull final List<ClusterMetadataWithDistance> coreClusters,
                                                         @Nonnull final StorageTransform storageTransform) {
         final Primitives primitives = getLocator().primitives();
         final Executor executor = getLocator().getExecutor();
 
-        return forEach(innerNeighborhood,
+        return forEach(coreClusters,
                 clusterMetadata ->
                         primitives.fetchCluster(transaction, storageTransform,
                                 clusterMetadata.clusterMetadata().id(), clusterMetadata.centroid()),

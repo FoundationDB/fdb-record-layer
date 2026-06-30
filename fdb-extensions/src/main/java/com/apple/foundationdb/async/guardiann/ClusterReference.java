@@ -32,7 +32,7 @@ import java.util.UUID;
 /**
  * A lightweight reference to a cluster, holding just its id and (transformed) centroid without the full
  * {@link ClusterMetadata}. Used where only a cluster's identity and location are needed — for example in a task's
- * precomputed neighborhood that is serialized into the deferred-task queue.
+ * precomputed nearest clusters that are serialized into the deferred-task queue.
  *
  * @param clusterId the id of the referenced cluster
  * @param centroid the transformed centroid of the referenced cluster

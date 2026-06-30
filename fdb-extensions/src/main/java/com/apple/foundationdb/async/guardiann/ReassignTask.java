@@ -59,10 +59,10 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 
 /**
- * A deferred task that reassigns a target cluster's vectors across its neighborhood to restore Guardiann's
+ * A deferred task that reassigns a target cluster's vectors across its nearest clusters to restore Guardiann's
  * replication invariants — for example after a split or merge (identified by {@code causeClusterIds}), or when a
  * cluster has accumulated too many underreplicated primary or replicated vectors. It recomputes each vector's
- * nearest clusters over the precomputed {@link ClusterReference} neighborhood and rewrites the primary and
+ * nearest clusters over the precomputed {@link ClusterReference} nearest clusters and rewrites the primary and
  * replicated copies accordingly.
  */
 public class ReassignTask extends AbstractDeferredTask {
@@ -75,17 +75,17 @@ public class ReassignTask extends AbstractDeferredTask {
     @Nonnull
     private final Set<UUID> causeClusterIds;
     @Nonnull
-    private final List<ClusterReference> neighborhood;
+    private final List<ClusterReference> nearestClusters;
 
     private ReassignTask(@Nonnull final Locator locator, @Nonnull final AccessInfo accessInfo,
                          @Nonnull final UUID taskId, @Nonnull final UUID targetClusterId,
                          @Nonnull final Transformed<RealVector> centroid,
                          @Nonnull final Set<UUID> causeClusterIds,
-                         @Nonnull final List<ClusterReference> neighborhood) {
+                         @Nonnull final List<ClusterReference> nearestClusters) {
         super(locator, accessInfo, taskId, ImmutableSet.of(targetClusterId));
         this.centroid = centroid;
         this.causeClusterIds = ImmutableSet.copyOf(causeClusterIds);
-        this.neighborhood = ImmutableList.copyOf(neighborhood);
+        this.nearestClusters = ImmutableList.copyOf(nearestClusters);
     }
 
     @Nonnull
@@ -99,8 +99,8 @@ public class ReassignTask extends AbstractDeferredTask {
     }
 
     @Nonnull
-    private List<ClusterReference> getNeighborhood() {
-        return neighborhood;
+    private List<ClusterReference> getNearestClusters() {
+        return nearestClusters;
     }
 
     @Nonnull
@@ -114,9 +114,9 @@ public class ReassignTask extends AbstractDeferredTask {
         final Quantizer quantizer = getLocator().primitives().quantizer(getAccessInfo());
         final Transformed<RealVector> encodedVector = quantizer.encode(getCentroid());
 
-        final ImmutableList.Builder<Object> neighborhoodTuplesBuilder = ImmutableList.builder();
-        for (final ClusterReference clusterMetadataWithDistance : getNeighborhood()) {
-            neighborhoodTuplesBuilder.add(
+        final ImmutableList.Builder<Object> nearestClustersTuplesBuilder = ImmutableList.builder();
+        for (final ClusterReference clusterMetadataWithDistance : getNearestClusters()) {
+            nearestClustersTuplesBuilder.add(
                     StorageAdapter.valueTupleFromClusterReference(quantizer,
                             clusterMetadataWithDistance));
         }
@@ -124,7 +124,7 @@ public class ReassignTask extends AbstractDeferredTask {
         return Tuple.from(getKind().getCode(), getTargetClusterId(),
                 StorageHelpers.bytesFromVector(encodedVector),
                 StorageAdapter.tupleFromClusterIds(getCauseClusterIds()),
-                Tuple.fromItems(neighborhoodTuplesBuilder.build()));
+                Tuple.fromItems(nearestClustersTuplesBuilder.build()));
     }
 
     @Override
@@ -170,11 +170,11 @@ public class ReassignTask extends AbstractDeferredTask {
     }
 
     /**
-     * Reassigns the target cluster's vectors across its neighborhood — re-homing each primary to its nearest
+     * Reassigns the target cluster's vectors across its nearest clusters — re-homing each primary to its nearest
      * cluster and re-establishing replication. When {@code enqueueFollowUpTasks} is {@code true} (the production
-     * path via {@link #runTask}) it may re-enqueue itself to fetch a missing neighborhood and may enqueue
+     * path via {@link #runTask}) it may re-enqueue itself to fetch missing nearest clusters and may enqueue
      * split/reassign follow-ups for outer clusters that received vectors. When {@code false} (used by controlled
-     * tests that drive reassign directly) it enqueues nothing: it requires a precomputed neighborhood and writes
+     * tests that drive reassign directly) it enqueues nothing: it requires precomputed nearest clusters and writes
      * outer-cluster metadata updates without enqueuing any follow-up tasks.
      *
      * @param transaction the transaction
@@ -198,45 +198,45 @@ public class ReassignTask extends AbstractDeferredTask {
         final Quantizer quantizer = primitives.quantizer(accessInfo);
         final DistanceEstimator estimator = quantizer.estimator();
 
-        final int numInnerNeighborhood = 1; // reassign always dissolves exactly the single target cluster
-        final int numOuterNeighborhood = config.reassignOuterNeighborhoodSize();
-        final int numNeighborhood = numInnerNeighborhood + numOuterNeighborhood;
+        final int numCoreClusters = 1; // reassign always dissolves exactly the single target cluster
+        final int numNeighboringClusters = config.reassignNumNeighboringClusters();
+        final int numNearestClusters = numCoreClusters + numNeighboringClusters;
 
-        final CompletableFuture<Void> reenqueue = reenqueueWithFetchedNeighborhoodIfEmpty(
+        final CompletableFuture<Void> reenqueue = reenqueueWithFetchedNearestClustersIfEmpty(
                 transaction, targetClusterMetadata, targetClusterCentroid, random, storageTransform,
-                numNeighborhood, enqueueFollowUpTasks);
+                numNearestClusters, enqueueFollowUpTasks);
         if (reenqueue != null) {
             return reenqueue;
         }
-        final List<ClusterReference> neighborhood = getNeighborhood();
+        final List<ClusterReference> nearestClusters = getNearestClusters();
 
-        return MoreAsyncUtil.forEach(neighborhood,
+        return MoreAsyncUtil.forEach(nearestClusters,
                         clusterIdAndCentroid -> primitives.fetchClusterMetadataWithDistance(transaction,
                                 clusterIdAndCentroid.clusterId(), clusterIdAndCentroid.centroid(), 0.0d),
                         config.reassignConcurrency(), executor)
-                .thenCompose(neighborhoodClusterMetadataWithDistances -> {
+                .thenCompose(nearestClusterMetadataWithDistances -> {
 
-                    final Neighborhoods neighborhoods =
-                            neighborhoods(neighborhoodClusterMetadataWithDistances,
-                                    targetClusterMetadata, getCentroid(), numInnerNeighborhood, numOuterNeighborhood);
+                    final ClusterClassification classification =
+                            classifyClusters(nearestClusterMetadataWithDistances,
+                                    targetClusterMetadata, getCentroid(), numCoreClusters, numNeighboringClusters);
 
-                    final List<ClusterMetadataWithDistance> innerNeighborhood = neighborhoods.innerNeighborhood();
-                    final List<ClusterMetadataWithDistance> outerNeighborhood = neighborhoods.outerNeighborhood();
-                    Verify.verify(innerNeighborhood.size() == 1,
-                            "reassign expects exactly one inner (target) cluster, got %s", innerNeighborhood.size());
+                    final List<ClusterMetadataWithDistance> coreClusters = classification.coreClusters();
+                    final List<ClusterMetadataWithDistance> neighboringClusters = classification.neighboringClusters();
+                    Verify.verify(coreClusters.size() == 1,
+                            "reassign expects exactly one inner (target) cluster, got %s", coreClusters.size());
 
                     //
-                    // At this point innerNeighborhood is the single target cluster whose vectors will be
-                    // reassigned; outerNeighborhood holds the candidate clusters those vectors may move or
+                    // At this point coreClusters is the single target cluster whose vectors will be
+                    // reassigned; neighboringClusters holds the candidate clusters those vectors may move or
                     // replicate to.
                     //
-                    return primitives.fetchInnerClusters(transaction, innerNeighborhood, storageTransform)
+                    return primitives.fetchCoreClusters(transaction, coreClusters, storageTransform)
                             .thenCompose(innerClusters -> primitives.cleanUpVectorReferences(transaction,
                                             innerClusters, false)
                                     .thenCompose(cleanedUpVectorReferences -> {
                                         final Reassignment partialReassignment =
-                                                reassignVectorReferences(estimator, Iterables.getOnlyElement(innerNeighborhood),
-                                                        outerNeighborhood, cleanedUpVectorReferences);
+                                                reassignVectorReferences(estimator, Iterables.getOnlyElement(coreClusters),
+                                                        neighboringClusters, cleanedUpVectorReferences);
                                         final Cluster targetCluster = Iterables.getOnlyElement(innerClusters);
                                         return foldCollapsedReplicas(transaction, partialReassignment,
                                                         targetClusterMetadata.id(), config.replicatedClusterTarget())
@@ -252,39 +252,39 @@ public class ReassignTask extends AbstractDeferredTask {
     }
 
     /**
-     * If the neighborhood has not been precomputed yet, fetches it and re-enqueues this work as a high-priority
-     * REASSIGN carrying that neighborhood, returning the (non-null) re-enqueue future so the caller can return it as
-     * an early-out. If a precomputed neighborhood is already present, returns {@code null} and the caller proceeds.
-     * Requires {@code enqueueFollowUpTasks}: the test-only direct-drive path ({@code false}) must supply a
-     * precomputed neighborhood rather than re-enqueue.
+     * If the nearest clusters have not been precomputed yet, fetches them and re-enqueues this work as a high-priority
+     * REASSIGN carrying those nearest clusters, returning the (non-null) re-enqueue future so the caller can return it as
+     * an early-out. If precomputed nearest clusters are already present, returns {@code null} and the caller proceeds.
+     * Requires {@code enqueueFollowUpTasks}: the test-only direct-drive path ({@code false}) must supply
+     * precomputed nearest clusters rather than re-enqueue.
      */
     @Nullable
-    private CompletableFuture<Void> reenqueueWithFetchedNeighborhoodIfEmpty(@Nonnull final Transaction transaction,
+    private CompletableFuture<Void> reenqueueWithFetchedNearestClustersIfEmpty(@Nonnull final Transaction transaction,
                                                                             @Nonnull final ClusterMetadata targetClusterMetadata,
                                                                             @Nonnull final RealVector targetClusterCentroid,
                                                                             @Nonnull final SplittableRandom random,
                                                                             @Nonnull final StorageTransform storageTransform,
-                                                                            final int numNeighborhood,
+                                                                            final int numNearestClusters,
                                                                             final boolean enqueueFollowUpTasks) {
-        if (!getNeighborhood().isEmpty()) {
+        if (!getNearestClusters().isEmpty()) {
             if (logger.isTraceEnabled()) {
-                logger.trace("using precomputed neighborhood; taskId={}; neighborhoodSize={}",
-                        taskIdToString(getTaskId()), getNeighborhood().size());
+                logger.trace("using precomputed nearest clusters; taskId={}; numNearestClusters={}",
+                        taskIdToString(getTaskId()), getNearestClusters().size());
             }
             return null;
         }
         Verify.verify(enqueueFollowUpTasks,
-                "reassign with enqueueFollowUpTasks=false requires a precomputed (non-empty) neighborhood");
-        return primitives().fetchNeighborhoodClusterMetadata(transaction, targetClusterMetadata,
-                        targetClusterCentroid, storageTransform, numNeighborhood)
-                .thenAccept(fetchedNeighborhood -> {
-                    final ReassignTask reassignTask = withHighPriorityAndNeighborhood(random,
-                            ClusterReference.fromClusterMetadataAndDistances(fetchedNeighborhood));
+                "reassign with enqueueFollowUpTasks=false requires precomputed (non-empty) nearest clusters");
+        return primitives().fetchNearestClusterMetadata(transaction, targetClusterMetadata,
+                        targetClusterCentroid, storageTransform, numNearestClusters)
+                .thenAccept(fetchedNearestClusters -> {
+                    final ReassignTask reassignTask = withHighPriorityAndNearestClusters(random,
+                            ClusterReference.fromClusterMetadataAndDistances(fetchedNearestClusters));
                     reassignTask.writeDeferredTask(transaction);
                     if (logger.isDebugEnabled()) {
-                        logger.debug("enqueuing high priority REASSIGN due to refetch of neighborhood; taskId={}; neighborhoodSize={}",
+                        logger.debug("enqueuing high priority REASSIGN due to refetch of nearest clusters; taskId={}; numNearestClusters={}",
                                 AbstractDeferredTask.taskIdToString(reassignTask.getTaskId()),
-                                reassignTask.getNeighborhood().size());
+                                reassignTask.getNearestClusters().size());
                     }
                 });
     }
@@ -292,14 +292,14 @@ public class ReassignTask extends AbstractDeferredTask {
     @Nonnull
     private Reassignment reassignVectorReferences(@Nonnull final DistanceEstimator estimator,
                                                   @Nonnull final ClusterMetadataWithDistance targetClusterMetadataWithDistance,
-                                                  @Nonnull final List<ClusterMetadataWithDistance> outerNeighborhood,
+                                                  @Nonnull final List<ClusterMetadataWithDistance> neighboringClusters,
                                                   @Nonnull final List<VectorReference> vectorReferences) {
         final ImmutableMap.Builder<UUID, ClusterMetadataWithDistance> clusterIdMetadataMapBuilder =
                 ImmutableMap.builder();
 
         final UUID targetClusterId = targetClusterMetadataWithDistance.clusterMetadata().id();
         clusterIdMetadataMapBuilder.put(targetClusterId, targetClusterMetadataWithDistance);
-        for (final ClusterMetadataWithDistance clusterMetadataWithDistance : outerNeighborhood) {
+        for (final ClusterMetadataWithDistance clusterMetadataWithDistance : neighboringClusters) {
             clusterIdMetadataMapBuilder.put(clusterMetadataWithDistance.clusterMetadata().id(),
                     clusterMetadataWithDistance);
         }
@@ -308,7 +308,7 @@ public class ReassignTask extends AbstractDeferredTask {
 
         //
         // At this point clusterIdMetadataMap contains the new clusters after the split and all the clusters
-        // from the outer neighborhood.
+        // from the neighboring clusters.
         //
 
         //
@@ -328,7 +328,7 @@ public class ReassignTask extends AbstractDeferredTask {
         }
 
         final NearestClustersResult nearestClustersResult =
-                computeNearestClusters(estimator, vectorReferences, clusterIdMetadataMap);
+                computeNearestClusters(estimator, vectorReferences, clusterIdMetadataMap.values());
         mergeStandardDeviationUpdates(standardDeviationsMap,
                 nearestClustersResult.standardDeviationUpdates());
         final ImmutableListMultimap<UUID, ClusterMetadataWithDistance> invertedAssignmentsMap =
@@ -710,11 +710,11 @@ public class ReassignTask extends AbstractDeferredTask {
     }
 
     @Nonnull
-    private ReassignTask withHighPriorityAndNeighborhood(@Nonnull final SplittableRandom random,
-                                                         @Nonnull final List<ClusterReference> neighborhood) {
+    private ReassignTask withHighPriorityAndNearestClusters(@Nonnull final SplittableRandom random,
+                                                         @Nonnull final List<ClusterReference> nearestClusters) {
         return ReassignTask.of(getLocator(), getAccessInfo(),
                 randomHighPriorityTaskId(random, getConfig().deterministicRandomness()), getTargetClusterId(),
-                getCentroid(), getCauseClusterIds(), neighborhood);
+                getCentroid(), getCauseClusterIds(), nearestClusters);
     }
 
     @Nonnull
@@ -727,16 +727,16 @@ public class ReassignTask extends AbstractDeferredTask {
         final Transformed<RealVector> centroid = storageTransform.transform(
                 StorageHelpers.vectorFromBytes(locator.getConfig(), valueTuple.getBytes(2)));
         final Set<UUID> causeClusterIds = StorageAdapter.clusterIdsFromTuple(valueTuple.getNestedTuple(3));
-        final ImmutableList.Builder<ClusterReference> neighborhoodsBuilder = ImmutableList.builder();
-        final Tuple neighborhoodsTuple = valueTuple.getNestedTuple(4);
-        for (int i = 0; i < neighborhoodsTuple.size(); i ++) {
-            final Tuple clusterMetadataWithDistanceTuple = neighborhoodsTuple.getNestedTuple(i);
-            neighborhoodsBuilder.add(StorageAdapter.clusterReferenceFromTuple(locator.getConfig(),
+        final ImmutableList.Builder<ClusterReference> nearestClustersBuilder = ImmutableList.builder();
+        final Tuple nearestClustersTuple = valueTuple.getNestedTuple(4);
+        for (int i = 0; i < nearestClustersTuple.size(); i ++) {
+            final Tuple clusterMetadataWithDistanceTuple = nearestClustersTuple.getNestedTuple(i);
+            nearestClustersBuilder.add(StorageAdapter.clusterReferenceFromTuple(locator.getConfig(),
                     storageTransform, clusterMetadataWithDistanceTuple));
         }
 
         return new ReassignTask(locator, accessInfo, keyTuple.getUUID(0), targetClusterId, centroid,
-                causeClusterIds, neighborhoodsBuilder.build());
+                causeClusterIds, nearestClustersBuilder.build());
     }
 
     @Nonnull
@@ -752,8 +752,8 @@ public class ReassignTask extends AbstractDeferredTask {
                            @Nonnull final UUID taskId, @Nonnull final UUID clusterId,
                            @Nonnull final Transformed<RealVector> centroid,
                            @Nonnull final Set<UUID> causeClusterIds,
-                           @Nonnull final List<ClusterReference> neighborhood) {
-        return new ReassignTask(locator, accessInfo, taskId, clusterId, centroid, causeClusterIds, neighborhood);
+                           @Nonnull final List<ClusterReference> nearestClusters) {
+        return new ReassignTask(locator, accessInfo, taskId, clusterId, centroid, causeClusterIds, nearestClusters);
     }
 
     /**
