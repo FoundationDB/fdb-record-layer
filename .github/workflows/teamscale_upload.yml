@@ -20,6 +20,7 @@ jobs:
       - name: 'Add PR link and commit hash to summary'
         continue-on-error: true # temporary in case this breaks things
         env:
+          PR: ${{ toJSON(github.event.workflow_run.pull_requests) }}
           PR_URL: ${{ github.event.workflow_run.pull_requests[0].html_url }}
           PR_NUMBER: ${{ github.event.workflow_run.pull_requests[0].number }}
           COMMIT_SHA: ${{ github.event.workflow_run.head_sha }}
