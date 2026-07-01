@@ -35,57 +35,66 @@ import com.codahale.metrics.MetricRegistry;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
 
 /**
- * A {@link MetricCollector} backed by a {@link StoreTimer}. The timer can be:
+ * A {@link MetricCollector} backed by a per-event lookup of {@link StoreTimer}. The lookup can be:
  * <ul>
- *   <li>borrowed from an {@link FDBRecordContext} via {@link #fromFDBRecordContext(FDBRecordContext)} — the
- *       collector is then scoped to that transaction's metrics; or</li>
- *   <li>built from a Codahale {@link MetricRegistry} via {@link #fromMetricRegistry(MetricRegistry)} —
- *       suitable for non-transactional paths (e.g. engine startup work) that still want their
- *       metrics surfaced on the engine-wide registry.</li>
+ *   <li>{@link #fromFDBRecordContext(FDBRecordContext)} &mdash; delegates to
+ *       {@link FDBRecordContext#getTimerForEvent(StoreTimer.Event)}, which routes an event to the
+ *       transaction's normal timer or its delayed timer according to
+ *       {@link StoreTimer.Event#isDelayedUntilCommit()}. The collector is then scoped to that
+ *       transaction's metrics.</li>
+ *   <li>{@link #fromMetricRegistry(MetricRegistry)} &mdash; constructs a single
+ *       {@link MetricRegistryStoreTimer} over the supplied Codahale {@link MetricRegistry} and
+ *       hands the same instance back for every event. Suitable for non-transactional paths (e.g.
+ *       engine startup work) that still want their metrics surfaced on the engine-wide
+ *       registry.</li>
  * </ul>
  *
- * <p>Increments and timings are forwarded straight to the wrapped {@link StoreTimer}; the
- * accessors ({@link #getAverageTimeMicrosForEvent}, {@link #getCountsForCounter},
- * {@link #hasCounter}) read back from the same source.</p>
+ * <p>Writes ({@link #increment}, {@link #clock}) resolve the timer per call and no-op if the
+ * lookup returns {@code null}. Reads ({@link #getAverageTimeMicrosForEvent},
+ * {@link #getCountsForCounter}, {@link #hasCounter}) resolve the timer per call too; they throw
+ * or return {@code false} if the lookup returns {@code null}.</p>
  */
 @API(API.Status.EXPERIMENTAL)
 public final class StoreTimerMetricCollector implements MetricCollector {
 
-    @Nullable
-    private final StoreTimer storeTimer;
+    @Nonnull
+    private final Function<StoreTimer.Event, StoreTimer> timerLookup;
 
-    private StoreTimerMetricCollector(@Nullable final StoreTimer storeTimer) {
-        this.storeTimer = storeTimer;
+    private StoreTimerMetricCollector(@Nonnull final Function<StoreTimer.Event, StoreTimer> timerLookup) {
+        this.timerLookup = timerLookup;
     }
 
     /**
-     * Wraps the timer attached to {@code context}, so this collector's metrics are scoped to the
-     * given transaction.
+     * Routes each event through {@link FDBRecordContext#getTimerForEvent(StoreTimer.Event)} so
+     * that events with {@link StoreTimer.Event#isDelayedUntilCommit()} land on the transaction's
+     * delayed timer while all others use the normal timer.
      *
      * <p>If {@code context} has no timer attached (e.g. a transaction-bound database context),
-     * the collector silently drops writes and reads throw &mdash; mirroring the way
-     * {@link FDBRecordContext#increment(StoreTimer.Count, int)} handles a null timer.</p>
+     * the lookup returns {@code null} and the collector silently drops writes; reads throw.</p>
      */
     @Nonnull
     public static StoreTimerMetricCollector fromFDBRecordContext(@Nonnull final FDBRecordContext context) {
-        return new StoreTimerMetricCollector(context.getTimer());
+        return new StoreTimerMetricCollector(context::getTimerForEvent);
     }
 
     /**
-     * Builds a fresh {@link MetricRegistryStoreTimer} over {@code registry} and wraps it, so this
-     * collector's metrics land on the supplied Codahale registry.
+     * Builds a fresh {@link MetricRegistryStoreTimer} over {@code registry} once, and hands it
+     * back for every event lookup. All metrics land on the supplied Codahale registry.
      */
     @Nonnull
     public static StoreTimerMetricCollector fromMetricRegistry(@Nonnull final MetricRegistry registry) {
-        return new StoreTimerMetricCollector(new MetricRegistryStoreTimer(registry));
+        final StoreTimer timer = new MetricRegistryStoreTimer(registry);
+        return new StoreTimerMetricCollector(event -> timer);
     }
 
     @Override
     public void increment(@Nonnull final RelationalMetric.RelationalCount count, final int val) {
-        if (storeTimer != null) {
-            storeTimer.increment(count, val);
+        @Nullable final StoreTimer timer = timerLookup.apply(count);
+        if (timer != null) {
+            timer.increment(count, val);
         }
     }
 
@@ -95,17 +104,19 @@ public final class StoreTimerMetricCollector implements MetricCollector {
         try {
             return supplier.get();
         } finally {
-            if (storeTimer != null) {
-                storeTimer.record(event, System.nanoTime() - startNanos);
+            @Nullable final StoreTimer timer = timerLookup.apply(event);
+            if (timer != null) {
+                timer.record(event, System.nanoTime() - startNanos);
             }
         }
     }
 
     @Override
     public double getAverageTimeMicrosForEvent(@Nonnull final RelationalMetric.RelationalEvent event) {
-        Assert.notNullUnchecked(storeTimer, ErrorCode.INTERNAL_ERROR,
-                "Cannot read metrics: this collector has no backing store timer");
-        final StoreTimer.Counter maybeCounter = storeTimer.getCounter(event);
+        @Nullable final StoreTimer timer = timerLookup.apply(event);
+        Assert.notNullUnchecked(timer, ErrorCode.INTERNAL_ERROR,
+                "Cannot read metrics: no backing store timer for event %s", event.title());
+        final StoreTimer.Counter maybeCounter = timer.getCounter(event);
         Assert.notNullUnchecked(maybeCounter, ErrorCode.INTERNAL_ERROR,
                 "Cannot find metrics associated for requested event: %s", event.title());
         if (maybeCounter.getCount() == 0) {
@@ -116,11 +127,12 @@ public final class StoreTimerMetricCollector implements MetricCollector {
 
     @Override
     public long getCountsForCounter(@Nonnull final RelationalMetric.RelationalCount count) {
-        Assert.notNullUnchecked(storeTimer, ErrorCode.INTERNAL_ERROR,
-                "Cannot read metrics: this collector has no backing store timer");
+        @Nullable final StoreTimer timer = timerLookup.apply(count);
+        Assert.notNullUnchecked(timer, ErrorCode.INTERNAL_ERROR,
+                "Cannot read metrics: no backing store timer for count %s", count.title());
         Assert.thatUnchecked(hasCounter(count), ErrorCode.INTERNAL_ERROR,
                 "Cannot find metrics associated for requested event: %s", count.title());
-        final StoreTimer.Counter counter = storeTimer.getCounter(count);
+        final StoreTimer.Counter counter = timer.getCounter(count);
         Assert.thatUnchecked(counter.getTimeNanos() == 0, ErrorCode.INTERNAL_ERROR,
                 "Event: %s records time and is probably a event timer", count.title());
         return counter.getCount();
@@ -128,6 +140,7 @@ public final class StoreTimerMetricCollector implements MetricCollector {
 
     @Override
     public boolean hasCounter(@Nonnull final RelationalMetric.RelationalCount count) {
-        return storeTimer != null && storeTimer.getCounter(count) != null;
+        @Nullable final StoreTimer timer = timerLookup.apply(count);
+        return timer != null && timer.getCounter(count) != null;
     }
 }
