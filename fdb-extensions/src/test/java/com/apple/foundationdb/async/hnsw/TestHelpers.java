@@ -168,6 +168,9 @@ class TestHelpers {
                 }
                 data.add(record);
 
+                if (logFile != null) {
+                    logFile.log("Inserting to batch %d", i);
+                }
                 return hnsw.insert(tr, record.getPrimaryKey(), record.getVector()).thenApply(vignore -> true);
             });
             return future.thenApply(vignore -> data.build())
