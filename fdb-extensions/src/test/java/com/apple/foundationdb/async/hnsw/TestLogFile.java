@@ -114,15 +114,6 @@ public final class TestLogFile implements AutoCloseable {
      * semantics. Safe to call from any thread.
      */
     public void log(@Nonnull final String fmt, @Nonnull final Object... args) {
-        final String formatted = String.format(Locale.ROOT, fmt, args);
-        synchronized (writer) {
-            writer.print(Instant.now());
-            writer.print(' ');
-            writer.print('[');
-            writer.print(Thread.currentThread().getName());
-            writer.print("] ");
-            writer.println(formatted);
-        }
     }
 
     /**
@@ -130,14 +121,6 @@ public final class TestLogFile implements AutoCloseable {
      * catch block.
      */
     public void logFailure(@Nonnull final String context, @Nonnull final Throwable t) {
-        synchronized (writer) {
-            writer.print(Instant.now());
-            writer.print(" [");
-            writer.print(Thread.currentThread().getName());
-            writer.print("] FAILURE ");
-            writer.println(context);
-            t.printStackTrace(writer);
-        }
     }
 
     @Nonnull
