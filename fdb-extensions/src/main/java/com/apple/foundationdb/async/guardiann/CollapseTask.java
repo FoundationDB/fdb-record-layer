@@ -55,8 +55,32 @@ import java.util.concurrent.CompletableFuture;
  * A deferred task that collapses the vectors of a single target cluster: it folds groups of equivalent vectors into
  * stored "collapsed" {@link VectorReference}s and records the absorbed vectors as collapsed-id mappings so they
  * remain resolvable at query time. It then applies the resulting writes and deletions to the cluster, updates the
- * cluster's metadata, and clears its {@link ClusterMetadata.State#COLLAPSE} state. The task is a no-op if the target
- * cluster no longer exists or is no longer marked for collapse.
+ * cluster's metadata, and clears its {@link ClusterMetadata.State#COLLAPSE} state.
+ * <p>
+ * Two primary vectors are considered equivalent, and hence collapsible, iff they share the same content
+ * signature (a hash of the stored, encoded vector; see {@link StorageAdapter#signatureUuid}), which means their
+ * stored bytes are identical. A signature group is only collapsed once it holds more than
+ * {@link Config#collapseMinDuplicates()} members: those vectors are absorbed into a single stored "collapsed"
+ * reference and each absorbed {@link VectorId} is recorded as a signature-to-id mapping so queries still resolve it.
+ * <p>
+ * Besides collapsing, this task also subsamples the cluster's replicas down to
+ * {@link Config#replicatedClusterTarget()}, keeping the highest-{@link VectorReference#replicationPriority()
+ * replication-priority} replicas and dropping the rest — exactly what {@link ReassignTask} does. That pruning is
+ * orthogonal to collapsing, but it is performed here opportunistically: the cluster's vectors have already been read
+ * (the read is the expensive part), so pruning in the same pass avoids a redundant reassign. A cluster that is only
+ * ever collapsed therefore still converges to the replica target.
+ * <p>
+ * {@link ClusterMetadata.State#COLLAPSE} acts as a blocking state while it is set: both {@link ReassignTask} and
+ * {@link SplitMergeTask} skip a cluster marked for collapse without mutating it, so a collapse in flight is never
+ * raced by a concurrent reassign or split/merge. Clearing that state on completion is therefore also what unblocks the
+ * follow-up: a collapse is typically scheduled by {@link AbstractDeferredTask#enqueueCollapseIfNecessary} (for example
+ * when a {@link SplitMergeTask} finds no valid partitioning) together with a paired {@link BounceTask} that depends on
+ * this task and, once it commits, re-runs the cluster as a {@code SPLIT_MERGE} — collapsing changes the cluster's
+ * effective size, so the split/merge is re-evaluated afterwards. That bounce skips any cluster still carrying a
+ * COLLAPSE state, so this task clearing it is exactly what lets the follow-up proceed.
+ * <p>
+ * The task is a benign no-op if the target cluster no longer exists or is no longer marked for collapse; both can
+ * occur naturally when the cluster was merged away or otherwise re-tasked between this task being enqueued and run.
  */
 public class CollapseTask extends AbstractDeferredTask {
     @Nonnull
@@ -119,6 +143,11 @@ public class CollapseTask extends AbstractDeferredTask {
 
         return primitives.fetchClusterMetadata(transaction, getTargetClusterId())
                 .thenCompose(clusterMetadata -> {
+                    //
+                    // Benign no-op. The cluster can be merged away or have its COLLAPSE state cleared between this
+                    // task being enqueued and run, in which case there is simply
+                    // nothing left to collapse.
+                    //
                     if (clusterMetadata == null) {
                         return AsyncUtil.DONE;
                     }
@@ -172,8 +201,10 @@ public class CollapseTask extends AbstractDeferredTask {
         final Transformed<RealVector> targetClusterCentroid = targetClusterMetadataWithDistance.centroid();
 
         //
-        // At this point clusterIdMetadataMap contains the target cluster and all the clusters
-        // from the neighboring clusters.
+        // Build both directions of the primary-copy relation between a vector id and its content signature. The
+        // forward map gives each vector its signature; the inverse groups vectors by signature, so
+        // vectorSignatureToVectorUuidMap.get(s) is exactly the set of primary vectors that are byte-identical (the
+        // same encoded bytes hash to the same signature) and are therefore collapsible into one another.
         //
         final ImmutableSetMultimap<UUID, UUID> vectorReferenceToVectorSignatureMap =
                 vectorReferenceToSignatureMap(vectorReferences);
@@ -209,8 +240,10 @@ public class CollapseTask extends AbstractDeferredTask {
         for (final VectorReference vectorReference : vectorReferences) {
             if (!vectorReference.isPrimaryCopy()) {
                 //
-                // If this is a replica we may as well subsample it like reassign would normally do it.
-                // Collapsing a cluster should also work in an identical way if we didn't do that here.
+                // Replica pruning, piggybacked on collapse (see the class preamble): feed replicas into a top-K by
+                // replication priority so only the best config.replicatedClusterTarget() survive, dropping the rest.
+                // This is what ReassignTask does; we do it here too because the vectors are already loaded and reading
+                // them is the expensive part. Collapsing itself does not depend on it — it is opportunistic cleanup.
                 //
                 replicatedTopK.add(vectorReference);
                 continue;

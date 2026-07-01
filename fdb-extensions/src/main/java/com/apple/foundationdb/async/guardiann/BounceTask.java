@@ -41,7 +41,6 @@ import javax.annotation.Nullable;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Objects;
-import java.util.Random;
 import java.util.Set;
 import java.util.SplittableRandom;
 import java.util.UUID;
@@ -132,7 +131,6 @@ public class BounceTask extends AbstractDeferredTask {
                         dependentTaskId -> primitives.fetchDeferredTask(transaction, accessInfo, dependentTaskId),
                         config.bounceConcurrency(), executor)
                 .thenCompose(tasks -> {
-                    final Random random = new Random(splittableRandom.split().nextLong());
                     final List<AbstractDeferredTask> outstandingTasks = Lists.newArrayList();
                     for (final AbstractDeferredTask task : tasks) {
                         //
@@ -154,10 +152,13 @@ public class BounceTask extends AbstractDeferredTask {
                     //
                     // At least one dependency is still outstanding. Run one of them ourselves -- rather than only
                     // waiting for the queue to drain them -- so the bounce always makes progress instead of possibly
-                    // re-enqueueing itself forever (see the class javadoc). The pick is random so that we do not keep
-                    // favoring (and repeatedly retrying) the same task across successive bounces.
+                    // re-enqueueing itself forever (see the class preamble). The random pick only decides which
+                    // outstanding dependency to run this round; because the re-enqueued bounce gets a fresh task id
+                    // below (and splittableRandom is seeded from the task id), that choice is decorrelated across
+                    // this bounce's successive re-enqueues, and across distinct bounces, so they do not all
+                    // contend on the same dependency.
                     //
-                    final int pick = random.nextInt(outstandingTasks.size());
+                    final int pick = splittableRandom.nextInt(outstandingTasks.size());
                     final AbstractDeferredTask bounceTask = outstandingTasks.get(pick);
 
                     if (logger.isDebugEnabled()) {
@@ -181,9 +182,15 @@ public class BounceTask extends AbstractDeferredTask {
                                     }
 
                                     final ImmutableSet<UUID> newDependentTaskIds = newDependentTaskIdsBuilder.build();
+                                    // Give the re-enqueued bounce a fresh task id instead of reusing this one. Because
+                                    // splittableRandom is re-derived from the task id on every run, a new id produces a
+                                    // new random stream next round, which is what decorrelates the pick above across
+                                    // this bounce's successive re-enqueues.
+                                    final UUID newBounceTaskId =
+                                            RandomHelpers.randomUuid(splittableRandom, config.deterministicRandomness());
                                     final BounceTask newBounceTask =
                                             BounceTask.of(getLocator(), accessInfo,
-                                                    getTaskId(),
+                                                    newBounceTaskId,
                                                     getTargetClusterIds(), newDependentTaskIds, getFinalTaskKind());
                                     newBounceTask.writeDeferredTask(transaction);
                                     return AsyncUtil.DONE;
