@@ -22,6 +22,7 @@ package com.apple.foundationdb.async.hnsw;
 
 import com.apple.foundationdb.Database;
 import com.apple.foundationdb.Transaction;
+import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.linear.AffineOperator;
 import com.apple.foundationdb.linear.DoubleRealVector;
 import com.apple.foundationdb.linear.HalfRealVector;
@@ -150,19 +151,25 @@ class TestHelpers {
 
             // In theory this could put all the futures in a List and run the inserts concurrently, but for a `basicInsertBatch`
             // it's probably better to not test the concurrent handling of hnsw, even if it makes the tests slower.
-            CompletableFuture<Void> future = CompletableFuture.completedFuture(null);
             final long beginTs = System.nanoTime();
             // This is a simplistic version of ThrottledRetryingIterator, but that cannot be used here because it depends
             // on many classes from fdb-record-layer-core
+            AtomicInteger index = new AtomicInteger(0);
             final int attemptBatchSize = Math.max(1, batchSize / attempt.get());
-            for (int i = 0; i < attemptBatchSize; i ++) {
+            CompletableFuture<Void> future = AsyncUtil.whileTrue(() -> {
+                int i = index.getAndIncrement();
+                if (i >= attemptBatchSize) {
+                    return AsyncUtil.READY_FALSE;
+                }
+
                 final PrimaryKeyAndVector record = insertFunction.apply(tr, firstId + i);
                 if (record == null) {
-                    break;
+                    return AsyncUtil.READY_FALSE;
                 }
                 data.add(record);
-                future = future.thenCompose((vignore) -> hnsw.insert(tr, record.getPrimaryKey(), record.getVector()));
-            }
+
+                return hnsw.insert(tr, record.getPrimaryKey(), record.getVector()).thenApply(vignore -> true);
+            });
             return future.thenApply(vignore -> data.build())
                     .whenComplete((result, error) -> {
                         if (error != null) {
