@@ -86,7 +86,7 @@ public class UserDefinedFunctionBuilder {
          * @param name the function name.
          * @return this builder, for chaining.
          */
-        SignatureStepBuilder setName(@Nonnull final String name);
+        SignatureStepBuilder setName(@Nonnull String name);
 
         /**
          * Appends a single parameter to the signature.
@@ -100,7 +100,7 @@ public class UserDefinedFunctionBuilder {
          * @param expression the parameter to append.
          * @return this builder, for chaining.
          */
-        SignatureStepBuilder addParameter(@Nonnull final Expression expression);
+        SignatureStepBuilder addParameter(@Nonnull Expression expression);
 
         /**
          * Appends all the given parameters to the signature, preserving their order.
@@ -114,7 +114,7 @@ public class UserDefinedFunctionBuilder {
          * @param expressions the parameters to append.
          * @return this builder, for chaining.
          */
-        SignatureStepBuilder addAllParameters(@Nonnull final Expressions expressions);
+        SignatureStepBuilder addAllParameters(@Nonnull Expressions expressions);
 
         /**
          * Sets an explicit return type for the function; passing {@code null} leaves the return type to be inferred
@@ -122,7 +122,7 @@ public class UserDefinedFunctionBuilder {
          * @param returnType the explicit return type, or {@code null} to infer it from the body.
          * @return this builder, for chaining.
          */
-        SignatureStepBuilder setReturnType(@Nullable final DataType returnType);
+        SignatureStepBuilder setReturnType(@Nullable DataType returnType);
 
         /**
          * Freezes the signature and advances to the {@linkplain BodyStepBuilder body step}.
@@ -148,7 +148,7 @@ public class UserDefinedFunctionBuilder {
          * @param bodyExpression the relational expression the function evaluates to.
          * @return the final step, which builds a {@link CompiledSqlFunction}.
          */
-        FinalStepBuilder withBodyExpression(@Nonnull final RelationalExpression bodyExpression);
+        FinalStepBuilder withBodyExpression(@Nonnull RelationalExpression bodyExpression);
 
         /**
          * Supplies a {@link Value} as the function body, which returns a {@link FinalStepBuilder} that
@@ -156,7 +156,7 @@ public class UserDefinedFunctionBuilder {
          * @param bodyValue the value the function evaluates to.
          * @return the final step, which builds a {@link UserDefinedMacroFunction}.
          */
-        FinalStepBuilder withBodyValue(@Nonnull final Value bodyValue);
+        FinalStepBuilder withBodyValue(@Nonnull Value bodyValue);
     }
 
     /**
@@ -168,7 +168,7 @@ public class UserDefinedFunctionBuilder {
          * @param literals the literals to attach.
          * @return this builder, for chaining.
          */
-        FinalStepBuilder setLiterals(@Nonnull final Literals literals);
+        FinalStepBuilder setLiterals(@Nonnull Literals literals);
 
         /**
          * Builds the {@link UserDefinedFunction} from all the provided specifications.
