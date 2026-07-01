@@ -67,6 +67,7 @@ import javax.annotation.Nonnull;
  * @param collapseMinDuplicates minimum identical vectors sharing a signature before collapse
  * @param splitMergeConcurrency concurrency for parallel operations during split/merge tasks
  * @param reassignConcurrency concurrency for parallel operations during reassign tasks
+ * @param bounceConcurrency concurrency for parallel operations during bounce tasks
  * @param constructionSearchConfig centroid-walk tuning ({@link SearchConfig}) for the non-search insert/delete/maintenance
  *        paths, which probe the centroid HNSW without a per-query {@code SearchConfig}; only its {@code centroidEf*}
  *        knobs are consulted there
@@ -109,6 +110,7 @@ public record Config(@Nonnull Metric metric,
                      // per-task concurrency
                      int splitMergeConcurrency,
                      int reassignConcurrency,
+                     int bounceConcurrency,
                      // construction (centroid-walk tuning for the non-search insert/delete/maintenance paths)
                      @Nonnull SearchConfig constructionSearchConfig) implements VectorEncodingConfig {
 
@@ -156,6 +158,7 @@ public record Config(@Nonnull Metric metric,
     // per-task concurrency
     public static final int DEFAULT_SPLIT_MERGE_CONCURRENCY = 10;
     public static final int DEFAULT_REASSIGN_CONCURRENCY = 10;
+    public static final int DEFAULT_BOUNCE_CONCURRENCY = 10;
     // construction (centroid-walk tuning for the non-search insert/delete/maintenance paths): the all-defaults
     // SearchConfig, whose centroidEf* match the values these paths used before they were made configurable
     @Nonnull
@@ -179,6 +182,7 @@ public record Config(@Nonnull Metric metric,
                 kMeansMaxIterations(), kMeansMaxRestarts(),
                 reassignNumNeighboringClusters(),
                 collapseMinDuplicates(), splitMergeConcurrency(), reassignConcurrency(),
+                bounceConcurrency(),
                 constructionSearchConfig());
     }
 
@@ -212,6 +216,7 @@ public record Config(@Nonnull Metric metric,
                 ", collapseMinDuplicates=" + collapseMinDuplicates() +
                 ", splitMergeConcurrency=" + splitMergeConcurrency() +
                 ", reassignConcurrency=" + reassignConcurrency() +
+                ", bounceConcurrency=" + bounceConcurrency() +
                 ", constructionSearchConfig=" + constructionSearchConfig() +
                 "]";
     }
@@ -265,6 +270,7 @@ public record Config(@Nonnull Metric metric,
         // per-task concurrency
         private int splitMergeConcurrency = DEFAULT_SPLIT_MERGE_CONCURRENCY;
         private int reassignConcurrency = DEFAULT_REASSIGN_CONCURRENCY;
+        private int bounceConcurrency = DEFAULT_BOUNCE_CONCURRENCY;
         // construction (centroid-walk tuning for the non-search insert/delete/maintenance paths)
         @Nonnull
         private SearchConfig constructionSearchConfig = DEFAULT_CONSTRUCTION_SEARCH_CONFIG;
@@ -290,6 +296,7 @@ public record Config(@Nonnull Metric metric,
                              final int reassignNumNeighboringClusters,
                              final int collapseMinDuplicates,
                              final int splitMergeConcurrency, final int reassignConcurrency,
+                             final int bounceConcurrency,
                              @Nonnull final SearchConfig constructionSearchConfig) {
             this.metric = metric;
             this.primaryClusterMin = primaryClusterMin;
@@ -321,6 +328,7 @@ public record Config(@Nonnull Metric metric,
             this.collapseMinDuplicates = collapseMinDuplicates;
             this.splitMergeConcurrency = splitMergeConcurrency;
             this.reassignConcurrency = reassignConcurrency;
+            this.bounceConcurrency = bounceConcurrency;
             this.constructionSearchConfig = constructionSearchConfig;
         }
 
@@ -611,6 +619,16 @@ public record Config(@Nonnull Metric metric,
             return this;
         }
 
+        public int getBounceConcurrency() {
+            return bounceConcurrency;
+        }
+
+        @Nonnull
+        public ConfigBuilder setBounceConcurrency(final int bounceConcurrency) {
+            this.bounceConcurrency = bounceConcurrency;
+            return this;
+        }
+
         @Nonnull
         public SearchConfig getConstructionSearchConfig() {
             return constructionSearchConfig;
@@ -637,6 +655,7 @@ public record Config(@Nonnull Metric metric,
                     getKMeansMaxIterations(), getKMeansMaxRestarts(),
                     getReassignNumNeighboringClusters(),
                     getCollapseMinDuplicates(), getSplitMergeConcurrency(), getReassignConcurrency(),
+                    getBounceConcurrency(),
                     getConstructionSearchConfig());
         }
     }

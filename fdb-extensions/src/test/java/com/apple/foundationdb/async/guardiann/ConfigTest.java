@@ -64,6 +64,7 @@ class ConfigTest {
         final int collapseMinDuplicates = Config.DEFAULT_COLLAPSE_MIN_DUPLICATES + 1;
         final int splitMergeConcurrency = Config.DEFAULT_SPLIT_MERGE_CONCURRENCY + 1;
         final int reassignConcurrency = Config.DEFAULT_REASSIGN_CONCURRENCY + 1;
+        final int bounceConcurrency = Config.DEFAULT_BOUNCE_CONCURRENCY + 1;
         final SearchConfig constructionSearchConfig = new SearchConfig.SearchConfigBuilder()
                 .setCentroidEfRingSearch(SearchConfig.DEFAULT_CENTROID_EF_RING_SEARCH + 1)
                 .build();
@@ -98,6 +99,7 @@ class ConfigTest {
         Assertions.assertThat(defaultConfig.collapseMinDuplicates()).isNotEqualTo(collapseMinDuplicates);
         Assertions.assertThat(defaultConfig.splitMergeConcurrency()).isNotEqualTo(splitMergeConcurrency);
         Assertions.assertThat(defaultConfig.reassignConcurrency()).isNotEqualTo(reassignConcurrency);
+        Assertions.assertThat(defaultConfig.bounceConcurrency()).isNotEqualTo(bounceConcurrency);
         Assertions.assertThat(defaultConfig.constructionSearchConfig()).isNotEqualTo(constructionSearchConfig);
 
         final Config newConfig =
@@ -132,6 +134,7 @@ class ConfigTest {
                         .setCollapseMinDuplicates(collapseMinDuplicates)
                         .setSplitMergeConcurrency(splitMergeConcurrency)
                         .setReassignConcurrency(reassignConcurrency)
+                        .setBounceConcurrency(bounceConcurrency)
                         .setConstructionSearchConfig(constructionSearchConfig)
                         .build(NUM_DIMENSIONS);
 
@@ -165,6 +168,7 @@ class ConfigTest {
         Assertions.assertThat(newConfig.collapseMinDuplicates()).isEqualTo(collapseMinDuplicates);
         Assertions.assertThat(newConfig.splitMergeConcurrency()).isEqualTo(splitMergeConcurrency);
         Assertions.assertThat(newConfig.reassignConcurrency()).isEqualTo(reassignConcurrency);
+        Assertions.assertThat(newConfig.bounceConcurrency()).isEqualTo(bounceConcurrency);
         Assertions.assertThat(newConfig.constructionSearchConfig()).isEqualTo(constructionSearchConfig);
     }
 
