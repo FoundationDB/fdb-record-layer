@@ -72,6 +72,8 @@ import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.parallel.Execution;
+import org.junit.jupiter.api.parallel.ExecutionMode;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -139,6 +141,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * Tests of the consistency of the Lucene Index.
  */
 @Tag(Tags.RequiresFDB)
+// Runs SAME_THREAD because this class is FDB-heavy and saturates the shared cluster's Batch GRV
+// quota when run concurrently with itself or other FDB-heavy tests.
+@Execution(ExecutionMode.SAME_THREAD)
 public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase {
     private static final Logger LOGGER = LoggerFactory.getLogger(LuceneIndexMaintenanceTest.class);
 

@@ -38,7 +38,6 @@ import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
-import java.net.URI;
 import java.sql.SQLException;
 import java.sql.Types;
 import java.util.Collections;
@@ -96,7 +95,7 @@ public class ExplainTests {
                 "PLANNING_PHASE_TASKS_TOTAL_TIME_NS"
         );
         final var expectedPlannerMetricsTypes = Collections.nCopies(expectedPlannerMetricsLabels.size(), Types.BIGINT);
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             executeInsert(ddl);
             try (RelationalPreparedStatement ps = ddl.setSchemaAndGetConnection().prepareStatement("EXPLAIN SELECT * FROM RestaurantComplexRecord")) {
                 try (final RelationalResultSet resultSet = ps.executeQuery()) {
@@ -125,7 +124,7 @@ public class ExplainTests {
 
     @Test
     void explainWithNoContinuationTest() throws Exception {
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             executeInsert(ddl);
             try (RelationalPreparedStatement ps = ddl.setSchemaAndGetConnection().prepareStatement("EXPLAIN SELECT * FROM RestaurantComplexRecord")) {
                 ps.setMaxRows(2);
@@ -143,7 +142,7 @@ public class ExplainTests {
 
     @Test
     void explainContainsEventStatsWithADebuggerInstalled() throws Exception {
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             executeInsert(ddl);
             try (RelationalPreparedStatement ps = ddl.setSchemaAndGetConnection().prepareStatement("EXPLAIN SELECT * FROM RestaurantComplexRecord")) {
                 ps.setMaxRows(2);
@@ -171,7 +170,7 @@ public class ExplainTests {
             Debugger.setDebugger(null);
             org.junit.jupiter.api.Assertions.assertNull(Debugger.getDebugger());
 
-            try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
                 executeInsert(ddl);
                 try (RelationalPreparedStatement ps = ddl.setSchemaAndGetConnection().prepareStatement("EXPLAIN SELECT * FROM RestaurantComplexRecord")) {
                     ps.setMaxRows(2);
@@ -222,7 +221,7 @@ public class ExplainTests {
             org.junit.jupiter.api.Assertions.assertNull(Debugger.getDebugger());
             org.junit.jupiter.api.Assertions.assertNotNull(PlannerEventStatsCollector.getCollector());
 
-            try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
                 executeInsert(ddl);
                 try (RelationalPreparedStatement ps = ddl.setSchemaAndGetConnection().prepareStatement("EXPLAIN SELECT * FROM RestaurantComplexRecord")) {
                     ps.setMaxRows(2);
@@ -255,7 +254,7 @@ public class ExplainTests {
             org.junit.jupiter.api.Assertions.assertNull(Debugger.getDebugger());
             org.junit.jupiter.api.Assertions.assertNull(PlannerEventStatsCollector.getCollector());
 
-            try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
                 executeInsert(ddl);
                 try (RelationalPreparedStatement ps = ddl.setSchemaAndGetConnection().prepareStatement("EXPLAIN SELECT * FROM RestaurantComplexRecord")) {
                     ps.executeQuery();
@@ -299,7 +298,7 @@ public class ExplainTests {
             org.junit.jupiter.api.Assertions.assertNull(Debugger.getDebugger());
             org.junit.jupiter.api.Assertions.assertNull(PlannerEventStatsCollector.getCollector());
 
-            try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
                 executeInsert(ddl);
                 org.junit.jupiter.api.Assertions.assertThrows(SQLException.class,
                         () -> ddl.setSchemaAndGetConnection().prepareStatement("EXPLAIN SELECT * FROM bla").execute());
@@ -314,7 +313,7 @@ public class ExplainTests {
 
     @Test
     void explainWithContinuationSerializedPlanTest() throws Exception {
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             executeInsert(ddl);
             Continuation continuation;
             try (final var connection = ddl.setSchemaAndGetConnection()) {
@@ -346,7 +345,7 @@ public class ExplainTests {
 
     @Test
     void explainExecuteStatementTest() throws Exception {
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             executeInsert(ddl);
             Continuation continuation;
             try (final var connection = ddl.setSchemaAndGetConnection()) {

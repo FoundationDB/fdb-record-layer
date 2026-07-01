@@ -38,10 +38,10 @@ import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
-import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.util.Collections;
 import java.util.List;
+import java.net.URI;
 
 /**
  * Simple unit tests around direct-access insertion tests.
@@ -53,12 +53,12 @@ public class SimpleDirectAccessInsertionTests {
 
     @RegisterExtension
     @Order(1)
-    public final SimpleDatabaseRule db = new SimpleDatabaseRule(SimpleDirectAccessInsertionTests.class, TestSchemas.restaurant());
+    public final SimpleDatabaseRule db = new SimpleDatabaseRule(relationalExtension, SimpleDirectAccessInsertionTests.class, TestSchemas.restaurant());
 
     @Test
     void useScanContinuationInQueryShouldNotWork() throws Exception {
         insertRows();
-        try (RelationalConnection conn = DriverManager.getConnection("jdbc:embed://" + db.getDatabasePath().getPath()).unwrap(RelationalConnection.class)) {
+        try (RelationalConnection conn = relationalExtension.getDriver().connect(URI.create("jdbc:embed://" + db.getDatabasePath().getPath())).unwrap(RelationalConnection.class)) {
             conn.setSchema(db.getSchemaName());
 
             // scan
@@ -91,7 +91,7 @@ public class SimpleDirectAccessInsertionTests {
     @Test
     void useQueryContinuationInDirectAccess() throws Exception {
         insertRows();
-        try (RelationalConnection conn = DriverManager.getConnection("jdbc:embed://" + db.getDatabasePath().getPath()).unwrap(RelationalConnection.class)) {
+        try (RelationalConnection conn = relationalExtension.getDriver().connect(URI.create("jdbc:embed://" + db.getDatabasePath().getPath())).unwrap(RelationalConnection.class)) {
             conn.setSchema(db.getSchemaName());
 
             try (RelationalStatement s = conn.createStatement()) {
@@ -119,7 +119,7 @@ public class SimpleDirectAccessInsertionTests {
 
     @Test
     void insertNestedFields() throws SQLException {
-        try (RelationalConnection conn = DriverManager.getConnection("jdbc:embed://" + db.getDatabasePath().getPath()).unwrap(RelationalConnection.class)) {
+        try (RelationalConnection conn = relationalExtension.getDriver().connect(URI.create("jdbc:embed://" + db.getDatabasePath().getPath())).unwrap(RelationalConnection.class)) {
             conn.setSchema(db.getSchemaName());
 
             try (RelationalStatement s = conn.createStatement()) {
@@ -149,7 +149,7 @@ public class SimpleDirectAccessInsertionTests {
 
     @Test
     void insertWithExplicitNullFields() throws SQLException {
-        try (RelationalConnection conn = DriverManager.getConnection("jdbc:embed://" + db.getDatabasePath().getPath()).unwrap(RelationalConnection.class)) {
+        try (RelationalConnection conn = relationalExtension.getDriver().connect(URI.create("jdbc:embed://" + db.getDatabasePath().getPath())).unwrap(RelationalConnection.class)) {
             conn.setSchema(db.getSchemaName());
 
             try (RelationalStatement s = conn.createStatement()) {
@@ -179,7 +179,7 @@ public class SimpleDirectAccessInsertionTests {
          * tables are logically separated.
          */
 
-        try (RelationalConnection conn = DriverManager.getConnection("jdbc:embed://" + db.getDatabasePath().getPath()).unwrap(RelationalConnection.class)) {
+        try (RelationalConnection conn = relationalExtension.getDriver().connect(URI.create("jdbc:embed://" + db.getDatabasePath().getPath())).unwrap(RelationalConnection.class)) {
             conn.setSchema(db.getSchemaName());
 
             try (RelationalStatement s = conn.createStatement()) {
@@ -262,7 +262,7 @@ public class SimpleDirectAccessInsertionTests {
     }
 
     private void insertRows() throws Exception {
-        try (RelationalConnection conn = DriverManager.getConnection("jdbc:embed://" + db.getDatabasePath().getPath()).unwrap(RelationalConnection.class)) {
+        try (RelationalConnection conn = relationalExtension.getDriver().connect(URI.create("jdbc:embed://" + db.getDatabasePath().getPath())).unwrap(RelationalConnection.class)) {
             conn.setSchema(db.getSchemaName());
 
             try (RelationalStatement s = conn.createStatement()) {

@@ -75,11 +75,11 @@ public class ConstraintValidityTests {
 
     @RegisterExtension
     @Order(2)
-    public final SimpleDatabaseRule database = new SimpleDatabaseRule(ConstraintValidityTests.class, TestSchemas.score());
+    public final SimpleDatabaseRule database = new SimpleDatabaseRule(relationalExtension, ConstraintValidityTests.class, TestSchemas.score());
 
     @RegisterExtension
     @Order(3)
-    public final RelationalConnectionRule connection = new RelationalConnectionRule(database::getConnectionUri)
+    public final RelationalConnectionRule connection = new RelationalConnectionRule(relationalExtension, database::getConnectionUri)
             .withSchema("TEST_SCHEMA");
 
     @Nonnull

@@ -21,7 +21,7 @@
 package com.apple.foundationdb.relational.utils;
 
 import com.apple.foundationdb.relational.api.Options;
-import com.apple.foundationdb.relational.recordlayer.Utils;
+import com.apple.foundationdb.relational.recordlayer.RelationalExtension;
 import org.junit.jupiter.api.extension.AfterAllCallback;
 import org.junit.jupiter.api.extension.AfterEachCallback;
 import org.junit.jupiter.api.extension.BeforeAllCallback;
@@ -30,12 +30,13 @@ import org.junit.jupiter.api.extension.ExtensionContext;
 
 import javax.annotation.Nonnull;
 import java.net.URI;
-import java.sql.Connection;
-import java.sql.DriverManager;
 import java.sql.SQLException;
-import java.sql.Statement;
+import java.util.Objects;
 
 public class DatabaseRule implements BeforeEachCallback, BeforeAllCallback, AfterEachCallback, AfterAllCallback {
+
+    @Nonnull
+    private final RelationalExtension extension;
 
     @Nonnull
     private final URI databasePath;
@@ -43,7 +44,10 @@ public class DatabaseRule implements BeforeEachCallback, BeforeAllCallback, Afte
     @Nonnull
     private final Options options;
 
-    public DatabaseRule(@Nonnull final URI databasePath, @Nonnull final Options options) {
+    public DatabaseRule(@Nonnull final RelationalExtension extension,
+                        @Nonnull final URI databasePath,
+                        @Nonnull final Options options) {
+        this.extension = extension;
         this.databasePath = databasePath;
         this.options = options;
     }
@@ -69,24 +73,18 @@ public class DatabaseRule implements BeforeEachCallback, BeforeAllCallback, Afte
     }
 
     private void setup() throws SQLException {
-        try (Connection connection = DriverManager.getConnection("jdbc:embed:/__SYS")) {
-            Utils.setConnectionOptions(connection, options);
-            connection.setSchema("CATALOG");
-            try (Statement statement = connection.createStatement()) {
-                statement.executeUpdate("DROP DATABASE IF EXISTS \"" + databasePath.getPath() + "\"");
-                statement.executeUpdate("CREATE DATABASE \"" + databasePath.getPath() + "\"");
-            }
-        }
+        CatalogOperations.runDdl(
+                Objects.requireNonNull(extension.getDriver(), "extension has no active driver"),
+                options,
+                "DROP DATABASE IF EXISTS \"" + databasePath.getPath() + "\"",
+                "CREATE DATABASE \"" + databasePath.getPath() + "\"");
     }
 
     private void tearDown() throws SQLException {
-        try (Connection connection = DriverManager.getConnection("jdbc:embed:/__SYS")) {
-            Utils.setConnectionOptions(connection, options);
-            connection.setSchema("CATALOG");
-            try (Statement statement = connection.createStatement()) {
-                statement.executeUpdate("DROP DATABASE \"" + databasePath.getPath() + "\"");
-            }
-        }
+        CatalogOperations.runDdl(
+                Objects.requireNonNull(extension.getDriver(), "extension has no active driver"),
+                options,
+                "DROP DATABASE IF EXISTS \"" + databasePath.getPath() + "\"");
     }
 
     @Nonnull

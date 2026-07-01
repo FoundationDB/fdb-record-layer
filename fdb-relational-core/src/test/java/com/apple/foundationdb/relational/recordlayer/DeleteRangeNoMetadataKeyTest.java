@@ -38,7 +38,6 @@ import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
-import java.net.URI;
 import java.sql.SQLException;
 import java.util.List;
 
@@ -59,11 +58,11 @@ public class DeleteRangeNoMetadataKeyTest {
 
     @RegisterExtension
     @Order(1)
-    public final SimpleDatabaseRule database = new SimpleDatabaseRule(DeleteRangeNoMetadataKeyTest.class, SCHEMA_TEMPLATE, new SchemaTemplateRule.SchemaTemplateOptions(true, true));
+    public final SimpleDatabaseRule database = new SimpleDatabaseRule(relationalExtension, DeleteRangeNoMetadataKeyTest.class, SCHEMA_TEMPLATE, new SchemaTemplateRule.SchemaTemplateOptions(true, true));
 
     @RegisterExtension
     @Order(2)
-    public final RelationalConnectionRule connection = new RelationalConnectionRule(database::getConnectionUri)
+    public final RelationalConnectionRule connection = new RelationalConnectionRule(relationalExtension, database::getConnectionUri)
             .withOptions(Options.NONE)
             .withSchema("TEST_SCHEMA");
 
@@ -397,7 +396,7 @@ public class DeleteRangeNoMetadataKeyTest {
 
     private Ddl getDdl(String templateSuffix) throws Exception {
         return Ddl.builder()
-                .database(URI.create("/TEST/QT"))
+                .database()
                 .relationalExtension(relationalExtension)
                 .schemaTemplate(SCHEMA_TEMPLATE + templateSuffix)
                 .schemaTemplateOptions(new SchemaTemplateRule.SchemaTemplateOptions(true, true))

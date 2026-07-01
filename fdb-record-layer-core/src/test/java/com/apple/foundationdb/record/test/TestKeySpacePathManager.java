@@ -20,7 +20,9 @@
 
 package com.apple.foundationdb.record.test;
 
+import com.apple.foundationdb.async.MoreAsyncUtil;
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.RecordCoreRetriableTransactionException;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
@@ -89,6 +91,50 @@ public class TestKeySpacePathManager implements AutoCloseable {
                     LogMessageKeys.KEY_SPACE_PATH, path));
         }
         assertTrue(paths.add(path), "UUID collision");
+
+        // Eagerly resolve the path under a JVM-wide lock. Path resolution goes through
+        // FDBDatabase.resolverStateCache, an AsyncLoadingCache with a hardcoded 5-second
+        // deadline (AsyncLoadingCache.DEFAULT_DEADLINE_TIME_MILLIS). When many parallel
+        // tests resolve directory-layer entries concurrently, the FDB-side work appears
+        // to contend with itself (retries triggered by conflicting commits on the
+        // resolver state) and the 5-second deadline fires from random call sites in
+        // test bodies and afterEach hooks. Serialising the resolution here means the
+        // resolver-state cache is warm by the time the test actually uses the path,
+        // so KeySpacePath.toTuple / FDBRecordStore.createOrOpen / deleteAllData calls
+        // hit the cache instead of racing on directory-layer reads.
+        //
+        // Use db.newRunner so we get the runner's standard retry loop for free.
+        // DeadlineExceededException extends LoggableException (not FDBException nor
+        // RecordCoreRetriableTransactionException) so the runner doesn't consider it
+        // retriable by default; wrap it explicitly to opt in.
+        //
+        // TODO: investigate whether the directory layer / LocatableResolver has a bug
+        // where concurrent resolutions of distinct keys fail to make progress on
+        // retry (rather than just being slow). If yes, the production-side fix would
+        // remove the need for this workaround entirely. See e.g.
+        // FDBDatabase.resolverStateCache, LocatableResolver.loadResolverState.
+        synchronized (TestKeySpacePathManager.class) {
+            final FDBRecordContextConfig.Builder config = FDBRecordContextConfig.newBuilder()
+                    .setTransactionId("pathManager_createPath_" + UUID.randomUUID())
+                    .setLogTransaction(true)
+                    .setMdcContext(MDC.getCopyOfContextMap());
+            try (FDBDatabaseRunner runner = db.newRunner(config)) {
+                final KeySpacePath finalPath = path;
+                runner.run(context -> {
+                    try {
+                        finalPath.toTuple(context);
+                    } catch (MoreAsyncUtil.DeadlineExceededException e) {
+                        // The 5-second AsyncLoadingCache deadline occasionally fires
+                        // under heavy parallel test load even though the work would
+                        // succeed on retry. Wrap so the runner's retry loop picks it up.
+                        throw new RecordCoreRetriableTransactionException(
+                                "deadline exceeded resolving test key space path", e);
+                    }
+                    return null;
+                });
+            }
+        }
+
         return path;
     }
 
@@ -105,12 +151,22 @@ public class TestKeySpacePathManager implements AutoCloseable {
                         .setMdcContext(MDC.getCopyOfContextMap());
                 try (FDBDatabaseRunner runner = db.newRunner(config)) {
                     runner.run(context -> {
-                        for (KeySpacePath path : paths) {
-                            if (LOGGER.isDebugEnabled()) {
-                                LOGGER.debug(KeyValueLogMessage.of("deleting test key space path",
-                                        LogMessageKeys.KEY_SPACE_PATH, path.toString(path.toTuple(context))));
+                        try {
+                            for (KeySpacePath path : paths) {
+                                if (LOGGER.isDebugEnabled()) {
+                                    LOGGER.debug(KeyValueLogMessage.of("deleting test key space path",
+                                            LogMessageKeys.KEY_SPACE_PATH, path.toString(path.toTuple(context))));
+                                }
+                                path.deleteAllData(context);
                             }
-                            path.deleteAllData(context);
+                        } catch (MoreAsyncUtil.DeadlineExceededException e) {
+                            // Same reason as in createPath: the 5-second AsyncLoadingCache
+                            // deadline on FDBDatabase.resolverStateCache occasionally fires
+                            // under heavy parallel test load. Wrap as a retriable exception
+                            // so the runner's retry loop picks it up instead of failing the
+                            // afterEach cleanup.
+                            throw new RecordCoreRetriableTransactionException(
+                                    "deadline exceeded resolving test key space path during cleanup", e);
                         }
                         return null;
                     });

@@ -63,11 +63,11 @@ public class PlanGenerationStackTest {
 
     @RegisterExtension
     @Order(2)
-    public final SimpleDatabaseRule database = new SimpleDatabaseRule(PlanGenerationStackTest.class, TestSchemas.restaurant());
+    public final SimpleDatabaseRule database = new SimpleDatabaseRule(relationalExtension, PlanGenerationStackTest.class, TestSchemas.restaurant());
 
     @RegisterExtension
     @Order(3)
-    public final RelationalConnectionRule connection = new RelationalConnectionRule(database::getConnectionUri)
+    public final RelationalConnectionRule connection = new RelationalConnectionRule(relationalExtension, database::getConnectionUri)
             .withSchema("TEST_SCHEMA");
 
     @RegisterExtension

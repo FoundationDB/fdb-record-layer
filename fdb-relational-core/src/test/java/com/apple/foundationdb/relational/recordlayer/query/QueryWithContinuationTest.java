@@ -41,7 +41,6 @@ import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
-import java.net.URI;
 import java.sql.SQLException;
 import java.util.Objects;
 
@@ -70,7 +69,7 @@ public class QueryWithContinuationTest {
 
     @Test
     void preparedStatement() throws Exception {
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             executeInsert(ddl);
             Continuation continuation;
             try (RelationalPreparedStatement ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM RestaurantComplexRecord")) {
@@ -93,7 +92,7 @@ public class QueryWithContinuationTest {
 
     @Test
     void preparedStatementWithExecuteContinuation() throws Exception {
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             executeInsert(ddl);
             Continuation continuation;
             try (final var connection = ddl.setSchemaAndGetConnection()) {
@@ -118,7 +117,7 @@ public class QueryWithContinuationTest {
 
     @Test
     void preparedStatementWithLimit() throws Exception {
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             executeInsert(ddl);
             Continuation continuation;
             try (RelationalPreparedStatement ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM RestaurantComplexRecord")) {
@@ -141,7 +140,7 @@ public class QueryWithContinuationTest {
 
     @Test
     void preparedStatementWithParam() throws Exception {
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             executeInsert(ddl);
             Continuation continuation;
             try (final var connection = ddl.setSchemaAndGetConnection()) {
@@ -167,7 +166,7 @@ public class QueryWithContinuationTest {
 
     @Test
     void preparedStatementWithLiteral() throws Exception {
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             executeInsert(ddl);
             Continuation continuation;
             try (final var connection = ddl.setSchemaAndGetConnection()) {
@@ -192,7 +191,7 @@ public class QueryWithContinuationTest {
 
     @Test
     void preparedStatementWithDifferentLimit() throws Exception {
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             executeInsert(ddl);
             Continuation continuation;
             try (final var connection = ddl.setSchemaAndGetConnection()) {
@@ -213,7 +212,7 @@ public class QueryWithContinuationTest {
 
     @Test
     void preparedStatementWithDifferentLimitParam() throws Exception {
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             executeInsert(ddl);
             Continuation continuation;
             try (final var connection = ddl.setSchemaAndGetConnection()) {
@@ -234,7 +233,7 @@ public class QueryWithContinuationTest {
 
     @Test
     void standardStatement() throws Exception {
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             executeInsert(ddl);
             Continuation continuation;
             try (final var connection = ddl.setSchemaAndGetConnection()) {
@@ -277,7 +276,7 @@ public class QueryWithContinuationTest {
 
     @Test
     void standardStatementWithDifferentPlanHashModes() throws Exception {
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             executeInsert(ddl);
             Continuation continuation;
             try (RelationalConnection connection = ddl.setSchemaAndGetConnection()) {
@@ -348,7 +347,7 @@ public class QueryWithContinuationTest {
 
     @Test
     void standardStatementWithLiterals() throws Exception {
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             executeInsert(ddl);
             Continuation continuation;
             try (final var connection = ddl.setSchemaAndGetConnection()) {

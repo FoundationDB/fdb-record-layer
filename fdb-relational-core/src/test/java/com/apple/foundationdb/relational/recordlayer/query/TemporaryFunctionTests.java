@@ -57,6 +57,7 @@ import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
+import org.junit.jupiter.api.parallel.Isolated;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
@@ -72,6 +73,13 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * This is for testing different aspects of temporary SQL functions. This test suite can migrate to YAML once we have
  *  <a href="https://github.com/FoundationDB/fdb-record-layer/issues/3366">support for multi-statement transactions in YAML</a>.
  */
+// Marked @Isolated because this test asserts on captured log messages from the JVM-global
+// PlanGenerator logger via LogAppenderRule. The appender catches events from any test
+// running concurrently against the same logger, and a thread-id filter is not safe
+// because the relational engine dispatches work onto async pools (FDB callbacks,
+// CompletableFuture stages, etc.). @Isolated tells JUnit to suspend all other tests
+// while this class runs, so the captured events are guaranteed to be ours.
+@Isolated
 public class TemporaryFunctionTests {
 
     @RegisterExtension
@@ -89,7 +97,7 @@ public class TemporaryFunctionTests {
     @Test
     void createTemporaryFunctionWorks() throws Exception {
         final String schemaTemplate = "create table t1(pk bigint, a bigint, primary key(pk))";
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 statement.executeUpdate("insert into t1 values (1, 10), (2, 20), (3, 30), (4, 40), (5, 50)");
             }
@@ -106,7 +114,7 @@ public class TemporaryFunctionTests {
     @Test
     void createTemporaryFunctionAcrossTransactionsWorks() throws Exception {
         final String schemaTemplate = "create table t1(pk bigint, a bigint, primary key(pk))";
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 statement.executeUpdate("insert into t1 values (1, 10), (2, 20), (3, 30), (4, 40), (5, 50)");
             }
@@ -131,7 +139,7 @@ public class TemporaryFunctionTests {
     void createTemporaryFunctionWithNameCollisionsThrows() throws Exception {
         final String schemaTemplate = "create table t1(pk bigint, a bigint, primary key(pk)) " +
                 "create function foo() as select * from t1 where a < 43"; // add non-temporary function called foo
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             final var connection = ddl.setSchemaAndGetConnection();
             connection.setAutoCommit(false);
             try (var statement = connection.createStatement()) {
@@ -152,7 +160,7 @@ public class TemporaryFunctionTests {
     @Test
     void temporaryFunctionVisibilityAcrossTransactionAfterCommit() throws Exception {
         final String schemaTemplate = "create table t1(pk bigint, a bigint, primary key(pk))";
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT"))
+        try (var ddl = Ddl.builder().database()
                 .relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 statement.executeUpdate("insert into t1 values (1, 10), (2, 20), (3, 30), (4, 40), (5, 50)");
@@ -177,7 +185,7 @@ public class TemporaryFunctionTests {
     @Test
     void temporaryFunctionVisibilityAcrossTransactionsAfterRollback() throws Exception {
         final String schemaTemplate = "create table t1(pk bigint, a bigint, primary key(pk))";
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT"))
+        try (var ddl = Ddl.builder().database()
                 .relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 statement.executeUpdate("insert into t1 values (1, 10), (2, 20), (3, 30), (4, 40), (5, 50)");
@@ -202,7 +210,7 @@ public class TemporaryFunctionTests {
     @Test
     void createOrReplaceTemporaryFunctionWorks() throws Exception {
         final String schemaTemplate = "create table t1(pk bigint, a bigint, primary key(pk))";
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 statement.executeUpdate("insert into t1 values (1, 10), (2, 20), (3, 30), (4, 40), (5, 50)");
             }
@@ -220,7 +228,7 @@ public class TemporaryFunctionTests {
     @Test
     void createOrReplaceTemporaryFunctionAndInvokeMultipleTimesWorks() throws Exception {
         final String schemaTemplate = "create table t1(pk bigint, a bigint, primary key(pk))";
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 statement.executeUpdate("insert into t1 values (1, 10), (2, 20), (3, 30), (4, 40), (5, 50)");
             }
@@ -242,7 +250,7 @@ public class TemporaryFunctionTests {
     @Test
     void temporaryFunctionIsMemoizedAcrossInvocations() throws Exception {
         final String schemaTemplate = "create table t1(pk bigint, a bigint, primary key(pk))";
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 statement.executeUpdate("insert into t1 values (1, 10), (2, 20), (3, 30), (4, 40), (5, 50)");
             }
@@ -277,7 +285,7 @@ public class TemporaryFunctionTests {
     @Test
     void dropTemporaryFunctionWorks() throws Exception {
         final String schemaTemplate = "create table t1(pk bigint, a bigint, primary key(pk))";
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 statement.executeUpdate("insert into t1 values (1, 10), (2, 20), (3, 30), (4, 40), (5, 50)");
             }
@@ -307,7 +315,7 @@ public class TemporaryFunctionTests {
     void dropNonTemporaryFunctionFails() throws Exception {
         final String schemaTemplate = "create table t1(pk bigint, a bigint, primary key(pk)) " +
                 "create function sq0(in x bigint) as select * from t1 where a > x";
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 statement.executeUpdate("insert into t1 values (1, 10), (2, 20), (3, 30), (4, 40), (5, 50)");
             }
@@ -329,7 +337,7 @@ public class TemporaryFunctionTests {
     @Test
     void dropTemporaryFunctionIfExistsWorks() throws Exception {
         final String schemaTemplate = "create table t1(pk bigint, a bigint, primary key(pk))";
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 statement.executeUpdate("insert into t1 values (1, 10), (2, 20), (3, 30), (4, 40), (5, 50)");
             }
@@ -356,7 +364,7 @@ public class TemporaryFunctionTests {
     @Test
     void dropTemporaryFunctionMultipleCallsWorks() throws Exception {
         final String schemaTemplate = "create table t1(pk bigint, a bigint, primary key(pk))";
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 statement.executeUpdate("insert into t1 values (1, 10), (2, 20), (3, 30), (4, 40), (5, 50)");
             }
@@ -391,7 +399,7 @@ public class TemporaryFunctionTests {
     @Test
     void dropNestedTemporaryFunctionCallsWorks() throws Exception {
         final String schemaTemplate = "create table t1(pk bigint, a bigint, primary key(pk))";
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 statement.executeUpdate("insert into t1(pk, a) values (1, 10), (2, 20), (3, 30), (4, 40), (5, 50)");
             }
@@ -436,7 +444,7 @@ public class TemporaryFunctionTests {
     @Test
     void createTemporaryFunctionSameNameThrows() throws Exception {
         final String schemaTemplate = "create table t1(pk bigint, a bigint, primary key(pk))";
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 statement.executeUpdate("insert into t1 values (1, 10), (2, 20), (3, 30), (4, 40), (5, 50)");
             }
@@ -456,7 +464,7 @@ public class TemporaryFunctionTests {
     @Test
     void createTemporaryFunctionWithPreparedParameters() throws Exception {
         final String schemaTemplate = "create table t1(pk bigint, a bigint, primary key(pk))";
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 statement.executeUpdate("insert into t1 values (1, 10), (2, 20), (3, 30), (4, 40), (5, 50)");
             }
@@ -487,7 +495,7 @@ public class TemporaryFunctionTests {
     @Test
     void createNestedTemporaryFunctionWithPreparedParameters() throws Exception {
         final String schemaTemplate = "create table t1(pk bigint, a bigint, primary key(pk))";
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 statement.executeUpdate("insert into t1 values (1, 10), (2, 20), (3, 30), (4, 40), (5, 50)");
             }
@@ -522,7 +530,7 @@ public class TemporaryFunctionTests {
     @Test
     void createTemporaryFunctionWithPreparedParametersWorks() throws Exception {
         final String schemaTemplate = "create table t1(pk bigint, a bigint, primary key(pk))";
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 statement.executeUpdate("insert into t1 values (1, 10), (2, 20), (3, 30), (4, 40), (5, 50)");
             }
@@ -545,7 +553,7 @@ public class TemporaryFunctionTests {
     @Test
     void createNestedTemporaryFunctionsWithPreparedParameters() throws Exception {
         final String schemaTemplate = "create table t1(pk bigint, a bigint, primary key(pk))";
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 statement.executeUpdate("insert into t1(pk, a) values (1, 10), (2, 20), (3, 30), (4, 40), (5, 50)");
             }
@@ -602,7 +610,7 @@ public class TemporaryFunctionTests {
     @Test
     void createNestedTemporaryFunctionsWithVariousLiterals() throws Exception {
         final String schemaTemplate = "create table t1(pk bigint, a bigint, primary key(pk))";
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 statement.executeUpdate("insert into t1(pk, a) values (1, 10), (2, 20), (3, 30), (4, 40), (5, 50)");
             }
@@ -653,7 +661,7 @@ public class TemporaryFunctionTests {
     @Test
     void createNestedTemporaryFunctionsWithPreparedParametersOptimizationConstraintPertainingNestedFunction() throws Exception {
         final String schemaTemplate = "create table t1(pk bigint, a bigint, primary key(pk)) create index indexOnA as select a from t1 where a < 35";
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 statement.executeUpdate("insert into t1(pk, a) values (1, 10), (2, 20), (3, 30), (4, 40), (5, 50)");
             }
@@ -721,7 +729,7 @@ public class TemporaryFunctionTests {
     @Test
     void createNestedTemporaryFunctionsWithLiteralsOptimizationConstraintPertainingNestedFunction() throws Exception {
         final String schemaTemplate = "create table t1(pk bigint, a bigint, primary key(pk)) create index indexOnA as select a from t1 where a < 35";
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 statement.executeUpdate("insert into t1(pk, a) values (1, 10), (2, 20), (3, 30), (4, 40), (5, 50)");
             }
@@ -784,7 +792,7 @@ public class TemporaryFunctionTests {
     @Test
     void useMultipleReferencesOfTemporaryFunctionsWithPreparedParameters() throws Exception {
         final String schemaTemplate = "create table t1(pk bigint, a bigint, primary key(pk)) create index indexOnA as select a from t1 where a < 35";
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 statement.executeUpdate("insert into t1(pk, a) values (1, 10), (2, 20), (3, 30), (4, 40), (5, 50)");
             }
@@ -870,7 +878,7 @@ public class TemporaryFunctionTests {
     @Test
     void useMultipleReferencesOfTemporaryFunctionsWithPreparedParametersAcrossContinuations() throws Exception {
         final String schemaTemplate = "create table t1(pk bigint, a bigint, primary key(pk)) create index indexOnA as select a from t1 where a < 35";
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 statement.executeUpdate("insert into t1(pk, a) values (1, 10), (2, 15)");
             }
@@ -944,7 +952,7 @@ public class TemporaryFunctionTests {
     @Test
     void useMultipleReferencesOfTemporaryFunctionsWithPreparedParametersContinuationsAcrossTransactions() throws Exception {
         final String schemaTemplate = "create table t1(pk bigint, a bigint, primary key(pk)) create index indexOnA as select a from t1 where a < 35";
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 statement.executeUpdate("insert into t1(pk, a) values (1, 10), (2, 15)");
             }
@@ -1048,7 +1056,7 @@ public class TemporaryFunctionTests {
     void createTemporaryFunctionCaseSensitivityOption(boolean isCaseSensitive) throws Exception {
         final String schemaTemplate = "create table t1(pk bigint, a bigint, primary key(pk))";
         try (var ddl = Ddl.builder().withOption(Options.Name.CASE_SENSITIVE_IDENTIFIERS, isCaseSensitive)
-                .database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+                .database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 statement.executeUpdate("insert into t1 values (1, 10), (2, 20), (3, 30), (4, 40), (5, 50)");
             }
@@ -1068,7 +1076,7 @@ public class TemporaryFunctionTests {
     void attemptToCreateTemporaryFunctionWithDifferentCaseSensitivityOptionCase1() throws Exception {
         final String schemaTemplate = "create table t1(pk bigint, a bigint, primary key(pk))";
         try (var ddl = Ddl.builder().withOption(Options.Name.CASE_SENSITIVE_IDENTIFIERS, true)
-                .database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+                .database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 statement.executeUpdate("insert into t1 values (1, 10), (2, 20), (3, 30), (4, 40), (5, 50)");
             }
@@ -1092,7 +1100,7 @@ public class TemporaryFunctionTests {
     void attemptToCreateTemporaryFunctionWithDifferentCaseSensitivityOptionCase2() throws Exception {
         final String schemaTemplate = "create table t1(pk bigint, a bigint, primary key(pk))";
         try (var ddl = Ddl.builder().withOption(Options.Name.CASE_SENSITIVE_IDENTIFIERS, false)
-                .database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+                .database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 statement.executeUpdate("insert into t1 values (1, 10), (2, 20), (3, 30), (4, 40), (5, 50)");
             }
@@ -1161,7 +1169,7 @@ public class TemporaryFunctionTests {
     void unpivotRepeatedFieldInSqlFunctionWorksCorrectly() throws Exception {
         final String schemaTemplate = "create type as struct city(name string, population bigint) " +
                 "create table country(id bigint, name string, continent string, cities city array, primary key(id))";
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 statement.executeUpdate("insert into country values " +
                         "(1, 'USA', 'North America', [('New York' ,8419600), ('Los Angeles', 3980400)]), " +

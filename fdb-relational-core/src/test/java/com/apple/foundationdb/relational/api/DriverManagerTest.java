@@ -25,6 +25,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.Isolated;
 import org.mockito.ArgumentMatchers;
 import org.mockito.Mockito;
 
@@ -34,6 +35,17 @@ import java.sql.SQLException;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
+/**
+ * This is the only test in the relational-core test suite that interacts with
+ * {@link DriverManager} directly. Every other test gets its driver via
+ * {@code relationalExtension.getDriver()}.
+ * <p>
+ * Marked {@link Isolated} because {@code @BeforeEach} clears the entire JVM-wide DriverManager
+ * registry. Without isolation, running this concurrently with any other test would race and pull
+ * the driver out from under it. {@link Isolated} tells JUnit Jupiter to suspend all other tests
+ * while this class runs.
+ */
+@Isolated
 class DriverManagerTest {
     RelationalDriver driver1 = Mockito.mock(RelationalDriver.class);
     RelationalDriver driver2 = Mockito.mock(RelationalDriver.class);

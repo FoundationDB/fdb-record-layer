@@ -25,7 +25,6 @@ import com.apple.foundationdb.relational.api.EmbeddedRelationalArray;
 import com.apple.foundationdb.relational.api.EmbeddedRelationalStruct;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.RelationalConnection;
-import com.apple.foundationdb.relational.api.RelationalDriver;
 import com.apple.foundationdb.relational.api.RelationalPreparedStatement;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.ContinuationImpl;
@@ -43,14 +42,22 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
+import org.junit.jupiter.api.parallel.Isolated;
 import org.opentest4j.AssertionFailedError;
 
-import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.function.Function;
+import java.net.URI;
 
+// Marked @Isolated because this test asserts on captured log messages from the JVM-global
+// PlanGenerator logger via LogAppenderRule. The appender catches events from any test
+// running concurrently against the same logger, and a thread-id filter is not safe
+// because the relational engine dispatches work onto async pools (FDB callbacks,
+// CompletableFuture stages, etc.). @Isolated tells JUnit to suspend all other tests
+// while this class runs, so the captured events are guaranteed to be ours.
+@Isolated
 public class UpdateTest {
 
     private static final String schemaTemplate =
@@ -66,7 +73,7 @@ public class UpdateTest {
 
     @RegisterExtension
     @Order(1)
-    public final SimpleDatabaseRule database = new SimpleDatabaseRule(UpdateTest.class, schemaTemplate, new SchemaTemplateRule.SchemaTemplateOptions(true, true));
+    public final SimpleDatabaseRule database = new SimpleDatabaseRule(relationalExtension, UpdateTest.class, schemaTemplate, new SchemaTemplateRule.SchemaTemplateOptions(true, true));
 
     @RegisterExtension
     @Order(4)
@@ -167,7 +174,7 @@ public class UpdateTest {
     }
 
     public void insertRecords(int numRecords) throws RelationalException, SQLException {
-        try (final var con = DriverManager.getConnection(database.getConnectionUri().toString())) {
+        try (final var con = relationalExtension.getDriver().connect(URI.create(database.getConnectionUri().toString()))) {
             con.setSchema(database.getSchemaName());
             final var builder = new StringBuilder("INSERT INTO RestaurantReviewer(id) VALUES");
             for (int i = 0; i < numRecords; i++) {
@@ -193,7 +200,7 @@ public class UpdateTest {
     }
 
     private void verifyUpdates(String updatedField, Object expectedValue, int updatedUpTill) throws SQLException {
-        try (final var con = DriverManager.getConnection(database.getConnectionUri().toString()).unwrap(RelationalConnection.class)) {
+        try (final var con = relationalExtension.getDriver().connect(URI.create(database.getConnectionUri().toString())).unwrap(RelationalConnection.class)) {
             con.setSchema(database.getSchemaName());
             final var statement = con.prepareStatement("SELECT id, " + updatedField + " from RestaurantReviewer WHERE id >= 0");
             try (final var resultSet = statement.executeQuery()) {
@@ -224,7 +231,7 @@ public class UpdateTest {
                                                                Options options) throws SQLException, RelationalException {
         var continuation = continuationAndNumUpdated.getLeft();
         var updatedUpTill = continuationAndNumUpdated.getRight();
-        final var driver = (RelationalDriver) DriverManager.getDriver(database.getConnectionUri().toString());
+        final var driver = relationalExtension.getDriver();
         try (final var con = (EmbeddedRelationalConnection) driver.connect(database.getConnectionUri(), options)) {
             con.setSchema(database.getSchemaName());
             final var statement = prepareUpdate(con, fieldToUpdate, updateValue.apply(con), continuation);

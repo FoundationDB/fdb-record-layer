@@ -31,7 +31,6 @@ import com.apple.foundationdb.relational.api.EmbeddedRelationalStruct;
 import com.apple.foundationdb.relational.api.KeySet;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.RelationalConnection;
-import com.apple.foundationdb.relational.api.RelationalDriver;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
@@ -45,7 +44,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
 import javax.annotation.Nonnull;
-import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
@@ -57,7 +55,7 @@ public class QueryPropertiesTest {
 
     @RegisterExtension
     @Order(1)
-    public final SimpleDatabaseRule database = new SimpleDatabaseRule(QueryPropertiesTest.class, TestSchemas.restaurant());
+    public final SimpleDatabaseRule database = new SimpleDatabaseRule(relationalExtension, QueryPropertiesTest.class, TestSchemas.restaurant());
 
     @Test
     void verifyExecuteAndScanPropertiesGivenQueryProperties() throws SQLException {
@@ -93,7 +91,7 @@ public class QueryPropertiesTest {
     }
 
     List<Long> testScan(Options options, long firstRestNo) throws RelationalException, SQLException {
-        final var driver = (RelationalDriver) DriverManager.getDriver(database.getConnectionUri().toString());
+        final var driver = relationalExtension.getDriver();
         try (RelationalConnection conn = driver.connect(database.getConnectionUri(), options)) {
             conn.setSchema("TEST_SCHEMA");
             try (RelationalStatement s = conn.createStatement()) {

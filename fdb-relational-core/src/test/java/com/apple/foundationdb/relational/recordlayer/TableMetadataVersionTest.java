@@ -43,11 +43,11 @@ public class TableMetadataVersionTest {
 
     @RegisterExtension
     @Order(1)
-    public final SimpleDatabaseRule database = new SimpleDatabaseRule(TableMetadataVersionTest.class, TestSchemas.restaurant());
+    public final SimpleDatabaseRule database = new SimpleDatabaseRule(relationalExtension, TableMetadataVersionTest.class, TestSchemas.restaurant());
 
     @RegisterExtension
     @Order(2)
-    public final RelationalConnectionRule dbConn = new RelationalConnectionRule(database::getConnectionUri);
+    public final RelationalConnectionRule dbConn = new RelationalConnectionRule(relationalExtension, database::getConnectionUri);
 
     @Test
     void missingMetadataVersionFailsToLoadDuringGet() throws Exception {

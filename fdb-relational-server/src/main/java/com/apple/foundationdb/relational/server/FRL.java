@@ -38,6 +38,7 @@ import com.apple.foundationdb.relational.api.RelationalStruct;
 import com.apple.foundationdb.relational.api.SqlTypeNamesSupport;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.catalog.StoreCatalog;
+import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metrics.NoOpMetricRegistry;
 import com.apple.foundationdb.relational.jdbc.TypeConversion;
@@ -78,9 +79,36 @@ import java.util.concurrent.TimeUnit;
 // Needs to be public so can be used by sub-packages; i.e. the JDBCService
 @API(API.Status.EXPERIMENTAL)
 public class FRL implements AutoCloseable {
+    /**
+     * JVM-wide lock guarding any operation that mutates the shared catalog metadata or its underlying
+     * static state ({@link com.apple.foundationdb.relational.recordlayer.RelationalKeyspaceProvider#registerDomainIfNotExists}
+     * and the catalog-bootstrap transaction below). Without this, concurrent {@code new FRL(...)} calls
+     * — e.g. from parallel test {@code @BeforeAll} hooks — race on the catalog-init transaction commit
+     * and fail with "Transaction not committed due to conflict with another transaction".
+     * <p>
+     * Exposed (package-public to {@code .server}; referenced by reflection or test-only callers via
+     * {@link #catalogLock()}) so that test scaffolding that runs additional catalog-mutating DDL
+     * (CREATE/DROP DATABASE, CREATE/DROP SCHEMA TEMPLATE) can serialize against FRL initialization
+     * on the same JVM and avoid the same race.
+     */
+    private static final Object CATALOG_LOCK = new Object();
+
     private final FdbConnection fdbDatabase;
     private final RelationalDriver driver;
     private boolean registeredJDBCEmbedDriver;
+
+    /**
+     * Returns the JVM-wide monitor used to serialize catalog-mutating DDL. Hold this when issuing
+     * CREATE/DROP DATABASE, CREATE/DROP SCHEMA TEMPLATE, or any other operation that writes the
+     * cluster-global catalog metadata, to avoid SQLSTATE 40001 conflicts with concurrent
+     * {@link #FRL(Options, String, boolean)} construction or other DDL on the same JVM.
+     *
+     * @return the JVM-wide catalog-mutation monitor
+     */
+    @Nonnull
+    public static Object catalogLock() {
+        return CATALOG_LOCK;
+    }
 
     public FRL() throws RelationalException {
         this(Options.NONE, null);
@@ -102,13 +130,22 @@ public class FRL implements AutoCloseable {
         }
         this.fdbDatabase = new DirectFdbConnection(fdbDb, NoOpMetricRegistry.INSTANCE);
 
-        final RelationalKeyspaceProvider keyspaceProvider = RelationalKeyspaceProvider.instance();
-        keyspaceProvider.registerDomainIfNotExists("FRL");
-        KeySpace keySpace = keyspaceProvider.getKeySpace();
-        StoreCatalog storeCatalog;
-        try (Transaction txn = fdbDatabase.getTransactionManager().createTransaction(Options.NONE)) {
-            storeCatalog = StoreCatalogProvider.getCatalog(txn, keySpace);
-            txn.commit();
+        // Serialize the rest of construction in-JVM: registerDomainIfNotExists mutates the shared
+        // keyspace, and the catalog-init transaction below races on commit when multiple FRLs are
+        // constructed concurrently against the same cluster (typical in parallel tests).
+        //
+        // The lock only covers within-JVM contention; multiple OS processes (e.g. parent test JVM
+        // + several external-server subprocesses) constructing FRL against the same cluster will
+        // still race on the catalog-init commit and produce SQLSTATE 40001. Retry handles that
+        // case — the catalog init is idempotent under retry because openRecordStore opens the
+        // already-initialized store on a re-attempt.
+        final StoreCatalog storeCatalog;
+        final KeySpace keySpace;
+        synchronized (CATALOG_LOCK) {
+            final RelationalKeyspaceProvider keyspaceProvider = RelationalKeyspaceProvider.instance();
+            keyspaceProvider.registerDomainIfNotExists("FRL");
+            keySpace = keyspaceProvider.getKeySpace();
+            storeCatalog = initializeCatalogWithRetry(keySpace);
         }
 
         RecordLayerConfig rlConfig = RecordLayerConfig.getDefault();
@@ -141,6 +178,41 @@ public class FRL implements AutoCloseable {
         } catch (SQLException ve) {
             throw new RelationalException(ve);
         }
+    }
+
+    /**
+     * Initializes the store catalog under a fresh transaction, retrying on SQLSTATE 40001
+     * (transaction conflict) up to a small attempt limit. Used to absorb cross-JVM races on the
+     * catalog-init commit when several FRL processes start concurrently against the same cluster
+     * (e.g. the test JVM plus several external-server subprocesses). Within a single JVM the
+     * surrounding {@link #CATALOG_LOCK} prevents contention; this retry covers the cross-process
+     * case where that lock has no effect.
+     */
+    @Nonnull
+    private StoreCatalog initializeCatalogWithRetry(@Nonnull KeySpace keySpace) throws RelationalException {
+        final int maxAttempts = 10;
+        RelationalException last = null;
+        for (int attempt = 1; attempt <= maxAttempts; attempt++) {
+            try (Transaction txn = fdbDatabase.getTransactionManager().createTransaction(Options.NONE)) {
+                final StoreCatalog catalog = StoreCatalogProvider.getCatalog(txn, keySpace);
+                txn.commit();
+                return catalog;
+            } catch (RelationalException e) {
+                if (e.getErrorCode() != ErrorCode.SERIALIZATION_FAILURE) {
+                    throw e;
+                }
+                last = e;
+                // Short, slightly increasing backoff; cross-process commit-conflict windows are brief.
+                try {
+                    Thread.sleep(20L * attempt);
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                    throw e;
+                }
+            }
+        }
+        // Exhausted retries; surface the most recent conflict so callers see why startup failed.
+        throw last;
     }
 
     public RelationalDriver getDriver() {

@@ -45,6 +45,8 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.Execution;
+import org.junit.jupiter.api.parallel.ExecutionMode;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.CsvSource;
@@ -74,6 +76,9 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
  * Tests for AgilityContext.
  */
 @Tag(Tags.RequiresFDB)
+// Runs SAME_THREAD because this class commits to the shared FDB cluster and races (write-write
+// conflicts, GRV throttling) with other FDB-heavy lucene tests when run concurrently.
+@Execution(ExecutionMode.SAME_THREAD)
 class AgilityContextTest extends FDBRecordStoreTestBase {
     enum AgilityContextType { AGILE, NON_AGILE, READ_ONLY }
 

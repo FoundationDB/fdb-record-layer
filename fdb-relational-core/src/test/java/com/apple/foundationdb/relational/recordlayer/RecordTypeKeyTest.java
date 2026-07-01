@@ -43,7 +43,7 @@ public class RecordTypeKeyTest {
 
     @RegisterExtension
     @Order(1)
-    public final SimpleDatabaseRule database = new SimpleDatabaseRule(
+    public final SimpleDatabaseRule database = new SimpleDatabaseRule(relationalExtension, 
             RecordTypeKeyTest.class,
             """
             CREATE TABLE restaurant_review (reviewer bigint, rating bigint, SINGLE ROW ONLY)
@@ -54,7 +54,7 @@ public class RecordTypeKeyTest {
 
     @RegisterExtension
     @Order(2)
-    public final RelationalConnectionRule connection = new RelationalConnectionRule(database::getConnectionUri)
+    public final RelationalConnectionRule connection = new RelationalConnectionRule(relationalExtension, database::getConnectionUri)
             .withOptions(Options.NONE)
             .withSchema("TEST_SCHEMA");
 
