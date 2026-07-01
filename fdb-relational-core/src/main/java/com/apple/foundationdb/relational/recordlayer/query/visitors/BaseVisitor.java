@@ -487,13 +487,8 @@ public class BaseVisitor extends RelationalParserBaseVisitor<Object> implements 
 
     @Nonnull
     @Override
-    public Identifier visitUserDefinedScalarFunctionStatementBody(@Nonnull RelationalParser.UserDefinedScalarFunctionStatementBodyContext ctx) {
-        return identifierVisitor.visitFullId(ctx.fullId());
-    }
-
-    @Override
-    public Object visitExpressionBody(final RelationalParser.ExpressionBodyContext ctx) {
-        return visitChildren(ctx);
+    public Expression visitUserDefinedMacroFunctionStatementBody(@Nonnull RelationalParser.UserDefinedMacroFunctionStatementBodyContext ctx) {
+        return ddlVisitor.visitUserDefinedMacroFunctionStatementBody(ctx);
     }
 
     @Override
@@ -581,16 +576,6 @@ public class BaseVisitor extends RelationalParserBaseVisitor<Object> implements 
         return visitChildren(ctx);
     }
 
-    @Override
-    public LogicalOperator visitSqlReturnStatement(final RelationalParser.SqlReturnStatementContext ctx) {
-        return ddlVisitor.visitSqlReturnStatement(ctx);
-    }
-
-    @Override
-    public LogicalOperator visitReturnValue(final RelationalParser.ReturnValueContext ctx) {
-        return ddlVisitor.visitReturnValue(ctx);
-    }
-
     @Nonnull
     @Override
     public Object visitCharSet(@Nonnull RelationalParser.CharSetContext ctx) {
@@ -663,8 +648,8 @@ public class BaseVisitor extends RelationalParserBaseVisitor<Object> implements 
     }
 
     @Override
-    public Expressions visitTableFunctionArgs(final RelationalParser.TableFunctionArgsContext ctx) {
-        return expressionVisitor.visitTableFunctionArgs(ctx);
+    public Expressions visitNamedOrUnnamedFunctionArgs(RelationalParser.NamedOrUnnamedFunctionArgsContext ctx) {
+        return expressionVisitor.visitNamedOrUnnamedFunctionArgs(ctx);
     }
 
     @Override

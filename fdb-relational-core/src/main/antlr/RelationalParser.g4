@@ -5,7 +5,7 @@ Copyright (c) 2015-2017, Ivan Kochurkin (kvanttt@gmail.com), Positive Technologi
 Copyright (c) 2017, Ivan Khudyashev (IHudyashov@ptsecurity.com)
 Copyright 2021-2025 Apple Inc. and the FoundationDB project authors
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
+Permission is hereby granted, free of  charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
 in the Software without restriction, including without limitation the rights
 to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
@@ -133,7 +133,7 @@ columnDefinition
 // this is not aligned with SQL standard, but it eliminates ambiguities related to necessating a lookahead of 1 to resolve
 // column with a custom type (which is a mere ID, just like the column ID).
 functionColumnType
-    : primitiveType | TYPE customType=uid;
+    : (primitiveType | TYPE customType=uid) ARRAY?;
 
 columnType
     : primitiveType | customType=uid;
@@ -282,7 +282,7 @@ returnsClause
     ;
 
 returnsType
-    : returnsDataType=columnType
+    : returnsDataType=columnType ARRAY?
     | returnsTableType
     ;
 
@@ -329,18 +329,9 @@ dispatchClause
     ;
 
 routineBody
-    : AS queryTerm         #statementBody
-    | AS fullId            #userDefinedScalarFunctionStatementBody
-    | sqlReturnStatement   #expressionBody
+    : AS queryTerm                    #statementBody
+    | (RETURN | AS) expression        #userDefinedMacroFunctionStatementBody
     // | externalBodyReferences TODO
-    ;
-
-sqlReturnStatement
-    : RETURN returnValue
-    ;
-
-returnValue
-    : expression
     ;
 
 charSet
@@ -412,10 +403,10 @@ namedQuery
     ;
 
 tableFunction
-    : tableFunctionName '(' tableFunctionArgs? ')' inlineTableDefinition?
+    : tableFunctionName '(' namedOrUnnamedFunctionArgs? ')' inlineTableDefinition?
     ;
 
-tableFunctionArgs
+namedOrUnnamedFunctionArgs
     : functionArg ( ',' functionArg )*
     | namedFunctionArg ( ',' namedFunctionArg)*
     ;
@@ -999,11 +990,11 @@ ifNotExists
 //    Functions
 
 functionCall
-    : aggregateWindowedFunction                                     #aggregateFunctionCall // done (supported)
-    | nonAggregateWindowedFunction                                  #nonAggregateFunctionCall // done
-    | specificFunction                                              #specificFunctionCall //
-    | scalarFunctionName '(' functionArgs? ')'                      #scalarFunctionCall // done (unsupported)
-    | userDefinedScalarFunctionName '(' functionArgs? ')'           #userDefinedScalarFunctionCall
+    : aggregateWindowedFunction                                                   #aggregateFunctionCall // done (supported)
+    | nonAggregateWindowedFunction                                                #nonAggregateFunctionCall // done
+    | specificFunction                                                            #specificFunctionCall //
+    | scalarFunctionName '(' functionArgs? ')'                                    #scalarFunctionCall // done (unsupported)
+    | userDefinedScalarFunctionName '(' namedOrUnnamedFunctionArgs? ')'           #userDefinedScalarFunctionCall
     ;
 
 specificFunction

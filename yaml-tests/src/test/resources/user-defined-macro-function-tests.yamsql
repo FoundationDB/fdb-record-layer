@@ -207,4 +207,179 @@ test_block:
       # wrong function name
       - query: select zz(r) from nested group by z(r)
       - error: UNSUPPORTED_QUERY
+    -
+      - query: select z(((1l, 2l), (3l, 4l))) from range(1, 2)
+      - initialVersionLessThan: !current_version
+      - error: INVALID_ARGUMENT_FOR_FUNCTION
+      - initialVersionAtLeast: !current_version
+      - unorderedResult: [{!l 4}]
+---
+setup:
+  connect: "jdbc:embed:/__SYS?schema=CATALOG"
+  options:
+    supported_version: !current_version
+  steps:
+    - query: drop schema template if exists test_user_defined_macro_functoins_with_expressions
+    - query: create schema template test_user_defined_macro_functoins_with_expressions
+             create type as struct st1(y bigint, z bigint)
+             create type as struct st2(w bigint, x bigint)
+             create type as struct st3(u st2, v st1)
+             create table nested(id bigint, r st3, primary key(id))
+             create function add_udf(in a bigint, in b bigint) returns bigint return a + b 
+             create function st1_constructor(in a bigint) returns st1 return (a, 0L)
+             create function st1_constructor_alt(in a bigint) returns st1 as (a, 5L)
+             create function z(in x type st3) returns bigint return x.v.z
+             create function z_alt(in x type st3) returns bigint as x.v.z
+             create function st1_array(in a type st1) RETURNS st1 array as [a]
+             create function st1_array_alt(in a type st1) RETURNS st1 array return [a]
+             create function st1_array_without_return_type(in a type st1) return [a]
+             create function st1_array_first(in a type st1 array) returns st1 return a[1]
+             create function st1_constructor_with_defaults(in y bigint, in z bigint default 2L) returns st1 return (y, z)
+    - query: drop database if exists /FRL/MACRO_WITH_EXPRESSIONS
+    - query: create database /FRL/MACRO_WITH_EXPRESSIONS
+    - query: create schema /FRL/MACRO_WITH_EXPRESSIONS/test with template test_user_defined_macro_functoins_with_expressions
+---
+setup:
+  connect: "jdbc:embed:/FRL/MACRO_WITH_EXPRESSIONS?schema=TEST"
+  options:
+    supported_version: !current_version
+  steps:
+    - query: INSERT INTO NESTED
+        VALUES (1, ((5, 11), (10, 100))),
+               (2, ((5, 12), (10, 100))),
+               (3, ((5, 13), (10, 100))),
+               (4, ((5, 14), (10, 100))),
+               (5, ((5, 15), (10, 140))),
+               (6, ((5, 16), (10, 140)))
+---
+test_block:
+  name: user-defined-scalar-function-with-expressions-tests
+  connect: "jdbc:embed:/FRL/MACRO_WITH_EXPRESSIONS?schema=TEST"
+  options:
+    supported_version: !current_version
+  tests:
+    -
+      - query: select add_udf(0, 1l) from range(1, 2)
+      - explain: "TF range(promote(@c10 AS LONG), promote(@c12 AS LONG), STEP 1l) | MAP (promote(@c3 AS LONG) + @c5 AS _0)"
+      - unorderedResult: [{ !l 1 }]
+    -
+      - query: select add_udf(5l, 10l) from range(1, 2)
+      - explain: "TF range(promote(@c10 AS LONG), promote(@c12 AS LONG), STEP 1l) | MAP (@c3 + @c5 AS _0)"
+      - unorderedResult: [{ !l 15 }]
+    -
+      - query: select st1_constructor(r.u.x) from nested
+      - explain: "SCAN([IS NESTED]) | MAP (promote((_.R.U.X AS A, 0l AS _1) AS LONG AS Y, LONG AS Z) AS _0)"
+      - unorderedResult: [{ {!l 11, !l 0} },
+                          { {!l 12, !l 0} },
+                          { {!l 13, !l 0} },
+                          { {!l 14, !l 0} },
+                          { {!l 15, !l 0} },
+                          { {!l 16, !l 0} }]
+    -
+      - query: select st1_constructor_alt(r.u.x) from nested
+      - explain: "SCAN([IS NESTED]) | MAP (promote((_.R.U.X AS A, 5l AS _1) AS LONG AS Y, LONG AS Z) AS _0)"
+      - unorderedResult: [{ {!l 11, !l 5} },
+                          { {!l 12, !l 5} },
+                          { {!l 13, !l 5} },
+                          { {!l 14, !l 5} },
+                          { {!l 15, !l 5} },
+                          { {!l 16, !l 5} }]
+    -
+      - query: select z(r) from nested
+      - explain: "SCAN([IS NESTED]) | MAP (_.R.V.Z AS _0)"
+      - unorderedResult: [{100}, {100}, {100}, {100}, {140}, {140}]
+    -
+      - query: select z_alt(r) from nested
+      - explain: "SCAN([IS NESTED]) | MAP (_.R.V.Z AS _0)"
+      - unorderedResult: [{100}, {100}, {100}, {100}, {140}, {140}]
+    -
+      - query: select st1_array((1l, 2l)) from range(1, 2)
+      - explain: "TF range(promote(@c12 AS LONG), promote(@c14 AS LONG), STEP 1l) | MAP (array(promote((@c4 AS _0, @c6 AS _1) AS LONG AS Y, LONG AS Z)) AS _0)"
+      # TODO: disable forceContinuation until https://github.com/FoundationDB/fdb-record-layer/pull/4171 is merged.
+      - maxRows: 0
+      - unorderedResult: [{ [ {!l 1, !l 2} ]} ]
+    -
+      - query: select st1_array_alt(r.v) from nested
+      - explain: "SCAN([IS NESTED]) | MAP (array(_.R.V) AS _0)"
+      # TODO: disable forceContinuation until https://github.com/FoundationDB/fdb-record-layer/pull/4171 is merged.
+      - maxRows: 0
+      - unorderedResult: [{ [ {y: !l 10, z: !l 100} ]},
+                          { [ {y: !l 10, z: !l 100} ]},
+                          { [ {y: !l 10, z: !l 100} ]},
+                          { [ {y: !l 10, z: !l 100} ]},
+                          { [ {y: !l 10, z: !l 140} ]},
+                          { [ {y: !l 10, z: !l 140} ]}]
+    -
+      - query: select st1_array_without_return_type(r.v) from nested
+      - explain: "SCAN([IS NESTED]) | MAP (array(_.R.V) AS _0)"
+      # TODO: disable forceContinuation until https://github.com/FoundationDB/fdb-record-layer/pull/4171 is merged.
+      - maxRows: 0
+      - unorderedResult: [{ [ {y: !l 10, z: !l 100} ]},
+                          { [ {y: !l 10, z: !l 100} ]},
+                          { [ {y: !l 10, z: !l 100} ]},
+                          { [ {y: !l 10, z: !l 100} ]},
+                          { [ {y: !l 10, z: !l 140} ]},
+                          { [ {y: !l 10, z: !l 140} ]}]
+    -
+      - query: select st1_array((0l, 1l))[1] from range(1, 2)
+      - explain: "TF range(promote(@c15 AS LONG), promote(@c17 AS LONG), STEP 1l) | MAP (array(promote((@c4 AS _0, @c6 AS _1) AS LONG AS Y, LONG AS Z))[promote(@c15 AS INT)] AS _0)"
+      - unorderedResult: [{ {y: !l 0, z: !l 1} }]
+    -
+      # TODO: this should be fixed as part of https://github.com/FoundationDB/fdb-record-layer/issues/4177
+      - query: select temp_z(r) from nested
+      - setup: create temporary function temp_z(IN r TYPE st3) returns bigint on commit drop function return r.v.z
+      - error: INTERNAL_ERROR
+    -
+      # TODO: this should be fixed as part of https://github.com/FoundationDB/fdb-record-layer/issues/4317
+      - query: select temp_constructor(r.u.w) from nested where id = 1
+      - setup: create temporary function temp_constructor(IN x bigint) returns st1 on commit drop function return (x, 5L)
+      - error: UNKNOWN_TYPE
+    -
+      - query: select temp_constructor(r.u.w) from nested where id = 1
+      - setup: create temporary function temp_constructor(IN x bigint) on commit drop function return (x, 5L)
+      - explain: "SCAN([IS NESTED, EQUALS promote(@c14 AS LONG)]) | MAP ((_.R.U.W AS X, 5l AS _1) AS _0)"
+      - unorderedResult: [{ {x: 5, !pos 2: 5} }]
+    -
+      - query: select st1_constructor_with_defaults(4) from range(1, 2)
+      - explain: "TF range(promote(@c8 AS LONG), promote(@c10 AS LONG), STEP 1l) | MAP ((promote(@c3 AS LONG) AS Y, promote(2l AS LONG) AS Z) AS _0)"
+      - unorderedResult: [{ {y: 4, z: 2} }]
+    -
+      - query: select st1_constructor_with_defaults((3*2)) from range(1, 2)
+      - explain: "TF range(promote(@c12 AS LONG), promote(@c14 AS LONG), STEP 1l) | MAP ((promote(@c4 * @c14 AS LONG) AS Y, promote(2l AS LONG) AS Z) AS _0)"
+      - unorderedResult: [{ {y: 6, z: 2} }]
+    -
+      - query: select st1_constructor_with_defaults(4, 5) from range(1, 2)
+      - explain: "TF range(promote(@c10 AS LONG), promote(@c12 AS LONG), STEP 1l) | MAP ((promote(@c3 AS LONG) AS Y, promote(@c5 AS LONG) AS Z) AS _0)"
+      - unorderedResult: [{ {y: 4, z: 5} }]
+    -
+      - query: select st1_constructor_with_defaults(y => 4) from range(1, 2)
+      - explain: "TF range(promote(@c10 AS LONG), promote(@c12 AS LONG), STEP 1l) | MAP ((promote(@c5 AS LONG) AS Y, promote(2l AS LONG) AS Z) AS _0)"
+      - unorderedResult: [{ {y: 4, z: 2} }]
+    -
+      - query: select st1_constructor(5l) from range(1, 2)
+      - explain: "TF range(promote(@c8 AS LONG), promote(@c10 AS LONG), STEP 1l) | MAP (promote((@c3 AS A, 0l AS _1) AS LONG AS Y, LONG AS Z) AS _0)"
+      - unorderedResult: [{ { Y: !l 5, Z: !l 0 } }]
+    -
+      - query: select st1_constructor_with_defaults(z => 5) from range(1, 2)
+      - error: UNDEFINED_FUNCTION
+    -
+      - query: select st1_constructor_with_defaults() from range(1, 2)
+      - error: UNDEFINED_FUNCTION
+    -
+      - query: select st1_constructor(2.0) from range(1, 2)
+      - error: INVALID_ARGUMENT_FOR_FUNCTION
+    -
+      - query: select st1_constructor('2') from range(1, 2)
+      - error: INVALID_ARGUMENT_FOR_FUNCTION
+    -
+      - query: select st1_constructor_with_defaults from range(1, 2)
+      - error: UNDEFINED_COLUMN
+---
+setup:
+  connect: "jdbc:embed:/__SYS?schema=CATALOG"
+  options:
+    supported_version: !current_version
+  steps:
+    - query: drop schema template test_user_defined_macro_functoins_with_expressions
+    - query: drop database /FRL/MACRO_WITH_EXPRESSIONS
 ...
