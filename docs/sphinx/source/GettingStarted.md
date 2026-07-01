@@ -1,4 +1,4 @@
-# Getting Started Guide
+# Getting started
 
 This is intended as a quick guide to getting started developing applications with the FDB Record Layer. We will cover:
 
