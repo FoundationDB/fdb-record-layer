@@ -351,16 +351,17 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
         if (newRecord != null) {
             builder.setNewRecord(serializeRecord(newRecord, serializer));
         }
-        getPendingWritesQueue().enqueue(state.context, builder.build(), state.store.getIncarnation());
+        getQueue().enqueue(state.context, builder.build(), state.store.getIncarnation());
         return AsyncUtil.DONE;
     }
 
     @Nonnull
-    private PendingWritesQueue<IndexBuildProto.PendingWritesQueueEntry> getPendingWritesQueue() {
+    private PendingWritesQueue<IndexBuildProto.PendingWritesQueueEntry> getQueue() {
+        // TOOD: get this from a PendingWriteQueue factory
         return new PendingWritesQueue<>(
                 IndexingSubspaces.indexWritePendingQueueSubspace(state.store, state.index),
                 IndexingSubspaces.indexWritePendingQueueSizeSubspace(state.store, state.index),
-                100_000, // TODO
+                100_000,
                 IndexBuildProto.PendingWritesQueueEntry.class
         );
     }

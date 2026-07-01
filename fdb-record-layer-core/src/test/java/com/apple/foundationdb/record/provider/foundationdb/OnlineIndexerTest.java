@@ -135,7 +135,7 @@ public abstract class OnlineIndexerTest {
     }
 
     @Nonnull
-    private FDBRecordStore.Builder createStoreBuilder() {
+    FDBRecordStore.Builder createStoreBuilder() {
         return FDBRecordStore.newBuilder()
                 .setMetaDataProvider(metaData)
                 .setFormatVersion(formatVersion)
@@ -375,7 +375,7 @@ public abstract class OnlineIndexerTest {
     }
 
     protected static OnlineIndexOperationConfig pauseAfterOnePass(final OnlineIndexOperationConfig oldConfig, final AtomicBoolean passed, final Semaphore inPauseSemaphore, final Semaphore pauseSemaphore) {
-        if (passed.get()) {
+        if (!passed.get()) {
             inPauseSemaphore.release();
             Assertions.assertDoesNotThrow(() -> pauseSemaphore.acquire());
             pauseSemaphore.release();
