@@ -161,13 +161,7 @@ class TestHelpers {
                     break;
                 }
                 data.add(record);
-                final int finalI = i;
-                future = future.thenCompose((vignore) -> {
-                    if (logFile != null) {
-                        logFile.log("Inserting to batch %d", finalI);
-                    }
-                    return hnsw.insert(tr, record.getPrimaryKey(), record.getVector());
-                });
+                future = future.thenCompose((vignore) -> hnsw.insert(tr, record.getPrimaryKey(), record.getVector()));
             }
             return future.thenApply(vignore -> data.build())
                     .whenComplete((result, error) -> {
