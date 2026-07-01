@@ -146,7 +146,7 @@ public class MergeScenarioTest implements BaseTest {
         final List<PrimaryKeyAndVector> baseLoaded =
                 TestHelpers.loadVectors(SiftTestHelpers.SIFT_SMALL_BASE_PATH, 1);
         Verify.verify(!baseLoaded.isEmpty(), "SIFT-small must contain at least one vector");
-        final DoubleRealVector base = (DoubleRealVector) baseLoaded.get(0).getVector();
+        final DoubleRealVector base = (DoubleRealVector) baseLoaded.get(0).vector();
 
         final SplittableRandom rnd = new SplittableRandom(PERTURBATION_SEED);
         final RandomHelpers.GaussianSampler sampler = new RandomHelpers.GaussianSampler(rnd);

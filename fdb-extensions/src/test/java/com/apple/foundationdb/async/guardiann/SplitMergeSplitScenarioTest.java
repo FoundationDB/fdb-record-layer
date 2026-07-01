@@ -136,7 +136,7 @@ public class SplitMergeSplitScenarioTest implements BaseTest {
         final List<PrimaryKeyAndVector> baseLoaded =
                 TestHelpers.loadVectors(SiftTestHelpers.SIFT_SMALL_BASE_PATH, 1);
         Verify.verify(!baseLoaded.isEmpty(), "SIFT-small must contain at least one vector");
-        final DoubleRealVector base = (DoubleRealVector) baseLoaded.get(0).getVector();
+        final DoubleRealVector base = (DoubleRealVector) baseLoaded.get(0).vector();
 
         // Insert NUM_NEAR_DUPLICATES perturbed copies, each with a unique primary key. Distinct
         // perturbations mean distinct content signatures, so CollapseTask doesn't try to fold

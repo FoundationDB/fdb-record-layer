@@ -351,7 +351,7 @@ public class HNSW {
      * @param shouldQuickStart an indicator that if set to {@code true} causes the iterator to first return the result
      *        of the zoom-in process before any work to traverse outwards is carried out. This may lead to inversions,
      *        if the zoom-out process finds candidates that are in fact closer to {@code centerVector} than the vectors
-     *        found by the zoom-in process. If the starting radius is {@code 0.0d} or close to it, this should not ever
+     *        found by the zoom-in process. If the starting radius is {@code 0.0d} or close to it, this unlikely to
      *        happen. Setting this parameter {@code true} is useful if it is uncertain or even doubtful that even the
      *        result of the zoom-in is ever going to be consumed by the caller. In such a scenario, additional work is
      *        only carried out if it is requested by the caller (by advancing the iterator).

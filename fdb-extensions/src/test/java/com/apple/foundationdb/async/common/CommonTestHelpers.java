@@ -81,12 +81,12 @@ public final class CommonTestHelpers {
                                                                                @Nonnull final List<PrimaryKeyAndVector> vectors,
                                                                                @Nonnull final RealVector queryVector) {
         final TreeSet<PrimaryKeyVectorAndDistance> vectorsOrderedByDistance =
-                new TreeSet<>(Comparator.comparing(PrimaryKeyVectorAndDistance::getDistance)
-                        .thenComparing(PrimaryKeyAndVector::getPrimaryKey));
+                new TreeSet<>(Comparator.comparing(PrimaryKeyVectorAndDistance::distance)
+                        .thenComparing(PrimaryKeyVectorAndDistance::primaryKey));
         for (final PrimaryKeyAndVector vector : vectors) {
-            final double distance = distanceFunction.applyAsDouble(vector.getVector(), queryVector);
+            final double distance = distanceFunction.applyAsDouble(vector.vector(), queryVector);
             final PrimaryKeyVectorAndDistance record =
-                    new PrimaryKeyVectorAndDistance(vector.getPrimaryKey(), vector.getVector(), distance);
+                    new PrimaryKeyVectorAndDistance(vector.primaryKey(), vector.vector(), distance);
             vectorsOrderedByDistance.add(record);
         }
         return vectorsOrderedByDistance;

@@ -107,6 +107,6 @@ class AccessInfo {
         return "AccessInfo[" +
                 "entryNodeReference=" + entryNodeReference +
                 ", rotatorSeed=" + rotatorSeed +
-                ", centroid=" + negatedCentroid + "]";
+                ", negatedCentroid=" + negatedCentroid + "]";
     }
 }

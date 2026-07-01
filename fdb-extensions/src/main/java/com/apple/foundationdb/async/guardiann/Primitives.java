@@ -315,7 +315,7 @@ class Primitives {
         }
 
         return storageTransform(accessInfo.rotatorSeed(),
-                Objects.requireNonNull(accessInfo.negatedCentroid()),
+                accessInfo.negatedCentroid(),
                 storesNormalizedVectors());
     }
 

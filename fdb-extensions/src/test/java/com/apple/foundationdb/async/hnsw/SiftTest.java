@@ -184,12 +184,12 @@ class SiftTest implements BaseTest {
 
         if (logger.isInfoEnabled()) {
             logger.info("min index={}; min distance={}; primaryKey={}",
-                    minIndex, minVectorAndDistance.getDistance(), minVectorAndDistance.getPrimaryKey());
+                    minIndex, minVectorAndDistance.distance(), minVectorAndDistance.primaryKey());
             if (afterMaxVectorAndDistance == null) {
                 logger.info("after max index={}; after max distance=∞; after primaryKey=∞", afterMaxIndex);
             } else {
                 logger.info("max index={}; max distance={}; primaryKey={}",
-                        afterMaxIndex, afterMaxVectorAndDistance.getDistance(), afterMaxVectorAndDistance.getPrimaryKey());
+                        afterMaxIndex, afterMaxVectorAndDistance.distance(), afterMaxVectorAndDistance.primaryKey());
             }
         }
 
@@ -201,7 +201,7 @@ class SiftTest implements BaseTest {
                     final long startTs = System.nanoTime();
                     final AsyncIterator<ResultEntry> it =
                             hnsw.orderByDistance(tr, 100, 500, false, queryVector,
-                                    minVectorAndDistance.getDistance(), minVectorAndDistance.getPrimaryKey(),
+                                    minVectorAndDistance.distance(), minVectorAndDistance.primaryKey(),
                                     false);
 
                     final ImmutableList.Builder<ResultEntry> resultsBuilder = ImmutableList.builder();
@@ -235,7 +235,7 @@ class SiftTest implements BaseTest {
 
         final List<Tuple> groundTruth =
                 orderedByDistances.stream()
-                        .map(PrimaryKeyAndVector::getPrimaryKey)
+                        .map(PrimaryKeyVectorAndDistance::primaryKey)
                         .collect(ImmutableList.toImmutableList());
 
         final Stream<Tuple> groundTruthSkipped =

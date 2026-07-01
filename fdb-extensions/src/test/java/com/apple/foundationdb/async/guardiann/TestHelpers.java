@@ -121,8 +121,8 @@ class TestHelpers {
                                 }
                                 data.add(record);
 
-                                return guardiann.insert(tr, record.getPrimaryKey(),
-                                                record.getVector(), null)
+                                return guardiann.insert(tr, record.primaryKey(),
+                                                record.vector(), null)
                                         .thenApply(ignored -> i + 1);
                             }, guardiann.getExecutor());
             return loopFuture.thenApply(vignore -> data.build())
@@ -133,7 +133,7 @@ class TestHelpers {
                             final long endTs = System.nanoTime();
                             logger.debug("inserted batchSize={} records={} startingAtPrimaryKey={} took elapsedTime={}ms, readBytes={}",
                                     batchSize, result.size(),
-                                    result.isEmpty() ? "<none>" : result.get(0).getPrimaryKey(),
+                                    result.isEmpty() ? "<none>" : result.get(0).primaryKey(),
                                     TimeUnit.NANOSECONDS.toMillis(endTs - beginTs),
                                     onReadListener);
                         }
@@ -178,7 +178,7 @@ class TestHelpers {
                             (i, u) -> {
                                 final PrimaryKeyAndVector record = recordsToDelete.get(i);
                                 data.add(record);
-                                return guardiann.delete(tr, record.getPrimaryKey(), record.getVector())
+                                return guardiann.delete(tr, record.primaryKey(), record.vector())
                                         .thenApply(ignored -> i + 1);
                             }, guardiann.getExecutor());
             return loopFuture.thenApply(vignore -> data.build())

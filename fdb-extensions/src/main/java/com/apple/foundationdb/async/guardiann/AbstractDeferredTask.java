@@ -74,6 +74,17 @@ public abstract class AbstractDeferredTask {
     @Nonnull
     private final Set<UUID> targetClusterIds;
 
+    /**
+     * Common initialization shared by every deferred task: binds the task to its {@link Locator} (storage, config,
+     * executor), the {@link AccessInfo} context it runs against, its queue {@linkplain #getTaskId() id}, and the
+     * cluster ids it targets. Package-private because tasks are only ever created by subclass factories or rehydrated
+     * via {@link Kind}.
+     *
+     * @param locator the locator providing storage, configuration and execution context
+     * @param accessInfo the access/coordinate-transform context the task operates in
+     * @param taskId the id under which this task is stored in the queue; its high bit encodes scheduling priority
+     * @param targetClusterId the cluster ids this task operates on (defensively copied)
+     */
     AbstractDeferredTask(@Nonnull final Locator locator,
                          @Nonnull final AccessInfo accessInfo,
                          @Nonnull final UUID taskId,
@@ -84,46 +95,96 @@ public abstract class AbstractDeferredTask {
         this.targetClusterIds = ImmutableSet.copyOf(targetClusterId);
     }
 
+    /**
+     * The {@link Locator} binding this task to its stored data, configuration, and executor.
+     *
+     * @return the locator
+     */
     @Nonnull
     public Locator getLocator() {
         return locator;
     }
 
+    /**
+     * The low-level storage/graph {@link Primitives} this task reads and writes through.
+     *
+     * @return the primitives for the underlying structure
+     */
     @Nonnull
     Primitives primitives() {
         return getLocator().primitives();
     }
 
+    /**
+     * The listener notified of writes (e.g. task enqueues) this task performs; a hook for metrics and tests.
+     *
+     * @return the on-write listener
+     */
     @Nonnull
     OnWriteListener getOnWriteListener() {
         return getLocator().getOnWriteListener();
     }
 
+    /**
+     * The listener notified of reads this task performs; a hook for metrics and tests.
+     *
+     * @return the on-read listener
+     */
     @Nonnull
     OnReadListener getOnReadListener() {
         return getLocator().getOnReadListener();
     }
 
+    /**
+     * The {@link AccessInfo} — the coordinate-transform/quantization context — this task runs against. A task is
+     * pinned to the access info current when it was enqueued so it decodes stored vectors the same way they were
+     * written.
+     *
+     * @return the access context
+     */
     @Nonnull
     AccessInfo getAccessInfo() {
         return accessInfo;
     }
 
+    /**
+     * The id under which this task is stored in the deferred-task queue. It doubles as the queue's ordering key: the
+     * id's high bit encodes scheduling priority, so high-priority ids sort ahead of normal-priority ones.
+     *
+     * @return the task id
+     */
     @Nonnull
     public UUID getTaskId() {
         return taskId;
     }
 
+    /**
+     * The cluster ids this task operates on (e.g. the cluster to split, or the clusters a merge dissolves).
+     *
+     * @return the immutable set of target cluster ids
+     */
     @Nonnull
     public Set<UUID> getTargetClusterIds() {
         return targetClusterIds;
     }
 
+    /**
+     * The Guardiann {@link Config} in effect for this task.
+     *
+     * @return the configuration
+     */
     @Nonnull
     public Config getConfig() {
         return getLocator().getConfig();
     }
 
+    /**
+     * Formats this task's kind-specific payload into the {@link Tuple} stored as the task's value in the queue
+     * (which is then serialized). The inverse is the subclass {@code fromTuples} factory selected by {@link Kind},
+     * which recreates the task from its stored key and value tuples.
+     *
+     * @return the value tuple to persist for this task
+     */
     @Nonnull
     public abstract Tuple valueTuple();
 
@@ -137,6 +198,12 @@ public abstract class AbstractDeferredTask {
     @Nonnull
     public abstract CompletableFuture<Void> runTask(@Nonnull Transaction transaction);
 
+    /**
+     * Emits a debug log line marking the start of this task's execution (kind, id, targets). A no-op unless debug
+     * logging is enabled.
+     *
+     * @param logger the subclass logger to emit through
+     */
     protected void logStart(@Nonnull final Logger logger) {
         if (logger.isDebugEnabled()) {
             logger.debug("executing task kind={}, taskId={}, targetClusterIds={}", getKind(), taskIdToString(getTaskId()),
@@ -144,6 +211,11 @@ public abstract class AbstractDeferredTask {
         }
     }
 
+    /**
+     * Emits a debug log line marking this task's successful completion. A no-op unless debug logging is enabled.
+     *
+     * @param logger the subclass logger to emit through
+     */
     protected void logSuccessful(@Nonnull final Logger logger) {
         if (logger.isDebugEnabled()) {
             logger.debug("successfully finished executing task kind={}, taskId={}", getKind(),
@@ -161,9 +233,36 @@ public abstract class AbstractDeferredTask {
         getOnWriteListener().onTaskEnqueued(this.getKind(), this.getTaskId(), this.getTargetClusterIds());
     }
 
+    /**
+     * The {@link Kind} discriminant for this task, used to tag its serialized form and to select the right factory
+     * when rehydrating it from tuples.
+     *
+     * @return this task's kind
+     */
     @Nonnull
     public abstract Kind getKind();
 
+    /**
+     * Enqueues a collapse (plus a follow-up bounce) for {@code targetClusterId} if it holds enough duplicate primary
+     * vectors to be worth deduplicating, returning whether it did so. This method is called by implementing tasks
+     * as a last resort effort. For instance, {@link SplitMergeTask} may call this method to probe if vectors can be
+     * collapsed (if the split evaluation was yielding invalid partitionings).
+     *
+     * <p>
+     * Guardiann keeps identical vectors as separate references until there are enough of them that collapsing them
+     * into a single representative pays off; {@link Config#collapseMinDuplicates()} is that threshold. When the most
+     * duplicated content signature in the cluster exceeds it, this schedules two high-priority tasks: a
+     * {@link CollapseTask} that performs the collapse, and a {@link BounceTask} that — once the collapse commits —
+     * re-evaluates the cluster as a {@code SPLIT_MERGE}, since collapsing changes the cluster's effective size. Both
+     * run at high priority so deduplication happens promptly rather than waiting behind normal work.
+     *
+     * @param transaction the transaction to enqueue the tasks within
+     * @param random the RNG source for the new tasks' ids
+     * @param primaryVectorReferences the cluster's primary vector references, scanned for duplicate signatures
+     * @param targetClusterId the cluster to collapse
+     * @param centroid the target cluster's centroid, carried to the collapse task
+     * @return {@code true} if a collapse (and bounce) were enqueued, {@code false} if the cluster was below threshold
+     */
     boolean enqueueCollapseIfNecessary(@Nonnull final Transaction transaction,
                                        @Nonnull final SplittableRandom random,
                                        @Nonnull final List<VectorReference> primaryVectorReferences,
@@ -194,6 +293,16 @@ public abstract class AbstractDeferredTask {
         return false;
     }
 
+    /**
+     * Rehydrates a persisted task from its stored key and value tuples, dispatching on the {@link Kind} encoded in the
+     * value tuple to the matching subclass factory.
+     *
+     * @param locator the locator to bind the reconstructed task to
+     * @param accessInfo the access context to bind the reconstructed task to
+     * @param keyTuple the task's stored key tuple (its queue id)
+     * @param valueTuple the task's stored value tuple (its kind plus payload)
+     * @return the reconstructed task
+     */
     @Nonnull
     static AbstractDeferredTask newFromTuples(@Nonnull final Locator locator,
                                               @Nonnull final AccessInfo accessInfo,
@@ -216,6 +325,13 @@ public abstract class AbstractDeferredTask {
         return uuidToHighPriorityTaskId(isDeterministic ? RandomHelpers.randomUuid(random) : UUID.randomUUID());
     }
 
+    /**
+     * Clears the most-significant bit of {@code uuid} so the resulting id sorts (as an unsigned 128-bit value) ahead
+     * of normal-priority ids, which set that bit.
+     *
+     * @param uuid the base uuid
+     * @return the high-priority task id
+     */
     @Nonnull
     private static UUID uuidToHighPriorityTaskId(@Nonnull final UUID uuid) {
         return new UUID(uuid.getMostSignificantBits() & 0x7fffffffffffffffL,
@@ -236,21 +352,51 @@ public abstract class AbstractDeferredTask {
         return uuidToNormalPriorityTaskId(isDeterministic ? RandomHelpers.randomUuid(random) : UUID.randomUUID());
     }
 
+    /**
+     * Sets the most-significant bit of {@code uuid} so the resulting id sorts (as an unsigned 128-bit value) after
+     * high-priority ids, which clear that bit.
+     *
+     * @param uuid the base uuid
+     * @return the normal-priority task id
+     */
     @Nonnull
     private static UUID uuidToNormalPriorityTaskId(@Nonnull final UUID uuid) {
         return new UUID(uuid.getMostSignificantBits() | 0x8000000000000000L,
                 uuid.getLeastSignificantBits());
     }
 
+    /**
+     * Renders a task id for logging as {@code HIGH:<uuid>} or {@code NORMAL:<uuid>}, surfacing the priority encoded in
+     * its high bit.
+     *
+     * @param taskId the task id
+     * @return a human-readable, priority-prefixed rendering
+     */
     @Nonnull
     static String taskIdToString(@Nonnull final UUID taskId) {
         return (isNormalPriority(taskId) ? "NORMAL" : "HIGH") + ":" + taskId;
     }
 
+    /**
+     * Whether {@code taskId} is a normal-priority id — i.e. its most-significant bit is set (see
+     * {@link #randomNormalPriorityTaskId}). High-priority ids clear that bit and therefore sort ahead in the queue.
+     *
+     * @param taskId the task id to test
+     * @return {@code true} if the id is normal priority, {@code false} if high priority
+     */
     static boolean isNormalPriority(@Nonnull final UUID taskId) {
         return (taskId.getMostSignificantBits() & 0x8000000000000000L) != 0;
     }
 
+    /**
+     * Increments the counter stored under {@code key} in {@code countersMap}, treating an absent key as zero, and
+     * returns the new count.
+     *
+     * @param countersMap the mutable counter map
+     * @param key the key whose counter to increment
+     * @param <T> the key type
+     * @return the incremented counter value
+     */
     @CanIgnoreReturnValue
     static <T> int incrementCounter(@Nonnull final Map<T, Integer> countersMap, @Nonnull final T key) {
         return  countersMap.compute(key, (ignoredKey, oldCounter) -> {
@@ -261,10 +407,20 @@ public abstract class AbstractDeferredTask {
         });
     }
 
+    /**
+     * Folds a new {@code distance} sample into the {@link RunningStats} stored under {@code key}, starting fresh
+     * statistics if the key is absent, and returns the updated statistics.
+     *
+     * @param map the mutable per-key running-statistics map
+     * @param key the key whose statistics to update
+     * @param distance the distance sample to add
+     * @param <T> the key type
+     * @return the updated running statistics for {@code key}
+     */
     @CanIgnoreReturnValue
     static <T> RunningStats
-            updateRunningStatssMap(@Nonnull final Map<T, RunningStats> map,
-                                               @Nonnull final T key, final double distance) {
+               updateRunningStatsMap(@Nonnull final Map<T, RunningStats> map,
+                                     @Nonnull final T key, final double distance) {
         return map.compute(key, (ignoredKey, old) -> {
             if (old == null) {
                 return RunningStats.of(distance);
@@ -384,7 +540,7 @@ public abstract class AbstractDeferredTask {
             Verify.verify(!sortedNearestClusters.isEmpty());
 
             final ClusterMetadataWithDistance primaryClusterMetadataWithDistance = sortedNearestClusters.get(0);
-            updateRunningStatssMap(standardDeviationUpdates,
+            updateRunningStatsMap(standardDeviationUpdates,
                     primaryClusterMetadataWithDistance.clusterMetadata().id(),
                     primaryClusterMetadataWithDistance.distance());
 
@@ -515,6 +671,11 @@ public abstract class AbstractDeferredTask {
             this.taskCreationFunction = taskCreationFunction;
         }
 
+        /**
+         * The stable integer code persisted for this kind as the first element of a task's value tuple.
+         *
+         * @return the serialized code
+         */
         public int getCode() {
             return code;
         }
@@ -527,10 +688,23 @@ public abstract class AbstractDeferredTask {
             return taskCreationFunction.create(locator, accessInfo, keyTuple, valueTuple);
         }
 
+        /**
+         * Reads the {@link Kind} from a persisted task's value tuple, whose first element is the kind code.
+         *
+         * @param valueTuple the task's stored value tuple
+         * @return the decoded kind
+         */
         public static Kind fromValueTuple(@Nonnull final Tuple valueTuple) {
             return Kind.ofCode(Math.toIntExact(valueTuple.getLong(0)));
         }
 
+        /**
+         * Returns the kind for a persisted {@linkplain #getCode() code}.
+         *
+         * @param code the serialized kind code
+         * @return the matching kind
+         * @throws NullPointerException if the code does not correspond to any kind
+         */
         @Nonnull
         public static Kind ofCode(final int code) {
             return Objects.requireNonNull(BY_CODE.getOrDefault(code, null));

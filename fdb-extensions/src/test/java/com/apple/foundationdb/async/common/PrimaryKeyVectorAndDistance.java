@@ -24,36 +24,15 @@ import com.apple.foundationdb.linear.RealVector;
 import com.apple.foundationdb.tuple.Tuple;
 
 import javax.annotation.Nonnull;
-import java.util.Objects;
 
-public class PrimaryKeyVectorAndDistance extends PrimaryKeyAndVector {
-    private final double distance;
-
-    public PrimaryKeyVectorAndDistance(@Nonnull final Tuple primaryKey,
-                                       @Nonnull final RealVector vector,
-                                       final double distance) {
-        super(primaryKey, vector);
-        this.distance = distance;
-    }
-
-    public double getDistance() {
-        return distance;
-    }
-
-    @Override
-    public boolean equals(final Object o) {
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-        if (!super.equals(o)) {
-            return false;
-        }
-        final PrimaryKeyVectorAndDistance that = (PrimaryKeyVectorAndDistance)o;
-        return Double.compare(getDistance(), that.getDistance()) == 0;
-    }
-
-    @Override
-    public int hashCode() {
-        return Objects.hash(super.hashCode(), getDistance());
-    }
+/**
+ * A test fixture pairing a primary key and vector with a distance (e.g. to a query vector), used to build
+ * distance-ordered expected results. A flattened standalone record — deliberately not a subtype of
+ * {@link PrimaryKeyAndVector}, since records cannot be subclassed.
+ *
+ * @param primaryKey the primary key
+ * @param vector the vector
+ * @param distance the distance associated with this vector
+ */
+public record PrimaryKeyVectorAndDistance(@Nonnull Tuple primaryKey, @Nonnull RealVector vector, double distance) {
 }

@@ -122,7 +122,7 @@ class TestHelpers {
                     break;
                 }
                 data.add(record);
-                future = future.thenCompose((vignore) -> hnsw.insert(tr, record.getPrimaryKey(), record.getVector(), null));
+                future = future.thenCompose((vignore) -> hnsw.insert(tr, record.primaryKey(), record.vector(), null));
             }
             return future.thenApply(vignore -> data.build())
                     .whenComplete((result, error) -> {
@@ -213,7 +213,7 @@ class TestHelpers {
                     // fairly safe with respect to not giving us false-positives and also tripping for actual logic
                     // errors as the expected random distance is far larger.
                     //
-                    final RealVector originalVector = data.get(primaryKeyIndex).getVector();
+                    final RealVector originalVector = data.get(primaryKeyIndex).vector();
                     assertThat(originalVector).isNotNull();
                     final double distance = metric.distance(originalVector,
                             Objects.requireNonNull(resultEntry.vector()).toDoubleRealVector());

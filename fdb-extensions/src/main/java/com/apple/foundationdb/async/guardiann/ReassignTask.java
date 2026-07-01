@@ -59,11 +59,54 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 
 /**
- * A deferred task that reassigns a target cluster's vectors across its nearest clusters to restore Guardiann's
- * replication invariants — for example after a split or merge (identified by {@code causeClusterIds}), or when a
- * cluster has accumulated too many underreplicated primary or replicated vectors. It recomputes each vector's
- * nearest clusters over the precomputed {@link ClusterReference} nearest clusters and rewrites the primary and
- * replicated copies accordingly.
+ * A deferred task that repairs Guardiann's <em>replication/assignment</em> layer around a cluster after potentially
+ * detrimental event has occurred — most often in the wake of a {@link SplitMergeTask} split or merge (whose new/changed
+ * clusters are then named in {@link #getCauseClusterIds() causeClusterIds}), or when a cluster has accumulated too
+ * many under-replicated primaries or replicated writes. A split/merge decides which cluster <em>owns</em> each vector
+ * (its primary posting); The concern of a reassign is three-fold: First, the replica copies that coinhabit a cluster —
+ * the replicas referencing neighboring clusters keep for recall need to be maintained in a way that only
+ * the most ambiguous vectors are actively being replicated. Second, it will re-home a primary that has drifted to a
+ * nearer cluster (marking it under-replicated so a later reassign repairs it in turn). Third, it will rereplicate
+ * underreplicated vectors.
+ *
+ * <p>
+ * The task targets a single cluster ({@link #getTargetClusterId()}) and carries its {@link #getCentroid() centroid},
+ * the optional {@link #getCauseClusterIds() causeClusterIds}, and a precomputed list of {@link ClusterReference}
+ * nearest clusters (or, when that list is empty, re-enqueues itself once they have been fetched). During execution
+ * it recomputes, for each of the target's primaries, its nearest clusters over the target plus its
+ * {@link Config#reassignNumNeighboringClusters()} neighbors, then rewrites the primary and replicated copies
+ * accordingly.
+ *
+ * <p>
+ * <b>Example.</b> Suppose a split turns an over-full cluster into two new clusters {@code C1} and {@code C2}.
+ * The split has already written every vector's primary copy into {@code C1} or {@code C2} — those postings are done —
+ * but {@code C1}/{@code C2} hold no replicas yet, and their neighbors still hold replica references from before the
+ * split. To repair this a {@code REASSIGN} is enqueued for an affected cluster, say {@code T}, with
+ * {@code causeClusterIds = {C1, C2}} and {@code nearestClusters} covering {@code T}'s surroundings (including
+ * {@code C1} and {@code C2}). When {@code T}'s reassign runs, for each primary vector {@code v} that {@code T} owns:
+ * <ul>
+ *   <li><b>Primary (the posting):</b> {@code v}'s nearest cluster is recomputed over {@code T} and its neighbors. If
+ *       {@code T} is still nearest, {@code T} keeps {@code v} as a {@link PrimaryCopy}. If a neighbor is now nearer
+ *       (a vector sitting near the new {@code C1}/{@code C2} border), {@code v} is moved there as an
+ *       {@link VectorReference#toPrimaryUnderreplicatedCopy() under-replicated primary} — no replicas are written for
+ *       it now; the receiving cluster's own later reassign will propagate them. This is a bounded correction, not a
+ *       re-partitioning.</li>
+ *   <li><b>Replicas (the neighbors — the point of the task):</b> for a {@code v} that stays in {@code T}, a nearby
+ *       candidate cluster {@code K} receives a {@link VectorReference#toReplicatedCopy(double) replicated copy} of
+ *       {@code v} <em>only</em> when {@code v} is under-replicated <em>or</em> {@code K} is one of the
+ *       {@code causeClusterIds}. So {@code T} seeds the freshly split {@code C1}/{@code C2} with replicas of its own
+ *       vectors, and tops up any under-replicated primary — exactly the neighbor replicas the split left stale —
+ *       while leaving unrelated neighbors alone. Candidates that are occluded by a closer already-chosen replica, or
+ *       whose score is below {@link Config#replicationPriorityMin()}, are skipped.</li>
+ * </ul>
+ * Finally the kept replicas are truncated to {@link Config#replicatedClusterTarget()} (folding duplicates into a
+ * single collapsed-area reference), {@code T}'s stored references are updated by delta, the new replicas are written
+ * into their neighbor clusters, and — on the production path — follow-up split/reassign tasks are enqueued for any
+ * neighbor that grew past its bounds.
+ * <p>
+ * Note that if {@link #getCauseClusterIds()} is empty, reassign will indiscriminately push primary vectors to all
+ * neighboring clusters (not just the ones in the cause cluster id set).
+ *
  */
 public class ReassignTask extends AbstractDeferredTask {
     @Nonnull

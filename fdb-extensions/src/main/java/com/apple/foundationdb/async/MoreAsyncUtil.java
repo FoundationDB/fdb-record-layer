@@ -102,14 +102,40 @@ public class MoreAsyncUtil {
         };
     }
 
+    /**
+     * Drives an {@link AsyncIterable} to exhaustion for its side effects, discarding every element. Useful when the
+     * pipeline producing the iterable is lazy (each stage runs only as its output is pulled) and the caller cares
+     * about the work done while iterating -- writes, counter updates, statistics accumulation -- rather than about the
+     * values themselves. Equivalent to {@link #consumeRemaining} over a fresh iterator of {@code iterable}.
+     *
+     * @param iterable the iterable to drain
+     * @param executor the executor to advance the iteration on
+     * @param <T> the element type (elements are discarded)
+     *
+     * @return a future that completes with {@code null} once the iterable is exhausted, or exceptionally if advancing
+     *         it fails
+     */
     @Nonnull
-    public static <T> CompletableFuture<Void> slurp(@Nonnull final AsyncIterable<T> iterable,
-                                                    @Nonnull final Executor executor) {
-        return slurpRemaining(iterable.iterator(), executor);
+    public static <T> CompletableFuture<Void> consume(@Nonnull final AsyncIterable<T> iterable,
+                                                      @Nonnull final Executor executor) {
+        return consumeRemaining(iterable.iterator(), executor);
     }
 
-    public static <T> CompletableFuture<Void> slurpRemaining(@Nonnull final AsyncIterator<T> iterator,
-                                                             @Nonnull final Executor executor) {
+    /**
+     * Drives the remaining elements of an {@link AsyncIterator} to exhaustion for their side effects, discarding each
+     * one. Iteration starts from the iterator's current position, so a partially consumed iterator is drained the rest
+     * of the way. Use {@link #consume} to drain an entire {@link AsyncIterable} from the beginning.
+     *
+     * @param iterator the iterator to drain from its current position
+     * @param executor the executor to advance the iteration on
+     * @param <T> the element type (elements are discarded)
+     *
+     * @return a future that completes with {@code null} once the iterator is exhausted, or exceptionally if advancing
+     *         it fails
+     */
+    @Nonnull
+    public static <T> CompletableFuture<Void> consumeRemaining(@Nonnull final AsyncIterator<T> iterator,
+                                                               @Nonnull final Executor executor) {
         return tag(AsyncUtil.forEachRemaining(iterator, t -> { }, executor), null);
     }
 

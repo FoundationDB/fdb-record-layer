@@ -51,7 +51,7 @@ import java.util.concurrent.Executor;
  * A deferred task that acts as a join (barrier): it waits until a set of dependent tasks has completed and then
  * enqueues a follow-up task of {@link Kind} {@code finalTaskKind} (for example a {@link ReassignTask}) for its
  * target clusters. Guardiann uses it after a split or merge so that the reassignment of the newly created clusters
- * only runs once all of the tasks they depend on have finished. While any dependent task is still outstanding the
+ * only runs once all tasks they depend on have finished. While any dependent task is still outstanding the
  * bounce re-enqueues itself.
  */
 public class BounceTask extends AbstractDeferredTask {
@@ -126,7 +126,7 @@ public class BounceTask extends AbstractDeferredTask {
                     }
 
                     if (shuffledTasks.isEmpty()) {
-                        return enqueueFinal(transaction, splittableRandom);
+                        return enqueueFollowUpTasks(transaction, splittableRandom);
                     }
 
                     // there is at least one task, bounce and the rewrite a new bounce task afterward
@@ -160,15 +160,15 @@ public class BounceTask extends AbstractDeferredTask {
                                 }
 
                                 Verify.verify(shuffledTasks.size() == 1); // the one we just executed
-                                return enqueueFinal(transaction, splittableRandom);
+                                return enqueueFollowUpTasks(transaction, splittableRandom);
                             });
                 });
     }
 
     @SuppressWarnings("checkstyle:Indentation")
     @Nonnull
-    private CompletableFuture<Void> enqueueFinal(@Nonnull final Transaction transaction,
-                                                 @Nonnull final SplittableRandom random) {
+    private CompletableFuture<Void> enqueueFollowUpTasks(@Nonnull final Transaction transaction,
+                                                         @Nonnull final SplittableRandom random) {
         final Config config = getConfig();
         final Primitives primitives = getLocator().primitives();
         final Executor executor = getLocator().getExecutor();

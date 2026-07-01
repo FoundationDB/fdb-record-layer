@@ -24,41 +24,12 @@ import com.apple.foundationdb.linear.RealVector;
 import com.apple.foundationdb.tuple.Tuple;
 
 import javax.annotation.Nonnull;
-import java.util.Objects;
 
-public class PrimaryKeyAndVector {
-    @Nonnull
-    private final Tuple primaryKey;
-    @Nonnull
-    private final RealVector vector;
-
-    public PrimaryKeyAndVector(@Nonnull final Tuple primaryKey,
-                               @Nonnull final RealVector vector) {
-        this.primaryKey = primaryKey;
-        this.vector = vector;
-    }
-
-    @Nonnull
-    public Tuple getPrimaryKey() {
-        return primaryKey;
-    }
-
-    @Nonnull
-    public RealVector getVector() {
-        return vector;
-    }
-
-    @Override
-    public boolean equals(final Object o) {
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-        final PrimaryKeyAndVector that = (PrimaryKeyAndVector)o;
-        return Objects.equals(getPrimaryKey(), that.getPrimaryKey()) && Objects.equals(getVector(), that.getVector());
-    }
-
-    @Override
-    public int hashCode() {
-        return Objects.hash(getPrimaryKey(), getVector());
-    }
+/**
+ * A test fixture pairing a record's primary key with its vector.
+ *
+ * @param primaryKey the primary key
+ * @param vector the vector
+ */
+public record PrimaryKeyAndVector(@Nonnull Tuple primaryKey, @Nonnull RealVector vector) {
 }

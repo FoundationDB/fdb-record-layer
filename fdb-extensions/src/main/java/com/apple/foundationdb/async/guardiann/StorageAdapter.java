@@ -250,9 +250,8 @@ class StorageAdapter {
 
     @Nonnull
     static Tuple tupleFromAccessInfo(@Nonnull final AccessInfo accessInfo) {
-        final RealVector centroid = accessInfo.negatedCentroid();
         return Tuple.from(accessInfo.rotatorSeed(),
-                centroid == null ? null : StorageHelpers.tupleFromVector(centroid));
+                accessInfo.canUseRaBitQ() ? StorageHelpers.tupleFromVector(accessInfo.negatedCentroid()) : null);
     }
 
     @Nonnull

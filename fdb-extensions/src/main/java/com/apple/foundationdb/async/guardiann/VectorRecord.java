@@ -34,8 +34,7 @@ import javax.annotation.Nonnull;
  * It is the post-enrichment counterpart to {@link VectorReferenceAndDistance}: the latter pairs a not-yet-enriched
  * {@link VectorReference} with a distance while candidates are still being ranked, whereas a {@code VectorRecord}
  * carries the resolved {@link VectorMetadata} (including any covering values) needed to produce a client-facing
- * result. Replacing the earlier approach of smuggling a {@code VectorMetadata} into {@link VectorReference#id()},
- * this type makes the enriched shape explicit.
+ * result.
  *
  * @param vectorMetadata the resolved metadata (identity plus any covering values) for this vector
  * @param vector the vector data in the transformed (stored) coordinate space; reconstructed into the client's

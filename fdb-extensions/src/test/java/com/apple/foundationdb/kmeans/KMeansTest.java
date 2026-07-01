@@ -34,6 +34,8 @@ import com.google.common.collect.Lists;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.Execution;
+import org.junit.jupiter.api.parallel.ExecutionMode;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -52,6 +54,7 @@ import java.util.SplittableRandom;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.within;
 
+@Execution(ExecutionMode.CONCURRENT)
 class KMeansTest {
     private static final Logger logger = LoggerFactory.getLogger(KMeansTest.class);
 
@@ -176,25 +179,53 @@ class KMeansTest {
         }
 
         final DistanceEstimator distanceEstimator = DistanceEstimator.ofMetric(Metric.EUCLIDEAN_METRIC);
+        final int k = 1;
+        final int maxIterations = 15;
+        final int maxRestarts = 3;
+        final double lambda = 0.0d; // size-balancing weight; 0 disables the size penalty
         final KMeans.Result<RealVector> res = KMeans.fit(
                 rnd, distanceEstimator,
                 Lens.identity(), Lens.identity(),
                 vectors,
-                1, 15, 3, 0.0d,
-                null);
+                k, maxIterations, maxRestarts, lambda,
+                null /* sizePenalty */);
 
         assertThat(res.clusterCentroids()).hasSize(1);
         assertThat(res.clusterSizes()).containsExactly(n);
         assertThat(res.assignment()).containsOnly(0);
 
-        // Centroid is the arithmetic mean of all vectors (no renormalization for Euclidean).
+        // res's centroid and arithmeticMean(...) compute the mean of the same n vectors with the same summation, so
+        // in practice they are bit-identical and this distance is 0. A tolerance only needs to cover the two sums
+        // running in different (equally valid) orders. Recursive summation of n doubles has worst-case forward error
+        // ~(n-1)*u*sum(|x_i|), where u = 2^-53 is the double unit roundoff, so two orders differ by ~2*u*sum(|x_i|)
+        // per coordinate after dividing by n. Here sum(|x_i|) per coordinate is ~n * O(1) ~ 1.5e3, so that ceiling is
+        // ~2 * 1.1e-16 * 1.5e3 ~ 3e-13 per coordinate, i.e. an L2 gap of a few 1e-13. 2E-10 is a few hundred times
+        // looser than that ceiling -- deliberately loose to stay a simple constant -- yet still far below the O(1)
+        // error a real bug (a wrong or unnormalized centroid) would produce.
         final RealVector expectedMean = arithmeticMean(vectors);
         assertThat(distanceEstimator.distance(res.clusterCentroids().get(0), expectedMean))
                 .as("k=1 Euclidean centroid must equal the arithmetic mean")
                 .isCloseTo(0.0d, within(2E-10));
 
-        // objective is self-consistent with the per-vector distances.
-        assertThat(res.objective()).isCloseTo(Arrays.stream(res.distances()).sum(), within(2E-10));
+        // Recompute the geometric objective independently from the returned centroid and assignment, then check
+        // objective() AND the per-vector distances() against it. Asserting only objective() == sum(distances()) is
+        // true by construction (objective is defined as that sum) and would not catch a systematic error shared by
+        // both. For k=1 every vector is assigned to the single centroid, and the Euclidean base objective of a vector
+        // is its squared L2 distance to that centroid.
+        final RealVector centroid = res.clusterCentroids().get(0);
+        double expectedObjective = 0.0d;
+        for (final RealVector v : vectors) {
+            final double d = distanceEstimator.distance(v, centroid);
+            expectedObjective += d * d;
+        }
+        // A sum of n squared distances; summation error grows with n and with the magnitude (ulp) of the running sum.
+        final double objectiveTolerance = 8.0 * n * Math.ulp(expectedObjective);
+        assertThat(res.objective())
+                .as("objective must equal the independently computed sum of squared distances")
+                .isCloseTo(expectedObjective, within(objectiveTolerance));
+        assertThat(Arrays.stream(res.distances()).sum())
+                .as("sum of per-vector distances must equal the independently computed objective")
+                .isCloseTo(expectedObjective, within(objectiveTolerance));
     }
 
     /**

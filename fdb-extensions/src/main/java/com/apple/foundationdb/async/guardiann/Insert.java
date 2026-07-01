@@ -356,6 +356,24 @@ public class Insert {
         }
     }
 
+    /**
+     * Bootstraps an empty structure on its very first insert, returning the {@link AccessInfo} the rest of the insert
+     * then runs against. This runs only when {@link Primitives#fetchAccessInfo} came back {@code null} — nothing has
+     * been written yet — because every other insert path assumes both an {@link AccessInfo} (the coordinate transform
+     * that all stored vectors are expressed in) and at least one cluster already exist. Here we create both from
+     * scratch so the caller can go on to place the vector as the first cluster's first primary.
+     *
+     * <p>
+     * The first cluster is seeded at {@code newVector} itself: a fresh cluster id with empty metadata is written and
+     * the new vector is inserted into the centroid HNSW as that cluster's centroid, giving the otherwise-empty
+     * centroid index its first node to navigate from.
+     *
+     * @param transaction the transaction to bootstrap the structure within
+     * @param random the per-insert RNG (drives the RaBitQ rotator seed and the first cluster's id)
+     * @param newVector the vector being inserted, which also becomes the first cluster's centroid
+     *
+     * @return a future of the {@link AccessInfo} established for the structure
+     */
     @Nonnull
     private CompletableFuture<AccessInfo> initialAccessInfoAndFirstCluster(@Nonnull final Transaction transaction,
                                                                            @Nonnull final SplittableRandom random,

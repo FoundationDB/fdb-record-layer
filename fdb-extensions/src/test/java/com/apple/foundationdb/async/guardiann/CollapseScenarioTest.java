@@ -286,7 +286,7 @@ public class CollapseScenarioTest implements BaseTest {
                 TestHelpers.loadVectors(SiftTestHelpers.SIFT_SMALL_BASE_PATH, numDistinctPrimaries + 1);
         for (int i = 1; i <= numDistinctPrimaries; i++) {
             final Tuple primaryKey = Tuple.from("distinct", i);
-            final RealVector vector = records.get(i).getVector();
+            final RealVector vector = records.get(i).vector();
             db.run(tr -> {
                 guardiann.insert(tr, primaryKey, vector, null).join();
                 return null;
@@ -392,7 +392,7 @@ public class CollapseScenarioTest implements BaseTest {
     /** The first SIFT-small base vector, used as the vector we insert many identical copies of. */
     @Nonnull
     private RealVector duplicateVector() throws Exception {
-        return TestHelpers.loadVectors(SiftTestHelpers.SIFT_SMALL_BASE_PATH, 1).get(0).getVector();
+        return TestHelpers.loadVectors(SiftTestHelpers.SIFT_SMALL_BASE_PATH, 1).get(0).vector();
     }
 
     /** Inserts {@code count} copies of {@code vector} under distinct primary keys {@code [pkBase, pkBase+count)}. */

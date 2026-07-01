@@ -370,7 +370,7 @@ class OperationsTest implements BaseTest {
         final ImmutableSet<Tuple> trueNN =
                 orderedByDistances(config.metric(), insertedData, queryVector).stream()
                         .limit(k)
-                        .map(PrimaryKeyVectorAndDistance::getPrimaryKey)
+                        .map(PrimaryKeyVectorAndDistance::primaryKey)
                         .collect(ImmutableSet.toImmutableSet());
 
         int recallCount = 0;
@@ -439,7 +439,7 @@ class OperationsTest implements BaseTest {
         final ImmutableSet<Tuple> trueNN =
                 orderedByDistances(TestHelpers.ringDistance(metric, radius), insertedData, queryVector).stream()
                         .limit(k)
-                        .map(PrimaryKeyVectorAndDistance::getPrimaryKey)
+                        .map(PrimaryKeyVectorAndDistance::primaryKey)
                         .collect(ImmutableSet.toImmutableSet());
 
         int recallCount = 0;
@@ -487,7 +487,7 @@ class OperationsTest implements BaseTest {
                 onReadListener.reset();
 
                 for (final PrimaryKeyAndVector primaryKeyAndVector : toBeDeleted) {
-                    hnsw.delete(tr, primaryKeyAndVector.getPrimaryKey()).join();
+                    hnsw.delete(tr, primaryKeyAndVector.primaryKey()).join();
                 }
                 return null;
             });
@@ -511,7 +511,7 @@ class OperationsTest implements BaseTest {
                 final ImmutableSet<Tuple> trueNN =
                         orderedByDistances(config.metric(), remainingData, queryVector).stream()
                                 .limit(k)
-                                .map(PrimaryKeyVectorAndDistance::getPrimaryKey)
+                                .map(PrimaryKeyVectorAndDistance::primaryKey)
                                 .collect(ImmutableSet.toImmutableSet());
                 onReadListener.reset();
 
@@ -600,7 +600,7 @@ class OperationsTest implements BaseTest {
         final ImmutableSet<Tuple> trueNN =
                 orderedByDistances(metric, insertedData, queryVector)
                         .stream()
-                        .map(PrimaryKeyAndVector::getPrimaryKey)
+                        .map(PrimaryKeyVectorAndDistance::primaryKey)
                         .collect(ImmutableSet.toImmutableSet());
 
         int recallCount = 0;
@@ -612,7 +612,7 @@ class OperationsTest implements BaseTest {
             }
 
             final RealVector originalVector =
-                    insertedData.get(Math.toIntExact(resultEntry.primaryKey().getLong(0))).getVector();
+                    insertedData.get(Math.toIntExact(resultEntry.primaryKey().getLong(0))).vector();
             assertThat(originalVector).isNotNull();
             final RealVector fromDBVector = fromDBMap.get(resultEntry.primaryKey());
             assertThat(fromDBVector).isNotNull();
@@ -667,7 +667,7 @@ class OperationsTest implements BaseTest {
                 db.run(tr -> {
                     final AsyncIterator<ResultEntry> it =
                             hnsw.orderByDistance(tr, 100, 1000, false,
-                                    queryVector, discriminator.getDistance(), discriminator.getPrimaryKey(), false);
+                                    queryVector, discriminator.distance(), discriminator.primaryKey(), false);
                     final ImmutableList.Builder<ResultEntry> resultsBuilder = ImmutableList.builder();
                     while (it.hasNext()) {
                         resultsBuilder.add(it.next());
@@ -693,7 +693,7 @@ class OperationsTest implements BaseTest {
 
         final List<Tuple> groundTruth =
                 orderedByDistances.stream()
-                        .map(PrimaryKeyAndVector::getPrimaryKey)
+                        .map(PrimaryKeyVectorAndDistance::primaryKey)
                         .collect(ImmutableList.toImmutableList());
 
         final ImmutableSet<Tuple> groundTruthExpected =

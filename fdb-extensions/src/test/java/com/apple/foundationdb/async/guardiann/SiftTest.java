@@ -325,13 +325,13 @@ public class SiftTest implements BaseTest {
             if (doDelete) {
                 deleteOneBatch(guardiann, batch);
                 for (final PrimaryKeyAndVector r : batch) {
-                    active.remove(r.getPrimaryKey());
+                    active.remove(r.primaryKey());
                 }
                 totalDeleteBatches++;
             } else {
                 TestHelpers.insertRecords(getDb(), guardiann, batch, BATCH_SIZE);
                 for (final PrimaryKeyAndVector r : batch) {
-                    active.put(r.getPrimaryKey(), r.getVector());
+                    active.put(r.primaryKey(), r.vector());
                 }
                 totalInsertBatches++;
             }
@@ -372,7 +372,7 @@ public class SiftTest implements BaseTest {
                 .map(VectorId::primaryKey)
                 .collect(ImmutableSet.toImmutableSet());
         final Set<Tuple> expectedPks = setB.stream()
-                .map(PrimaryKeyAndVector::getPrimaryKey)
+                .map(PrimaryKeyAndVector::primaryKey)
                 .collect(ImmutableSet.toImmutableSet());
         assertThat(presentPks)
                 .as("only setB primary keys must remain after the interleaved run")
@@ -419,7 +419,7 @@ public class SiftTest implements BaseTest {
             final List<PrimaryKeyAndVector> batch = takeUpTo(deleteQueue, BATCH_SIZE);
             deleteOneBatch(guardiann, batch);
             for (final PrimaryKeyAndVector r : batch) {
-                active.remove(r.getPrimaryKey());
+                active.remove(r.primaryKey());
             }
             totalDeleteBatches++;
             batchesSinceCheck++;
@@ -482,7 +482,7 @@ public class SiftTest implements BaseTest {
     private static Map<Tuple, RealVector> activeMapOf(@Nonnull final List<PrimaryKeyAndVector> records) {
         final Map<Tuple, RealVector> active = new HashMap<>(records.size());
         for (final PrimaryKeyAndVector r : records) {
-            active.put(r.getPrimaryKey(), r.getVector());
+            active.put(r.primaryKey(), r.vector());
         }
         return active;
     }
@@ -511,12 +511,12 @@ public class SiftTest implements BaseTest {
     private static void verifyDisjoint(@Nonnull final List<PrimaryKeyAndVector> a,
                                        @Nonnull final List<PrimaryKeyAndVector> b) {
         final Set<Tuple> pksA = a.stream()
-                .map(PrimaryKeyAndVector::getPrimaryKey)
+                .map(PrimaryKeyAndVector::primaryKey)
                 .collect(ImmutableSet.toImmutableSet());
         for (final PrimaryKeyAndVector r : b) {
             assertThat(pksA)
                     .as("setA and setB must be disjoint by primary key")
-                    .doesNotContain(r.getPrimaryKey());
+                    .doesNotContain(r.primaryKey());
         }
     }
 

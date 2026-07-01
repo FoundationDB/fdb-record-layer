@@ -178,7 +178,7 @@ public class ReassignScenarioTest implements BaseTest {
                 TestHelpers.loadVectors(SiftTestHelpers.SIFT_SMALL_BASE_PATH, NUM_WARMUP_INSERTS);
         for (final PrimaryKeyAndVector record : warmup) {
             db.run(tr -> {
-                guardiann.insert(tr, record.getPrimaryKey(), record.getVector(), null).join();
+                guardiann.insert(tr, record.primaryKey(), record.vector(), null).join();
                 return null;
             });
         }
@@ -187,7 +187,7 @@ public class ReassignScenarioTest implements BaseTest {
 
         // Fixed query vector for injection — first SIFT-small vector (already inserted as part
         // of warmup; we only need its coordinates here, not its primary key).
-        final RealVector fixedVector = warmup.get(0).getVector();
+        final RealVector fixedVector = warmup.get(0).vector();
         final int extra = UNDERREPLICATED_MAX + 1;
 
         // ---- Phase 2: inject under-replicated primaries directly via Primitives ----

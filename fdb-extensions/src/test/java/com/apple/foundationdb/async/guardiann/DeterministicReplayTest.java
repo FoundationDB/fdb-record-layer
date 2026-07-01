@@ -235,7 +235,7 @@ public class DeterministicReplayTest implements BaseTest {
         onWriteListener.pushFrame();
         for (final PrimaryKeyAndVector op : inserts) {
             db.run(transaction -> {
-                guardiann.insert(transaction, op.getPrimaryKey(), op.getVector(), null).join();
+                guardiann.insert(transaction, op.primaryKey(), op.vector(), null).join();
                 return null;
             });
         }
@@ -248,7 +248,7 @@ public class DeterministicReplayTest implements BaseTest {
         onWriteListener.pushFrame();
         for (final PrimaryKeyAndVector op : deletes) {
             db.run(transaction -> {
-                guardiann.delete(transaction, op.getPrimaryKey(), op.getVector()).join();
+                guardiann.delete(transaction, op.primaryKey(), op.vector()).join();
                 return null;
             });
         }
@@ -340,7 +340,7 @@ public class DeterministicReplayTest implements BaseTest {
         Verify.verify(baseLoaded.size() == NUM_BASES, "SIFT-small must contain at least %s vectors", NUM_BASES);
         final List<DoubleRealVector> bases = new ArrayList<>(NUM_BASES);
         for (final PrimaryKeyAndVector pkv : baseLoaded) {
-            bases.add((DoubleRealVector) pkv.getVector());
+            bases.add((DoubleRealVector) pkv.vector());
         }
 
         final SplittableRandom rnd = new SplittableRandom(seed);

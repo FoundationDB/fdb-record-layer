@@ -147,7 +147,7 @@ public class DeleteReplicationPersistenceTest implements BaseTest {
         onWriteListener.pushFrame();
         for (final PrimaryKeyAndVector op : inserts) {
             db.run(transaction -> {
-                guardiann.insert(transaction, op.getPrimaryKey(), op.getVector(), null).join();
+                guardiann.insert(transaction, op.primaryKey(), op.vector(), null).join();
                 return null;
             });
         }
@@ -175,7 +175,7 @@ public class DeleteReplicationPersistenceTest implements BaseTest {
         onWriteListener.pushFrame();
         for (final PrimaryKeyAndVector op : deletes) {
             db.run(transaction -> {
-                guardiann.delete(transaction, op.getPrimaryKey(), op.getVector()).join();
+                guardiann.delete(transaction, op.primaryKey(), op.vector()).join();
                 return null;
             });
         }
@@ -212,7 +212,7 @@ public class DeleteReplicationPersistenceTest implements BaseTest {
         final List<PrimaryKeyAndVector> baseLoaded =
                 TestHelpers.loadVectors(SiftTestHelpers.SIFT_SMALL_BASE_PATH, 1);
         Verify.verify(!baseLoaded.isEmpty(), "SIFT-small must contain at least one vector");
-        final DoubleRealVector base = (DoubleRealVector) baseLoaded.get(0).getVector();
+        final DoubleRealVector base = (DoubleRealVector) baseLoaded.get(0).vector();
 
         final SplittableRandom rnd = new SplittableRandom(seed);
         final RandomHelpers.GaussianSampler sampler = new RandomHelpers.GaussianSampler(rnd);
