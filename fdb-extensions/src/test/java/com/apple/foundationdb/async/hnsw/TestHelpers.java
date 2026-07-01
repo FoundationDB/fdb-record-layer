@@ -169,6 +169,9 @@ class TestHelpers {
                 }
                 data.add(record);
 
+                if (logFile != null) {
+                    logFile.log("Inserting to batch %d", i);
+                }
                 return hnsw.insert(tr, record.getPrimaryKey(), record.getVector()).thenApply(vignore -> true);
             }, ForkJoinPool.commonPool());
             return future.thenApply(vignore -> data.build())
