@@ -1,5 +1,5 @@
 /*
- * IndexingDrainer.java
+ * PendingWriteQueueDrainer.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -21,15 +21,30 @@
 package com.apple.foundationdb.record.provider.foundationdb;
 
 import com.apple.foundationdb.async.AsyncUtil;
+import com.apple.foundationdb.record.IndexBuildProto;
+import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.RecordCursorResult;
+import com.apple.foundationdb.record.RecordMetaData;
+import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.metadata.Index;
+import com.apple.foundationdb.record.metadata.RecordType;
+import com.apple.foundationdb.record.provider.common.RecordSerializer;
+import com.apple.foundationdb.record.provider.foundationdb.queue.PendingWritesQueue;
+import com.apple.foundationdb.record.provider.foundationdb.queue.PendingWritesQueueEntry;
+import com.apple.foundationdb.record.provider.foundationdb.runners.throttled.CursorFactory;
+import com.apple.foundationdb.record.provider.foundationdb.runners.throttled.ThrottledRetryingIterator;
+import com.apple.foundationdb.tuple.TupleHelpers;
+import com.apple.foundationdb.util.CloseException;
+import com.google.protobuf.ByteString;
+import com.google.protobuf.Message;
 
+import javax.annotation.Nonnull;
 import javax.annotation.ParametersAreNonnullByDefault;
+import java.io.Serial;
 import java.util.concurrent.CompletableFuture;
 
 /**
- * Drain an index's pending queue.
- * Like {@link IndexingMerger}, this can be used either for an explicit drain call or during online indexing. In the
- * latter case, keeping throttle values between calls has an overall impact on performance.
+ * Drain a pending writes queue. Used by the indexer.
  */
 @ParametersAreNonnullByDefault
 public class PendingWriteQueueDrainer {
@@ -41,8 +56,90 @@ public class PendingWriteQueueDrainer {
         this.common = common;
     }
 
+    @SuppressWarnings("PMD.CloseResource")
     CompletableFuture<Void> drainPendingQueue() {
-        // TODO: implement the pending queue drain.
-        return AsyncUtil.DONE;
+        final ThrottledRetryingIterator<PendingWritesQueueEntry<IndexBuildProto.PendingWritesQueueEntry>> iterator =
+                ThrottledRetryingIterator.builder(
+                                common.getRunner().getDatabase(),
+                                cursorFactory(),
+                                this::handleOneItem)
+                        .build();
+        return iterator.iterateAll(common.getRecordStoreBuilder().copyBuilder())
+                .whenComplete((v, e) -> {
+                    try {
+                        iterator.close();
+                    } catch (CloseException closeEx) {
+                        throw new PendingWriteQueueDrainException(closeEx);
+                    }
+                });
+    }
+
+    @Nonnull
+    private CursorFactory<PendingWritesQueueEntry<IndexBuildProto.PendingWritesQueueEntry>> cursorFactory() {
+        return (store, lastResult, rowLimit) -> {
+            final byte[] continuation = lastResult == null ? null : lastResult.getContinuation().toBytes();
+            final ScanProperties scanProperties = ScanProperties.FORWARD_SCAN.with(props -> props.setReturnedRowLimit(rowLimit));
+            return getQueue(store).getQueueCursor(store.getContext(), scanProperties, continuation);
+        };
+    }
+
+    @Nonnull
+    private CompletableFuture<Void> handleOneItem(final FDBRecordStore store,
+                                                  final RecordCursorResult<PendingWritesQueueEntry<IndexBuildProto.PendingWritesQueueEntry>> lastResult,
+                                                  final ThrottledRetryingIterator.QuotaManager ignoredQuotaManager) {
+        final PendingWritesQueueEntry<IndexBuildProto.PendingWritesQueueEntry> entry = lastResult.get();
+        if (entry == null) {
+            return AsyncUtil.DONE;
+        }
+        final IndexBuildProto.PendingWritesQueueEntry payload = entry.getPayload();
+        final IndexMaintainer maintainer = store.getIndexMaintainer(index);
+        final FDBStoredRecord<Message> oldRecord = payload.hasOldRecords() ? deserialize(store, payload.getOldRecords()) : null;
+        final FDBStoredRecord<Message> newRecord = payload.hasNewRecord() ? deserialize(store, payload.getNewRecord()) : null;
+        return maintainer
+                .updateWhileWriteOnly(oldRecord, newRecord)
+                .thenAccept(ignore ->
+                        // The queue items deletes count in a single throttled transaction is unlimited (at least for now).
+                        getQueue(store).clearEntry(store.getContext(), entry));
+    }
+
+    @Nonnull
+    private PendingWritesQueue<IndexBuildProto.PendingWritesQueueEntry> getQueue(final FDBRecordStore store) {
+        // TODO:
+        //  1. find a way to share this code with StandardIndexMaintainer#getPendingWritesQueue. Maybe a static PendingWriteQueue factory function.
+        //  2. configurable maxQueueSize (instead of 100_000)
+        return new PendingWritesQueue<>(
+                IndexingSubspaces.indexWritePendingQueueSubspace(store, index),
+                IndexingSubspaces.indexWritePendingQueueSizeSubspace(store, index),
+                100_000,
+                IndexBuildProto.PendingWritesQueueEntry.class
+        );
+    }
+
+    /**
+     * Rebuild a stored record from its serialized payload. The queue holds only the record bytes, so the primary key is
+     * recomputed from the record's metadata, mirroring {@link FDBRecordStore#saveTypedRecord}.
+     */
+    @Nonnull
+    private FDBStoredRecord<Message> deserialize(final FDBRecordStore store, final ByteString serialized) {
+        final RecordMetaData metaData = store.getRecordMetaData();
+        final RecordSerializer<Message> serializer = store.getSerializer();
+        final Message record = serializer.deserialize(metaData, TupleHelpers.EMPTY, serialized.toByteArray(), store.getTimer());
+        final RecordType recordType = metaData.getRecordTypeForDescriptor(record.getDescriptorForType());
+        final FDBStoredRecordBuilder<Message> builder = FDBStoredRecord.newBuilder(record).setRecordType(recordType);
+        builder.setPrimaryKey(recordType.getPrimaryKey().evaluateSingleton(builder).toTuple());
+        return builder.build();
+    }
+
+    /**
+     * thrown if pending queue drain had failed.
+     */
+    @SuppressWarnings("java:S110")
+    public static class PendingWriteQueueDrainException extends RecordCoreException {
+        @Serial
+        private static final long serialVersionUID = 7;
+
+        public PendingWriteQueueDrainException(final Throwable cause) {
+            super("Pending write queue drain had failed", cause);
+        }
     }
 }
