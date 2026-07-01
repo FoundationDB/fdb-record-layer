@@ -69,6 +69,7 @@ import java.util.Set;
 import java.util.TreeSet;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -168,11 +169,8 @@ class TestHelpers {
                 }
                 data.add(record);
 
-                if (logFile != null) {
-                    logFile.log("Inserting to batch %d", i);
-                }
                 return hnsw.insert(tr, record.getPrimaryKey(), record.getVector()).thenApply(vignore -> true);
-            });
+            }, ForkJoinPool.commonPool());
             return future.thenApply(vignore -> data.build())
                     .whenComplete((result, error) -> {
                         if (error != null) {
