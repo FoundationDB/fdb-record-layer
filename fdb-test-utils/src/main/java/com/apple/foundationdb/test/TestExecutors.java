@@ -22,7 +22,7 @@ package com.apple.foundationdb.test;
 
 import javax.annotation.Nonnull;
 import java.util.concurrent.Executor;
-import java.util.concurrent.Executors;
+import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -58,7 +58,7 @@ public final class TestExecutors {
     }
 
     public static Executor newThreadPool(@Nonnull String namePrefix) {
-        return Executors.newCachedThreadPool(new TestThreadFactory(namePrefix));
+        return ForkJoinPool.commonPool();
     }
 
     @Nonnull

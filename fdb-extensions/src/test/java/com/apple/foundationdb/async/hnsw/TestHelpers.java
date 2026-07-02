@@ -22,6 +22,7 @@ package com.apple.foundationdb.async.hnsw;
 
 import com.apple.foundationdb.Database;
 import com.apple.foundationdb.Transaction;
+import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.linear.AffineOperator;
 import com.apple.foundationdb.linear.DoubleRealVector;
 import com.apple.foundationdb.linear.HalfRealVector;
@@ -68,8 +69,10 @@ import java.util.Set;
 import java.util.TreeSet;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
@@ -104,7 +107,42 @@ class TestHelpers {
                                                       final long firstId,
                                                       @Nonnull final BiFunction<Transaction, Long, PrimaryKeyAndVector> insertFunction)
             throws ExecutionException, InterruptedException, TimeoutException {
+        return basicInsertBatch(db, hnsw, batchSize, firstId, insertFunction, null);
+    }
+
+    static void basicInsert(@Nonnull Database db, @Nonnull final HNSW hnsw,
+                            final List<PrimaryKeyAndVector> insertedData,
+                            TestLogFile logFile)
+            throws ExecutionException, InterruptedException, TimeoutException {
+        basicInsert(db, hnsw, insertedData.size(), (tr, nextId) -> insertedData.get(Math.toIntExact(nextId)), logFile);
+    }
+
+    static void basicInsert(@Nonnull final Database db,
+                            @Nonnull final HNSW hnsw,
+                            final int count,
+                            @Nonnull final BiFunction<Transaction, Long, PrimaryKeyAndVector> insertFunction, final TestLogFile logFile)
+            throws ExecutionException, InterruptedException, TimeoutException {
+        int inserted = 0;
+        while (inserted < count) {
+            inserted += basicInsertBatch(db, hnsw, Math.min(100, count - inserted), inserted, insertFunction, logFile)
+                    .size();
+        }
+    }
+
+    @Nonnull
+    static List<PrimaryKeyAndVector> basicInsertBatch(@Nonnull final Database db,
+                                                      @Nonnull final HNSW hnsw,
+                                                      final int batchSize,
+                                                      final long firstId,
+                                                      @Nonnull final BiFunction<Transaction, Long, PrimaryKeyAndVector> insertFunction,
+                                                      @Nullable final TestLogFile logFile)
+            throws ExecutionException, InterruptedException, TimeoutException {
+        if (logFile != null) {
+            logFile.log("basicInsertBatch begin batchSize=%d firstId=%d", batchSize, firstId);
+        }
+        AtomicInteger attempt = new AtomicInteger(0);
         return db.runAsync(tr -> {
+            attempt.incrementAndGet();
             final TestOnWriteListener onWriteListener = (TestOnWriteListener)hnsw.getOnWriteListener();
             onWriteListener.reset();
             final TestOnReadListener onReadListener = (TestOnReadListener)hnsw.getOnReadListener();
@@ -114,25 +152,47 @@ class TestHelpers {
 
             // In theory this could put all the futures in a List and run the inserts concurrently, but for a `basicInsertBatch`
             // it's probably better to not test the concurrent handling of hnsw, even if it makes the tests slower.
-            CompletableFuture<Void> future = CompletableFuture.completedFuture(null);
             final long beginTs = System.nanoTime();
-            for (int i = 0; i < batchSize; i ++) {
+            // This is a simplistic version of ThrottledRetryingIterator, but that cannot be used here because it depends
+            // on many classes from fdb-record-layer-core
+            AtomicInteger index = new AtomicInteger(0);
+            final int attemptBatchSize = Math.max(1, batchSize / attempt.get());
+            CompletableFuture<Void> future = AsyncUtil.whileTrue(() -> {
+                int i = index.getAndIncrement();
+                if (i >= attemptBatchSize) {
+                    return AsyncUtil.READY_FALSE;
+                }
+
                 final PrimaryKeyAndVector record = insertFunction.apply(tr, firstId + i);
                 if (record == null) {
-                    break;
+                    return AsyncUtil.READY_FALSE;
                 }
                 data.add(record);
-                future = future.thenCompose((vignore) -> hnsw.insert(tr, record.getPrimaryKey(), record.getVector()));
-            }
+
+                if (logFile != null) {
+                    logFile.log("Inserting to batch %d", i);
+                }
+                return hnsw.insert(tr, record.getPrimaryKey(), record.getVector()).thenApply(vignore -> true);
+            }, ForkJoinPool.commonPool());
             return future.thenApply(vignore -> data.build())
                     .whenComplete((result, error) -> {
                         if (error != null) {
                             logger.info("Failed to insert batchSize={}", error);
+                            if (logFile != null) {
+                                logFile.logFailure(
+                                        String.format(Locale.ROOT, "basicInsertBatch error batchSize=%d firstId=%d", batchSize, firstId),
+                                        error);
+                            }
                         } else {
                             final long endTs = System.nanoTime();
                             logger.info("inserted batchSize={} records={} starting at nodeId={} took elapsedTime={}ms, readCounts={}, readBytes={}",
                                     batchSize, result.size(), firstId, TimeUnit.NANOSECONDS.toMillis(endTs - beginTs),
                                     onReadListener.getNodeCountByLayer(), onReadListener.getBytesReadByLayer());
+                            if (logFile != null) {
+                                logFile.log("basicInsertBatch end batchSize=%d records=%d firstId=%d elapsedMs=%d readCounts=%s readBytes=%s",
+                                        batchSize, result.size(), firstId, TimeUnit.NANOSECONDS.toMillis(endTs - beginTs),
+                                        onReadListener.getNodeCountByLayer(), onReadListener.getBytesReadByLayer());
+                            }
                         }
                     });
         }).get(2, TimeUnit.MINUTES); // set a timeout for inserting a single batch including retries so setup won't run forever
@@ -602,4 +662,5 @@ class TestHelpers {
             return Objects.hash(super.hashCode(), getDistance());
         }
     }
+
 }
