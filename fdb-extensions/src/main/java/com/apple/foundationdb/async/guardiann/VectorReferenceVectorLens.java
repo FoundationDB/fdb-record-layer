@@ -43,6 +43,18 @@ class VectorReferenceVectorLens implements Lens<VectorReference, Transformed<Rea
         return vectorReference.vector();
     }
 
+    /**
+     * Replaces the vector on {@code vectorReference}, preserving its role, id, and flags. Both arguments must be
+     * non-null: a lens can only rewrite the vector of an existing reference, not synthesize one from a vector alone
+     * (the role and id have no source outside the reference). Delegates to
+     * {@link VectorReference#withVector(Transformed)}, which returns the same reference when {@code transformed} is the
+     * identical instance already held.
+     *
+     * @param vectorReference the reference to rewrite; must not be null
+     * @param transformed the replacement vector; must not be null
+     *
+     * @return the reference carrying {@code transformed}
+     */
     @Nonnull
     @Override
     @SpotBugsSuppressWarnings("NP_PARAMETER_MUST_BE_NONNULL_BUT_MARKED_AS_NULLABLE")

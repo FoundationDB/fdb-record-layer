@@ -477,6 +477,95 @@ public class MoreAsyncUtilTest {
                         CompletableFuture::completedFuture, 0, EXECUTOR));
     }
 
+    @Test
+    void mapIterablePipelinedMapsInInputOrder() {
+        final List<Integer> result = AsyncUtil.collect(
+                MoreAsyncUtil.mapIterablePipelined(EXECUTOR, iterableOf(1, 2, 3, 4, 5),
+                        i -> CompletableFuture.completedFuture(i * i), 2),
+                EXECUTOR).join();
+        assertEquals(Arrays.asList(1, 4, 9, 16, 25), result);
+    }
+
+    @Test
+    void mapIterablePipelinedPreservesOrderWhenMapsCompleteOutOfOrder() {
+        final List<Integer> items = Arrays.asList(0, 1, 2, 3, 4);
+        final List<CompletableFuture<Integer>> perItem = new ArrayList<>();
+        for (int i = 0; i < items.size(); i++) {
+            perItem.add(new CompletableFuture<>());
+        }
+        // pipelineSize == size so every map future is started before any completes.
+        final CompletableFuture<List<Integer>> resultFuture = AsyncUtil.collect(
+                MoreAsyncUtil.mapIterablePipelined(EXECUTOR,
+                        MoreAsyncUtil.iterableFromCollection(CompletableFuture.completedFuture(items), EXECUTOR),
+                        perItem::get, items.size()),
+                EXECUTOR);
+        // Complete the map futures in reverse; the pipelined output must still be in input order.
+        for (int i = items.size() - 1; i >= 0; i--) {
+            perItem.get(i).complete(i * 10);
+        }
+        assertEquals(Arrays.asList(0, 10, 20, 30, 40), resultFuture.join(),
+                "pipelined results are ordered by input position, not completion order");
+    }
+
+    @Test
+    void mapIterablePipelinedIsLazyInvokingFuncOncePerElement() {
+        final AtomicInteger calls = new AtomicInteger();
+        final List<Integer> result = AsyncUtil.collect(
+                MoreAsyncUtil.mapIterablePipelined(EXECUTOR, iterableOf(1, 2, 3),
+                        i -> {
+                            calls.incrementAndGet();
+                            return CompletableFuture.completedFuture(i + 1);
+                        }, 4),
+                EXECUTOR).join();
+        assertEquals(Arrays.asList(2, 3, 4), result);
+        assertEquals(3, calls.get(), "func is applied exactly once per element");
+    }
+
+    @Test
+    void mapIterablePipelinedEmptyYieldsEmpty() {
+        final List<Integer> result = AsyncUtil.collect(
+                MoreAsyncUtil.mapIterablePipelined(EXECUTOR, MoreAsyncUtilTest.<Integer>iterableOf(),
+                        i -> CompletableFuture.completedFuture(i * i), 2),
+                EXECUTOR).join();
+        assertTrue(result.isEmpty());
+    }
+
+    @Test
+    void dedupIterableRemovesOnlyAdjacentDuplicates() {
+        // Non-adjacent repeats survive: the trailing 1 is kept because its predecessor (3) differs.
+        final List<Integer> result = AsyncUtil.collect(
+                MoreAsyncUtil.dedupIterable(EXECUTOR, iterableOf(1, 1, 2, 2, 2, 3, 1)), EXECUTOR).join();
+        assertEquals(Arrays.asList(1, 2, 3, 1), result);
+    }
+
+    @Test
+    void dedupIterableFullyDedupsSortedInput() {
+        final List<Integer> result = AsyncUtil.collect(
+                MoreAsyncUtil.dedupIterable(EXECUTOR, iterableOf(1, 1, 2, 3, 3, 3)), EXECUTOR).join();
+        assertEquals(Arrays.asList(1, 2, 3), result);
+    }
+
+    @Test
+    void dedupIterableEmptyYieldsEmpty() {
+        final List<Integer> result = AsyncUtil.collect(
+                MoreAsyncUtil.dedupIterable(EXECUTOR, MoreAsyncUtilTest.<Integer>iterableOf()), EXECUTOR).join();
+        assertTrue(result.isEmpty());
+    }
+
+    @Test
+    void dedupIterableEmitsLeadingNullAndDoesNotCollapseAdjacentNulls() {
+        // The dedup filter seeds its "previous" marker with null, so the leading null passes through; and because a
+        // null previous element never compares equal, a second adjacent null is not collapsed. This pins that quirk.
+        final List<String> result = AsyncUtil.collect(
+                MoreAsyncUtil.dedupIterable(EXECUTOR, iterableOf(null, null, "a", "a")), EXECUTOR).join();
+        assertEquals(Arrays.asList(null, null, "a"), result);
+    }
+
+    @SafeVarargs
+    private static <T> AsyncIterable<T> iterableOf(final T... items) {
+        return MoreAsyncUtil.iterableFromCollection(CompletableFuture.completedFuture(Arrays.asList(items)), EXECUTOR);
+    }
+
     @Nonnull
     private static Matcher<String> isCurrentThreadNameOr(@Nonnull String threadName) {
         return isCurrentThreadNameOr(equalTo(threadName));

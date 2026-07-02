@@ -21,25 +21,34 @@
 package com.apple.foundationdb.async.guardiann;
 
 import com.apple.foundationdb.Database;
+import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.common.BaseTest;
+import com.apple.foundationdb.async.common.CommonTestHelpers;
 import com.apple.foundationdb.async.common.PrimaryKeyAndVector;
 import com.apple.foundationdb.async.common.RandomHelpers;
 import com.apple.foundationdb.async.common.ResultEntry;
 import com.apple.foundationdb.async.common.StorageTransform;
+import com.apple.foundationdb.linear.AffineOperator;
+import com.apple.foundationdb.linear.DoubleRealVector;
 import com.apple.foundationdb.linear.Metric;
 import com.apple.foundationdb.linear.Quantizer;
 import com.apple.foundationdb.linear.RealVector;
+import com.apple.foundationdb.linear.RealVectorTest;
 import com.apple.foundationdb.linear.Transformed;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.test.TestDatabaseExtension;
 import com.apple.foundationdb.test.TestExecutors;
 import com.apple.foundationdb.test.TestSubspaceExtension;
+import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.Tuple;
+import com.apple.test.RandomSeedSource;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -49,8 +58,11 @@ import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.Random;
 import java.util.Set;
+import java.util.SplittableRandom;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
@@ -111,6 +123,206 @@ public class CollapseScenarioTest implements BaseTest {
     // ---------------------------------------------------------------------------------------------------------
     // Tests
     // ---------------------------------------------------------------------------------------------------------
+
+    //
+    // Coverage for AbstractDeferredTask's task-id priority helpers is folded in here rather than in a standalone
+    // unit test: they underpin the task-queue ordering that every scenario in this package relies on. Priority is
+    // encoded in the id's most-significant bit (clear = high, set = normal).
+    //
+
+    @ParameterizedTest
+    @RandomSeedSource({0x0fdbL, 0x5ca1eL, 123456L, 78910L, 1123581321345589L})
+    void isNormalPriorityReadsTheMostSignificantBit(final long randomSeed) {
+        assertThat(AbstractDeferredTask.isNormalPriority(new UUID(0x8000000000000000L, 0L))).isTrue();
+        assertThat(AbstractDeferredTask.isNormalPriority(new UUID(0xffffffffffffffffL, 7L))).isTrue();
+        assertThat(AbstractDeferredTask.isNormalPriority(new UUID(0x7fffffffffffffffL, -1L))).isFalse();
+        assertThat(AbstractDeferredTask.isNormalPriority(new UUID(0L, 0L))).isFalse();
+
+        // The id generators must agree with the predicate, both deterministically and (over several draws) not.
+        final SplittableRandom random = new SplittableRandom(randomSeed);
+        for (int i = 0; i < 8; i++) {
+            assertThat(AbstractDeferredTask.isNormalPriority(
+                    AbstractDeferredTask.randomNormalPriorityTaskId(random, true))).isTrue();
+            assertThat(AbstractDeferredTask.isNormalPriority(
+                    AbstractDeferredTask.randomHighPriorityTaskId(random, true))).isFalse();
+            assertThat(AbstractDeferredTask.isNormalPriority(
+                    AbstractDeferredTask.randomNormalPriorityTaskId(random, false))).isTrue();
+            assertThat(AbstractDeferredTask.isNormalPriority(
+                    AbstractDeferredTask.randomHighPriorityTaskId(random, false))).isFalse();
+        }
+    }
+
+    @ParameterizedTest
+    @RandomSeedSource({0x0fdbL, 0x5ca1eL, 123456L, 78910L, 1123581321345589L})
+    void taskIdToStringPrefixesWithPriority(final long randomSeed) {
+        final UUID highPriority = new UUID(0L, 5L);
+        final UUID normalPriority = new UUID(0x8000000000000000L, 5L);
+
+        assertThat(AbstractDeferredTask.taskIdToString(highPriority)).isEqualTo("HIGH:" + highPriority);
+        assertThat(AbstractDeferredTask.taskIdToString(normalPriority)).isEqualTo("NORMAL:" + normalPriority);
+
+        final SplittableRandom random = new SplittableRandom(randomSeed);
+        assertThat(AbstractDeferredTask.taskIdToString(AbstractDeferredTask.randomNormalPriorityTaskId(random, true)))
+                .startsWith("NORMAL:");
+        assertThat(AbstractDeferredTask.taskIdToString(AbstractDeferredTask.randomHighPriorityTaskId(random, true)))
+                .startsWith("HIGH:");
+    }
+
+    /**
+     * Exercises the subspace/listener accessors that fan out across the guardiann facades. Each is a pure delegation
+     * down to the {@link Locator}/{@link StorageAdapter}, so rather than a class per facade we assert here that every
+     * one forwards to the same underlying instance the {@link Guardiann} was built with.
+     */
+    @Test
+    void facadeAccessorsDelegateToTheLocator() {
+        final Guardiann guardiann = newGuardiann(100_000, 20);
+        final Locator locator = guardiann.getLocator();
+        final Subspace root = locator.getSubspace();
+
+        // getSubspace() forwards to the same root across every facade.
+        assertThat(guardiann.getSubspace()).isEqualTo(root);
+        assertThat(locator.insert().getSubspace()).isEqualTo(root);
+        assertThat(locator.delete().getSubspace()).isEqualTo(root);
+        assertThat(locator.search().getSubspace()).isEqualTo(root);
+
+        // Listener getters return the shared instances the locator holds.
+        assertThat(locator.search().getOnWriteListener()).isSameAs(locator.getOnWriteListener());
+        assertThat(locator.search().getOnReadListener()).isSameAs(locator.getOnReadListener());
+
+        // The samples subspace is the root nested under its own prefix (0x06), distinct from the root itself.
+        final Subspace samples = locator.primitives().getSamplesSubspace();
+        assertThat(ByteArrayUtil.startsWith(samples.pack(), root.pack())).isTrue();
+        assertThat(samples.pack()).isNotEqualTo(root.pack());
+
+        // A deferred task forwards its listener down to the same locator instance. Build it purely in memory (no FDB
+        // read): AccessInfo's constructor is pure and the centroid is an identity-transformed random vector.
+        final RealVector rawCentroid = RealVectorTest.createRandomDoubleVector(new Random(1L), 128);
+        final AccessInfo accessInfo = new AccessInfo(0L, rawCentroid);
+        final Transformed<RealVector> centroid = AffineOperator.identity().transform(rawCentroid);
+        final CollapseTask task =
+                CollapseTask.of(locator, accessInfo, new UUID(0L, 1L), UUID.randomUUID(), centroid);
+        assertThat(task.getOnReadListener()).isSameAs(locator.getOnReadListener());
+    }
+
+    /**
+     * Directly exercises the collapsed-vector-id store's full-scan and single-member delete, which back
+     * {@link CollapseTask}'s bookkeeping but have no production callers of their own. Writes memberships under two
+     * distinct signatures, then checks that {@code scanCollapsedVectorIdsIterable} returns the union across both
+     * (unlike the signature-scoped fetch), and that {@code deleteCollapsedVectorId} removes exactly one member.
+     */
+    @Test
+    void collapsedVectorIdStoreScanAndDelete() {
+        final Guardiann guardiann = newGuardiann(100_000, 20);
+        final Primitives primitives = guardiann.getLocator().primitives();
+
+        final UUID signatureA = new UUID(0xAAAAAAAAAAAAAAAAL, 1L);
+        final UUID signatureB = new UUID(0xBBBBBBBBBBBBBBBBL, 2L);
+        final VectorId a1 = new VectorId(Tuple.from("a", 1), UUID.randomUUID());
+        final VectorId a2 = new VectorId(Tuple.from("a", 2), UUID.randomUUID());
+        final VectorId b1 = new VectorId(Tuple.from("b", 1), UUID.randomUUID());
+
+        db.run(tr -> {
+            primitives.writeCollapsedVectorId(tr, signatureA, a1);
+            primitives.writeCollapsedVectorId(tr, signatureA, a2);
+            primitives.writeCollapsedVectorId(tr, signatureB, b1);
+            return null;
+        });
+
+        // A full scan crosses signature boundaries: it returns every membership regardless of signature.
+        final List<VectorId> scanned = db.run(tr ->
+                AsyncUtil.collect(primitives.scanCollapsedVectorIdsIterable(tr), TestExecutors.defaultThreadPool())
+                        .join());
+        assertThat(scanned).containsExactlyInAnyOrder(a1, a2, b1);
+
+        // Deleting a single (signature, primaryKey) removes only that member; its siblings and other signatures stay.
+        db.run(tr -> {
+            primitives.deleteCollapsedVectorId(tr, signatureA, a1.primaryKey());
+            return null;
+        });
+        final VectorId deletedMember =
+                db.run(tr -> primitives.fetchCollapsedVectorId(tr, signatureA, a1.primaryKey()).join());
+        assertThat(deletedMember).as("the deleted member must be gone").isNull();
+
+        final List<VectorId> survivorsUnderA =
+                db.run(tr -> primitives.fetchCollapsedVectorIds(tr, signatureA).join());
+        assertThat(survivorsUnderA).as("the sibling under the same signature must survive").containsExactly(a2);
+
+        final List<VectorId> afterDelete = db.run(tr ->
+                AsyncUtil.collect(primitives.scanCollapsedVectorIdsIterable(tr), TestExecutors.defaultThreadPool())
+                        .join());
+        assertThat(afterDelete).containsExactlyInAnyOrder(a2, b1);
+    }
+
+    /**
+     * Drives {@link Search#clusterOverlapDiagnostics}, a recall/probe-count diagnostic with no production callers: for
+     * each query vector it counts how many clusters' spheres (radius = the cluster's {@code maxEver} member distance)
+     * contain it.
+     * <p>
+     * To exercise <em>genuine</em> overlap (a query inside more than one sphere) rather than the trivial
+     * single-sphere case, this builds a tight cloud of near-duplicates around one base vector with a small
+     * {@code primaryClusterMax}, so it splits into several <em>co-located</em> sub-clusters whose spheres necessarily
+     * intersect. Querying the cloud centre (and each sub-centroid) then lands inside {@code >= 2} spheres. Also pins
+     * the two early-out guards (no {@code AccessInfo} yet, and empty query list).
+     */
+    @ParameterizedTest
+    @RandomSeedSource({0x0fdbL, 0x5ca1eL, 123456L, 78910L, 1123581321345589L})
+    void clusterOverlapDiagnosticsDetectsRealSphereOverlap(final long randomSeed) throws Exception {
+        // Small cap forces the near-duplicate cloud to split into co-located sub-clusters; the huge
+        // collapseMinDuplicates (plus distinct perturbed signatures) keeps CollapseTask from folding them away.
+        final Guardiann guardiann = newGuardiann(50, 1_000_000);
+        final Search search = guardiann.getLocator().search();
+        final SearchConfig searchConfig = new SearchConfig.SearchConfigBuilder().build();
+
+        final DoubleRealVector base =
+                (DoubleRealVector) TestHelpers.loadVectors(SiftTestHelpers.SIFT_SMALL_BASE_PATH, 1).get(0).vector();
+
+        // Guard 1: a brand-new structure has no AccessInfo yet, so the diagnostic short-circuits to an empty list.
+        final List<Integer> noAccessInfoOverlaps = db.run(tr ->
+                search.clusterOverlapDiagnostics(tr, ImmutableList.of(base), ImmutableList.of(), searchConfig).join());
+        assertThat(noAccessInfoOverlaps).isEmpty();
+
+        // Insert a tight cloud of perturbed near-duplicates around the single base; the cap splits it into sub-clusters.
+        final RandomHelpers.GaussianSampler sampler = new RandomHelpers.GaussianSampler(new SplittableRandom(randomSeed));
+        for (int i = 0; i < 150; i++) {
+            final DoubleRealVector perturbed = CommonTestHelpers.perturb(base, sampler, 0.5d);
+            final Tuple pk = Tuple.from("overlap", i);
+            db.run(tr -> {
+                guardiann.insert(tr, pk, perturbed, null).join();
+                return null;
+            });
+        }
+        TestHelpers.runToQuiescence(db, guardiann);
+
+        final StructureSnapshot snapshot = Objects.requireNonNull(TestHelpers.snapshotStructure(db, guardiann));
+        assertThat(snapshot.numClusters())
+                .as("the near-duplicate cloud must split into multiple co-located sub-clusters for overlap to exist")
+                .isGreaterThanOrEqualTo(2);
+
+        final List<ResultEntry> centroids = snapshot.clusters().values().stream()
+                .map(cv -> new ResultEntry(StorageAdapter.tupleFromClusterId(cv.clusterId()), cv.centroid(), null,
+                        0.0d, 0))
+                .collect(Collectors.toList());
+
+        // Query the cloud centre plus every sub-centroid. Because the sub-clusters are co-located, at least one of
+        // these queries must fall inside >= 2 spheres — real overlap, not the trivial single-sphere membership.
+        final List<RealVector> queries = new ArrayList<>();
+        queries.add(base);
+        snapshot.clusters().values().forEach(cv -> queries.add(cv.centroid()));
+        final List<Integer> overlaps =
+                db.run(tr -> search.clusterOverlapDiagnostics(tr, queries, centroids, searchConfig).join());
+
+        logger.info("overlap counts over {} clusters for {} queries: {}", centroids.size(), queries.size(), overlaps);
+        assertThat(overlaps).hasSize(queries.size());
+        assertThat(overlaps).allSatisfy(count -> assertThat(count).isBetween(0, centroids.size()));
+        assertThat(overlaps.stream().mapToInt(Integer::intValue).max().orElse(0))
+                .as("with co-located sub-clusters, at least one query must sit inside >= 2 clusters' spheres")
+                .isGreaterThanOrEqualTo(2);
+
+        // Guard 2: an empty query list yields an empty result even with real centroids present.
+        final List<Integer> emptyQueryOverlaps =
+                db.run(tr -> search.clusterOverlapDiagnostics(tr, ImmutableList.of(), centroids, searchConfig).join());
+        assertThat(emptyQueryOverlaps).isEmpty();
+    }
 
     /**
      * End-to-end: inserting many identical vectors trips a split that can't repartition them, which enqueues a

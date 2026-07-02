@@ -676,7 +676,7 @@ public class Search {
 
     /**
      * Diagnostic method that computes cluster overlap statistics for a set of query vectors. For each
-     * query vector, counts how many clusters "overlap" — i.e., the query falls within the cluster's ball
+     * query vector, counts how many clusters "overlap" — i.e., the query falls within the cluster's sphere
      * defined by {@code dist(query, centroid) <= maxEver}. Logs per-query overlap counts and aggregate
      * statistics (min, max, mean).
      *

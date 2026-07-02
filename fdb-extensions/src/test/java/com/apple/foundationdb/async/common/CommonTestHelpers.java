@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.async.common;
 
+import com.apple.foundationdb.linear.DoubleRealVector;
 import com.apple.foundationdb.linear.HalfRealVector;
 import com.apple.foundationdb.linear.Metric;
 import com.apple.foundationdb.linear.RealVector;
@@ -100,5 +101,26 @@ public final class CommonTestHelpers {
     @Nonnull
     public static Tuple createPrimaryKey(final long nextId) {
         return Tuple.from(nextId);
+    }
+
+    /**
+     * Returns a copy of {@code base} with independent Gaussian noise (scaled by {@code sigma}) added to every
+     * component. Used to synthesize clusters of near-duplicate vectors around a handful of seed vectors.
+     *
+     * @param base the vector to perturb (not mutated)
+     * @param sampler the Gaussian source; drives the per-component noise
+     * @param sigma the standard deviation of the per-component noise
+     *
+     * @return a fresh perturbed vector
+     */
+    @Nonnull
+    public static DoubleRealVector perturb(@Nonnull final DoubleRealVector base,
+                                           @Nonnull final RandomHelpers.GaussianSampler sampler,
+                                           final double sigma) {
+        final double[] data = base.getData().clone();
+        for (int i = 0; i < data.length; i++) {
+            data[i] += sigma * sampler.nextGaussian();
+        }
+        return new DoubleRealVector(data);
     }
 }

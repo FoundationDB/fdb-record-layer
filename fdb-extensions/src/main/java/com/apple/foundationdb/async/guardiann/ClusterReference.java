@@ -55,6 +55,15 @@ record ClusterReference(@Nonnull UUID clusterId, @Nonnull Transformed<RealVector
                 }
             };
 
+    /**
+     * Projects each {@link ClusterMetadataWithDistance} down to a lightweight {@link ClusterReference} — keeping only
+     * the cluster id and centroid and dropping the full metadata and the distance. Order-preserving. Used to shrink
+     * what a deferred task carries into the task queue to the minimum a follow-up needs to re-locate the clusters.
+     *
+     * @param clusterMetadataWithDistances the clusters to project, in order
+     *
+     * @return the projected references, one per input, in the same order
+     */
     @Nonnull
     static List<ClusterReference> fromClusterMetadataAndDistances(@Nonnull List<ClusterMetadataWithDistance> clusterMetadataWithDistances) {
         return Lens.extract(FROM_CLUSTER_METADATA_AND_DISTANCE, clusterMetadataWithDistances);

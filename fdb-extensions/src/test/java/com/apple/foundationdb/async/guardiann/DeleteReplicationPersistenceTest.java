@@ -220,19 +220,8 @@ public class DeleteReplicationPersistenceTest implements BaseTest {
         final List<PrimaryKeyAndVector> inserts = new ArrayList<>(NUM_INSERTS);
         for (int i = 0; i < NUM_INSERTS; i++) {
             inserts.add(new PrimaryKeyAndVector(CommonTestHelpers.createPrimaryKey(i),
-                    perturb(base, sampler, PERTURBATION_SIGMA)));
+                    CommonTestHelpers.perturb(base, sampler, PERTURBATION_SIGMA)));
         }
         return inserts;
-    }
-
-    @Nonnull
-    private static DoubleRealVector perturb(@Nonnull final DoubleRealVector base,
-                                            @Nonnull final RandomHelpers.GaussianSampler sampler,
-                                            final double sigma) {
-        final double[] data = base.getData().clone();
-        for (int i = 0; i < data.length; i++) {
-            data[i] += sigma * sampler.nextGaussian();
-        }
-        return new DoubleRealVector(data);
     }
 }

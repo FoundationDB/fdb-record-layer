@@ -22,6 +22,7 @@ package com.apple.foundationdb.async.common;
 
 import com.apple.foundationdb.async.AsyncIterable;
 import com.apple.foundationdb.async.AsyncIterator;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
 
@@ -51,14 +52,16 @@ public class DistinctTopK<T> {
     private final int k;
 
     private DistinctTopK(@Nonnull final Comparator<T> comparator, final int k) {
+        Preconditions.checkArgument(k > 0, "k must be positive");
         this.set = Sets.newTreeSet(comparator);
         this.k = k;
     }
 
     /**
-     * Offers an element to this collector. Elements already retained are ignored; otherwise the element is kept if
-     * fewer than {@code k} elements are held, or if it compares strictly greater than the current worst, which it
-     * then evicts.
+     * Offers an element to this collector. An element that compares equal (by the collector's {@link Comparator},
+     * not {@code equals}) to one already retained is ignored — so an element tying the current worst counts as a
+     * duplicate and is rejected. Otherwise the element is kept if fewer than {@code k} elements are held, or if it
+     * compares strictly greater than the current worst, which it then evicts.
      *
      * @param item the element to offer
      *
@@ -140,10 +143,12 @@ public class DistinctTopK<T> {
      * given comparator.
      *
      * @param comparator the comparator defining element order
-     * @param k the maximum number of distinct elements to retain
+     * @param k the maximum number of distinct elements to retain; must be positive
      * @param <T> the type of element collected
      *
      * @return a new collector retaining the k smallest distinct elements
+     *
+     * @throws IllegalArgumentException if {@code k} is not positive
      */
     @Nonnull
     public static <T> DistinctTopK<T> min(@Nonnull final Comparator<T> comparator, final int k) {
@@ -155,10 +160,12 @@ public class DistinctTopK<T> {
      * given comparator.
      *
      * @param comparator the comparator defining element order
-     * @param k the maximum number of distinct elements to retain
+     * @param k the maximum number of distinct elements to retain; must be positive
      * @param <T> the type of element collected
      *
      * @return a new collector retaining the k largest distinct elements
+     *
+     * @throws IllegalArgumentException if {@code k} is not positive
      */
     @Nonnull
     public static <T> DistinctTopK<T> max(@Nonnull final Comparator<T> comparator, final int k) {

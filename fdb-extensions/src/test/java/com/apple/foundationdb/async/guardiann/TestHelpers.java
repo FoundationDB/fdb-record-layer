@@ -197,6 +197,40 @@ class TestHelpers {
         }).get(2, TimeUnit.MINUTES);
     }
 
+    /**
+     * Deletes every record in {@code records}, re-invoking {@link #basicDeleteBatch} until the list is drained.
+     * {@code basicDeleteBatch} bails out of a batch as soon as it triggers a deferred task, so a single call may
+     * only delete a prefix; this loops until nothing remains.
+     *
+     * @param db the database
+     * @param guardiann the structure to delete from
+     * @param records the records to delete
+     */
+    static void deleteToCompletion(@Nonnull final Database db,
+                                   @Nonnull final Guardiann guardiann,
+                                   @Nonnull final List<PrimaryKeyAndVector> records)
+            throws ExecutionException, InterruptedException, TimeoutException {
+        final List<PrimaryKeyAndVector> remaining = new ArrayList<>(records);
+        while (!remaining.isEmpty()) {
+            final List<PrimaryKeyAndVector> done = basicDeleteBatch(db, guardiann, remaining);
+            remaining.subList(0, done.size()).clear();
+        }
+    }
+
+    /**
+     * Sums the under-replicated primary counts across every cluster in {@code snapshot} — i.e. how many primaries
+     * still owe replicas. Useful for asserting a reassign/replication pass drives that total down.
+     *
+     * @param snapshot the structure snapshot to aggregate over
+     *
+     * @return the total number of under-replicated primaries across all clusters
+     */
+    static int countUnderReplicatedPrimaries(@Nonnull final StructureSnapshot snapshot) {
+        return snapshot.clusters().values().stream()
+                .mapToInt(cv -> cv.metadata().numPrimaryUnderreplicatedVectors())
+                .sum();
+    }
+
     @Nonnull
     static List<PrimaryKeyAndVector> loadVectors(@Nonnull final String baseFile,
                                                  final int numVectors) throws Exception {

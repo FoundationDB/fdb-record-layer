@@ -555,12 +555,7 @@ public class SiftTest implements BaseTest {
     /** Delete a single batch (one transaction modulo the bail-out retry) of pre-selected records. */
     private void deleteOneBatch(@Nonnull final Guardiann guardiann,
                                 @Nonnull final List<PrimaryKeyAndVector> batch) throws Exception {
-        final List<PrimaryKeyAndVector> remaining = new ArrayList<>(batch);
-        while (!remaining.isEmpty()) {
-            final List<PrimaryKeyAndVector> done =
-                    TestHelpers.basicDeleteBatch(getDb(), guardiann, remaining);
-            remaining.subList(0, done.size()).clear();
-        }
+        TestHelpers.deleteToCompletion(getDb(), guardiann, batch);
     }
 
     static void scanCentroids(@Nonnull final Database db,

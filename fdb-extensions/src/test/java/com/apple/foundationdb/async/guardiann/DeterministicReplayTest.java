@@ -350,20 +350,9 @@ public class DeterministicReplayTest implements BaseTest {
         for (int i = 0; i < NUM_INSERTS; i++) {
             final DoubleRealVector base = bases.get(rnd.nextInt(NUM_BASES));
             inserts.add(new PrimaryKeyAndVector(CommonTestHelpers.createPrimaryKey(i),
-                    perturb(base, sampler, PERTURBATION_SIGMA)));
+                    CommonTestHelpers.perturb(base, sampler, PERTURBATION_SIGMA)));
         }
         return inserts;
-    }
-
-    @Nonnull
-    private static DoubleRealVector perturb(@Nonnull final DoubleRealVector base,
-                                            @Nonnull final RandomHelpers.GaussianSampler sampler,
-                                            final double sigma) {
-        final double[] data = base.getData().clone();
-        for (int i = 0; i < data.length; i++) {
-            data[i] += sigma * sampler.nextGaussian();
-        }
-        return new DoubleRealVector(data);
     }
 
     /** A point-in-time capture of one run: cluster/vector counts, an FP-free topology fingerprint, and the KV dump. */

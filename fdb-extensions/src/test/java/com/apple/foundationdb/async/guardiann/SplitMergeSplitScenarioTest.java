@@ -147,7 +147,7 @@ public class SplitMergeSplitScenarioTest implements BaseTest {
         onWriteListener.pushFrame();
         try {
             for (int i = 0; i < NUM_NEAR_DUPLICATES; i++) {
-                final DoubleRealVector perturbed = perturb(base, sampler, PERTURBATION_SIGMA);
+                final DoubleRealVector perturbed = CommonTestHelpers.perturb(base, sampler, PERTURBATION_SIGMA);
                 final Tuple pk = CommonTestHelpers.createPrimaryKey(i);
                 db.run(tr -> {
                     guardiann.insert(tr, pk, perturbed, null).join();
@@ -183,14 +183,4 @@ public class SplitMergeSplitScenarioTest implements BaseTest {
         }
     }
 
-    @Nonnull
-    private static DoubleRealVector perturb(@Nonnull final DoubleRealVector base,
-                                            @Nonnull final RandomHelpers.GaussianSampler sampler,
-                                            final double sigma) {
-        final double[] data = base.getData().clone();
-        for (int i = 0; i < data.length; i++) {
-            data[i] += sigma * sampler.nextGaussian();
-        }
-        return new DoubleRealVector(data);
-    }
 }

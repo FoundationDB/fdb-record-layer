@@ -154,7 +154,7 @@ public class MergeScenarioTest implements BaseTest {
         // ---- Phase 1: insert near-duplicates and let the oversized cluster split. ----
         final List<PrimaryKeyAndVector> inserted = new ArrayList<>(NUM_NEAR_DUPLICATES);
         for (int i = 0; i < NUM_NEAR_DUPLICATES; i++) {
-            final DoubleRealVector perturbed = perturb(base, sampler, PERTURBATION_SIGMA);
+            final DoubleRealVector perturbed = CommonTestHelpers.perturb(base, sampler, PERTURBATION_SIGMA);
             final Tuple pk = CommonTestHelpers.createPrimaryKey(i);
             db.run(tr -> {
                 guardiann.insert(tr, pk, perturbed, null).join();
@@ -207,21 +207,6 @@ public class MergeScenarioTest implements BaseTest {
     }
 
     private void deleteRecords(@Nonnull final List<PrimaryKeyAndVector> records) throws Exception {
-        final List<PrimaryKeyAndVector> remaining = new ArrayList<>(records);
-        while (!remaining.isEmpty()) {
-            final List<PrimaryKeyAndVector> done = TestHelpers.basicDeleteBatch(getDb(), guardiann, remaining);
-            remaining.subList(0, done.size()).clear();
-        }
-    }
-
-    @Nonnull
-    private static DoubleRealVector perturb(@Nonnull final DoubleRealVector base,
-                                            @Nonnull final RandomHelpers.GaussianSampler sampler,
-                                            final double sigma) {
-        final double[] data = base.getData().clone();
-        for (int i = 0; i < data.length; i++) {
-            data[i] += sigma * sampler.nextGaussian();
-        }
-        return new DoubleRealVector(data);
+        TestHelpers.deleteToCompletion(getDb(), guardiann, records);
     }
 }

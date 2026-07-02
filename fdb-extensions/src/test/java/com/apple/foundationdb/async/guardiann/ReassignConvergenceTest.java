@@ -145,7 +145,7 @@ public class ReassignConvergenceTest implements BaseTest {
         final StructureSnapshot postInsert = Objects.requireNonNull(
                 TestHelpers.snapshotStructure(getDb(), guardiann), "structure after inserts");
         final int wrong0 = postInsert.computeAssignmentRanking().numWrongAssignments();
-        final int under0 = countUnderReplicatedPrimaries(postInsert);
+        final int under0 = TestHelpers.countUnderReplicatedPrimaries(postInsert);
         logger.info("seed={} post-insert: clusters={}, wrongAssignments={}, underReplicated={}",
                 seed, postInsert.numClusters(), wrong0, under0);
         Assumptions.assumeTrue(wrong0 > 0,
@@ -158,7 +158,7 @@ public class ReassignConvergenceTest implements BaseTest {
         final StructureSnapshot afterRound1 = Objects.requireNonNull(
                 TestHelpers.snapshotStructure(getDb(), guardiann), "structure after round 1");
         final int wrong1 = afterRound1.computeAssignmentRanking().numWrongAssignments();
-        final int under1 = countUnderReplicatedPrimaries(afterRound1);
+        final int under1 = TestHelpers.countUnderReplicatedPrimaries(afterRound1);
         logger.info("seed={} after round 1: wrongAssignments={} (was {}), underReplicated={} (was {})",
                 seed, wrong1, wrong0, under1, under0);
 
@@ -167,7 +167,7 @@ public class ReassignConvergenceTest implements BaseTest {
         final StructureSnapshot afterRound2 = Objects.requireNonNull(
                 TestHelpers.snapshotStructure(getDb(), guardiann), "structure after round 2");
         final int wrong2 = afterRound2.computeAssignmentRanking().numWrongAssignments();
-        final int under2 = countUnderReplicatedPrimaries(afterRound2);
+        final int under2 = TestHelpers.countUnderReplicatedPrimaries(afterRound2);
         logger.info("seed={} after round 2: wrongAssignments={} (was {}), underReplicated={} (was {})",
                 seed, wrong2, wrong1, under2, under1);
         logger.info("seed={} convergence summary: wrong {} -> {} -> {}, underReplicated {} -> {} -> {}",
@@ -244,13 +244,6 @@ public class ReassignConvergenceTest implements BaseTest {
     // ---------------------------------------------------------------------------------------------------------
     // Helpers
     // ---------------------------------------------------------------------------------------------------------
-
-    /** Sum of {@link ClusterMetadata#numPrimaryUnderreplicatedVectors()} across all clusters (authoritative). */
-    private static int countUnderReplicatedPrimaries(@Nonnull final StructureSnapshot snapshot) {
-        return snapshot.clusters().values().stream()
-                .mapToInt(cv -> cv.metadata().numPrimaryUnderreplicatedVectors())
-                .sum();
-    }
 
     /** A deterministic, seed-shuffled subsample of the SIFT-small base set (uses the always-present 10k file). */
     @Nonnull
