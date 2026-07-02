@@ -495,6 +495,11 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
+    public void viewDmlTest(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("view-dml.yamsql");
+    }
+
+    @TestTemplate
     public void simpleQueryWithDifferentDebuggersTest(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("simple-query-with-different-debuggers.yamsql");
     }
