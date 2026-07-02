@@ -153,51 +153,6 @@ public final class PlanGenerator {
         return plan;
     }
 
-    /**
-     * Pre-generates and caches plans for the stored queries defined in the schema template.
-     *
-     * <p>Iterates every stored query on the schema template and tries to plan it. Per-query
-     * planning errors are caught and logged (inside {@link #getPlan(String, Map)}'s {@code finally}
-     * block) &mdash; <em>not</em> propagated &mdash; so one bad stored query cannot abort the
-     * iteration. The returned count is the number of stored queries that planned <em>successfully</em>;
-     * queries that failed to plan are the difference between the template's stored-query count
-     * and this return value.</p>
-     *
-     * @return the number of stored queries that were planned and cached successfully; queries that
-     *         failed to plan are counted as the difference between the template's stored-query count
-     *         and this return value
-     * @throws RelationalException if the schema template declares stored queries but this
-     *         {@link PlanGenerator} was constructed without a plan cache &mdash; baking plans with
-     *         nowhere to put them is an illegal system state
-     */
-    public int planStoredQueries() throws RelationalException {
-        final var schemaTemplate = planContext.getSchemaTemplate();
-        if (schemaTemplate.getStoredQueries().isEmpty()) {
-            return 0;
-        }
-        if (cache.isEmpty()) {
-            throw new RelationalException(
-                    "Schema template " + schemaTemplate.getName() + ":" + schemaTemplate.getVersion()
-                            + " declares stored queries but the PlanGenerator has no plan cache",
-                    ErrorCode.INTERNAL_ERROR);
-        }
-        int queriesPlanned = 0;
-        final var templateKey = schemaTemplate.getName() + ":" + schemaTemplate.getVersion();
-        for (final var storedQuery : schemaTemplate.getStoredQueries().entrySet()) {
-            try {
-                getPlan(storedQuery.getValue(), Map.of(
-                        "schemaTemplate", templateKey,
-                        "storedQueryName", storedQuery.getKey(),
-                        "storedQuerySql", storedQuery.getValue()));
-                queriesPlanned++;
-            } catch (RelationalException e) {
-                // do nothing here, error is already logged
-                assert e != null;
-            }
-        }
-        return queriesPlanned;
-    }
-
     private boolean isCaseSensitive() {
         return options.getOption(Options.Name.CASE_SENSITIVE_IDENTIFIERS);
     }
