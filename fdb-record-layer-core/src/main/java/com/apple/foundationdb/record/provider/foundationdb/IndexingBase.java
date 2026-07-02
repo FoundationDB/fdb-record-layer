@@ -328,14 +328,22 @@ public abstract class IndexingBase {
                 common.getRecordStoreBuilder().copyBuilder().setContext(context).openAsync()
                         .thenCompose(store -> {
                             clearHeartbeatForIndex(store, index);
-                            CompletableFuture<Boolean> markFuture =
-                                    policy.shouldAllowUniquePendingState(store) ?
-                                    store.markIndexReadableOrUniquePending(index) :
-                                    store.markIndexReadable(index);
-                            return markFuture.thenApply(changed -> {
-                                // Once the index is readable there is no need for this data
-                                IndexingSubspaces.eraseAllIndexingDataButTheLockAndRangeSet(store.getContext(), store, index);
-                                return changed;
+                            // If the index was built with a pending writes queue, drain (and index) any remaining
+                            // queued writes before marking it readable, so no writes are lost.
+                            CompletableFuture<Void> drainFuture =
+                                    store.getIndexState(index.getName()).isWriteOnlyWithQueue() ?
+                                    getIndexingDrainer(index).drainPendingQueue() :
+                                    AsyncUtil.DONE;
+                            return drainFuture.thenCompose(ignore -> {
+                                CompletableFuture<Boolean> markFuture =
+                                        policy.shouldAllowUniquePendingState(store) ?
+                                        store.markIndexReadableOrUniquePending(index) :
+                                        store.markIndexReadable(index);
+                                return markFuture.thenApply(changed -> {
+                                    // Once the index is readable there is no need for this data
+                                    IndexingSubspaces.eraseAllIndexingDataButTheLockAndRangeSet(store.getContext(), store, index);
+                                    return changed;
+                                });
                             });
                         })
         ).handle((changed, ex) -> {
