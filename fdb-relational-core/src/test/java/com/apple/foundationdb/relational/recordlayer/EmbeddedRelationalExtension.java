@@ -163,6 +163,11 @@ public class EmbeddedRelationalExtension implements RelationalExtension, BeforeE
     }
 
     @Nonnull
+    public MetricRegistry getMetricRegistry() {
+        return storeTimer;
+    }
+
+    @Nonnull
     public static Resource newAsResource() throws Exception {
         return new Resource(new EmbeddedRelationalExtension());
     }

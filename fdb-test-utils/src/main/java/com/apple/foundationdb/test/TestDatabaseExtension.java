@@ -30,6 +30,7 @@ import org.junit.jupiter.api.extension.ExtensionContext;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Objects;
+import java.util.concurrent.Executor;
 
 /**
  * Test extension to use to get a connection to an FDB {@link Database}. This handles setting up the FDB
@@ -54,6 +55,17 @@ public class TestDatabaseExtension implements BeforeAllCallback, AfterAllCallbac
 
     @Nullable
     private static volatile FDB fdb;
+
+    /**
+     * Multi-thread executor used as the default callback executor for every {@link Database} that this
+     * extension opens. Without it, {@link FDB#open(String)} falls back to {@link FDB#DEFAULT_EXECUTOR},
+     * a JVM-wide executor that can become a bottleneck for parallel tests (e.g. classes annotated
+     * {@code @Execution(ExecutionMode.CONCURRENT)} like {@code OperationsTest}) and lead to CI-only
+     * timeouts. Using a dedicated cached pool here mirrors what {@code FDBDatabaseExtension} does for
+     * {@code FDBDatabaseFactory.setExecutor}.
+     */
+    @Nonnull
+    private static final Executor threadPoolExecutor = TestExecutors.newThreadPool("fdb-extensions-test");
 
     private Database db;
 
@@ -95,7 +107,7 @@ public class TestDatabaseExtension implements BeforeAllCallback, AfterAllCallbac
     @Nonnull
     public Database getDatabase() {
         if (db == null) {
-            db = FDB.instance().open(FDBTestEnvironment.randomClusterFile());
+            db = FDB.instance().open(FDBTestEnvironment.randomClusterFile(), threadPoolExecutor);
         }
         return db;
     }

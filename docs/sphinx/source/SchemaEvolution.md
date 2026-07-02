@@ -1,4 +1,6 @@
-# Schema Evolution and Meta-data Maintenance
+# Schema evolution
+
+This guide explains how to evolve your schema and maintain the metadata of the record stores in your application.
 
 ## General Principles
 

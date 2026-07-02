@@ -393,6 +393,11 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
+    public void schemaTemplateStoredQueries(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("schema-template-stored-queries.yamsql");
+    }
+
+    @TestTemplate
     public void standardTestsWithMetaData(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("standard-tests-metadata.yamsql");
     }

@@ -40,6 +40,10 @@ html_theme = 'furo'
 html_theme_options = {
 }
 
+# Override Sphinx's default of "<project> documentation" so the sidebar/title
+# reads just the project name.
+html_title = project
+
 html_static_path = ['_static']
 html_show_sphinx = False
 

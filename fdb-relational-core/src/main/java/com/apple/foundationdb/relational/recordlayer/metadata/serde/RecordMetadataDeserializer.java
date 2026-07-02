@@ -125,6 +125,7 @@ public class RecordMetadataDeserializer {
                 schemaTemplateBuilder.addView(generateViewBuilder(metadataProvider, view.getKey(), view.getValue().getDefinition()).build());
             }
         }
+        schemaTemplateBuilder.addStoredQueries(recordMetaData.getStoredQueries());
         schemaTemplateBuilder.setCachedMetadata(recordMetaData);
         return schemaTemplateBuilder;
     }

@@ -27,6 +27,7 @@ import com.google.common.collect.Multimap;
 import javax.annotation.Nonnull;
 import java.util.BitSet;
 import java.util.Collection;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
@@ -129,6 +130,14 @@ public interface SchemaTemplate extends Metadata {
 
     @Nonnull
     Collection<? extends InvokedRoutine> getTemporaryInvokedRoutines() throws RelationalException;
+
+    /**
+     * Returns the stored queries defined in this schema template.
+     *
+     * @return A map of stored query names to their SQL strings.
+     */
+    @Nonnull
+    Map<String, String> getStoredQueries() throws RelationalException;
 
     @Nonnull
     String getTransactionBoundMetadataAsString() throws RelationalException;

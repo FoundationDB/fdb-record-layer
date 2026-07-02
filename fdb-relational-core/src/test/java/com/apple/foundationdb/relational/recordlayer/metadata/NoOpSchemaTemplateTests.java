@@ -234,4 +234,12 @@ public class NoOpSchemaTemplateTests {
         assertEquals("schema1", schema1.getName());
         assertEquals("schema2", schema2.getName());
     }
+
+    @Test
+    public void testGetStoredQueriesThrows() {
+        final NoOpSchemaTemplate template = new NoOpSchemaTemplate("test", 1);
+        final RelationalException exception = assertThrows(RelationalException.class,
+                template::getStoredQueries);
+        assertEquals(ErrorCode.INVALID_PARAMETER, exception.getErrorCode());
+    }
 }
