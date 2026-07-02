@@ -420,15 +420,12 @@ public class IndexingThrottle {
         }
         // Here: index building
         final CompletableFuture<Void> drainCheck;
-        if (indexStates.stream().anyMatch(IndexState::isWriteOnlyWithQueue)) {
-            // Only request a drain for indexes whose pending writes queue is non-empty.
-            final List<Index> queuedIndexes = common.getTargetIndexes().stream()
-                    .filter(index -> store.getIndexState(index).isWriteOnlyWithQueue())
-                    .toList();
-            drainCheck = nonEmptyQueueIndexes(store, context, queuedIndexes)
-                    .thenAccept(toDrain -> drainRequiredIndexes = toDrain.isEmpty() ? null : toDrain);
-        } else {
+        if (common.getQueuedIndexes().isEmpty()) {
             drainCheck = AsyncUtil.DONE;
+        } else {
+            // Only request a drain for indexes whose pending writes queue is non-empty.
+            drainCheck = nonEmptyQueueIndexes(store, context, common.getQueuedIndexes())
+                    .thenAccept(toDrain -> drainRequiredIndexes = toDrain.isEmpty() ? null : toDrain);
         }
         return drainCheck.thenApply(ignore -> {
             if (indexStates.stream().allMatch(IndexState::isWriteOnlyAny)) {

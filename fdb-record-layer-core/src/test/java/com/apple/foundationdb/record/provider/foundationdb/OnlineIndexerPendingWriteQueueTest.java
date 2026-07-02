@@ -62,7 +62,7 @@ class OnlineIndexerPendingWriteQueueTest extends OnlineIndexerTest {
 
         final Thread indexerThread = new Thread(() -> {
             try (OnlineIndexer indexer = newIndexerBuilder(index)
-                    .setLimit(15)
+                    .setLimit(10)
                     .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
                             .setUseWritePendingQueue(List.of(index))
                             .build())
@@ -95,6 +95,8 @@ class OnlineIndexerPendingWriteQueueTest extends OnlineIndexerTest {
         }
         // The saves were deferred to the queue, not written to the index.
         assertEquals(queuedRecNos.size(), writeTimer.getCount(FDBStoreTimer.Counts.PENDING_WRITES_QUEUE_WRITE));
+
+
         pauseSemaphore.release();
         indexerThread.join();
         assertNull(buildFailure.get(), () -> "the build failed: " + buildFailure.get());

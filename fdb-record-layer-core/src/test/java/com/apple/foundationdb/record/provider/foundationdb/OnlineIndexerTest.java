@@ -375,7 +375,7 @@ public abstract class OnlineIndexerTest {
     }
 
     protected static OnlineIndexOperationConfig pauseAfterOnePass(final OnlineIndexOperationConfig oldConfig, final AtomicBoolean passed, final Semaphore inPauseSemaphore, final Semaphore pauseSemaphore) {
-        if (!passed.get()) {
+        if (passed.get()) {
             inPauseSemaphore.release();
             Assertions.assertDoesNotThrow(() -> pauseSemaphore.acquire());
             pauseSemaphore.release();

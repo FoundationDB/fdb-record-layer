@@ -229,7 +229,7 @@ public abstract class IndexingBase {
 
             boolean continuedBuild = !shouldClear && indexState == IndexState.WRITE_ONLY;
             for (Index targetIndex : targetIndexes.subList(1, targetIndexes.size())) {
-                // Must follow the primary index' status
+                // Must follow the primary index status
                 IndexState state = store.getIndexState(targetIndex);
                 if (state != indexState) {
                     if (policy.getStateDesiredAction(state) != OnlineIndexer.IndexingPolicy.DesiredAction.REBUILD ||
@@ -250,7 +250,7 @@ public abstract class IndexingBase {
             return AsyncUtil.whenAll(indexesToClear.stream().map(store::clearAndMarkIndexWriteOnly).collect(Collectors.toList()))
                     .thenCompose(vignore -> markIndexesWriteOnly(continuedBuild, store))
                     .thenCompose(vignore -> setIndexingTypeOrThrow(store, continuedBuild))
-                    .thenApply(ignore -> true);
+                    .thenApply(ignore -> cacheQueuedIndexes(store));
         }), common.indexLogMessageKeyValues("IndexingBase::handleIndexingState")
         ).thenCompose(doIndex ->
                 doIndex ?
@@ -258,6 +258,15 @@ public abstract class IndexingBase {
                 AsyncUtil.READY_FALSE
         ).thenCompose(this::markIndexReadable
         ).thenApply(ignore -> null);
+    }
+
+    private boolean cacheQueuedIndexes(FDBRecordStore store) {
+        common.setQueuedIndexes(
+                common.getTargetIndexes().stream()
+                        .filter(index -> store.getIndexState(index).isWriteOnlyWithQueue())
+                        .toList());
+        // always return true -> doIndex
+        return true;
     }
 
     private CompletableFuture<Void> markIndexesWriteOnly(boolean continueBuild, FDBRecordStore store) {
@@ -323,40 +332,50 @@ public abstract class IndexingBase {
 
     private CompletableFuture<Boolean> markIndexReadableForIndex(Index index, AtomicBoolean anythingChanged,
                                                                  AtomicReference<RuntimeException> runtimeExceptionAtomicReference) {
-        // An extension function to reduce markIndexReadable's complexity
-        return getRunner().runAsync(context ->
-                common.getRecordStoreBuilder().copyBuilder().setContext(context).openAsync()
-                        .thenCompose(store -> {
-                            clearHeartbeatForIndex(store, index);
-                            // If the index was built with a pending writes queue, drain (and index) any remaining
-                            // queued writes before marking it readable, so no writes are lost.
-                            CompletableFuture<Void> drainFuture =
-                                    store.getIndexState(index.getName()).isWriteOnlyWithQueue() ?
-                                    getIndexingDrainer(index).drainPendingQueue() :
-                                    AsyncUtil.DONE;
-                            return drainFuture.thenCompose(ignore -> {
-                                CompletableFuture<Boolean> markFuture =
-                                        policy.shouldAllowUniquePendingState(store) ?
-                                        store.markIndexReadableOrUniquePending(index) :
-                                        store.markIndexReadable(index);
-                                return markFuture.thenApply(changed -> {
-                                    // Once the index is readable there is no need for this data
-                                    IndexingSubspaces.eraseAllIndexingDataButTheLockAndRangeSet(store.getContext(), store, index);
-                                    return changed;
-                                });
-                            });
-                        })
-        ).handle((changed, ex) -> {
-            if (ex == null) {
-                if (Boolean.TRUE.equals(changed)) {
-                    anythingChanged.set(true);
-                }
-                return changed; // ignored
-            }
-            // Note: in case of multiple violations, an arbitrary one is thrown.
-            runtimeExceptionAtomicReference.set((RuntimeException)ex);
-            return false;
-        });
+        return drainPendingQueueIfNeeded(index)
+                .thenCompose(ignore -> getRunner().runAsync(context ->
+                        common.getRecordStoreBuilder().copyBuilder().setContext(context).openAsync()
+                                .thenCompose(store -> assertEmptyQueueIfNeeded(store, index).thenCompose(ignoreEmpty -> {
+                                    clearHeartbeatForIndex(store, index);
+                                    CompletableFuture<Boolean> markFuture =
+                                            policy.shouldAllowUniquePendingState(store) ?
+                                            store.markIndexReadableOrUniquePending(index) :
+                                            store.markIndexReadable(index);
+                                    return markFuture.thenApply(changed -> {
+                                        // Once the index is readable there is no need for this data
+                                        IndexingSubspaces.eraseAllIndexingDataButTheLockAndRangeSet(store.getContext(), store, index);
+                                        return changed;
+                                    });
+                                }))))
+                .handle((changed, ex) -> {
+                    if (ex == null) {
+                        if (Boolean.TRUE.equals(changed)) {
+                            anythingChanged.set(true);
+                        }
+                        return changed; // ignored
+                    }
+                    // Note: in case of multiple violations, an arbitrary one is thrown.
+                    runtimeExceptionAtomicReference.set((RuntimeException)ex);
+                    return false;
+                });
+    }
+
+    @Nonnull
+    private CompletableFuture<Void> drainPendingQueueIfNeeded(Index index) {
+        return common.getQueuedIndexes().contains(index) ?
+               getIndexingDrainer(index).drainPendingQueue() :
+               AsyncUtil.DONE;
+    }
+
+    private CompletableFuture<Void> assertEmptyQueueIfNeeded(FDBRecordStore store, Index index) {
+        return common.getQueuedIndexes().contains(index) ?
+               getIndexingDrainer(index).isQueueEmpty(store).thenApply(isEmpty -> {
+                   if (!isEmpty) {
+                       throw new pendingWriteQueueNotEmptyWhileMarkingReadable(index);
+                   }
+                   return null;
+               }) :
+               AsyncUtil.DONE;
     }
 
     public void enforceStampOverwrite() {
@@ -1277,6 +1296,19 @@ public abstract class IndexingBase {
         public UnexpectedReadableException(boolean allReadable, @Nonnull String msg, @Nullable Object ... keyValues) {
             super(msg, keyValues);
             this.allReadable = allReadable;
+        }
+    }
+
+    /**
+     * thrown if the pending-writes-queue is not empty when attempting to mark readable.
+     */
+    @SuppressWarnings("serial")
+    public static class pendingWriteQueueNotEmptyWhileMarkingReadable extends RecordCoreException {
+        int ignore = 1;
+
+        public pendingWriteQueueNotEmptyWhileMarkingReadable(Index index) {
+            super("Pending write queue is not empty while marking index as readable",
+                    LogMessageKeys.INDEX_NAME, index.getName());
         }
     }
 

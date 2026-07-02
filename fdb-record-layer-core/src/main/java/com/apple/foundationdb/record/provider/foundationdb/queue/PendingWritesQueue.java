@@ -24,6 +24,7 @@ import com.apple.foundationdb.MutationType;
 import com.apple.foundationdb.Range;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.ExecuteProperties;
+import com.apple.foundationdb.record.IndexBuildProto;
 import com.apple.foundationdb.record.IsolationLevel;
 import com.apple.foundationdb.record.PendingWritesQueueProto;
 import com.apple.foundationdb.record.RecordCoreException;
@@ -32,11 +33,13 @@ import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
+import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRawRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordVersion;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
+import com.apple.foundationdb.record.provider.foundationdb.IndexingSubspaces;
 import com.apple.foundationdb.record.provider.foundationdb.KeyValueCursor;
 import com.apple.foundationdb.record.provider.foundationdb.SplitHelper;
 import com.apple.foundationdb.subspace.Subspace;
@@ -381,6 +384,16 @@ public class PendingWritesQueue<T extends Message> {
     private KeyValueLogMessage getLogMessage(@Nonnull String staticMsg) {
         return KeyValueLogMessage.build(staticMsg)
                 .addKeyAndValue(LogMessageKeys.SUBSPACE, queueSubspace);
+    }
+
+    @Nonnull
+    public static PendingWritesQueue<IndexBuildProto.PendingWritesQueueEntry> getIndexingQueue(final FDBRecordStore store, final Index index) {
+        return new PendingWritesQueue<>(
+                IndexingSubspaces.indexWritePendingQueueSubspace(store, index),
+                IndexingSubspaces.indexWritePendingQueueSizeSubspace(store, index),
+                100_000, // TODO: configruable maxQueueSize
+                IndexBuildProto.PendingWritesQueueEntry.class
+        );
     }
 
     /**

@@ -57,6 +57,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBExceptions;
 import com.apple.foundationdb.record.provider.foundationdb.FDBIndexableRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBIndexedRawRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainer;
@@ -357,13 +358,7 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
 
     @Nonnull
     private PendingWritesQueue<IndexBuildProto.PendingWritesQueueEntry> getQueue() {
-        // TOOD: get this from a PendingWriteQueue factory
-        return new PendingWritesQueue<>(
-                IndexingSubspaces.indexWritePendingQueueSubspace(state.store, state.index),
-                IndexingSubspaces.indexWritePendingQueueSizeSubspace(state.store, state.index),
-                100_000,
-                IndexBuildProto.PendingWritesQueueEntry.class
-        );
+        return PendingWritesQueue.getIndexingQueue(state.store, state.index);
     }
 
     @Nonnull

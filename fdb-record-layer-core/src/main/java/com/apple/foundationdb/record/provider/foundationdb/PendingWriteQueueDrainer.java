@@ -56,6 +56,10 @@ public class PendingWriteQueueDrainer {
         this.common = common;
     }
 
+    CompletableFuture<Boolean> isQueueEmpty(FDBRecordStore store) {
+        return getQueue(store).isQueueEmpty(store.getContext());
+    }
+
     @SuppressWarnings("PMD.CloseResource")
     CompletableFuture<Void> drainPendingQueue() {
         final ThrottledRetryingIterator<PendingWritesQueueEntry<IndexBuildProto.PendingWritesQueueEntry>> iterator =
@@ -104,15 +108,7 @@ public class PendingWriteQueueDrainer {
 
     @Nonnull
     private PendingWritesQueue<IndexBuildProto.PendingWritesQueueEntry> getQueue(final FDBRecordStore store) {
-        // TODO:
-        //  1. find a way to share this code with StandardIndexMaintainer#getPendingWritesQueue. Maybe a static PendingWriteQueue factory function.
-        //  2. configurable maxQueueSize (instead of 100_000)
-        return new PendingWritesQueue<>(
-                IndexingSubspaces.indexWritePendingQueueSubspace(store, index),
-                IndexingSubspaces.indexWritePendingQueueSizeSubspace(store, index),
-                100_000,
-                IndexBuildProto.PendingWritesQueueEntry.class
-        );
+        return PendingWritesQueue.getIndexingQueue(store, index);
     }
 
     /**
