@@ -92,8 +92,8 @@ public class SchemaTemplateStoredQueriesTest {
             embeddedConnection.setAutoCommit(true);
             final var storedQueries = schemaTemplate.getStoredQueries();
             Assertions.assertEquals(2, storedQueries.size());
-            Assertions.assertEquals("select * from t1 where col1 = 10", storedQueries.get("BY_COL1"));
-            Assertions.assertEquals("select * from t1 where id = 1", storedQueries.get("BY_ID"));
+            Assertions.assertEquals("select * from t1 where col1 = 10", storedQueries.get("BY_COL1").getQuery());
+            Assertions.assertEquals("select * from t1 where id = 1", storedQueries.get("BY_ID").getQuery());
             Assertions.assertEquals(0, countCachedPlans(connection, ddl.getSchemaTemplateName())); // we do not generate plans at ddl execution for now
         }
     }
