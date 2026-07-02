@@ -35,6 +35,7 @@ import com.google.common.collect.Multimap;
 import javax.annotation.Nonnull;
 import java.util.BitSet;
 import java.util.Collection;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
@@ -137,6 +138,12 @@ public class NoOpSchemaTemplate implements SchemaTemplate {
     @Override
     public Collection<InvokedRoutine> getTemporaryInvokedRoutines() throws RelationalException {
         throw new RelationalException("NoOpSchemaTemplate doesn't have temporary invoked routines!", ErrorCode.INVALID_PARAMETER);
+    }
+
+    @Nonnull
+    @Override
+    public Map<String, String> getStoredQueries() throws RelationalException {
+        throw new RelationalException("NoOpSchemaTemplate doesn't have stored queries!", ErrorCode.INVALID_PARAMETER);
     }
 
     @Nonnull

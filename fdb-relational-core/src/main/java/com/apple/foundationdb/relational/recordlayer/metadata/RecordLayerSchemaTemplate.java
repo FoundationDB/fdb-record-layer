@@ -80,6 +80,9 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
     @Nonnull
     private final Set<RecordLayerView> views;
 
+    @Nonnull
+    private final Map<String, String> storedQueries;
+
     private final int version;
 
     private final boolean enableLongRows;
@@ -107,6 +110,7 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
                                       @Nonnull final Set<RecordLayerTable> tables,
                                       @Nonnull final Set<RecordLayerInvokedRoutine> invokedRoutines,
                                       @Nonnull final Set<RecordLayerView> views,
+                                      @Nonnull final Map<String, String> storedQueries,
                                       int version,
                                       boolean enableLongRows,
                                       boolean storeRowVersions,
@@ -115,6 +119,7 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
         this.tables = ImmutableSet.copyOf(tables);
         this.invokedRoutines = ImmutableSet.copyOf(invokedRoutines);
         this.views = ImmutableSet.copyOf(views);
+        this.storedQueries = ImmutableMap.copyOf(storedQueries);
         this.version = version;
         this.enableLongRows = enableLongRows;
         this.storeRowVersions = storeRowVersions;
@@ -130,6 +135,7 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
                                       @Nonnull final Set<RecordLayerTable> tables,
                                       @Nonnull final Set<RecordLayerInvokedRoutine> invokedRoutines,
                                       @Nonnull final Set<RecordLayerView> views,
+                                      @Nonnull final Map<String, String> storedQueries,
                                       int version,
                                       boolean enableLongRows,
                                       boolean storeRowVersions,
@@ -140,6 +146,7 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
         this.tables = ImmutableSet.copyOf(tables);
         this.invokedRoutines = ImmutableSet.copyOf(invokedRoutines);
         this.views = ImmutableSet.copyOf(views);
+        this.storedQueries = ImmutableMap.copyOf(storedQueries);
         this.enableLongRows = enableLongRows;
         this.storeRowVersions = storeRowVersions;
         this.intermingleTables = intermingleTables;
@@ -340,6 +347,12 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
 
     @Nonnull
     @Override
+    public Map<String, String> getStoredQueries() {
+        return storedQueries;
+    }
+
+    @Nonnull
+    @Override
     public Optional<? extends View> findViewByName(@Nonnull final String viewName) {
         return views.stream().filter(view -> view.getName().equals(viewName)).findFirst();
     }
@@ -414,6 +427,9 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
         @Nonnull
         private final Map<String, RecordLayerView> views;
 
+        @Nonnull
+        private final Map<String, String> storedQueries;
+
 
         private RecordMetaData cachedMetadata;
 
@@ -422,6 +438,7 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
             auxiliaryTypes = new LinkedHashMap<>();
             invokedRoutines = new LinkedHashMap<>();
             views = new LinkedHashMap<>();
+            storedQueries = new LinkedHashMap<>();
             // enable long rows is TRUE by default
             enableLongRows = true;
         }
@@ -540,6 +557,18 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
             return this;
         }
 
+        @Nonnull
+        public Builder addStoredQuery(@Nonnull final String name, @Nonnull final String storedQuery) {
+            storedQueries.put(name, storedQuery);
+            return this;
+        }
+
+        @Nonnull
+        public Builder addStoredQueries(@Nonnull final Map<String, String> storedQueries) {
+            this.storedQueries.putAll(storedQueries);
+            return this;
+        }
+
         /**
          * Adds an auxiliary type, an auxiliary type is a type that is merely created, so it can be referenced later on
          * in a table definition. Any {@link DataType.Named} data type can be added as an auxiliary type such as {@code enum}s
@@ -632,10 +661,10 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
 
             if (cachedMetadata != null) {
                 return new RecordLayerSchemaTemplate(name, new LinkedHashSet<>(tables.values()),
-                        new LinkedHashSet<>(invokedRoutines.values()), new LinkedHashSet<>(views.values()), version, enableLongRows, storeRowVersions, intermingleTables, cachedMetadata);
+                        new LinkedHashSet<>(invokedRoutines.values()), new LinkedHashSet<>(views.values()), storedQueries, version, enableLongRows, storeRowVersions, intermingleTables, cachedMetadata);
             } else {
                 return new RecordLayerSchemaTemplate(name, new LinkedHashSet<>(tables.values()),
-                        new LinkedHashSet<>(invokedRoutines.values()), new LinkedHashSet<>(views.values()), version, enableLongRows, storeRowVersions, intermingleTables);
+                        new LinkedHashSet<>(invokedRoutines.values()), new LinkedHashSet<>(views.values()), storedQueries, version, enableLongRows, storeRowVersions, intermingleTables);
             }
         }
 
@@ -763,6 +792,7 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
                 .setIntermingleTables(intermingleTables)
                 .addTables(getTables())
                 .addInvokedRoutines(getInvokedRoutines())
-                .addViews(getViews());
+                .addViews(getViews())
+                .addStoredQueries(getStoredQueries());
     }
 }
