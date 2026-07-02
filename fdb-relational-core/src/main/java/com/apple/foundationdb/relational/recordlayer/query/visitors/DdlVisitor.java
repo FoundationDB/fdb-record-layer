@@ -773,7 +773,7 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
     }
 
     @Nonnull
-    private static String sliceSource(@Nonnull final String sourceText, @Nonnull final org.antlr.v4.runtime.ParserRuleContext ctx) {
+    private static String sliceSource(@Nonnull final String sourceText, @Nonnull final ParserRuleContext ctx) {
         return sourceText.substring(ctx.start.getStartIndex(), ctx.stop.getStopIndex() + 1);
     }
 }
