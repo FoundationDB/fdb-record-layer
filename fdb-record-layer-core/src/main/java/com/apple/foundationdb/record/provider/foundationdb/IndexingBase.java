@@ -227,7 +227,7 @@ public abstract class IndexingBase {
                 enforceStampOverwrite(); // The code can work without this line, but it'll save probing the missing ranges
             }
 
-            boolean continuedBuild = !shouldClear && indexState == IndexState.WRITE_ONLY;
+            boolean continuedBuild = !shouldClear && indexState.isWriteOnlyAny();
             for (Index targetIndex : targetIndexes.subList(1, targetIndexes.size())) {
                 // Must follow the primary index status
                 IndexState state = store.getIndexState(targetIndex);
@@ -278,6 +278,7 @@ public abstract class IndexingBase {
 
     @Nonnull
     private CompletableFuture<Boolean> markSingleIndexWriteOnly(final FDBRecordStore store, final Index index) {
+        // For now, pending write queue is not allowed for non-idempotent indexes
         return policy.shouldUseWritePendingQueue(index) && store.getIndexMaintainer(index).isIdempotent() ?
                         store.markIndexWriteOnlyWithQueue(index) :
                         store.markIndexWriteOnly(index);
@@ -371,7 +372,7 @@ public abstract class IndexingBase {
         return common.getQueuedIndexes().contains(index) ?
                getIndexingDrainer(index).isQueueEmpty(store).thenApply(isEmpty -> {
                    if (!isEmpty) {
-                       throw new pendingWriteQueueNotEmptyWhileMarkingReadable(index);
+                       throw new PendingWriteQueueNotEmptyWhileMarkingReadable(index);
                    }
                    return null;
                }) :
@@ -1303,10 +1304,8 @@ public abstract class IndexingBase {
      * thrown if the pending-writes-queue is not empty when attempting to mark readable.
      */
     @SuppressWarnings("serial")
-    public static class pendingWriteQueueNotEmptyWhileMarkingReadable extends RecordCoreException {
-        int ignore = 1;
-
-        public pendingWriteQueueNotEmptyWhileMarkingReadable(Index index) {
+    public static class PendingWriteQueueNotEmptyWhileMarkingReadable extends RecordCoreException {
+        public PendingWriteQueueNotEmptyWhileMarkingReadable(Index index) {
             super("Pending write queue is not empty while marking index as readable",
                     LogMessageKeys.INDEX_NAME, index.getName());
         }

@@ -357,47 +357,47 @@ public class IndexingThrottle {
                         }
                         return retVal;
                     }))), (result, exception) -> {
-                booker.handleLimitsPostRunnerTransaction(exception, recordsScanned, adjustLimits, additionalLogMessageKeyValues);
-                return Result.of(result, exception);
-            }, onlineIndexerLogMessageKeyValues).handle((value, e) -> {
-                if (e == null) {
-                    // Here: success path - also the common path (or so we hope)
-                    common.getTotalRecordsScanned().addAndGet(recordsScanned.get());
-                    ret.complete(value);
-                    return AsyncUtil.READY_FALSE;
-                }
-                FDBException fdbE = getFDBException(e);
-                if (shouldReturnQuietly != null) {
-                    Optional<R> retVal = shouldReturnQuietly.apply(fdbE);
-                    if (retVal.isPresent()) {
-                        // Here: a non-empty answer signals to return this <R> value rather than handling the exception.
-                        // This is useful when the caller wishes to handle this exception itself.
-                        ret.complete(retVal.get());
+                    booker.handleLimitsPostRunnerTransaction(exception, recordsScanned, adjustLimits, additionalLogMessageKeyValues);
+                    return Result.of(result, exception);
+                }, onlineIndexerLogMessageKeyValues).handle((value, e) -> {
+                    if (e == null) {
+                        // Here: success path - also the common path (or so we hope)
+                        common.getTotalRecordsScanned().addAndGet(recordsScanned.get());
+                        ret.complete(value);
                         return AsyncUtil.READY_FALSE;
                     }
-                }
-                int currTries = tries.getAndIncrement();
-                boolean mayRetry = booker.mayRetryAfterHandlingException(fdbE, additionalLogMessageKeyValues, currTries, adjustLimits);
-                if (!mayRetry) {
-                    return completeExceptionally(ret, e, onlineIndexerLogMessageKeyValues);
-                }
-                if (LOGGER.isWarnEnabled()) {
-                    final KeyValueLogMessage message = KeyValueLogMessage.build("Retrying Runner Exception",
-                                    LogMessageKeys.INDEXER_CURR_RETRY, currTries,
-                                    LogMessageKeys.INDEXER_MAX_RETRIES, common.config.getMaxRetries(),
-                                    LogMessageKeys.DELAY, delay.getNextDelayMillis())
-                            .addKeysAndValues(onlineIndexerLogMessageKeyValues) // already contains common.indexLogMessageKeyValues()
-                            .addKeysAndValues(logMessageKeyValues());
-                    booker.addStoreTimerAtFailureAndReset(message);
-                    LOGGER.warn(message.toString(), e);
-                }
-                CompletableFuture<Boolean> delayedContinue = delay.delay().thenApply(ignore -> true);
-                if (common.getRunner().getTimer() != null) {
-                    delayedContinue = common.getRunner().getTimer().instrument(FDBStoreTimer.Events.RETRY_DELAY,
-                            delayedContinue, common.getRunner().getExecutor());
-                }
-                return delayedContinue;
-            }).thenCompose(Function.identity());
+                    FDBException fdbE = getFDBException(e);
+                    if (shouldReturnQuietly != null) {
+                        Optional<R> retVal = shouldReturnQuietly.apply(fdbE);
+                        if (retVal.isPresent()) {
+                            // Here: a non-empty answer signals to return this <R> value rather than handling the exception.
+                            // This is useful when the caller wishes to handle this exception itself.
+                            ret.complete(retVal.get());
+                            return AsyncUtil.READY_FALSE;
+                        }
+                    }
+                    int currTries = tries.getAndIncrement();
+                    boolean mayRetry = booker.mayRetryAfterHandlingException(fdbE, additionalLogMessageKeyValues, currTries, adjustLimits);
+                    if (!mayRetry) {
+                        return completeExceptionally(ret, e, onlineIndexerLogMessageKeyValues);
+                    }
+                    if (LOGGER.isWarnEnabled()) {
+                        final KeyValueLogMessage message = KeyValueLogMessage.build("Retrying Runner Exception",
+                                        LogMessageKeys.INDEXER_CURR_RETRY, currTries,
+                                        LogMessageKeys.INDEXER_MAX_RETRIES, common.config.getMaxRetries(),
+                                        LogMessageKeys.DELAY, delay.getNextDelayMillis())
+                                .addKeysAndValues(onlineIndexerLogMessageKeyValues) // already contains common.indexLogMessageKeyValues()
+                                .addKeysAndValues(logMessageKeyValues());
+                        booker.addStoreTimerAtFailureAndReset(message);
+                        LOGGER.warn(message.toString(), e);
+                    }
+                    CompletableFuture<Boolean> delayedContinue = delay.delay().thenApply(ignore -> true);
+                    if (common.getRunner().getTimer() != null) {
+                        delayedContinue = common.getRunner().getTimer().instrument(FDBStoreTimer.Events.RETRY_DELAY,
+                                delayedContinue, common.getRunner().getExecutor());
+                    }
+                    return delayedContinue;
+                }).thenCompose(Function.identity());
         }, common.getRunner().getExecutor()).whenComplete((ignore, e) -> {
             if (e != null) {
                 // Just update ret and ignore the returned future.

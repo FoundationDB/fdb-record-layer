@@ -1106,7 +1106,7 @@ public class OnlineIndexer implements AutoCloseable {
         public DesiredAction getStateDesiredAction(IndexState state) {
             switch (state) {
                 case DISABLED:      return getIfDisabled();
-                case WRITE_ONLY:    return getIfWriteOnly();
+                case WRITE_ONLY, WRITE_ONLY_WITH_QUEUE:    return getIfWriteOnly();
                 case READABLE:      return getIfReadable();
                 case READABLE_UNIQUE_PENDING: return DesiredAction.MARK_READABLE;
                 default: throw new RecordCoreException("bad index state: " + state);
