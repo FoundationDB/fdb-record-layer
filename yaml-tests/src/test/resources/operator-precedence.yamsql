@@ -1,0 +1,127 @@
+#
+# operator-precedence.yamsql
+#
+# This source file is part of the FoundationDB open source project
+#
+# Copyright 2021-2026 Apple Inc. and the FoundationDB project authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+---
+schema_template:
+  create table A(a1 bigint, a2 integer, a3 string, a4 boolean, a5 double, primary key(a1))
+---
+setup:
+  steps:
+    - query: insert into A(a1, a2, a3, a4, a5) values (1, 1, '1', true, 1.0)
+---
+test_block:
+  name: arithmetic-operators
+  tests:
+    -
+      - query: select 3 + 1 * 5 from range(1, 2)
+      - initialVersionLessThan: !current_version
+      - unorderedResult: [ { 20 } ]
+      - initialVersionAtLeast: !current_version
+      - unorderedResult: [ { 8 } ]
+    -
+      - query: select 3 + 1 - 5 from range(1, 2)
+      - unorderedResult: [ { -1 } ]
+    -
+      - query: select (3 + 1) * 5 from range(1, 2)
+      - unorderedResult: [ { 20 } ]
+    -
+      - query: select ((3*5)*(4+6))*(1+0) from range(1, 2)
+      - unorderedResult: [ { 150 } ]
+    -
+      - query: select 6 * 5 + 3 * 5 * 4 - 1 + 2 from range(1, 2)
+      - initialVersionLessThan: !current_version
+      - unorderedResult: [ { 661 } ]
+      - initialVersionAtLeast: !current_version
+      - unorderedResult: [ { 91 } ]
+    -
+      - query: select ((6 * 5) + 3) * 5 * 4 - 1 + 2 from range(1, 2)
+      - unorderedResult: [  { 661 } ]
+    -
+      - query: select 15 / 5 * 4 + 6 * 5 - 1 + 2 * 9 % 6 from range(1, 2)
+      - initialVersionLessThan: !current_version
+      - unorderedResult: [ { 3 } ]
+      - initialVersionAtLeast: !current_version
+      - unorderedResult: [ { 41 } ]
+    -
+      - query: select ((15 / 5) * 4) + (6 * 5) - 1 + ((2 * 9) % 6) from range(1, 2)
+      - unorderedResult: [ { 41 } ]
+---
+test_block:
+  name: bitwise-operators
+  tests:
+    -
+      - query: select 5 | 6 & 4 from range(1, 2)
+      - initialVersionLessThan: !current_version
+      - unorderedResult: [ { 4 } ]
+      - initialVersionAtLeast: !current_version
+      - unorderedResult: [ { 5 } ]
+    -
+      - query: select 5 ^ 6 & 4 from range(1, 2)
+      - initialVersionLessThan: !current_version
+      - unorderedResult: [ { 0 } ]
+      - initialVersionAtLeast: !current_version
+      - unorderedResult: [ { 1 } ]
+    -
+      - query: select 12 & 10 | 3 & 5 from range(1, 2)
+      - initialVersionLessThan: !current_version
+      - unorderedResult: [ { 1 } ]
+      - initialVersionAtLeast: !current_version
+      - unorderedResult: [ { 9 } ]
+    -
+      - query: select (5 | 6) & 4 from range(1, 2)
+      - unorderedResult: [ { 4 } ]
+    -
+      - query: select (5 ^ 6) & 4 from range(1, 2)
+      - unorderedResult: [ { 0 } ]
+    -
+      - query: select 5 | (6 & 4) from range(1, 2)
+      - unorderedResult: [ { 5 } ]
+    -
+      - query: select a1 from A where a1 & 1l = 1l AND a1 & 1l > 0
+      - unorderedResult: [ { !l 1 } ]
+    -
+      - query: select 5 & 6 + 4 from range(1, 2)
+      - unorderedResult: [ { 8 } ]
+---
+test_block:
+  name: logical-operators
+  tests:
+    -
+      - query: select a1 from A where a4 is true or a2 > 10 and a1 > 10
+      - explain: "SCAN([IS A]) | FILTER _.A4 NOT_NULL AND _.A4 EQUALS promote('true' AS BOOLEAN) ∪ SCAN([IS A, [GREATER_THAN promote(@c11 AS LONG)]]) | FILTER _.A2 GREATER_THAN promote(@c11 AS INT) COMPARE BY (_.A1) | MAP (_.A1 AS A1)"
+      - initialVersionLessThan: !current_version
+      - unorderedResult: []
+      - initialVersionAtLeast: !current_version
+      - unorderedResult: [{ !l 1 }]
+    -
+      - query: select a1 from A where NOT a4 is false or a2 > 10 and a1 > 10
+      - explain: "SCAN([IS A]) | FILTER NOT _.A4 NOT_NULL ∪ SCAN([IS A]) | FILTER _.A4 NOT_EQUALS 'false' ∪ SCAN([IS A, [GREATER_THAN promote(@c12 AS LONG)]]) | FILTER _.A2 GREATER_THAN @c12 COMPARE BY (_.A1) | MAP (_.A1 AS A1)"
+      - initialVersionLessThan: !current_version
+      - unorderedResult: []
+      - initialVersionAtLeast: !current_version
+      - unorderedResult: [{ !l 1 }]
+    -
+      - query: select a1 from A where a4 is true || a2 > 10 && a1 > 10
+      - explain: "SCAN([IS A]) | FILTER _.A4 NOT_NULL AND _.A4 EQUALS promote('true' AS BOOLEAN) ∪ SCAN([IS A, [GREATER_THAN promote(@c11 AS LONG)]]) | FILTER _.A2 GREATER_THAN promote(@c11 AS INT) COMPARE BY (_.A1) | MAP (_.A1 AS A1)"
+      - initialVersionLessThan: !current_version
+      - error: '0AF00'
+      - initialVersionAtLeast: !current_version
+      - unorderedResult: [{ !l 1 }]
+...
+

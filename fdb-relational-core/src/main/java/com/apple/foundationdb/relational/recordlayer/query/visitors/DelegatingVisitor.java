@@ -1530,8 +1530,8 @@ public class DelegatingVisitor<D extends TypedVisitor> implements TypedVisitor {
 
     @Nonnull
     @Override
-    public Expression visitBinaryComparisonPredicate(@Nonnull RelationalParser.BinaryComparisonPredicateContext ctx) {
-        return getDelegate().visitBinaryComparisonPredicate(ctx);
+    public Expression visitBinaryComparisonExpression(@Nonnull RelationalParser.BinaryComparisonExpressionContext ctx) {
+        return getDelegate().visitBinaryComparisonExpression(ctx);
     }
 
     @Override
@@ -1635,24 +1635,6 @@ public class DelegatingVisitor<D extends TypedVisitor> implements TypedVisitor {
     @Override
     public Object visitComparisonOperator(@Nonnull RelationalParser.ComparisonOperatorContext ctx) {
         return getDelegate().visitComparisonOperator(ctx);
-    }
-
-    @Nonnull
-    @Override
-    public Object visitLogicalOperator(@Nonnull RelationalParser.LogicalOperatorContext ctx) {
-        return getDelegate().visitLogicalOperator(ctx);
-    }
-
-    @Nonnull
-    @Override
-    public Object visitBitOperator(@Nonnull RelationalParser.BitOperatorContext ctx) {
-        return getDelegate().visitBitOperator(ctx);
-    }
-
-    @Nonnull
-    @Override
-    public Object visitMathOperator(@Nonnull RelationalParser.MathOperatorContext ctx) {
-        return getDelegate().visitMathOperator(ctx);
     }
 
     @Nonnull
