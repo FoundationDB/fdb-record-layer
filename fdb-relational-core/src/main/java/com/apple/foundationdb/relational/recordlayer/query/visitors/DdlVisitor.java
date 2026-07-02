@@ -422,10 +422,10 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
                 final var stop = queryCtx.storedQuery.stop.getStopIndex() + 1;
                 final var queryString = sourceText.substring(start, stop);
                 final List<String> tempFunctionTexts = new ArrayList<>();
-                for (final var tempCtx : queryCtx.createTempFunction()) {
-                    final var tStart = tempCtx.start.getStartIndex();
-                    final var tStop = tempCtx.stop.getStopIndex() + 1;
-                    tempFunctionTexts.add(sourceText.substring(tStart, tStop));
+                if (queryCtx.declareBlock() != null) {
+                    for (final var dfCtx : queryCtx.declareBlock().declaredFunction()) {
+                        tempFunctionTexts.add(rewriteDeclaredFunctionToStandalone(dfCtx, sourceText));
+                    }
                 }
                 metadataBuilder.addStoredQuery(name, queryString, tempFunctionTexts);
             } else {
@@ -749,5 +749,31 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
     @Override
     public Boolean visitNullColumnConstraint(@Nonnull RelationalParser.NullColumnConstraintContext ctx) {
         return ctx.nullNotnull().NOT() == null;
+    }
+
+    /**
+     * Rewrites a {@code declaredFunction} node inside a {@code DECLARE} block into the equivalent
+     * standalone {@code CREATE TEMPORARY FUNCTION ... ON COMMIT DROP FUNCTION AS <body>} statement.
+     *
+     * <p>The persisted temp-function text on {@code StoredQuery} is required to be byte-identical to
+     * what the online path submits, otherwise {@code auxiliaryMetadata} on the query cache key
+     * (which fingerprints the {@code normalizedDescription} of each temp routine attached to the
+     * schema template) would diverge between warm-up and online, killing cache hits.</p>
+     *
+     * <p>Pieces are read from the parser context and reassembled &mdash; no surface-syntax
+     * manipulation on the DECLARE fragment.</p>
+     */
+    @Nonnull
+    private static String rewriteDeclaredFunctionToStandalone(@Nonnull final RelationalParser.DeclaredFunctionContext ctx,
+                                                              @Nonnull final String sourceText) {
+        final String name = sliceSource(sourceText, ctx.functionName);
+        final String paramList = sliceSource(sourceText, ctx.sqlParameterDeclarationList());
+        final String body = sliceSource(sourceText, ctx.functionBody);
+        return "CREATE TEMPORARY FUNCTION " + name + paramList + " ON COMMIT DROP FUNCTION AS " + body;
+    }
+
+    @Nonnull
+    private static String sliceSource(@Nonnull final String sourceText, @Nonnull final org.antlr.v4.runtime.ParserRuleContext ctx) {
+        return sourceText.substring(ctx.start.getStartIndex(), ctx.stop.getStopIndex() + 1);
     }
 }

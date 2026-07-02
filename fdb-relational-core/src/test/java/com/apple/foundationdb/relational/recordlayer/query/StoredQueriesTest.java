@@ -72,8 +72,8 @@ public class StoredQueriesTest {
             "CREATE TABLE t1(id bigint, col1 bigint, col2 bigint, PRIMARY KEY(id))" +
                     " CREATE INDEX i1 AS SELECT col1 FROM t1" +
                     " CREATE QUERY by_x" +
-                    "   WITH CREATE TEMPORARY FUNCTION sq1(in x bigint) ON COMMIT DROP FUNCTION" +
-                    "       AS SELECT * FROM t1 WHERE col1 < 40 + x" +
+                    "   DECLARE" +
+                    "       FUNCTION sq1(in x bigint) AS (SELECT * FROM t1 WHERE col1 < 40 + x)" +
                     " AS SELECT * FROM sq1(10)";
 
     /**
@@ -83,10 +83,9 @@ public class StoredQueriesTest {
             "CREATE TABLE t1(id bigint, col1 bigint, col2 bigint, PRIMARY KEY(id))" +
                     " CREATE INDEX i1 AS SELECT col1 FROM t1" +
                     " CREATE QUERY by_chained" +
-                    "   WITH CREATE TEMPORARY FUNCTION sq1(in x bigint) ON COMMIT DROP FUNCTION" +
-                    "       AS SELECT * FROM t1 WHERE col1 < x" +
-                    "   WITH CREATE TEMPORARY FUNCTION sq2(in x bigint) ON COMMIT DROP FUNCTION" +
-                    "       AS SELECT * FROM sq1(x + 1)" +
+                    "   DECLARE" +
+                    "       FUNCTION sq1(in x bigint) AS (SELECT * FROM t1 WHERE col1 < x);" +
+                    "       FUNCTION sq2(in x bigint) AS (SELECT * FROM sq1(x + 1))" +
                     " AS SELECT * FROM sq2(50)";
 
     /** The first stored query's temp function references a column that does not exist. */
@@ -94,20 +93,20 @@ public class StoredQueriesTest {
             "CREATE TABLE t1(id bigint, col1 bigint, col2 bigint, PRIMARY KEY(id))" +
                     " CREATE INDEX i1 AS SELECT col1 FROM t1" +
                     " CREATE QUERY by_bad" +
-                    "   WITH CREATE TEMPORARY FUNCTION sq_bad() ON COMMIT DROP FUNCTION" +
-                    "       AS SELECT * FROM t1 WHERE col_does_not_exist = 1" +
+                    "   DECLARE" +
+                    "       FUNCTION sq_bad() AS (SELECT * FROM t1 WHERE col_does_not_exist = 1)" +
                     " AS SELECT * FROM sq_bad()" +
                     " CREATE QUERY by_good" +
-                    "   WITH CREATE TEMPORARY FUNCTION sq_good() ON COMMIT DROP FUNCTION" +
-                    "       AS SELECT * FROM t1 WHERE col1 = 10" +
+                    "   DECLARE" +
+                    "       FUNCTION sq_good() AS (SELECT * FROM t1 WHERE col1 = 10)" +
                     " AS SELECT * FROM sq_good()";
 
     /** Typo in the temp-function keyword  — DDL fails to parse. */
     private static final String SCHEMA_TEMPLATE_TF_BAD_SYNTAX =
             "CREATE TABLE t1(id bigint, col1 bigint, col2 bigint, PRIMARY KEY(id))" +
                     " CREATE QUERY by_x" +
-                    "   WITH CREATE TEMPORARY FUNCTION1 sq1(in x bigint) ON COMMIT DROP FUNCTION" +
-                    "       AS SELECT * FROM t1 WHERE col1 < x" +
+                    "   DECLARE" +
+                    "       FUNCTION1 sq1(in x bigint) AS (SELECT * FROM t1 WHERE col1 < x)" +
                     " AS SELECT * FROM sq1(10)";
 
 

@@ -247,7 +247,15 @@ viewDefinition
     ;
 
 queryDefinition
-    : QUERY queryName=uid (WITH createTempFunction)* AS storedQuery=query
+    : QUERY queryName=uid declareBlock? AS storedQuery=query
+    ;
+
+declareBlock
+    : DECLARE declaredFunction (SEMI declaredFunction)* SEMI?
+    ;
+
+declaredFunction
+    : FUNCTION functionName=uid sqlParameterDeclarationList AS '(' functionBody=query ')'
     ;
 
 tempSqlInvokedFunction
