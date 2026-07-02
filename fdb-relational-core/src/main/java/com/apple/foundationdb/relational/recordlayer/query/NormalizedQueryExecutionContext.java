@@ -29,6 +29,7 @@ import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Objects;
+import java.util.Set;
 
 /**
  * This context is populated during query normalization. It contains all the information required to execute a cached physical query plan.
@@ -44,6 +45,9 @@ public final class NormalizedQueryExecutionContext implements QueryExecutionCont
 
     private final boolean isForExplain;
 
+    @Nonnull
+    private final Set<ExplainColumn> explainColumns;
+
     private final int parameterHash;
 
     @Nonnull
@@ -53,10 +57,12 @@ public final class NormalizedQueryExecutionContext implements QueryExecutionCont
                                             @Nullable byte[] continuation,
                                             int parameterHash,
                                             boolean isForExplain,
+                                            @Nonnull Set<ExplainColumn> explainColumns,
                                             @Nonnull final PlanHashable.PlanHashMode planHashMode) {
         this.literals = literals;
         this.continuation = continuation;
         this.isForExplain = isForExplain;
+        this.explainColumns = explainColumns;
         this.parameterHash = parameterHash;
         this.planHashMode = planHashMode;
     }
@@ -92,6 +98,12 @@ public final class NormalizedQueryExecutionContext implements QueryExecutionCont
 
     @Nonnull
     @Override
+    public Set<ExplainColumn> getExplainColumns() {
+        return explainColumns;
+    }
+
+    @Nonnull
+    @Override
     public PlanHashable.PlanHashMode getPlanHashMode() {
         return planHashMode;
     }
@@ -107,6 +119,9 @@ public final class NormalizedQueryExecutionContext implements QueryExecutionCont
 
         private boolean isForExplain;
 
+        @Nonnull
+        private Set<ExplainColumn> explainColumns;
+
         @Nullable
         private byte[] continuation;
 
@@ -118,6 +133,7 @@ public final class NormalizedQueryExecutionContext implements QueryExecutionCont
         private Builder() {
             this.literalsBuilder = Literals.newBuilder();
             this.isForExplain = false;
+            this.explainColumns = ExplainColumn.ALL;
             this.continuation = null;
             this.planHashMode = null;
         }
@@ -147,6 +163,12 @@ public final class NormalizedQueryExecutionContext implements QueryExecutionCont
         }
 
         @Nonnull
+        public Builder setExplainColumns(@Nonnull Set<ExplainColumn> explainColumns) {
+            this.explainColumns = explainColumns;
+            return this;
+        }
+
+        @Nonnull
         public Builder setPlanHashMode(@Nonnull PlanHashable.PlanHashMode planHashMode) {
             this.planHashMode = planHashMode;
             return this;
@@ -155,7 +177,7 @@ public final class NormalizedQueryExecutionContext implements QueryExecutionCont
         @Nonnull
         public NormalizedQueryExecutionContext build() {
             return new NormalizedQueryExecutionContext(literalsBuilder.build(), continuation,
-                    parameterHash, isForExplain,
+                    parameterHash, isForExplain, explainColumns,
                     Objects.requireNonNull(planHashMode));
         }
     }

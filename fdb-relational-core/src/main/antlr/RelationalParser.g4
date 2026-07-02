@@ -725,12 +725,16 @@ simpleDescribeStatement
 // TODO: implement full describe for schema and schema template.
 fullDescribeStatement
     : command=(EXPLAIN | DESCRIBE | DESC)
-      (
-        formatType=(EXTENDED | PARTITIONS | FORMAT )
-        '='
-        formatValue=(TRADITIONAL | JSON)
-      )?
+      ( '(' explainColumnList ')' )?
       describeObjectClause
+    ;
+
+explainColumnList
+    : explainColumnOption (',' explainColumnOption)*
+    ;
+
+explainColumnOption
+    : columnName=( PLAN | PLAN_HASH | PLAN_DOT | PLAN_GML | PLAN_CONTINUATION | PLANNER_METRICS )
     ;
 
 helpStatement
