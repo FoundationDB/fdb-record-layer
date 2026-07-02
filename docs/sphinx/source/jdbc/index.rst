@@ -1,6 +1,6 @@
-===========
-JDBC Guide
-===========
+==============
+JDBC interface
+==============
 
 .. important::
    The JDBC interface is experimental and not production-ready at this stage. APIs and behaviors are subject to change.

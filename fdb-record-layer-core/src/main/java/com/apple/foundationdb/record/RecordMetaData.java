@@ -775,6 +775,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
         }
     }
 
+
     @Nonnull
     public Type.Record getPlannerType(@Nonnull String recordTypeName) {
         final RecordType recordType = getRecordType(recordTypeName);

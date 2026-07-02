@@ -1,5 +1,4 @@
-
-# Release Notes
+# Release notes
 
 This document contains a log of changes to the FoundationDB Record Layer. It aims to include mostly user-visible changes or improvements. Within each minor release, larger or more involved changes are highlighted first before detailing the changes that were included in each build or patch version. Users should especially take note of any breaking changes or special upgrade instructions which should always be included as a preface to the minor version as a whole before looking at changes at a version-by-version level.
 
