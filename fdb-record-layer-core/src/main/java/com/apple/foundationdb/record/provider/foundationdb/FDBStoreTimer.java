@@ -773,6 +773,10 @@ public class FDBStoreTimer extends StoreTimer {
         VECTOR_NODE_WRITE_BYTES("intermediate node bytes written", true),
         VECTOR_NODE0_WRITES("intermediate nodes written", false),
         VECTOR_NODE0_WRITE_BYTES("intermediate node bytes written", true),
+        /** Count of the writes to a {@code PendingWritesQueue}. */
+        PENDING_WRITES_QUEUE_WRITE("pending writes queue writes", false),
+        /** Count of the entries cleared from a {@code PendingWritesQueue}. */
+        PENDING_WRITES_QUEUE_CLEAR("pending writes queue clears", false),
         ;
 
         private final String title;
@@ -885,6 +889,38 @@ public class FDBStoreTimer extends StoreTimer {
         @Override
         public boolean isSize() {
             return isSize;
+        }
+    }
+
+    /**
+     * Size Events.
+     */
+    public enum SizeEvents implements StoreTimer.SizeEvent {
+
+        /** The size of a pending writes queue (recorded when getQueueSize is called).*/
+        PENDING_WRITES_QUEUE_SIZE("Pending writes queue size"),
+        ;
+
+        private final String title;
+        private final boolean delayedUntilCommit;
+
+        SizeEvents(@Nonnull String title) {
+            this(title, false);
+        }
+
+        SizeEvents(@Nonnull String title, boolean delayedUntilCommit) {
+            this.title = title;
+            this.delayedUntilCommit = delayedUntilCommit;
+        }
+
+        @Override
+        public String title() {
+            return title;
+        }
+
+        @Override
+        public boolean isDelayedUntilCommit() {
+            return delayedUntilCommit;
         }
     }
 

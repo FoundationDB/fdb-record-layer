@@ -357,9 +357,18 @@ tasks.withType(Test).configureEach { task ->
         task.testFramework.options.excludeTags.add('Performance')
 
         if (task.name == 'test') {
-            task.systemProperty('junit.jupiter.execution.parallel.enabled', 'false')
+            task.systemProperty('junit.jupiter.execution.parallel.enabled', 'true')
             task.systemProperty('junit.jupiter.execution.parallel.mode.default', 'same_thread')
-            task.systemProperty('junit.jupiter.execution.parallel.mode.classes.default', 'concurrent')
+            task.systemProperty('junit.jupiter.execution.parallel.mode.classes.default', 'same_thread')
+            // So far, using the dynamic strategy results in tests that should be fairly fast timing out
+            // at 5 minutes. The current theory is some thread pool is saturated and unable to unblock
+            // itself. In the meantime, try a fixed 2 threads.
+            task.systemProperty('junit.jupiter.execution.parallel.config.strategy', 'fixed')
+            task.systemProperty('junit.jupiter.execution.parallel.config.fixed.parallelism', '2')
+            // We use worker_thread_pool rather than fork_join_pool because we heavily depend on ForkJoinPool for
+            // FDB operations, which causes junit to incorrectly increase the number of concurrent tests to well
+            // beyond what we want.
+            task.systemProperty('junit.jupiter.execution.parallel.config.executor-service', 'worker_thread_pool')
         }
     }
 

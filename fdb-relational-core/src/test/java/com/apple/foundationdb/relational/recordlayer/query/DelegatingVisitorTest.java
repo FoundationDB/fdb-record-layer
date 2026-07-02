@@ -230,6 +230,21 @@ public class DelegatingVisitorTest {
     }
 
     @Test
+    void visitQueryDefinitionTest() {
+        testSimple("QUERY q AS SELECT * FROM table1",
+                RelationalParser::queryDefinition,
+                DelegatingVisitor::visitQueryDefinition,
+                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42),
+                        generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
+                    @Override
+                    public Object visitQueryDefinition(RelationalParser.QueryDefinitionContext ctx) {
+                        called.setTrue();
+                        return null;
+                    }
+                });
+    }
+
+    @Test
     void visitUserDefinedScalarFunctionCallTest() {
         testSimple("myFunction(123)",
                 RelationalParser::functionCall,

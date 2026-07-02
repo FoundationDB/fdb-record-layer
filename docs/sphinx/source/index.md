@@ -24,20 +24,30 @@ reliability, and performance in a distributed setting.
 
 ```{toctree}
 :maxdepth: 1
-Overview and Examples <Overview>
+:caption: User Guide
+Overview
+Versioning
 GettingStarted
-JDBC Guide <jdbc/index>
-Building <Building>
 SchemaEvolution
 Extending
-Versioning Guide <Versioning>
-Coding Best Practices <Coding_Best_Practices>
+FAQ
 ReleaseNotes
-Frequently Asked Questions <FAQ>
-SQL Reference <SQL_Reference>
-API <api/index>
-Architecture <architecture/index>
+```
+
+```{toctree}
+:maxdepth: 1
+:caption: Reference
+SQL_Reference
+jdbc/index
+api/index
+```
+
+```{toctree}
+:maxdepth: 1
+:caption: Development
+Building <Building>
+Coding_Best_Practices
+architecture/index
 Contributing <https://github.com/FoundationDB/fdb-record-layer/blob/main/CONTRIBUTING.md>
-Code of Conduct <https://github.com/FoundationDB/fdb-record-layer/blob/main/CODE_OF_CONDUCT.md>
-License <https://github.com/FoundationDB/fdb-record-layer/blob/main/LICENSE>
+Code of conduct <https://github.com/FoundationDB/fdb-record-layer/blob/main/CODE_OF_CONDUCT.md>
 ```
