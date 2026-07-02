@@ -200,6 +200,15 @@ public interface TypedVisitor extends RelationalParserVisitor<Object> {
     ProceduralPlan visitDropTempFunction(RelationalParser.DropTempFunctionContext ctx);
 
     @Override
+    ProceduralPlan visitSetLocalVariable(RelationalParser.SetLocalVariableContext ctx);
+
+    @Override
+    Object visitVariableRef(RelationalParser.VariableRefContext ctx);
+
+    @Override
+    Object visitVariableRefAtom(RelationalParser.VariableRefAtomContext ctx);
+
+    @Override
     CompiledSqlFunction visitTempSqlInvokedFunction(RelationalParser.TempSqlInvokedFunctionContext ctx);
 
     @Override
@@ -487,10 +496,6 @@ public interface TypedVisitor extends RelationalParserVisitor<Object> {
 
     @Nonnull
     @Override
-    Object visitSetVariable(@Nonnull RelationalParser.SetVariableContext ctx);
-
-    @Nonnull
-    @Override
     Object visitSetCharset(@Nonnull RelationalParser.SetCharsetContext ctx);
 
     @Nonnull
@@ -508,10 +513,6 @@ public interface TypedVisitor extends RelationalParserVisitor<Object> {
     @Nonnull
     @Override
     Object visitSetNewValueInsideTrigger(@Nonnull RelationalParser.SetNewValueInsideTriggerContext ctx);
-
-    @Nonnull
-    @Override
-    Object visitVariableClause(@Nonnull RelationalParser.VariableClauseContext ctx);
 
     @Nonnull
     @Override

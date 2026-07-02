@@ -23,12 +23,15 @@ package com.apple.foundationdb.relational.recordlayer.metadata;
 import com.apple.foundationdb.record.query.plan.cascades.UserDefinedFunction;
 import com.apple.foundationdb.relational.api.metadata.InvokedRoutine;
 import com.apple.foundationdb.relational.recordlayer.query.PreparedParams;
-import com.apple.foundationdb.relational.recordlayer.util.MemoizedFunction;
 import com.apple.foundationdb.relational.util.Assert;
+import com.google.common.collect.ImmutableMap;
 
 import javax.annotation.Nonnull;
+import java.util.AbstractMap;
+import java.util.Map;
 import java.util.Objects;
-import java.util.function.Function;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.BiFunction;
 
 public class RecordLayerInvokedRoutine implements InvokedRoutine {
 
@@ -46,8 +49,13 @@ public class RecordLayerInvokedRoutine implements InvokedRoutine {
 
     private final boolean isTemporary;
 
+    // The raw (un-memoized) provider, kept so that toBuilder() can hand it back to the builder
+    // without triggering a second memoize() wrap in the constructor.
     @Nonnull
-    private final Function<Boolean, UserDefinedFunction> userDefinedFunctionProvider;
+    private final BiFunction<Boolean, Map<String, Object>, UserDefinedFunction> rawUserDefinedFunctionProvider;
+
+    @Nonnull
+    private final BiFunction<Boolean, Map<String, Object>, UserDefinedFunction> userDefinedFunctionProvider;
 
     @Nonnull
     private final UserDefinedFunction serializableFunction;
@@ -57,15 +65,34 @@ public class RecordLayerInvokedRoutine implements InvokedRoutine {
                                      @Nonnull final String name,
                                      @Nonnull final PreparedParams preparedParams,
                                      boolean isTemporary,
-                                     @Nonnull final Function<Boolean, UserDefinedFunction> userDefinedFunctionProvider,
+                                     @Nonnull final BiFunction<Boolean, Map<String, Object>, UserDefinedFunction> userDefinedFunctionProvider,
                                      @Nonnull final UserDefinedFunction serializableFunction) {
         this.description = description;
         this.normalizedDescription = normalizedDescription;
         this.name = name;
         this.preparedParams = preparedParams;
         this.isTemporary = isTemporary;
-        this.userDefinedFunctionProvider = MemoizedFunction.memoize(userDefinedFunctionProvider::apply);
+        this.rawUserDefinedFunctionProvider = userDefinedFunctionProvider;
+        this.userDefinedFunctionProvider = memoize(userDefinedFunctionProvider);
         this.serializableFunction = serializableFunction;
+    }
+
+    // Memoizes by (isCaseSensitive, ImmutableMap snapshot of localVars) so that:
+    // - the same function instance is reused when local variables haven't changed (preserving the
+    //   assertSame guarantee that plan-sharing relies on), and
+    // - a new compilation is triggered when local variable values change (fixing the stale-value
+    //   bug that existed when the old memoization keyed only on isCaseSensitive).
+    // The cache is bounded by the transaction lifetime: RecordLayerInvokedRoutine is created by
+    // CREATE TEMPORARY FUNCTION (per-transaction) and discarded when the transaction ends, so at
+    // most one entry per distinct localVars snapshot seen within a single transaction is retained.
+    @Nonnull
+    private static BiFunction<Boolean, Map<String, Object>, UserDefinedFunction> memoize(
+            @Nonnull final BiFunction<Boolean, Map<String, Object>, UserDefinedFunction> fn) {
+        final var cache = new ConcurrentHashMap<Map.Entry<Boolean, ImmutableMap<String, Object>>, UserDefinedFunction>();
+        return (isCaseSensitive, localVars) -> {
+            final var key = new AbstractMap.SimpleImmutableEntry<>(isCaseSensitive, ImmutableMap.copyOf(localVars));
+            return cache.computeIfAbsent(key, k -> fn.apply(k.getKey(), k.getValue()));
+        };
     }
 
     @Nonnull
@@ -86,7 +113,7 @@ public class RecordLayerInvokedRoutine implements InvokedRoutine {
     }
 
     @Nonnull
-    public Function<Boolean, UserDefinedFunction> getUserDefinedFunctionProvider() {
+    public BiFunction<Boolean, Map<String, Object>, UserDefinedFunction> getUserDefinedFunctionProvider() {
         return userDefinedFunctionProvider;
     }
 
@@ -140,7 +167,7 @@ public class RecordLayerInvokedRoutine implements InvokedRoutine {
                 .setDescription(getDescription())
                 .setNormalizedDescription(getNormalizedDescription())
                 .setTemporary(isTemporary())
-                .withUserDefinedFunctionProvider(getUserDefinedFunctionProvider())
+                .withUserDefinedFunctionProvider(rawUserDefinedFunctionProvider)
                 .withSerializableFunction(asSerializableFunction());
     }
 
@@ -149,7 +176,7 @@ public class RecordLayerInvokedRoutine implements InvokedRoutine {
         private String normalizedDescription;
         private PreparedParams preparedParams;
         private String name;
-        private Function<Boolean, UserDefinedFunction> userDefinedFunctionProvider;
+        private BiFunction<Boolean, Map<String, Object>, UserDefinedFunction> userDefinedFunctionProvider;
         private UserDefinedFunction serializableFunction;
         private boolean isTemporary;
 
@@ -175,7 +202,7 @@ public class RecordLayerInvokedRoutine implements InvokedRoutine {
         }
 
         @Nonnull
-        public Builder withUserDefinedFunctionProvider(@Nonnull final Function<Boolean, UserDefinedFunction> userDefinedFunctionProvider) {
+        public Builder withUserDefinedFunctionProvider(@Nonnull final BiFunction<Boolean, Map<String, Object>, UserDefinedFunction> userDefinedFunctionProvider) {
             this.userDefinedFunctionProvider = userDefinedFunctionProvider;
             return this;
         }

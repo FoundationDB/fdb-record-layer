@@ -83,6 +83,10 @@ public final class PreparedParams {
         return namedParams.get(name);
     }
 
+    public boolean containsNamedParam(@Nonnull String name) {
+        return namedParams.containsKey(name);
+    }
+
     public boolean isEmpty() {
         return this.namedParams.isEmpty() && this.unnamedParams.isEmpty();
     }

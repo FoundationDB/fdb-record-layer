@@ -301,6 +301,7 @@ public final class PlanGenerator {
 
         final var planGenerationContext = new MutablePlanGenerationContext(planContext.getPreparedStatementParameters(),
                 currentPlanHashMode, ast.getQuery(), ast.getQueryCacheKey().getCanonicalQueryString(), parameterHash);
+        planGenerationContext.setLocalVariables(planContext.getLocalVariables());
         planGenerationContext.setForExplain(ast.getQueryExecutionContext().isForExplain());
         final var metadata = Assert.castUnchecked(planContext.getSchemaTemplate(), RecordLayerSchemaTemplate.class);
         try (var ignored = new PlannerEventStatsCollector.DefaultStatsCollectorController()) {

@@ -129,6 +129,16 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
     private final PreparedParams preparedStatementParameters;
 
     @Nonnull
+    private final Map<String, Object> localVariables;
+
+    private boolean insideTempFunctionBody = false;
+
+    // True when processing the original CREATE TEMPORARY FUNCTION statement; false during
+    // re-normalization of function bodies at query execution time. When false, missing local
+    // variables inside function bodies are an error (UNDEFINED_PARAMETER), not a placeholder.
+    private final boolean deferMissingVarsInFunctionBodies;
+
+    @Nonnull
     private final Set<NormalizationResult.QueryCachingFlags> queryCachingFlags;
 
     @Nonnull
@@ -148,19 +158,29 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
         literalNodes.put(RelationalParser.NegativeDecimalConstantContext.class, context -> ParseHelpers.parseDecimal(context.getText()));
     }
 
-    private AstNormalizer(@Nonnull final PreparedParams preparedStatementParameters, boolean caseSensitive,
-                          @Nonnull final PlanHashable.PlanHashMode currentPlanHashMode, boolean forExplain) {
+    private AstNormalizer(@Nonnull final PreparedParams preparedStatementParameters,
+                          @Nonnull final Map<String, Object> localVariables,
+                          boolean caseSensitive,
+                          @Nonnull final PlanHashable.PlanHashMode currentPlanHashMode, boolean forExplain,
+                          boolean deferMissingVarsInFunctionBodies) {
         parameterHash = Hashing.murmur3_32_fixed().newHasher().putInt("ParameterHash".hashCode());
         parameterHashSupplier = Suppliers.memoize(() -> parameterHash.hash().asInt())::get;
         sqlCanonicalizer = new StringBuilder();
         // needed to collect information that guide query execution (explain flag, continuation string, offset int, and limit int).
         queryHasherContextBuilder = NormalizedQueryExecutionContext.newBuilder().setPlanHashMode(currentPlanHashMode).setForExplain(forExplain);
         this.preparedStatementParameters = preparedStatementParameters;
+        this.localVariables = localVariables;
         allowTokenAddition = true;
         allowLiteralAddition = true;
         queryCachingFlags = EnumSet.noneOf(NormalizationResult.QueryCachingFlags.class);
         queryOptions = Options.builder();
         this.caseSensitive = caseSensitive;
+        this.deferMissingVarsInFunctionBodies = deferMissingVarsInFunctionBodies;
+    }
+
+    private AstNormalizer(@Nonnull final PreparedParams preparedStatementParameters, boolean caseSensitive,
+                          @Nonnull final PlanHashable.PlanHashMode currentPlanHashMode, boolean forExplain) {
+        this(preparedStatementParameters, Map.of(), caseSensitive, currentPlanHashMode, forExplain, false);
     }
 
     @Override
@@ -190,7 +210,47 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
     public Object visitCreateTempFunction(final RelationalParser.CreateTempFunctionContext ctx) {
         final var functionName = SemanticAnalyzer.normalizeString(ctx.tempSqlInvokedFunction().functionSpecification().schemaQualifiedRoutineName.getText(), caseSensitive);
         queryHasherContextBuilder.getLiteralsBuilder().setScope(functionName);
-        return visitChildren(ctx);
+        insideTempFunctionBody = true;
+        try {
+            return visitChildren(ctx);
+        } finally {
+            insideTempFunctionBody = false;
+        }
+    }
+
+    @Override
+    public Object visitVariableRef(@Nonnull RelationalParser.VariableRefContext ctx) {
+        final var rawName = ctx.LOCAL_ID().getText().substring(1); // strip leading '@'
+        final var varName = Assert.notNullUnchecked(SemanticAnalyzer.normalizeString(rawName, caseSensitive));
+        if (insideTempFunctionBody && deferMissingVarsInFunctionBodies && !localVariables.containsKey(varName)) {
+            // Variable not yet set; emit a named-parameter placeholder so the canonical form is
+            // deterministic. The actual value is injected via withExecutionContext at call time.
+            if (allowTokenAddition) {
+                sqlCanonicalizer.append("@").append(varName).append(" ");
+                parameterHash.putInt("@".concat(varName).hashCode());
+            }
+            return null;
+        }
+        Assert.thatUnchecked(localVariables.containsKey(varName), ErrorCode.UNDEFINED_PARAMETER,
+                () -> "No value found for parameter " + varName);
+        final var value = localVariables.get(varName);
+        processLocalVariableRef(value, varName, ctx.LOCAL_ID().getSymbol().getTokenIndex());
+        return value;
+    }
+
+    private void processLocalVariableRef(@Nullable final Object literal, @Nonnull final String varName,
+                                         final int tokenIndex) {
+        if (allowLiteralAddition) {
+            queryHasherContextBuilder.getLiteralsBuilder()
+                    .addLiteral(Type.any(), literal, null, varName, tokenIndex);
+        }
+        if (allowTokenAddition) {
+            final String canonicalName = "@" + varName;
+            sqlCanonicalizer.append(canonicalName).append(" ");
+            // Hash only the variable name — the value is injected at execution time via the
+            // QueryExecutionContext, allowing the same plan to be reused across different values.
+            parameterHash.putInt(canonicalName.hashCode());
+        }
     }
 
     @Override
@@ -316,6 +376,14 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
     @Override
     public Object visitAdministrationStatement(@Nonnull RelationalParser.AdministrationStatementContext ctx) {
         queryCachingFlags.add(NormalizationResult.QueryCachingFlags.IS_ADMIN_STATEMENT);
+        return visitChildren(ctx);
+    }
+
+    @Override
+    public Object visitSetLocalVariable(@Nonnull RelationalParser.SetLocalVariableContext ctx) {
+        // SET LOCAL embeds the literal value in ProceduralPlan.action, which withExecutionContext
+        // cannot update. Mark it as DDL so the plan cache is bypassed.
+        queryCachingFlags.add(NormalizationResult.QueryCachingFlags.IS_DDL_STATEMENT);
         return visitChildren(ctx);
     }
 
@@ -581,7 +649,8 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
                         context.getPlannerConfiguration(),
                         isCaseSensitive,
                         currentPlanHashMode,
-                        query
+                        query,
+                        context.getLocalVariables()
                 ));
     }
 
@@ -594,7 +663,20 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
                                                    boolean caseSensitive,
                                                    @Nonnull final PlanHashable.PlanHashMode currentPlanHashMode,
                                                    @Nonnull final String query) throws RelationalException {
-        final var astNormalizer = new AstNormalizer(preparedStatementParameters, caseSensitive, currentPlanHashMode, parseTreeInfo.getQueryType() == ParseTreeInfo.QueryType.DESCRIBE_QUERY);
+        return normalizeAst(schemaTemplate, parseTreeInfo, preparedStatementParameters,
+                plannerConfiguration, caseSensitive, currentPlanHashMode, query, Map.of());
+    }
+
+    @Nonnull
+    private static NormalizationResult normalizeAst(@Nonnull final SchemaTemplate schemaTemplate,
+                                                    @Nonnull final ParseTreeInfoImpl parseTreeInfo,
+                                                    @Nonnull final PreparedParams preparedStatementParameters,
+                                                    @Nonnull final PlannerConfiguration plannerConfiguration,
+                                                    boolean caseSensitive,
+                                                    @Nonnull final PlanHashable.PlanHashMode currentPlanHashMode,
+                                                    @Nonnull final String query,
+                                                    @Nonnull final Map<String, Object> localVariables) throws RelationalException {
+        final var astNormalizer = new AstNormalizer(preparedStatementParameters, localVariables, caseSensitive, currentPlanHashMode, parseTreeInfo.getQueryType() == ParseTreeInfo.QueryType.DESCRIBE_QUERY, true);
         astNormalizer.visit(parseTreeInfo.getRootContext());
         final var recordLayerSchemaTemplate = Assert.castUnchecked(schemaTemplate, RecordLayerSchemaTemplate.class);
 
@@ -616,9 +698,13 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
                     continue;
                 }
                 final var recordLayerRoutine = (RecordLayerInvokedRoutine)temporaryRoutine;
-                final var functionAstResult = normalizeAst(schemaTemplate,
+                // For the function body cache-key normalization: use the CREATE-time ?param bindings from
+                // the routine itself, and pass SELECT-time @var bindings separately so they resolve as
+                // local variables rather than named parameters.
+                final var functionAstResult = normalizeFunctionBody(schemaTemplate,
                         QueryParser.parse(recordLayerRoutine.getDescription()),
                         recordLayerRoutine.getPreparedParams(),
+                        localVariables,
                         plannerConfiguration,
                         caseSensitive,
                         currentPlanHashMode,
@@ -626,6 +712,33 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
                 astNormalizer.queryHasherContextBuilder.getLiteralsBuilder().importLiterals(functionAstResult.queryExecutionContext.getLiterals());
             }
         }
+        return new NormalizationResult(
+                recordLayerSchemaTemplate.getName(),
+                QueryCacheKey.of(astNormalizer.getCanonicalSqlString(), getQuerySpecificPlannerConfig(plannerConfiguration, astNormalizer.getQueryOptions()),
+                        recordLayerSchemaTemplate.getTransactionBoundMetadataAsString(),
+                        recordLayerSchemaTemplate.getVersion()),
+                astNormalizer.getQueryExecutionParameters(),
+                parseTreeInfo.getRootContext(),
+                astNormalizer.getQueryCachingFlags(),
+                astNormalizer.getQueryOptions(),
+                query);
+    }
+
+    // Re-normalizes a temporary function body during query execution. Unlike the outer normalizeAst,
+    // this does NOT defer missing local variables — if a variable referenced in the function body is
+    // absent from preparedStatementParameters, UNDEFINED_PARAMETER is thrown at invocation time.
+    private static NormalizationResult normalizeFunctionBody(@Nonnull final SchemaTemplate schemaTemplate,
+                                                              @Nonnull final ParseTreeInfoImpl parseTreeInfo,
+                                                              @Nonnull final PreparedParams preparedStatementParameters,
+                                                              @Nonnull final Map<String, Object> localVariables,
+                                                              @Nonnull final PlannerConfiguration plannerConfiguration,
+                                                              boolean caseSensitive,
+                                                              @Nonnull final PlanHashable.PlanHashMode currentPlanHashMode,
+                                                              @Nonnull final String query) throws RelationalException {
+        final var astNormalizer = new AstNormalizer(preparedStatementParameters, localVariables, caseSensitive, currentPlanHashMode,
+                parseTreeInfo.getQueryType() == ParseTreeInfo.QueryType.DESCRIBE_QUERY, false);
+        astNormalizer.visit(parseTreeInfo.getRootContext());
+        final var recordLayerSchemaTemplate = Assert.castUnchecked(schemaTemplate, RecordLayerSchemaTemplate.class);
         return new NormalizationResult(
                 recordLayerSchemaTemplate.getName(),
                 QueryCacheKey.of(astNormalizer.getCanonicalSqlString(), getQuerySpecificPlannerConfig(plannerConfiguration, astNormalizer.getQueryOptions()),

@@ -481,6 +481,23 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
 
     @Nonnull
     @Override
+    public Expression visitVariableRefAtom(@Nonnull RelationalParser.VariableRefAtomContext ctx) {
+        return visitVariableRef(ctx.variableRef());
+    }
+
+    @Nonnull
+    @Override
+    public Expression visitVariableRef(@Nonnull RelationalParser.VariableRefContext ctx) {
+        final var rawName = ctx.LOCAL_ID().getText().substring(1); // strip leading '@'
+        final var varName = getDelegate().normalizeString(rawName);
+        final var tokenIndex = ctx.LOCAL_ID().getSymbol().getTokenIndex();
+        final Value value = getDelegate().getPlanGenerationContext().processLocalVariable(varName, tokenIndex);
+        final var type = DataTypeUtils.toRelationalType(value.getResultType());
+        return Expression.ofUnnamed(type, value);
+    }
+
+    @Nonnull
+    @Override
     public Expression visitPreparedStatementParameter(@Nonnull RelationalParser.PreparedStatementParameterContext ctx) {
         final var tokenIndex = ctx.getStart().getTokenIndex();
         final Value value;

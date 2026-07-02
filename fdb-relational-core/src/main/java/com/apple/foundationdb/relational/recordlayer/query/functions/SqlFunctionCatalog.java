@@ -28,6 +28,7 @@ import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaT
 import com.apple.foundationdb.relational.recordlayer.query.Expressions;
 
 import javax.annotation.Nonnull;
+import java.util.Map;
 import java.util.stream.StreamSupport;
 
 import static java.util.stream.Collectors.toList;
@@ -46,7 +47,8 @@ public interface SqlFunctionCatalog {
      * @return the function instance.
      */
     @Nonnull
-    CatalogedFunction lookupFunction(@Nonnull String name, @Nonnull Expressions arguments);
+    CatalogedFunction lookupFunction(@Nonnull String name, @Nonnull Expressions arguments,
+                                     @Nonnull Map<String, Object> localVariables);
 
     /**
      * Checks whether a function exists in the catalog. Note that invoking this method shall not trigger compiling
@@ -66,7 +68,7 @@ public interface SqlFunctionCatalog {
      *     <ul>user-defined table-valued functions, lazily-compiled</ul>
      * </li>
      * The user-defined functions are loaded from the passed {@code metadata} argument, they are only compiled when
-     * looked up with {@link SqlFunctionCatalog#lookupFunction(String, Expressions)}, and their compiled version is
+     * looked up with {@link SqlFunctionCatalog#lookupFunction(String, Expressions, java.util.Map)}, and their compiled version is
      * cached so it is done at most once.
      *
      * @param metadata The metadata used to load any user-defined functions.
