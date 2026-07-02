@@ -27,6 +27,7 @@ import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.api.RelationalStruct;
 import com.apple.foundationdb.relational.recordlayer.RelationalKeyspaceProvider;
 import com.apple.foundationdb.relational.server.InProcessRelationalServer;
+import com.apple.foundationdb.relational.utils.CatalogOperations;
 import com.apple.foundationdb.test.FDBTestEnvironment;
 import com.apple.test.ParameterizedTestUtils;
 import com.apple.test.RandomizedTestUtils;
@@ -366,21 +367,29 @@ public class JDBCParameterizedQueryComparisonTest {
         dbPath = "/FRL/parameters_" + uuid;
         templateName = "template_" + uuid;
 
-        try (RelationalConnection conn = getJdbcCatalogConnection()) {
-            try (RelationalStatement stmt = conn.createStatement()) {
-                stmt.executeUpdate("DROP DATABASE IF EXISTS \"" + dbPath + "\"");
-                stmt.executeUpdate("CREATE DATABASE \"" + dbPath + "\"");
+        // Serialise + retry catalog DDL against the JVM-wide monitor so parallel test classes
+        // don't race on the shared /__SYS catalog.
+        CatalogOperations.runLockedWithRetry(() -> {
+            try (RelationalConnection conn = getJdbcCatalogConnection()) {
+                try (RelationalStatement stmt = conn.createStatement()) {
+                    stmt.executeUpdate("DROP DATABASE IF EXISTS \"" + dbPath + "\"");
+                    stmt.executeUpdate("CREATE DATABASE \"" + dbPath + "\"");
+                }
             }
-        }
+        });
     }
 
     @AfterEach
     public void tearDown() {
-        try (RelationalConnection conn = getJdbcCatalogConnection()) {
-            try (RelationalStatement stmt = conn.createStatement()) {
-                stmt.executeUpdate("DROP DATABASE \"" + dbPath + "\"");
-                stmt.executeUpdate("DROP SCHEMA TEMPLATE IF EXISTS \"" + templateName + "\"");
-            }
+        try {
+            CatalogOperations.runLockedWithRetry(() -> {
+                try (RelationalConnection conn = getJdbcCatalogConnection()) {
+                    try (RelationalStatement stmt = conn.createStatement()) {
+                        stmt.executeUpdate("DROP DATABASE IF EXISTS \"" + dbPath + "\"");
+                        stmt.executeUpdate("DROP SCHEMA TEMPLATE IF EXISTS \"" + templateName + "\"");
+                    }
+                }
+            });
         } catch (Exception e) {
             // best-effort cleanup
         }
@@ -507,16 +516,25 @@ public class JDBCParameterizedQueryComparisonTest {
     }
 
     private void createSchema(@Nonnull String columnDdl, @Nonnull String extraTypeDdl) throws SQLException {
-        try (RelationalConnection conn = getJdbcCatalogConnection()) {
-            try (RelationalStatement stmt = conn.createStatement()) {
-                String createTemplate = "CREATE SCHEMA TEMPLATE \"" + templateName + "\" " +
-                        extraTypeDdl + " " +
-                        "CREATE TABLE test_table (pk bigint, val " + columnDdl + ", PRIMARY KEY(pk))";
-                stmt.executeUpdate(createTemplate);
-                stmt.executeUpdate("CREATE SCHEMA \"" + dbPath + "/" + SCHEMA_NAME +
-                        "\" WITH TEMPLATE \"" + templateName + "\"");
+        CatalogOperations.runLockedWithRetry(() -> {
+            try (RelationalConnection conn = getJdbcCatalogConnection()) {
+                try (RelationalStatement stmt = conn.createStatement()) {
+                    // Drop the template first: parametrised tests reuse the same fixture, so a
+                    // sibling invocation may already have created a template with this name.
+                    // (The schema itself is per-database and @BeforeEach recreates the database
+                    // fresh each time, so no matching DROP SCHEMA is needed — and the DDL
+                    // parser accepts but does not honour DROP SCHEMA IF EXISTS anyway.)
+                    // TODO double check if this is necessary
+                    stmt.executeUpdate("DROP SCHEMA TEMPLATE IF EXISTS \"" + templateName + "\"");
+                    String createTemplate = "CREATE SCHEMA TEMPLATE \"" + templateName + "\" " +
+                            extraTypeDdl + " " +
+                            "CREATE TABLE test_table (pk bigint, val " + columnDdl + ", PRIMARY KEY(pk))";
+                    stmt.executeUpdate(createTemplate);
+                    stmt.executeUpdate("CREATE SCHEMA \"" + dbPath + "/" + SCHEMA_NAME +
+                            "\" WITH TEMPLATE \"" + templateName + "\"");
+                }
             }
-        }
+        });
     }
 
     @FunctionalInterface
