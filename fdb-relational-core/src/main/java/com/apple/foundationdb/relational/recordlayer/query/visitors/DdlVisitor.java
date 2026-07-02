@@ -24,13 +24,10 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.linear.Metric;
 import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexTypes;
-import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.RawSqlFunction;
 import com.apple.foundationdb.record.query.plan.cascades.UserDefinedFunction;
-import com.apple.foundationdb.record.query.plan.cascades.UserDefinedMacroFunction;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalSortExpression;
 import com.apple.foundationdb.record.query.plan.cascades.values.PromoteValue;
-import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.ThrowsValue;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.ddl.MetadataOperationsFactory;
@@ -57,6 +54,7 @@ import com.apple.foundationdb.relational.recordlayer.query.SemanticAnalyzer;
 import com.apple.foundationdb.relational.recordlayer.query.ddl.MaterializedViewIndexGenerator;
 import com.apple.foundationdb.relational.recordlayer.query.ddl.OnSourceIndexGenerator;
 import com.apple.foundationdb.relational.recordlayer.query.functions.CompiledSqlFunction;
+import com.apple.foundationdb.relational.recordlayer.query.functions.UserDefinedFunctionBuilder;
 import com.apple.foundationdb.relational.util.Assert;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -114,30 +112,14 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
     @Nonnull
     @Override
     public DataType visitFunctionColumnType(@Nonnull final RelationalParser.FunctionColumnTypeContext ctx) {
-        final var semanticAnalyzer = getDelegate().getSemanticAnalyzer();
-        final SemanticAnalyzer.ParsedTypeInfo typeInfo;
-        if (ctx.customType != null) {
-            final var columnType = visitUid(ctx.customType);
-            typeInfo = SemanticAnalyzer.ParsedTypeInfo.ofCustomType(columnType, true, false);
-        } else {
-            typeInfo = SemanticAnalyzer.ParsedTypeInfo.ofPrimitiveType(ctx.primitiveType(), true, false);
-        }
-        return semanticAnalyzer.lookupType(typeInfo, metadataBuilder::findType);
+        return lookupType(ctx.customType, ctx.primitiveType(), true, ctx.ARRAY() != null);
     }
 
     // TODO: remove
     @Nonnull
     @Override
     public DataType visitColumnType(@Nonnull RelationalParser.ColumnTypeContext ctx) {
-        final var semanticAnalyzer = getDelegate().getSemanticAnalyzer();
-        final SemanticAnalyzer.ParsedTypeInfo typeInfo;
-        if (ctx.customType != null) {
-            final var columnType = visitUid(ctx.customType);
-            typeInfo = SemanticAnalyzer.ParsedTypeInfo.ofCustomType(columnType, false, false);
-        } else {
-            typeInfo = SemanticAnalyzer.ParsedTypeInfo.ofPrimitiveType(ctx.primitiveType(), false, false);
-        }
-        return semanticAnalyzer.lookupType(typeInfo, metadataBuilder::findType);
+        return lookupType(ctx.customType, ctx.primitiveType(), true, false);
     }
 
     /**
@@ -160,15 +142,7 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
         //       but a way to represent it in RecordMetadata.
         Assert.thatUnchecked(isRepeated || isNullable, ErrorCode.UNSUPPORTED_OPERATION, "NOT NULL is only allowed for ARRAY column type");
         containsNullableArray = containsNullableArray || (isRepeated && isNullable);
-        final var semanticAnalyzer = getDelegate().getSemanticAnalyzer();
-        final SemanticAnalyzer.ParsedTypeInfo typeInfo;
-        if (ctx.columnType().customType != null) {
-            final var columnType = visitUid(ctx.columnType().customType);
-            typeInfo = SemanticAnalyzer.ParsedTypeInfo.ofCustomType(columnType, isNullable, isRepeated);
-        } else {
-            typeInfo = SemanticAnalyzer.ParsedTypeInfo.ofPrimitiveType(ctx.columnType().primitiveType(), isNullable, isRepeated);
-        }
-        final var columnType = semanticAnalyzer.lookupType(typeInfo, metadataBuilder::findType);
+        final var columnType = lookupType(ctx.columnType().customType, ctx.columnType().primitiveType(), isNullable, isRepeated);
         return RecordLayerColumn.newBuilder().setName(columnId.getName()).setDataType(columnType).build();
     }
 
@@ -525,9 +499,8 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
                 .setPreparedParams(PreparedParams.copyOf(getDelegate().getPlanGenerationContext().getPreparedParams()))
                 .setNormalizedDescription(getDelegate().getPlanGenerationContext().getCanonicalQueryString());
 
-        boolean isScalar = functionSpecCtx.returnsClause() != null &&
-                functionSpecCtx.returnsClause().returnsType().returnsTableType() == null;
-        if (!isScalar && isTemporary) {
+        boolean isMacro = bodyCtx instanceof RelationalParser.UserDefinedMacroFunctionStatementBodyContext;
+        if (!isMacro && isTemporary) {
             // delay the compilation of table-valued temporary functions for later
             return builder
                     .withUserDefinedFunctionProvider(ignore -> visitSqlInvokedFunction(functionSpecCtx, bodyCtx, isTemporary))
@@ -536,7 +509,7 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
         } else {
             final var userDefinedFunction = visitSqlInvokedFunction(functionSpecCtx, bodyCtx, isTemporary);
             builder.withUserDefinedFunctionProvider(ignore -> userDefinedFunction);
-            if (isScalar) {
+            if (isMacro) {
                 return builder.withSerializableFunction(userDefinedFunction).build();
             } else {
                 return builder.withSerializableFunction(new RawSqlFunction(functionName, functionDefinition)).build();
@@ -605,90 +578,98 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
     }
 
     private UserDefinedFunction visitSqlInvokedFunction(@Nonnull final RelationalParser.FunctionSpecificationContext functionSpecCtx,
-                                                                                                          @Nonnull final RelationalParser.RoutineBodyContext bodyCtx,
-                                                                                                          boolean isTemporary) {
-        // get the function name.
-        final var functionName = visitFullId(functionSpecCtx.schemaQualifiedRoutineName).toString();
-
+                                                        @Nonnull final RelationalParser.RoutineBodyContext bodyCtx,
+                                                        boolean isTemporary) {
         // run implementation-specific validations.
         final var props = functionSpecCtx.routineCharacteristics();
+
+        // SQL-invoked routine 11.60, syntax rules, section 6.f.ii
+        // ... currently we support only CALLED ON NULL INPUT (which is implicitly set if not defined).
+        boolean isNullReturnOnNull = props.nullCallClause() != null && props.nullCallClause().RETURNS() != null;
+        Assert.thatUnchecked(!isNullReturnOnNull, ErrorCode.UNSUPPORTED_OPERATION,
+                "only CALLED ON NULL INPUT clause is supported");
+
+        boolean isSqlParameterStyle = props.parameterStyle() == null || props.parameterStyle().SQL() != null;
+        Assert.thatUnchecked(isSqlParameterStyle, ErrorCode.UNSUPPORTED_OPERATION,
+                "only sql-style parameters are supported");
+
+        // todo: rework Java UDFs to go through this code path as well.
         final var language = (props.languageClause() != null && props.languageClause().languageName().JAVA() != null)
                              ? InvokedRoutine.Language.JAVA
                              : InvokedRoutine.Language.SQL;
-        // SQL-invoked routine 11.60, syntax rules, section 6.f.ii
-        boolean isNullReturnOnNull = props.nullCallClause() != null && props.nullCallClause().RETURNS() != null;
-        // ... currently we support only CALLED ON NULL INPUT (which is implicitly set if not defined).
-        Assert.thatUnchecked(!isNullReturnOnNull, "only CALLED ON NULL INPUT clause is supported");
-        boolean isSqlParameterStyle = props.parameterStyle() == null || props.parameterStyle().SQL() != null;
-        boolean isScalar = functionSpecCtx.returnsClause() != null &&
-                functionSpecCtx.returnsClause().returnsType().returnsTableType() == null;
-        if (isScalar) {
-            final var semanticAnalyzer = getDelegate().getSemanticAnalyzer();
-            // get parameter names and corresponding QuantifiedObjectValue
-            final var parameters = getDelegate().getPlanGenerationContext().withDisabledLiteralProcessing(() ->
-                    visitSqlParameterDeclarationList(functionSpecCtx.sqlParameterDeclarationList()).asNamedArguments());
-            List<Identifier> paramNameIdList = parameters.stream().map(e -> e.getName().get()).collect(Collectors.toList());
-            List<DataType> dataTypeList = parameters.stream().map(Expression::getDataType).collect(Collectors.toList());
-            List<QuantifiedObjectValue> paramValueList = dataTypeList.stream().map(dt -> QuantifiedObjectValue.of(CorrelationIdentifier.uniqueId(), DataTypeUtils.toRecordLayerType(dt))).collect(Collectors.toList());
+        Assert.thatUnchecked(language == InvokedRoutine.Language.SQL, ErrorCode.UNSUPPORTED_OPERATION,
+                "only sql-language functions are supported");
 
-            Assert.thatUnchecked(parameters.asList().size() == 1, "only single input parameter for user defined scalar function is supported");
+        final var isMacro = bodyCtx instanceof RelationalParser.UserDefinedMacroFunctionStatementBodyContext;
+        Assert.thatUnchecked(functionSpecCtx.returnsClause() == null || isMacro,
+                ErrorCode.UNSUPPORTED_OPERATION,
+                "unsupported explicit return type for SQL table function");
 
-            // only support fullId functionBody now
-            final var functionBody = visitUserDefinedScalarFunctionStatementBody(Assert.castUnchecked(bodyCtx, RelationalParser.UserDefinedScalarFunctionStatementBodyContext.class));
-            Optional<Expression> result = semanticAnalyzer.lookupNestedField(functionBody, Expression.of(paramValueList.get(0), paramNameIdList.get(0)), Expression.of(paramValueList.get(0), paramNameIdList.get(0)), true);
-            Assert.thatUnchecked(result.isPresent(), "cannot resolve user defined scalar function value");
-            return new UserDefinedMacroFunction(functionName, paramValueList, result.get().getUnderlying());
+        final DataType returnsType = Optional.ofNullable(functionSpecCtx.returnsClause())
+                .map(returnsClause ->
+                        Assert.castUnchecked(visit(returnsClause), DataType.class))
+                .orElse(null);
+        Assert.thatUnchecked(returnsType == null || returnsType.isResolved(),
+                ErrorCode.UNKNOWN_TYPE,
+                "unknown explicit return type for function");
+
+        final var functionName = visitFullId(functionSpecCtx.schemaQualifiedRoutineName).toString();
+        final var parameters = getDelegate().getPlanGenerationContext().withDisabledLiteralProcessing(() ->
+                visitSqlParameterDeclarationList(functionSpecCtx.sqlParameterDeclarationList()).asNamedArguments());
+        final var sqlFunctionBodyStepBuilder = UserDefinedFunctionBuilder.newBuilder()
+                .setName(functionName)
+                .addAllParameters(parameters)
+                .setReturnType(returnsType)
+                .seal();
+
+        // the nested fragment below serves two purposes:
+        // 1. avoid creating a top-level LSE unnecessarily.
+        // 2. add a fake quantifier with the function parameters (if any) to resolve their references in the function body
+        //    during its plan generation.
+        final var fragment = getDelegate().pushPlanFragment();
+        final var parametersCorrelation = sqlFunctionBodyStepBuilder.getParametersCorrelation();
+        parametersCorrelation.ifPresent(quantifier -> fragment.addOperator(LogicalOperator.newUnnamedOperator(
+                Expressions.fromQuantifier(quantifier), quantifier)));
+
+        final UserDefinedFunctionBuilder.FinalStepBuilder finalStepBuilder;
+        if (isMacro) {
+            // TODO: we should not disable literal processing for temporary macro functions, but UserDefinedMacroFunction
+            //       doesn't support serializing its literals yet. This will be done as part of
+            //       https://github.com/FoundationDB/fdb-record-layer/issues/4306.
+            final var bodyValue = Assert.castUnchecked(
+                    getDelegate().getPlanGenerationContext().withDisabledLiteralProcessing(
+                            () -> visit(bodyCtx)), Expression.class).getUnderlying();
+            finalStepBuilder = sqlFunctionBodyStepBuilder.withBodyValue(bodyValue);
         } else {
-            // table functions
-            Assert.thatUnchecked(isSqlParameterStyle, ErrorCode.UNSUPPORTED_OPERATION, "only sql-style parameters are supported");
-            // todo: rework Java UDFs to go through this code path as well.
-            Assert.thatUnchecked(language == InvokedRoutine.Language.SQL, ErrorCode.UNSUPPORTED_OPERATION,
-                    "only sql-language functions are supported");
-            // create SQL function logical plan by visiting the function body.
-            final var parameters = getDelegate().getPlanGenerationContext().withDisabledLiteralProcessing(() ->
-                    visitSqlParameterDeclarationList(functionSpecCtx.sqlParameterDeclarationList()).asNamedArguments());
-            final var sqlFunctionBuilder = CompiledSqlFunction.newBuilder()
-                    .setName(functionName)
-                    .addAllParameters(parameters)
-                    .seal();
-            final var parametersCorrelation = sqlFunctionBuilder.getParametersCorrelation();
-            final LogicalOperator body;
+            Assert.thatUnchecked(bodyCtx instanceof RelationalParser.StatementBodyContext,
+                    ErrorCode.INVALID_FUNCTION_DEFINITION,
+                    () -> "Unsupported routine body specification for SQL invoked function");
 
-            // the nested fragment below serves two purposes:
-            // 1. avoid creating a top-level LSE unnecessarily.
-            // 2. add a fake quantifier with the function parameters (if any) to resolve their references in the function body
-            //    during its plan generation.
-            final var fragment = getDelegate().pushPlanFragment();
-
-            parametersCorrelation.ifPresent(quantifier -> fragment.addOperator(LogicalOperator.newUnnamedOperator(
-                    Expressions.fromQuantifier(quantifier), quantifier)));
+            final LogicalOperator bodyOperator;
             if (isTemporary) {
-                body = Assert.castUnchecked(visit(bodyCtx), LogicalOperator.class);
+                bodyOperator = Assert.castUnchecked(visit(bodyCtx), LogicalOperator.class);
             } else {
-                body = getDelegate().getPlanGenerationContext().withDisabledLiteralProcessing(() ->
-                        Assert.castUnchecked(visit(bodyCtx), LogicalOperator.class));
+                bodyOperator = Assert.castUnchecked(
+                        getDelegate().getPlanGenerationContext().withDisabledLiteralProcessing(
+                                () -> visit(bodyCtx)), LogicalOperator.class);
             }
-            getDelegate().popPlanFragment();
-            sqlFunctionBuilder.setBody(body.getQuantifier().getRangesOver().get())
+            finalStepBuilder = sqlFunctionBodyStepBuilder.withBodyExpression(bodyOperator.getQuantifier().getRangesOver().get())
                     .setLiterals(getDelegate().getPlanGenerationContext().getLiterals());
-            return sqlFunctionBuilder.build();
         }
+
+        getDelegate().popPlanFragment();
+        return finalStepBuilder.build();
+    }
+
+    @Nonnull
+    @Override
+    public Expression visitUserDefinedMacroFunctionStatementBody(@Nonnull final RelationalParser.UserDefinedMacroFunctionStatementBodyContext ctx) {
+        return Assert.castUnchecked(visit(ctx.expression()), Expression.class);
     }
 
     @Override
     public LogicalOperator visitStatementBody(final RelationalParser.StatementBodyContext ctx) {
         return Assert.castUnchecked(visit(ctx.queryTerm()), LogicalOperator.class);
-    }
-
-    @Override
-    public LogicalOperator visitSqlReturnStatement(final RelationalParser.SqlReturnStatementContext ctx) {
-        return visitReturnValue(ctx.returnValue());
-    }
-
-    @Override
-    public LogicalOperator visitReturnValue(final RelationalParser.ReturnValueContext ctx) {
-        Assert.failUnchecked("scalar functions are not implemented");
-        return null;
     }
 
     @Override
@@ -732,10 +713,28 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
 
     @Override
     public DataType visitReturnsType(@Nonnull RelationalParser.ReturnsTypeContext ctx) {
-        if (ctx.returnsDataType != null) {
-            return visitColumnType(ctx.returnsDataType);
+        Assert.isNullUnchecked(ctx.returnsTableType(), ErrorCode.UNSUPPORTED_OPERATION,
+                "table return type is not supported");
+        return lookupType(ctx.columnType().customType, ctx.columnType().primitiveType(), true, ctx.ARRAY() != null);
+    }
+
+    @Nonnull
+    private DataType lookupType(@Nullable RelationalParser.UidContext customType,
+                                @Nullable RelationalParser.PrimitiveTypeContext primitiveTypeContext,
+                                boolean isNullable,
+                                boolean isRepeated) {
+        final var semanticAnalyzer = getDelegate().getSemanticAnalyzer();
+        final SemanticAnalyzer.ParsedTypeInfo typeInfo;
+        if (customType != null) {
+            final var columnType = visitUid(customType);
+            typeInfo = SemanticAnalyzer.ParsedTypeInfo.ofCustomType(columnType, isNullable, isRepeated);
+        } else if (primitiveTypeContext != null) {
+            typeInfo = SemanticAnalyzer.ParsedTypeInfo.ofPrimitiveType(primitiveTypeContext, isNullable, isRepeated);
+        } else {
+            throw new UnsupportedOperationException("unsupported type specification");
         }
-        throw new UnsupportedOperationException("table type is not supported");
+
+        return semanticAnalyzer.lookupType(typeInfo, metadataBuilder::findType);
     }
 
     // TODO: remove

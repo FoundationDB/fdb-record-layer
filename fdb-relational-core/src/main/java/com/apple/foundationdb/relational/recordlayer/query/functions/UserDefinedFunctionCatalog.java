@@ -85,13 +85,14 @@ final class UserDefinedFunctionCatalog {
                 unnamedArgumentsBuilder.add(argument.getUnderlying());
             }
         }
+
+        // These validations don't include checking if the type provided arguments matches the expected function
+        // parameter types or the provided values can be promoted to the expected types. Instead, this is delegated
+        // to the encapsulation logic.
         final var namedArguments = namedArgumentsBuilder.build();
         if (!namedArguments.isEmpty()) {
-            return function.validateCall(arguments.toNamedArgumentInvocation());
+            return function.validateCall(namedArguments);
         }
-        // todo: this should go throw validateCall for unnamed arguments, however that function is not considering
-        // proper type promotion, instead, we're delegating this logic to the actual encapsuation logic of each
-        // individual instance, therefore, we return the function as-is.
-        return Optional.of(function);
+        return function.validateCall(unnamedArgumentsBuilder.build());
     }
 }

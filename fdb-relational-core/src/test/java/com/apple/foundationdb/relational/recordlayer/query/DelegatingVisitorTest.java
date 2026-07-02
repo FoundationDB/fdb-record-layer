@@ -155,24 +155,24 @@ public class DelegatingVisitorTest {
     }
 
     @Test
-    void visitUserDefinedScalarFunctionStatementBodyTest() {
+    void visitUserDefinedMacroFunctionStatementBodyTest() {
         final var query = "AS testIdentifier";
         final MutableBoolean called = new MutableBoolean(false);
         final var visitor = new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, query, query, 42),
                 generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
             @Nonnull
             @Override
-            public Identifier visitUserDefinedScalarFunctionStatementBody(@Nonnull RelationalParser.UserDefinedScalarFunctionStatementBodyContext ctx) {
+            public Expression visitUserDefinedMacroFunctionStatementBody(@Nonnull RelationalParser.UserDefinedMacroFunctionStatementBodyContext ctx) {
                 called.setTrue();
-                return Identifier.of("testIdentifier");
+                return Expression.ofUnnamed(LiteralValue.ofScalar(42));
             }
         };
         final var delegatingVisitor = new DelegatingVisitor<>(visitor);
         final var routineBodyContext = parseQuery(query, RelationalParser::routineBody);
-        Assertions.assertThat(routineBodyContext).isInstanceOf(RelationalParser.UserDefinedScalarFunctionStatementBodyContext.class);
-        final var result = delegatingVisitor.visitUserDefinedScalarFunctionStatementBody(
-                (RelationalParser.UserDefinedScalarFunctionStatementBodyContext) routineBodyContext);
-        Assertions.assertThat(result).isEqualTo(Identifier.of("testIdentifier"));
+        Assertions.assertThat(routineBodyContext).isInstanceOf(RelationalParser.UserDefinedMacroFunctionStatementBodyContext.class);
+        final var result = delegatingVisitor.visitUserDefinedMacroFunctionStatementBody(
+                (RelationalParser.UserDefinedMacroFunctionStatementBodyContext) routineBodyContext);
+        Assertions.assertThat(result.getUnderlying()).isEqualTo(LiteralValue.ofScalar(42));
         Assertions.assertThat(called.booleanValue()).isTrue();
     }
 
@@ -631,5 +631,26 @@ public class DelegatingVisitorTest {
         Mockito.when(baseVisitor.visitIncarnationOption(context)).thenReturn(mockResult);
         final Object result = delegating.visitIncarnationOption(context);
         Assertions.assertThat(result).isSameAs(mockResult);
+    }
+
+    @Test
+    void visitNamedOrUnnamedFunctionArgs() {
+        final var query = "1, 2, 3";
+        final MutableBoolean called = new MutableBoolean(false);
+        final var visitor = new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, query, query, 42),
+                generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
+            @Nonnull
+            @Override
+            public Expressions visitNamedOrUnnamedFunctionArgs(@Nonnull RelationalParser.NamedOrUnnamedFunctionArgsContext context) {
+                called.setTrue();
+                return Expressions.ofSingle(Expression.ofUnnamed(LiteralValue.ofScalar(42)));
+            }
+        };
+        final var delegatingVisitor = new DelegatingVisitor<>(visitor);
+        final var routineBodyContext = parseQuery(query, RelationalParser::namedOrUnnamedFunctionArgs);
+        Assertions.assertThat(routineBodyContext).isInstanceOf(RelationalParser.NamedOrUnnamedFunctionArgsContext.class);
+        final var result = delegatingVisitor.visitNamedOrUnnamedFunctionArgs(routineBodyContext);
+        Assertions.assertThat(result.getSingleItem().getUnderlying()).isEqualTo(LiteralValue.ofScalar(42));
+        Assertions.assertThat(called.booleanValue()).isTrue();
     }
 }

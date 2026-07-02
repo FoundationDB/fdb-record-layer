@@ -256,7 +256,7 @@ public class SqlFunctionTest {
                 "CREATE TABLE T(a BIGINT, b BIGINT, primary key(a)) " +
                 "CREATE FUNCTION SQ1(IN Q BIGINT, IN R BIGINT) AS SELECT * FROM T WHERE b < Q " +
                 "CREATE FUNCTION SQ2(IN S BIGINT) AS SELECT * FROM SQ1('a', 'b') WHERE b < S"))
-                .hasErrorCode(ErrorCode.UNDEFINED_FUNCTION);
+                .hasErrorCode(ErrorCode.INVALID_ARGUMENT_FOR_FUNCTION);
     }
 
     @Test

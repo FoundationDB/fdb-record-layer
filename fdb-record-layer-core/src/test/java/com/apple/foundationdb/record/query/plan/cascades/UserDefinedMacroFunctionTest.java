@@ -27,11 +27,13 @@ import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -128,7 +130,7 @@ public class UserDefinedMacroFunctionTest {
         LiteralValue<Long> singleArg = new LiteralValue<>(longType, 42L);
 
         // Should throw exception because function expects 2 arguments but only 1 provided
-        Assertions.assertThrows(Exception.class, () -> {
+        Assertions.assertThrows(SemanticException.class, () -> {
             addFunction.encapsulate(ImmutableList.of(singleArg));
         });
     }
@@ -157,8 +159,7 @@ public class UserDefinedMacroFunctionTest {
     }
 
     @Test
-    void testEncapsulateNamedArgumentsNotSupported() {
-        // Test that named arguments are not supported
+    void testEncapsulateNamedArgumentsNotSupportedForFunctionInstanceWithoutNamedParameters() {
         Type longType = Type.primitiveType(Type.TypeCode.LONG);
         QuantifiedObjectValue param = QuantifiedObjectValue.of(CorrelationIdentifier.uniqueId(), longType);
 
@@ -166,9 +167,138 @@ public class UserDefinedMacroFunctionTest {
 
         LiteralValue<Long> argValue = new LiteralValue<>(longType, 42L);
 
-        // Should throw exception because named arguments are not supported
+        // Should throw exception because the function was instantiated without parameter names
         Assertions.assertThrows(Exception.class, () -> {
             identityFunction.encapsulate(ImmutableMap.of("param", argValue));
         });
+    }
+
+    @Test
+    void testEncapsulateSingleNamedArguments() {
+        Type longType = Type.primitiveType(Type.TypeCode.LONG);
+        QuantifiedObjectValue param = QuantifiedObjectValue.of(CorrelationIdentifier.uniqueId(), longType);
+
+        UserDefinedMacroFunction identityFunction = new UserDefinedMacroFunction(
+                "identity", ImmutableList.of(param), ImmutableList.of("param"),
+                ImmutableList.of(), param);
+
+        LiteralValue<Long> argValue = new LiteralValue<>(longType, 42L);
+
+        Assertions.assertEquals(argValue,
+                identityFunction.encapsulate(ImmutableMap.of("param", argValue)));
+    }
+
+    @Test
+    void testEncapsulateMultipleNamedArguments() {
+        Type longType = Type.primitiveType(Type.TypeCode.LONG);
+        QuantifiedObjectValue param1 = QuantifiedObjectValue.of(CorrelationIdentifier.uniqueId(), longType);
+        QuantifiedObjectValue param2 = QuantifiedObjectValue.of(CorrelationIdentifier.uniqueId(), longType);
+
+        final var bodyValue = RecordConstructorValue.ofUnnamed(ImmutableList.of(param1, param2));
+        UserDefinedMacroFunction createRecordFunction = new UserDefinedMacroFunction(
+                "createRecord", ImmutableList.of(param1, param2), ImmutableList.of("param1", "param2"),
+                ImmutableList.of(), bodyValue);
+
+        final LiteralValue<Long> param1Value = new LiteralValue<>(longType, 1L);
+        final LiteralValue<Long> param2Value = new LiteralValue<>(longType, 2L);
+
+        Assertions.assertEquals(RecordConstructorValue.ofUnnamed(ImmutableList.of(param1Value, param2Value)),
+                createRecordFunction.encapsulate(ImmutableMap.of("param1", param1Value, "param2", param2Value)));
+    }
+
+    @Test
+    void testEncapsulateWithDefaultUnnamedArguments() {
+        Type longType = Type.primitiveType(Type.TypeCode.LONG);
+        QuantifiedObjectValue param1 = QuantifiedObjectValue.of(CorrelationIdentifier.uniqueId(), longType);
+        QuantifiedObjectValue param2 = QuantifiedObjectValue.of(CorrelationIdentifier.uniqueId(), longType);
+
+        final List<Optional<Value>> defaultValues = ImmutableList.of(
+                Optional.empty(),
+                Optional.of(new LiteralValue<>(longType, 2L))
+        );
+        final var bodyValue = RecordConstructorValue.ofUnnamed(ImmutableList.of(param1, param2));
+        UserDefinedMacroFunction createRecordFunction = new UserDefinedMacroFunction(
+                "createRecordWithDefaults",
+                ImmutableList.of(param1, param2),
+                ImmutableList.of("param1", "param2"),
+                defaultValues,
+                bodyValue);
+        final var param1Value = new LiteralValue<>(longType, 42L);
+        Assertions.assertEquals(RecordConstructorValue.ofUnnamed(ImmutableList.of(param1Value, defaultValues.get(1).orElseThrow())),
+                createRecordFunction.encapsulate(ImmutableList.of(param1Value)));
+    }
+
+    @Test
+    void testEncapsulateWithDefaultNamedArguments() {
+        Type longType = Type.primitiveType(Type.TypeCode.LONG);
+        QuantifiedObjectValue param1 = QuantifiedObjectValue.of(CorrelationIdentifier.uniqueId(), longType);
+        QuantifiedObjectValue param2 = QuantifiedObjectValue.of(CorrelationIdentifier.uniqueId(), longType);
+
+        final ImmutableList<Optional<Value>> defaultValues = ImmutableList.of(
+                Optional.of(new LiteralValue<>(longType, 1L)),
+                Optional.empty()
+        );
+        final var bodyValue = RecordConstructorValue.ofUnnamed(ImmutableList.of(param1, param2));
+        UserDefinedMacroFunction createRecordFunction = new UserDefinedMacroFunction(
+                "createRecordWithDefaults",
+                ImmutableList.of(param1, param2),
+                ImmutableList.of("param1", "param2"),
+                defaultValues,
+                bodyValue);
+
+        final var param2Value = new LiteralValue<>(longType, 42L);
+        final var expectedValue = RecordConstructorValue.ofUnnamed(ImmutableList.of(defaultValues.get(0).orElseThrow(), param2Value));
+        Assertions.assertEquals(expectedValue,
+                createRecordFunction.encapsulate(ImmutableMap.of("param2", param2Value)));
+    }
+
+    @Test
+    void testEncapsulateWithUnnamedArgumentsWithMissingRequiredParameter() {
+        Type longType = Type.primitiveType(Type.TypeCode.LONG);
+        QuantifiedObjectValue param1 = QuantifiedObjectValue.of(CorrelationIdentifier.uniqueId(), longType);
+        QuantifiedObjectValue param2 = QuantifiedObjectValue.of(CorrelationIdentifier.uniqueId(), longType);
+
+        final List<Optional<Value>> defaultValues = ImmutableList.of(
+                Optional.of(new LiteralValue<>(longType, 1L)),
+                Optional.empty()
+        );
+        final var bodyValue = RecordConstructorValue.ofUnnamed(ImmutableList.of(param1, param2));
+        UserDefinedMacroFunction createRecordFunction = new UserDefinedMacroFunction(
+                "createRecordWithDefaults",
+                ImmutableList.of(param1, param2),
+                ImmutableList.of("param1", "param2"),
+                defaultValues,
+                bodyValue);
+
+        final var actualException = Assertions.assertThrows(SemanticException.class, () ->
+                createRecordFunction.encapsulate(ImmutableList.of(defaultValues.get(0).orElseThrow())));
+        Assertions.assertEquals(
+                SemanticException.ErrorCode.FUNCTION_UNDEFINED_FOR_GIVEN_ARGUMENT_TYPES,
+                actualException.getErrorCode());
+    }
+
+    @Test
+    void testEncapsulateWithNamedArgumentsWithMissingRequiredParameter() {
+        Type longType = Type.primitiveType(Type.TypeCode.LONG);
+        QuantifiedObjectValue param1 = QuantifiedObjectValue.of(CorrelationIdentifier.uniqueId(), longType);
+        QuantifiedObjectValue param2 = QuantifiedObjectValue.of(CorrelationIdentifier.uniqueId(), longType);
+
+        final List<Optional<Value>> defaultValues = ImmutableList.of(
+                Optional.empty(),
+                Optional.of(new LiteralValue<>(longType, 2L))
+        );
+        final var bodyValue = RecordConstructorValue.ofUnnamed(ImmutableList.of(param1, param2));
+        UserDefinedMacroFunction createRecordFunction = new UserDefinedMacroFunction(
+                "createRecordWithDefaults",
+                ImmutableList.of(param1, param2),
+                ImmutableList.of("param1", "param2"),
+                defaultValues,
+                bodyValue);
+
+        final var actualException = Assertions.assertThrows(SemanticException.class, () ->
+                createRecordFunction.encapsulate(ImmutableMap.of("param2", defaultValues.get(1).orElseThrow())));
+        Assertions.assertEquals(
+                SemanticException.ErrorCode.FUNCTION_UNDEFINED_FOR_GIVEN_ARGUMENT_TYPES,
+                actualException.getErrorCode());
     }
 }

@@ -36,22 +36,19 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.TableFuncti
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
-import com.apple.foundationdb.record.query.plan.cascades.values.PromoteValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RangeValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.StreamingValue;
-import com.apple.foundationdb.record.query.plan.cascades.values.ThrowsValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.ToUniqueAliasesTranslationMap;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
-import com.apple.foundationdb.relational.recordlayer.query.Expression;
 import com.apple.foundationdb.relational.recordlayer.query.Expressions;
 import com.apple.foundationdb.relational.recordlayer.query.Literals;
 import com.apple.foundationdb.relational.util.Assert;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Streams;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -78,7 +75,7 @@ public class CompiledSqlFunction extends UserDefinedFunction implements WithPlan
 
     protected CompiledSqlFunction(@Nonnull final String functionName, @Nonnull final List<String> parameterNames,
                                   @Nonnull final List<Type> parameterTypes,
-                                  @Nonnull final List<Optional<? extends Typed>> parameterDefaults,
+                                  @Nonnull final List<Optional<Value>> parameterDefaults,
                                   @Nonnull final Optional<CorrelationIdentifier> parametersCorrelation,
                                   @Nonnull final RelationalExpression body,
                                   @Nonnull final Literals literals) {
@@ -103,29 +100,7 @@ public class CompiledSqlFunction extends UserDefinedFunction implements WithPlan
                     "unexpected parameterless function invocation with non-zero arguments");
             return body;
         }
-        final var parametersCount = getParameterNames().size();
-        Assert.thatUnchecked(arguments.size() <= parametersCount, ErrorCode.UNDEFINED_FUNCTION,
-                () -> "could not find function matching the provided arguments");
-        for (var missingArgIndex = arguments.size(); missingArgIndex < parametersCount; missingArgIndex++) {
-            Assert.thatUnchecked(hasDefaultValue(missingArgIndex), ErrorCode.UNDEFINED_FUNCTION,
-                    () -> "could not find function matching the provided arguments");
-        }
-        final var resultBuilder = GraphExpansion.builder();
-        for (var paramIdx = 0; paramIdx < parametersCount; paramIdx++) {
-            Value argumentValue;
-            if (paramIdx >= arguments.size()) {
-                argumentValue = Assert.castUnchecked(Assert.optionalUnchecked(getDefaultValue(paramIdx)), Value.class);
-            } else {
-                final var providedArgValue = Assert.castUnchecked(arguments.get(paramIdx), Value.class);
-                final var isPromotionNeeded = PromoteValue.isPromotionNeeded(providedArgValue.getResultType(), computeParameterType(paramIdx));
-                Assert.thatUnchecked(!isPromotionNeeded || PromoteValue.isPromotable(providedArgValue.getResultType(), computeParameterType(paramIdx)),
-                        ErrorCode.UNDEFINED_FUNCTION, () -> "could not find function matching the provided arguments");
-                argumentValue = PromoteValue.inject(providedArgValue, computeParameterType(paramIdx));
-            }
-            resultBuilder.addResultColumn(Column.of(Optional.of(getParameterName(paramIdx)), argumentValue));
-        }
-        final var argumentsExpression = resultBuilder.addQuantifier(rangeOfOnePlan()).build().buildSelect();
-        return constructTableFunctionExpression(argumentsExpression);
+        return encapsulateFromArgumentValues(resolveParameterValuesFromArguments(arguments));
     }
 
     @Nonnull
@@ -137,22 +112,17 @@ public class CompiledSqlFunction extends UserDefinedFunction implements WithPlan
                     "unexpected parameterless function invocation with non-zero arguments");
             return body;
         }
-        Assert.thatUnchecked(hasNamedParameters(), ErrorCode.INTERNAL_ERROR,
-                "unexpected invocation of function with named arguments");
+        return encapsulateFromArgumentValues(resolveParameterValuesFromArguments(namedArguments));
+    }
+
+    private RelationalExpression encapsulateFromArgumentValues(@Nonnull final List<Value> resolvedArgumentValues) {
         final var resultBuilder = GraphExpansion.builder();
-        for (final var name : getParameterNames()) {
-            Value argumentValue;
-            if (namedArguments.containsKey(name)) {
-                argumentValue = Assert.castUnchecked(namedArguments.get(name), Value.class);
-            } else {
-                argumentValue = Assert.castUnchecked(Assert.optionalUnchecked(getDefaultValue(name), ErrorCode.UNDEFINED_FUNCTION,
-                        () -> "could not find function matching the provided arguments"), Value.class);
-            }
-            final var isPromotionNeeded = PromoteValue.isPromotionNeeded(argumentValue.getResultType(), computeParameterType(name));
-            Assert.thatUnchecked(!isPromotionNeeded || PromoteValue.isPromotable(argumentValue.getResultType(), computeParameterType(name)),
-                    ErrorCode.UNDEFINED_FUNCTION, () -> "could not find function matching the provided arguments");
-            final var maybePromotedArgument = PromoteValue.inject(argumentValue, computeParameterType(name));
-            resultBuilder.addResultColumn(Column.of(Optional.of(name), maybePromotedArgument));
+        for (var paramIdx = 0; paramIdx < getParameterNames().size(); paramIdx++) {
+            resultBuilder.addResultColumn(Column.of(
+                    Type.Record.Field.of(
+                            computeParameterType(paramIdx),
+                            Optional.of(getParameterName(paramIdx))),
+                    resolvedArgumentValues.get(paramIdx)));
         }
         final var argumentsExpression = resultBuilder.addQuantifier(rangeOfOnePlan()).build().buildSelect();
         return constructTableFunctionExpression(argumentsExpression);
@@ -200,105 +170,50 @@ public class CompiledSqlFunction extends UserDefinedFunction implements WithPlan
     }
 
     /**
-     * Creates a new builder of {@link SqlFunctionCatalog}.
-     *
-     * @return new builder of {@link SqlFunctionCatalog}.
+     * The {@link UserDefinedFunctionBuilder.FinalStepBuilder} that instantiates a {@link CompiledSqlFunction}.
      */
-    @Nonnull
-    public static StepBuilder newBuilder() {
-        return new StepBuilder();
-    }
-
-    public static final class StepBuilder {
-        private final ImmutableList.Builder<Expression> parametersBuilder;
-        private String name;
-
-        private StepBuilder() {
-            this.parametersBuilder = ImmutableList.builder();
-        }
-
-        public static final class FinalBuilder {
-            @Nonnull
-            private final StepBuilder outerBuilder;
-            private RelationalExpression body;
-            private Quantifier.ForEach qun;
-            private final Expressions parameters;
-            private Literals literals;
-
-            private FinalBuilder(@Nonnull final StepBuilder outerBuilder, @Nonnull final Expressions parameters) {
-                this.outerBuilder = outerBuilder;
-                this.parameters = parameters;
-                this.literals = Literals.empty();
-            }
-
-            @Nonnull
-            public Optional<Quantifier> getParametersCorrelation() {
-                if (parameters.isEmpty()) {
-                    return Optional.empty();
-                }
-                if (qun == null) {
-                    final var select = GraphExpansion.builder()
-                            .addAllResultColumns(parameters.underlyingAsColumns())
-                            .build().buildSelect();
-                    qun = Quantifier.forEach(Reference.initialOf(select));
-                }
-                return Optional.of(qun);
-            }
-
-            @Nonnull
-            public FinalBuilder setBody(@Nonnull final RelationalExpression body) {
-                this.body = body;
-                return this;
-            }
-
-            @Nonnull
-            public FinalBuilder setLiterals(@Nonnull final Literals literals) {
-                this.literals = literals;
-                return this;
-            }
-
-            @Nonnull
-            public CompiledSqlFunction build() {
-                final List<Optional<? extends Typed>> defaultsValuesList = Streams.stream(parameters.underlying())
-                        .map(v -> v instanceof ThrowsValue ? Optional.<Value>empty() : Optional.of(v))
-                        .collect(ImmutableList.toImmutableList());
-                return new CompiledSqlFunction(outerBuilder.name, parameters.argumentNames(), parameters.underlyingTypes(),
-                        defaultsValuesList, getParametersCorrelation().map(Quantifier::getAlias), body, literals);
-            }
-        }
-
+    static final class CompiledSQLFunctionStepBuilder implements UserDefinedFunctionBuilder.FinalStepBuilder {
         @Nonnull
-        public StepBuilder setReturnType(@Nonnull final Type returnType) {
-            // todo: if return type is defined, use it to perform necessary explicit promotions, if any.
-            throw new UnsupportedOperationException("unsupported explicit return type");
-        }
-
+        private final String name;
         @Nonnull
-        public StepBuilder addParameter(@Nonnull final Expression expression) {
-            parametersBuilder.add(expression);
-            return this;
-        }
-
+        private final RelationalExpression body;
         @Nonnull
-        public StepBuilder addAllParameters(@Nonnull final Expressions expressions) {
-            parametersBuilder.addAll(expressions);
-            return this;
-        }
+        private final Expressions parameters;
+        private final List<Optional<Value>> parameterDefaults;
+        private final Quantifier.ForEach parametersQuantifier;
+        private Literals literals;
 
-        @Nonnull
-        public StepBuilder setName(@Nonnull final String name) {
+        CompiledSQLFunctionStepBuilder(@Nonnull final String name,
+                                       @Nonnull final RelationalExpression body,
+                                       @Nonnull final Expressions parameters,
+                                       @Nonnull final List<Optional<Value>> parameterDefaults,
+                                       @Nullable final Quantifier.ForEach parametersQuantifier,
+                                       @Nullable final Type returnType) {
+            Assert.isNullUnchecked(returnType, "unsupported explicit return type for compiled SQL function");
+
             this.name = name;
+            this.body = body;
+            this.parameters = parameters;
+            this.parameterDefaults = parameterDefaults;
+            this.parametersQuantifier = parametersQuantifier;
+            this.literals = Literals.empty();
+        }
+
+        @Nonnull
+        @Override
+        public UserDefinedFunctionBuilder.FinalStepBuilder setLiterals(@Nonnull final Literals literals) {
+            this.literals = literals;
             return this;
         }
 
         @Nonnull
-        public FinalBuilder seal() {
+        @Override
+        public UserDefinedFunction build() {
             Assert.notNullUnchecked(name);
-            final var parameters = Expressions.of(parametersBuilder.build());
-            // todo: support unnamed parameters.
-            Assert.thatUnchecked(parameters.allNamedArguments() /*|| parameters.allUnnamed()*/, ErrorCode.UNSUPPORTED_OPERATION,
-                    "unnamed arguments is not supported");
-            return new FinalBuilder(this, parameters);
+            Assert.notNullUnchecked(parameterDefaults);
+            Assert.notNullUnchecked(parameters);
+            return new CompiledSqlFunction(name, parameters.argumentNames(), parameters.underlyingTypes(),
+                    parameterDefaults, Optional.ofNullable(parametersQuantifier).map(Quantifier::getAlias), body, literals);
         }
     }
 }
