@@ -1,5 +1,5 @@
 /*
- * CollateFunctionKeyExpressionTest.java
+ * CollateFunctionKeyExpressionTestBase.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -21,44 +21,41 @@
 package com.apple.foundationdb.record.metadata.expressions;
 
 import com.apple.foundationdb.record.TestRecords1Proto;
+import com.apple.foundationdb.record.UnstoredRecord;
 import com.apple.foundationdb.record.metadata.Key;
 import com.google.common.collect.Iterables;
 import com.google.protobuf.Message;
 import org.junit.jupiter.api.Test;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.List;
 
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.function;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.value;
-import static com.apple.foundationdb.record.metadata.KeyExpressionTest.evaluate;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 
 /**
- * Tests for {@link CollateFunctionKeyExpression}.
+ * Test base for {@link CollateFunctionKeyExpression}. Concrete subclasses supply a
+ * collator function name (e.g. JRE-based or ICU-based) and inherit the shared
+ * {@link Test @Test} methods defined here.
  */
-public abstract class CollateFunctionKeyExpressionTest {
+public abstract class CollateFunctionKeyExpressionTestBase {
 
     @Nonnull
     protected final String collateFunctionName;
 
-    protected CollateFunctionKeyExpressionTest(@Nonnull String collateFunctionName) {
+    protected CollateFunctionKeyExpressionTestBase(@Nonnull String collateFunctionName) {
         this.collateFunctionName = collateFunctionName;
     }
 
-    /**
-     * Test with JRE collators.
-     */
-    @SuppressWarnings("checkstyle:abbreviationaswordinname") // Allow JRE here.
-    public static class CollateFunctionKeyExpressionJRETest extends CollateFunctionKeyExpressionTest {
-        public CollateFunctionKeyExpressionJRETest() {
-            super(CollateFunctionKeyExpressionFactoryJRE.FUNCTION_NAME);
-        }
+    private static List<Key.Evaluated> evaluate(@Nonnull KeyExpression expression, @Nullable Message record) {
+        return expression.evaluate(new UnstoredRecord<>(record));
     }
 
     protected static final KeyExpression STR_FIELD = field("str_value_indexed");
