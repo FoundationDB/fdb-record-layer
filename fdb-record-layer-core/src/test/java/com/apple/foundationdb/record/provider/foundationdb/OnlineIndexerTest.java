@@ -48,6 +48,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -82,11 +83,7 @@ public abstract class OnlineIndexerTest {
 
     @Nonnull
     public IndexMaintenanceFilter getIndexMaintenanceFilter() {
-        if (indexMaintenanceFilter == null) {
-            return IndexMaintenanceFilter.NORMAL;
-        } else {
-            return indexMaintenanceFilter;
-        }
+        return Objects.requireNonNullElse(indexMaintenanceFilter, IndexMaintenanceFilter.NORMAL);
     }
 
     @BeforeEach
@@ -229,7 +226,7 @@ public abstract class OnlineIndexerTest {
                         .setNumValue3Indexed((int) val * 77)
                         .setNumValueUnique((int)val * 1139)
                         .build()
-        ).collect(Collectors.toList());
+        ).toList();
 
         try (FDBRecordContext context = openContext())  {
             records.forEach(recordStore::saveRecord);

@@ -20,18 +20,23 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
+import com.apple.foundationdb.record.IndexBuildProto;
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexTypes;
+import com.apple.foundationdb.record.provider.foundationdb.queue.PendingWritesQueue;
+import com.apple.foundationdb.tuple.TupleHelpers;
+import com.google.protobuf.Message;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Collectors;
 
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -96,6 +101,29 @@ class OnlineIndexerPendingWriteQueueTest extends OnlineIndexerTest {
         // The saves were deferred to the queue, not written to the index.
         assertEquals(queuedRecNos.size(), writeTimer.getCount(FDBStoreTimer.Counts.PENDING_WRITES_QUEUE_WRITE));
 
+        // The pending writes queue should now hold exactly the deferred records (and nothing else), before the drain.
+        try (FDBRecordContext context = openContext()) {
+            final PendingWritesQueue<IndexBuildProto.PendingWritesQueueEntry> queue =
+                    PendingWriteQueueIndexingFactory.getIndexingQueue(recordStore, index);
+            final Long queueSize = queue.getQueueSizeNoConflict(context).join();
+            assertEquals((long)queuedRecNos.size(), queueSize == null ? 0L : queueSize.longValue(),
+                    "the queue size counter should reflect every deferred write");
+
+            final List<Long> queuedRecordNos = queue
+                    .getQueueCursor(context, ScanProperties.FORWARD_SCAN, null)
+                    .asList().join().stream()
+                    .map(entry -> {
+                        final IndexBuildProto.PendingWritesQueueEntry payload = entry.getPayload();
+                        final Message record = recordStore.getSerializer().deserialize(recordStore.getRecordMetaData(),
+                                TupleHelpers.EMPTY, payload.getNewRecord().toByteArray(), recordStore.getTimer());
+                        return (Long)record.getField(record.getDescriptorForType().findFieldByName("rec_no"));
+                    })
+                    .sorted()
+                    .toList();
+            assertEquals(queuedRecNos.stream().map(Integer::longValue).sorted().collect(Collectors.toList()), queuedRecordNos,
+                    "the queue should contain exactly the deferred records");
+            context.commit();
+        }
 
         pauseSemaphore.release();
         indexerThread.join();

@@ -70,6 +70,7 @@ import com.apple.foundationdb.record.provider.foundationdb.IndexScanBounds;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanRange;
 import com.apple.foundationdb.record.provider.foundationdb.IndexingSubspaces;
 import com.apple.foundationdb.record.provider.foundationdb.KeyValueCursor;
+import com.apple.foundationdb.record.provider.foundationdb.PendingWriteQueueIndexingFactory;
 import com.apple.foundationdb.record.provider.foundationdb.indexing.IndexingRangeSet;
 import com.apple.foundationdb.record.provider.foundationdb.queue.PendingWritesQueue;
 import com.apple.foundationdb.record.query.QueryToKeyMatcher;
@@ -352,13 +353,12 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
         if (newRecord != null) {
             builder.setNewRecord(serializeRecord(newRecord, serializer));
         }
-        getQueue().enqueue(state.context, builder.build(), state.store.getIncarnation());
-        return AsyncUtil.DONE;
+        return getQueue().enqueue(state.context, builder.build(), state.store.getIncarnation());
     }
 
     @Nonnull
     private PendingWritesQueue<IndexBuildProto.PendingWritesQueueEntry> getQueue() {
-        return PendingWritesQueue.getIndexingQueue(state.store, state.index);
+        return PendingWriteQueueIndexingFactory.getIndexingQueue(state.store, state.index);
     }
 
     @Nonnull

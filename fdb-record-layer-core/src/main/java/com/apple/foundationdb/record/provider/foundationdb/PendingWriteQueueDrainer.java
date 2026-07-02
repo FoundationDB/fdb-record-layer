@@ -108,7 +108,7 @@ public class PendingWriteQueueDrainer {
 
     @Nonnull
     private PendingWritesQueue<IndexBuildProto.PendingWritesQueueEntry> getQueue(final FDBRecordStore store) {
-        return PendingWritesQueue.getIndexingQueue(store, index);
+        return PendingWriteQueueIndexingFactory.getIndexingQueue(store, index);
     }
 
     /**
