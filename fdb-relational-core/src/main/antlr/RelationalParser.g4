@@ -247,7 +247,7 @@ viewDefinition
     ;
 
 queryDefinition
-    : QUERY queryName=uid AS storedQuery=query
+    : QUERY queryName=uid (WITH createTempFunction)* AS storedQuery=query
     ;
 
 tempSqlInvokedFunction

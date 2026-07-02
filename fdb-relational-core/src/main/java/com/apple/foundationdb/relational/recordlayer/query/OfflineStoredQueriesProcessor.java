@@ -26,10 +26,15 @@ import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.catalog.StoreCatalog;
+import com.apple.foundationdb.relational.api.ddl.ConstantAction;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
+import com.apple.foundationdb.relational.api.metadata.StoredQuery;
 import com.apple.foundationdb.relational.api.metrics.MetricCollector;
 import com.apple.foundationdb.relational.api.metrics.RelationalMetric;
 import com.apple.foundationdb.relational.recordlayer.catalog.systables.SystemTable;
+import com.apple.foundationdb.relational.recordlayer.ddl.AbstractMetadataOperationsFactory;
+import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerInvokedRoutine;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.metric.StoreTimerMetricCollector;
 import com.apple.foundationdb.relational.recordlayer.query.cache.RelationalPlanCache;
@@ -38,8 +43,10 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 /**
@@ -50,15 +57,18 @@ import java.util.Optional;
  * tight to respect FDB's transaction time bound):</p>
  *
  * <ol>
- *   <li>{@link #getSchemaTemplates(StoreCatalog, Transaction)} — runs inside a caller-supplied
+ *   <li>{@link #getSchemaTemplates(StoreCatalog, Transaction)} &mdash; runs inside a caller-supplied
  *       transaction. Reads templates from the catalog and returns those with non-empty
  *       {@code storedQueries}. Catalog-read failures are logged at {@code ERROR} level and an
  *       empty list is returned, so the caller never sees a checked exception from this method.</li>
- *   <li>{@link #planStoredQueriesForSchemaTemplates(RelationalPlanCache, MetricRegistry, List)} —
+ *   <li>{@link #planStoredQueriesForSchemaTemplates(RelationalPlanCache, MetricRegistry, List)} &mdash;
  *       offline (no FDB transaction). For each template, plans every stored query and inserts the
- *       resulting plans into the cache. Each per-template and per-query failure is logged at
- *       {@code ERROR} level, and is also reflected in the {@code OFFLINE_STORED_QUERIES_*_FAILED}
- *       counters and the summary {@code INFO} log line.</li>
+ *       resulting plans into the cache. Each {@link StoredQuery}'s {@code CREATE [OR REPLACE]?
+ *       TEMPORARY FUNCTION ...} declarations are compiled first via {@link MetadataTempFuncFactory}
+ *       so the running schema template carries those routines when the SELECT body is planned.
+ *       Each per-template and per-query failure is logged at {@code ERROR} level, and is also
+ *       reflected in the {@code OFFLINE_STORED_QUERIES_*_FAILED} counters and the summary
+ *       {@code INFO} log line.</li>
  * </ol>
  */
 @API(API.Status.EXPERIMENTAL)
@@ -102,12 +112,7 @@ public final class OfflineStoredQueriesProcessor {
      *
      * <p>Stored queries are planned with {@link Options#NONE}, i.e. the planner's default
      * options &mdash; this includes the default case-sensitivity setting
-     * ({@link Options.Name#CASE_SENSITIVE_IDENTIFIERS}) and every other planner-tunable. The
-     * planned-and-cached plans therefore reflect the engine defaults, not any per-connection or
-     * per-session overrides; adopters whose runtime queries depend on non-default options will
-     * not see this warm-up cache hit. Allowing callers to inject their own {@link Options} is a
-     * deliberate non-goal today but a likely future extension &mdash; if/when we do, this method
-     * will take an {@code Options} parameter and the planning loop will thread it through.</p>
+     * ({@link Options.Name#CASE_SENSITIVE_IDENTIFIERS}) and every other planner-tunable.</p>
      *
      * <p>Failures are never propagated &mdash; a bad template or query must not abort startup.
      * Each failure is logged at {@code ERROR} level, and is also surfaced as a metric:
@@ -124,7 +129,7 @@ public final class OfflineStoredQueriesProcessor {
         try {
             counts = metricCollector.clock(RelationalMetric.RelationalEvent.OFFLINE_STORED_QUERIES_WARM_UP,
                     () -> planStoredQueriesForSchemaTemplatesAll(cache, metricCollector, templates));
-        } catch (RelationalException e) {
+        } catch (RelationalException | RuntimeException e) {
             if (logger.isErrorEnabled()) {
                 logger.error(KeyValueLogMessage.of("OfflineStoredQueriesProcessor failed unexpectedly"), e);
             }
@@ -134,6 +139,8 @@ public final class OfflineStoredQueriesProcessor {
         metricCollector.increment(RelationalMetric.RelationalCount.OFFLINE_STORED_QUERIES_TEMPLATES_FAILED, counts.templatesFailed);
         metricCollector.increment(RelationalMetric.RelationalCount.OFFLINE_STORED_QUERIES_QUERIES_PROCESSED, counts.queriesProcessed);
         metricCollector.increment(RelationalMetric.RelationalCount.OFFLINE_STORED_QUERIES_QUERIES_FAILED, counts.queriesFailed);
+        metricCollector.increment(RelationalMetric.RelationalCount.OFFLINE_STORED_QUERIES_TEMP_FUNCTIONS_PROCESSED, counts.tempFunctionsProcessed);
+        metricCollector.increment(RelationalMetric.RelationalCount.OFFLINE_STORED_QUERIES_TEMP_FUNCTIONS_FAILED, counts.tempFunctionsFailed);
         if (logger.isInfoEnabled()) {
             long durationMicros = -1L;
             try {
@@ -147,6 +154,8 @@ public final class OfflineStoredQueriesProcessor {
                     "templatesFailed", counts.templatesFailed,
                     "storedQueriesProcessed", counts.queriesProcessed,
                     "storedQueriesFailed", counts.queriesFailed,
+                    "tempFunctionsProcessed", counts.tempFunctionsProcessed,
+                    "tempFunctionsFailed", counts.tempFunctionsFailed,
                     "durationMicros", durationMicros));
         }
     }
@@ -157,32 +166,87 @@ public final class OfflineStoredQueriesProcessor {
                                                                  @Nonnull final List<RecordLayerSchemaTemplate> templates) {
         final Counts counts = new Counts();
         for (final RecordLayerSchemaTemplate template : templates) {
-            try {
-                final int queriesProcessed = planStoredQueriesForSchemaTemplate(cache, metricCollector, template);
-                counts.templatesProcessed++;
-                counts.queriesProcessed += queriesProcessed;
-                counts.queriesFailed += template.getStoredQueries().size() - queriesProcessed;
-            } catch (RelationalException | RuntimeException e) {
-                counts.templatesFailed++;
-                if (logger.isErrorEnabled()) {
-                    logger.error(KeyValueLogMessage.of("OfflineStoredQueriesProcessor failed to process schema template",
-                            "schemaTemplate", template.getName() + ":" + template.getVersion()), e);
-                }
-            }
+            planStoredQueriesForSchemaTemplate(cache, metricCollector, template, counts);
+            counts.templatesProcessed++;
         }
         return counts;
     }
 
-    private static int planStoredQueriesForSchemaTemplate(@Nonnull final RelationalPlanCache cache,
-                                                          @Nonnull final MetricCollector metricCollector,
-                                                          @Nonnull final RecordLayerSchemaTemplate template) throws RelationalException {
-        final var generator = PlanGenerator.create(
-                Optional.of(cache),
-                template,
-                new RecordStoreState(null, null),
-                metricCollector,
-                Options.NONE);
-        return generator.planStoredQueries();
+    /**
+     * Plans every stored query on {@code template}. For each {@link StoredQuery} the temp-function
+     * declarations are compiled first (via {@link MetadataTempFuncFactory}) so the running
+     * template carries them when the SELECT body is planned. Per-query and per-temp-function
+     * outcomes are reported by {@link #planStoredQuery} directly into {@code counts}.
+     */
+    private static void planStoredQueriesForSchemaTemplate(@Nonnull final RelationalPlanCache cache,
+                                                           @Nonnull final MetricCollector metricCollector,
+                                                           @Nonnull final RecordLayerSchemaTemplate template,
+                                                           @Nonnull final Counts counts) {
+        final String templateKey = template.getName() + ":" + template.getVersion();
+        for (final var entry : template.getStoredQueries().entrySet()) {
+            planStoredQuery(cache, metricCollector, template, templateKey, entry.getKey(), entry.getValue(), counts);
+        }
+    }
+
+    /**
+     * Plans one stored query: first each {@code CREATE [OR REPLACE]? TEMPORARY FUNCTION ...}
+     * declaration (folding the captured routine back into the template), then the SELECT body
+     * with the cache wired up. Updates {@code counts} as follows:
+     * <ul>
+     *   <li>Each temp function that plans successfully bumps {@code tempFunctionsProcessed}.</li>
+     *   <li>A temp function that fails to plan bumps {@code tempFunctionsFailed} and
+     *       {@code queriesFailed}; the rest of this stored query is skipped.</li>
+     *   <li>The SELECT body planning bumps {@code queriesProcessed} on success or
+     *       {@code queriesFailed} on failure.</li>
+     * </ul>
+     * Planning errors are caught and logged inside {@code getPlan}'s {@code finally} block; this
+     * method never propagates them &mdash; both {@link RelationalException} and unchecked
+     * {@link RuntimeException} (e.g. {@code UncheckedRelationalException}) from {@code getPlan}
+     * are swallowed so one bad query cannot abort the enclosing template's iteration.
+     */
+    private static void planStoredQuery(@Nonnull final RelationalPlanCache cache,
+                                        @Nonnull final MetricCollector metricCollector,
+                                        @Nonnull final RecordLayerSchemaTemplate template,
+                                        @Nonnull final String templateKey,
+                                        @Nonnull final String storedQueryName,
+                                        @Nonnull final StoredQuery storedQuery,
+                                        @Nonnull final Counts counts) {
+        final var tempFuncFactory = new MetadataTempFuncFactory();
+        RecordLayerSchemaTemplate currentTemplate = template;
+
+        for (final var tempFunc : storedQuery.getTempFunctions()) {
+            try {
+                PlanGenerator.create(currentTemplate, tempFuncFactory, metricCollector, Options.NONE)
+                        .getPlan(tempFunc, Map.of(
+                                "schemaTemplate", templateKey,
+                                "storedQueryName", storedQueryName,
+                                "tempFunction", tempFunc));
+                currentTemplate = tempFuncFactory.updateTemplate(currentTemplate);
+                counts.tempFunctionsProcessed++;
+            } catch (RelationalException | RuntimeException e) {
+                // error already logged inside getPlan's finally
+                counts.tempFunctionsFailed++;
+                counts.queriesFailed++;
+                return;
+            }
+        }
+        try {
+            final var sql = storedQuery.getQuery();
+            PlanGenerator.create(
+                            Optional.of(cache),
+                            currentTemplate,
+                            new RecordStoreState(null, null),
+                            metricCollector,
+                            Options.NONE)
+                    .getPlan(sql, Map.of(
+                            "schemaTemplate", templateKey,
+                            "storedQueryName", storedQueryName,
+                            "storedQuerySql", sql));
+            counts.queriesProcessed++;
+        } catch (RelationalException | RuntimeException e) {
+            // error already logged inside getPlan's finally
+            counts.queriesFailed++;
+        }
     }
 
     private static final class Counts {
@@ -190,5 +254,46 @@ public final class OfflineStoredQueriesProcessor {
         int templatesFailed;
         int queriesProcessed;
         int queriesFailed;
+        int tempFunctionsProcessed;
+        int tempFunctionsFailed;
+    }
+
+    /**
+     * Offline-path factory for {@code CREATE TEMPORARY FUNCTION ...} compilation.
+     *
+     * <p>Each compile of a temp-function clause captures the resulting routine into the
+     * {@code invokedRoutine} field. The caller folds it back into the running schema template
+     * via {@link #updateTemplate(RecordLayerSchemaTemplate)} after planning, so the next
+     * iteration (and the final SELECT plan) sees the new routine.
+     *
+     * <p>{@link com.apple.foundationdb.relational.recordlayer.query.visitors.DdlVisitor} invokes
+     * {@link #getCreateTemporaryFunctionConstantAction} during plan generation. The returned
+     * {@link ConstantAction} is intentionally a no-op &mdash; there is no transaction to mutate
+     * in the offline path; the side-effect is applied via {@link #updateTemplate}.
+     */
+    private static final class MetadataTempFuncFactory extends AbstractMetadataOperationsFactory {
+        @Nullable
+        private RecordLayerInvokedRoutine invokedRoutine;
+
+        @Nonnull
+        @Override
+        public ConstantAction getCreateTemporaryFunctionConstantAction(@Nonnull final SchemaTemplate templateArg,
+                                                                       final boolean throwIfExists,
+                                                                       @Nonnull final RecordLayerInvokedRoutine invokedRoutine) {
+            this.invokedRoutine = invokedRoutine;
+            return txn -> {
+                // no-op: offline path applies its side-effect via updateTemplate()
+            };
+        }
+
+        @Nonnull
+        RecordLayerSchemaTemplate updateTemplate(@Nonnull final RecordLayerSchemaTemplate template) {
+            final var routine = this.invokedRoutine;
+            this.invokedRoutine = null;
+            if (routine == null) {
+                return template;
+            }
+            return template.toBuilder().replaceInvokedRoutine(routine).build();
+        }
     }
 }

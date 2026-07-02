@@ -421,7 +421,13 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
                 final var start = queryCtx.storedQuery.start.getStartIndex();
                 final var stop = queryCtx.storedQuery.stop.getStopIndex() + 1;
                 final var queryString = sourceText.substring(start, stop);
-                metadataBuilder.addStoredQuery(name, queryString);
+                final List<String> tempFunctionTexts = new ArrayList<>();
+                for (final var tempCtx : queryCtx.createTempFunction()) {
+                    final var tStart = tempCtx.start.getStartIndex();
+                    final var tStop = tempCtx.stop.getStopIndex() + 1;
+                    tempFunctionTexts.add(sourceText.substring(tStart, tStop));
+                }
+                metadataBuilder.addStoredQuery(name, queryString, tempFunctionTexts);
             } else {
                 Assert.thatUnchecked(templateClause.indexDefinition() != null);
                 indexClauses.add(templateClause.indexDefinition());

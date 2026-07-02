@@ -87,7 +87,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
     @Nonnull
     private final Map<String, View> viewMap;
     @Nonnull
-    private final Map<String, String> storedQueries;
+    private final Map<String, StoredQuery> storedQueries;
     @Nonnull
     private final Map<String, Index> indexes;
     @Nonnull
@@ -142,7 +142,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
                              @Nonnull List<FormerIndex> formerIndexes,
                              @Nonnull Map<String, UserDefinedFunction> userDefinedFunctionMap,
                              @Nonnull Map<String, View> viewMap,
-                             @Nonnull Map<String, String> storedQueries,
+                             @Nonnull Map<String, StoredQuery> storedQueries,
                              boolean splitLongRecords,
                              boolean storeRecordVersions,
                              int version,
@@ -709,11 +709,15 @@ public class RecordMetaData implements RecordMetaDataProvider {
 
         builder.addAllUserDefinedFunctions(userDefinedFunctionMap.values().stream().map(UserDefinedFunction::toProto).collect(Collectors.toList()));
         builder.addAllViews(viewMap.values().stream().map(View::toProto).collect(Collectors.toList()));
-        for (final Map.Entry<String, String> entry : storedQueries.entrySet()) {
-            builder.addStoredQueries(RecordMetaDataProto.PStoredQuery.newBuilder()
+        for (final Map.Entry<String, StoredQuery> entry : storedQueries.entrySet()) {
+            final StoredQuery storedQuery = entry.getValue();
+            final RecordMetaDataProto.PStoredQuery.Builder storedQueryBuilder = RecordMetaDataProto.PStoredQuery.newBuilder()
                     .setName(entry.getKey())
-                    .setDefinition(entry.getValue())
-                    .build());
+                    .setQuery(storedQuery.getQuery());
+            if (!storedQuery.getTempFunctions().isEmpty()) {
+                storedQueryBuilder.addAllTempFunctions(storedQuery.getTempFunctions());
+            }
+            builder.addStoredQueries(storedQueryBuilder.build());
         }
         builder.setSplitLongRecords(splitLongRecords);
         builder.setStoreRecordVersions(storeRecordVersions);
@@ -740,9 +744,37 @@ public class RecordMetaData implements RecordMetaDataProvider {
     }
 
     @Nonnull
-    public Map<String, String> getStoredQueries() {
+    public Map<String, StoredQuery> getStoredQueries() {
         return storedQueries;
     }
+
+    /**
+     * A stored query is a SQL SELECT statement persisted in the metadata, optionally accompanied by an
+     * list of DDL {@code CREATE [OR REPLACE]? TEMPORARY FUNCTION ...} that must be
+     * registered before the SELECT is planned.
+     */
+    public static final class StoredQuery {
+        @Nonnull
+        private final String query;
+        @Nonnull
+        private final List<String> tempFunctions;
+
+        public StoredQuery(@Nonnull final String storedQuery, @Nonnull final List<String> tempFunctions) {
+            this.query = storedQuery;
+            this.tempFunctions = List.copyOf(tempFunctions);
+        }
+
+        @Nonnull
+        public String getQuery() {
+            return query;
+        }
+
+        @Nonnull
+        public List<String> getTempFunctions() {
+            return tempFunctions;
+        }
+    }
+
 
     @Nonnull
     public Type.Record getPlannerType(@Nonnull String recordTypeName) {
