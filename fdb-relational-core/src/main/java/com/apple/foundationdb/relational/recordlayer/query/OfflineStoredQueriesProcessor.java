@@ -129,7 +129,7 @@ public final class OfflineStoredQueriesProcessor {
         try {
             counts = metricCollector.clock(RelationalMetric.RelationalEvent.OFFLINE_STORED_QUERIES_WARM_UP,
                     () -> planStoredQueriesForSchemaTemplatesAll(cache, metricCollector, templates));
-        } catch (RelationalException e) {
+        } catch (RelationalException | RuntimeException e) {
             if (logger.isErrorEnabled()) {
                 logger.error(KeyValueLogMessage.of("OfflineStoredQueriesProcessor failed unexpectedly"), e);
             }
@@ -166,16 +166,8 @@ public final class OfflineStoredQueriesProcessor {
                                                                  @Nonnull final List<RecordLayerSchemaTemplate> templates) {
         final Counts counts = new Counts();
         for (final RecordLayerSchemaTemplate template : templates) {
-            try {
-                planStoredQueriesForSchemaTemplate(cache, metricCollector, template, counts);
-                counts.templatesProcessed++;
-            } catch (RuntimeException e) {
-                counts.templatesFailed++;
-                if (logger.isErrorEnabled()) {
-                    logger.error(KeyValueLogMessage.of("OfflineStoredQueriesProcessor failed to process schema template",
-                            "schemaTemplate", template.getName() + ":" + template.getVersion()), e);
-                }
-            }
+            planStoredQueriesForSchemaTemplate(cache, metricCollector, template, counts);
+            counts.templatesProcessed++;
         }
         return counts;
     }
@@ -208,7 +200,9 @@ public final class OfflineStoredQueriesProcessor {
      *       {@code queriesFailed} on failure.</li>
      * </ul>
      * Planning errors are caught and logged inside {@code getPlan}'s {@code finally} block; this
-     * method never propagates them.
+     * method never propagates them &mdash; both {@link RelationalException} and unchecked
+     * {@link RuntimeException} (e.g. {@code UncheckedRelationalException}) from {@code getPlan}
+     * are swallowed so one bad query cannot abort the enclosing template's iteration.
      */
     private static void planStoredQuery(@Nonnull final RelationalPlanCache cache,
                                         @Nonnull final MetricCollector metricCollector,
@@ -229,7 +223,7 @@ public final class OfflineStoredQueriesProcessor {
                                 "tempFunction", tempFunc));
                 currentTemplate = tempFuncFactory.updateTemplate(currentTemplate);
                 counts.tempFunctionsProcessed++;
-            } catch (RelationalException e) {
+            } catch (RelationalException | RuntimeException e) {
                 // error already logged inside getPlan's finally
                 counts.tempFunctionsFailed++;
                 counts.queriesFailed++;
@@ -249,9 +243,8 @@ public final class OfflineStoredQueriesProcessor {
                             "storedQueryName", storedQueryName,
                             "storedQuerySql", sql));
             counts.queriesProcessed++;
-        } catch (RelationalException e) {
+        } catch (RelationalException | RuntimeException e) {
             // error already logged inside getPlan's finally
-            assert e != null;
             counts.queriesFailed++;
         }
     }
