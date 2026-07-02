@@ -16,7 +16,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 ---
 schema_template:
     create table t1(a bigint, b bigint, c bigint, primary key(a))
@@ -81,17 +80,33 @@ setup:
                (3, 6, 9, 0, 14),
                (3, 6, 7, 0, 15),
                (3, 6, 7, 4, 16)
-    - query: INSERT INTO T4
-        VALUES (0, ((((((9, 0))))))),
-               (1, ((((((8, 2))))))),
-               (2, ((((((7, 4))))))),
-               (3, ((((((6, 6))))))),
-               (4, ((((((5, 8))))))),
-               (5, ((((((4, 1))))))),
-               (6, ((((((3, 3))))))),
-               (7, ((((((2, 5))))))),
-               (8, ((((((1, 7))))))),
-               (9, ((((((0, 9)))))))
+    -
+      - currentVersionLessThan: !current_version
+        definition:
+          - query: INSERT INTO T4
+              VALUES (0, ((((((9, 0))))))),
+                     (1, ((((((8, 2))))))),
+                     (2, ((((((7, 4))))))),
+                     (3, ((((((6, 6))))))),
+                     (4, ((((((5, 8))))))),
+                     (5, ((((((4, 1))))))),
+                     (6, ((((((3, 3))))))),
+                     (7, ((((((2, 5))))))),
+                     (8, ((((((1, 7))))))),
+                     (9, ((((((0, 9)))))))
+      - currentVersionAtLeast: !current_version
+        definition:
+          - query: INSERT INTO T4
+              VALUES (0, STRUCT (STRUCT (STRUCT (STRUCT (STRUCT ((9, 0))))))),
+                     (1, STRUCT (STRUCT (STRUCT (STRUCT (STRUCT ((8, 2))))))),
+                     (2, STRUCT (STRUCT (STRUCT (STRUCT (STRUCT ((7, 4))))))),
+                     (3, STRUCT (STRUCT (STRUCT (STRUCT (STRUCT ((6, 6))))))),
+                     (4, STRUCT (STRUCT (STRUCT (STRUCT (STRUCT ((5, 8))))))),
+                     (5, STRUCT (STRUCT (STRUCT (STRUCT (STRUCT ((4, 1))))))),
+                     (6, STRUCT (STRUCT (STRUCT (STRUCT (STRUCT ((3, 3))))))),
+                     (7, STRUCT (STRUCT (STRUCT (STRUCT (STRUCT ((2, 5))))))),
+                     (8, STRUCT (STRUCT (STRUCT (STRUCT (STRUCT ((1, 7))))))),
+                     (9, STRUCT (STRUCT (STRUCT (STRUCT (STRUCT ((0, 9)))))))
     - query: INSERT INTO T5
         VALUES (1, 10, 5),
                (2, 9, 5),

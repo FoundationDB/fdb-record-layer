@@ -58,9 +58,9 @@ For these examples, assume we have the following tables:
     INSERT INTO x VALUES (4, 10), (5, 20), (6, 30)
     INSERT INTO b VALUES (1, 10, 100), (2, 20, 200), (3, 30, 300)
     INSERT INTO r VALUES
-        (1, [(11), (12), (13)]),
-        (2, [(21), (22), (23)]),
-        (3, [(31), (32), (33)])
+        (1, [STRUCT (11), STRUCT (12), STRUCT (13)]),
+        (2, [STRUCT (21), STRUCT (22), STRUCT (23)]),
+        (3, [STRUCT (31), STRUCT (32), STRUCT (33)])
 
 Non-Correlated EXISTS Subquery
 -------------------------------

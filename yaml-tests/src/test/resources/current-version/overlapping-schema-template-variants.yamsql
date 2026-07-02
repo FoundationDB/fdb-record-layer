@@ -21,10 +21,10 @@
 # The two `schema_template` variants here both match versions in [3.0.0.0, 3.1.0.0), so the file should fail at
 # parse time regardless of the version under test.
 schema_template:
-    - initialVersionLessThan: "3.1.0.0"
+    - currentVersionLessThan: "3.1.0.0"
       definition: |
           CREATE TABLE T (id BIGINT, PRIMARY KEY (id))
-    - initialVersionAtLeast: "3.0.0.0"
+    - currentVersionAtLeast: "3.0.0.0"
       definition: |
           CREATE TABLE T (id BIGINT, PRIMARY KEY (id))
 ---

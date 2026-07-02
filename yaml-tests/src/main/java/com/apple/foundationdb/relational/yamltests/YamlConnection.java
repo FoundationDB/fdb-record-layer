@@ -107,6 +107,9 @@ public interface YamlConnection extends AutoCloseable {
     @Nonnull
     SemanticVersion getInitialVersion();
 
+    @Nonnull
+    SemanticVersion getCurrentVersion();
+
     <T> T executeTransactionally(SQLFunction<YamlConnection, T> transactionalWork) throws SQLException, RelationalException;
 
     /**

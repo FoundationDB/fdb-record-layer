@@ -290,7 +290,7 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
             higherOrderArgumentsBuilder.add(windowSpecExpression.getWindowOptions());
         }
         higherOrderArgumentsBuilder.add(Expressions.of(argumentsBuilder.build()));
-        return getDelegate().getSemanticAnalyzer().resolveHighOrderScalarFunction(functionName, true, higherOrderArgumentsBuilder.build());
+        return getDelegate().getSemanticAnalyzer().resolveHighOrderScalarFunction(functionName, higherOrderArgumentsBuilder.build());
     }
 
     @Nonnull
@@ -887,41 +887,55 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
     @Nonnull
     @Override
     public Expression visitRecordConstructor(@Nonnull RelationalParser.RecordConstructorContext ctx) {
-        if (ctx.uid() != null) {
-            final var id = visitUid(ctx.uid());
-            if (ctx.STAR() == null) {
-                final var expression = getDelegate().getSemanticAnalyzer().resolveIdentifier(id, getDelegate().getCurrentPlanFragment());
-                final var resultValue = RecordConstructorValue.ofUnnamed(List.of(expression.getUnderlying()));
-                return expression.withUnderlying(resultValue);
-            } else {
-                final var star = getDelegate().getSemanticAnalyzer().expandStar(Optional.of(id), getDelegate().getLogicalOperators());
-                final var resultValue = star.getUnderlying();
-                // Name the column after the qualifier (table name or alias) that was expanded.
-                return Expression.of(resultValue, id);
-            }
-        }
+        final var recordTypeIdentifierMaybe = parseStructWithOptionalTypeClause(ctx.structWithOptionalTypeClause());
         if (ctx.STAR() != null) {
-            final var star = getDelegate().getSemanticAnalyzer().expandStar(Optional.empty(), getDelegate().getLogicalOperators());
-            final var resultValue = star.getUnderlying();
-            // Name the column after the sole for-each quantifier in scope.
-            // Both standard joins and PartiQL unnest expansions introduce multiple for-each
-            // quantifiers (attributes originating from different sources), so fall back to
-            // an unnamed column whenever there is more than one.
-            final var forEachOps = getDelegate().getLogicalOperators().forEachOnly();
-            if (Iterables.size(forEachOps) == 1) {
-                return Iterables.getOnlyElement(forEachOps).getName()
-                        .map(name -> Expression.of(resultValue, name))
-                        .orElse(Expression.ofUnnamed(resultValue));
-            }
-            return Expression.ofUnnamed(resultValue);
+            final var uidMaybe = Optional.ofNullable(ctx.uid()).map(this::visitUid);
+            final var star = getDelegate().getSemanticAnalyzer().expandStar(uidMaybe, getDelegate().getLogicalOperators());
+            final Value resultValue = recordTypeIdentifierMaybe
+                    .map(recordId ->
+                            parseRecordConstruction(recordId, Expressions.of(star.getExpansion())).getUnderlying())
+                    .orElse(star.getUnderlying());
+            final var columnIdFromQueryOrQuantifier = uidMaybe.or(() -> {
+                // Name the column after the sole for-each quantifier in scope.
+                // Both standard joins and PartiQL unnest expansions introduce multiple for-each
+                // quantifiers (attributes originating from different sources), so fall back to
+                // an unnamed column whenever there is more than one.
+                final var forEachOps = getDelegate().getLogicalOperators().forEachOnly();
+                return Iterables.size(forEachOps) != 1 ? Optional.empty() : Iterables.getOnlyElement(forEachOps).getName();
+            });
+            return columnIdFromQueryOrQuantifier.map(identifier -> Expression.of(resultValue, identifier))
+                    .orElse(Expression.ofUnnamed(resultValue));
         }
-        final var expressions = parseRecordFieldsUnderReorderings(ctx.expressionWithOptionalName());
-        if (ctx.ofTypeClause() != null) {
-            final var recordId = visitUid(ctx.ofTypeClause().uid());
-            final var resultValue = RecordConstructorValue.ofColumnsAndName(expressions.underlyingAsColumns(), recordId.getName());
-            return Expression.ofUnnamed(resultValue);
+
+        return parseRecordConstruction(recordTypeIdentifierMaybe.orElse(null),
+                parseRecordFieldsUnderReorderings(ctx.expressionWithOptionalName()));
+    }
+
+    @Nonnull
+    @Override
+    public Expression visitSingleFieldRecordConstructor(final RelationalParser.SingleFieldRecordConstructorContext ctx) {
+        final var recordIdentifierMaybe = parseStructWithOptionalTypeClause(ctx.structWithOptionalTypeClause());
+        return parseRecordConstruction(
+                recordIdentifierMaybe.orElse(null),
+                parseRecordFieldsUnderReorderings(ImmutableList.of(ctx.expressionWithOptionalName())));
+    }
+
+    @Nonnull
+    private Optional<Identifier> parseStructWithOptionalTypeClause(@Nullable RelationalParser.StructWithOptionalTypeClauseContext structWithOptionalTypeClause) {
+        if (structWithOptionalTypeClause != null && structWithOptionalTypeClause.uid() != null) {
+            return Optional.of(visitUid(structWithOptionalTypeClause.uid()));
         }
-        final var resultValue = RecordConstructorValue.ofColumns(expressions.underlyingAsColumns());
+        return Optional.empty();
+    }
+
+    private Expression parseRecordConstruction(@Nullable final Identifier recordIdentifier,
+                                               @Nonnull final Expressions expressions) {
+        final Value resultValue;
+        if (recordIdentifier != null) {
+            resultValue = RecordConstructorValue.ofColumnsAndName(expressions.underlyingAsColumns(), recordIdentifier.getName());
+        } else {
+            resultValue = RecordConstructorValue.ofColumns(expressions.underlyingAsColumns());
+        }
         return Expression.ofUnnamed(resultValue);
     }
 

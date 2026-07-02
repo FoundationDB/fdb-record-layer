@@ -717,7 +717,7 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
             rowExpressionBuilder.add(rowExpression);
         }
         final var arguments = Expressions.of(rowExpressionBuilder.build()).asList().toArray(new Expression[0]);
-        final var arrayOfTuples = getDelegate().resolveFunction("__internal_array", false, arguments);
+        final var arrayOfTuples = getDelegate().resolveFunction("__internal_array", arguments);
         final var explodeExpression = new ExplodeExpression(arrayOfTuples.getUnderlying());
         final var resultingQuantifier = Quantifier.forEach(Reference.initialOf(explodeExpression));
         var output = Expressions.of(LogicalOperator.convertToExpressions(resultingQuantifier));
@@ -799,7 +799,7 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
             insertTuples.add(visitRecordConstructorForInsert(tupleContext));
         }
         final var arguments = Expressions.of(insertTuples.build()).asList().toArray(new Expression[0]);
-        final var arrayOfTuples = getDelegate().resolveFunction("__internal_array", false, arguments);
+        final var arrayOfTuples = getDelegate().resolveFunction("__internal_array", arguments);
         final var explodeExpression = new ExplodeExpression(arrayOfTuples.getUnderlying());
         final var resultingQuantifier = Quantifier.forEach(Reference.initialOf(explodeExpression));
         return LogicalOperator.newUnnamedOperator(Expressions.ofSingle(arrayOfTuples), resultingQuantifier);

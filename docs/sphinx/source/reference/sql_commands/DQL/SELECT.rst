@@ -155,13 +155,16 @@ In both cases the result is identical to :sql:`SELECT (*) FROM restaurant`.
 
     If a column in the table has the same name as the table itself, the column takes priority and its value is returned instead of the row struct.
 
-Structs can be nested further by wrapping :sql:`(*)` in another level of parentheses:
+Structs can be nested further by wrapping :sql:`(*)` in another level of parentheses with the :sql:`STRUCT` keyword:
 
 .. code-block:: sql
 
-    SELECT ((*)) FROM restaurant;
+    SELECT STRUCT ((*)) FROM restaurant;
 
 This returns a single column whose value is a :sql:`STRUCT` containing one field, which is itself the row :sql:`STRUCT`.
+
+.. note::
+  The :sql:`STRUCT` keyword is required here since we are constructing a struct literal with a single field which is the row struct, see :ref:`struct_types` for more details.
 
 Projecting column inside nested a nested :sql:`STRUCT`
 ------------------------------------------------------

@@ -146,7 +146,15 @@ test_block:
           { {PK: 2, A: 30, B: 40} , COLNAME: {COLNAME: 99, OTHER: 42 } }
         ]
     -
-      # Double-wrapped (*) nesting is unaffected
+      # Double-wrapped (*) nesting is unaffected for older versions
       - query: select ((*)) from t1 where pk = 1
+      - initialVersionLessThan: !current_version
+      - result: [ { { {PK: 1, A: 10, B: 20} } } ]
+      - initialVersionAtLeast: !current_version
+      - result: [ { {PK: 1, A: 10, B: 20} } ]
+    -
+      # Double-wrapped (*) nesting with new syntax for single field records
+      - query: select STRUCT ((*)) from t1 where pk = 1
+      - supported_version: !current_version
       - result: [ { { {PK: 1, A: 10, B: 20} } } ]
 ...

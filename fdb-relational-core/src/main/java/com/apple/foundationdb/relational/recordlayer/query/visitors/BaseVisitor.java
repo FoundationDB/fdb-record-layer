@@ -252,17 +252,12 @@ public class BaseVisitor extends RelationalParserBaseVisitor<Object> implements 
 
     @Nonnull
     public Expression resolveFunction(@Nonnull String functionName, @Nonnull Expression... arguments) {
-        return getSemanticAnalyzer().resolveScalarFunction(functionName, Expressions.of(arguments), true);
-    }
-
-    @Nonnull
-    public Expression resolveFunction(@Nonnull String functionName, boolean flattenSingleItemRecords, @Nonnull Expression... arguments) {
-        return getSemanticAnalyzer().resolveScalarFunction(functionName, Expressions.of(arguments), flattenSingleItemRecords);
+        return getSemanticAnalyzer().resolveScalarFunction(functionName, Expressions.of(arguments));
     }
 
     @Nonnull
     public LogicalOperator resolveTableValuedFunction(@Nonnull Identifier functionName, @Nonnull Expressions arguments) {
-        return getSemanticAnalyzer().resolveTableFunction(functionName, arguments, true);
+        return getSemanticAnalyzer().resolveTableFunction(functionName, arguments);
     }
 
     @Override
@@ -1345,13 +1340,25 @@ public class BaseVisitor extends RelationalParserBaseVisitor<Object> implements 
 
     @Nonnull
     @Override
+    public Object visitExpressionWithPrecedence(@Nonnull RelationalParser.ExpressionWithPrecedenceContext ctx) {
+        return visitChildren(ctx);
+    }
+
+    @Nonnull
+    @Override
+    public Expression visitSingleFieldRecordConstructor(@Nonnull final RelationalParser.SingleFieldRecordConstructorContext ctx) {
+        return expressionVisitor.visitSingleFieldRecordConstructor(ctx);
+    }
+
+    @Nonnull
+    @Override
     public Expression visitRecordConstructor(@Nonnull RelationalParser.RecordConstructorContext ctx) {
         return expressionVisitor.visitRecordConstructor(ctx);
     }
 
     @Nonnull
     @Override
-    public Object visitOfTypeClause(@Nonnull RelationalParser.OfTypeClauseContext ctx) {
+    public Object visitStructWithOptionalTypeClause(@Nonnull RelationalParser.StructWithOptionalTypeClauseContext ctx) {
         return visitChildren(ctx);
     }
 
@@ -1663,6 +1670,12 @@ public class BaseVisitor extends RelationalParserBaseVisitor<Object> implements 
     @Nonnull
     @Override
     public Object visitRecordConstructorExpressionAtom(@Nonnull RelationalParser.RecordConstructorExpressionAtomContext ctx) {
+        return visitChildren(ctx);
+    }
+
+    @Nonnull
+    @Override
+    public Object visitSingleFieldRecordConstructorExpressionAtom(@Nonnull final RelationalParser.SingleFieldRecordConstructorExpressionAtomContext ctx) {
         return visitChildren(ctx);
     }
 

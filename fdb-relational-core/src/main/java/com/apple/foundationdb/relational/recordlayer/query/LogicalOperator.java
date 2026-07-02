@@ -211,7 +211,7 @@ public class LogicalOperator {
                     () -> String.format(Locale.ROOT,
                             "AT clause requires an array-typed column, but '%s' is a function",
                             identifier));
-            return semanticAnalyzer.resolveTableFunction(identifier, Expressions.empty(), false)
+            return semanticAnalyzer.resolveTableFunction(identifier, Expressions.empty())
                     .withNewSharedReferenceAndAlias(alias);
         } else {
             final var correlatedField = semanticAnalyzer.resolveCorrelatedIdentifier(identifier,

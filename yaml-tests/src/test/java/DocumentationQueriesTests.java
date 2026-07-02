@@ -113,4 +113,9 @@ class DocumentationQueriesTests {
     void windowFunctionDocumentationQueriesTests(YamlTest.Runner runner) throws Exception {
         runner.runYamsql(PREFIX + "/window-function-documentation-queries.yamsql");
     }
+
+    @TestTemplate
+    void structDocumentationQueriesTests(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql(PREFIX + "/struct-documentation-queries.yamsql");
+    }
 }
