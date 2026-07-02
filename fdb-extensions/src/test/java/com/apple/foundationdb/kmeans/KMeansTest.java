@@ -34,6 +34,8 @@ import com.google.common.collect.Lists;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.Execution;
+import org.junit.jupiter.api.parallel.ExecutionMode;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -50,7 +52,9 @@ import java.util.Random;
 import java.util.SplittableRandom;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.within;
 
+@Execution(ExecutionMode.CONCURRENT)
 class KMeansTest {
     private static final Logger logger = LoggerFactory.getLogger(KMeansTest.class);
 
@@ -156,6 +160,110 @@ class KMeansTest {
 
         assertThat(res.clusterSizes()[0]).isGreaterThan(0);
         assertThat(res.clusterSizes()[1]).isGreaterThan(0);
+    }
+
+    /**
+     * k=1 has a closed-form optimum: a single cluster holding every vector, whose centroid is the
+     * arithmetic mean. This is the default 2→1 merge path. Verifies {@link KMeans#fit} returns that
+     * (mean centroid, single full cluster, all-zero assignment) under the Euclidean metric.
+     */
+    @ParameterizedTest
+    @RandomSeedSource({0x0fdbL, 0x5ca1eL, 123456L})
+    void singleClusterReturnsMeanEuclidean(final long seed) {
+        final SplittableRandom rnd = new SplittableRandom(seed);
+        final RealVector blobMean = new DoubleRealVector(new double[] {1.0d, -2.0d, 3.0d});
+        final int n = 500;
+        final List<RealVector> vectors = Lists.newArrayListWithCapacity(n);
+        for (int i = 0; i < n; i++) {
+            vectors.add(KMeansTestHelpers.gaussianND(rnd, blobMean, 2.0d));
+        }
+
+        final DistanceEstimator distanceEstimator = DistanceEstimator.ofMetric(Metric.EUCLIDEAN_METRIC);
+        final int k = 1;
+        final int maxIterations = 15;
+        final int maxRestarts = 3;
+        final double lambda = 0.0d; // size-balancing weight; 0 disables the size penalty
+        final KMeans.Result<RealVector> res = KMeans.fit(
+                rnd, distanceEstimator,
+                Lens.identity(), Lens.identity(),
+                vectors,
+                k, maxIterations, maxRestarts, lambda,
+                null /* sizePenalty */);
+
+        assertThat(res.clusterCentroids()).hasSize(1);
+        assertThat(res.clusterSizes()).containsExactly(n);
+        assertThat(res.assignment()).containsOnly(0);
+
+        // res's centroid and arithmeticMean(...) compute the mean of the same n vectors with the same summation, so
+        // in practice they are bit-identical and this distance is 0. A tolerance only needs to cover the two sums
+        // running in different (equally valid) orders. Recursive summation of n doubles has worst-case forward error
+        // ~(n-1)*u*sum(|x_i|), where u = 2^-53 is the double unit roundoff, so two orders differ by ~2*u*sum(|x_i|)
+        // per coordinate after dividing by n. Here sum(|x_i|) per coordinate is ~n * O(1) ~ 1.5e3, so that ceiling is
+        // ~2 * 1.1e-16 * 1.5e3 ~ 3e-13 per coordinate, i.e. an L2 gap of a few 1e-13. 2E-10 is a few hundred times
+        // looser than that ceiling -- deliberately loose to stay a simple constant -- yet still far below the O(1)
+        // error a real bug (a wrong or unnormalized centroid) would produce.
+        final RealVector expectedMean = arithmeticMean(vectors);
+        assertThat(distanceEstimator.distance(res.clusterCentroids().get(0), expectedMean))
+                .as("k=1 Euclidean centroid must equal the arithmetic mean")
+                .isCloseTo(0.0d, within(2E-10));
+
+        // Recompute the geometric objective independently from the returned centroid and assignment, then check
+        // objective() AND the per-vector distances() against it. Asserting only objective() == sum(distances()) is
+        // true by construction (objective is defined as that sum) and would not catch a systematic error shared by
+        // both. For k=1 every vector is assigned to the single centroid, and the Euclidean base objective of a vector
+        // is its squared L2 distance to that centroid.
+        final RealVector centroid = res.clusterCentroids().get(0);
+        double expectedObjective = 0.0d;
+        for (final RealVector v : vectors) {
+            final double d = distanceEstimator.distance(v, centroid);
+            expectedObjective += d * d;
+        }
+        // A sum of n squared distances; summation error grows with n and with the magnitude (ulp) of the running sum.
+        final double objectiveTolerance = 8.0 * n * Math.ulp(expectedObjective);
+        assertThat(res.objective())
+                .as("objective must equal the independently computed sum of squared distances")
+                .isCloseTo(expectedObjective, within(objectiveTolerance));
+        assertThat(Arrays.stream(res.distances()).sum())
+                .as("sum of per-vector distances must equal the independently computed objective")
+                .isCloseTo(expectedObjective, within(objectiveTolerance));
+    }
+
+    /**
+     * k=1 under cosine: the single centroid is the <em>normalized</em> mean (the unit-sphere mean
+     * direction), since the cosine metric adapter renormalizes averaged centroids.
+     */
+    @ParameterizedTest
+    @RandomSeedSource({0x0fdbL, 0x5ca1eL, 123456L})
+    void singleClusterReturnsNormalizedMeanCosine(final long seed) {
+        final SplittableRandom rnd = new SplittableRandom(seed);
+        final RealVector blobMean = new DoubleRealVector(new double[] {1.0d, -2.0d, 3.0d});
+        final int n = 500;
+        final List<RealVector> raw = Lists.newArrayListWithCapacity(n);
+        for (int i = 0; i < n; i++) {
+            raw.add(KMeansTestHelpers.gaussianND(rnd, blobMean, 2.0d));
+        }
+        final List<RealVector> vectors = KMeansTestHelpers.normalizeAll(raw);
+
+        final DistanceEstimator distanceEstimator = DistanceEstimator.ofMetric(Metric.COSINE_METRIC);
+        final KMeans.Result<RealVector> res = KMeans.fit(
+                rnd, distanceEstimator,
+                Lens.identity(), Lens.identity(),
+                vectors,
+                1, 15, 3, 0.0d,
+                null);
+
+        assertThat(res.clusterCentroids()).hasSize(1);
+        assertThat(res.clusterSizes()).containsExactly(n);
+        assertThat(res.assignment()).containsOnly(0);
+
+        final RealVector centroid = res.clusterCentroids().get(0);
+        assertThat(centroid.l2Norm())
+                .as("cosine k=1 centroid must lie on the unit sphere")
+                .isCloseTo(1.0d, within(2E-10));
+        final RealVector expected = arithmeticMean(vectors).normalize();
+        assertThat(Metric.EUCLIDEAN_METRIC.distance(centroid, expected))
+                .as("cosine k=1 centroid must equal the normalized mean")
+                .isCloseTo(0.0d, within(2E-9));
     }
 
     /**
@@ -723,6 +831,19 @@ class KMeansTest {
         final int idx = KMeans.farthestVectorIndex(adapter, Lens.identity(), vectors, centroids);
 
         assertThat(idx).isEqualTo(0);
+    }
+
+    /**
+     * Returns the arithmetic mean of the given vectors as an immutable {@link RealVector}.
+     */
+    @Nonnull
+    private static RealVector arithmeticMean(@Nonnull final List<RealVector> vectors) {
+        final int d = vectors.get(0).getNumDimensions();
+        final MutableDoubleRealVector sum = MutableDoubleRealVector.zeroVector(d);
+        for (final RealVector v : vectors) {
+            sum.addToThis(v);
+        }
+        return sum.multiplyThisBy(1.0d / vectors.size()).toImmutable();
     }
 
     /**

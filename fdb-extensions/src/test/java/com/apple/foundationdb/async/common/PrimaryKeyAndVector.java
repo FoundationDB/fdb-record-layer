@@ -1,5 +1,5 @@
 /*
- * BaseTest.java
+ * PrimaryKeyAndVector.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -18,22 +18,18 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.async.hnsw;
+package com.apple.foundationdb.async.common;
 
-import com.apple.foundationdb.Database;
-import com.apple.foundationdb.subspace.Subspace;
+import com.apple.foundationdb.linear.RealVector;
+import com.apple.foundationdb.tuple.Tuple;
 
 import javax.annotation.Nonnull;
-import java.nio.file.Path;
 
-public interface BaseTest {
-
-    @Nonnull
-    Database getDb();
-
-    @Nonnull
-    Subspace getSubspace();
-
-    @Nonnull
-    Path getTempDir();
+/**
+ * A test fixture pairing a record's primary key with its vector.
+ *
+ * @param primaryKey the primary key
+ * @param vector the vector
+ */
+public record PrimaryKeyAndVector(@Nonnull Tuple primaryKey, @Nonnull RealVector vector) {
 }

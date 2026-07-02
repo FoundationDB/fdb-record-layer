@@ -52,7 +52,7 @@ jobs:
       checks: write
       contents: read
       pull-requests: write
-    timeout-minutes: 40
+    timeout-minutes: 60
     steps:
       - name: Checkout sources
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -128,6 +128,10 @@ jobs:
     steps:
       - name: Checkout HEAD sources
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          # Full history so the PR's base and head commits (and their merge-base) are available locally for
+          # the git-based diff below — `gh pr diff` caps at 20000 lines and fails with HTTP 406 on large PRs.
+          fetch-depth: 0
       - name: Setup Base Environment
         uses: ./actions/setup-base-env
       # It looks like, if you try to download them all as a pattern, the nested directories get stripped
@@ -163,10 +167,11 @@ jobs:
           path: |
             ${{ github.workspace }}/.out/reports/jacoco/codeCoverageReport/
       - name: Get PR Diff
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh pr diff ${{ github.event.pull_request.number }} > pr_diff.patch
+          # `gh pr diff` uses the GitHub API .diff media type, which returns HTTP 406 once the diff exceeds
+          # 20000 lines. Compute the same three-dot (merge-base..head) diff with git, which has no such limit;
+          # fetch-depth: 0 on the checkout above ensures both commits and their merge-base are present.
+          git diff "${{ github.event.pull_request.base.sha }}...${{ github.event.pull_request.head.sha }}" > pr_diff.patch
       - name: Annotate Coverage
         run: |
           python3 build/coverage_annotations.py \

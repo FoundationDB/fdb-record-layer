@@ -30,7 +30,10 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
 import javax.annotation.Nonnull;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
@@ -39,6 +42,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import java.util.stream.Stream;
 
@@ -49,6 +53,7 @@ import static org.hamcrest.Matchers.startsWith;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -284,6 +289,192 @@ public class MoreAsyncUtilTest {
                 throwable -> false);
         final ExecutionException executionException = assertThrows(ExecutionException.class, notSwallowed::get);
         assertEquals(runtimeException1, executionException.getCause());
+    }
+
+    @Test
+    void consumeDrainsAllElements() {
+        final Collection<Integer> elements = Arrays.asList(1, 2, 3, 4, 5);
+        final AtomicInteger visited = new AtomicInteger();
+        // mapIterable is lazy: the counter only advances as elements are pulled, so it measures what consume drains.
+        final AsyncIterable<Integer> iterable = AsyncUtil.mapIterable(
+                MoreAsyncUtil.iterableFromCollection(CompletableFuture.completedFuture(elements), EXECUTOR),
+                element -> {
+                    visited.incrementAndGet();
+                    return element;
+                });
+
+        assertNull(MoreAsyncUtil.consume(iterable, EXECUTOR).join(), "consume completes with a null Void result");
+        assertEquals(elements.size(), visited.get(), "consume visits every element");
+    }
+
+    @Test
+    void consumeEmptyIterableCompletes() {
+        final Collection<Integer> elements = Arrays.asList();
+        final AtomicInteger visited = new AtomicInteger();
+        final AsyncIterable<Integer> iterable = AsyncUtil.mapIterable(
+                MoreAsyncUtil.iterableFromCollection(CompletableFuture.completedFuture(elements), EXECUTOR),
+                element -> {
+                    visited.incrementAndGet();
+                    return element;
+                });
+
+        assertNull(MoreAsyncUtil.consume(iterable, EXECUTOR).join(), "consume of an empty iterable still completes");
+        assertEquals(0, visited.get(), "an empty iterable has nothing to visit");
+    }
+
+    @Test
+    void consumeRemainingDrainsFromCurrentPosition() {
+        final Collection<Integer> elements = Arrays.asList(1, 2, 3, 4, 5);
+        final AtomicInteger visited = new AtomicInteger();
+        final AsyncIterator<Integer> iterator = AsyncUtil.mapIterable(
+                MoreAsyncUtil.iterableFromCollection(CompletableFuture.completedFuture(elements), EXECUTOR),
+                element -> {
+                    visited.incrementAndGet();
+                    return element;
+                }).iterator();
+
+        // Pull the first element by hand; consumeRemaining should drain only what is left after the current position.
+        assertTrue(iterator.onHasNext().join());
+        assertEquals(1, (int) iterator.next());
+        assertEquals(1, visited.get());
+
+        assertNull(MoreAsyncUtil.consumeRemaining(iterator, EXECUTOR).join(),
+                "consumeRemaining completes with a null Void result");
+        assertEquals(elements.size(), visited.get(), "consumeRemaining drains the rest of the iterator");
+    }
+
+    @Test
+    void forLoopAccumulatesAndThreadsState() {
+        final List<Integer> visited = new ArrayList<>();
+        // sum 1..5, threading the running total from one iteration into the next.
+        final int result = MoreAsyncUtil.forLoop(1, 0,
+                i -> i <= 5,
+                i -> i + 1,
+                (i, acc) -> {
+                    visited.add(i);
+                    return CompletableFuture.completedFuture(acc + i);
+                },
+                EXECUTOR).join();
+        assertEquals(15, result, "body result of the final iteration");
+        assertEquals(Arrays.asList(1, 2, 3, 4, 5), visited, "loop variable visited each value in order");
+    }
+
+    @Test
+    void forLoopWithFalseConditionReturnsInitialAndSkipsBody() {
+        final AtomicInteger bodyCalls = new AtomicInteger();
+        final String result = MoreAsyncUtil.forLoop(5, "initial",
+                i -> i < 0, // false from the start
+                i -> i + 1,
+                (i, acc) -> {
+                    bodyCalls.incrementAndGet();
+                    return CompletableFuture.completedFuture("changed");
+                },
+                EXECUTOR).join();
+        assertEquals("initial", result, "a loop that never runs returns the initial state unchanged");
+        assertEquals(0, bodyCalls.get(), "the body must not be invoked");
+    }
+
+    @Test
+    void forLoopBiPredicateStopsOnAccumulatedResult() {
+        final List<Integer> visited = new ArrayList<>();
+        // BiPredicate overload: the condition inspects the accumulated result, not just the loop variable.
+        final int result = MoreAsyncUtil.forLoop(0, 0,
+                (i, acc) -> acc < 10,
+                i -> i + 1,
+                (i, acc) -> {
+                    visited.add(i);
+                    return CompletableFuture.completedFuture(acc + i);
+                },
+                EXECUTOR).join();
+        assertEquals(10, result, "loop stops once the accumulated result reaches the threshold");
+        assertEquals(Arrays.asList(0, 1, 2, 3, 4), visited, "iterations run until the accumulator crosses 10");
+    }
+
+    @Test
+    void forEachReturnsResultsInInputOrder() {
+        final List<Integer> items = Arrays.asList(1, 2, 3, 4, 5);
+        final List<Integer> result = MoreAsyncUtil.forEach(items,
+                i -> CompletableFuture.completedFuture(i * i), 2, EXECUTOR).join();
+        assertEquals(Arrays.asList(1, 4, 9, 16, 25), result);
+    }
+
+    @Test
+    void forEachPreservesOrderWhenBodiesCompleteOutOfOrder() {
+        final List<Integer> items = Arrays.asList(0, 1, 2, 3, 4);
+        final List<CompletableFuture<Integer>> perItem = new ArrayList<>();
+        for (int i = 0; i < items.size(); i++) {
+            perItem.add(new CompletableFuture<>());
+        }
+        // Enough parallelism to start every body; each returns an as-yet-incomplete future.
+        final CompletableFuture<List<Integer>> resultFuture =
+                MoreAsyncUtil.forEach(items, perItem::get, items.size(), EXECUTOR);
+        // Complete them in reverse order; the result must still come back in input order.
+        for (int i = items.size() - 1; i >= 0; i--) {
+            perItem.get(i).complete(i * 10);
+        }
+        assertEquals(Arrays.asList(0, 10, 20, 30, 40), resultFuture.join(),
+                "results are ordered by input position, not completion order");
+    }
+
+    @Test
+    void forEachRespectsParallelismBound() {
+        final int parallelism = 3;
+        final AtomicInteger inFlight = new AtomicInteger();
+        final AtomicInteger maxInFlight = new AtomicInteger();
+        final List<Integer> items = Arrays.asList(0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11);
+        final List<Integer> result = MoreAsyncUtil.forEach(items,
+                i -> {
+                    maxInFlight.accumulateAndGet(inFlight.incrementAndGet(), Math::max);
+                    return MoreAsyncUtil.delayedFuture(20, TimeUnit.MILLISECONDS)
+                            .thenApply(ignored -> {
+                                inFlight.decrementAndGet();
+                                return i;
+                            });
+                }, parallelism, EXECUTOR).join();
+        assertEquals(items, result, "every item is processed, in order");
+        assertTrue(maxInFlight.get() <= parallelism,
+                "never more than 'parallelism' bodies in flight, saw " + maxInFlight.get());
+    }
+
+    @Test
+    void forEachWithParallelismOneIsSequential() {
+        final AtomicInteger inFlight = new AtomicInteger();
+        final AtomicInteger maxInFlight = new AtomicInteger();
+        final List<Integer> items = Arrays.asList(0, 1, 2, 3, 4);
+        MoreAsyncUtil.forEach(items,
+                i -> {
+                    maxInFlight.accumulateAndGet(inFlight.incrementAndGet(), Math::max);
+                    return MoreAsyncUtil.delayedFuture(5, TimeUnit.MILLISECONDS)
+                            .thenApply(ignored -> {
+                                inFlight.decrementAndGet();
+                                return i;
+                            });
+                }, 1, EXECUTOR).join();
+        assertEquals(1, maxInFlight.get(), "parallelism 1 runs strictly one body at a time");
+    }
+
+    @Test
+    void forEachHandlesNullItems() {
+        final List<String> items = Arrays.asList("a", null, "b");
+        final List<String> result = MoreAsyncUtil.forEach(items,
+                s -> CompletableFuture.completedFuture(s == null ? "<null>" : s + "!"),
+                2, EXECUTOR).join();
+        assertEquals(Arrays.asList("a!", "<null>", "b!"), result,
+                "null items are passed through to the body, results stay in order");
+    }
+
+    @Test
+    void forEachEmptyReturnsEmptyList() {
+        final List<Integer> result = MoreAsyncUtil.forEach(new ArrayList<Integer>(),
+                i -> CompletableFuture.completedFuture(i * i), 4, EXECUTOR).join();
+        assertTrue(result.isEmpty(), "no items yields an empty result list");
+    }
+
+    @Test
+    void forEachRejectsNonPositiveParallelism() {
+        assertThrows(IllegalArgumentException.class,
+                () -> MoreAsyncUtil.forEach(Arrays.asList(1, 2, 3),
+                        CompletableFuture::completedFuture, 0, EXECUTOR));
     }
 
     @Nonnull

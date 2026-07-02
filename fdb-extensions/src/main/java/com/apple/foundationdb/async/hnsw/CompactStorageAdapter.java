@@ -27,6 +27,8 @@ import com.apple.foundationdb.StreamingMode;
 import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.async.AsyncIterable;
 import com.apple.foundationdb.async.AsyncUtil;
+import com.apple.foundationdb.async.common.StorageHelpers;
+import com.apple.foundationdb.async.common.StorageTransform;
 import com.apple.foundationdb.linear.Quantizer;
 import com.apple.foundationdb.linear.RealVector;
 import com.apple.foundationdb.linear.Transformed;
@@ -144,9 +146,9 @@ class CompactStorageAdapter extends AbstractStorageAdapter<NodeReference> implem
      * <p>
      * This method deserializes a node by extracting its components from the provided tuples. It verifies that the
      * node is of type {@link NodeKind#COMPACT} before delegating the final construction to
-     * {@link #compactNodeFromTuples(StorageTransform, Tuple, Tuple, Tuple)}. The {@code valueTuple} is expected to have
-     * a specific structure: the serialized node kind at index 0, a nested tuple for the vector at index 1, and a nested
-     * tuple for the neighbors at index 2.
+     * {@link #compactNodeFromTuples(StorageTransform, Tuple, Tuple, Tuple, Tuple)}. The {@code valueTuple} is expected
+     * to have a specific structure: the serialized node kind at index 0, a nested tuple for the vector at index 1,
+     * a nested tuple for the neighbors at index 2 and, optionally a tuple for additional values at index 3.
      *
      * @param storageTransform a vector transformation operator that is used to transform the fetched vector
      *        into the storage space that is currently being used
@@ -165,12 +167,11 @@ class CompactStorageAdapter extends AbstractStorageAdapter<NodeReference> implem
         final NodeKind nodeKind = NodeKind.fromSerializedNodeKind((byte)valueTuple.getLong(0));
         Verify.verify(nodeKind == NodeKind.COMPACT);
 
-        final Tuple vectorTuple;
-        final Tuple neighborsTuple;
+        final Tuple vectorTuple = valueTuple.getNestedTuple(1);
+        final Tuple neighborsTuple = valueTuple.getNestedTuple(2);
+        final Tuple additionalValuesTuple = valueTuple.size() > 3 ? valueTuple.getNestedTuple(3) : null;
 
-        vectorTuple = valueTuple.getNestedTuple(1);
-        neighborsTuple = valueTuple.getNestedTuple(2);
-        return compactNodeFromTuples(storageTransform, primaryKey, vectorTuple, neighborsTuple);
+        return compactNodeFromTuples(storageTransform, primaryKey, vectorTuple, additionalValuesTuple, neighborsTuple);
     }
 
     /**
@@ -194,9 +195,10 @@ class CompactStorageAdapter extends AbstractStorageAdapter<NodeReference> implem
     private AbstractNode<NodeReference> compactNodeFromTuples(@Nonnull final StorageTransform storageTransform,
                                                               @Nonnull final Tuple primaryKey,
                                                               @Nonnull final Tuple vectorTuple,
+                                                              @Nullable final Tuple additionalValuesTuple,
                                                               @Nonnull final Tuple neighborsTuple) {
         final Transformed<RealVector> vector =
-                storageTransform.transform(StorageAdapter.vectorFromTuple(getConfig(), vectorTuple));
+                storageTransform.transform(StorageHelpers.vectorFromTuple(getConfig(), vectorTuple));
         final List<NodeReference> nodeReferences = Lists.newArrayListWithExpectedSize(neighborsTuple.size());
 
         for (int i = 0; i < neighborsTuple.size(); i ++) {
@@ -204,7 +206,7 @@ class CompactStorageAdapter extends AbstractStorageAdapter<NodeReference> implem
             nodeReferences.add(new NodeReference(neighborTuple));
         }
 
-        return getNodeFactory().create(primaryKey, vector, nodeReferences);
+        return getNodeFactory().create(primaryKey, vector, additionalValuesTuple, nodeReferences);
     }
 
     /**
@@ -229,11 +231,12 @@ class CompactStorageAdapter extends AbstractStorageAdapter<NodeReference> implem
                                   @Nonnull final NeighborsChangeSet<NodeReference> neighborsChangeSet) {
         final byte[] key = getNodeKey(layer, node.getPrimaryKey());
 
-        final List<Object> nodeItems = Lists.newArrayListWithExpectedSize(3);
-        nodeItems.add(NodeKind.COMPACT.getSerialized());
         final CompactNode compactNode = node.asCompactNode();
+        final Tuple additionalValues = compactNode.getAdditionalValues();
+        final List<Object> nodeItems = Lists.newArrayListWithExpectedSize(additionalValues == null ? 3 : 4);
+        nodeItems.add(NodeKind.COMPACT.getSerialized());
         // getting underlying vector is okay as it is only written to the database
-        nodeItems.add(StorageAdapter.tupleFromVector(quantizer.encode(compactNode.getVector())));
+        nodeItems.add(StorageHelpers.tupleFromVector(quantizer.encode(compactNode.getVector())));
 
         final Iterable<NodeReference> neighbors = neighborsChangeSet.merge();
 
@@ -242,6 +245,9 @@ class CompactStorageAdapter extends AbstractStorageAdapter<NodeReference> implem
             neighborItems.add(neighborReference.getPrimaryKey());
         }
         nodeItems.add(Tuple.fromList(neighborItems));
+        if (additionalValues != null) {
+            nodeItems.add(additionalValues);
+        }
 
         final Tuple nodeTuple = Tuple.fromList(nodeItems);
 
