@@ -1,0 +1,155 @@
+/*
+ * test_tuple_or_proto_serialization.proto
+ *
+ * This source file is part of the FoundationDB open source project
+ *
+ * Copyright 2015-2025 Apple Inc. and the FoundationDB project authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+syntax = "proto2";
+
+package com.apple.foundationdb.record.serialization;
+
+option java_package = "com.apple.foundationdb.record.serialization";
+option java_outer_classname = "TupleOrProtoSerializationProto";
+
+message AmbiguousIntAsVarInt {
+  // The "ambiguous integer" will be one of these three depending on the
+  // length
+  optional int64 a = 1;
+  optional int64 b = 2;
+  optional int64 c = 3;
+
+  // Padding values
+  optional bytes x = 4;
+  optional int64 y = 5;
+}
+
+message AmbiguousIntAsFixed64 {
+  // The "ambiguous integer" will be one of these three depending on the
+  // length
+  optional sfixed64 a = 1;
+  optional sfixed64 b = 2;
+  optional sfixed64 c = 3;
+
+  // Padding values
+  optional bytes x = 4;
+  optional int64 y = 5;
+}
+
+message AmbiguousIntAsBytes {
+  // The "ambiguous integer" will be one of these three depending on the
+  // length
+  optional bytes a = 1;
+  optional bytes b = 2;
+  optional bytes c = 3;
+
+  // Padding values
+  optional bytes x = 4;
+  optional int64 y = 5;
+}
+
+message AmbiguousIntAsFixed32 {
+  // The "ambiguous integer" will be one of these three depending on the
+  // length
+  optional sfixed32 a = 1;
+  optional sfixed32 b = 2;
+  optional sfixed32 c = 3;
+
+  // Padding values
+  optional bytes x = 4;
+  optional int64 y = 5;
+}
+
+message AmbiguousIntAsGroup {
+  optional group A = 1 {
+    optional bytes x = 1;
+  };
+  optional group B = 2 {
+    optional bytes x = 1;
+  };
+  optional group C = 3 {
+    optional bytes x = 1;
+  };
+}
+
+message AmbiguousDouble {
+  // This uses field 4 as that aligns with the type code that the Tuple
+  // layer uses for doubles
+  optional double d = 4;
+}
+
+message AmbiguousFixed64 {
+  // See: AmbiguousDouble
+  optional fixed64 f = 4;
+}
+
+message AmbiguousSFixed64 {
+  // See: AmbiguousDouble
+  optional sfixed64 s = 4;
+}
+
+message AmbiguousFloatAsInt32 {
+  // Tuple-encoded floats always create a type code
+  // corresponding to field 4 with a variable-encoded integer, which
+  // is then followed by four bytes of data. The first byte must
+  // be for that integer, but then there's some ambiguity about
+  // the rest. It can either be the case that all of the data
+  // is from one value or the data can come from a second field
+  optional int32 x = 4;
+  optional int32 y = 5;
+}
+
+message AmbiguousFloatAsSInt32 {
+  // See: AmbiguousFlatAsInt32
+  optional sint32 x = 4;
+  optional sint32 y = 5;
+}
+
+message AmbiguousFloatAsInt64 {
+  // See: AmbiguousFlatAsInt32
+  optional int64 x = 4;
+  optional int64 y = 5;
+}
+
+message AmbiguousFloatAsSInt64 {
+  // See: AmbiguousFlatAsInt32
+  optional sint64 x = 4;
+  optional sint64 y = 5;
+}
+
+message AmbiguousFloatAsBool {
+  // See: AmbiguousFloatAsInt32
+  optional bool x = 4;
+  repeated bool r = 5 [packed = true];
+}
+
+message AmbiguousUuidAsInt {
+  // Tuple-encoded UUIDs also appear to be variable length
+  // encoded integers, this time with field type 6. Their
+  // data must be 16 bytes in size, which can come from either
+  // a single other field or multiple.
+  optional int64 a = 6;
+  optional int64 b = 7;
+  optional sfixed64 c = 8;
+}
+
+message AmbiguousVersionstampAsGroup {
+  // Tuple-encoded Versionstamps encode as a deprecated "group"
+  // construct. Their data can be fairly arbitrary so in this
+  // case, just consider a group containing bytes
+  optional group G = 6 {
+    optional bytes x = 1;
+  }
+}
