@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.async.hnsw;
 
+import com.apple.foundationdb.async.common.StorageTransform;
 import com.apple.foundationdb.linear.RealVector;
 
 import javax.annotation.Nonnull;
@@ -41,7 +42,7 @@ class AccessInfo {
 
     /**
      * A seed that can be used to reconstruct a random rotator {@link com.apple.foundationdb.linear.FhtKacRotator} used
-     * in ({@link StorageTransform}.
+     * in ({@link StorageTransform}).
      */
     private final long rotatorSeed;
 

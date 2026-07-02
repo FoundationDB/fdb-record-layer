@@ -52,26 +52,26 @@ class ConfigTest {
         final int maxNumConcurrentNeighborhoodFetches = 2;
         final int maxNumConcurrentDeleteFromLayer = Config.DEFAULT_MAX_NUM_CONCURRENT_DELETE_FROM_LAYER + 1;
 
-        Assertions.assertThat(defaultConfig.getMetric()).isNotSameAs(metric);
-        Assertions.assertThat(defaultConfig.isUseInlining()).isNotEqualTo(useInlining);
-        Assertions.assertThat(defaultConfig.getM()).isNotEqualTo(m);
-        Assertions.assertThat(defaultConfig.getMMax()).isNotEqualTo(mMax);
-        Assertions.assertThat(defaultConfig.getMMax0()).isNotEqualTo(mMax0);
-        Assertions.assertThat(defaultConfig.getEfConstruction()).isNotEqualTo(efConstruction);
-        Assertions.assertThat(defaultConfig.getEfRepair()).isNotEqualTo(efRepair);
-        Assertions.assertThat(defaultConfig.isExtendCandidates()).isNotEqualTo(extendCandidates);
-        Assertions.assertThat(defaultConfig.isKeepPrunedConnections()).isNotEqualTo(keepPrunedConnections);
+        Assertions.assertThat(defaultConfig.metric()).isNotSameAs(metric);
+        Assertions.assertThat(defaultConfig.useInlining()).isNotEqualTo(useInlining);
+        Assertions.assertThat(defaultConfig.m()).isNotEqualTo(m);
+        Assertions.assertThat(defaultConfig.mMax()).isNotEqualTo(mMax);
+        Assertions.assertThat(defaultConfig.mMax0()).isNotEqualTo(mMax0);
+        Assertions.assertThat(defaultConfig.efConstruction()).isNotEqualTo(efConstruction);
+        Assertions.assertThat(defaultConfig.efRepair()).isNotEqualTo(efRepair);
+        Assertions.assertThat(defaultConfig.extendCandidates()).isNotEqualTo(extendCandidates);
+        Assertions.assertThat(defaultConfig.keepPrunedConnections()).isNotEqualTo(keepPrunedConnections);
 
-        Assertions.assertThat(defaultConfig.getSampleVectorStatsProbability()).isNotEqualTo(sampleVectorStatsProbability);
-        Assertions.assertThat(defaultConfig.getMaintainStatsProbability()).isNotEqualTo(maintainStatsProbability);
-        Assertions.assertThat(defaultConfig.getStatsThreshold()).isNotEqualTo(statsThreshold);
+        Assertions.assertThat(defaultConfig.sampleVectorStatsProbability()).isNotEqualTo(sampleVectorStatsProbability);
+        Assertions.assertThat(defaultConfig.maintainStatsProbability()).isNotEqualTo(maintainStatsProbability);
+        Assertions.assertThat(defaultConfig.statsThreshold()).isNotEqualTo(statsThreshold);
 
-        Assertions.assertThat(defaultConfig.isUseRaBitQ()).isNotEqualTo(useRaBitQ);
-        Assertions.assertThat(defaultConfig.getRaBitQNumExBits()).isNotEqualTo(raBitQNumExBits);
+        Assertions.assertThat(defaultConfig.useRaBitQ()).isNotEqualTo(useRaBitQ);
+        Assertions.assertThat(defaultConfig.raBitQNumExBits()).isNotEqualTo(raBitQNumExBits);
 
-        Assertions.assertThat(defaultConfig.getMaxNumConcurrentNodeFetches()).isNotEqualTo(maxNumConcurrentNodeFetches);
-        Assertions.assertThat(defaultConfig.getMaxNumConcurrentNeighborhoodFetches()).isNotEqualTo(maxNumConcurrentNeighborhoodFetches);
-        Assertions.assertThat(defaultConfig.getMaxNumConcurrentDeleteFromLayer()).isNotEqualTo(maxNumConcurrentDeleteFromLayer);
+        Assertions.assertThat(defaultConfig.maxNumConcurrentNodeFetches()).isNotEqualTo(maxNumConcurrentNodeFetches);
+        Assertions.assertThat(defaultConfig.maxNumConcurrentNeighborhoodFetches()).isNotEqualTo(maxNumConcurrentNeighborhoodFetches);
+        Assertions.assertThat(defaultConfig.maxNumConcurrentDeleteFromLayer()).isNotEqualTo(maxNumConcurrentDeleteFromLayer);
 
         final Config newConfig =
                 defaultConfig.toBuilder()
@@ -94,26 +94,26 @@ class ConfigTest {
                         .setMaxNumConcurrentDeleteFromLayer(maxNumConcurrentDeleteFromLayer)
                         .build(768);
 
-        Assertions.assertThat(newConfig.getMetric()).isSameAs(metric);
-        Assertions.assertThat(newConfig.isUseInlining()).isEqualTo(useInlining);
-        Assertions.assertThat(newConfig.getM()).isEqualTo(m);
-        Assertions.assertThat(newConfig.getMMax()).isEqualTo(mMax);
-        Assertions.assertThat(newConfig.getMMax0()).isEqualTo(mMax0);
-        Assertions.assertThat(newConfig.getEfConstruction()).isEqualTo(efConstruction);
-        Assertions.assertThat(newConfig.getEfRepair()).isEqualTo(efRepair);
-        Assertions.assertThat(newConfig.isExtendCandidates()).isEqualTo(extendCandidates);
-        Assertions.assertThat(newConfig.isKeepPrunedConnections()).isEqualTo(keepPrunedConnections);
+        Assertions.assertThat(newConfig.metric()).isSameAs(metric);
+        Assertions.assertThat(newConfig.useInlining()).isEqualTo(useInlining);
+        Assertions.assertThat(newConfig.m()).isEqualTo(m);
+        Assertions.assertThat(newConfig.mMax()).isEqualTo(mMax);
+        Assertions.assertThat(newConfig.mMax0()).isEqualTo(mMax0);
+        Assertions.assertThat(newConfig.efConstruction()).isEqualTo(efConstruction);
+        Assertions.assertThat(newConfig.efRepair()).isEqualTo(efRepair);
+        Assertions.assertThat(newConfig.extendCandidates()).isEqualTo(extendCandidates);
+        Assertions.assertThat(newConfig.keepPrunedConnections()).isEqualTo(keepPrunedConnections);
 
-        Assertions.assertThat(newConfig.getSampleVectorStatsProbability()).isEqualTo(sampleVectorStatsProbability);
-        Assertions.assertThat(newConfig.getMaintainStatsProbability()).isEqualTo(maintainStatsProbability);
-        Assertions.assertThat(newConfig.getStatsThreshold()).isEqualTo(statsThreshold);
+        Assertions.assertThat(newConfig.sampleVectorStatsProbability()).isEqualTo(sampleVectorStatsProbability);
+        Assertions.assertThat(newConfig.maintainStatsProbability()).isEqualTo(maintainStatsProbability);
+        Assertions.assertThat(newConfig.statsThreshold()).isEqualTo(statsThreshold);
 
-        Assertions.assertThat(newConfig.isUseRaBitQ()).isEqualTo(useRaBitQ);
-        Assertions.assertThat(newConfig.getRaBitQNumExBits()).isEqualTo(raBitQNumExBits);
+        Assertions.assertThat(newConfig.useRaBitQ()).isEqualTo(useRaBitQ);
+        Assertions.assertThat(newConfig.raBitQNumExBits()).isEqualTo(raBitQNumExBits);
 
-        Assertions.assertThat(newConfig.getMaxNumConcurrentNodeFetches()).isEqualTo(maxNumConcurrentNodeFetches);
-        Assertions.assertThat(newConfig.getMaxNumConcurrentNeighborhoodFetches()).isEqualTo(maxNumConcurrentNeighborhoodFetches);
-        Assertions.assertThat(newConfig.getMaxNumConcurrentDeleteFromLayer()).isEqualTo(maxNumConcurrentDeleteFromLayer);
+        Assertions.assertThat(newConfig.maxNumConcurrentNodeFetches()).isEqualTo(maxNumConcurrentNodeFetches);
+        Assertions.assertThat(newConfig.maxNumConcurrentNeighborhoodFetches()).isEqualTo(maxNumConcurrentNeighborhoodFetches);
+        Assertions.assertThat(newConfig.maxNumConcurrentDeleteFromLayer()).isEqualTo(maxNumConcurrentDeleteFromLayer);
     }
 
     @Test
