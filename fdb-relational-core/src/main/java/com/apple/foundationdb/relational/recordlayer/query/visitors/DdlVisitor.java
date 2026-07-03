@@ -762,6 +762,18 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
      *
      * <p>Pieces are read from the parser context and reassembled &mdash; no surface-syntax
      * manipulation on the DECLARE fragment.</p>
+     *
+     * <p><b>Case-sensitivity contract with online clients.</b> The keywords emitted here
+     * ({@code CREATE TEMPORARY FUNCTION}, {@code ON COMMIT DROP FUNCTION}, {@code AS}) are
+     * <em>UPPERCASE</em> by construction. The plan cache key derives its canonical query string
+     * from raw keyword tokens (source-preserved by {@code AstNormalizer.visitTerminal}, not
+     * uppercased), so a warm-up plan produced from this rewritten text is reachable at runtime
+     * <em>only</em> if the online client submits the matching standalone
+     * {@code CREATE TEMPORARY FUNCTION ...} DDL with the same uppercase keyword casing. Lowercase
+     * or mixed-case keyword submissions from clients will produce a different canonical string and
+     * thus a different cache key &mdash; warm-up plans become unreachable. See
+     * <a href="https://github.com/FoundationDB/fdb-record-layer/issues/4323">issue #4323</a>
+     * for the underlying case-sensitivity behavior of the normalizer.</p>
      */
     @Nonnull
     private static String rewriteDeclaredFunctionToStandalone(@Nonnull final RelationalParser.DeclaredFunctionContext ctx,
