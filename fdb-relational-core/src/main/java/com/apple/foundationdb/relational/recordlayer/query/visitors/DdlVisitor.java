@@ -115,13 +115,6 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
         return lookupType(ctx.customType, ctx.primitiveType(), true, ctx.ARRAY() != null);
     }
 
-    // TODO: remove
-    @Nonnull
-    @Override
-    public DataType visitColumnType(@Nonnull RelationalParser.ColumnTypeContext ctx) {
-        return lookupType(ctx.customType, ctx.primitiveType(), true, false);
-    }
-
     /**
      * Visits the column definition and creates a corresponding metadata object. The column is assumed by to {@code Nullable}
      * by default. I.e., if the user mentions no nullability constraint, the type of the column becomes nullable, which

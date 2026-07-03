@@ -145,7 +145,7 @@ public interface TypedVisitor extends RelationalParserVisitor<Object> {
 
     @Nonnull
     @Override
-    DataType visitColumnType(@Nonnull RelationalParser.ColumnTypeContext ctx);
+    Object visitColumnType(@Nonnull RelationalParser.ColumnTypeContext ctx);
 
     @Nonnull
     @Override

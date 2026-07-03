@@ -197,7 +197,7 @@ public class DelegatingVisitor<D extends TypedVisitor> implements TypedVisitor {
 
     @Nonnull
     @Override
-    public DataType visitColumnType(@Nonnull RelationalParser.ColumnTypeContext ctx) {
+    public Object visitColumnType(@Nonnull RelationalParser.ColumnTypeContext ctx) {
         return getDelegate().visitColumnType(ctx);
     }
 
