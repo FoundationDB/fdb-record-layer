@@ -752,7 +752,7 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
     }
 
     /**
-     * Rewrites a {@code declaredFunction} node inside a {@code DECLARE} block into the equivalent
+     * Rewrites a {@code declaredFunction} block inside a {@code DECLARE} block into the equivalent
      * standalone {@code CREATE TEMPORARY FUNCTION ... ON COMMIT DROP FUNCTION AS <body>} statement.
      *
      * <p>The persisted temp-function text on {@code StoredQuery} is required to be byte-identical to

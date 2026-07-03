@@ -173,7 +173,7 @@ public final class OfflineStoredQueriesProcessor {
     }
 
     /**
-     * Plans every stored query on {@code template}. For each {@link StoredQuery} the temp-function
+     * Plans every stored query in {@code template}. For each {@link StoredQuery} the temp-function
      * declarations are compiled first (via {@link MetadataTempFuncFactory}) so the running
      * template carries them when the SELECT body is planned. Per-query and per-temp-function
      * outcomes are reported by {@link #planStoredQuery} directly into {@code counts}.

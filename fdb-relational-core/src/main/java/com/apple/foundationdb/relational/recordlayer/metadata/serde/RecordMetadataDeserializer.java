@@ -126,8 +126,8 @@ public class RecordMetadataDeserializer {
             }
         }
         for (final var entry : recordMetaData.getStoredQueries().entrySet()) {
-            final RecordMetaData.StoredQuery rmsq = entry.getValue();
-            schemaTemplateBuilder.addStoredQuery(entry.getKey(), rmsq.getQuery(), rmsq.getTempFunctions());
+            final RecordMetaData.StoredQuery storedQuery = entry.getValue();
+            schemaTemplateBuilder.addStoredQuery(entry.getKey(), storedQuery.getQuery(), storedQuery.getTempFunctions());
         }
         schemaTemplateBuilder.setCachedMetadata(recordMetaData);
         return schemaTemplateBuilder;
