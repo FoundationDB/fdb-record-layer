@@ -263,7 +263,7 @@ public class Guardiann {
     /**
      * Inserts a new vector with its associated primary key into the vector structure.
      * <p>
-     * Finds the nearest cluster(s) for the new vector by querying the HNSW centroid index, writes a
+     * Finds the nearest cluster(s) for the new vector by querying the HNSW centroid index, then writes a
      * primary vector reference to the nearest cluster and replicated references to neighboring clusters
      * based on replication priority scoring. Updates cluster metadata and enqueues deferred maintenance
      * tasks (split, merge, reassign) if cluster size invariants are violated.

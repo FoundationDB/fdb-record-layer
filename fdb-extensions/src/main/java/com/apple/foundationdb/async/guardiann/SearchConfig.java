@@ -38,11 +38,15 @@ import javax.annotation.Nonnull;
  * {@code DEFAULT_*} constants exist only as the {@link SearchConfigBuilder}'s per-field fallbacks, so a caller can set
  * just the knobs it cares about and leave the rest at a reasonable starting point.
  *
- * @param candidatePoolSize how many nearest candidates to keep in flight before trimming to {@code k}. In the pruned
- *        {@link Search#kNearestNeighborsSearch} this is the size of the {@code DistinctTopK} candidate pool; in the
+ * @param candidatePoolFactor how large the in-flight candidate pool should be relative to the requested {@code k},
+ *        expressed as a multiple (e.g. {@code 1.15} keeps a pool 15% larger than {@code k}); the absolute pool size for
+ *        a given search is {@link #candidatePoolSize(int)}. Being {@code k}-relative rather than absolute, it can be
+ *        tuned once and reused across searches asking for different {@code k}. In the pruned
+ *        {@link Search#kNearestNeighborsSearch} the pool is the size of the {@code DistinctTopK} candidate pool; in the
  *        streaming {@link Search#searchOrderedByDistance} it is the reorder-window size of the almost-sorted iterator.
- *        Larger values improve recall/ordering at the cost of latency. (This replaces the old, misleadingly named
- *        {@code efSearch} — it is unrelated to HNSW's {@code efSearch}.)
+ *        Larger values improve recall/ordering at the cost of latency. Must be {@code >= 1.0} so the pool is never
+ *        smaller than {@code k}. (This replaces the old, absolute {@code candidatePoolSize} — itself the rename of the
+ *        misleadingly named {@code efSearch}, unrelated to HNSW's {@code efSearch}.)
  * @param searchMaxClusters the maximum number of cluster centroids to probe around the query
  * @param searchMinClustersBeforePruning the number of nearest clusters always retained before distance-ratio pruning
  *        is allowed to drop any (pruned search only; ignored by the streaming search)
@@ -55,7 +59,7 @@ import javax.annotation.Nonnull;
  *        HNSW walk
  * @param searchConcurrency the executor parallelism for the fan-out metadata/reference reads a search issues
  */
-public record SearchConfig(int candidatePoolSize,
+public record SearchConfig(double candidatePoolFactor,
                            int searchMaxClusters,
                            int searchMinClustersBeforePruning,
                            double searchDistanceRatioCutoff,
@@ -63,7 +67,7 @@ public record SearchConfig(int candidatePoolSize,
                            int centroidEfOutwardSearch,
                            int searchConcurrency) {
 
-    public static final int DEFAULT_CANDIDATE_POOL_SIZE = 128;
+    public static final double DEFAULT_CANDIDATE_POOL_FACTOR = 1.15d;
     public static final int DEFAULT_SEARCH_MAX_CLUSTERS = 48;
     public static final int DEFAULT_SEARCH_MIN_CLUSTERS_BEFORE_PRUNING = 16;
     public static final double DEFAULT_SEARCH_DISTANCE_RATIO_CUTOFF = 1.5d;
@@ -72,7 +76,7 @@ public record SearchConfig(int candidatePoolSize,
     public static final int DEFAULT_SEARCH_CONCURRENCY = 10;
 
     public SearchConfig {
-        Preconditions.checkArgument(candidatePoolSize >= 1, "candidatePoolSize must be >= 1");
+        Preconditions.checkArgument(candidatePoolFactor >= 1.0d, "candidatePoolFactor must be >= 1.0");
         Preconditions.checkArgument(searchMaxClusters >= 1, "searchMaxClusters must be >= 1");
         Preconditions.checkArgument(searchMinClustersBeforePruning >= 0,
                 "searchMinClustersBeforePruning must be >= 0");
@@ -83,16 +87,28 @@ public record SearchConfig(int candidatePoolSize,
         Preconditions.checkArgument(searchConcurrency >= 1, "searchConcurrency must be >= 1");
     }
 
+    /**
+     * Resolves the absolute candidate-pool size for a search asking for {@code k} results by applying
+     * {@link #candidatePoolFactor()}. The result is rounded up and clamped to at least {@code k}, so the pool is never
+     * smaller than the requested top-k even for a factor of exactly {@code 1.0} or tiny {@code k}.
+     *
+     * @param k the number of results the search will ultimately return
+     * @return the number of candidates to keep in flight before trimming to {@code k}
+     */
+    public int candidatePoolSize(final int k) {
+        return Math.max(k, (int) Math.ceil(candidatePoolFactor() * k));
+    }
+
     @Nonnull
     public SearchConfigBuilder toBuilder() {
-        return new SearchConfigBuilder(candidatePoolSize(), searchMaxClusters(), searchMinClustersBeforePruning(),
+        return new SearchConfigBuilder(candidatePoolFactor(), searchMaxClusters(), searchMinClustersBeforePruning(),
                 searchDistanceRatioCutoff(), centroidEfRingSearch(), centroidEfOutwardSearch(), searchConcurrency());
     }
 
     @Override
     @Nonnull
     public String toString() {
-        return "SearchConfig[candidatePoolSize=" + candidatePoolSize() +
+        return "SearchConfig[candidatePoolFactor=" + candidatePoolFactor() +
                 ", searchMaxClusters=" + searchMaxClusters() +
                 ", searchMinClustersBeforePruning=" + searchMinClustersBeforePruning() +
                 ", searchDistanceRatioCutoff=" + searchDistanceRatioCutoff() +
@@ -108,7 +124,7 @@ public record SearchConfig(int candidatePoolSize,
      */
     @CanIgnoreReturnValue
     public static class SearchConfigBuilder {
-        private int candidatePoolSize = DEFAULT_CANDIDATE_POOL_SIZE;
+        private double candidatePoolFactor = DEFAULT_CANDIDATE_POOL_FACTOR;
         private int searchMaxClusters = DEFAULT_SEARCH_MAX_CLUSTERS;
         private int searchMinClustersBeforePruning = DEFAULT_SEARCH_MIN_CLUSTERS_BEFORE_PRUNING;
         private double searchDistanceRatioCutoff = DEFAULT_SEARCH_DISTANCE_RATIO_CUTOFF;
@@ -119,11 +135,11 @@ public record SearchConfig(int candidatePoolSize,
         public SearchConfigBuilder() {
         }
 
-        public SearchConfigBuilder(final int candidatePoolSize, final int searchMaxClusters,
+        public SearchConfigBuilder(final double candidatePoolFactor, final int searchMaxClusters,
                                    final int searchMinClustersBeforePruning, final double searchDistanceRatioCutoff,
                                    final int centroidEfRingSearch, final int centroidEfOutwardSearch,
                                    final int searchConcurrency) {
-            this.candidatePoolSize = candidatePoolSize;
+            this.candidatePoolFactor = candidatePoolFactor;
             this.searchMaxClusters = searchMaxClusters;
             this.searchMinClustersBeforePruning = searchMinClustersBeforePruning;
             this.searchDistanceRatioCutoff = searchDistanceRatioCutoff;
@@ -132,13 +148,13 @@ public record SearchConfig(int candidatePoolSize,
             this.searchConcurrency = searchConcurrency;
         }
 
-        public int getCandidatePoolSize() {
-            return candidatePoolSize;
+        public double getCandidatePoolFactor() {
+            return candidatePoolFactor;
         }
 
         @Nonnull
-        public SearchConfigBuilder setCandidatePoolSize(final int candidatePoolSize) {
-            this.candidatePoolSize = candidatePoolSize;
+        public SearchConfigBuilder setCandidatePoolFactor(final double candidatePoolFactor) {
+            this.candidatePoolFactor = candidatePoolFactor;
             return this;
         }
 
@@ -204,7 +220,7 @@ public record SearchConfig(int candidatePoolSize,
 
         @Nonnull
         public SearchConfig build() {
-            return new SearchConfig(getCandidatePoolSize(), getSearchMaxClusters(),
+            return new SearchConfig(getCandidatePoolFactor(), getSearchMaxClusters(),
                     getSearchMinClustersBeforePruning(), getSearchDistanceRatioCutoff(), getCentroidEfRingSearch(),
                     getCentroidEfOutwardSearch(), getSearchConcurrency());
         }

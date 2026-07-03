@@ -343,7 +343,7 @@ public class CollapseScenarioTest implements BaseTest {
             TestHelpers.runToQuiescence(db, guardiann);
 
             assertThat(onWriteListener.getNumTasksExecutedByKind()
-                    .getOrDefault(AbstractDeferredTask.Kind.COLLAPSE, 0))
+                    .getOrDefault(TaskKind.COLLAPSE, 0))
                     .as("inserting %d identical vectors must trigger at least one COLLAPSE", numDuplicates)
                     .isGreaterThanOrEqualTo(1);
         } finally {
@@ -671,9 +671,12 @@ public class CollapseScenarioTest implements BaseTest {
     private void assertAllResolvable(@Nonnull final Guardiann guardiann, @Nonnull final RealVector vector,
                                      @Nonnull final List<Tuple> primaryKeys) {
         final int k = primaryKeys.size();
+        // Keep a generous pool so every near-duplicate survives to the result: at least 2x k, but never below an
+        // absolute floor of 128 for small k. Expressed as a k-relative factor, that floor becomes 128/k.
+        final double candidatePoolFactor = Math.max(2.0d, 128.0d / k);
         final List<? extends ResultEntry> results = db.run(tr ->
                 guardiann.kNearestNeighborsSearch(tr, k,
-                        new SearchConfig.SearchConfigBuilder().setCandidatePoolSize(Math.max(2 * k, 128))
+                        new SearchConfig.SearchConfigBuilder().setCandidatePoolFactor(candidatePoolFactor)
                                 .setSearchMaxClusters(64).build(), false, vector).join());
         assertThat(results)
                 .extracting(ResultEntry::primaryKey)

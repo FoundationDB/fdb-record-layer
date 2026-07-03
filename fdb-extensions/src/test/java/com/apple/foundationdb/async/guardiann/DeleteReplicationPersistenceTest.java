@@ -180,7 +180,7 @@ public class DeleteReplicationPersistenceTest implements BaseTest {
             });
         }
         TestHelpers.runToQuiescence(db, guardiann);
-        final Map<AbstractDeferredTask.Kind, Integer> deleteTasks =
+        final Map<TaskKind, Integer> deleteTasks =
                 Map.copyOf(onWriteListener.getNumTasksExecutedByKind());
         logger.info("seed={} delete-phase tasks executed by kind={}", String.format("%#x", seed), deleteTasks);
         onWriteListener.popFrame();

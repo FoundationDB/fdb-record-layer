@@ -21,7 +21,6 @@
 package com.apple.foundationdb.async.guardiann;
 
 import com.apple.foundationdb.Transaction;
-import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.MoreAsyncUtil;
 import com.apple.foundationdb.async.common.RandomHelpers;
@@ -48,8 +47,7 @@ import static com.apple.foundationdb.async.MoreAsyncUtil.mapIterablePipelined;
  * clusters (primary and replicated), updates cluster metadata counts, and enqueues maintenance tasks
  * if a cluster drops below its minimum size threshold.
  */
-@API(API.Status.EXPERIMENTAL)
-public class Delete {
+class Delete {
     @Nonnull
     private static final Logger logger = LoggerFactory.getLogger(Delete.class);
 

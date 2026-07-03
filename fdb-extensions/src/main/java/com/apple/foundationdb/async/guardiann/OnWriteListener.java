@@ -30,7 +30,7 @@ import java.util.Set;
 import java.util.UUID;
 
 /**
- * Interface for call backs whenever we write data to the database.
+ * Interface for callbacks whenever we write data to the database.
  */
 public interface OnWriteListener extends OnKeyValueWriteListener {
     OnWriteListener NOOP = new OnWriteListener() {
@@ -47,7 +47,7 @@ public interface OnWriteListener extends OnKeyValueWriteListener {
      * @param targetClusterIds the cluster ids the task targets
      */
     @SuppressWarnings("unused")
-    default void onTaskEnqueued(@Nonnull final AbstractDeferredTask.Kind kind, @Nonnull UUID taskId,
+    default void onTaskEnqueued(@Nonnull final TaskKind kind, @Nonnull UUID taskId,
                                 @Nonnull final Set<UUID> targetClusterIds) {
         // nothing
     }
@@ -62,7 +62,7 @@ public interface OnWriteListener extends OnKeyValueWriteListener {
      * @param targetClusterIds target cluster ids of the task
      */
     @SuppressWarnings("unused")
-    default void onTaskExecuted(@Nonnull final AbstractDeferredTask.Kind taskKind, @Nonnull final UUID taskId,
+    default void onTaskExecuted(@Nonnull final TaskKind taskKind, @Nonnull final UUID taskId,
                                 @Nonnull final Set<UUID> targetClusterIds) {
         // nothing
     }

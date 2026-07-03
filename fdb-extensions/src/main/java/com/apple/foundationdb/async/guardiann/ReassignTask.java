@@ -108,7 +108,7 @@ import java.util.concurrent.Executor;
  * neighboring clusters (not just the ones in the cause cluster id set).
  *
  */
-public class ReassignTask extends AbstractDeferredTask {
+class ReassignTask extends AbstractDeferredTask {
     @Nonnull
     private static final Logger logger = LoggerFactory.getLogger(ReassignTask.class);
 
@@ -181,8 +181,8 @@ public class ReassignTask extends AbstractDeferredTask {
 
     @Nonnull
     @Override
-    public Kind getKind() {
-        return Kind.REASSIGN;
+    public TaskKind getKind() {
+        return TaskKind.REASSIGN;
     }
 
     @Nonnull
@@ -763,7 +763,7 @@ public class ReassignTask extends AbstractDeferredTask {
     @Nonnull
     static ReassignTask fromTuples(@Nonnull final Locator locator, @Nonnull final AccessInfo accessInfo,
                                    @Nonnull final Tuple keyTuple, @Nonnull final Tuple valueTuple) {
-        Verify.verify(Kind.fromValueTuple(valueTuple) == Kind.REASSIGN);
+        Verify.verify(TaskKind.fromValueTuple(valueTuple) == TaskKind.REASSIGN);
         final StorageTransform storageTransform = locator.primitives().storageTransform(accessInfo);
 
         final UUID targetClusterId = valueTuple.getUUID(1);

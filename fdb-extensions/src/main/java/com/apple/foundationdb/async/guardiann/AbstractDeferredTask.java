@@ -37,17 +37,14 @@ import org.slf4j.Logger;
 
 import javax.annotation.Nonnull;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 import java.util.SplittableRandom;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.stream.Collectors;
 
 /**
  * Base class for the deferred (background) maintenance tasks Guardiann enqueues to keep its cluster structure
@@ -61,10 +58,10 @@ import java.util.stream.Collectors;
  *   <li>the {@link AccessInfo access context} it runs against; and</li>
  *   <li>the set of {@linkplain #getTargetClusterIds() target cluster ids} it operates on.</li>
  * </ul>
- * A persisted task is rehydrated from its tuple representation via its {@link Kind}, and subclasses implement the
+ * A persisted task is rehydrated from its tuple representation via its {@link TaskKind}, and subclasses implement the
  * actual maintenance work.
  */
-public abstract class AbstractDeferredTask {
+abstract class AbstractDeferredTask {
     @Nonnull
     private final Locator locator;
     @Nonnull
@@ -78,7 +75,7 @@ public abstract class AbstractDeferredTask {
      * Common initialization shared by every deferred task: binds the task to its {@link Locator} (storage, config,
      * executor), the {@link AccessInfo} context it runs against, its queue {@linkplain #getTaskId() id}, and the
      * cluster ids it targets. Package-private because tasks are only ever created by subclass factories or rehydrated
-     * via {@link Kind}.
+     * via {@link TaskKind}.
      *
      * @param locator the locator providing storage, configuration and execution context
      * @param accessInfo the access/coordinate-transform context the task operates in
@@ -180,7 +177,7 @@ public abstract class AbstractDeferredTask {
 
     /**
      * Formats this task's kind-specific payload into the {@link Tuple} stored as the task's value in the queue
-     * (which is then serialized). The inverse is the subclass {@code fromTuples} factory selected by {@link Kind},
+     * (which is then serialized). The inverse is the subclass {@code fromTuples} factory selected by {@link TaskKind},
      * which recreates the task from its stored key and value tuples.
      *
      * @return the value tuple to persist for this task
@@ -234,13 +231,13 @@ public abstract class AbstractDeferredTask {
     }
 
     /**
-     * The {@link Kind} discriminant for this task, used to tag its serialized form and to select the right factory
+     * The {@link TaskKind} discriminant for this task, used to tag its serialized form and to select the right factory
      * when rehydrating it from tuples.
      *
      * @return this task's kind
      */
     @Nonnull
-    public abstract Kind getKind();
+    public abstract TaskKind getKind();
 
     /**
      * Enqueues a collapse (plus a follow-up bounce) for {@code targetClusterId} if it holds enough duplicate primary
@@ -286,7 +283,7 @@ public abstract class AbstractDeferredTask {
                     BounceTask.of(getLocator(), getAccessInfo(), bounceTaskId,
                             ImmutableSet.of(targetClusterId),
                             ImmutableSet.of(collapseTaskId),
-                            AbstractDeferredTask.Kind.SPLIT_MERGE);
+                            TaskKind.SPLIT_MERGE);
             bounceTask.writeDeferredTask(transaction);
             return true;
         }
@@ -294,8 +291,8 @@ public abstract class AbstractDeferredTask {
     }
 
     /**
-     * Rehydrates a persisted task from its stored key and value tuples, dispatching on the {@link Kind} encoded in the
-     * value tuple to the matching subclass factory.
+     * Rehydrates a persisted task from its stored key and value tuples, dispatching on the {@link TaskKind} encoded in
+     * the value tuple to the matching subclass factory.
      *
      * @param locator the locator to bind the reconstructed task to
      * @param accessInfo the access context to bind the reconstructed task to
@@ -307,7 +304,7 @@ public abstract class AbstractDeferredTask {
     static AbstractDeferredTask newFromTuples(@Nonnull final Locator locator,
                                               @Nonnull final AccessInfo accessInfo,
                                               @Nonnull final Tuple keyTuple, @Nonnull final Tuple valueTuple) {
-        final Kind kind = Kind.fromValueTuple(valueTuple);
+        final TaskKind kind = TaskKind.fromValueTuple(valueTuple);
         return kind.create(locator, accessInfo, keyTuple, valueTuple);
     }
 
@@ -646,79 +643,5 @@ public abstract class AbstractDeferredTask {
      */
     record ClusterClassification(@Nonnull List<ClusterMetadataWithDistance> coreClusters,
                                  @Nonnull List<ClusterMetadataWithDistance> neighboringClusters) {
-    }
-
-    /**
-     * The kinds of deferred task. Each constant carries a stable integer {@linkplain #getCode() code} used in the
-     * task's serialized form and a factory that reconstructs the corresponding {@link AbstractDeferredTask} from its
-     * stored key and value tuples.
-     */
-    public enum Kind {
-        SPLIT_MERGE(0, SplitMergeTask::fromTuples),
-        REASSIGN(1, ReassignTask::fromTuples),
-        BOUNCE(2, BounceTask::fromTuples),
-        COLLAPSE(3, CollapseTask::fromTuples);
-
-        private static final Map<Integer, Kind> BY_CODE =
-                Arrays.stream(values())
-                        .collect(Collectors.toMap(s -> s.code, s -> s));
-
-        private final int code;
-        private final TaskCreationFunction taskCreationFunction;
-
-        Kind(final int code, @Nonnull final TaskCreationFunction taskCreationFunction) {
-            this.code = code;
-            this.taskCreationFunction = taskCreationFunction;
-        }
-
-        /**
-         * The stable integer code persisted for this kind as the first element of a task's value tuple.
-         *
-         * @return the serialized code
-         */
-        public int getCode() {
-            return code;
-        }
-
-        @Nonnull
-        private AbstractDeferredTask create(@Nonnull final Locator locator,
-                                            @Nonnull final AccessInfo accessInfo,
-                                            @Nonnull final Tuple keyTuple,
-                                            @Nonnull final Tuple valueTuple) {
-            return taskCreationFunction.create(locator, accessInfo, keyTuple, valueTuple);
-        }
-
-        /**
-         * Reads the {@link Kind} from a persisted task's value tuple, whose first element is the kind code.
-         *
-         * @param valueTuple the task's stored value tuple
-         * @return the decoded kind
-         */
-        public static Kind fromValueTuple(@Nonnull final Tuple valueTuple) {
-            return Kind.ofCode(Math.toIntExact(valueTuple.getLong(0)));
-        }
-
-        /**
-         * Returns the kind for a persisted {@linkplain #getCode() code}.
-         *
-         * @param code the serialized kind code
-         * @return the matching kind
-         * @throws NullPointerException if the code does not correspond to any kind
-         */
-        @Nonnull
-        public static Kind ofCode(final int code) {
-            return Objects.requireNonNull(BY_CODE.getOrDefault(code, null));
-        }
-    }
-
-    /**
-     * Factory that reconstructs an {@link AbstractDeferredTask} from its persisted key and value tuples.
-     */
-    @FunctionalInterface
-    private interface TaskCreationFunction {
-        AbstractDeferredTask create(@Nonnull Locator locator,
-                                    @Nonnull AccessInfo accessInfo,
-                                    @Nonnull Tuple keyTuple,
-                                    @Nonnull Tuple valueTuple);
     }
 }

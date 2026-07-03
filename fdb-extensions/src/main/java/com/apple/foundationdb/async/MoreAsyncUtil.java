@@ -186,6 +186,18 @@ public class MoreAsyncUtil {
         };
     }
 
+    /**
+     * Returns an {@link AsyncIterable} over the longest <em>prefix</em> of {@code iterable} whose elements all satisfy
+     * {@code whilePredicate}, stopping at (and excluding) the first element that fails. For example, taking-while
+     * {@code isEven} over {@code [2, 4, 3, 6, 5]} yields {@code [2, 4]}.
+     *
+     * @param iterable the source
+     * @param whilePredicate the predicate an element must satisfy to be included; the first failure ends the stream
+     * @param executor the executor used to drive the asynchronous iteration
+     * @param <T> the element type
+     *
+     * @return an {@link AsyncIterable} over the leading run of matching elements
+     */
     @Nonnull
     public static <T> AsyncIterable<T> takeWhileIterable(@Nonnull final AsyncIterable<T> iterable,
                                                          @Nonnull final Predicate<T> whilePredicate,
@@ -193,6 +205,26 @@ public class MoreAsyncUtil {
         return iterableOf(() -> takeWhileRemaining(iterable.iterator(), whilePredicate), executor);
     }
 
+    /**
+     * Returns a {@link CloseableAsyncIterator} over the longest <em>prefix</em> of {@code iterator} whose remaining
+     * elements all satisfy {@code whilePredicate}: it yields every leading element that matches and stops as soon as
+     * one does not (that first failing element is not returned). For example, taking-while {@code isEven} over
+     * {@code [2, 4, 3, 6, 5]} yields {@code [2, 4]}.
+     * <p>
+     * <b>Note on a shared source iterator.</b> Because {@link AsyncIterator} offers no {@code peek}, deciding where to
+     * stop requires actually pulling the first non-matching element ({@code iterator.next()}) in order to test it —
+     * that element is then dropped rather than returned. A caller that retains a reference to the source
+     * {@code iterator} will therefore find it positioned <em>past</em> the first failure: in the example above,
+     * {@code iterator.next()} on the original iterator would yield {@code 6}, not {@code 3}. In other words this
+     * consumes one element beyond the returned prefix, so sharing the source iterator across a {@code takeWhile} and
+     * other consumption is best avoided.
+     *
+     * @param iterator the source iterator; consumed up to and including the first non-matching element
+     * @param whilePredicate the predicate an element must satisfy to be included; the first failure ends the stream
+     * @param <T> the element type
+     *
+     * @return a {@link CloseableAsyncIterator} over the leading run of matching elements
+     */
     @Nonnull
     public static <T> CloseableAsyncIterator<T> takeWhileRemaining(@Nonnull final AsyncIterator<T> iterator,
                                                                    @Nonnull final Predicate<T> whilePredicate) {

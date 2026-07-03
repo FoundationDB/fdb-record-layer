@@ -233,7 +233,7 @@ sealed interface VectorReference permits PrimaryCopy, ReplicatedCopy {
     /**
      * The persisted role discriminant of a vector reference. A single role code cannot represent an illegal
      * combination (such as an underreplicated replica), and a replication priority is persisted only for
-     * {@link #REPLICATED}. Mirrors {@link AbstractDeferredTask.Kind}: each constant carries a stable
+     * {@link #REPLICATED}. Mirrors {@link TaskKind}: each constant carries a stable
      * {@link #getCode()} used in the serialized form.
      */
     enum Role {

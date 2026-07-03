@@ -157,11 +157,11 @@ public class SplitMergeSplitScenarioTest implements BaseTest {
 
             TestHelpers.runToQuiescence(db, guardiann);
 
-            final Map<AbstractDeferredTask.Kind, Integer> executed =
+            final Map<TaskKind, Integer> executed =
                     onWriteListener.getNumTasksExecutedByKind();
             logger.info("scenario complete; tasks executed by kind={}", executed);
 
-            assertThat(executed.getOrDefault(AbstractDeferredTask.Kind.SPLIT_MERGE, 0))
+            assertThat(executed.getOrDefault(TaskKind.SPLIT_MERGE, 0))
                     .as("at least one SplitMergeTask must fire when a cluster exceeds primaryClusterMax=%d",
                             CLUSTER_MAX)
                     .isGreaterThanOrEqualTo(1);

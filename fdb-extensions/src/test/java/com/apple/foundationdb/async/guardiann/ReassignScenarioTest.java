@@ -266,11 +266,11 @@ public class ReassignScenarioTest implements BaseTest {
             // ---- Phase 3: drain & verify ----
             TestHelpers.runToQuiescence(db, guardiann);
 
-            final Map<AbstractDeferredTask.Kind, Integer> executed =
+            final Map<TaskKind, Integer> executed =
                     onWriteListener.getNumTasksExecutedByKind();
             logger.info("post-injection: tasks executed by kind={}", executed);
 
-            assertThat(executed.getOrDefault(AbstractDeferredTask.Kind.REASSIGN, 0))
+            assertThat(executed.getOrDefault(TaskKind.REASSIGN, 0))
                     .as("REASSIGN must fire after the cluster's under-replicated primary count "
                             + "exceeds underreplicatedPrimaryClusterMax=%d", UNDERREPLICATED_MAX)
                     .isGreaterThanOrEqualTo(1);

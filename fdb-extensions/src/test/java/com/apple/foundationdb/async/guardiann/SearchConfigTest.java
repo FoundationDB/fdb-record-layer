@@ -32,7 +32,7 @@ class SearchConfigTest {
         Assertions.assertThat(new SearchConfig.SearchConfigBuilder().build()).isEqualTo(defaultConfig);
         Assertions.assertThat(defaultConfig.toBuilder().build()).isEqualTo(defaultConfig);
 
-        final int candidatePoolSize = SearchConfig.DEFAULT_CANDIDATE_POOL_SIZE + 1;
+        final double candidatePoolFactor = SearchConfig.DEFAULT_CANDIDATE_POOL_FACTOR + 1.0d;
         final int searchMaxClusters = SearchConfig.DEFAULT_SEARCH_MAX_CLUSTERS + 1;
         final int searchMinClustersBeforePruning = SearchConfig.DEFAULT_SEARCH_MIN_CLUSTERS_BEFORE_PRUNING + 1;
         final double searchDistanceRatioCutoff = SearchConfig.DEFAULT_SEARCH_DISTANCE_RATIO_CUTOFF + 1.0d;
@@ -40,7 +40,7 @@ class SearchConfigTest {
         final int centroidEfOutwardSearch = SearchConfig.DEFAULT_CENTROID_EF_OUTWARD_SEARCH + 1;
         final int searchConcurrency = SearchConfig.DEFAULT_SEARCH_CONCURRENCY + 1;
 
-        Assertions.assertThat(defaultConfig.candidatePoolSize()).isNotEqualTo(candidatePoolSize);
+        Assertions.assertThat(defaultConfig.candidatePoolFactor()).isNotEqualTo(candidatePoolFactor);
         Assertions.assertThat(defaultConfig.searchMaxClusters()).isNotEqualTo(searchMaxClusters);
         Assertions.assertThat(defaultConfig.searchMinClustersBeforePruning()).isNotEqualTo(searchMinClustersBeforePruning);
         Assertions.assertThat(defaultConfig.searchDistanceRatioCutoff()).isNotEqualTo(searchDistanceRatioCutoff);
@@ -50,7 +50,7 @@ class SearchConfigTest {
 
         final SearchConfig newConfig =
                 defaultConfig.toBuilder()
-                        .setCandidatePoolSize(candidatePoolSize)
+                        .setCandidatePoolFactor(candidatePoolFactor)
                         .setSearchMaxClusters(searchMaxClusters)
                         .setSearchMinClustersBeforePruning(searchMinClustersBeforePruning)
                         .setSearchDistanceRatioCutoff(searchDistanceRatioCutoff)
@@ -59,7 +59,7 @@ class SearchConfigTest {
                         .setSearchConcurrency(searchConcurrency)
                         .build();
 
-        Assertions.assertThat(newConfig.candidatePoolSize()).isEqualTo(candidatePoolSize);
+        Assertions.assertThat(newConfig.candidatePoolFactor()).isEqualTo(candidatePoolFactor);
         Assertions.assertThat(newConfig.searchMaxClusters()).isEqualTo(searchMaxClusters);
         Assertions.assertThat(newConfig.searchMinClustersBeforePruning()).isEqualTo(searchMinClustersBeforePruning);
         Assertions.assertThat(newConfig.searchDistanceRatioCutoff()).isEqualTo(searchDistanceRatioCutoff);
@@ -69,8 +69,26 @@ class SearchConfigTest {
     }
 
     @Test
+    void testCandidatePoolSizeAppliesFactorAndFloorsAtK() {
+        // Factor of exactly 1.0: the pool equals k (never smaller).
+        final SearchConfig unitFactor = new SearchConfig.SearchConfigBuilder().setCandidatePoolFactor(1.0d).build();
+        Assertions.assertThat(unitFactor.candidatePoolSize(10)).isEqualTo(10);
+        Assertions.assertThat(unitFactor.candidatePoolSize(1)).isEqualTo(1);
+
+        // A fractional factor rounds up so the pool is strictly larger than k.
+        final SearchConfig oversampling = new SearchConfig.SearchConfigBuilder().setCandidatePoolFactor(1.15d).build();
+        Assertions.assertThat(oversampling.candidatePoolSize(100)).isEqualTo(115);
+        Assertions.assertThat(oversampling.candidatePoolSize(10)).isEqualTo(12); // ceil(11.5)
+        Assertions.assertThat(oversampling.candidatePoolSize(1)).isEqualTo(2);   // ceil(1.15)
+
+        final SearchConfig doubling = new SearchConfig.SearchConfigBuilder().setCandidatePoolFactor(2.0d).build();
+        Assertions.assertThat(doubling.candidatePoolSize(50)).isEqualTo(100);
+    }
+
+    @Test
     void testSearchConfigValidatesArguments() {
-        Assertions.assertThatThrownBy(() -> new SearchConfig.SearchConfigBuilder().setCandidatePoolSize(0).build())
+        Assertions.assertThatThrownBy(() ->
+                        new SearchConfig.SearchConfigBuilder().setCandidatePoolFactor(0.99d).build())
                 .isInstanceOf(IllegalArgumentException.class);
         Assertions.assertThatThrownBy(() -> new SearchConfig.SearchConfigBuilder().setSearchMaxClusters(0).build())
                 .isInstanceOf(IllegalArgumentException.class);

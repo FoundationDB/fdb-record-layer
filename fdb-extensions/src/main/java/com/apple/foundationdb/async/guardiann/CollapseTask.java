@@ -82,7 +82,7 @@ import java.util.concurrent.CompletableFuture;
  * The task is a benign no-op if the target cluster no longer exists or is no longer marked for collapse; both can
  * occur naturally when the cluster was merged away or otherwise re-tasked between this task being enqueued and run.
  */
-public class CollapseTask extends AbstractDeferredTask {
+class CollapseTask extends AbstractDeferredTask {
     @Nonnull
     private static final Logger logger = LoggerFactory.getLogger(CollapseTask.class);
 
@@ -127,8 +127,8 @@ public class CollapseTask extends AbstractDeferredTask {
 
     @Nonnull
     @Override
-    public Kind getKind() {
-        return Kind.COLLAPSE;
+    public TaskKind getKind() {
+        return TaskKind.COLLAPSE;
     }
 
     @Nonnull
@@ -444,7 +444,7 @@ public class CollapseTask extends AbstractDeferredTask {
     @Nonnull
     static CollapseTask fromTuples(@Nonnull final Locator locator, @Nonnull final AccessInfo accessInfo,
                                    @Nonnull final Tuple keyTuple, @Nonnull final Tuple valueTuple) {
-        Verify.verify(Kind.fromValueTuple(valueTuple) == Kind.COLLAPSE);
+        Verify.verify(TaskKind.fromValueTuple(valueTuple) == TaskKind.COLLAPSE);
         final StorageTransform storageTransform = locator.primitives().storageTransform(accessInfo);
 
         final UUID targetClusterId = valueTuple.getUUID(1);

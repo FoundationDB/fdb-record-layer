@@ -21,7 +21,6 @@
 package com.apple.foundationdb.async.guardiann;
 
 import com.apple.foundationdb.Transaction;
-import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncIterable;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.MoreAsyncUtil;
@@ -70,9 +69,8 @@ import static com.apple.foundationdb.async.common.StorageHelpers.deleteAllSample
  * nearest (primary) cluster, replicates it into nearby clusters as warranted, writes the vector's metadata
  * and references, and maintains sampling statistics.
  */
-@API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
-public class Insert {
+class Insert {
     @Nonnull
     private static final Logger logger = LoggerFactory.getLogger(Insert.class);
 

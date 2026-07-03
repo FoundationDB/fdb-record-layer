@@ -49,7 +49,7 @@ import java.util.concurrent.Executor;
 
 /**
  * A deferred task that acts as a join (barrier): it waits until a set of dependent tasks has completed and then
- * enqueues a follow-up task of {@link Kind} {@code finalTaskKind} (for example a {@link ReassignTask}) for its
+ * enqueues a follow-up task of {@link TaskKind} {@code finalTaskKind} (for example a {@link ReassignTask}) for its
  * target clusters. Guardiann uses it after a split or merge so that the reassignment of the newly created clusters
  * only runs once all tasks they depend on have finished.
  *
@@ -67,30 +67,30 @@ import java.util.concurrent.Executor;
  * finding unfinished dependencies, re-enqueue itself, and spin forever without making progress. Once no dependencies
  * remain, the bounce enqueues its follow-up work (see {@link #enqueueFollowUpTasks}).
  */
-public class BounceTask extends AbstractDeferredTask {
+class BounceTask extends AbstractDeferredTask {
     @Nonnull
     private static final Logger logger = LoggerFactory.getLogger(BounceTask.class);
 
     @Nonnull
     private final Set<UUID> dependentTaskIds;
     @Nonnull
-    private final Kind finalTaskKind;
+    private final TaskKind finalTaskKind;
 
     private BounceTask(@Nonnull final Locator locator, @Nonnull final AccessInfo accessInfo,
                        @Nonnull final UUID taskId, @Nonnull final Set<UUID> targetClusterIds,
-                       @Nonnull final Set<UUID> dependentTaskIds, @Nonnull final Kind finalTaskKind) {
+                       @Nonnull final Set<UUID> dependentTaskIds, @Nonnull final TaskKind finalTaskKind) {
         super(locator, accessInfo, taskId, targetClusterIds);
         this.dependentTaskIds = ImmutableSet.copyOf(dependentTaskIds);
         this.finalTaskKind = finalTaskKind;
     }
 
     @Nonnull
-    public Set<UUID> getDependentTaskIds() {
+    Set<UUID> getDependentTaskIds() {
         return dependentTaskIds;
     }
 
     @Nonnull
-    public Kind getFinalTaskKind() {
+    TaskKind getFinalTaskKind() {
         return finalTaskKind;
     }
 
@@ -112,8 +112,8 @@ public class BounceTask extends AbstractDeferredTask {
 
     @Nonnull
     @Override
-    public Kind getKind() {
-        return Kind.BOUNCE;
+    public TaskKind getKind() {
+        return TaskKind.BOUNCE;
     }
 
     @Nonnull
@@ -315,11 +315,11 @@ public class BounceTask extends AbstractDeferredTask {
     @Nonnull
     static BounceTask fromTuples(@Nonnull final Locator locator, @Nonnull final AccessInfo accessInfo,
                                  @Nonnull final Tuple keyTuple, @Nonnull final Tuple valueTuple) {
-        Verify.verify(Kind.fromValueTuple(valueTuple) == Kind.BOUNCE);
+        Verify.verify(TaskKind.fromValueTuple(valueTuple) == TaskKind.BOUNCE);
 
         final Set<UUID> targetClusterIds = StorageAdapter.clusterIdsFromTuple(valueTuple.getNestedTuple(1));
         final Set<UUID> dependentTaskIds = StorageAdapter.taskIdsFromTuple(valueTuple.getNestedTuple(2));
-        final Kind finalTaskKind = Kind.valueOf(valueTuple.getString(3));
+        final TaskKind finalTaskKind = TaskKind.valueOf(valueTuple.getString(3));
         return new BounceTask(locator, accessInfo, keyTuple.getUUID(0),
                 targetClusterIds, dependentTaskIds, finalTaskKind);
     }
@@ -327,7 +327,7 @@ public class BounceTask extends AbstractDeferredTask {
     @Nonnull
     static BounceTask of(@Nonnull final Locator locator, @Nonnull final AccessInfo accessInfo,
                          @Nonnull final UUID taskId, @Nonnull final Set<UUID> targetClusterIds,
-                         @Nonnull final Set<UUID> dependentTaskIds, @Nonnull final Kind finalTaskKind) {
+                         @Nonnull final Set<UUID> dependentTaskIds, @Nonnull final TaskKind finalTaskKind) {
         return new BounceTask(locator, accessInfo, taskId, targetClusterIds, dependentTaskIds, finalTaskKind);
     }
 }

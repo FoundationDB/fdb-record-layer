@@ -76,7 +76,7 @@ import java.util.concurrent.Executor;
  * vectors), the task may fall back to enqueuing a {@link CollapseTask} instead.
  * </p>
  */
-public class SplitMergeTask extends AbstractDeferredTask {
+class SplitMergeTask extends AbstractDeferredTask {
     @Nonnull
     private static final Logger logger = LoggerFactory.getLogger(SplitMergeTask.class);
 
@@ -115,8 +115,8 @@ public class SplitMergeTask extends AbstractDeferredTask {
 
     @Nonnull
     @Override
-    public Kind getKind() {
-        return Kind.SPLIT_MERGE;
+    public TaskKind getKind() {
+        return TaskKind.SPLIT_MERGE;
     }
 
     @Nonnull
@@ -950,7 +950,7 @@ public class SplitMergeTask extends AbstractDeferredTask {
             final BounceTask newBounceTask =
                     BounceTask.of(getLocator(), getAccessInfo(),
                             randomNormalPriorityTaskId(random, config.deterministicRandomness()), newClusterIds,
-                            dependentTaskIds, Kind.REASSIGN);
+                            dependentTaskIds, TaskKind.REASSIGN);
             newBounceTask.writeDeferredTask(transaction);
         }
     }
@@ -986,7 +986,7 @@ public class SplitMergeTask extends AbstractDeferredTask {
     @Nonnull
     static SplitMergeTask fromTuples(@Nonnull final Locator locator, @Nonnull final AccessInfo accessInfo,
                                      @Nonnull final Tuple keyTuple, @Nonnull final Tuple valueTuple) {
-        Verify.verify(Kind.fromValueTuple(valueTuple) == Kind.SPLIT_MERGE);
+        Verify.verify(TaskKind.fromValueTuple(valueTuple) == TaskKind.SPLIT_MERGE);
         final StorageTransform storageTransform = locator.primitives().storageTransform(accessInfo);
         final Transformed<RealVector> centroid = storageTransform.transform(
                 StorageHelpers.vectorFromBytes(locator.getConfig(), valueTuple.getBytes(2)));

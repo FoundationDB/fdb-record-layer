@@ -458,17 +458,18 @@ class TestHelpers {
     }
 
     /**
-     * Builds the {@link SearchConfig} the recall checks use: a candidate pool sized to {@code 1.15 * k} (the
+     * Builds the {@link SearchConfig} the recall checks use: a candidate pool 15% larger than {@code k} (the
      * dataset-dependent knob), with every other knob left at its builder default (which matches what these checks
-     * have always passed: 48 probed clusters, a min-of-16 prune floor, a 1.5 distance-ratio cutoff). This lives here
-     * rather than on {@code SearchConfig} because a sensible pool size depends on the dataset and the recall target.
+     * have always passed: 48 probed clusters, a min-of-16 prune floor, a 1.5 distance-ratio cutoff). Because the pool
+     * is now expressed as a {@code k}-relative factor ({@link SearchConfig#candidatePoolFactor()}), one config serves
+     * every {@code k}; {@code 1.15} happens to be the builder default, so this is just the all-defaults config, kept as
+     * a named helper so the recall checks document the pool size they rely on.
      *
-     * @param k the top-k the search will be asked for
-     * @return a search config tuned for a recall@k check
+     * @return a search config tuned for recall@k checks
      */
-    static SearchConfig searchConfigForK(final int k) {
+    static SearchConfig recallSearchConfig() {
         return new SearchConfig.SearchConfigBuilder()
-                .setCandidatePoolSize((int) ((double) k * 1.15))
+                .setCandidatePoolFactor(1.15d)
                 .build();
     }
 
@@ -503,7 +504,7 @@ class TestHelpers {
             }
             final RealVector q = queries.get(i);
             final List<? extends ResultEntry> results =
-                    db.run(tr -> guardiann.kNearestNeighborsSearch(tr, k, searchConfigForK(k),
+                    db.run(tr -> guardiann.kNearestNeighborsSearch(tr, k, recallSearchConfig(),
                             true, q).join());
             final double recall = singleQueryRecall(truth, results);
             logger.debug("assertRecallAtKAtLeast: recall@{} = {} for query {}",
@@ -557,7 +558,7 @@ class TestHelpers {
                 continue;
             }
             final List<? extends ResultEntry> results =
-                    db.run(tr -> guardiann.kNearestNeighborsSearch(tr, k, searchConfigForK(k),
+                    db.run(tr -> guardiann.kNearestNeighborsSearch(tr, k, recallSearchConfig(),
                             true, query).join());
             final double recall = singleQueryRecall(truth, results);
             logger.debug("assertRecallAtKAtLeastDynamic: recall@{} = {} for query {}",
@@ -643,10 +644,11 @@ class TestHelpers {
         for (int i = 0; i < queries.size(); i++) {
             final RealVector query = queries.get(i);
             // Ask for the whole dataset, fully ordered: k, the reorder window, and the probed-cluster cap are all
-            // the index size, so a correct method returns every live vector in (distance, primaryKey) order.
+            // the index size, so a correct method returns every live vector in (distance, primaryKey) order. A
+            // candidate-pool factor of 1.0 keeps the reorder window at exactly k (== indexSize).
             final List<? extends ResultEntry> results =
                     db.run(tr -> guardiann.searchOrderedByDistance(tr, indexSize,
-                            new SearchConfig.SearchConfigBuilder().setCandidatePoolSize(indexSize)
+                            new SearchConfig.SearchConfigBuilder().setCandidatePoolFactor(1.0d)
                                     .setSearchMaxClusters(indexSize).build(),
                             ORDERED_BY_DISTANCE_FROM_START_MIN_RADIUS_CLUSTER,
                             ORDERED_BY_DISTANCE_FROM_START_MIN_RADIUS,
@@ -758,7 +760,7 @@ class TestHelpers {
         }
 
         @Override
-        public void onTaskEnqueued(@Nonnull final AbstractDeferredTask.Kind taskKind,
+        public void onTaskEnqueued(@Nonnull final TaskKind taskKind,
                                    @Nonnull final UUID taskId, @Nonnull final Set<UUID> targetClusterIds) {
             for (final Frame frame : frames) {
                 frame.numTasksEnqueuedByKind()
@@ -768,7 +770,7 @@ class TestHelpers {
         }
 
         @Override
-        public void onTaskExecuted(@Nonnull final AbstractDeferredTask.Kind taskKind,
+        public void onTaskExecuted(@Nonnull final TaskKind taskKind,
                                    @Nonnull final UUID taskId, @Nonnull final Set<UUID> targetClusterIds) {
             for (final Frame frame : frames) {
                 frame.numTasksExecutedByKind().compute(taskKind, (ignored, counter) ->
@@ -777,12 +779,12 @@ class TestHelpers {
         }
 
         @Nonnull
-        public Map<AbstractDeferredTask.Kind, Integer> getNumTasksEnqueuedByKind() {
+        public Map<TaskKind, Integer> getNumTasksEnqueuedByKind() {
             return Objects.requireNonNull(frames.peek()).numTasksEnqueuedByKind();
         }
 
         @Nonnull
-        public Map<AbstractDeferredTask.Kind, Integer> getNumTasksExecutedByKind() {
+        public Map<TaskKind, Integer> getNumTasksExecutedByKind() {
             return Objects.requireNonNull(frames.peek()).numTasksExecutedByKind();
         }
 
@@ -804,8 +806,8 @@ class TestHelpers {
         }
 
         private record Frame(@Nonnull AtomicLong bytesWritten,
-                             @Nonnull Map<AbstractDeferredTask.Kind, Integer> numTasksEnqueuedByKind,
-                             @Nonnull Map<AbstractDeferredTask.Kind, Integer> numTasksExecutedByKind) {
+                             @Nonnull Map<TaskKind, Integer> numTasksEnqueuedByKind,
+                             @Nonnull Map<TaskKind, Integer> numTasksExecutedByKind) {
         }
     }
 

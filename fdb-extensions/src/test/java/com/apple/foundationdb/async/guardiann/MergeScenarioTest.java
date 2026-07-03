@@ -179,14 +179,14 @@ public class MergeScenarioTest implements BaseTest {
             deleteRecords(inserted.subList(0, NUM_NEAR_DUPLICATES - REMAINING_AFTER_DELETE));
             TestHelpers.runToQuiescence(db, guardiann);
 
-            final Map<AbstractDeferredTask.Kind, Integer> deletePhaseTasks =
+            final Map<TaskKind, Integer> deletePhaseTasks =
                     onWriteListener.getNumTasksExecutedByKind();
             logger.info("delete-phase tasks by kind={}", deletePhaseTasks);
 
             // A delete-driven SplitMergeTask can only be a merge (deletes never split). Its
             // execution means the merge -> k-means(k=1) path ran without throwing — which, before
             // KMeans.fit supported k=1, it could not.
-            assertThat(deletePhaseTasks.getOrDefault(AbstractDeferredTask.Kind.SPLIT_MERGE, 0))
+            assertThat(deletePhaseTasks.getOrDefault(TaskKind.SPLIT_MERGE, 0))
                     .as("dropping a cluster below primaryClusterMin=%d must fire a (merge) SplitMergeTask",
                             PRIMARY_CLUSTER_MIN)
                     .isGreaterThanOrEqualTo(1);

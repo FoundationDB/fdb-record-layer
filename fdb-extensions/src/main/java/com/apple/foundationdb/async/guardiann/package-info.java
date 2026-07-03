@@ -21,5 +21,6 @@
 /**
  * Classes related to GUARDIANN -
  * Guided Updatable cluster Assignment and Routing via Distance-based Indexing for ANN searches.
+ * See {@link com.apple.foundationdb.async.guardiann.Guardiann} for an introduction.
  */
 package com.apple.foundationdb.async.guardiann;

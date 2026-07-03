@@ -35,23 +35,19 @@ import java.util.function.Supplier;
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("checkstyle:AbbreviationAsWordInName")
-public class Locator {
+public final class Locator {
     @Nonnull
     private final Executor executor;
     @Nonnull
     private final StorageAdapter storageAdapter;
 
     @Nonnull
-    @SuppressWarnings("this-escape")
     private final Supplier<Primitives> primitivesSupplier = Suppliers.memoize(() -> new Primitives(this));
     @Nonnull
-    @SuppressWarnings("this-escape")
     private final Supplier<Search> searchSupplier = Suppliers.memoize(() -> new Search(this));
     @Nonnull
-    @SuppressWarnings("this-escape")
     private final Supplier<Insert> insertSupplier = Suppliers.memoize(() -> new Insert(this));
     @Nonnull
-    @SuppressWarnings("this-escape")
     private final Supplier<Delete> deleteSupplier = Suppliers.memoize(() -> new Delete(this));
 
     /**
