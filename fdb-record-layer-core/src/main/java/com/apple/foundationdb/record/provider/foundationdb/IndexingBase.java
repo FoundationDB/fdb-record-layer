@@ -995,8 +995,7 @@ public abstract class IndexingBase {
                                 if (ex == null) {
                                     final List<Index> indexesToDrain = throttle.getAndResetDrainRequiredIndexes();
                                     final Set<Index> indexesToMerge = throttle.getAndResetMergeRequiredIndexes();
-                                    if ((indexesToDrain == null || indexesToDrain.isEmpty()) &&
-                                            (indexesToMerge == null || indexesToMerge.isEmpty())) {
+                                    if (indexesToDrain.isEmpty() && indexesToMerge.isEmpty()) {
                                         // The common case - no drain nor merge
                                         return doneOrThrottleDelayAndMaybeLogProgress(!hasMore, additionalLogMessageKeyValues);
                                     }
@@ -1021,7 +1020,7 @@ public abstract class IndexingBase {
     }
 
     private CompletableFuture<Void> mergeIndexes(Set<Index> indexesToMerge) {
-        if (indexesToMerge == null || indexesToMerge.isEmpty()) {
+        if (indexesToMerge.isEmpty()) {
             return AsyncUtil.DONE;
         }
         return AsyncUtil.whenAll(indexesToMerge.stream()
@@ -1030,7 +1029,7 @@ public abstract class IndexingBase {
     }
 
     private CompletableFuture<Void> drainIndexes(List<Index> indexesToDrain) {
-        if (indexesToDrain == null || indexesToDrain.isEmpty()) {
+        if (indexesToDrain.isEmpty()) {
             return AsyncUtil.DONE;
         }
         return AsyncUtil.whenAll(indexesToDrain.stream()

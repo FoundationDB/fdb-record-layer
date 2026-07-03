@@ -44,6 +44,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
@@ -74,8 +75,8 @@ public class IndexingThrottle {
     @Nonnull private final IndexingCommon common;
     @Nonnull private final Booker booker;
     private final boolean isScrubber;
-    private Set<Index> mergeRequiredIndexes = new HashSet<>();
-    private List<Index> drainRequiredIndexes = null;
+    @Nonnull private Set<Index> mergeRequiredIndexes = new HashSet<>();
+    @Nonnull private List<Index> drainRequiredIndexes = Collections.emptyList();
 
     static class Booker {
         /**
@@ -425,7 +426,7 @@ public class IndexingThrottle {
         } else {
             // Only request a drain for indexes whose pending writes queue is non-empty.
             drainCheck = nonEmptyQueueIndexes(store, context, common.getQueuedIndexes())
-                    .thenAccept(toDrain -> drainRequiredIndexes = toDrain.isEmpty() ? null : toDrain);
+                    .thenAccept(toDrain -> drainRequiredIndexes = toDrain);
         }
         return drainCheck.thenApply(ignore -> {
             if (indexStates.stream().allMatch(IndexState::isWriteOnlyAny)) {
@@ -439,7 +440,7 @@ public class IndexingThrottle {
             if (indexStates.stream().allMatch(IndexState::isScannable)) {
                 throw new IndexingBase.UnexpectedReadableException(true, "All indexes are built");
             }
-            if (indexStates.stream().allMatch(state -> state.isWriteOnly() || state.isScannable())) {
+            if (indexStates.stream().allMatch(state -> state.isWriteOnlyAny() || state.isScannable())) {
                 throw new IndexingBase.UnexpectedReadableException(false, "Some indexes are built");
             }
             final SubspaceProvider subspaceProvider = common.getRecordStoreBuilder().getSubspaceProvider();
@@ -461,11 +462,8 @@ public class IndexingThrottle {
     private CompletableFuture<List<Index>> nonEmptyQueueIndexes(@Nonnull FDBRecordStore store, @Nonnull FDBRecordContext context, @Nonnull List<Index> indexes) {
         return AsyncUtil.getAll(indexes.stream()
                         .map(index -> {
-                            final PendingWritesQueue<IndexBuildProto.PendingWritesQueueEntry> queue = new PendingWritesQueue<>(
-                                    IndexingSubspaces.indexWritePendingQueueSubspace(store, index),
-                                    IndexingSubspaces.indexWritePendingQueueSizeSubspace(store, index),
-                                    0L,
-                                    IndexBuildProto.PendingWritesQueueEntry.class);
+                            final PendingWritesQueue<IndexBuildProto.PendingWritesQueueEntry> queue =
+                                    PendingWriteQueueIndexingFactory.getIndexingQueue(store, index);
                             return queue.getQueueSizeNoConflict(context)
                                     .thenApply(size -> size != null && size > 0 ? index : null);
                         })
@@ -490,16 +488,17 @@ public class IndexingThrottle {
         return booker.totalRecordsScannedSuccess;
     }
 
+    @Nonnull
     public synchronized Set<Index> getAndResetMergeRequiredIndexes() {
         Set<Index> indexSet = mergeRequiredIndexes;
         mergeRequiredIndexes = new HashSet<>();
         return indexSet;
     }
 
-    @Nullable
+    @Nonnull
     public List<Index> getAndResetDrainRequiredIndexes() {
         List<Index> indexesToDrain = drainRequiredIndexes;
-        drainRequiredIndexes = null;
+        drainRequiredIndexes = Collections.emptyList();
         return indexesToDrain;
     }
 }
