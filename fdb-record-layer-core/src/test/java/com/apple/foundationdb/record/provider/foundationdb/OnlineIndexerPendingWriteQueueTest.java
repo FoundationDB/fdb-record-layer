@@ -33,6 +33,7 @@ import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.queue.PendingWritesQueue;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.TupleHelpers;
+import com.apple.foundationdb.util.CloseException;
 import com.google.protobuf.Message;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -48,6 +49,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -435,6 +437,25 @@ class OnlineIndexerPendingWriteQueueTest extends OnlineIndexerTest {
         assertEquals(numInitialRecords + queuedRecNos.size(), indexEntryCount(index));
         assertNull(queueSizeCounter(index));
         scrubAndValidate(List.of(index));
+    }
+
+    @Test
+    void testPendingWriteQueueNotEmptyWhileMarkingReadableExceptionCarriesIndexName() {
+        final Index index = new Index("simple$num_value_2_queue", field("num_value_2"), IndexTypes.VALUE);
+        final IndexingBase.PendingWriteQueueNotEmptyWhileMarkingReadable ex =
+                new IndexingBase.PendingWriteQueueNotEmptyWhileMarkingReadable(index);
+        assertEquals("Pending write queue is not empty while marking index as readable", ex.getMessage());
+        assertTrue(ex.getLogInfo().containsValue(index.getName()),
+                "the exception should carry the offending index name in its log info");
+    }
+
+    @Test
+    void testPendingWriteQueueDrainExceptionWrapsCause() {
+        final CloseException cause = new CloseException(new RuntimeException("boom"));
+        final PendingWriteQueueDrainer.PendingWriteQueueDrainException ex =
+                new PendingWriteQueueDrainer.PendingWriteQueueDrainException(cause);
+        assertEquals("Pending write queue drain had failed", ex.getMessage());
+        assertSame(cause, ex.getCause());
     }
 
     private void populateEvenRecords(final int numRecords) {
