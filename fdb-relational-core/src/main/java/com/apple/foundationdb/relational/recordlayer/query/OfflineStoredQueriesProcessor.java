@@ -114,11 +114,8 @@ public final class OfflineStoredQueriesProcessor {
      * options &mdash; this includes the default case-sensitivity setting
      * ({@link Options.Name#CASE_SENSITIVE_IDENTIFIERS}) and every other planner-tunable.</p>
      *
-     * <p>Failures are never propagated &mdash; a bad template or query must not abort startup.
-     * Each failure is logged at {@code ERROR} level, and is also surfaced as a metric:
-     * per-template failures bump
-     * {@link RelationalMetric.RelationalCount#OFFLINE_STORED_QUERIES_TEMPLATES_FAILED}
-     * and per-query failures bump
+     * <p>Failures are never propagated &mdash; a bad query must not abort startup. Each failure is
+     * logged at {@code ERROR} level, and is also surfaced as a metric: per-query failures bump
      * {@link RelationalMetric.RelationalCount#OFFLINE_STORED_QUERIES_QUERIES_FAILED}.</p>
      */
     public static void planStoredQueriesForSchemaTemplates(@Nonnull final RelationalPlanCache cache,
@@ -136,7 +133,6 @@ public final class OfflineStoredQueriesProcessor {
             return;
         }
         metricCollector.increment(RelationalMetric.RelationalCount.OFFLINE_STORED_QUERIES_TEMPLATES_PROCESSED, counts.templatesProcessed);
-        metricCollector.increment(RelationalMetric.RelationalCount.OFFLINE_STORED_QUERIES_TEMPLATES_FAILED, counts.templatesFailed);
         metricCollector.increment(RelationalMetric.RelationalCount.OFFLINE_STORED_QUERIES_QUERIES_PROCESSED, counts.queriesProcessed);
         metricCollector.increment(RelationalMetric.RelationalCount.OFFLINE_STORED_QUERIES_QUERIES_FAILED, counts.queriesFailed);
         metricCollector.increment(RelationalMetric.RelationalCount.OFFLINE_STORED_QUERIES_TEMP_FUNCTIONS_PROCESSED, counts.tempFunctionsProcessed);
@@ -151,7 +147,6 @@ public final class OfflineStoredQueriesProcessor {
             }
             logger.info(KeyValueLogMessage.of("OfflineStoredQueriesProcessor finished",
                     "templatesProcessed", counts.templatesProcessed,
-                    "templatesFailed", counts.templatesFailed,
                     "storedQueriesProcessed", counts.queriesProcessed,
                     "storedQueriesFailed", counts.queriesFailed,
                     "tempFunctionsProcessed", counts.tempFunctionsProcessed,
@@ -251,7 +246,6 @@ public final class OfflineStoredQueriesProcessor {
 
     private static final class Counts {
         int templatesProcessed;
-        int templatesFailed;
         int queriesProcessed;
         int queriesFailed;
         int tempFunctionsProcessed;
