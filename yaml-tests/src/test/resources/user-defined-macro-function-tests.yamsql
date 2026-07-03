@@ -219,8 +219,8 @@ setup:
   options:
     supported_version: !current_version
   steps:
-    - query: drop schema template if exists test_user_defined_macro_functoins_with_expressions
-    - query: create schema template test_user_defined_macro_functoins_with_expressions
+    - query: drop schema template if exists test_user_defined_macro_functions_with_expressions
+    - query: create schema template test_user_defined_macro_functions_with_expressions
              create type as struct st1(y bigint, z bigint)
              create type as struct st2(w bigint, x bigint)
              create type as struct st3(u st2, v st1)
@@ -238,7 +238,7 @@ setup:
              create function zero() returns bigint return 0l
     - query: drop database if exists /FRL/MACRO_WITH_EXPRESSIONS
     - query: create database /FRL/MACRO_WITH_EXPRESSIONS
-    - query: create schema /FRL/MACRO_WITH_EXPRESSIONS/test with template test_user_defined_macro_functoins_with_expressions
+    - query: create schema /FRL/MACRO_WITH_EXPRESSIONS/test with template test_user_defined_macro_functions_with_expressions
 ---
 setup:
   connect: "jdbc:embed:/FRL/MACRO_WITH_EXPRESSIONS?schema=TEST"
@@ -384,6 +384,6 @@ setup:
   options:
     supported_version: !current_version
   steps:
-    - query: drop schema template test_user_defined_macro_functoins_with_expressions
+    - query: drop schema template test_user_defined_macro_functions_with_expressions
     - query: drop database /FRL/MACRO_WITH_EXPRESSIONS
 ...
