@@ -235,6 +235,7 @@ setup:
              create function st1_array_without_return_type(in a type st1) return [a]
              create function st1_array_first(in a type st1 array) returns st1 return a[1]
              create function st1_constructor_with_defaults(in y bigint, in z bigint default 2L) returns st1 return (y, z)
+             create function zero() returns bigint return 0l
     - query: drop database if exists /FRL/MACRO_WITH_EXPRESSIONS
     - query: create database /FRL/MACRO_WITH_EXPRESSIONS
     - query: create schema /FRL/MACRO_WITH_EXPRESSIONS/test with template test_user_defined_macro_functoins_with_expressions
@@ -359,6 +360,9 @@ test_block:
       - query: select st1_constructor(5l) from range(1, 2)
       - explain: "TF range(promote(@c8 AS LONG), promote(@c10 AS LONG), STEP 1l) | MAP (promote((@c3 AS A, 0l AS _1) AS LONG AS Y, LONG AS Z) AS _0)"
       - unorderedResult: [{ { Y: !l 5, Z: !l 0 } }]
+    -
+      - query: select zero() from range(1, 2)
+      - unorderedResult: [{ !l 0 }]
     -
       - query: select st1_constructor_with_defaults(z => 5) from range(1, 2)
       - error: UNDEFINED_FUNCTION

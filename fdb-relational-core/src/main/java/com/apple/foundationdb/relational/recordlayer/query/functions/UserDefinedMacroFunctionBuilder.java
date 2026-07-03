@@ -154,13 +154,17 @@ final class UserDefinedMacroFunctionBuilder implements UserDefinedFunctionBuilde
      *         {@code this.parameterQuantifier}.
      */
     private Value translateBodyValueParametersCorrelations(@Nonnull final List<QuantifiedObjectValue> parametersQuantifiedObjectValues) {
+        if (parametersQuantifiedObjectValues.isEmpty()) {
+            return bodyValue;
+        }
+
         ImmutableList.Builder<Column<? extends Value>> columnBuilder = ImmutableList.builder();
         for (var i = 0; i < parameters.size(); i++) {
             columnBuilder.add(Column.of(parameters.asList().get(i).getName().map(Identifier::getName),
                     parametersQuantifiedObjectValues.get(i)));
         }
         RegularTranslationMap translationMap = RegularTranslationMap.builder()
-                .when(parametersQuantifier.getAlias())
+                .when(Assert.notNullUnchecked(parametersQuantifier).getAlias())
                 .then((sourceAlias, leafValue) ->
                         RecordConstructorValue.ofColumns(columnBuilder.build()))
                 .build();
