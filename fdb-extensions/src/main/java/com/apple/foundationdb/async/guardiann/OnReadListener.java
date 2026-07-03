@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2025 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2026 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,48 +20,74 @@
 
 package com.apple.foundationdb.async.guardiann;
 
+import com.apple.foundationdb.KeyValue;
+import com.apple.foundationdb.async.AsyncIterable;
 import com.apple.foundationdb.async.common.OnKeyValueReadListener;
-import com.apple.foundationdb.async.hnsw.Node;
-import com.apple.foundationdb.async.hnsw.NodeReference;
+import com.apple.foundationdb.async.common.TimedAsyncIterable;
+import com.apple.foundationdb.linear.RealVector;
+import com.apple.foundationdb.linear.Transformed;
+import com.apple.foundationdb.tuple.Tuple;
 
 import javax.annotation.Nonnull;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
 /**
- * Interface for callbacks whenever we read node data from the database.
+ * Callbacks invoked whenever the structure reads from the database. The read-shaped hooks wrap the underlying FDB
+ * calls as closely as possible so an implementer can, for example, measure per-read latency: {@link #onAsyncRead}
+ * wraps a point {@code get}, {@link #onAsyncReadRange} wraps a range {@code getRange}, and the inherited
+ * {@link OnKeyValueReadListener#onKeyValueRead} fires once per key/value actually observed. {@link #onVectorRead} is a
+ * higher-level, synchronous bookkeeping hook fired when a stored vector reference is materialized.
  */
 public interface OnReadListener extends OnKeyValueReadListener {
     OnReadListener NOOP = new OnReadListener() {
     };
 
     /**
-     * A callback method that can be overridden to intercept the result of an asynchronous node read.
-     * <p>
-     * This method provides a hook for subclasses to inspect or modify the {@code CompletableFuture} after an
-     * asynchronous read operation is initiated. The default implementation is a no-op that simply returns the original
-     * future. This method is intended to be used to measure elapsed time between the creation of a
-     * {@link CompletableFuture} and its completion.
-     * @param <N> the type of the {@code NodeReference}
-     * @param <T> the type of the {@code Node} that the read completes with
-     * @param future the {@code CompletableFuture} representing the pending asynchronous read operation.
-     * @return a {@code CompletableFuture} that will complete with the read {@code Node}.
-     *         By default, this is the same future that was passed as an argument.
+     * Wraps the {@link CompletableFuture} of a point read ({@code transaction.get}) so an implementer can observe it —
+     * typically to time the interval between issuing the read and its completion. The default returns the future
+     * unchanged. Instrument as close to the {@code get} call as possible so the measured interval is the read itself.
+     *
+     * @param <T> the type the read future completes with (the raw value bytes at the {@code get} site)
+     * @param future the pending point read
+     * @return the future to await; by default the same instance
      */
     @SuppressWarnings("unused")
-    default <N extends NodeReference, T extends Node<N>> CompletableFuture<T> onAsyncRead(@Nonnull CompletableFuture<T> future) {
+    default <T> CompletableFuture<T> onAsyncRead(@Nonnull final CompletableFuture<T> future) {
         return future;
     }
 
     /**
-     * Callback method invoked when a node is read during a traversal process.
-     * <p>
-     * This default implementation does nothing. Implementors can override this method to add custom logic that should
-     * be executed for each node encountered. This serves as an optional hook for processing nodes as they are read.
-     * @param layer the layer or depth of the node in the structure, starting from 0.
-     * @param node the {@link Node} that was just read (guaranteed to be non-null).
+     * Wraps the {@link AsyncIterable} of a range read ({@code transaction.getRange}) so an implementer can observe the
+     * scan as it is consumed. Unlike a point read, a range read has no single completion to time; an implementer that
+     * wants latency should return a wrapper that accumulates the time spent awaiting each batch — see
+     * {@link TimedAsyncIterable#wrap}, which reduces the override to a one-liner. The default returns the iterable
+     * unchanged. Instrument as close to the {@code getRange} call as possible so the wrapper spans the actual scan.
+     *
+     * @param iterable the range scan produced by {@code getRange}
+     * @return the iterable to consume; by default the same instance
      */
     @SuppressWarnings("unused")
-    default void onNodeRead(int layer, @Nonnull Node<? extends NodeReference> node) {
+    @Nonnull
+    default AsyncIterable<KeyValue> onAsyncReadRange(@Nonnull final AsyncIterable<KeyValue> iterable) {
+        return iterable;
+    }
+
+    /**
+     * Synchronous bookkeeping hook fired when a stored vector reference is materialized from the database (distinct
+     * from the raw {@code onKeyValueRead}, which sees only bytes). The vector's identity is passed as its public
+     * components — {@code primaryKey} and {@code vectorUuid} — rather than the package-private {@code VectorId}. The
+     * default does nothing.
+     *
+     * @param clusterId the cluster the reference was read from
+     * @param primaryKey the primary key of the vector that was read
+     * @param vectorUuid the uuid of the vector reference that was read
+     * @param vector the (transformed) vector that was read; call {@link Transformed#getUnderlyingVector()} for the raw
+     *        vector
+     */
+    @SuppressWarnings("unused")
+    default void onVectorRead(@Nonnull final UUID clusterId, @Nonnull final Tuple primaryKey,
+                              @Nonnull final UUID vectorUuid, @Nonnull final Transformed<RealVector> vector) {
         // nothing
     }
 }

@@ -24,11 +24,11 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 /**
- * Interface for call backs whenever we read node data from the database.
+ * Interface for call backs whenever we read data from the database.
  */
 public interface OnKeyValueReadListener {
     /**
-     * Callback invoked when a key-value pair is read from a specific layer.
+     * Callback invoked when a key-value pair is read.
      * <p>
      * This method is typically called during a scan or iteration over data for each key/value pair.
      * The default implementation is a no-op and does nothing.

@@ -531,6 +531,16 @@ public class MoreAsyncUtilTest {
     }
 
     @Test
+    void mapIterablePipelinedDefaultExecutorMapsInInputOrder() {
+        // The no-executor overload delegates to the executor overload via ForkJoinPool.commonPool().
+        final List<Integer> result = AsyncUtil.collect(
+                MoreAsyncUtil.mapIterablePipelined(iterableOf(1, 2, 3, 4, 5),
+                        i -> CompletableFuture.completedFuture(i * i), 2),
+                EXECUTOR).join();
+        assertEquals(Arrays.asList(1, 4, 9, 16, 25), result);
+    }
+
+    @Test
     void dedupIterableRemovesOnlyAdjacentDuplicates() {
         // Non-adjacent repeats survive: the trailing 1 is kept because its predecessor (3) differs.
         final List<Integer> result = AsyncUtil.collect(

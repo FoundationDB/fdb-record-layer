@@ -373,7 +373,7 @@ class Primitives {
         final Subspace accessInfoSubspace = getAccessInfoSubspace();
         final byte[] key = accessInfoSubspace.pack();
 
-        return readTransaction.get(key)
+        return getOnReadListener().onAsyncRead(readTransaction.get(key))
                 .thenApply(valueBytes -> {
                     getOnReadListener().onKeyValueRead(key, valueBytes);
                     if (valueBytes == null) {
@@ -428,7 +428,7 @@ class Primitives {
         final Subspace vectorMetadataSubspace = getVectorMetadataSubspace();
         final byte[] key = vectorMetadataSubspace.pack(primaryKey);
 
-        return readTransaction.get(key)
+        return getOnReadListener().onAsyncRead(readTransaction.get(key))
                 .thenApply(valueBytes -> {
                     getOnReadListener().onKeyValueRead(key, valueBytes);
                     if (valueBytes == null) {
@@ -576,7 +576,7 @@ class Primitives {
     CompletableFuture<ClusterMetadata> fetchClusterMetadata(@Nonnull final ReadTransaction readTransaction,
                                                             @Nonnull final UUID clusterId) {
         final byte[] key = getClusterMetadataSubspace().pack(Tuple.from(clusterId));
-        return readTransaction.get(key)
+        return getOnReadListener().onAsyncRead(readTransaction.get(key))
                 .thenApply(valueBytes -> {
                     getOnReadListener().onKeyValueRead(key, valueBytes);
                     if (valueBytes == null) {
@@ -654,15 +654,20 @@ class Primitives {
         final Subspace vectorReferencesSubspace = getVectorReferencesSubspace();
         final byte[] rangeKey = vectorReferencesSubspace.pack(Tuple.from(clusterId));
 
-        return AsyncUtil.mapIterable(readTransaction.getRange(Range.startsWith(rangeKey),
-                        ReadTransaction.ROW_LIMIT_UNLIMITED, false, StreamingMode.WANT_ALL),
+        return AsyncUtil.mapIterable(getOnReadListener().onAsyncReadRange(
+                        readTransaction.getRange(Range.startsWith(rangeKey),
+                                ReadTransaction.ROW_LIMIT_UNLIMITED, false, StreamingMode.WANT_ALL)),
                 keyValue -> {
                     final Tuple primaryKey = vectorReferencesSubspace.unpack(keyValue.getKey()).getNestedTuple(1);
                     final byte[] keyBytes = keyValue.getKey();
                     final byte[] valueBytes = keyValue.getValue();
                     getOnReadListener().onKeyValueRead(keyBytes, valueBytes);
-                    return StorageAdapter.vectorReferenceFromTuples(getConfig(), storageTransform,
-                            primaryKey, Tuple.fromBytes(valueBytes));
+                    final VectorReference vectorReference =
+                            StorageAdapter.vectorReferenceFromTuples(getConfig(), storageTransform,
+                                    primaryKey, Tuple.fromBytes(valueBytes));
+                    getOnReadListener().onVectorRead(clusterId, vectorReference.id().primaryKey(),
+                            vectorReference.id().uuid(), vectorReference.vector());
+                    return vectorReference;
                 });
     }
 
@@ -685,14 +690,18 @@ class Primitives {
         final Subspace vectorReferencesSubspace = getVectorReferencesSubspace();
         final byte[] key = vectorReferencesSubspace.pack(Tuple.from(clusterId, primaryKey));
 
-        return readTransaction.get(key)
+        return getOnReadListener().onAsyncRead(readTransaction.get(key))
                 .thenApply(valueBytes -> {
                     getOnReadListener().onKeyValueRead(key, valueBytes);
                     if (valueBytes == null) {
                         return null;
                     }
-                    return StorageAdapter.vectorReferenceFromTuples(getConfig(), storageTransform,
-                            primaryKey, Tuple.fromBytes(valueBytes));
+                    final VectorReference vectorReference =
+                            StorageAdapter.vectorReferenceFromTuples(getConfig(), storageTransform,
+                                    primaryKey, Tuple.fromBytes(valueBytes));
+                    getOnReadListener().onVectorRead(clusterId, vectorReference.id().primaryKey(),
+                            vectorReference.id().uuid(), vectorReference.vector());
+                    return vectorReference;
                 });
     }
 
@@ -782,8 +791,9 @@ class Primitives {
         final Subspace collapsedVectorIdsSubspace = getCollapsedVectorIdsSubspace();
         final byte[] rangeKey = collapsedVectorIdsSubspace.pack(Tuple.from(signature));
 
-        return AsyncUtil.mapIterable(readTransaction.getRange(Range.startsWith(rangeKey),
-                        ReadTransaction.ROW_LIMIT_UNLIMITED, false, StreamingMode.WANT_ALL),
+        return AsyncUtil.mapIterable(getOnReadListener().onAsyncReadRange(
+                        readTransaction.getRange(Range.startsWith(rangeKey),
+                                ReadTransaction.ROW_LIMIT_UNLIMITED, false, StreamingMode.WANT_ALL)),
                 keyValue -> {
                     final Tuple primaryKey = collapsedVectorIdsSubspace.unpack(keyValue.getKey()).getNestedTuple(1);
                     final byte[] keyBytes = keyValue.getKey();
@@ -811,7 +821,7 @@ class Primitives {
         final Subspace collapsedVectorIdsSubspace = getCollapsedVectorIdsSubspace();
         final byte[] key = collapsedVectorIdsSubspace.pack(Tuple.from(signature, primaryKey));
 
-        return readTransaction.get(key)
+        return getOnReadListener().onAsyncRead(readTransaction.get(key))
                 .thenApply(valueBytes -> {
                     getOnReadListener().onKeyValueRead(key, valueBytes);
                     if (valueBytes == null) {
@@ -835,8 +845,9 @@ class Primitives {
         final Subspace collapsedVectorIdsSubspace = getCollapsedVectorIdsSubspace();
         final byte[] rangeKey = collapsedVectorIdsSubspace.pack();
 
-        return AsyncUtil.mapIterable(readTransaction.getRange(Range.startsWith(rangeKey),
-                        ReadTransaction.ROW_LIMIT_UNLIMITED, false, StreamingMode.WANT_ALL),
+        return AsyncUtil.mapIterable(getOnReadListener().onAsyncReadRange(
+                        readTransaction.getRange(Range.startsWith(rangeKey),
+                                ReadTransaction.ROW_LIMIT_UNLIMITED, false, StreamingMode.WANT_ALL)),
                 keyValue -> {
                     final Tuple primaryKey = collapsedVectorIdsSubspace.unpack(keyValue.getKey()).getNestedTuple(1);
                     final byte[] keyBytes = keyValue.getKey();
@@ -945,8 +956,9 @@ class Primitives {
         final Subspace tasksSubspace = getTasksSubspace();
         final byte[] rangeKey = tasksSubspace.pack();
 
-        return AsyncUtil.collect(readTransaction.getRange(Range.startsWith(rangeKey), numTasks, false,
-                        StreamingMode.WANT_ALL), getExecutor())
+        return AsyncUtil.collect(getOnReadListener().onAsyncReadRange(
+                        readTransaction.getRange(Range.startsWith(rangeKey), numTasks, false,
+                                StreamingMode.WANT_ALL)), getExecutor())
                 .thenApply(keyValues -> {
                     final ImmutableList.Builder<AbstractDeferredTask> deferredTasksBuilder = ImmutableList.builder();
                     for (final KeyValue keyValue : keyValues) {
@@ -980,7 +992,7 @@ class Primitives {
         final Tuple keyTuple = Tuple.from(taskId);
         final byte[] keyBytes = tasksSubspace.pack(keyTuple);
 
-        return readTransaction.get(keyBytes)
+        return getOnReadListener().onAsyncRead(readTransaction.get(keyBytes))
                 .thenApply(valueBytes -> {
                     if (valueBytes == null) {
                         return null;
