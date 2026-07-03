@@ -87,6 +87,8 @@ public class RecordMetaData implements RecordMetaDataProvider {
     @Nonnull
     private final Map<String, View> viewMap;
     @Nonnull
+    private final Map<String, String> storedQueries;
+    @Nonnull
     private final Map<String, Index> indexes;
     @Nonnull
     private final Map<String, Index> universalIndexes;
@@ -118,6 +120,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
                 Collections.unmodifiableList(orig.formerIndexes),
                 Collections.unmodifiableMap(orig.userDefinedFunctionMap),
                 Collections.unmodifiableMap(orig.viewMap),
+                Collections.unmodifiableMap(orig.storedQueries),
                 orig.splitLongRecords,
                 orig.storeRecordVersions,
                 orig.version,
@@ -139,6 +142,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
                              @Nonnull List<FormerIndex> formerIndexes,
                              @Nonnull Map<String, UserDefinedFunction> userDefinedFunctionMap,
                              @Nonnull Map<String, View> viewMap,
+                             @Nonnull Map<String, String> storedQueries,
                              boolean splitLongRecords,
                              boolean storeRecordVersions,
                              int version,
@@ -157,6 +161,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
         this.formerIndexes = formerIndexes;
         this.userDefinedFunctionMap = userDefinedFunctionMap;
         this.viewMap = viewMap;
+        this.storedQueries = storedQueries;
         this.splitLongRecords = splitLongRecords;
         this.storeRecordVersions = storeRecordVersions;
         this.version = version;
@@ -704,6 +709,12 @@ public class RecordMetaData implements RecordMetaDataProvider {
 
         builder.addAllUserDefinedFunctions(userDefinedFunctionMap.values().stream().map(UserDefinedFunction::toProto).collect(Collectors.toList()));
         builder.addAllViews(viewMap.values().stream().map(View::toProto).collect(Collectors.toList()));
+        for (final Map.Entry<String, String> entry : storedQueries.entrySet()) {
+            builder.addStoredQueries(RecordMetaDataProto.PStoredQuery.newBuilder()
+                    .setName(entry.getKey())
+                    .setDefinition(entry.getValue())
+                    .build());
+        }
         builder.setSplitLongRecords(splitLongRecords);
         builder.setStoreRecordVersions(storeRecordVersions);
         builder.setVersion(version);
@@ -726,6 +737,11 @@ public class RecordMetaData implements RecordMetaDataProvider {
     @Nonnull
     public Map<String, View> getViewMap() {
         return viewMap;
+    }
+
+    @Nonnull
+    public Map<String, String> getStoredQueries() {
+        return storedQueries;
     }
 
     @Nonnull
