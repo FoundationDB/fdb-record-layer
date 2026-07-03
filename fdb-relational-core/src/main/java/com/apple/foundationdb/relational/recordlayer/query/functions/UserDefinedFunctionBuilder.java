@@ -65,7 +65,7 @@ import java.util.Optional;
  * </ol>
  * </p>
  */
-public class UserDefinedFunctionBuilder {
+public final class UserDefinedFunctionBuilder {
     private UserDefinedFunctionBuilder() {
     }
 
@@ -182,7 +182,7 @@ public class UserDefinedFunctionBuilder {
      * accumulates the signature and, once the body is supplied, hands off to the {@link FinalStepBuilder} that
      * matches the chosen body kind.
      */
-    public static class UserDefinedFunctionSignatureStepBuilder implements SignatureStepBuilder, BodyStepBuilder {
+    public static final class UserDefinedFunctionSignatureStepBuilder implements SignatureStepBuilder, BodyStepBuilder {
         @Nonnull
         private final ImmutableList.Builder<Expression> parametersBuilder;
         private String name;
@@ -202,13 +202,13 @@ public class UserDefinedFunctionBuilder {
 
         @Override
         public SignatureStepBuilder addParameter(@Nonnull final Expression expression) {
-            parametersBuilder.add(expression);
+            parametersBuilder.add(expression.toNamedArgument());
             return this;
         }
 
         @Override
         public SignatureStepBuilder addAllParameters(@Nonnull final Expressions expressions) {
-            parametersBuilder.addAll(expressions);
+            parametersBuilder.addAll(expressions.asNamedArguments());
             return this;
         }
 

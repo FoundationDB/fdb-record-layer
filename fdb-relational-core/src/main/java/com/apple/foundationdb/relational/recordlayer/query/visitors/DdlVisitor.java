@@ -708,7 +708,6 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
                                 @Nullable RelationalParser.PrimitiveTypeContext primitiveTypeContext,
                                 boolean isNullable,
                                 boolean isRepeated) {
-        final var semanticAnalyzer = getDelegate().getSemanticAnalyzer();
         final SemanticAnalyzer.ParsedTypeInfo typeInfo;
         if (customType != null) {
             final var columnType = visitUid(customType);
@@ -719,7 +718,7 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
             throw new UnsupportedOperationException("unsupported type specification");
         }
 
-        return semanticAnalyzer.lookupType(typeInfo, metadataBuilder::findType);
+        return getDelegate().getSemanticAnalyzer().lookupType(typeInfo, metadataBuilder::findType);
     }
 
     // TODO: remove

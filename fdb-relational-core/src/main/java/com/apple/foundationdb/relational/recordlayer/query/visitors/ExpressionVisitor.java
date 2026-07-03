@@ -97,10 +97,10 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
     @Override
     public LogicalOperator visitTableFunction(@Nonnull RelationalParser.TableFunctionContext ctx) {
         final var functionName = visitTableFunctionName(ctx.tableFunctionName());
-        return ctx.namedOrUnnamedFunctionArgs() == null
-               ? getDelegate().resolveTableValuedFunction(functionName, Expressions.empty())
-               : getDelegate().resolveTableValuedFunction(
-                       functionName, visitNamedOrUnnamedFunctionArgs(ctx.namedOrUnnamedFunctionArgs()));
+        final var arguments = ctx.namedOrUnnamedFunctionArgs() == null ?
+                              Expressions.empty() :
+                              Assert.castUnchecked(visit(ctx.namedOrUnnamedFunctionArgs()), Expressions.class);
+        return getDelegate().resolveTableValuedFunction(functionName, arguments);
     }
 
     @Override
@@ -398,7 +398,8 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
     public Expression visitUserDefinedScalarFunctionCall(@Nonnull RelationalParser.UserDefinedScalarFunctionCallContext ctx) {
         final var functionName = Identifier.of(getDelegate().normalizeString(ctx.userDefinedScalarFunctionName().getText()));
         Expressions arguments = ctx.namedOrUnnamedFunctionArgs() == null ?
-                                Expressions.empty() : visitNamedOrUnnamedFunctionArgs(ctx.namedOrUnnamedFunctionArgs());
+                                Expressions.empty() :
+                                Assert.castUnchecked(visit(ctx.namedOrUnnamedFunctionArgs()), Expressions.class);
         return getDelegate().resolveFunction(functionName.getName(), arguments.asList().toArray(new Expression[0]));
     }
 

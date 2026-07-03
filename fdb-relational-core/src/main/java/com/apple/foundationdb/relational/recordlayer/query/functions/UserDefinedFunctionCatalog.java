@@ -57,7 +57,7 @@ final class UserDefinedFunctionCatalog {
     }
 
     @Nonnull
-    public Optional<? extends CatalogedFunction> lookup(@Nonnull final String functionName, Expressions arguments) {
+    public Optional<CatalogedFunction> lookup(@Nonnull final String functionName, Expressions arguments) {
         final var functionSupplier = functionsMap.get(functionName);
         if (functionSupplier == null) {
             return Optional.empty();
@@ -86,7 +86,7 @@ final class UserDefinedFunctionCatalog {
             }
         }
 
-        // These validations don't include checking if the type provided arguments matches the expected function
+        // These validations don't include checking if the type of the provided arguments matches the expected function
         // parameter types or the provided values can be promoted to the expected types. Instead, this is delegated
         // to the encapsulation logic.
         final var namedArguments = namedArgumentsBuilder.build();
