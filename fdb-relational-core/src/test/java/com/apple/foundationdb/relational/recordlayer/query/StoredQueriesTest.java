@@ -457,12 +457,12 @@ public class StoredQueriesTest {
             final String templateName = ddl.getSchemaTemplateName();
 
             // fresh engine triggers OfflineStoredQueriesProcessor
-            final var freshDriver = relationalExtension.getDriver(
+            final var engineDriver = relationalExtension.getDriver(
                     com.apple.foundationdb.record.provider.foundationdb.FormatVersion.getDefaultFormatVersion());
-            final var freshUtils = new ConnectionUtils(freshDriver);
+            final var connectionUtils = new ConnectionUtils(engineDriver);
 
             // The stored query SELECT (which calls the temp function) is planned and cached.
-            Assertions.assertEquals(Long.valueOf(1), freshUtils.getFromCatalog(c -> countCachedPlans(c, templateName)));
+            Assertions.assertEquals(Long.valueOf(1), connectionUtils.getFromCatalog(c -> countCachedPlans(c, templateName)));
             // exactly one TERTIARY_MISS — for the stored query SELECT (DDL planning of the temp
             // function itself goes through CACHE_BYPASS and does not bump TERTIARY counters).
             Assertions.assertEquals(1, eventCounterCount(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_MISS));
@@ -489,18 +489,18 @@ public class StoredQueriesTest {
             }
 
             // fresh engine triggers OfflineStoredQueriesProcessor
-            final var freshDriver = relationalExtension.getDriver(
+            final var engineDriver = relationalExtension.getDriver(
                     com.apple.foundationdb.record.provider.foundationdb.FormatVersion.getDefaultFormatVersion());
-            final var freshUtils = new ConnectionUtils(freshDriver);
+            final var connectionUtils = new ConnectionUtils(engineDriver);
 
             // pre-warmed: 1 stored query (SELECT * FROM sq1(10)) cached.
             Assertions.assertEquals(1, eventCounterCount(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_MISS));
             Assertions.assertEquals(0, eventCounterCount(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_HIT));
-            Assertions.assertEquals(Long.valueOf(1), freshUtils.getFromCatalog(c -> countCachedPlans(c, templateName)));
+            Assertions.assertEquals(Long.valueOf(1), connectionUtils.getFromCatalog(c -> countCachedPlans(c, templateName)));
 
             // The runtime user installs the same temp function in their session, then runs the
             // canonical SELECT. The cache lookup should hit the pre-warmed plan.
-            freshUtils.runAgainstConnection(dbUri, schemaName, c -> {
+            connectionUtils.runAgainstConnection(dbUri, schemaName, c -> {
                 c.setAutoCommit(false);
                 try (var stmt = c.createStatement()) {
                     stmt.execute("CREATE TEMPORARY FUNCTION sq1(in x bigint) ON COMMIT DROP FUNCTION " +
@@ -522,7 +522,7 @@ public class StoredQueriesTest {
             // SELECT hit the pre-warmed cache: hit +1, miss unchanged, cache size unchanged.
             Assertions.assertEquals(1, eventCounterCount(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_HIT));
             Assertions.assertEquals(1, eventCounterCount(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_MISS));
-            Assertions.assertEquals(Long.valueOf(1), freshUtils.getFromCatalog(c -> countCachedPlans(c, templateName)));
+            Assertions.assertEquals(Long.valueOf(1), connectionUtils.getFromCatalog(c -> countCachedPlans(c, templateName)));
         }
     }
 
@@ -535,12 +535,12 @@ public class StoredQueriesTest {
                 .build()) {
             final String templateName = ddl.getSchemaTemplateName();
 
-            final var freshDriver = relationalExtension.getDriver(
+            final var engineDriver = relationalExtension.getDriver(
                     com.apple.foundationdb.record.provider.foundationdb.FormatVersion.getDefaultFormatVersion());
-            final var freshUtils = new ConnectionUtils(freshDriver);
+            final var connectionUtils = new ConnectionUtils(engineDriver);
 
             // sq2 references sq1; both must install correctly for the SELECT to plan.
-            Assertions.assertEquals(Long.valueOf(1), freshUtils.getFromCatalog(c -> countCachedPlans(c, templateName)));
+            Assertions.assertEquals(Long.valueOf(1), connectionUtils.getFromCatalog(c -> countCachedPlans(c, templateName)));
             Assertions.assertEquals(1, eventCounterCount(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_MISS));
             Assertions.assertEquals(0, eventCounterCount(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_HIT));
         }
@@ -555,12 +555,12 @@ public class StoredQueriesTest {
                 .build()) {
             final String templateName = ddl.getSchemaTemplateName();
 
-            final var freshDriver = relationalExtension.getDriver(
+            final var engineDriver = relationalExtension.getDriver(
                     com.apple.foundationdb.record.provider.foundationdb.FormatVersion.getDefaultFormatVersion());
-            final var freshUtils = new ConnectionUtils(freshDriver);
+            final var connectionUtils = new ConnectionUtils(engineDriver);
 
             // The stored query whose temp function fails to compile is skipped; the good one still plans.
-            Assertions.assertEquals(Long.valueOf(1), freshUtils.getFromCatalog(c -> countCachedPlans(c, templateName)));
+            Assertions.assertEquals(Long.valueOf(1), connectionUtils.getFromCatalog(c -> countCachedPlans(c, templateName)));
         }
     }
 
