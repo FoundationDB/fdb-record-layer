@@ -184,13 +184,12 @@ public abstract class CatalogedFunction {
      * and empty {@link Optional}.
      */
     @Nonnull
-    public Optional<? extends CatalogedFunction> validateCall(@Nonnull final Map<String, ? extends Typed> namedArgumentsTypeMap) {
+    public Optional<CatalogedFunction> validateCall(@Nonnull final Map<String, ? extends Typed> namedArgumentsTypeMap) {
         if (parameterNamesMap.isEmpty()) {
             return Optional.empty();
         }
-        final var argumentNames = namedArgumentsTypeMap.keySet();
-        final var parameterNames = parameterNamesMap.keySet();
 
+        final var parameterNames = parameterNamesMap.keySet();
         // Check unknown arguments and argument types
         for (var namedArgument : namedArgumentsTypeMap.entrySet()) {
             if (!parameterNames.contains(namedArgument.getKey())) {
@@ -199,6 +198,7 @@ public abstract class CatalogedFunction {
         }
 
         // Check missing required arguments
+        final var argumentNames = namedArgumentsTypeMap.keySet();
         final var missingParams = Sets.difference(parameterNames, argumentNames);
         for (final var missingParam : missingParams) {
             if (!hasDefaultValue(missingParam)) {
@@ -218,7 +218,7 @@ public abstract class CatalogedFunction {
      * and empty {@link Optional}.
      */
     @Nonnull
-    public Optional<? extends CatalogedFunction> validateCall(@Nonnull final List<? extends Typed> unnamedArguments) {
+    public Optional<CatalogedFunction> validateCall(@Nonnull final List<? extends Typed> unnamedArguments) {
         if (unnamedArguments.size() > getParameterTypes().size()) {
             return Optional.empty();
         }
