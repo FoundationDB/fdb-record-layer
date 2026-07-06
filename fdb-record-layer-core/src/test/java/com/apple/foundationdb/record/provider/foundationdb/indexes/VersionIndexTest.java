@@ -3047,9 +3047,9 @@ public class VersionIndexTest {
         splitLongRecords = testSplitLongRecords;
 
         final KeySpacePath baseMultiPath = pathManager.createPath(TestKeySpace.MULTI_RECORD_STORE);
-        final KeySpacePath path1 = baseMultiPath.add(TestKeySpace.STORE_PATH, "path1");
-        final KeySpacePath path2 = baseMultiPath.add(TestKeySpace.STORE_PATH, "path2");
-        final KeySpacePath path3 = baseMultiPath.add(TestKeySpace.STORE_PATH, "path3");
+        final KeySpacePath path1 = baseMultiPath.add(TestKeySpace.STORE_PATH, 1L);
+        final KeySpacePath path2 = baseMultiPath.add(TestKeySpace.STORE_PATH, 2L);
+        final KeySpacePath path3 = baseMultiPath.add(TestKeySpace.STORE_PATH, 3L);
         final List<KeySpacePath> multiPaths = List.of(path1, path2, path3);
 
         final Map<KeySpacePath, FDBRecordVersion> version1ByStore = new HashMap<>();
