@@ -276,7 +276,7 @@ class VectorIndexTest extends VectorIndexTestBase {
     void insertReadDeleteReadGroupedWithContinuationTest(final long seed, final boolean useAsync, final int limit) throws Exception {
         final int size = 1000;
         Assertions.assertThat(size % 2).isEqualTo(0); // needs to be even
-        final int updateBatchSize = 50;
+        final int updateBatchSize = 25;
         Assertions.assertThat(size % updateBatchSize).isEqualTo(0); // needs to be divisible
 
         final int k = 100;
