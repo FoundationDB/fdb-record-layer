@@ -279,7 +279,9 @@ public abstract class IndexingBase {
     @Nonnull
     private CompletableFuture<Boolean> markSingleIndexWriteOnly(final FDBRecordStore store, final Index index) {
         // For now, pending write queue is not allowed for non-idempotent indexes
-        return policy.shouldUseWritePendingQueue(index) && store.getIndexMaintainer(index).isIdempotent() ?
+        return policy.shouldUseWritePendingQueue(index) &&
+                       store.getIndexMaintainer(index).isIdempotent() &&
+                       store.getFormatVersionEnum().isAtLeast(FormatVersion.WRITE_ONLY_WITH_QUEUE) ?
                         store.markIndexWriteOnlyWithQueue(index) :
                         store.markIndexWriteOnly(index);
     }
