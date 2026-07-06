@@ -1389,18 +1389,18 @@ class Primitives {
         final Primitives primitives = getLocator().primitives();
         final Executor executor = getLocator().getExecutor();
 
-        final Map<UUID, VectorReference> vectorsByUuidMap = Maps.newHashMap();
+        final Map<VectorId, VectorReference> vectorsByIdMap = Maps.newHashMap();
         for (final Cluster cluster : clusters) {
             for (final VectorReference vectorReference : cluster.vectorReferences()) {
                 if (!discardReplicatedVectorReferences || vectorReference.isPrimaryCopy()) {
-                    vectorsByUuidMap.compute(vectorReference.id().uuid(),
-                            (vectorUuid, oldVectorReference) ->
+                    vectorsByIdMap.compute(vectorReference.id(),
+                            (vectorId, oldVectorReference) ->
                                     mergeVectorReference(oldVectorReference, vectorReference));
                 }
             }
         }
 
-        return forEach(vectorsByUuidMap.values(),
+        return forEach(vectorsByIdMap.values(),
                 vectorReference ->
                         primitives.fetchVectorMetadata(transaction, vectorReference.id().primaryKey())
                                 .thenApply(vectorMetadata ->

@@ -374,7 +374,7 @@ class ReassignTask extends AbstractDeferredTask {
                 computeNearestClusters(estimator, vectorReferences, clusterIdMetadataMap.values());
         mergeStandardDeviationUpdates(standardDeviationsMap,
                 nearestClustersResult.standardDeviationUpdates());
-        final ImmutableListMultimap<UUID, ClusterMetadataWithDistance> invertedAssignmentsMap =
+        final ImmutableListMultimap<VectorId, ClusterMetadataWithDistance> invertedAssignmentsMap =
                 nearestClustersResult.invertedAssignments();
 
         final ImmutableListMultimap.Builder<UUID, VectorReference> assignmentBuilder =
@@ -398,7 +398,7 @@ class ReassignTask extends AbstractDeferredTask {
             }
 
             final ImmutableList<ClusterMetadataWithDistance> nearestClusters =
-                    Objects.requireNonNull(invertedAssignmentsMap.get(vectorReference.id().uuid()));
+                    Objects.requireNonNull(invertedAssignmentsMap.get(vectorReference.id()));
             Verify.verify(!nearestClusters.isEmpty());
             final ClusterMetadataWithDistance primaryCluster = Objects.requireNonNull(nearestClusters.get(0));
             final double distanceToPrimaryCentroid = primaryCluster.distance();

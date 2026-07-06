@@ -203,12 +203,12 @@ class CollapseTask extends AbstractDeferredTask {
         //
         // Build both directions of the primary-copy relation between a vector id and its content signature. The
         // forward map gives each vector its signature; the inverse groups vectors by signature, so
-        // vectorSignatureToVectorUuidMap.get(s) is exactly the set of primary vectors that are byte-identical (the
+        // vectorSignatureToVectorIdMap.get(s) is exactly the set of primary vectors that are byte-identical (the
         // same encoded bytes hash to the same signature) and are therefore collapsible into one another.
         //
-        final ImmutableSetMultimap<UUID, UUID> vectorReferenceToVectorSignatureMap =
+        final ImmutableSetMultimap<VectorId, UUID> vectorReferenceToVectorSignatureMap =
                 vectorReferenceToSignatureMap(vectorReferences);
-        final ImmutableSetMultimap<UUID, UUID> vectorSignatureToVectorUuidMap =
+        final ImmutableSetMultimap<UUID, VectorId> vectorSignatureToVectorIdMap =
                 vectorReferenceToVectorSignatureMap.inverse();
 
         final Map<UUID, VectorReference> blackHoleMap = Maps.newHashMap();
@@ -222,7 +222,7 @@ class CollapseTask extends AbstractDeferredTask {
             //
             final UUID signature =
                     Iterables.getOnlyElement(
-                            vectorReferenceToVectorSignatureMap.get(vectorReference.id().uuid()));
+                            vectorReferenceToVectorSignatureMap.get(vectorReference.id()));
 
             blackHoleMap.putIfAbsent(signature, vectorReference);
         }
@@ -258,9 +258,9 @@ class CollapseTask extends AbstractDeferredTask {
                 //
                 final UUID signature =
                         Iterables.getOnlyElement(
-                                vectorReferenceToVectorSignatureMap.get(vectorReference.id().uuid()));
+                                vectorReferenceToVectorSignatureMap.get(vectorReference.id()));
 
-                final ImmutableSet<UUID> identicalVectors = vectorSignatureToVectorUuidMap.get(signature);
+                final ImmutableSet<VectorId> identicalVectors = vectorSignatureToVectorIdMap.get(signature);
                 if (identicalVectors.size() > config.collapseMinDuplicates() && !blackHoleMap.containsKey(signature)) {
                     //
                     // This reference should be collapsed but is not collapsed (yet).
@@ -485,11 +485,11 @@ class CollapseTask extends AbstractDeferredTask {
     }
 
     @Nonnull
-    static ImmutableSetMultimap<UUID, UUID> vectorReferenceToSignatureMap(@Nonnull final List<VectorReference> vectorReferences) {
-        final ImmutableSetMultimap.Builder<UUID, UUID> resultMapBuilder = ImmutableSetMultimap.builder();
+    static ImmutableSetMultimap<VectorId, UUID> vectorReferenceToSignatureMap(@Nonnull final List<VectorReference> vectorReferences) {
+        final ImmutableSetMultimap.Builder<VectorId, UUID> resultMapBuilder = ImmutableSetMultimap.builder();
         for (final VectorReference vectorReference : vectorReferences) {
             if (vectorReference.isPrimaryCopy()) {
-                resultMapBuilder.put(vectorReference.id().uuid(), StorageAdapter.signatureUuid(vectorReference.vector()));
+                resultMapBuilder.put(vectorReference.id(), StorageAdapter.signatureUuid(vectorReference.vector()));
             }
         }
 

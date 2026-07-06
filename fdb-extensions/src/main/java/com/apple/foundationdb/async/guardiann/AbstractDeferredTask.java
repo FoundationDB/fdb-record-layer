@@ -497,7 +497,7 @@ abstract class AbstractDeferredTask {
     /**
      * Computes, for each primary vector, the k nearest clusters (sorted by distance) from the given
      * candidate cluster map. Non-primary vector references in the input are silently skipped.
-     * Returns a result containing an inverted assignments map (keyed by vector UUID, values are nearest
+     * Returns a result containing an inverted assignments map (keyed by vector id, values are nearest
      * clusters in ascending distance order) and a map of running standard deviation updates accumulated
      * from each vector's primary (nearest) cluster assignment.
      *
@@ -515,7 +515,7 @@ abstract class AbstractDeferredTask {
     static NearestClustersResult computeNearestClusters(@Nonnull final DistanceEstimator estimator,
                                                         @Nonnull final List<VectorReference> vectorReferences,
                                                         @Nonnull final Collection<ClusterMetadataWithDistance> candidateClusters) {
-        final ImmutableListMultimap.Builder<UUID, ClusterMetadataWithDistance> invertedAssignmentsMapBuilder =
+        final ImmutableListMultimap.Builder<VectorId, ClusterMetadataWithDistance> invertedAssignmentsMapBuilder =
                 ImmutableListMultimap.builder();
         final Map<UUID, RunningStats> standardDeviationUpdates = Maps.newHashMap();
         for (final VectorReference vectorReference : vectorReferences) {
@@ -542,8 +542,7 @@ abstract class AbstractDeferredTask {
                     primaryClusterMetadataWithDistance.distance());
 
             for (final ClusterMetadataWithDistance clusterMetadataWithDistance : sortedNearestClusters) {
-                invertedAssignmentsMapBuilder.put(vectorReference.id().uuid(),
-                        clusterMetadataWithDistance);
+                invertedAssignmentsMapBuilder.put(vectorReference.id(), clusterMetadataWithDistance);
             }
         }
         return new NearestClustersResult(invertedAssignmentsMapBuilder.build(), standardDeviationUpdates);
@@ -623,13 +622,13 @@ abstract class AbstractDeferredTask {
 
     /**
      * The result of computing each primary vector's nearest clusters: an inverted assignments multimap (keyed by
-     * vector UUID, with the nearest clusters in ascending distance order) together with the per-cluster running
+     * vector id, with the nearest clusters in ascending distance order) together with the per-cluster running
      * standard-deviation updates accumulated while doing so.
      *
-     * @param invertedAssignments a multimap from vector UUID to its nearest clusters, in ascending distance order
+     * @param invertedAssignments a multimap from vector id to its nearest clusters, in ascending distance order
      * @param standardDeviationUpdates a map from cluster id to the running statistics update for that cluster
      */
-    record NearestClustersResult(@Nonnull ImmutableListMultimap<UUID, ClusterMetadataWithDistance> invertedAssignments,
+    record NearestClustersResult(@Nonnull ImmutableListMultimap<VectorId, ClusterMetadataWithDistance> invertedAssignments,
                                  @Nonnull Map<UUID, RunningStats> standardDeviationUpdates) {
     }
 

@@ -29,13 +29,18 @@ import com.apple.test.RandomSeedSource;
 import com.google.common.collect.ImmutableList;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import javax.annotation.Nonnull;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Random;
 import java.util.UUID;
 import java.util.function.BiFunction;
 import java.util.function.Function;
+import java.util.stream.Stream;
 
 /**
  * Consolidated unit tests for the guardiann pure value/record types — {@link VectorId}, {@link PrimaryCopy},
@@ -198,6 +203,59 @@ class DataRecordsTest {
         final long rotatorSeed = new Random(randomSeed).nextLong();
         Assertions.assertThat(new AccessInfo(rotatorSeed, null).toString())
                 .isEqualTo("AccessInfo[rotatorSeed=" + rotatorSeed + ", negatedCentroid=null]");
+    }
+
+    // ---------------------------------------------------------------------------------------------------------
+    // ClusterMetadata.State bit-flag codes
+    //
+    // The states are OR-packed into a single int by ClusterMetadata#getStatesCode() and restored one bit at a time
+    // by State#ofCode(int), so every code must occupy its own distinct bit. These structural checks warn if a future
+    // state is given a colliding or non-power-of-two code -- e.g. a stray 3, which is 1|2 and would silently alias
+    // SPLIT_MERGE|REASSIGN. (Modeled on RecordQueryPlannerConfigurationTest#validateBooleanFlagsAreSetIndependently,
+    // whose flags likewise share a bit set.)
+    // ---------------------------------------------------------------------------------------------------------
+
+    @ParameterizedTest
+    @EnumSource(ClusterMetadata.State.class)
+    void stateCodeIsASingleDistinctBit(@Nonnull final ClusterMetadata.State state) {
+        final int code = state.getCode();
+        Assertions.assertThat(code).as("state %s must have a positive code", state).isPositive();
+        // A single set bit == a power of two; this is what directly rejects a stray non-power-of-two code like 3.
+        Assertions.assertThat(Integer.bitCount(code))
+                .as("state %s code=%d must be a single bit (a power of two)", state, code)
+                .isOne();
+        // A single code round-trips through the OR-pack / bit-scan pair.
+        Assertions.assertThat(ClusterMetadata.State.ofCode(code)).containsExactly(state);
+    }
+
+    static Stream<Arguments> stateCodesUseIndependentBits() {
+        return Arrays.stream(ClusterMetadata.State.values()).flatMap(state1 ->
+                Arrays.stream(ClusterMetadata.State.values()).filter(state2 -> state2 != state1).map(state2 ->
+                        Arguments.of(state1, state2)));
+    }
+
+    /**
+     * For each pair of distinct {@link ClusterMetadata.State}s, their codes must occupy disjoint bits so a set of
+     * states packs losslessly into the single-int mask that {@link ClusterMetadata#getStatesCode()} builds and
+     * {@link ClusterMetadata.State#ofCode(int)} restores. If a future state reused a bit (or was given a
+     * non-power-of-two code such as {@code 3 == SPLIT_MERGE|REASSIGN}), the offending pair would share a bit and
+     * this check would fail.
+     *
+     * @param state1 the first state
+     * @param state2 the second, distinct state
+     */
+    @ParameterizedTest
+    @MethodSource
+    void stateCodesUseIndependentBits(@Nonnull final ClusterMetadata.State state1,
+                                      @Nonnull final ClusterMetadata.State state2) {
+        Assertions.assertThat(state1.getCode() & state2.getCode())
+                .as("states %s (code=%d) and %s (code=%d) must not share any bit",
+                        state1, state1.getCode(), state2, state2.getCode())
+                .isZero();
+
+        // The pair also round-trips: OR-packing both codes and scanning back yields exactly the two states.
+        Assertions.assertThat(ClusterMetadata.State.ofCode(state1.getCode() | state2.getCode()))
+                .containsExactlyInAnyOrder(state1, state2);
     }
 
     // ---------------------------------------------------------------------------------------------------------

@@ -38,6 +38,7 @@ import java.util.stream.Collectors;
  *
  * @param id the unique id of the cluster
  * @param numPrimaryUnderreplicatedVectors the number of primary vectors in the cluster that are underreplicated
+ *        (see preamble of {@link VectorReference} for an explanation of the different vector kinds.
  * @param numReplicatedVectors the number of replicated (non-primary) vectors in the cluster
  * @param runningStandardDeviation running statistics of member distances to the centroid; its element count is the
  *        number of primary vectors
@@ -130,8 +131,27 @@ record ClusterMetadata(@Nonnull UUID id, int numPrimaryUnderreplicatedVectors, i
      * restored via {@link #ofCode(int)}.
      */
     public enum State {
+        /**
+         * The cluster's primary count has crossed a size bound — above {@link Config#primaryClusterMax()} (needs
+         * splitting) or below {@link Config#primaryClusterMin()} (needs merging) — and a pending {@link SplitMergeTask}
+         * will repartition it into new clusters or dissolve it into its neighbors. Suppressed while {@link #COLLAPSE}
+         * is set, since collapsing duplicates changes the cluster's effective size and may make the split/merge moot.
+         */
         SPLIT_MERGE(1),
+        /**
+         * The cluster's replication/assignment layer needs repair, and a pending {@link ReassignTask} will re-home
+         * primaries that have drifted to a nearer cluster, top up {@linkplain VectorReference#isUnderreplicated()
+         * underreplicated} primaries, and prune excess replicas. Raised in the wake of a neighboring split/merge or
+         * when the cluster exceeds its replicated-write or underreplicated-primary bounds. Yields to {@link #SPLIT_MERGE}
+         * and {@link #COLLAPSE}: the reassign no-ops if either is also set, since both reshape membership first.
+         */
         REASSIGN(2),
+        /**
+         * The cluster holds enough identical primary vectors (sharing one content signature) to be worth
+         * deduplicating, and a pending {@link CollapseTask} will fold each duplicate group into a single collapsed
+         * representative. Takes precedence over {@link #SPLIT_MERGE} and {@link #REASSIGN} — both no-op while it is set —
+         * because collapsing changes the cluster's effective size and membership out from under them.
+         */
         COLLAPSE(4);
 
         private static final Map<Integer, State> BY_CODE =

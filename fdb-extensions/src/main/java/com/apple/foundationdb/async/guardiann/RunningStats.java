@@ -82,8 +82,8 @@ record RunningStats(long numElements, double runningMean, double runningSumSquar
         }
 
         final long newN = numElements() - 1;
-        final double newMean = (numElements() * runningMean() - x) / newN;
         final double delta = x - runningMean();
+        final double newMean = runningMean() - delta / newN;
         final double delta2 = x - newMean;
         double newM2 = runningSumSquaredDeviations() - delta * delta2;
 
@@ -148,8 +148,8 @@ record RunningStats(long numElements, double runningMean, double runningSumSquar
         }
 
         final long newN = this.numElements() - other.numElements();
-        final double newMean = (this.numElements() * this.runningMean() - other.numElements() * other.runningMean()) / newN;
         final double delta = other.runningMean() - this.runningMean();
+        final double newMean = this.runningMean() - delta * other.numElements() / newN;
         double newM2 = this.runningSumSquaredDeviations() - other.runningSumSquaredDeviations() -
                 delta * delta * this.numElements() * other.numElements() / newN;
 

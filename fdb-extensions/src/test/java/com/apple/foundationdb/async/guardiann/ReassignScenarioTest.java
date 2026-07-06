@@ -60,8 +60,8 @@ import static org.assertj.core.api.Assertions.assertThat;
  * {@code underreplicatedPrimaryClusterMax} trigger.
  * <p>
  * That trigger is a safety net the structure normally never reaches on its own through inserts.
- * Regular {@code Guardiann#insert} writes every new primary copy in the non-underreplicated state
- * — only {@link SplitMergeTask} and {@link ReassignTask} can mark a primary as under-replicated,
+ * Regular {@code Guardiann#insert} writes every new primary copy in the non-underreplicated stat --
+ * only {@link SplitMergeTask} and {@link ReassignTask} can mark a primary as under-replicated,
  * by reassigning it to a different cluster than the one it currently lives in. So exercising the
  * trigger in isolation requires hand-building the precondition:
  * <ol>
@@ -70,6 +70,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  *       stable post-quiescence shape to inject into),</li>
  *   <li>find the cluster a fixed query vector would naturally belong to, using the exact
  *       nearest-cluster discovery logic {@code Insert} uses (stable across reseeds — cluster UUIDs
+ *       change with every split, but the "nearest cluster to vector v" choice does not), and</li>
  *   <li>inject {@code underreplicatedPrimaryClusterMax + 1} synthetic under-replicated primary
  *       copies of the query vector into that cluster via {@link Primitives}, then call
  *       {@link Primitives#updateClusterMetadataAndEnqueueSplitOrReassignTaskMaybe} once with the cumulative

@@ -627,7 +627,7 @@ class SplitMergeTask extends AbstractDeferredTask {
                 computeNearestClusters(estimator, primaryVectorReferences, clusterIdMetadataMap.values());
         mergeStandardDeviationUpdates(standardDeviationsMap,
                 nearestClustersResult.standardDeviationUpdates());
-        final ImmutableListMultimap<UUID, ClusterMetadataWithDistance> invertedAssignmentsMap =
+        final ImmutableListMultimap<VectorId, ClusterMetadataWithDistance> invertedAssignmentsMap =
                 nearestClustersResult.invertedAssignments();
 
         final ImmutableListMultimap.Builder<UUID, VectorReference> assignmentMultimapBuilder =
@@ -638,7 +638,7 @@ class SplitMergeTask extends AbstractDeferredTask {
         // only considering primary copies here -- this will prune the replicated vectors
         for (final VectorReference vectorReference : primaryVectorReferences) {
             final ImmutableList<ClusterMetadataWithDistance> nearestClusters =
-                    Objects.requireNonNull(invertedAssignmentsMap.get(vectorReference.id().uuid()));
+                    Objects.requireNonNull(invertedAssignmentsMap.get(vectorReference.id()));
             Verify.verify(!nearestClusters.isEmpty());
             final ClusterMetadataWithDistance primaryCluster = Objects.requireNonNull(nearestClusters.get(0));
             final double distanceToPrimaryCentroid = primaryCluster.distance();
