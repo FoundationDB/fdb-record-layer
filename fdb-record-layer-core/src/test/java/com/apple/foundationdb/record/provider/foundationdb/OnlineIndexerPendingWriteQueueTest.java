@@ -514,7 +514,7 @@ class OnlineIndexerPendingWriteQueueTest extends OnlineIndexerTest {
         return newIndexerBuilder(targetIndexes)
                 .setLimit(10)
                 .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
-                        .setUseWritePendingQueue(queuedIndexes)
+                        .setUsePendingWriteQueue(queuedIndexes)
                         .build());
     }
 

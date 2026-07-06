@@ -44,8 +44,8 @@ public final class PendingWriteQueueIndexingFactory {
     @Nonnull
     public static PendingWritesQueue<IndexBuildProto.PendingWritesQueueEntry> getIndexingQueue(final FDBRecordStore store, final Index index) {
         return new PendingWritesQueue<>(
-                IndexingSubspaces.indexWritePendingQueueSubspace(store, index),
-                IndexingSubspaces.indexWritePendingQueueSizeSubspace(store, index),
+                IndexingSubspaces.indexPendingWriteQueueSubspace(store, index),
+                IndexingSubspaces.indexPendingWriteQueueSizeSubspace(store, index),
                 MAX_QUEUE_SIZE,
                 IndexBuildProto.PendingWritesQueueEntry.class
         );

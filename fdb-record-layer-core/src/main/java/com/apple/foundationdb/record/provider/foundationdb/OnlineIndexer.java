@@ -918,7 +918,7 @@ public class OnlineIndexer implements AutoCloseable {
         private final String allowUnblockId;
         private final long initialMergesCountLimit;
         private final boolean reverseScanOrder;
-        private final Set<Index> writePendingQueueIndexes;
+        private final Set<Index> pendingWriteQueueIndexes;
 
         /**
          * Possible actions when an index is already partially built.
@@ -966,7 +966,7 @@ public class OnlineIndexer implements AutoCloseable {
          * @param allowUnblockId if preset, allow unblocking only if the block ID matches this param
          * @param initialMergesCountLimit the initial max merges count for index merger
          * @param reverseScanOrder if true, scan records in reverse order
-         * @param writePendingQueueIndexes the subset of target indexes that should be built with a write pending queue
+         * @param pendingWriteQueueIndexes the subset of target indexes that should be built with a pending write queue
          */
         @SuppressWarnings("squid:S00107") // too many parameters
         private IndexingPolicy(@Nullable String sourceIndex, @Nullable Object sourceIndexSubspaceKey, boolean forbidRecordScan,
@@ -976,7 +976,7 @@ public class OnlineIndexer implements AutoCloseable {
                                boolean allowUnblock, String allowUnblockId,
                                long initialMergesCountLimit,
                                boolean reverseScanOrder,
-                               Set<Index> writePendingQueueIndexes) {
+                               Set<Index> pendingWriteQueueIndexes) {
             this.sourceIndex = sourceIndex;
             this.forbidRecordScan = forbidRecordScan;
             this.sourceIndexSubspaceKey = sourceIndexSubspaceKey;
@@ -992,7 +992,7 @@ public class OnlineIndexer implements AutoCloseable {
             this.allowUnblockId = allowUnblockId;
             this.initialMergesCountLimit = initialMergesCountLimit;
             this.reverseScanOrder = reverseScanOrder;
-            this.writePendingQueueIndexes = writePendingQueueIndexes;
+            this.pendingWriteQueueIndexes = pendingWriteQueueIndexes;
         }
 
         /**
@@ -1200,15 +1200,15 @@ public class OnlineIndexer implements AutoCloseable {
         }
 
         /**
-         * Whether the given target index should be built with a write pending queue. While such an index is being
-         * built, user updates are accumulated in a write pending queue (to be drained by the indexer) instead of being
+         * Whether the given target index should be built with a pending write queue. While such an index is being
+         * built, user updates are accumulated in a pending write queue (to be drained by the indexer) instead of being
          * written to the index directly.
          * @param index the target index to check
-         * @return true if the given index should be built with a write pending queue
+         * @return true if the given index should be built with a pending write queue
          */
         @API(API.Status.EXPERIMENTAL)
-        public boolean shouldUseWritePendingQueue(@Nonnull Index index) {
-            return writePendingQueueIndexes.contains(index);
+        public boolean shouldUsePendingWriteQueue(@Nonnull Index index) {
+            return pendingWriteQueueIndexes.contains(index);
         }
 
         /**
@@ -1241,7 +1241,7 @@ public class OnlineIndexer implements AutoCloseable {
             private String allowUnblockId = null;
             private long initialMergesCountLimit = 0;
             private boolean reverseScanOrder = false;
-            private Set<Index> writePendingQueueIndexes = new HashSet<>();
+            private Set<Index> pendingWriteQueueIndexes = new HashSet<>();
 
             protected Builder() {
             }
@@ -1515,15 +1515,15 @@ public class OnlineIndexer implements AutoCloseable {
             }
 
             /**
-             * Set the subset of target indexes that should be built with a write pending queue. While such an index
-             * is being built, user updates are accumulated in a write pending queue (to be drained by the indexer)
-             * instead of being written to the index directly. By default, no index uses a write pending queue.
-             * @param indexes the target indexes that should be built with a write pending queue
+             * Set the subset of target indexes that should be built with a pending write queue. While such an index
+             * is being built, user updates are accumulated in a pending write queue (to be drained by the indexer)
+             * instead of being written to the index directly. By default, no index uses a pending write queue.
+             * @param indexes the target indexes that should be built with a pending write queue
              * @return this builder
              */
             @API(API.Status.EXPERIMENTAL)
-            public Builder setUseWritePendingQueue(@Nonnull final List<Index> indexes) {
-                this.writePendingQueueIndexes = new HashSet<>(indexes);
+            public Builder setUsePendingWriteQueue(@Nonnull final List<Index> indexes) {
+                this.pendingWriteQueueIndexes = new HashSet<>(indexes);
                 return this;
             }
 
@@ -1535,7 +1535,7 @@ public class OnlineIndexer implements AutoCloseable {
                         ifDisabled, ifWriteOnly, ifMismatchPrevious, ifReadable,
                         doAllowUniquePendingState, allowedTakeoverSet,
                         useMutualIndexing, useMutualIndexingBoundaries, allowUnblock, allowUnblockId,
-                        initialMergesCountLimit, reverseScanOrder, writePendingQueueIndexes);
+                        initialMergesCountLimit, reverseScanOrder, pendingWriteQueueIndexes);
             }
         }
     }
