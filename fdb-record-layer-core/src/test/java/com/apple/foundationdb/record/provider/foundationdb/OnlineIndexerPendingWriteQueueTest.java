@@ -701,4 +701,5 @@ class OnlineIndexerPendingWriteQueueTest extends OnlineIndexerTest {
             return size;
         }
     }
+
 }
