@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.metadata.Index;
+import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.expressions.EmptyKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
@@ -365,6 +366,77 @@ class OnlineIndexerPendingWriteQueueTest extends OnlineIndexerTest {
         assertReadable(indexes);
         assertEquals(numInitialRecords, indexEntryCount(valueIndex));
         scrubAndValidate(indexes);
+    }
+
+    @Test
+    void testUniqueIndexQueueConflictRecordedDuringDrain() throws Exception {
+        // A uniqueness conflict among the deferred writes must be added to the UV list during the drain (like a normal
+        // write-only build)
+        final Index index = new Index("simple$num_value_2_unique_queue", field("num_value_2"),
+                EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS);
+        final int numInitialRecords = 20; // recNos 0,2,..,38 with distinct num_value_2 = recNo * 19 (no initial conflict)
+        populateEvenRecords(numInitialRecords);
+        openSimpleMetaData(allIndexesHook(List.of(index)));
+        disableAll(List.of(index));
+
+        buildIndexPausingOnceForWrites(
+                newIndexerBuilder(index)
+                        .setLimit(10)
+                        .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
+                                .setUsePendingWriteQueue(List.of(index))
+                                .allowUniquePendingState()
+                                .build()),
+                () -> {
+                    try (FDBRecordContext context = openContext()) {
+                        // recNo 1 duplicates recNo 0's num_value_2 (both 0) -> a uniqueness conflict once drained.
+                        saveSimpleRecord(recordStore, 1, 0);
+                        context.commit();
+                    }
+                });
+
+        // The drain recorded the violation and the build completed (no crash) into readable-unique-pending.
+        openSimpleMetaData(allIndexesHook(List.of(index)));
+        try (FDBRecordContext context = openContext()) {
+            assertTrue(recordStore.isIndexReadableUniquePending(index),
+                    "the index should be readable-unique-pending after a conflict among drained writes");
+            assertTrue(recordStore.scanUniquenessViolations(index).getCount().join() > 0,
+                    "the uniqueness conflict should have been recorded, not thrown, during the drain");
+            context.commit();
+        }
+    }
+
+    @Test
+    void testFallsBackToWriteOnlyBelowFormatVersion() throws Exception {
+        formatVersion = FormatVersion.FULL_STORE_LOCK; // one below WRITE_ONLY_WITH_QUEUE
+        final Index index = new Index("simple$num_value_2_queue", field("num_value_2"), IndexTypes.VALUE);
+        final int numInitialRecords = 20;
+        populateEvenRecords(numInitialRecords);
+        openSimpleMetaData(allIndexesHook(List.of(index)));
+        disableAll(List.of(index));
+
+        final List<Integer> newRecNos = List.of(1, 3);
+        final FDBStoreTimer writeTimer = new FDBStoreTimer();
+        buildIndexPausingOnceForWrites(
+                queueIndexerBuilder(index, List.of(index)),
+                () -> {
+                    try (FDBRecordContext context = fdb.openContext(null, writeTimer)) {
+                        final FDBRecordStore store = createStoreBuilder().setContext(context)
+                                .createOrOpen(FDBRecordStoreBase.StoreExistenceCheck.NONE);
+                        assertFalse(store.isIndexWriteOnlyWithQueue(index),
+                                "below the required format version the index must not enter the queue state");
+                        assertTrue(store.isIndexWriteOnly(index), "the index should fall back to plain write-only");
+                        for (int recNo : newRecNos) {
+                            saveSimpleRecord(store, recNo, recNo * 19);
+                        }
+                        context.commit();
+                    }
+                });
+
+        assertEquals(0, writeTimer.getCount(FDBStoreTimer.Counts.PENDING_WRITES_QUEUE_WRITE),
+                "no writes should be deferred to a queue below the required format version");
+        assertReadable(index);
+        assertEquals(numInitialRecords + newRecNos.size(), indexEntryCount(index));
+        scrubAndValidate(List.of(index));
     }
 
     @Test
