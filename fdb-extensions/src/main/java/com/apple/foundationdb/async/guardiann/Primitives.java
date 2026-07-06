@@ -1000,9 +1000,7 @@ class Primitives {
                     }
 
                     final Tuple valueTuple = Tuple.fromBytes(valueBytes);
-                    final AbstractDeferredTask task =
-                            AbstractDeferredTask.newFromTuples(getLocator(), accessInfo, keyTuple, valueTuple);
-                    return task;
+                    return AbstractDeferredTask.newFromTuples(getLocator(), accessInfo, keyTuple, valueTuple);
                 });
     }
 
