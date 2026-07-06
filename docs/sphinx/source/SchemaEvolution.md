@@ -2,6 +2,10 @@
 
 This guide explains how to evolve your schema and maintain the metadata of the record stores in your application.
 
+```{note}
+This guide describes schema evolution through the Java API of the FoundationDB Record Layer. Evolution of schema templates through the SQL interface is under active development.
+```
+
 ## General Principles
 
 The same meta-data can be used for multiple record stores. Some of these record stores may not have been accessed for some time and need to catch-up to changes made in the meta-data. This is accomplished by storing the version of the last meta-data used in the header of each record store and checking this version against the current meta-data's version whenever the record store is opened.
