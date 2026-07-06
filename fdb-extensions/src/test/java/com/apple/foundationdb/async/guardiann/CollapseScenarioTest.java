@@ -699,7 +699,8 @@ public class CollapseScenarioTest implements BaseTest {
             final RealVector untransformedCentroid = storageTransform.untransform(transformedCentroid);
             final List<ClusterMetadataWithDistance> nearestClusterMetadata =
                     primitives.fetchNearestClusterMetadata(transaction, clusterMetadata,
-                            untransformedCentroid, storageTransform, numNearestClusters).join();
+                            untransformedCentroid, storageTransform, numNearestClusters,
+                            guardiann.getConfig().reassignConcurrency()).join();
             final List<ClusterReference> neighboringClusters =
                     ClusterReference.fromClusterMetadataAndDistances(nearestClusterMetadata);
             final UUID taskId = RandomHelpers.randomUuid(clusterId, true);

@@ -572,6 +572,7 @@ public class MoreAsyncUtilTest {
     }
 
     @SafeVarargs
+    @SuppressWarnings("varargs") // reading the non-reifiable T[] in the body trips -Xlint:varargs; the helper is safe
     private static <T> AsyncIterable<T> iterableOf(final T... items) {
         return MoreAsyncUtil.iterableFromCollection(CompletableFuture.completedFuture(Arrays.asList(items)), EXECUTOR);
     }

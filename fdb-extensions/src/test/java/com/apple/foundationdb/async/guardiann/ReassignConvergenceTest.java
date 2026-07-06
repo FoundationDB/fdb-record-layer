@@ -228,7 +228,8 @@ public class ReassignConvergenceTest implements BaseTest {
 
             final List<ClusterMetadataWithDistance> nearestClusterMetadata =
                     primitives.fetchNearestClusterMetadata(transaction, clusterMetadata,
-                            untransformedCentroid, storageTransform, numNearestClusters).join();
+                            untransformedCentroid, storageTransform, numNearestClusters,
+                            guardiann.getConfig().reassignConcurrency()).join();
             final List<ClusterReference> nearestClusters =
                     ClusterReference.fromClusterMetadataAndDistances(nearestClusterMetadata);
 

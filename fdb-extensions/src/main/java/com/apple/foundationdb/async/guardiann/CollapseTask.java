@@ -178,7 +178,8 @@ class CollapseTask extends AbstractDeferredTask {
                 new ClusterMetadataWithDistance(targetClusterMetadata,
                         storageTransform.transform(targetClusterCentroid), 0.0d);
         return primitives.fetchCoreClusters(transaction,
-                        ImmutableList.of(targetClusterMetadataWithDistance), storageTransform)
+                        ImmutableList.of(targetClusterMetadataWithDistance), storageTransform,
+                        getConfig().collapseConcurrency())
                 .thenAccept(coreClusters -> {
                     final Cluster targetCluster = Iterables.getOnlyElement(coreClusters);
                     final CollapseAssignments collapseAssignments =

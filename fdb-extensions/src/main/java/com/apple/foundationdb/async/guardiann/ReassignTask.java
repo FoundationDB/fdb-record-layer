@@ -273,9 +273,10 @@ class ReassignTask extends AbstractDeferredTask {
                     // reassigned; neighboringClusters holds the candidate clusters those vectors may move or
                     // replicate to.
                     //
-                    return primitives.fetchCoreClusters(transaction, coreClusters, storageTransform)
+                    return primitives.fetchCoreClusters(transaction, coreClusters, storageTransform,
+                                    config.reassignConcurrency())
                             .thenCompose(innerClusters -> primitives.cleanUpVectorReferences(transaction,
-                                            innerClusters, false)
+                                            innerClusters, false, config.reassignConcurrency())
                                     .thenCompose(cleanedUpVectorReferences -> {
                                         final Reassignment partialReassignment =
                                                 reassignVectorReferences(estimator, Iterables.getOnlyElement(coreClusters),
@@ -319,7 +320,7 @@ class ReassignTask extends AbstractDeferredTask {
         Verify.verify(enqueueFollowUpTasks,
                 "reassign with enqueueFollowUpTasks=false requires precomputed (non-empty) nearest clusters");
         return primitives().fetchNearestClusterMetadata(transaction, targetClusterMetadata,
-                        targetClusterCentroid, storageTransform, numNearestClusters)
+                        targetClusterCentroid, storageTransform, numNearestClusters, getConfig().reassignConcurrency())
                 .thenAccept(fetchedNearestClusters -> {
                     final ReassignTask reassignTask = withHighPriorityAndNearestClusters(random,
                             ClusterReference.fromClusterMetadataAndDistances(fetchedNearestClusters));
@@ -362,9 +363,9 @@ class ReassignTask extends AbstractDeferredTask {
         for (final Map.Entry<UUID, ClusterMetadataWithDistance> entry : clusterIdMetadataMap.entrySet()) {
             final UUID clusterId = entry.getKey();
             if (targetClusterId.equals(clusterId)) {
+                // Don't add the target as we re-add all vectors.
                 standardDeviationsMap.put(clusterId, RunningStats.identity());
             } else {
-                // Don't add the target as we re-add all vectors.
                 standardDeviationsMap.put(clusterId,
                         entry.getValue().clusterMetadata().runningStandardDeviation());
             }

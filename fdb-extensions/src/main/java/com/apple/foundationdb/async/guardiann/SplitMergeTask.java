@@ -264,7 +264,7 @@ class SplitMergeTask extends AbstractDeferredTask {
         }
         // the nearest clusters are not set yet: fetch them and write an urgent new task carrying them
         return primitives().fetchNearestClusterMetadata(transaction, targetClusterMetadata,
-                        targetClusterCentroid, storageTransform, numNearestClusters)
+                        targetClusterCentroid, storageTransform, numNearestClusters, getConfig().splitMergeConcurrency())
                 .thenAccept(fetchedNearestClusters -> {
                     final SplitMergeTask splitMergeTask =
                             withHighPriorityAndNearestClusters(random,
@@ -354,7 +354,8 @@ class SplitMergeTask extends AbstractDeferredTask {
                 Lists.newArrayList(classification1To2, classification2To3);
 
         return primitives.fetchCoreClusters(transaction,
-                        largestCoreClusters(classification1To2, classification2To3), storageTransform)
+                        largestCoreClusters(classification1To2, classification2To3), storageTransform,
+                        config.splitMergeConcurrency())
                 .thenCompose(innerClusters -> RandomHelpers.forEach(random, allClassifications,
                                 (classification, nestedRandom) -> {
                                     if (classification == null) {
@@ -366,7 +367,8 @@ class SplitMergeTask extends AbstractDeferredTask {
                                             ? innerClusters
                                             : innerClusters.subList(0, coreClusters.size());
 
-                                    return primitives.cleanUpVectorReferences(transaction, clampedInnerClusters, true)
+                                    return primitives.cleanUpVectorReferences(transaction, clampedInnerClusters, true,
+                                                    config.splitMergeConcurrency())
                                             .thenApply(vectorReferences ->
                                                     kMeans(classification, vectorReferences, nestedRandom, estimator,
                                                             classification.coreClusters().size() + 1,
@@ -511,7 +513,8 @@ class SplitMergeTask extends AbstractDeferredTask {
                 Lists.newArrayList(classification2To1, classification3To2);
 
         return primitives.fetchCoreClusters(transaction,
-                        largestCoreClusters(classification2To1, classification3To2), storageTransform)
+                        largestCoreClusters(classification2To1, classification3To2), storageTransform,
+                        config.splitMergeConcurrency())
                 .thenCompose(innerClusters -> RandomHelpers.forEach(random, allClassifications,
                                 (classification, nestedRandom) -> {
                                     // Skip non-viable candidates: a merge needs at least
@@ -528,7 +531,8 @@ class SplitMergeTask extends AbstractDeferredTask {
                                             ? innerClusters
                                             : innerClusters.subList(0, coreClusters.size());
 
-                                    return primitives.cleanUpVectorReferences(transaction, clampedInnerClusters, true)
+                                    return primitives.cleanUpVectorReferences(transaction, clampedInnerClusters, true,
+                                                    config.splitMergeConcurrency())
                                             .thenApply(vectorReferences ->
                                                     kMeans(classification, vectorReferences, nestedRandom, estimator,
                                                             classification.coreClusters().size() - 1,

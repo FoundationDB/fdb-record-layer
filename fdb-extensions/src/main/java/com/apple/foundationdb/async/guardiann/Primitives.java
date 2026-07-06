@@ -994,6 +994,7 @@ class Primitives {
 
         return getOnReadListener().onAsyncRead(readTransaction.get(keyBytes))
                 .thenApply(valueBytes -> {
+                    getOnReadListener().onKeyValueRead(keyBytes, valueBytes);
                     if (valueBytes == null) {
                         return null;
                     }
@@ -1001,7 +1002,6 @@ class Primitives {
                     final Tuple valueTuple = Tuple.fromBytes(valueBytes);
                     final AbstractDeferredTask task =
                             AbstractDeferredTask.newFromTuples(getLocator(), accessInfo, keyTuple, valueTuple);
-                    getOnReadListener().onKeyValueRead(keyBytes, valueBytes);
                     return task;
                 });
     }
@@ -1053,15 +1053,15 @@ class Primitives {
      */
     @Nonnull
     Optional<UUID> updateClusterMetadataAndEnqueueSplitOrReassignTaskMaybe(@Nonnull final Transaction transaction,
-                                                            @Nonnull final SplittableRandom random,
-                                                            @Nonnull final ClusterMetadata clusterMetadata,
-                                                            @Nonnull final Transformed<RealVector> clusterCentroid,
-                                                            @Nonnull final AccessInfo accessInfo,
-                                                            final int numPrimaryVectorsAdded,
-                                                            final int numPrimaryUnderreplicatedVectorsAdded,
-                                                            final int numReplicatedVectorsAdded,
-                                                            @Nonnull final RunningStats updatedStandardDeviation,
-                                                            @Nonnull final Set<UUID> causeClusterIds) {
+                                                                           @Nonnull final SplittableRandom random,
+                                                                           @Nonnull final ClusterMetadata clusterMetadata,
+                                                                           @Nonnull final Transformed<RealVector> clusterCentroid,
+                                                                           @Nonnull final AccessInfo accessInfo,
+                                                                           final int numPrimaryVectorsAdded,
+                                                                           final int numPrimaryUnderreplicatedVectorsAdded,
+                                                                           final int numReplicatedVectorsAdded,
+                                                                           @Nonnull final RunningStats updatedStandardDeviation,
+                                                                           @Nonnull final Set<UUID> causeClusterIds) {
         Verify.verify(numPrimaryVectorsAdded >= 0,
                 "updateClusterMetadataAndEnqueueSplitOrReassignTaskMaybe only handles added primary vectors");
         final Config config = getConfig();
@@ -1112,15 +1112,15 @@ class Primitives {
      */
     @Nonnull
     private Optional<UUID> updateClusterMetadataAndEnqueueReassignTaskMaybe(@Nonnull final Transaction transaction,
-                                                            @Nonnull final SplittableRandom random,
-                                                            @Nonnull final ClusterMetadata clusterMetadata,
-                                                            @Nonnull final Transformed<RealVector> clusterCentroid,
-                                                            @Nonnull final AccessInfo accessInfo,
-                                                            final int numPrimaryVectorsAdded,
-                                                            final int numPrimaryUnderreplicatedVectorsAdded,
-                                                            final int numReplicatedVectorsAdded,
-                                                            @Nonnull final RunningStats updatedStandardDeviation,
-                                                            @Nonnull final Set<UUID> causeClusterIds) {
+                                                                            @Nonnull final SplittableRandom random,
+                                                                            @Nonnull final ClusterMetadata clusterMetadata,
+                                                                            @Nonnull final Transformed<RealVector> clusterCentroid,
+                                                                            @Nonnull final AccessInfo accessInfo,
+                                                                            final int numPrimaryVectorsAdded,
+                                                                            final int numPrimaryUnderreplicatedVectorsAdded,
+                                                                            final int numReplicatedVectorsAdded,
+                                                                            @Nonnull final RunningStats updatedStandardDeviation,
+                                                                            @Nonnull final Set<UUID> causeClusterIds) {
         final Config config = getConfig();
         final UUID clusterId = clusterMetadata.id();
 
@@ -1297,6 +1297,7 @@ class Primitives {
         final byte[] key = tasksSubspace.pack(Tuple.from(deferredTask.getTaskId()));
 
         transaction.clear(key);
+        getOnWriteListener().onKeyDeleted(key);
     }
 
     /**
@@ -1310,15 +1311,17 @@ class Primitives {
      * @param targetClusterCentroid the target's centroid in the untransformed (client) coordinate space
      * @param storageTransform the transform mapping fetched centroids into the stored coordinate space
      * @param numClusters the maximum number of nearest clusters to fetch (including the target)
+     * @param concurrency the fan-out width for the per-cluster metadata reads
      * @return a future of the nearest clusters, nearest first
      */
     @Nonnull
     CompletableFuture<List<ClusterMetadataWithDistance>>
             fetchNearestClusterMetadata(@Nonnull final ReadTransaction transaction,
-                                             @Nonnull final ClusterMetadata targetClusterMetadata,
-                                             @Nonnull final RealVector targetClusterCentroid,
-                                             @Nonnull final StorageTransform storageTransform,
-                                             final int numClusters) {
+                                        @Nonnull final ClusterMetadata targetClusterMetadata,
+                                        @Nonnull final RealVector targetClusterCentroid,
+                                        @Nonnull final StorageTransform storageTransform,
+                                        final int numClusters,
+                                        final int concurrency) {
         final Executor executor = getLocator().getExecutor();
 
         return AsyncUtil.collect(
@@ -1342,7 +1345,7 @@ class Primitives {
                                     clusterId,
                                     transformedClusterCentroid,
                                     0.0d);
-                        }, 10));
+                        }, concurrency));
     }
 
     /**
@@ -1352,12 +1355,14 @@ class Primitives {
      * @param transaction the transaction
      * @param coreClusters the core clusters to load in full
      * @param storageTransform the transform used to reconstruct stored vectors
+     * @param concurrency the fan-out width for the per-cluster loads
      * @return a future of the fully-loaded clusters
      */
     @Nonnull
     CompletableFuture<List<Cluster>> fetchCoreClusters(@Nonnull final Transaction transaction,
                                                         @Nonnull final List<ClusterMetadataWithDistance> coreClusters,
-                                                        @Nonnull final StorageTransform storageTransform) {
+                                                        @Nonnull final StorageTransform storageTransform,
+                                                        final int concurrency) {
         final Primitives primitives = getLocator().primitives();
         final Executor executor = getLocator().getExecutor();
 
@@ -1365,7 +1370,7 @@ class Primitives {
                 clusterMetadata ->
                         primitives.fetchCluster(transaction, storageTransform,
                                 clusterMetadata.clusterMetadata().id(), clusterMetadata.centroid()),
-                10,
+                concurrency,
                 executor);
     }
 
@@ -1380,12 +1385,14 @@ class Primitives {
      * @param transaction the transaction used to re-read current metadata
      * @param clusters the clusters whose references are being reconciled
      * @param discardReplicatedVectorReferences whether to drop replicas and keep only primary copies
+     * @param concurrency the fan-out width for the per-vector metadata re-reads
      * @return a future of the surviving, de-duplicated, still-current references
      */
     @Nonnull
     CompletableFuture<List<VectorReference>> cleanUpVectorReferences(@Nonnull final Transaction transaction,
                                                                      @Nonnull final List<Cluster> clusters,
-                                                                     final boolean discardReplicatedVectorReferences) {
+                                                                     final boolean discardReplicatedVectorReferences,
+                                                                     final int concurrency) {
         final Primitives primitives = getLocator().primitives();
         final Executor executor = getLocator().getExecutor();
 
@@ -1409,7 +1416,7 @@ class Primitives {
                                                          vectorMetadata.vectorId().uuid()
                                                                  .equals(vectorReference.id().uuid()))
                                         ? vectorReference : null),
-                10,
+                concurrency,
                 executor)
                 .thenApply(vectorReferences -> {
                     final ImmutableList.Builder<VectorReference> nonnullReferencesBuilder = ImmutableList.builder();
