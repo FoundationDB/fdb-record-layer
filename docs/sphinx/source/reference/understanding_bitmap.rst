@@ -1,8 +1,11 @@
-===================================================
-Understanding How Bitmaps Identify Distinct Values
-===================================================
+=======
+Bitmaps
+=======
 
 .. _understanding-bitmaps:
+
+Understanding how bitmaps identify distinct values
+####################################################
 
 A bitmap is effectively a byte array in which each bit (zero-based) represents existence (bit = 1) or absence (bit = 0)
 of an integer in a table. For example,

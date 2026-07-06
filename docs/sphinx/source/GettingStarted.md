@@ -69,7 +69,7 @@ Replace `VERSION_NUMBER` with a recent version of the artifact from Maven Centra
 [mvnrepository](https://mvnrepository.com/artifact/org.foundationdb/fdb-record-layer-core-pb3)
 for a listing of published versions).
 
-## Protobuf Configuration
+## Protobuf configuration
 
 Our sample project will use [Protocol Buffers](https://developers.google.com/protocol-buffers/) (protobuf)
 to define our record meta-data. First, since we are using Gradle, let's include the
@@ -181,7 +181,7 @@ Finally, the Record Layer requires we have a `UnionDescriptor` message which con
 record types to be stored in our record store (here only `Order`). We must either set the `usage = UNION`
 option for this message or we can omit the option and instead name the message `RecordTypeUnion`.
 
-## Creating an Application
+## Creating an application
 
 Run `./gradlew generateProto` to see that the above configuration is correct.
 You should see the generated code put into `src/main/generated/main/java/RecordLayerDemoProto.java`.

@@ -1,6 +1,6 @@
-# Getting Started with the SQL Layer
+# Getting started with the SQL layer
 
-## Quick Start
+## Quick start
 
 ```java
 // Connect via JDBC
@@ -38,9 +38,9 @@ ResultSet rs = conn.createStatement().executeQuery(
     "SELECT * FROM customers WHERE email = 'alice@example.com'");
 ```
 
-## Key Features
+## Key features
 
-### Multi-Tenant Schema Templates
+### Multi-tenant schema templates
 
 Schema templates enable efficient multi-tenant architectures:
 
@@ -61,7 +61,7 @@ CREATE SCHEMA /tenant/user_2/data WITH TEMPLATE user_data_template;
 Each tenant's data is completely isolated with its own database, yet all share
 the same schema definition for easy management and evolution.
 
-### Advanced Type System
+### Advanced type system
 
 Define complex, nested data structures:
 
@@ -88,7 +88,7 @@ CREATE TABLE users (
 )
 ```
 
-### Vector Support for ML Applications
+### Vector support for ML applications
 
 Store and query high-dimensional vectors for embeddings and similarity search:
 
@@ -106,7 +106,7 @@ CREATE TABLE embeddings (
 Vectors are inserted via JDBC PreparedStatements and can be efficiently stored
 and retrieved using the FoundationDB backend.
 
-### Index-Backed Query Execution
+### Index-backed query execution
 
 FRL's query planner intelligently selects indexes to execute
 queries efficiently:
