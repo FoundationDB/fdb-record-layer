@@ -4317,8 +4317,8 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * @return <code>true</code> if the index is write-only in any form and <code>false</code> otherwise
      * @throws IllegalArgumentException if no index in the metadata has the same name as this index
      */
-    public boolean isIndexWriteOnlyAny(@Nonnull Index index) {
-        return isIndexWriteOnlyAny(index.getName());
+    public boolean isAnyIndexWriteOnly(@Nonnull Index index) {
+        return isAnyIndexWriteOnly(index.getName());
     }
 
     /**
@@ -4331,7 +4331,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * @return <code>true</code> if the named index is write-only in any form and <code>false</code> otherwise
      * @throws IllegalArgumentException if no index in the metadata has the given name
      */
-    public boolean isIndexWriteOnlyAny(@Nonnull String indexName) {
+    public boolean isAnyIndexWriteOnly(@Nonnull String indexName) {
         return getIndexState(indexName).isAnyWriteOnly();
     }
 
