@@ -32,6 +32,7 @@ import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.api.metadata.Index;
 import com.apple.foundationdb.relational.api.metadata.InvokedRoutine;
 import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
+import com.apple.foundationdb.relational.api.metadata.StoredQuery;
 import com.apple.foundationdb.relational.api.metadata.Table;
 import com.apple.foundationdb.relational.api.metadata.View;
 import com.apple.foundationdb.relational.api.metadata.Visitor;
@@ -81,7 +82,7 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
     private final Set<RecordLayerView> views;
 
     @Nonnull
-    private final Map<String, String> storedQueries;
+    private final Map<String, StoredQuery> storedQueries;
 
     private final int version;
 
@@ -110,7 +111,7 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
                                       @Nonnull final Set<RecordLayerTable> tables,
                                       @Nonnull final Set<RecordLayerInvokedRoutine> invokedRoutines,
                                       @Nonnull final Set<RecordLayerView> views,
-                                      @Nonnull final Map<String, String> storedQueries,
+                                      @Nonnull final Map<String, StoredQuery> storedQueries,
                                       int version,
                                       boolean enableLongRows,
                                       boolean storeRowVersions,
@@ -135,7 +136,7 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
                                       @Nonnull final Set<RecordLayerTable> tables,
                                       @Nonnull final Set<RecordLayerInvokedRoutine> invokedRoutines,
                                       @Nonnull final Set<RecordLayerView> views,
-                                      @Nonnull final Map<String, String> storedQueries,
+                                      @Nonnull final Map<String, StoredQuery> storedQueries,
                                       int version,
                                       boolean enableLongRows,
                                       boolean storeRowVersions,
@@ -347,7 +348,7 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
 
     @Nonnull
     @Override
-    public Map<String, String> getStoredQueries() {
+    public Map<String, StoredQuery> getStoredQueries() {
         return storedQueries;
     }
 
@@ -428,7 +429,7 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
         private final Map<String, RecordLayerView> views;
 
         @Nonnull
-        private final Map<String, String> storedQueries;
+        private final Map<String, StoredQuery> storedQueries;
 
 
         private RecordMetaData cachedMetadata;
@@ -558,13 +559,14 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
         }
 
         @Nonnull
-        public Builder addStoredQuery(@Nonnull final String name, @Nonnull final String storedQuery) {
-            storedQueries.put(name, storedQuery);
+        public Builder addStoredQuery(@Nonnull final String name, @Nonnull final String storedQuery,
+                                      @Nonnull final List<String> tempFunctions) {
+            storedQueries.put(name, new StoredQuery(storedQuery, tempFunctions));
             return this;
         }
 
         @Nonnull
-        public Builder addStoredQueries(@Nonnull final Map<String, String> storedQueries) {
+        public Builder addStoredQueries(@Nonnull final Map<String, StoredQuery> storedQueries) {
             this.storedQueries.putAll(storedQueries);
             return this;
         }
