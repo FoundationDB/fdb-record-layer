@@ -108,6 +108,21 @@ public class RecordStoreStateTest {
     }
 
     @Test
+    public void getWriteOnlyIndexNamesIncludesQueueState() {
+        // getWriteOnlyIndexNames() must include both write-only forms (WRITE_ONLY and WRITE_ONLY_WITH_QUEUE), since an
+        // index building with a pending writes queue is still write-only.
+        RecordStoreState storeState = stateOf(
+                "plainWriteOnly", IndexState.WRITE_ONLY,
+                "queueWriteOnly", IndexState.WRITE_ONLY_WITH_QUEUE,
+                "readable", IndexState.READABLE,
+                "readableUniquePending", IndexState.READABLE_UNIQUE_PENDING,
+                "disabled", IndexState.DISABLED);
+        assertEquals(
+                Set.of("plainWriteOnly", "queueWriteOnly"),
+                storeState.getWriteOnlyIndexNames());
+    }
+
+    @Test
     public void compatibleWith() {
         final RecordStoreState empty = stateOf();
         final RecordStoreState oneWriteOnly = stateOf("one", IndexState.WRITE_ONLY);

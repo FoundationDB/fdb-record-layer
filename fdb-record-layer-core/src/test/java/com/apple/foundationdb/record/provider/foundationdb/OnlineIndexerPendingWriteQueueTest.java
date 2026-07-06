@@ -48,6 +48,7 @@ import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -116,6 +117,37 @@ class OnlineIndexerPendingWriteQueueTest extends OnlineIndexerTest {
         // The index must contain an entry for every record, including the ones that were only ever added to the queue.
         assertEquals(numInitialRecords + queuedRecNos.size(), indexEntryCount(index));
         // A scrub confirms there are no missing (or dangling) index entries.
+        scrubAndValidate(List.of(index));
+    }
+
+    @Test
+    void testIndexBuildStateWhileBuildingWithQueue() throws Exception {
+        final Index index = new Index("simple$num_value_2_queue", field("num_value_2"), IndexTypes.VALUE);
+        final int numInitialRecords = 20;
+        populateEvenRecords(numInitialRecords);
+        openSimpleMetaData(allIndexesHook(List.of(index)));
+        disableAll(List.of(index));
+
+        buildIndexPausingOnceForWrites(
+                queueIndexerBuilder(index, List.of(index)),
+                () -> {
+                    try (FDBRecordContext context = openContext()) {
+                        final IndexBuildState buildState =
+                                IndexBuildState.loadIndexBuildStateAsync(recordStore, index).join();
+                        assertTrue(buildState.getIndexState().isWriteOnlyWithQueue(),
+                                "the index should be building with a pending writes queue");
+                        // WRITE_ONLY_WITH_QUEUE is a write-only state, so progress counts are loaded (not skipped)...
+                        assertNotNull(buildState.getRecordsScanned(),
+                                "records-scanned progress should be loaded for a queue-state build");
+                        // ...and toString() renders those counts (the branch guarded by isAnyWriteOnly()).
+                        final String rendered = buildState.toString();
+                        assertTrue(rendered.contains("scannedRecords="), rendered);
+                        assertTrue(rendered.contains("totalRecords="), rendered);
+                        context.commit();
+                    }
+                });
+
+        assertReadable(index);
         scrubAndValidate(List.of(index));
     }
 
