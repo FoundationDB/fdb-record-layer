@@ -228,7 +228,8 @@ message PView {
 
 message PStoredQuery {
   optional string name = 1;
-  optional string definition = 2;
+  optional string query = 2;
+  repeated string temp_functions = 3;
 }
 
 message JoinedRecordType {
