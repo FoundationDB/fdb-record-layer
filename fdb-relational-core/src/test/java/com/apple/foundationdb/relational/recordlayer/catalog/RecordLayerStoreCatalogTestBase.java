@@ -21,7 +21,11 @@
 package com.apple.foundationdb.relational.recordlayer.catalog;
 
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
+import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactory;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
+import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
 import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.Transaction;
@@ -38,7 +42,12 @@ import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchema;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerTable;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerView;
+import com.apple.foundationdb.test.FDBTestEnvironment;
+import com.apple.test.Tags;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 import javax.annotation.Nonnull;
@@ -48,6 +57,12 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Set;
 
+// Tagged @WipesFDB because @BeforeEach/@AfterEach call FDBRecordStore.deleteStore on the SYS
+// catalog (/__SYS/CATALOG) — the very record store every other test in relational depends on.
+// The destructiveTest Gradle task runs WipesFDB-tagged tests with maxParallelForks = 1, so no
+// sibling JVM (or in-JVM test) can observe the catalog while it's being wiped and rebuilt.
+// The tag is inherited by every concrete subclass, so subclasses do not need to redeclare it.
+@Tag(Tags.WipesFDB)
 public abstract class RecordLayerStoreCatalogTestBase {
     FDBDatabase fdb;
 
@@ -59,6 +74,42 @@ public abstract class RecordLayerStoreCatalogTestBase {
         final RelationalKeyspaceProvider keyspaceProvider = RelationalKeyspaceProvider.instance();
         keyspaceProvider.registerDomainIfNotExists("TEST");
         keySpace = keyspaceProvider.getKeySpace();
+    }
+
+    @BeforeEach
+    void setUpCatalog() throws RelationalException {
+        fdb = FDBDatabaseFactory.instance().getDatabase(FDBTestEnvironment.randomClusterFile());
+        // Defensively wipe any state left over from a previous run (e.g. a JVM that crashed
+        // between @BeforeEach and @AfterEach) so each test starts against an empty catalog.
+        deleteCatalog();
+        try (Transaction txn = new RecordContextTransaction(fdb.openContext())) {
+            storeCatalog = createCatalog(txn);
+            txn.commit();
+        }
+    }
+
+    @AfterEach
+    void deleteAllRecords() throws RelationalException {
+        deleteCatalog();
+    }
+
+    /**
+     * Build the {@link StoreCatalog} variant this test class exercises. Called from
+     * {@link #setUpCatalog()} inside a fresh transaction; implementations should not commit —
+     * the caller commits after this returns.
+     *
+     * @param txn the transaction to build the catalog under
+     * @return the freshly-created catalog
+     * @throws RelationalException if the catalog cannot be created
+     */
+    protected abstract StoreCatalog createCatalog(@Nonnull Transaction txn) throws RelationalException;
+
+    private void deleteCatalog() throws RelationalException {
+        try (Transaction txn = new RecordContextTransaction(fdb.openContext())) {
+            final KeySpacePath keySpacePath = RelationalKeyspaceProvider.toDatabasePath(URI.create("/__SYS"), keySpace).schemaPath("CATALOG");
+            FDBRecordStore.deleteStore(txn.unwrap(FDBRecordContext.class), keySpacePath);
+            txn.commit();
+        }
     }
 
     @Test

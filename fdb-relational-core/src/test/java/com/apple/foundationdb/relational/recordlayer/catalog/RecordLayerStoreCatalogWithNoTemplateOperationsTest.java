@@ -20,52 +20,25 @@
 
 package com.apple.foundationdb.relational.recordlayer.catalog;
 
-import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactory;
-import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
-import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
-import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
-import com.apple.foundationdb.test.FDBTestEnvironment;
 import com.apple.foundationdb.relational.api.Transaction;
+import com.apple.foundationdb.relational.api.catalog.StoreCatalog;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metadata.Schema;
 import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.RecordContextTransaction;
-import com.apple.foundationdb.relational.recordlayer.RelationalKeyspaceProvider;
 
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.parallel.Isolated;
 
+import javax.annotation.Nonnull;
 import java.net.URI;
 
-// Marked @Isolated because @AfterEach calls FDBRecordStore.deleteStore on the SYS catalog
-// (/__SYS/CATALOG) — the very record store every other test depends on. Running concurrently
-// with any sibling test would wipe the catalog out from under it, surfacing as
-// RecordStoreDoesNotExistException in the other test's @BeforeEach. @Isolated tells JUnit to
-// suspend all other tests while this class runs.
-@Isolated
 public class RecordLayerStoreCatalogWithNoTemplateOperationsTest extends RecordLayerStoreCatalogTestBase {
 
-    @BeforeEach
-    void setUpCatalog() throws RelationalException {
-        fdb = FDBDatabaseFactory.instance().getDatabase(FDBTestEnvironment.randomClusterFile());
-        // create a FDBRecordStore
-        try (Transaction txn = new RecordContextTransaction(fdb.openContext())) {
-            storeCatalog = StoreCatalogProvider.getCatalogWithNoTemplateOperations(txn);
-            txn.commit();
-        }
-    }
-
-    @AfterEach
-    void deleteAllRecords() throws RelationalException {
-        try (Transaction txn = new RecordContextTransaction(fdb.openContext())) {
-            final KeySpacePath keySpacePath = RelationalKeyspaceProvider.instance().toDatabasePath(URI.create("/__SYS")).schemaPath("CATALOG");
-            FDBRecordStore.deleteStore(txn.unwrap(FDBRecordContext.class), keySpacePath);
-            txn.commit();
-        }
+    @Override
+    protected StoreCatalog createCatalog(@Nonnull Transaction txn) throws RelationalException {
+        return StoreCatalogProvider.getCatalogWithNoTemplateOperations(txn);
     }
 
     @Test
