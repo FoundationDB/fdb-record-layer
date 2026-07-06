@@ -47,7 +47,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsInAnyOrder;
@@ -235,20 +234,20 @@ public class FDBRecordStoreReplaceIndexTest extends FDBRecordStoreTestBase {
             final Index newIndex = new Index("MySimpleRecord$(num_value_2, repeater)",
                     Key.Expressions.concat(Key.Expressions.field("num_value_2"), Key.Expressions.field("repeater", KeyExpression.FanType.FanOut)));
             final RecordMetaDataHook allIndexesHook = composeHooks(addIndexHook(recordTypeName, origIndex), addIndexHook(recordTypeName, newIndex));
-            final List<String> stores = IntStream.range(0, 10).mapToObj(i -> "store_" + i).collect(Collectors.toList());
 
+            final int storeCount = 10;
             try (FDBRecordContext context = openContext()) {
                 openSimpleRecordStore(context, allIndexesHook);
 
                 // Create a bunch of stores and disable the new index in all of them
-                forEachStore(multiStoreRoot, stores, (storePathName, subStore) -> {
+                forEachStore(multiStoreRoot, storeCount, (index, subStore) -> {
                     assertTrue(context.asyncToSync(FDBStoreTimer.Waits.WAIT_DROP_INDEX, subStore.markIndexDisabled(newIndex)));
 
                     subStore.saveRecord(TestRecords1Proto.MySimpleRecord.newBuilder()
                             .setRecNo(1066L)
                             .addRepeater(42)
                             .addRepeater(800)
-                            .setStrValueIndexed(storePathName)
+                            .setStrValueIndexed("String " + index)
                             .build());
 
                 });
@@ -260,7 +259,7 @@ public class FDBRecordStoreReplaceIndexTest extends FDBRecordStoreTestBase {
             try (FDBRecordContext context = openContext()) {
                 openSimpleRecordStore(context, withReplacementHook);
 
-                forEachStore(multiStoreRoot, stores, (storePathName, subStore) -> {
+                forEachStore(multiStoreRoot, storeCount, (index, subStore) -> {
                     final List<FDBIndexedRecord<Message>> records = context.asyncToSync(FDBStoreTimer.Waits.WAIT_SCAN_RECORDS, subStore.scanIndexRecords(origIndex.getName()).asList());
                     assertThat(records, hasSize(2));
                     records.stream()
@@ -270,7 +269,7 @@ public class FDBRecordStoreReplaceIndexTest extends FDBRecordStoreTestBase {
                                 assertThat(fieldValue, instanceOf(String.class));
                                 return (String)fieldValue;
                             })
-                            .forEach(strValue -> assertEquals(storePathName, strValue));
+                            .forEach(strValue -> assertEquals("String " + index, strValue));
 
                     context.asyncToSync(FDBStoreTimer.Waits.WAIT_ONLINE_BUILD_INDEX, subStore.rebuildIndex(subStore.getRecordMetaData().getIndex(newIndex.getName())));
                 });
@@ -281,14 +280,14 @@ public class FDBRecordStoreReplaceIndexTest extends FDBRecordStoreTestBase {
             // Validate that each store has had the original index removed (because the replacement index was built)
             try (FDBRecordContext context = openContext()) {
                 openSimpleRecordStore(context, withReplacementHook);
-                forEachStore(multiStoreRoot, stores, (storePathName, subStore) -> assertTrue(subStore.isIndexDisabled(origIndex.getName())));
+                forEachStore(multiStoreRoot, storeCount, (storePathName, subStore) -> assertTrue(subStore.isIndexDisabled(origIndex.getName())));
                 commit(context);
             }
 
             // Validate each store has had the old index data cleaned out
             try (FDBRecordContext context = openContext()) {
                 openSimpleRecordStore(context, composeHooks(allIndexesHook, bumpMetaDataVersionHook(), bumpMetaDataVersionHook()));
-                forEachStore(multiStoreRoot, stores, (storePathName, subStore) -> {
+                forEachStore(multiStoreRoot, storeCount, (storePathName, subStore) -> {
                     assertTrue(context.asyncToSync(FDBStoreTimer.Waits.WAIT_ADD_INDEX, subStore.uncheckedMarkIndexReadable(origIndex.getName())));
                     assertEquals(Collections.emptyList(), context.asyncToSync(FDBStoreTimer.Waits.WAIT_SCAN_INDEX_RECORDS, subStore.scanIndexRecords(origIndex.getName()).asList()));
                 });
@@ -302,13 +301,13 @@ public class FDBRecordStoreReplaceIndexTest extends FDBRecordStoreTestBase {
         }
     }
 
-    private void forEachStore(@Nonnull KeySpacePath root, @Nonnull List<String> storePaths, @Nonnull BiConsumer<String, FDBRecordStore> subStoreConsumer) {
-        for (String storePathName : storePaths) {
-            final KeySpacePath storePath = root.add(TestKeySpace.STORE_PATH, storePathName);
+    private void forEachStore(@Nonnull KeySpacePath root, int count, @Nonnull BiConsumer<Integer, FDBRecordStore> subStoreConsumer) {
+        for (int i = 0; i < count; i++) {
+            final KeySpacePath storePath = root.add(TestKeySpace.STORE_PATH, (long) i);
             final FDBRecordStore subStore = recordStore.asBuilder()
                     .setKeySpacePath(storePath)
                     .createOrOpen();
-            subStoreConsumer.accept(storePathName, subStore);
+            subStoreConsumer.accept(i, subStore);
         }
     }
 

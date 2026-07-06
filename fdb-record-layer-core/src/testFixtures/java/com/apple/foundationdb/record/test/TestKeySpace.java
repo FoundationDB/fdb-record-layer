@@ -55,7 +55,16 @@ public class TestKeySpace {
                                     .addSubdirectory(new DirectoryLayerDirectory(META_DATA_STORE, META_DATA_STORE))
                                     .addSubdirectory(new DirectoryLayerDirectory(RAW_DATA, RAW_DATA))
                                     .addSubdirectory(new DirectoryLayerDirectory(MULTI_RECORD_STORE, MULTI_RECORD_STORE)
-                                            .addSubdirectory(new DirectoryLayerDirectory(STORE_PATH))
+                                            // STORE_PATH is a plain LONG-typed KeySpaceDirectory rather than a
+                                            // DirectoryLayerDirectory. It used to be a DirectoryLayerDirectory,
+                                            // which meant every unique test-supplied sub-store key (e.g. "store_0")
+                                            // triggered a fresh allocation against the JVM-wide root
+                                            // HighContentionAllocator. Under parallel test execution that racy
+                                            // allocator was hitting hasConflictAtRoot failures with sibling tests.
+                                            // A LONG here lets each test supply its own integer sub-store id
+                                            // (0, 1, 2, ...) which encodes directly into the tuple with no shared
+                                            // allocator involved.
+                                            .addSubdirectory(new KeySpaceDirectory(STORE_PATH, KeySpaceDirectory.KeyType.LONG))
                                     )
                                     .addSubdirectory(new DirectoryLayerDirectory(RESOLVER_MAPPING_REPLICATOR, RESOLVER_MAPPING_REPLICATOR)
                                             .addSubdirectory(new KeySpaceDirectory("to", KeySpaceDirectory.KeyType.STRING, "to")

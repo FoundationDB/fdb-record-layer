@@ -34,8 +34,8 @@ import com.apple.foundationdb.record.provider.foundationdb.keyspace.ScopedValue;
 import com.apple.foundationdb.record.test.FDBDatabaseExtension;
 import com.apple.foundationdb.record.test.TestKeySpace;
 import com.apple.foundationdb.record.test.TestKeySpacePathManagerExtension;
-import com.apple.foundationdb.test.FDBTestEnvironment;
 import com.apple.foundationdb.record.util.pair.Pair;
+import com.apple.foundationdb.test.FDBTestEnvironment;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
 import com.google.common.collect.BiMap;
@@ -59,6 +59,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Random;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ForkJoinPool;
@@ -658,10 +659,38 @@ public class FDBReverseDirectoryCacheTest {
                 keys.add("dir_" + Math.abs(random.nextInt()));
             }
             List<Long> values = keys.stream()
-                    .map(key -> globalScope.resolve(context.getTimer(), key).join())
+                    .map(key -> resolveWithRetry(key, context.getTimer()))
                     .collect(Collectors.toList());
             return zipKeysAndValues(keys, values);
         }
+    }
+
+    /**
+     * Resolve a name in {@link #globalScope} with a retry loop around the specific
+     * "database already has keys in allocation range" / "database has keys stored at the prefix
+     * chosen by the automatic prefix allocator" failures that the root
+     * {@link com.apple.foundationdb.directory.DirectoryLayer.HighContentionAllocator}
+     * throws when a randomly-chosen candidate byte prefix happens to already have keys under it.
+     * Under parallel test execution any sibling test committing writes at low-integer prefixes
+     * can trip this check on a fresh candidate — the allocation is fine to retry, since the HCA
+     * picks a new random candidate each attempt.
+     */
+    private Long resolveWithRetry(String key, FDBStoreTimer timer) {
+        final int maxAttempts = 20;
+        RuntimeException lastFailure = null;
+        for (int attempt = 0; attempt < maxAttempts; attempt++) {
+            try {
+                return globalScope.resolve(timer, key).join();
+            } catch (CompletionException | IllegalStateException e) {
+                Throwable cause = e instanceof CompletionException ? e.getCause() : e;
+                if (cause instanceof IllegalStateException) {
+                    lastFailure = e;
+                    continue;
+                }
+                throw e;
+            }
+        }
+        throw new AssertionError("globalScope.resolve failed after " + maxAttempts + " attempts", lastFailure);
     }
 
     @SuppressWarnings({"rawtypes", "unchecked"})
