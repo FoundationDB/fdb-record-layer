@@ -124,9 +124,18 @@ public class EmbeddedRelationalExtension implements RelationalExtension, BeforeE
         // races with every other test class's @BeforeEach. Without the JVM-wide lock, parallel
         // class execution surfaces these races as `FDBStoreTransactionConflictException`. See
         // CatalogOperations for the lock contract.
+        //
+        // Deliberately NOT try-with-resources on the DirectFdbConnection — its close() calls
+        // fdb.close() on the shared FDBDatabaseFactory handle that every other test in this
+        // JVM is holding. Closing it here (once per @BeforeEach) invalidates the native pointer
+        // and any sibling test with an in-flight transaction fails with
+        // `IllegalStateException: Cannot access closed object` from NativeObjectWrapper.getPtr.
+        // We only need the Transaction closed; the connection is a lightweight wrapper we can
+        // leak.
+        // Probably DirectFdbConnection should not close the underlying database
         CatalogOperations.runLockedWithRelationalRetry(() -> {
-            try (var connection = new DirectFdbConnection(database);
-                     Transaction txn = connection.getTransactionManager().createTransaction(Options.NONE)) {
+            final var connection = new DirectFdbConnection(database);
+            try (Transaction txn = connection.getTransactionManager().createTransaction(Options.NONE)) {
                 storeCatalog = StoreCatalogProvider.getCatalog(txn, keySpace);
                 txn.commit();
             }
