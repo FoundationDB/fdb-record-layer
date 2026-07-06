@@ -4306,6 +4306,36 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     }
 
     /**
+     * Determine if the index is write-only in any form ({@link IndexState#WRITE_ONLY} or
+     * {@link IndexState#WRITE_ONLY_WITH_QUEUE}) for this record store. This method will not perform
+     * any queries to the underlying database and instead satisfies the answer based on the
+     * in-memory cache of store state. However, if another operation in a different transaction
+     * happens concurrently that changes the index's state, operations using the same {@link FDBRecordContext}
+     * as this record store will fail to commit due to conflicts.
+     *
+     * @param index the index to check if write-only in any form
+     * @return <code>true</code> if the index is write-only in any form and <code>false</code> otherwise
+     * @throws IllegalArgumentException if no index in the metadata has the same name as this index
+     */
+    public boolean isIndexWriteOnlyAny(@Nonnull Index index) {
+        return isIndexWriteOnlyAny(index.getName());
+    }
+
+    /**
+     * Determine if the index with the given name is write-only in any form ({@link IndexState#WRITE_ONLY} or
+     * {@link IndexState#WRITE_ONLY_WITH_QUEUE}) for this record store. This method will not perform
+     * any queries to the underlying database and instead satisfies the answer based on the
+     * in-memory cache of store state.
+     *
+     * @param indexName the name of the index to check if write-only in any form
+     * @return <code>true</code> if the named index is write-only in any form and <code>false</code> otherwise
+     * @throws IllegalArgumentException if no index in the metadata has the given name
+     */
+    public boolean isIndexWriteOnlyAny(@Nonnull String indexName) {
+        return getIndexState(indexName).isAnyWriteOnly();
+    }
+
+    /**
      * Determine if the index is disabled for this record store. This method will not perform
      * any queries to the underlying database and instead satisfies the answer based on the
      * in-memory cache of store state. However, if another operation in a different transaction
@@ -4872,7 +4902,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             if (!indexesToBuildSince.containsKey(index) &&
                     !index.isUnique()) {
                 final IndexState indexState = getIndexState(index);
-                if (indexState == IndexState.READABLE_UNIQUE_PENDING || indexState == IndexState.WRITE_ONLY) {
+                if (indexState == IndexState.READABLE_UNIQUE_PENDING || indexState.isAnyWriteOnly()) {
                     final CompletableFuture<Void> uniquenessFuture = AsyncUtil.getAll(getRecordContext().removeCommitChecks(
                             commitCheck -> {
                                 if (commitCheck instanceof IndexUniquenessCommitCheck) {

@@ -429,7 +429,7 @@ public class IndexingThrottle {
                     .thenAccept(toDrain -> drainRequiredIndexes = toDrain);
         }
         return drainCheck.thenApply(ignore -> {
-            if (indexStates.stream().allMatch(IndexState::isWriteOnlyAny)) {
+            if (indexStates.stream().allMatch(IndexState::isAnyWriteOnly)) {
                 return null;
             }
             // possible exceptions:
@@ -440,7 +440,7 @@ public class IndexingThrottle {
             if (indexStates.stream().allMatch(IndexState::isScannable)) {
                 throw new IndexingBase.UnexpectedReadableException(true, "All indexes are built");
             }
-            if (indexStates.stream().allMatch(state -> state.isWriteOnlyAny() || state.isScannable())) {
+            if (indexStates.stream().allMatch(state -> state.isAnyWriteOnly() || state.isScannable())) {
                 throw new IndexingBase.UnexpectedReadableException(false, "Some indexes are built");
             }
             final SubspaceProvider subspaceProvider = common.getRecordStoreBuilder().getSubspaceProvider();

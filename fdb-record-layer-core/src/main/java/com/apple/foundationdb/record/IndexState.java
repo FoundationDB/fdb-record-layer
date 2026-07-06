@@ -109,7 +109,7 @@ public enum IndexState {
         return this.equals(WRITE_ONLY_WITH_QUEUE);
     }
 
-    public boolean isWriteOnlyAny() {
+    public boolean isAnyWriteOnly() {
         return isWriteOnly() || isWriteOnlyWithQueue();
     }
 

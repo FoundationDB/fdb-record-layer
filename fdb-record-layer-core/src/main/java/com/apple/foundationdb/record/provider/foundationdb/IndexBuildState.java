@@ -69,7 +69,7 @@ public class IndexBuildState {
     @Nonnull
     public static CompletableFuture<IndexBuildState> loadIndexBuildStateAsync(FDBRecordStoreBase<?> store, Index index) {
         IndexState indexState = store.getUntypedRecordStore().getIndexState(index);
-        if (indexState != IndexState.WRITE_ONLY) {
+        if (indexState.isAnyWriteOnly()) {
             return CompletableFuture.completedFuture(new IndexBuildState(indexState));
         }
         CompletableFuture<Long> recordsInTotalFuture;

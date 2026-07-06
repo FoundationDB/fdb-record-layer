@@ -252,7 +252,7 @@ public class RecordStoreState {
      */
     public Set<String> getWriteOnlyIndexNames() {
         return indexStateMap.get().entrySet().stream()
-                .filter(entry -> entry.getValue() == IndexState.WRITE_ONLY)
+                .filter(entry -> entry.getValue().isAnyWriteOnly())
                 .map(Map.Entry::getKey)
                 .collect(Collectors.toSet());
     }
