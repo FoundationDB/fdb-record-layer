@@ -91,7 +91,7 @@ utilityStatement
 
 templateClause
     :
-        CREATE ( structDefinition | tableDefinition | enumDefinition | indexDefinition | sqlInvokedFunction | viewDefinition | queryDefinition )
+        CREATE ( structDefinition | tableDefinition | enumDefinition | indexDefinition | sqlInvokedFunction | viewDefinition | storedQueryDefinition )
     ;
 
 createStatement
@@ -246,8 +246,8 @@ viewDefinition
     : VIEW viewName=fullId AS viewQuery=query
     ;
 
-queryDefinition
-    : QUERY queryName=uid declareBlock? AS storedQuery=query
+storedQueryDefinition
+    : STORED QUERY queryName=uid declareBlock? AS storedQuery=query
     ;
 
 declareBlock
