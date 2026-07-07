@@ -1799,12 +1799,16 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * the store existed.
      *
      * <p>
-     * This method does not read the underlying record store, so it does not validate
-     * that a record store exists in the given subspace. As it might be the case that
-     * this record store has a cacheable store state (see {@link #setStateCacheability(boolean)}),
-     * this method resets the database's
-     * {@linkplain FDBRecordContext#getMetaDataVersionStamp(IsolationLevel) meta-data version-stamp}.
-     * As a result, calling this method may cause other clients to invalidate their caches needlessly.
+     * This method reads only the record store's header key (see {@link #STORE_INFO_KEY}) in
+     * order to decide whether it needs to invalidate cached state. If a header is present and
+     * marks the store as {@linkplain #setStateCacheability(boolean) cacheable}, the database's
+     * {@linkplain FDBRecordContext#getMetaDataVersionStamp(IsolationLevel) meta-data
+     * version-stamp} is reset so that other clients drop their cached copies; if the header is
+     * missing (store doesn't exist) or marks the store as non-cacheable, the version-stamp is
+     * not touched. This means callers who only ever operate on non-cacheable stores do not
+     * contend on the single meta-data version-stamp key. The header read uses snapshot
+     * isolation and does not add a read conflict, so it does not narrow the write-conflict
+     * behavior of the clear that follows.
      * </p>
      *
      * @param context the transactional context in which to delete the record store
@@ -1812,9 +1816,25 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      */
     @SuppressWarnings("PMD.CloseResource")
     public static void deleteStore(FDBRecordContext context, Subspace subspace) {
-        // In theory, we only need to set the meta-data version stamp if the record store's
-        // meta-data is cacheable, but we can't know that from here.
-        context.setMetaDataVersionStamp();
+        // Read the store header at snapshot isolation so we don't add a needless read conflict:
+        // the clear below already creates a write conflict on the whole range, which is what
+        // actually serialises us against any concurrent writer of this store's header.
+        final byte[] headerKey = subspace.pack(STORE_INFO_KEY);
+        final byte[] headerBytes = context.asyncToSync(FDBStoreTimer.Waits.WAIT_LOAD_RECORD_STORE_STATE,
+                context.readTransaction(true).get(headerKey));
+        if (headerBytes != null) {
+            boolean shouldBump = true;
+            try {
+                shouldBump = RecordMetaDataProto.DataStoreInfo.parseFrom(headerBytes).getCacheable();
+            } catch (InvalidProtocolBufferException e) {
+                // If we can't parse the header, fall back to the pre-change conservative
+                // behavior and bump. This preserves the "delete a store I know nothing about"
+                // contract this method advertises.
+            }
+            if (shouldBump) {
+                context.setMetaDataVersionStamp();
+            }
+        }
         context.setDirtyStoreState(true);
         context.clear(subspace.range());
     }

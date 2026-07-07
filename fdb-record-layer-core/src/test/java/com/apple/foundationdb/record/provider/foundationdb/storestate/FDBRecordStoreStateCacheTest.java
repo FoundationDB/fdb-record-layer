@@ -45,6 +45,7 @@ import com.apple.foundationdb.record.provider.foundationdb.RecordStoreNoInfoAndN
 import com.apple.foundationdb.record.provider.foundationdb.RecordStoreStaleMetaDataVersionException;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
 import com.apple.foundationdb.record.test.FakeClusterFileUtil;
+import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.apple.foundationdb.tuple.Tuple;
@@ -763,6 +764,131 @@ public class FDBRecordStoreStateCacheTest extends FDBRecordStoreTestBase {
             openSimpleRecordStore(context);
             assertTrue(recordStore.isIndexDisabled(disabledIndex));
             commit(context);
+        }
+    }
+
+    /**
+     * Deleting a non-cacheable store must NOT bump the meta-data version stamp: no other
+     * client can possibly hold a cached copy of a non-cacheable header, so the version stamp
+     * (a JVM-wide bottleneck on the {@code \xff/metadataVersion} key) shouldn't be touched.
+     * This is the low-level property that lets parallel tests share the SYS catalog without
+     * conflicting on catalog teardown.
+     */
+    @Test
+    void deleteNonCacheableStoreDoesNotBumpMetaDataVersionStamp() throws Exception {
+        // Bootstrap: ensure the meta-data version stamp key has a value before the test runs,
+        // so we can distinguish "unchanged" from "was never set". The store below is opened
+        // with cacheability disabled (which is the default from setStateCacheability(false)).
+        try (FDBRecordContext context = fdb.openContext()) {
+            if (context.getMetaDataVersionStamp(IsolationLevel.SNAPSHOT) == null) {
+                context.setMetaDataVersionStamp();
+            }
+            commit(context);
+        }
+
+        Subspace subspace;
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context);
+            assertFalse(recordStore.getRecordStoreState().getStoreHeader().getCacheable(),
+                    "test presumes the store is non-cacheable by default");
+            subspace = recordStore.getSubspace();
+            commit(context);
+        }
+
+        // Snapshot the version stamp before deletion — reading via SNAPSHOT so this txn doesn't
+        // conflict with the delete-txn below and skew the result.
+        final byte[] beforeStamp;
+        try (FDBRecordContext context = fdb.openContext()) {
+            beforeStamp = context.getMetaDataVersionStamp(IsolationLevel.SNAPSHOT);
+        }
+        assertNotNull(beforeStamp, "bootstrap should have populated the meta-data version stamp");
+
+        try (FDBRecordContext context = openContext()) {
+            FDBRecordStore.deleteStore(context, subspace);
+            commit(context);
+        }
+
+        try (FDBRecordContext context = fdb.openContext()) {
+            final byte[] afterStamp = context.getMetaDataVersionStamp(IsolationLevel.SNAPSHOT);
+            assertArrayEquals(beforeStamp, afterStamp,
+                    "deleting a non-cacheable store should not have bumped the meta-data version stamp");
+        }
+    }
+
+    /**
+     * Complement of {@link #deleteNonCacheableStoreDoesNotBumpMetaDataVersionStamp()}: deleting
+     * a cacheable store MUST bump the stamp — otherwise sibling clients could keep serving
+     * reads out of a stale cached header long after the store is gone.
+     */
+    @Test
+    void deleteCacheableStoreBumpsMetaDataVersionStamp() throws Exception {
+        try (FDBRecordContext context = fdb.openContext()) {
+            if (context.getMetaDataVersionStamp(IsolationLevel.SNAPSHOT) == null) {
+                context.setMetaDataVersionStamp();
+            }
+            commit(context);
+        }
+
+        Subspace subspace;
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context);
+            assertTrue(recordStore.setStateCacheability(true), "flipping to cacheable should have changed something");
+            subspace = recordStore.getSubspace();
+            commit(context);
+        }
+        // Commit above already bumped the stamp (transition to cacheable). Snapshot after that.
+        final byte[] beforeStamp;
+        try (FDBRecordContext context = fdb.openContext()) {
+            beforeStamp = context.getMetaDataVersionStamp(IsolationLevel.SNAPSHOT);
+        }
+        assertNotNull(beforeStamp);
+
+        try (FDBRecordContext context = openContext()) {
+            FDBRecordStore.deleteStore(context, subspace);
+            commit(context);
+        }
+
+        try (FDBRecordContext context = fdb.openContext()) {
+            final byte[] afterStamp = context.getMetaDataVersionStamp(IsolationLevel.SNAPSHOT);
+            assertNotNull(afterStamp);
+            assertFalse(java.util.Arrays.equals(beforeStamp, afterStamp),
+                    "deleting a cacheable store should have bumped the meta-data version stamp");
+        }
+    }
+
+    /**
+     * Deleting an empty subspace (no store header present) must not bump the stamp either —
+     * there's no cached header to invalidate.
+     */
+    @Test
+    void deleteMissingStoreDoesNotBumpMetaDataVersionStamp() throws Exception {
+        try (FDBRecordContext context = fdb.openContext()) {
+            if (context.getMetaDataVersionStamp(IsolationLevel.SNAPSHOT) == null) {
+                context.setMetaDataVersionStamp();
+            }
+            commit(context);
+        }
+
+        // Use the test's per-instance path, but never open a store there.
+        final Subspace subspace;
+        try (FDBRecordContext context = openContext()) {
+            subspace = path.toSubspace(context);
+        }
+        final byte[] beforeStamp;
+        try (FDBRecordContext context = fdb.openContext()) {
+            beforeStamp = context.getMetaDataVersionStamp(IsolationLevel.SNAPSHOT);
+        }
+        assertNotNull(beforeStamp);
+
+        try (FDBRecordContext context = openContext()) {
+            FDBRecordStore.deleteStore(context, subspace);
+            commit(context);
+        }
+
+        try (FDBRecordContext context = fdb.openContext()) {
+            final byte[] afterStamp = context.getMetaDataVersionStamp(IsolationLevel.SNAPSHOT);
+            assertArrayEquals(beforeStamp, afterStamp,
+                    "deleting an empty subspace (no header) should not have bumped the meta-data version stamp");
         }
     }
 
