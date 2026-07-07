@@ -258,6 +258,72 @@ public interface RealVector {
     }
 
     /**
+     * Bit-reproducible counterpart to {@link #dot(RealVector)} that forces the scalar backend.
+     * Prefer this over {@link #dot(RealVector)} whenever the result is persisted and later
+     * compared byte-for-byte across machines: the ambient SIMD backend can differ from scalar
+     * (and between SIMD hosts of different vector widths) by a few ULPs, which is enough to flip
+     * a downstream hash or {@code floor} boundary. It costs a scalar reduction and is otherwise
+     * identical to {@link #dot(RealVector)}.
+     *
+     * @param other the right operand; must have the same dimensionality as this vector
+     * @return the dot product, computed on the scalar backend
+     * @throws IllegalArgumentException if {@code other} has a different dimensionality
+     */
+    default double dotExact(@Nonnull final RealVector other) {
+        Preconditions.checkArgument(getNumDimensions() == other.getNumDimensions());
+        return RealVectorPrimitives.dotExact(getData(), other.getData());
+    }
+
+    /**
+     * Bit-reproducible counterpart to {@link #l2SquaredNorm()} that forces the scalar backend.
+     * Unlike {@link #l2SquaredNorm()}, this is intentionally <em>not</em> memoized: it always
+     * recomputes from {@link #getData()} so it can never return a value that an earlier SIMD call
+     * cached on a memoizing subtype. See {@link #dotExact(RealVector)} for when to prefer the
+     * exact variants.
+     *
+     * @return the squared L2 norm, computed on the scalar backend
+     */
+    default double l2SquaredNormExact() {
+        return RealVectorPrimitives.l2SquaredNormExact(getData());
+    }
+
+    /**
+     * Bit-reproducible counterpart to {@link #l2Norm()} that forces the scalar backend, via
+     * {@link #l2SquaredNormExact()}. See {@link #dotExact(RealVector)}.
+     *
+     * @return the L2 norm, computed on the scalar backend
+     */
+    default double l2NormExact() {
+        return Math.sqrt(l2SquaredNormExact());
+    }
+
+    /**
+     * Bit-reproducible counterpart to {@link #l2SquaredDistance(RealVector)} that forces the
+     * scalar backend. See {@link #dotExact(RealVector)}.
+     *
+     * @param other the right operand; must have the same dimensionality as this vector
+     * @return the squared Euclidean distance, computed on the scalar backend
+     * @throws IllegalArgumentException if {@code other} has a different dimensionality
+     */
+    default double l2SquaredDistanceExact(@Nonnull final RealVector other) {
+        Preconditions.checkArgument(getNumDimensions() == other.getNumDimensions());
+        return RealVectorPrimitives.euclideanSquaredExact(getData(), other.getData());
+    }
+
+    /**
+     * Bit-reproducible counterpart to {@link #normalize()} that forces the scalar backend for the
+     * underlying norm. Only the norm is a reduction and thus backend-sensitive; the subsequent
+     * element-wise scaling is bit-identical on either backend. See {@link #dotExact(RealVector)}.
+     *
+     * @return a non-null unit-norm vector, normalized using the scalar backend
+     * @throws IllegalArgumentException if this vector's L2 norm is zero, infinite, or NaN
+     */
+    @Nonnull
+    default RealVector normalizeExact() {
+        return withData(RealVectorPrimitives.normalizeIntoExact(this.getData(), new double[getNumDimensions()]));
+    }
+
+    /**
      * Returns a new vector whose components are the element-wise sum of this vector and
      * {@code other}. The receiver is not mutated.
      *

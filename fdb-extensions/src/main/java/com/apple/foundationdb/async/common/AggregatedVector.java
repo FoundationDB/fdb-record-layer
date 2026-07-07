@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2025 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2026 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,51 +18,21 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.async.hnsw;
+package com.apple.foundationdb.async.common;
 
 import com.apple.foundationdb.linear.RealVector;
 import com.apple.foundationdb.linear.Transformed;
 
 import javax.annotation.Nonnull;
-import java.util.Objects;
 
 /**
  * A record-like class wrapping a {@link RealVector} and a count. This data structure is used to keep a running sum
  * of many vectors in order to compute their centroid at a later time.
+ * @param partialCount count aggregate to indicate how many vectors have been aggregated to form {@code partialVector}
+ * @param partialVector the vector aggregate (mostly the sum of all individual vectors)
  */
-class AggregatedVector {
-    private final int partialCount;
+public record AggregatedVector(int partialCount, @Nonnull Transformed<RealVector> partialVector) {
     @Nonnull
-    private final Transformed<RealVector> partialVector;
-
-    public AggregatedVector(final int partialCount, @Nonnull final Transformed<RealVector> partialVector) {
-        this.partialCount = partialCount;
-        this.partialVector = partialVector;
-    }
-
-    public int getPartialCount() {
-        return partialCount;
-    }
-
-    @Nonnull
-    public Transformed<RealVector> getPartialVector() {
-        return partialVector;
-    }
-
-    @Override
-    public boolean equals(final Object o) {
-        if (!(o instanceof AggregatedVector)) {
-            return false;
-        }
-        final AggregatedVector that = (AggregatedVector)o;
-        return partialCount == that.partialCount && Objects.equals(partialVector, that.partialVector);
-    }
-
-    @Override
-    public int hashCode() {
-        return Objects.hash(partialCount, partialVector);
-    }
-
     @Override
     public String toString() {
         return "AggregatedVector[" + partialCount + ", " + partialVector + "]";

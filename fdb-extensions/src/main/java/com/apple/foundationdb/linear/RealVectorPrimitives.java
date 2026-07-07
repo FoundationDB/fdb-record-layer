@@ -50,6 +50,22 @@ public final class RealVectorPrimitives {
 
     private static final Backend backend = selectBackend();
 
+    /**
+     * A permanently-scalar backend backing the {@code …Exact} primitives below. Unlike
+     * {@link #backend}, this never resolves to SIMD, so its reductions always use the fixed
+     * left-to-right, non-fused accumulation order of {@link ScalarBackend} — the same order
+     * {@code -Dfdb.vector.simd=scalar} forces globally, but here scoped to individual calls.
+     * <p>
+     * SIMD reductions sum partial lanes in a different order (and fuse multiply-adds), so their
+     * low-order bits can differ from scalar by a few ULPs and even differ between two SIMD hosts
+     * of different vector widths. That is harmless for search-time distance math, but fatal for
+     * any value that is persisted and later compared byte-for-byte across machines. The exact
+     * variants give such callers — principally RaBitQ encoding, whose calibration constants and
+     * quantized codes feed a stored content signature — a machine-independent result while
+     * leaving the ambient {@link #backend} free to use SIMD everywhere else.
+     */
+    private static final Backend scalarBackend = new ScalarBackend();
+
     private RealVectorPrimitives() {
         // nothing
     }
@@ -227,5 +243,39 @@ public final class RealVectorPrimitives {
     static double euclideanSquared(@Nonnull final double[] a, @Nonnull final double[] b) {
         Preconditions.checkArgument(a.length == b.length);
         return backend.euclideanSquared(a, b);
+    }
+
+    //
+    // Scalar-forced ("exact") reduction variants. These bypass the ambient backend and always
+    // compute on {@link #scalarBackend}, so the result is bit-reproducible across machines and
+    // JVMs. See {@link #scalarBackend} for why this matters. Only reductions (and the
+    // reduction-derived {@code normalizeInto}) need exact variants: the element-wise primitives
+    // ({@code addInto}, {@code subtractInto}, {@code multiplyInto}) round each lane
+    // independently and are already bit-identical on both backends.
+    //
+
+    static double dotExact(@Nonnull final double[] a, @Nonnull final double[] b) {
+        Preconditions.checkArgument(a.length == b.length);
+        return scalarBackend.dot(a, b);
+    }
+
+    static double l2SquaredNormExact(@Nonnull final double[] a) {
+        return scalarBackend.l2SquaredNorm(a);
+    }
+
+    static double euclideanSquaredExact(@Nonnull final double[] a, @Nonnull final double[] b) {
+        Preconditions.checkArgument(a.length == b.length);
+        return scalarBackend.euclideanSquared(a, b);
+    }
+
+    @Nonnull
+    static double[] normalizeIntoExact(@Nonnull final double[] in, @Nonnull final double[] target) {
+        Preconditions.checkArgument(target.length == in.length);
+        final double n = Math.sqrt(scalarBackend.l2SquaredNorm(in));
+        if (n == 0.0d || !Double.isFinite(n)) {
+            throw new IllegalArgumentException("vector has an L2 norm of infinite, not a number, or 0");
+        }
+        scalarBackend.multiplyInto(in, 1.0d / n, target);
+        return target;
     }
 }

@@ -24,6 +24,9 @@ import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.MoreAsyncUtil;
+import com.apple.foundationdb.async.common.AggregatedVector;
+import com.apple.foundationdb.async.common.RandomHelpers;
+import com.apple.foundationdb.async.common.StorageTransform;
 import com.apple.foundationdb.linear.DistanceEstimator;
 import com.apple.foundationdb.linear.DoubleRealVector;
 import com.apple.foundationdb.linear.FhtKacRotator;
@@ -50,6 +53,10 @@ import java.util.function.ToDoubleFunction;
 
 import static com.apple.foundationdb.async.MoreAsyncUtil.forEach;
 import static com.apple.foundationdb.async.MoreAsyncUtil.forLoop;
+import static com.apple.foundationdb.async.common.StorageHelpers.aggregateVectors;
+import static com.apple.foundationdb.async.common.StorageHelpers.appendSampledVector;
+import static com.apple.foundationdb.async.common.StorageHelpers.consumeSampledVectors;
+import static com.apple.foundationdb.async.common.StorageHelpers.deleteAllSampledVectors;
 
 /**
  * An implementation of the insert operations of the Hierarchical Navigable Small World (HNSW) algorithm for efficient
@@ -63,6 +70,7 @@ import static com.apple.foundationdb.async.MoreAsyncUtil.forLoop;
  * this class directly.
  */
 @API(API.Status.EXPERIMENTAL)
+@SuppressWarnings("PMD.TooManyStaticImports")
 public class Insert {
     @Nonnull
     private static final Logger logger = LoggerFactory.getLogger(Insert.class);
@@ -158,14 +166,16 @@ public class Insert {
      * @param transaction the {@link Transaction} context for all database operations
      * @param newPrimaryKey the unique {@link Tuple} primary key for the new node being inserted
      * @param newVector the {@link RealVector} data to be inserted into the graph
+     * @param newAdditionalValues additional values that are associated with the new vector and stored with the node
      *
      * @return a {@link CompletableFuture} that completes when the insertion operation is finished
      */
     @Nonnull
     public CompletableFuture<Void> insert(@Nonnull final Transaction transaction, @Nonnull final Tuple newPrimaryKey,
-                                          @Nonnull final RealVector newVector) {
+                                          @Nonnull final RealVector newVector,
+                                          @Nullable final Tuple newAdditionalValues) {
         final Primitives primitives = primitives();
-        final SplittableRandom random = Primitives.random(newPrimaryKey);
+        final SplittableRandom random = RandomHelpers.random(newPrimaryKey);
         final int insertionLayer = primitives.topLayer(newPrimaryKey);
         if (logger.isTraceEnabled()) {
             logger.trace("new node with key={} selected to be inserted into layer={}", newPrimaryKey, insertionLayer);
@@ -189,7 +199,8 @@ public class Insert {
 
                     final AccessInfo accessInfo = accessInfoAndNodeExistence.getAccessInfo();
                     if (accessInfo == null) {
-                        firstInsert(transaction, newPrimaryKey, newVector, random, primitives, insertionLayer);
+                        firstInsert(transaction, newPrimaryKey, newVector, newAdditionalValues, random, primitives,
+                                insertionLayer);
                         return AsyncUtil.DONE;
                     }
 
@@ -208,7 +219,7 @@ public class Insert {
 
                     if (insertionLayer > lMax) {
                         primitives.writeLonelyNodes(quantizer, transaction, newPrimaryKey, transformedNewVector,
-                                insertionLayer, lMax);
+                                newAdditionalValues, insertionLayer, lMax);
                         currentAccessInfo = accessInfo.withNewEntryNodeReference(
                                 new EntryNodeReference(newPrimaryKey, transformedNewVector,
                                         insertionLayer));
@@ -241,16 +252,17 @@ public class Insert {
                             }, getExecutor())
                             .thenCompose(nodeReference ->
                                     insertIntoLayers(transaction, storageTransform, quantizer, newPrimaryKey,
-                                            transformedNewVector, nodeReference, lMax, insertionLayer))
+                                            transformedNewVector, newAdditionalValues, nodeReference, lMax,
+                                            insertionLayer))
                             .thenCompose(ignored ->
-                                    addToStatsIfNecessary(random, transaction, currentAccessInfo, transformedNewVector));
+                                    addToStatsIfNecessary(transaction, random, currentAccessInfo, transformedNewVector));
                 }).thenCompose(ignored -> AsyncUtil.DONE);
     }
-
 
     private void firstInsert(@Nonnull final Transaction transaction,
                              @Nonnull final Tuple newPrimaryKey,
                              @Nonnull final RealVector newVector,
+                             @Nullable final Tuple additionalValues,
                              @Nonnull final SplittableRandom random,
                              @Nonnull final Primitives primitives,
                              final int insertionLayer) {
@@ -259,8 +271,8 @@ public class Insert {
         final StorageTransform storageTransform;
         final Quantizer quantizer;
         final RealVector negatedCentroid;
-        if (config.isUseRaBitQ() &&
-                !config.getMetric().satisfiesPreservedUnderTranslation()) {
+        if (config.useRaBitQ() &&
+                !config.metric().satisfiesPreservedUnderTranslation()) {
             //
             // The metric does not preserve distances under translation of the vectors, but we are supposed to encode
             // the vectors using RaBitQ. There is no point in sampling the centroid as we cannot translate any vectors.
@@ -269,19 +281,19 @@ public class Insert {
             rotatorSeed = random.nextLong();
             storageTransform = primitives.storageTransform(rotatorSeed, null,
                     primitives.isMetricNeedsNormalizedVectors());
-            quantizer = new RaBitQuantizer(config.getMetric(), config.getRaBitQNumExBits());
-            negatedCentroid = DoubleRealVector.zeroVector(config.getNumDimensions());
+            quantizer = new RaBitQuantizer(config.metric(), config.raBitQNumExBits());
+            negatedCentroid = DoubleRealVector.zeroVector(config.numDimensions());
         } else {
             rotatorSeed = -1L;
             storageTransform = StorageTransform.identity();
-            quantizer = Quantizer.noOpQuantizer(config.getMetric());
+            quantizer = Quantizer.noOpQuantizer(config.metric());
             negatedCentroid = null;
         }
 
         final Transformed<RealVector> transformedNewVector = storageTransform.transform(newVector);
 
         // this is the first node
-        primitives.writeLonelyNodes(quantizer, transaction, newPrimaryKey, transformedNewVector,
+        primitives.writeLonelyNodes(quantizer, transaction, newPrimaryKey, transformedNewVector, additionalValues,
                 insertionLayer, -1);
         final AccessInfo initialAccessInfo = new AccessInfo(
                 new EntryNodeReference(newPrimaryKey, transformedNewVector, insertionLayer),
@@ -299,50 +311,51 @@ public class Insert {
      * e.g. RaBitQ as RaBitQ needs a stable somewhat correct centroid in order to function properly.
      * <p>
      * Specifically for RaBitQ, we add vectors to a set of sampled vectors in a designated subspace of the HNSW
-     * structure. The parameter {@link Config#getSampleVectorStatsProbability()} governs when we do sample. Another
-     * parameter, {@link Config#getMaintainStatsProbability()}, determines how many times we add-up/replace (consume)
+     * structure. The parameter {@link Config#sampleVectorStatsProbability()} governs when we do sample. Another
+     * parameter, {@link Config#maintainStatsProbability()}, determines how many times we add-up/replace (consume)
      * vectors from this sampled-vector space and aggregate them in the typical running count/running sum scheme
-     * in order to finally compute the centroid if {@link Config#getStatsThreshold()} number of vectors have been
+     * in order to finally compute the centroid if {@link Config#statsThreshold()} number of vectors have been
      * sampled and aggregated. That centroid is then used to update the access info.
      *
-     * @param random a random to use
      * @param transaction the transaction
+     * @param random a random to use
      * @param currentAccessInfo this current access info that was fetched as part of an insert
      * @param transformedNewVector the new vector (in the transformed coordinate system) that may be added
+     *
      * @return a future that returns {@code null} when completed
      */
     @Nonnull
-    private CompletableFuture<Void> addToStatsIfNecessary(@Nonnull final SplittableRandom random,
-                                                          @Nonnull final Transaction transaction,
+    private CompletableFuture<Void> addToStatsIfNecessary(@Nonnull final Transaction transaction,
+                                                          @Nonnull final SplittableRandom random,
                                                           @Nonnull final AccessInfo currentAccessInfo,
                                                           @Nonnull final Transformed<RealVector> transformedNewVector) {
-        if (getConfig().isUseRaBitQ() &&
+        if (getConfig().useRaBitQ() &&
                 !currentAccessInfo.canUseRaBitQ()) {
             if (shouldSampleVector(random)) {
-                StorageAdapter.appendSampledVector(transaction, getSubspace(),
-                        1, transformedNewVector, getOnWriteListener());
+                appendSampledVector(transaction, random, false,
+                        getSamplesSubspace(), 1, transformedNewVector, getOnWriteListener());
             }
             if (shouldMaintainStats(random)) {
-                return StorageAdapter.consumeSampledVectors(transaction, getSubspace(),
+                return consumeSampledVectors(transaction, getSamplesSubspace(),
                                 50, getOnReadListener())
                         .thenApply(sampledVectors -> {
                             final AggregatedVector aggregatedSampledVector =
                                     aggregateVectors(sampledVectors);
 
                             if (aggregatedSampledVector != null) {
-                                final int partialCount = aggregatedSampledVector.getPartialCount();
-                                final Transformed<RealVector> partialVector = aggregatedSampledVector.getPartialVector();
-                                StorageAdapter.appendSampledVector(transaction, getSubspace(),
-                                        partialCount, partialVector, getOnWriteListener());
+                                final int partialCount = aggregatedSampledVector.partialCount();
+                                final Transformed<RealVector> partialVector = aggregatedSampledVector.partialVector();
+                                appendSampledVector(transaction, random, false,
+                                        getSamplesSubspace(), partialCount, partialVector, getOnWriteListener());
                                 if (logger.isTraceEnabled()) {
                                     logger.trace("updated stats with numVectors={}, partialCount={}, partialVector={}",
                                             sampledVectors.size(), partialCount, partialVector);
                                 }
 
-                                if (partialCount >= getConfig().getStatsThreshold()) {
+                                if (partialCount >= getConfig().statsThreshold()) {
                                     final long rotatorSeed = random.nextLong();
                                     final FhtKacRotator rotator =
-                                            new FhtKacRotator(rotatorSeed, getConfig().getNumDimensions(), 10);
+                                            new FhtKacRotator(rotatorSeed, getConfig().numDimensions(), 10);
 
                                     final Transformed<RealVector> centroid =
                                             partialVector.multiply(-1.0d / partialCount);
@@ -368,7 +381,8 @@ public class Insert {
                                             new AccessInfo(currentAccessInfo.getEntryNodeReference().withVector(transformedEntryNodeVector),
                                                     rotatorSeed, rotatedCentroid);
                                     StorageAdapter.writeAccessInfo(transaction, getSubspace(), newAccessInfo, getOnWriteListener());
-                                    StorageAdapter.deleteAllSampledVectors(transaction, getSubspace(), getOnWriteListener());
+                                    deleteAllSampledVectors(transaction, getSamplesSubspace(),
+                                            getOnWriteListener());
                                     if (logger.isTraceEnabled()) {
                                         logger.trace("established rotatorSeed={}, centroid with count={}, centroid={}",
                                                 rotatorSeed, partialCount, rotatedCentroid);
@@ -382,25 +396,13 @@ public class Insert {
         return AsyncUtil.DONE;
     }
 
-    @Nullable
-    private AggregatedVector aggregateVectors(@Nonnull final Iterable<AggregatedVector> vectors) {
-        Transformed<RealVector> partialVector = null;
-        int partialCount = 0;
-        for (final AggregatedVector vector : vectors) {
-            partialVector = partialVector == null
-                            ? vector.getPartialVector() : partialVector.add(vector.getPartialVector());
-            partialCount += vector.getPartialCount();
-        }
-        return partialCount == 0 ? null : new AggregatedVector(partialCount, partialVector);
-    }
-
     /**
      * Inserts a new vector into the HNSW graph across multiple layers, starting from a given entry point.
      * <p>
      * This method implements the second phase of the HNSW insertion algorithm. It begins at a starting layer, which is
      * the minimum of the graph's maximum layer ({@code lMax}) and the new node's randomly assigned
      * {@code layer}. It then iterates downwards to layer 0. In each layer, it invokes
-     * {@link #insertIntoLayer(StorageAdapter, Transaction, StorageTransform, Quantizer, List, int, Tuple, Transformed)}
+     * {@link #insertIntoLayer(StorageAdapter, Transaction, StorageTransform, Quantizer, List, int, Tuple, Transformed, Tuple)}
      * to perform the search and connect the new node. The set of nearest neighbors found at layer {@code L} serves as
      * the entry points for the search at layer {@code L-1}.
      * </p>
@@ -411,6 +413,7 @@ public class Insert {
      * @param quantizer the quantizer to be used for this insert
      * @param newPrimaryKey the primary key of the new node being inserted
      * @param newVector the vector data of the new node
+     * @param newAdditionalValues additional values associated with the new vector
      * @param nodeReference the initial entry point for the search, typically the nearest neighbor found in the highest
      * layer
      * @param lMax the maximum layer number in the HNSW graph
@@ -426,6 +429,7 @@ public class Insert {
                                                      @Nonnull final Quantizer quantizer,
                                                      @Nonnull final Tuple newPrimaryKey,
                                                      @Nonnull final Transformed<RealVector> newVector,
+                                                     @Nullable final Tuple newAdditionalValues,
                                                      @Nonnull final NodeReferenceWithDistance nodeReference,
                                                      final int lMax,
                                                      final int insertionLayer) {
@@ -439,7 +443,7 @@ public class Insert {
                     final StorageAdapter<? extends NodeReference> storageAdapter =
                             primitives().storageAdapterForLayer(layer);
                     return insertIntoLayer(storageAdapter, transaction, storageTransform, quantizer,
-                            previousNodeReferences, layer, newPrimaryKey, newVector)
+                            previousNodeReferences, layer, newPrimaryKey, newVector, newAdditionalValues)
                             .thenApply(NodeReferenceAndNode::references);
                 }, getExecutor()).thenCompose(ignored -> AsyncUtil.DONE);
     }
@@ -475,6 +479,7 @@ public class Insert {
      * @param layer the layer number to insert the new node into
      * @param newPrimaryKey the primary key of the new node to be inserted
      * @param newVector the vector associated with the new node
+     * @param newAdditionalValues additional values associated with the vector to be inserted
      *
      * @return a {@code CompletableFuture} that completes with a list of the nearest neighbors found during the
      *         initial search phase. This list serves as the entry point for insertion into the next lower layer
@@ -489,7 +494,8 @@ public class Insert {
                             @Nonnull final List<NodeReferenceWithDistance> nearestNeighbors,
                             final int layer,
                             @Nonnull final Tuple newPrimaryKey,
-                            @Nonnull final Transformed<RealVector> newVector) {
+                            @Nonnull final Transformed<RealVector> newVector,
+                            @Nullable final Tuple newAdditionalValues) {
         if (logger.isTraceEnabled()) {
             logger.trace("begin insert key={} at layer={}", newPrimaryKey, layer);
         }
@@ -498,19 +504,20 @@ public class Insert {
         final DistanceEstimator distanceEstimator = quantizer.estimator();
 
         return searcher().beamSearchLayer(storageAdapter, transaction, storageTransform,
-                nearestNeighbors, layer, getConfig().getEfConstruction(),
+                nearestNeighbors, layer, getConfig().efConstruction(),
                 Search.distanceToTargetVector(distanceEstimator, newVector), nodeCache)
                 .thenCompose(searchResult ->
                         primitives.extendCandidatesIfNecessary(storageAdapter, transaction, storageTransform, distanceEstimator,
-                                searchResult, layer, getConfig().isExtendCandidates(), nodeCache, newVector)
+                                searchResult, layer, getConfig().extendCandidates(), nodeCache, newVector)
                                 .thenCompose(extendedCandidates ->
                                         primitives.selectCandidates(storageAdapter, transaction, storageTransform, distanceEstimator,
-                                                extendedCandidates, layer, getConfig().getM(), nodeCache))
+                                                extendedCandidates, layer, getConfig().m(), nodeCache))
                                 .thenCompose(selectedNeighbors -> {
                                     final NodeFactory<N> nodeFactory = storageAdapter.getNodeFactory();
 
                                     final AbstractNode<N> newNode =
                                             nodeFactory.create(newPrimaryKey, newVector,
+                                                    layer == 0 ? newAdditionalValues : null,
                                                     NodeReferenceAndNode.references(selectedNeighbors));
 
                                     final NeighborsChangeSet<N> newNodeChangeSet =
@@ -536,7 +543,7 @@ public class Insert {
                                     }
 
                                     final int currentMMax =
-                                            layer == 0 ? getConfig().getMMax0() : getConfig().getMMax();
+                                            layer == 0 ? getConfig().mMax0() : getConfig().mMax();
 
                                     return forEach(selectedNeighbors,
                                             selectedNeighbor -> {
@@ -554,7 +561,7 @@ public class Insert {
                                                             }
                                                             return primitives.resolveChangeSetFromNewNeighbors(changeSet, nodeReferencesAndNodes);
                                                         });
-                                            }, getConfig().getMaxNumConcurrentNeighborhoodFetches(), getExecutor())
+                                            }, getConfig().maxNumConcurrentNeighborhoodFetches(), getExecutor())
                                             .thenApply(changeSets -> {
                                                 for (int i = 0; i < selectedNeighbors.size(); i++) {
                                                     final NodeReferenceAndNode<NodeReferenceWithDistance, N> selectedNeighbor =
@@ -576,11 +583,16 @@ public class Insert {
                 });
     }
 
+    @Nonnull
+    private Subspace getSamplesSubspace() {
+        return StorageAdapter.samplesSubspace(getSubspace());
+    }
+
     private boolean shouldSampleVector(@Nonnull final SplittableRandom random) {
-        return random.nextDouble() < getConfig().getSampleVectorStatsProbability();
+        return random.nextDouble() < getConfig().sampleVectorStatsProbability();
     }
 
     private boolean shouldMaintainStats(@Nonnull final SplittableRandom random) {
-        return random.nextDouble() < getConfig().getMaintainStatsProbability();
+        return random.nextDouble() < getConfig().maintainStatsProbability();
     }
 }
