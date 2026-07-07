@@ -538,14 +538,14 @@ class Primitives {
      * @return a future of the surviving clusters' metadata-with-distance, with vanished clusters filtered out
      */
     @Nonnull
-    CompletableFuture<List<ClusterMetadataWithDistance>> fetchClusterMetadataForReferences(
-            @Nonnull final ReadTransaction readTransaction,
-            @Nonnull final List<ClusterReference> nearestClusters,
-            final int concurrency) {
-        return MoreAsyncUtil.forEach(nearestClusters,
-                        clusterReference -> fetchClusterMetadataWithDistance(readTransaction,
-                                clusterReference.clusterId(), clusterReference.centroid(), 0.0d),
-                        concurrency, getExecutor())
+    CompletableFuture<List<ClusterMetadataWithDistance>>
+            fetchClusterMetadataForReferences(@Nonnull final ReadTransaction readTransaction,
+                                              @Nonnull final List<ClusterReference> nearestClusters,
+                                              final int concurrency) {
+        return forEach(nearestClusters,
+                clusterReference -> fetchClusterMetadataWithDistance(readTransaction,
+                        clusterReference.clusterId(), clusterReference.centroid(), 0.0d),
+                concurrency, getExecutor())
                 .thenApply(clusterMetadataWithDistances -> clusterMetadataWithDistances.stream()
                         .filter(Objects::nonNull)
                         .collect(ImmutableList.toImmutableList()));

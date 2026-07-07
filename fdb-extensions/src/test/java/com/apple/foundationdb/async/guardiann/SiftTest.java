@@ -496,9 +496,12 @@ public class SiftTest implements BaseTest {
                 .setPrimaryClusterMax(512)
                 .setPrimaryClusterMin(100)
                 .setDeterministicRandomness(true)
-                .setReplicationPriorityMin(0.65d)
+                .setReplicationPriorityMin(0.75d)
                 .setReplicatedClusterTarget(500)
                 .setReplicatedClusterMaxWrites(2000)
+                .setSplitNumNearestClusters(10)
+                .setMergeNumNearestClusters(10)
+                .setReassignNumNeighboringClusters(10)
                 .build(128);
     }
 
