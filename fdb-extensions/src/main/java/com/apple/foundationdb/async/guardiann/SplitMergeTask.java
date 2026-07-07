@@ -219,7 +219,6 @@ class SplitMergeTask extends AbstractDeferredTask {
         final Config config = getConfig();
         final SplittableRandom random = RandomHelpers.random(getTaskId());
         final Primitives primitives = primitives();
-        final Executor executor = getLocator().getExecutor();
         final AccessInfo accessInfo = getAccessInfo();
         final StorageTransform storageTransform = primitives.storageTransform(accessInfo);
         final Quantizer quantizer = primitives.quantizer(accessInfo);
@@ -234,7 +233,8 @@ class SplitMergeTask extends AbstractDeferredTask {
         }
         final List<ClusterReference> nearestClusters = getNearestClusters();
 
-        return fetchNearestClustersMetadata(transaction, nearestClusters, executor)
+        return primitives.fetchClusterMetadataForReferences(transaction, nearestClusters,
+                        config.splitMergeConcurrency())
                 .thenCompose(nearestClusterMetadataWithDistances ->
                         selectSplitCandidate(transaction, random, storageTransform, estimator, numNearestClusters,
                                 targetClusterMetadata, nearestClusters, nearestClusterMetadataWithDistances))
@@ -263,7 +263,7 @@ class SplitMergeTask extends AbstractDeferredTask {
             return null;
         }
         // the nearest clusters are not set yet: fetch them and write an urgent new task carrying them
-        return primitives().fetchNearestClusterMetadata(transaction, targetClusterMetadata,
+        return primitives().findNearestClustersMetadata(transaction, targetClusterMetadata,
                         targetClusterCentroid, storageTransform, numNearestClusters, getConfig().splitMergeConcurrency())
                 .thenAccept(fetchedNearestClusters -> {
                     final SplitMergeTask splitMergeTask =
@@ -276,16 +276,6 @@ class SplitMergeTask extends AbstractDeferredTask {
                                 splitMergeTask.getNearestClusters().size());
                     }
                 });
-    }
-
-    @Nonnull
-    private CompletableFuture<List<ClusterMetadataWithDistance>> fetchNearestClustersMetadata(@Nonnull final Transaction transaction,
-                                                                                              @Nonnull final List<ClusterReference> nearestClusters,
-                                                                                              @Nonnull final Executor executor) {
-        return MoreAsyncUtil.forEach(nearestClusters,
-                clusterIdAndCentroid -> primitives().fetchClusterMetadataWithDistance(transaction,
-                        clusterIdAndCentroid.clusterId(), clusterIdAndCentroid.centroid(), 0.0d),
-                getConfig().splitMergeConcurrency(), executor);
     }
 
     /**
@@ -432,7 +422,6 @@ class SplitMergeTask extends AbstractDeferredTask {
         final Config config = getConfig();
         final SplittableRandom random = RandomHelpers.random(getTaskId());
         final Primitives primitives = primitives();
-        final Executor executor = getLocator().getExecutor();
         final AccessInfo accessInfo = getAccessInfo();
         final StorageTransform storageTransform = primitives.storageTransform(accessInfo);
         final Quantizer quantizer = primitives.quantizer(accessInfo);
@@ -447,7 +436,8 @@ class SplitMergeTask extends AbstractDeferredTask {
         }
         final List<ClusterReference> nearestClusters = getNearestClusters();
 
-        return fetchNearestClustersMetadata(transaction, nearestClusters, executor)
+        return primitives.fetchClusterMetadataForReferences(transaction, nearestClusters,
+                        config.splitMergeConcurrency())
                 .thenCompose(nearestClusterMetadataWithDistances ->
                         selectMergeCandidate(transaction, random, storageTransform, estimator, numNearestClusters,
                                 targetClusterMetadata, nearestClusters, nearestClusterMetadataWithDistances))

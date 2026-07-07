@@ -234,7 +234,6 @@ class ReassignTask extends AbstractDeferredTask {
                                      final boolean enqueueFollowUpTasks) {
         final SplittableRandom random = RandomHelpers.random(getTaskId());
         final Config config = getConfig();
-        final Executor executor = getLocator().getExecutor();
         final Primitives primitives = getLocator().primitives();
         final AccessInfo accessInfo = getAccessInfo();
         final StorageTransform storageTransform = primitives.storageTransform(accessInfo);
@@ -253,10 +252,8 @@ class ReassignTask extends AbstractDeferredTask {
         }
         final List<ClusterReference> nearestClusters = getNearestClusters();
 
-        return MoreAsyncUtil.forEach(nearestClusters,
-                        clusterIdAndCentroid -> primitives.fetchClusterMetadataWithDistance(transaction,
-                                clusterIdAndCentroid.clusterId(), clusterIdAndCentroid.centroid(), 0.0d),
-                        config.reassignConcurrency(), executor)
+        return primitives.fetchClusterMetadataForReferences(transaction, nearestClusters,
+                        config.reassignConcurrency())
                 .thenCompose(nearestClusterMetadataWithDistances -> {
 
                     final ClusterClassification classification =
@@ -304,12 +301,12 @@ class ReassignTask extends AbstractDeferredTask {
      */
     @Nullable
     private CompletableFuture<Void> reenqueueWithFetchedNearestClustersIfEmpty(@Nonnull final Transaction transaction,
-                                                                            @Nonnull final ClusterMetadata targetClusterMetadata,
-                                                                            @Nonnull final RealVector targetClusterCentroid,
-                                                                            @Nonnull final SplittableRandom random,
-                                                                            @Nonnull final StorageTransform storageTransform,
-                                                                            final int numNearestClusters,
-                                                                            final boolean enqueueFollowUpTasks) {
+                                                                               @Nonnull final ClusterMetadata targetClusterMetadata,
+                                                                               @Nonnull final RealVector targetClusterCentroid,
+                                                                               @Nonnull final SplittableRandom random,
+                                                                               @Nonnull final StorageTransform storageTransform,
+                                                                               final int numNearestClusters,
+                                                                               final boolean enqueueFollowUpTasks) {
         if (!getNearestClusters().isEmpty()) {
             if (logger.isTraceEnabled()) {
                 logger.trace("using precomputed nearest clusters; taskId={}; numNearestClusters={}",
@@ -319,7 +316,7 @@ class ReassignTask extends AbstractDeferredTask {
         }
         Verify.verify(enqueueFollowUpTasks,
                 "reassign with enqueueFollowUpTasks=false requires precomputed (non-empty) nearest clusters");
-        return primitives().fetchNearestClusterMetadata(transaction, targetClusterMetadata,
+        return primitives().findNearestClustersMetadata(transaction, targetClusterMetadata,
                         targetClusterCentroid, storageTransform, numNearestClusters, getConfig().reassignConcurrency())
                 .thenAccept(fetchedNearestClusters -> {
                     final ReassignTask reassignTask = withHighPriorityAndNearestClusters(random,

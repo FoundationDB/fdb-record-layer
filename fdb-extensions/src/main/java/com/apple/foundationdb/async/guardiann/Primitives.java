@@ -499,23 +499,56 @@ class Primitives {
     }
 
     /**
-     * Loads a cluster's {@link ClusterMetadata} and bundles it with a centroid and an already-computed distance, so
-     * a caller walking the centroid HNSW can carry the distance forward instead of recomputing it. Fails fast if the
-     * metadata is missing — a cluster present in the centroid HNSW is expected to have metadata.
+     * Loads a cluster's {@link ClusterMetadata} and bundles it with a centroid and an already-computed distance, so a
+     * caller that located the cluster (by walking the centroid HNSW, or from a precomputed nearest-cluster reference)
+     * can carry the distance forward instead of recomputing it. Mirrors {@link #fetchClusterMetadata}: the returned
+     * future completes with {@code null} when no cluster with the given id exists. The caller chooses the policy — one
+     * that located the cluster in the <em>same</em> transaction should treat {@code null} as an invariant violation
+     * (e.g. wrap with {@link java.util.Objects#requireNonNull}); one re-fetching clusters located in an
+     * <em>earlier</em> transaction should filter the {@code null}s out (see {@link #fetchClusterMetadataForReferences}).
      *
      * @param readTransaction the read transaction
      * @param clusterId the id of the cluster
      * @param centroid the transformed centroid to attach
      * @param distance the already-computed distance to attach
-     * @return a future of the metadata bundled with its centroid and distance
+     * @return a future of the metadata bundled with its centroid and distance, or {@code null} if the cluster does not exist
      */
     @Nonnull
     CompletableFuture<ClusterMetadataWithDistance> fetchClusterMetadataWithDistance(@Nonnull final ReadTransaction readTransaction,
                                                                                     @Nonnull final UUID clusterId,
                                                                                     @Nonnull final Transformed<RealVector> centroid,
                                                                                     final double distance) {
-        return StorageAdapter.requireNonNull(fetchClusterMetadata(readTransaction, clusterId))
-                .thenApply(clusterState -> new ClusterMetadataWithDistance(clusterState, centroid, distance));
+        return fetchClusterMetadata(readTransaction, clusterId)
+                .thenApply(clusterMetadata -> clusterMetadata == null
+                        ? null
+                        : new ClusterMetadataWithDistance(clusterMetadata, centroid, distance));
+    }
+
+    /**
+     * Re-fetches the {@link ClusterMetadata} for a precomputed list of nearest-cluster {@link ClusterReference}s
+     * (located in an earlier transaction and carried on a deferred task), bundling each with its stored centroid at
+     * distance {@code 0}. References whose cluster no longer exists are <em>dropped</em> — a normal outcome when a
+     * neighbor was split, merged, or deleted between the task's enqueue and its execution. Used by the reassign and
+     * split/merge repartition paths; {@code classifyClusters} tolerates a shortened list, and each task fetches and
+     * null-checks its own target cluster in {@code runTask} before this runs, so the target is never a phantom.
+     *
+     * @param readTransaction the read transaction
+     * @param nearestClusters the precomputed nearest-cluster references to re-fetch
+     * @param concurrency the fan-out width for the per-cluster metadata reads
+     * @return a future of the surviving clusters' metadata-with-distance, with vanished clusters filtered out
+     */
+    @Nonnull
+    CompletableFuture<List<ClusterMetadataWithDistance>> fetchClusterMetadataForReferences(
+            @Nonnull final ReadTransaction readTransaction,
+            @Nonnull final List<ClusterReference> nearestClusters,
+            final int concurrency) {
+        return MoreAsyncUtil.forEach(nearestClusters,
+                        clusterReference -> fetchClusterMetadataWithDistance(readTransaction,
+                                clusterReference.clusterId(), clusterReference.centroid(), 0.0d),
+                        concurrency, getExecutor())
+                .thenApply(clusterMetadataWithDistances -> clusterMetadataWithDistances.stream()
+                        .filter(Objects::nonNull)
+                        .collect(ImmutableList.toImmutableList()));
     }
 
     /**
@@ -1299,10 +1332,13 @@ class Primitives {
     }
 
     /**
-     * Fetches a target cluster's nearest clusters — that is the {@code numClusters} clusters whose centroids are nearest
-     * the target's — as the candidate set a split/merge/reassign repartitions over. Walks the centroid {@link HNSW} in
-     * ascending distance order; the target cluster itself is included at distance {@code 0} using the metadata
-     * already in hand, avoiding a redundant re-read of the very cluster that triggered the work.
+     * Finds a target cluster's nearest clusters — the {@code numClusters} clusters whose centroids are nearest the
+     * target's — as the candidate set a split/merge/reassign repartitions over, by walking the centroid {@link HNSW}
+     * in ascending distance order. The target cluster itself is included at distance {@code 0} using the metadata
+     * already in hand, avoiding a redundant re-read of the very cluster that triggered the work. Because the walk and
+     * the metadata reads happen in the same transaction, a centroid found in the HNSW is expected to have metadata; a
+     * missing one is an invariant violation and fails fast. (Contrast {@link #fetchClusterMetadataForReferences},
+     * which re-fetches clusters located in an earlier transaction and tolerates their disappearance.)
      *
      * @param transaction the read transaction
      * @param targetClusterMetadata the metadata of the cluster whose nearest clusters are being fetched
@@ -1314,7 +1350,7 @@ class Primitives {
      */
     @Nonnull
     CompletableFuture<List<ClusterMetadataWithDistance>>
-            fetchNearestClusterMetadata(@Nonnull final ReadTransaction transaction,
+            findNearestClustersMetadata(@Nonnull final ReadTransaction transaction,
                                         @Nonnull final ClusterMetadata targetClusterMetadata,
                                         @Nonnull final RealVector targetClusterCentroid,
                                         @Nonnull final StorageTransform storageTransform,
@@ -1342,7 +1378,10 @@ class Primitives {
                             return fetchClusterMetadataWithDistance(transaction,
                                     clusterId,
                                     transformedClusterCentroid,
-                                    0.0d);
+                                    0.0d)
+                                    .thenApply(clusterMetadataWithDistance -> Objects.requireNonNull(
+                                            clusterMetadataWithDistance,
+                                            "cluster found in centroid HNSW is missing its metadata"));
                         }, concurrency));
     }
 

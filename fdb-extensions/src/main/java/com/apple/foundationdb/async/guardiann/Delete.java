@@ -151,7 +151,10 @@ class Delete {
                                                         StorageAdapter.clusterIdFromTuple(resultEntry.primaryKey()),
                                                         storageTransform.transform(
                                                                 Objects.requireNonNull(resultEntry.vector())),
-                                                        resultEntry.distance()),
+                                                        resultEntry.distance())
+                                                        .thenApply(clusterMetadataWithDistance -> Objects.requireNonNull(
+                                                                clusterMetadataWithDistance,
+                                                                "cluster found in centroid HNSW is missing its metadata")),
                                         1),
                                 config.deleteMaxCandidateClusters(),
                                 getExecutor()),
