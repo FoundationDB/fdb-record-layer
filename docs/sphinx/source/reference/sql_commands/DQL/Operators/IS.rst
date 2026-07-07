@@ -1,6 +1,6 @@
-===========
-IS Operator
-===========
+==
+IS
+==
 
 .. _is-operators:
 
