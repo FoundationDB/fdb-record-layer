@@ -70,6 +70,8 @@ import com.apple.foundationdb.record.provider.foundationdb.IndexScanBounds;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanRange;
 import com.apple.foundationdb.record.provider.foundationdb.KeyValueCursor;
 import com.apple.foundationdb.record.provider.foundationdb.ScanNonReadableIndexException;
+import com.apple.foundationdb.record.provider.foundationdb.indexes.scenarios.IndexDefinition;
+import com.apple.foundationdb.record.provider.foundationdb.indexes.scenarios.IndexScenario;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.Query;
@@ -478,6 +480,54 @@ public class VersionIndexTest {
         planner = new RecordQueryPlanner(metaData, recordStore.getRecordStoreState());
 
         return context;
+    }
+
+    @ParameterizedTest
+    @IndexScenarios
+    void  indexScenariosTest(IndexScenario scenario) throws Exception {
+        scenario.runTest(
+                (groupingLength, syntheticType) -> new IndexDefinition() {
+
+                    private String indexName = "MySimpleRecord$num2-version";
+
+                    @Override
+                    public RecordMetaData getMetaData() {
+                        RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder()
+                                .setRecords(TestRecords1Proto.getDescriptor());
+                        metaDataBuilder.setStoreRecordVersions(true);
+                        metaDataBuilder.addIndex("MySimpleRecord", new Index(indexName, VersionKeyExpression.VERSION, IndexTypes.VERSION));
+                        return metaDataBuilder.build();
+                    }
+
+                    @Override
+                    public List<Message> generateRecords(final int count) {
+                        return IntStream.range(0, count)
+                                .mapToObj(i -> (Message) TestRecords1Proto.MySimpleRecord.newBuilder()
+                                        .setRecNo(i).setNumValue2(-1 * i)
+                                        .build())
+                                .toList();
+                    }
+
+                    @Override
+                    public RecordCursor<IndexEntry> scanIndex(final FDBRecordStore store, ScanProperties scanProperties) {
+                        return store.scanIndex(store.getRecordMetaData().getIndex(indexName),
+                                new IndexScanRange(IndexScanType.BY_VALUE, TupleRange.ALL), null, ScanProperties.FORWARD_SCAN);
+                    }
+
+                    @Override
+                    public String getIndexName() {
+                        return indexName;
+                    }
+                },
+                () -> {
+                    FDBRecordContextConfig config = FDBRecordContextConfig.newBuilder()
+                            .setTimer(new FDBStoreTimer())
+                            .build();
+                    return fdb.openContext(config);
+                },
+                FDBRecordStore.newBuilder()
+                        .setKeySpacePath(path)
+                        .setFormatVersion(formatVersion));
     }
 
     @ParameterizedTest(name = "saveLoadWithVersion [formatVersion = {0}, splitLongRecords = {1}]")
