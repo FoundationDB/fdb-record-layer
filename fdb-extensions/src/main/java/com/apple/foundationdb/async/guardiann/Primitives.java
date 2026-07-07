@@ -1070,8 +1070,8 @@ class Primitives {
                 numPrimaryVectorsAdded > 0 && numTotalPrimaryVectors > config.primaryClusterMax()) {
             // adding primary vectors pushed the cluster over the maximum: enqueue a split
             final UUID newTaskId =
-                    enqueueSplitMergeTask(transaction, random, clusterMetadata, clusterCentroid, accessInfo,
-                            numPrimaryUnderreplicatedVectorsAdded, numReplicatedVectorsAdded,
+                    updateClusterMetadataAndEnqueueSplitMergeTask(transaction, random, clusterMetadata, clusterCentroid,
+                            accessInfo, numPrimaryUnderreplicatedVectorsAdded, numReplicatedVectorsAdded,
                             updatedStandardDeviation);
             if (logger.isDebugEnabled()) {
                 logger.debug("enqueued SPLIT_MERGE (split) due to number of primary vectors, taskId={}, numPrimaryVectors={}",
@@ -1221,7 +1221,7 @@ class Primitives {
                 .thenAccept(cardinality -> {
                     if (cardinality == Cardinality.MULTIPLE) {
                         final UUID newTaskId =
-                                enqueueSplitMergeTask(transaction, random, clusterMetadata, clusterCentroid,
+                                updateClusterMetadataAndEnqueueSplitMergeTask(transaction, random, clusterMetadata, clusterCentroid,
                                         accessInfo, 0, 0, updatedStandardDeviation);
                         if (logger.isDebugEnabled()) {
                             logger.debug("enqueued SPLIT_MERGE (merge) due to number of primary vectors, taskId={}, numPrimaryVectors={}",
@@ -1259,14 +1259,14 @@ class Primitives {
      * @return the id of the enqueued task
      */
     @Nonnull
-    UUID enqueueSplitMergeTask(@Nonnull final Transaction transaction,
-                               @Nonnull final SplittableRandom random,
-                               @Nonnull final ClusterMetadata clusterMetadata,
-                               @Nonnull final Transformed<RealVector> clusterCentroid,
-                               @Nonnull final AccessInfo accessInfo,
-                               final int numPrimaryUnderreplicatedVectorsAdded,
-                               final int numReplicatedVectorsAdded,
-                               @Nonnull final RunningStats updatedStandardDeviation) {
+    UUID updateClusterMetadataAndEnqueueSplitMergeTask(@Nonnull final Transaction transaction,
+                                                       @Nonnull final SplittableRandom random,
+                                                       @Nonnull final ClusterMetadata clusterMetadata,
+                                                       @Nonnull final Transformed<RealVector> clusterCentroid,
+                                                       @Nonnull final AccessInfo accessInfo,
+                                                       final int numPrimaryUnderreplicatedVectorsAdded,
+                                                       final int numReplicatedVectorsAdded,
+                                                       @Nonnull final RunningStats updatedStandardDeviation) {
         final Config config = getConfig();
         final UUID newTaskId =
                 AbstractDeferredTask.randomNormalPriorityTaskId(random, config.deterministicRandomness());

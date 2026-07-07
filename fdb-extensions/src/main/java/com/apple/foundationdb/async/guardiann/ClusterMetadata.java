@@ -38,7 +38,7 @@ import java.util.stream.Collectors;
  *
  * @param id the unique id of the cluster
  * @param numPrimaryUnderreplicatedVectors the number of primary vectors in the cluster that are underreplicated
- *        (see preamble of {@link VectorReference} for an explanation of the different vector kinds.
+ *        (see preamble of {@link VectorReference} for an explanation of the different vector kinds)
  * @param numReplicatedVectors the number of replicated (non-primary) vectors in the cluster
  * @param runningStandardDeviation running statistics of member distances to the centroid; its element count is the
  *        number of primary vectors

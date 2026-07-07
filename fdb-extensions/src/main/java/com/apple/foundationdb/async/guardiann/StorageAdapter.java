@@ -427,6 +427,50 @@ class StorageAdapter {
         return Tuple.from(vectorId.uuid());
     }
 
+    /**
+     * Scores how worthwhile it is to keep a replica of a vector in a neighboring ("candidate") cluster, given that the
+     * vector's authoritative home is a different ("primary") cluster. A higher score argues more strongly for
+     * replicating the vector into the candidate; the maintenance paths rank candidates by this score, keep only those
+     * at or above {@link Config#replicationPriorityMin()}, and cap the kept count at
+     * {@link Config#replicatedClusterTarget()}.
+     *
+     * <p>
+     * The score weighs and combines two independently-motivated terms:
+     * <ul>
+     *   <li><b>Border ambiguity</b> — the ratio {@code distanceToPrimaryCentroid / distance}, i.e. how far the vector
+     *       is from its home centroid relative to the candidate centroid. For a primary vector the home is the nearest
+     *       centroid, so this ratio lies in {@code (0, 1]}: it approaches {@code 1} when the vector sits right on the
+     *       border, midway between the two centroids, and shrinks toward {@code 0} when the vector is firmly inside its
+     *       home cluster. The more border-ambiguous a vector is, the more likely a query near it is routed to the
+     *       candidate cluster and would miss it unless a replica lives there — hence the higher priority. (The precise
+     *       geometry of "midway" depends on the {@link Config#metric()}, but the monotonicity — nearer the border means
+     *       a higher ratio — holds for any metric.) Weighted by {@link Config#replicationDistanceRatioWeight()}.</li>
+     *   <li><b>Distributional tail-ness</b> — the one-sided z-score
+     *       {@code max(0, (distanceToPrimaryCentroid - mean) / standardDeviation)} of the vector's distance to its home
+     *       centroid against the distribution of that distance over <em>all</em> of the home cluster's primary vectors.
+     *       Vectors out in the cluster's long tail (much farther from the centroid than their peers) score high;
+     *       vectors at or nearer than the mean are clamped to {@code 0} and get no boost. The idea is that a long tail
+     *       should raise its members' replication odds, since those far-flung vectors are the ones most likely to sit
+     *       near — or past — a neighboring cluster. Weighted by {@link Config#replicationZScoreWeight()}.</li>
+     * </ul>
+     *
+     * <p>
+     * The tail-ness term is evaluated only when its weight is non-zero and the home cluster holds at least
+     * {@link Config#replicationStatsMinSampleSize()} primary vectors (so its {@code mean}/{@code standardDeviation} are
+     * trustworthy); otherwise it contributes {@code 0} — which also avoids a {@code 0.0 * NaN} when the standard
+     * deviation is undefined. A small epsilon guards both divisions against a zero denominator.
+     *
+     * @param config the tuning knobs supplying the two term weights and the minimum sample size
+     * @param distance the vector's distance to the candidate (neighboring) cluster's centroid — the cluster being
+     *        considered as a replication target
+     * @param distanceToPrimaryCentroid the vector's distance to its own (home/primary) cluster's centroid
+     * @param num the number of primary vectors in the home cluster (the sample size backing {@code mean} and
+     *        {@code standardDeviation})
+     * @param mean the mean distance-to-centroid over the home cluster's primary vectors
+     * @param standardDeviation the standard deviation of those distances
+     * @return the replication priority score; larger values argue more strongly for replicating the vector into the
+     *         candidate cluster
+     */
     static double replicationPriority(@Nonnull final Config config,
                                       final double distance, final double distanceToPrimaryCentroid,
                                       final int num, final double mean, final double standardDeviation) {
@@ -441,6 +485,31 @@ class StorageAdapter {
         return config.replicationDistanceRatioWeight() * r + zWeight * z;
     }
 
+    /**
+     * Applies the relative-neighborhood ("occlusion") heuristic used to pick a <em>diverse</em> set of clusters to
+     * replicate a vector into: a candidate cluster is <em>occluded</em> — and should be skipped — when some cluster
+     * already chosen as a replication target sits closer to the candidate's centroid than the vector itself does.
+     * Formally, the candidate is occluded if, for any already-selected cluster {@code s},
+     * {@code dist(candidateCentroid, s.centroid) < dist(vector, candidateCentroid)}, where the right-hand distance is
+     * the one carried on the candidate as {@link ClusterMetadataWithDistance#distance()}.
+     *
+     * <p>
+     * The idea comes from the SPANN paper (<a href="https://arxiv.org/pdf/2111.08566">arXiv:2111.08566</a>), which
+     * replicates boundary postings into nearby clusters using this relative-neighborhood ("closure") rule — the same
+     * pruning HNSW applies during neighbor selection. Without it, the few clusters nearest a vector tend to bunch
+     * together in one direction, so replicating into all of them is redundant. If an already-selected cluster lies
+     * "between" the vector and the candidate (nearer to the candidate than the vector is), that selected cluster
+     * already covers the candidate's region and adding the candidate buys little, so it is dropped. The net effect is
+     * to spread replicas across distinct neighboring regions rather than pile several near-duplicates in the same
+     * direction. When no clusters have been selected yet nothing can occlude, so the candidate is always kept.
+     *
+     * @param estimator the distance estimator used for the centroid-to-centroid distances (in the transformed space)
+     * @param replicationCandidate the candidate cluster under consideration, carrying the vector's distance to its
+     *        centroid via {@link ClusterMetadataWithDistance#distance()}
+     * @param selectedReplicationClusters the clusters already chosen as replication targets for this vector
+     * @return {@code true} if the candidate is occluded by an already-selected cluster (and should be skipped),
+     *         {@code false} otherwise
+     */
     static boolean isOccluded(@Nonnull final DistanceEstimator estimator,
                               @Nonnull final ClusterMetadataWithDistance replicationCandidate,
                               @Nonnull final List<ClusterMetadataWithDistance> selectedReplicationClusters) {
@@ -469,13 +538,25 @@ class StorageAdapter {
         return uuidFromBytes(signatureOf(vector));
     }
 
+    /**
+     * Packs 16 bytes of content hash into an RFC 9562 version-8 ("custom") {@link UUID}: the bytes supply the payload,
+     * while the version nibble is forced to {@code 8} and the variant to IETF ({@code 10xx}) — mirroring how
+     * {@code RandomHelpers} stamps its v4/v3 ids. The signature is a deterministic content hash, not a random id, so
+     * v8 (application-defined) marks it as such and keeps it distinguishable from the v4 random ids and v3 name-based
+     * ids used elsewhere in the system. Stamping the version/variant consumes 6 of the 128 bits (leaving 122 bits of
+     * entropy), which remains far beyond any realistic collision risk for the dedup signature. The bits are folded in
+     * as the longs are assembled, so no unstamped UUID is ever constructed.
+     *
+     * @param keyAsBytes exactly 16 bytes of hash payload
+     * @return the version-8 UUID carrying those bytes
+     */
     @Nonnull
-    static UUID uuidFromBytes(@Nonnull final byte[] keyAsBytes) {
+    private static UUID uuidFromBytes(@Nonnull final byte[] keyAsBytes) {
         if (keyAsBytes.length != 16) {
             throw new IllegalArgumentException("Expected 16 bytes, got " + keyAsBytes.length);
         }
-        final long hi = readLongBigEndian(keyAsBytes, 0);
-        final long lo = readLongBigEndian(keyAsBytes, 8);
+        final long hi = (readLongBigEndian(keyAsBytes, 0) & 0xffffffffffff0fffL) | 0x0000000000008000L; // version 8
+        final long lo = (readLongBigEndian(keyAsBytes, 8) & 0x3fffffffffffffffL) | 0x8000000000000000L; // IETF variant
         return new UUID(hi, lo);
     }
 

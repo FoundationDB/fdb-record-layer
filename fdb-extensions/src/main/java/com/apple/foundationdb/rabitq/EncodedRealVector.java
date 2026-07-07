@@ -289,11 +289,15 @@ public class EncodedRealVector implements RealVector {
      *   output[i] = z[i] · (||r|| / ||z||)
      * }</pre>
      * The returned vector therefore has direction equal to {@code z}'s direction (an
-     * approximation of {@code r}'s direction, modulo quantization error) and magnitude exactly
-     * equal to the original residual's norm. This is the right reconstruction whenever the
-     * caller wants to treat the encoded vector "like a normal {@link RealVector}" — distances
-     * against non-encoded vectors come out at the original scale, k-means input vectors mix
-     * cleanly with non-encoded ones, etc.
+     * approximation of {@code r}'s direction, modulo quantization error) and magnitude equal to the
+     * original residual's norm {@code ||r||} — its own norm, not unit norm, and the same for every
+     * metric (cosine included). Matching the <em>magnitude</em>, not just the direction, is the
+     * point: {@link #getData()} lets an encoded vector stand in for an ordinary {@link RealVector},
+     * so the reconstructed norm must be a faithful {@code ||r||} for the inherited norm-sensitive
+     * operations to behave correctly — {@link #normalize()} and hence cosine similarity (both divide
+     * by the operand norms), the round-trip identity {@code normalize().multiply(l2Norm())}, mixing
+     * encoded and non-encoded vectors as k-means input, and exact distances against dense vectors —
+     * all of which then come out at the original scale.
      *
      * <p>Note that the per-vector estimator constants {@link #fRescaleEx} and {@link #fErrorEx}
      * are intentionally <em>not</em> used here. Those drive the
