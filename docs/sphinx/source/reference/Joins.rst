@@ -10,11 +10,11 @@ Joins combine rows from two or more tables based on a related column. The FDB Re
 
    The FDB Record Layer **does not support** the ``FULL OUTER JOIN`` and ``CROSS JOIN`` variants.
 
-Basic Join Syntax
+Basic join syntax
 =================
 
-Cross Join (Cartesian Product)
--------------------------------
+Cross join (Cartesian product)
+------------------------------
 
 The FDB Record Layer **does not support** the ``CROSS JOIN`` keyword. List multiple tables separated by commas instead:
 
@@ -24,8 +24,8 @@ The FDB Record Layer **does not support** the ``CROSS JOIN`` keyword. List multi
 
 This produces a Cartesian product of all rows from both tables.
 
-Inner Join with ON
-------------------
+Inner join with ``ON``
+----------------------
 
 Use the ``ON`` clause to specify join conditions:
 
@@ -43,8 +43,8 @@ This is equivalent to a ``SELECT`` from comma-separated sources with a ``WHERE``
     FROM table1, table2
     WHERE table1.column = table2.column
 
-Inner Join with USING
----------------------
+Inner join with ``USING``
+-------------------------
 
 The ``USING`` clause is a shorthand for when the joined tables share identically named columns. The columns are specified in the ``USING`` clause:
 
@@ -175,8 +175,8 @@ For these examples, assume the following tables:
         (2, 'SEO', 'Increase visibility on search engines', 8),
         (3, 'Feedback', 'Turn customer feedback into items', 5)
 
-Simple Two-Table Join
-----------------------
+Simple two-table join
+---------------------
 
 Join employees with their departments:
 
@@ -199,7 +199,7 @@ Join employees with their departments:
     * - :json:`"Emily"`
       - :json:`"Martinez"`
 
-Consecutive Joins
+Consecutive joins
 -----------------
 
 Join across three tables to find departments and their projects:
@@ -224,7 +224,7 @@ Join across three tables to find departments and their projects:
 
 The result of the first join (employees and departments) is joined to projects.
 
-Join with Subquery
+Join with subquery
 ------------------
 
 Use a derived table (subquery) in a join:
@@ -250,7 +250,7 @@ Use a derived table (subquery) in a join:
 
 This finds employees who are assigned to projects and work in the Sales department.
 
-Nested Joins
+Nested joins
 ------------
 
 Join subqueries that themselves contain joins:
@@ -292,7 +292,7 @@ Use Common Table Expressions in joins:
 
 This creates two CTEs and joins them using a cross join.
 
-Self-Join
+Self-join
 ---------
 
 Join a table to itself:
@@ -310,8 +310,8 @@ A self-join can be used to find relationships within the same table. Use aliases
     WHERE t1.dept_id = t2.dept_id
       AND t1.id < t2.id
 
-Semi-Join with EXISTS
-----------------------
+Semi-join with ``EXISTS``
+-------------------------
 
 Use ``EXISTS`` to implement a semi-join (find rows that have matching rows in another table):
 
@@ -337,8 +337,8 @@ Use ``EXISTS`` to implement a semi-join (find rows that have matching rows in an
 
 This finds all employees who have at least one project assigned, without returning duplicate employee rows.
 
-Join with User-Defined Functions
----------------------------------
+Join with user-defined functions
+--------------------------------
 
 User-defined functions can be used like tables in the ``FROM`` clause and joined with conditions in the ``WHERE`` clause:
 
@@ -348,10 +348,10 @@ User-defined functions can be used like tables in the ``FROM`` clause and joined
     FROM f1(103, 'b') A, f1(103, 'b') B
     WHERE A.col1 = B.col1
 
-Important Notes
+Important notes
 ===============
 
-Table Aliases
+Table aliases
 -------------
 
 Use aliases to:
@@ -366,14 +366,14 @@ Use aliases to:
     FROM emp e, dept d
     WHERE e.dept_id = d.id
 
-Join Conditions
+Join conditions
 ---------------
 
 - Join conditions should be specified in the ``WHERE`` clause (for comma-separated tables) or the ``ON`` clause (for ``INNER JOIN``, ``LEFT OUTER JOIN``, and ``RIGHT OUTER JOIN``).
 - Use ``AND`` to combine multiple join conditions and filters.
 - Omitting join conditions produces a Cartesian product (all combinations of rows).
 
-See Also
+See also
 ========
 
 * :doc:`sql_commands/DQL/JOIN` - JOIN syntax
