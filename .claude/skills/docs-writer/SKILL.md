@@ -44,6 +44,10 @@ Audience: contributors and maintainers understanding the internals.
 - One topic per file.
 - Start with a 2-3 sentence overview paragraph.
 - Use `##` for top-level sections, `###` for subsections.
+- Write headings in sentence case, not Title Case, and in gerund form for action-oriented
+  headings (e.g., "Renaming a record type" rather than "Rename a Record Type").
+- Wrap SQL keywords, type names, and class/identifier names in code spans (`` `SELECT` ``,
+  `` `RecordType` ``) rather than plain text.
 - Bold (`**term**`) for key terms on first use.
 - GitHub link base: `https://github.com/FoundationDB/fdb-record-layer/blob/main/`
   Append path from repo root. Use `#L51` suffix for line links. Link the class name on

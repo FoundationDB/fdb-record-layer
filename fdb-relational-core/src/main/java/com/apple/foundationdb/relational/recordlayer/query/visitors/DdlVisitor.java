@@ -414,8 +414,8 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
                 sqlInvokedFunctionClauses.add(templateClause.sqlInvokedFunction());
             } else if (templateClause.viewDefinition() != null) {
                 viewClauses.add(templateClause.viewDefinition());
-            } else if (templateClause.queryDefinition() != null) {
-                final var queryCtx = templateClause.queryDefinition();
+            } else if (templateClause.storedQueryDefinition() != null) {
+                final var queryCtx = templateClause.storedQueryDefinition();
                 final var name = visitUid(queryCtx.queryName).getName();
                 final var sourceText = getDelegate().getPlanGenerationContext().getQuery();
                 final var start = queryCtx.storedQuery.start.getStartIndex();

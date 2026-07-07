@@ -1,11 +1,11 @@
 ==============
-SQL Data Types
+SQL data types
 ==============
 
 .. _sql-types:
 
 
-Primitive Types
+Primitive types
 ###############
 
 As with most relational databases, the FDB Relational Layer supports the expected types--referred to as "primitive types" in Relational Layer parlance:
@@ -21,7 +21,7 @@ In addition, the Relational Layer supports two distinct user-definable types tha
 
 .. _struct_types:
 
-Struct Types
+Struct types
 ############
 
 You can define a *struct type* (often interchangeably referred to as a *nested type*). A struct is a tuple of columns that allow the same types as a table does, but does _not_ have a primary key. Struct types are "nested" within another owning type, and are stored in the same location as their owning record. For example, a table :sql:`foo` can have the following layout (using the :doc:`DDL <sql_commands/DDL>` syntax):
@@ -76,12 +76,12 @@ An array column can be expanded into a stream of rows using the SQL constructs d
 
 .. _vector_types:
 
-Vector Types
+Vector types
 ############
 
 The Relational Layer supports *vector types* for storing fixed-size numerical vectors, commonly used in machine learning and similarity search applications. A vector type represents a fixed-dimensional array of floating-point numbers with a specific precision.
 
-Vector Type Declaration
+Vector type declaration
 =======================
 
 Vectors are declared using the :sql:`VECTOR(dimension, precision)` syntax, where:
@@ -120,7 +120,7 @@ Vectors can also be used within struct types:
         PRIMARY KEY(id)
     );
 
-Internal Storage Format
+Internal storage format
 =======================
 
 Vectors are stored as byte arrays with the following format:
@@ -134,11 +134,11 @@ The storage size for each vector is:
 * :sql:`VECTOR(N, FLOAT)`: 1 + (4 × N) bytes
 * :sql:`VECTOR(N, DOUBLE)`: 1 + (8 × N) bytes
 
-Working with Vectors
+Working with vectors
 ====================
 
-Vector Literals and Prepared Statements
-----------------------------------------
+Vector literals and prepared statements
+---------------------------------------
 
 **Important**: Vector literals are not directly supported in SQL. Vectors must be inserted using **prepared statement
 parameters** through the JDBC API.
@@ -167,8 +167,8 @@ limitations with INSERT statements in prepared statement contexts:
     SELECT CAST([0.5, 1.2, -0.8] AS VECTOR(3, FLOAT)) AS float_vector;
     SELECT CAST([0.5, 1.2, -0.8] AS VECTOR(3, DOUBLE)) AS double_vector;
 
-Casting Arrays to Vectors
---------------------------
+Casting arrays to vectors
+-------------------------
 
 While vector literals are not supported, you can use :sql:`CAST` to convert array expressions to vectors. The source array elements can be of any numeric type (:sql:`INTEGER`, :sql:`BIGINT`, :sql:`FLOAT`, :sql:`DOUBLE`):
 
@@ -185,7 +185,7 @@ While vector literals are not supported, you can use :sql:`CAST` to convert arra
 
 The array must have exactly the same number of elements as the vector's declared dimension, or the cast will fail with error code :sql:`22F3H`. Only numeric arrays can be cast to vectors.
 
-Querying Vectors
+Querying vectors
 ----------------
 
 Vectors can be selected and compared like other column types. When comparing vectors in WHERE clauses, you would typically use prepared statement parameters in your Java/JDBC code, but for illustration purposes, vectors can also be constructed using CAST:
@@ -208,8 +208,8 @@ Vectors can be selected and compared like other column types. When comparing vec
     -- Use IS DISTINCT FROM for NULL-safe comparisons
     SELECT embedding IS DISTINCT FROM CAST([0.5, 1.2, -0.8] AS VECTOR(3, FLOAT)) FROM embeddings;
 
-Vectors in Struct Fields
--------------------------
+Vectors in struct fields
+------------------------
 
 When vectors are nested within struct types, you can access them using dot notation. As with all vector comparisons, you would use prepared statement parameters in your JDBC code:
 
@@ -225,7 +225,7 @@ When vectors are nested within struct types, you can access them using dot notat
     -- Check NULL for vector field in struct
     SELECT id FROM documents WHERE embedding.embedding IS NULL;
 
-Supported Operations
+Supported operations
 ====================
 
 The following operations are supported on vector types:

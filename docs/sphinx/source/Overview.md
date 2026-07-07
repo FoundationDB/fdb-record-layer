@@ -17,7 +17,7 @@ The meta-data contains:
   * There is a special primary key index. The actual record is stored under this key. That
     is, it is a clustered index.
 
-## Creating a Record Store
+## Creating a record store
 
 An `FDBRecordStore` requires:
 * A `FDBRecordContext`, a thin transaction wrapper, gotten from an `FDBDatabase` instance with `openContext()`.
@@ -76,7 +76,7 @@ metaDataBuilder.addIndex(metaDataBuilder.getRecordType("RestaurantRecord"),
 RecordMetaData metaData = metaDataBuilder.getRecordMetaData();
 ```
 
-### Primary Keys
+### Primary keys
 
 Primary keys are just a special kind of index that says where to store the whole record. Primary keys are required for any record that you want to store, that isn't nested in another record.
 Primary keys use the same data structures as secondary indexes, as defined in the next section, except they  *must* result in a single value, so you cannot use `FanType.FanOut` on repeated values.
@@ -199,7 +199,7 @@ You would get the following sets of index keys:
     * `["red1", "red2", null]`
     * `["blue1", "blue2", ["a", "b", "c"]]`
 
-## Persistent Meta-data
+## Persistent meta-data
 
 If record meta-data for the core layer is generated from application meta-data, it may be
 more convenient to generate it occasionally and persist it, rather than generating it
@@ -210,7 +210,7 @@ description for `RecordMetaData`, using `saveRecordMetaData()`, and then impleme
 `RecordMetaDataProvider`. Using `RecordMetaDataProto.MetaData` builders to construct the
 meta-data is then up to the application.
 
-## Storing a Record
+## Storing a record
 
 ```java
     final FDBDatabase database = FDBDatabaseFactory.instance().getDatabase(clusterFile);
@@ -234,7 +234,7 @@ meta-data is then up to the application.
 You must call `commit()` before closing for changes to be saved. Commit can only be called once 
 per `FDBRecordContext` and cannot be called after the context is closed.
 
-## Retrieving a Record by Primary Key
+## Retrieving a record by primary key
 
 ```java
     try (...) {
@@ -245,7 +245,7 @@ per `FDBRecordContext` and cannot be called after the context is closed.
     }
 ```
 
-## Querying for Records
+## Querying for records
 
 Queries are defined starting from the `RecordQuery` class, allowing you to define the criteria by which records are to be matched
 and output sort order, for example:
@@ -315,7 +315,7 @@ For example, given the following three records:
 
 If you call `RecordQueryPlanner.plan` on a `RecordQuery` with `removeDuplicates=true`, it will remove the duplicates within a single continuation, so if you used the cursor to get the first two, you would get `[r1, r2]`, and then if you used the continuation, you'd get back `[r3, r2]`. Providing `null` for the sort will just cause the results to come back in whatever is most efficient for the query.
 
-## Indexing by Rank
+## Indexing by rank
 
 A special kind of index is supported that implements efficient access to an ordering by some field(s) according to the ordinal position in that order. This can be used to implement leaderboards. For example,
 * Get the rank for a record that contains a score value.
@@ -347,7 +347,7 @@ The rank itself is not stored in the record, because it is dynamic. To get the c
   recordStore.evaluateRecordFunction(Query.rank(Key.Expressions.field("score").groupBy(Key.Expressions.field("game_id"))), rec)
 ```
 
-## Indexing by Version
+## Indexing by version
 
 Another special kind of index allows records to be indexed in a way that orders them by their most recent update time which allows for efficiently querying for changes, for example. This is done by associating with each record a monotonically increasing version number that is unique per record (by default), though one can supply one's own version if one likes. Unlike other index types which are based entirely off of information within the protobuf message, this kind of index will add information to the record at commit time to the underlying data store. To use this kind of index, one has to activate the `stores_record_versions` option within the schema definition file:
 
@@ -406,7 +406,7 @@ One can combine these queries in the usual ways with other predicates if one wan
 
 Keep in mind that deletes will not show up in the index, so if one needs to know if a record has been removed from the record store since the last time one has polled (if one were using this feature to keep two record stores in sync, for example), one needs to insert some kind of tombstone record upon deletion. It is up to client code to come up with what tombstones might look like for their use cases.
 
-## Indexing and Querying of missing / null values
+## Indexing and querying of missing values or null values
 
 By default, a field that is not present in a record is treated as a special `null` value, like in SQL.
 * If the field is indexed, using `scanIndex` to get an `IndexEntry` will find a `null` in the corresponding `Tuple` element.
