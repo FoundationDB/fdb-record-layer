@@ -177,24 +177,24 @@ standard-tests:
         5) as y;
     ref: standard-tests.yamsql:285
     explain: SCAN([IS T1, EQUALS promote(@c18 AS LONG)])
-    task_count: 396
-    task_total_time_ms: 16
-    transform_count: 93
-    transform_time_ms: 8
+    task_count: 395
+    task_total_time_ms: 33
+    transform_count: 92
+    transform_time_ms: 13
     transform_yield_count: 37
-    insert_time_ms: 0
+    insert_time_ms: 1
     insert_new_count: 49
     insert_reused_count: 4
 -   query: EXPLAIN select * from (select * from (select * from T1) as x) as y where
         ID = 5;
     ref: standard-tests.yamsql:289
     explain: SCAN([IS T1, EQUALS promote(@c21 AS LONG)])
-    task_count: 438
-    task_total_time_ms: 35
-    transform_count: 102
-    transform_time_ms: 14
+    task_count: 436
+    task_total_time_ms: 34
+    transform_count: 100
+    transform_time_ms: 12
     transform_yield_count: 41
-    insert_time_ms: 2
+    insert_time_ms: 1
     insert_new_count: 58
     insert_reused_count: 5
 -   query: EXPLAIN select count(*) from (select * from (select * from (select * from
