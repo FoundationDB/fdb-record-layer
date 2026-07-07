@@ -17,7 +17,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# NOTE: this test only covers the SYNTAX and execution of `CREATE QUERY` statements -
+# NOTE: this test only covers the SYNTAX and execution of `CREATE STORED QUERY` statements -
 # it does NOT verify the plan-cache warm-up that `OfflineStoredQueriesProcessor` performs.
 # The warm-up runs once, when the engine is constructed, against the templates already in
 # the catalog at that moment. yamsql tests create their schema template after the engine
@@ -36,20 +36,20 @@ schema_template:
     create index parentIdx as select parent, id from tree order by parent, id
     create table dept(id bigint, name string, primary key(id))
     create index deptName as select name from dept
-    create query by_col1 as select * from t1 where col1 = 1
-    create query by_id as select * from t1 where id = 1
-    create query syntax_with_temp_funcs
+    create stored query by_col1 as select * from t1 where col1 = 1
+    create stored query by_id as select * from t1 where id = 1
+    create stored query syntax_with_temp_funcs
         declare
             function helper1() as (select id from t1 where id = 1);
             function helper2(in x bigint) as (select id from t1 where id = x)
     as
         select id from t1 where id = 999
-    create query by_cte as with c1 as (select col1, col2 from t1) select col1, col2 from c1
-    create query tree_traversal as with recursive c1 as (
+    create stored query by_cte as with c1 as (select col1, col2 from t1) select col1, col2 from c1
+    create stored query tree_traversal as with recursive c1 as (
         select id, parent from tree where parent = -1
         union all
         select b.id, b.parent from c1 as a, tree as b where a.id = b.parent) select id from c1
-    create query by_dept_join as select t1.id, dept.name from t1 inner join dept on t1.col1 = dept.id
+    create stored query by_dept_join as select t1.id, dept.name from t1 inner join dept on t1.col1 = dept.id
 ---
 setup:
   steps:

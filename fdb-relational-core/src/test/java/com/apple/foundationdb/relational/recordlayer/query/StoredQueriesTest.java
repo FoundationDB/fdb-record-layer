@@ -47,31 +47,31 @@ public class StoredQueriesTest {
     private static final String SCHEMA_TEMPLATE =
             "CREATE TABLE t1(id bigint, col1 bigint, col2 bigint, PRIMARY KEY(id))" +
                     " CREATE INDEX i1 AS SELECT col1 FROM t1" +
-                    " CREATE QUERY by_col1 AS select * from t1 where col1 = 10" +
-                    " CREATE QUERY by_id AS select * from t1 where id = 1";
+                    " CREATE STORED QUERY by_col1 AS select * from t1 where col1 = 10" +
+                    " CREATE STORED QUERY by_id AS select * from t1 where id = 1";
 
     /** Stored query body has a typo (`select1` rather than `select`) — DDL fails to parse. */
     private static final String SCHEMA_TEMPLATE_BAD_SYNTAX =
             "CREATE TABLE t1(id bigint, col1 bigint, col2 bigint, PRIMARY KEY(id))" +
-                    " CREATE QUERY by_col1 AS select1 * from t1 where col1 = 10";
+                    " CREATE STORED QUERY by_col1 AS select1 * from t1 where col1 = 10";
 
     /** Stored query body is itself a DDL statement — rejected by the grammar. */
     private static final String SCHEMA_TEMPLATE_DDL_IN_QUERY =
             "CREATE TABLE t1(id bigint, col1 bigint, col2 bigint, PRIMARY KEY(id))" +
-                    " CREATE QUERY ddl_t AS CREATE TABLE t2(id bigint, col1 bigint, PRIMARY KEY(id))";
+                    " CREATE STORED QUERY ddl_t AS CREATE TABLE t2(id bigint, col1 bigint, PRIMARY KEY(id))";
 
     /** Stored query references a column that does not exist on the table. */
     private static final String SCHEMA_TEMPLATE_BAD_COLUMN =
             "CREATE TABLE t1(id bigint, col1 bigint, col2 bigint, PRIMARY KEY(id))" +
                     " CREATE INDEX i1 AS SELECT col1 FROM t1" +
-                    " CREATE QUERY by_col1 AS select * from t1 where col3 = 10" + // col3 does not exit
-                    " CREATE QUERY by_id AS select * from t1 where id = 1";
+                    " CREATE STORED QUERY by_col1 AS select * from t1 where col3 = 10" + // col3 does not exit
+                    " CREATE STORED QUERY by_id AS select * from t1 where id = 1";
 
     /** One stored query whose body calls a single temp function. */
     private static final String SCHEMA_TEMPLATE_TF_SINGLE =
             "CREATE TABLE t1(id bigint, col1 bigint, col2 bigint, PRIMARY KEY(id))" +
                     " CREATE INDEX i1 AS SELECT col1 FROM t1" +
-                    " CREATE QUERY by_x" +
+                    " CREATE STORED QUERY by_x" +
                     "   DECLARE" +
                     "       FUNCTION sq1(in x bigint) AS (SELECT * FROM t1 WHERE col1 < 40 + x)" +
                     " AS SELECT * FROM sq1(10)";
@@ -82,7 +82,7 @@ public class StoredQueriesTest {
     private static final String SCHEMA_TEMPLATE_TF_CHAINED =
             "CREATE TABLE t1(id bigint, col1 bigint, col2 bigint, PRIMARY KEY(id))" +
                     " CREATE INDEX i1 AS SELECT col1 FROM t1" +
-                    " CREATE QUERY by_chained" +
+                    " CREATE STORED QUERY by_chained" +
                     "   DECLARE" +
                     "       FUNCTION sq1(in x bigint) AS (SELECT * FROM t1 WHERE col1 < x);" +
                     "       FUNCTION sq2(in x bigint) AS (SELECT * FROM sq1(x + 1))" +
@@ -92,11 +92,11 @@ public class StoredQueriesTest {
     private static final String SCHEMA_TEMPLATE_TF_BAD =
             "CREATE TABLE t1(id bigint, col1 bigint, col2 bigint, PRIMARY KEY(id))" +
                     " CREATE INDEX i1 AS SELECT col1 FROM t1" +
-                    " CREATE QUERY by_bad" +
+                    " CREATE STORED QUERY by_bad" +
                     "   DECLARE" +
                     "       FUNCTION sq_bad() AS (SELECT * FROM t1 WHERE col_does_not_exist = 1)" +
                     " AS SELECT * FROM sq_bad()" +
-                    " CREATE QUERY by_good" +
+                    " CREATE STORED QUERY by_good" +
                     "   DECLARE" +
                     "       FUNCTION sq_good() AS (SELECT * FROM t1 WHERE col1 = 10)" +
                     " AS SELECT * FROM sq_good()";
@@ -104,7 +104,7 @@ public class StoredQueriesTest {
     /** Typo in the temp-function keyword  — DDL fails to parse. */
     private static final String SCHEMA_TEMPLATE_TF_BAD_SYNTAX =
             "CREATE TABLE t1(id bigint, col1 bigint, col2 bigint, PRIMARY KEY(id))" +
-                    " CREATE QUERY by_x" +
+                    " CREATE STORED QUERY by_x" +
                     "   DECLARE" +
                     "       FUNCTION1 sq1(in x bigint) AS (SELECT * FROM t1 WHERE col1 < x)" +
                     " AS SELECT * FROM sq1(10)";
