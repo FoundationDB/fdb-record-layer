@@ -22,6 +22,9 @@ package com.apple.foundationdb.relational.yamltests;
 
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.api.parallel.Execution;
+import org.junit.jupiter.api.parallel.ExecutionMode;
+import org.junit.jupiter.api.parallel.ResourceLock;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -41,12 +44,26 @@ import java.lang.annotation.RetentionPolicy;
  *     annotation {@link ExcludeYamlTestConfig}. Ideally, these are short lived, primarily to support adding a config,
  *     and then fixing some tests that may fail with that config.
  * </p>
+ * <p>
+ *     Parallelism model: different test methods within a {@code @YamlTest} class run concurrently
+ *     with each other, but the multiple {@link org.junit.jupiter.api.TestTemplate} invocations of
+ *     any single method run serially. This is enforced by
+ *     {@link Execution @Execution(CONCURRENT)} for the method-level scheduling and by
+ *     {@link ResourceLock @ResourceLock(providers = PerMethodResourceLocksProvider.class)} which
+ *     hands each test method its own per-method lock so its invocations serialise on that lock
+ *     while different methods use different keys and stay independent. Individual yamsql files
+ *     typically hard-code cluster-wide state (databases, schema templates, planner metrics,
+ *     etc.), and two invocations of the same method against the same cluster can't safely run
+ *     concurrently.
+ * </p>
  */
 @Retention(RetentionPolicy.RUNTIME)
 @ExtendWith(YamlTestExtension.class)
 // Right now these are the only tests that have the capability to run in mixed mode, but if we create other tests, this
 // should be moved to a shared static location
 @Tag("MixedMode")
+@Execution(ExecutionMode.CONCURRENT)
+@ResourceLock(providers = PerMethodResourceLocksProvider.class)
 public @interface YamlTest {
     /**
      * Simple interface to run a {@code .yamsql} file, based on the config.
