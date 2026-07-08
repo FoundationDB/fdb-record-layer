@@ -20,11 +20,9 @@
 
 package com.apple.foundationdb.relational.utils;
 
-import com.apple.foundationdb.record.provider.foundationdb.RecordStoreDoesNotExistException;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalDriver;
-import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
 import javax.annotation.Nonnull;
@@ -34,40 +32,25 @@ import java.sql.SQLException;
 import java.sql.Statement;
 
 /**
- * Test-only synchronization helpers for catalog-mutating DDL (CREATE/DROP DATABASE,
- * CREATE/DROP SCHEMA TEMPLATE, CREATE/DROP SCHEMA).
+ * Test-only helpers for running catalog-mutating DDL (CREATE/DROP DATABASE, CREATE/DROP SCHEMA
+ * TEMPLATE, CREATE/DROP SCHEMA) against {@code /__SYS/CATALOG}.
  * <p>
- * Under parallel JUnit class execution, every test class's {@code @BeforeEach}/{@code @AfterEach}
- * hooks race on the cluster-wide catalog metadata stored in {@code /__SYS/CATALOG}. The FDB
- * commit layer surfaces those races as SQLSTATE 40001 transaction conflicts. The
- * {@link #runLockedWithRetry(ThrowingRunnable)} wrapper serializes the operations within the JVM
- * (mirroring the {@code FRL.catalogLock()} pattern used by yaml-tests' {@code SetupBlock}) and
- * retries any residual conflicts caused by metadata writes the lock doesn't cover
- * (cluster-global version-stamp updates, etc.).
- * <p>
- * The wrapper also retries on {@link RecordStoreDoesNotExistException}: under concurrent
- * extension setup, a {@code SchemaRule}'s {@code @BeforeEach} can race the very first call to
- * {@code /__SYS} and observe the record store before another thread's bootstrap has fully
- * propagated. The retry covers that window.
- * <p>
- * Lives in {@code testFixtures} so downstream modules (fdb-relational-jdbc, etc.) can serialize
- * their catalog DDL against the same JVM-wide monitor.
- * <p>
- * Wrap CREATE/DROP DDL in {@code @BeforeEach}/{@code @AfterEach} hooks with this helper. Drop
- * statements should use {@code DROP ... IF EXISTS} so a retry after a partial success doesn't
- * trip an "unknown ..." error.
+ * Historically this class also owned a JVM-wide monitor + retry loop that serialised catalog
+ * DDL across tests to work around two contention sources:
+ * <ol>
+ *   <li>Concurrent FRL construction racing on the catalog-init commit (now removed — the
+ *       proactive initializer in {@code YamlTestCatalogInitializer} covers that once per test
+ *       class before any FRL is constructed).</li>
+ *   <li>Every {@code FDBRecordStore.deleteStore} bumping the shared meta-data-version stamp,
+ *       which then conflicted with every concurrent catalog read (now conditional on the
+ *       deleted store being cacheable, which the SYS catalog is but transient user stores
+ *       are not — so most concurrent DDL no longer contends).</li>
+ * </ol>
+ * With both root causes addressed, the runners here execute their action directly. The
+ * method names are kept ({@link #runLockedWithRetry}, {@link #runLockedWithRelationalRetry})
+ * so existing test call sites don't need mechanical updates.
  */
 public final class CatalogOperations {
-
-    /**
-     * JVM-wide monitor guarding catalog-mutating DDL issued from test rules. FRL construction
-     * in fdb-relational-server has its own separate {@code FRL.catalogLock()} and is also
-     * retry-guarded — a separate lock is fine because FRL bootstrap is a one-time-per-JVM step
-     * that runs before any tests contend for this monitor.
-     */
-    private static final Object CATALOG_LOCK = new Object();
-
-    private static final int MAX_ATTEMPTS = 5;
 
     /**
      * URI of the system catalog database every {@link #runDdl} invocation connects against
@@ -80,37 +63,27 @@ public final class CatalogOperations {
     }
 
     /**
-     * Runs one or more catalog-mutating DDL statements under the JVM-wide catalog lock with
-     * retry on transient races. Each call opens a fresh connection to {@code /__SYS} via the
-     * given driver, sets the schema to {@code CATALOG}, applies {@code connectionOptions}, and
-     * runs every statement in order. Drop statements should use {@code DROP ... IF EXISTS} so
-     * a retry after a partial success doesn't trip an "unknown ..." error.
-     * <p>
-     * This is the preferred entry point for tests that already hold a {@link RelationalDriver}
-     * reference (e.g. via {@code EmbeddedRelationalExtension.getDriver()}) — prefer it over
-     * calling {@link #runLockedWithRetry(ThrowingRunnable)} directly, which only exists for
-     * callers that need to compose multiple steps on an existing connection.
+     * Runs one or more catalog-mutating DDL statements. Each call opens a fresh connection to
+     * {@code /__SYS} via the given driver, sets the schema to {@code CATALOG}, applies
+     * {@code connectionOptions}, and runs every statement in order.
      *
      * @param driver the driver to use for the {@code /__SYS} connection
      * @param connectionOptions options to apply to the connection before running the statements
      * @param statements DDL statements to run in order
-     * @throws SQLException if the operation ultimately fails (after retries, or with a
-     *                      non-retriable error)
+     * @throws SQLException if the operation fails
      */
     public static void runDdl(@Nonnull final RelationalDriver driver,
                               @Nonnull final Options connectionOptions,
                               @Nonnull final String... statements) throws SQLException {
-        runLockedWithRetry(() -> {
-            try (Connection connection = driver.connect(SYS_CATALOG_URI)) {
-                connection.setSchema("CATALOG");
-                applyConnectionOptions(connection, connectionOptions);
-                try (Statement statement = connection.createStatement()) {
-                    for (final String ddl : statements) {
-                        statement.executeUpdate(ddl);
-                    }
+        try (Connection connection = driver.connect(SYS_CATALOG_URI)) {
+            connection.setSchema("CATALOG");
+            applyConnectionOptions(connection, connectionOptions);
+            try (Statement statement = connection.createStatement()) {
+                for (final String ddl : statements) {
+                    statement.executeUpdate(ddl);
                 }
             }
-        });
+        }
     }
 
     /**
@@ -119,7 +92,7 @@ public final class CatalogOperations {
      *
      * @param driver the driver to use for the {@code /__SYS} connection
      * @param statements DDL statements to run in order
-     * @throws SQLException if the operation ultimately fails
+     * @throws SQLException if the operation fails
      */
     public static void runDdl(@Nonnull final RelationalDriver driver,
                               @Nonnull final String... statements) throws SQLException {
@@ -127,27 +100,20 @@ public final class CatalogOperations {
     }
 
     /**
-     * Runs {@code action} on an open connection to {@code /__SYS/CATALOG} under the JVM-wide
-     * catalog lock with retry. Use this for tests that interleave DDL and queries against the
-     * catalog and need to share a single connection across both.
-     * <p>
-     * Because the whole body runs under the lock + retry, the {@code action} should be
-     * idempotent on retry — typically achieved by using {@code DROP ... IF EXISTS} for cleanup
-     * and choosing test data names that don't collide across reruns. If the {@code action}
-     * throws a non-retriable {@link SQLException}, it propagates after no retry.
+     * Runs {@code action} on an open connection to {@code /__SYS/CATALOG}. Use this for tests
+     * that interleave DDL and queries against the catalog and need to share a single connection
+     * across both.
      *
      * @param driver the driver to use for the {@code /__SYS} connection
      * @param action the body to run against the open catalog connection
-     * @throws SQLException if the action ultimately fails
+     * @throws SQLException if the action fails
      */
     public static void runOnCatalog(@Nonnull final RelationalDriver driver,
                                     @Nonnull final ThrowingConnectionConsumer action) throws SQLException {
-        runLockedWithRetry(() -> {
-            try (Connection connection = driver.connect(SYS_CATALOG_URI)) {
-                connection.setSchema("CATALOG");
-                action.accept(connection);
-            }
-        });
+        try (Connection connection = driver.connect(SYS_CATALOG_URI)) {
+            connection.setSchema("CATALOG");
+            action.accept(connection);
+        }
     }
 
     /**
@@ -214,105 +180,29 @@ public final class CatalogOperations {
     }
 
     /**
-     * Runs {@code action} under the JVM-wide catalog lock with a small retry loop on SQLSTATE
-     * 40001 transaction conflicts. Use for any CREATE/DROP DATABASE, CREATE/DROP SCHEMA TEMPLATE,
-     * or CREATE/DROP SCHEMA executed against {@code /__SYS/CATALOG}.
+     * Runs {@code action}. Historically this method wrapped the action in a JVM-wide
+     * monitor + retry loop; that infrastructure has been removed now that the underlying
+     * contention (catalog-init commits, meta-data-version-stamp bumps on non-cacheable
+     * {@code deleteStore}) has been fixed upstream. The method is preserved so existing test
+     * call sites keep compiling; new call sites can skip the wrapper and call their action
+     * directly.
      *
      * @param action the catalog DDL to run
-     * @throws SQLException if the action ultimately fails (after retries, or with a
-     *                      non-retriable error)
+     * @throws SQLException if the action fails
      */
     public static void runLockedWithRetry(@Nonnull final ThrowingRunnable action) throws SQLException {
-        for (int attempt = 1; ; attempt++) {
-            final SQLException failure;
-            synchronized (CATALOG_LOCK) {
-                try {
-                    action.run();
-                    return;
-                } catch (SQLException e) {
-                    // TODO these retries were added when other code didn't pass through here, can it be removed now
-                    if (attempt >= MAX_ATTEMPTS || !isRetriable(e)) {
-                        throw e;
-                    }
-                    failure = e;
-                }
-            }
-            // Backoff with the lock RELEASED so other catalog ops can make progress between
-            // retries. Sleeping under the monitor triggers SpotBugs SWL_SLEEP_WITH_LOCK_HELD
-            // and unnecessarily serialises unrelated work.
-            sleepBeforeRetry(attempt, failure);
-        }
+        action.run();
     }
 
     /**
      * {@link RelationalException}-throwing variant of {@link #runLockedWithRetry(ThrowingRunnable)}.
-     * Same lock and retry policy; detects retriable failures via either {@link SQLException}
-     * SQLSTATE 40001 or {@link RelationalException} carrying {@link ErrorCode#SERIALIZATION_FAILURE},
-     * plus {@link RecordStoreDoesNotExistException}.
-     * Named distinctly because Java can't disambiguate lambdas between the two
-     * functional-interface overloads (their abstract methods differ only in their throws clause).
+     * As with that method, no JVM-wide lock or retry is applied any more; the wrapper is kept
+     * only to avoid mass-editing every existing call site.
      *
      * @param action the catalog operation to run
-     * @throws RelationalException if the action ultimately fails (after retries, or with a
-     *                             non-retriable error)
+     * @throws RelationalException if the action fails
      */
     public static void runLockedWithRelationalRetry(@Nonnull final RelationalThrowingRunnable action) throws RelationalException {
-        for (int attempt = 1; ; attempt++) {
-            final RelationalException failure;
-            synchronized (CATALOG_LOCK) {
-                try {
-                    action.run();
-                    return;
-                } catch (RelationalException e) {
-                    if (attempt >= MAX_ATTEMPTS || !isRetriable(e)) {
-                        throw e;
-                    }
-                    failure = e;
-                }
-            }
-            sleepBeforeRetry(attempt, failure);
-        }
-    }
-
-    private static <E extends Exception> void sleepBeforeRetry(final int attempt, @Nonnull final E pending) throws E {
-        try {
-            Thread.sleep(10L * attempt);
-        } catch (InterruptedException ie) {
-            Thread.currentThread().interrupt();
-            pending.addSuppressed(ie);
-            throw pending;
-        }
-    }
-
-    /**
-     * Decides whether a thrown exception is worth retrying. We retry on:
-     * <ul>
-     *   <li>SQLSTATE 40001 / {@link ErrorCode#SERIALIZATION_FAILURE} — FDB transaction conflicts
-     *       (commits that lost the optimistic-concurrency race against a sibling test).
-     *   <li>{@link RecordStoreDoesNotExistException} — a transient visibility race during the
-     *       first concurrent extension setup, where one thread's bootstrap commit hasn't fully
-     *       propagated by the time another thread connects to {@code /__SYS}. The committed
-     *       state catches up within a few milliseconds, so the small retry loop covers it.
-     * </ul>
-     * Walks the exception causal chain so wrapped variants (e.g. {@code ContextualSQLException}
-     * wrapping a {@code RelationalException} wrapping a {@code RecordCoreException}) are caught.
-     */
-    private static boolean isRetriable(@Nonnull final Throwable t) {
-        Throwable cursor = t;
-        while (cursor != null) {
-            if (cursor instanceof SQLException
-                    && ErrorCode.SERIALIZATION_FAILURE.getErrorCode().equals(((SQLException) cursor).getSQLState())) {
-                return true;
-            }
-            if (cursor instanceof RelationalException
-                    && ((RelationalException) cursor).getErrorCode() == ErrorCode.SERIALIZATION_FAILURE) {
-                return true;
-            }
-            if (cursor instanceof RecordStoreDoesNotExistException) {
-                return true;
-            }
-            cursor = cursor.getCause();
-        }
-        return false;
+        action.run();
     }
 }
