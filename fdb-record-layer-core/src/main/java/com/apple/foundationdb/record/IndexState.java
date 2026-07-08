@@ -68,6 +68,7 @@ public enum IndexState {
      * Similar to {@link #WRITE_ONLY}, but user updates are written
      * to a write pending queue rather than directly into the index.
      * Queries cannot use the index in this state.
+     * This index state is designed to prevent conflicts between the online indexer and user io.
      */
     WRITE_ONLY_WITH_QUEUE(4L, "indexesWriteOnlyWithQueue");
 

@@ -119,9 +119,9 @@ public class PendingWriteQueueDrainer {
     private FDBStoredRecord<Message> deserialize(final FDBRecordStore store, final ByteString serialized) {
         final RecordMetaData metaData = store.getRecordMetaData();
         final RecordSerializer<Message> serializer = store.getSerializer();
-        final Message record = serializer.deserialize(metaData, TupleHelpers.EMPTY, serialized.toByteArray(), store.getTimer());
-        final RecordType recordType = metaData.getRecordTypeForDescriptor(record.getDescriptorForType());
-        final FDBStoredRecordBuilder<Message> builder = FDBStoredRecord.newBuilder(record).setRecordType(recordType);
+        final Message rec = serializer.deserialize(metaData, TupleHelpers.EMPTY, serialized.toByteArray(), store.getTimer());
+        final RecordType recordType = metaData.getRecordTypeForDescriptor(rec.getDescriptorForType());
+        final FDBStoredRecordBuilder<Message> builder = FDBStoredRecord.newBuilder(rec).setRecordType(recordType);
         builder.setPrimaryKey(recordType.getPrimaryKey().evaluateSingleton(builder).toTuple());
         return builder.build();
     }

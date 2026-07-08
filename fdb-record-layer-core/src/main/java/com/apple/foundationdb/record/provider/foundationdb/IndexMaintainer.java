@@ -35,6 +35,7 @@ import com.apple.foundationdb.record.metadata.IndexAggregateFunction;
 import com.apple.foundationdb.record.metadata.IndexRecordFunction;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.InvalidIndexEntry;
+import com.apple.foundationdb.record.provider.foundationdb.queue.PendingWritesQueue;
 import com.apple.foundationdb.record.query.QueryToKeyMatcher;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
@@ -164,6 +165,8 @@ public abstract class IndexMaintainer {
      * @param newRecord the new record or <code>null</code> if an old record is being deleted
      * @param <M> type of message
      * @return a future that is complete when the index update is done
+     * @throws PendingWritesQueue.PendingWritesQueueTooLargeException via the returned future if the queue is
+     * oversized. TODO: eliminate this potential exception
      */
     @Nonnull
     public abstract <M extends Message> CompletableFuture<Void> updateWhileWriteOnlyWithQueue(@Nullable FDBIndexableRecord<M> oldRecord,

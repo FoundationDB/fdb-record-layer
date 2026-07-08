@@ -130,6 +130,7 @@ import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.lessThanOrEqualTo;
 import static org.hamcrest.Matchers.not;
+import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.oneOf;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -984,6 +985,13 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
                     .setRecNo(1066L)
                     .setNumValue3Indexed(42)
                     .build());
+
+            // The saved record's update should have been enqueued rather than written directly.
+            final Long queueSize = PendingWriteQueueIndexingFactory.getIndexingQueue(recordStore, standardIndex)
+                    .getQueueSizeNoConflict(context).join();
+            assertThat(queueSize, is(notNullValue()));
+            assertThat(queueSize, is(greaterThan(0L)));
+
             commit(context);
         }
     }

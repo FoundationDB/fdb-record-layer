@@ -358,8 +358,9 @@ public abstract class IndexingBase {
                         }
                         return AsyncUtil.READY_FALSE; // ignored
                     }
-                    if (findException(ex, PendingWriteQueueNotEmptyWhileMarkingReadable.class) != null
-                            && attemptsRemaining > 1) {
+                    if (attemptsRemaining > 1 &&
+                            (findException(ex, PendingWriteQueueNotEmptyWhileMarkingReadable.class) != null ||
+                                     findException(ex, FDBExceptions.FDBStoreTransactionConflictException.class) != null)) {
                         // A non-empty queue is a race with concurrent writers: re-drain and try again.
                         if (LOGGER.isInfoEnabled()) {
                             LOGGER.info(KeyValueLogMessage.of("Pending write queue not empty while marking readable, retrying",

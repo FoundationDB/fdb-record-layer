@@ -228,15 +228,20 @@ class OnlineIndexerPendingWriteQueueTest extends OnlineIndexerTest {
 
         final int updatedRecNo = 4; // within the range indexed by the first pass
         final int newNumValue2 = 123_456;
+        final FDBStoreTimer writeTimer = new FDBStoreTimer();
         buildIndexPausingOnceForWrites(
                 queueIndexerBuilder(index, List.of(index)),
                 () -> {
-                    try (FDBRecordContext context = openContext()) {
-                        saveSimpleRecord(recordStore, updatedRecNo, newNumValue2);
+                    try (FDBRecordContext context = fdb.openContext(null, writeTimer)) {
+                        final FDBRecordStore store = createStoreBuilder().setContext(context)
+                                .createOrOpen(FDBRecordStoreBase.StoreExistenceCheck.NONE);
+                        saveSimpleRecord(store, updatedRecNo, newNumValue2);
                         context.commit();
                     }
                 });
 
+        // The update should have been enqueued rather than written directly to the index.
+        assertEquals(1, writeTimer.getCount(FDBStoreTimer.Counts.PENDING_WRITES_QUEUE_WRITE));
         assertReadable(index);
         assertEquals(numInitialRecords, indexEntryCount(index));
         assertEquals(List.of((long)updatedRecNo), indexPrimaryKeysForValue(index, newNumValue2));

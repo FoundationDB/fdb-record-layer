@@ -430,7 +430,7 @@ public class OnlineIndexerMergeTest extends FDBRecordStoreConcurrentTestBase {
                 @Nonnull
                 @Override
                 public <M extends Message> CompletableFuture<Void> updateWhileWriteOnlyWithQueue(@Nullable final FDBIndexableRecord<M> oldRecord, @Nullable final FDBIndexableRecord<M> newRecord) {
-                    return updateWhileWriteOnly(oldRecord, newRecord);
+                    throw new UnsupportedOperationException();
                 }
 
                 @Nonnull
