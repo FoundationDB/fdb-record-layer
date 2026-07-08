@@ -19,6 +19,7 @@
  */
 
 import java.security.MessageDigest
+import groovy.json.JsonOutput
 
 /**
  * Build configuration specially for the root project only.
@@ -66,6 +67,57 @@ task checksumsVerify {
         }
         if (!failed.empty) {
             throw new RuntimeException("Some MD5 sums failed to verify: " + failed)
+        }
+    }
+}
+
+// Computes, for every subproject, the full set of subprojects that would be affected by a
+// change to it -- itself plus every (transitive) dependent -- and emits the result as a JSON
+// object mapping subproject name -> sorted list of affected subproject names. This reads
+// Gradle's own configured model and then recursively explores the graph. Used by CI (see
+// .github/workflows/pull_request.yml) to determine which subprojects are affected by a PR's
+// changes, so that expensive test jobs can be skipped for unaffected subprojects.
+tasks.register('printDependentSubprojects') {
+    doLast {
+        // Direct forward graph: subproject name -> set of subproject names it depends on.
+        def forward = subprojects.collectEntries { sp ->
+            def deps = new TreeSet<String>()
+            sp.configurations.each { cfg ->
+                cfg.dependencies.withType(ProjectDependency).each { dep ->
+                    deps.add(dep.path.replaceFirst(/^:/, ''))
+                }
+            }
+            [sp.name, deps]
+        }
+
+        // Reverse graph: subproject name -> set of subprojects that directly depend on it.
+        def reverse = forward.keySet().collectEntries { [it, new TreeSet<String>()] }
+        forward.each { name, deps ->
+            deps.each { dep -> reverse[dep]?.add(name) }
+        }
+
+        // For each subproject, BFS over the reverse graph to find its full transitive impact
+        // set: itself, plus everything that (transitively) depends on it.
+        def affected = forward.keySet().collectEntries { subproject ->
+            def seen = new TreeSet<String>([subproject])
+            Queue<String> queue = new LinkedList<String>([subproject])
+            while (!queue.isEmpty()) {
+                def current = queue.poll()
+                reverse[current]?.each { dependent ->
+                    if (seen.add(dependent)) {
+                        queue.add(dependent)
+                    }
+                }
+            }
+            [subproject, seen.toList()]
+        }
+
+        def json = JsonOutput.toJson(affected)
+        def outputPath = findProperty('subprojectDeps.output')
+        if (outputPath) {
+            file(outputPath).text = json
+        } else {
+            println json
         }
     }
 }

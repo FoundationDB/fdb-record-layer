@@ -12,12 +12,20 @@ jobs:
   #  1. style: Runs all checks on the build (including compilation static analysis) except the tests
   #     This allows us to catch anything related to build and style faster, as we don't have to wait
   #     on tests to complete. It also allows the test jobs to continue even if there's a style failure.
-  #  2. tests: Runs the tests for a subset of subprojects in parallel. These are the most intensive
+  #  2. plan: Computes which subprojects (and their transitive dependents) are affected by this PR's
+  #     changed files, using the subproject dependency graph exposed by the printDependentSubprojects
+  #     Gradle task. This lets jobs 3 and 4 skip subprojects that can't have been affected by the
+  #     diff, since those are the most expensive jobs in this workflow.
+  #  3. tests: Runs the tests for a subset of subprojects in parallel. These are the most intensive
   #     subprojects, so separating them out allows us to run those parts of the build in parallel, and
   #     it also allows us to ensure they get run even if there are failures in other subprojects,
-  #     giving us more insight into the types of test failures that a PR might have induced.
-  #  3. other-tests: Runs the rest of the tests. This tests all the remaining subprojects.
-  #  4. coverage: Merges the JaCoCo output of 2 and 3 and generates reports.
+  #     giving us more insight into the types of test failures that a PR might have induced. The
+  #     matrix is narrowed to the subprojects the `plan` job determined are affected; the whole job
+  #     is skipped if none of them are.
+  #  4. other-tests: Runs the rest of the tests. This tests all the remaining subprojects. Skipped
+  #     entirely if the `plan` job determined none of these subprojects are affected.
+  #  5. coverage: Merges the JaCoCo output of 3 and 4 and generates reports. Tolerates 3 and/or 4
+  #     having been skipped or having skipped some matrix legs.
 
   style:
     runs-on: ubuntu-latest
@@ -36,10 +44,65 @@ jobs:
         with:
           gradle_command: build -x test -x destructiveTest -x scalarFallbackTest -PreleaseBuild=false -PpublishBuild=false -PspotbugsEnableHtmlReport
 
+  plan:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    timeout-minutes: 5
+    outputs:
+      run_all: ${{ steps.plan.outputs.run_all }}
+      affected: ${{ steps.plan.outputs.affected }}
+      matrix: ${{ steps.plan.outputs.matrix }}
+      run_other_tests: ${{ steps.plan.outputs.run_other_tests }}
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Setup Base Environment
+        uses: ./actions/setup-base-env
+      - name: Get Changed Files
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh pr diff ${{ github.event.pull_request.number }} --name-only | tee changed_files.txt
+      - name: Get subproject dependency graph
+        uses: ./actions/run-gradle
+        with:
+          gradle_command: printDependentSubprojects -PsubprojectDeps.output=subproject_deps.json
+      - name: Compute plan
+        id: plan
+        env:
+          # The subset of subprojects with their own `tests` matrix entry below. This is the
+          # one place that knowledge lives -- neither the Gradle task nor affected_subprojects.py
+          # need to know it. Keep in sync with the `tests` job's matrix list.
+          MATRIX_CANDIDATES: '["fdb-extensions","fdb-record-layer-core","fdb-record-layer-lucene","yaml-tests"]'
+        run: |
+          PLAN_JSON=$(python3 build/affected_subprojects.py subproject_deps.json \
+            --changed-files-file changed_files.txt)
+          echo "$PLAN_JSON"
+          echo "run_all=$(jq -r '.run_all' <<< "$PLAN_JSON")" >> "$GITHUB_OUTPUT"
+          echo "affected=$(jq -c '.affected' <<< "$PLAN_JSON")" >> "$GITHUB_OUTPUT"
+          echo "matrix=$(jq -cn --argjson candidates "$MATRIX_CANDIDATES" --argjson plan "$PLAN_JSON" \
+            'if $plan.run_all then $candidates else ($candidates - ($candidates - $plan.affected)) end')" >> "$GITHUB_OUTPUT"
+          echo "run_other_tests=$(jq -cn --argjson candidates "$MATRIX_CANDIDATES" --argjson plan "$PLAN_JSON" \
+            'if $plan.run_all then true else (($plan.affected - $candidates) | length) > 0 end')" >> "$GITHUB_OUTPUT"
+      - name: Summarize plan
+        run: |
+          echo "### CI Plan" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "Based on the set of changed files, the following test plan made:" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Affected subprojects: `${{ steps.plan.outputs.affected }}`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Subprojects to test in individual jobs: `${{ steps.plan.outputs.matrix }}`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Remaining subprojects tested in a combined job: `${{ steps.plan.outputs.run_other_tests }}`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- All tests need to be run: `${{ steps.plan.outputs.run_all }}`" >> "$GITHUB_STEP_SUMMARY"
+
   tests:
+    needs: plan
+    if: needs.plan.outputs.matrix != '[]'
     strategy:
       matrix:
-        subproject: [fdb-extensions, fdb-record-layer-core, fdb-record-layer-lucene, yaml-tests]
+        subproject: ${{ fromJSON(needs.plan.outputs.matrix) }}
         # fdb-extensions also runs its scalar-fallback test task here (not in the style job, which
         # is test-free) so its JaCoCo execution data is produced alongside the other test tasks and
         # picked up by the coverage-data upload below. matrix.extra_tasks is unset (empty) for the
@@ -77,6 +140,8 @@ jobs:
           retention-days: 1
 
   other-tests:
+    needs: plan
+    if: needs.plan.outputs.run_other_tests == 'true'
     runs-on: ubuntu-latest
     permissions:
       checks: write
@@ -118,7 +183,12 @@ jobs:
           retention-days: 1
 
   coverage:
-    needs: [tests, other-tests]
+    needs: [plan, tests, other-tests]
+    if: >-
+      always() &&
+      needs.plan.result == 'success' &&
+      (needs.tests.result == 'success' || needs.tests.result == 'skipped') &&
+      (needs.other-tests.result == 'success' || needs.other-tests.result == 'skipped')
     runs-on: ubuntu-latest
     permissions:
       checks: write
@@ -137,22 +207,27 @@ jobs:
       # It looks like, if you try to download them all as a pattern, the nested directories get stripped
       # so the coverage data (for e.g. lucene) does not end up in the appropirate subproject directory
       - name: 'Download lucene'
+        if: contains(fromJSON(needs.plan.outputs.matrix), 'fdb-record-layer-lucene')
         uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3 # v8.0.0
         with:
           name: fdb-record-layer-lucene-coverage-data
       - name: 'Download extensions'
+        if: contains(fromJSON(needs.plan.outputs.matrix), 'fdb-extensions')
         uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3 # v8.0.0
         with:
           name: fdb-extensions-coverage-data
       - name: 'Download core'
+        if: contains(fromJSON(needs.plan.outputs.matrix), 'fdb-record-layer-core')
         uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3 # v8.0.0
         with:
           name: fdb-record-layer-core-coverage-data
       - name: 'Download yaml'
+        if: contains(fromJSON(needs.plan.outputs.matrix), 'yaml-tests')
         uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3 # v8.0.0
         with:
           name: yaml-tests-coverage-data
       - name: 'Download other'
+        if: needs.plan.outputs.run_other_tests == 'true'
         uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3 # v8.0.0
         with:
           name: other-coverage-data
@@ -166,6 +241,13 @@ jobs:
           name: coverage-report
           path: |
             ${{ github.workspace }}/.out/reports/jacoco/codeCoverageReport/
+      - name: Note Skipped Subprojects
+        if: needs.plan.outputs.run_all != 'true'
+        env:
+          AFFECTED_SUBPROJECTS: ${{ needs.plan.outputs.affected }}
+        run: |
+          echo "### Coverage Note" >> "$GITHUB_STEP_SUMMARY"
+          echo "Only subprojects affected by this PR's diff were tested this run: ${AFFECTED_SUBPROJECTS}" >> "$GITHUB_STEP_SUMMARY"
       - name: Get PR Diff
         run: |
           # `gh pr diff` uses the GitHub API .diff media type, which returns HTTP 406 once the diff exceeds
