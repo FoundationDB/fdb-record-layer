@@ -108,6 +108,14 @@ public class YamlTestExtension implements TestTemplateInvocationContextProvider,
 
     @Override
     public void beforeAll(final ExtensionContext context) throws Exception {
+        // Proactively initialise the SYS catalog on every cluster this extension will use,
+        // BEFORE any config's beforeAll spins up an FRL / EmbeddedRelationalDriver / external
+        // server. Running it here means the catalog is either already-created (this call) or
+        // being created by us (retry-safe) — sibling FRLs constructed later in the various
+        // configs (embedded / JDBC in-process / external subprocesses) all open an existing
+        // store and skip the racing init-commit path that we previously worked around with
+        // per-operation locks. See YamlTestCatalogInitializer for the details.
+        YamlTestCatalogInitializer.initializeCatalog(clusterFiles);
         maintainConfigs = List.of(
                 new CorrectExplains(new EmbeddedConfig(clusterFiles)),
                 new CorrectMetrics(new EmbeddedConfig(clusterFiles)),
