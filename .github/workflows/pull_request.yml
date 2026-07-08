@@ -103,13 +103,6 @@ jobs:
     strategy:
       matrix:
         subproject: ${{ fromJSON(needs.plan.outputs.matrix) }}
-        # fdb-extensions also runs its scalar-fallback test task here (not in the style job, which
-        # is test-free) so its JaCoCo execution data is produced alongside the other test tasks and
-        # picked up by the coverage-data upload below. matrix.extra_tasks is unset (empty) for the
-        # other subprojects.
-        include:
-          - subproject: fdb-extensions
-            extra_tasks: ':fdb-extensions:scalarFallbackTest'
     runs-on: ubuntu-latest
     permissions:
       checks: write
@@ -123,10 +116,20 @@ jobs:
         uses: ./actions/setup-base-env
       - name: Setup FDB
         uses: ./actions/setup-fdb
+      - name: Compute extra tasks
+        id: extra_tasks
+        run: |
+          # fdb-extensions also runs its scalar-fallback test task here (not in the style job, which
+          # is test-free) so its JaCoCo execution data is produced alongside the other test tasks and
+          # picked up by the coverage-data upload below. matrix.extra_tasks is unset (empty) for the
+          # other subprojects.
+          if [[ ${{ matrix.subproject }} == 'fdb-extensions' ]] ; then
+            echo "task=:fdb-extensions:scalarFallbackTest" >> "$GITHUB_OUTPUT"
+          fi
       - name: Run Gradle Test
         uses: ./actions/gradle-test
         with:
-          gradle_command: :${{ matrix.subproject }}:jar :${{ matrix.subproject }}:test :${{ matrix.subproject }}:destructiveTest ${{ matrix.extra_tasks }}
+          gradle_command: :${{ matrix.subproject }}:jar :${{ matrix.subproject }}:test :${{ matrix.subproject }}:destructiveTest ${{ steps.extra_tasks.task }}
           gradle_args: -PreleaseBuild=false -PpublishBuild=false
           report_name: ${{ matrix.subproject }}-test-reports
       - name: Publish Coverage Data
