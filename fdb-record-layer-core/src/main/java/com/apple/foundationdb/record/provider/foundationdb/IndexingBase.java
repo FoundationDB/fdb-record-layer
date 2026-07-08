@@ -322,7 +322,7 @@ public abstract class IndexingBase {
         // Mark each index readable in its own (retriable, parallel) transaction. If one target fails to become
         // readable, it should not affect the others.
         return forEachTargetIndex(index ->
-                markIndexReadableForIndex(index, anythingChanged, runtimeExceptionAtomicReference)
+                markIndexReadableForIndex(index, anythingChanged, runtimeExceptionAtomicReference, policy.getPendingWriteQueueIndexesMaxDrainAttempts())
         ).thenApply(ignore -> {
             RuntimeException ex = runtimeExceptionAtomicReference.get();
             if (ex != null) {
@@ -334,7 +334,8 @@ public abstract class IndexingBase {
     }
 
     private CompletableFuture<Boolean> markIndexReadableForIndex(Index index, AtomicBoolean anythingChanged,
-                                                                 AtomicReference<RuntimeException> runtimeExceptionAtomicReference) {
+                                                                 AtomicReference<RuntimeException> runtimeExceptionAtomicReference,
+                                                                 long attemptsRemaining) {
         return drainPendingQueueIfNeeded(index)
                 .thenCompose(ignore -> getRunner().runAsync(context ->
                         common.getRecordStoreBuilder().copyBuilder().setContext(context).openAsync()
@@ -355,12 +356,24 @@ public abstract class IndexingBase {
                         if (Boolean.TRUE.equals(changed)) {
                             anythingChanged.set(true);
                         }
-                        return changed; // ignored
+                        return AsyncUtil.READY_FALSE; // ignored
+                    }
+                    if (findException(ex, PendingWriteQueueNotEmptyWhileMarkingReadable.class) != null
+                            && attemptsRemaining > 1) {
+                        // A non-empty queue is a race with concurrent writers: re-drain and try again.
+                        if (LOGGER.isInfoEnabled()) {
+                            LOGGER.info(KeyValueLogMessage.of("Pending write queue not empty while marking readable, retrying",
+                                    LogMessageKeys.INDEX_NAME, index.getName(),
+                                    LogMessageKeys.REMAINING_ATTEMPTS, attemptsRemaining));
+                        }
+                        return markIndexReadableForIndex(index, anythingChanged,
+                                runtimeExceptionAtomicReference, attemptsRemaining - 1);
                     }
                     // Note: in case of multiple violations, an arbitrary one is thrown.
                     runtimeExceptionAtomicReference.set((RuntimeException)ex);
-                    return false;
-                });
+                    return AsyncUtil.READY_FALSE;
+                })
+                .thenCompose(Function.identity());
     }
 
     @Nonnull
