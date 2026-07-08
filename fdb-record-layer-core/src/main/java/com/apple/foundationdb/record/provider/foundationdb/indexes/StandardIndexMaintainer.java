@@ -31,7 +31,6 @@ import com.apple.foundationdb.async.MoreAsyncUtil;
 import com.apple.foundationdb.record.CursorStreamingMode;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
-import com.apple.foundationdb.record.IndexBuildProto;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.IsolationLevel;
@@ -52,7 +51,6 @@ import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyWithValueExpression;
-import com.apple.foundationdb.record.provider.common.RecordSerializer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBExceptions;
 import com.apple.foundationdb.record.provider.foundationdb.FDBIndexableRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBIndexedRawRecord;
@@ -70,14 +68,12 @@ import com.apple.foundationdb.record.provider.foundationdb.IndexScanRange;
 import com.apple.foundationdb.record.provider.foundationdb.KeyValueCursor;
 import com.apple.foundationdb.record.provider.foundationdb.PendingWriteQueueIndexingFactory;
 import com.apple.foundationdb.record.provider.foundationdb.indexing.IndexingRangeSet;
-import com.apple.foundationdb.record.provider.foundationdb.queue.PendingWritesQueue;
 import com.apple.foundationdb.record.query.QueryToKeyMatcher;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.TupleHelpers;
 import com.google.common.base.Verify;
-import com.google.protobuf.ByteString;
 import com.google.protobuf.Message;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -343,25 +339,7 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
             // had generated an "already indexed" source index key, the other one should be converted to a null in the queue).
             // This, however can be done at a later step.
         }
-        final RecordSerializer<Message> serializer = state.store.getSerializer();
-        final IndexBuildProto.PendingWritesQueueEntry.Builder builder = IndexBuildProto.PendingWritesQueueEntry.newBuilder();
-        if (oldRecord != null) {
-            builder.setOldRecords(serializeRecord(oldRecord, serializer));
-        }
-        if (newRecord != null) {
-            builder.setNewRecord(serializeRecord(newRecord, serializer));
-        }
-        return getQueue().enqueue(state.context, builder.build(), state.store.getIncarnation());
-    }
-
-    @Nonnull
-    private PendingWritesQueue<IndexBuildProto.PendingWritesQueueEntry> getQueue() {
-        return PendingWriteQueueIndexingFactory.getIndexingQueue(state.store, state.index);
-    }
-
-    @Nonnull
-    private <M extends Message> ByteString serializeRecord(@Nonnull final FDBIndexableRecord<M> indexableRecord, final RecordSerializer<Message> serializer) {
-        return ByteString.copyFrom(serializer.serialize(state.store.getRecordMetaData(), indexableRecord.getRecordType(), indexableRecord.getRecord(), state.store.getTimer()));
+        return PendingWriteQueueIndexingFactory.enqueueOldAndNewRecords(state.store, state.index, oldRecord, newRecord);
     }
 
     @Nullable

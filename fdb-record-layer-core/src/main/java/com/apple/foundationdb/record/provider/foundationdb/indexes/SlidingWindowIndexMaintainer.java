@@ -53,6 +53,7 @@ import com.apple.foundationdb.record.provider.foundationdb.IndexOperationResult;
 import com.apple.foundationdb.record.provider.foundationdb.IndexOperation;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanBounds;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
+import com.apple.foundationdb.record.provider.foundationdb.PendingWriteQueueIndexingFactory;
 import com.apple.foundationdb.record.query.QueryToKeyMatcher;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
@@ -97,7 +98,7 @@ import java.util.concurrent.CompletableFuture;
  * partition group from the sliding window subspace and delegates to the inner index.</p>
  */
 @API(API.Status.EXPERIMENTAL)
-public class SlidingWindowIndexMaintainer extends StandardIndexMaintainer {
+public class SlidingWindowIndexMaintainer extends IndexMaintainer {
 
     protected enum Type {
         MIN(Comparator.naturalOrder()),
@@ -417,6 +418,12 @@ public class SlidingWindowIndexMaintainer extends StandardIndexMaintainer {
         }
         update(newRecord, null);
         return update(oldRecord, newRecord);
+    }
+
+    @Nonnull
+    @Override
+    public <M extends Message> CompletableFuture<Void> updateWhileWriteOnlyWithQueue(@Nullable final FDBIndexableRecord<M> oldRecord, @Nullable final FDBIndexableRecord<M> newRecord) {
+        return PendingWriteQueueIndexingFactory.enqueueOldAndNewRecords(state.store, state.index, oldRecord, newRecord);
     }
 
     /**

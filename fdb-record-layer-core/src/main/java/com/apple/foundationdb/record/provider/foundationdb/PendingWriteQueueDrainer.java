@@ -96,11 +96,10 @@ public class PendingWriteQueueDrainer {
             return AsyncUtil.DONE;
         }
         final IndexBuildProto.PendingWritesQueueEntry payload = entry.getPayload();
-        final IndexMaintainer maintainer = store.getIndexMaintainer(index);
-        final FDBStoredRecord<Message> oldRecord = payload.hasOldRecords() ? deserialize(store, payload.getOldRecords()) : null;
-        final FDBStoredRecord<Message> newRecord = payload.hasNewRecord() ? deserialize(store, payload.getNewRecord()) : null;
-        return maintainer
-                .updateWhileWriteOnly(oldRecord, newRecord)
+        return store.getIndexMaintainer(index)
+                .updateWhileWriteOnly(
+                        PendingWriteQueueIndexingFactory.getOldRecord(store, payload),
+                        PendingWriteQueueIndexingFactory.getNewRecord(store, payload))
                 .thenAccept(ignore ->
                         // The queue items deletes count in a single throttled transaction is unlimited (at least for now).
                         getQueue(store).clearEntry(store.getContext(), entry));
@@ -109,21 +108,6 @@ public class PendingWriteQueueDrainer {
     @Nonnull
     private PendingWritesQueue<IndexBuildProto.PendingWritesQueueEntry> getQueue(final FDBRecordStore store) {
         return PendingWriteQueueIndexingFactory.getIndexingQueue(store, index);
-    }
-
-    /**
-     * Rebuild a stored record from its serialized payload. The queue holds only the record bytes, so the primary key is
-     * recomputed from the record's metadata, mirroring {@link FDBRecordStore#saveTypedRecord}.
-     */
-    @Nonnull
-    private FDBStoredRecord<Message> deserialize(final FDBRecordStore store, final ByteString serialized) {
-        final RecordMetaData metaData = store.getRecordMetaData();
-        final RecordSerializer<Message> serializer = store.getSerializer();
-        final Message rec = serializer.deserialize(metaData, TupleHelpers.EMPTY, serialized.toByteArray(), store.getTimer());
-        final RecordType recordType = metaData.getRecordTypeForDescriptor(rec.getDescriptorForType());
-        final FDBStoredRecordBuilder<Message> builder = FDBStoredRecord.newBuilder(rec).setRecordType(recordType);
-        builder.setPrimaryKey(recordType.getPrimaryKey().evaluateSingleton(builder).toTuple());
-        return builder.build();
     }
 
     /**
