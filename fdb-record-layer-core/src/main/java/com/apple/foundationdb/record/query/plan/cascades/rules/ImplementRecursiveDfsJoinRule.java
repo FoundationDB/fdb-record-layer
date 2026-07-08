@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.cascades.rules;
 
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.query.plan.cascades.AbstractCascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.ImplementationCascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.ImplementationCascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.PlanPartition;
@@ -63,7 +64,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.SetMatcher.exactlyInAnyOrder;
 
 @SuppressWarnings("PMD.TooManyStaticImports")
-public class ImplementRecursiveDfsJoinRule extends ImplementationCascadesRule<RecursiveUnionExpression> {
+public class ImplementRecursiveDfsJoinRule extends AbstractCascadesRule<RecursiveUnionExpression> implements ImplementationCascadesRule<RecursiveUnionExpression> {
 
     @Nonnull
     private static final BindingMatcher<RecordQueryPlan> initialInnerPlanMatcher = anyPlan();

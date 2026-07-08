@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.cascades.rules;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.query.plan.cascades.AbstractCascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.ImplementationCascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.ImplementationCascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
@@ -84,7 +85,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
-public class PushTypeFilterBelowFilterRule extends ImplementationCascadesRule<RecordQueryTypeFilterPlan> {
+public class PushTypeFilterBelowFilterRule extends AbstractCascadesRule<RecordQueryTypeFilterPlan> implements ImplementationCascadesRule<RecordQueryTypeFilterPlan> {
     private static final BindingMatcher<? extends Reference> innerMatcher = anyRefOverOnlyPlans();
     private static final BindingMatcher<Quantifier.Physical> qunMatcher = physicalQuantifierOverRef(innerMatcher);
     private static final BindingMatcher<QueryPredicate> predMatcher = anyPredicate();

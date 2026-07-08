@@ -92,7 +92,7 @@ import java.util.function.Supplier;
  * </p>
  *
  * <p>
- * Like many optimization frameworks, Cascades is driven by sets of {@link CascadesRule}s that can be defined for
+ * Like many optimization frameworks, Cascades is driven by sets of {@link AbstractCascadesRule}s that can be defined for
  * {@link RelationalExpression}s, {@link PartialMatch}es and {@link MatchPartition}s, each of which describes a
  * particular transformation and encapsulates the logic for determining its applicability and applying it. The planner
  * searches through its {@link PlanningRuleSet} to find a matching rule and then executes that rule, creating zero or
@@ -105,7 +105,7 @@ import java.util.function.Supplier;
  *         of the current planner expression, the current partial match, or the current match partition.
  *     </li>
  *     <li>
- *         A {@link CascadesRule#onMatch(CascadesRuleCall)} method that is run for each successful match, producing zero
+ *         A {@link AbstractCascadesRule#onMatch(PlannerRuleCall)} method that is run for each successful match, producing zero
  *         or more new expressions and/or zero or more new partial matches.
  *     </li>
  * </ul>
@@ -210,7 +210,7 @@ import java.util.function.Supplier;
  *
  * @see Reference
  * @see RelationalExpression
- * @see CascadesRule
+ * @see AbstractCascadesRule
  * @see CascadesCostModel
  */
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
@@ -857,7 +857,7 @@ public class CascadesPlanner implements QueryPlanner {
             taskStack.push(new TransformExpression(getPlannerPhase(), getGroup(), getExpression(), rule));
         }
 
-        private void pushTransformMatchPartition(CascadesRule<? extends MatchPartition> rule) {
+        private void pushTransformMatchPartition(AbstractCascadesRule<? extends MatchPartition> rule) {
             taskStack.push(new TransformMatchPartition(getPlannerPhase(), getGroup(), getExpression(), rule));
         }
 
@@ -1147,7 +1147,7 @@ public class CascadesPlanner implements QueryPlanner {
         public TransformMatchPartition(@Nonnull final PlannerPhase plannerPhase,
                                        @Nonnull final Reference group,
                                        @Nonnull final RelationalExpression expression,
-                                       @Nonnull final CascadesRule<? extends MatchPartition> rule) {
+                                       @Nonnull final AbstractCascadesRule<? extends MatchPartition> rule) {
             super(plannerPhase, group, expression, rule);
             this.matchPartitionSupplier = Suppliers.memoize(() -> MatchPartition.of(group, expression));
         }
@@ -1170,7 +1170,7 @@ public class CascadesPlanner implements QueryPlanner {
                                      @Nonnull final Reference group,
                                      @Nonnull final RelationalExpression expression,
                                      @Nonnull final PartialMatch partialMatch,
-                                     @Nonnull final CascadesRule<? extends PartialMatch> rule) {
+                                     @Nonnull final AbstractCascadesRule<? extends PartialMatch> rule) {
             super(plannerPhase, group, expression, rule);
             this.partialMatch = partialMatch;
         }
