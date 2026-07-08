@@ -98,12 +98,15 @@ public class DdlRecordLayerSchemaTest {
             }
         });
 
-        //now create a new schema in the same db but using a different connection
+        //now create a new schema in the same db but using a different connection.
+        // Use a random-per-invocation template name so this test doesn't clash with a prior
+        // run's leftover FOO template in the shared catalog — the test never drops it.
+        final String templateName = "FOO_" + Long.toHexString(java.util.concurrent.ThreadLocalRandom.current().nextLong()).toUpperCase();
         try (final var conn = relational.getDriver().connect(URI.create("jdbc:embed:" + db.getDbUri()))) {
             conn.setSchema("TEST_SCHEMA");
             try (Statement statement = conn.createStatement()) {
                 //create a schema
-                final String createStatement = "CREATE SCHEMA TEMPLATE FOO CREATE TABLE T(A string, B string, PRIMARY KEY (A))";
+                final String createStatement = "CREATE SCHEMA TEMPLATE " + templateName + " CREATE TABLE T(A string, B string, PRIMARY KEY (A))";
                 statement.executeUpdate(createStatement);
             }
         }

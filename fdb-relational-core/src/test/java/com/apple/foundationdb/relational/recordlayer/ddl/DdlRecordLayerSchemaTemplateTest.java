@@ -60,8 +60,19 @@ public class DdlRecordLayerSchemaTemplateTest {
     @RegisterExtension
     public static final EmbeddedRelationalExtension relational = new EmbeddedRelationalExtension();
 
+    // Suffix added to every schema-template name this class creates. The catalog is
+    // physically shared across every test run against this FDB cluster, and the tests
+    // in this class historically never dropped the templates they created — so a second
+    // run against the same cluster would fail with "Schema template already exists".
+    // Randomising the suffix per JVM makes each test's template name unique, so a
+    // previous run's leftovers don't collide with this one, and two concurrent JVMs
+    // running this class don't collide either. The suffix is uppercased because SQL
+    // uppercases unquoted identifiers, and describeSchemaTemplate checks the returned
+    // template name for exact equality.
+    private static final String NAME_SUFFIX = "_" + Long.toHexString(ThreadLocalRandom.current().nextLong()).toUpperCase();
+
     public static Stream<Arguments> columnTypePermutations() {
-        return DdlPermutationGenerator.generateTables("SCHEMA_TEMPLATE_TEST", 2)
+        return DdlPermutationGenerator.generateTables("SCHEMA_TEMPLATE_TEST" + NAME_SUFFIX + "_", 2)
                 .map(Arguments::of);
     }
 
@@ -86,7 +97,8 @@ public class DdlRecordLayerSchemaTemplateTest {
 
     @Test
     void canDropSchemaTemplates() throws Exception {
-        String createColumnStatement = "CREATE SCHEMA TEMPLATE drop_template " +
+        final String templateName = "drop_template" + NAME_SUFFIX;
+        String createColumnStatement = "CREATE SCHEMA TEMPLATE " + templateName + " " +
                 "CREATE TYPE AS STRUCT FOO_TYPE (a bigint)" +
                 " CREATE TABLE FOO_TBL (b double, PRIMARY KEY(b))";
 
@@ -94,16 +106,16 @@ public class DdlRecordLayerSchemaTemplateTest {
             statement.executeUpdate(createColumnStatement);
 
             //verify that it's there
-            try (final var rs = statement.executeQuery("DESCRIBE SCHEMA TEMPLATE drop_template")) {
+            try (final var rs = statement.executeQuery("DESCRIBE SCHEMA TEMPLATE " + templateName)) {
                 Assertions.assertTrue(rs.next(), "Didn't find created template!");
-                Assertions.assertEquals("DROP_TEMPLATE", rs.getString(1));
+                Assertions.assertEquals(templateName.toUpperCase(), rs.getString(1));
                 Assertions.assertFalse(rs.next(), "too many schema templates!");
             }
             //now drop it
-            statement.executeUpdate("DROP SCHEMA TEMPLATE drop_template");
+            statement.executeUpdate("DROP SCHEMA TEMPLATE " + templateName);
 
             //verify it's not there, and that means that there is an error trying to describe it
-            SQLException ve = Assertions.assertThrows(SQLException.class, () -> statement.executeQuery("DESCRIBE SCHEMA TEMPLATE drop_template"));
+            SQLException ve = Assertions.assertThrows(SQLException.class, () -> statement.executeQuery("DESCRIBE SCHEMA TEMPLATE " + templateName));
             Assertions.assertEquals(ErrorCode.UNKNOWN_SCHEMA_TEMPLATE.getErrorCode(), ve.getSQLState(), "Incorrect error code");
         });
     }
@@ -169,7 +181,7 @@ public class DdlRecordLayerSchemaTemplateTest {
 
     @Test
     void createSchemaTemplateWithNoTable() throws SQLException, RelationalException {
-        String createColumnStatement = "CREATE SCHEMA TEMPLATE no_table " +
+        String createColumnStatement = "CREATE SCHEMA TEMPLATE no_table" + NAME_SUFFIX + " " +
                 "CREATE TYPE AS STRUCT not_a_table(a bigint)";
 
         run(statement -> RelationalAssertions.assertThrowsSqlException(() -> statement.executeUpdate(createColumnStatement))
@@ -178,7 +190,7 @@ public class DdlRecordLayerSchemaTemplateTest {
 
     @Test
     void cyclicDependencyTest() throws RelationalException, SQLException {
-        String template = "CREATE SCHEMA TEMPLATE cyclic " +
+        String template = "CREATE SCHEMA TEMPLATE cyclic" + NAME_SUFFIX + " " +
                 "CREATE TYPE AS STRUCT s1 (a s2) " +
                 "CREATE TYPE AS STRUCT s2 (a s1) " +
                 "CREATE TABLE t1 (id bigint, a s1, b s2, PRIMARY KEY(id))";
@@ -190,7 +202,8 @@ public class DdlRecordLayerSchemaTemplateTest {
 
     @Test
     void manyStructsThatDoNotDependOnEachOther() throws RelationalException, SQLException {
-        StringBuilder template = new StringBuilder("CREATE SCHEMA TEMPLATE many_structs ");
+        final String templateName = "many_structs" + NAME_SUFFIX;
+        StringBuilder template = new StringBuilder("CREATE SCHEMA TEMPLATE ").append(templateName).append(' ');
         for (int i = 0; i < 100; i++) {
             template.append("CREATE TYPE AS STRUCT s").append(i).append("(a bigint) ");
         }
@@ -202,7 +215,7 @@ public class DdlRecordLayerSchemaTemplateTest {
 
         run(statement -> {
             statement.executeUpdate(template.toString());
-            try (RelationalResultSet resultSet = statement.executeQuery("DESCRIBE SCHEMA TEMPLATE many_structs")) {
+            try (RelationalResultSet resultSet = statement.executeQuery("DESCRIBE SCHEMA TEMPLATE " + templateName)) {
                 ResultSetAssert.assertThat(resultSet).hasNextRow();
                 final var type = resultSet.getArray("TABLES").getResultSet();
                 Assert.that(type.next());
@@ -213,7 +226,7 @@ public class DdlRecordLayerSchemaTemplateTest {
 
     @Test
     void missingTypeTest() throws RelationalException, SQLException {
-        String template = "CREATE SCHEMA TEMPLATE missing_type " +
+        String template = "CREATE SCHEMA TEMPLATE missing_type" + NAME_SUFFIX + " " +
                 "CREATE TABLE t1 (id bigint, val unknown_type, PRIMARY KEY(id))";
 
         run(statement -> RelationalAssertions.assertThrowsSqlException(() -> statement.executeUpdate(template))
@@ -223,7 +236,8 @@ public class DdlRecordLayerSchemaTemplateTest {
 
     @Test
     void basicEnumTest() throws RelationalException, SQLException {
-        String template = "CREATE SCHEMA TEMPLATE basic_enum_template " +
+        final String templateName = "basic_enum_template" + NAME_SUFFIX;
+        String template = "CREATE SCHEMA TEMPLATE " + templateName + " " +
                 "CREATE TYPE AS ENUM basic_enum ('FOO', 'BAR', 'BAZ') " +
                 "CREATE TABLE t1 (id bigint, val basic_enum, PRIMARY KEY(id))";
 
@@ -231,7 +245,7 @@ public class DdlRecordLayerSchemaTemplateTest {
             statement.executeUpdate(template);
 
             //verify that it's there
-            try (ResultSet rs = statement.executeQuery("DESCRIBE SCHEMA TEMPLATE basic_enum_template")) {
+            try (ResultSet rs = statement.executeQuery("DESCRIBE SCHEMA TEMPLATE " + templateName)) {
                 Assertions.assertTrue(rs.next(), "Didn't find created template!");
             }
         });
@@ -239,7 +253,7 @@ public class DdlRecordLayerSchemaTemplateTest {
 
     @Test
     void twoTypesSameNameTest() throws RelationalException, SQLException {
-        String template = "CREATE SCHEMA TEMPLATE same_name " +
+        String template = "CREATE SCHEMA TEMPLATE same_name" + NAME_SUFFIX + " " +
                 "CREATE TABLE t1 (id bigint, foo string, PRIMARY KEY(id)) " +
                 "CREATE TABLE t1 (id bigint, bar string, PRIMARY KEY(id))";
 
@@ -250,7 +264,7 @@ public class DdlRecordLayerSchemaTemplateTest {
 
     @Test
     void twoTypesSameNameMixedCase() throws RelationalException, SQLException {
-        String template = "CREATE SCHEMA TEMPLATE same_name_mixed_case " +
+        String template = "CREATE SCHEMA TEMPLATE same_name_mixed_case" + NAME_SUFFIX + " " +
                 "CREATE TABLE aTypeName (id bigint, foo string, PRIMARY KEY(id)) " +
                 "CREATE TABLE AtYPEnAME (id bigint, bar string, PRIMARY KEY(id))";
 
@@ -261,7 +275,7 @@ public class DdlRecordLayerSchemaTemplateTest {
 
     @Test
     void typeAndEnumSameNameTest() throws RelationalException, SQLException {
-        String template = "CREATE SCHEMA TEMPLATE same_name " +
+        String template = "CREATE SCHEMA TEMPLATE type_and_enum_same_name" + NAME_SUFFIX + " " +
                 "CREATE TABLE foo (id bigint, foo string, PRIMARY KEY(id)) " +
                 "CREATE TYPE AS ENUM foo ('A', 'B', 'C')";
 
@@ -272,7 +286,7 @@ public class DdlRecordLayerSchemaTemplateTest {
 
     @Test
     void notNullNonArrayTypeNotAllowedTest() throws RelationalException, SQLException {
-        String template = "CREATE SCHEMA TEMPLATE not_null_non_array_column_type " +
+        String template = "CREATE SCHEMA TEMPLATE not_null_non_array_column_type" + NAME_SUFFIX + " " +
                 "CREATE TABLE foo (id bigint, foo string not null, PRIMARY KEY(id))";
 
         run(statement -> RelationalAssertions.assertThrowsSqlException(() -> statement.executeUpdate(template))
