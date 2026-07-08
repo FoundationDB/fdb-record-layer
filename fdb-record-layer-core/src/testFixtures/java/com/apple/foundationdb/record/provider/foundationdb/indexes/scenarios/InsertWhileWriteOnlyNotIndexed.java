@@ -41,6 +41,7 @@ public class InsertWhileWriteOnlyNotIndexed implements IndexScenario {
         final IndexDefinition definition = definitionFactory.getDefinition(0, null);
         final IndexScenarioModel model = new IndexScenarioModel(definition, openContext, storeBuilder);
         final List<Message> records = definition.generateRecords(10);
+        model.setupIndex();
         model.markIndexDisabled();
         model.markIndexWriteOnly();
 
@@ -54,6 +55,6 @@ public class InsertWhileWriteOnlyNotIndexed implements IndexScenario {
         final List<IndexEntry> actual = model.scanIndex();
         model.markIndexDisabled();
         model.buildIndex();
-        assertEquals(model.scanIndex(), actual);
+        model.assertScanResultsEqual(model.scanIndex(), actual);
     }
 }

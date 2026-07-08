@@ -1,5 +1,5 @@
 /*
- * AtomicMutationIndexDefinitionFactory.java
+ * PermutedMinMaxIndexDefinitionFactory.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -29,10 +29,9 @@ import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.metadata.Index;
-import com.apple.foundationdb.record.metadata.IndexTypes;
+import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.SyntheticRecordType;
-import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanRange;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.scenarios.IndexDefinition;
@@ -40,35 +39,37 @@ import com.apple.foundationdb.record.provider.foundationdb.indexes.scenarios.Ind
 import com.google.protobuf.Message;
 import edu.umd.cs.findbugs.annotations.Nullable;
 
+import java.util.Collections;
 import java.util.List;
-import java.util.Objects;
 import java.util.stream.IntStream;
 
-class AtomicMutationIndexDefinitionFactory implements IndexDefinitionFactory {
+/**
+ * An {@link IndexDefinitionFactory} for the {@code PERMUTED_MIN} / {@code PERMUTED_MAX} index types,
+ * parameterized by the concrete index type. A permuted min/max index requires a grouping prefix
+ * (its {@code permutedSize} must be no larger than the grouping count), so unlike most other index
+ * types it cannot be grouped by an empty expression.
+ */
+class PermutedMinMaxIndexDefinitionFactory implements IndexDefinitionFactory {
     private final String indexType;
 
-    public AtomicMutationIndexDefinitionFactory(final String indexType) {
+    PermutedMinMaxIndexDefinitionFactory(final String indexType) {
         this.indexType = indexType;
     }
 
     @Override
     public IndexDefinition getDefinition(final int groupingLength, @Nullable final Class<? extends SyntheticRecordType<?>> syntheticType) {
         return new IndexDefinition() {
-            String indexName = "myIndex";
+            private final String indexName = "permutedIndex";
 
             @Override
             public RecordMetaData getMetaData() {
                 RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder()
                         .setRecords(TestRecords1Proto.getDescriptor());
-                indexName = "myIndex";
-                final GroupingKeyExpression keyExpression;
-                if (Objects.equals(indexType, IndexTypes.COUNT) || Objects.equals(indexType, IndexTypes.COUNT_UPDATES)) {
-                    keyExpression = Key.Expressions.empty().groupBy(Key.Expressions.empty());
-                } else {
-                    keyExpression = Key.Expressions.field("num_value_2").groupBy(Key.Expressions.empty());
-                }
                 metaDataBuilder.addIndex("MySimpleRecord",
-                        new Index(indexName, keyExpression, indexType));
+                        new Index(indexName,
+                                Key.Expressions.concatenateFields("str_value_indexed", "num_value_2", "num_value_3_indexed").group(1),
+                                indexType,
+                                Collections.singletonMap(IndexOptions.PERMUTED_SIZE_OPTION, "1")));
                 return metaDataBuilder.build();
             }
 
@@ -77,21 +78,22 @@ class AtomicMutationIndexDefinitionFactory implements IndexDefinitionFactory {
                 return IntStream.range(0, count)
                         .mapToObj(i -> (Message)TestRecords1Proto.MySimpleRecord.newBuilder()
                                 .setRecNo(i)
-                                // Don't insert 0
-                                .setNumValue2(3 * i + 1)
+                                .setStrValueIndexed("group")
+                                .setNumValue2(i)
+                                .setNumValue3Indexed(3 * i + 1)
                                 .build())
                         .toList();
             }
 
             @Override
-            public RecordCursor<IndexEntry> scanIndex(final FDBRecordStore store, ScanProperties scanProperties) {
+            public RecordCursor<IndexEntry> scanIndex(final FDBRecordStore store, final ScanProperties scanProperties) {
                 return store.scanIndex(store.getRecordMetaData().getIndex(indexName),
                         new IndexScanRange(IndexScanType.BY_GROUP, TupleRange.ALL), null, scanProperties);
             }
 
             @Override
             public List<Message> generateOtherRecords(final int count) {
-                // MyOtherRecord is not covered by the aggregate index on MySimpleRecord.
+                // MyOtherRecord is not covered by the permuted min/max index on MySimpleRecord.
                 return IntStream.range(0, count)
                         .mapToObj(i -> (Message)TestRecords1Proto.MyOtherRecord.newBuilder()
                                 .setRecNo(1000 + i)

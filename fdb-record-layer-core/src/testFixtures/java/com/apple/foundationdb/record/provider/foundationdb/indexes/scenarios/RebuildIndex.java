@@ -29,8 +29,6 @@ import com.google.protobuf.Message;
 import java.util.List;
 import java.util.function.Supplier;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-
 @AutoService(IndexScenario.class)
 public class RebuildIndex implements IndexScenario {
 
@@ -42,12 +40,13 @@ public class RebuildIndex implements IndexScenario {
         final IndexScenarioModel model = new IndexScenarioModel(definition, openContext, storeBuilder);
         final List<Message> records = definition.generateRecords(10);
 
+        model.setupIndex();
         model.saveRecords(records);
 
         List<IndexEntry> fromScratch = model.scanIndex();
         model.markIndexDisabled();
         model.buildIndex();
         List<IndexEntry> afterRebuild = model.scanIndex();
-        assertEquals(fromScratch, afterRebuild);
+        model.assertScanResultsEqual(fromScratch, afterRebuild);
     }
 }

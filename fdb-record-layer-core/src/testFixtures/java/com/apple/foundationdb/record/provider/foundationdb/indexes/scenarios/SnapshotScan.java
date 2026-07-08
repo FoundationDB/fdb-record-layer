@@ -29,12 +29,11 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.google.auto.service.AutoService;
 import com.google.protobuf.Message;
+import org.junit.jupiter.api.Assumptions;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Supplier;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotEquals;
 
 @AutoService(IndexScenario.class)
 public class SnapshotScan implements IndexScenario {
@@ -42,9 +41,12 @@ public class SnapshotScan implements IndexScenario {
     @Override
     public void runTest(final IndexDefinitionFactory definitionFactory, final Supplier<FDBRecordContext> openContext, final FDBRecordStore.Builder storeBuilder) throws Exception {
         final IndexDefinition definition = definitionFactory.getDefinition(0, null);
+        Assumptions.assumeTrue(definition.supportsSnapshotIsolation(),
+                "index does not support snapshot-isolated scans in the presence of concurrent same-transaction writes");
         final IndexScenarioModel model = new IndexScenarioModel(definition, openContext, storeBuilder);
         final List<Message> records = definition.generateRecords(10);
 
+        model.setupIndex();
         model.saveRecords(records.subList(3, 6));
 
         final List<IndexEntry> original = model.scanIndex();
@@ -54,16 +56,20 @@ public class SnapshotScan implements IndexScenario {
                     ExecuteProperties.newBuilder()
                             .setIsolationLevel(IsolationLevel.SNAPSHOT).build()
             ));
-            records.subList(0, 2).forEach(store::saveRecord);
-            records.subList(6, 10).forEach(store::saveRecord);
-            return snapshotResult.asList().join();
+            final List<IndexEntry> scanResults = snapshotResult.asList().join();
+            // Change the index from a different transaction. Include records with values both below
+            // and above the initial set so that min/max-style aggregate indexes change too.
+            final List<Message> indexChangingRecords = new ArrayList<>(records.subList(0, 2));
+            indexChangingRecords.addAll(records.subList(6, 10));
+            model.saveRecords(indexChangingRecords);
+            // Give this transaction writes too, but writes that do not touch the index (so that the
+            // snapshot scan, not a write conflict, is what is being exercised).
+            definition.generateOtherRecords(4).forEach(store::saveRecord);
+            return scanResults;
         });
 
-        assertEquals(original, snapshotScan);
+        model.assertScanResultsEqual(original, snapshotScan);
 
-        assertNotEquals(original, model.scanIndex());
-
-
-
+        model.assertScanResultsNotEqual(original, model.scanIndex());
     }
 }

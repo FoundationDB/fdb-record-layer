@@ -34,7 +34,62 @@ public interface IndexDefinition {
 
     List<Message> generateRecords(int count);
 
+    /**
+     * Generate records that are <em>not</em> covered by the index under test (for example records of a
+     * different record type, or records that leave the indexed field unset). Saving these produces no
+     * entries in the index, so they can be written alongside a scan to give a transaction writes without
+     * touching the index's (possibly shared) secondary structures. Returns an empty list by default.
+     *
+     * @param count the number of records to generate
+     * @return records that do not contribute entries to the index under test
+     */
+    default List<Message> generateOtherRecords(int count) {
+        return List.of();
+    }
+
     RecordCursor<IndexEntry> scanIndex(final FDBRecordStore store, ScanProperties scanProperties);
 
     String getIndexName();
+
+    /**
+     * Perform any one-time setup that the index requires before records can be saved. This is run
+     * in its own transaction against a freshly opened store before the first records are written.
+     * Most index types need nothing here; index types that require state to exist before indexing
+     * (e.g. a time window leaderboard needs a window to be created) can override this.
+     *
+     * @param store the record store to set up
+     */
+    default void setupIndex(final FDBRecordStore store) {
+        // no-op by default
+    }
+
+    /**
+     * Determine whether two index scan results should be considered equal for the purposes of the
+     * scenario assertions. By default this is an exact list equality, which is correct for index
+     * types with a stable, fully-determined scan order. Index types whose scan results are not
+     * guaranteed to be byte-identical between an incrementally maintained index and a bulk rebuild
+     * may override this to relax the comparison.
+     *
+     * @param expected the expected scan result
+     * @param actual the actual scan result
+     * @return {@code true} if the two results are equivalent
+     */
+    default boolean scanResultsEqual(final List<IndexEntry> expected, final List<IndexEntry> actual) {
+        return expected.equals(actual);
+    }
+
+    /**
+     * Whether the {@code SnapshotScan} scenario applies to this index. That scenario materializes a
+     * snapshot-isolation scan, then commits index-changing records in a separate transaction while the
+     * scanning transaction writes (non-indexed) records of its own, and asserts that the snapshot scan
+     * was unaffected. It relies on the snapshot scan not adding read-conflict ranges, so the scanning
+     * transaction can commit alongside the concurrent writer. Return {@code false} for index types that
+     * cannot satisfy this — currently only the version index, whose writes conflict across transactions
+     * when record versions are stored (see the override in {@code VersionIndexTest}).
+     *
+     * @return {@code true} if the {@code SnapshotScan} scenario applies to this index
+     */
+    default boolean supportsSnapshotIsolation() {
+        return true;
+    }
 }

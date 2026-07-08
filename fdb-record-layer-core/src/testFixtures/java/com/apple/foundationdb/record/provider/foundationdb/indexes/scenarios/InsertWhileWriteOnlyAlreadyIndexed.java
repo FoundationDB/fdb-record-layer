@@ -44,6 +44,7 @@ public class InsertWhileWriteOnlyAlreadyIndexed implements IndexScenario {
         final IndexScenarioModel model = new IndexScenarioModel(definition, openContext, storeBuilder);
         final List<Message> records = definition.generateRecords(10);
 
+        model.setupIndex();
         model.saveRecords(records);
         model.markIndexDisabled();
 
@@ -66,7 +67,7 @@ public class InsertWhileWriteOnlyAlreadyIndexed implements IndexScenario {
         model.buildIndex();
         // TODO: this is not ideal. Perhaps an early symptom of the eventual challenges ahead
         if (!definition.getMetaData().getIndex(definition.getIndexName()).getType().equals(IndexTypes.COUNT_UPDATES)) {
-            assertEquals(model.scanIndex(), actual);
+            model.assertScanResultsEqual(model.scanIndex(), actual);
         }
     }
 }

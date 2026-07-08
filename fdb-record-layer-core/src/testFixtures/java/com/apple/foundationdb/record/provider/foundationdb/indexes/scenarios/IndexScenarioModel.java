@@ -33,6 +33,9 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 public class IndexScenarioModel {
     private final IndexDefinition definition;
     private final Supplier<FDBRecordContext> openContext;
@@ -43,6 +46,20 @@ public class IndexScenarioModel {
         this.openContext = openContext;
         this.storeBuilder = storeBuilder;
         storeBuilder.setMetaDataProvider(definition.getMetaData());
+    }
+
+    public void setupIndex() {
+        runAgainstStore(definition::setupIndex);
+    }
+
+    public void assertScanResultsEqual(final List<IndexEntry> expected, final List<IndexEntry> actual) {
+        assertTrue(definition.scanResultsEqual(expected, actual),
+                () -> "index scan results differ:\n  expected=" + expected + "\n  actual=" + actual);
+    }
+
+    public void assertScanResultsNotEqual(final List<IndexEntry> unexpected, final List<IndexEntry> actual) {
+        assertFalse(definition.scanResultsEqual(unexpected, actual),
+                () -> "index scan results unexpectedly equal:\n  both=" + actual);
     }
 
     public void saveRecords(List<Message> records) {

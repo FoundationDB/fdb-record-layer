@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.indexes;
 
+import com.apple.foundationdb.half.Half;
 import com.apple.foundationdb.linear.HalfRealVector;
 import com.apple.foundationdb.linear.Metric;
 import com.apple.foundationdb.record.Bindings;
@@ -31,6 +32,8 @@ import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.IsolationLevel;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorIterator;
+import com.apple.foundationdb.record.RecordMetaData;
+import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.metadata.Index;
@@ -43,14 +46,18 @@ import com.apple.foundationdb.record.metadata.MetaDataValidator;
 import com.apple.foundationdb.record.metadata.expressions.KeyWithValueExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainer;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerFactory;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerFactoryRegistry;
 import com.apple.foundationdb.record.provider.foundationdb.VectorIndexScanComparisons;
 import com.apple.foundationdb.record.provider.foundationdb.VectorIndexScanOptions;
+import com.apple.foundationdb.record.provider.foundationdb.indexes.scenarios.IndexDefinition;
+import com.apple.foundationdb.record.provider.foundationdb.indexes.scenarios.IndexScenario;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
+import com.apple.foundationdb.record.vector.TestRecordsVectorsProto;
 import com.apple.foundationdb.record.vector.TestRecordsVectorsProto.VectorRecord;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.RandomizedTestUtils;
@@ -61,6 +68,7 @@ import com.google.common.collect.Maps;
 import com.google.common.collect.ObjectArrays;
 import com.google.common.collect.Sets;
 import com.google.common.primitives.Ints;
+import com.google.protobuf.ByteString;
 import com.google.protobuf.Message;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -85,6 +93,87 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class VectorIndexTest extends VectorIndexTestBase {
     private static final Logger logger = LoggerFactory.getLogger(VectorIndexTest.class);
+
+    @ParameterizedTest
+    @IndexScenarios
+    void indexScenariosTest(IndexScenario scenario) throws Exception {
+        final int numDimensions = 128;
+        // A fixed query vector (all zeros) shared by every scan so that the before/after scans are comparable.
+        final HalfRealVector queryVector = new HalfRealVector(constantHalfComponents(numDimensions, 0.0f));
+        scenario.runTest(
+                (groupingLength, syntheticType) -> new IndexDefinition() {
+                    private final String indexName = "UngroupedVectorIndex";
+
+                    @Override
+                    public RecordMetaData getMetaData() {
+                        RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder()
+                                .setRecords(TestRecordsVectorsProto.getDescriptor());
+                        addUngroupedVectorIndex(metaDataBuilder);
+                        return metaDataBuilder.build();
+                    }
+
+                    @Override
+                    public List<Message> generateRecords(final int count) {
+                        return IntStream.range(0, count)
+                                .mapToObj(i -> {
+                                    // Distinct distance-to-query per record (component 0 == i + 1), so the
+                                    // distance-sorted result order is fully determined by the data.
+                                    final Half[] components = constantHalfComponents(numDimensions, 0.0f);
+                                    components[0] = Half.valueOf((float)(i + 1));
+                                    final HalfRealVector vector = new HalfRealVector(components);
+                                    return (Message)VectorRecord.newBuilder()
+                                            .setRecNo(i)
+                                            .setGroupId(0)
+                                            .setVectorData(ByteString.copyFrom(vector.getRawData()))
+                                            .build();
+                                })
+                                .toList();
+                    }
+
+                    @Override
+                    public RecordCursor<IndexEntry> scanIndex(final FDBRecordStore store, final ScanProperties scanProperties) {
+                        final Index index = store.getRecordMetaData().getIndex(indexName);
+                        // A large efSearch and k make the (approximate) HNSW search effectively exhaustive
+                        // for the small number of records used by the scenarios.
+                        final VectorIndexScanOptions options = VectorIndexScanOptions.builder()
+                                .putOption(VectorIndexScanOptions.HNSW_EF_SEARCH, 1000)
+                                .putOption(VectorIndexScanOptions.HNSW_RETURN_VECTORS, false)
+                                .build();
+                        final VectorIndexScanComparisons comparisons =
+                                createVectorIndexScanComparisons(queryVector, 1000, options);
+                        return store.scanIndex(index, comparisons.bind(store, index, EvaluationContext.empty()),
+                                null, scanProperties);
+                    }
+
+                    @Override
+                    public List<Message> generateOtherRecords(final int count) {
+                        // A vector record with no vector_data is skipped by the HNSW index, so it is not covered.
+                        return IntStream.range(0, count)
+                                .mapToObj(i -> (Message)VectorRecord.newBuilder()
+                                        .setRecNo(1000 + i)
+                                        .setGroupId(0)
+                                        .build())
+                                .toList();
+                    }
+
+                    @Override
+                    public String getIndexName() {
+                        return indexName;
+                    }
+                },
+                this::openContext,
+                FDBRecordStore.newBuilder()
+                        .setKeySpacePath(path));
+    }
+
+    @Nonnull
+    private static Half[] constantHalfComponents(final int numDimensions, final float value) {
+        final Half[] components = new Half[numDimensions];
+        for (int i = 0; i < numDimensions; i++) {
+            components[i] = Half.valueOf(value);
+        }
+        return components;
+    }
 
     @Nonnull
     static Stream<Arguments> randomSeedsWithAsync() {

@@ -1,4 +1,3 @@
-
 /*
  * IndexScenarios.java
  *

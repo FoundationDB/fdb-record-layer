@@ -20,22 +20,114 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.indexes;
 
+import com.apple.foundationdb.record.IndexEntry;
+import com.apple.foundationdb.record.RecordCursor;
+import com.apple.foundationdb.record.RecordMetaData;
+import com.apple.foundationdb.record.RecordMetaDataBuilder;
+import com.apple.foundationdb.record.ScanProperties;
+import com.apple.foundationdb.record.TestRecordsMultidimensionalProto;
+import com.apple.foundationdb.record.TupleRange;
+import com.apple.foundationdb.record.metadata.Index;
+import com.apple.foundationdb.record.metadata.IndexOptions;
+import com.apple.foundationdb.record.metadata.IndexTypes;
+import com.apple.foundationdb.record.metadata.expressions.DimensionsKeyExpression;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
+import com.apple.foundationdb.record.provider.foundationdb.MultidimensionalIndexScanBounds;
+import com.apple.foundationdb.record.provider.foundationdb.indexes.scenarios.IndexDefinition;
+import com.apple.foundationdb.record.provider.foundationdb.indexes.scenarios.IndexScenario;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.protobuf.Message;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
 import javax.annotation.Nonnull;
+import java.util.List;
 import java.util.Random;
+import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 import static com.apple.foundationdb.async.rtree.RTree.Storage.BY_NODE;
 import static com.apple.foundationdb.async.rtree.RTree.Storage.BY_SLOT;
+import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
+import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 
 /**
  * Simple tests for Multidimensional Index.
  */
 class SimpleMultidimensionalIndexTest extends MultidimensionalIndexTestBase {
+
+    @ParameterizedTest
+    @IndexScenarios
+    void indexScenariosTest(IndexScenario scenario) throws Exception {
+        scenario.runTest(
+                (groupingLength, syntheticType) -> new IndexDefinition() {
+                    private final String indexName = "EventIntervals";
+
+                    @Override
+                    public RecordMetaData getMetaData() {
+                        RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder()
+                                .setRecords(TestRecordsMultidimensionalProto.getDescriptor());
+                        metaDataBuilder.getRecordType("MyMultidimensionalRecord")
+                                .setPrimaryKey(concat(field("info").nest("rec_domain"), field("rec_no")));
+                        metaDataBuilder.addIndex("MyMultidimensionalRecord",
+                                new Index(indexName,
+                                        DimensionsKeyExpression.of(field("calendar_name"),
+                                                concat(field("start_epoch"), field("end_epoch"))),
+                                        IndexTypes.MULTIDIMENSIONAL,
+                                        ImmutableMap.of(IndexOptions.RTREE_STORAGE, BY_NODE.toString(),
+                                                IndexOptions.RTREE_STORE_HILBERT_VALUES, "true")));
+                        return metaDataBuilder.build();
+                    }
+
+                    @Override
+                    public List<Message> generateRecords(final int count) {
+                        return IntStream.range(0, count)
+                                .mapToObj(i -> (Message)TestRecordsMultidimensionalProto.MyMultidimensionalRecord.newBuilder()
+                                        .setRecNo(i)
+                                        .setCalendarName("calendar")
+                                        .setStartEpoch(100L * i)
+                                        .setEndEpoch(100L * i + 50L)
+                                        .build())
+                                .toList();
+                    }
+
+                    @Override
+                    public RecordCursor<IndexEntry> scanIndex(final FDBRecordStore store, final ScanProperties scanProperties) {
+                        // Exhaustive scan: every dimension unbounded, so the R-tree returns all entries
+                        // in (deterministic) Hilbert-value order.
+                        final MultidimensionalIndexScanBounds.Hypercube hypercube =
+                                new MultidimensionalIndexScanBounds.Hypercube(ImmutableList.of(
+                                        TupleRange.betweenInclusive(null, null),
+                                        TupleRange.betweenInclusive(null, null)));
+                        final MultidimensionalIndexScanBounds bounds =
+                                new MultidimensionalIndexScanBounds(TupleRange.ALL, hypercube, TupleRange.ALL);
+                        return store.scanIndex(store.getRecordMetaData().getIndex(indexName),
+                                bounds, null, scanProperties);
+                    }
+
+                    @Override
+                    public List<Message> generateOtherRecords(final int count) {
+                        // Records with unset dimension fields (start/end epoch) are not added to the R-tree.
+                        return IntStream.range(0, count)
+                                .mapToObj(i -> (Message)TestRecordsMultidimensionalProto.MyMultidimensionalRecord.newBuilder()
+                                        .setRecNo(1000 + i)
+                                        .setCalendarName("other")
+                                        .build())
+                                .toList();
+                    }
+
+                    @Override
+                    public String getIndexName() {
+                        return indexName;
+                    }
+                },
+                this::openContext,
+                FDBRecordStore.newBuilder()
+                        .setKeySpacePath(path));
+    }
 
     static Stream<Arguments> argumentsForBasicReads() {
         return Stream.of(

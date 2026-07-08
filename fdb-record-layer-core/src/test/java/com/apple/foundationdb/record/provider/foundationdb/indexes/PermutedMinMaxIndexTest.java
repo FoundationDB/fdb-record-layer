@@ -36,7 +36,10 @@ import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreTestBase;
+import com.apple.foundationdb.record.provider.foundationdb.indexes.scenarios.IndexScenario;
+import com.apple.foundationdb.record.provider.foundationdb.indexes.scenarios.IndexScenariosArgumentsProvider;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
@@ -46,10 +49,13 @@ import com.apple.foundationdb.record.util.pair.Pair;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.TupleHelpers;
 import com.apple.test.BooleanSource;
+import com.apple.test.ParameterizedTestUtils;
 import com.apple.test.Tags;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -62,6 +68,7 @@ import java.util.function.BiConsumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsInAnyOrder;
@@ -95,6 +102,25 @@ class PermutedMinMaxIndexTest extends FDBRecordStoreTestBase {
                     min ? IndexTypes.PERMUTED_MIN : IndexTypes.PERMUTED_MAX,
                     Collections.singletonMap(IndexOptions.PERMUTED_SIZE_OPTION, "" + permutedSize)));
         };
+    }
+
+    public static Stream<Arguments> indexScenariosTest() {
+        return ParameterizedTestUtils.cartesianProduct(
+                IndexScenariosArgumentsProvider.getScenarios(),
+                Stream.of(
+                        IndexTypes.PERMUTED_MIN,
+                        IndexTypes.PERMUTED_MAX
+                )
+        );
+    }
+
+    @ParameterizedTest
+    @MethodSource
+    void indexScenariosTest(IndexScenario scenario, String indexType) throws Exception {
+        scenario.runTest(new PermutedMinMaxIndexDefinitionFactory(indexType),
+                this::openContext,
+                FDBRecordStore.newBuilder()
+                        .setKeySpacePath(path));
     }
 
     @Test
