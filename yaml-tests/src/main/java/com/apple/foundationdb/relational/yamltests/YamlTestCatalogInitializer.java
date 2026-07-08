@@ -59,7 +59,7 @@ import java.util.List;
  * package already depends on the record-layer primitives this needs directly, so a private
  * helper here is cheaper than adding another cross-module dependency edge.
  */
-final class YamlTestCatalogInitializer {
+public final class YamlTestCatalogInitializer {
 
     private static final int MAX_ATTEMPTS = 10;
     private static final long RETRY_BASE_MILLIS = 20L;
@@ -77,7 +77,7 @@ final class YamlTestCatalogInitializer {
      *                     default cluster" per {@link FDBDatabaseFactory#getDatabase(String)}
      * @throws RelationalException if any cluster's init ultimately fails after retries
      */
-    static void initializeCatalog(@Nonnull final List<String> clusterFiles) throws RelationalException {
+    public static void initializeCatalog(@Nonnull final List<String> clusterFiles) throws RelationalException {
         // Register the FRL keyspace domain once up front. It's idempotent, but doing it here
         // ensures the keyspace tree is ready before we resolve any paths against it below.
         final RelationalKeyspaceProvider keyspaceProvider = RelationalKeyspaceProvider.instance();

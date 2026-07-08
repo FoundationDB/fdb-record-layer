@@ -26,6 +26,7 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.server.FRL;
 import com.apple.foundationdb.relational.yamltests.YamlConnectionFactory;
 import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
+import com.apple.foundationdb.relational.yamltests.YamlTestCatalogInitializer;
 import com.apple.foundationdb.relational.yamltests.connectionfactory.Clusters;
 import com.apple.foundationdb.relational.yamltests.connectionfactory.EmbeddedYamlConnectionFactory;
 
@@ -57,6 +58,14 @@ public class EmbeddedConfig implements YamlTestConfig {
     @Override
     @SuppressWarnings("PMD.CloseResource") // FRLs are tracked in the list and closed in afterAll()
     public void beforeAll() throws Exception {
+        // Proactively initialise the SYS catalog on every cluster before we spin up any
+        // in-JVM FRL for this config. This absorbs the concurrent-init commit conflict that
+        // otherwise fires when parallel @YamlTest / test-class @BeforeAll hooks all
+        // construct their own EmbeddedConfig against the same cluster. The initializer is
+        // idempotent — after the first successful commit against a cluster, subsequent
+        // invocations are read-only and effectively free. See YamlTestCatalogInitializer
+        // for the details.
+        YamlTestCatalogInitializer.initializeCatalog(clusterFiles);
         var options = Options.builder()
                 .withOption(Options.Name.PLAN_CACHE_PRIMARY_TIME_TO_LIVE_MILLIS, 3_600_000L)
                 .withOption(Options.Name.PLAN_CACHE_SECONDARY_TIME_TO_LIVE_MILLIS, 3_600_000L)
