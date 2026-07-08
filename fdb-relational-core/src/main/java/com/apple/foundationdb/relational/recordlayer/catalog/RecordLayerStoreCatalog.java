@@ -180,8 +180,14 @@ class RecordLayerStoreCatalog implements StoreCatalog, KeySpaceProvider {
                 schemaTemplateCatalog.createTemplate(createTxn, this.catalogSchemaTemplate);
             }
             this.schemaTemplateCatalog = schemaTemplateCatalog;
-            // Persist our hard-coded catalog schema.
-            saveSchema(createTxn, this.catalogSchema, true);
+            // Persist our hard-coded catalog schema — but only if it isn't already there. Every
+            // FRL construction and every proactive test-time initialiser calls this method;
+            // writing the same schema row on every call turned every parallel init into a
+            // write-write commit conflict on the catalog table. Gate on doesSchemaExist so the
+            // second and subsequent inits become read-only and can commit concurrently.
+            if (!doesSchemaExist(createTxn, URI.create(this.catalogSchema.getDatabaseName()), this.catalogSchema.getName())) {
+                saveSchema(createTxn, this.catalogSchema, true);
+            }
         } catch (RecordCoreStorageException ex) {
             throw ExceptionUtil.toRelationalException(ex);
         }
