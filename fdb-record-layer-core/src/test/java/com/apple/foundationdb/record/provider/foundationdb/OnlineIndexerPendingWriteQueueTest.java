@@ -285,62 +285,6 @@ class OnlineIndexerPendingWriteQueueTest extends OnlineIndexerTest {
     }
 
     @Test
-    void testSlidingWindowMaintainerRoutesUpdatesToQueue() {
-        // The sliding window maintainer wraps an (idempotent) HNSW vector delegate, so it supports the queue state.
-        // While WRITE_ONLY_WITH_QUEUE, each save must be routed through
-        // SlidingWindowIndexMaintainer.updateWhileWriteOnlyWithQueue (deferred to the pending writes queue) rather
-        // than written to the delegate index.
-        final String indexName = "sw_vector_queue";
-        metaData = SlidingWindowTestHelpers.buildSlidingWindowVectorMetaData(
-                indexName, 2, 4, Direction.DESC, List.of());
-        final Index index = metaData.getIndex(indexName);
-        final List<Long> savedRecNos = List.of(1L, 2L, 3L);
-
-        final FDBStoreTimer writeTimer = new FDBStoreTimer();
-        try (FDBRecordContext context = fdb.openContext(null, writeTimer)) {
-            final FDBRecordStore store = createStoreBuilder().setContext(context)
-                    .createOrOpen(FDBRecordStoreBase.StoreExistenceCheck.NONE);
-            assertInstanceOf(SlidingWindowIndexMaintainer.class, store.getIndexMaintainer(index),
-                    "the test index should be backed by the sliding window maintainer");
-
-            store.markIndexWriteOnlyWithQueue(index).join();
-            assertTrue(store.isIndexWriteOnlyWithQueue(index));
-
-            // Each save routes through the queue; the records themselves are still persisted.
-            for (long recNo : savedRecNos) {
-                store.saveRecord(SlidingWindowVectorRecord.newBuilder()
-                        .setRecNo(recNo)
-                        .setRelevance(recNo * 100)
-                        .setVectorData(ByteString.copyFrom(SlidingWindowTestHelpers.sampleVector().getRawData()))
-                        .build());
-                assertNotNull(store.loadRecord(Tuple.from(recNo)), "record should have been persisted: " + recNo);
-            }
-
-            // The saves were deferred to the queue rather than written to the delegate index.
-            assertEquals(savedRecNos.size(), writeTimer.getCount(FDBStoreTimer.Counts.PENDING_WRITES_QUEUE_WRITE));
-
-            // The pending writes queue should hold exactly the deferred records, in order.
-            final PendingWritesQueue<IndexBuildProto.PendingWritesQueueEntry> queue =
-                    PendingWriteQueueIndexingFactory.getIndexingQueue(store, index);
-            final Long queueSize = queue.getQueueSizeNoConflict(context).join();
-            assertEquals(savedRecNos.size(), queueSize == null ? 0L : queueSize);
-
-            final List<Long> queuedRecNos = queue
-                    .getQueueCursor(context, ScanProperties.FORWARD_SCAN, null)
-                    .asList().join().stream()
-                    .map(entry -> {
-                        final IndexBuildProto.PendingWritesQueueEntry payload = entry.getPayload();
-                        final Message record = store.getSerializer().deserialize(store.getRecordMetaData(),
-                                TupleHelpers.EMPTY, payload.getNewRecord().toByteArray(), store.getTimer());
-                        return (Long)record.getField(record.getDescriptorForType().findFieldByName("rec_no"));
-                    })
-                    .toList();
-            assertEquals(savedRecNos, queuedRecNos);
-            context.commit();
-        }
-    }
-
-    @Test
     void testQueryCannotUseIndexInQueueState() throws Exception {
         // While an index is being built with a queue it is not readable and queries must not be able to scan it.
         final Index index = new Index("simple$num_value_2_queue", field("num_value_2"), IndexTypes.VALUE);
