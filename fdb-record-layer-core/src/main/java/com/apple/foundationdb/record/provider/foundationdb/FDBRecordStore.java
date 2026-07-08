@@ -780,7 +780,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                     // Push the old/new record to a write pending queue instead of updating the index directly. The
                     // ongoing online indexer will drain the queue and perform the actual index update.
                     future = maintainer.updateWhileWriteOnlyWithQueue(oldRecord, newRecord);
-                    context.addToSessionSet(ContextSessionKey.WRITE_ONLY_INDEXES_UPDATED, index.getName());
+                    context.addToSessionSet(ContextSessionKey.WRITE_ONLY_WITH_QUEUE_INDEXES_UPDATED, index.getName());
                     break;
 
                 case WRITE_ONLY:

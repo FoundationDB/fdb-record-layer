@@ -416,8 +416,11 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
         if (newRecord != null) {
             incrementCounter(SlidingWindowCounter.SW_PREEMPTIVE_DELETE_WRITE_ONLY);
         }
-        update(newRecord, null);
-        return update(oldRecord, newRecord);
+        // The preemptive delete must fully complete (committing its writes and releasing the sliding-window write lock)
+        // before the reinsert runs. Chain the two updates rather than firing the delete as a discarded future: dropping
+        // it would leave the delete unsequenced relative to the reinsert and silently swallow any exception it raises.
+        return update(newRecord, null)
+                .thenCompose(ignore -> update(oldRecord, newRecord));
     }
 
     @Nonnull

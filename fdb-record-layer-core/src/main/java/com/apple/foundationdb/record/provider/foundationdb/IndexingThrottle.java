@@ -55,7 +55,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BiFunction;
 import java.util.function.Function;
-import java.util.stream.Collectors;
 
 /**
  * This class provides build/commit/retry with throttling to the OnlineIndexer. In the future,
@@ -409,7 +408,7 @@ public class IndexingThrottle {
     }
 
     private CompletableFuture<Void> expectedIndexStatesOrThrow(FDBRecordStore store, FDBRecordContext context) {
-        List<IndexState> indexStates = common.getTargetIndexes().stream().map(store::getIndexState).collect(Collectors.toList());
+        List<IndexState> indexStates = common.getTargetIndexes().stream().map(store::getIndexState).toList();
         if (isScrubber) {
             // index scrubbing requires a scannable state
             if (indexStates.stream().allMatch(IndexState::isScannable)) {

@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.provider.foundationdb;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.IndexState;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
@@ -29,7 +30,6 @@ import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.query.plan.synthetic.SyntheticRecordPlanner;
 import com.apple.foundationdb.tuple.Tuple;
-import org.jspecify.annotations.NonNull;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -242,11 +242,20 @@ public class IndexingCommon {
         return targetIndexContexts.stream().map(targetIndexContext -> targetIndexContext.index).collect(Collectors.toList());
     }
 
-    @NonNull
+    /**
+     * Return a cached list of indexes that are in {@link IndexState#WRITE_ONLY_WITH_QUEUE} state. These
+     * indexes may require special handling (queue drain) during the indexing process.
+     * @return list of indexes
+     */
+    @Nonnull
     public List<Index> getQueuedIndexes() {
         return queuedIndexes;
     }
 
+    /**
+     * Cache a list of indexes that are in {@link IndexState#WRITE_ONLY_WITH_QUEUE} state. These
+     * indexes may require special handling (queue drain) during the indexing process.
+     */
     public void setQueuedIndexes(@Nonnull List<Index> queuedIndexes) {
         this.queuedIndexes = queuedIndexes;
     }

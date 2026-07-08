@@ -44,6 +44,12 @@ public final class ContextSessionKey<T> {
      */
     public static final ContextSessionKey<Set<String>> WRITE_ONLY_INDEXES_UPDATED = new ContextSessionKey<>("writeOnlyIndexesUpdated");
     /**
+     * Session key for the set of write-only-with-queue index names updated in this transaction.
+     * Value type: {@code Set<String>}. Returns {@code null} if no write-only-with-queue index was updated.
+     * Useful for diagnosing conflicts that may happen when an index is updated by the indexer.
+     */
+    public static final ContextSessionKey<Set<String>> WRITE_ONLY_WITH_QUEUE_INDEXES_UPDATED = new ContextSessionKey<>("writeOnlyIndexesUpdated");
+    /**
      * Session key for the set of readable index names updated in this transaction.
      * Note that this captures both {@link com.apple.foundationdb.record.IndexState#READABLE} and
      * {@link com.apple.foundationdb.record.IndexState#READABLE_UNIQUE_PENDING}.

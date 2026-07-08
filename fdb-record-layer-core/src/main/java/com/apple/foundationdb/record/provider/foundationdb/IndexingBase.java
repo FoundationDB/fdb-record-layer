@@ -385,14 +385,15 @@ public abstract class IndexingBase {
     }
 
     private CompletableFuture<Void> assertEmptyQueueIfNeeded(FDBRecordStore store, Index index) {
-        return common.getQueuedIndexes().contains(index) ?
-               getIndexingDrainer(index).isQueueEmpty(store).thenApply(isEmpty -> {
-                   if (!isEmpty) {
-                       throw new PendingWriteQueueNotEmptyWhileMarkingReadable(index);
-                   }
-                   return null;
-               }) :
-               AsyncUtil.DONE;
+        if(common.getQueuedIndexes().contains(index)) {
+            return getIndexingDrainer(index).isQueueEmpty(store).thenApply(isEmpty -> {
+                if (Boolean.FALSE.equals(isEmpty)) {
+                    throw new PendingWriteQueueNotEmptyWhileMarkingReadable(index);
+                }
+                return null;
+            });
+        }
+        return AsyncUtil.DONE;
     }
 
     public void enforceStampOverwrite() {

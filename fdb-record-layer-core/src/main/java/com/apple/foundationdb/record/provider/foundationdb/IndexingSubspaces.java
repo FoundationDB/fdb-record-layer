@@ -210,17 +210,6 @@ public final class IndexingSubspaces {
     }
 
     /**
-     * Erasing the indexing pending write queue data, including both the queue itself and its size counter.
-     * @param context user context - the operation will run within this context
-     * @param store store
-     * @param index index
-     */
-    public static void eraseIndexPendingWriteQueue(@Nonnull FDBRecordContext context, @Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index) {
-        context.clear(Range.startsWith(indexPendingWriteQueueSubspace(store, index).pack()));
-        context.clear(Range.startsWith(indexPendingWriteQueueSizeSubspace(store, index).pack()));
-    }
-
-    /**
      * Erasing all the scrubbing ranges data. After calling this function, there would be no memory of scrubbed ranges.
      * @param context user context - the operation will run within this context
      * @param store store
@@ -242,7 +231,8 @@ public final class IndexingSubspaces {
      */
     public static void eraseAllIndexingDataButTheLockAndRangeSet(@Nonnull FDBRecordContext context, @Nonnull FDBRecordStore store, @Nonnull Index index) {
         eraseAllIndexingScrubbingData(context, store, index);
-        eraseIndexPendingWriteQueue(context, store, index);
+        context.clear(Range.startsWith(indexPendingWriteQueueSubspace(store, index).pack()));
+        context.clear(Range.startsWith(indexPendingWriteQueueSizeSubspace(store, index).pack()));
         context.clear(Range.startsWith(indexBuildScannedRecordsSubspace(store, index).pack()));
         context.clear(Range.startsWith(indexBuildTypeSubspace(store, index).pack()));
         // The heartbeats, unlike the sync lock, may be erased here. If needed, an appropriate heartbeat will be set after this clear & within the same transaction.
