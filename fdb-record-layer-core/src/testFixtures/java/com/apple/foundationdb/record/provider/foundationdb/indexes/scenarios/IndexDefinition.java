@@ -77,19 +77,4 @@ public interface IndexDefinition {
     default boolean scanResultsEqual(final List<IndexEntry> expected, final List<IndexEntry> actual) {
         return expected.equals(actual);
     }
-
-    /**
-     * Whether the {@code SnapshotScan} scenario applies to this index. That scenario materializes a
-     * snapshot-isolation scan, then commits index-changing records in a separate transaction while the
-     * scanning transaction writes (non-indexed) records of its own, and asserts that the snapshot scan
-     * was unaffected. It relies on the snapshot scan not adding read-conflict ranges, so the scanning
-     * transaction can commit alongside the concurrent writer. Return {@code false} for index types that
-     * cannot satisfy this — currently only the version index, whose writes conflict across transactions
-     * when record versions are stored (see the override in {@code VersionIndexTest}).
-     *
-     * @return {@code true} if the {@code SnapshotScan} scenario applies to this index
-     */
-    default boolean supportsSnapshotIsolation() {
-        return true;
-    }
 }
