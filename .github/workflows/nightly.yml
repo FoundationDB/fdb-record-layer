@@ -139,7 +139,49 @@ jobs:
         uses: ./actions/publish-mixed-mode-results
 
   ### Nightly
+  # The nightly tests are parallelized by sub-module the same way the pull_request workflow is:
+  #  1. nightly_test: Runs the tests for the most intensive subprojects in parallel (matrix).
+  #  2. nightly_other_tests: Runs the rest of the tests (all remaining subprojects).
+  #  3. nightly_coverage: Merges the JaCoCo output of 1 and 2, generates the report, and uploads
+  #     it to teamscale under the 'Nightly Tests' partition.
   nightly_test:
+    if: github.repository == 'FoundationDB/fdb-record-layer'
+    strategy:
+      matrix:
+        subproject: [fdb-extensions, fdb-record-layer-core, fdb-record-layer-lucene, yaml-tests]
+        # fdb-extensions also runs its scalar-fallback test task here so its JaCoCo execution data
+        # is produced alongside the other test tasks and picked up by the coverage-data upload
+        # below. matrix.extra_tasks is unset (empty) for the other subprojects.
+        include:
+          - subproject: fdb-extensions
+            extra_tasks: ':fdb-extensions:scalarFallbackTest'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Setup Base Environment
+        uses: ./actions/setup-base-env
+      - name: Setup FDB
+        uses: ./actions/setup-fdb
+      - name: Run Gradle Test
+        uses: ./actions/gradle-test
+        with:
+          gradle_command: :${{ matrix.subproject }}:jar :${{ matrix.subproject }}:test :${{ matrix.subproject }}:destructiveTest ${{ matrix.extra_tasks }}
+          gradle_args: "-PreleaseBuild=false -PpublishBuild=false -PspotbugsEnableHtmlReport -Ptests.includeRandom -Ptests.iterations=2 -Ptests.nightly"
+          report_name: nightly-${{ matrix.subproject }}-test-reports
+      - name: Publish Coverage Data
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: nightly-${{ matrix.subproject }}-coverage-data
+          path: |
+            **/.out/jacoco/*.exec
+            **/.out/libs/*.jar
+          include-hidden-files: true
+          retention-days: 1
+
+  nightly_other_tests:
     if: github.repository == 'FoundationDB/fdb-record-layer'
     runs-on: ubuntu-latest
     permissions:
@@ -154,10 +196,67 @@ jobs:
       - name: Run Gradle Test
         uses: ./actions/gradle-test
         with:
-          gradle_command: jar test destructiveTest :fdb-extensions:scalarFallbackTest codeCoverageReport
+          gradle_command: >-
+            jar
+            test
+            -x :fdb-extensions:test
+            -x :fdb-record-layer-core:test
+            -x :fdb-record-layer-lucene:test
+            -x :yaml-tests:test
+            destructiveTest
+            -x :fdb-extensions:destructiveTest
+            -x :fdb-record-layer-core:destructiveTest
+            -x :fdb-record-layer-lucene:destructiveTest
+            -x :yaml-tests:destructiveTest
           gradle_args: "-PreleaseBuild=false -PpublishBuild=false -PspotbugsEnableHtmlReport -Ptests.includeRandom -Ptests.iterations=2 -Ptests.nightly"
-          report_name: nightly-test-reports
+          report_name: nightly-other-test-reports
+      - name: Publish Coverage Data
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: nightly-other-coverage-data
+          path: |
+            **/.out/jacoco/*.exec
+            **/.out/libs/*.jar
+          include-hidden-files: true
+          retention-days: 1
 
+  nightly_coverage:
+    if: github.repository == 'FoundationDB/fdb-record-layer'
+    needs: [nightly_test, nightly_other_tests]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Setup Base Environment
+        uses: ./actions/setup-base-env
+      # It looks like, if you try to download them all as a pattern, the nested directories get stripped
+      # so the coverage data (for e.g. lucene) does not end up in the appropirate subproject directory
+      - name: 'Download lucene'
+        uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3 # v8.0.0
+        with:
+          name: nightly-fdb-record-layer-lucene-coverage-data
+      - name: 'Download extensions'
+        uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3 # v8.0.0
+        with:
+          name: nightly-fdb-extensions-coverage-data
+      - name: 'Download core'
+        uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3 # v8.0.0
+        with:
+          name: nightly-fdb-record-layer-core-coverage-data
+      - name: 'Download yaml'
+        uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3 # v8.0.0
+        with:
+          name: nightly-yaml-tests-coverage-data
+      - name: 'Download other'
+        uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3 # v8.0.0
+        with:
+          name: nightly-other-coverage-data
+      - name: Run JaCoCo Report
+        uses: ./actions/run-gradle
+        with:
+          gradle_command: codeCoverageReport
       - name: Upload coverage to teamscale
         # temporary until we validate that this is working correctly
         continue-on-error: true
