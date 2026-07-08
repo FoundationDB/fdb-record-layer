@@ -44,6 +44,7 @@ import java.util.concurrent.CompletableFuture;
 public class PendingWriteQueueDrainer {
     private final Index index;
     private final IndexingCommon common;
+    private static final int MAX_RECORDS_DELETE_PER_SECOND = 10000;
 
     public PendingWriteQueueDrainer(final Index index, IndexingCommon common) {
         this.index = index;
@@ -61,6 +62,7 @@ public class PendingWriteQueueDrainer {
                                 common.getRunner().getDatabase(),
                                 cursorFactory(),
                                 this::handleOneItem)
+                        .withMaxRecordsDeletesPerSec(MAX_RECORDS_DELETE_PER_SECOND)
                         .build();
         return iterator.iterateAll(common.getRecordStoreBuilder().copyBuilder())
                 .whenComplete((v, e) -> {
@@ -84,7 +86,7 @@ public class PendingWriteQueueDrainer {
     @Nonnull
     private CompletableFuture<Void> handleOneItem(final FDBRecordStore store,
                                                   final RecordCursorResult<PendingWritesQueueEntry<IndexBuildProto.PendingWritesQueueEntry>> lastResult,
-                                                  final ThrottledRetryingIterator.QuotaManager ignoredQuotaManager) {
+                                                  final ThrottledRetryingIterator.QuotaManager quotaManager) {
         final PendingWritesQueueEntry<IndexBuildProto.PendingWritesQueueEntry> entry = lastResult.get();
         if (entry == null) {
             return AsyncUtil.DONE;
@@ -94,9 +96,10 @@ public class PendingWriteQueueDrainer {
                 .updateWhileWriteOnly(
                         PendingWriteQueueIndexingFactory.getOldRecord(store, payload),
                         PendingWriteQueueIndexingFactory.getNewRecord(store, payload))
-                .thenAccept(ignore ->
-                        // The queue items deletes count in a single throttled transaction is unlimited (at least for now).
-                        getQueue(store).clearEntry(store.getContext(), entry));
+                .thenAccept(ignore -> {
+                    quotaManager.deleteCountInc();
+                    getQueue(store).clearEntry(store.getContext(), entry);
+                });
     }
 
     @Nonnull

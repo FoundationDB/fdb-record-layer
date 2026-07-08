@@ -348,15 +348,17 @@ public class IndexingThrottle {
         AsyncUtil.whileTrue(() -> {
             loadConfig();
             // TODO: eliminate the usage of the runner - call (and handle) every transaction here
-            return common.getRunner().runAsync(context -> common.getRecordStoreBuilder().copyBuilder().setContext(context).openAsync().thenCompose(store ->
-                expectedIndexStatesOrThrow(store, context).thenCompose(ignore ->
+            return common.getRunner().runAsync(context -> common.getRecordStoreBuilder().copyBuilder().setContext(context).openAsync().thenCompose(store -> {
+                expectedIndexStatesOrThrow(store, context);
+                return populateDrainRequiredIndexes(store, context).thenCompose(ignore ->
                     buildFunction.apply(store, recordsScanned).thenApply(retVal -> {
                         Set<Index> indexSet = store.getIndexDeferredMaintenanceControl().getMergeRequiredIndexes();
                         if (indexSet != null) {
                             mergeRequiredIndexes.addAll(indexSet);
                         }
                         return retVal;
-                    }))), (result, exception) -> {
+                    }));
+                }), (result, exception) -> {
                     booker.handleLimitsPostRunnerTransaction(exception, recordsScanned, adjustLimits, additionalLogMessageKeyValues);
                     return Result.of(result, exception);
                 }, onlineIndexerLogMessageKeyValues).handle((value, e) -> {
@@ -407,47 +409,53 @@ public class IndexingThrottle {
         return ret;
     }
 
-    private CompletableFuture<Void> expectedIndexStatesOrThrow(FDBRecordStore store, FDBRecordContext context) {
+    private void expectedIndexStatesOrThrow(FDBRecordStore store, FDBRecordContext context) {
         List<IndexState> indexStates = common.getTargetIndexes().stream().map(store::getIndexState).toList();
         if (isScrubber) {
             // index scrubbing requires a scannable state
             if (indexStates.stream().allMatch(IndexState::isScannable)) {
-                return AsyncUtil.DONE;
+                return;
             }
             throw new IndexingBase.UnexpectedReadableException(false, "Attempt to scrub a non readable index",
                     LogMessageKeys.INDEX_NAME, common.getTargetIndexesNames(),
                     LogMessageKeys.INDEX_STATE, indexStates);
         }
         // Here: index building
-        final CompletableFuture<Void> drainCheck;
-        if (common.getQueuedIndexes().isEmpty()) {
-            drainCheck = AsyncUtil.DONE;
-        } else {
-            // Only request a drain for indexes whose pending writes queue is non-empty.
-            drainCheck = nonEmptyQueueIndexes(store, context, common.getQueuedIndexes())
-                    .thenAccept(toDrain -> drainRequiredIndexes = toDrain);
+        if (indexStates.stream().allMatch(IndexState::isAnyWriteOnly)) {
+            return;
         }
-        return drainCheck.thenApply(ignore -> {
-            if (indexStates.stream().allMatch(IndexState::isAnyWriteOnly)) {
-                return null;
-            }
-            // possible exceptions:
-            // 1. All the indexes are now readable.
-            // 2. Some indexes are built, but all the others are in the expected state.
-            // 3. Some indexes are not in the expected state (disabled?).
-            // During mutual indexing, the first two may be part of the valid path
-            if (indexStates.stream().allMatch(IndexState::isScannable)) {
-                throw new IndexingBase.UnexpectedReadableException(true, "All indexes are built");
-            }
-            if (indexStates.stream().allMatch(state -> state.isAnyWriteOnly() || state.isScannable())) {
-                throw new IndexingBase.UnexpectedReadableException(false, "Some indexes are built");
-            }
-            final SubspaceProvider subspaceProvider = common.getRecordStoreBuilder().getSubspaceProvider();
-            throw new RecordCoreStorageException("Unexpected index state(s)",
-                    subspaceProvider == null ? "nullSubspaceProvider" : subspaceProvider.logKey(), subspaceProvider == null ? "" : subspaceProvider.toString(context),
-                    LogMessageKeys.INDEX_NAME, common.getTargetIndexesNames(),
-                    LogMessageKeys.INDEX_STATE, indexStates);
-        });
+        // possible exceptions:
+        // 1. All the indexes are now readable.
+        // 2. Some indexes are built, but all the others are in the expected state.
+        // 3. Some indexes are not in the expected state (disabled?).
+        // During mutual indexing, the first two may be part of the valid path
+        if (indexStates.stream().allMatch(IndexState::isScannable)) {
+            throw new IndexingBase.UnexpectedReadableException(true, "All indexes are built");
+        }
+        if (indexStates.stream().allMatch(state -> state.isAnyWriteOnly() || state.isScannable())) {
+            throw new IndexingBase.UnexpectedReadableException(false, "Some indexes are built");
+        }
+        final SubspaceProvider subspaceProvider = common.getRecordStoreBuilder().getSubspaceProvider();
+        throw new RecordCoreStorageException("Unexpected index state(s)",
+                subspaceProvider == null ? "nullSubspaceProvider" : subspaceProvider.logKey(), subspaceProvider == null ? "" : subspaceProvider.toString(context),
+                LogMessageKeys.INDEX_NAME, common.getTargetIndexesNames(),
+                LogMessageKeys.INDEX_STATE, indexStates);
+    }
+
+    /**
+     * Record - in this existing indexing transaction - the queued indexes whose pending writes queue is currently non-empty.
+     * If they exist, the indexer will lunch dedicated transactions to drain their queues.
+     * @param store store
+     * @param context context
+     * @return a future that completes once {@link #drainRequiredIndexes} has been populated
+     */
+    private CompletableFuture<Void> populateDrainRequiredIndexes(FDBRecordStore store, FDBRecordContext context) {
+        if (common.getQueuedIndexes().isEmpty()) {
+            return AsyncUtil.DONE;
+        }
+        // Only drain for indexes whose pending writes queue is non-empty.
+        return nonEmptyQueueIndexes(store, context, common.getQueuedIndexes())
+                .thenAccept(toDrain -> drainRequiredIndexes = toDrain);
     }
 
     /**
