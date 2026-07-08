@@ -19,13 +19,6 @@
  */
 
 /**
- * Test fixtures for the text-indexing support classes in the production package. The current
- * contents are a parameterized test base
- * ({@link com.apple.foundationdb.record.provider.common.text.TextCollatorTestBase}) for
- * exercising {@link com.apple.foundationdb.record.provider.common.text.TextCollatorRegistry}
- * implementations, shared sample text
- * ({@link com.apple.foundationdb.record.provider.common.text.TextSamples}), and a
- * deliberately-simple stand-in tokenizer
- * ({@link com.apple.foundationdb.record.provider.common.text.AllSuffixesTextTokenizer}).
+ * Test fixtures for the text-indexing support classes in the production package.
  */
 package com.apple.foundationdb.record.provider.common.text;

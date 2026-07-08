@@ -24,7 +24,6 @@
  * tests. {@link com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreConcurrentTestBase}
  * wires up the database and key-space extensions and offers store-builder and transaction
  * helpers; {@link com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreTestBase}
- * layers on the common single-store case. Index-specific fixtures live in the
- * {@code indexes} sub-package; query-execution fixtures live in {@code query}.
+ * layers on the common single-store case.
  */
 package com.apple.foundationdb.record.provider.foundationdb;

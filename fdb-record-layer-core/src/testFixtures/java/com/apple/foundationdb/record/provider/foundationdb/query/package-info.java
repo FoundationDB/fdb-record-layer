@@ -20,19 +20,7 @@
 
 /**
  * Test fixtures for planning and executing queries against an
- * {@link com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore}: a query test
- * base ({@link com.apple.foundationdb.record.provider.foundationdb.query.FDBRecordStoreQueryTestBase}),
- * a collation-specific extension
- * ({@link com.apple.foundationdb.record.provider.foundationdb.query.FDBCollateQueryTestBase}),
- * and the {@link com.apple.foundationdb.record.provider.foundationdb.query.DualPlannerTest}
- * annotation (backed by
- * {@link com.apple.foundationdb.record.provider.foundationdb.query.DualPlannerExtension}) that
- * runs an annotated method under both planners.
- *
- * <p>
- * There is no production package of this name. These classes were lifted out of
- * {@code src/test/java} when the {@code tests} configuration was retired in favor of
- * {@code java-test-fixtures}; the boundaries here may want a follow-up rationalization.
+ * {@link com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore}.
  * </p>
  */
 package com.apple.foundationdb.record.provider.foundationdb.query;

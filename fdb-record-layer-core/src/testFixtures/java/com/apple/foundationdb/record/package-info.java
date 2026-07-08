@@ -21,9 +21,6 @@
 /**
  * Cross-cutting test scaffolding for the record-oriented API. The production
  * {@code package-info} describes the Protobuf-based record layer itself; the fixtures here
- * are the generic helpers that any test of that surface tends to need
- * ({@link com.apple.foundationdb.record.TestHelpers} for log/exception assertions and timing
- * primitives, {@link com.apple.foundationdb.record.UnstoredRecord} for evaluating expressions
- * without a record store).
+ * are the generic helpers that any test of that surface tends to need.
  */
 package com.apple.foundationdb.record;

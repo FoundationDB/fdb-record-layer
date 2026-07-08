@@ -24,15 +24,6 @@
  * point is {@link com.apple.foundationdb.record.query.plan.match.PlanMatchers}, whose static
  * factory methods compose matchers from the per-node-kind classes in this package; tests
  * typically read as {@code assertThat(plan, indexScan(indexName("foo")))}.
- *
- * <p>
- * There is no production package of this name. This package was migrated from
- * {@code src/test/java} as part of the {@code java-test-fixtures} adoption and is closely
- * coupled to the legacy
- * {@link com.apple.foundationdb.record.query.plan.RecordQueryPlanner} plan shape; it may
- * make sense to restructure or shrink as the Cascades planner's
- * {@link com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher}
- * facility absorbs more use cases.
  * </p>
  */
 package com.apple.foundationdb.record.query.plan.match;

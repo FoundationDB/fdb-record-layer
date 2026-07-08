@@ -19,11 +19,6 @@
  */
 
 /**
- * Test fixtures for the key-expression implementations in the production package. The shared
- * {@link com.apple.foundationdb.record.metadata.expressions.CollateFunctionKeyExpressionTestBase}
- * pins down the cross-cutting expectations a
- * {@link com.apple.foundationdb.record.metadata.expressions.CollateFunctionKeyExpression}
- * implementation must satisfy (case folding, accent handling, sort order across locales) and
- * lets each module wire in its own collator factory.
+ * Test fixtures for the key-expression implementations in the production package.
  */
 package com.apple.foundationdb.record.metadata.expressions;

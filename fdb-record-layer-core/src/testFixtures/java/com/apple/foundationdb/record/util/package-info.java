@@ -20,8 +20,6 @@
 
 /**
  * Test-only counterparts to the miscellaneous record-layer support classes in the production
- * package &mdash; small, dependency-free helpers that exist solely for testing
- * ({@link com.apple.foundationdb.record.util.RandomUtil} for deterministic random data,
- * {@link com.apple.foundationdb.record.util.RandomSecretUtil} for random keys/secrets).
+ * package.
  */
 package com.apple.foundationdb.record.util;
