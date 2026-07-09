@@ -108,7 +108,7 @@ public class RecordStoreStateTest {
     }
 
     @Test
-    public void getWriteOnlyIndexNamesIncludesQueueState() {
+    void getWriteOnlyIndexNamesIncludesQueueState() {
         // getWriteOnlyIndexNames() must include both write-only forms (WRITE_ONLY and WRITE_ONLY_WITH_QUEUE), since an
         // index building with a pending writes queue is still write-only.
         RecordStoreState storeState = stateOf(
