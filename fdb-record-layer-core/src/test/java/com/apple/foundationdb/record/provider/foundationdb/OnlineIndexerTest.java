@@ -52,6 +52,7 @@ import java.util.Objects;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.LongStream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -377,6 +378,17 @@ public abstract class OnlineIndexerTest {
             pauseSemaphore.release();
         } else {
             passed.set(true);
+        }
+        return oldConfig;
+    }
+
+    protected static OnlineIndexOperationConfig pauseAfterNthPass(final OnlineIndexOperationConfig oldConfig, final int passesCount, final AtomicInteger passCounter, final Semaphore inPauseSemaphore, final Semaphore pauseSemaphore) {
+        if (passCounter.get() >= passesCount) {
+            inPauseSemaphore.release();
+            Assertions.assertDoesNotThrow(() -> pauseSemaphore.acquire());
+            pauseSemaphore.release();
+        } else {
+            passCounter.incrementAndGet();
         }
         return oldConfig;
     }

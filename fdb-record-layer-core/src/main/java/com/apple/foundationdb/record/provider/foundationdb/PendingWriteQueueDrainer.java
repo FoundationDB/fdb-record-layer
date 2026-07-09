@@ -44,7 +44,7 @@ import java.util.concurrent.CompletableFuture;
 public class PendingWriteQueueDrainer {
     private final Index index;
     private final IndexingCommon common;
-    private static final int MAX_RECORDS_DELETE_PER_SECOND = 10000;
+    private static final int MAX_RECORDS_DELETE_PER_SECOND = 10_000;
 
     public PendingWriteQueueDrainer(final Index index, IndexingCommon common) {
         this.index = index;

@@ -39,11 +39,14 @@ import com.apple.foundationdb.util.CloseException;
 import com.google.protobuf.Message;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
@@ -62,8 +65,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class OnlineIndexerPendingWriteQueueTest extends OnlineIndexerTest {
 
-    @Test
-    void testDrainPendingQueueWhileBuilding() throws Exception {
+    @ParameterizedTest
+    @ValueSource(ints = {1, 2, 3, 5})
+    void testDrainPendingQueueWhileBuilding(int limit) throws Exception {
         // Add new records during online indexing session
         final Index index = new Index("simple$num_value_2_queue", field("num_value_2"), IndexTypes.VALUE);
 
@@ -75,7 +79,72 @@ class OnlineIndexerPendingWriteQueueTest extends OnlineIndexerTest {
 
         final FDBStoreTimer writeTimer = new FDBStoreTimer();
         buildIndexPausingOnceForWrites(
-                queueIndexerBuilder(index, List.of(index)),
+                queueIndexerBuilder(index, List.of(index)).setLimit(limit),
+                () -> {
+                    // Write the new records. Because the index is in the queue state, these saves are enqueued rather than indexed.
+                    try (FDBRecordContext context = fdb.openContext(null, writeTimer)) {
+                        final FDBRecordStore store = createStoreBuilder().setContext(context)
+                                .createOrOpen(FDBRecordStoreBase.StoreExistenceCheck.NONE);
+                        assertTrue(store.isIndexWriteOnlyWithQueue(index));
+                        for (int recNo : queuedRecNos) {
+                            store.saveRecord(TestRecords1Proto.MySimpleRecord.newBuilder()
+                                    .setRecNo(recNo)
+                                    .setNumValue2(recNo * 19)
+                                    .setNumValueUnique(recNo * 1139)
+                                    .build());
+                        }
+                        context.commit();
+                    }
+                    // The saves were deferred to the queue, not written to the index.
+                    assertEquals(queuedRecNos.size(), writeTimer.getCount(FDBStoreTimer.Counts.PENDING_WRITES_QUEUE_WRITE));
+
+                    // The pending writes queue should now hold exactly the deferred records (and nothing else), before the drain.
+                    try (FDBRecordContext context = openContext()) {
+                        final PendingWritesQueue<IndexBuildProto.PendingWritesQueueEntry> queue =
+                                PendingWriteQueueIndexingFactory.getIndexingQueue(recordStore, index);
+                        final Long queueSize = queue.getQueueSizeNoConflict(context).join();
+                        assertEquals(queuedRecNos.size(), queueSize == null ? 0L : queueSize);
+
+                        final List<Long> queuedRecordNos = queue
+                                .getQueueCursor(context, ScanProperties.FORWARD_SCAN, null)
+                                .asList().join().stream()
+                                .map(entry -> {
+                                    final IndexBuildProto.PendingWritesQueueEntry payload = entry.getPayload();
+                                    final Message record = recordStore.getSerializer().deserialize(recordStore.getRecordMetaData(),
+                                            TupleHelpers.EMPTY, payload.getNewRecord().toByteArray(), recordStore.getTimer());
+                                    return (Long)record.getField(record.getDescriptorForType().findFieldByName("rec_no"));
+                                })
+                                .toList();
+                        assertEquals(queuedRecNos.stream().map(Integer::longValue).toList(), queuedRecordNos);
+                        context.commit();
+                    }
+                });
+
+        assertReadable(index);
+        // The index must contain an entry for every record, including the ones that were only ever added to the queue.
+        assertEquals(numInitialRecords + queuedRecNos.size(), indexEntryCount(index));
+        // A scrub confirms there are no missing (or dangling) index entries.
+        scrubAndValidate(List.of(index));
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {1, 2, 3})
+    void testDrainPendingQueueWhileBuildingAfterNPasses(final int passesCount) throws Exception {
+        // Same as testDrainPendingQueueWhileBuilding, but the writes are injected after exactly passesCount scan
+        // passes have run rather than after the first. The scan limit is kept small (and there are plenty of initial
+        // records) so the build always has more than three passes, guaranteeing the pause point is reached.
+        final Index index = new Index("simple$num_value_2_queue", field("num_value_2"), IndexTypes.VALUE);
+
+        final int numInitialRecords = 30;
+        populateEvenRecords(numInitialRecords);
+        final List<Integer> queuedRecNos = List.of(1, 3, 5, 7);
+        openSimpleMetaData(allIndexesHook(List.of(index)));
+        disableAll(List.of(index));
+
+        final FDBStoreTimer writeTimer = new FDBStoreTimer();
+        buildIndexPausingAfterNPassesForWrites(
+                queueIndexerBuilder(index, List.of(index)).setLimit(3),
+                passesCount,
                 () -> {
                     // Write the new records. Because the index is in the queue state, these saves are enqueued rather than indexed.
                     try (FDBRecordContext context = fdb.openContext(null, writeTimer)) {
@@ -142,6 +211,7 @@ class OnlineIndexerPendingWriteQueueTest extends OnlineIndexerTest {
                         // WRITE_ONLY_WITH_QUEUE is a write-only state, so progress counts are loaded (not skipped)...
                         assertNotNull(buildState.getRecordsScanned(),
                                 "records-scanned progress should be loaded for a queue-state build");
+                        assertTrue(buildState.getRecordsScanned() > 0);
                         // ...and toString() renders those counts (the branch guarded by isAnyWriteOnly()).
                         final String rendered = buildState.toString();
                         assertTrue(rendered.contains("scannedRecords="), rendered);
@@ -195,26 +265,29 @@ class OnlineIndexerPendingWriteQueueTest extends OnlineIndexerTest {
         openSimpleMetaData(allIndexesHook(List.of(index)));
         disableAll(List.of(index));
 
-        final int updatedRecNo = 30; // not yet scanned when the first pass pauses
-        final int newNumValue2 = 999_999;
+        final List<Integer> updatedRecNos = List.of(30, 32, 34, 36, 38); // not yet scanned when the first pass pauses
         final FDBStoreTimer writeTimer = new FDBStoreTimer();
         buildIndexPausingOnceForWrites(
-                queueIndexerBuilder(index, List.of(index)),
+                queueIndexerBuilder(index, List.of(index)).setLimit(10),
                 () -> {
                     try (FDBRecordContext context = fdb.openContext(null, writeTimer)) {
                         final FDBRecordStore store = createStoreBuilder().setContext(context)
                                 .createOrOpen(FDBRecordStoreBase.StoreExistenceCheck.NONE);
-                        saveSimpleRecord(store, updatedRecNo, newNumValue2);
+                        for (int recNo : updatedRecNos) {
+                            saveSimpleRecord(store, recNo, 900_000 + recNo);
+                        }
                         context.commit();
                     }
                 });
 
-        assertEquals(1, writeTimer.getCount(FDBStoreTimer.Counts.PENDING_WRITES_QUEUE_WRITE));
+        assertEquals(updatedRecNos.size(), writeTimer.getCount(FDBStoreTimer.Counts.PENDING_WRITES_QUEUE_WRITE));
         assertReadable(index);
         assertEquals(numInitialRecords, indexEntryCount(index));
-        // The index entry must reflect the new value, not the original one.
-        assertEquals(List.of((long)updatedRecNo), indexPrimaryKeysForValue(index, newNumValue2));
-        assertEquals(List.of(), indexPrimaryKeysForValue(index, updatedRecNo * 19));
+        // Each index entry must reflect the new value, not the original one.
+        for (int recNo : updatedRecNos) {
+            assertEquals(List.of((long)recNo), indexPrimaryKeysForValue(index, 900_000 + recNo));
+            assertEquals(List.of(), indexPrimaryKeysForValue(index, recNo * 19));
+        }
         assertNull(queueSizeCounter(index));
         scrubAndValidate(List.of(index));
     }
@@ -237,6 +310,9 @@ class OnlineIndexerPendingWriteQueueTest extends OnlineIndexerTest {
                     try (FDBRecordContext context = fdb.openContext(null, writeTimer)) {
                         final FDBRecordStore store = createStoreBuilder().setContext(context)
                                 .createOrOpen(FDBRecordStoreBase.StoreExistenceCheck.NONE);
+                        // The first pass has already indexed updatedRecNo, so its primary key is in the built range.
+                        assertTrue(store.getIndexMaintainer(index).addedRangeWithKey(Tuple.from(updatedRecNo)).join(),
+                                "updatedRecNo should be within the range indexed by the first pass");
                         saveSimpleRecord(store, updatedRecNo, newNumValue2);
                         context.commit();
                     }
@@ -421,7 +497,14 @@ class OnlineIndexerPendingWriteQueueTest extends OnlineIndexerTest {
         final Index index = new Index("simple$num_value_2_unique_queue", field("num_value_2"),
                 EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS);
         final int numInitialRecords = 20; // recNos 0,2,..,38 with distinct num_value_2 = recNo * 19 (no initial conflict)
-        populateEvenRecords(numInitialRecords);
+        openSimpleMetaData();
+        try (FDBRecordContext context = openContext()) {
+            for (int i = 0; i < numInitialRecords; i++) {
+                final int recNo = 2 * i;
+                saveSimpleRecord(recordStore, recNo, recNo * 19);
+            }
+            context.commit();
+        }
         openSimpleMetaData(allIndexesHook(List.of(index)));
         disableAll(List.of(index));
 
@@ -453,7 +536,7 @@ class OnlineIndexerPendingWriteQueueTest extends OnlineIndexerTest {
 
     @Test
     void testFallsBackToWriteOnlyBelowFormatVersion() throws Exception {
-        formatVersion = FormatVersion.FULL_STORE_LOCK; // one below WRITE_ONLY_WITH_QUEUE
+        formatVersion = FormatVersionTestUtils.previous(FormatVersion.WRITE_ONLY_WITH_QUEUE);
         final Index index = new Index("simple$num_value_2_queue", field("num_value_2"), IndexTypes.VALUE);
         final int numInitialRecords = 20;
         populateEvenRecords(numInitialRecords);
@@ -478,6 +561,7 @@ class OnlineIndexerPendingWriteQueueTest extends OnlineIndexerTest {
                     }
                 });
 
+        assertTrue(formatVersion.getValueForSerialization() < FormatVersion.WRITE_ONLY_WITH_QUEUE.getValueForSerialization());
         assertEquals(0, writeTimer.getCount(FDBStoreTimer.Counts.PENDING_WRITES_QUEUE_WRITE),
                 "no writes should be deferred to a queue below the required format version");
         assertReadable(index);
@@ -666,6 +750,42 @@ class OnlineIndexerPendingWriteQueueTest extends OnlineIndexerTest {
         });
         indexerThread.start();
         // Wait until the indexer thread has started building and paused.
+        startBuildingSemaphore.acquire();
+        startBuildingSemaphore.release();
+
+        whilePaused.run();
+
+        pauseSemaphore.release();
+        indexerThread.join();
+        assertNull(buildFailure.get(), () -> "the build failed: " + buildFailure.get());
+    }
+
+    /**
+     * Like {@link #buildIndexPausingOnceForWrites}, but pauses after exactly {@code passesCount} scan passes rather
+     * than after the first. The caller must ensure the build has more than {@code passesCount} passes, otherwise the
+     * pause point is never reached and this method deadlocks waiting for it.
+     */
+    private void buildIndexPausingAfterNPassesForWrites(@Nonnull final OnlineIndexer.Builder indexerBuilder,
+                                                        final int passesCount,
+                                                        @Nonnull final Runnable whilePaused) throws InterruptedException {
+        final Semaphore pauseSemaphore = new Semaphore(1);
+        final Semaphore startBuildingSemaphore = new Semaphore(1);
+        pauseSemaphore.acquire();
+        startBuildingSemaphore.acquire();
+        final AtomicInteger passCounter = new AtomicInteger(0);
+        final AtomicReference<Throwable> buildFailure = new AtomicReference<>();
+
+        final Thread indexerThread = new Thread(() -> {
+            try (OnlineIndexer indexer = indexerBuilder
+                    .setConfigLoader(old -> pauseAfterNthPass(old, passesCount, passCounter, startBuildingSemaphore, pauseSemaphore))
+                    .build()) {
+                indexer.buildIndex(true);
+            } catch (Throwable t) {
+                buildFailure.set(t);
+            }
+        });
+        indexerThread.start();
+        // Wait until the indexer thread has run passesCount passes and paused.
         startBuildingSemaphore.acquire();
         startBuildingSemaphore.release();
 
