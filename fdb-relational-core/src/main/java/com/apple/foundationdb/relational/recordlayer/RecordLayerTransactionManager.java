@@ -66,6 +66,10 @@ public class RecordLayerTransactionManager implements TransactionManager {
         if (transactionTimeout != null) {
             builder.setTransactionTimeoutMillis(transactionTimeout);
         }
+        Boolean reportConflictingKeys = options.getOption(Options.Name.REPORT_CONFLICTING_KEYS);
+        if (Boolean.TRUE.equals(reportConflictingKeys)) {
+            builder.setReportConflictingKeys(true);
+        }
         return builder.build();
     }
 }

@@ -20,8 +20,11 @@
 
 package com.apple.foundationdb.relational.yamltests;
 
+import com.apple.foundationdb.Range;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactory;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContextConfig;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.catalog.StoreCatalog;
@@ -30,6 +33,10 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.RecordContextTransaction;
 import com.apple.foundationdb.relational.recordlayer.RelationalKeyspaceProvider;
 import com.apple.foundationdb.relational.recordlayer.catalog.StoreCatalogProvider;
+import com.apple.foundationdb.relational.recordlayer.util.ConflictKeyFormatter;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import java.util.List;
@@ -61,6 +68,8 @@ import java.util.List;
  */
 public final class YamlTestCatalogInitializer {
 
+    private static final Logger LOGGER = LoggerFactory.getLogger(YamlTestCatalogInitializer.class);
+
     private static final int MAX_ATTEMPTS = 10;
     private static final long RETRY_BASE_MILLIS = 20L;
 
@@ -90,15 +99,27 @@ public final class YamlTestCatalogInitializer {
 
     private static void initializeOne(final String clusterFile, @Nonnull final KeySpace keySpace) throws RelationalException {
         final FDBDatabase database = FDBDatabaseFactory.instance().getDatabase(clusterFile);
+        // Ask FDB to record the specific conflict ranges on any commit failure so we can log
+        // exactly which key(s) collided when a retry happens.
+        final FDBRecordContextConfig config = FDBRecordContextConfig.newBuilder()
+                .setReportConflictingKeys(true)
+                .build();
         RelationalException last = null;
         for (int attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
-            try (Transaction txn = new RecordContextTransaction(database.openContext())) {
+            final FDBRecordContext ctx = database.openContext(config);
+            try (Transaction txn = new RecordContextTransaction(ctx)) {
                 final StoreCatalog ignored = StoreCatalogProvider.getCatalog(txn, keySpace);
                 txn.commit();
                 return;
             } catch (RelationalException e) {
                 if (e.getErrorCode() != ErrorCode.SERIALIZATION_FAILURE) {
                     throw e;
+                }
+                final List<Range> ranges = ctx.getNotCommittedConflictingKeys();
+                if (ranges != null) {
+                    final String rendered = ConflictKeyFormatter.formatRanges(ranges);
+                    LOGGER.warn("YamlTestCatalogInitializer commit conflict on {} (attempt {}/{}): count={} ranges={}",
+                            clusterFile == null ? "<default>" : clusterFile, attempt, MAX_ATTEMPTS, ranges.size(), rendered);
                 }
                 last = e;
                 // Short, linear back-off; the commit-conflict window is brief and clearing it
