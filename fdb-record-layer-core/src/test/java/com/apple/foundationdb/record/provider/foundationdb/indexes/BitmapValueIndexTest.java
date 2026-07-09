@@ -47,8 +47,6 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreTestBase;
-import com.apple.foundationdb.record.provider.foundationdb.IndexScanRange;
-import com.apple.foundationdb.record.provider.foundationdb.indexes.scenarios.IndexDefinition;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.scenarios.IndexScenario;
 import com.apple.foundationdb.record.query.IndexQueryabilityFilter;
 import com.apple.foundationdb.record.query.RecordQuery;
@@ -60,7 +58,6 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
 import com.google.common.collect.ImmutableMap;
-import com.google.protobuf.Message;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -106,51 +103,7 @@ class BitmapValueIndexTest extends FDBRecordStoreTestBase {
     @IndexScenarios
     void indexScenariosTest(IndexScenario scenario) throws Exception {
         scenario.runTest(
-                (groupingLength, syntheticType) -> new IndexDefinition() {
-                    private final String indexName = "bitmapIndex";
-
-                    @Override
-                    public RecordMetaData getMetaData() {
-                        RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder()
-                                .setRecords(TestRecordsBitmapProto.getDescriptor());
-                        // Grouped by an empty expression: the only grouped column is the bit position.
-                        metaDataBuilder.addIndex("MySimpleRecord",
-                                new Index(indexName, field("num_value_unique").ungrouped(),
-                                        IndexTypes.BITMAP_VALUE, SMALL_BITMAP_OPTIONS));
-                        return metaDataBuilder.build();
-                    }
-
-                    @Override
-                    public List<Message> generateRecords(final int count) {
-                        return IntStream.range(0, count)
-                                .mapToObj(i -> (Message)TestRecordsBitmapProto.MySimpleRecord.newBuilder()
-                                        .setRecNo(i)
-                                        .setNumValueUnique(i)
-                                        .build())
-                                .collect(Collectors.toList());
-                    }
-
-                    @Override
-                    public RecordCursor<IndexEntry> scanIndex(final FDBRecordStore store, final ScanProperties scanProperties) {
-                        return store.scanIndex(store.getRecordMetaData().getIndex(indexName),
-                                new IndexScanRange(IndexScanType.BY_GROUP, TupleRange.ALL), null, scanProperties);
-                    }
-
-                    @Override
-                    public List<Message> generateOtherRecords(final int count) {
-                        // MyNestedRecord is not covered by the bitmap index on MySimpleRecord.
-                        return IntStream.range(0, count)
-                                .mapToObj(i -> (Message)TestRecordsBitmapProto.MyNestedRecord.newBuilder()
-                                        .setRecNo(1000 + i)
-                                        .build())
-                                .collect(Collectors.toList());
-                    }
-
-                    @Override
-                    public String getIndexName() {
-                        return indexName;
-                    }
-                },
+                (groupingLength, syntheticType) -> new BitmapValueIndexDefinition(),
                 this::openContext,
                 FDBRecordStore.newBuilder()
                         .setKeySpacePath(path));

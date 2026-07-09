@@ -25,7 +25,6 @@ import com.apple.foundationdb.record.EndpointType;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.FunctionNames;
-import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.IsolationLevel;
 import com.apple.foundationdb.record.PipelineOperation;
@@ -56,8 +55,6 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreTestBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
 import com.apple.foundationdb.record.provider.foundationdb.IndexFunctionHelper;
-import com.apple.foundationdb.record.provider.foundationdb.IndexScanRange;
-import com.apple.foundationdb.record.provider.foundationdb.indexes.scenarios.IndexDefinition;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.scenarios.IndexScenario;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
 import com.apple.foundationdb.record.provider.foundationdb.query.DualPlannerTest;
@@ -223,52 +220,7 @@ class RankIndexTest extends FDBRecordStoreQueryTestBase {
         // different metadata) do not interfere with the scenario's clean-store expectations.
         final KeySpacePath scenarioPath = pathManager.createPath(TestKeySpace.RECORD_STORE);
         scenario.runTest(
-                (groupingLength, syntheticType) -> new IndexDefinition() {
-                    private final String indexName = "rankIndex";
-
-                    @Override
-                    public RecordMetaData getMetaData() {
-                        RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder()
-                                .setRecords(TestRecordsRankProto.getDescriptor());
-                        metaDataBuilder.getRecordType("HeaderRankedRecord")
-                                .setPrimaryKey(field("header").nest(Key.Expressions.concatenateFields("group", "id")));
-                        metaDataBuilder.addIndex("BasicRankedRecord",
-                                new Index(indexName, field("score").ungrouped(), IndexTypes.RANK));
-                        return metaDataBuilder.build();
-                    }
-
-                    @Override
-                    public List<Message> generateRecords(final int count) {
-                        return IntStream.range(0, count)
-                                .mapToObj(i -> (Message)TestRecordsRankProto.BasicRankedRecord.newBuilder()
-                                        .setName("record-" + i)
-                                        .setScore(3 * i + 1)
-                                        .setGender(i % 2 == 0 ? "M" : "F")
-                                        .build())
-                                .collect(Collectors.toList());
-                    }
-
-                    @Override
-                    public RecordCursor<IndexEntry> scanIndex(final FDBRecordStore store, final ScanProperties scanProperties) {
-                        return store.scanIndex(store.getRecordMetaData().getIndex(indexName),
-                                new IndexScanRange(IndexScanType.BY_VALUE, TupleRange.ALL), null, scanProperties);
-                    }
-
-                    @Override
-                    public List<Message> generateOtherRecords(final int count) {
-                        // RepeatedRankedRecord is not covered by the rank index on BasicRankedRecord.
-                        return IntStream.range(0, count)
-                                .mapToObj(i -> (Message)TestRecordsRankProto.RepeatedRankedRecord.newBuilder()
-                                        .setName("other-" + i)
-                                        .build())
-                                .collect(Collectors.toList());
-                    }
-
-                    @Override
-                    public String getIndexName() {
-                        return indexName;
-                    }
-                },
+                (groupingLength, syntheticType) -> new RankIndexDefinition(),
                 this::openContext,
                 FDBRecordStore.newBuilder()
                         .setKeySpacePath(scenarioPath));

@@ -64,7 +64,7 @@ class VectorIndexIndexingTest extends VectorIndexTestBase {
 
         // Add the vector index and build it online
         final String indexName = "UngroupedVectorIndex";
-        final Index vectorIndex = addAndBuildIndexOnline(indexName, this::addUngroupedVectorIndex);
+        final Index vectorIndex = addAndBuildIndexOnline(indexName, VectorIndexTestBase::addUngroupedVectorIndex);
 
         // Verify that the index was built correctly
         final HalfRealVector queryVector = randomHalfVector(random, 128);
@@ -105,14 +105,14 @@ class VectorIndexIndexingTest extends VectorIndexTestBase {
 
         // Start building the index (but don't complete it yet)
         final String indexName = "UngroupedVectorIndex";
-        addIndexWithoutBuilding(indexName, this::addUngroupedVectorIndex);
+        addIndexWithoutBuilding(indexName, VectorIndexTestBase::addUngroupedVectorIndex);
 
         // Save additional records while index exists (this should not build the index)
         final List<FDBStoredRecord<Message>> additionalSaved =
-                saveMoreRecords(random, initialRecords, additionalRecords, this::addUngroupedVectorIndex);
+                saveMoreRecords(random, initialRecords, additionalRecords, VectorIndexTestBase::addUngroupedVectorIndex);
 
         // Complete the index build
-        final Index vectorIndex = buildIndexOnline(indexName, this::addUngroupedVectorIndex);
+        final Index vectorIndex = buildIndexOnline(indexName, VectorIndexTestBase::addUngroupedVectorIndex);
 
         // Verify all records (both initial and additional) are in the index
         final HalfRealVector queryVector = randomHalfVector(random, 128);
@@ -243,7 +243,7 @@ class VectorIndexIndexingTest extends VectorIndexTestBase {
         int matchCount = 0;
 
         try (FDBRecordContext context = openContext()) {
-            openRecordStore(context, this::addUngroupedVectorIndex);
+            openRecordStore(context, VectorIndexTestBase::addUngroupedVectorIndex);
 
             try (RecordCursorIterator<FDBQueriedRecord<Message>> cursor =
                          executeQuery(indexPlan, null, Bindings.EMPTY_BINDINGS, Integer.MAX_VALUE)) {

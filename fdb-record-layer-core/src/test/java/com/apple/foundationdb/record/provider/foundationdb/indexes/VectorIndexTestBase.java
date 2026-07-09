@@ -93,7 +93,7 @@ public class VectorIndexTestBase extends FDBRecordStoreQueryTestBase {
     }
 
     @CanIgnoreReturnValue
-    protected RecordMetaDataBuilder addUngroupedVectorIndex(@Nonnull final RecordMetaDataBuilder metaDataBuilder) {
+    protected static RecordMetaDataBuilder addUngroupedVectorIndex(@Nonnull final RecordMetaDataBuilder metaDataBuilder) {
         metaDataBuilder.addIndex("VectorRecord",
                 new Index("UngroupedVectorIndex", new KeyWithValueExpression(field("vector_data"), 0),
                         IndexTypes.VECTOR,
