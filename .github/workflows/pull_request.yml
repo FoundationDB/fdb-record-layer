@@ -72,9 +72,9 @@ jobs:
       - name: Compute plan
         id: plan
         env:
-          # The subset of subprojects with their own `tests` matrix entry below. This is the
-          # one place that knowledge lives -- neither the Gradle task nor affected_subprojects.py
-          # need to know it. Keep in sync with the `tests` job's matrix list.
+          # The subset of subprojects that should be executed in their own job by the `tests` matrix.
+          # The `other-tests` and `coverage` steps below need to be kept in sync, the former to ensure that
+          # no subproject is tested twice, and the latter to ensure that we collect all coverage reports.
           MATRIX_CANDIDATES: '["fdb-extensions","fdb-record-layer-core","fdb-record-layer-lucene","yaml-tests"]'
         run: |
           python3 build/affected_subprojects.py subproject_deps.json \
@@ -229,39 +229,43 @@ jobs:
       - name: Check coverage report was generated
         id: coverage_report
         run: |
-          # codeCoverageReport has an onlyIf guard that skips it (not a failure) when none of its
-          # execution data files exist -- e.g. when the `plan` job determined nothing was affected,
-          # so `tests` and `other-tests` were both skipped and produced no JaCoCo data to merge.
-          if [[ -f .out/reports/jacoco/codeCoverageReport/codeCoverageReport.xml ]]; then
-            echo "exists=true" >> "$GITHUB_OUTPUT"
+          # If we skipped all of the tests, we may not have a code coverage report file, so skip
+          # the report if the file doesn't actually exist. However, while we're here, protect against
+          # a case where we should have generated a report but didn't by also overriding should_exist
+          # to true if any of the conditions that should have resulted in tests being run are true.
+          if [[ -f '${{ github.workspace }}/.out/reports/jacoco/codeCoverageReport/codeCoverageReport.xml'
+                || '${{ needs.plan.outputs.run_all }}' == 'true'
+                || '${{ needs.plan.outputs.matrix }}' != '[]'
+                || '${{ needs.plan.outputs.run_other_tests }}' == 'true' ] ; then
+            echo "should_exist=true" >> "$GITHUB_OUTPUT"
           else
-            echo "exists=false" >> "$GITHUB_OUTPUT"
+            echo "should_exist=false" >> "$GITHUB_OUTPUT"
             echo "### Coverage Note" >> "$GITHUB_STEP_SUMMARY"
             echo "No coverage report was generated: no subprojects were tested this run." >> "$GITHUB_STEP_SUMMARY"
           fi
       - name: Publish Coverage Report
-        if: steps.coverage_report.outputs.exists == 'true'
+        if: steps.coverage_report.outputs.should_exist == 'true'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: coverage-report
           path: |
             ${{ github.workspace }}/.out/reports/jacoco/codeCoverageReport/
       - name: Note Skipped Subprojects
-        if: steps.coverage_report.outputs.exists == 'true' && needs.plan.outputs.run_all != 'true'
+        if: steps.coverage_report.outputs.should_exist == 'true' && needs.plan.outputs.run_all != 'true'
         env:
           AFFECTED_SUBPROJECTS: ${{ needs.plan.outputs.affected }}
         run: |
           echo "### Coverage Note" >> "$GITHUB_STEP_SUMMARY"
           echo "Only subprojects affected by this PR's diff were tested this run: ${AFFECTED_SUBPROJECTS}" >> "$GITHUB_STEP_SUMMARY"
       - name: Get PR Diff
-        if: steps.coverage_report.outputs.exists == 'true'
+        if: steps.coverage_report.outputs.should_exist == 'true'
         run: |
           # `gh pr diff` uses the GitHub API .diff media type, which returns HTTP 406 once the diff exceeds
           # 20000 lines. Compute the same three-dot (merge-base..head) diff with git, which has no such limit;
           # fetch-depth: 0 on the checkout above ensures both commits and their merge-base are present.
           git diff "${{ github.event.pull_request.base.sha }}...${{ github.event.pull_request.head.sha }}" > pr_diff.patch
       - name: Annotate Coverage
-        if: steps.coverage_report.outputs.exists == 'true'
+        if: steps.coverage_report.outputs.should_exist == 'true'
         run: |
           python3 build/coverage_annotations.py \
             --report .out/reports/jacoco/codeCoverageReport/codeCoverageReport.xml \

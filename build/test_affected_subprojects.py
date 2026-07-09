@@ -32,6 +32,7 @@ sys.path.insert(0, os.path.dirname(__file__))
 from affected_subprojects import (
     compute_affected,
     compute_matrix_plan,
+    is_ignored,
     is_build_affecting,
     map_changed_file_to_subproject,
     parse_subproject_deps,
@@ -130,6 +131,52 @@ class TestIsBuildAffecting(unittest.TestCase):
         self.assertFalse(is_build_affecting('.github/workflows/nightly.yml'))
 
 
+class TestIsIgnored(unittest.TestCase):
+    """Tests for is_ignored()"""
+
+    def test_build_gradle_not_ignored(self):
+        self.assertFalse(is_ignored('build.gradle'))
+
+    def test_subproject_gradle_not_ignored(self):
+        self.assertFalse(is_ignored('fdb-record-layer-core/fdb-record-layer-core.gradle'))
+
+    def test_java_not_ignored(self):
+        self.assertFalse(is_ignored('fdb-record-layer-core/src/main/java/Foo.java'))
+
+    def test_proto_not_ignored(self):
+        self.assertFalse(is_ignored('fdb-record-layer-core/src/test/proto/test_records_1.proto'))
+
+    def test_readme_ignored(self):
+        self.assertTrue(is_ignored('README.md'))
+
+    def test_subproject_readme_ignored(self):
+        self.assertTrue(is_ignored('fdb-record-layer-core/README.md'))
+
+    def test_idea_ignored(self):
+        self.assertTrue(is_ignored('.idea/compiler.xml'))
+
+    def test_gitignore_ignored(self):
+        self.assertTrue(is_ignored('.gitignore'))
+
+    def test_agitignore_not_ignored(self):
+        self.assertFalse(is_ignored('agitignore'))
+
+    def test_docs_content_ignored(self):
+        self.assertTrue(is_ignored('docs/sphinx/source/ReleaseNotes.md'))
+
+    def test_docs_script_ignored(self):
+        self.assertTrue(is_ignored('docs/sphinx/source/generate_railroad_svg.py'))
+
+    def test_license_ignored(self):
+        self.assertTrue(is_ignored('LICENSE'))
+
+    def test_acknowledgements_ignored(self):
+        self.assertTrue(is_ignored('ACKNOWLEDGEMENTS'))
+
+    def test_license_suffix_not_ignored(self):
+        self.assertFalse(is_ignored('fdb-relational-server/LICENSE'))
+
+
 class TestMapChangedFileToSubproject(unittest.TestCase):
     """Tests for map_changed_file_to_subproject()"""
 
@@ -149,18 +196,31 @@ class TestMapChangedFileToSubproject(unittest.TestCase):
 class TestComputeAffected(unittest.TestCase):
     """Tests for compute_affected()"""
 
+    TO_BE_IGNORED = [
+        'README.md',
+        'CODE_OF_CONDUCT.md',
+        'LICENSE',
+        'ACKNOWLEDGEMENTS',
+        '.gitignore',
+        '.idea/misc.xml',
+        'AGENTS.md',
+        'docs/sphinx/source/ReleaseNotes.md',
+        'docs/sphinx/generate_railroad_svg.py',
+    ]
+
     def test_build_affecting_change_runs_all(self):
         result = compute_affected(['build.gradle'], SAMPLE_AFFECTED_MAP)
         self.assertTrue(result['run_all'])
         self.assertEqual(set(result['affected']), ALL_SUBPROJECTS)
 
-    def test_readme_change_runs_nothing(self):
-        result = compute_affected(['README.md'], SAMPLE_AFFECTED_MAP)
-        self.assertFalse(result['run_all'])
-        self.assertEqual(result['affected'], [])
+    def test_ignored_file_change_runs_nothing(self):
+        for path in TestComputeAffected.TO_BE_IGNORED:
+            result = compute_affected([path], SAMPLE_AFFECTED_MAP)
+            self.assertFalse(result['run_all'])
+            self.assertEqual(result['affected'], [])
 
-    def test_docs_change_runs_nothing(self):
-        result = compute_affected(['docs/sphinx/source/ReleaseNotes.md'], SAMPLE_AFFECTED_MAP)
+    def test_only_ignored_files_run_nothing(self):
+        result = compute_affected(TestComputeAffected.TO_BE_IGNORED, SAMPLE_AFFECTED_MAP)
         self.assertFalse(result['run_all'])
         self.assertEqual(result['affected'], [])
 
@@ -190,6 +250,18 @@ class TestComputeAffected(unittest.TestCase):
         result = compute_affected([], SAMPLE_AFFECTED_MAP)
         self.assertFalse(result['run_all'])
         self.assertEqual(result['affected'], [])
+
+    def test_mark_run_all_if_all_affected(self):
+        result = compute_affected(['fdb-java-annotations/src/main/java/API.java', 'fdb-test-utils/src/test/java/Utils.java'],
+              SAMPLE_AFFECTED_MAP)
+        self.assertTrue(result['run_all'])
+        self.assertEqual(result['affected'], sorted(SAMPLE_AFFECTED_MAP.keys()))
+
+    def test_run_all_if_from_unknown(self):
+        result = compute_affected(['new-subproject/src/main/java/Foo.java'],
+              SAMPLE_AFFECTED_MAP)
+        self.assertTrue(result['run_all'])
+        self.assertEqual(result['affected'], sorted(SAMPLE_AFFECTED_MAP.keys()))
 
 
 class TestComputeMatrixPlan(unittest.TestCase):

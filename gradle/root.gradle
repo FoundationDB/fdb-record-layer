@@ -72,11 +72,10 @@ task checksumsVerify {
 }
 
 // Computes, for every subproject, the full set of subprojects that would be affected by a
-// change to it -- itself plus every (transitive) dependent -- and emits the result as a JSON
-// object mapping subproject name -> sorted list of affected subproject names. This reads
-// Gradle's own configured model and then recursively explores the graph. Used by CI (see
-// .github/workflows/pull_request.yml) to determine which subprojects are affected by a PR's
-// changes, so that expensive test jobs can be skipped for unaffected subprojects.
+// change to it (including itself), and emits the result as a JSON object. This uses
+// the configured dependencies and then recursively explores the graph so that it stays up
+// to date as dependencies are added. Used in CI (see .github/workflows/pull_request.yml)
+// to determine which subprojects are affected by a PR's changes.
 tasks.register('printDependentSubprojects') {
     doLast {
         // Direct forward graph: subproject name -> set of subproject names it depends on.
@@ -96,8 +95,7 @@ tasks.register('printDependentSubprojects') {
             deps.each { dep -> reverse[dep]?.add(name) }
         }
 
-        // For each subproject, BFS over the reverse graph to find its full transitive impact
-        // set: itself, plus everything that (transitively) depends on it.
+        // For each subproject, BFS over the reverse graph to find its full transitive impact set
         def affected = forward.keySet().collectEntries { subproject ->
             def seen = new TreeSet<String>([subproject])
             Queue<String> queue = new LinkedList<String>([subproject])
@@ -156,11 +154,10 @@ tasks.register('codeCoverageReport', JacocoReport) {
         "**/generated/*", "**/grpc/v1/**/*"
     ]
 
-    // Since CI now skips building/testing subprojects that a PR's diff couldn't have affected
+    // Since CI skips building/testing subprojects that a PR's diff couldn't have affected
     // (see the `plan` job in pull_request.yml), not every coverageSubproject's jar is guaranteed
-    // to exist when this task runs against downloaded artifacts -- referencing a missing one via
-    // zipTree fails the build outright, unlike missing execution data above, which JaCoCo already
-    // tolerates on its own.
+    // to exist when this task runs against downloaded artifacts. Referencing a missing one via
+    // zipTree fails the build outright, so only include the built ones.
     def builtSubprojects = coverageSubprojects.findAll { sp ->
         sp.layout.buildDirectory.file("libs/${sp.name}-${sp.version}.jar").get().asFile.exists()
     }

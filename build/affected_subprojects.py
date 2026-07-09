@@ -32,11 +32,9 @@ computed here -- it's read from the output of the `printDependentSubprojects` Gr
 impact set (itself plus everything that depends on it). Keeping the graph traversal in
 Gradle means it can never drift out of sync with the real build.
 
-Any change that isn't clearly confined to a single known subproject -- e.g. a change to
-the root build files, the Gradle wrapper, shared CI actions, or a path this script
-doesn't recognize -- is treated conservatively as affecting everything. The same applies
-to any failure parsing the subproject dependency data or the changed-files list: fail
-safe to "run everything", never to "run nothing".
+Any change that is isolated to the build or not in an explicit ignore list is treated
+conservatively as affecting everything. The same applies to any failure parsing the subproject
+dependency data or the changed-files list: fail safe to "run everything", never to "run nothing".
 
 Usage:
     # In CI: subproject dependency data and changed-files list are precomputed, and the CI-specific
@@ -58,13 +56,13 @@ summary -- is printed to stdout.
 import argparse
 import json
 import os.path
+import re
 import subprocess
 import sys
 from collections.abc import Iterable
 
 # Paths that, if touched, mean we can't reason about affected subprojects from the
-# dependency graph alone -- e.g. changes to the build itself, the CI plumbing that
-# computes this very answer, or the Gradle wrapper. Treat any of these as "run
+# dependency graph alone -- e.g., changes to the build. Treat any of these as "run
 # everything". Entries are path prefixes (checked against '/'-joined repo-relative
 # paths), so a trailing '/' matches a whole directory.
 BUILD_AFFECTING_PREFIXES: list[str] = [
@@ -78,6 +76,21 @@ BUILD_AFFECTING_PREFIXES: list[str] = [
     'actions/',
     'build/',
 ]
+
+
+# Path patterns that, if touched, we can assume do *not* affect the build. Ignore
+# these paths. Note that as this script is itself not one of these patterns, to
+# update this list, it must be modified, the change merged on a PR which runs
+# all tests, and then that file pattern will be ignored on future builds.
+IGNORED_PATTERNS: list[re.Pattern] = list(map(re.compile, [
+    r'.*\.md$',
+    r'^\.gitignore$',
+    r'^\.idea\/.*',
+    r'^ACKNOWLEDGEMENTS$',
+    r'^LICENSE$',
+    r'^docs\/.*',
+]))
+
 
 # Default path for the --output plan file; a build artifact, so it's gitignored.
 DEFAULT_OUTPUT_FILE = 'subproject_plan.json'
@@ -102,6 +115,11 @@ def is_build_affecting(path: str) -> bool:
     """Whether a changed path means we should conservatively run everything."""
     return any(path == prefix or path.startswith(prefix)
                for prefix in BUILD_AFFECTING_PREFIXES)
+
+
+def is_ignored(path: str) -> bool:
+    """Whether a changed path should be ignored."""
+    return any(pattern.match(path) for pattern in IGNORED_PATTERNS)
 
 
 def map_changed_file_to_subproject(path: str, known_subprojects: Iterable[str]) -> str | None:
@@ -131,13 +149,20 @@ def compute_affected(changed_files: list[str], subproject_deps: dict[str, list[s
 
     affected: set[str] = set()
     for path in changed_files:
+        if is_ignored(path):
+            # Known ignored path. Continue.
+            continue
+
         subproject = map_changed_file_to_subproject(path, known_subprojects)
-        if subproject is not None:
+        if subproject is None:
+            # Unknown file path. Fail safe.
+            return {'run_all': True, 'affected': sorted(known_subprojects)}
+        else:
             # Modified file is in a subproject. Register it and its downstream dependencies as affected.
             # If the file is not in a subproject (e.g., because it is docs or a readme), we ignore it.
             affected.update(subproject_deps[subproject])
 
-    return {'run_all': False, 'affected': sorted(affected)}
+    return {'run_all': len(affected) == len(known_subprojects), 'affected': sorted(affected)}
 
 
 def compute_matrix_plan(plan: dict, matrix_candidates: Iterable[str]) -> dict:
