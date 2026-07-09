@@ -1,33 +1,29 @@
-# FoundationDB Record Layer
-  
-Welcome to the documentation for the FoundationDB Record Layer.
+# FoundationDB Record Layer Documentation
 
-The Record Layer is a Java library providing a record-oriented store on top of
-[FoundationDB](https://www.foundationdb.org), supporting structured records with
-fields and types, schema evolution, complex primary and secondary indexes, 
-and declarative query execution.  The Record Layer also includes features not 
-typically found in a traditional relational database, such as support for 
-complex nested data types, indexes on the commit-time of records, and indexes 
-and queries that span different types of records.
+The **FoundationDB Record Layer** is a Java library that provides a record-oriented data store and a relational database interface built on top of the [FoundationDB](https://www.foundationdb.org) key/value store. Its key features are:
 
-The Record Layer is stateless, so scaling up is as simple as launching more instances.
-It is designed for massive multi-tenancy, encapsulating and isolating all of a tenant's
-state, and providing the ability to tightly constrain and balance resource consumption
-across users in a predictable fashion, even in the face of a wide variety of workloads
-and activity. Together, these properties enable the Record Layer to scale elastically
-as the demands of its clients grow.
+* A **[SQL interface](SQL_Reference.md)** for defining schemas, querying data, and manipulating tables using familiar SQL syntax. Java applications interact with the Record Layer through a standard **[JDBC interface](jdbc/index.rst)**.
+* A **record-oriented [Java API](Overview.md)**. This API defines records using [protocol buffers](https://protobuf.dev), supports declarative query execution, and offers fine-grained control over storage layout and index maintenance through extension points such as <a href="api/fdb-record-layer-core/com/apple/foundationdb/record/provider/foundationdb/IndexMaintainer.html">index maintainers</a> and custom query components. It is positioned as a low-level alternative to SQL for advanced use cases; most of its capabilities are expected to migrate to the SQL interface over time.
+* Reusable **[schema templates](reference/Databases_Schemas_SchemaTemplates.rst)**, which enable massively multi-tenant architectures where each tenant instantiates their own database based on a shared schema that can [safely evolve over time](SchemaEvolution.md).
+* Rich **[indexing capabilities](reference/Indexes.rst)**, which include value indexes, aggregate indexes, rank indexes, and indexes on the commit time of records. Indexes are akin to materialized views and can be updated incrementally.
+* An advanced **[type system](reference/sql_types.rst)** that, beyond the standard types found in traditional relational databases, includes user-defined struct types, arrays of primitives or complex types, and fixed-dimension numerical vectors for ML embeddings and similarity search.
+* An intelligent **query planner**, which performs automatic index selection and query optimization, and supports complex [correlated subqueries](reference/Subqueries.rst), [joins](reference/Joins.rst), aggregation with `GROUP BY`, and ordering (`ORDER BY`). To limit memory use, query plans avoid in-memory buffers and instead rely heavily on stream-based processing over available indexes.
+* Full **ACID transactions**, inherited from FoundationDB along with its strong reliability and performance in a distributed setting. To work within the transaction time and size limits, the query API provides continuations that efficiently page through large result sets.
+* A scalable, **stateless architecture**. Scaling up is as simple as launching more instances, since there is no server-side state—all data resides in FoundationDB. With millisecond-level store initialization and query execution, it is well-suited to multi-tenancy across thousands of independent database instances. Each tenant’s state is encapsulated, and resource consumption is tightly constrained and balanced across users, even under a wide variety of workloads.
 
-Sitting on top of FoundationDB, the Record Layer inherits its strong ACID semantics,
-reliability, and performance in a distributed setting.
-
-## Documentation
+```{toctree}
+:hidden:
+Welcome <self>
+```
 
 ```{toctree}
 :maxdepth: 1
 :caption: User Guide
+:hidden:
 Overview
 Versioning
-GettingStarted
+Getting started (Java) <GettingStarted>
+Getting started (SQL) <SQL_Getting_Started>
 SchemaEvolution
 Extending
 FAQ
@@ -37,6 +33,7 @@ ReleaseNotes
 ```{toctree}
 :maxdepth: 1
 :caption: Reference
+:hidden:
 SQL_Reference
 jdbc/index
 api/index
@@ -45,6 +42,7 @@ api/index
 ```{toctree}
 :maxdepth: 1
 :caption: Development
+:hidden:
 Building <Building>
 Coding_Best_Practices
 architecture/index

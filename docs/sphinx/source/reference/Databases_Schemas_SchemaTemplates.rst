@@ -1,6 +1,6 @@
-====================================
-Databases, Schemas, Schema Templates
-====================================
+=====================
+Databases and schemas
+=====================
 
 .. _schema:
 
@@ -43,7 +43,7 @@ of unique databases within the entirety of a single deployment of the Relational
 
 .. _schema_template:
 
-Schema Templates
+Schema templates
 ################
 
 One important way that the FDB Relational Layer differs from a "normal" relational database in the DDL language is that

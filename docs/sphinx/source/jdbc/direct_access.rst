@@ -1,6 +1,6 @@
-======================
-Key-Based Data Access
-======================
+=====================
+Key-based data access
+=====================
 
 .. important::
    **Transition API**: The Key-Based Data Access API is provided primarily to ease migration from FDBRecordStore API usage to SQL-based queries. While it remains supported, it is **not the recommended approach for new applications**. For most use cases, SQL queries provide better flexibility, optimization, and maintainability. This API may evolve or be deprecated in future versions as the SQL interface matures.
@@ -14,7 +14,7 @@ The Key-Based Data Access API provides programmatic methods for common database 
 
 For more complex queries, filtering, joins, or aggregations, use the :doc:`SQL query language <../SQL_Reference>` instead.
 
-Getting Started
+Getting started
 ===============
 
 The Key-Based Data Access methods are available on ``RelationalStatement``, which extends the standard JDBC ``Statement``. To access these methods, unwrap your statement:
@@ -25,12 +25,12 @@ The Key-Based Data Access methods are available on ``RelationalStatement``, whic
    :end-before: // end::unwrap-statement[]
    :dedent: 8
 
-Scan Operations
+Scan operations
 ===============
 
 Scans retrieve multiple records that match a primary key prefix. The API supports pagination through continuations for handling large result sets.
 
-Basic Scan
+Basic scan
 ----------
 
 To scan all records in a table, use an empty ``KeySet``:
@@ -41,8 +41,8 @@ To scan all records in a table, use an empty ``KeySet``:
    :end-before: // end::scan-basic[]
    :dedent: 8
 
-Scan with Key Prefix
----------------------
+Scan with key prefix
+--------------------
 
 Narrow the scan to records matching a primary key prefix. The key columns must form a **contiguous prefix** of the primary key:
 
@@ -59,8 +59,8 @@ Given a table with ``PRIMARY KEY(a, b, c)``:
 - ✓ Valid: ``{a: 1}``, ``{a: 1, b: 2}``, ``{a: 1, b: 2, c: 3}``
 - ✗ Invalid: ``{b: 2}`` (not a prefix), ``{a: 1, c: 3}`` (skips ``b``)
 
-Scan with Continuation
------------------------
+Scan with continuation
+----------------------
 
 For large result sets, use continuations to paginate through results:
 
@@ -72,12 +72,12 @@ For large result sets, use continuations to paginate through results:
 
 The continuation points to the **first unread row** after the current position in the ``ResultSet``.
 
-Get Operations
+Get operations
 ==============
 
 Get operations retrieve a single record by its complete primary key. The result set will contain either 0 or 1 row.
 
-Basic Get
+Basic get
 ---------
 
 .. literalinclude:: ../../../../examples/src/main/java/com/apple/foundationdb/relational/jdbc/examples/DirectAccessSnippets.java
@@ -86,7 +86,7 @@ Basic Get
    :end-before: // end::get-basic[]
    :dedent: 8
 
-Get with Composite Key
+Get with composite key
 ----------------------
 
 For tables with composite primary keys, provide all key columns:
@@ -99,12 +99,12 @@ For tables with composite primary keys, provide all key columns:
 
 **Important**: Unlike scans, Get requires a **complete primary key**. Incomplete keys will cause an error.
 
-Insert Operations
+Insert operations
 =================
 
 Insert operations add records to a table using ``RelationalStruct`` objects. The struct must contain values for all required columns.
 
-Single Insert
+Single insert
 -------------
 
 .. tab-set::
@@ -127,7 +127,7 @@ Single Insert
          :end-before: // end::insert-single[]
          :dedent: 8
 
-Batch Insert
+Batch insert
 ------------
 
 Insert multiple records in a single operation for better performance:
@@ -152,8 +152,8 @@ Insert multiple records in a single operation for better performance:
          :end-before: // end::insert-batch[]
          :dedent: 8
 
-Insert with Replace on Duplicate
----------------------------------
+Insert with replace on duplicate
+--------------------------------
 
 Use the ``REPLACE_ON_DUPLICATE_PK`` option to update existing records instead of failing on primary key conflicts:
 
@@ -177,12 +177,12 @@ Use the ``REPLACE_ON_DUPLICATE_PK`` option to update existing records instead of
          :end-before: // end::insert-replace[]
          :dedent: 8
 
-Delete Operations
+Delete operations
 =================
 
 Delete operations remove records by their primary keys. Three variants are supported: single delete, batch delete, and range delete.
 
-Single Delete
+Single delete
 -------------
 
 .. literalinclude:: ../../../../examples/src/main/java/com/apple/foundationdb/relational/jdbc/examples/DirectAccessSnippets.java
@@ -191,7 +191,7 @@ Single Delete
    :end-before: // end::delete-single[]
    :dedent: 8
 
-Batch Delete
+Batch delete
 ------------
 
 Delete multiple records by providing a collection of keys:
@@ -202,7 +202,7 @@ Delete multiple records by providing a collection of keys:
    :end-before: // end::delete-batch[]
    :dedent: 8
 
-Range Delete
+Range delete
 ------------
 
 Delete all records matching a primary key prefix using ``executeDeleteRange``:
@@ -215,8 +215,8 @@ Delete all records matching a primary key prefix using ``executeDeleteRange``:
 
 **Warning**: Range deletes can affect many records. Use with caution.
 
-Working with KeySet
-===================
+Working with ``KeySet``
+=======================
 
 ``KeySet`` specifies primary key values for direct access operations. It supports fluent builder-style construction:
 
@@ -238,13 +238,13 @@ Options
 
 The ``Options`` class configures execution behavior for direct access operations. Common options include:
 
-CONTINUATION
-------------
+``CONTINUATION``
+----------------
 
 Specifies where to resume a scan operation (see continuation example above).
 
-INDEX_HINT
-----------
+``INDEX_HINT``
+--------------
 
 Suggests a specific index for FRL to use:
 
@@ -254,8 +254,8 @@ Suggests a specific index for FRL to use:
    :end-before: // end::index-hint[]
    :dedent: 8
 
-MAX_ROWS
---------
+``MAX_ROWS``
+------------
 
 Limits the number of rows returned in a single scan before prompting for continuation:
 
@@ -265,12 +265,12 @@ Limits the number of rows returned in a single scan before prompting for continu
        .withOption(Options.Name.MAX_ROWS, 100)
        .build();
 
-REPLACE_ON_DUPLICATE_PK
------------------------
+``REPLACE_ON_DUPLICATE_PK``
+---------------------------
 
 When inserting, replaces existing records with conflicting primary keys instead of failing (see insert example above).
 
-Building Options
+Building options
 ----------------
 
 Use the builder pattern to construct options:
@@ -285,7 +285,7 @@ Use the builder pattern to construct options:
    // Or use Options.NONE for default behavior
    relStmt.executeScan("table", keySet, Options.NONE);
 
-See Also
+See also
 ========
 
 - :doc:`basic` - Basic JDBC usage patterns

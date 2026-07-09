@@ -142,9 +142,10 @@ public class RelationalMetric {
         CONTINUATION_REJECTED("continuation rejected", false),
         CONTINUATION_DOWN_LEVEL("continuation accepted from down-level plan serialization mode", false),
         OFFLINE_STORED_QUERIES_TEMPLATES_PROCESSED("schema templates successfully processed by offline stored-queries warm-up", false),
-        OFFLINE_STORED_QUERIES_TEMPLATES_FAILED("schema templates that failed offline stored-queries warm-up", false),
         OFFLINE_STORED_QUERIES_QUERIES_PROCESSED("stored queries successfully planned by offline stored-queries warm-up", false),
-        OFFLINE_STORED_QUERIES_QUERIES_FAILED("stored queries that failed to plan during offline stored-queries warm-up", false)
+        OFFLINE_STORED_QUERIES_QUERIES_FAILED("stored queries that failed to plan during offline stored-queries warm-up", false),
+        OFFLINE_STORED_QUERIES_TEMP_FUNCTIONS_PROCESSED("temporary functions successfully planned by offline stored-queries warm-up", false),
+        OFFLINE_STORED_QUERIES_TEMP_FUNCTIONS_FAILED("temporary functions that failed to plan during offline stored-queries warm-up", false)
         ;
 
         private final String title;

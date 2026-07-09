@@ -22,6 +22,10 @@ package com.apple.foundationdb.async.hnsw;
 
 import com.apple.foundationdb.Database;
 import com.apple.foundationdb.Transaction;
+import com.apple.foundationdb.async.common.BaseTest;
+import com.apple.foundationdb.async.common.CommonTestHelpers;
+import com.apple.foundationdb.async.common.PrimaryKeyAndVector;
+import com.apple.foundationdb.async.common.ResultEntry;
 import com.apple.foundationdb.linear.AffineOperator;
 import com.apple.foundationdb.linear.DoubleRealVector;
 import com.apple.foundationdb.linear.HalfRealVector;
@@ -54,18 +58,14 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
-import java.util.Collection;
-import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.NavigableSet;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Random;
 import java.util.Set;
-import java.util.TreeSet;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
@@ -91,7 +91,7 @@ class TestHelpers {
         final Path verticesFile = tempDir.resolve("vertices-" + prefix + "-" + layer + ".csv");
         try (final BufferedWriter verticesWriter = Files.newBufferedWriter(verticesFile)) {
             for (final ResultEntry result : results) {
-                verticesWriter.write(Long.toString(result.getPrimaryKey().getLong(0)));
+                verticesWriter.write(Long.toString(result.primaryKey().getLong(0)));
                 verticesWriter.newLine();
             }
         }
@@ -122,7 +122,7 @@ class TestHelpers {
                     break;
                 }
                 data.add(record);
-                future = future.thenCompose((vignore) -> hnsw.insert(tr, record.getPrimaryKey(), record.getVector()));
+                future = future.thenCompose((vignore) -> hnsw.insert(tr, record.primaryKey(), record.vector(), null));
             }
             return future.thenApply(vignore -> data.build())
                     .whenComplete((result, error) -> {
@@ -160,7 +160,7 @@ class TestHelpers {
                                     if (indexInBatch >= batch.size()) {
                                         return null;
                                     }
-                                    final Tuple currentPrimaryKey = createPrimaryKey(nextId);
+                                    final Tuple currentPrimaryKey = CommonTestHelpers.createPrimaryKey(nextId);
                                     final DoubleRealVector doubleVector = batch.get(indexInBatch);
                                     return new PrimaryKeyAndVector(currentPrimaryKey, doubleVector);
                                 });
@@ -176,7 +176,7 @@ class TestHelpers {
                                   @Nonnull final HNSW hnsw,
                                   @Nonnull final List<PrimaryKeyAndVector> data,
                                   final int k) throws IOException {
-        final Metric metric = hnsw.getConfig().getMetric();
+        final Metric metric = hnsw.getConfig().metric();
         final Path siftSmallGroundTruthPath = Paths.get(".out/extracted/siftsmall/siftsmall_groundtruth.ivecs");
         final Path siftSmallQueryPath = Paths.get(".out/extracted/siftsmall/siftsmall_query.fvecs");
 
@@ -204,7 +204,7 @@ class TestHelpers {
 
                 int recallCount = 0;
                 for (final ResultEntry resultEntry : results) {
-                    final int primaryKeyIndex = (int)resultEntry.getPrimaryKey().getLong(0);
+                    final int primaryKeyIndex = (int)resultEntry.primaryKey().getLong(0);
 
                     //
                     // Assert that the original vector and the reconstructed vector are the same-ish vector
@@ -213,14 +213,14 @@ class TestHelpers {
                     // fairly safe with respect to not giving us false-positives and also tripping for actual logic
                     // errors as the expected random distance is far larger.
                     //
-                    final RealVector originalVector = data.get(primaryKeyIndex).getVector();
+                    final RealVector originalVector = data.get(primaryKeyIndex).vector();
                     assertThat(originalVector).isNotNull();
                     final double distance = metric.distance(originalVector,
-                            Objects.requireNonNull(resultEntry.getVector()).toDoubleRealVector());
+                            Objects.requireNonNull(resultEntry.vector()).toDoubleRealVector());
                     assertThat(distance).isCloseTo(0.0d, within(30.0d));
 
                     logger.trace("retrieved result nodeId = {} at distance = {} ",
-                            primaryKeyIndex, resultEntry.getDistance());
+                            primaryKeyIndex, resultEntry.distance());
                     if (groundTruthIndices.contains(primaryKeyIndex)) {
                         recallCount ++;
                     }
@@ -232,54 +232,6 @@ class TestHelpers {
                 logger.info("query returned results recall={}", String.format(Locale.ROOT, "%.2f", recall * 100.0d));
             }
         }
-    }
-
-    @Nonnull
-    static List<PrimaryKeyAndVector> randomVectors(@Nonnull final Random random, final int numDimensions,
-                                                   final int numberOfVectors) {
-        final ImmutableList.Builder<PrimaryKeyAndVector> resultBuilder = ImmutableList.builder();
-        for (int i = 0; i < numberOfVectors; i ++) {
-            final var primaryKey = createPrimaryKey(i);
-            final HalfRealVector dataVector = createRandomHalfVector(random, numDimensions);
-            resultBuilder.add(new PrimaryKeyAndVector(primaryKey, dataVector));
-        }
-        return resultBuilder.build();
-    }
-
-    @Nonnull
-    static List<PrimaryKeyAndVector> pickRandomVectors(@Nonnull final Random random,
-                                                       @Nonnull final Collection<PrimaryKeyAndVector> vectors,
-                                                       final int numberOfVectors) {
-        Verify.verify(numberOfVectors <= vectors.size());
-        final List<PrimaryKeyAndVector> remainingVectors = Lists.newArrayList(vectors);
-        final ImmutableList.Builder<PrimaryKeyAndVector> resultBuilder = ImmutableList.builder();
-        for (int i = 0; i < numberOfVectors; i ++) {
-            resultBuilder.add(remainingVectors.remove(random.nextInt(remainingVectors.size())));
-        }
-        return resultBuilder.build();
-    }
-
-    @Nonnull
-    static NavigableSet<PrimaryKeyVectorAndDistance> orderedByDistances(@Nonnull final Metric metric,
-                                                                        @Nonnull final List<PrimaryKeyAndVector> vectors,
-                                                                        @Nonnull final RealVector queryVector) {
-        return orderedByDistances(metric::distance, vectors, queryVector);
-    }
-
-    @Nonnull
-    static NavigableSet<PrimaryKeyVectorAndDistance> orderedByDistances(@Nonnull final ToDoubleBiFunction<RealVector, RealVector> distanceFunction,
-                                                                        @Nonnull final List<PrimaryKeyAndVector> vectors,
-                                                                        @Nonnull final RealVector queryVector) {
-        final TreeSet<PrimaryKeyVectorAndDistance> vectorsOrderedByDistance =
-                new TreeSet<>(Comparator.comparing(PrimaryKeyVectorAndDistance::getDistance)
-                        .thenComparing(PrimaryKeyAndVector::getPrimaryKey));
-        for (final PrimaryKeyAndVector vector : vectors) {
-            final double distance = distanceFunction.applyAsDouble(vector.getVector(), queryVector);
-            final PrimaryKeyVectorAndDistance record =
-                    new PrimaryKeyVectorAndDistance(vector.getPrimaryKey(), vector.getVector(), distance);
-            vectorsOrderedByDistance.add(record);
-        }
-        return vectorsOrderedByDistance;
     }
 
     static long countNodesOnLayer(@Nonnull Database db,
@@ -297,7 +249,7 @@ class TestHelpers {
                           final int layer,
                           final int batchSize,
                           @Nonnull final Consumer<AbstractNode<? extends NodeReference>> nodeConsumer) {
-        HNSW.scanLayer(config, subspace, db, layer, batchSize, nodeConsumer);
+        HNSW.scanLayerInternal(config, subspace, db, layer, batchSize, nodeConsumer);
     }
 
     static int getEntryLayer(@Nonnull final Database db,
@@ -393,7 +345,7 @@ class TestHelpers {
                                                                @Nonnull final NodeFactory<NodeReference> nodeFactory,
                                                                final int numDimensions,
                                                                final int numberOfNeighbors) {
-        final Tuple primaryKey = createRandomPrimaryKey(random);
+        final Tuple primaryKey = CommonTestHelpers.createRandomPrimaryKey(random);
         final ImmutableList.Builder<NodeReference> neighborsBuilder = ImmutableList.builder();
         for (int i = 0; i < numberOfNeighbors; i ++) {
             neighborsBuilder.add(createRandomNodeReference(random));
@@ -401,6 +353,7 @@ class TestHelpers {
 
         return nodeFactory.create(primaryKey,
                 AffineOperator.identity().transform(createRandomHalfVector(random, numDimensions)),
+                null,
                 neighborsBuilder.build());
     }
 
@@ -409,7 +362,7 @@ class TestHelpers {
                                                                           @Nonnull final NodeFactory<NodeReferenceWithVector> nodeFactory,
                                                                           final int numDimensions,
                                                                           final int numberOfNeighbors) {
-        final Tuple primaryKey = createRandomPrimaryKey(random);
+        final Tuple primaryKey = CommonTestHelpers.createRandomPrimaryKey(random);
         final ImmutableList.Builder<NodeReferenceWithVector> neighborsBuilder = ImmutableList.builder();
         for (int i = 0; i < numberOfNeighbors; i ++) {
             neighborsBuilder.add(createRandomNodeReferenceWithVector(random, numDimensions));
@@ -417,18 +370,19 @@ class TestHelpers {
 
         return nodeFactory.create(primaryKey,
                 AffineOperator.identity().transform(createRandomHalfVector(random, numDimensions)),
+                null,
                 neighborsBuilder.build());
     }
 
     @Nonnull
     static NodeReference createRandomNodeReference(@Nonnull final Random random) {
-        return new NodeReference(createRandomPrimaryKey(random));
+        return new NodeReference(CommonTestHelpers.createRandomPrimaryKey(random));
     }
 
     @Nonnull
     static NodeReferenceWithVector createRandomNodeReferenceWithVector(@Nonnull final Random random,
                                                                        final int dimensionality) {
-        return new NodeReferenceWithVector(createRandomPrimaryKey(random),
+        return new NodeReferenceWithVector(CommonTestHelpers.createRandomPrimaryKey(random),
                 AffineOperator.identity().transform(createRandomHalfVector(random, dimensionality)));
     }
 
@@ -436,16 +390,6 @@ class TestHelpers {
                                                                    final double radius) {
         return (queryVector, dataVector) ->
                 Math.abs(metric.distance(queryVector, dataVector) - radius);
-    }
-
-    @Nonnull
-    static Tuple createRandomPrimaryKey(final @Nonnull Random random) {
-        return createPrimaryKey(random.nextLong());
-    }
-
-    @Nonnull
-    static Tuple createPrimaryKey(final long nextId) {
-        return Tuple.from(nextId);
     }
 
     static class DumpLayersIfFailure implements AfterTestExecutionCallback {
@@ -531,75 +475,6 @@ class TestHelpers {
         public void onKeyValueRead(final int layer, @Nonnull final byte[] key, @Nullable final byte[] value) {
             bytesReadByLayer.compute(layer, (l, oldValue) -> (oldValue == null ? 0 : oldValue) +
                     key.length + (value == null ? 0 : value.length));
-        }
-    }
-
-    static class PrimaryKeyAndVector {
-        @Nonnull
-        private final Tuple primaryKey;
-        @Nonnull
-        private final RealVector vector;
-
-        public PrimaryKeyAndVector(@Nonnull final Tuple primaryKey,
-                                   @Nonnull final RealVector vector) {
-            this.primaryKey = primaryKey;
-            this.vector = vector;
-        }
-
-        @Nonnull
-        public Tuple getPrimaryKey() {
-            return primaryKey;
-        }
-
-        @Nonnull
-        public RealVector getVector() {
-            return vector;
-        }
-
-        @Override
-        public boolean equals(final Object o) {
-            if (o == null || getClass() != o.getClass()) {
-                return false;
-            }
-            final PrimaryKeyAndVector that = (PrimaryKeyAndVector)o;
-            return Objects.equals(getPrimaryKey(), that.getPrimaryKey()) && Objects.equals(getVector(), that.getVector());
-        }
-
-        @Override
-        public int hashCode() {
-            return Objects.hash(getPrimaryKey(), getVector());
-        }
-    }
-
-    static class PrimaryKeyVectorAndDistance extends PrimaryKeyAndVector {
-        private final double distance;
-
-        public PrimaryKeyVectorAndDistance(@Nonnull final Tuple primaryKey,
-                                           @Nonnull final RealVector vector,
-                                           final double distance) {
-            super(primaryKey, vector);
-            this.distance = distance;
-        }
-
-        public double getDistance() {
-            return distance;
-        }
-
-        @Override
-        public boolean equals(final Object o) {
-            if (o == null || getClass() != o.getClass()) {
-                return false;
-            }
-            if (!super.equals(o)) {
-                return false;
-            }
-            final PrimaryKeyVectorAndDistance that = (PrimaryKeyVectorAndDistance)o;
-            return Double.compare(getDistance(), that.getDistance()) == 0;
-        }
-
-        @Override
-        public int hashCode() {
-            return Objects.hash(super.hashCode(), getDistance());
         }
     }
 }

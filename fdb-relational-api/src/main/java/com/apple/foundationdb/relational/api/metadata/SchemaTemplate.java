@@ -134,10 +134,11 @@ public interface SchemaTemplate extends Metadata {
     /**
      * Returns the stored queries defined in this schema template.
      *
-     * @return A map of stored query names to their SQL strings.
+     * @return A map of stored query names to their {@link StoredQuery} struct (SELECT text plus
+     *         the temp-function declarations that must precede it).
      */
     @Nonnull
-    Map<String, String> getStoredQueries() throws RelationalException;
+    Map<String, StoredQuery> getStoredQueries() throws RelationalException;
 
     @Nonnull
     String getTransactionBoundMetadataAsString() throws RelationalException;

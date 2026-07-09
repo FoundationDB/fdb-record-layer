@@ -47,7 +47,7 @@ public class RewritingRuleSet extends CascadesRuleSet {
             new DecorrelateValuesRule(),
             new RewriteOuterJoinRule()
     );
-    private static final Set<CascadesRule<? extends RelationalExpression>> PREORDER_RULES = ImmutableSet.of();
+    private static final Set<AbstractCascadesRule<? extends RelationalExpression>> PREORDER_RULES = ImmutableSet.of();
 
     private static final Set<ImplementationCascadesRule<? extends RelationalExpression>> IMPLEMENTATION_RULES = ImmutableSet.of(
             new SelectMergeRule(),

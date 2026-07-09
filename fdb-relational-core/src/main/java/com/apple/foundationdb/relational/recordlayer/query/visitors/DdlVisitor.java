@@ -414,14 +414,20 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
                 sqlInvokedFunctionClauses.add(templateClause.sqlInvokedFunction());
             } else if (templateClause.viewDefinition() != null) {
                 viewClauses.add(templateClause.viewDefinition());
-            } else if (templateClause.queryDefinition() != null) {
-                final var queryCtx = templateClause.queryDefinition();
+            } else if (templateClause.storedQueryDefinition() != null) {
+                final var queryCtx = templateClause.storedQueryDefinition();
                 final var name = visitUid(queryCtx.queryName).getName();
                 final var sourceText = getDelegate().getPlanGenerationContext().getQuery();
                 final var start = queryCtx.storedQuery.start.getStartIndex();
                 final var stop = queryCtx.storedQuery.stop.getStopIndex() + 1;
                 final var queryString = sourceText.substring(start, stop);
-                metadataBuilder.addStoredQuery(name, queryString);
+                final ImmutableList.Builder<String> tempFunctionTexts = ImmutableList.builder();
+                if (queryCtx.declareBlock() != null) {
+                    for (final var dfCtx : queryCtx.declareBlock().declaredFunction()) {
+                        tempFunctionTexts.add(rewriteDeclaredFunctionToStandalone(dfCtx, sourceText));
+                    }
+                }
+                metadataBuilder.addStoredQuery(name, queryString, tempFunctionTexts.build());
             } else {
                 Assert.thatUnchecked(templateClause.indexDefinition() != null);
                 indexClauses.add(templateClause.indexDefinition());
@@ -743,5 +749,43 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
     @Override
     public Boolean visitNullColumnConstraint(@Nonnull RelationalParser.NullColumnConstraintContext ctx) {
         return ctx.nullNotnull().NOT() == null;
+    }
+
+    /**
+     * Rewrites a {@code declaredFunction} block inside a {@code DECLARE} block into the equivalent
+     * standalone {@code CREATE TEMPORARY FUNCTION ... ON COMMIT DROP FUNCTION AS <body>} statement.
+     *
+     * <p>The persisted temp-function text on {@code StoredQuery} is required to be byte-identical to
+     * what the online path submits, otherwise {@code auxiliaryMetadata} on the query cache key
+     * (which fingerprints the {@code normalizedDescription} of each temp routine attached to the
+     * schema template) would diverge between warm-up and online, killing cache hits.</p>
+     *
+     * <p>Pieces are read from the parser context and reassembled &mdash; no surface-syntax
+     * manipulation on the DECLARE fragment.</p>
+     *
+     * <p><b>Case-sensitivity contract with online clients.</b> The keywords emitted here
+     * ({@code CREATE TEMPORARY FUNCTION}, {@code ON COMMIT DROP FUNCTION}, {@code AS}) are
+     * <em>UPPERCASE</em> by construction. The plan cache key derives its canonical query string
+     * from raw keyword tokens (source-preserved by {@code AstNormalizer.visitTerminal}, not
+     * uppercased), so a warm-up plan produced from this rewritten text is reachable at runtime
+     * <em>only</em> if the online client submits the matching standalone
+     * {@code CREATE TEMPORARY FUNCTION ...} DDL with the same uppercase keyword casing. Lowercase
+     * or mixed-case keyword submissions from clients will produce a different canonical string and
+     * thus a different cache key &mdash; warm-up plans become unreachable. See
+     * <a href="https://github.com/FoundationDB/fdb-record-layer/issues/4323">issue #4323</a>
+     * for the underlying case-sensitivity behavior of the normalizer.</p>
+     */
+    @Nonnull
+    private static String rewriteDeclaredFunctionToStandalone(@Nonnull final RelationalParser.DeclaredFunctionContext ctx,
+                                                              @Nonnull final String sourceText) {
+        final String name = sliceSource(sourceText, ctx.functionName);
+        final String paramList = sliceSource(sourceText, ctx.sqlParameterDeclarationList());
+        final String body = sliceSource(sourceText, ctx.functionBody);
+        return "CREATE TEMPORARY FUNCTION " + name + paramList + " ON COMMIT DROP FUNCTION AS " + body;
+    }
+
+    @Nonnull
+    private static String sliceSource(@Nonnull final String sourceText, @Nonnull final ParserRuleContext ctx) {
+        return sourceText.substring(ctx.start.getStartIndex(), ctx.stop.getStopIndex() + 1);
     }
 }

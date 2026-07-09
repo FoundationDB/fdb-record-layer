@@ -43,6 +43,27 @@ protobuf {
                 // test protos likely include both main protos and their dependencies.
                 task.addIncludeDir(files("${projectDir}/src/main/proto"))
                 task.addIncludeDir(files("${projectDir}/.out/extracted-include-protos/main"))
+                // The protobuf plugin only wires `extractInclude<SourceSet>Proto` as a
+                // dependency of the matching `generate<SourceSet>Proto` task. Adding
+                // `extracted-include-protos/main` as an include-dir for the test / testFixtures
+                // generators reads from `extractIncludeProto`'s output, so we have to declare
+                // that dependency explicitly (Gradle 9 flags it as an implicit-dependency
+                // problem otherwise).
+                task.dependsOn 'extractIncludeProto'
+                // testFixtures protos (when present) may be imported by sibling proto files
+                // in src/test/proto. Wiring this for all non-main tasks is harmless when the
+                // directory is empty. We skip the main task to avoid an implicit-dependency
+                // warning from Gradle (`generateProto` would otherwise read the output of
+                // `extractIncludeTestFixturesProto` without declaring it as an input).
+                task.addIncludeDir(files("${projectDir}/src/testFixtures/proto"))
+                task.addIncludeDir(files("${projectDir}/.out/extracted-include-protos/testFixtures"))
+                if (task.name != 'generateTestFixturesProto') {
+                    // Only depend on it when it's actually going to exist (i.e. the module
+                    // applies java-test-fixtures); the task name resolves lazily.
+                    if (plugins.hasPlugin('java-test-fixtures')) {
+                        task.dependsOn 'extractIncludeTestFixturesProto'
+                    }
+                }
             }
 
             // When generating from syntax = proto2 files, protoc can generate methods that reference

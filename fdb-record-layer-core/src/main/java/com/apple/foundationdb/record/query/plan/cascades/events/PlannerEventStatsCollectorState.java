@@ -85,7 +85,7 @@ class PlannerEventStatsCollectorState {
                 forEventClass.increaseOwnTimeInNs(ownTime);
                 if (plannerEvent instanceof TransformRuleCallPlannerEvent) {
                     final CascadesRule<?> rule = ((TransformRuleCallPlannerEvent)plannerEvent).getRule();
-                    final Class<? extends CascadesRule<?>> ruleClass = (Class<? extends CascadesRule<?>>)rule.getClass();
+                    final var ruleClass = (Class<? extends CascadesRule<?>>) rule.getClass();
                     final MutableStats forPlannerRuleClass = getEventStatsForPlannerRuleClass(ruleClass);
                     forPlannerRuleClass.increaseTotalTimeInNs(totalTime);
                     forPlannerRuleClass.increaseOwnTimeInNs(ownTime);
@@ -111,7 +111,7 @@ class PlannerEventStatsCollectorState {
 
         if (plannerEvent instanceof PlannerEventWithRule) {
             final CascadesRule<?> rule = ((PlannerEventWithRule)plannerEvent).getRule();
-            final Class<? extends CascadesRule<?>> ruleClass = (Class<? extends CascadesRule<?>>)rule.getClass();
+            final var ruleClass = (Class<? extends CascadesRule<?>>) rule.getClass();
             final MutableStats forPlannerRuleClass = getEventStatsForPlannerRuleClass(ruleClass);
             forPlannerRuleClass.increaseCount(plannerEvent.getLocation(), 1L);
         }

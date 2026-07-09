@@ -1,5 +1,5 @@
 ============
-SQL Commands
+SQL commands
 ============
 
 .. toctree::

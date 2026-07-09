@@ -20,7 +20,11 @@
 
 package com.apple.foundationdb.linear;
 
+import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
+import com.apple.foundationdb.util.Lens;
+
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.Objects;
 
 /**
@@ -73,7 +77,7 @@ public final class Transformed<V extends RealVector> {
     @Nonnull
     private final V transformedVector;
 
-    Transformed(@Nonnull final V transformedVector) {
+    private Transformed(@Nonnull final V transformedVector) {
         this.transformedVector = transformedVector;
     }
 
@@ -107,5 +111,34 @@ public final class Transformed<V extends RealVector> {
     @Override
     public String toString() {
         return transformedVector.toString();
+    }
+
+    public static <V extends RealVector> UnderlyingLens<V> underlyingLens() {
+        return new UnderlyingLens<>();
+    }
+
+    /**
+     * Lens to access the underlying vector of a transformed vector in logic that can be called for containers of
+     * both vectors and transformed vectors.
+     * @param <V> type parameter for vector class
+     */
+    public static class UnderlyingLens<V extends RealVector> implements Lens<Transformed<V>, V> {
+        @Nullable
+        @Override
+        public V get(@Nonnull final Transformed<V> transformedVector) {
+            return transformedVector.getUnderlyingVector();
+        }
+
+        @Nonnull
+        @Override
+        @SpotBugsSuppressWarnings("NP_PARAMETER_MUST_BE_NONNULL_BUT_MARKED_AS_NULLABLE")
+        public Transformed<V> set(@Nullable final Transformed<V> ignored, @Nullable final V v) {
+            return new Transformed<>(Objects.requireNonNull(v, "Transformed cannot wrap a null underlying vector"));
+        }
+
+        @Nonnull
+        public Transformed<V> identityTransform(@Nullable final V v) {
+            return wrap(v);
+        }
     }
 }
