@@ -358,7 +358,7 @@ public class IndexingThrottle {
                         }
                         return retVal;
                     }));
-                }), (result, exception) -> {
+            }), (result, exception) -> {
                     booker.handleLimitsPostRunnerTransaction(exception, recordsScanned, adjustLimits, additionalLogMessageKeyValues);
                     return Result.of(result, exception);
                 }, onlineIndexerLogMessageKeyValues).handle((value, e) -> {

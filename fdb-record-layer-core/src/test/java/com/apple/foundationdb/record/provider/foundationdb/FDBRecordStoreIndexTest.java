@@ -28,6 +28,7 @@ import com.apple.foundationdb.async.CloseableAsyncIterator;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.FunctionNames;
+import com.apple.foundationdb.record.IndexBuildProto;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.IndexState;
@@ -65,6 +66,7 @@ import com.apple.foundationdb.record.metadata.expressions.KeyExpression.FanType;
 import com.apple.foundationdb.record.metadata.expressions.ThenKeyExpression;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.InvalidIndexEntry;
+import com.apple.foundationdb.record.provider.foundationdb.queue.PendingWritesQueue;
 import com.apple.foundationdb.record.query.IndexQueryabilityFilter;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
@@ -130,7 +132,7 @@ import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.lessThanOrEqualTo;
 import static org.hamcrest.Matchers.not;
-import static org.hamcrest.Matchers.notNullValue;
+import static org.hamcrest.Matchers.nullValue;
 import static org.hamcrest.Matchers.oneOf;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -986,11 +988,43 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
                     .setNumValue3Indexed(42)
                     .build());
 
-            // The saved record's update should have been enqueued rather than written directly.
-            final Long queueSize = PendingWriteQueueIndexingFactory.getIndexingQueue(recordStore, standardIndex)
-                    .getQueueSizeNoConflict(context).join();
-            assertThat(queueSize, is(notNullValue()));
-            assertThat(queueSize, is(greaterThan(0L)));
+            commit(context);
+        }
+
+        // Read back in a fresh transaction: the deferred write is keyed by a versionstamp that is only resolved at
+        // commit, so the queue entry is not visible via a range read within the writing transaction.
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, hook);
+            final Index standardIndex = recordStore.getRecordMetaData().getIndex(standardIndexName);
+            final Index permissiveIndex = recordStore.getRecordMetaData().getIndex(permissiveIndexName);
+
+            // The StandardIndexMaintainer routed the update to its pending queue: exactly one deferred write.
+            final PendingWritesQueue<IndexBuildProto.PendingWritesQueueEntry> standardQueue =
+                    PendingWriteQueueIndexingFactory.getIndexingQueue(recordStore, standardIndex);
+            assertThat(standardQueue.getQueueSizeNoConflict(context).join(), is(1L));
+
+            // That deferred entry carries the saved record as an insert (a new record, no old record) - i.e. the
+            // routing preserved the update correctly.
+            final IndexBuildProto.PendingWritesQueueEntry payload =
+                    standardQueue.getQueueCursor(context, ScanProperties.FORWARD_SCAN, null)
+                            .asList().join().get(0).getPayload();
+            assertThat(payload.hasOldRecords(), is(false));
+            assertThat(payload.hasNewRecord(), is(true));
+            final TestRecords1Proto.MySimpleRecord enqueued = TestRecords1Proto.MySimpleRecord.newBuilder()
+                    .mergeFrom(recordStore.getSerializer().deserialize(recordStore.getRecordMetaData(),
+                            TupleHelpers.EMPTY, payload.getNewRecord().toByteArray(), recordStore.getTimer()))
+                    .build();
+            assertThat(enqueued.getRecNo(), is(1066L));
+            assertThat(enqueued.getNumValue3Indexed(), is(42));
+
+            // The update was deferred, not written directly: the standard index subspace holds no entries.
+            assertThat(context.ensureActive().getRange(recordStore.indexSubspace(standardIndex).range()).asList().join(),
+                    is(empty()));
+
+            // The NoOp-backed permissive index's updateWhileWriteOnlyWithQueue is a no-op, so nothing is enqueued
+            // for it (its queue size counter was never written).
+            assertThat(PendingWriteQueueIndexingFactory.getIndexingQueue(recordStore, permissiveIndex)
+                    .getQueueSizeNoConflict(context).join(), is(nullValue()));
 
             commit(context);
         }
