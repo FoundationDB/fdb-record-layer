@@ -1,0 +1,9 @@
+Diagram(
+    Sequence(
+        Terminal('SET'),
+        Terminal('LOCAL'),
+        NonTerminal('name'),
+        Terminal('='),
+        NonTerminal('constant')
+    )
+)

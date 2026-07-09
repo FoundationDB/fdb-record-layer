@@ -57,10 +57,12 @@ import java.sql.Struct;
 import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.function.Supplier;
 
 import static com.apple.foundationdb.relational.api.exceptions.ErrorCode.DATATYPE_MISMATCH;
+import static com.apple.foundationdb.relational.api.exceptions.ErrorCode.UNDEFINED_PARAMETER;
 
 /**
  * Context keeping state related to plan generation, it also captures execution-specific attributes that influences
@@ -69,7 +71,10 @@ import static com.apple.foundationdb.relational.api.exceptions.ErrorCode.DATATYP
 @API(API.Status.EXPERIMENTAL)
 public class MutablePlanGenerationContext implements QueryExecutionContext {
     @Nonnull
-    private final PreparedParams preparedParams;
+    private PreparedParams preparedParams;
+
+    @Nonnull
+    private Map<String, Object> localVariables = Map.of();
 
     @Nonnull
     private final Literals.Builder literalsBuilder;
@@ -289,6 +294,20 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
         return preparedParams;
     }
 
+    public void setPreparedParams(@Nonnull PreparedParams newParams) {
+        this.preparedParams = newParams;
+    }
+
+    @Nonnull
+    public Map<String, Object> getLocalVariables() {
+        return localVariables;
+    }
+
+    public void setLocalVariables(@Nonnull Map<String, Object> localVariables) {
+        this.localVariables = localVariables;
+    }
+
+
     public void startArrayLiteral() {
         literalsBuilder.startArrayLiteral();
     }
@@ -460,6 +479,14 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
             duplicateLiteralMaybe.ifPresent(prev -> addEqualityConstraint(prev.getConstantId(), literal.getConstantId(), literalValue.getResultType()));
             constantObjectValues.add(ConstantObjectValue.of(Quantifier.constant(), literal.getConstantId(), literalValue.getResultType()));
         }
+    }
+
+    @Nonnull
+    public Value processLocalVariable(@Nonnull String varName, int tokenIndex) {
+        Assert.thatUnchecked(localVariables.containsKey(varName), UNDEFINED_PARAMETER,
+                () -> "No value found for parameter " + varName);
+        final var value = localVariables.get(varName);
+        return processPreparedStatementParameter(value, getObjectType(value), null, varName, tokenIndex);
     }
 
     @Nonnull

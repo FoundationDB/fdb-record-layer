@@ -29,6 +29,7 @@ import org.apache.commons.lang3.NotImplementedException;
 
 import javax.annotation.Nonnull;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
 
@@ -57,6 +58,7 @@ public class InMemoryTransactionManager implements TransactionManager {
     private static final class TestTransaction implements Transaction {
         private final long txnId;
         private final TransactionManager txnManager;
+        private final Map<String, Object> localVariables = new LinkedHashMap<>();
 
         private TestTransaction(long txnId, TransactionManager txnManager) {
             this.txnId = txnId;
@@ -87,6 +89,17 @@ public class InMemoryTransactionManager implements TransactionManager {
         @Override
         public void unsetBoundSchemaTemplate() {
             throw new NotImplementedException("method is not implemented");
+        }
+
+        @Override
+        public void setLocalVariable(@Nonnull String name, Object value) {
+            localVariables.put(name, value);
+        }
+
+        @Nonnull
+        @Override
+        public Map<String, Object> getLocalVariables() {
+            return java.util.Collections.unmodifiableMap(localVariables);
         }
 
         @Override
