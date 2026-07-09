@@ -233,10 +233,10 @@ jobs:
           # the report if the file doesn't actually exist. However, while we're here, protect against
           # a case where we should have generated a report but didn't by also overriding should_exist
           # to true if any of the conditions that should have resulted in tests being run are true.
-          if [[ -f '${{ github.workspace }}/.out/reports/jacoco/codeCoverageReport/codeCoverageReport.xml'
-                || '${{ needs.plan.outputs.run_all }}' == 'true'
-                || '${{ needs.plan.outputs.matrix }}' != '[]'
-                || '${{ needs.plan.outputs.run_other_tests }}' == 'true' ] ; then
+          if [[ -f '${{ github.workspace }}/.out/reports/jacoco/codeCoverageReport/codeCoverageReport.xml' \
+                || '${{ needs.plan.outputs.run_all }}' == 'true' \
+                || '${{ needs.plan.outputs.matrix }}' != '[]' \
+                || '${{ needs.plan.outputs.run_other_tests }}' == 'true' ]] ; then
             echo "should_exist=true" >> "$GITHUB_OUTPUT"
           else
             echo "should_exist=false" >> "$GITHUB_OUTPUT"
