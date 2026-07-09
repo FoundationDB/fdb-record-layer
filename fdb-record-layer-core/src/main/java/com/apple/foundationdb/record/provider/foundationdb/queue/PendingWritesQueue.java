@@ -53,6 +53,7 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Function;
 
 /**
  * A persistent FDB-backed queue of pending entries, each carrying a typed Protobuf payload.
@@ -126,9 +127,19 @@ public class PendingWritesQueue<T extends Message> {
     private final long maxQueueSize;
     @Nonnull
     private final Class<T> payloadClass;
+    /**
+     * Optional fallback used on read when an on-disk entry is not in the current envelope format
+     * (i.e. it has no {@code version >= 1}). It receives the raw stored value bytes and returns
+     * the payload {@code T}. This exists to read entries written by a predecessor queue
+     * implementation whose value layout differs from {@link PendingWritesQueueProto.PendingWriteItem}
+     * (for example, entries wrapped by a caller-specific serializer). {@code null} when there is
+     * no legacy format to support, in which case a non-current entry is a storage error.
+     */
+    @Nullable
+    private final Function<byte[], T> legacyDecoder;
 
     /**
-     * Construct a pending writes queue.
+     * Construct a pending writes queue with no legacy-format support.
      *
      * @param queueSubspace subspace under which queue entries live; the caller owns its layout
      * @param queueSizeSubspace subspace under which the atomic size counter lives; must not
@@ -143,10 +154,35 @@ public class PendingWritesQueue<T extends Message> {
                               @Nonnull Subspace queueSizeSubspace,
                               long maxQueueSize,
                               @Nonnull Class<T> payloadClass) {
+        this(queueSubspace, queueSizeSubspace, maxQueueSize, payloadClass, null);
+    }
+
+    /**
+     * Construct a pending writes queue that can also read entries written by a predecessor
+     * implementation via a legacy decoder.
+     *
+     * @param queueSubspace subspace under which queue entries live; the caller owns its layout
+     * @param queueSizeSubspace subspace under which the atomic size counter lives; must not
+     * overlap with {@code queueSubspace}
+     * @param maxQueueSize maximum number of entries allowed in the queue; {@link #enqueue}
+     * rejects further entries when the counter reaches this value. Pass {@code 0} to disable
+     * the cap.
+     * @param payloadClass class of the payload message type, e.g. {@code MyPayload.class}; used
+     * to verify and unpack the payload on read
+     * @param legacyDecoder fallback that turns the raw stored bytes of a non-current-format entry
+     * into a payload {@code T}; {@code null} if there is no legacy format to read. The queue only
+     * ever <em>writes</em> the current format; the decoder is used on the read path.
+     */
+    public PendingWritesQueue(@Nonnull Subspace queueSubspace,
+                              @Nonnull Subspace queueSizeSubspace,
+                              long maxQueueSize,
+                              @Nonnull Class<T> payloadClass,
+                              @Nullable Function<byte[], T> legacyDecoder) {
         this.queueSubspace = queueSubspace;
         this.queueSizeSubspace = queueSizeSubspace;
         this.maxQueueSize = maxQueueSize;
         this.payloadClass = payloadClass;
+        this.legacyDecoder = legacyDecoder;
     }
 
     /**
@@ -331,38 +367,67 @@ public class PendingWritesQueue<T extends Message> {
 
     @Nonnull
     private PendingWritesQueueEntry<T> toQueueEntry(@Nonnull Tuple keyTuple, @Nonnull byte[] valueBytes) {
-        PendingWritesQueueProto.PendingWriteItem item;
+        final PendingWritesQueueProto.PendingWriteItem item = tryParseEnvelope(valueBytes);
+        if (item != null && item.getVersion() > 0) {
+            // Current format: a versioned envelope carrying an Any payload.
+            if (item.getVersion() > CURRENT_VERSION) {
+                throw new RecordCoreStorageException("Pending writes queue entry version is newer than this reader supports")
+                        .addLogInfo(LogMessageKeys.VERSION, CURRENT_VERSION)
+                        .addLogInfo(LogMessageKeys.STORED_VERSION, item.getVersion())
+                        .addLogInfo(LogMessageKeys.KEY_TUPLE, keyTuple);
+            }
+            final Any storedPayload = item.getPayload();
+            // Any#is derives the expected type URL from the bound message class internally and
+            // compares it to the stored URL. If it doesn't match, we surface both URLs for
+            // diagnostics before unpacking would itself throw.
+            if (!storedPayload.is(payloadClass)) {
+                throw new RecordCoreStorageException("Pending writes queue entry payload type does not match the queue's bound type")
+                        .addLogInfo(LogMessageKeys.KEY_TUPLE, keyTuple)
+                        .addLogInfo(LogMessageKeys.EXPECTED_TYPE, payloadClass.getName())
+                        .addLogInfo(LogMessageKeys.ACTUAL_TYPE, storedPayload.getTypeUrl());
+            }
+            final T payload;
+            try {
+                payload = storedPayload.unpack(payloadClass);
+            } catch (InvalidProtocolBufferException ex) {
+                throw new RecordCoreStorageException("Failed to unpack pending writes queue entry payload", ex)
+                        .addLogInfo(LogMessageKeys.KEY_TUPLE, keyTuple)
+                        .addLogInfo(LogMessageKeys.EXPECTED_TYPE, payloadClass.getName());
+            }
+            return new PendingWritesQueueEntry<>(keyTuple, payload, storedPayload.getTypeUrl(), item.getEnqueueTimestamp());
+        }
+
+        // Not the current format (parse failed, or the entry has no version). If a legacy decoder
+        // is configured, hand it the raw stored bytes; otherwise this is a storage error.
+        if (legacyDecoder == null) {
+            throw new RecordCoreStorageException("Failed to parse pending writes queue entry and no legacy decoder is configured")
+                    .addLogInfo(LogMessageKeys.KEY_TUPLE, keyTuple)
+                    .addLogInfo(LogMessageKeys.STORED_VERSION, item == null ? -1 : item.getVersion());
+        }
+        final T payload;
         try {
-            item = PendingWritesQueueProto.PendingWriteItem.parseFrom(valueBytes);
-        } catch (InvalidProtocolBufferException ex) {
-            throw new RecordCoreStorageException("Failed to parse pending writes queue entry", ex)
+            payload = legacyDecoder.apply(valueBytes);
+        } catch (RuntimeException ex) {
+            throw new RecordCoreStorageException("Failed to decode legacy pending writes queue entry", ex)
                     .addLogInfo(LogMessageKeys.KEY_TUPLE, keyTuple);
         }
-        if (item.getVersion() > CURRENT_VERSION) {
-            throw new RecordCoreStorageException("Pending writes queue entry version is newer than this reader supports")
-                    .addLogInfo(LogMessageKeys.VERSION, CURRENT_VERSION)
-                    .addLogInfo(LogMessageKeys.STORED_VERSION, item.getVersion())
-                    .addLogInfo(LogMessageKeys.KEY_TUPLE, keyTuple);
-        }
-        Any storedPayload = item.getPayload();
-        // Any#is derives the expected type URL from the bound message class internally and
-        // compares it to the stored URL. If it doesn't match, we surface both URLs for
-        // diagnostics before unpacking would itself throw.
-        if (!storedPayload.is(payloadClass)) {
-            throw new RecordCoreStorageException("Pending writes queue entry payload type does not match the queue's bound type")
-                    .addLogInfo(LogMessageKeys.KEY_TUPLE, keyTuple)
-                    .addLogInfo(LogMessageKeys.EXPECTED_TYPE, payloadClass.getName())
-                    .addLogInfo(LogMessageKeys.ACTUAL_TYPE, storedPayload.getTypeUrl());
-        }
-        T payload;
+        // Legacy entries were not Any-wrapped and carry no envelope timestamp, so the payload
+        // type URL is empty and the enqueue timestamp is unavailable at this layer.
+        return new PendingWritesQueueEntry<>(keyTuple, payload, "", 0L);
+    }
+
+    /**
+     * Parse the stored bytes as the current envelope, returning {@code null} if they are not a
+     * valid envelope (e.g. an entry written by a predecessor implementation in a different
+     * layout, which the {@link #legacyDecoder} handles instead).
+     */
+    @Nullable
+    private static PendingWritesQueueProto.PendingWriteItem tryParseEnvelope(@Nonnull byte[] valueBytes) {
         try {
-            payload = storedPayload.unpack(payloadClass);
+            return PendingWritesQueueProto.PendingWriteItem.parseFrom(valueBytes);
         } catch (InvalidProtocolBufferException ex) {
-            throw new RecordCoreStorageException("Failed to unpack pending writes queue entry payload", ex)
-                    .addLogInfo(LogMessageKeys.KEY_TUPLE, keyTuple)
-                    .addLogInfo(LogMessageKeys.EXPECTED_TYPE, payloadClass.getName());
+            return null;
         }
-        return new PendingWritesQueueEntry<>(keyTuple, payload, storedPayload.getTypeUrl(), item.getEnqueueTimestamp());
     }
 
     private void mutateQueueSizeCounter(@Nonnull FDBRecordContext context, long delta) {

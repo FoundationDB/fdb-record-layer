@@ -397,7 +397,9 @@ public class FDBLuceneQueuedDocQueryTest extends FDBRecordStoreTestBase {
     private PendingWriteQueue getPendingWriteQueue(FDBRecordStore store, Index index) {
         LuceneIndexMaintainer indexMaintainer = getIndexMaintainer(store, index);
         final FDBDirectoryWrapper directoryWrapper = getDirectoryWrapper(indexMaintainer);
-        return directoryWrapper.getPendingWriteQueue();
+        // This test drives enqueue directly through the legacy queue (legacy on-disk format); the
+        // query path replays through the generic PendingWritesQueue, which reads the legacy format.
+        return directoryWrapper.getDirectory().createLegacyPendingWritesQueue();
     }
 
     protected FDBRecordStore openRecordStore(FDBRecordContext context, Index index) {

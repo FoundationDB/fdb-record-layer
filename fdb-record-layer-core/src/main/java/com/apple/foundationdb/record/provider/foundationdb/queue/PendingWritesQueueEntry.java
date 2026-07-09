@@ -50,8 +50,11 @@ public final class PendingWritesQueueEntry<T extends Message> {
                             @Nonnull T payload,
                             @Nonnull String payloadTypeUrl,
                             long enqueueTimestamp) {
-        // Sanity-check the key shape — the queue always writes (incarnation, versionstamp).
-        if (keyTuple.size() != 2) {
+        // Sanity-check the key shape. The queue itself always writes (incarnation, versionstamp)
+        // (size 2). Reads additionally tolerate a bare (versionstamp) key (size 1) so that entries
+        // written by a predecessor queue that did not prefix an incarnation can still be read back
+        // — see the legacy-decoder path on the read side.
+        if (keyTuple.size() != 1 && keyTuple.size() != 2) {
             throw new RecordCoreStorageException("Unexpected queue key shape")
                     .addLogInfo(LogMessageKeys.KEY_TUPLE, keyTuple);
         }
@@ -66,8 +69,14 @@ public final class PendingWritesQueueEntry<T extends Message> {
         return keyTuple;
     }
 
+    /**
+     * Returns the incarnation prefix of this entry's key, or {@code 0} when the key carries no
+     * incarnation (a legacy, size-1 key).
+     *
+     * @return the incarnation, or {@code 0} for an incarnation-less legacy key
+     */
     public int getIncarnation() {
-        return (int)keyTuple.getLong(0);
+        return keyTuple.size() == 2 ? (int)keyTuple.getLong(0) : 0;
     }
 
     public long getEnqueueTimestamp() {

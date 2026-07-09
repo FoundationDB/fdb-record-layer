@@ -22,23 +22,30 @@ package com.apple.foundationdb.record.lucene.directory;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncUtil;
+import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.lucene.LuceneAnalyzerWrapper;
 import com.apple.foundationdb.record.lucene.LuceneConcurrency;
+import com.apple.foundationdb.record.lucene.LuceneDocumentFromRecord;
 import com.apple.foundationdb.record.lucene.LuceneEvents;
 import com.apple.foundationdb.record.lucene.LuceneIndexMaintainer;
 import com.apple.foundationdb.record.lucene.LuceneLoggerInfoStream;
+import com.apple.foundationdb.record.lucene.LucenePendingWriteQueueProto;
 import com.apple.foundationdb.record.lucene.LuceneRecordContextProperties;
 import com.apple.foundationdb.record.lucene.codec.LazyCloseable;
 import com.apple.foundationdb.record.lucene.codec.LazyOpener;
 import com.apple.foundationdb.record.lucene.codec.LuceneOptimizedCodec;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.IndexDeferredMaintenanceControl;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
+import com.apple.foundationdb.record.provider.foundationdb.queue.PendingWritesQueue;
+import com.apple.foundationdb.record.provider.foundationdb.queue.PendingWritesQueueEntry;
 import com.apple.foundationdb.record.provider.foundationdb.runners.throttled.CursorFactory;
 import com.apple.foundationdb.record.provider.foundationdb.runners.throttled.ItemHandler;
 import com.apple.foundationdb.record.provider.foundationdb.runners.throttled.ThrottledRetryingIterator;
@@ -68,6 +75,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.io.Closeable;
 import java.io.IOException;
+import java.util.List;
 import java.util.Map;
 import java.util.Queue;
 import java.util.concurrent.CompletableFuture;
@@ -140,7 +148,12 @@ public class FDBDirectoryWrapper implements AutoCloseable {
     /**
      * The instance of the pending writes queue.
      */
-    private LazyOpener<PendingWriteQueue> pendingWriteQueue;
+    private LazyOpener<PendingWritesQueue<LucenePendingWriteQueueProto.PendingWriteItem>> pendingWriteQueue;
+    /**
+     * The instance of the legacy pending writes queue, used only to write legacy-format entries
+     * while the deployment has not yet switched to the new format. Reads never go through it.
+     */
+    private LazyOpener<PendingWriteQueue> legacyPendingWriteQueue;
 
     FDBDirectoryWrapper(@Nonnull final IndexMaintainerState state,
                         @Nonnull final Tuple key,
@@ -163,6 +176,7 @@ public class FDBDirectoryWrapper implements AutoCloseable {
         replayedQueueContext = LazyCloseable.supply(() -> createReadOnlyContext());
         replayedQueueIndexWriter = LazyCloseable.supply(() -> createIndexWriterWithReplayedQueue());
         pendingWriteQueue = LazyOpener.supply(() -> directory.createPendingWritesQueue());
+        legacyPendingWriteQueue = LazyOpener.supply(() -> directory.createLegacyPendingWritesQueue());
     }
 
     @VisibleForTesting
@@ -188,6 +202,7 @@ public class FDBDirectoryWrapper implements AutoCloseable {
         replayedQueueContext = LazyCloseable.supply(() -> createReadOnlyContext());
         replayedQueueIndexWriter = LazyCloseable.supply(() -> createIndexWriterWithReplayedQueue());
         pendingWriteQueue = LazyOpener.supply(() -> directory.createPendingWritesQueue());
+        legacyPendingWriteQueue = LazyOpener.supply(() -> directory.createLegacyPendingWritesQueue());
     }
 
     @Nonnull
@@ -293,7 +308,7 @@ public class FDBDirectoryWrapper implements AutoCloseable {
             // In case the current directory has writes, prioritize them over the pending writes queue.
             return DirectoryReader.open(writer.get());
         } else {
-            PendingWriteQueue queue = getPendingWriteQueue();
+            PendingWritesQueue<LucenePendingWriteQueueProto.PendingWriteItem> queue = getPendingWriteQueue();
             // Use the regular context to find out if the queue has anything
             final Boolean queueIsEmpty = LuceneConcurrency.asyncToSync(
                     LuceneEvents.Waits.WAIT_LUCENE_READ_PENDING_QUEUE,
@@ -325,8 +340,34 @@ public class FDBDirectoryWrapper implements AutoCloseable {
         agilityContextReadOnly.asyncToSync(
                 LuceneEvents.Waits.WAIT_LUCENE_REPLAY_QUEUE,
                         agilityContextReadOnly.apply(aContext ->
-                                getPendingWriteQueue().replayQueuedOperations(aContext, readOnlyIndexWriter, state.index)));
+                                replayQueuedOperations(aContext, readOnlyIndexWriter)));
         return readOnlyIndexWriter;
+    }
+
+    /**
+     * Replay all queued operations into the given {@link IndexWriter} so that they are visible to a
+     * query. Honors the configured replay limit, failing if the queue has more
+     * entries than {@link FDBDirectory#getMaxPendingWritesToReplay()} allows.
+     */
+    @Nonnull
+    private CompletableFuture<Void> replayQueuedOperations(@Nonnull final FDBRecordContext context,
+                                                           @Nonnull final IndexWriter indexWriter) {
+        final int maxEntriesToReplay = directory.getMaxPendingWritesToReplay();
+        ScanProperties scanProperties = ScanProperties.FORWARD_SCAN;
+        if (maxEntriesToReplay > 0) {
+            scanProperties = ExecuteProperties.newBuilder()
+                    .setReturnedRowLimit(maxEntriesToReplay)
+                    .build()
+                    .asScanProperties(false);
+        }
+        return getPendingWriteQueue().getQueueCursor(context, scanProperties, null)
+                .forEachResult(result ->
+                        PendingWritesQueueHelper.replayItem(result.get().getPayload(), indexWriter, state.index))
+                .thenAccept(lastResult -> {
+                    if (lastResult.getNoNextReason() == RecordCursor.NoNextReason.RETURN_LIMIT_REACHED) {
+                        throw new PendingWriteQueue.TooManyPendingWritesException("Too many entries to replay into IndexWriter", maxEntriesToReplay);
+                    }
+                });
     }
 
     @Nonnull
@@ -358,8 +399,65 @@ public class FDBDirectoryWrapper implements AutoCloseable {
      * Return the {@link PendingWriteQueue} instance to use to read documents queued while the directory was locked.
      * @return the queue instance
      */
-    public PendingWriteQueue getPendingWriteQueue() {
+    public PendingWritesQueue<LucenePendingWriteQueueProto.PendingWriteItem> getPendingWriteQueue() {
         return pendingWriteQueue.getUnchecked();
+    }
+
+    /**
+     * Return the legacy {@link PendingWriteQueue} instance used to write legacy-format
+     * entries until the deployment switches to the new format.
+     * @return the legacy queue instance
+     */
+    private PendingWriteQueue getLegacyPendingWriteQueue() {
+        return legacyPendingWriteQueue.getUnchecked();
+    }
+
+    /**
+     * Enqueue an INSERT into the pending-writes queue, choosing the on-disk format by
+     * {@link FDBDirectory#shouldWritePendingQueueNewFormat()}: the new format is written through
+     * the generic {@link PendingWritesQueue}; the legacy format through the legacy
+     * {@link PendingWriteQueue}.
+     *
+     * @param context the record context to enqueue within
+     * @param primaryKey the record's primary key
+     * @param fields the document fields to index
+     * @param incarnation the incarnation prefix for the queue key
+     */
+    public void enqueuePendingInsert(@Nonnull final FDBRecordContext context,
+                                     @Nonnull final Tuple primaryKey,
+                                     @Nonnull final List<LuceneDocumentFromRecord.DocumentField> fields,
+                                     final int incarnation) {
+        if (directory.shouldWritePendingQueueNewFormat()) {
+            final LucenePendingWriteQueueProto.PendingWriteItem item = PendingWritesQueueHelper.buildPendingWriteItem(
+                    LucenePendingWriteQueueProto.PendingWriteItem.OperationType.INSERT, primaryKey, fields, System.currentTimeMillis());
+            LuceneConcurrency.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_GET_QUEUE_SIZE,
+                    getPendingWriteQueue().enqueue(context, item, incarnation), context);
+        } else {
+            getLegacyPendingWriteQueue().enqueueInsert(context, primaryKey, fields, incarnation);
+        }
+    }
+
+    /**
+     * Enqueue a DELETE into the pending-writes queue, choosing the on-disk format by
+     * {@link FDBDirectory#shouldWritePendingQueueNewFormat()}: the new format is written through
+     * the generic {@link PendingWritesQueue}; the legacy format through the legacy
+     * {@link PendingWriteQueue}.
+     *
+     * @param context the record context to enqueue within
+     * @param primaryKey the record's primary key to delete
+     * @param incarnation the incarnation prefix for the queue key
+     */
+    public void enqueuePendingDelete(@Nonnull final FDBRecordContext context,
+                                     @Nonnull final Tuple primaryKey,
+                                     final int incarnation) {
+        if (directory.shouldWritePendingQueueNewFormat()) {
+            final LucenePendingWriteQueueProto.PendingWriteItem item = PendingWritesQueueHelper.buildPendingWriteItem(
+                    LucenePendingWriteQueueProto.PendingWriteItem.OperationType.DELETE, primaryKey, null, System.currentTimeMillis());
+            LuceneConcurrency.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_GET_QUEUE_SIZE,
+                    getPendingWriteQueue().enqueue(context, item, incarnation), context);
+        } else {
+            getLegacyPendingWriteQueue().enqueueDelete(context, primaryKey, incarnation);
+        }
     }
 
     private static class FDBDirectorySerialMergeScheduler extends MergeScheduler {
@@ -591,8 +689,8 @@ public class FDBDirectoryWrapper implements AutoCloseable {
     private CompletableFuture<Void> drainPendingQueueNow(@Nonnull final Tuple groupingKey,
                                                          @Nullable final Integer partitionId) {
         // Note - since this directory wrapper was already created, agility context should be unused in the next line's path
-        final PendingWriteQueue writeQueue = getPendingWriteQueue();
-        final ThrottledRetryingIterator<PendingWriteQueue.QueueEntry> iterator = ThrottledRetryingIterator.builder(
+        final PendingWritesQueue<LucenePendingWriteQueueProto.PendingWriteItem> writeQueue = getPendingWriteQueue();
+        final ThrottledRetryingIterator<PendingWritesQueueEntry<LucenePendingWriteQueueProto.PendingWriteItem>> iterator = ThrottledRetryingIterator.builder(
                         agilityContext.getCallerContext().getDatabase(),
                         agilityContext.getCallerContext().getConfig().toBuilder(),
                         cursorFactory(writeQueue),
@@ -609,8 +707,9 @@ public class FDBDirectoryWrapper implements AutoCloseable {
                 });
     }
 
-    private CursorFactory<PendingWriteQueue.QueueEntry> cursorFactory(PendingWriteQueue pendingWriteQueue) {
-        return (@Nonnull FDBRecordStore store, @Nullable RecordCursorResult<PendingWriteQueue.QueueEntry> lastResult, int rowLimit) -> {
+    private CursorFactory<PendingWritesQueueEntry<LucenePendingWriteQueueProto.PendingWriteItem>> cursorFactory(
+            PendingWritesQueue<LucenePendingWriteQueueProto.PendingWriteItem> pendingWriteQueue) {
+        return (@Nonnull FDBRecordStore store, @Nullable RecordCursorResult<PendingWritesQueueEntry<LucenePendingWriteQueueProto.PendingWriteItem>> lastResult, int rowLimit) -> {
             byte[] continuation = lastResult == null ? null : lastResult.getContinuation().toBytes();
             ScanProperties scanProperties = ScanProperties.FORWARD_SCAN.with(executeProperties -> executeProperties.setReturnedRowLimit(rowLimit));
             // Note: null could have been used instead of continuation as the preceding items should have been deleted. However,
@@ -619,24 +718,28 @@ public class FDBDirectoryWrapper implements AutoCloseable {
         };
     }
 
-    private ItemHandler<PendingWriteQueue.QueueEntry> handleOneItemFactory(PendingWriteQueue pendingWriteQueue,
-                                                                           @Nonnull final Tuple groupingKey,
-                                                                           @Nullable final Integer partitionId) {
+    private ItemHandler<PendingWritesQueueEntry<LucenePendingWriteQueueProto.PendingWriteItem>> handleOneItemFactory(
+            PendingWritesQueue<LucenePendingWriteQueueProto.PendingWriteItem> pendingWriteQueue,
+            @Nonnull final Tuple groupingKey,
+            @Nullable final Integer partitionId) {
         return (store, lastResult, quotamanager) -> {
-            final PendingWriteQueue.QueueEntry queueEntry = lastResult.get();
+            final PendingWritesQueueEntry<LucenePendingWriteQueueProto.PendingWriteItem> queueEntry = lastResult.get();
             if (queueEntry == null) {
                 return AsyncUtil.DONE;
             }
 
+            final LucenePendingWriteQueueProto.PendingWriteItem item = queueEntry.getPayload();
+            final Tuple primaryKey = Tuple.fromBytes(item.getPrimaryKey().toByteArray());
             try {
                 final LuceneIndexMaintainer maintainer = (LuceneIndexMaintainer)store.getIndexMaintainer(state.index);
                 CompletableFuture<Void> oneItemFuture = AsyncUtil.DONE;
-                switch (queueEntry.getOperationType()) {
+                switch (item.getOperationType()) {
                     case INSERT:
-                        maintainer.writeDocumentBypassQueue(groupingKey, partitionId, queueEntry.getPrimaryKeyParsed(), queueEntry.getDocumentFieldsParsed());
+                        maintainer.writeDocumentBypassQueue(groupingKey, partitionId, primaryKey,
+                                PendingWritesQueueHelper.fromProtoFields(item.getFieldsList()));
                         break;
                     case DELETE:
-                        final int countDeleted = maintainer.deleteDocumentBypassQueue(groupingKey, partitionId, queueEntry.getPrimaryKeyParsed());
+                        final int countDeleted = maintainer.deleteDocumentBypassQueue(groupingKey, partitionId, primaryKey);
                         if (partitionId != null) {
                             oneItemFuture = maintainer.postDeleteUpdatePartitionCounter(groupingKey, partitionId, countDeleted)
                                     .thenApply(ignore -> null);
@@ -647,7 +750,7 @@ public class FDBDirectoryWrapper implements AutoCloseable {
                         throw new PendingQueueDrainException("Unknown operation type",
                                 LogMessageKeys.GROUPING_KEY, groupingKey,
                                 LogMessageKeys.PARTITION_ID, partitionId,
-                                LogMessageKeys.CODE, queueEntry.getOperationType());
+                                LogMessageKeys.CODE, item.getOperationType());
                 }
                 pendingWriteQueue.clearEntry(store.getContext(), queueEntry);
                 return oneItemFuture;

@@ -40,6 +40,7 @@ import com.apple.foundationdb.record.lucene.LuceneIndexTypes;
 import com.apple.foundationdb.record.lucene.LuceneLogMessageKeys;
 import com.apple.foundationdb.record.lucene.LucenePartitionInfoProto;
 import com.apple.foundationdb.record.lucene.LucenePartitioner;
+import com.apple.foundationdb.record.lucene.LucenePendingWriteQueueProto;
 import com.apple.foundationdb.record.lucene.LuceneRecordContextProperties;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
@@ -49,6 +50,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBTransactionPriorit
 import com.apple.foundationdb.record.provider.foundationdb.IndexDeferredMaintenanceControl;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
 import com.apple.foundationdb.record.provider.foundationdb.KeyValueCursor;
+import com.apple.foundationdb.record.provider.foundationdb.queue.PendingWritesQueue;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.TupleHelpers;
@@ -382,7 +384,7 @@ public class FDBDirectoryManager implements AutoCloseable {
         }
     }
 
-    public PendingWriteQueue getPendingWriteQueue(@Nullable Tuple groupingKey, @Nullable Integer partitionId) {
+    public PendingWritesQueue<LucenePendingWriteQueueProto.PendingWriteItem> getPendingWriteQueue(@Nullable Tuple groupingKey, @Nullable Integer partitionId) {
         return getDirectoryWrapper(groupingKey, partitionId).getPendingWriteQueue();
     }
 

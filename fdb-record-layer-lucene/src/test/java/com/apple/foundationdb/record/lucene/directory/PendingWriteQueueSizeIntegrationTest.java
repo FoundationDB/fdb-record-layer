@@ -41,6 +41,8 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreTestBas
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.TextIndexTestUtils;
 import com.apple.foundationdb.record.provider.foundationdb.properties.RecordLayerPropertyStorage;
+import com.apple.foundationdb.record.provider.foundationdb.queue.PendingWritesQueue;
+import com.apple.foundationdb.record.provider.foundationdb.queue.PendingWritesQueueEntry;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
 import org.junit.jupiter.api.Tag;
@@ -283,8 +285,8 @@ class PendingWriteQueueSizeIntegrationTest extends FDBRecordStoreTestBase {
 
             assertFalse(directory.shouldUseQueue(), "Ongoing merge indicator should be cleared");
 
-            PendingWriteQueue queue = directory.createPendingWritesQueue();
-            List<PendingWriteQueue.QueueEntry> entries = new ArrayList<>();
+            PendingWritesQueue<LucenePendingWriteQueueProto.PendingWriteItem> queue = directory.createPendingWritesQueue();
+            List<PendingWritesQueueEntry<LucenePendingWriteQueueProto.PendingWriteItem>> entries = new ArrayList<>();
             queue.getQueueCursor(context, ScanProperties.FORWARD_SCAN, null)
                     .forEach(entries::add).join();
             assertTrue(entries.isEmpty(), "Pending queue should have been empty");
@@ -304,14 +306,14 @@ class PendingWriteQueueSizeIntegrationTest extends FDBRecordStoreTestBase {
             assertTrue(directory.shouldUseQueue(),
                     "Ongoing merge indicator should have been set");
 
-            PendingWriteQueue queue = directory.createPendingWritesQueue();
+            PendingWritesQueue<LucenePendingWriteQueueProto.PendingWriteItem> queue = directory.createPendingWritesQueue();
 
-            RecordCursor<PendingWriteQueue.QueueEntry> queueCursor = queue.getQueueCursor(
+            RecordCursor<PendingWritesQueueEntry<LucenePendingWriteQueueProto.PendingWriteItem>> queueCursor = queue.getQueueCursor(
                     recordStore.getContext(), ScanProperties.FORWARD_SCAN, null);
 
             assertEquals(expectedOperations,
                     queueCursor.asList().join().stream()
-                            .map(PendingWriteQueue.QueueEntry::getOperationType)
+                            .map(entry -> entry.getPayload().getOperationType())
                             .collect(Collectors.toList()));
 
             commit(context);

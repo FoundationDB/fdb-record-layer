@@ -22,11 +22,23 @@ package com.apple.foundationdb.record.lucene.directory;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
+import com.apple.foundationdb.record.RecordCoreInternalException;
+import com.apple.foundationdb.record.RecordCoreStorageException;
 import com.apple.foundationdb.record.lucene.LuceneDocumentFromRecord;
+import com.apple.foundationdb.record.lucene.LuceneExceptions;
 import com.apple.foundationdb.record.lucene.LuceneIndexExpressions;
+import com.apple.foundationdb.record.lucene.LuceneIndexMaintainerHelper;
+import com.apple.foundationdb.record.lucene.LuceneLogMessageKeys;
 import com.apple.foundationdb.record.lucene.LucenePendingWriteQueueProto;
+import com.apple.foundationdb.record.metadata.Index;
+import com.apple.foundationdb.tuple.Tuple;
+import com.google.protobuf.ByteString;
+import com.google.protobuf.InvalidProtocolBufferException;
+import org.apache.lucene.index.IndexWriter;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -164,5 +176,83 @@ public final class PendingWritesQueueHelper {
 
     // No constructor for utility class
     private PendingWritesQueueHelper() {
+    }
+
+    /**
+     * Build a Lucene pending-write item payload for an enqueue.
+     *
+     * @param operationType the operation type (INSERT or DELETE)
+     * @param primaryKey the record's primary key
+     * @param fields the document fields to index (may be {@code null} or empty, e.g. for a DELETE)
+     * @param enqueueTimestamp the enqueue timestamp to record on the item
+     *
+     * @return the built {@link LucenePendingWriteQueueProto.PendingWriteItem}
+     */
+    @Nonnull
+    public static LucenePendingWriteQueueProto.PendingWriteItem buildPendingWriteItem(
+            @Nonnull LucenePendingWriteQueueProto.PendingWriteItem.OperationType operationType,
+            @Nonnull Tuple primaryKey,
+            @Nullable List<LuceneDocumentFromRecord.DocumentField> fields,
+            long enqueueTimestamp) {
+        LucenePendingWriteQueueProto.PendingWriteItem.Builder builder =
+                LucenePendingWriteQueueProto.PendingWriteItem.newBuilder()
+                        .setOperationType(operationType)
+                        .setPrimaryKey(ByteString.copyFrom(primaryKey.pack()))
+                        .setEnqueueTimestamp(enqueueTimestamp);
+        if (fields != null && !fields.isEmpty()) {
+            for (LuceneDocumentFromRecord.DocumentField field : fields) {
+                builder.addFields(toProtoField(field));
+            }
+        }
+        return builder.build();
+    }
+
+    /**
+     * Replay a single pending-write item directly into an {@link IndexWriter}.
+     *
+     * @param item the item to replay
+     * @param indexWriter the writer to apply the operation to
+     * @param index the index being written
+     */
+    public static void replayItem(@Nonnull LucenePendingWriteQueueProto.PendingWriteItem item,
+                                  @Nonnull IndexWriter indexWriter,
+                                  @Nonnull Index index) {
+        final LucenePendingWriteQueueProto.PendingWriteItem.OperationType opType = item.getOperationType();
+        try {
+            final Tuple primaryKey = Tuple.fromBytes(item.getPrimaryKey().toByteArray());
+            switch (opType) {
+                case INSERT:
+                    LuceneIndexMaintainerHelper.writeDocument(indexWriter, index, primaryKey, fromProtoFields(item.getFieldsList()));
+                    break;
+                case DELETE:
+                    LuceneIndexMaintainerHelper.deleteDocument(indexWriter, primaryKey, index);
+                    break;
+                case OPERATION_TYPE_UNSPECIFIED:
+                default:
+                    throw new RecordCoreInternalException("Unknown queue operation type", LuceneLogMessageKeys.OPERATION_TYPE, opType);
+            }
+        } catch (IOException ex) {
+            throw LuceneExceptions.toRecordCoreException("failed to replay message on writer", ex);
+        }
+    }
+
+    /**
+     * Decode the raw stored bytes of a legacy (serializer-wrapped) queue entry into a Lucene
+     * pending-write item. This is the read-side fallback used by the generic
+     * {@code PendingWritesQueue} for entries that predate the versioned {@code Any}-payload format.
+     *
+     * @param serializer the serializer used to decode (decompress/decrypt) the raw bytes
+     * @param rawBytes the raw stored value bytes
+     *
+     * @return the decoded {@link LucenePendingWriteQueueProto.PendingWriteItem}
+     */
+    @Nonnull
+    public static LucenePendingWriteQueueProto.PendingWriteItem decodeLegacyItem(@Nonnull LuceneSerializer serializer,
+                                                                                 @Nonnull byte[] rawBytes) {
+        try {
+            return LucenePendingWriteQueueProto.PendingWriteItem.parseFrom(serializer.decode(rawBytes));
+        } catch (InvalidProtocolBufferException ex) {
+            throw new RecordCoreStorageException("Failed to parse legacy pending writes queue item", ex);
+        }
     }
 }

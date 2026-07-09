@@ -31,9 +31,12 @@ import com.apple.foundationdb.record.lucene.LuceneDocumentFromRecord;
 import com.apple.foundationdb.record.lucene.LuceneEvents;
 import com.apple.foundationdb.record.lucene.LuceneIndexExpressions;
 import com.apple.foundationdb.record.lucene.LuceneIndexOptions;
+import com.apple.foundationdb.record.lucene.LucenePendingWriteQueueProto;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
+import com.apple.foundationdb.record.provider.foundationdb.queue.PendingWritesQueue;
+import com.apple.foundationdb.record.provider.foundationdb.queue.PendingWritesQueueEntry;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
 import org.assertj.core.api.Assertions;
@@ -391,7 +394,7 @@ public class FDBDirectoryTest extends FDBDirectoryBaseTest {
             assertTrue(newDirectory.shouldUseQueue(),
                     "shouldUseQueue should return true in new transaction after commit");
 
-            PendingWriteQueue queue = newDirectory.createPendingWritesQueue();
+            PendingWriteQueue queue = newDirectory.createLegacyPendingWritesQueue();
             queue.enqueueInsert(newContext,
                     Tuple.from("testDoc", 1),
                     createTestFields(),
@@ -419,10 +422,10 @@ public class FDBDirectoryTest extends FDBDirectoryBaseTest {
         // Clear the queue
         try (FDBRecordContext newContext = fdb.openContext()) {
             FDBDirectory newDirectory = createDirectory(subspace, newContext, null);
-            PendingWriteQueue queue = newDirectory.createPendingWritesQueue();
+            PendingWritesQueue<LucenePendingWriteQueueProto.PendingWriteItem> queue = newDirectory.createPendingWritesQueue();
 
             // Read and clear all queue entries
-            RecordCursor<PendingWriteQueue.QueueEntry> cursor =
+            RecordCursor<PendingWritesQueueEntry<LucenePendingWriteQueueProto.PendingWriteItem>> cursor =
                     queue.getQueueCursor(newContext,
                             ScanProperties.FORWARD_SCAN,
                             null);

@@ -38,6 +38,7 @@ import com.apple.foundationdb.record.lucene.LuceneExceptions;
 import com.apple.foundationdb.record.lucene.LuceneIndexOptions;
 import com.apple.foundationdb.record.lucene.LuceneIndexTypes;
 import com.apple.foundationdb.record.lucene.LuceneLogMessageKeys;
+import com.apple.foundationdb.record.lucene.LucenePendingWriteQueueProto;
 import com.apple.foundationdb.record.lucene.LucenePrimaryKeySegmentIndex;
 import com.apple.foundationdb.record.lucene.LucenePrimaryKeySegmentIndexV1;
 import com.apple.foundationdb.record.lucene.LucenePrimaryKeySegmentIndexV2;
@@ -47,6 +48,7 @@ import com.apple.foundationdb.record.lucene.codec.LuceneOptimizedStoredFieldsFor
 import com.apple.foundationdb.record.lucene.codec.PrefetchableBufferedChecksumIndexInput;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
+import com.apple.foundationdb.record.provider.foundationdb.queue.PendingWritesQueue;
 import com.apple.foundationdb.record.util.pair.ComparablePair;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.subspace.Subspace;
@@ -1051,9 +1053,52 @@ public class FDBDirectory extends Directory {
                         }));
     }
 
-    public PendingWriteQueue createPendingWritesQueue() {
+    /**
+     * Create the pending-writes queue used for <em>reading</em> the queue (drain, replay, size,
+     * emptiness) and for <em>writing</em> new-format entries. This is the generic
+     * {@link PendingWritesQueue} carrying a {@link LucenePendingWriteQueueProto.PendingWriteItem}
+     * payload. It reads both the new (versioned {@code Any}-payload) format and the legacy
+     * (serializer-wrapped) format — the latter via a legacy decoder.
+     *
+     * @return the generic pending-writes queue bound to the Lucene payload type
+     */
+    public PendingWritesQueue<LucenePendingWriteQueueProto.PendingWriteItem> createPendingWritesQueue() {
+        return new PendingWritesQueue<>(
+                pendingWritesQueueSubspace, pendingQueueSizeSubspace, maxPendingQueueSize,
+                LucenePendingWriteQueueProto.PendingWriteItem.class,
+                rawBytes -> PendingWritesQueueHelper.decodeLegacyItem(serializer, rawBytes));
+    }
+
+    /**
+     * Create the legacy {@link PendingWriteQueue} used only to write legacy-format entries until
+     * the deployment has switched over to the new format. Reads do not through this queue.
+     *
+     * @return the legacy pending-writes queue
+     */
+    public PendingWriteQueue createLegacyPendingWritesQueue() {
         final boolean allowIncarnation = getBooleanIndexOption(LuceneIndexOptions.PENDING_WRITE_QUEUE_INCARNATION_ENABLED, false);
         return new PendingWriteQueue(pendingWritesQueueSubspace, pendingQueueSizeSubspace, maxPendingWritesToReplay, maxPendingQueueSize, serializer, allowIncarnation);
+    }
+
+    /**
+     * The maximum number of pending entries to replay into an {@link org.apache.lucene.index.IndexWriter}
+     * for a query. A value of {@code 0} means unlimited.
+     *
+     * @return the configured replay limit
+     */
+    public int getMaxPendingWritesToReplay() {
+        return maxPendingWritesToReplay;
+    }
+
+    /**
+     * Whether new pending-queue entries should be written in the new (versioned {@code Any}-payload)
+     * format. Gated by {@link LuceneRecordContextProperties#LUCENE_PENDING_WRITE_QUEUE_WRITE_NEW_FORMAT}.
+     * Reads always understand both formats regardless of this flag.
+     *
+     * @return {@code true} to write the new format, {@code false} to write the legacy format
+     */
+    public boolean shouldWritePendingQueueNewFormat() {
+        return Boolean.TRUE.equals(agilityContext.getPropertyValue(LuceneRecordContextProperties.LUCENE_PENDING_WRITE_QUEUE_WRITE_NEW_FORMAT));
     }
 
     public int getBlockCacheMaximumSize() {
