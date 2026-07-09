@@ -389,7 +389,7 @@ public abstract class IndexingBase {
     }
 
     private CompletableFuture<Void> assertEmptyQueueIfNeeded(FDBRecordStore store, Index index) {
-        if(common.getQueuedIndexes().contains(index)) {
+        if (common.getQueuedIndexes().contains(index)) {
             return getIndexingDrainer(index).isQueueEmpty(store).thenApply(isEmpty -> {
                 if (Boolean.FALSE.equals(isEmpty)) {
                     throw new PendingWriteQueueNotEmptyWhileMarkingReadable(index);
