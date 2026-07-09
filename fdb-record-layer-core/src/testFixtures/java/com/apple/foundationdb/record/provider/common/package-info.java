@@ -1,9 +1,9 @@
 /*
- * CollateFunctionKeyExpressionICUTest.java
+ * package-info.java
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2018 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2026 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,18 +18,12 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.record.icu;
-
-import com.apple.foundationdb.record.metadata.expressions.CollateFunctionKeyExpressionTestBase;
-
 /**
- * Tests for {@link CollateFunctionKeyExpressionFactoryICU}.
+ * Test fixtures for the FDB-independent support classes in the production package
+ * (serialization, instrumentation). Current contents target the serialization side:
+ * {@link com.apple.foundationdb.record.provider.common.RollingTestKeyManager} is a
+ * deterministic {@link com.apple.foundationdb.record.provider.common.SerializationKeyManager}
+ * for exercising the encryption code paths of
+ * {@link com.apple.foundationdb.record.provider.common.TransformedRecordSerializer}.
  */
-@SuppressWarnings("checkstyle:abbreviationaswordinname") // Allow ICU here.
-public class CollateFunctionKeyExpressionICUTest extends CollateFunctionKeyExpressionTestBase {
-
-    public CollateFunctionKeyExpressionICUTest() {
-        super(CollateFunctionKeyExpressionFactoryICU.FUNCTION_NAME);
-    }
-
-}
+package com.apple.foundationdb.record.provider.common;

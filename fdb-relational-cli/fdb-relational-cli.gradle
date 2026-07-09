@@ -46,10 +46,6 @@ dependencies {
     implementation project(":fdb-relational-jdbc")
     implementation project(":fdb-record-layer-debugger")
     implementation project(coreProject)
-    // we currently pack the Cascades debugger in this package, maybe in the future we should
-    // move it to a more appropriate package such as utils or something similar so we can
-    // consume it from there.
-    implementation project(path: coreProject, configuration: 'tests')
     implementation(libs.dropwizard) {
         exclude group: 'org.slf4j'
     }

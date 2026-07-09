@@ -1,5 +1,5 @@
 /*
- * TextCollatorTest.java
+ * TextCollatorTestBase.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -28,24 +28,15 @@ import static org.hamcrest.Matchers.lessThan;
 import static org.hamcrest.Matchers.not;
 
 /**
- * Tests for {@link TextCollator}.
+ * Test base for {@link TextCollator}. Concrete subclasses supply a {@link TextCollatorRegistry}
+ * (e.g. JRE-backed or ICU-backed) and inherit the shared {@link Test @Test} methods.
  */
-public abstract class TextCollatorTest {
+public abstract class TextCollatorTestBase {
 
     protected final TextCollatorRegistry registry;
 
-    protected TextCollatorTest(TextCollatorRegistry registry) {
+    protected TextCollatorTestBase(TextCollatorRegistry registry) {
         this.registry = registry;
-    }
-
-    /**
-     * Test with JRE collators.
-     */
-    @SuppressWarnings("checkstyle:abbreviationaswordinname") // Allow JRE here.
-    public static class TextCollatorJRETest extends TextCollatorTest {
-        public TextCollatorJRETest() {
-            super(TextCollatorRegistryJRE.instance());
-        }
     }
 
     @Test
