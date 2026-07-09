@@ -3039,9 +3039,34 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
 
     @Nonnull
     private static CompletableFuture<KeyValue> readStoreFirstKey(@Nonnull FDBRecordContext context, @Nonnull Subspace subspace, @Nonnull IsolationLevel isolationLevel) {
-        final AsyncIterator<KeyValue> iterator = context.readTransaction(isolationLevel.isSnapshot()).getRange(subspace.range(), 1).iterator();
+        // Always read at snapshot isolation so FDB does not add an implicit read-conflict range
+        // spanning the whole subspace (which can pull in unrelated concurrent writers deep inside
+        // the store's subspace and produce spurious SERIALIZATION_FAILUREs). When the caller
+        // wanted SERIALIZABLE isolation, add back a narrower, deterministic read-conflict range
+        // ourselves: from the beginning of the subspace up to and including the first key we
+        // actually found. When the store is empty (no keys at all) we still have to cover the
+        // whole range to correctly serialise against a concurrent creator, so we widen back to
+        // the full subspace in that case.
+        final Range subspaceRange = subspace.range();
+        final AsyncIterator<KeyValue> iterator = context.readTransaction(true).getRange(subspaceRange, 1).iterator();
         return context.instrument(FDBStoreTimer.Events.LOAD_RECORD_STORE_INFO,
-                iterator.onHasNext().thenApply(hasNext -> hasNext ? iterator.next() : null));
+                iterator.onHasNext().thenApply(hasNext -> {
+                    final KeyValue firstKey = hasNext ? iterator.next() : null;
+                    if (!isolationLevel.isSnapshot()) {
+                        final byte[] end;
+                        if (firstKey == null) {
+                            // Store is empty — we need to serialise against anyone else who might
+                            // write into this subspace between our read and commit.
+                            end = subspaceRange.end;
+                        } else {
+                            // Cover [subspaceRange.begin, firstKey + \x00) — i.e. the found key
+                            // itself and everything before it, but nothing after.
+                            end = ByteArrayUtil.join(firstKey.getKey(), new byte[]{0});
+                        }
+                        context.ensureActive().addReadConflictRange(subspaceRange.begin, end);
+                    }
+                    return firstKey;
+                }));
     }
 
     /**
