@@ -93,6 +93,7 @@ fdb-relational-core/src/main/antlr/*.tokens
 /changed_files.txt
 /mixed-mode-results.md
 /subproject_deps.json
+/subproject_plan.json
 
 # AI assistant local analysis artifacts
 /claude-analysis/

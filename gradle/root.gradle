@@ -156,7 +156,16 @@ tasks.register('codeCoverageReport', JacocoReport) {
         "**/generated/*", "**/grpc/v1/**/*"
     ]
 
-    classDirectories.setFrom(coverageSubprojects.collect { sp ->
+    // Since CI now skips building/testing subprojects that a PR's diff couldn't have affected
+    // (see the `plan` job in pull_request.yml), not every coverageSubproject's jar is guaranteed
+    // to exist when this task runs against downloaded artifacts -- referencing a missing one via
+    // zipTree fails the build outright, unlike missing execution data above, which JaCoCo already
+    // tolerates on its own.
+    def builtSubprojects = coverageSubprojects.findAll { sp ->
+        sp.layout.buildDirectory.file("libs/${sp.name}-${sp.version}.jar").get().asFile.exists()
+    }
+
+    classDirectories.setFrom(builtSubprojects.collect { sp ->
         sp.layout.buildDirectory.file("libs/${sp.name}-${sp.version}.jar").map { jf ->
             zipTree(jf).matching {
                 exclude exclusions
@@ -165,7 +174,7 @@ tasks.register('codeCoverageReport', JacocoReport) {
     })
 
     // These can come from source tree.
-    sourceDirectories.setFrom(files(coverageSubprojects.sourceSets.main.allSource.srcDirs))
+    sourceDirectories.setFrom(files(builtSubprojects.sourceSets.main.allSource.srcDirs))
 
     reports {
         xml.required = true

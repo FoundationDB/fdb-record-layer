@@ -39,17 +39,20 @@ to any failure parsing the subproject dependency data or the changed-files list:
 safe to "run everything", never to "run nothing".
 
 Usage:
-    # In CI: subproject dependency data and changed-files list are precomputed.
+    # In CI: subproject dependency data and changed-files list are precomputed, and the CI-specific
+    # matrix legs are known, so the plan also reports which of them need to run.
     python build/affected_subprojects.py subproject_deps.json \
-        --changed-files-file changed_files.txt
+        --changed-files-file changed_files.txt \
+        --matrix-candidates '["fdb-extensions","fdb-record-layer-core","fdb-record-layer-lucene","yaml-tests"]'
 
     # Local dry run: diff against origin/main for changed files, using an already
     # generated subproject dependency graph, e.g. via
     # `./gradlew printDependentSubprojects -PsubprojectDeps.output=subproject_deps.json`.
     python build/affected_subprojects.py subproject_deps.json
 
-Output is a single-line JSON object to stdout:
-    {"run_all": false, "affected": [...]}
+The plan is written as JSON to --output (default: subproject_plan.json). A human-readable
+Markdown rendering of the same plan -- suitable for piping straight into a GitHub Actions step
+summary -- is printed to stdout.
 """
 
 import argparse
@@ -75,6 +78,9 @@ BUILD_AFFECTING_PREFIXES: list[str] = [
     'actions/',
     'build/',
 ]
+
+# Default path for the --output plan file; a build artifact, so it's gitignored.
+DEFAULT_OUTPUT_FILE = 'subproject_plan.json'
 
 
 def parse_subproject_deps(text: str) -> dict[str, list[str]]:
@@ -134,6 +140,40 @@ def compute_affected(changed_files: list[str], subproject_deps: dict[str, list[s
     return {'run_all': False, 'affected': sorted(affected)}
 
 
+def compute_matrix_plan(plan: dict, matrix_candidates: Iterable[str]) -> dict:
+    """
+    Layer CI matrix planning on top of a base plan from compute_affected(): which of the fixed
+    set of subprojects with their own CI matrix leg need to run, and whether any other
+    (non-matrix) subproject also needs testing via a combined job.
+
+    Returns:
+        plan, with 'matrix' and 'run_other_tests' keys added.
+    """
+    candidates = set(matrix_candidates)
+    if plan['run_all']:
+        matrix, run_other_tests = sorted(candidates), True
+    else:
+        affected = set(plan['affected'])
+        matrix, run_other_tests = sorted(affected & candidates), bool(affected - candidates)
+    return {**plan, 'matrix': matrix, 'run_other_tests': run_other_tests}
+
+
+def render_markdown(plan: dict) -> str:
+    """Render a plan as a human-readable Markdown summary, e.g. for a GitHub Actions step summary."""
+    lines = [
+        '### CI Plan',
+        '',
+        "Based on the set of changed files, the following test plan was made:",
+        '',
+        f"- All tests need to be run: `{str(plan['run_all']).lower()}`",
+        f"- Affected subprojects: `{', '.join(plan['affected']) or '(none)'}`",
+    ]
+    if 'matrix' in plan:
+        lines.append(f"- Subprojects to test in individual jobs: `{', '.join(plan['matrix']) or '(none)'}`")
+        lines.append(f"- Remaining subprojects tested in a combined job: `{str(plan['run_other_tests']).lower()}`")
+    return '\n'.join(lines) + '\n'
+
+
 def nonempty_stripped_lines(lines: Iterable[str]) -> list[str]:
     """Strip and return all non-empty lines from an iterable of lines."""
     return list(filter(bool, map(str.strip, lines)))
@@ -157,6 +197,23 @@ def fail_safe_result(reason: str) -> dict:
     return {'run_all': True, 'affected': []}
 
 
+def determine_base_plan(args: argparse.Namespace) -> dict:
+    """Compute the base plan (before any matrix-specific layering), failing safe on any error."""
+    try:
+        with open(args.subproject_deps_file, encoding='utf-8') as f:
+            subproject_deps = parse_subproject_deps(f.read())
+    except (OSError, ValueError, json.JSONDecodeError) as e:
+        return fail_safe_result(f'Could not determine subproject dependency graph ({e})')
+
+    try:
+        changed_files = get_changed_files(
+            args.changed_files_file, args.base_ref, args.head_ref, args.root_dir)
+    except (OSError, subprocess.CalledProcessError) as e:
+        return fail_safe_result(f'Could not determine changed files ({e})')
+
+    return compute_affected(changed_files, subproject_deps)
+
+
 def main(argv: list[str]) -> None:
     """Main entry point for the affected subprojects script."""
     parser = argparse.ArgumentParser(
@@ -174,23 +231,22 @@ def main(argv: list[str]) -> None:
                          help='Head ref for the local dry-run git diff fallback (default: HEAD)')
     parser.add_argument('--root-dir', default='.',
                          help='Repository root directory (default: current directory)')
+    parser.add_argument('--matrix-candidates',
+                         help='JSON array of subprojects that have their own CI matrix leg. If given, the '
+                              'plan additionally reports which of those need to run and whether any other '
+                              'subproject needs a combined test job -- a CI-specific concern that local dry '
+                              'runs can skip.')
+    parser.add_argument('-o', '--output', default=DEFAULT_OUTPUT_FILE,
+                         help=f'Path to write the plan as JSON (default: {DEFAULT_OUTPUT_FILE})')
     args = parser.parse_args(argv)
 
-    try:
-        with open(args.subproject_deps_file, encoding='utf-8') as f:
-            subproject_deps = parse_subproject_deps(f.read())
-    except (OSError, ValueError, json.JSONDecodeError) as e:
-        print(json.dumps(fail_safe_result(f'Could not determine subproject dependency graph ({e})')))
-        return
+    plan = determine_base_plan(args)
+    if args.matrix_candidates:
+        plan = compute_matrix_plan(plan, json.loads(args.matrix_candidates))
 
-    try:
-        changed_files = get_changed_files(
-            args.changed_files_file, args.base_ref, args.head_ref, args.root_dir)
-    except (OSError, subprocess.CalledProcessError) as e:
-        print(json.dumps(fail_safe_result(f'Could not determine changed files ({e})')))
-        return
-
-    print(json.dumps(compute_affected(changed_files, subproject_deps)))
+    with open(args.output, 'w', encoding='utf-8') as f:
+        json.dump(plan, f)
+    print(render_markdown(plan), end='')
 
 
 if __name__ == '__main__':

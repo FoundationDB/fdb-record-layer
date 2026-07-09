@@ -31,9 +31,11 @@ import unittest
 sys.path.insert(0, os.path.dirname(__file__))
 from affected_subprojects import (
     compute_affected,
+    compute_matrix_plan,
     is_build_affecting,
     map_changed_file_to_subproject,
     parse_subproject_deps,
+    render_markdown,
 )
 
 # A trimmed-down but shape-accurate stand-in for the real printDependentSubprojects output:
@@ -190,6 +192,69 @@ class TestComputeAffected(unittest.TestCase):
         self.assertEqual(result['affected'], [])
 
 
+class TestComputeMatrixPlan(unittest.TestCase):
+    """Tests for compute_matrix_plan()"""
+
+    MATRIX_CANDIDATES = ['fdb-extensions', 'fdb-record-layer-core', 'fdb-record-layer-lucene', 'yaml-tests']
+
+    def test_run_all_selects_every_candidate(self):
+        plan = compute_matrix_plan({'run_all': True, 'affected': []}, self.MATRIX_CANDIDATES)
+        self.assertEqual(plan['matrix'], sorted(self.MATRIX_CANDIDATES))
+        self.assertTrue(plan['run_other_tests'])
+
+    def test_affected_confined_to_candidates(self):
+        plan = compute_matrix_plan(
+            {'run_all': False, 'affected': ['fdb-record-layer-lucene']}, self.MATRIX_CANDIDATES)
+        self.assertEqual(plan['matrix'], ['fdb-record-layer-lucene'])
+        self.assertFalse(plan['run_other_tests'])
+
+    def test_affected_outside_candidates_needs_other_tests(self):
+        plan = compute_matrix_plan(
+            {'run_all': False, 'affected': ['fdb-relational-api']}, self.MATRIX_CANDIDATES)
+        self.assertEqual(plan['matrix'], [])
+        self.assertTrue(plan['run_other_tests'])
+
+    def test_no_affected_subprojects(self):
+        plan = compute_matrix_plan({'run_all': False, 'affected': []}, self.MATRIX_CANDIDATES)
+        self.assertEqual(plan['matrix'], [])
+        self.assertFalse(plan['run_other_tests'])
+
+    def test_preserves_base_plan_keys(self):
+        plan = compute_matrix_plan({'run_all': False, 'affected': ['yaml-tests']}, self.MATRIX_CANDIDATES)
+        self.assertEqual(plan['run_all'], False)
+        self.assertEqual(plan['affected'], ['yaml-tests'])
+
+
+class TestRenderMarkdown(unittest.TestCase):
+    """Tests for render_markdown()"""
+
+    def test_renders_base_plan_without_matrix_fields(self):
+        text = render_markdown({'run_all': True, 'affected': ['fdb-record-layer-lucene']})
+        self.assertIn('### CI Plan', text)
+        self.assertIn('All tests need to be run: `true`', text)
+        self.assertIn('Affected subprojects: `fdb-record-layer-lucene`', text)
+        self.assertNotIn('individual jobs', text)
+
+    def test_renders_matrix_fields_when_present(self):
+        text = render_markdown({
+            'run_all': False,
+            'affected': ['fdb-record-layer-lucene'],
+            'matrix': ['fdb-record-layer-lucene'],
+            'run_other_tests': False,
+        })
+        self.assertIn('Subprojects to test in individual jobs: `fdb-record-layer-lucene`', text)
+        self.assertIn('Remaining subprojects tested in a combined job: `false`', text)
+
+    def test_renders_none_placeholder_for_empty_lists(self):
+        text = render_markdown({'run_all': False, 'affected': []})
+        self.assertIn('Affected subprojects: `(none)`', text)
+
+    def test_output_ends_with_single_newline(self):
+        text = render_markdown({'run_all': False, 'affected': []})
+        self.assertTrue(text.endswith('\n'))
+        self.assertFalse(text.endswith('\n\n'))
+
+
 class TestMainEndToEnd(unittest.TestCase):
     """End-to-end tests using main() against fixture files, with captured output."""
 
@@ -204,9 +269,14 @@ class TestMainEndToEnd(unittest.TestCase):
         self.changed_file.write('fdb-record-layer-lucene/src/main/java/Foo.java\n')
         self.changed_file.close()
 
+        self.output_file = tempfile.NamedTemporaryFile(
+            mode='w', suffix='.json', delete=False)
+        self.output_file.close()
+
     def tearDown(self):
         os.unlink(self.deps_file.name)
         os.unlink(self.changed_file.name)
+        os.unlink(self.output_file.name)
 
     def test_main_runs_without_error(self):
         from io import StringIO
@@ -215,9 +285,12 @@ class TestMainEndToEnd(unittest.TestCase):
         from affected_subprojects import main
 
         with patch('sys.stdout', new_callable=StringIO) as mock_out:
-            main([self.deps_file.name, '--changed-files-file', self.changed_file.name])
+            main([self.deps_file.name, '--changed-files-file', self.changed_file.name,
+                  '--output', self.output_file.name])
 
-        result = json.loads(mock_out.getvalue())
+        self.assertIn('### CI Plan', mock_out.getvalue())
+        with open(self.output_file.name, encoding='utf-8') as f:
+            result = json.load(f)
         self.assertFalse(result['run_all'])
         self.assertEqual(result['affected'], ['fdb-record-layer-lucene'])
 
@@ -227,12 +300,31 @@ class TestMainEndToEnd(unittest.TestCase):
 
         from affected_subprojects import main
 
-        with patch('sys.stdout', new_callable=StringIO) as mock_out:
+        with patch('sys.stdout', new_callable=StringIO):
             main(['/nonexistent/path/subproject_deps.json',
-                  '--changed-files-file', self.changed_file.name])
+                  '--changed-files-file', self.changed_file.name,
+                  '--output', self.output_file.name])
 
-        result = json.loads(mock_out.getvalue())
+        with open(self.output_file.name, encoding='utf-8') as f:
+            result = json.load(f)
         self.assertTrue(result['run_all'])
+
+    def test_main_with_matrix_candidates(self):
+        from io import StringIO
+        from unittest.mock import patch
+
+        from affected_subprojects import main
+
+        with patch('sys.stdout', new_callable=StringIO) as mock_out:
+            main([self.deps_file.name, '--changed-files-file', self.changed_file.name,
+                  '--matrix-candidates', '["fdb-record-layer-lucene", "yaml-tests"]',
+                  '--output', self.output_file.name])
+
+        self.assertIn('individual jobs', mock_out.getvalue())
+        with open(self.output_file.name, encoding='utf-8') as f:
+            result = json.load(f)
+        self.assertEqual(result['matrix'], ['fdb-record-layer-lucene'])
+        self.assertFalse(result['run_other_tests'])
 
 
 if __name__ == '__main__':
