@@ -31,6 +31,7 @@ import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.expressions.EmptyKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
+import com.apple.foundationdb.record.metadata.expressions.VersionKeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.queue.PendingWritesQueue;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.TupleHelpers;
@@ -45,6 +46,7 @@ import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -276,6 +278,45 @@ class OnlineIndexerPendingWriteQueueTest extends OnlineIndexerTest {
 
         assertEquals(0, writeTimer.getCount(FDBStoreTimer.Counts.PENDING_WRITES_QUEUE_WRITE));
         assertReadable(index);
+    }
+
+    @Test
+    void testVersionIndexFallsBackToWriteOnly() throws Exception {
+        // An index whose key contains a record version should fall back to a plain write-only build (at least for now)
+        final Index index = new Index("simple$num2_version_queue",
+                concat(field("num_value_2"), VersionKeyExpression.VERSION), IndexTypes.VERSION);
+        // A version index requires the store to persist record versions.
+        final FDBRecordStoreTestBase.RecordMetaDataHook hook = metaDataBuilder -> {
+            metaDataBuilder.setStoreRecordVersions(true);
+            metaDataBuilder.addIndex("MySimpleRecord", index);
+        };
+        final int numInitialRecords = 20;
+        populateEvenRecords(numInitialRecords);
+        openSimpleMetaData(hook);
+        disableAll(List.of(index));
+
+        final FDBStoreTimer writeTimer = new FDBStoreTimer();
+        buildIndexPausingOnceForWrites(
+                queueIndexerBuilder(index, List.of(index)),
+                () -> {
+                    try (FDBRecordContext context = fdb.openContext(null, writeTimer)) {
+                        final FDBRecordStore store = createStoreBuilder().setContext(context)
+                                .createOrOpen(FDBRecordStoreBase.StoreExistenceCheck.NONE);
+                        assertTrue(store.isIndexWriteOnly(index));
+                        assertFalse(store.isIndexWriteOnlyWithQueue(index));
+                        saveSimpleRecord(store, 1, 19);
+                        saveSimpleRecord(store, 3, 57);
+                        context.commit();
+                    }
+                });
+
+        assertEquals(0, writeTimer.getCount(FDBStoreTimer.Counts.PENDING_WRITES_QUEUE_WRITE));
+        // The build still completes as a normal write-only version index.
+        openSimpleMetaData(hook);
+        try (FDBRecordContext context = openContext()) {
+            assertTrue(recordStore.isIndexReadable(index));
+            context.commit();
+        }
     }
 
     @Test

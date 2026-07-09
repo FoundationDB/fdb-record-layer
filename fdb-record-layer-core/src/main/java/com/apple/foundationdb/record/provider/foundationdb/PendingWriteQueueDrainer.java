@@ -57,9 +57,15 @@ public class PendingWriteQueueDrainer {
 
     @SuppressWarnings("PMD.CloseResource")
     CompletableFuture<Void> drainPendingQueue() {
+        // Propagate the indexer's timer to the drain transactions. Besides preserving metrics, this is required for
+        // index maintainers that assume a non-null timer while applying updates (e.g. the vector/HNSW maintainer),
+        // which would otherwise fail with a NullPointerException as the queued writes are replayed.
+        final FDBRecordContextConfig.Builder contextConfigBuilder =
+                FDBRecordContextConfig.newBuilder().setTimer(common.getRunner().getTimer());
         final ThrottledRetryingIterator<PendingWritesQueueEntry<IndexBuildProto.PendingWritesQueueEntry>> iterator =
                 ThrottledRetryingIterator.builder(
                                 common.getRunner().getDatabase(),
+                                contextConfigBuilder,
                                 cursorFactory(),
                                 this::handleOneItem)
                         .withMaxRecordsDeletesPerSec(MAX_RECORDS_DELETE_PER_SECOND)
@@ -93,6 +99,7 @@ public class PendingWriteQueueDrainer {
         }
         final IndexBuildProto.PendingWritesQueueEntry payload = entry.getPayload();
         return store.getIndexMaintainer(index)
+                // Calling updateWhileWriteOnly explicitly, lest this update will be re-pushed to the queue
                 .updateWhileWriteOnly(
                         PendingWriteQueueIndexingFactory.getOldRecord(store, payload),
                         PendingWriteQueueIndexingFactory.getNewRecord(store, payload))

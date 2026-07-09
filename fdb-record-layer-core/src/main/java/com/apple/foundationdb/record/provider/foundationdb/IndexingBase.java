@@ -278,9 +278,13 @@ public abstract class IndexingBase {
 
     @Nonnull
     private CompletableFuture<Boolean> markSingleIndexWriteOnly(final FDBRecordStore store, final Index index) {
-        // For now, pending write queue is not allowed for non-idempotent indexes
+        // For now, the pending write queue is not allowed for non-idempotent indexes, nor for indexes whose key
+        // contains a record version: the queue payload holds only the serialized record (not its version), so a
+        // drained version-key index would be built with a null version. Such indexes fall back to plain write-only.
+        // TODO: support version, maybe by storing the key (or the version) in the pending write queue entries
         return policy.shouldUsePendingWriteQueue(index) &&
                        store.getIndexMaintainer(index).isIdempotent() &&
+                       index.getRootExpression().versionColumns() == 0 &&
                        store.getFormatVersionEnum().isAtLeast(FormatVersion.WRITE_ONLY_WITH_QUEUE) ?
                         store.markIndexWriteOnlyWithQueue(index) :
                         store.markIndexWriteOnly(index);

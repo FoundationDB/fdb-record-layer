@@ -1518,7 +1518,7 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
         @Override
         public <M extends Message> CompletableFuture<Void> updateWhileWriteOnlyWithQueue(@Nullable final FDBIndexableRecord<M> o,
                                                                                          @Nullable final FDBIndexableRecord<M> n) {
-            return AsyncUtil.DONE;
+            throw new UnsupportedOperationException("sliding window should not delegate this call");
         }
 
         @Nonnull
