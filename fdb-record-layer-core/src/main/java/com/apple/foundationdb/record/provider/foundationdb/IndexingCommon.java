@@ -43,7 +43,6 @@ import java.util.UUID;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
 import java.util.function.UnaryOperator;
-import java.util.stream.Collectors;
 
 /**
  * Shared data structure to be used (only) by the Indexing* modules.
@@ -239,7 +238,7 @@ public class IndexingCommon {
 
     @Nonnull
     public List<Index> getTargetIndexes() {
-        return targetIndexContexts.stream().map(targetIndexContext -> targetIndexContext.index).collect(Collectors.toList());
+        return targetIndexContexts.stream().map(targetIndexContext -> targetIndexContext.index).toList();
     }
 
     /**
@@ -262,7 +261,7 @@ public class IndexingCommon {
 
     @Nonnull
     public List<String> getTargetIndexesNames() {
-        return getTargetIndexes().stream().map(Index::getName).collect(Collectors.toList());
+        return getTargetIndexes().stream().map(Index::getName).toList();
     }
 
     boolean isMultiTarget() {

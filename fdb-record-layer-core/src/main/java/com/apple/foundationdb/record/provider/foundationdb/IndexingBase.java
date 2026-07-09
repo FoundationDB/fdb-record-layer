@@ -273,21 +273,25 @@ public abstract class IndexingBase {
         if (continueBuild) {
             return AsyncUtil.DONE;
         }
-        return forEachTargetIndex(index -> markSingleIndexWriteOnly(store, index));
+        return forEachTargetIndexContext(indexContext -> markSingleIndexWriteOnly(store, indexContext));
     }
 
     @Nonnull
-    private CompletableFuture<Boolean> markSingleIndexWriteOnly(final FDBRecordStore store, final Index index) {
+    private CompletableFuture<Boolean> markSingleIndexWriteOnly(final FDBRecordStore store, final IndexingCommon.IndexContext indexContext) {
         // For now, the pending write queue is not allowed for non-idempotent indexes, nor for indexes whose key
         // contains a record version: the queue payload holds only the serialized record (not its version), so a
         // drained version-key index would be built with a null version. Such indexes fall back to plain write-only.
-        // TODO: support version, maybe by storing the key (or the version) in the pending write queue entries
-        return policy.shouldUsePendingWriteQueue(index) &&
-                       store.getIndexMaintainer(index).isIdempotent() &&
-                       index.getRootExpression().versionColumns() == 0 &&
-                       store.getFormatVersionEnum().isAtLeast(FormatVersion.WRITE_ONLY_WITH_QUEUE) ?
-                        store.markIndexWriteOnlyWithQueue(index) :
-                        store.markIndexWriteOnly(index);
+        final Index index = indexContext.index;
+        if (policy.shouldUsePendingWriteQueue(index) &&
+                !indexContext.isSynthetic &&
+                store.getIndexMaintainer(index).isIdempotent() &&
+                index.getRootExpression().versionColumns() == 0 &&
+                store.getFormatVersionEnum().isAtLeast(FormatVersion.WRITE_ONLY_WITH_QUEUE)) {
+            // TODO: support write-only-with-queue for synthetic records
+            // TODO? support versioned index ("?" because these kind of indexes don't tend to have indexing bottlenecks)
+            return store.markIndexWriteOnlyWithQueue(index);
+        }
+        return store.markIndexWriteOnly(index);
     }
 
     @Nonnull
@@ -681,14 +685,14 @@ public abstract class IndexingBase {
     private <T> CompletableFuture<Void> forEachTargetIndex(Function<Index, CompletableFuture<T>> function) {
         // helper to operate on all target indexes (indexes only!)
         List<Index> targetIndexes = common.getTargetIndexes();
-        return AsyncUtil.whenAll(targetIndexes.stream().map(function).collect(Collectors.toList()));
+        return AsyncUtil.whenAll(targetIndexes.stream().map(function).toList());
     }
 
     @Nonnull
     private <T> CompletableFuture<Void> forEachTargetIndexContext(Function<IndexingCommon.IndexContext, CompletableFuture<T>> function) {
         // helper to operate on all target indexers (indexers - for index maintainers)
         List<IndexingCommon.IndexContext> indexContexts = common.getTargetIndexContexts();
-        return AsyncUtil.whenAll(indexContexts.stream().map(function).collect(Collectors.toList()));
+        return AsyncUtil.whenAll(indexContexts.stream().map(function).toList());
     }
     /**
      * iterate cursor's items and index them.
