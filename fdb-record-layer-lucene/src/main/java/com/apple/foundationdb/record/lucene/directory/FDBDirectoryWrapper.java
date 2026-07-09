@@ -360,7 +360,7 @@ public class FDBDirectoryWrapper implements AutoCloseable {
                     .build()
                     .asScanProperties(false);
         }
-        return getPendingWriteQueue().getQueueCursor(context, scanProperties, null)
+        return getPendingWriteQueue().getQueueCursor(context, scanProperties, null, directory.getPendingWriteQueueLegacyDecoder())
                 .forEachResult(result ->
                         PendingWritesQueueHelper.replayItem(result.get().getPayload(), indexWriter, state.index))
                 .thenAccept(lastResult -> {
@@ -413,10 +413,7 @@ public class FDBDirectoryWrapper implements AutoCloseable {
     }
 
     /**
-     * Enqueue an INSERT into the pending-writes queue, choosing the on-disk format by
-     * {@link FDBDirectory#shouldWritePendingQueueNewFormat()}: the new format is written through
-     * the generic {@link PendingWritesQueue}; the legacy format through the legacy
-     * {@link PendingWriteQueue}.
+     * Enqueue an INSERT into the pending-writes queue.
      *
      * @param context the record context to enqueue within
      * @param primaryKey the record's primary key
@@ -427,21 +424,11 @@ public class FDBDirectoryWrapper implements AutoCloseable {
                                      @Nonnull final Tuple primaryKey,
                                      @Nonnull final List<LuceneDocumentFromRecord.DocumentField> fields,
                                      final int incarnation) {
-        if (directory.shouldWritePendingQueueNewFormat()) {
-            final LucenePendingWriteQueueProto.PendingWriteItem item = PendingWritesQueueHelper.buildPendingWriteItem(
-                    LucenePendingWriteQueueProto.PendingWriteItem.OperationType.INSERT, primaryKey, fields, System.currentTimeMillis());
-            LuceneConcurrency.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_GET_QUEUE_SIZE,
-                    getPendingWriteQueue().enqueue(context, item, incarnation), context);
-        } else {
-            getLegacyPendingWriteQueue().enqueueInsert(context, primaryKey, fields, incarnation);
-        }
+        enqueuePending(context, LucenePendingWriteQueueProto.PendingWriteItem.OperationType.INSERT, primaryKey, fields, incarnation);
     }
 
     /**
-     * Enqueue a DELETE into the pending-writes queue, choosing the on-disk format by
-     * {@link FDBDirectory#shouldWritePendingQueueNewFormat()}: the new format is written through
-     * the generic {@link PendingWritesQueue}; the legacy format through the legacy
-     * {@link PendingWriteQueue}.
+     * Enqueue a DELETE into the pending-writes queue.
      *
      * @param context the record context to enqueue within
      * @param primaryKey the record's primary key to delete
@@ -450,13 +437,36 @@ public class FDBDirectoryWrapper implements AutoCloseable {
     public void enqueuePendingDelete(@Nonnull final FDBRecordContext context,
                                      @Nonnull final Tuple primaryKey,
                                      final int incarnation) {
+        enqueuePending(context, LucenePendingWriteQueueProto.PendingWriteItem.OperationType.DELETE, primaryKey, null, incarnation);
+    }
+
+    /**
+     * Enqueue a pending operation, choosing the on-disk format by
+     * {@link FDBDirectory#shouldWritePendingQueueNewFormat()}: the new format is written through
+     * the generic {@link PendingWritesQueue}; the legacy format through the legacy
+     * {@link PendingWriteQueue}.
+     *
+     * @param context the record context to enqueue within
+     * @param operationType the operation to enqueue (INSERT or DELETE)
+     * @param primaryKey the record's primary key
+     * @param fields the document fields to index for an INSERT, or {@code null} for a DELETE
+     * @param incarnation the incarnation prefix for the queue key
+     */
+    private void enqueuePending(@Nonnull final FDBRecordContext context,
+                                @Nonnull final LucenePendingWriteQueueProto.PendingWriteItem.OperationType operationType,
+                                @Nonnull final Tuple primaryKey,
+                                @Nullable final List<LuceneDocumentFromRecord.DocumentField> fields,
+                                final int incarnation) {
         if (directory.shouldWritePendingQueueNewFormat()) {
             final LucenePendingWriteQueueProto.PendingWriteItem item = PendingWritesQueueHelper.buildPendingWriteItem(
-                    LucenePendingWriteQueueProto.PendingWriteItem.OperationType.DELETE, primaryKey, null, System.currentTimeMillis());
-            LuceneConcurrency.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_GET_QUEUE_SIZE,
+                    operationType, primaryKey, fields, System.currentTimeMillis());
+            // Wait on the enqueue itself (it includes the capacity-check read), not just the size lookup.
+            LuceneConcurrency.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_PENDING_QUEUE_WRITE,
                     getPendingWriteQueue().enqueue(context, item, incarnation), context);
-        } else {
+        } else if (operationType == LucenePendingWriteQueueProto.PendingWriteItem.OperationType.DELETE) {
             getLegacyPendingWriteQueue().enqueueDelete(context, primaryKey, incarnation);
+        } else {
+            getLegacyPendingWriteQueue().enqueueInsert(context, primaryKey, fields, incarnation);
         }
     }
 
@@ -714,7 +724,8 @@ public class FDBDirectoryWrapper implements AutoCloseable {
             ScanProperties scanProperties = ScanProperties.FORWARD_SCAN.with(executeProperties -> executeProperties.setReturnedRowLimit(rowLimit));
             // Note: null could have been used instead of continuation as the preceding items should have been deleted. However,
             // using a continuation will prevent an infinite loop in case of a bug that doesn't clear items.
-            return pendingWriteQueue.getQueueCursor(store.getContext(), scanProperties, continuation);
+            return pendingWriteQueue.getQueueCursor(store.getContext(), scanProperties, continuation,
+                    directory.getPendingWriteQueueLegacyDecoder());
         };
     }
 

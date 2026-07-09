@@ -31,14 +31,13 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordVersion;
 import com.apple.foundationdb.record.provider.foundationdb.SplitHelper;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
-import com.google.protobuf.InvalidProtocolBufferException;
 import com.apple.test.Tags;
+import com.google.protobuf.InvalidProtocolBufferException;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.util.Arrays;
 import java.util.List;
 import java.util.function.Function;
@@ -86,14 +85,14 @@ class PendingWritesQueueLegacyFallbackTest extends FDBRecordStoreTestBase {
     void readsMixOfNewAndLegacyEntries() {
         PendingWritesQueue<TestQueuePayload> queue;
         try (FDBRecordContext context = openContext()) {
-            queue = getQueue(context, BARE_LEGACY_DECODER);
+            queue = getQueue(context);
             queue.enqueue(context, payload("new-0"), 0).join();
             writeRawLegacyEntry(context, bareLegacy("legacy-1"));
             queue.enqueue(context, payload("new-2"), 0).join();
             commit(context);
         }
 
-        List<PendingWritesQueueEntry<TestQueuePayload>> entries = readAll(queue);
+        List<PendingWritesQueueEntry<TestQueuePayload>> entries = readAll(queue, BARE_LEGACY_DECODER);
         assertEquals(3, entries.size());
         assertEquals("new-0", entries.get(0).getPayload().getLabel());
         assertEquals("legacy-1", entries.get(1).getPayload().getLabel()); // via the legacy decoder
@@ -108,26 +107,26 @@ class PendingWritesQueueLegacyFallbackTest extends FDBRecordStoreTestBase {
     void legacyEntryThatFailsEnvelopeParseUsesDecoder() {
         PendingWritesQueue<TestQueuePayload> queue;
         try (FDBRecordContext context = openContext()) {
-            queue = getQueue(context, PREFIXED_LEGACY_DECODER);
+            queue = getQueue(context);
             writeRawLegacyEntry(context, prefixedLegacy("wrapped-legacy"));
             queue.enqueue(context, payload("new"), 0).join();
             commit(context);
         }
 
-        List<PendingWritesQueueEntry<TestQueuePayload>> entries = readAll(queue);
+        List<PendingWritesQueueEntry<TestQueuePayload>> entries = readAll(queue, PREFIXED_LEGACY_DECODER);
         assertEquals(2, entries.size());
         assertEquals("wrapped-legacy", entries.get(0).getPayload().getLabel());
         assertEquals("new", entries.get(1).getPayload().getLabel());
     }
 
     /**
-     * A non-current-format entry with no legacy decoder configured is a storage error.
+     * A non-current-format entry read without a legacy decoder is a storage error.
      */
     @Test
     void nonCurrentEntryWithoutLegacyDecoderThrows() {
         PendingWritesQueue<TestQueuePayload> queue;
         try (FDBRecordContext context = openContext()) {
-            queue = getQueue(context, null);
+            queue = getQueue(context);
             writeRawLegacyEntry(context, bareLegacy("orphan"));
             commit(context);
         }
@@ -164,10 +163,9 @@ class PendingWritesQueueLegacyFallbackTest extends FDBRecordStoreTestBase {
     }
 
     @Nonnull
-    private PendingWritesQueue<TestQueuePayload> getQueue(@Nonnull FDBRecordContext context,
-                                                          @Nullable Function<byte[], TestQueuePayload> legacyDecoder) {
+    private PendingWritesQueue<TestQueuePayload> getQueue(@Nonnull FDBRecordContext context) {
         return new PendingWritesQueue<>(queueSubspaceFor(context), counterSubspaceFor(context), 0,
-                TestQueuePayload.class, legacyDecoder);
+                TestQueuePayload.class);
     }
 
     @Nonnull
@@ -182,9 +180,10 @@ class PendingWritesQueueLegacyFallbackTest extends FDBRecordStoreTestBase {
 
     @Nonnull
     private List<PendingWritesQueueEntry<TestQueuePayload>> readAll(
-            @Nonnull PendingWritesQueue<TestQueuePayload> queue) {
+            @Nonnull PendingWritesQueue<TestQueuePayload> queue,
+            @Nonnull Function<byte[], TestQueuePayload> legacyDecoder) {
         try (FDBRecordContext context = openContext()) {
-            return queue.getQueueCursor(context, ScanProperties.FORWARD_SCAN, null).asList().join();
+            return queue.getQueueCursor(context, ScanProperties.FORWARD_SCAN, null, legacyDecoder).asList().join();
         }
     }
 

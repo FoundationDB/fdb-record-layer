@@ -94,6 +94,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -1054,19 +1055,30 @@ public class FDBDirectory extends Directory {
     }
 
     /**
-     * Create the pending-writes queue used for <em>reading</em> the queue (drain, replay, size,
-     * emptiness) and for <em>writing</em> new-format entries. This is the generic
+     * Create the pending-writes queue used for <em>reading</em> the queue (drain, replay, size)
+     * and for <em>writing</em> new-format entries. This is the generic
      * {@link PendingWritesQueue} carrying a {@link LucenePendingWriteQueueProto.PendingWriteItem}
-     * payload. It reads both the new (versioned {@code Any}-payload) format and the legacy
-     * (serializer-wrapped) format — the latter via a legacy decoder.
+     * payload. It only ever writes the new (versioned {@code Any}-payload) format.
      *
      * @return the generic pending-writes queue bound to the Lucene payload type
      */
     public PendingWritesQueue<LucenePendingWriteQueueProto.PendingWriteItem> createPendingWritesQueue() {
         return new PendingWritesQueue<>(
                 pendingWritesQueueSubspace, pendingQueueSizeSubspace, maxPendingQueueSize,
-                LucenePendingWriteQueueProto.PendingWriteItem.class,
-                rawBytes -> PendingWritesQueueHelper.decodeLegacyItem(serializer, rawBytes));
+                LucenePendingWriteQueueProto.PendingWriteItem.class);
+    }
+
+    /**
+     * The read-path decoder that turns a legacy (serializer-wrapped) queue value into a
+     * {@link LucenePendingWriteQueueProto.PendingWriteItem}. Pass this to
+     * {@link PendingWritesQueue#getQueueCursor(FDBRecordContext, com.apple.foundationdb.record.ScanProperties, byte[], java.util.function.Function)}
+     * so the reader understands entries written before the switch to the new format.
+     *
+     * @return the legacy-format decoder for this directory's serializer
+     */
+    @Nonnull
+    public Function<byte[], LucenePendingWriteQueueProto.PendingWriteItem> getPendingWriteQueueLegacyDecoder() {
+        return rawBytes -> PendingWritesQueueHelper.decodeLegacyItem(serializer, rawBytes);
     }
 
     /**
@@ -1098,7 +1110,7 @@ public class FDBDirectory extends Directory {
      * @return {@code true} to write the new format, {@code false} to write the legacy format
      */
     public boolean shouldWritePendingQueueNewFormat() {
-        return Boolean.TRUE.equals(agilityContext.getPropertyValue(LuceneRecordContextProperties.LUCENE_PENDING_WRITE_QUEUE_WRITE_NEW_FORMAT));
+        return Objects.requireNonNullElse(agilityContext.getPropertyValue(LuceneRecordContextProperties.LUCENE_PENDING_WRITE_QUEUE_WRITE_NEW_FORMAT), false);
     }
 
     public int getBlockCacheMaximumSize() {
