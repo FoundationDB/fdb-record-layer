@@ -29,13 +29,18 @@ import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexTypes;
+import com.apple.foundationdb.record.metadata.IndexValidator;
 import com.apple.foundationdb.record.metadata.expressions.EmptyKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.VersionKeyExpression;
+import com.apple.foundationdb.record.provider.foundationdb.indexes.ValueIndexMaintainer;
+import com.apple.foundationdb.record.provider.foundationdb.indexes.ValueIndexMaintainerFactory;
 import com.apple.foundationdb.record.provider.foundationdb.queue.PendingWritesQueue;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.TupleHelpers;
 import com.apple.foundationdb.util.CloseException;
+import com.google.auto.service.AutoService;
+import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -43,7 +48,11 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+import java.util.Collections;
 import java.util.List;
+import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -535,6 +544,41 @@ class OnlineIndexerPendingWriteQueueTest extends OnlineIndexerTest {
     }
 
     @Test
+    void testReDrainsWhenWritesArriveDuringDrain() throws Exception {
+        // Enqueues a brand-new record from inside updateWhileWriteOnly, i.e. *during* the drain. This save is pushed
+        // back into the pending writes queue, so the queue is non-empty when the indexer first tries to mark the
+        // index readable. This exercises the re-drain retry loop in IndexingBase.markIndexReadableForIndex.
+        final Index index = new Index("simple$num_value_2_reenqueue", field("num_value_2"),
+                ReEnqueueDuringDrainIndexMaintainer.INDEX_TYPE);
+        final int numInitialRecords = 20; // recNos 0,2,..,38 -- neither the trigger (7) nor injected (9) record exists yet
+        populateEvenRecords(numInitialRecords);
+        openSimpleMetaData(allIndexesHook(List.of(index)));
+        disableAll(List.of(index));
+
+        // The trigger and the record it injects during the drain share this num_value_2 (the injected record is a
+        // copy of the trigger with a different rec_no), so both land under the same index key.
+        final int sharedNumValue2 = (int) ReEnqueueDuringDrainIndexMaintainer.TRIGGER_REC_NO * 19;
+        buildIndexPausingOnceForWrites(
+                queueIndexerBuilder(index, List.of(index)),
+                () -> {
+                    try (FDBRecordContext context = openContext()) {
+                        // Enqueue the trigger record; replaying it during the drain enqueues INJECTED_REC_NO in turn.
+                        saveSimpleRecord(recordStore, (int) ReEnqueueDuringDrainIndexMaintainer.TRIGGER_REC_NO, sharedNumValue2);
+                        context.commit();
+                    }
+                });
+
+        assertReadable(index);
+        // The re-drain must have applied the record injected mid-drain: the trigger and the injected record are both
+        // indexed under the shared value, and the queue is fully drained.
+        assertEquals(numInitialRecords + 2, indexEntryCount(index));
+        assertEquals(
+                List.of(ReEnqueueDuringDrainIndexMaintainer.TRIGGER_REC_NO, ReEnqueueDuringDrainIndexMaintainer.INJECTED_REC_NO),
+                indexPrimaryKeysForValue(index, sharedNumValue2));
+        assertNull(queueSizeCounter(index), "the queue must be fully drained before the index becomes readable");
+    }
+
+    @Test
     void testFallsBackToWriteOnlyBelowFormatVersion() throws Exception {
         formatVersion = FormatVersionTestUtils.previous(FormatVersion.WRITE_ONLY_WITH_QUEUE);
         final Index index = new Index("simple$num_value_2_queue", field("num_value_2"), IndexTypes.VALUE);
@@ -865,6 +909,68 @@ class OnlineIndexerPendingWriteQueueTest extends OnlineIndexerTest {
                     .getQueueSizeNoConflict(context).join();
             context.commit();
             return size;
+        }
+    }
+
+    public static class ReEnqueueDuringDrainIndexMaintainer extends ValueIndexMaintainer {
+        public static final String INDEX_TYPE = "value_reenqueue_during_drain";
+        /** The queued record whose replay triggers a mid-drain enqueue. */
+        public static final long TRIGGER_REC_NO = 7L;
+        /** The record injected into the queue during the drain of {@link #TRIGGER_REC_NO}. */
+        public static final long INJECTED_REC_NO = 9L;
+
+        public ReEnqueueDuringDrainIndexMaintainer(final IndexMaintainerState state) {
+            super(state);
+        }
+
+        @Nonnull
+        @Override
+        public <M extends Message> CompletableFuture<Void> updateWhileWriteOnly(@Nullable final FDBIndexableRecord<M> oldRecord,
+                                                                                @Nullable final FDBIndexableRecord<M> newRecord) {
+            final CompletableFuture<Void> superFuture = super.updateWhileWriteOnly(oldRecord, newRecord);
+            if (newRecord == null) {
+                return superFuture;
+            }
+            final Message rec = newRecord.getRecord();
+            final Descriptors.Descriptor descriptor = rec.getDescriptorForType();
+            final Descriptors.FieldDescriptor recNoField = descriptor.findFieldByName("rec_no");
+            final long recNo = ((Number)rec.getField(recNoField)).longValue();
+            if (recNo != TRIGGER_REC_NO) {
+                return superFuture;
+            }
+            // Simulate a concurrent writer enqueueing new item while the drain is in progress: the index is still
+            // WRITE_ONLY_WITH_QUEUE, so this save is deferred back into the pending writes queue rather than indexed here.
+            final Message.Builder builder = rec.toBuilder().setField(recNoField, INJECTED_REC_NO);
+            final Descriptors.FieldDescriptor uniqueField = descriptor.findFieldByName("num_value_unique");
+            if (uniqueField != null && rec.hasField(uniqueField)) {
+                builder.setField(uniqueField, (int)(INJECTED_REC_NO * 1139));
+            }
+            final Message injected = builder.build();
+            return superFuture.thenCompose(ignore -> state.store.saveRecordAsync(injected).thenApply(saved -> null));
+        }
+
+        @AutoService(IndexMaintainerFactory.class)
+        public static class Factory implements IndexMaintainerFactory {
+            private static final Set<String> INDEX_TYPES = Collections.singleton(INDEX_TYPE);
+            private static final ValueIndexMaintainerFactory underlying = new ValueIndexMaintainerFactory();
+
+            @Nonnull
+            @Override
+            public Iterable<String> getIndexTypes() {
+                return INDEX_TYPES;
+            }
+
+            @Nonnull
+            @Override
+            public IndexValidator getIndexValidator(final Index index) {
+                return underlying.getIndexValidator(index);
+            }
+
+            @Nonnull
+            @Override
+            public IndexMaintainer getIndexMaintainer(@Nonnull final IndexMaintainerState state) {
+                return new ReEnqueueDuringDrainIndexMaintainer(state);
+            }
         }
     }
 
