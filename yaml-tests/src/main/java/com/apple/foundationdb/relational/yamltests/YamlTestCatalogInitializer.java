@@ -100,9 +100,11 @@ public final class YamlTestCatalogInitializer {
     private static void initializeOne(final String clusterFile, @Nonnull final KeySpace keySpace) throws RelationalException {
         final FDBDatabase database = FDBDatabaseFactory.instance().getDatabase(clusterFile);
         // Ask FDB to record the specific conflict ranges on any commit failure so we can log
-        // exactly which key(s) collided when a retry happens.
+        // exactly which key(s) collided when a retry happens. Setting a timer ensures the
+        // transaction is wrapped in InstrumentedTransaction so its mutations can be traced.
         final FDBRecordContextConfig config = FDBRecordContextConfig.newBuilder()
                 .setReportConflictingKeys(true)
+                .setTimer(new com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer())
                 .build();
         RelationalException last = null;
         for (int attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {

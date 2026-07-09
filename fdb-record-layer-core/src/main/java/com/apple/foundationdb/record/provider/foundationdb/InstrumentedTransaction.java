@@ -30,6 +30,10 @@ import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
+import com.apple.foundationdb.tuple.ByteArrayUtil;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -39,9 +43,20 @@ import java.util.function.Function;
 /**
  * Wrapper around {@link Transaction} that instruments certain calls to expose their behavior with
  * {@link FDBStoreTimer} metrics.
+ *
+ * <p>When this class's logger is set to {@code TRACE}, every mutation call
+ * ({@link #clear(byte[])}, {@link #clear(byte[], byte[])}, {@link #clear(Range)},
+ * {@link #clearRangeStartsWith(byte[])}, and range-based
+ * {@link #addWriteConflictRange(byte[], byte[])}) emits the affected key range along with a
+ * captured stack trace. This is intended purely for diagnostic use — for example when hunting
+ * down which code path is issuing a wide subspace clear that's causing a
+ * {@code SERIALIZATION_FAILURE} on a concurrent read. Leaving the logger at its default level
+ * (WARN or above) keeps the overhead a single {@code isTraceEnabled()} check per call.</p>
  */
 @API(API.Status.INTERNAL)
 public class InstrumentedTransaction extends InstrumentedReadTransaction<Transaction> implements Transaction {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(InstrumentedTransaction.class);
 
     @Nullable
     protected ReadTransaction snapshot; // lazily cached snapshot wrapper
@@ -77,6 +92,7 @@ public class InstrumentedTransaction extends InstrumentedReadTransaction<Transac
 
     @Override
     public void addWriteConflictRange(byte[] keyBegin, byte[] keyEnd) {
+        traceMutation("addWriteConflictRange", keyBegin, keyEnd);
         underlying.addWriteConflictRange(checkKey(keyBegin), checkKey(keyEnd));
     }
 
@@ -94,12 +110,14 @@ public class InstrumentedTransaction extends InstrumentedReadTransaction<Transac
 
     @Override
     public void clear(byte[] key) {
+        traceMutation("clear(key)", key, null);
         underlying.clear(checkKey(key));
         increment(FDBStoreTimer.Counts.DELETES);
     }
 
     @Override
     public void clear(byte[] keyBegin, byte[] keyEnd) {
+        traceMutation("clear(range)", keyBegin, keyEnd);
         underlying.clear(checkKey(keyBegin), checkKey(keyEnd));
         increment(FDBStoreTimer.Counts.DELETES);
         increment(FDBStoreTimer.Counts.RANGE_DELETES);
@@ -107,6 +125,7 @@ public class InstrumentedTransaction extends InstrumentedReadTransaction<Transac
 
     @Override
     public void clear(Range range) {
+        traceMutation("clear(Range)", range.begin, range.end);
         checkKey(range.begin);
         checkKey(range.end);
 
@@ -118,9 +137,26 @@ public class InstrumentedTransaction extends InstrumentedReadTransaction<Transac
     @Override
     @Deprecated
     public void clearRangeStartsWith(byte[] prefix) {
+        traceMutation("clearRangeStartsWith", prefix, null);
         underlying.clearRangeStartsWith(checkKey(prefix));
         increment(FDBStoreTimer.Counts.DELETES);
         increment(FDBStoreTimer.Counts.RANGE_DELETES);
+    }
+
+    /**
+     * Diagnostic hook: when this class's SLF4J logger is at TRACE, emit the operation name, the
+     * printable form of the affected key(s), and a stack trace. Callers pay only the cost of the
+     * {@code isTraceEnabled()} check at other log levels. Intended for hunting down subspace-wide
+     * range writes that cause serialization failures on concurrent readers.
+     */
+    private static void traceMutation(@Nonnull String op, @Nullable byte[] begin, @Nullable byte[] end) {
+        if (!LOGGER.isTraceEnabled()) {
+            return;
+        }
+        final String beginStr = begin == null ? "null" : ByteArrayUtil.printable(begin);
+        final String endStr = end == null ? "" : ".." + ByteArrayUtil.printable(end);
+        LOGGER.trace("InstrumentedTransaction mutation: {} [{}{}]", op, beginStr, endStr,
+                new Throwable("stack for " + op));
     }
 
     @Override
