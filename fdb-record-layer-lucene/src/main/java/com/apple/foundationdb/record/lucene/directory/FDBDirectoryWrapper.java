@@ -360,7 +360,8 @@ public class FDBDirectoryWrapper implements AutoCloseable {
                     .build()
                     .asScanProperties(false);
         }
-        return getPendingWriteQueue().getQueueCursor(context, scanProperties, null, directory.getPendingWriteQueueLegacyDecoder())
+        return getPendingWriteQueue().getQueueCursor(context, scanProperties, null,
+                        PendingWritesQueueHelper.legacyDecoder(directory.getSerializer()))
                 .forEachResult(result ->
                         PendingWritesQueueHelper.replayItem(result.get().getPayload(), indexWriter, state.index))
                 .thenAccept(lastResult -> {
@@ -725,7 +726,7 @@ public class FDBDirectoryWrapper implements AutoCloseable {
             // Note: null could have been used instead of continuation as the preceding items should have been deleted. However,
             // using a continuation will prevent an infinite loop in case of a bug that doesn't clear items.
             return pendingWriteQueue.getQueueCursor(store.getContext(), scanProperties, continuation,
-                    directory.getPendingWriteQueueLegacyDecoder());
+                    PendingWritesQueueHelper.legacyDecoder(directory.getSerializer()));
         };
     }
 

@@ -375,7 +375,7 @@ public class PendingWritesQueue<T extends Message> {
                     .addLogInfo(LogMessageKeys.KEY_TUPLE, keyTuple)
                     .addLogInfo(LogMessageKeys.STORED_VERSION, item == null ? -1 : item.getVersion());
         }
-        return legacyFormatEntry(keyTuple, valueBytes, item, legacyDecoder);
+        return legacyFormatEntry(keyTuple, valueBytes, legacyDecoder);
     }
 
     /**

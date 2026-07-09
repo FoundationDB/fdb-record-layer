@@ -43,6 +43,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
 
 @API(API.Status.INTERNAL)
 public final class PendingWritesQueueHelper {
@@ -234,6 +235,21 @@ public final class PendingWritesQueueHelper {
         } catch (IOException ex) {
             throw LuceneExceptions.toRecordCoreException("failed to replay message on writer", ex);
         }
+    }
+
+    /**
+     * Build the read-path decoder that turns a legacy (serializer-wrapped) queue value into a
+     * Lucene pending-write item. Pass the returned function to
+     * {@code PendingWritesQueue.getQueueCursor(..., legacyDecoder)} so the reader understands
+     * entries written before the switch to the versioned {@code Any}-payload format.
+     *
+     * @param serializer the serializer used to decode (decompress/decrypt) the raw bytes
+     *
+     * @return a decoder from raw stored bytes to a {@link LucenePendingWriteQueueProto.PendingWriteItem}
+     */
+    @Nonnull
+    public static Function<byte[], LucenePendingWriteQueueProto.PendingWriteItem> legacyDecoder(@Nonnull LuceneSerializer serializer) {
+        return rawBytes -> decodeLegacyItem(serializer, rawBytes);
     }
 
     /**

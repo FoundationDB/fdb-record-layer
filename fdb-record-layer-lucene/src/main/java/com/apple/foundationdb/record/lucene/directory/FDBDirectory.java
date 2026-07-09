@@ -94,7 +94,6 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -1066,19 +1065,6 @@ public class FDBDirectory extends Directory {
         return new PendingWritesQueue<>(
                 pendingWritesQueueSubspace, pendingQueueSizeSubspace, maxPendingQueueSize,
                 LucenePendingWriteQueueProto.PendingWriteItem.class);
-    }
-
-    /**
-     * The read-path decoder that turns a legacy (serializer-wrapped) queue value into a
-     * {@link LucenePendingWriteQueueProto.PendingWriteItem}. Pass this to
-     * {@link PendingWritesQueue#getQueueCursor(FDBRecordContext, com.apple.foundationdb.record.ScanProperties, byte[], java.util.function.Function)}
-     * so the reader understands entries written before the switch to the new format.
-     *
-     * @return the legacy-format decoder for this directory's serializer
-     */
-    @Nonnull
-    public Function<byte[], LucenePendingWriteQueueProto.PendingWriteItem> getPendingWriteQueueLegacyDecoder() {
-        return rawBytes -> PendingWritesQueueHelper.decodeLegacyItem(serializer, rawBytes);
     }
 
     /**
