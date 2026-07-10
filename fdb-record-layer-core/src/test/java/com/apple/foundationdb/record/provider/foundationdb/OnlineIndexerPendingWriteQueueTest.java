@@ -39,12 +39,14 @@ import com.apple.foundationdb.record.provider.foundationdb.queue.PendingWritesQu
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.TupleHelpers;
 import com.apple.foundationdb.util.CloseException;
+import com.apple.test.SuperSlow;
 import com.google.auto.service.AutoService;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 import javax.annotation.Nonnull;
@@ -736,18 +738,109 @@ class OnlineIndexerPendingWriteQueueTest extends OnlineIndexerTest {
         assertSame(cause, ex.getCause());
     }
 
+
+    @ParameterizedTest
+    @CsvSource({
+            // numInitialRecords, limit, maxWriteIterations
+            "20, 1, 100",
+            "50, 2, 200",
+    })
+    void testConcurrentWritesWhileBuildingWithQueue(final int numInitialRecords, final int limit, final int maxWriteIterations) throws InterruptedException {
+        concurrentWritesWhileBuildingWithQueue(numInitialRecords, limit, maxWriteIterations);
+    }
+
+    @Test
+    @SuperSlow
+    void testConcurrentWritesWhileBuildingWithQueueManyRecords() throws InterruptedException {
+        // Nightly-only: overlap a great many concurrent writes.
+        concurrentWritesWhileBuildingWithQueue(10_000, 10, 1200);
+    }
+
+    private void concurrentWritesWhileBuildingWithQueue(final int numInitialRecords, final int limit, final int maxWriteIterations) throws InterruptedException {
+        final Index index = new Index("simple$num_value_2_queue", field("num_value_2"), IndexTypes.VALUE);
+        populateEvenRecords(numInitialRecords);
+        openSimpleMetaData(allIndexesHook(List.of(index)));
+        disableAll(List.of(index));
+
+        final AtomicInteger writtenCount = new AtomicInteger(0);
+        final AtomicReference<Throwable> writerFailure = new AtomicReference<>();
+        final FDBStoreTimer writeTimer = new FDBStoreTimer();
+
+        final Thread writerThread = new Thread(() -> {
+            try {
+                int recNo = 1;
+                while (writtenCount.get() < maxWriteIterations && !isIndexReadableInNewContext(index)) {
+                    final int thisRecNo = recNo;
+                    // Use a retrying runner: the write reads the index state, which the build mutates when it marks the
+                    // index readable, so a lock-step raw transaction would occasionally lose a conflict and abort.
+                    fdb.run(writeTimer, null, context -> {
+                        final FDBRecordStore store = createStoreBuilder().setContext(context)
+                                .createOrOpen(FDBRecordStoreBase.StoreExistenceCheck.NONE);
+                        saveSimpleRecord(store, thisRecNo, thisRecNo * 19);
+                        return null;
+                    });
+                    writtenCount.incrementAndGet();
+                    recNo += 2;
+                    // Throttle a touch so the writer cannot indefinitely outrun the drainer's bounded mark-readable
+                    // retries during the final drain.
+                    snooze(3);
+                }
+            } catch (Throwable t) {
+                writerFailure.set(t);
+            }
+        });
+        writerThread.start();
+
+        try (OnlineIndexer indexer = newIndexerBuilder(index)
+                .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
+                        .setUsePendingWriteQueue(List.of(index))
+                        .setPendingWriteQueueIndexesMaxDrainAttempts(maxWriteIterations + 4))
+                .setLimit(limit)
+                .build()) {
+            indexer.buildIndex(true);
+        }
+        writerThread.join();
+
+        assertNull(writerFailure.get(), () -> "the concurrent writer failed: " + writerFailure.get());
+        assertTrue(writtenCount.get() > 0, "the writer should have committed at least one record");
+        // Some of the concurrent writes must have been deferred to the queue while the index was in the queue state.
+        assertTrue(writeTimer.getCount(FDBStoreTimer.Counts.PENDING_WRITES_QUEUE_WRITE) > 0,
+                "at least some concurrent writes should have been deferred to the pending writes queue");
+
+        assertReadable(index);
+        // Every initial record plus every concurrently written record must be present in the index.
+        assertEquals(numInitialRecords + writtenCount.get(), indexEntryCount(index));
+        assertNull(queueSizeCounter(index), "the queue data should have been erased once the index became readable");
+        scrubAndValidate(List.of(index));
+    }
+
+    private boolean isIndexReadableInNewContext(@Nonnull final Index index) {
+        try (FDBRecordContext context = fdb.openContext()) {
+            final FDBRecordStore store = createStoreBuilder().setContext(context)
+                    .createOrOpen(FDBRecordStoreBase.StoreExistenceCheck.NONE);
+            final boolean readable = store.isIndexReadable(index);
+            context.commit();
+            return readable;
+        }
+    }
+
     private void populateEvenRecords(final int numRecords) {
         openSimpleMetaData();
-        try (FDBRecordContext context = openContext()) {
-            for (int i = 0; i < numRecords; i++) {
-                final int recNo = 2 * i;
-                recordStore.saveRecord(TestRecords1Proto.MySimpleRecord.newBuilder()
-                        .setRecNo(recNo)
-                        .setNumValue2(recNo * 19)
-                        .setNumValueUnique(recNo * 1139)
-                        .build());
+        // Commit in batches so a large initial data set does not overflow a single transaction's byte limit.
+        final int batchSize = 100;
+        for (int start = 0; start < numRecords; start += batchSize) {
+            final int end = Math.min(start + batchSize, numRecords);
+            try (FDBRecordContext context = openContext()) {
+                for (int i = start; i < end; i++) {
+                    final int recNo = 2 * i;
+                    recordStore.saveRecord(TestRecords1Proto.MySimpleRecord.newBuilder()
+                            .setRecNo(recNo)
+                            .setNumValue2(recNo * 19)
+                            .setNumValueUnique(recNo * 1139)
+                            .build());
+                }
+                context.commit();
             }
-            context.commit();
         }
     }
 
