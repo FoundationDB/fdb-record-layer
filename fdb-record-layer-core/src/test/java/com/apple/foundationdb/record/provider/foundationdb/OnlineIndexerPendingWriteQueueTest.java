@@ -121,9 +121,9 @@ class OnlineIndexerPendingWriteQueueTest extends OnlineIndexerTest {
                                 .asList().join().stream()
                                 .map(entry -> {
                                     final IndexBuildProto.PendingWritesQueueEntry payload = entry.getPayload();
-                                    final Message record = recordStore.getSerializer().deserialize(recordStore.getRecordMetaData(),
+                                    final Message rec = recordStore.getSerializer().deserialize(recordStore.getRecordMetaData(),
                                             TupleHelpers.EMPTY, payload.getNewRecord().toByteArray(), recordStore.getTimer());
-                                    return (Long)record.getField(record.getDescriptorForType().findFieldByName("rec_no"));
+                                    return (Long)rec.getField(rec.getDescriptorForType().findFieldByName("rec_no"));
                                 })
                                 .toList();
                         assertEquals(queuedRecNos.stream().map(Integer::longValue).toList(), queuedRecordNos);
@@ -607,7 +607,7 @@ class OnlineIndexerPendingWriteQueueTest extends OnlineIndexerTest {
                     }
                 });
 
-        assertTrue(formatVersion.getValueForSerialization() < FormatVersion.WRITE_ONLY_WITH_QUEUE.getValueForSerialization());
+        assertTrue(formatVersion.compareTo(FormatVersion.WRITE_ONLY_WITH_QUEUE) < 0);
         assertEquals(0, writeTimer.getCount(FDBStoreTimer.Counts.PENDING_WRITES_QUEUE_WRITE),
                 "no writes should be deferred to a queue below the required format version");
         assertReadable(index);

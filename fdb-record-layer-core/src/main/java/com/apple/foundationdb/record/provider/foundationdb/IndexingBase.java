@@ -371,9 +371,11 @@ public abstract class IndexingBase {
                                      findException(ex, FDBExceptions.FDBStoreTransactionConflictException.class) != null)) {
                         // A non-empty queue is a race with concurrent writers: re-drain and try again.
                         if (LOGGER.isInfoEnabled()) {
+                            final long maxAttempts = policy.getPendingWriteQueueIndexesMaxDrainAttempts();
                             LOGGER.info(KeyValueLogMessage.of("Pending write queue not empty while marking readable, retrying",
                                     LogMessageKeys.INDEX_NAME, index.getName(),
-                                    LogMessageKeys.REMAINING_ATTEMPTS, attemptsRemaining));
+                                    LogMessageKeys.CURR_ATTEMPT, maxAttempts - attemptsRemaining + 1,
+                                    LogMessageKeys.MAX_ATTEMPTS, maxAttempts));
                         }
                         return markIndexReadableForIndex(index, anythingChanged,
                                 runtimeExceptionAtomicReference, attemptsRemaining - 1);

@@ -53,7 +53,6 @@ public enum LogMessageKeys {
     UNKNOWN_FIELDS,
     CURR_ATTEMPT,
     MAX_ATTEMPTS,
-    REMAINING_ATTEMPTS,
     DELAY,
     COMMIT_NAME,
     TRANSACTION_ID,
