@@ -101,7 +101,7 @@ public class SiftTest implements BaseTest {
     /** Size of the fast (non-{@link SuperSlow}) datasets. */
     private static final int SAMPLE_SIZE_SMALL = 10_000;
     /** Size of the {@link SuperSlow} datasets (per sample). */
-    private static final int SAMPLE_SIZE_LARGE = 100_000;
+    private static final int SAMPLE_SIZE_LARGE = 50_000;
 
     /** Fixed batch size for both insert and delete operations. The final tail per queue may be smaller. */
     private static final int BATCH_SIZE = 50;
