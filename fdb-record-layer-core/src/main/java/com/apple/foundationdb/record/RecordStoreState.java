@@ -130,7 +130,7 @@ public class RecordStoreState {
      * @return <code>true</code> if the given name is the name of a write-only index and <code>false</code> otherwise
      */
     public boolean isWriteOnly(@Nonnull String indexName) {
-        return getState(indexName).equals(IndexState.WRITE_ONLY);
+        return getState(indexName).isWriteOnly();
     }
 
     /**
@@ -252,7 +252,7 @@ public class RecordStoreState {
      */
     public Set<String> getWriteOnlyIndexNames() {
         return indexStateMap.get().entrySet().stream()
-                .filter(entry -> entry.getValue().isAnyWriteOnly())
+                .filter(entry -> entry.getValue().isWriteOnly())
                 .map(Map.Entry::getKey)
                 .collect(Collectors.toSet());
     }

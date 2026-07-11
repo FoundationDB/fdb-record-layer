@@ -1058,9 +1058,7 @@ class OnlineIndexerPendingWriteQueueTest extends OnlineIndexerTest {
             }
             // Simulate a concurrent writer enqueueing a new item while the drain is in progress. The save runs in its
             // own (asynchronous) transaction, separate from this drain transaction: the index is still
-            // WRITE_ONLY_WITH_QUEUE, so that save is deferred back into the pending writes queue rather than indexed
-            // here. Wait for that concurrent save to commit before this drain transaction proceeds, so the injected
-            // record is reliably enqueued before the indexer tries to mark the index readable.
+            // WRITE_ONLY_WITH_QUEUE, so that save is deferred back into the pending writes queue rather than indexed.
             final Message.Builder builder = rec.toBuilder().setField(recNoField, INJECTED_REC_NO);
             final Descriptors.FieldDescriptor uniqueField = descriptor.findFieldByName("num_value_unique");
             if (uniqueField != null && rec.hasField(uniqueField)) {

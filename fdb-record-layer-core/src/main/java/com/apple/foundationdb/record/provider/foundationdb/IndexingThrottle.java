@@ -421,7 +421,7 @@ public class IndexingThrottle {
                     LogMessageKeys.INDEX_STATE, indexStates);
         }
         // Here: index building
-        if (indexStates.stream().allMatch(IndexState::isAnyWriteOnly)) {
+        if (indexStates.stream().allMatch(IndexState::isWriteOnly)) {
             return;
         }
         // possible exceptions:
@@ -432,7 +432,7 @@ public class IndexingThrottle {
         if (indexStates.stream().allMatch(IndexState::isScannable)) {
             throw new IndexingBase.UnexpectedReadableException(true, "All indexes are built");
         }
-        if (indexStates.stream().allMatch(state -> state.isAnyWriteOnly() || state.isScannable())) {
+        if (indexStates.stream().allMatch(state -> state.isWriteOnly() || state.isScannable())) {
             throw new IndexingBase.UnexpectedReadableException(false, "Some indexes are built");
         }
         final SubspaceProvider subspaceProvider = common.getRecordStoreBuilder().getSubspaceProvider();

@@ -227,7 +227,7 @@ public abstract class IndexingBase {
                 enforceStampOverwrite(); // The code can work without this line, but it'll save probing the missing ranges
             }
 
-            boolean continuedBuild = !shouldClear && indexState.isAnyWriteOnly();
+            boolean continuedBuild = !shouldClear && indexState.isWriteOnly();
             for (Index targetIndex : targetIndexes.subList(1, targetIndexes.size())) {
                 // Must follow the primary index status
                 IndexState state = store.getIndexState(targetIndex);

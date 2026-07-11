@@ -69,7 +69,7 @@ public class IndexBuildState {
     @Nonnull
     public static CompletableFuture<IndexBuildState> loadIndexBuildStateAsync(FDBRecordStoreBase<?> store, Index index) {
         IndexState indexState = store.getUntypedRecordStore().getIndexState(index);
-        if (!indexState.isAnyWriteOnly()) {
+        if (!indexState.isWriteOnly()) {
             return CompletableFuture.completedFuture(new IndexBuildState(indexState));
         }
         CompletableFuture<Long> recordsInTotalFuture;
@@ -155,7 +155,7 @@ public class IndexBuildState {
     public String toString() {
         final StringBuilder sb = new StringBuilder("IndexBuildState{");
         sb.append("indexState=").append(indexState);
-        if (indexState.isAnyWriteOnly()) {
+        if (indexState.isWriteOnly()) {
             sb.append(", scannedRecords=").append(recordsScanned);
             sb.append(", totalRecords=").append((recordsInTotal == null) ? "UNKNOWN" : recordsInTotal);
         }

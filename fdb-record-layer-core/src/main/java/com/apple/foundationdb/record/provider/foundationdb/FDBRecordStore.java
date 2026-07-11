@@ -4332,7 +4332,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * @throws IllegalArgumentException if no index in the metadata has the given name
      */
     public boolean isAnyIndexWriteOnly(@Nonnull String indexName) {
-        return getIndexState(indexName).isAnyWriteOnly();
+        return getIndexState(indexName).isWriteOnly();
     }
 
     /**
@@ -4902,7 +4902,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             if (!indexesToBuildSince.containsKey(index) &&
                     !index.isUnique()) {
                 final IndexState indexState = getIndexState(index);
-                if (indexState == IndexState.READABLE_UNIQUE_PENDING || indexState.isAnyWriteOnly()) {
+                if (indexState == IndexState.READABLE_UNIQUE_PENDING || indexState.isWriteOnly()) {
                     final CompletableFuture<Void> uniquenessFuture = AsyncUtil.getAll(getRecordContext().removeCommitChecks(
                             commitCheck -> {
                                 if (commitCheck instanceof IndexUniquenessCommitCheck) {
