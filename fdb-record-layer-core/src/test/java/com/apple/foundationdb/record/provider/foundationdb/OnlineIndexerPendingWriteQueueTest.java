@@ -547,9 +547,8 @@ class OnlineIndexerPendingWriteQueueTest extends OnlineIndexerTest {
 
     @Test
     void testReDrainsWhenWritesArriveDuringDrain() throws Exception {
-        // Enqueues a brand-new record from inside updateWhileWriteOnly, i.e. *during* the drain. This save is pushed
-        // back into the pending writes queue, so the queue is non-empty when the indexer first tries to mark the
-        // index readable. This exercises the re-drain retry loop in IndexingBase.markIndexReadableForIndex.
+        // Enqueues a record from inside updateWhileWriteOnly, i.e. *during* the drain. This save is pushed
+        // back into the pending writes queue.
         final Index index = new Index("simple$num_value_2_reenqueue", field("num_value_2"),
                 ReEnqueueDuringDrainIndexMaintainer.INDEX_TYPE);
         final int numInitialRecords = 20; // recNos 0,2,..,38 -- neither the trigger (7) nor injected (9) record exists yet
@@ -578,6 +577,32 @@ class OnlineIndexerPendingWriteQueueTest extends OnlineIndexerTest {
                 List.of(ReEnqueueDuringDrainIndexMaintainer.TRIGGER_REC_NO, ReEnqueueDuringDrainIndexMaintainer.INJECTED_REC_NO),
                 indexPrimaryKeysForValue(index, sharedNumValue2));
         assertNull(queueSizeCounter(index), "the queue must be fully drained before the index becomes readable");
+    }
+
+    @Test
+    void testDrainsWritesEnqueuedDuringIndexingPass() {
+        // Enqueues a record from inside update(), i.e. during the indexing pass
+        final Index index = new Index("simple$num_value_2_enqueue_indexing", field("num_value_2"),
+                EnqueueDuringIndexingIndexMaintainer.INDEX_TYPE);
+        final int numInitialRecords = 20;
+        populateEvenRecords(numInitialRecords);
+        openSimpleMetaData(allIndexesHook(List.of(index)));
+        disableAll(List.of(index));
+
+        // A small scan limit forces several passes, so the record injected while indexing recNo TRIGGER_REC_NO is
+        // enqueued mid-build and drained by a subsequent pass rather than only at mark-readable time.
+        try (OnlineIndexer indexer = queueIndexerBuilder(index, List.of(index)).setLimit(3).build()) {
+            indexer.buildIndex(true);
+        }
+
+        assertReadable(index);
+        // The record enqueued mid-pass must have been drained and indexed: every initial record plus the injected one.
+        assertEquals(numInitialRecords + 1, indexEntryCount(index));
+        assertEquals(
+                List.of(EnqueueDuringIndexingIndexMaintainer.INJECTED_REC_NO),
+                indexPrimaryKeysForValue(index, (int) (EnqueueDuringIndexingIndexMaintainer.INJECTED_REC_NO * 19)));
+        assertNull(queueSizeCounter(index), "the queue must be fully drained before the index becomes readable");
+        scrubAndValidate(List.of(index));
     }
 
     @Test
@@ -1031,15 +1056,25 @@ class OnlineIndexerPendingWriteQueueTest extends OnlineIndexerTest {
             if (recNo != TRIGGER_REC_NO) {
                 return superFuture;
             }
-            // Simulate a concurrent writer enqueueing new item while the drain is in progress: the index is still
-            // WRITE_ONLY_WITH_QUEUE, so this save is deferred back into the pending writes queue rather than indexed here.
+            // Simulate a concurrent writer enqueueing a new item while the drain is in progress. The save runs in its
+            // own (asynchronous) transaction, separate from this drain transaction: the index is still
+            // WRITE_ONLY_WITH_QUEUE, so that save is deferred back into the pending writes queue rather than indexed
+            // here. Wait for that concurrent save to commit before this drain transaction proceeds, so the injected
+            // record is reliably enqueued before the indexer tries to mark the index readable.
             final Message.Builder builder = rec.toBuilder().setField(recNoField, INJECTED_REC_NO);
             final Descriptors.FieldDescriptor uniqueField = descriptor.findFieldByName("num_value_unique");
             if (uniqueField != null && rec.hasField(uniqueField)) {
                 builder.setField(uniqueField, (int)(INJECTED_REC_NO * 1139));
             }
             final Message injected = builder.build();
-            return superFuture.thenCompose(ignore -> state.store.saveRecordAsync(injected).thenApply(saved -> null));
+            final FDBDatabase database = state.context.getDatabase();
+            final FDBRecordStore.Builder storeBuilder = state.store.asBuilder();
+            final CompletableFuture<Void> asyncSave = database.runAsync(context ->
+                    storeBuilder.copyBuilder().setContext(context)
+                            .createOrOpenAsync(FDBRecordStoreBase.StoreExistenceCheck.NONE)
+                            .thenCompose(store -> store.saveRecordAsync(injected))
+                            .thenApply(ignore -> null));
+            return CompletableFuture.allOf(superFuture, asyncSave);
         }
 
         @AutoService(IndexMaintainerFactory.class)
@@ -1063,6 +1098,77 @@ class OnlineIndexerPendingWriteQueueTest extends OnlineIndexerTest {
             @Override
             public IndexMaintainer getIndexMaintainer(@Nonnull final IndexMaintainerState state) {
                 return new ReEnqueueDuringDrainIndexMaintainer(state);
+            }
+        }
+    }
+
+    /**
+     * A value index maintainer that, while indexing a specific record during the build scan, enqueues a new
+     * record into the pending writes queue in a separate transaction. This injects a queued write <i>during the
+     * indexing pass</i>
+     */
+    public static class EnqueueDuringIndexingIndexMaintainer extends ValueIndexMaintainer {
+        public static final String INDEX_TYPE = "value_enqueue_during_indexing";
+        /** The (pre-existing) record whose indexing triggers the mid-pass enqueue. */
+        public static final long TRIGGER_REC_NO = 6L;
+        /** The new record injected into the queue while {@link #TRIGGER_REC_NO} is being indexed. */
+        public static final long INJECTED_REC_NO = 5L;
+
+        public EnqueueDuringIndexingIndexMaintainer(final IndexMaintainerState state) {
+            super(state);
+        }
+
+        @Nonnull
+        @Override
+        public <M extends Message> CompletableFuture<Void> update(@Nullable final FDBIndexableRecord<M> oldRecord,
+                                                                  @Nullable final FDBIndexableRecord<M> newRecord) {
+            final CompletableFuture<Void> superFuture = super.update(oldRecord, newRecord);
+            if (newRecord == null) {
+                return superFuture;
+            }
+            final Message rec = newRecord.getRecord();
+            final Descriptors.FieldDescriptor recNoField = rec.getDescriptorForType().findFieldByName("rec_no");
+            final long recNo = ((Number)rec.getField(recNoField)).longValue();
+            if (recNo != TRIGGER_REC_NO) {
+                return superFuture;
+            }
+            // Inject a new record into the pending writes queue mid-pass.
+            final Message injected = TestRecords1Proto.MySimpleRecord.newBuilder()
+                    .setRecNo(INJECTED_REC_NO)
+                    .setNumValue2((int)(INJECTED_REC_NO * 19))
+                    .setNumValueUnique((int)(INJECTED_REC_NO * 1139))
+                    .build();
+            final FDBDatabase database = state.context.getDatabase();
+            final FDBRecordStore.Builder storeBuilder = state.store.asBuilder();
+            final CompletableFuture<Void> asyncSave = database.runAsync(context ->
+                    storeBuilder.copyBuilder().setContext(context)
+                            .createOrOpenAsync(FDBRecordStoreBase.StoreExistenceCheck.NONE)
+                            .thenCompose(store -> store.saveRecordAsync(injected))
+                            .thenApply(ignore -> null));
+            return CompletableFuture.allOf(superFuture, asyncSave);
+        }
+
+        @AutoService(IndexMaintainerFactory.class)
+        public static class Factory implements IndexMaintainerFactory {
+            private static final Set<String> INDEX_TYPES = Collections.singleton(INDEX_TYPE);
+            private static final ValueIndexMaintainerFactory underlying = new ValueIndexMaintainerFactory();
+
+            @Nonnull
+            @Override
+            public Iterable<String> getIndexTypes() {
+                return INDEX_TYPES;
+            }
+
+            @Nonnull
+            @Override
+            public IndexValidator getIndexValidator(final Index index) {
+                return underlying.getIndexValidator(index);
+            }
+
+            @Nonnull
+            @Override
+            public IndexMaintainer getIndexMaintainer(@Nonnull final IndexMaintainerState state) {
+                return new EnqueueDuringIndexingIndexMaintainer(state);
             }
         }
     }
