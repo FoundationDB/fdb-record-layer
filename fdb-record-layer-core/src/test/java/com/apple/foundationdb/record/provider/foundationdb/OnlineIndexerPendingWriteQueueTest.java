@@ -745,6 +745,60 @@ class OnlineIndexerPendingWriteQueueTest extends OnlineIndexerTest {
     }
 
     @Test
+    void testEnqueuedWriteFailsToCommitWhenIndexBecomesReadable() throws Exception {
+        // A use transaction that updates the pending write queue must fail to commit if the index becomes readable
+        final Index index = new Index("simple$num_value_2_queue", field("num_value_2"), IndexTypes.VALUE);
+        final int numInitialRecords = 20;
+        populateEvenRecords(numInitialRecords);
+        openSimpleMetaData(allIndexesHook(List.of(index)));
+        disableAll(List.of(index));
+
+        final Semaphore pausedSemaphore = new Semaphore(0);
+        final Semaphore resumeSemaphore = new Semaphore(0);
+        final AtomicBoolean firstPass = new AtomicBoolean(true);
+        final AtomicReference<Throwable> buildFailure = new AtomicReference<>();
+
+        // Build the index with the queue on a background thread, pausing after the first pass
+        final Thread indexerThread = new Thread(() -> {
+            try (OnlineIndexer indexer = queueIndexerBuilder(index, List.of(index))
+                    .setConfigLoader(old -> pauseThenResume(old, firstPass, pausedSemaphore, resumeSemaphore))
+                    .build()) {
+                indexer.buildIndex(true);
+            } catch (Throwable t) {
+                buildFailure.set(t);
+            }
+        });
+        indexerThread.start();
+
+        // Wait until the indexer has paused; the index state is now WRITE_ONLY_WITH_QUEUE.
+        pausedSemaphore.acquire();
+
+        final FDBStoreTimer writeTimer = new FDBStoreTimer();
+        try (FDBRecordContext userContext = fdb.openContext(null, writeTimer)) {
+            final FDBRecordStore userStore = createStoreBuilder().setContext(userContext)
+                    .createOrOpen(FDBRecordStoreBase.StoreExistenceCheck.NONE);
+            assertTrue(userStore.getIndexState(index).isWriteOnlyWithQueue());
+            // The update is deferred to the pending writes queue
+            saveSimpleRecord(userStore, 1, 19);
+            assertEquals(1, writeTimer.getCount(FDBStoreTimer.Counts.PENDING_WRITES_QUEUE_WRITE));
+
+            // Let the indexer run to completion and marks the index READABLE (after drain)
+            resumeSemaphore.release(Integer.MAX_VALUE);
+            indexerThread.join();
+            assertNull(buildFailure.get(), () -> "the build failed: " + buildFailure.get());
+            assertReadable(index);
+
+            // The user transaction must now fail: the index state it read while enqueuing changed underneath it.
+            assertThrows(FDBExceptions.FDBStoreTransactionConflictException.class, userContext::commit,
+                    "enqueuing a write should not commit once the index has been marked readable");
+        }
+
+        // The rejected write was never applied: only the initial (even) records are indexed.
+        assertEquals(numInitialRecords, indexEntryCount(index));
+        scrubAndValidate(List.of(index));
+    }
+
+    @Test
     void testPendingWriteQueueNotEmptyWhileMarkingReadableExceptionCarriesIndexName() {
         final Index index = new Index("simple$num_value_2_queue", field("num_value_2"), IndexTypes.VALUE);
         final IndexingBase.PendingWriteQueueNotEmptyWhileMarkingReadable ex =
