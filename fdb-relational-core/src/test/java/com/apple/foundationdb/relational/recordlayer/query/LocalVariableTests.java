@@ -673,4 +673,36 @@ public class LocalVariableTests {
             conn.rollback();
         }
     }
+
+    @Test
+    void permanentFunctionBodyCannotReferenceLocalVariable() throws Exception {
+        // Sanity check for the review concern about @var inside static/permanent function bodies.
+        // Unlike temporary functions (see variableInTempFunctionBodyResolvesAtCallTime), a permanent
+        // (schema-template) function body is compiled against an EMPTY local-variable scope:
+        //  - DdlVisitor.getInvokedRoutineMetadata compiles non-temporary bodies eagerly at CREATE
+        //    time (only table-valued TEMPORARY functions defer and thread the vars in), and
+        //  - the deserialization path (RecordMetadataDeserializer.getSqlFunctionCompiler ->
+        //    RoutineParser.parse) builds a fresh MutablePlanGenerationContext with no local
+        //    variables and ignores the localVars argument entirely.
+        // So a @var reference in a permanent function body is never resolved from the calling
+        // transaction and surfaces as UNDEFINED_PARAMETER. Here it fails when the schema template
+        // (which eagerly compiles the body) is created; the whole flow is wrapped so the assertion
+        // still holds if compilation is ever deferred to invocation time.
+        final String schemaTemplate =
+                "create table permfoo(pk bigint, name string, primary key(pk)) " +
+                "create function names_matching() as select pk, name from permfoo where name = @body_var";
+        RelationalAssertions.assertThrowsSqlException(() -> {
+            try (var ddl = Ddl.builder().database(URI.create("/TEST/LVPERM")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+                final var conn = ddl.setSchemaAndGetConnection();
+                conn.setAutoCommit(false);
+                try (var stmt = conn.createStatement()) {
+                    stmt.executeUpdate("insert into permfoo values (1, 'alice')");
+                    stmt.execute("set local body_var = 'alice'");
+                    try (var rs = stmt.executeQuery("select pk, name from names_matching()")) {
+                        rs.next();
+                    }
+                }
+            }
+        }).hasErrorCode(ErrorCode.UNDEFINED_PARAMETER);
+    }
 }
