@@ -62,6 +62,7 @@ import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.IntStream;
 
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
@@ -912,6 +913,77 @@ class OnlineIndexerPendingWriteQueueTest extends OnlineIndexerTest {
     void testConcurrentWritesWhileBuildingWithQueueManyRecords() throws InterruptedException {
         // Nightly-only: overlap a great many concurrent writes.
         concurrentWritesWhileBuildingWithQueue(10_000, 10, 1200);
+    }
+
+    @Test
+    void testMutualIndexingSingleIndexWithQueue() throws Exception {
+        // Build a single index with a pending writes queue using mutual indexing.
+        final Index index = new Index("simple$num_value_2_queue", field("num_value_2"), IndexTypes.VALUE);
+        final int numInitialRecords = 100;
+        populateEvenRecords(numInitialRecords);
+        openSimpleMetaData(allIndexesHook(List.of(index)));
+        disableAll(List.of(index));
+
+        final List<Tuple> boundaries = getBoundariesList(2L * numInitialRecords, 20);
+        final int maxWriteIterations = 40;
+
+        final AtomicInteger writtenCount = new AtomicInteger(0);
+        final AtomicReference<Throwable> writerFailure = new AtomicReference<>();
+        final FDBStoreTimer writeTimer = new FDBStoreTimer();
+
+        // Concurrent writer: save new records until the index becomes readable, bounded so it cannot indefinitely
+        // outrun the drainer's mark-readable retries.
+        final Thread writerThread = new Thread(() -> {
+            try {
+                int recNo = 1;
+                while (writtenCount.get() < maxWriteIterations && !isIndexReadableInNewContext(index)) {
+                    final int thisRecNo = recNo;
+                    fdb.run(writeTimer, null, context -> {
+                        final FDBRecordStore store = createStoreBuilder().setContext(context)
+                                .createOrOpen(FDBRecordStoreBase.StoreExistenceCheck.NONE);
+                        saveSimpleRecord(store, thisRecNo, thisRecNo * 19);
+                        return null;
+                    });
+                    writtenCount.incrementAndGet();
+                    recNo += 2;
+                    snooze(5);
+                }
+            } catch (Throwable t) {
+                writerFailure.set(t);
+            }
+        });
+        writerThread.start();
+
+        // Several cooperating indexers build the single index mutually, all requesting the pending writes queue.
+        IntStream.rangeClosed(0, 3).parallel().forEach(ignore -> {
+            try (OnlineIndexer indexer = newIndexerBuilder(index)
+                    .setLimit(5)
+                    .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
+                            .setMutualIndexingBoundaries(boundaries)
+                            .setUsePendingWriteQueue(List.of(index))
+                            .setPendingWriteQueueIndexesMaxDrainAttempts(maxWriteIterations + 4)
+                            .build())
+                    .build()) {
+                indexer.buildIndex(true);
+            } catch (RecordCoreException e) {
+                // In mutual indexing an individual worker may legitimately abort (transaction conflicts, mutual
+                // "jumps", or losing a race while a peer flips the index to readable) while the cooperative build as a
+                // whole still completes. Correctness is verified by the final assertions below.
+            }
+        });
+        writerThread.join();
+
+        assertNull(writerFailure.get(), () -> "the concurrent writer failed: " + writerFailure.get());
+        assertTrue(writtenCount.get() > 0, "the writer should have committed at least one record");
+        // Some of the concurrent writes must have been deferred to the queue while the index was in the queue state.
+        assertTrue(writeTimer.getCount(FDBStoreTimer.Counts.PENDING_WRITES_QUEUE_WRITE) > 0,
+                "at least some concurrent writes should have been deferred to the pending writes queue");
+
+        assertReadable(index);
+        // Every initial record plus every concurrently written record must be present in the index.
+        assertEquals(numInitialRecords + writtenCount.get(), indexEntryCount(index));
+        assertNull(queueSizeCounter(index), "the queue data should have been erased once the index became readable");
+        scrubAndValidate(List.of(index));
     }
 
     private void concurrentWritesWhileBuildingWithQueue(final int numInitialRecords, final int limit, final int maxWriteIterations) throws InterruptedException {
