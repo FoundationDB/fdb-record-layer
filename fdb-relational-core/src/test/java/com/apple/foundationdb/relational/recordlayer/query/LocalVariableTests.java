@@ -621,4 +621,56 @@ public class LocalVariableTests {
             conn.rollback();
         }
     }
+
+    @Test
+    void nullLocalVariableDoesNotBreakFunctionInvocation() throws Exception {
+        // Regression: a local variable bound to NULL must not crash a query that invokes a
+        // user-defined/table function. The function-compilation memoize cache previously keyed on
+        // ImmutableMap.copyOf(localVars), which throws NullPointerException on null values, so
+        // merely having a null-valued local variable in scope while resolving any function crashed.
+        final String schemaTemplate =
+                "create table nulltvf(pk bigint, name string, primary key(pk)) " +
+                "create function names_like(in target string) as select pk, name from nulltvf where name = target";
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/LV")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            try (var stmt = ddl.setSchemaAndGetConnection().createStatement()) {
+                stmt.executeUpdate("insert into nulltvf values (1, 'alice'), (2, 'bob')");
+            }
+            final var conn = ddl.getConnection();
+            conn.setAutoCommit(false);
+            try (var stmt = conn.createStatement()) {
+                // A null-valued local variable is in scope (unrelated to the function argument).
+                stmt.execute("set local unused = null");
+                try (var rs = stmt.executeQuery("select pk, name from names_like(target => 'alice')")) {
+                    ResultSetAssert.assertThat(rs).hasNextRow().isRowExactly(1L, "alice").hasNoNextRow();
+                }
+            }
+            conn.rollback();
+        }
+    }
+
+    @Test
+    void namedParamDoesNotResolveToLocalVariableOnPlainStatement() throws Exception {
+        // Regression: @name and ?name are independent namespaces. On a plain (non-prepared)
+        // Statement a ?name reference cannot be bound, so it must fail with UNDEFINED_PARAMETER and
+        // must NOT silently pick up a same-named local variable's value. Previously the plain-
+        // statement path injected local variables into the named-prepared-parameter map, so
+        // `?x` resolved to `@x`.
+        final String schemaTemplate = "create table tleak(pk bigint, primary key(pk))";
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/LV")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            try (var stmt = ddl.setSchemaAndGetConnection().createStatement()) {
+                stmt.executeUpdate("insert into tleak values (1), (2), (3)");
+            }
+            final var conn = ddl.getConnection();
+            conn.setAutoCommit(false);
+            try (var stmt = conn.createStatement()) {
+                stmt.execute("set local x = 1");
+                // ?x is an unbound named prepared parameter on a plain Statement; it must not
+                // resolve to the local variable @x (= 1).
+                RelationalAssertions.assertThrowsSqlException(
+                        () -> stmt.executeQuery("select pk from tleak where pk = ?x"))
+                        .hasErrorCode(ErrorCode.UNDEFINED_PARAMETER);
+            }
+            conn.rollback();
+        }
+    }
 }

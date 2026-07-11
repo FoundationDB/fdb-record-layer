@@ -35,7 +35,6 @@ import com.apple.foundationdb.relational.api.RelationalStruct;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.query.PlanContext;
-import com.apple.foundationdb.relational.recordlayer.query.PreparedParams;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.util.Supplier;
@@ -61,13 +60,16 @@ public class EmbeddedRelationalStatement extends AbstractEmbeddedStatement imple
     @Nonnull
     PlanContext createPlanContext(@Nonnull final FDBRecordStoreBase<?> store, @Nonnull final Options options) throws RelationalException {
         final var localVars = conn.getTransaction().getLocalVariables();
-        final var params = localVars.isEmpty() ? PreparedParams.empty() : PreparedParams.ofNamed(localVars);
+        // Local variables are threaded to the planner via withLocalVariables and resolved through
+        // the dedicated @name path; they are intentionally NOT injected into the prepared-parameter
+        // map, so that @name and ?name remain independent namespaces (mirroring the prepared-
+        // statement path). A plain Statement cannot supply prepared parameters, so this defaults to
+        // PreparedParams.empty().
         return PlanContext.builder()
                 .fromRecordStore(store, options)
                 .fromDatabase(conn.getRecordLayerDatabase())
                 .withMetricsCollector(Assert.notNullUnchecked(conn.getMetricCollector()))
                 .withSchemaTemplate(conn.getTransaction().getBoundSchemaTemplateMaybe().orElse(conn.getSchemaTemplate()))
-                .withPreparedParameters(params)
                 .withLocalVariables(localVars)
                 .build();
     }

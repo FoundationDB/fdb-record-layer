@@ -24,10 +24,11 @@ import com.apple.foundationdb.record.query.plan.cascades.UserDefinedFunction;
 import com.apple.foundationdb.relational.api.metadata.InvokedRoutine;
 import com.apple.foundationdb.relational.recordlayer.query.PreparedParams;
 import com.apple.foundationdb.relational.util.Assert;
-import com.google.common.collect.ImmutableMap;
 
 import javax.annotation.Nonnull;
 import java.util.AbstractMap;
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
@@ -77,7 +78,7 @@ public class RecordLayerInvokedRoutine implements InvokedRoutine {
         this.serializableFunction = serializableFunction;
     }
 
-    // Memoizes by (isCaseSensitive, ImmutableMap snapshot of localVars) so that:
+    // Memoizes by (isCaseSensitive, snapshot of localVars) so that:
     // - the same function instance is reused when local variables haven't changed (preserving the
     //   assertSame guarantee that plan-sharing relies on), and
     // - a new compilation is triggered when local variable values change (fixing the stale-value
@@ -85,12 +86,17 @@ public class RecordLayerInvokedRoutine implements InvokedRoutine {
     // The cache is bounded by the transaction lifetime: RecordLayerInvokedRoutine is created by
     // CREATE TEMPORARY FUNCTION (per-transaction) and discarded when the transaction ends, so at
     // most one entry per distinct localVars snapshot seen within a single transaction is retained.
+    // The snapshot is an unmodifiable LinkedHashMap copy rather than a Guava ImmutableMap because
+    // local-variable values are legitimately nullable (e.g. SET LOCAL x = NULL) and ImmutableMap
+    // forbids null values; a LinkedHashMap tolerates nulls while still providing value-based
+    // equals()/hashCode() for correct cache-key lookups.
     @Nonnull
     private static BiFunction<Boolean, Map<String, Object>, UserDefinedFunction> memoize(
             @Nonnull final BiFunction<Boolean, Map<String, Object>, UserDefinedFunction> fn) {
-        final var cache = new ConcurrentHashMap<Map.Entry<Boolean, ImmutableMap<String, Object>>, UserDefinedFunction>();
+        final var cache = new ConcurrentHashMap<Map.Entry<Boolean, Map<String, Object>>, UserDefinedFunction>();
         return (isCaseSensitive, localVars) -> {
-            final var key = new AbstractMap.SimpleImmutableEntry<>(isCaseSensitive, ImmutableMap.copyOf(localVars));
+            final var snapshot = Collections.unmodifiableMap(new LinkedHashMap<String, Object>(localVars));
+            final var key = new AbstractMap.SimpleImmutableEntry<>(isCaseSensitive, snapshot);
             return cache.computeIfAbsent(key, k -> fn.apply(k.getKey(), k.getValue()));
         };
     }
