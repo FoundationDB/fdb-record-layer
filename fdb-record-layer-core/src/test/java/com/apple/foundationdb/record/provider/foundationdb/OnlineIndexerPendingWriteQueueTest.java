@@ -20,13 +20,16 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
+import com.apple.foundationdb.record.FunctionNames;
 import com.apple.foundationdb.record.IndexBuildProto;
 import com.apple.foundationdb.record.IndexScanType;
+import com.apple.foundationdb.record.IsolationLevel;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.metadata.Index;
+import com.apple.foundationdb.record.metadata.IndexAggregateFunction;
 import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.IndexValidator;
@@ -469,6 +472,82 @@ class OnlineIndexerPendingWriteQueueTest extends OnlineIndexerTest {
         assertEquals(numInitialRecords + newRecNos.size(), indexEntryCount(directIndex));
         assertNull(queueSizeCounter(queuedIndex));
         scrubAndValidate(indexes);
+    }
+
+    @Test
+    void testMultiTargetTwoQueuedTwoDirect() throws Exception {
+        // Build five indexes together: two value indexes use a pending writes queue, two value indexes are built
+        // directly (plain write-only), and a non-idempotent SUM index is also built directly (it cannot use the queue).
+        // Each index should carry its own state during the build and end up correctly built.
+        final Index queuedA = new Index("simple$num_value_2_queue", field("num_value_2"), IndexTypes.VALUE);
+        final Index queuedB = new Index("simple$num_value_unique_queue", field("num_value_unique"), IndexTypes.VALUE);
+        final Index directA = new Index("simple$num_value_3_direct", field("num_value_3_indexed"), IndexTypes.VALUE);
+        final Index directB = new Index("simple$str_value_direct", field("str_value_indexed"), IndexTypes.VALUE);
+        final Index sumIndex = new Index("simple$sum_num_value_2_direct", field("num_value_2").ungrouped(), IndexTypes.SUM);
+        final List<Index> queuedIndexes = List.of(queuedA, queuedB);
+        // Every index that is not queued (the two direct value indexes plus the non-idempotent SUM index).
+        final List<Index> directIndexes = List.of(directA, directB, sumIndex);
+        // The value indexes only, for the per-record entry-count and scrub assertions.
+        final List<Index> valueIndexes = List.of(queuedA, queuedB, directA, directB);
+        final List<Index> indexes = List.of(queuedA, queuedB, directA, directB, sumIndex);
+        final int numInitialRecords = 30;
+        populateEvenRecords(numInitialRecords);
+        openSimpleMetaData(allIndexesHook(indexes));
+        disableAll(indexes);
+
+        final List<Integer> newRecNos = List.of(1, 3, 5);
+        final FDBStoreTimer writeTimer = new FDBStoreTimer();
+        buildIndexPausingOnceForWrites(
+                queueIndexerBuilder(indexes, queuedIndexes),
+                () -> {
+                    try (FDBRecordContext context = fdb.openContext(null, writeTimer)) {
+                        final FDBRecordStore store = createStoreBuilder().setContext(context)
+                                .createOrOpen(FDBRecordStoreBase.StoreExistenceCheck.NONE);
+                        // The two queued indexes enter the queue state; every other index (including the SUM index) is
+                        // plain write-only.
+                        for (Index queued : queuedIndexes) {
+                            assertTrue(store.isIndexWriteOnlyWithQueue(queued), queued.getName());
+                        }
+                        for (Index direct : directIndexes) {
+                            assertTrue(store.isIndexWriteOnly(direct), direct.getName());
+                            assertFalse(store.isIndexWriteOnlyWithQueue(direct), direct.getName());
+                        }
+                        for (int recNo : newRecNos) {
+                            saveSimpleRecord(store, recNo, recNo * 19);
+                        }
+                        context.commit();
+                    }
+                });
+
+        // Each of the two queued indexes defers one write per new record; the direct indexes are written normally.
+        assertEquals((long)newRecNos.size() * queuedIndexes.size(),
+                writeTimer.getCount(FDBStoreTimer.Counts.PENDING_WRITES_QUEUE_WRITE));
+        assertReadable(indexes);
+        // Every value index - queued or direct - ends up with an entry for every record, including the new ones.
+        for (Index index : valueIndexes) {
+            assertEquals(numInitialRecords + newRecNos.size(), indexEntryCount(index), index.getName());
+        }
+        // The SUM index must reflect the sum of num_value_2 across all records (initial and concurrently written).
+        long expectedSum = 0;
+        for (int i = 0; i < numInitialRecords; i++) {
+            expectedSum += (long)(2 * i) * 19; // populateEvenRecords: num_value_2 == recNo * 19, recNo == 2 * i
+        }
+        for (int recNo : newRecNos) {
+            expectedSum += (long)recNo * 19;
+        }
+        final IndexAggregateFunction sumFunction =
+                new IndexAggregateFunction(FunctionNames.SUM, sumIndex.getRootExpression(), sumIndex.getName());
+        try (FDBRecordContext context = openContext()) {
+            final long sum = recordStore.evaluateAggregateFunction(List.of("MySimpleRecord"), sumFunction,
+                    TupleRange.ALL, IsolationLevel.SNAPSHOT).join().getLong(0);
+            assertEquals(expectedSum, sum, sumIndex.getName());
+            context.commit();
+        }
+        // The queued indexes' queue data is erased once they become readable.
+        for (Index queued : queuedIndexes) {
+            assertNull(queueSizeCounter(queued), queued.getName());
+        }
+        scrubAndValidate(valueIndexes);
     }
 
     @Test
