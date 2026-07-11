@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.provider.foundationdb;
 
 import com.apple.foundationdb.FDBException;
 import com.apple.foundationdb.MutationType;
+import com.apple.foundationdb.Range;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.MoreAsyncUtil;
@@ -36,6 +37,7 @@ import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataProvider;
 import com.apple.foundationdb.record.ScanProperties;
+import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Index;
@@ -318,9 +320,15 @@ public abstract class IndexingBase {
                 common.getRecordStoreBuilder().copyBuilder().setContext(context).openAsync()
                         .thenCompose(store -> {
                             clearHeartbeatForIndex(store, index);
-                            return policy.shouldAllowUniquePendingState(store) ?
-                                   store.markIndexReadableOrUniquePending(index) :
-                                   store.markIndexReadable(index);
+                            CompletableFuture<Boolean> markFuture =
+                                    policy.shouldAllowUniquePendingState(store) ?
+                                    store.markIndexReadableOrUniquePending(index) :
+                                    store.markIndexReadable(index);
+                            return markFuture.thenApply(changed -> {
+                                // Once the index is readable there is no need for this data
+                                IndexingSubspaces.eraseAllIndexingDataButTheLockAndRangeSet(store.getContext(), store, index);
+                                return changed;
+                            });
                         })
         ).handle((changed, ex) -> {
             if (ex == null) {
@@ -569,6 +577,39 @@ public abstract class IndexingBase {
     public <R> CompletableFuture<R> buildCommitRetryAsync(@Nonnull BiFunction<FDBRecordStore, AtomicLong, CompletableFuture<R>> buildFunction,
                                                           @Nullable List<Object> additionalLogMessageKeyValues, final boolean duringRangesIteration) {
         return throttle.buildCommitRetryAsync(buildFunction, null, additionalLogMessageKeyValues, duringRangesIteration);
+    }
+
+    @Nonnull
+    protected static CompletableFuture<Void> insertRanges(@Nonnull List<IndexingRangeSet> rangeSets,
+                                                          @Nullable byte[] start, @Nullable byte[] end) {
+        return AsyncUtil.whenAll(rangeSets.stream().map(set -> set.insertRangeAsync(start, end, true)).toList());
+    }
+
+    /**
+     * In typed records only - if only a subset of the record types is being indexed, the relevant records are confined to a sub-range of the
+     * records space (as determined by {@link IndexingCommon#computeRecordsRange()}). In that case, preemptively mark
+     * the key ranges outside that records range as already-indexed for every target index, so that they are skipped
+     * during the build. If the whole records space is relevant, there is nothing to preset.
+     * @return a future that completes once the out-of-range key ranges (if any) have been marked as indexed
+     */
+    @Nonnull
+    protected CompletableFuture<Void> maybePresetRecordsRangeAsync() {
+        final TupleRange tupleRange = common.computeRecordsRange();
+        if (tupleRange == null) {
+            return AsyncUtil.DONE;
+        }
+        final Range range = tupleRange.toRange();
+        final byte[] rangeStart = range.begin;
+        final byte[] rangeEnd = range.end;
+        return buildCommitRetryAsync((store, recordsScanned) -> {
+            final List<IndexingRangeSet> targetRangeSets = common.getTargetIndexes().stream()
+                    .map(targetIndex -> IndexingRangeSet.forIndexBuild(store, targetIndex))
+                    .toList();
+            // Insert the leading and trailing out-of-range gaps sequentially (rather than in parallel) to keep the
+            // range mutations safely ordered within the transaction.
+            return insertRanges(targetRangeSets, null, rangeStart)
+                    .thenCompose(ignore -> insertRanges(targetRangeSets, rangeEnd, null));
+        }, null);
     }
 
     protected void timerIncrement(StoreTimer.Count event) {
@@ -956,10 +997,14 @@ public abstract class IndexingBase {
         store.getIndexDeferredMaintenanceControl().setAutoMergeDuringCommit(false);
     }
 
-    protected static boolean notAllRangesExhausted(Tuple cont, Tuple end) {
+    protected static boolean allRangesAreExhausted(Tuple cont, Tuple end) {
         // if cont isn't null, it means that the cursor was not exhausted
         // if end isn't null, it means that the range is a segment (i.e. closed or half-open interval) - the rangeSet may contain more unbuilt ranges
-        return end != null || cont != null;
+        return end == null && cont == null;
+    }
+
+    protected static boolean rangesAreNotExhausted(boolean hasMore, byte[]rangeBoundary) {
+        return hasMore || rangeBoundary != null;
     }
 
     protected ScanProperties scanPropertiesWithLimits(boolean isIdempotent) {

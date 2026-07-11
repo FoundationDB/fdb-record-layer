@@ -26,6 +26,7 @@ import com.apple.foundationdb.async.RangeSet;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.IndexBuildProto;
 import com.apple.foundationdb.record.IsolationLevel;
+import com.apple.foundationdb.record.KeyRange;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.ScanProperties;
@@ -116,7 +117,8 @@ public class IndexingMultiTargetByRecords extends IndexingBase {
     @Nonnull
     private CompletableFuture<Void> buildMultiTargetIndex() {
         final List<Object> additionalLogMessageKeyValues = Arrays.asList(LogMessageKeys.CALLING_METHOD, "buildMultiTargetIndex");
-        return iterateAllRanges(additionalLogMessageKeyValues, this::buildRangeOnly);
+        return maybePresetRecordsRangeAsync().thenCompose(ignore ->
+                        iterateAllRanges(additionalLogMessageKeyValues, this::buildRangeOnly));
     }
 
     @Nonnull
@@ -137,12 +139,12 @@ public class IndexingMultiTargetByRecords extends IndexingBase {
             if (range == null) {
                 return AsyncUtil.READY_FALSE; // no more missing ranges - all done
             }
-            final Tuple rangeStart = RangeSet.isFirstKey(range.begin) ? null : Tuple.fromBytes(range.begin);
-            final Tuple rangeEnd = RangeSet.isFinalKey(range.end) ? null : Tuple.fromBytes(range.end);
-            final TupleRange tupleRange = TupleRange.between(rangeStart, rangeEnd);
+            // Keep the boundaries as (opaque) raw bytes.
+            final byte[] rangeStart = RangeSet.nullIfFirst(range.begin);
+            final byte[] rangeEnd = RangeSet.nullIfFinal(range.end);
 
             RecordCursor<FDBStoredRecord<Message>> cursor =
-                    store.scanRecords(tupleRange, null, scanProperties);
+                    store.scanRecords(new KeyRange(rangeStart, rangeEnd), null, scanProperties);
 
             final AtomicReference<RecordCursorResult<FDBStoredRecord<Message>>> lastResult = new AtomicReference<>(RecordCursorResult.exhausted());
             final AtomicBoolean hasMore = new AtomicBoolean(true);
@@ -160,21 +162,16 @@ public class IndexingMultiTargetByRecords extends IndexingBase {
 
     private CompletableFuture<Boolean> postIterateRangeOnly(List<IndexingRangeSet> targetRangeSets, boolean hasMore,
                                                             AtomicReference<RecordCursorResult<FDBStoredRecord<Message>>> lastResult,
-                                                            Tuple rangeStart, Tuple rangeEnd, boolean isReverse) {
+                                                            byte[] rangeStart, byte[] rangeEnd, boolean isReverse) {
         if (isReverse) {
-            Tuple continuation = hasMore ? lastResult.get().get().getPrimaryKey() : rangeStart;
-            return insertRanges(targetRangeSets, packOrNull(continuation), packOrNull(rangeEnd))
-                    .thenApply(ignore -> hasMore || rangeStart != null);
+            byte[] continuation = hasMore ? lastResult.get().get().getPrimaryKey().pack() : rangeStart;
+            return insertRanges(targetRangeSets, continuation, rangeEnd)
+                    .thenApply(ignore -> rangesAreNotExhausted(hasMore, rangeStart));
         } else {
-            Tuple continuation = hasMore ? lastResult.get().get().getPrimaryKey() : rangeEnd;
-            return insertRanges(targetRangeSets, packOrNull(rangeStart), packOrNull(continuation))
-                    .thenApply(ignore -> hasMore || rangeEnd != null);
+            byte[] continuation = hasMore ? lastResult.get().get().getPrimaryKey().pack() : rangeEnd;
+            return insertRanges(targetRangeSets, rangeStart, continuation)
+                    .thenApply(ignore -> rangesAreNotExhausted(hasMore, rangeEnd));
         }
-    }
-
-    private static CompletableFuture<Void> insertRanges(List<IndexingRangeSet> rangeSets,
-                                                        byte[] start, byte[] end) {
-        return AsyncUtil.whenAll(rangeSets.stream().map(set -> set.insertRangeAsync(start, end, true)).collect(Collectors.toList()));
     }
 
     @SuppressWarnings("unused")
@@ -188,10 +185,17 @@ public class IndexingMultiTargetByRecords extends IndexingBase {
     @Nonnull
     @Override
     CompletableFuture<Void> rebuildIndexInternalAsync(FDBRecordStore store) {
-        AtomicReference<Tuple> nextResultCont = new AtomicReference<>(null);
+        final TupleRange tupleRange = common.computeRecordsRange();
+        // if non-null, the tupleRange contains the range of all the records need indexing (in practice,
+        // the type keys containing the lexicographically first to last types). Hence, we can skip indexing records
+        // that are outside this range.
+        final Tuple rangeStart = tupleRange == null ? null : tupleRange.getLow();
+        final Tuple rangeEndInclusive = tupleRange == null ? null : tupleRange.getHigh();
+
+        AtomicReference<Tuple> nextResultCont = new AtomicReference<>(rangeStart);
         AtomicLong recordScanned = new AtomicLong();
         return AsyncUtil.whileTrue(() ->
-                rebuildRangeOnly(store, nextResultCont.get(), recordScanned, null).thenApply(cont -> {
+                rebuildRangeOnly(store, nextResultCont.get(), recordScanned, rangeEndInclusive).thenApply(cont -> {
                     if (cont == null) {
                         return false;
                     }

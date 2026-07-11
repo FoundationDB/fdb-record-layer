@@ -23,14 +23,14 @@ schema_template:
 ---
 setup:
   steps:
-    - query: insert into lb values (1, x'deadbeef'), (2, b64'yv4='), (3, null);
+    - query: insert into lb values (1, x'deadbeef'), (2, b64'yv4='), (3, null), (4, x'aabbcc'), (5, x'0102030405');
 ---
 test_block:
   name: bytes-tests
   tests:
     -
       - query: select b from lb
-      - result: [ { x'deadbeef'}, { x'cafe' }, { !null } ]
+      - result: [ { x'deadbeef'}, { x'cafe' }, { !null }, { x'aabbcc' }, { x'0102030405' } ]
     -
       - query: select x'0' from lb where a = 1
       - error: INVALID_BINARY_REPRESENTATION
@@ -48,13 +48,13 @@ test_block:
       - unorderedResult: [ { 1 }, { 2 } ]
     -
       - query: select a from lb where b <> x'cafe'
-      - unorderedResult: [ { 1 } ]
+      - unorderedResult: [ { 1 }, { 4 }, { 5 } ]
     -
       - query: select a from lb where b IS NULL
       - unorderedResult: [ { 3 } ]
     -
       - query: select a from lb where b IS NOT NULL
-      - unorderedResult: [ { 1 }, { 2 } ]
+      - unorderedResult: [ { 1 }, { 2 }, { 4 }, { 5 } ]
     -
       - query: select a from lb where b = null
       - supported_version: 4.9.6.0
@@ -66,7 +66,7 @@ test_block:
     -
       - query: select a from lb where b is distinct from null
       - supported_version: 4.9.6.0
-      - unorderedResult: [ { 1 }, { 2 } ]
+      - unorderedResult: [ { 1 }, { 2 }, { 4 }, { 5 } ]
 ---
 test_block:
   tests:

@@ -52,7 +52,7 @@ import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerColumn;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerIndex;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerTable;
-import com.apple.foundationdb.relational.recordlayer.metric.RecordLayerMetricCollector;
+import com.apple.foundationdb.relational.recordlayer.metric.StoreTimerMetricCollector;
 import com.apple.foundationdb.relational.recordlayer.query.Plan;
 import com.apple.foundationdb.relational.recordlayer.query.PreparedParams;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
@@ -174,7 +174,7 @@ public class DdlStatementParsingTest {
                 Options.builder().withOption(Options.Name.CASE_SENSITIVE_IDENTIFIERS, true).build()).getPlan(query);
         // execute the plan so we run any extra test-driven verifications within the transactional closure.
         plan.execute(Plan.ExecutionContext.of(transaction, Options.NONE, connection,
-                new RecordLayerMetricCollector(transaction.unwrap(RecordContextTransaction.class).getContext())));
+                StoreTimerMetricCollector.fromFDBRecordContext(transaction.unwrap(RecordContextTransaction.class).getContext())));
         connection.rollback();
         connection.setAutoCommit(true);
     }
@@ -199,7 +199,7 @@ public class DdlStatementParsingTest {
                 "/DdlStatementParsingTest", queryFactory).getPlan(query);
         // execute the plan so we run any extra test-driven verifications within the transactional closure.
         plan.execute(Plan.ExecutionContext.of(transaction, Options.NONE, connection,
-                new RecordLayerMetricCollector(transaction.unwrap(RecordContextTransaction.class).getContext())));
+                StoreTimerMetricCollector.fromFDBRecordContext(transaction.unwrap(RecordContextTransaction.class).getContext())));
         connection.rollback();
         connection.setAutoCommit(true);
     }

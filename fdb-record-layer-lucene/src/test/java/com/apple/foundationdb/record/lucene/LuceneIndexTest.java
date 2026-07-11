@@ -3278,27 +3278,31 @@ public class LuceneIndexTest extends FDBLuceneTestBase {
     @MethodSource(LUCENE_INDEX_MAP_PARAMS)
     void simpleInsertAndSearchSingleTransaction(IndexedType indexedType) {
         final Index index = indexedType.getIndex(SIMPLE_TEXT_SUFFIXES_KEY);
-        LuceneOptimizedPostingsFormat.setAllowCheckDataIntegrity(false);
-        try (FDBRecordContext context = openContext()) {
-            if (indexedType.isSynthetic()) {
-                openRecordStore(context, metaDataBuilder -> metaDataHookSyntheticRecordComplexJoinedToSimple(metaDataBuilder, index));
-                // Save one record and try and search for it
-                for (int docId = 0; docId < 100; docId++) {
-                    createComplexRecordJoinedToSimple(100 + docId, docId, docId, ENGINEER_JOKE, "", true, System.currentTimeMillis(), 0);
-                    assertEquals(docId + 1, recordStore.scanIndex(index, fullTextSearch(index, "formulate"), null, ScanProperties.FORWARD_SCAN)
-                            .getCount().join());
+        try {
+            LuceneOptimizedPostingsFormat.setAllowCheckDataIntegrity(false);
+            try (FDBRecordContext context = openContext()) {
+                if (indexedType.isSynthetic()) {
+                    openRecordStore(context, metaDataBuilder -> metaDataHookSyntheticRecordComplexJoinedToSimple(metaDataBuilder, index));
+                    // Save one record and try and search for it
+                    for (int docId = 0; docId < 100; docId++) {
+                        createComplexRecordJoinedToSimple(100 + docId, docId, docId, ENGINEER_JOKE, "", true, System.currentTimeMillis(), 0);
+                        assertEquals(docId + 1, recordStore.scanIndex(index, fullTextSearch(index, "formulate"), null, ScanProperties.FORWARD_SCAN)
+                                .getCount().join());
+                    }
+                } else {
+                    rebuildIndexMetaData(context, SIMPLE_DOC, index);
+                    // Save one record and try and search for it
+                    for (int docId = 0; docId < 100; docId++) {
+                        recordStore.saveRecord(createSimpleDocument(docId, ENGINEER_JOKE, 2));
+                        assertEquals(docId + 1, recordStore.scanIndex(index, fullTextSearch(index, "formulate"), null, ScanProperties.FORWARD_SCAN)
+                                .getCount().join());
+                    }
                 }
-            } else {
-                rebuildIndexMetaData(context, SIMPLE_DOC, index);
-                // Save one record and try and search for it
-                for (int docId = 0; docId < 100; docId++) {
-                    recordStore.saveRecord(createSimpleDocument(docId, ENGINEER_JOKE, 2));
-                    assertEquals(docId + 1, recordStore.scanIndex(index, fullTextSearch(index, "formulate"), null, ScanProperties.FORWARD_SCAN)
-                            .getCount().join());
-                }
-            }
 
-            commit(context);
+                commit(context);
+            }
+        } finally {
+            LuceneOptimizedPostingsFormat.setAllowCheckDataIntegrity(true);
         }
     }
 

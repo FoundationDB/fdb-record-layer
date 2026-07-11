@@ -62,7 +62,7 @@ import java.util.function.Supplier;
  * <li>Else {@code null}.</li>
  * </ul>
  */
-public class AndPredicate extends AndOrPredicate {
+public final class AndPredicate extends AndOrPredicate {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("And-Predicate");
 
     private AndPredicate(@Nonnull final PlanSerializationContext serializationContext,

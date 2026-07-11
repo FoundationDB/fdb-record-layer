@@ -1,9 +1,9 @@
 /*
- * CellMergeRule.java
+ * SelectMergeRule.java
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2025 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2026 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.query.plan.cascades.rules;
 
 import com.apple.foundationdb.record.query.combinatorics.TopologicalSort;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
+import com.apple.foundationdb.record.query.plan.cascades.AbstractCascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionPartition;
 import com.apple.foundationdb.record.query.plan.cascades.ImplementationCascadesRule;
@@ -74,7 +75,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  * and (3) the child expression is a {@link SelectExpression} or a {@link LogicalFilterExpression}.
  */
 @SuppressWarnings("PMD.TooManyStaticImports")
-public class SelectMergeRule extends ImplementationCascadesRule<SelectExpression> {
+public class SelectMergeRule extends AbstractCascadesRule<SelectExpression> implements ImplementationCascadesRule<SelectExpression> {
     @Nonnull
     private static final BindingMatcher<RelationalExpressionWithPredicates> childExpressionMatcher = withPredicatesExpression();
 

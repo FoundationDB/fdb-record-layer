@@ -2870,4 +2870,12 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                         context -> TestHelpers.assertDiscardedAtMost(singleIndexScan ? 33 : 197, context))
         );
     }
+
+    /**
+     * Mutable single-value container used to capture continuations across lambda boundaries
+     * in the tests above.
+     */
+    private static class Holder<T> {
+        public T value;
+    }
 }

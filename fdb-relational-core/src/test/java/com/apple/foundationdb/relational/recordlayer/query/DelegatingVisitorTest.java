@@ -231,6 +231,51 @@ public class DelegatingVisitorTest {
     }
 
     @Test
+    void visitStoredQueryDefinitionTest() {
+        testSimple("STORED QUERY q AS SELECT * FROM table1",
+                RelationalParser::storedQueryDefinition,
+                DelegatingVisitor::visitStoredQueryDefinition,
+                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42),
+                        generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
+                    @Override
+                    public Object visitStoredQueryDefinition(RelationalParser.StoredQueryDefinitionContext ctx) {
+                        called.setTrue();
+                        return null;
+                    }
+                });
+    }
+
+    @Test
+    void visitDeclareBlockTest() {
+        testSimple("DECLARE FUNCTION f() AS (SELECT 1)",
+                RelationalParser::declareBlock,
+                DelegatingVisitor::visitDeclareBlock,
+                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42),
+                        generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
+                    @Override
+                    public Object visitDeclareBlock(RelationalParser.DeclareBlockContext ctx) {
+                        called.setTrue();
+                        return null;
+                    }
+                });
+    }
+
+    @Test
+    void visitDeclaredFunctionTest() {
+        testSimple("FUNCTION f() AS (SELECT 1)",
+                RelationalParser::declaredFunction,
+                DelegatingVisitor::visitDeclaredFunction,
+                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42),
+                        generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
+                    @Override
+                    public Object visitDeclaredFunction(RelationalParser.DeclaredFunctionContext ctx) {
+                        called.setTrue();
+                        return null;
+                    }
+                });
+    }
+
+    @Test
     void visitUserDefinedScalarFunctionCallTest() {
         testSimple("myFunction(123)",
                 RelationalParser::functionCall,
@@ -555,6 +600,35 @@ public class DelegatingVisitorTest {
                         return Expression.ofUnnamed(LiteralValue.ofScalar(42));
                     }
                 });
+    }
+
+    /**
+     * Covers {@link DelegatingVisitor#visitFunctionNameKeyword}.
+     */
+    @Test
+    void visitFunctionNameKeywordTest() {
+        testSimple("LEFT",
+                RelationalParser::functionNameKeyword,
+                DelegatingVisitor::visitFunctionNameKeyword,
+                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42),
+                        generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
+                    @Nonnull
+                    @Override
+                    public Object visitFunctionNameKeyword(@Nonnull RelationalParser.FunctionNameKeywordContext ctx) {
+                        called.setTrue();
+                        return null;
+                    }
+                });
+    }
+
+    /**
+     * Covers {@link BaseVisitor#visitFunctionNameKeyword}.
+     */
+    @Test
+    void baseVisitorVisitFunctionNameKeywordTest() {
+        final var visitor = createBaseVisitor("LEFT", new MutableBoolean(false));
+        final var context = parseQuery("LEFT", RelationalParser::functionNameKeyword);
+        Assertions.assertThat(visitor.visitFunctionNameKeyword(context)).isNull();
     }
 
     @Test

@@ -32,6 +32,7 @@ import com.apple.foundationdb.record.query.plan.cascades.properties.Cardinalitie
 import com.apple.foundationdb.record.query.plan.cascades.properties.ExpressionDepthProperty;
 import com.apple.foundationdb.record.query.plan.cascades.properties.NormalizedResidualPredicateProperty;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryCoveringIndexPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryDefaultOnEmptyPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartialRecordPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFlatMapPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInJoinPlan;
@@ -71,15 +72,16 @@ import static com.apple.foundationdb.record.query.plan.cascades.properties.Unmat
 @SpotBugsSuppressWarnings("SE_COMPARATOR_SHOULD_BE_SERIALIZABLE")
 public class PlanningCostModel implements CascadesCostModel {
     @Nonnull
-    private static final Set<Class<? extends RelationalExpression>> interestingPlanClasses =
+    private static final ImmutableSet<Class<? extends RelationalExpression>> interestingPlanClasses =
             ImmutableSet.of(
-                    RecordQueryScanPlan.class,
-                    RecordQueryPlanWithIndex.class,
                     RecordQueryCoveringIndexPlan.class,
+                    RecordQueryDefaultOnEmptyPlan.class,
                     RecordQueryFetchFromPartialRecordPlan.class,
                     RecordQueryInJoinPlan.class,
                     RecordQueryMapPlan.class,
-                    RecordQueryPredicatesFilterPlan.class);
+                    RecordQueryPlanWithIndex.class,
+                    RecordQueryPredicatesFilterPlan.class,
+                    RecordQueryScanPlan.class);
 
     @Nonnull
     private final RecordQueryPlannerConfiguration configuration;
@@ -260,18 +262,13 @@ public class PlanningCostModel implements CascadesCostModel {
         }
 
         //
-        //  If a plan has fewer MAP/FILTERS operations, it is preferable.
+        //  If a plan has fewer “simple” operations, it is preferable.
         //
-        final int numSimpleOperationsA = count(planOpsMapA, RecordQueryMapPlan.class) +
-                count(planOpsMapA, RecordQueryPredicatesFilterPlan.class);
-        final int numSimpleOperationsB = count(planOpsMapB, RecordQueryMapPlan.class) +
-                count(planOpsMapB, RecordQueryPredicatesFilterPlan.class);
-
-        int numSimpleOperationsCompare =
-                Integer.compare(numSimpleOperationsA, numSimpleOperationsB);
-        if (numSimpleOperationsCompare != 0) {
-            // smaller one wins
-            return numSimpleOperationsCompare;
+        final int numSimpleOpsA = countSimpleOps(planOpsMapA);
+        final int numSimpleOpsB = countSimpleOps(planOpsMapB);
+        int numSimpleOpsCompare = Integer.compare(numSimpleOpsA, numSimpleOpsB);
+        if (numSimpleOpsCompare != 0) {
+            return numSimpleOpsCompare;
         }
 
         //
@@ -309,6 +306,16 @@ public class PlanningCostModel implements CascadesCostModel {
             }
         }
         
+        //
+        // If a plan has fewer ON EMPTY NULL operations, it is preferable.
+        //
+        final int numDefaultOnEmptyA = count(planOpsMapA, RecordQueryDefaultOnEmptyPlan.class);
+        final int numDefaultOnEmptyB = count(planOpsMapB, RecordQueryDefaultOnEmptyPlan.class);
+        int numDefaultOnEmptyCompare = Integer.compare(numDefaultOnEmptyA, numDefaultOnEmptyB);
+        if (numDefaultOnEmptyCompare != 0) {
+            return numDefaultOnEmptyCompare;
+        }
+
         //
         // If plans are indistinguishable from a cost perspective, select one by planHash. This makes the cost model
         // stable (select the same plan on subsequent plannings).
@@ -519,5 +526,15 @@ public class PlanningCostModel implements CascadesCostModel {
     @SafeVarargs
     private static int count(@Nonnull final Map<Class<? extends RelationalExpression>, Set<RelationalExpression>> expressionsMap, @Nonnull final Class<? extends RelationalExpression>... interestingClasses) {
         return FindExpressionVisitor.slice(expressionsMap, interestingClasses).size();
+    }
+
+    /**
+     * Counts the number of “simple” per-tuple operations in {@code planOpsMap}. Operations considered simple are the
+     * per-tuple operations {@code MAP} and {@code FILTER}.
+     */
+    private static int countSimpleOps(@Nonnull final Map<Class<? extends RelationalExpression>, Set<RelationalExpression>> planOpsMap) {
+        return count(planOpsMap,
+                RecordQueryMapPlan.class,
+                RecordQueryPredicatesFilterPlan.class);
     }
 }

@@ -41,14 +41,14 @@ union-tests:
         AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l
         AS LONG)) AS _0) | MAP (_ AS _0) | AGG (sum_l(_._0.Y) AS _0) GROUP BY () |
         ON EMPTY NULL | MAP (_._0._0 AS S)'
-    task_count: 974
-    task_total_time_ms: 17
-    transform_count: 255
-    transform_time_ms: 7
-    transform_yield_count: 72
-    insert_time_ms: 0
-    insert_new_count: 94
-    insert_reused_count: 8
+    task_count: 849
+    task_total_time_ms: 33
+    transform_count: 211
+    transform_time_ms: 10
+    transform_yield_count: 65
+    insert_time_ms: 2
+    insert_new_count: 82
+    insert_reused_count: 7
 -   query: EXPLAIN select sum(Y) as S from (select count(*) as Y from t6 union all
         select count(*) from t7) as X
     ref: union.yamsql:179
@@ -57,11 +57,11 @@ union-tests:
         <,> BY_GROUP -> [_0: VALUE:[0]]) | MAP (_ AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0,
         promote(0l AS LONG)) AS _0) | MAP (_ AS _0) | AGG (sum_l(_._0.Y) AS _0) GROUP
         BY () | ON EMPTY NULL | MAP (_._0._0 AS S)'
-    task_count: 1057
+    task_count: 831
     task_total_time_ms: 42
-    transform_count: 303
-    transform_time_ms: 19
-    transform_yield_count: 74
+    transform_count: 219
+    transform_time_ms: 14
+    transform_yield_count: 62
     insert_time_ms: 0
-    insert_new_count: 96
-    insert_reused_count: 8
+    insert_new_count: 74
+    insert_reused_count: 6

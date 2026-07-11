@@ -1390,7 +1390,8 @@ public class Comparisons {
         }
 
         public int computeHashCode() {
-            return Objects.hash(type, relatedByEquality());
+            // Note: This hash must be stable across JVMs, as it is used in `Comparison.semanticHashCode()`.
+            return Objects.hash(type.name(), relatedByEquality());
         }
 
         private Set<String> relatedByEquality() {
@@ -2195,7 +2196,9 @@ public class Comparisons {
 
         @Override
         public int hashCode() {
-            return Objects.hash(type, getComparandWithRealEquals(), javaType);
+            // Note: This hash must be stable across JVMs, as it is used in `Comparison.semanticHashCode()`.
+            final Object javaTypeName = javaType == null ? null : javaType.name();
+            return Objects.hash(type.name(), getComparandWithRealEquals(), javaTypeName);
         }
 
         @Override

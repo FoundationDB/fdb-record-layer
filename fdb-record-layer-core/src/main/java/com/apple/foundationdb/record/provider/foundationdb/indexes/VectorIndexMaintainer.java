@@ -31,7 +31,7 @@ import com.apple.foundationdb.async.hnsw.Node;
 import com.apple.foundationdb.async.hnsw.NodeReference;
 import com.apple.foundationdb.async.hnsw.OnReadListener;
 import com.apple.foundationdb.async.hnsw.OnWriteListener;
-import com.apple.foundationdb.async.hnsw.ResultEntry;
+import com.apple.foundationdb.async.common.ResultEntry;
 import com.apple.foundationdb.linear.RealVector;
 import com.apple.foundationdb.record.CursorStreamingMode;
 import com.apple.foundationdb.record.EndpointType;
@@ -244,10 +244,10 @@ public class VectorIndexMaintainer extends StandardIndexMaintainer {
         if (prefixTuple != null) {
             keyItems.addAll(prefixTuple.getItems());
         }
-        keyItems.addAll(resultEntry.getPrimaryKey().getItems());
+        keyItems.addAll(resultEntry.primaryKey().getItems());
         final List<Object> valueItems = Lists.newArrayList();
-        final RealVector vector = resultEntry.getVector();
-        valueItems.add(vector == null ? null : resultEntry.getVector().getRawData());
+        final RealVector vector = resultEntry.vector();
+        valueItems.add(vector == null ? null : vector.getRawData());
         return new IndexEntry(state.index, Tuple.fromList(keyItems),
                 Tuple.fromList(valueItems));
     }
@@ -349,7 +349,7 @@ public class VectorIndexMaintainer extends StandardIndexMaintainer {
                 return hnsw.delete(state.transaction, trimmedPrimaryKey);
             } else {
                 return hnsw.insert(state.transaction, trimmedPrimaryKey,
-                        RealVector.fromBytes(vectorBytes));
+                        RealVector.fromBytes(vectorBytes), null);
             }
         });
     }
@@ -401,7 +401,7 @@ public class VectorIndexMaintainer extends StandardIndexMaintainer {
         // resources if the user didn't explicitly ask for it. If RaBitQ is not used, the vectors returned are identical
         // to their inserted counterparts. We also already fetched them, so returning them is free.
         //
-        return !config.isUseRaBitQ();
+        return !config.useRaBitQ();
     }
 
     static class OnRead implements OnReadListener {

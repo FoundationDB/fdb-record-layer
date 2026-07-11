@@ -34,6 +34,7 @@ import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.Objects;
 import java.util.function.Supplier;
 
 /**
@@ -84,6 +85,7 @@ public class FDBDatabaseFactoryImpl extends FDBDatabaseFactory {
     private FDBTraceFormat traceFormat = FDBTraceFormat.DEFAULT;
     @Nonnull
     private APIVersion apiVersion = APIVersion.getDefault();
+    private volatile boolean shutdownHookDisabled;
 
     private boolean runLoopProfilingEnabled = false;
 
@@ -138,6 +140,9 @@ public class FDBDatabaseFactoryImpl extends FDBDatabaseFactory {
             }
             if (runLoopProfilingEnabled) {
                 options.setEnableRunLoopProfiling();
+            }
+            if (shutdownHookDisabled) {
+                fdb.disableShutdownHook();
             }
             if (networkExecutor == null) {
                 fdb.startNetwork();
@@ -222,6 +227,19 @@ public class FDBDatabaseFactoryImpl extends FDBDatabaseFactory {
     @Override
     public boolean isRunLoopProfilingEnabled() {
         return runLoopProfilingEnabled;
+    }
+
+    @Override
+    public synchronized void disableShutdownHook() {
+        if (!shutdownHookDisabled && inited) {
+            Objects.requireNonNull(fdb).disableShutdownHook();
+        }
+        shutdownHookDisabled = true;
+    }
+
+    @Override
+    public boolean isShutdownHookDisabled() {
+        return shutdownHookDisabled;
     }
 
     // TODO: Demote these to UNSTABLE and deprecate at some point.

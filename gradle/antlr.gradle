@@ -21,9 +21,10 @@
 apply plugin: 'antlr'
 
 generateGrammarSource {
-    outputDirectory = layout.buildDirectory.dir('generated-src/antlr/main/com/apple/foundationdb/relational/generated').get().asFile
+    outputDirectory = layout.buildDirectory.dir('generated-src/antlr/main').get().asFile
+    packageName = 'com.apple.foundationdb.relational.generated'
     maxHeapSize = "128m"
-    arguments += ['-package','com.apple.foundationdb.relational.generated', '-listener','-visitor', '-long-messages']
+    arguments += ['-listener','-visitor', '-long-messages']
 }
 
 sourceSets.configureEach {

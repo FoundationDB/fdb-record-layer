@@ -73,6 +73,7 @@ protogen/
 /.idea_build
 .out
 .dist/
+.downloaded-build-assets
 
 # Temporary files.
 .tmp
@@ -90,3 +91,9 @@ fdb-relational-core/src/main/antlr/*.tokens
 
 # output during release build process
 /mixed-mode-results.md
+
+# AI assistant local analysis artifacts
+/claude-analysis/
+
+# Claude Code local settings (personal permissions and hooks)
+.claude/settings.local.json

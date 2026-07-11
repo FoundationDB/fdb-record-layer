@@ -30,6 +30,7 @@ import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.explain.ExplainPlanVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.ExplodeExpression;
 import com.apple.foundationdb.record.query.plan.cascades.properties.DerivationsProperty;
+import com.apple.foundationdb.record.query.plan.cascades.properties.DistinctRecordsProperty;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
@@ -284,6 +285,20 @@ public class ExplodePlanTest {
         Assertions.assertTrue(withoutOrdinality.getResultValues().get(0).getCorrelatedTo().contains(sourceAlias));
         final var withOrdinality = visitor.visitExplodePlan(new RecordQueryExplodePlan(collectionValue, true));
         Assertions.assertTrue(withOrdinality.getResultValues().get(0).getCorrelatedTo().contains(sourceAlias));
+    }
+
+    @Test
+    void distinctRecordsWithoutOrdinalityIsFalse() {
+        final var collectionValue = LiteralValue.ofList(List.of(1, 2, 3));
+        final var plan = new RecordQueryExplodePlan(collectionValue, false);
+        Assertions.assertFalse(DistinctRecordsProperty.distinctRecords().evaluate(plan));
+    }
+
+    @Test
+    void distinctRecordsWithOrdinalityIsTrue() {
+        final var collectionValue = LiteralValue.ofList(List.of(1, 2, 3));
+        final var plan = new RecordQueryExplodePlan(collectionValue, true);
+        Assertions.assertTrue(DistinctRecordsProperty.distinctRecords().evaluate(plan));
     }
 
     /**

@@ -46,11 +46,11 @@ import com.apple.foundationdb.record.query.plan.cascades.explain.InternalPlanner
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.AndOrPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.AndPredicate;
-import com.apple.foundationdb.record.query.plan.cascades.predicates.ExistsPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.OrPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.Placeholder;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.PredicateWithValue;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.PredicateWithValueAndRanges;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.ExistentialValuePredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.RangeConstraints;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
@@ -401,8 +401,9 @@ public class SelectExpression extends AbstractRelationalExpressionWithChildren i
         // TODO this should be inverted, i.e. go through the predicates and make sure the referred alias is among the
         //      quantifiers owned by this expression
         //
-        // Go through all matched existential quantifiers. Make sure that there is a top level exists() predicate
-        // corresponding to each one.
+        // Go through all matched existential quantifiers. Make sure that there is a predicate, for sure, that owns
+        // the quantifier. This is a bit vague, bit still does ensure that we do not have unmatched existential
+        // quantifier. We probably need a more expressive way of suggesting that a predicate "owns" a quantifier.
         //
         if (getQuantifiers()
                 .stream()
@@ -410,9 +411,13 @@ public class SelectExpression extends AbstractRelationalExpressionWithChildren i
                         bindingAliasMap.containsSource(quantifier.getAlias()))
                 .anyMatch(quantifier -> getPredicates()
                         .stream()
-                        .noneMatch(predicate -> predicate instanceof ExistsPredicate &&
-                                                ((ExistsPredicate)predicate).getExistentialAlias().equals(quantifier.getAlias()))
-                )) {
+                        .noneMatch(predicate -> {
+                            if (!(predicate instanceof ExistentialValuePredicate)) {
+                                return false;
+                            }
+                            final var correlatedTo = predicate.getCorrelatedTo();
+                            return correlatedTo.size() == 1 && correlatedTo.contains(quantifier.getAlias());
+                        }))) {
             return ImmutableList.of();
         }
 
@@ -733,10 +738,11 @@ public class SelectExpression extends AbstractRelationalExpressionWithChildren i
         final var rangeBuilder = RangeConstraints.newBuilder();
 
         for (final var predicate : predicates) {
-            if (predicate instanceof ValuePredicate) {
-                final var predicateRange = ((ValuePredicate)predicate).getComparison();
-                if (!rangeBuilder.addComparisonMaybe(predicateRange)) {
-                    result.add(value.withComparison(predicateRange));  // give up.
+            if (predicate instanceof ExistentialValuePredicate) {
+                result.add(predicate);
+            } else if (predicate instanceof ValuePredicate valuePredicate) {
+                if (!rangeBuilder.addComparisonMaybe(valuePredicate.getComparison())) {
+                    result.add(value.withComparison(valuePredicate.getComparison()));  // give up.
                 }
             } else if (predicate instanceof PredicateWithValueAndRanges && ((PredicateWithValueAndRanges)predicate).isSargable()) {
                 final var predicateRange = Iterables.getOnlyElement(((PredicateWithValueAndRanges)predicate).getRanges());

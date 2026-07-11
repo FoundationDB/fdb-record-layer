@@ -378,7 +378,7 @@ public interface TypedVisitor extends RelationalParserVisitor<Object> {
     @Override
     Object visitStraightJoin(@Nonnull RelationalParser.StraightJoinContext ctx);
 
-    @Nonnull
+    @Nullable
     @Override
     Object visitOuterJoin(@Nonnull RelationalParser.OuterJoinContext ctx);
 
@@ -1002,6 +1002,10 @@ public interface TypedVisitor extends RelationalParserVisitor<Object> {
     @Nonnull
     @Override
     Object visitFunctionNameBase(@Nonnull RelationalParser.FunctionNameBaseContext ctx);
+
+    @Nonnull
+    @Override
+    Object visitFunctionNameKeyword(@Nonnull RelationalParser.FunctionNameKeywordContext ctx);
 
     @Nonnull
     @Override

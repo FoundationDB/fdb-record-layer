@@ -20,10 +20,11 @@
 
 package com.apple.foundationdb.record;
 
-import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 /**
  * A range within a subspace specified by two byte value endpoints.
@@ -43,19 +44,19 @@ public class KeyRange {
      * Creates a key range.
      *
      * @param lowKey the starting key in the range. Note that a direct reference to this key is retained, so
-     *    care must be taken not to modify its contents
+     *    care must be taken not to modify its contents. If null, assume negative infinity.
      * @param lowEndpoint how the low endpoint is to be treated
      * @param highKey the ending key in the range. Note that a direct reference to this key is retained, so
-     *    care must be taken not to modify its contents
+     *    care must be taken not to modify its contents. If null, assume infinity.
      * @param highEndpoint how the high endpoint is to be treated
      */
     @SpotBugsSuppressWarnings("EI_EXPOSE_REP2")
-    public KeyRange(@Nonnull byte[] lowKey, @Nonnull EndpointType lowEndpoint,
-                    @Nonnull byte[] highKey, @Nonnull EndpointType highEndpoint) {
-        this.lowKey = lowKey;
-        this.lowEndpoint = lowEndpoint;
-        this.highKey = highKey;
-        this.highEndpoint = highEndpoint;
+    public KeyRange(@Nullable byte[] lowKey, @Nonnull EndpointType lowEndpoint,
+                    @Nullable byte[] highKey, @Nonnull EndpointType highEndpoint) {
+        this.lowKey = lowKey == null ? new byte[0] : lowKey;
+        this.lowEndpoint = lowKey == null ? EndpointType.TREE_START : lowEndpoint;
+        this.highKey = highKey == null ? new byte[0] : highKey;
+        this.highEndpoint = highKey == null ? EndpointType.TREE_END : highEndpoint;
     }
 
     /**
@@ -64,7 +65,7 @@ public class KeyRange {
      * @param lowKey the starting key of the range, inclusive
      * @param highKey the ending key of the range, exclusive
      */
-    public KeyRange(@Nonnull byte[] lowKey, @Nonnull byte[] highKey) {
+    public KeyRange(@Nullable byte[] lowKey, @Nullable byte[] highKey) {
         this(lowKey, EndpointType.RANGE_INCLUSIVE, highKey, EndpointType.RANGE_EXCLUSIVE);
     }
 

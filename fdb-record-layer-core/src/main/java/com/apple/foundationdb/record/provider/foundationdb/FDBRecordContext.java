@@ -61,9 +61,11 @@ import java.nio.charset.Charset;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.Optional;
 import java.util.Queue;
 import java.util.concurrent.CompletableFuture;
@@ -1551,6 +1553,19 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
     }
 
     /**
+     * Retrieve a typed value from the session data using a {@link ContextSessionKey}.
+     *
+     * @param key the session key
+     * @param <T> the value type, as declared by the key constant
+     * @return the stored value for the transaction, or {@code null} if absent
+     */
+    @Nullable
+    @API(API.Status.EXPERIMENTAL)
+    public synchronized <T> T getInSession(@Nonnull ContextSessionKey<T> key) {
+        return key.cast(session.get(key));
+    }
+
+    /**
      * Put an object into the session of the FDBRecordContext.
      *
      * @param key key
@@ -1560,6 +1575,34 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
     @API(API.Status.EXPERIMENTAL)
     public synchronized <T extends Object> void putInSessionIfAbsent(@Nonnull Object key, @Nonnull T value) {
         session.put(key, value);
+    }
+
+    /**
+     * Store a typed value in the session under the given {@link ContextSessionKey}, replacing any existing value.
+     *
+     * @param key the session key
+     * @param value the value to store
+     * @param <T> the value type, as declared by the key constant
+     */
+    @API(API.Status.EXPERIMENTAL)
+    public synchronized <T> void putInSession(@Nonnull ContextSessionKey<T> key, @Nonnull T value) {
+        session.put(key, value);
+    }
+
+    /**
+     * Add an element to a set of values for the given key.
+     * Convenience method to add elements to a set in the session info. This would create a HashSet for the elements
+     * if none yet exists, then add the element to the set.
+     *
+     * @param key the key for the session info set of values
+     * @param value the value to add to the set
+     * @param <T> the type of value being added
+     */
+    @API(API.Status.EXPERIMENTAL)
+    @SuppressWarnings("unchecked")
+    public synchronized <T> void addToSessionSet(@Nonnull ContextSessionKey<Set<T>> key, @Nonnull T value) {
+        Set<T> valueSet = (Set<T>) session.computeIfAbsent(key, k -> new HashSet<>());
+        valueSet.add(value);
     }
 
     /**
@@ -1574,6 +1617,20 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
     @API(API.Status.EXPERIMENTAL)
     public synchronized <T> T removeFromSession(@Nonnull String key, @Nonnull Class<T> clazz) {
         return (T) session.remove(key);
+    }
+
+    /**
+     * Remove and return the value stored under the given {@link ContextSessionKey}.
+     * Returns {@code null} if no value was stored under this key.
+     *
+     * @param key the session key
+     * @param <T> the value type, as declared by the key constant
+     * @return the previously stored value, or {@code null} if absent
+     */
+    @Nullable
+    @API(API.Status.EXPERIMENTAL)
+    public synchronized <T> T removeFromSession(@Nonnull ContextSessionKey<T> key) {
+        return key.cast(session.remove(key));
     }
 
     /**

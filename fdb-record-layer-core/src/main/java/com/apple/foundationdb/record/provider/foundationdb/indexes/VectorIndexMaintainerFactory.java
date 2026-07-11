@@ -161,29 +161,29 @@ public class VectorIndexMaintainerFactory implements IndexMaintainerFactory {
 
                 // do not allow changing any of the following
                 disallowChange(changedOptions, IndexOptions.HNSW_METRIC,
-                        oldOptions, newOptions, Config::getMetric);
+                        oldOptions, newOptions, Config::metric);
                 disallowChange(changedOptions, IndexOptions.HNSW_NUM_DIMENSIONS,
-                        oldOptions, newOptions, Config::getNumDimensions);
+                        oldOptions, newOptions, Config::numDimensions);
                 disallowChange(changedOptions, IndexOptions.HNSW_USE_INLINING,
-                        oldOptions, newOptions, Config::isUseInlining);
+                        oldOptions, newOptions, Config::useInlining);
                 disallowChange(changedOptions, IndexOptions.HNSW_M,
-                        oldOptions, newOptions, Config::getM);
+                        oldOptions, newOptions, Config::m);
                 disallowChange(changedOptions, IndexOptions.HNSW_M_MAX,
-                        oldOptions, newOptions, Config::getMMax);
+                        oldOptions, newOptions, Config::mMax);
                 disallowChange(changedOptions, IndexOptions.HNSW_M_MAX_0,
-                        oldOptions, newOptions, Config::getMMax0);
+                        oldOptions, newOptions, Config::mMax0);
                 disallowChange(changedOptions, IndexOptions.HNSW_EF_CONSTRUCTION,
-                        oldOptions, newOptions, Config::getEfConstruction);
+                        oldOptions, newOptions, Config::efConstruction);
                 disallowChange(changedOptions, IndexOptions.HNSW_EF_REPAIR,
-                        oldOptions, newOptions, Config::getEfRepair);
+                        oldOptions, newOptions, Config::efRepair);
                 disallowChange(changedOptions, IndexOptions.HNSW_EXTEND_CANDIDATES,
-                        oldOptions, newOptions, Config::isExtendCandidates);
+                        oldOptions, newOptions, Config::extendCandidates);
                 disallowChange(changedOptions, IndexOptions.HNSW_KEEP_PRUNED_CONNECTIONS,
-                        oldOptions, newOptions, Config::isKeepPrunedConnections);
+                        oldOptions, newOptions, Config::keepPrunedConnections);
                 disallowChange(changedOptions, IndexOptions.HNSW_USE_RABITQ,
-                        oldOptions, newOptions, Config::isUseRaBitQ);
+                        oldOptions, newOptions, Config::useRaBitQ);
                 disallowChange(changedOptions, IndexOptions.HNSW_RABITQ_NUM_EX_BITS,
-                        oldOptions, newOptions, Config::getRaBitQNumExBits);
+                        oldOptions, newOptions, Config::raBitQNumExBits);
 
                 // The following index options can be changed.
                 changedOptions.remove(IndexOptions.HNSW_SAMPLE_VECTOR_STATS_PROBABILITY);

@@ -93,7 +93,7 @@ public class ValueTranslationTest {
     @Nonnull
     private Type.Record r(String... fieldNames) {
         return Type.Record
-                .fromFields(Arrays.stream(fieldNames)
+                .fromFields(false, Arrays.stream(fieldNames)
                         .map(this::f)
                         .collect(ImmutableList.toImmutableList()));
     }
@@ -102,7 +102,7 @@ public class ValueTranslationTest {
     @Nonnull
     private Type.Record r(Type.Record.Field... fields) {
         return Type.Record
-                .fromFields(Arrays.stream(fields)
+                .fromFields(false, Arrays.stream(fields)
                         .collect(ImmutableList.toImmutableList()));
     }
 
@@ -1145,8 +1145,8 @@ public class ValueTranslationTest {
     @Test
     public void maxMatchQovUsingExpandedQovComplex1() {
         final var p_v =
-                rcv(true,
-                        rcv(true, fv(t_, "a", "q"), "q",
+                rcv(false,
+                        rcv(false, fv(t_, "a", "q"), "q",
                                 fv(t_, "a", "r"), "r"), "a",
                         fv(t_, "b"), "b",
                         fv(t_, "j"), "j");
@@ -1164,8 +1164,8 @@ public class ValueTranslationTest {
      */
     @Test
     public void maxMatchQovUsingExpandedQovComplex2() {
-        final var innerRcv = rcv(true,
-                rcv(true, fv(t_, "a", "q"), "q",
+        final var innerRcv = rcv(false,
+                rcv(false, fv(t_, "a", "q"), "q",
                         fv(t_, "a", "r"), "r"), "a",
                 fv(t_, "b"), "b",
                 fv(t_, "j"), "j");

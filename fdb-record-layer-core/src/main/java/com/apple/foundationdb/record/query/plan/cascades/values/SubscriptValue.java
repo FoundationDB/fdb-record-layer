@@ -76,7 +76,7 @@ public class SubscriptValue extends AbstractValue {
         return ExplainTokensWithPrecedence.of(sourceValueExplain.getExplainTokens()
                 .addOpeningSquareBracket().addOptionalWhitespace()
                 .addNested(indexValueExplain.getExplainTokens())
-                .addClosingAngledBracket());
+                .addClosingSquareBracket());
     }
 
     @Nullable

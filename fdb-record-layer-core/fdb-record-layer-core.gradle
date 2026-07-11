@@ -19,6 +19,7 @@
  */
 
 plugins {
+    id 'java-test-fixtures'
     alias(libs.plugins.shadow)
 }
 apply from: rootProject.file('gradle/proto.gradle')
@@ -47,6 +48,18 @@ dependencies {
     testImplementation(libs.snakeyaml)
 
     testAnnotationProcessor(libs.autoService)
+
+    // Test fixtures expose base classes (FDBRecordStoreTestBase, etc.) and utility classes
+    // (TestKeySpace, FDBDatabaseExtension, etc.) that are consumed by other sub-modules
+    // (icu, lucene, spatial). Anything that appears in moved class signatures must use the
+    // `Api` configuration so it transitively reaches those consumers.
+    testFixturesApi project(':fdb-test-utils')
+    testFixturesApi(libs.bundles.test.impl)
+    testFixturesImplementation(libs.bundles.test.compileOnly)
+    testFixturesImplementation(libs.snakeyaml)
+    testFixturesImplementation(libs.protobuf.util)
+    testFixturesCompileOnly(libs.jsr305)
+    testFixturesAnnotationProcessor(libs.autoService)
 }
 
 sourceSets {

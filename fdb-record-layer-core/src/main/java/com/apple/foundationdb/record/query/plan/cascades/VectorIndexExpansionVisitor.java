@@ -23,7 +23,6 @@ package com.apple.foundationdb.record.query.plan.cascades;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.async.hnsw.Config;
 import com.apple.foundationdb.linear.Metric;
-import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexOptions;
@@ -37,13 +36,11 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.MatchableSo
 import com.apple.foundationdb.record.query.plan.cascades.predicates.Placeholder;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.PredicateWithValueAndRanges;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
-import com.apple.foundationdb.record.query.plan.cascades.predicates.simplification.ConstantFoldingRuleSet;
 import com.apple.foundationdb.record.query.plan.cascades.values.CosineDistanceRowNumberValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.DotProductDistanceRowNumberValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.EuclideanDistanceRowNumberValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.EuclideanSquareDistanceRowNumberValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
-import com.apple.foundationdb.record.query.plan.cascades.values.simplification.Simplification;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -143,11 +140,6 @@ public class VectorIndexExpansionVisitor extends KeyExpressionExpansionVisitor i
             if (!filteredIndexPredicate.isTautology()) {
                 final var valueRangesMaybe = IndexPredicateExpansion.dnfPredicateToRanges(filteredIndexPredicate);
                 final var predicateExpansionBuilder = GraphExpansion.builder();
-                Simplification.optimize(filteredIndexPredicate,
-                        EvaluationContext.EMPTY,
-                        AliasMap.emptyMap(),
-                        ImmutableSet.of(),
-                        ConstantFoldingRuleSet.ofSimplificationRules());
                 if (valueRangesMaybe.isEmpty()) { // could not create DNF, store the predicate as-is.
                     allExpansionsBuilder.add(GraphExpansion.ofPredicate(filteredIndexPredicate));
                 } else {

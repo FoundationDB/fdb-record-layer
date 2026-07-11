@@ -430,13 +430,17 @@ public class PromoteValue extends AbstractValue implements CreatesDynamicTypesVa
     }
 
     /**
-     * Wrap a {@link PromoteValue} instance around {@code value} if necessary.
+     * Wraps a {@link PromoteValue} instance around {@code inValue} if necessary.
      *
      * <p>{@code inject()} is idempotent and does not modify the value if its result is already the desired type.
+     *
+     * @param inValue the value to promote
+     * @param promoteToType the target type to promote to
+     * @return a value with result type {@code promoteToType}
      */
     @Nonnull
     public static Value inject(@Nonnull final Value inValue, @Nonnull final Type promoteToType) {
-        final var inType = inValue.getResultType();
+        final Type inType = inValue.getResultType();
         if (inType.equals(promoteToType)) {
             return inValue;
         }

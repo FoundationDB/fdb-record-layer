@@ -25,8 +25,7 @@ import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.rules.AdjustMatchRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.AggregateDataAccessRule;
-import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementRecursiveDfsJoinRule;
-import com.apple.foundationdb.record.query.plan.cascades.rules.WithPrimaryKeyDataAccessRule;
+import com.apple.foundationdb.record.query.plan.cascades.rules.EliminateNullOnEmptyRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementDeleteRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementDistinctRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementDistinctUnionRule;
@@ -37,6 +36,7 @@ import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementInUnionR
 import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementInsertRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementIntersectionRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementNestedLoopJoinRule;
+import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementRecursiveDfsJoinRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementRecursiveLevelUnionRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementSimpleSelectRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementStreamingAggregationRule;
@@ -56,7 +56,6 @@ import com.apple.foundationdb.record.query.plan.cascades.rules.NormalizePredicat
 import com.apple.foundationdb.record.query.plan.cascades.rules.PartitionBinarySelectRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.PartitionSelectRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.PredicateToLogicalUnionRule;
-import com.apple.foundationdb.record.query.plan.cascades.rules.PullUpNullOnEmptyRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.PushDistinctBelowFilterRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.PushDistinctThroughFetchRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.PushFilterThroughFetchRule;
@@ -84,6 +83,7 @@ import com.apple.foundationdb.record.query.plan.cascades.rules.PushTypeFilterBel
 import com.apple.foundationdb.record.query.plan.cascades.rules.RemoveProjectionRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.RemoveSortRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.SplitSelectExtractIndependentQuantifiersRule;
+import com.apple.foundationdb.record.query.plan.cascades.rules.WithPrimaryKeyDataAccessRule;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInParameterJoinPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInUnionOnValuesPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInValuesJoinPlan;
@@ -108,11 +108,11 @@ public class PlanningRuleSet extends CascadesRuleSet {
             new NormalizePredicatesRule(),
             new InComparisonToExplodeRule(),
             new SplitSelectExtractIndependentQuantifiersRule(),
-            new PullUpNullOnEmptyRule(),
+            new EliminateNullOnEmptyRule(),
             new PartitionSelectRule(),
             new PartitionBinarySelectRule()
             );
-    private static final Set<CascadesRule<? extends RelationalExpression>> MATCHING_RULES = ImmutableSet.of(
+    private static final Set<AbstractCascadesRule<? extends RelationalExpression>> MATCHING_RULES = ImmutableSet.of(
             new MatchLeafRule(),
             new MatchIntermediateRule()
     );
@@ -180,10 +180,10 @@ public class PlanningRuleSet extends CascadesRuleSet {
                     .addAll(MATCHING_RULES)
                     .addAll(EXPLORATION_RULES)
                     .build();
-    private static final Set<CascadesRule<? extends PartialMatch>> PARTIAL_MATCH_RULES = ImmutableSet.of(
+    private static final Set<AbstractCascadesRule<? extends PartialMatch>> PARTIAL_MATCH_RULES = ImmutableSet.of(
             new AdjustMatchRule()
     );
-    private static final Set<CascadesRule<? extends MatchPartition>> MATCH_PARTITION_RULES = ImmutableSet.of(
+    private static final Set<AbstractCascadesRule<? extends MatchPartition>> MATCH_PARTITION_RULES = ImmutableSet.of(
             new WithPrimaryKeyDataAccessRule(),
             new AggregateDataAccessRule(),
             new PredicateToLogicalUnionRule()
@@ -209,14 +209,14 @@ public class PlanningRuleSet extends CascadesRuleSet {
 
     @Nonnull
     @Override
-    public Stream<CascadesRule<? extends PartialMatch>> getPartialMatchRules(@Nonnull final Predicate<CascadesRule<? extends PartialMatch>> rulePredicate) {
+    public Stream<AbstractCascadesRule<? extends PartialMatch>> getPartialMatchRules(@Nonnull final Predicate<AbstractCascadesRule<? extends PartialMatch>> rulePredicate) {
         return PARTIAL_MATCH_RULES.stream()
                 .filter(rulePredicate);
     }
 
     @Nonnull
     @Override
-    public Stream<CascadesRule<? extends MatchPartition>> getMatchPartitionRules(@Nonnull final Predicate<CascadesRule<? extends MatchPartition>> rulePredicate) {
+    public Stream<AbstractCascadesRule<? extends MatchPartition>> getMatchPartitionRules(@Nonnull final Predicate<AbstractCascadesRule<? extends MatchPartition>> rulePredicate) {
         return MATCH_PARTITION_RULES.stream()
                 .filter(rulePredicate);
     }

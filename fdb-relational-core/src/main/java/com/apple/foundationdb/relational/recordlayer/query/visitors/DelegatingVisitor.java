@@ -305,6 +305,21 @@ public class DelegatingVisitor<D extends TypedVisitor> implements TypedVisitor {
     }
 
     @Override
+    public Object visitStoredQueryDefinition(final RelationalParser.StoredQueryDefinitionContext ctx) {
+        return getDelegate().visitStoredQueryDefinition(ctx);
+    }
+
+    @Override
+    public Object visitDeclareBlock(final RelationalParser.DeclareBlockContext ctx) {
+        return getDelegate().visitDeclareBlock(ctx);
+    }
+
+    @Override
+    public Object visitDeclaredFunction(final RelationalParser.DeclaredFunctionContext ctx) {
+        return getDelegate().visitDeclaredFunction(ctx);
+    }
+
+    @Override
     public CompiledSqlFunction visitTempSqlInvokedFunction(final RelationalParser.TempSqlInvokedFunctionContext ctx) {
         return getDelegate().visitTempSqlInvokedFunction(ctx);
     }
@@ -682,7 +697,7 @@ public class DelegatingVisitor<D extends TypedVisitor> implements TypedVisitor {
         return getDelegate().visitStraightJoin(ctx);
     }
 
-    @Nonnull
+    @Nullable
     @Override
     public Object visitOuterJoin(@Nonnull RelationalParser.OuterJoinContext ctx) {
         return getDelegate().visitOuterJoin(ctx);
@@ -1681,6 +1696,12 @@ public class DelegatingVisitor<D extends TypedVisitor> implements TypedVisitor {
     @Override
     public Object visitFunctionNameBase(@Nonnull RelationalParser.FunctionNameBaseContext ctx) {
         return getDelegate().visitFunctionNameBase(ctx);
+    }
+
+    @Nonnull
+    @Override
+    public Object visitFunctionNameKeyword(@Nonnull RelationalParser.FunctionNameKeywordContext ctx) {
+        return getDelegate().visitFunctionNameKeyword(ctx);
     }
 
     @Override

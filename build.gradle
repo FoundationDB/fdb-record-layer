@@ -48,7 +48,6 @@ buildscript {
 
 plugins {
     alias(libs.plugins.protobuf)
-    alias(libs.plugins.versions)
     alias(libs.plugins.spotbugs)
     alias(libs.plugins.nexus)
     alias(libs.plugins.download)
@@ -71,7 +70,6 @@ allprojects {
     apply plugin: 'maven-publish'
     apply plugin: 'signing'
     apply plugin: 'project-reports'
-    apply plugin: 'com.github.ben-manes.versions'
     apply plugin: 'de.undercouch.download'
 
     // Configure all source files to be read using UTF-8
@@ -216,10 +214,12 @@ subprojects {
         }
     }
 
+    def projectName = it.name
     ext {
         coreProjectName = "fdb-record-layer-core"
         shadedProjectName = "fdb-record-layer-core-shaded"
         publishLibrary = true
+        downloadsDirectory = rootProject.layout.projectDirectory.dir(".downloaded-build-assets/${projectName}")
     }
 
     tasks.named('assemble') {

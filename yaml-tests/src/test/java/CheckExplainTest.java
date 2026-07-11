@@ -33,6 +33,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -118,14 +119,19 @@ class CheckExplainTest {
         Assumptions.assumeFalse(YamlExecutionContext.isInCI(), "Skipped in CI: cannot modify YAMSQL files");
 
         final String resourcePath = "check-explain/addExplain/add-explain.yamsql";
-        final Path filePath = Path.of(System.getProperty("user.dir"), "src", "test", "resources", resourcePath);
 
-        // Strip any explain: line left by a previous run so we always start without one.
-        final List<String> original = Files.readAllLines(filePath, StandardCharsets.UTF_8);
+        // Strip any 'explain:' line left by a previous run so we always start without one.
+        // This needs to overwrite the contents of both the original yamsql file and the copied
+        // resource file in the classpath, since the latter is what is read by the YamlRunner.
+        final ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
+        final Path realFilePath = Path.of(System.getProperty("user.dir"), "src", "test", "resources", resourcePath);
+        final var resourcefilePath = Path.of(classLoader.resources(resourcePath).findFirst().orElseThrow().toURI());
+        final List<String> original = Files.readAllLines(resourcefilePath, StandardCharsets.UTF_8);
         final List<String> stripped = original.stream()
                 .filter(line -> !line.stripLeading().startsWith("- explain:"))
                 .collect(Collectors.toList());
-        Files.write(filePath, stripped, StandardCharsets.UTF_8);
+        Files.write(resourcefilePath, stripped, StandardCharsets.UTF_8);
+        Files.copy(resourcefilePath, realFilePath, StandardCopyOption.REPLACE_EXISTING);
 
         // Run with OPTION_ADD_EXPLAIN: the synthetic explain config is created and the
         // actual plan is written back into the file by replaceFilesIfRequired().
@@ -133,7 +139,9 @@ class CheckExplainTest {
                 YamlExecutionContext.ContextOptions.of(YamlExecutionContext.OPTION_ADD_EXPLAIN, true)).run();
 
         // Verify exactly one explain line was written into the file.
-        final List<String> updated = Files.readAllLines(filePath, StandardCharsets.UTF_8);
-        assertEquals(1, updated.stream().filter(line -> line.stripLeading().startsWith("- explain:")).count());
+        final List<String> updated = Files.readAllLines(realFilePath, StandardCharsets.UTF_8);
+        assertEquals(
+                1,
+                updated.stream().filter(line -> line.stripLeading().startsWith("- explain:")).count());
     }
 }

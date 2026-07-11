@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.expressions.EmptyKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
+import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.synchronizedsession.SynchronizedSessionLockedException;
 import com.apple.test.BooleanSource;
 import com.apple.test.SuperSlow;
@@ -49,7 +50,9 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 import java.util.stream.LongStream;
 
+import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
+import static com.apple.foundationdb.record.metadata.Key.Expressions.recordType;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -475,6 +478,51 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
     }
 
     @Test
+    void testMultiTargetToSingleTakeover() {
+        // Verify TakeoverTypes.MULTI_TARGET_TO_SINGLE: partly build as multi target, then finish each index
+        // individually as single target with only that takeover type allowed.
+
+        final FDBStoreTimer timer = new FDBStoreTimer();
+        final int numRecords = 80;
+        final int chunkSize  = 13;
+
+        List<Index> indexes = new ArrayList<>();
+        indexes.add(new Index("indexA", field("num_value_2"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS));
+        indexes.add(new Index("indexB", field("num_value_3_indexed"), IndexTypes.VALUE));
+        indexes.add(new Index("indexC", field("num_value_unique"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS));
+
+        populateData(numRecords);
+
+        FDBRecordStoreTestBase.RecordMetaDataHook hook = allIndexesHook(indexes);
+        openSimpleMetaData(hook);
+        disableAll(indexes);
+
+        // 1. partly build multi
+        buildIndexAndCrashHalfway(chunkSize, 3, timer, newIndexerBuilder(indexes));
+
+        // 2. Without the takeover allowed, single-target continuation is rejected
+        try (OnlineIndexer indexBuilder = newIndexerBuilder(indexes.get(0))
+                .setLimit(chunkSize)
+                .build()) {
+            assertThrows(IndexingBase.PartlyBuiltException.class, indexBuilder::buildIndex);
+        }
+
+        // 3. With MULTI_TARGET_TO_SINGLE allowed, each index finishes individually
+        for (Index index : indexes) {
+            try (OnlineIndexer indexBuilder = newIndexerBuilder(index)
+                    .setLimit(chunkSize)
+                    .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
+                            .allowTakeoverContinue(List.of(OnlineIndexer.IndexingPolicy.TakeoverTypes.MULTI_TARGET_TO_SINGLE)))
+                    .build()) {
+                indexBuilder.buildIndex(true);
+            }
+        }
+
+        assertReadable(indexes);
+        scrubAndValidate(indexes);
+    }
+
+    @Test
     void testMultiTargetIndividualContinueByIndexAfterCrash() {
         // After crash, finish building each index individually
 
@@ -613,6 +661,74 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
         assertEquals(numRecords + numRecordsOther, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
         assertEquals(numChunks , timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RANGES_BY_COUNT));
         scrubAndValidate(Arrays.asList(indexMyA, indexMyB, indexOtherA, indexOtherB));
+    }
+
+    @ParameterizedTest
+    @BooleanSource
+    void testMultiTargetByteRangeTypedRecords(boolean splitLongRecords) {
+        // Exercise the byte-range (non-Tuple) typed-records optimization for multi-target indexing.
+
+        final FDBStoreTimer timer = new FDBStoreTimer();
+        final int numRecords = 90;
+        final int numRecordsOther = 30;
+        final int chunkSize = 13;
+        final int numChunks = 1 + (numRecords / chunkSize);
+
+        final Index indexA = new Index("indexA", field("num_value_2"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS);
+        final Index indexB = new Index("indexB", field("num_value_3_indexed"), IndexTypes.VALUE);
+        final Index indexC = new Index("indexC", field("num_value_unique"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS);
+        final List<Index> indexes = Arrays.asList(indexA, indexB, indexC);
+
+        final FDBRecordStoreTestBase.RecordMetaDataHook hook = metaDataBuilder -> {
+            // Prefix both record types' primary keys with the record type, so the indexer can restrict the scan to a
+            // single record-type byte range.
+            final KeyExpression pkey = concat(recordType(), field("rec_no"));
+            metaDataBuilder.getRecordType("MySimpleRecord").setPrimaryKey(pkey);
+            metaDataBuilder.getRecordType("MyOtherRecord").setPrimaryKey(pkey);
+            // Give the indexed type the record type key 0
+            metaDataBuilder.getRecordType("MySimpleRecord").setRecordTypeKey(0L);
+            metaDataBuilder.setSplitLongRecords(splitLongRecords);
+            for (Index index : indexes) {
+                metaDataBuilder.addIndex("MySimpleRecord", index);
+            }
+        };
+
+        // Populate both record types using the prefixed-primary-key meta-data.
+        openSimpleMetaData(hook);
+        try (FDBRecordContext context = openContext()) {
+            for (int i = 0; i < numRecords; i++) {
+                recordStore.saveRecord(TestRecords1Proto.MySimpleRecord.newBuilder()
+                        .setRecNo(i)
+                        .setNumValue2(i * 7)
+                        .setNumValue3Indexed(i * 11)
+                        .setNumValueUnique(i * 13)
+                        .build());
+            }
+            for (int i = 0; i < numRecordsOther; i++) {
+                recordStore.saveRecord(TestRecords1Proto.MyOtherRecord.newBuilder()
+                        .setRecNo(i)
+                        .setNumValue2(i)
+                        .build());
+            }
+            context.commit();
+        }
+
+        disableAll(indexes);
+        try (OnlineIndexer indexBuilder = newIndexerBuilder(indexes, timer)
+                .setLimit(chunkSize)
+                .build()) {
+            indexBuilder.buildIndex(true);
+        }
+
+        // Only the MySimpleRecord records are scanned/indexed - the preset MyOtherRecord byte range is skipped.
+        assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
+        assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
+        assertEquals(numChunks, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RANGES_BY_COUNT));
+
+        // All target indexes are fully built and consistent with the scanned records.
+        openSimpleMetaData(hook);
+        assertReadable(indexes);
+        scrubAndValidate(indexes);
     }
 
     @Test
@@ -880,7 +996,7 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
         t1.start();
         startBuildingSemaphore.acquire();
         startBuildingSemaphore.release();
-        // Try one index at a time
+        // Try one index at a time, fail because of the other indexer is still active
         for (Index index : indexes) {
             try (OnlineIndexer indexBuilder = newIndexerBuilder()
                     .setIndex(index)

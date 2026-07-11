@@ -287,6 +287,7 @@ public class ExpressionPropertiesMap<E extends RelationalExpression> {
                 ImmutableSet.of(),
                 ImmutableSet.of(
                         ExpressionCountProperty.selectCount(),
+                        ExpressionCountProperty.outerJoinCount(),
                         ExpressionCountProperty.tableFunctionCount(),
                         PredicateComplexityProperty.predicateComplexity()
                 ),

@@ -87,6 +87,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.BiFunction;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
@@ -369,23 +370,44 @@ public class SemanticAnalyzer {
     @Nonnull
     public Expression resolveIdentifier(@Nonnull Identifier identifier,
                                         @Nonnull LogicalPlanFragment planFragment) {
-        // search throw all visible plan fragments:
+        // Column resolution takes priority over table-row resolution across all visible fragments.
+        // Fallback: if the identifier names a table or alias in scope, return the full row as a struct.
+        // This makes SELECT FOO FROM FOO equivalent to SELECT (*) FROM FOO when no column named FOO exists.
+        final var resolved = resolveAcrossFragments(identifier, planFragment, this::resolveIdentifierMaybe)
+                .or(() -> resolveAcrossFragments(identifier, planFragment, this::resolveAsTableRowMaybe));
+        return Assert.optionalUnchecked(resolved, ErrorCode.UNDEFINED_COLUMN,
+                () -> String.format(Locale.ROOT, "Attempting to query non existing column %s", identifier));
+    }
+
+    @Nonnull
+    private Optional<Expression> resolveAcrossFragments(
+            @Nonnull Identifier identifier,
+            @Nonnull LogicalPlanFragment planFragment,
+            @Nonnull BiFunction<Identifier, LogicalOperators, Optional<Expression>> resolver) {
+        // Search through all visible plan fragments:
         // - in each plan fragment, search operators left to right.
-        // - if identifier is not resolve, go to parent plan fragment.
-        LogicalPlanFragment currentPlanFragment = planFragment;
-        var resolvedMaybe = resolveIdentifierMaybe(identifier, currentPlanFragment.getLogicalOperators());
-        if (resolvedMaybe.isPresent()) {
-            return resolvedMaybe.get();
-        }
-        while (currentPlanFragment.hasParent()) {
-            currentPlanFragment = currentPlanFragment.getParent();
-            resolvedMaybe = resolveIdentifierMaybe(identifier, currentPlanFragment.getLogicalOperators());
-            if (resolvedMaybe.isPresent()) {
-                return resolvedMaybe.get();
+        // - if identifier is not resolved, go to parent plan fragment.
+
+        var currentMaybe = Optional.of(planFragment);
+        while (currentMaybe.isPresent()) {
+            final var resultMaybe = resolver.apply(identifier, currentMaybe.get().getLogicalOperators());
+            if (resultMaybe.isPresent()) {
+                return resultMaybe;
             }
+            currentMaybe = currentMaybe.get().getParentMaybe();
         }
-        Assert.failUnchecked(ErrorCode.UNDEFINED_COLUMN, String.format(Locale.ROOT, "Attempting to query non existing column %s", identifier));
-        return null; // unreachable.
+
+        return Optional.empty();
+    }
+
+    @Nonnull
+    private Optional<Expression> resolveAsTableRowMaybe(@Nonnull Identifier identifier,
+                                                         @Nonnull LogicalOperators operators) {
+        final var identifierOptional = Optional.of(identifier);
+        return Streams.stream(operators.forEachOnly())
+                .filter(op -> op.getName().equals(identifierOptional))
+                .findFirst()
+                .map(ignored -> Expression.of(expandStar(identifierOptional, operators).getUnderlying(), identifier));
     }
 
     @Nonnull

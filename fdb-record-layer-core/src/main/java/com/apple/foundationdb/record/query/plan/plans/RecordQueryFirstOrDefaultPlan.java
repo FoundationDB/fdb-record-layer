@@ -77,10 +77,12 @@ public class RecordQueryFirstOrDefaultPlan extends AbstractRelationalExpressionW
 
     public RecordQueryFirstOrDefaultPlan(@Nonnull final Quantifier.Physical inner,
                                          @Nonnull final Value onEmptyResultValue) {
-        Verify.verify(inner.getFlowedObjectType().nullable().equals(onEmptyResultValue.getResultType().nullable()));
+        final var innerType = inner.getFlowedObjectType();
+        Verify.verify(innerType.nullable().equals(onEmptyResultValue.getResultType().nullable()));
         this.inner = inner;
         this.onEmptyResultValue = onEmptyResultValue;
-        this.resultValue = new DerivedValue(ImmutableList.of(inner.getFlowedObjectValue(), onEmptyResultValue), inner.getFlowedObjectType());
+        this.resultValue = new DerivedValue(ImmutableList.of(inner.getFlowedObjectValue(), onEmptyResultValue),
+                innerType.withNullability(onEmptyResultValue.getResultType().isNullable()));
     }
 
     @Nonnull

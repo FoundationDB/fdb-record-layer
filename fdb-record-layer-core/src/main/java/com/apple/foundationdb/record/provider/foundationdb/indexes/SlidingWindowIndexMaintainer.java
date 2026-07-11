@@ -41,9 +41,11 @@ import com.apple.foundationdb.record.metadata.IndexRecordFunction;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
+import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBIndexableRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBIndexedRawRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
+import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainer;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintenanceFilter;
@@ -410,6 +412,9 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
         //
         // The net effect is that after this method completes, newRecord is indexed exactly
         // once with its current values, and the counter accurately reflects the window size.
+        if (newRecord != null) {
+            incrementCounter(SlidingWindowCounter.SW_PREEMPTIVE_DELETE_WRITE_ONLY);
+        }
         update(newRecord, null);
         return update(oldRecord, newRecord);
     }
@@ -452,10 +457,13 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
             final long count = counterBytes == null ? 0L : decodeLong(counterBytes);
 
             if (count < windowSize) {
+                incrementCounter(SlidingWindowCounter.SW_ITEM_ADDED_TO_WINDOW_FILLING);
                 // Window not full: add to delegate, update count, maybe update boundary
-                return delegate.update(null, savedRecord).thenCompose(vignore ->
+                return instrument(SlidingWindowEvent.SW_DELEGATE_INSERT,
+                        delegate.update(null, savedRecord)).thenCompose(vignore ->
                         tr.get(boundaryMetaKey).thenAccept(boundaryBytes -> {
                             tr.set(counterKey, encodeLong(count + 1));
+                            recordSize(SlidingWindowSizeEvent.SW_WINDOW_COUNT, count + 1);
                             if (boundaryBytes == null || extremumType.isWorseOrEqual(entryKey,
                                     Tuple.fromBytes(boundaryBytes))) {
                                 tr.set(boundaryMetaKey, entryKey.pack());
@@ -470,17 +478,17 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
                                 .addLogInfo(LogMessageKeys.INDEX_NAME, state.index.getName());
                     }
                     final Tuple boundaryEntryKey = Tuple.fromBytes(boundaryBytes);
-                    final Tuple boundaryWindowTuple = TupleHelpers.subTuple(boundaryEntryKey, 0, windowKeyColumnSize);
-
-                    if (!extremumType.isBetter(windowValue, boundaryWindowTuple)) {
+                    if (!extremumType.isBetter(entryKey, boundaryEntryKey)) {
+                        incrementCounter(SlidingWindowCounter.SW_ITEM_ADDED_TO_ENTRIES_ONLY);
                         // New entry is not better than boundary: it's already written to entries
                         // subspace on the overflow side. Nothing more to do.
                         return AsyncUtil.DONE;
                     }
 
                     // New entry is better: evict boundary from delegate, add new to delegate
-                    return evictBoundaryAndReplace(savedRecord, entryKey, entriesSubspace, tr,
-                            boundaryEntryKey, boundaryMetaKey);
+                    return instrument(SlidingWindowEvent.SW_EVICT_AND_REPLACE,
+                            evictBoundaryAndReplace(savedRecord, entryKey, entriesSubspace, tr,
+                                    boundaryEntryKey, boundaryMetaKey));
                 });
             }
         });
@@ -507,6 +515,7 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
         // Check if this entry exists in the entries subspace
         return tr.get(packedEntryKey).thenCompose(entryValue -> {
             if (entryValue == null) {
+                incrementCounter(SlidingWindowCounter.SW_DELETE_UNTRACKED);
                 // Not tracked, no-op
                 return AsyncUtil.DONE;
             }
@@ -525,6 +534,7 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
                 final Tuple boundaryEntryKey = Tuple.fromBytes(boundaryBytes);
 
                 if (!extremumType.isInWindow(entryKey, boundaryEntryKey)) {
+                    incrementCounter(SlidingWindowCounter.SW_OVERFLOW_ENTRY_DELETED);
                     // Entry was in overflow: already removed from entries, nothing else to do
                     return AsyncUtil.DONE;
                 }
@@ -534,14 +544,17 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
                     final long count = counterBytes == null ? 0L : decodeLong(counterBytes);
                     final long newCount = Math.max(0, count - 1);
                     tr.set(counterKey, encodeLong(newCount));
+                    recordSize(SlidingWindowSizeEvent.SW_WINDOW_COUNT, newCount);
 
-                    return delegate.update(savedRecord, null)
+                    return instrument(SlidingWindowEvent.SW_DELEGATE_DELETE,
+                            delegate.update(savedRecord, null))
                             .thenCompose(vignore -> updateBoundaryAfterDelete(
                                     entriesSubspace, tr, entryKey, boundaryEntryKey,
                                     boundaryMetaKey, packedEntryKey))
-                            .thenCompose(currentBoundaryPacked -> reElectFromOverflow(
-                                    entriesSubspace, tr, currentBoundaryPacked,
-                                    boundaryMetaKey, counterKey, newCount));
+                            .thenCompose(currentBoundaryPacked -> instrument(
+                                    SlidingWindowEvent.SW_RE_ELECT_FROM_OVERFLOW,
+                                    reElectFromOverflow(entriesSubspace, tr, currentBoundaryPacked,
+                                            boundaryMetaKey, counterKey, newCount)));
                 });
             });
         });
@@ -565,11 +578,19 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
         final byte[] oldBoundaryPackedKey = entriesSubspace.pack(boundaryEntryKey);
 
         return state.store.loadRecordAsync(boundaryPrimaryKey)
-                .thenCompose(evictedRecord -> evictedRecord != null
-                        ? delegate.update(evictedRecord, null) : AsyncUtil.DONE)
-                .thenCompose(v -> delegate.update(null, newRecord))
-                .thenCompose(v -> extremumType.getNewBoundaryAfterEviction(entriesSubspace, tr,
-                        oldBoundaryPackedKey))
+                .thenCompose(evictedRecord -> {
+                    if (evictedRecord == null) {
+                        incrementCounter(SlidingWindowCounter.SW_EVICTED_RECORD_MISSING);
+                        return AsyncUtil.DONE;
+                    }
+                    return instrument(SlidingWindowEvent.SW_DELEGATE_DELETE,
+                            delegate.update(evictedRecord, null));
+                })
+                .thenCompose(v -> instrument(SlidingWindowEvent.SW_DELEGATE_INSERT,
+                        delegate.update(null, newRecord)))
+                .thenCompose(v -> instrument(SlidingWindowEvent.SW_BOUNDARY_RESCAN_AFTER_EVICT,
+                        extremumType.getNewBoundaryAfterEviction(entriesSubspace, tr,
+                                oldBoundaryPackedKey)))
                 .thenAccept(newBoundaryKV -> {
                     if (newBoundaryKV != null) {
                         final Tuple newBoundaryKey = entriesSubspace.unpack(newBoundaryKV.getKey());
@@ -597,15 +618,18 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
             @Nonnull byte[] boundaryMetaKey,
             @Nonnull byte[] packedEntryKey) {
         if (!entryKey.equals(boundaryEntryKey)) {
+            incrementCounter(SlidingWindowCounter.SW_WINDOW_ENTRY_DELETED);
             return CompletableFuture.completedFuture(entriesSubspace.pack(boundaryEntryKey));
         }
-        return extremumType.getNewBoundaryAfterEviction(entriesSubspace, tr, packedEntryKey)
+        return instrument(SlidingWindowEvent.SW_BOUNDARY_RESCAN_AFTER_DELETE,
+                extremumType.getNewBoundaryAfterEviction(entriesSubspace, tr, packedEntryKey))
                 .thenApply(newBoundaryKV -> {
                     if (newBoundaryKV != null) {
                         final Tuple newBKey = entriesSubspace.unpack(newBoundaryKV.getKey());
                         tr.set(boundaryMetaKey, newBKey.pack());
                         return newBoundaryKV.getKey();
                     } else {
+                        incrementCounter(SlidingWindowCounter.SW_PARTITION_EMPTIED);
                         tr.clear(boundaryMetaKey);
                         return null;
                     }
@@ -630,15 +654,24 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
         return extremumType.getBestInOverflow(entriesSubspace, tr, currentBoundaryPacked)
                 .thenCompose(bestKV -> {
                     if (bestKV == null) {
+                        incrementCounter(SlidingWindowCounter.SW_WINDOW_SHRUNK_NO_OVERFLOW);
                         return AsyncUtil.DONE;
                     }
+                    incrementCounter(SlidingWindowCounter.SW_ITEM_PROMOTED_FROM_OVERFLOW);
                     final Tuple bestEntryKey = entriesSubspace.unpack(bestKV.getKey());
                     final Tuple bestPrimaryKey = Tuple.fromBytes(bestKV.getValue());
                     tr.set(boundaryMetaKey, bestEntryKey.pack());
                     tr.set(counterKey, encodeLong(newCount + 1));
+                    recordSize(SlidingWindowSizeEvent.SW_WINDOW_COUNT, newCount + 1);
                     return state.store.loadRecordAsync(bestPrimaryKey)
-                            .thenCompose(promotedRecord -> promotedRecord != null
-                                    ? delegate.update(null, promotedRecord) : AsyncUtil.DONE);
+                            .thenCompose(promotedRecord -> {
+                                if (promotedRecord == null) {
+                                    incrementCounter(SlidingWindowCounter.SW_PROMOTED_RECORD_MISSING);
+                                    return AsyncUtil.DONE;
+                                }
+                                return instrument(SlidingWindowEvent.SW_DELEGATE_INSERT,
+                                        delegate.update(null, promotedRecord));
+                            });
                 });
     }
 
@@ -649,6 +682,7 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
         Verify.verify(partitionKeyColumnSize >= prefix.size(),
                 "deleteWhere prefix size %s exceeds partition key column size %s",
                 prefix.size(), partitionKeyColumnSize);
+        incrementCounter(SlidingWindowCounter.SW_PARTITION_CLEARED);
         final byte[] key = getSlidingWindowSubspace().pack(prefix);
         Range indexRange = new Range(key, ByteArrayUtil.strinc(key));
         state.context.clear(indexRange);
@@ -661,5 +695,98 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
 
     private static long decodeLong(byte[] bytes) {
         return Tuple.fromBytes(bytes).getLong(0);
+    }
+
+    private void incrementCounter(@Nonnull SlidingWindowCounter counter) {
+        final FDBStoreTimer timer = state.context.getTimer();
+        if (timer != null) {
+            timer.increment(counter);
+        }
+    }
+
+    private void recordSize(@Nonnull SlidingWindowSizeEvent event, long size) {
+        final FDBStoreTimer timer = state.context.getTimer();
+        if (timer != null) {
+            timer.recordSize(event, size);
+        }
+    }
+
+    @Nonnull
+    private <T> CompletableFuture<T> instrument(@Nonnull final SlidingWindowEvent event,
+                                                @Nonnull final CompletableFuture<T> future) {
+        final FDBStoreTimer timer = state.context.getTimer();
+        if (timer == null) {
+            return future;
+        }
+        return timer.instrument(event, future);
+    }
+
+    public enum SlidingWindowCounter implements StoreTimer.Count {
+        SW_ITEM_ADDED_TO_WINDOW_FILLING("item added to window while filling up"),
+        SW_ITEM_ADDED_TO_ENTRIES_ONLY("item worse than boundary added to entries"),
+        SW_DELETE_UNTRACKED("delete called for untracked record"),
+        SW_OVERFLOW_ENTRY_DELETED("overflow entry deleted from entries"),
+        SW_WINDOW_ENTRY_DELETED("in-window non-boundary entry deleted"),
+        SW_ITEM_PROMOTED_FROM_OVERFLOW("item promoted from overflow into window"),
+        SW_WINDOW_SHRUNK_NO_OVERFLOW("window shrunk: no overflow available for re-election"),
+        SW_PARTITION_EMPTIED("partition emptied (no entries remain)"),
+        SW_EVICTED_RECORD_MISSING("boundary record could not be loaded for eviction"),
+        SW_PROMOTED_RECORD_MISSING("overflow record could not be loaded for promotion"),
+        SW_PREEMPTIVE_DELETE_WRITE_ONLY("preemptive delete during write-only index build"),
+        SW_PARTITION_CLEARED("partition cleared via deleteWhere");
+
+        @Nonnull
+        private final String title;
+
+        SlidingWindowCounter(@Nonnull final String title) {
+            this.title = title;
+        }
+
+        @Override
+        public boolean isSize() {
+            return false;
+        }
+
+        @Override
+        public String title() {
+            return title;
+        }
+    }
+
+    public enum SlidingWindowEvent implements StoreTimer.DetailEvent {
+        SW_EVICT_AND_REPLACE("evict boundary and insert better entry"),
+        SW_RE_ELECT_FROM_OVERFLOW("re-elect overflow entry into window"),
+        SW_BOUNDARY_RESCAN_AFTER_EVICT("rescan to locate new boundary after eviction"),
+        SW_BOUNDARY_RESCAN_AFTER_DELETE("rescan to locate new boundary after boundary delete"),
+        SW_DELEGATE_INSERT("insert into the delegate index"),
+        SW_DELEGATE_DELETE("delete from the delegate index");
+
+        @Nonnull
+        private final String title;
+
+        SlidingWindowEvent(@Nonnull final String title) {
+            this.title = title;
+        }
+
+        @Override
+        public String title() {
+            return title;
+        }
+    }
+
+    public enum SlidingWindowSizeEvent implements StoreTimer.SizeEvent {
+        SW_WINDOW_COUNT("window count after update");
+
+        @Nonnull
+        private final String title;
+
+        SlidingWindowSizeEvent(@Nonnull final String title) {
+            this.title = title;
+        }
+
+        @Override
+        public String title() {
+            return title;
+        }
     }
 }

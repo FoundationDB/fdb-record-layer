@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.cascades.rules;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.query.plan.cascades.AbstractCascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.ImplementationCascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.ImplementationCascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.ExplodeExpression;
@@ -36,7 +37,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  * A rule that implements an {@link ExplodeExpression} as a {@link RecordQueryExplodePlan}.
  */
 @API(API.Status.EXPERIMENTAL)
-public class ImplementExplodeRule extends ImplementationCascadesRule<ExplodeExpression> {
+public class ImplementExplodeRule extends AbstractCascadesRule<ExplodeExpression> implements ImplementationCascadesRule<ExplodeExpression> {
     private static final BindingMatcher<ExplodeExpression> root = explodeExpression();
 
     public ImplementExplodeRule() {

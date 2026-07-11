@@ -54,4 +54,13 @@ message IndexBuildHeartbeat {
     optional int64 heartbeatTimeMilliseconds = 3; // last heartbeat's time (since epoch). This is the only heartbeat value that changes during online indexing.
  }
 
-
+// The message that gets saved into the pending writes queue.
+// This message gets stored in an google.protobuf.Any field in the queue. This means that this message type SHOULD NOT be moved
+// or renamed to preserve wire-format compatibility with existing data
+// This represents a record change that needs to be indexed:
+// Either of the records (but not both) can be null, where null "old_record" means we are inserting a new
+// record and null "new_record" means we are deleting an existing one.
+message PendingWritesQueueEntry {
+  optional bytes old_records = 1;
+  optional bytes new_record = 2;
+}
