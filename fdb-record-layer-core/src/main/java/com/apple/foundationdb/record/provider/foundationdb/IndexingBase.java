@@ -280,15 +280,18 @@ public abstract class IndexingBase {
     private CompletableFuture<Boolean> markSingleIndexWriteOnly(final FDBRecordStore store, final IndexingCommon.IndexContext indexContext) {
         // For now, the pending write queue is not allowed for non-idempotent indexes, nor for indexes whose key
         // contains a record version: the queue payload holds only the serialized record (not its version), so a
-        // drained version-key index would be built with a null version. Such indexes fall back to plain write-only.
+        // drained version-key index would be built with a null version. It is also not allowed during mutual indexing,
+        // as two concurrent queue drains may cause data inconsistency.
         final Index index = indexContext.index;
         if (policy.shouldUsePendingWriteQueue(index) &&
                 !indexContext.isSynthetic &&
+                !policy.isMutual() &&
                 store.getIndexMaintainer(index).isIdempotent() &&
                 index.getRootExpression().versionColumns() == 0 &&
                 store.getFormatVersionEnum().isAtLeast(FormatVersion.WRITE_ONLY_WITH_QUEUE)) {
             // TODO: support write-only-with-queue for synthetic records
             // TODO? support versioned index ("?" because these kind of indexes don't tend to have indexing bottlenecks)
+            // TODO? support write-only-with-queue for mutual indexing (may require a drain semaphore)
             return store.markIndexWriteOnlyWithQueue(index);
         }
         return store.markIndexWriteOnly(index);
@@ -427,6 +430,11 @@ public abstract class IndexingBase {
 
     @Nonnull
     private CompletableFuture<Void> setIndexingTypeOrThrow(FDBRecordStore store, boolean continuedBuild, Index index, IndexBuildProto.IndexBuildIndexingStamp newStamp) {
+        if (policy.isMutual() && store.getIndexState(index).isWriteOnlyWithQueue()) {
+            // Mutual indexing does not support the pending writes queue.
+            throw new RecordCoreException("Mutual indexing cannot continue a pending write queue index build",
+                    LogMessageKeys.INDEX_NAME, index.getName());
+        }
         if (forceStampOverwrite && !continuedBuild) {
             // Fresh session + overwrite = no questions asked
             store.saveIndexingTypeStamp(index, newStamp);

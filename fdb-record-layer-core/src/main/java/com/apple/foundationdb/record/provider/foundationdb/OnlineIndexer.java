@@ -1537,6 +1537,9 @@ public class OnlineIndexer implements AutoCloseable {
              * Set the subset of target indexes that should be built with a pending write queue. While such an index
              * is being built, user updates are accumulated in a pending write queue (to be drained by the indexer)
              * instead of being written to the index directly. By default, no index uses a pending write queue.
+             * This state is intended to reduce conflicts between user transactions and indexer transactions, which might
+             * help in cases of index types that with indexing bottlenecks. Not all index maintainers can support this
+             * state. Since the index update operation is deferred, this state may break versioned indexes.
              * @param indexes the target indexes that should be built with a pending write queue
              * @return this builder
              */
