@@ -1759,6 +1759,69 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
         }
     }
 
+    @Test
+    void writeOnlyWithQueueRoutesOutOfWindowUpdatesToQueue() throws Exception {
+        // Some of the enqueued records should fall outside the sliding window.
+        try (FDBRecordContext context = openContext()) {
+            openStore(context, 2, Direction.DESC);
+            recordStore.markIndexWriteOnlyWithQueue(INDEX_NAME).join();
+            assertTrue(recordStore.isIndexWriteOnlyWithQueue(INDEX_NAME));
+
+            // Descending relevance in primary-key order: recs 1 and 2 fill the window; recs 3 and 4 are below the
+            // window boundary and must overflow (stay out of the window) once the queue is drained.
+            rec(1, 400);
+            rec(2, 300);
+            rec(3, 200);
+            rec(4, 100);
+
+            // The records themselves are persisted.
+            for (long recNo : new long[]{1L, 2L, 3L, 4L}) {
+                assertNotNull(recordStore.loadRecord(Tuple.from(recNo)));
+            }
+            commit(context);
+        }
+
+        // Every update went to the pending queue rather than the index, regardless of whether it belongs in the window:
+        // the queue holds exactly the four deferred writes.
+        try (FDBRecordContext context = openContext()) {
+            openStore(context, 2, Direction.DESC);
+            final Index index = recordStore.getRecordMetaData().getIndex(INDEX_NAME);
+            final Long queueSize = queueSize(context, index);
+            assertEquals(4L, queueSize == null ? 0L : queueSize,
+                    "all four deferred writes should be sitting in the pending queue");
+            commit(context);
+        }
+
+        // Drain the queue and finish the build via the online indexer.
+        try (FDBRecordContext context = openContext()) {
+            openStore(context, 2, Direction.DESC);
+            final Index index = recordStore.getRecordMetaData().getIndex(INDEX_NAME);
+            try (OnlineIndexer indexer = OnlineIndexer.newBuilder()
+                    .setRecordStore(recordStore)
+                    .setIndex(index)
+                    .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
+                            .setUsePendingWriteQueue(List.of(index))
+                            .build())
+                    .build()) {
+                indexer.buildIndex(true);
+            }
+            commit(context);
+        }
+
+        // After the drain the index is readable and the window holds only the two highest-relevance records; the
+        // out-of-window records overflowed and are absent from the window. The queue has been erased.
+        try (FDBRecordContext context = openContext()) {
+            openStore(context, 2, Direction.DESC);
+            final Index index = recordStore.getRecordMetaData().getIndex(INDEX_NAME);
+            assertTrue(recordStore.isIndexReadable(index));
+            assertThat(slidingWindow())
+                    .hasSizeOf(2)
+                    .underlyingHnsw().containsInAnyOrder(1, 2);
+            assertNull(queueSize(context, index), "the queue data should have been erased once the index became readable");
+            commit(context);
+        }
+    }
+
     @Nullable
     private Long queueSize(@Nonnull FDBRecordContext context, @Nonnull Index index) {
         final PendingWritesQueue<IndexBuildProto.PendingWritesQueueEntry> queue =
