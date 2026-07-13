@@ -222,7 +222,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
 
     public int deleteDocumentBypassQueue(Tuple groupingKey, @Nullable Integer partitionId, Tuple primaryKey) throws IOException {
         return LuceneIndexMaintainerHelper.deleteDocument(state.context, directoryManager, state.index, groupingKey, partitionId, primaryKey,
-                state.store.isAnyIndexWriteOnly(state.index));
+                state.store.isIndexWriteOnly(state.index));
     }
 
     @Override
@@ -407,7 +407,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
      */
     private <M extends Message> CompletableFuture<Integer> tryDeleteInWriteOnlyMode(@Nonnull FDBIndexableRecord<M> record,
                                                                                     @Nonnull Tuple groupingKey) {
-        if (!state.store.isAnyIndexWriteOnly(state.index)) {
+        if (!state.store.isIndexWriteOnly(state.index)) {
             // no op
             return CompletableFuture.completedFuture(0);
         }

@@ -202,7 +202,7 @@ public class BitmapValueIndexMaintainer extends StandardIndexMaintainer {
             // We really could use a new mutation that took a linear bit position to set / clear and only did length extension or something like that.
             final byte[] bitmap = new byte[(entrySize + 7) / 8];
             if (remove) {
-                if (state.store.isAnyIndexWriteOnly(state.index)) {
+                if (state.store.isIndexWriteOnly(state.index)) {
                     // If the index isn't built, it's possible this key wasn't reached.
                     // So initialize it to zeros (or leave it alone).
                     state.transaction.mutate(MutationType.BIT_OR, key, bitmap);

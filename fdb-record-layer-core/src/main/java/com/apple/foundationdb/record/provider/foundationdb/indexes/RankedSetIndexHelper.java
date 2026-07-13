@@ -276,7 +276,7 @@ public class RankedSetIndexHelper {
             // It is okay if the score isn't in the ranked set yet if the index is
             // write only because this means that the score just hasn't yet
             // been added by some record. We still want the conflict ranges, though.
-            if (!exists && !state.store.isAnyIndexWriteOnly(state.index)) {
+            if (!exists && !state.store.isIndexWriteOnly(state.index)) {
                 throw new RecordCoreException("Score was not present in ranked set.",
                         "rankSubspace", ByteArrayUtil2.loggable(rankedSet.getSubspace().getKey()));
             }

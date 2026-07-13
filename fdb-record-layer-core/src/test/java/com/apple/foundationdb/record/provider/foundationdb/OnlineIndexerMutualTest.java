@@ -830,7 +830,7 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
         assertTrue(indexedAsMulti < numRecords);
 
 
-        // happy indexes assertion`
+        // happy indexes assertion
         scrubAndValidate(indexes);
         assertReadable(indexes);
     }

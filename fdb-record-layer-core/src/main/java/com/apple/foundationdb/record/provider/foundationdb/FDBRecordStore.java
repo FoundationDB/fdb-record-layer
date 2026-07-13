@@ -4250,7 +4250,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     }
 
     /**
-     * Determine if the index is write-only for this record store. This method will not perform
+     * Determine if the index is write-only (but not write-only-with-queue) for this record store. This method will not perform
      * any queries to the underlying database and instead satisfies the answer based on the
      * in-memory cache of store state. However, if another operation in a different transaction
      * happens concurrently that changes the index's state, operations using the same {@link FDBRecordContext}
@@ -4260,12 +4260,12 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * @return <code>true</code> if the index is write-only and <code>false</code> otherwise
      * @throws IllegalArgumentException if no index in the metadata has the same name as this index
      */
-    public boolean isIndexWriteOnly(@Nonnull Index index) {
-        return isIndexWriteOnly(index.getName());
+    public boolean isIndexWriteOnlyNoQueue(@Nonnull Index index) {
+        return isIndexWriteOnlyNoQueue(index.getName());
     }
 
     /**
-     * Determine if the index with the given name is write-only for this record store.
+     * Determine if the index with the given name is write-only (but not write-only-with-queue) for this record store.
      * This method will not perform any queries to the underlying database and instead
      * satisfies the answer based on the in-memory cache of store state.
      *
@@ -4273,8 +4273,8 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * @return <code>true</code> if the named index is write-only and <code>false</code> otherwise
      * @throws IllegalArgumentException if no index in the metadata has the given name
      */
-    public boolean isIndexWriteOnly(@Nonnull String indexName) {
-        return getIndexState(indexName).equals(IndexState.WRITE_ONLY);
+    public boolean isIndexWriteOnlyNoQueue(@Nonnull String indexName) {
+        return getIndexState(indexName).isWriteOnlyNoQueue();
     }
 
     /**
@@ -4317,8 +4317,8 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * @return <code>true</code> if the index is write-only in any form and <code>false</code> otherwise
      * @throws IllegalArgumentException if no index in the metadata has the same name as this index
      */
-    public boolean isAnyIndexWriteOnly(@Nonnull Index index) {
-        return isAnyIndexWriteOnly(index.getName());
+    public boolean isIndexWriteOnly(@Nonnull Index index) {
+        return isIndexWriteOnly(index.getName());
     }
 
     /**
@@ -4331,7 +4331,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * @return <code>true</code> if the named index is write-only in any form and <code>false</code> otherwise
      * @throws IllegalArgumentException if no index in the metadata has the given name
      */
-    public boolean isAnyIndexWriteOnly(@Nonnull String indexName) {
+    public boolean isIndexWriteOnly(@Nonnull String indexName) {
         return getIndexState(indexName).isWriteOnly();
     }
 

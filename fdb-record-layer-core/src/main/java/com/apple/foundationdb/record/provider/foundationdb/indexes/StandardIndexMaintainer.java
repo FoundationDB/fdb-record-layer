@@ -508,7 +508,7 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
                     Tuple existingEntry = unpackKey(getIndexSubspace(), kv);
                     Tuple existingKey = state.index.getEntryPrimaryKey(existingEntry);
                     if (!TupleHelpers.equals(primaryKey, existingKey)) {
-                        if (state.store.isAnyIndexWriteOnly(state.index)) {
+                        if (state.store.isIndexWriteOnly(state.index)) {
                             addUniquenessViolation(valueKey, primaryKey, existingKey);
                             addUniquenessViolation(valueKey, existingKey, primaryKey);
                         } else {
@@ -521,7 +521,7 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
     }
 
     private boolean isWriteOnlyOrUniquePending() {
-        return state.store.isAnyIndexWriteOnly(state.index) || state.store.isIndexReadableUniquePending(state.index);
+        return state.store.isIndexWriteOnly(state.index) || state.store.isIndexReadableUniquePending(state.index);
     }
 
     /**

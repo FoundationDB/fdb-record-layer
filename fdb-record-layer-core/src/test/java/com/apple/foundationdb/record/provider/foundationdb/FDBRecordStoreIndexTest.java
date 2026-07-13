@@ -978,7 +978,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
             assertThat(recordStore.isIndexWriteOnlyWithQueue(standardIndexName), is(true));
             assertThat(recordStore.isIndexWriteOnlyWithQueue(permissiveIndex), is(true));
             assertThat(recordStore.isIndexWriteOnlyWithQueue(permissiveIndexName), is(true));
-            assertThat(recordStore.isIndexWriteOnly(standardIndexName), is(false));
+            assertThat(recordStore.isIndexWriteOnlyNoQueue(standardIndexName), is(false));
             assertThat(recordStore.isIndexReadable(standardIndexName), is(false));
 
             // Saving a record routes the update through updateWhileWriteOnlyWithQueue for each maintainer
