@@ -15,6 +15,7 @@ reference/Concepts
 reference/sql_commands/DDL
 reference/sql_commands/DML
 reference/sql_commands/DQL
+reference/query_options
 reference/sql_types
 reference/Expressions
 reference/Functions

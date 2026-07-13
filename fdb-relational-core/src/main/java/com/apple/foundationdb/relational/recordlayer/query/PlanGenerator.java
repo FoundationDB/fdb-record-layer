@@ -167,6 +167,7 @@ public final class PlanGenerator {
             RelationalLoggingUtil.publishNormalizeQueryLogs(message, stepTimeMicros(), astHashResult.getQueryCacheKey().hashCode(),
                     astHashResult.getQueryCacheKey().getCanonicalQueryString());
             options = options.withChild(astHashResult.getQueryOptions());
+            validateSnapshotIsolationOption(astHashResult.getQueryCachingFlags());
 
             // shortcut plan cache if the query is determined not-cacheable or the cache is not set (disabled).
             if (shouldNotCache(astHashResult.getQueryCachingFlags()) || cache.isEmpty()) {
@@ -471,6 +472,27 @@ public final class PlanGenerator {
                 // OOM when too many of them are stored in the plan cache.
                 queryCachingFlags.contains(AstNormalizer.NormalizationResult.QueryCachingFlags.IS_INSERT_STATEMENT);
 
+    }
+
+    /**
+     * Validates that the {@code OPTIONS (ISOLATION LEVEL SNAPSHOT)} query option, if present, is only used on a
+     * read-only ({@code SELECT}) statement. Applying snapshot isolation to a mutation, DDL, or sub-query is not
+     * currently supported, so those cases are rejected rather than silently ignored. Note that when the option is
+     * attached to a sub-select feeding an {@code INSERT}, the enclosing statement is flagged as an INSERT, so this
+     * check also rejects that case.
+     *
+     * @param queryCachingFlags the statement-classification flags produced while normalizing the query.
+     * @throws RelationalException with {@link ErrorCode#UNSUPPORTED_OPERATION} if the option is used on a
+     *         non-{@code SELECT} statement.
+     */
+    private void validateSnapshotIsolationOption(@Nonnull final Set<AstNormalizer.NormalizationResult.QueryCachingFlags> queryCachingFlags)
+            throws RelationalException {
+        if (!Boolean.TRUE.equals(options.getOption(Options.Name.SNAPSHOT_ISOLATION))) {
+            return;
+        }
+        Assert.that(queryCachingFlags.contains(AstNormalizer.NormalizationResult.QueryCachingFlags.IS_DQL_STATEMENT),
+                ErrorCode.UNSUPPORTED_OPERATION,
+                "OPTIONS (ISOLATION LEVEL SNAPSHOT) is only supported on SELECT queries");
     }
 
     /**
