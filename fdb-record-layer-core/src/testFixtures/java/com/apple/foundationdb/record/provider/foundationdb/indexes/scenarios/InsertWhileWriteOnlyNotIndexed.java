@@ -38,9 +38,9 @@ public class InsertWhileWriteOnlyNotIndexed implements IndexScenario {
     public void runTest(final IndexDefinitionFactory definitionFactory,
                         final Supplier<FDBRecordContext> openContext,
                         final FDBRecordStore.Builder storeBuilder) {
-        final IndexDefinition definition = definitionFactory.getDefinition(0, null);
+        final IndexDefinition definition = definitionFactory.getDefinition();
         final IndexScenarioModel model = new IndexScenarioModel(definition, openContext, storeBuilder);
-        final List<Message> records = definition.generateRecords(10);
+        final List<Message> records = model.generateRecords(10);
         model.setupIndex();
         model.markIndexDisabled();
         model.markIndexWriteOnly();

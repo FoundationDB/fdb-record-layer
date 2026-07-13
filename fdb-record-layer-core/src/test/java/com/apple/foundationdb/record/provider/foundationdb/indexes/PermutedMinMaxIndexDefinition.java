@@ -23,22 +23,20 @@ package com.apple.foundationdb.record.provider.foundationdb.indexes;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.RecordCursor;
-import com.apple.foundationdb.record.RecordMetaData;
-import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.ScanProperties;
-import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.Key;
+import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
+import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanRange;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.scenarios.IndexDefinition;
-import com.google.protobuf.Message;
+import com.apple.foundationdb.record.provider.foundationdb.indexes.scenarios.IndexScenarioMetaData;
+import com.apple.foundationdb.record.provider.foundationdb.indexes.scenarios.ScenarioRecords;
 
 import java.util.Collections;
-import java.util.List;
-import java.util.stream.IntStream;
 
 class PermutedMinMaxIndexDefinition implements IndexDefinition {
     private final String indexName = "permutedIndex";
@@ -49,47 +47,29 @@ class PermutedMinMaxIndexDefinition implements IndexDefinition {
     }
 
     @Override
-    public RecordMetaData getMetaData() {
-        RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder()
-                .setRecords(TestRecords1Proto.getDescriptor());
-        metaDataBuilder.addIndex("MySimpleRecord",
-                new Index(indexName,
-                        Key.Expressions.concatenateFields("str_value_indexed", "num_value_2", "num_value_3_indexed").group(1),
-                        indexType,
-                        Collections.singletonMap(IndexOptions.PERMUTED_SIZE_OPTION, "1")));
-        return metaDataBuilder.build();
+    public String getIndexName() {
+        return indexName;
     }
 
     @Override
-    public List<Message> generateRecords(final int count) {
-        return IntStream.range(0, count)
-                .mapToObj(i -> (Message)TestRecords1Proto.MySimpleRecord.newBuilder()
-                        .setRecNo(i)
-                        .setStrValueIndexed("group")
-                        .setNumValue2(i)
-                        .setNumValue3Indexed(3 * i + 1)
-                        .build())
-                .toList();
+    public String getIndexedTypeName() {
+        return ScenarioRecords.SCENARIO_RECORD;
+    }
+
+    @Override
+    public Index buildIndex(final KeyExpression groupingPrefix) {
+        // Grouping columns: [group?, str_value, num_value]; grouped value: permuted_value; permuted size 1
+        // permutes num_value.
+        final KeyExpression grouping = new GroupingKeyExpression(IndexScenarioMetaData.prefixed(groupingPrefix,
+                Key.Expressions.concatenateFields(ScenarioRecords.STR_VALUE, ScenarioRecords.NUM_VALUE,
+                        ScenarioRecords.PERMUTED_VALUE)), 1);
+        return new Index(indexName, grouping, indexType,
+                Collections.singletonMap(IndexOptions.PERMUTED_SIZE_OPTION, "1"));
     }
 
     @Override
     public RecordCursor<IndexEntry> scanIndex(final FDBRecordStore store, final ScanProperties scanProperties) {
         return store.scanIndex(store.getRecordMetaData().getIndex(indexName),
                 new IndexScanRange(IndexScanType.BY_GROUP, TupleRange.ALL), null, scanProperties);
-    }
-
-    @Override
-    public List<Message> generateOtherRecords(final int count) {
-        // MyOtherRecord is not covered by the permuted min/max index on MySimpleRecord.
-        return IntStream.range(0, count)
-                .mapToObj(i -> (Message)TestRecords1Proto.MyOtherRecord.newBuilder()
-                        .setRecNo(1000 + i)
-                        .build())
-                .toList();
-    }
-
-    @Override
-    public String getIndexName() {
-        return indexName;
     }
 }

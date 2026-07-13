@@ -43,7 +43,7 @@ class SimpleMultidimensionalIndexTest extends MultidimensionalIndexTestBase {
     @IndexScenarios
     void indexScenariosTest(IndexScenario scenario) throws Exception {
         scenario.runTest(
-                (groupingLength, syntheticType) -> new MultiDimensionalIndexDefinition(),
+                () -> new MultiDimensionalIndexDefinition(),
                 this::openContext,
                 FDBRecordStore.newBuilder()
                         .setKeySpacePath(path));

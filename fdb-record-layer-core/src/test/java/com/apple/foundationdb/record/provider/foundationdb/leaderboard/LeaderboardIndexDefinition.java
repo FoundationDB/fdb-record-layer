@@ -22,39 +22,50 @@ package com.apple.foundationdb.record.provider.foundationdb.leaderboard;
 
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.RecordCursor;
-import com.apple.foundationdb.record.RecordMetaData;
-import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.ScanProperties;
-import com.apple.foundationdb.record.TestRecordsLeaderboardProto;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
+import com.apple.foundationdb.record.metadata.expressions.NestingKeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.scenarios.IndexDefinition;
-import com.google.protobuf.Message;
+import com.apple.foundationdb.record.provider.foundationdb.indexes.scenarios.ScenarioRecords;
 
 import java.util.Collections;
-import java.util.List;
-import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 
 class LeaderboardIndexDefinition implements IndexDefinition {
     private final String indexName = "LeaderboardIndex";
 
     @Override
-    public RecordMetaData getMetaData() {
-        RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder()
-                .setRecords(TestRecordsLeaderboardProto.getDescriptor());
-        metaDataBuilder.addIndex("NestedLeaderboardRecord",
-                new Index(indexName,
-                        Key.Expressions.field("scores", KeyExpression.FanType.FanOut)
-                                .nest(Key.Expressions.concat(Key.Expressions.field("score"),
-                                        Key.Expressions.field("timestamp")))
-                                .ungrouped(),
-                        IndexTypes.TIME_WINDOW_LEADERBOARD));
-        return metaDataBuilder.build();
+    public String getIndexName() {
+        return indexName;
+    }
+
+    @Override
+    public String getIndexedTypeName() {
+        return ScenarioRecords.SCENARIO_RECORD;
+    }
+
+    @Override
+    public boolean supportsGrouping() {
+        // A grouped time-window leaderboard cannot be scanned with an all-groups range: the maintainer
+        // requires the scan range to include the group ("Ranked scan range does not include group"). The
+        // generic DeleteWhereGroup scenario scans the whole index (TupleRange.ALL), so it cannot apply here
+        // without leaderboard-specific per-group scanning (or a maintainer change). Skip grouping.
+        return false;
+    }
+
+    @Override
+    public Index buildIndex(final KeyExpression groupingPrefix) {
+        final NestingKeyExpression scores = Key.Expressions.field(ScenarioRecords.SCORES, KeyExpression.FanType.FanOut)
+                .nest(Key.Expressions.concat(Key.Expressions.field(ScenarioRecords.SCORE),
+                        Key.Expressions.field(ScenarioRecords.TIMESTAMP)));
+        final KeyExpression root = groupingPrefix.getColumnSize() == 0
+                ? scores.ungrouped()
+                : scores.groupBy(groupingPrefix);
+        return new Index(indexName, root, IndexTypes.TIME_WINDOW_LEADERBOARD);
     }
 
     @Override
@@ -67,39 +78,9 @@ class LeaderboardIndexDefinition implements IndexDefinition {
     }
 
     @Override
-    public List<Message> generateRecords(final int count) {
-        return IntStream.range(0, count)
-                .mapToObj(i -> (Message)TestRecordsLeaderboardProto.NestedLeaderboardRecord.newBuilder()
-                        .setName("player-" + i)
-                        .setGameId("game-1")
-                        .addScores(TestRecordsLeaderboardProto.NestedLeaderboardEntry.newBuilder()
-                                .setScore(100L + i)
-                                .setTimestamp(1000L + i)
-                                .setContext(i))
-                        .build())
-                .collect(Collectors.toList());
-    }
-
-    @Override
     public RecordCursor<IndexEntry> scanIndex(final FDBRecordStore store, final ScanProperties scanProperties) {
         return store.scanIndex(store.getRecordMetaData().getIndex(indexName),
                 new TimeWindowScanRange(TimeWindowLeaderboard.ALL_TIME_LEADERBOARD_TYPE, 0L, TupleRange.ALL),
                 null, scanProperties);
-    }
-
-    @Override
-    public List<Message> generateOtherRecords(final int count) {
-        // FlatLeaderboardRecord is not covered by the leaderboard index on NestedLeaderboardRecord.
-        return IntStream.range(0, count)
-                .mapToObj(i -> (Message)TestRecordsLeaderboardProto.FlatLeaderboardRecord.newBuilder()
-                        .setName("other-" + i)
-                        .setGameId("game-1")
-                        .build())
-                .collect(Collectors.toList());
-    }
-
-    @Override
-    public String getIndexName() {
-        return indexName;
     }
 }

@@ -1,5 +1,5 @@
 /*
- * InsertWhileWriteOnly.java
+ * AbstractSyntheticTypeScenario.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -21,53 +21,39 @@
 package com.apple.foundationdb.record.provider.foundationdb.indexes.scenarios;
 
 import com.apple.foundationdb.record.IndexEntry;
-import com.apple.foundationdb.record.IndexState;
-import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
-import com.apple.foundationdb.record.provider.foundationdb.OnlineIndexer;
-import com.google.auto.service.AutoService;
+import com.apple.foundationdb.record.provider.foundationdb.indexes.scenarios.IndexScenarioMetaData.SyntheticKind;
 import com.google.protobuf.Message;
+import org.junit.jupiter.api.Assumptions;
 
 import java.util.List;
 import java.util.function.Supplier;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
+/**
+ * Builds the index under test over a synthetic record type (joined or unnested), saves the
+ * constituent/parent records, and verifies that the index rebuilds identically (from-scratch
+ * maintenance vs a bulk {@code OnlineIndexer} rebuild) over the synthetic type.
+ */
+abstract class AbstractSyntheticTypeScenario implements IndexScenario {
+    protected abstract SyntheticKind kind();
 
-@AutoService(IndexScenario.class)
-public class InsertWhileWriteOnlyAlreadyIndexed implements IndexScenario {
     @Override
     public void runTest(final IndexDefinitionFactory definitionFactory,
                         final Supplier<FDBRecordContext> openContext,
                         final FDBRecordStore.Builder storeBuilder) {
         final IndexDefinition definition = definitionFactory.getDefinition();
-        final IndexScenarioModel model = new IndexScenarioModel(definition, openContext, storeBuilder);
+        Assumptions.assumeTrue(definition.supportsSynthetic(),
+                "index does not support synthetic record types");
+        final IndexScenarioModel model = IndexScenarioModel.synthetic(definition, kind(), openContext, storeBuilder);
         final List<Message> records = model.generateRecords(10);
 
         model.setupIndex();
         model.saveRecords(records);
-        model.markIndexDisabled();
 
-        try (OnlineIndexer indexer = model.getIndexerBuilder()
-                .build()) {
-            indexer.buildIndex(false);
-        }
-
-        assertEquals(IndexState.WRITE_ONLY, model.getIndexState());
-
-        // already indexed
-        model.saveRecords(records);
-        // should just be marking it readable
-        try (OnlineIndexer indexer = model.getIndexerBuilder()
-                .build()) {
-            indexer.buildIndex(true);
-        }
-        final List<IndexEntry> actual = model.scanIndex();
+        final List<IndexEntry> fromScratch = model.scanIndex();
         model.markIndexDisabled();
         model.buildIndex();
-        // TODO: this is not ideal. Perhaps an early symptom of the eventual challenges ahead
-        if (!model.getMetaData().getIndex(definition.getIndexName()).getType().equals(IndexTypes.COUNT_UPDATES)) {
-            model.assertScanResultsEqual(model.scanIndex(), actual);
-        }
+        model.assertScanResultsEqual(fromScratch, model.scanIndex());
     }
 }

@@ -36,9 +36,9 @@ public class RebuildIndex implements IndexScenario {
     public void runTest(final IndexDefinitionFactory definitionFactory,
                         Supplier<FDBRecordContext> openContext,
                         FDBRecordStore.Builder storeBuilder) {
-        final IndexDefinition definition = definitionFactory.getDefinition(0, null);
+        final IndexDefinition definition = definitionFactory.getDefinition();
         final IndexScenarioModel model = new IndexScenarioModel(definition, openContext, storeBuilder);
-        final List<Message> records = definition.generateRecords(10);
+        final List<Message> records = model.generateRecords(10);
 
         model.setupIndex();
         model.saveRecords(records);

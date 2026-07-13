@@ -91,9 +91,8 @@ class VectorIndexTest extends VectorIndexTestBase {
     @ParameterizedTest
     @IndexScenarios
     void indexScenariosTest(IndexScenario scenario) throws Exception {
-        final int numDimensions = 128;
         scenario.runTest(
-                (groupingLength, syntheticType) -> new VectorIndexDefinition(numDimensions),
+                () -> new VectorIndexDefinition(),
                 this::openContext,
                 FDBRecordStore.newBuilder()
                         .setKeySpacePath(path));

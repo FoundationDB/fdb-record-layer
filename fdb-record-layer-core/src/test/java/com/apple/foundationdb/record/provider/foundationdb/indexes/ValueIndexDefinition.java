@@ -23,42 +23,36 @@ package com.apple.foundationdb.record.provider.foundationdb.indexes;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.RecordCursor;
-import com.apple.foundationdb.record.RecordMetaData;
-import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.ScanProperties;
-import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexTypes;
-import com.apple.foundationdb.record.metadata.Key;
+import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanRange;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.scenarios.IndexDefinition;
-import com.google.protobuf.Message;
+import com.apple.foundationdb.record.provider.foundationdb.indexes.scenarios.IndexScenarioMetaData;
+import com.apple.foundationdb.record.provider.foundationdb.indexes.scenarios.ScenarioRecords;
 
-import java.util.List;
-import java.util.stream.IntStream;
+import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 
 class ValueIndexDefinition implements IndexDefinition {
     private final String indexName = "valueIndex";
 
     @Override
-    public RecordMetaData getMetaData() {
-        RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder()
-                .setRecords(TestRecords1Proto.getDescriptor());
-        metaDataBuilder.addIndex("MySimpleRecord",
-                new Index(indexName, Key.Expressions.field("num_value_2"), IndexTypes.VALUE));
-        return metaDataBuilder.build();
+    public String getIndexName() {
+        return indexName;
     }
 
     @Override
-    public List<Message> generateRecords(final int count) {
-        return IntStream.range(0, count)
-                .mapToObj(i -> (Message)TestRecords1Proto.MySimpleRecord.newBuilder()
-                        .setRecNo(i)
-                        .setNumValue2(3 * i + 1)
-                        .build())
-                .toList();
+    public String getIndexedTypeName() {
+        return ScenarioRecords.SCENARIO_RECORD;
+    }
+
+    @Override
+    public Index buildIndex(final KeyExpression groupingPrefix) {
+        return new Index(indexName, IndexScenarioMetaData.prefixed(groupingPrefix, field(ScenarioRecords.NUM_VALUE)),
+                IndexTypes.VALUE);
     }
 
     @Override
@@ -68,17 +62,12 @@ class ValueIndexDefinition implements IndexDefinition {
     }
 
     @Override
-    public List<Message> generateOtherRecords(final int count) {
-        // MyOtherRecord is not covered by the value index on MySimpleRecord.
-        return IntStream.range(0, count)
-                .mapToObj(i -> (Message)TestRecords1Proto.MyOtherRecord.newBuilder()
-                        .setRecNo(1000 + i)
-                        .build())
-                .toList();
+    public boolean supportsSynthetic() {
+        return true;
     }
 
     @Override
-    public String getIndexName() {
-        return indexName;
+    public Index buildSyntheticIndex(final String constituentName, final String valueFieldName) {
+        return new Index(indexName, field(constituentName).nest(valueFieldName), IndexTypes.VALUE);
     }
 }

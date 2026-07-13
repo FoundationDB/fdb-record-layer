@@ -22,24 +22,20 @@ package com.apple.foundationdb.record.provider.foundationdb.indexes;
 
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.RecordCursor;
-import com.apple.foundationdb.record.RecordMetaData;
-import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.ScanProperties;
-import com.apple.foundationdb.record.TestRecordsMultidimensionalProto;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.expressions.DimensionsKeyExpression;
+import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.MultidimensionalIndexScanBounds;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.scenarios.IndexDefinition;
+import com.apple.foundationdb.record.provider.foundationdb.indexes.scenarios.IndexScenarioMetaData;
+import com.apple.foundationdb.record.provider.foundationdb.indexes.scenarios.ScenarioRecords;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.protobuf.Message;
-
-import java.util.List;
-import java.util.stream.IntStream;
 
 import static com.apple.foundationdb.async.rtree.RTree.Storage.BY_NODE;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
@@ -49,31 +45,26 @@ class MultiDimensionalIndexDefinition implements IndexDefinition {
     private final String indexName = "EventIntervals";
 
     @Override
-    public RecordMetaData getMetaData() {
-        RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder()
-                .setRecords(TestRecordsMultidimensionalProto.getDescriptor());
-        metaDataBuilder.getRecordType("MyMultidimensionalRecord")
-                .setPrimaryKey(concat(field("info").nest("rec_domain"), field("rec_no")));
-        metaDataBuilder.addIndex("MyMultidimensionalRecord",
-                new Index(indexName,
-                        DimensionsKeyExpression.of(field("calendar_name"),
-                                concat(field("start_epoch"), field("end_epoch"))),
-                        IndexTypes.MULTIDIMENSIONAL,
-                        ImmutableMap.of(IndexOptions.RTREE_STORAGE, BY_NODE.toString(),
-                                IndexOptions.RTREE_STORE_HILBERT_VALUES, "true")));
-        return metaDataBuilder.build();
+    public String getIndexName() {
+        return indexName;
     }
 
     @Override
-    public List<Message> generateRecords(final int count) {
-        return IntStream.range(0, count)
-                .mapToObj(i -> (Message)TestRecordsMultidimensionalProto.MyMultidimensionalRecord.newBuilder()
-                        .setRecNo(i)
-                        .setCalendarName("calendar")
-                        .setStartEpoch(100L * i)
-                        .setEndEpoch(100L * i + 50L)
-                        .build())
-                .toList();
+    public String getIndexedTypeName() {
+        return ScenarioRecords.SCENARIO_RECORD;
+    }
+
+    @Override
+    public Index buildIndex(final KeyExpression groupingPrefix) {
+        // The R-tree always needs a (non-empty) dimensions prefix; use str_value as the base and prepend
+        // the group prefix when grouped, so deleteRecordsWhere can clear a whole group (whose column is at
+        // the front of, and no longer than, the dimensions prefix).
+        final KeyExpression prefix = IndexScenarioMetaData.prefixed(groupingPrefix, field(ScenarioRecords.STR_VALUE));
+        return new Index(indexName,
+                DimensionsKeyExpression.of(prefix, concat(field(ScenarioRecords.DIM_X), field(ScenarioRecords.DIM_Y))),
+                IndexTypes.MULTIDIMENSIONAL,
+                ImmutableMap.of(IndexOptions.RTREE_STORAGE, BY_NODE.toString(),
+                        IndexOptions.RTREE_STORE_HILBERT_VALUES, "true"));
     }
 
     @Override
@@ -88,21 +79,5 @@ class MultiDimensionalIndexDefinition implements IndexDefinition {
                 new MultidimensionalIndexScanBounds(TupleRange.ALL, hypercube, TupleRange.ALL);
         return store.scanIndex(store.getRecordMetaData().getIndex(indexName),
                 bounds, null, scanProperties);
-    }
-
-    @Override
-    public List<Message> generateOtherRecords(final int count) {
-        // Records with unset dimension fields (start/end epoch) are not added to the R-tree.
-        return IntStream.range(0, count)
-                .mapToObj(i -> (Message)TestRecordsMultidimensionalProto.MyMultidimensionalRecord.newBuilder()
-                        .setRecNo(1000 + i)
-                        .setCalendarName("other")
-                        .build())
-                .toList();
-    }
-
-    @Override
-    public String getIndexName() {
-        return indexName;
     }
 }

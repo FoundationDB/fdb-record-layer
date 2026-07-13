@@ -235,7 +235,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
     @IndexScenarios
     void indexScenariosTest(IndexScenario scenario) throws Exception {
         scenario.runTest(
-                (groupingLength, syntheticType) -> new TextIndexDefinition(),
+                () -> new TextIndexDefinition(),
                 this::openContext,
                 FDBRecordStore.newBuilder()
                         .setKeySpacePath(path));

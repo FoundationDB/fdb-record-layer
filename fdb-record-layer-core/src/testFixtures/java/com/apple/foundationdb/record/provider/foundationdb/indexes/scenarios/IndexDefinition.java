@@ -22,34 +22,78 @@ package com.apple.foundationdb.record.provider.foundationdb.indexes.scenarios;
 
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.RecordCursor;
-import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.ScanProperties;
+import com.apple.foundationdb.record.metadata.Index;
+import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
-import com.google.protobuf.Message;
 
 import java.util.List;
 
+/**
+ * Describes a single index-under-test for the scenario framework. The framework (via
+ * {@link IndexScenarioMetaData} and {@link ScenarioRecords}) owns the record metadata and record
+ * generation over the shared {@code TestRecordsIndexScenariosProto} schema, so a definition only
+ * has to say <em>what</em> to index (over the standard fields) and <em>how</em> to scan it.
+ */
 public interface IndexDefinition {
-    RecordMetaData getMetaData();
-
-    List<Message> generateRecords(int count);
+    String getIndexName();
 
     /**
-     * Generate records that are <em>not</em> covered by the index under test (for example records of a
-     * different record type, or records that leave the indexed field unset). Saving these produces no
-     * entries in the index, so they can be written alongside a scan to give a transaction writes without
-     * touching the index's (possibly shared) secondary structures. Returns an empty list by default.
+     * Build the index under test over the standard {@code ScenarioRecord} fields. The framework
+     * passes the grouping prefix it wants the index to be grouped by: {@link ScenarioRecords#noPrefix()}
+     * (an empty expression) for ungrouped scenarios, or {@code field("group")} for grouped /
+     * {@code deleteRecordsWhere} scenarios. The definition composes the prefix into its
+     * root/grouping expression (see {@link IndexScenarioMetaData#prefixed}).
      *
-     * @param count the number of records to generate
-     * @return records that do not contribute entries to the index under test
+     * @param groupingPrefix empty for ungrouped, or the grouping-field expression for grouped scenarios
+     * @return the index to add to the store
      */
-    default List<Message> generateOtherRecords(int count) {
-        return List.of();
+    Index buildIndex(KeyExpression groupingPrefix);
+
+    /**
+     * The record type (or synthetic record type) the index is added to. Normal definitions return
+     * {@link ScenarioRecords#SCENARIO_RECORD}.
+     *
+     * @return the indexed type name
+     */
+    String getIndexedTypeName();
+
+    RecordCursor<IndexEntry> scanIndex(FDBRecordStore store, ScanProperties scanProperties);
+
+    /**
+     * Whether this index can be built with a leading {@code group} prefix usable by
+     * {@code deleteRecordsWhere} (the {@code DeleteWhereGroup} scenario). Default {@code true}; a
+     * definition overrides to {@code false} <em>with a documented reason</em> only when the
+     * maintainer itself cannot support group deletion.
+     *
+     * @return whether the {@code DeleteWhereGroup} scenario applies
+     */
+    default boolean supportsGrouping() {
+        return true;
     }
 
-    RecordCursor<IndexEntry> scanIndex(final FDBRecordStore store, ScanProperties scanProperties);
+    /**
+     * Whether this index can be built over a synthetic record type (the {@code SyntheticJoinedType}
+     * and {@code SyntheticUnnestedType} scenarios). Default {@code false}; a definition overrides to
+     * {@code true} and implements {@link #buildSyntheticIndex} when it supports synthetic types.
+     *
+     * @return whether the synthetic-type scenarios apply
+     */
+    default boolean supportsSynthetic() {
+        return false;
+    }
 
-    String getIndexName();
+    /**
+     * Build the index over a synthetic record type's constituent field. Only called when
+     * {@link #supportsSynthetic()} is {@code true}.
+     *
+     * @param constituentName the correlation name of the constituent to index
+     * @param valueFieldName the field within that constituent to index
+     * @return the index to add to the synthetic type
+     */
+    default Index buildSyntheticIndex(String constituentName, String valueFieldName) {
+        throw new UnsupportedOperationException("index does not support synthetic types: " + getIndexName());
+    }
 
     /**
      * Perform any one-time setup that the index requires before records can be saved. This is run

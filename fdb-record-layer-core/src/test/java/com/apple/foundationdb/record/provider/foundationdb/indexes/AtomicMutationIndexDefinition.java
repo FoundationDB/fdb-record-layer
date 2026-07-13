@@ -23,77 +23,52 @@ package com.apple.foundationdb.record.provider.foundationdb.indexes;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.RecordCursor;
-import com.apple.foundationdb.record.RecordMetaData;
-import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.ScanProperties;
-import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
+import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanRange;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.scenarios.IndexDefinition;
-import com.google.protobuf.Message;
+import com.apple.foundationdb.record.provider.foundationdb.indexes.scenarios.ScenarioRecords;
 
-import java.util.List;
 import java.util.Objects;
-import java.util.stream.IntStream;
+
+import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 
 class AtomicMutationIndexDefinition implements IndexDefinition {
     private final String indexType;
-    String indexName = "myIndex";
+    private final String indexName = "myIndex";
 
     public AtomicMutationIndexDefinition(final String indexType) {
         this.indexType = indexType;
     }
 
     @Override
-    public RecordMetaData getMetaData() {
-        RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder()
-                .setRecords(TestRecords1Proto.getDescriptor());
-        indexName = "myIndex";
-        final GroupingKeyExpression keyExpression;
-        if (Objects.equals(indexType, IndexTypes.COUNT) || Objects.equals(indexType, IndexTypes.COUNT_UPDATES)) {
-            keyExpression = Key.Expressions.empty().groupBy(Key.Expressions.empty());
-        } else {
-            keyExpression = Key.Expressions.field("num_value_2").groupBy(Key.Expressions.empty());
-        }
-        metaDataBuilder.addIndex("MySimpleRecord",
-                new Index(indexName, keyExpression, indexType));
-        return metaDataBuilder.build();
-    }
-
-    @Override
-    public List<Message> generateRecords(final int count) {
-        return IntStream.range(0, count)
-                .mapToObj(i -> (Message)TestRecords1Proto.MySimpleRecord.newBuilder()
-                        .setRecNo(i)
-                        // Don't insert 0
-                        .setNumValue2(3 * i + 1)
-                        .build())
-                .toList();
-    }
-
-    @Override
-    public RecordCursor<IndexEntry> scanIndex(final FDBRecordStore store, ScanProperties scanProperties) {
-        return store.scanIndex(store.getRecordMetaData().getIndex(indexName),
-                new IndexScanRange(IndexScanType.BY_GROUP, TupleRange.ALL), null, scanProperties);
-    }
-
-    @Override
-    public List<Message> generateOtherRecords(final int count) {
-        // MyOtherRecord is not covered by the aggregate index on MySimpleRecord.
-        return IntStream.range(0, count)
-                .mapToObj(i -> (Message)TestRecords1Proto.MyOtherRecord.newBuilder()
-                        .setRecNo(1000 + i)
-                        .build())
-                .toList();
-    }
-
-    @Override
     public String getIndexName() {
         return indexName;
+    }
+
+    @Override
+    public String getIndexedTypeName() {
+        return ScenarioRecords.SCENARIO_RECORD;
+    }
+
+    @Override
+    public Index buildIndex(final KeyExpression groupingPrefix) {
+        // COUNT-family indexes aggregate over an empty value; the others aggregate over a numeric field.
+        final KeyExpression value = Objects.equals(indexType, IndexTypes.COUNT) || Objects.equals(indexType, IndexTypes.COUNT_UPDATES)
+                ? Key.Expressions.empty()
+                : field(ScenarioRecords.NUM_VALUE);
+        return new Index(indexName, GroupingKeyExpression.of(value, groupingPrefix), indexType);
+    }
+
+    @Override
+    public RecordCursor<IndexEntry> scanIndex(final FDBRecordStore store, final ScanProperties scanProperties) {
+        return store.scanIndex(store.getRecordMetaData().getIndex(indexName),
+                new IndexScanRange(IndexScanType.BY_GROUP, TupleRange.ALL), null, scanProperties);
     }
 }

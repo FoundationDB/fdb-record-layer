@@ -137,7 +137,7 @@ public class LeaderboardIndexTest {
     @IndexScenarios
     void indexScenariosTest(IndexScenario scenario) throws Exception {
         scenario.runTest(
-                (groupingLength, syntheticType) -> new LeaderboardIndexDefinition(),
+                () -> new LeaderboardIndexDefinition(),
                 this::openContext,
                 FDBRecordStore.newBuilder()
                         .setKeySpacePath(path));

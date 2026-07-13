@@ -54,7 +54,7 @@ public class ValueIndexTest {
     @IndexScenarios
     void indexScenariosTest(IndexScenario scenario) throws Exception {
         scenario.runTest(
-                (groupingLength, syntheticType) -> new ValueIndexDefinition(),
+                () -> new ValueIndexDefinition(),
                 () -> {
                     FDBRecordContextConfig config = FDBRecordContextConfig.newBuilder()
                             .setTimer(new FDBStoreTimer())

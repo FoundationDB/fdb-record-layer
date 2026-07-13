@@ -1,5 +1,5 @@
 /*
- * IndexDefinitionFactory.java
+ * SyntheticUnnestedType.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -20,6 +20,16 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.indexes.scenarios;
 
-public interface IndexDefinitionFactory {
-    IndexDefinition getDefinition();
+import com.apple.foundationdb.record.provider.foundationdb.indexes.scenarios.IndexScenarioMetaData.SyntheticKind;
+import com.google.auto.service.AutoService;
+
+/**
+ * Runs the index under test over an unnested (repeated-nested) synthetic record type.
+ */
+@AutoService(IndexScenario.class)
+public class SyntheticUnnestedType extends AbstractSyntheticTypeScenario {
+    @Override
+    protected SyntheticKind kind() {
+        return SyntheticKind.UNNESTED;
+    }
 }

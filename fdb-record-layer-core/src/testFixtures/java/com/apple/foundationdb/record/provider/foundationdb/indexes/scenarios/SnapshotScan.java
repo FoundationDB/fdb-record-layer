@@ -39,9 +39,9 @@ public class SnapshotScan implements IndexScenario {
 
     @Override
     public void runTest(final IndexDefinitionFactory definitionFactory, final Supplier<FDBRecordContext> openContext, final FDBRecordStore.Builder storeBuilder) throws Exception {
-        final IndexDefinition definition = definitionFactory.getDefinition(0, null);
+        final IndexDefinition definition = definitionFactory.getDefinition();
         final IndexScenarioModel model = new IndexScenarioModel(definition, openContext, storeBuilder);
-        final List<Message> records = definition.generateRecords(10);
+        final List<Message> records = model.generateRecords(10);
 
         model.setupIndex();
         model.saveRecords(records.subList(3, 6));
@@ -61,7 +61,7 @@ public class SnapshotScan implements IndexScenario {
             model.saveRecords(indexChangingRecords);
             // Give this transaction writes too, but writes that do not touch the index (so that the
             // snapshot scan, not a write conflict, is what is being exercised).
-            definition.generateOtherRecords(4).forEach(store::saveRecord);
+            model.generateOtherRecords(4).forEach(store::saveRecord);
             return scanResults;
         });
 

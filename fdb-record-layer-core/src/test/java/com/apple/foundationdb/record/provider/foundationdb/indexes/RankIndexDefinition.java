@@ -23,22 +23,15 @@ package com.apple.foundationdb.record.provider.foundationdb.indexes;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.RecordCursor;
-import com.apple.foundationdb.record.RecordMetaData;
-import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.ScanProperties;
-import com.apple.foundationdb.record.TestRecordsRankProto;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexTypes;
-import com.apple.foundationdb.record.metadata.Key;
+import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanRange;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.scenarios.IndexDefinition;
-import com.google.protobuf.Message;
-
-import java.util.List;
-import java.util.stream.Collectors;
-import java.util.stream.IntStream;
+import com.apple.foundationdb.record.provider.foundationdb.indexes.scenarios.ScenarioRecords;
 
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 
@@ -46,25 +39,19 @@ class RankIndexDefinition implements IndexDefinition {
     private final String indexName = "rankIndex";
 
     @Override
-    public RecordMetaData getMetaData() {
-        RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder()
-                .setRecords(TestRecordsRankProto.getDescriptor());
-        metaDataBuilder.getRecordType("HeaderRankedRecord")
-                .setPrimaryKey(field("header").nest(Key.Expressions.concatenateFields("group", "id")));
-        metaDataBuilder.addIndex("BasicRankedRecord",
-                new Index(indexName, field("score").ungrouped(), IndexTypes.RANK));
-        return metaDataBuilder.build();
+    public String getIndexName() {
+        return indexName;
     }
 
     @Override
-    public List<Message> generateRecords(final int count) {
-        return IntStream.range(0, count)
-                .mapToObj(i -> (Message)TestRecordsRankProto.BasicRankedRecord.newBuilder()
-                        .setName("record-" + i)
-                        .setScore(3 * i + 1)
-                        .setGender(i % 2 == 0 ? "M" : "F")
-                        .build())
-                .collect(Collectors.toList());
+    public String getIndexedTypeName() {
+        return ScenarioRecords.SCENARIO_RECORD;
+    }
+
+    @Override
+    public Index buildIndex(final KeyExpression groupingPrefix) {
+        // groupBy(empty) == ungrouped; groupBy(field("group")) groups the rank set by group.
+        return new Index(indexName, field(ScenarioRecords.NUM_VALUE).groupBy(groupingPrefix), IndexTypes.RANK);
     }
 
     @Override
@@ -74,17 +61,12 @@ class RankIndexDefinition implements IndexDefinition {
     }
 
     @Override
-    public List<Message> generateOtherRecords(final int count) {
-        // RepeatedRankedRecord is not covered by the rank index on BasicRankedRecord.
-        return IntStream.range(0, count)
-                .mapToObj(i -> (Message)TestRecordsRankProto.RepeatedRankedRecord.newBuilder()
-                        .setName("other-" + i)
-                        .build())
-                .collect(Collectors.toList());
+    public boolean supportsSynthetic() {
+        return true;
     }
 
     @Override
-    public String getIndexName() {
-        return indexName;
+    public Index buildSyntheticIndex(final String constituentName, final String valueFieldName) {
+        return new Index(indexName, field(constituentName).nest(valueFieldName).ungrouped(), IndexTypes.RANK);
     }
 }

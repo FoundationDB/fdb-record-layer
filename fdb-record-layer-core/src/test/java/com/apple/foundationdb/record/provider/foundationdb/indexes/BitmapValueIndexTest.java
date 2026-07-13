@@ -103,7 +103,7 @@ class BitmapValueIndexTest extends FDBRecordStoreTestBase {
     @IndexScenarios
     void indexScenariosTest(IndexScenario scenario) throws Exception {
         scenario.runTest(
-                (groupingLength, syntheticType) -> new BitmapValueIndexDefinition(),
+                () -> new BitmapValueIndexDefinition(),
                 this::openContext,
                 FDBRecordStore.newBuilder()
                         .setKeySpacePath(path));

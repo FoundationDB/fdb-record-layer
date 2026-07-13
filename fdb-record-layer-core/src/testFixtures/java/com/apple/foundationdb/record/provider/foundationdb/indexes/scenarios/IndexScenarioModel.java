@@ -22,10 +22,13 @@ package com.apple.foundationdb.record.provider.foundationdb.indexes.scenarios;
 
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexState;
+import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.OnlineIndexer;
+import com.apple.foundationdb.record.provider.foundationdb.indexes.scenarios.IndexScenarioMetaData.GroupingMode;
+import com.apple.foundationdb.record.provider.foundationdb.indexes.scenarios.IndexScenarioMetaData.SyntheticKind;
 import com.google.protobuf.Message;
 
 import java.util.List;
@@ -37,15 +40,73 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class IndexScenarioModel {
+    private enum RecordSource {
+        SCENARIO, JOINED_CONSTITUENTS, UNNESTED_PARENTS
+    }
+
     private final IndexDefinition definition;
+    private final RecordMetaData metaData;
+    private final RecordSource recordSource;
     private final Supplier<FDBRecordContext> openContext;
     private final FDBRecordStore.Builder storeBuilder;
 
-    public IndexScenarioModel(final IndexDefinition definition, final Supplier<FDBRecordContext> openContext, final FDBRecordStore.Builder storeBuilder) {
+    private IndexScenarioModel(final IndexDefinition definition, final RecordMetaData metaData,
+                               final RecordSource recordSource, final Supplier<FDBRecordContext> openContext,
+                               final FDBRecordStore.Builder storeBuilder) {
         this.definition = definition;
+        this.metaData = metaData;
+        this.recordSource = recordSource;
         this.openContext = openContext;
         this.storeBuilder = storeBuilder;
-        storeBuilder.setMetaDataProvider(definition.getMetaData());
+        storeBuilder.setMetaDataProvider(metaData);
+    }
+
+    /** Ungrouped normal scenario (the default). */
+    public IndexScenarioModel(final IndexDefinition definition, final Supplier<FDBRecordContext> openContext,
+                              final FDBRecordStore.Builder storeBuilder) {
+        this(definition, IndexScenarioMetaData.forScenario(definition, GroupingMode.UNGROUPED),
+                RecordSource.SCENARIO, openContext, storeBuilder);
+    }
+
+    /** Grouped normal scenario: the index is grouped by {@code group} and primary keys are aligned. */
+    public static IndexScenarioModel grouped(final IndexDefinition definition,
+                                             final Supplier<FDBRecordContext> openContext,
+                                             final FDBRecordStore.Builder storeBuilder) {
+        return new IndexScenarioModel(definition,
+                IndexScenarioMetaData.forScenario(definition, GroupingMode.GROUPED),
+                RecordSource.SCENARIO, openContext, storeBuilder);
+    }
+
+    /** Synthetic-type scenario: the index is over a joined or unnested record type. */
+    public static IndexScenarioModel synthetic(final IndexDefinition definition, final SyntheticKind kind,
+                                               final Supplier<FDBRecordContext> openContext,
+                                               final FDBRecordStore.Builder storeBuilder) {
+        final RecordSource source = kind == SyntheticKind.JOINED
+                ? RecordSource.JOINED_CONSTITUENTS : RecordSource.UNNESTED_PARENTS;
+        return new IndexScenarioModel(definition, IndexScenarioMetaData.forSynthetic(definition, kind),
+                source, openContext, storeBuilder);
+    }
+
+    public RecordMetaData getMetaData() {
+        return metaData;
+    }
+
+    /** Generate the records to save for this scenario's configuration. */
+    public List<Message> generateRecords(final int count) {
+        switch (recordSource) {
+            case JOINED_CONSTITUENTS:
+                return ScenarioRecords.joinedConstituents(count);
+            case UNNESTED_PARENTS:
+                return ScenarioRecords.unnestedParents(count);
+            case SCENARIO:
+            default:
+                return ScenarioRecords.scenarioRecords(count);
+        }
+    }
+
+    /** Generate records that do not contribute an entry to the index under test. */
+    public List<Message> generateOtherRecords(final int count) {
+        return ScenarioRecords.otherRecords(count);
     }
 
     public void setupIndex() {

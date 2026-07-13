@@ -220,7 +220,7 @@ class RankIndexTest extends FDBRecordStoreQueryTestBase {
         // different metadata) do not interfere with the scenario's clean-store expectations.
         final KeySpacePath scenarioPath = pathManager.createPath(TestKeySpace.RECORD_STORE);
         scenario.runTest(
-                (groupingLength, syntheticType) -> new RankIndexDefinition(),
+                () -> new RankIndexDefinition(),
                 this::openContext,
                 FDBRecordStore.newBuilder()
                         .setKeySpacePath(scenarioPath));

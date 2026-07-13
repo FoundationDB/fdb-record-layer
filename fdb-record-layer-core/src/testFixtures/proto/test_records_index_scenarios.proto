@@ -1,0 +1,67 @@
+/*
+ * test_records_index_scenarios.proto
+ *
+ * This source file is part of the FoundationDB open source project
+ *
+ * Copyright 2015-2026 Apple Inc. and the FoundationDB project authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+syntax = "proto2";
+
+package com.apple.foundationdb.record.testindexscenarios;
+
+option java_package = "com.apple.foundationdb.record";
+option java_outer_classname = "TestRecordsIndexScenariosProto";
+
+import "record_metadata_options.proto";
+
+// A repeated, nested message. Used both as the source for unnested synthetic record types and to
+// carry per-entry (score, timestamp) data for time-window leaderboard indexes.
+message ScoreEntry {
+  option (com.apple.foundationdb.record.record).usage = NESTED;
+  optional int64 score = 1;
+  optional int64 timestamp = 2;
+  optional int64 context = 3;
+}
+
+// The single indexable record used by the scenario framework. It carries one field per index-type
+// need so that a single shared record generator can populate data usable by every index type, and
+// so the framework (not each definition) understands the field layout. No field-level index
+// annotations are declared: the only index in any scenario is the one the definition under test adds.
+message ScenarioRecord {
+  optional int64 rec_no = 1 [(field).primary_key = true]; // default primary key
+  optional int64 group = 2;             // designated grouping field (deleteWhere prefix)
+  optional int32 num_value = 3;         // VALUE / RANK / ATOMIC(sum,min,max)
+  optional int32 bitmap_position = 4;   // BITMAP_VALUE bit position (small, non-negative)
+  optional string str_value = 5;        // VALUE / PERMUTED grouping column
+  optional string text_value = 6;       // TEXT (tokenized)
+  optional int64 dim_x = 7;             // MULTIDIMENSIONAL dimension 1
+  optional int64 dim_y = 8;             // MULTIDIMENSIONAL dimension 2
+  optional int32 permuted_value = 9;    // PERMUTED permuted column
+  optional bytes vector_data = 10;      // VECTOR (raw half-float bytes)
+  repeated ScoreEntry scores = 11;      // LEADERBOARD source + unnested synthetic constituent
+  optional int64 other_rec_no = 12;     // foreign key -> OtherScenarioRecord.rec_no (joined type)
+}
+
+// Second record type, used as the other constituent of a joined synthetic record type.
+message OtherScenarioRecord {
+  optional int64 rec_no = 1 [(field).primary_key = true];
+  optional int64 group = 2;
+  optional int32 num_value = 3;
+}
+
+message RecordTypeUnion {
+  optional ScenarioRecord _ScenarioRecord = 1;
+  optional OtherScenarioRecord _OtherScenarioRecord = 2;
+}
