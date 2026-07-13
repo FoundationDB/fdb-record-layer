@@ -1,0 +1,57 @@
+#
+# isolation-level-snapshot-documantion-queries.yamsql
+#
+# This source file is part of the FoundationDB open source project
+#
+# Copyright 2021-2026 Apple Inc. and the FoundationDB project authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# YAMSQL cannot exercise
+# true concurrency, so these verify that the option parses, plans, and executes without error and
+# returns the correct results for a variety of query shapes, and that it is rejected on non-SELECT
+# statements. The actual "no conflict range" behavior is verified in SnapshotIsolationConcurrencyTest.
+---
+options:
+    supported_version: !current_version
+---
+schema_template:
+    create table account(id bigint, balance bigint, primary key(id))
+    create index max_balance_ever as select max_ever(balance) from account
+---
+setup:
+  steps:
+    - query: insert into account
+            values (1, 100),
+                   (2, 250),
+                   (3, 175)
+---
+test_block:
+  name: isolation-level-snapshot-tests
+  preset: single_repetition_ordered
+  tests:
+    # Reading an aggregate at snapshot isolation.
+    -
+      - query: SELECT max_ever(balance) AS max_balance
+              FROM account
+              OPTIONS (ISOLATION LEVEL SNAPSHOT)
+      - result: [{max_balance: 250}]
+
+    # A regular scan at snapshot isolation.
+    -
+      - query: SELECT id, balance
+              FROM account
+              WHERE id = 2
+              OPTIONS (ISOLATION LEVEL SNAPSHOT)
+      - result: [{id: 2, balance: 250}]
+...
