@@ -76,11 +76,11 @@ public class StructDataMetadataTest {
      */
     @RegisterExtension
     @Order(0)
-    public final SimpleDatabaseRule database = new SimpleDatabaseRule(StructDataMetadataTest.class, TABLE_STRUCTURE);
+    public final SimpleDatabaseRule database = new SimpleDatabaseRule(relationalExtension, StructDataMetadataTest.class, TABLE_STRUCTURE);
 
     @RegisterExtension
     @Order(2)
-    public final RelationalConnectionRule connection = new RelationalConnectionRule(database::getConnectionUri)
+    public final RelationalConnectionRule connection = new RelationalConnectionRule(relationalExtension, database::getConnectionUri)
             .withOptions(Options.NONE)
             .withSchema("TEST_SCHEMA");
 

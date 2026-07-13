@@ -21,25 +21,30 @@
 package com.apple.foundationdb.relational.utils;
 
 import com.apple.foundationdb.relational.api.Options;
-import com.apple.foundationdb.relational.recordlayer.Utils;
+import com.apple.foundationdb.relational.recordlayer.RelationalExtension;
 import org.junit.jupiter.api.extension.AfterEachCallback;
 import org.junit.jupiter.api.extension.BeforeEachCallback;
 import org.junit.jupiter.api.extension.ExtensionContext;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.sql.Connection;
-import java.sql.DriverManager;
 import java.sql.SQLException;
-import java.sql.Statement;
 import java.util.Collection;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 /**
  * Manages the lifecycle of a single SchemaTemplate within a unit test.
+ * <p>
+ * Holds a reference to the surrounding {@link RelationalExtension} so it can issue catalog DDL
+ * through that extension's driver — avoiding the global {@link java.sql.DriverManager} state and
+ * the parallel-test race that used to come with it.
  */
 public class SchemaTemplateRule implements BeforeEachCallback, AfterEachCallback {
+
+    @Nonnull
+    private final RelationalExtension extension;
 
     @Nonnull
     private final String templateName;
@@ -56,11 +61,13 @@ public class SchemaTemplateRule implements BeforeEachCallback, AfterEachCallback
     @Nonnull
     private final TypeCreator tableCreator;
 
-    private SchemaTemplateRule(@Nonnull final String templateName,
+    private SchemaTemplateRule(@Nonnull final RelationalExtension extension,
+                               @Nonnull final String templateName,
                                @Nonnull final Options connectionOptions,
                                @Nullable final SchemaTemplateOptions schemaTemplateOptions,
                                @Nonnull final TypeCreator typeCreator,
                                @Nonnull final TypeCreator tableCreator) {
+        this.extension = extension;
         this.templateName = templateName;
         this.connectionOptions = connectionOptions;
         this.schemaTemplateOptions = schemaTemplateOptions;
@@ -68,21 +75,23 @@ public class SchemaTemplateRule implements BeforeEachCallback, AfterEachCallback
         this.tableCreator = tableCreator;
     }
 
-    public SchemaTemplateRule(@Nonnull final String templateName,
+    public SchemaTemplateRule(@Nonnull final RelationalExtension extension,
+                              @Nonnull final String templateName,
                               @Nonnull final Options connectionOptions,
                               @Nullable final SchemaTemplateOptions schemaTemplateOptions,
                               @Nonnull final Collection<TableDefinition> tables,
                               @Nonnull final Collection<TypeDefinition> types) {
-        this(templateName, connectionOptions, schemaTemplateOptions,
+        this(extension, templateName, connectionOptions, schemaTemplateOptions,
                 new CreatorFromDefinition("TYPE AS STRUCT", types),
                 new CreatorFromDefinition("TABLE", tables));
     }
 
-    public SchemaTemplateRule(@Nonnull final String templateName,
+    public SchemaTemplateRule(@Nonnull final RelationalExtension extension,
+                              @Nonnull final String templateName,
                               @Nonnull final Options connectionOptions,
                               @Nullable final SchemaTemplateOptions schemaTemplateOptions,
                               @Nonnull final String templateDefinition) {
-        this(templateName, connectionOptions, schemaTemplateOptions,
+        this(extension, templateName, connectionOptions, schemaTemplateOptions,
                 new CreatorFromString(templateDefinition), () -> "");
     }
 
@@ -93,28 +102,14 @@ public class SchemaTemplateRule implements BeforeEachCallback, AfterEachCallback
 
     @Override
     public void afterEach(ExtensionContext context) throws SQLException {
-        final StringBuilder dropStatement = new StringBuilder("DROP SCHEMA TEMPLATE \"").append(templateName).append("\"");
-
-        try (Connection connection = DriverManager.getConnection("jdbc:embed:/__SYS")) {
-            connection.setSchema("CATALOG");
-            Utils.setConnectionOptions(connection, connectionOptions);
-            try (Statement statement = connection.createStatement()) {
-                statement.executeUpdate(dropStatement.toString());
-            }
-        }
+        CatalogOperations.runDdl(
+                Objects.requireNonNull(extension.getDriver(), "extension has no active driver"),
+                connectionOptions,
+                "DROP SCHEMA TEMPLATE IF EXISTS \"" + templateName + "\"");
     }
 
     @Override
     public void beforeEach(ExtensionContext context) throws SQLException {
-        final StringBuilder dropStatement = new StringBuilder("DROP SCHEMA TEMPLATE IF EXISTS\"").append(templateName).append("\"");
-
-        try (Connection connection = DriverManager.getConnection("jdbc:embed:/__SYS")) {
-            connection.setSchema("CATALOG");
-            Utils.setConnectionOptions(connection, connectionOptions);
-            try (Statement statement = connection.createStatement()) {
-                statement.executeUpdate(dropStatement.toString());
-            }
-        }
         final StringBuilder createStatement = new StringBuilder("CREATE SCHEMA TEMPLATE \"").append(templateName).append("\" ");
         createStatement.append(typeCreator.getTypeDefinition());
         createStatement.append(tableCreator.getTypeDefinition());
@@ -123,13 +118,11 @@ public class SchemaTemplateRule implements BeforeEachCallback, AfterEachCallback
             createStatement.append(schemaTemplateOptions.getOptionsString());
         }
 
-        try (Connection connection = DriverManager.getConnection("jdbc:embed:/__SYS")) {
-            connection.setSchema("CATALOG");
-            Utils.setConnectionOptions(connection, connectionOptions);
-            try (Statement statement = connection.createStatement()) {
-                statement.executeUpdate(createStatement.toString());
-            }
-        }
+        CatalogOperations.runDdl(
+                Objects.requireNonNull(extension.getDriver(), "extension has no active driver"),
+                connectionOptions,
+                "DROP SCHEMA TEMPLATE IF EXISTS \"" + templateName + "\"",
+                createStatement.toString());
     }
 
     public static final class SchemaTemplateOptions {

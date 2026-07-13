@@ -36,6 +36,16 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * Test rule that captures Log4j events emitted on a target logger for the duration of a test.
+ * <p>
+ * The appender is attached to a JVM-global logger, so the rule cannot meaningfully separate its
+ * own events from events emitted by concurrently-running sibling tests — and a naive thread-id
+ * filter doesn't help either, because the relational engine dispatches work onto async pools
+ * (FDB callbacks, CompletableFuture stages, etc.). Test classes that use this rule and assert
+ * on captured log content should therefore mark themselves {@code @Isolated} so JUnit suspends
+ * all other tests while they run. See {@code QueryLoggingTest} for an example.
+ */
 public class LogAppenderRule implements BeforeEachCallback, AfterEachCallback, AutoCloseable {
 
     private LogAppender logAppender;

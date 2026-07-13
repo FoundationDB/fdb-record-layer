@@ -33,7 +33,6 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
 import javax.annotation.Nonnull;
-import java.net.URI;
 import java.sql.SQLException;
 
 public class CaseSensitivityQueryTests {
@@ -47,7 +46,7 @@ public class CaseSensitivityQueryTests {
         final String schemaTemplate = "create type as struct LoCaTiOn (address string, latitude string, longitude string)" +
                 " create table ReStAuRaNt(rest_no bigint, name string, location LoCaTiOn, primary key(rest_no))";
         try (var extensionResource = EmbeddedRelationalExtension.newAsResource(Options.builder().withOption(Options.Name.CASE_SENSITIVE_IDENTIFIERS, true).build());
-                var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(extensionResource.getUnderlyingExtension())
+                var ddl = Ddl.builder().database().relationalExtension(extensionResource.getUnderlyingExtension())
                         .withOption(Options.Name.CASE_SENSITIVE_IDENTIFIERS, true)
                         .schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
@@ -80,7 +79,7 @@ public class CaseSensitivityQueryTests {
         final String schemaTemplate = "create type as struct LoCaTiOn (address string, latitude string, longitude string)" +
                 " create table ReStAuRaNt(rest_no bigint, name string, location LoCaTiOn, primary key(rest_no))";
         try (var extensionResource = EmbeddedRelationalExtension.newAsResource(Options.builder().withOption(Options.Name.CASE_SENSITIVE_IDENTIFIERS, false).build());
-                 var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(extensionResource.getUnderlyingExtension())
+                 var ddl = Ddl.builder().database().relationalExtension(extensionResource.getUnderlyingExtension())
                          .withOption(Options.Name.CASE_SENSITIVE_IDENTIFIERS, false)
                          .schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
@@ -114,7 +113,7 @@ public class CaseSensitivityQueryTests {
         final String schemaTemplate = "create type as struct \"Location\" (address string, latitude string, longitude string)" +
                 " create table \"Restaurant\"(rest_no bigint, name string, location \"Location\", primary key(rest_no))";
         try (var extensionResource = EmbeddedRelationalExtension.newAsResource(Options.builder().withOption(Options.Name.CASE_SENSITIVE_IDENTIFIERS, isCaseSensitive).build());
-                var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(extensionResource.getUnderlyingExtension())
+                var ddl = Ddl.builder().database().relationalExtension(extensionResource.getUnderlyingExtension())
                         .withOption(Options.Name.CASE_SENSITIVE_IDENTIFIERS, isCaseSensitive)
                         .schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {

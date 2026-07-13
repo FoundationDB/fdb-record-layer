@@ -25,7 +25,6 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.RelationalConnection;
-import com.apple.foundationdb.relational.api.RelationalDriver;
 import com.apple.foundationdb.relational.api.RelationalPreparedStatement;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.recordlayer.query.AstNormalizer;
@@ -39,10 +38,10 @@ import org.junit.Assert;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
+import org.junit.jupiter.api.parallel.Isolated;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
-import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -52,6 +51,13 @@ import java.util.List;
 /**
  * Testing basic query logging: plan, time, cache hits, etc.
  */
+// Marked @Isolated because this test asserts on captured log messages from the JVM-global
+// PlanGenerator logger via LogAppenderRule. The appender catches events from any test
+// running concurrently against the same logger, and a thread-id filter is not safe
+// because the relational engine dispatches work onto async pools (FDB callbacks,
+// CompletableFuture stages, etc.). @Isolated tells JUnit to suspend all other tests
+// while this class runs, so the captured events are guaranteed to be ours.
+@Isolated
 public class QueryLoggingTest {
     @RegisterExtension
     @Order(0)
@@ -59,11 +65,11 @@ public class QueryLoggingTest {
 
     @RegisterExtension
     @Order(1)
-    public final SimpleDatabaseRule database = new SimpleDatabaseRule(QueryLoggingTest.class, TestSchemas.restaurantWithCoveringIndex());
+    public final SimpleDatabaseRule database = new SimpleDatabaseRule(relationalExtension, QueryLoggingTest.class, TestSchemas.restaurantWithCoveringIndex());
 
     @RegisterExtension
     @Order(2)
-    public final RelationalConnectionRule connection = new RelationalConnectionRule(database::getConnectionUri)
+    public final RelationalConnectionRule connection = new RelationalConnectionRule(relationalExtension, database::getConnectionUri)
             .withOptions(Options.NONE)
             .withSchema("TEST_SCHEMA");
 
@@ -133,7 +139,7 @@ public class QueryLoggingTest {
 
     @Test
     void testRelationalConnectionOptionPreparedStatement() throws Exception {
-        final var driver = (RelationalDriver) DriverManager.getDriver(database.getConnectionUri().toString());
+        final var driver = relationalExtension.getDriver();
         try (RelationalConnection conn = driver.connect(database.getConnectionUri(), Options.builder().withOption(Options.Name.LOG_QUERY, true).build())) {
             conn.setSchema(database.getSchemaName());
             try (PreparedStatement ps = conn.prepareStatement("SELECT name from restaurant where rest_no = ?")) {
@@ -154,7 +160,7 @@ public class QueryLoggingTest {
 
     @Test
     void testRelationalConnectionOptionExplicitlyDisabled() throws Exception {
-        final var driver = (RelationalDriver) DriverManager.getDriver(database.getConnectionUri().toString());
+        final var driver = relationalExtension.getDriver();
         try (RelationalConnection conn = driver.connect(database.getConnectionUri(), Options.builder().withOption(Options.Name.LOG_QUERY, false).build())) {
             conn.setSchema(database.getSchemaName());
             try (PreparedStatement ps = conn.prepareStatement("SELECT name from restaurant where rest_no = ?")) {
@@ -175,7 +181,7 @@ public class QueryLoggingTest {
 
     @Test
     void testRelationalConnectionSetLogOnThenOff() throws Exception {
-        final var driver = (RelationalDriver) DriverManager.getDriver(database.getConnectionUri().toString());
+        final var driver = relationalExtension.getDriver();
         try (RelationalConnection conn = driver.connect(database.getConnectionUri(), Options.NONE)) {
             conn.setSchema(database.getSchemaName());
             try (Statement stmt = conn.createStatement()) {
@@ -208,7 +214,7 @@ public class QueryLoggingTest {
 
     @Test
     void testRelationalConnectionSetLogIsOverriddenByQueryOption() throws Exception {
-        final var driver = (RelationalDriver) DriverManager.getDriver(database.getConnectionUri().toString());
+        final var driver = relationalExtension.getDriver();
         try (RelationalConnection conn = driver.connect(database.getConnectionUri(), Options.NONE)) {
             conn.setSchema(database.getSchemaName());
             conn.setOption(Options.Name.LOG_QUERY, false);
@@ -226,7 +232,7 @@ public class QueryLoggingTest {
     @Test
     void testRelationalConnectionSetLogIsOverriddenByExecuteContinuationQueryOption() throws Exception {
         insertRows();
-        final var driver = (RelationalDriver) DriverManager.getDriver(database.getConnectionUri().toString());
+        final var driver = relationalExtension.getDriver();
         try (RelationalConnection conn = driver.connect(database.getConnectionUri(), Options.NONE)) {
             Continuation continuation;
             conn.setSchema(database.getSchemaName());
@@ -254,7 +260,7 @@ public class QueryLoggingTest {
     @ValueSource(booleans = {true, false})
     void testRelationalConnectionSetLogWithExecuteContinuation(boolean setLogging) throws Exception {
         insertRows();
-        final var driver = (RelationalDriver) DriverManager.getDriver(database.getConnectionUri().toString());
+        final var driver = relationalExtension.getDriver();
         try (RelationalConnection conn = driver.connect(database.getConnectionUri(), Options.NONE)) {
             Continuation continuation;
             conn.setSchema(database.getSchemaName());
@@ -298,7 +304,7 @@ public class QueryLoggingTest {
             resultSet.next();
         }
         Assertions.assertThat(logAppender.getLogEvents()).isEmpty();
-        final var driver = (RelationalDriver) DriverManager.getDriver(database.getConnectionUri().toString());
+        final var driver = relationalExtension.getDriver();
         try (RelationalConnection conn = driver.connect(database.getConnectionUri(), Options.builder().withOption(Options.Name.LOG_SLOW_QUERY_THRESHOLD_MICROS, 1L).build())) {
             conn.setSchema(database.getSchemaName());
             try (PreparedStatement ps = conn.prepareStatement("SELECT NAME FROM RESTAURANT")) {
@@ -316,7 +322,7 @@ public class QueryLoggingTest {
             resultSet.next();
         }
         Assertions.assertThat(logAppender.getLogEvents()).isEmpty();
-        final var driver = (RelationalDriver) DriverManager.getDriver(database.getConnectionUri().toString());
+        final var driver = relationalExtension.getDriver();
         try (RelationalConnection conn = driver.connect(database.getConnectionUri(), Options.builder().withOption(Options.Name.LOG_SLOW_QUERY_THRESHOLD_MICROS, 1L).build())) {
             conn.setSchema(database.getSchemaName());
             try (PreparedStatement ps = conn.prepareStatement("SELECT * FROM RESTAURANT WHERE \"NAME\" = 'restaurant 1'")) {

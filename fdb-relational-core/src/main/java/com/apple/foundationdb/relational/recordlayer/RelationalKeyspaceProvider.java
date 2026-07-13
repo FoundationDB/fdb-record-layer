@@ -188,7 +188,14 @@ public class RelationalKeyspaceProvider {
                 .addSubdirectory(new KeySpaceDirectory(INTERNING_LAYER, KeySpaceDirectory.KeyType.STRING, INTERNING_LAYER_VALUE));
     }
 
-    public void registerDomainIfNotExists(@Nonnull String domainName) {
+    public synchronized void registerDomainIfNotExists(@Nonnull String domainName) {
+        // Synchronized because this mutates the singleton KeySpace's tree via
+        // addSubdirectory. Without the lock, two concurrent callers can both observe "not
+        // present" and both add the same domain, leaving the tree with two subdirectories
+        // matching the same name — every subsequent path resolution then throws
+        // "<...> is ambigous" from KeySpaceUtils#matchPathToSubdirectories. That surfaces
+        // once multiple test-class @BeforeAll hooks (or parallel FRL constructions) hit
+        // this on the same JVM.
         final var keySpaceRoot = getKeySpace().getRoot();
         final var exists = keySpaceRoot.getSubdirectories().stream()
                 .map(KeySpaceDirectory::getName)

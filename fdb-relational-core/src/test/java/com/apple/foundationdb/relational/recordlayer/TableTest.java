@@ -38,7 +38,6 @@ import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
-import java.net.URI;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -55,11 +54,11 @@ public class TableTest {
 
     @RegisterExtension
     @Order(1)
-    public final SimpleDatabaseRule database = new SimpleDatabaseRule(TableTest.class, TestSchemas.restaurantWithCoveringIndex());
+    public final SimpleDatabaseRule database = new SimpleDatabaseRule(relationalExtension, TableTest.class, TestSchemas.restaurantWithCoveringIndex());
 
     @RegisterExtension
     @Order(2)
-    public final RelationalConnectionRule connection = new RelationalConnectionRule(database::getConnectionUri)
+    public final RelationalConnectionRule connection = new RelationalConnectionRule(relationalExtension, database::getConnectionUri)
             .withOptions(Options.NONE)
             .withSchema("TEST_SCHEMA");
 
@@ -93,7 +92,7 @@ public class TableTest {
 
     @Test
     void wrongSizeOfPrimaryKeyInGetLongerKey() throws Exception {
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate("CREATE TABLE FOO(A bigint, B bigint, C bigint, PRIMARY KEY(C, A))").build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate("CREATE TABLE FOO(A bigint, B bigint, C bigint, PRIMARY KEY(C, A))").build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 RelationalAssertions.assertThrowsSqlException(
                         () -> statement.executeGet("FOO", new KeySet().setKeyColumn("C", 5), Options.NONE))
@@ -324,7 +323,7 @@ public class TableTest {
         final String schema =
                 " CREATE TABLE tbl1 (id bigint, a string, b string, c string, PRIMARY KEY(id))" +
                         " CREATE INDEX c_name_idx as select c from tbl1";
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schema).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schema).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
 
                 var result = EmbeddedRelationalStruct.newBuilder().addLong("ID", 42L).addString("A", "valuea1").addString("B", "valueb1").addString("C", "valuec1").build();
@@ -357,7 +356,7 @@ public class TableTest {
         final String schema =
                 " CREATE TABLE tbl1 (id bigint, a string, b string, c string, d string, PRIMARY KEY(id))" +
                         " CREATE INDEX c_name_idx as select c, d from tbl1 order by c, d";
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schema).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schema).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
 
                 var result = EmbeddedRelationalStruct.newBuilder().addLong("ID", 42L).addString("A", "valuea1").addString("B", "valueb1").addString("C", "valuec1").addString("D", "valued1").build();

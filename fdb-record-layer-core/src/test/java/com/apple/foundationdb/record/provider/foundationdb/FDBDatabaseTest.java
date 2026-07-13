@@ -107,12 +107,19 @@ class FDBDatabaseTest {
 
         RecordMetaData metaData = RecordMetaData.build(TestRecords1Proto.getDescriptor());
 
+        // Create the path up-front so that the directory-layer resolution done by
+        // TestKeySpacePathManager.createPath has already warmed FDBDatabase.lastSeenFDBVersion
+        // by the time we capture readVersion1 below. Otherwise the cached version captured
+        // here would be stale relative to the one createPath puts in the cache, and the
+        // weak-read-semantics assertion at "assertEquals(readVersion1, context.getReadVersion())"
+        // would return the newer (post-createPath) cached version and fail.
+        final KeySpacePath path = pathManager.createPath(TestKeySpace.RECORD_STORE);
+
         // First time, does a GRV from FDB
-        long readVersion1 = getReadVersion(database, 0L, 2_000L);
+        long readVersion1 = getReadVersion(database, 0L, 60_000L);
 
         // Store a record (advances future GRV, but not cached version)
-        final KeySpacePath path = pathManager.createPath(TestKeySpace.RECORD_STORE);
-        final FDBDatabase.WeakReadSemantics weakReadSemantics = new FDBDatabase.WeakReadSemantics(0L, 2_000L, false);
+        final FDBDatabase.WeakReadSemantics weakReadSemantics = new FDBDatabase.WeakReadSemantics(0L, 60_000L, false);
         try (FDBRecordContext context = database.openContext(FDBRecordContextConfig.newBuilder().setWeakReadSemantics(weakReadSemantics).setMdcContext(MDC.getCopyOfContextMap()).build())) {
             assertEquals(readVersion1, context.getReadVersion());
             FDBRecordStore recordStore = FDBRecordStore.newBuilder()
@@ -126,8 +133,8 @@ class FDBDatabaseTest {
             context.commit();
         }
 
-        // We're fine with any version obtained up to 2s ago, so will get the original readVersion
-        assertEquals(readVersion1, getReadVersion(database, 0L, 2000L));
+        // We're fine with any version obtained up to 60s ago, so will get the original readVersion
+        assertEquals(readVersion1, getReadVersion(database, 0L, 60_000L));
 
         Thread.sleep(10L);
 
@@ -135,19 +142,32 @@ class FDBDatabaseTest {
         long readVersion2 = getReadVersion(database, 0L, 11L);
         assertThat(readVersion1, lessThan(readVersion2));
 
-        // Store another record
-        testStoreAndRetrieveSimpleRecord(database, metaData, path);
+        // Store another record. Disable read-tracking for the duration so the fresh GRV
+        // done inside testStoreAndRetrieveSimpleRecord (which uses database.run(null, ...)
+        // and therefore bypasses weak-read-semantics) doesn't repopulate the cached
+        // version with a newer value than readVersion2 and break the assertions below.
+        database.setTrackLastSeenVersionOnRead(false);
+        try {
+            testStoreAndRetrieveSimpleRecord(database, metaData, path);
+        } finally {
+            database.setTrackLastSeenVersionOnRead(true);
+        }
 
-        assertEquals(readVersion2, getReadVersion(database, 0L, 2000L));
-        assertEquals(readVersion2, getReadVersion(database, readVersion2, 2000L));
+        assertEquals(readVersion2, getReadVersion(database, 0L, 60_000L));
+        assertEquals(readVersion2, getReadVersion(database, readVersion2, 60_000L));
 
         // Now we want at least readVersion2 + 1, so this will cause a GRV
-        long readVersion3 = getReadVersion(database, readVersion2 + 1, 2000L);
+        long readVersion3 = getReadVersion(database, readVersion2 + 1, 60_000L);
 
         assertTrue(readVersion2 < readVersion3);
 
-        // Store another record
-        testStoreAndRetrieveSimpleRecord(database, metaData, path);
+        // Store another record (same read-tracking-disable shield as above)
+        database.setTrackLastSeenVersionOnRead(false);
+        try {
+            testStoreAndRetrieveSimpleRecord(database, metaData, path);
+        } finally {
+            database.setTrackLastSeenVersionOnRead(true);
+        }
 
         // Don't use a stored version
         assertTrue(readVersion3 < getReadVersion(database, null, null));

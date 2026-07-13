@@ -59,7 +59,6 @@ import org.junit.jupiter.params.provider.MethodSource;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.sql.Array;
 import java.sql.Connection;
@@ -114,7 +113,7 @@ public class StandardQueryTests {
 
     @Test
     void failsToQueryWithoutASchema() throws Exception {
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (Connection conn = ddl.getConnection()) {
                 conn.setSchema(null);
 
@@ -133,7 +132,7 @@ public class StandardQueryTests {
                 " CREATE TABLE CLASSA (student StudentA, name string, PRIMARY KEY(name))" +
                 " CREATE TABLE CLASSB (student StudentB, name bigint, PRIMARY KEY(name))";
 
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(typeConflictFieldsTemplate).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(typeConflictFieldsTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 insertTypeConflictRecords(statement);
                 Assertions.assertTrue(statement.execute("SELECT * FROM CLASSA"), "Did not return a result set from a select statement!");
@@ -147,7 +146,7 @@ public class StandardQueryTests {
 
     @Test
     void simpleSelect() throws Exception {
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 var insertedRecord = insertRestaurantComplexRecord(statement);
                 Assertions.assertTrue(statement.execute("SELECT * FROM RestaurantComplexRecord"), "Did not return a result set from a select statement!");
@@ -167,7 +166,7 @@ public class StandardQueryTests {
 
     @Test
     void simpleSelectWithNonNullableArrays() throws Exception {
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplateWithNonNullableArrays).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplateWithNonNullableArrays).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 var insertedRecord = insertRestaurantComplexRecord(statement);
                 Assertions.assertTrue(statement.execute("SELECT * FROM RestaurantComplexRecord"), "Did not return a result set from a select statement!");
@@ -186,7 +185,7 @@ public class StandardQueryTests {
 
     @Test
     void canQueryPrimaryKeyZero() throws Exception {
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 var insertedRecord = insertRestaurantComplexRecord(statement, 0L, "");
                 Assertions.assertTrue(statement.execute("SELECT * FROM RestaurantComplexRecord"), "Did not return a result set from a select statement!");
@@ -201,7 +200,7 @@ public class StandardQueryTests {
 
     @Test
     void selectWithPredicateVariants() throws Exception {
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 insertRestaurantComplexRecord(statement);
                 RelationalStruct r11 = insertRestaurantComplexRecord(statement, 11L);
@@ -235,7 +234,7 @@ public class StandardQueryTests {
 
     @Test
     void explainTableScan() throws Exception {
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 try (final RelationalResultSet resultSet = statement.executeQuery("EXPLAIN SELECT * FROM RestaurantComplexRecord WHERE rest_no > 10")) {
                     resultSet.next();
@@ -248,7 +247,7 @@ public class StandardQueryTests {
 
     @Test
     void explainHintedIndexScan() throws Exception {
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 try (final RelationalResultSet resultSet = statement.executeQuery("EXPLAIN SELECT * FROM RestaurantComplexRecord USE INDEX (record_name_idx) WHERE rest_no > 10")) {
                     resultSet.next();
@@ -261,7 +260,7 @@ public class StandardQueryTests {
 
     @Test
     void explainUnhintedIndexScan() throws Exception {
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 try (final RelationalResultSet resultSet = statement.executeQuery("EXPLAIN SELECT * FROM RestaurantComplexRecord AS R WHERE EXISTS (SELECT * FROM R.reviews AS RE WHERE RE.rating >= 9)")) {
                     resultSet.next();
@@ -274,7 +273,7 @@ public class StandardQueryTests {
 
     @Test
     void selectWithPredicateCompositionVariants() throws Exception {
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 insertRestaurantComplexRecord(statement);
                 final var l42 = insertRestaurantComplexRecord(statement, 42L, "rest1");
@@ -314,7 +313,7 @@ public class StandardQueryTests {
     @Test
     @Disabled("(yhatem) until https://github.com/FoundationDB/fdb-record-layer/issues/1945 is fixed")
     void selectWithNullInComparisonOperator() throws Exception {
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 var insertedRecord = insertRestaurantComplexRecord(statement);
                 try (final RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM RestaurantComplexRecord WHERE 1 is null")) {
@@ -350,7 +349,7 @@ public class StandardQueryTests {
 
     @Test
     void selectWithFalsePredicate() throws Exception {
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 insertRestaurantComplexRecord(statement);
                 insertRestaurantComplexRecord(statement, 11L);
@@ -363,7 +362,7 @@ public class StandardQueryTests {
 
     @Test
     void selectWithFalsePredicate2() throws Exception {
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 insertRestaurantComplexRecord(statement);
                 insertRestaurantComplexRecord(statement, 11L);
@@ -376,7 +375,7 @@ public class StandardQueryTests {
 
     @Test
     void selectWithContinuation() throws Exception {
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 statement.setMaxRows(1);
                 insertRestaurantComplexRecord(statement);
@@ -413,7 +412,7 @@ public class StandardQueryTests {
 
     @Test
     void selectWithContinuationBeginEndShouldFail() throws Exception {
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 insertRestaurantComplexRecord(statement);
                 insertRestaurantComplexRecord(statement, 42L, "rest1");
@@ -429,7 +428,7 @@ public class StandardQueryTests {
 
     @Test
     void testSelectWithIndexHint() throws Exception {
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 insertRestaurantComplexRecord(statement);
                 // successfully execute a query with hinted index
@@ -459,7 +458,7 @@ public class StandardQueryTests {
     void testSelectWithCoveringIndexHint() throws Exception {
         final String schema = "CREATE TABLE T1(COL1 bigint, COL2 bigint, COL3 bigint, PRIMARY KEY(COL1, COL3))" +
                 " CREATE INDEX T1_IDX as select col1, col3, col2 from t1 order by col1, col3";
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schema).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schema).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 final var row1 = EmbeddedRelationalStruct.newBuilder().addLong("COL1", 42L).addLong("COL2", 100L).addLong("COL3", 200L).build();
                 int cnt = statement.executeInsert("T1", row1);
@@ -482,7 +481,7 @@ public class StandardQueryTests {
 
     @Test
     void projectIndividualColumns() throws Exception {
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 insertRestaurantComplexRecord(statement);
                 try (final RelationalResultSet resultSet = statement.executeQuery("SELECT name FROM RestaurantComplexRecord WHERE 11 <= rest_no")) {
@@ -495,7 +494,7 @@ public class StandardQueryTests {
 
     @Test
     void projectIndividualQualifiedColumns() throws Exception {
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 insertRestaurantComplexRecord(statement);
                 try (final RelationalResultSet resultSet = statement.executeQuery("SELECT RestaurantComplexRecord.name FROM RestaurantComplexRecord WHERE 11 <= rest_no")) {
@@ -508,7 +507,7 @@ public class StandardQueryTests {
 
     @Test
     void projectIndividualQualifiedColumnsOverAlias() throws Exception {
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 insertRestaurantComplexRecord(statement);
                 try (final RelationalResultSet resultSet = statement.executeQuery("SELECT name FROM RestaurantComplexRecord AS X WHERE 11 <= rest_no")) {
@@ -521,7 +520,7 @@ public class StandardQueryTests {
 
     @Test
     void projectIndividualQualifiedColumnsOverAlias2() throws Exception {
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 insertRestaurantComplexRecord(statement);
                 try (final RelationalResultSet resultSet = statement.executeQuery("SELECT X.name FROM RestaurantComplexRecord AS X WHERE 11 <= rest_no")) {
@@ -534,7 +533,7 @@ public class StandardQueryTests {
 
     @Test
     void getBytes() throws Exception {
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 insertRestaurantComplexRecord(statement);
                 insertRestaurantComplexRecord(statement, 1, "getBytes", "blob1".getBytes(StandardCharsets.UTF_8));
@@ -566,7 +565,7 @@ public class StandardQueryTests {
                 " CREATE TYPE AS STRUCT D ( e E )" +
                 " CREATE TYPE AS STRUCT E ( f bigint )" +
                 " CREATE TABLE tbl1 (id bigint, c C, a A, PRIMARY KEY(id))";
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schema).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schema).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 final var result = EmbeddedRelationalStruct.newBuilder()
                         .addLong("ID", 42L)
@@ -618,7 +617,7 @@ public class StandardQueryTests {
                 " CREATE TYPE AS STRUCT D ( e E )" +
                 " CREATE TYPE AS STRUCT E ( f bigint array )" +
                 " CREATE TABLE tbl1 (id bigint, c C, a A, PRIMARY KEY(id))";
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schema).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schema).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 final var result = EmbeddedRelationalStruct.newBuilder()
                         .addLong("ID", 42L)
@@ -663,7 +662,7 @@ public class StandardQueryTests {
                 " CREATE TYPE AS STRUCT D ( e E array )" +
                 " CREATE TYPE AS STRUCT E ( f bigint array )" +
                 " CREATE TABLE tbl1 (id bigint, c C, a A, PRIMARY KEY(id))";
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schema).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schema).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 try {
                     statement.execute("SELECT id, c.d.e.f, a.b.c.d.e.f FROM tbl1");
@@ -678,7 +677,7 @@ public class StandardQueryTests {
     @Disabled
     // until we fix the implicit fetch operator in record layer.
     void projectIndividualPredicateColumns() throws Exception {
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 insertRestaurantComplexRecord(statement);
                 try (final RelationalResultSet resultSet = statement.executeQuery("SELECT rest_no FROM RestaurantComplexRecord WHERE 11 <= rest_no")) {
@@ -691,7 +690,7 @@ public class StandardQueryTests {
     @Disabled
     // until we implement1 operators for type promotion and casts in record layer.
     void predicateWithImplicitCast() throws Exception {
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 insertRestaurantComplexRecord(statement);
                 RelationalStruct l42 = insertRestaurantComplexRecord(statement, 42L, "rest1");
@@ -707,7 +706,7 @@ public class StandardQueryTests {
 
     @Test
     void existsPredicateWorks() throws Exception {
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 insertRestaurantComplexRecord(statement);
                 insertRestaurantComplexRecord(statement, 42L, "rest1", List.of(Triple.of(1L, 4L, List.of()), Triple.of(2L, 5L, List.of())));
@@ -722,7 +721,7 @@ public class StandardQueryTests {
 
     @Test
     void existsPredicateWorksWithNonNullableArray() throws Exception {
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplateWithNonNullableArrays).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplateWithNonNullableArrays).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 insertRestaurantComplexRecord(statement, 42L, "rest1", List.of(Triple.of(1L, 4L, List.of()), Triple.of(2L, 5L, List.of())));
                 RelationalStruct l43 = insertRestaurantComplexRecord(statement, 43L, "rest2", List.of(Triple.of(3L, 9L, List.of()), Triple.of(4L, 8L, List.of())));
@@ -736,7 +735,7 @@ public class StandardQueryTests {
 
     @Test
     void existsPredicateNestedWorks() throws Exception {
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 insertRestaurantComplexRecord(statement);
                 RelationalStruct l42 = insertRestaurantComplexRecord(statement, 42L, "rest1",
@@ -758,7 +757,7 @@ public class StandardQueryTests {
         final String schema = "CREATE TYPE AS STRUCT contact_detail(name string, phone_number string, address string) " +
                 "CREATE TYPE AS STRUCT messages(\"TEXT\" string, timestamp bigint,sent boolean) " +
                 "CREATE TABLE conversations(id bigint, other_party CONTACT_DETAIL, messages MESSAGES ARRAY,primary key(id))";
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schema).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schema).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 final var row1 = EmbeddedRelationalStruct.newBuilder()
                         .addLong("ID", 0L)
@@ -848,7 +847,7 @@ public class StandardQueryTests {
 
     @Test
     void aliasingColumnsWorks() throws Exception {
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 insertRestaurantComplexRecord(statement);
                 try (final RelationalResultSet resultSet = statement.executeQuery("SELECT Y.M FROM (SELECT X.N AS M FROM (SELECT name AS N FROM RestaurantComplexRecord WHERE 11 <= rest_no) X) Y")) {
@@ -862,7 +861,7 @@ public class StandardQueryTests {
     @Test
     void aliasingTableToResolveAmbiguityWorks() throws Exception {
         final String schema = "CREATE TABLE FOO(FOO bigint, PRIMARY KEY(FOO))";
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schema).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schema).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 final var row1 = EmbeddedRelationalStruct.newBuilder().addLong("FOO", 42L).build();
                 int cnt = statement.executeInsert("FOO", row1);
@@ -897,14 +896,14 @@ public class StandardQueryTests {
                 "CREATE FUNCTION lat(IN x TYPE Location) RETURNS string AS x.coor.latitude\n"; // "coor" is wrong
 
         // fail to build the MacroFunctionValue in the DDL step
-        Assertions.assertThrows(SQLException.class, () -> Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate1).build()).getMessage();
+        Assertions.assertThrows(SQLException.class, () -> Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplate1).build()).getMessage();
 
         final String schemaTemplate3 = "CREATE TYPE AS STRUCT LATLON (latitude string, longitude string)\n" +
                 "CREATE TYPE AS STRUCT Location (name string, coord LATLON)" +
                 "CREATE TABLE T1(uid bigint, loc Location, PRIMARY KEY(uid))\n" +
                 "CREATE FUNCTION name(IN x TYPE Location) RETURNS string AS x.name\n";  // name is a reserved word
 
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate3).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplate3).build()) {
             try (var ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM T1 WHERE name(loc) = ?name")) {
                 ps.setString("name", "Apple Park Visitor Center");
                 final var errorMsg3 = Assertions.assertThrows(SQLException.class, ps::executeQuery).getMessage();
@@ -957,7 +956,7 @@ public class StandardQueryTests {
 
     private void testBitmapResult(String schemaTemplate, String query) throws Exception {
         int expectedByteArrayLength = 1250;
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 statement.executeUpdate("insert into t1 values (42, 'world')");
                 statement.executeUpdate("insert into t1 values (2, 'world')");
@@ -1021,7 +1020,7 @@ public class StandardQueryTests {
 
     private void testBitmapResultWithEmptyGroup(String schemaTemplate) throws Exception {
         int expectedByteArrayLength = 1250;
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 statement.executeUpdate("insert into t1 values (42, 'world')");
                 statement.executeUpdate("insert into t1 values (2, 'world')");
@@ -1058,7 +1057,7 @@ public class StandardQueryTests {
     @Test
     void queryJavaCallFunctionLocallyCreatedUdf() throws Exception {
         final String schemaTemplate = "CREATE TABLE T1(pk bigint, a string, PRIMARY KEY(pk))";
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 statement.executeUpdate("insert into t1 values (42, 'world')");
                 Assertions.assertTrue(statement.execute("SELECT java_call('com.apple.foundationdb.relational.recordlayer.query.udf.SumUdf', pk, 42) + 100 FROM T1"), "Did not return a result set from a select statement!");
@@ -1075,7 +1074,7 @@ public class StandardQueryTests {
     void queryJavaCallSimulatecustomerFunction() throws Exception {
         final var expected = EmbeddedRelationalArray.newBuilder().addBytes(new byte[]{0xA, 0xB}).build();
         final String schemaTemplate = "CREATE TABLE T1(pk bigint, a bytes, b bytes array, PRIMARY KEY(pk))";
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 statement.executeUpdate("insert into t1 values (42, X'0A', [ X'0B' ])");
                 Assertions.assertTrue(statement.execute("SELECT java_call('com.apple.foundationdb.relational.recordlayer.query.udf.ByteOperationsUdf', a, b) FROM T1"), "Did not return a result set from a select statement!");
@@ -1091,7 +1090,7 @@ public class StandardQueryTests {
     @Test
     void selectStarStatement() throws Exception {
         final String schemaTemplate = "CREATE TABLE T1(pk bigint, a bigint, b bigint, PRIMARY KEY(pk))";
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 statement.executeUpdate("insert into t1 values (42, 100, 101)");
                 Assertions.assertTrue(statement.execute("select * from t1"));
@@ -1107,7 +1106,7 @@ public class StandardQueryTests {
     @Test
     void selectWithEmptyListAsPredicate() throws Exception {
         final String schemaTemplate = "CREATE TABLE T1(pk bigint, a string, PRIMARY KEY(pk))";
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 statement.executeUpdate("insert into t1 values (42, 'bla')");
             }
@@ -1122,7 +1121,7 @@ public class StandardQueryTests {
     @Test
     void deleteLimit() throws Exception {
         final String schemaTemplate = "CREATE TABLE simple (rest_no bigint, name string, primary key(rest_no))";
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 statement.executeUpdate("insert into simple values (1,'testRecord1'), (2, 'testRecord2')");
                 Assertions.assertTrue(statement.execute("select * from simple"));
@@ -1146,7 +1145,7 @@ public class StandardQueryTests {
     @Test
     void selectNestedStarWorks() throws Exception {
         final String schemaTemplate = "CREATE TABLE T1(pk bigint, a bigint, b bigint, PRIMARY KEY(pk))";
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 statement.executeUpdate("insert into t1 values (42, 100, 101)");
                 Assertions.assertTrue(statement.execute("select (*) from t1"));
@@ -1175,7 +1174,7 @@ public class StandardQueryTests {
     @Test
     void testNamingStruct() throws Exception {
         final String schemaTemplate = "CREATE TABLE T1(pk bigint, a bigint, b bigint, c bigint, PRIMARY KEY(pk))";
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 statement.executeUpdate("insert into t1 values (42, 100, 500, 101)");
                 Assertions.assertTrue(statement.execute("select struct asd (a, 42, struct def (b, c)) as X from t1"));
@@ -1193,7 +1192,7 @@ public class StandardQueryTests {
     @Test
     void testNamingStructsSameType() throws Exception {
         final String schemaTemplate = "CREATE TABLE T1(pk bigint, a bigint, b bigint, c bigint, PRIMARY KEY(pk))";
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 statement.executeUpdate("insert into t1 values (42, 100, 500, 101)");
                 Assertions.assertTrue(statement.execute("select struct asd (a, 42, struct def (b, c), struct def(b, c)) as X from t1"));
@@ -1214,7 +1213,7 @@ public class StandardQueryTests {
     @Test
     void testNamingStructsDifferentTypesThrows() throws Exception {
         final String schemaTemplate = "CREATE TABLE T1(pk bigint, a bigint, b bigint, c bigint, PRIMARY KEY(pk))";
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 statement.executeUpdate("insert into t1 values (42, 100, 500, 101)");
                 final var message = Assertions.assertThrows(SQLException.class, () -> statement.execute("select struct asd (a, 42, struct def (b, c), struct def(b, c, a)) as X from t1")).getMessage();
@@ -1226,7 +1225,7 @@ public class StandardQueryTests {
     @Test
     void testNamingStructsSameTypeDifferentNestingLevels() throws Exception {
         final String schemaTemplate = "CREATE TABLE T1(pk bigint, a bigint, b bigint, c bigint, PRIMARY KEY(pk))";
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 statement.executeUpdate("insert into t1 values (42, 100, 500, 101)");
                 Assertions.assertTrue(statement.execute("select a, 42, struct def (b, c), (a, b, c, struct def(b, c)) as X from t1"));
@@ -1246,7 +1245,7 @@ public class StandardQueryTests {
     @Test
     void testNamingStructWithNameOfTableIsNotPermitted() throws Exception {
         final String schemaTemplate = "CREATE TABLE T1(pk bigint, a bigint, b bigint, c bigint, PRIMARY KEY(pk))";
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 statement.executeUpdate("insert into t1 values (42, 100, 500, 101)");
                 ContextualSQLException err = Assertions.assertThrows(ContextualSQLException.class, () -> statement.execute("select a, 42, struct T1 (b, c) as X from t1"));
@@ -1264,7 +1263,7 @@ public class StandardQueryTests {
         final String schemaTemplate = "CREATE TABLE T1(pk bigint, a string, PRIMARY KEY(pk))" +
                 " CREATE INDEX a_index as select pk, a from T1 order by pk, a";
 
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 statement.executeUpdate("insert into t1 values (42, 'bla')");
                 statement.executeUpdate("insert into t1 values (40, 'foo')");
@@ -1307,7 +1306,7 @@ public class StandardQueryTests {
                 " CREATE INDEX pk_a as select pk, a from T1 order by pk, a" +
                 " CREATE INDEX b_a as select b, a from T1 order by b, a";
 
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 statement.executeUpdate("insert into t1 values (42, 'bla', 1)");
                 statement.executeUpdate("insert into t1 values (40, 'foo', 2)");
@@ -1344,7 +1343,7 @@ public class StandardQueryTests {
         final String schemaTemplate = "CREATE TABLE T1(pk bigint, a string, b bigint, PRIMARY KEY(pk))" +
                 " CREATE INDEX pk_a_b as select pk, a, b from T1 order by pk, a, b";
 
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 statement.executeUpdate("insert into t1 values (42, 'bla', 1)");
                 statement.executeUpdate("insert into t1 values (40, 'foo', 2)");
@@ -1381,7 +1380,7 @@ public class StandardQueryTests {
     void unionIsNotSupported() throws Exception {
         final String schemaTemplate = "CREATE TABLE T1(pk bigint, a string, b bigint, PRIMARY KEY(pk))";
 
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 RelationalAssertions.assertThrows(() ->
                         ((EmbeddedRelationalStatement) statement)
@@ -1395,7 +1394,7 @@ public class StandardQueryTests {
     void structArrayContains() throws Exception {
         final String schemaTemplate = "CREATE TYPE AS STRUCT A(col2 string, col3 bigint, col4 bigint) " +
                 "CREATE TABLE T1(col1 bigint, a A Array, col5 bigint, primary key(col1))";
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 statement.executeUpdate("insert into t1 values (42, [('Apple', 1, 100), ('Orange', 2, 200)], 142), (44, [('Grape', 3, 300), ('Pear', 4, 400)], 144)");
                 Assertions.assertTrue(statement.execute("SELECT T1.col5 FROM T1 where exists (SELECT 1 FROM T1.A r where r.col2 = 'Grape') "));
@@ -1426,7 +1425,7 @@ public class StandardQueryTests {
     @Test
     void primitiveArrayContains() throws Exception {
         final String schemaTemplate = "CREATE TABLE T1(col1 bigint, a string Array, primary key(col1))";
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 statement.executeUpdate("insert into t1 values (42, ['Apple', 'Orange']), (44, ['Grape', 'Pear'])");
                 Assertions.assertTrue(statement.execute("SELECT * FROM T1 where exists (SELECT 1 FROM T1.A r where r = 'Grape')"));
@@ -1457,7 +1456,7 @@ public class StandardQueryTests {
     @Test
     void cteWorksCorrectly() throws Exception {
         final String schemaTemplate = "CREATE TABLE T1(pk bigint, a bigint, b bigint, c bigint, PRIMARY KEY(pk))";
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 statement.executeUpdate("insert into t1 values (42, 100, 500, 101), (44, 101, 501, 102)");
                 //Assertions.assertTrue(statement.execute("with C1 (X, Y, Z) as (SELECT a, b, c from T1) select Y, Z from C1"));
@@ -1477,7 +1476,7 @@ public class StandardQueryTests {
     @Test
     void cteWorksCorrectly2() throws Exception {
         final String schemaTemplate = "CREATE TABLE T1(pk bigint, a bigint, b bigint, c bigint, PRIMARY KEY(pk))";
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 statement.executeUpdate("insert into t1 values (42, 100, 500, 101), (44, 101, 501, 102)");
                 //Assertions.assertTrue(statement.execute("with C1 (X, Y, Z) as (SELECT a, b, c from T1) select Y, Z from C1"));
@@ -1497,7 +1496,7 @@ public class StandardQueryTests {
     @Test
     void cteWithColumnAliasesWorksCorrectly() throws Exception {
         final String schemaTemplate = "CREATE TABLE T1(pk bigint, a bigint, b bigint, c bigint, PRIMARY KEY(pk))";
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 statement.executeUpdate("insert into t1 values (42, 100, 500, 101), (44, 101, 501, 102)");
                 Assertions.assertTrue(statement.execute("with C1 (X, Y, Z) as (SELECT a, b, c from T1) select Y, Z from C1"));
@@ -1516,7 +1515,7 @@ public class StandardQueryTests {
     void unionParenthesisIsNotSupported() throws Exception {
         final String schemaTemplate = "CREATE TABLE T1(pk bigint, a string, b bigint, PRIMARY KEY(pk))";
 
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 RelationalAssertions.assertThrows(() ->
                         ((EmbeddedRelationalStatement) statement)
@@ -1529,7 +1528,7 @@ public class StandardQueryTests {
     @Test
     void selfJoinTest() throws Exception {
         final String schemaTemplate = "CREATE TABLE T1(pk bigint, a bigint, PRIMARY KEY(pk))";
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 statement.executeUpdate("insert into t1 values (1, 10), (2, 20)");
                 Assertions.assertTrue(statement.execute("select * from t1 as x, t1 as y"));
@@ -1552,7 +1551,7 @@ public class StandardQueryTests {
     void testInsertUuidTest() throws Exception {
         final String schemaTemplate = "CREATE TABLE T1(pk bigint, a UUID, PRIMARY KEY(pk))";
         final var actualUuidValue = UUID.fromString("14b387cd-79ad-4860-9588-9c4e81588af0");
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var insert = ddl.setSchemaAndGetConnection().prepareStatement("insert into t1 values (1, '14b387cd-79ad-4860-9588-9c4e81588af0')")) {
                 final var numActualInserted = insert.executeUpdate();
                 Assertions.assertEquals(1, numActualInserted);
@@ -1567,7 +1566,7 @@ public class StandardQueryTests {
                 }
             }
         }
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var insert = ddl.setSchemaAndGetConnection().prepareStatement("insert into t1 values (?pk, ?a)")) {
                 insert.setLong("pk", 1L);
                 insert.setUUID("a", actualUuidValue);
@@ -1596,7 +1595,7 @@ public class StandardQueryTests {
                 .addLong("A", 2L)
                 .addUuid("B", actualUuidValue2)
                 .build();
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var insert = ddl.setSchemaAndGetConnection().prepareStatement("insert into t1 values (?pk, ?a, ?b)")) {
                 insert.setLong("pk", 1L);
                 insert.setUUID("a", actualUuidValue1);
@@ -1632,7 +1631,7 @@ public class StandardQueryTests {
     void vectorInsertSelectPrepared(String vectorType, RealVector vector) throws Exception {
         final String schemaTemplate = String.format("CREATE TABLE T1(pk bigint, v %s, PRIMARY KEY(pk))", vectorType);
 
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var insert = ddl.setSchemaAndGetConnection().prepareStatement("insert into t1 values (?pk, ?v)")) {
                 insert.setLong("pk", 1L);
                 insert.setObject("v", vector);

@@ -35,7 +35,6 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
 import javax.annotation.Nonnull;
-import java.net.URI;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Stream;
@@ -56,7 +55,7 @@ public class StatementBuilderTests {
     @Test
     void addExtraSetClauseToUpdate() throws Exception {
         final String schemaTemplateString = "CREATE TABLE T1(pk bigint, a bigint, b bigint, c bigint, PRIMARY KEY(pk))";
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplateString).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplateString).build()) {
             final var updateStatement = "update T1 set a = 42 where pk = 444";
             final var updateBuilder = ddl.setSchemaAndGetConnection().createStatementBuilderFactory().updateStatementBuilder(updateStatement);
             final var ef = ddl.getConnection().createExpressionBuilderFactory();
@@ -70,7 +69,7 @@ public class StatementBuilderTests {
     @Test
     void setSameFieldMultipleTimes() throws Exception {
         final String schemaTemplateString = "CREATE TABLE T1(pk bigint, a bigint, b bigint, c bigint, PRIMARY KEY(pk))";
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplateString).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplateString).build()) {
             final var updateStatement = "update T1 set a = 42 where pk = 444";
             final var updateBuilder = ddl.setSchemaAndGetConnection().createStatementBuilderFactory().updateStatementBuilder(updateStatement);
             final var ef = ddl.getConnection().createExpressionBuilderFactory();
@@ -86,7 +85,7 @@ public class StatementBuilderTests {
     @Test
     void removeSetFieldClause() throws Exception {
         final String schemaTemplateString = "CREATE TABLE T1(pk bigint, a bigint, b bigint, c bigint, PRIMARY KEY(pk))";
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplateString).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplateString).build()) {
             final var updateStatement = "update T1 set a = 42, b = 44 where pk = 444";
             final var updateBuilder = ddl.setSchemaAndGetConnection().createStatementBuilderFactory().updateStatementBuilder(updateStatement);
             final var ef = ddl.getConnection().createExpressionBuilderFactory();
@@ -100,7 +99,7 @@ public class StatementBuilderTests {
     @Test
     void removeAllSetFieldClausesThrows() throws Exception {
         final String schemaTemplateString = "CREATE TABLE T1(pk bigint, a bigint, b bigint, c bigint, PRIMARY KEY(pk))";
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplateString).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplateString).build()) {
             final var updateStatement = "update T1 set b = 44 where pk = 444";
             final var updateBuilder = ddl.setSchemaAndGetConnection().createStatementBuilderFactory().updateStatementBuilder(updateStatement);
             final var ef = ddl.getConnection().createExpressionBuilderFactory();
@@ -114,7 +113,7 @@ public class StatementBuilderTests {
     @Test
     void examineSetFields() throws Exception {
         final String schemaTemplateString = "CREATE TABLE T1(pk bigint, a bigint, b bigint, c string, PRIMARY KEY(pk))";
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplateString).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplateString).build()) {
             final var updateStatement = "update T1 set a = 42, c = 'bla' where pk = 444";
             final var updateBuilder = ddl.setSchemaAndGetConnection().createStatementBuilderFactory().updateStatementBuilder(updateStatement);
             var setFields = updateBuilder.getSetClauses().keySet();
@@ -133,7 +132,7 @@ public class StatementBuilderTests {
     @Test
     void examineWhereClause() throws Exception {
         final String schemaTemplateString = "CREATE TABLE T1(pk bigint, a bigint, b bigint, c string, PRIMARY KEY(pk))";
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplateString).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplateString).build()) {
             final var updateStatement = "update T1 set a = 42, c = 'bla' where pk = 444";
             final var updateBuilder = ddl.setSchemaAndGetConnection().createStatementBuilderFactory().updateStatementBuilder(updateStatement);
             var whereClause = updateBuilder.getWhereClause();
@@ -147,7 +146,7 @@ public class StatementBuilderTests {
     @Test
     void examineMultipleWhereClauses() throws Exception {
         final String schemaTemplateString = "CREATE TABLE T1(pk bigint, a bigint, b bigint, c string, PRIMARY KEY(pk))";
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplateString).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplateString).build()) {
             final var updateStatement = "update T1 set a = 42, c = 'bla' where pk = 444 AND (a < 42)";
             final var updateBuilder = ddl.setSchemaAndGetConnection().createStatementBuilderFactory().updateStatementBuilder(updateStatement);
             var whereClause = updateBuilder.getWhereClause();
@@ -176,7 +175,7 @@ public class StatementBuilderTests {
     @MethodSource("queryOptionsParameters")
     void examineQueryOptions(@Nonnull final String queryOptionsClause, @Nonnull final Set<StructuredQuery.QueryOptions> expectedOptions) throws Exception {
         final String schemaTemplateString = "CREATE TABLE T1(pk bigint, a bigint, b bigint, c string, PRIMARY KEY(pk))";
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplateString).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplateString).build()) {
             var updateStatement = "update T1 set a = 42, c = 'bla' where pk = 444 AND (a < 42) " + queryOptionsClause;
             var updateBuilder = ddl.setSchemaAndGetConnection().createStatementBuilderFactory().updateStatementBuilder(updateStatement);
             assertThat(updateBuilder.getOptions())
@@ -187,7 +186,7 @@ public class StatementBuilderTests {
     @Test
     void addWhereClauses() throws Exception {
         final String schemaTemplateString = "CREATE TABLE T1(pk bigint, a bigint, b bigint, c string, PRIMARY KEY(pk))";
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplateString).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplateString).build()) {
             final var updateStatement = "update T1 set a = 42, c = 'bla' where pk = 444 AND (a < 42)";
             final var updateBuilder = ddl.setSchemaAndGetConnection().createStatementBuilderFactory().updateStatementBuilder(updateStatement);
             final var ef = ddl.getConnection().createExpressionBuilderFactory();
@@ -204,7 +203,7 @@ public class StatementBuilderTests {
     @Test
     void examineReturning() throws Exception {
         final String schemaTemplateString = "CREATE TABLE T1(pk bigint, a bigint, b bigint, c string, PRIMARY KEY(pk))";
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplateString).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplateString).build()) {
             final var updateStatement = "update T1 set a = 42, c = 'bla' returning *";
             final var updateBuilder = ddl.setSchemaAndGetConnection().createStatementBuilderFactory().updateStatementBuilder(updateStatement);
             final var returning = updateBuilder.getReturning();
@@ -218,7 +217,7 @@ public class StatementBuilderTests {
     @Test
     void examineReturningMultipleColumns() throws Exception {
         final String schemaTemplateString = "CREATE TABLE T1(pk bigint, a bigint, b bigint, c string, PRIMARY KEY(pk))";
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplateString).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplateString).build()) {
             final var updateStatement = "update T1 set a = 42, c = 'bla' returning \"old\".a, b, *, c+1, d + (5 + 4)";
             final var updateBuilder = ddl.setSchemaAndGetConnection().createStatementBuilderFactory().updateStatementBuilder(updateStatement);
             final var returning = updateBuilder.getReturning();
@@ -240,7 +239,7 @@ public class StatementBuilderTests {
     @Test
     void setReturningClause() throws Exception {
         final String schemaTemplateString = "CREATE TABLE T1(pk bigint, a bigint, b bigint, c string, PRIMARY KEY(pk))";
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplateString).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplateString).build()) {
             final var updateStatement = "update T1 set a = 42, c = 'bla' returning \"old\".a, b, *, c+1, d + (5 + 4)";
             final var updateBuilder = ddl.setSchemaAndGetConnection().createStatementBuilderFactory().updateStatementBuilder(updateStatement);
             var returning = updateBuilder.getReturning();
@@ -271,7 +270,7 @@ public class StatementBuilderTests {
     @Test
     void greatestFunction() throws Exception {
         final String schemaTemplateString = "CREATE TABLE T1(pk bigint, a bigint, b bigint, c string, PRIMARY KEY(pk))";
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplateString).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplateString).build()) {
             final var updateStatement = "update T1 set a = 42";
             final var updateBuilder = ddl.setSchemaAndGetConnection().createStatementBuilderFactory().updateStatementBuilder(updateStatement);
             final var ef = ddl.getConnection().createExpressionBuilderFactory();
@@ -296,7 +295,7 @@ public class StatementBuilderTests {
     @Test
     void mathInSetClause() throws Exception {
         final String schemaTemplateString = "CREATE TABLE T1(pk bigint, a bigint, b bigint, c string, PRIMARY KEY(pk))";
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplateString).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplateString).build()) {
             final var updateStatement = "update T1 set a = 42";
             final var updateBuilder = ddl.setSchemaAndGetConnection().createStatementBuilderFactory().updateStatementBuilder(updateStatement);
             final var ef = ddl.getConnection().createExpressionBuilderFactory();

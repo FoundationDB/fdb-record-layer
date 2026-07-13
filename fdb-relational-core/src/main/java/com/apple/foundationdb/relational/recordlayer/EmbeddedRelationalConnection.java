@@ -20,10 +20,12 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
+import com.apple.foundationdb.Range;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.IsolationLevel;
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.relational.api.EmbeddedRelationalDriver;
 import com.apple.foundationdb.relational.api.EmbeddedRelationalStruct;
 import com.apple.foundationdb.relational.api.Options;
@@ -48,10 +50,14 @@ import com.apple.foundationdb.relational.api.metrics.MetricCollector;
 import com.apple.foundationdb.relational.recordlayer.metric.StoreTimerMetricCollector;
 import com.apple.foundationdb.relational.recordlayer.structuredsql.expression.ExpressionFactoryImpl;
 import com.apple.foundationdb.relational.recordlayer.structuredsql.statement.StatementBuilderFactoryImpl;
+import com.apple.foundationdb.relational.recordlayer.util.ConflictKeyFormatter;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.relational.util.Supplier;
 import com.google.common.annotations.VisibleForTesting;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -62,6 +68,7 @@ import java.sql.SQLException;
 import java.sql.SQLWarning;
 import java.sql.Struct;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Locale;
 import java.util.stream.Collectors;
 
@@ -80,6 +87,8 @@ import java.util.stream.Collectors;
  */
 @API(API.Status.EXPERIMENTAL)
 public class EmbeddedRelationalConnection implements RelationalConnection {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(EmbeddedRelationalConnection.class);
 
     /**
      * Chose a transaction level that we *pretend* to support (Rather than throw an exception that stops
@@ -199,6 +208,10 @@ public class EmbeddedRelationalConnection implements RelationalConnection {
             getTransaction().commit();
         } catch (RuntimeException | RelationalException re) {
             err = ExceptionUtil.toRelationalException(re);
+            // Best-effort: if the underlying FDB context was configured with
+            // Options.Name.REPORT_CONFLICTING_KEYS, pull the not-committed conflict ranges out and
+            // enrich the exception (and log) so we can see which key(s) actually collided.
+            err = attachConflictingKeys(err);
         }
         try {
             getTransaction().close();
@@ -212,6 +225,45 @@ public class EmbeddedRelationalConnection implements RelationalConnection {
         transaction = null;
         if (err != null) {
             throw err.toSqlException();
+        }
+    }
+
+    /**
+     * If the transaction's FDB context had {@code reportConflictingKeys} enabled and the commit
+     * failed with NOT_COMMITTED, rewrap the exception with a message that includes the concrete
+     * conflict ranges (so they appear in every stack trace) and also attach them to the exception's
+     * context map. Never throws — instrumentation must not itself fail the commit path.
+     *
+     * @param err the original exception; returned unchanged if extraction fails or reporting is off
+     * @return the (possibly-rewrapped) exception with conflict information baked into its message
+     */
+    @Nonnull
+    private RelationalException attachConflictingKeys(@Nonnull RelationalException err) {
+        try {
+            final Transaction txn = transaction;
+            if (txn == null) {
+                return err;
+            }
+            final FDBRecordContext ctx = txn.unwrap(FDBRecordContext.class);
+            final List<Range> ranges = ctx.getNotCommittedConflictingKeys();
+            if (ranges == null) {
+                return err; // reporting was not enabled, or commit did not fail with NOT_COMMITTED
+            }
+            final String rendered = ConflictKeyFormatter.formatRanges(ranges);
+            final String enrichedMessage = (err.getMessage() == null ? "" : err.getMessage())
+                    + " [conflicting_keys_count=" + ranges.size() + ", conflicting_keys=" + rendered + "]";
+            LOGGER.warn("FDB transaction commit failed with conflicting keys: count={} ranges={}",
+                    ranges.size(), rendered);
+            final RelationalException rewrapped = new RelationalException(enrichedMessage, err.getErrorCode(), err);
+            rewrapped.addContext("conflicting_keys", rendered);
+            rewrapped.addContext("conflicting_keys_count", ranges.size());
+            // Preserve any context that was already on the original exception.
+            rewrapped.withContext(err.getContext());
+            return rewrapped;
+        } catch (Exception e) {
+            // Never let diagnostic extraction mask the real error.
+            LOGGER.debug("Failed to extract conflicting keys from failed commit", e);
+            return err;
         }
     }
 

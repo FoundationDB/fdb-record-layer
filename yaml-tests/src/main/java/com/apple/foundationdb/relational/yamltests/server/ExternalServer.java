@@ -22,8 +22,6 @@ package com.apple.foundationdb.relational.yamltests.server;
 
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
-import com.apple.foundationdb.relational.api.exceptions.RelationalException;
-import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.util.BuildVersion;
 import com.apple.foundationdb.relational.yamltests.connectionfactory.Clusters;
 import com.google.common.base.Verify;
@@ -42,12 +40,10 @@ import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.jar.Attributes;
 import java.util.jar.JarFile;
 import java.util.jar.Manifest;
@@ -59,6 +55,16 @@ public class ExternalServer implements Clusters.BoundToCluster {
 
     private static final Logger logger = LogManager.getLogger(ExternalServer.class);
     public static final String EXTERNAL_SERVER_PROPERTY_NAME = "yaml_testing_external_server";
+
+    /**
+     * JVM-wide set of ports currently reserved by any {@link ExternalServer} instance. Closes the race
+     * where two concurrent {@link #startMultiple(Collection)} calls (e.g. from parallel test classes'
+     * {@code @BeforeAll}) each see the same port as available — this would otherwise let two test
+     * classes both try to bind the same port (e.g. 1111). The atomic {@link Set#add(Object)} on a
+     * {@link ConcurrentHashMap#newKeySet()} acts as a CAS: the winner returns {@code true} and owns
+     * the port until {@link #stop()} releases it.
+     */
+    private static final Set<Integer> JVM_WIDE_CLAIMED_PORTS = ConcurrentHashMap.newKeySet();
 
     @Nonnull
     private final File serverJar;
@@ -135,60 +141,98 @@ public class ExternalServer implements Clusters.BoundToCluster {
         return clusterFile;
     }
 
-    public void start(Set<Integer> unavailablePorts) throws Exception {
-        grpcPort = getAvailablePort(unavailablePorts);
-        httpPort = getAvailablePort(unavailablePorts);
-        ProcessBuilder processBuilder = new ProcessBuilder("java",
-                // TODO add support for debugging by adding, but need to take care with ports
-                // "-agentlib:jdwp=transport=dt_socket,server=y,address=8000,suspend=n",
-                "-jar", serverJar.getAbsolutePath(),
-                "--grpcPort", Integer.toString(grpcPort), "--httpPort", Integer.toString(httpPort));
-        boolean saveServerLogs = Boolean.parseBoolean(System.getProperty("tests.saveServerLogs", "false"));
-        @Nullable
-        File outFile;
-        @Nullable
-        File errFile;
-        if (saveServerLogs) {
-            // Include current time in file names so that things sort nicely. We want the out and err logs
-            // for the same server start to be adjacent, and it would be nice for the log files to sort
-            // chronologically
+    public void start() throws Exception {
+        grpcPort = getAvailablePort();
+        boolean success = false;
+        try {
+            httpPort = getAvailablePort();
+            ProcessBuilder processBuilder = new ProcessBuilder("java",
+                    // TODO add support for debugging by adding, but need to take care with ports
+                    // "-agentlib:jdwp=transport=dt_socket,server=y,address=8000,suspend=n",
+                    "-jar", serverJar.getAbsolutePath(),
+                    "--grpcPort", Integer.toString(grpcPort), "--httpPort", Integer.toString(httpPort));
+            boolean saveServerLogs = Boolean.parseBoolean(System.getProperty("tests.saveServerLogs", "false"));
+            // Always capture stderr to a tempfile so we can include its tail in the failure message
+            // if the subprocess dies or never becomes available. Stdout is only retained when the
+            // tests.saveServerLogs sysProp is set, since it can be voluminous in the happy path.
+            // Include current time in file names so they sort nicely.
             long currentTime = System.currentTimeMillis();
-            outFile = File.createTempFile("fdb-relational-server-" + version + "-" + currentTime + "-" + grpcPort + "-out.", ".log");
-            errFile = File.createTempFile("fdb-relational-server-" + version + "-" + currentTime + "-" + grpcPort + "-err.", ".log");
-        } else {
-            outFile = null;
-            errFile = null;
-        }
-        ProcessBuilder.Redirect out = outFile == null ? ProcessBuilder.Redirect.DISCARD : ProcessBuilder.Redirect.to(outFile);
-        ProcessBuilder.Redirect err = errFile == null ? ProcessBuilder.Redirect.DISCARD : ProcessBuilder.Redirect.to(errFile);
-        processBuilder.redirectOutput(out);
-        processBuilder.redirectError(err);
-        if (clusterFile != null) {
-            processBuilder.environment().put("FDB_CLUSTER_FILE", clusterFile);
-        }
+            @Nullable
+            File outFile;
+            if (saveServerLogs) {
+                outFile = File.createTempFile("fdb-relational-server-" + version + "-" + currentTime + "-" + grpcPort + "-out.", ".log");
+            } else {
+                outFile = null;
+            }
+            final File errFile = File.createTempFile("fdb-relational-server-" + version + "-" + currentTime + "-" + grpcPort + "-err.", ".log");
+            // Don't keep the diagnostic file around in the success path (clutters tmp on dev boxes).
+            errFile.deleteOnExit();
+            ProcessBuilder.Redirect out = outFile == null ? ProcessBuilder.Redirect.DISCARD : ProcessBuilder.Redirect.to(outFile);
+            processBuilder.redirectOutput(out);
+            processBuilder.redirectError(ProcessBuilder.Redirect.to(errFile));
+            if (clusterFile != null) {
+                processBuilder.environment().put("FDB_CLUSTER_FILE", clusterFile);
+            }
 
-        if (!startServer(processBuilder)) {
-            if (logger.isWarnEnabled()) {
-                logger.warn(KeyValueLogMessage.of("Failed to start external server",
+            if (!startServer(processBuilder)) {
+                final String errTail = tailFile(errFile, 4096);
+                if (logger.isWarnEnabled()) {
+                    logger.warn(KeyValueLogMessage.of("Failed to start external server",
+                            "jar", serverJar,
+                            LogMessageKeys.VERSION, version,
+                            "grpc_port", grpcPort,
+                            "http_port", httpPort,
+                            "out_file", outFile,
+                            "err_file", errFile,
+                            "subprocess_alive", serverProcess != null && serverProcess.isAlive(),
+                            "exit_value", serverProcess != null && !serverProcess.isAlive() ? serverProcess.exitValue() : "n/a"));
+                }
+                Assertions.fail("Failed to start the external server (grpc_port=" + grpcPort
+                        + ", http_port=" + httpPort
+                        + ", alive=" + (serverProcess != null && serverProcess.isAlive())
+                        + (serverProcess != null && !serverProcess.isAlive() ? ", exit=" + serverProcess.exitValue() : "")
+                        + ")\n--- last bytes of subprocess stderr (" + errFile + ") ---\n"
+                        + errTail
+                        + "\n--- end ---");
+            }
+
+            if (logger.isInfoEnabled()) {
+                logger.info(KeyValueLogMessage.of("Started external server",
                         "jar", serverJar,
                         LogMessageKeys.VERSION, version,
                         "grpc_port", grpcPort,
                         "http_port", httpPort,
                         "out_file", outFile,
-                        "err_file", errFile));
+                        "err_file", errFile
+                ));
             }
-            Assertions.fail("Failed to start the external server");
+            success = true;
+        } finally {
+            // If we claimed ports but the server failed to come up (Assertions.fail, IOException
+            // from process.start, etc.), release the JVM-wide claims so the ports become available
+            // to future allocators. stop() will not be called for a failed start, so this is the
+            // only cleanup hook.
+            if (!success) {
+                JVM_WIDE_CLAIMED_PORTS.remove(grpcPort);
+                JVM_WIDE_CLAIMED_PORTS.remove(httpPort);
+            }
         }
+    }
 
-        if (logger.isInfoEnabled()) {
-            logger.info(KeyValueLogMessage.of("Started external server",
-                    "jar", serverJar,
-                    LogMessageKeys.VERSION, version,
-                    "grpc_port", grpcPort,
-                    "http_port", httpPort,
-                    "out_file", outFile,
-                    "err_file", errFile
-            ));
+    /** Read the trailing {@code maxBytes} of {@code file} as a UTF-8 string, never throwing. */
+    @Nonnull
+    private static String tailFile(@Nonnull File file, int maxBytes) {
+        try {
+            final long size = file.length();
+            try (java.io.RandomAccessFile raf = new java.io.RandomAccessFile(file, "r")) {
+                final int read = (int) Math.min(maxBytes, size);
+                raf.seek(size - read);
+                final byte[] buf = new byte[read];
+                raf.readFully(buf);
+                return (size > read ? "…(truncated)…\n" : "") + new String(buf, java.nio.charset.StandardCharsets.UTF_8);
+            }
+        } catch (IOException e) {
+            return "(failed to read " + file + ": " + e + ")";
         }
     }
 
@@ -233,12 +277,35 @@ public class ExternalServer implements Clusters.BoundToCluster {
     }
 
     private boolean attemptConnectionWithRetry() throws SQLException, InterruptedException {
-        final int maxAttempts = 20;
-        boolean started = false;
+        // Time-based budget rather than a fixed retry count: under JVM-wide contention from a
+        // parallel test run (e.g. many test classes each spawning their own external servers,
+        // YamlIntegrationTests starts ~5) the subprocess can take well over 10s to finish JVM
+        // warmup, FDB connect, and bind its gRPC port. In isolation the same start completes in
+        // ~3s, so the larger ceiling only kicks in on contended runs.
+        final long deadlineMillis = System.currentTimeMillis() + 30_000L;
         int attempts = 0;
-        while (!started && attempts < maxAttempts) {
-            long delay = 50L * attempts;
-            Thread.sleep(delay);
+        boolean started = false;
+        while (!started) {
+            // If the subprocess has died, no amount of retrying will help — bail immediately so
+            // the test fails quickly with an actionable signal instead of consuming the full budget.
+            if (serverProcess != null && !serverProcess.isAlive()) {
+                if (logger.isWarnEnabled()) {
+                    logger.warn(KeyValueLogMessage.of("External server subprocess exited before becoming available",
+                            LogMessageKeys.VERSION, version,
+                            "grpc_port", getPort(),
+                            "exit_value", serverProcess.exitValue(),
+                            "attempts", attempts));
+                }
+                return false;
+            }
+            if (System.currentTimeMillis() >= deadlineMillis) {
+                return false;
+            }
+            // Linear backoff capped at 1s so we don't pace much beyond steady state.
+            final long delay = Math.min(50L * attempts, 1000L);
+            if (delay > 0) {
+                Thread.sleep(delay);
+            }
             started = attemptConnection();
             attempts++;
             if (logger.isDebugEnabled()) {
@@ -276,26 +343,26 @@ public class ExternalServer implements Clusters.BoundToCluster {
     }
 
     /**
-     * Get a port that is currently available for the server.
-     * @param unavailablePorts a set of ports that are known to be unavailable. This is useful for two reasons:
-     * (1) when starting multiple servers, we include all previously allocated ports to avoid starting multiple
-     * servers on the same ports, and (2) each server needs two ports, one for GRPC, and one for HTTP, so the
-     * GRPC port can be noted as unavailable when asking for the http port. If nothing is unavailable, use an empty set.
-     * The provided set must be mutable, as it will be updated during run as ports are allocated
-     * @return a port that is not currently in use on the system.
+     * Get a port that is currently available for the server and atomically claim it in
+     * {@link #JVM_WIDE_CLAIMED_PORTS} so no other {@link ExternalServer} instance — in this batch
+     * or any concurrent batch in another test class — will pick it. The claim is released by
+     * {@link #stop()} or by {@link #start()} on a failed-startup path.
+     * @return a port that is not currently in use on the system and not claimed by another ExternalServer.
      */
-    private int getAvailablePort(@Nonnull final Set<Integer> unavailablePorts) {
+    private int getAvailablePort() {
         // running locally on my laptop, testing if a port is available takes 0 milliseconds, so no need to optimize
         for (int i = 1111; i < 9999; i++) {
-            // Add the port immediately to the set of unavailable ports. We do this because there are
-            // three possibilities: (1) it has already been allocated and so add returns false, (2) it
-            // is determined to be unavailable by isAvailable, or (3) we allocate it to this server.
-            // In any case, we don't want to consider this port again. Checking the set before calling
-            // isAvailable() also ensures that we never need to call isAvailable() more than once for any
-            // port
-            if (unavailablePorts.add(i) && isAvailable(i)) {
+            // Atomically claim across the whole JVM. If another ExternalServer already grabbed this
+            // port, add() returns false and we keep scanning.
+            if (!JVM_WIDE_CLAIMED_PORTS.add(i)) {
+                continue;
+            }
+            if (isAvailable(i)) {
                 return i;
             }
+            // OS-level check failed (port used by something outside the JVM). Release the claim so
+            // a later allocator can reconsider it once whatever is occupying it goes away.
+            JVM_WIDE_CLAIMED_PORTS.remove(i);
         }
         return Assertions.fail("Could not find available port between 1111 and 9999");
     }
@@ -310,30 +377,25 @@ public class ExternalServer implements Clusters.BoundToCluster {
     }
 
     public void stop() {
-        if ((serverProcess != null) && serverProcess.isAlive()) {
-            serverProcess.destroy();
+        try {
+            if ((serverProcess != null) && serverProcess.isAlive()) {
+                serverProcess.destroy();
+            }
+        } finally {
+            // Release JVM-wide port claims unconditionally so the ports become available to other
+            // ExternalServer instances even if the subprocess already exited on its own. The default
+            // int value (0) is never added to JVM_WIDE_CLAIMED_PORTS, so calling stop() before
+            // start() is harmless.
+            JVM_WIDE_CLAIMED_PORTS.remove(grpcPort);
+            JVM_WIDE_CLAIMED_PORTS.remove(httpPort);
         }
     }
 
     public static void startMultiple(@Nonnull Collection<ExternalServer> servers) throws Exception {
-        startMultiple(servers, new HashSet<>());
-    }
-
-    public static void startMultiple(@Nonnull Collection<ExternalServer> servers, @Nonnull Set<Integer> unavailablePorts) throws Exception {
-        final Map<Integer, ExternalServer> allocatedPorts = new HashMap<>();
+        // Port uniqueness within and across batches is guaranteed by JVM_WIDE_CLAIMED_PORTS — each
+        // server's start() atomically claims its grpc and http ports before binding.
         for (ExternalServer server : servers) {
-            server.start(unavailablePorts);
-            // Threading through unavailablePorts should be enough to make sure each port is unique.
-            // Double check both ports, though
-            checkPortIsUnique(server.getPort(), server, allocatedPorts);
-            checkPortIsUnique(server.getHttpPort(), server, allocatedPorts);
-        }
-    }
-
-    private static void checkPortIsUnique(int port, @Nonnull ExternalServer server, @Nonnull Map<Integer, ExternalServer> allocatedPorts) throws RelationalException {
-        @Nullable ExternalServer preExistingServer = allocatedPorts.putIfAbsent(port, server);
-        if (preExistingServer != null) {
-            Assert.fail("allocated duplicate port (" + server.getPort() + ") to servers for versions " + server.getVersion() + " and " + preExistingServer.getVersion());
+            server.start();
         }
     }
 }

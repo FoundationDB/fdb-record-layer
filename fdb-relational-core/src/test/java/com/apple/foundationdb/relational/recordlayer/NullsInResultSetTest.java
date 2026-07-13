@@ -31,7 +31,6 @@ import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
-import java.net.URI;
 import java.nio.charset.StandardCharsets;
 
 public class NullsInResultSetTest {
@@ -50,7 +49,7 @@ public class NullsInResultSetTest {
 
     @Test
     void nullValues() throws Exception {
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (RelationalConnection conn = ddl.setSchemaAndGetConnection()) {
                 try (RelationalStatement s = conn.createStatement()) {
                     s.execute("INSERT INTO T(PK) VALUES(100)");
@@ -93,7 +92,7 @@ public class NullsInResultSetTest {
 
     @Test
     void notNullValues() throws Exception {
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (RelationalConnection conn = ddl.setSchemaAndGetConnection()) {
                 try (RelationalStatement s = conn.createStatement()) {
                     final var struct = EmbeddedRelationalStruct.newBuilder()

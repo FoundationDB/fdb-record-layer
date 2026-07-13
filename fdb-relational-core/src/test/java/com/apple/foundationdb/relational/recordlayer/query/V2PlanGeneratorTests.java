@@ -35,7 +35,6 @@ import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
-import java.net.URI;
 
 public class V2PlanGeneratorTests {
     @RegisterExtension
@@ -49,7 +48,7 @@ public class V2PlanGeneratorTests {
     @Test
     void simpleQueryWorks() throws Exception {
         final String schemaTemplate = "CREATE TABLE T1(pk bigint, a bigint, b bigint, c bigint, PRIMARY KEY(pk))";
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 final var relationalStatement = (EmbeddedRelationalStatement) statement;
                 relationalStatement.executeInternal("insert into t1 values (42, 100, 500, 101), (43, 101, 501, 102)");
@@ -68,7 +67,7 @@ public class V2PlanGeneratorTests {
     @Test
     void simpleQuery2Works() throws Exception {
         final String schemaTemplate = "CREATE TABLE T1(pk bigint, a bigint, b bigint, c bigint, PRIMARY KEY(pk))";
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 final var relationalStatement = (EmbeddedRelationalStatement) statement;
                 relationalStatement.executeInternal("insert into t1 values (42, 100, 500, 101), (43, 101, 501, 102)");
@@ -91,7 +90,7 @@ public class V2PlanGeneratorTests {
     @Test
     void simpleQuery3Works() throws Exception {
         final String schemaTemplate = "CREATE TABLE T1(pk bigint, a bigint, b bigint, c bigint, PRIMARY KEY(pk))";
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 final var relationalStatement = (EmbeddedRelationalStatement) statement;
                 relationalStatement.executeInternal("insert into t1 values (42, 100, 500, 101), (43, 101, 501, 102)");
@@ -114,7 +113,7 @@ public class V2PlanGeneratorTests {
     @Test
     void simpleSubquery4Works() throws Exception {
         final String schemaTemplate = "CREATE TABLE T1(pk bigint, a bigint, b bigint, c bigint, PRIMARY KEY(pk))";
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 final var relationalStatement = (EmbeddedRelationalStatement) statement;
                 relationalStatement.executeInternal("insert into t1 values (42, 100, 500, 101), (43, 101, 501, 102)");
@@ -133,7 +132,7 @@ public class V2PlanGeneratorTests {
     @Test
     void simpleSubquery5Works() throws Exception {
         final String schemaTemplate = "CREATE TABLE T1(pk bigint, a bigint, b bigint, c bigint, PRIMARY KEY(pk))";
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 final var relationalStatement = (EmbeddedRelationalStatement) statement;
                 relationalStatement.executeInternal("insert into t1 values (42, 100, 500, 101), (43, 101, 501, 102)");
@@ -152,7 +151,7 @@ public class V2PlanGeneratorTests {
     @Test
     void simpleSubquery6Works() throws Exception {
         final String schemaTemplate = "CREATE TABLE T1(pk bigint, a bigint, b bigint, c bigint, PRIMARY KEY(pk))";
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 final var relationalStatement = (EmbeddedRelationalStatement) statement;
                 relationalStatement.executeInternal("insert into t1 values (42, 100, 500, 101), (43, 101, 501, 102)");
@@ -171,7 +170,7 @@ public class V2PlanGeneratorTests {
     @Test
     void simpleSubquery7Works() throws Exception {
         final String schemaTemplate = "CREATE TABLE T1(pk bigint, a bigint, b bigint, c bigint, PRIMARY KEY(pk))";
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 final var relationalStatement = (EmbeddedRelationalStatement) statement;
                 relationalStatement.executeInternal("insert into t1 values (42, 100, 500, 101), (43, 101, 501, 102)");
@@ -194,7 +193,7 @@ public class V2PlanGeneratorTests {
         final String schemaTemplate = "CREATE TYPE AS STRUCT Location (longitude bigint, latitude bigint) " +
                 "CREATE TYPE AS STRUCT Info (ratings bigint, loc Location) " +
                 "CREATE TABLE T1(pk bigint, i Info array, b bigint array, c bigint, PRIMARY KEY(pk))";
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 final var relationalStatement = (EmbeddedRelationalStatement) statement;
                 relationalStatement.executeInternal("insert into t1 values (42, [(30, (5000, 5500)), (34, (100, 200))], [500, 501], 101), (43, [(2, (2000, 2200)), (9, (2000,2400))], [700, 701], 102)");
@@ -224,7 +223,7 @@ public class V2PlanGeneratorTests {
                 "CREATE TYPE AS STRUCT Info (ratings bigint, loc Location) " +
                 "CREATE TABLE T1(pk bigint, i Info, b bigint, c bigint, PRIMARY KEY(pk))" +
                 "CREATE TABLE T2(pk bigint, i bigint, b bigint, PRIMARY KEY(pk))";
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 final var relationalStatement = (EmbeddedRelationalStatement) statement;
                 relationalStatement.executeInternal("insert into t1 values (42, (30, (5000, 5500)), 500, 101), (43, (34, (5001, 5501)), 501, 102)");
@@ -251,7 +250,7 @@ public class V2PlanGeneratorTests {
                 "CREATE TYPE AS STRUCT Info (ratings bigint, loc Location) " +
                 "CREATE TABLE T1(pk bigint, i Info, b bigint, c bigint, PRIMARY KEY(pk))" +
                 "CREATE TABLE T2(pk bigint, i bigint, b bigint, PRIMARY KEY(pk))";
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 final var relationalStatement = (EmbeddedRelationalStatement) statement;
                 relationalStatement.executeInternal("insert into t1 values (42, (30, (5000, 5500)), 500, 101), (43, (34, (5001, 5501)), 501, 102)");
@@ -278,7 +277,7 @@ public class V2PlanGeneratorTests {
                 "CREATE TYPE AS STRUCT Info (ratings bigint, loc Location) " +
                 "CREATE TABLE T1(pk bigint, i Info, b bigint, c bigint, PRIMARY KEY(pk))" +
                 "CREATE TABLE T2(pk bigint, i bigint, b bigint, PRIMARY KEY(pk))";
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 final var relationalStatement = (EmbeddedRelationalStatement) statement;
                 relationalStatement.executeInternal("insert into t1 values (42, (30, (5000, 5500)), 500, 101), (43, (34, (5001, 5501)), 501, 102)");
@@ -305,7 +304,7 @@ public class V2PlanGeneratorTests {
                 "CREATE TYPE AS STRUCT Info (ratings bigint, loc Location) " +
                 "CREATE TABLE T1(pk bigint, i Info, b bigint, c bigint, PRIMARY KEY(pk))" +
                 "CREATE TABLE T2(pk bigint, i bigint, b bigint, PRIMARY KEY(pk))";
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 final var relationalStatement = (EmbeddedRelationalStatement) statement;
                 relationalStatement.executeInternal("insert into t1 values (42, (30, (5000, 5500)), 500, 101), (43, (34, (5001, 5501)), 501, 102)");
@@ -330,7 +329,7 @@ public class V2PlanGeneratorTests {
                 "CREATE TYPE AS STRUCT Info (ratings bigint, loc Location) " +
                 "CREATE TABLE T1(pk bigint, i Info, b bigint, c bigint, PRIMARY KEY(pk))" +
                 "CREATE TABLE T2(pk bigint, i bigint, b bigint, PRIMARY KEY(pk))";
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 final var relationalStatement = (EmbeddedRelationalStatement) statement;
                 relationalStatement.executeInternal("insert into t1 values (42, (30, (5000, 5500)), 500, 101), (43, (34, (5001, 5501)), 501, 102)");
@@ -357,7 +356,7 @@ public class V2PlanGeneratorTests {
                 "CREATE TYPE AS STRUCT Info (ratings bigint, loc Location) " +
                 "CREATE TABLE T1(pk bigint, i Info, b bigint, c bigint, PRIMARY KEY(pk))" +
                 "CREATE TABLE T2(pk bigint, i bigint, b bigint, PRIMARY KEY(pk))";
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 final var relationalStatement = (EmbeddedRelationalStatement) statement;
                 relationalStatement.executeInternal("insert into t1 values (42, (30, (5000, 5500)), 500, 101), (43, (34, (5001, 5501)), 501, 102)");
@@ -382,7 +381,7 @@ public class V2PlanGeneratorTests {
                 "CREATE TYPE AS STRUCT Info (ratings bigint, loc Location) " +
                 "CREATE TABLE T1(pk bigint, i Info, b bigint, c bigint, PRIMARY KEY(pk))" +
                 "CREATE TABLE T2(pk bigint, i bigint, b bigint, PRIMARY KEY(pk))";
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 final var relationalStatement = (EmbeddedRelationalStatement) statement;
                 relationalStatement.executeInternal("insert into t1 values (42, (30, (5000, 5500)), 500, 101), (43, (34, (5001, 5501)), 501, 102)");
@@ -407,7 +406,7 @@ public class V2PlanGeneratorTests {
                 "CREATE TYPE AS STRUCT Info (ratings bigint, loc Location) " +
                 "CREATE TABLE T1(pk bigint, i Info array, b bigint, c bigint, PRIMARY KEY(pk))" +
                 "CREATE TABLE T2(pk bigint, i bigint, b bigint, PRIMARY KEY(pk))";
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 final var relationalStatement = (EmbeddedRelationalStatement) statement;
                 relationalStatement.executeInternal("insert into t1 values (42, [(30, (5000, 5500))], 500, 101), (43, [(34, (5001, 5501))], 501, 102)");
@@ -432,7 +431,7 @@ public class V2PlanGeneratorTests {
         final String schemaTemplate = "CREATE TYPE AS STRUCT Info (ratings bigint, nested1 bigint, nested2 bigint) " +
                 "CREATE TABLE T1(pk bigint, i Info, b bigint, c bigint, PRIMARY KEY(pk))" +
                 "CREATE TABLE T2(pk bigint, i bigint, b bigint, PRIMARY KEY(pk))";
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 final var relationalStatement = (EmbeddedRelationalStatement) statement;
                 relationalStatement.executeInternal("insert into t1 values (42, (30, 5000, 5500), 500, 101), (43, (34, 5001, 5501), 501, 102)");
@@ -460,7 +459,7 @@ public class V2PlanGeneratorTests {
                 "CREATE TABLE T1(pk bigint, i Info array, b bigint, c bigint, PRIMARY KEY(pk))" +
                 "CREATE TABLE T2(pk bigint, i bigint, b bigint, PRIMARY KEY(pk))" +
                 "create index i1 as select pk, i from t2 order by pk, i";
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 final var relationalStatement = (EmbeddedRelationalStatement) statement;
                 relationalStatement.executeInternal("insert into t1 values (42, [(30, (5000, 5500))], 500, 101), (43, [(34, (5001, 5501))], 501, 102)");
@@ -486,7 +485,7 @@ public class V2PlanGeneratorTests {
                 "CREATE TABLE T1(pk bigint, i Info array, b bigint, c bigint, PRIMARY KEY(pk))" +
                 "CREATE TABLE T2(pk bigint, i bigint, b bigint, PRIMARY KEY(pk))" +
                 "create index i1 as select pk, i from t2 order by pk, i";
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 final var relationalStatement = (EmbeddedRelationalStatement) statement;
                 relationalStatement.executeInternal("insert into t1 values (42, [(30, (5000, 5500))], 500, 101), (43, [(34, (5001, 5501))], 501, 102)");
@@ -512,7 +511,7 @@ public class V2PlanGeneratorTests {
                 "CREATE TABLE T1(pk bigint, i Info array, b bigint, c bigint, PRIMARY KEY(pk))" +
                 "CREATE TABLE T2(pk bigint, i bigint, b bigint, PRIMARY KEY(pk))" +
                 "create index i1 as select pk, i from t2 order by pk, i";
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 final var relationalStatement = (EmbeddedRelationalStatement) statement;
                 relationalStatement.executeInternal("insert into t1 values (42, [(30, (5000, 5500))], 500, 101), (43, [(34, (5001, 5501))], 501, 102)");
@@ -527,7 +526,7 @@ public class V2PlanGeneratorTests {
         final String schemaTemplate =
                 "CREATE TABLE T1(pk bigint, i bigint, b bigint, PRIMARY KEY(pk))" +
                         "create index i1 as select i, b from t1 order by i, b";
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 final var relationalStatement = (EmbeddedRelationalStatement) statement;
                 relationalStatement.executeInternal("insert into t1 values (42, 13, 18), (43, 15, 20)");
@@ -552,7 +551,7 @@ public class V2PlanGeneratorTests {
         final String schemaTemplate =
                 "CREATE TABLE T1(pk bigint, i bigint, b bigint, PRIMARY KEY(pk))" +
                         "create index i1 as select i, b from t1 order by i, b";
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 final var relationalStatement = (EmbeddedRelationalStatement) statement;
                 relationalStatement.executeInternal("insert into t1 values (42, 13, 18), (43, 15, 20)");
@@ -575,7 +574,7 @@ public class V2PlanGeneratorTests {
         final String schemaTemplate =
                 "CREATE TABLE T1(pk bigint, i bigint, b bigint, PRIMARY KEY(pk))" +
                         "create index i1 as select i, b from t1 order by i, b";
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension)
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension)
                 .schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 final var relationalStatement = (EmbeddedRelationalStatement) statement;
@@ -593,7 +592,7 @@ public class V2PlanGeneratorTests {
         final String schemaTemplate =
                 "CREATE TABLE T1(pk bigint, i bigint, b bigint, PRIMARY KEY(pk))" +
                         "create index i1 as select i, b from t1 order by i, b";
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 final var relationalStatement = (EmbeddedRelationalStatement) statement;
                 relationalStatement.executeInternal("insert into t1 values (42, 13, 18), (43, 15, 20)");
@@ -616,7 +615,7 @@ public class V2PlanGeneratorTests {
         final String schemaTemplate =
                 "CREATE TABLE T1(pk bigint, i bigint, b bigint, PRIMARY KEY(pk))" +
                         "create index i1 as select i, b from t1 order by i, b";
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 final var relationalStatement = (EmbeddedRelationalStatement) statement;
                 relationalStatement.executeInternal("insert into t1 values (42, 13, 18), (43, 15, 20)");
@@ -635,7 +634,7 @@ public class V2PlanGeneratorTests {
         final String schemaTemplate =
                 "CREATE TABLE T1(pk bigint, i bigint, b bigint, PRIMARY KEY(pk))" +
                         "create index i1 as select i, b from t1 order by i, b";
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 final var relationalStatement = (EmbeddedRelationalStatement) statement;
                 relationalStatement.executeInternal("insert into t1 values (42, 13, 18), (43, 15, 20)");
@@ -654,7 +653,7 @@ public class V2PlanGeneratorTests {
         final String schemaTemplate =
                 "CREATE TABLE T1(pk bigint, i bigint, b bigint, PRIMARY KEY(pk))" +
                         "create index i1 as select i, b from t1 order by i, b";
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 final var relationalStatement = (EmbeddedRelationalStatement) statement;
                 relationalStatement.executeInternal("insert into t1 values (42, 13, 18), (43, 15, 20)");
@@ -673,7 +672,7 @@ public class V2PlanGeneratorTests {
         final String schemaTemplate =
                 "CREATE TABLE T1(pk bigint, i bigint, b string, PRIMARY KEY(pk))" +
                         "create index i1 as select i, b from t1 order by i, b";
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 final var relationalStatement = (EmbeddedRelationalStatement) statement;
                 relationalStatement.executeInternal("insert into t1 values (42, 13, 'hello'), (43, 15, 'world')");
@@ -692,7 +691,7 @@ public class V2PlanGeneratorTests {
         final String schemaTemplate =
                 "CREATE TABLE T1(pk bigint, i bigint, b string, PRIMARY KEY(pk))" +
                         "create index i1 as select i, b from t1 order by i, b";
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 final var relationalStatement = (EmbeddedRelationalStatement) statement;
                 relationalStatement.executeInternal("insert into t1 values (42, 13, '___abcdef'), (43, 15, 'world')");
@@ -711,7 +710,7 @@ public class V2PlanGeneratorTests {
         final String schemaTemplate =
                 "CREATE TABLE T1(pk bigint, i bigint, b string, PRIMARY KEY(pk))" +
                         "create index i1 as select i, b from t1 order by i, b";
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 final var relationalStatement = (EmbeddedRelationalStatement) statement;
                 relationalStatement.executeInternal("insert into t1 values (42, 13, null), (43, 15, 'world')");
@@ -730,7 +729,7 @@ public class V2PlanGeneratorTests {
         final String schemaTemplate =
                 "CREATE TABLE T1(pk bigint, i bigint, b string, PRIMARY KEY(pk))" +
                         "create index i1 as select i, b from t1 order by i, b";
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 final var relationalStatement = (EmbeddedRelationalStatement) statement;
                 relationalStatement.executeInternal("insert into t1 values (42, 13, null), (43, 15, 'world')");
@@ -754,7 +753,7 @@ public class V2PlanGeneratorTests {
                         "        create table b(idb integer, q integer, r integer, primary key(idb))\n" +
                         "        create index ib as select q from b\n" +
                         "        create index ir as select sq.f from r, (select f from r.nr) sq;";
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 final var relationalStatement = (EmbeddedRelationalStatement) statement;
                 relationalStatement.executeInternal("insert into A values (1, 1), (2, 2), (3, 3)");
@@ -843,7 +842,7 @@ public class V2PlanGeneratorTests {
         final String schemaTemplate =
                 "CREATE TABLE T1(pk bigint, i bigint, b string, PRIMARY KEY(pk))" +
                         "create index i1 as select i, b from t1 order by i, b";
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 final var relationalStatement = (EmbeddedRelationalStatement) statement;
                 relationalStatement.executeInternal("insert into t1 values (42, 13, null), (43, 15, 'world')");
@@ -869,7 +868,7 @@ public class V2PlanGeneratorTests {
         final String schemaTemplate =
                 "CREATE TABLE T1(pk bigint, i bigint, b string, PRIMARY KEY(pk))" +
                         "create index i1 as select i, b from t1 order by i, b";
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 final var relationalStatement = (EmbeddedRelationalStatement) statement;
                 relationalStatement.executeInternal("insert into t1 values (42, 13, null), (43, 15, 'world')");
@@ -897,7 +896,7 @@ public class V2PlanGeneratorTests {
         final String schemaTemplate =
                 "CREATE TABLE T1(pk bigint, i bigint, b string, PRIMARY KEY(pk))" +
                         "create index i1 as select i, b from t1 order by i, b";
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 final var relationalStatement = (EmbeddedRelationalStatement) statement;
                 relationalStatement.executeInternal("insert into t1 values (42, 13, null), (43, 15, 'world')");
@@ -920,7 +919,7 @@ public class V2PlanGeneratorTests {
         final String schemaTemplate =
                 "CREATE TABLE T1(pk bigint, i bigint, b string, PRIMARY KEY(pk))" +
                         "create index i1 as select i, b from t1 order by i, b";
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 final var relationalStatement = (EmbeddedRelationalStatement) statement;
                 relationalStatement.executeInternal("insert into t1 values (42, 13, null), (43, 15, 'world')");
@@ -943,7 +942,7 @@ public class V2PlanGeneratorTests {
         final String schemaTemplate = "CREATE TYPE AS STRUCT Location (longitude bigint, latitude bigint) " +
                 "CREATE TYPE AS STRUCT Info (ratings bigint, loc Location) " +
                 "CREATE TABLE T1(pk bigint, i Info, b bigint, c bigint, PRIMARY KEY(pk))";
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 final var relationalStatement = (EmbeddedRelationalStatement) statement;
                 relationalStatement.executeInternal("insert into t1 values (42, (30, (5000, 5500)), 500, 101), (43, (34, (5001, 5501)), 501, 102)");
@@ -971,7 +970,7 @@ public class V2PlanGeneratorTests {
                 "                      CREATE TYPE AS STRUCT B (c C)" +
                 "                      CREATE TYPE AS STRUCT A (b B) " +
                 "CREATE TABLE T1(pk bigint, a A, PRIMARY KEY(pk))";
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 final var relationalStatement = (EmbeddedRelationalStatement) statement;
                 relationalStatement.executeInternal("insert into t1 values (42, (((((34, 35))))))");
@@ -997,7 +996,7 @@ public class V2PlanGeneratorTests {
         final String schemaTemplate = "CREATE TYPE AS STRUCT Location (longitude bigint, latitude bigint) " +
                 "CREATE TYPE AS STRUCT Info (ratings bigint, loc Location) " +
                 "CREATE TABLE T1(pk bigint, i Info, b bigint, c bigint, PRIMARY KEY(pk))";
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 final var relationalStatement = (EmbeddedRelationalStatement) statement;
                 relationalStatement.executeInternal("insert into t1 values (42, (30, (5000, 5500)), 500, 101), (43, (34, (5001, 5501)), 501, 102)");

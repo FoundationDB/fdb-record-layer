@@ -101,6 +101,8 @@ import org.apache.lucene.store.Lock;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.parallel.Execution;
+import org.junit.jupiter.api.parallel.ExecutionMode;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -226,6 +228,11 @@ import static org.junit.jupiter.api.Assertions.fail;
  */
 @SuppressWarnings({"resource", "SameParameterValue"})
 @Tag(Tags.RequiresFDB)
+// Runs SAME_THREAD because this class (and its subclass below) is FDB-heavy and saturates the
+// shared cluster's Batch GRV quota when run concurrently with itself or other FDB-heavy tests
+// (LuceneIndexMaintenanceTest, AgilityContextTest). @Execution is not @Inherited, so the nested
+// LuceneIndexWithLuceneAsyncToSyncTest below repeats this annotation.
+@Execution(ExecutionMode.SAME_THREAD)
 public class LuceneIndexTest extends FDBLuceneTestBase {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(LuceneIndexTest.class);
@@ -6313,6 +6320,7 @@ public class LuceneIndexTest extends FDBLuceneTestBase {
     /**
      * A version of the tests that runs with the new version of asyncToSync.
      */
+    @Execution(ExecutionMode.SAME_THREAD)
     public static class LuceneIndexWithLuceneAsyncToSyncTest extends LuceneIndexTest {
         @Override
         protected RecordLayerPropertyStorage.Builder addDefaultProps(final RecordLayerPropertyStorage.Builder props) {

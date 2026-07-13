@@ -64,11 +64,11 @@ public class TransactionBoundDatabaseWithEnumTest {
 
     @RegisterExtension
     @Order(1)
-    public final SimpleDatabaseRule dbRule = new SimpleDatabaseRule(TransactionBoundDatabaseWithEnumTest.class, TestSchemas.playingCard());
+    public final SimpleDatabaseRule dbRule = new SimpleDatabaseRule(relational, TransactionBoundDatabaseWithEnumTest.class, TestSchemas.playingCard());
 
     @RegisterExtension
     @Order(2)
-    public final RelationalConnectionRule connRule = new RelationalConnectionRule(dbRule::getConnectionUri)
+    public final RelationalConnectionRule connRule = new RelationalConnectionRule(relational, dbRule::getConnectionUri)
             .withOptions(Options.NONE)
             .withSchema("TEST_SCHEMA");
 

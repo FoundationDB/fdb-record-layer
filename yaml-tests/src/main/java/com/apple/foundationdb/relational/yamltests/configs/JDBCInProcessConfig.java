@@ -23,6 +23,7 @@ package com.apple.foundationdb.relational.yamltests.configs;
 import com.apple.foundationdb.relational.server.InProcessRelationalServer;
 import com.apple.foundationdb.relational.yamltests.YamlConnectionFactory;
 import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
+import com.apple.foundationdb.relational.yamltests.YamlTestCatalogInitializer;
 import com.apple.foundationdb.relational.yamltests.connectionfactory.Clusters;
 import com.apple.foundationdb.relational.yamltests.connectionfactory.JDBCInProcessYamlConnectionFactory;
 
@@ -49,6 +50,10 @@ public class JDBCInProcessConfig implements YamlTestConfig {
     @Override
     @SuppressWarnings("PMD.CloseResource") // Servers are tracked in the list and closed in afterAll()
     public void beforeAll() throws Exception {
+        // Proactively initialise the SYS catalog on every cluster before we spin up any
+        // in-process server. Same reasoning as EmbeddedConfig — parallel test-class @BeforeAll
+        // hooks would otherwise race on the catalog-init commit. Idempotent under retry.
+        YamlTestCatalogInitializer.initializeCatalog(clusterFiles);
         clusters = Clusters.fromClusterFilesAsEntries(clusterFiles,
                 clusterFile -> {
                     try {

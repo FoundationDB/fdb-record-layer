@@ -43,6 +43,8 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.extension.RegisterExtension;
+import org.junit.jupiter.api.parallel.ResourceAccessMode;
+import org.junit.jupiter.api.parallel.ResourceLock;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -63,6 +65,13 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * Tests for {@link OnlineIndexer}.
  */
 @Tag(Tags.RequiresFDB)
+// Online indexer operations use batch-priority GRV (OnlineIndexOperationBaseBuilder
+// defaults to FDBTransactionPriority.BATCH). When many indexer test classes run in
+// parallel they overrun the FDB cluster's batch-GRV rate limit, causing flaky
+// "Batch GRV request rate limit exceeded" failures. This @ResourceLock is inherited
+// by all 15 subclasses of OnlineIndexerTest, serialising indexer tests with each
+// other while still allowing them to run in parallel with non-indexer tests.
+@ResourceLock(value = "ONLINE_INDEXER_BATCH_GRV", mode = ResourceAccessMode.READ_WRITE)
 public abstract class OnlineIndexerTest {
     @RegisterExtension
     final FDBDatabaseExtension dbExtension = new FDBDatabaseExtension();

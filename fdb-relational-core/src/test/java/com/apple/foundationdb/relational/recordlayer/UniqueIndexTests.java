@@ -64,11 +64,11 @@ public class UniqueIndexTests {
 
     @RegisterExtension
     @Order(1)
-    public final SimpleDatabaseRule db = new SimpleDatabaseRule(UniqueIndexTests.class, getTemplate_definition);
+    public final SimpleDatabaseRule db = new SimpleDatabaseRule(relationalExtension, UniqueIndexTests.class, getTemplate_definition);
 
     @RegisterExtension
     @Order(2)
-    public final RelationalConnectionRule connection = new RelationalConnectionRule(db::getConnectionUri)
+    public final RelationalConnectionRule connection = new RelationalConnectionRule(relationalExtension, db::getConnectionUri)
             .withOptions(Options.NONE)
             .withSchema(db.getSchemaName());
 

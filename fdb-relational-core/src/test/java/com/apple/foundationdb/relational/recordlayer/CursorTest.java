@@ -26,7 +26,6 @@ import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.Row;
 import com.apple.foundationdb.relational.api.StructMetaData;
 import com.apple.foundationdb.relational.api.RelationalConnection;
-import com.apple.foundationdb.relational.api.RelationalDriver;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.api.RelationalStruct;
@@ -41,11 +40,11 @@ import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
-import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.BiConsumer;
+import java.net.URI;
 
 public class CursorTest {
     @RegisterExtension
@@ -54,7 +53,7 @@ public class CursorTest {
 
     @RegisterExtension
     @Order(1)
-    public final SimpleDatabaseRule database = new SimpleDatabaseRule(
+    public final SimpleDatabaseRule database = new SimpleDatabaseRule(relationalExtension, 
             CursorTest.class,
             TestSchemas.restaurant());
 
@@ -199,7 +198,7 @@ public class CursorTest {
         Continuation continuation;
         int numRowsReturned = 0;
         // 1. Iterate over and count the rows returned before the scan rows limit is hit
-        final var driver = (RelationalDriver) DriverManager.getDriver(database.getConnectionUri().toString());
+        final var driver = relationalExtension.getDriver();
         try (final var conn = driver.connect(database.getConnectionUri(), Options.builder().withOption(Options.Name.EXECUTION_SCANNED_ROWS_LIMIT, 3).build())) {
             conn.setSchema(database.getSchemaName());
             try (final var resultSet = conn.createStatement().executeQuery("select * from RESTAURANT")) {
@@ -216,7 +215,7 @@ public class CursorTest {
             }
         }
         // 2. Further count the rows in other execution without limits and see if total number of rows is 10
-        try (final var conn = DriverManager.getConnection(database.getConnectionUri().toString()).unwrap(RelationalConnection.class)) {
+        try (final var conn = relationalExtension.getDriver().connect(URI.create(database.getConnectionUri().toString())).unwrap(RelationalConnection.class)) {
             conn.setSchema(database.getSchemaName());
             try (final var preparedStatement = conn.prepareStatement("EXECUTE CONTINUATION ?param")) {
                 preparedStatement.setBytes("param", continuation.serialize());
@@ -241,7 +240,7 @@ public class CursorTest {
     private void insertRecordsAndTest(int numRecords,
                                       BiConsumer<List<RelationalStruct>, RelationalConnection> test) throws SQLException, RelationalException {
         final var records = insertAndReturnRecords(numRecords);
-        try (final var con = DriverManager.getConnection(database.getConnectionUri().toString()).unwrap(RelationalConnection.class)) {
+        try (final var con = relationalExtension.getDriver().connect(URI.create(database.getConnectionUri().toString())).unwrap(RelationalConnection.class)) {
             con.setSchema(database.getSchemaName());
             test.accept(records, con);
         }
@@ -249,7 +248,7 @@ public class CursorTest {
 
     private List<RelationalStruct> insertAndReturnRecords(int numRecords) throws SQLException {
         List<RelationalStruct> records;
-        try (final var con = DriverManager.getConnection(database.getConnectionUri().toString()).unwrap(RelationalConnection.class)) {
+        try (final var con = relationalExtension.getDriver().connect(URI.create(database.getConnectionUri().toString())).unwrap(RelationalConnection.class)) {
             con.setSchema(database.getSchemaName());
             final var statement = con.createStatement();
             records = Utils.generateRestaurantRecords(numRecords);

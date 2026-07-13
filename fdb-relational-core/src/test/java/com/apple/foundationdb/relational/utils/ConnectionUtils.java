@@ -28,7 +28,6 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.net.URI;
-import java.sql.DriverManager;
 import java.sql.SQLException;
 
 /** Utility for interacting with easily connections/statements. */
@@ -38,21 +37,36 @@ public final class ConnectionUtils {
     @Nonnull
     private final SqlFunction<String, RelationalConnection> getConnection;
 
-    public ConnectionUtils() {
-        getConnection = databaseName -> DriverManager.getConnection("jdbc:embed:" + databaseName).unwrap(RelationalConnection.class);
-    }
-
     public ConnectionUtils(@Nonnull RelationalDriver driver) {
         getConnection = databaseName -> driver.connect(URI.create("jdbc:embed:" + databaseName)).unwrap(RelationalConnection.class);
     }
 
     public void runAgainstCatalog(@Nonnull final SQLConsumer<RelationalConnection> action) throws SQLException, RelationalException {
-        runAgainstConnection(SYS_DATABASE, CATALOG_SCHEMA, action);
+        // Catalog operations go through the JVM-wide catalog lock + retry. See {@link CatalogOperations}.
+        CatalogOperations.runLockedWithRetry(() -> {
+            try {
+                runAgainstConnection(SYS_DATABASE, CATALOG_SCHEMA, action);
+            } catch (RelationalException e) {
+                // CatalogOperations.runLockedWithRetry only accepts SQLException; surface this as one.
+                throw e.toSqlException();
+            }
+        });
     }
 
     @Nullable
     public <R> R getFromCatalog(@Nonnull final SQLFunction<RelationalConnection, R> action) throws SQLException, RelationalException {
-        return getFromConnection(SYS_DATABASE, CATALOG_SCHEMA, action);
+        // Read-only catalog access — wrap in the catalog lock anyway since concurrent reads alongside
+        // sibling writes can race on the FDB read-version protocol under load.
+        @SuppressWarnings("unchecked")
+        final R[] result = (R[]) new Object[1];
+        CatalogOperations.runLockedWithRetry(() -> {
+            try {
+                result[0] = getFromConnection(SYS_DATABASE, CATALOG_SCHEMA, action);
+            } catch (RelationalException e) {
+                throw e.toSqlException();
+            }
+        });
+        return result[0];
     }
 
     @Nullable
@@ -75,7 +89,16 @@ public final class ConnectionUtils {
     }
 
     public void runCatalogStatement(@Nonnull final SQLConsumer<RelationalStatement> action) throws SQLException, RelationalException {
-        runStatement(SYS_DATABASE, CATALOG_SCHEMA, action);
+        // Catalog DDL — wrap in {@link CatalogOperations#runLockedWithRetry} so all CREATE/DROP
+        // DATABASE/SCHEMA TEMPLATE/SCHEMA operations across the test suite are serialised on a
+        // JVM-wide lock and transparently retried on transient races (SQLSTATE 40001, etc.).
+        CatalogOperations.runLockedWithRetry(() -> {
+            try {
+                runStatement(SYS_DATABASE, CATALOG_SCHEMA, action);
+            } catch (RelationalException e) {
+                throw e.toSqlException();
+            }
+        });
     }
 
     public void runStatement(@Nonnull final String databaseName,

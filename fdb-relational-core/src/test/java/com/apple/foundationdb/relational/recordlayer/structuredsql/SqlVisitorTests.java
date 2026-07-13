@@ -37,7 +37,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
 import javax.annotation.Nonnull;
-import java.net.URI;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -56,7 +55,7 @@ public class SqlVisitorTests {
     @Test
     public void addExtraExpressionsToSetAndWhereClause() throws Exception {
         final String schemaTemplateString = "CREATE TABLE T1(pk bigint, a bigint, b bigint, c bigint, PRIMARY KEY(pk))";
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplateString).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplateString).build()) {
             final var updateStatement = "update T1 set a = 42 where pk = 444";
             final var updateBuilder = ddl.setSchemaAndGetConnection().createStatementBuilderFactory().updateStatementBuilder(updateStatement);
             final var ef = ddl.getConnection().createExpressionBuilderFactory();
@@ -77,7 +76,7 @@ public class SqlVisitorTests {
     @Test
     public void addReturning() throws Exception {
         final String schemaTemplateString = "CREATE TABLE T1(pk bigint, a bigint, b bigint, c bigint, PRIMARY KEY(pk))";
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplateString).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplateString).build()) {
             final var updateStatement = "update T1 set a = 42 where pk = 444";
             final var updateBuilder = ddl.setSchemaAndGetConnection().createStatementBuilderFactory().updateStatementBuilder(updateStatement);
             final var ef = ddl.getConnection().createExpressionBuilderFactory();
@@ -91,7 +90,7 @@ public class SqlVisitorTests {
     @Test
     public void addNestedWhereClause() throws Exception {
         final String schemaTemplateString = "CREATE TABLE T1(pk bigint, a bigint, b bigint, c bigint, PRIMARY KEY(pk))";
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplateString).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplateString).build()) {
             final var updateStatement = "update T1 set a = 42 where pk = 444";
             final var updateBuilder = ddl.setSchemaAndGetConnection().createStatementBuilderFactory().updateStatementBuilder(updateStatement);
             final var ef = ddl.getConnection().createExpressionBuilderFactory();
@@ -105,7 +104,7 @@ public class SqlVisitorTests {
     @Test
     public void addQueryOptions() throws Exception {
         final String schemaTemplateString = "CREATE TABLE T1(pk bigint, a bigint, b bigint, c bigint, PRIMARY KEY(pk))";
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplateString).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplateString).build()) {
             final var updateStatement = "update T1 set a = 42 where pk = 444";
             final var updateBuilder = ddl.setSchemaAndGetConnection().createStatementBuilderFactory().updateStatementBuilder(updateStatement);
             updateBuilder.withOption(StructuredQuery.QueryOptions.DRY_RUN);
@@ -119,7 +118,7 @@ public class SqlVisitorTests {
     @Test
     public void rewriteColumnAliases() throws Exception {
         final String schemaTemplateString = "CREATE TABLE T1(pk bigint, a bigint, b bigint, c bigint, PRIMARY KEY(pk))";
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplateString).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplateString).build()) {
             final var updateStatement = "update T1 set customer_facing_a = 42 where CUSTOMER_FACING_PK = 444";
             final var updateBuilder = ddl.setSchemaAndGetConnection().createStatementBuilderFactory().updateStatementBuilder(updateStatement, Map.of("CUSTOMER_FACING_A", List.of("a"), "CUSTOMER_FACING_PK", List.of("pk")));
             final var ef = ddl.getConnection().createExpressionBuilderFactory();
@@ -133,7 +132,7 @@ public class SqlVisitorTests {
     @Test
     public void rewriteColumnAliasesQuotes() throws Exception {
         final String schemaTemplateString = "CREATE TABLE T1(pk bigint, a bigint, b bigint, c bigint, PRIMARY KEY(pk))";
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplateString).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplateString).build()) {
             final var connection = ddl.setSchemaAndGetConnection();
             connection.setOption(Options.Name.CASE_SENSITIVE_IDENTIFIERS, true);
             final var updateStatement = "update T1 set \"customer_facing_a\" = 42 where \"CUSTOMER_FACING_PK\" = 444";
@@ -149,7 +148,7 @@ public class SqlVisitorTests {
     @Test
     public void rewriteColumnAliasesInsideUdf() throws Exception {
         final String schemaTemplateString = "CREATE TABLE T1(pk bigint, a bigint, b bigint, c bigint, PRIMARY KEY(pk))";
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplateString).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplateString).build()) {
             final var updateStatement = "update T1 set customer_facing_a = 42 where CUSTOMER_FACING_PK = greatest(42, customer_FACING_B)";
             final var updateBuilder = ddl.setSchemaAndGetConnection().createStatementBuilderFactory().updateStatementBuilder(updateStatement,
                     Map.of("CUSTOMER_FACING_A", List.of("a"),

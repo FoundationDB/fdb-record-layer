@@ -37,7 +37,6 @@ import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
-import java.net.URI;
 import java.util.List;
 
 /**
@@ -52,11 +51,11 @@ public class DeleteRangeTest {
 
     @RegisterExtension
     @Order(1)
-    public final SimpleDatabaseRule database = new SimpleDatabaseRule(DeleteRangeTest.class, SCHEMA_TEMPLATE);
+    public final SimpleDatabaseRule database = new SimpleDatabaseRule(relationalExtension, DeleteRangeTest.class, SCHEMA_TEMPLATE);
 
     @RegisterExtension
     @Order(2)
-    public final RelationalConnectionRule connection = new RelationalConnectionRule(database::getConnectionUri)
+    public final RelationalConnectionRule connection = new RelationalConnectionRule(relationalExtension, database::getConnectionUri)
             .withOptions(Options.NONE)
             .withSchema("TEST_SCHEMA");
 
@@ -221,7 +220,7 @@ public class DeleteRangeTest {
     @Test
     void testDeleteWithIndexWithSamePrefix() throws Exception {
         final String schemaTemplate = SCHEMA_TEMPLATE + " CREATE INDEX idx1 ON t1(id, a)";
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var stmt = ddl.setSchemaAndGetConnection().createStatement()) {
                 insertData(stmt);
                 KeySet toDelete = new KeySet()
@@ -251,7 +250,7 @@ public class DeleteRangeTest {
     @Test
     void testDeleteWithIndexSamePrefixButDeleteGoesBeyondIndex() throws Exception {
         final String schemaTemplate = SCHEMA_TEMPLATE + " CREATE INDEX idx1 ON t1(id)";
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database().relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var stmt = ddl.setSchemaAndGetConnection().createStatement()) {
                 insertData(stmt);
                 KeySet toDelete = new KeySet()

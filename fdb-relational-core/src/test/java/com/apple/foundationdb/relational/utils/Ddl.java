@@ -22,6 +22,7 @@ package com.apple.foundationdb.relational.utils;
 
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.RelationalConnection;
+import com.apple.foundationdb.relational.api.RelationalDriver;
 import com.apple.foundationdb.relational.recordlayer.RelationalExtension;
 import com.apple.foundationdb.relational.recordlayer.Utils;
 import com.apple.foundationdb.relational.util.Assert;
@@ -32,8 +33,9 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.sql.DriverManager;
 import java.sql.SQLException;
+import java.util.Objects;
+import java.util.concurrent.ThreadLocalRandom;
 
 public class Ddl implements AutoCloseable {
     @Nonnull
@@ -59,9 +61,9 @@ public class Ddl implements AutoCloseable {
         final String templateName = dbPath.getPath().substring(dbPath.getPath().lastIndexOf("/") + 1);
 
         this.relationalExtension = relationalExtension;
-        this.templateRule = new SchemaTemplateRule(templateName + "_TEMPLATE", options, schemaTemplateOptions, templateDefinition);
-        this.databaseRule = new DatabaseRule(dbPath, options);
-        this.schemaRule = new SchemaRule(schemaName, dbPath, templateRule.getSchemaTemplateName(), options);
+        this.templateRule = new SchemaTemplateRule(relationalExtension, templateName + "_TEMPLATE", options, schemaTemplateOptions, templateDefinition);
+        this.databaseRule = new DatabaseRule(relationalExtension, dbPath, options);
+        this.schemaRule = new SchemaRule(relationalExtension, schemaName, dbPath, templateRule.getSchemaTemplateName(), options);
         this.extensionContext = extensionContext;
 
         try {
@@ -95,7 +97,10 @@ public class Ddl implements AutoCloseable {
             throw e;
         }
 
-        this.connection = DriverManager.getConnection("jdbc:embed://" + databaseRule.getDbUri().toString()).unwrap(RelationalConnection.class);
+        final RelationalDriver driver = Objects.requireNonNull(relationalExtension.getDriver(),
+                "RelationalExtension has no active driver — its @BeforeEach must have run first.");
+        this.connection = driver
+                .connect(URI.create("jdbc:embed://" + databaseRule.getDbUri().toString())).unwrap(RelationalConnection.class);
         Utils.setConnectionOptions(connection, options);
     }
 
@@ -153,6 +158,24 @@ public class Ddl implements AutoCloseable {
         @Nonnull
         public Builder database(@Nonnull final URI dbName) throws URISyntaxException {
             database = dbName;
+            return this;
+        }
+
+        /**
+         * Sets the database path to a freshly-generated unique value. Use this when the test
+         * doesn't care about the specific database name and just needs an isolated database for
+         * its scope. Under parallel JUnit class execution, tests that hard-code the same path
+         * (e.g. {@code /TEST/QT}) trip over each other's catalog state; this overload sidesteps
+         * that by giving every {@link Ddl} instance a unique path.
+         */
+        @Nonnull
+        public Builder database() {
+            // 16 random hex chars = 64 bits of entropy — enough to avoid collisions across a
+            // single test run and short enough to keep error messages readable. We deliberately
+            // avoid a UUID to keep the path SQL-identifier-safe and human-scannable.
+            final String uniqueSuffix = Long.toHexString(ThreadLocalRandom.current().nextLong())
+                    + Long.toHexString(ThreadLocalRandom.current().nextLong());
+            database = URI.create("/TEST/AUTO_" + uniqueSuffix);
             return this;
         }
 

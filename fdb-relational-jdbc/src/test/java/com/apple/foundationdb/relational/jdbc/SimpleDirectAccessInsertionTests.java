@@ -29,6 +29,7 @@ import com.apple.foundationdb.relational.jdbc.grpc.GrpcConstants;
 import com.apple.foundationdb.relational.recordlayer.RelationalKeyspaceProvider;
 import com.apple.foundationdb.relational.server.ServerTestUtil;
 import com.apple.foundationdb.relational.server.RelationalServer;
+import com.apple.foundationdb.relational.utils.CatalogOperations;
 import com.apple.foundationdb.relational.utils.ResultSetAssert;
 import com.apple.foundationdb.relational.utils.TestSchemas;
 
@@ -45,6 +46,7 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ThreadLocalRandom;
 
 /**
  * Simple unit tests around direct-access insertion tests.
@@ -56,11 +58,19 @@ public class SimpleDirectAccessInsertionTests {
     private static RelationalServer relationalServer;
     private static final String SCHEMA_NAME = "TEST_SCHEMA";
     private static final String SYSDBPATH = "/" + RelationalKeyspaceProvider.SYS;
-    private static URI databasePath;
-    private static String templateName;
+    // Per-instance DB and template names so parallel test classes on the shared FDB cluster
+    // can't collide on the catalog (see JDBCAutoCommitTest for the same pattern).
+    private final URI databasePath;
+    private final String templateName;
 
     private static final String RESTAURANT = "RESTAURANT";
     private static final String REVIEWER = "RESTAURANT_REVIEWER";
+
+    public SimpleDirectAccessInsertionTests() {
+        final String suffix = Long.toHexString(ThreadLocalRandom.current().nextLong());
+        this.databasePath = URI.create("/FRL/SimpleDirectAccessInsertionTests_" + suffix);
+        this.templateName = "SimpleDirectAccessInsertionTests_" + suffix + "_TEMPLATE";
+    }
 
     /**
      * Load our JDBCDriver via ServiceLoader so available to test.
@@ -70,10 +80,6 @@ public class SimpleDirectAccessInsertionTests {
         // Load driver.
         JDBCRelationalDriverTest.getDriver();
         relationalServer = ServerTestUtil.createAndStartRelationalServer(GrpcConstants.DEFAULT_SERVER_PORT);
-        // Copied from Simple DatabaseRule Constructor.
-        databasePath = URI.create("/FRL/" + SimpleDirectAccessInsertionTests.class.getSimpleName());
-        templateName = databasePath.getPath().substring(databasePath.getPath().lastIndexOf("/") + 1) +
-                "_TEMPLATE";
     }
 
     @AfterAll
@@ -89,39 +95,46 @@ public class SimpleDirectAccessInsertionTests {
     @BeforeEach
     public void beforeEach() throws SQLException {
         // Here we do what is done inside in the test extension SimpleDatabaseRule... before and after each test.
-        String jdbcStr = "jdbc:relational://localhost:" + relationalServer.getGrpcPort() + SYSDBPATH + "?schema=" + RelationalKeyspaceProvider.CATALOG;
-        try (RelationalConnection connection = JDBCRelationalDriverTest.getDriver().connect(jdbcStr, null)
-                .unwrap(RelationalConnection.class)) {
-            try (Statement statement = connection.createStatement()) {
-                String createStatement = "CREATE SCHEMA TEMPLATE \"" + templateName + "\" " +
-                        TestSchemas.restaurant();
-                statement.executeUpdate(createStatement);
+        // Serialise the catalog DDL against every other test in this JVM via the JVM-wide
+        // monitor + retry-on-conflict machinery.
+        CatalogOperations.runLockedWithRetry(() -> {
+            String jdbcStr = "jdbc:relational://localhost:" + relationalServer.getGrpcPort() + SYSDBPATH + "?schema=" + RelationalKeyspaceProvider.CATALOG;
+            try (RelationalConnection connection = JDBCRelationalDriverTest.getDriver().connect(jdbcStr, null)
+                    .unwrap(RelationalConnection.class)) {
+                try (Statement statement = connection.createStatement()) {
+                    statement.executeUpdate("DROP DATABASE IF EXISTS \"" + databasePath.getPath() + "\"");
+                    statement.executeUpdate("DROP SCHEMA TEMPLATE IF EXISTS \"" + templateName + "\"");
+                }
+                try (Statement statement = connection.createStatement()) {
+                    String createStatement = "CREATE SCHEMA TEMPLATE \"" + templateName + "\" " +
+                            TestSchemas.restaurant();
+                    statement.executeUpdate(createStatement);
+                }
+                try (Statement statement = connection.createStatement()) {
+                    statement.executeUpdate("CREATE DATABASE \"" + databasePath.getPath() + "\"");
+                }
+                try (Statement statement = connection.createStatement()) {
+                    statement.executeUpdate("CREATE SCHEMA \"" + databasePath.getPath() + "/" + SCHEMA_NAME +
+                            "\" WITH TEMPLATE \"" + templateName + "\"");
+                }
             }
-            try (Statement statement = connection.createStatement()) {
-                statement.executeUpdate("CREATE DATABASE \"" + databasePath.getPath() + "\"");
-            }
-            try (Statement statement = connection.createStatement()) {
-                statement.executeUpdate("CREATE SCHEMA \"" + databasePath.getPath() + "/" + SCHEMA_NAME +
-                        "\" WITH TEMPLATE \"" + templateName + "\"");
-            }
-        }
+        });
     }
 
     @AfterEach
     public void afterEach() throws SQLException {
-        String jdbcStr = "jdbc:relational://localhost:" + relationalServer.getGrpcPort() + SYSDBPATH + "?schema=" + RelationalKeyspaceProvider.CATALOG;
-        try (RelationalConnection connection = JDBCRelationalDriverTest.getDriver().connect(jdbcStr, null)
-                .unwrap(RelationalConnection.class)) {
-            try (Statement statement = connection.createStatement()) {
-                statement.executeUpdate("DROP SCHEMA \"" + databasePath.getPath() + "/" + SCHEMA_NAME + "\"");
+        CatalogOperations.runLockedWithRetry(() -> {
+            String jdbcStr = "jdbc:relational://localhost:" + relationalServer.getGrpcPort() + SYSDBPATH + "?schema=" + RelationalKeyspaceProvider.CATALOG;
+            try (RelationalConnection connection = JDBCRelationalDriverTest.getDriver().connect(jdbcStr, null)
+                    .unwrap(RelationalConnection.class)) {
+                try (Statement statement = connection.createStatement()) {
+                    statement.executeUpdate("DROP DATABASE IF EXISTS \"" + databasePath.getPath() + "\"");
+                }
+                try (Statement statement = connection.createStatement()) {
+                    statement.executeUpdate("DROP SCHEMA TEMPLATE IF EXISTS \"" + templateName + "\"");
+                }
             }
-            try (Statement statement = connection.createStatement()) {
-                statement.executeUpdate("DROP DATABASE \"" + databasePath.getPath() + "\"");
-            }
-            try (Statement statement = connection.createStatement()) {
-                statement.executeUpdate("DROP SCHEMA TEMPLATE \"" + templateName + "\"");
-            }
-        }
+        });
     }
 
     @Test

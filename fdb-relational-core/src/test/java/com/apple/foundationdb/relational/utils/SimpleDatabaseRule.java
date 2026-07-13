@@ -21,6 +21,7 @@
 package com.apple.foundationdb.relational.utils;
 
 import com.apple.foundationdb.relational.api.Options;
+import com.apple.foundationdb.relational.recordlayer.RelationalExtension;
 
 import org.junit.jupiter.api.extension.AfterEachCallback;
 import org.junit.jupiter.api.extension.BeforeEachCallback;
@@ -29,6 +30,7 @@ import org.junit.jupiter.api.extension.ExtensionContext;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.net.URI;
+import java.util.concurrent.ThreadLocalRandom;
 
 /**
  * A JUnit extension that automatically creates all the framework necessary for a unique database and schema.
@@ -50,34 +52,45 @@ public class SimpleDatabaseRule implements BeforeEachCallback, AfterEachCallback
     @Nonnull
     private final SchemaRule schemaRule;
 
-    public SimpleDatabaseRule(@Nonnull Class<?> testClass,
+    public SimpleDatabaseRule(@Nonnull RelationalExtension extension,
+                              @Nonnull Class<?> testClass,
                               @Nonnull String templateDefinition,
                               @Nonnull Options connectionOptions,
                               @Nullable SchemaTemplateRule.SchemaTemplateOptions templateOptions) {
         final var schemaName = "TEST_SCHEMA";
-        final var dbPath = URI.create("/TEST/" + testClass.getSimpleName());
+        // Per-instance unique suffix so that two instances of this rule (whether from
+        // concurrent test classes, or from a fresh run after a prior run crashed without
+        // cleaning up) never collide on the same database path. The test class name is kept as
+        // a prefix to make path strings in error messages and FDB tracing self-identifying.
+        // 16 random hex chars = 64 bits of entropy — enough to avoid collisions across any
+        // realistic test run and short enough to keep names scannable.
+        final var uniqueSuffix = Long.toHexString(ThreadLocalRandom.current().nextLong());
+        final var dbPath = URI.create("/TEST/" + testClass.getSimpleName() + "_" + uniqueSuffix);
         final var templateName = dbPath.getPath().substring(dbPath.getPath().lastIndexOf("/") + 1);
 
-        this.templateRule = new SchemaTemplateRule(templateName + "_TEMPLATE", Options.none(), templateOptions, templateDefinition);
-        this.databaseRule = new DatabaseRule(dbPath, connectionOptions);
-        this.schemaRule = new SchemaRule(schemaName, dbPath, templateRule.getSchemaTemplateName(), connectionOptions);
+        this.templateRule = new SchemaTemplateRule(extension, templateName + "_TEMPLATE", Options.none(), templateOptions, templateDefinition);
+        this.databaseRule = new DatabaseRule(extension, dbPath, connectionOptions);
+        this.schemaRule = new SchemaRule(extension, schemaName, dbPath, templateRule.getSchemaTemplateName(), connectionOptions);
     }
 
-    public SimpleDatabaseRule(@Nonnull final Class<?> testClass,
+    public SimpleDatabaseRule(@Nonnull final RelationalExtension extension,
+                              @Nonnull final Class<?> testClass,
                               @Nonnull final String templateDefinition,
                               @Nonnull final Options options) {
-        this(testClass, templateDefinition, options, null);
+        this(extension, testClass, templateDefinition, options, null);
     }
 
-    public SimpleDatabaseRule(@Nonnull final Class<?> testClass,
+    public SimpleDatabaseRule(@Nonnull final RelationalExtension extension,
+                              @Nonnull final Class<?> testClass,
                               @Nonnull final String templateDefinition,
                               @Nullable SchemaTemplateRule.SchemaTemplateOptions templateOptions) {
-        this(testClass, templateDefinition, Options.none(), templateOptions);
+        this(extension, testClass, templateDefinition, Options.none(), templateOptions);
     }
 
-    public SimpleDatabaseRule(@Nonnull final Class<?> testClass,
+    public SimpleDatabaseRule(@Nonnull final RelationalExtension extension,
+                              @Nonnull final Class<?> testClass,
                               @Nonnull final String templateDefinition) {
-        this(testClass, templateDefinition, Options.none(), null);
+        this(extension, testClass, templateDefinition, Options.none(), null);
     }
 
     @Override

@@ -119,6 +119,7 @@ dependencies {
 
     testImplementation(libs.bundles.test.impl)
     testImplementation(project(':fdb-test-utils'))
+    testImplementation(testFixtures(project(":fdb-relational-core")))
     testRuntimeOnly(libs.bundles.test.runtime)
     testCompileOnly(libs.bundles.test.compileOnly)
     testImplementation(libs.grpc.testing)

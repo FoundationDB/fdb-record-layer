@@ -25,6 +25,7 @@ import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.api.RelationalStruct;
 import com.apple.foundationdb.relational.recordlayer.RelationalKeyspaceProvider;
+import com.apple.foundationdb.relational.utils.CatalogOperations;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
@@ -35,6 +36,7 @@ import org.junit.jupiter.api.Test;
 import java.io.IOException;
 import java.sql.DriverManager;
 import java.sql.SQLException;
+import java.util.concurrent.ThreadLocalRandom;
 
 /**
  * Run tests with AutoCommit=OFF against a remote Relational DB.
@@ -42,8 +44,23 @@ import java.sql.SQLException;
  */
 public class JDBCAutoCommitTest {
     private static final String SYSDBPATH = "/" + RelationalKeyspaceProvider.SYS;
-    private static final String TESTDB = "/FRL/jdbc_test_db";
     public static final String TEST_SCHEMA = "test_schema";
+
+    // Each test instance gets its own database + schema-template names so that parallel
+    // test runs (both within this module and across modules that share the FDB cluster)
+    // can't collide on the catalog. Catalog DDL that sets the database up runs through
+    // {@link CatalogOperations}, which serialises and retries against SQLSTATE 40001
+    // conflicts JVM-wide (see its javadoc for the contract).
+    private final String testDb;
+    private final String schemaTemplate;
+
+    public JDBCAutoCommitTest() {
+        // 16 random hex chars = 64 bits of entropy — plenty to avoid collisions in any
+        // realistic test run. Prefix stays "jdbc_test_db_" for grep-ability in FDB traces.
+        final String suffix = Long.toHexString(ThreadLocalRandom.current().nextLong());
+        this.testDb = "/FRL/jdbc_test_db_" + suffix;
+        this.schemaTemplate = "test_template_" + suffix;
+    }
 
     @BeforeAll
     public static void beforeAll() throws Exception {
@@ -399,7 +416,7 @@ public class JDBCAutoCommitTest {
     }
 
     protected String getTestDbUri() {
-        return "jdbc:relational://" + getHostPort() + TESTDB + "?schema=" + TEST_SCHEMA;
+        return "jdbc:relational://" + getHostPort() + testDb + "?schema=" + TEST_SCHEMA;
     }
 
     protected String getHostPort() {
@@ -428,28 +445,40 @@ public class JDBCAutoCommitTest {
         Assertions.assertEquals(1, res);
     }
 
+    /**
+     * Wraps the catalog-mutating DDL in {@link CatalogOperations#runOnCatalog} so that this
+     * test's {@code CREATE DATABASE}/{@code CREATE SCHEMA TEMPLATE} commits serialise against
+     * other test classes' catalog work on the same JVM and retry on SQLSTATE 40001. The unique
+     * {@link #testDb}/{@link #schemaTemplate} names generated per test instance guarantee we
+     * don't collide with a sibling class's leftover state.
+     */
     private void createDatabase() throws SQLException {
-        try (RelationalConnection connection = DriverManager.getConnection(getSysDbUri())
-                .unwrap(RelationalConnection.class)) {
-            try (RelationalStatement statement = connection.createStatement()) {
-                statement.executeUpdate("Drop database if exists \"" + TESTDB + "\"");
-                statement.executeUpdate("Drop schema template if exists test_template");
-                statement.executeUpdate("CREATE SCHEMA TEMPLATE test_template " +
-                        "CREATE TABLE test_table (rest_no bigint, name string, PRIMARY KEY(rest_no))");
-                statement.executeUpdate("create database \"" + TESTDB + "\"");
-                statement.executeUpdate("create schema \"" + TESTDB + "/test_schema\" with template test_template");
-                Assertions.assertNull(statement.getWarnings());
+        CatalogOperations.runLockedWithRetry(() -> {
+            try (RelationalConnection connection = DriverManager.getConnection(getSysDbUri())
+                    .unwrap(RelationalConnection.class)) {
+                try (RelationalStatement statement = connection.createStatement()) {
+                    statement.executeUpdate("Drop database if exists \"" + testDb + "\"");
+                    statement.executeUpdate("Drop schema template if exists " + schemaTemplate);
+                    statement.executeUpdate("CREATE SCHEMA TEMPLATE " + schemaTemplate + " " +
+                            "CREATE TABLE test_table (rest_no bigint, name string, PRIMARY KEY(rest_no))");
+                    statement.executeUpdate("create database \"" + testDb + "\"");
+                    statement.executeUpdate("create schema \"" + testDb + "/test_schema\" with template " + schemaTemplate);
+                    Assertions.assertNull(statement.getWarnings());
+                }
             }
-        }
+        });
     }
 
     private void cleanup() throws SQLException {
-        try (RelationalConnection connection = DriverManager.getConnection(getSysDbUri())
-                .unwrap(RelationalConnection.class)) {
-            try (RelationalStatement statement = connection.createStatement()) {
-                statement.executeUpdate("Drop database \"" + TESTDB + "\"");
+        CatalogOperations.runLockedWithRetry(() -> {
+            try (RelationalConnection connection = DriverManager.getConnection(getSysDbUri())
+                    .unwrap(RelationalConnection.class)) {
+                try (RelationalStatement statement = connection.createStatement()) {
+                    statement.executeUpdate("Drop database if exists \"" + testDb + "\"");
+                    statement.executeUpdate("Drop schema template if exists " + schemaTemplate);
+                }
             }
-        }
+        });
     }
 
 

@@ -316,8 +316,11 @@ public class SetupBlock extends ConnectedBlock {
                                                                   @Nonnull String schemaTemplateName, @Nonnull String databasePath) {
             try {
                 final var steps = new ArrayList<String>();
-                steps.add("DROP DATABASE " + databasePath);
-                steps.add("DROP SCHEMA TEMPLATE " + schemaTemplateName);
+                // Use IF EXISTS so a retry after a partial success (first attempt dropped the
+                // database but conflicted on the schema-template DROP) doesn't fail on the second
+                // attempt's "Cannot delete unknown database" / "Schema template doesn't exist".
+                steps.add("DROP DATABASE IF EXISTS " + databasePath);
+                steps.add("DROP SCHEMA TEMPLATE IF EXISTS " + schemaTemplateName);
                 final var executables = new ArrayList<Consumer<YamlConnection>>();
                 for (final var step : steps) {
                     final var resolvedCommand = QueryCommand.withQueryString(reference, step, executionContext);

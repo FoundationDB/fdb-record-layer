@@ -155,22 +155,54 @@ public class QueryExecutor {
             return executeStatementAndCheckForceContinuations(s, statementHasQuery, queryString, connection, maxRows);
         }
         final var preMetricCollector = connection.getMetricCollector();
-        final var preValue = preMetricCollector != null &&
-                preMetricCollector.hasCounter(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_HIT) ?
-                preMetricCollector.getCountsForCounter(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_HIT) : 0;
+        final long preTertiaryHit = readCounter(preMetricCollector, RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_HIT);
+        // Snapshot all cache counters so we can log per-counter deltas if the plan-hit
+        // assertion fails. Distinguishes:
+        //   - miss (populate happened this call)  → PLAN_CACHE_TERTIARY_MISS incremented
+        //   - eviction wiped the entry we expected → *_LRU_EVICTION incremented
+        //   - loader-race (another thread populated) → all miss/hit counters unchanged for us
+        //   - primary/secondary wipeout that killed the tertiary → PRIMARY_MISS / SECONDARY_MISS
+        final long prePrimaryMiss = readCounter(preMetricCollector, RelationalMetric.RelationalCount.PLAN_CACHE_PRIMARY_MISS);
+        final long preSecondaryMiss = readCounter(preMetricCollector, RelationalMetric.RelationalCount.PLAN_CACHE_SECONDARY_MISS);
+        final long preTertiaryMiss = readCounter(preMetricCollector, RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_MISS);
+        final long prePrimaryLru = readCounter(preMetricCollector, RelationalMetric.RelationalCount.PLAN_CACHE_PRIMARY_LRU_EVICTION);
+        final long preSecondaryLru = readCounter(preMetricCollector, RelationalMetric.RelationalCount.PLAN_CACHE_SECONDARY_LRU_EVICTION);
+        final long preTertiaryLru = readCounter(preMetricCollector, RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_LRU_EVICTION);
         final var toReturn = executeStatementAndCheckForceContinuations(s, statementHasQuery, queryString, connection, maxRows);
         final var postMetricCollector = connection.getMetricCollector();
         if (postMetricCollector != null) {
             final var postValue = postMetricCollector.hasCounter(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_HIT) ?
                                   postMetricCollector.getCountsForCounter(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_HIT) : 0;
-            final var planFound = preMetricCollector != postMetricCollector ? postValue == 1 : postValue == preValue + 1;
+            final var planFound = preMetricCollector != postMetricCollector ? postValue == 1 : postValue == preTertiaryHit + 1;
             if (!planFound) {
-                reportTestFailure("‼️ Expected to retrieve the plan from the cache at " + reference);
+                final long postPrimaryMiss = readCounter(postMetricCollector, RelationalMetric.RelationalCount.PLAN_CACHE_PRIMARY_MISS);
+                final long postSecondaryMiss = readCounter(postMetricCollector, RelationalMetric.RelationalCount.PLAN_CACHE_SECONDARY_MISS);
+                final long postTertiaryMiss = readCounter(postMetricCollector, RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_MISS);
+                final long postPrimaryLru = readCounter(postMetricCollector, RelationalMetric.RelationalCount.PLAN_CACHE_PRIMARY_LRU_EVICTION);
+                final long postSecondaryLru = readCounter(postMetricCollector, RelationalMetric.RelationalCount.PLAN_CACHE_SECONDARY_LRU_EVICTION);
+                final long postTertiaryLru = readCounter(postMetricCollector, RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_LRU_EVICTION);
+                final String delta = String.format(
+                        " [samePMC=%s, tertiaryHit %d→%d, tertiaryMiss +%d, secondaryMiss +%d, primaryMiss +%d,"
+                                + " tertiaryLru +%d, secondaryLru +%d, primaryLru +%d]",
+                        preMetricCollector == postMetricCollector,
+                        preTertiaryHit, postValue,
+                        postTertiaryMiss - preTertiaryMiss,
+                        postSecondaryMiss - preSecondaryMiss,
+                        postPrimaryMiss - prePrimaryMiss,
+                        postTertiaryLru - preTertiaryLru,
+                        postSecondaryLru - preSecondaryLru,
+                        postPrimaryLru - prePrimaryLru);
+                reportTestFailure("‼️ Expected to retrieve the plan from the cache at " + reference + delta);
             } else {
                 logger.debug("🎁 Retrieved the plan from the cache!");
             }
         }
         return toReturn;
+    }
+
+    private static long readCounter(@Nullable com.apple.foundationdb.relational.api.metrics.MetricCollector mc,
+                                    @Nonnull RelationalMetric.RelationalCount c) throws RelationalException {
+        return mc != null && mc.hasCounter(c) ? mc.getCountsForCounter(c) : 0L;
     }
 
     @Nullable

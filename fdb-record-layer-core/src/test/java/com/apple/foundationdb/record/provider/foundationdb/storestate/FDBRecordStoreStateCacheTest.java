@@ -45,6 +45,7 @@ import com.apple.foundationdb.record.provider.foundationdb.RecordStoreNoInfoAndN
 import com.apple.foundationdb.record.provider.foundationdb.RecordStoreStaleMetaDataVersionException;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
 import com.apple.foundationdb.record.test.FakeClusterFileUtil;
+import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.apple.foundationdb.tuple.Tuple;
@@ -763,6 +764,314 @@ public class FDBRecordStoreStateCacheTest extends FDBRecordStoreTestBase {
             openSimpleRecordStore(context);
             assertTrue(recordStore.isIndexDisabled(disabledIndex));
             commit(context);
+        }
+    }
+
+    /**
+     * Deleting a non-cacheable store must NOT bump the meta-data version stamp: no other
+     * client can possibly hold a cached copy of a non-cacheable header, so the version stamp
+     * (a JVM-wide bottleneck on the {@code \xff/metadataVersion} key) shouldn't be touched.
+     * This is the low-level property that lets parallel tests share the SYS catalog without
+     * conflicting on catalog teardown.
+     */
+    @Test
+    void deleteNonCacheableStoreDoesNotBumpMetaDataVersionStamp() throws Exception {
+        // Bootstrap: ensure the meta-data version stamp key has a value before the test runs,
+        // so we can distinguish "unchanged" from "was never set". The store below is opened
+        // with cacheability disabled (which is the default from setStateCacheability(false)).
+        try (FDBRecordContext context = fdb.openContext()) {
+            if (context.getMetaDataVersionStamp(IsolationLevel.SNAPSHOT) == null) {
+                context.setMetaDataVersionStamp();
+            }
+            commit(context);
+        }
+
+        Subspace subspace;
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context);
+            assertFalse(recordStore.getRecordStoreState().getStoreHeader().getCacheable(),
+                    "test presumes the store is non-cacheable by default");
+            subspace = recordStore.getSubspace();
+            commit(context);
+        }
+
+        // Snapshot the version stamp before deletion — reading via SNAPSHOT so this txn doesn't
+        // conflict with the delete-txn below and skew the result.
+        final byte[] beforeStamp;
+        try (FDBRecordContext context = fdb.openContext()) {
+            beforeStamp = context.getMetaDataVersionStamp(IsolationLevel.SNAPSHOT);
+        }
+        assertNotNull(beforeStamp, "bootstrap should have populated the meta-data version stamp");
+
+        try (FDBRecordContext context = openContext()) {
+            FDBRecordStore.deleteStore(context, subspace);
+            commit(context);
+        }
+
+        try (FDBRecordContext context = fdb.openContext()) {
+            final byte[] afterStamp = context.getMetaDataVersionStamp(IsolationLevel.SNAPSHOT);
+            assertArrayEquals(beforeStamp, afterStamp,
+                    "deleting a non-cacheable store should not have bumped the meta-data version stamp");
+        }
+    }
+
+    /**
+     * Complement of {@link #deleteNonCacheableStoreDoesNotBumpMetaDataVersionStamp()}: deleting
+     * a cacheable store MUST bump the stamp — otherwise sibling clients could keep serving
+     * reads out of a stale cached header long after the store is gone.
+     */
+    @Test
+    void deleteCacheableStoreBumpsMetaDataVersionStamp() throws Exception {
+        try (FDBRecordContext context = fdb.openContext()) {
+            if (context.getMetaDataVersionStamp(IsolationLevel.SNAPSHOT) == null) {
+                context.setMetaDataVersionStamp();
+            }
+            commit(context);
+        }
+
+        Subspace subspace;
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context);
+            assertTrue(recordStore.setStateCacheability(true), "flipping to cacheable should have changed something");
+            subspace = recordStore.getSubspace();
+            commit(context);
+        }
+        // Commit above already bumped the stamp (transition to cacheable). Snapshot after that.
+        final byte[] beforeStamp;
+        try (FDBRecordContext context = fdb.openContext()) {
+            beforeStamp = context.getMetaDataVersionStamp(IsolationLevel.SNAPSHOT);
+        }
+        assertNotNull(beforeStamp);
+
+        try (FDBRecordContext context = openContext()) {
+            FDBRecordStore.deleteStore(context, subspace);
+            commit(context);
+        }
+
+        try (FDBRecordContext context = fdb.openContext()) {
+            final byte[] afterStamp = context.getMetaDataVersionStamp(IsolationLevel.SNAPSHOT);
+            assertNotNull(afterStamp);
+            assertFalse(java.util.Arrays.equals(beforeStamp, afterStamp),
+                    "deleting a cacheable store should have bumped the meta-data version stamp");
+        }
+    }
+
+    /**
+     * Deleting an empty subspace (no store header present) must not bump the stamp either —
+     * there's no cached header to invalidate.
+     */
+    @Test
+    void deleteMissingStoreDoesNotBumpMetaDataVersionStamp() throws Exception {
+        try (FDBRecordContext context = fdb.openContext()) {
+            if (context.getMetaDataVersionStamp(IsolationLevel.SNAPSHOT) == null) {
+                context.setMetaDataVersionStamp();
+            }
+            commit(context);
+        }
+
+        // Use the test's per-instance path, but never open a store there.
+        final Subspace subspace;
+        try (FDBRecordContext context = openContext()) {
+            subspace = path.toSubspace(context);
+        }
+        final byte[] beforeStamp;
+        try (FDBRecordContext context = fdb.openContext()) {
+            beforeStamp = context.getMetaDataVersionStamp(IsolationLevel.SNAPSHOT);
+        }
+        assertNotNull(beforeStamp);
+
+        try (FDBRecordContext context = openContext()) {
+            FDBRecordStore.deleteStore(context, subspace);
+            commit(context);
+        }
+
+        try (FDBRecordContext context = fdb.openContext()) {
+            final byte[] afterStamp = context.getMetaDataVersionStamp(IsolationLevel.SNAPSHOT);
+            assertArrayEquals(beforeStamp, afterStamp,
+                    "deleting an empty subspace (no header) should not have bumped the meta-data version stamp");
+        }
+    }
+
+    /**
+     * Regression test that pins the current behaviour: on a state-cache <em>miss</em>, opening a
+     * cacheable store issues a {@code SERIALIZABLE getRange(subspace.range(), 1)} inside
+     * {@code FDBRecordStore.loadStoreHeaderAsync}, which registers a read-conflict range that
+     * covers (at minimum) the store header key. Any concurrent transaction that writes to the
+     * store header — including the very common case of a second opener that itself hits a cache
+     * miss and updates the header via {@code checkVersion} — will therefore serialise-fail the
+     * first transaction if the writer commits first.
+     *
+     * <p>This is the shape of the failure we hit in the yaml-tests parallel harness: a "reader"
+     * transaction opens the {@code /__SYS/CATALOG} store, misses the cache, adds a wide read
+     * conflict, and then loses the commit race to a concurrent writer inside the same subspace.
+     * The paired positive control below ({@link #cacheHitOpenDoesNotConflictWithConcurrentRecordInsert()})
+     * shows that when the cache actually serves the open, the read conflict shrinks to a single
+     * key on {@code STORE_INFO_KEY} and no conflict occurs.</p>
+     */
+    @Test
+    void cacheMissOpenConflictsWithConcurrentHeaderWrite() throws Exception {
+        fdb.setStoreStateCache(metaDataVersionStampCacheFactory.getCache(fdb));
+
+        // Bootstrap: create the store as cacheable, then invalidate the cache so the next opens
+        // are guaranteed to miss.
+        FDBRecordStore.Builder storeBuilder;
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context);
+            assertTrue(recordStore.setStateCacheability(true));
+            storeBuilder = recordStore.asBuilder();
+            commit(context);
+        }
+        // Bump the meta-data version stamp to invalidate any cache entries. From here forward,
+        // opens will miss until at least one commits and repopulates the cache.
+        try (FDBRecordContext context = fdb.openContext()) {
+            context.setMetaDataVersionStamp();
+            commit(context);
+        }
+
+        // Open two contexts *concurrently* — both will fall through to loadStoreHeaderAsync, both
+        // will add a range read conflict that covers (at minimum) the header key.
+        try (FDBRecordContext readerContext = fdb.openContext(null, new FDBStoreTimer());
+             FDBRecordContext writerContext = fdb.openContext(null, new FDBStoreTimer())) {
+            // Pin both read versions *before* the writer commits, so the conflict has to be
+            // resolved at commit time rather than being masked by an updated read version.
+            readerContext.getReadVersion();
+            writerContext.getReadVersion();
+
+            // Reader: opens the store — this is where the SERIALIZABLE range read that will
+            // eventually serialise-fail us gets added to the read-conflict set.
+            FDBRecordStore reader = storeBuilder.copyBuilder().setContext(readerContext).open();
+            // Give the reader an explicit write so its commit actually runs conflict resolution
+            // (empty transactions skip it). Any unrelated key works.
+            readerContext.ensureActive().addWriteConflictKey(reader.recordsSubspace().pack(UUID.randomUUID()));
+
+            // Writer: open the same store (also a cache miss), then write the header
+            // (setHeaderUserField sets STORE_INFO_KEY) and commit first.
+            FDBRecordStore writer = storeBuilder.copyBuilder().setContext(writerContext).open();
+            writer.setHeaderUserField("miss-conflict-probe",
+                    com.google.protobuf.ByteString.copyFromUtf8("probe-" + UUID.randomUUID()));
+            commit(writerContext);
+
+            // Now the reader must fail: its cache-miss read range on the header overlaps the
+            // writer's header write.
+            assertThrows(FDBExceptions.FDBStoreTransactionConflictException.class, readerContext::commit,
+                    "cache-miss reader should conflict with concurrent header writer");
+        }
+    }
+
+    /**
+     * Positive control for {@link #cacheMissOpenConflictsWithConcurrentHeaderWrite()}: when the
+     * cache serves the open, the state-cache path adds only a point read conflict on
+     * {@code STORE_INFO_KEY} (see {@code FDBRecordStoreStateCacheEntry.handleCachedState}). A
+     * concurrent writer that inserts a record without touching the header will not conflict.
+     *
+     * <p>Together with the negative test above, this proves that the cache-miss ↔ range-read is
+     * the mechanism that causes the yaml-tests {@code /__SYS/CATALOG} conflicts: eliminating
+     * misses (e.g. by pinning the cache or by narrowing the miss path) would remove the
+     * conflict class entirely.</p>
+     */
+    @Test
+    void cacheHitOpenDoesNotConflictWithConcurrentRecordInsert() throws Exception {
+        fdb.setStoreStateCache(metaDataVersionStampCacheFactory.getCache(fdb));
+
+        FDBRecordStore.Builder storeBuilder;
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context);
+            assertTrue(recordStore.setStateCacheability(true));
+            storeBuilder = recordStore.asBuilder();
+            commit(context);
+        }
+        // Prime the cache with an open+commit so the entry is loaded and valid.
+        try (FDBRecordContext context = fdb.openContext(null, new FDBStoreTimer())) {
+            storeBuilder.copyBuilder().setContext(context).open();
+            commit(context);
+        }
+
+        try (FDBRecordContext readerContext = fdb.openContext(null, new FDBStoreTimer());
+             FDBRecordContext writerContext = fdb.openContext(null, new FDBStoreTimer())) {
+            readerContext.getReadVersion();
+            writerContext.getReadVersion();
+
+            // Reader: cache HIT — only STORE_INFO_KEY gets a point read conflict.
+            FDBRecordStore reader = storeBuilder.copyBuilder().setContext(readerContext).open();
+            // Force conflict resolution to actually run by giving the reader a write of its own,
+            // targeting a fresh unrelated key so it doesn't collide with the record we insert below.
+            readerContext.ensureActive().addWriteConflictKey(
+                    reader.recordsSubspace().pack(Tuple.from("cache-hit-probe-" + UUID.randomUUID())));
+
+            // Writer: insert a new record. This writes only to <subspace>/RECORDS/<pk> and index
+            // keys — it does not touch STORE_INFO_KEY. Cache HIT reader's point read conflict on
+            // STORE_INFO_KEY does not overlap.
+            FDBRecordStore writer = storeBuilder.copyBuilder().setContext(writerContext).open();
+            writer.saveRecord(TestRecords1Proto.MySimpleRecord.newBuilder()
+                    .setRecNo(4242L)
+                    .setStrValueIndexed("cache-hit-probe")
+                    .build());
+            commit(writerContext);
+
+            // Reader commits cleanly — its point read conflict on STORE_INFO_KEY doesn't overlap
+            // the writer's per-record writes.
+            commit(readerContext);
+        }
+    }
+
+    /**
+     * Companion to the two tests above that isolates the record-insert axis. It confirms — perhaps
+     * surprisingly — that two concurrent cache-miss opens that both only insert records (no header
+     * mutation) do <em>not</em> conflict with each other. The SERIALIZABLE
+     * {@code getRange(subspace.range(), 1)} that the miss path runs in
+     * {@code loadStoreHeaderAsync} appears to add a read conflict only up to (roughly) the header
+     * key, not the full subspace, so writes at {@code <subspace>/RECORDS/<pk>} (which sit past the
+     * header keyspace) don't overlap.
+     *
+     * <p>This constrains the shape of the yaml-tests {@code /__SYS/CATALOG} failure: since the
+     * observed conflict range there covers the entire CATALOG subspace, the failure cannot be
+     * explained by "two cache-miss opens both inserting records" alone. There must be an
+     * additional mechanism — most likely one of the concurrent transactions implicitly writing
+     * {@code STORE_INFO_KEY} via {@code updateStoreHeaderAsync} on the {@code checkVersion} dirty
+     * path (format-version bump, metadata-version bump, or cacheability flip), or a wider write
+     * from a DDL constant action.</p>
+     */
+    @Test
+    void concurrentCacheMissOpensBothInsertingRecordsDoNotConflict() throws Exception {
+        fdb.setStoreStateCache(metaDataVersionStampCacheFactory.getCache(fdb));
+
+        FDBRecordStore.Builder storeBuilder;
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context);
+            assertTrue(recordStore.setStateCacheability(true));
+            storeBuilder = recordStore.asBuilder();
+            commit(context);
+        }
+        // Invalidate any cached entries so both concurrent opens below are guaranteed to miss.
+        try (FDBRecordContext context = fdb.openContext()) {
+            context.setMetaDataVersionStamp();
+            commit(context);
+        }
+
+        try (FDBRecordContext firstContext = fdb.openContext(null, new FDBStoreTimer());
+             FDBRecordContext secondContext = fdb.openContext(null, new FDBStoreTimer())) {
+            // Pin both read versions before either commits, so conflict resolution runs on both.
+            firstContext.getReadVersion();
+            secondContext.getReadVersion();
+
+            FDBRecordStore first = storeBuilder.copyBuilder().setContext(firstContext).open();
+            FDBRecordStore second = storeBuilder.copyBuilder().setContext(secondContext).open();
+
+            // Both insert distinct records — no header touched, distinct primary keys, distinct
+            // index entries (different str_value_indexed).
+            first.saveRecord(TestRecords1Proto.MySimpleRecord.newBuilder()
+                    .setRecNo(1001L)
+                    .setStrValueIndexed("first-writer")
+                    .build());
+            second.saveRecord(TestRecords1Proto.MySimpleRecord.newBuilder()
+                    .setRecNo(1002L)
+                    .setStrValueIndexed("second-writer")
+                    .build());
+
+            // Both commit cleanly — the cache-miss read conflict does not extend far enough to
+            // overlap a plain record-write, so this is not by itself the yaml-tests failure mode.
+            commit(secondContext);
+            commit(firstContext);
         }
     }
 

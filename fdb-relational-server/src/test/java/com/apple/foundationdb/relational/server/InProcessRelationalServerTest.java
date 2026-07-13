@@ -28,6 +28,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
+import java.sql.SQLException;
 
 /**
  * Test server instance that runs inprocess.
@@ -52,7 +53,7 @@ public class InProcessRelationalServerTest {
      * runs and then shut it all down. Runs basic test from sister test class, RelationalServerTest.
      */
     @Test
-    public void simpleJDBCServiceClientOperation() throws IOException, InterruptedException {
+    public void simpleJDBCServiceClientOperation() throws SQLException {
         String serverName = this.server.getServerName();
         ManagedChannel managedChannel = InProcessChannelBuilder.forName(serverName).directExecutor().build();
         try {

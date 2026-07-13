@@ -53,6 +53,8 @@ import com.google.protobuf.Message;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.ResourceAccessMode;
+import org.junit.jupiter.api.parallel.ResourceLock;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -80,6 +82,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * Tests specifically of {@link OnlineIndexer#mergeIndex()}.
  */
 @Tag(Tags.RequiresFDB)
+// Matches OnlineIndexerTest's @ResourceLock so this class serialises with the rest of the
+// OnlineIndexer* test classes, avoiding FDB batch-GRV throttle when run in parallel.
+@ResourceLock(value = "ONLINE_INDEXER_BATCH_GRV", mode = ResourceAccessMode.READ_WRITE)
 public class OnlineIndexerMergeTest extends FDBRecordStoreConcurrentTestBase {
 
     private static final String INDEX_NAME = "mergableIndex";

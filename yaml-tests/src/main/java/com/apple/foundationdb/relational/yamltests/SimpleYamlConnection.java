@@ -59,6 +59,17 @@ public class SimpleYamlConnection implements YamlConnection {
         this.versions = List.of(version);
         this.connectionLabel = connectionLabel;
         this.clusterFile = clusterFile;
+        // Diagnostic: ask the underlying FDB context to record the ranges that caused any
+        // commit-time serialization failure. On failure, EmbeddedRelationalConnection.commitInternal
+        // will attach the ranges to the exception's context and warn-log them. Overhead is only
+        // paid on a failed commit (an extra read of the conflict special-key-space).
+        //
+        // Restricted to embedded connections because the JDBC/gRPC option-serialization layer
+        // does not yet know how to encode this new option name (throws "Cannot encode option in
+        // protobuf" later when the options are pushed to the server).
+        if (underlying instanceof EmbeddedRelationalConnection) {
+            underlying.setOption(Options.Name.REPORT_CONFLICTING_KEYS, true);
+        }
     }
 
     @Nonnull

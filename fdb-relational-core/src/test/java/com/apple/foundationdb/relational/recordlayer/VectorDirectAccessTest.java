@@ -40,10 +40,10 @@ import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
-import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
+import java.net.URI;
 
 public class VectorDirectAccessTest {
     @RegisterExtension
@@ -52,7 +52,7 @@ public class VectorDirectAccessTest {
 
     @RegisterExtension
     @Order(1)
-    public final SimpleDatabaseRule database = new SimpleDatabaseRule(VectorDirectAccessTest.class,
+    public final SimpleDatabaseRule database = new SimpleDatabaseRule(relationalExtension, VectorDirectAccessTest.class,
             "CREATE TABLE V(PK INTEGER, V1 VECTOR(4, FLOAT), V2 VECTOR(3, HALF), V3 VECTOR(2, DOUBLE), PRIMARY KEY(PK))\n" +
             "CREATE TABLE VHNSW(PK INTEGER, ZONE STRING, VEC VECTOR(3, FLOAT), PRIMARY KEY(PK))\n" +
             "CREATE VIEW VHNSW_VIEW AS SELECT VEC, ZONE, PK FROM VHNSW\n" +
@@ -60,7 +60,7 @@ public class VectorDirectAccessTest {
 
     @Test
     void insertNulls() throws SQLException {
-        try (RelationalConnection conn = DriverManager.getConnection(database.getConnectionUri().toString()).unwrap(RelationalConnection.class)) {
+        try (RelationalConnection conn = relationalExtension.getDriver().connect(URI.create(database.getConnectionUri().toString())).unwrap(RelationalConnection.class)) {
             conn.setSchema("TEST_SCHEMA");
             try (RelationalStatement s = conn.createStatement()) {
                 RelationalStruct rec = EmbeddedRelationalStruct.newBuilder().addInt("PK", 0).build();
@@ -80,7 +80,7 @@ public class VectorDirectAccessTest {
 
     @Test
     void partialInsert() throws SQLException {
-        try (RelationalConnection conn = DriverManager.getConnection(database.getConnectionUri().toString()).unwrap(RelationalConnection.class)) {
+        try (RelationalConnection conn = relationalExtension.getDriver().connect(URI.create(database.getConnectionUri().toString())).unwrap(RelationalConnection.class)) {
             conn.setSchema("TEST_SCHEMA");
             try (RelationalStatement s = conn.createStatement()) {
                 RelationalStruct rec = EmbeddedRelationalStruct.newBuilder().addInt("PK", 0).addObject("V1", new FloatRealVector(new float[]{1f, 2f, 3f, 4f})).build();
@@ -100,7 +100,7 @@ public class VectorDirectAccessTest {
 
     @Test
     void fullInsert() throws SQLException {
-        try (RelationalConnection conn = DriverManager.getConnection(database.getConnectionUri().toString()).unwrap(RelationalConnection.class)) {
+        try (RelationalConnection conn = relationalExtension.getDriver().connect(URI.create(database.getConnectionUri().toString())).unwrap(RelationalConnection.class)) {
             conn.setSchema("TEST_SCHEMA");
             try (RelationalStatement s = conn.createStatement()) {
                 RelationalStruct rec = EmbeddedRelationalStruct.newBuilder().addInt("PK", 0)
@@ -124,7 +124,7 @@ public class VectorDirectAccessTest {
 
     @Test
     void insertWrongDimensionFails() throws SQLException {
-        try (RelationalConnection conn = DriverManager.getConnection(database.getConnectionUri().toString()).unwrap(RelationalConnection.class)) {
+        try (RelationalConnection conn = relationalExtension.getDriver().connect(URI.create(database.getConnectionUri().toString())).unwrap(RelationalConnection.class)) {
             conn.setSchema("TEST_SCHEMA");
             try (RelationalStatement s = conn.createStatement()) {
                 RelationalStruct rec = EmbeddedRelationalStruct.newBuilder().addInt("PK", 0).addObject("V1", new FloatRealVector(new float[] {1f, 2f, 3f, 4f, 5f})).build();
@@ -137,7 +137,7 @@ public class VectorDirectAccessTest {
 
     @Test
     void insertWrongPrecisionFails() throws SQLException {
-        try (RelationalConnection conn = DriverManager.getConnection(database.getConnectionUri().toString()).unwrap(RelationalConnection.class)) {
+        try (RelationalConnection conn = relationalExtension.getDriver().connect(URI.create(database.getConnectionUri().toString())).unwrap(RelationalConnection.class)) {
             conn.setSchema("TEST_SCHEMA");
             try (RelationalStatement s = conn.createStatement()) {
                 RelationalStruct rec = EmbeddedRelationalStruct.newBuilder().addInt("PK", 0).addObject("V1", new DoubleRealVector(new double[] {1d, 2d, 3d, 4d})).build();
@@ -150,7 +150,7 @@ public class VectorDirectAccessTest {
 
     @Test
     void insertWrongTypeFails() throws SQLException {
-        try (RelationalConnection conn = DriverManager.getConnection(database.getConnectionUri().toString()).unwrap(RelationalConnection.class)) {
+        try (RelationalConnection conn = relationalExtension.getDriver().connect(URI.create(database.getConnectionUri().toString())).unwrap(RelationalConnection.class)) {
             conn.setSchema("TEST_SCHEMA");
             try (RelationalStatement s = conn.createStatement()) {
                 RelationalStruct rec = EmbeddedRelationalStruct.newBuilder().addInt("PK", 0).addInt("V1", 42).build();
@@ -163,7 +163,7 @@ public class VectorDirectAccessTest {
 
     @Test
     void deleteVectorRecord() throws SQLException {
-        try (RelationalConnection conn = DriverManager.getConnection(database.getConnectionUri().toString()).unwrap(RelationalConnection.class)) {
+        try (RelationalConnection conn = relationalExtension.getDriver().connect(URI.create(database.getConnectionUri().toString())).unwrap(RelationalConnection.class)) {
             conn.setSchema("TEST_SCHEMA");
             try (RelationalStatement s = conn.createStatement()) {
                 RelationalStruct rec = EmbeddedRelationalStruct.newBuilder().addInt("PK", 10)
@@ -185,7 +185,7 @@ public class VectorDirectAccessTest {
 
     @Test
     void deleteNonExistentVectorRecord() throws SQLException {
-        try (RelationalConnection conn = DriverManager.getConnection(database.getConnectionUri().toString()).unwrap(RelationalConnection.class)) {
+        try (RelationalConnection conn = relationalExtension.getDriver().connect(URI.create(database.getConnectionUri().toString())).unwrap(RelationalConnection.class)) {
             conn.setSchema("TEST_SCHEMA");
             try (RelationalStatement s = conn.createStatement()) {
                 int deleted = s.executeDelete("V", List.of(new KeySet().setKeyColumn("PK", 999)));
@@ -196,7 +196,7 @@ public class VectorDirectAccessTest {
 
     @Test
     void deleteOneOfMultipleVectorRecords() throws SQLException {
-        try (RelationalConnection conn = DriverManager.getConnection(database.getConnectionUri().toString()).unwrap(RelationalConnection.class)) {
+        try (RelationalConnection conn = relationalExtension.getDriver().connect(URI.create(database.getConnectionUri().toString())).unwrap(RelationalConnection.class)) {
             conn.setSchema("TEST_SCHEMA");
             try (RelationalStatement s = conn.createStatement()) {
                 RelationalStruct rec1 = EmbeddedRelationalStruct.newBuilder().addInt("PK", 20)
@@ -226,7 +226,7 @@ public class VectorDirectAccessTest {
 
     @Test
     void deleteMultipleVectorRecords() throws SQLException {
-        try (RelationalConnection conn = DriverManager.getConnection(database.getConnectionUri().toString()).unwrap(RelationalConnection.class)) {
+        try (RelationalConnection conn = relationalExtension.getDriver().connect(URI.create(database.getConnectionUri().toString())).unwrap(RelationalConnection.class)) {
             conn.setSchema("TEST_SCHEMA");
             try (RelationalStatement s = conn.createStatement()) {
                 RelationalStruct rec1 = EmbeddedRelationalStruct.newBuilder().addInt("PK", 30)
@@ -264,7 +264,7 @@ public class VectorDirectAccessTest {
 
     @Test
     void deleteVectorRecordWithNullVectors() throws SQLException {
-        try (RelationalConnection conn = DriverManager.getConnection(database.getConnectionUri().toString()).unwrap(RelationalConnection.class)) {
+        try (RelationalConnection conn = relationalExtension.getDriver().connect(URI.create(database.getConnectionUri().toString())).unwrap(RelationalConnection.class)) {
             conn.setSchema("TEST_SCHEMA");
             try (RelationalStatement s = conn.createStatement()) {
                 RelationalStruct rec = EmbeddedRelationalStruct.newBuilder().addInt("PK", 40).build();
@@ -282,7 +282,7 @@ public class VectorDirectAccessTest {
 
     @Test
     void deleteVectorMaintainsHnswIndex() throws SQLException {
-        try (RelationalConnection conn = DriverManager.getConnection(database.getConnectionUri().toString()).unwrap(RelationalConnection.class)) {
+        try (RelationalConnection conn = relationalExtension.getDriver().connect(URI.create(database.getConnectionUri().toString())).unwrap(RelationalConnection.class)) {
             conn.setSchema("TEST_SCHEMA");
             try (RelationalStatement s = conn.createStatement()) {
                 // Insert 3 vectors into VHNSW, all in zone "z1"

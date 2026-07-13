@@ -38,6 +38,7 @@ import com.apple.foundationdb.relational.api.RelationalStruct;
 import com.apple.foundationdb.relational.api.SqlTypeNamesSupport;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.catalog.StoreCatalog;
+import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metrics.NoOpMetricRegistry;
 import com.apple.foundationdb.relational.jdbc.TypeConversion;
@@ -78,6 +79,7 @@ import java.util.concurrent.TimeUnit;
 // Needs to be public so can be used by sub-packages; i.e. the JDBCService
 @API(API.Status.EXPERIMENTAL)
 public class FRL implements AutoCloseable {
+
     private final FdbConnection fdbDatabase;
     private final RelationalDriver driver;
     private boolean registeredJDBCEmbedDriver;
@@ -102,14 +104,21 @@ public class FRL implements AutoCloseable {
         }
         this.fdbDatabase = new DirectFdbConnection(fdbDb, NoOpMetricRegistry.INSTANCE);
 
+        // No JVM-wide lock is needed here — `registerDomainIfNotExists` is synchronized on
+        // the singleton and `RecordLayerStoreCatalog.initialize` is idempotent (see the
+        // conditional saveSchema in that method). We do retry the catalog-open commit on
+        // SERIALIZATION_FAILURE, though: multiple FRLs can still race on the very first init
+        // against a fresh cluster (multiple test-class @BeforeAll hooks constructing FRLs
+        // concurrently against the same cluster), or on any cross-process init when several
+        // FRL processes start together. Once the catalog exists, subsequent inits are
+        // read-only and don't need the retry, so the loop terminates quickly in the common
+        // case. For test wiring where multiple JVM processes race on the very first init of a
+        // fresh cluster, see the proactive one-shot initializer wired into
+        // {@code YamlTestExtension.beforeAll} (yaml-tests/YamlTestCatalogInitializer).
         final RelationalKeyspaceProvider keyspaceProvider = RelationalKeyspaceProvider.instance();
         keyspaceProvider.registerDomainIfNotExists("FRL");
-        KeySpace keySpace = keyspaceProvider.getKeySpace();
-        StoreCatalog storeCatalog;
-        try (Transaction txn = fdbDatabase.getTransactionManager().createTransaction(Options.NONE)) {
-            storeCatalog = StoreCatalogProvider.getCatalog(txn, keySpace);
-            txn.commit();
-        }
+        final KeySpace keySpace = keyspaceProvider.getKeySpace();
+        final StoreCatalog storeCatalog = openCatalogWithRetry(keySpace);
 
         RecordLayerConfig rlConfig = RecordLayerConfig.getDefault();
         RecordLayerMetadataOperationsFactory ddlFactory = new RecordLayerMetadataOperationsFactory.Builder()
@@ -141,6 +150,41 @@ public class FRL implements AutoCloseable {
         } catch (SQLException ve) {
             throw new RelationalException(ve);
         }
+    }
+
+    /**
+     * Opens (creating on first use) the store catalog, retrying on SQLSTATE 40001 transaction
+     * conflicts up to a small attempt limit. Absorbs races between concurrent FRL
+     * constructions — both within-JVM (parallel test class @BeforeAll hooks) and cross-JVM
+     * (parent test process plus external-server subprocesses) — on the catalog-init commit.
+     * After the very first init succeeds, subsequent calls are read-only (see the conditional
+     * saveSchema in {@code RecordLayerStoreCatalog#initialize}) and this loop terminates on
+     * the first attempt.
+     */
+    @Nonnull
+    private StoreCatalog openCatalogWithRetry(@Nonnull KeySpace keySpace) throws RelationalException {
+        final int maxAttempts = 10;
+        RelationalException last = null;
+        for (int attempt = 1; attempt <= maxAttempts; attempt++) {
+            try (Transaction txn = fdbDatabase.getTransactionManager().createTransaction(Options.NONE)) {
+                final StoreCatalog catalog = StoreCatalogProvider.getCatalog(txn, keySpace);
+                txn.commit();
+                return catalog;
+            } catch (RelationalException e) {
+                if (e.getErrorCode() != ErrorCode.SERIALIZATION_FAILURE) {
+                    throw e;
+                }
+                last = e;
+                // Short, linearly-increasing backoff; commit-conflict windows are brief.
+                try {
+                    Thread.sleep(20L * attempt);
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                    throw e;
+                }
+            }
+        }
+        throw last;
     }
 
     public RelationalDriver getDriver() {

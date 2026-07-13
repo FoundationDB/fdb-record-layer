@@ -257,6 +257,15 @@ public final class Options {
          * A boolean indicating whether to (attempt to) compress records when saving.
          */
         COMPRESS_WHEN_SERIALIZING,
+
+        /**
+         * A boolean indicating whether the underlying {@code FDBRecordContext} should be configured to
+         * populate its list of not-committed conflicting keys after a failed commit. Useful for
+         * diagnosing serialization failures — when enabled, the connection's commit failure message
+         * will include the concrete FDB key ranges that conflicted. Off by default (there is a small
+         * extra read against the FDB special-key-space on commit failure when it is on).
+         */
+        REPORT_CONFLICTING_KEYS,
     }
 
     public enum IndexFetchMethod {
@@ -300,6 +309,7 @@ public final class Options {
         builder.put(Name.ENCRYPT_WHEN_SERIALIZING, false);
         builder.put(Name.ENCRYPTION_KEY_PASSWORD, "");
         builder.put(Name.COMPRESS_WHEN_SERIALIZING, true);
+        builder.put(Name.REPORT_CONFLICTING_KEYS, false);
         OPTIONS_DEFAULT_VALUES = builder.build();
     }
 
@@ -560,6 +570,7 @@ public final class Options {
         data.put(Name.ENCRYPTION_KEY_ENTRY_LIST, List.of(new OrderedCollectionContract<>(TypeContract.stringType())));
         data.put(Name.ENCRYPTION_KEY_PASSWORD, List.of(TypeContract.nullableStringType()));
         data.put(Name.COMPRESS_WHEN_SERIALIZING, List.of(TypeContract.booleanType()));
+        data.put(Name.REPORT_CONFLICTING_KEYS, List.of(TypeContract.booleanType()));
 
         return Collections.unmodifiableMap(data);
     }

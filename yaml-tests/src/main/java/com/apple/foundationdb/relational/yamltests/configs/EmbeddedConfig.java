@@ -26,6 +26,7 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.server.FRL;
 import com.apple.foundationdb.relational.yamltests.YamlConnectionFactory;
 import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
+import com.apple.foundationdb.relational.yamltests.YamlTestCatalogInitializer;
 import com.apple.foundationdb.relational.yamltests.connectionfactory.Clusters;
 import com.apple.foundationdb.relational.yamltests.connectionfactory.EmbeddedYamlConnectionFactory;
 
@@ -57,11 +58,32 @@ public class EmbeddedConfig implements YamlTestConfig {
     @Override
     @SuppressWarnings("PMD.CloseResource") // FRLs are tracked in the list and closed in afterAll()
     public void beforeAll() throws Exception {
+        // Proactively initialise the SYS catalog on every cluster before we spin up any
+        // in-JVM FRL for this config. This absorbs the concurrent-init commit conflict that
+        // otherwise fires when parallel @YamlTest / test-class @BeforeAll hooks all
+        // construct their own EmbeddedConfig against the same cluster. The initializer is
+        // idempotent — after the first successful commit against a cluster, subsequent
+        // invocations are read-only and effectively free. See YamlTestCatalogInitializer
+        // for the details.
+        YamlTestCatalogInitializer.initializeCatalog(clusterFiles);
         var options = Options.builder()
                 .withOption(Options.Name.PLAN_CACHE_PRIMARY_TIME_TO_LIVE_MILLIS, 3_600_000L)
                 .withOption(Options.Name.PLAN_CACHE_SECONDARY_TIME_TO_LIVE_MILLIS, 3_600_000L)
                 .withOption(Options.Name.PLAN_CACHE_TERTIARY_TIME_TO_LIVE_MILLIS, 3_600_000L)
-                .withOption(Options.Name.PLAN_CACHE_PRIMARY_MAX_ENTRIES, 10)
+                // Moderate bump (roughly 10x defaults) of all three tiers so that under heavy
+                // class-level parallel execution, plans accumulated across many sequential test
+                // methods in the same FRL don't get evicted before the framework's "should have
+                // hit the cache by now" assertion runs. Tertiary default (8) is the tight one.
+                //
+                // Larger sizes (e.g. 2000+) verified to expose a real cache-invalidation gap:
+                // SELECT/scan plans cached against a schema or record store that a subsequent
+                // test drops are not invalidated, so the next test that re-uses the cached plan
+                // fails with RecordStoreDoesNotExistException or "SchemaTemplate=… is not in
+                // catalog". Keeping the bump moderate sidesteps the gap until it's fixed
+                // separately.
+                .withOption(Options.Name.PLAN_CACHE_PRIMARY_MAX_ENTRIES, 100)
+                .withOption(Options.Name.PLAN_CACHE_SECONDARY_MAX_ENTRIES, 1000)
+                .withOption(Options.Name.PLAN_CACHE_TERTIARY_MAX_ENTRIES, 100)
                 .build();
         // The primary FRL registers its driver in DriverManager; additional ones do not
         // We register the primary one to make sure that everything works the same if it is registered vs not, to

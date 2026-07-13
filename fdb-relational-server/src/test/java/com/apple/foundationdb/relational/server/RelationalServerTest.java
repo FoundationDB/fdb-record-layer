@@ -27,6 +27,7 @@ import com.apple.foundationdb.relational.jdbc.grpc.v1.ResultSet;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.StatementRequest;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.StatementResponse;
 import com.apple.foundationdb.relational.recordlayer.RelationalKeyspaceProvider;
+import com.apple.foundationdb.relational.utils.CatalogOperations;
 import com.apple.foundationdb.test.FDBTestEnvironment;
 import com.apple.test.Tags;
 import com.google.protobuf.TextFormat;
@@ -58,9 +59,11 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.Optional;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
 public class RelationalServerTest {
@@ -116,19 +119,31 @@ public class RelationalServerTest {
         return statementResponse.hasResultSet() ? statementResponse.getResultSet() : null;
     }
 
-    static void simpleJDBCServiceClientOperation(ManagedChannel managedChannel) {
+    static void simpleJDBCServiceClientOperation(ManagedChannel managedChannel) throws SQLException {
         String sysDbPath = "/" + RelationalKeyspaceProvider.SYS;
-        String testdb = "/FRL/server_test_db";
+        // Each invocation gets its own database + template names so that parallel test JVMs
+        // (this test can be triggered from multiple entry points, and the underlying FDB
+        // cluster is shared with jdbc-tests etc.) can't collide on the catalog.
+        final String suffix = Long.toHexString(ThreadLocalRandom.current().nextLong());
+        final String testdb = "/FRL/server_test_db_" + suffix;
+        final String schemaTemplate = "test_template_" + suffix;
         JDBCServiceGrpc.JDBCServiceBlockingStub stub = JDBCServiceGrpc.newBlockingStub(managedChannel);
         try {
-            update(stub, sysDbPath, RelationalKeyspaceProvider.CATALOG, "Drop database if exists \"" + testdb + "\"");
-            update(stub, sysDbPath, RelationalKeyspaceProvider.CATALOG, "Drop schema template if exists test_template");
-            update(stub, sysDbPath, RelationalKeyspaceProvider.CATALOG,
-                    "CREATE SCHEMA TEMPLATE test_template " +
-                            "CREATE TABLE test_table (rest_no bigint, name string, PRIMARY KEY(rest_no))");
-            update(stub, sysDbPath, RelationalKeyspaceProvider.CATALOG, "create database \"" + testdb + "\"");
-            update(stub, sysDbPath, RelationalKeyspaceProvider.CATALOG, "create schema \"" + testdb + "/test_schema\" with template test_template");
-            ResultSet resultSet = execute(stub, sysDbPath, RelationalKeyspaceProvider.CATALOG, "select * from databases");
+            // Serialise catalog DDL against every other test in this JVM via the JVM-wide
+            // monitor + retry-on-conflict machinery.
+            CatalogOperations.runLockedWithRetry(() -> {
+                update(stub, sysDbPath, RelationalKeyspaceProvider.CATALOG, "Drop database if exists \"" + testdb + "\"");
+                update(stub, sysDbPath, RelationalKeyspaceProvider.CATALOG, "Drop schema template if exists " + schemaTemplate);
+                update(stub, sysDbPath, RelationalKeyspaceProvider.CATALOG,
+                        "CREATE SCHEMA TEMPLATE " + schemaTemplate + " " +
+                                "CREATE TABLE test_table (rest_no bigint, name string, PRIMARY KEY(rest_no))");
+                update(stub, sysDbPath, RelationalKeyspaceProvider.CATALOG, "create database \"" + testdb + "\"");
+                update(stub, sysDbPath, RelationalKeyspaceProvider.CATALOG, "create schema \"" + testdb + "/test_schema\" with template " + schemaTemplate);
+            });
+            // Filter the databases result to the two we care about so sibling tests' DBs on
+            // the shared catalog don't skew the count/order.
+            ResultSet resultSet = execute(stub, sysDbPath, RelationalKeyspaceProvider.CATALOG,
+                    "select * from databases where database_id in ('" + testdb + "', '" + sysDbPath + "')");
             Assertions.assertEquals(2, resultSet.getRowCount());
             Assertions.assertEquals(1, resultSet.getRow(0).getColumns().getColumnCount());
             Assertions.assertEquals(1, resultSet.getRow(1).getColumns().getColumnCount());
@@ -145,7 +160,10 @@ public class RelationalServerTest {
             }
             throw t;
         } finally {
-            update(stub, sysDbPath, RelationalKeyspaceProvider.CATALOG, "Drop database \"" + testdb + "\"");
+            CatalogOperations.runLockedWithRetry(() -> {
+                update(stub, sysDbPath, RelationalKeyspaceProvider.CATALOG, "Drop database if exists \"" + testdb + "\"");
+                update(stub, sysDbPath, RelationalKeyspaceProvider.CATALOG, "Drop schema template if exists " + schemaTemplate);
+            });
         }
     }
 
@@ -155,7 +173,7 @@ public class RelationalServerTest {
      * shut it all down.
      */
     @Test
-    public void simpleJDBCServiceClientOperation() throws IOException, InterruptedException {
+    public void simpleJDBCServiceClientOperation() throws SQLException {
         ManagedChannel managedChannel =
                 ManagedChannelBuilder.forTarget("localhost:" + relationalServer.getGrpcPort()).usePlaintext().build();
         try {
@@ -169,7 +187,7 @@ public class RelationalServerTest {
      * Check the {@link HealthGrpc} Service is up and working.
      */
     @Test
-    public void healthServiceClientOperation() throws IOException, InterruptedException {
+    public void healthServiceClientOperation() throws InterruptedException {
         ManagedChannel managedChannel = ManagedChannelBuilder
                 .forTarget("localhost:" + relationalServer.getGrpcPort())
                 .usePlaintext().build();
@@ -196,7 +214,7 @@ public class RelationalServerTest {
      * Prometheus metrics are made for dashboarding and exotic querying, not for easy evalution in unit tests.
      */
     @Test
-    public void testMetrics() throws IOException, InterruptedException {
+    public void testMetrics() throws IOException, InterruptedException, SQLException {
         // Metrics names recorded for grpc -- all we currently record for prometheus -- can be gotten from
         // down the page on https://github.com/grpc-ecosystem/java-grpc-prometheus
         CollectorRegistry collectorRegistry = relationalServer.getCollectorRegistry();
@@ -206,7 +224,7 @@ public class RelationalServerTest {
         // Run some queries which will tickle grpc.
         simpleJDBCServiceClientOperation();
         double after = countSampleValues(metricName, metricName + "_total", collectorRegistry);
-        Assertions.assertEquals(after - before, 7.0/* Expected Difference -- 4 calls*/);
+        Assertions.assertEquals(after - before, 8.0/* 5 setup + 1 execute + 2 cleanup grpc calls */);
         // Streaming is not implemented yet so these should be zero.
         var receivedAfter = findRecordedMetricOrThrow("grpc_server_msg_received", collectorRegistry);
         Assertions.assertEquals(0, receivedAfter.samples.size());
