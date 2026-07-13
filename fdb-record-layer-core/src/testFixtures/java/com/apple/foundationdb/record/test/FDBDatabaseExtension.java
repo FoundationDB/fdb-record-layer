@@ -43,8 +43,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.Executor;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
 import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -86,16 +84,6 @@ public class FDBDatabaseExtension implements AfterEachCallback {
 
     @Nonnull
     private static final Executor threadPoolExecutor = TestExecutors.newThreadPool("fdb-record-layer-test");
-    // Override the per-factory scheduled executor so parallel tests don't fight over the
-    // JVM-wide single-thread ScheduledThreadPoolExecutor that MoreAsyncUtil installs by
-    // default. When the suite runs N tests concurrently and they each schedule deadline
-    // timers on a single shared thread, the timers fire late and trigger spurious
-    // DeadlineExceededException from places like AsyncLoadingCache (e.g.
-    // FDBDatabase.resolverStateCache during KeySpacePath.toTuple cleanup).
-    @Nonnull
-    private static final ScheduledExecutorService scheduledThreadPoolExecutor = Executors.newScheduledThreadPool(
-            Math.max(Runtime.getRuntime().availableProcessors(), 4),
-            new TestExecutors.TestThreadFactory("fdb-record-layer-test-scheduled"));
 
     public static APIVersion getAPIVersion() {
         String apiVersionStr = System.getProperty(API_VERSION_PROPERTY);
@@ -161,7 +149,12 @@ public class FDBDatabaseExtension implements AfterEachCallback {
             }
             setupBlockingInAsyncDetection(databaseFactory);
             databaseFactory.setExecutor(threadPoolExecutor);
-            databaseFactory.setScheduledExecutor(scheduledThreadPoolExecutor);
+            // Override the per-factory scheduled executor so parallel tests don't fight over the
+            // JVM-wide single-thread ScheduledThreadPoolExecutor that MoreAsyncUtil installs by
+            // default. Under N-way JUnit parallelism the single-thread default falls behind and
+            // triggers spurious DeadlineExceededException from AsyncLoadingCache (most
+            // prominently FDBDatabase.resolverStateCache during KeySpacePath.toTuple cleanup).
+            databaseFactory.setScheduledExecutor(TestExecutors.defaultScheduledThreadPool());
         }
         return databaseFactory;
     }
