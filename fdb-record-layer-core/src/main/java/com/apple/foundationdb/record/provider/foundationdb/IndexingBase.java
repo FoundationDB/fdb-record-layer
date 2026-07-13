@@ -100,6 +100,7 @@ public abstract class IndexingBase {
     private boolean forceStampOverwrite = false;
     private final long startingTimeMillis;
     private Map<String, IndexingMerger> indexingMergerMap = null;
+    private Map<String, PendingWriteQueueDrainer> indexingDrainerMap = null;
     @Nullable
     private IndexingHeartbeat heartbeat = null; // this will stay null for index scrubbing
 
@@ -226,9 +227,9 @@ public abstract class IndexingBase {
                 enforceStampOverwrite(); // The code can work without this line, but it'll save probing the missing ranges
             }
 
-            boolean continuedBuild = !shouldClear && indexState == IndexState.WRITE_ONLY;
+            boolean continuedBuild = !shouldClear && indexState.isWriteOnly();
             for (Index targetIndex : targetIndexes.subList(1, targetIndexes.size())) {
-                // Must follow the primary index' status
+                // Must follow the primary index status
                 IndexState state = store.getIndexState(targetIndex);
                 if (state != indexState) {
                     if (policy.getStateDesiredAction(state) != OnlineIndexer.IndexingPolicy.DesiredAction.REBUILD ||
@@ -249,7 +250,7 @@ public abstract class IndexingBase {
             return AsyncUtil.whenAll(indexesToClear.stream().map(store::clearAndMarkIndexWriteOnly).collect(Collectors.toList()))
                     .thenCompose(vignore -> markIndexesWriteOnly(continuedBuild, store))
                     .thenCompose(vignore -> setIndexingTypeOrThrow(store, continuedBuild))
-                    .thenApply(ignore -> true);
+                    .thenApply(ignore -> cacheQueuedIndexes(store));
         }), common.indexLogMessageKeyValues("IndexingBase::handleIndexingState")
         ).thenCompose(doIndex ->
                 doIndex ?
@@ -259,11 +260,41 @@ public abstract class IndexingBase {
         ).thenApply(ignore -> null);
     }
 
+    private boolean cacheQueuedIndexes(FDBRecordStore store) {
+        common.setQueuedIndexes(
+                common.getTargetIndexes().stream()
+                        .filter(index -> store.getIndexState(index).isWriteOnlyWithQueue())
+                        .toList());
+        // always return true -> doIndex
+        return true;
+    }
+
     private CompletableFuture<Void> markIndexesWriteOnly(boolean continueBuild, FDBRecordStore store) {
         if (continueBuild) {
             return AsyncUtil.DONE;
         }
-        return forEachTargetIndex(store::markIndexWriteOnly);
+        return forEachTargetIndexContext(indexContext -> markSingleIndexWriteOnly(store, indexContext));
+    }
+
+    @Nonnull
+    private CompletableFuture<Boolean> markSingleIndexWriteOnly(final FDBRecordStore store, final IndexingCommon.IndexContext indexContext) {
+        // For now, the pending write queue is not allowed for non-idempotent indexes, nor for indexes whose key
+        // contains a record version: the queue payload holds only the serialized record (not its version), so a
+        // drained version-key index would be built with a null version. It is also not allowed during mutual indexing,
+        // as two concurrent queue drains may cause data inconsistency.
+        final Index index = indexContext.index;
+        if (policy.shouldUsePendingWriteQueue(index) &&
+                !indexContext.isSynthetic &&
+                !policy.isMutual() &&
+                store.getIndexMaintainer(index).isIdempotent() &&
+                index.getRootExpression().versionColumns() == 0 &&
+                store.getFormatVersionEnum().isAtLeast(FormatVersion.WRITE_ONLY_WITH_QUEUE)) {
+            // TODO: support write-only-with-queue for synthetic records
+            // TODO? support versioned index ("?" because these kind of indexes don't tend to have indexing bottlenecks)
+            // TODO? support write-only-with-queue for mutual indexing (may require a drain semaphore)
+            return store.markIndexWriteOnlyWithQueue(index);
+        }
+        return store.markIndexWriteOnly(index);
     }
 
     @Nonnull
@@ -302,7 +333,7 @@ public abstract class IndexingBase {
         // Mark each index readable in its own (retriable, parallel) transaction. If one target fails to become
         // readable, it should not affect the others.
         return forEachTargetIndex(index ->
-                markIndexReadableForIndex(index, anythingChanged, runtimeExceptionAtomicReference)
+                markIndexReadableForIndex(index, anythingChanged, runtimeExceptionAtomicReference, policy.getPendingWriteQueueIndexesMaxDrainAttempts())
         ).thenApply(ignore -> {
             RuntimeException ex = runtimeExceptionAtomicReference.get();
             if (ex != null) {
@@ -314,33 +345,68 @@ public abstract class IndexingBase {
     }
 
     private CompletableFuture<Boolean> markIndexReadableForIndex(Index index, AtomicBoolean anythingChanged,
-                                                                 AtomicReference<RuntimeException> runtimeExceptionAtomicReference) {
-        // An extension function to reduce markIndexReadable's complexity
-        return getRunner().runAsync(context ->
-                common.getRecordStoreBuilder().copyBuilder().setContext(context).openAsync()
-                        .thenCompose(store -> {
-                            clearHeartbeatForIndex(store, index);
-                            CompletableFuture<Boolean> markFuture =
-                                    policy.shouldAllowUniquePendingState(store) ?
-                                    store.markIndexReadableOrUniquePending(index) :
-                                    store.markIndexReadable(index);
-                            return markFuture.thenApply(changed -> {
-                                // Once the index is readable there is no need for this data
-                                IndexingSubspaces.eraseAllIndexingDataButTheLockAndRangeSet(store.getContext(), store, index);
-                                return changed;
-                            });
-                        })
-        ).handle((changed, ex) -> {
-            if (ex == null) {
-                if (Boolean.TRUE.equals(changed)) {
-                    anythingChanged.set(true);
+                                                                 AtomicReference<RuntimeException> runtimeExceptionAtomicReference,
+                                                                 long attemptsRemaining) {
+        return drainPendingQueueIfNeeded(index)
+                .thenCompose(ignore -> getRunner().runAsync(context ->
+                        common.getRecordStoreBuilder().copyBuilder().setContext(context).openAsync()
+                                .thenCompose(store -> assertEmptyQueueIfNeeded(store, index).thenCompose(ignoreEmpty -> {
+                                    clearHeartbeatForIndex(store, index);
+                                    CompletableFuture<Boolean> markFuture =
+                                            policy.shouldAllowUniquePendingState(store) ?
+                                            store.markIndexReadableOrUniquePending(index) :
+                                            store.markIndexReadable(index);
+                                    return markFuture.thenApply(changed -> {
+                                        // Once the index is readable there is no need for this data
+                                        IndexingSubspaces.eraseAllIndexingDataButTheLockAndRangeSet(store.getContext(), store, index);
+                                        return changed;
+                                    });
+                                }))))
+                .handle((changed, ex) -> {
+                    if (ex == null) {
+                        if (Boolean.TRUE.equals(changed)) {
+                            anythingChanged.set(true);
+                        }
+                        return AsyncUtil.READY_FALSE; // ignored
+                    }
+                    if (attemptsRemaining > 1 &&
+                            (findException(ex, PendingWriteQueueNotEmptyWhileMarkingReadable.class) != null ||
+                                     findException(ex, FDBExceptions.FDBStoreTransactionConflictException.class) != null)) {
+                        // A non-empty queue is a race with concurrent writers: re-drain and try again.
+                        if (LOGGER.isInfoEnabled()) {
+                            final long maxAttempts = policy.getPendingWriteQueueIndexesMaxDrainAttempts();
+                            LOGGER.info(KeyValueLogMessage.of("Pending write queue not empty while marking readable, retrying",
+                                    LogMessageKeys.INDEX_NAME, index.getName(),
+                                    LogMessageKeys.CURR_ATTEMPT, maxAttempts - attemptsRemaining + 1,
+                                    LogMessageKeys.MAX_ATTEMPTS, maxAttempts));
+                        }
+                        return markIndexReadableForIndex(index, anythingChanged,
+                                runtimeExceptionAtomicReference, attemptsRemaining - 1);
+                    }
+                    // Note: in case of multiple violations, an arbitrary one is thrown.
+                    runtimeExceptionAtomicReference.set((RuntimeException)ex);
+                    return AsyncUtil.READY_FALSE;
+                })
+                .thenCompose(Function.identity());
+    }
+
+    @Nonnull
+    private CompletableFuture<Void> drainPendingQueueIfNeeded(Index index) {
+        return common.getQueuedIndexes().contains(index) ?
+               getIndexingDrainer(index).drainPendingQueue() :
+               AsyncUtil.DONE;
+    }
+
+    private CompletableFuture<Void> assertEmptyQueueIfNeeded(FDBRecordStore store, Index index) {
+        if (common.getQueuedIndexes().contains(index)) {
+            return getIndexingDrainer(index).isQueueEmpty(store).thenApply(isEmpty -> {
+                if (Boolean.FALSE.equals(isEmpty)) {
+                    throw new PendingWriteQueueNotEmptyWhileMarkingReadable(index);
                 }
-                return changed; // ignored
-            }
-            // Note: in case of multiple violations, an arbitrary one is thrown.
-            runtimeExceptionAtomicReference.set((RuntimeException)ex);
-            return false;
-        });
+                return null;
+            });
+        }
+        return AsyncUtil.DONE;
     }
 
     public void enforceStampOverwrite() {
@@ -364,6 +430,11 @@ public abstract class IndexingBase {
 
     @Nonnull
     private CompletableFuture<Void> setIndexingTypeOrThrow(FDBRecordStore store, boolean continuedBuild, Index index, IndexBuildProto.IndexBuildIndexingStamp newStamp) {
+        if (policy.isMutual() && store.getIndexState(index).isWriteOnlyWithQueue()) {
+            // Mutual indexing does not support the pending writes queue.
+            throw new RecordCoreException("Mutual indexing cannot continue a pending write queue index build",
+                    LogMessageKeys.INDEX_NAME, index.getName());
+        }
         if (forceStampOverwrite && !continuedBuild) {
             // Fresh session + overwrite = no questions asked
             store.saveIndexingTypeStamp(index, newStamp);
@@ -624,14 +695,14 @@ public abstract class IndexingBase {
     private <T> CompletableFuture<Void> forEachTargetIndex(Function<Index, CompletableFuture<T>> function) {
         // helper to operate on all target indexes (indexes only!)
         List<Index> targetIndexes = common.getTargetIndexes();
-        return AsyncUtil.whenAll(targetIndexes.stream().map(function).collect(Collectors.toList()));
+        return AsyncUtil.whenAll(targetIndexes.stream().map(function).toList());
     }
 
     @Nonnull
     private <T> CompletableFuture<Void> forEachTargetIndexContext(Function<IndexingCommon.IndexContext, CompletableFuture<T>> function) {
         // helper to operate on all target indexers (indexers - for index maintainers)
         List<IndexingCommon.IndexContext> indexContexts = common.getTargetIndexContexts();
-        return AsyncUtil.whenAll(indexContexts.stream().map(function).collect(Collectors.toList()));
+        return AsyncUtil.whenAll(indexContexts.stream().map(function).toList());
     }
     /**
      * iterate cursor's items and index them.
@@ -957,12 +1028,16 @@ public abstract class IndexingBase {
                     throttle.buildCommitRetryAsync(iterateRange, shouldReturnQuietly, additionalLogMessageKeyValues, true)
                             .handle((hasMore, ex) -> {
                                 if (ex == null) {
-                                    final Set<Index> indexSet = throttle.getAndResetMergeRequiredIndexes();
-                                    if (indexSet != null && !indexSet.isEmpty()) {
-                                        return mergeIndexes(indexSet)
-                                                .thenCompose(ignore -> doneOrThrottleDelayAndMaybeLogProgress(!hasMore, additionalLogMessageKeyValues));
+                                    final List<Index> indexesToDrain = throttle.getAndResetDrainRequiredIndexes();
+                                    final Set<Index> indexesToMerge = throttle.getAndResetMergeRequiredIndexes();
+                                    if (indexesToDrain.isEmpty() && indexesToMerge.isEmpty()) {
+                                        // The common case - no drain nor merge
+                                        return doneOrThrottleDelayAndMaybeLogProgress(!hasMore, additionalLogMessageKeyValues);
                                     }
-                                    return doneOrThrottleDelayAndMaybeLogProgress(!hasMore, additionalLogMessageKeyValues);
+                                    // first drain, then merge
+                                    return drainIndexes(indexesToDrain)
+                                            .thenCompose(ignore -> mergeIndexes(indexesToMerge))
+                                            .thenCompose(ignore -> doneOrThrottleDelayAndMaybeLogProgress(!hasMore, additionalLogMessageKeyValues));
                                 }
                                 final RuntimeException unwrappedEx = getRunner().getDatabase().mapAsyncToSyncException(ex);
                                 if (LOGGER.isInfoEnabled()) {
@@ -979,10 +1054,22 @@ public abstract class IndexingBase {
         return mergeIndexes(new HashSet<>(common.getTargetIndexes()));
     }
 
-    private CompletableFuture<Void> mergeIndexes(Set<Index> indexSet) {
-        return AsyncUtil.whenAll(indexSet.stream()
+    private CompletableFuture<Void> mergeIndexes(Set<Index> indexesToMerge) {
+        if (indexesToMerge.isEmpty()) {
+            return AsyncUtil.DONE;
+        }
+        return AsyncUtil.whenAll(indexesToMerge.stream()
                 .map(index -> getIndexingMerger(index).mergeIndex()
-        ).collect(Collectors.toList()));
+        ).toList());
+    }
+
+    private CompletableFuture<Void> drainIndexes(List<Index> indexesToDrain) {
+        if (indexesToDrain.isEmpty()) {
+            return AsyncUtil.DONE;
+        }
+        return AsyncUtil.whenAll(indexesToDrain.stream()
+                .map(index -> getIndexingDrainer(index).drainPendingQueue()
+                ).toList());
     }
 
     private synchronized IndexingMerger getIndexingMerger(Index index) {
@@ -990,6 +1077,13 @@ public abstract class IndexingBase {
             indexingMergerMap = new HashMap<>();
         }
         return indexingMergerMap.computeIfAbsent(index.getName(), k -> new IndexingMerger(index, common, policy.getInitialMergesCountLimit()));
+    }
+
+    private synchronized PendingWriteQueueDrainer getIndexingDrainer(Index index) {
+        if (indexingDrainerMap == null) {
+            indexingDrainerMap = new HashMap<>();
+        }
+        return indexingDrainerMap.computeIfAbsent(index.getName(), k -> new PendingWriteQueueDrainer(index, common));
     }
 
     private void deferAutoMergeDuringCommit(FDBRecordStore store) {
@@ -1237,6 +1331,17 @@ public abstract class IndexingBase {
         public UnexpectedReadableException(boolean allReadable, @Nonnull String msg, @Nullable Object ... keyValues) {
             super(msg, keyValues);
             this.allReadable = allReadable;
+        }
+    }
+
+    /**
+     * thrown if the pending-writes-queue is not empty when attempting to mark readable.
+     */
+    @SuppressWarnings("serial")
+    public static class PendingWriteQueueNotEmptyWhileMarkingReadable extends RecordCoreException {
+        public PendingWriteQueueNotEmptyWhileMarkingReadable(Index index) {
+            super("Pending write queue is not empty while marking index as readable",
+                    LogMessageKeys.INDEX_NAME, index.getName());
         }
     }
 

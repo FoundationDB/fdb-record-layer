@@ -53,6 +53,7 @@ import com.apple.foundationdb.record.provider.foundationdb.IndexOperationResult;
 import com.apple.foundationdb.record.provider.foundationdb.IndexOperation;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanBounds;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
+import com.apple.foundationdb.record.provider.foundationdb.PendingWriteQueueIndexingFactory;
 import com.apple.foundationdb.record.query.QueryToKeyMatcher;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
@@ -415,8 +416,17 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
         if (newRecord != null) {
             incrementCounter(SlidingWindowCounter.SW_PREEMPTIVE_DELETE_WRITE_ONLY);
         }
-        update(newRecord, null);
-        return update(oldRecord, newRecord);
+        // The preemptive delete must fully complete (committing its writes and releasing the sliding-window write lock)
+        // before the reinsert runs. Chain the two updates rather than firing the delete as a discarded future: dropping
+        // it would leave the delete unsequenced relative to the reinsert and silently swallow any exception it raises.
+        return update(newRecord, null)
+                .thenCompose(ignore -> update(oldRecord, newRecord));
+    }
+
+    @Nonnull
+    @Override
+    public <M extends Message> CompletableFuture<Void> updateWhileWriteOnlyWithQueue(@Nullable final FDBIndexableRecord<M> oldRecord, @Nullable final FDBIndexableRecord<M> newRecord) {
+        return PendingWriteQueueIndexingFactory.enqueueOldAndNewRecords(state.store, state.index, oldRecord, newRecord);
     }
 
     /**

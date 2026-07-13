@@ -24,6 +24,7 @@ import com.apple.foundationdb.FDBError;
 import com.apple.foundationdb.FDBException;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncUtil;
+import com.apple.foundationdb.record.IndexBuildProto;
 import com.apple.foundationdb.record.IndexState;
 import com.apple.foundationdb.record.RecordCoreStorageException;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
@@ -31,6 +32,7 @@ import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.common.StoreTimerSnapshot;
+import com.apple.foundationdb.record.provider.foundationdb.queue.PendingWritesQueue;
 import com.apple.foundationdb.record.provider.foundationdb.runners.ExponentialDelay;
 import com.apple.foundationdb.record.util.Result;
 import com.apple.foundationdb.util.LoggableException;
@@ -42,8 +44,10 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -51,7 +55,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BiFunction;
 import java.util.function.Function;
-import java.util.stream.Collectors;
 
 /**
  * This class provides build/commit/retry with throttling to the OnlineIndexer. In the future,
@@ -71,7 +74,8 @@ public class IndexingThrottle {
     @Nonnull private final IndexingCommon common;
     @Nonnull private final Booker booker;
     private final boolean isScrubber;
-    private Set<Index> mergeRequiredIndexes = new HashSet<>();
+    @Nonnull private Set<Index> mergeRequiredIndexes = new HashSet<>();
+    @Nonnull private List<Index> drainRequiredIndexes = Collections.emptyList();
 
     static class Booker {
         /**
@@ -346,55 +350,56 @@ public class IndexingThrottle {
             // TODO: eliminate the usage of the runner - call (and handle) every transaction here
             return common.getRunner().runAsync(context -> common.getRecordStoreBuilder().copyBuilder().setContext(context).openAsync().thenCompose(store -> {
                 expectedIndexStatesOrThrow(store, context);
-                return buildFunction.apply(store, recordsScanned).thenApply(retVal -> {
-                    Set<Index> indexSet = store.getIndexDeferredMaintenanceControl().getMergeRequiredIndexes();
-                    if (indexSet != null) {
-                        mergeRequiredIndexes.addAll(indexSet);
-                    }
-                    return retVal;
-                });
+                return populateDrainRequiredIndexes(store, context).thenCompose(ignore ->
+                    buildFunction.apply(store, recordsScanned).thenApply(retVal -> {
+                        Set<Index> indexSet = store.getIndexDeferredMaintenanceControl().getMergeRequiredIndexes();
+                        if (indexSet != null) {
+                            mergeRequiredIndexes.addAll(indexSet);
+                        }
+                        return retVal;
+                    }));
             }), (result, exception) -> {
-                booker.handleLimitsPostRunnerTransaction(exception, recordsScanned, adjustLimits, additionalLogMessageKeyValues);
-                return Result.of(result, exception);
-            }, onlineIndexerLogMessageKeyValues).handle((value, e) -> {
-                if (e == null) {
-                    // Here: success path - also the common path (or so we hope)
-                    common.getTotalRecordsScanned().addAndGet(recordsScanned.get());
-                    ret.complete(value);
-                    return AsyncUtil.READY_FALSE;
-                }
-                FDBException fdbE = getFDBException(e);
-                if (shouldReturnQuietly != null) {
-                    Optional<R> retVal = shouldReturnQuietly.apply(fdbE);
-                    if (retVal.isPresent()) {
-                        // Here: a non-empty answer signals to return this <R> value rather than handling the exception.
-                        // This is useful when the caller wishes to handle this exception itself.
-                        ret.complete(retVal.get());
+                    booker.handleLimitsPostRunnerTransaction(exception, recordsScanned, adjustLimits, additionalLogMessageKeyValues);
+                    return Result.of(result, exception);
+                }, onlineIndexerLogMessageKeyValues).handle((value, e) -> {
+                    if (e == null) {
+                        // Here: success path - also the common path (or so we hope)
+                        common.getTotalRecordsScanned().addAndGet(recordsScanned.get());
+                        ret.complete(value);
                         return AsyncUtil.READY_FALSE;
                     }
-                }
-                int currTries = tries.getAndIncrement();
-                boolean mayRetry = booker.mayRetryAfterHandlingException(fdbE, additionalLogMessageKeyValues, currTries, adjustLimits);
-                if (!mayRetry) {
-                    return completeExceptionally(ret, e, onlineIndexerLogMessageKeyValues);
-                }
-                if (LOGGER.isWarnEnabled()) {
-                    final KeyValueLogMessage message = KeyValueLogMessage.build("Retrying Runner Exception",
-                                    LogMessageKeys.INDEXER_CURR_RETRY, currTries,
-                                    LogMessageKeys.INDEXER_MAX_RETRIES, common.config.getMaxRetries(),
-                                    LogMessageKeys.DELAY, delay.getNextDelayMillis())
-                            .addKeysAndValues(onlineIndexerLogMessageKeyValues) // already contains common.indexLogMessageKeyValues()
-                            .addKeysAndValues(logMessageKeyValues());
-                    booker.addStoreTimerAtFailureAndReset(message);
-                    LOGGER.warn(message.toString(), e);
-                }
-                CompletableFuture<Boolean> delayedContinue = delay.delay().thenApply(ignore -> true);
-                if (common.getRunner().getTimer() != null) {
-                    delayedContinue = common.getRunner().getTimer().instrument(FDBStoreTimer.Events.RETRY_DELAY,
-                            delayedContinue, common.getRunner().getExecutor());
-                }
-                return delayedContinue;
-            }).thenCompose(Function.identity());
+                    FDBException fdbE = getFDBException(e);
+                    if (shouldReturnQuietly != null) {
+                        Optional<R> retVal = shouldReturnQuietly.apply(fdbE);
+                        if (retVal.isPresent()) {
+                            // Here: a non-empty answer signals to return this <R> value rather than handling the exception.
+                            // This is useful when the caller wishes to handle this exception itself.
+                            ret.complete(retVal.get());
+                            return AsyncUtil.READY_FALSE;
+                        }
+                    }
+                    int currTries = tries.getAndIncrement();
+                    boolean mayRetry = booker.mayRetryAfterHandlingException(fdbE, additionalLogMessageKeyValues, currTries, adjustLimits);
+                    if (!mayRetry) {
+                        return completeExceptionally(ret, e, onlineIndexerLogMessageKeyValues);
+                    }
+                    if (LOGGER.isWarnEnabled()) {
+                        final KeyValueLogMessage message = KeyValueLogMessage.build("Retrying Runner Exception",
+                                        LogMessageKeys.INDEXER_CURR_RETRY, currTries,
+                                        LogMessageKeys.INDEXER_MAX_RETRIES, common.config.getMaxRetries(),
+                                        LogMessageKeys.DELAY, delay.getNextDelayMillis())
+                                .addKeysAndValues(onlineIndexerLogMessageKeyValues) // already contains common.indexLogMessageKeyValues()
+                                .addKeysAndValues(logMessageKeyValues());
+                        booker.addStoreTimerAtFailureAndReset(message);
+                        LOGGER.warn(message.toString(), e);
+                    }
+                    CompletableFuture<Boolean> delayedContinue = delay.delay().thenApply(ignore -> true);
+                    if (common.getRunner().getTimer() != null) {
+                        delayedContinue = common.getRunner().getTimer().instrument(FDBStoreTimer.Events.RETRY_DELAY,
+                                delayedContinue, common.getRunner().getExecutor());
+                    }
+                    return delayedContinue;
+                }).thenCompose(Function.identity());
         }, common.getRunner().getExecutor()).whenComplete((ignore, e) -> {
             if (e != null) {
                 // Just update ret and ignore the returned future.
@@ -405,7 +410,7 @@ public class IndexingThrottle {
     }
 
     private void expectedIndexStatesOrThrow(FDBRecordStore store, FDBRecordContext context) {
-        List<IndexState> indexStates = common.getTargetIndexes().stream().map(store::getIndexState).collect(Collectors.toList());
+        List<IndexState> indexStates = common.getTargetIndexes().stream().map(store::getIndexState).toList();
         if (isScrubber) {
             // index scrubbing requires a scannable state
             if (indexStates.stream().allMatch(IndexState::isScannable)) {
@@ -437,6 +442,43 @@ public class IndexingThrottle {
                 LogMessageKeys.INDEX_STATE, indexStates);
     }
 
+    /**
+     * Record - in this existing indexing transaction - the queued indexes whose pending writes queue is currently non-empty.
+     * If they exist, the indexer will lunch dedicated transactions to drain their queues.
+     * @param store store
+     * @param context context
+     * @return a future that completes once {@link #drainRequiredIndexes} has been populated
+     */
+    private CompletableFuture<Void> populateDrainRequiredIndexes(FDBRecordStore store, FDBRecordContext context) {
+        if (common.getQueuedIndexes().isEmpty()) {
+            return AsyncUtil.DONE;
+        }
+        // Only drain for indexes whose pending writes queue is non-empty.
+        return nonEmptyQueueIndexes(store, context, common.getQueuedIndexes())
+                .thenAccept(toDrain -> drainRequiredIndexes = toDrain);
+    }
+
+    /**
+     * Filter the given indexes down to those whose pending writes queue currently holds at least one entry.
+     * The size counter is read via a snapshot (conflict-free) read.
+     * @param store store
+     * @param context context
+     * @param indexes candidate indexes (expected to be in a write-only-with-queue state)
+     * @return a future of the indexes that have a non-empty pending writes queue
+     */
+    private CompletableFuture<List<Index>> nonEmptyQueueIndexes(@Nonnull FDBRecordStore store, @Nonnull FDBRecordContext context, @Nonnull List<Index> indexes) {
+        return AsyncUtil.getAll(indexes.stream()
+                        .map(index -> {
+                            final PendingWritesQueue<IndexBuildProto.PendingWritesQueueEntry> queue =
+                                    PendingWriteQueueIndexingFactory.getIndexingQueue(store, index);
+                            return queue.getQueueSizeNoConflict(context)
+                                    .thenApply(size -> size != null && size > 0 ? index : null);
+                        })
+                        .toList()
+                )
+                .thenApply(results -> results.stream().filter(Objects::nonNull).toList());
+    }
+
     private <R> CompletableFuture<Boolean> completeExceptionally(CompletableFuture<R> ret, Throwable e, List<Object> additionalLogMessageKeyValues) {
         if (e instanceof LoggableException) {
             ((LoggableException)e).addLogInfo(additionalLogMessageKeyValues.toArray());
@@ -453,10 +495,18 @@ public class IndexingThrottle {
         return booker.totalRecordsScannedSuccess;
     }
 
+    @Nonnull
     public synchronized Set<Index> getAndResetMergeRequiredIndexes() {
         Set<Index> indexSet = mergeRequiredIndexes;
         mergeRequiredIndexes = new HashSet<>();
         return indexSet;
+    }
+
+    @Nonnull
+    public List<Index> getAndResetDrainRequiredIndexes() {
+        List<Index> indexesToDrain = drainRequiredIndexes;
+        drainRequiredIndexes = Collections.emptyList();
+        return indexesToDrain;
     }
 }
 

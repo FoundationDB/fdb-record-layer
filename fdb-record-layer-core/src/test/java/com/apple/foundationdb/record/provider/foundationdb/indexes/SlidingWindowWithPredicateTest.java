@@ -20,6 +20,9 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.indexes;
 
+import com.apple.foundationdb.half.Half;
+import com.apple.foundationdb.linear.HalfRealVector;
+import com.apple.foundationdb.linear.Metric;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.TupleRange;
@@ -39,9 +42,6 @@ import com.apple.foundationdb.record.provider.foundationdb.VectorIndexScanOption
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.slidingwindowvector.TestRecordsSlidingWindowVectorProto;
 import com.apple.foundationdb.record.slidingwindowvector.TestRecordsSlidingWindowVectorProto.SlidingWindowVectorRecord;
-import com.apple.foundationdb.half.Half;
-import com.apple.foundationdb.linear.HalfRealVector;
-import com.apple.foundationdb.linear.Metric;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
 import com.google.common.collect.ImmutableList;

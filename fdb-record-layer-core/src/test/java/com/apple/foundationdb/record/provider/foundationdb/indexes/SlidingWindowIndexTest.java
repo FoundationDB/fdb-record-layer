@@ -22,7 +22,9 @@ package com.apple.foundationdb.record.provider.foundationdb.indexes;
 
 import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.async.AsyncUtil;
+import com.apple.foundationdb.linear.HalfRealVector;
 import com.apple.foundationdb.record.EvaluationContext;
+import com.apple.foundationdb.record.IndexBuildProto;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.IsolationLevel;
@@ -41,19 +43,21 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBIndexedRawRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreTestBase;
-import com.apple.foundationdb.record.provider.foundationdb.IndexMaintenanceFilter;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainer;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
+import com.apple.foundationdb.record.provider.foundationdb.IndexMaintenanceFilter;
 import com.apple.foundationdb.record.provider.foundationdb.IndexOperation;
 import com.apple.foundationdb.record.provider.foundationdb.IndexOperationResult;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanBounds;
+import com.apple.foundationdb.record.provider.foundationdb.OnlineIndexer;
+import com.apple.foundationdb.record.provider.foundationdb.PendingWriteQueueIndexingFactory;
 import com.apple.foundationdb.record.provider.foundationdb.VectorIndexScanBounds;
 import com.apple.foundationdb.record.provider.foundationdb.VectorIndexScanOptions;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.SlidingWindowTestHelpers.SlidingWindow;
+import com.apple.foundationdb.record.provider.foundationdb.queue.PendingWritesQueue;
 import com.apple.foundationdb.record.query.QueryToKeyMatcher;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.slidingwindowvector.TestRecordsSlidingWindowVectorProto.SlidingWindowVectorRecord;
-import com.apple.foundationdb.linear.HalfRealVector;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
 import com.google.common.collect.ImmutableList;
@@ -73,6 +77,7 @@ import static com.apple.foundationdb.record.provider.foundationdb.indexes.Slidin
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -1516,6 +1521,13 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
 
         @Nonnull
         @Override
+        public <M extends Message> CompletableFuture<Void> updateWhileWriteOnlyWithQueue(@Nullable final FDBIndexableRecord<M> o,
+                                                                                         @Nullable final FDBIndexableRecord<M> n) {
+            throw new UnsupportedOperationException("sliding window should not delegate this call");
+        }
+
+        @Nonnull
+        @Override
         public RecordCursor<IndexEntry> scanUniquenessViolations(@Nonnull TupleRange range,
                                                                   @Nullable byte[] continuation,
                                                                   @Nonnull ScanProperties scanProperties) {
@@ -1686,5 +1698,134 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
 
             commit(context);
         }
+    }
+
+    @Test
+    void writeOnlyWithQueueRoutesUpdatesToQueue() throws Exception {
+        // While the index is WRITE_ONLY_WITH_QUEUE, updates are routed to the pending queue via
+        // SlidingWindowIndexMaintainer.updateWhileWriteOnlyWithQueue instead of being written to the index. Once the
+        // indexer drains the queue, those updates are applied and the resulting window is valid.
+        // Enqueue two updates while the index is in the queue state.
+        try (FDBRecordContext context = openContext()) {
+            openStore(context, 5, Direction.DESC);
+            recordStore.markIndexWriteOnlyWithQueue(INDEX_NAME).join();
+            assertTrue(recordStore.isIndexWriteOnlyWithQueue(INDEX_NAME));
+
+            rec(1, 100);
+            rec(2, 200);
+
+            // The records themselves are persisted.
+            assertNotNull(recordStore.loadRecord(Tuple.from(1L)));
+            assertNotNull(recordStore.loadRecord(Tuple.from(2L)));
+            commit(context);
+        }
+
+        // The updates went to the pending queue rather than the index: the queue holds exactly the two deferred writes.
+        try (FDBRecordContext context = openContext()) {
+            openStore(context, 5, Direction.DESC);
+            final Index index = recordStore.getRecordMetaData().getIndex(INDEX_NAME);
+            final Long queueSize = queueSize(context, index);
+            assertEquals(2L, queueSize == null ? 0L : queueSize,
+                    "both deferred writes should be sitting in the pending queue");
+            commit(context);
+        }
+
+        // Drain the queue and finish the build via the online indexer.
+        try (FDBRecordContext context = openContext()) {
+            openStore(context, 5, Direction.DESC);
+            final Index index = recordStore.getRecordMetaData().getIndex(INDEX_NAME);
+            try (OnlineIndexer indexer = OnlineIndexer.newBuilder()
+                    .setRecordStore(recordStore)
+                    .setIndex(index)
+                    .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
+                            .setUsePendingWriteQueue(List.of(index))
+                            .build())
+                    .build()) {
+                indexer.buildIndex(true);
+            }
+            commit(context);
+        }
+
+        // After the drain the index is readable, valid (both records fit the window of 5), and the queue has been erased.
+        try (FDBRecordContext context = openContext()) {
+            openStore(context, 5, Direction.DESC);
+            final Index index = recordStore.getRecordMetaData().getIndex(INDEX_NAME);
+            assertTrue(recordStore.isIndexReadable(index));
+            assertThat(slidingWindow())
+                    .hasSizeOf(2)
+                    .underlyingHnsw().containsInAnyOrder(1, 2);
+            assertNull(queueSize(context, index), "the queue data should have been erased once the index became readable");
+            commit(context);
+        }
+    }
+
+    @Test
+    void writeOnlyWithQueueRoutesOutOfWindowUpdatesToQueue() throws Exception {
+        // Some of the enqueued records should fall outside the sliding window.
+        try (FDBRecordContext context = openContext()) {
+            openStore(context, 2, Direction.DESC);
+            recordStore.markIndexWriteOnlyWithQueue(INDEX_NAME).join();
+            assertTrue(recordStore.isIndexWriteOnlyWithQueue(INDEX_NAME));
+
+            // Descending relevance in primary-key order: recs 1 and 2 fill the window; recs 3 and 4 are below the
+            // window boundary and must overflow (stay out of the window) once the queue is drained.
+            rec(1, 400);
+            rec(2, 300);
+            rec(3, 200);
+            rec(4, 100);
+
+            // The records themselves are persisted.
+            for (long recNo : new long[]{1L, 2L, 3L, 4L}) {
+                assertNotNull(recordStore.loadRecord(Tuple.from(recNo)));
+            }
+            commit(context);
+        }
+
+        // Every update went to the pending queue rather than the index, regardless of whether it belongs in the window:
+        // the queue holds exactly the four deferred writes.
+        try (FDBRecordContext context = openContext()) {
+            openStore(context, 2, Direction.DESC);
+            final Index index = recordStore.getRecordMetaData().getIndex(INDEX_NAME);
+            final Long queueSize = queueSize(context, index);
+            assertEquals(4L, queueSize == null ? 0L : queueSize,
+                    "all four deferred writes should be sitting in the pending queue");
+            commit(context);
+        }
+
+        // Drain the queue and finish the build via the online indexer.
+        try (FDBRecordContext context = openContext()) {
+            openStore(context, 2, Direction.DESC);
+            final Index index = recordStore.getRecordMetaData().getIndex(INDEX_NAME);
+            try (OnlineIndexer indexer = OnlineIndexer.newBuilder()
+                    .setRecordStore(recordStore)
+                    .setIndex(index)
+                    .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
+                            .setUsePendingWriteQueue(List.of(index))
+                            .build())
+                    .build()) {
+                indexer.buildIndex(true);
+            }
+            commit(context);
+        }
+
+        // After the drain the index is readable and the window holds only the two highest-relevance records; the
+        // out-of-window records overflowed and are absent from the window. The queue has been erased.
+        try (FDBRecordContext context = openContext()) {
+            openStore(context, 2, Direction.DESC);
+            final Index index = recordStore.getRecordMetaData().getIndex(INDEX_NAME);
+            assertTrue(recordStore.isIndexReadable(index));
+            assertThat(slidingWindow())
+                    .hasSizeOf(2)
+                    .underlyingHnsw().containsInAnyOrder(1, 2);
+            assertNull(queueSize(context, index), "the queue data should have been erased once the index became readable");
+            commit(context);
+        }
+    }
+
+    @Nullable
+    private Long queueSize(@Nonnull FDBRecordContext context, @Nonnull Index index) {
+        final PendingWritesQueue<IndexBuildProto.PendingWritesQueueEntry> queue =
+                PendingWriteQueueIndexingFactory.getIndexingQueue(recordStore, index);
+        return queue.getQueueSizeNoConflict(context).join();
     }
 }
