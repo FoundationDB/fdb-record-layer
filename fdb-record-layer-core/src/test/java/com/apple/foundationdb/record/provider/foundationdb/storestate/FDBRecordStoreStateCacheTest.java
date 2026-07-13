@@ -76,6 +76,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 
 /**
  * Tests to make sure that caching {@link FDBRecordStoreStateCacheEntry} objects work.
@@ -893,6 +894,123 @@ public class FDBRecordStoreStateCacheTest extends FDBRecordStoreTestBase {
     }
 
     /**
+     * Race check for {@link FDBRecordStore#deleteStore(FDBRecordContext, Subspace)}. Three
+     * transactions in this sequence — {@code T_flipper} and {@code T_deleter} race, then
+     * {@code T_writer} exercises the observable inconsistency:
+     *
+     * <ol>
+     *     <li>{@code T_deleter} pins its read version before any flip has committed.</li>
+     *     <li>{@code T_flipper} (a separate transaction) flips the store to cacheable and
+     *         commits.</li>
+     *     <li>A warm-up transaction opens the store so the JVM-wide state cache is
+     *         populated with a {@code (cacheable=true)} entry.</li>
+     *     <li>{@code T_deleter} calls {@link FDBRecordStore#deleteStore} and commits. Its
+     *         snapshot-isolation header read at the pinned pre-flip version sees
+     *         {@code cacheable=false} and (in the buggy code) skips both the bump and any
+     *         read conflict on {@code STORE_INFO_KEY}.</li>
+     *     <li>{@code T_writer} — a <em>separate</em> transaction — opens the store, hits
+     *         the (stale) cache entry, and saves a record. Because the writer never reads
+     *         the disk header itself and only trusts the cache, it commits happily.</li>
+     * </ol>
+     *
+     * <p>Acceptable outcomes:</p>
+     * <ol>
+     *     <li>{@code T_deleter} conflicts with the flipper's {@code STORE_INFO_KEY} write
+     *         and does not land. The store still exists on disk; the cache is consistent
+     *         with reality.</li>
+     *     <li>{@code T_deleter} commits but the meta-data version stamp advances (it also
+     *         bumped) so the writer's cache lookup misses and reloads the fresh, absent
+     *         header — reporting "no store" and refusing to save the orphan record.</li>
+     * </ol>
+     *
+     * <p>The bug we're guarding against: {@code T_deleter} commits without bumping the
+     * stamp, the writer's cache lookup hits the stale entry, and the writer inserts a record
+     * into a subspace whose store header has been deleted. On-disk end state: no header, but
+     * records present — an orphan set of rows nothing can safely read again.</p>
+     */
+    @Test
+    void concurrentSetCacheabilityAndDeleteDoesNotLoseTheBump() throws Exception {
+        fdb.setStoreStateCache(metaDataVersionStampCacheFactory.getCache(fdb));
+        ensureMetaDataVersionStampInitialized();
+
+        // Setup: create the store as NON-cacheable. That is the trap for the deleter's
+        // snapshot header read.
+        FDBRecordStore.Builder storeBuilder;
+        Subspace subspace;
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context);
+            assertFalse(recordStore.getRecordStoreState().getStoreHeader().getCacheable(),
+                    "test presumes the store is non-cacheable by default");
+            storeBuilder = recordStore.asBuilder();
+            subspace = recordStore.getSubspace();
+            commit(context);
+        }
+
+        final boolean deleterCommitted;
+        try (FDBRecordContext deleterContext = fdb.openContext(null, new FDBStoreTimer())) {
+            // Pin the deleter's read version BEFORE the flip commits, so the deleter's
+            // snapshot header read sees the pre-flip (non-cacheable) state.
+            deleterContext.getReadVersion();
+
+            // Separate transaction: flip the store to cacheable. Kept separate from the
+            // record insert below so that the record-inserting transaction has no reason to
+            // read the header itself — it will pick up the cacheable header via the state
+            // cache.
+            try (FDBRecordContext flipperContext = fdb.openContext(null, new FDBStoreTimer())) {
+                FDBRecordStore flipperStore = storeBuilder.copyBuilder().setContext(flipperContext).open();
+                assertTrue(flipperStore.setStateCacheability(true),
+                        "flipping to cacheable should have changed the header");
+                commit(flipperContext);
+            }
+
+            // Warm the JVM-wide state cache: a fresh open goes through the cache's
+            // get() → cache-miss → load-fresh → addToCache(cacheable=true). Without this
+            // the writer below would miss the cache and read STORE_INFO_KEY directly (which
+            // would see the deleter's clear and correctly treat the store as absent),
+            // masking the bug.
+            try (FDBRecordContext warmup = fdb.openContext(null, new FDBStoreTimer())) {
+                storeBuilder.copyBuilder().setContext(warmup).open();
+            }
+
+            // T_deleter: reads STORE_INFO_KEY at snapshot at its pinned pre-flip RV, sees
+            // non-cacheable. In the fixed code, this branch also adds a point read conflict
+            // on STORE_INFO_KEY — which the flipper's committed write will conflict with.
+            FDBRecordStore.deleteStore(deleterContext, subspace);
+            deleterCommitted = tryCommitOrDetectConflict(deleterContext);
+        }
+
+        if (deleterCommitted) {
+            // Bug reproduction: a separate transaction opens the store via the cache and
+            // saves a record. The writer never reads STORE_INFO_KEY itself — the cache
+            // entry (populated during warmup) still validates because the deleter did not
+            // bump the stamp. The record write commits successfully, producing an on-disk
+            // orphan: no store header, but records present.
+            try (FDBRecordContext writerContext = fdb.openContext(null, new FDBStoreTimer())) {
+                FDBRecordStore writerStore = storeBuilder.copyBuilder().setContext(writerContext).open();
+                writerStore.saveRecord(TestRecords1Proto.MySimpleRecord.newBuilder()
+                        .setRecNo(1)
+                        .setStrValueIndexed("orphaned-writer")
+                        .build());
+                commit(writerContext);
+            }
+            // At this point without the fix: STORE_INFO_KEY is absent AND the record is
+            // present. Fail loudly and describe the failure mode — this is the exact
+            // "no header but not empty" orphan the fix is meant to prevent. With the fix,
+            // the deleter would have conflicted, we would not be here at all.
+            fail("delete committed after a concurrent setStateCacheability(true) flip " +
+                    "and did not bump the meta-data version stamp; a subsequent writer " +
+                    "trusted its (now-stale) cache entry and inserted a record into a " +
+                    "subspace whose store header has been deleted — an on-disk orphan. " +
+                    "This is the correctness bug deleteStore's read-conflict guard is meant " +
+                    "to prevent.");
+        } else {
+            // Deleter correctly conflicted with the flipper. The store still exists (the
+            // flipper's cacheable header); caches remain consistent with disk.
+            assertStoreHeaderPresent(subspace);
+        }
+    }
+
+    /**
      * Verify that updating a header user field will be updated if the store state is cached.
      */
     @ParameterizedTest(name = "cacheUserFields (test context = {0})")
@@ -1379,5 +1497,53 @@ public class FDBRecordStoreStateCacheTest extends FDBRecordStoreTestBase {
 
     private boolean isStoreCachable() {
         return recordStore.getRecordStoreState().getStoreHeader().getCacheable();
+    }
+
+    // ---- helpers for the concurrent-deleteStore race test -------------------------------
+
+    /**
+     * Bootstrap that guarantees the JVM-wide meta-data version stamp key exists, so callers
+     * can compare before/after snapshots without special-casing null.
+     */
+    private void ensureMetaDataVersionStampInitialized() throws Exception {
+        try (FDBRecordContext context = fdb.openContext()) {
+            if (context.getMetaDataVersionStamp(IsolationLevel.SNAPSHOT) == null) {
+                context.setMetaDataVersionStamp();
+            }
+            commit(context);
+        }
+    }
+
+    /**
+     * Attempt to commit the given context. Returns {@code true} on success, {@code false} if
+     * the commit failed with a conflict (any nested cause). Any other exception is re-raised
+     * so an unexpected failure mode doesn't silently masquerade as "conflict".
+     */
+    private boolean tryCommitOrDetectConflict(@Nonnull FDBRecordContext context) throws Exception {
+        try {
+            commit(context);
+            return true;
+        } catch (Exception ex) {
+            for (Throwable cause = ex; cause != null; cause = cause.getCause()) {
+                if (cause instanceof FDBExceptions.FDBStoreTransactionConflictException) {
+                    return false;
+                }
+            }
+            throw new AssertionError("unexpected exception from commit: " + ex, ex);
+        }
+    }
+
+    /**
+     * Assert the store header is still present at the given subspace (used when the deleter
+     * loses the commit race and the store should still exist on disk).
+     */
+    private void assertStoreHeaderPresent(@Nonnull Subspace subspace) throws Exception {
+        try (FDBRecordContext peek = fdb.openContext()) {
+            final byte[] header = peek.readTransaction(true)
+                    .get(subspace.pack(FDBRecordStoreKeyspace.STORE_INFO.key()))
+                    .join();
+            assertNotNull(header,
+                    "when the deleter conflicts, the store header should still be present on disk");
+        }
     }
 }
