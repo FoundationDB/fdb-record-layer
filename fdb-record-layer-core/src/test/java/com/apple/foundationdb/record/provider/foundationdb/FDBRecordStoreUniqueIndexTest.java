@@ -912,6 +912,11 @@ public class FDBRecordStoreUniqueIndexTest extends FDBRecordStoreTestBase {
             return underlying.isIdempotent();
         }
 
+        @Override
+        public boolean isPendingWriteQueueAllowed() {
+            return underlying.isPendingWriteQueueAllowed();
+        }
+
         @Nonnull
         @Override
         public CompletableFuture<Boolean> addedRangeWithKey(@Nonnull final Tuple primaryKey) {

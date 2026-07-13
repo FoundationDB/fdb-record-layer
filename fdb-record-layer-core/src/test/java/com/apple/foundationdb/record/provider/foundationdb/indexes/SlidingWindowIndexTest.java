@@ -1591,6 +1591,11 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
             return true;
         }
 
+        @Override
+        public boolean isPendingWriteQueueAllowed() {
+            return true;
+        }
+
         @Nonnull
         @Override
         public CompletableFuture<Boolean> addedRangeWithKey(@Nonnull Tuple primaryKey) {

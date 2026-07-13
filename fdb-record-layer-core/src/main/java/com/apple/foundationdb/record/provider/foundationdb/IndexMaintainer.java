@@ -315,6 +315,17 @@ public abstract class IndexMaintainer {
     public abstract boolean isIdempotent();
 
     /**
+     * Whether this index maintainer supports being built with a pending write queue (the
+     * {@link com.apple.foundationdb.record.IndexState#WRITE_ONLY_WITH_QUEUE WRITE_ONLY_WITH_QUEUE} index state). While
+     * an index is in this state, user updates are deferred to a pending write queue instead of being applied to the
+     * index directly, and the online indexer drains that queue as it builds.
+     * Maintainers whose {@link #updateWhileWriteOnlyWithQueue} cannot correctly defer
+     * and later replay updates should return {@code false} to refuse this state;
+     * @return whether this index may be built with a pending write queue
+     */
+    public abstract boolean isPendingWriteQueueAllowed();
+
+    /**
      * Whether this key has been added to some range within the {@link com.apple.foundationdb.async.RangeSet RangeSet}
      * associated with this index. This is used within the context of seeing if one should update a non-idempotent
      * write-only index with a new key. If the key is in some range, then it means that one should update the index

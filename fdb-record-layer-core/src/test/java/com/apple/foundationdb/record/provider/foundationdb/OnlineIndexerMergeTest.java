@@ -489,6 +489,11 @@ public class OnlineIndexerMergeTest extends FDBRecordStoreConcurrentTestBase {
                     throw new UnsupportedOperationException();
                 }
 
+                @Override
+                public boolean isPendingWriteQueueAllowed() {
+                    throw new UnsupportedOperationException();
+                }
+
                 @Nonnull
                 @Override
                 public CompletableFuture<Boolean> addedRangeWithKey(@Nonnull final Tuple primaryKey) {

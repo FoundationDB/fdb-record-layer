@@ -361,6 +361,11 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
         return delegate.isIdempotent();
     }
 
+    @Override
+    public boolean isPendingWriteQueueAllowed() {
+        return delegate.isPendingWriteQueueAllowed();
+    }
+
     @Nonnull
     @Override
     public <M extends Message> CompletableFuture<Void> update(@Nullable FDBIndexableRecord<M> oldRecord,

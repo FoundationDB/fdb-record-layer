@@ -149,6 +149,11 @@ public class TerribleIndexMaintainer extends IndexMaintainer {
         return false;
     }
 
+    @Override
+    public boolean isPendingWriteQueueAllowed() {
+        return false;
+    }
+
     @Nonnull
     @Override
     public CompletableFuture<Boolean> addedRangeWithKey(@Nonnull Tuple primaryKey) {

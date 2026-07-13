@@ -283,13 +283,13 @@ public abstract class IndexingBase {
         // drained version-key index would be built with a null version. It is also not allowed during mutual indexing,
         // as two concurrent queue drains may cause data inconsistency.
         final Index index = indexContext.index;
+        final IndexMaintainer maintainer = store.getIndexMaintainer(index);
         if (policy.shouldUsePendingWriteQueue(index) &&
-                !indexContext.isSynthetic &&
                 !policy.isMutual() &&
-                store.getIndexMaintainer(index).isIdempotent() &&
+                maintainer.isIdempotent() &&
+                maintainer.isPendingWriteQueueAllowed() &&
                 index.getRootExpression().versionColumns() == 0 &&
                 store.getFormatVersionEnum().isAtLeast(FormatVersion.WRITE_ONLY_WITH_QUEUE)) {
-            // TODO: support write-only-with-queue for synthetic records
             // TODO? support versioned index ("?" because these kind of indexes don't tend to have indexing bottlenecks)
             // TODO? support write-only-with-queue for mutual indexing (may require a drain semaphore)
             return store.markIndexWriteOnlyWithQueue(index);
