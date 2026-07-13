@@ -339,7 +339,16 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
             // had generated an "already indexed" source index key, the other one should be converted to a null in the queue).
             // This, however can be done at a later step.
         }
+        if (!isSynthtic()) {
+            throw new UnsupportedOperationException("synthetic records indexes cannot support this operation through the standard maintainer");
+            // To support synthetic records, the specific index maintainer should override this function and save
+            // oldRecord, newRecords with its own serializer
+        }
         return PendingWriteQueueIndexingFactory.enqueueOldAndNewRecords(state.store, state.index, oldRecord, newRecord);
+    }
+
+    private boolean isSynthtic() {
+        return state.store.getRecordMetaData().recordTypesForIndex(state.index).stream().anyMatch(RecordType::isSynthetic);
     }
 
     @Nullable
