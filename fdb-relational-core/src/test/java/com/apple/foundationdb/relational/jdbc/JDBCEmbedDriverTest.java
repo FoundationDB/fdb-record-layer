@@ -24,6 +24,7 @@ import com.apple.foundationdb.record.provider.foundationdb.APIVersion;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactory;
 import com.apple.foundationdb.test.FDBTestEnvironment;
+import com.apple.foundationdb.test.TestExecutors;
 import com.apple.foundationdb.relational.api.EmbeddedRelationalDriver;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.RelationalDriver;
@@ -73,6 +74,9 @@ public class JDBCEmbedDriverTest {
 
         // This needs to be done prior to the first call to factory.getDatabase()
         FDBDatabaseFactory.instance().setAPIVersion(APIVersion.API_VERSION_7_1);
+        // Install a multi-thread scheduler so JUnit-parallel tests don't fight over
+        // MoreAsyncUtil's single-thread default (see #4333).
+        FDBDatabaseFactory.instance().setScheduledExecutor(TestExecutors.defaultScheduledThreadPool());
 
         final FDBDatabase database = FDBDatabaseFactory.instance().getDatabase(FDBTestEnvironment.randomClusterFile());
         StoreCatalog storeCatalog;

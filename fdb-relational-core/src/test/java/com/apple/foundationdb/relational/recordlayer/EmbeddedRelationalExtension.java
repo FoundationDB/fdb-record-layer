@@ -29,6 +29,7 @@ import com.apple.foundationdb.relational.api.EmbeddedRelationalDriver;
 import com.apple.foundationdb.relational.api.EmbeddedRelationalEngine;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.RelationalDriver;
+import com.apple.foundationdb.test.TestExecutors;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.catalog.StoreCatalog;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
@@ -108,6 +109,10 @@ public class EmbeddedRelationalExtension implements RelationalExtension, BeforeE
 
         // This needs to be done prior to the first call to factory.getDatabase()
         FDBDatabaseFactory.instance().setAPIVersion(APIVersion.API_VERSION_7_1);
+        // Override MoreAsyncUtil's single-thread default scheduler so JUnit-parallel tests don't
+        // trigger spurious DeadlineExceededException from AsyncLoadingCache (see #4333 and
+        // TestExecutors.defaultScheduledThreadPool javadoc).
+        FDBDatabaseFactory.instance().setScheduledExecutor(TestExecutors.defaultScheduledThreadPool());
 
         makeDatabase(clusterFile);
 

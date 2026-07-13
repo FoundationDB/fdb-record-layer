@@ -39,6 +39,7 @@ import com.apple.foundationdb.record.provider.foundationdb.keyspace.ResolverCrea
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.ResolverCreateHooks.PreWriteCheck;
 import com.apple.foundationdb.record.test.FDBDatabaseExtension;
 import com.apple.foundationdb.record.util.pair.Pair;
+import com.apple.foundationdb.test.TestExecutors;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.BooleanSource;
@@ -896,6 +897,9 @@ public abstract class LocatableResolverTest {
         final FDBDatabaseFactory parallelFactory = new FDBDatabaseFactoryImpl();
         parallelFactory.setStateRefreshTimeMillis(100);
         parallelFactory.setAPIVersion(dbExtension.getAPIVersion());
+        // The whole point of this test is parallelism; use a multi-thread scheduler so timers
+        // don't back up on MoreAsyncUtil's single-thread default (see #4333).
+        parallelFactory.setScheduledExecutor(TestExecutors.defaultScheduledThreadPool());
         String clusterFile = database.getClusterFile();
         Supplier<FDBDatabase> databaseSupplier = () -> new FDBDatabase(parallelFactory, clusterFile);
         consistently("uninitialized version is 0", () -> {
