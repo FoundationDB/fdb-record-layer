@@ -107,6 +107,12 @@ class TestIsBuildAffecting(unittest.TestCase):
     def test_settings_gradle(self):
         self.assertTrue(is_build_affecting('settings.gradle'))
 
+    def test_project_gradle(self):
+        # Individual project gradle files are not build affecting. They only affect their
+        # subproject (and downstream dependencies), and so this doesn't need to result
+        # in a full retest of everything
+        self.assertFalse(is_build_affecting('fdb-record-layer-core/fdb-record-layer-core.gradle'))
+
     def test_gradle_directory(self):
         self.assertTrue(is_build_affecting('gradle/testing.gradle'))
 
@@ -245,6 +251,11 @@ class TestComputeAffected(unittest.TestCase):
             set(result['affected']),
             set(SAMPLE_AFFECTED_MAP['fdb-record-layer-lucene'])
             | set(SAMPLE_AFFECTED_MAP['fdb-relational-api']))
+
+    def test_project_gradle_affected_sets(self):
+        result = compute_affected(['fdb-relational-core/fdb-relational-core.gradle'], SAMPLE_AFFECTED_MAP)
+        self.assertFalse(result['run_all'])
+        self.assertEqual(result['affected'], SAMPLE_AFFECTED_MAP['fdb-relational-core'])
 
     def test_no_changed_files(self):
         result = compute_affected([], SAMPLE_AFFECTED_MAP)
