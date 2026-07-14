@@ -115,7 +115,7 @@ class OnlineIndexerPendingWriteQueueTest extends OnlineIndexerTest {
                     // The pending writes queue should now hold exactly the deferred records (and nothing else), before the drain.
                     try (FDBRecordContext context = openContext()) {
                         final PendingWritesQueue<IndexBuildProto.PendingWritesQueueEntry> queue =
-                                PendingWriteQueueIndexingFactory.getIndexingQueue(recordStore, index);
+                                IndexingPendingWriteQueue.getIndexingQueue(recordStore, index);
                         final Long queueSize = queue.getQueueSizeNoConflict(context).join();
                         assertEquals(queuedRecNos.size(), queueSize == null ? 0L : queueSize);
 
@@ -180,7 +180,7 @@ class OnlineIndexerPendingWriteQueueTest extends OnlineIndexerTest {
                     // The pending writes queue should now hold exactly the deferred records (and nothing else), before the drain.
                     try (FDBRecordContext context = openContext()) {
                         final PendingWritesQueue<IndexBuildProto.PendingWritesQueueEntry> queue =
-                                PendingWriteQueueIndexingFactory.getIndexingQueue(recordStore, index);
+                                IndexingPendingWriteQueue.getIndexingQueue(recordStore, index);
                         final Long queueSize = queue.getQueueSizeNoConflict(context).join();
                         assertEquals(queuedRecNos.size(), queueSize == null ? 0L : queueSize);
 
@@ -1198,7 +1198,7 @@ class OnlineIndexerPendingWriteQueueTest extends OnlineIndexerTest {
      */
     private Long queueSizeCounter(@Nonnull final Index index) {
         try (FDBRecordContext context = openContext()) {
-            final Long size = PendingWriteQueueIndexingFactory.getIndexingQueue(recordStore, index)
+            final Long size = IndexingPendingWriteQueue.getIndexingQueue(recordStore, index)
                     .getQueueSizeNoConflict(context).join();
             context.commit();
             return size;

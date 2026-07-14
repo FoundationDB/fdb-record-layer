@@ -470,7 +470,7 @@ public class IndexingThrottle {
         return AsyncUtil.getAll(indexes.stream()
                         .map(index -> {
                             final PendingWritesQueue<IndexBuildProto.PendingWritesQueueEntry> queue =
-                                    PendingWriteQueueIndexingFactory.getIndexingQueue(store, index);
+                                    IndexingPendingWriteQueue.getIndexingQueue(store, index);
                             return queue.getQueueSizeNoConflict(context)
                                     .thenApply(size -> size != null && size > 0 ? index : null);
                         })

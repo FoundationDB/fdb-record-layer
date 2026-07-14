@@ -1000,7 +1000,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
 
             // The StandardIndexMaintainer routed the update to its pending queue: exactly one deferred write.
             final PendingWritesQueue<IndexBuildProto.PendingWritesQueueEntry> standardQueue =
-                    PendingWriteQueueIndexingFactory.getIndexingQueue(recordStore, standardIndex);
+                    IndexingPendingWriteQueue.getIndexingQueue(recordStore, standardIndex);
             assertThat(standardQueue.getQueueSizeNoConflict(context).join(), is(1L));
 
             // That deferred entry carries the saved record as an insert (a new record, no old record) - i.e. the
@@ -1023,7 +1023,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
 
             // The NoOp-backed permissive index's updateWhileWriteOnlyWithQueue is a no-op, so nothing is enqueued
             // for it (its queue size counter was never written).
-            assertThat(PendingWriteQueueIndexingFactory.getIndexingQueue(recordStore, permissiveIndex)
+            assertThat(IndexingPendingWriteQueue.getIndexingQueue(recordStore, permissiveIndex)
                     .getQueueSizeNoConflict(context).join(), is(nullValue()));
 
             commit(context);

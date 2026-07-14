@@ -286,7 +286,6 @@ public abstract class IndexingBase {
         final IndexMaintainer maintainer = store.getIndexMaintainer(index);
         if (policy.shouldUsePendingWriteQueue(index) &&
                 !policy.isMutual() &&
-                maintainer.isIdempotent() &&
                 maintainer.isPendingWriteQueueAllowed() &&
                 index.getRootExpression().versionColumns() == 0 &&
                 store.getFormatVersionEnum().isAtLeast(FormatVersion.WRITE_ONLY_WITH_QUEUE)) {

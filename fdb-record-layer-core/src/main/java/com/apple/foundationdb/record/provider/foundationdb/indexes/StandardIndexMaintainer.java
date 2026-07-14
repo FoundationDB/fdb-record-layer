@@ -65,8 +65,8 @@ import com.apple.foundationdb.record.provider.foundationdb.IndexOperationResult;
 import com.apple.foundationdb.record.provider.foundationdb.IndexPrefetchRangeKeyValueCursor;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanBounds;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanRange;
+import com.apple.foundationdb.record.provider.foundationdb.IndexingPendingWriteQueue;
 import com.apple.foundationdb.record.provider.foundationdb.KeyValueCursor;
-import com.apple.foundationdb.record.provider.foundationdb.PendingWriteQueueIndexingFactory;
 import com.apple.foundationdb.record.provider.foundationdb.indexing.IndexingRangeSet;
 import com.apple.foundationdb.record.query.QueryToKeyMatcher;
 import com.apple.foundationdb.subspace.Subspace;
@@ -339,7 +339,7 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
             // had generated an "already indexed" source index key, the other one should be converted to a null in the queue).
             // This, however can be done at a later step.
         }
-        return PendingWriteQueueIndexingFactory.enqueueOldAndNewRecords(state.store, state.index, oldRecord, newRecord);
+        return IndexingPendingWriteQueue.enqueueOldAndNewRecords(state.store, state.index, oldRecord, newRecord);
     }
 
     private boolean isSynthetic() {
@@ -758,7 +758,7 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
     @Override
     public boolean isPendingWriteQueueAllowed() {
         // Synthetic records index maintainers that support pending write queues should override this function
-        return !isSynthetic();
+        return isIdempotent() && !isSynthetic();
     }
 
     @Override

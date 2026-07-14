@@ -49,8 +49,8 @@ import com.apple.foundationdb.record.provider.foundationdb.IndexMaintenanceFilte
 import com.apple.foundationdb.record.provider.foundationdb.IndexOperation;
 import com.apple.foundationdb.record.provider.foundationdb.IndexOperationResult;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanBounds;
+import com.apple.foundationdb.record.provider.foundationdb.IndexingPendingWriteQueue;
 import com.apple.foundationdb.record.provider.foundationdb.OnlineIndexer;
-import com.apple.foundationdb.record.provider.foundationdb.PendingWriteQueueIndexingFactory;
 import com.apple.foundationdb.record.provider.foundationdb.VectorIndexScanBounds;
 import com.apple.foundationdb.record.provider.foundationdb.VectorIndexScanOptions;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.SlidingWindowTestHelpers.SlidingWindow;
@@ -1830,7 +1830,7 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
     @Nullable
     private Long queueSize(@Nonnull FDBRecordContext context, @Nonnull Index index) {
         final PendingWritesQueue<IndexBuildProto.PendingWritesQueueEntry> queue =
-                PendingWriteQueueIndexingFactory.getIndexingQueue(recordStore, index);
+                IndexingPendingWriteQueue.getIndexingQueue(recordStore, index);
         return queue.getQueueSizeNoConflict(context).join();
     }
 }

@@ -101,8 +101,8 @@ public class PendingWriteQueueDrainer {
         return store.getIndexMaintainer(index)
                 // Calling updateWhileWriteOnly explicitly, lest this update will be re-pushed to the queue
                 .updateWhileWriteOnly(
-                        PendingWriteQueueIndexingFactory.getOldRecord(store, payload),
-                        PendingWriteQueueIndexingFactory.getNewRecord(store, payload))
+                        IndexingPendingWriteQueue.getOldRecord(store, payload),
+                        IndexingPendingWriteQueue.getNewRecord(store, payload))
                 .thenAccept(ignore -> {
                     quotaManager.deleteCountInc();
                     getQueue(store).clearEntry(store.getContext(), entry);
@@ -111,7 +111,7 @@ public class PendingWriteQueueDrainer {
 
     @Nonnull
     private PendingWritesQueue<IndexBuildProto.PendingWritesQueueEntry> getQueue(final FDBRecordStore store) {
-        return PendingWriteQueueIndexingFactory.getIndexingQueue(store, index);
+        return IndexingPendingWriteQueue.getIndexingQueue(store, index);
     }
 
     /**

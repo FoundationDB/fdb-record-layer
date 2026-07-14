@@ -1,5 +1,5 @@
 /*
- * PendingWriteQueueIndexingFactory.java
+ * IndexingPendingWriteQueue.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -43,11 +43,11 @@ import java.util.concurrent.CompletableFuture;
  * and consumers (the drainer) always agree on it.
  */
 @ParametersAreNonnullByDefault
-public final class PendingWriteQueueIndexingFactory {
+public final class IndexingPendingWriteQueue {
     // TODO: configurable maxQueueSize
     private static final int MAX_QUEUE_SIZE = 100_000;
 
-    private PendingWriteQueueIndexingFactory() {
+    private IndexingPendingWriteQueue() {
     }
 
     @Nonnull
