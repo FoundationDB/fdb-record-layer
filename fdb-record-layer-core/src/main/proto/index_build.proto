@@ -23,8 +23,6 @@ syntax = "proto2";
 package com.apple.foundationdb.record;
 option java_outer_classname = "IndexBuildProto";
 
-import "record_metadata_options.proto";
-
 // This stamp indicates an ongoing indexing process. It will be used to assure a coherent indexing
 // continuation - which continued by another process.
 
