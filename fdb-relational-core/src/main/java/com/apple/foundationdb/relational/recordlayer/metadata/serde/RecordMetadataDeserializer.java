@@ -105,8 +105,8 @@ public class RecordMetadataDeserializer {
             }
         }
         nameToTableBuilder.values().stream().map(RecordLayerTable.Builder::build).forEach(schemaTemplateBuilder::addTable);
+        final var metadataProvider = Suppliers.memoize(schemaTemplateBuilder::build);
         if (!recordMetaData.getUserDefinedFunctionMap().isEmpty()) {
-            final var metadataProvider = Suppliers.memoize(schemaTemplateBuilder::build);
             // TODO: topsort deps of functions.
             for (final var function : recordMetaData.getUserDefinedFunctionMap().entrySet()) {
                 if (function.getValue() instanceof RawSqlFunction) {
@@ -119,7 +119,6 @@ public class RecordMetadataDeserializer {
             }
         }
         if (!recordMetaData.getViewMap().isEmpty()) {
-            final var metadataProvider = Suppliers.memoize(schemaTemplateBuilder::build);
             for (final var view : recordMetaData.getViewMap().entrySet()) {
                 schemaTemplateBuilder.addView(generateViewBuilder(metadataProvider, view.getKey(), view.getValue().getDefinition()).build());
             }
