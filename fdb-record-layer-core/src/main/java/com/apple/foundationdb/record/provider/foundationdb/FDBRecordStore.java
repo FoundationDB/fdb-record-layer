@@ -1815,7 +1815,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * i.e., the case in which we would skip the bump — do we add an explicit point read
      * conflict on {@link #STORE_INFO_KEY}. That closes the race with a concurrent
      * {@link #setStateCacheability(boolean)} that flips the store to cacheable: if such a
-     * writer commits before us, our commit fails with a serialisation error and the caller
+     * writer commits before us, our commit fails with a serialization error and the caller
      * retries with a fresh snapshot that sees the new header and bumps the stamp. In the
      * common case (delete of a store that was and stays non-cacheable), no read conflict is
      * added at all.
@@ -1828,7 +1828,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     public static void deleteStore(FDBRecordContext context, Subspace subspace) {
         // Read the store header at snapshot isolation so we don't add a read conflict on
         // every delete. The clear below already creates a write conflict on the whole range,
-        // which serialises us against any concurrent writer that lands INSIDE this subspace.
+        // which serializes us against any concurrent writer that lands INSIDE this subspace.
         // The single race the snapshot read leaves open is a concurrent commit that writes
         // STORE_INFO_KEY (e.g. a setStateCacheability that flips cacheable=true and bumps
         // the meta-data version stamp). If that writer commits first, our snapshot read
@@ -1858,8 +1858,8 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             try {
                 cacheable = RecordMetaDataProto.DataStoreInfo.parseFrom(headerBytes).getCacheable();
             } catch (InvalidProtocolBufferException e) {
-                // If we can't parse the header, fall back to the pre-change conservative
-                // behaviour and bump. Also skip the read conflict — bumping unconditionally
+                // If we can't parse the header, fall back to the conservative
+                // behavior and bump. Also skip the read conflict — bumping unconditionally
                 // is safe regardless of what a concurrent writer does.
                 cacheable = true;
             }

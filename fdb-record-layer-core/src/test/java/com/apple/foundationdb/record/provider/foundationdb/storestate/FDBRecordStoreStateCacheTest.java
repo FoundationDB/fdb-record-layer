@@ -815,7 +815,7 @@ public class FDBRecordStoreStateCacheTest extends FDBRecordStoreTestBase {
         final byte[] afterStamp = getMetaDataVersionStamp();
         assertNotNull(afterStamp);
         assertArrayEquals(beforeStamp, afterStamp,
-                "deleting a cacheable store should have bumped the meta-data version stamp");
+                "deleting a cacheable store should not have bumped the meta-data version stamp");
     }
 
     /**
@@ -898,7 +898,7 @@ public class FDBRecordStoreStateCacheTest extends FDBRecordStoreTestBase {
         if (deleterCommitted) {
             fail("delete committed after a concurrent setStateCacheability(true) flip " +
                     "and did not bump the meta-data version stamp; a subsequent writer " +
-                    "trusted its (now-stale) cache entry and inserted a record into a " +
+                    "could have trusted its (now-stale) cache entry and inserted a record into a " +
                     "subspace whose store header has been deleted — an on-disk orphan. " +
                     "This is the correctness bug deleteStore's read-conflict guard is meant " +
                     "to prevent.");
@@ -914,18 +914,19 @@ public class FDBRecordStoreStateCacheTest extends FDBRecordStoreTestBase {
     }
 
     /**
-     * Race check for {@link FDBRecordStore#deleteStore(FDBRecordContext, Subspace)}.
-     * <p>The bug we're guarding against: {@code deleteStore} commits without bumping the
-     * stamp, concurrently with another transaction that sets the store as cacheable.
-     * The context trying to set cacheability should conflict.</p>
+     * Companion invariant to {@link #concurrentSetCacheabilityPreventsDeleteStore()}: with the
+     * commit order flipped (deleter first, then flipper), the flipper must conflict. Unlike its
+     * companion, this test relies on general read/write conflict machinery — specifically, that
+     * setStateCacheability's own SERIALIZABLE header read (via open() → loadRecordStoreStateAsync
+     * or handleCachedState) puts STORE_INFO_KEY in the flipper's read set, so any concurrent
+     * write to that key by a preceding delete forces a conflict.
      */
     @Test
     void concurrentSetCacheabilityConflictsWithDeleteStore() throws Exception {
         fdb.setStoreStateCache(metaDataVersionStampCacheFactory.getCache(fdb));
         ensureMetaDataVersionStampInitialized();
 
-        // Setup: create the store as NON-cacheable. That is the trap for the deleter's
-        // snapshot header read.
+        // Setup: create the store as NON-cacheable (matches the companion test's starting state).
         FDBRecordStore.Builder storeBuilder;
         Subspace subspace;
         try (FDBRecordContext context = openContext()) {
@@ -949,12 +950,9 @@ public class FDBRecordStoreStateCacheTest extends FDBRecordStoreTestBase {
         }
 
         if (flipperCommitted) {
-            fail("delete committed after a concurrent setStateCacheability(true) flip " +
-                    "and did not bump the meta-data version stamp; a subsequent writer " +
-                    "trusted its (now-stale) cache entry and inserted a record into a " +
-                    "subspace whose store header has been deleted — an on-disk orphan. " +
-                    "This is the correctness bug deleteStore's read-conflict guard is meant " +
-                    "to prevent.");
+            fail("a setStateCacheability(true) flip committed after a successful deleteStore; " +
+                    "another transaction could have used the cached state to write after the " +
+                    "delete store without there being a store header");
         } else {
             // Deleter correctly conflicted with the flipper. The store still should have been deleted.
             try (FDBRecordContext contextUsingCache = fdb.openContext(null, new FDBStoreTimer())) {
@@ -1454,8 +1452,6 @@ public class FDBRecordStoreStateCacheTest extends FDBRecordStoreTestBase {
     private boolean isStoreCachable() {
         return recordStore.getRecordStoreState().getStoreHeader().getCacheable();
     }
-
-    // ---- helpers for the concurrent-deleteStore race test -------------------------------
 
     /**
      * Bootstrap that guarantees the cluster-wide meta-data version stamp key exists, so callers
