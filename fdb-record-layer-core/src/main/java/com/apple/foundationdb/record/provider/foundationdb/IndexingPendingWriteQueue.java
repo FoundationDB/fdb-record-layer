@@ -149,14 +149,19 @@ public final class IndexingPendingWriteQueue {
             return AsyncUtil.DONE;
         }
         final RecordSerializer<Message> serializer = store.getSerializer();
-        final IndexBuildProto.PendingWritesQueueEntry.Builder builder = IndexBuildProto.PendingWritesQueueEntry.newBuilder();
+        final IndexBuildProto.PendingWritesQueueEntry.OldAndNewRecords.Builder recordsBuilder =
+                IndexBuildProto.PendingWritesQueueEntry.OldAndNewRecords.newBuilder();
         if (oldRecord != null) {
-            builder.setOldRecords(serializeRecord(store, oldRecord, serializer));
+            recordsBuilder.setOldRecords(serializeRecord(store, oldRecord, serializer));
         }
         if (newRecord != null) {
-            builder.setNewRecord(serializeRecord(store, newRecord, serializer));
+            recordsBuilder.setNewRecord(serializeRecord(store, newRecord, serializer));
         }
-        return getIndexingQueue(store, index).enqueue(store.getContext(), builder.build(), store.getIncarnation());
+        final IndexBuildProto.PendingWritesQueueEntry entry =
+                IndexBuildProto.PendingWritesQueueEntry.newBuilder()
+                        .setOldAndNewRecords(recordsBuilder)
+                        .build();
+        return getIndexingQueue(store, index).enqueue(store.getContext(), entry, store.getIncarnation());
     }
 
     @Nonnull
@@ -169,12 +174,14 @@ public final class IndexingPendingWriteQueue {
 
     @Nullable
     public static FDBStoredRecord<Message> getOldRecord(final FDBRecordStore store, IndexBuildProto.PendingWritesQueueEntry payload) {
-        return payload.hasOldRecords() ? deserializeRecord(store, payload.getOldRecords()) : null;
+        final IndexBuildProto.PendingWritesQueueEntry.OldAndNewRecords records = payload.getOldAndNewRecords();
+        return records.hasOldRecords() ? deserializeRecord(store, records.getOldRecords()) : null;
     }
 
     @Nullable
     public static FDBStoredRecord<Message> getNewRecord(final FDBRecordStore store, IndexBuildProto.PendingWritesQueueEntry payload) {
-        return payload.hasNewRecord() ? deserializeRecord(store, payload.getNewRecord()) : null;
+        final IndexBuildProto.PendingWritesQueueEntry.OldAndNewRecords records = payload.getOldAndNewRecords();
+        return records.hasNewRecord() ? deserializeRecord(store, records.getNewRecord()) : null;
     }
 
     /**

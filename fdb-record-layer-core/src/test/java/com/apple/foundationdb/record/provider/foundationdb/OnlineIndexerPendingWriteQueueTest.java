@@ -125,7 +125,7 @@ class OnlineIndexerPendingWriteQueueTest extends OnlineIndexerTest {
                                 .map(entry -> {
                                     final IndexBuildProto.PendingWritesQueueEntry payload = entry.getPayload();
                                     final Message rec = recordStore.getSerializer().deserialize(recordStore.getRecordMetaData(),
-                                            TupleHelpers.EMPTY, payload.getNewRecord().toByteArray(), recordStore.getTimer());
+                                            TupleHelpers.EMPTY, payload.getOldAndNewRecords().getNewRecord().toByteArray(), recordStore.getTimer());
                                     return (Long)rec.getField(rec.getDescriptorForType().findFieldByName("rec_no"));
                                 })
                                 .toList();
@@ -190,7 +190,7 @@ class OnlineIndexerPendingWriteQueueTest extends OnlineIndexerTest {
                                 .map(entry -> {
                                     final IndexBuildProto.PendingWritesQueueEntry payload = entry.getPayload();
                                     final Message record = recordStore.getSerializer().deserialize(recordStore.getRecordMetaData(),
-                                            TupleHelpers.EMPTY, payload.getNewRecord().toByteArray(), recordStore.getTimer());
+                                            TupleHelpers.EMPTY, payload.getOldAndNewRecords().getNewRecord().toByteArray(), recordStore.getTimer());
                                     return (Long)record.getField(record.getDescriptorForType().findFieldByName("rec_no"));
                                 })
                                 .toList();

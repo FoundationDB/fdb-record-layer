@@ -1008,11 +1008,12 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
             final IndexBuildProto.PendingWritesQueueEntry payload =
                     standardQueue.getQueueCursor(context, ScanProperties.FORWARD_SCAN, null)
                             .asList().join().get(0).getPayload();
-            assertThat(payload.hasOldRecords(), is(false));
-            assertThat(payload.hasNewRecord(), is(true));
+            final IndexBuildProto.PendingWritesQueueEntry.OldAndNewRecords records = payload.getOldAndNewRecords();
+            assertThat(records.hasOldRecords(), is(false));
+            assertThat(records.hasNewRecord(), is(true));
             final TestRecords1Proto.MySimpleRecord enqueued = TestRecords1Proto.MySimpleRecord.newBuilder()
                     .mergeFrom(recordStore.getSerializer().deserialize(recordStore.getRecordMetaData(),
-                            TupleHelpers.EMPTY, payload.getNewRecord().toByteArray(), recordStore.getTimer()))
+                            TupleHelpers.EMPTY, records.getNewRecord().toByteArray(), recordStore.getTimer()))
                     .build();
             assertThat(enqueued.getRecNo(), is(1066L));
             assertThat(enqueued.getNumValue3Indexed(), is(42));
