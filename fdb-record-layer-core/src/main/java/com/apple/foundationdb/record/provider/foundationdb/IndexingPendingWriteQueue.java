@@ -130,46 +130,18 @@ public final class IndexingPendingWriteQueue {
     }
 
     /**
-     * Called by the index maintainer to serialize an old/new record pair into a {@link IndexBuildProto.PendingWritesQueueEntry}.
-     * @param store the record store whose serializer, incarnation, and context are used
+     * Called by the index maintainer to enqueue data for a deferred index update.
+     * @param store the record store whose incarnation and context are used
      * @param index the index whose queue the entry is appended to
-     * @param oldRecord the record prior to the update, or null for an insert
-     * @param newRecord the record after the update, or null for a delete
-     * @param <M> the message type of the records
+     * @param entry the entry to enqueue
      * @return a future that completes when the entry has been enqueued
      */
     @Nonnull
-    public static <M extends Message> CompletableFuture<Void> enqueueOldAndNewRecords(
+    public static CompletableFuture<Void> enqueuePendingIndexUpdate(
             final FDBRecordStore store,
             final Index index,
-            @Nullable final FDBIndexableRecord<M> oldRecord,
-            @Nullable final FDBIndexableRecord<M> newRecord) {
-        if (oldRecord == null && newRecord == null) {
-            // This should never happen with the current maintainers
-            return AsyncUtil.DONE;
-        }
-        final RecordSerializer<Message> serializer = store.getSerializer();
-        final IndexBuildProto.PendingWritesQueueEntry.OldAndNewRecords.Builder recordsBuilder =
-                IndexBuildProto.PendingWritesQueueEntry.OldAndNewRecords.newBuilder();
-        if (oldRecord != null) {
-            recordsBuilder.setOldRecords(serializeRecord(store, oldRecord, serializer));
-        }
-        if (newRecord != null) {
-            recordsBuilder.setNewRecord(serializeRecord(store, newRecord, serializer));
-        }
-        final IndexBuildProto.PendingWritesQueueEntry entry =
-                IndexBuildProto.PendingWritesQueueEntry.newBuilder()
-                        .setOldAndNewRecords(recordsBuilder)
-                        .build();
+            final IndexBuildProto.PendingWritesQueueEntry entry) {
         return getIndexingQueue(store, index).enqueue(store.getContext(), entry, store.getIncarnation());
-    }
-
-    @Nonnull
-    private static <M extends Message> ByteString serializeRecord(final FDBRecordStore store,
-                                                                  final FDBIndexableRecord<M> indexableRecord,
-                                                                  final RecordSerializer<Message> serializer) {
-        return ByteString.copyFrom(serializer.serialize(store.getRecordMetaData(),
-                indexableRecord.getRecordType(), indexableRecord.getRecord(), store.getTimer()));
     }
 
     @Nullable

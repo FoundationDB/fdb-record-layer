@@ -431,7 +431,8 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
     @Nonnull
     @Override
     public <M extends Message> CompletableFuture<Void> updateWhileWriteOnlyWithQueue(@Nullable final FDBIndexableRecord<M> oldRecord, @Nullable final FDBIndexableRecord<M> newRecord) {
-        return IndexingPendingWriteQueue.enqueueOldAndNewRecords(state.store, state.index, oldRecord, newRecord);
+        return IndexingPendingWriteQueue.enqueuePendingIndexUpdate(state.store, state.index,
+                StandardIndexMaintainer.buildPendingWritesQueueEntry(state, oldRecord, newRecord));
     }
 
     /**

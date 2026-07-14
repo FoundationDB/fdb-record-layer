@@ -468,12 +468,11 @@ public class IndexingThrottle {
      */
     private CompletableFuture<List<Index>> nonEmptyQueueIndexes(@Nonnull FDBRecordStore store, @Nonnull FDBRecordContext context, @Nonnull List<Index> indexes) {
         return AsyncUtil.getAll(indexes.stream()
-                        .map(index -> {
-                            final PendingWritesQueue<IndexBuildProto.PendingWritesQueueEntry> queue =
-                                    IndexingPendingWriteQueue.getIndexingQueue(store, index);
-                            return queue.getQueueSizeNoConflict(context)
-                                    .thenApply(size -> size != null && size > 0 ? index : null);
-                        })
+                        .map(index ->
+                                IndexingPendingWriteQueue.getIndexingQueue(store, index)
+                                        .getQueueSizeNoConflict(context)
+                                        .thenApply(size -> size != null && size > 0 ? index : null)
+                        )
                         .toList()
                 )
                 .thenApply(results -> results.stream().filter(Objects::nonNull).toList());

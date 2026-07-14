@@ -31,6 +31,7 @@ import com.apple.foundationdb.async.MoreAsyncUtil;
 import com.apple.foundationdb.record.CursorStreamingMode;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
+import com.apple.foundationdb.record.IndexBuildProto;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.IsolationLevel;
@@ -51,6 +52,7 @@ import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyWithValueExpression;
+import com.apple.foundationdb.record.provider.common.RecordSerializer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBExceptions;
 import com.apple.foundationdb.record.provider.foundationdb.FDBIndexableRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBIndexedRawRecord;
@@ -74,6 +76,7 @@ import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.TupleHelpers;
 import com.google.common.base.Verify;
+import com.google.protobuf.ByteString;
 import com.google.protobuf.Message;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -339,7 +342,44 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
             // had generated an "already indexed" source index key, the other one should be converted to a null in the queue).
             // This, however can be done at a later step.
         }
-        return IndexingPendingWriteQueue.enqueueOldAndNewRecords(state.store, state.index, oldRecord, newRecord);
+        return IndexingPendingWriteQueue.enqueuePendingIndexUpdate(state.store, state.index,
+                buildPendingWritesQueueEntry(state, oldRecord, newRecord));
+    }
+
+    /**
+     * Serialize an old/new record pair into a {@link IndexBuildProto.PendingWritesQueueEntry} so that it can be deferred
+     * onto the index's pending writes queue by {@link #updateWhileWriteOnlyWithQueue}. Either record may be null: a null
+     * {@code oldRecord} represents an insert and a null {@code newRecord} represents a delete.
+     * @param state the maintainer state whose store serializer is used
+     * @param oldRecord the previous stored record or {@code null} if a new record is being created
+     * @param newRecord the new record or {@code null} if an old record is being deleted
+     * @param <M> type of message
+     * @return the entry to enqueue
+     */
+    @Nonnull
+    static <M extends Message> IndexBuildProto.PendingWritesQueueEntry buildPendingWritesQueueEntry(@Nonnull final IndexMaintainerState state,
+                                                                                                    @Nullable final FDBIndexableRecord<M> oldRecord,
+                                                                                                    @Nullable final FDBIndexableRecord<M> newRecord) {
+        final RecordSerializer<Message> serializer = state.store.getSerializer();
+        final IndexBuildProto.PendingWritesQueueEntry.OldAndNewRecords.Builder recordsBuilder =
+                IndexBuildProto.PendingWritesQueueEntry.OldAndNewRecords.newBuilder();
+        if (oldRecord != null) {
+            recordsBuilder.setOldRecords(serializeRecord(state, oldRecord, serializer));
+        }
+        if (newRecord != null) {
+            recordsBuilder.setNewRecord(serializeRecord(state, newRecord, serializer));
+        }
+        return IndexBuildProto.PendingWritesQueueEntry.newBuilder()
+                .setOldAndNewRecords(recordsBuilder)
+                .build();
+    }
+
+    @Nonnull
+    private static <M extends Message> ByteString serializeRecord(@Nonnull final IndexMaintainerState state,
+                                                                  @Nonnull final FDBIndexableRecord<M> indexableRecord,
+                                                                  @Nonnull final RecordSerializer<Message> serializer) {
+        return ByteString.copyFrom(serializer.serialize(state.store.getRecordMetaData(),
+                indexableRecord.getRecordType(), indexableRecord.getRecord(), state.store.getTimer()));
     }
 
     private boolean isSynthetic() {
