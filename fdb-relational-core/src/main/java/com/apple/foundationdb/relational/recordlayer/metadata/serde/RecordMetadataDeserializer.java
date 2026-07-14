@@ -90,10 +90,9 @@ public class RecordMetadataDeserializer {
                 case MESSAGE:
                     final String storageName = registeredType.getMessageType().getName();
                     final String userName = ProtoUtils.toUserIdentifier(storageName);
-                    if (!nameToTableBuilder.containsKey(userName)) {
-                        nameToTableBuilder.put(userName, generateTableBuilder(recordMetaData, userName, storageName));
-                    }
-                    nameToTableBuilder.get(userName).addGeneration(registeredType.getNumber(), registeredType.getOptions());
+                    nameToTableBuilder
+                            .computeIfAbsent(userName, userName_ -> generateTableBuilder(recordMetaData, userName_, storageName))
+                            .addGeneration(registeredType.getNumber(), registeredType.getOptions());
                     break;
                 case ENUM:
                     // todo (yhatem) this is temporary, we rely on rec layer type system to deserialize protobuf descriptors.
