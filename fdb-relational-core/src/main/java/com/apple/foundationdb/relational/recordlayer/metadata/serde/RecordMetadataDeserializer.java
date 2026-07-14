@@ -91,7 +91,7 @@ public class RecordMetadataDeserializer {
                     final String storageName = registeredType.getMessageType().getName();
                     final String userName = ProtoUtils.toUserIdentifier(storageName);
                     nameToTableBuilder
-                            .computeIfAbsent(userName, userName_ -> generateTableBuilder(recordMetaData, userName_, storageName))
+                            .computeIfAbsent(userName, key -> generateTableBuilder(recordMetaData, key, storageName))
                             .addGeneration(registeredType.getNumber(), registeredType.getOptions());
                     break;
                 case ENUM:
@@ -109,12 +109,12 @@ public class RecordMetadataDeserializer {
         if (!recordMetaData.getUserDefinedFunctionMap().isEmpty()) {
             // TODO: topsort deps of functions.
             for (final var function : recordMetaData.getUserDefinedFunctionMap().entrySet()) {
-                if (function.getValue() instanceof RawSqlFunction) {
+                if (function.getValue() instanceof RawSqlFunction rawSqlFunction) {
                     schemaTemplateBuilder.addInvokedRoutine(generateInvokedRoutineBuilder(metadataProvider, function.getKey(),
-                            Assert.castUnchecked(function.getValue(), RawSqlFunction.class).getDefinition()).build());
-                } else if (function.getValue() instanceof UserDefinedMacroFunction) {
-                    schemaTemplateBuilder.addInvokedRoutine(generateInvokedRoutineBuilder(function.getKey(), function.getValue().toString(),
-                            Assert.castUnchecked(function.getValue(), UserDefinedMacroFunction.class)).build());
+                            rawSqlFunction.getDefinition()).build());
+                } else if (function.getValue() instanceof UserDefinedMacroFunction userDefinedMacroFunction) {
+                    schemaTemplateBuilder.addInvokedRoutine(generateInvokedRoutineBuilder(function.getKey(), userDefinedMacroFunction.toString(),
+                            userDefinedMacroFunction).build());
                 }
             }
         }
