@@ -24,6 +24,7 @@ import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.EvaluationContext;
+import com.apple.foundationdb.record.IndexBuildProto;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.IsolationLevel;
@@ -171,6 +172,17 @@ public abstract class IndexMaintainer {
     @Nonnull
     public abstract <M extends Message> CompletableFuture<Void> updateWhileWriteOnlyWithQueue(@Nullable FDBIndexableRecord<M> oldRecord,
                                                                                               @Nullable FDBIndexableRecord<M> newRecord);
+
+
+    /**
+     * Apply a queued index update that was previously deferred onto the pending writes queue while the index was in the
+     * {@link com.apple.foundationdb.record.IndexState#WRITE_ONLY_WITH_QUEUE} state.
+     *
+     * @param payload the queued entry to apply
+     * @return a future that is complete when the update has been applied
+     */
+    @Nonnull
+    public abstract CompletableFuture<Void> updateFromQueue(@Nonnull IndexBuildProto.PendingWritesQueueEntry payload);
 
 
     /**

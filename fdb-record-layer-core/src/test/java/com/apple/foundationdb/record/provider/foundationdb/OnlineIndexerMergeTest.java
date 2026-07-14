@@ -25,6 +25,7 @@ import com.apple.foundationdb.FDBException;
 import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.EvaluationContext;
+import com.apple.foundationdb.record.IndexBuildProto;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.IsolationLevel;
@@ -430,6 +431,12 @@ public class OnlineIndexerMergeTest extends FDBRecordStoreConcurrentTestBase {
                 @Nonnull
                 @Override
                 public <M extends Message> CompletableFuture<Void> updateWhileWriteOnlyWithQueue(@Nullable final FDBIndexableRecord<M> oldRecord, @Nullable final FDBIndexableRecord<M> newRecord) {
+                    throw new UnsupportedOperationException();
+                }
+
+                @Nonnull
+                @Override
+                public CompletableFuture<Void> updateFromQueue(@Nonnull final IndexBuildProto.PendingWritesQueueEntry payload) {
                     throw new UnsupportedOperationException();
                 }
 

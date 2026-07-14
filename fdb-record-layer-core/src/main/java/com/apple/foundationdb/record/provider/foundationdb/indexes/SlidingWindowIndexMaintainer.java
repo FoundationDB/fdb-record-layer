@@ -26,6 +26,7 @@ import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.EvaluationContext;
+import com.apple.foundationdb.record.IndexBuildProto;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.IsolationLevel;
@@ -433,6 +434,15 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
     public <M extends Message> CompletableFuture<Void> updateWhileWriteOnlyWithQueue(@Nullable final FDBIndexableRecord<M> oldRecord, @Nullable final FDBIndexableRecord<M> newRecord) {
         return IndexingPendingWriteQueue.enqueuePendingIndexUpdate(state.store, state.index,
                 StandardIndexMaintainer.buildPendingWritesQueueEntry(state, oldRecord, newRecord));
+    }
+
+    @Nonnull
+    @Override
+    public CompletableFuture<Void> updateFromQueue(@Nonnull final IndexBuildProto.PendingWritesQueueEntry payload) {
+        // Apply via updateWhileWriteOnly (the sliding-window semantics), lest this update be re-pushed to the queue
+        return updateWhileWriteOnly(
+                StandardIndexMaintainer.getOldRecord(state, payload),
+                StandardIndexMaintainer.getNewRecord(state, payload));
     }
 
     /**

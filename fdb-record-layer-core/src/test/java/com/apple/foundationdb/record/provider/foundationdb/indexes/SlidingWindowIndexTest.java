@@ -1530,6 +1530,12 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
 
         @Nonnull
         @Override
+        public CompletableFuture<Void> updateFromQueue(@Nonnull final IndexBuildProto.PendingWritesQueueEntry payload) {
+            throw new UnsupportedOperationException("sliding window should not delegate this call");
+        }
+
+        @Nonnull
+        @Override
         public RecordCursor<IndexEntry> scanUniquenessViolations(@Nonnull TupleRange range,
                                                                   @Nullable byte[] continuation,
                                                                   @Nonnull ScanProperties scanProperties) {
