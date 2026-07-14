@@ -890,8 +890,8 @@ class OnlineIndexerPendingWriteQueueTest extends OnlineIndexerTest {
     @Test
     void testPendingWriteQueueDrainExceptionWrapsCause() {
         final CloseException cause = new CloseException(new RuntimeException("boom"));
-        final PendingWriteQueueDrainer.PendingWriteQueueDrainException ex =
-                new PendingWriteQueueDrainer.PendingWriteQueueDrainException(cause);
+        final IndexingPendingWriteQueue.PendingWriteQueueDrainException ex =
+                new IndexingPendingWriteQueue.PendingWriteQueueDrainException(cause);
         assertEquals("Pending write queue drain had failed", ex.getMessage());
         assertSame(cause, ex.getCause());
     }

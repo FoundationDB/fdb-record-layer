@@ -100,7 +100,7 @@ public abstract class IndexingBase {
     private boolean forceStampOverwrite = false;
     private final long startingTimeMillis;
     private Map<String, IndexingMerger> indexingMergerMap = null;
-    private Map<String, PendingWriteQueueDrainer> indexingDrainerMap = null;
+    private Map<String, IndexingPendingWriteQueue> indexingDrainerMap = null;
     @Nullable
     private IndexingHeartbeat heartbeat = null; // this will stay null for index scrubbing
 
@@ -1078,11 +1078,11 @@ public abstract class IndexingBase {
         return indexingMergerMap.computeIfAbsent(index.getName(), k -> new IndexingMerger(index, common, policy.getInitialMergesCountLimit()));
     }
 
-    private synchronized PendingWriteQueueDrainer getIndexingDrainer(Index index) {
+    private synchronized IndexingPendingWriteQueue getIndexingDrainer(Index index) {
         if (indexingDrainerMap == null) {
             indexingDrainerMap = new HashMap<>();
         }
-        return indexingDrainerMap.computeIfAbsent(index.getName(), k -> new PendingWriteQueueDrainer(index, common));
+        return indexingDrainerMap.computeIfAbsent(index.getName(), k -> new IndexingPendingWriteQueue(index, common));
     }
 
     private void deferAutoMergeDuringCommit(FDBRecordStore store) {

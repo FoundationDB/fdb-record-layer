@@ -22,32 +22,101 @@ package com.apple.foundationdb.record.provider.foundationdb;
 
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.IndexBuildProto;
+import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordMetaData;
+import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.provider.common.RecordSerializer;
 import com.apple.foundationdb.record.provider.foundationdb.queue.PendingWritesQueue;
+import com.apple.foundationdb.record.provider.foundationdb.queue.PendingWritesQueueEntry;
+import com.apple.foundationdb.record.provider.foundationdb.runners.throttled.CursorFactory;
+import com.apple.foundationdb.record.provider.foundationdb.runners.throttled.ThrottledRetryingIterator;
 import com.apple.foundationdb.tuple.TupleHelpers;
+import com.apple.foundationdb.util.CloseException;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.annotation.ParametersAreNonnullByDefault;
+import java.io.Serial;
 import java.util.concurrent.CompletableFuture;
 
 /**
- * Factory for the {@link PendingWritesQueue} used by the online indexer to defer index updates while an index is
- * being built in the {@link com.apple.foundationdb.record.IndexState#WRITE_ONLY_WITH_QUEUE} state. This keeps the
- * indexing-specific queue wiring (subspaces, payload type, capacity) in one place so producers (the index maintainer)
- * and consumers (the drainer) always agree on it.
+ * Use {@link PendingWritesQueue} to defer index updates while an index is being built.
+ * Indexin maintainer: will use this module to push items to the queue
+ * Online indexer: will use this module to drain the queue and update the index
  */
 @ParametersAreNonnullByDefault
 public final class IndexingPendingWriteQueue {
     // TODO: configurable maxQueueSize
     private static final int MAX_QUEUE_SIZE = 100_000;
+    private static final int MAX_RECORDS_DELETE_PER_SECOND = 10_000;
 
-    private IndexingPendingWriteQueue() {
+    private final Index index;
+    private final IndexingCommon common;
+
+    public IndexingPendingWriteQueue(final Index index, final IndexingCommon common) {
+        this.index = index;
+        this.common = common;
+    }
+
+    CompletableFuture<Boolean> isQueueEmpty(FDBRecordStore store) {
+        return getIndexingQueue(store, index).isQueueEmpty(store.getContext());
+    }
+
+    @SuppressWarnings("PMD.CloseResource")
+    CompletableFuture<Void> drainPendingQueue() {
+        // Called by the indexer: update the index and then remove every queue item
+        final FDBRecordContextConfig.Builder contextConfigBuilder =
+                FDBRecordContextConfig.newBuilder().setTimer(common.getRunner().getTimer());
+        final ThrottledRetryingIterator<PendingWritesQueueEntry<IndexBuildProto.PendingWritesQueueEntry>> iterator =
+                ThrottledRetryingIterator.builder(
+                                common.getRunner().getDatabase(),
+                                contextConfigBuilder,
+                                cursorFactory(),
+                                this::handleOneItem)
+                        .withMaxRecordsDeletesPerSec(MAX_RECORDS_DELETE_PER_SECOND)
+                        .build();
+        return iterator.iterateAll(common.getRecordStoreBuilder().copyBuilder())
+                .whenComplete((v, e) -> {
+                    try {
+                        iterator.close();
+                    } catch (CloseException closeEx) {
+                        throw new PendingWriteQueueDrainException(closeEx);
+                    }
+                });
+    }
+
+    @Nonnull
+    private CursorFactory<PendingWritesQueueEntry<IndexBuildProto.PendingWritesQueueEntry>> cursorFactory() {
+        return (store, lastResult, rowLimit) -> {
+            final byte[] continuation = lastResult == null ? null : lastResult.getContinuation().toBytes();
+            final ScanProperties scanProperties = ScanProperties.FORWARD_SCAN.with(props -> props.setReturnedRowLimit(rowLimit));
+            return getIndexingQueue(store, index).getQueueCursor(store.getContext(), scanProperties, continuation);
+        };
+    }
+
+    @Nonnull
+    private CompletableFuture<Void> handleOneItem(final FDBRecordStore store,
+                                                  final RecordCursorResult<PendingWritesQueueEntry<IndexBuildProto.PendingWritesQueueEntry>> lastResult,
+                                                  final ThrottledRetryingIterator.QuotaManager quotaManager) {
+        final PendingWritesQueueEntry<IndexBuildProto.PendingWritesQueueEntry> entry = lastResult.get();
+        if (entry == null) {
+            return AsyncUtil.DONE;
+        }
+        final IndexBuildProto.PendingWritesQueueEntry payload = entry.getPayload();
+        return store.getIndexMaintainer(index)
+                // Calling updateWhileWriteOnly explicitly, lest this update will be re-pushed to the queue
+                .updateWhileWriteOnly(
+                        getOldRecord(store, payload),
+                        getNewRecord(store, payload))
+                .thenAccept(ignore -> {
+                    quotaManager.deleteCountInc();
+                    getIndexingQueue(store, index).clearEntry(store.getContext(), entry);
+                });
     }
 
     @Nonnull
@@ -61,10 +130,7 @@ public final class IndexingPendingWriteQueue {
     }
 
     /**
-     * Serialize an old/new record pair into a {@link IndexBuildProto.PendingWritesQueueEntry} and enqueue it for later
-     * draining. Either record may be null: a null {@code oldRecord} represents an insert, and a null {@code newRecord}
-     * represents a delete. This keeps the queue's payload construction next to its other wiring, so index maintainers
-     * only decide whether to defer an update, not how it is encoded.
+     * Called by the index maintainer to serialize an old/new record pair into a {@link IndexBuildProto.PendingWritesQueueEntry}.
      * @param store the record store whose serializer, incarnation, and context are used
      * @param index the index whose queue the entry is appended to
      * @param oldRecord the record prior to the update, or null for an insert
@@ -126,4 +192,16 @@ public final class IndexingPendingWriteQueue {
         return builder.build();
     }
 
+    /**
+     * thrown if pending queue drain had failed.
+     */
+    @SuppressWarnings("java:S110")
+    public static class PendingWriteQueueDrainException extends RecordCoreException {
+        @Serial
+        private static final long serialVersionUID = 7;
+
+        public PendingWriteQueueDrainException(final Throwable cause) {
+            super("Pending write queue drain had failed", cause);
+        }
+    }
 }
