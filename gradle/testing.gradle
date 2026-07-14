@@ -324,13 +324,15 @@ tasks.withType(Test).configureEach { task ->
         // useJUnitPlatform() here is a no-op for tasks that already have it.
         task.useJUnitPlatform()
 
-        // Install Mockito as a JVM agent on every Test task. See the comment on the
+        // Install Mockito as a JVM agent on every non-performance Test task. See the comment on the
         // `mockitoAgent` configuration above for why this is necessary. Deferred to `doFirst`
         // so that the `mockitoAgent` configuration is not resolved during evaluation (which
         // would prevent the root build's `resolutionStrategy.eachDependency` callback from
         // attaching to it).
+        // extract during configuration to be cache friendly
+        def mockitoAgent = configurations.mockitoAgent
         task.doFirst {
-            task.jvmArgs("-javaagent:${configurations.mockitoAgent.asPath}")
+            task.jvmArgs("-javaagent:${mockitoAgent.asPath}")
         }
 
         // Configure whether or not tests will validate that asyncToSync isn't being called in async
