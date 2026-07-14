@@ -39,7 +39,7 @@ import java.util.concurrent.CompletableFuture;
 
 /**
  * Use {@link PendingWritesQueue} to defer index updates while an index is being built.
- * Indexin maintainer: will use this module to push items to the queue
+ * Indexing maintainer: will use this module to push items to the queue
  * Online indexer: will use this module to drain the queue and update the index
  */
 @ParametersAreNonnullByDefault
