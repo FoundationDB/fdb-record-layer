@@ -1027,6 +1027,11 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
             assertThat(IndexingPendingWriteQueue.getIndexingQueue(recordStore, permissiveIndex)
                     .getQueueSizeNoConflict(context).join(), is(nullValue()));
 
+            // Draining a queued entry through the NoOp maintainer is also a no-op that completes without applying
+            // anything to the index (the permissive index never defers real work to the queue).
+            recordStore.getIndexMaintainer(permissiveIndex)
+                    .updateFromQueue(IndexBuildProto.PendingWritesQueueEntry.getDefaultInstance()).join();
+
             commit(context);
         }
     }

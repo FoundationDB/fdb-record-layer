@@ -57,8 +57,9 @@ message IndexBuildHeartbeat {
  }
 
 // The message that gets saved into the pending writes queue.
+// This message gets stored in an google.protobuf.Any field in the queue. This means that this message type SHOULD NOT be moved
+// or renamed to preserve wire-format compatibility with existing data.
 message PendingWritesQueueEntry {
-  option (com.apple.foundationdb.record.record).usage = UNION;
 
   message OldAndNewRecords {
     // Simple cases where store serializer can handle the records (typically this is not the case for synthetic records)
@@ -66,5 +67,7 @@ message PendingWritesQueueEntry {
     optional bytes new_record = 2;
   }
 
-  optional OldAndNewRecords oldAndNewRecords = 1;
+  oneof entry {
+    OldAndNewRecords oldAndNewRecords = 1;
+  }
 }
