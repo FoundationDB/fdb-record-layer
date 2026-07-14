@@ -840,12 +840,10 @@ public class FDBRecordStoreStateCacheTest extends FDBRecordStoreTestBase {
 
         deleteStore(subspace);
 
-        try (FDBRecordContext context = fdb.openContext()) {
-            final byte[] afterStamp = context.getMetaDataVersionStamp(IsolationLevel.SNAPSHOT);
-            assertNotNull(afterStamp);
-            assertFalse(Arrays.equals(beforeStamp, afterStamp),
-                    "deleting a cacheable store should have bumped the meta-data version stamp");
-        }
+        final byte[] afterStamp = getMetaDataVersionStamp();
+        assertNotNull(afterStamp);
+        assertFalse(Arrays.equals(beforeStamp, afterStamp),
+                "deleting a cacheable store should have bumped the meta-data version stamp");
     }
 
     /**
@@ -1180,12 +1178,7 @@ public class FDBRecordStoreStateCacheTest extends FDBRecordStoreTestBase {
                 .getCache(fdb);
         fdb.setStoreStateCache(storeStateCache);
 
-        try (FDBRecordContext context = fdb.openContext()) {
-            if (context.getMetaDataVersionStamp(IsolationLevel.SNAPSHOT) == null) {
-                context.setMetaDataVersionStamp();
-            }
-            commit(context);
-        }
+        ensureMetaDataVersionStampInitialized();
 
         // Create the store, initially not cacheable
         FDBStoreTimer timer = new FDBStoreTimer();
