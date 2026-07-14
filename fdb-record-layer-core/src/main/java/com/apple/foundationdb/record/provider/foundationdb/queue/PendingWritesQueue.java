@@ -409,7 +409,7 @@ public class PendingWritesQueue<T extends Message> {
                     .addLogInfo(LogMessageKeys.KEY_TUPLE, keyTuple)
                     .addLogInfo(LogMessageKeys.EXPECTED_TYPE, payloadClass.getName());
         }
-        return new PendingWritesQueueEntry<>(keyTuple, payload, storedPayload.getTypeUrl(), item.getEnqueueTimestamp());
+        return new PendingWritesQueueEntry<>(keyTuple, payload, item.getVersion(), storedPayload.getTypeUrl(), item.getEnqueueTimestamp());
     }
 
     /**
@@ -430,9 +430,9 @@ public class PendingWritesQueue<T extends Message> {
             throw new RecordCoreStorageException("Failed to decode legacy pending writes queue entry", ex)
                     .addLogInfo(LogMessageKeys.KEY_TUPLE, keyTuple);
         }
-        // Legacy entries were not Any-wrapped and carry no envelope timestamp, so the payload
-        // type URL is empty and the enqueue timestamp is unavailable at this layer.
-        return new PendingWritesQueueEntry<>(keyTuple, payload, "", 0L);
+        // Legacy entries were not Any-wrapped and carry no versioned envelope, so the version is
+        // 0, the payload type URL is empty, and the enqueue timestamp is unavailable at this layer.
+        return new PendingWritesQueueEntry<>(keyTuple, payload, 0, "", 0L);
     }
 
     /**

@@ -44,9 +44,10 @@ import com.apple.foundationdb.record.provider.foundationdb.properties.RecordLaye
 import com.apple.foundationdb.record.provider.foundationdb.queue.PendingWritesQueue;
 import com.apple.foundationdb.record.provider.foundationdb.queue.PendingWritesQueueEntry;
 import com.apple.foundationdb.tuple.Tuple;
+import com.apple.test.BooleanSource;
 import com.apple.test.Tags;
 import org.junit.jupiter.api.Tag;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -60,7 +61,7 @@ import java.util.stream.Collectors;
 import static com.apple.foundationdb.record.lucene.LuceneIndexOptions.ENABLE_PENDING_WRITE_QUEUE_DURING_MERGE;
 import static com.apple.foundationdb.record.lucene.LuceneIndexOptions.INDEX_PARTITION_BY_FIELD_NAME;
 import static com.apple.foundationdb.record.lucene.LuceneIndexOptions.INDEX_PARTITION_HIGH_WATERMARK;
-import static com.apple.foundationdb.record.lucene.LuceneIndexTestUtils.SIMPLE_TEXT_SUFFIXES;
+import static com.apple.foundationdb.record.lucene.LuceneIndexTestUtils.simpleTextSuffixesIndex;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.function;
@@ -76,35 +77,41 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 @Tag(Tags.RequiresFDB)
 class PendingWriteQueueSizeIntegrationTest extends FDBRecordStoreTestBase {
-    private final Index index = SIMPLE_TEXT_SUFFIXES;
+    // Incarnation is enabled so queue keys are (incarnation, versionstamp) — the shape the
+    // generic reader requires. We assume the old incarnation-less key format is fully converted
+    // before this code ships.
+    private final Index index = simpleTextSuffixesIndex(options ->
+            options.put(LuceneIndexOptions.PENDING_WRITE_QUEUE_INCARNATION_ENABLED, "true"));
 
-    @Test
-    void testQueueLimitsSingleTransaction() {
+    @ParameterizedTest
+    @BooleanSource
+    void testQueueLimitsSingleTransaction(boolean writeNewFormat) {
         // Test that too many entries in a single transaction fail to queue
         // Set "ongoing merge" indicator
         setOngoingMergeIndicator(index, null, null, simpleMetadataHook());
 
         // Write too many records in a single transaction
         final int maxQueueSize = 5;
-        try (FDBRecordContext context = openContext(getContextProperties(maxQueueSize))) {
+        try (FDBRecordContext context = openContext(getContextProperties(maxQueueSize, writeNewFormat))) {
             FDBRecordStore recordStore = LuceneIndexTestUtils.openRecordStore(context, path, simpleMetadataHook());
             for (int i = 0; i < maxQueueSize; i++) {
                 recordStore.saveRecord(LuceneIndexTestUtils.createSimpleDocument(100L + i, "test document", 1));
             }
-            assertThrows(PendingWriteQueue.PendingWritesQueueTooLargeException.class,
+            assertThrows(tooLargeException(writeNewFormat),
                     () -> recordStore.saveRecord(LuceneIndexTestUtils.createSimpleDocument(999L, "test document", 1)));
             // The index is now in an inconsistent state, do don't commit
         }
     }
 
-    @Test
-    void testQueueLimitsMultipleTransactions() {
+    @ParameterizedTest
+    @BooleanSource
+    void testQueueLimitsMultipleTransactions(boolean writeNewFormat) {
         // Test that too many entries in 2 transactions fail to queue
         // Set "ongoing merge" indicator
         setOngoingMergeIndicator(index, null, null, simpleMetadataHook());
 
         final int maxQueueSize = 5;
-        try (FDBRecordContext context = openContext(getContextProperties(maxQueueSize))) {
+        try (FDBRecordContext context = openContext(getContextProperties(maxQueueSize, writeNewFormat))) {
             FDBRecordStore recordStore = LuceneIndexTestUtils.openRecordStore(context, path, simpleMetadataHook());
             for (int i = 0; i < maxQueueSize; i++) {
                 recordStore.saveRecord(LuceneIndexTestUtils.createSimpleDocument(100L + i, "test document", 1));
@@ -112,22 +119,23 @@ class PendingWriteQueueSizeIntegrationTest extends FDBRecordStoreTestBase {
             commit(context);
         }
 
-        try (FDBRecordContext context = openContext(getContextProperties(maxQueueSize))) {
+        try (FDBRecordContext context = openContext(getContextProperties(maxQueueSize, writeNewFormat))) {
             FDBRecordStore recordStore = LuceneIndexTestUtils.openRecordStore(context, path, simpleMetadataHook());
-            assertThrows(PendingWriteQueue.PendingWritesQueueTooLargeException.class,
+            assertThrows(tooLargeException(writeNewFormat),
                     () -> recordStore.saveRecord(LuceneIndexTestUtils.createSimpleDocument(999L, "test document", 1)));
             // The index is now in an inconsistent state, do don't commit
         }
     }
 
-    @Test
-    void testQueueLimitsAfterMerge() {
+    @ParameterizedTest
+    @BooleanSource
+    void testQueueLimitsAfterMerge(boolean writeNewFormat) {
         // Test that too many entries are cleared after merge
         // Set "ongoing merge" indicator
         setOngoingMergeIndicator(index, null, null, simpleMetadataHook());
 
         final int maxQueueSize = 5;
-        try (FDBRecordContext context = openContext(getContextProperties(maxQueueSize))) {
+        try (FDBRecordContext context = openContext(getContextProperties(maxQueueSize, writeNewFormat))) {
             FDBRecordStore recordStore = LuceneIndexTestUtils.openRecordStore(context, path, simpleMetadataHook());
             for (int i = 0; i < maxQueueSize; i++) {
                 recordStore.saveRecord(LuceneIndexTestUtils.createSimpleDocument(100L + i, "test document", 1));
@@ -140,7 +148,7 @@ class PendingWriteQueueSizeIntegrationTest extends FDBRecordStoreTestBase {
         // Merge cleared the indicator, queue is now empty
         setOngoingMergeIndicator(index, null, null, simpleMetadataHook());
 
-        try (FDBRecordContext context = openContext(getContextProperties(maxQueueSize))) {
+        try (FDBRecordContext context = openContext(getContextProperties(maxQueueSize, writeNewFormat))) {
             FDBRecordStore recordStore = LuceneIndexTestUtils.openRecordStore(context, path, simpleMetadataHook());
             recordStore.saveRecord(LuceneIndexTestUtils.createSimpleDocument(999L, "test document", 1));
             commit(context);
@@ -153,12 +161,13 @@ class PendingWriteQueueSizeIntegrationTest extends FDBRecordStoreTestBase {
         verifyExpectedDocIds(index, Set.of(100L, 101L, 102L, 103L, 104L, 999L));
     }
 
-    @Test
-    void testQueueLimitsWithUpdates() {
+    @ParameterizedTest
+    @BooleanSource
+    void testQueueLimitsWithUpdates(boolean writeNewFormat) {
         // Test that each update counts for 2 entries in the queue
         // Write 5 records
         final int maxQueueSize = 5;
-        try (FDBRecordContext context = openContext(getContextProperties(maxQueueSize))) {
+        try (FDBRecordContext context = openContext(getContextProperties(maxQueueSize, writeNewFormat))) {
             FDBRecordStore recordStore = LuceneIndexTestUtils.openRecordStore(context, path, simpleMetadataHook());
             for (int i = 0; i < maxQueueSize; i++) {
                 recordStore.saveRecord(LuceneIndexTestUtils.createSimpleDocument(100L + i, "test document", 1));
@@ -170,11 +179,11 @@ class PendingWriteQueueSizeIntegrationTest extends FDBRecordStoreTestBase {
         setOngoingMergeIndicator(index, null, null, simpleMetadataHook());
 
         // Update 3 documents, third update fails
-        try (FDBRecordContext context = openContext(getContextProperties(maxQueueSize))) {
+        try (FDBRecordContext context = openContext(getContextProperties(maxQueueSize, writeNewFormat))) {
             FDBRecordStore recordStore = LuceneIndexTestUtils.openRecordStore(context, path, simpleMetadataHook());
             recordStore.saveRecord(LuceneIndexTestUtils.createSimpleDocument(100L, "test document updated", 1));
             recordStore.saveRecord(LuceneIndexTestUtils.createSimpleDocument(101L, "test document updated", 1));
-            assertThrows(PendingWriteQueue.PendingWritesQueueTooLargeException.class, () ->
+            assertThrows(tooLargeException(writeNewFormat), () ->
                     recordStore.saveRecord(LuceneIndexTestUtils.createSimpleDocument(102L, "test document updated", 1)));
             commit(context);
         }
@@ -193,8 +202,9 @@ class PendingWriteQueueSizeIntegrationTest extends FDBRecordStoreTestBase {
         verifyExpectedDocIds(index, Set.of(100L, 101L, 103L, 104L));
     }
 
-    @Test
-    void testQueueLimitMultiplePartitions() {
+    @ParameterizedTest
+    @BooleanSource
+    void testQueueLimitMultiplePartitions(boolean writeNewFormat) {
         // Test pending queue size limit with partitioned index - documents in different partitions
         final int partitionSize = 3;
         final Index complexIndex = complexPartitionedIndex(partitionSize);
@@ -203,7 +213,7 @@ class PendingWriteQueueSizeIntegrationTest extends FDBRecordStoreTestBase {
         final int maxQueueSize = 5;
         final int someDocsCount = 3;
         // Insert a few documents when "ongoing merge" indicator is clear.
-        try (FDBRecordContext context = openContext(getContextProperties(maxQueueSize))) {
+        try (FDBRecordContext context = openContext(getContextProperties(maxQueueSize, writeNewFormat))) {
             FDBRecordStore recordStore = LuceneIndexTestUtils.openRecordStore(context, path, hook);
             for (int i = 0; i < 6; i++) {
                 recordStore.saveRecord(LuceneIndexTestUtils.createComplexDocument(2000L + i, "document foo", 1L, 30L + i));
@@ -223,7 +233,7 @@ class PendingWriteQueueSizeIntegrationTest extends FDBRecordStoreTestBase {
         setOngoingMergeIndicator(complexIndex, groupingKey, partition1, hook);
 
         // Insert documents when "ongoing merge" indicator is set.
-        try (FDBRecordContext context = openContext(getContextProperties(maxQueueSize))) {
+        try (FDBRecordContext context = openContext(getContextProperties(maxQueueSize, writeNewFormat))) {
             FDBRecordStore recordStore = LuceneIndexTestUtils.openRecordStore(context, path, hook);
             // Put 3 docs in each partition
             for (int i = 0; i < someDocsCount; i++) {
@@ -239,13 +249,13 @@ class PendingWriteQueueSizeIntegrationTest extends FDBRecordStoreTestBase {
 
             commit(context);
         }
-        try (FDBRecordContext context = openContext(getContextProperties(maxQueueSize))) {
+        try (FDBRecordContext context = openContext(getContextProperties(maxQueueSize, writeNewFormat))) {
             FDBRecordStore recordStore = LuceneIndexTestUtils.openRecordStore(context, path, hook);
             // additional doc fails on new queue
-            assertThrows(PendingWriteQueue.PendingWritesQueueTooLargeException.class, () ->
+            assertThrows(tooLargeException(writeNewFormat), () ->
                     recordStore.saveRecord(LuceneIndexTestUtils.createComplexDocument(999, "second document", 1L, 100L + 9)));
         }
-        try (FDBRecordContext context = openContext(getContextProperties(maxQueueSize))) {
+        try (FDBRecordContext context = openContext(getContextProperties(maxQueueSize, writeNewFormat))) {
             FDBRecordStore recordStore = LuceneIndexTestUtils.openRecordStore(context, path, hook);
             // additional docs succeed on old queue
             for (int i = someDocsCount; i < maxQueueSize; i++) {
@@ -253,12 +263,12 @@ class PendingWriteQueueSizeIntegrationTest extends FDBRecordStoreTestBase {
             }
             commit(context);
         }
-        try (FDBRecordContext context = openContext(getContextProperties(maxQueueSize))) {
+        try (FDBRecordContext context = openContext(getContextProperties(maxQueueSize, writeNewFormat))) {
             FDBRecordStore recordStore = LuceneIndexTestUtils.openRecordStore(context, path, hook);
             // additional docs fail on both queues
-            assertThrows(PendingWriteQueue.PendingWritesQueueTooLargeException.class, () ->
+            assertThrows(tooLargeException(writeNewFormat), () ->
                     recordStore.saveRecord(LuceneIndexTestUtils.createComplexDocument(999, "second document", 1L, 100L + 9)));
-            assertThrows(PendingWriteQueue.PendingWritesQueueTooLargeException.class, () ->
+            assertThrows(tooLargeException(writeNewFormat), () ->
                     recordStore.saveRecord(LuceneIndexTestUtils.createComplexDocument(999, "third document", 1L, 30L - 9)));
         }
 
@@ -287,7 +297,8 @@ class PendingWriteQueueSizeIntegrationTest extends FDBRecordStoreTestBase {
 
             PendingWritesQueue<LucenePendingWriteQueueProto.PendingWriteItem> queue = directory.createPendingWritesQueue();
             List<PendingWritesQueueEntry<LucenePendingWriteQueueProto.PendingWriteItem>> entries = new ArrayList<>();
-            queue.getQueueCursor(context, ScanProperties.FORWARD_SCAN, null)
+            queue.getQueueCursor(context, ScanProperties.FORWARD_SCAN, null,
+                            PendingWritesQueueHelper.legacyDecoder(directory.getSerializer()))
                     .forEach(entries::add).join();
             assertTrue(entries.isEmpty(), "Pending queue should have been empty");
             commit(context);
@@ -309,7 +320,8 @@ class PendingWriteQueueSizeIntegrationTest extends FDBRecordStoreTestBase {
             PendingWritesQueue<LucenePendingWriteQueueProto.PendingWriteItem> queue = directory.createPendingWritesQueue();
 
             RecordCursor<PendingWritesQueueEntry<LucenePendingWriteQueueProto.PendingWriteItem>> queueCursor = queue.getQueueCursor(
-                    recordStore.getContext(), ScanProperties.FORWARD_SCAN, null);
+                    recordStore.getContext(), ScanProperties.FORWARD_SCAN, null,
+                    PendingWritesQueueHelper.legacyDecoder(directory.getSerializer()));
 
             assertEquals(expectedOperations,
                     queueCursor.asList().join().stream()
@@ -391,7 +403,7 @@ class PendingWriteQueueSizeIntegrationTest extends FDBRecordStoreTestBase {
     RecordMetaDataHook simpleMetadataHook() {
         return metaDataBuilder -> {
             metaDataBuilder.removeIndex(TextIndexTestUtils.SIMPLE_DEFAULT_NAME);
-            metaDataBuilder.addIndex(TestRecordsTextProto.SimpleDocument.getDescriptor().getName(), SIMPLE_TEXT_SUFFIXES);
+            metaDataBuilder.addIndex(TestRecordsTextProto.SimpleDocument.getDescriptor().getName(), index);
         };
     }
 
@@ -406,6 +418,7 @@ class PendingWriteQueueSizeIntegrationTest extends FDBRecordStoreTestBase {
     public Index complexPartitionedIndex(int highWatermark) {
         final Map<String, String> options = Map.of(
                 ENABLE_PENDING_WRITE_QUEUE_DURING_MERGE, "true",
+                LuceneIndexOptions.PENDING_WRITE_QUEUE_INCARNATION_ENABLED, "true",
                 INDEX_PARTITION_BY_FIELD_NAME, "timestamp",
                 LuceneIndexOptions.PRIMARY_KEY_SEGMENT_INDEX_V2_ENABLED, "true",
                 INDEX_PARTITION_HIGH_WATERMARK, String.valueOf(highWatermark));
@@ -422,10 +435,25 @@ class PendingWriteQueueSizeIntegrationTest extends FDBRecordStoreTestBase {
                 options);
     }
 
-    private RecordLayerPropertyStorage getContextProperties(int maxQueueSize) {
+    private RecordLayerPropertyStorage getContextProperties(int maxQueueSize, boolean writeNewFormat) {
         return RecordLayerPropertyStorage.newBuilder()
                 .addProp(LuceneRecordContextProperties.LUCENE_MAX_PENDING_QUEUE_SIZE, maxQueueSize)
+                .addProp(LuceneRecordContextProperties.LUCENE_PENDING_WRITE_QUEUE_WRITE_NEW_FORMAT, writeNewFormat)
                 .build();
+    }
+
+    /**
+     * The "queue too large" exception thrown when the capacity is exceeded. The new-format writer
+     * uses the generic {@link PendingWritesQueue}'s exception; the legacy writer uses the Lucene
+     * {@link PendingWriteQueue}'s exception.
+     *
+     * @param writeNewFormat whether the new-format writer is in use
+     * @return the expected exception class for the enqueue capacity rejection
+     */
+    private Class<? extends RuntimeException> tooLargeException(boolean writeNewFormat) {
+        return writeNewFormat
+               ? PendingWritesQueue.PendingWritesQueueTooLargeException.class
+               : PendingWriteQueue.PendingWritesQueueTooLargeException.class;
     }
 
 }

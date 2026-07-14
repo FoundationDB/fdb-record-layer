@@ -37,8 +37,8 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.queue.PendingWritesQueue;
 import com.apple.foundationdb.record.provider.foundationdb.queue.PendingWritesQueueEntry;
-import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
+import com.google.protobuf.ByteString;
 import org.assertj.core.api.Assertions;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Tag;
@@ -394,11 +394,8 @@ public class FDBDirectoryTest extends FDBDirectoryBaseTest {
             assertTrue(newDirectory.shouldUseQueue(),
                     "shouldUseQueue should return true in new transaction after commit");
 
-            PendingWriteQueue queue = newDirectory.createLegacyPendingWritesQueue();
-            queue.enqueueInsert(newContext,
-                    Tuple.from("testDoc", 1),
-                    createTestFields(),
-                    0);
+            PendingWritesQueue<LucenePendingWriteQueueProto.PendingWriteItem> queue = newDirectory.createPendingWritesQueue();
+            queue.enqueue(newContext, payload(), 0).join();
             newContext.commit();
         }
 
@@ -459,6 +456,14 @@ public class FDBDirectoryTest extends FDBDirectoryBaseTest {
             assertFalse(newDirectory.shouldUseQueue(),
                     "shouldUseQueue should return false in new transaction after clear and commit");
         }
+    }
+
+    private LucenePendingWriteQueueProto.PendingWriteItem payload() {
+        return LucenePendingWriteQueueProto.PendingWriteItem.newBuilder()
+                .setEnqueueTimestamp(System.currentTimeMillis())
+                .setOperationType(LucenePendingWriteQueueProto.PendingWriteItem.OperationType.DELETE)
+                .setPrimaryKey(ByteString.copyFrom("Hello".getBytes()))
+                .build();
     }
 
     private Map<String, String> indexOptionAllowQueue() {

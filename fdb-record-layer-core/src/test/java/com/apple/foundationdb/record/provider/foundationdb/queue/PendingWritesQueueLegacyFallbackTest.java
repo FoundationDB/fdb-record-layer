@@ -21,7 +21,6 @@
 package com.apple.foundationdb.record.provider.foundationdb.queue;
 
 import com.apple.foundationdb.MutationType;
-import com.apple.foundationdb.record.PendingWritesQueueTestProto.OtherTestQueuePayload;
 import com.apple.foundationdb.record.PendingWritesQueueTestProto.TestQueuePayload;
 import com.apple.foundationdb.record.RecordCoreStorageException;
 import com.apple.foundationdb.record.ScanProperties;
@@ -51,27 +50,26 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
  * implementation in a different value layout. On read, an entry that is not the current format
  * (parse fails, or it has no {@code version >= 1}) is handed to the legacy decoder.
  *
- * <p>Here the simulated legacy layout is a bare {@link OtherTestQueuePayload} (optionally wrapped
- * with a one-byte prefix to stand in for a caller-specific serializer); the decoder maps it to a
- * {@link TestQueuePayload}, so all entries surface as the queue's bound payload type.</p>
+ * <p>Here the simulated legacy layout is a directly-serialized {@link TestQueuePayload}, optionally prefixed with a
+ * one-byte stand-in for such a serializer; the decoder parses it straight back into a
+ * {@link TestQueuePayload}.</p>
  */
 @Tag(Tags.RequiresFDB)
 class PendingWritesQueueLegacyFallbackTest extends FDBRecordStoreTestBase {
 
-    /** Legacy layout: a bare {@link OtherTestQueuePayload}. Decoder maps {@code text -> label}. */
+    /** Legacy layout: a directly-serialized {@link TestQueuePayload}, parsed straight back. */
     private static final Function<byte[], TestQueuePayload> BARE_LEGACY_DECODER = raw -> {
         try {
-            return TestQueuePayload.newBuilder().setLabel(OtherTestQueuePayload.parseFrom(raw).getText()).build();
+            return TestQueuePayload.parseFrom(raw);
         } catch (InvalidProtocolBufferException e) {
             throw new IllegalStateException(e);
         }
     };
 
-    /** Legacy layout: a one-byte {@code 0x00} prefix (a stand-in serializer) + {@link OtherTestQueuePayload}. */
+    /** Legacy layout: a one-byte {@code 0x00} prefix (a stand-in serializer) + serialized {@link TestQueuePayload}. */
     private static final Function<byte[], TestQueuePayload> PREFIXED_LEGACY_DECODER = raw -> {
         try {
-            byte[] unwrapped = Arrays.copyOfRange(raw, 1, raw.length);
-            return TestQueuePayload.newBuilder().setLabel(OtherTestQueuePayload.parseFrom(unwrapped).getText()).build();
+            return TestQueuePayload.parseFrom(Arrays.copyOfRange(raw, 1, raw.length));
         } catch (InvalidProtocolBufferException e) {
             throw new IllegalStateException(e);
         }
@@ -138,10 +136,35 @@ class PendingWritesQueueLegacyFallbackTest extends FDBRecordStoreTestBase {
         }
     }
 
+    /**
+     * An entry written with an old-format key that lacks the incarnation prefix (a size-1
+     * versionstamp-only key) is rejected on read.
+     */
+    @Test
+    void entryWithoutIncarnationInKeyThrows() {
+        PendingWritesQueue<TestQueuePayload> queue;
+        try (FDBRecordContext context = openContext()) {
+            queue = getQueue(context);
+            final FDBRecordVersion recordVersion = FDBRecordVersion.incomplete(context.claimLocalVersion());
+            // Old-format key: versionstamp only, with no incarnation prefix.
+            writeRawEntry(context, bareLegacy("no-incarnation"), Tuple.from(recordVersion.toVersionstamp()));
+            commit(context);
+        }
+
+        try (FDBRecordContext context = openContext()) {
+            Assertions.assertThatThrownBy(
+                            () -> queue.getQueueCursor(context, ScanProperties.FORWARD_SCAN, null, BARE_LEGACY_DECODER).asList().join())
+                    .hasCauseInstanceOf(RecordCoreStorageException.class);
+        }
+    }
+
     private void writeRawLegacyEntry(@Nonnull FDBRecordContext context, @Nonnull byte[] rawValue) {
+        final FDBRecordVersion recordVersion = FDBRecordVersion.incomplete(context.claimLocalVersion());
+        writeRawEntry(context, rawValue, Tuple.from(0, recordVersion.toVersionstamp()));
+    }
+
+    private void writeRawEntry(@Nonnull FDBRecordContext context, @Nonnull byte[] rawValue, @Nonnull Tuple keyTuple) {
         Subspace queueSubspace = queueSubspaceFor(context);
-        FDBRecordVersion recordVersion = FDBRecordVersion.incomplete(context.claimLocalVersion());
-        Tuple keyTuple = Tuple.from(0, recordVersion.toVersionstamp());
         SplitHelper.saveWithSplit(context, queueSubspace, keyTuple, rawValue, null, true, false, false, null, null);
         // Keep the size counter consistent with the entry we wrote directly.
         context.ensureActive().mutate(MutationType.ADD, counterSubspaceFor(context).pack(),
@@ -150,7 +173,7 @@ class PendingWritesQueueLegacyFallbackTest extends FDBRecordStoreTestBase {
 
     @Nonnull
     private static byte[] bareLegacy(@Nonnull String text) {
-        return OtherTestQueuePayload.newBuilder().setText(text).build().toByteArray();
+        return TestQueuePayload.newBuilder().setLabel(text).build().toByteArray();
     }
 
     @Nonnull
