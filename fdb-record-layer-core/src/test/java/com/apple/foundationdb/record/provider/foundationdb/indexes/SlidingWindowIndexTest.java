@@ -1494,6 +1494,8 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
                 new IndexEntry(null, Tuple.from(1L), Tuple.from());
         private static final IndexOperationResult SENTINEL_OP_RESULT = new IndexOperationResult() { };
 
+        private boolean pendingWriteQueueAllowed = true;
+
         StubIndexMaintainer(@Nonnull IndexMaintainerState state) {
             super(state);
         }
@@ -1593,7 +1595,7 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
 
         @Override
         public boolean isPendingWriteQueueAllowed() {
-            return true;
+            return pendingWriteQueueAllowed;
         }
 
         @Nonnull
@@ -1701,6 +1703,8 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
             // mergeIndex
             sw.mergeIndex().join();
 
+            // isPendingWriteQueueAllowed (delegated to the wrapped maintainer)
+            assertTrue(sw.isPendingWriteQueueAllowed());
             commit(context);
         }
     }

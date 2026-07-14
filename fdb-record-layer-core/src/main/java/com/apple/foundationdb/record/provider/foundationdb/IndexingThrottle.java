@@ -469,9 +469,8 @@ public class IndexingThrottle {
     private CompletableFuture<List<Index>> nonEmptyQueueIndexes(@Nonnull FDBRecordStore store, @Nonnull FDBRecordContext context, @Nonnull List<Index> indexes) {
         return AsyncUtil.getAll(indexes.stream()
                         .map(index ->
-                                IndexingPendingWriteQueue.getIndexingQueue(store, index)
-                                        .getQueueSizeNoConflict(context)
-                                        .thenApply(size -> size != null && size > 0 ? index : null)
+                                IndexingPendingWriteQueue.hasPendingWrites(store, index, context)
+                                        .thenApply(hasPending -> hasPending ? index : null)
                         )
                         .toList()
                 )

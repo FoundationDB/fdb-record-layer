@@ -35,6 +35,7 @@ import com.apple.foundationdb.record.provider.foundationdb.runners.throttled.Cur
 import com.apple.foundationdb.record.provider.foundationdb.runners.throttled.ThrottledRetryingIterator;
 import com.apple.foundationdb.tuple.TupleHelpers;
 import com.apple.foundationdb.util.CloseException;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Message;
 
@@ -127,6 +128,20 @@ public final class IndexingPendingWriteQueue {
                 MAX_QUEUE_SIZE,
                 IndexBuildProto.PendingWritesQueueEntry.class
         );
+    }
+
+    /**
+     * Return true if the pending writes queue for the given index currently holds at least one entry. The size counter
+     * is read via a snapshot (conflict-free) read.
+     * @param store the record store whose queue is inspected
+     * @param index the index whose queue is inspected
+     * @param context the context used for the conflict-free read
+     * @return a future that completes with true if the queue is non-empty
+     */
+    @Nonnull
+    public static CompletableFuture<Boolean> hasPendingWrites(final FDBRecordStore store, final Index index, final FDBRecordContext context) {
+        return getIndexingQueue(store, index).getQueueSizeNoConflict(context)
+                .thenApply(size -> size != null && size > 0);
     }
 
     /**
