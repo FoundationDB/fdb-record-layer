@@ -86,34 +86,3 @@ Classes and methods annotations using `@API` determine when they can be changed 
 
 * `EXPERIMENTAL` can change / be removed in any build without notice.
 
-## Creating a patch branch
-
-* Patch branches should be named `fdb-record-layer-a.b.c` after the build from which they are created.
-
-* The new patch branch should be made using the tag created for the starting build.
-
-    ```
-    git checkout -b fdb-record-layer-a.b.c a.b.c.0
-    ```
-
-* In `gradle.properties`, change
-
-    ```
-    version=a.b
-    ```
-
-    to
-
-    ```
-    version=a.b.c
-    ```
-
-    using the starting version.
-
-* In `docs/sphinx/source/ReleaseNotes.md`, move the template for release notes for the next release to be just above the release note for the starting version `a.b.c`.
-
-* Commit and push the new branch upstream.
-
-* Create patch fix pull requests against this new branch.
-
-* There may be conflicts in the `gradle.properties` and `docs/sphinx/source/ReleaseNotes.md` files when the patch branch is merged into main. Be sure whenever merging that branch in that (1) the version on main is not accidentally changed and (2) the release notes file contains all release notes from both branches after the merge.
