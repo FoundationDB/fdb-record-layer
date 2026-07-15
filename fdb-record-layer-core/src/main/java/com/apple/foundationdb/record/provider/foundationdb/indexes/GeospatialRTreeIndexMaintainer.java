@@ -101,7 +101,7 @@ import static com.apple.foundationdb.record.provider.foundationdb.indexes.Geospa
  * records.
  * </p>
  *
- * @see GeospatialRTreeScanBounds for the within-distance ({@link IndexScanType#BY_DISTANCE}) scan
+ * @see GeospatialRTreeScanBounds for the within-distance scan
  */
 @API(API.Status.EXPERIMENTAL)
 public class GeospatialRTreeIndexMaintainer extends StandardIndexMaintainer {
