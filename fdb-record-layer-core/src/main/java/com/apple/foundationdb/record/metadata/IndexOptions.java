@@ -543,6 +543,14 @@ public class IndexOptions {
     public static final String GUARDIANN_CONSTRUCTION_CENTROID_EF_OUTWARD_SEARCH =
             "guardiannConstructionCentroidEfOutwardSearch";
 
+    /**
+     * {@link IndexTypes#GEOSPATIAL_RTREE}-only: number of fractional decimal digits retained when converting a
+     * {@code double} coordinate to a fixed-point {@code long} (scale {@code 10^digits}). Governs both storage
+     * precision and the granularity of the Hilbert value. Baked into the stored data, so it cannot change without
+     * rebuilding the index. Default is {@code 7} (roughly centimeter resolution near the equator).
+     */
+    public static final String GEOSPATIAL_RTREE_PRECISION_DIGITS = "geospatialRtreePrecisionDigits";
+
     private IndexOptions() {
     }
 }
