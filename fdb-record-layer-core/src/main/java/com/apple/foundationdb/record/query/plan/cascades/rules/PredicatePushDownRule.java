@@ -187,7 +187,7 @@ public class PredicatePushDownRule extends AbstractCascadesRule<SelectExpression
             forEachQuantifierWithoutDefaultOnEmptyOverRef(belowReferenceMatcher);
 
     private static final BindingMatcher<SelectExpression> root =
-            selectExpression(anyPredicate(), forEachQuantifierMatcher).where(isFinalExpression());
+            selectExpression(forEachQuantifierMatcher).where(isFinalExpression());
 
     public PredicatePushDownRule() {
         super(root);
