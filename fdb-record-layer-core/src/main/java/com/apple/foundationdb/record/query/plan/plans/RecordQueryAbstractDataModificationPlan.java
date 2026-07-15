@@ -28,7 +28,9 @@ import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PipelineOperation;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
+import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCursor;
+import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.planprotos.PRecordQueryAbstractDataModificationPlan;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
@@ -192,6 +194,13 @@ public abstract class RecordQueryAbstractDataModificationPlan extends AbstractRe
                                                                      @Nonnull final EvaluationContext context,
                                                                      @Nullable final byte[] continuation,
                                                                      @Nonnull final ExecuteProperties executeProperties) {
+        // Data-modification plans must run at serializable isolation: they read existing records (to maintain
+        // indexes, enforce uniqueness, etc.) and those reads must participate in conflict detection to remain
+        // correct. Executing at SNAPSHOT isolation would drop those conflict ranges and is never safe.
+        if (executeProperties.getIsolationLevel().isSnapshot()) {
+            throw new RecordCoreArgumentException("Cannot execute a data-modification plan at SNAPSHOT isolation level")
+                    .addLogInfo(LogMessageKeys.PLAN, getClass().getSimpleName());
+        }
         final RecordCursor<QueryResult> results =
                 getInnerPlan().executePlan(store, context, continuation, executeProperties.clearSkipAndLimit());
         final var targetDescriptor = store.getRecordMetaData().getRecordType(Objects.requireNonNull(targetRecordType)).getDescriptor();
