@@ -25,6 +25,7 @@ import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.ExecuteState;
 import com.apple.foundationdb.record.IsolationLevel;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursorIterator;
 import com.apple.foundationdb.record.TestRecords4Proto;
@@ -312,6 +313,110 @@ public class FDBModificationQueryTest extends FDBRecordStoreQueryTestBase {
             }, c -> {
             });
             Assertions.assertEquals(2, resultValues.size());
+        }
+    }
+
+    @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
+    public void insertPlansRejectSnapshotIsolation() throws Exception {
+        final var cascadesPlanner = setUp();
+
+        try (FDBRecordContext context = openContext()) {
+            openNestedRecordStore(context);
+
+            final var snapshot = ExecuteProperties.newBuilder().setIsolationLevel(IsolationLevel.SNAPSHOT).build();
+
+            // INSERT — exercises the guard in RecordQueryAbstractDataModificationPlan.
+            final var insertPlan = cascadesPlanner.planGraph(
+                    FDBModificationQueryTest::insertGraph,
+                    Optional.empty(),
+                    IndexQueryabilityFilter.TRUE,
+                    EvaluationContext.empty()).getPlan();
+            final var insertEvaluationContext = EvaluationContext.forTypeRepository(
+                    TypeRepository.newBuilder().addAllTypes(usedTypes().evaluate(insertPlan)).build());
+            final var insertException = Assertions.assertThrows(RecordCoreArgumentException.class,
+                    () -> insertPlan.executePlan(recordStore, insertEvaluationContext, null, snapshot));
+            Assertions.assertTrue(insertException.getMessage().contains("SNAPSHOT isolation"));
+        }
+    }
+
+    @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
+    public void updatePlansRejectSnapshotIsolation() throws Exception {
+        final var cascadesPlanner = setUp();
+
+        try (FDBRecordContext context = openContext()) {
+            openNestedRecordStore(context);
+            final var snapshot = ExecuteProperties.newBuilder().setIsolationLevel(IsolationLevel.SNAPSHOT).build();
+            // UPDATE — also routes through the RecordQueryAbstractDataModificationPlan guard, but via a
+            // distinct plan type, so it is exercised explicitly rather than assumed to match INSERT.
+            final var updatePlanToRun = cascadesPlanner.planGraph(
+                    () -> {
+                        final var restaurantType = Type.Record.fromDescriptor(TestRecords4Proto.RestaurantRecord.getDescriptor());
+                        final var allRecordTypes = ImmutableSet.of("RestaurantRecord", "RestaurantReviewer");
+                        var qun = Quantifier.forEach(Reference.initialOf(
+                                new FullUnorderedScanExpression(allRecordTypes, new Type.AnyRecord(false), new AccessHints())));
+                        qun = Quantifier.forEach(Reference.initialOf(
+                                LogicalTypeFilterExpression.of(ImmutableSet.of("RestaurantRecord"), qun, restaurantType)));
+                        final var graphExpansionBuilder = GraphExpansion.builder();
+                        graphExpansionBuilder.addQuantifier(qun);
+                        final var restNoValue = FieldValue.ofFieldName(qun.getFlowedObjectValue(), "rest_no");
+                        graphExpansionBuilder.addPredicate(new ValuePredicate(restNoValue,
+                                new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, 100L)));
+                        qun = Quantifier.forEach(Reference.initialOf(
+                                graphExpansionBuilder.build().buildSelectWithResultValue(QuantifiedObjectValue.of(qun))));
+                        final var updatePath = FieldValue.resolveFieldPath(qun.getFlowedObjectType(),
+                                ImmutableList.of(new FieldValue.Accessor("name", -1)));
+                        final var updateValue = new ArithmeticValue(ArithmeticValue.PhysicalOperator.ADD_SS,
+                                FieldValue.ofFieldName(qun.getFlowedObjectValue(), "name"), LiteralValue.ofScalar(" McDonald's"));
+                        qun = Quantifier.forEach(Reference.initialOf(new UpdateExpression(qun, "RestaurantRecord",
+                                restaurantType, ImmutableMap.of(updatePath, updateValue))));
+                        return Reference.initialOf(LogicalSortExpression.unsorted(qun));
+                    },
+                    Optional.empty(),
+                    IndexQueryabilityFilter.TRUE,
+                    EvaluationContext.empty()).getPlan();
+            final var updateEvaluationContext = EvaluationContext.forTypeRepository(
+                    TypeRepository.newBuilder().addAllTypes(usedTypes().evaluate(updatePlanToRun)).build());
+            final var updateException = Assertions.assertThrows(RecordCoreArgumentException.class,
+                    () -> updatePlanToRun.executePlan(recordStore, updateEvaluationContext, null, snapshot));
+            Assertions.assertTrue(updateException.getMessage().contains("SNAPSHOT isolation"));
+        }
+    }
+
+    @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
+    public void deletePlansRejectSnapshotIsolation() throws Exception {
+        final var cascadesPlanner = setUp();
+
+        try (FDBRecordContext context = openContext()) {
+            openNestedRecordStore(context);
+            final var snapshot = ExecuteProperties.newBuilder().setIsolationLevel(IsolationLevel.SNAPSHOT).build();
+
+            // DELETE — exercises the separate guard in RecordQueryDeletePlan.
+            final var deletePlan = cascadesPlanner.planGraph(
+                    () -> {
+                        final var restaurantType = Type.Record.fromDescriptor(TestRecords4Proto.RestaurantRecord.getDescriptor());
+                        final var allRecordTypes = ImmutableSet.of("RestaurantRecord", "RestaurantReviewer");
+                        var qun = Quantifier.forEach(Reference.initialOf(
+                                new FullUnorderedScanExpression(allRecordTypes, new Type.AnyRecord(false), new AccessHints())));
+                        qun = Quantifier.forEach(Reference.initialOf(
+                                LogicalTypeFilterExpression.of(ImmutableSet.of("RestaurantRecord"), qun, restaurantType)));
+                        final var graphExpansionBuilder = GraphExpansion.builder();
+                        graphExpansionBuilder.addQuantifier(qun);
+                        final var restNoValue = FieldValue.ofFieldName(qun.getFlowedObjectValue(), "rest_no");
+                        graphExpansionBuilder.addPredicate(new ValuePredicate(restNoValue,
+                                new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, 100L)));
+                        qun = Quantifier.forEach(Reference.initialOf(
+                                graphExpansionBuilder.build().buildSelectWithResultValue(QuantifiedObjectValue.of(qun))));
+                        qun = Quantifier.forEach(Reference.initialOf(new DeleteExpression(qun, "RestaurantRecord")));
+                        return Reference.initialOf(LogicalSortExpression.unsorted(qun));
+                    },
+                    Optional.empty(),
+                    IndexQueryabilityFilter.TRUE,
+                    EvaluationContext.empty()).getPlan();
+            final var deleteEvaluationContext = EvaluationContext.forTypeRepository(
+                    TypeRepository.newBuilder().addAllTypes(usedTypes().evaluate(deletePlan)).build());
+            final var deleteException = Assertions.assertThrows(RecordCoreArgumentException.class,
+                    () -> deletePlan.executePlan(recordStore, deleteEvaluationContext, null, snapshot));
+            Assertions.assertTrue(deleteException.getMessage().contains("SNAPSHOT isolation"));
         }
     }
 

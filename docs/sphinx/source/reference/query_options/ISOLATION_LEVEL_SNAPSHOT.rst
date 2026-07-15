@@ -96,6 +96,23 @@ Restrictions
   data as of the transaction's read version and never sees uncommitted or later-committed writes
   from other transactions. It will include writes from the current transaction.
 
+Continuations
+#############
+
+``ISOLATION LEVEL SNAPSHOT`` is a **per-execution** option: it is applied to the execution it is
+specified on and is **not** stored in the continuation. When a query is paginated and resumed with
+``EXECUTE CONTINUATION``, the resumed execution runs at snapshot isolation only if the option is
+specified again on the resuming statement:
+
+.. code-block:: sql
+
+    EXECUTE CONTINUATION ?continuation OPTIONS (ISOLATION LEVEL SNAPSHOT);
+
+If the option is omitted when resuming, the resumed pages fall back to the default (serializable)
+isolation and once again add read-conflict ranges — with no error or warning. To keep an entire
+paginated scan at snapshot isolation, repeat ``OPTIONS (ISOLATION LEVEL SNAPSHOT)`` on **every**
+``EXECUTE CONTINUATION`` call.
+
 .. note::
 
     Because snapshot reads do not conflict, two transactions can each read the same value and act on
