@@ -21,20 +21,15 @@
 package com.apple.foundationdb.record.provider.foundationdb.indexes;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.async.hnsw.Config;
-import com.apple.foundationdb.async.hnsw.Config.ConfigBuilder;
-import com.apple.foundationdb.async.hnsw.HNSW;
 import com.apple.foundationdb.linear.Metric;
-import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Index;
-import com.apple.foundationdb.record.metadata.IndexOptions;
-import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 
 import javax.annotation.Nonnull;
 
 /**
- * Helper functions for index maintainers that use a {@link HNSW}.
+ * Helper functions and instrumentation events for vector index maintainers. The engine-specific configuration (HNSW or
+ * Guardiann) is intentionally not exposed here; it is encapsulated by {@link VectorIndexEngine} and its implementations.
  */
 @API(API.Status.EXPERIMENTAL)
 public final class VectorIndexHelper {
@@ -42,89 +37,30 @@ public final class VectorIndexHelper {
     }
 
     /**
-     * Parse standard options into {@link Config}.
+     * Parses and validates the vector engine configuration for an index. Parsing eagerly validates the options (an
+     * invalid option throws), so this doubles as the config-validation entry point used by the index validator and by
+     * tests that assert an index's options are acceptable. It is engine-aware: the {@code VECTOR_ENGINE} option selects
+     * which engine's configuration is parsed.
+     *
      * @param index the index definition to get options from
-     * @return parsed config options
+     */
+    public static void validate(@Nonnull final Index index) {
+        // Reject specifying any option under more than one of its (current/legacy) names before parsing, so an
+        // ambiguous options map fails fast rather than silently resolving to the canonical name.
+        VectorIndexOptionsHelper.validateNoAliasConflicts(index, VectorIndexOptionKeys.ALL);
+        VectorIndexEngine.fromIndex(index);
+    }
+
+    /**
+     * Reads the distance metric configured for a vector index. Engine-neutral and independent of which engine backs the
+     * index: query planning only needs to know which distance function results are ordered by.
+     *
+     * @param index the index definition
+     * @return the metric of the index
      */
     @Nonnull
-    public static Config getConfig(@Nonnull final Index index) {
-        final ConfigBuilder builder = HNSW.newConfigBuilder();
-        final String hnswMetricOption = index.getOption(IndexOptions.HNSW_METRIC);
-        if (hnswMetricOption != null) {
-            builder.setMetric(Metric.valueOf(hnswMetricOption));
-        }
-        final String hnswNumDimensionsOption = index.getOption(IndexOptions.HNSW_NUM_DIMENSIONS);
-        if (hnswNumDimensionsOption == null) {
-            throw new MetaDataException("need to specify the number of dimensions",
-                    LogMessageKeys.INDEX_NAME, index.getName());
-        }
-        final int numDimensions = Integer.parseInt(hnswNumDimensionsOption);
-
-        final String hnswUseInliningOption = index.getOption(IndexOptions.HNSW_USE_INLINING);
-        if (hnswUseInliningOption != null) {
-            builder.setUseInlining(Boolean.parseBoolean(hnswUseInliningOption));
-        }
-        final String hnswMOption = index.getOption(IndexOptions.HNSW_M);
-        if (hnswMOption != null) {
-            builder.setM(Integer.parseInt(hnswMOption));
-        }
-        final String hnswMMaxOption = index.getOption(IndexOptions.HNSW_M_MAX);
-        if (hnswMMaxOption != null) {
-            builder.setMMax(Integer.parseInt(hnswMMaxOption));
-        }
-        final String hnswMMax0Option = index.getOption(IndexOptions.HNSW_M_MAX_0);
-        if (hnswMMax0Option != null) {
-            builder.setMMax0(Integer.parseInt(hnswMMax0Option));
-        }
-        final String hnswEfConstructionOption = index.getOption(IndexOptions.HNSW_EF_CONSTRUCTION);
-        if (hnswEfConstructionOption != null) {
-            builder.setEfConstruction(Integer.parseInt(hnswEfConstructionOption));
-        }
-        final String hnswEfRepairOption = index.getOption(IndexOptions.HNSW_EF_REPAIR);
-        if (hnswEfRepairOption != null) {
-            builder.setEfRepair(Integer.parseInt(hnswEfRepairOption));
-        }
-        final String hnswExtendCandidatesOption = index.getOption(IndexOptions.HNSW_EXTEND_CANDIDATES);
-        if (hnswExtendCandidatesOption != null) {
-            builder.setExtendCandidates(Boolean.parseBoolean(hnswExtendCandidatesOption));
-        }
-        final String hnswKeepPrunedConnectionsOption = index.getOption(IndexOptions.HNSW_KEEP_PRUNED_CONNECTIONS);
-        if (hnswKeepPrunedConnectionsOption != null) {
-            builder.setKeepPrunedConnections(Boolean.parseBoolean(hnswKeepPrunedConnectionsOption));
-        }
-        final String hnswSampleVectorStatsProbabilityOption = index.getOption(IndexOptions.HNSW_SAMPLE_VECTOR_STATS_PROBABILITY);
-        if (hnswSampleVectorStatsProbabilityOption != null) {
-            builder.setSampleVectorStatsProbability(Double.parseDouble(hnswSampleVectorStatsProbabilityOption));
-        }
-        final String hnswMaintainStatsProbabilityOption = index.getOption(IndexOptions.HNSW_MAINTAIN_STATS_PROBABILITY);
-        if (hnswMaintainStatsProbabilityOption != null) {
-            builder.setMaintainStatsProbability(Double.parseDouble(hnswMaintainStatsProbabilityOption));
-        }
-        final String hnswStatsThresholdOption = index.getOption(IndexOptions.HNSW_STATS_THRESHOLD);
-        if (hnswStatsThresholdOption != null) {
-            builder.setStatsThreshold(Integer.parseInt(hnswStatsThresholdOption));
-        }
-        final String hnswUseRaBitQOption = index.getOption(IndexOptions.HNSW_USE_RABITQ);
-        if (hnswUseRaBitQOption != null) {
-            builder.setUseRaBitQ(Boolean.parseBoolean(hnswUseRaBitQOption));
-        }
-        final String hnswRaBitQNumExBitsOption = index.getOption(IndexOptions.HNSW_RABITQ_NUM_EX_BITS);
-        if (hnswRaBitQNumExBitsOption != null) {
-            builder.setRaBitQNumExBits(Integer.parseInt(hnswRaBitQNumExBitsOption));
-        }
-        final String hnswMaxNumConcurrentNodeFetchesOption = index.getOption(IndexOptions.HNSW_MAX_NUM_CONCURRENT_NODE_FETCHES);
-        if (hnswMaxNumConcurrentNodeFetchesOption != null) {
-            builder.setMaxNumConcurrentNodeFetches(Integer.parseInt(hnswMaxNumConcurrentNodeFetchesOption));
-        }
-        final String hnswMaxNumConcurrentNeighborhoodFetchesOption = index.getOption(IndexOptions.HNSW_MAX_NUM_CONCURRENT_NEIGHBORHOOD_FETCHES);
-        if (hnswMaxNumConcurrentNeighborhoodFetchesOption != null) {
-            builder.setMaxNumConcurrentNeighborhoodFetches(Integer.parseInt(hnswMaxNumConcurrentNeighborhoodFetchesOption));
-        }
-        final String hnswMaxNumConcurrentDeleteFromLayerOption = index.getOption(IndexOptions.HNSW_MAX_NUM_CONCURRENT_DELETE_FROM_LAYER);
-        if (hnswMaxNumConcurrentDeleteFromLayerOption != null) {
-            builder.setMaxNumConcurrentDeleteFromLayer(Integer.parseInt(hnswMaxNumConcurrentDeleteFromLayerOption));
-        }
-        return builder.build(numDimensions);
+    public static Metric getMetric(@Nonnull final Index index) {
+        return VectorIndexEngine.metricFromIndex(index);
     }
 
     /**

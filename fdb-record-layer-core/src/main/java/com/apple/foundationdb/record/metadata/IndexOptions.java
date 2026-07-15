@@ -378,6 +378,152 @@ public class IndexOptions {
      */
     public static final String HNSW_MAX_NUM_CONCURRENT_DELETE_FROM_LAYER = "hnswMaxNumConcurrentDeleteFromLayer";
 
+    /**
+     * Selects which vector-structure engine backs a {@link IndexTypes#VECTOR} index. Valid values are {@code "HNSW"}
+     * and {@code "GUARDIANN"} (case-insensitive). When the option is absent the engine defaults to {@code HNSW}, so
+     * existing indexes created before this option existed keep using HNSW without any metadata migration.
+     */
+    public static final String VECTOR_ENGINE = "vectorEngine";
+
+    //
+    // Engine-neutral vector options. These cover the handful of concepts both the HNSW and the Guardiann engines share.
+    // Prefer these over the {@code hnsw*} keys of the same meaning: for backward compatibility the HNSW engine still
+    // reads the legacy {@code hnsw*} keys when the neutral key is absent, but new indexes (of either engine) should be
+    // created with the neutral keys. Options that are specific to one engine keep their engine-specific prefix
+    // ({@code hnsw*} / {@code guardiann*}).
+    //
+
+    /**
+     * The metric used to determine distances between vectors. Engine-neutral replacement for {@link #HNSW_METRIC}.
+     */
+    public static final String VECTOR_METRIC = "vectorMetric";
+
+    /**
+     * The number of dimensions used. All vectors must have exactly this number of dimensions. Engine-neutral
+     * replacement for {@link #HNSW_NUM_DIMENSIONS}. This option must be set when interacting with a vector index as
+     * there is no default.
+     */
+    public static final String VECTOR_NUM_DIMENSIONS = "vectorNumDimensions";
+
+    /**
+     * Probability of a written vector also being sampled for statistics computation. Engine-neutral replacement for
+     * {@link #HNSW_SAMPLE_VECTOR_STATS_PROBABILITY}.
+     */
+    public static final String VECTOR_SAMPLE_VECTOR_STATS_PROBABILITY = "vectorSampleVectorStatsProbability";
+
+    /**
+     * Probability of the sampled vectors being aggregated (rolled-up) on a write. Engine-neutral replacement for
+     * {@link #HNSW_MAINTAIN_STATS_PROBABILITY}.
+     */
+    public static final String VECTOR_MAINTAIN_STATS_PROBABILITY = "vectorMaintainStatsProbability";
+
+    /**
+     * Number of sampled vectors that triggers a statistics (centroid) computation. Engine-neutral replacement for
+     * {@link #HNSW_STATS_THRESHOLD}.
+     */
+    public static final String VECTOR_STATS_THRESHOLD = "vectorStatsThreshold";
+
+    /**
+     * Indicator whether RaBitQ quantization is used. Engine-neutral replacement for {@link #HNSW_USE_RABITQ}.
+     */
+    public static final String VECTOR_USE_RABITQ = "vectorUseRaBitQ";
+
+    /**
+     * Number of extra bits per dimension for RaBitQ encoding (only relevant iff {@link #VECTOR_USE_RABITQ} is set).
+     * Engine-neutral replacement for {@link #HNSW_RABITQ_NUM_EX_BITS}.
+     */
+    public static final String VECTOR_RABITQ_NUM_EX_BITS = "vectorRaBitQNumExBits";
+
+    /**
+     * Maximum number of concurrent node fetches during search and modification. Engine-neutral replacement for
+     * {@link #HNSW_MAX_NUM_CONCURRENT_NODE_FETCHES}.
+     */
+    public static final String VECTOR_MAX_NUM_CONCURRENT_NODE_FETCHES = "vectorMaxNumConcurrentNodeFetches";
+
+    /**
+     * Maximum number of concurrent neighborhood fetches during modification. Engine-neutral replacement for
+     * {@link #HNSW_MAX_NUM_CONCURRENT_NEIGHBORHOOD_FETCHES}.
+     */
+    public static final String VECTOR_MAX_NUM_CONCURRENT_NEIGHBORHOOD_FETCHES = "vectorMaxNumConcurrentNeighborhoodFetches";
+
+    //
+    // Guardiann-only options. Each mirrors a field of the Guardiann config; see
+    // {@link com.apple.foundationdb.async.guardiann.Config} for the semantics and default of each. Unset options fall
+    // back to the Guardiann config defaults. The nested construction-time search config is deliberately not exposed.
+    //
+
+    /** Guardiann-only: minimum number of primary vectors in a cluster before a merge is triggered. */
+    public static final String GUARDIANN_PRIMARY_CLUSTER_MIN = "guardiannPrimaryClusterMin";
+
+    /** Guardiann-only: maximum number of primary vectors in a cluster before a split is triggered. */
+    public static final String GUARDIANN_PRIMARY_CLUSTER_MAX = "guardiannPrimaryClusterMax";
+
+    /** Guardiann-only: maximum number of under-replicated primary vectors before a reassign is triggered. */
+    public static final String GUARDIANN_UNDERREPLICATED_PRIMARY_CLUSTER_MAX = "guardiannUnderreplicatedPrimaryClusterMax";
+
+    /** Guardiann-only: maximum number of writes of replicated vectors to a cluster. */
+    public static final String GUARDIANN_REPLICATED_CLUSTER_MAX_WRITES = "guardiannReplicatedClusterMaxWrites";
+
+    /** Guardiann-only: number of replicated clusters targeted whenever a split/merge or reassign task runs. */
+    public static final String GUARDIANN_REPLICATED_CLUSTER_TARGET = "guardiannReplicatedClusterTarget";
+
+    /** Guardiann-only: minimum threshold for the replication priority score. */
+    public static final String GUARDIANN_REPLICATION_PRIORITY_MIN = "guardiannReplicationPriorityMin";
+
+    /** Guardiann-only: weight of the border-proximity distance-ratio term in the replication priority score. */
+    public static final String GUARDIANN_REPLICATION_DISTANCE_RATIO_WEIGHT = "guardiannReplicationDistanceRatioWeight";
+
+    /** Guardiann-only: weight of the distance z-score term in the replication priority score. */
+    public static final String GUARDIANN_REPLICATION_Z_SCORE_WEIGHT = "guardiannReplicationZScoreWeight";
+
+    /** Guardiann-only: minimum number of primary vectors before a cluster's distance statistics are trusted. */
+    public static final String GUARDIANN_REPLICATION_STATS_MIN_SAMPLE_SIZE = "guardiannReplicationStatsMinSampleSize";
+
+    /** Guardiann-only: whether randomness should always be deterministic (for debugging/replay). */
+    public static final String GUARDIANN_DETERMINISTIC_RANDOMNESS = "guardiannDeterministicRandomness";
+
+    /** Guardiann-only: number of sampled vectors consumed per statistics-computation pass. */
+    public static final String GUARDIANN_SAMPLE_BATCH_SIZE = "guardiannSampleBatchSize";
+
+    /** Guardiann-only: maximum clusters evaluated as insertion targets. */
+    public static final String GUARDIANN_INSERT_MAX_CANDIDATE_CLUSTERS = "guardiannInsertMaxCandidateClusters";
+
+    /** Guardiann-only: maximum clusters probed when locating a vector's references during delete. */
+    public static final String GUARDIANN_DELETE_MAX_CANDIDATE_CLUSTERS = "guardiannDeleteMaxCandidateClusters";
+
+    /** Guardiann-only: concurrency for parallel operations during delete. */
+    public static final String GUARDIANN_DELETE_CONCURRENCY = "guardiannDeleteConcurrency";
+
+    /** Guardiann-only: number of nearest clusters fetched for split candidate evaluation. */
+    public static final String GUARDIANN_SPLIT_NUM_NEAREST_CLUSTERS = "guardiannSplitNumNearestClusters";
+
+    /** Guardiann-only: number of nearest clusters fetched for merge candidate evaluation. */
+    public static final String GUARDIANN_MERGE_NUM_NEAREST_CLUSTERS = "guardiannMergeNumNearestClusters";
+
+    /** Guardiann-only: maximum Lloyd's iterations per k-means restart during split/merge. */
+    public static final String GUARDIANN_KMEANS_MAX_ITERATIONS = "guardiannKMeansMaxIterations";
+
+    /** Guardiann-only: maximum number of random restarts for bounded k-means during split/merge. */
+    public static final String GUARDIANN_KMEANS_MAX_RESTARTS = "guardiannKMeansMaxRestarts";
+
+    /** Guardiann-only: outer clusters considered as replication/migration targets during reassign. */
+    public static final String GUARDIANN_REASSIGN_NUM_NEIGHBORING_CLUSTERS = "guardiannReassignNumNeighboringClusters";
+
+    /** Guardiann-only: minimum identical vectors sharing a signature before collapse. */
+    public static final String GUARDIANN_COLLAPSE_MIN_DUPLICATES = "guardiannCollapseMinDuplicates";
+
+    /** Guardiann-only: concurrency for parallel operations during split/merge tasks. */
+    public static final String GUARDIANN_SPLIT_MERGE_CONCURRENCY = "guardiannSplitMergeConcurrency";
+
+    /** Guardiann-only: concurrency for parallel operations during reassign tasks. */
+    public static final String GUARDIANN_REASSIGN_CONCURRENCY = "guardiannReassignConcurrency";
+
+    /** Guardiann-only: concurrency for parallel operations during collapse tasks. */
+    public static final String GUARDIANN_COLLAPSE_CONCURRENCY = "guardiannCollapseConcurrency";
+
+    /** Guardiann-only: concurrency for parallel operations during bounce tasks. */
+    public static final String GUARDIANN_BOUNCE_CONCURRENCY = "guardiannBounceConcurrency";
+
     private IndexOptions() {
     }
 }

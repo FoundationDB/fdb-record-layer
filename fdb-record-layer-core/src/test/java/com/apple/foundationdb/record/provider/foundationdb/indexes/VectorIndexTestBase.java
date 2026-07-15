@@ -52,7 +52,6 @@ import com.apple.foundationdb.record.vector.TestRecordsVectorsProto.VectorRecord
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.protobuf.ByteString;
@@ -79,11 +78,32 @@ import static com.apple.foundationdb.record.metadata.Key.Expressions.concatenate
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 
 /**
- * Common test helpers for vector type indexes.
+ * Common test helpers for vector type indexes. The concrete engine (HNSW or Guardiann) and its per-engine tuning are
+ * supplied by subclasses through {@link #indexOptions()}, so the shared index-creation helpers here are engine-agnostic.
  */
 @Tag(Tags.RequiresFDB)
-public class VectorIndexTestBase extends FDBRecordStoreQueryTestBase {
+public abstract class VectorIndexTestBase extends FDBRecordStoreQueryTestBase {
     private static final Logger logger = LoggerFactory.getLogger(VectorIndexTestBase.class);
+
+    /**
+     * The index options a subclass creates its vector indexes with. These select the engine
+     * ({@link IndexOptions#VECTOR_ENGINE}) and carry its per-engine tuning plus the shared metric and dimensions.
+     * Engine-focused subclasses implement this; the base deliberately does not pick an engine.
+     *
+     * @return the options to create the shared test indexes with
+     */
+    @Nonnull
+    protected abstract Map<String, String> indexOptions();
+
+    /**
+     * The minimum recall@k the shared read scenarios assert. Uniform across engines by default; a subclass may override
+     * it if its engine/tuning warrants a different floor.
+     *
+     * @return the minimum acceptable recall fraction
+     */
+    protected double minRecall() {
+        return 0.8d;
+    }
 
     @CanIgnoreReturnValue
     protected RecordMetaDataBuilder addVectorIndexes(@Nonnull final RecordMetaDataBuilder metaDataBuilder) {
@@ -94,21 +114,29 @@ public class VectorIndexTestBase extends FDBRecordStoreQueryTestBase {
 
     @CanIgnoreReturnValue
     protected RecordMetaDataBuilder addUngroupedVectorIndex(@Nonnull final RecordMetaDataBuilder metaDataBuilder) {
+        return addUngroupedVectorIndex(metaDataBuilder, indexOptions());
+    }
+
+    @CanIgnoreReturnValue
+    protected RecordMetaDataBuilder addUngroupedVectorIndex(@Nonnull final RecordMetaDataBuilder metaDataBuilder,
+                                                            @Nonnull final Map<String, String> options) {
         metaDataBuilder.addIndex("VectorRecord",
                 new Index("UngroupedVectorIndex", new KeyWithValueExpression(field("vector_data"), 0),
-                        IndexTypes.VECTOR,
-                        ImmutableMap.of(IndexOptions.HNSW_METRIC, Metric.EUCLIDEAN_METRIC.name(),
-                                IndexOptions.HNSW_NUM_DIMENSIONS, "128")));
+                        IndexTypes.VECTOR, options));
         return metaDataBuilder;
     }
 
     @CanIgnoreReturnValue
     protected RecordMetaDataBuilder addGroupedVectorIndex(@Nonnull final RecordMetaDataBuilder metaDataBuilder) {
+        return addGroupedVectorIndex(metaDataBuilder, indexOptions());
+    }
+
+    @CanIgnoreReturnValue
+    protected RecordMetaDataBuilder addGroupedVectorIndex(@Nonnull final RecordMetaDataBuilder metaDataBuilder,
+                                                          @Nonnull final Map<String, String> options) {
         metaDataBuilder.addIndex("VectorRecord",
                 new Index("GroupedVectorIndex", new KeyWithValueExpression(concat(field("group_id"), field("vector_data")), 1),
-                        IndexTypes.VECTOR,
-                        ImmutableMap.of(IndexOptions.HNSW_METRIC, Metric.EUCLIDEAN_METRIC.name(),
-                                IndexOptions.HNSW_NUM_DIMENSIONS, "128")));
+                        IndexTypes.VECTOR, options));
         return metaDataBuilder;
     }
 

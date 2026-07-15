@@ -22,6 +22,7 @@ package com.apple.foundationdb.relational.api.ddl;
 
 import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexTypes;
+import com.apple.foundationdb.record.provider.foundationdb.indexes.VectorIndexHelper;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyWithValueExpression;
@@ -1350,9 +1351,8 @@ public class IndexTest {
         );
 
         // Validate using VectorIndexHelper - this validates the configuration options
-        // VectorIndexHelper.getConfig() will throw IllegalArgumentException if options are invalid
-        Assertions.assertDoesNotThrow(() ->
-                com.apple.foundationdb.record.provider.foundationdb.indexes.VectorIndexHelper.getConfig(coreIndex),
+        // VectorIndexHelper.validate() will throw if options are invalid
+        Assertions.assertDoesNotThrow(() -> VectorIndexHelper.validate(coreIndex),
                 "Vector index configuration should be valid");
     }
 
