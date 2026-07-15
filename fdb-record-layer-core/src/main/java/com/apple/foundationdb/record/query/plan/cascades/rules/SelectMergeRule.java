@@ -42,6 +42,7 @@ import com.apple.foundationdb.record.query.plan.cascades.matching.structure.Expr
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.properties.ExpressionCountProperty;
 import com.apple.foundationdb.record.query.plan.cascades.properties.PredicateComplexityProperty;
+import com.apple.foundationdb.record.query.plan.cascades.properties.SelectMergeableProperty;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.RegularTranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
@@ -55,14 +56,14 @@ import javax.annotation.Nonnull;
 import java.util.HashSet;
 import java.util.Set;
 
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.AnyMatcher.any;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ExpressionsPartitionMatchers.argmin;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ExpressionsPartitionMatchers.expressionPartitions;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ExpressionsPartitionMatchers.filterExpressions;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ExpressionsPartitionMatchers.filterPartition;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ExpressionsPartitionMatchers.rollUpPartitions;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.MultiMatcher.some;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ListMatcher.only;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.MultiMatcher.atLeastOne;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.forEachQuantifierWithoutDefaultOnEmptyOverRef;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.isExploratoryExpression;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.isFinalExpression;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.selectExpression;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.withPredicatesExpression;
 
@@ -89,16 +90,17 @@ public class SelectMergeRule extends AbstractCascadesRule<SelectExpression> impl
 
     @Nonnull
     private static final BindingMatcher<Reference> childReferenceMatcher =
-            expressionPartitions(rollUpPartitions(
-                    any(filterExpressions(e -> e instanceof RelationalExpressionWithPredicates,
-                            childPartitionsMatcher))));
+            expressionPartitions(
+                    filterPartition(
+                            p -> p.getPartitionPropertyValue(SelectMergeableProperty.selectMergeable()),
+                            rollUpPartitions(only(childPartitionsMatcher))));
 
     @Nonnull
     private static final CollectionMatcher<Quantifier.ForEach> quantifiersMatcher =
-            some(forEachQuantifierWithoutDefaultOnEmptyOverRef(childReferenceMatcher));
+            atLeastOne(forEachQuantifierWithoutDefaultOnEmptyOverRef(childReferenceMatcher));
 
     @Nonnull
-    private static final BindingMatcher<SelectExpression> root = selectExpression(quantifiersMatcher).where(isExploratoryExpression());
+    private static final BindingMatcher<SelectExpression> root = selectExpression(quantifiersMatcher).where(isFinalExpression());
 
     public SelectMergeRule() {
         super(root);

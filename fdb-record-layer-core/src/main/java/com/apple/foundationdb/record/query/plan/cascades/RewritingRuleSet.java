@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.query.plan.cascades;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.query.plan.cascades.ConditionalCascadesRule.ConditionalExplorationCascadesRule;
+import com.apple.foundationdb.record.query.plan.cascades.ConditionalCascadesRule.ConditionalImplementationCascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.cascades.rules.DecorrelateValuesRule;
@@ -45,23 +46,28 @@ import java.util.Set;
 @SuppressWarnings("java:S1452")
 public class RewritingRuleSet extends CascadesRuleSet {
     private static final ConditionalExplorationCascadesRule<SelectExpression>
-            decorrelateThenPushDownThenSimplification =
+            decorrelateThenSimplification =
             new ConditionalExplorationCascadesRule<>(new DecorrelateValuesRule(),
-                    new PredicatePushDownRule(),
                     new QueryPredicateSimplificationRule());
 
     private static final Set<ExplorationCascadesRule<? extends RelationalExpression>> EXPLORATION_RULES =
-            ImmutableSet.of(decorrelateThenPushDownThenSimplification, new RewriteOuterJoinRule());
+            ImmutableSet.of(decorrelateThenSimplification,
+                    new RewriteOuterJoinRule());
 
     private static final Set<AbstractCascadesRule<? extends RelationalExpression>> PREORDER_RULES = ImmutableSet.of();
 
+    private static final ConditionalImplementationCascadesRule<SelectExpression>
+            selectMergeThenPushDown =
+            new ConditionalImplementationCascadesRule<>(new SelectMergeRule(),
+                    new PredicatePushDownRule());
+
     private static final Set<ImplementationCascadesRule<? extends RelationalExpression>> IMPLEMENTATION_RULES = ImmutableSet.of(
-            new SelectMergeRule(),
+            selectMergeThenPushDown,
             new FinalizeExpressionsRule()
     );
 
     private static final Set<ConditionalCascadesRule<? extends RelationalExpression, ?>> CONDITIONAL_RULES =
-            ImmutableSet.of(decorrelateThenPushDownThenSimplification);
+            ImmutableSet.of(decorrelateThenSimplification, selectMergeThenPushDown);
 
     @Nonnull
     private static final Set<CascadesRule<? extends RelationalExpression>> ALL_EXPRESSION_RULES =

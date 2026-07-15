@@ -23,9 +23,9 @@ package com.apple.foundationdb.record.query.plan.cascades.rules;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.AbstractCascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
-import com.apple.foundationdb.record.query.plan.cascades.ExplorationCascadesRule;
-import com.apple.foundationdb.record.query.plan.cascades.ExplorationCascadesRuleCall;
-import com.apple.foundationdb.record.query.plan.cascades.ExploratoryMemoizer;
+import com.apple.foundationdb.record.query.plan.cascades.FinalMemoizer;
+import com.apple.foundationdb.record.query.plan.cascades.ImplementationCascadesRule;
+import com.apple.foundationdb.record.query.plan.cascades.ImplementationCascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentitySet;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
@@ -48,6 +48,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 
 import javax.annotation.Nonnull;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
@@ -56,9 +57,10 @@ import java.util.stream.Collectors;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.MultiMatcher.all;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.forEachQuantifierWithoutDefaultOnEmptyOverRef;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers.exploratoryMembers;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QueryPredicateMatchers.anyPredicate;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers.finalMembers;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.anyExpression;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.isExploratoryExpression;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.isFinalExpression;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.selectExpression;
 
 /**
@@ -175,23 +177,24 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
-public class PredicatePushDownRule extends AbstractCascadesRule<SelectExpression> implements ExplorationCascadesRule<SelectExpression> {
+public class PredicatePushDownRule extends AbstractCascadesRule<SelectExpression> implements ImplementationCascadesRule<SelectExpression> {
     @Nonnull
     private static final CollectionMatcher<RelationalExpression> belowExpressionsMatcher = all(anyExpression());
     @Nonnull
-    private static final BindingMatcher<Reference> belowReferenceMatcher = exploratoryMembers(belowExpressionsMatcher);
+    private static final BindingMatcher<Reference> belowReferenceMatcher = finalMembers(belowExpressionsMatcher);
     @Nonnull
     private static final BindingMatcher<Quantifier.ForEach> forEachQuantifierMatcher =
             forEachQuantifierWithoutDefaultOnEmptyOverRef(belowReferenceMatcher);
+
     private static final BindingMatcher<SelectExpression> root =
-            selectExpression(forEachQuantifierMatcher).where(isExploratoryExpression());
+            selectExpression(anyPredicate(), forEachQuantifierMatcher).where(isFinalExpression());
 
     public PredicatePushDownRule() {
         super(root);
     }
 
     @Override
-    public void onMatch(@Nonnull final ExplorationCascadesRuleCall call) {
+    public void onMatch(@Nonnull final ImplementationCascadesRuleCall call) {
         final var bindings = call.getBindings();
 
         final var selectExpression = bindings.get(root);
@@ -259,7 +262,7 @@ public class PredicatePushDownRule extends AbstractCascadesRule<SelectExpression
             return;
         }
 
-        final Reference newRangesOverReference = call.memoizeExploratoryExpressions(newBelowExpressions);
+        final Reference newRangesOverReference = call.memoizeFinalExpressions(new ArrayList<>(newBelowExpressions));
 
         final var newPushQuantifier = Quantifier.forEachBuilder()
                 .withAlias(pushQuantifier.getAlias())
@@ -274,18 +277,18 @@ public class PredicatePushDownRule extends AbstractCascadesRule<SelectExpression
                 newOwnedQuantifiers,
                 ImmutableList.copyOf(fixedPredicates));
 
-        call.yieldExploratoryExpression(newSelectExpression);
+        call.yieldFinalExpression(newSelectExpression);
     }
 
     private static class PushToVisitor implements RelationalExpressionVisitorWithDefaults<Optional<? extends RelationalExpression>> {
         @Nonnull
-        private final ExploratoryMemoizer memoizer;
+        private final FinalMemoizer memoizer;
         @Nonnull
         private final Set<? extends QueryPredicate> originalPredicates;
         @Nonnull
         private final Quantifier.ForEach pushQuantifier;
 
-        public PushToVisitor(@Nonnull ExploratoryMemoizer memoizer,
+        public PushToVisitor(@Nonnull FinalMemoizer memoizer,
                              @Nonnull final Set<? extends QueryPredicate> originalPredicates,
                              @Nonnull final Quantifier.ForEach pushQuantifier) {
             this.memoizer = memoizer;
@@ -325,7 +328,7 @@ public class PredicatePushDownRule extends AbstractCascadesRule<SelectExpression
                             child.getAlias()));
             final var newPredicates = updatedPredicates(translationMap);
             final SelectExpression newSelect = new SelectExpression(child.getFlowedObjectValue(), ImmutableList.of(child), newPredicates);
-            return Quantifier.forEach(memoizer.memoizeExploratoryExpression(newSelect));
+            return Quantifier.forEach(memoizer.memoizeFinalExpression(newSelect));
         }
 
         @Nonnull

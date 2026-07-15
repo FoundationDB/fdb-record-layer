@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.query.plan.cascades;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.properties.ExpressionCountProperty;
 import com.apple.foundationdb.record.query.plan.cascades.properties.PredicateComplexityProperty;
+import com.apple.foundationdb.record.query.plan.cascades.properties.SelectMergeableProperty;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
@@ -284,7 +285,7 @@ public class ExpressionPropertiesMap<E extends RelationalExpression> {
     @Nonnull
     public static ExpressionPropertiesMap<RelationalExpression> defaultForRewritePhase() {
         return new ExpressionPropertiesMap<>(RelationalExpression.class,
-                ImmutableSet.of(),
+                ImmutableSet.of(SelectMergeableProperty.selectMergeable()),
                 ImmutableSet.of(
                         ExpressionCountProperty.selectCount(),
                         ExpressionCountProperty.outerJoinCount(),

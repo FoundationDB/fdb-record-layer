@@ -528,13 +528,13 @@ public class PredicatePushDownRuleTest {
     /**
      * Push down an OR predicate. This takes a query like:
      * <pre>{@code
-     * SELECT a, b FROM (SELECT a, b, c FROM t) WHERE a = $p OR b > 'hello' OR @1 = d
+     * SELECT a, b FROM (SELECT a, b, d FROM t) WHERE a = $p OR b > 'hello' OR @1 = d
      * }</pre>
      * <p>
      * And modifies it to:
      * </p>
      * <pre>{@code
-     * SELECT a, b FROM (SELECT a, b, c FROM t WHERE a = $p OR b > 'hello' OR @1 = d)
+     * SELECT a, b FROM (SELECT a, b, d FROM t WHERE a = $p OR b > 'hello' OR @1 = d)
      * }</pre>
      */
     @Test
