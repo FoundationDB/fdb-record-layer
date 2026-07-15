@@ -63,12 +63,6 @@ public final class VectorIndexOptionKeys {
             VectorOptionKey.ofBoolean(IndexOptions.VECTOR_USE_RABITQ, IndexOptions.HNSW_USE_RABITQ);
     public static final VectorOptionKey<Integer> RABITQ_NUM_EX_BITS =
             VectorOptionKey.ofInteger(IndexOptions.VECTOR_RABITQ_NUM_EX_BITS, IndexOptions.HNSW_RABITQ_NUM_EX_BITS);
-    public static final VectorOptionKey<Integer> MAX_NUM_CONCURRENT_NODE_FETCHES =
-            VectorOptionKey.ofInteger(IndexOptions.VECTOR_MAX_NUM_CONCURRENT_NODE_FETCHES,
-                    IndexOptions.HNSW_MAX_NUM_CONCURRENT_NODE_FETCHES);
-    public static final VectorOptionKey<Integer> MAX_NUM_CONCURRENT_NEIGHBORHOOD_FETCHES =
-            VectorOptionKey.ofInteger(IndexOptions.VECTOR_MAX_NUM_CONCURRENT_NEIGHBORHOOD_FETCHES,
-                    IndexOptions.HNSW_MAX_NUM_CONCURRENT_NEIGHBORHOOD_FETCHES);
 
     //
     // HNSW-only options.
@@ -91,6 +85,10 @@ public final class VectorIndexOptionKeys {
             VectorOptionKey.ofBoolean(IndexOptions.HNSW_KEEP_PRUNED_CONNECTIONS);
     public static final VectorOptionKey<Integer> HNSW_MAX_NUM_CONCURRENT_DELETE_FROM_LAYER =
             VectorOptionKey.ofInteger(IndexOptions.HNSW_MAX_NUM_CONCURRENT_DELETE_FROM_LAYER);
+    public static final VectorOptionKey<Integer> HNSW_MAX_NUM_CONCURRENT_NODE_FETCHES =
+            VectorOptionKey.ofInteger(IndexOptions.HNSW_MAX_NUM_CONCURRENT_NODE_FETCHES);
+    public static final VectorOptionKey<Integer> HNSW_MAX_NUM_CONCURRENT_NEIGHBORHOOD_FETCHES =
+            VectorOptionKey.ofInteger(IndexOptions.HNSW_MAX_NUM_CONCURRENT_NEIGHBORHOOD_FETCHES);
 
     //
     // Guardiann-only options.
@@ -151,9 +149,10 @@ public final class VectorIndexOptionKeys {
      */
     static final List<VectorOptionKey<?>> ALL = ImmutableList.of(
             METRIC, NUM_DIMENSIONS, SAMPLE_VECTOR_STATS_PROBABILITY, MAINTAIN_STATS_PROBABILITY, STATS_THRESHOLD,
-            USE_RABITQ, RABITQ_NUM_EX_BITS, MAX_NUM_CONCURRENT_NODE_FETCHES, MAX_NUM_CONCURRENT_NEIGHBORHOOD_FETCHES,
+            USE_RABITQ, RABITQ_NUM_EX_BITS,
             HNSW_USE_INLINING, HNSW_M, HNSW_M_MAX, HNSW_M_MAX_0, HNSW_EF_CONSTRUCTION, HNSW_EF_REPAIR,
             HNSW_EXTEND_CANDIDATES, HNSW_KEEP_PRUNED_CONNECTIONS, HNSW_MAX_NUM_CONCURRENT_DELETE_FROM_LAYER,
+            HNSW_MAX_NUM_CONCURRENT_NODE_FETCHES, HNSW_MAX_NUM_CONCURRENT_NEIGHBORHOOD_FETCHES,
             GUARDIANN_PRIMARY_CLUSTER_MIN, GUARDIANN_PRIMARY_CLUSTER_MAX, GUARDIANN_UNDERREPLICATED_PRIMARY_CLUSTER_MAX,
             GUARDIANN_REPLICATED_CLUSTER_MAX_WRITES, GUARDIANN_REPLICATED_CLUSTER_TARGET,
             GUARDIANN_REPLICATION_PRIORITY_MIN, GUARDIANN_REPLICATION_DISTANCE_RATIO_WEIGHT,

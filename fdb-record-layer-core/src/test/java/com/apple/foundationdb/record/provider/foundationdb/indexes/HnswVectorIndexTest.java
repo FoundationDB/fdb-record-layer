@@ -92,8 +92,8 @@ class HnswVectorIndexTest extends VectorIndexEngineTestSuite {
                             .put(IndexOptions.VECTOR_SAMPLE_VECTOR_STATS_PROBABILITY, "0.999")
                             .put(IndexOptions.VECTOR_MAINTAIN_STATS_PROBABILITY, "0.78")
                             .put(IndexOptions.VECTOR_STATS_THRESHOLD, "500")
-                            .put(IndexOptions.VECTOR_MAX_NUM_CONCURRENT_NODE_FETCHES, "17")
-                            .put(IndexOptions.VECTOR_MAX_NUM_CONCURRENT_NEIGHBORHOOD_FETCHES, "9")
+                            .put(IndexOptions.HNSW_MAX_NUM_CONCURRENT_NODE_FETCHES, "17")
+                            .put(IndexOptions.HNSW_MAX_NUM_CONCURRENT_NEIGHBORHOOD_FETCHES, "9")
                             .put(IndexOptions.HNSW_MAX_NUM_CONCURRENT_DELETE_FROM_LAYER, "5").build());
 
             Assertions.assertThatThrownBy(() -> validateIndexEvolution(metaDataValidator, index,

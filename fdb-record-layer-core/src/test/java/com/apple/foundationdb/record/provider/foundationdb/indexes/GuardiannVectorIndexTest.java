@@ -96,8 +96,6 @@ class GuardiannVectorIndexTest extends VectorIndexEngineTestSuite {
                             .put(IndexOptions.VECTOR_MAINTAIN_STATS_PROBABILITY, "0.78")
                             .put(IndexOptions.VECTOR_STATS_THRESHOLD, "500")
                             .put(IndexOptions.GUARDIANN_SAMPLE_BATCH_SIZE, "25")
-                            .put(IndexOptions.VECTOR_MAX_NUM_CONCURRENT_NODE_FETCHES, "17")
-                            .put(IndexOptions.VECTOR_MAX_NUM_CONCURRENT_NEIGHBORHOOD_FETCHES, "9")
                             .put(IndexOptions.GUARDIANN_DELETE_CONCURRENCY, "5")
                             .put(IndexOptions.GUARDIANN_SPLIT_MERGE_CONCURRENCY, "5")
                             .put(IndexOptions.GUARDIANN_REASSIGN_CONCURRENCY, "5")

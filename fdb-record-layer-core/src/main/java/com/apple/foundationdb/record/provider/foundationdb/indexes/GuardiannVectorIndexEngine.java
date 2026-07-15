@@ -205,10 +205,6 @@ final class GuardiannVectorIndexEngine implements VectorIndexEngine {
         applyInteger(VectorIndexOptionKeys.STATS_THRESHOLD, index, builder::setStatsThreshold);
         applyBoolean(VectorIndexOptionKeys.USE_RABITQ, index, builder::setUseRaBitQ);
         applyInteger(VectorIndexOptionKeys.RABITQ_NUM_EX_BITS, index, builder::setRaBitQNumExBits);
-        applyInteger(VectorIndexOptionKeys.MAX_NUM_CONCURRENT_NODE_FETCHES, index,
-                builder::setMaxNumConcurrentNodeFetches);
-        applyInteger(VectorIndexOptionKeys.MAX_NUM_CONCURRENT_NEIGHBORHOOD_FETCHES, index,
-                builder::setMaxNumConcurrentNeighborhoodFetches);
 
         // Guardiann-only knobs.
         applyInteger(VectorIndexOptionKeys.GUARDIANN_PRIMARY_CLUSTER_MIN, index, builder::setPrimaryClusterMin);
@@ -333,8 +329,6 @@ final class GuardiannVectorIndexEngine implements VectorIndexEngine {
             VectorIndexOptionKeys.STATS_THRESHOLD,
             VectorIndexOptionKeys.GUARDIANN_SAMPLE_BATCH_SIZE,
             // concurrency knobs
-            VectorIndexOptionKeys.MAX_NUM_CONCURRENT_NODE_FETCHES,
-            VectorIndexOptionKeys.MAX_NUM_CONCURRENT_NEIGHBORHOOD_FETCHES,
             VectorIndexOptionKeys.GUARDIANN_DELETE_CONCURRENCY,
             VectorIndexOptionKeys.GUARDIANN_SPLIT_MERGE_CONCURRENCY,
             VectorIndexOptionKeys.GUARDIANN_REASSIGN_CONCURRENCY,

@@ -434,18 +434,6 @@ public class IndexOptions {
      */
     public static final String VECTOR_RABITQ_NUM_EX_BITS = "vectorRaBitQNumExBits";
 
-    /**
-     * Maximum number of concurrent node fetches during search and modification. Engine-neutral replacement for
-     * {@link #HNSW_MAX_NUM_CONCURRENT_NODE_FETCHES}.
-     */
-    public static final String VECTOR_MAX_NUM_CONCURRENT_NODE_FETCHES = "vectorMaxNumConcurrentNodeFetches";
-
-    /**
-     * Maximum number of concurrent neighborhood fetches during modification. Engine-neutral replacement for
-     * {@link #HNSW_MAX_NUM_CONCURRENT_NEIGHBORHOOD_FETCHES}.
-     */
-    public static final String VECTOR_MAX_NUM_CONCURRENT_NEIGHBORHOOD_FETCHES = "vectorMaxNumConcurrentNeighborhoodFetches";
-
     //
     // Guardiann-only options. Each mirrors a field of the Guardiann config; see
     // {@link com.apple.foundationdb.async.guardiann.Config} for the semantics and default of each. Unset options fall

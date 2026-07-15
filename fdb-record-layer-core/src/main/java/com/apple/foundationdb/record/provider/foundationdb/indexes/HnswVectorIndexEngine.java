@@ -159,9 +159,9 @@ final class HnswVectorIndexEngine implements VectorIndexEngine {
         applyInteger(VectorIndexOptionKeys.STATS_THRESHOLD, index, builder::setStatsThreshold);
         applyBoolean(VectorIndexOptionKeys.USE_RABITQ, index, builder::setUseRaBitQ);
         applyInteger(VectorIndexOptionKeys.RABITQ_NUM_EX_BITS, index, builder::setRaBitQNumExBits);
-        applyInteger(VectorIndexOptionKeys.MAX_NUM_CONCURRENT_NODE_FETCHES, index,
+        applyInteger(VectorIndexOptionKeys.HNSW_MAX_NUM_CONCURRENT_NODE_FETCHES, index,
                 builder::setMaxNumConcurrentNodeFetches);
-        applyInteger(VectorIndexOptionKeys.MAX_NUM_CONCURRENT_NEIGHBORHOOD_FETCHES, index,
+        applyInteger(VectorIndexOptionKeys.HNSW_MAX_NUM_CONCURRENT_NEIGHBORHOOD_FETCHES, index,
                 builder::setMaxNumConcurrentNeighborhoodFetches);
         applyInteger(VectorIndexOptionKeys.HNSW_MAX_NUM_CONCURRENT_DELETE_FROM_LAYER, index,
                 builder::setMaxNumConcurrentDeleteFromLayer);
@@ -219,8 +219,8 @@ final class HnswVectorIndexEngine implements VectorIndexEngine {
             VectorIndexOptionKeys.SAMPLE_VECTOR_STATS_PROBABILITY,
             VectorIndexOptionKeys.MAINTAIN_STATS_PROBABILITY,
             VectorIndexOptionKeys.STATS_THRESHOLD,
-            VectorIndexOptionKeys.MAX_NUM_CONCURRENT_NODE_FETCHES,
-            VectorIndexOptionKeys.MAX_NUM_CONCURRENT_NEIGHBORHOOD_FETCHES,
+            VectorIndexOptionKeys.HNSW_MAX_NUM_CONCURRENT_NODE_FETCHES,
+            VectorIndexOptionKeys.HNSW_MAX_NUM_CONCURRENT_NEIGHBORHOOD_FETCHES,
             VectorIndexOptionKeys.HNSW_MAX_NUM_CONCURRENT_DELETE_FROM_LAYER);
 
     /**
