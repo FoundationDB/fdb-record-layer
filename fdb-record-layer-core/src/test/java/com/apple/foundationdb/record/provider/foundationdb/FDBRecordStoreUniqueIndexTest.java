@@ -853,8 +853,8 @@ public class FDBRecordStoreUniqueIndexTest extends FDBRecordStoreTestBase {
 
         @Nonnull
         @Override
-        public <M extends Message> CompletableFuture<Void> updateWhileWriteOnlyWithQueue(@Nullable final FDBIndexableRecord<M> oldRecord, @Nullable final FDBIndexableRecord<M> newRecord) {
-            return underlying.updateWhileWriteOnlyWithQueue(oldRecord, newRecord);
+        public <M extends Message> IndexBuildProto.PendingWritesQueueEntry serializePendingWriteQueue(@Nullable final FDBIndexableRecord<M> oldRecord, @Nullable final FDBIndexableRecord<M> newRecord) {
+            return underlying.serializePendingWriteQueue(oldRecord, newRecord);
         }
 
         @Nonnull

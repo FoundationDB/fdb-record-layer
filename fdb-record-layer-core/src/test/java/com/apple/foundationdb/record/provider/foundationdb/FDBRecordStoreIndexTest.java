@@ -132,7 +132,6 @@ import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.lessThanOrEqualTo;
 import static org.hamcrest.Matchers.not;
-import static org.hamcrest.Matchers.nullValue;
 import static org.hamcrest.Matchers.oneOf;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -959,9 +958,9 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
     void writeOnlyWithQueueIndex() throws Exception {
         final String standardIndexName = "MySimpleRecord$num_value_3_indexed";
         final String permissiveIndexName = "permissive_index";
-        // The "permissive" index type is backed by NoOpIndexMaintainer, while the value index above is
-        // backed by StandardIndexMaintainer. Marking both WRITE_ONLY_WITH_QUEUE and then saving a record
-        // exercises updateWhileWriteOnlyWithQueue on both maintainers.
+        // The "permissive" index type is backed by NoOpIndexMaintainer, which does not allow the pending write queue,
+        // while the value index above is backed by StandardIndexMaintainer, which does. Marking the standard index
+        // WRITE_ONLY_WITH_QUEUE and then saving a record exercises serializePendingWriteQueue on its maintainer.
         final RecordMetaDataHook hook = metaData ->
                 metaData.addIndex("MySimpleRecord", new Index(permissiveIndexName, field("num_value_3_indexed"), "permissive"));
 
@@ -981,7 +980,22 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
             assertThat(recordStore.isIndexWriteOnlyNoQueue(standardIndexName), is(false));
             assertThat(recordStore.isIndexReadable(standardIndexName), is(false));
 
-            // Saving a record routes the update through updateWhileWriteOnlyWithQueue for each maintainer
+            // The NoOp-backed permissive index does not allow the pending write queue, so saving a record while it is
+            // in WRITE_ONLY_WITH_QUEUE is rejected (the record store throws before anything is enqueued).
+            assertThrows(RecordCoreException.class, () -> recordStore.saveRecord(TestRecords1Proto.MySimpleRecord.newBuilder()
+                    .setRecNo(1066L)
+                    .setNumValue3Indexed(42)
+                    .build()));
+        }
+
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, hook);
+            final Index standardIndex = recordStore.getRecordMetaData().getIndex(standardIndexName);
+
+            // Now only the standard index is deferred to the queue; the permissive index stays readable.
+            recordStore.markIndexWriteOnlyWithQueue(standardIndex).get();
+
+            // Saving a record routes the update through serializePendingWriteQueue for the standard maintainer
             // rather than writing the index entries directly.
             recordStore.saveRecord(TestRecords1Proto.MySimpleRecord.newBuilder()
                     .setRecNo(1066L)
@@ -996,7 +1010,6 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
             final Index standardIndex = recordStore.getRecordMetaData().getIndex(standardIndexName);
-            final Index permissiveIndex = recordStore.getRecordMetaData().getIndex(permissiveIndexName);
 
             // The StandardIndexMaintainer routed the update to its pending queue: exactly one deferred write.
             final PendingWritesQueue<IndexBuildProto.PendingWritesQueueEntry> standardQueue =
@@ -1022,13 +1035,9 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
             assertThat(context.ensureActive().getRange(recordStore.indexSubspace(standardIndex).range()).asList().join(),
                     is(empty()));
 
-            // The NoOp-backed permissive index's updateWhileWriteOnlyWithQueue is a no-op, so nothing is enqueued
-            // for it (its queue size counter was never written).
-            assertThat(IndexingPendingWriteQueue.getIndexingQueue(recordStore, permissiveIndex)
-                    .getQueueSizeNoConflict(context).join(), is(nullValue()));
-
             // Draining a queued entry through the NoOp maintainer is also a no-op that completes without applying
             // anything to the index (the permissive index never defers real work to the queue).
+            final Index permissiveIndex = recordStore.getRecordMetaData().getIndex(permissiveIndexName);
             recordStore.getIndexMaintainer(permissiveIndex)
                     .updateFromQueue(IndexBuildProto.PendingWritesQueueEntry.getDefaultInstance()).join();
 

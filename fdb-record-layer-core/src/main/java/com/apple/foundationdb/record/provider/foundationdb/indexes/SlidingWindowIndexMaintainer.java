@@ -54,7 +54,6 @@ import com.apple.foundationdb.record.provider.foundationdb.IndexOperationResult;
 import com.apple.foundationdb.record.provider.foundationdb.IndexOperation;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanBounds;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
-import com.apple.foundationdb.record.provider.foundationdb.IndexingPendingWriteQueue;
 import com.apple.foundationdb.record.query.QueryToKeyMatcher;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
@@ -431,9 +430,9 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
 
     @Nonnull
     @Override
-    public <M extends Message> CompletableFuture<Void> updateWhileWriteOnlyWithQueue(@Nullable final FDBIndexableRecord<M> oldRecord, @Nullable final FDBIndexableRecord<M> newRecord) {
-        return IndexingPendingWriteQueue.enqueuePendingIndexUpdate(state.store, state.index,
-                StandardIndexMaintainer.buildPendingWritesQueueEntry(state, oldRecord, newRecord));
+    public <M extends Message> IndexBuildProto.PendingWritesQueueEntry serializePendingWriteQueue(@Nullable final FDBIndexableRecord<M> oldRecord, @Nullable final FDBIndexableRecord<M> newRecord) {
+        // TODO: use delegate.serializePendingWriteQueue data and add it to a sliding window message. The correctly handle it in updateFromQueue
+        return StandardIndexMaintainer.buildPendingWritesQueueEntry(state, oldRecord, newRecord);
     }
 
     @Nonnull

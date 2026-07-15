@@ -1521,8 +1521,8 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
 
         @Nonnull
         @Override
-        public <M extends Message> CompletableFuture<Void> updateWhileWriteOnlyWithQueue(@Nullable final FDBIndexableRecord<M> o,
-                                                                                         @Nullable final FDBIndexableRecord<M> n) {
+        public <M extends Message> IndexBuildProto.PendingWritesQueueEntry serializePendingWriteQueue(@Nullable final FDBIndexableRecord<M> o,
+                                                                                                      @Nullable final FDBIndexableRecord<M> n) {
             throw new UnsupportedOperationException("sliding window should not delegate this call");
         }
 
@@ -1715,9 +1715,8 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
 
     @Test
     void writeOnlyWithQueueRoutesUpdatesToQueue() throws Exception {
-        // While the index is WRITE_ONLY_WITH_QUEUE, updates are routed to the pending queue via
-        // SlidingWindowIndexMaintainer.updateWhileWriteOnlyWithQueue instead of being written to the index. Once the
-        // indexer drains the queue, those updates are applied and the resulting window is valid.
+        // While the index is WRITE_ONLY_WITH_QUEUE, updates are routed to the pending queue instead of being written to
+        // the index. Once the indexer drains the queue, those updates are applied and the resulting window is valid.
         // Enqueue two updates while the index is in the queue state.
         try (FDBRecordContext context = openContext()) {
             openStore(context, 5, Direction.DESC);

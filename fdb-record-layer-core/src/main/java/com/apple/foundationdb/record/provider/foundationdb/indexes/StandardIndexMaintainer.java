@@ -70,7 +70,6 @@ import com.apple.foundationdb.record.provider.foundationdb.IndexOperationResult;
 import com.apple.foundationdb.record.provider.foundationdb.IndexPrefetchRangeKeyValueCursor;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanBounds;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanRange;
-import com.apple.foundationdb.record.provider.foundationdb.IndexingPendingWriteQueue;
 import com.apple.foundationdb.record.provider.foundationdb.KeyValueCursor;
 import com.apple.foundationdb.record.provider.foundationdb.indexing.IndexingRangeSet;
 import com.apple.foundationdb.record.query.QueryToKeyMatcher;
@@ -336,17 +335,9 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
 
     @Override
     @Nonnull
-    public <M extends Message> CompletableFuture<Void> updateWhileWriteOnlyWithQueue(@Nullable final FDBIndexableRecord<M> oldRecord, @Nullable final FDBIndexableRecord<M> newRecord) {
-        if (!isPendingWriteQueueAllowed()) {
-            // The indexer should have not allowed the WRITE_ONLY_WITH_QUEUE index state. This path should never be reached.
-            throw new UnsupportedOperationException("write pending queue is not yet supported for non-idempotent indexes");
-            // To support non-idempotent index, we should use the same "is included in built range" condition as updateWhileWriteOnly and
-            // only push to the queue items that were already indexed. (If being build by a source index, and only one of the old/new records
-            // had generated an "already indexed" source index key, the other one should be converted to a null in the queue).
-            // This, however can be done at a later step.
-        }
-        return IndexingPendingWriteQueue.enqueuePendingIndexUpdate(state.store, state.index,
-                buildPendingWritesQueueEntry(state, oldRecord, newRecord));
+    public <M extends Message> IndexBuildProto.PendingWritesQueueEntry serializePendingWriteQueue(@Nullable final FDBIndexableRecord<M> oldRecord, @Nullable final FDBIndexableRecord<M> newRecord) {
+        // TODO: forbid PWQ in the standard maintainer
+        return buildPendingWritesQueueEntry(state, oldRecord, newRecord);
     }
 
     @Override
@@ -360,8 +351,8 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
 
     /**
      * Serialize an old/new record pair into a {@link IndexBuildProto.PendingWritesQueueEntry} so that it can be deferred
-     * onto the index's pending writes queue by {@link #updateWhileWriteOnlyWithQueue}. Either record may be null: a null
-     * {@code oldRecord} represents an insert and a null {@code newRecord} represents a delete.
+     * onto the index's pending writes queue. Either record may be null (but not both): a null {@code oldRecord} represents
+     * an insert and a null {@code newRecord} represents a delete.
      * @param state the maintainer state whose store serializer is used
      * @param oldRecord the previous stored record or {@code null} if a new record is being created
      * @param newRecord the new record or {@code null} if an old record is being deleted

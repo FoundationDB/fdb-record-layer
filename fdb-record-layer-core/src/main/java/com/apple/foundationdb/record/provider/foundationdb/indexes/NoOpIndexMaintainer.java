@@ -83,8 +83,9 @@ public class NoOpIndexMaintainer extends IndexMaintainer {
 
     @Nonnull
     @Override
-    public <M extends Message> CompletableFuture<Void> updateWhileWriteOnlyWithQueue(@Nullable final FDBIndexableRecord<M> oldRecord, @Nullable final FDBIndexableRecord<M> newRecord) {
-        return AsyncUtil.DONE;
+    public <M extends Message> IndexBuildProto.PendingWritesQueueEntry serializePendingWriteQueue(@Nullable final FDBIndexableRecord<M> oldRecord, @Nullable final FDBIndexableRecord<M> newRecord) {
+        // isPendingWriteQueueAllowed() returns false, so this maintainer never defers writes to a queue.
+        throw new UnsupportedOperationException("NoOpIndexMaintainer does not support the pending write queue");
     }
 
     @Nonnull

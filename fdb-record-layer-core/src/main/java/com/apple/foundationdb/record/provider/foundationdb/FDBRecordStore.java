@@ -779,7 +779,13 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                 case WRITE_ONLY_WITH_QUEUE:
                     // Push the old/new record to a write pending queue instead of updating the index directly. The
                     // ongoing online indexer will drain the queue and perform the actual index update.
-                    future = maintainer.updateWhileWriteOnlyWithQueue(oldRecord, newRecord);
+                    if (!maintainer.isPendingWriteQueueAllowed()) {
+                        // The indexer should not have allowed the WRITE_ONLY_WITH_QUEUE index state for this maintainer.
+                        throw new RecordCoreException("index does not support the pending write queue")
+                                .addLogInfo(LogMessageKeys.INDEX_NAME, index.getName());
+                    }
+                    future = IndexingPendingWriteQueue.enqueuePendingIndexUpdate(this, index,
+                            maintainer.serializePendingWriteQueue(oldRecord, newRecord));
                     context.addToSessionSet(ContextSessionKey.WRITE_ONLY_WITH_QUEUE_INDEXES_UPDATED, index.getName());
                     break;
 
