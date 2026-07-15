@@ -88,10 +88,13 @@ snapshot isolation:
 Restrictions
 ############
 
-* The option is only supported on read-only (``SELECT``) queries. Using it on an ``INSERT``,
-  ``UPDATE``, ``DELETE``, or DDL statement raises an error. This is because mutations rely on
-  serializable reads (for example, when maintaining indexes and enforcing primary-key uniqueness)
-  to remain correct.
+* The option is only supported on read-only (``SELECT``) statements (and, when resuming one, on
+  ``EXECUTE CONTINUATION``). It may be written on an ``INSERT``, ``UPDATE``, or ``DELETE`` statement,
+  but is rejected there because mutations rely on serializable reads (for example, when maintaining
+  indexes and enforcing primary-key uniqueness) to remain correct.
+* The option is a whole-statement setting attached to the top-level statement. It cannot be placed on
+  a subquery (a ``FROM`` subquery, a subquery in a predicate, etc.), an index definition, or any other
+  DDL — doing so is a syntax error.
 * Snapshot isolation changes only conflict detection, not visibility. A snapshot read still returns
   data as of the transaction's read version and never sees uncommitted or later-committed writes
   from other transactions. It will include writes from the current transaction.
