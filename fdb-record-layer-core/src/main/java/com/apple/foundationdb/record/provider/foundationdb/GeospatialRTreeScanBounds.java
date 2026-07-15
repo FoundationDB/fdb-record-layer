@@ -59,15 +59,30 @@ public class GeospatialRTreeScanBounds implements IndexScanBounds {
     private final TupleRange prefixRange;
     @Nonnull
     private final TupleRange suffixRange;
+    private final double centerLatitude;
+    private final double centerLongitude;
+    private final double radiusMeters;
+    private final long scale;
     @Nonnull
-    private final WithinDistancePredicate predicate;
+    private final List<FixedRectangle> rectangles;
 
     private GeospatialRTreeScanBounds(@Nonnull final TupleRange prefixRange,
-                                      @Nonnull final WithinDistancePredicate predicate,
+                                      final double centerLatitude,
+                                      final double centerLongitude,
+                                      final double radiusMeters,
+                                      final long scale,
                                       @Nonnull final TupleRange suffixRange) {
+        if (centerLatitude < MIN_LATITUDE || centerLatitude > MAX_LATITUDE) {
+            throw new RecordCoreArgumentException("center latitude out of range")
+                    .addLogInfo(LogMessageKeys.VALUE, centerLatitude);
+        }
         this.prefixRange = prefixRange;
-        this.predicate = predicate;
         this.suffixRange = suffixRange;
+        this.centerLatitude = centerLatitude;
+        this.centerLongitude = normalizeLongitude(centerLongitude);
+        this.radiusMeters = radiusMeters;
+        this.scale = scale;
+        this.rectangles = computeRectangles(this.centerLatitude, this.centerLongitude, radiusMeters, scale);
     }
 
     /**
@@ -88,8 +103,8 @@ public class GeospatialRTreeScanBounds implements IndexScanBounds {
                                                            final double radiusMeters,
                                                            final long scale,
                                                            @Nonnull final TupleRange suffixRange) {
-        return new GeospatialRTreeScanBounds(prefixRange,
-                new WithinDistancePredicate(centerLatitude, centerLongitude, radiusMeters, scale), suffixRange);
+        return new GeospatialRTreeScanBounds(prefixRange, centerLatitude, centerLongitude, radiusMeters, scale,
+                suffixRange);
     }
 
     /**
@@ -134,7 +149,16 @@ public class GeospatialRTreeScanBounds implements IndexScanBounds {
      * @return {@code true} if the R-tree should descend into this node
      */
     public boolean overlapsMbrApproximately(@Nonnull final RTree.Rectangle mbr) {
-        return predicate.overlapsMbrApproximately(mbr);
+        final long mbrLowLat = ((Number)mbr.getLow(0)).longValue();
+        final long mbrHighLat = ((Number)mbr.getHigh(0)).longValue();
+        final long mbrLowLon = ((Number)mbr.getLow(1)).longValue();
+        final long mbrHighLon = ((Number)mbr.getHigh(1)).longValue();
+        for (final FixedRectangle rectangle : rectangles) {
+            if (rectangle.overlaps(mbrLowLat, mbrHighLat, mbrLowLon, mbrHighLon)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
@@ -143,7 +167,14 @@ public class GeospatialRTreeScanBounds implements IndexScanBounds {
      * @return {@code true} if the point is within the radius
      */
     public boolean containsPosition(@Nonnull final RTree.Point position) {
-        return predicate.containsPosition(position);
+        final Object latitudeObject = position.getCoordinate(0);
+        final Object longitudeObject = position.getCoordinate(1);
+        if (latitudeObject == null || longitudeObject == null) {
+            return false;
+        }
+        final double latitude = decodeCoordinate(((Number)latitudeObject).longValue(), scale);
+        final double longitude = decodeCoordinate(((Number)longitudeObject).longValue(), scale);
+        return haversineMeters(centerLatitude, centerLongitude, latitude, longitude) <= radiusMeters;
     }
 
     /**
@@ -184,15 +215,52 @@ public class GeospatialRTreeScanBounds implements IndexScanBounds {
         return 2.0 * EARTH_RADIUS_METERS * Math.asin(Math.min(1.0, Math.sqrt(a)));
     }
 
+    // Fold an arbitrary longitude into [-180, 180) branchlessly (a floating-point loop counter would be flagged).
     private static double normalizeLongitude(final double longitude) {
-        double normalized = longitude;
-        while (normalized > MAX_LONGITUDE) {
-            normalized -= FULL_CIRCLE_DEGREES;
+        return longitude - FULL_CIRCLE_DEGREES * Math.floor((longitude - MIN_LONGITUDE) / FULL_CIRCLE_DEGREES);
+    }
+
+    @Nonnull
+    private static List<FixedRectangle> computeRectangles(final double centerLatitude,
+                                                          final double centerLongitude,
+                                                          final double radiusMeters,
+                                                          final long scale) {
+        final double angularRadius = Math.max(0.0, radiusMeters) / EARTH_RADIUS_METERS;
+        final double deltaLatitudeDegrees = Math.toDegrees(angularRadius);
+        double lowLatitude = centerLatitude - deltaLatitudeDegrees;
+        double highLatitude = centerLatitude + deltaLatitudeDegrees;
+        final boolean coversPole = highLatitude >= MAX_LATITUDE || lowLatitude <= MIN_LATITUDE;
+        lowLatitude = Math.max(lowLatitude, MIN_LATITUDE);
+        highLatitude = Math.min(highLatitude, MAX_LATITUDE);
+
+        final ImmutableList.Builder<FixedRectangle> builder = ImmutableList.builder();
+        final double cosCenterLatitude = Math.cos(Math.toRadians(centerLatitude));
+        // A circle that reaches a pole (or is wide enough that cos(lat) can no longer bound its longitude extent)
+        // spans every meridian, so a single full-longitude band covers it.
+        final double sinRatio = cosCenterLatitude <= 0.0
+                                ? Double.POSITIVE_INFINITY
+                                : Math.sin(angularRadius) / cosCenterLatitude;
+        if (coversPole || angularRadius >= Math.PI / 2.0 || sinRatio >= 1.0) {
+            builder.add(new FixedRectangle(lowLatitude, highLatitude, MIN_LONGITUDE, MAX_LONGITUDE, scale));
+            return builder.build();
         }
-        while (normalized < MIN_LONGITUDE) {
-            normalized += FULL_CIRCLE_DEGREES;
+
+        final double deltaLongitudeDegrees = Math.toDegrees(Math.asin(sinRatio));
+        final double westLongitude = centerLongitude - deltaLongitudeDegrees;
+        final double eastLongitude = centerLongitude + deltaLongitudeDegrees;
+        if (westLongitude < MIN_LONGITUDE) {
+            // Wraps across the antimeridian to the west: split into the wrapped eastern segment and the near segment.
+            builder.add(new FixedRectangle(lowLatitude, highLatitude,
+                    westLongitude + FULL_CIRCLE_DEGREES, MAX_LONGITUDE, scale));
+            builder.add(new FixedRectangle(lowLatitude, highLatitude, MIN_LONGITUDE, eastLongitude, scale));
+        } else if (eastLongitude > MAX_LONGITUDE) {
+            builder.add(new FixedRectangle(lowLatitude, highLatitude, westLongitude, MAX_LONGITUDE, scale));
+            builder.add(new FixedRectangle(lowLatitude, highLatitude,
+                    MIN_LONGITUDE, eastLongitude - FULL_CIRCLE_DEGREES, scale));
+        } else {
+            builder.add(new FixedRectangle(lowLatitude, highLatitude, westLongitude, eastLongitude, scale));
         }
-        return normalized;
+        return builder.build();
     }
 
     /**
@@ -216,99 +284,6 @@ public class GeospatialRTreeScanBounds implements IndexScanBounds {
                                  final long mbrLowLon, final long mbrHighLon) {
             return mbrHighLat >= lowLatitude && mbrLowLat <= highLatitude &&
                    mbrHighLon >= lowLongitude && mbrLowLon <= highLongitude;
-        }
-    }
-
-    /**
-     * Predicate for a great-circle circle. MBR overlap tests the disjunction of the covering rectangles in fixed-point
-     * space; point containment applies the exact haversine distance.
-     */
-    private static final class WithinDistancePredicate {
-        private final double centerLatitude;
-        private final double centerLongitude;
-        private final double radiusMeters;
-        private final long scale;
-        @Nonnull
-        private final List<FixedRectangle> rectangles;
-
-        private WithinDistancePredicate(final double centerLatitude, final double centerLongitude,
-                                        final double radiusMeters, final long scale) {
-            if (centerLatitude < MIN_LATITUDE || centerLatitude > MAX_LATITUDE) {
-                throw new RecordCoreArgumentException("center latitude out of range")
-                        .addLogInfo(LogMessageKeys.VALUE, centerLatitude);
-            }
-            this.centerLatitude = centerLatitude;
-            this.centerLongitude = normalizeLongitude(centerLongitude);
-            this.radiusMeters = radiusMeters;
-            this.scale = scale;
-            this.rectangles = computeRectangles(this.centerLatitude, this.centerLongitude, radiusMeters, scale);
-        }
-
-        @Nonnull
-        private static List<FixedRectangle> computeRectangles(final double centerLatitude,
-                                                              final double centerLongitude,
-                                                              final double radiusMeters,
-                                                              final long scale) {
-            final double angularRadius = Math.max(0.0, radiusMeters) / EARTH_RADIUS_METERS;
-            final double deltaLatitudeDegrees = Math.toDegrees(angularRadius);
-            double lowLatitude = centerLatitude - deltaLatitudeDegrees;
-            double highLatitude = centerLatitude + deltaLatitudeDegrees;
-            final boolean coversPole = highLatitude >= MAX_LATITUDE || lowLatitude <= MIN_LATITUDE;
-            lowLatitude = Math.max(lowLatitude, MIN_LATITUDE);
-            highLatitude = Math.min(highLatitude, MAX_LATITUDE);
-
-            final ImmutableList.Builder<FixedRectangle> builder = ImmutableList.builder();
-            final double cosCenterLatitude = Math.cos(Math.toRadians(centerLatitude));
-            // A circle that reaches a pole (or is wide enough that cos(lat) can no longer bound its longitude extent)
-            // spans every meridian, so a single full-longitude band covers it.
-            final double sinRatio = cosCenterLatitude <= 0.0
-                                    ? Double.POSITIVE_INFINITY
-                                    : Math.sin(angularRadius) / cosCenterLatitude;
-            if (coversPole || angularRadius >= Math.PI / 2.0 || sinRatio >= 1.0) {
-                builder.add(new FixedRectangle(lowLatitude, highLatitude, MIN_LONGITUDE, MAX_LONGITUDE, scale));
-                return builder.build();
-            }
-
-            final double deltaLongitudeDegrees = Math.toDegrees(Math.asin(sinRatio));
-            final double westLongitude = centerLongitude - deltaLongitudeDegrees;
-            final double eastLongitude = centerLongitude + deltaLongitudeDegrees;
-            if (westLongitude < MIN_LONGITUDE) {
-                // Wraps across the antimeridian to the west: split into the wrapped eastern segment and the near segment.
-                builder.add(new FixedRectangle(lowLatitude, highLatitude,
-                        westLongitude + FULL_CIRCLE_DEGREES, MAX_LONGITUDE, scale));
-                builder.add(new FixedRectangle(lowLatitude, highLatitude, MIN_LONGITUDE, eastLongitude, scale));
-            } else if (eastLongitude > MAX_LONGITUDE) {
-                builder.add(new FixedRectangle(lowLatitude, highLatitude, westLongitude, MAX_LONGITUDE, scale));
-                builder.add(new FixedRectangle(lowLatitude, highLatitude,
-                        MIN_LONGITUDE, eastLongitude - FULL_CIRCLE_DEGREES, scale));
-            } else {
-                builder.add(new FixedRectangle(lowLatitude, highLatitude, westLongitude, eastLongitude, scale));
-            }
-            return builder.build();
-        }
-
-        private boolean overlapsMbrApproximately(@Nonnull final RTree.Rectangle mbr) {
-            final long mbrLowLat = ((Number)mbr.getLow(0)).longValue();
-            final long mbrHighLat = ((Number)mbr.getHigh(0)).longValue();
-            final long mbrLowLon = ((Number)mbr.getLow(1)).longValue();
-            final long mbrHighLon = ((Number)mbr.getHigh(1)).longValue();
-            for (final FixedRectangle rectangle : rectangles) {
-                if (rectangle.overlaps(mbrLowLat, mbrHighLat, mbrLowLon, mbrHighLon)) {
-                    return true;
-                }
-            }
-            return false;
-        }
-
-        private boolean containsPosition(@Nonnull final RTree.Point position) {
-            final Object latitudeObject = position.getCoordinate(0);
-            final Object longitudeObject = position.getCoordinate(1);
-            if (latitudeObject == null || longitudeObject == null) {
-                return false;
-            }
-            final double latitude = decodeCoordinate(((Number)latitudeObject).longValue(), scale);
-            final double longitude = decodeCoordinate(((Number)longitudeObject).longValue(), scale);
-            return haversineMeters(centerLatitude, centerLongitude, latitude, longitude) <= radiusMeters;
         }
     }
 }
