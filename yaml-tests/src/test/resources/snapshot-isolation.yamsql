@@ -116,19 +116,20 @@ test_block:
       - query: delete from t1 where id IN (select id from t1 where id = 1 OPTIONS (ISOLATION LEVEL SNAPSHOT))
       - error: "42601"
     -
-      # Snapshot isolation is not supported in a subquery
+      # Snapshot isolation is a whole-statement option that only attaches to the top-level statement, so
+      # placing it on a subquery (here, a subquery feeding an INSERT) is a syntax error.
       - query: insert into t2 (select id, 'name' from t1 where id = 1 OPTIONS (ISOLATION LEVEL SNAPSHOT))
       - error: "42601"
     -
-      # Snapshot isolation is not supported in an index definition.
+      # Options do not attach to an index definition's query, so this is a syntax error.
       - query: create schema template SNAPSHOT_TEMPLATE create table tt(id bigint, v bigint, primary key(id)) create index bad_idx as select v from tt OPTIONS (ISOLATION LEVEL SNAPSHOT)
       - error: "42601"
     -
-      # Snapshot isolation is not supported on a FROM subquery.
+      # Options do not attach to a FROM subquery, so this is a syntax error.
       - query: select id from (select id from t1 where id = 1 OPTIONS (ISOLATION LEVEL SNAPSHOT)) as sub
       - error: "42601"
     -
-      # Snapshot isolation is not supported on a subquery in the WHERE clause (here an EXISTS subquery).
+      # Options do not attach to a subquery in the WHERE clause (here an EXISTS subquery), so this is a syntax error.
       - query: select id from t1 where exists (select id from t1 where id = 1 OPTIONS (ISOLATION LEVEL SNAPSHOT))
       - error: "42601"
 ...
