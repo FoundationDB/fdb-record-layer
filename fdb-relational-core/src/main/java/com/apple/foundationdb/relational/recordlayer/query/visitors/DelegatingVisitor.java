@@ -779,14 +779,14 @@ public class DelegatingVisitor<D extends TypedVisitor> implements TypedVisitor {
 
     @Nonnull
     @Override
-    public Object visitQueryOptions(@Nonnull RelationalParser.QueryOptionsContext ctx) {
-        return getDelegate().visitQueryOptions(ctx);
+    public Object visitStatementOptions(@Nonnull RelationalParser.StatementOptionsContext ctx) {
+        return getDelegate().visitStatementOptions(ctx);
     }
 
     @Nonnull
     @Override
-    public Object visitQueryOption(@Nonnull RelationalParser.QueryOptionContext ctx) {
-        return getDelegate().visitQueryOption(ctx);
+    public Object visitStatementOption(@Nonnull RelationalParser.StatementOptionContext ctx) {
+        return getDelegate().visitStatementOption(ctx);
     }
 
     @Nonnull
