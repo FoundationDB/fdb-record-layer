@@ -23,6 +23,9 @@ package com.apple.foundationdb.record.query.expressions;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.PlanSerializationContext;
+import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.planprotos.PDoubleValueOrParameter;
 
 import javax.annotation.Nonnull;
 import java.util.Objects;
@@ -38,6 +41,33 @@ public abstract class DoubleValueOrParameter implements PlanHashable {
      * @return a double value or {@code null}.
      */
     public abstract Double getValue(@Nonnull EvaluationContext context);
+
+    /**
+     * Serialize this value or parameter reference.
+     * @param serializationContext the serialization context
+     * @return the proto message
+     */
+    @Nonnull
+    public abstract PDoubleValueOrParameter toProto(@Nonnull PlanSerializationContext serializationContext);
+
+    /**
+     * Deserialize a value or parameter reference.
+     * @param serializationContext the serialization context
+     * @param proto the proto message
+     * @return the reconstructed value or parameter reference
+     */
+    @Nonnull
+    public static DoubleValueOrParameter fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                   @Nonnull final PDoubleValueOrParameter proto) {
+        switch (proto.getKindCase()) {
+            case VALUE:
+                return value(proto.getValue());
+            case PARAMETER:
+                return parameter(proto.getParameter());
+            default:
+                throw new RecordCoreException("unknown double value or parameter kind");
+        }
+    }
 
     /**
      * Get a coordinate for a constant value.
@@ -69,6 +99,12 @@ public abstract class DoubleValueOrParameter implements PlanHashable {
         @Override
         public Double getValue(@Nonnull EvaluationContext context) {
             return value;
+        }
+
+        @Nonnull
+        @Override
+        public PDoubleValueOrParameter toProto(@Nonnull final PlanSerializationContext serializationContext) {
+            return PDoubleValueOrParameter.newBuilder().setValue(value).build();
         }
 
         @Override
@@ -110,6 +146,12 @@ public abstract class DoubleValueOrParameter implements PlanHashable {
         @Override
         public Double getValue(@Nonnull EvaluationContext context) {
             return (Double)context.getBinding(parameter);
+        }
+
+        @Nonnull
+        @Override
+        public PDoubleValueOrParameter toProto(@Nonnull final PlanSerializationContext serializationContext) {
+            return PDoubleValueOrParameter.newBuilder().setParameter(parameter).build();
         }
 
         @Override
