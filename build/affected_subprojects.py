@@ -171,7 +171,7 @@ class TestPlan(object):
         self.unknown_paths.add(path)
         self.set_run_all('Electing to run all tests as a file was modified with unknown impact')
 
-    def add_affected_subprojects(self, subprojects: iterable[str]):
+    def add_affected_subprojects(self, subprojects: Iterable[str]):
         self.affected_subprojects.update(subprojects)
         for subproject in subprojects:
             if subproject in self.matrix_candidates:
