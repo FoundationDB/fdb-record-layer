@@ -25,6 +25,8 @@ import com.apple.foundationdb.util.LoggableException;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.Lists;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -38,14 +40,18 @@ import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.Queue;
+import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.RunnableScheduledFuture;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiConsumer;
@@ -68,16 +74,119 @@ import static com.apple.foundationdb.async.AsyncUtil.whileTrue;
 @API(API.Status.UNSTABLE)
 public class MoreAsyncUtil {
 
+    private static final Logger LOGGER = LoggerFactory.getLogger(MoreAsyncUtil.class);
+
+    /**
+     * Maximum wall-clock time we expect any task submitted to the default scheduled executor to
+     * spend running on the scheduler thread. Tasks that exceed this limit block every subsequent
+     * scheduled task (including {@code AsyncLoadingCache} deadline timers), so we log and throw
+     * to make the offending call site visible.
+     */
+    private static final long SCHEDULED_TASK_MAX_RUNTIME_MILLIS = 30L;
+
     private static final Supplier<ScheduledThreadPoolExecutor> scheduledExecutorSupplier = Suppliers.memoize(() -> {
         ThreadFactory threadFactory = new ThreadFactoryBuilder()
                 .setDaemon(true)
                 .setNameFormat("fdb-scheduled-executor-%d")
                 .build();
-        ScheduledThreadPoolExecutor scheduledThreadPoolExecutor = new ScheduledThreadPoolExecutor(1, threadFactory);
+        // Single-thread scheduler by design — matches the historic behaviour. The
+        // decorateTask() overrides instrument every scheduled task so we can catch long-running
+        // callbacks that starve every other timer on this shared thread.
+        ScheduledThreadPoolExecutor scheduledThreadPoolExecutor = new ScheduledThreadPoolExecutor(1, threadFactory) {
+            @Override
+            protected <V> RunnableScheduledFuture<V> decorateTask(Runnable runnable, RunnableScheduledFuture<V> task) {
+                return new InstrumentedRunnableScheduledFuture<>(runnable, task);
+            }
+
+            @Override
+            protected <V> RunnableScheduledFuture<V> decorateTask(Callable<V> callable, RunnableScheduledFuture<V> task) {
+                return new InstrumentedRunnableScheduledFuture<>(callable, task);
+            }
+        };
         scheduledThreadPoolExecutor.setKeepAliveTime(30, TimeUnit.SECONDS);
         scheduledThreadPoolExecutor.allowCoreThreadTimeOut(true);
         return scheduledThreadPoolExecutor;
     });
+
+    /**
+     * Wraps a {@link java.util.concurrent.RunnableScheduledFuture} so the actual execution time is
+     * measured. If a scheduled task blocks the shared scheduler thread for more than
+     * {@link #SCHEDULED_TASK_MAX_RUNTIME_MILLIS} milliseconds we both log the offender (with the
+     * originating {@link Runnable}/{@link java.util.concurrent.Callable} class name and its stack
+     * captured at submission) and throw an {@link IllegalStateException} so the culprit gets
+     * loud attention rather than silently starving other scheduled work.
+     */
+    private static final class InstrumentedRunnableScheduledFuture<V> implements RunnableScheduledFuture<V> {
+        @Nonnull
+        private final RunnableScheduledFuture<V> delegate;
+        @Nonnull
+        private final String submittedFrom;
+
+        InstrumentedRunnableScheduledFuture(@Nonnull Object submittedTask,
+                                            @Nonnull RunnableScheduledFuture<V> delegate) {
+            this.delegate = delegate;
+            this.submittedFrom = submittedTask.getClass().getName();
+        }
+
+        @Override
+        public void run() {
+            final long startNanos = System.nanoTime();
+            try {
+                delegate.run();
+            } finally {
+                final long elapsedMillis = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startNanos);
+                if (elapsedMillis > SCHEDULED_TASK_MAX_RUNTIME_MILLIS) {
+                    final String msg = "scheduled task ran on the shared fdb-scheduled-executor thread for "
+                            + elapsedMillis + "ms (limit " + SCHEDULED_TASK_MAX_RUNTIME_MILLIS + "ms); "
+                            + "submitted task class=" + submittedFrom + ". Long-running tasks on this "
+                            + "single-threaded scheduler starve every AsyncLoadingCache deadline timer.";
+                    LOGGER.error(msg);
+                    throw new IllegalStateException(msg);
+                }
+            }
+        }
+
+        @Override
+        public boolean isPeriodic() {
+            return delegate.isPeriodic();
+        }
+
+        @Override
+        public long getDelay(@Nonnull TimeUnit unit) {
+            return delegate.getDelay(unit);
+        }
+
+        @Override
+        public int compareTo(@Nonnull java.util.concurrent.Delayed o) {
+            return delegate.compareTo(o);
+        }
+
+        @Override
+        public boolean cancel(boolean mayInterruptIfRunning) {
+            return delegate.cancel(mayInterruptIfRunning);
+        }
+
+        @Override
+        public boolean isCancelled() {
+            return delegate.isCancelled();
+        }
+
+        @Override
+        public boolean isDone() {
+            return delegate.isDone();
+        }
+
+        @Override
+        public V get() throws InterruptedException, ExecutionException {
+            return delegate.get();
+        }
+
+        @Override
+        public V get(long timeout, @Nonnull TimeUnit unit)
+                throws InterruptedException, ExecutionException, TimeoutException {
+            return delegate.get(timeout, unit);
+        }
+    }
 
     public static <T> CompletableFuture<T> alreadyCancelled() {
         final CompletableFuture<T> alreadyCancelled = new CompletableFuture<>();

@@ -383,7 +383,7 @@ tasks.withType(Test).configureEach { task ->
         if (task.name == 'test') {
             task.systemProperty('junit.jupiter.execution.parallel.enabled', 'true')
             task.systemProperty('junit.jupiter.execution.parallel.mode.default', 'same_thread')
-            task.systemProperty('junit.jupiter.execution.parallel.mode.classes.default', 'same_thread')
+            task.systemProperty('junit.jupiter.execution.parallel.mode.classes.default', 'concurrent')
             // So far, using the dynamic strategy results in tests that should be fairly fast timing out
             // at 5 minutes. The current theory is some thread pool is saturated and unable to unblock
             // itself. In the meantime, try a fixed 2 threads.
