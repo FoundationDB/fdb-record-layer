@@ -20,7 +20,11 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.indexes;
 
+import com.apple.foundationdb.record.Bindings;
+import com.apple.foundationdb.record.EvaluationContext;
+import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.IndexEntry;
+import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TestRecordsGeoProto;
 import com.apple.foundationdb.record.TupleRange;
@@ -30,7 +34,13 @@ import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.GeospatialRTreeScanBounds;
+import com.apple.foundationdb.record.provider.foundationdb.GeospatialRTreeScanComparisons;
 import com.apple.foundationdb.record.provider.foundationdb.query.FDBRecordStoreQueryTestBase;
+import com.apple.foundationdb.record.query.expressions.DoubleValueOrParameter;
+import com.apple.foundationdb.record.query.plan.ScanComparisons;
+import com.apple.foundationdb.record.query.plan.plans.QueryResult;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
 import com.google.common.collect.ImmutableList;
@@ -40,6 +50,7 @@ import org.junit.jupiter.api.Test;
 
 import javax.annotation.Nonnull;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -172,5 +183,39 @@ class GeospatialRTreeIndexTest extends FDBRecordStoreQueryTestBase {
         // A circle centered on the antimeridian must reach points on both sides of the ±180 seam.
         final Set<Long> ids = scanIds(UNGROUPED_HOOK, UNGROUPED_INDEX, TupleRange.ALL, 0.0, 180.0, 100_000.0);
         assertThat(ids).containsExactlyInAnyOrder(300L, 301L);
+    }
+
+    @Test
+    void plannedIndexScanBindsAndExecutesWithinDistance() throws Exception {
+        saveCities(UNGROUPED_HOOK, ImmutableList.of(
+                city(1, "X", 0.0, 0.0),
+                city(2, "X", 0.5, 0.0),
+                city(3, "X", 0.7, 0.7),      // in the bounding box corner but outside the circle
+                city(4, "X", 5.0, 5.0)));     // far outside
+
+        // The center and radius are query parameters, so binding resolves them from the evaluation context.
+        final RecordQueryPlan plan = new RecordQueryIndexPlan(UNGROUPED_INDEX,
+                GeospatialRTreeScanComparisons.byCenterAndRadius(ScanComparisons.EMPTY,
+                        DoubleValueOrParameter.parameter("centerLat"),
+                        DoubleValueOrParameter.parameter("centerLon"),
+                        DoubleValueOrParameter.parameter("radius"),
+                        ScanComparisons.EMPTY),
+                false);
+        final EvaluationContext evaluationContext = EvaluationContext.forBindings(Bindings.newBuilder()
+                .set("centerLat", 0.0)
+                .set("centerLon", 0.0)
+                .set("radius", 100_000.0)
+                .build());
+
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context, UNGROUPED_HOOK);
+            final RecordCursor<QueryResult> cursor =
+                    plan.executePlan(recordStore, evaluationContext, null, ExecuteProperties.SERIAL_EXECUTE);
+            final List<Long> ids = context.asyncToSync(FDBStoreTimer.Waits.WAIT_ADVANCE_CURSOR,
+                    cursor.map(queryResult -> Objects.requireNonNull(queryResult.getQueriedRecord())
+                            .getPrimaryKey().getLong(0)).asList());
+            assertThat(ids).containsExactlyInAnyOrder(1L, 2L);
+            commit(context);
+        }
     }
 }
