@@ -337,7 +337,7 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
     @Override
     @Nonnull
     public <M extends Message> CompletableFuture<Void> updateWhileWriteOnlyWithQueue(@Nullable final FDBIndexableRecord<M> oldRecord, @Nullable final FDBIndexableRecord<M> newRecord) {
-        if (!isIdempotent()) {
+        if (!isPendingWriteQueueAllowed()) {
             // The indexer should have not allowed the WRITE_ONLY_WITH_QUEUE index state. This path should never be reached.
             throw new UnsupportedOperationException("write pending queue is not yet supported for non-idempotent indexes");
             // To support non-idempotent index, we should use the same "is included in built range" condition as updateWhileWriteOnly and
@@ -403,6 +403,9 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
     @Nullable
     static FDBStoredRecord<Message> getOldRecord(@Nonnull final IndexMaintainerState state,
                                                  @Nonnull final IndexBuildProto.PendingWritesQueueEntry payload) {
+        if (!payload.hasOldAndNewRecords()) {
+            throw new RecordCoreException("wrong item in queue");
+        }
         final IndexBuildProto.PendingWritesQueueEntry.OldAndNewRecords records = payload.getOldAndNewRecords();
         return records.hasOldRecords() ? deserializeRecord(state, records.getOldRecords()) : null;
     }
@@ -416,6 +419,9 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
     @Nullable
     static FDBStoredRecord<Message> getNewRecord(@Nonnull final IndexMaintainerState state,
                                                  @Nonnull final IndexBuildProto.PendingWritesQueueEntry payload) {
+        if (!payload.hasOldAndNewRecords()) {
+            throw new RecordCoreException("wrong item in queue");
+        }
         final IndexBuildProto.PendingWritesQueueEntry.OldAndNewRecords records = payload.getOldAndNewRecords();
         return records.hasNewRecord() ? deserializeRecord(state, records.getNewRecord()) : null;
     }
