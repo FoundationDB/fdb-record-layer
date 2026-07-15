@@ -18,7 +18,7 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.record.spatial.common;
+package com.apple.foundationdb.record.query.expressions;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
@@ -26,15 +26,10 @@ import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
-import com.apple.foundationdb.record.query.expressions.ComponentWithNoChildren;
-import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
-import org.locationtech.jts.geom.Coordinate;
-import org.locationtech.jts.geom.Geometry;
-import org.locationtech.jts.geom.GeometryFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -43,7 +38,8 @@ import java.util.Objects;
 import java.util.function.Supplier;
 
 /**
- * Query filter for points (latitude, longitude) within a given distance of a given center.
+ * Query filter for points (latitude, longitude) within a given distance of a given center. Distance is measured in the
+ * planar coordinate units of the fields (i.e. degrees), not as a great-circle distance.
  */
 @API(API.Status.EXPERIMENTAL)
 public class GeoPointWithinDistanceComponent implements ComponentWithNoChildren {
@@ -59,8 +55,6 @@ public class GeoPointWithinDistanceComponent implements ComponentWithNoChildren 
     private final String latitudeFieldName;
     @Nonnull
     private final String longitudeFieldName;
-    @Nonnull
-    private final GeometryFactory geometryFactory = new GeometryFactory();
 
     public GeoPointWithinDistanceComponent(@Nonnull DoubleValueOrParameter centerLatitude, @Nonnull DoubleValueOrParameter centerLongitude,
                                            @Nonnull DoubleValueOrParameter distance,
@@ -86,9 +80,9 @@ public class GeoPointWithinDistanceComponent implements ComponentWithNoChildren 
         if (pointLatitudeValue == null || pointLongitudeValue == null) {
             return null;
         }
-        Geometry center = geometryFactory.createPoint(new Coordinate(centerLatitudeValue, centerLongitudeValue));
-        Geometry point = geometryFactory.createPoint(new Coordinate(pointLatitudeValue, pointLongitudeValue));
-        return point.isWithinDistance(center, distanceValue);
+        final double deltaLatitude = pointLatitudeValue - centerLatitudeValue;
+        final double deltaLongitude = pointLongitudeValue - centerLongitudeValue;
+        return Math.hypot(deltaLatitude, deltaLongitude) <= distanceValue;
     }
 
     @Nullable
