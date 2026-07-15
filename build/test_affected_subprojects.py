@@ -268,6 +268,13 @@ class TestComputePlan(unittest.TestCase):
         self.assertTrue(result.run_all)
         self.assertEqual(result.affected_subprojects, SAMPLE_AFFECTED_MAP.keys())
 
+    def test_do_not_mark_run_all_if_only_matrix_affected(self):
+        result = compute_plan(['fdb-record-layer-core/src/main/java/Foo.java', 'fdb-record-layer-core/src/test/java/Utils.java'],
+              SAMPLE_AFFECTED_MAP, set(SAMPLE_AFFECTED_MAP['fdb-record-layer-core']))
+        self.assertFalse(result.run_all)
+        self.assertEqual(result.affected_subprojects, set(SAMPLE_AFFECTED_MAP['fdb-record-layer-core']))
+        self.assertEqual(result.matrix, set(SAMPLE_AFFECTED_MAP['fdb-record-layer-core']))
+
     def test_run_all_if_from_unknown(self):
         result = compute_plan(['new-subproject/src/main/java/Foo.java'],
               SAMPLE_AFFECTED_MAP, set())

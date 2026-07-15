@@ -154,13 +154,13 @@ class TestPlan(object):
             'run_other_tests': self.run_other_tests,
         }
 
-    def get_reason(self):
+    def get_reason(self) -> str:
         return self.reason or ('Detected changes affecting given subprojects' if self.run_all or self.affected_subprojects else 'No changes found requiring testing')
 
     def set_run_all(self, reason: str):
         self.run_all = True
-        self.affected_subprojects = set(self.known_subprojects)
-        self.matrix = set(self.matrix_candidates)
+        self.affected_subprojects.update(self.known_subprojects)
+        self.matrix.update(self.matrix_candidates)
         self.run_other_tests = True
         self.reason = self.reason or reason
 
