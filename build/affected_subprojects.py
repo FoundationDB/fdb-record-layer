@@ -133,21 +133,71 @@ def map_changed_file_to_subproject(path: str, known_subprojects: Iterable[str]) 
     return top_level if top_level in known_subprojects else None
 
 
-def compute_affected(changed_files: list[str], subproject_deps: dict[str, list[str]]) -> dict:
+class TestPlan(object):
+    def __init__(self, known_subprojects: set[str], matrix_candidates: set[str]):
+        self.known_subprojects = known_subprojects
+        self.matrix_candidates = matrix_candidates
+        self.run_all = False
+        self.affected_subprojects = set()
+        self.unknown_paths = set()
+        self.reason = None
+        self.matrix = set()
+        self.run_other_tests = False
+
+    def to_dict(self) -> dict:
+        return {
+            'run_all': self.run_all,
+            'affected': sorted(self.affected_subprojects),
+            'unknown_paths': sorted(self.unknown_paths),
+            'reason': self.get_reason(),
+            'matrix': sorted(self.matrix),
+            'run_other_tests': self.run_other_tests,
+        }
+
+    def get_reason(self):
+        return self.reason or ('Detected changes affecting given subprojects' if self.run_all or self.affected_subprojects else 'No changes found requiring testing')
+
+    def set_run_all(self, reason: str):
+        self.run_all = True
+        self.affected_subprojects = set(self.known_subprojects)
+        self.matrix = set(self.matrix_candidates)
+        self.run_other_tests = True
+        self.reason = self.reason or reason
+
+    def mark_build_affecting(self):
+        self.set_run_all('Build affecting file modified')
+
+    def add_unknown_path(self, path: str):
+        self.unknown_paths.add(path)
+        self.set_run_all('Electing to run all tests as a file was modified with unknown impact')
+
+    def add_affected_subprojects(self, subprojects: iterable[str]):
+        self.affected_subprojects.update(subprojects)
+        for subproject in subprojects:
+            if subproject in self.matrix_candidates:
+                self.matrix.add(subproject)
+            else:
+                self.run_other_tests = True
+        self.run_all = self.run_all or len(self.known_subprojects) == len(self.affected_subprojects)
+
+
+def compute_plan(changed_files: list[str], subproject_deps: dict[str, list[str]], matrix_candidates: set[str]) -> TestPlan:
     """
-    Decide which subprojects are affected by a set of changed files, given the precomputed
-    subproject -> affected-subprojects mapping.
+    Compute a test plan based on the list of changed files. For each file, it decides what subprojects
+    are affected by it (based on the downstream dependency map). It also uses the `matrix_candidates`
+    set to determine in turn which jobs need to be run.
 
     Returns:
-        dict with keys 'run_all' and 'affected'.
+        An instance of TestPlan with a set of tests to run based on which subprojects were affected
     """
     known_subprojects = set(subproject_deps)
+    plan = TestPlan(known_subprojects, matrix_candidates)
 
     if any(is_build_affecting(path) for path in changed_files):
         # Modified file is part of the build. Run all tests to be conservative
-        return {'run_all': True, 'affected': sorted(known_subprojects)}
+        plan.mark_build_affecting()
+        return plan
 
-    affected: set[str] = set()
     for path in changed_files:
         if is_ignored(path):
             # Known ignored path. Continue.
@@ -155,47 +205,38 @@ def compute_affected(changed_files: list[str], subproject_deps: dict[str, list[s
 
         subproject = map_changed_file_to_subproject(path, known_subprojects)
         if subproject is None:
-            # Unknown file path. Fail safe.
-            return {'run_all': True, 'affected': sorted(known_subprojects)}
+            # File is not ignored but it is not in any known subproject. Note the unknown path
+            # and continue
+            plan.add_unknown_path(path)
         else:
             # Modified file is in a subproject. Register it and its downstream dependencies as affected.
             # If the file is not in a subproject (e.g., because it is docs or a readme), we ignore it.
-            affected.update(subproject_deps[subproject])
+            plan.add_affected_subprojects(subproject_deps[subproject])
 
-    return {'run_all': len(affected) == len(known_subprojects), 'affected': sorted(affected)}
-
-
-def compute_matrix_plan(plan: dict, matrix_candidates: Iterable[str]) -> dict:
-    """
-    Layer CI matrix planning on top of a base plan from compute_affected(): which of the fixed
-    set of subprojects with their own CI matrix leg need to run, and whether any other
-    (non-matrix) subproject also needs testing via a combined job.
-
-    Returns:
-        plan, with 'matrix' and 'run_other_tests' keys added.
-    """
-    candidates = set(matrix_candidates)
-    if plan['run_all']:
-        matrix, run_other_tests = sorted(candidates), True
-    else:
-        affected = set(plan['affected'])
-        matrix, run_other_tests = sorted(affected & candidates), bool(affected - candidates)
-    return {**plan, 'matrix': matrix, 'run_other_tests': run_other_tests}
+    return plan
 
 
-def render_markdown(plan: dict) -> str:
+def render_markdown(plan: TestPlan) -> str:
     """Render a plan as a human-readable Markdown summary, e.g. for a GitHub Actions step summary."""
     lines = [
         '### CI Plan',
         '',
         "Based on the set of changed files, the following test plan was made:",
         '',
-        f"- All tests need to be run: `{str(plan['run_all']).lower()}`",
-        f"- Affected subprojects: `{', '.join(plan['affected']) or '(none)'}`",
+        f"- Test plan justification: {plan.get_reason()}",
+        f"- All tests need to be run: `{str(plan.run_all).lower()}`",
+        f"- Affected subprojects: `{', '.join(sorted(plan.affected_subprojects)) or '(none)'}`",
     ]
-    if 'matrix' in plan:
-        lines.append(f"- Subprojects to test in individual jobs: `{', '.join(plan['matrix']) or '(none)'}`")
-        lines.append(f"- Remaining subprojects tested in a combined job: `{str(plan['run_other_tests']).lower()}`")
+    if plan.unknown_paths:
+        # Include the first 5 unknown paths in the summary. We want these logged so that the user
+        # has an idea about what files are causing this to run all, but we don't want to fill up
+        # summary with too many paths
+        unknown_path_str = ', '.join(sorted(plan.unknown_paths)[:5])
+        if len(plan.unknown_paths) > 5:
+            unknown_path_str = unknown_path_str + ', ...'
+        lines.append(f"- Paths from unknown subprojects: `{unknown_path_str}`")
+    lines.append(f"- Subprojects to test in individual jobs: `{', '.join(sorted(plan.matrix)) or '(none)'}`")
+    lines.append(f"- Remaining subprojects tested in a combined job: `{str(plan.run_other_tests).lower()}`")
     return '\n'.join(lines) + '\n'
 
 
@@ -216,27 +257,29 @@ def get_changed_files(changed_files_file: str | None, base_ref: str, head_ref: s
     return nonempty_stripped_lines(result.stdout.splitlines())
 
 
-def fail_safe_result(reason: str) -> dict:
-    """A conservative 'run everything' result, used when we can't determine the graph."""
+def fail_safe_result(reason: str, matrix_candidates: set[str]) -> TestPlan:
+    """A conservative 'run everything' result, used when we can't determine the graph or change set."""
     print(f'::warning::{reason} -- defaulting to running everything', file=sys.stderr)
-    return {'run_all': True, 'affected': []}
+    plan = TestPlan({}, matrix_candidates)
+    plan.set_run_all(reason)
+    return plan
 
 
-def determine_base_plan(args: argparse.Namespace) -> dict:
+def determine_plan(args: argparse.Namespace, matrix_candidates: set[str]) -> TestPlan:
     """Compute the base plan (before any matrix-specific layering), failing safe on any error."""
     try:
         with open(args.subproject_deps_file, encoding='utf-8') as f:
             subproject_deps = parse_subproject_deps(f.read())
     except (OSError, ValueError, json.JSONDecodeError) as e:
-        return fail_safe_result(f'Could not determine subproject dependency graph ({e})')
+        return fail_safe_result(f'Could not determine subproject dependency graph ({e})', matrix_candidates)
 
     try:
         changed_files = get_changed_files(
             args.changed_files_file, args.base_ref, args.head_ref, args.root_dir)
     except (OSError, subprocess.CalledProcessError) as e:
-        return fail_safe_result(f'Could not determine changed files ({e})')
+        return fail_safe_result(f'Could not determine changed files ({e})', matrix_candidates)
 
-    return compute_affected(changed_files, subproject_deps)
+    return compute_plan(changed_files, subproject_deps, matrix_candidates)
 
 
 def main(argv: list[str]) -> None:
@@ -265,12 +308,15 @@ def main(argv: list[str]) -> None:
                          help=f'Path to write the plan as JSON (default: {DEFAULT_OUTPUT_FILE})')
     args = parser.parse_args(argv)
 
-    plan = determine_base_plan(args)
     if args.matrix_candidates:
-        plan = compute_matrix_plan(plan, json.loads(args.matrix_candidates))
+        matrix_candidates = set(json.loads(args.matrix_candidates))
+    else:
+        matrix_candidates = set()
+
+    plan = determine_plan(args, matrix_candidates)
 
     with open(args.output, 'w', encoding='utf-8') as f:
-        json.dump(plan, f)
+        json.dump(plan.to_dict(), f)
     print(render_markdown(plan), end='')
 
 

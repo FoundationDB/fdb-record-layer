@@ -30,8 +30,8 @@ import unittest
 
 sys.path.insert(0, os.path.dirname(__file__))
 from affected_subprojects import (
-    compute_affected,
-    compute_matrix_plan,
+    TestPlan,
+    compute_plan,
     is_ignored,
     is_build_affecting,
     map_changed_file_to_subproject,
@@ -199,8 +199,8 @@ class TestMapChangedFileToSubproject(unittest.TestCase):
             map_changed_file_to_subproject('some-new-subproject/build.gradle', ALL_SUBPROJECTS))
 
 
-class TestComputeAffected(unittest.TestCase):
-    """Tests for compute_affected()"""
+class TestComputePlan(unittest.TestCase):
+    """Tests for compute_plan()"""
 
     TO_BE_IGNORED = [
         'README.md',
@@ -215,125 +215,165 @@ class TestComputeAffected(unittest.TestCase):
     ]
 
     def test_build_affecting_change_runs_all(self):
-        result = compute_affected(['build.gradle'], SAMPLE_AFFECTED_MAP)
-        self.assertTrue(result['run_all'])
-        self.assertEqual(set(result['affected']), ALL_SUBPROJECTS)
+        result = compute_plan(['build.gradle'], SAMPLE_AFFECTED_MAP, set())
+        self.assertTrue(result.run_all)
+        self.assertEqual(result.affected_subprojects, ALL_SUBPROJECTS)
 
     def test_ignored_file_change_runs_nothing(self):
-        for path in TestComputeAffected.TO_BE_IGNORED:
-            result = compute_affected([path], SAMPLE_AFFECTED_MAP)
-            self.assertFalse(result['run_all'])
-            self.assertEqual(result['affected'], [])
+        for path in TestComputePlan.TO_BE_IGNORED:
+            result = compute_plan([path], SAMPLE_AFFECTED_MAP, set())
+            self.assertFalse(result.run_all)
+            self.assertEqual(result.affected_subprojects, set())
 
     def test_only_ignored_files_run_nothing(self):
-        result = compute_affected(TestComputeAffected.TO_BE_IGNORED, SAMPLE_AFFECTED_MAP)
-        self.assertFalse(result['run_all'])
-        self.assertEqual(result['affected'], [])
+        result = compute_plan(TestComputePlan.TO_BE_IGNORED, SAMPLE_AFFECTED_MAP, set())
+        self.assertFalse(result.run_all)
+        self.assertEqual(result.affected_subprojects, set())
 
     def test_change_confined_to_subproject_with_no_dependents(self):
-        result = compute_affected(
-            ['fdb-record-layer-lucene/src/main/java/Foo.java'], SAMPLE_AFFECTED_MAP)
-        self.assertFalse(result['run_all'])
-        self.assertEqual(result['affected'], ['fdb-record-layer-lucene'])
+        result = compute_plan(
+            ['fdb-record-layer-lucene/src/main/java/Foo.java'], SAMPLE_AFFECTED_MAP, set())
+        self.assertFalse(result.run_all)
+        self.assertEqual(result.affected_subprojects, {'fdb-record-layer-lucene'})
 
     def test_change_to_widely_depended_on_subproject(self):
-        result = compute_affected(
-            ['fdb-test-utils/src/main/java/Foo.java'], SAMPLE_AFFECTED_MAP)
-        self.assertFalse(result['run_all'])
-        self.assertEqual(result['affected'], SAMPLE_AFFECTED_MAP['fdb-test-utils'])
+        result = compute_plan(
+            ['fdb-test-utils/src/main/java/Foo.java'], SAMPLE_AFFECTED_MAP, set())
+        self.assertFalse(result.run_all)
+        self.assertEqual(result.affected_subprojects, set(SAMPLE_AFFECTED_MAP['fdb-test-utils']))
 
     def test_multiple_changed_files_union_affected_sets(self):
-        result = compute_affected(
+        result = compute_plan(
             ['fdb-record-layer-lucene/Foo.java', 'fdb-relational-api/Bar.java'],
-            SAMPLE_AFFECTED_MAP)
-        self.assertFalse(result['run_all'])
+            SAMPLE_AFFECTED_MAP, set())
+        self.assertFalse(result.run_all)
         self.assertEqual(
-            set(result['affected']),
+            result.affected_subprojects,
             set(SAMPLE_AFFECTED_MAP['fdb-record-layer-lucene'])
             | set(SAMPLE_AFFECTED_MAP['fdb-relational-api']))
 
     def test_project_gradle_affected_sets(self):
-        result = compute_affected(['fdb-relational-core/fdb-relational-core.gradle'], SAMPLE_AFFECTED_MAP)
-        self.assertFalse(result['run_all'])
-        self.assertEqual(result['affected'], SAMPLE_AFFECTED_MAP['fdb-relational-core'])
+        result = compute_plan(['fdb-relational-core/fdb-relational-core.gradle'], SAMPLE_AFFECTED_MAP, set())
+        self.assertFalse(result.run_all)
+        self.assertEqual(result.affected_subprojects, set(SAMPLE_AFFECTED_MAP['fdb-relational-core']))
 
     def test_no_changed_files(self):
-        result = compute_affected([], SAMPLE_AFFECTED_MAP)
-        self.assertFalse(result['run_all'])
-        self.assertEqual(result['affected'], [])
+        result = compute_plan([], SAMPLE_AFFECTED_MAP, set())
+        self.assertFalse(result.run_all)
+        self.assertEqual(result.affected_subprojects, set())
 
     def test_mark_run_all_if_all_affected(self):
-        result = compute_affected(['fdb-java-annotations/src/main/java/API.java', 'fdb-test-utils/src/test/java/Utils.java'],
-              SAMPLE_AFFECTED_MAP)
-        self.assertTrue(result['run_all'])
-        self.assertEqual(result['affected'], sorted(SAMPLE_AFFECTED_MAP.keys()))
+        result = compute_plan(['fdb-java-annotations/src/main/java/API.java', 'fdb-test-utils/src/test/java/Utils.java'],
+              SAMPLE_AFFECTED_MAP, set())
+        self.assertTrue(result.run_all)
+        self.assertEqual(result.affected_subprojects, SAMPLE_AFFECTED_MAP.keys())
 
     def test_run_all_if_from_unknown(self):
-        result = compute_affected(['new-subproject/src/main/java/Foo.java'],
-              SAMPLE_AFFECTED_MAP)
-        self.assertTrue(result['run_all'])
-        self.assertEqual(result['affected'], sorted(SAMPLE_AFFECTED_MAP.keys()))
+        result = compute_plan(['new-subproject/src/main/java/Foo.java'],
+              SAMPLE_AFFECTED_MAP, set())
+        self.assertTrue(result.run_all)
+        self.assertEqual(result.unknown_paths, {'new-subproject/src/main/java/Foo.java'})
+        self.assertEqual(result.affected_subprojects, SAMPLE_AFFECTED_MAP.keys())
 
 
-class TestComputeMatrixPlan(unittest.TestCase):
-    """Tests for compute_matrix_plan()"""
+class TestTestPlanWithMatrixCandidates(unittest.TestCase):
+    """Tests for how the set of matrix candidates affects the results of TestPlan"""
 
-    MATRIX_CANDIDATES = ['fdb-extensions', 'fdb-record-layer-core', 'fdb-record-layer-lucene', 'yaml-tests']
+    MATRIX_CANDIDATES = {'fdb-extensions', 'fdb-record-layer-core', 'fdb-record-layer-lucene', 'yaml-tests'}
 
     def test_run_all_selects_every_candidate(self):
-        plan = compute_matrix_plan({'run_all': True, 'affected': []}, self.MATRIX_CANDIDATES)
-        self.assertEqual(plan['matrix'], sorted(self.MATRIX_CANDIDATES))
-        self.assertTrue(plan['run_other_tests'])
+        plan = TestPlan(SAMPLE_AFFECTED_MAP.keys(), self.MATRIX_CANDIDATES)
+        plan.set_run_all('Testing with run all but no other info')
+        self.assertEqual(plan.matrix, self.MATRIX_CANDIDATES)
+        self.assertTrue(plan.run_other_tests)
 
     def test_affected_confined_to_candidates(self):
-        plan = compute_matrix_plan(
-            {'run_all': False, 'affected': ['fdb-record-layer-lucene']}, self.MATRIX_CANDIDATES)
-        self.assertEqual(plan['matrix'], ['fdb-record-layer-lucene'])
-        self.assertFalse(plan['run_other_tests'])
+        plan = TestPlan(SAMPLE_AFFECTED_MAP.keys(), self.MATRIX_CANDIDATES)
+        plan.add_affected_subprojects(['fdb-record-layer-lucene'])
+        self.assertEqual(plan.matrix, {'fdb-record-layer-lucene'})
+        self.assertFalse(plan.run_other_tests)
 
     def test_affected_outside_candidates_needs_other_tests(self):
-        plan = compute_matrix_plan(
-            {'run_all': False, 'affected': ['fdb-relational-api']}, self.MATRIX_CANDIDATES)
-        self.assertEqual(plan['matrix'], [])
-        self.assertTrue(plan['run_other_tests'])
+        plan = TestPlan(SAMPLE_AFFECTED_MAP.keys(), self.MATRIX_CANDIDATES)
+        plan.add_affected_subprojects(['fdb-relational-api'])
+        self.assertEqual(plan.matrix, set())
+        self.assertTrue(plan.run_other_tests)
+
+    def test_affected_both_matrix_and_other_subprojects(self):
+        plan = TestPlan(SAMPLE_AFFECTED_MAP.keys(), self.MATRIX_CANDIDATES)
+        plan.add_affected_subprojects(['fdb-record-layer-lucene', 'fdb-java-annotations', 'fdb-extensions'])
+        self.assertEqual(plan.matrix, {'fdb-record-layer-lucene', 'fdb-extensions'})
+        self.assertTrue(plan.run_other_tests)
+
+    def test_affected_unknown_path(self):
+        plan = TestPlan(SAMPLE_AFFECTED_MAP.keys(), self.MATRIX_CANDIDATES)
+        plan.add_unknown_path('some/unknown/path')
+        self.assertTrue(plan.run_all)
+        self.assertEqual(plan.matrix, self.MATRIX_CANDIDATES)
+        self.assertTrue(plan.run_other_tests)
 
     def test_no_affected_subprojects(self):
-        plan = compute_matrix_plan({'run_all': False, 'affected': []}, self.MATRIX_CANDIDATES)
-        self.assertEqual(plan['matrix'], [])
-        self.assertFalse(plan['run_other_tests'])
-
-    def test_preserves_base_plan_keys(self):
-        plan = compute_matrix_plan({'run_all': False, 'affected': ['yaml-tests']}, self.MATRIX_CANDIDATES)
-        self.assertFalse(plan['run_all'])
-        self.assertEqual(plan['affected'], ['yaml-tests'])
+        plan = TestPlan(SAMPLE_AFFECTED_MAP.keys(), self.MATRIX_CANDIDATES)
+        self.assertEqual(plan.matrix, set())
+        self.assertFalse(plan.run_other_tests)
 
 
 class TestRenderMarkdown(unittest.TestCase):
     """Tests for render_markdown()"""
 
-    def test_renders_base_plan_without_matrix_fields(self):
-        text = render_markdown({'run_all': True, 'affected': ['fdb-record-layer-lucene']})
+    def test_renders_plan_with_no_matrix_jobs(self):
+        plan = TestPlan(SAMPLE_AFFECTED_MAP.keys(), set())
+        plan.add_affected_subprojects(['fdb-record-layer-lucene'])
+        text = render_markdown(plan)
+
         self.assertIn('### CI Plan', text)
-        self.assertIn('All tests need to be run: `true`', text)
+        self.assertIn('Test plan justification: Detected changes affecting given subprojects', text)
+        self.assertIn('All tests need to be run: `false`', text)
         self.assertIn('Affected subprojects: `fdb-record-layer-lucene`', text)
-        self.assertNotIn('individual jobs', text)
+        self.assertIn('Subprojects to test in individual jobs: `(none)`', text)
+
+    def test_renders_unknown_paths(self):
+        plan = TestPlan(SAMPLE_AFFECTED_MAP.keys(), set())
+        plan.add_unknown_path('some/unknown/path')
+        plan.add_unknown_path('another/unknown/path')
+        text = render_markdown(plan)
+
+        self.assertIn('Test plan justification: Electing to run all tests as a file was modified with unknown impact', text)
+        self.assertIn('All tests need to be run: `true`', text)
+        self.assertIn('Paths from unknown subprojects: `another/unknown/path, some/unknown/path`', text)
+
+    def test_truncates_too_many_unknown_paths(self):
+        plan = TestPlan(SAMPLE_AFFECTED_MAP.keys(), set())
+        for i in range(10):
+            plan.add_unknown_path(f'some/unknown/path_{i}')
+        text = render_markdown(plan)
+
+        self.assertIn('Test plan justification: Electing to run all tests as a file was modified with unknown impact', text)
+        self.assertIn('All tests need to be run: `true`', text)
+        self.assertIn('Paths from unknown subprojects: `some/unknown/path_0, some/unknown/path_1, some/unknown/path_2, some/unknown/path_3, some/unknown/path_4, ...`', text)
+
+    def test_skips_unknown_paths_if_none(self):
+        plan = TestPlan(SAMPLE_AFFECTED_MAP.keys(), set())
+        text = render_markdown(plan)
+        self.assertNotIn('Paths from unknown subprojects:', text)
 
     def test_renders_matrix_fields_when_present(self):
-        text = render_markdown({
-            'run_all': False,
-            'affected': ['fdb-record-layer-lucene'],
-            'matrix': ['fdb-record-layer-lucene'],
-            'run_other_tests': False,
-        })
+        plan = TestPlan(SAMPLE_AFFECTED_MAP.keys(), {'fdb-record-layer-lucene'})
+        plan.add_affected_subprojects(['fdb-record-layer-lucene'])
+
+        text = render_markdown(plan)
+        self.assertIn('Test plan justification: Detected changes affecting given subprojects', text)
         self.assertIn('Subprojects to test in individual jobs: `fdb-record-layer-lucene`', text)
         self.assertIn('Remaining subprojects tested in a combined job: `false`', text)
 
     def test_renders_none_placeholder_for_empty_lists(self):
-        text = render_markdown({'run_all': False, 'affected': []})
+        text = render_markdown(TestPlan(set(), set()))
+        self.assertIn('Test plan justification: No changes found requiring testing', text)
         self.assertIn('Affected subprojects: `(none)`', text)
+        self.assertIn('Subprojects to test in individual jobs: `(none)`', text)
 
     def test_output_ends_with_single_newline(self):
-        text = render_markdown({'run_all': False, 'affected': []})
+        text = render_markdown(TestPlan(set(), set()))
         self.assertTrue(text.endswith('\n'))
         self.assertFalse(text.endswith('\n\n'))
 
