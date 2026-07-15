@@ -304,7 +304,7 @@ class TestComputeMatrixPlan(unittest.TestCase):
 
     def test_preserves_base_plan_keys(self):
         plan = compute_matrix_plan({'run_all': False, 'affected': ['yaml-tests']}, self.MATRIX_CANDIDATES)
-        self.assertEqual(plan['run_all'], False)
+        self.assertFalse(plan['run_all'])
         self.assertEqual(plan['affected'], ['yaml-tests'])
 
 
@@ -384,7 +384,7 @@ class TestMainEndToEnd(unittest.TestCase):
         from affected_subprojects import main
 
         with patch('sys.stdout', new_callable=StringIO):
-            main(['/nonexistent/path/subproject_deps.json',
+            main(['nonexistent/path/subproject_deps.json',
                   '--changed-files-file', self.changed_file.name,
                   '--output', self.output_file.name])
 
