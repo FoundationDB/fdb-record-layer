@@ -38,54 +38,76 @@ and writes in a single transaction. (For how an ``OPTIONS`` clause is scoped in 
 Examples
 ########
 
-Consider the following table and index:
+Approximate row limit protected by a count index
+-------------------------------------------------
+
+Suppose a table has a ``COUNT(*)`` index and the application wants to cap it at roughly a maximum
+number of rows:
 
 .. code-block:: sql
 
-    CREATE TABLE account (id BIGINT, balance BIGINT, PRIMARY KEY(id));
-    CREATE INDEX max_balance_ever AS SELECT max_ever(balance) FROM account;
+    CREATE TABLE document (id BIGINT, data STRING, PRIMARY KEY(id));
+    CREATE INDEX document_count AS SELECT count(*) FROM document;
 
-with these records:
-
-.. code-block:: json
-
-    {"ID": 1, "BALANCE": 100}
-    {"ID": 2, "BALANCE": 250}
-    {"ID": 3, "BALANCE": 175}
-
-Reading an aggregate at snapshot isolation reads the aggregate index without adding a conflict
-range, so a concurrent transaction that inserts or updates an account will not cause this read's
-transaction to conflict:
+Before inserting a new row, read the current count and proceed only if it is under the cap:
 
 .. code-block:: sql
 
-    SELECT max_ever(balance) AS max_balance
-    FROM account
+    SELECT count(*) AS document_count
+    FROM document
     OPTIONS (ISOLATION LEVEL SNAPSHOT);
 
 .. list-table::
     :header-rows: 1
 
-    * - :sql:`max_balance`
+    * - :sql:`document_count`
+    * - :json:`3`
+
+Every insert into ``document`` updates the single ``document_count`` index entry. If the count were
+read at serializable isolation, that read would conflict with every concurrent insert, effectively
+serializing all inserts and causing frequent retries. Reading it at snapshot isolation adds no
+conflict range, so concurrent inserts proceed. The trade-off is that the limit becomes
+*approximate*: under high concurrency a few rows may slip in past the cap, because each transaction
+decides against a count that does not reflect the others' not-yet-committed inserts. This is usually
+acceptable for a soft limit.
+
+Sequence-like ids from a ``MAX_EVER`` index and a random offset
+---------------------------------------------------------------
+
+Suppose the application needs to assign roughly-increasing ids without a central sequence generator.
+A ``MAX_EVER`` index tracks the largest key ever assigned:
+
+.. code-block:: sql
+
+    CREATE TABLE zone (zone_key BIGINT, name STRING, PRIMARY KEY(zone_key));
+    CREATE INDEX max_zone_key AS SELECT max_ever(zone_key) FROM zone;
+
+To assign a new key, read the current maximum:
+
+.. code-block:: sql
+
+    SELECT max_ever(zone_key) AS max_key
+    FROM zone
+    OPTIONS (ISOLATION LEVEL SNAPSHOT);
+
+.. list-table::
+    :header-rows: 1
+
+    * - :sql:`max_key`
     * - :json:`250`
 
-The option applies to any ``SELECT``, not just aggregates. A regular scan can also be run at
-snapshot isolation:
+The application then adds a small random offset to ``max_key`` and inserts the row with that key
+(for example ``INSERT INTO zone VALUES (max_key + <random 1..100>, 'the-name')``). Every insert
+updates the single ``max_zone_key`` index entry, so — as in the previous example — reading it at
+serializable isolation would conflict with every concurrent id assignment. Reading it at snapshot
+isolation avoids that conflict, and the random offset makes it unlikely that two concurrent
+assignments choose the same key.
 
-.. code-block:: sql
-
-    SELECT id, balance
-    FROM account
-    WHERE id = 2
-    OPTIONS (ISOLATION LEVEL SNAPSHOT);
-
-.. list-table::
-    :header-rows: 1
-
-    * - :sql:`id`
-      - :sql:`balance`
-    * - :json:`2`
-      - :json:`250`
+Because snapshot reads do not conflict, two transactions can read the same maximum and act on it
+independently, so design for the possibility that another transaction derived the same value. Here
+that possibility is handled for free: if two transactions do pick the same new key, the primary-key
+write itself conflicts (write-write) and one transaction retries. Widening the random range lowers
+the collision probability, at the cost of leaving larger gaps between assigned keys.
 
 Restrictions
 ############
@@ -114,11 +136,3 @@ If the option is omitted when resuming, the resumed pages fall back to the defau
 isolation and once again add read-conflict ranges — with no error or warning. To keep an entire
 paginated scan at snapshot isolation, repeat ``OPTIONS (ISOLATION LEVEL SNAPSHOT)`` on **every**
 ``EXECUTE CONTINUATION`` call.
-
-.. note::
-
-    Because snapshot reads do not conflict, two transactions can each read the same value and act on
-    it independently. When using snapshot isolation to derive a value that is then written back,
-    design for the possibility that another transaction derived the same value. See the
-    :doc:`FAQ </FAQ>` for an example of using a ``MAX_EVER`` index at snapshot isolation together with
-    a random offset to generate keys with a low probability of collision.
