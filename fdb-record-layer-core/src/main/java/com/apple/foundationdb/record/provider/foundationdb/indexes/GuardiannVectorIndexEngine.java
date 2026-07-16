@@ -72,7 +72,23 @@ import static com.apple.foundationdb.record.provider.foundationdb.indexes.Vector
  * ({@link VectorIndexScanOptions}'s {@code GUARDIANN_*} knobs), each knob falling back to its {@link SearchConfig}
  * default when the option is absent; the engine also honors the shared return-vectors scan option.
  */
+@SuppressWarnings("PMD.TooManyStaticImports")
 final class GuardiannVectorIndexEngine implements VectorIndexEngine {
+    // Only stats and concurrency knobs may change on an existing index; see validateChangedOptions. Each key already
+    // covers its current and legacy names.
+    private static final List<VectorOptionKey<?>> MUTABLE_OPTIONS = ImmutableList.of(
+            // stats knobs
+            VectorIndexOptionKeys.SAMPLE_VECTOR_STATS_PROBABILITY,
+            VectorIndexOptionKeys.MAINTAIN_STATS_PROBABILITY,
+            VectorIndexOptionKeys.STATS_THRESHOLD,
+            VectorIndexOptionKeys.GUARDIANN_SAMPLE_BATCH_SIZE,
+            // concurrency knobs
+            VectorIndexOptionKeys.GUARDIANN_DELETE_CONCURRENCY,
+            VectorIndexOptionKeys.GUARDIANN_SPLIT_MERGE_CONCURRENCY,
+            VectorIndexOptionKeys.GUARDIANN_REASSIGN_CONCURRENCY,
+            VectorIndexOptionKeys.GUARDIANN_COLLAPSE_CONCURRENCY,
+            VectorIndexOptionKeys.GUARDIANN_BOUNCE_CONCURRENCY);
+
     @Nonnull
     private final Config config;
 
@@ -92,6 +108,36 @@ final class GuardiannVectorIndexEngine implements VectorIndexEngine {
         return guardiann.kNearestNeighborsSearch(readTransaction, scanBounds.getAdjustedLimit(),
                 searchConfig(scanBounds), VectorIndexOptionsHelper.returnVectors(scanBounds, config.useRaBitQ()),
                 Objects.requireNonNull(scanBounds.getQueryVector()));
+    }
+
+    @Nonnull
+    @Override
+    public CompletableFuture<Void> insert(@Nonnull final Transaction transaction,
+                                          @Nonnull final Subspace subspace,
+                                          @Nonnull final Executor executor,
+                                          @Nonnull final FDBStoreTimer timer,
+                                          @Nonnull final Tuple primaryKey,
+                                          @Nonnull final RealVector vector) {
+        // Insert reads (to find candidate clusters) and writes (references and deferred-task bookkeeping), so wire both
+        // listeners.
+        final Guardiann guardiann =
+                new Guardiann(subspace, executor, config, new OnWrite(timer), new OnRead(timer));
+        return guardiann.insert(transaction, primaryKey, vector, null);
+    }
+
+    @Nonnull
+    @Override
+    public CompletableFuture<Void> delete(@Nonnull final Transaction transaction,
+                                          @Nonnull final Subspace subspace,
+                                          @Nonnull final Executor executor,
+                                          @Nonnull final FDBStoreTimer timer,
+                                          @Nonnull final Tuple primaryKey,
+                                          @Nonnull final RealVector vector) {
+        // Guardiann needs the vector to locate the cluster references to remove; it reads while probing candidate
+        // clusters and writes as it removes references, so both listeners are wired.
+        final Guardiann guardiann =
+                new Guardiann(subspace, executor, config, new OnWrite(timer), new OnRead(timer));
+        return guardiann.delete(transaction, primaryKey, vector);
     }
 
     /**
@@ -139,36 +185,6 @@ final class GuardiannVectorIndexEngine implements VectorIndexEngine {
         if (value != null) {
             setter.accept(value);
         }
-    }
-
-    @Nonnull
-    @Override
-    public CompletableFuture<Void> insert(@Nonnull final Transaction transaction,
-                                          @Nonnull final Subspace subspace,
-                                          @Nonnull final Executor executor,
-                                          @Nonnull final FDBStoreTimer timer,
-                                          @Nonnull final Tuple primaryKey,
-                                          @Nonnull final RealVector vector) {
-        // Insert reads (to find candidate clusters) and writes (references and deferred-task bookkeeping), so wire both
-        // listeners.
-        final Guardiann guardiann =
-                new Guardiann(subspace, executor, config, new OnWrite(timer), new OnRead(timer));
-        return guardiann.insert(transaction, primaryKey, vector, null);
-    }
-
-    @Nonnull
-    @Override
-    public CompletableFuture<Void> delete(@Nonnull final Transaction transaction,
-                                          @Nonnull final Subspace subspace,
-                                          @Nonnull final Executor executor,
-                                          @Nonnull final FDBStoreTimer timer,
-                                          @Nonnull final Tuple primaryKey,
-                                          @Nonnull final RealVector vector) {
-        // Guardiann needs the vector to locate the cluster references to remove; it reads while probing candidate
-        // clusters and writes as it removes references, so both listeners are wired.
-        final Guardiann guardiann =
-                new Guardiann(subspace, executor, config, new OnWrite(timer), new OnRead(timer));
-        return guardiann.delete(transaction, primaryKey, vector);
     }
 
     /**
@@ -319,21 +335,6 @@ final class GuardiannVectorIndexEngine implements VectorIndexEngine {
             allowChange(changedOptions, key);
         }
     }
-
-    // Only stats and concurrency knobs may change on an existing index; see validateChangedOptions. Each key already
-    // covers its current and legacy names.
-    private static final List<VectorOptionKey<?>> MUTABLE_OPTIONS = ImmutableList.of(
-            // stats knobs
-            VectorIndexOptionKeys.SAMPLE_VECTOR_STATS_PROBABILITY,
-            VectorIndexOptionKeys.MAINTAIN_STATS_PROBABILITY,
-            VectorIndexOptionKeys.STATS_THRESHOLD,
-            VectorIndexOptionKeys.GUARDIANN_SAMPLE_BATCH_SIZE,
-            // concurrency knobs
-            VectorIndexOptionKeys.GUARDIANN_DELETE_CONCURRENCY,
-            VectorIndexOptionKeys.GUARDIANN_SPLIT_MERGE_CONCURRENCY,
-            VectorIndexOptionKeys.GUARDIANN_REASSIGN_CONCURRENCY,
-            VectorIndexOptionKeys.GUARDIANN_COLLAPSE_CONCURRENCY,
-            VectorIndexOptionKeys.GUARDIANN_BOUNCE_CONCURRENCY);
 
     /**
      * Read listener that attributes Guardiann reads to the store timer. Guardiann has no notion of graph layers, so

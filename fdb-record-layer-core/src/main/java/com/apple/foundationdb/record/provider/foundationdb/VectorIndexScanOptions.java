@@ -89,17 +89,6 @@ public final class VectorIndexScanOptions implements PlanHashable, PlanSerializa
     private static final Map<String /* wireName */, VectorOptionKey<?>> optionsNameMap = buildNameMap();
 
     @Nonnull
-    private static Map<String, VectorOptionKey<?>> buildNameMap() {
-        final ImmutableMap.Builder<String, VectorOptionKey<?>> builder = ImmutableMap.builder();
-        for (final VectorOptionKey<?> key : ALL_KEYS) {
-            for (final String name : key.allNames()) {
-                builder.put(name, key);
-            }
-        }
-        return builder.build();
-    }
-
-    @Nonnull
     private final Map<VectorOptionKey<?>, Object> optionsMap;
 
     private VectorIndexScanOptions(@Nonnull final Map<VectorOptionKey<?>, Object> optionsMap) {
@@ -175,6 +164,17 @@ public final class VectorIndexScanOptions implements PlanHashable, PlanSerializa
     @Override
     public String toString() {
         return explain().getExplainTokens().render(DefaultExplainFormatter.forDebugging()).toString();
+    }
+
+    @Nonnull
+    private static Map<String, VectorOptionKey<?>> buildNameMap() {
+        final ImmutableMap.Builder<String, VectorOptionKey<?>> builder = ImmutableMap.builder();
+        for (final VectorOptionKey<?> key : ALL_KEYS) {
+            for (final String name : key.allNames()) {
+                builder.put(name, key);
+            }
+        }
+        return builder.build();
     }
 
     @Nonnull

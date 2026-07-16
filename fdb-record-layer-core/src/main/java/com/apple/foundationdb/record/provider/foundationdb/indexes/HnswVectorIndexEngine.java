@@ -60,7 +60,18 @@ import static com.apple.foundationdb.record.provider.foundationdb.indexes.Vector
  * — config parsing from index options, the per-query {@code efSearch}/return-vectors knob derivation, and the
  * read/write listeners that attribute node-level work to the timer — live here so the maintainer stays engine-neutral.
  */
+@SuppressWarnings("PMD.TooManyStaticImports")
 final class HnswVectorIndexEngine implements VectorIndexEngine {
+    // Stats and concurrency knobs are the only mutable options; everything else is immutable (see
+    // validateChangedOptions). Each key already covers its current and legacy names.
+    private static final List<VectorOptionKey<?>> MUTABLE_OPTIONS = ImmutableList.of(
+            VectorIndexOptionKeys.SAMPLE_VECTOR_STATS_PROBABILITY,
+            VectorIndexOptionKeys.MAINTAIN_STATS_PROBABILITY,
+            VectorIndexOptionKeys.STATS_THRESHOLD,
+            VectorIndexOptionKeys.HNSW_MAX_NUM_CONCURRENT_NODE_FETCHES,
+            VectorIndexOptionKeys.HNSW_MAX_NUM_CONCURRENT_NEIGHBORHOOD_FETCHES,
+            VectorIndexOptionKeys.HNSW_MAX_NUM_CONCURRENT_DELETE_FROM_LAYER);
+
     @Nonnull
     private final Config config;
 
@@ -212,16 +223,6 @@ final class HnswVectorIndexEngine implements VectorIndexEngine {
             allowChange(changedOptions, key);
         }
     }
-
-    // Stats and concurrency knobs are the only mutable options; everything else is immutable (see
-    // validateChangedOptions). Each key already covers its current and legacy names.
-    private static final List<VectorOptionKey<?>> MUTABLE_OPTIONS = ImmutableList.of(
-            VectorIndexOptionKeys.SAMPLE_VECTOR_STATS_PROBABILITY,
-            VectorIndexOptionKeys.MAINTAIN_STATS_PROBABILITY,
-            VectorIndexOptionKeys.STATS_THRESHOLD,
-            VectorIndexOptionKeys.HNSW_MAX_NUM_CONCURRENT_NODE_FETCHES,
-            VectorIndexOptionKeys.HNSW_MAX_NUM_CONCURRENT_NEIGHBORHOOD_FETCHES,
-            VectorIndexOptionKeys.HNSW_MAX_NUM_CONCURRENT_DELETE_FROM_LAYER);
 
     /**
      * Read listener that attributes HNSW node reads to the store timer.

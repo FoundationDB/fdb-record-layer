@@ -41,9 +41,6 @@ import java.util.List;
  */
 @API(API.Status.EXPERIMENTAL)
 public final class VectorIndexOptionKeys {
-    private VectorIndexOptionKeys() {
-    }
-
     //
     // Shared concepts: engine-neutral canonical name + legacy hnsw* alias.
     //
@@ -163,4 +160,7 @@ public final class VectorIndexOptionKeys {
             GUARDIANN_REASSIGN_NUM_NEIGHBORING_CLUSTERS, GUARDIANN_COLLAPSE_MIN_DUPLICATES,
             GUARDIANN_SPLIT_MERGE_CONCURRENCY, GUARDIANN_REASSIGN_CONCURRENCY, GUARDIANN_COLLAPSE_CONCURRENCY,
             GUARDIANN_BOUNCE_CONCURRENCY);
+
+    private VectorIndexOptionKeys() {
+    }
 }

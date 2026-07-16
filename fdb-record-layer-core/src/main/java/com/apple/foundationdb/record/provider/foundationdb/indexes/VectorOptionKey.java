@@ -131,6 +131,28 @@ public final class VectorOptionKey<T> {
         return null;
     }
 
+    @Override
+    public boolean equals(final Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (!(o instanceof VectorOptionKey)) {
+            return false;
+        }
+        final VectorOptionKey<?> that = (VectorOptionKey<?>)o;
+        return canonicalName.equals(that.canonicalName);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(canonicalName);
+    }
+
+    @Override
+    public String toString() {
+        return canonicalName;
+    }
+
     @Nonnull
     public static VectorOptionKey<Integer> ofInteger(@Nonnull final String canonicalName,
                                                      @Nonnull final String... aliases) {
@@ -153,27 +175,5 @@ public final class VectorOptionKey<T> {
     public static VectorOptionKey<Metric> ofMetric(@Nonnull final String canonicalName,
                                                    @Nonnull final String... aliases) {
         return new VectorOptionKey<>(canonicalName, ImmutableList.copyOf(aliases), Metric.class, Metric::valueOf);
-    }
-
-    @Override
-    public boolean equals(final Object o) {
-        if (this == o) {
-            return true;
-        }
-        if (!(o instanceof VectorOptionKey)) {
-            return false;
-        }
-        final VectorOptionKey<?> that = (VectorOptionKey<?>)o;
-        return canonicalName.equals(that.canonicalName);
-    }
-
-    @Override
-    public int hashCode() {
-        return Objects.hash(canonicalName);
-    }
-
-    @Override
-    public String toString() {
-        return canonicalName;
     }
 }
