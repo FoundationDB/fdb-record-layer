@@ -49,9 +49,11 @@ import com.apple.foundationdb.record.metadata.expressions.RecordTypeKeyExpressio
 import com.apple.foundationdb.record.metadata.expressions.ThenKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.VersionKeyExpression;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
+import com.apple.foundationdb.record.provider.foundationdb.GeospatialRTreeScanComparisons;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanComparisons;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanParameters;
 import com.apple.foundationdb.record.provider.foundationdb.MultidimensionalIndexScanComparisons;
+import com.apple.foundationdb.record.provider.foundationdb.indexes.GeospatialRTreeIndexHelper;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.MultidimensionalIndexMaintainer;
 import com.apple.foundationdb.record.provider.foundationdb.leaderboard.TimeWindowRecordFunction;
 import com.apple.foundationdb.record.provider.foundationdb.leaderboard.TimeWindowScanComparisons;
@@ -61,6 +63,7 @@ import com.apple.foundationdb.record.query.expressions.AndComponent;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.expressions.ComponentWithComparison;
 import com.apple.foundationdb.record.query.expressions.FieldWithComparison;
+import com.apple.foundationdb.record.query.expressions.GeospatialWithinDistanceComponent;
 import com.apple.foundationdb.record.query.expressions.NestedField;
 import com.apple.foundationdb.record.query.expressions.OneOfThemWithComparison;
 import com.apple.foundationdb.record.query.expressions.OneOfThemWithComponent;
@@ -1697,6 +1700,8 @@ public class RecordQueryPlanner implements QueryPlanner {
                                    @Nullable KeyExpression commonPrimaryKey) {
         if (indexTypes.getTextTypes().contains(index.getType())) {
             return planText(candidateScan, index, filter, sort, sortReverse);
+        } else if (IndexTypes.GEOSPATIAL_RTREE.equals(index.getType())) {
+            return planGeospatial(candidateScan, index, filter, sort);
         } else {
             return null;
         }
@@ -1735,6 +1740,105 @@ public class RecordQueryPlanner implements QueryPlanner {
         // than other indexes.
         return new ScoredPlan(plan, filterMask.getUnsatisfiedFilters(), Collections.emptyList(), computeSargedComparisons(plan),
                 10, scan.createsDuplicates(), plan.isStrictlySorted(), false, null);
+    }
+
+    @Nullable
+    @SuppressWarnings("PMD.UnusedFormalParameter")
+    private ScoredPlan planGeospatial(@Nonnull CandidateScan candidateScan, @Nonnull Index index,
+                                      @Nonnull QueryComponent filter, @Nullable KeyExpression sort) {
+        if (sort != null) {
+            // A within-distance scan visits entries in Hilbert order, which is not a useful sort order.
+            return null;
+        }
+
+        // Separate the (single) geospatial predicate from any other AND'd filters.
+        final GeospatialWithinDistanceComponent geoComponent;
+        final List<QueryComponent> otherFilters = new ArrayList<>();
+        if (filter instanceof GeospatialWithinDistanceComponent) {
+            geoComponent = (GeospatialWithinDistanceComponent)filter;
+        } else if (filter instanceof AndComponent) {
+            GeospatialWithinDistanceComponent found = null;
+            for (final QueryComponent child : ((AndComponent)filter).getChildren()) {
+                if (child instanceof GeospatialWithinDistanceComponent) {
+                    if (found != null) {
+                        return null; // more than one geospatial predicate is not supported
+                    }
+                    found = (GeospatialWithinDistanceComponent)child;
+                } else {
+                    otherFilters.add(child);
+                }
+            }
+            if (found == null) {
+                return null;
+            }
+            geoComponent = found;
+        } else {
+            return null;
+        }
+
+        // The index key must be [grouping...] followed by exactly the predicate's two coordinate columns.
+        final KeyExpression indexRoot = index.getRootExpression();
+        final int prefixSize = GeospatialRTreeIndexHelper.getGroupingCount(indexRoot);
+        final KeyExpression wholeKey = indexRoot instanceof GroupingKeyExpression
+                                       ? ((GroupingKeyExpression)indexRoot).getWholeKey()
+                                       : indexRoot;
+        if (wholeKey.getColumnSize() != prefixSize + GeospatialRTreeIndexHelper.COORDINATE_DIMENSIONS) {
+            return null;
+        }
+        final KeyExpression indexCoordinates = wholeKey.getSubKey(prefixSize, wholeKey.getColumnSize());
+        if (!indexCoordinates.equals(geoComponent.getCoordinatesExpression())) {
+            return null;
+        }
+
+        // The grouping prefix, if any, must be fully bound by equality comparisons from the other filters.
+        final ScanComparisons prefixScanComparisons;
+        final List<QueryComponent> residualFilters = new ArrayList<>(otherFilters);
+        if (prefixSize > 0) {
+            final ScanComparisons.Builder builder = new ScanComparisons.Builder();
+            for (int i = 0; i < prefixSize; i++) {
+                final QueryComponent match = findEqualityMatch(wholeKey.getSubKey(i, i + 1), residualFilters);
+                if (match == null) {
+                    return null;
+                }
+                builder.addEqualityComparison(((FieldWithComparison)match).getComparison());
+                residualFilters.remove(match);
+            }
+            prefixScanComparisons = builder.build();
+        } else {
+            prefixScanComparisons = ScanComparisons.EMPTY;
+        }
+
+        final GeospatialRTreeScanComparisons scanParameters =
+                GeospatialRTreeScanComparisons.byCenterAndRadius(prefixScanComparisons,
+                        geoComponent.getCenterLatitude(), geoComponent.getCenterLongitude(),
+                        geoComponent.getRadiusMeters(), ScanComparisons.EMPTY);
+
+        RecordQueryPlan plan = planScan(candidateScan, scanParameters, false);
+        plan = addTypeFilterIfNeeded(candidateScan, plan, getPossibleTypes(index));
+
+        // The R-tree scan evaluates the exact distance predicate and the grouping equalities itself, so only the
+        // remaining filters are residual.
+        return new ScoredPlan(plan, residualFilters, Collections.emptyList(), computeSargedComparisons(plan), 10,
+                false, plan.isStrictlySorted(), false, null);
+    }
+
+    @Nullable
+    private QueryComponent findEqualityMatch(@Nonnull final KeyExpression groupingColumn,
+                                             @Nonnull final List<QueryComponent> filters) {
+        if (!(groupingColumn instanceof FieldKeyExpression)) {
+            return null;
+        }
+        final String fieldName = ((FieldKeyExpression)groupingColumn).getFieldName();
+        for (final QueryComponent filter : filters) {
+            if (filter instanceof FieldWithComparison) {
+                final FieldWithComparison fieldWithComparison = (FieldWithComparison)filter;
+                if (fieldWithComparison.getFieldName().equals(fieldName) &&
+                        fieldWithComparison.getComparison().getType() == Comparisons.Type.EQUALS) {
+                    return filter;
+                }
+            }
+        }
+        return null;
     }
 
     @Nonnull
