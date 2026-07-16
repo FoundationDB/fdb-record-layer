@@ -329,7 +329,7 @@ public abstract class IndexMaintainer {
      * {@link com.apple.foundationdb.record.IndexState#WRITE_ONLY_WITH_QUEUE WRITE_ONLY_WITH_QUEUE} index state). While
      * an index is in this state, user updates are deferred to a pending write queue instead of being applied to the
      * index directly, and the online indexer drains that queue as it builds.
-     * Maintainers whose cannot correctly defer and later replay updates should return {@code false} to refuse this state;
+     * Maintainers that cannot correctly defer and later replay updates should return {@code false} to refuse this state;
      * @return whether this index may be built with a pending write queue
      */
     public abstract boolean isPendingWriteQueueAllowed();
