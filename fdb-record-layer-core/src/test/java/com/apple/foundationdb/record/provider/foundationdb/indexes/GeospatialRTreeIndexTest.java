@@ -36,7 +36,10 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.GeospatialRTreeScanBounds;
 import com.apple.foundationdb.record.provider.foundationdb.GeospatialRTreeScanComparisons;
 import com.apple.foundationdb.record.provider.foundationdb.query.FDBRecordStoreQueryTestBase;
+import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.DoubleValueOrParameter;
+import com.apple.foundationdb.record.query.expressions.GeospatialWithinDistanceComponent;
+import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.plans.QueryResult;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
@@ -215,6 +218,65 @@ class GeospatialRTreeIndexTest extends FDBRecordStoreQueryTestBase {
                     cursor.map(queryResult -> Objects.requireNonNull(queryResult.getQueriedRecord())
                             .getPrimaryKey().getLong(0)).asList());
             assertThat(ids).containsExactlyInAnyOrder(1L, 2L);
+            commit(context);
+        }
+    }
+
+    @Nonnull
+    private static GeospatialWithinDistanceComponent withinDistance(final double centerLatitude,
+                                                                    final double centerLongitude,
+                                                                    final double radiusMeters) {
+        return new GeospatialWithinDistanceComponent(DoubleValueOrParameter.value(centerLatitude),
+                DoubleValueOrParameter.value(centerLongitude), DoubleValueOrParameter.value(radiusMeters),
+                field("location").nest(concat(field("latitude"), field("longitude"))));
+    }
+
+    @Nonnull
+    private List<Long> executePlanIds(@Nonnull final FDBRecordContext context, @Nonnull final RecordQueryPlan plan) {
+        return context.asyncToSync(FDBStoreTimer.Waits.WAIT_ADVANCE_CURSOR,
+                plan.execute(recordStore).map(rec -> rec.getPrimaryKey().getLong(0)).asList());
+    }
+
+    @Test
+    void plannerChoosesUngroupedIndexForWithinDistance() throws Exception {
+        saveCities(UNGROUPED_HOOK, ImmutableList.of(
+                city(1, "X", 0.0, 0.0),
+                city(2, "X", 0.5, 0.0),
+                city(3, "X", 0.7, 0.7),      // in the bounding box corner but outside the circle
+                city(4, "X", 5.0, 5.0)));
+
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context, UNGROUPED_HOOK);
+            final RecordQuery query = RecordQuery.newBuilder()
+                    .setRecordType("City")
+                    .setFilter(withinDistance(0.0, 0.0, 100_000.0))
+                    .build();
+            final RecordQueryPlan plan = planQuery(query);
+            assertThat(plan.getUsedIndexes()).contains(UNGROUPED_INDEX);
+            assertThat(executePlanIds(context, plan)).containsExactlyInAnyOrder(1L, 2L);
+            commit(context);
+        }
+    }
+
+    @Test
+    void plannerChoosesGroupedIndexWhenGroupingIsEqualityBound() throws Exception {
+        saveCities(GROUPED_HOOK, ImmutableList.of(
+                city(1, "A", 0.0, 0.0),
+                city(2, "A", 0.3, 0.0),
+                city(3, "B", 0.0, 0.0),      // co-located, other group
+                city(4, "B", 10.0, 10.0)));
+
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context, GROUPED_HOOK);
+            final RecordQuery query = RecordQuery.newBuilder()
+                    .setRecordType("City")
+                    .setFilter(Query.and(
+                            Query.field("country").equalsValue("A"),
+                            withinDistance(0.0, 0.0, 100_000.0)))
+                    .build();
+            final RecordQueryPlan plan = planQuery(query);
+            assertThat(plan.getUsedIndexes()).contains(GROUPED_INDEX);
+            assertThat(executePlanIds(context, plan)).containsExactlyInAnyOrder(1L, 2L);
             commit(context);
         }
     }
