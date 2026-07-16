@@ -29,6 +29,19 @@ jacoco {
     toolVersion = libs.versions.jacoco.get()
 }
 
+// Resolved to the mockito-core jar so it can be installed as a -javaagent on every Test JVM.
+// Required on JDK 21+ because Mockito's inline mock maker can no longer self-attach to a
+// running VM (see https://javadoc.io/doc/org.mockito/mockito-core/latest/org.mockito/org/mockito/Mockito.html#0.3).
+// Under parallel JUnit class execution this also avoids the Byte-Buddy self-attach race that
+// manifests as `IllegalStateException: Could not initialize plugin: interface
+// org.mockito.plugins.MockMaker`. Hooked into every Test task in `tasks.withType(Test)` below.
+configurations {
+    mockitoAgent
+}
+dependencies {
+    mockitoAgent(libs.mockito) { transitive = false }
+}
+
 // if you add to or modify these testing configurations, make sure to update the CONTRIBUTING.md to include any updates
 test {
     useJUnitPlatform {
@@ -310,6 +323,17 @@ tasks.withType(Test).configureEach { task ->
         // would still be on the JUnit4 default (which has no excludeTags) without this. Calling
         // useJUnitPlatform() here is a no-op for tasks that already have it.
         task.useJUnitPlatform()
+
+        // Install Mockito as a JVM agent on every non-performance Test task. See the comment on the
+        // `mockitoAgent` configuration above for why this is necessary. Deferred to `doFirst`
+        // so that the `mockitoAgent` configuration is not resolved during evaluation (which
+        // would prevent the root build's `resolutionStrategy.eachDependency` callback from
+        // attaching to it).
+        // extract during configuration to be cache friendly
+        def mockitoAgent = configurations.mockitoAgent
+        task.doFirst {
+            task.jvmArgs("-javaagent:${mockitoAgent.asPath}")
+        }
 
         // Configure whether or not tests will validate that asyncToSync isn't being called in async
         // context.  See BlockingInAsyncDetection class for details on values.
