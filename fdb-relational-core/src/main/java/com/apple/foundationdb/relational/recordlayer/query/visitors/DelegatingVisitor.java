@@ -965,6 +965,18 @@ public class DelegatingVisitor<D extends TypedVisitor> implements TypedVisitor {
 
     @Nonnull
     @Override
+    public Object visitExplainColumnList(@Nonnull RelationalParser.ExplainColumnListContext ctx) {
+        return getDelegate().visitExplainColumnList(ctx);
+    }
+
+    @Nonnull
+    @Override
+    public Object visitExplainColumnOption(@Nonnull RelationalParser.ExplainColumnOptionContext ctx) {
+        return getDelegate().visitExplainColumnOption(ctx);
+    }
+
+    @Nonnull
+    @Override
     public Object visitHelpStatement(@Nonnull RelationalParser.HelpStatementContext ctx) {
         return getDelegate().visitHelpStatement(ctx);
     }

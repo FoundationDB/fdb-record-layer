@@ -34,6 +34,12 @@ import com.apple.foundationdb.relational.utils.Ddl;
 import com.apple.foundationdb.relational.utils.RelationalStructAssert;
 import com.apple.foundationdb.relational.utils.ResultSetAssert;
 import org.assertj.core.api.Assertions;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
@@ -101,22 +107,22 @@ public class ExplainTests {
             try (RelationalPreparedStatement ps = ddl.setSchemaAndGetConnection().prepareStatement("EXPLAIN SELECT * FROM RestaurantComplexRecord")) {
                 try (final RelationalResultSet resultSet = ps.executeQuery()) {
                     final var actualMetadata = resultSet.getMetaData();
-                    org.junit.jupiter.api.Assertions.assertEquals(expectedLabels.size(), actualMetadata.getColumnCount());
+                    assertEquals(expectedLabels.size(), actualMetadata.getColumnCount());
                     for (int i = 0; i < expectedLabels.size(); i++) {
-                        org.junit.jupiter.api.Assertions.assertEquals(expectedLabels.get(i), actualMetadata.getColumnLabel(i + 1));
-                        org.junit.jupiter.api.Assertions.assertEquals(expectedTypes.get(i), actualMetadata.getColumnType(i + 1));
+                        assertEquals(expectedLabels.get(i), actualMetadata.getColumnLabel(i + 1));
+                        assertEquals(expectedTypes.get(i), actualMetadata.getColumnType(i + 1));
                     }
                     final var actualContinuationMetadata = actualMetadata.getStructMetaData(5);
-                    org.junit.jupiter.api.Assertions.assertEquals(expectedContLabels.size(), actualContinuationMetadata.getColumnCount());
+                    assertEquals(expectedContLabels.size(), actualContinuationMetadata.getColumnCount());
                     for (int i = 0; i < expectedContLabels.size(); i++) {
-                        org.junit.jupiter.api.Assertions.assertEquals(expectedContLabels.get(i), actualContinuationMetadata.getColumnLabel(i + 1));
-                        org.junit.jupiter.api.Assertions.assertEquals(expectedContTypes.get(i), actualContinuationMetadata.getColumnType(i + 1));
+                        assertEquals(expectedContLabels.get(i), actualContinuationMetadata.getColumnLabel(i + 1));
+                        assertEquals(expectedContTypes.get(i), actualContinuationMetadata.getColumnType(i + 1));
                     }
                     final var actualPlannerMetricsMetadata = actualMetadata.getStructMetaData(6);
-                    org.junit.jupiter.api.Assertions.assertEquals(expectedPlannerMetricsLabels.size(), actualPlannerMetricsMetadata.getColumnCount());
+                    assertEquals(expectedPlannerMetricsLabels.size(), actualPlannerMetricsMetadata.getColumnCount());
                     for (int i = 0; i < expectedPlannerMetricsLabels.size(); i++) {
-                        org.junit.jupiter.api.Assertions.assertEquals(expectedPlannerMetricsLabels.get(i), actualPlannerMetricsMetadata.getColumnLabel(i + 1));
-                        org.junit.jupiter.api.Assertions.assertEquals(expectedPlannerMetricsTypes.get(i), actualPlannerMetricsMetadata.getColumnType(i + 1));
+                        assertEquals(expectedPlannerMetricsLabels.get(i), actualPlannerMetricsMetadata.getColumnLabel(i + 1));
+                        assertEquals(expectedPlannerMetricsTypes.get(i), actualPlannerMetricsMetadata.getColumnType(i + 1));
                     }
                 }
             }
@@ -154,7 +160,7 @@ public class ExplainTests {
                             .hasColumn("PLAN_HASH", -1635569052)
                             .hasColumn("PLAN_CONTINUATION", null);
                     final var plannerMetrics = resultSet.getStruct("PLANNER_METRICS");
-                    org.junit.jupiter.api.Assertions.assertNotNull(plannerMetrics);
+                    assertNotNull(plannerMetrics);
                     RelationalStructAssert.assertThat(plannerMetrics)
                             .hasValue("REWRITING_PHASE_TASK_COUNT", 44L)
                             .hasValue("PLANNING_PHASE_TASK_COUNT", 185L);
@@ -169,7 +175,7 @@ public class ExplainTests {
         final var defaultDebugger = Debugger.getDebugger();
         try {
             Debugger.setDebugger(null);
-            org.junit.jupiter.api.Assertions.assertNull(Debugger.getDebugger());
+            assertNull(Debugger.getDebugger());
 
             try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
                 executeInsert(ddl);
@@ -182,7 +188,7 @@ public class ExplainTests {
                                 .hasColumn("PLAN_HASH", -1635569052)
                                 .hasColumn("PLAN_CONTINUATION", null);
                         final var plannerMetrics = resultSet.getStruct("PLANNER_METRICS");
-                        org.junit.jupiter.api.Assertions.assertNotNull(plannerMetrics);
+                        assertNotNull(plannerMetrics);
                         RelationalStructAssert.assertThat(plannerMetrics)
                                 .hasValue("REWRITING_PHASE_TASK_COUNT", 44L)
                                 .hasValue("PLANNING_PHASE_TASK_COUNT", 185L);
@@ -219,8 +225,8 @@ public class ExplainTests {
                     return java.util.Optional.empty();
                 }
             });
-            org.junit.jupiter.api.Assertions.assertNull(Debugger.getDebugger());
-            org.junit.jupiter.api.Assertions.assertNotNull(PlannerEventStatsCollector.getCollector());
+            assertNull(Debugger.getDebugger());
+            assertNotNull(PlannerEventStatsCollector.getCollector());
 
             try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
                 executeInsert(ddl);
@@ -232,12 +238,12 @@ public class ExplainTests {
                                 .hasColumn("PLAN", "ISCAN(RECORD_NAME_IDX <,>)")
                                 .hasColumn("PLAN_HASH", -1635569052)
                                 .hasColumn("PLAN_CONTINUATION", null);
-                        org.junit.jupiter.api.Assertions.assertNull(resultSet.getStruct("PLANNER_METRICS"));
+                        assertNull(resultSet.getStruct("PLANNER_METRICS"));
                         assertResult.hasNoNextRow();
                     }
                 }
 
-                org.junit.jupiter.api.Assertions.assertNotNull(PlannerEventStatsCollector.getCollector());
+                assertNotNull(PlannerEventStatsCollector.getCollector());
             }
         } finally {
             Debugger.setDebugger(defaultDebugger);
@@ -252,8 +258,8 @@ public class ExplainTests {
         try {
             Debugger.setDebugger(null);
             PlannerEventStatsCollector.setCollector(null);
-            org.junit.jupiter.api.Assertions.assertNull(Debugger.getDebugger());
-            org.junit.jupiter.api.Assertions.assertNull(PlannerEventStatsCollector.getCollector());
+            assertNull(Debugger.getDebugger());
+            assertNull(PlannerEventStatsCollector.getCollector());
 
             try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
                 executeInsert(ddl);
@@ -269,7 +275,7 @@ public class ExplainTests {
                                 .hasColumn("PLAN_HASH", -1635569052)
                                 .hasColumn("PLAN_CONTINUATION", null);
                         final var plannerMetrics = resultSet.getStruct("PLANNER_METRICS");
-                        org.junit.jupiter.api.Assertions.assertNotNull(plannerMetrics);
+                        assertNotNull(plannerMetrics);
                         RelationalStructAssert.assertThat(plannerMetrics)
                                 .hasValue("REWRITING_PHASE_TASK_COUNT", 44L)
                                 .hasValue("PLANNING_PHASE_TASK_COUNT", 185L);
@@ -277,11 +283,11 @@ public class ExplainTests {
                     }
                 }
                 final var metricCollector = ((EmbeddedRelationalConnection)ddl.getConnection()).getMetricCollector();
-                org.junit.jupiter.api.Assertions.assertNotNull(metricCollector);
-                org.junit.jupiter.api.Assertions.assertTrue(metricCollector.hasCounter(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_HIT));
-                org.junit.jupiter.api.Assertions.assertEquals(1L, metricCollector.getCountsForCounter(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_HIT));
+                assertNotNull(metricCollector);
+                assertTrue(metricCollector.hasCounter(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_HIT));
+                assertEquals(1L, metricCollector.getCountsForCounter(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_HIT));
 
-                org.junit.jupiter.api.Assertions.assertNull(PlannerEventStatsCollector.getCollector());
+                assertNull(PlannerEventStatsCollector.getCollector());
             }
         } finally {
             Debugger.setDebugger(defaultDebugger);
@@ -296,15 +302,15 @@ public class ExplainTests {
         try {
             Debugger.setDebugger(null);
             PlannerEventStatsCollector.setCollector(null);
-            org.junit.jupiter.api.Assertions.assertNull(Debugger.getDebugger());
-            org.junit.jupiter.api.Assertions.assertNull(PlannerEventStatsCollector.getCollector());
+            assertNull(Debugger.getDebugger());
+            assertNull(PlannerEventStatsCollector.getCollector());
 
             try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
                 executeInsert(ddl);
-                org.junit.jupiter.api.Assertions.assertThrows(SQLException.class,
+                assertThrows(SQLException.class,
                         () -> ddl.setSchemaAndGetConnection().prepareStatement("EXPLAIN SELECT * FROM bla").execute());
 
-                org.junit.jupiter.api.Assertions.assertNull(PlannerEventStatsCollector.getCollector());
+                assertNull(PlannerEventStatsCollector.getCollector());
             }
         } finally {
             Debugger.setDebugger(defaultDebugger);
@@ -331,7 +337,7 @@ public class ExplainTests {
                                 .hasColumn("PLAN", "ISCAN(RECORD_NAME_IDX <,>)")
                                 .hasColumn("PLAN_HASH", -1635569052);
                         final var continuationInfo = resultSet.getStruct(5);
-                        org.junit.jupiter.api.Assertions.assertNotNull(continuationInfo);
+                        assertNotNull(continuationInfo);
                         final var assertStruct = RelationalStructAssert.assertThat(continuationInfo);
                         assertStruct.hasValue("EXECUTION_STATE", new byte[]{10, 5, 0, 21, 1, 21, 11, 17, -84, -51, 115, -104, -35, 66, 0, 94});
                         assertStruct.hasValue("VERSION", 1);
@@ -363,7 +369,7 @@ public class ExplainTests {
                                 .hasColumn("PLAN", "ISCAN(RECORD_NAME_IDX <,>)")
                                 .hasColumn("PLAN_HASH", -1635569052);
                         final var continuationInfo = resultSet.getStruct(5);
-                        org.junit.jupiter.api.Assertions.assertNotNull(continuationInfo);
+                        assertNotNull(continuationInfo);
                         final var assertStruct = RelationalStructAssert.assertThat(continuationInfo);
                         assertStruct.hasValue("EXECUTION_STATE", new byte[]{10, 5, 0, 21, 1, 21, 11, 17, -84, -51, 115, -104, -35, 66, 0, 94});
                         assertStruct.hasValue("VERSION", 1);
@@ -377,6 +383,94 @@ public class ExplainTests {
         }
     }
 
+    @Test
+    void explainColumnSelectionPlanOnly() throws Exception {
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            executeInsert(ddl);
+            try (RelationalPreparedStatement ps = ddl.setSchemaAndGetConnection().prepareStatement("EXPLAIN (PLAN) SELECT * FROM RestaurantComplexRecord")) {
+                try (final RelationalResultSet resultSet = ps.executeQuery()) {
+                    final var metadata = resultSet.getMetaData();
+                    assertEquals(1, metadata.getColumnCount());
+                    assertEquals("PLAN", metadata.getColumnLabel(1));
+                    ResultSetAssert.assertThat(resultSet).hasNextRow()
+                            .hasColumn("PLAN", "ISCAN(RECORD_NAME_IDX <,>)");
+                }
+            }
+        }
+    }
+
+    @Test
+    void explainColumnSelectionPlanAndHash() throws Exception {
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            executeInsert(ddl);
+            try (RelationalPreparedStatement ps = ddl.setSchemaAndGetConnection().prepareStatement("EXPLAIN (PLAN, PLAN_HASH) SELECT * FROM RestaurantComplexRecord")) {
+                try (final RelationalResultSet resultSet = ps.executeQuery()) {
+                    final var metadata = resultSet.getMetaData();
+                    assertEquals(2, metadata.getColumnCount());
+                    assertEquals("PLAN", metadata.getColumnLabel(1));
+                    assertEquals("PLAN_HASH", metadata.getColumnLabel(2));
+                    ResultSetAssert.assertThat(resultSet).hasNextRow()
+                            .hasColumn("PLAN", "ISCAN(RECORD_NAME_IDX <,>)")
+                            .hasColumn("PLAN_HASH", -1635569052);
+                }
+            }
+        }
+    }
+
+    @Test
+    void explainColumnSelectionHashOnly() throws Exception {
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            executeInsert(ddl);
+            try (RelationalPreparedStatement ps = ddl.setSchemaAndGetConnection().prepareStatement("EXPLAIN (PLAN_HASH) SELECT * FROM RestaurantComplexRecord")) {
+                try (final RelationalResultSet resultSet = ps.executeQuery()) {
+                    final var metadata = resultSet.getMetaData();
+                    assertEquals(1, metadata.getColumnCount());
+                    assertEquals("PLAN_HASH", metadata.getColumnLabel(1));
+                    ResultSetAssert.assertThat(resultSet).hasNextRow()
+                            .hasColumn("PLAN_HASH", -1635569052);
+                }
+            }
+        }
+    }
+
+    @Test
+    void explainColumnSelectionDotOnly() throws Exception {
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            executeInsert(ddl);
+            try (RelationalPreparedStatement ps = ddl.setSchemaAndGetConnection().prepareStatement("EXPLAIN (PLAN_DOT) SELECT * FROM RestaurantComplexRecord")) {
+                try (final RelationalResultSet resultSet = ps.executeQuery()) {
+                    final var metadata = resultSet.getMetaData();
+                    assertEquals(1, metadata.getColumnCount());
+                    assertEquals("PLAN_DOT", metadata.getColumnLabel(1));
+                    resultSet.next();
+                    final String dot = resultSet.getString("PLAN_DOT");
+                    assertNotNull(dot);
+                    Assertions.assertThat(dot).contains("digraph");
+                }
+            }
+        }
+    }
+
+    @Test
+    void explainNoColumnListReturnsAllColumns() throws Exception {
+        // Plain EXPLAIN with no column list must continue to return all 6 columns.
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            executeInsert(ddl);
+            try (RelationalPreparedStatement ps = ddl.setSchemaAndGetConnection().prepareStatement("EXPLAIN SELECT * FROM RestaurantComplexRecord")) {
+                try (final RelationalResultSet resultSet = ps.executeQuery()) {
+                    final var metadata = resultSet.getMetaData();
+                    assertEquals(6, metadata.getColumnCount());
+                    assertEquals("PLAN", metadata.getColumnLabel(1));
+                    assertEquals("PLAN_HASH", metadata.getColumnLabel(2));
+                    assertEquals("PLAN_DOT", metadata.getColumnLabel(3));
+                    assertEquals("PLAN_GML", metadata.getColumnLabel(4));
+                    assertEquals("PLAN_CONTINUATION", metadata.getColumnLabel(5));
+                    assertEquals("PLANNER_METRICS", metadata.getColumnLabel(6));
+                }
+            }
+        }
+    }
+
     private Continuation consumeResultAndGetContinuation(RelationalPreparedStatement ps, int numRows) throws SQLException {
         Continuation continuation;
         try (final RelationalResultSet resultSet = ps.executeQuery()) {
@@ -384,7 +478,7 @@ public class ExplainTests {
                 resultSet.next();
             }
             Assertions.assertThat(resultSet.next()).isFalse();
-            org.junit.jupiter.api.Assertions.assertSame(Continuation.Reason.QUERY_EXECUTION_LIMIT_REACHED, resultSet.getContinuation().getReason());
+            assertSame(Continuation.Reason.QUERY_EXECUTION_LIMIT_REACHED, resultSet.getContinuation().getReason());
             continuation = resultSet.getContinuation();
         }
         return continuation;

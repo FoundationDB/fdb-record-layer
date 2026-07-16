@@ -1057,6 +1057,18 @@ public class BaseVisitor extends RelationalParserBaseVisitor<Object> implements 
 
     @Nonnull
     @Override
+    public Object visitExplainColumnList(@Nonnull RelationalParser.ExplainColumnListContext ctx) {
+        return visitChildren(ctx);
+    }
+
+    @Nonnull
+    @Override
+    public Object visitExplainColumnOption(@Nonnull RelationalParser.ExplainColumnOptionContext ctx) {
+        return visitChildren(ctx);
+    }
+
+    @Nonnull
+    @Override
     public Object visitHelpStatement(@Nonnull RelationalParser.HelpStatementContext ctx) {
         return visitChildren(ctx);
     }

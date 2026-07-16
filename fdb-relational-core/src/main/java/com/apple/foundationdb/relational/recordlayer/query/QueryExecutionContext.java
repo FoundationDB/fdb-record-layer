@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.Set;
 
 public interface QueryExecutionContext {
 
@@ -59,6 +60,9 @@ public interface QueryExecutionContext {
     Literals getLiterals();
 
     boolean isForExplain(); // todo (yhatem) remove.
+
+    @Nonnull
+    Set<ExplainColumn> getExplainColumns();
 
     @Nonnull
     PlanHashable.PlanHashMode getPlanHashMode();
