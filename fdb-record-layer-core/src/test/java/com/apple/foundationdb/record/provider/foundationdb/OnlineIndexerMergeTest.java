@@ -49,7 +49,6 @@ import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.BooleanSource;
 import com.apple.test.Tags;
 import com.google.auto.service.AutoService;
-import com.google.protobuf.Any;
 import com.google.protobuf.Message;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Tag;
@@ -430,18 +429,6 @@ public class OnlineIndexerMergeTest extends FDBRecordStoreConcurrentTestBase {
 
                 @Nonnull
                 @Override
-                public <M extends Message> Any serializePendingWriteQueue(@Nullable final FDBIndexableRecord<M> oldRecord, @Nullable final FDBIndexableRecord<M> newRecord) {
-                    throw new UnsupportedOperationException();
-                }
-
-                @Nonnull
-                @Override
-                public CompletableFuture<Void> updateFromQueue(@Nonnull final Any data) {
-                    throw new UnsupportedOperationException();
-                }
-
-                @Nonnull
-                @Override
                 public RecordCursor<IndexEntry> scanUniquenessViolations(@Nonnull final TupleRange range, @Nullable final byte[] continuation, @Nonnull final ScanProperties scanProperties) {
                     throw new UnsupportedOperationException();
                 }
@@ -493,11 +480,6 @@ public class OnlineIndexerMergeTest extends FDBRecordStoreConcurrentTestBase {
 
                 @Override
                 public boolean isIdempotent() {
-                    throw new UnsupportedOperationException();
-                }
-
-                @Override
-                public boolean isPendingWriteQueueAllowed() {
                     throw new UnsupportedOperationException();
                 }
 

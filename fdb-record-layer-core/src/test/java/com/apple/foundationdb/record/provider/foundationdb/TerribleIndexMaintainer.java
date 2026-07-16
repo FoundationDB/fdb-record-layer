@@ -35,7 +35,6 @@ import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.InvalidIndexEntry;
 import com.apple.foundationdb.record.query.QueryToKeyMatcher;
 import com.apple.foundationdb.tuple.Tuple;
-import com.google.protobuf.Any;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
@@ -103,18 +102,6 @@ public class TerribleIndexMaintainer extends IndexMaintainer {
 
     @Nonnull
     @Override
-    public <M extends Message> Any serializePendingWriteQueue(@Nullable final FDBIndexableRecord<M> oldRecord, @Nullable final FDBIndexableRecord<M> newRecord) {
-        throw new UnsupportedOperationException("TerribleIndexMaintainer does not support the pending write queue");
-    }
-
-    @Nonnull
-    @Override
-    public CompletableFuture<Void> updateFromQueue(@Nonnull final Any data) {
-        return AsyncUtil.DONE;
-    }
-
-    @Nonnull
-    @Override
     public RecordCursor<IndexEntry> scanUniquenessViolations(@Nonnull TupleRange range, @Nullable byte[] continuation, @Nonnull ScanProperties scanProperties) {
         throw new UnsupportedOperationException("Terrible index cannot scan uniqueness violations");
     }
@@ -153,11 +140,6 @@ public class TerribleIndexMaintainer extends IndexMaintainer {
 
     @Override
     public boolean isIdempotent() {
-        return false;
-    }
-
-    @Override
-    public boolean isPendingWriteQueueAllowed() {
         return false;
     }
 

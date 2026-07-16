@@ -42,7 +42,6 @@ import com.apple.foundationdb.record.provider.foundationdb.IndexOperation;
 import com.apple.foundationdb.record.provider.foundationdb.IndexOperationResult;
 import com.apple.foundationdb.record.query.QueryToKeyMatcher;
 import com.apple.foundationdb.tuple.Tuple;
-import com.google.protobuf.Any;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
@@ -78,19 +77,6 @@ public class NoOpIndexMaintainer extends IndexMaintainer {
     @Nonnull
     @Override
     public <M extends Message> CompletableFuture<Void> updateWhileWriteOnly(@Nullable final FDBIndexableRecord<M> oldRecord, @Nullable final FDBIndexableRecord<M> newRecord) {
-        return AsyncUtil.DONE;
-    }
-
-    @Nonnull
-    @Override
-    public <M extends Message> Any serializePendingWriteQueue(@Nullable final FDBIndexableRecord<M> oldRecord, @Nullable final FDBIndexableRecord<M> newRecord) {
-        // isPendingWriteQueueAllowed() returns false, so this maintainer never defers writes to a queue.
-        throw new UnsupportedOperationException("NoOpIndexMaintainer does not support the pending write queue");
-    }
-
-    @Nonnull
-    @Override
-    public CompletableFuture<Void> updateFromQueue(@Nonnull final Any data) {
         return AsyncUtil.DONE;
     }
 
@@ -142,11 +128,6 @@ public class NoOpIndexMaintainer extends IndexMaintainer {
 
     @Override
     public boolean isIdempotent() {
-        return false;
-    }
-
-    @Override
-    public boolean isPendingWriteQueueAllowed() {
         return false;
     }
 

@@ -61,7 +61,6 @@ import com.apple.foundationdb.record.slidingwindowvector.TestRecordsSlidingWindo
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
 import com.google.common.collect.ImmutableList;
-import com.google.protobuf.Any;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Message;
 import org.junit.jupiter.api.Tag;
@@ -1518,19 +1517,6 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
         public <M extends Message> CompletableFuture<Void> updateWhileWriteOnly(@Nullable FDBIndexableRecord<M> o,
                                                                                  @Nullable FDBIndexableRecord<M> n) {
             return AsyncUtil.DONE;
-        }
-
-        @Nonnull
-        @Override
-        public <M extends Message> Any serializePendingWriteQueue(@Nullable final FDBIndexableRecord<M> o,
-                                                                  @Nullable final FDBIndexableRecord<M> n) {
-            throw new UnsupportedOperationException("sliding window should not delegate this call");
-        }
-
-        @Nonnull
-        @Override
-        public CompletableFuture<Void> updateFromQueue(@Nonnull final Any data) {
-            throw new UnsupportedOperationException("sliding window should not delegate this call");
         }
 
         @Nonnull
