@@ -167,8 +167,11 @@ public abstract class IndexMaintainer {
      * @return a packed message to save in the pending write queue
      */
     @Nonnull
-    public abstract <M extends Message> Any serializePendingWriteQueue(@Nullable FDBIndexableRecord<M> oldRecord,
-                                                                       @Nullable FDBIndexableRecord<M> newRecord);
+    @API(API.Status.EXPERIMENTAL)
+    public <M extends Message> Any serializePendingWriteQueue(@Nullable FDBIndexableRecord<M> oldRecord,
+                                                              @Nullable FDBIndexableRecord<M> newRecord) {
+        throw new UnsupportedOperationException(state.index.getName() + " does not support the pending write queue");
+    }
 
 
     /**
@@ -178,7 +181,10 @@ public abstract class IndexMaintainer {
      * @return a future that is complete when the update has been applied
      */
     @Nonnull
-    public abstract CompletableFuture<Void> updateFromQueue(@Nonnull Any data);
+    @API(API.Status.EXPERIMENTAL)
+    public CompletableFuture<Void> updateFromQueue(@Nonnull Any data) {
+        throw new UnsupportedOperationException(state.index.getName() + " does not support the pending write queue");
+    }
 
 
     /**
@@ -328,9 +334,13 @@ public abstract class IndexMaintainer {
      * an index is in this state, user updates are deferred to a pending write queue instead of being applied to the
      * index directly, and the online indexer drains that queue as it builds.
      * Maintainers that cannot correctly defer and later replay updates should return {@code false} to refuse this state;
+     * this is the default, so maintainers that do support the queue must opt in by overriding this method.
      * @return whether this index may be built with a pending write queue
      */
-    public abstract boolean isPendingWriteQueueAllowed();
+    @API(API.Status.EXPERIMENTAL)
+    public boolean isPendingWriteQueueAllowed() {
+        return false;
+    }
 
     /**
      * Whether this key has been added to some range within the {@link com.apple.foundationdb.async.RangeSet RangeSet}
