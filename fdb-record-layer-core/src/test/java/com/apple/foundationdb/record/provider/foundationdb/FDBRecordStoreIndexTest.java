@@ -1042,9 +1042,10 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
             // anything to the index (the permissive index never defers real work to the queue).
             final Index permissiveIndex = recordStore.getRecordMetaData().getIndex(permissiveIndexName);
             final IndexMaintainer permissiveMaintainer = recordStore.getIndexMaintainer(permissiveIndex);
-            permissiveMaintainer.updateFromQueue(Any.getDefaultInstance()).join();
 
-            // The NoOp maintainer does not allow the pending write queue, so it refuses to serialize a queue entry.
+            // The NoOp maintainer does not allow the pending write queue, so it throw on these operations
+            assertThrows(UnsupportedOperationException.class,
+                    () -> permissiveMaintainer.updateFromQueue(Any.getDefaultInstance()).join());
             assertThrows(UnsupportedOperationException.class,
                     () -> permissiveMaintainer.serializePendingWriteQueue(null, null));
 
