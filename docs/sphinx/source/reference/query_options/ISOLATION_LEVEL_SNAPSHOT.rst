@@ -29,9 +29,11 @@ isolation useful when a query reads data that is likely to be written concurrent
 does not need its read to participate in conflict detection — for example, sampling an aggregate to
 choose a value that only needs to be approximately current.
 
-The option affects only the query it is attached to. Other reads and writes in the same transaction
-continue to use their normal (serializable) isolation, so a snapshot-isolation ``SELECT`` can be
-freely mixed with serializable reads and writes in a single transaction.
+Snapshot isolation applies only to the reads of the statement it is attached to. Other reads and
+writes in the same transaction — and everything else on the connection — continue to use their
+normal (serializable) isolation, so a snapshot ``SELECT`` can be freely mixed with serializable reads
+and writes in a single transaction. (For how an ``OPTIONS`` clause is scoped in general, see
+:doc:`Query options </reference/query_options>`.)
 
 Examples
 ########
@@ -92,9 +94,6 @@ Restrictions
   ``EXECUTE CONTINUATION``). It may be written on an ``INSERT``, ``UPDATE``, or ``DELETE`` statement,
   but is rejected there because mutations rely on serializable reads (for example, when maintaining
   indexes and enforcing primary-key uniqueness) to remain correct.
-* The option is a whole-statement setting attached to the top-level statement. It cannot be placed on
-  a subquery (a ``FROM`` subquery, a subquery in a predicate, etc.), an index definition, or any other
-  DDL — doing so is a syntax error.
 * Snapshot isolation changes only conflict detection, not visibility. A snapshot read still returns
   data as of the transaction's read version and never sees uncommitted or later-committed writes
   from other transactions. It will include writes from the current transaction.
