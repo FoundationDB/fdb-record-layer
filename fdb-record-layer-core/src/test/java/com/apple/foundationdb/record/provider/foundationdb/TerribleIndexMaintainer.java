@@ -23,7 +23,6 @@ package com.apple.foundationdb.record.provider.foundationdb;
 import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.EvaluationContext;
-import com.apple.foundationdb.record.IndexBuildProto;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.IsolationLevel;
@@ -36,6 +35,7 @@ import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.InvalidIndexEntry;
 import com.apple.foundationdb.record.query.QueryToKeyMatcher;
 import com.apple.foundationdb.tuple.Tuple;
+import com.google.protobuf.Any;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
@@ -103,13 +103,13 @@ public class TerribleIndexMaintainer extends IndexMaintainer {
 
     @Nonnull
     @Override
-    public <M extends Message> IndexBuildProto.PendingWritesQueueEntry serializePendingWriteQueue(@Nullable final FDBIndexableRecord<M> oldRecord, @Nullable final FDBIndexableRecord<M> newRecord) {
+    public <M extends Message> Any serializePendingWriteQueue(@Nullable final FDBIndexableRecord<M> oldRecord, @Nullable final FDBIndexableRecord<M> newRecord) {
         throw new UnsupportedOperationException("TerribleIndexMaintainer does not support the pending write queue");
     }
 
     @Nonnull
     @Override
-    public CompletableFuture<Void> updateFromQueue(@Nonnull final IndexBuildProto.PendingWritesQueueEntry payload) {
+    public CompletableFuture<Void> updateFromQueue(@Nonnull final Any data) {
         return AsyncUtil.DONE;
     }
 

@@ -78,7 +78,9 @@ import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.TupleHelpers;
 import com.google.common.base.Verify;
+import com.google.protobuf.Any;
 import com.google.protobuf.ByteString;
+import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.Message;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -335,46 +337,45 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
 
     @Override
     @Nonnull
-    public <M extends Message> IndexBuildProto.PendingWritesQueueEntry serializePendingWriteQueue(@Nullable final FDBIndexableRecord<M> oldRecord, @Nullable final FDBIndexableRecord<M> newRecord) {
+    public <M extends Message> Any serializePendingWriteQueue(@Nullable final FDBIndexableRecord<M> oldRecord, @Nullable final FDBIndexableRecord<M> newRecord) {
         // TODO: forbid PWQ in the standard maintainer
-        return buildPendingWritesQueueEntry(state, oldRecord, newRecord);
+        return Any.pack(buildOldAndNewRecords(state, oldRecord, newRecord));
     }
 
     @Override
     @Nonnull
-    public CompletableFuture<Void> updateFromQueue(@Nonnull final IndexBuildProto.PendingWritesQueueEntry payload) {
+    public CompletableFuture<Void> updateFromQueue(@Nonnull final Any data) {
         // Calling updateWhileWriteOnly explicitly, lest this update be re-pushed to the queue
+        final IndexBuildProto.OldAndNewRecords records = oldAndNewRecords(data);
         return updateWhileWriteOnly(
-                getOldRecord(state, payload),
-                getNewRecord(state, payload));
+                getOldRecord(state, records),
+                getNewRecord(state, records));
     }
 
     /**
-     * Serialize an old/new record pair into a {@link IndexBuildProto.PendingWritesQueueEntry} so that it can be deferred
-     * onto the index's pending writes queue. Either record may be null (but not both): a null {@code oldRecord} represents
-     * an insert and a null {@code newRecord} represents a delete.
+     * Serialize an old/new record pair into an {@link IndexBuildProto.OldAndNewRecords} message to be deferred onto the
+     * index's pending writes queue. Either record may be null (but not both): a null {@code oldRecord} represents an
+     * insert and a null {@code newRecord} represents a delete.
      * @param state the maintainer state whose store serializer is used
      * @param oldRecord the previous stored record or {@code null} if a new record is being created
      * @param newRecord the new record or {@code null} if an old record is being deleted
      * @param <M> type of message
-     * @return the entry to enqueue
+     * @return the records payload to enqueue
      */
     @Nonnull
-    static <M extends Message> IndexBuildProto.PendingWritesQueueEntry buildPendingWritesQueueEntry(@Nonnull final IndexMaintainerState state,
-                                                                                                    @Nullable final FDBIndexableRecord<M> oldRecord,
-                                                                                                    @Nullable final FDBIndexableRecord<M> newRecord) {
+    static <M extends Message> IndexBuildProto.OldAndNewRecords buildOldAndNewRecords(@Nonnull final IndexMaintainerState state,
+                                                                                      @Nullable final FDBIndexableRecord<M> oldRecord,
+                                                                                      @Nullable final FDBIndexableRecord<M> newRecord) {
         final RecordSerializer<Message> serializer = state.store.getSerializer();
-        final IndexBuildProto.PendingWritesQueueEntry.OldAndNewRecords.Builder recordsBuilder =
-                IndexBuildProto.PendingWritesQueueEntry.OldAndNewRecords.newBuilder();
+        final IndexBuildProto.OldAndNewRecords.Builder recordsBuilder =
+                IndexBuildProto.OldAndNewRecords.newBuilder();
         if (oldRecord != null) {
             recordsBuilder.setOldRecords(serializeRecord(state, oldRecord, serializer));
         }
         if (newRecord != null) {
             recordsBuilder.setNewRecord(serializeRecord(state, newRecord, serializer));
         }
-        return IndexBuildProto.PendingWritesQueueEntry.newBuilder()
-                .setOldAndNewRecords(recordsBuilder)
-                .build();
+        return recordsBuilder.build();
     }
 
     @Nonnull
@@ -386,34 +387,41 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
     }
 
     /**
-     * Deserialize the old records from a pending write queued.
+     * Unpack the {@link IndexBuildProto.OldAndNewRecords} payload produced by
+     * {@link #serializePendingWriteQueue(FDBIndexableRecord, FDBIndexableRecord)} from a queue entry's {@code data}.
+     * @param data the {@link Any}-packed records payload
+     * @return the unpacked old/new records payload
+     */
+    @Nonnull
+    static IndexBuildProto.OldAndNewRecords oldAndNewRecords(@Nonnull final Any data) {
+        try {
+            return data.unpack(IndexBuildProto.OldAndNewRecords.class);
+        } catch (InvalidProtocolBufferException ex) {
+            throw new RecordCoreException("failed to parse pending write queue entry data", ex);
+        }
+    }
+
+    /**
+     * Deserialize the old record from a given pending write payload.
      * @param state the maintainer state whose store serializer is used
-     * @param payload the queued entry to read
+     * @param records the parsed old/new records payload
      * @return the previous stored record, or {@code null} if none
      */
     @Nullable
     static FDBStoredRecord<Message> getOldRecord(@Nonnull final IndexMaintainerState state,
-                                                 @Nonnull final IndexBuildProto.PendingWritesQueueEntry payload) {
-        if (!payload.hasOldAndNewRecords()) {
-            throw new RecordCoreException("wrong item in queue");
-        }
-        final IndexBuildProto.PendingWritesQueueEntry.OldAndNewRecords records = payload.getOldAndNewRecords();
+                                                 @Nonnull final IndexBuildProto.OldAndNewRecords records) {
         return records.hasOldRecords() ? deserializeRecord(state, records.getOldRecords()) : null;
     }
 
     /**
-     * Deserialize the new record from a pending write queued.
+     * Deserialize the new record from an UPDATE queue entry's records payload.
      * @param state the maintainer state whose store serializer is used
-     * @param payload the queued entry to read
+     * @param records the parsed old/new records payload
      * @return the new stored record, or {@code null} if none
      */
     @Nullable
     static FDBStoredRecord<Message> getNewRecord(@Nonnull final IndexMaintainerState state,
-                                                 @Nonnull final IndexBuildProto.PendingWritesQueueEntry payload) {
-        if (!payload.hasOldAndNewRecords()) {
-            throw new RecordCoreException("wrong item in queue");
-        }
-        final IndexBuildProto.PendingWritesQueueEntry.OldAndNewRecords records = payload.getOldAndNewRecords();
+                                                 @Nonnull final IndexBuildProto.OldAndNewRecords records) {
         return records.hasNewRecord() ? deserializeRecord(state, records.getNewRecord()) : null;
     }
 

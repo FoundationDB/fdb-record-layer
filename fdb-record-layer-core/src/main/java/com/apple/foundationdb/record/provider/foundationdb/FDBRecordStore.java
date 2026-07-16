@@ -785,7 +785,10 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                                 .addLogInfo(LogMessageKeys.INDEX_NAME, index.getName());
                     }
                     future = IndexingPendingWriteQueue.enqueuePendingIndexUpdate(this, index,
-                            maintainer.serializePendingWriteQueue(oldRecord, newRecord));
+                            IndexBuildProto.PendingWritesQueueEntry.newBuilder()
+                                    .setOperation(IndexBuildProto.PendingWritesQueueEntry.Operation.UPDATE)
+                                    .setData(maintainer.serializePendingWriteQueue(oldRecord, newRecord))
+                                    .build());
                     context.addToSessionSet(ContextSessionKey.WRITE_ONLY_WITH_QUEUE_INDEXES_UPDATED, index.getName());
                     break;
 

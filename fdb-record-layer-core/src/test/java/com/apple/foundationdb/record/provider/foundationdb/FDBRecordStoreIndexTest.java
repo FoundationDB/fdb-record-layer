@@ -80,6 +80,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Iterators;
+import com.google.protobuf.Any;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.Message;
 import org.hamcrest.Description;
@@ -1021,7 +1022,9 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
             final IndexBuildProto.PendingWritesQueueEntry payload =
                     standardQueue.getQueueCursor(context, ScanProperties.FORWARD_SCAN, null)
                             .asList().join().get(0).getPayload();
-            final IndexBuildProto.PendingWritesQueueEntry.OldAndNewRecords records = payload.getOldAndNewRecords();
+            assertThat(payload.getOperation(), is(IndexBuildProto.PendingWritesQueueEntry.Operation.UPDATE));
+            final IndexBuildProto.OldAndNewRecords records =
+                    payload.getData().unpack(IndexBuildProto.OldAndNewRecords.class);
             assertThat(records.hasOldRecords(), is(false));
             assertThat(records.hasNewRecord(), is(true));
             final TestRecords1Proto.MySimpleRecord enqueued = TestRecords1Proto.MySimpleRecord.newBuilder()
@@ -1038,8 +1041,12 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
             // Draining a queued entry through the NoOp maintainer is also a no-op that completes without applying
             // anything to the index (the permissive index never defers real work to the queue).
             final Index permissiveIndex = recordStore.getRecordMetaData().getIndex(permissiveIndexName);
-            recordStore.getIndexMaintainer(permissiveIndex)
-                    .updateFromQueue(IndexBuildProto.PendingWritesQueueEntry.getDefaultInstance()).join();
+            final IndexMaintainer permissiveMaintainer = recordStore.getIndexMaintainer(permissiveIndex);
+            permissiveMaintainer.updateFromQueue(Any.getDefaultInstance()).join();
+
+            // The NoOp maintainer does not allow the pending write queue, so it refuses to serialize a queue entry.
+            assertThrows(UnsupportedOperationException.class,
+                    () -> permissiveMaintainer.serializePendingWriteQueue(null, null));
 
             commit(context);
         }

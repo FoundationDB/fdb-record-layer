@@ -101,8 +101,11 @@ public final class IndexingPendingWriteQueue {
             return AsyncUtil.DONE;
         }
         final IndexBuildProto.PendingWritesQueueEntry payload = entry.getPayload();
+        if (payload.getOperation() != IndexBuildProto.PendingWritesQueueEntry.Operation.UPDATE) { // currently the only operation
+            throw new RecordCoreException("unsupported pending write queue operation: " + payload.getOperation());
+        }
         return store.getIndexMaintainer(index)
-                .updateFromQueue(payload)
+                .updateFromQueue(payload.getData())
                 .thenAccept(ignore -> {
                     quotaManager.deleteCountInc();
                     getIndexingQueue(store, index).clearEntry(store.getContext(), entry);

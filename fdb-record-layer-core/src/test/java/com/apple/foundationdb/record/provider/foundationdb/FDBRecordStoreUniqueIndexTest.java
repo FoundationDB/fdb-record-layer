@@ -24,7 +24,6 @@ import com.apple.foundationdb.KeyValue;
 import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.async.MoreAsyncUtil;
 import com.apple.foundationdb.record.EvaluationContext;
-import com.apple.foundationdb.record.IndexBuildProto;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.IndexState;
@@ -57,6 +56,7 @@ import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.BooleanSource;
 import com.apple.test.Tags;
 import com.google.auto.service.AutoService;
+import com.google.protobuf.Any;
 import com.google.protobuf.Message;
 import org.hamcrest.Matcher;
 import org.hamcrest.Matchers;
@@ -853,14 +853,14 @@ public class FDBRecordStoreUniqueIndexTest extends FDBRecordStoreTestBase {
 
         @Nonnull
         @Override
-        public <M extends Message> IndexBuildProto.PendingWritesQueueEntry serializePendingWriteQueue(@Nullable final FDBIndexableRecord<M> oldRecord, @Nullable final FDBIndexableRecord<M> newRecord) {
+        public <M extends Message> Any serializePendingWriteQueue(@Nullable final FDBIndexableRecord<M> oldRecord, @Nullable final FDBIndexableRecord<M> newRecord) {
             return underlying.serializePendingWriteQueue(oldRecord, newRecord);
         }
 
         @Nonnull
         @Override
-        public CompletableFuture<Void> updateFromQueue(@Nonnull final IndexBuildProto.PendingWritesQueueEntry payload) {
-            return underlying.updateFromQueue(payload);
+        public CompletableFuture<Void> updateFromQueue(@Nonnull final Any data) {
+            return underlying.updateFromQueue(data);
         }
 
         @Nonnull

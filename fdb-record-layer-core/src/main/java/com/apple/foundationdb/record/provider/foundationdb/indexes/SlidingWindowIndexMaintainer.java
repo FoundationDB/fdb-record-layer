@@ -60,6 +60,7 @@ import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.TupleHelpers;
 import com.google.common.base.Verify;
+import com.google.protobuf.Any;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
@@ -430,18 +431,20 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
 
     @Nonnull
     @Override
-    public <M extends Message> IndexBuildProto.PendingWritesQueueEntry serializePendingWriteQueue(@Nullable final FDBIndexableRecord<M> oldRecord, @Nullable final FDBIndexableRecord<M> newRecord) {
+    public <M extends Message> Any serializePendingWriteQueue(@Nullable final FDBIndexableRecord<M> oldRecord, @Nullable final FDBIndexableRecord<M> newRecord) {
         // TODO: use delegate.serializePendingWriteQueue data and add it to a sliding window message. The correctly handle it in updateFromQueue
-        return StandardIndexMaintainer.buildPendingWritesQueueEntry(state, oldRecord, newRecord);
+        return Any.pack(StandardIndexMaintainer.buildOldAndNewRecords(state, oldRecord, newRecord));
     }
 
     @Nonnull
     @Override
-    public CompletableFuture<Void> updateFromQueue(@Nonnull final IndexBuildProto.PendingWritesQueueEntry payload) {
+    public CompletableFuture<Void> updateFromQueue(@Nonnull final Any data) {
         // Apply via updateWhileWriteOnly (the sliding-window semantics), lest this update be re-pushed to the queue
+        final IndexBuildProto.OldAndNewRecords records =
+                StandardIndexMaintainer.oldAndNewRecords(data);
         return updateWhileWriteOnly(
-                StandardIndexMaintainer.getOldRecord(state, payload),
-                StandardIndexMaintainer.getNewRecord(state, payload));
+                StandardIndexMaintainer.getOldRecord(state, records),
+                StandardIndexMaintainer.getNewRecord(state, records));
     }
 
     /**

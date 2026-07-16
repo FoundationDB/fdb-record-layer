@@ -39,6 +39,7 @@ import com.apple.foundationdb.record.provider.foundationdb.indexes.InvalidIndexE
 import com.apple.foundationdb.record.query.QueryToKeyMatcher;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
+import com.google.protobuf.Any;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
@@ -155,9 +156,8 @@ public abstract class IndexMaintainer {
 
 
     /**
-     * Serialize the old/new record pair into a {@link IndexBuildProto.PendingWritesQueueEntry} message that can be saved
-     * as an entry in a pending write queue. An ongoing online indexer session will later drain the queue and call
-     * {@link #updateFromQueue(IndexBuildProto.PendingWritesQueueEntry)} with this entry.
+     * Serialize the old/new record pair into an {@link com.google.protobuf.Any}-packed message describing the deferred
+     * index update. The data will be later provided to {@link #updateFromQueue(Any)} to implement the index update.
      * <p>
      * This is only called for maintainers that allow pending write queue (see {@link #isPendingWriteQueueAllowed()}); the
      * caller is responsible for checking that before invoking this method.
@@ -165,22 +165,21 @@ public abstract class IndexMaintainer {
      * @param oldRecord the previous stored record or <code>null</code> if a new record is being created
      * @param newRecord the new record or <code>null</code> if an old record is being deleted
      * @param <M> type of message
-     * @return the queue entry message to enqueue
+     * @return a packed message to save in the pending write queue
      */
     @Nonnull
-    public abstract <M extends Message> IndexBuildProto.PendingWritesQueueEntry serializePendingWriteQueue(@Nullable FDBIndexableRecord<M> oldRecord,
-                                                                                                          @Nullable FDBIndexableRecord<M> newRecord);
+    public abstract <M extends Message> Any serializePendingWriteQueue(@Nullable FDBIndexableRecord<M> oldRecord,
+                                                                       @Nullable FDBIndexableRecord<M> newRecord);
 
 
     /**
-     * Apply a queued index update that was previously deferred onto the pending writes queue while the index was in the
-     * {@link com.apple.foundationdb.record.IndexState#WRITE_ONLY_WITH_QUEUE} state.
+     * Apply a queued index update that was previously deferred onto the pending writes queue by {@link #serializePendingWriteQueue(FDBIndexableRecord, FDBIndexableRecord)}.
      *
-     * @param payload the queued entry to apply
+     * @param data the {@link com.google.protobuf.Any}-packed message produced by {@code serializePendingWriteQueue}
      * @return a future that is complete when the update has been applied
      */
     @Nonnull
-    public abstract CompletableFuture<Void> updateFromQueue(@Nonnull IndexBuildProto.PendingWritesQueueEntry payload);
+    public abstract CompletableFuture<Void> updateFromQueue(@Nonnull Any data);
 
 
     /**

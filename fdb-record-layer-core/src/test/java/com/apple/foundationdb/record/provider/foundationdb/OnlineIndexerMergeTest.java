@@ -25,7 +25,6 @@ import com.apple.foundationdb.FDBException;
 import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.EvaluationContext;
-import com.apple.foundationdb.record.IndexBuildProto;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.IsolationLevel;
@@ -50,6 +49,7 @@ import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.BooleanSource;
 import com.apple.test.Tags;
 import com.google.auto.service.AutoService;
+import com.google.protobuf.Any;
 import com.google.protobuf.Message;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Tag;
@@ -430,13 +430,13 @@ public class OnlineIndexerMergeTest extends FDBRecordStoreConcurrentTestBase {
 
                 @Nonnull
                 @Override
-                public <M extends Message> IndexBuildProto.PendingWritesQueueEntry serializePendingWriteQueue(@Nullable final FDBIndexableRecord<M> oldRecord, @Nullable final FDBIndexableRecord<M> newRecord) {
+                public <M extends Message> Any serializePendingWriteQueue(@Nullable final FDBIndexableRecord<M> oldRecord, @Nullable final FDBIndexableRecord<M> newRecord) {
                     throw new UnsupportedOperationException();
                 }
 
                 @Nonnull
                 @Override
-                public CompletableFuture<Void> updateFromQueue(@Nonnull final IndexBuildProto.PendingWritesQueueEntry payload) {
+                public CompletableFuture<Void> updateFromQueue(@Nonnull final Any data) {
                     throw new UnsupportedOperationException();
                 }
 
