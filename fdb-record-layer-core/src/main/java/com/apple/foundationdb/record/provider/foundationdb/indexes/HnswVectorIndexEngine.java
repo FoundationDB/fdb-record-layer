@@ -30,6 +30,7 @@ import com.apple.foundationdb.async.hnsw.Node;
 import com.apple.foundationdb.async.hnsw.NodeReference;
 import com.apple.foundationdb.async.hnsw.OnReadListener;
 import com.apple.foundationdb.async.hnsw.OnWriteListener;
+import com.apple.foundationdb.linear.Metric;
 import com.apple.foundationdb.linear.RealVector;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
@@ -153,7 +154,7 @@ final class HnswVectorIndexEngine implements VectorIndexEngine {
     static Config parseConfig(@Nonnull final Index index) {
         final ConfigBuilder builder = HNSW.newConfigBuilder();
 
-        builder.setMetric(VectorIndexOptionsHelper.getMetric(index));
+        builder.setMetric(VectorIndexOptionKeys.METRIC.read(index, Metric.EUCLIDEAN_METRIC));
         final int numDimensions = VectorIndexOptionsHelper.getNumDimensions(index);
 
         applyBoolean(VectorIndexOptionKeys.HNSW_USE_INLINING, index, builder::setUseInlining);

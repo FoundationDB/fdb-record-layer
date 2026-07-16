@@ -183,7 +183,7 @@ sealed interface VectorIndexEngine permits HnswVectorIndexEngine, GuardiannVecto
      */
     @Nonnull
     static Metric metricFromIndex(@Nonnull final Index index) {
-        return VectorIndexOptionsHelper.getMetric(index);
+        return VectorIndexOptionKeys.METRIC.read(index, Metric.EUCLIDEAN_METRIC);
     }
 
     /**

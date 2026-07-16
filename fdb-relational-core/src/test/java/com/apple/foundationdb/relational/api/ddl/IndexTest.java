@@ -20,9 +20,11 @@
 
 package com.apple.foundationdb.relational.api.ddl;
 
+import com.apple.foundationdb.linear.Metric;
 import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.VectorIndexHelper;
+import com.apple.foundationdb.record.provider.foundationdb.indexes.VectorIndexOptionKeys;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyWithValueExpression;
@@ -1281,11 +1283,18 @@ public class IndexTest {
                 IndexTypes.VECTOR,
                 idx -> {
                     final var options = idx.getOptions();
-                    Assertions.assertEquals("3", options.get(IndexOptions.HNSW_NUM_DIMENSIONS));
+                    Assertions.assertEquals("3", options.get(IndexOptions.VECTOR_NUM_DIMENSIONS));
                     Assertions.assertEquals("16", options.get(IndexOptions.HNSW_M));
                     Assertions.assertEquals("32", options.get(IndexOptions.HNSW_M_MAX));
                     Assertions.assertEquals("200", options.get(IndexOptions.HNSW_EF_CONSTRUCTION));
-                    Assertions.assertEquals("COSINE_METRIC", options.get(IndexOptions.HNSW_METRIC));
+                    Assertions.assertEquals("COSINE_METRIC", options.get(IndexOptions.VECTOR_METRIC));
+                    // and the same values read back through the typed option keys
+                    final var coreIndex = toCoreIndex(idx);
+                    Assertions.assertEquals(3, VectorIndexOptionKeys.NUM_DIMENSIONS.read(coreIndex));
+                    Assertions.assertEquals(16, VectorIndexOptionKeys.HNSW_M.read(coreIndex));
+                    Assertions.assertEquals(32, VectorIndexOptionKeys.HNSW_M_MAX.read(coreIndex));
+                    Assertions.assertEquals(200, VectorIndexOptionKeys.HNSW_EF_CONSTRUCTION.read(coreIndex));
+                    Assertions.assertEquals(Metric.COSINE_METRIC, VectorIndexOptionKeys.METRIC.read(coreIndex));
                     validateVectorIndex(idx);
                 });
     }
@@ -1301,10 +1310,16 @@ public class IndexTest {
                 IndexTypes.VECTOR,
                 idx -> {
                     final var options = idx.getOptions();
-                    Assertions.assertEquals("128", options.get(IndexOptions.HNSW_NUM_DIMENSIONS));
-                    Assertions.assertEquals("true", options.get(IndexOptions.HNSW_USE_RABITQ));
-                    Assertions.assertEquals("4", options.get(IndexOptions.HNSW_RABITQ_NUM_EX_BITS));
-                    Assertions.assertEquals("0.01", options.get(IndexOptions.HNSW_MAINTAIN_STATS_PROBABILITY));
+                    Assertions.assertEquals("128", options.get(IndexOptions.VECTOR_NUM_DIMENSIONS));
+                    Assertions.assertEquals("true", options.get(IndexOptions.VECTOR_USE_RABITQ));
+                    Assertions.assertEquals("4", options.get(IndexOptions.VECTOR_RABITQ_NUM_EX_BITS));
+                    Assertions.assertEquals("0.01", options.get(IndexOptions.VECTOR_MAINTAIN_STATS_PROBABILITY));
+                    // and the same values read back through the typed option keys
+                    final var coreIndex = toCoreIndex(idx);
+                    Assertions.assertEquals(128, VectorIndexOptionKeys.NUM_DIMENSIONS.read(coreIndex));
+                    Assertions.assertEquals(true, VectorIndexOptionKeys.USE_RABITQ.read(coreIndex));
+                    Assertions.assertEquals(4, VectorIndexOptionKeys.RABITQ_NUM_EX_BITS.read(coreIndex));
+                    Assertions.assertEquals(0.01, VectorIndexOptionKeys.MAINTAIN_STATS_PROBABILITY.read(coreIndex));
                     validateVectorIndex(idx);
                 });
     }
@@ -1317,7 +1332,8 @@ public class IndexTest {
                 "CREATE VECTOR INDEX MV1 USING HNSW ON T(b) PARTITION BY (p)";
         indexIs(stmt, keyWithValue(concat(field("P"), field("B")), 1), IndexTypes.VECTOR,
                 idx -> {
-                    Assertions.assertEquals(String.valueOf(dimensions), idx.getOptions().get(IndexOptions.HNSW_NUM_DIMENSIONS));
+                    Assertions.assertEquals(String.valueOf(dimensions), idx.getOptions().get(IndexOptions.VECTOR_NUM_DIMENSIONS));
+                    Assertions.assertEquals(dimensions, VectorIndexOptionKeys.NUM_DIMENSIONS.read(toCoreIndex(idx)));
                     validateVectorIndex(idx);
                 });
     }
@@ -1331,16 +1347,31 @@ public class IndexTest {
 
         indexIs(stmt, keyWithValue(concat(field("P"), field("B")), 1), IndexTypes.VECTOR,
                 idx -> {
-                    Assertions.assertEquals("512", idx.getOptions().get(IndexOptions.HNSW_NUM_DIMENSIONS));
-                    Assertions.assertEquals(metric, idx.getOptions().get(IndexOptions.HNSW_METRIC));
+                    Assertions.assertEquals("512", idx.getOptions().get(IndexOptions.VECTOR_NUM_DIMENSIONS));
+                    Assertions.assertEquals(metric, idx.getOptions().get(IndexOptions.VECTOR_METRIC));
+                    final var coreIndex = toCoreIndex(idx);
+                    Assertions.assertEquals(512, VectorIndexOptionKeys.NUM_DIMENSIONS.read(coreIndex));
+                    Assertions.assertEquals(Metric.valueOf(metric), VectorIndexOptionKeys.METRIC.read(coreIndex));
                     // Validate using VectorIndexMaintainerFactory validator
                     validateVectorIndex(idx);
                 });
     }
 
     private void validateVectorIndex(RecordLayerIndex recordLayerIndex) {
-        // Convert RecordLayerIndex to core Index
-        final var coreIndex = new com.apple.foundationdb.record.metadata.Index(
+        final var coreIndex = toCoreIndex(recordLayerIndex);
+
+        // Validate using VectorIndexHelper - this validates the configuration options
+        // VectorIndexHelper.validate() will throw if options are invalid
+        Assertions.assertDoesNotThrow(() -> VectorIndexHelper.validate(coreIndex),
+                "Vector index configuration should be valid");
+    }
+
+    /**
+     * Converts a {@link RecordLayerIndex} to a core {@link com.apple.foundationdb.record.metadata.Index} so its options
+     * can be read back through the typed {@link VectorIndexOptionKeys} (whose {@code read} operates on a core index).
+     */
+    private com.apple.foundationdb.record.metadata.Index toCoreIndex(RecordLayerIndex recordLayerIndex) {
+        return new com.apple.foundationdb.record.metadata.Index(
                 recordLayerIndex.getName(),
                 recordLayerIndex.getKeyExpression(),
                 recordLayerIndex.getIndexType(),
@@ -1349,11 +1380,6 @@ public class IndexTest {
                         ? com.apple.foundationdb.record.metadata.IndexPredicate.fromProto(recordLayerIndex.getPredicate())
                         : null
         );
-
-        // Validate using VectorIndexHelper - this validates the configuration options
-        // VectorIndexHelper.validate() will throw if options are invalid
-        Assertions.assertDoesNotThrow(() -> VectorIndexHelper.validate(coreIndex),
-                "Vector index configuration should be valid");
     }
 
     @Test
@@ -1367,8 +1393,12 @@ public class IndexTest {
                 IndexTypes.VECTOR,
                 idx -> {
                     final var options = idx.getOptions();
-                    Assertions.assertEquals("64", options.get(IndexOptions.HNSW_NUM_DIMENSIONS));
-                    Assertions.assertEquals("0.05", options.get(IndexOptions.HNSW_SAMPLE_VECTOR_STATS_PROBABILITY));
+                    Assertions.assertEquals("64", options.get(IndexOptions.VECTOR_NUM_DIMENSIONS));
+                    Assertions.assertEquals("0.05", options.get(IndexOptions.VECTOR_SAMPLE_VECTOR_STATS_PROBABILITY));
+                    // and the same values read back through the typed option keys
+                    final var coreIndex = toCoreIndex(idx);
+                    Assertions.assertEquals(64, VectorIndexOptionKeys.NUM_DIMENSIONS.read(coreIndex));
+                    Assertions.assertEquals(0.05, VectorIndexOptionKeys.SAMPLE_VECTOR_STATS_PROBABILITY.read(coreIndex));
                     validateVectorIndex(idx);
                 });
     }

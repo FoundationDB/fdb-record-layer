@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.provider.foundationdb.indexes;
 
 import com.apple.foundationdb.linear.Metric;
+import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.RecordMetaDataProto;
@@ -37,7 +38,9 @@ import org.junit.jupiter.api.Test;
 import javax.annotation.Nonnull;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
 
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concatenateFields;
@@ -46,7 +49,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
- * Tests for the index-time vector option catalog and its guards. These are plain unit tests — no FDB required.
+ * Tests for the index-time vector option catalog and its guards, plus the {@link VectorOptionKey} primitive they are
+ * built from (its typed read/write and plan-hash behavior). These are plain unit tests — no FDB required.
  */
 class VectorIndexOptionKeysTest {
     @Test
@@ -170,5 +174,73 @@ class VectorIndexOptionKeysTest {
         }
 
         assertThat(VectorIndexOptionKeys.ALL).containsExactlyInAnyOrderElementsOf(declared);
+    }
+
+    @Test
+    void toStringIsTheCanonicalName() {
+        // A key renders as its canonical (current) name, never a legacy alias.
+        assertThat(VectorIndexOptionKeys.METRIC).hasToString(IndexOptions.VECTOR_METRIC);
+        assertThat(VectorIndexOptionKeys.HNSW_M).hasToString(IndexOptions.HNSW_M);
+        assertThat(VectorOptionKey.ofMetric("vectorMetric", "hnswMetric")).hasToString("vectorMetric");
+    }
+
+    @Test
+    void readWithDefaultReturnsDefaultOnlyWhenUnset() {
+        final Index unset =
+                new Index("v", field("vector_data"), IndexTypes.VECTOR,
+                        ImmutableMap.of(IndexOptions.VECTOR_NUM_DIMENSIONS, "128"));
+        assertThat(VectorIndexOptionKeys.METRIC.read(unset, Metric.COSINE_METRIC)).isEqualTo(Metric.COSINE_METRIC);
+
+        final Index set =
+                new Index("v", field("vector_data"), IndexTypes.VECTOR,
+                        ImmutableMap.of(IndexOptions.VECTOR_NUM_DIMENSIONS, "128",
+                                IndexOptions.VECTOR_METRIC, Metric.EUCLIDEAN_METRIC.name()));
+        assertThat(VectorIndexOptionKeys.METRIC.read(set, Metric.COSINE_METRIC)).isEqualTo(Metric.EUCLIDEAN_METRIC);
+    }
+
+    @Test
+    void putWritesTheCanonicalNameAndNeverALegacyAlias() {
+        final Map<String, String> written = new HashMap<>();
+        VectorIndexOptionKeys.METRIC.put(written::put, Metric.EUCLIDEAN_METRIC);
+        assertThat(written)
+                .hasSize(1)
+                .containsEntry(IndexOptions.VECTOR_METRIC, Metric.EUCLIDEAN_METRIC.name())
+                .doesNotContainKey(IndexOptions.HNSW_METRIC);
+    }
+
+    @Test
+    void putThenReadRoundTripsEveryValueType() {
+        // Exercises each factory's serializer against its parser. The metric case in particular guards the
+        // serializer-vs-toString distinction: Metric serializes via name() (not toString()), so it parses back;
+        // had put used toString(), the read below would fail Metric.valueOf(...).
+        final Map<String, String> written = new HashMap<>();
+        VectorIndexOptionKeys.METRIC.put(written::put, Metric.COSINE_METRIC);
+        VectorIndexOptionKeys.HNSW_M.put(written::put, 24);
+        VectorIndexOptionKeys.MAINTAIN_STATS_PROBABILITY.put(written::put, 0.25);
+        VectorIndexOptionKeys.USE_RABITQ.put(written::put, true);
+
+        final Index index =
+                new Index("v", field("vector_data"), IndexTypes.VECTOR, ImmutableMap.copyOf(written));
+        assertThat(VectorIndexOptionKeys.METRIC.read(index)).isEqualTo(Metric.COSINE_METRIC);
+        assertThat(VectorIndexOptionKeys.HNSW_M.read(index)).isEqualTo(24);
+        assertThat(VectorIndexOptionKeys.MAINTAIN_STATS_PROBABILITY.read(index)).isEqualTo(0.25);
+        assertThat(VectorIndexOptionKeys.USE_RABITQ.read(index)).isEqualTo(true);
+    }
+
+    @Test
+    void equalsHashCodeAndPlanHashKeyOnlyTheCanonicalName() {
+        // Two keys with the same canonical name (regardless of aliases) are interchangeable — equal, same hashCode,
+        // and same planHash — so a scan-options map keyed by them is stable; a different canonical name differs.
+        final VectorOptionKey<Metric> withAlias = VectorOptionKey.ofMetric("vectorMetric", "hnswMetric");
+        final VectorOptionKey<Metric> withoutAlias = VectorOptionKey.ofMetric("vectorMetric");
+        final VectorOptionKey<Integer> other = VectorOptionKey.ofInteger("hnswM");
+
+        assertThat(withAlias).isEqualTo(withoutAlias).hasSameHashCodeAs(withoutAlias);
+        assertThat(withAlias.planHash(PlanHashable.CURRENT_FOR_CONTINUATION))
+                .isEqualTo(withoutAlias.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
+
+        assertThat(withAlias).isNotEqualTo(other);
+        assertThat(withAlias.planHash(PlanHashable.CURRENT_FOR_CONTINUATION))
+                .isNotEqualTo(other.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
     }
 }

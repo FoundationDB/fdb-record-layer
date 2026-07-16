@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.indexes;
 
-import com.apple.foundationdb.linear.Metric;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.MetaDataException;
@@ -57,18 +56,6 @@ final class VectorIndexOptionsHelper {
                     LogMessageKeys.INDEX_NAME, index.getName());
         }
         return numDimensions;
-    }
-
-    /**
-     * Reads the metric of a vector index, defaulting to {@link Metric#EUCLIDEAN_METRIC} when unset.
-     *
-     * @param index the index definition
-     * @return the metric of the index
-     */
-    @Nonnull
-    static Metric getMetric(@Nonnull final Index index) {
-        final Metric metric = VectorIndexOptionKeys.METRIC.read(index);
-        return metric != null ? metric : Metric.EUCLIDEAN_METRIC;
     }
 
     /**
