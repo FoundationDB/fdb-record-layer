@@ -321,6 +321,36 @@ public class DelegatingVisitorTest {
     }
 
     @Test
+    void visitStatementOptionsTest() {
+        testSimple("OPTIONS (NOCACHE)",
+                RelationalParser::statementOptions,
+                DelegatingVisitor::visitStatementOptions,
+                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42),
+                        generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
+                    @Override
+                    public Object visitStatementOptions(@Nonnull RelationalParser.StatementOptionsContext ctx) {
+                        called.setTrue();
+                        return null;
+                    }
+                });
+    }
+
+    @Test
+    void visitStatementOptionTest() {
+        testSimple("NOCACHE",
+                RelationalParser::statementOption,
+                DelegatingVisitor::visitStatementOption,
+                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42),
+                        generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
+                    @Override
+                    public Object visitStatementOption(@Nonnull RelationalParser.StatementOptionContext ctx) {
+                        called.setTrue();
+                        return null;
+                    }
+                });
+    }
+
+    @Test
     void visitVectorIndexDefinitionTest() {
         final var query = "VECTOR INDEX myIndex USING HNSW ON table1 (R)";
         testVisitor(query,
