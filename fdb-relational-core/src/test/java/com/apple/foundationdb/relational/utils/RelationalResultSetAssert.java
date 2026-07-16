@@ -105,6 +105,23 @@ public class RelationalResultSetAssert extends AbstractAssert<RelationalResultSe
         return this;
     }
 
+    /**
+     * Drains the result set, counting the rows, and asserts the total equals {@code expected}. This both
+     * consumes the result set and verifies its size, which is convenient for tests that need the scan to
+     * fully execute (for example, concurrency tests) while also checking how many rows were returned.
+     */
+    public RelationalResultSetAssert hasRowCount(int expected) {
+        isNotNull();
+        extracting(rrs -> {
+            int count = 0;
+            while (advance(rrs)) {
+                count++;
+            }
+            return count;
+        }, Assertions::assertThat).describedAs("row count").isEqualTo(expected);
+        return this;
+    }
+
     public RelationalResultSetAssert hasExactlyInAnyOrder(Collection<Row> expectedRows) throws SQLException, RelationalException {
         Collection<Row> actualRows = new ArrayList<>(expectedRows.size());
         while (actual.next()) {
