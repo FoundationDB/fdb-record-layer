@@ -400,6 +400,10 @@ public final class RecordLayerTable implements Table {
             final var relationalType = DataTypeUtils.toRelationalType(record);
             Assert.thatUnchecked(relationalType instanceof DataType.StructType);
             final var asStruct = (DataType.StructType) relationalType;
+            // todo (yhatem): we can avoid regenerating the corresponding record layer Record
+            //       when we know that the passed record matches _exactly_ the corresponding Relational type.
+            //       this could be achieved by checking whether the record has an explicit name and all of its
+            //       fields (recursively) have explicit names, this seems to be mostly equally expensive though.
             return from(asStruct).setRecord(record);
         }
 
