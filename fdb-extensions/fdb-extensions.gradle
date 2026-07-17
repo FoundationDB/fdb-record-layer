@@ -27,6 +27,7 @@ apply from: rootProject.file('gradle/publishing.gradle')
 dependencies {
     api(project(":fdb-java-annotations")) {
         exclude(group: "com.squareup", module: "javapoet")
+        exclude(group: "com.google.code.findbugs", module: "jsr305")
     }
     api(libs.fdbJava)
     implementation(libs.guava)
