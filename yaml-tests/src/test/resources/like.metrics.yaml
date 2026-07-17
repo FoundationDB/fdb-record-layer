@@ -4,11 +4,11 @@ unnamed-4:
     explain: 'COVERING(C2 <,> -> [C1: KEY:[2], C2: KEY:[0]]) | FILTER _.C2 LIKE @c7
         ESCAPE ''null'' | FETCH'
     task_count: 314
-    task_total_time_ms: 11
-    transform_count: 77
-    transform_time_ms: 3
+    task_total_time_ms: 13
+    transform_count: 76
+    transform_time_ms: 6
     transform_yield_count: 29
-    insert_time_ms: 2
+    insert_time_ms: 0
     insert_new_count: 35
     insert_reused_count: 4
 -   query: EXPLAIN select * from C WHERE C2 LIKE 'a%'
@@ -16,11 +16,11 @@ unnamed-4:
     explain: 'COVERING(C2 <,> -> [C1: KEY:[2], C2: KEY:[0]]) | FILTER _.C2 LIKE @c7
         ESCAPE ''null'' | FETCH'
     task_count: 314
-    task_total_time_ms: 11
-    transform_count: 77
-    transform_time_ms: 3
+    task_total_time_ms: 13
+    transform_count: 76
+    transform_time_ms: 6
     transform_yield_count: 29
-    insert_time_ms: 2
+    insert_time_ms: 0
     insert_new_count: 35
     insert_reused_count: 4
 -   query: EXPLAIN select * from C WHERE C2 LIKE 'ap%'
@@ -28,11 +28,11 @@ unnamed-4:
     explain: 'COVERING(C2 <,> -> [C1: KEY:[2], C2: KEY:[0]]) | FILTER _.C2 LIKE @c7
         ESCAPE ''null'' | FETCH'
     task_count: 314
-    task_total_time_ms: 11
-    transform_count: 77
-    transform_time_ms: 3
+    task_total_time_ms: 13
+    transform_count: 76
+    transform_time_ms: 6
     transform_yield_count: 29
-    insert_time_ms: 2
+    insert_time_ms: 0
     insert_new_count: 35
     insert_reused_count: 4
 -   query: EXPLAIN select * from C WHERE C2 LIKE 'a%l%'
@@ -40,11 +40,11 @@ unnamed-4:
     explain: 'COVERING(C2 <,> -> [C1: KEY:[2], C2: KEY:[0]]) | FILTER _.C2 LIKE @c7
         ESCAPE ''null'' | FETCH'
     task_count: 314
-    task_total_time_ms: 11
-    transform_count: 77
-    transform_time_ms: 3
+    task_total_time_ms: 13
+    transform_count: 76
+    transform_time_ms: 6
     transform_yield_count: 29
-    insert_time_ms: 2
+    insert_time_ms: 0
     insert_new_count: 35
     insert_reused_count: 4
 -   query: EXPLAIN select * from C WHERE C2 LIKE 'ca%'
@@ -52,11 +52,11 @@ unnamed-4:
     explain: 'COVERING(C2 <,> -> [C1: KEY:[2], C2: KEY:[0]]) | FILTER _.C2 LIKE @c7
         ESCAPE ''null'' | FETCH'
     task_count: 314
-    task_total_time_ms: 11
-    transform_count: 77
-    transform_time_ms: 3
+    task_total_time_ms: 13
+    transform_count: 76
+    transform_time_ms: 6
     transform_yield_count: 29
-    insert_time_ms: 2
+    insert_time_ms: 0
     insert_new_count: 35
     insert_reused_count: 4
 -   query: EXPLAIN select * from C WHERE C2 LIKE 'ca_al'
@@ -64,11 +64,11 @@ unnamed-4:
     explain: 'COVERING(C2 <,> -> [C1: KEY:[2], C2: KEY:[0]]) | FILTER _.C2 LIKE @c7
         ESCAPE ''null'' | FETCH'
     task_count: 314
-    task_total_time_ms: 11
-    transform_count: 77
-    transform_time_ms: 3
+    task_total_time_ms: 13
+    transform_count: 76
+    transform_time_ms: 6
     transform_yield_count: 29
-    insert_time_ms: 2
+    insert_time_ms: 0
     insert_new_count: 35
     insert_reused_count: 4
 -   query: EXPLAIN select * from C WHERE C2 LIKE 'ca%al'
@@ -76,11 +76,11 @@ unnamed-4:
     explain: 'COVERING(C2 <,> -> [C1: KEY:[2], C2: KEY:[0]]) | FILTER _.C2 LIKE @c7
         ESCAPE ''null'' | FETCH'
     task_count: 314
-    task_total_time_ms: 11
-    transform_count: 77
-    transform_time_ms: 3
+    task_total_time_ms: 13
+    transform_count: 76
+    transform_time_ms: 6
     transform_yield_count: 29
-    insert_time_ms: 2
+    insert_time_ms: 0
     insert_new_count: 35
     insert_reused_count: 4
 -   query: EXPLAIN select * from C WHERE C2 LIKE 'ca_al%'
@@ -88,11 +88,11 @@ unnamed-4:
     explain: 'COVERING(C2 <,> -> [C1: KEY:[2], C2: KEY:[0]]) | FILTER _.C2 LIKE @c7
         ESCAPE ''null'' | FETCH'
     task_count: 314
-    task_total_time_ms: 11
-    transform_count: 77
-    transform_time_ms: 3
+    task_total_time_ms: 13
+    transform_count: 76
+    transform_time_ms: 6
     transform_yield_count: 29
-    insert_time_ms: 2
+    insert_time_ms: 0
     insert_new_count: 35
     insert_reused_count: 4
 -   query: EXPLAIN select * from C WHERE C2 LIKE 'ca%al%'
@@ -100,10 +100,10 @@ unnamed-4:
     explain: 'COVERING(C2 <,> -> [C1: KEY:[2], C2: KEY:[0]]) | FILTER _.C2 LIKE @c7
         ESCAPE ''null'' | FETCH'
     task_count: 314
-    task_total_time_ms: 11
-    transform_count: 77
-    transform_time_ms: 3
+    task_total_time_ms: 13
+    transform_count: 76
+    transform_time_ms: 6
     transform_yield_count: 29
-    insert_time_ms: 2
+    insert_time_ms: 0
     insert_new_count: 35
     insert_reused_count: 4

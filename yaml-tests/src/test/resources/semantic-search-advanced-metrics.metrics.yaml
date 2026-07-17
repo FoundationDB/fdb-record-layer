@@ -9,9 +9,9 @@ semantic-search-new-metrics-tests:
         BY_DISTANCE) | MAP (_.DOCID AS DOCID, _.TITLE AS TITLE, (_.EMBEDDING) euclidean_square_distance
         @c9 AS _2)'
     task_count: 215
-    task_total_time_ms: 9
-    transform_count: 66
-    transform_time_ms: 6
+    task_total_time_ms: 7
+    transform_count: 64
+    transform_time_ms: 3
     transform_yield_count: 28
     insert_time_ms: 0
     insert_new_count: 17
@@ -26,9 +26,9 @@ semantic-search-new-metrics-tests:
         BY_DISTANCE) | MAP (_.DOCID AS DOCID, (_.EMBEDDING) euclidean_square_distance
         @c7 AS _1)'
     task_count: 215
-    task_total_time_ms: 5
-    transform_count: 66
-    transform_time_ms: 3
+    task_total_time_ms: 4
+    transform_count: 64
+    transform_time_ms: 2
     transform_yield_count: 28
     insert_time_ms: 0
     insert_new_count: 17
@@ -42,9 +42,9 @@ semantic-search-new-metrics-tests:
         EQUALS promote(@c11 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c29: @c39}:[hnswEfSearch:
         100] BY_DISTANCE) | MAP (_.DOCID AS DOCID)'
     task_count: 215
-    task_total_time_ms: 5
-    transform_count: 66
-    transform_time_ms: 3
+    task_total_time_ms: 4
+    transform_count: 64
+    transform_time_ms: 2
     transform_yield_count: 28
     insert_time_ms: 0
     insert_new_count: 17
@@ -58,9 +58,9 @@ semantic-search-new-metrics-tests:
         EQUALS promote(@c11 AS STRING)]:{DISTANCE_RANK_LESS_THAN @c29: @c38}:[hnswEfSearch:
         200] BY_DISTANCE) | MAP (_.DOCID AS DOCID)'
     task_count: 215
-    task_total_time_ms: 5
-    transform_count: 66
-    transform_time_ms: 3
+    task_total_time_ms: 4
+    transform_count: 64
+    transform_time_ms: 2
     transform_yield_count: 28
     insert_time_ms: 0
     insert_new_count: 17
@@ -73,9 +73,9 @@ semantic-search-new-metrics-tests:
         EQUALS promote(@c11 AS STRING)]:{DISTANCE_RANK_LESS_THAN @c29: @c34}:[] BY_DISTANCE)
         | MAP (_.DOCID AS DOCID)'
     task_count: 215
-    task_total_time_ms: 7
-    transform_count: 66
-    transform_time_ms: 5
+    task_total_time_ms: 4
+    transform_count: 64
+    transform_time_ms: 2
     transform_yield_count: 28
     insert_time_ms: 0
     insert_new_count: 17
@@ -89,9 +89,9 @@ semantic-search-new-metrics-tests:
         | MAP (_.DOCID AS DOCID, _.TITLE AS TITLE, (_.EMBEDDING) dot_product_distance
         @c9 AS _2)'
     task_count: 215
-    task_total_time_ms: 6
-    transform_count: 66
-    transform_time_ms: 3
+    task_total_time_ms: 4
+    transform_count: 64
+    transform_time_ms: 2
     transform_yield_count: 28
     insert_time_ms: 0
     insert_new_count: 17
@@ -104,9 +104,9 @@ semantic-search-new-metrics-tests:
         promote(@c18 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c7: @c42}:[] BY_DISTANCE)
         | MAP (_.DOCID AS DOCID, (_.EMBEDDING) dot_product_distance @c7 AS _1)'
     task_count: 215
-    task_total_time_ms: 5
-    transform_count: 66
-    transform_time_ms: 3
+    task_total_time_ms: 4
+    transform_count: 64
+    transform_time_ms: 2
     transform_yield_count: 28
     insert_time_ms: 0
     insert_new_count: 17
@@ -119,9 +119,9 @@ semantic-search-new-metrics-tests:
         promote(@c11 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c29: @c39}:[hnswEfSearch:
         100] BY_DISTANCE) | MAP (_.DOCID AS DOCID)'
     task_count: 215
-    task_total_time_ms: 5
-    transform_count: 66
-    transform_time_ms: 3
+    task_total_time_ms: 4
+    transform_count: 64
+    transform_time_ms: 2
     transform_yield_count: 28
     insert_time_ms: 0
     insert_new_count: 17
@@ -135,7 +135,7 @@ semantic-search-new-metrics-tests:
         200] BY_DISTANCE) | MAP (_.DOCID AS DOCID)'
     task_count: 215
     task_total_time_ms: 5
-    transform_count: 66
+    transform_count: 64
     transform_time_ms: 3
     transform_yield_count: 28
     insert_time_ms: 0
@@ -150,8 +150,8 @@ semantic-search-new-metrics-tests:
         | MAP (_.DOCID AS DOCID)'
     task_count: 215
     task_total_time_ms: 5
-    transform_count: 66
-    transform_time_ms: 3
+    transform_count: 64
+    transform_time_ms: 2
     transform_yield_count: 28
     insert_time_ms: 0
     insert_new_count: 17
@@ -165,7 +165,7 @@ semantic-search-new-metrics-tests:
         BY_DISTANCE) | MAP (_.DOCID AS DOCID)'
     task_count: 215
     task_total_time_ms: 5
-    transform_count: 66
+    transform_count: 64
     transform_time_ms: 3
     transform_yield_count: 28
     insert_time_ms: 0
@@ -180,7 +180,7 @@ semantic-search-new-metrics-tests:
         BY_DISTANCE) | MAP (_.DOCID AS DOCID)'
     task_count: 215
     task_total_time_ms: 5
-    transform_count: 66
+    transform_count: 64
     transform_time_ms: 3
     transform_yield_count: 28
     insert_time_ms: 0
@@ -194,9 +194,9 @@ semantic-search-new-metrics-tests:
         promote(@c13 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c31: @c37}:[]
         BY_DISTANCE) | MAP (_.DOCID AS DOCID, _.TITLE AS TITLE)'
     task_count: 215
-    task_total_time_ms: 7
-    transform_count: 66
-    transform_time_ms: 4
+    task_total_time_ms: 4
+    transform_count: 64
+    transform_time_ms: 2
     transform_yield_count: 28
     insert_time_ms: 0
     insert_new_count: 17
@@ -210,9 +210,9 @@ semantic-search-new-metrics-tests:
         promote(@c13 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c31: @c39}:[]
         BY_DISTANCE) | MAP (_.DOCID AS DOCID, _.TITLE AS TITLE)'
     task_count: 215
-    task_total_time_ms: 5
-    transform_count: 66
-    transform_time_ms: 3
+    task_total_time_ms: 4
+    transform_count: 64
+    transform_time_ms: 2
     transform_yield_count: 28
     insert_time_ms: 0
     insert_new_count: 17

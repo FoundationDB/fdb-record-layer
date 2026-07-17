@@ -1,94 +1,105 @@
 unnamed-3:
 -   query: EXPLAIN select * from B where 6L = coalesce(5L, 6L)
-    explain: SCAN(<,>) | FILTER coalesce_long(@c10, @c6) EQUALS @c6
+    ref: literal-tests.yamsql:39
+    explain: SCAN([IS B]) | FILTER coalesce_long(@c9, @c5) EQUALS @c5
     task_count: 163
-    task_total_time_ms: 4
-    transform_count: 46
-    transform_time_ms: 2
+    task_total_time_ms: 10
+    transform_count: 45
+    transform_time_ms: 6
     transform_yield_count: 14
     insert_time_ms: 0
     insert_new_count: 14
     insert_reused_count: 2
 -   query: EXPLAIN select * from B where 6 = coalesce(5, 6)
-    explain: SCAN(<,>) | FILTER coalesce_int(@c10, @c6) EQUALS @c6
+    ref: literal-tests.yamsql:43
+    explain: SCAN([IS B]) | FILTER coalesce_int(@c9, @c5) EQUALS @c5
     task_count: 163
-    task_total_time_ms: 3
-    transform_count: 46
-    transform_time_ms: 2
+    task_total_time_ms: 12
+    transform_count: 45
+    transform_time_ms: 7
     transform_yield_count: 14
     insert_time_ms: 0
     insert_new_count: 14
     insert_reused_count: 2
 unnamed-4:
 -   query: EXPLAIN select * from B where 6L = coalesce(5L, 6L)
-    explain: SCAN(<,>) | FILTER coalesce_long(@c10, @c6) EQUALS @c6
+    ref: literal-tests.yamsql:56
+    explain: SCAN([IS B]) | FILTER coalesce_long(@c9, @c5) EQUALS @c5
     task_count: 163
-    task_total_time_ms: 4
-    transform_count: 46
-    transform_time_ms: 2
+    task_total_time_ms: 10
+    transform_count: 45
+    transform_time_ms: 6
     transform_yield_count: 14
     insert_time_ms: 0
     insert_new_count: 14
     insert_reused_count: 2
 -   query: EXPLAIN select * from B where 6L = coalesce(5I, 6I)
-    explain: SCAN(<,>) | FILTER promote(coalesce_int(@c10, @c12) AS LONG) EQUALS @c6
+    ref: literal-tests.yamsql:60
+    explain: SCAN([IS B]) | FILTER promote(coalesce_int(@c9, @c11) AS LONG) EQUALS
+        @c5
     task_count: 163
-    task_total_time_ms: 6
-    transform_count: 46
-    transform_time_ms: 2
+    task_total_time_ms: 11
+    transform_count: 45
+    transform_time_ms: 4
     transform_yield_count: 14
     insert_time_ms: 0
     insert_new_count: 14
     insert_reused_count: 2
 -   query: EXPLAIN select * from B where 6L = coalesce(5, 6)
-    explain: SCAN(<,>) | FILTER promote(coalesce_int(@c10, @c12) AS LONG) EQUALS @c6
+    ref: literal-tests.yamsql:64
+    explain: SCAN([IS B]) | FILTER promote(coalesce_int(@c9, @c11) AS LONG) EQUALS
+        @c5
     task_count: 163
-    task_total_time_ms: 7
-    transform_count: 46
-    transform_time_ms: 2
+    task_total_time_ms: 13
+    transform_count: 45
+    transform_time_ms: 6
     transform_yield_count: 14
     insert_time_ms: 0
     insert_new_count: 14
     insert_reused_count: 2
 -   query: EXPLAIN select * from B where 6 = coalesce(5L, 6)
-    explain: SCAN(<,>) | FILTER coalesce_long(@c10, promote(@c6 AS LONG)) EQUALS promote(@c6
-        AS LONG)
+    ref: literal-tests.yamsql:68
+    explain: SCAN([IS B]) | FILTER coalesce_long(@c9, promote(@c5 AS LONG)) EQUALS
+        promote(@c5 AS LONG)
     task_count: 163
-    task_total_time_ms: 7
-    transform_count: 46
-    transform_time_ms: 3
+    task_total_time_ms: 13
+    transform_count: 45
+    transform_time_ms: 6
     transform_yield_count: 14
     insert_time_ms: 0
     insert_new_count: 14
     insert_reused_count: 2
 -   query: EXPLAIN select * from B where 6I = coalesce(5L, 6I)
-    explain: SCAN(<,>) | FILTER coalesce_long(@c10, promote(@c6 AS LONG)) EQUALS promote(@c6
-        AS LONG)
+    ref: literal-tests.yamsql:72
+    explain: SCAN([IS B]) | FILTER coalesce_long(@c9, promote(@c5 AS LONG)) EQUALS
+        promote(@c5 AS LONG)
     task_count: 163
-    task_total_time_ms: 6
-    transform_count: 46
-    transform_time_ms: 2
+    task_total_time_ms: 11
+    transform_count: 45
+    transform_time_ms: 5
     transform_yield_count: 14
     insert_time_ms: 0
     insert_new_count: 14
     insert_reused_count: 2
 -   query: EXPLAIN select * from B where 6i = coalesce(5l, 6i)
-    explain: SCAN(<,>) | FILTER coalesce_long(@c10, promote(@c6 AS LONG)) EQUALS promote(@c6
-        AS LONG)
+    ref: literal-tests.yamsql:76
+    explain: SCAN([IS B]) | FILTER coalesce_long(@c9, promote(@c5 AS LONG)) EQUALS
+        promote(@c5 AS LONG)
     task_count: 163
-    task_total_time_ms: 7
-    transform_count: 46
-    transform_time_ms: 2
+    task_total_time_ms: 12
+    transform_count: 45
+    transform_time_ms: 5
     transform_yield_count: 14
     insert_time_ms: 0
     insert_new_count: 14
     insert_reused_count: 2
 -   query: EXPLAIN select * from B where 6 = coalesce(5, 6)
-    explain: SCAN(<,>) | FILTER coalesce_int(@c10, @c6) EQUALS @c6
+    ref: literal-tests.yamsql:80
+    explain: SCAN([IS B]) | FILTER coalesce_int(@c9, @c5) EQUALS @c5
     task_count: 163
-    task_total_time_ms: 3
-    transform_count: 46
-    transform_time_ms: 2
+    task_total_time_ms: 12
+    transform_count: 45
+    transform_time_ms: 7
     transform_yield_count: 14
     insert_time_ms: 0
     insert_new_count: 14

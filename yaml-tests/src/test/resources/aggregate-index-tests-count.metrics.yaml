@@ -4,9 +4,9 @@ agg-index-tests-count:
     explain: 'AISCAN(MV1 <,> BY_GROUP -> [_0: VALUE:[0]]) | MAP (_ AS _0) | ON EMPTY
         NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)'
     task_count: 413
-    task_total_time_ms: 30
-    transform_count: 116
-    transform_time_ms: 15
+    task_total_time_ms: 38
+    transform_count: 114
+    transform_time_ms: 17
     transform_yield_count: 42
     insert_time_ms: 0
     insert_new_count: 35
@@ -17,8 +17,8 @@ agg-index-tests-count:
         AS _0)'
     task_count: 348
     task_total_time_ms: 25
-    transform_count: 110
-    transform_time_ms: 14
+    transform_count: 108
+    transform_time_ms: 13
     transform_yield_count: 40
     insert_time_ms: 0
     insert_new_count: 24
@@ -28,9 +28,9 @@ agg-index-tests-count:
     explain: 'AISCAN(MV3 <,> BY_GROUP -> [_0: VALUE:[0]]) | MAP (_ AS _0) | ON EMPTY
         NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)'
     task_count: 413
-    task_total_time_ms: 29
-    transform_count: 116
-    transform_time_ms: 16
+    task_total_time_ms: 27
+    transform_count: 114
+    transform_time_ms: 14
     transform_yield_count: 42
     insert_time_ms: 0
     insert_new_count: 35
@@ -40,8 +40,8 @@ agg-index-tests-count:
     explain: 'AISCAN(MV4 <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._1
         AS _0)'
     task_count: 348
-    task_total_time_ms: 24
-    transform_count: 110
+    task_total_time_ms: 26
+    transform_count: 108
     transform_time_ms: 15
     transform_yield_count: 40
     insert_time_ms: 0
@@ -50,12 +50,12 @@ agg-index-tests-count:
 agg-index-tests-count-after-more-inserts:
 -   query: EXPLAIN select count(*) from t2
     ref: aggregate-index-tests-count.yamsql:89
-    explain: ISCAN(MV5 <,>) | MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY
-        NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)
+    explain: ISCAN(MV5 <,>) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY ()
+        | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)
     task_count: 319
-    task_total_time_ms: 17
-    transform_count: 76
-    transform_time_ms: 7
+    task_total_time_ms: 19
+    transform_count: 74
+    transform_time_ms: 4
     transform_yield_count: 27
     insert_time_ms: 0
     insert_new_count: 33
@@ -65,21 +65,21 @@ agg-index-tests-count-after-more-inserts:
     explain: ISCAN(MV5 <,>) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY (_._0.COL2
         AS _0) | MAP (_._1._0 AS _0)
     task_count: 273
-    task_total_time_ms: 12
-    transform_count: 70
-    transform_time_ms: 4
+    task_total_time_ms: 13
+    transform_count: 68
+    transform_time_ms: 3
     transform_yield_count: 24
     insert_time_ms: 0
     insert_new_count: 25
     insert_reused_count: 2
 -   query: EXPLAIN select count(col1) from t2
     ref: aggregate-index-tests-count.yamsql:99
-    explain: ISCAN(MV5 <,>) | MAP (_ AS _0) | AGG (count(_._0.COL1) AS _0) | ON EMPTY
-        NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)
+    explain: ISCAN(MV5 <,>) | MAP (_ AS _0) | AGG (count(_._0.COL1) AS _0) GROUP BY
+        () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)
     task_count: 319
-    task_total_time_ms: 24
-    transform_count: 76
-    transform_time_ms: 8
+    task_total_time_ms: 14
+    transform_count: 74
+    transform_time_ms: 3
     transform_yield_count: 27
     insert_time_ms: 0
     insert_new_count: 33
@@ -89,8 +89,8 @@ agg-index-tests-count-after-more-inserts:
     explain: ISCAN(MV5 <,>) | MAP (_ AS _0) | AGG (count(_._0.COL1) AS _0) GROUP BY
         (_._0.COL2 AS _0) | MAP (_._1._0 AS _0)
     task_count: 273
-    task_total_time_ms: 12
-    transform_count: 70
+    task_total_time_ms: 13
+    transform_count: 68
     transform_time_ms: 4
     transform_yield_count: 24
     insert_time_ms: 0

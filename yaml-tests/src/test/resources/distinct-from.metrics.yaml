@@ -4,9 +4,9 @@ distinct-from-tests:
     explain: 'COVERING(I2 <,> -> [COL2: KEY:[0], ID: KEY:[2]]) | FILTER _.COL2 IS_DISTINCT_FROM
         NULL | FETCH'
     task_count: 434
-    task_total_time_ms: 22
-    transform_count: 107
-    transform_time_ms: 7
+    task_total_time_ms: 36
+    transform_count: 106
+    transform_time_ms: 11
     transform_yield_count: 46
     insert_time_ms: 0
     insert_new_count: 50
@@ -16,11 +16,11 @@ distinct-from-tests:
     explain: 'COVERING(I1 <,> -> [COL1: KEY:[0], ID: KEY:[2]]) | FILTER _.COL1 IS_DISTINCT_FROM
         promote(@c9 AS INT) | FETCH'
     task_count: 450
-    task_total_time_ms: 23
-    transform_count: 112
-    transform_time_ms: 8
+    task_total_time_ms: 36
+    transform_count: 110
+    transform_time_ms: 15
     transform_yield_count: 48
-    insert_time_ms: 0
+    insert_time_ms: 1
     insert_new_count: 54
     insert_reused_count: 5
 -   query: EXPLAIN select * from t1 WHERE null is distinct from col2
@@ -28,9 +28,9 @@ distinct-from-tests:
     explain: 'COVERING(I2 <,> -> [COL2: KEY:[0], ID: KEY:[2]]) | FILTER _.COL2 IS_DISTINCT_FROM
         NULL | FETCH'
     task_count: 434
-    task_total_time_ms: 21
-    transform_count: 107
-    transform_time_ms: 7
+    task_total_time_ms: 31
+    transform_count: 106
+    transform_time_ms: 12
     transform_yield_count: 46
     insert_time_ms: 0
     insert_new_count: 50
@@ -40,9 +40,9 @@ distinct-from-tests:
     explain: 'COVERING(I1 <,> -> [COL1: KEY:[0], ID: KEY:[2]]) | FILTER _.COL1 IS_DISTINCT_FROM
         promote(@c5 AS INT) | FETCH'
     task_count: 450
-    task_total_time_ms: 21
-    transform_count: 112
-    transform_time_ms: 7
+    task_total_time_ms: 33
+    transform_count: 110
+    transform_time_ms: 10
     transform_yield_count: 48
     insert_time_ms: 0
     insert_new_count: 54
@@ -52,8 +52,8 @@ distinct-from-tests:
     explain: 'COVERING(I1 <,> -> [COL1: KEY:[0], ID: KEY:[2]]) | FILTER NULL IS_DISTINCT_FROM
         NULL | FETCH'
     task_count: 473
-    task_total_time_ms: 23
-    transform_count: 112
+    task_total_time_ms: 33
+    transform_count: 111
     transform_time_ms: 9
     transform_yield_count: 48
     insert_time_ms: 0
@@ -64,11 +64,11 @@ distinct-from-tests:
     explain: 'COVERING(I1 <,> -> [COL1: KEY:[0], ID: KEY:[2]]) | FILTER @c5 IS_DISTINCT_FROM
         @c5 | FETCH'
     task_count: 473
-    task_total_time_ms: 5
-    transform_count: 112
-    transform_time_ms: 2
+    task_total_time_ms: 38
+    transform_count: 111
+    transform_time_ms: 13
     transform_yield_count: 48
-    insert_time_ms: 0
+    insert_time_ms: 1
     insert_new_count: 56
     insert_reused_count: 6
 not-distinct-from-tests:
@@ -77,9 +77,9 @@ not-distinct-from-tests:
     explain: 'COVERING(I2 <,> -> [COL2: KEY:[0], ID: KEY:[2]]) | FILTER _.COL2 NOT_DISTINCT_FROM
         NULL | FETCH'
     task_count: 434
-    task_total_time_ms: 21
-    transform_count: 106
-    transform_time_ms: 7
+    task_total_time_ms: 31
+    transform_count: 105
+    transform_time_ms: 10
     transform_yield_count: 46
     insert_time_ms: 0
     insert_new_count: 50
@@ -89,11 +89,11 @@ not-distinct-from-tests:
     explain: 'COVERING(I1 <,> -> [COL1: KEY:[0], ID: KEY:[2]]) | FILTER _.COL1 NOT_DISTINCT_FROM
         promote(@c10 AS INT) | FETCH'
     task_count: 450
-    task_total_time_ms: 23
-    transform_count: 111
-    transform_time_ms: 8
+    task_total_time_ms: 35
+    transform_count: 109
+    transform_time_ms: 12
     transform_yield_count: 48
-    insert_time_ms: 0
+    insert_time_ms: 1
     insert_new_count: 54
     insert_reused_count: 5
 -   query: EXPLAIN select * from t1 WHERE null is not distinct from col2
@@ -101,9 +101,9 @@ not-distinct-from-tests:
     explain: 'COVERING(I2 <,> -> [COL2: KEY:[0], ID: KEY:[2]]) | FILTER _.COL2 NOT_DISTINCT_FROM
         NULL | FETCH'
     task_count: 434
-    task_total_time_ms: 22
-    transform_count: 106
-    transform_time_ms: 7
+    task_total_time_ms: 36
+    transform_count: 105
+    transform_time_ms: 14
     transform_yield_count: 46
     insert_time_ms: 0
     insert_new_count: 50
@@ -113,9 +113,9 @@ not-distinct-from-tests:
     explain: 'COVERING(I1 <,> -> [COL1: KEY:[0], ID: KEY:[2]]) | FILTER _.COL1 NOT_DISTINCT_FROM
         promote(@c5 AS INT) | FETCH'
     task_count: 450
-    task_total_time_ms: 23
-    transform_count: 111
-    transform_time_ms: 8
+    task_total_time_ms: 29
+    transform_count: 109
+    transform_time_ms: 9
     transform_yield_count: 48
     insert_time_ms: 0
     insert_new_count: 54
@@ -126,9 +126,9 @@ not-distinct-from-tests:
         NULL | MAP (_ AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l
         AS LONG)) AS _0)'
     task_count: 844
-    task_total_time_ms: 47
-    transform_count: 206
-    transform_time_ms: 14
+    task_total_time_ms: 37
+    transform_count: 204
+    transform_time_ms: 13
     transform_yield_count: 60
     insert_time_ms: 1
     insert_new_count: 93
@@ -139,10 +139,10 @@ not-distinct-from-tests:
         @c8 | MAP (_ AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l
         AS LONG)) AS _0)'
     task_count: 844
-    task_total_time_ms: 23
-    transform_count: 206
-    transform_time_ms: 9
+    task_total_time_ms: 37
+    transform_count: 204
+    transform_time_ms: 13
     transform_yield_count: 60
-    insert_time_ms: 0
+    insert_time_ms: 1
     insert_new_count: 93
     insert_reused_count: 5

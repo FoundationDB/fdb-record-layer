@@ -1,12 +1,12 @@
 between-index-tests:
 -   query: EXPLAIN select * from t1 WHERE col1 BETWEEN 10 AND 10
     ref: between.yamsql:77
-    explain: ISCAN(I1 [[GREATER_THAN_OR_EQUALS promote(@c8 AS INT) && LESS_THAN_OR_EQUALS
-        promote(@c8 AS INT)]])
+    explain: ISCAN(I1 [[GREATER_THAN_OR_EQUALS promote(@c7 AS INT) && LESS_THAN_OR_EQUALS
+        promote(@c7 AS INT)]])
     task_count: 327
-    task_total_time_ms: 17
-    transform_count: 81
-    transform_time_ms: 5
+    task_total_time_ms: 21
+    transform_count: 79
+    transform_time_ms: 6
     transform_yield_count: 32
     insert_time_ms: 0
     insert_new_count: 35
@@ -16,9 +16,9 @@ between-index-tests:
     explain: ISCAN(I1 <,>) | FILTER _.COL1 + @c7 GREATER_THAN_OR_EQUALS promote(@c9
         AS INT) AND _.COL1 + @c7 LESS_THAN_OR_EQUALS promote(@c11 AS INT)
     task_count: 291
-    task_total_time_ms: 17
-    transform_count: 77
-    transform_time_ms: 6
+    task_total_time_ms: 26
+    transform_count: 75
+    transform_time_ms: 10
     transform_yield_count: 29
     insert_time_ms: 0
     insert_new_count: 33
@@ -28,9 +28,9 @@ between-index-tests:
     explain: ISCAN(I1 <,>) | FILTER _.COL1 + @c7 LESS_THAN promote(@c10 AS INT) OR
         _.COL1 + @c7 GREATER_THAN promote(@c12 AS INT)
     task_count: 291
-    task_total_time_ms: 17
-    transform_count: 78
-    transform_time_ms: 6
+    task_total_time_ms: 27
+    transform_count: 76
+    transform_time_ms: 10
     transform_yield_count: 29
     insert_time_ms: 0
     insert_new_count: 33

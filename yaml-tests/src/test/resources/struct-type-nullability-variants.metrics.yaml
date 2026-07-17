@@ -5,9 +5,9 @@ struct-type-variants-tests:
     explain: SCAN([IS USERS]) | FILTER _.HOME_ADDRESS.CITY EQUALS promote(@c13 AS
         STRING)
     task_count: 210
-    task_total_time_ms: 16
-    transform_count: 55
-    transform_time_ms: 5
+    task_total_time_ms: 20
+    transform_count: 53
+    transform_time_ms: 4
     transform_yield_count: 18
     insert_time_ms: 0
     insert_new_count: 21
@@ -18,9 +18,9 @@ struct-type-variants-tests:
     explain: SCAN([IS USERS]) | FILTER _.HOME_ADDRESS.CITY EQUALS promote(@c13 AS
         STRING)
     task_count: 210
-    task_total_time_ms: 16
-    transform_count: 55
-    transform_time_ms: 5
+    task_total_time_ms: 20
+    transform_count: 53
+    transform_time_ms: 4
     transform_yield_count: 18
     insert_time_ms: 0
     insert_new_count: 21
@@ -29,9 +29,9 @@ struct-type-variants-tests:
     ref: struct-type-nullability-variants.yamsql:105
     explain: SCAN([IS LOCATIONS, EQUALS promote(@c11 AS INT)])
     task_count: 187
-    task_total_time_ms: 12
-    transform_count: 52
-    transform_time_ms: 2
+    task_total_time_ms: 19
+    transform_count: 50
+    transform_time_ms: 4
     transform_yield_count: 17
     insert_time_ms: 0
     insert_new_count: 18
@@ -41,8 +41,8 @@ struct-type-variants-tests:
     explain: SCAN([IS LOCATIONS]) | FILTER _.NAME EQUALS promote(@c9 AS STRING) |
         MAP (_.ID AS ID, _.NAME AS NAME)
     task_count: 222
-    task_total_time_ms: 16
-    transform_count: 64
+    task_total_time_ms: 20
+    transform_count: 62
     transform_time_ms: 5
     transform_yield_count: 17
     insert_time_ms: 0
@@ -54,9 +54,9 @@ struct-type-variants-tests:
     explain: SCAN([IS BUSINESSES]) | FILTER _.HEADQUARTERS.CITY EQUALS promote(@c15
         AS STRING)
     task_count: 210
-    task_total_time_ms: 15
-    transform_count: 55
-    transform_time_ms: 5
+    task_total_time_ms: 8
+    transform_count: 53
+    transform_time_ms: 2
     transform_yield_count: 18
     insert_time_ms: 0
     insert_new_count: 21
