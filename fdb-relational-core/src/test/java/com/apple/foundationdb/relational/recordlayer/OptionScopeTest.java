@@ -93,4 +93,23 @@ public class OptionScopeTest {
             }
         }
     }
+
+    /**
+     * {@code SNAPSHOT_ISOLATION} is supported as a connection option: a {@code SELECT} on the connection
+     * runs (at snapshot isolation) without needing a per-query {@code OPTIONS} clause. This lets a user
+     * set the option on the connection, run a few reads, and switch back — it is not treated specially
+     * from the other query options that can also be set at connection scope.
+     */
+    @Test
+    public void snapshotIsolationTakenFromConnection() throws SQLException, RelationalException {
+        final var driver = (RelationalDriver) DriverManager.getDriver(db.getConnectionUri().toString());
+        try (Connection conn = driver.connect(db.getConnectionUri(), Options.builder().withOption(Options.Name.SNAPSHOT_ISOLATION, true).build())) {
+            conn.setSchema(db.getSchemaName());
+            try (Statement statement = conn.createStatement()) {
+                try (ResultSet rs = statement.executeQuery(SELECT_QUERY)) {
+                    ResultSetAssert.assertThat((RelationalResultSet) rs).hasNextRow().isRowExactly(0L);
+                }
+            }
+        }
+    }
 }
