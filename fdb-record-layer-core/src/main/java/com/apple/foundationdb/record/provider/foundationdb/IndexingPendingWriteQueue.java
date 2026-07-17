@@ -1,9 +1,9 @@
 /*
- * PendingWriteQueueDrainer.java
+ * IndexingPendingWriteQueue.java
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2023 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2026 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -38,28 +38,31 @@ import java.io.Serial;
 import java.util.concurrent.CompletableFuture;
 
 /**
- * Drain a pending writes queue. Used by the indexer.
+ * Use {@link PendingWritesQueue} to defer index updates while an index is being built.
+ * Indexing maintainer: will use this module to push items to the queue
+ * Online indexer: will use this module to drain the queue and update the index
  */
 @ParametersAreNonnullByDefault
-public class PendingWriteQueueDrainer {
-    private final Index index;
-    private final IndexingCommon common;
+public final class IndexingPendingWriteQueue {
+    // TODO: configurable maxQueueSize
+    private static final int MAX_QUEUE_SIZE = 100_000;
     private static final int MAX_RECORDS_DELETE_PER_SECOND = 10_000;
 
-    public PendingWriteQueueDrainer(final Index index, IndexingCommon common) {
+    private final Index index;
+    private final IndexingCommon common;
+
+    public IndexingPendingWriteQueue(final Index index, final IndexingCommon common) {
         this.index = index;
         this.common = common;
     }
 
     CompletableFuture<Boolean> isQueueEmpty(FDBRecordStore store) {
-        return getQueue(store).isQueueEmpty(store.getContext());
+        return getIndexingQueue(store, index).isQueueEmpty(store.getContext());
     }
 
     @SuppressWarnings("PMD.CloseResource")
     CompletableFuture<Void> drainPendingQueue() {
-        // Propagate the indexer's timer to the drain transactions. Besides preserving metrics, this is required for
-        // index maintainers that assume a non-null timer while applying updates (e.g. the vector/HNSW maintainer),
-        // which would otherwise fail with a NullPointerException as the queued writes are replayed.
+        // Called by the indexer: update the index and then remove every queue item
         final FDBRecordContextConfig.Builder contextConfigBuilder =
                 FDBRecordContextConfig.newBuilder().setTimer(common.getRunner().getTimer());
         final ThrottledRetryingIterator<PendingWritesQueueEntry<IndexBuildProto.PendingWritesQueueEntry>> iterator =
@@ -85,7 +88,7 @@ public class PendingWriteQueueDrainer {
         return (store, lastResult, rowLimit) -> {
             final byte[] continuation = lastResult == null ? null : lastResult.getContinuation().toBytes();
             final ScanProperties scanProperties = ScanProperties.FORWARD_SCAN.with(props -> props.setReturnedRowLimit(rowLimit));
-            return getQueue(store).getQueueCursor(store.getContext(), scanProperties, continuation);
+            return getIndexingQueue(store, index).getQueueCursor(store.getContext(), scanProperties, continuation);
         };
     }
 
@@ -98,20 +101,54 @@ public class PendingWriteQueueDrainer {
             return AsyncUtil.DONE;
         }
         final IndexBuildProto.PendingWritesQueueEntry payload = entry.getPayload();
+        if (payload.getOperation() != IndexBuildProto.PendingWritesQueueEntry.Operation.UPDATE) { // currently the only operation
+            throw new RecordCoreException("unsupported pending write queue operation: " + payload.getOperation());
+        }
         return store.getIndexMaintainer(index)
-                // Calling updateWhileWriteOnly explicitly, lest this update will be re-pushed to the queue
-                .updateWhileWriteOnly(
-                        PendingWriteQueueIndexingFactory.getOldRecord(store, payload),
-                        PendingWriteQueueIndexingFactory.getNewRecord(store, payload))
+                .updateFromQueue(payload.getData())
                 .thenAccept(ignore -> {
                     quotaManager.deleteCountInc();
-                    getQueue(store).clearEntry(store.getContext(), entry);
+                    getIndexingQueue(store, index).clearEntry(store.getContext(), entry);
                 });
     }
 
     @Nonnull
-    private PendingWritesQueue<IndexBuildProto.PendingWritesQueueEntry> getQueue(final FDBRecordStore store) {
-        return PendingWriteQueueIndexingFactory.getIndexingQueue(store, index);
+    public static PendingWritesQueue<IndexBuildProto.PendingWritesQueueEntry> getIndexingQueue(final FDBRecordStore store, final Index index) {
+        return new PendingWritesQueue<>(
+                IndexingSubspaces.indexPendingWriteQueueSubspace(store, index),
+                IndexingSubspaces.indexPendingWriteQueueSizeSubspace(store, index),
+                MAX_QUEUE_SIZE,
+                IndexBuildProto.PendingWritesQueueEntry.class
+        );
+    }
+
+    /**
+     * Return true if the pending writes queue for the given index currently holds at least one entry. The size counter
+     * is read via a snapshot (conflict-free) read.
+     * @param store the record store whose queue is inspected
+     * @param index the index whose queue is inspected
+     * @param context the context used for the conflict-free read
+     * @return a future that completes with true if the queue is non-empty
+     */
+    @Nonnull
+    public static CompletableFuture<Boolean> hasPendingWrites(final FDBRecordStore store, final Index index, final FDBRecordContext context) {
+        return getIndexingQueue(store, index).getQueueSizeNoConflict(context)
+                .thenApply(size -> size != null && size > 0);
+    }
+
+    /**
+     * Called by the index maintainer to enqueue data for a deferred index update.
+     * @param store the record store whose incarnation and context are used
+     * @param index the index whose queue the entry is appended to
+     * @param entry the entry to enqueue
+     * @return a future that completes when the entry has been enqueued
+     */
+    @Nonnull
+    public static CompletableFuture<Void> enqueuePendingIndexUpdate(
+            final FDBRecordStore store,
+            final Index index,
+            final IndexBuildProto.PendingWritesQueueEntry entry) {
+        return getIndexingQueue(store, index).enqueue(store.getContext(), entry, store.getIncarnation());
     }
 
     /**

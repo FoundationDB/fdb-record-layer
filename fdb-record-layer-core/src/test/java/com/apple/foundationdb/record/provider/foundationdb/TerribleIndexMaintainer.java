@@ -102,12 +102,6 @@ public class TerribleIndexMaintainer extends IndexMaintainer {
 
     @Nonnull
     @Override
-    public <M extends Message> CompletableFuture<Void> updateWhileWriteOnlyWithQueue(@Nullable final FDBIndexableRecord<M> oldRecord, @Nullable final FDBIndexableRecord<M> newRecord) {
-        return AsyncUtil.DONE;
-    }
-
-    @Nonnull
-    @Override
     public RecordCursor<IndexEntry> scanUniquenessViolations(@Nonnull TupleRange range, @Nullable byte[] continuation, @Nonnull ScanProperties scanProperties) {
         throw new UnsupportedOperationException("Terrible index cannot scan uniqueness violations");
     }

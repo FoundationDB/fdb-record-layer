@@ -49,8 +49,8 @@ import com.apple.foundationdb.record.provider.foundationdb.IndexMaintenanceFilte
 import com.apple.foundationdb.record.provider.foundationdb.IndexOperation;
 import com.apple.foundationdb.record.provider.foundationdb.IndexOperationResult;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanBounds;
+import com.apple.foundationdb.record.provider.foundationdb.IndexingPendingWriteQueue;
 import com.apple.foundationdb.record.provider.foundationdb.OnlineIndexer;
-import com.apple.foundationdb.record.provider.foundationdb.PendingWriteQueueIndexingFactory;
 import com.apple.foundationdb.record.provider.foundationdb.VectorIndexScanBounds;
 import com.apple.foundationdb.record.provider.foundationdb.VectorIndexScanOptions;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.SlidingWindowTestHelpers.SlidingWindow;
@@ -1521,13 +1521,6 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
 
         @Nonnull
         @Override
-        public <M extends Message> CompletableFuture<Void> updateWhileWriteOnlyWithQueue(@Nullable final FDBIndexableRecord<M> o,
-                                                                                         @Nullable final FDBIndexableRecord<M> n) {
-            throw new UnsupportedOperationException("sliding window should not delegate this call");
-        }
-
-        @Nonnull
-        @Override
         public RecordCursor<IndexEntry> scanUniquenessViolations(@Nonnull TupleRange range,
                                                                   @Nullable byte[] continuation,
                                                                   @Nonnull ScanProperties scanProperties) {
@@ -1588,6 +1581,11 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
 
         @Override
         public boolean isIdempotent() {
+            return true;
+        }
+
+        @Override
+        public boolean isPendingWriteQueueAllowed() {
             return true;
         }
 
@@ -1696,15 +1694,16 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
             // mergeIndex
             sw.mergeIndex().join();
 
+            // isPendingWriteQueueAllowed (delegated to the wrapped maintainer)
+            assertTrue(sw.isPendingWriteQueueAllowed());
             commit(context);
         }
     }
 
     @Test
     void writeOnlyWithQueueRoutesUpdatesToQueue() throws Exception {
-        // While the index is WRITE_ONLY_WITH_QUEUE, updates are routed to the pending queue via
-        // SlidingWindowIndexMaintainer.updateWhileWriteOnlyWithQueue instead of being written to the index. Once the
-        // indexer drains the queue, those updates are applied and the resulting window is valid.
+        // While the index is WRITE_ONLY_WITH_QUEUE, updates are routed to the pending queue instead of being written to
+        // the index. Once the indexer drains the queue, those updates are applied and the resulting window is valid.
         // Enqueue two updates while the index is in the queue state.
         try (FDBRecordContext context = openContext()) {
             openStore(context, 5, Direction.DESC);
@@ -1825,7 +1824,7 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
     @Nullable
     private Long queueSize(@Nonnull FDBRecordContext context, @Nonnull Index index) {
         final PendingWritesQueue<IndexBuildProto.PendingWritesQueueEntry> queue =
-                PendingWriteQueueIndexingFactory.getIndexingQueue(recordStore, index);
+                IndexingPendingWriteQueue.getIndexingQueue(recordStore, index);
         return queue.getQueueSizeNoConflict(context).join();
     }
 }
