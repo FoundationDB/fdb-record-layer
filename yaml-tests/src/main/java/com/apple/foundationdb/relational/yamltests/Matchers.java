@@ -42,7 +42,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Multiset;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
-import de.vandermeer.asciitable.AsciiTable;
 import org.yaml.snakeyaml.nodes.ScalarNode;
 import org.yaml.snakeyaml.nodes.SequenceNode;
 
@@ -57,7 +56,6 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.function.Function;
-import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.fail;
 
@@ -400,8 +398,6 @@ public class Matchers {
             if (resultSet.isEmpty()) {
                 return "<EMPTY>";
             }
-            final AsciiTable at = new AsciiTable();
-            at.addRule();
             for (final var row : resultSet) {
                 if (row.isEmpty()) {
                     // strange behavior from record-layer, sometimes it returns a result set with 0 columns
@@ -409,15 +405,66 @@ public class Matchers {
                     row.add("<EMPTY_ROW_RETURNED_FROM_RECORD_LAYER>");
                 }
             }
-            for (final var row : resultSet) {
-                at.addRow(row.stream().map(String::trim).collect(Collectors.toList()));
-                at.addRule();
+            return renderTable(resultSet);
+        }
+
+        /**
+         * Renders the given rows as a plain-text table, with each column sized to its widest cell and every row wrapped
+         * in horizontal rules. Used to present result sets for comparison/diagnostics.
+         *
+         * @param rows the rows to render, each a list of already-stringified cell values
+         * @return the rendered table
+         */
+        @Nonnull
+        private static String renderTable(@Nonnull final List<List<String>> rows) {
+            final int columnCount = rows.stream().mapToInt(List::size).max().orElse(0);
+            final int[] columnWidths = new int[columnCount];
+            for (final var row : rows) {
+                for (int i = 0; i < row.size(); i++) {
+                    columnWidths[i] = Math.max(columnWidths[i], row.get(i).trim().length());
+                }
             }
-            if (at.getRawContent().size() == 1) { //workaround for /0 bug in AsciiTable
-                return "<EMPTY>";
-            } else {
-                return at.render();
+            final String rule = buildRule(columnWidths);
+            final var sb = new StringBuilder();
+            sb.append(rule);
+            for (final var row : rows) {
+                sb.append(buildRow(row, columnWidths));
+                sb.append(rule);
             }
+            return sb.toString();
+        }
+
+        /**
+         * Builds a horizontal rule (e.g., {@code +----+------+}) matching the given column widths.
+         *
+         * @param columnWidths the rendered width of each column, excluding cell padding
+         * @return the rule line, terminated with a newline
+         */
+        @Nonnull
+        private static String buildRule(@Nonnull final int[] columnWidths) {
+            final var sb = new StringBuilder();
+            for (final int width : columnWidths) {
+                sb.append('+').append("-".repeat(width + 2));
+            }
+            return sb.append("+\n").toString();
+        }
+
+        /**
+         * Builds a single table row, trimming and left-aligning each cell within its column width and padding short
+         * rows with empty cells so the output stays rectangular.
+         *
+         * @param row the cell values for this row
+         * @param columnWidths the rendered width of each column, excluding cell padding
+         * @return the row line, terminated with a newline
+         */
+        @Nonnull
+        private static String buildRow(@Nonnull final List<String> row, @Nonnull final int[] columnWidths) {
+            final var sb = new StringBuilder();
+            for (int i = 0; i < columnWidths.length; i++) {
+                final String cell = i < row.size() ? row.get(i).trim() : "";
+                sb.append("| ").append(cell).append(" ".repeat(columnWidths[i] - cell.length())).append(' ');
+            }
+            return sb.append("|\n").toString();
         }
     }
 
