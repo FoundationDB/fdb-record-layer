@@ -24,9 +24,11 @@ import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.ScanProperties;
+import com.apple.foundationdb.record.TestRecordsIndexScenariosProto;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexTypes;
+import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanRange;
@@ -49,9 +51,18 @@ class RankIndexDefinition implements IndexDefinition {
     }
 
     @Override
+    public TestRecordsIndexScenariosProto.IndexedMessage generateIndexedMessage(final int index) {
+        return TestRecordsIndexScenariosProto.IndexedMessage.newBuilder()
+                .setIntValue(3 * index + 1)
+                .build();
+    }
+
+    @Override
     public Index buildIndex(final KeyExpression groupingPrefix) {
         // groupBy(empty) == ungrouped; groupBy(field("group")) groups the rank set by group.
-        return new Index(indexName, field(ScenarioRecords.NUM_VALUE).groupBy(groupingPrefix), IndexTypes.RANK);
+        return new Index(indexName,
+                field(ScenarioRecords.INDEXED).nest(ScenarioRecords.INT_VALUE).groupBy(groupingPrefix),
+                IndexTypes.RANK);
     }
 
     @Override
@@ -66,7 +77,8 @@ class RankIndexDefinition implements IndexDefinition {
     }
 
     @Override
-    public Index buildSyntheticIndex(final String constituentName, final String valueFieldName) {
-        return new Index(indexName, field(constituentName).nest(valueFieldName).ungrouped(), IndexTypes.RANK);
+    public Index buildSyntheticIndex(final KeyExpression valueExpression) {
+        return new Index(indexName, new GroupingKeyExpression(valueExpression, valueExpression.getColumnSize()),
+                IndexTypes.RANK);
     }
 }

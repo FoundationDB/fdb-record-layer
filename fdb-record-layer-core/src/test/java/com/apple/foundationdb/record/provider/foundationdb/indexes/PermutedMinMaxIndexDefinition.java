@@ -24,6 +24,7 @@ import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.ScanProperties;
+import com.apple.foundationdb.record.TestRecordsIndexScenariosProto;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexOptions;
@@ -37,6 +38,8 @@ import com.apple.foundationdb.record.provider.foundationdb.indexes.scenarios.Ind
 import com.apple.foundationdb.record.provider.foundationdb.indexes.scenarios.ScenarioRecords;
 
 import java.util.Collections;
+
+import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 
 class PermutedMinMaxIndexDefinition implements IndexDefinition {
     private final String indexName = "permutedIndex";
@@ -57,12 +60,24 @@ class PermutedMinMaxIndexDefinition implements IndexDefinition {
     }
 
     @Override
+    public TestRecordsIndexScenariosProto.IndexedMessage generateIndexedMessage(final int index) {
+        return TestRecordsIndexScenariosProto.IndexedMessage.newBuilder()
+                .setStringValue("group")
+                .setIntValue(index)
+                .setLongValue(3L * index + 1)
+                .build();
+    }
+
+    @Override
     public Index buildIndex(final KeyExpression groupingPrefix) {
-        // Grouping columns: [group?, str_value, num_value]; grouped value: permuted_value; permuted size 1
-        // permutes num_value.
-        final KeyExpression grouping = new GroupingKeyExpression(IndexScenarioMetaData.prefixed(groupingPrefix,
-                Key.Expressions.concatenateFields(ScenarioRecords.STR_VALUE, ScenarioRecords.NUM_VALUE,
-                        ScenarioRecords.PERMUTED_VALUE)), 1);
+        // Grouping columns: [group?, string_value, int_value]; grouped value: long_value; permuted size 1
+        // permutes int_value.
+        final KeyExpression columns = Key.Expressions.concat(
+                field(ScenarioRecords.INDEXED).nest(ScenarioRecords.STRING_VALUE),
+                field(ScenarioRecords.INDEXED).nest(ScenarioRecords.INT_VALUE),
+                field(ScenarioRecords.INDEXED).nest(ScenarioRecords.LONG_VALUE));
+        final KeyExpression grouping = new GroupingKeyExpression(
+                IndexScenarioMetaData.prefixed(groupingPrefix, columns), 1);
         return new Index(indexName, grouping, indexType,
                 Collections.singletonMap(IndexOptions.PERMUTED_SIZE_OPTION, "1"));
     }

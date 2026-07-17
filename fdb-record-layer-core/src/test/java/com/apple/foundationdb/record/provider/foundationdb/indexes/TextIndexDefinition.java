@@ -23,10 +23,12 @@ package com.apple.foundationdb.record.provider.foundationdb.indexes;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.ScanProperties;
+import com.apple.foundationdb.record.TestRecordsIndexScenariosProto;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
+import com.apple.foundationdb.record.metadata.expressions.NestingKeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanRange;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.scenarios.IndexDefinition;
@@ -49,12 +51,20 @@ class TextIndexDefinition implements IndexDefinition {
     }
 
     @Override
+    public TestRecordsIndexScenariosProto.IndexedMessage generateIndexedMessage(final int index) {
+        return TestRecordsIndexScenariosProto.IndexedMessage.newBuilder()
+                .setStringValue("term" + index)
+                .build();
+    }
+
+    @Override
     public Index buildIndex(final KeyExpression groupingPrefix) {
         // Ungrouped text index is a plain field; a grouped text index groups by the prefix (text indexes
         // support deleteRecordsWhere only for whole groups).
+        final NestingKeyExpression textField = field(ScenarioRecords.INDEXED).nest(ScenarioRecords.STRING_VALUE);
         final KeyExpression root = groupingPrefix.getColumnSize() == 0
-                ? field(ScenarioRecords.TEXT_VALUE)
-                : field(ScenarioRecords.TEXT_VALUE).groupBy(groupingPrefix);
+                ? textField
+                : textField.groupBy(groupingPrefix);
         return new Index(indexName, root, IndexTypes.TEXT);
     }
 

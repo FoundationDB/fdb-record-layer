@@ -113,18 +113,22 @@ public final class IndexScenarioMetaData {
                     builder.getRecordType(ScenarioRecords.OTHER_RECORD), false);
             joined.addJoin(ScenarioRecords.SIMPLE_CONSTITUENT, ScenarioRecords.OTHER_REC_NO,
                     ScenarioRecords.OTHER_CONSTITUENT, ScenarioRecords.REC_NO);
-            index = definition.buildSyntheticIndex(ScenarioRecords.SIMPLE_CONSTITUENT, ScenarioRecords.NUM_VALUE);
+            // Index the simple constituent's indexed.int_value.
+            index = definition.buildSyntheticIndex(field(ScenarioRecords.SIMPLE_CONSTITUENT)
+                    .nest(field(ScenarioRecords.INDEXED).nest(ScenarioRecords.INT_VALUE)));
             maybeStoreVersions(builder, index);
             builder.addIndex(ScenarioRecords.JOINED_TYPE, index);
         } else {
             final UnnestedRecordTypeBuilder unnested = builder.addUnnestedRecordType(ScenarioRecords.UNNESTED_TYPE);
             unnested.addParentConstituent(ScenarioRecords.PARENT_CONSTITUENT,
                     builder.getRecordType(ScenarioRecords.SCENARIO_RECORD));
+            // The repeated entries live inside the (singular) indexed message: indexed.entries.
             unnested.addNestedConstituent(ScenarioRecords.ENTRY_CONSTITUENT,
                     TestRecordsIndexScenariosProto.ScoreEntry.getDescriptor(),
                     ScenarioRecords.PARENT_CONSTITUENT,
-                    field(ScenarioRecords.SCORES, KeyExpression.FanType.FanOut));
-            index = definition.buildSyntheticIndex(ScenarioRecords.ENTRY_CONSTITUENT, ScenarioRecords.SCORE);
+                    field(ScenarioRecords.INDEXED).nest(field(ScenarioRecords.ENTRIES, KeyExpression.FanType.FanOut)));
+            // Index the unnested entry constituent's score.
+            index = definition.buildSyntheticIndex(field(ScenarioRecords.ENTRY_CONSTITUENT).nest(ScenarioRecords.SCORE));
             maybeStoreVersions(builder, index);
             builder.addIndex(ScenarioRecords.UNNESTED_TYPE, index);
         }

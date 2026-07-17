@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.provider.foundationdb.leaderboard;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.ScanProperties;
+import com.apple.foundationdb.record.TestRecordsIndexScenariosProto;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexTypes;
@@ -58,10 +59,22 @@ class LeaderboardIndexDefinition implements IndexDefinition {
     }
 
     @Override
+    public TestRecordsIndexScenariosProto.IndexedMessage generateIndexedMessage(final int index) {
+        return TestRecordsIndexScenariosProto.IndexedMessage.newBuilder()
+                .addEntries(TestRecordsIndexScenariosProto.ScoreEntry.newBuilder()
+                        .setScore(100L + index)
+                        .setTimestamp(1000L + index)
+                        .setContext(index))
+                .build();
+    }
+
+    @Override
     public Index buildIndex(final KeyExpression groupingPrefix) {
-        final NestingKeyExpression scores = Key.Expressions.field(ScenarioRecords.SCORES, KeyExpression.FanType.FanOut)
-                .nest(Key.Expressions.concat(Key.Expressions.field(ScenarioRecords.SCORE),
-                        Key.Expressions.field(ScenarioRecords.TIMESTAMP)));
+        // Nest through the singular indexed message (SCALAR), then fan out over the repeated entries.
+        final NestingKeyExpression scores = Key.Expressions.field(ScenarioRecords.INDEXED)
+                .nest(Key.Expressions.field(ScenarioRecords.ENTRIES, KeyExpression.FanType.FanOut)
+                        .nest(Key.Expressions.concat(Key.Expressions.field(ScenarioRecords.SCORE),
+                                Key.Expressions.field(ScenarioRecords.TIMESTAMP))));
         final KeyExpression root = groupingPrefix.getColumnSize() == 0
                 ? scores.ungrouped()
                 : scores.groupBy(groupingPrefix);

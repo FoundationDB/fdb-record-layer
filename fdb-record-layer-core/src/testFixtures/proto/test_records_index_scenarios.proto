@@ -35,30 +35,33 @@ message ScoreEntry {
   optional int64 context = 3;
 }
 
-// The single indexable record used by the scenario framework. It carries one field per index-type
-// need so that a single shared record generator can populate data usable by every index type, and
-// so the framework (not each definition) understands the field layout. No field-level index
-// annotations are declared: the only index in any scenario is the one the definition under test adds.
+// Generic, index-type-agnostic container for the field(s) an index is built over. Each index
+// definition fills in only the field(s) it indexes (with semantically relevant values); the
+// framework wraps the message into a ScenarioRecord. No field-level index annotations are declared:
+// the only index in any scenario is the one the definition under test adds.
+message IndexedMessage {
+  option (com.apple.foundationdb.record.record).usage = NESTED;
+  optional int32 int_value = 1;      // VALUE / RANK / ATOMIC(sum,min,max) / BITMAP position / PERMUTED value
+  optional int64 long_value = 2;     // MULTIDIMENSIONAL dimension 1 / PERMUTED permuted column
+  optional int64 long_value_2 = 3;   // MULTIDIMENSIONAL dimension 2
+  optional string string_value = 4;  // TEXT / PERMUTED grouping column
+  optional bytes bytes_value = 5;    // VECTOR (raw half-float bytes)
+  repeated ScoreEntry entries = 6;   // LEADERBOARD source + unnested synthetic constituent
+}
+
+// The key indexable record used by the scenario framework. The framework owns rec_no (primary key)
+// and group (the deleteWhere grouping prefix); the definition owns the indexed content.
 message ScenarioRecord {
   optional int64 rec_no = 1 [(field).primary_key = true]; // default primary key
   optional int64 group = 2;             // designated grouping field (deleteWhere prefix)
-  optional int32 num_value = 3;         // VALUE / RANK / ATOMIC(sum,min,max)
-  optional int32 bitmap_position = 4;   // BITMAP_VALUE bit position (small, non-negative)
-  optional string str_value = 5;        // VALUE / PERMUTED grouping column
-  optional string text_value = 6;       // TEXT (tokenized)
-  optional int64 dim_x = 7;             // MULTIDIMENSIONAL dimension 1
-  optional int64 dim_y = 8;             // MULTIDIMENSIONAL dimension 2
-  optional int32 permuted_value = 9;    // PERMUTED permuted column
-  optional bytes vector_data = 10;      // VECTOR (raw half-float bytes)
-  repeated ScoreEntry scores = 11;      // LEADERBOARD source + unnested synthetic constituent
-  optional int64 other_rec_no = 12;     // foreign key -> OtherScenarioRecord.rec_no (joined type)
+  optional IndexedMessage indexed = 3;  // definition-owned indexable content
+  optional int64 other_rec_no = 4;      // foreign key -> OtherScenarioRecord.rec_no (joined type)
 }
 
 // Second record type, used as the other constituent of a joined synthetic record type.
 message OtherScenarioRecord {
   optional int64 rec_no = 1 [(field).primary_key = true];
   optional int64 group = 2;
-  optional int32 num_value = 3;
 }
 
 message RecordTypeUnion {

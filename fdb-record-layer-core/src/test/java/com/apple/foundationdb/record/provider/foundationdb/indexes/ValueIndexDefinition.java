@@ -24,6 +24,7 @@ import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.ScanProperties;
+import com.apple.foundationdb.record.TestRecordsIndexScenariosProto;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexTypes;
@@ -50,8 +51,16 @@ class ValueIndexDefinition implements IndexDefinition {
     }
 
     @Override
+    public TestRecordsIndexScenariosProto.IndexedMessage generateIndexedMessage(final int index) {
+        return TestRecordsIndexScenariosProto.IndexedMessage.newBuilder()
+                .setIntValue(3 * index + 1)
+                .build();
+    }
+
+    @Override
     public Index buildIndex(final KeyExpression groupingPrefix) {
-        return new Index(indexName, IndexScenarioMetaData.prefixed(groupingPrefix, field(ScenarioRecords.NUM_VALUE)),
+        return new Index(indexName,
+                IndexScenarioMetaData.prefixed(groupingPrefix, field(ScenarioRecords.INDEXED).nest(ScenarioRecords.INT_VALUE)),
                 IndexTypes.VALUE);
     }
 
@@ -67,7 +76,7 @@ class ValueIndexDefinition implements IndexDefinition {
     }
 
     @Override
-    public Index buildSyntheticIndex(final String constituentName, final String valueFieldName) {
-        return new Index(indexName, field(constituentName).nest(valueFieldName), IndexTypes.VALUE);
+    public Index buildSyntheticIndex(final KeyExpression valueExpression) {
+        return new Index(indexName, valueExpression, IndexTypes.VALUE);
     }
 }

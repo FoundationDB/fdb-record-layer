@@ -24,6 +24,7 @@ import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.ScanProperties;
+import com.apple.foundationdb.record.TestRecordsIndexScenariosProto;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexTypes;
@@ -49,6 +50,12 @@ class VersionIndexDefinition implements IndexDefinition {
     }
 
     @Override
+    public TestRecordsIndexScenariosProto.IndexedMessage generateIndexedMessage(final int index) {
+        // The version index is over the record version, not any indexed field.
+        return TestRecordsIndexScenariosProto.IndexedMessage.getDefaultInstance();
+    }
+
+    @Override
     public Index buildIndex(final KeyExpression groupingPrefix) {
         return new Index(indexName, IndexScenarioMetaData.prefixed(groupingPrefix, VersionKeyExpression.VERSION),
                 IndexTypes.VERSION);
@@ -66,7 +73,7 @@ class VersionIndexDefinition implements IndexDefinition {
     }
 
     @Override
-    public Index buildSyntheticIndex(final String constituentName, final String valueFieldName) {
+    public Index buildSyntheticIndex(final KeyExpression valueExpression) {
         // The version is a property of the synthetic record as a whole.
         return new Index(indexName, VersionKeyExpression.VERSION, IndexTypes.VERSION);
     }

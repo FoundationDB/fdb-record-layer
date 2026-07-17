@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.provider.foundationdb.indexes;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.ScanProperties;
+import com.apple.foundationdb.record.TestRecordsIndexScenariosProto;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexOptions;
@@ -55,13 +56,26 @@ class MultiDimensionalIndexDefinition implements IndexDefinition {
     }
 
     @Override
+    public TestRecordsIndexScenariosProto.IndexedMessage generateIndexedMessage(final int index) {
+        return TestRecordsIndexScenariosProto.IndexedMessage.newBuilder()
+                .setStringValue("group")
+                .setLongValue(100L * index)
+                .setLongValue2(100L * index + 50L)
+                .build();
+    }
+
+    @Override
     public Index buildIndex(final KeyExpression groupingPrefix) {
-        // The R-tree always needs a (non-empty) dimensions prefix; use str_value as the base and prepend
+        // The R-tree always needs a (non-empty) dimensions prefix; use string_value as the base and prepend
         // the group prefix when grouped, so deleteRecordsWhere can clear a whole group (whose column is at
         // the front of, and no longer than, the dimensions prefix).
-        final KeyExpression prefix = IndexScenarioMetaData.prefixed(groupingPrefix, field(ScenarioRecords.STR_VALUE));
+        final KeyExpression prefix = IndexScenarioMetaData.prefixed(groupingPrefix,
+                field(ScenarioRecords.INDEXED).nest(ScenarioRecords.STRING_VALUE));
+        final KeyExpression dimensions = concat(
+                field(ScenarioRecords.INDEXED).nest(ScenarioRecords.LONG_VALUE),
+                field(ScenarioRecords.INDEXED).nest(ScenarioRecords.LONG_VALUE_2));
         return new Index(indexName,
-                DimensionsKeyExpression.of(prefix, concat(field(ScenarioRecords.DIM_X), field(ScenarioRecords.DIM_Y))),
+                DimensionsKeyExpression.of(prefix, dimensions),
                 IndexTypes.MULTIDIMENSIONAL,
                 ImmutableMap.of(IndexOptions.RTREE_STORAGE, BY_NODE.toString(),
                         IndexOptions.RTREE_STORE_HILBERT_VALUES, "true"));

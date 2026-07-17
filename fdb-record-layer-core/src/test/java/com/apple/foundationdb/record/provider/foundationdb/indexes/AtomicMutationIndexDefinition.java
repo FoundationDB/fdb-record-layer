@@ -24,6 +24,7 @@ import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.ScanProperties;
+import com.apple.foundationdb.record.TestRecordsIndexScenariosProto;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexTypes;
@@ -58,11 +59,18 @@ class AtomicMutationIndexDefinition implements IndexDefinition {
     }
 
     @Override
+    public TestRecordsIndexScenariosProto.IndexedMessage generateIndexedMessage(final int index) {
+        return TestRecordsIndexScenariosProto.IndexedMessage.newBuilder()
+                .setIntValue(3 * index + 1)
+                .build();
+    }
+
+    @Override
     public Index buildIndex(final KeyExpression groupingPrefix) {
         // COUNT-family indexes aggregate over an empty value; the others aggregate over a numeric field.
         final KeyExpression value = Objects.equals(indexType, IndexTypes.COUNT) || Objects.equals(indexType, IndexTypes.COUNT_UPDATES)
                 ? Key.Expressions.empty()
-                : field(ScenarioRecords.NUM_VALUE);
+                : field(ScenarioRecords.INDEXED).nest(ScenarioRecords.INT_VALUE);
         return new Index(indexName, GroupingKeyExpression.of(value, groupingPrefix), indexType);
     }
 

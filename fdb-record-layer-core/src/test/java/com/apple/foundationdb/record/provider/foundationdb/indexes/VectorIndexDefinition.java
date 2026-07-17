@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.ScanProperties;
+import com.apple.foundationdb.record.TestRecordsIndexScenariosProto;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexTypes;
@@ -38,6 +39,7 @@ import com.apple.foundationdb.record.provider.foundationdb.VectorIndexScanOption
 import com.apple.foundationdb.record.provider.foundationdb.indexes.scenarios.IndexDefinition;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.scenarios.ScenarioRecords;
 import com.google.common.collect.ImmutableMap;
+import com.google.protobuf.ByteString;
 
 import javax.annotation.Nonnull;
 
@@ -60,11 +62,22 @@ class VectorIndexDefinition implements IndexDefinition {
     }
 
     @Override
+    public TestRecordsIndexScenariosProto.IndexedMessage generateIndexedMessage(final int index) {
+        // Distinct distance-to-origin per record, so distance-sorted vector scans are deterministic.
+        final Half[] components = constantHalfComponents(0.0f);
+        components[0] = Half.valueOf((float)(index + 1));
+        final HalfRealVector vector = new HalfRealVector(components);
+        return TestRecordsIndexScenariosProto.IndexedMessage.newBuilder()
+                .setBytesValue(ByteString.copyFrom(vector.getRawData()))
+                .build();
+    }
+
+    @Override
     public Index buildIndex(final KeyExpression groupingPrefix) {
+        final KeyExpression vectorField = field(ScenarioRecords.INDEXED).nest(ScenarioRecords.BYTES_VALUE);
         final KeyExpression root = groupingPrefix.getColumnSize() == 0
-                ? new KeyWithValueExpression(field(ScenarioRecords.VECTOR_DATA), 0)
-                : new KeyWithValueExpression(concat(groupingPrefix, field(ScenarioRecords.VECTOR_DATA)),
-                        groupingPrefix.getColumnSize());
+                ? new KeyWithValueExpression(vectorField, 0)
+                : new KeyWithValueExpression(concat(groupingPrefix, vectorField), groupingPrefix.getColumnSize());
         return new Index(indexName, root, IndexTypes.VECTOR,
                 ImmutableMap.of(IndexOptions.HNSW_METRIC, Metric.EUCLIDEAN_METRIC.name(),
                         IndexOptions.HNSW_NUM_DIMENSIONS, String.valueOf(ScenarioRecords.VECTOR_DIMENSIONS)));

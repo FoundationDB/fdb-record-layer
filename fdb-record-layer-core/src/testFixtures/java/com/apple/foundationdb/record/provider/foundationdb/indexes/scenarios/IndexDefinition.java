@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.provider.foundationdb.indexes.scenarios;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.ScanProperties;
+import com.apple.foundationdb.record.TestRecordsIndexScenariosProto;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
@@ -31,19 +32,33 @@ import java.util.List;
 
 /**
  * Describes a single index-under-test for the scenario framework. The framework (via
- * {@link IndexScenarioMetaData} and {@link ScenarioRecords}) owns the record metadata and record
- * generation over the shared {@code TestRecordsIndexScenariosProto} schema, so a definition only
- * has to say <em>what</em> to index (over the standard fields) and <em>how</em> to scan it.
+ * {@link IndexScenarioMetaData} and {@link ScenarioRecords}) owns the record metadata, the primary
+ * key, and the grouping field, and wraps the definition's {@link #generateIndexedMessage} content
+ * into a {@code ScenarioRecord}. A definition therefore only says <em>what</em> content to index
+ * (in the generic {@code IndexedMessage}), <em>what</em> index to build over it, and <em>how</em>
+ * to scan it.
  */
 public interface IndexDefinition {
     String getIndexName();
 
     /**
-     * Build the index under test over the standard {@code ScenarioRecord} fields. The framework
-     * passes the grouping prefix it wants the index to be grouped by: {@link ScenarioRecords#noPrefix()}
-     * (an empty expression) for ungrouped scenarios, or {@code field("group")} for grouped /
+     * Produce the indexable content for record {@code index}. The definition fills in only the
+     * field(s) of the generic {@code IndexedMessage} that it indexes, with deterministic,
+     * semantically relevant values (distinct/monotonic where the index requires it). The framework
+     * wraps this into a {@code ScenarioRecord} with the primary key and grouping field.
+     *
+     * @param index the record index (0-based)
+     * @return the indexable content for that record
+     */
+    TestRecordsIndexScenariosProto.IndexedMessage generateIndexedMessage(int index);
+
+    /**
+     * Build the index under test over the {@code indexed} content. The framework passes the grouping
+     * prefix it wants the index to be grouped by: {@link ScenarioRecords#noPrefix()} (an empty
+     * expression) for ungrouped scenarios, or {@code field("group")} for grouped /
      * {@code deleteRecordsWhere} scenarios. The definition composes the prefix into its
-     * root/grouping expression (see {@link IndexScenarioMetaData#prefixed}).
+     * root/grouping expression (see {@link IndexScenarioMetaData#prefixed}) and nests through the
+     * singular {@code indexed} field to reach its value field(s).
      *
      * @param groupingPrefix empty for ungrouped, or the grouping-field expression for grouped scenarios
      * @return the index to add to the store
@@ -84,14 +99,15 @@ public interface IndexDefinition {
     }
 
     /**
-     * Build the index over a synthetic record type's constituent field. Only called when
-     * {@link #supportsSynthetic()} is {@code true}.
+     * Build the index over a synthetic record type, given the fully-resolved value expression the
+     * framework computed for the synthetic constituent (already nested through the constituent and,
+     * for joined types, the {@code indexed} message). The definition just wraps it in its index
+     * type. Only called when {@link #supportsSynthetic()} is {@code true}.
      *
-     * @param constituentName the correlation name of the constituent to index
-     * @param valueFieldName the field within that constituent to index
+     * @param valueExpression the resolved value expression to index
      * @return the index to add to the synthetic type
      */
-    default Index buildSyntheticIndex(String constituentName, String valueFieldName) {
+    default Index buildSyntheticIndex(KeyExpression valueExpression) {
         throw new UnsupportedOperationException("index does not support synthetic types: " + getIndexName());
     }
 

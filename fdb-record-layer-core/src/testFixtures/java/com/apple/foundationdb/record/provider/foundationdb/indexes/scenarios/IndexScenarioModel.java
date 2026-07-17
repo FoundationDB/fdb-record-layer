@@ -95,12 +95,12 @@ public class IndexScenarioModel {
     public List<Message> generateRecords(final int count) {
         switch (recordSource) {
             case JOINED_CONSTITUENTS:
-                return ScenarioRecords.joinedConstituents(count);
+                return ScenarioRecords.joinedConstituents(count, definition);
             case UNNESTED_PARENTS:
                 return ScenarioRecords.unnestedParents(count);
             case SCENARIO:
             default:
-                return ScenarioRecords.scenarioRecords(count);
+                return ScenarioRecords.scenarioRecords(count, definition);
         }
     }
 
