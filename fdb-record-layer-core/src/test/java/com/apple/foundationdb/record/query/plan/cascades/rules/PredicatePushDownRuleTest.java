@@ -41,7 +41,6 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalUnio
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalUniqueExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
-import com.apple.foundationdb.record.query.plan.cascades.predicates.ConstantPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.OrPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ExistentialValuePredicate;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
@@ -78,6 +77,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.RuleTestHelper.G
 import static com.apple.foundationdb.record.query.plan.cascades.RuleTestHelper.baseT;
 import static com.apple.foundationdb.record.query.plan.cascades.RuleTestHelper.baseTau;
 import static com.apple.foundationdb.record.query.plan.cascades.RuleTestHelper.join;
+import static com.apple.foundationdb.record.query.plan.cascades.RuleTestHelper.rangeOneQun;
 
 /**
  * Tests of the {@link PredicatePushDownRule}. These operate by constructing expressions that
@@ -144,7 +144,7 @@ public class PredicatePushDownRuleTest {
      * }</pre>
      */
     @Test
-    void pushDownOnePredicateOfMultiple() {
+    void pushDownPredicateRetainingExistentialPredicate() {
         Quantifier baseQun = baseT();
 
         Quantifier lowerQun = forEach(selectWithPredicates(
@@ -295,12 +295,13 @@ public class PredicatePushDownRuleTest {
     }
 
     /**
-     * Test what happens when there is a reference with multiple expressions that can accept a pushed
-     * predicate. If that is the case, during the rewrite, the predicate should be pushed down to
-     * all children of the original expression.
+     * Test that when a reference holds multiple (equivalent) child expressions that tie on select and table function
+     * counts but differ in predicate complexity, the rule's {@code argmin} chooses the child with the simplest
+     * predicates and pushes the predicate into just that one, producing a new child reference that contains only the
+     * rewritten expression.
      */
     @Test
-    void canPushDownToMultipleChildren() {
+    void canPushDownChoosingChildWithSimplerPredicates() {
         Quantifier baseQun = baseT();
 
         SelectExpression lower1 = selectWithPredicates(
@@ -308,7 +309,7 @@ public class PredicatePushDownRuleTest {
         );
         SelectExpression lower2 = selectWithPredicates(
                 baseQun, List.of("a", "b", "c"),
-                new ConstantPredicate(true)
+                fieldPredicate(baseQun, "b", GREATER_THAN_HELLO)
         );
         Reference lowerRef = Reference.ofFinalExpressions(PlannerStage.INITIAL, ImmutableSet.of(lower1, lower2));
         Quantifier lowerQun = Quantifier.forEach(lowerRef);
@@ -318,18 +319,12 @@ public class PredicatePushDownRuleTest {
                 fieldPredicate(lowerQun, "a", EQUALS_42)
         );
 
-        SelectExpression newLower1 = selectWithPredicates(
+        // The rule picks the simplest child expression (lower1, which has no predicates) and pushes the predicate into
+        // just that one, yielding a new child reference that contains only the rewritten expression.
+        Quantifier newLowerQun = forEach(selectWithPredicates(
                 baseQun, List.of("a", "b", "c"),
                 fieldPredicate(baseQun, "a", EQUALS_42)
-        );
-        SelectExpression newLower2 = selectWithPredicates(
-                baseQun, List.of("a", "b", "c"),
-                new ConstantPredicate(true),
-                fieldPredicate(baseQun, "a", EQUALS_42)
-        );
-        Reference newLowerRef = Reference.ofFinalExpressions(PlannerStage.CANONICAL, ImmutableSet.of(newLower1, newLower2));
-        Quantifier newLowerQun = Quantifier.forEach(newLowerRef);
-
+        ));
         SelectExpression newHigher = selectWithPredicates(
                 newLowerQun, List.of("b", "c")
         );
@@ -338,30 +333,79 @@ public class PredicatePushDownRuleTest {
     }
 
     /**
-     * Test what happens if we have multiple children, some of whom can push down the predicate
-     * and some of whom can't. In this case, we expect it to create a new reference that contains
-     * only the children that accept the predicate.
+     * Test that when a reference holds multiple (equivalent) child expressions that differ in their number of select
+     * boxes, the rule's {@code argmin} chooses the child with the fewest select boxes and pushes the predicate into
+     * just that one.
      */
     @Test
-    void canPushDownToSomeChildren() {
+    void canPushDownChoosingChildWithFewerSelects() {
         Quantifier baseQun = baseT();
 
-        // Add a second expression to the baseQun quantifier. It is identical
-        // to the original quantifier contents, except it inserts an additional
-        // select (which does no filtering or projection).
-        Quantifier baseQun2 = baseT();
-        SelectExpression selectAllT = selectWithPredicates(baseQun2);
-        baseQun.getRangesOver().insertFinalExpression(selectAllT);
+        // lower1 has a single select box.
+        SelectExpression lower1 = selectWithPredicates(
+                baseQun, List.of("a", "b", "c")
+        );
+        // lower2 is equivalent, but wraps an additional (redundant) select box, giving it a higher select count.
+        Quantifier innerQun = forEach(selectWithPredicates(baseQun, List.of("a", "b", "c")));
+        SelectExpression lower2 = selectWithPredicates(
+                innerQun, List.of("a", "b", "c")
+        );
+        Reference lowerRef = Reference.ofFinalExpressions(PlannerStage.INITIAL, ImmutableSet.of(lower1, lower2));
+        Quantifier lowerQun = Quantifier.forEach(lowerRef);
 
         SelectExpression higher = selectWithPredicates(
-                baseQun, List.of("a", "c"),
-                fieldPredicate(baseQun, "b", EQUALS_PARAM));
+                lowerQun, List.of("b", "c"),
+                fieldPredicate(lowerQun, "a", EQUALS_42)
+        );
 
-        Quantifier newLowerQun = forEach(selectWithPredicates(baseQun2,
-                fieldPredicate(baseQun2, "b", EQUALS_PARAM)
+        // argmin picks lower1 (fewer select boxes); the predicate is pushed into just that expression.
+        Quantifier newLowerQun = forEach(selectWithPredicates(
+                baseQun, List.of("a", "b", "c"),
+                fieldPredicate(baseQun, "a", EQUALS_42)
         ));
         SelectExpression newHigher = selectWithPredicates(
-                newLowerQun, List.of("a", "c")
+                newLowerQun, List.of("b", "c")
+        );
+
+        testHelper.assertYields(higher, newHigher);
+    }
+
+    /**
+     * Test that when a reference holds multiple (equivalent) child expressions that tie on select count but differ in
+     * their number of table function expressions, the rule's {@code argmin} chooses the child with the fewest table
+     * functions and pushes the predicate into just that one.
+     */
+    @Test
+    void canPushDownChoosingChildWithFewerTableFunctions() {
+        Quantifier baseQun = baseT();
+
+        // lower1 selects directly from the base quantifier: one select box, no table functions.
+        SelectExpression lower1 = selectWithPredicates(
+                baseQun, List.of("a", "b", "c")
+        );
+        // lower2 is equivalent (the range(1) contributes exactly one row) but includes a table function expression,
+        // so it ties on select count but has a higher table function count.
+        SelectExpression lower2 = join(baseQun, rangeOneQun())
+                .addResultColumn(projectColumn(baseQun, "a"))
+                .addResultColumn(projectColumn(baseQun, "b"))
+                .addResultColumn(projectColumn(baseQun, "c"))
+                .build()
+                .buildSelect();
+        Reference lowerRef = Reference.ofFinalExpressions(PlannerStage.INITIAL, ImmutableSet.of(lower1, lower2));
+        Quantifier lowerQun = Quantifier.forEach(lowerRef);
+
+        SelectExpression higher = selectWithPredicates(
+                lowerQun, List.of("b", "c"),
+                fieldPredicate(lowerQun, "a", EQUALS_42)
+        );
+
+        // argmin picks lower1 (no table functions); the predicate is pushed into just that expression.
+        Quantifier newLowerQun = forEach(selectWithPredicates(
+                baseQun, List.of("a", "b", "c"),
+                fieldPredicate(baseQun, "a", EQUALS_42)
+        ));
+        SelectExpression newHigher = selectWithPredicates(
+                newLowerQun, List.of("b", "c")
         );
 
         testHelper.assertYields(higher, newHigher);
@@ -889,8 +933,8 @@ public class PredicatePushDownRuleTest {
      *   WHERE t.b = tau.beta
      * }</pre>
      * <p>
-     * Note that each rule invocation only pushes down a single predicate down a single leg, but they wind up
-     * with the same final statement at the end.
+     * Both single-leg predicates are pushed down in a single rule invocation, leaving only the join predicate on the
+     * top-level select.
      * </p>
      */
     @Test
@@ -916,8 +960,8 @@ public class PredicatePushDownRuleTest {
                 .build()
                 .buildSelect();
 
-        // As we only invoke the rule once, we get two transformations of the join, one which pushes down the predicate
-        // on table t and the other that pushes down the predicate on table tau
+        // In a single invocation, both single-leg predicates are pushed down to their respective legs, leaving only
+        // the join predicate on the top-level select.
         final Quantifier newTLowQun = forEach(selectWithPredicates(
                 t, List.of("a", "b", "c"),
                 fieldPredicate(t, "c", cComparison)
@@ -926,34 +970,70 @@ public class PredicatePushDownRuleTest {
                 tau, List.of("alpha", "beta", "gamma"),
                 fieldPredicate(tau, "gamma", gammaComparison)
         ));
-        final SelectExpression newHigherWithNewT = join(newTLowQun, tauLowQun)
-                .addResultColumn(FDBQueryGraphTestHelpers.projectColumn(newTLowQun, "a"))
-                .addResultColumn(FDBQueryGraphTestHelpers.projectColumn(tauLowQun, "alpha"))
-                .addPredicate(fieldPredicate(newTLowQun, "b", new Comparisons.ValueComparison(Comparisons.Type.EQUALS, fieldValue(tauLowQun, "beta"))))
-                .addPredicate(fieldPredicate(tauLowQun, "gamma", gammaComparison))
-                .build()
-                .buildSelect();
-        final SelectExpression newHigherWithNewTau = join(tLowQun, newTauLowQun)
-                .addResultColumn(FDBQueryGraphTestHelpers.projectColumn(tLowQun, "a"))
-                .addResultColumn(FDBQueryGraphTestHelpers.projectColumn(newTauLowQun, "alpha"))
-                .addPredicate(fieldPredicate(tLowQun, "b", new Comparisons.ValueComparison(Comparisons.Type.EQUALS, fieldValue(newTauLowQun, "beta"))))
-                .addPredicate(fieldPredicate(tLowQun, "c", cComparison))
-                .build()
-                .buildSelect();
-
-        testHelper.assertYields(higher, newHigherWithNewT, newHigherWithNewTau);
-
-        // If the rule is pushed to either of the new expressions, we should get a final version that pushes all
-        // predicates down to both sides
-        final SelectExpression newestHigher = join(newTLowQun, newTauLowQun)
+        final SelectExpression newHigher = join(newTLowQun, newTauLowQun)
                 .addResultColumn(FDBQueryGraphTestHelpers.projectColumn(newTLowQun, "a"))
                 .addResultColumn(FDBQueryGraphTestHelpers.projectColumn(newTauLowQun, "alpha"))
                 .addPredicate(fieldPredicate(newTLowQun, "b", new Comparisons.ValueComparison(Comparisons.Type.EQUALS, fieldValue(newTauLowQun, "beta"))))
                 .build()
                 .buildSelect();
 
-        testHelper.assertYields(newHigherWithNewT, newestHigher);
-        testHelper.assertYields(newHigherWithNewTau, newestHigher);
+        testHelper.assertYields(higher, newHigher);
+    }
+
+    /**
+     * Like {@link #testPartitionPredicatesByJoinSource()}, but each join leg's reference holds two equivalent child
+     * expressions (one flat, one with a redundant extra select box). The rule's {@code argmin} deterministically picks
+     * the flatter child in each leg, pushes the corresponding single-leg predicate into just that chosen child, and
+     * leaves the join predicate as a residual on the top-level select. The whole thing happens in a single invocation.
+     */
+    @Test
+    void testPartitionPredicatesByJoinSourceWithMultipleChildExpressions() {
+        final Quantifier t = baseT();
+        final Quantifier tau = baseTau();
+
+        final Comparisons.Comparison cComparison = new Comparisons.ValueComparison(Comparisons.Type.EQUALS, ConstantObjectValue.of(Quantifier.constant(), "1", Type.primitiveType(Type.TypeCode.BYTES, false)));
+        final Comparisons.Comparison gammaComparison = new Comparisons.ValueComparison(Comparisons.Type.EQUALS, ConstantObjectValue.of(Quantifier.constant(), "2", Type.primitiveType(Type.TypeCode.BYTES, false)));
+
+        // t leg: a reference with two equivalent child expressions. tLow1 is flat; tLow2 wraps a redundant select box,
+        // so it has a higher select count. argmin picks tLow1.
+        final SelectExpression tLow1 = selectWithPredicates(t, List.of("a", "b", "c"));
+        final Quantifier tInnerQun = forEach(selectWithPredicates(t, List.of("a", "b", "c")));
+        final SelectExpression tLow2 = selectWithPredicates(tInnerQun, List.of("a", "b", "c"));
+        final Quantifier tLowQun = Quantifier.forEach(Reference.ofFinalExpressions(PlannerStage.INITIAL, ImmutableSet.of(tLow1, tLow2)));
+
+        // tau leg: same idea, argmin picks the flat tauLow1.
+        final SelectExpression tauLow1 = selectWithPredicates(tau, List.of("alpha", "beta", "gamma"));
+        final Quantifier tauInnerQun = forEach(selectWithPredicates(tau, List.of("alpha", "beta", "gamma")));
+        final SelectExpression tauLow2 = selectWithPredicates(tauInnerQun, List.of("alpha", "beta", "gamma"));
+        final Quantifier tauLowQun = Quantifier.forEach(Reference.ofFinalExpressions(PlannerStage.INITIAL, ImmutableSet.of(tauLow1, tauLow2)));
+
+        SelectExpression higher = join(tLowQun, tauLowQun)
+                .addResultColumn(FDBQueryGraphTestHelpers.projectColumn(tLowQun, "a"))
+                .addResultColumn(FDBQueryGraphTestHelpers.projectColumn(tauLowQun, "alpha"))
+                .addPredicate(fieldPredicate(tLowQun, "b", new Comparisons.ValueComparison(Comparisons.Type.EQUALS, fieldValue(tauLowQun, "beta"))))
+                .addPredicate(fieldPredicate(tLowQun, "c", cComparison))
+                .addPredicate(fieldPredicate(tauLowQun, "gamma", gammaComparison))
+                .build()
+                .buildSelect();
+
+        // In a single invocation the two single-leg predicates are pushed into the argmin-chosen child of each leg,
+        // leaving only the join predicate on the top-level select.
+        final Quantifier newTLowQun = forEach(selectWithPredicates(
+                t, List.of("a", "b", "c"),
+                fieldPredicate(t, "c", cComparison)
+        ));
+        final Quantifier newTauLowQun = forEach(selectWithPredicates(
+                tau, List.of("alpha", "beta", "gamma"),
+                fieldPredicate(tau, "gamma", gammaComparison)
+        ));
+        final SelectExpression newHigher = join(newTLowQun, newTauLowQun)
+                .addResultColumn(FDBQueryGraphTestHelpers.projectColumn(newTLowQun, "a"))
+                .addResultColumn(FDBQueryGraphTestHelpers.projectColumn(newTauLowQun, "alpha"))
+                .addPredicate(fieldPredicate(newTLowQun, "b", new Comparisons.ValueComparison(Comparisons.Type.EQUALS, fieldValue(newTauLowQun, "beta"))))
+                .build()
+                .buildSelect();
+
+        testHelper.assertYields(higher, newHigher);
     }
 
     /**
