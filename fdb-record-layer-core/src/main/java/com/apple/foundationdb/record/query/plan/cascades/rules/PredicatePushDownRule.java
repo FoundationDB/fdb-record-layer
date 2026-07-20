@@ -194,6 +194,7 @@ public class PredicatePushDownRule extends AbstractCascadesRule<SelectExpression
     @Nonnull
     private static final BindingMatcher<ExpressionPartition<RelationalExpression>> childPartitionsMatcher =
             argmin(ExpressionsPartitionMatchers.<RelationalExpression>comparisonByPropertyList(
+                    ExpressionCountProperty.outerJoinCount(),
                     ExpressionCountProperty.selectCount(),
                     ExpressionCountProperty.tableFunctionCount(),
                     PredicateComplexityProperty.predicateComplexity()

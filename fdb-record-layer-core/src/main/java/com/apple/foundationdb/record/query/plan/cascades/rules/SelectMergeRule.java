@@ -83,6 +83,7 @@ public class SelectMergeRule extends AbstractCascadesRule<SelectExpression> impl
     @Nonnull
     private static final BindingMatcher<ExpressionPartition<RelationalExpression>> childPartitionsMatcher =
             argmin(ExpressionsPartitionMatchers.<RelationalExpressionWithPredicates>comparisonByPropertyList(
+                    ExpressionCountProperty.outerJoinCount(),
                     ExpressionCountProperty.selectCount(),
                     ExpressionCountProperty.tableFunctionCount(),
                     PredicateComplexityProperty.predicateComplexity()
