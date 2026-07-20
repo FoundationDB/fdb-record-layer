@@ -71,7 +71,7 @@ class RelationalResultSetFacade implements RelationalResultSet {
 
     RelationalResultSetFacade(ResultSet delegate) {
         this.delegate = delegate;
-        this.type = Suppliers.memoize(() -> TypeConversion.getStructDataType(delegate.getMetadata().getColumnMetadata().getColumnMetadataList(), false));
+        this.type = Suppliers.memoize(() -> TypeConversion.getStructDataType(delegate.getMetadata().getColumnMetadata(), false));
         this.rows = delegate.getRowCount();
     }
 
