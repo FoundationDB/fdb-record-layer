@@ -77,3 +77,12 @@ message OldAndNewRecords {
   optional bytes old_records = 1;
   optional bytes new_record = 2;
 }
+
+message SlidingWindowQueueEntry {
+  // serialize sliding window entry - old and new records are for the sliding window, but
+  // dedicated Any message are needed for the delegated index.
+  optional bytes old_records = 1;
+  optional bytes new_record = 2;
+  optional google.protobuf.Any delegated_delete = 3;
+  optional google.protobuf.Any delegated_insert = 4;
+}
