@@ -1,10 +1,10 @@
 showcasing-tests:
 -   query: EXPLAIN select * from t1 where id > 15;
-    ref: showcasing-tests.yamsql:110
+    ref: showcasing-tests.yamsql:151
     explain: SCAN([IS T1, [GREATER_THAN promote(@c7 AS LONG)]])
     task_count: 160
-    task_total_time_ms: 3
-    transform_count: 45
+    task_total_time_ms: 2
+    transform_count: 44
     transform_time_ms: 1
     transform_yield_count: 15
     insert_time_ms: 0

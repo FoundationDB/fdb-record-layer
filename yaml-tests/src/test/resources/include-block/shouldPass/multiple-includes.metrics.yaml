@@ -3,11 +3,11 @@ transactions-tests:
     setup:
     - create temporary function t2() on commit drop function AS SELECT * FROM t1;
     ref: multiple-includes.yamsql:25 > include-with-explain.yamsql:35
-    explain: SCAN(<,>)
-    task_count: 166
-    task_total_time_ms: 13
-    transform_count: 46
-    transform_time_ms: 5
+    explain: SCAN([IS T1])
+    task_count: 165
+    task_total_time_ms: 17
+    transform_count: 45
+    transform_time_ms: 7
     transform_yield_count: 15
     insert_time_ms: 0
     insert_new_count: 14
@@ -18,21 +18,21 @@ transactions-tests:
         id < 50;
     ref: multiple-includes.yamsql:25 > include-with-explain.yamsql:45
     explain: SCAN([IS T1, [LESS_THAN promote(@cT218 AS LONG)]])
-    task_count: 186
-    task_total_time_ms: 22
-    transform_count: 49
-    transform_time_ms: 9
+    task_count: 185
+    task_total_time_ms: 19
+    transform_count: 48
+    transform_time_ms: 7
     transform_yield_count: 17
     insert_time_ms: 0
     insert_new_count: 17
     insert_reused_count: 1
 -   query: EXPLAIN select * from t1 where id < 50
     ref: multiple-includes.yamsql:28 > include-with-a-test-block.yamsql:29
-    explain: SCAN([IS T1, [LESS_THAN promote(@c8 AS LONG)]])
+    explain: SCAN([IS T1, [LESS_THAN promote(@c7 AS LONG)]])
     task_count: 160
-    task_total_time_ms: 15
-    transform_count: 45
-    transform_time_ms: 7
+    task_total_time_ms: 18
+    transform_count: 44
+    transform_time_ms: 9
     transform_yield_count: 15
     insert_time_ms: 0
     insert_new_count: 13

@@ -5,9 +5,9 @@ agg-empty-table-tests:
         <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) COMPARE BY (_._0) WITH q0, q1
         RETURN (q0._0 AS _0, q0._1 AS _1, q1._1 AS _2) | MAP (_._1 / _._2 AS _0)'
     task_count: 426
-    task_total_time_ms: 13
-    transform_count: 131
-    transform_time_ms: 11
+    task_total_time_ms: 21
+    transform_count: 129
+    transform_time_ms: 17
     transform_yield_count: 57
     insert_time_ms: 0
     insert_new_count: 30
@@ -19,9 +19,9 @@ agg-empty-table-tests:
         -> [_0: KEY:[0], _1: VALUE:[0]]) COMPARE BY (_._0) WITH q0, q1 RETURN (q0._0
         AS _0, q0._1 AS _1, q1._1 AS _2) | MAP (_._1 AS _0, _._2 AS _1)'
     task_count: 426
-    task_total_time_ms: 10
-    transform_count: 132
-    transform_time_ms: 7
+    task_total_time_ms: 18
+    transform_count: 130
+    transform_time_ms: 14
     transform_yield_count: 57
     insert_time_ms: 0
     insert_new_count: 30
@@ -34,9 +34,9 @@ agg-empty-table-tests:
         RETURN (q0._0 AS _0, q0._1 AS _1, q1._1 AS _2) | FILTER _._1 EQUALS promote(@c21
         AS LONG) | MAP (_._1 AS _0, _._2 AS _1)'
     task_count: 457
-    task_total_time_ms: 10
-    transform_count: 137
-    transform_time_ms: 7
+    task_total_time_ms: 18
+    transform_count: 135
+    transform_time_ms: 14
     transform_yield_count: 58
     insert_time_ms: 0
     insert_new_count: 34
@@ -50,9 +50,9 @@ agg-empty-table-tests:
         AS _0, q0._1 AS _1, q1._1 AS _2) | FILTER _._1 EQUALS promote(@c25 AS LONG)
         | MAP (_._1 AS _0, _._2 AS _1)'
     task_count: 457
-    task_total_time_ms: 8
-    transform_count: 138
-    transform_time_ms: 6
+    task_total_time_ms: 21
+    transform_count: 136
+    transform_time_ms: 15
     transform_yield_count: 58
     insert_time_ms: 0
     insert_new_count: 34
@@ -64,11 +64,11 @@ agg-empty-table-tests:
         GROUP BY (_._0 AS _0) COMPARE BY (_._0) WITH q0, q1 RETURN (q0._0 AS _0, q0._1
         AS _1, q1._1 AS _2) | MAP (_._1 / _._2 AS _0, _._0 AS COL2)'
     task_count: 605
-    task_total_time_ms: 43
-    transform_count: 160
-    transform_time_ms: 32
+    task_total_time_ms: 26
+    transform_count: 158
+    transform_time_ms: 18
     transform_yield_count: 55
-    insert_time_ms: 2
+    insert_time_ms: 0
     insert_new_count: 53
     insert_reused_count: 2
 -   query: EXPLAIN select col2, sum(col1) / count(col1) from T1 where col2 < 2 group
@@ -81,11 +81,11 @@ agg-empty-table-tests:
         AS _2) | FILTER _._1 EQUALS promote(@c27 AS LONG) | MAP (_._0 AS COL2, _._1
         / _._2 AS _1)'
     task_count: 656
-    task_total_time_ms: 38
-    transform_count: 171
-    transform_time_ms: 29
+    task_total_time_ms: 28
+    transform_count: 169
+    transform_time_ms: 21
     transform_yield_count: 57
-    insert_time_ms: 1
+    insert_time_ms: 0
     insert_new_count: 60
     insert_reused_count: 2
 -   query: EXPLAIN select col2, sum(col1) / count(col1) from T1 where col2 < 2 group
@@ -98,9 +98,9 @@ agg-empty-table-tests:
         FILTER _._2 EQUALS promote(@c29 AS LONG) | MAP (_._0 AS COL2, _._2 / _._3
         AS _1)'
     task_count: 443
-    task_total_time_ms: 18
-    transform_count: 129
-    transform_time_ms: 15
+    task_total_time_ms: 23
+    transform_count: 127
+    transform_time_ms: 19
     transform_yield_count: 51
     insert_time_ms: 0
     insert_new_count: 34
@@ -111,9 +111,9 @@ agg-empty-table-tests:
         AS _1) GROUP BY (_._0.COL1 AS _0, _._0.COL3 AS _1) | MAP (_._0._0 AS COL1,
         _._1._0 AS _1, _._1._1 AS _2)
     task_count: 356
-    task_total_time_ms: 35
-    transform_count: 101
-    transform_time_ms: 28
+    task_total_time_ms: 23
+    transform_count: 99
+    transform_time_ms: 16
     transform_yield_count: 50
     insert_time_ms: 0
     insert_new_count: 33
@@ -124,9 +124,9 @@ agg-empty-table-tests:
     explain: 'AISCAN(T2_I6 <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0
         AS a, _._0 AS b, _._1 AS a1, _._1 AS b1)'
     task_count: 372
-    task_total_time_ms: 6
-    transform_count: 122
-    transform_time_ms: 3
+    task_total_time_ms: 7
+    transform_count: 120
+    transform_time_ms: 5
     transform_yield_count: 52
     insert_time_ms: 0
     insert_new_count: 24

@@ -5,8 +5,8 @@ vector-tests:
     explain: SCAN([IS TDOUBLEVECTOR, EQUALS promote(@c23 AS LONG)]) | MAP (CAST(array(@c4,
         @c6, @c8) AS VECTOR(32, 3)) AS _0)
     task_count: 206
-    task_total_time_ms: 3
-    transform_count: 57
+    task_total_time_ms: 2
+    transform_count: 56
     transform_time_ms: 1
     transform_yield_count: 16
     insert_time_ms: 0
@@ -18,9 +18,9 @@ vector-tests:
     explain: SCAN([IS TDOUBLEVECTOR, EQUALS promote(@c23 AS LONG)]) | MAP (CAST(array(@c4,
         @c6, @c8) AS VECTOR(16, 3)) AS _0)
     task_count: 206
-    task_total_time_ms: 3
-    transform_count: 57
-    transform_time_ms: 1
+    task_total_time_ms: 2
+    transform_count: 56
+    transform_time_ms: 0
     transform_yield_count: 16
     insert_time_ms: 0
     insert_new_count: 17
@@ -31,8 +31,8 @@ vector-tests:
     explain: SCAN([IS TDOUBLEVECTOR, EQUALS promote(@c23 AS LONG)]) | MAP (CAST(array(@c4,
         @c6, @c8) AS VECTOR(16, 3)) AS _0)
     task_count: 206
-    task_total_time_ms: 3
-    transform_count: 57
+    task_total_time_ms: 2
+    transform_count: 56
     transform_time_ms: 1
     transform_yield_count: 16
     insert_time_ms: 0
@@ -44,8 +44,8 @@ vector-tests:
     explain: SCAN([IS TDOUBLEVECTOR, EQUALS promote(@c23 AS LONG)]) | MAP (CAST(array(@c4,
         @c6, @c8) AS VECTOR(16, 3)) AS _0)
     task_count: 206
-    task_total_time_ms: 3
-    transform_count: 57
+    task_total_time_ms: 2
+    transform_count: 56
     transform_time_ms: 1
     transform_yield_count: 16
     insert_time_ms: 0
@@ -57,8 +57,8 @@ vector-tests:
     explain: SCAN([IS TDOUBLEVECTOR, EQUALS promote(@c23 AS LONG)]) | MAP (CAST(array(@c4,
         @c6, @c8) AS VECTOR(16, 3)) AS _0)
     task_count: 206
-    task_total_time_ms: 3
-    transform_count: 57
+    task_total_time_ms: 4
+    transform_count: 56
     transform_time_ms: 1
     transform_yield_count: 16
     insert_time_ms: 0
@@ -70,9 +70,9 @@ vector-tests:
     explain: SCAN([IS TDOUBLEVECTOR, EQUALS promote(@c23 AS LONG)]) | MAP (CAST(array(@c4,
         @c6, @c8) AS VECTOR(32, 3)) AS _0)
     task_count: 206
-    task_total_time_ms: 3
-    transform_count: 57
-    transform_time_ms: 1
+    task_total_time_ms: 2
+    transform_count: 56
+    transform_time_ms: 0
     transform_yield_count: 16
     insert_time_ms: 0
     insert_new_count: 17
@@ -83,8 +83,8 @@ vector-tests:
     explain: SCAN([IS TDOUBLEVECTOR, EQUALS promote(@c23 AS LONG)]) | MAP (CAST(array(@c4,
         @c6, @c8) AS VECTOR(32, 3)) AS _0)
     task_count: 206
-    task_total_time_ms: 3
-    transform_count: 57
+    task_total_time_ms: 2
+    transform_count: 56
     transform_time_ms: 1
     transform_yield_count: 16
     insert_time_ms: 0
@@ -96,8 +96,8 @@ vector-tests:
     explain: SCAN([IS TDOUBLEVECTOR, EQUALS promote(@c23 AS LONG)]) | MAP (CAST(array(@c4,
         @c6, @c8) AS VECTOR(32, 3)) AS _0)
     task_count: 206
-    task_total_time_ms: 3
-    transform_count: 57
+    task_total_time_ms: 2
+    transform_count: 56
     transform_time_ms: 1
     transform_yield_count: 16
     insert_time_ms: 0
@@ -110,8 +110,8 @@ vector-tests:
         @c6, @c8) AS VECTOR(64, 3)) AS _0)
     task_count: 206
     task_total_time_ms: 2
-    transform_count: 57
-    transform_time_ms: 1
+    transform_count: 56
+    transform_time_ms: 0
     transform_yield_count: 16
     insert_time_ms: 0
     insert_new_count: 17
@@ -122,9 +122,9 @@ vector-tests:
     explain: SCAN([IS TDOUBLEVECTOR, EQUALS promote(@c23 AS LONG)]) | MAP (CAST(array(@c4,
         @c6, @c8) AS VECTOR(64, 3)) AS _0)
     task_count: 206
-    task_total_time_ms: 3
-    transform_count: 57
-    transform_time_ms: 1
+    task_total_time_ms: 2
+    transform_count: 56
+    transform_time_ms: 0
     transform_yield_count: 16
     insert_time_ms: 0
     insert_new_count: 17
@@ -135,9 +135,9 @@ vector-tests:
     explain: SCAN([IS TDOUBLEVECTOR, EQUALS promote(@c23 AS LONG)]) | MAP (CAST(array(@c4,
         @c6, @c8) AS VECTOR(16, 3)) AS _0)
     task_count: 206
-    task_total_time_ms: 3
-    transform_count: 57
-    transform_time_ms: 1
+    task_total_time_ms: 2
+    transform_count: 56
+    transform_time_ms: 0
     transform_yield_count: 16
     insert_time_ms: 0
     insert_new_count: 17
@@ -148,9 +148,9 @@ vector-tests:
     explain: SCAN([IS TDOUBLEVECTOR, EQUALS promote(@c23 AS LONG)]) | MAP (CAST(array(@c4,
         @c6, @c8) AS VECTOR(32, 3)) AS _0)
     task_count: 206
-    task_total_time_ms: 4
-    transform_count: 57
-    transform_time_ms: 1
+    task_total_time_ms: 2
+    transform_count: 56
+    transform_time_ms: 0
     transform_yield_count: 16
     insert_time_ms: 0
     insert_new_count: 17
@@ -161,8 +161,8 @@ vector-tests:
     explain: SCAN([IS TDOUBLEVECTOR, EQUALS promote(@c23 AS LONG)]) | MAP (CAST(array(@c4,
         @c6, @c8) AS VECTOR(16, 3)) AS _0)
     task_count: 206
-    task_total_time_ms: 3
-    transform_count: 57
+    task_total_time_ms: 4
+    transform_count: 56
     transform_time_ms: 1
     transform_yield_count: 16
     insert_time_ms: 0
@@ -174,8 +174,8 @@ vector-tests:
     explain: SCAN([IS TDOUBLEVECTOR, EQUALS promote(@c23 AS LONG)]) | MAP (CAST(array(@c4,
         @c6, @c8) AS VECTOR(32, 3)) AS _0)
     task_count: 206
-    task_total_time_ms: 3
-    transform_count: 57
+    task_total_time_ms: 2
+    transform_count: 56
     transform_time_ms: 1
     transform_yield_count: 16
     insert_time_ms: 0
@@ -187,9 +187,9 @@ vector-tests:
     explain: SCAN([IS TDOUBLEVECTOR, EQUALS promote(@c26 AS LONG)]) | MAP (CAST(array(@c4,
         @c7, @c10) AS VECTOR(16, 3)) AS _0)
     task_count: 206
-    task_total_time_ms: 4
-    transform_count: 57
-    transform_time_ms: 1
+    task_total_time_ms: 2
+    transform_count: 56
+    transform_time_ms: 0
     transform_yield_count: 16
     insert_time_ms: 0
     insert_new_count: 17
@@ -200,9 +200,9 @@ vector-tests:
     explain: SCAN([IS TDOUBLEVECTOR, EQUALS promote(@c26 AS LONG)]) | MAP (CAST(array(@c4,
         @c7, @c10) AS VECTOR(32, 3)) AS _0)
     task_count: 206
-    task_total_time_ms: 4
-    transform_count: 57
-    transform_time_ms: 1
+    task_total_time_ms: 2
+    transform_count: 56
+    transform_time_ms: 0
     transform_yield_count: 16
     insert_time_ms: 0
     insert_new_count: 17
@@ -213,9 +213,9 @@ vector-tests:
     explain: SCAN([IS TDOUBLEVECTOR, EQUALS promote(@c26 AS LONG)]) | MAP (CAST(array(@c4,
         @c7, @c10) AS VECTOR(64, 3)) AS _0)
     task_count: 206
-    task_total_time_ms: 4
-    transform_count: 57
-    transform_time_ms: 2
+    task_total_time_ms: 2
+    transform_count: 56
+    transform_time_ms: 1
     transform_yield_count: 16
     insert_time_ms: 0
     insert_new_count: 17
@@ -225,9 +225,9 @@ vector-tests:
     explain: SCAN([IS THALFVECTOR, EQUALS promote(@c9 AS LONG)]) | MAP (_.B equals
         NULL AS _0)
     task_count: 206
-    task_total_time_ms: 3
-    transform_count: 57
-    transform_time_ms: 1
+    task_total_time_ms: 2
+    transform_count: 56
+    transform_time_ms: 0
     transform_yield_count: 16
     insert_time_ms: 0
     insert_new_count: 17
@@ -237,9 +237,9 @@ vector-tests:
     explain: SCAN([IS THALFVECTOR, EQUALS promote(@c9 AS LONG)]) | MAP (NULL equals
         _.B AS _0)
     task_count: 206
-    task_total_time_ms: 3
-    transform_count: 57
-    transform_time_ms: 1
+    task_total_time_ms: 2
+    transform_count: 56
+    transform_time_ms: 0
     transform_yield_count: 16
     insert_time_ms: 0
     insert_new_count: 17
@@ -250,8 +250,8 @@ vector-tests:
         NULL AS _0)
     task_count: 206
     task_total_time_ms: 2
-    transform_count: 57
-    transform_time_ms: 1
+    transform_count: 56
+    transform_time_ms: 0
     transform_yield_count: 16
     insert_time_ms: 0
     insert_new_count: 17
@@ -261,9 +261,9 @@ vector-tests:
     explain: SCAN([IS THALFVECTOR, EQUALS promote(@c10 AS LONG)]) | MAP (NULL notEquals
         _.B AS _0)
     task_count: 206
-    task_total_time_ms: 3
-    transform_count: 57
-    transform_time_ms: 1
+    task_total_time_ms: 2
+    transform_count: 56
+    transform_time_ms: 0
     transform_yield_count: 16
     insert_time_ms: 0
     insert_new_count: 17
@@ -272,9 +272,9 @@ vector-tests:
     ref: vector.yamsql:255
     explain: SCAN([IS THALFVECTOR]) | FILTER null | MAP (_.A AS A)
     task_count: 222
-    task_total_time_ms: 3
-    transform_count: 64
-    transform_time_ms: 1
+    task_total_time_ms: 2
+    transform_count: 62
+    transform_time_ms: 0
     transform_yield_count: 17
     insert_time_ms: 0
     insert_new_count: 22
@@ -283,9 +283,9 @@ vector-tests:
     ref: vector.yamsql:260
     explain: SCAN([IS TFLOATVECTOR]) | FILTER _.B NOT_EQUALS NULL | MAP (_.A AS A)
     task_count: 222
-    task_total_time_ms: 4
-    transform_count: 64
-    transform_time_ms: 1
+    task_total_time_ms: 2
+    transform_count: 62
+    transform_time_ms: 0
     transform_yield_count: 17
     insert_time_ms: 0
     insert_new_count: 22
@@ -294,9 +294,9 @@ vector-tests:
     ref: vector.yamsql:265
     explain: SCAN([IS THALFVECTOR]) | FILTER null | MAP (_.A AS A)
     task_count: 222
-    task_total_time_ms: 3
-    transform_count: 64
-    transform_time_ms: 1
+    task_total_time_ms: 2
+    transform_count: 62
+    transform_time_ms: 0
     transform_yield_count: 17
     insert_time_ms: 0
     insert_new_count: 22
@@ -305,9 +305,9 @@ vector-tests:
     ref: vector.yamsql:270
     explain: SCAN([IS TFLOATVECTOR]) | FILTER _.B NOT_EQUALS NULL | MAP (_.A AS A)
     task_count: 222
-    task_total_time_ms: 3
-    transform_count: 64
-    transform_time_ms: 1
+    task_total_time_ms: 2
+    transform_count: 62
+    transform_time_ms: 0
     transform_yield_count: 17
     insert_time_ms: 0
     insert_new_count: 22
@@ -317,9 +317,9 @@ vector-tests:
     explain: SCAN([IS TDOUBLEVECTOR]) | FILTER _.B IS_DISTINCT_FROM NULL | MAP (_.A
         AS A)
     task_count: 206
-    task_total_time_ms: 3
-    transform_count: 59
-    transform_time_ms: 1
+    task_total_time_ms: 2
+    transform_count: 58
+    transform_time_ms: 0
     transform_yield_count: 15
     insert_time_ms: 0
     insert_new_count: 18
@@ -329,9 +329,9 @@ vector-tests:
     explain: SCAN([IS TDOUBLEVECTOR]) | FILTER _.B NOT_DISTINCT_FROM NULL | MAP (_.A
         AS A)
     task_count: 206
-    task_total_time_ms: 3
-    transform_count: 59
-    transform_time_ms: 1
+    task_total_time_ms: 2
+    transform_count: 58
+    transform_time_ms: 0
     transform_yield_count: 15
     insert_time_ms: 0
     insert_new_count: 18
@@ -341,9 +341,9 @@ vector-tests:
     explain: SCAN([IS TDOUBLEVECTOR]) | FILTER _.B IS_DISTINCT_FROM NULL | MAP (_.A
         AS A)
     task_count: 206
-    task_total_time_ms: 3
-    transform_count: 59
-    transform_time_ms: 1
+    task_total_time_ms: 2
+    transform_count: 58
+    transform_time_ms: 0
     transform_yield_count: 15
     insert_time_ms: 0
     insert_new_count: 18
@@ -353,9 +353,9 @@ vector-tests:
     explain: SCAN([IS TDOUBLEVECTOR]) | FILTER _.B NOT_DISTINCT_FROM NULL | MAP (_.A
         AS A)
     task_count: 206
-    task_total_time_ms: 3
-    transform_count: 59
-    transform_time_ms: 1
+    task_total_time_ms: 2
+    transform_count: 58
+    transform_time_ms: 0
     transform_yield_count: 15
     insert_time_ms: 0
     insert_new_count: 18
