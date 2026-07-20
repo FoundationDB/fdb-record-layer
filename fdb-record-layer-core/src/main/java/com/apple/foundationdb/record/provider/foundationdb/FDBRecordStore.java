@@ -4872,7 +4872,16 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                                                         int oldFormatVersion, @Nonnull RecordMetaData metaData, int oldMetaDataVersion,
                                                         boolean rebuildRecordCounts, List<CompletableFuture<Void>> work) {
         final boolean newStore = oldFormatVersion == 0;
-        final Map<Index, List<RecordType>> indexes = metaData.getIndexesToBuildSince(oldMetaDataVersion);
+        // Note: We are specifically calling `getIndexesSince` and not `getIndexesToBuildSince` because we want to see
+        // *All* new indexes so that we can deal with them appropriately. Most importantly we need to see the replaced
+        // indexes, even if they're new, to update their state.
+        // We could try and optimize and not build indexes that have been replaced, but that is relevant in a very
+        // specific scenario
+        // 1. The replaced index is getting picked up in the same transaction as its replacement
+        // 2. They are small enough that it is feasible to build the replaced index, and the replacements in a single transaction
+        // 3. They are big enough that you care about it
+        // Note that new stores will get the indexes for free.
+        final Map<Index, List<RecordType>> indexes = metaData.getIndexesSince(oldMetaDataVersion);
         handleNoLongerUniqueIndex(metaData, work, indexes);
         if (!indexes.isEmpty()) {
             // If all the new indexes are only for a record type whose primary key has a type prefix, then we can scan less.
