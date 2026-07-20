@@ -37,8 +37,8 @@ import com.apple.foundationdb.record.metadata.IndexValidator;
 import com.apple.foundationdb.record.metadata.expressions.EmptyKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.VersionKeyExpression;
-import com.apple.foundationdb.record.provider.foundationdb.indexes.ValueIndexMaintainer;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.ValueIndexMaintainerFactory;
+import com.apple.foundationdb.record.provider.foundationdb.indexes.ValueIndexMaintainerWithQueue;
 import com.apple.foundationdb.record.provider.foundationdb.properties.RecordLayerPropertyStorage;
 import com.apple.foundationdb.record.provider.foundationdb.queue.PendingWritesQueue;
 import com.apple.foundationdb.tuple.Tuple;
@@ -248,7 +248,7 @@ class OnlineIndexerPendingWriteQueueTest extends OnlineIndexerTest {
     @ValueSource(ints = {1, 2, 3, 5})
     void testDrainPendingQueueWhileBuilding(int limit) throws Exception {
         // Add new records during online indexing session
-        final Index index = new Index("simple$num_value_2_queue", field("num_value_2"), IndexTypes.VALUE);
+        final Index index = new Index("simple$num_value_2_queue", field("num_value_2"), ValueIndexMaintainerWithQueue.Factory.INDEX_TYPE);
 
         final int numInitialRecords = 20;
         populateEvenRecords(numInitialRecords);
@@ -312,7 +312,7 @@ class OnlineIndexerPendingWriteQueueTest extends OnlineIndexerTest {
         // Same as testDrainPendingQueueWhileBuilding, but the writes are injected after exactly passesCount scan
         // passes have run rather than after the first. The scan limit is kept small (and there are plenty of initial
         // records) so the build always has more than three passes, guaranteeing the pause point is reached.
-        final Index index = new Index("simple$num_value_2_queue", field("num_value_2"), IndexTypes.VALUE);
+        final Index index = new Index("simple$num_value_2_queue", field("num_value_2"), ValueIndexMaintainerWithQueue.Factory.INDEX_TYPE);
 
         final int numInitialRecords = 30;
         populateEvenRecords(numInitialRecords);
@@ -373,7 +373,7 @@ class OnlineIndexerPendingWriteQueueTest extends OnlineIndexerTest {
 
     @Test
     void testIndexBuildStateWhileBuildingWithQueue() throws Exception {
-        final Index index = new Index("simple$num_value_2_queue", field("num_value_2"), IndexTypes.VALUE);
+        final Index index = new Index("simple$num_value_2_queue", field("num_value_2"), ValueIndexMaintainerWithQueue.Factory.INDEX_TYPE);
         final int numInitialRecords = 20;
         populateEvenRecords(numInitialRecords);
         openSimpleMetaData(allIndexesHook(List.of(index)));
@@ -406,7 +406,7 @@ class OnlineIndexerPendingWriteQueueTest extends OnlineIndexerTest {
     @Test
     void testDrainQueueForDeletedRecords() throws Exception {
         // Delete records during online indexing session
-        final Index index = new Index("simple$num_value_2_queue", field("num_value_2"), IndexTypes.VALUE);
+        final Index index = new Index("simple$num_value_2_queue", field("num_value_2"), ValueIndexMaintainerWithQueue.Factory.INDEX_TYPE);
         final int numInitialRecords = 20;
         populateEvenRecords(numInitialRecords);
         openSimpleMetaData(allIndexesHook(List.of(index)));
@@ -438,7 +438,7 @@ class OnlineIndexerPendingWriteQueueTest extends OnlineIndexerTest {
     @Test
     void testDrainQueueForUpdatedRecords() throws Exception {
         // Update records during online indexing session
-        final Index index = new Index("simple$num_value_2_queue", field("num_value_2"), IndexTypes.VALUE);
+        final Index index = new Index("simple$num_value_2_queue", field("num_value_2"), ValueIndexMaintainerWithQueue.Factory.INDEX_TYPE);
         final int numInitialRecords = 24;
         populateEvenRecords(numInitialRecords);
         openSimpleMetaData(allIndexesHook(List.of(index)));
@@ -474,7 +474,7 @@ class OnlineIndexerPendingWriteQueueTest extends OnlineIndexerTest {
     @Test
     void testDrainQueueReappliesIdempotentlyForScannedRecords() throws Exception {
         // Update records during online indexing session (after already indexed)
-        final Index index = new Index("simple$num_value_2_queue", field("num_value_2"), IndexTypes.VALUE);
+        final Index index = new Index("simple$num_value_2_queue", field("num_value_2"), ValueIndexMaintainerWithQueue.Factory.INDEX_TYPE);
         final int numInitialRecords = 21;
         populateEvenRecords(numInitialRecords);
         openSimpleMetaData(allIndexesHook(List.of(index)));
@@ -577,7 +577,7 @@ class OnlineIndexerPendingWriteQueueTest extends OnlineIndexerTest {
     @Test
     void testQueryCannotUseIndexInQueueState() throws Exception {
         // While an index is being built with a queue it is not readable and queries must not be able to scan it.
-        final Index index = new Index("simple$num_value_2_queue", field("num_value_2"), IndexTypes.VALUE);
+        final Index index = new Index("simple$num_value_2_queue", field("num_value_2"), ValueIndexMaintainerWithQueue.Factory.INDEX_TYPE);
         final int numInitialRecords = 20;
         populateEvenRecords(numInitialRecords);
         openSimpleMetaData(allIndexesHook(List.of(index)));
@@ -604,7 +604,7 @@ class OnlineIndexerPendingWriteQueueTest extends OnlineIndexerTest {
     void testMixedTargetsSomeQueuedSomeNot() throws Exception {
         // Build two value indexes together, only one of which uses a queue. Each index should be marked with its own
         // state and end up correctly built.
-        final Index queuedIndex = new Index("simple$num_value_2_queue", field("num_value_2"), IndexTypes.VALUE);
+        final Index queuedIndex = new Index("simple$num_value_2_queue", field("num_value_2"), ValueIndexMaintainerWithQueue.Factory.INDEX_TYPE);
         final Index directIndex = new Index("simple$num_value_3_direct", field("num_value_3_indexed"), IndexTypes.VALUE);
         final List<Index> indexes = List.of(queuedIndex, directIndex);
         final int numInitialRecords = 30;
@@ -644,8 +644,8 @@ class OnlineIndexerPendingWriteQueueTest extends OnlineIndexerTest {
         // Build five indexes together: two value indexes use a pending writes queue, two value indexes are built
         // directly (plain write-only), and a non-idempotent SUM index is also built directly (it cannot use the queue).
         // Each index should carry its own state during the build and end up correctly built.
-        final Index queuedA = new Index("simple$num_value_2_queue", field("num_value_2"), IndexTypes.VALUE);
-        final Index queuedB = new Index("simple$num_value_unique_queue", field("num_value_unique"), IndexTypes.VALUE);
+        final Index queuedA = new Index("simple$num_value_2_queue", field("num_value_2"), ValueIndexMaintainerWithQueue.Factory.INDEX_TYPE);
+        final Index queuedB = new Index("simple$num_value_unique_queue", field("num_value_unique"), ValueIndexMaintainerWithQueue.Factory.INDEX_TYPE);
         final Index directA = new Index("simple$num_value_3_direct", field("num_value_3_indexed"), IndexTypes.VALUE);
         final Index directB = new Index("simple$str_value_direct", field("str_value_indexed"), IndexTypes.VALUE);
         final Index sumIndex = new Index("simple$sum_num_value_2_direct", field("num_value_2").ungrouped(), IndexTypes.SUM);
@@ -719,7 +719,7 @@ class OnlineIndexerPendingWriteQueueTest extends OnlineIndexerTest {
     void testMixedIdempotentAndNonIdempotentQueued() throws Exception {
         // When both an idempotent and a non-idempotent index are requested for the queue, only the idempotent one is
         // built with the queue; the non-idempotent one falls back to plain write-only.
-        final Index valueIndex = new Index("simple$num_value_2_queue", field("num_value_2"), IndexTypes.VALUE);
+        final Index valueIndex = new Index("simple$num_value_2_queue", field("num_value_2"), ValueIndexMaintainerWithQueue.Factory.INDEX_TYPE);
         final Index countIndex = new Index("simple$count_queue", new GroupingKeyExpression(EmptyKeyExpression.EMPTY, 0), IndexTypes.COUNT);
         final List<Index> indexes = List.of(valueIndex, countIndex);
         final int numInitialRecords = 24;
@@ -750,7 +750,7 @@ class OnlineIndexerPendingWriteQueueTest extends OnlineIndexerTest {
         // A uniqueness conflict among the deferred writes must be added to the UV list during the drain (like a normal
         // write-only build)
         final Index index = new Index("simple$num_value_2_unique_queue", field("num_value_2"),
-                EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS);
+                EmptyKeyExpression.EMPTY, ValueIndexMaintainerWithQueue.Factory.INDEX_TYPE, IndexOptions.UNIQUE_OPTIONS);
         final int numInitialRecords = 20; // recNos 0,2,..,38 with distinct num_value_2 = recNo * 19 (no initial conflict)
         openSimpleMetaData();
         try (FDBRecordContext context = openContext()) {
@@ -852,7 +852,7 @@ class OnlineIndexerPendingWriteQueueTest extends OnlineIndexerTest {
     @Test
     void testFallsBackToWriteOnlyBelowFormatVersion() throws Exception {
         formatVersion = FormatVersionTestUtils.previous(FormatVersion.WRITE_ONLY_WITH_QUEUE);
-        final Index index = new Index("simple$num_value_2_queue", field("num_value_2"), IndexTypes.VALUE);
+        final Index index = new Index("simple$num_value_2_queue", field("num_value_2"), ValueIndexMaintainerWithQueue.Factory.INDEX_TYPE);
         final int numInitialRecords = 20;
         populateEvenRecords(numInitialRecords);
         openSimpleMetaData(allIndexesHook(List.of(index)));
@@ -887,7 +887,7 @@ class OnlineIndexerPendingWriteQueueTest extends OnlineIndexerTest {
     @Test
     void testDrainQueueAcrossMultiplePasses() throws Exception {
         // Enqueue writes at two distinct points during the build so the queue is drained across more than one pass.
-        final Index index = new Index("simple$num_value_2_queue", field("num_value_2"), IndexTypes.VALUE);
+        final Index index = new Index("simple$num_value_2_queue", field("num_value_2"), ValueIndexMaintainerWithQueue.Factory.INDEX_TYPE);
         final int numInitialRecords = 30;
         populateEvenRecords(numInitialRecords);
         openSimpleMetaData(allIndexesHook(List.of(index)));
@@ -934,7 +934,7 @@ class OnlineIndexerPendingWriteQueueTest extends OnlineIndexerTest {
     void testResumeBuildDrainsQueue() throws Exception {
         // Crash a build mid-way while records sit in the queue, then resume with a fresh indexer and confirm the
         // resumed build drains the queue and completes correctly.
-        final Index index = new Index("simple$num_value_2_queue", field("num_value_2"), IndexTypes.VALUE);
+        final Index index = new Index("simple$num_value_2_queue", field("num_value_2"), ValueIndexMaintainerWithQueue.Factory.INDEX_TYPE);
         final int numInitialRecords = 22;
         populateEvenRecords(numInitialRecords);
         openSimpleMetaData(allIndexesHook(List.of(index)));
@@ -991,7 +991,7 @@ class OnlineIndexerPendingWriteQueueTest extends OnlineIndexerTest {
     @Test
     void testEnqueuedWriteFailsToCommitWhenIndexBecomesReadable() throws Exception {
         // A user transaction that updates the pending write queue must fail to commit if the index becomes readable
-        final Index index = new Index("simple$num_value_2_queue", field("num_value_2"), IndexTypes.VALUE);
+        final Index index = new Index("simple$num_value_2_queue", field("num_value_2"), ValueIndexMaintainerWithQueue.Factory.INDEX_TYPE);
         final int numInitialRecords = 20;
         populateEvenRecords(numInitialRecords);
         openSimpleMetaData(allIndexesHook(List.of(index)));
@@ -1044,7 +1044,7 @@ class OnlineIndexerPendingWriteQueueTest extends OnlineIndexerTest {
 
     @Test
     void testPendingWriteQueueNotEmptyWhileMarkingReadableExceptionCarriesIndexName() {
-        final Index index = new Index("simple$num_value_2_queue", field("num_value_2"), IndexTypes.VALUE);
+        final Index index = new Index("simple$num_value_2_queue", field("num_value_2"), ValueIndexMaintainerWithQueue.Factory.INDEX_TYPE);
         final IndexingBase.PendingWriteQueueNotEmptyWhileMarkingReadable ex =
                 new IndexingBase.PendingWriteQueueNotEmptyWhileMarkingReadable(index);
         assertEquals("Pending write queue is not empty while marking index as readable", ex.getMessage());
@@ -1082,7 +1082,7 @@ class OnlineIndexerPendingWriteQueueTest extends OnlineIndexerTest {
     @Test
     void testMutualIndexingFallsBackToWriteOnly() throws Exception {
         // Mutual indexing does not support the pending writes queue
-        final Index index = new Index("simple$num_value_2_queue", field("num_value_2"), IndexTypes.VALUE);
+        final Index index = new Index("simple$num_value_2_queue", field("num_value_2"), ValueIndexMaintainerWithQueue.Factory.INDEX_TYPE);
         final int numInitialRecords = 30;
         populateEvenRecords(numInitialRecords);
         openSimpleMetaData(allIndexesHook(List.of(index)));
@@ -1122,7 +1122,7 @@ class OnlineIndexerPendingWriteQueueTest extends OnlineIndexerTest {
     }
 
     private void concurrentWritesWhileBuildingWithQueue(final int numInitialRecords, final int limit, final int maxWriteIterations) throws InterruptedException {
-        final Index index = new Index("simple$num_value_2_queue", field("num_value_2"), IndexTypes.VALUE);
+        final Index index = new Index("simple$num_value_2_queue", field("num_value_2"), ValueIndexMaintainerWithQueue.Factory.INDEX_TYPE);
         populateEvenRecords(numInitialRecords);
         openSimpleMetaData(allIndexesHook(List.of(index)));
         disableAll(List.of(index));
@@ -1394,7 +1394,7 @@ class OnlineIndexerPendingWriteQueueTest extends OnlineIndexerTest {
         }
     }
 
-    public static class ReEnqueueDuringDrainIndexMaintainer extends ValueIndexMaintainer {
+    public static class ReEnqueueDuringDrainIndexMaintainer extends ValueIndexMaintainerWithQueue {
         public static final String INDEX_TYPE = "value_reenqueue_during_drain";
         /** The queued record whose replay triggers a mid-drain enqueue. */
         public static final long TRIGGER_REC_NO = 7L;
@@ -1469,7 +1469,7 @@ class OnlineIndexerPendingWriteQueueTest extends OnlineIndexerTest {
      * record into the pending writes queue in a separate transaction. This injects a queued write <i>during the
      * indexing pass</i>
      */
-    public static class EnqueueDuringIndexingIndexMaintainer extends ValueIndexMaintainer {
+    public static class EnqueueDuringIndexingIndexMaintainer extends ValueIndexMaintainerWithQueue {
         public static final String INDEX_TYPE = "value_enqueue_during_indexing";
         /** The (pre-existing) record whose indexing triggers the mid-pass enqueue. */
         public static final long TRIGGER_REC_NO = 6L;

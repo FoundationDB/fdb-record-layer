@@ -83,7 +83,7 @@ import java.util.function.Function;
  * {@link com.apple.foundationdb.record.metadata.IndexOptions#VECTOR_ENGINE} index option.
  */
 @API(API.Status.EXPERIMENTAL)
-public class VectorIndexMaintainer extends StandardIndexMaintainer {
+public class VectorIndexMaintainer extends StandardIndexMaintainerWithQueue {
     @Nonnull
     private final VectorIndexEngine engine;
 

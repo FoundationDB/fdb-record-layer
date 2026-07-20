@@ -66,6 +66,7 @@ import com.apple.foundationdb.record.metadata.expressions.KeyExpression.FanType;
 import com.apple.foundationdb.record.metadata.expressions.ThenKeyExpression;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.InvalidIndexEntry;
+import com.apple.foundationdb.record.provider.foundationdb.indexes.ValueIndexMaintainerWithQueue;
 import com.apple.foundationdb.record.provider.foundationdb.queue.PendingWritesQueue;
 import com.apple.foundationdb.record.query.IndexQueryabilityFilter;
 import com.apple.foundationdb.record.query.expressions.Query;
@@ -957,13 +958,17 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
 
     @Test
     void writeOnlyWithQueueIndex() throws Exception {
-        final String standardIndexName = "MySimpleRecord$num_value_3_indexed";
+        final String standardIndexName = "queued_num_value_3";
         final String permissiveIndexName = "permissive_index";
         // The "permissive" index type is backed by NoOpIndexMaintainer, which does not allow the pending write queue,
-        // while the value index above is backed by StandardIndexMaintainer, which does. Marking the standard index
+        // while the queued index is backed by ValueIndexMaintainerWithQueue, which does. Marking the queued index
         // WRITE_ONLY_WITH_QUEUE and then saving a record exercises serializePendingWriteQueue on its maintainer.
-        final RecordMetaDataHook hook = metaData ->
-                metaData.addIndex("MySimpleRecord", new Index(permissiveIndexName, field("num_value_3_indexed"), "permissive"));
+        final RecordMetaDataHook hook = metaData -> {
+            metaData.addIndex("MySimpleRecord",
+                    new Index(standardIndexName, field("num_value_3_indexed"), ValueIndexMaintainerWithQueue.Factory.INDEX_TYPE));
+            metaData.addIndex("MySimpleRecord",
+                    new Index(permissiveIndexName, field("num_value_3_indexed"), "permissive"));
+        };
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
@@ -1012,7 +1017,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
             openSimpleRecordStore(context, hook);
             final Index standardIndex = recordStore.getRecordMetaData().getIndex(standardIndexName);
 
-            // The StandardIndexMaintainer routed the update to its pending queue: exactly one deferred write.
+            // The ValueIndexMaintainerWithQueue routed the update to its pending queue: exactly one deferred write.
             final PendingWritesQueue<IndexBuildProto.PendingWritesQueueEntry> standardQueue =
                     IndexingPendingWriteQueue.getIndexingQueue(recordStore, standardIndex);
             assertThat(standardQueue.getQueueSizeNoConflict(context).join(), is(1L));
