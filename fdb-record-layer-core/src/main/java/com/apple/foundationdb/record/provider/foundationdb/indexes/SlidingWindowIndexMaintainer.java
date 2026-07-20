@@ -32,7 +32,6 @@ import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.IsolationLevel;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
-import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.locking.LockIdentifier;
@@ -42,16 +41,13 @@ import com.apple.foundationdb.record.metadata.IndexPredicate;
 import com.apple.foundationdb.record.metadata.IndexRecordFunction;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.MetaDataException;
-import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
-import com.apple.foundationdb.record.provider.common.RecordSerializer;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBIndexableRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBIndexedRawRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
-import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecordBuilder;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainer;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintenanceFilter;
@@ -66,7 +62,6 @@ import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.TupleHelpers;
 import com.google.common.base.Verify;
 import com.google.protobuf.Any;
-import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.Message;
 
@@ -459,11 +454,11 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
         final IndexBuildProto.SlidingWindowQueueEntry.Builder builder =
                 IndexBuildProto.SlidingWindowQueueEntry.newBuilder();
         if (oldRecord != null) {
-            builder.setOldRecords(serializeRecord(oldRecord));
+            builder.setOldRecords(StandardIndexMaintainerWithQueue.serializePendingRecord(state, oldRecord));
             builder.setDelegatedDelete(delegate.serializePendingWriteQueue(oldRecord, null));
         }
         if (newRecord != null) {
-            builder.setNewRecord(serializeRecord(newRecord));
+            builder.setNewRecord(StandardIndexMaintainerWithQueue.serializePendingRecord(state, newRecord));
             builder.setDelegatedInsert(delegate.serializePendingWriteQueue(null, newRecord));
         }
         return Any.pack(builder.build());
@@ -478,29 +473,26 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
         } catch (InvalidProtocolBufferException ex) {
             throw new RecordCoreException("failed to parse sliding window pending write queue entry data", ex);
         }
-        final FDBStoredRecord<Message> oldRecord = entry.hasOldRecords() ? deserializeRecord(entry.getOldRecords()) : null;
-        final FDBStoredRecord<Message> newRecord = entry.hasNewRecord() ? deserializeRecord(entry.getNewRecord()) : null;
+        final FDBStoredRecord<Message> oldRecord = entry.hasOldRecords()
+                ? StandardIndexMaintainerWithQueue.deserializePendingRecord(state, entry.getOldRecords()) : null;
+        final FDBStoredRecord<Message> newRecord = entry.hasNewRecord()
+                ? StandardIndexMaintainerWithQueue.deserializePendingRecord(state, entry.getNewRecord()) : null;
         final Any delegateDelete = entry.hasDelegatedDelete() ? entry.getDelegatedDelete() : null;
         final Any delegateInsert = entry.hasDelegatedInsert() ? entry.getDelegatedInsert() : null;
         return updateWhileWriteOnly(oldRecord, newRecord, delegateDelete, delegateInsert);
     }
 
+    /**
+     * Applies a single-sided update to the delegate index: during a queue drain it replays the pre-serialized
+     * payload, otherwise it applies the live update.
+     */
     @Nonnull
-    private <M extends Message> ByteString serializeRecord(@Nonnull final FDBIndexableRecord<M> indexableRecord) {
-        final RecordSerializer<Message> serializer = state.store.getSerializer();
-        return ByteString.copyFrom(serializer.serialize(state.store.getRecordMetaData(),
-                indexableRecord.getRecordType(), indexableRecord.getRecord(), state.store.getTimer()));
-    }
-
-    @Nonnull
-    private FDBStoredRecord<Message> deserializeRecord(@Nonnull final ByteString serialized) {
-        final RecordMetaData metaData = state.store.getRecordMetaData();
-        final RecordSerializer<Message> serializer = state.store.getSerializer();
-        final Message rec = serializer.deserialize(metaData, TupleHelpers.EMPTY, serialized.toByteArray(), state.store.getTimer());
-        final RecordType recordType = metaData.getRecordTypeForDescriptor(rec.getDescriptorForType());
-        final FDBStoredRecordBuilder<Message> builder = FDBStoredRecord.newBuilder(rec).setRecordType(recordType);
-        builder.setPrimaryKey(recordType.getPrimaryKey().evaluateSingleton(builder).toTuple());
-        return builder.build();
+    private <M extends Message> CompletableFuture<Void> applyDelegate(@Nullable final FDBIndexableRecord<M> oldRecord,
+                                                                      @Nullable final FDBIndexableRecord<M> newRecord,
+                                                                      @Nullable final Any delegatePayload) {
+        return delegatePayload == null
+                ? delegate.update(oldRecord, newRecord)
+                : delegate.updateFromQueue(delegatePayload);
     }
 
     /**
@@ -544,9 +536,7 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
                 incrementCounter(SlidingWindowCounter.SW_ITEM_ADDED_TO_WINDOW_FILLING);
                 // Window not full: add to delegate, update count, maybe update boundary
                 return instrument(SlidingWindowEvent.SW_DELEGATE_INSERT,
-                        delegateInsert == null ?
-                        delegate.update(null, savedRecord) :
-                        delegate.updateFromQueue(delegateInsert)
+                        applyDelegate(null, savedRecord, delegateInsert)
                 ).thenCompose(vignore ->
                         tr.get(boundaryMetaKey).thenAccept(boundaryBytes -> {
                             tr.set(counterKey, encodeLong(count + 1));
@@ -634,9 +624,7 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
                     recordSize(SlidingWindowSizeEvent.SW_WINDOW_COUNT, newCount);
 
                     return instrument(SlidingWindowEvent.SW_DELEGATE_DELETE,
-                            delegateDelete == null ?
-                            delegate.update(savedRecord, null) :
-                            delegate.updateFromQueue(delegateDelete))
+                            applyDelegate(savedRecord, null, delegateDelete))
                             .thenCompose(vignore -> updateBoundaryAfterDelete(
                                     entriesSubspace, tr, entryKey, boundaryEntryKey,
                                     boundaryMetaKey, packedEntryKey))
@@ -677,9 +665,7 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
                             delegate.update(evictedRecord, null));
                 })
                 .thenCompose(v -> instrument(SlidingWindowEvent.SW_DELEGATE_INSERT,
-                        delegateInsert == null ?
-                        delegate.update(null, newRecord) :
-                        delegate.updateFromQueue(delegateInsert)))
+                        applyDelegate(null, newRecord, delegateInsert)))
                 .thenCompose(v -> instrument(SlidingWindowEvent.SW_BOUNDARY_RESCAN_AFTER_EVICT,
                         extremumType.getNewBoundaryAfterEviction(entriesSubspace, tr,
                                 oldBoundaryPackedKey)))

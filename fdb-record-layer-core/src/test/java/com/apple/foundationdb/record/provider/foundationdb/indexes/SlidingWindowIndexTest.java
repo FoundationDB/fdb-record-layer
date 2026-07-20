@@ -70,7 +70,6 @@ import org.junit.jupiter.api.Test;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
@@ -2146,74 +2145,10 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
         return recordStore.getIndexMaintainer(index());
     }
 
-    /**
-     * Builds an {@link FDBStoredRecord} without routing it through the record store's index maintainers, so
-     * that direct serialize/drain tests can operate on a controlled delegate in isolation.
-     */
-    @Nonnull
-    private FDBStoredRecord<Message> storedRecord(long recNo, long relevance) {
-        final Message message = SlidingWindowVectorRecord.newBuilder()
-                .setRecNo(recNo).setZone("z").setCategory("c").setRelevance(relevance).setScore(0)
-                .setVectorData(ByteString.copyFrom(sampleVector().getRawData()))
-                .build();
-        return FDBStoredRecord.newBuilder(message)
-                .setRecordType(recordStore.getRecordMetaData().getRecordType("SlidingWindowVectorRecord"))
-                .setPrimaryKey(Tuple.from(recNo))
-                .build();
-    }
-
     @Nullable
     private Long queueSize(@Nonnull FDBRecordContext context, @Nonnull Index index) {
         final PendingWritesQueue<IndexBuildProto.PendingWritesQueueEntry> queue =
                 IndexingPendingWriteQueue.getIndexingQueue(recordStore, index);
         return queue.getQueueSizeNoConflict(context).join();
-    }
-
-    /**
-     * A {@link StubIndexMaintainer} that records how the sliding-window maintainer drives its delegate
-     * through the pending-write-queue path: it counts live {@code update} calls versus queued
-     * {@code updateFromQueue} calls, tags every payload it serializes, and captures every payload it is
-     * later asked to drain.
-     */
-    private static final class RecordingStubIndexMaintainer extends StubIndexMaintainer {
-        int liveUpdateCalls;
-        int updateFromQueueCalls;
-        @Nonnull
-        final List<Any> serializedPayloads = new ArrayList<>();
-        @Nonnull
-        final List<Any> drainedPayloads = new ArrayList<>();
-
-        RecordingStubIndexMaintainer(@Nonnull IndexMaintainerState state) {
-            super(state);
-        }
-
-        @Nonnull
-        @Override
-        public <M extends Message> CompletableFuture<Void> update(@Nullable FDBIndexableRecord<M> o,
-                                                                  @Nullable FDBIndexableRecord<M> n) {
-            liveUpdateCalls++;
-            return AsyncUtil.DONE;
-        }
-
-        @Nonnull
-        @Override
-        public <M extends Message> Any serializePendingWriteQueue(@Nullable FDBIndexableRecord<M> oldRecord,
-                                                                  @Nullable FDBIndexableRecord<M> newRecord) {
-            // Return a distinguishable payload per call so the round-trip can be asserted by identity.
-            final String tag = "delegate-payload-" + serializedPayloads.size();
-            final Any payload = Any.pack(IndexBuildProto.OldAndNewRecords.newBuilder()
-                    .setNewRecord(ByteString.copyFromUtf8(tag))
-                    .build());
-            serializedPayloads.add(payload);
-            return payload;
-        }
-
-        @Nonnull
-        @Override
-        public CompletableFuture<Void> updateFromQueue(@Nonnull Any data) {
-            updateFromQueueCalls++;
-            drainedPayloads.add(data);
-            return AsyncUtil.DONE;
-        }
     }
 }
