@@ -4872,7 +4872,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                                                         int oldFormatVersion, @Nonnull RecordMetaData metaData, int oldMetaDataVersion,
                                                         boolean rebuildRecordCounts, List<CompletableFuture<Void>> work) {
         final boolean newStore = oldFormatVersion == 0;
-        final Map<Index, List<RecordType>> indexes = metaData.getIndexesSince(oldMetaDataVersion);
+        final Map<Index, List<RecordType>> indexes = metaData.getIndexesToBuildSince(oldMetaDataVersion);
         handleNoLongerUniqueIndex(metaData, work, indexes);
         if (!indexes.isEmpty()) {
             // If all the new indexes are only for a record type whose primary key has a type prefix, then we can scan less.
@@ -4885,45 +4885,13 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                     () -> getRecordSizeForRebuildIndexes(singleRecordTypeWithPrefixKey));
 
             Map<Index, CompletableFuture<IndexState>> newStates = getStatesForRebuildIndexes(userVersionChecker, indexes, lazyRecordCount, lazyRecordsSize, newStore, oldMetaDataVersion, oldFormatVersion);
-            RebuildIndexReason reason = newStore ? RebuildIndexReason.NEW_STORE : RebuildIndexReason.FEW_RECORDS;
-            // Finish any pre-existing work items and resolve desired index states (which may query index states) before
-            // rebuilding indexes (which writes index states)
-            return rebuildIndexesGetDesiredIndexStates(work, newStates).thenCompose(desiredIndexStates -> {
-                changeReplacedIndexesToDisabled(metaData, desiredIndexStates, indexes);
-                return rebuildIndexes(indexes, desiredIndexStates, reason, oldMetaDataVersion);
-            }).thenRun(() -> {
+            return rebuildIndexes(indexes, newStates, work, newStore ? RebuildIndexReason.NEW_STORE : RebuildIndexReason.FEW_RECORDS, oldMetaDataVersion).thenRun(() -> {
                 // Log after checking all index states
                 maybeLogIndexesNeedingRebuilding(newStates, recordCountRef, recordsSizeRef, rebuildRecordCounts, newStore);
                 context.increment(FDBStoreTimer.Counts.INDEXES_NEED_REBUILDING, newStates.entrySet().size());
             });
         } else {
             return work.isEmpty() ? AsyncUtil.DONE : AsyncUtil.whenAll(work);
-        }
-    }
-
-    private void changeReplacedIndexesToDisabled(@Nonnull final RecordMetaData metaData,
-                                                 @Nonnull final Map<Index, IndexState> desiredIndexStates,
-                                                 @Nonnull final Map<Index, List<RecordType>> indexes) {
-        for (Index index : indexes.keySet()) {
-            final List<String> replacedByNames = index.getReplacedByIndexNames();
-            if (!replacedByNames.isEmpty()) {
-                // Check if all of the replaced by index names are readable, or scheduled to be built
-                if (replacedByNames.stream()
-                        .allMatch(replacedByName -> {
-                            if (metaData.hasIndex(replacedByName)) {
-                                final Index replacedByIndex = metaData.getIndex(replacedByName);
-                                if (indexes.containsKey(replacedByIndex)) {
-                                    return desiredIndexStates.getOrDefault(replacedByIndex, IndexState.READABLE) == IndexState.READABLE;
-                                }  else {
-                                    return isIndexReadable(replacedByName);
-                                }
-                            } else {
-                                return false;
-                            }
-                        })) {
-                    desiredIndexStates.put(index, IndexState.DISABLED);
-                }
-            }
         }
     }
 
