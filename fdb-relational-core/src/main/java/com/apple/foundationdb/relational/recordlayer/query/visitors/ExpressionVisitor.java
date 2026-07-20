@@ -97,13 +97,14 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
     @Override
     public LogicalOperator visitTableFunction(@Nonnull RelationalParser.TableFunctionContext ctx) {
         final var functionName = visitTableFunctionName(ctx.tableFunctionName());
-        return ctx.tableFunctionArgs() == null
-               ? getDelegate().resolveTableValuedFunction(functionName, Expressions.empty())
-               : getDelegate().resolveTableValuedFunction(functionName, visitTableFunctionArgs(ctx.tableFunctionArgs()));
+        final var arguments = ctx.namedOrUnnamedFunctionArgs() == null ?
+                              Expressions.empty() :
+                              Assert.castUnchecked(visit(ctx.namedOrUnnamedFunctionArgs()), Expressions.class);
+        return getDelegate().resolveTableValuedFunction(functionName, arguments);
     }
 
     @Override
-    public Expressions visitTableFunctionArgs(@Nonnull final RelationalParser.TableFunctionArgsContext ctx) {
+    public Expressions visitNamedOrUnnamedFunctionArgs(RelationalParser.NamedOrUnnamedFunctionArgsContext ctx) {
         if (!ctx.namedFunctionArg().isEmpty()) {
             final var namedArguments = Expressions.of(ctx.namedFunctionArg().stream()
                     .map(this::visitNamedFunctionArg).collect(ImmutableList.toImmutableList()));
@@ -405,8 +406,9 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
     @Override
     public Expression visitUserDefinedScalarFunctionCall(@Nonnull RelationalParser.UserDefinedScalarFunctionCallContext ctx) {
         final var functionName = Identifier.of(getDelegate().normalizeString(ctx.userDefinedScalarFunctionName().getText()));
-
-        Expressions arguments = visitFunctionArgs(ctx.functionArgs());
+        Expressions arguments = ctx.namedOrUnnamedFunctionArgs() == null ?
+                                Expressions.empty() :
+                                Assert.castUnchecked(visit(ctx.namedOrUnnamedFunctionArgs()), Expressions.class);
         return getDelegate().resolveFunction(functionName.getName(), arguments.asList().toArray(new Expression[0]));
     }
 

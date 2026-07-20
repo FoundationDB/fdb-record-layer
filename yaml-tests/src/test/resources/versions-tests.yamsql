@@ -652,7 +652,7 @@ test_block:
       - query: select a.version AS version3, a.r.id AS id3, b.version AS version4, b.r.id AS id4, a.r.col2, b.r.col4
            from t3_by_col1('b') a, t4_by_col1('b') b
            where 2 in b.r.col4 and b.r.col2 = a.r.col2
-      - explain: "COVERING(T3_VERSION_WITH_COL1 <,> -> [COL1: VALUE:[0], ID: KEY:[2]]) | FILTER _.COL1 EQUALS promote(@c43 AS STRING) | FETCH | FLATMAP q0 -> { ISCAN(T4_COL2 [EQUALS q0.COL2]) | FILTER _.COL1 EQUALS promote(@c43 AS STRING) AND promote(@c53 AS LONG) IN _.COL4 AS q1 RETURN (q0.__ROW_VERSION AS VERSION3, q0.ID AS ID3, q1.__ROW_VERSION AS VERSION4, q1.ID AS ID4, q0.COL2 AS COL2, q1.COL4 AS COL4) }"
+      - explain: "COVERING(T3_VERSION_WITH_COL1 <,> -> [COL1: VALUE:[0], ID: KEY:[2]]) | FILTER _.COL1 EQUALS @c43 | FETCH | FLATMAP q0 -> { ISCAN(T4_COL2 [EQUALS q0.COL2]) | FILTER _.COL1 EQUALS @c43 AND promote(@c53 AS LONG) IN _.COL4 AS q1 RETURN (q0.__ROW_VERSION AS VERSION3, q0.ID AS ID3, q1.__ROW_VERSION AS VERSION4, q1.ID AS ID4, q0.COL2 AS COL2, q1.COL4 AS COL4) }"
       - result: [
           { VERSION3: !not_null _, ID3:  3, VERSION4: !not_null _, ID4: 15, COL2: 1, COL4: [1, 2, 3] },
           { VERSION3: !not_null _, ID3:  3, VERSION4: !not_null _, ID4: 16, COL2: 1, COL4: [2, 5] },
