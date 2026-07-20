@@ -1158,7 +1158,7 @@ public class StandardQueryTests {
                     Assertions.assertEquals(101, struct.getInt(3));
                     Assertions.assertFalse(resultSet.next());
                 }
-                Assertions.assertTrue(statement.execute("select ((*)) from t1"));
+                Assertions.assertTrue(statement.execute("select STRUCT ((*)) from t1"));
                 try (final RelationalResultSet resultSet = statement.getResultSet()) {
                     Assertions.assertTrue(resultSet.next());
                     final var struct = resultSet.getStruct(1);

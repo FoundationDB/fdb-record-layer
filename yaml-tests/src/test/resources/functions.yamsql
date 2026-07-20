@@ -30,7 +30,13 @@ setup:
     # TODO a5 integer array add support
     # TODO a7 float add insert support
     # TODO a9 bytes add insert support
-    - query: insert into A(a1, a2, a3, a4, a6(t1), a8) values (1, 1, '1', true, (1), 1.0), (2, 2, '2', false, (2), 2.0)
+    -
+      - currentVersionLessThan: !current_version
+        definition:
+          - query: insert into A(a1, a2, a3, a4, a6(t1), a8) values (1, 1, '1', true, (1), 1.0), (2, 2, '2', false, (2), 2.0)
+      - currentVersionAtLeast: !current_version
+        definition:
+          - query: insert into A(a1, a2, a3, a4, a6(t1), a8) values (1, 1, '1', true, STRUCT (1), 1.0), (2, 2, '2', false, STRUCT (2), 2.0)
     - query: insert into B values (1, 2), (3, null), (null, 4), (null, null), (5, 5.0)
     - query: insert into C values (1, (2, 'b', 2.0)), (2, (3, 'c', 3.0)), (3, (4, 'd', 4.0)), (4, null), (5, (6, 'f', 6.0))
 ---

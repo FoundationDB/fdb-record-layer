@@ -51,33 +51,52 @@ test_block:
   name: table-source
   tests:
     -
-      # Case 1: SELECT (*) FROM FOO  →  single table in scope → column named FOO
+      # Case: SELECT (*) FROM FOO  →  single table in scope → column named FOO
       - query: SELECT (*) FROM foo
       - resultMetadata: [{FOO: [{ID: BIGINT}, {VAL: BIGINT}]}]
       - result: [{FOO: {ID: 1, VAL: 10}}]
     -
-      # Case 2: SELECT (FOO.*) FROM FOO  →  qualifier is used as column name
+      # Case: SELECT STRUCT (*) FROM FOO  →  same as previous case
+      - query: SELECT STRUCT (*) FROM foo
+      - supported_version: !current_version
+      - resultMetadata: [{FOO: [{ID: BIGINT}, {VAL: BIGINT}]}]
+      - result: [{FOO: {ID: 1, VAL: 10}}]
+    -
+      # Case: SELECT (FOO.*) FROM FOO  →  qualifier is used as column name
       - query: SELECT (foo.*) FROM foo
       - resultMetadata: [{FOO: [{ID: BIGINT}, {VAL: BIGINT}]}]
       - result: [{FOO: {ID: 1, VAL: 10}}]
     -
-      # Case 3: SELECT (*) FROM FOO AS BAR  →  table alias in scope → column named BAR
+      # Case: SELECT STRUCT (FOO.*) FROM FOO  → same as previous case
+      - query: SELECT STRUCT (foo.*) FROM foo
+      - supported_version: !current_version
+      - resultMetadata: [{FOO: [{ID: BIGINT}, {VAL: BIGINT}]}]
+      - result: [{FOO: {ID: 1, VAL: 10}}]
+    -
+      # Case: SELECT (*) FROM FOO AS BAR  →  table alias in scope → column named BAR
       - query: SELECT (*) FROM foo AS bar
       - resultMetadata: [{BAR: [{ID: BIGINT}, {VAL: BIGINT}]}]
       - result: [{BAR: {ID: 1, VAL: 10}}]
     -
-      # Case 4: SELECT (BAR.*) FROM FOO AS BAR  →  qualifier (the alias) is used as column name
+      # Case: SELECT (BAR.*) FROM FOO AS BAR  →  qualifier (the alias) is used as column name
       - query: SELECT (bar.*) FROM foo AS bar
       - resultMetadata: [{BAR: [{ID: BIGINT}, {VAL: BIGINT}]}]
       - result: [{BAR: {ID: 1, VAL: 10}}]
     -
-      # Case 5: SELECT (*) AS BAR FROM FOO  →  explicit alias overrides inferred name
+      # Case: SELECT (*) AS BAR FROM FOO  →  explicit alias overrides inferred name
       - query: SELECT (*) AS bar FROM foo
       - resultMetadata: [{BAR: [{ID: BIGINT}, {VAL: BIGINT}]}]
       - result: [{BAR: {ID: 1, VAL: 10}}]
     -
-      # Case 6: SELECT (FOO.*) AS BAR FROM FOO  →  explicit alias overrides qualifier name
+      # Case: SELECT (FOO.*) AS BAR FROM FOO  →  explicit alias overrides qualifier name
       - query: SELECT (foo.*) AS bar FROM foo
+      - resultMetadata: [{BAR: [{ID: BIGINT}, {VAL: BIGINT}]}]
+      - result: [{BAR: {ID: 1, VAL: 10}}]
+    -
+      # Case: SELECT STRUCT "Custom" (*) AS BAR FROM FOO  →  explicit struct type overrides returned type
+      - query: SELECT STRUCT custom (foo.*) AS bar FROM foo
+      # TODO: typename won't be propagated correctly in multi-server tests until https://github.com/FoundationDB/fdb-record-layer/pull/4171 is merged.
+#      - resultMetadata: [{BAR: [custom, {ID: BIGINT}, {VAL: BIGINT}]}]
       - resultMetadata: [{BAR: [{ID: BIGINT}, {VAL: BIGINT}]}]
       - result: [{BAR: {ID: 1, VAL: 10}}]
 ---

@@ -611,16 +611,16 @@ queryOption
 // Transaction's Statements
 
 startTransaction
-    : START TRANSACTION 
+    : START TRANSACTION
     ;
 
 
 commitStatement
-    : COMMIT 
+    : COMMIT
     ;
 
 rollbackStatement
-    : ROLLBACK 
+    : ROLLBACK
     ;
 
 // details
@@ -962,12 +962,20 @@ recordConstructorForInlineTable
     : '(' expressionWithOptionalName (',' expressionWithOptionalName)* ')'
     ;
 
-recordConstructor
-    : ofTypeClause? '(' (uid DOT STAR | STAR | expressionWithOptionalName (',' expressionWithOptionalName)*) ')'
+expressionWithPrecedence
+    : LEFT_ROUND_BRACKET expression RIGHT_ROUND_BRACKET
     ;
 
-ofTypeClause
-    : STRUCT uid
+singleFieldRecordConstructor
+    : structWithOptionalTypeClause LEFT_ROUND_BRACKET (expressionWithOptionalName) RIGHT_ROUND_BRACKET
+    ;
+
+recordConstructor
+    : structWithOptionalTypeClause? LEFT_ROUND_BRACKET (uid DOT STAR | STAR | expressionWithOptionalName (COMMA expressionWithOptionalName)+) RIGHT_ROUND_BRACKET
+    ;
+
+structWithOptionalTypeClause
+    : STRUCT uid?
     ;
 
 arrayConstructor
@@ -1250,11 +1258,13 @@ predicate
     ;
 
 expressionAtom
-    : constant                                                                            #constantExpressionAtom // done
+    : expressionWithPrecedence                                                            #expressionWithPrecedenceAtom   // done
+    | constant                                                                            #constantExpressionAtom // done
     | fullColumnName                                                                      #fullColumnNameExpressionAtom // done
     | functionCall                                                                        #functionCallExpressionAtom // done
     | preparedStatementParameter                                                          #preparedStatementParameterAtom // done
     | recordConstructor                                                                   #recordConstructorExpressionAtom // done
+    | singleFieldRecordConstructor                                                        #singleFieldRecordConstructorExpressionAtom // done
     | arrayConstructor                                                                    #arrayConstructorExpressionAtom // done
     | base=expressionAtom LEFT_SQUARE_BRACKET index=expressionAtom RIGHT_SQUARE_BRACKET   #subscriptExpression // done
     | left=expressionAtom bitOperator right=expressionAtom                                #bitExpressionAtom // done
@@ -1362,7 +1372,7 @@ keywordsCanBeId
     | PROCESSLIST | PROFILE | PROFILES | PROXY | QUERY | QUICK
     | REBUILD | RECOVER | REDO_BUFFER_SIZE | REDUNDANT
     | RELAY | RELAYLOG | RELAY_LOG_FILE | RELAY_LOG_POS | REMOVE
-    | REORGANIZE | REPAIR 
+    | REORGANIZE | REPAIR
     | RESET
     | RESOURCE_GROUP_ADMIN | RESOURCE_GROUP_USER | RESUME
     | RETURNED_SQLSTATE | RETURNS | ROLE | ROLE_ADMIN | ROLLBACK | ROLLUP | ROTATE | ROW | ROWS

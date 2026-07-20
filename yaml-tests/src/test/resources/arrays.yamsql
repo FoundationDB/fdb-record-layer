@@ -16,7 +16,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 ---
 schema_template:
     CREATE TABLE A_NOT_NULL (pk INTEGER, x INTEGER ARRAY NOT NULL, PRIMARY KEY (pk))
@@ -108,6 +107,14 @@ test_block:
     -
       # INSERT for an ARRAY of a 1-element STRUCT type.
       - query: INSERT INTO D VALUES (1, [(1), (2), (3)]), (2, [(2), (3), (4)]), (3, [(3), (4), (5)])
+      - initialVersionLessThan: !current_version
+      - count: 3
+      - initialVersionAtLeast: !current_version
+      - error: CANNOT_CONVERT_TYPE
+    -
+      # INSERT for an ARRAY of a 1-element STRUCT type.
+      - query: INSERT INTO D VALUES (1, [STRUCT (1), STRUCT (2), STRUCT (3)]), (2, [STRUCT (2), STRUCT (3), STRUCT (4)]), (3, [STRUCT (3), STRUCT (4), STRUCT (5)])
+      - supported_version: !current_version
       - count: 3
     -
       # INSERT NULL for an ARRAY of a 1-element STRUCT type.
@@ -158,6 +165,14 @@ test_block:
       - result: [{[11, 12, 13]}]
     -
       - query: UPDATE D SET X = [(11), (12), (13)] WHERE PK = 1 RETURNING "new".X
+      - initialVersionLessThan: !current_version
+      - resultMetadata: [{X: {array: [{F: INTEGER}]}}]
+      - result: [{[{F: 11}, {F: 12}, {F: 13}]}]
+      - initialVersionAtLeast: !current_version
+      - error: CANNOT_CONVERT_TYPE
+    -
+      - query: UPDATE D SET X = [STRUCT (11), STRUCT (12), STRUCT (13)] WHERE PK = 1 RETURNING "new".X
+      - supported_version: !current_version
       - resultMetadata: [{X: {array: [{F: INTEGER}]}}]
       - result: [{[{F: 11}, {F: 12}, {F: 13}]}]
     -

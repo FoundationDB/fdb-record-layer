@@ -382,18 +382,18 @@ all-tests:
     insert_reused_count: 3
 -   query: EXPLAIN select struct "x$$" ("foo.tableA".*) from "foo.tableA"
     ref: valid-identifiers.yamsql:463
-    explain: ISCAN(foo.tableA.idx3 <,>) | MAP (_ AS foo.tableA)
-    task_count: 288
-    task_total_time_ms: 20
-    transform_count: 74
-    transform_time_ms: 9
-    transform_yield_count: 37
+    explain: SCAN([IS foo__2tableA]) | MAP (_ AS foo.tableA)
+    task_count: 499
+    task_total_time_ms: 51
+    transform_count: 136
+    transform_time_ms: 16
+    transform_yield_count: 50
     insert_time_ms: 1
-    insert_new_count: 32
-    insert_reused_count: 6
+    insert_new_count: 51
+    insert_reused_count: 3
 -   query: EXPLAIN select struct "x$$" ("foo.tableA.A2" + "foo.tableA.A1" as "__$$__")
         from "foo.tableA"
-    ref: valid-identifiers.yamsql:468
+    ref: valid-identifiers.yamsql:469
     explain: ISCAN(foo.tableA.idx3 <,>) | MAP ((_.foo.tableA.A2 + _.foo.tableA.A1
         AS __$$__) AS _0)
     task_count: 288
@@ -405,7 +405,7 @@ all-tests:
     insert_new_count: 32
     insert_reused_count: 6
 -   query: EXPLAIN select * from "foo.enum.type";
-    ref: valid-identifiers.yamsql:474
+    ref: valid-identifiers.yamsql:475
     explain: ISCAN(foo.enum.type$enum__1 <,>)
     task_count: 221
     task_total_time_ms: 99
@@ -416,7 +416,7 @@ all-tests:
     insert_new_count: 19
     insert_reused_count: 6
 -   query: EXPLAIN select * from "foo.enum.type" where "enum_type.enum__1" = 'B$C';
-    ref: valid-identifiers.yamsql:490
+    ref: valid-identifiers.yamsql:491
     explain: ISCAN(foo.enum.type$enum__1 [EQUALS promote(@c7 AS ENUM<A(0), B$C(1),
         C.D(2), E__F(3), __G$H(4)>)])
     task_count: 311
@@ -428,7 +428,7 @@ all-tests:
     insert_new_count: 31
     insert_reused_count: 4
 -   query: EXPLAIN select * from "foo.enum.type" where "enum_type.enum__1" = 'C.D';
-    ref: valid-identifiers.yamsql:516
+    ref: valid-identifiers.yamsql:517
     explain: ISCAN(foo.enum.type$enum__1 [EQUALS promote(@c7 AS ENUM<A(0), B$C(1),
         C.D(2), E__F(3), __G$H(4)>)])
     task_count: 311
@@ -440,7 +440,7 @@ all-tests:
     insert_new_count: 31
     insert_reused_count: 4
 -   query: EXPLAIN select * from "foo.enum.type" where "enum_type.enum__1" = 'A';
-    ref: valid-identifiers.yamsql:532
+    ref: valid-identifiers.yamsql:533
     explain: ISCAN(foo.enum.type$enum__1 [EQUALS promote(@c7 AS ENUM<A(0), B$C(1),
         C.D(2), E__F(3), __G$H(4)>)])
     task_count: 311
@@ -452,7 +452,7 @@ all-tests:
     insert_new_count: 31
     insert_reused_count: 4
 -   query: EXPLAIN select * from "foo.enum.type" where "enum_type.enum__2" = 'B$C';
-    ref: valid-identifiers.yamsql:548
+    ref: valid-identifiers.yamsql:549
     explain: ISCAN(foo.enum.type$enum__1 <,>) | FILTER _.enum_type.enum__2 EQUALS
         promote(@c7 AS ENUM<A(0), B$C(1), C.D(2), E__F(3), __G$H(4)>)
     task_count: 275
@@ -464,7 +464,7 @@ all-tests:
     insert_new_count: 29
     insert_reused_count: 3
 -   query: EXPLAIN select * from "foo.enum.type" where "enum_type.enum__2" = 'C.D';
-    ref: valid-identifiers.yamsql:559
+    ref: valid-identifiers.yamsql:560
     explain: ISCAN(foo.enum.type$enum__1 <,>) | FILTER _.enum_type.enum__2 EQUALS
         promote(@c7 AS ENUM<A(0), B$C(1), C.D(2), E__F(3), __G$H(4)>)
     task_count: 275
@@ -476,7 +476,7 @@ all-tests:
     insert_new_count: 29
     insert_reused_count: 3
 -   query: EXPLAIN select * from "foo.enum.type" where "enum_type.enum__2" = 'A';
-    ref: valid-identifiers.yamsql:565
+    ref: valid-identifiers.yamsql:566
     explain: ISCAN(foo.enum.type$enum__1 <,>) | FILTER _.enum_type.enum__2 EQUALS
         promote(@c7 AS ENUM<A(0), B$C(1), C.D(2), E__F(3), __G$H(4)>)
     task_count: 275
@@ -490,7 +490,7 @@ all-tests:
 update-delete-statements:
 -   query: EXPLAIN UPDATE "foo.tableA" SET "foo.tableA.A2" = 100 WHERE "foo.tableA.A1"
         = 1
-    ref: valid-identifiers.yamsql:576
+    ref: valid-identifiers.yamsql:577
     explain: 'COVERING(foo.tableA.idx [EQUALS promote(@c9 AS LONG)] -> [foo__2tableA__2A1:
         KEY:[0], foo__2tableA__2A2: KEY:[1], foo__2tableA__2A3: KEY:[2]]) | DISTINCT
         BY PK | FETCH | UPDATE foo__2tableA'
@@ -504,7 +504,7 @@ update-delete-statements:
     insert_reused_count: 5
 -   query: EXPLAIN UPDATE "foo.tableA" SET "foo.tableA.A2" = 100 WHERE "foo.tableA.A1"
         > 1 RETURNING "new"."foo.tableA.A1"
-    ref: valid-identifiers.yamsql:580
+    ref: valid-identifiers.yamsql:581
     explain: 'COVERING(foo.tableA.idx [[GREATER_THAN promote(@c9 AS LONG)]] -> [foo__2tableA__2A1:
         KEY:[0], foo__2tableA__2A2: KEY:[1], foo__2tableA__2A3: KEY:[2]]) | DISTINCT
         BY PK | FETCH | UPDATE foo__2tableA | MAP (_.new.foo.tableA.A1 AS foo.tableA.A1)'
@@ -518,7 +518,7 @@ update-delete-statements:
     insert_reused_count: 5
 -   query: EXPLAIN DELETE FROM "foo.tableA" WHERE "foo.tableA.A1" = 1 RETURNING "foo.tableA.A1"
         + "foo.tableA.A2" + "foo.tableA.A3"
-    ref: valid-identifiers.yamsql:584
+    ref: valid-identifiers.yamsql:585
     explain: ISCAN(foo.tableA.idx [EQUALS promote(@c6 AS LONG)]) | DELETE | MAP (_.foo.tableA.A1
         + _.foo.tableA.A2 + _.foo.tableA.A3 AS _0)
     task_count: 564
@@ -530,7 +530,7 @@ update-delete-statements:
     insert_new_count: 68
     insert_reused_count: 4
 -   query: EXPLAIN DELETE FROM "foo.tableA" WHERE "foo.tableA.A2" = 100
-    ref: valid-identifiers.yamsql:588
+    ref: valid-identifiers.yamsql:589
     explain: ISCAN(foo.tableA.idx3 [EQUALS promote(@c6 AS LONG)]) | DELETE
     task_count: 459
     task_total_time_ms: 9
@@ -542,7 +542,7 @@ update-delete-statements:
     insert_reused_count: 5
 unnamed-12:
 -   query: EXPLAIN SELECT * FROM T1
-    ref: valid-identifiers.yamsql:723
+    ref: valid-identifiers.yamsql:724
     explain: SCAN([IS T1])
     task_count: 140
     task_total_time_ms: 5
@@ -553,7 +553,7 @@ unnamed-12:
     insert_new_count: 10
     insert_reused_count: 2
 -   query: EXPLAIN SELECT * FROM T1 WHERE "T1.COL2" > 3
-    ref: valid-identifiers.yamsql:727
+    ref: valid-identifiers.yamsql:728
     explain: SCAN([IS T1]) | FILTER _.T1.COL2 GREATER_THAN promote(@c7 AS LONG)
     task_count: 163
     task_total_time_ms: 6
@@ -564,7 +564,7 @@ unnamed-12:
     insert_new_count: 14
     insert_reused_count: 2
 -   query: EXPLAIN SELECT "T1.COL2" FROM T1 WHERE "T1.COL2" > 3
-    ref: valid-identifiers.yamsql:731
+    ref: valid-identifiers.yamsql:732
     explain: SCAN([IS T1]) | FILTER _.T1.COL2 GREATER_THAN promote(@c7 AS LONG) |
         MAP (_.T1.COL2 AS T1.COL2)
     task_count: 206
@@ -576,7 +576,7 @@ unnamed-12:
     insert_new_count: 18
     insert_reused_count: 2
 -   query: EXPLAIN SELECT * FROM T2
-    ref: valid-identifiers.yamsql:735
+    ref: valid-identifiers.yamsql:736
     explain: ISCAN(T2$T2.COL1 <,>)
     task_count: 221
     task_total_time_ms: 9
@@ -587,7 +587,7 @@ unnamed-12:
     insert_new_count: 19
     insert_reused_count: 6
 -   query: EXPLAIN SELECT * FROM T2 WHERE "T2$COL2" > 8
-    ref: valid-identifiers.yamsql:739
+    ref: valid-identifiers.yamsql:740
     explain: ISCAN(T2$T2.COL1 <,>) | FILTER _.T2$COL2 GREATER_THAN promote(@c7 AS
         LONG)
     task_count: 275
@@ -599,7 +599,7 @@ unnamed-12:
     insert_new_count: 29
     insert_reused_count: 3
 -   query: EXPLAIN SELECT "T2$COL2" FROM T2 WHERE "T2$COL2" > 8
-    ref: valid-identifiers.yamsql:743
+    ref: valid-identifiers.yamsql:744
     explain: ISCAN(T2$T2.COL1 <,>) | FILTER _.T2$COL2 GREATER_THAN promote(@c7 AS
         LONG) | MAP (_.T2$COL2 AS T2$COL2)
     task_count: 351
@@ -611,7 +611,7 @@ unnamed-12:
     insert_new_count: 36
     insert_reused_count: 4
 -   query: EXPLAIN SELECT * FROM "__T3"
-    ref: valid-identifiers.yamsql:747
+    ref: valid-identifiers.yamsql:748
     explain: SCAN([IS __T3])
     task_count: 140
     task_total_time_ms: 9
@@ -622,7 +622,7 @@ unnamed-12:
     insert_new_count: 10
     insert_reused_count: 2
 -   query: EXPLAIN SELECT * FROM "__T3" WHERE "__T3$COL2" > 13
-    ref: valid-identifiers.yamsql:757
+    ref: valid-identifiers.yamsql:758
     explain: SCAN([IS __T3]) | FILTER _.__T3$COL2 GREATER_THAN promote(@c7 AS LONG)
     task_count: 163
     task_total_time_ms: 10
@@ -633,7 +633,7 @@ unnamed-12:
     insert_new_count: 14
     insert_reused_count: 2
 -   query: EXPLAIN SELECT "__T3$COL2" FROM "__T3" WHERE "__T3$COL2" > 13
-    ref: valid-identifiers.yamsql:764
+    ref: valid-identifiers.yamsql:765
     explain: SCAN([IS __T3]) | FILTER _.__T3$COL2 GREATER_THAN promote(@c7 AS LONG)
         | MAP (_.__T3$COL2 AS __T3$COL2)
     task_count: 206
@@ -645,7 +645,7 @@ unnamed-12:
     insert_new_count: 18
     insert_reused_count: 2
 -   query: EXPLAIN SELECT * FROM "__func__T3$col2"(13)
-    ref: valid-identifiers.yamsql:768
+    ref: valid-identifiers.yamsql:769
     explain: SCAN([IS __T3]) | FILTER _.__T3$COL2 EQUALS promote(@c5 AS LONG) | MAP
         (_.__T3$COL1 AS c.1, _.__T3$COL3 AS c.2)
     task_count: 358
@@ -657,7 +657,7 @@ unnamed-12:
     insert_new_count: 47
     insert_reused_count: 2
 -   query: EXPLAIN SELECT * FROM T4
-    ref: valid-identifiers.yamsql:772
+    ref: valid-identifiers.yamsql:773
     explain: SCAN([IS T4])
     task_count: 140
     task_total_time_ms: 5
@@ -668,7 +668,7 @@ unnamed-12:
     insert_new_count: 10
     insert_reused_count: 2
 -   query: EXPLAIN SELECT * FROM T4 WHERE "T4.COL2" > 18
-    ref: valid-identifiers.yamsql:785
+    ref: valid-identifiers.yamsql:786
     explain: SCAN([IS T4]) | FILTER _.T4.COL2 GREATER_THAN promote(@c7 AS LONG)
     task_count: 163
     task_total_time_ms: 10
@@ -679,7 +679,7 @@ unnamed-12:
     insert_new_count: 14
     insert_reused_count: 2
 -   query: EXPLAIN SELECT "T4.COL2" FROM T4 WHERE "T4.COL2" > 18
-    ref: valid-identifiers.yamsql:792
+    ref: valid-identifiers.yamsql:793
     explain: SCAN([IS T4]) | FILTER _.T4.COL2 GREATER_THAN promote(@c7 AS LONG) |
         MAP (_.T4.COL2 AS T4.COL2)
     task_count: 206
@@ -691,7 +691,7 @@ unnamed-12:
     insert_new_count: 18
     insert_reused_count: 2
 -   query: EXPLAIN SELECT * FROM "T4$view"
-    ref: valid-identifiers.yamsql:796
+    ref: valid-identifiers.yamsql:797
     explain: SCAN([IS T4]) | FILTER _.T4.COL1 GREATER_THAN 0 AND _.T4.COL2 GREATER_THAN
         0 | MAP (_.T4.COL1 AS c__1, _.T4.COL2 AS c__2)
     task_count: 298
@@ -703,7 +703,7 @@ unnamed-12:
     insert_new_count: 24
     insert_reused_count: 2
 -   query: EXPLAIN SELECT "___hidden"."a" FROM T4
-    ref: valid-identifiers.yamsql:806
+    ref: valid-identifiers.yamsql:807
     explain: SCAN([IS T4]) | MAP (_.___hidden.a AS a)
     task_count: 146
     task_total_time_ms: 5
@@ -714,7 +714,7 @@ unnamed-12:
     insert_new_count: 12
     insert_reused_count: 2
 -   query: EXPLAIN SELECT * FROM T5__UNESCAPED
-    ref: valid-identifiers.yamsql:810
+    ref: valid-identifiers.yamsql:811
     explain: SCAN([IS T5__UNESCAPED])
     task_count: 140
     task_total_time_ms: 3
@@ -725,7 +725,7 @@ unnamed-12:
     insert_new_count: 10
     insert_reused_count: 2
 -   query: EXPLAIN SELECT * FROM T5__UNESCAPED WHERE T5__COL1 = 10
-    ref: valid-identifiers.yamsql:823
+    ref: valid-identifiers.yamsql:824
     explain: SCAN([IS T5__UNESCAPED]) | FILTER _.T5__COL1 EQUALS promote(@c7 AS LONG)
     task_count: 163
     task_total_time_ms: 7
@@ -736,7 +736,7 @@ unnamed-12:
     insert_new_count: 14
     insert_reused_count: 2
 -   query: EXPLAIN SELECT ID, "__T5__COL2" FROM T5__UNESCAPED WHERE T5__COL1 = 10
-    ref: valid-identifiers.yamsql:833
+    ref: valid-identifiers.yamsql:834
     explain: SCAN([IS T5__UNESCAPED]) | FILTER _.T5__COL1 EQUALS promote(@c9 AS LONG)
         | MAP (_.ID AS ID, _.__T5__COL2 AS __T5__COL2)
     task_count: 206
@@ -748,7 +748,7 @@ unnamed-12:
     insert_new_count: 18
     insert_reused_count: 2
 -   query: EXPLAIN SELECT * FROM T5__UNESCAPED WHERE "__T5__COL2" < 10
-    ref: valid-identifiers.yamsql:843
+    ref: valid-identifiers.yamsql:844
     explain: SCAN([IS T5__UNESCAPED]) | FILTER _.__T5__COL2 LESS_THAN promote(@c7
         AS LONG)
     task_count: 163
@@ -761,7 +761,7 @@ unnamed-12:
     insert_reused_count: 2
 -   query: EXPLAIN SELECT ID, "__T5__COL2" FROM T5__UNESCAPED WHERE "__T5__COL2" <
         10
-    ref: valid-identifiers.yamsql:851
+    ref: valid-identifiers.yamsql:852
     explain: SCAN([IS T5__UNESCAPED]) | FILTER _.__T5__COL2 LESS_THAN promote(@c9
         AS LONG) | MAP (_.ID AS ID, _.__T5__COL2 AS __T5__COL2)
     task_count: 206
@@ -773,7 +773,7 @@ unnamed-12:
     insert_new_count: 18
     insert_reused_count: 2
 -   query: EXPLAIN SELECT * FROM "___T6.__UNESCAPED"
-    ref: valid-identifiers.yamsql:859
+    ref: valid-identifiers.yamsql:860
     explain: ISCAN(T6$ENUM2 <,>)
     task_count: 302
     task_total_time_ms: 18
@@ -784,7 +784,7 @@ unnamed-12:
     insert_new_count: 28
     insert_reused_count: 10
 -   query: EXPLAIN SELECT * FROM "___T6.__UNESCAPED" WHERE "T6$__COL1__" = 10
-    ref: valid-identifiers.yamsql:872
+    ref: valid-identifiers.yamsql:873
     explain: ISCAN(T6$ENUM2 <,>) | FILTER _.T6$__COL1__ EQUALS promote(@c7 AS LONG)
     task_count: 387
     task_total_time_ms: 26
@@ -796,7 +796,7 @@ unnamed-12:
     insert_reused_count: 4
 -   query: EXPLAIN SELECT ID, "__T6.COL2__VALUE" FROM "___T6.__UNESCAPED" WHERE "T6$__COL1__"
         = 10
-    ref: valid-identifiers.yamsql:882
+    ref: valid-identifiers.yamsql:883
     explain: ISCAN(T6$COL2 <,>) | FILTER _.T6$__COL1__ EQUALS promote(@c9 AS LONG)
         | MAP (_.ID AS ID, _.__T6.COL2__VALUE AS __T6.COL2__VALUE)
     task_count: 496
@@ -808,7 +808,7 @@ unnamed-12:
     insert_new_count: 54
     insert_reused_count: 6
 -   query: EXPLAIN SELECT * FROM "___T6.__UNESCAPED" WHERE "__T6.COL2__VALUE" < 10
-    ref: valid-identifiers.yamsql:892
+    ref: valid-identifiers.yamsql:893
     explain: ISCAN(T6$COL2 [[LESS_THAN promote(@c7 AS LONG)]])
     task_count: 423
     task_total_time_ms: 21
@@ -820,7 +820,7 @@ unnamed-12:
     insert_reused_count: 5
 -   query: EXPLAIN SELECT ID, "__T6.COL2__VALUE" FROM "___T6.__UNESCAPED" WHERE "__T6.COL2__VALUE"
         < 10
-    ref: valid-identifiers.yamsql:900
+    ref: valid-identifiers.yamsql:901
     explain: 'COVERING(T6$COL2 [[LESS_THAN promote(@c9 AS LONG)]] -> [ID: KEY:[2],
         __T6__2COL2__VALUE: KEY:[0]]) | MAP (_.ID AS ID, _.__T6.COL2__VALUE AS __T6.COL2__VALUE)'
     task_count: 584
@@ -832,7 +832,7 @@ unnamed-12:
     insert_new_count: 63
     insert_reused_count: 6
 -   query: EXPLAIN SELECT * FROM "___T6.__UNESCAPED" WHERE "T6$__ENUM_1" = '__D.__'
-    ref: valid-identifiers.yamsql:908
+    ref: valid-identifiers.yamsql:909
     explain: ISCAN(T6$ENUM2 <,>) | FILTER _.T6$__ENUM_1 EQUALS promote(@c7 AS ENUM<A(0),
         B__(1), C__(2), __D.__(3)>)
     task_count: 387
@@ -845,7 +845,7 @@ unnamed-12:
     insert_reused_count: 4
 -   query: EXPLAIN SELECT ID, "T6$__ENUM_2" FROM "___T6.__UNESCAPED" WHERE "T6$__ENUM_1"
         = '__D.__'
-    ref: valid-identifiers.yamsql:915
+    ref: valid-identifiers.yamsql:916
     explain: ISCAN(T6$COL2 <,>) | FILTER _.T6$__ENUM_1 EQUALS promote(@c9 AS ENUM<A(0),
         B__(1), C__(2), __D.__(3)>) | MAP (_.ID AS ID, _.T6$__ENUM_2 AS T6$__ENUM_2)
     task_count: 496
@@ -857,7 +857,7 @@ unnamed-12:
     insert_new_count: 54
     insert_reused_count: 6
 -   query: EXPLAIN SELECT * FROM "___T6.__UNESCAPED" WHERE "T6$__ENUM_2" = '__D.__'
-    ref: valid-identifiers.yamsql:922
+    ref: valid-identifiers.yamsql:923
     explain: ISCAN(T6$ENUM2 [EQUALS promote(@c7 AS ENUM<A(0), B__(1), C__(2), __D.__(3)>)])
     task_count: 423
     task_total_time_ms: 21
@@ -869,7 +869,7 @@ unnamed-12:
     insert_reused_count: 5
 -   query: EXPLAIN SELECT ID, "T6$__ENUM_1" FROM "___T6.__UNESCAPED" WHERE "T6$__ENUM_2"
         = '__D.__'
-    ref: valid-identifiers.yamsql:940
+    ref: valid-identifiers.yamsql:941
     explain: ISCAN(T6$ENUM2 [EQUALS promote(@c9 AS ENUM<A(0), B__(1), C__(2), __D.__(3)>)])
         | MAP (_.ID AS ID, _.T6$__ENUM_1 AS T6$__ENUM_1)
     task_count: 525

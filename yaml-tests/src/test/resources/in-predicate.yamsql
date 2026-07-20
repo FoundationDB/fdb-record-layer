@@ -18,7 +18,7 @@
 # limitations under the License.
 ---
 schema_template:
-  - initialVersionLessThan: "4.12.1.0"
+  - currentVersionLessThan: "4.12.1.0"
     definition: |
       create type as struct ts(sa bigint, sb bigint)
       create type as struct fruit_type(name string, color string)
@@ -29,7 +29,7 @@ schema_template:
       create table t_parent(id string, lst string array, primary key(id))
       create table t_child(id string, t_link fruit_type, num bigint, primary key(id))
       CREATE FUNCTION get_key(IN r TYPE fruit_type) RETURNS STRING AS r.name
-  - initialVersionAtLeast: "4.12.1.0"
+  - currentVersionAtLeast: "4.12.1.0"
     definition: |
       create type as struct ts(sa bigint, sb bigint)
       create type as struct fruit_type(name string, color string)

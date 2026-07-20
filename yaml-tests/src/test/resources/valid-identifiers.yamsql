@@ -21,7 +21,7 @@ options:
     supported_version: 4.8.15.0
 ---
 schema_template:
-  - initialVersionLessThan: "4.12.1.0"
+  - currentVersionLessThan: "4.12.1.0"
     definition: |
       create type as struct "nested.type$level2" ("level2$field.1" bigint, "level2$field.2" bigint)
       create type as struct "nested.type$level1" ("level1$field.1" "nested.type$level2", "level1$field.2" "nested.type$level2")
@@ -85,7 +85,7 @@ schema_template:
       create table "foo.enum.type"("enum_type.id" bigint, "enum_type.enum__1" "foo.enum", "enum_type.enum__2" "foo.enum", primary key ("enum_type.id"))
       
       create index "foo.enum.type$enum__1" as select "enum_type.enum__1" from "foo.enum.type"
-  - initialVersionAtLeast: "4.12.1.0"
+  - currentVersionAtLeast: "4.12.1.0"
     definition: |
       create type as struct "nested.type$level2" ("level2$field.1" bigint, "level2$field.2" bigint)
       create type as struct "nested.type$level1" ("level1$field.1" "nested.type$level2", "level1$field.2" "nested.type$level2")
@@ -460,7 +460,7 @@ test_block:
     -
       # named record construction with uid star
       - query: select struct "x$$" ("foo.tableA".*) from "foo.tableA"
-      - explain: "ISCAN(foo.tableA.idx3 <,>) | MAP (_ AS foo.tableA)"
+      - explain: "SCAN([IS foo__2tableA]) | MAP (_ AS foo.tableA)"
       - result: [{{"foo.tableA.A1": 1 , "foo.tableA.A2": 10, "foo.tableA.A3": 1}}, {{"foo.tableA.A1": 2, "foo.tableA.A2": 10, "foo.tableA.A3": 2}}, {{"foo.tableA.A1": 3, "foo.tableA.A2": 10, "foo.tableA.A3": 3}}]
     -
       # named record construction with aliased expressions

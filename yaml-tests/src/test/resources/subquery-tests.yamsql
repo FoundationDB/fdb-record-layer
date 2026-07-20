@@ -32,7 +32,14 @@ setup:
   steps:
     - query: INSERT INTO A VALUES (1, 1), (2, 2), (3, 3)
     - query: INSERT INTO X VALUES (4, 10), (5, 20), (6, 30)
-    - query: INSERT INTO R VALUES (1, 10, [(11), (12), (13)]), (2, 20, [(21), (22), (23)]), (3, 30, [(31), (32), (33)])
+    -
+      - currentVersionLessThan: !current_version
+        definition:
+          - query: INSERT INTO R VALUES (1, 10, [(11), (12), (13)]), (2, 20, [(21), (22), (23)]), (3, 30, [(31), (32), (33)])
+      - currentVersionAtLeast: !current_version
+        definition:
+          - query: INSERT INTO R VALUES (1, 10, [STRUCT (11), STRUCT (12), STRUCT (13)]), (2, 20, [STRUCT (21), STRUCT (22), STRUCT (23)]), (3, 30, [STRUCT (31), STRUCT (32), STRUCT (33)])
+
     - query: INSERT INTO B VALUES (1, 10, 100), (2, 20, 200), (3, 30, 300)
 ---
 test_block:

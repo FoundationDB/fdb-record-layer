@@ -72,7 +72,7 @@ public class JoinWithLimitTest {
     void setup() throws Exception {
         statement.execute("INSERT INTO R VALUES (1, 1), (2, 2)");
         statement.execute("INSERT INTO S VALUES (1, 10), (2, 20)");
-        statement.execute("INSERT INTO Q VALUES (1, [(100), (200), (300)]), (2, [(400), (500), (600)])");
+        statement.execute("INSERT INTO Q VALUES (1, [STRUCT (100), STRUCT (200), STRUCT (300)]), (2, [STRUCT (400), STRUCT (500), STRUCT (600)])");
     }
 
     @Test

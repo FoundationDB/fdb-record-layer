@@ -66,9 +66,18 @@ setup:
              VALUES (1, ['a', 'b', 'c']),
                     (2, ['d', 'e']),
                     (3, ['a', 'd', 'f'])
-    - query: INSERT INTO T3
-             VALUES (1, [(101), (102)], [101, 102]),
-                    (2, [(201), (202)], [201, 202])
+    -
+      - currentVersionLessThan: !current_version
+        definition:
+          - query: INSERT INTO T3
+                   VALUES (1, [(101), (102)], [101, 102]),
+                          (2, [(201), (202)], [201, 202])
+      - currentVersionAtLeast: !current_version
+        definition:
+          - query: INSERT INTO T3
+                   VALUES (1, [STRUCT (101), STRUCT (102)], [101, 102]),
+                          (2, [STRUCT (201), STRUCT (202)], [201, 202])
+
     - query: INSERT INTO "restaurant"
              VALUES (1, 'Pizza Place', [('Alice', 5), ('Bob', 3)]),
                     (2, 'Burger Barn', [('Carol', 4)]),
@@ -138,6 +147,19 @@ test_block:
           {id: 3, item: 'd'},
           {id: 3, item: 'f'}]
     -
+      # Same as above but with a STAR expansion for the subquery instead.
+      - query: SELECT "id", SQ.* FROM "T1_indexed" AS "row", (SELECT "item" FROM "row"."items" AS "item") AS SQ
+      - explain: "SCAN([IS T1_indexed]) | FLATMAP q0 -> { EXPLODE q0.items AS q1 RETURN (q0.id AS id, q1 AS item) }"
+      - unorderedResult: [
+          {id: 1, item: 'a'},
+          {id: 1, item: 'b'},
+          {id: 1, item: 'c'},
+          {id: 2, item: 'd'},
+          {id: 2, item: 'e'},
+          {id: 3, item: 'a'},
+          {id: 3, item: 'd'},
+          {id: 3, item: 'f'}]
+    -
       # Same query but with an added `ORDER BY "item"`.
       # TODO Issue #3896: The `T1_index` is not leveraged here.
       - query: SELECT SQ."item" FROM "T1_indexed" AS "row", (SELECT "item" FROM "row"."items" AS "item") AS SQ ORDER BY SQ."item"
@@ -164,18 +186,43 @@ test_block:
       - query: SELECT "b".* FROM (SELECT "a" FROM VALUES ([1, 2, 3, 4]) AS T("a")) AS "sq", "sq"."a" AS "b"
       - error: INVALID_COLUMN_REFERENCE
     -
-      # Wrapping the unnested scalar into a one-field struct lifts it back into a record type, so `.*` expansion is allowed.
+      # The syntax for constructing a single field record was changed in !current_version. Before then, this query
+      # wrapped the unnested scalar into a one-field struct nested within the subquery result record with the wrapped
+      # column/field name, so the `.*` expansion in the outer query was allowed and returned the nested records.
+      # After !current_version, the brackets are interpreted as an expression with precedence, and the results
+      # contain a flat record with the scalar value.
       - query: SELECT "b".* FROM (SELECT "a" FROM VALUES ([1, 2, 3, 4]) AS T("a")) AS "sq", (SELECT ("x") AS wrapped FROM "sq"."a" AS "x") AS "b"
+      - initialVersionLessThan: !current_version
+      - result: [{wrapped: {1}}, {wrapped: {2}}, {wrapped: {3}}, {wrapped: {4}}]
+      - initialVersionAtLeast: !current_version
+      - result: [{wrapped: 1}, {wrapped: 2}, {wrapped: 3}, {wrapped: 4}]
+    -
+      # Wrapping the unnested scalar into a one-field struct lifts it back into a record type, so `.*` expansion is allowed.
+      - query: SELECT "b".* FROM (SELECT "a" FROM VALUES ([1, 2, 3, 4]) AS T("a")) AS "sq", (SELECT STRUCT ("x") AS wrapped FROM "sq"."a" AS "x") AS "b"
+      - supported_version: !current_version
       - result: [{wrapped: {1}}, {wrapped: {2}}, {wrapped: {3}}, {wrapped: {4}}]
     -
       # Same .* rejection as above, but on an unnested VECTOR element. VECTOR has no fields to expand.
       - query: SELECT "id", "v".* FROM T4, T4."vectors" AS "v"
       - error: INVALID_COLUMN_REFERENCE
     -
-      # Unnest the ARRAY of integers via a subquery and wrap each integer into a tuple with a `( … )` expression.
+      # The syntax for constructing a single field record was changed in !current_version. Before then, this query
+      # wrapped the unnested "integer" scalar into a one-field struct nested within the subquery result record with the
+      # "wrapped_int column/field name, so the `.*` expansion in the outer query was allowed and returned the nested
+      # records.
+      # After !current_version, the brackets are interpreted as an expression with precedence, and the results
+      # contain a flat record with the scalar value.
+      - query: SELECT "id", SQ.* FROM T3, (SELECT ("integer") AS "wrapped_int" FROM T3."integers" AS "integer") AS SQ
+      - initialVersionLessThan: !current_version
+      - unorderedResult: [{1, wrapped_int: {101}}, {1, wrapped_int: {102}}, {2, wrapped_int: {201}}, {2, wrapped_int: {202}}]
+      - initialVersionAtLeast: !current_version
+      - unorderedResult: [ { 1, wrapped_int: 101 }, { 1, wrapped_int: 102 }, { 2, wrapped_int: 201 }, { 2, wrapped_int: 202 } ]
+    -
+      # Unnest the ARRAY of integers via a subquery and wrap each integer into a tuple with a `STRUCT ( … )` expression.
       # Note: As an alternative to the `AS "wrapped_int"` we might write `AS SQ ("wrapped_int")`, but this is not
       #       possible currently, as the SQL `AS table-alias ( column-alias … )` notation is not yet supported.
-      - query: SELECT "id", SQ.* FROM T3, (SELECT ("integer") AS "wrapped_int" FROM T3."integers" AS "integer") AS SQ
+      - query: SELECT "id", SQ.* FROM T3, (SELECT struct ("integer") AS "wrapped_int" FROM T3."integers" AS "integer") AS SQ
+      - supported_version: !current_version
       - unorderedResult: [{1, wrapped_int: {101}}, {1, wrapped_int: {102}}, {2, wrapped_int: {201}}, {2, wrapped_int: {202}}]
     -
       # Similar wrapping as in the previous query, but here we don’t even bind an "integer" variable to the unnested
