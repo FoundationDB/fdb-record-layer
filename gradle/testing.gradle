@@ -170,6 +170,15 @@ def getFullDisplayName(descriptor) {
     return fullName
 }
 
+// Use an injected `FileSystemOperations` service for deleting the per-task temp directory in `configureTestTask`
+// below (rather than `Project.delete()`, which is not compatible with the configuration cache).
+abstract class TestTmpDirCleaner {
+    @javax.inject.Inject
+    abstract org.gradle.api.file.FileSystemOperations getFs()
+}
+
+def testTmpDirCleaner = objects.newInstance(TestTmpDirCleaner)
+
 def configureTestTask = { propertyPrefix, task ->
     def handled = [propertyPrefix + '.ignoreFailures',
                    propertyPrefix + '.debug',
@@ -190,7 +199,7 @@ def configureTestTask = { propertyPrefix, task ->
 
     def tmpdir = file("$buildDir/tmp-${task.name}")
     task.doFirst {
-        delete tmpdir
+        testTmpDirCleaner.fs.delete { delete(tmpdir) }
         tmpdir.mkdirs()
     }
     task.systemProperties['java.io.tmpdir'] = tmpdir.absolutePath
