@@ -410,11 +410,12 @@ public class FDBRecordStoreReplaceIndexTest extends FDBRecordStoreTestBase {
      * replacement index at the same time, and open the store. The checker's requested state must be honored for both
      * indexes, and any index that ends up readable must contain the previously-saved record.
      *
-     * <p>This exposes a bug: {@code RecordMetaData.getIndexesToBuildSince} excludes indexes that have replacements,
-     * so a brand-new original index carrying {@code replacedBy} is never handed to the {@code UserVersionChecker} and
-     * is never built. When its replacement is also not built (so the original is not disabled by
-     * {@code removeReplacedIndexes}), the original index is left marked readable but empty even when the checker asked
-     * for it to be disabled, which is incorrect.</p>
+     * <p>This provides a regression test for an old bug: it used to be that if you had an original index with a
+     * {@code replacedBy} option that was added since the last checkVersion (including a new store), it  was never
+     * handed to the {@code UserVersionChecker} and was not attempted to be built.
+     * When its replacement was also not built (so the original was not disabled by {@code removeReplacedIndexes}),
+     * the original index was left marked readable but empty even when the checker asked for it to be disabled,
+     * which was incorrect.</p>
      */
     @ParameterizedTest
     @EnumSource(RebuildOption.class)
