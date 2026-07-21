@@ -148,8 +148,8 @@ static def getAttributesFromJar(File file) {
 }
 
 ext.resolveManyServers = { ->
-    Set<File> selectedServers = new HashSet<>();
-    Set<String> rejectedVersions = new HashSet<>();
+    Set<File> selectedServers = new HashSet<>()
+    Set<String> rejectedVersions = new HashSet<>()
     while (selectedServers.size() < 10) {
         def serverFile = resolveOtherServer(rejectedVersions)
         def attributes = getAttributesFromJar(serverFile)
@@ -285,7 +285,7 @@ test {
     if (project.hasProperty('tests.yaml.seed')) {
         seed = Long.parseLong(project.getProperty('tests.yaml.seed'))
     } else {
-        seed = ThreadLocalRandom.current().nextLong();
+        seed = ThreadLocalRandom.current().nextLong()
     }
     println("Using seed for yaml-tests: ${seed}")
     systemProperty('tests.yaml.seed', seed)

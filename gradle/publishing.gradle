@@ -21,7 +21,7 @@
 apply plugin: 'signing'
 
 // Add various details to the pom file to allow for publishing
-def addPublishingInfo(publication) {
+def addPublishingInfo(MavenPublication publication) {
     publication.pom {
         name = project.name
         url = 'https://foundationdb.github.io/fdb-record-layer/'
@@ -50,7 +50,7 @@ def addPublishingInfo(publication) {
 if (ext.publishLibrary) {
     publishing {
         publications {
-            library(MavenPublication) { publication ->
+            library(MavenPublication) { MavenPublication publication ->
                 from components.java
 
                 // Test fixtures appear to be placing their dependencies in the wrong scope
