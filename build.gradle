@@ -197,6 +197,13 @@ subprojects {
     apply from: rootProject.file('gradle/testing.gradle')
 
     java {
+        toolchain {
+            languageVersion = JavaLanguageVersion.of(21)
+        }
+
+        // Pin `sourceCompatibility`/`targetCompatibility` to match the bytecode and API target that we set for
+        // `JavaCompile` tasks via `options.release` below. This also makes IntelliJ’s Gradle importer set the
+        // appropriate `languageLevel` in `.idea/misc.xml`.
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
@@ -256,14 +263,16 @@ subprojects {
                     linksOffline "https://foundationdb.github.io/fdb-record-layer/api/fdb-record-layer-core/", "${packageListDir}/fdb-record-layer-core/"
                 }
             }
-            compileJava {
-                //enable compilation in a separate daemon process
+
+            // Override some options on every compile task (main and test).
+            tasks.withType(JavaCompile).configureEach {
+                // Enable compilation in a separate daemon process.
                 options.fork = true
 
-                //enable incremental compilation
+                // Enable incremental compilation.
                 options.incremental = true
 
-                //target byte-code compatibility with Java 17 (regardless of build JDK)
+                // Compile against the Java 17 API and emit Java 17 bytecode.
                 options.release = 17
             }
         }
@@ -355,10 +364,6 @@ clean {
 }
 
 apply from: 'gradle/sphinx.gradle'
-
-if (!JavaVersion.current().isCompatibleWith(JavaVersion.VERSION_17)) {
-    throw new Exception("Java 17 is required to build fdb-record-layer")
-}
 
 // fdb-environment.properties is the old way we configured the library path and cluster file, it does not scale well
 // to multiple cluster files, so is being replaced with a yaml file.
