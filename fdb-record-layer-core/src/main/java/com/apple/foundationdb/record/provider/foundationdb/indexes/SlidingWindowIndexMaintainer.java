@@ -328,9 +328,6 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
         if (partitionKey == null) {
             return false;
         }
-        if (state.store.getIndexState(state.index).isWriteOnlyWithQueue()) {
-            return false;
-        }
         final QueryToKeyMatcher.Match match = matcher.matchesSatisfyingQuery(partitionKey);
         return StandardIndexMaintainer.canDeleteWhere(state, match, evaluated);
     }

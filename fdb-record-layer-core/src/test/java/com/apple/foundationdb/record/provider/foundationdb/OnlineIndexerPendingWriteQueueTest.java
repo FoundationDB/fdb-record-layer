@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.IsolationLevel;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TestRecords1Proto;
+import com.apple.foundationdb.record.TestRecordsIndexFilteringProto;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexAggregateFunction;
@@ -41,6 +42,7 @@ import com.apple.foundationdb.record.provider.foundationdb.indexes.ValueIndexMai
 import com.apple.foundationdb.record.provider.foundationdb.indexes.ValueIndexMaintainerWithQueue;
 import com.apple.foundationdb.record.provider.foundationdb.properties.RecordLayerPropertyStorage;
 import com.apple.foundationdb.record.provider.foundationdb.queue.PendingWritesQueue;
+import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.TupleHelpers;
 import com.apple.foundationdb.util.CloseException;
@@ -1121,6 +1123,71 @@ class OnlineIndexerPendingWriteQueueTest extends OnlineIndexerTest {
         scrubAndValidate(List.of(index));
     }
 
+    @Test
+    void deleteWhereThroughQueueOnPlainValueIndex() {
+        // Coverage for the generic DELETE_WHERE-through-queue path on a value index with a queue. The primary key
+        // (num_value_2, rec_no) and the indexKey (num_value_2) are both prefixed by num_value_2, so deleteRecordsWhere(num_value_2)
+        // is a valid prefix delete for the single-type store.
+        final String valueIndexName = "num_value_2_value_queue";
+        openMetaData(TestRecordsIndexFilteringProto.getDescriptor(), metaDataBuilder -> {
+            metaDataBuilder.getRecordType("MyBasicRecord")
+                    .setPrimaryKey(concat(field("num_value_2"), field("rec_no")));
+            metaDataBuilder.addIndex("MyBasicRecord",
+                    new Index(valueIndexName, field("num_value_2"), ValueIndexMaintainerWithQueue.Factory.INDEX_TYPE));
+        });
+
+        // Build while readable: group 1 = {1, 2}, group 2 = {3, 4}.
+        try (FDBRecordContext context = openContext()) {
+            saveBasicRecord(1, 1);
+            saveBasicRecord(2, 1);
+            saveBasicRecord(3, 2);
+            saveBasicRecord(4, 2);
+            context.commit();
+        }
+
+        // Defer writes onto the queue: an insert into each group, then a range delete of group 1 after them.
+        try (FDBRecordContext context = openContext()) {
+            recordStore.markIndexWriteOnlyWithQueue(valueIndexName).join();
+            assertTrue(recordStore.isIndexWriteOnlyWithQueue(valueIndexName));
+            saveBasicRecord(5, 1);   // queued ahead of the delete
+            saveBasicRecord(6, 2);   // queued ahead of the delete
+            recordStore.deleteRecordsWhere(Query.field("num_value_2").equalsValue(1));
+            context.commit();
+        }
+
+        final Index index = metaData.getIndex(valueIndexName);
+
+        // Before the drain the deferred writes are not applied yet: the index is still deferring writes, the two
+        // inserts plus the range delete sit in the pending write queue, and the index subspace still holds only the
+        // 4 records from the readable build.
+        final Long queueSize = queueSizeCounter(index);
+        assertEquals(3L, queueSize == null ? 0L : queueSize,
+                "the two inserts and the range delete should be deferred onto the queue");
+        try (FDBRecordContext context = openContext()) {
+            assertTrue(recordStore.isIndexWriteOnlyWithQueue(valueIndexName));
+            final int rawEntryCount = context.ensureActive()
+                    .getRange(recordStore.indexSubspace(index).range()).asList().join().size();
+            assertEquals(4, rawEntryCount, "no deferred write should be applied to the index before the drain");
+            context.commit();
+        }
+
+        // Drain the queue and finish the build via the online indexer.
+        try (OnlineIndexer indexer = queueIndexerBuilder(index, List.of(index)).build()) {
+            indexer.buildIndex(true);
+        }
+
+        // Group 1's index entries are gone (DELETE_WHERE drained after the queued insert of rec 5); group 2 kept its
+        // entries plus the queued rec 6.
+        // Note: cannot use assertReadable(index) here, as it rebuilds the (MySimpleRecord) simple metadata.
+        try (FDBRecordContext context = openContext()) {
+            assertTrue(recordStore.isIndexReadable(valueIndexName));
+            context.commit();
+        }
+        assertEquals(Set.of(), indexRecNosForGroup(index, 1));
+        assertEquals(Set.of(3L, 4L, 6L), indexRecNosForGroup(index, 2));
+        assertNull(queueSizeCounter(index));
+    }
+
     private void concurrentWritesWhileBuildingWithQueue(final int numInitialRecords, final int limit, final int maxWriteIterations) throws InterruptedException {
         final Index index = new Index("simple$num_value_2_queue", field("num_value_2"), ValueIndexMaintainerWithQueue.Factory.INDEX_TYPE);
         populateEvenRecords(numInitialRecords);
@@ -1391,6 +1458,31 @@ class OnlineIndexerPendingWriteQueueTest extends OnlineIndexerTest {
         try (FDBRecordContext context = openContext()) {
             recordStore.markIndexWriteOnlyWithQueue(index).join();
             context.commit();
+        }
+    }
+
+    private void saveBasicRecord(final int recNo, final int numValue2) {
+        recordStore.saveRecord(TestRecordsIndexFilteringProto.MyBasicRecord.newBuilder()
+                .setRecNo(recNo)
+                .setNumValue2(numValue2)
+                .build());
+    }
+
+    /**
+     * The {@code rec_no}s of the value-index entries whose leading key column ({@code num_value_2}) equals
+     * {@code numValue2}. The index is keyed {@code num_value_2} with primary key {@code (num_value_2, rec_no)}, so
+     * {@code rec_no} is the trailing entry key column.
+     */
+    @Nonnull
+    private Set<Long> indexRecNosForGroup(@Nonnull final Index index, final int numValue2) {
+        try (FDBRecordContext context = openContext()) {
+            final Set<Long> recNos = recordStore.scanIndex(index, IndexScanType.BY_VALUE,
+                            TupleRange.allOf(Tuple.from(numValue2)), null, ScanProperties.FORWARD_SCAN)
+                    .map(entry -> entry.getKey().getLong(entry.getKey().size() - 1))
+                    .asList().join()
+                    .stream().collect(java.util.stream.Collectors.toSet());
+            context.commit();
+            return recNos;
         }
     }
 

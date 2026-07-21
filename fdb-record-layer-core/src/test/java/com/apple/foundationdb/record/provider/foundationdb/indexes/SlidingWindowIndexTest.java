@@ -38,6 +38,7 @@ import com.apple.foundationdb.record.metadata.IndexPredicate;
 import com.apple.foundationdb.record.metadata.IndexPredicate.RowNumberWindowPredicate.Direction;
 import com.apple.foundationdb.record.metadata.IndexRecordFunction;
 import com.apple.foundationdb.record.metadata.Key;
+import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBIndexableRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBIndexedRawRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
@@ -58,6 +59,7 @@ import com.apple.foundationdb.record.provider.foundationdb.indexes.SlidingWindow
 import com.apple.foundationdb.record.provider.foundationdb.queue.PendingWritesQueue;
 import com.apple.foundationdb.record.query.QueryToKeyMatcher;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
+import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.slidingwindowvector.TestRecordsSlidingWindowVectorProto.SlidingWindowVectorRecord;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
@@ -97,6 +99,12 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
     private static final int VECTOR_DIMS = 4;
 
     /**
+     * Primary key used when opening the store. Defaults to {@code rec_no}; a test may prefix it with a grouping
+     * field so that {@code deleteRecordsWhere} (which deletes by primary-key prefix) can target that group.
+     */
+    private KeyExpression primaryKey = Key.Expressions.field("rec_no");
+
+    /**
      * Opens a store with a sliding window HNSW index. No grouping.
      * Window key = relevance, index key = vector_data.
      */
@@ -113,7 +121,7 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
                            @Nonnull List<List<String>> groupingFields) throws Exception {
         createOrOpenRecordStore(context,
                 SlidingWindowTestHelpers.buildSlidingWindowVectorMetaData(
-                        INDEX_NAME, windowSize, VECTOR_DIMS, direction, groupingFields));
+                        INDEX_NAME, windowSize, VECTOR_DIMS, direction, groupingFields, primaryKey));
     }
 
     /**
@@ -1064,6 +1072,61 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
             assertThat(slidingWindow())
                     .underlyingHnsw()
                     .containsInAnyOrder(4L, 5L);
+            commit(context);
+        }
+    }
+
+    @Test
+    void deleteWhereClearsGroupWhileWriteOnlyWithQueue() throws Exception {
+        // Add deleteWhere to an active pending write queue. Perform in order during drain.
+        // deleteRecordsWhere deletes by primary-key prefix, so the primary key is prefixed by the group (zone).
+        primaryKey = Key.Expressions.concat(Key.Expressions.field("zone"), Key.Expressions.field("rec_no"));
+        final List<List<String>> grouping = ImmutableList.of(ImmutableList.of("zone"));
+
+        // Build the window while readable: group A = {1, 2}, group B = {3, 4}.
+        try (FDBRecordContext context = openContext()) {
+            openStore(context, 3, Direction.DESC, grouping);
+            rec(1, "A", "c", 100, 0, sampleVector());
+            rec(2, "A", "c", 200, 0, sampleVector());
+            rec(3, "B", "c", 300, 0, sampleVector());
+            rec(4, "B", "c", 400, 0, sampleVector());
+            assertThat(groupedSlidingWindow(Tuple.from("A"))).hasSizeOf(2).underlyingHnsw().containsInAnyOrder(1L, 2L);
+            assertThat(groupedSlidingWindow(Tuple.from("B"))).hasSizeOf(2).underlyingHnsw().containsInAnyOrder(3L, 4L);
+            commit(context);
+        }
+
+        // Defer writes onto the queue: an insert into each group, then a range delete of group A after them.
+        try (FDBRecordContext context = openContext()) {
+            openStore(context, 3, Direction.DESC, grouping);
+            recordStore.markIndexWriteOnlyWithQueue(INDEX_NAME).join();
+            assertTrue(recordStore.isIndexWriteOnlyWithQueue(INDEX_NAME));
+
+            rec(5, "A", "c", 150, 0, sampleVector());   // queued ahead of the delete
+            rec(6, "B", "c", 350, 0, sampleVector());   // queued ahead of the delete
+            recordStore.deleteRecordsWhere(Query.field("zone").equalsValue("A"));
+            commit(context);
+        }
+
+        // Before the drain the queued writes are not applied yet: the window still reflects the readable build.
+        try (FDBRecordContext context = openContext()) {
+            openStore(context, 3, Direction.DESC, grouping);
+            assertTrue(recordStore.isIndexWriteOnlyWithQueue(INDEX_NAME));
+            assertThat(groupedSlidingWindow(Tuple.from("A"))).hasSizeOf(2).underlyingHnsw().containsInAnyOrder(1L, 2L);
+            assertThat(groupedSlidingWindow(Tuple.from("B"))).hasSizeOf(2).underlyingHnsw().containsInAnyOrder(3L, 4L);
+            commit(context);
+        }
+
+        // Build the index, which drains the queue and marks the index readable.
+        drainQueue(3, Direction.DESC, grouping);
+
+        // After the drain the DELETE_WHERE removed group A's entries; group B kept its records plus the queued insert.
+        try (FDBRecordContext context = openContext()) {
+            openStore(context, 3, Direction.DESC, grouping);
+            final Index index = index();
+            assertTrue(recordStore.isIndexReadable(index));
+            assertThat(groupedSlidingWindow(Tuple.from("A"))).hasSizeOf(0);
+            assertThat(groupedSlidingWindow(Tuple.from("B"))).hasSizeOf(3).underlyingHnsw().containsInAnyOrder(3L, 4L, 6L);
+            assertNull(queueSize(context, index), "the queue data should have been erased once the index became readable");
             commit(context);
         }
     }
@@ -2091,9 +2154,7 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
     }
 
     @Test
-    void canDeleteWhereReturnsFalseWhileWriteOnlyWithQueue() throws Exception {
-        // While writes are deferred to the pending queue, range deletes must be disabled (they would race the
-        // queued writes). The readable-index case is covered by canDeleteWhereWithGroup.
+    void canDeleteWhereWhileWriteOnlyWithQueue() throws Exception {
         try (FDBRecordContext context = openContext()) {
             openStore(context, 3, Direction.DESC, ImmutableList.of(ImmutableList.of("zone")));
             recordStore.markIndexWriteOnlyWithQueue(INDEX_NAME).join();
@@ -2104,8 +2165,8 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
                     new com.apple.foundationdb.record.query.QueryToKeyMatcher(
                             com.apple.foundationdb.record.query.expressions.Query.field("zone")
                                     .equalsValue("A"));
-            assertFalse(maintainer.canDeleteWhere(matcher, Key.Evaluated.scalar("A")),
-                    "deleteWhere must be disabled while writes are being deferred to the pending queue");
+            assertTrue(maintainer.canDeleteWhere(matcher, Key.Evaluated.scalar("A")),
+                    "deleteWhere must be allowed while writes are deferred to the pending queue");
             commit(context);
         }
     }

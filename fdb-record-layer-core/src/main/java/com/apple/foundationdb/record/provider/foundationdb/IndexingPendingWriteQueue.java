@@ -34,7 +34,9 @@ import com.apple.foundationdb.record.provider.foundationdb.queue.PendingWritesQu
 import com.apple.foundationdb.record.provider.foundationdb.queue.PendingWritesQueueEntry;
 import com.apple.foundationdb.record.provider.foundationdb.runners.throttled.CursorFactory;
 import com.apple.foundationdb.record.provider.foundationdb.runners.throttled.ThrottledRetryingIterator;
+import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.util.CloseException;
+import com.google.protobuf.InvalidProtocolBufferException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -111,11 +113,26 @@ public final class IndexingPendingWriteQueue {
             return AsyncUtil.DONE;
         }
         final IndexBuildProto.PendingWritesQueueEntry payload = entry.getPayload();
-        if (payload.getOperation() != IndexBuildProto.PendingWritesQueueEntry.Operation.UPDATE) { // currently the only operation
-            throw new RecordCoreException("unsupported pending write queue operation: " + payload.getOperation());
+        final IndexMaintainer maintainer = store.getIndexMaintainer(index);
+        final CompletableFuture<Void> operation;
+        switch (payload.getOperation()) {
+            case UPDATE:
+                operation = maintainer.updateFromQueue(payload.getData());
+                break;
+            case DELETE_WHERE:
+                final IndexBuildProto.DeleteWhere deleteWhere;
+                try {
+                    deleteWhere = payload.getData().unpack(IndexBuildProto.DeleteWhere.class);
+                } catch (InvalidProtocolBufferException ex) {
+                    throw new RecordCoreException("failed to parse pending write queue DELETE_WHERE entry data", ex);
+                }
+                final Tuple prefix = Tuple.fromBytes(deleteWhere.getPrefix().toByteArray());
+                operation = maintainer.deleteWhere(store.ensureContextActive(), prefix);
+                break;
+            default:
+                throw new RecordCoreException("unsupported pending write queue operation: " + payload.getOperation());
         }
-        return store.getIndexMaintainer(index)
-                .updateFromQueue(payload.getData())
+        return operation
                 .thenAccept(ignore -> {
                     quotaManager.deleteCountInc();
                     getIndexingQueue(store).clearEntry(store.getContext(), entry);

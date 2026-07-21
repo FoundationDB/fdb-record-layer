@@ -63,10 +63,16 @@ message PendingWritesQueueEntry {
   // The kind of deferred index operation carried by this entry. New operations (e.g. DELETE_WHERE) may be added over
   // time; a drainer that does not recognize an operation should fail rather than silently skip it.
   enum Operation {
-    UPDATE = 1; // apply an old/new record change; `data` holds a serialized OldAndNewRecords
+    UPDATE = 1; // apply an old/new record change; `data` holds a serialized information needed for an index update
+    DELETE_WHERE = 2; // clear an index key prefix; `data` holds a serialized DeleteWhere
   }
   required Operation operation = 1;
   optional google.protobuf.Any data = 2;
+}
+
+// Data for PendingWritesQueueEntry DELETE_WHERE operation. This defers a `deleteRecordsWhere`
+message DeleteWhere {
+  optional bytes prefix = 1; // the packed key prefix to clear from the index
 }
 
 // The `data` payload for a PendingWritesQueueEntry UPDATE operation. This represents a record change that needs to be
