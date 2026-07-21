@@ -130,6 +130,27 @@ class CascadesPlannerTest {
     }
 
     /**
+     * If {@code shouldExecute()} returns {@code false} for the group/expression pair, no rule is tried and no follow-up
+     * task is pushed, even though more than one rule remains.
+     */
+    @Test
+    void testConditionalCascadesRule5() {
+        final Reference group = Reference.initialOf(scanExpression("A"));
+        final RelationalExpression expressionNotInGroup = scanExpression("C");
+        final CascadesPlanner planner = newPlanner();
+
+        final RecordingExplorationCascadesRule first = new RecordingExplorationCascadesRule(true);
+        final RecordingExplorationCascadesRule second = new RecordingExplorationCascadesRule(true);
+        final CascadesPlanner.ConditionalTransformExpression task = planner.new ConditionalTransformExpression(
+                PlannerPhase.REWRITING, group, expressionNotInGroup, ImmutableList.of(first, second));
+
+        assertThat(task.execute()).isFalse();
+        assertThat(first.matchCount).isEqualTo(0);
+        assertThat(second.matchCount).isEqualTo(0);
+        assertThat(planner.getTaskStack()).isEmpty();
+    }
+
+    /**
      * Creates a {@link CascadesPlanner} over an empty {@link TestRecords1Proto}-based store.
      */
     @Nonnull
