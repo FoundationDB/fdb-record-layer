@@ -428,18 +428,6 @@ public class FDBRecordStoreReplaceIndexTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             openWithReplacements(context, rebuildOption, origIndex, newIndex);
             // The checker's requested state must be honored, and any readable index must reflect the saved record
-            // TODO here we are opening the store, and checkVersion says the replaced should be built, but the replacement
-            //      should not. Do we want to have the UserVersionChecker control at all
-            //      i.e. two potential, correct-ish behaviors:
-            //      1. UserVersionChecker sees the original, and then we see that it's replacements are flagged to be
-            //      readable, and change its desired state to disabled, overriding UserVersionChecker's response
-            //      2. UserVersionChecker does not see the original or opine, and we set it to disabled after
-            //      (2) means that we could end up in a state where neither is readable. This could be problematic in a
-            //          a situation where the UserVersionChecker is trying to control the rollout a bit so it doesn't
-            //          build the new version too aggressively, resulting in a single store not having either
-            //      (1) could mean wasted resources trying to calculate count or size to determine whether to build
-            //          new indexes, but unless your in a state where the replacement is older than the replaced, you'll
-            //          have to do those calculations anyways.
             assertIndexStateAndContents(origIndex, rebuildOption.expectedOriginalState(), NUM_THEN_STR_KEY);
             assertIndexStateAndContents(newIndex, rebuildOption.expectedReplacementState(), STR_THEN_NUM_KEY);
             commit(context);
@@ -1038,10 +1026,7 @@ public class FDBRecordStoreReplaceIndexTest extends FDBRecordStoreTestBase {
             if (immediateState != null) {
                 return CompletableFuture.completedFuture(immediateState);
             }
-            // TODO should this error
-            // Default: consult the record count
-            return lazyRecordCount.get().thenApply(count ->
-                    FDBRecordStore.disabledIfTooManyRecordsForRebuild(count, indexOnNewRecordTypes));
+            return Assertions.fail("All indexes should be defined " + index.getName());
         }
     }
 
