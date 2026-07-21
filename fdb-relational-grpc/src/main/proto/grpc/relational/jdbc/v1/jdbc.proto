@@ -120,7 +120,7 @@ message ParameterMetadata {
   int32 java_sql_types_code = 1 [deprecated = true];
   Type type = 2;
   oneof metadata {
-    ListColumnMetadata structMetadata = 3;
+    StructMetadata structMetadata = 3;
     ColumnMetadata arrayMetadata = 4;
     EnumMetadata enumMetadata = 5;
     VectorMetadata vectorMetadata = 6;

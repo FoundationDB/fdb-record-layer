@@ -148,8 +148,8 @@ static def getAttributesFromJar(File file) {
 }
 
 ext.resolveManyServers = { ->
-    Set<File> selectedServers = new HashSet<>();
-    Set<String> rejectedVersions = new HashSet<>();
+    Set<File> selectedServers = new HashSet<>()
+    Set<String> rejectedVersions = new HashSet<>()
     while (selectedServers.size() < 10) {
         def serverFile = resolveOtherServer(rejectedVersions)
         def attributes = getAttributesFromJar(serverFile)
@@ -202,6 +202,7 @@ task cleanExternalServerDirectory(type: Delete) {
 }
 
 task serverJars(type: Copy) {
+    notCompatibleWithConfigurationCache("Resolves dynamic external server versions at execution time")
     dependsOn ":fdb-relational-server:package", "cleanExternalServerDirectory"
     into project.layout.buildDirectory.dir('externalServer')
     from { resolveOtherServer(["4.2.3.0", "4.2.4.0"].toSet()) }
@@ -211,6 +212,7 @@ task serverJars(type: Copy) {
 }
 
 task downloadManyExternalServers(type: Copy) {
+    notCompatibleWithConfigurationCache("Resolves dynamic external server versions at execution time")
     dependsOn "cleanExternalServerDirectory"
     from { resolveManyServers() }
     into project.layout.buildDirectory.dir('externalServer')
@@ -220,6 +222,7 @@ task downloadManyExternalServers(type: Copy) {
 // n defaults to 10 and can be overridden with -Ptests.listVersionsCount=<n>.
 // Output file: <buildDir>/recentVersions.txt
 task listRecentVersions {
+    notCompatibleWithConfigurationCache("Resolves dynamic external server versions at execution time")
     def listVersionsCountProvider = providers.gradleProperty('tests.listVersionsCount')
     def outputFileProvider = layout.buildDirectory.file('recentVersions.txt')
     doLast {
@@ -241,6 +244,7 @@ task listRecentVersions {
 //   -Ptests.mixedModeVersion=4.10.3.0
 //
 task downloadSpecificExternalServer(type: Copy) {
+    notCompatibleWithConfigurationCache("Resolves dynamic external server versions at execution time")
     dependsOn "cleanExternalServerDirectory"
     into project.layout.buildDirectory.dir('externalServer')
     def mixedModeVersionProvider = providers.gradleProperty('tests.mixedModeVersion')
@@ -281,7 +285,7 @@ test {
     if (project.hasProperty('tests.yaml.seed')) {
         seed = Long.parseLong(project.getProperty('tests.yaml.seed'))
     } else {
-        seed = ThreadLocalRandom.current().nextLong();
+        seed = ThreadLocalRandom.current().nextLong()
     }
     println("Using seed for yaml-tests: ${seed}")
     systemProperty('tests.yaml.seed', seed)

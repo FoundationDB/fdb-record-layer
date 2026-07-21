@@ -1,6 +1,7 @@
 import java.util.regex.Matcher
 import java.util.regex.Pattern
 
+import org.gradle.api.tasks.testing.TestDescriptor
 import org.gradle.api.tasks.testing.TestListener
 
 /*
@@ -56,7 +57,7 @@ task destructiveTest(type: Test) {
         maxParallelForks = 1
     }
     reports {
-        junitXml.outputLocation = file("${buildDir}/test-results/destructive")
+        junitXml.outputLocation = layout.buildDirectory.dir("test-results/destructive")
     }
 }
 
@@ -92,7 +93,7 @@ task singleVersionTest(type: Test) {
 
 // if you add to or modify these testing configurations, make sure to update the CONTRIBUTING.md to include any updates
 
-def getMixedModeVersion(descriptor) {
+static def getMixedModeVersion(descriptor) {
     while (descriptor != null) {
         // don't display this or any of the parents. Let's assume that nobody ever
         // sets the display name in code to start with "Gradle Test Executor".
@@ -133,10 +134,10 @@ task mixedModeTest(type: Test) {
         }
     }
     addTestListener([
-        beforeSuite: { suite -> },
-        afterSuite: { suite, result -> },
-        beforeTest: { descriptor -> },
-        afterTest: { descriptor, result ->
+        beforeSuite: { TestDescriptor suite -> },
+        afterSuite: { TestDescriptor suite, TestResult result -> },
+        beforeTest: { TestDescriptor descriptor -> },
+        afterTest: { TestDescriptor descriptor, TestResult result ->
             def version = getMixedModeVersion(descriptor)
             if (version == null) {
                 throw new RuntimeException("Could not find version " + getFullDisplayName(descriptor))
@@ -147,7 +148,7 @@ task mixedModeTest(type: Test) {
     ] as TestListener)
 }
 
-def getFullDisplayName(descriptor) {
+static def getFullDisplayName(TestDescriptor descriptor) {
     def fullName = descriptor.displayName
     descriptor = descriptor.parent
     while (descriptor != null) {
@@ -170,7 +171,16 @@ def getFullDisplayName(descriptor) {
     return fullName
 }
 
-def configureTestTask = { propertyPrefix, task ->
+// Use an injected `FileSystemOperations` service for deleting the per-task temp directory in `configureTestTask`
+// below (rather than `Project.delete()`, which is not compatible with the configuration cache).
+abstract class TestTmpDirCleaner {
+    @javax.inject.Inject
+    abstract org.gradle.api.file.FileSystemOperations getFs()
+}
+
+def testTmpDirCleaner = objects.newInstance(TestTmpDirCleaner)
+
+def configureTestTask = { String propertyPrefix, Task task ->
     def handled = [propertyPrefix + '.ignoreFailures',
                    propertyPrefix + '.debug',
                    propertyPrefix + '.single',
@@ -181,16 +191,17 @@ def configureTestTask = { propertyPrefix, task ->
         def prefix = "${propertyPrefix}.sysProp."
         if (!prop.key.startsWith(prefix.toString())) {
             return
-        };
+        }
         def setkey = prop.key.substring(prefix.length())
         task.systemProperties[setkey] = prop.value
         logger.debug "Set system property ${setkey} = ${prop.value} on ${propertyPrefix}"
         handled.add(prop.key)
+        return
     }
 
-    def tmpdir = file("$buildDir/tmp-${task.name}")
+    def tmpdir = layout.buildDirectory.dir("tmp-${task.name}").get().asFile
     task.doFirst {
-        delete tmpdir
+        testTmpDirCleaner.fs.delete { delete(tmpdir) }
         tmpdir.mkdirs()
     }
     task.systemProperties['java.io.tmpdir'] = tmpdir.absolutePath
@@ -230,6 +241,7 @@ def configureTestTask = { propertyPrefix, task ->
         if (prop.key.startsWith(propertyPrefix + '.') && !handled.contains(prop.key)) {
             logger.warn "Unknown system property that looks like it was intended to configure this task: ${prop.key}=${prop.value}"
         }
+        return
     }
 }
 
@@ -246,7 +258,7 @@ def betterException(String exception) {
     return skippedStackTraceEntries.matcher(exception).replaceAll("\n\${indent}... junit stack ...")
 }
 
-tasks.withType(Test) { theTask ->
+tasks.withType(Test) { Test theTask ->
     // Point the `Test` task at the compiled classes and the runtime classpath of the test source-set.
     testClassesDirs = sourceSets.test.output.classesDirs
     classpath = sourceSets.test.runtimeClasspath
@@ -279,11 +291,11 @@ tasks.withType(Test) { theTask ->
     }
 
     addTestListener([
-        beforeSuite: { suite -> },
-        beforeTest: { descriptor ->
+        beforeSuite: { TestDescriptor suite -> },
+        beforeTest: { TestDescriptor descriptor ->
             println "${Instant.now()} ${getFullDisplayName(descriptor)} STARTED"
         },
-        afterTest: { descriptor, result ->
+        afterTest: { TestDescriptor descriptor, TestResult result ->
             def duration = String.format(Locale.ROOT, "%,d", result.endTime - result.startTime)
             println "${Instant.now()} ${getFullDisplayName(descriptor)} ${result.resultType} (${duration}ms)"
             println()

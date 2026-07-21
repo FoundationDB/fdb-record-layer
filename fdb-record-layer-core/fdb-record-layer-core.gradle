@@ -18,6 +18,8 @@
  * limitations under the License.
  */
 
+import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
+
 plugins {
     id 'java-test-fixtures'
     alias(libs.plugins.shadow)
@@ -68,7 +70,7 @@ sourceSets {
     }
 }
 
-task testShadowJar(type: com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar) {
+task testShadowJar(type: ShadowJar) {
     archiveClassifier = 'standalone-tests'
     from sourceSets.main.output
     from sourceSets.test.output

@@ -980,9 +980,16 @@ public class SemanticAnalyzer {
                                             boolean flattenSingleItemRecords) {
         Assert.thatUnchecked(functionCatalog.containsFunction(functionName), ErrorCode.UNSUPPORTED_QUERY,
                 () -> String.format(Locale.ROOT, "Unsupported operator %s", functionName));
+        final var allNamedArguments = !arguments.isEmpty() && arguments.allNamedArguments();
+        Assert.thatUnchecked(allNamedArguments || arguments.noneNamedArguments(),
+                ErrorCode.UNSUPPORTED_OPERATION,
+                "mixing named and unnamed arguments is not supported");
 
-        final var builtInFunction = functionCatalog.lookupFunction(functionName, arguments);
-        processFunctionSideEffects(builtInFunction);
+        final var resolvedFunction = functionCatalog.lookupFunction(functionName, arguments);
+        Assert.thatUnchecked(!allNamedArguments || resolvedFunction.hasNamedParameters(),
+                ErrorCode.UNDEFINED_FUNCTION,
+                "function doesn't support named arguments");
+        processFunctionSideEffects(resolvedFunction);
 
         final var argumentList = ImmutableList.<Expression>builderWithExpectedSize(arguments.size() + 1).addAll(arguments);
         if (BITMAP_SCALAR_FUNCTIONS.contains(functionName.toLowerCase(Locale.ROOT))) {
@@ -992,7 +999,11 @@ public class SemanticAnalyzer {
         final List<? extends Typed> valueArgs = argumentList.build().stream().map(Expression::getUnderlying)
                 .map(v -> flattenSingleItemRecords ? SqlFunctionCatalog.flattenRecordWithOneField(v) : v)
                 .collect(ImmutableList.toImmutableList());
-        final var resultingValue = Assert.castUnchecked(builtInFunction.encapsulate(valueArgs), Value.class);
+        final var resultingValue =
+                Assert.castUnchecked(allNamedArguments
+                                     ? resolvedFunction.encapsulate(arguments.toNamedArgumentInvocation())
+                                     : resolvedFunction.encapsulate(valueArgs),
+                        Value.class);
         return Expression.ofUnnamed(DataTypeUtils.toRelationalType(resultingValue.getResultType()), resultingValue);
     }
 
@@ -1156,18 +1167,23 @@ public class SemanticAnalyzer {
                                                 boolean flattenSingleItemRecords) {
         Assert.thatUnchecked(functionCatalog.containsFunction(functionName.getName()), ErrorCode.UNDEFINED_FUNCTION,
                 () -> String.format(Locale.ROOT, "Unknown function %s", functionName));
+        final var allNamedArguments = !arguments.isEmpty() && arguments.allNamedArguments();
+        Assert.thatUnchecked(allNamedArguments || arguments.noneNamedArguments(),
+                ErrorCode.UNSUPPORTED_OPERATION,
+                "mixing named and unnamed arguments is not supported");
+
         final var tableFunction = functionCatalog.lookupFunction(functionName.getName(), arguments);
         if (tableFunction instanceof BuiltInFunction) {
             Assert.thatUnchecked(tableFunction instanceof BuiltInTableFunction, functionName + " is not a table-valued function");
         }
+        Assert.thatUnchecked(arguments.isEmpty() || !allNamedArguments || tableFunction.hasNamedParameters(),
+                ErrorCode.UNDEFINED_FUNCTION,
+                "function doesn't support named arguments");
         processFunctionSideEffects(tableFunction);
 
         final List<? extends Typed> valueArgs = Streams.stream(arguments.underlying().iterator())
                 .map(v -> flattenSingleItemRecords ? SqlFunctionCatalog.flattenRecordWithOneField(v) : v)
                 .collect(ImmutableList.toImmutableList());
-        Assert.thatUnchecked(arguments.allNamedArguments() || arguments.noneNamedArguments(), ErrorCode.UNSUPPORTED_OPERATION,
-                "mixing named and unnamed arguments is not supported");
-
         final var resultingValue = arguments.allNamedArguments()
                 ? tableFunction.encapsulate(arguments.toNamedArgumentInvocation())
                 : tableFunction.encapsulate(valueArgs);

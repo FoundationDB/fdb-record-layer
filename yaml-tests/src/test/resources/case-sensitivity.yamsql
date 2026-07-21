@@ -36,6 +36,10 @@ schema_template:
     create function F1 ( in A bigint, in B bigint ) as select col1 + 100 as X, col2 from Table1 where col1 = A and col2 = B
     create function f2 (in c bigint) as select * from f1(a => 10, b => 1) where x + c = 10
     create function F2 (in C bigint) as select * from F1(A => 10, B => 1) where X + C = 110
+    create type as struct st1(a bigint, b bigint)
+    create table table3(id bigint, col1 st1, primary key(id))
+    create function f3 (in x TYPE st1) RETURNS bigint AS x.a
+    create function F3 (in x TYPE st1) RETURNS bigint AS x.b
 ---
 setup:
   steps:
@@ -55,6 +59,8 @@ setup:
                (20, 100, 20),
                (60, 200, 60),
                (70, 200, 70)
+    - query: insert into table3
+        values (1, (1, 2))
 ---
 test_block:
   name: case-sensitivity-on
@@ -102,6 +108,12 @@ test_block:
     -
       - query: select * from F2(0)
       - unorderedResult: [{X: 110, col2: 1}]
+    -
+      - query: select f3(col1) from table3
+      - unorderedResult: [{ !l 1 }]
+    -
+      - query: select F3(col1) from table3
+      - unorderedResult: [{ !l 2 }]
 ---
 test_block:
   name: case-sensitivity-off

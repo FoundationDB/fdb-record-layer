@@ -25,7 +25,7 @@ var sphinxBuildDir = "${sphinxRoot}/.out"
 // Gives tasks access to an injected `ExecOperations` for running external processes from a `doLast` block.
 interface InjectedExecOps {
     @javax.inject.Inject
-    org.gradle.process.ExecOperations getExecOps()
+    ExecOperations getExecOps()
 }
 
 var documented_subprojects = [

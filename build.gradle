@@ -54,7 +54,6 @@ plugins {
 }
 
 ext {
-    SpotBugsTask = com.github.spotbugs.snom.SpotBugsTask
     fdbEnvironment = [:]
 }
 
@@ -97,7 +96,7 @@ allprojects {
         dependsOn("sourcesJar")
     }
 
-    buildDir = ".out"
+    layout.buildDirectory.set(layout.projectDirectory.dir(".out"))
     ext {
         distDir = ".dist"
     }
@@ -112,7 +111,7 @@ allprojects {
 
     // Configure JUnit tests
     tasks.withType(Test) {
-        reports.junitXml.outputLocation = project.file("${->project.buildDir}/test-results")
+        reports.junitXml.outputLocation = project.layout.buildDirectory.dir("test-results")
     }
 
     def projectName = it.name
@@ -302,7 +301,7 @@ subprojects {
                     tree.each { yamsql ->
                         def original = yamsql.text
                         def updated = original.replaceAll("(?<!\")!current_version(?!\")", projectVersion)
-                        if (!original.equals(updated)) {
+                        if (original != updated) {
                             println("Replacing !current_version in " + yamsql)
                             // Replace !current_version in all yamsql, unless it is surrounded by ", allowing it to be used in
                             // comments, without issue, e.g. in showcasing-tests
@@ -345,10 +344,13 @@ wrapper {
     }
 }
 
-clean.doLast {
-    delete ".idea_build"
-    allprojects.each { p ->
-        delete p.tasks.createDistribution.destinationDir
+clean {
+    // Capture the distribution destination directories at configuration time so the configuration cache does not
+    // need to reach into `allprojects` from the `doLast` closure at execution time.
+    def distributionDirs = allprojects.collect { it.tasks.createDistribution.destinationDir }
+    doLast {
+        delete ".idea_build"
+        delete distributionDirs
     }
 }
 
@@ -364,7 +366,10 @@ def fdbEnvironmentFile = new File("${rootProject.projectDir}/fdb-environment.pro
 if (fdbEnvironmentFile.exists()) {
     fdbEnvironmentFile.eachLine { line ->
         def eq = line.indexOf('=')
-        if (eq > 0) ext.fdbEnvironment.put(line.substring(0, eq), line.substring(eq + 1))
+        if (eq > 0) {
+            ext.fdbEnvironment.put(line.substring(0, eq), line.substring(eq + 1))
+        }
+        return
     }
 }
 if (!ext.fdbEnvironment.isEmpty()) {

@@ -593,18 +593,17 @@ versions-queries:
         b where 2 in b.r.col4 and b.r.col2 = a.r.col2
     ref: versions-tests.yamsql:655
     explain: 'COVERING(T3_VERSION_WITH_COL1 <,> -> [COL1: VALUE:[0], ID: KEY:[2]])
-        | FILTER _.COL1 EQUALS promote(@c43 AS STRING) | FETCH | FLATMAP q0 -> { ISCAN(T4_COL2
-        [EQUALS q0.COL2]) | FILTER _.COL1 EQUALS promote(@c43 AS STRING) AND promote(@c53
-        AS LONG) IN _.COL4 AS q1 RETURN (q0.__ROW_VERSION AS VERSION3, q0.ID AS ID3,
-        q1.__ROW_VERSION AS VERSION4, q1.ID AS ID4, q0.COL2 AS COL2, q1.COL4 AS COL4)
-        }'
-    task_count: 3485
-    task_total_time_ms: 580
-    transform_count: 1103
-    transform_time_ms: 240
-    transform_yield_count: 246
-    insert_time_ms: 29
-    insert_new_count: 566
+        | FILTER _.COL1 EQUALS @c43 | FETCH | FLATMAP q0 -> { ISCAN(T4_COL2 [EQUALS
+        q0.COL2]) | FILTER _.COL1 EQUALS @c43 AND promote(@c53 AS LONG) IN _.COL4
+        AS q1 RETURN (q0.__ROW_VERSION AS VERSION3, q0.ID AS ID3, q1.__ROW_VERSION
+        AS VERSION4, q1.ID AS ID4, q0.COL2 AS COL2, q1.COL4 AS COL4) }'
+    task_count: 3428
+    task_total_time_ms: 406
+    transform_count: 1088
+    transform_time_ms: 166
+    transform_yield_count: 240
+    insert_time_ms: 17
+    insert_new_count: 551
     insert_reused_count: 50
 -   query: EXPLAIN select "__ROW_VERSION", id, col1, col3 from t4 where col3 in (1,
         3, 5)

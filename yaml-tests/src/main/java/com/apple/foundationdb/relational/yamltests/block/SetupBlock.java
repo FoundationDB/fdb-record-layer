@@ -33,6 +33,7 @@ import com.apple.foundationdb.relational.yamltests.server.SemanticVersion;
 import com.apple.foundationdb.relational.yamltests.server.SemanticVersionRanges;
 
 import com.apple.foundationdb.relational.yamltests.ConnectionTarget;
+import com.apple.foundationdb.relational.yamltests.server.SupportedVersionCheck;
 
 import com.google.common.collect.Range;
 
@@ -91,6 +92,11 @@ public class SetupBlock extends ConnectedBlock {
                 final var setupMap = CustomYamlConstructor.LinedObject.unlineKeys(Matchers.map(document, "setup"));
                 if (setupMap.get(OPTIONS) != null) {
                     final Map<?, ?> optionsMap = CustomYamlConstructor.LinedObject.unlineKeys(Matchers.map(setupMap.get(OPTIONS)));
+                    final SupportedVersionCheck supportedVersionCheck = SupportedVersionCheck.parseOptions(
+                            optionsMap, executionContext.getConnectionFactory().getVersionsUnderTest());
+                    if (!supportedVersionCheck.isSupported()) {
+                        return List.of(new SkipBlock(reference, supportedVersionCheck.getMessage()));
+                    }
                     if (optionsMap.containsKey(CONNECTION_OPTIONS)) {
                         connectionOptions = TestBlock.TestBlockOptions.parseConnectionOptions(Matchers.map(optionsMap.get(CONNECTION_OPTIONS)));
                     }

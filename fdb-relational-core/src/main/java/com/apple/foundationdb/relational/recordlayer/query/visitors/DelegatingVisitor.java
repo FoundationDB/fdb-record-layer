@@ -197,7 +197,7 @@ public class DelegatingVisitor<D extends TypedVisitor> implements TypedVisitor {
 
     @Nonnull
     @Override
-    public DataType visitColumnType(@Nonnull RelationalParser.ColumnTypeContext ctx) {
+    public Object visitColumnType(@Nonnull RelationalParser.ColumnTypeContext ctx) {
         return getDelegate().visitColumnType(ctx);
     }
 
@@ -415,23 +415,8 @@ public class DelegatingVisitor<D extends TypedVisitor> implements TypedVisitor {
     }
 
     @Override
-    public Object visitExpressionBody(final RelationalParser.ExpressionBodyContext ctx) {
-        return getDelegate().visitExpressionBody(ctx);
-    }
-
-    @Override
     public RecordLayerInvokedRoutine visitFunctionSpecification(final RelationalParser.FunctionSpecificationContext ctx) {
         return getDelegate().visitFunctionSpecification(ctx);
-    }
-
-    @Override
-    public LogicalOperator visitSqlReturnStatement(final RelationalParser.SqlReturnStatementContext ctx) {
-        return getDelegate().visitSqlReturnStatement(ctx);
-    }
-
-    @Override
-    public LogicalOperator visitReturnValue(final RelationalParser.ReturnValueContext ctx) {
-        return getDelegate().visitReturnValue(ctx);
     }
 
     @Nonnull
@@ -511,8 +496,8 @@ public class DelegatingVisitor<D extends TypedVisitor> implements TypedVisitor {
     }
 
     @Override
-    public Expressions visitTableFunctionArgs(@Nonnull RelationalParser.TableFunctionArgsContext ctx) {
-        return getDelegate().visitTableFunctionArgs(ctx);
+    public Expressions visitNamedOrUnnamedFunctionArgs(RelationalParser.NamedOrUnnamedFunctionArgsContext ctx) {
+        return getDelegate().visitNamedOrUnnamedFunctionArgs(ctx);
     }
 
     @Override
@@ -989,8 +974,8 @@ public class DelegatingVisitor<D extends TypedVisitor> implements TypedVisitor {
 
     @Nonnull
     @Override
-    public Identifier visitUserDefinedScalarFunctionStatementBody(@Nonnull RelationalParser.UserDefinedScalarFunctionStatementBodyContext ctx) {
-        return getDelegate().visitUserDefinedScalarFunctionStatementBody(ctx);
+    public Expression visitUserDefinedMacroFunctionStatementBody(@Nonnull RelationalParser.UserDefinedMacroFunctionStatementBodyContext ctx) {
+        return getDelegate().visitUserDefinedMacroFunctionStatementBody(ctx);
     }
 
     @Nonnull
