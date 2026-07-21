@@ -295,15 +295,11 @@ test_block:
       - unorderedResult: [{100}, {100}, {100}, {100}, {140}, {140}]
     -
       - query: select st1_array((1l, 2l)) from range(1, 2)
-      - explain: "TF range(promote(@c12 AS LONG), promote(@c14 AS LONG), STEP 1l) | MAP (array(promote((@c4 AS _0, @c6 AS _1) AS LONG AS Y, LONG AS Z)) AS _0)"
-      # TODO: disable forceContinuation until https://github.com/FoundationDB/fdb-record-layer/pull/4171 is merged.
-      - maxRows: 0
+      - explain: "TF range(promote(@c12 AS LONG), promote(@c14 AS LONG), STEP 1l) | MAP (array(promote(promote((@c4 AS _0, @c6 AS _1) AS LONG AS Y, LONG AS Z) AS LONG AS Y, LONG AS Z)) AS _0)"
       - unorderedResult: [{ [ {!l 1, !l 2} ]} ]
     -
       - query: select st1_array_alt(r.v) from nested
-      - explain: "SCAN([IS NESTED]) | MAP (array(_.R.V) AS _0)"
-      # TODO: disable forceContinuation until https://github.com/FoundationDB/fdb-record-layer/pull/4171 is merged.
-      - maxRows: 0
+      - explain: "SCAN([IS NESTED]) | MAP (array(promote(_.R.V AS LONG AS Y, LONG AS Z)) AS _0)"
       - unorderedResult: [{ [ {y: !l 10, z: !l 100} ]},
                           { [ {y: !l 10, z: !l 100} ]},
                           { [ {y: !l 10, z: !l 100} ]},
@@ -312,9 +308,7 @@ test_block:
                           { [ {y: !l 10, z: !l 140} ]}]
     -
       - query: select st1_array_without_return_type(r.v) from nested
-      - explain: "SCAN([IS NESTED]) | MAP (array(_.R.V) AS _0)"
-      # TODO: disable forceContinuation until https://github.com/FoundationDB/fdb-record-layer/pull/4171 is merged.
-      - maxRows: 0
+      - explain: "SCAN([IS NESTED]) | MAP (array(promote(_.R.V AS LONG AS Y, LONG AS Z)) AS _0)"
       - unorderedResult: [{ [ {y: !l 10, z: !l 100} ]},
                           { [ {y: !l 10, z: !l 100} ]},
                           { [ {y: !l 10, z: !l 100} ]},
@@ -322,9 +316,9 @@ test_block:
                           { [ {y: !l 10, z: !l 140} ]},
                           { [ {y: !l 10, z: !l 140} ]}]
     -
-      - query: select st1_array((0l, 1l))[1] from range(1, 2)
-      - explain: "TF range(promote(@c15 AS LONG), promote(@c17 AS LONG), STEP 1l) | MAP (array(promote((@c4 AS _0, @c6 AS _1) AS LONG AS Y, LONG AS Z))[promote(@c15 AS INT)] AS _0)"
-      - unorderedResult: [{ {y: !l 0, z: !l 1} }]
+      - query: select st1_array_first(st1_array((1l, 2l))) from range(1, 2)
+      - explain: "TF range(promote(@c15 AS LONG), promote(@c17 AS LONG), STEP 1l) | MAP (array(promote(promote((@c6 AS _0, @c8 AS _1) AS LONG AS Y, LONG AS Z) AS LONG AS Y, LONG AS Z))[promote(1 AS INT)] AS _0)"
+      - unorderedResult: [{ {y: !l 1, z: !l 2} }]
     -
       # TODO: this should be fixed as part of https://github.com/FoundationDB/fdb-record-layer/issues/4177
       - query: select temp_z(r) from nested
