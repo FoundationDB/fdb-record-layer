@@ -48,7 +48,6 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBIndexableRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBIndexedRawRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
-import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainer;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintenanceFilter;
@@ -62,6 +61,7 @@ import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.TupleHelpers;
 import com.google.common.base.Verify;
 import com.google.protobuf.Any;
+import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.Message;
 
@@ -70,6 +70,7 @@ import javax.annotation.Nullable;
 import java.util.Comparator;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Supplier;
 
 /**
  * An index maintainer decorator that keeps only the top-N records based on a window key,
@@ -376,34 +377,17 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
     @Override
     public <M extends Message> CompletableFuture<Void> update(@Nullable FDBIndexableRecord<M> oldRecord,
                                                               @Nullable FDBIndexableRecord<M> newRecord) {
-        return update(oldRecord, newRecord, null, null);
-    }
-
-    private <M extends Message> CompletableFuture<Void> update(@Nullable FDBIndexableRecord<M> oldRecord,
-                                                              @Nullable FDBIndexableRecord<M> newRecord,
-                                                              @Nullable Any delegateDelete,
-                                                              @Nullable Any delegateInsert) {
         final Subspace swSubspace = getSlidingWindowSubspace();
         return state.context.doWithWriteLock(new LockIdentifier(swSubspace), () -> {
             CompletableFuture<Void> future = AsyncUtil.DONE;
 
-            if (oldRecord != null) {
-                final var filteringType = IndexMaintenanceUtils.getFilterTypeForRecord(state, oldRecord);
-                if (filteringType == IndexMaintenanceFilter.IndexValues.SOME) {
-                    throw new RecordCoreException("filtering type SOME is not supported")
-                            .addLogInfo(LogMessageKeys.INDEX_NAME, state.index.getName());
-                } else if (filteringType == IndexMaintenanceFilter.IndexValues.ALL) {
-                    future = future.thenCompose(vignore -> handleDelete(oldRecord, delegateDelete));
-                }
+            if (shouldMaintain(oldRecord)) {
+                future = future.thenCompose(vignore ->
+                        handleDelete(entryKeyOf(oldRecord), () -> delegate.update(oldRecord, null)));
             }
-            if (newRecord != null) {
-                final var filteringType = IndexMaintenanceUtils.getFilterTypeForRecord(state, newRecord);
-                if (filteringType == IndexMaintenanceFilter.IndexValues.SOME) {
-                    throw new RecordCoreException("filtering type SOME is not supported")
-                            .addLogInfo(LogMessageKeys.INDEX_NAME, state.index.getName());
-                } else if (filteringType == IndexMaintenanceFilter.IndexValues.ALL) {
-                    future = future.thenCompose(vignore -> handleInsert(newRecord, delegateInsert));
-                }
+            if (shouldMaintain(newRecord)) {
+                future = future.thenCompose(vignore ->
+                        handleInsert(entryKeyOf(newRecord), () -> delegate.update(null, newRecord)));
             }
             return future;
         });
@@ -413,14 +397,6 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
     @Override
     public <M extends Message> CompletableFuture<Void> updateWhileWriteOnly(@Nullable FDBIndexableRecord<M> oldRecord,
                                                                             @Nullable FDBIndexableRecord<M> newRecord) {
-        return updateWhileWriteOnly(oldRecord, newRecord, null, null);
-    }
-
-    @Nonnull
-    private <M extends Message> CompletableFuture<Void> updateWhileWriteOnly(@Nullable FDBIndexableRecord<M> oldRecord,
-                                                                            @Nullable FDBIndexableRecord<M> newRecord,
-                                                                            @Nullable Any delegateDelete,
-                                                                            @Nullable Any delegateInsert) {
         // During a write-only index build, the sliding window cannot rely on the normal
         // update(old, new) contract because the indexer may have already processed newRecord
         // in an earlier range scan. If we blindly call update(null, newRecord), the window
@@ -444,24 +420,39 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
         }
         // The preemptive delete must fully complete (committing its writes and releasing the sliding-window write lock)
         // before the reinsert runs.
-        return update(newRecord, null, null, null) // if already inserted, just clear from the sliding window
-                .thenCompose(ignore -> update(oldRecord, newRecord, delegateDelete, delegateInsert));
+        return update(newRecord, null) // if already inserted, just clear from the sliding window
+                .thenCompose(ignore -> update(oldRecord, newRecord));
     }
 
     @Nonnull
     @Override
     public <M extends Message> Any serializePendingWriteQueue(@Nullable final FDBIndexableRecord<M> oldRecord, @Nullable final FDBIndexableRecord<M> newRecord) {
+        // The maintenance filter is applied here, at enqueue time, so a record filtered out of this index is never
+        // deferred onto the queue and updateFromQueue does not need the record to re-check it.
         final IndexBuildProto.SlidingWindowQueueEntry.Builder builder =
                 IndexBuildProto.SlidingWindowQueueEntry.newBuilder();
-        if (oldRecord != null) {
-            builder.setOldRecords(StandardIndexMaintainerWithQueue.serializePendingRecord(state, oldRecord));
+        if (shouldMaintain(oldRecord)) {
+            builder.setOldEntryKey(entryKeyOf(oldRecord).pack());
             builder.setDelegatedDelete(delegate.serializePendingWriteQueue(oldRecord, null));
         }
-        if (newRecord != null) {
-            builder.setNewRecord(StandardIndexMaintainerWithQueue.serializePendingRecord(state, newRecord));
+        if (shouldMaintain(newRecord)) {
+            builder.setNewEntryKey(entryKeyOf(newRecord).pack());
             builder.setDelegatedInsert(delegate.serializePendingWriteQueue(null, newRecord));
         }
         return Any.pack(builder.build());
+    }
+
+    /**
+     * Whether the maintenance filter says this record should be maintained in this index. A {@code null} record or a
+     * {@code NONE} result means it is not maintained; the unsupported {@code SOME} result throws.
+     */
+    private <M extends Message> boolean shouldMaintain(@Nullable final FDBIndexableRecord<M> rec) {
+        if (rec == null) {
+            return false;
+        }
+        final IndexMaintenanceFilter.IndexValues filteringType = IndexMaintenanceUtils.getFilterTypeForRecord(state, rec);
+        validateOrThrowEx(filteringType != IndexMaintenanceFilter.IndexValues.SOME, "filtering type SOME is not supported");
+        return filteringType == IndexMaintenanceFilter.IndexValues.ALL;
     }
 
     @Nonnull
@@ -473,26 +464,93 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
         } catch (InvalidProtocolBufferException ex) {
             throw new RecordCoreException("failed to parse sliding window pending write queue entry data", ex);
         }
-        final FDBStoredRecord<Message> oldRecord = entry.hasOldRecords()
-                ? StandardIndexMaintainerWithQueue.deserializePendingRecord(state, entry.getOldRecords()) : null;
-        final FDBStoredRecord<Message> newRecord = entry.hasNewRecord()
-                ? StandardIndexMaintainerWithQueue.deserializePendingRecord(state, entry.getNewRecord()) : null;
+        final EntryKey oldKey = entry.hasOldEntryKey() ? entryKeyOf(entry.getOldEntryKey()) : null;
+        final EntryKey newKey = entry.hasNewEntryKey() ? entryKeyOf(entry.getNewEntryKey()) : null;
         final Any delegateDelete = entry.hasDelegatedDelete() ? entry.getDelegatedDelete() : null;
         final Any delegateInsert = entry.hasDelegatedInsert() ? entry.getDelegatedInsert() : null;
-        return updateWhileWriteOnly(oldRecord, newRecord, delegateDelete, delegateInsert);
+
+        final Subspace swSubspace = getSlidingWindowSubspace();
+        return state.context.doWithWriteLock(new LockIdentifier(swSubspace), () -> {
+            // Mirror updateWhileWriteOnly: preemptively clear newKey from the window so a re-drained entry is not
+            // double-counted. This is key-only (no delegate op) — the delegate re-insert below is idempotent — and the
+            // maintenance filter was already applied when the write was first deferred, so it is not re-evaluated here.
+            CompletableFuture<Void> future = AsyncUtil.DONE;
+            if (newKey != null) {
+                incrementCounter(SlidingWindowCounter.SW_PREEMPTIVE_DELETE_WRITE_ONLY);
+                future = future.thenCompose(ignore -> handleDelete(newKey, () -> AsyncUtil.DONE));
+            }
+            if (oldKey != null) {
+                validateOrThrowEx(delegateDelete != null, "old record key without delegate delete");
+                future = future.thenCompose(ignore -> handleDelete(oldKey, () -> delegate.updateFromQueue(delegateDelete)));
+            }
+            if (newKey != null) {
+                validateOrThrowEx(delegateInsert != null, "new record key without delegate insert");
+                future = future.thenCompose(ignore -> handleInsert(newKey, () -> delegate.updateFromQueue(delegateInsert)));
+            }
+            return future;
+        });
+    }
+
+    private void validateOrThrowEx(boolean isValid, @Nonnull String msg) {
+        if (!isValid) {
+            throw new RecordCoreException(msg,
+                    LogMessageKeys.INDEX_NAME, state.index.getName());
+        }
     }
 
     /**
-     * Applies a single-sided update to the delegate index: during a queue drain it replays the pre-serialized
-     * payload, otherwise it applies the live update.
+     * The location of a sliding-window entry, independent of the record it came from: the partition prefix, the
+     * window-key value, and the primary key. This is all the window bookkeeping needs, and it is what is deferred
+     * onto the pending write queue.
+     */
+    private static final class EntryKey {
+        @Nonnull
+        private final Tuple partition;
+        @Nonnull
+        private final Tuple windowValue;
+        @Nonnull
+        private final Tuple primaryKey;
+
+        EntryKey(@Nonnull final Tuple partition, @Nonnull final Tuple windowValue, @Nonnull final Tuple primaryKey) {
+            this.partition = partition;
+            this.windowValue = windowValue;
+            this.primaryKey = primaryKey;
+        }
+
+        /** The key within the entries subspace: window value followed by primary key. */
+        @Nonnull
+        Tuple entriesKey() {
+            return windowValue.addAll(primaryKey);
+        }
+
+        /** Flatten to the packed tuple {@code (partition..., windowValue..., primaryKey...)} for the queue. */
+        @Nonnull
+        ByteString pack() {
+            return ByteString.copyFrom(partition.addAll(windowValue).addAll(primaryKey).pack());
+        }
+    }
+
+    /**
+     * Computes the {@link EntryKey} for a record from the partition and window key expressions.
      */
     @Nonnull
-    private <M extends Message> CompletableFuture<Void> applyDelegate(@Nullable final FDBIndexableRecord<M> oldRecord,
-                                                                      @Nullable final FDBIndexableRecord<M> newRecord,
-                                                                      @Nullable final Any delegatePayload) {
-        return delegatePayload == null
-                ? delegate.update(oldRecord, newRecord)
-                : delegate.updateFromQueue(delegatePayload);
+    private <M extends Message> EntryKey entryKeyOf(@Nonnull final FDBIndexableRecord<M> rec) {
+        return new EntryKey(evaluatePartition(rec),
+                windowKey.evaluateSingleton(rec).toTuple(),
+                rec.getPrimaryKey());
+    }
+
+    /**
+     * Reconstructs an {@link EntryKey} from its packed form, splitting the tuple back into partition, window value,
+     * and primary key by the (fixed) partition and window key column counts.
+     */
+    @Nonnull
+    private EntryKey entryKeyOf(@Nonnull final ByteString packed) {
+        final Tuple tuple = Tuple.fromBytes(packed.toByteArray());
+        final int windowEnd = partitionKeyColumnSize + windowKeyColumnSize;
+        return new EntryKey(TupleHelpers.subTuple(tuple, 0, partitionKeyColumnSize),
+                TupleHelpers.subTuple(tuple, partitionKeyColumnSize, windowEnd),
+                TupleHelpers.subTuple(tuple, windowEnd, tuple.size()));
     }
 
     /**
@@ -508,20 +566,19 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
 
     @SuppressWarnings("PMD.CloseResource")
     @Nonnull
-    private <M extends Message> CompletableFuture<Void> handleInsert(@Nonnull final FDBIndexableRecord<M> savedRecord, @Nullable Any delegateInsert) {
+    private CompletableFuture<Void> handleInsert(@Nonnull final EntryKey key,
+                                                 @Nonnull final Supplier<CompletableFuture<Void>> delegateInsert) {
         final Subspace swSubspace = getSlidingWindowSubspace();
         final Transaction tr = state.store.ensureContextActive();
-        final Tuple primaryKey = savedRecord.getPrimaryKey();
-        final Tuple partitionTuple = evaluatePartition(savedRecord);
+        final Tuple primaryKey = key.primaryKey;
+        final Tuple partitionTuple = key.partition;
 
         // Scope by partition first, then by entries/meta
         final Subspace partitionSubspace = swSubspace.subspace(partitionTuple);
         final Subspace entriesSubspace = partitionSubspace.subspace(ENTRIES_SUBSPACE_KEY);
         final Subspace metaSubspace = partitionSubspace.subspace(META_SUBSPACE_KEY);
 
-        final Key.Evaluated windowEval = windowKey.evaluateSingleton(savedRecord);
-        final Tuple windowValue = windowEval.toTuple();
-        final Tuple entryKey = windowValue.addAll(primaryKey);
+        final Tuple entryKey = key.entriesKey();
 
         // Always write the entry to the entries subspace
         tr.set(entriesSubspace.pack(entryKey), primaryKey.pack());
@@ -536,7 +593,7 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
                 incrementCounter(SlidingWindowCounter.SW_ITEM_ADDED_TO_WINDOW_FILLING);
                 // Window not full: add to delegate, update count, maybe update boundary
                 return instrument(SlidingWindowEvent.SW_DELEGATE_INSERT,
-                        applyDelegate(null, savedRecord, delegateInsert)
+                        delegateInsert.get()
                 ).thenCompose(vignore ->
                         tr.get(boundaryMetaKey).thenAccept(boundaryBytes -> {
                             tr.set(counterKey, encodeLong(count + 1));
@@ -550,10 +607,7 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
             } else {
                 // Window full: read boundary to compare
                 return tr.get(boundaryMetaKey).thenCompose(boundaryBytes -> {
-                    if (boundaryBytes == null) {
-                        throw new RecordCoreException("sliding window boundary is missing but count >= windowSize, possible corruption")
-                                .addLogInfo(LogMessageKeys.INDEX_NAME, state.index.getName());
-                    }
+                    validateOrThrowEx(boundaryBytes != null, "sliding window boundary is missing but count >= windowSize, possible corruption");
                     final Tuple boundaryEntryKey = Tuple.fromBytes(boundaryBytes);
                     if (!extremumType.isBetter(entryKey, boundaryEntryKey)) {
                         incrementCounter(SlidingWindowCounter.SW_ITEM_ADDED_TO_ENTRIES_ONLY);
@@ -564,7 +618,7 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
 
                     // New entry is better: evict boundary from delegate, add new to delegate
                     return instrument(SlidingWindowEvent.SW_EVICT_AND_REPLACE,
-                            evictBoundaryAndReplace(savedRecord, entryKey, entriesSubspace, tr,
+                            evictBoundaryAndReplace(entryKey, entriesSubspace, tr,
                                     boundaryEntryKey, boundaryMetaKey, delegateInsert));
                 });
             }
@@ -573,20 +627,18 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
 
     @SuppressWarnings("PMD.CloseResource")
     @Nonnull
-    private <M extends Message> CompletableFuture<Void> handleDelete(@Nonnull final FDBIndexableRecord<M> savedRecord, @Nullable Any delegateDelete) {
+    private CompletableFuture<Void> handleDelete(@Nonnull final EntryKey key,
+                                                 @Nonnull final Supplier<CompletableFuture<Void>> delegateDelete) {
         final Subspace swSubspace = getSlidingWindowSubspace();
         final Transaction tr = state.store.ensureContextActive();
-        final Tuple primaryKey = savedRecord.getPrimaryKey();
-        final Tuple partitionTuple = evaluatePartition(savedRecord);
+        final Tuple partitionTuple = key.partition;
 
         // Scope by partition first, then by entries/meta
         final Subspace partitionSubspace = swSubspace.subspace(partitionTuple);
         final Subspace entriesSubspace = partitionSubspace.subspace(ENTRIES_SUBSPACE_KEY);
         final Subspace metaSubspace = partitionSubspace.subspace(META_SUBSPACE_KEY);
 
-        final Key.Evaluated windowEval = windowKey.evaluateSingleton(savedRecord);
-        final Tuple windowValue = windowEval.toTuple();
-        final Tuple entryKey = windowValue.addAll(primaryKey);
+        final Tuple entryKey = key.entriesKey();
         final byte[] packedEntryKey = entriesSubspace.pack(entryKey);
 
         // Check if this entry exists in the entries subspace
@@ -604,10 +656,7 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
             final byte[] boundaryMetaKey = metaSubspace.pack(BOUNDARY_KEY);
 
             return tr.get(boundaryMetaKey).thenCompose(boundaryBytes -> {
-                if (boundaryBytes == null) {
-                    throw new RecordCoreException("sliding window boundary is missing but entry exists, possible corruption")
-                            .addLogInfo(LogMessageKeys.INDEX_NAME, state.index.getName());
-                }
+                validateOrThrowEx(boundaryBytes != null, "sliding window boundary is missing but entry exists, possible corruption");
                 final Tuple boundaryEntryKey = Tuple.fromBytes(boundaryBytes);
 
                 if (!extremumType.isInWindow(entryKey, boundaryEntryKey)) {
@@ -624,7 +673,7 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
                     recordSize(SlidingWindowSizeEvent.SW_WINDOW_COUNT, newCount);
 
                     return instrument(SlidingWindowEvent.SW_DELEGATE_DELETE,
-                            applyDelegate(savedRecord, null, delegateDelete))
+                            delegateDelete.get())
                             .thenCompose(vignore -> updateBoundaryAfterDelete(
                                     entriesSubspace, tr, entryKey, boundaryEntryKey,
                                     boundaryMetaKey, packedEntryKey))
@@ -643,14 +692,13 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
      * (window size 1), the new entry itself becomes the boundary.
      */
     @Nonnull
-    private <M extends Message> CompletableFuture<Void> evictBoundaryAndReplace(
-            @Nonnull FDBIndexableRecord<M> newRecord,
+    private CompletableFuture<Void> evictBoundaryAndReplace(
             @Nonnull Tuple newEntryKey,
             @Nonnull Subspace entriesSubspace,
             @Nonnull Transaction tr,
             @Nonnull Tuple boundaryEntryKey,
             @Nonnull byte[] boundaryMetaKey,
-            @Nullable Any delegateInsert) {
+            @Nonnull Supplier<CompletableFuture<Void>> delegateInsert) {
         final Tuple boundaryPrimaryKey = TupleHelpers.subTuple(boundaryEntryKey,
                 windowKeyColumnSize, boundaryEntryKey.size());
         final byte[] oldBoundaryPackedKey = entriesSubspace.pack(boundaryEntryKey);
@@ -665,7 +713,7 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
                             delegate.update(evictedRecord, null));
                 })
                 .thenCompose(v -> instrument(SlidingWindowEvent.SW_DELEGATE_INSERT,
-                        applyDelegate(null, newRecord, delegateInsert)))
+                        delegateInsert.get()))
                 .thenCompose(v -> instrument(SlidingWindowEvent.SW_BOUNDARY_RESCAN_AFTER_EVICT,
                         extremumType.getNewBoundaryAfterEviction(entriesSubspace, tr,
                                 oldBoundaryPackedKey)))
