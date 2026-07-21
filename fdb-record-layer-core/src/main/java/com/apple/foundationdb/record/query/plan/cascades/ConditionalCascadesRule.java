@@ -24,6 +24,7 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
+import com.apple.foundationdb.record.query.plan.cascades.matching.structure.TypedMatcher;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -122,6 +123,8 @@ public class ConditionalCascadesRule<T, R extends CascadesRule<T>> extends Abstr
 
     @Override
     public void onMatch(@Nonnull final CascadesRuleCall call) {
+        // `onMatch()` must never actually be invoked. A `ConditionalCascadesRule` only groups inner rules for the
+        // planner to schedule conditionally; it never matches or applies transformations on its own.
         throw new RecordCoreException("cannot call this method directly");
     }
 
@@ -136,16 +139,18 @@ public class ConditionalCascadesRule<T, R extends CascadesRule<T>> extends Abstr
 
     /**
      * Derives the common binding matcher for a group of inner rules. All rules are expected to share a binding matcher
-     * with the same root class; this is verified, and the first matcher is returned as the representative.
+     * with the same root class; this is verified, and a {@link TypedMatcher} on that root class is returned.
+     * (Note that {@link #onMatch} is never actually invoked on a {@code ConditionalCascadesRule}. The matcher only
+     * communicates the common root class.)
      */
     @Nonnull
     private static <T, R extends PlannerRule<CascadesRuleCall, T>> BindingMatcher<T> deriveBindingMatcher(@Nonnull final List<R> rules) {
         Verify.verify(!rules.isEmpty(), "`ConditionalCascadesRule` must contain at least one rule");
-        final BindingMatcher<T> matcher = rules.get(0).getMatcher();
+        final Class<T> rootClass = rules.get(0).getMatcher().getRootClass();
         for (final R rule : rules) {
-            Verify.verify(rule.getMatcher().getRootClass() == matcher.getRootClass());
+            Verify.verify(rule.getMatcher().getRootClass() == rootClass);
         }
-        return matcher;
+        return TypedMatcher.typed(rootClass);
     }
 
     /**
