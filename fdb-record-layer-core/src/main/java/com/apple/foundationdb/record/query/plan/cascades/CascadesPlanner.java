@@ -61,6 +61,7 @@ import com.apple.foundationdb.record.query.plan.cascades.matching.structure.Bind
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlannerBindings;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
@@ -322,6 +323,12 @@ public class CascadesPlanner implements QueryPlanner {
     @Override
     public void setConfiguration(@Nonnull final RecordQueryPlannerConfiguration configuration) {
         this.configuration = configuration;
+    }
+
+    @Nonnull
+    @VisibleForTesting
+    Deque<Task> getTaskStack() {
+        return taskStack;
     }
 
     private boolean isTaskQueueSizeExceeded(final RecordQueryPlannerConfiguration configuration, final int queueSize) {
@@ -822,7 +829,8 @@ public class CascadesPlanner implements QueryPlanner {
      *         {@link ExploreGroup} for all ranged over groups
      * </pre>
      */
-    private abstract class AbstractExploreExpression extends ExploreTask {
+    @VisibleForTesting
+    abstract class AbstractExploreExpression extends ExploreTask {
         public AbstractExploreExpression(@Nonnull final PlannerPhase plannerPhase,
                                          @Nonnull final Reference group,
                                          @Nonnull final RelationalExpression expression) {
@@ -868,7 +876,8 @@ public class CascadesPlanner implements QueryPlanner {
          * pushes a {@link TransformExpression} task. For a {@link ConditionalCascadesRule}, pushes a single
          * {@link ConditionalTransformExpression} task holding the enabled inner rules (but only if there are any).
          */
-        private void pushTransformTask(@Nonnull CascadesRule<? extends RelationalExpression> rule) {
+        @VisibleForTesting
+        void pushTransformTask(@Nonnull CascadesRule<? extends RelationalExpression> rule) {
             final PlannerPhase phase = getPlannerPhase();
             final Reference group = getGroup();
             final RelationalExpression expression = getExpression();
@@ -888,7 +897,8 @@ public class CascadesPlanner implements QueryPlanner {
          * Returns the inner rules of the given {@link ConditionalCascadesRule} that are currently enabled according to
          * the planner {@link #configuration}, preserving their order.
          */
-        private <T extends RelationalExpression> List<AbstractCascadesRule<T>> getEnabledRules(ConditionalCascadesRule<?, ?> rule) {
+        @VisibleForTesting
+        <T extends RelationalExpression> List<AbstractCascadesRule<T>> getEnabledRules(ConditionalCascadesRule<?, ?> rule) {
             final var rules = rule.getRules(configuration::isRuleEnabled);
             @SuppressWarnings("unchecked") final var result = (List<AbstractCascadesRule<T>>)rules;
             return result;
@@ -956,7 +966,8 @@ public class CascadesPlanner implements QueryPlanner {
      *         {@link ExploreGroup} for all ranged over groups
      * </pre>
      */
-    private class ExploreExpression extends AbstractExploreExpression {
+    @VisibleForTesting
+    class ExploreExpression extends AbstractExploreExpression {
         public ExploreExpression(@Nonnull final PlannerPhase plannerPhase,
                                  @Nonnull final Reference group,
                                  @Nonnull final RelationalExpression expression) {
@@ -1188,7 +1199,8 @@ public class CascadesPlanner implements QueryPlanner {
      * {@code index} (by delegating to the {@link TransformExpression} superclass). If that rule makes no progress,
      * it pushes a follow-up {@code ConditionalTransformExpression} that resumes at the next index.
      */
-    private class ConditionalTransformExpression extends TransformExpression {
+    @VisibleForTesting
+    class ConditionalTransformExpression extends TransformExpression {
         @Nonnull
         private final List<AbstractCascadesRule<? extends RelationalExpression>> rules;
         private final int index;
