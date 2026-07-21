@@ -1224,6 +1224,12 @@ public class CascadesPlanner implements QueryPlanner {
 
         @Override
         public boolean execute() {
+            // If `shouldExecute()` returns false for the group/expression pair, skip this rule and the rest of the
+            // chain immediately. There is no point continuing, as `shouldExecute()` does not depend on `index` and
+            // would just remain false.
+            if (!shouldExecute()) {
+                return false;
+            }
             if (super.execute()) {
                 return true;
             }
