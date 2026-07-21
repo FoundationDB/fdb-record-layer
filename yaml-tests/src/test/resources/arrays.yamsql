@@ -253,7 +253,7 @@ test_block:
       # A promotion for x here is necessary since it is a nullable value.
       - query: select [x[1]] AS arr_1, [pk] AS arr_2 FROM F WHERE pk >= 1
       - supported_version: !current_version
-      - explain: "SCAN([IS F, [GREATER_THAN_OR_EQUALS promote(@c21 AS INT)]]) | MAP (array(promote(_.X[promote(@c21 AS INT)> AS INT AS X, DOUBLE AS Y, ARRAY(INT) AS Z)) AS ARR_1, array(promote(_.PK AS INT)) AS ARR_2)"
+      - explain: "SCAN([IS F, [GREATER_THAN_OR_EQUALS promote(@c21 AS INT)]]) | MAP (array(promote(_.X[promote(@c21 AS INT)] AS INT AS X, DOUBLE AS Y, ARRAY(INT) AS Z)) AS ARR_1, array(promote(_.PK AS INT)) AS ARR_2)"
       - resultMetadata: [{ARR_1: {array: [U, {X: INTEGER}, {Y: DOUBLE}, {Z: {array: INTEGER}}]}}, {ARR_2: {array: INTEGER}}]
       - result: [
           { arr_1: [ { 1, 1.0, [1, 1, 1] } ], arr_2: [1] },
