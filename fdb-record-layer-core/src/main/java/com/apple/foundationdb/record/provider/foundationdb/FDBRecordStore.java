@@ -779,7 +779,8 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             switch (indexState) {
                 case WRITE_ONLY_WITH_QUEUE:
                     // Push the old/new record to a write pending queue instead of updating the index directly. The
-                    // ongoing online indexer will drain the queue and perform the actual index update.
+                    // ongoing online indexer will drain the queue and perform the actual index update. A maintainer that
+                    // does not support the queue will throw from serializePendingWriteQueue below.
                     future = IndexingPendingWriteQueue.enqueuePendingIndexUpdate(this, index,
                             IndexBuildProto.PendingWritesQueueEntry.newBuilder()
                                     .setOperation(IndexBuildProto.PendingWritesQueueEntry.Operation.UPDATE)

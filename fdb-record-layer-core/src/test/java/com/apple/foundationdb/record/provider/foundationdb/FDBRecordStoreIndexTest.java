@@ -987,8 +987,8 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
             assertThat(recordStore.isIndexReadable(standardIndexName), is(false));
 
             // The NoOp-backed permissive index does not allow the pending write queue, so saving a record while it is
-            // in WRITE_ONLY_WITH_QUEUE is rejected (the record store throws before anything is enqueued).
-            assertThrows(RecordCoreException.class, () -> recordStore.saveRecord(TestRecords1Proto.MySimpleRecord.newBuilder()
+            // in WRITE_ONLY_WITH_QUEUE is rejected: serializePendingWriteQueue throws UnsupportedOperationException.
+            assertThrows(UnsupportedOperationException.class, () -> recordStore.saveRecord(TestRecords1Proto.MySimpleRecord.newBuilder()
                     .setRecNo(1066L)
                     .setNumValue3Indexed(42)
                     .build()));
