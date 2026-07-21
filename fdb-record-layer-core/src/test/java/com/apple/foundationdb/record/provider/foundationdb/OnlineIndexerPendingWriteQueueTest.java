@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
+import com.apple.foundationdb.linear.Metric;
 import com.apple.foundationdb.record.FDBRecordStoreProperties;
 import com.apple.foundationdb.record.FunctionNames;
 import com.apple.foundationdb.record.IndexBuildProto;
@@ -37,12 +38,14 @@ import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.IndexValidator;
 import com.apple.foundationdb.record.metadata.expressions.EmptyKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
+import com.apple.foundationdb.record.metadata.expressions.KeyWithValueExpression;
 import com.apple.foundationdb.record.metadata.expressions.VersionKeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.ValueIndexMaintainerFactory;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.ValueIndexMaintainerWithQueue;
 import com.apple.foundationdb.record.provider.foundationdb.properties.RecordLayerPropertyStorage;
 import com.apple.foundationdb.record.provider.foundationdb.queue.PendingWritesQueue;
 import com.apple.foundationdb.record.query.expressions.Query;
+import com.apple.foundationdb.record.slidingwindowvector.TestRecordsSlidingWindowVectorProto;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.TupleHelpers;
 import com.apple.foundationdb.util.CloseException;
@@ -62,6 +65,7 @@ import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CyclicBarrier;
@@ -1121,6 +1125,26 @@ class OnlineIndexerPendingWriteQueueTest extends OnlineIndexerTest {
         assertReadable(index);
         assertEquals(numInitialRecords + newRecNos.size(), indexEntryCount(index));
         scrubAndValidate(List.of(index));
+    }
+
+    @Test
+    void vectorIndexAllowsPendingWriteQueue() {
+        // Covers StandardIndexMaintainerWithQueue.isPendingWriteQueueAllowed(), inherited by VectorIndexMaintainer:
+        // an idempotent, non-synthetic vector index allows the pending write queue.
+        final Index vectorIndex = new Index("vector_index",
+                new KeyWithValueExpression(field("vector_data"), 0),
+                IndexTypes.VECTOR,
+                Map.of(IndexOptions.HNSW_METRIC, Metric.EUCLIDEAN_METRIC.name(),
+                        IndexOptions.HNSW_NUM_DIMENSIONS, "4"));
+        openMetaData(TestRecordsSlidingWindowVectorProto.getDescriptor(), metaDataBuilder -> {
+            metaDataBuilder.getRecordType("SlidingWindowVectorRecord").setPrimaryKey(field("rec_no"));
+            metaDataBuilder.addIndex("SlidingWindowVectorRecord", vectorIndex);
+        });
+        try (FDBRecordContext context = openContext()) {
+            assertTrue(recordStore.getIndexMaintainer(vectorIndex).isPendingWriteQueueAllowed(),
+                    "an idempotent, non-synthetic vector index should allow the pending write queue");
+            context.commit();
+        }
     }
 
     @Test
