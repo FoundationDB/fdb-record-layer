@@ -33,6 +33,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Predicate;
 
 /**
@@ -78,7 +79,7 @@ public class ConditionalCascadesRule<T, R extends CascadesRule<T>> extends Abstr
      * their root operator and on the root class of their binding matcher.
      */
     public ConditionalCascadesRule(@Nonnull final List<R> rules) {
-        super(deriveBindingMatcher(rules), ImmutableSet.of());
+        super(deriveBindingMatcher(rules), deriveConstraintDependencies(rules));
         this.rules = ImmutableList.copyOf(rules);
         this.rootOperator = deriveRootOperator(rules);
     }
@@ -165,6 +166,21 @@ public class ConditionalCascadesRule<T, R extends CascadesRule<T>> extends Abstr
             Verify.verify(rule.getRootOperator().orElse(null) == op);
         }
         return op;
+    }
+
+    /**
+     * Derives the constraint dependencies for a group of inner rules, as the union of each rule’s own
+     * {@link CascadesRule#getConstraintDependencies()}. This ensures that the planner re-explores a group containing
+     * this conditional rule whenever any of its inner rules is sensitive to a newly-pushed requirement, even though
+     * only the wrapping conditional rule (and not the inner rules individually) is registered in the ruleset.
+     */
+    @Nonnull
+    private static <T> Set<PlannerConstraint<?>> deriveConstraintDependencies(@Nonnull final List<? extends CascadesRule<T>> rules) {
+        final ImmutableSet.Builder<PlannerConstraint<?>> dependencies = ImmutableSet.builder();
+        for (final CascadesRule<T> rule : rules) {
+            dependencies.addAll(rule.getConstraintDependencies());
+        }
+        return dependencies.build();
     }
 
     /**

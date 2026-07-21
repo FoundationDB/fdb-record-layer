@@ -30,10 +30,12 @@ import com.apple.foundationdb.record.query.plan.cascades.matching.structure.Bind
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import org.junit.jupiter.api.Test;
 
 import javax.annotation.Nonnull;
 import java.util.Optional;
+import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -42,6 +44,26 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  * Tests for {@link ConditionalCascadesRule}.
  */
 class ConditionalCascadesRuleTest {
+
+    /**
+     * A stub {@link PlannerConstraint} used to exercise constraint-dependency derivation. Its {@code combine()} method
+     * is never invoked by these tests; identity is all that matters.
+     */
+    private static final PlannerConstraint<?> CONSTRAINT_A = new PlannerConstraint<Object>() {
+        @Nonnull
+        @Override
+        public Optional<Object> combine(@Nonnull final Object currentConstraint, @Nonnull final Object newConstraint) {
+            return Optional.empty();
+        }
+    };
+
+    private static final PlannerConstraint<?> CONSTRAINT_B = new PlannerConstraint<Object>() {
+        @Nonnull
+        @Override
+        public Optional<Object> combine(@Nonnull final Object currentConstraint, @Nonnull final Object newConstraint) {
+            return Optional.empty();
+        }
+    };
 
     @Test
     void constructorDerivesCommonRootOperator() {
@@ -106,6 +128,43 @@ class ConditionalCascadesRuleTest {
         final StubRule second = stubRule(SelectExpression.class, Optional.empty());
         final ConditionalCascadesRule<RelationalExpression, StubRule> rule = conditionalRuleOf(first, second);
         assertThat(rule.getRootOperator()).isEmpty();
+    }
+
+    /**
+     * The conditional rule advertises the union of the constraint dependencies of its inner rules. This is what makes
+     * the re-exploration gate ({@code ReExploreExpression.shouldPushRule()}) re-schedule the whole conditional
+     * chain whenever <em>any</em> inner rule is sensitive to a newly-pushed requirement, even though only the wrapper
+     * (and not the inner rules individually) is registered in the ruleset.
+     */
+    @Test
+    void constructorDerivesUnionOfConstraintDependencies() {
+        final StubRule first = stubRule(SelectExpression.class, ImmutableSet.of(CONSTRAINT_A));
+        final StubRule second = stubRule(SelectExpression.class, ImmutableSet.of(CONSTRAINT_B));
+        final ConditionalCascadesRule<RelationalExpression, StubRule> rule = conditionalRuleOf(first, second);
+        assertThat(rule.getConstraintDependencies()).containsExactlyInAnyOrder(CONSTRAINT_A, CONSTRAINT_B);
+    }
+
+    /**
+     * If none of the inner rules is sensitive to any requirement, neither is the conditional rule. (Before the union
+     * was derived, the wrapper always advertised an empty dependency set, which caused it to be skipped on
+     * re-exploration even when an inner rule was in fact sensitive.)
+     */
+    @Test
+    void constructorWithNoConstraintDependenciesHasEmptyDependencies() {
+        final ConditionalCascadesRule<RelationalExpression, StubRule> rule =
+                conditionalRuleOf(stubRule(SelectExpression.class), stubRule(SelectExpression.class));
+        assertThat(rule.getConstraintDependencies()).isEmpty();
+    }
+
+    /**
+     * A constraint that more than one inner rule depends on appears only once in the derived union.
+     */
+    @Test
+    void constructorDeduplicatesSharedConstraintDependencies() {
+        final StubRule first = stubRule(SelectExpression.class, ImmutableSet.of(CONSTRAINT_A, CONSTRAINT_B));
+        final StubRule second = stubRule(SelectExpression.class, ImmutableSet.of(CONSTRAINT_B));
+        final ConditionalCascadesRule<RelationalExpression, StubRule> rule = conditionalRuleOf(first, second);
+        assertThat(rule.getConstraintDependencies()).containsExactlyInAnyOrder(CONSTRAINT_A, CONSTRAINT_B);
     }
 
     @Test
@@ -214,6 +273,12 @@ class ConditionalCascadesRuleTest {
     }
 
     @Nonnull
+    private static StubRule stubRule(@Nonnull final Class<? extends RelationalExpression> rootClass,
+                                     @Nonnull final Set<PlannerConstraint<?>> constraintDependencies) {
+        return new StubRule(matcherFor(rootClass), Optional.of(rootClass), constraintDependencies);
+    }
+
+    @Nonnull
     private static StubExplorationRule stubExplorationRule(@Nonnull final Class<? extends RelationalExpression> rootClass) {
         return new StubExplorationRule(matcherFor(rootClass));
     }
@@ -239,7 +304,13 @@ class ConditionalCascadesRuleTest {
 
         private StubRule(@Nonnull final BindingMatcher<RelationalExpression> matcher,
                          @Nonnull final Optional<Class<?>> rootOperator) {
-            super(matcher);
+            this(matcher, rootOperator, ImmutableSet.of());
+        }
+
+        private StubRule(@Nonnull final BindingMatcher<RelationalExpression> matcher,
+                         @Nonnull final Optional<Class<?>> rootOperator,
+                         @Nonnull final Set<PlannerConstraint<?>> constraintDependencies) {
+            super(matcher, constraintDependencies);
             this.rootOperator = rootOperator;
         }
 
