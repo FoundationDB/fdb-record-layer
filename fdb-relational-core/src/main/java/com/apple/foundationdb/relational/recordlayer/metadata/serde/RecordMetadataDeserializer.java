@@ -90,10 +90,9 @@ public class RecordMetadataDeserializer {
                 case MESSAGE:
                     final String storageName = registeredType.getMessageType().getName();
                     final String userName = ProtoUtils.toUserIdentifier(storageName);
-                    if (!nameToTableBuilder.containsKey(userName)) {
-                        nameToTableBuilder.put(userName, generateTableBuilder(recordMetaData, userName, storageName));
-                    }
-                    nameToTableBuilder.get(userName).addGeneration(registeredType.getNumber(), registeredType.getOptions());
+                    nameToTableBuilder
+                            .computeIfAbsent(userName, key -> generateTableBuilder(recordMetaData, key, storageName))
+                            .addGeneration(registeredType.getNumber(), registeredType.getOptions());
                     break;
                 case ENUM:
                     // todo (yhatem) this is temporary, we rely on rec layer type system to deserialize protobuf descriptors.
@@ -106,21 +105,20 @@ public class RecordMetadataDeserializer {
             }
         }
         nameToTableBuilder.values().stream().map(RecordLayerTable.Builder::build).forEach(schemaTemplateBuilder::addTable);
+        final var metadataProvider = Suppliers.memoize(schemaTemplateBuilder::build);
         if (!recordMetaData.getUserDefinedFunctionMap().isEmpty()) {
-            final var metadataProvider = Suppliers.memoize(schemaTemplateBuilder::build);
             // TODO: topsort deps of functions.
             for (final var function : recordMetaData.getUserDefinedFunctionMap().entrySet()) {
-                if (function.getValue() instanceof RawSqlFunction) {
+                if (function.getValue() instanceof RawSqlFunction rawSqlFunction) {
                     schemaTemplateBuilder.addInvokedRoutine(generateInvokedRoutineBuilder(metadataProvider, function.getKey(),
-                            Assert.castUnchecked(function.getValue(), RawSqlFunction.class).getDefinition()).build());
-                } else if (function.getValue() instanceof UserDefinedMacroFunction) {
-                    schemaTemplateBuilder.addInvokedRoutine(generateInvokedRoutineBuilder(function.getKey(), function.getValue().toString(),
-                            Assert.castUnchecked(function.getValue(), UserDefinedMacroFunction.class)).build());
+                            rawSqlFunction.getDefinition()).build());
+                } else if (function.getValue() instanceof UserDefinedMacroFunction userDefinedMacroFunction) {
+                    schemaTemplateBuilder.addInvokedRoutine(generateInvokedRoutineBuilder(function.getKey(), userDefinedMacroFunction.toString(),
+                            userDefinedMacroFunction).build());
                 }
             }
         }
         if (!recordMetaData.getViewMap().isEmpty()) {
-            final var metadataProvider = Suppliers.memoize(schemaTemplateBuilder::build);
             for (final var view : recordMetaData.getViewMap().entrySet()) {
                 schemaTemplateBuilder.addView(generateViewBuilder(metadataProvider, view.getKey(), view.getValue().getDefinition()).build());
             }

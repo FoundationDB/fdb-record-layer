@@ -145,7 +145,7 @@ public interface TypedVisitor extends RelationalParserVisitor<Object> {
 
     @Nonnull
     @Override
-    DataType visitColumnType(@Nonnull RelationalParser.ColumnTypeContext ctx);
+    Object visitColumnType(@Nonnull RelationalParser.ColumnTypeContext ctx);
 
     @Nonnull
     @Override
@@ -205,9 +205,8 @@ public interface TypedVisitor extends RelationalParserVisitor<Object> {
     @Override
     UserDefinedFunction visitSqlInvokedFunction(RelationalParser.SqlInvokedFunctionContext ctx);
 
-    @Nonnull
     @Override
-    Identifier visitUserDefinedScalarFunctionStatementBody(@Nonnull RelationalParser.UserDefinedScalarFunctionStatementBodyContext ctx);
+    Expression visitUserDefinedMacroFunctionStatementBody(RelationalParser.UserDefinedMacroFunctionStatementBodyContext ctx);
 
     @Override
     LogicalOperator visitStatementBody(RelationalParser.StatementBodyContext ctx);
@@ -226,12 +225,6 @@ public interface TypedVisitor extends RelationalParserVisitor<Object> {
 
     @Override
     DataType visitReturnsType(RelationalParser.ReturnsTypeContext ctx);
-
-    @Override
-    LogicalOperator visitSqlReturnStatement(RelationalParser.SqlReturnStatementContext ctx);
-
-    @Override
-    LogicalOperator visitReturnValue(RelationalParser.ReturnValueContext ctx);
 
     @Nonnull
     @Override
@@ -281,7 +274,7 @@ public interface TypedVisitor extends RelationalParserVisitor<Object> {
     LogicalOperator visitTableFunction(@Nonnull RelationalParser.TableFunctionContext ctx);
 
     @Override
-    Expressions visitTableFunctionArgs(RelationalParser.TableFunctionArgsContext ctx);
+    Expressions visitNamedOrUnnamedFunctionArgs(RelationalParser.NamedOrUnnamedFunctionArgsContext ctx);
 
     @Override
     Identifier visitTableFunctionName(RelationalParser.TableFunctionNameContext ctx);

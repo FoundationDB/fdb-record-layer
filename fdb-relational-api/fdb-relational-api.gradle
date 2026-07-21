@@ -32,6 +32,7 @@ task createVersionPropertiesFile()  {
     def versionsFile = new File(projectDir, "src/gen/main/resources/version.properties")
     def projectVersion = project.version
     def rootProjectName = rootProject.name
+    def projectUrl = project.url
     def gitDetails = versionDetails()
 
     outputs.file versionsFile
@@ -46,7 +47,7 @@ version=${projectVersion}
 gitHash=${gitDetails.gitHashFull}
 branch=${gitDetails.branchName}
 # Returned as RelationalDatabaseMetaData#getUrl()
-url=${url.replace('\'', '')}
+url=${projectUrl.replace('\'', '')}
 user=${System.getProperty("user.name")}
 buildtime=${java.time.Instant.now()}
 buildHost=${InetAddress.getLocalHost().getCanonicalHostName()}

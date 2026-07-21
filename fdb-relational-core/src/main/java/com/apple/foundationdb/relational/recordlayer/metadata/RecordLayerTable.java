@@ -53,7 +53,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
- * Represents a {@link com.apple.foundationdb.relational.api.metadata.Table} that is backed by the Record Layer.
+ * Represents a {@link Table} that is backed by the Record Layer.
  */
 @API(API.Status.EXPERIMENTAL)
 public final class RecordLayerTable implements Table {
@@ -208,16 +208,16 @@ public final class RecordLayerTable implements Table {
         private String name;
 
         @Nonnull
-        private Set<RecordLayerIndex> indexes;
+        private final Set<RecordLayerIndex> indexes;
 
         @Nonnull
-        private ImmutableList.Builder<RecordLayerColumn> columns;
+        private final ImmutableList.Builder<RecordLayerColumn> columns;
 
         @Nonnull
         private List<KeyExpression> primaryKeyParts;
 
         @Nonnull
-        private Map<Integer, DescriptorProtos.FieldOptions> generations;
+        private final Map<Integer, DescriptorProtos.FieldOptions> generations;
 
         private DataType.StructType dataType;
 
@@ -346,7 +346,7 @@ public final class RecordLayerTable implements Table {
             }
             Type fieldType = field.getFieldType();
             if (!(fieldType instanceof Type.Record)) {
-                Assert.failUnchecked(ErrorCode.INVALID_COLUMN_REFERENCE, "Field '" + field.getFieldName() + "' on type '" + (recordType == null ? "UNKNONW" : recordType.getName()) + "' is not a struct");
+                Assert.failUnchecked(ErrorCode.INVALID_COLUMN_REFERENCE, "Field '" + field.getFieldName() + "' on type '" + (recordType == null ? "UNKNOWN" : recordType.getName()) + "' is not a struct");
             }
             return (Type.Record) fieldType;
         }

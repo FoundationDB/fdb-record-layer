@@ -24,7 +24,6 @@ import com.apple.foundationdb.FDBError;
 import com.apple.foundationdb.FDBException;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncUtil;
-import com.apple.foundationdb.record.IndexBuildProto;
 import com.apple.foundationdb.record.IndexState;
 import com.apple.foundationdb.record.RecordCoreStorageException;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
@@ -32,7 +31,6 @@ import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.common.StoreTimerSnapshot;
-import com.apple.foundationdb.record.provider.foundationdb.queue.PendingWritesQueue;
 import com.apple.foundationdb.record.provider.foundationdb.runners.ExponentialDelay;
 import com.apple.foundationdb.record.util.Result;
 import com.apple.foundationdb.util.LoggableException;
@@ -468,12 +466,10 @@ public class IndexingThrottle {
      */
     private CompletableFuture<List<Index>> nonEmptyQueueIndexes(@Nonnull FDBRecordStore store, @Nonnull FDBRecordContext context, @Nonnull List<Index> indexes) {
         return AsyncUtil.getAll(indexes.stream()
-                        .map(index -> {
-                            final PendingWritesQueue<IndexBuildProto.PendingWritesQueueEntry> queue =
-                                    PendingWriteQueueIndexingFactory.getIndexingQueue(store, index);
-                            return queue.getQueueSizeNoConflict(context)
-                                    .thenApply(size -> size != null && size > 0 ? index : null);
-                        })
+                        .map(index ->
+                                IndexingPendingWriteQueue.hasPendingWrites(store, index, context)
+                                        .thenApply(hasPending -> hasPending ? index : null)
+                        )
                         .toList()
                 )
                 .thenApply(results -> results.stream().filter(Objects::nonNull).toList());

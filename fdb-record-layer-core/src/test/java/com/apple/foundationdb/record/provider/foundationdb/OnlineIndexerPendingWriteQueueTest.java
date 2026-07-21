@@ -45,6 +45,7 @@ import com.apple.foundationdb.util.CloseException;
 import com.apple.test.SuperSlow;
 import com.google.auto.service.AutoService;
 import com.google.protobuf.Descriptors;
+import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.Message;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -78,6 +79,15 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * Tests for building an index with a pending writes queue.
  */
 class OnlineIndexerPendingWriteQueueTest extends OnlineIndexerTest {
+
+    private static IndexBuildProto.OldAndNewRecords oldAndNewRecords(final IndexBuildProto.PendingWritesQueueEntry payload) {
+        assertEquals(IndexBuildProto.PendingWritesQueueEntry.Operation.UPDATE, payload.getOperation());
+        try {
+            return payload.getData().unpack(IndexBuildProto.OldAndNewRecords.class);
+        } catch (InvalidProtocolBufferException e) {
+            throw new RecordCoreException("failed to parse pending write queue entry data", e);
+        }
+    }
 
     @ParameterizedTest
     @ValueSource(ints = {1, 2, 3, 5})
@@ -115,7 +125,7 @@ class OnlineIndexerPendingWriteQueueTest extends OnlineIndexerTest {
                     // The pending writes queue should now hold exactly the deferred records (and nothing else), before the drain.
                     try (FDBRecordContext context = openContext()) {
                         final PendingWritesQueue<IndexBuildProto.PendingWritesQueueEntry> queue =
-                                PendingWriteQueueIndexingFactory.getIndexingQueue(recordStore, index);
+                                IndexingPendingWriteQueue.getIndexingQueue(recordStore, index);
                         final Long queueSize = queue.getQueueSizeNoConflict(context).join();
                         assertEquals(queuedRecNos.size(), queueSize == null ? 0L : queueSize);
 
@@ -125,7 +135,7 @@ class OnlineIndexerPendingWriteQueueTest extends OnlineIndexerTest {
                                 .map(entry -> {
                                     final IndexBuildProto.PendingWritesQueueEntry payload = entry.getPayload();
                                     final Message rec = recordStore.getSerializer().deserialize(recordStore.getRecordMetaData(),
-                                            TupleHelpers.EMPTY, payload.getNewRecord().toByteArray(), recordStore.getTimer());
+                                            TupleHelpers.EMPTY, oldAndNewRecords(payload).getNewRecord().toByteArray(), recordStore.getTimer());
                                     return (Long)rec.getField(rec.getDescriptorForType().findFieldByName("rec_no"));
                                 })
                                 .toList();
@@ -180,7 +190,7 @@ class OnlineIndexerPendingWriteQueueTest extends OnlineIndexerTest {
                     // The pending writes queue should now hold exactly the deferred records (and nothing else), before the drain.
                     try (FDBRecordContext context = openContext()) {
                         final PendingWritesQueue<IndexBuildProto.PendingWritesQueueEntry> queue =
-                                PendingWriteQueueIndexingFactory.getIndexingQueue(recordStore, index);
+                                IndexingPendingWriteQueue.getIndexingQueue(recordStore, index);
                         final Long queueSize = queue.getQueueSizeNoConflict(context).join();
                         assertEquals(queuedRecNos.size(), queueSize == null ? 0L : queueSize);
 
@@ -190,7 +200,7 @@ class OnlineIndexerPendingWriteQueueTest extends OnlineIndexerTest {
                                 .map(entry -> {
                                     final IndexBuildProto.PendingWritesQueueEntry payload = entry.getPayload();
                                     final Message record = recordStore.getSerializer().deserialize(recordStore.getRecordMetaData(),
-                                            TupleHelpers.EMPTY, payload.getNewRecord().toByteArray(), recordStore.getTimer());
+                                            TupleHelpers.EMPTY, oldAndNewRecords(payload).getNewRecord().toByteArray(), recordStore.getTimer());
                                     return (Long)record.getField(record.getDescriptorForType().findFieldByName("rec_no"));
                                 })
                                 .toList();
@@ -890,8 +900,8 @@ class OnlineIndexerPendingWriteQueueTest extends OnlineIndexerTest {
     @Test
     void testPendingWriteQueueDrainExceptionWrapsCause() {
         final CloseException cause = new CloseException(new RuntimeException("boom"));
-        final PendingWriteQueueDrainer.PendingWriteQueueDrainException ex =
-                new PendingWriteQueueDrainer.PendingWriteQueueDrainException(cause);
+        final IndexingPendingWriteQueue.PendingWriteQueueDrainException ex =
+                new IndexingPendingWriteQueue.PendingWriteQueueDrainException(cause);
         assertEquals("Pending write queue drain had failed", ex.getMessage());
         assertSame(cause, ex.getCause());
     }
@@ -1198,7 +1208,7 @@ class OnlineIndexerPendingWriteQueueTest extends OnlineIndexerTest {
      */
     private Long queueSizeCounter(@Nonnull final Index index) {
         try (FDBRecordContext context = openContext()) {
-            final Long size = PendingWriteQueueIndexingFactory.getIndexingQueue(recordStore, index)
+            final Long size = IndexingPendingWriteQueue.getIndexingQueue(recordStore, index)
                     .getQueueSizeNoConflict(context).join();
             context.commit();
             return size;

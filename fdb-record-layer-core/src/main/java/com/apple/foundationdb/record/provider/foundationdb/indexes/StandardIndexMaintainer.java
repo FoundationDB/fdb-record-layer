@@ -31,6 +31,7 @@ import com.apple.foundationdb.async.MoreAsyncUtil;
 import com.apple.foundationdb.record.CursorStreamingMode;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
+import com.apple.foundationdb.record.IndexBuildProto;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.IsolationLevel;
@@ -39,6 +40,7 @@ import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordIndexUniquenessViolation;
+import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
@@ -51,12 +53,15 @@ import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyWithValueExpression;
+import com.apple.foundationdb.record.provider.common.RecordSerializer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBExceptions;
 import com.apple.foundationdb.record.provider.foundationdb.FDBIndexableRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBIndexedRawRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
+import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
+import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecordBuilder;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainer;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintenanceFilter;
@@ -66,7 +71,6 @@ import com.apple.foundationdb.record.provider.foundationdb.IndexPrefetchRangeKey
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanBounds;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanRange;
 import com.apple.foundationdb.record.provider.foundationdb.KeyValueCursor;
-import com.apple.foundationdb.record.provider.foundationdb.PendingWriteQueueIndexingFactory;
 import com.apple.foundationdb.record.provider.foundationdb.indexing.IndexingRangeSet;
 import com.apple.foundationdb.record.query.QueryToKeyMatcher;
 import com.apple.foundationdb.subspace.Subspace;
@@ -74,6 +78,9 @@ import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.TupleHelpers;
 import com.google.common.base.Verify;
+import com.google.protobuf.Any;
+import com.google.protobuf.ByteString;
+import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.Message;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -330,16 +337,109 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
 
     @Override
     @Nonnull
-    public <M extends Message> CompletableFuture<Void> updateWhileWriteOnlyWithQueue(@Nullable final FDBIndexableRecord<M> oldRecord, @Nullable final FDBIndexableRecord<M> newRecord) {
-        if (!isIdempotent()) {
-            // The indexer should have not allowed the WRITE_ONLY_WITH_QUEUE index state. This path should never be reached.
-            throw new UnsupportedOperationException("write pending queue is not yet supported for non-idempotent indexes");
-            // To support non-idempotent index, we should use the same "is included in built range" condition as updateWhileWriteOnly and
-            // only push to the queue items that were already indexed. (If being build by a source index, and only one of the old/new records
-            // had generated an "already indexed" source index key, the other one should be converted to a null in the queue).
-            // This, however can be done at a later step.
+    public <M extends Message> Any serializePendingWriteQueue(@Nullable final FDBIndexableRecord<M> oldRecord, @Nullable final FDBIndexableRecord<M> newRecord) {
+        // TODO: forbid PWQ in the standard maintainer
+        return Any.pack(buildOldAndNewRecords(state, oldRecord, newRecord));
+    }
+
+    @Override
+    @Nonnull
+    public CompletableFuture<Void> updateFromQueue(@Nonnull final Any data) {
+        // Calling updateWhileWriteOnly explicitly, lest this update be re-pushed to the queue
+        final IndexBuildProto.OldAndNewRecords records = oldAndNewRecords(data);
+        return updateWhileWriteOnly(
+                getOldRecord(state, records),
+                getNewRecord(state, records));
+    }
+
+    /**
+     * Serialize an old/new record pair into an {@link IndexBuildProto.OldAndNewRecords} message to be deferred onto the
+     * index's pending writes queue. Either record may be null (but not both): a null {@code oldRecord} represents an
+     * insert and a null {@code newRecord} represents a delete.
+     * @param state the maintainer state whose store serializer is used
+     * @param oldRecord the previous stored record or {@code null} if a new record is being created
+     * @param newRecord the new record or {@code null} if an old record is being deleted
+     * @param <M> type of message
+     * @return the records payload to enqueue
+     */
+    @Nonnull
+    static <M extends Message> IndexBuildProto.OldAndNewRecords buildOldAndNewRecords(@Nonnull final IndexMaintainerState state,
+                                                                                      @Nullable final FDBIndexableRecord<M> oldRecord,
+                                                                                      @Nullable final FDBIndexableRecord<M> newRecord) {
+        final RecordSerializer<Message> serializer = state.store.getSerializer();
+        final IndexBuildProto.OldAndNewRecords.Builder recordsBuilder =
+                IndexBuildProto.OldAndNewRecords.newBuilder();
+        if (oldRecord != null) {
+            recordsBuilder.setOldRecords(serializeRecord(state, oldRecord, serializer));
         }
-        return PendingWriteQueueIndexingFactory.enqueueOldAndNewRecords(state.store, state.index, oldRecord, newRecord);
+        if (newRecord != null) {
+            recordsBuilder.setNewRecord(serializeRecord(state, newRecord, serializer));
+        }
+        return recordsBuilder.build();
+    }
+
+    @Nonnull
+    private static <M extends Message> ByteString serializeRecord(@Nonnull final IndexMaintainerState state,
+                                                                  @Nonnull final FDBIndexableRecord<M> indexableRecord,
+                                                                  @Nonnull final RecordSerializer<Message> serializer) {
+        return ByteString.copyFrom(serializer.serialize(state.store.getRecordMetaData(),
+                indexableRecord.getRecordType(), indexableRecord.getRecord(), state.store.getTimer()));
+    }
+
+    /**
+     * Unpack the {@link IndexBuildProto.OldAndNewRecords} payload produced by
+     * {@link #serializePendingWriteQueue(FDBIndexableRecord, FDBIndexableRecord)} from a queue entry's {@code data}.
+     * @param data the {@link Any}-packed records payload
+     * @return the unpacked old/new records payload
+     */
+    @Nonnull
+    static IndexBuildProto.OldAndNewRecords oldAndNewRecords(@Nonnull final Any data) {
+        try {
+            return data.unpack(IndexBuildProto.OldAndNewRecords.class);
+        } catch (InvalidProtocolBufferException ex) {
+            throw new RecordCoreException("failed to parse pending write queue entry data", ex);
+        }
+    }
+
+    /**
+     * Deserialize the old record from a given pending write payload.
+     * @param state the maintainer state whose store serializer is used
+     * @param records the parsed old/new records payload
+     * @return the previous stored record, or {@code null} if none
+     */
+    @Nullable
+    static FDBStoredRecord<Message> getOldRecord(@Nonnull final IndexMaintainerState state,
+                                                 @Nonnull final IndexBuildProto.OldAndNewRecords records) {
+        return records.hasOldRecords() ? deserializeRecord(state, records.getOldRecords()) : null;
+    }
+
+    /**
+     * Deserialize the new record from an UPDATE queue entry's records payload.
+     * @param state the maintainer state whose store serializer is used
+     * @param records the parsed old/new records payload
+     * @return the new stored record, or {@code null} if none
+     */
+    @Nullable
+    static FDBStoredRecord<Message> getNewRecord(@Nonnull final IndexMaintainerState state,
+                                                 @Nonnull final IndexBuildProto.OldAndNewRecords records) {
+        return records.hasNewRecord() ? deserializeRecord(state, records.getNewRecord()) : null;
+    }
+
+    @Nonnull
+    private static FDBStoredRecord<Message> deserializeRecord(@Nonnull final IndexMaintainerState state,
+                                                              @Nonnull final ByteString serialized) {
+        final RecordMetaData metaData = state.store.getRecordMetaData();
+        final RecordSerializer<Message> serializer = state.store.getSerializer();
+        final Message rec = serializer.deserialize(metaData, TupleHelpers.EMPTY, serialized.toByteArray(), state.store.getTimer());
+        final RecordType recordType = metaData.getRecordTypeForDescriptor(rec.getDescriptorForType());
+        final FDBStoredRecordBuilder<Message> builder = FDBStoredRecord.newBuilder(rec).setRecordType(recordType);
+        builder.setPrimaryKey(recordType.getPrimaryKey().evaluateSingleton(builder).toTuple());
+        return builder.build();
+    }
+
+    private boolean isSynthetic() {
+        return !state.store.getRecordMetaData().getSyntheticRecordTypes().isEmpty() &&
+                state.store.getRecordMetaData().recordTypesForIndex(state.index).stream().anyMatch(RecordType::isSynthetic);
     }
 
     @Nullable
@@ -748,6 +848,12 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
     @Override
     public boolean isIdempotent() {
         return true;
+    }
+
+    @Override
+    public boolean isPendingWriteQueueAllowed() {
+        // Synthetic records index maintainers that support pending write queues should override this function
+        return isIdempotent() && !isSynthetic();
     }
 
     @Override

@@ -100,7 +100,7 @@ public abstract class IndexingBase {
     private boolean forceStampOverwrite = false;
     private final long startingTimeMillis;
     private Map<String, IndexingMerger> indexingMergerMap = null;
-    private Map<String, PendingWriteQueueDrainer> indexingDrainerMap = null;
+    private Map<String, IndexingPendingWriteQueue> indexingDrainerMap = null;
     @Nullable
     private IndexingHeartbeat heartbeat = null; // this will stay null for index scrubbing
 
@@ -283,13 +283,12 @@ public abstract class IndexingBase {
         // drained version-key index would be built with a null version. It is also not allowed during mutual indexing,
         // as two concurrent queue drains may cause data inconsistency.
         final Index index = indexContext.index;
+        final IndexMaintainer maintainer = store.getIndexMaintainer(index);
         if (policy.shouldUsePendingWriteQueue(index) &&
-                !indexContext.isSynthetic &&
                 !policy.isMutual() &&
-                store.getIndexMaintainer(index).isIdempotent() &&
+                maintainer.isPendingWriteQueueAllowed() &&
                 index.getRootExpression().versionColumns() == 0 &&
                 store.getFormatVersionEnum().isAtLeast(FormatVersion.WRITE_ONLY_WITH_QUEUE)) {
-            // TODO: support write-only-with-queue for synthetic records
             // TODO? support versioned index ("?" because these kind of indexes don't tend to have indexing bottlenecks)
             // TODO? support write-only-with-queue for mutual indexing (may require a drain semaphore)
             return store.markIndexWriteOnlyWithQueue(index);
@@ -1079,11 +1078,11 @@ public abstract class IndexingBase {
         return indexingMergerMap.computeIfAbsent(index.getName(), k -> new IndexingMerger(index, common, policy.getInitialMergesCountLimit()));
     }
 
-    private synchronized PendingWriteQueueDrainer getIndexingDrainer(Index index) {
+    private synchronized IndexingPendingWriteQueue getIndexingDrainer(Index index) {
         if (indexingDrainerMap == null) {
             indexingDrainerMap = new HashMap<>();
         }
-        return indexingDrainerMap.computeIfAbsent(index.getName(), k -> new PendingWriteQueueDrainer(index, common));
+        return indexingDrainerMap.computeIfAbsent(index.getName(), k -> new IndexingPendingWriteQueue(index, common));
     }
 
     private void deferAutoMergeDuringCommit(FDBRecordStore store) {

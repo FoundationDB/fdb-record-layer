@@ -429,12 +429,6 @@ public class OnlineIndexerMergeTest extends FDBRecordStoreConcurrentTestBase {
 
                 @Nonnull
                 @Override
-                public <M extends Message> CompletableFuture<Void> updateWhileWriteOnlyWithQueue(@Nullable final FDBIndexableRecord<M> oldRecord, @Nullable final FDBIndexableRecord<M> newRecord) {
-                    throw new UnsupportedOperationException();
-                }
-
-                @Nonnull
-                @Override
                 public RecordCursor<IndexEntry> scanUniquenessViolations(@Nonnull final TupleRange range, @Nullable final byte[] continuation, @Nonnull final ScanProperties scanProperties) {
                     throw new UnsupportedOperationException();
                 }
