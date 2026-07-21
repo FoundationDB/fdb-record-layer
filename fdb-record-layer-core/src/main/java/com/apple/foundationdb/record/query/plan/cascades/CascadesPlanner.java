@@ -554,8 +554,10 @@ public class CascadesPlanner implements QueryPlanner {
 
         /**
          * Executes this task, mutating the planner state (the memo and the task stack) as appropriate for the kind of
-         * task. The returned boolean reports whether the task made progress, that is, whether it changed planner state,
-         * for example by yielding new expressions, pushing planner requirements, or pushing more tasks onto the stack.
+         * task.
+         *
+         * @return whether the task made progress, that is, whether it changed planner state, for example by yielding
+         * new expressions, pushing planner requirements, or pushing more tasks onto the stack
          */
         boolean execute();
 
