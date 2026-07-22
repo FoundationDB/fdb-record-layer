@@ -19,9 +19,9 @@
  */
 syntax = "proto2";
 
-package com.apple.foundationdb.record.spatial.geophile;
+package com.apple.foundationdb.record.test;
 
-option java_package = "com.apple.foundationdb.record.spatial.geophile";
+option java_package = "com.apple.foundationdb.record";
 option java_outer_classname = "TestRecordsGeoProto";
 
 import "record_metadata_options.proto";

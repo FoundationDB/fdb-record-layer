@@ -1940,6 +1940,7 @@ message PIndexScanParameters {
     PMultidimensionalIndexScanComparisons multidimensional_index_scan_comparisons = 3;
     PTimeWindowScanComparisons time_window_scan_comparisons = 4;
     PVectorIndexScanComparisons vector_index_scan_comparisons = 5;
+    PGeospatialRTreeScanComparisons geospatial_rtree_scan_comparisons = 6;
   }
 }
 
@@ -1961,6 +1962,23 @@ message PMultidimensionalIndexScanComparisons {
   optional PScanComparisons prefix_scan_comparisons = 1;
   repeated PScanComparisons dimensions_scan_comparisons = 2;
   optional PScanComparisons suffix_scan_comparisons = 3;
+}
+
+// A double-valued scalar that is either a literal or the name of a query parameter, resolved against the
+// evaluation context at execution time.
+message PDoubleValueOrParameter {
+  oneof kind {
+    double value = 1;
+    string parameter = 2;
+  }
+}
+
+message PGeospatialRTreeScanComparisons {
+  optional PScanComparisons prefix_scan_comparisons = 1;
+  optional PDoubleValueOrParameter center_latitude = 2;
+  optional PDoubleValueOrParameter center_longitude = 3;
+  optional PDoubleValueOrParameter radius_meters = 4;
+  optional PScanComparisons suffix_scan_comparisons = 5;
 }
 
 message PTimeWindowForFunction {

@@ -165,6 +165,13 @@ public class IndexTypes {
     public static final String MULTIDIMENSIONAL = "multidimensional";
 
     /**
+     * A geospatial index over {@code double} latitude/longitude coordinates backed by a Hilbert R-tree. Coordinates
+     * are converted to fixed-point {@code long}s at a configurable precision before insertion. Distinct from the
+     * {@code fdb-record-layer-spatial} geophile index, which uses space-filling curves.
+     */
+    public static final String GEOSPATIAL_RTREE = "geospatial_rtree";
+
+    /**
      * An index using an HNSW structure.
      */
     public static final String VECTOR = "vector";
