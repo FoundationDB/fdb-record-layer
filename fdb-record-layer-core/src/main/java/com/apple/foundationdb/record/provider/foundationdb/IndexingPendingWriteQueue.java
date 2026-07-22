@@ -205,13 +205,13 @@ public final class IndexingPendingWriteQueue {
         return store.markIndexDisabled(index).thenAccept(changed -> {
             if (Boolean.TRUE.equals(changed)) {
                 store.getContext().increment(FDBStoreTimer.Counts.PENDING_WRITES_QUEUE_OVERFLOW_DISABLED_INDEX);
-                if (LOGGER.isInfoEnabled()) {
-                    LOGGER.info(KeyValueLogMessage.of("disabled index because its pending writes queue overflowed",
+                if (LOGGER.isWarnEnabled()) {
+                    LOGGER.warn(KeyValueLogMessage.of("disabled index because its pending writes queue overflowed",
                             LogMessageKeys.INDEX_NAME, index.getName(),
                             LogMessageKeys.MAX_QUEUE_SIZE, maxQueueSize));
                 }
-            } else if (LOGGER.isInfoEnabled()) {
-                LOGGER.info(KeyValueLogMessage.of("pending writes queue overflowed but the index was already disabled",
+            } else if (LOGGER.isWarnEnabled()) {
+                LOGGER.warn(KeyValueLogMessage.of("pending writes queue overflowed but the index was already disabled",
                         LogMessageKeys.INDEX_NAME, index.getName(),
                         LogMessageKeys.MAX_QUEUE_SIZE, maxQueueSize));
             }
