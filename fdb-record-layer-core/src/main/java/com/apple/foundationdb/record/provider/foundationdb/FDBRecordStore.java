@@ -5106,26 +5106,33 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         Map<Index, CompletableFuture<IndexState>> newStates = new HashMap<>();
         for (Map.Entry<Index, List<RecordType>> entry : indexes.entrySet()) {
             Index index = entry.getKey();
-            List<RecordType> recordTypes = entry.getValue();
-            boolean indexOnNewRecordTypes = areAllRecordTypesSince(recordTypes, oldMetaDataVersion);
-            CompletableFuture<IndexState> stateFuture = userVersionChecker == null ?
-                    lazyRecordCount.get().thenApply(recordCount -> FDBRecordStore.disabledIfTooManyRecordsForRebuild(recordCount, indexOnNewRecordTypes)) :
-                    userVersionChecker.needRebuildIndex(index, lazyRecordCount, lazyRecordsSize, indexOnNewRecordTypes);
-            if (IndexTypes.VERSION.equals(index.getType())
-                    && !newStore
-                    && oldFormatVersion < SAVE_VERSION_WITH_RECORD_FORMAT_VERSION
-                    && !useOldVersionFormat()) {
-                stateFuture = stateFuture.thenApply(state -> {
-                    if (IndexState.READABLE.equals(state)) {
-                        // Do not rebuild any version indexes while the format conversion is going on.
-                        // Otherwise, the process moving the versions might race against the index
-                        // build and some versions won't be indexed correctly.
-                        return IndexState.DISABLED;
-                    }
-                    return state;
-                });
+            // Any indexes that are flagged to be replaced should never be built.
+            // Note: It is possible that the replaced index(es) is also not built, in which case the store will end up
+            // with neither.
+            if (index.getReplacedByIndexNames().isEmpty()) {
+                List<RecordType> recordTypes = entry.getValue();
+                boolean indexOnNewRecordTypes = areAllRecordTypesSince(recordTypes, oldMetaDataVersion);
+                CompletableFuture<IndexState> stateFuture = userVersionChecker == null ?
+                                                            lazyRecordCount.get().thenApply(recordCount -> FDBRecordStore.disabledIfTooManyRecordsForRebuild(recordCount, indexOnNewRecordTypes)) :
+                                                            userVersionChecker.needRebuildIndex(index, lazyRecordCount, lazyRecordsSize, indexOnNewRecordTypes);
+                if (IndexTypes.VERSION.equals(index.getType())
+                        && !newStore
+                        && oldFormatVersion < SAVE_VERSION_WITH_RECORD_FORMAT_VERSION
+                        && !useOldVersionFormat()) {
+                    stateFuture = stateFuture.thenApply(state -> {
+                        if (IndexState.READABLE.equals(state)) {
+                            // Do not rebuild any version indexes while the format conversion is going on.
+                            // Otherwise, the process moving the versions might race against the index
+                            // build and some versions won't be indexed correctly.
+                            return IndexState.DISABLED;
+                        }
+                        return state;
+                    });
+                }
+                newStates.put(index, stateFuture);
+            } else {
+                newStates.put(index, CompletableFuture.completedFuture(IndexState.DISABLED));
             }
-            newStates.put(index, stateFuture);
         }
         return newStates;
     }

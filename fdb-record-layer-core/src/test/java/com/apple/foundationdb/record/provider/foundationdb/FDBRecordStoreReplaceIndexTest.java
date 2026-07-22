@@ -396,7 +396,7 @@ public class FDBRecordStoreReplaceIndexTest extends FDBRecordStoreTestBase {
         // new index, the original was disabled from the start and stays disabled.
         try (FDBRecordContext context = openContext()) {
             openWithReplacements(context, rebuildOption, origIndex, newIndex);
-            assertIndexStateAndContents(origIndex, IndexState.DISABLED, NUM_THEN_STR_KEY);
+            assertIndexStateAndContents(origIndex, rebuildOption.expectedOriginalState(), NUM_THEN_STR_KEY);
             assertIndexStateAndContents(newIndex, rebuildOption.expectedReplacementState(), STR_THEN_NUM_KEY);
             commit(context);
         }
@@ -822,6 +822,89 @@ public class FDBRecordStoreReplaceIndexTest extends FDBRecordStoreTestBase {
         }
     }
 
+    /**
+     * Building all of a store's indexes without naming them (letting the store decide what needs building) must never
+     * attempt to build a replaced index. {@link OnlineIndexer} has no "build all" form (it requires explicit targets),
+     * so this only covers {@link FDBRecordStore#rebuildAllIndexes()}.
+     *
+     * <p>To show the build is not merely undone (rather than never attempted): {@code rebuildAllIndexes} builds every
+     * index in its set to {@link IndexState#READABLE}, and the {@code removeReplacedIndexes} commit-check that would
+     * re-disable a replaced index only runs at commit. So if the replaced index is still {@code DISABLED} in the same
+     * transaction, right after the rebuild completes, it was never built.</p>
+     */
+    @Test
+    void buildAllIndexesDoesNotBuildReplacedIndex() {
+        final Index origIndex = numThenStrIndex();
+        final Index newIndex = strThenNumIndex();
+        final RecordMetaDataHook metaDataHook = addIndexAndReplacements(RECORD_TYPE, origIndex, newIndex);
+
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, metaDataHook);
+            assertTrue(recordStore.isIndexDisabled(origIndex), "replaced index should begin disabled");
+            // Make the replacement need building, so rebuildAllIndexes has real work to do while still skipping the original.
+            assertTrue(disableIndex(newIndex));
+            commit(context);
+        }
+
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, metaDataHook);
+            // The replaced index must not be in the set that rebuildAllIndexes builds.
+            assertTrue(recordStore.getRecordMetaData().getIndexesToBuildSince(-1).keySet().stream()
+                            .noneMatch(index -> index.getName().equals(origIndex.getName())),
+                    "replaced index should not be in the set that rebuildAllIndexes builds");
+
+            recordStore.rebuildAllIndexes().join();
+
+            // Still disabled in the same transaction (before the commit-check could re-disable it): it was never built.
+            assertTrue(recordStore.isIndexDisabled(origIndex),
+                    "rebuildAllIndexes must not attempt to build the replaced index");
+            commit(context);
+        }
+    }
+
+    /**
+     * Explicitly building a replaced index while its replacement is not readable does build it: the original becomes
+     * readable and is kept (its replacement is not built, so {@code removeReplacedIndexes} does not drop it).
+     */
+    @ParameterizedTest
+    @BooleanSource("useOnlineIndexer")
+    void explicitlyBuildingReplacedIndexWhileReplacementDisabled(boolean useOnlineIndexer) {
+        final Index origIndex = numThenStrIndex();
+        final Index newIndex = strThenNumIndex();
+        final RecordMetaDataHook metaDataHook = addIndexAndReplacements(RECORD_TYPE, origIndex, newIndex);
+
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, metaDataHook);
+            assertTrue(recordStore.isIndexDisabled(origIndex), "replaced index should begin disabled");
+            // Disable the replacement, so building the original is not undone by removeReplacedIndexes.
+            assertTrue(disableIndex(newIndex));
+            commit(context);
+        }
+
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, metaDataHook);
+            if (useOnlineIndexer) {
+                commit(context);
+                try (OnlineIndexer indexer = OnlineIndexer.newBuilder()
+                        .setRecordStore(recordStore)
+                        .setTargetIndexes(List.of(recordStore.getRecordMetaData().getIndex(origIndex.getName())))
+                        .build()) {
+                    indexer.buildIndex();
+                }
+            } else {
+                buildIndex(origIndex);
+                commit(context);
+            }
+        }
+
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, metaDataHook);
+            assertTrue(recordStore.isIndexReadable(origIndex),
+                    "explicitly building a replaced index while its replacement is unbuilt should leave it readable");
+            commit(context);
+        }
+    }
+
     @Test
     public void replacementIndexMissingInMetaDataFails() {
         try (FDBRecordContext context = openContext()) {
@@ -933,8 +1016,8 @@ public class FDBRecordStoreReplaceIndexTest extends FDBRecordStoreTestBase {
         NEVER_BUILD_ANY(IndexState.DISABLED, IndexState.DISABLED),
         /** Checker refuses to build the original index: the original must be disabled, and the replacement is built. */
         NEVER_BUILD_ORIGINAL(IndexState.DISABLED, IndexState.READABLE),
-        /** Checker refuses to build the replacement index: the replacement is disabled, so the original is not replaced and must stay a readable, populated index. */
-        NEVER_BUILD_NEW(IndexState.READABLE, IndexState.DISABLED);
+        /** Checker refuses to build the replacement index: the replacement is disabled, and we don't build the original. */
+        NEVER_BUILD_NEW(IndexState.DISABLED, IndexState.DISABLED);
 
         private final IndexState expectedOriginalState;
         private final IndexState expectedReplacementState;
