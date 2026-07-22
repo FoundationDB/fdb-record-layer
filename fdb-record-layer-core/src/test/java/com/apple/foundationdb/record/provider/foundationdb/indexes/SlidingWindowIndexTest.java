@@ -2107,6 +2107,126 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
     }
 
     @Test
+    void writeOnlyWithQueueUpdateOfUnindexedRecordLandsInWindow() throws Exception {
+        // deferred update a record, should get into the window
+        try (FDBRecordContext context = openContext()) {
+            openStore(context, 2, Direction.DESC);
+            rec(1, 130);
+            rec(2, 150);
+            rec(3, 120);
+            commit(context);
+        }
+
+        try (FDBRecordContext context = openContext()) {
+            openStore(context, 2, Direction.DESC);
+            recordStore.markIndexWriteOnlyWithQueue(INDEX_NAME).join();
+            rec(1, 200);   // update 100 -> 200, deferred to the queue
+            commit(context);
+        }
+
+        drainQueue(2, Direction.DESC);
+
+        try (FDBRecordContext context = openContext()) {
+            openStore(context, 2, Direction.DESC);
+            final Index index = index();
+            assertTrue(recordStore.isIndexReadable(index));
+            assertThat(slidingWindow())
+                    .hasSizeOf(2)
+                    .underlyingHnsw().containsInAnyOrder(1, 2);
+            assertNull(queueSize(context, index), "the queue data should have been erased once the index became readable");
+            commit(context);
+        }
+    }
+
+    @Test
+    void writeOnlyWithQueueUpdateOfUnindexedRecordStaysOutOfWindow() throws Exception {
+        // deferred update a record, should stay outside the window
+        try (FDBRecordContext context = openContext()) {
+            openStore(context, 2, Direction.DESC);
+            rec(1, 100);
+            rec(2, 500);
+            rec(3, 400);
+            commit(context);
+        }
+
+        try (FDBRecordContext context = openContext()) {
+            openStore(context, 2, Direction.DESC);
+            recordStore.markIndexWriteOnlyWithQueue(INDEX_NAME).join();
+            rec(1, 200);   // update 100 -> 200, deferred; still below the window boundary
+            commit(context);
+        }
+
+        drainQueue(2, Direction.DESC);
+
+        try (FDBRecordContext context = openContext()) {
+            openStore(context, 2, Direction.DESC);
+            final Index index = index();
+            assertTrue(recordStore.isIndexReadable(index));
+            assertThat(slidingWindow())
+                    .hasSizeOf(2)
+                    .underlyingHnsw().containsInAnyOrder(2, 3);
+            assertNull(queueSize(context, index), "the queue data should have been erased once the index became readable");
+            commit(context);
+        }
+    }
+
+    @Test
+    void writeOnlyWithQueueChainedUpdatesLandInWindow() throws Exception {
+        try (FDBRecordContext context = openContext()) {
+            openStore(context, 2, Direction.DESC);
+            recordStore.markIndexWriteOnlyWithQueue(INDEX_NAME).join();
+            rec(1, 100);
+            rec(1, 100);
+            rec(1, 200);
+            rec(1, 300);
+            rec(2, 250);    // competitor (window)
+            rec(3, 225);    // competitor (overflow)
+            commit(context);
+        }
+
+        drainQueue(2, Direction.DESC);
+
+        try (FDBRecordContext context = openContext()) {
+            openStore(context, 2, Direction.DESC);
+            final Index index = index();
+            assertTrue(recordStore.isIndexReadable(index));
+            assertThat(slidingWindow())
+                    .hasSizeOf(2)
+                    .underlyingHnsw().containsInAnyOrder(1, 2);
+            assertNull(queueSize(context, index), "the queue data should have been erased once the index became readable");
+            commit(context);
+        }
+    }
+
+    @Test
+    void writeOnlyWithQueueChainedUpdatesStayOutOfWindow() throws Exception {
+        try (FDBRecordContext context = openContext()) {
+            openStore(context, 2, Direction.DESC);
+            recordStore.markIndexWriteOnlyWithQueue(INDEX_NAME).join();
+            rec(1, 100);
+            rec(1, 100);
+            rec(1, 200);
+            rec(1, 300);
+            rec(2, 500);    // competitor (window)
+            rec(3, 400);    // competitor (window)
+            commit(context);
+        }
+
+        drainQueue(2, Direction.DESC);
+
+        try (FDBRecordContext context = openContext()) {
+            openStore(context, 2, Direction.DESC);
+            final Index index = index();
+            assertTrue(recordStore.isIndexReadable(index));
+            assertThat(slidingWindow())
+                    .hasSizeOf(2)
+                    .underlyingHnsw().containsInAnyOrder(2, 3);
+            assertNull(queueSize(context, index), "the queue data should have been erased once the index became readable");
+            commit(context);
+        }
+    }
+
+    @Test
     void updateFromQueueReconstructsRecordFromSerializedBytes() throws Exception {
         // Round-trips a record through serializePendingWriteQueue then updateFromQueue against an emptied index,
         // confirming the record (including its primary key) is reconstructed from the serialized bytes alone.

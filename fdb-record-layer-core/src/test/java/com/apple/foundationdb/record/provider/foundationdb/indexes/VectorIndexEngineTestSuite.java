@@ -461,4 +461,17 @@ abstract class VectorIndexEngineTestSuite extends VectorIndexTestBase {
         final Index vectorIndex = new Index("test", Key.Expressions.field("field"), IndexTypes.VECTOR);
         Assertions.assertThat(factory.getIndexGeneralAttributes(vectorIndex).isOptimizedForMutualIndexing()).isFalse();
     }
+
+    @Test
+    void vectorIndexAllowsPendingWriteQueue() throws Exception {
+        // VectorIndexMaintainer.isPendingWriteQueueAllowed() returns true: a vector index may defer writes to the queue.
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context, this::addUngroupedVectorIndex);
+            final Index index = recordStore.getRecordMetaData().getIndex("UngroupedVectorIndex");
+            assertThat(recordStore.getIndexMaintainer(index).isPendingWriteQueueAllowed())
+                    .as("a vector index should allow the pending write queue")
+                    .isTrue();
+            commit(context);
+        }
+    }
 }

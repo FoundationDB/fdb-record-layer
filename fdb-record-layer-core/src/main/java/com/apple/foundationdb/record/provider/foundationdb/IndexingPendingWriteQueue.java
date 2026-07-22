@@ -114,12 +114,9 @@ public final class IndexingPendingWriteQueue {
         }
         final IndexBuildProto.PendingWritesQueueEntry payload = entry.getPayload();
         final IndexMaintainer maintainer = store.getIndexMaintainer(index);
-        final CompletableFuture<Void> operation;
-        switch (payload.getOperation()) {
-            case UPDATE:
-                operation = maintainer.updateFromQueue(payload.getData());
-                break;
-            case DELETE_WHERE:
+        final CompletableFuture<Void> future = switch (payload.getOperation()) {
+            case UPDATE -> maintainer.updateFromQueue(payload.getData());
+            case DELETE_WHERE -> {
                 final IndexBuildProto.DeleteWhere deleteWhere;
                 try {
                     deleteWhere = payload.getData().unpack(IndexBuildProto.DeleteWhere.class);
@@ -127,12 +124,10 @@ public final class IndexingPendingWriteQueue {
                     throw new RecordCoreException("failed to parse pending write queue DELETE_WHERE entry data", ex);
                 }
                 final Tuple prefix = Tuple.fromBytes(deleteWhere.getPrefix().toByteArray());
-                operation = maintainer.deleteWhere(store.ensureContextActive(), prefix);
-                break;
-            default:
-                throw new RecordCoreException("unsupported pending write queue operation: " + payload.getOperation());
-        }
-        return operation
+                yield maintainer.deleteWhere(store.ensureContextActive(), prefix);
+            }
+        };
+        return future
                 .thenAccept(ignore -> {
                     quotaManager.deleteCountInc();
                     getIndexingQueue(store).clearEntry(store.getContext(), entry);
