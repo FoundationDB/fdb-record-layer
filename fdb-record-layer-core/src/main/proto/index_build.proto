@@ -84,6 +84,21 @@ message OldAndNewRecords {
   optional bytes new_record = 2;
 }
 
+// A single index entry
+message IndexEntry {
+  optional bytes key = 1;
+  optional bytes value = 2;
+  optional bytes primary_key = 3;
+}
+
+// Lists of old and new index entries. This can be used as data for PendingWritesQueueEntry if that is the only data
+// required for deferred indexing.
+message OldAndNewIndexEntries {
+  repeated IndexEntry old_entries = 1;
+  repeated IndexEntry new_entries = 2;
+}
+
+
 message SlidingWindowQueueEntry {
   // The sliding-window entry keys (partition + window value + primary key, packed) drive the window's own
   // bookkeeping on drain; the dedicated Any messages carry the delegate index's serialized single-sided updates.

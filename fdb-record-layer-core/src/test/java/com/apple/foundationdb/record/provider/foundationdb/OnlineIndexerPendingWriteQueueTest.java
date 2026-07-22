@@ -1130,8 +1130,7 @@ class OnlineIndexerPendingWriteQueueTest extends OnlineIndexerTest {
 
     @Test
     void vectorIndexAllowsPendingWriteQueue() {
-        // Covers StandardIndexMaintainerWithQueue.isPendingWriteQueueAllowed(), inherited by VectorIndexMaintainer:
-        // an idempotent, non-synthetic vector index allows the pending write queue.
+        // Covers VectorIndexMaintainer.isPendingWriteQueueAllowed(): a vector index allows the pending write queue.
         final Index vectorIndex = new Index("vector_index",
                 new KeyWithValueExpression(field("vector_data"), 0),
                 IndexTypes.VECTOR,
@@ -1143,7 +1142,7 @@ class OnlineIndexerPendingWriteQueueTest extends OnlineIndexerTest {
         });
         try (FDBRecordContext context = openContext()) {
             assertTrue(recordStore.getIndexMaintainer(vectorIndex).isPendingWriteQueueAllowed(),
-                    "an idempotent, non-synthetic vector index should allow the pending write queue");
+                    "a vector index should allow the pending write queue");
             context.commit();
         }
     }

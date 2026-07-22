@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.IndexBuildProto;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.IsolationLevel;
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.ScanProperties;
@@ -67,6 +68,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Any;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Message;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
@@ -1401,8 +1403,8 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
         final IndexPredicate.ConstantPredicate constant =
                 new IndexPredicate.ConstantPredicate(IndexPredicate.ConstantPredicate.ConstantValue.TRUE);
         final IndexPredicate or = new IndexPredicate.OrPredicate(List.of(qualify, constant));
-        org.junit.jupiter.api.Assertions.assertThrows(
-                com.apple.foundationdb.record.RecordCoreException.class,
+        Assertions.assertThrows(
+                RecordCoreException.class,
                 () -> IndexPredicate.validateRowNumberWindowPlacement(or));
     }
 
@@ -1414,8 +1416,8 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
                 new IndexPredicate.ConstantPredicate(IndexPredicate.ConstantPredicate.ConstantValue.TRUE);
         final IndexPredicate andWithQualify = new IndexPredicate.AndPredicate(List.of(qualify));
         final IndexPredicate or = new IndexPredicate.OrPredicate(List.of(andWithQualify, constant));
-        org.junit.jupiter.api.Assertions.assertThrows(
-                com.apple.foundationdb.record.RecordCoreException.class,
+        Assertions.assertThrows(
+                RecordCoreException.class,
                 () -> IndexPredicate.validateRowNumberWindowPlacement(or));
     }
 
@@ -1491,9 +1493,9 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
                     .containsInAnyOrder(1L, 2L);
 
             // canDeleteWhere — no group key → should return false
-            final com.apple.foundationdb.record.query.QueryToKeyMatcher matcher =
-                    new com.apple.foundationdb.record.query.QueryToKeyMatcher(
-                            com.apple.foundationdb.record.query.expressions.Query.field("zone")
+            final QueryToKeyMatcher matcher =
+                    new QueryToKeyMatcher(
+                            Query.field("zone")
                                     .equalsValue("A"));
             assertFalse(maintainer.canDeleteWhere(matcher, Key.Evaluated.scalar("A")));
 
@@ -1505,17 +1507,17 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
 
             // canEvaluateAggregateFunction
             assertFalse(maintainer.canEvaluateAggregateFunction(
-                    new com.apple.foundationdb.record.metadata.IndexAggregateFunction(
+                    new IndexAggregateFunction(
                             "test", Key.Expressions.field("rec_no"), index.getName())));
 
             // evaluateIndex
             final var rec = recordStore.loadRecord(Tuple.from(1L));
             assertNotNull(rec);
-            final List<com.apple.foundationdb.record.IndexEntry> entries = maintainer.evaluateIndex(rec);
+            final List<IndexEntry> entries = maintainer.evaluateIndex(rec);
             assertNotNull(entries);
 
             // filteredIndexEntries
-            final List<com.apple.foundationdb.record.IndexEntry> filtered =
+            final List<IndexEntry> filtered =
                     maintainer.filteredIndexEntries(recordStore.loadRecord(Tuple.from(1L)));
             assertNotNull(filtered);
 
@@ -1538,9 +1540,9 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
             final Index index = recordStore.getRecordMetaData().getIndex(INDEX_NAME);
             final IndexMaintainer maintainer = recordStore.getIndexMaintainer(index);
 
-            final com.apple.foundationdb.record.query.QueryToKeyMatcher matcher =
-                    new com.apple.foundationdb.record.query.QueryToKeyMatcher(
-                            com.apple.foundationdb.record.query.expressions.Query.field("zone")
+            final QueryToKeyMatcher matcher =
+                    new QueryToKeyMatcher(
+                            Query.field("zone")
                                     .equalsValue("A"));
             assertTrue(maintainer.canDeleteWhere(matcher, Key.Evaluated.scalar("A")));
             commit(context);
@@ -2161,9 +2163,9 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
             assertTrue(recordStore.isIndexWriteOnlyWithQueue(INDEX_NAME));
 
             final IndexMaintainer maintainer = maintainer();
-            final com.apple.foundationdb.record.query.QueryToKeyMatcher matcher =
-                    new com.apple.foundationdb.record.query.QueryToKeyMatcher(
-                            com.apple.foundationdb.record.query.expressions.Query.field("zone")
+            final QueryToKeyMatcher matcher =
+                    new QueryToKeyMatcher(
+                            Query.field("zone")
                                     .equalsValue("A"));
             assertTrue(maintainer.canDeleteWhere(matcher, Key.Evaluated.scalar("A")),
                     "deleteWhere must be allowed while writes are deferred to the pending queue");
