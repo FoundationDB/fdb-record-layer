@@ -417,7 +417,7 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
         }
         // The preemptive delete must fully complete (committing its writes and releasing the sliding-window write lock)
         // before the reinsert runs.
-        return update(newRecord, null) // if already inserted, just clear from the sliding window
+        return update(newRecord, null)
                 .thenCompose(ignore -> update(oldRecord, newRecord));
     }
 
@@ -500,20 +500,7 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
      * window-key value, and the primary key. This is all the window bookkeeping needs, and it is what is deferred
      * onto the pending write queue.
      */
-    private static final class EntryKey {
-        @Nonnull
-        private final Tuple partition;
-        @Nonnull
-        private final Tuple windowValue;
-        @Nonnull
-        private final Tuple primaryKey;
-
-        EntryKey(@Nonnull final Tuple partition, @Nonnull final Tuple windowValue, @Nonnull final Tuple primaryKey) {
-            this.partition = partition;
-            this.windowValue = windowValue;
-            this.primaryKey = primaryKey;
-        }
-
+    private record EntryKey(@Nonnull Tuple partition, @Nonnull Tuple windowValue, @Nonnull Tuple primaryKey) {
         /** The key within the entries subspace: window value followed by primary key. */
         @Nonnull
         Tuple entriesKey() {
@@ -567,8 +554,8 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
                                                  @Nonnull final Supplier<CompletableFuture<Void>> delegateInsert) {
         final Subspace swSubspace = getSlidingWindowSubspace();
         final Transaction tr = state.store.ensureContextActive();
-        final Tuple primaryKey = key.primaryKey;
-        final Tuple partitionTuple = key.partition;
+        final Tuple primaryKey = key.primaryKey();
+        final Tuple partitionTuple = key.partition();
 
         // Scope by partition first, then by entries/meta
         final Subspace partitionSubspace = swSubspace.subspace(partitionTuple);
@@ -628,7 +615,7 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
                                                  @Nonnull final Supplier<CompletableFuture<Void>> delegateDelete) {
         final Subspace swSubspace = getSlidingWindowSubspace();
         final Transaction tr = state.store.ensureContextActive();
-        final Tuple partitionTuple = key.partition;
+        final Tuple partitionTuple = key.partition();
 
         // Scope by partition first, then by entries/meta
         final Subspace partitionSubspace = swSubspace.subspace(partitionTuple);
