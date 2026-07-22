@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.FDBRecordStoreProperties;
 import com.apple.foundationdb.record.IndexBuildProto;
@@ -48,6 +49,7 @@ import java.util.concurrent.CompletableFuture;
  * Indexing maintainer: will use this module to push items to the queue
  * Online indexer: will use this module to drain the queue and update the index
  */
+@API(API.Status.INTERNAL)
 @ParametersAreNonnullByDefault
 public final class IndexingPendingWriteQueue {
     private static final Logger LOGGER = LoggerFactory.getLogger(IndexingPendingWriteQueue.class);
@@ -71,12 +73,12 @@ public final class IndexingPendingWriteQueue {
     }
 
     @VisibleForTesting
-    public static void setMaxQueueSizeForTesting(final int size) {
+    static void setMaxQueueSizeForTesting(final int size) {
         maxQueueSize = size;
     }
 
     @VisibleForTesting
-    public static void resetMaxQueueSizeForTesting() {
+    static void resetMaxQueueSizeForTesting() {
         maxQueueSize = DEFAULT_MAX_QUEUE_SIZE;
     }
 

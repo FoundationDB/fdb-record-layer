@@ -75,7 +75,7 @@ public final class FDBRecordStoreProperties {
      */
     @API(API.Status.EXPERIMENTAL)
     public static final RecordLayerPropertyKey<Boolean> DISABLE_INDEX_ON_PENDING_WRITE_QUEUE_OVERFLOW = RecordLayerPropertyKey.booleanPropertyKey(
-            "com.apple.foundationdb.record.recordstore.disable_index_on_pending_write_queue_overflow", false);
+            "com.apple.foundationdb.record.recordstore.disable_index_on_pending_write_queue_overflow", true);
 
     private FDBRecordStoreProperties() {
         throw new RecordCoreException("should not instantiate class of static prop");

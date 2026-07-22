@@ -122,7 +122,7 @@ class OnlineIndexerPendingWriteQueueTest extends OnlineIndexerTest {
         assertEquals(2L, queueSizeCounter(index), "the queue should be exactly full before the overflow");
 
         // The overflowing save (flag enabled) must succeed rather than throw.
-        try (FDBRecordContext context = openFlaggedContext(overflowTimer)) {
+        try (FDBRecordContext context = openContextWithDisableOnQueueFull(overflowTimer, true)) {
             final FDBRecordStore store = createStoreBuilder().setContext(context)
                     .createOrOpen(FDBRecordStoreBase.StoreExistenceCheck.NONE);
             assertTrue(store.isIndexWriteOnlyWithQueue(index));
@@ -154,7 +154,7 @@ class OnlineIndexerPendingWriteQueueTest extends OnlineIndexerTest {
     }
 
     @Test
-    void testFullQueueWithoutFlagFailsUserWrite() throws Exception {
+    void testFullQueueWithoutDisableFailsUserWrite() throws Exception {
         final int numInitialRecords = 6;
         populateEvenRecords(numInitialRecords);
         openSimpleMetaData(allIndexesHook(List.of(index)));
@@ -169,11 +169,13 @@ class OnlineIndexerPendingWriteQueueTest extends OnlineIndexerTest {
             }
         }
         assertThrows(PendingWritesQueue.PendingWritesQueueTooLargeException.class, () -> {
-            try (FDBRecordContext context = openContext()) {
-                saveSimpleRecord(recordStore, 5, 5 * 19);
+            try (FDBRecordContext context = openContextWithDisableOnQueueFull(null, false)) {
+                final FDBRecordStore store = createStoreBuilder().setContext(context)
+                        .createOrOpen(FDBRecordStoreBase.StoreExistenceCheck.NONE);
+                saveSimpleRecord(store, 5, 5 * 19);
                 context.commit();
             }
-        }, "without the flag, an overflowing write must fail");
+        }, "with option FALSE, an overflowing write must fail");
 
         // The index was not disabled; it is still in the queue state.
         try (FDBRecordContext context = openContext()) {
@@ -213,7 +215,7 @@ class OnlineIndexerPendingWriteQueueTest extends OnlineIndexerTest {
                     barrier.await();
                     boolean committed = false;
                     while (!committed) {
-                        try (FDBRecordContext context = openFlaggedContext(null)) {
+                        try (FDBRecordContext context = openContextWithDisableOnQueueFull(null, true)) {
                             final FDBRecordStore store = createStoreBuilder().setContext(context)
                                     .createOrOpen(FDBRecordStoreBase.StoreExistenceCheck.NONE);
                             saveSimpleRecord(store, recNo, recNo * 19);
@@ -1381,10 +1383,10 @@ class OnlineIndexerPendingWriteQueueTest extends OnlineIndexerTest {
      * Open a context whose properties enable {@link FDBRecordStoreProperties#DISABLE_INDEX_ON_PENDING_WRITE_QUEUE_OVERFLOW}.
      */
     @Nonnull
-    private FDBRecordContext openFlaggedContext(@Nullable final FDBStoreTimer timer) {
+    private FDBRecordContext openContextWithDisableOnQueueFull(@Nullable final FDBStoreTimer timer, final boolean disableIndexOnQueueFull) {
         final FDBRecordContextConfig.Builder configBuilder = FDBRecordContextConfig.newBuilder()
                 .setRecordContextProperties(RecordLayerPropertyStorage.newBuilder()
-                        .addProp(FDBRecordStoreProperties.DISABLE_INDEX_ON_PENDING_WRITE_QUEUE_OVERFLOW, true)
+                        .addProp(FDBRecordStoreProperties.DISABLE_INDEX_ON_PENDING_WRITE_QUEUE_OVERFLOW, disableIndexOnQueueFull)
                         .build());
         if (timer != null) {
             configBuilder.setTimer(timer);
