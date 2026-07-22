@@ -18,6 +18,9 @@
  * limitations under the License.
  */
 
+import de.undercouch.gradle.tasks.download.Download
+import de.undercouch.gradle.tasks.download.Verify
+
 apply plugin: 'java-test-fixtures'
 apply from: rootProject.file('gradle/publishing.gradle')
 
@@ -78,7 +81,7 @@ def downloadsDir = project.ext.downloadsDirectory
 // so downstream wiring can depend on "this dataset is present and validated". downloadTaskDir lives
 // under the cached downloads dir too, so onlyIfModified ETag state also survives `clean`.
 def siftTasks = siftDownloads.collectEntries { name, cfg ->
-    def download = tasks.register("download${name.capitalize()}", de.undercouch.gradle.tasks.download.Download) {
+    def download = tasks.register("download${name.capitalize()}", Download) {
         src cfg.url
         dest downloadsDir.file(cfg.file).asFile
         downloadTaskDir downloadsDir.dir("downloads-task")
@@ -89,7 +92,7 @@ def siftTasks = siftDownloads.collectEntries { name, cfg ->
     }
     def terminal = download
     if (cfg.sha256) {
-        terminal = tasks.register("verify${name.capitalize()}", de.undercouch.gradle.tasks.download.Verify) {
+        terminal = tasks.register("verify${name.capitalize()}", Verify) {
             dependsOn download
             src downloadsDir.file(cfg.file).asFile
             algorithm 'SHA256'

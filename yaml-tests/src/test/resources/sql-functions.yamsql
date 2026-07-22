@@ -179,15 +179,15 @@ test_block:
       - result: [{100, 'a'}]
     -
       - query: select col1, col2 from f1('b', 103);
-      - initialVersionLessThan: !current_version
+      - initialVersionLessThan: 4.12.13.0
       - error: UNDEFINED_FUNCTION
-      - initialVersionAtLeast: !current_version
+      - initialVersionAtLeast: 4.12.13.0
       - error: INVALID_ARGUMENT_FOR_FUNCTION
     -
       - query: select col1, col2 from f1(102, 103);
-      - initialVersionLessThan: !current_version
+      - initialVersionLessThan: 4.12.13.0
       - error: UNDEFINED_FUNCTION
-      - initialVersionAtLeast: !current_version
+      - initialVersionAtLeast: 4.12.13.0
       - error: INVALID_ARGUMENT_FOR_FUNCTION
     -
       - query: select col1, col2 from f1(103);

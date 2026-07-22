@@ -107,6 +107,15 @@ public class IndexOptions {
      * each store that meets the necessary criteria.
      * </p>
      *
+     * <p>
+     * The replacement must be {@link com.apple.foundationdb.record.IndexState#READABLE}, if the replacement is
+     * {@link com.apple.foundationdb.record.IndexState#READABLE_UNIQUE_PENDING}, the original will remain readable.
+     * </p>
+     * <p>
+     * Building indexes that have replacements will only be attempted if explicitly requested, even if the
+     * replacements are not readable and not being built at the same time.
+     * </p>
+     *
      * @see Index#getReplacedByIndexNames()
      */
     public static final String REPLACED_BY_OPTION_PREFIX = "replacedBy";

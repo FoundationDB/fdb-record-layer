@@ -63,6 +63,20 @@ public final class FDBRecordStoreProperties {
     public static final RecordLayerPropertyKey<Boolean> LOAD_RECORDS_VIA_GETS = RecordLayerPropertyKey.booleanPropertyKey(
             "com.apple.foundationdb.record.recordstore.load_records_via_gets", false);
 
+    /**
+     * How a user write should react when it cannot append to the pending-writes queue of an index in the
+     * {@link IndexState#WRITE_ONLY_WITH_QUEUE} state because the queue is full (see
+     * {@link com.apple.foundationdb.record.provider.foundationdb.queue.PendingWritesQueue}). When {@code false}
+     * (the default), the queue overflow surfaces as a
+     * {@link com.apple.foundationdb.record.provider.foundationdb.queue.PendingWritesQueue.PendingWritesQueueTooLargeException}
+     * and the user transaction fails. When {@code true}, the offending index is instead disabled within the same user
+     * transaction, so the user write still succeeds. This is intended for the case where the online indexer has stalled
+     * and can no longer drain the queue: a background-indexing problem should not permanently break user writes.
+     */
+    @API(API.Status.EXPERIMENTAL)
+    public static final RecordLayerPropertyKey<Boolean> DISABLE_INDEX_ON_PENDING_WRITE_QUEUE_OVERFLOW = RecordLayerPropertyKey.booleanPropertyKey(
+            "com.apple.foundationdb.record.recordstore.disable_index_on_pending_write_queue_overflow", true);
+
     private FDBRecordStoreProperties() {
         throw new RecordCoreException("should not instantiate class of static prop");
     }

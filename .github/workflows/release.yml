@@ -60,7 +60,7 @@ jobs:
       - name: Run Gradle Build
         uses: ./actions/run-gradle
         with:
-          gradle_command: build -x test -x destructiveTest -PreleaseBuild=true -PpublishBuild=false -PspotbugsEnableHtmlReport
+          gradle_command: build -x test -x destructiveTest -x scalarFallbackTest -PreleaseBuild=true -PpublishBuild=false -PspotbugsEnableHtmlReport
 
   tests:
     needs: get-update-type
@@ -84,10 +84,19 @@ jobs:
       - name: Increment version
         shell: bash
         run: python build/versionutils.py gradle.properties --increment -u ${{ needs.get-update-type.outputs.update-type }}
+      - name: Compute extra tasks
+        id: extra_tasks
+        run: |
+          # fdb-extensions also runs its scalar-fallback test task here (not in the style job, which
+          # is test-free) so its JaCoCo execution data is produced alongside the other test tasks and
+          # picked up by the coverage-data upload below.
+          if [[ ${{ matrix.subproject }} == 'fdb-extensions' ]] ; then
+            echo "task=:fdb-extensions:scalarFallbackTest" >> "$GITHUB_OUTPUT"
+          fi
       - name: Run Gradle Test
         uses: ./actions/gradle-test
         with:
-          gradle_command: :${{ matrix.subproject }}:jar :${{ matrix.subproject }}:test :${{ matrix.subproject }}:destructiveTest
+          gradle_command: :${{ matrix.subproject }}:jar :${{ matrix.subproject }}:test :${{ matrix.subproject }}:destructiveTest ${{ steps.extra_tasks.outputs.task }}
           gradle_args: -PreleaseBuild=true -PpublishBuild=false
           report_name: ${{ matrix.subproject }}-test-reports
       - name: Publish Coverage Data
