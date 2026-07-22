@@ -64,6 +64,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -90,7 +91,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class OnlineIndexerPendingWriteQueueTest extends OnlineIndexerTest {
 
-    private final Index index = new Index("simple$num_value_2_queue", field("num_value_2"), IndexTypes.VALUE);
+    private final Index myIndex = new Index("simple$num_value_2_queue", field("num_value_2"), ValueIndexMaintainerWithQueue.Factory.INDEX_TYPE);
 
     private static IndexBuildProto.OldAndNewRecords oldAndNewRecords(final IndexBuildProto.PendingWritesQueueEntry payload) {
         assertEquals(IndexBuildProto.PendingWritesQueueEntry.Operation.UPDATE, payload.getOperation());
@@ -102,12 +103,12 @@ class OnlineIndexerPendingWriteQueueTest extends OnlineIndexerTest {
     }
 
     @Test
-    void testFullQueueDisablesIndexAndUserWriteSucceeds() throws Exception {
+    void testFullQueueDisablesIndexAndUserWriteSucceeds() {
         final int numInitialRecords = 6; // even recNos 0,2,4,6,8,10
         populateEvenRecords(numInitialRecords);
-        openSimpleMetaData(allIndexesHook(List.of(index)));
-        disableAll(List.of(index));
-        markWriteOnlyWithQueue(index);
+        openSimpleMetaData(allIndexesHook(List.of(myIndex)));
+        disableAll(List.of(myIndex));
+        markWriteOnlyWithQueue(myIndex);
 
         final FDBStoreTimer overflowTimer = new FDBStoreTimer();
         // Fill the queue to capacity: each of these saves is deferred to the queue (counter 1, then 2).
@@ -117,13 +118,13 @@ class OnlineIndexerPendingWriteQueueTest extends OnlineIndexerTest {
                 context.commit();
             }
         }
-        assertEquals(2L, queueSizeCounter(index), "the queue should be exactly full before the overflow");
+        assertEquals(2L, queueSizeCounter(myIndex), "the queue should be exactly full before the overflow");
 
         // The overflowing save (flag enabled) must succeed rather than throw.
         try (FDBRecordContext context = openContextWithDisableOnQueueFull(overflowTimer, true, 2)) {
             final FDBRecordStore store = createStoreBuilder().setContext(context)
                     .createOrOpen(FDBRecordStoreBase.StoreExistenceCheck.NONE);
-            assertTrue(store.isIndexWriteOnlyWithQueue(index));
+            assertTrue(store.isIndexWriteOnlyWithQueue(myIndex));
             saveSimpleRecord(store, 5, 5 * 19);
             context.commit();
         }
@@ -132,7 +133,7 @@ class OnlineIndexerPendingWriteQueueTest extends OnlineIndexerTest {
 
         // The index is now disabled and its queue data cleared.
         try (FDBRecordContext context = openContext()) {
-            assertTrue(recordStore.isIndexDisabled(index), "the overflowing index should be disabled");
+            assertTrue(recordStore.isIndexDisabled(myIndex), "the overflowing index should be disabled");
             assertNotNull(recordStore.loadRecord(Tuple.from(5L)), "the overflow record must have been saved");
             // A readable index on the same record type was still maintained in that same transaction.
             final Index uniqueIndex = recordStore.getRecordMetaData().getIndex("MySimpleRecord$num_value_unique");
@@ -140,24 +141,24 @@ class OnlineIndexerPendingWriteQueueTest extends OnlineIndexerTest {
                     "a readable index must still be updated by the overflowing write");
             context.commit();
         }
-        assertNull(queueSizeCounter(index), "disabling the index should have cleared its queue size counter");
+        assertNull(queueSizeCounter(myIndex), "disabling the index should have cleared its queue size counter");
 
         // Rebuilding from scratch indexes every persisted record, including the ones that were only ever queued.
-        try (OnlineIndexer indexer = newIndexerBuilder(index).build()) {
+        try (OnlineIndexer indexer = newIndexerBuilder(myIndex).build()) {
             indexer.buildIndex(true);
         }
-        assertReadable(index);
-        assertEquals(numInitialRecords + 3, indexEntryCount(index), "the rebuild must index every persisted record");
-        scrubAndValidate(List.of(index));
+        assertReadable(myIndex);
+        assertEquals(numInitialRecords + 3, indexEntryCount(myIndex), "the rebuild must index every persisted record");
+        scrubAndValidate(List.of(myIndex));
     }
 
     @Test
-    void testFullQueueWithoutDisableFailsUserWrite() throws Exception {
+    void testFullQueueWithoutDisableFailsUserWrite() {
         final int numInitialRecords = 6;
         populateEvenRecords(numInitialRecords);
-        openSimpleMetaData(allIndexesHook(List.of(index)));
-        disableAll(List.of(index));
-        markWriteOnlyWithQueue(index);
+        openSimpleMetaData(allIndexesHook(List.of(myIndex)));
+        disableAll(List.of(myIndex));
+        markWriteOnlyWithQueue(myIndex);
 
         for (int recNo : List.of(1, 3)) {
             try (FDBRecordContext context = openContext()) {
@@ -176,7 +177,7 @@ class OnlineIndexerPendingWriteQueueTest extends OnlineIndexerTest {
 
         // The index was not disabled; it is still in the queue state.
         try (FDBRecordContext context = openContext()) {
-            assertTrue(recordStore.isIndexWriteOnlyWithQueue(index), "the index must remain in the queue state");
+            assertTrue(recordStore.isIndexWriteOnlyWithQueue(myIndex), "the index must remain in the queue state");
             context.commit();
         }
     }
@@ -188,9 +189,9 @@ class OnlineIndexerPendingWriteQueueTest extends OnlineIndexerTest {
         // their write is a no-op for it and still commits. Every writer eventually succeeds and the index converges.
         final int numInitialRecords = 10;
         populateEvenRecords(numInitialRecords);
-        openSimpleMetaData(allIndexesHook(List.of(index)));
-        disableAll(List.of(index));
-        markWriteOnlyWithQueue(index);
+        openSimpleMetaData(allIndexesHook(List.of(myIndex)));
+        disableAll(List.of(myIndex));
+        markWriteOnlyWithQueue(myIndex);
 
         final List<Integer> fillRecNos = List.of(101, 103);
         final List<Integer> writerRecNos = List.of(201, 203, 205, 207);
@@ -201,7 +202,7 @@ class OnlineIndexerPendingWriteQueueTest extends OnlineIndexerTest {
                 context.commit();
             }
         }
-        assertEquals((long)fillRecNos.size(), (long)queueSizeCounter(index));
+        assertEquals(fillRecNos.size(), (long)queueSizeCounter(myIndex));
 
         final AtomicReference<Throwable> failure = new AtomicReference<>();
         final CyclicBarrier barrier = new CyclicBarrier(writerRecNos.size());
@@ -236,18 +237,18 @@ class OnlineIndexerPendingWriteQueueTest extends OnlineIndexerTest {
 
         // The index converged to DISABLED and its queue was cleared.
         try (FDBRecordContext context = openContext()) {
-            assertTrue(recordStore.isIndexDisabled(index), "the index should converge to disabled");
+            assertTrue(recordStore.isIndexDisabled(myIndex), "the index should converge to disabled");
             context.commit();
         }
-        assertNull(queueSizeCounter(index));
+        assertNull(queueSizeCounter(myIndex));
 
         // Rebuilding indexes every persisted record: initial + the fill writes + every concurrent write.
-        try (OnlineIndexer indexer = newIndexerBuilder(index).build()) {
+        try (OnlineIndexer indexer = newIndexerBuilder(myIndex).build()) {
             indexer.buildIndex(true);
         }
-        assertReadable(index);
-        assertEquals(numInitialRecords + fillRecNos.size() + writerRecNos.size(), indexEntryCount(index));
-        scrubAndValidate(List.of(index));
+        assertReadable(myIndex);
+        assertEquals(numInitialRecords + fillRecNos.size() + writerRecNos.size(), indexEntryCount(myIndex));
+        scrubAndValidate(List.of(myIndex));
     }
 
     @ParameterizedTest
@@ -360,9 +361,9 @@ class OnlineIndexerPendingWriteQueueTest extends OnlineIndexerTest {
                                 .asList().join().stream()
                                 .map(entry -> {
                                     final IndexBuildProto.PendingWritesQueueEntry payload = entry.getPayload();
-                                    final Message record = recordStore.getSerializer().deserialize(recordStore.getRecordMetaData(),
+                                    final Message rec = recordStore.getSerializer().deserialize(recordStore.getRecordMetaData(),
                                             TupleHelpers.EMPTY, oldAndNewRecords(payload).getNewRecord().toByteArray(), recordStore.getTimer());
-                                    return (Long)record.getField(record.getDescriptorForType().findFieldByName("rec_no"));
+                                    return (Long)rec.getField(rec.getDescriptorForType().findFieldByName("rec_no"));
                                 })
                                 .toList();
                         assertEquals(queuedRecNos.stream().map(Integer::longValue).toList(), queuedRecordNos);
@@ -1500,11 +1501,10 @@ class OnlineIndexerPendingWriteQueueTest extends OnlineIndexerTest {
     @Nonnull
     private Set<Long> indexRecNosForGroup(@Nonnull final Index index, final int numValue2) {
         try (FDBRecordContext context = openContext()) {
-            final Set<Long> recNos = recordStore.scanIndex(index, IndexScanType.BY_VALUE,
+            final Set<Long> recNos = new HashSet<>(recordStore.scanIndex(index, IndexScanType.BY_VALUE,
                             TupleRange.allOf(Tuple.from(numValue2)), null, ScanProperties.FORWARD_SCAN)
                     .map(entry -> entry.getKey().getLong(entry.getKey().size() - 1))
-                    .asList().join()
-                    .stream().collect(java.util.stream.Collectors.toSet());
+                    .asList().join());
             context.commit();
             return recNos;
         }
