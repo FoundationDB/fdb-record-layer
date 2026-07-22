@@ -22,6 +22,9 @@ package com.apple.foundationdb.record.provider.foundationdb;
 
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
+import com.apple.foundationdb.record.IndexState;
+import com.apple.foundationdb.record.RecordMetaDataProto;
+import com.apple.foundationdb.record.RecordMetaDataProvider;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.TupleRange;
@@ -34,18 +37,28 @@ import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
 import com.apple.foundationdb.record.test.TestKeySpace;
 import com.apple.foundationdb.tuple.Tuple;
+import com.apple.test.BooleanSource;
 import com.apple.test.Tags;
 import com.google.common.collect.ImmutableMap;
 import com.google.protobuf.Message;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.BiConsumer;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -64,6 +77,23 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 @Tag(Tags.RequiresFDB)
 public class FDBRecordStoreReplaceIndexTest extends FDBRecordStoreTestBase {
+
+    private static final String RECORD_TYPE = "MySimpleRecord";
+
+    // The single record shared by the replacement tests, and its field values, so that expected index-entry keys can
+    // be written directly in terms of these constants.
+    private static final long REC_NO = 1066L;
+    private static final int NUM_VALUE_2 = 32;
+    private static final int NUM_VALUE_3 = 1806;
+    private static final int NUM_VALUE_UNIQUE = 7;
+    private static final String STR_VALUE = "hello";
+
+    // Expected index-entry keys for the shared record, in each index's field order followed by the primary key.
+    private static final Tuple PRIMARY_KEY = Tuple.from(REC_NO);
+    private static final Tuple NUM_THEN_STR_KEY = Tuple.from((long)NUM_VALUE_2, STR_VALUE, REC_NO);
+    private static final Tuple STR_THEN_NUM_KEY = Tuple.from(STR_VALUE, (long)NUM_VALUE_2, REC_NO);
+    private static final Tuple STR_NUM_THEN_NUM3_KEY = Tuple.from(STR_VALUE, (long)NUM_VALUE_2, (long)NUM_VALUE_3, REC_NO);
+    private static final Tuple STR_NUM_THEN_UNIQUE_KEY = Tuple.from(STR_VALUE, (long)NUM_VALUE_2, (long)NUM_VALUE_UNIQUE, REC_NO);
 
     private Index setReplacementIndexes(@Nonnull Index index, Index... replacementIndexes) {
         Map<String, String> newOptions = new HashMap<>(index.getOptions());
@@ -137,6 +167,93 @@ public class FDBRecordStoreReplaceIndexTest extends FDBRecordStoreTestBase {
     private void buildIndex(Index index) {
         recordStore.getRecordContext().asyncToSync(FDBStoreTimer.Waits.WAIT_ONLINE_BUILD_INDEX,
                 recordStore.rebuildIndex(recordStore.getRecordMetaData().getIndex(index.getName())));
+    }
+
+    private static TestRecords1Proto.MySimpleRecord sampleRecord() {
+        return TestRecords1Proto.MySimpleRecord.newBuilder()
+                .setRecNo(REC_NO)
+                .setNumValue2(NUM_VALUE_2)
+                .setNumValue3Indexed(NUM_VALUE_3)
+                .setNumValueUnique(NUM_VALUE_UNIQUE)
+                .setStrValueIndexed(STR_VALUE)
+                .build();
+    }
+
+    // Fresh index instances (indexes are mutated when added to a meta-data builder, so each test needs its own).
+    private static Index numThenStrIndex() {
+        return new Index("MySimpleRecord$(num_value_2, str_value_indexed)", "num_value_2", "str_value_indexed");
+    }
+
+    private static Index strThenNumIndex() {
+        return new Index("MySimpleRecord$(str_value_indexed, num_value_2)", "str_value_indexed", "num_value_2");
+    }
+
+    private static Index strNumThenNum3Index() {
+        return new Index("MySimpleRecord$(str_value_indexed, num_value_2, num_value_3_indexed)", "str_value_indexed", "num_value_2", "num_value_3_indexed");
+    }
+
+    private static Index strNumThenUniqueIndex() {
+        return new Index("MySimpleRecord$(str_value_indexed, num_value_2, num_value_unique)", "str_value_indexed", "num_value_2", "num_value_unique");
+    }
+
+    /** Open a fresh store with no user-defined indexes and save the shared sample record. */
+    private void saveRecordBeforeIndexesExist() {
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, null);
+            recordStore.saveRecord(sampleRecord());
+            commit(context);
+        }
+    }
+
+    /**
+     * Open the store with {@code origIndex} configured as replaced by {@code newIndexes} (all added at once), a bumped
+     * meta-data version to trigger {@code checkVersion}, and the checker for {@code rebuildOption}.
+     */
+    private void openWithReplacements(@Nonnull FDBRecordContext context, @Nonnull RebuildOption rebuildOption,
+                                      @Nonnull Index origIndex, @Nonnull Index... newIndexes) {
+        final RecordMetaDataHook hook = composeHooks(addIndexAndReplacements(RECORD_TYPE, origIndex, newIndexes), bumpMetaDataVersionHook());
+        final String[] newIndexNames = Arrays.stream(newIndexes).map(Index::getName).toArray(String[]::new);
+        openWithChecker(context, hook, rebuildOption.userVersionChecker(origIndex.getName(), newIndexNames));
+    }
+
+    /** Open the store applying {@code hook} to the meta-data and using the given (possibly null) checker. */
+    private void openWithChecker(@Nonnull FDBRecordContext context, @Nullable RecordMetaDataHook hook,
+                                 @Nullable FDBRecordStoreBase.UserVersionChecker userVersionChecker) {
+        recordStore = getStoreBuilder(context, simpleMetaData(hook))
+                .setUserVersionChecker(userVersionChecker)
+                .createOrOpen();
+    }
+
+    /**
+     * Remove the {@code replacedBy} configuration, force {@code origIndex} readable, and assert it holds no data. This
+     * is how a caller confirms that a replaced original index had its data cleared.
+     */
+    private void assertOriginalIndexDataCleared(@Nonnull Index origIndex, @Nonnull Index... newIndexes) {
+        final RecordMetaDataHook addAllPlainIndexes = composeHooks(
+                addIndexHook(RECORD_TYPE, origIndex),
+                composeHooks(Arrays.stream(newIndexes).map(index -> addIndexHook(RECORD_TYPE, index)).toArray(RecordMetaDataHook[]::new)));
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, composeHooks(addAllPlainIndexes, bumpMetaDataVersionHook(), bumpMetaDataVersionHook()));
+            assertTrue(uncheckedMarkIndexReadable(origIndex));
+            assertThat("Original index data should have been cleared", scanIndex(origIndex), empty());
+        }
+    }
+
+    /**
+     * Assert that {@code index} is in {@code expectedState}, and, when that state is {@link IndexState#READABLE}, that
+     * it contains exactly the saved record with key {@code expectedKey}. This encodes two correctness properties: the
+     * {@code UserVersionChecker}'s requested state must be honored regardless of {@code replacedBy}, and a readable
+     * index must reflect its records.
+     */
+    private void assertIndexStateAndContents(@Nonnull Index index, @Nonnull IndexState expectedState, @Nonnull Tuple expectedKey) {
+        assertEquals(expectedState, recordStore.getIndexState(index.getName()),
+                "Index " + index.getName() + " should be " + expectedState);
+        if (expectedState == IndexState.READABLE) {
+            final List<IndexEntry> entries = scanIndex(index);
+            assertThat("Readable index " + index.getName() + " should contain the saved record", entries, hasSize(1));
+            assertEquals(PRIMARY_KEY, entries.get(0).getPrimaryKey());
+            assertEquals(expectedKey, entries.get(0).getKey());
+        }
     }
 
     @Test
@@ -226,8 +343,270 @@ public class FDBRecordStoreReplaceIndexTest extends FDBRecordStoreTestBase {
         }
     }
 
+    @ParameterizedTest
+    @EnumSource(RebuildOption.class)
+    void buildReplacementInlineWhenOriginalReadable(RebuildOption rebuildOption) {
+        final Index origIndex = numThenStrIndex();
+        final Index newIndex = strThenNumIndex();
+
+        // Start with only the original index present and readable, then save a record
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, addIndexHook(RECORD_TYPE, origIndex));
+            assertTrue(recordStore.isIndexReadable(origIndex), "Old index should be readable at start");
+            recordStore.saveRecord(sampleRecord());
+            commit(context);
+        }
+
+        // Introduce the replacement index and the replacedBy relationship at the same time. The checker decides whether
+        // the new index is built inline; that in turn decides whether the readable original gets replaced.
+        try (FDBRecordContext context = openContext()) {
+            openWithReplacements(context, rebuildOption, origIndex, newIndex);
+            if (rebuildOption.buildsNewIndex()) {
+                assertIndexStateAndContents(newIndex, IndexState.READABLE, STR_THEN_NUM_KEY);
+                assertIndexStateAndContents(origIndex, IndexState.DISABLED, NUM_THEN_STR_KEY);
+            } else {
+                assertIndexStateAndContents(newIndex, IndexState.DISABLED, STR_THEN_NUM_KEY);
+                // The original index is untouched, so it remains readable and still holds the record
+                assertIndexStateAndContents(origIndex, IndexState.READABLE, NUM_THEN_STR_KEY);
+            }
+            commit(context);
+        }
+
+        if (rebuildOption.buildsNewIndex()) {
+            assertOriginalIndexDataCleared(origIndex, newIndex);
+        }
+    }
+
+    @ParameterizedTest
+    @EnumSource(RebuildOption.class)
+    void buildReplacementInlineWhenOriginalDisabled(RebuildOption rebuildOption) {
+        final Index origIndex = numThenStrIndex();
+        final Index newIndex = strThenNumIndex();
+
+        // Start with only the original index present, mark it disabled, then save a record
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, addIndexHook(RECORD_TYPE, origIndex));
+            assertTrue(disableIndex(origIndex));
+            assertTrue(recordStore.isIndexDisabled(origIndex), "Old index should be disabled at start");
+            recordStore.saveRecord(sampleRecord());
+            commit(context);
+        }
+
+        // Introduce the replacement index and the replacedBy relationship at the same time. Whatever happens to the
+        // new index, the original was disabled from the start and stays disabled.
+        try (FDBRecordContext context = openContext()) {
+            openWithReplacements(context, rebuildOption, origIndex, newIndex);
+            assertIndexStateAndContents(origIndex, rebuildOption.expectedOriginalState(), NUM_THEN_STR_KEY);
+            assertIndexStateAndContents(newIndex, rebuildOption.expectedReplacementState(), STR_THEN_NUM_KEY);
+            commit(context);
+        }
+
+        // The original was disabled throughout (and cleared if replaced), so it holds no data
+        assertOriginalIndexDataCleared(origIndex, newIndex);
+    }
+
+    /**
+     * Save a record, then add both the original index (carrying its {@code replacedBy} configuration) and its
+     * replacement index at the same time, and open the store. The checker's requested state must be honored for both
+     * indexes, and any index that ends up readable must contain the previously-saved record.
+     *
+     * <p>This provides a regression test for an old bug: it used to be that if you had an original index with a
+     * {@code replacedBy} option that was added since the last checkVersion (including a new store), it  was never
+     * handed to the {@code UserVersionChecker} and was not attempted to be built.
+     * When its replacement was also not built (so the original was not disabled by {@code removeReplacedIndexes}),
+     * the original index was left marked readable but empty even when the checker asked for it to be disabled,
+     * which was incorrect.</p>
+     */
+    @ParameterizedTest
+    @EnumSource(RebuildOption.class)
+    void readableIndexHasCorrectContentsWhenAddedWithReplacementTogether(RebuildOption rebuildOption) {
+        final Index origIndex = numThenStrIndex();
+        final Index newIndex = strThenNumIndex();
+
+        saveRecordBeforeIndexesExist();
+
+        // Add both indexes (with the replacedBy relationship) at the same time, then open the store
+        try (FDBRecordContext context = openContext()) {
+            openWithReplacements(context, rebuildOption, origIndex, newIndex);
+            // The checker's requested state must be honored, and any readable index must reflect the saved record
+            assertIndexStateAndContents(origIndex, rebuildOption.expectedOriginalState(), NUM_THEN_STR_KEY);
+            assertIndexStateAndContents(newIndex, rebuildOption.expectedReplacementState(), STR_THEN_NUM_KEY);
+            commit(context);
+        }
+    }
+
+    /**
+     * Same as {@link #readableIndexHasCorrectContentsWhenAddedWithReplacementTogether}, but the original index is
+     * replaced by two indexes that are all added together after a record is saved. The checker's requested state must
+     * be honored for every index, and any readable index must contain the saved record.
+     */
+    @ParameterizedTest
+    @EnumSource(RebuildOption.class)
+    void readableIndexHasCorrectContentsWhenAddedWithTwoReplacementsTogether(RebuildOption rebuildOption) {
+        final Index origIndex = strThenNumIndex();
+        final Index newIndex1 = strNumThenNum3Index();
+        final Index newIndex2 = strNumThenUniqueIndex();
+
+        saveRecordBeforeIndexesExist();
+
+        // Add the original index (replaced by both new indexes) and the two replacements together, then open
+        try (FDBRecordContext context = openContext()) {
+            openWithReplacements(context, rebuildOption, origIndex, newIndex1, newIndex2);
+            assertIndexStateAndContents(origIndex, rebuildOption.expectedOriginalState(), STR_THEN_NUM_KEY);
+            assertIndexStateAndContents(newIndex1, rebuildOption.expectedReplacementState(), STR_NUM_THEN_NUM3_KEY);
+            assertIndexStateAndContents(newIndex2, rebuildOption.expectedReplacementState(), STR_NUM_THEN_UNIQUE_KEY);
+            commit(context);
+        }
+    }
+
+    /**
+     * A replacement index that finishes building as a unique index over data with duplicate values lands in
+     * {@link IndexState#READABLE_UNIQUE_PENDING}, which is not fully readable. The original index it replaces should NOT
+     * be dropped in that case, otherwise the store would be left with no readable index over that data.
+     */
     @Test
-    public void buildReplacementsInMultipleStores() {
+    void doesNotDropOriginalWhenReplacementIsUniquePending() {
+        final Index origIndex = new Index("origIndexBeingReplaced", Key.Expressions.field("num_value_2"));
+        final Index replacementUnique = new Index("replacementUniqueIndex", Key.Expressions.field("num_value_2"), IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS);
+
+        // Start with the original index readable and populated with two records that share a num_value_2 value, so a
+        // unique index over that field cannot become fully readable. (num_value_unique must differ to satisfy the
+        // built-in unique index on that field.)
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, addIndexHook(RECORD_TYPE, origIndex));
+            recordStore.saveRecord(TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(1L).setNumValue2(10).setNumValueUnique(901).build());
+            recordStore.saveRecord(TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(2L).setNumValue2(10).setNumValueUnique(902).build());
+            assertTrue(recordStore.isIndexReadable(origIndex), "original index should be readable at start");
+            commit(context);
+        }
+
+        // Introduce the unique replacement, but keep it write-only: a checker prevents the inline unique rebuild,
+        // which would otherwise fail on the duplicate values.
+        final RecordMetaDataHook withReplacementHook = composeHooks(addIndexAndReplacements(RECORD_TYPE, origIndex, replacementUnique), bumpMetaDataVersionHook());
+        try (FDBRecordContext context = openContext()) {
+            openWithChecker(context, withReplacementHook, new SelectiveUserVersionChecker(ImmutableMap.of(replacementUnique.getName(), IndexState.WRITE_ONLY)));
+            assertTrue(recordStore.isIndexReadable(origIndex), "original index should remain readable");
+            assertEquals(IndexState.WRITE_ONLY, recordStore.getIndexState(replacementUnique.getName()));
+            commit(context);
+
+            // Build the unique replacement over the duplicate data. With allowUniquePendingState it lands in
+            // READABLE_UNIQUE_PENDING rather than READABLE (or throwing on the duplicate).
+            try (OnlineIndexer indexer = OnlineIndexer.newBuilder()
+                    .setRecordStore(recordStore)
+                    .setTargetIndexes(List.of(replacementUnique))
+                    .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder().allowUniquePendingState())
+                    .build()) {
+                indexer.buildIndex();
+            }
+        }
+
+        // Reopen with a bumped version so checkVersion runs removeReplacedIndexes. Because the replacement is only
+        // unique-pending (not readable), the original must survive with its data intact.
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, composeHooks(withReplacementHook, bumpMetaDataVersionHook()));
+            assertEquals(IndexState.READABLE_UNIQUE_PENDING, recordStore.getIndexState(replacementUnique.getName()),
+                    "replacement should be readable-unique-pending because of the duplicate values");
+            assertTrue(recordStore.isIndexReadable(origIndex),
+                    "original index must not be dropped while its replacement is only unique-pending");
+            assertThat(scanIndex(origIndex), hasSize(2));
+            commit(context);
+        }
+    }
+
+    /**
+     * When the last replacement index is built and marked readable, the original index is dropped as part of that same
+     * commit (via a commit check), not only on a later {@code checkVersion}. The final reopen uses the SAME meta-data
+     * version (no bump), so {@code checkVersion} does not run {@code removeReplacedIndexes}: the original being disabled
+     * can only be the result of the commit-check path triggered by marking the replacement readable. This is verified
+     * both for the in-transaction {@code rebuildIndex} build and for the {@link OnlineIndexer} build, which mark the
+     * index readable through the same code path.
+     */
+    @ParameterizedTest
+    @BooleanSource("useOnlineIndexer")
+    void originalRemovedAtCommitWhenReplacementMarkedReadable(boolean useOnlineIndexer) {
+        final Index origIndex = numThenStrIndex();
+        final Index newIndex = strThenNumIndex();
+
+        // Original readable and populated; replacement present but disabled.
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, composeHooks(addIndexHook(RECORD_TYPE, origIndex), addIndexHook(RECORD_TYPE, newIndex)));
+            assertTrue(disableIndex(newIndex));
+            recordStore.saveRecord(sampleRecord());
+            commit(context);
+        }
+
+        final RecordMetaDataHook withReplacementHook = composeHooks(addIndexAndReplacements(RECORD_TYPE, origIndex, newIndex), bumpMetaDataVersionHook());
+        // Build the replacement and mark it readable. Marking it readable schedules removeReplacedIndexes as a commit
+        // check, which drops the replaced original when that build's transaction commits.
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, withReplacementHook);
+            assertTrue(recordStore.isIndexReadable(origIndex), "original readable before the replacement is built");
+            if (useOnlineIndexer) {
+                // The OnlineIndexer runs its own transactions, so persist the replacedBy meta-data first; it then
+                // drops the original in the transaction where it marks the replacement readable.
+                commit(context);
+                try (OnlineIndexer indexer = OnlineIndexer.newBuilder()
+                        .setRecordStore(recordStore)
+                        .setTargetIndexes(List.of(newIndex))
+                        .build()) {
+                    indexer.buildIndex();
+                }
+            } else {
+                buildIndex(newIndex); // builds + marks readable in this transaction
+                assertTrue(recordStore.isIndexReadable(origIndex), "original is not dropped until the transaction commits");
+                commit(context);
+            }
+        }
+
+        // Reopen with the SAME version (no additional bump), so checkVersion does not trigger removeReplacedIndexes.
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, withReplacementHook);
+            assertTrue(recordStore.isIndexDisabled(origIndex), "original should have been dropped at commit time");
+            assertTrue(recordStore.isIndexReadable(newIndex), "replacement should be readable");
+            commit(context);
+        }
+    }
+
+    /**
+     * Aborting a migration: after configuring {@code replacedBy} with the replacement left unbuilt (so the original
+     * keeps serving), removing the {@code replacedBy} option again must leave the original readable and populated. The
+     * original must never have been dropped.
+     */
+    @Test
+    void removingReplacedByBeforeReplacementBuiltKeepsOriginal() {
+        final Index origIndex = numThenStrIndex();
+        final Index newIndex = strThenNumIndex();
+
+        // Original readable and populated.
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, addIndexHook(RECORD_TYPE, origIndex));
+            recordStore.saveRecord(sampleRecord());
+            commit(context);
+        }
+
+        // Configure replacedBy but keep the replacement disabled (unbuilt). The original keeps serving.
+        final RecordMetaDataHook withReplacementHook = composeHooks(addIndexAndReplacements(RECORD_TYPE, origIndex, newIndex), bumpMetaDataVersionHook());
+        try (FDBRecordContext context = openContext()) {
+            openWithChecker(context, withReplacementHook, new SelectiveUserVersionChecker(ImmutableMap.of(newIndex.getName(), IndexState.DISABLED)));
+            assertIndexStateAndContents(origIndex, IndexState.READABLE, NUM_THEN_STR_KEY);
+            assertEquals(IndexState.DISABLED, recordStore.getIndexState(newIndex.getName()));
+            commit(context);
+        }
+
+        // Abort: drop the replacedBy relationship (both indexes plain) and bump the version. Removing the option is a
+        // rebuild-free change, and the original must remain readable and populated.
+        final RecordMetaDataHook abortHook = composeHooks(addIndexHook(RECORD_TYPE, origIndex), addIndexHook(RECORD_TYPE, newIndex),
+                bumpMetaDataVersionHook(), bumpMetaDataVersionHook());
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, abortHook);
+            assertIndexStateAndContents(origIndex, IndexState.READABLE, NUM_THEN_STR_KEY);
+            commit(context);
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    public void buildReplacementsInMultipleStores(boolean buildInAllStores) {
         final KeySpacePath multiStoreRoot = pathManager.createPath(TestKeySpace.MULTI_RECORD_STORE);
         try {
             final String recordTypeName = "MySimpleRecord";
@@ -236,6 +615,17 @@ public class FDBRecordStoreReplaceIndexTest extends FDBRecordStoreTestBase {
                     Key.Expressions.concat(Key.Expressions.field("num_value_2"), Key.Expressions.field("repeater", KeyExpression.FanType.FanOut)));
             final RecordMetaDataHook allIndexesHook = composeHooks(addIndexHook(recordTypeName, origIndex), addIndexHook(recordTypeName, newIndex));
             final List<String> stores = IntStream.range(0, 10).mapToObj(i -> "store_" + i).collect(Collectors.toList());
+            // When not building in all stores, build the replacement in only the even-numbered stores. Removal is
+            // per-store, so only those stores should drop the original.
+            final Set<String> storesToBuild = stores.stream()
+                    .filter(name -> buildInAllStores || Integer.parseInt(name.substring("store_".length())) % 2 == 0)
+                    .collect(Collectors.toSet());
+            if (buildInAllStores) {
+                assertEquals(stores.size(), storesToBuild.size(), "All stores should be scheduled to build");
+            } else {
+                assertEquals(stores.size() / 2, storesToBuild.size(), "Half of the stores should be scheduled to build");
+            }
+
 
             try (FDBRecordContext context = openContext()) {
                 openSimpleRecordStore(context, allIndexesHook);
@@ -272,25 +662,39 @@ public class FDBRecordStoreReplaceIndexTest extends FDBRecordStoreTestBase {
                             })
                             .forEach(strValue -> assertEquals(storePathName, strValue));
 
-                    context.asyncToSync(FDBStoreTimer.Waits.WAIT_ONLINE_BUILD_INDEX, subStore.rebuildIndex(subStore.getRecordMetaData().getIndex(newIndex.getName())));
+                    if (storesToBuild.contains(storePathName)) {
+                        context.asyncToSync(FDBStoreTimer.Waits.WAIT_ONLINE_BUILD_INDEX,
+                                subStore.rebuildIndex(subStore.getRecordMetaData().getIndex(newIndex.getName())));
+                    }
                 });
 
                 commit(context);
             }
 
-            // Validate that each store has had the original index removed (because the replacement index was built)
+            // Validate that only stores where the replacement was built have had the original index removed
             try (FDBRecordContext context = openContext()) {
                 openSimpleRecordStore(context, withReplacementHook);
-                forEachStore(multiStoreRoot, stores, (storePathName, subStore) -> assertTrue(subStore.isIndexDisabled(origIndex.getName())));
+                forEachStore(multiStoreRoot, stores, (storePathName, subStore) -> {
+                    if (storesToBuild.contains(storePathName)) {
+                        assertTrue(subStore.isIndexDisabled(origIndex.getName()), storePathName + ": original should be dropped once its replacement is built");
+                    } else {
+                        assertTrue(subStore.isIndexReadable(origIndex.getName()), storePathName + ": original should still be readable where the replacement was not built");
+                        assertThat(context.asyncToSync(FDBStoreTimer.Waits.WAIT_SCAN_RECORDS, subStore.scanIndexRecords(origIndex.getName()).asList()), hasSize(2));
+                    }
+                });
                 commit(context);
             }
 
-            // Validate each store has had the old index data cleaned out
+            // Validate the built stores had the old index data cleaned out, and the others still hold their data
             try (FDBRecordContext context = openContext()) {
                 openSimpleRecordStore(context, composeHooks(allIndexesHook, bumpMetaDataVersionHook(), bumpMetaDataVersionHook()));
                 forEachStore(multiStoreRoot, stores, (storePathName, subStore) -> {
-                    assertTrue(context.asyncToSync(FDBStoreTimer.Waits.WAIT_ADD_INDEX, subStore.uncheckedMarkIndexReadable(origIndex.getName())));
-                    assertEquals(Collections.emptyList(), context.asyncToSync(FDBStoreTimer.Waits.WAIT_SCAN_INDEX_RECORDS, subStore.scanIndexRecords(origIndex.getName()).asList()));
+                    if (storesToBuild.contains(storePathName)) {
+                        assertTrue(context.asyncToSync(FDBStoreTimer.Waits.WAIT_ADD_INDEX, subStore.uncheckedMarkIndexReadable(origIndex.getName())));
+                        assertEquals(Collections.emptyList(), context.asyncToSync(FDBStoreTimer.Waits.WAIT_SCAN_INDEX_RECORDS, subStore.scanIndexRecords(origIndex.getName()).asList()));
+                    } else {
+                        assertThat(context.asyncToSync(FDBStoreTimer.Waits.WAIT_SCAN_RECORDS, subStore.scanIndexRecords(origIndex.getName()).asList()), hasSize(2));
+                    }
                 });
             }
 
@@ -418,6 +822,89 @@ public class FDBRecordStoreReplaceIndexTest extends FDBRecordStoreTestBase {
         }
     }
 
+    /**
+     * Building all of a store's indexes without naming them (letting the store decide what needs building) must never
+     * attempt to build a replaced index. {@link OnlineIndexer} has no "build all" form (it requires explicit targets),
+     * so this only covers {@link FDBRecordStore#rebuildAllIndexes()}.
+     *
+     * <p>To show the build is not merely undone (rather than never attempted): {@code rebuildAllIndexes} builds every
+     * index in its set to {@link IndexState#READABLE}, and the {@code removeReplacedIndexes} commit-check that would
+     * re-disable a replaced index only runs at commit. So if the replaced index is still {@code DISABLED} in the same
+     * transaction, right after the rebuild completes, it was never built.</p>
+     */
+    @Test
+    void buildAllIndexesDoesNotBuildReplacedIndex() {
+        final Index origIndex = numThenStrIndex();
+        final Index newIndex = strThenNumIndex();
+        final RecordMetaDataHook metaDataHook = addIndexAndReplacements(RECORD_TYPE, origIndex, newIndex);
+
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, metaDataHook);
+            assertTrue(recordStore.isIndexDisabled(origIndex), "replaced index should begin disabled");
+            // Make the replacement need building, so rebuildAllIndexes has real work to do while still skipping the original.
+            assertTrue(disableIndex(newIndex));
+            commit(context);
+        }
+
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, metaDataHook);
+            // The replaced index must not be in the set that rebuildAllIndexes builds.
+            assertTrue(recordStore.getRecordMetaData().getIndexesToBuildSince(-1).keySet().stream()
+                            .noneMatch(index -> index.getName().equals(origIndex.getName())),
+                    "replaced index should not be in the set that rebuildAllIndexes builds");
+
+            recordStore.rebuildAllIndexes().join();
+
+            // Still disabled in the same transaction (before the commit-check could re-disable it): it was never built.
+            assertTrue(recordStore.isIndexDisabled(origIndex),
+                    "rebuildAllIndexes must not attempt to build the replaced index");
+            commit(context);
+        }
+    }
+
+    /**
+     * Explicitly building a replaced index while its replacement is not readable does build it: the original becomes
+     * readable and is kept (its replacement is not built, so {@code removeReplacedIndexes} does not drop it).
+     */
+    @ParameterizedTest
+    @BooleanSource("useOnlineIndexer")
+    void explicitlyBuildingReplacedIndexWhileReplacementDisabled(boolean useOnlineIndexer) {
+        final Index origIndex = numThenStrIndex();
+        final Index newIndex = strThenNumIndex();
+        final RecordMetaDataHook metaDataHook = addIndexAndReplacements(RECORD_TYPE, origIndex, newIndex);
+
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, metaDataHook);
+            assertTrue(recordStore.isIndexDisabled(origIndex), "replaced index should begin disabled");
+            // Disable the replacement, so building the original is not undone by removeReplacedIndexes.
+            assertTrue(disableIndex(newIndex));
+            commit(context);
+        }
+
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, metaDataHook);
+            if (useOnlineIndexer) {
+                commit(context);
+                try (OnlineIndexer indexer = OnlineIndexer.newBuilder()
+                        .setRecordStore(recordStore)
+                        .setTargetIndexes(List.of(recordStore.getRecordMetaData().getIndex(origIndex.getName())))
+                        .build()) {
+                    indexer.buildIndex();
+                }
+            } else {
+                buildIndex(origIndex);
+                commit(context);
+            }
+        }
+
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, metaDataHook);
+            assertTrue(recordStore.isIndexReadable(origIndex),
+                    "explicitly building a replaced index while its replacement is unbuilt should leave it readable");
+            commit(context);
+        }
+    }
+
     @Test
     public void replacementIndexMissingInMetaDataFails() {
         try (FDBRecordContext context = openContext()) {
@@ -513,4 +1000,118 @@ public class FDBRecordStoreReplaceIndexTest extends FDBRecordStoreTestBase {
             assertThat(err.getMessage(), containsString("has replacement indexes"));
         }
     }
+
+    /**
+     * The behaviors of a {@link FDBRecordStoreBase.UserVersionChecker} to exercise when a replacement index is
+     * introduced at the same time as its {@code replacedBy} configuration. Each option describes what the checker
+     * asks for, and {@link #expectedOriginalState()} / {@link #expectedReplacementState()} record the correct
+     * resulting states: a {@code DISABLED} decision from the checker must be honored regardless of {@code replacedBy}.
+     */
+    private enum RebuildOption {
+        /** No checker: the default record-count heuristic builds the new index inline (few records), so the original is replaced and disabled. */
+        NULL_CHECKER(IndexState.DISABLED, IndexState.READABLE),
+        /** Checker always tries to build both inline, ignoring record count. */
+        ALWAYS_BUILD_BOTH(IndexState.DISABLED, IndexState.READABLE),
+        /** Checker refuses to build any index: both the original and the replacement must be disabled. */
+        NEVER_BUILD_ANY(IndexState.DISABLED, IndexState.DISABLED),
+        /** Checker refuses to build the original index: the original must be disabled, and the replacement is built. */
+        NEVER_BUILD_ORIGINAL(IndexState.DISABLED, IndexState.READABLE),
+        /** Checker refuses to build the replacement index: the replacement is disabled, and we don't build the original. */
+        NEVER_BUILD_NEW(IndexState.DISABLED, IndexState.DISABLED);
+
+        private final IndexState expectedOriginalState;
+        private final IndexState expectedReplacementState;
+
+        RebuildOption(IndexState expectedOriginalState, IndexState expectedReplacementState) {
+            this.expectedOriginalState = expectedOriginalState;
+            this.expectedReplacementState = expectedReplacementState;
+        }
+
+        boolean buildsNewIndex() {
+            return expectedReplacementState == IndexState.READABLE;
+        }
+
+        IndexState expectedOriginalState() {
+            return expectedOriginalState;
+        }
+
+        IndexState expectedReplacementState() {
+            return expectedReplacementState;
+        }
+
+        @Nullable
+        FDBRecordStoreBase.UserVersionChecker userVersionChecker(@Nonnull String origIndexName, @Nonnull String... newIndexNames) {
+            final Map<String, IndexState> immediateStates = new HashMap<>();
+            return switch (this) {
+                case NULL_CHECKER -> null;
+                case NEVER_BUILD_ANY -> {
+                    immediateStates.put(origIndexName, IndexState.DISABLED);
+                    for (String newIndexName : newIndexNames) {
+                        immediateStates.put(newIndexName, IndexState.DISABLED);
+                    }
+                    yield new SelectiveUserVersionChecker(immediateStates);
+                }
+                case NEVER_BUILD_ORIGINAL -> {
+                    immediateStates.put(origIndexName, IndexState.DISABLED);
+                    for (String newIndexName : newIndexNames) {
+                        immediateStates.put(newIndexName, IndexState.READABLE);
+                    }
+                    yield new SelectiveUserVersionChecker(immediateStates);
+                }
+                case NEVER_BUILD_NEW -> {
+                    immediateStates.put(origIndexName, IndexState.READABLE);
+                    for (String newIndexName : newIndexNames) {
+                        immediateStates.put(newIndexName, IndexState.DISABLED);
+                    }
+                    yield new SelectiveUserVersionChecker(immediateStates);
+                }
+                case ALWAYS_BUILD_BOTH -> {
+                    immediateStates.put(origIndexName, IndexState.READABLE);
+                    for (String newIndexName : newIndexNames) {
+                        immediateStates.put(newIndexName, IndexState.READABLE);
+                    }
+                    yield new SelectiveUserVersionChecker(immediateStates);
+                }
+            };
+        }
+    }
+
+    /**
+     * A {@link FDBRecordStoreBase.UserVersionChecker} that returns a fixed {@link IndexState} for named indexes and
+     * consults the record count for the rest.
+     */
+    private static class SelectiveUserVersionChecker implements FDBRecordStoreBase.UserVersionChecker {
+        private final Map<String, IndexState> immediateStates;
+
+        SelectiveUserVersionChecker(Map<String, IndexState> immediateStates) {
+            this.immediateStates = immediateStates;
+        }
+
+        @Override
+        public CompletableFuture<Integer> checkUserVersion(@Nonnull RecordMetaDataProto.DataStoreInfo storeHeader,
+                                                           RecordMetaDataProvider metaData) {
+            return CompletableFuture.completedFuture(storeHeader.getUserVersion());
+        }
+
+        @Deprecated
+        @Override
+        public CompletableFuture<Integer> checkUserVersion(int oldUserVersion, int oldMetaDataVersion,
+                                                           RecordMetaDataProvider metaData) {
+            return Assertions.fail(); // if we've hit this, then we've gone down an unexpected path
+        }
+
+        @Nonnull
+        @Override
+        public CompletableFuture<IndexState> needRebuildIndex(Index index,
+                                                              Supplier<CompletableFuture<Long>> lazyRecordCount,
+                                                              Supplier<CompletableFuture<Long>> lazyEstimatedSize,
+                                                              boolean indexOnNewRecordTypes) {
+            IndexState immediateState = immediateStates.get(index.getName());
+            if (immediateState != null) {
+                return CompletableFuture.completedFuture(immediateState);
+            }
+            return Assertions.fail("All indexes should be defined " + index.getName());
+        }
+    }
+
 }
