@@ -747,7 +747,7 @@ helpStatement
 
 describeObjectClause
     : (
-        selectStatement | deleteStatement | insertStatement
+        query statementOptions? | deleteStatement | insertStatement
         | updateStatement | executeContinuationStatement
       )                                                             #describeStatements
     | FOR CONNECTION uid                                            #describeConnection
