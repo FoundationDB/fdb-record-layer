@@ -55,7 +55,6 @@ slf4j = "1.7.36"
 assertj = "3.27.7"
 apache-commonsMath3 = "3.6.1"
 apache-httpclient = "5.6.1"
-commonsLang3 = "3.18.0"
 diffutils = "4.15"
 hamcrest = "3.0"
 jcommander = "3.0"
@@ -120,7 +119,6 @@ slf4j-julBridge = { module = "org.slf4j:jul-to-slf4j", version.ref = "slf4j" }
 assertj = { module = "org.assertj:assertj-core", version.ref = "assertj" }
 apache-commonsMath3 = { module = "org.apache.commons:commons-math3", version.ref = "apache-commonsMath3" }
 apache-httpclient = { module = "org.apache.httpcomponents.client5:httpclient5", version.ref = "apache-httpclient" }
-commonsLang3 = { module = "org.apache.commons:commons-lang3", version.ref = "commonsLang3" }
 diffutils = { module = "io.github.java-diff-utils:java-diff-utils", version.ref = "diffutils" }
 guava-testlib = { module = "com.google.guava:guava-testlib", version.ref = "guava" }
 grpc-testing = { module = "io.grpc:grpc-testing", version.ref = "grpc" }

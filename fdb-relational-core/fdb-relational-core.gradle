@@ -51,7 +51,6 @@ dependencies {
     testImplementation(project(':fdb-test-utils'))
     testImplementation(testFixtures(project(":fdb-relational-api")))
     testImplementation(libs.guava.testlib)
-    testImplementation(libs.commonsLang3)
     testImplementation(libs.snakeyaml) // required for FDBTestEnvironment
 
     // Support for the fdb-relational-core test fixture.
