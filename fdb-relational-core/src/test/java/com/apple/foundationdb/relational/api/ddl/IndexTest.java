@@ -1283,11 +1283,11 @@ public class IndexTest {
                 IndexTypes.VECTOR,
                 idx -> {
                     final var options = idx.getOptions();
-                    Assertions.assertEquals("3", options.get(IndexOptions.VECTOR_NUM_DIMENSIONS));
+                    Assertions.assertEquals("3", options.get(IndexOptions.HNSW_NUM_DIMENSIONS));
                     Assertions.assertEquals("16", options.get(IndexOptions.HNSW_M));
                     Assertions.assertEquals("32", options.get(IndexOptions.HNSW_M_MAX));
                     Assertions.assertEquals("200", options.get(IndexOptions.HNSW_EF_CONSTRUCTION));
-                    Assertions.assertEquals("COSINE_METRIC", options.get(IndexOptions.VECTOR_METRIC));
+                    Assertions.assertEquals("COSINE_METRIC", options.get(IndexOptions.HNSW_METRIC));
                     // and the same values read back through the typed option keys
                     final var coreIndex = toCoreIndex(idx);
                     Assertions.assertEquals(3, VectorIndexOptionKeys.NUM_DIMENSIONS.read(coreIndex));
@@ -1310,10 +1310,10 @@ public class IndexTest {
                 IndexTypes.VECTOR,
                 idx -> {
                     final var options = idx.getOptions();
-                    Assertions.assertEquals("128", options.get(IndexOptions.VECTOR_NUM_DIMENSIONS));
-                    Assertions.assertEquals("true", options.get(IndexOptions.VECTOR_USE_RABITQ));
-                    Assertions.assertEquals("4", options.get(IndexOptions.VECTOR_RABITQ_NUM_EX_BITS));
-                    Assertions.assertEquals("0.01", options.get(IndexOptions.VECTOR_MAINTAIN_STATS_PROBABILITY));
+                    Assertions.assertEquals("128", options.get(IndexOptions.HNSW_NUM_DIMENSIONS));
+                    Assertions.assertEquals("true", options.get(IndexOptions.HNSW_USE_RABITQ));
+                    Assertions.assertEquals("4", options.get(IndexOptions.HNSW_RABITQ_NUM_EX_BITS));
+                    Assertions.assertEquals("0.01", options.get(IndexOptions.HNSW_MAINTAIN_STATS_PROBABILITY));
                     // and the same values read back through the typed option keys
                     final var coreIndex = toCoreIndex(idx);
                     Assertions.assertEquals(128, VectorIndexOptionKeys.NUM_DIMENSIONS.read(coreIndex));
@@ -1332,7 +1332,7 @@ public class IndexTest {
                 "CREATE VECTOR INDEX MV1 USING HNSW ON T(b) PARTITION BY (p)";
         indexIs(stmt, keyWithValue(concat(field("P"), field("B")), 1), IndexTypes.VECTOR,
                 idx -> {
-                    Assertions.assertEquals(String.valueOf(dimensions), idx.getOptions().get(IndexOptions.VECTOR_NUM_DIMENSIONS));
+                    Assertions.assertEquals(String.valueOf(dimensions), idx.getOptions().get(IndexOptions.HNSW_NUM_DIMENSIONS));
                     Assertions.assertEquals(dimensions, VectorIndexOptionKeys.NUM_DIMENSIONS.read(toCoreIndex(idx)));
                     validateVectorIndex(idx);
                 });
@@ -1347,8 +1347,8 @@ public class IndexTest {
 
         indexIs(stmt, keyWithValue(concat(field("P"), field("B")), 1), IndexTypes.VECTOR,
                 idx -> {
-                    Assertions.assertEquals("512", idx.getOptions().get(IndexOptions.VECTOR_NUM_DIMENSIONS));
-                    Assertions.assertEquals(metric, idx.getOptions().get(IndexOptions.VECTOR_METRIC));
+                    Assertions.assertEquals("512", idx.getOptions().get(IndexOptions.HNSW_NUM_DIMENSIONS));
+                    Assertions.assertEquals(metric, idx.getOptions().get(IndexOptions.HNSW_METRIC));
                     final var coreIndex = toCoreIndex(idx);
                     Assertions.assertEquals(512, VectorIndexOptionKeys.NUM_DIMENSIONS.read(coreIndex));
                     Assertions.assertEquals(Metric.valueOf(metric), VectorIndexOptionKeys.METRIC.read(coreIndex));
@@ -1393,8 +1393,8 @@ public class IndexTest {
                 IndexTypes.VECTOR,
                 idx -> {
                     final var options = idx.getOptions();
-                    Assertions.assertEquals("64", options.get(IndexOptions.VECTOR_NUM_DIMENSIONS));
-                    Assertions.assertEquals("0.05", options.get(IndexOptions.VECTOR_SAMPLE_VECTOR_STATS_PROBABILITY));
+                    Assertions.assertEquals("64", options.get(IndexOptions.HNSW_NUM_DIMENSIONS));
+                    Assertions.assertEquals("0.05", options.get(IndexOptions.HNSW_SAMPLE_VECTOR_STATS_PROBABILITY));
                     // and the same values read back through the typed option keys
                     final var coreIndex = toCoreIndex(idx);
                     Assertions.assertEquals(64, VectorIndexOptionKeys.NUM_DIMENSIONS.read(coreIndex));

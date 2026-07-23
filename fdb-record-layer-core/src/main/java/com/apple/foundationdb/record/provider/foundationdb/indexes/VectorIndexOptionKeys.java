@@ -42,24 +42,29 @@ import java.util.List;
 @API(API.Status.EXPERIMENTAL)
 public final class VectorIndexOptionKeys {
     //
-    // Shared concepts: engine-neutral canonical name + legacy hnsw* alias.
+    // Shared concepts: one option key per concept both engines share.
+    //
+    // TEMPORARY (rolling-upgrade wire compatibility): the canonical name is deliberately the legacy {@code hnsw*} name,
+    // with the engine-neutral {@code vector*} name as a read alias. The canonical name is the one WRITTEN into stored
+    // index metadata. Once every actor understands the {@code vector*} names, flip these back so{@code vector*} is
+    // canonical again (and eventually drop the {@code hnsw*} alias).
     //
     public static final VectorOptionKey<Metric> METRIC =
-            VectorOptionKey.ofMetric(IndexOptions.VECTOR_METRIC, IndexOptions.HNSW_METRIC);
+            VectorOptionKey.ofMetric(IndexOptions.HNSW_METRIC, IndexOptions.VECTOR_METRIC);
     public static final VectorOptionKey<Integer> NUM_DIMENSIONS =
-            VectorOptionKey.ofInteger(IndexOptions.VECTOR_NUM_DIMENSIONS, IndexOptions.HNSW_NUM_DIMENSIONS);
+            VectorOptionKey.ofInteger(IndexOptions.HNSW_NUM_DIMENSIONS, IndexOptions.VECTOR_NUM_DIMENSIONS);
     public static final VectorOptionKey<Double> SAMPLE_VECTOR_STATS_PROBABILITY =
-            VectorOptionKey.ofDouble(IndexOptions.VECTOR_SAMPLE_VECTOR_STATS_PROBABILITY,
-                    IndexOptions.HNSW_SAMPLE_VECTOR_STATS_PROBABILITY);
+            VectorOptionKey.ofDouble(IndexOptions.HNSW_SAMPLE_VECTOR_STATS_PROBABILITY,
+                    IndexOptions.VECTOR_SAMPLE_VECTOR_STATS_PROBABILITY);
     public static final VectorOptionKey<Double> MAINTAIN_STATS_PROBABILITY =
-            VectorOptionKey.ofDouble(IndexOptions.VECTOR_MAINTAIN_STATS_PROBABILITY,
-                    IndexOptions.HNSW_MAINTAIN_STATS_PROBABILITY);
+            VectorOptionKey.ofDouble(IndexOptions.HNSW_MAINTAIN_STATS_PROBABILITY,
+                    IndexOptions.VECTOR_MAINTAIN_STATS_PROBABILITY);
     public static final VectorOptionKey<Integer> STATS_THRESHOLD =
-            VectorOptionKey.ofInteger(IndexOptions.VECTOR_STATS_THRESHOLD, IndexOptions.HNSW_STATS_THRESHOLD);
+            VectorOptionKey.ofInteger(IndexOptions.HNSW_STATS_THRESHOLD, IndexOptions.VECTOR_STATS_THRESHOLD);
     public static final VectorOptionKey<Boolean> USE_RABITQ =
-            VectorOptionKey.ofBoolean(IndexOptions.VECTOR_USE_RABITQ, IndexOptions.HNSW_USE_RABITQ);
+            VectorOptionKey.ofBoolean(IndexOptions.HNSW_USE_RABITQ, IndexOptions.VECTOR_USE_RABITQ);
     public static final VectorOptionKey<Integer> RABITQ_NUM_EX_BITS =
-            VectorOptionKey.ofInteger(IndexOptions.VECTOR_RABITQ_NUM_EX_BITS, IndexOptions.HNSW_RABITQ_NUM_EX_BITS);
+            VectorOptionKey.ofInteger(IndexOptions.HNSW_RABITQ_NUM_EX_BITS, IndexOptions.VECTOR_RABITQ_NUM_EX_BITS);
 
     //
     // HNSW-only options.

@@ -206,8 +206,9 @@ class VectorIndexOptionKeysTest {
 
     @Test
     void toStringIsTheCanonicalName() {
-        // A key renders as its canonical (current) name, never a legacy alias.
-        assertThat(VectorIndexOptionKeys.METRIC).hasToString(IndexOptions.VECTOR_METRIC);
+        // A key renders as its canonical name, never a non-canonical alias. (The shared keys' canonical name is
+        // temporarily the legacy hnsw* name for rolling-upgrade wire compatibility; see VectorIndexOptionKeys.)
+        assertThat(VectorIndexOptionKeys.METRIC).hasToString(IndexOptions.HNSW_METRIC);
         assertThat(VectorIndexOptionKeys.HNSW_M).hasToString(IndexOptions.HNSW_M);
         assertThat(VectorOptionKey.ofMetric("vectorMetric", "hnswMetric")).hasToString("vectorMetric");
     }
@@ -228,12 +229,14 @@ class VectorIndexOptionKeysTest {
 
     @Test
     void putWritesTheCanonicalNameAndNeverALegacyAlias() {
+        // Put writes the canonical name only. For the shared keys that canonical is temporarily the legacy hnsw* name
+        // (rolling-upgrade wire compatibility; see VectorIndexOptionKeys), so METRIC writes hnswMetric, not vectorMetric.
         final Map<String, String> written = new HashMap<>();
         VectorIndexOptionKeys.METRIC.put(written::put, Metric.EUCLIDEAN_METRIC);
         assertThat(written)
                 .hasSize(1)
-                .containsEntry(IndexOptions.VECTOR_METRIC, Metric.EUCLIDEAN_METRIC.name())
-                .doesNotContainKey(IndexOptions.HNSW_METRIC);
+                .containsEntry(IndexOptions.HNSW_METRIC, Metric.EUCLIDEAN_METRIC.name())
+                .doesNotContainKey(IndexOptions.VECTOR_METRIC);
     }
 
     @Test
