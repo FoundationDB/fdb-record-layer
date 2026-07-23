@@ -288,13 +288,13 @@ agg-index-tests:
     explain: 'AISCAN(MV9 [EQUALS promote(@c20 AS LONG), [LESS_THAN promote(@c32 AS
         LONG)]] BY_GROUP REVERSE -> [_0: KEY:[0], _1: KEY:[2], _2: KEY:[1]]) | MAP
         (_._1 AS COL3, _._2 AS M)'
-    task_count: 473
-    task_total_time_ms: 33
-    transform_count: 146
-    transform_time_ms: 22
-    transform_yield_count: 73
+    task_count: 459
+    task_total_time_ms: 75
+    transform_count: 143
+    transform_time_ms: 43
+    transform_yield_count: 71
     insert_time_ms: 0
-    insert_new_count: 36
+    insert_new_count: 32
     insert_reused_count: 2
 -   query: EXPLAIN select col3, m from (select col3, max(col2) as m from t2 where
         col1 = 1 group by col1, col3) as t order by m desc;
@@ -302,9 +302,9 @@ agg-index-tests:
     explain: 'AISCAN(MV9 [EQUALS promote(@c20 AS LONG)] BY_GROUP REVERSE -> [_0: KEY:[0],
         _1: KEY:[2], _2: KEY:[1]]) | MAP (_._1 AS COL3, _._2 AS M)'
     task_count: 429
-    task_total_time_ms: 33
-    transform_count: 135
-    transform_time_ms: 22
+    task_total_time_ms: 78
+    transform_count: 137
+    transform_time_ms: 48
     transform_yield_count: 70
     insert_time_ms: 0
     insert_new_count: 28
@@ -967,9 +967,9 @@ agg-index-tests:
     explain: 'AISCAN(MV20 <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3],
         _3: KEY:[2]]) | MAP (_._0 AS A, _._1 AS K, _._2 AS B, _._3 AS _3)'
     task_count: 380
-    task_total_time_ms: 38
-    transform_count: 118
-    transform_time_ms: 26
+    task_total_time_ms: 67
+    transform_count: 119
+    transform_time_ms: 43
     transform_yield_count: 36
     insert_time_ms: 0
     insert_new_count: 32
@@ -981,9 +981,9 @@ agg-index-tests:
         _1: KEY:[1], _2: KEY:[3], _3: KEY:[2]]) | MAP (_._1 AS K, _._2 AS B, _._3
         AS _2)'
     task_count: 434
-    task_total_time_ms: 51
-    transform_count: 148
-    transform_time_ms: 30
+    task_total_time_ms: 98
+    transform_count: 149
+    transform_time_ms: 55
     transform_yield_count: 39
     insert_time_ms: 0
     insert_new_count: 34
@@ -995,9 +995,9 @@ agg-index-tests:
         _1: KEY:[1], _2: KEY:[3], _3: KEY:[2]]) | MAP (_._1 AS K, _._2 AS B, _._3
         AS _2)'
     task_count: 434
-    task_total_time_ms: 43
-    transform_count: 148
-    transform_time_ms: 26
+    task_total_time_ms: 82
+    transform_count: 149
+    transform_time_ms: 47
     transform_yield_count: 39
     insert_time_ms: 0
     insert_new_count: 34
@@ -1009,11 +1009,11 @@ agg-index-tests:
         BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[2]]) | MAP (_._1
         AS K, _._2 AS B, _._3 AS _2)'
     task_count: 495
-    task_total_time_ms: 47
-    transform_count: 172
-    transform_time_ms: 26
+    task_total_time_ms: 121
+    transform_count: 173
+    transform_time_ms: 68
     transform_yield_count: 44
-    insert_time_ms: 0
+    insert_time_ms: 1
     insert_new_count: 41
     insert_reused_count: 1
 -   query: EXPLAIN select b, max(d) from t6, (select k from t6.c where k = 'q') as
@@ -1023,11 +1023,11 @@ agg-index-tests:
         BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[2]]) | MAP (_._2
         AS B, _._3 AS _1)'
     task_count: 495
-    task_total_time_ms: 54
-    transform_count: 172
-    transform_time_ms: 30
+    task_total_time_ms: 100
+    transform_count: 173
+    transform_time_ms: 54
     transform_yield_count: 44
-    insert_time_ms: 0
+    insert_time_ms: 1
     insert_new_count: 41
     insert_reused_count: 1
 -   query: EXPLAIN select b, max(d) from t6, (select k from t6.c where k = 'q') as
@@ -1037,9 +1037,9 @@ agg-index-tests:
         BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[2]]) | MAP (_._2
         AS B, _._3 AS _1)'
     task_count: 494
-    task_total_time_ms: 42
-    transform_count: 172
-    transform_time_ms: 24
+    task_total_time_ms: 62
+    transform_count: 173
+    transform_time_ms: 35
     transform_yield_count: 44
     insert_time_ms: 0
     insert_new_count: 41
@@ -1051,11 +1051,11 @@ agg-index-tests:
         BY_GROUP REVERSE -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[2]])
         | MAP (_._2 AS B, _._3 AS _1)'
     task_count: 494
-    task_total_time_ms: 31
-    transform_count: 172
-    transform_time_ms: 17
+    task_total_time_ms: 83
+    transform_count: 173
+    transform_time_ms: 43
     transform_yield_count: 44
-    insert_time_ms: 0
+    insert_time_ms: 1
     insert_new_count: 41
     insert_reused_count: 1
 -   query: EXPLAIN select a, ek.k, b, max(d) from t6, (select k from t6.c) as ek group
@@ -1065,9 +1065,9 @@ agg-index-tests:
         _3: KEY:[2]]) | FILTER _._3 GREATER_THAN promote(@c41 AS LONG) | MAP (_._0
         AS A, _._1 AS K, _._2 AS B, _._3 AS _3)'
     task_count: 411
-    task_total_time_ms: 52
-    transform_count: 124
-    transform_time_ms: 33
+    task_total_time_ms: 73
+    transform_count: 125
+    transform_time_ms: 48
     transform_yield_count: 37
     insert_time_ms: 0
     insert_new_count: 36
@@ -1079,9 +1079,9 @@ agg-index-tests:
         _1: KEY:[1], _2: KEY:[3], _3: KEY:[2]]) | FILTER _._3 GREATER_THAN_OR_EQUALS
         promote(@c44 AS LONG) | MAP (_._1 AS K, _._2 AS B, _._3 AS _2)'
     task_count: 465
-    task_total_time_ms: 58
-    transform_count: 154
-    transform_time_ms: 36
+    task_total_time_ms: 101
+    transform_count: 155
+    transform_time_ms: 60
     transform_yield_count: 40
     insert_time_ms: 0
     insert_new_count: 38
@@ -1094,9 +1094,9 @@ agg-index-tests:
         _2: KEY:[3], _3: KEY:[2]]) | MAP (_._0 AS A, _._1 AS K, _._2 AS B, _._3 AS
         _3)'
     task_count: 401
-    task_total_time_ms: 48
-    transform_count: 146
-    transform_time_ms: 32
+    task_total_time_ms: 157
+    transform_count: 147
+    transform_time_ms: 128
     transform_yield_count: 45
     insert_time_ms: 0
     insert_new_count: 39
@@ -1111,9 +1111,9 @@ agg-index-tests-t6-tvf:
     explain: 'AISCAN(MV20 <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3],
         _3: KEY:[2]]) | MAP (_._0 AS A, _._1 AS K, _._2 AS B, _._3 AS _3)'
     task_count: 397
-    task_total_time_ms: 48
-    transform_count: 122
-    transform_time_ms: 31
+    task_total_time_ms: 88
+    transform_count: 123
+    transform_time_ms: 62
     transform_yield_count: 37
     insert_time_ms: 0
     insert_new_count: 34
@@ -1128,9 +1128,9 @@ agg-index-tests-t6-tvf:
         _1: KEY:[1], _2: KEY:[3], _3: KEY:[2]]) | MAP (_._1 AS K, _._2 AS B, _._3
         AS _2)'
     task_count: 451
-    task_total_time_ms: 53
-    transform_count: 152
-    transform_time_ms: 31
+    task_total_time_ms: 87
+    transform_count: 153
+    transform_time_ms: 48
     transform_yield_count: 40
     insert_time_ms: 0
     insert_new_count: 36
@@ -1145,9 +1145,9 @@ agg-index-tests-t6-tvf:
         _1: KEY:[1], _2: KEY:[3], _3: KEY:[2]]) | MAP (_._1 AS K, _._2 AS B, _._3
         AS _2)'
     task_count: 451
-    task_total_time_ms: 53
-    transform_count: 152
-    transform_time_ms: 31
+    task_total_time_ms: 87
+    transform_count: 153
+    transform_time_ms: 48
     transform_yield_count: 40
     insert_time_ms: 0
     insert_new_count: 36
@@ -1162,9 +1162,9 @@ agg-index-tests-t6-tvf:
         STRING)] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[2]])
         | MAP (_._1 AS K, _._2 AS B, _._3 AS _2)'
     task_count: 512
-    task_total_time_ms: 59
-    transform_count: 176
-    transform_time_ms: 34
+    task_total_time_ms: 31
+    transform_count: 177
+    transform_time_ms: 15
     transform_yield_count: 45
     insert_time_ms: 0
     insert_new_count: 43
@@ -1179,9 +1179,9 @@ agg-index-tests-t6-tvf:
         _1: KEY:[1], _2: KEY:[3], _3: KEY:[2]]) | FILTER _._3 GREATER_THAN_OR_EQUALS
         promote(@c38 AS LONG) | MAP (_._1 AS K, _._2 AS B, _._3 AS _2)'
     task_count: 482
-    task_total_time_ms: 55
-    transform_count: 158
-    transform_time_ms: 33
+    task_total_time_ms: 89
+    transform_count: 159
+    transform_time_ms: 51
     transform_yield_count: 41
     insert_time_ms: 0
     insert_new_count: 40
@@ -1197,9 +1197,9 @@ agg-index-tests-t6-tvf:
         KEY:[1], _2: KEY:[3], _3: KEY:[2]]) | MAP (_._0 AS A, _._1 AS K, _._2 AS B,
         _._3 AS _3)'
     task_count: 523
-    task_total_time_ms: 54
-    transform_count: 178
-    transform_time_ms: 33
+    task_total_time_ms: 81
+    transform_count: 179
+    transform_time_ms: 47
     transform_yield_count: 45
     insert_time_ms: 0
     insert_new_count: 44
