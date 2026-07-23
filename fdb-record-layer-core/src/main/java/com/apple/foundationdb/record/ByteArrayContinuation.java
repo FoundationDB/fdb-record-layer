@@ -39,7 +39,6 @@ public class ByteArrayContinuation implements RecordCursorContinuation {
     @Nullable
     private ByteString byteString;
 
-    @SpotBugsSuppressWarnings("EI2")
     private ByteArrayContinuation(@Nonnull final byte[] bytes) {
         this.bytes = bytes;
     }
@@ -73,7 +72,6 @@ public class ByteArrayContinuation implements RecordCursorContinuation {
      * @return a {@code RecordCursorContinuation} as described above
      */
     @Nonnull
-    @SpotBugsSuppressWarnings("EI2")
     public static RecordCursorContinuation fromNullable(@Nullable final byte[] bytes) {
         if (bytes == null) {
             return RecordCursorEndContinuation.END;

@@ -50,7 +50,6 @@ public class KeyRange {
      *    care must be taken not to modify its contents. If null, assume infinity.
      * @param highEndpoint how the high endpoint is to be treated
      */
-    @SpotBugsSuppressWarnings("EI_EXPOSE_REP2")
     public KeyRange(@Nullable byte[] lowKey, @Nonnull EndpointType lowEndpoint,
                     @Nullable byte[] highKey, @Nonnull EndpointType highEndpoint) {
         this.lowKey = lowKey == null ? new byte[0] : lowKey;

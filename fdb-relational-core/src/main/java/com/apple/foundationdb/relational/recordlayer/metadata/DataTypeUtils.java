@@ -50,7 +50,6 @@ public class DataTypeUtils {
      * @param type The Relational data type.
      * @return The corresponding Record Layer type.
      */
-    @SpotBugsSuppressWarnings(value = "NP_NONNULL_RETURN_VIOLATION", justification = "should never happen, there is failUnchecked directly before that.")
     @Nonnull
     public static DataType toRelationalType(@Nonnull final Type type) {
         if (primitivesMap.containsValue(type)) {
@@ -100,7 +99,7 @@ public class DataTypeUtils {
      * @param type The Relational data type.
      * @return The corresponding Record Layer type.
      */
-    @SpotBugsSuppressWarnings(value = {"NP_NONNULL_RETURN_VIOLATION", "NP_NULL_ON_SOME_PATH_FROM_RETURN_VALUE"},
+    @SpotBugsSuppressWarnings(value = {"NP_NULL_ON_SOME_PATH_FROM_RETURN_VALUE"},
             justification = "should never happen, there is failUnchecked directly before that.")
     @Nonnull
     public static Type toRecordLayerType(@Nonnull final DataType type) {

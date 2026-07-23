@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.async.rtree;
 
-import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Streams;
@@ -50,7 +49,6 @@ abstract class AbstractNode<S extends NodeSlot, N extends AbstractNode<S, N>> im
     @Nullable
     private AbstractChangeSet<S, N> changeSet;
 
-    @SpotBugsSuppressWarnings("EI_EXPOSE_REP2")
     protected AbstractNode(@Nonnull final byte[] id, @Nonnull final List<S> nodeSlots,
                            @Nullable final IntermediateNode parentNode, final int slotIndexInParent) {
         this.id = id;
@@ -70,7 +68,6 @@ abstract class AbstractNode<S extends NodeSlot, N extends AbstractNode<S, N>> im
 
     @Nonnull
     @Override
-    @SpotBugsSuppressWarnings("EI_EXPOSE_REP")
     public byte[] getId() {
         return id;
     }

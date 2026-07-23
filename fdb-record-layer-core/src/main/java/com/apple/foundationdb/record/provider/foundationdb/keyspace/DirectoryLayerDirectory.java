@@ -22,7 +22,6 @@ package com.apple.foundationdb.record.provider.foundationdb.keyspace;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
-import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.tuple.Tuple;
@@ -200,7 +199,6 @@ public class DirectoryLayerDirectory extends KeySpaceDirectory {
                 return lookupInScope(context, (String) this.value)
                         .thenApply(new Function<ResolverResult, PathValue>() {
                             @Override
-                            @SpotBugsSuppressWarnings(value = "NP_PARAMETER_MUST_BE_NONNULL_BUT_MARKED_AS_NULLABLE", justification = "https://github.com/spotbugs/spotbugs/issues/552")
                             public PathValue apply(ResolverResult resolved) {
                                 if (resolved.getValue() != (Long)value) {
                                     throw new RecordCoreArgumentException("Provided directory layer value "
