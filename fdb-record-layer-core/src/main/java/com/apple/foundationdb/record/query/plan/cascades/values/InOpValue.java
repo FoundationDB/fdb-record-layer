@@ -129,7 +129,6 @@ public class InOpValue extends AbstractValue implements BooleanValue {
     }
 
     @Nonnull
-    @SpotBugsSuppressWarnings("RCN_REDUNDANT_NULLCHECK_OF_NONNULL_VALUE")
     private Optional<QueryPredicate> compileTimeEvalMaybe(@Nonnull TypeRepository typeRepository) {
         Object constantValue = this.evalWithoutStore(EvaluationContext.forTypeRepository(typeRepository));
         if (constantValue instanceof Boolean) {
