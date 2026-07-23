@@ -26,18 +26,14 @@ THE SOFTWARE.
 
 lexer grammar RelationalLexer;
 
-channels { MYSQLCOMMENT }
-
-// SKIP
-
+//
+// Comments are purely lexical: they are routed to the HIDDEN channel and never reach the parser, so they are purely
+// informational and cannot carry any semantics. In particular there is no support for hint-style comments (e.g.
+// '/*+ ... */'); making those meaningful would require the parser (not just the lexer) to inspect the hidden channel.
+//
 SPACE:                               [ \t\r\n]+    -> skip;
-SPEC_MYSQL_COMMENT:                  '/*!' .+? '*/' -> channel(MYSQLCOMMENT);
 COMMENT_INPUT:                       '/*' .*? '*/' -> channel(HIDDEN);
-LINE_COMMENT:                        (
-                                       ('--' [ \t] | '#') ~[\r\n]* ('\r'? '\n' | EOF)
-                                       | '--' ('\r'? '\n' | EOF)
-                                     ) -> channel(HIDDEN);
-
+LINE_COMMENT:                        '--' ~[\r\n]* ('\r'? '\n' | EOF) -> channel(HIDDEN);
 
 // Keywords
 // Common Keywords

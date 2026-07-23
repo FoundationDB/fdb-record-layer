@@ -50,6 +50,11 @@ class DocumentationQueriesTests {
     }
 
     @TestTemplate
+    void commentsDocumentationQueriesTests(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql(PREFIX + "/comments-documentation-queries.yamsql");
+    }
+
+    @TestTemplate
     void groupByDocumentationQueriesTests(YamlTest.Runner runner) throws Exception {
         runner.runYamsql(PREFIX + "/group-by-documentation-queries.yamsql");
     }
