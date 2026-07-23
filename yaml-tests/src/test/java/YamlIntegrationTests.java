@@ -383,6 +383,11 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
+    public void sqlComments(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("sql-comments.yamsql");
+    }
+
+    @TestTemplate
     public void sqlFunctionsTest(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("sql-functions.yamsql");
     }

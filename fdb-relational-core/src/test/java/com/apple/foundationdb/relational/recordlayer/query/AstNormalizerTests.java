@@ -448,6 +448,75 @@ public class AstNormalizerTests {
     }
 
     @Test
+    void commentsAreExcludedFromCanonicalQueryString() throws Exception {
+        //
+        // Comments live on the hidden channel and never reach the parse tree, so block, line, multi-line, and
+        // leading/trailing comments are all absent from the canonical query string. Every variant below therefore
+        // normalizes to exactly the same comment-free canonical string and, consequently, shares the same cache
+        // key and hash (asserted by the multi-query validate helper).
+        //
+        validate(List.of(
+                        "select * from t1 where col1 = col2",
+                        "select /* pick everything */ * from t1 where col1 = col2",
+                        "select * from t1 where col1 = col2 -- trailing comment\n",
+                        "select * from t1 where col1 = col2 --no space after the dashes\n",
+                        "-- a leading comment\nselect * from t1 where col1 = col2",
+                        "select *\n/* this comment\n   spans multiple\n   lines */\nfrom t1 where col1 = col2",
+                        "select * from t1 /* comment text that looks like SQL: drop table t1 */ where col1 = col2"),
+                "select * from \"T1\" where \"COL1\" = \"COL2\" ");
+    }
+
+    @Test
+    void commentedQuerySharesCanonicalStringAndCacheKeyWithBareQuery() throws RelationalException {
+        //
+        // Even when a stripped literal is present, a query peppered with comments must normalize to exactly the
+        // same canonical string and cache key as the bare query. The cache key derives from the canonical string
+        // (not from token positions), so comments cannot influence caching.
+        //
+        final var bareQuery = "select * from t1 where col1 = 42";
+        final var commentedQuery = "select /* cols */ * from t1 /* SELECT ... DROP */ where col1 = 42 -- trailing\n";
+
+        final var bareResult = AstNormalizer.normalizeAst(fakeSchemaTemplate, QueryParser.parse(bareQuery),
+                PreparedParams.empty(), plannerConfiguration, false, PlanHashable.PlanHashMode.VC0, bareQuery);
+        final var commentedResult = AstNormalizer.normalizeAst(fakeSchemaTemplate, QueryParser.parse(commentedQuery),
+                PreparedParams.empty(), plannerConfiguration, false, PlanHashable.PlanHashMode.VC0, commentedQuery);
+
+        Assertions.assertThat(commentedResult.getQueryCacheKey().getCanonicalQueryString())
+                .as("canonical query string must be comment-free")
+                .isEqualTo("select * from \"T1\" where \"COL1\" = ? ")
+                .isEqualTo(bareResult.getQueryCacheKey().getCanonicalQueryString());
+        Assertions.assertThat(commentedResult.getQueryCacheKey())
+                .as("commented and bare queries must share the same cache key")
+                .isEqualTo(bareResult.getQueryCacheKey());
+        Assertions.assertThat(commentedResult.getQueryCacheKey().hashCode())
+                .as("commented and bare queries must share the same cache key hash")
+                .isEqualTo(bareResult.getQueryCacheKey().hashCode());
+    }
+
+    @Test
+    void lineCommentMarkersInsideStringLiteralAreNotStripped() throws Exception {
+        //
+        // A '--' or '#' inside a string literal is literal content, not a comment: the whole string, comment
+        // markers and all, must survive verbatim as the stripped constant rather than being truncated.
+        //
+        validate("select '-- not a comment' from t1 where col1 = 'trailing # not a comment'",
+                "select ? from \"T1\" where \"COL1\" = ? ",
+                Map.of(constantId(1), "-- not a comment",
+                        constantId(7), "trailing # not a comment"));
+    }
+
+    @Test
+    void blockCommentMarkersInsideStringLiteralAreNotStripped() throws Exception {
+        //
+        // Likewise, a '/* ... */' sequence inside a string literal is data, not a comment; the embedded closing
+        // '*/' must not terminate anything and the literal must be preserved in full.
+        //
+        validate("select 'a /* still */ here' from t1",
+                "select ? from \"T1\" ",
+                Map.of(constantId(1), "a /* still */ here"));
+    }
+
+    @Test
     void queryHashingWithParametersWorks() throws RelationalException {
         validate(List.of(
                         "select * from t1 where col1 = 30 and col3 = 90",
