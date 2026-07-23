@@ -51,7 +51,7 @@ test {
     }
 }
 
-task destructiveTest(type: Test) {
+tasks.register('destructiveTest', Test) {
     useJUnitPlatform {
         includeTags 'WipesFDB'
         maxParallelForks = 1
@@ -61,14 +61,14 @@ task destructiveTest(type: Test) {
     }
 }
 
-task performanceTest(type: Test) {
+tasks.register('performanceTest', Test) {
     useJUnitPlatform {
         includeTags 'Performance'
         enableAssertions = false
     }
 }
 
-task quickTest(type: Test) {
+tasks.register('quickTest', Test) {
     systemProperties["tests.runQuick"] = true
     useJUnitPlatform {
         excludeTags 'WipesFDB'
@@ -76,7 +76,7 @@ task quickTest(type: Test) {
 }
 
 // Tests that run similarly to quickTest, but with an embedded RPC server instead of embedded connection
-task rpcTest(type: Test) {
+tasks.register('rpcTest', Test) {
     systemProperties["tests.runRPC"] = true
     useJUnitPlatform {
         excludeTags 'WipesFDB'
@@ -84,7 +84,7 @@ task rpcTest(type: Test) {
 }
 
 // Tests that run a single version on multiple external servers
-task singleVersionTest(type: Test) {
+tasks.register('singleVersionTest', Test) {
     systemProperties["tests.singleVersion"] = true
     useJUnitPlatform {
         excludeTags 'WipesFDB'
@@ -115,7 +115,7 @@ static def getMixedModeVersion(descriptor) {
     return null
 }
 
-task mixedModeTest(type: Test) {
+tasks.register('mixedModeTest', Test) {
     useJUnitPlatform {
         includeTags 'MixedMode'
     }
@@ -258,7 +258,7 @@ def betterException(String exception) {
     return skippedStackTraceEntries.matcher(exception).replaceAll("\n\${indent}... junit stack ...")
 }
 
-tasks.withType(Test) { Test theTask ->
+tasks.withType(Test).configureEach { Test theTask ->
     // Point the `Test` task at the compiled classes and the runtime classpath of the test source-set.
     testClassesDirs = sourceSets.test.output.classesDirs
     classpath = sourceSets.test.runtimeClasspath
@@ -410,7 +410,8 @@ tasks.withType(Test).configureEach { task ->
 
 }
 
-task testJar(type: Jar, dependsOn: testClasses) {
+tasks.register('testJar', Jar) {
+    dependsOn 'testClasses'
     group = 'Build'
     description = 'Build a jar file of test classes as an exported artifact'
     archiveClassifier = 'test'
@@ -424,10 +425,10 @@ configurations {
 }
 
 artifacts {
-    tests testJar
+    tests tasks.named('testJar')
 }
 
-task quickCheck {
+tasks.register('quickCheck') {
     group = 'Verification'
     description = 'Perform fast build verification'
 

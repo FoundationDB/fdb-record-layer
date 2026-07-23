@@ -78,7 +78,7 @@ allprojects {
     project.tasks.withType(Javadoc) {
         options.encoding = "utf-8"
     }
-    project.tasks.withType(Test) {
+    project.tasks.withType(Test).configureEach {
         systemProperty "file.encoding", "utf-8"
         if (project.hasProperty("apiVersion")) {
             systemProperty "com.apple.foundationdb.apiVersion", project.getProperty("apiVersion")
@@ -91,7 +91,7 @@ allprojects {
     // though this requires making sure that we set 'debugBuild' to false explicitly when producing a release
     // or snapshot build to make sure that the tests are _not_ running in that mode and rather running in prod-like
     // environment.
-    project.tasks.withType(Test) {
+    project.tasks.withType(Test).configureEach {
         systemProperty "debugBuild", System.getProperty("debugBuild", "true")
         dependsOn("sourcesJar")
     }
@@ -110,7 +110,7 @@ allprojects {
     }
 
     // Configure JUnit tests
-    tasks.withType(Test) {
+    tasks.withType(Test).configureEach {
         reports.junitXml.outputLocation = project.layout.buildDirectory.dir("test-results")
     }
 
@@ -138,7 +138,8 @@ allprojects {
     }
 
     // Create the sources jar
-    task sourcesJar(type: Jar, dependsOn: 'compileJava') {
+    tasks.register('sourcesJar', Jar) {
+        dependsOn 'compileJava'
         description = "Assembles a Jar archive containing the main sources."
         group = JavaBasePlugin.DOCUMENTATION_GROUP
         archiveAppendix = null
@@ -147,28 +148,28 @@ allprojects {
     }
 
     // Create the Javadoc jar
-    task javadocJar(type: Jar) {
+    tasks.register('javadocJar', Jar) {
         description = "Assembles a Jar archive containing the main Javadoc."
         group = JavaBasePlugin.DOCUMENTATION_GROUP
         archiveAppendix = null
         archiveClassifier = "javadoc"
-        from tasks.javadoc
+        from tasks.named('javadoc')
     }
 
     // Distribution
-    task createDistribution(type: Sync) {
+    tasks.register('createDistribution', Sync) {
         // source directory depends on the subproject
         into distDir
     }
 
     // Create umbrella task for all packaging operations
-    tasks.create("package", DefaultTask) {
+    tasks.register('package', DefaultTask) {
         description = "Produces main, sources, and Javadoc artifacts in .dist/."
-        dependsOn createDistribution
+        dependsOn 'createDistribution'
     }
 
     build {
-        dependsOn tasks.jar, tasks.package
+        dependsOn tasks.named('jar'), tasks.named('package')
     }
 
     signing {
@@ -229,7 +230,7 @@ subprojects {
     }
 
     tasks.named('assemble') {
-        dependsOn tasks.sourcesJar, tasks.javadocJar, tasks.testJar
+        dependsOn tasks.named('sourcesJar'), tasks.named('javadocJar'), tasks.named('testJar')
     }
 
     afterEvaluate { project ->
@@ -282,14 +283,14 @@ subprojects {
     apply from: rootProject.file('gradle/strict.gradle')
 
     if(System.getenv("DO_NOT_CHECK") != null) {
-        task check(overwrite: true, dependsOn: quickCheck) { }
+        task check(overwrite: true, dependsOn: 'quickCheck') { }
     }
 
-    check.dependsOn quickCheck
+    check.dependsOn 'quickCheck'
 
     // At the end of a release build, we want to update all the yamsql files to replace !current_version with the
     // version being built
-    task updateYamsql(type: Task) {
+    tasks.register('updateYamsql') {
         mustRunAfter 'test'
         mustRunAfter 'build'
         def execOps = objects.newInstance(InjectedExecOps).execOps
@@ -380,7 +381,7 @@ if (fdbEnvironmentFile.exists()) {
 if (!ext.fdbEnvironment.isEmpty()) {
     def fdbenv = ext.fdbEnvironment
     allprojects {
-        tasks.withType(Test) { task ->
+        tasks.withType(Test).configureEach { task ->
             task.environment(fdbenv)
         }
     }
@@ -391,7 +392,7 @@ if (fdbEnvironmentYamlFile.exists()) {
     def libraryPath = new Yaml().loadAll(fdbEnvironmentYamlFile.newInputStream()).first().libraryPath
     def libraryPathVariable = Os.isFamily(Os.FAMILY_MAC) ? "DYLD_LIBRARY_PATH" : "LD_LIBRARY_PATH"
     allprojects {
-        tasks.withType(Test) { task ->
+        tasks.withType(Test).configureEach { task ->
             task.environment([(libraryPathVariable): libraryPath])
             task.environment(FDB_ENVIRONMENT_YAML: fdbEnvironmentYamlFile.absolutePath)
         }

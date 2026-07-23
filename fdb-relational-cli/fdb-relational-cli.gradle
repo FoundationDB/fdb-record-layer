@@ -78,7 +78,7 @@ def fdbEnvironmentYamlFile = new File("${rootProject.projectDir}/fdb-environment
 if (fdbEnvironmentYamlFile.exists()) {
     def firstClusterFile = new Yaml().loadAll(fdbEnvironmentYamlFile.newInputStream()).first().clusterFiles.first()
     allprojects {
-        tasks.withType(Test) { task ->
+        tasks.withType(Test).configureEach { task ->
             task.environment(FDB_CLUSTER_FILE: firstClusterFile)
         }
     }
@@ -103,7 +103,7 @@ shadowJar {
 
 build.dependsOn(shadowJar)
 
-tasks.withType(Jar) { task ->
+tasks.withType(Jar).configureEach { task ->
     dependsOn(tasks.withType(AntlrTask))
 }
 
@@ -152,10 +152,10 @@ distTar {
     archiveExtension = "tar.gz"
 }
 
-createDistribution.configure {
-    afterEvaluate {
-        dependsOn shadowJar
-        from tasks.shadowJar
+afterEvaluate {
+    tasks.named('createDistribution').configure {
+        dependsOn tasks.named('shadowJar')
+        from tasks.named('shadowJar')
     }
 }
 
