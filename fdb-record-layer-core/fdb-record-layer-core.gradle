@@ -70,7 +70,7 @@ sourceSets {
     }
 }
 
-task testShadowJar(type: ShadowJar) {
+tasks.register('testShadowJar', ShadowJar) {
     archiveClassifier = 'standalone-tests'
     from sourceSets.main.output
     from sourceSets.test.output

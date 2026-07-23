@@ -207,7 +207,7 @@ afterEvaluate {
 // fdb.vector.simd=scalar system property also forces scalar selection (so RealVectorPrimitives
 // resolves to the scalar backend even though the SIMD class is technically on the classpath).
 //
-task scalarFallbackTest(type: Test) {
+tasks.register('scalarFallbackTest', Test) {
     description = 'Runs the RequiresScalar and DualScalarSIMD tagged tests without --add-modules to exercise the scalar fallback.'
     group = 'verification'
     useJUnitPlatform {
