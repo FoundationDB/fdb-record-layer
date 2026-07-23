@@ -475,6 +475,11 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
+    public void vectorMixedVersionMetadataTests(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("vector-mixed-version-metadata.yamsql");
+    }
+
+    @TestTemplate
     public void vectorTests(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("vector.yamsql");
     }

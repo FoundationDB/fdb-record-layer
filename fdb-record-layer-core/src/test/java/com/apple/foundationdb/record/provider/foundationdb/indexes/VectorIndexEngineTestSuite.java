@@ -1,9 +1,9 @@
 /*
- * VectorIndexTest.java
+ * VectorIndexEngineTestSuite.java
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2025 Apple Inc. and the FoundationDB project authors
+ * Copyright 2025 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -34,19 +34,12 @@ import com.apple.foundationdb.record.RecordCursorIterator;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.metadata.Index;
-import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexTypes;
-import com.apple.foundationdb.record.metadata.IndexValidator;
 import com.apple.foundationdb.record.metadata.Key;
-import com.apple.foundationdb.record.metadata.MetaDataException;
-import com.apple.foundationdb.record.metadata.MetaDataValidator;
-import com.apple.foundationdb.record.metadata.expressions.KeyWithValueExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainer;
-import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerFactory;
-import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerFactoryRegistry;
 import com.apple.foundationdb.record.provider.foundationdb.VectorIndexScanComparisons;
 import com.apple.foundationdb.record.provider.foundationdb.VectorIndexScanOptions;
 import com.apple.foundationdb.record.query.expressions.Query;
@@ -55,7 +48,6 @@ import com.apple.foundationdb.record.vector.TestRecordsVectorsProto.VectorRecord
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.RandomizedTestUtils;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.common.collect.ObjectArrays;
@@ -79,12 +71,15 @@ import java.util.Set;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
-import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
-import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 import static org.assertj.core.api.Assertions.assertThat;
 
-class VectorIndexTest extends VectorIndexTestBase {
-    private static final Logger logger = LoggerFactory.getLogger(VectorIndexTest.class);
+/**
+ * Engine-agnostic behavioral tests for vector indexes: write/read, grouped read, insert-read-delete churn,
+ * {@code deleteWhere}, and direct index-maintainer scans. Concrete subclasses pin the engine via
+ * {@link #indexOptions()} (and may tighten {@link #minRecall()}), so the whole battery runs against each engine.
+ */
+abstract class VectorIndexEngineTestSuite extends VectorIndexTestBase {
+    private static final Logger logger = LoggerFactory.getLogger(VectorIndexEngineTestSuite.class);
 
     @Nonnull
     static Stream<Arguments> randomSeedsWithAsync() {
@@ -190,7 +185,7 @@ class VectorIndexTest extends VectorIndexTestBase {
                 }
             } while (continuation != null);
             assertThat(allCounter).isEqualTo(expectedResults.size());
-            assertThat((double)recallCounter / expectedResults.size()).isGreaterThan(0.9);
+            assertThat((double)recallCounter / expectedResults.size()).isGreaterThan(minRecall());
         }
     }
 
@@ -264,7 +259,7 @@ class VectorIndexTest extends VectorIndexTestBase {
                                 .satisfies(recallCountersAtIndex -> {
                                     assertThat((double)recallCountersAtIndex /
                                             expectedResults.getOrDefault(index, ImmutableSet.of()).size())
-                                            .isGreaterThan(0.9);
+                                            .isGreaterThan(minRecall());
                                 });
 
                     });
@@ -381,114 +376,6 @@ class VectorIndexTest extends VectorIndexTestBase {
         checkResultsGrouped(indexPlan, Integer.MAX_VALUE, expectedResults);
     }
 
-    @Test
-    void directIndexValidatorTest() throws Exception {
-        try (FDBRecordContext context = openContext()) {
-            openRecordStore(context, this::addGroupedVectorIndex);
-
-            final Index index =
-                    Objects.requireNonNull(recordStore.getMetaDataProvider())
-                            .getRecordMetaData().getIndex("GroupedVectorIndex");
-            final IndexMaintainerFactoryRegistry indexMaintainerRegistry = recordStore.getIndexMaintainerRegistry();
-            final MetaDataValidator metaDataValidator =
-                    new MetaDataValidator(recordStore.getRecordMetaData(), indexMaintainerRegistry);
-            metaDataValidator.validate();
-
-            // validate the allowed changes all at once
-            validateIndexEvolution(metaDataValidator, index,
-                    ImmutableMap.<String, String>builder()
-                            // cannot change those per se but must accept same value
-                            .put(IndexOptions.HNSW_METRIC, Metric.EUCLIDEAN_METRIC.name())
-                            .put(IndexOptions.HNSW_NUM_DIMENSIONS, "128")
-                            .put(IndexOptions.HNSW_USE_INLINING, "false")
-                            .put(IndexOptions.HNSW_M, "16")
-                            .put(IndexOptions.HNSW_M_MAX, "16")
-                            .put(IndexOptions.HNSW_M_MAX_0, "32")
-                            .put(IndexOptions.HNSW_EF_CONSTRUCTION, "200")
-                            .put(IndexOptions.HNSW_EF_REPAIR, "64")
-                            .put(IndexOptions.HNSW_EXTEND_CANDIDATES, "false")
-                            .put(IndexOptions.HNSW_KEEP_PRUNED_CONNECTIONS, "false")
-                            .put(IndexOptions.HNSW_USE_RABITQ, "false")
-                            .put(IndexOptions.HNSW_RABITQ_NUM_EX_BITS, "4")
-
-                            // these are allowed to change in any way
-                            .put(IndexOptions.HNSW_SAMPLE_VECTOR_STATS_PROBABILITY, "0.999")
-                            .put(IndexOptions.HNSW_MAINTAIN_STATS_PROBABILITY, "0.78")
-                            .put(IndexOptions.HNSW_STATS_THRESHOLD, "500")
-                            .put(IndexOptions.HNSW_MAX_NUM_CONCURRENT_NODE_FETCHES, "17")
-                            .put(IndexOptions.HNSW_MAX_NUM_CONCURRENT_NEIGHBORHOOD_FETCHES, "9")
-                            .put(IndexOptions.HNSW_MAX_NUM_CONCURRENT_DELETE_FROM_LAYER, "5").build());
-
-            Assertions.assertThatThrownBy(() -> validateIndexEvolution(metaDataValidator, index,
-                    ImmutableMap.of(IndexOptions.HNSW_NUM_DIMENSIONS, "128",
-                            IndexOptions.HNSW_METRIC, Metric.EUCLIDEAN_SQUARE_METRIC.name())))
-                    .isInstanceOf(MetaDataException.class);
-
-            Assertions.assertThatThrownBy(() -> validateIndexEvolution(metaDataValidator, index,
-                    ImmutableMap.of(IndexOptions.HNSW_NUM_DIMENSIONS, "768")))
-                    .isInstanceOf(MetaDataException.class);
-
-            Assertions.assertThatThrownBy(() -> validateIndexEvolution(metaDataValidator, index,
-                    ImmutableMap.of(IndexOptions.HNSW_NUM_DIMENSIONS, "128",
-                            IndexOptions.HNSW_USE_INLINING, "true"))).isInstanceOf(MetaDataException.class);
-
-            Assertions.assertThatThrownBy(() -> validateIndexEvolution(metaDataValidator, index,
-                    ImmutableMap.of(IndexOptions.HNSW_NUM_DIMENSIONS, "128",
-                            IndexOptions.HNSW_M, "8"))).isInstanceOf(MetaDataException.class);
-
-            Assertions.assertThatThrownBy(() -> validateIndexEvolution(metaDataValidator, index,
-                    ImmutableMap.of(IndexOptions.HNSW_NUM_DIMENSIONS, "128",
-                            IndexOptions.HNSW_M_MAX, "8"))).isInstanceOf(MetaDataException.class);
-
-            Assertions.assertThatThrownBy(() -> validateIndexEvolution(metaDataValidator, index,
-                    ImmutableMap.of(IndexOptions.HNSW_NUM_DIMENSIONS, "128",
-                            IndexOptions.HNSW_M_MAX_0, "16"))).isInstanceOf(MetaDataException.class);
-
-            Assertions.assertThatThrownBy(() -> validateIndexEvolution(metaDataValidator, index,
-                    ImmutableMap.of(IndexOptions.HNSW_NUM_DIMENSIONS, "128",
-                            IndexOptions.HNSW_EF_CONSTRUCTION, "500"))).isInstanceOf(MetaDataException.class);
-
-            Assertions.assertThatThrownBy(() -> validateIndexEvolution(metaDataValidator, index,
-                    ImmutableMap.of(IndexOptions.HNSW_NUM_DIMENSIONS, "128",
-                            IndexOptions.HNSW_EF_REPAIR, "500"))).isInstanceOf(MetaDataException.class);
-
-            Assertions.assertThatThrownBy(() -> validateIndexEvolution(metaDataValidator, index,
-                    ImmutableMap.of(IndexOptions.HNSW_NUM_DIMENSIONS, "128",
-                            IndexOptions.HNSW_EXTEND_CANDIDATES, "true"))).isInstanceOf(MetaDataException.class);
-
-            Assertions.assertThatThrownBy(() -> validateIndexEvolution(metaDataValidator, index,
-                    ImmutableMap.of(IndexOptions.HNSW_NUM_DIMENSIONS, "128",
-                            IndexOptions.HNSW_KEEP_PRUNED_CONNECTIONS, "true")))
-                    .isInstanceOf(MetaDataException.class);
-
-            Assertions.assertThatThrownBy(() -> validateIndexEvolution(metaDataValidator, index,
-                    ImmutableMap.of(IndexOptions.HNSW_NUM_DIMENSIONS, "128",
-                            IndexOptions.HNSW_USE_RABITQ, "true"))).isInstanceOf(MetaDataException.class);
-
-            Assertions.assertThatThrownBy(() -> validateIndexEvolution(metaDataValidator, index,
-                    ImmutableMap.of(IndexOptions.HNSW_NUM_DIMENSIONS, "128",
-                            IndexOptions.HNSW_RABITQ_NUM_EX_BITS, "1"))).isInstanceOf(MetaDataException.class);
-        }
-    }
-
-    private void validateIndexEvolution(@Nonnull final MetaDataValidator metaDataValidator,
-                                        @Nonnull final Index oldIndex, @Nonnull final Map<String, String> optionsMap) {
-        final Index newIndex =
-                new Index("GroupedVectorIndex",
-                        new KeyWithValueExpression(concat(field("group_id"), field("vector_data")), 1),
-                        IndexTypes.VECTOR,
-                        optionsMap);
-
-        final IndexMaintainerFactoryRegistry indexMaintainerRegistry = recordStore.getIndexMaintainerRegistry();
-        final IndexMaintainerFactory indexMaintainerFactory =
-                indexMaintainerRegistry.getIndexMaintainerFactory(oldIndex);
-
-        final IndexValidator validatorForCompatibleNewIndex =
-                indexMaintainerFactory.getIndexValidator(newIndex);
-        validatorForCompatibleNewIndex.validate(metaDataValidator);
-        validatorForCompatibleNewIndex.validateChangedOptions(oldIndex);
-    }
-
     @SuppressWarnings("resource")
     @Test
     void directIndexMaintainerTest() throws Exception {
@@ -503,7 +390,6 @@ class VectorIndexTest extends VectorIndexTestBase {
                     null, ScanProperties.FORWARD_SCAN)).isInstanceOf(IllegalStateException.class);
         }
     }
-
 
     @ParameterizedTest
     @MethodSource("randomSeedsWithReturnVectors")
@@ -531,7 +417,7 @@ class VectorIndexTest extends VectorIndexTestBase {
             final VectorIndexScanComparisons vectorIndexScanComparisons =
                     createVectorIndexScanComparisons(queryVector, k,
                             VectorIndexScanOptions.builder()
-                                    .putOption(VectorIndexScanOptions.HNSW_RETURN_VECTORS, returnVectors)
+                                    .putOption(VectorIndexScanOptions.VECTOR_RETURN_VECTORS, returnVectors)
                                     .build());
             final ScanProperties scanProperties = ExecuteProperties.newBuilder()
                     .setIsolationLevel(IsolationLevel.SERIALIZABLE)
@@ -565,7 +451,7 @@ class VectorIndexTest extends VectorIndexTestBase {
                             assertThat(allCounter).isEqualTo(k));
             assertThat(Ints.asList(recallCounters))
                     .allSatisfy(recallCounter ->
-                            assertThat((double)recallCounter / k).isGreaterThan(0.9));
+                            assertThat((double)recallCounter / k).isGreaterThan(minRecall()));
         }
     }
 
