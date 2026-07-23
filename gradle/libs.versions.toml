@@ -147,6 +147,6 @@ download = { id = "de.undercouch.download", version = "5.7.0" }
 gitversion = { id = "com.palantir.git-version", version = "5.0.0" }
 jmh = { id = "me.champeau.jmh", version = "0.7.3" }
 nexus = { id = "io.github.gradle-nexus.publish-plugin", version = "2.0.0" }
-protobuf = { id = "com.google.protobuf", version = "0.9.6" }
+protobuf = { id = "com.google.protobuf", version = "0.10.0" }
 shadow = { id = "com.gradleup.shadow", version = "8.3.10" }
 spotbugs = { id = "com.github.spotbugs", version = "6.5.5" }
