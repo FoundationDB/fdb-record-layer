@@ -1388,6 +1388,40 @@ public class AstNormalizerTests {
     }
 
     @Test
+    void temporaryFunctionKeywordCaseIsCanonicalizedInCacheKey() throws Exception {
+        //
+        // A temporary function contributes its normalized DDL to the plan-cache key (as auxiliary metadata) of any
+        // subsequent query. Because SQL keywords are canonicalized to upper case, two temporary functions that are
+        // identical except for the casing of their keywords contribute an identical cache-key fragment. We normalize
+        // the same query against a schema template whose temporary function is declared with lower-case keywords and
+        // one whose function uses mixed-case keywords; both resolve to the same auxiliary metadata (with keywords
+        // upper-cased) and hence the same cache key -- validate asserts all queries in the list share an equal cache
+        // key and hashCode.
+        //
+        final var lowerCaseKeywords =
+                "create temporary function tmpFunction1(in x bigint) on commit drop function as select * from t1 where a < 40 + x ";
+        final var mixedCaseKeywords =
+                "CrEaTe TeMpOrArY FuNcTiOn tmpFunction1(In x bigint) On CoMmIt DrOp FuNcTiOn As SeLeCt * FrOm t1 WhErE a < 40 + x ";
+        final var schemaTemplateLowerCase = schemaTemplateWithFunction(fakeSchemaTemplate, "tmpFunction1", lowerCaseKeywords, true);
+        final var schemaTemplateMixedCase = schemaTemplateWithFunction(fakeSchemaTemplate, "tmpFunction1", mixedCaseKeywords, true);
+
+        final Map<String, Object> bindings = Map.of(
+                constantId(7), 42,
+                constantId(21, Optional.of("TMPFUNCTION1")), 40);
+        validate(List.of("select * from t1 where col1 > 42", "select * from t1 where col1 > 42"),
+                PreparedParams.empty(),
+                "SELECT * FROM \"T1\" WHERE \"COL1\" > ? ",
+                List.of(bindings, bindings),
+                null,
+                -1,
+                EnumSet.of(AstNormalizer.NormalizationResult.QueryCachingFlags.IS_DQL_STATEMENT),
+                Map.of(Options.Name.LOG_QUERY, false),
+                List.of(schemaTemplateLowerCase, schemaTemplateMixedCase),
+                // keywords are upper-cased in the cache-key fragment regardless of how they were written above.
+                "CREATE TEMPORARY FUNCTION \"TMPFUNCTION1\" ( IN \"X\" BIGINT ) ON COMMIT DROP FUNCTION AS SELECT * FROM \"T1\" WHERE \"A\" < ? + \"X\" ");
+    }
+
+    @Test
     void normalizeTemporarySqlFunctionStripsLiterals() throws Exception {
         validate(List.of("create temporary function tmpFunction1(in x bigint) on commit drop function as select * from t1 where a < 40 + x "),
                 PreparedParams.empty(),
