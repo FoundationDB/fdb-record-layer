@@ -177,38 +177,38 @@ standard-tests:
         5) as y;
     ref: standard-tests.yamsql:285
     explain: SCAN([IS T1, EQUALS promote(@c18 AS LONG)])
-    task_count: 396
-    task_total_time_ms: 16
-    transform_count: 93
-    transform_time_ms: 8
-    transform_yield_count: 37
-    insert_time_ms: 0
-    insert_new_count: 49
+    task_count: 382
+    task_total_time_ms: 85
+    transform_count: 92
+    transform_time_ms: 21
+    transform_yield_count: 35
+    insert_time_ms: 3
+    insert_new_count: 45
     insert_reused_count: 4
 -   query: EXPLAIN select * from (select * from (select * from T1) as x) as y where
         ID = 5;
     ref: standard-tests.yamsql:289
     explain: SCAN([IS T1, EQUALS promote(@c21 AS LONG)])
-    task_count: 438
-    task_total_time_ms: 35
-    transform_count: 102
-    transform_time_ms: 14
-    transform_yield_count: 41
+    task_count: 382
+    task_total_time_ms: 45
+    transform_count: 92
+    transform_time_ms: 19
+    transform_yield_count: 35
     insert_time_ms: 2
-    insert_new_count: 58
-    insert_reused_count: 5
+    insert_new_count: 45
+    insert_reused_count: 4
 -   query: EXPLAIN select count(*) from (select * from (select * from (select * from
         T1  where ID = 5) as x) as y) as z;
     ref: standard-tests.yamsql:293
-    explain: SCAN([IS T1, EQUALS promote(@c23 AS LONG)]) | MAP (_ AS _0) | AGG (count_star(*)
+    explain: SCAN([IS T1, EQUALS promote(@c22 AS LONG)]) | MAP (_ AS _0) | AGG (count_star(*)
         AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l
         AS LONG)) AS _0)
     task_count: 593
-    task_total_time_ms: 43
-    transform_count: 138
-    transform_time_ms: 18
+    task_total_time_ms: 85
+    transform_count: 144
+    transform_time_ms: 19
     transform_yield_count: 41
-    insert_time_ms: 1
+    insert_time_ms: 4
     insert_new_count: 66
     insert_reused_count: 2
 -   query: EXPLAIN select * from (select * from (select * from (select * from T1  where
@@ -216,10 +216,10 @@ standard-tests:
     ref: standard-tests.yamsql:297
     explain: SCAN([IS T1, [GREATER_THAN promote(@c19 AS LONG)]])
     task_count: 389
-    task_total_time_ms: 26
-    transform_count: 88
-    transform_time_ms: 11
+    task_total_time_ms: 46
+    transform_count: 94
+    transform_time_ms: 17
     transform_yield_count: 36
-    insert_time_ms: 1
+    insert_time_ms: 2
     insert_new_count: 46
     insert_reused_count: 3

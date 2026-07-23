@@ -91,11 +91,11 @@ subquery-tests:
     explain: ISCAN(IR [EQUALS promote(@c17 AS INT), EQUALS promote(@c31 AS INT)])
         | FLATMAP q0 -> { EXPLODE q0.NR | FILTER _.F GREATER_THAN promote(@c31 AS
         INT) AND _.F NOT_NULL AS q1 RETURN (q0.IDR AS IDR, q0.Z AS Z) }
-    task_count: 907
-    task_total_time_ms: 34
-    transform_count: 242
-    transform_time_ms: 11
-    transform_yield_count: 79
-    insert_time_ms: 3
-    insert_new_count: 165
-    insert_reused_count: 18
+    task_count: 696
+    task_total_time_ms: 97
+    transform_count: 191
+    transform_time_ms: 34
+    transform_yield_count: 57
+    insert_time_ms: 4
+    insert_new_count: 96
+    insert_reused_count: 2
