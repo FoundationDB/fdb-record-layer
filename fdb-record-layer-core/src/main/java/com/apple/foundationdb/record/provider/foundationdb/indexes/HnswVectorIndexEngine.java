@@ -20,8 +20,6 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.indexes;
 
-import com.apple.foundationdb.ReadTransaction;
-import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.async.common.ResultEntry;
 import com.apple.foundationdb.async.hnsw.Config;
 import com.apple.foundationdb.async.hnsw.Config.ConfigBuilder;
@@ -33,6 +31,7 @@ import com.apple.foundationdb.async.hnsw.OnWriteListener;
 import com.apple.foundationdb.linear.Metric;
 import com.apple.foundationdb.linear.RealVector;
 import com.apple.foundationdb.record.metadata.Index;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.VectorIndexScanBounds;
 import com.apple.foundationdb.record.provider.foundationdb.VectorIndexScanOptions;
@@ -46,7 +45,6 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Executor;
 
 import static com.apple.foundationdb.record.provider.foundationdb.indexes.VectorIndexOptionsHelper.allowChange;
 import static com.apple.foundationdb.record.provider.foundationdb.indexes.VectorIndexOptionsHelper.applyBoolean;
@@ -82,43 +80,43 @@ final class HnswVectorIndexEngine implements VectorIndexEngine {
 
     @Nonnull
     @Override
-    public CompletableFuture<List<? extends ResultEntry>> search(@Nonnull final ReadTransaction readTransaction,
+    public CompletableFuture<List<? extends ResultEntry>> search(@Nonnull final FDBRecordContext context,
+                                                                 final boolean snapshot,
                                                                  @Nonnull final Subspace subspace,
-                                                                 @Nonnull final Executor executor,
-                                                                 @Nonnull final FDBStoreTimer timer,
                                                                  @Nonnull final VectorIndexScanBounds scanBounds) {
-        final HNSW hnsw = new HNSW(subspace, executor, config, OnWriteListener.NOOP, new OnRead(timer));
-        return hnsw.kNearestNeighborsSearch(readTransaction, scanBounds.getAdjustedLimit(),
+        final HNSW hnsw = new HNSW(subspace, context.getExecutor(), config, OnWriteListener.NOOP,
+                OnRead.fromTimer(context.getTimer()));
+        return hnsw.kNearestNeighborsSearch(context.readTransaction(snapshot), scanBounds.getAdjustedLimit(),
                 efSearch(scanBounds), VectorIndexOptionsHelper.returnVectors(scanBounds, config.useRaBitQ()),
                 Objects.requireNonNull(scanBounds.getQueryVector()));
     }
 
     @Nonnull
     @Override
-    public CompletableFuture<Void> insert(@Nonnull final Transaction transaction,
+    public CompletableFuture<Void> insert(@Nonnull final FDBRecordContext context,
                                           @Nonnull final Subspace subspace,
-                                          @Nonnull final Executor executor,
-                                          @Nonnull final FDBStoreTimer timer,
                                           @Nonnull final Tuple primaryKey,
                                           @Nonnull final RealVector vector) {
         // Insert traverses the graph greedily from the entry point, so it reads many nodes; wire a real read listener
         // in addition to the write listener so that read work is instrumented too.
-        final HNSW hnsw = new HNSW(subspace, executor, config, new OnWrite(timer), new OnRead(timer));
-        return hnsw.insert(transaction, primaryKey, vector, null);
+        final FDBStoreTimer timer = context.getTimer();
+        final HNSW hnsw = new HNSW(subspace, context.getExecutor(), config, OnWrite.fromTimer(timer),
+                OnRead.fromTimer(timer));
+        return hnsw.insert(context.ensureActive(), primaryKey, vector, null);
     }
 
     @Nonnull
     @Override
-    public CompletableFuture<Void> delete(@Nonnull final Transaction transaction,
+    public CompletableFuture<Void> delete(@Nonnull final FDBRecordContext context,
                                           @Nonnull final Subspace subspace,
-                                          @Nonnull final Executor executor,
-                                          @Nonnull final FDBStoreTimer timer,
                                           @Nonnull final Tuple primaryKey,
                                           @Nonnull final RealVector vector) {
         // HNSW keys nodes on the primary key alone, so the vector is not needed to locate the node to delete. Delete
         // reads heavily to repair the graph around the removed node, so it also gets a real read listener.
-        final HNSW hnsw = new HNSW(subspace, executor, config, new OnWrite(timer), new OnRead(timer));
-        return hnsw.delete(transaction, primaryKey);
+        final FDBStoreTimer timer = context.getTimer();
+        final HNSW hnsw = new HNSW(subspace, context.getExecutor(), config, OnWrite.fromTimer(timer),
+                OnRead.fromTimer(timer));
+        return hnsw.delete(context.ensureActive(), primaryKey);
     }
 
     private int efSearch(@Nonnull final VectorIndexScanBounds scanBounds) {
@@ -261,6 +259,11 @@ final class HnswVectorIndexEngine implements VectorIndexEngine {
                 timer.increment(FDBStoreTimer.Counts.VECTOR_NODE_READ_BYTES, totalLength);
             }
         }
+
+        @Nonnull
+        private static OnReadListener fromTimer(@Nullable final FDBStoreTimer timer) {
+            return timer == null ? OnReadListener.NOOP : new OnRead(timer);
+        }
     }
 
     /**
@@ -293,6 +296,11 @@ final class HnswVectorIndexEngine implements VectorIndexEngine {
             } else {
                 timer.increment(FDBStoreTimer.Counts.VECTOR_NODE_WRITE_BYTES, totalLength);
             }
+        }
+
+        @Nonnull
+        private static OnWriteListener fromTimer(@Nullable final FDBStoreTimer timer) {
+            return timer == null ? OnWriteListener.NOOP : new OnWrite(timer);
         }
     }
 }

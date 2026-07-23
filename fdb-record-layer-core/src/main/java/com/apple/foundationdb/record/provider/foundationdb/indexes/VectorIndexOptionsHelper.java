@@ -61,8 +61,7 @@ final class VectorIndexOptionsHelper {
     /**
      * Verifies that no option is specified under more than one of its names. An option that carries both a current name
      * and a legacy alias (e.g. {@code vectorMetric} and {@code hnswMetric}) must be given under at most one of them —
-     * setting both is rejected even if the values agree, since which one wins would otherwise be silent and the intent
-     * is ambiguous.
+     * setting both is rejected even if the values agree, as that case is considered indicative of a logic bug.
      *
      * @param index the index definition to check
      * @param keys the option keys to check (each key's {@link VectorOptionKey#allNames() names} are inspected)
@@ -120,9 +119,9 @@ final class VectorIndexOptionsHelper {
 
     /**
      * Disallows a change to an immutable option (by wire name) by comparing its <em>effective</em> (parsed and
-     * defaulted) value between the old and new index. If the values differ a {@link MetaDataException} is thrown; either
-     * way the name is removed from {@code changedOptions} so the caller knows it has been handled. Names absent from
-     * {@code changedOptions} are ignored.
+     * defaulted) value between the old and new index. If the values differ a {@link MetaDataException} is thrown;
+     * if they are equal, the name is removed from {@code changedOptions} so the caller knows it has been handled.
+     * Names absent from {@code changedOptions} are ignored.
      * <p>
      * The comparison uses effective values, not raw option strings: setting an option to a value that equals the
      * built-in default counts as no change even when the other index omits the option entirely. Callers therefore pass

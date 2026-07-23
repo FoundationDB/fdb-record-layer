@@ -234,6 +234,68 @@ public class IndexOptions {
     public static final String RTREE_USE_NODE_SLOT_INDEX = "rtreeUseNodeSlotIndex";
 
     /**
+     * Selects which vector-structure engine backs a {@link IndexTypes#VECTOR} index. Valid values are {@code "HNSW"}
+     * and {@code "GUARDIANN"} (case-insensitive). When the option is absent the engine defaults to {@code HNSW}, so
+     * existing indexes created before this option existed keep using HNSW without any metadata migration.
+     */
+    public static final String VECTOR_ENGINE = "vectorEngine";
+
+    //
+    // Engine-neutral vector options. These cover the handful of concepts both the HNSW and the Guardiann engines share.
+    // Prefer these over the {@code hnsw*} keys of the same meaning: for backward compatibility the HNSW engine still
+    // reads the legacy {@code hnsw*} keys when the neutral key is absent, but new indexes (of either engine) should be
+    // created with the neutral keys. Options that are specific to one engine keep their engine-specific prefix
+    // ({@code hnsw*} / {@code guardiann*}).
+    //
+
+    /**
+     * The metric used to determine distances between vectors. Engine-neutral replacement for {@link #HNSW_METRIC}.
+     */
+    public static final String VECTOR_METRIC = "vectorMetric";
+
+    /**
+     * The number of dimensions used. All vectors must have exactly this number of dimensions. Engine-neutral
+     * replacement for {@link #HNSW_NUM_DIMENSIONS}. This option must be set when interacting with a vector index as
+     * there is no default.
+     */
+    public static final String VECTOR_NUM_DIMENSIONS = "vectorNumDimensions";
+
+    /**
+     * Probability of a written vector also being sampled for statistics computation. Engine-neutral replacement for
+     * {@link #HNSW_SAMPLE_VECTOR_STATS_PROBABILITY}.
+     */
+    public static final String VECTOR_SAMPLE_VECTOR_STATS_PROBABILITY = "vectorSampleVectorStatsProbability";
+
+    /**
+     * Probability of the sampled vectors being aggregated (rolled-up) on a write. Engine-neutral replacement for
+     * {@link #HNSW_MAINTAIN_STATS_PROBABILITY}.
+     */
+    public static final String VECTOR_MAINTAIN_STATS_PROBABILITY = "vectorMaintainStatsProbability";
+
+    /**
+     * Number of sampled vectors that triggers a statistics (centroid) computation. Engine-neutral replacement for
+     * {@link #HNSW_STATS_THRESHOLD}.
+     */
+    public static final String VECTOR_STATS_THRESHOLD = "vectorStatsThreshold";
+
+    /**
+     * Indicator whether RaBitQ quantization is used. Engine-neutral replacement for {@link #HNSW_USE_RABITQ}.
+     */
+    public static final String VECTOR_USE_RABITQ = "vectorUseRaBitQ";
+
+    /**
+     * Number of extra bits per dimension for RaBitQ encoding (only relevant iff {@link #VECTOR_USE_RABITQ} is set).
+     * Engine-neutral replacement for {@link #HNSW_RABITQ_NUM_EX_BITS}.
+     */
+    public static final String VECTOR_RABITQ_NUM_EX_BITS = "vectorRaBitQNumExBits";
+
+    //
+    // HNSW-only options. Each mirrors a field of the HNSW config; see
+    // {@link com.apple.foundationdb.async.hnsw.Config} for the semantics and default of each. Unset options fall
+    // back to the HNSW config defaults.
+    //
+
+    /**
      * HNSW-only: The metric that is used to determine distances between vectors. The default metric is
      * {@link Config#DEFAULT_METRIC}. See {@link Config#metric()}.
      */
@@ -387,62 +449,6 @@ public class IndexOptions {
      */
     public static final String HNSW_MAX_NUM_CONCURRENT_DELETE_FROM_LAYER = "hnswMaxNumConcurrentDeleteFromLayer";
 
-    /**
-     * Selects which vector-structure engine backs a {@link IndexTypes#VECTOR} index. Valid values are {@code "HNSW"}
-     * and {@code "GUARDIANN"} (case-insensitive). When the option is absent the engine defaults to {@code HNSW}, so
-     * existing indexes created before this option existed keep using HNSW without any metadata migration.
-     */
-    public static final String VECTOR_ENGINE = "vectorEngine";
-
-    //
-    // Engine-neutral vector options. These cover the handful of concepts both the HNSW and the Guardiann engines share.
-    // Prefer these over the {@code hnsw*} keys of the same meaning: for backward compatibility the HNSW engine still
-    // reads the legacy {@code hnsw*} keys when the neutral key is absent, but new indexes (of either engine) should be
-    // created with the neutral keys. Options that are specific to one engine keep their engine-specific prefix
-    // ({@code hnsw*} / {@code guardiann*}).
-    //
-
-    /**
-     * The metric used to determine distances between vectors. Engine-neutral replacement for {@link #HNSW_METRIC}.
-     */
-    public static final String VECTOR_METRIC = "vectorMetric";
-
-    /**
-     * The number of dimensions used. All vectors must have exactly this number of dimensions. Engine-neutral
-     * replacement for {@link #HNSW_NUM_DIMENSIONS}. This option must be set when interacting with a vector index as
-     * there is no default.
-     */
-    public static final String VECTOR_NUM_DIMENSIONS = "vectorNumDimensions";
-
-    /**
-     * Probability of a written vector also being sampled for statistics computation. Engine-neutral replacement for
-     * {@link #HNSW_SAMPLE_VECTOR_STATS_PROBABILITY}.
-     */
-    public static final String VECTOR_SAMPLE_VECTOR_STATS_PROBABILITY = "vectorSampleVectorStatsProbability";
-
-    /**
-     * Probability of the sampled vectors being aggregated (rolled-up) on a write. Engine-neutral replacement for
-     * {@link #HNSW_MAINTAIN_STATS_PROBABILITY}.
-     */
-    public static final String VECTOR_MAINTAIN_STATS_PROBABILITY = "vectorMaintainStatsProbability";
-
-    /**
-     * Number of sampled vectors that triggers a statistics (centroid) computation. Engine-neutral replacement for
-     * {@link #HNSW_STATS_THRESHOLD}.
-     */
-    public static final String VECTOR_STATS_THRESHOLD = "vectorStatsThreshold";
-
-    /**
-     * Indicator whether RaBitQ quantization is used. Engine-neutral replacement for {@link #HNSW_USE_RABITQ}.
-     */
-    public static final String VECTOR_USE_RABITQ = "vectorUseRaBitQ";
-
-    /**
-     * Number of extra bits per dimension for RaBitQ encoding (only relevant iff {@link #VECTOR_USE_RABITQ} is set).
-     * Engine-neutral replacement for {@link #HNSW_RABITQ_NUM_EX_BITS}.
-     */
-    public static final String VECTOR_RABITQ_NUM_EX_BITS = "vectorRaBitQNumExBits";
-
     //
     // Guardiann-only options. Each mirrors a field of the Guardiann config; see
     // {@link com.apple.foundationdb.async.guardiann.Config} for the semantics and default of each. Unset options fall
@@ -498,10 +504,10 @@ public class IndexOptions {
     public static final String GUARDIANN_MERGE_NUM_NEAREST_CLUSTERS = "guardiannMergeNumNearestClusters";
 
     /** Guardiann-only: maximum Lloyd's iterations per k-means restart during split/merge. */
-    public static final String GUARDIANN_KMEANS_MAX_ITERATIONS = "guardiannKMeansMaxIterations";
+    public static final String GUARDIANN_K_MEANS_MAX_ITERATIONS = "guardiannKMeansMaxIterations";
 
     /** Guardiann-only: maximum number of random restarts for bounded k-means during split/merge. */
-    public static final String GUARDIANN_KMEANS_MAX_RESTARTS = "guardiannKMeansMaxRestarts";
+    public static final String GUARDIANN_K_MEANS_MAX_RESTARTS = "guardiannKMeansMaxRestarts";
 
     /** Guardiann-only: outer clusters considered as replication/migration targets during reassign. */
     public static final String GUARDIANN_REASSIGN_NUM_NEIGHBORING_CLUSTERS = "guardiannReassignNumNeighboringClusters";
@@ -520,6 +526,22 @@ public class IndexOptions {
 
     /** Guardiann-only: concurrency for parallel operations during bounce tasks. */
     public static final String GUARDIANN_BOUNCE_CONCURRENCY = "guardiannBounceConcurrency";
+
+    /**
+     * Guardiann-only: the ring-search exploration factor for the centroid HNSW walk taken on the
+     * insert/delete/maintenance (construction) paths. This is the construction-time counterpart of the per-query
+     * {@code guardiannCentroidEfRingSearch} scan option, and is immutable once the index exists.
+     */
+    public static final String GUARDIANN_CONSTRUCTION_CENTROID_EF_RING_SEARCH =
+            "guardiannConstructionCentroidEfRingSearch";
+
+    /**
+     * Guardiann-only: the outward-search exploration factor for the centroid HNSW walk taken on the
+     * insert/delete/maintenance (construction) paths. This is the construction-time counterpart of the per-query
+     * {@code guardiannCentroidEfOutwardSearch} scan option, and is immutable once the index exists.
+     */
+    public static final String GUARDIANN_CONSTRUCTION_CENTROID_EF_OUTWARD_SEARCH =
+            "guardiannConstructionCentroidEfOutwardSearch";
 
     private IndexOptions() {
     }

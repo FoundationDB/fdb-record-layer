@@ -20,8 +20,6 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.indexes;
 
-import com.apple.foundationdb.ReadTransaction;
-import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.async.common.ResultEntry;
 import com.apple.foundationdb.linear.Metric;
 import com.apple.foundationdb.linear.RealVector;
@@ -29,6 +27,7 @@ import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.MetaDataException;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.VectorIndexScanBounds;
 import com.apple.foundationdb.subspace.Subspace;
@@ -39,7 +38,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Executor;
 
 /**
  * The engine that actually backs a {@link com.apple.foundationdb.record.metadata.IndexTypes#VECTOR vector} index. This
@@ -62,58 +60,52 @@ sealed interface VectorIndexEngine permits HnswVectorIndexEngine, GuardiannVecto
     /**
      * Searches a single partition for the nearest neighbors described by {@code scanBounds}. The result is the full,
      * distance-ordered page of hits the maintainer turns into index entries; pagination and continuations are handled
-     * by the maintainer, not the engine.
+     * by the maintainer, not the engine. The read transaction, executor and timer are all taken from {@code context};
+     * {@code snapshot} selects whether the read is done at snapshot isolation (that derives from the scan's isolation
+     * level, which the context alone does not carry).
      *
-     * @param readTransaction the transaction to read under
+     * @param context the record context to read under; supplies the transaction, executor and timer
+     * @param snapshot whether to read at snapshot isolation
      * @param subspace the partition subspace holding this engine's structure
-     * @param executor the executor to run asynchronous work on
-     * @param timer the timer to attribute read work to
      * @param scanBounds the bounds (query vector, limit, per-query scan options) of the search
      * @return a future of the distance-ordered result entries
      */
     @Nonnull
-    CompletableFuture<List<? extends ResultEntry>> search(@Nonnull ReadTransaction readTransaction,
+    CompletableFuture<List<? extends ResultEntry>> search(@Nonnull FDBRecordContext context,
+                                                          boolean snapshot,
                                                           @Nonnull Subspace subspace,
-                                                          @Nonnull Executor executor,
-                                                          @Nonnull FDBStoreTimer timer,
                                                           @Nonnull VectorIndexScanBounds scanBounds);
 
     /**
-     * Inserts a single vector into a partition.
+     * Inserts a single vector into a partition. The write transaction, executor and timer are all taken from
+     * {@code context}.
      *
-     * @param transaction the transaction to write under
+     * @param context the record context to write under; supplies the transaction, executor and timer
      * @param subspace the partition subspace holding this engine's structure
-     * @param executor the executor to run asynchronous work on
-     * @param timer the timer to attribute write work to
      * @param primaryKey the (prefix-trimmed) primary key of the record
      * @param vector the vector to insert
      * @return a future that completes when the insert is done
      */
     @Nonnull
-    CompletableFuture<Void> insert(@Nonnull Transaction transaction,
+    CompletableFuture<Void> insert(@Nonnull FDBRecordContext context,
                                    @Nonnull Subspace subspace,
-                                   @Nonnull Executor executor,
-                                   @Nonnull FDBStoreTimer timer,
                                    @Nonnull Tuple primaryKey,
                                    @Nonnull RealVector vector);
 
     /**
      * Deletes a single vector from a partition. The vector is always supplied because some engines (notably Guardiann)
      * need it to locate the vector's cluster references; engines that only key on the primary key (HNSW) ignore it.
+     * The write transaction, executor and timer are all taken from {@code context}.
      *
-     * @param transaction the transaction to write under
+     * @param context the record context to write under; supplies the transaction, executor and timer
      * @param subspace the partition subspace holding this engine's structure
-     * @param executor the executor to run asynchronous work on
-     * @param timer the timer to attribute write work to
      * @param primaryKey the (prefix-trimmed) primary key of the record
      * @param vector the vector being deleted
      * @return a future that completes when the delete is done
      */
     @Nonnull
-    CompletableFuture<Void> delete(@Nonnull Transaction transaction,
+    CompletableFuture<Void> delete(@Nonnull FDBRecordContext context,
                                    @Nonnull Subspace subspace,
-                                   @Nonnull Executor executor,
-                                   @Nonnull FDBStoreTimer timer,
                                    @Nonnull Tuple primaryKey,
                                    @Nonnull RealVector vector);
 
@@ -165,12 +157,10 @@ sealed interface VectorIndexEngine permits HnswVectorIndexEngine, GuardiannVecto
      * @return the engine backing this index
      */
     @Nonnull
-    @SuppressWarnings("UnnecessaryDefault")
     static VectorIndexEngine fromIndex(@Nonnull final Index index) {
         return switch (kindFromIndex(index)) {
             case HNSW -> HnswVectorIndexEngine.fromIndex(index);
             case GUARDIANN -> GuardiannVectorIndexEngine.fromIndex(index);
-            default -> throw new MetaDataException("unknown vector index engine");
         };
     }
 

@@ -24,13 +24,16 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.linear.Metric;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.metadata.Index;
+import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.List;
 import java.util.Objects;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
+import java.util.function.Supplier;
 
 /**
  * A single logical vector option, identified by a stable set of wire names: one <em>canonical</em> name plus zero or
@@ -40,10 +43,7 @@ import java.util.function.Function;
  * current name.
  * <p>
  * The key bundles both halves of the string round-trip for its value type {@code T}: a {@link Function parser}
- * (string &rarr; {@code T}) used when reading, and a serializer ({@code T} &rarr; string) used when writing. These are
- * <em>not</em> generic {@code toString}/{@code valueOf} calls: e.g. {@link Metric#toString()} yields the metric
- * definition's label rather than the enum constant name, so the metric key serializes with {@link Metric#name()} to
- * stay parseable. Bundling both directions per key keeps the read and write forms guaranteed to round-trip.
+ * (string &rarr; {@code T}) used when reading, and a serializer ({@code T} &rarr; string) used when writing.
  * <p>
  * The same key type serves both option surfaces:
  * <ul>
@@ -74,6 +74,8 @@ public final class VectorOptionKey<T> implements PlanHashable {
     private final Function<String, T> parser;
     @Nonnull
     private final Function<T, String> serializer;
+    @Nonnull
+    private final Supplier<List<String>> allNamesSupplier;
 
     private VectorOptionKey(@Nonnull final String canonicalName, @Nonnull final ImmutableList<String> aliases,
                             @Nonnull final Class<T> type, @Nonnull final Function<String, T> parser,
@@ -83,6 +85,7 @@ public final class VectorOptionKey<T> implements PlanHashable {
         this.type = type;
         this.parser = parser;
         this.serializer = serializer;
+        this.allNamesSupplier = Suppliers.memoize(this::computeAllNames);
     }
 
     /**
@@ -119,7 +122,12 @@ public final class VectorOptionKey<T> implements PlanHashable {
      * @return the canonical name followed by the aliases
      */
     @Nonnull
-    public ImmutableList<String> allNames() {
+    public List<String> allNames() {
+        return allNamesSupplier.get();
+    }
+
+    @Nonnull
+    private List<String> computeAllNames() {
         return ImmutableList.<String>builderWithExpectedSize(aliases.size() + 1)
                 .add(canonicalName)
                 .addAll(aliases)
@@ -183,10 +191,9 @@ public final class VectorOptionKey<T> implements PlanHashable {
         if (this == o) {
             return true;
         }
-        if (!(o instanceof VectorOptionKey)) {
+        if (!(o instanceof final VectorOptionKey<?> that)) {
             return false;
         }
-        final VectorOptionKey<?> that = (VectorOptionKey<?>)o;
         return canonicalName.equals(that.canonicalName);
     }
 

@@ -125,6 +125,16 @@ class GuardiannVectorIndexTest extends VectorIndexEngineTestSuite {
                     optionsWith(IndexOptions.GUARDIANN_PRIMARY_CLUSTER_MIN, "50")))
                     .isInstanceOf(MetaDataException.class);
 
+            // changing an immutable construction-time centroid-walk knob is not allowed: an index must be built with a
+            // single, fixed set of construction tuning
+            Assertions.assertThatThrownBy(() -> validateIndexEvolution(metaDataValidator, index,
+                    optionsWith(IndexOptions.GUARDIANN_CONSTRUCTION_CENTROID_EF_RING_SEARCH, "250")))
+                    .isInstanceOf(MetaDataException.class);
+
+            Assertions.assertThatThrownBy(() -> validateIndexEvolution(metaDataValidator, index,
+                    optionsWith(IndexOptions.GUARDIANN_CONSTRUCTION_CENTROID_EF_OUTWARD_SEARCH, "800")))
+                    .isInstanceOf(MetaDataException.class);
+
             // a mutable knob may change on its own
             validateIndexEvolution(metaDataValidator, index,
                     optionsWith(IndexOptions.GUARDIANN_SPLIT_MERGE_CONCURRENCY, "7"));

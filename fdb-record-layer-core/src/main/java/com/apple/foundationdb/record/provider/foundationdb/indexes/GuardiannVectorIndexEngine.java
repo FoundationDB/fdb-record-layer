@@ -21,8 +21,6 @@
 package com.apple.foundationdb.record.provider.foundationdb.indexes;
 
 import com.apple.foundationdb.KeyValue;
-import com.apple.foundationdb.ReadTransaction;
-import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.async.AsyncIterable;
 import com.apple.foundationdb.async.common.ResultEntry;
 import com.apple.foundationdb.async.common.TimedAsyncIterable;
@@ -37,6 +35,7 @@ import com.apple.foundationdb.linear.Metric;
 import com.apple.foundationdb.linear.RealVector;
 import com.apple.foundationdb.linear.Transformed;
 import com.apple.foundationdb.record.metadata.Index;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.VectorIndexScanBounds;
 import com.apple.foundationdb.record.provider.foundationdb.VectorIndexScanOptions;
@@ -51,7 +50,6 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Executor;
 import java.util.function.DoubleConsumer;
 import java.util.function.IntConsumer;
 
@@ -99,46 +97,46 @@ final class GuardiannVectorIndexEngine implements VectorIndexEngine {
 
     @Nonnull
     @Override
-    public CompletableFuture<List<? extends ResultEntry>> search(@Nonnull final ReadTransaction readTransaction,
+    public CompletableFuture<List<? extends ResultEntry>> search(@Nonnull final FDBRecordContext context,
+                                                                 final boolean snapshot,
                                                                  @Nonnull final Subspace subspace,
-                                                                 @Nonnull final Executor executor,
-                                                                 @Nonnull final FDBStoreTimer timer,
                                                                  @Nonnull final VectorIndexScanBounds scanBounds) {
         final Guardiann guardiann =
-                new Guardiann(subspace, executor, config, OnWriteListener.NOOP, new OnRead(timer));
-        return guardiann.kNearestNeighborsSearch(readTransaction, scanBounds.getAdjustedLimit(),
+                new Guardiann(subspace, context.getExecutor(), config, OnWriteListener.NOOP,
+                        OnRead.fromTimer(context.getTimer()));
+        return guardiann.kNearestNeighborsSearch(context.readTransaction(snapshot), scanBounds.getAdjustedLimit(),
                 searchConfig(scanBounds), VectorIndexOptionsHelper.returnVectors(scanBounds, config.useRaBitQ()),
                 Objects.requireNonNull(scanBounds.getQueryVector()));
     }
 
     @Nonnull
     @Override
-    public CompletableFuture<Void> insert(@Nonnull final Transaction transaction,
+    public CompletableFuture<Void> insert(@Nonnull final FDBRecordContext context,
                                           @Nonnull final Subspace subspace,
-                                          @Nonnull final Executor executor,
-                                          @Nonnull final FDBStoreTimer timer,
                                           @Nonnull final Tuple primaryKey,
                                           @Nonnull final RealVector vector) {
         // Insert reads (to find candidate clusters) and writes (references and deferred-task bookkeeping), so wire both
         // listeners.
+        final FDBStoreTimer timer = context.getTimer();
         final Guardiann guardiann =
-                new Guardiann(subspace, executor, config, new OnWrite(timer), new OnRead(timer));
-        return guardiann.insert(transaction, primaryKey, vector, null);
+                new Guardiann(subspace, context.getExecutor(), config, OnWrite.fromTimer(timer),
+                        OnRead.fromTimer(timer));
+        return guardiann.insert(context.ensureActive(), primaryKey, vector, null);
     }
 
     @Nonnull
     @Override
-    public CompletableFuture<Void> delete(@Nonnull final Transaction transaction,
+    public CompletableFuture<Void> delete(@Nonnull final FDBRecordContext context,
                                           @Nonnull final Subspace subspace,
-                                          @Nonnull final Executor executor,
-                                          @Nonnull final FDBStoreTimer timer,
                                           @Nonnull final Tuple primaryKey,
                                           @Nonnull final RealVector vector) {
         // Guardiann needs the vector to locate the cluster references to remove; it reads while probing candidate
         // clusters and writes as it removes references, so both listeners are wired.
+        final FDBStoreTimer timer = context.getTimer();
         final Guardiann guardiann =
-                new Guardiann(subspace, executor, config, new OnWrite(timer), new OnRead(timer));
-        return guardiann.delete(transaction, primaryKey, vector);
+                new Guardiann(subspace, context.getExecutor(), config, OnWrite.fromTimer(timer),
+                        OnRead.fromTimer(timer));
+        return guardiann.delete(context.ensureActive(), primaryKey, vector);
     }
 
     /**
@@ -202,8 +200,9 @@ final class GuardiannVectorIndexEngine implements VectorIndexEngine {
     /**
      * Parses a Guardiann {@link Config} from an index's options via the {@link VectorIndexOptionKeys} catalog: each key
      * resolves its value under the current name or a legacy alias and parses it to the right type. The nested
-     * construction-time search config is deliberately not exposed and stays at its default. Unspecified options fall
-     * back to the {@link Config} defaults.
+     * construction-time {@link SearchConfig} exposes only its two {@code centroidEf*} knobs as options (the only ones the
+     * insert/delete/maintenance paths consult); its remaining, search-only knobs stay at their defaults. Unspecified
+     * options fall back to the {@link Config} defaults.
      *
      * @param index the index definition
      * @return the parsed Guardiann config
@@ -261,6 +260,16 @@ final class GuardiannVectorIndexEngine implements VectorIndexEngine {
         applyInteger(VectorIndexOptionKeys.GUARDIANN_COLLAPSE_CONCURRENCY, index, builder::setCollapseConcurrency);
         applyInteger(VectorIndexOptionKeys.GUARDIANN_BOUNCE_CONCURRENCY, index, builder::setBounceConcurrency);
 
+        // Construction-time centroid-walk tuning for the insert/delete/maintenance paths. Only the centroidEf* knobs of
+        // the SearchConfig are consulted there, so set just those two (each falling back to its SearchConfig default)
+        // and leave the search-only knobs at their defaults.
+        final SearchConfig.SearchConfigBuilder constructionSearchConfigBuilder = new SearchConfig.SearchConfigBuilder();
+        applyInteger(VectorIndexOptionKeys.GUARDIANN_CONSTRUCTION_CENTROID_EF_RING_SEARCH, index,
+                constructionSearchConfigBuilder::setCentroidEfRingSearch);
+        applyInteger(VectorIndexOptionKeys.GUARDIANN_CONSTRUCTION_CENTROID_EF_OUTWARD_SEARCH, index,
+                constructionSearchConfigBuilder::setCentroidEfOutwardSearch);
+        builder.setConstructionSearchConfig(constructionSearchConfigBuilder.build());
+
         return builder.build(numDimensions);
     }
 
@@ -268,11 +277,12 @@ final class GuardiannVectorIndexEngine implements VectorIndexEngine {
      * Validates which Guardiann options may change on an existing index. Following the same rule as HNSW, only the
      * statistics knobs and the concurrency knobs are mutable runtime tuning; every other option — the encoding (metric,
      * dimensions, RaBitQ), the cluster shape and replication thresholds, the per-task candidate counts, the k-means
-     * tuning, and the determinism flag — is immutable, as changing it would reinterpret or restructure data already on
-     * disk. Comparison is on <em>effective</em> config values (parsed and defaulted), so re-specifying an immutable
-     * option at its default value is not treated as a change. Handled options are removed from {@code changedOptions}.
-     * ({@code guardiannSampleBatchSize} is a stats knob with no HNSW counterpart, since HNSW has no batched-sampling
-     * concept.)
+     * tuning, the determinism flag, and the construction-time centroid-walk knobs — is immutable, as changing it would
+     * reinterpret or restructure data already on disk, or would build data with tuning inconsistent with what the index
+     * was created with. Comparison is on <em>effective</em> config values (parsed and defaulted), so re-specifying an
+     * immutable option at its default value is not treated as a change. Handled options are removed from
+     * {@code changedOptions}. ({@code guardiannSampleBatchSize} is a stats knob with no HNSW counterpart, since HNSW has
+     * no batched-sampling concept.)
      *
      * @param oldIndex the pre-change index
      * @param newIndex the post-change index
@@ -331,6 +341,14 @@ final class GuardiannVectorIndexEngine implements VectorIndexEngine {
         disallowChange(changedOptions, VectorIndexOptionKeys.GUARDIANN_COLLAPSE_MIN_DUPLICATES,
                 oldConfig.collapseMinDuplicates(), newConfig.collapseMinDuplicates(), name);
 
+        // Immutable: construction-time centroid-walk tuning (insert/delete/maintenance).
+        disallowChange(changedOptions, VectorIndexOptionKeys.GUARDIANN_CONSTRUCTION_CENTROID_EF_RING_SEARCH,
+                oldConfig.constructionSearchConfig().centroidEfRingSearch(),
+                newConfig.constructionSearchConfig().centroidEfRingSearch(), name);
+        disallowChange(changedOptions, VectorIndexOptionKeys.GUARDIANN_CONSTRUCTION_CENTROID_EF_OUTWARD_SEARCH,
+                oldConfig.constructionSearchConfig().centroidEfOutwardSearch(),
+                newConfig.constructionSearchConfig().centroidEfOutwardSearch(), name);
+
         // Mutable: stats and concurrency knobs.
         for (final VectorOptionKey<?> key : MUTABLE_OPTIONS) {
             allowChange(changedOptions, key);
@@ -371,6 +389,11 @@ final class GuardiannVectorIndexEngine implements VectorIndexEngine {
                                  @Nonnull final UUID vectorUuid, @Nonnull final Transformed<RealVector> vector) {
             timer.increment(FDBStoreTimer.Counts.VECTOR_VECTOR_READS);
         }
+
+        @Nonnull
+        private static OnReadListener fromTimer(@Nullable final FDBStoreTimer timer) {
+            return timer == null ? OnReadListener.NOOP : new OnRead(timer);
+        }
     }
 
     /**
@@ -399,6 +422,11 @@ final class GuardiannVectorIndexEngine implements VectorIndexEngine {
         public void onTaskExecuted(@Nonnull final TaskKind taskKind, @Nonnull final UUID taskId,
                                    @Nonnull final Set<UUID> targetClusterIds) {
             timer.increment(FDBStoreTimer.Counts.VECTOR_TASK_EXECUTED);
+        }
+
+        @Nonnull
+        private static OnWriteListener fromTimer(@Nullable final FDBStoreTimer timer) {
+            return timer == null ? OnWriteListener.NOOP : new OnWrite(timer);
         }
     }
 }

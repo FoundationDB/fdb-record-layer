@@ -21,7 +21,6 @@
 package com.apple.foundationdb.record.provider.foundationdb.indexes;
 
 import com.apple.foundationdb.KeyValue;
-import com.apple.foundationdb.ReadTransaction;
 import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncUtil;
@@ -113,10 +112,9 @@ public class VectorIndexMaintainer extends StandardIndexMaintainer {
         if (!scanBounds.getScanType().equals(IndexScanType.BY_DISTANCE)) {
             throw new RecordCoreException("Can only scan vector index by value.");
         }
-        if (!(scanBounds instanceof VectorIndexScanBounds)) {
+        if (!(scanBounds instanceof final VectorIndexScanBounds vectorIndexScanBounds)) {
             throw new RecordCoreException("Need proper vector index scan bounds.");
         }
-        final VectorIndexScanBounds vectorIndexScanBounds = (VectorIndexScanBounds)scanBounds;
 
         final KeyWithValueExpression keyWithValueExpression = getKeyWithValueExpression(state.index.getRootExpression());
         final int prefixSize = keyWithValueExpression.getSplitPoint();
@@ -124,7 +122,7 @@ public class VectorIndexMaintainer extends StandardIndexMaintainer {
         final ExecuteProperties executeProperties = scanProperties.getExecuteProperties();
         final ScanProperties innerScanProperties = scanProperties.with(ExecuteProperties::clearSkipAndLimit);
         final Subspace indexSubspace = getIndexSubspace();
-        final FDBStoreTimer timer = Objects.requireNonNull(state.context.getTimer());
+        @Nullable final FDBStoreTimer timer = getTimer();
 
         //
         // If there is a {@code prefix > 0}, then we model the scan as a flatmap over the distinct prefixes as the outer
@@ -142,7 +140,7 @@ public class VectorIndexMaintainer extends StandardIndexMaintainer {
                                 final Subspace partitionSubspace = indexSubspace.subspace(prefixTuple);
 
                                 return scanSinglePartition(prefixTuple, innerContinuation, partitionSubspace,
-                                        timer, vectorIndexScanBounds, scanProperties);
+                                        vectorIndexScanBounds, scanProperties);
                             },
                             continuation,
                             state.store.getPipelineSize(PipelineOperation.INDEX_TO_RECORD))
@@ -154,7 +152,7 @@ public class VectorIndexMaintainer extends StandardIndexMaintainer {
             // of the single partition here.
             //
             return scanSinglePartition(null, continuation,
-                    indexSubspace, timer, vectorIndexScanBounds, scanProperties)
+                    indexSubspace, vectorIndexScanBounds, scanProperties)
                     .skipThenLimit(executeProperties.getSkip(), executeProperties.getReturnedRowLimit());
         }
     }
@@ -165,7 +163,6 @@ public class VectorIndexMaintainer extends StandardIndexMaintainer {
      * @param prefixTuple the tuple identifying the partition
      * @param continuation the continuation for this scan or {@code null} if this is the first execution
      * @param partitionSubspace the subspace where the partition's vector structure resides
-     * @param timer the timer to attribute scan work to
      * @param vectorIndexScanBounds the bounds for this scan
      * @param scanProperties the scan properties for this scan
      * @return a {@link RecordCursor} returning the index entries for this scan
@@ -175,7 +172,6 @@ public class VectorIndexMaintainer extends StandardIndexMaintainer {
     private RecordCursor<IndexEntry> scanSinglePartition(@Nullable final Tuple prefixTuple,
                                                          @Nullable final byte[] continuation,
                                                          @Nonnull final Subspace partitionSubspace,
-                                                         @Nonnull final FDBStoreTimer timer,
                                                          @Nonnull final VectorIndexScanBounds vectorIndexScanBounds,
                                                          @Nonnull final ScanProperties scanProperties) {
         if (continuation != null) {
@@ -195,15 +191,14 @@ public class VectorIndexMaintainer extends StandardIndexMaintainer {
                             result.withContinuation(new Continuation(indexEntries, result.getContinuation())));
         }
 
-        final ReadTransaction transaction =
-                state.context.readTransaction(scanProperties.getExecuteProperties().getIsolationLevel().isSnapshot());
+        final boolean snapshot = scanProperties.getExecuteProperties().getIsolationLevel().isSnapshot();
         return new LazyCursor<>(
                 state.context.acquireReadLock(new LockIdentifier(partitionSubspace))
                         .thenApply(lock ->
                                 new AsyncLockCursor<>(lock,
                                         new LazyCursor<>(
-                                                kNearestNeighborSearch(prefixTuple, partitionSubspace, transaction,
-                                                        timer, vectorIndexScanBounds),
+                                                kNearestNeighborSearch(prefixTuple, partitionSubspace, snapshot,
+                                                        vectorIndexScanBounds),
                                                 getExecutor()))),
                 state.context.getExecutor());
     }
@@ -213,10 +208,9 @@ public class VectorIndexMaintainer extends StandardIndexMaintainer {
     private CompletableFuture<RecordCursor<IndexEntry>>
             kNearestNeighborSearch(@Nullable final Tuple prefixTuple,
                                    @Nonnull final Subspace partitionSubspace,
-                                   @Nonnull final ReadTransaction transaction,
-                                   @Nonnull final FDBStoreTimer timer,
+                                   final boolean snapshot,
                                    @Nonnull final VectorIndexScanBounds vectorIndexScanBounds) {
-        return getEngine().search(transaction, partitionSubspace, getExecutor(), timer, vectorIndexScanBounds)
+        return getEngine().search(state.context, snapshot, partitionSubspace, vectorIndexScanBounds)
                 .thenApply(resultEntries -> {
                     final ImmutableList.Builder<IndexEntry> nearestNeighborEntriesBuilder = ImmutableList.builder();
                     for (final ResultEntry nearestNeighbor : resultEntries) {
@@ -257,18 +251,22 @@ public class VectorIndexMaintainer extends StandardIndexMaintainer {
 
     @Nonnull
     private Function<byte[], RecordCursor<Tuple>> prefixSkipScan(final int prefixSize,
-                                                                 @Nonnull final StoreTimer timer,
+                                                                 @Nullable final StoreTimer timer,
                                                                  @Nonnull final VectorIndexScanBounds vectorIndexScanBounds,
                                                                  @Nonnull final ScanProperties innerScanProperties) {
         Verify.verify(prefixSize > 0);
-        return outerContinuation -> timer.instrument(VectorIndexHelper.Events.VECTOR_SKIP_SCAN,
-                new ChainedCursor<>(state.context,
-                        lastKeyOptional -> nextPrefixTuple(vectorIndexScanBounds.getPrefixRange(),
-                                prefixSize, lastKeyOptional.orElse(null), innerScanProperties),
-                        Tuple::pack,
-                        Tuple::fromBytes,
-                        outerContinuation,
-                        innerScanProperties));
+        return outerContinuation -> {
+            final ChainedCursor<Tuple> chainedCursor = new ChainedCursor<>(state.context,
+                    lastKeyOptional -> nextPrefixTuple(vectorIndexScanBounds.getPrefixRange(),
+                            prefixSize, lastKeyOptional.orElse(null), innerScanProperties),
+                    Tuple::pack,
+                    Tuple::fromBytes,
+                    outerContinuation,
+                    innerScanProperties);
+            return timer == null
+                   ? chainedCursor
+                   : timer.instrument(VectorIndexHelper.Events.VECTOR_SKIP_SCAN, chainedCursor);
+        };
     }
 
     @SuppressWarnings({"resource", "PMD.CloseResource"})
@@ -338,14 +336,11 @@ public class VectorIndexMaintainer extends StandardIndexMaintainer {
             final List<Object> primaryKeyParts = Lists.newArrayList(savedRecord.getPrimaryKey().getItems());
             state.index.trimPrimaryKey(primaryKeyParts);
             final Tuple trimmedPrimaryKey = Tuple.fromList(primaryKeyParts);
-            final FDBStoreTimer timer = Objects.requireNonNull(getTimer());
             final RealVector vector = RealVector.fromBytes(vectorBytes);
             if (remove) {
-                return getEngine().delete(state.transaction, partitionSubspace, getExecutor(), timer,
-                        trimmedPrimaryKey, vector);
+                return getEngine().delete(state.context, partitionSubspace, trimmedPrimaryKey, vector);
             } else {
-                return getEngine().insert(state.transaction, partitionSubspace, getExecutor(), timer,
-                        trimmedPrimaryKey, vector);
+                return getEngine().insert(state.context, partitionSubspace, trimmedPrimaryKey, vector);
             }
         });
     }

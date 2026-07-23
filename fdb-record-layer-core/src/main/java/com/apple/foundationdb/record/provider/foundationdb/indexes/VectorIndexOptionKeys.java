@@ -123,9 +123,9 @@ public final class VectorIndexOptionKeys {
     public static final VectorOptionKey<Integer> GUARDIANN_MERGE_NUM_NEAREST_CLUSTERS =
             VectorOptionKey.ofInteger(IndexOptions.GUARDIANN_MERGE_NUM_NEAREST_CLUSTERS);
     public static final VectorOptionKey<Integer> GUARDIANN_KMEANS_MAX_ITERATIONS =
-            VectorOptionKey.ofInteger(IndexOptions.GUARDIANN_KMEANS_MAX_ITERATIONS);
+            VectorOptionKey.ofInteger(IndexOptions.GUARDIANN_K_MEANS_MAX_ITERATIONS);
     public static final VectorOptionKey<Integer> GUARDIANN_KMEANS_MAX_RESTARTS =
-            VectorOptionKey.ofInteger(IndexOptions.GUARDIANN_KMEANS_MAX_RESTARTS);
+            VectorOptionKey.ofInteger(IndexOptions.GUARDIANN_K_MEANS_MAX_RESTARTS);
     public static final VectorOptionKey<Integer> GUARDIANN_REASSIGN_NUM_NEIGHBORING_CLUSTERS =
             VectorOptionKey.ofInteger(IndexOptions.GUARDIANN_REASSIGN_NUM_NEIGHBORING_CLUSTERS);
     public static final VectorOptionKey<Integer> GUARDIANN_COLLAPSE_MIN_DUPLICATES =
@@ -138,6 +138,10 @@ public final class VectorIndexOptionKeys {
             VectorOptionKey.ofInteger(IndexOptions.GUARDIANN_COLLAPSE_CONCURRENCY);
     public static final VectorOptionKey<Integer> GUARDIANN_BOUNCE_CONCURRENCY =
             VectorOptionKey.ofInteger(IndexOptions.GUARDIANN_BOUNCE_CONCURRENCY);
+    public static final VectorOptionKey<Integer> GUARDIANN_CONSTRUCTION_CENTROID_EF_RING_SEARCH =
+            VectorOptionKey.ofInteger(IndexOptions.GUARDIANN_CONSTRUCTION_CENTROID_EF_RING_SEARCH);
+    public static final VectorOptionKey<Integer> GUARDIANN_CONSTRUCTION_CENTROID_EF_OUTWARD_SEARCH =
+            VectorOptionKey.ofInteger(IndexOptions.GUARDIANN_CONSTRUCTION_CENTROID_EF_OUTWARD_SEARCH);
 
     /**
      * Every index-time key declared above. Used to validate an index's options against all keys at once (e.g. to reject
@@ -159,7 +163,8 @@ public final class VectorIndexOptionKeys {
             GUARDIANN_MERGE_NUM_NEAREST_CLUSTERS, GUARDIANN_KMEANS_MAX_ITERATIONS, GUARDIANN_KMEANS_MAX_RESTARTS,
             GUARDIANN_REASSIGN_NUM_NEIGHBORING_CLUSTERS, GUARDIANN_COLLAPSE_MIN_DUPLICATES,
             GUARDIANN_SPLIT_MERGE_CONCURRENCY, GUARDIANN_REASSIGN_CONCURRENCY, GUARDIANN_COLLAPSE_CONCURRENCY,
-            GUARDIANN_BOUNCE_CONCURRENCY);
+            GUARDIANN_BOUNCE_CONCURRENCY, GUARDIANN_CONSTRUCTION_CENTROID_EF_RING_SEARCH,
+            GUARDIANN_CONSTRUCTION_CENTROID_EF_OUTWARD_SEARCH);
 
     private VectorIndexOptionKeys() {
     }

@@ -148,6 +148,34 @@ class VectorIndexOptionKeysTest {
         MetaDataEvolutionValidator.getDefaultInstance().validate(v1, v2);
     }
 
+    @Test
+    void metaDataEvolutionAllowsMigratingFromCanonicalToLegacyName() {
+        // The reverse migration: the old index specifies the metric under its CANONICAL name; the new index moves back
+        // to the LEGACY alias with the SAME effective value. Evolution must accept this too — the effective-value
+        // comparison in validateChangedOptions is symmetric, so which of a key's names each side uses does not matter as
+        // long as the value agrees.
+        final RecordMetaData v1 = vectorMetaData(IndexOptions.VECTOR_METRIC);
+
+        final RecordMetaDataProto.MetaData.Builder v2Proto = v1.toProto().toBuilder()
+                .setVersion(v1.getVersion() + 1);
+        boolean mutated = false;
+        for (final RecordMetaDataProto.Index.Builder indexBuilder : v2Proto.getIndexesBuilderList()) {
+            if ("MetricIndex".equals(indexBuilder.getName())) {
+                for (final RecordMetaDataProto.Index.Option.Builder optionBuilder : indexBuilder.getOptionsBuilderList()) {
+                    if (IndexOptions.VECTOR_METRIC.equals(optionBuilder.getKey())) {
+                        optionBuilder.setKey(IndexOptions.HNSW_METRIC);   // same value, moved to the legacy alias
+                        mutated = true;
+                    }
+                }
+            }
+        }
+        assertThat(mutated).isTrue();
+
+        // The evolved metadata is itself valid, and evolution from v1 to v2 is accepted.
+        final RecordMetaData v2 = RecordMetaData.newBuilder().setRecords(v2Proto.build()).build();
+        MetaDataEvolutionValidator.getDefaultInstance().validate(v1, v2);
+    }
+
     @Nonnull
     private static RecordMetaData vectorMetaData(@Nonnull final String metricOptionName) {
         final RecordMetaDataBuilder builder =

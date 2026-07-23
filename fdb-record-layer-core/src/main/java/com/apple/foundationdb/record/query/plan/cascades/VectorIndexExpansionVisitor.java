@@ -191,17 +191,15 @@ public class VectorIndexExpansionVisitor extends KeyExpressionExpansionVisitor i
     private Placeholder createDistanceValuePlaceholder(@Nonnull Iterable<? extends Value> partitioningValues,
                                                        @Nonnull Iterable<? extends Value> argumentValues) {
         final var metric = VectorIndexHelper.getMetric(index);
-        switch (metric) {
-            case EUCLIDEAN_METRIC:
-                return new EuclideanDistanceRowNumberValue(partitioningValues, argumentValues).asPlaceholder(newParameterAlias());
-            case EUCLIDEAN_SQUARE_METRIC:
-                return new EuclideanSquareDistanceRowNumberValue(partitioningValues, argumentValues).asPlaceholder(newParameterAlias());
-            case COSINE_METRIC:
-                return new CosineDistanceRowNumberValue(partitioningValues, argumentValues).asPlaceholder(newParameterAlias());
-            case DOT_PRODUCT_METRIC:
-                return new DotProductDistanceRowNumberValue(partitioningValues, argumentValues).asPlaceholder(newParameterAlias());
-            default:
-                throw new RecordCoreException("vector index does not support provided metric type " + metric);
-        }
+        return switch (metric) {
+            case EUCLIDEAN_METRIC ->
+                    new EuclideanDistanceRowNumberValue(partitioningValues, argumentValues).asPlaceholder(newParameterAlias());
+            case EUCLIDEAN_SQUARE_METRIC ->
+                    new EuclideanSquareDistanceRowNumberValue(partitioningValues, argumentValues).asPlaceholder(newParameterAlias());
+            case COSINE_METRIC ->
+                    new CosineDistanceRowNumberValue(partitioningValues, argumentValues).asPlaceholder(newParameterAlias());
+            case DOT_PRODUCT_METRIC ->
+                    new DotProductDistanceRowNumberValue(partitioningValues, argumentValues).asPlaceholder(newParameterAlias());
+        };
     }
 }
