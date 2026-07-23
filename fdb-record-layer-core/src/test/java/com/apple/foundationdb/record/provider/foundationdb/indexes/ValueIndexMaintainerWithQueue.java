@@ -41,8 +41,8 @@ import java.util.concurrent.CompletableFuture;
  * A test-only value index maintainer with simple pending-write-queue support.
  * The reasons that this index maintainer should not be used for production are:
  * 1. It does not support synthetic records
- * 2. Pending Write Queue during is used to avoid repeating conflicts between indexer and user transactions. This may happen
- *    because of indexing bottlenecks - which is not the case for value indexes.
+ * 2. Pending Write Queue while WriteOnly is used to avoid repeating conflicts between the indexer and user transactions.
+ *    This may happen because of bottlenecks - which is not the case for value indexes.
  *
  */
 public class ValueIndexMaintainerWithQueue extends ValueIndexMaintainer {

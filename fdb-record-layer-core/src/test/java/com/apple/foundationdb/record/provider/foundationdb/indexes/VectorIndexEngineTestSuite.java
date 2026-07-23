@@ -526,22 +526,27 @@ abstract class VectorIndexEngineTestSuite extends VectorIndexTestBase {
     @Test
     void pendingWriteQueueRoundTripUpdate() throws Exception {
         // serializePendingWriteQueue(old, new) for the same primary key -> updateFromQueue removes the old entry and
-        // adds the new one in place
-        final Random random = new Random(3L);
-        final HalfRealVector vectorA = randomHalfVector(random, 128);
-        final HalfRealVector vectorB = randomHalfVector(random, 128);
-        final HalfRealVector vectorWitness = randomHalfVector(random, 128);
+        // adds the new one in place, actually repositioning pk 1 relative to the untouched witness.
+        // Uniform vectors make the ordering unambiguous, so a correct in-place update flips
+        // the nearest-neighbor order from {1, 2} to {2, 1}.
+        final HalfRealVector query = constantHalfVector(0.1f, 128);
+        final HalfRealVector witnessVector = constantHalfVector(0.5f, 128);
+        final HalfRealVector oldVector = constantHalfVector(0.11f, 128);
+        final HalfRealVector newVector = constantHalfVector(0.9f, 128);
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context, this::addUngroupedVectorIndex);
             final Index index = recordStore.getRecordMetaData().getIndex("UngroupedVectorIndex");
             final IndexMaintainer maintainer = recordStore.getIndexMaintainer(index);
 
-            saveVectorRecord(2L, vectorWitness); // witness that must survive
-            final FDBStoredRecord<Message> oldStored = saveVectorRecord(1L, vectorA);
-            // Build the new version without saving it, so the index still holds vectorA when we serialize.
+            saveVectorRecord(2L, witnessVector); // witness that must survive
+            final FDBStoredRecord<Message> oldStored = saveVectorRecord(1L, oldVector);
+            // Before the update pk 1 sits closest to the query, ahead of the witness.
+            assertThat(nearestRecNos(index, query, 10)).containsExactly(1L, 2L);
+
+            // Build the new version without saving it, so the index still holds oldVector when we serialize.
             final Message newRecord = VectorRecord.newBuilder()
                     .setRecNo(1L).setGroupId(0)
-                    .setVectorData(ByteString.copyFrom(vectorB.getRawData()))
+                    .setVectorData(ByteString.copyFrom(newVector.getRawData()))
                     .build();
             final FDBStoredRecord<Message> newStored = FDBStoredRecord.newBuilder(newRecord)
                     .setPrimaryKey(oldStored.getPrimaryKey())
@@ -551,8 +556,9 @@ abstract class VectorIndexEngineTestSuite extends VectorIndexTestBase {
             final Any entry = maintainer.serializePendingWriteQueue(oldStored, newStored);
             maintainer.updateFromQueue(entry).join();
 
-            // pk 1 updated in place and pk 2 untouched: exactly {1, 2}, no duplicate or missing node.
-            assertThat(nearestRecNos(index, vectorB, 10)).containsExactlyInAnyOrder(1L, 2L);
+            // pk 1 updated in place (no duplicate, no missing node) and repositioned: it is now further from the
+            // query than the untouched witness, so the nearest-neighbor order flips to {2, 1}.
+            assertThat(nearestRecNos(index, query, 10)).containsExactly(2L, 1L);
             commit(context);
         }
     }

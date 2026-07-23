@@ -368,15 +368,13 @@ public class VectorIndexMaintainer extends StandardIndexMaintainer {
         final IndexBuildProto.OldAndNewIndexEntries.Builder builder = IndexBuildProto.OldAndNewIndexEntries.newBuilder();
         final List<IndexEntry> oldEntries = filteredIndexEntries(oldRecord);
         if (oldEntries != null) {
-            for (final IndexEntry entry : oldEntries) {
-                builder.addOldEntries(toProto(entry, oldRecord.getPrimaryKey()));
-            }
+            Verify.verify(oldEntries.size() == 1);
+            builder.addOldEntries(toProto(oldEntries.get(0), oldRecord.getPrimaryKey()));
         }
         final List<IndexEntry> newEntries = filteredIndexEntries(newRecord);
         if (newEntries != null) {
-            for (final IndexEntry entry : newEntries) {
-                builder.addNewEntries(toProto(entry, newRecord.getPrimaryKey()));
-            }
+            Verify.verify(newEntries.size() == 1);
+            builder.addNewEntries(toProto(newEntries.get(0), newRecord.getPrimaryKey()));
         }
         return Any.pack(builder.build());
     }

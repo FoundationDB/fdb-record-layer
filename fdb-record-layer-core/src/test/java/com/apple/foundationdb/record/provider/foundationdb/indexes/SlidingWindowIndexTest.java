@@ -2109,19 +2109,22 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
 
     @Test
     void writeOnlyWithQueueUpdateOfUnindexedRecordLandsInWindow() throws Exception {
-        // deferred update a record, should get into the window
+        // A queued update, after drain, changes a value of an out-of-window record to
+        // become an in-window.
         try (FDBRecordContext context = openContext()) {
             openStore(context, 2, Direction.DESC);
-            rec(1, 130);
-            rec(2, 150);
-            rec(3, 120);
+            rec(1, 100);   // below the window boundary (DESC keeps the highest relevance)
+            rec(2, 300);
+            rec(3, 200);
+            // rec 1 starts out of the window
+            assertThat(slidingWindow()).hasSizeOf(2).underlyingHnsw().containsInAnyOrder(2, 3);
             commit(context);
         }
 
         try (FDBRecordContext context = openContext()) {
             openStore(context, 2, Direction.DESC);
             recordStore.markIndexWriteOnlyWithQueue(INDEX_NAME).join();
-            rec(1, 200);   // update 100 -> 200, deferred to the queue
+            rec(1, 250);   // update 100 -> 250, deferred to the queue; now above rec 3
             commit(context);
         }
 
@@ -2131,6 +2134,7 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
             openStore(context, 2, Direction.DESC);
             final Index index = index();
             assertTrue(recordStore.isIndexReadable(index));
+            // rec 1 has entered the window and evicted rec 3
             assertThat(slidingWindow())
                     .hasSizeOf(2)
                     .underlyingHnsw().containsInAnyOrder(1, 2);
@@ -2140,20 +2144,23 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
     }
 
     @Test
-    void writeOnlyWithQueueUpdateOfUnindexedRecordStaysOutOfWindow() throws Exception {
-        // deferred update a record, should stay outside the window
+    void writeOnlyWithQueueUpdateOfUnindexedRecordLeavesWindow() throws Exception {
+        // A queued update, after drain, changes a value of an in-window record to
+        // become an out-of-window.
         try (FDBRecordContext context = openContext()) {
             openStore(context, 2, Direction.DESC);
-            rec(1, 100);
+            rec(1, 400);
             rec(2, 500);
-            rec(3, 400);
+            rec(3, 300);   // just below the window boundary
+            // rec 1 starts inside the window
+            assertThat(slidingWindow()).hasSizeOf(2).underlyingHnsw().containsInAnyOrder(1, 2);
             commit(context);
         }
 
         try (FDBRecordContext context = openContext()) {
             openStore(context, 2, Direction.DESC);
             recordStore.markIndexWriteOnlyWithQueue(INDEX_NAME).join();
-            rec(1, 200);   // update 100 -> 200, deferred; still below the window boundary
+            rec(1, 100);   // update 400 -> 100, deferred to the queue; now below rec 3
             commit(context);
         }
 
@@ -2163,6 +2170,7 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
             openStore(context, 2, Direction.DESC);
             final Index index = index();
             assertTrue(recordStore.isIndexReadable(index));
+            // rec 1 has dropped out of the window and rec 3 has taken its place
             assertThat(slidingWindow())
                     .hasSizeOf(2)
                     .underlyingHnsw().containsInAnyOrder(2, 3);
