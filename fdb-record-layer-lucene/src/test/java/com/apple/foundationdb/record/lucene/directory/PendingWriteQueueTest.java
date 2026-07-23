@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.lucene.directory;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.IsolationLevel;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCoreInternalException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorContinuation;
@@ -64,8 +65,10 @@ import java.util.Random;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
@@ -299,6 +302,110 @@ class PendingWriteQueueTest extends FDBRecordStoreTestBase {
         // Final state: only the late-arrival entry remains.
         assertQueueEntries(queue, List.of(lateArrival),
                 LucenePendingWriteQueueProto.PendingWriteItem.OperationType.INSERT);
+    }
+
+    /**
+     * End-to-end test for non-conflicting drain and enqueue.
+     */
+    @Test
+    void testDrainAndClearMarkerConvergesUnderConcurrentEnqueue() {
+        final int incarnation = 0;
+        final TestDocument seed1 = new TestDocument(primaryKey("seed-1"),
+                List.of(createField("f", "s1", LuceneIndexExpressions.DocumentFieldType.STRING, false, false)));
+        final TestDocument seed2 = new TestDocument(primaryKey("seed-2"),
+                List.of(createField("f", "s2", LuceneIndexExpressions.DocumentFieldType.STRING, false, false)));
+        final TestDocument seed3 = new TestDocument(primaryKey("seed-3"),
+                List.of(createField("f", "s3", LuceneIndexExpressions.DocumentFieldType.STRING, false, false)));
+        final TestDocument lateArrival = new TestDocument(primaryKey("late-arrival"),
+                List.of(createField("f", "late", LuceneIndexExpressions.DocumentFieldType.STRING, false, false)));
+
+        // Set the marker (ongoing-merge indicator) and seed the queue.
+        PendingWriteQueue queue;
+        try (FDBRecordContext context = openContext()) {
+            queue = getQueue(context);
+            setMarker(context);
+            queue.enqueueInsert(context, seed1.getPrimaryKey(), seed1.getFields(), incarnation);
+            queue.enqueueInsert(context, seed2.getPrimaryKey(), seed2.getFields(), incarnation);
+            queue.enqueueInsert(context, seed3.getPrimaryKey(), seed3.getFields(), incarnation);
+            commit(context);
+        }
+
+        // Round 1: drain from queue while a concurrent enqueue commits a late arrival. The drain requests
+        // FORWARD_SCAN (SERIALIZABLE), but getQueueCursor forces SNAPSHOT, so the drain commit must NOT conflict
+        // with the concurrent enqueue.
+        try (FDBRecordContext drainTx = openContext()) {
+            List<PendingWriteQueue.QueueEntry> drained =
+                    queue.getQueueCursor(drainTx, ScanProperties.FORWARD_SCAN, null).asList().join();
+            assertEquals(3, drained.size());
+            for (PendingWriteQueue.QueueEntry entry : drained) {
+                queue.clearEntry(drainTx, entry);
+            }
+            try (FDBRecordContext enqueueTx = openContext()) {
+                queue.enqueueInsert(enqueueTx, lateArrival.getPrimaryKey(), lateArrival.getFields(), incarnation);
+                commit(enqueueTx);
+            }
+            assertDoesNotThrow(() -> commit(drainTx),
+                    "the snapshot drain must commit despite a concurrent enqueue");
+        }
+
+        // The three seeds were removed; only the late arrival remains.
+        assertQueueEntries(queue, List.of(lateArrival),
+                LucenePendingWriteQueueProto.PendingWriteItem.OperationType.INSERT);
+
+        // Clearing the marker must fail now: the queue is not empty (the late arrival is still pending).
+        try (FDBRecordContext clearTx = openContext()) {
+            assertThrows(RecordCoreException.class, () -> clearMarkerIfQueueEmpty(clearTx, queue),
+                    "the marker must not be clearable while the queue is non-empty");
+        }
+        try (FDBRecordContext context = openContext()) {
+            assertTrue(markerExists(context), "the marker must still be set after a failed clear");
+            commit(context);
+        }
+
+        // Round 2: a subsequent drain empties the queue...
+        try (FDBRecordContext drainTx = openContext()) {
+            List<PendingWriteQueue.QueueEntry> drained =
+                    queue.getQueueCursor(drainTx, ScanProperties.FORWARD_SCAN, null).asList().join();
+            assertEquals(1, drained.size());
+            queue.clearEntry(drainTx, drained.get(0));
+            commit(drainTx);
+        }
+
+        // ...and now clearing the marker succeeds.
+        try (FDBRecordContext clearTx = openContext()) {
+            assertDoesNotThrow(() -> clearMarkerIfQueueEmpty(clearTx, queue));
+            commit(clearTx);
+        }
+        try (FDBRecordContext context = openContext()) {
+            assertTrue(queue.isQueueEmpty(context).join(), "the queue must be empty after the second drain");
+            assertFalse(markerExists(context), "the marker must be cleared once the queue is empty");
+            commit(context);
+        }
+    }
+
+    /** Key backing the marker that models {@code FDBDirectory}'s ongoing-merge indicator (subspace index 2). */
+    @Nonnull
+    private byte[] markerKey(@Nonnull FDBRecordContext context) {
+        return path.toSubspace(context).subspace(Tuple.from(2)).pack();
+    }
+
+    private void setMarker(@Nonnull FDBRecordContext context) {
+        context.ensureActive().set(markerKey(context), new byte[] {1});
+    }
+
+    private boolean markerExists(@Nonnull FDBRecordContext context) {
+        return context.ensureActive().get(markerKey(context)).join() != null;
+    }
+
+    /**
+     * Mirrors {@code FDBDirectory.clearOngoingMergeIndicatorIfQueueEmptyAsync}: clears the marker only if the
+     * queue is empty, otherwise throws so the caller drains more and retries.
+     */
+    private void clearMarkerIfQueueEmpty(@Nonnull FDBRecordContext context, @Nonnull PendingWriteQueue queue) {
+        if (!queue.isQueueEmpty(context).join()) {
+            throw new RecordCoreException("Cannot clear queue usage indicator: pending write queue is not empty");
+        }
+        context.ensureActive().clear(markerKey(context));
     }
 
     @Test
