@@ -18,6 +18,8 @@
  * limitations under the License.
  */
 
+import com.github.spotbugs.snom.SpotBugsTask
+
 apply from: rootProject.file('gradle/proto.gradle')
 apply plugin: 'application'
 
@@ -45,7 +47,7 @@ application {
 tasks.withType(Pmd).configureEach {
     enabled = false
 }
-tasks.withType(com.github.spotbugs.snom.SpotBugsTask).configureEach {
+tasks.withType(SpotBugsTask).configureEach {
     enabled = false
 }
 tasks.withType(Checkstyle).configureEach {

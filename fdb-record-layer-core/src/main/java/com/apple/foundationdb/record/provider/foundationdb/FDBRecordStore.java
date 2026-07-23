@@ -4872,7 +4872,16 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                                                         int oldFormatVersion, @Nonnull RecordMetaData metaData, int oldMetaDataVersion,
                                                         boolean rebuildRecordCounts, List<CompletableFuture<Void>> work) {
         final boolean newStore = oldFormatVersion == 0;
-        final Map<Index, List<RecordType>> indexes = metaData.getIndexesToBuildSince(oldMetaDataVersion);
+        // Note: We are specifically calling `getIndexesSince` and not `getIndexesToBuildSince` because we want to see
+        // *All* new indexes so that we can deal with them appropriately. Most importantly we need to see the replaced
+        // indexes, even if they're new, to update their state.
+        // We could try and optimize and not build indexes that have been replaced, but that is relevant in a very
+        // specific scenario
+        // 1. The replaced index is getting picked up in the same transaction as its replacement
+        // 2. They are small enough that it is feasible to build the replaced index, and the replacements in a single transaction
+        // 3. They are big enough that you care about it
+        // Note that new stores will get the indexes for free.
+        final Map<Index, List<RecordType>> indexes = metaData.getIndexesSince(oldMetaDataVersion);
         handleNoLongerUniqueIndex(metaData, work, indexes);
         if (!indexes.isEmpty()) {
             // If all the new indexes are only for a record type whose primary key has a type prefix, then we can scan less.
@@ -5097,26 +5106,33 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         Map<Index, CompletableFuture<IndexState>> newStates = new HashMap<>();
         for (Map.Entry<Index, List<RecordType>> entry : indexes.entrySet()) {
             Index index = entry.getKey();
-            List<RecordType> recordTypes = entry.getValue();
-            boolean indexOnNewRecordTypes = areAllRecordTypesSince(recordTypes, oldMetaDataVersion);
-            CompletableFuture<IndexState> stateFuture = userVersionChecker == null ?
-                    lazyRecordCount.get().thenApply(recordCount -> FDBRecordStore.disabledIfTooManyRecordsForRebuild(recordCount, indexOnNewRecordTypes)) :
-                    userVersionChecker.needRebuildIndex(index, lazyRecordCount, lazyRecordsSize, indexOnNewRecordTypes);
-            if (IndexTypes.VERSION.equals(index.getType())
-                    && !newStore
-                    && oldFormatVersion < SAVE_VERSION_WITH_RECORD_FORMAT_VERSION
-                    && !useOldVersionFormat()) {
-                stateFuture = stateFuture.thenApply(state -> {
-                    if (IndexState.READABLE.equals(state)) {
-                        // Do not rebuild any version indexes while the format conversion is going on.
-                        // Otherwise, the process moving the versions might race against the index
-                        // build and some versions won't be indexed correctly.
-                        return IndexState.DISABLED;
-                    }
-                    return state;
-                });
+            // Any indexes that are flagged to be replaced should never be built.
+            // Note: It is possible that the replaced index(es) is also not built, in which case the store will end up
+            // with neither.
+            if (index.getReplacedByIndexNames().isEmpty()) {
+                List<RecordType> recordTypes = entry.getValue();
+                boolean indexOnNewRecordTypes = areAllRecordTypesSince(recordTypes, oldMetaDataVersion);
+                CompletableFuture<IndexState> stateFuture = userVersionChecker == null ?
+                                                            lazyRecordCount.get().thenApply(recordCount -> FDBRecordStore.disabledIfTooManyRecordsForRebuild(recordCount, indexOnNewRecordTypes)) :
+                                                            userVersionChecker.needRebuildIndex(index, lazyRecordCount, lazyRecordsSize, indexOnNewRecordTypes);
+                if (IndexTypes.VERSION.equals(index.getType())
+                        && !newStore
+                        && oldFormatVersion < SAVE_VERSION_WITH_RECORD_FORMAT_VERSION
+                        && !useOldVersionFormat()) {
+                    stateFuture = stateFuture.thenApply(state -> {
+                        if (IndexState.READABLE.equals(state)) {
+                            // Do not rebuild any version indexes while the format conversion is going on.
+                            // Otherwise, the process moving the versions might race against the index
+                            // build and some versions won't be indexed correctly.
+                            return IndexState.DISABLED;
+                        }
+                        return state;
+                    });
+                }
+                newStates.put(index, stateFuture);
+            } else {
+                newStates.put(index, CompletableFuture.completedFuture(IndexState.DISABLED));
             }
-            newStates.put(index, stateFuture);
         }
         return newStates;
     }

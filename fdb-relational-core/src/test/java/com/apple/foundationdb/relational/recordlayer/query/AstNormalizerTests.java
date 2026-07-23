@@ -46,7 +46,6 @@ import com.apple.foundationdb.relational.util.Assert;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.protobuf.ByteString;
-import org.apache.commons.lang3.NotImplementedException;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -413,19 +412,19 @@ public class AstNormalizerTests {
                             @Nonnull
                             @Override
                             public RecordMetaDataProto.PUserDefinedFunction toProto() {
-                                throw new NotImplementedException("unexpected call");
+                                throw new UnsupportedOperationException("unexpected call");
                             }
 
                             @Nonnull
                             @Override
                             public RelationalExpression encapsulate(@Nonnull final List<? extends Typed> arguments) {
-                                throw new NotImplementedException("unexpected call");
+                                throw new UnsupportedOperationException("unexpected call");
                             }
 
                             @Nonnull
                             @Override
                             public RelationalExpression encapsulate(@Nonnull final Map<String, ? extends Typed> namedArguments) {
-                                throw new NotImplementedException("unexpected call");
+                                throw new UnsupportedOperationException("unexpected call");
                             }
                         })
                         .withSerializableFunction(new RawSqlFunction(name, functionDdl))

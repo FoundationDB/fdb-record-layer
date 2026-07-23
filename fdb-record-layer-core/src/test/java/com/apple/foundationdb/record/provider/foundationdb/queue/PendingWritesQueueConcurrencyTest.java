@@ -90,24 +90,23 @@ class PendingWritesQueueConcurrencyTest extends FDBRecordStoreTestBase {
         // list append, so commit order and list order agree.
         final Object commitLock = new Object();
 
-        try (ExecutorService executor = Executors.newFixedThreadPool(WORKER_COUNT)) {
-            List<Future<?>> futures = new ArrayList<>(WORKER_COUNT);
-            try {
-                for (int worker = 0; worker < WORKER_COUNT; worker++) {
-                    final int workerId = worker;
-                    // Per-worker Random seeded deterministically from the global seed + workerId
-                    futures.add(executor.submit(() -> {
-                        workerLoop(queue, workerId, new Random(seed + workerId), recorded, drained, commitLock);
-                        return null;
-                    }));
-                }
-                for (Future<?> future : futures) {
-                    future.get(120, TimeUnit.SECONDS);
-                }
-            } finally {
-                executor.shutdownNow();
-                assertTrue(executor.awaitTermination(30, TimeUnit.SECONDS), "executor did not shut down");
+        final ExecutorService executor = Executors.newFixedThreadPool(WORKER_COUNT);
+        List<Future<?>> futures = new ArrayList<>(WORKER_COUNT);
+        try {
+            for (int worker = 0; worker < WORKER_COUNT; worker++) {
+                final int workerId = worker;
+                // Per-worker Random seeded deterministically from the global seed + workerId
+                futures.add(executor.submit(() -> {
+                    workerLoop(queue, workerId, new Random(seed + workerId), recorded, drained, commitLock);
+                    return null;
+                }));
             }
+            for (Future<?> future : futures) {
+                future.get(120, TimeUnit.SECONDS);
+            }
+        } finally {
+            executor.shutdownNow();
+            assertTrue(executor.awaitTermination(30, TimeUnit.SECONDS), "executor did not shut down");
         }
 
         // Drain whatever the workers left behind, in a single consistent snapshot, recording

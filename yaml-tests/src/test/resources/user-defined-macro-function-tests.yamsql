@@ -209,15 +209,15 @@ test_block:
       - error: UNSUPPORTED_QUERY
     -
       - query: select z(((1l, 2l), (3l, 4l))) from range(1, 2)
-      - initialVersionLessThan: !current_version
+      - initialVersionLessThan: 4.12.13.0
       - error: INVALID_ARGUMENT_FOR_FUNCTION
-      - initialVersionAtLeast: !current_version
+      - initialVersionAtLeast: 4.12.13.0
       - unorderedResult: [{!l 4}]
 ---
 setup:
   connect: "jdbc:embed:/__SYS?schema=CATALOG"
   options:
-    supported_version: !current_version
+    supported_version: 4.12.13.0
   steps:
     - query: drop schema template if exists test_user_defined_macro_functions_with_expressions
     - query: create schema template test_user_defined_macro_functions_with_expressions
@@ -243,7 +243,7 @@ setup:
 setup:
   connect: "jdbc:embed:/FRL/MACRO_WITH_EXPRESSIONS?schema=TEST"
   options:
-    supported_version: !current_version
+    supported_version: 4.12.13.0
   steps:
     - query: INSERT INTO NESTED
         VALUES (1, ((5, 11), (10, 100))),
@@ -257,7 +257,7 @@ test_block:
   name: user-defined-scalar-function-with-expressions-tests
   connect: "jdbc:embed:/FRL/MACRO_WITH_EXPRESSIONS?schema=TEST"
   options:
-    supported_version: !current_version
+    supported_version: 4.12.13.0
   tests:
     -
       - query: select add_udf(0, 1l) from range(1, 2)
@@ -295,15 +295,11 @@ test_block:
       - unorderedResult: [{100}, {100}, {100}, {100}, {140}, {140}]
     -
       - query: select st1_array((1l, 2l)) from range(1, 2)
-      - explain: "TF range(promote(@c12 AS LONG), promote(@c14 AS LONG), STEP 1l) | MAP (array(promote((@c4 AS _0, @c6 AS _1) AS LONG AS Y, LONG AS Z)) AS _0)"
-      # TODO: disable forceContinuation until https://github.com/FoundationDB/fdb-record-layer/pull/4171 is merged.
-      - maxRows: 0
+      - explain: "TF range(promote(@c12 AS LONG), promote(@c14 AS LONG), STEP 1l) | MAP (array(promote(promote((@c4 AS _0, @c6 AS _1) AS LONG AS Y, LONG AS Z) AS LONG AS Y, LONG AS Z)) AS _0)"
       - unorderedResult: [{ [ {!l 1, !l 2} ]} ]
     -
       - query: select st1_array_alt(r.v) from nested
-      - explain: "SCAN([IS NESTED]) | MAP (array(_.R.V) AS _0)"
-      # TODO: disable forceContinuation until https://github.com/FoundationDB/fdb-record-layer/pull/4171 is merged.
-      - maxRows: 0
+      - explain: "SCAN([IS NESTED]) | MAP (array(promote(_.R.V AS LONG AS Y, LONG AS Z)) AS _0)"
       - unorderedResult: [{ [ {y: !l 10, z: !l 100} ]},
                           { [ {y: !l 10, z: !l 100} ]},
                           { [ {y: !l 10, z: !l 100} ]},
@@ -312,9 +308,7 @@ test_block:
                           { [ {y: !l 10, z: !l 140} ]}]
     -
       - query: select st1_array_without_return_type(r.v) from nested
-      - explain: "SCAN([IS NESTED]) | MAP (array(_.R.V) AS _0)"
-      # TODO: disable forceContinuation until https://github.com/FoundationDB/fdb-record-layer/pull/4171 is merged.
-      - maxRows: 0
+      - explain: "SCAN([IS NESTED]) | MAP (array(promote(_.R.V AS LONG AS Y, LONG AS Z)) AS _0)"
       - unorderedResult: [{ [ {y: !l 10, z: !l 100} ]},
                           { [ {y: !l 10, z: !l 100} ]},
                           { [ {y: !l 10, z: !l 100} ]},
@@ -322,9 +316,9 @@ test_block:
                           { [ {y: !l 10, z: !l 140} ]},
                           { [ {y: !l 10, z: !l 140} ]}]
     -
-      - query: select st1_array((0l, 1l))[1] from range(1, 2)
-      - explain: "TF range(promote(@c15 AS LONG), promote(@c17 AS LONG), STEP 1l) | MAP (array(promote((@c4 AS _0, @c6 AS _1) AS LONG AS Y, LONG AS Z))[promote(@c15 AS INT)] AS _0)"
-      - unorderedResult: [{ {y: !l 0, z: !l 1} }]
+      - query: select st1_array_first(st1_array((1l, 2l))) from range(1, 2)
+      - explain: "TF range(promote(@c15 AS LONG), promote(@c17 AS LONG), STEP 1l) | MAP (array(promote(promote((@c6 AS _0, @c8 AS _1) AS LONG AS Y, LONG AS Z) AS LONG AS Y, LONG AS Z))[promote(1 AS INT)] AS _0)"
+      - unorderedResult: [{ {y: !l 1, z: !l 2} }]
     -
       # TODO: this should be fixed as part of https://github.com/FoundationDB/fdb-record-layer/issues/4177
       - query: select temp_z(r) from nested
@@ -382,7 +376,7 @@ test_block:
 setup:
   connect: "jdbc:embed:/__SYS?schema=CATALOG"
   options:
-    supported_version: !current_version
+    supported_version: 4.12.13.0
   steps:
     - query: drop schema template test_user_defined_macro_functions_with_expressions
     - query: drop database /FRL/MACRO_WITH_EXPRESSIONS

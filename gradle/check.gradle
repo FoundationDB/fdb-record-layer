@@ -71,7 +71,8 @@ apply plugin: 'com.github.spotbugs'
 // It looks like there is an issue with having spotbugs in a separate file
 // https://github.com/spotbugs/spotbugs-gradle-plugin/issues/972
 def classLoader = plugins['com.github.spotbugs'].class.classLoader
-def SpotBugsEffort = classLoader.findLoadedClass( 'com.github.spotbugs.snom.Effort' )
+def SpotBugsEffort = classLoader.findLoadedClass('com.github.spotbugs.snom.Effort')
+def SpotBugsTaskClass = classLoader.findLoadedClass('com.github.spotbugs.snom.SpotBugsTask')
 spotbugs {
     toolVersion = libs.versions.spotbugs.get()
     ignoreFailures = false
@@ -93,7 +94,7 @@ def printInstructionsOnRunningWithHtmlOutput = task('printInstructionsOnRunningW
     }
 }
 
-tasks.withType(rootProject.SpotBugsTask) { task ->
+tasks.withType(SpotBugsTaskClass) { task ->
     if (project.hasProperty('spotbugsEnableHtmlReport')) {
         // SpotBugs task can only have one report type enabled at a time
         reports {

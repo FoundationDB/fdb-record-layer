@@ -85,7 +85,7 @@ final class UserDefinedMacroFunctionBuilderTest {
 
         final var arguments = ImmutableList.of(LiteralValue.ofScalar("hello"));
         assertThat(macroIdentityFunction.encapsulate(arguments))
-                .isEqualTo(arguments.getFirst());
+                .isEqualTo(arguments.get(0));
     }
 
     @Test

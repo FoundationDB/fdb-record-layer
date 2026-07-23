@@ -783,6 +783,8 @@ public class FDBStoreTimer extends StoreTimer {
         PENDING_WRITES_QUEUE_WRITE("pending writes queue writes", false),
         /** Count of the entries cleared from a {@code PendingWritesQueue}. */
         PENDING_WRITES_QUEUE_CLEAR("pending writes queue clears", false),
+        /** Count of the indexes disabled because their {@code PendingWritesQueue} overflowed. */
+        PENDING_WRITES_QUEUE_OVERFLOW_DISABLED_INDEX("indexes disabled on pending writes queue overflow", false),
         ;
 
         private final String title;
