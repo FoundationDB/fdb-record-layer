@@ -1097,7 +1097,8 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
             commit(context);
         }
 
-        // Defer writes onto the queue: an insert into each group, then a range delete of group A after them.
+        // Defer writes onto the queue: an insert into each group, a range delete of group A, then an insert back into
+        // the just-deleted group A. Drained in order, the trailing insert must survive the range delete.
         try (FDBRecordContext context = openContext()) {
             openStore(context, 3, Direction.DESC, grouping);
             recordStore.markIndexWriteOnlyWithQueue(INDEX_NAME).join();
@@ -1106,6 +1107,7 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
             rec(5, "A", "c", 150, 0, sampleVector());   // queued ahead of the delete
             rec(6, "B", "c", 350, 0, sampleVector());   // queued ahead of the delete
             recordStore.deleteRecordsWhere(Query.field("zone").equalsValue("A"));
+            rec(7, "A", "c", 175, 0, sampleVector());   // queued after the delete: must survive it
             commit(context);
         }
 
@@ -1121,12 +1123,11 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
         // Build the index, which drains the queue and marks the index readable.
         drainQueue(3, Direction.DESC, grouping);
 
-        // After the drain the DELETE_WHERE removed group A's entries; group B kept its records plus the queued insert.
         try (FDBRecordContext context = openContext()) {
             openStore(context, 3, Direction.DESC, grouping);
             final Index index = index();
             assertTrue(recordStore.isIndexReadable(index));
-            assertThat(groupedSlidingWindow(Tuple.from("A"))).hasSizeOf(0);
+            assertThat(groupedSlidingWindow(Tuple.from("A"))).hasSizeOf(1).underlyingHnsw().containsInAnyOrder(7L);
             assertThat(groupedSlidingWindow(Tuple.from("B"))).hasSizeOf(3).underlyingHnsw().containsInAnyOrder(3L, 4L, 6L);
             assertNull(queueSize(context, index), "the queue data should have been erased once the index became readable");
             commit(context);

@@ -1126,8 +1126,8 @@ class OnlineIndexerPendingWriteQueueTest extends OnlineIndexerTest {
 
     @Test
     void deleteWhereThroughQueueOnPlainValueIndex() {
-        // Coverage for the generic DELETE_WHERE-through-queue path on a value index with a queue. The primary key
-        // (num_value_2, rec_no) and the indexKey (num_value_2) are both prefixed by num_value_2, so deleteRecordsWhere(num_value_2)
+        // Coverage for the generic deleteWhere via pending write queue path. The primary key (num_value_2, rec_no) and
+        // the indexKey (num_value_2) are both prefixed by num_value_2, so deleteRecordsWhere(num_value_2)
         // is a valid prefix delete for the single-type store.
         final String valueIndexName = "num_value_2_value_queue";
         openMetaData(TestRecordsIndexFilteringProto.getDescriptor(), metaDataBuilder -> {
@@ -1146,24 +1146,26 @@ class OnlineIndexerPendingWriteQueueTest extends OnlineIndexerTest {
             context.commit();
         }
 
-        // Defer writes onto the queue: an insert into each group, then a range delete of group 1 after them.
+        // Defer writes onto the queue: an insert into each group, a range delete of group 1, then an insert back into
+        // the just-deleted group 1. Drained in order, the trailing insert must survive the range delete.
         try (FDBRecordContext context = openContext()) {
             recordStore.markIndexWriteOnlyWithQueue(valueIndexName).join();
             assertTrue(recordStore.isIndexWriteOnlyWithQueue(valueIndexName));
             saveBasicRecord(5, 1);   // queued ahead of the delete
             saveBasicRecord(6, 2);   // queued ahead of the delete
             recordStore.deleteRecordsWhere(Query.field("num_value_2").equalsValue(1));
+            saveBasicRecord(7, 1);   // queued after the delete: must survive it
             context.commit();
         }
 
         final Index index = metaData.getIndex(valueIndexName);
 
-        // Before the drain the deferred writes are not applied yet: the index is still deferring writes, the two
+        // Before the drain the deferred writes are not applied yet: the index is still deferring writes, the three
         // inserts plus the range delete sit in the pending write queue, and the index subspace still holds only the
         // 4 records from the readable build.
         final Long queueSize = queueSizeCounter(index);
-        assertEquals(3L, queueSize == null ? 0L : queueSize,
-                "the two inserts and the range delete should be deferred onto the queue");
+        assertEquals(4L, queueSize == null ? 0L : queueSize,
+                "the three inserts and the range delete should be deferred onto the queue");
         try (FDBRecordContext context = openContext()) {
             assertTrue(recordStore.isIndexWriteOnlyWithQueue(valueIndexName));
             final int rawEntryCount = context.ensureActive()
@@ -1177,14 +1179,12 @@ class OnlineIndexerPendingWriteQueueTest extends OnlineIndexerTest {
             indexer.buildIndex(true);
         }
 
-        // Group 1's index entries are gone (DELETE_WHERE drained after the queued insert of rec 5); group 2 kept its
-        // entries plus the queued rec 6.
         // Note: cannot use assertReadable(index) here, as it rebuilds the (MySimpleRecord) simple metadata.
         try (FDBRecordContext context = openContext()) {
             assertTrue(recordStore.isIndexReadable(valueIndexName));
             context.commit();
         }
-        assertEquals(Set.of(), indexRecNosForGroup(index, 1));
+        assertEquals(Set.of(7L), indexRecNosForGroup(index, 1));
         assertEquals(Set.of(3L, 4L, 6L), indexRecNosForGroup(index, 2));
         assertNull(queueSizeCounter(index));
     }
