@@ -80,6 +80,9 @@ tasks.register('testShadowJar', ShadowJar) {
         attributes 'Main-Class': 'com.apple.foundationdb.record.provider.foundationdb.FDBRecordStorePerformanceTest',
                    'Multi-Release': 'true' // https://github.com/johnrengelman/shadow/issues/449
     }
+    // Override the duplicates strategy from the EXCLUDE default to INCLUDE, so that duplicate `META-INF/services/*`
+    // files reach `mergeServiceFiles()` and their registries merge properly rather than collapse to a single provider.
+    duplicatesStrategy = DuplicatesStrategy.INCLUDE
     mergeServiceFiles()
 }
 
