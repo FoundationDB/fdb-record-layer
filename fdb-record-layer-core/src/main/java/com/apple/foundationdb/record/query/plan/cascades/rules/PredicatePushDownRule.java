@@ -23,9 +23,11 @@ package com.apple.foundationdb.record.query.plan.cascades.rules;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.AbstractCascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
-import com.apple.foundationdb.record.query.plan.cascades.ExplorationCascadesRule;
-import com.apple.foundationdb.record.query.plan.cascades.ExplorationCascadesRuleCall;
-import com.apple.foundationdb.record.query.plan.cascades.ExploratoryMemoizer;
+import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.ExpressionPartition;
+import com.apple.foundationdb.record.query.plan.cascades.FinalMemoizer;
+import com.apple.foundationdb.record.query.plan.cascades.ImplementationCascadesRule;
+import com.apple.foundationdb.record.query.plan.cascades.ImplementationCascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentitySet;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
@@ -42,23 +44,33 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalE
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.CollectionMatcher;
+import com.apple.foundationdb.record.query.plan.cascades.matching.structure.ExpressionsPartitionMatchers;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
+import com.apple.foundationdb.record.query.plan.cascades.properties.ExpressionCountProperty;
+import com.apple.foundationdb.record.query.plan.cascades.properties.PredicateComplexityProperty;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
+import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Streams;
 
 import javax.annotation.Nonnull;
 import java.util.Collection;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.stream.Collectors;
 
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.MultiMatcher.all;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ExpressionsPartitionMatchers.argmin;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ExpressionsPartitionMatchers.expressionPartitions;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ExpressionsPartitionMatchers.rollUpPartitions;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ListMatcher.only;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.MultiMatcher.atLeastOne;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.forEachQuantifierWithoutDefaultOnEmptyOverRef;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers.exploratoryMembers;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.anyExpression;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.isExploratoryExpression;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.isFinalExpression;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.selectExpression;
 
 /**
@@ -175,122 +187,150 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
-public class PredicatePushDownRule extends AbstractCascadesRule<SelectExpression> implements ExplorationCascadesRule<SelectExpression> {
+public class PredicatePushDownRule extends AbstractCascadesRule<SelectExpression> implements ImplementationCascadesRule<SelectExpression> {
     @Nonnull
-    private static final CollectionMatcher<RelationalExpression> belowExpressionsMatcher = all(anyExpression());
+    private static final BindingMatcher<RelationalExpression> childExpressionMatcher = anyExpression();
+
     @Nonnull
-    private static final BindingMatcher<Reference> belowReferenceMatcher = exploratoryMembers(belowExpressionsMatcher);
+    private static final BindingMatcher<ExpressionPartition<RelationalExpression>> childPartitionsMatcher =
+            argmin(ExpressionsPartitionMatchers.<RelationalExpression>comparisonByPropertyList(
+                    ExpressionCountProperty.outerJoinCount(),
+                    ExpressionCountProperty.selectCount(),
+                    ExpressionCountProperty.tableFunctionCount(),
+                    PredicateComplexityProperty.predicateComplexity()
+            ), childExpressionMatcher);
+
     @Nonnull
-    private static final BindingMatcher<Quantifier.ForEach> forEachQuantifierMatcher =
-            forEachQuantifierWithoutDefaultOnEmptyOverRef(belowReferenceMatcher);
+    private static final BindingMatcher<Reference> childReferenceMatcher =
+            expressionPartitions(rollUpPartitions(only(childPartitionsMatcher)));
+
+    @Nonnull
+    private static final CollectionMatcher<Quantifier.ForEach> quantifiersMatcher =
+            atLeastOne(forEachQuantifierWithoutDefaultOnEmptyOverRef(childReferenceMatcher));
+
     private static final BindingMatcher<SelectExpression> root =
-            selectExpression(forEachQuantifierMatcher).where(isExploratoryExpression());
+            selectExpression(quantifiersMatcher).where(isFinalExpression());
 
     public PredicatePushDownRule() {
         super(root);
     }
 
     @Override
-    public void onMatch(@Nonnull final ExplorationCascadesRuleCall call) {
+    public void onMatch(@Nonnull final ImplementationCascadesRuleCall call) {
         final var bindings = call.getBindings();
-
         final var selectExpression = bindings.get(root);
+
         if (!selectExpression.getResultValue().getResultType().isRecord()) {
             return;
         }
-        //
-        // This is the quantifier we are going to push predicates along.
-        //
-        final var pushQuantifier = bindings.get(forEachQuantifierMatcher);
+
+        final var quantifiers = bindings.get(quantifiersMatcher);
+        final var childExpressions = bindings.getAll(childExpressionMatcher);
+        final var childExpressionByAlias =
+                Streams.zip(quantifiers.stream(),
+                                childExpressions.stream(),
+                                (quantifier, expression) -> NonnullPair.of(quantifier.getAlias(), expression))
+                        .collect(ImmutableMap.toImmutableMap(NonnullPair::getLeft, NonnullPair::getRight));
 
         //
-        // Identify all predicates in the select expression that are local to the quantifier we are pushing
-        // down along, i.e. all predicates that are only correlated to the push quantifier or deeply correlated
-        // to some other quantifier not owned by this select expression.
+        // The predicates that remain on the top-level select. We start with all of the select's predicates and remove
+        // those that we manage to push down into a child as we iterate over the matched quantifiers.
         //
-        final var otherAliases =
-                Quantifiers.aliases(() ->
-                        selectExpression.getQuantifiers()
-                                .stream()
-                                .map(quantifier -> (Quantifier)quantifier)
-                                .filter(quantifier -> !quantifier.getAlias().equals(pushQuantifier.getAlias()))
-                                .iterator());
+        final Set<QueryPredicate> residualPredicates =
+                selectExpression.getPredicates().stream().collect(LinkedIdentitySet.toLinkedIdentitySet());
 
-        final var partitionedPredicates = selectExpression
-                .getPredicates()
-                .stream()
-                .collect(Collectors.partitioningBy(queryPredicate ->
-                                queryPredicate.getCorrelatedTo().stream().noneMatch(otherAliases::contains),
-                        LinkedIdentitySet.toLinkedIdentitySet()));
+        final Map<CorrelationIdentifier, Quantifier> newQuantifiersByAlias = new LinkedHashMap<>();
 
-        final var pushablePredicates = partitionedPredicates.get(true);
-        if (pushablePredicates.isEmpty()) {
+        //
+        // First pass: go over all matched quantifiers and, for each, push the residual predicates that are local to it
+        // into its (simplest) chosen child expression. Successful pushes are collected into a map from alias to the
+        // rewritten quantifier. If nothing could be pushed at all, there is nothing to do.
+        //
+        for (final var childExpressionEntry : childExpressionByAlias.entrySet()) {
+            final var pushAlias = childExpressionEntry.getKey();
+            final var childExpression = childExpressionEntry.getValue();
             //
-            // None of the predicates can be pushed down. Don't generate a rewritten expression here
+            // Identify all residual predicates that are local to the quantifier we are pushing down along, i.e. all
+            // predicates that are only correlated to this quantifier or deeply correlated to some other quantifier not
+            // owned by this select expression.
             //
+            final var otherAliases =
+                    Quantifiers.aliases(() ->
+                            selectExpression.getQuantifiers()
+                                    .stream()
+                                    .map(q -> (Quantifier)q)
+                                    .filter(other -> !other.getAlias().equals(pushAlias))
+                                    .iterator());
+
+            final var pushablePredicates =
+                    residualPredicates.stream()
+                            .filter(queryPredicate ->
+                                    queryPredicate.getCorrelatedTo().stream().noneMatch(otherAliases::contains))
+                            .collect(LinkedIdentitySet.toLinkedIdentitySet());
+            if (pushablePredicates.isEmpty()) {
+                continue;
+            }
+
+            //
+            // We do not consider all possible subsets of pushable predicates. There really is no need to and would be
+            // overkill. Either we are unable to push any predicate into or through an expression, or we can push all.
+            // The shape of the predicate should not matter considering the expression we push into/through.
+            //
+            final var pushToVisitor = new PushToVisitor(call, pushablePredicates, pushAlias);
+            final var newBelowExpressionOptional = pushToVisitor.visit(childExpression);
+            if (newBelowExpressionOptional.isEmpty()) {
+                continue;
+            }
+
+            final Reference newRangesOverReference = call.memoizeFinalExpression(newBelowExpressionOptional.get());
+            newQuantifiersByAlias.put(pushAlias,
+                    Quantifier.forEachBuilder()
+                            .withAlias(pushAlias)
+                            .build(newRangesOverReference));
+            residualPredicates.removeAll(pushablePredicates);
+        }
+
+        if (newQuantifiersByAlias.isEmpty()) {
             return;
         }
-        final var fixedPredicates = partitionedPredicates.get(false);
 
         //
-        // We do not consider all possible subsets of pushable predicates. There really is no need to and would be
-        // overkill. Either we are unable to push any predicate into or through an expression, or we can push all. The
-        // shape of the predicate should not matter considering the expression we push into/through.
+        // Second pass: for every quantifier that we did not push into, add it to the map on a fresh, disentangled
+        // reference. Afterwards the map holds a (rewritten or carried-over) quantifier for every alias.
         //
-
-        final var pushToVisitor = new PushToVisitor(call, pushablePredicates, pushQuantifier);
-        final var newBelowExpressions = new LinkedIdentitySet<RelationalExpression>();
-
-        //
-        // Go through all expressions within the reference the push quantifier ranges over and find those that can
-        // be pushed into/through. Any that cannot accept the predicate will be skipped over and excluded from the
-        // rewritten expression.
-        //
-        final var belowExpressions = bindings.get(belowExpressionsMatcher);
-        for (final var belowExpression : belowExpressions) {
-            pushToVisitor.visit(belowExpression).ifPresent(newBelowExpressions::add);
+        for (final var quantifier : selectExpression.getQuantifiers()) {
+            if (!newQuantifiersByAlias.containsKey(quantifier.getAlias())) {
+                final Reference newChildReference =
+                        call.memoizeFinalExpressionsFromOther(quantifier.getRangesOver(),
+                                quantifier.getRangesOver().getFinalExpressions());
+                newQuantifiersByAlias.put(quantifier.getAlias(), quantifier.overNewReference(newChildReference));
+            }
         }
-
-        if (newBelowExpressions.isEmpty()) {
-            //
-            // We were unable to push the predicates down into the child quantifier.
-            // Return without yielding a new expression.
-            //
-            return;
-        }
-
-        final Reference newRangesOverReference = call.memoizeExploratoryExpressions(newBelowExpressions);
-
-        final var newPushQuantifier = Quantifier.forEachBuilder()
-                .withAlias(pushQuantifier.getAlias())
-                .build(newRangesOverReference);
-
-        final var newOwnedQuantifiers = selectExpression.getQuantifiers()
-                .stream()
-                .map(quantifier -> quantifier.getAlias().equals(pushQuantifier.getAlias()) ? newPushQuantifier : quantifier)
-                .collect(ImmutableList.toImmutableList());
 
         final var newSelectExpression = new SelectExpression(selectExpression.getResultValue(),
-                newOwnedQuantifiers,
-                ImmutableList.copyOf(fixedPredicates));
+                selectExpression.getQuantifiers()
+                        .stream()
+                        .map(quantifier -> newQuantifiersByAlias.get(quantifier.getAlias()))
+                        .collect(ImmutableList.toImmutableList()),
+                ImmutableList.copyOf(residualPredicates));
 
-        call.yieldExploratoryExpression(newSelectExpression);
+        call.yieldFinalExpression(newSelectExpression);
     }
 
     private static class PushToVisitor implements RelationalExpressionVisitorWithDefaults<Optional<? extends RelationalExpression>> {
         @Nonnull
-        private final ExploratoryMemoizer memoizer;
+        private final FinalMemoizer memoizer;
         @Nonnull
         private final Set<? extends QueryPredicate> originalPredicates;
         @Nonnull
-        private final Quantifier.ForEach pushQuantifier;
+        private final CorrelationIdentifier pushAlias;
 
-        public PushToVisitor(@Nonnull ExploratoryMemoizer memoizer,
+        public PushToVisitor(@Nonnull FinalMemoizer memoizer,
                              @Nonnull final Set<? extends QueryPredicate> originalPredicates,
-                             @Nonnull final Quantifier.ForEach pushQuantifier) {
+                             @Nonnull final CorrelationIdentifier pushAlias) {
             this.memoizer = memoizer;
             this.originalPredicates = originalPredicates;
-            this.pushQuantifier = pushQuantifier;
+            this.pushAlias = pushAlias;
         }
 
         @Nonnull
@@ -299,8 +339,8 @@ public class PredicatePushDownRule extends AbstractCascadesRule<SelectExpression
         }
 
         @Nonnull
-        private Quantifier.ForEach getPushQuantifier() {
-            return pushQuantifier;
+        private CorrelationIdentifier getPushAlias() {
+            return pushAlias;
         }
 
         @Nonnull
@@ -321,11 +361,11 @@ public class PredicatePushDownRule extends AbstractCascadesRule<SelectExpression
         @Nonnull
         public Quantifier.ForEach pushOverChild(@Nonnull final Quantifier.ForEach child) {
             final var translationMap =
-                    TranslationMap.rebaseWithAliasMap(AliasMap.ofAliases(getPushQuantifier().getAlias(),
+                    TranslationMap.rebaseWithAliasMap(AliasMap.ofAliases(getPushAlias(),
                             child.getAlias()));
             final var newPredicates = updatedPredicates(translationMap);
             final SelectExpression newSelect = new SelectExpression(child.getFlowedObjectValue(), ImmutableList.of(child), newPredicates);
-            return Quantifier.forEach(memoizer.memoizeExploratoryExpression(newSelect));
+            return Quantifier.forEach(memoizer.memoizeFinalExpression(newSelect));
         }
 
         @Nonnull
@@ -365,7 +405,7 @@ public class PredicatePushDownRule extends AbstractCascadesRule<SelectExpression
                 return Optional.empty();
             }
             final var translationMap =
-                    TranslationMap.rebaseWithAliasMap(AliasMap.ofAliases(getPushQuantifier().getAlias(),
+                    TranslationMap.rebaseWithAliasMap(AliasMap.ofAliases(getPushAlias(),
                             inner.getAlias()));
             final var newPredicates = updatedPredicates(translationMap, logicalFilterExpression.getPredicates());
             return Optional.of(
@@ -382,7 +422,7 @@ public class PredicatePushDownRule extends AbstractCascadesRule<SelectExpression
             // predicates, and then combine them with the select's original predicates
             //
             final var translationMap = TranslationMap.regularBuilder()
-                    .when(getPushQuantifier().getAlias())
+                    .when(getPushAlias())
                     .then(((sourceAlias, leafValue) -> selectExpression.getResultValue()))
                     .build();
             final var newPredicates = updatedPredicates(translationMap, selectExpression.getPredicates());
