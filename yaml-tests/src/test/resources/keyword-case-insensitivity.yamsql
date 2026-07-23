@@ -24,6 +24,7 @@
 # assert that they parse and produce identical results.
 schema_template:
     create table t1(id bigint, cat bigint, val bigint, primary key(id))
+    create table t2(id bigint, "COLUMN" string, "column" string, "cOLumN" string, primary key(id))
 ---
 setup:
   steps:
@@ -31,6 +32,9 @@ setup:
     - query: insert into t1 values (1, 10, 100), (2, 10, 200)
     - query: INSERT INTO t1 VALUES (3, 20, 300), (4, 20, 400)
     - query: InSeRt InTo t1 VaLuEs (5, 30, 500)
+    # Give each same-spelling-different-case column a distinct value per row so that any
+    # collapsing of the columns would produce an observably wrong result below.
+    - query: insert into t2 values (1, 'a_UP', 'a_lo', 'a_Mx'), (2, 'b_UP', 'b_lo', 'b_Mx')
 ---
 test_block:
   name: keyword-case-insensitivity-identifiers-off
@@ -118,4 +122,50 @@ test_block:
     -
       - query: SeLeCt ID, CAT, VAL FrOm T1 WhErE CAT = 10
       - unorderedResult: [{ID: 1, CAT: 10, VAL: 100}, {ID: 2, CAT: 10, VAL: 200}]
+---
+test_block:
+  # Negative test: keyword case-insensitivity must not leak into identifier handling. The columns
+  # "COLUMN", "column", and "cOLumN" differ only in case, so they are three distinct quoted
+  # identifiers. Upper-casing keywords in the canonical form must never fold these together: each
+  # projection and each predicate has to resolve to exactly the column that was spelled, and the
+  # keyword casing used in the query (varied below) must not change which column is meant.
+  name: keyword-case-insensitivity-quoted-identifiers-distinct
+  preset: single_repetition_ordered
+  options:
+    check_cache: true
+  tests:
+    # Selecting the three quoted columns yields three separate result columns, each preserving the
+    # exact case it was declared with. NOTE: resultMetadata matches column names positionally and
+    # case-insensitively (see issue #4390), so this pins the column count and types; the value-based
+    # tests below are what actually prove the three same-spelling columns are not folded together.
+    -
+      - query: select "COLUMN", "column", "cOLumN" from t2 where id = 1
+      - resultMetadata: [{COLUMN: STRING}, {column: STRING}, {cOLumN: STRING}]
+      - result: [{'a_UP', 'a_lo', 'a_Mx'}]
+    # Projecting all three columns yields three distinct values in the one row. Distinct aliases
+    # are used because the result matcher compares column-name keys case-insensitively; the point
+    # here is that "COLUMN", "column", and "cOLumN" resolve to three different underlying columns.
+    -
+      - query: select "COLUMN" as c_up, "column" as c_lo, "cOLumN" as c_mx from t2 where id = 1
+      - result: [{C_UP: 'a_UP', C_LO: 'a_lo', C_MX: 'a_Mx'}]
+    -
+      - query: SeLeCt "COLUMN" aS c_up, "column" aS c_lo, "cOLumN" aS c_mx FrOm t2 WhErE id = 2
+      - result: [{C_UP: 'b_UP', C_LO: 'b_lo', C_MX: 'b_Mx'}]
+    # Filtering on each column independently must select rows by that exact column, not another.
+    -
+      - query: select id from t2 where "COLUMN" = 'a_UP'
+      - result: [{ID: 1}]
+    -
+      - query: select id from t2 where "column" = 'b_lo'
+      - result: [{ID: 2}]
+    -
+      - query: SeLeCt id FrOm t2 WhErE "cOLumN" = 'a_Mx'
+      - result: [{ID: 1}]
+    # A predicate on one column cannot be satisfied by another column's value if they stay distinct.
+    -
+      - query: select id from t2 where "COLUMN" = 'a_lo'
+      - result: []
+    -
+      - query: select id from t2 where "cOLumN" = 'b_UP'
+      - result: []
 ...

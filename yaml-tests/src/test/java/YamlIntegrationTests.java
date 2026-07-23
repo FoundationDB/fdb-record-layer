@@ -131,11 +131,6 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
-    public void keywordCaseInsensitivity(YamlTest.Runner runner) throws Exception {
-        runner.runYamsql("keyword-case-insensitivity.yamsql");
-    }
-
-    @TestTemplate
     public void castTests(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("cast-tests.yamsql");
     }
@@ -290,6 +285,11 @@ public class YamlIntegrationTests {
     @TestTemplate
     public void indexDdlAggregatesOnly(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("index-ddl-aggregates-only.yamsql");
+    }
+
+    @TestTemplate
+    public void keywordCaseInsensitivity(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("keyword-case-insensitivity.yamsql");
     }
 
     @TestTemplate
