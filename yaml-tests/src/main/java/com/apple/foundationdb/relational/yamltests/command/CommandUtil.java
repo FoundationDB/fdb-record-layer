@@ -23,6 +23,7 @@ package com.apple.foundationdb.relational.yamltests.command;
 import com.apple.foundationdb.record.IndexState;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataProto;
+import com.apple.foundationdb.record.util.pair.Pair;
 import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
 import com.apple.foundationdb.relational.yamltests.generated.schemainstance.SchemaInstanceOuterClass;
@@ -32,8 +33,6 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.util.JsonFormat;
-import org.apache.commons.lang3.tuple.ImmutablePair;
-import org.apache.commons.lang3.tuple.Pair;
 import org.junit.jupiter.api.Assertions;
 
 import javax.annotation.Nonnull;
@@ -175,7 +174,7 @@ public class CommandUtil {
             Assertions.fail("Expecting load command looking like X from Y");
         }
         String second = lcsTokenizer.nextToken();
-        return new ImmutablePair<>(first, second);
+        return Pair.of(first, second);
     }
 
     private static String getFullClassName(String protoFileName) throws IOException {
