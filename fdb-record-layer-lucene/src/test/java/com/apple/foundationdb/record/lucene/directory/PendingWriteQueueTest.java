@@ -33,6 +33,7 @@ import com.apple.foundationdb.record.lucene.LuceneDocumentFromRecord;
 import com.apple.foundationdb.record.lucene.LuceneEvents;
 import com.apple.foundationdb.record.lucene.LuceneIndexExpressions;
 import com.apple.foundationdb.record.lucene.LucenePendingWriteQueueProto;
+import com.apple.foundationdb.record.provider.foundationdb.FDBExceptions;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreTestBase;
 import com.apple.foundationdb.subspace.Subspace;
@@ -406,6 +407,221 @@ class PendingWriteQueueTest extends FDBRecordStoreTestBase {
             throw new RecordCoreException("Cannot clear queue usage indicator: pending write queue is not empty");
         }
         context.ensureActive().clear(markerKey(context));
+    }
+
+    /**
+     * {@code isQueueEmpty} must conflict with a concurrent enqueue. A transaction that observes an empty queue
+     * and then commits a close-out write (here: setting the marker) must fail if another transaction enqueued
+     * into that (empty) range in the meantime - otherwise it would wrongly conclude no writes are pending.
+     */
+    @Test
+    void testIsEmptyConflictsConcurrentEnqueue() {
+        final int incarnation = 0;
+        final List<TestDocument> lateArrivals = createTestDocuments();
+
+        PendingWriteQueue queue;
+        try (FDBRecordContext context = openContext()) {
+            queue = getQueue(context); // queue starts empty
+            commit(context);
+        }
+
+        try (FDBRecordContext txA = openContext()) {
+            // TX_A observes the queue is empty (installs a read-conflict range over the queue subspace)...
+            assertTrue(queue.isQueueEmpty(txA).join());
+            // ...and marks the operation complete. A write is required, since a read-only transaction's commit
+            // performs no conflict check.
+            setMarker(txA);
+
+            // While TX_A is open, TX_B enqueues into the queue and commits.
+            try (FDBRecordContext txB = openContext()) {
+                for (TestDocument lateArrival : lateArrivals) {
+                    queue.enqueueInsert(txB, lateArrival.getPrimaryKey(), lateArrival.getFields(), incarnation);
+                }
+                commit(txB);
+            }
+
+            // TX_A's commit must conflict: the (empty) range it scanned was written into by TX_B.
+            assertThrows(FDBExceptions.FDBStoreTransactionConflictException.class, () -> commit(txA));
+        }
+
+        // The late-arrival enqueues landed.
+        assertQueueEntries(queue, lateArrivals,
+                LucenePendingWriteQueueProto.PendingWriteItem.OperationType.INSERT);
+    }
+
+    /**
+     * A drain that clears every visible entry, then asserts the queue is empty and commits a close-out write,
+     * must still conflict with a concurrent enqueue - otherwise it would clear the ongoing-merge marker while a
+     * write slipped in behind it. The snapshot drain scan alone does not conflict (see
+     * {@link #testDrainScanAndClearDoesNotConflictWithConcurrentEnqueue}); the conflict comes from the
+     * {@code isQueueEmpty} close-out read.
+     */
+    @Test
+    void testDrainThenIsEmptyConflictsConcurrentEnqueue() {
+        final int incarnation = 0;
+        final List<TestDocument> seeds = createTestDocuments();
+        final List<TestDocument> lateArrivals = createTestDocuments();
+
+        PendingWriteQueue queue;
+        try (FDBRecordContext context = openContext()) {
+            queue = getQueue(context);
+            for (TestDocument seed : seeds) {
+                queue.enqueueInsert(context, seed.getPrimaryKey(), seed.getFields(), incarnation);
+            }
+            commit(context);
+        }
+
+        try (FDBRecordContext txA = openContext()) {
+            // TX_A drains every entry it can see...
+            List<PendingWriteQueue.QueueEntry> entries =
+                    queue.getQueueCursor(txA, ScanProperties.FORWARD_SCAN, null).asList().join();
+            assertEquals(seeds.size(), entries.size());
+            for (PendingWriteQueue.QueueEntry entry : entries) {
+                queue.clearEntry(txA, entry);
+            }
+            // ...then asserts the queue is now empty (installs a read-conflict range over the queue) and marks
+            // the operation complete.
+            assertTrue(queue.isQueueEmpty(txA).join());
+            setMarker(txA); // This is not strictly necessary but is what production code is doing
+
+            // While TX_A is open, TX_B enqueues a new item and commits.
+            try (FDBRecordContext txB = openContext()) {
+                for (TestDocument lateArrival : lateArrivals) {
+                    queue.enqueueInsert(txB, lateArrival.getPrimaryKey(), lateArrival.getFields(), incarnation);
+                }
+                commit(txB);
+            }
+
+            // TX_A's commit must conflict: the range it scanned in isQueueEmpty was written into by TX_B.
+            assertThrows(FDBExceptions.FDBStoreTransactionConflictException.class, () -> commit(txA));
+        }
+
+        // TX_A rolled back, so its drain never happened: the seeds plus the late arrivals are all present.
+        final List<TestDocument> expected = new ArrayList<>(seeds);
+        expected.addAll(lateArrivals);
+        assertQueueEntries(queue, expected,
+                LucenePendingWriteQueueProto.PendingWriteItem.OperationType.INSERT);
+    }
+
+    /**
+     * The happy path: a single transaction can drain and then assert emptiness without conflict, because there
+     * is no external writer to conflict with.
+     */
+    @Test
+    void testIsEmptyDoesNotConflictWithDrainerInSameTx() {
+        final int incarnation = 0;
+        final List<TestDocument> docs = createTestDocuments();
+
+        PendingWriteQueue queue;
+        try (FDBRecordContext context = openContext()) {
+            queue = getQueue(context);
+            for (TestDocument document : docs) {
+                queue.enqueueInsert(context, document.getPrimaryKey(), document.getFields(), incarnation);
+            }
+            commit(context);
+        }
+
+        try (FDBRecordContext context = openContext()) {
+            List<PendingWriteQueue.QueueEntry> entries =
+                    queue.getQueueCursor(context, ScanProperties.FORWARD_SCAN, null).asList().join();
+            assertEquals(docs.size(), entries.size());
+            for (PendingWriteQueue.QueueEntry entry : entries) {
+                queue.clearEntry(context, entry);
+            }
+            // Asserting emptiness in the same transaction that drained is fine - there is no other writer.
+            assertTrue(queue.isQueueEmpty(context).join());
+            commit(context);
+        }
+
+        try (FDBRecordContext context = openContext()) {
+            assertTrue(queue.isQueueEmpty(context).join());
+            commit(context);
+        }
+    }
+
+    /**
+     * Two drains that clear the same entries must not both commit.
+     * Both drains clear all entries; the second commit conflicts.
+     */
+    @Test
+    void testConcurrentDrainsOfSameEntriesConflict() {
+        final int incarnation = 0;
+        final List<TestDocument> seeds = createTestDocuments();
+
+        PendingWriteQueue queue;
+        try (FDBRecordContext context = openContext()) {
+            queue = getQueue(context);
+            for (TestDocument seed : seeds) {
+                queue.enqueueInsert(context, seed.getPrimaryKey(), seed.getFields(), incarnation);
+            }
+            commit(context);
+        }
+
+        try (FDBRecordContext txA = openContext();
+                FDBRecordContext txB = openContext()) {
+            List<PendingWriteQueue.QueueEntry> entriesA =
+                    queue.getQueueCursor(txA, ScanProperties.FORWARD_SCAN, null).asList().join();
+            List<PendingWriteQueue.QueueEntry> entriesB =
+                    queue.getQueueCursor(txB, ScanProperties.FORWARD_SCAN, null).asList().join();
+            assertEquals(seeds.size(), entriesA.size());
+            assertEquals(seeds.size(), entriesB.size());
+
+            for (PendingWriteQueue.QueueEntry entry : entriesA) {
+                queue.clearEntry(txA, entry);
+            }
+            for (PendingWriteQueue.QueueEntry entry : entriesB) {
+                queue.clearEntry(txB, entry);
+            }
+
+            // The first drain commits; the second conflicts on the entry keys it also cleared.
+            commit(txA);
+            assertThrows(FDBExceptions.FDBStoreTransactionConflictException.class, () -> commit(txB));
+        }
+
+        // Exactly one drain took effect: the queue is empty and the size counter did not drift below zero.
+        try (FDBRecordContext context = openContext()) {
+            assertTrue(queue.isQueueEmpty(context).join());
+            final Long size = queue.getQueueSize(context).join();
+            assertEquals(0L, size == null ? 0L : (long)size);
+            commit(context);
+        }
+    }
+
+    /**
+     * Two drains that clear DISJOINT entries must both commit.
+     */
+    @Test
+    void testConcurrentDrainsOfDisjointEntriesDoNotConflict() {
+        final int incarnation = 0;
+        final List<TestDocument> seeds = createTestDocuments();
+
+        PendingWriteQueue queue;
+        try (FDBRecordContext context = openContext()) {
+            queue = getQueue(context);
+            for (TestDocument seed : seeds) {
+                queue.enqueueInsert(context, seed.getPrimaryKey(), seed.getFields(), incarnation);
+            }
+            commit(context);
+        }
+
+        final List<PendingWriteQueue.QueueEntry> entries;
+        try (FDBRecordContext context = openContext()) {
+            entries = queue.getQueueCursor(context, ScanProperties.FORWARD_SCAN, null).asList().join();
+            assertEquals(seeds.size(), entries.size());
+        }
+
+        // Two drains each clear a DIFFERENT entry; both must commit.
+        try (FDBRecordContext txA = openContext();
+                FDBRecordContext txB = openContext()) {
+            queue.clearEntry(txA, entries.get(0));
+            queue.clearEntry(txB, entries.get(1));
+            commit(txA);
+            assertDoesNotThrow(() -> commit(txB));
+        }
+
+        // The two cleared entries are gone; the remaining entries stay.
+        assertQueueEntries(queue, seeds.subList(2, seeds.size()),
+                LucenePendingWriteQueueProto.PendingWriteItem.OperationType.INSERT);
     }
 
     @Test
