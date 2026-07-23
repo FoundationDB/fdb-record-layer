@@ -31,7 +31,6 @@ import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStruct;
 import com.apple.foundationdb.relational.recordlayer.query.ParseHelpers;
 import com.apple.foundationdb.relational.util.Assert;
-import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.relational.yamltests.tags.IgnoreTag;
 import com.apple.foundationdb.relational.yamltests.tags.IsNullTag;
 import com.apple.foundationdb.relational.yamltests.tags.Matchable;
@@ -68,7 +67,6 @@ public class Matchers {
         return arrayList(obj, obj.toString());
     }
 
-    @SpotBugsSuppressWarnings(value = "NP_NONNULL_RETURN_VIOLATION", justification = "should never happen, fail throws")
     @Nonnull
     public static List<?> arrayList(@Nonnull final Object obj, @Nonnull final String desc) {
         if (obj instanceof List) {
@@ -78,13 +76,11 @@ public class Matchers {
         return null;
     }
 
-    @SpotBugsSuppressWarnings(value = "NP_NONNULL_RETURN_VIOLATION", justification = "should never happen, fail throws")
     @Nonnull
     public static Map<?, ?> map(@Nonnull final Object obj) {
         return map(obj, obj.toString());
     }
 
-    @SpotBugsSuppressWarnings(value = "NP_NONNULL_RETURN_VIOLATION", justification = "should never happen, fail throws")
     @Nonnull
     public static Map<?, ?> map(@Nonnull final Object obj, @Nonnull final String desc) {
         if (obj instanceof Map<?, ?>) {
@@ -212,7 +208,6 @@ public class Matchers {
         return obj == null;
     }
 
-    @SpotBugsSuppressWarnings(value = "NP_NONNULL_RETURN_VIOLATION", justification = "should never happen, fail throws")
     @Nonnull
     public static Message message(@Nonnull final Object obj) {
         if (obj instanceof Message) {
@@ -222,7 +217,6 @@ public class Matchers {
         return null;
     }
 
-    @SpotBugsSuppressWarnings(value = "NP_NONNULL_RETURN_VIOLATION", justification = "should never happen, fail throws")
     @Nonnull
     public static <T> T notNull(@Nullable final T object, @Nonnull final String desc) {
         if (object == null) {
@@ -231,7 +225,6 @@ public class Matchers {
         return object;
     }
 
-    @SpotBugsSuppressWarnings(value = "NP_NONNULL_RETURN_VIOLATION", justification = "should never happen, fail throws")
     @Nonnull
     public static Map.Entry<?, ?> firstEntry(@Nonnull final Object obj, @Nonnull final String desc) {
         if (obj instanceof Map) {
@@ -241,7 +234,6 @@ public class Matchers {
         return null;
     }
 
-    @SpotBugsSuppressWarnings(value = "NP_NONNULL_RETURN_VIOLATION", justification = "should never happen, fail throws")
     @Nonnull
     public static Map.Entry<?, ?> onlyEntry(@Nonnull final Object obj, @Nonnull final String desc) {
         if (obj instanceof Map) {

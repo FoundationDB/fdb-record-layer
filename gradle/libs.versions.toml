@@ -66,7 +66,7 @@ snakeyaml = "2.6"
 # Static analysis dependency versions
 
 jacoco = "0.8.14"
-spotbugs = "4.9.0"
+spotbugs = "4.10.3"
 
 [libraries]
 
@@ -149,4 +149,4 @@ jmh = { id = "me.champeau.jmh", version = "0.7.3" }
 nexus = { id = "io.github.gradle-nexus.publish-plugin", version = "2.0.0" }
 protobuf = { id = "com.google.protobuf", version = "0.9.6" }
 shadow = { id = "com.gradleup.shadow", version = "8.3.10" }
-spotbugs = { id = "com.github.spotbugs", version = "6.5.5" }
+spotbugs = { id = "com.github.spotbugs", version = "6.5.9" }

@@ -21,7 +21,6 @@
 package com.apple.foundationdb.async.hnsw;
 
 import com.apple.foundationdb.ReadTransaction;
-import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.async.AsyncIterator;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.common.StorageTransform;
@@ -79,7 +78,6 @@ class OutwardTraversalIterator implements AsyncIterator<NodeReferenceAndNode<Nod
     @Nullable
     private CompletableFuture<NodeReferenceAndNode<NodeReferenceWithDistance, NodeReference>> nextFuture;
 
-    @SpotBugsSuppressWarnings("EI_EXPOSE_REP2")
     public OutwardTraversalIterator(@Nonnull final Locator locator,
                                     @Nonnull final StorageAdapter<NodeReference> storageAdapter,
                                     @Nonnull final ReadTransaction readTransaction,

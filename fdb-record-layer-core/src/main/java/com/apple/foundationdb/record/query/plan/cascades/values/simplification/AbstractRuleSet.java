@@ -21,7 +21,6 @@
 package com.apple.foundationdb.record.query.plan.cascades.values.simplification;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.combinatorics.PartiallyOrderedSet;
 import com.apple.foundationdb.record.query.combinatorics.TopologicalSort;
@@ -55,7 +54,6 @@ import java.util.stream.Stream;
 @SuppressWarnings("java:S1452")
 public class AbstractRuleSet<CALL extends PlannerRuleCall, BASE> {
     @Nonnull
-    @SpotBugsSuppressWarnings("NP_NULL_ON_SOME_PATH_FROM_RETURN_VALUE") // false positive
     private final Multimap<Class<?>, PlannerRule<CALL, ? extends BASE>> ruleIndex;
     @Nonnull
     private final List<PlannerRule<CALL, ? extends BASE>> alwaysRules;
@@ -66,7 +64,6 @@ public class AbstractRuleSet<CALL extends PlannerRuleCall, BASE> {
     @Nonnull
     private final LoadingCache<Class<? extends BASE>, List<PlannerRule<CALL, ? extends BASE>>> rulesCache;
 
-    @SpotBugsSuppressWarnings("NP_NULL_ON_SOME_PATH_FROM_RETURN_VALUE")
     protected AbstractRuleSet(@Nonnull final Set<? extends PlannerRule<CALL, ? extends BASE>> rules,
                               @Nonnull final SetMultimap<? extends PlannerRule<CALL, ? extends BASE>, ? extends PlannerRule<CALL, ? extends BASE>> dependencies) {
         this.ruleIndex = MultimapBuilder.hashKeys().arrayListValues().build();

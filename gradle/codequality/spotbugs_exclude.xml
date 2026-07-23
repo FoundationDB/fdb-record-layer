@@ -28,4 +28,42 @@
     <Match>
         <Bug pattern="CT_CONSTRUCTOR_THROW" />
     </Match>
+
+    <!-- Atomicity detectors that were introduced or strengthened in SpotBugs 4.10.x. They flag non-volatile or
+       non-atomic access to primitive fields, but the overwhelming majority of hits are on builder/config fields and
+       counters that are populated single-threaded before publication, or that are already guarded by a coarser lock.
+       Like EI_EXPOSE_REP above, there are too many by-design false positives to enforce these across the codebase. -->
+    <Match>
+        <Bug pattern="AT_STALE_THREAD_WRITE_OF_PRIMITIVE" />
+    </Match>
+    <Match>
+        <Bug pattern="AT_NONATOMIC_64BIT_PRIMITIVE" />
+    </Match>
+    <Match>
+        <Bug pattern="AT_NONATOMIC_OPERATIONS_ON_SHARED_VARIABLE" />
+    </Match>
+
+    <!-- Unsafe-synchronization detectors that were introduced in SpotBugs 4.10.x. They warn when a monitor might be
+       visible outside the class, but our synchronized methods lock on instances that are not shared as locks
+       elsewhere. -->
+    <Match>
+        <Bug pattern="USO_UNSAFE_METHOD_SYNCHRONIZATION" />
+    </Match>
+    <Match>
+        <Bug pattern="USO_UNSAFE_OBJECT_SYNCHRONIZATION" />
+    </Match>
+    <Match>
+        <Bug pattern="USO_UNSAFE_STATIC_METHOD_SYNCHRONIZATION" />
+    </Match>
+
+    <!-- Static method hiding, e.g. the *Impl subclasses that re-declare the static factory methods of their public
+       API base classes. This is a deliberate, long-standing pattern and cannot be changed without breaking the API. -->
+    <Match>
+        <Bug pattern="HSM_HIDING_METHOD" />
+    </Match>
+
+    <!-- Vendored Guava graph classes (copied verbatim from com.google.common.graph). We do not lint third-party code. -->
+    <Match>
+        <Class name="~com\.google\.common\.graph\..*" />
+    </Match>
 </FindBugsFilter>

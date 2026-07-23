@@ -34,7 +34,6 @@ import com.apple.foundationdb.record.PipelineOperation;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.ScanProperties;
-import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
@@ -447,7 +446,6 @@ public class TextIndexMaintainer extends StandardIndexMaintainer {
             // clear out the tokenizer version.
             return super.update(oldRecord, null).thenRun(new Runnable() {
                 @Override
-                @SpotBugsSuppressWarnings(value = "NP_PARAMETER_MUST_BE_NONNULL_BUT_MARKED_AS_NULLABLE", justification = "https://github.com/spotbugs/spotbugs/issues/552")
                 public void run() {
                     TextIndexMaintainer.this.clearRecordTokenizerVersion(oldRecord.getPrimaryKey());
                 }
@@ -469,7 +467,6 @@ public class TextIndexMaintainer extends StandardIndexMaintainer {
                     // TODO: Be more selective about which values are re-written during re-tokenization (https://github.com/FoundationDB/fdb-record-layer/issues/8)
                     return super.update(oldRecord, null).thenCompose(new Function<Void, CompletionStage<Void>>() {
                         @Override
-                        @SpotBugsSuppressWarnings(value = "NP_PARAMETER_MUST_BE_NONNULL_BUT_MARKED_AS_NULLABLE", justification = "https://github.com/spotbugs/spotbugs/issues/552")
                         public CompletionStage<Void> apply(Void vignore) {
                             TextIndexMaintainer.this.writeRecordTokenizerVersion(newRecord.getPrimaryKey());
                             return TextIndexMaintainer.super.update(null, newRecord);

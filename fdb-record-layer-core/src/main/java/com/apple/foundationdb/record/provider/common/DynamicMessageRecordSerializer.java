@@ -99,7 +99,6 @@ public class DynamicMessageRecordSerializer implements RecordSerializer<Message>
 
     @Nonnull
     @Override
-    @SpotBugsSuppressWarnings("RCN_REDUNDANT_NULLCHECK_OF_NONNULL_VALUE")
     public Message deserialize(@Nonnull final RecordMetaData metaData,
                                @Nonnull final Tuple primaryKey,
                                @Nonnull final byte[] serialized,
