@@ -49,7 +49,6 @@ import com.google.auto.service.AutoService;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.Message;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -96,12 +95,6 @@ class OnlineIndexerPendingWriteQueueTest extends OnlineIndexerTest {
         }
     }
 
-    @AfterEach
-    void resetPendingWriteQueueMaxSize() {
-        // Safety net: these tests shrink the (global) queue cap to force an overflow; always restore the default.
-        IndexingPendingWriteQueue.resetMaxQueueSizeForTesting();
-    }
-
     @Test
     void testFullQueueDisablesIndexAndUserWriteSucceeds() throws Exception {
         final int numInitialRecords = 6; // even recNos 0,2,4,6,8,10
@@ -110,7 +103,6 @@ class OnlineIndexerPendingWriteQueueTest extends OnlineIndexerTest {
         disableAll(List.of(index));
         markWriteOnlyWithQueue(index);
 
-        IndexingPendingWriteQueue.setMaxQueueSizeForTesting(2);
         final FDBStoreTimer overflowTimer = new FDBStoreTimer();
         // Fill the queue to capacity: each of these saves is deferred to the queue (counter 1, then 2).
         for (int recNo : List.of(1, 3)) {
@@ -122,7 +114,7 @@ class OnlineIndexerPendingWriteQueueTest extends OnlineIndexerTest {
         assertEquals(2L, queueSizeCounter(index), "the queue should be exactly full before the overflow");
 
         // The overflowing save (flag enabled) must succeed rather than throw.
-        try (FDBRecordContext context = openContextWithDisableOnQueueFull(overflowTimer, true)) {
+        try (FDBRecordContext context = openContextWithDisableOnQueueFull(overflowTimer, true, 2)) {
             final FDBRecordStore store = createStoreBuilder().setContext(context)
                     .createOrOpen(FDBRecordStoreBase.StoreExistenceCheck.NONE);
             assertTrue(store.isIndexWriteOnlyWithQueue(index));
@@ -161,7 +153,6 @@ class OnlineIndexerPendingWriteQueueTest extends OnlineIndexerTest {
         disableAll(List.of(index));
         markWriteOnlyWithQueue(index);
 
-        IndexingPendingWriteQueue.setMaxQueueSizeForTesting(2);
         for (int recNo : List.of(1, 3)) {
             try (FDBRecordContext context = openContext()) {
                 saveSimpleRecord(recordStore, recNo, recNo * 19);
@@ -169,7 +160,7 @@ class OnlineIndexerPendingWriteQueueTest extends OnlineIndexerTest {
             }
         }
         assertThrows(PendingWritesQueue.PendingWritesQueueTooLargeException.class, () -> {
-            try (FDBRecordContext context = openContextWithDisableOnQueueFull(null, false)) {
+            try (FDBRecordContext context = openContextWithDisableOnQueueFull(null, false, 2)) {
                 final FDBRecordStore store = createStoreBuilder().setContext(context)
                         .createOrOpen(FDBRecordStoreBase.StoreExistenceCheck.NONE);
                 saveSimpleRecord(store, 5, 5 * 19);
@@ -197,7 +188,7 @@ class OnlineIndexerPendingWriteQueueTest extends OnlineIndexerTest {
 
         final List<Integer> fillRecNos = List.of(101, 103);
         final List<Integer> writerRecNos = List.of(201, 203, 205, 207);
-        IndexingPendingWriteQueue.setMaxQueueSizeForTesting(fillRecNos.size());
+        final int maxQueueSize = fillRecNos.size();
         for (int recNo : fillRecNos) {
             try (FDBRecordContext context = openContext()) {
                 saveSimpleRecord(recordStore, recNo, recNo * 19);
@@ -215,7 +206,7 @@ class OnlineIndexerPendingWriteQueueTest extends OnlineIndexerTest {
                     barrier.await();
                     boolean committed = false;
                     while (!committed) {
-                        try (FDBRecordContext context = openContextWithDisableOnQueueFull(null, true)) {
+                        try (FDBRecordContext context = openContextWithDisableOnQueueFull(null, true, maxQueueSize)) {
                             final FDBRecordStore store = createStoreBuilder().setContext(context)
                                     .createOrOpen(FDBRecordStoreBase.StoreExistenceCheck.NONE);
                             saveSimpleRecord(store, recNo, recNo * 19);
@@ -1380,13 +1371,15 @@ class OnlineIndexerPendingWriteQueueTest extends OnlineIndexerTest {
     }
 
     /**
-     * Open a context whose properties enable {@link FDBRecordStoreProperties#DISABLE_INDEX_ON_PENDING_WRITE_QUEUE_OVERFLOW}.
+     * Open a context whose properties enable {@link FDBRecordStoreProperties#DISABLE_INDEX_ON_PENDING_WRITE_QUEUE_OVERFLOW}
+     * and cap the pending-writes queue at {@code maxQueueSize} so an overflow can be forced without enqueuing many entries.
      */
     @Nonnull
-    private FDBRecordContext openContextWithDisableOnQueueFull(@Nullable final FDBStoreTimer timer, final boolean disableIndexOnQueueFull) {
+    private FDBRecordContext openContextWithDisableOnQueueFull(@Nullable final FDBStoreTimer timer, final boolean disableIndexOnQueueFull, final int maxQueueSize) {
         final FDBRecordContextConfig.Builder configBuilder = FDBRecordContextConfig.newBuilder()
                 .setRecordContextProperties(RecordLayerPropertyStorage.newBuilder()
                         .addProp(FDBRecordStoreProperties.DISABLE_INDEX_ON_PENDING_WRITE_QUEUE_OVERFLOW, disableIndexOnQueueFull)
+                        .addProp(FDBRecordStoreProperties.MAX_PENDING_WRITE_QUEUE_SIZE, maxQueueSize)
                         .build());
         if (timer != null) {
             configBuilder.setTimer(timer);
