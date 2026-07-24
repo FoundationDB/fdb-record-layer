@@ -50,6 +50,7 @@ import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.apple.foundationdb.tuple.Tuple;
+import com.apple.test.ParameterizedTestUtils;
 import com.apple.test.Tags;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -107,6 +108,72 @@ public class FDBRecordStoreStateCacheTest extends FDBRecordStoreTestBase {
     public static Stream<Arguments> testContextAndDeleteStoreModeSource() {
         return testContextSource().flatMap(testContext ->
                 Stream.of(DeleteStoreMode.values()).map(mode -> Arguments.of(testContext, mode)));
+    }
+
+    /**
+     * An operation applied on an open {@link FDBRecordStore} concurrently with a
+     * {@link FDBRecordStore#deleteStore}/{@link FDBRecordStore#deleteStoreAsync}. The interesting
+     * axis is whether the operation writes {@code STORE_INFO_KEY} — that is what determines
+     * whether {@link DeleteStoreMode#ASYNC deleteStoreAsync}'s SERIALIZABLE header read
+     * catches a concurrent commit and forces the deleter to conflict.
+     */
+    private enum ConcurrentOperation {
+        /**
+         * Flips the store's cacheability flag (toggles the current value). Writes
+         * {@code STORE_INFO_KEY} via {@code updateStoreHeaderAsync} regardless of direction.
+         */
+        SET_CACHEABILITY(true) {
+            @Override
+            void apply(@Nonnull FDBRecordStore store) {
+                final boolean currentlyCacheable = store.getRecordStoreState().getStoreHeader().getCacheable();
+                assertTrue(store.setStateCacheability(!currentlyCacheable),
+                        "flipping cacheability should have changed the header");
+            }
+        },
+        /**
+         * Sets a header user field. Writes {@code STORE_INFO_KEY} via
+         * {@code updateStoreHeaderAsync}, but does not touch the cacheable flag — a
+         * representative "other part of the header" mutation.
+         */
+        SET_HEADER_USER_FIELD(true) {
+            @Override
+            void apply(@Nonnull FDBRecordStore store) {
+                store.setHeaderUserField("concurrent-op", new byte[]{1, 2, 3});
+            }
+        },
+        /**
+         * Saves a record. Writes only inside the records subspace — {@code STORE_INFO_KEY}
+         * is untouched, so a concurrent {@code deleteStoreAsync} does NOT observe any
+         * write in its read set.
+         */
+        SAVE_RECORD(false) {
+            @Override
+            void apply(@Nonnull FDBRecordStore store) {
+                store.saveRecord(TestRecords1Proto.MySimpleRecord.newBuilder()
+                        .setRecNo(1L)
+                        .setStrValueIndexed("racy")
+                        .build());
+            }
+        };
+
+        private final boolean writesStoreHeader;
+
+        ConcurrentOperation(boolean writesStoreHeader) {
+            this.writesStoreHeader = writesStoreHeader;
+        }
+
+        /**
+         * Whether or not this operation writes to the the store header.
+         * @return {@code true} iff the operation writes {@code STORE_INFO_KEY} on commit.
+         *   The write-set of the concurrent operation is what {@code deleteStoreAsync}'s
+         *   header read conflicts with; operations that never touch {@code STORE_INFO_KEY}
+         *   cannot cause the deleter to abort.
+         */
+        boolean writesStoreHeader() {
+            return writesStoreHeader;
+        }
+
+        abstract void apply(@Nonnull FDBRecordStore store);
     }
 
     /**
@@ -782,7 +849,7 @@ public class FDBRecordStoreStateCacheTest extends FDBRecordStoreTestBase {
 
     /**
      * Behavior of {@link FDBRecordStore#deleteStore}/{@link FDBRecordStore#deleteStoreAsync} on a non-cacheable store,
-     * across both modes:
+     * across both modes.
      *
      * <ul>
      *   <li>{@link DeleteStoreMode#ASYNC ASYNC} (new): reads the header, sees non-cacheable, and skips the meta-data
@@ -805,8 +872,8 @@ public class FDBRecordStoreStateCacheTest extends FDBRecordStoreTestBase {
     }
 
     /**
-     * Behavior of {@link FDBRecordStore#deleteStore} on an empty subspace with no store
-     * header, mirroring the {@link #deleteNonCacheableStoreDoesNotBumpMetaDataVersionStamp}
+     * Behavior of {@link FDBRecordStore#deleteStore}/{@link FDBRecordStore#deleteStoreAsync} on an empty subspace with
+     * no store header, mirroring the {@link #deleteNonCacheableStoreDoesNotBumpMetaDataVersionStamp}
      * split: {@link DeleteStoreMode#ASYNC ASYNC} sees the missing header and skips the bump;
      * {@link DeleteStoreMode#SYNC SYNC} bumps unconditionally.
      */
@@ -873,114 +940,148 @@ public class FDBRecordStoreStateCacheTest extends FDBRecordStoreTestBase {
                 "deleting a cacheable store should have bumped the meta-data version stamp");
     }
 
+
+    @Nonnull
+    public static Stream<Arguments> concurrentOperationPreventsDeleteStore() {
+        return ParameterizedTestUtils.cartesianProduct(
+                Stream.of(ConcurrentOperation.values()),
+                Stream.of(DeleteStoreMode.values()),
+                ParameterizedTestUtils.booleans("startCacheable")
+        );
+    }
+
     /**
-     * Race check for {@link FDBRecordStore#deleteStore(FDBRecordContext, Subspace)} vs a concurrent
-     * {@link FDBRecordStore#setStateCacheability(boolean) setStateCacheability(true)} flip that commits first. The two
-     * variants observe different outcomes:
+     * The concurrent operation commits BEFORE the delete. What matters is whether the
+     * delete's own commit machinery catches the concurrent modification and forces the
+     * deleter to abort.
      *
+     * <p>The key expectatian is that either:</p>
      * <ul>
-     *   <li>{@link DeleteStoreMode#ASYNC ASYNC} (new): the SERIALIZABLE header read inside
-     *       {@link FDBRecordStore#deleteStoreAsync(FDBRecordContext, Subspace) deleteStoreAsync} adds a read-conflict
-     *       range on {@code STORE_INFO_KEY}, so the flipper's committed write forces the deleter to conflict and abort.
-     *       Correctness invariant: a cacheable store cannot be silently deleted with the stamp still pointing at the
-     *       flipper's potentially cached value.</li>
-     *   <li>{@link DeleteStoreMode#SYNC SYNC} (deprecated): does not read the header and does not add any read-conflict
-     *       range, so the deleter commits regardless of the flipper. This is ok, because the SYNC method always bump
-     *       the meta-data version-stamp, and thus, any cached header would be invalidated
-     *       (see {@link #deleteCacheableStoreBumpsMetaDataVersionStamp}).</li>
+     *   <li>The delete succeeds, and the range is empty, and if the store was <em>even</em> cacheable, the meta-data
+     *   version-stamp was bumped.</li>
+     *   <li>The delete conflicts.</li>
      * </ul>
      */
-    @ParameterizedTest(name = "concurrentSetCacheabilityPreventsDeleteStore [{0}]")
-    @EnumSource(DeleteStoreMode.class)
-    void concurrentSetCacheabilityPreventsDeleteStore(@Nonnull DeleteStoreMode deleteStoreMode) throws Exception {
+    @ParameterizedTest
+    @MethodSource
+    void concurrentOperationPreventsDeleteStore(@Nonnull ConcurrentOperation op,
+                                                @Nonnull DeleteStoreMode deleteStoreMode,
+                                                boolean startCacheable) throws Exception {
         fdb.setStoreStateCache(metaDataVersionStampCacheFactory.getCache(fdb));
         ensureMetaDataVersionStampInitialized();
 
-        // Setup: create the store as NON-cacheable. That is the trap for the deleter's
-        // snapshot header read.
-        final StoreSetup setup = createStore(false);
+        final StoreSetup setup = createStore(startCacheable);
 
         final boolean deleterCommitted;
         try (FDBRecordContext deleterContext = fdb.openContext(null, new FDBStoreTimer())) {
-            // Pin the deleter's read version BEFORE the flip commits, so the deleter's
-            // snapshot header read sees the pre-flip (non-cacheable) state.
+            // Pin the deleter's read version BEFORE the concurrent op commits.
             deleterContext.getReadVersion();
 
-            // Separate transaction: flip the store to cacheable. Kept separate from the
-            // record insert below so that the record-inserting transaction has no reason to
-            // read the header itself — it will pick up the cacheable header via the state
-            // cache.
-            try (FDBRecordContext flipperContext = fdb.openContext(null, new FDBStoreTimer())) {
-                FDBRecordStore flipperStore = setup.builder().copyBuilder().setContext(flipperContext).open();
-                assertTrue(flipperStore.setStateCacheability(true),
-                        "flipping to cacheable should have changed the header");
-                commit(flipperContext);
+            // Separate transaction: apply the concurrent operation and commit it.
+            try (FDBRecordContext opContext = fdb.openContext(null, new FDBStoreTimer())) {
+                FDBRecordStore opStore = setup.builder().copyBuilder().setContext(opContext).open();
+                op.apply(opStore);
+                commit(opContext);
             }
 
-            // deleterContext: reads STORE_INFO_KEY at snapshot at its pinned pre-flip RV, sees
-            // non-cacheable. The deleteStore also adds a point read conflict
-            // on STORE_INFO_KEY — which the flipper's committed write will conflict with.
+            // Deleter deletes & commits.
             deleteStoreMode.deleteStore(deleterContext, setup.subspace());
             deleterCommitted = tryCommitOrDetectConflict(deleterContext);
         }
 
-        if (deleteStoreMode == DeleteStoreMode.SYNC) {
-            assertTrue(deleterCommitted,
-                    "deprecated sync deleteStore does not add a read conflict on STORE_INFO_KEY, " +
-                            "so it does not detect a concurrent setStateCacheability(true) flip");
-        } else if (deleterCommitted) {
-            fail("delete committed after a concurrent setStateCacheability(true) flip " +
-                    "and did not bump the meta-data version stamp; a subsequent writer " +
-                    "could have trusted its (now-stale) cache entry and inserted a record into a " +
-                    "subspace whose store header has been deleted — an on-disk orphan. ");
+        final boolean expectDeleterConflicts =
+                deleteStoreMode == DeleteStoreMode.ASYNC && op.writesStoreHeader();
+        if (expectDeleterConflicts) {
+            if (deleterCommitted) {
+                fail("expected deleteStoreAsync to conflict with a concurrent " + op
+                        + " that wrote STORE_INFO_KEY "
+                        + ", but it committed. The read-conflict range added by the header "
+                        + "read did not fire.");
+            }
+            // Op's committed state should still be on disk.
+            try (FDBRecordContext peek = fdb.openContext(null, new FDBStoreTimer())) {
+                assertFalse(peek.ensureActive().getRange(setup.subspace().range()).asList().join().isEmpty(),
+                        "op's committed state should still be on disk after the deleter conflicted");
+            }
         } else {
-            // Deleter correctly conflicted with the flipper. The store still exists (the
-            // flipper's cacheable header); caches remain consistent with disk.
-            try (FDBRecordContext contextUsingCache = fdb.openContext(null, new FDBStoreTimer())) {
-                // ensure that we can open the store, guaranteeing the store header still exists
-                recordStore = setup.builder().copyBuilder().setContext(contextUsingCache).open();
-                assertCacheable();
+            assertTrue(deleterCommitted,
+                    "expected the deleter to commit for op=" + op + " mode=" + deleteStoreMode
+                            + " startCacheable=" + startCacheable);
+            // Deleter's clear(subspace.range()) supersedes whatever the op wrote.
+            try (FDBRecordContext peek = fdb.openContext(null, new FDBStoreTimer())) {
+                assertTrue(peek.ensureActive().getRange(setup.subspace().range()).asList().join().isEmpty(),
+                        "deleter committed, so the subspace should have been cleared");
             }
         }
     }
 
+    @Nonnull
+    public static Stream<Arguments> concurrentOperationConflictsCases() {
+        return ParameterizedTestUtils.cartesianProduct(
+                Stream.of(ConcurrentOperation.values()),
+                Stream.of(DeleteStoreMode.values()),
+                ParameterizedTestUtils.booleans("startCacheable"),
+                // for a store that is not cacheable, pre-warming the cache should be a no-op
+                ParameterizedTestUtils.booleans("cachePreWarmed")
+        );
+    }
+
     /**
-     * Companion invariant to {@link #concurrentSetCacheabilityPreventsDeleteStore(DeleteStoreMode)}:
-     * with the commit order flipped (deleter first, then flipper), the flipper must conflict.
+     * The delete commits BEFORE the concurrent operation. In all combinations, the operation's own {@code open()} adds
+     * {@code STORE_INFO_KEY} to its read set. That read-conflict range catches the prior
+     * delete's write via {@code clear(subspace.range())}, so the operation always aborts
+     * and the delete always sticks.
      */
-    @ParameterizedTest(name = "concurrentSetCacheabilityConflictsWithDeleteStore [{0}]")
-    @EnumSource(DeleteStoreMode.class)
-    void concurrentSetCacheabilityConflictsWithDeleteStore(@Nonnull DeleteStoreMode deleteStoreMode) throws Exception {
+    @ParameterizedTest
+    @MethodSource("concurrentOperationConflictsCases")
+    void concurrentOperationConflictsWithDeleteStore(@Nonnull ConcurrentOperation op,
+                                                     @Nonnull DeleteStoreMode deleteStoreMode,
+                                                     boolean startCacheable,
+                                                     boolean cachePreWarmed) throws Exception {
         fdb.setStoreStateCache(metaDataVersionStampCacheFactory.getCache(fdb));
         ensureMetaDataVersionStampInitialized();
 
-        // Setup: create the store as NON-cacheable (matches the companion test's starting state).
-        final StoreSetup setup = createStore(false);
+        final StoreSetup setup = createStore(startCacheable);
 
-        final boolean flipperCommitted;
-        try (FDBRecordContext flipperContext = fdb.openContext(null, new FDBStoreTimer())) {
-            FDBRecordStore flipperStore = setup.builder().copyBuilder().setContext(flipperContext).open();
+        if (cachePreWarmed) {
+            // Open the store once in a separate transaction so the state cache has an entry
+            // for this subspace before opContext.open() runs. For a cacheable store this
+            // makes the subsequent open() take the handleCachedState path; for a
+            // non-cacheable store the cache doesn't populate and this is effectively a no-op.
+            try (FDBRecordContext warmup = fdb.openContext(null, new FDBStoreTimer())) {
+                setup.builder().copyBuilder().setContext(warmup).open();
+            }
+        }
+
+        final boolean opCommitted;
+        try (FDBRecordContext opContext = fdb.openContext(null, new FDBStoreTimer())) {
+            // Open the store first — this adds STORE_INFO_KEY to opContext's read set at
+            // opContext's pinned read version, either via a SERIALIZABLE header load
+            // (cache miss) or via handleCachedState (cache hit).
+            FDBRecordStore opStore = setup.builder().copyBuilder().setContext(opContext).open();
+
+            // Delete and commit in a nested transaction, writing STORE_INFO_KEY (via clear).
             try (FDBRecordContext deleterContext = fdb.openContext(null, new FDBStoreTimer())) {
                 deleteStoreMode.deleteStore(deleterContext, setup.subspace());
                 commit(deleterContext);
             }
-            assertTrue(flipperStore.setStateCacheability(true),
-                    "flipping to cacheable should have changed the header");
-            flipperCommitted = tryCommitOrDetectConflict(flipperContext);
+
+            // Apply the concurrent operation on the already-open opStore and try to commit.
+            // The read-conflict range on STORE_INFO_KEY from the initial open() overlaps
+            // the deleter's committed write, so opContext must abort.
+            op.apply(opStore);
+            opCommitted = tryCommitOrDetectConflict(opContext);
         }
 
-        if (flipperCommitted) {
-            fail("a setStateCacheability(true) flip committed after a successful deleteStore; " +
-                    "another transaction could have used the cached state to write after the " +
-                    "delete store without there being a store header");
-        } else {
-            // Deleter correctly conflicted with the flipper. The store still should have been deleted.
-            try (FDBRecordContext contextUsingCache = fdb.openContext(null, new FDBStoreTimer())) {
-                assertTrue(contextUsingCache.ensureActive().getRange(setup.subspace().range()).asList().join().isEmpty(),
-                        "The store should have been deleted");
-                recordStore = setup.builder().copyBuilder().setContext(contextUsingCache).create();
-                assertNotCacheable();
-            }
+        assertFalse(opCommitted, "op should have conflicted with the preceding deleteStore");
+
+        // Delete correctly landed. Subspace should be empty; a subsequent create() succeeds.
+        try (FDBRecordContext contextUsingCache = fdb.openContext(null, new FDBStoreTimer())) {
+            assertTrue(contextUsingCache.ensureActive()
+                            .getRange(setup.subspace().range()).asList().join().isEmpty(),
+                    "The store should have been deleted");
+            recordStore = setup.builder().copyBuilder().setContext(contextUsingCache).create();
+            assertNotCacheable();
         }
     }
 
