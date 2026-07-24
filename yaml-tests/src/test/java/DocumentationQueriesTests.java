@@ -70,6 +70,11 @@ class DocumentationQueriesTests {
     }
 
     @TestTemplate
+    void isolationLevelSnapshotDocumentationQueriesTests(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql(PREFIX + "/isolation-level-snapshot-documentation-queries.yamsql");
+    }
+
+    @TestTemplate
     void joinsDocumentationQueriesTests(YamlTest.Runner runner) throws Exception {
         runner.runYamsql(PREFIX + "/joins-documentation-queries.yamsql");
     }

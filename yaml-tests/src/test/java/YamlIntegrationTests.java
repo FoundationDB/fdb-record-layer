@@ -378,6 +378,11 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
+    public void snapshotIsolation(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("snapshot-isolation.yamsql");
+    }
+
+    @TestTemplate
     public void slidingWindowSemanticSearchTest(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("sliding-window-semantic-search.yamsql");
     }

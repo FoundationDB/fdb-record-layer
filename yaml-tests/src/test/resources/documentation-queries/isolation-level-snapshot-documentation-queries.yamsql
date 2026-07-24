@@ -1,0 +1,56 @@
+#
+# isolation-level-snapshot-documentation-queries.yamsql
+#
+# This source file is part of the FoundationDB open source project
+#
+# Copyright 2021-2026 Apple Inc. and the FoundationDB project authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# Backs the runnable snapshot-isolation examples in
+# docs/sphinx/source/reference/query_options/ISOLATION_LEVEL_SNAPSHOT.rst. YAMSQL cannot exercise
+# true concurrency, so these only verify that the example queries parse, plan, and return the results
+# shown in the docs; the "no conflict range" behavior is verified in SnapshotIsolationConcurrencyTest.
+---
+options:
+    supported_version: !current_version
+---
+schema_template:
+    create table document(id bigint, data string, primary key(id))
+    create index document_count as select count(*) from document
+    create table zone(zone_key bigint, name string, primary key(zone_key))
+    create index max_zone_key as select max_ever(zone_key) from zone
+---
+setup:
+  steps:
+    - query: insert into document values (1, 'a'), (2, 'b'), (3, 'c')
+    - query: insert into zone values (100, 'first'), (250, 'second'), (175, 'third')
+---
+test_block:
+  name: isolation-level-snapshot-tests
+  preset: single_repetition_ordered
+  tests:
+    # Example 1: approximate row limit protected by a count index.
+    -
+      - query: SELECT count(*) AS document_count
+              FROM document
+              OPTIONS (ISOLATION LEVEL SNAPSHOT)
+      - result: [{document_count: 3}]
+
+    # Example 2: sequence-like ids from a MAX_EVER index and a random offset.
+    -
+      - query: SELECT max_ever(zone_key) AS max_key
+              FROM zone
+              OPTIONS (ISOLATION LEVEL SNAPSHOT)
+      - result: [{max_key: 250}]
+...

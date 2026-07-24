@@ -28,7 +28,9 @@ import com.apple.foundationdb.record.PipelineOperation;
 import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
+import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCursor;
+import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.planprotos.PRecordQueryDeletePlan;
 import com.apple.foundationdb.record.planprotos.PRecordQueryPlan;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
@@ -96,6 +98,12 @@ public class RecordQueryDeletePlan extends AbstractRelationalExpressionWithChild
                                                                      @Nonnull final EvaluationContext context,
                                                                      @Nullable final byte[] continuation,
                                                                      @Nonnull final ExecuteProperties executeProperties) {
+        // Like other data-modification plans, a delete must run at serializable isolation so that the reads it
+        // performs participate in conflict detection. Executing at SNAPSHOT isolation is never safe.
+        if (executeProperties.getIsolationLevel().isSnapshot()) {
+            throw new RecordCoreArgumentException("Cannot execute a data-modification plan at SNAPSHOT isolation level")
+                    .addLogInfo(LogMessageKeys.PLAN, getClass().getSimpleName());
+        }
         if (executeProperties.isDryRun()) {
             return RecordCursor.flatMapPipelined(
                     outerContinuation -> getInnerPlan().executePlan(store, context, outerContinuation, executeProperties.clearSkipAndLimit()),

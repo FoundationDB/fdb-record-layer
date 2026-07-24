@@ -734,6 +734,9 @@ public class TypeConversion {
                 case PLAN_RIGHT_DEEP:
                     builder.setPlanRightDeep((Boolean)entry.getValue());
                     break;
+                case SNAPSHOT_ISOLATION:
+                    builder.setSnapshotIsolation((Boolean)entry.getValue());
+                    break;
                 default:
                     throw new SQLException("Cannot encode option in protobuf");
             }
@@ -853,6 +856,9 @@ public class TypeConversion {
         }
         if (protoOptions.hasPlanRightDeep()) {
             builder.withOption(Options.Name.PLAN_RIGHT_DEEP, protoOptions.getPlanRightDeep());
+        }
+        if (protoOptions.hasSnapshotIsolation()) {
+            builder.withOption(Options.Name.SNAPSHOT_ISOLATION, protoOptions.getSnapshotIsolation());
         }
         return builder.build();
     }
