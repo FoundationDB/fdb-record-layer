@@ -645,6 +645,7 @@ public class FDBRecordStoreStateCacheTest extends FDBRecordStoreTestBase {
     @ParameterizedTest(name = "storeDeletionInSameContext (test context = {0})")
     @MethodSource("testContextSource")
     public void storeDeletionInSameContext(@Nonnull StateCacheTestContext testContext) throws Exception {
+        // TODO parameterize these tests on whether the use `deleteStore` or `deleteStoreAsync`
         fdb.setStoreStateCache(testContext.getCache(fdb));
 
         FDBRecordStore.Builder storeBuilder;

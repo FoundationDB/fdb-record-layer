@@ -3041,6 +3041,7 @@ public class VersionIndexTest {
     @ParameterizedTest(name = "deleteStoreWithUncommittedVersionData [" + ARGUMENTS_PLACEHOLDER + "]")
     @MethodSource
     void deleteStoreWithUncommittedVersionData(FormatVersion testFormatVersion, boolean testSplitLongRecords, boolean clearPath) throws Exception {
+        // TODO parameterize this based on deleteStore & deleteStoreAsync
         formatVersion = testFormatVersion;
         splitLongRecords = testSplitLongRecords;
 
