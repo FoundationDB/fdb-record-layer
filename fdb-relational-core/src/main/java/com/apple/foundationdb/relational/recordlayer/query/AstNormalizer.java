@@ -32,6 +32,7 @@ import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 import com.apple.foundationdb.relational.api.metrics.RelationalMetric;
+import com.apple.foundationdb.relational.generated.RelationalLexer;
 import com.apple.foundationdb.relational.generated.RelationalParser;
 import com.apple.foundationdb.relational.generated.RelationalParserBaseVisitor;
 import com.apple.foundationdb.relational.recordlayer.metadata.DataTypeUtils;
@@ -59,6 +60,7 @@ import java.sql.SQLException;
 import java.sql.Struct;
 import java.util.EnumSet;
 import java.util.HashMap;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -180,8 +182,18 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
 
     @Override
     public Void visitTerminal(@Nonnull TerminalNode node) {
-        if (node.getSymbol().getType() != Token.EOF) {
-            sqlCanonicalizer.append(node.getText()).append(" ");
+        final var token = node.getSymbol();
+        if (token.getType() != Token.EOF) {
+            //
+            // SQL keywords are case-insensitive, so keyword (and punctuation) tokens are upper-cased in the
+            // canonical form to make it insensitive to keyword case. Only literal tokens are normalized: tokens
+            // defined by lexer rules (identifiers, literals, and unquoted function names) are preserved as-is,
+            // otherwise case-sensitively distinct references (e.g. functions f3 vs F3) would collapse to the
+            // same plan-cache key.
+            //
+            final var text = node.getText();
+            final var isLiteralToken = RelationalLexer.VOCABULARY.getLiteralName(token.getType()) != null;
+            sqlCanonicalizer.append(isLiteralToken ? text.toUpperCase(Locale.ROOT) : text).append(" ");
         }
         return null;
     }

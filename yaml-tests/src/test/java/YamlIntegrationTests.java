@@ -288,6 +288,11 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
+    public void keywordCaseInsensitivity(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("keyword-case-insensitivity.yamsql");
+    }
+
+    @TestTemplate
     public void nested(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("nested-tests.yamsql");
     }
