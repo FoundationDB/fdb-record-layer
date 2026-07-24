@@ -23,6 +23,7 @@ package com.apple.foundationdb.relational.recordlayer.query;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
+import com.apple.foundationdb.record.query.plan.cascades.CallSiteArguments;
 import com.apple.foundationdb.record.query.plan.cascades.Column;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
@@ -31,6 +32,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
+import com.apple.foundationdb.relational.recordlayer.query.functions.SqlFunctionCatalog;
 import com.apple.foundationdb.relational.util.Assert;
 import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
@@ -328,6 +330,28 @@ public final class Expressions implements Iterable<Expression> {
             resultBuilder.put(argumentName.get().toString(), argument.getUnderlying());
         }
         return resultBuilder.build();
+    }
+
+    @Nonnull
+    public CallSiteArguments toCallSiteArguments() {
+        return toCallSiteArguments(false);
+    }
+
+    @Nonnull
+    public CallSiteArguments toCallSiteArguments(final boolean flattenSingleItemRecords) {
+        if (isEmpty()) {
+            return CallSiteArguments.empty();
+        }
+        final boolean allNamed = allNamedArguments();
+        Assert.thatUnchecked(allNamed || noneNamedArguments(), ErrorCode.UNSUPPORTED_OPERATION,
+                "mixing named and unnamed arguments is not supported");
+        if (allNamed) {
+            return CallSiteArguments.ofNamed(toNamedArgumentInvocation());
+        }
+        final var values = Streams.stream(underlying())
+                .map(v -> flattenSingleItemRecords ? (Value)SqlFunctionCatalog.flattenRecordWithOneField(v) : v)
+                .collect(ImmutableList.toImmutableList());
+        return CallSiteArguments.ofPositional(values);
     }
 
     @Override

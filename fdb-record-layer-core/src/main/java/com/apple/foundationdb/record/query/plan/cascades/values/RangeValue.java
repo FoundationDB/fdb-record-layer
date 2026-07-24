@@ -446,7 +446,7 @@ public class RangeValue extends AbstractValue implements StreamingValue, Creates
         }
 
         public RangeFn() {
-            super("range", ImmutableList.of(), new Type.Any(), (ignored, arguments) -> encapsulateInternal(arguments));
+            super("range", ImmutableList.of(), new Type.Any(), (ignored, arguments) -> encapsulateInternal(arguments.getArgumentsList()));
         }
     }
 

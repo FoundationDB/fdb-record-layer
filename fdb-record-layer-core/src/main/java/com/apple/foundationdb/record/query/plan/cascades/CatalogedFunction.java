@@ -114,11 +114,6 @@ public abstract class CatalogedFunction {
         return parameterNamesMap.keySet();
     }
 
-    @Nullable
-    public Type getVariadicSuffixType() {
-        return variadicSuffixType;
-    }
-
     public boolean hasVariadicSuffix() {
         return variadicSuffixType != null;
     }
@@ -130,7 +125,7 @@ public abstract class CatalogedFunction {
             return parameterTypes.get(index);
         } else {
             if (hasVariadicSuffix()) {
-                return variadicSuffixType;
+                return Verify.verifyNotNull(variadicSuffixType);
             }
             throw new IllegalArgumentException("cannot resolve declared parameter at index " + index);
         }
@@ -139,16 +134,6 @@ public abstract class CatalogedFunction {
     @Nonnull
     public Type computeParameterType(@Nonnull final String parameterName) {
         return computeParameterType(getParamIndex(parameterName));
-    }
-
-    @Nonnull
-    public List<Type> getParameterTypes(int numberOfArguments) {
-        Verify.verify(numberOfArguments > 0, "unexpected number of arguments");
-        final ImmutableList.Builder<Type> resultBuilder = ImmutableList.builder();
-        for (int i = 0; i < numberOfArguments; i ++) {
-            resultBuilder.add(computeParameterType(i));
-        }
-        return resultBuilder.build();
     }
 
     public int getParamIndex(@Nonnull final String parameter) {
@@ -349,8 +334,5 @@ public abstract class CatalogedFunction {
     }
 
     @Nonnull
-    public abstract Typed encapsulate(@Nonnull List<? extends Typed> arguments);
-
-    @Nonnull
-    public abstract Typed encapsulate(@Nonnull Map<String, ? extends Typed> namedArguments);
+    public abstract Typed encapsulate(@Nonnull CallSiteArguments arguments);
 }

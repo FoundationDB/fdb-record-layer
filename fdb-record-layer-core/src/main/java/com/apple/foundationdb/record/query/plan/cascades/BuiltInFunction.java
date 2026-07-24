@@ -29,7 +29,6 @@ import com.google.common.base.Verify;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 
 /**
@@ -77,13 +76,14 @@ public abstract class BuiltInFunction<T extends Typed> extends CatalogedFunction
 
     @Nonnull
     @Override
-    public Typed encapsulate(@Nonnull final List<? extends Typed> arguments) {
+    public Typed encapsulate(@Nonnull final CallSiteArguments arguments) {
+        if (arguments.isNamed()) {
+            //
+            // customer should not be able to reach this code path, the relational parser defines built-in functions
+            // rules with positional parameters.
+            //
+            throw new RecordCoreException("built-in functions do not support named argument calling conventions");
+        }
         return Verify.verifyNotNull(encapsulationFunction).encapsulate(this, arguments);
-    }
-
-    @Nonnull
-    @Override
-    public Typed encapsulate(@Nonnull final Map<String, ? extends Typed> namedArguments) {
-        throw new RecordCoreException("built-in functions do not support named argument calling conventions");
     }
 }

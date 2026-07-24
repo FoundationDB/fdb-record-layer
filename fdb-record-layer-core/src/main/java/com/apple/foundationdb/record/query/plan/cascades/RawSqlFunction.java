@@ -26,8 +26,6 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
-import java.util.List;
-import java.util.Map;
 
 public class RawSqlFunction extends UserDefinedFunction {
 
@@ -51,13 +49,7 @@ public class RawSqlFunction extends UserDefinedFunction {
 
     @Nonnull
     @Override
-    public Typed encapsulate(@Nonnull final List<? extends Typed> arguments) {
-        throw new RecordCoreException("attempt to encapsulate raw sql function");
-    }
-
-    @Nonnull
-    @Override
-    public Typed encapsulate(@Nonnull final Map<String, ? extends Typed> namedArguments) {
+    public Typed encapsulate(@Nonnull final CallSiteArguments arguments) {
         throw new RecordCoreException("attempt to encapsulate raw sql function");
     }
 

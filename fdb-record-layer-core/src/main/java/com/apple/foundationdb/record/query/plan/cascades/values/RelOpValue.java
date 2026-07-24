@@ -38,6 +38,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordVersion;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
+import com.apple.foundationdb.record.query.plan.cascades.CallSiteArguments;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ConstantPredicate;
@@ -417,7 +418,8 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
                     List.of(new Type.Any(), new Type.Any()), EqualsFn::encapsulate);
         }
 
-        private static Value encapsulate(@Nonnull BuiltInFunction<Value> builtInFunction, @Nonnull final List<? extends Typed> arguments) {
+        private static Value encapsulate(@Nonnull BuiltInFunction<Value> builtInFunction, @Nonnull final CallSiteArguments callSiteArguments) {
+            final List<? extends Typed> arguments = callSiteArguments.getArgumentsList();
             return RelOpValue.encapsulate(builtInFunction.getFunctionName(), Comparisons.Type.EQUALS, arguments);
         }
     }
@@ -432,7 +434,8 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
                     List.of(new Type.Any(), new Type.Any()), NotEqualsFn::encapsulate);
         }
 
-        private static Value encapsulate(@Nonnull BuiltInFunction<Value> builtInFunction, @Nonnull final List<? extends Typed> arguments) {
+        private static Value encapsulate(@Nonnull BuiltInFunction<Value> builtInFunction, @Nonnull final CallSiteArguments callSiteArguments) {
+            final List<? extends Typed> arguments = callSiteArguments.getArgumentsList();
             return RelOpValue.encapsulate(builtInFunction.getFunctionName(), Comparisons.Type.NOT_EQUALS, arguments);
         }
     }
@@ -447,7 +450,8 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
                     List.of(new Type.Any(), new Type.Any()), LtFn::encapsulate);
         }
 
-        private static Value encapsulate(@Nonnull BuiltInFunction<Value> builtInFunction, @Nonnull final List<? extends Typed> arguments) {
+        private static Value encapsulate(@Nonnull BuiltInFunction<Value> builtInFunction, @Nonnull final CallSiteArguments callSiteArguments) {
+            final List<? extends Typed> arguments = callSiteArguments.getArgumentsList();
             return RelOpValue.encapsulate(builtInFunction.getFunctionName(), Comparisons.Type.LESS_THAN, arguments);
         }
     }
@@ -462,7 +466,8 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
                     List.of(new Type.Any(), new Type.Any()), LteFn::encapsulate);
         }
 
-        private static Value encapsulate(@Nonnull BuiltInFunction<Value> builtInFunction, @Nonnull final List<? extends Typed> arguments) {
+        private static Value encapsulate(@Nonnull BuiltInFunction<Value> builtInFunction, @Nonnull final CallSiteArguments callSiteArguments) {
+            final List<? extends Typed> arguments = callSiteArguments.getArgumentsList();
             return RelOpValue.encapsulate(builtInFunction.getFunctionName(), Comparisons.Type.LESS_THAN_OR_EQUALS, arguments);
         }
     }
@@ -477,7 +482,8 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
                     List.of(new Type.Any(), new Type.Any()), GtFn::encapsulate);
         }
 
-        private static Value encapsulate(@Nonnull BuiltInFunction<Value> builtInFunction, @Nonnull final List<? extends Typed> arguments) {
+        private static Value encapsulate(@Nonnull BuiltInFunction<Value> builtInFunction, @Nonnull final CallSiteArguments callSiteArguments) {
+            final List<? extends Typed> arguments = callSiteArguments.getArgumentsList();
             return RelOpValue.encapsulate(builtInFunction.getFunctionName(), Comparisons.Type.GREATER_THAN, arguments);
         }
     }
@@ -492,7 +498,8 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
                     List.of(new Type.Any(), new Type.Any()), GteFn::encapsulate);
         }
 
-        private static Value encapsulate(@Nonnull BuiltInFunction<Value> builtInFunction, @Nonnull final List<? extends Typed> arguments) {
+        private static Value encapsulate(@Nonnull BuiltInFunction<Value> builtInFunction, @Nonnull final CallSiteArguments callSiteArguments) {
+            final List<? extends Typed> arguments = callSiteArguments.getArgumentsList();
             return RelOpValue.encapsulate(builtInFunction.getFunctionName(), Comparisons.Type.GREATER_THAN_OR_EQUALS, arguments);
         }
     }
@@ -507,7 +514,8 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
                     List.of(new Type.Any()), IsNullFn::encapsulate);
         }
 
-        private static Value encapsulate(@Nonnull BuiltInFunction<Value> builtInFunction, @Nonnull final List<? extends Typed> arguments) {
+        private static Value encapsulate(@Nonnull BuiltInFunction<Value> builtInFunction, @Nonnull final CallSiteArguments callSiteArguments) {
+            final List<? extends Typed> arguments = callSiteArguments.getArgumentsList();
             return RelOpValue.encapsulate(builtInFunction.getFunctionName(), Comparisons.Type.IS_NULL, arguments);
         }
     }
@@ -522,7 +530,8 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
                     List.of(new Type.Any()), NotNullFn::encapsulate);
         }
 
-        private static Value encapsulate(@Nonnull BuiltInFunction<Value> builtInFunction, @Nonnull final List<? extends Typed> arguments) {
+        private static Value encapsulate(@Nonnull BuiltInFunction<Value> builtInFunction, @Nonnull final CallSiteArguments callSiteArguments) {
+            final List<? extends Typed> arguments = callSiteArguments.getArgumentsList();
             return RelOpValue.encapsulate(builtInFunction.getFunctionName(), Comparisons.Type.NOT_NULL, arguments);
         }
     }
@@ -537,7 +546,8 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
                     List.of(new Type.Any(), new Type.Any()), IsDistinctFromFn::encapsulate);
         }
 
-        private static Value encapsulate(@Nonnull BuiltInFunction<Value> builtInFunction, @Nonnull final List<? extends Typed> arguments) {
+        private static Value encapsulate(@Nonnull BuiltInFunction<Value> builtInFunction, @Nonnull final CallSiteArguments callSiteArguments) {
+            final List<? extends Typed> arguments = callSiteArguments.getArgumentsList();
             return RelOpValue.encapsulate(builtInFunction.getFunctionName(), Comparisons.Type.IS_DISTINCT_FROM, arguments);
         }
     }
@@ -552,7 +562,8 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
                     List.of(new Type.Any(), new Type.Any()), NotDistinctFromFn::encapsulate);
         }
 
-        private static Value encapsulate(@Nonnull BuiltInFunction<Value> builtInFunction, @Nonnull final List<? extends Typed> arguments) {
+        private static Value encapsulate(@Nonnull BuiltInFunction<Value> builtInFunction, @Nonnull final CallSiteArguments callSiteArguments) {
+            final List<? extends Typed> arguments = callSiteArguments.getArgumentsList();
             return RelOpValue.encapsulate(builtInFunction.getFunctionName(), Comparisons.Type.NOT_DISTINCT_FROM, arguments);
         }
     }

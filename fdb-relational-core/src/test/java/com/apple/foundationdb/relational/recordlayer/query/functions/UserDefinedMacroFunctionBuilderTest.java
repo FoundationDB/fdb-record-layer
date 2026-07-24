@@ -21,6 +21,7 @@
 package com.apple.foundationdb.relational.recordlayer.query.functions;
 
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
+import com.apple.foundationdb.record.query.plan.cascades.CallSiteArguments;
 import com.apple.foundationdb.record.query.plan.cascades.UserDefinedMacroFunction;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
@@ -61,7 +62,7 @@ final class UserDefinedMacroFunctionBuilderTest {
         assertThat(function).isInstanceOf(UserDefinedMacroFunction.class);
         assertThat(function.getFunctionName()).isEqualTo("functionWithNoArgs");
         assertThat(function.getParameterTypes()).isEmpty();
-        assertThat(function.encapsulate(ImmutableList.of())).isEqualTo(functionBodyValue);
+        assertThat(function.encapsulate(CallSiteArguments.ofPositional())).isEqualTo(functionBodyValue);
     }
 
     @Test
@@ -84,7 +85,7 @@ final class UserDefinedMacroFunctionBuilderTest {
         assertThat(macroIdentityFunction.getParameterTypes()).singleElement().isEqualTo(STRING_TYPE);
 
         final var arguments = ImmutableList.of(LiteralValue.ofScalar("hello"));
-        assertThat(macroIdentityFunction.encapsulate(arguments))
+        assertThat(macroIdentityFunction.encapsulate(CallSiteArguments.ofPositional(arguments)))
                 .isEqualTo(arguments.get(0));
     }
 
@@ -114,7 +115,7 @@ final class UserDefinedMacroFunctionBuilderTest {
 
         final var arguments = ImmutableList.of(
                 LiteralValue.ofScalar("one"), LiteralValue.ofScalar("two"));
-        assertThat(macroIdentityFunction.encapsulate(arguments)).isInstanceOf(RecordConstructorValue.class)
+        assertThat(macroIdentityFunction.encapsulate(CallSiteArguments.ofPositional(arguments))).isInstanceOf(RecordConstructorValue.class)
                 .satisfies(rcv ->
                         ((RecordConstructorValue)rcv).semanticEquals(
                                 RecordConstructorValue.ofUnnamed(arguments), AliasMap.emptyMap()));
@@ -134,7 +135,7 @@ final class UserDefinedMacroFunctionBuilderTest {
         assertThat(function.getFunctionName()).isEqualTo("promoting");
         assertThat(function.getParameterTypes()).isEmpty();
 
-        assertThat(function.encapsulate(ImmutableList.of())).isInstanceOf(PromoteValue.class).satisfies(
+        assertThat(function.encapsulate(CallSiteArguments.ofPositional())).isInstanceOf(PromoteValue.class).satisfies(
                 v -> assertThat(v.getResultType().getTypeCode()).isEqualTo(Type.TypeCode.LONG)
         );
     }

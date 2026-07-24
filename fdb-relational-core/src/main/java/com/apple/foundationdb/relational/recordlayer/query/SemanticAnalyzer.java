@@ -21,18 +21,17 @@
 package com.apple.foundationdb.relational.recordlayer.query;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.query.plan.cascades.AccessHint;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInTableFunction;
+import com.apple.foundationdb.record.query.plan.cascades.CallSiteArguments;
 import com.apple.foundationdb.record.query.plan.cascades.CatalogedFunction;
 import com.apple.foundationdb.record.query.plan.cascades.Correlated;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.IndexAccessHint;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
-import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.TableFunctionExpression;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
@@ -53,7 +52,6 @@ import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
-import com.apple.foundationdb.relational.api.exceptions.UncheckedRelationalException;
 import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.api.metadata.Metadata;
 import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
@@ -71,6 +69,7 @@ import com.google.common.base.Equivalence;
 import com.google.common.base.Function;
 import com.google.common.base.Functions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.common.collect.Streams;
@@ -92,8 +91,6 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
-
-import static com.apple.foundationdb.record.query.plan.cascades.SemanticException.ErrorCode.FUNCTION_UNDEFINED_FOR_GIVEN_ARGUMENT_TYPES;
 
 /**
  * This class is responsible for performing a number of tasks revolving around semantic checks and resolution. For example,
@@ -959,181 +956,82 @@ public class SemanticAnalyzer {
     }
 
     /**
-     * Resolves a scalar function given its name and a list of arguments by looking it up in the
-     * {@link SqlFunctionCatalog}.
-     * <br>
-     * Ideally, this overload should not exist, in other words, the caller should not be responsible for determining
-     * whether the single-item records should be flattened or not.
-     * Currently almost all supported SQL functions do not expect {@code Record} objects,
-     * so this is probably ok, however, this does not necessarily hold for the future.
-     * See {@link SqlFunctionCatalog#flattenRecordWithOneField(Typed)} for more information.
+     * Resolves a scalar function given its name and a pre-built {@link CallSiteArguments} by looking it up in the
+     * {@link SqlFunctionCatalog}. Callers that have {@link Expressions} can convert them via
+     * {@link Expressions#toCallSiteArguments(boolean)}; windowed functions should go through
+     * {@link #resolveWindowFunction(String, boolean, WindowSpecExpression, Expressions)} instead.
      *
      * @param functionName The function name.
-     * @param arguments The function arguments.
+     * @param arguments The call-site arguments (positional/named values, options, and window specification).
      * @param flattenSingleItemRecords {@code true} if single-item records should be (recursively) replaced with their
      * content, otherwise {@code false}.
      *
      * @return An {@link Expression} representing the resolved SQL function.
      */
     @Nonnull
-    public Expression resolveScalarFunction(@Nonnull final String functionName, @Nonnull final Expressions arguments,
-                                            boolean flattenSingleItemRecords) {
+    public Expression resolveFunction(@Nonnull final String functionName, @Nonnull CallSiteArguments arguments,
+                                      boolean flattenSingleItemRecords) {
         Assert.thatUnchecked(functionCatalog.containsFunction(functionName), ErrorCode.UNSUPPORTED_QUERY,
                 () -> String.format(Locale.ROOT, "Unsupported operator %s", functionName));
-        final var allNamedArguments = !arguments.isEmpty() && arguments.allNamedArguments();
-        Assert.thatUnchecked(allNamedArguments || arguments.noneNamedArguments(),
-                ErrorCode.UNSUPPORTED_OPERATION,
-                "mixing named and unnamed arguments is not supported");
 
-        final var resolvedFunction = functionCatalog.lookupFunction(functionName, arguments);
-        Assert.thatUnchecked(!allNamedArguments || resolvedFunction.hasNamedParameters(),
-                ErrorCode.UNDEFINED_FUNCTION,
-                "function doesn't support named arguments");
-        processFunctionSideEffects(resolvedFunction);
+        final var catalogedFunction = functionCatalog.lookupFunction(functionName, arguments);
+        processFunctionSideEffects(catalogedFunction);
 
-        final var argumentList = ImmutableList.<Expression>builderWithExpectedSize(arguments.size() + 1).addAll(arguments);
+        final var argumentList = ImmutableList.<Value>builderWithExpectedSize(arguments.size() + 1)
+                .addAll(arguments.getArguments());
         if (BITMAP_SCALAR_FUNCTIONS.contains(functionName.toLowerCase(Locale.ROOT))) {
-            argumentList.add(Expression.ofUnnamed(new LiteralValue<>(BITMAP_DEFAULT_ENTRY_SIZE)));
+            argumentList.add(new LiteralValue<>(BITMAP_DEFAULT_ENTRY_SIZE));
         }
-
-        final List<? extends Typed> valueArgs = argumentList.build().stream().map(Expression::getUnderlying)
-                .map(v -> flattenSingleItemRecords ? SqlFunctionCatalog.flattenRecordWithOneField(v) : v)
+        final List<Value> valueArgs = argumentList.build().stream()
+                .map(v -> flattenSingleItemRecords ? (Value)SqlFunctionCatalog.flattenRecordWithOneField(v) : v)
                 .collect(ImmutableList.toImmutableList());
-        final var resultingValue =
-                Assert.castUnchecked(allNamedArguments
-                                     ? resolvedFunction.encapsulate(arguments.toNamedArgumentInvocation())
-                                     : resolvedFunction.encapsulate(valueArgs),
-                        Value.class);
+        arguments = arguments.withArguments(valueArgs);
+        final var resultingValue = Assert.castUnchecked(catalogedFunction.encapsulate(arguments), Value.class);
         return Expression.ofUnnamed(DataTypeUtils.toRelationalType(resultingValue.getResultType()), resultingValue);
     }
 
     /**
-     * Resolves a higher-order scalar function using a progressive resolution strategy similar to C++ SFINAE
-     * (Substitution Failure Is Not An Error). This method attempts to resolve function calls where the function
-     * itself may return another function, enabling support for second-order functions in SQL.
+     * Resolves a windowed function invocation. The window specification (partitioning and ordering columns) and the
+     * window options (e.g. {@code ef_search}) are carried out-of-band on the {@link CallSiteArguments} so the function
+     * can be encapsulated in a single step.
      *
-     * <p>The resolution logic employs a fallback mechanism that tries multiple interpretations when function
-     * resolution fails, allowing flexible function call syntax without ambiguity. This is particularly useful
-     * for functions that can be invoked with varying argument structures (e.g., {@code row_number()} vs
-     * {@code row_number(ef_search: 100)}).
+     * @param functionName The function name.
+     * @param flattenSingleItemRecords {@code true} if single-item records should be (recursively) replaced with their
+     * content, otherwise {@code false}.
+     * @param windowSpecExpression The parsed {@code OVER} clause.
+     * @param arguments The function's direct arguments (may be empty).
      *
-     * <p><b>Resolution Strategy:</b>
-     * <ul>
-     *   <li><b>No arguments ({@code arguments.isEmpty()}):</b> Resolves the function with no arguments. If the
-     *       result is a function type (second-order), it encapsulates a parameterless invocation to produce
-     *       the final first-order value.</li>
-     *
-     *   <li><b>Single argument list ({@code arguments.size() == 1}):</b> Attempts to resolve the function with
-     *       the provided argument list. If this fails with {@code UNDEFINED_FUNCTION} or
-     *       {@code FUNCTION_UNDEFINED_FOR_GIVEN_ARGUMENT_TYPES}, it re-attempts resolution with an empty
-     *       argument list (treating the function as second-order) and then applies the original arguments
-     *       to the resulting first-order function.</li>
-     *
-     *   <li><b>Two argument lists ({@code arguments.size() == 2}):</b> Resolves the second-order function
-     *       using the first argument list, then applies the second argument list to the resulting first-order
-     *       function. This enables explicit two-stage resolution (e.g., {@code func(config_args)(data_args)}).</li>
-     * </ul>
-     *
-     * <p><b>Limitation to Second-Order Functions:</b>
-     * The implementation currently supports up to second-order functions (functions that return functions that
-     * return values) due to:
-     * <ul>
-     *   <li>The complexity of implementing and reasoning about higher-order function resolution in SQL</li>
-     *   <li>The lack of practical use cases requiring third-order or higher functions in relational query contexts</li>
-     *   <li>The potential for confusing syntax and error messages when dealing with deeper function nesting</li>
-     * </ul>
-     *
-     * <p><b>Example Usage:</b>
-     * <pre>{@code
-     * // Zero-order invocation: row_number() -> resolves second-order function, then encapsulates with no args
-     * resolveHighOrderScalarFunction("row_number", false, List.of())
-     *
-     * // First-order invocation: row_number(ef_search: 100) -> tries direct resolution first
-     * resolveHighOrderScalarFunction("row_number", false, List.of(Expressions.of(...)))
-     *
-     * // Explicit second-order: row_number()(some_args) -> resolves outer, then applies args to inner
-     * resolveHighOrderScalarFunction("row_number", false, List.of(Expressions.empty(), Expressions.of(...)))
-     * }</pre>
-     *
-     * @param functionName the name of the function to resolve
-     * @param flattenSingleItemRecords whether to flatten single-field records in argument processing
-     * @param arguments a list of argument lists, where each element represents a level of function application
-     *                  (empty for no args, single element for one arg list, two elements for explicit second-order)
-     * @return the resolved {@link Expression} representing the fully evaluated function call
-     * @throws UncheckedRelationalException if function resolution fails after all fallback attempts
-     * @throws SemanticException if the function signature doesn't match any known interpretation
+     * @return An {@link Expression} representing the resolved SQL window function.
      */
     @Nonnull
-    public Expression resolveHighOrderScalarFunction(@Nonnull final String functionName, boolean flattenSingleItemRecords,
-                                                     @Nonnull final List<Expressions> arguments) {
-        Assert.thatUnchecked(arguments.size() <= 2, ErrorCode.UNSUPPORTED_OPERATION, "unsupported higher-order function");
-        if (arguments.isEmpty()) {
-            var functionExpression = resolveScalarFunction(functionName, Expressions.empty(), flattenSingleItemRecords);
-            if (functionExpression.getUnderlying().getResultType().isFunction()) {
-                // this is a second-order function, try to encapsulate a parameterless invocation of it.
-                functionExpression = encapsulateValueFunction(functionExpression.getUnderlying(), Expressions.empty(), flattenSingleItemRecords);
-            }
-            return functionExpression;
+    public Expression resolveWindowFunction(@Nonnull final String functionName, boolean flattenSingleItemRecords,
+                                            @Nonnull final WindowSpecExpression windowSpecExpression,
+                                            @Nonnull final Expressions arguments) {
+        final var windowSpecification = windowSpecExpression.toWindowSpecification();
+        var callSiteArguments = arguments.toCallSiteArguments(flattenSingleItemRecords)
+                .withWindowSpecification(windowSpecification);
+        final var windowOptions = windowSpecExpression.getWindowOptions();
+        if (!windowOptions.isEmpty()) {
+            callSiteArguments = callSiteArguments.withOptions(windowOptionsToMap(windowOptions));
         }
-
-        if (arguments.size() == 1) {
-            Expression functionExpression;
-            boolean passArgsToFirstOrderFunction = false;
-            try {
-                // attempt to resolve the function with that list of arguments first.
-                functionExpression = resolveScalarFunction(functionName, arguments.get(0), flattenSingleItemRecords);
-            } catch (UncheckedRelationalException exp) {
-                if (exp.unwrap().getErrorCode().equals(ErrorCode.UNDEFINED_FUNCTION)) {
-                    // re-attempt to resolve the high-order function with an empty list of arguments.
-                    functionExpression = resolveScalarFunction(functionName, Expressions.empty(), flattenSingleItemRecords);
-                    passArgsToFirstOrderFunction = true;
-                } else {
-                    throw exp;
-                }
-            } catch (SemanticException exp) {
-                if (exp.getErrorCode().equals(FUNCTION_UNDEFINED_FOR_GIVEN_ARGUMENT_TYPES)) {
-                    // re-attempt to resolve the high-order function with an empty list of arguments.
-                    functionExpression = resolveScalarFunction(functionName, Expressions.empty(), flattenSingleItemRecords);
-                    passArgsToFirstOrderFunction = true;
-                } else {
-                    throw exp;
-                }
-            }
-
-            if (functionExpression.getUnderlying().getResultType().isFunction()) {
-                // the function is second-order, now resolve the first-order function, make sure to not reuse the
-                // provided argument list if it was already used to resolve the second-order function.
-                final var firstOrderArgs = passArgsToFirstOrderFunction ? arguments.get(0) : Expressions.empty();
-                functionExpression = encapsulateValueFunction(functionExpression.getUnderlying(), firstOrderArgs, flattenSingleItemRecords);
-            } else {
-                Assert.thatUnchecked(!passArgsToFirstOrderFunction, ErrorCode.UNDEFINED_FUNCTION, () ->
-                        "could not resolve " + functionName + " with the given list of arguments");
-            }
-            return functionExpression;
-        }
-
-        final var functionExpr = resolveScalarFunction(functionName, arguments.get(0), flattenSingleItemRecords);
-        var functionValue = functionExpr.getUnderlying();
-        Assert.thatUnchecked(functionValue.getResultType().isFunction());
-        final Value.HighOrderValue highOrderValue = Assert.castUnchecked(functionValue, Value.HighOrderValue.class);
-        final List<? extends Typed> valueArgs = StreamSupport.stream(arguments.get(1).underlying().spliterator(), false)
-                    .map(v -> flattenSingleItemRecords ? SqlFunctionCatalog.flattenRecordWithOneField(v) : v)
-                    .collect(ImmutableList.toImmutableList());
-        final var highOrderFunctionBuilder = Assert.notNullUnchecked(highOrderValue.evalWithoutStore(EvaluationContext.EMPTY));
-        functionValue = Assert.castUnchecked(highOrderFunctionBuilder.encapsulate(valueArgs), Value.class);
-        Assert.thatUnchecked(!functionValue.getResultType().isFunction());
-        return Expression.ofUnnamed(DataTypeUtils.toRelationalType(functionValue.getResultType()), functionValue);
+        return resolveFunction(functionName, callSiteArguments, flattenSingleItemRecords);
     }
 
     @Nonnull
-    private Expression encapsulateValueFunction(@Nonnull final Value value, @Nonnull final Expressions arguments, boolean flattenSingleItemRecords) {
-        final Value.HighOrderValue highOrderValue = Assert.castUnchecked(value, Value.HighOrderValue.class);
-        final List<? extends Typed> valueArgs = arguments.stream().map(Expression::getUnderlying)
-                .map(v -> flattenSingleItemRecords ? SqlFunctionCatalog.flattenRecordWithOneField(v) : v)
-                .collect(ImmutableList.toImmutableList());
-        final var firstOrderValue = Assert.castUnchecked(Assert.notNullUnchecked(highOrderValue.evalWithoutStore(EvaluationContext.EMPTY))
-                .encapsulate(valueArgs), Value.class);
-        return Expression.ofUnnamed(DataTypeUtils.toRelationalType(firstOrderValue.getResultType()), firstOrderValue);
+    private static Map<String, Object> windowOptionsToMap(@Nonnull final Expressions windowOptions) {
+        final var optionsBuilder = ImmutableMap.<String, Object>builder();
+        for (final var option : windowOptions) {
+            Assert.thatUnchecked(option.getName().isPresent(), ErrorCode.SYNTAX_ERROR,
+                    "window options must be named");
+            //
+            // we might want to allow preparing these options later on.
+            //
+            Assert.thatUnchecked(option.getUnderlying() instanceof LiteralValue<?>, ErrorCode.SYNTAX_ERROR,
+                    "window options must be literal values");
+            optionsBuilder.put(option.getName().orElseThrow().toString(),
+                    Objects.requireNonNull(((LiteralValue<?>)option.getUnderlying()).getLiteralValue()));
+        }
+        return optionsBuilder.build();
     }
 
     private void processFunctionSideEffects(@Nonnull final CatalogedFunction builtInFunction) {
@@ -1167,26 +1065,18 @@ public class SemanticAnalyzer {
                                                 boolean flattenSingleItemRecords) {
         Assert.thatUnchecked(functionCatalog.containsFunction(functionName.getName()), ErrorCode.UNDEFINED_FUNCTION,
                 () -> String.format(Locale.ROOT, "Unknown function %s", functionName));
-        final var allNamedArguments = !arguments.isEmpty() && arguments.allNamedArguments();
-        Assert.thatUnchecked(allNamedArguments || arguments.noneNamedArguments(),
-                ErrorCode.UNSUPPORTED_OPERATION,
-                "mixing named and unnamed arguments is not supported");
+        final var callSiteArguments = arguments.toCallSiteArguments(flattenSingleItemRecords);
 
-        final var tableFunction = functionCatalog.lookupFunction(functionName.getName(), arguments);
+        final var tableFunction = functionCatalog.lookupFunction(functionName.getName(), callSiteArguments);
         if (tableFunction instanceof BuiltInFunction) {
             Assert.thatUnchecked(tableFunction instanceof BuiltInTableFunction, functionName + " is not a table-valued function");
         }
-        Assert.thatUnchecked(arguments.isEmpty() || !allNamedArguments || tableFunction.hasNamedParameters(),
+        Assert.thatUnchecked(callSiteArguments.isEmpty() || !callSiteArguments.isNamed() || tableFunction.hasNamedParameters(),
                 ErrorCode.UNDEFINED_FUNCTION,
                 "function doesn't support named arguments");
         processFunctionSideEffects(tableFunction);
 
-        final List<? extends Typed> valueArgs = Streams.stream(arguments.underlying().iterator())
-                .map(v -> flattenSingleItemRecords ? SqlFunctionCatalog.flattenRecordWithOneField(v) : v)
-                .collect(ImmutableList.toImmutableList());
-        final var resultingValue = arguments.allNamedArguments()
-                ? tableFunction.encapsulate(arguments.toNamedArgumentInvocation())
-                : tableFunction.encapsulate(valueArgs);
+        final var resultingValue = tableFunction.encapsulate(callSiteArguments);
         if (resultingValue instanceof StreamingValue) {
             final var tableFunctionExpression = new TableFunctionExpression(Assert.castUnchecked(resultingValue, StreamingValue.class));
             final var reference = Reference.initialOf(tableFunctionExpression);

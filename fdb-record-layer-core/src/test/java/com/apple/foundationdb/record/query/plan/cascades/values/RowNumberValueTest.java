@@ -22,7 +22,9 @@ package com.apple.foundationdb.record.query.plan.cascades.values;
 
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
-import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
+import com.apple.foundationdb.record.query.plan.cascades.CallSiteArguments;
+import com.apple.foundationdb.record.query.plan.cascades.OrderingPart;
+import com.apple.foundationdb.record.query.plan.cascades.WindowOrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.serialization.DefaultPlanSerializationRegistry;
 import com.google.common.collect.ImmutableList;
@@ -230,62 +232,48 @@ class RowNumberValueTest {
     }
 
     @Test
-    void testRowNumberHighOrderFnEncapsulateWithNamedArguments() {
-        final var fn = new RowNumberValue.RowNumberHighOrderFn();
+    void testRowNumberFnEncapsulateWithPartitioningOrderingAndOptions() {
+        final var fn = new RowNumberValue.RowNumberFn();
 
-        final var efSearchValue = LiteralValue.ofScalar(100);
-        final var returnsVectorsValue = LiteralValue.ofScalar(true);
-        final var namedArguments = Map.of(
-                RowNumberValue.RowNumberHighOrderFn.EF_SEARCH_ARGUMENT, efSearchValue,
-                RowNumberValue.RowNumberHighOrderFn.INDEX_RETURNS_VECTORS_ARGUMENT, returnsVectorsValue
-        );
+        final var partitioningValues = ImmutableList.<Value>of(LiteralValue.ofScalar(1));
+        final var orderingParts = ImmutableList.of(
+                new WindowOrderingPart(LiteralValue.ofScalar(2), OrderingPart.RequestedSortOrder.ASCENDING));
+        final var windowSpecification = new CallSiteArguments.WindowSpecification(partitioningValues, orderingParts);
+        final var arguments = CallSiteArguments.empty()
+                .withWindowSpecification(windowSpecification)
+                .withOptions(Map.of(
+                        RowNumberValue.RowNumberFn.EF_SEARCH_ARGUMENT, 100,
+                        RowNumberValue.RowNumberFn.INDEX_RETURNS_VECTORS_ARGUMENT, true));
 
-        final var result = fn.encapsulate(namedArguments);
+        final var result = fn.encapsulate(arguments);
 
-        Assertions.assertNotNull(result, "Encapsulated value should not be null");
-        Assertions.assertInstanceOf(RowNumberHighOrderValue.class, result,
-                "Result should be RowNumberHighOrderValue");
+        Assertions.assertInstanceOf(RowNumberValue.class, result, "Result should be a RowNumberValue");
+        final var rowNumberValue = (RowNumberValue) result;
+        Assertions.assertEquals(partitioningValues, rowNumberValue.getPartitioningValues(),
+                "Partitioning values should come from the window specification");
+        Assertions.assertEquals(ImmutableList.of(LiteralValue.ofScalar(2)), rowNumberValue.getArgumentValues(),
+                "Argument values should be the ORDER BY columns");
+        final var serializationContext = new PlanSerializationContext(DefaultPlanSerializationRegistry.INSTANCE, PlanHashable.CURRENT_FOR_CONTINUATION);
+        final var proto = rowNumberValue.toProto(serializationContext);
+        Assertions.assertEquals(100, proto.getEfSearch(), "efSearch should come from the options map");
+        Assertions.assertTrue(proto.getIsReturningVectors(), "isReturningVectors should come from the options map");
     }
 
     @Test
-    void testRowNumberHighOrderFnEncapsulateWithNoArguments() {
-        final var fn = new RowNumberValue.RowNumberHighOrderFn();
-        final var namedArguments = Map.<String, LiteralValue<?>>of();
+    void testRowNumberFnEncapsulateWithoutOptions() {
+        final var fn = new RowNumberValue.RowNumberFn();
 
-        final var result = fn.encapsulate(namedArguments);
+        final var windowSpecification = new CallSiteArguments.WindowSpecification(
+                ImmutableList.of(),
+                ImmutableList.of(new WindowOrderingPart(LiteralValue.ofScalar(2), OrderingPart.RequestedSortOrder.ASCENDING)));
+        final var arguments = CallSiteArguments.empty().withWindowSpecification(windowSpecification);
 
-        Assertions.assertNotNull(result, "Encapsulated value should not be null");
-        Assertions.assertInstanceOf(RowNumberHighOrderValue.class, result,
-                "Result should be RowNumberHighOrderValue");
-    }
+        final var result = fn.encapsulate(arguments);
 
-    @Test
-    void testRowNumberHighOrderFnEncapsulateRejectsInvalidNamedArgument() {
-        final var fn = new RowNumberValue.RowNumberHighOrderFn();
-
-        final var invalidValue = LiteralValue.ofScalar(100);
-        final var namedArguments = Map.of("invalid_argument", invalidValue);
-
-        Assertions.assertThrows(SemanticException.class,
-                () -> fn.encapsulate(namedArguments),
-                "Should reject invalid named arguments");
-    }
-
-    @Test
-    void testRowNumberHighOrderFnEncapsulateRejectsTooManyNamedArguments() {
-        final var fn = new RowNumberValue.RowNumberHighOrderFn();
-
-        final var efSearchValue = LiteralValue.ofScalar(100);
-        final var returnsVectorsValue = LiteralValue.ofScalar(true);
-        final var extraValue = LiteralValue.ofScalar(42);
-        final var namedArguments = Map.of(
-                RowNumberValue.RowNumberHighOrderFn.EF_SEARCH_ARGUMENT, efSearchValue,
-                RowNumberValue.RowNumberHighOrderFn.INDEX_RETURNS_VECTORS_ARGUMENT, returnsVectorsValue,
-                "extra", extraValue
-        );
-
-        Assertions.assertThrows(SemanticException.class,
-                () -> fn.encapsulate(namedArguments),
-                "Should reject too many named arguments");
+        Assertions.assertInstanceOf(RowNumberValue.class, result, "Result should be a RowNumberValue");
+        final var serializationContext = new PlanSerializationContext(DefaultPlanSerializationRegistry.INSTANCE, PlanHashable.CURRENT_FOR_CONTINUATION);
+        final var proto = ((RowNumberValue) result).toProto(serializationContext);
+        Assertions.assertFalse(proto.hasEfSearch(), "efSearch should be absent when no options are provided");
+        Assertions.assertFalse(proto.hasIsReturningVectors(), "isReturningVectors should be absent when no options are provided");
     }
 }
