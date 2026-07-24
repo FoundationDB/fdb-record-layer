@@ -20,58 +20,48 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.indexes;
 
-import com.apple.foundationdb.record.IndexBuildProto;
+import com.apple.foundationdb.record.IndexEntry;
+import com.apple.foundationdb.record.IndexScanType;
+import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.RecordCursor;
+import com.apple.foundationdb.record.ScanProperties;
+import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexValidator;
-import com.apple.foundationdb.record.provider.foundationdb.FDBIndexableRecord;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainer;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerFactory;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
 import com.google.auto.service.AutoService;
-import com.google.protobuf.Any;
-import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Collections;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
 
 /**
- * A test-only value index maintainer with simple pending-write-queue support.
+ * A test-only value index maintainer with simple pending-write-queue support. It mirrors {@link ValueIndexMaintainer}, but
+ * allows pending write queue during indexing.
  * The reasons that this index maintainer should not be used for production are:
  * 1. It does not support synthetic records
  * 2. Pending Write Queue while WriteOnly is used to avoid repeating conflicts between the indexer and user transactions.
  *    This may happen because of bottlenecks - which is not the case for value indexes.
  *
  */
-public class ValueIndexMaintainerWithQueue extends ValueIndexMaintainer {
+public class ValueIndexMaintainerWithQueue extends StandardIndexMaintainerWithQueue {
     public ValueIndexMaintainerWithQueue(final IndexMaintainerState state) {
         super(state);
     }
 
-    @Override
-    public boolean isPendingWriteQueueAllowed() {
-        return StandardIndexMaintainerWithQueue.isPendingWriteQueueAllowed(this, state);
-    }
-
-    @Override
     @Nonnull
-    public <M extends Message> Any serializePendingWriteQueue(@Nullable final FDBIndexableRecord<M> oldRecord,
-                                                              @Nullable final FDBIndexableRecord<M> newRecord) {
-        return StandardIndexMaintainerWithQueue.serializePendingWrites(state, oldRecord, newRecord);
-    }
-
     @Override
-    @Nonnull
-    public CompletableFuture<Void> updateFromQueue(@Nonnull final Any data) {
-        // Calling updateWhileWriteOnly explicitly, lest this update be re-pushed to the queue.
-        final IndexBuildProto.OldAndNewRecords records = StandardIndexMaintainerWithQueue.unpackPendingWrites(data);
-        return updateWhileWriteOnly(
-                records.hasOldRecords()
-                        ? StandardIndexMaintainerWithQueue.deserializePendingRecord(state, records.getOldRecords()) : null,
-                records.hasNewRecord()
-                        ? StandardIndexMaintainerWithQueue.deserializePendingRecord(state, records.getNewRecord()) : null);
+    public RecordCursor<IndexEntry> scan(@Nonnull final IndexScanType scanType,
+                                         @Nonnull final TupleRange range,
+                                         @Nullable final byte[] continuation,
+                                         @Nonnull final ScanProperties scanProperties) {
+        if (!scanType.equals(IndexScanType.BY_VALUE)) {
+            throw new RecordCoreException("Can only scan standard index by value.");
+        }
+        return scan(range, continuation, scanProperties);
     }
 
     /**
