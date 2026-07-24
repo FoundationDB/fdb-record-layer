@@ -1,7 +1,7 @@
 exists-in-projection:
 -   query: EXPLAIN select id, exists (select 1 from t2 where t2.t1_id = t1.id) as
         has_t2 from t1
-    ref: exists-in-select.yamsql:40
+    ref: exists-in-select.yamsql:42
     explain: SCAN([IS T1]) | FLATMAP q0 -> { SCAN([IS T2]) | FILTER _.T1_ID EQUALS
         q0.ID | MAP (@c6 AS _0) | DEFAULT NULL AS q1 RETURN (q0.ID AS ID, exists(q1)
         AS HAS_T2) }
@@ -15,38 +15,38 @@ exists-in-projection:
     insert_reused_count: 2
 -   query: EXPLAIN select t1.id, exists (select 1 from t2 where t2.t1_id = t1.id)
         as has_t2 from t1 join t2 on t1.id = t2.t1_id
-    ref: exists-in-select.yamsql:48
+    ref: exists-in-select.yamsql:50
     explain: SCAN([IS T2]) | FLATMAP q0 -> { SCAN([IS T1, EQUALS q0.T1_ID]) | FLATMAP
         q1 -> { SCAN([IS T2]) | FILTER _.T1_ID EQUALS q1.ID | MAP (@c8 AS _0) | DEFAULT
         NULL AS q2 RETURN (q1 AS _0, q2 AS _1) } AS q3 RETURN (q3._0.ID AS ID, exists(q3._1)
         AS HAS_T2) }
     task_count: 843
-    task_total_time_ms: 76
-    transform_count: 302
-    transform_time_ms: 33
+    task_total_time_ms: 18
+    transform_count: 301
+    transform_time_ms: 8
     transform_yield_count: 55
-    insert_time_ms: 4
+    insert_time_ms: 1
     insert_new_count: 86
     insert_reused_count: 6
 -   query: EXPLAIN select t1.id, t2.id as t2_id, exists (select 1 from t3 where t3.t2_id
         = t2.id) as has_t3 from t1 join t2 on t1.id = t2.t1_id
-    ref: exists-in-select.yamsql:57
+    ref: exists-in-select.yamsql:59
     explain: 'SCAN([IS T2]) | FLATMAP q0 -> { SCAN([IS T1, EQUALS q0.T1_ID]) | FLATMAP
         q1 -> { COVERING(T3_T2_ID [EQUALS q0.ID] -> [ID: KEY:[2], T2_ID: KEY:[0]])
         | MAP (@c14 AS _0) | DEFAULT NULL AS q2 RETURN (q1 AS _0, q2 AS _1) } AS q3
         RETURN (q3._0.ID AS ID, q0.ID AS T2_ID, exists(q3._1) AS HAS_T3) }'
     task_count: 962
-    task_total_time_ms: 100
-    transform_count: 312
-    transform_time_ms: 49
+    task_total_time_ms: 21
+    transform_count: 311
+    transform_time_ms: 8
     transform_yield_count: 75
-    insert_time_ms: 5
+    insert_time_ms: 0
     insert_new_count: 119
     insert_reused_count: 6
 -   query: EXPLAIN select t1.id, t2.id as t2_id, t3.label, exists (select 1 from t1
         as x where x.col1 = 10) as has_col1_10 from t1 join t2 on t1.id = t2.t1_id
         join t3 on t2.id = t3.t2_id
-    ref: exists-in-select.yamsql:67
+    ref: exists-in-select.yamsql:69
     explain: ISCAN(T3_T2_ID <,>) | FLATMAP q0 -> { SCAN([IS T2, EQUALS q0.T2_ID])
         | FLATMAP q1 -> { SCAN([IS T1, EQUALS q1.T1_ID]) | FLATMAP q2 -> { SCAN([IS
         T1]) | FILTER _.COL1 EQUALS promote(@c28 AS LONG) | MAP (@c18 AS _0) | DEFAULT
@@ -54,17 +54,17 @@ exists-in-projection:
         _1, q4._1 AS _2) } AS q5 RETURN (q5._0.ID AS ID, q5._1.ID AS T2_ID, q0.LABEL
         AS LABEL, exists(q5._2) AS HAS_COL1_10) }
     task_count: 6390
-    task_total_time_ms: 508
-    transform_count: 2497
-    transform_time_ms: 199
+    task_total_time_ms: 210
+    transform_count: 2495
+    transform_time_ms: 62
     transform_yield_count: 343
-    insert_time_ms: 42
+    insert_time_ms: 18
     insert_new_count: 1014
     insert_reused_count: 123
 -   query: EXPLAIN select t1.id, t2.id as t2_id, t3.label, exists (select 1 from t1
         as x where x.col1 = t1.col1 and x.id <> t1.id) as has_sibling from t1 join
         t2 on t1.id = t2.t1_id join t3 on t2.id = t3.t2_id
-    ref: exists-in-select.yamsql:77
+    ref: exists-in-select.yamsql:79
     explain: ISCAN(T3_T2_ID <,>) | FLATMAP q0 -> { SCAN([IS T2, EQUALS q0.T2_ID])
         | FLATMAP q1 -> { SCAN([IS T1, EQUALS q1.T1_ID]) | FLATMAP q2 -> { SCAN([IS
         T1]) | FILTER _.COL1 EQUALS q2.COL1 AND _.ID NOT_EQUALS q2.ID | MAP (@c18
@@ -72,34 +72,34 @@ exists-in-projection:
         AS _0, q1 AS _1, q4._1 AS _2) } AS q5 RETURN (q5._0.ID AS ID, q5._1.ID AS
         T2_ID, q0.LABEL AS LABEL, exists(q5._2) AS HAS_SIBLING) }
     task_count: 2772
-    task_total_time_ms: 158
-    transform_count: 1099
-    transform_time_ms: 70
+    task_total_time_ms: 63
+    transform_count: 1097
+    transform_time_ms: 21
     transform_yield_count: 168
-    insert_time_ms: 9
+    insert_time_ms: 3
     insert_new_count: 383
     insert_reused_count: 31
 -   query: EXPLAIN select t1.id, exists (select 1 from t3, t2 where t3.t2_id = t2.id
         and t2.t1_id = t1.id) as has_t3 from t1 where exists (select 1 from t2 where
         t2.t1_id = t1.id)
-    ref: exists-in-select.yamsql:87
+    ref: exists-in-select.yamsql:89
     explain: SCAN([IS T1]) | FLATMAP q0 -> { SCAN([IS T2]) | FILTER _.T1_ID EQUALS
         q0.ID | MAP (@c38 AS _0) | DEFAULT NULL | FILTER _ NOT_NULL AS q1 RETURN q0
         } | FLATMAP q0 -> { SCAN([IS T2]) | FILTER _.T1_ID EQUALS q0.ID | FLATMAP
         q3 -> { ISCAN(T3_T2_ID [EQUALS q3.ID]) AS q4 RETURN (@c38 AS _0) } | DEFAULT
         NULL AS q5 RETURN (q0.ID AS ID, exists(q5) AS HAS_T3) }
     task_count: 1302
-    task_total_time_ms: 55
-    transform_count: 423
-    transform_time_ms: 28
+    task_total_time_ms: 19
+    transform_count: 422
+    transform_time_ms: 7
     transform_yield_count: 93
-    insert_time_ms: 3
+    insert_time_ms: 1
     insert_new_count: 157
     insert_reused_count: 16
 -   query: EXPLAIN select t1.id, exists (select 1 from t2 where t2.t1_id = t1.id)
         as has_t2, exists (select 1 from t3, t2 where t3.t2_id = t2.id and t2.t1_id
         = t1.id) as has_t3 from t1
-    ref: exists-in-select.yamsql:96
+    ref: exists-in-select.yamsql:98
     explain: SCAN([IS T1]) | FLATMAP q0 -> { SCAN([IS T2]) | FILTER _.T1_ID EQUALS
         q0.ID | FLATMAP q1 -> { ISCAN(T3_T2_ID [EQUALS q1.ID]) AS q2 RETURN (@c8 AS
         _0) } | DEFAULT NULL | FLATMAP q3 -> { SCAN([IS T2]) | FILTER _.T1_ID EQUALS
@@ -107,32 +107,32 @@ exists-in-projection:
         AS q5 RETURN (q0.ID AS ID, exists(q5._0) AS HAS_T2, exists(q5._1) AS HAS_T3)
         }
     task_count: 994
-    task_total_time_ms: 40
-    transform_count: 316
-    transform_time_ms: 20
+    task_total_time_ms: 13
+    transform_count: 315
+    transform_time_ms: 5
     transform_yield_count: 80
-    insert_time_ms: 2
+    insert_time_ms: 0
     insert_new_count: 115
     insert_reused_count: 8
 -   query: EXPLAIN select t1.id as t1_id, t2.id as t2_id, exists (select 1 from t3
         where t3.t2_id = t2.id) as has_t3 from t1, t2 where t1.id = 1
-    ref: exists-in-select.yamsql:106
+    ref: exists-in-select.yamsql:108
     explain: 'SCAN([IS T1, EQUALS promote(@c39 AS LONG)]) | FLATMAP q0 -> { SCAN([IS
         T2]) | FLATMAP q1 -> { COVERING(T3_T2_ID [EQUALS q1.ID] -> [ID: KEY:[2], T2_ID:
         KEY:[0]]) | MAP (@c39 AS _0) | DEFAULT NULL AS q2 RETURN (q1 AS _0, q2 AS
         _1) } AS q3 RETURN (q0.ID AS T1_ID, q3._0.ID AS T2_ID, exists(q3._1) AS HAS_T3)
         }'
     task_count: 825
-    task_total_time_ms: 24
-    transform_count: 257
-    transform_time_ms: 11
+    task_total_time_ms: 14
+    transform_count: 256
+    transform_time_ms: 6
     transform_yield_count: 70
-    insert_time_ms: 1
+    insert_time_ms: 0
     insert_new_count: 88
     insert_reused_count: 10
 -   query: EXPLAIN select id, not exists (select 1 from t2 where t2.t1_id = t1.id)
         as no_t2 from t1
-    ref: exists-in-select.yamsql:113
+    ref: exists-in-select.yamsql:115
     explain: SCAN([IS T1]) | FLATMAP q0 -> { SCAN([IS T2]) | FILTER _.T1_ID EQUALS
         q0.ID | MAP (@c7 AS _0) | DEFAULT NULL AS q1 RETURN (q0.ID AS ID, NOT exists(q1)
         AS NO_T2) }
@@ -146,22 +146,22 @@ exists-in-projection:
     insert_reused_count: 2
 -   query: EXPLAIN select t1.id, t2.id as t2_id from t1 join t2 on t1.id = t2.t1_id
         where exists (select 1 from t3 where t3.t2_id = t2.id)
-    ref: exists-in-select.yamsql:122
+    ref: exists-in-select.yamsql:124
     explain: 'SCAN([IS T2]) | FLATMAP q0 -> { COVERING(T3_T2_ID [EQUALS q0.ID] ->
         [ID: KEY:[2], T2_ID: KEY:[0]]) | MAP (@c26 AS _0) | DEFAULT NULL | FILTER
         _ NOT_NULL AS q1 RETURN q0 } | FLATMAP q0 -> { SCAN([IS T1, EQUALS q0.T1_ID])
         AS q3 RETURN (q3.ID AS ID, q0.ID AS T2_ID) }'
     task_count: 1263
-    task_total_time_ms: 50
-    transform_count: 420
-    transform_time_ms: 23
+    task_total_time_ms: 17
+    transform_count: 419
+    transform_time_ms: 6
     transform_yield_count: 89
-    insert_time_ms: 4
+    insert_time_ms: 1
     insert_new_count: 164
     insert_reused_count: 15
 -   query: EXPLAIN select t3.id, t3.label, exists (select 1 from t2 where t2.id =
         t3.t2_id) as has_t2 from t3 where t3.t2_id = 100
-    ref: exists-in-select.yamsql:131
+    ref: exists-in-select.yamsql:133
     explain: ISCAN(T3_T2_ID [EQUALS promote(@c33 AS LONG)]) | FLATMAP q0 -> { SCAN([IS
         T2, EQUALS q0.T2_ID]) | MAP (@c12 AS _0) | DEFAULT NULL AS q1 RETURN (q0.ID
         AS ID, q0.LABEL AS LABEL, exists(q1) AS HAS_T2) }

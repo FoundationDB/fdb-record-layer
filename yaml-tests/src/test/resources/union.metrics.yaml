@@ -25,9 +25,9 @@ union-tests:
         AS LONG)) AS _0) | MAP (_ AS _0) | AGG (sum_l(_._0.Y) AS _0) GROUP BY () |
         ON EMPTY NULL | MAP (_._0._0 AS S)'
     task_count: 760
-    task_total_time_ms: 16
-    transform_count: 206
-    transform_time_ms: 6
+    task_total_time_ms: 59
+    transform_count: 208
+    transform_time_ms: 22
     transform_yield_count: 55
     insert_time_ms: 0
     insert_new_count: 65
@@ -42,11 +42,11 @@ union-tests:
         AS LONG)) AS _0) | MAP (_ AS _0) | AGG (sum_l(_._0.Y) AS _0) GROUP BY () |
         ON EMPTY NULL | MAP (_._0._0 AS S)'
     task_count: 849
-    task_total_time_ms: 33
-    transform_count: 211
-    transform_time_ms: 10
+    task_total_time_ms: 57
+    transform_count: 212
+    transform_time_ms: 15
     transform_yield_count: 65
-    insert_time_ms: 2
+    insert_time_ms: 1
     insert_new_count: 82
     insert_reused_count: 7
 -   query: EXPLAIN select sum(Y) as S from (select count(*) as Y from t6 union all
@@ -58,10 +58,10 @@ union-tests:
         promote(0l AS LONG)) AS _0) | MAP (_ AS _0) | AGG (sum_l(_._0.Y) AS _0) GROUP
         BY () | ON EMPTY NULL | MAP (_._0._0 AS S)'
     task_count: 831
-    task_total_time_ms: 42
-    transform_count: 219
-    transform_time_ms: 14
+    task_total_time_ms: 24
+    transform_count: 220
+    transform_time_ms: 11
     transform_yield_count: 62
-    insert_time_ms: 0
+    insert_time_ms: 1
     insert_new_count: 74
     insert_reused_count: 6
