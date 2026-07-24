@@ -49,9 +49,6 @@ dependencies {
     implementation(libs.dropwizard) {
         exclude group: 'org.slf4j'
     }
-    implementation(libs.asciitable) {
-        exclude group: 'org.slf4j'
-    }
     implementation(libs.sqlline)
     implementation(libs.protobuf.util)
 

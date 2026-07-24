@@ -27,7 +27,6 @@ antlr = "4.13.2"
 autoService = "1.0-rc6"
 # AutoService for development which enables incremental builds, cannot be enabled for production builds due to downstream dependencies
 autoService-development = "1.0.1"
-asciitable = "0.3.2"
 caffeine = "3.1.8"
 commonscli = "1.5.0"
 dropwizard = "4.2.28"
@@ -75,7 +74,6 @@ spotbugs = "4.9.0"
 antlr = { module = "org.antlr:antlr4", version.ref = "antlr" }
 autoService = { module = "com.google.auto.service:auto-service", version.ref = "autoService" }
 autoService-development = { module = "com.google.auto.service:auto-service", version.ref = "autoService-development" }
-asciitable = { module = "de.vandermeer:asciitable", version.ref = "asciitable" }
 fdbJava = { module = "org.foundationdb:fdb-java", version.ref = "fdb" }
 caffeine = { module = "com.github.ben-manes.caffeine:caffeine", version.ref = "caffeine"}
 caffeine-guava = { module = "com.github.ben-manes.caffeine:guava", version.ref = "caffeine"}
