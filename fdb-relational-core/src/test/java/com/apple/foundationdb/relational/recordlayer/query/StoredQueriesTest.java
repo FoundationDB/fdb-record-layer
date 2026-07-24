@@ -611,9 +611,10 @@ public class StoredQueriesTest {
             embeddedConnection.setAutoCommit(true);
             final var storedQueries = schemaTemplate.getStoredQueries();
             Assertions.assertEquals(1, storedQueries.size());
-            // The positional signature parses and is separated from the body; only the body (with its plain "?") is
-            // stored (the signature is not yet consumed).
+            // The positional signature is separated from the body: the body (with its plain "?") is stored as the
+            // query, and the signature text is captured separately.
             Assertions.assertEquals("select * from t1 where col1 > ?", storedQueries.get("BY_COL1").getQuery());
+            Assertions.assertEquals("(bigint > 5)", storedQueries.get("BY_COL1").getParameters());
         }
     }
 
