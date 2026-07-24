@@ -1211,6 +1211,14 @@ public class SemanticAnalyzer {
         return recordLayerView.getCompilableViewSupplier().apply(isCaseSensitive);
     }
 
+    @Nonnull
+    public ViewUpdatabilityInfo resolveUpdatableView(@Nonnull final Identifier viewIdentifier) {
+        final LogicalOperator viewOp = resolveView(viewIdentifier);
+        return ViewUpdatabilityAnalyzer.analyze(viewOp, metadataCatalog)
+                .orElseThrow(() -> Assert.failUnchecked(ErrorCode.VIEW_NOT_UPDATABLE,
+                        String.format(Locale.ROOT, "View '%s' is not updatable", viewIdentifier.getName())));
+    }
+
     // TODO: this will be removed once we unify both Java- and SQL-UDFs.
     public boolean isJavaCallFunction(@Nonnull final String functionName) {
         return functionCatalog.isJavaCallFunction(functionName);

@@ -34,6 +34,7 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.UpdateExpre
 import com.apple.foundationdb.record.query.plan.cascades.predicates.CompatibleTypeEvolutionPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
@@ -55,6 +56,7 @@ import com.apple.foundationdb.relational.recordlayer.query.ParseHelpers;
 import com.apple.foundationdb.relational.recordlayer.query.QueryPlan;
 import com.apple.foundationdb.relational.recordlayer.query.SemanticAnalyzer;
 import com.apple.foundationdb.relational.recordlayer.query.StringTrieNode;
+import com.apple.foundationdb.relational.recordlayer.query.ViewUpdatabilityInfo;
 import com.apple.foundationdb.relational.recordlayer.util.MemoizedFunction;
 import com.apple.foundationdb.relational.recordlayer.util.TypeUtils;
 import com.apple.foundationdb.relational.util.Assert;
@@ -750,8 +752,9 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
     @Override
     public LogicalOperator visitInsertStatement(@Nonnull RelationalParser.InsertStatementContext ctx) {
         final var table = visitTableName(ctx.tableName());
-        final var tableType = getDelegate().getSemanticAnalyzer().getTable(table);
-        final var targetType = Assert.castUnchecked(tableType, RecordLayerTable.class).getType();
+        final var semanticAnalyzer = getDelegate().getSemanticAnalyzer();
+        final RecordLayerTable targetTable = resolveDmlTarget(table, semanticAnalyzer).table();
+        final var targetType = targetTable.getType();
         getDelegate().pushPlanFragment();
         // TODO (Refactor insert parse rules)
         // (yhatem) leave it like this until the old plan generator is removed.
@@ -771,7 +774,7 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
             getDelegate().getCurrentPlanFragment().setState(stateBuilder.build());
             insertSource = Assert.castUnchecked(ctx.insertStatementValue().accept(this), LogicalOperator.class);
         }
-        final var resultingInsert = LogicalOperator.generateInsert(insertSource, tableType);
+        final var resultingInsert = LogicalOperator.generateInsert(insertSource, targetTable);
         getDelegate().popPlanFragment();
         return resultingInsert;
     }
@@ -810,18 +813,12 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
     public LogicalOperator visitUpdateStatement(@Nonnull RelationalParser.UpdateStatementContext ctx) {
         final Identifier tableId = visitFullId(ctx.tableName().fullId());
         final SemanticAnalyzer semanticAnalyzer = getDelegate().getSemanticAnalyzer();
-        final RecordLayerTable table = Assert.castUnchecked(semanticAnalyzer.getTable(tableId), RecordLayerTable.class);
-        final Type.Record tableType = table.getType();
-        final LogicalOperator tableAccess = getDelegate().getLogicalOperatorCatalog().lookupTableAccess(tableId, semanticAnalyzer);
-
-        getDelegate().pushPlanFragment().setOperator(tableAccess);
+        final DmlTarget dmlTarget = resolveDmlTarget(tableId, semanticAnalyzer);
+        final Type.Record tableType = dmlTarget.table().getType();
         // Note: doing an expansion here means that we don't have access to the pseudo-columns during the update
         // (and wouldn't have access to the invisible columns, see: https://github.com/FoundationDB/fdb-record-layer/pull/3787)
         // That also means that the target type of the update expression needs to match
-        final var output = Expressions.ofSingle(semanticAnalyzer.expandStar(Optional.empty(), getDelegate().getLogicalOperators()));
-
-        Optional<Expression> whereMaybe = ctx.whereExpr() == null ? Optional.empty() : Optional.of(visitWhereExpr(ctx.whereExpr()));
-        final var updateSource = LogicalOperator.generateSimpleSelect(output, getDelegate().getLogicalOperators(), whereMaybe, Optional.of(tableId), ImmutableSet.of(), false);
+        final var updateSource = prepareDmlScanSource(dmlTarget, tableId, ctx.whereExpr(), semanticAnalyzer);
 
         getDelegate().getCurrentPlanFragment().setOperator(updateSource);
         final ImmutableMap.Builder<FieldValue.FieldPath, Value> transformMapBuilder = ImmutableMap.builder();
@@ -864,16 +861,10 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
         Assert.thatUnchecked(ctx.limitClause() == null, "limit is not supported");
         final Identifier tableId = visitFullId(ctx.tableName().fullId());
         final SemanticAnalyzer semanticAnalyzer = getDelegate().getSemanticAnalyzer();
-        final RecordLayerTable table = Assert.castUnchecked(semanticAnalyzer.getTable(tableId), RecordLayerTable.class);
-        final LogicalOperator tableAccess = getDelegate().getLogicalOperatorCatalog().lookupTableAccess(tableId, semanticAnalyzer);
+        final DmlTarget dmlTarget = resolveDmlTarget(tableId, semanticAnalyzer);
+        final var deleteSource = prepareDmlScanSource(dmlTarget, tableId, ctx.whereExpr(), semanticAnalyzer);
 
-        getDelegate().pushPlanFragment().setOperator(tableAccess);
-        final var output = Expressions.ofSingle(semanticAnalyzer.expandStar(Optional.empty(), getDelegate().getLogicalOperators()));
-
-        Optional<Expression> whereMaybe = ctx.whereExpr() == null ? Optional.empty() : Optional.of(visitWhereExpr(ctx.whereExpr()));
-        final var deleteSource = LogicalOperator.generateSimpleSelect(output, getDelegate().getLogicalOperators(), whereMaybe, Optional.of(tableId), ImmutableSet.of(), false);
-
-        final var deleteExpression = new DeleteExpression(Assert.castUnchecked(deleteSource.getQuantifier(), Quantifier.ForEach.class), table.getType().getStorageName());
+        final var deleteExpression = new DeleteExpression(Assert.castUnchecked(deleteSource.getQuantifier(), Quantifier.ForEach.class), dmlTarget.table().getType().getStorageName());
         final var deleteQuantifier = Quantifier.forEach(Reference.initialOf(deleteExpression));
         final var resultingDelete = LogicalOperator.newUnnamedOperator(Expressions.fromQuantifier(deleteQuantifier), deleteQuantifier);
 
@@ -891,6 +882,58 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
         final var result = LogicalOperator.generateSort(resultingDelete, List.of(), Set.of(), Optional.empty());
         getDelegate().popPlanFragment();
         return result;
+    }
+
+    private record DmlTarget(@Nonnull RecordLayerTable table,
+                             @Nonnull LogicalOperator tableAccess,
+                             @Nonnull List<QueryPredicate> viewPredicates) {}
+
+    @Nonnull
+    private DmlTarget resolveDmlTarget(@Nonnull final Identifier tableId,
+                                       @Nonnull final SemanticAnalyzer semanticAnalyzer) {
+        if (semanticAnalyzer.viewExists(tableId)) {
+            final ViewUpdatabilityInfo vui = semanticAnalyzer.resolveUpdatableView(tableId);
+            final LogicalOperator access = getDelegate().getLogicalOperatorCatalog().lookupTableAccess(
+                    vui.baseTableIdentifier(), Optional.of(tableId), ImmutableSet.of(), semanticAnalyzer);
+            return new DmlTarget(vui.baseTable(), access, translateViewPredicates(vui, access));
+        }
+        final RecordLayerTable table = Assert.castUnchecked(semanticAnalyzer.getTable(tableId), RecordLayerTable.class);
+        return new DmlTarget(table, getDelegate().getLogicalOperatorCatalog().lookupTableAccess(tableId, semanticAnalyzer), List.of());
+    }
+
+    /**
+     * Pushes a new plan fragment for the given DML target and builds the filtered scan source
+     * (the {@link LogicalOperator} that UPDATE and DELETE both need as their input).
+     * Combines the DML WHERE clause with any predicates inherited from the view definition.
+     */
+    @Nonnull
+    private LogicalOperator prepareDmlScanSource(@Nonnull final DmlTarget dmlTarget,
+                                                 @Nonnull final Identifier tableId,
+                                                 @Nullable final RelationalParser.WhereExprContext whereExprCtx,
+                                                 @Nonnull final SemanticAnalyzer semanticAnalyzer) {
+        getDelegate().pushPlanFragment().setOperator(dmlTarget.tableAccess());
+        final var output = Expressions.ofSingle(semanticAnalyzer.expandStar(Optional.empty(), getDelegate().getLogicalOperators()));
+        final Expression where = whereExprCtx == null ? null : visitWhereExpr(whereExprCtx);
+        return LogicalOperator.generateSimpleSelect(output, getDelegate().getLogicalOperators(), where, tableId, ImmutableSet.of(), dmlTarget.viewPredicates(), false);
+    }
+
+    /**
+     * Translates view-level predicates (the view's own WHERE clause) from the quantifier context
+     * used when the view was compiled to the quantifier context of the DML's base-table access.
+     * This is necessary because the view predicates reference the view's inner quantifier alias,
+     * while DML operates on a freshly-created base-table access quantifier.
+     */
+    @Nonnull
+    private static List<QueryPredicate> translateViewPredicates(@Nonnull final ViewUpdatabilityInfo vui,
+                                                                @Nonnull final LogicalOperator tableAccess) {
+        if (vui.viewPredicates().isEmpty()) {
+            return List.of();
+        }
+        final var translationMap = TranslationMap.ofAliases(
+                vui.viewInnerAlias(), tableAccess.getQuantifier().getAlias());
+        return vui.viewPredicates().stream()
+                .map(p -> p.translateCorrelations(translationMap, false))
+                .collect(ImmutableList.toImmutableList());
     }
 
     @Nonnull
