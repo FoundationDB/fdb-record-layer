@@ -85,6 +85,7 @@ import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.TupleHelpers;
 import com.apple.foundationdb.tuple.Versionstamp;
+import com.apple.test.ParameterizedTestUtils;
 import com.apple.test.Tags;
 import com.google.auto.service.AutoService;
 import com.google.common.collect.Lists;
@@ -3030,14 +3031,11 @@ public class VersionIndexTest {
     }
 
     static Stream<Arguments> deleteStoreWithUncommittedVersionData() {
-        return formatVersionsOfInterest().flatMap(testFormatVersion ->
-                Stream.of(false, true).flatMap(testSplitLongRecords ->
-                        Stream.of(false, true).flatMap(clearPath ->
-                                Stream.of(DeleteStoreMode.values()).map(deleteStoreMode ->
-                                        Arguments.of(testFormatVersion, testSplitLongRecords, clearPath, deleteStoreMode)
-                                )
-                        )
-                )
+        return ParameterizedTestUtils.cartesianProduct(
+                formatVersionsOfInterest(),
+                ParameterizedTestUtils.booleans("splitLongRecords"),
+                ParameterizedTestUtils.booleans("clearPath"),
+                Arrays.stream(DeleteStoreMode.values())
         );
     }
 
