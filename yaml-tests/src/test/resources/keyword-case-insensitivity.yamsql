@@ -1,0 +1,171 @@
+#
+# keyword-case-insensitivity.yamsql
+#
+# This source file is part of the FoundationDB open source project
+#
+# Copyright 2021-2025 Apple Inc. and the FoundationDB project authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+---
+# SQL keywords are always case-insensitive, independently of the CASE_SENSITIVE_IDENTIFIERS
+# option. This is implemented by CaseInsensitiveCharStream, which upper-cases the character
+# stream feeding the (case-sensitive) ANTLR lexer, whose keyword rules are uppercase literals.
+# These tests run the same statements with keywords spelled in lower, UPPER, and MiXeD case and
+# assert that they parse and produce identical results.
+schema_template:
+    create table t1(id bigint, cat bigint, val bigint, primary key(id))
+    create table t2(id bigint, "COLUMN" string, "column" string, "cOLumN" string, primary key(id))
+---
+setup:
+  steps:
+    # DDL keyword casing: INSERT / INTO / VALUES exercised in lower, upper, and mixed case.
+    - query: insert into t1 values (1, 10, 100), (2, 10, 200)
+    - query: INSERT INTO t1 VALUES (3, 20, 300), (4, 20, 400)
+    - query: InSeRt InTo t1 VaLuEs (5, 30, 500)
+    # Give each same-spelling-different-case column a distinct value per row so that any
+    # collapsing of the columns would produce an observably wrong result below.
+    - query: insert into t2 values (1, 'a_UP', 'a_lo', 'a_Mx'), (2, 'b_UP', 'b_lo', 'b_Mx')
+---
+test_block:
+  name: keyword-case-insensitivity-identifiers-off
+  preset: single_repetition_ordered
+  options:
+    check_cache: true
+    connection_options:
+      CASE_SENSITIVE_IDENTIFIERS: false
+  tests:
+    # SELECT / FROM / WHERE
+    -
+      - query: select id, cat, val from t1 where cat = 10
+      - unorderedResult: [{ID: 1, CAT: 10, VAL: 100}, {ID: 2, CAT: 10, VAL: 200}]
+    -
+      - query: SELECT id, cat, val FROM t1 WHERE cat = 10
+      - unorderedResult: [{ID: 1, CAT: 10, VAL: 100}, {ID: 2, CAT: 10, VAL: 200}]
+    -
+      - query: SeLeCt id, cat, val FrOm t1 WhErE cat = 10
+      - unorderedResult: [{ID: 1, CAT: 10, VAL: 100}, {ID: 2, CAT: 10, VAL: 200}]
+    # Predicate keywords: AND / OR / NOT / IN / BETWEEN / IS NOT NULL
+    -
+      - query: select id from t1 where cat = 10 and val > 100 or cat in (30)
+      - unorderedResult: [{ID: 2}, {ID: 5}]
+    -
+      - query: select id from t1 where cat = 10 AND val > 100 OR cat IN (30)
+      - unorderedResult: [{ID: 2}, {ID: 5}]
+    -
+      - query: select id from t1 where cat = 10 aNd val > 100 Or cat In (30)
+      - unorderedResult: [{ID: 2}, {ID: 5}]
+    -
+      - query: select id from t1 where val between 200 and 400 and val is not null
+      - unorderedResult: [{ID: 2}, {ID: 3}, {ID: 4}]
+    -
+      - query: select id from t1 where val BETWEEN 200 AND 400 AND val IS NOT NULL
+      - unorderedResult: [{ID: 2}, {ID: 3}, {ID: 4}]
+    # NOT keyword
+    -
+      - query: select id from t1 where not cat = 10 order by id
+      - result: [{ID: 3}, {ID: 4}, {ID: 5}]
+    -
+      - query: select id from t1 where NOT cat = 10 order by id
+      - result: [{ID: 3}, {ID: 4}, {ID: 5}]
+    -
+      - query: select id from t1 where nOt cat = 10 order by id
+      - result: [{ID: 3}, {ID: 4}, {ID: 5}]
+    # Projection / ordering keywords: AS / ORDER BY / DESC
+    -
+      - query: select id as k from t1 order by id desc
+      - result: [{K: 5}, {K: 4}, {K: 3}, {K: 2}, {K: 1}]
+    -
+      - query: SELECT id AS k FROM t1 ORDER BY id DESC
+      - result: [{K: 5}, {K: 4}, {K: 3}, {K: 2}, {K: 1}]
+    -
+      - query: SeLeCt id aS k FrOm t1 OrDeR bY id DeSc
+      - result: [{K: 5}, {K: 4}, {K: 3}, {K: 2}, {K: 1}]
+    # CTE keyword: WITH
+    -
+      - query: with cte as (select id, val from t1 where cat = 20) select id, val from cte
+      - unorderedResult: [{ID: 3, VAL: 300}, {ID: 4, VAL: 400}]
+    -
+      - query: WITH cte AS (SELECT id, val FROM t1 WHERE cat = 20) SELECT id, val FROM cte
+      - unorderedResult: [{ID: 3, VAL: 300}, {ID: 4, VAL: 400}]
+    -
+      - query: WiTh cte As (SeLeCt id, val FrOm t1 WhErE cat = 20) SeLeCt id, val FrOm cte
+      - unorderedResult: [{ID: 3, VAL: 300}, {ID: 4, VAL: 400}]
+---
+test_block:
+  # Keyword casing must behave identically regardless of the identifier case-sensitivity option,
+  # since the two concerns are handled by entirely separate mechanisms. The table was created
+  # under the default (case-insensitive) option, so it is stored as T1/ID/CAT/VAL; we reference
+  # those upper-cased names here so identifier resolution succeeds while we vary keyword case.
+  name: keyword-case-insensitivity-identifiers-on
+  preset: single_repetition_ordered
+  options:
+    check_cache: true
+    connection_options:
+      CASE_SENSITIVE_IDENTIFIERS: true
+  tests:
+    -
+      - query: select ID, CAT, VAL from T1 where CAT = 10
+      - unorderedResult: [{ID: 1, CAT: 10, VAL: 100}, {ID: 2, CAT: 10, VAL: 200}]
+    -
+      - query: SELECT ID, CAT, VAL FROM T1 WHERE CAT = 10
+      - unorderedResult: [{ID: 1, CAT: 10, VAL: 100}, {ID: 2, CAT: 10, VAL: 200}]
+    -
+      - query: SeLeCt ID, CAT, VAL FrOm T1 WhErE CAT = 10
+      - unorderedResult: [{ID: 1, CAT: 10, VAL: 100}, {ID: 2, CAT: 10, VAL: 200}]
+---
+test_block:
+  # Negative test: keyword case-insensitivity must not leak into identifier handling. The columns
+  # "COLUMN", "column", and "cOLumN" differ only in case, so they are three distinct quoted
+  # identifiers. Upper-casing keywords in the canonical form must never fold these together: each
+  # projection and each predicate has to resolve to exactly the column that was spelled, and the
+  # keyword casing used in the query (varied below) must not change which column is meant.
+  name: keyword-case-insensitivity-quoted-identifiers-distinct
+  preset: single_repetition_ordered
+  options:
+    check_cache: true
+  tests:
+    # Selecting the three quoted columns yields three separate result columns, each preserving the
+    # exact case it was declared with. NOTE: resultMetadata matches column names positionally and
+    # case-insensitively (see issue #4390), so this pins the column count and types; the value-based
+    # tests below are what actually prove the three same-spelling columns are not folded together.
+    -
+      - query: select "COLUMN", "column", "cOLumN" from t2 where id = 1
+      - resultMetadata: [{COLUMN: STRING}, {column: STRING}, {cOLumN: STRING}]
+      - result: [{'a_UP', 'a_lo', 'a_Mx'}]
+    # Projecting all three columns yields three distinct values in the one row. Distinct aliases
+    # are used because the result matcher compares column-name keys case-insensitively; the point
+    # here is that "COLUMN", "column", and "cOLumN" resolve to three different underlying columns.
+    -
+      - query: select "COLUMN" as c_up, "column" as c_lo, "cOLumN" as c_mx from t2 where id = 1
+      - result: [{C_UP: 'a_UP', C_LO: 'a_lo', C_MX: 'a_Mx'}]
+    -
+      - query: SeLeCt "COLUMN" aS c_up, "column" aS c_lo, "cOLumN" aS c_mx FrOm t2 WhErE id = 2
+      - result: [{C_UP: 'b_UP', C_LO: 'b_lo', C_MX: 'b_Mx'}]
+    # Filtering on each column independently must select rows by that exact column, not another.
+    -
+      - query: select id from t2 where "COLUMN" = 'a_UP'
+      - result: [{ID: 1}]
+    -
+      - query: select id from t2 where "column" = 'b_lo'
+      - result: [{ID: 2}]
+    -
+      - query: SeLeCt id FrOm t2 WhErE "cOLumN" = 'a_Mx'
+      - result: [{ID: 1}]
+    # A predicate on one column cannot be satisfied by another column's value if they stay distinct.
+    -
+      - query: select id from t2 where "COLUMN" = 'a_lo'
+      - result: []
+    -
+      - query: select id from t2 where "cOLumN" = 'b_UP'
+      - result: []
+...

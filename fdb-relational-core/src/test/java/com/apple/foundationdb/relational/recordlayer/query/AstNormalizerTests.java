@@ -438,13 +438,114 @@ public class AstNormalizerTests {
                         "select * from t1 where col1 = col2",
                         "select * from      t1 where col1     = col2",
                         "select * from \n\n\n\t t1 where \n  col1 = col2"),
-                "select * from \"T1\" where \"COL1\" = \"COL2\" ");
+                "SELECT * FROM \"T1\" WHERE \"COL1\" = \"COL2\" ");
     }
 
     @Test
-    void queryHashIsCaseSensitive() throws Exception {
+    void queryHashNormalizesKeywordCase() throws Exception {
+        // SQL keywords are case-insensitive, so they are upper-cased in the canonical form. Unquoted identifiers
+        // fold to upper case; quoted identifiers keep their exact case.
         validate("seleCt * fROm t1 whEre col1 = \"cOl2\"",
-                "seleCt * fROm \"T1\" whEre \"COL1\" = \"cOl2\" ");
+                "SELECT * FROM \"T1\" WHERE \"COL1\" = \"cOl2\" ");
+    }
+
+    @Test
+    void keywordCaseSharesCacheKey() throws Exception {
+        // Queries that differ only in keyword case resolve to the same plan-cache entry (validate asserts all
+        // queries in the list share an equal cache key and hashCode).
+        validate(List.of("select * from t1", "sELEct * frOm t1"), "SELECT * FROM \"T1\" ");
+    }
+
+    @Test
+    void caseSensitiveUnquotedIdentifiersPreserveCase() throws Exception {
+        // With CASE_SENSITIVE_IDENTIFIERS enabled, unquoted identifiers are NOT folded to upper case: their
+        // original casing is preserved verbatim in the canonical form (only wrapped in quotes). Keywords, which
+        // are always case-insensitive, are still upper-cased.
+        final var query = "select Col1, cOL2 from MyTable";
+        final var result = AstNormalizer.normalizeAst(fakeSchemaTemplate, QueryParser.parse(query),
+                PreparedParams.empty(), plannerConfiguration, true, PlanHashable.PlanHashMode.VC0, query);
+        Assertions.assertThat(result.getQueryCacheKey().getCanonicalQueryString())
+                .isEqualTo("SELECT \"Col1\" , \"cOL2\" FROM \"MyTable\" ");
+    }
+
+    @Test
+    void caseSensitiveQuotedIdentifiersPreserveCase() throws Exception {
+        // With CASE_SENSITIVE_IDENTIFIERS enabled, quoted identifiers keep their exact case, exactly as they do
+        // when the option is off (quoting already forces case-sensitivity).
+        final var query = "select \"Col1\", \"cOL2\" from \"MyTable\"";
+        final var result = AstNormalizer.normalizeAst(fakeSchemaTemplate, QueryParser.parse(query),
+                PreparedParams.empty(), plannerConfiguration, true, PlanHashable.PlanHashMode.VC0, query);
+        Assertions.assertThat(result.getQueryCacheKey().getCanonicalQueryString())
+                .isEqualTo("SELECT \"Col1\" , \"cOL2\" FROM \"MyTable\" ");
+    }
+
+    @Test
+    void caseSensitiveKeywordCaseIsNormalizedButIdentifierCaseIsNot() throws Exception {
+        // Keyword case-insensitivity and identifier case-sensitivity are independent concerns: mixed-case keywords
+        // still normalize to upper case, while the quoted and unquoted identifiers keep their original casing.
+        final var query = "sELeCt Col1 fROm MyTable whERe Col1 = \"cOl2\"";
+        final var result = AstNormalizer.normalizeAst(fakeSchemaTemplate, QueryParser.parse(query),
+                PreparedParams.empty(), plannerConfiguration, true, PlanHashable.PlanHashMode.VC0, query);
+        Assertions.assertThat(result.getQueryCacheKey().getCanonicalQueryString())
+                .isEqualTo("SELECT \"Col1\" FROM \"MyTable\" WHERE \"Col1\" = \"cOl2\" ");
+    }
+
+    @Test
+    void caseSensitiveIdentifiersDifferingOnlyInCaseAreDistinct() throws Exception {
+        // Because casing is preserved, two queries whose identifiers differ only in case do NOT collapse to the
+        // same plan-cache entry when CASE_SENSITIVE_IDENTIFIERS is enabled.
+        final var lowerQuery = "select col1 from mytable";
+        final var upperQuery = "select COL1 from MYTABLE";
+        final var lower = AstNormalizer.normalizeAst(fakeSchemaTemplate, QueryParser.parse(lowerQuery),
+                PreparedParams.empty(), plannerConfiguration, true, PlanHashable.PlanHashMode.VC0, lowerQuery);
+        final var upper = AstNormalizer.normalizeAst(fakeSchemaTemplate, QueryParser.parse(upperQuery),
+                PreparedParams.empty(), plannerConfiguration, true, PlanHashable.PlanHashMode.VC0, upperQuery);
+        Assertions.assertThat(lower.getQueryCacheKey()).isNotEqualTo(upper.getQueryCacheKey());
+        Assertions.assertThat(lower.getQueryCacheKey().hashCode()).isNotEqualTo(upper.getQueryCacheKey().hashCode());
+    }
+
+    @Test
+    void quotedKeywordCanBeUsedAsIdentifierAndKeepsItsCase() throws Exception {
+        // A SQL keyword may be used as an identifier if it is quoted: the leading double-quote makes the lexer
+        // match the DOUBLE_QUOTE_ID rule rather than the bare keyword rule, so it is treated as an identifier.
+        // Its case is preserved verbatim because CaseInsensitiveCharStream only upper-cases what the lexer matches
+        // against (LA), never the token's actual text (getText). Note the keyword is upper-cased but the
+        // identifier "select" keeps its exact case.
+        final var query = "select \"col\" from \"select\"";
+        final var result = AstNormalizer.normalizeAst(fakeSchemaTemplate, QueryParser.parse(query),
+                PreparedParams.empty(), plannerConfiguration, true, PlanHashable.PlanHashMode.VC0, query);
+        Assertions.assertThat(result.getQueryCacheKey().getCanonicalQueryString())
+                .isEqualTo("SELECT \"col\" FROM \"select\" ");
+        // Quoted identifiers are always case-sensitive, so this holds with the option off too.
+        validate(query, "SELECT \"col\" FROM \"select\" ");
+    }
+
+    @Test
+    void quotedKeywordIdentifiersDifferingOnlyInCaseAreDistinct() throws Exception {
+        // Two quoted keyword-named tables that differ only in case are distinct identifiers, hence distinct
+        // plan-cache entries (quoting forces case-sensitivity regardless of the CASE_SENSITIVE_IDENTIFIERS option).
+        validateNotEqual("select \"col\" from \"select\"", "select \"col\" from \"SELECT\"");
+    }
+
+    @Test
+    void selectStarFromQuotedKeywordTablePreservesTableCase() throws Exception {
+        // The real keyword `select` is upper-cased, but the quoted keyword-named table `"sElECT"` keeps its exact
+        // mixed case: the canonicalizer keys off the token type (DOUBLE_QUOTE_ID, an identifier), not the raw
+        // characters, so it never confuses the quoted span for the SELECT keyword.
+        final var query = "select * from \"sElECT\"";
+        final var result = AstNormalizer.normalizeAst(fakeSchemaTemplate, QueryParser.parse(query),
+                PreparedParams.empty(), plannerConfiguration, true, PlanHashable.PlanHashMode.VC0, query);
+        Assertions.assertThat(result.getQueryCacheKey().getCanonicalQueryString())
+                .isEqualTo("SELECT * FROM \"sElECT\" ");
+        // Quoted identifiers are always case-sensitive, so the same holds with the option off.
+        validate(query, "SELECT * FROM \"sElECT\" ");
+    }
+
+    @Test
+    void unquotedKeywordCannotBeUsedAsIdentifier() {
+        // Without quoting, a keyword in an identifier position is still lexed as that keyword, so it cannot name a
+        // table -- this is a syntax error, not a silently-accepted identifier.
+        shouldFail("select col from select", "syntax error");
     }
 
     @Test
@@ -521,7 +622,7 @@ public class AstNormalizerTests {
         validate(List.of(
                         "select * from t1 where col1 = 30 and col3 = 90",
                         "select * from      t1 where col1     = 60 and col3 = -4556"),
-                "select * from \"T1\" where \"COL1\" = ? and \"COL3\" = ? ",
+                "SELECT * FROM \"T1\" WHERE \"COL1\" = ? AND \"COL3\" = ? ",
                 List.of(Map.of(constantId(7), 30, constantId(11), 90),
                         Map.of(constantId(7), 60, constantId(11), -4556)));
     }
@@ -531,7 +632,7 @@ public class AstNormalizerTests {
         validate(List.of(
                         "select a, 40 from t1 where col1 = 30 and col3 = 90",
                         "select a, 'hello' from      t1 where col1     = 60 and col3 = -4556"),
-                "select \"A\" , ? from \"T1\" where \"COL1\" = ? and \"COL3\" = ? ",
+                "SELECT \"A\" , ? FROM \"T1\" WHERE \"COL1\" = ? AND \"COL3\" = ? ",
                 List.of(Map.of(constantId(3), 40, constantId(9), 30, constantId(13), 90),
                         Map.of(constantId(3), "hello", constantId(9), 60, constantId(13), -4556)));
     }
@@ -541,7 +642,7 @@ public class AstNormalizerTests {
         validate(List.of(
                         "select 3 + 40 from t1",
                         "select 'hello' + 'world' from      t1"),
-                "select ? + ? from \"T1\" ",
+                "SELECT ? + ? FROM \"T1\" ",
                 List.of(Map.of(constantId(1), 3, constantId(3), 40),
                         Map.of(constantId(1), "hello", constantId(3), "world")));
     }
@@ -549,7 +650,7 @@ public class AstNormalizerTests {
     @Test
     void stripBooleanLiteral() throws RelationalException {
         validate("select false, true from t1 where false",
-                "select ? , ? from \"T1\" where ? ",
+                "SELECT ? , ? FROM \"T1\" WHERE ? ",
                 Map.of(constantId(1), false,
                         constantId(3), true,
                         constantId(7), false));
@@ -558,7 +659,7 @@ public class AstNormalizerTests {
     @Test
     void stripStringLiteral() throws RelationalException {
         validate("select 'hello', 'wOrLd' from t1 where col1 in ('foo', 'bar')",
-                "select ? , ? from \"T1\" where \"COL1\" in ( [ ] ) ",
+                "SELECT ? , ? FROM \"T1\" WHERE \"COL1\" IN ( [ ] ) ",
                 Map.of(constantId(1), "hello",
                         constantId(3), "wOrLd",
                         constantId(9), List.of("foo", "bar")));
@@ -567,7 +668,7 @@ public class AstNormalizerTests {
     @Test
     void stripDecimalLiteral() throws RelationalException {
         validate("select 1, 2.3, 4.5f, -8, -9.1, -2.3f from t1",
-                "select ? , ? , ? , ? , ? , ? from \"T1\" ",
+                "SELECT ? , ? , ? , ? , ? , ? FROM \"T1\" ",
                 Map.of(constantId(1), 1,
                         constantId(3), 2.3,
                         constantId(5), 4.5f,
@@ -579,14 +680,14 @@ public class AstNormalizerTests {
     @Test
     void stripHexadecimalLiteral() throws RelationalException {
         validate("select X'0A0B' from t1",
-                "select ? from \"T1\" ",
+                "SELECT ? FROM \"T1\" ",
                 Map.of(constantId(1), ByteString.copyFrom(Hex.decodeHex("0a0b"))));
     }
 
     @Test
     void stripBase64Literal() throws RelationalException {
         validate("select B64'yv4=' from t1",
-                "select ? from \"T1\" ",
+                "SELECT ? FROM \"T1\" ",
                 Map.of(constantId(1), ByteString.copyFrom(Hex.decodeHex("cafe"))));
     }
 
@@ -599,7 +700,7 @@ public class AstNormalizerTests {
         validate(List.of("select * from t1 where col1 in (10, 100, 1000)",
                         "select * from t1 where col1 in (20,   200)",
                         "select * from t1 where col1 in (30,   300.0,    3000.1)"),
-                "select * from \"T1\" where \"COL1\" in ( [ ] ) ",
+                "SELECT * FROM \"T1\" WHERE \"COL1\" IN ( [ ] ) ",
                 List.of(Map.of(constantId(7), List.of(10, 100, 1000)),
                         Map.of(constantId(7), List.of(20, 200)),
                         Map.of(constantId(7), List.of(30, 300.0, 3000.1))));
@@ -610,7 +711,7 @@ public class AstNormalizerTests {
         // if the in predicate LHS is not composed of simple constants, then we generate a strip
         // the literals and add them _individually_ to the literals array.
         validate("select * from t1 where col1 in (10, col2, 1000)",
-                "select * from \"T1\" where \"COL1\" in ( ? , \"COL2\" , ? ) ",
+                "SELECT * FROM \"T1\" WHERE \"COL1\" IN ( ? , \"COL2\" , ? ) ",
                 Map.of(constantId(8), 10,
                         constantId(12), 1000));
     }
@@ -635,7 +736,7 @@ public class AstNormalizerTests {
     @Test
     void parseInPredicateWithConstantExpressions() throws Exception {
         validate("select * from t1 where col1 in ( 3 + 4 , 5 - 6 )",
-                "select * from \"T1\" where \"COL1\" in ( ? + ? , ? - ? ) ",
+                "SELECT * FROM \"T1\" WHERE \"COL1\" IN ( ? + ? , ? - ? ) ",
                 Map.of(constantId(8), 3,
                         constantId(10), 4,
                         constantId(12), 5,
@@ -645,13 +746,13 @@ public class AstNormalizerTests {
     @Test
     void nullIsExcludedFromNormalisation() throws Exception {
         validate("select * from t1 where col1 is null",
-                "select * from \"T1\" where \"COL1\" is null ");
+                "SELECT * FROM \"T1\" WHERE \"COL1\" IS NULL ");
     }
 
     @Test
     void isNotNullIsExcludedFromNormalisation() throws Exception {
         validate("select * from t1 where col1 is not null",
-                "select * from \"T1\" where \"COL1\" is not null ");
+                "SELECT * FROM \"T1\" WHERE \"COL1\" IS NOT NULL ");
     }
 
     @Test
@@ -661,9 +762,9 @@ public class AstNormalizerTests {
                         "\n create table t1(id bigint, col1 bigint, col2 bigint, primary key(id))" +
                         "\n create index mv1 as select sum(col2) from t1 where col1 > 42 group by col1"),
                 PreparedParams.empty(),
-                "create schema template \"AGGREGATE_INDEX_TESTS_TEMPLATE\"" +
-                        " create table \"T1\" ( \"ID\" bigint , \"COL1\" bigint , \"COL2\" bigint , primary key ( \"ID\" ) )" +
-                        " create index \"MV1\" as select sum ( \"COL2\" ) from \"T1\" where \"COL1\" > ? group by \"COL1\" ",
+                "CREATE SCHEMA TEMPLATE \"AGGREGATE_INDEX_TESTS_TEMPLATE\"" +
+                        " CREATE TABLE \"T1\" ( \"ID\" BIGINT , \"COL1\" BIGINT , \"COL2\" BIGINT , PRIMARY KEY ( \"ID\" ) )" +
+                        " CREATE INDEX \"MV1\" AS SELECT SUM ( \"COL2\" ) FROM \"T1\" WHERE \"COL1\" > ? GROUP BY \"COL1\" ",
                 List.of(Map.of(constantId(37), 42)),
                 null,
                 -1,
@@ -675,7 +776,7 @@ public class AstNormalizerTests {
         // note that the materialised view definition does not set IS_DQL_STATEMENT flag.
         validate(List.of("select * from t1 where col1 > 42", "  select * from t1   where   col1 > 42"),
                 PreparedParams.empty(),
-                "select * from \"T1\" where \"COL1\" > ? ",
+                "SELECT * FROM \"T1\" WHERE \"COL1\" > ? ",
                 List.of(Map.of(constantId(7), 42), Map.of(constantId(7), 42)),
                 null,
                 -1,
@@ -687,7 +788,7 @@ public class AstNormalizerTests {
         // (yhatem) note that the materialised view definition does not set IS_DQL_STATEMENT flag.
         validate(List.of("select * from t1 where col1 > 42 options (nocache)", "  select * from t1   where   col1 > 42 options (  nocache    )"),
                 PreparedParams.empty(),
-                "select * from \"T1\" where \"COL1\" > ? ", // note: the canonical representation is irrelevant as the query will be recompiled anyway.
+                "SELECT * FROM \"T1\" WHERE \"COL1\" > ? ", // note: the canonical representation is irrelevant as the query will be recompiled anyway.
                 List.of(Map.of(constantId(7), 42), Map.of(constantId(7), 42)),
                 null,
                 -1,
@@ -700,7 +801,7 @@ public class AstNormalizerTests {
         // (yhatem) 'show databases' is _not_ using a string literal in the path prefix, that's why we don't pick it up, we should fix that.
         validate(List.of("show databases with prefix /a/b/c", "  show databases   with prefix \n\n\n /a/b/c\t"),
                 PreparedParams.empty(),
-                "show databases with prefix \"/A/B/C\" ", // note: this is irrelevant as the query will be recompiled anyway.
+                "SHOW DATABASES WITH PREFIX \"/A/B/C\" ", // note: this is irrelevant as the query will be recompiled anyway.
                 List.of(Map.of(), Map.of()),
                 null,
                 -1,
@@ -711,7 +812,7 @@ public class AstNormalizerTests {
     void parseUtilityStatementCorrectCachingFlags() throws Exception {
         validate(List.of("explain select * from t1 where col1 > 42", "  explain select  \t * from    t1 \n\n where col1 > 42   \n\n"),
                 PreparedParams.empty(),
-                "select * from \"T1\" where \"COL1\" > ? ", // note: this is irrelevant as the query will be recompiled anyway.
+                "SELECT * FROM \"T1\" WHERE \"COL1\" > ? ", // note: this is irrelevant as the query will be recompiled anyway.
                 List.of(Map.of(constantId(7), 42), Map.of(constantId(7), 42)),
                 null,
                 -1,
@@ -723,7 +824,7 @@ public class AstNormalizerTests {
         // (yhatem) note that the materialised view definition does not set IS_DQL_STATEMENT flag.
         validate(List.of("select * from t1 where col1 > 42", "  select * from t1   where   col1 > 42"),
                 PreparedParams.empty(),
-                "select * from \"T1\" where \"COL1\" > ? ", // note: this is irrelevant as the query will be recompiled anyway.
+                "SELECT * FROM \"T1\" WHERE \"COL1\" > ? ", // note: this is irrelevant as the query will be recompiled anyway.
                 List.of(Map.of(constantId(7), 42), Map.of(constantId(7), 42)),
                 null,
                 -1,
@@ -736,7 +837,7 @@ public class AstNormalizerTests {
         // (yhatem) note that the materialised view definition does not set IS_DQL_STATEMENT flag.
         validate(List.of("select * from t1 where col1 > 42 options (log query)", "  select * from t1   where   col1 > 42 options (  log    query)"),
                 PreparedParams.empty(),
-                "select * from \"T1\" where \"COL1\" > ? ", // note: this is irrelevant as the query will be recompiled anyway.
+                "SELECT * FROM \"T1\" WHERE \"COL1\" > ? ", // note: this is irrelevant as the query will be recompiled anyway.
                 List.of(Map.of(constantId(7), 42), Map.of(constantId(7), 42)),
                 null,
                 -1,
@@ -748,7 +849,7 @@ public class AstNormalizerTests {
     void parseUpdateStatementWithoutDryRunSetsDryRunOptionsToFalse() throws Exception {
         validate(List.of("update A set A2 = 52 where A1 > 2"),
                 PreparedParams.empty(),
-                "update \"A\" set \"A2\" = ? where \"A1\" > ? ",
+                "UPDATE \"A\" SET \"A2\" = ? WHERE \"A1\" > ? ",
                 List.of(Map.of(constantId(5), 52, constantId(9), 2)),
                 null,
                 -1,
@@ -760,7 +861,7 @@ public class AstNormalizerTests {
     void parseUpdateStatementWithDryRunOptionSetsDryRunToTrue() throws Exception {
         validate(List.of("update A set A2 = 52 where A1 > 2 OPTIONS(DRY RUN)"),
                 PreparedParams.empty(),
-                "update \"A\" set \"A2\" = ? where \"A1\" > ? ",
+                "UPDATE \"A\" SET \"A2\" = ? WHERE \"A1\" > ? ",
                 List.of(Map.of(constantId(5), 52, constantId(9), 2)),
                 null,
                 -1,
@@ -772,7 +873,7 @@ public class AstNormalizerTests {
     void parseUpdateStatementWithMultipleQueryOptions() throws Exception {
         validate(List.of("update A set A2 = 52 where A1 > 2 OPTIONS(DRY RUN, nocache, log query)"),
                 PreparedParams.empty(),
-                "update \"A\" set \"A2\" = ? where \"A1\" > ? ",
+                "UPDATE \"A\" SET \"A2\" = ? WHERE \"A1\" > ? ",
                 List.of(Map.of(constantId(5), 52, constantId(9), 2)),
                 null,
                 -1,
@@ -784,7 +885,7 @@ public class AstNormalizerTests {
     void parseDqlStatementWithoutPlanRightDeepSetsItToFalse() throws Exception {
         validate(List.of("select * from t1 where col1 > 42"),
                 PreparedParams.empty(),
-                "select * from \"T1\" where \"COL1\" > ? ",
+                "SELECT * FROM \"T1\" WHERE \"COL1\" > ? ",
                 List.of(Map.of(constantId(7), 42)),
                 null,
                 -1,
@@ -797,7 +898,7 @@ public class AstNormalizerTests {
         validate(List.of("select * from t1 where col1 > 42 options (plan right deep)",
                          "  select * from t1   where   col1 > 42 options (  plan   right  deep     )"),
                 PreparedParams.empty(),
-                "select * from \"T1\" where \"COL1\" > ? ",
+                "SELECT * FROM \"T1\" WHERE \"COL1\" > ? ",
                 List.of(Map.of(constantId(7), 42), Map.of(constantId(7), 42)),
                 null,
                 -1,
@@ -809,7 +910,7 @@ public class AstNormalizerTests {
     void parseUpdateStatementWithoutPlanRightDeepSetsItToFalse() throws Exception {
         validate(List.of("update A set A2 = 52 where A1 > 2"),
                 PreparedParams.empty(),
-                "update \"A\" set \"A2\" = ? where \"A1\" > ? ",
+                "UPDATE \"A\" SET \"A2\" = ? WHERE \"A1\" > ? ",
                 List.of(Map.of(constantId(5), 52, constantId(9), 2)),
                 null,
                 -1,
@@ -821,7 +922,7 @@ public class AstNormalizerTests {
     void parseUpdateStatementWithPlanRightDeepSetsItToTrue() throws Exception {
         validate(List.of("update A set A2 = 52 where A1 > 2 OPTIONS(PLAN RIGHT DEEP)"),
                 PreparedParams.empty(),
-                "update \"A\" set \"A2\" = ? where \"A1\" > ? ",
+                "UPDATE \"A\" SET \"A2\" = ? WHERE \"A1\" > ? ",
                 List.of(Map.of(constantId(5), 52, constantId(9), 2)),
                 null,
                 -1,
@@ -833,7 +934,7 @@ public class AstNormalizerTests {
     void parseUpdateStatementSetsQueryFlagCorrectly() throws Exception {
         validate(List.of("update A set A2 = 52 where A1 > 2"),
                 PreparedParams.empty(),
-                "update \"A\" set \"A2\" = ? where \"A1\" > ? ",
+                "UPDATE \"A\" SET \"A2\" = ? WHERE \"A1\" > ? ",
                 List.of(Map.of(constantId(5), 52, constantId(9), 2)),
                 null,
                 -1,
@@ -844,7 +945,7 @@ public class AstNormalizerTests {
     void parseInsertStatementSetsQueryFlagCorrectly() throws Exception {
         validate(List.of("insert into A values (42, 'foo')"),
                 PreparedParams.empty(),
-                "insert into \"A\" values ( ? , ? ) ",
+                "INSERT INTO \"A\" VALUES ( ? , ? ) ",
                 List.of(Map.of(constantId(5), 42, constantId(7), "foo")),
                 null,
                 -1,
@@ -855,7 +956,7 @@ public class AstNormalizerTests {
     void parseDeleteStatementSetsQueryFlagCorrectly() throws Exception {
         validate(List.of("delete from A where x = 42"),
                 PreparedParams.empty(),
-                "delete from \"A\" where \"X\" = ? ",
+                "DELETE FROM \"A\" WHERE \"X\" = ? ",
                 List.of(Map.of(constantId(6), 42)),
                 null,
                 -1,
@@ -869,7 +970,7 @@ public class AstNormalizerTests {
                         "select * from      t1 where col1 = ? or col2 = ?NamedParam",
                         "select * from \n\n\n\t t1 where \n  col1 = ? or col2 = ?NamedParam"),
                 PreparedParams.of(Map.of(1, 42), Map.of("NamedParam", "foo")),
-                "select * from \"T1\" where \"COL1\" = ? or \"COL2\" = ?NamedParam ",
+                "SELECT * FROM \"T1\" WHERE \"COL1\" = ? OR \"COL2\" = ?NamedParam ",
                 List.of(Map.of(constantId(7), 42, constantId(11), "foo"),
                         Map.of(constantId(7), 42, constantId(11), "foo"),
                         Map.of(constantId(7), 42, constantId(11), "foo")));
@@ -881,7 +982,7 @@ public class AstNormalizerTests {
                         "select * from t1 where col1 = 30 and col3 = 90 and col4 = ?",
                         "select * from      t1 where col1     = 60 and col3 = -4556 and    col4 = ?"),
                 PreparedParams.ofUnnamed(Map.of(1, 42)),
-                "select * from \"T1\" where \"COL1\" = ? and \"COL3\" = ? and \"COL4\" = ? ",
+                "SELECT * FROM \"T1\" WHERE \"COL1\" = ? AND \"COL3\" = ? AND \"COL4\" = ? ",
                 List.of(Map.of(constantId(7), 30, constantId(11), 90, constantId(15), 42),
                         Map.of(constantId(7), 60, constantId(11), -4556, constantId(16), 42)));
     }
@@ -892,7 +993,7 @@ public class AstNormalizerTests {
                         "select a, 40, ? from t1 where col1 = 30 and col3 = 90",
                         "select a, 'hello', ? from      t1 where col1     = 60 and col3 = -4556"),
                 PreparedParams.ofUnnamed(Map.of(1, 42)),
-                "select \"A\" , ? , ? from \"T1\" where \"COL1\" = ? and \"COL3\" = ? ",
+                "SELECT \"A\" , ? , ? FROM \"T1\" WHERE \"COL1\" = ? AND \"COL3\" = ? ",
                 List.of(Map.of(constantId(3), 40, constantId(5), 42, constantId(11), 30, constantId(15), 90),
                         Map.of(constantId(3), "hello", constantId(5), 42, constantId(11), 60, constantId(15), -4556)));
     }
@@ -903,7 +1004,7 @@ public class AstNormalizerTests {
                         "select 3 + 40 + ?NamedParam1 + ?NamedParam2 from t1",
                         "select 'hello' + 'world' + ?NamedParam1 +    ?NamedParam2 from      t1"),
                 PreparedParams.ofNamed(Map.of("NamedParam1", 42, "NamedParam2", 100)),
-                "select ? + ? + ?NamedParam1 + ?NamedParam2 from \"T1\" ",
+                "SELECT ? + ? + ?NamedParam1 + ?NamedParam2 FROM \"T1\" ",
                 List.of(Map.of(constantId(1), 3, constantId(3), 40, constantId(5), 42, constantId(7), 100),
                         Map.of(constantId(1), "hello", constantId(3), "world", constantId(5), 42, constantId(7), 100)));
     }
@@ -912,7 +1013,7 @@ public class AstNormalizerTests {
     void stripBooleanLiteralWithPreparedParameters() throws RelationalException {
         validate("select false, true, ?, ?Param from t1 where false",
                 PreparedParams.of(Map.of(1, false), Map.of("Param", true)),
-                "select ? , ? , ? , ?Param from \"T1\" where ? ",
+                "SELECT ? , ? , ? , ?Param FROM \"T1\" WHERE ? ",
                 Map.of(constantId(1), false,
                         constantId(3), true,
                         constantId(5), false,
@@ -924,7 +1025,7 @@ public class AstNormalizerTests {
     void stripStringLiteralWithPreparedParameters() throws RelationalException {
         validate("select 'hello', ?, 'wOrLd', ?Param from t1 where col1 in ('foo', 'bar')",
                 PreparedParams.of(Map.of(1, "preparedValue1"), Map.of("Param", "preparedValue2")),
-                "select ? , ? , ? , ?Param from \"T1\" where \"COL1\" in ( [ ] ) ",
+                "SELECT ? , ? , ? , ?Param FROM \"T1\" WHERE \"COL1\" IN ( [ ] ) ",
                 Map.of(constantId(1), "hello",
                         constantId(3), "preparedValue1",
                         constantId(5), "wOrLd",
@@ -940,7 +1041,7 @@ public class AstNormalizerTests {
                 PreparedParams.of(
                         Map.of(1, param),
                         Map.of("param", namedParam)),
-                "select ? , ? from \"T1\" where \"COL1\" in ? and \"COL2\" in ?param ",
+                "SELECT ? , ? FROM \"T1\" WHERE \"COL1\" IN ? AND \"COL2\" IN ?param ",
                 Map.of(constantId(1), "hello",
                         constantId(3), "wOrLd",
                         constantId(9), List.of("preparedValue1", "preparedValue2"),
@@ -951,7 +1052,7 @@ public class AstNormalizerTests {
     void stripDecimalLiteralWithPreparedParameters() throws RelationalException {
         validate("select 1, 2.3, 4.5f, -8, -9.1, -2.3f, ?, ?, ?param1, ?param2 from t1",
                 PreparedParams.of(Map.of(1, 1000, 2, -1000), Map.of("param1", 5000, "param2", -5000)),
-                "select ? , ? , ? , ? , ? , ? , ? , ? , ?param1 , ?param2 from \"T1\" ",
+                "SELECT ? , ? , ? , ? , ? , ? , ? , ? , ?param1 , ?param2 FROM \"T1\" ",
                 Map.of(constantId(1), 1,
                         constantId(3), 2.3,
                         constantId(5), 4.5f,
@@ -968,7 +1069,7 @@ public class AstNormalizerTests {
     void stripHexadecimalLiteralWithPreparedParameters() throws RelationalException {
         validate("select X'0A0B', ?, ?param from t1",
                 PreparedParams.of(Map.of(1, Hex.decodeHex("0a0c")), Map.of("param", Hex.decodeHex("0B0C"))),
-                "select ? , ? , ?param from \"T1\" ",
+                "SELECT ? , ? , ?param FROM \"T1\" ",
                 Map.of(constantId(1), ByteString.copyFrom(Hex.decodeHex("0A0B")),
                         constantId(3), ByteString.copyFrom(Hex.decodeHex("0A0C")),
                         constantId(5), ByteString.copyFrom(Hex.decodeHex("0B0C"))));
@@ -978,7 +1079,7 @@ public class AstNormalizerTests {
     void stripBase64LiteralWithPreparedParameters() throws RelationalException {
         validate("select B64'yv4=', ?, ?param from t1",
                 PreparedParams.of(Map.of(1, Hex.decodeHex("0a0c")), Map.of("param", Hex.decodeHex("0B0C"))),
-                "select ? , ? , ?param from \"T1\" ",
+                "SELECT ? , ? , ?param FROM \"T1\" ",
                 Map.of(constantId(1), ByteString.copyFrom(Hex.decodeHex("cafe")),
                         constantId(3), ByteString.copyFrom(Hex.decodeHex("0A0C")),
                         constantId(5), ByteString.copyFrom(Hex.decodeHex("0B0C"))));
@@ -994,7 +1095,7 @@ public class AstNormalizerTests {
                         "select ?, ?NamedParam from t1 where col1 in (20,   200)",
                         "select ?, ?NamedParam from t1 where col1 in (30,   300.0,    3000.1)"),
                 PreparedParams.of(Map.of(1, "param1"), Map.of("NamedParam", "param2")),
-                "select ? , ?NamedParam from \"T1\" where \"COL1\" in ( [ ] ) ",
+                "SELECT ? , ?NamedParam FROM \"T1\" WHERE \"COL1\" IN ( [ ] ) ",
                 List.of(Map.of(constantId(1), "param1",
                                 constantId(3), "param2",
                                 constantId(9), List.of(10, 100, 1000)),
@@ -1014,7 +1115,7 @@ public class AstNormalizerTests {
                         "select ?, ?NamedParam1 from t1 where col1 in (200,   ?,    ?NamedParam2, ?, 20000)"),
                 PreparedParams.of(Map.of(1, "unnamed1", 2, "unnamed2", 3, "unnamed3"),
                         Map.of("NamedParam1", "named1", "NamedParam2", "named2")),
-                "select ? , ?NamedParam1 from \"T1\" where \"COL1\" in ( ? , ? , ?NamedParam2 , ? , ? ) ",
+                "SELECT ? , ?NamedParam1 FROM \"T1\" WHERE \"COL1\" IN ( ? , ? , ?NamedParam2 , ? , ? ) ",
                 List.of(Map.of(constantId(1), "unnamed1",
                                 constantId(3), "named1",
                                 constantId(10), 10,
@@ -1043,7 +1144,7 @@ public class AstNormalizerTests {
     void parseDqlStatementWithJavaCallDoesNotCacheFunctionCall() throws Exception {
         validate(List.of("select java_call('a.b.c.Foo', col1, ?, ?namedParam1) From t1"),
                 PreparedParams.of(Map.of(1, 42), Map.of("namedParam1", 43)),
-                "select java_call ( 'a.b.c.Foo' , \"COL1\" , ? , ?namedParam1 ) From \"T1\" ",
+                "SELECT JAVA_CALL ( 'a.b.c.Foo' , \"COL1\" , ? , ?namedParam1 ) FROM \"T1\" ",
                 List.of(Map.of(constantId(7), 42, constantId(9), 43)),
                 null,
                 -1,
@@ -1052,9 +1153,9 @@ public class AstNormalizerTests {
 
     @Test
     void parseBitAtomExpressionsWithLiterals() throws Exception {
-        validate(List.of("select a & 4 from t"), "select \"A\" & ? from \"T\" ",
+        validate(List.of("select a & 4 from t"), "SELECT \"A\" & ? FROM \"T\" ",
                 List.of(Map.of(constantId(3), 4)));
-        validate(List.of("select a & 2 from t"), "select \"A\" & ? from \"T\" ",
+        validate(List.of("select a & 2 from t"), "SELECT \"A\" & ? FROM \"T\" ",
                 List.of(Map.of(constantId(3), 2)));
     }
 
@@ -1062,10 +1163,10 @@ public class AstNormalizerTests {
     void parseBitAtomExpressionsWithParameters() throws Exception {
         validate("select a & ?m from t",
                 PreparedParams.ofNamed(Map.of("m", 4L)),
-                "select \"A\" & ?m from \"T\" ", Map.of(constantId(3), 4L));
+                "SELECT \"A\" & ?m FROM \"T\" ", Map.of(constantId(3), 4L));
         validate("select a & ?m from t",
                 PreparedParams.ofNamed(Map.of("m", 2L)),
-                "select \"A\" & ?m from \"T\" ", Map.of(constantId(3), 2L));
+                "SELECT \"A\" & ?m FROM \"T\" ", Map.of(constantId(3), 2L));
     }
 
     @Test
@@ -1091,9 +1192,9 @@ public class AstNormalizerTests {
                         "\n create table t1(id bigint, col1 bigint, col2 bigint, primary key(id))" +
                         "\n create index mv1 as select sum(col2) from t1 where col1 > ?namedParam1 and col2 > ? group by col1"),
                 PreparedParams.of(Map.of(1, 42), Map.of("namedParam1", 43)),
-                "create schema template \"AGGREGATE_INDEX_TESTS_TEMPLATE\"" +
-                        " create table \"T1\" ( \"ID\" bigint , \"COL1\" bigint , \"COL2\" bigint , primary key ( \"ID\" ) )" +
-                        " create index \"MV1\" as select sum ( \"COL2\" ) from \"T1\" where \"COL1\" > ?namedParam1 and \"COL2\" > ? group by \"COL1\" ",
+                "CREATE SCHEMA TEMPLATE \"AGGREGATE_INDEX_TESTS_TEMPLATE\"" +
+                        " CREATE TABLE \"T1\" ( \"ID\" BIGINT , \"COL1\" BIGINT , \"COL2\" BIGINT , PRIMARY KEY ( \"ID\" ) )" +
+                        " CREATE INDEX \"MV1\" AS SELECT SUM ( \"COL2\" ) FROM \"T1\" WHERE \"COL1\" > ?namedParam1 AND \"COL2\" > ? GROUP BY \"COL1\" ",
                 List.of(Map.of(constantId(37), 43, constantId(41), 42)),
                 null,
                 -1,
@@ -1105,7 +1206,7 @@ public class AstNormalizerTests {
         // note that the materialised view definition does not set IS_DQL_STATEMENT flag.
         validate(List.of("select * from t1 where col1 > ?namedParam1 and col2 > ?", "  select * from t1   where   col1 > ?namedParam1 and col2 > ?"),
                 PreparedParams.of(Map.of(1, 42), Map.of("namedParam1", 43)),
-                "select * from \"T1\" where \"COL1\" > ?namedParam1 and \"COL2\" > ? ",
+                "SELECT * FROM \"T1\" WHERE \"COL1\" > ?namedParam1 AND \"COL2\" > ? ",
                 List.of(Map.of(constantId(7), 43, constantId(11), 42),
                         Map.of(constantId(7), 43, constantId(11), 42)),
                 null,
@@ -1118,7 +1219,7 @@ public class AstNormalizerTests {
         // (yhatem) note that the materialised view definition does not set IS_DQL_STATEMENT flag.
         validate(List.of("select * from t1 where col1 > ?namedParam1 and col2 > ? options (nocache)", "  select * from t1   where   col1 > ?namedParam1 and col2 > ? options (  nocache    )"),
                 PreparedParams.of(Map.of(1, 42), Map.of("namedParam1", 43)),
-                "select * from \"T1\" where \"COL1\" > ?namedParam1 and \"COL2\" > ? ", // note: this is irrelevant as the query will be recompiled anyway.
+                "SELECT * FROM \"T1\" WHERE \"COL1\" > ?namedParam1 AND \"COL2\" > ? ", // note: this is irrelevant as the query will be recompiled anyway.
                 List.of(Map.of(constantId(7), 43, constantId(11), 42),
                         Map.of(constantId(7), 43, constantId(11), 42)),
                 null,
@@ -1131,7 +1232,7 @@ public class AstNormalizerTests {
     void parseDqlStatementWithoutLogQuerySetsOptionsLogQueryFalseWithPreparedParameters() throws Exception {
         validate(List.of("select * from t1 where col1 > ?namedParam1 and col2 > ?", "  select * from t1   where   col1 > ?namedParam1 and col2 > ?"),
                 PreparedParams.of(Map.of(1, 42), Map.of("namedParam1", 43)),
-                "select * from \"T1\" where \"COL1\" > ?namedParam1 and \"COL2\" > ? ", // note: this is irrelevant as the query will be recompiled anyway.
+                "SELECT * FROM \"T1\" WHERE \"COL1\" > ?namedParam1 AND \"COL2\" > ? ", // note: this is irrelevant as the query will be recompiled anyway.
                 List.of(Map.of(constantId(7), 43, constantId(11), 42),
                         Map.of(constantId(7), 43, constantId(11), 42)),
                 null,
@@ -1144,7 +1245,7 @@ public class AstNormalizerTests {
     void parseDqlStatementWithLogQuerySetsOptionsLogQueryTrueWithPreparedParameters() throws Exception {
         validate(List.of("select * from t1 where col1 > ?namedParam1 and col2 > ? options (log query)", "  select * from t1   where   col1 > ?namedParam1 and col2 > ? options (  log       query)"),
                 PreparedParams.of(Map.of(1, 42), Map.of("namedParam1", 43)),
-                "select * from \"T1\" where \"COL1\" > ?namedParam1 and \"COL2\" > ? ", // note: this is irrelevant as the query will be recompiled anyway.
+                "SELECT * FROM \"T1\" WHERE \"COL1\" > ?namedParam1 AND \"COL2\" > ? ", // note: this is irrelevant as the query will be recompiled anyway.
                 List.of(Map.of(constantId(7), 43, constantId(11), 42),
                         Map.of(constantId(7), 43, constantId(11), 42)),
                 null,
@@ -1160,7 +1261,7 @@ public class AstNormalizerTests {
     void parseUtilityStatementCorrectCachingFlagsWithPreparedParameters() throws Exception {
         validate(List.of("explain select * from t1 where col1 > ?namedParam1 and col2   > ?", "  explain select  \t * from    t1 \n\n where col1 > ?namedParam1 and   col2 > ?   \n\n"),
                 PreparedParams.of(Map.of(1, 42), Map.of("namedParam1", 43)),
-                "select * from \"T1\" where \"COL1\" > ?namedParam1 and \"COL2\" > ? ", // note: this is irrelevant as the query will be recompiled anyway.
+                "SELECT * FROM \"T1\" WHERE \"COL1\" > ?namedParam1 AND \"COL2\" > ? ", // note: this is irrelevant as the query will be recompiled anyway.
                 List.of(Map.of(constantId(7), 43, constantId(11), 42),
                         Map.of(constantId(7), 43, constantId(11), 42)),
                 null,
@@ -1179,7 +1280,7 @@ public class AstNormalizerTests {
         final var schemaTemplate1 = schemaTemplateWithFunction(fakeSchemaTemplate, "foo", tempFunctionDefinition, true);
         validate(List.of("select * from t1 where col1 > 42"),
                 PreparedParams.empty(),
-                "select * from \"T1\" where \"COL1\" > ? ",
+                "SELECT * FROM \"T1\" WHERE \"COL1\" > ? ",
                 List.of(Map.of(
                         constantId(7), 42,
                         constantId(21, Optional.of("SQ1")), 40)),
@@ -1196,7 +1297,7 @@ public class AstNormalizerTests {
         final var schemaTemplate1 = schemaTemplateWithFunction(fakeSchemaTemplate, "foo", tempFunctionDefinition, true);
         validate(List.of("select * from t1 where col1 > 42"),
                 PreparedParams.empty(),
-                "select * from \"T1\" where \"COL1\" > ? ",
+                "SELECT * FROM \"T1\" WHERE \"COL1\" > ? ",
                 List.of(Map.of(constantId(7), 42)),
                 null,
                 -1,
@@ -1211,7 +1312,7 @@ public class AstNormalizerTests {
         final var schemaTemplate1 = schemaTemplateWithFunction(fakeSchemaTemplate, "foo", tempFunctionDefinition, false);
         validate(List.of("select * from t1 where col1 > 42"),
                 PreparedParams.empty(),
-                "select * from \"T1\" where \"COL1\" > ? ",
+                "SELECT * FROM \"T1\" WHERE \"COL1\" > ? ",
                 List.of(Map.of(constantId(7), 42)),
                 null,
                 -1,
@@ -1235,7 +1336,7 @@ public class AstNormalizerTests {
 
         validate(List.of("select * from t1 where col1 > 42"),
                 PreparedParams.empty(),
-                "select * from \"T1\" where \"COL1\" > ? ",
+                "SELECT * FROM \"T1\" WHERE \"COL1\" > ? ",
                 List.of(Map.of(
                         constantId(7), 42,
                         constantId(21, Optional.of("TMPFUNCTION1")), 40,
@@ -1271,7 +1372,7 @@ public class AstNormalizerTests {
 
         validate(List.of("select * from t1 where col1 > 42"),
                 PreparedParams.empty(),
-                "select * from \"T1\" where \"COL1\" > ? ",
+                "SELECT * FROM \"T1\" WHERE \"COL1\" > ? ",
                 List.of(Map.of(
                         constantId(7), 42,
                         constantId(21, Optional.of("TMPFUNCTION1")), 40,
@@ -1310,7 +1411,7 @@ public class AstNormalizerTests {
                 constantId(21, Optional.of("TMPFUNCTION3")), 40);
         validate(List.of("select * from t1 where col1 > 42", "select * from t1 where col1 > 42"),
                 PreparedParams.empty(),
-                "select * from \"T1\" where \"COL1\" > ? ",
+                "SELECT * FROM \"T1\" WHERE \"COL1\" > ? ",
                 List.of(bindings, bindings),
                 null,
                 -1,
@@ -1331,7 +1432,7 @@ public class AstNormalizerTests {
 
         validate(List.of("select * from t1 where col1 > 42"),
                 PreparedParams.empty(),
-                "select * from \"T1\" where \"COL1\" > ? ",
+                "SELECT * FROM \"T1\" WHERE \"COL1\" > ? ",
                 List.of(Map.of(constantId(7), 42, constantId(21, Optional.of("TMPFUNCTIONZ")), 40, constantId(21, Optional.of("TMPFUNCTIONA")), 40)),
                 null,
                 -1,
@@ -1355,10 +1456,44 @@ public class AstNormalizerTests {
     }
 
     @Test
+    void temporaryFunctionKeywordCaseIsCanonicalizedInCacheKey() throws Exception {
+        //
+        // A temporary function contributes its normalized DDL to the plan-cache key (as auxiliary metadata) of any
+        // subsequent query. Because SQL keywords are canonicalized to upper case, two temporary functions that are
+        // identical except for the casing of their keywords contribute an identical cache-key fragment. We normalize
+        // the same query against a schema template whose temporary function is declared with lower-case keywords and
+        // one whose function uses mixed-case keywords; both resolve to the same auxiliary metadata (with keywords
+        // upper-cased) and hence the same cache key -- validate asserts all queries in the list share an equal cache
+        // key and hashCode.
+        //
+        final var lowerCaseKeywords =
+                "create temporary function tmpFunction1(in x bigint) on commit drop function as select * from t1 where a < 40 + x ";
+        final var mixedCaseKeywords =
+                "CrEaTe TeMpOrArY FuNcTiOn tmpFunction1(In x bigint) On CoMmIt DrOp FuNcTiOn As SeLeCt * FrOm t1 WhErE a < 40 + x ";
+        final var schemaTemplateLowerCase = schemaTemplateWithFunction(fakeSchemaTemplate, "tmpFunction1", lowerCaseKeywords, true);
+        final var schemaTemplateMixedCase = schemaTemplateWithFunction(fakeSchemaTemplate, "tmpFunction1", mixedCaseKeywords, true);
+
+        final Map<String, Object> bindings = Map.of(
+                constantId(7), 42,
+                constantId(21, Optional.of("TMPFUNCTION1")), 40);
+        validate(List.of("select * from t1 where col1 > 42", "select * from t1 where col1 > 42"),
+                PreparedParams.empty(),
+                "SELECT * FROM \"T1\" WHERE \"COL1\" > ? ",
+                List.of(bindings, bindings),
+                null,
+                -1,
+                EnumSet.of(AstNormalizer.NormalizationResult.QueryCachingFlags.IS_DQL_STATEMENT),
+                Map.of(Options.Name.LOG_QUERY, false),
+                List.of(schemaTemplateLowerCase, schemaTemplateMixedCase),
+                // keywords are upper-cased in the cache-key fragment regardless of how they were written above.
+                "CREATE TEMPORARY FUNCTION \"TMPFUNCTION1\" ( IN \"X\" BIGINT ) ON COMMIT DROP FUNCTION AS SELECT * FROM \"T1\" WHERE \"A\" < ? + \"X\" ");
+    }
+
+    @Test
     void normalizeTemporarySqlFunctionStripsLiterals() throws Exception {
         validate(List.of("create temporary function tmpFunction1(in x bigint) on commit drop function as select * from t1 where a < 40 + x "),
                 PreparedParams.empty(),
-                "create temporary function \"TMPFUNCTION1\" ( in \"X\" bigint ) on commit drop function as select * from \"T1\" where \"A\" < ? + \"X\" ",
+                "CREATE TEMPORARY FUNCTION \"TMPFUNCTION1\" ( IN \"X\" BIGINT ) ON COMMIT DROP FUNCTION AS SELECT * FROM \"T1\" WHERE \"A\" < ? + \"X\" ",
                 List.of(Map.of(constantId(21, Optional.of("TMPFUNCTION1")), 40)),
                 null,
                 -1,
@@ -1367,12 +1502,23 @@ public class AstNormalizerTests {
     }
 
     @Test
+    void normalizeTemporarySqlFunctionPreservesQuotedFunctionAndParameterNames() throws Exception {
+        //
+        // Counterpart to normalizeTemporarySqlFunctionStripsLiterals: when the function name and its parameter
+        // names are quoted, their exact case is preserved in the canonical form (quoting forces case-sensitivity),
+        // while keywords are still upper-cased and unquoted identifiers still fold to upper case.
+        //
+        validate("create temporary function \"tmpFunction1\"(in \"x\" bigint) on commit drop function as select * from t1 where a < \"x\"",
+                "CREATE TEMPORARY FUNCTION \"tmpFunction1\" ( IN \"x\" BIGINT ) ON COMMIT DROP FUNCTION AS SELECT * FROM \"T1\" WHERE \"A\" < \"x\" ");
+    }
+
+    @Test
     void normalizeTemporarySqlFunctionStripsLiteralsAndPreparedParameters() throws Exception {
         validate(List.of("create temporary function tmpFunction1(in x bigint) " +
                         "on commit drop function as select * from t1 where a < 40 + x and b > ?param1 and c < ?param2"),
                 PreparedParams.ofNamed(ImmutableMap.of("param1", "bla", "param2", 500)),
-                "create temporary function \"TMPFUNCTION1\" ( in \"X\" bigint ) " +
-                        "on commit drop function as select * from \"T1\" where \"A\" < ? + \"X\" and \"B\" > ?param1 and \"C\" < ?param2 ",
+                "CREATE TEMPORARY FUNCTION \"TMPFUNCTION1\" ( IN \"X\" BIGINT ) " +
+                        "ON COMMIT DROP FUNCTION AS SELECT * FROM \"T1\" WHERE \"A\" < ? + \"X\" AND \"B\" > ?param1 AND \"C\" < ?param2 ",
                 List.of(Map.of(constantId(21, Optional.of("TMPFUNCTION1")), 40,
                         constantId(27, Optional.of("TMPFUNCTION1")), "bla",
                         constantId(31, Optional.of("TMPFUNCTION1")), 500)),
@@ -1387,8 +1533,8 @@ public class AstNormalizerTests {
         validate(List.of("create temporary function tmpFunction1(in x bigint default 1000, in y string default 'bla') " +
                         "on commit drop function as select * from t1 where a < 40 + x and b > ?param1 and c < ?param2"),
                 PreparedParams.ofNamed(ImmutableMap.of("param1", "bla", "param2", 500)),
-                "create temporary function \"TMPFUNCTION1\" ( in \"X\" bigint default ? , in \"Y\" string default ? ) " +
-                        "on commit drop function as select * from \"T1\" where \"A\" < ? + \"X\" and \"B\" > ?param1 and \"C\" < ?param2 ",
+                "CREATE TEMPORARY FUNCTION \"TMPFUNCTION1\" ( IN \"X\" BIGINT DEFAULT ? , IN \"Y\" STRING DEFAULT ? ) " +
+                        "ON COMMIT DROP FUNCTION AS SELECT * FROM \"T1\" WHERE \"A\" < ? + \"X\" AND \"B\" > ?param1 AND \"C\" < ?param2 ",
                 List.of(Map.of(constantId(9, Optional.of("TMPFUNCTION1")), 1000,
                         constantId(15, Optional.of("TMPFUNCTION1")), "bla",
                         constantId(29, Optional.of("TMPFUNCTION1")), 40,
@@ -1404,7 +1550,7 @@ public class AstNormalizerTests {
     void visitInPredicateWithColumnReference() throws Exception {
         // Test IN predicate with column reference instead of all constants
         validate("select * from t1 where col1 in (fullColumnName)",
-                "select * from \"T1\" where \"COL1\" in ( \"FULLCOLUMNNAME\" ) ");
+                "SELECT * FROM \"T1\" WHERE \"COL1\" IN ( \"FULLCOLUMNNAME\" ) ");
     }
 
     @Test
@@ -1413,7 +1559,7 @@ public class AstNormalizerTests {
         java.sql.Array arrayParam = toArrayParameter(List.of("value1", "value2", "value3"));
         validate("select * from t1 where col1 in ?",
                 PreparedParams.ofUnnamed(Map.of(1, arrayParam)),
-                "select * from \"T1\" where \"COL1\" in ? ",
+                "SELECT * FROM \"T1\" WHERE \"COL1\" IN ? ",
                 Map.of(constantId(7), List.of("value1", "value2", "value3")));
     }
 
@@ -1421,7 +1567,7 @@ public class AstNormalizerTests {
     void visitInPredicateWithMixedTypes() throws Exception {
         // Test IN predicate with mixed constants and expressions
         validate("select * from t1 where col1 in (10, col2 + 5, 'literal')",
-                "select * from \"T1\" where \"COL1\" in ( ? , \"COL2\" + ? , ? ) ",
+                "SELECT * FROM \"T1\" WHERE \"COL1\" IN ( ? , \"COL2\" + ? , ? ) ",
                 Map.of(constantId(8), 10,
                         constantId(12), 5,
                         constantId(14), "literal"));
@@ -1432,7 +1578,7 @@ public class AstNormalizerTests {
         // Test IN predicate with fullColumnName in the IN list - targets lines 453-454 in AstNormalizer
         // This tests the case: 'apple' IN T.fruits where T.fruits is a column reference
         validate("select * from T where 'apple' in T.fruits",
-                "select * from \"T\" where ? in \"T\" . \"FRUITS\" ",
+                "SELECT * FROM \"T\" WHERE ? IN \"T\" . \"FRUITS\" ",
                 Map.of(constantId(5), "apple"));
     }
 
@@ -1440,7 +1586,7 @@ public class AstNormalizerTests {
     void visitInPredicateWithBooleanConstants() throws Exception {
         // Test IN predicate with boolean constants
         validate("select * from t1 where col1 in (true, false)",
-                "select * from \"T1\" where \"COL1\" in ( [ ] ) ",
+                "SELECT * FROM \"T1\" WHERE \"COL1\" IN ( [ ] ) ",
                 Map.of(constantId(7), List.of(true, false)));
     }
 
@@ -1449,7 +1595,7 @@ public class AstNormalizerTests {
         // Test NOT IN predicate with constants - verifies that NOT token is handled correctly
         // This tests the visitInPredicate method's handling of NOT token in AstNormalizer
         validate("select * from t1 where col1 not in (10, 20, 30)",
-                "select * from \"T1\" where \"COL1\" not in ( [ ] ) ",
+                "SELECT * FROM \"T1\" WHERE \"COL1\" NOT IN ( [ ] ) ",
                 Map.of(constantId(8), List.of(10, 20, 30)));
     }
 
@@ -1458,7 +1604,7 @@ public class AstNormalizerTests {
         // Test NOT IN predicate with column reference - this tests lines 453-454 in AstNormalizer
         // where ctx.inList().fullColumnName() != null for a NOT IN predicate
         validate("select * from T where 'apple' not in T.fruits",
-                "select * from \"T\" where ? not in \"T\" . \"FRUITS\" ",
+                "SELECT * FROM \"T\" WHERE ? NOT IN \"T\" . \"FRUITS\" ",
                 Map.of(constantId(5), "apple"));
     }
 
@@ -1469,7 +1615,7 @@ public class AstNormalizerTests {
                 PreparedParams.empty(),
                 // the canonical representation isn't super important because we're not caching, but it is part of the
                 // standard validate helper method
-                "copy \"/TEST/FOO/BAR\" preserve incarnation ",
+                "COPY \"/TEST/FOO/BAR\" PRESERVE INCARNATION ",
                 List.of(Map.of(), Map.of()),
                 null,
                 -1,
@@ -1484,7 +1630,7 @@ public class AstNormalizerTests {
                 PreparedParams.of(Map.of(1, new byte[0]), Map.of()),
                 // the canonical representation isn't super important because we're not caching, but it is part of the
                 // standard validate helper method
-                "copy \"/TEST/FOO/BAR\" from ? ",
+                "COPY \"/TEST/FOO/BAR\" FROM ? ",
                 List.of(Map.of(constantId(3), ByteString.empty()),
                         Map.of(constantId(3), ByteString.empty())),
                 null,
@@ -1500,7 +1646,7 @@ public class AstNormalizerTests {
         validate(List.of(
                         "select * from t1 where col1 like 'hello%'",
                         "select * from t1 where col1 like 'world%'"),
-                "select * from \"T1\" where \"COL1\" like ? ",
+                "SELECT * FROM \"T1\" WHERE \"COL1\" LIKE ? ",
                 List.of(Map.of(constantId(7), "hello%"),
                         Map.of(constantId(7), "world%")));
     }
@@ -1509,7 +1655,7 @@ public class AstNormalizerTests {
     void windowFunctionOptionsAreNotStripped() throws Exception {
         // Test that EF_SEARCH option in window function is preserved during normalization
         validate("select * from t1 qualify row_number() over (partition by zone order by distance OPTIONS EF_SEARCH = 100) < 10",
-                "select * from \"T1\" qualify row_number ( ) over ( partition by \"ZONE\" order by \"DISTANCE\" OPTIONS EF_SEARCH = 100 ) < ? ",
+                "SELECT * FROM \"T1\" QUALIFY ROW_NUMBER ( ) OVER ( PARTITION BY \"ZONE\" ORDER BY \"DISTANCE\" OPTIONS EF_SEARCH = 100 ) < ? ",
                 Map.of(constantId(22), 10));
     }
 
@@ -1524,7 +1670,7 @@ public class AstNormalizerTests {
     @Test
     void indexHintIsPartOfTheCanonicalQueryString() throws RelationalException {
         validate("select * from t1 use index (i1)",
-                "select * from \"T1\" use index ( \"I1\" ) ");
+                "SELECT * FROM \"T1\" USE INDEX ( \"I1\" ) ");
     }
 
     @Test

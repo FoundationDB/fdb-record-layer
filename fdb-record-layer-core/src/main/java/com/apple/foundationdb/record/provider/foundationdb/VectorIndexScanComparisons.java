@@ -52,7 +52,7 @@ import java.util.Objects;
 import java.util.Set;
 
 import static com.apple.foundationdb.record.provider.foundationdb.VectorIndexScanOptions.HNSW_EF_SEARCH;
-import static com.apple.foundationdb.record.provider.foundationdb.VectorIndexScanOptions.HNSW_RETURN_VECTORS;
+import static com.apple.foundationdb.record.provider.foundationdb.VectorIndexScanOptions.VECTOR_RETURN_VECTORS;
 
 /**
  * {@link ScanComparisons} for use in a multidimensional index scan.
@@ -312,7 +312,7 @@ public final class VectorIndexScanComparisons implements IndexScanParameters {
 
         final var vectorIndexScanOptionsBuilder = VectorIndexScanOptions.builder();
         if (distanceRankValueComparison.isReturningVectors() != null) {
-            vectorIndexScanOptionsBuilder.putOption(HNSW_RETURN_VECTORS, distanceRankValueComparison.isReturningVectors());
+            vectorIndexScanOptionsBuilder.putOption(VECTOR_RETURN_VECTORS, distanceRankValueComparison.isReturningVectors());
         }
         if (distanceRankValueComparison.getEfSearch() != null) {
             vectorIndexScanOptionsBuilder.putOption(HNSW_EF_SEARCH, distanceRankValueComparison.getEfSearch());

@@ -21,7 +21,6 @@
 package com.apple.foundationdb.record.provider.foundationdb.indexes;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.async.hnsw.Config;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Index;
@@ -46,7 +45,6 @@ import com.google.auto.service.AutoService;
 import javax.annotation.Nonnull;
 import java.util.Arrays;
 import java.util.Set;
-import java.util.function.Function;
 
 /**
  * A factory for {@link VectorIndexMaintainer} index maintainers.
@@ -91,7 +89,9 @@ public class VectorIndexMaintainerFactory implements IndexMaintainerFactory {
     }
 
     /**
-     * Index validator for HNSW-based vector indexes.
+     * Index validator for vector indexes, engine-agnostic. Structural validation is shared; config validation and the
+     * rules for which options may change on an existing index are delegated to the {@link VectorIndexEngine} selected by
+     * the index's {@link IndexOptions#VECTOR_ENGINE} option.
      */
     private static class VectorIndexValidator extends IndexValidator {
         public VectorIndexValidator(final Index index) {
@@ -99,12 +99,12 @@ public class VectorIndexMaintainerFactory implements IndexMaintainerFactory {
         }
 
         @Override
-        public void validate(@Nonnull MetaDataValidator metaDataValidator) {
+        public void validate(@Nonnull final MetaDataValidator metaDataValidator) {
             super.validate(metaDataValidator);
             validateStructure();
 
             try {
-                VectorIndexHelper.getConfig(index);
+                VectorIndexHelper.validate(index);
             } catch (final IllegalArgumentException illegalArgumentException) {
                 throw new MetaDataException("incorrect index options", illegalArgumentException);
             }
@@ -152,64 +152,14 @@ public class VectorIndexMaintainerFactory implements IndexMaintainerFactory {
         }
 
         @Override
-        @SuppressWarnings("PMD.CompareObjectsWithEquals")
         public void validateChangedOptions(@Nonnull final Index oldIndex,
                                            @Nonnull final Set<String> changedOptions) {
             if (!changedOptions.isEmpty()) {
-                final Config oldOptions = VectorIndexHelper.getConfig(oldIndex);
-                final Config newOptions = VectorIndexHelper.getConfig(index);
-
-                // do not allow changing any of the following
-                disallowChange(changedOptions, IndexOptions.HNSW_METRIC,
-                        oldOptions, newOptions, Config::metric);
-                disallowChange(changedOptions, IndexOptions.HNSW_NUM_DIMENSIONS,
-                        oldOptions, newOptions, Config::numDimensions);
-                disallowChange(changedOptions, IndexOptions.HNSW_USE_INLINING,
-                        oldOptions, newOptions, Config::useInlining);
-                disallowChange(changedOptions, IndexOptions.HNSW_M,
-                        oldOptions, newOptions, Config::m);
-                disallowChange(changedOptions, IndexOptions.HNSW_M_MAX,
-                        oldOptions, newOptions, Config::mMax);
-                disallowChange(changedOptions, IndexOptions.HNSW_M_MAX_0,
-                        oldOptions, newOptions, Config::mMax0);
-                disallowChange(changedOptions, IndexOptions.HNSW_EF_CONSTRUCTION,
-                        oldOptions, newOptions, Config::efConstruction);
-                disallowChange(changedOptions, IndexOptions.HNSW_EF_REPAIR,
-                        oldOptions, newOptions, Config::efRepair);
-                disallowChange(changedOptions, IndexOptions.HNSW_EXTEND_CANDIDATES,
-                        oldOptions, newOptions, Config::extendCandidates);
-                disallowChange(changedOptions, IndexOptions.HNSW_KEEP_PRUNED_CONNECTIONS,
-                        oldOptions, newOptions, Config::keepPrunedConnections);
-                disallowChange(changedOptions, IndexOptions.HNSW_USE_RABITQ,
-                        oldOptions, newOptions, Config::useRaBitQ);
-                disallowChange(changedOptions, IndexOptions.HNSW_RABITQ_NUM_EX_BITS,
-                        oldOptions, newOptions, Config::raBitQNumExBits);
-
-                // The following index options can be changed.
-                changedOptions.remove(IndexOptions.HNSW_SAMPLE_VECTOR_STATS_PROBABILITY);
-                changedOptions.remove(IndexOptions.HNSW_MAINTAIN_STATS_PROBABILITY);
-                changedOptions.remove(IndexOptions.HNSW_STATS_THRESHOLD);
-                changedOptions.remove(IndexOptions.HNSW_MAX_NUM_CONCURRENT_NODE_FETCHES);
-                changedOptions.remove(IndexOptions.HNSW_MAX_NUM_CONCURRENT_NEIGHBORHOOD_FETCHES);
-                changedOptions.remove(IndexOptions.HNSW_MAX_NUM_CONCURRENT_DELETE_FROM_LAYER);
+                // Let the engine handle its own options (removing the ones it accepts); anything it leaves in the set
+                // is rejected by the super implementation.
+                VectorIndexEngine.validateChangedOptions(oldIndex, index, changedOptions);
             }
             super.validateChangedOptions(oldIndex, changedOptions);
-        }
-
-        private <T> void disallowChange(@Nonnull final Set<String> changedOptions,
-                                        @Nonnull final String optionName,
-                                        @Nonnull final Config oldConfig, @Nonnull final Config newConfig,
-                                        Function<Config, T> extractorFunction) {
-            if (changedOptions.contains(optionName)) {
-                final T oldValue = extractorFunction.apply(oldConfig);
-                final T newValue = extractorFunction.apply(newConfig);
-                if (!oldValue.equals(newValue)) {
-                    throw new MetaDataException("attempted to change " + optionName +
-                            " from " + oldValue + " to " + newValue,
-                            LogMessageKeys.INDEX_NAME, index.getName());
-                }
-                changedOptions.remove(optionName);
-            }
         }
     }
 }

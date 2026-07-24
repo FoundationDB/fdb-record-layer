@@ -288,6 +288,11 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
+    public void keywordCaseInsensitivity(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("keyword-case-insensitivity.yamsql");
+    }
+
+    @TestTemplate
     public void nested(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("nested-tests.yamsql");
     }
@@ -477,6 +482,11 @@ public class YamlIntegrationTests {
     @TestTemplate
     public void validIdentifierTests(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("valid-identifiers.yamsql");
+    }
+
+    @TestTemplate
+    public void vectorMixedVersionMetadataTests(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("vector-mixed-version-metadata.yamsql");
     }
 
     @TestTemplate
