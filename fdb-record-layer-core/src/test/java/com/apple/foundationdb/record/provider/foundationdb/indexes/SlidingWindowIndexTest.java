@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.IndexBuildProto;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.IsolationLevel;
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.ScanProperties;
@@ -38,11 +39,13 @@ import com.apple.foundationdb.record.metadata.IndexPredicate;
 import com.apple.foundationdb.record.metadata.IndexPredicate.RowNumberWindowPredicate.Direction;
 import com.apple.foundationdb.record.metadata.IndexRecordFunction;
 import com.apple.foundationdb.record.metadata.Key;
+import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBIndexableRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBIndexedRawRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreTestBase;
+import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainer;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintenanceFilter;
@@ -57,12 +60,15 @@ import com.apple.foundationdb.record.provider.foundationdb.indexes.SlidingWindow
 import com.apple.foundationdb.record.provider.foundationdb.queue.PendingWritesQueue;
 import com.apple.foundationdb.record.query.QueryToKeyMatcher;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
+import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.slidingwindowvector.TestRecordsSlidingWindowVectorProto.SlidingWindowVectorRecord;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
 import com.google.common.collect.ImmutableList;
+import com.google.protobuf.Any;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Message;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
@@ -95,6 +101,12 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
     private static final int VECTOR_DIMS = 4;
 
     /**
+     * Primary key used when opening the store. Defaults to {@code rec_no}; a test may prefix it with a grouping
+     * field so that {@code deleteRecordsWhere} (which deletes by primary-key prefix) can target that group.
+     */
+    private KeyExpression primaryKey = Key.Expressions.field("rec_no");
+
+    /**
      * Opens a store with a sliding window HNSW index. No grouping.
      * Window key = relevance, index key = vector_data.
      */
@@ -111,7 +123,7 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
                            @Nonnull List<List<String>> groupingFields) throws Exception {
         createOrOpenRecordStore(context,
                 SlidingWindowTestHelpers.buildSlidingWindowVectorMetaData(
-                        INDEX_NAME, windowSize, VECTOR_DIMS, direction, groupingFields));
+                        INDEX_NAME, windowSize, VECTOR_DIMS, direction, groupingFields, primaryKey));
     }
 
     /**
@@ -134,6 +146,22 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
 
     private void deleteRec(long recNo) {
         recordStore.deleteRecord(Tuple.from(recNo));
+    }
+
+    /**
+     * Builds a stored record without saving it, for driving an index maintainer directly (e.g. a stub-backed
+     * {@link SlidingWindowIndexMaintainer}) without the real maintainer touching the same subspace.
+     */
+    @Nonnull
+    private FDBStoredRecord<Message> storedRec(final long recNo, final long relevance) {
+        final Message msg = SlidingWindowVectorRecord.newBuilder()
+                .setRecNo(recNo).setZone("z").setCategory("c").setRelevance(relevance).setScore(0)
+                .setVectorData(ByteString.copyFrom(sampleVector().getRawData()))
+                .build();
+        return FDBStoredRecord.newBuilder(msg)
+                .setPrimaryKey(Tuple.from(recNo))
+                .setRecordType(recordStore.getRecordMetaData().getRecordTypeForDescriptor(msg.getDescriptorForType()))
+                .build();
     }
 
     /**
@@ -1066,6 +1094,62 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
         }
     }
 
+    @Test
+    void deleteWhereClearsGroupWhileWriteOnlyWithQueue() throws Exception {
+        // Add deleteWhere to an active pending write queue. Perform in order during drain.
+        // deleteRecordsWhere deletes by primary-key prefix, so the primary key is prefixed by the group (zone).
+        primaryKey = Key.Expressions.concat(Key.Expressions.field("zone"), Key.Expressions.field("rec_no"));
+        final List<List<String>> grouping = ImmutableList.of(ImmutableList.of("zone"));
+
+        // Build the window while readable: group A = {1, 2}, group B = {3, 4}.
+        try (FDBRecordContext context = openContext()) {
+            openStore(context, 3, Direction.DESC, grouping);
+            rec(1, "A", "c", 100, 0, sampleVector());
+            rec(2, "A", "c", 200, 0, sampleVector());
+            rec(3, "B", "c", 300, 0, sampleVector());
+            rec(4, "B", "c", 400, 0, sampleVector());
+            assertThat(groupedSlidingWindow(Tuple.from("A"))).hasSizeOf(2).underlyingHnsw().containsInAnyOrder(1L, 2L);
+            assertThat(groupedSlidingWindow(Tuple.from("B"))).hasSizeOf(2).underlyingHnsw().containsInAnyOrder(3L, 4L);
+            commit(context);
+        }
+
+        // Defer writes onto the queue: an insert into each group, a range delete of group A, then an insert back into
+        // the just-deleted group A. Drained in order, the trailing insert must survive the range delete.
+        try (FDBRecordContext context = openContext()) {
+            openStore(context, 3, Direction.DESC, grouping);
+            recordStore.markIndexWriteOnlyWithQueue(INDEX_NAME).join();
+            assertTrue(recordStore.isIndexWriteOnlyWithQueue(INDEX_NAME));
+
+            rec(5, "A", "c", 150, 0, sampleVector());   // queued ahead of the delete
+            rec(6, "B", "c", 350, 0, sampleVector());   // queued ahead of the delete
+            recordStore.deleteRecordsWhere(Query.field("zone").equalsValue("A"));
+            rec(7, "A", "c", 175, 0, sampleVector());   // queued after the delete: must survive it
+            commit(context);
+        }
+
+        // Before the drain the queued writes are not applied yet: the window still reflects the readable build.
+        try (FDBRecordContext context = openContext()) {
+            openStore(context, 3, Direction.DESC, grouping);
+            assertTrue(recordStore.isIndexWriteOnlyWithQueue(INDEX_NAME));
+            assertThat(groupedSlidingWindow(Tuple.from("A"))).hasSizeOf(2).underlyingHnsw().containsInAnyOrder(1L, 2L);
+            assertThat(groupedSlidingWindow(Tuple.from("B"))).hasSizeOf(2).underlyingHnsw().containsInAnyOrder(3L, 4L);
+            commit(context);
+        }
+
+        // Build the index, which drains the queue and marks the index readable.
+        drainQueue(3, Direction.DESC, grouping);
+
+        try (FDBRecordContext context = openContext()) {
+            openStore(context, 3, Direction.DESC, grouping);
+            final Index index = index();
+            assertTrue(recordStore.isIndexReadable(index));
+            assertThat(groupedSlidingWindow(Tuple.from("A"))).hasSizeOf(1).underlyingHnsw().containsInAnyOrder(7L);
+            assertThat(groupedSlidingWindow(Tuple.from("B"))).hasSizeOf(3).underlyingHnsw().containsInAnyOrder(3L, 4L, 6L);
+            assertNull(queueSize(context, index), "the queue data should have been erased once the index became readable");
+            commit(context);
+        }
+    }
+
     // ===== updateWhileWriteOnly tests =====
 
     @Test
@@ -1119,6 +1203,64 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
                     .hasSizeOf(2)
                     .underlyingHnsw()
                     .containsInAnyOrder(1L, 2L);
+            commit(context);
+        }
+    }
+
+    @Test
+    void updateWhileWriteOnlyPreemptiveDeletes() throws Exception {
+        // The preemptive delete in updateWhileWriteOnly must touch the sliding-window, but not the delegate
+        try (FDBRecordContext context = openContext()) {
+            openStore(context, 3, Direction.DESC);
+            final Index index = recordStore.getRecordMetaData().getIndex(INDEX_NAME);
+            final IndexMaintainerState state = new IndexMaintainerState(
+                    recordStore, index, IndexMaintenanceFilter.NORMAL);
+            final CountingDelegate delegate = new CountingDelegate(state);
+            final SlidingWindowIndexMaintainer sw = new SlidingWindowIndexMaintainer(state, delegate);
+
+            // Fill a size-3 window with rec 1 and rec 2 (both in window).
+            sw.update(null, storedRec(1, 100)).join();
+            sw.update(null, storedRec(2, 200)).join();
+            assertEquals(2, delegate.inserts);
+            assertEquals(0, delegate.deletes);
+
+            // Re-present rec 2, already tracked, with no old record: exercises the preemptive delete.
+            delegate.inserts = 0;
+            delegate.deletes = 0;
+            sw.updateWhileWriteOnly(null, storedRec(2, 200)).join();
+
+            assertEquals(0, delegate.deletes);
+            assertEquals(1, delegate.inserts);
+            assertEquals(1, timer.getCount(SlidingWindowIndexMaintainer.SlidingWindowCounter.SW_PREEMPTIVE_DELETE_WRITE_ONLY));
+            commit(context);
+        }
+    }
+
+    @Test
+    void updateWhileWriteOnlySameWindowKeyRefreshesDelegate() throws Exception {
+        // An update that leaves the window key unchanged (same relevance, same primary key) but changes the
+        // vector must delete the old node from the delegate so the reinsert refreshes it.
+        try (FDBRecordContext context = openContext()) {
+            openStore(context, 3, Direction.DESC);
+            final Index index = recordStore.getRecordMetaData().getIndex(INDEX_NAME);
+            final IndexMaintainerState state = new IndexMaintainerState(
+                    recordStore, index, IndexMaintenanceFilter.NORMAL);
+            final CountingDelegate delegate = new CountingDelegate(state);
+            final SlidingWindowIndexMaintainer sw = new SlidingWindowIndexMaintainer(state, delegate);
+
+            // Index rec 2 at relevance 200 (simulating a prior range-scan insert).
+            sw.update(null, storedRec(2, 200)).join();
+            assertEquals(1, delegate.inserts);
+            assertEquals(0, delegate.deletes);
+
+            // In-place update at the same window key (relevance 200).
+            delegate.inserts = 0;
+            delegate.deletes = 0;
+            sw.updateWhileWriteOnly(storedRec(2, 200), storedRec(2, 200)).join();
+
+            assertEquals(1, delegate.deletes);
+            assertEquals(1, delegate.inserts);
+            assertEquals(0, timer.getCount(SlidingWindowIndexMaintainer.SlidingWindowCounter.SW_PREEMPTIVE_DELETE_WRITE_ONLY));
             commit(context);
         }
     }
@@ -1336,8 +1478,8 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
         final IndexPredicate.ConstantPredicate constant =
                 new IndexPredicate.ConstantPredicate(IndexPredicate.ConstantPredicate.ConstantValue.TRUE);
         final IndexPredicate or = new IndexPredicate.OrPredicate(List.of(qualify, constant));
-        org.junit.jupiter.api.Assertions.assertThrows(
-                com.apple.foundationdb.record.RecordCoreException.class,
+        Assertions.assertThrows(
+                RecordCoreException.class,
                 () -> IndexPredicate.validateRowNumberWindowPlacement(or));
     }
 
@@ -1349,8 +1491,8 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
                 new IndexPredicate.ConstantPredicate(IndexPredicate.ConstantPredicate.ConstantValue.TRUE);
         final IndexPredicate andWithQualify = new IndexPredicate.AndPredicate(List.of(qualify));
         final IndexPredicate or = new IndexPredicate.OrPredicate(List.of(andWithQualify, constant));
-        org.junit.jupiter.api.Assertions.assertThrows(
-                com.apple.foundationdb.record.RecordCoreException.class,
+        Assertions.assertThrows(
+                RecordCoreException.class,
                 () -> IndexPredicate.validateRowNumberWindowPlacement(or));
     }
 
@@ -1426,9 +1568,9 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
                     .containsInAnyOrder(1L, 2L);
 
             // canDeleteWhere — no group key → should return false
-            final com.apple.foundationdb.record.query.QueryToKeyMatcher matcher =
-                    new com.apple.foundationdb.record.query.QueryToKeyMatcher(
-                            com.apple.foundationdb.record.query.expressions.Query.field("zone")
+            final QueryToKeyMatcher matcher =
+                    new QueryToKeyMatcher(
+                            Query.field("zone")
                                     .equalsValue("A"));
             assertFalse(maintainer.canDeleteWhere(matcher, Key.Evaluated.scalar("A")));
 
@@ -1440,17 +1582,17 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
 
             // canEvaluateAggregateFunction
             assertFalse(maintainer.canEvaluateAggregateFunction(
-                    new com.apple.foundationdb.record.metadata.IndexAggregateFunction(
+                    new IndexAggregateFunction(
                             "test", Key.Expressions.field("rec_no"), index.getName())));
 
             // evaluateIndex
             final var rec = recordStore.loadRecord(Tuple.from(1L));
             assertNotNull(rec);
-            final List<com.apple.foundationdb.record.IndexEntry> entries = maintainer.evaluateIndex(rec);
+            final List<IndexEntry> entries = maintainer.evaluateIndex(rec);
             assertNotNull(entries);
 
             // filteredIndexEntries
-            final List<com.apple.foundationdb.record.IndexEntry> filtered =
+            final List<IndexEntry> filtered =
                     maintainer.filteredIndexEntries(recordStore.loadRecord(Tuple.from(1L)));
             assertNotNull(filtered);
 
@@ -1473,9 +1615,9 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
             final Index index = recordStore.getRecordMetaData().getIndex(INDEX_NAME);
             final IndexMaintainer maintainer = recordStore.getIndexMaintainer(index);
 
-            final com.apple.foundationdb.record.query.QueryToKeyMatcher matcher =
-                    new com.apple.foundationdb.record.query.QueryToKeyMatcher(
-                            com.apple.foundationdb.record.query.expressions.Query.field("zone")
+            final QueryToKeyMatcher matcher =
+                    new QueryToKeyMatcher(
+                            Query.field("zone")
                                     .equalsValue("A"));
             assertTrue(maintainer.canDeleteWhere(matcher, Key.Evaluated.scalar("A")));
             commit(context);
@@ -1624,6 +1766,32 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
         @Nonnull
         @Override
         public CompletableFuture<Void> mergeIndex() {
+            return AsyncUtil.DONE;
+        }
+    }
+
+    /**
+     * A {@link StubIndexMaintainer} that counts delegate insert/delete calls, so tests can assert which delegate
+     * operations a sliding-window mutation actually performs.
+     */
+    private static final class CountingDelegate extends StubIndexMaintainer {
+        private int inserts;
+        private int deletes;
+
+        CountingDelegate(@Nonnull IndexMaintainerState state) {
+            super(state);
+        }
+
+        @Nonnull
+        @Override
+        public <M extends Message> CompletableFuture<Void> update(@Nullable FDBIndexableRecord<M> oldRecord,
+                                                                  @Nullable FDBIndexableRecord<M> newRecord) {
+            if (oldRecord != null && newRecord == null) {
+                deletes++;
+            }
+            if (oldRecord == null && newRecord != null) {
+                inserts++;
+            }
             return AsyncUtil.DONE;
         }
     }
@@ -1819,6 +1987,454 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
             assertNull(queueSize(context, index), "the queue data should have been erased once the index became readable");
             commit(context);
         }
+    }
+
+    @Test
+    void writeOnlyWithQueueEvictsDuringDrain() throws Exception {
+        // Enqueue records in ascending relevance (primary-key order) so that later, higher-relevance
+        // records must evict earlier ones as the queue is drained.
+        try (FDBRecordContext context = openContext()) {
+            openStore(context, 2, Direction.DESC);
+            recordStore.markIndexWriteOnlyWithQueue(INDEX_NAME).join();
+            assertTrue(recordStore.isIndexWriteOnlyWithQueue(INDEX_NAME));
+
+            rec(1, 100);
+            rec(2, 200);
+            rec(3, 300);  // during drain: better than boundary, evicts rec1
+            rec(4, 400);  // during drain: better than boundary, evicts rec2
+            commit(context);
+        }
+
+        drainQueue(2, Direction.DESC);
+
+        try (FDBRecordContext context = openContext()) {
+            openStore(context, 2, Direction.DESC);
+            final Index index = index();
+            assertTrue(recordStore.isIndexReadable(index));
+            assertThat(slidingWindow())
+                    .hasSizeOf(2)
+                    .underlyingHnsw().containsInAnyOrder(3, 4);
+            assertNull(queueSize(context, index), "the queue data should have been erased once the index became readable");
+            commit(context);
+        }
+    }
+
+    @Test
+    void writeOnlyWithQueueDeleteOfWindowRecord() throws Exception {
+        // A delete enqueued while the index defers writes must remove the record from the window once drained.
+        try (FDBRecordContext context = openContext()) {
+            openStore(context, 3, Direction.DESC);
+            rec(1, 100);
+            rec(2, 200);
+            rec(3, 300);
+            assertThat(slidingWindow()).hasSizeOf(3).underlyingHnsw().containsInAnyOrder(1, 2, 3);
+            commit(context);
+        }
+
+        try (FDBRecordContext context = openContext()) {
+            openStore(context, 3, Direction.DESC);
+            recordStore.markIndexWriteOnlyWithQueue(INDEX_NAME).join();
+            deleteRec(2);  // in-window delete, deferred to the queue
+            assertNull(recordStore.loadRecord(Tuple.from(2L)));
+            commit(context);
+        }
+
+        drainQueue(3, Direction.DESC);
+
+        try (FDBRecordContext context = openContext()) {
+            openStore(context, 3, Direction.DESC);
+            final Index index = index();
+            assertTrue(recordStore.isIndexReadable(index));
+            assertThat(slidingWindow())
+                    .hasSizeOf(2)
+                    .underlyingHnsw().containsInAnyOrder(1, 3);
+            assertNull(queueSize(context, index), "the queue data should have been erased once the index became readable");
+            commit(context);
+        }
+    }
+
+    @Test
+    void writeOnlyWithQueueDeleteOfOverflowRecord() throws Exception {
+        // Deleting an overflow record through the queue must not disturb the window.
+        try (FDBRecordContext context = openContext()) {
+            openStore(context, 2, Direction.DESC);
+            rec(1, 100);
+            rec(2, 200);
+            rec(3, 50);  // overflow
+            assertThat(slidingWindow()).hasSizeOf(2).underlyingHnsw().containsInAnyOrder(1, 2);
+            commit(context);
+        }
+
+        try (FDBRecordContext context = openContext()) {
+            openStore(context, 2, Direction.DESC);
+            recordStore.markIndexWriteOnlyWithQueue(INDEX_NAME).join();
+            deleteRec(3);  // overflow delete, deferred to the queue
+            commit(context);
+        }
+
+        drainQueue(2, Direction.DESC);
+
+        try (FDBRecordContext context = openContext()) {
+            openStore(context, 2, Direction.DESC);
+            final Index index = index();
+            assertThat(slidingWindow())
+                    .hasSizeOf(2)
+                    .underlyingHnsw().containsInAnyOrder(1, 2);
+            assertNull(queueSize(context, index), "the queue data should have been erased once the index became readable");
+            commit(context);
+        }
+    }
+
+    @Test
+    void writeOnlyWithQueueUpdateMovesRecordOutOfWindow() throws Exception {
+        // An update (old + new both present, same primary key) enqueued while deferring writes must be
+        // reflected once drained: lowering rec1's relevance pushes it out of the window and re-elects rec3.
+        try (FDBRecordContext context = openContext()) {
+            openStore(context, 2, Direction.DESC);
+            rec(1, 200);
+            rec(2, 300);
+            rec(3, 100);  // overflow
+            assertThat(slidingWindow()).hasSizeOf(2).underlyingHnsw().containsInAnyOrder(1, 2);
+            commit(context);
+        }
+
+        try (FDBRecordContext context = openContext()) {
+            openStore(context, 2, Direction.DESC);
+            recordStore.markIndexWriteOnlyWithQueue(INDEX_NAME).join();
+            rec(1, 50);  // update: 200 -> 50, deferred to the queue
+            commit(context);
+        }
+
+        drainQueue(2, Direction.DESC);
+
+        try (FDBRecordContext context = openContext()) {
+            openStore(context, 2, Direction.DESC);
+            final Index index = index();
+            assertThat(slidingWindow())
+                    .hasSizeOf(2)
+                    .underlyingHnsw().containsInAnyOrder(2, 3);
+            assertNull(queueSize(context, index), "the queue data should have been erased once the index became readable");
+            commit(context);
+        }
+    }
+
+    @Test
+    void writeOnlyWithQueueGroupedRoutesPerGroup() throws Exception {
+        // Each partition maintains its own window when writes are deferred and later drained.
+        final List<List<String>> grouping = ImmutableList.of(ImmutableList.of("zone"));
+        try (FDBRecordContext context = openContext()) {
+            openStore(context, 2, Direction.DESC, grouping);
+            recordStore.markIndexWriteOnlyWithQueue(INDEX_NAME).join();
+            rec(1, "A", "c", 100, 0, sampleVector());
+            rec(2, "A", "c", 200, 0, sampleVector());
+            rec(3, "B", "c", 300, 0, sampleVector());
+            rec(4, "B", "c", 400, 0, sampleVector());
+            commit(context);
+        }
+
+        drainQueue(2, Direction.DESC, grouping);
+
+        try (FDBRecordContext context = openContext()) {
+            openStore(context, 2, Direction.DESC, grouping);
+            final Index index = index();
+            assertTrue(recordStore.isIndexReadable(index));
+            assertThat(groupedSlidingWindow(Tuple.from("A")))
+                    .hasSizeOf(2)
+                    .underlyingHnsw().containsInAnyOrder(1, 2);
+            assertThat(groupedSlidingWindow(Tuple.from("B")))
+                    .hasSizeOf(2)
+                    .underlyingHnsw().containsInAnyOrder(3, 4);
+            assertNull(queueSize(context, index), "the queue data should have been erased once the index became readable");
+            commit(context);
+        }
+    }
+
+    @Test
+    void writeOnlyWithQueueAscKeepsLowestAfterDrain() throws Exception {
+        // ASC direction: the window keeps the lowest-relevance records after the queue drains.
+        try (FDBRecordContext context = openContext()) {
+            openStore(context, 2, Direction.ASC);
+            recordStore.markIndexWriteOnlyWithQueue(INDEX_NAME).join();
+            rec(1, 100);
+            rec(2, 200);
+            rec(3, 300);
+            rec(4, 400);
+            commit(context);
+        }
+
+        drainQueue(2, Direction.ASC);
+
+        try (FDBRecordContext context = openContext()) {
+            openStore(context, 2, Direction.ASC);
+            final Index index = index();
+            assertThat(slidingWindow())
+                    .hasSizeOf(2)
+                    .underlyingHnsw().containsInAnyOrder(1, 2);
+            assertNull(queueSize(context, index), "the queue data should have been erased once the index became readable");
+            commit(context);
+        }
+    }
+
+    @Test
+    void writeOnlyWithQueueMixesLiveAndQueuedWrites() throws Exception {
+        // Records indexed live before the index starts deferring writes must be combined correctly with a
+        // later queued write: the queued rec3 evicts a live-indexed record when the queue is drained.
+        try (FDBRecordContext context = openContext()) {
+            openStore(context, 2, Direction.DESC);
+            rec(1, 100);
+            rec(2, 200);
+            assertThat(slidingWindow()).hasSizeOf(2).underlyingHnsw().containsInAnyOrder(1, 2);
+            commit(context);
+        }
+
+        try (FDBRecordContext context = openContext()) {
+            openStore(context, 2, Direction.DESC);
+            recordStore.markIndexWriteOnlyWithQueue(INDEX_NAME).join();
+            rec(3, 300);  // deferred; better than the current boundary
+            commit(context);
+        }
+
+        drainQueue(2, Direction.DESC);
+
+        try (FDBRecordContext context = openContext()) {
+            openStore(context, 2, Direction.DESC);
+            final Index index = index();
+            assertThat(slidingWindow())
+                    .hasSizeOf(2)
+                    .underlyingHnsw().containsInAnyOrder(2, 3);
+            assertNull(queueSize(context, index), "the queue data should have been erased once the index became readable");
+            commit(context);
+        }
+    }
+
+    @Test
+    void writeOnlyWithQueueUpdateOfUnindexedRecordLandsInWindow() throws Exception {
+        // A queued update, after drain, changes a value of an out-of-window record to
+        // become an in-window.
+        try (FDBRecordContext context = openContext()) {
+            openStore(context, 2, Direction.DESC);
+            rec(1, 100);   // below the window boundary (DESC keeps the highest relevance)
+            rec(2, 300);
+            rec(3, 200);
+            // rec 1 starts out of the window
+            assertThat(slidingWindow()).hasSizeOf(2).underlyingHnsw().containsInAnyOrder(2, 3);
+            commit(context);
+        }
+
+        try (FDBRecordContext context = openContext()) {
+            openStore(context, 2, Direction.DESC);
+            recordStore.markIndexWriteOnlyWithQueue(INDEX_NAME).join();
+            rec(1, 250);   // update 100 -> 250, deferred to the queue; now above rec 3
+            commit(context);
+        }
+
+        drainQueue(2, Direction.DESC);
+
+        try (FDBRecordContext context = openContext()) {
+            openStore(context, 2, Direction.DESC);
+            final Index index = index();
+            assertTrue(recordStore.isIndexReadable(index));
+            // rec 1 has entered the window and evicted rec 3
+            assertThat(slidingWindow())
+                    .hasSizeOf(2)
+                    .underlyingHnsw().containsInAnyOrder(1, 2);
+            assertNull(queueSize(context, index), "the queue data should have been erased once the index became readable");
+            commit(context);
+        }
+    }
+
+    @Test
+    void writeOnlyWithQueueUpdateOfUnindexedRecordLeavesWindow() throws Exception {
+        // A queued update, after drain, changes a value of an in-window record to
+        // become an out-of-window.
+        try (FDBRecordContext context = openContext()) {
+            openStore(context, 2, Direction.DESC);
+            rec(1, 400);
+            rec(2, 500);
+            rec(3, 300);   // just below the window boundary
+            // rec 1 starts inside the window
+            assertThat(slidingWindow()).hasSizeOf(2).underlyingHnsw().containsInAnyOrder(1, 2);
+            commit(context);
+        }
+
+        try (FDBRecordContext context = openContext()) {
+            openStore(context, 2, Direction.DESC);
+            recordStore.markIndexWriteOnlyWithQueue(INDEX_NAME).join();
+            rec(1, 100);   // update 400 -> 100, deferred to the queue; now below rec 3
+            commit(context);
+        }
+
+        drainQueue(2, Direction.DESC);
+
+        try (FDBRecordContext context = openContext()) {
+            openStore(context, 2, Direction.DESC);
+            final Index index = index();
+            assertTrue(recordStore.isIndexReadable(index));
+            // rec 1 has dropped out of the window and rec 3 has taken its place
+            assertThat(slidingWindow())
+                    .hasSizeOf(2)
+                    .underlyingHnsw().containsInAnyOrder(2, 3);
+            assertNull(queueSize(context, index), "the queue data should have been erased once the index became readable");
+            commit(context);
+        }
+    }
+
+    @Test
+    void writeOnlyWithQueueChainedUpdatesLandInWindow() throws Exception {
+        try (FDBRecordContext context = openContext()) {
+            openStore(context, 2, Direction.DESC);
+            recordStore.markIndexWriteOnlyWithQueue(INDEX_NAME).join();
+            rec(1, 100);
+            rec(1, 100);
+            rec(1, 200);
+            rec(1, 300);
+            rec(2, 250);    // competitor (window)
+            rec(3, 225);    // competitor (overflow)
+            commit(context);
+        }
+
+        drainQueue(2, Direction.DESC);
+
+        try (FDBRecordContext context = openContext()) {
+            openStore(context, 2, Direction.DESC);
+            final Index index = index();
+            assertTrue(recordStore.isIndexReadable(index));
+            assertThat(slidingWindow())
+                    .hasSizeOf(2)
+                    .underlyingHnsw().containsInAnyOrder(1, 2);
+            assertNull(queueSize(context, index), "the queue data should have been erased once the index became readable");
+            commit(context);
+        }
+    }
+
+    @Test
+    void writeOnlyWithQueueChainedUpdatesStayOutOfWindow() throws Exception {
+        try (FDBRecordContext context = openContext()) {
+            openStore(context, 2, Direction.DESC);
+            recordStore.markIndexWriteOnlyWithQueue(INDEX_NAME).join();
+            rec(1, 100);
+            rec(1, 100);
+            rec(1, 200);
+            rec(1, 300);
+            rec(2, 500);    // competitor (window)
+            rec(3, 400);    // competitor (window)
+            commit(context);
+        }
+
+        drainQueue(2, Direction.DESC);
+
+        try (FDBRecordContext context = openContext()) {
+            openStore(context, 2, Direction.DESC);
+            final Index index = index();
+            assertTrue(recordStore.isIndexReadable(index));
+            assertThat(slidingWindow())
+                    .hasSizeOf(2)
+                    .underlyingHnsw().containsInAnyOrder(2, 3);
+            assertNull(queueSize(context, index), "the queue data should have been erased once the index became readable");
+            commit(context);
+        }
+    }
+
+    @Test
+    void updateFromQueueReconstructsRecordFromSerializedBytes() throws Exception {
+        // Round-trips a record through serializePendingWriteQueue then updateFromQueue against an emptied index,
+        // confirming the record (including its primary key) is reconstructed from the serialized bytes alone.
+        try (FDBRecordContext context = openContext()) {
+            openStore(context, 3, Direction.DESC);
+            rec(1, 100);
+            final FDBStoredRecord<Message> stored = recordStore.loadRecord(Tuple.from(1L));
+            assertNotNull(stored);
+            final Any entry = maintainer().serializePendingWriteQueue(null, stored);
+
+            // Empty the index, then rebuild only this entry from its serialized payload.
+            recordStore.clearAndMarkIndexWriteOnly(index()).join();
+            assertThat(slidingWindow()).hasSizeOf(0);
+
+            maintainer().updateFromQueue(entry).join();
+
+            assertThat(slidingWindow())
+                    .as("the record must be reconstructed with its primary key from the serialized queue payload")
+                    .hasSizeOf(1)
+                    .underlyingHnsw().containsInAnyOrder(1);
+            commit(context);
+        }
+    }
+
+    @Test
+    void updateFromQueueAppliedTwiceIsIdempotent() throws Exception {
+        // Re-draining the same entry (e.g. a retried indexer) must leave the window unchanged, relying on the
+        // preemptive-delete-before-reinsert behavior of the write-only path.
+        try (FDBRecordContext context = openContext()) {
+            openStore(context, 3, Direction.DESC);
+            rec(1, 100);
+            rec(2, 200);
+            assertThat(slidingWindow()).hasSizeOf(2).underlyingHnsw().containsInAnyOrder(1, 2);
+
+            final FDBStoredRecord<Message> stored1 = recordStore.loadRecord(Tuple.from(1L));
+            assertNotNull(stored1);
+            final Any entry = maintainer().serializePendingWriteQueue(null, stored1);
+
+            maintainer().updateFromQueue(entry).join();
+            maintainer().updateFromQueue(entry).join();
+
+            assertThat(slidingWindow())
+                    .hasSizeOf(2)
+                    .underlyingHnsw().containsInAnyOrder(1, 2);
+            commit(context);
+        }
+    }
+
+    @Test
+    void canDeleteWhereWhileWriteOnlyWithQueue() throws Exception {
+        try (FDBRecordContext context = openContext()) {
+            openStore(context, 3, Direction.DESC, ImmutableList.of(ImmutableList.of("zone")));
+            recordStore.markIndexWriteOnlyWithQueue(INDEX_NAME).join();
+            assertTrue(recordStore.isIndexWriteOnlyWithQueue(INDEX_NAME));
+
+            final IndexMaintainer maintainer = maintainer();
+            final QueryToKeyMatcher matcher =
+                    new QueryToKeyMatcher(
+                            Query.field("zone")
+                                    .equalsValue("A"));
+            assertTrue(maintainer.canDeleteWhere(matcher, Key.Evaluated.scalar("A")),
+                    "deleteWhere must be allowed while writes are deferred to the pending queue");
+            commit(context);
+        }
+    }
+
+    /**
+     * Drains the pending write queue and finishes the index build via the online indexer, then commits.
+     */
+    private void drainQueue(int windowSize, @Nonnull Direction direction) throws Exception {
+        drainQueue(windowSize, direction, ImmutableList.of());
+    }
+
+    private void drainQueue(int windowSize, @Nonnull Direction direction,
+                            @Nonnull List<List<String>> groupingFields) throws Exception {
+        try (FDBRecordContext context = openContext()) {
+            openStore(context, windowSize, direction, groupingFields);
+            final Index index = index();
+            try (OnlineIndexer indexer = OnlineIndexer.newBuilder()
+                    .setRecordStore(recordStore)
+                    .setIndex(index)
+                    .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
+                            .setUsePendingWriteQueue(List.of(index))
+                            .build())
+                    .build()) {
+                indexer.buildIndex(true);
+            }
+            commit(context);
+        }
+    }
+
+    @Nonnull
+    private Index index() {
+        return recordStore.getRecordMetaData().getIndex(INDEX_NAME);
+    }
+
+    @Nonnull
+    private IndexMaintainer maintainer() {
+        return recordStore.getIndexMaintainer(index());
     }
 
     @Nullable

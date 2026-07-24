@@ -29,6 +29,7 @@ import com.apple.foundationdb.linear.RealVector;
 import com.apple.foundationdb.record.CursorStreamingMode;
 import com.apple.foundationdb.record.EndpointType;
 import com.apple.foundationdb.record.ExecuteProperties;
+import com.apple.foundationdb.record.IndexBuildProto;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.PipelineOperation;
@@ -61,6 +62,7 @@ import com.apple.foundationdb.tuple.TupleHelpers;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
+import com.google.protobuf.Any;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.Message;
@@ -312,10 +314,16 @@ public class VectorIndexMaintainer extends StandardIndexMaintainer {
                                                                           final boolean remove,
                                                                           @Nonnull final List<IndexEntry> indexEntries) {
         Verify.verify(indexEntries.size() == 1);
+        final IndexEntry indexEntry = indexEntries.get(0);
+        return updateIndexEntry(new IndexEntry(state.index, indexEntry.getKey(), indexEntry.getValue(),
+                savedRecord.getPrimaryKey()), remove);
+    }
+
+    @Nonnull
+    private CompletableFuture<Void> updateIndexEntry(@Nonnull final IndexEntry indexEntry, final boolean remove) {
         final KeyWithValueExpression keyWithValueExpression = getKeyWithValueExpression(state.index.getRootExpression());
         final int prefixSize = keyWithValueExpression.getColumnSize();
         final Subspace indexSubspace = getIndexSubspace();
-        final var indexEntry = indexEntries.get(0);
 
         final byte[] vectorBytes = indexEntry.getValue().getBytes(0);
         if (vectorBytes == null) {
@@ -333,7 +341,7 @@ public class VectorIndexMaintainer extends StandardIndexMaintainer {
             partitionSubspace = indexSubspace;
         }
         return state.context.doWithWriteLock(new LockIdentifier(partitionSubspace), () -> {
-            final List<Object> primaryKeyParts = Lists.newArrayList(savedRecord.getPrimaryKey().getItems());
+            final List<Object> primaryKeyParts = Lists.newArrayList(indexEntry.getPrimaryKey().getItems());
             state.index.trimPrimaryKey(primaryKeyParts);
             final Tuple trimmedPrimaryKey = Tuple.fromList(primaryKeyParts);
             final RealVector vector = RealVector.fromBytes(vectorBytes);
@@ -343,6 +351,68 @@ public class VectorIndexMaintainer extends StandardIndexMaintainer {
                 return getEngine().insert(state.context, partitionSubspace, trimmedPrimaryKey, vector);
             }
         });
+    }
+
+    @Override
+    public boolean isPendingWriteQueueAllowed() {
+        return true;
+    }
+
+    @Override
+    @Nonnull
+    public <M extends Message> Any serializePendingWriteQueue(@Nullable final FDBIndexableRecord<M> oldRecord,
+                                                              @Nullable final FDBIndexableRecord<M> newRecord) {
+        // Serialize the computed index entries rather than the whole record.
+        // The maintenance filter is applied here (via filteredIndexEntries), so filtered-out entries are never
+        // deferred onto the queue.
+        final IndexBuildProto.OldAndNewIndexEntries.Builder builder = IndexBuildProto.OldAndNewIndexEntries.newBuilder();
+        final List<IndexEntry> oldEntries = filteredIndexEntries(oldRecord);
+        if (oldEntries != null) {
+            Verify.verify(oldEntries.size() == 1);
+            builder.addOldEntries(toProto(oldEntries.get(0), oldRecord.getPrimaryKey()));
+        }
+        final List<IndexEntry> newEntries = filteredIndexEntries(newRecord);
+        if (newEntries != null) {
+            Verify.verify(newEntries.size() == 1);
+            builder.addNewEntries(toProto(newEntries.get(0), newRecord.getPrimaryKey()));
+        }
+        return Any.pack(builder.build());
+    }
+
+    @Override
+    @Nonnull
+    public CompletableFuture<Void> updateFromQueue(@Nonnull final Any data) {
+        final IndexBuildProto.OldAndNewIndexEntries entries;
+        try {
+            entries = data.unpack(IndexBuildProto.OldAndNewIndexEntries.class);
+        } catch (InvalidProtocolBufferException ex) {
+            throw new RecordCoreException("failed to parse vector index pending write queue entry data", ex);
+        }
+        CompletableFuture<Void> future = AsyncUtil.DONE;
+        for (final IndexBuildProto.IndexEntry entry : entries.getOldEntriesList()) {
+            future = future.thenCompose(ignore -> updateIndexEntry(fromProto(entry), true));
+        }
+        for (final IndexBuildProto.IndexEntry entry : entries.getNewEntriesList()) {
+            future = future.thenCompose(ignore -> updateIndexEntry(fromProto(entry), false));
+        }
+        return future;
+    }
+
+    @Nonnull
+    private IndexBuildProto.IndexEntry toProto(@Nonnull final IndexEntry entry, @Nonnull final Tuple primaryKey) {
+        return IndexBuildProto.IndexEntry.newBuilder()
+                .setKey(ByteString.copyFrom(entry.getKey().pack()))
+                .setValue(ByteString.copyFrom(entry.getValue().pack()))
+                .setPrimaryKey(ByteString.copyFrom(primaryKey.pack()))
+                .build();
+    }
+
+    @Nonnull
+    private IndexEntry fromProto(@Nonnull final IndexBuildProto.IndexEntry entry) {
+        return new IndexEntry(state.index,
+                Tuple.fromBytes(entry.getKey().toByteArray()),
+                Tuple.fromBytes(entry.getValue().toByteArray()),
+                Tuple.fromBytes(entry.getPrimaryKey().toByteArray()));
     }
 
     @Override

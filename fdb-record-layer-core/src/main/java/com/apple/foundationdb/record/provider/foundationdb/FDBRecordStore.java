@@ -117,6 +117,7 @@ import com.apple.foundationdb.util.LoggableException;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableMap;
+import com.google.protobuf.Any;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.InvalidProtocolBufferException;
@@ -778,12 +779,8 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             switch (indexState) {
                 case WRITE_ONLY_WITH_QUEUE:
                     // Push the old/new record to a write pending queue instead of updating the index directly. The
-                    // ongoing online indexer will drain the queue and perform the actual index update.
-                    if (!maintainer.isPendingWriteQueueAllowed()) {
-                        // The indexer should not have allowed the WRITE_ONLY_WITH_QUEUE index state for this maintainer.
-                        throw new RecordCoreException("index does not support the pending write queue")
-                                .addLogInfo(LogMessageKeys.INDEX_NAME, index.getName());
-                    }
+                    // ongoing online indexer will drain the queue and perform the actual index update. A maintainer that
+                    // does not support the queue will throw from serializePendingWriteQueue below.
                     future = IndexingPendingWriteQueue.enqueuePendingIndexUpdate(this, index,
                             IndexBuildProto.PendingWritesQueueEntry.newBuilder()
                                     .setOperation(IndexBuildProto.PendingWritesQueueEntry.Operation.UPDATE)
@@ -2249,13 +2246,25 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
 
             final List<CompletableFuture<Void>> futures = new ArrayList<>();
             final Tuple indexPrefix = indexEvaluated.toTuple();
-            for (IndexMaintainer index : indexMaintainers) {
+            for (IndexMaintainer indexMaintainer : indexMaintainers) {
                 final CompletableFuture<Void> future;
                 // Only need to check key expression in the case where a normal index has a different prefix.
-                if (TupleHelpers.equals(prefix, indexPrefix) || Key.Expressions.hasRecordTypePrefix(index.state.index.getRootExpression())) {
-                    future = index.deleteWhere(tr, prefix);
+                final Tuple prefixForIndex =
+                        (TupleHelpers.equals(prefix, indexPrefix) || Key.Expressions.hasRecordTypePrefix(indexMaintainer.state.index.getRootExpression()))
+                                ? prefix : indexPrefix;
+                if (getIndexState(indexMaintainer.state.index).isWriteOnlyWithQueue()) {
+                    // The index is being built and user writes are deferred onto the pending write queue. Defer this
+                    // prefix clear onto the same queue so that, when drained, it is applied in order relative to the
+                    // updates already queued for this prefix instead of racing them.
+                    future = IndexingPendingWriteQueue.enqueuePendingIndexUpdate(FDBRecordStore.this, indexMaintainer.state.index,
+                            IndexBuildProto.PendingWritesQueueEntry.newBuilder()
+                                    .setOperation(IndexBuildProto.PendingWritesQueueEntry.Operation.DELETE_WHERE)
+                                    .setData(Any.pack(IndexBuildProto.DeleteWhere.newBuilder()
+                                            .setPrefix(ByteString.copyFrom(prefixForIndex.pack()))
+                                            .build()))
+                                    .build());
                 } else {
-                    future = index.deleteWhere(tr, indexPrefix);
+                    future = indexMaintainer.deleteWhere(tr, prefixForIndex);
                 }
                 if (!MoreAsyncUtil.isCompletedNormally(future)) {
                     futures.add(future);

@@ -40,6 +40,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainer;
+import com.apple.foundationdb.record.provider.foundationdb.OnlineIndexer;
 import com.apple.foundationdb.record.provider.foundationdb.VectorIndexScanComparisons;
 import com.apple.foundationdb.record.provider.foundationdb.VectorIndexScanOptions;
 import com.apple.foundationdb.record.query.expressions.Query;
@@ -53,6 +54,8 @@ import com.google.common.collect.Maps;
 import com.google.common.collect.ObjectArrays;
 import com.google.common.collect.Sets;
 import com.google.common.primitives.Ints;
+import com.google.protobuf.Any;
+import com.google.protobuf.ByteString;
 import com.google.protobuf.Message;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -63,6 +66,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -460,5 +464,262 @@ abstract class VectorIndexEngineTestSuite extends VectorIndexTestBase {
         final VectorIndexMaintainerFactory factory = new VectorIndexMaintainerFactory();
         final Index vectorIndex = new Index("test", Key.Expressions.field("field"), IndexTypes.VECTOR);
         Assertions.assertThat(factory.getIndexGeneralAttributes(vectorIndex).isOptimizedForMutualIndexing()).isFalse();
+    }
+
+    @Test
+    void vectorIndexAllowsPendingWriteQueue() throws Exception {
+        // VectorIndexMaintainer.isPendingWriteQueueAllowed() returns true: a vector index may defer writes to the queue.
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context, this::addUngroupedVectorIndex);
+            final Index index = recordStore.getRecordMetaData().getIndex("UngroupedVectorIndex");
+            assertThat(recordStore.getIndexMaintainer(index).isPendingWriteQueueAllowed())
+                    .as("a vector index should allow the pending write queue")
+                    .isTrue();
+            commit(context);
+        }
+    }
+
+    @Test
+    void pendingWriteQueueRoundTripInsert() throws Exception {
+        // serializePendingWriteQueue(null, new) -> updateFromQueue re-inserts the entry into an emptied index.
+        final HalfRealVector vector = randomHalfVector(new Random(1L), 128);
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context, this::addUngroupedVectorIndex);
+            final Index index = recordStore.getRecordMetaData().getIndex("UngroupedVectorIndex");
+            final IndexMaintainer maintainer = recordStore.getIndexMaintainer(index);
+
+            final FDBStoredRecord<Message> stored = saveVectorRecord(1L, vector);
+            final Any entry = maintainer.serializePendingWriteQueue(null, stored);
+
+            // Empty the index, then rebuild only this entry from its serialized payload.
+            recordStore.clearAndMarkIndexWriteOnly(index).join();
+            maintainer.updateFromQueue(entry).join();
+
+            assertThat(nearestRecNos(index, vector, 10)).containsExactly(1L);
+            commit(context);
+        }
+    }
+
+    @Test
+    void pendingWriteQueueRoundTripDelete() throws Exception {
+        // serializePendingWriteQueue(old, null) -> updateFromQueue removes just that entry, leaving the witness intact.
+        final Random random = new Random(2L);
+        final HalfRealVector vector1 = randomHalfVector(random, 128);
+        final HalfRealVector vector2 = randomHalfVector(random, 128);
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context, this::addUngroupedVectorIndex);
+            final Index index = recordStore.getRecordMetaData().getIndex("UngroupedVectorIndex");
+            final IndexMaintainer maintainer = recordStore.getIndexMaintainer(index);
+
+            final FDBStoredRecord<Message> stored1 = saveVectorRecord(1L, vector1);
+            saveVectorRecord(2L, vector2); // witness that must survive
+            assertThat(nearestRecNos(index, vector1, 10)).containsExactlyInAnyOrder(1L, 2L);
+
+            final Any entry = maintainer.serializePendingWriteQueue(stored1, null);
+            maintainer.updateFromQueue(entry).join();
+
+            assertThat(nearestRecNos(index, vector1, 10)).containsExactly(2L);
+            commit(context);
+        }
+    }
+
+    @Test
+    void pendingWriteQueueRoundTripUpdate() throws Exception {
+        // serializePendingWriteQueue(old, new) for the same primary key -> updateFromQueue removes the old entry and
+        // adds the new one in place, actually repositioning pk 1 relative to the untouched witness.
+        // Uniform vectors make the ordering unambiguous, so a correct in-place update flips
+        // the nearest-neighbor order from {1, 2} to {2, 1}.
+        final HalfRealVector query = constantHalfVector(0.1f, 128);
+        final HalfRealVector witnessVector = constantHalfVector(0.5f, 128);
+        final HalfRealVector oldVector = constantHalfVector(0.11f, 128);
+        final HalfRealVector newVector = constantHalfVector(0.9f, 128);
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context, this::addUngroupedVectorIndex);
+            final Index index = recordStore.getRecordMetaData().getIndex("UngroupedVectorIndex");
+            final IndexMaintainer maintainer = recordStore.getIndexMaintainer(index);
+
+            saveVectorRecord(2L, witnessVector); // witness that must survive
+            final FDBStoredRecord<Message> oldStored = saveVectorRecord(1L, oldVector);
+            // Before the update pk 1 sits closest to the query, ahead of the witness.
+            assertThat(nearestRecNos(index, query, 10)).containsExactly(1L, 2L);
+
+            // Build the new version without saving it, so the index still holds oldVector when we serialize.
+            final Message newRecord = VectorRecord.newBuilder()
+                    .setRecNo(1L).setGroupId(0)
+                    .setVectorData(ByteString.copyFrom(newVector.getRawData()))
+                    .build();
+            final FDBStoredRecord<Message> newStored = FDBStoredRecord.newBuilder(newRecord)
+                    .setPrimaryKey(oldStored.getPrimaryKey())
+                    .setRecordType(oldStored.getRecordType())
+                    .build();
+
+            final Any entry = maintainer.serializePendingWriteQueue(oldStored, newStored);
+            maintainer.updateFromQueue(entry).join();
+
+            // pk 1 updated in place (no duplicate, no missing node) and repositioned: it is now further from the
+            // query than the untouched witness, so the nearest-neighbor order flips to {2, 1}.
+            assertThat(nearestRecNos(index, query, 10)).containsExactly(2L, 1L);
+            commit(context);
+        }
+    }
+
+    @Test
+    void updateFromQueueDeleteIsIdempotent() throws Exception {
+        // Re-draining a delete entry (e.g. a retried indexer) must be a harmless no-op the second time: HNSW.delete
+        // completes without error when the node is already gone.
+        final Random random = new Random(4L);
+        final HalfRealVector vector1 = randomHalfVector(random, 128);
+        final HalfRealVector vector2 = randomHalfVector(random, 128);
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context, this::addUngroupedVectorIndex);
+            final Index index = recordStore.getRecordMetaData().getIndex("UngroupedVectorIndex");
+            final IndexMaintainer maintainer = recordStore.getIndexMaintainer(index);
+
+            final FDBStoredRecord<Message> stored1 = saveVectorRecord(1L, vector1);
+            saveVectorRecord(2L, vector2); // witness that must survive
+
+            final Any entry = maintainer.serializePendingWriteQueue(stored1, null);
+            maintainer.updateFromQueue(entry).join();
+            maintainer.updateFromQueue(entry).join();
+
+            assertThat(nearestRecNos(index, vector1, 10)).containsExactly(2L);
+            commit(context);
+        }
+    }
+
+    @Test
+    void pendingWriteQueueSkipsNullVector() throws Exception {
+        // A record with null vector produces an entry with no vector; draining it is a no-op (updateIndexEntry
+        // short-circuits on the null vector) and must not disturb the rest of the index.
+        final Random random = new Random(5L);
+        final HalfRealVector vector1 = randomHalfVector(random, 128);
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context, this::addUngroupedVectorIndex);
+            final Index index = recordStore.getRecordMetaData().getIndex("UngroupedVectorIndex");
+            final IndexMaintainer maintainer = recordStore.getIndexMaintainer(index);
+
+            final FDBStoredRecord<Message> stored1 = saveVectorRecord(1L, vector1); // witness with a real vector
+            // A record with vector_data unset; build it without saving. Primary key is (group_id, rec_no).
+            final Message nullVectorRecord = VectorRecord.newBuilder().setRecNo(2L).setGroupId(0).build();
+            final FDBStoredRecord<Message> nullVectorStored = FDBStoredRecord.newBuilder(nullVectorRecord)
+                    .setPrimaryKey(Tuple.from(0L, 2L))
+                    .setRecordType(stored1.getRecordType())
+                    .build();
+
+            final Any entry = maintainer.serializePendingWriteQueue(null, nullVectorStored);
+            maintainer.updateFromQueue(entry).join();
+
+            assertThat(nearestRecNos(index, vector1, 10)).containsExactly(1L);
+            commit(context);
+        }
+    }
+
+    @Test
+    void writeOnlyWithQueueBuildsUngroupedVectorIndex() throws Exception {
+        // End-to-end: every insert is deferred to the pending write queue, then the online indexer builds the index
+        // (scanning records) and drains the queue, marking the index readable with high query recall.
+        final int size = 200;
+        final int k = 50;
+        final Random random = new Random(0xf00dL);
+        final HalfRealVector queryVector = randomHalfVector(random, 128);
+
+        final var recordGenerator = getRecordGenerator(random, 0.0d);
+        final List<FDBStoredRecord<Message>> savedRecords = new ArrayList<>();
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context, this::addUngroupedVectorIndex);
+            recordStore.markIndexWriteOnlyWithQueue("UngroupedVectorIndex").join();
+            for (long recNo = 0; recNo < size; recNo++) {
+                final Message generated = recordGenerator.apply(recNo);
+                savedRecords.add(recordStore.saveRecord(generated));
+            }
+            commit(context);
+        }
+
+        buildIndexAndDrainQueue("UngroupedVectorIndex", this::addUngroupedVectorIndex);
+
+        final Set<Long> expectedResults =
+                sortByDistances(savedRecords, queryVector, Metric.EUCLIDEAN_METRIC).stream()
+                        .limit(k)
+                        .map(nodeReferenceWithDistance -> nodeReferenceWithDistance.getPrimaryKey().getLong(0))
+                        .collect(ImmutableSet.toImmutableSet());
+        checkResults(createIndexPlan(queryVector, k, "UngroupedVectorIndex"), Integer.MAX_VALUE, expectedResults);
+    }
+
+    @Test
+    void deleteWhereThroughQueueOnGroupedVectorIndex() throws Exception {
+        // deleteRecordsWhere on a group prefix via pending write queue
+        final int size = 200;
+        final int k = 100;
+        final Random random = new Random(0xbeadL);
+        final HalfRealVector queryVector = randomHalfVector(random, 128);
+
+        final List<FDBStoredRecord<Message>> savedRecords =
+                saveRandomRecords(false, this::addGroupedVectorIndex, random, size);
+        final Map<Integer, List<Long>> randomRecords = groupAndSortByDistances(savedRecords, queryVector);
+        final Map<Integer, Set<Long>> expectedResults =
+                Maps.filterKeys(trueTopK(randomRecords, size), key -> Objects.requireNonNull(key) % 2 != 0);
+
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context, this::addGroupedVectorIndex);
+            recordStore.markIndexWriteOnlyWithQueue("GroupedVectorIndex").join();
+            recordStore.deleteRecordsWhere(Query.field("group_id").equalsValue(0));
+            commit(context);
+        }
+
+        buildIndexAndDrainQueue("GroupedVectorIndex", this::addGroupedVectorIndex);
+
+        checkResultsGrouped(createIndexPlan(queryVector, k, "GroupedVectorIndex"), Integer.MAX_VALUE, expectedResults);
+    }
+
+    @Nonnull
+    private FDBStoredRecord<Message> saveVectorRecord(final long recNo, @Nonnull final HalfRealVector vector) {
+        final Message rec = VectorRecord.newBuilder()
+                .setRecNo(recNo)
+                .setGroupId(0)
+                .setVectorData(ByteString.copyFrom(vector.getRawData()))
+                .build();
+        return recordStore.saveRecord(rec);
+    }
+
+    /**
+     * Direct (state-independent) probe of the index: the rec-nos of the {@code k} nearest neighbors of the query
+     * vector, read straight from the maintainer so it works even while the index is write-only.
+     */
+    @Nonnull
+    private List<Long> nearestRecNos(@Nonnull final Index index, @Nonnull final HalfRealVector queryVector, final int k) {
+        final IndexMaintainer maintainer = recordStore.getIndexMaintainer(index);
+        final var scanBounds = createVectorIndexScanComparisons(queryVector, k, VectorIndexScanOptions.empty())
+                .bind(recordStore, index, EvaluationContext.empty());
+        final ScanProperties scanProperties = ExecuteProperties.newBuilder()
+                .setIsolationLevel(IsolationLevel.SERIALIZABLE)
+                .setState(ExecuteState.NO_LIMITS)
+                .setReturnedRowLimit(Integer.MAX_VALUE).build().asScanProperties(false);
+        try (RecordCursor<IndexEntry> cursor = maintainer.scan(scanBounds, null, scanProperties)) {
+            return cursor.map(entry -> entry.getKey().getLong(1)).asList().join();
+        }
+    }
+
+    private void buildIndexAndDrainQueue(@Nonnull final String indexName,
+                                         @Nonnull final RecordMetaDataHook hook) throws Exception {
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context, hook);
+            final Index index = recordStore.getRecordMetaData().getIndex(indexName);
+            try (OnlineIndexer indexer = OnlineIndexer.newBuilder()
+                    .setRecordStore(recordStore)
+                    .setIndex(index)
+                    .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
+                            .setUsePendingWriteQueue(List.of(index))
+                            .build())
+                    .build()) {
+                indexer.buildIndex(true);
+            }
+            commit(context);
+        }
+
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context, hook);
+            assertThat(recordStore.isIndexReadable(recordStore.getRecordMetaData().getIndex(indexName))).isTrue();
+            commit(context);
+        }
     }
 }
