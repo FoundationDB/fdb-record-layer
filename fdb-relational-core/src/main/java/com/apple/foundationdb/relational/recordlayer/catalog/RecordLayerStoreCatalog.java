@@ -46,7 +46,6 @@ import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.catalog.CatalogValidator;
 import com.apple.foundationdb.relational.api.catalog.SchemaTemplateCatalog;
 import com.apple.foundationdb.relational.api.catalog.StoreCatalog;
-import com.apple.foundationdb.relational.util.catalog.KeySpaceProvider;
 import com.apple.foundationdb.relational.api.ddl.ProtobufDdlUtil;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
@@ -66,6 +65,7 @@ import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaT
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
+import com.apple.foundationdb.relational.util.catalog.KeySpaceProvider;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.ExtensionRegistry;
@@ -180,8 +180,18 @@ class RecordLayerStoreCatalog implements StoreCatalog, KeySpaceProvider {
                 schemaTemplateCatalog.createTemplate(createTxn, this.catalogSchemaTemplate);
             }
             this.schemaTemplateCatalog = schemaTemplateCatalog;
-            // Persist our hard-coded catalog schema.
-            saveSchema(createTxn, this.catalogSchema, true);
+            // Persist our hard-coded catalog schema — but only if it isn't already there. Every
+            // FRL construction and every proactive test-time initializer calls this method;
+            // writing the same schema row on every call turned every parallel init into a
+            // write-write commit conflict on the schema's record in the catalog. Gate on doesSchemaExist so the
+            // second and subsequent inits become read-only and can commit concurrently.
+            // We trust that the catalog's schema isn't changing, and so if it already exists we will continue to use
+            // that schema; without the check we would always replace (blindly, not upgrading). We should probably push
+            // this down into saveSchema, but that requires validating that the save is ok; deferring that until we have
+            // a comprehensive ddl evolution story.
+            if (!doesSchemaExist(createTxn, URI.create(this.catalogSchema.getDatabaseName()), this.catalogSchema.getName())) {
+                saveSchema(createTxn, this.catalogSchema, true);
+            }
         } catch (RecordCoreStorageException ex) {
             throw ExceptionUtil.toRelationalException(ex);
         }

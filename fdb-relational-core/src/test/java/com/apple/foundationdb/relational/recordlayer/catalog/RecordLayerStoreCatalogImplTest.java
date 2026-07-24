@@ -350,6 +350,28 @@ public class RecordLayerStoreCatalogImplTest extends RecordLayerStoreCatalogTest
     }
 
     @Test
+    void testTwoSimultaneousInitializationsDoNotConflict() throws RelationalException {
+        // With the catalog schema already present from @BeforeEach, two concurrent invocations of
+        // StoreCatalogProvider.getCatalog (which each call initialize -> saveSchema for the
+        // hard-coded catalog schema) must not race each other: both should observe the existing
+        // catalog row, skip the redundant write, and commit as read-only transactions. Prior to
+        // the idempotency check in initialize, both transactions wrote to the same primary key
+        // and the second commit failed with SERIALIZATION_FAILURE.
+        try (Transaction txn1 = new RecordContextTransaction(fdb.openContext());
+                Transaction txn2 = new RecordContextTransaction(fdb.openContext())) {
+            StoreCatalogProvider.getCatalog(txn1, keySpace);
+            StoreCatalogProvider.getCatalog(txn2, keySpace);
+            txn1.commit();
+            txn2.commit();
+        }
+
+        // The catalog schema should still be present.
+        try (Transaction txn = new RecordContextTransaction(fdb.openContext())) {
+            Assertions.assertTrue(storeCatalog.doesSchemaExist(txn, URI.create("/__SYS"), "CATALOG"));
+        }
+    }
+
+    @Test
     void testCreateSchemaWithSchemaTemplateVersionZero() throws RelationalException {
         // bad schema, schema_version must not be negative
         final Schema schema1 = generateTestSchema("test_schema_name", "/TEST/test_database_id", "test_template_name", 0);
