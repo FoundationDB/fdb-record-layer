@@ -2,12 +2,12 @@ arrays-tests:
 -   query: EXPLAIN select [x[1]] AS arr_1, [pk] AS arr_2 FROM F WHERE pk >= 1
     ref: arrays.yamsql:256
     explain: SCAN([IS F, [GREATER_THAN_OR_EQUALS promote(@c21 AS INT)]]) | MAP (array(promote(_.X[promote(@c21
-        AS INT)> AS INT AS X, DOUBLE AS Y, ARRAY(INT) AS Z)) AS ARR_1, array(promote(_.PK
+        AS INT)] AS INT AS X, DOUBLE AS Y, ARRAY(INT) AS Z)) AS ARR_1, array(promote(_.PK
         AS INT)) AS ARR_2)
-    task_count: 222
-    task_total_time_ms: 10
+    task_count: 240
+    task_total_time_ms: 5
     transform_count: 62
-    transform_time_ms: 4
+    transform_time_ms: 2
     transform_yield_count: 18
     insert_time_ms: 0
     insert_new_count: 21

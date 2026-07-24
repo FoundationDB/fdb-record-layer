@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.query.plan.cascades.rules;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.AbstractCascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
+import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionPartition;
 import com.apple.foundationdb.record.query.plan.cascades.FinalMemoizer;
@@ -48,6 +49,7 @@ import com.apple.foundationdb.record.query.plan.cascades.matching.structure.Expr
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.properties.ExpressionCountProperty;
 import com.apple.foundationdb.record.query.plan.cascades.properties.PredicateComplexityProperty;
+import com.apple.foundationdb.record.query.plan.cascades.properties.SelectMergeableProperty;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.google.common.collect.ImmutableList;
@@ -63,9 +65,10 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ExpressionsPartitionMatchers.argmin;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ExpressionsPartitionMatchers.expressionPartitions;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ExpressionsPartitionMatchers.rollUpPartitions;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ExpressionsPartitionMatchers.expressions;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ExpressionsPartitionMatchers.filterPartition;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ExpressionsPartitionMatchers.rollUpPartitionsTo;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ListMatcher.only;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.MultiMatcher.atLeastOne;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.forEachQuantifierWithoutDefaultOnEmptyOverRef;
@@ -187,22 +190,19 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
-public class PredicatePushDownRule extends AbstractCascadesRule<SelectExpression> implements ImplementationCascadesRule<SelectExpression> {
+public class PredicatePushDownRule extends AbstractCascadesRule<SelectExpression> implements ImplementationCascadesRule<SelectExpression>, CascadesRule.PostPruneRule<SelectExpression> {
     @Nonnull
     private static final BindingMatcher<RelationalExpression> childExpressionMatcher = anyExpression();
 
     @Nonnull
     private static final BindingMatcher<ExpressionPartition<RelationalExpression>> childPartitionsMatcher =
-            argmin(ExpressionsPartitionMatchers.<RelationalExpression>comparisonByPropertyList(
-                    ExpressionCountProperty.outerJoinCount(),
-                    ExpressionCountProperty.selectCount(),
-                    ExpressionCountProperty.tableFunctionCount(),
-                    PredicateComplexityProperty.predicateComplexity()
-            ), childExpressionMatcher);
+            expressions(only(childExpressionMatcher));
 
     @Nonnull
     private static final BindingMatcher<Reference> childReferenceMatcher =
-            expressionPartitions(rollUpPartitions(only(childPartitionsMatcher)));
+            expressionPartitions(filterPartition(partition -> !partition.getPartitionPropertyValue(SelectMergeableProperty.selectMergeable()),
+                    rollUpPartitionsTo(only(childPartitionsMatcher), SelectMergeableProperty.selectMergeable())));
+
 
     @Nonnull
     private static final CollectionMatcher<Quantifier.ForEach> quantifiersMatcher =

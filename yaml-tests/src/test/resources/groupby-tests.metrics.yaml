@@ -4,10 +4,10 @@ group-by-tests:
     ref: groupby-tests.yamsql:136
     explain: ISCAN(I1 <,>) | MAP ((_.COL1 AS COL1, _.COL2 AS COL2) AS _0) | AGG (avg_l(_._0.COL2)
         AS _0) GROUP BY (_._0.COL1 AS _0) | MAP (_._1._0 AS _0)
-    task_count: 299
-    task_total_time_ms: 11
-    transform_count: 76
-    transform_time_ms: 4
+    task_count: 325
+    task_total_time_ms: 15
+    transform_count: 75
+    transform_time_ms: 5
     transform_yield_count: 26
     insert_time_ms: 0
     insert_new_count: 29
@@ -18,10 +18,10 @@ group-by-tests:
     explain: ISCAN(I1 <,>) | MAP ((_.COL1 AS COL1, _.COL2 AS COL2) AS _0) | AGG (sum_l(_._0.COL2)
         AS _0, count(_._0.COL2) AS _1, avg_l(_._0.COL2) AS _2) GROUP BY (_._0.COL1
         AS _0) | MAP (_._1._0 / _._1._1 AS _0, _._1._2 AS _1)
-    task_count: 299
-    task_total_time_ms: 13
-    transform_count: 76
-    transform_time_ms: 3
+    task_count: 325
+    task_total_time_ms: 26
+    transform_count: 75
+    transform_time_ms: 8
     transform_yield_count: 26
     insert_time_ms: 0
     insert_new_count: 29
@@ -30,10 +30,10 @@ group-by-tests:
     ref: groupby-tests.yamsql:154
     explain: ISCAN(I1 <,>) | MAP ((_.COL1 AS COL1, _.COL2 AS COL2) AS _0) | AGG (max_l(_._0.COL2)
         AS _0) GROUP BY () | ON EMPTY NULL | MAP (_._0._0 AS _0)
-    task_count: 345
-    task_total_time_ms: 15
-    transform_count: 82
-    transform_time_ms: 4
+    task_count: 381
+    task_total_time_ms: 27
+    transform_count: 81
+    transform_time_ms: 6
     transform_yield_count: 29
     insert_time_ms: 0
     insert_new_count: 37
@@ -42,10 +42,10 @@ group-by-tests:
     ref: groupby-tests.yamsql:158
     explain: ISCAN(I1 <,>) | MAP ((_.COL1 AS COL1, _.COL2 AS COL2) AS _0) | AGG (min_l(_._0.COL2)
         AS _0) GROUP BY () | ON EMPTY NULL | MAP (_._0._0 AS _0)
-    task_count: 345
-    task_total_time_ms: 28
-    transform_count: 82
-    transform_time_ms: 7
+    task_count: 381
+    task_total_time_ms: 24
+    transform_count: 81
+    transform_time_ms: 6
     transform_yield_count: 29
     insert_time_ms: 0
     insert_new_count: 37
@@ -55,10 +55,10 @@ group-by-tests:
     explain: ISCAN(I1 <,>) | MAP ((_.COL1 AS COL1, _.COL2 AS COL2) AS _0) | AGG (count(_._0.COL2)
         AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l
         AS LONG)) AS _0)
-    task_count: 345
-    task_total_time_ms: 20
-    transform_count: 82
-    transform_time_ms: 4
+    task_count: 381
+    task_total_time_ms: 30
+    transform_count: 81
+    transform_time_ms: 10
     transform_yield_count: 29
     insert_time_ms: 0
     insert_new_count: 37
@@ -67,34 +67,34 @@ group-by-tests:
     ref: groupby-tests.yamsql:166
     explain: ISCAN(I1 <,>) | MAP ((_.COL1 AS COL1, _.COL2 AS COL2) AS _0) | AGG (avg_l(_._0.COL2)
         AS _0) GROUP BY () | ON EMPTY NULL | MAP (_._0._0 AS _0)
-    task_count: 345
-    task_total_time_ms: 10
-    transform_count: 82
-    transform_time_ms: 3
+    task_count: 381
+    task_total_time_ms: 28
+    transform_count: 81
+    transform_time_ms: 9
     transform_yield_count: 29
     insert_time_ms: 0
     insert_new_count: 37
     insert_reused_count: 4
 -   query: EXPLAIN select COUNT(*) from T1;
     ref: groupby-tests.yamsql:185
-    explain: ISCAN(I1 <,>) | MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY
-        NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)
-    task_count: 319
-    task_total_time_ms: 10
+    explain: ISCAN(I1 <,>) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY ()
+        | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)
+    task_count: 353
+    task_total_time_ms: 23
     transform_count: 76
-    transform_time_ms: 3
+    transform_time_ms: 6
     transform_yield_count: 27
     insert_time_ms: 0
     insert_new_count: 33
     insert_reused_count: 4
 -   query: EXPLAIN select COUNT(col1) from T1;
     ref: groupby-tests.yamsql:189
-    explain: ISCAN(I1 <,>) | MAP (_ AS _0) | AGG (count(_._0.COL1) AS _0) | ON EMPTY
-        NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)
-    task_count: 319
-    task_total_time_ms: 14
+    explain: ISCAN(I1 <,>) | MAP (_ AS _0) | AGG (count(_._0.COL1) AS _0) GROUP BY
+        () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)
+    task_count: 353
+    task_total_time_ms: 19
     transform_count: 76
-    transform_time_ms: 5
+    transform_time_ms: 4
     transform_yield_count: 27
     insert_time_ms: 0
     insert_new_count: 33
@@ -105,12 +105,12 @@ group-by-tests:
         EQUALS promote(@c14 AS LONG) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP
         BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS
         _0)
-    task_count: 1075
-    task_total_time_ms: 25
+    task_count: 1212
+    task_total_time_ms: 86
     transform_count: 260
-    transform_time_ms: 8
+    transform_time_ms: 26
     transform_yield_count: 71
-    insert_time_ms: 0
+    insert_time_ms: 3
     insert_new_count: 146
     insert_reused_count: 17
 -   query: EXPLAIN SELECT COUNT(*) from T1 WHERE col1 = 20 or col2 = 10
@@ -119,11 +119,11 @@ group-by-tests:
         EQUALS promote(@c14 AS LONG) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP
         BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS
         _0)
-    task_count: 1075
-    task_total_time_ms: 25
+    task_count: 1212
+    task_total_time_ms: 86
     transform_count: 260
-    transform_time_ms: 8
+    transform_time_ms: 26
     transform_yield_count: 71
-    insert_time_ms: 0
+    insert_time_ms: 3
     insert_new_count: 146
     insert_reused_count: 17

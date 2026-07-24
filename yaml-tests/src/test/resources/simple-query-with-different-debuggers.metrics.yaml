@@ -3,7 +3,7 @@ simple-query-with-different-debuggers:
     ref: simple-query-with-different-debuggers.yamsql:39
     explain: SCAN([IS T1, [GREATER_THAN promote(@c9 AS LONG)]]) | MAP (_.ID AS ID,
         _.COL1 AS COL1)
-    task_count: 206
+    task_count: 224
     task_total_time_ms: 3
     transform_count: 57
     transform_time_ms: 1
@@ -15,7 +15,7 @@ simple-query-with-different-debuggers:
     ref: simple-query-with-different-debuggers.yamsql:45
     explain: SCAN([IS T1, [GREATER_THAN promote(@c9 AS LONG)]]) | MAP (_.ID AS ID,
         _.COL2 AS COL2)
-    task_count: 206
+    task_count: 224
     task_total_time_ms: 7
     transform_count: 57
     transform_time_ms: 3
@@ -27,11 +27,11 @@ simple-query-with-different-debuggers:
     ref: simple-query-with-different-debuggers.yamsql:51
     explain: SCAN([IS T1, [GREATER_THAN promote(@c9 AS LONG)]]) | MAP (_.ID AS ID,
         _.COL3 AS COL3)
-    task_count: 206
-    task_total_time_ms: 47
+    task_count: 224
+    task_total_time_ms: 69
     transform_count: 57
     transform_time_ms: 6
     transform_yield_count: 16
-    insert_time_ms: 0
+    insert_time_ms: 2
     insert_new_count: 17
     insert_reused_count: 1

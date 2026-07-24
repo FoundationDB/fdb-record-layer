@@ -3,17 +3,18 @@ union-tests:
         as b from t1 union all select sum(col1) as a, count(*) as b from t2) as x
     ref: union.yamsql:61
     explain: ISCAN(VI1 <,>) | MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0, count_star(*)
-        AS _1) | ON EMPTY NULL | MAP (_._0._0 AS A, coalesce_long(_._0._1, promote(0l
-        AS LONG)) AS B) ⊎ SCAN([IS T2]) | MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS
-        _0, count_star(*) AS _1) | ON EMPTY NULL | MAP (_._0._0 AS A, coalesce_long(_._0._1,
-        promote(0l AS LONG)) AS B) | MAP (_ AS _0) | AGG (sum_l(_._0.A) AS _0, sum_l(_._0.B)
-        AS _1) | ON EMPTY NULL | MAP (_._0._0 AS A, _._0._1 AS B)
-    task_count: 739
-    task_total_time_ms: 18
+        AS _1) GROUP BY () | ON EMPTY NULL | MAP (_._0._0 AS A, coalesce_long(_._0._1,
+        promote(0l AS LONG)) AS B) ⊎ SCAN([IS T2]) | MAP (_ AS _0) | AGG (sum_l(_._0.COL1)
+        AS _0, count_star(*) AS _1) GROUP BY () | ON EMPTY NULL | MAP (_._0._0 AS
+        A, coalesce_long(_._0._1, promote(0l AS LONG)) AS B) | MAP (_ AS _0) | AGG
+        (sum_l(_._0.A) AS _0, sum_l(_._0.B) AS _1) GROUP BY () | ON EMPTY NULL | MAP
+        (_._0._0 AS A, _._0._1 AS B)
+    task_count: 811
+    task_total_time_ms: 33
     transform_count: 180
-    transform_time_ms: 5
+    transform_time_ms: 9
     transform_yield_count: 53
-    insert_time_ms: 0
+    insert_time_ms: 1
     insert_new_count: 70
     insert_reused_count: 6
 -   query: EXPLAIN select sum(Y) as S from (select count(*) as Y from t3 where a <
@@ -24,10 +25,10 @@ union-tests:
         AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l
         AS LONG)) AS _0) | MAP (_ AS _0) | AGG (sum_l(_._0.Y) AS _0) GROUP BY () |
         ON EMPTY NULL | MAP (_._0._0 AS S)'
-    task_count: 760
-    task_total_time_ms: 59
-    transform_count: 208
-    transform_time_ms: 22
+    task_count: 820
+    task_total_time_ms: 41
+    transform_count: 207
+    transform_time_ms: 17
     transform_yield_count: 55
     insert_time_ms: 0
     insert_new_count: 65
@@ -41,10 +42,10 @@ union-tests:
         AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l
         AS LONG)) AS _0) | MAP (_ AS _0) | AGG (sum_l(_._0.Y) AS _0) GROUP BY () |
         ON EMPTY NULL | MAP (_._0._0 AS S)'
-    task_count: 849
-    task_total_time_ms: 57
-    transform_count: 212
-    transform_time_ms: 15
+    task_count: 932
+    task_total_time_ms: 66
+    transform_count: 211
+    transform_time_ms: 22
     transform_yield_count: 65
     insert_time_ms: 1
     insert_new_count: 82
@@ -57,10 +58,10 @@ union-tests:
         <,> BY_GROUP -> [_0: VALUE:[0]]) | MAP (_ AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0,
         promote(0l AS LONG)) AS _0) | MAP (_ AS _0) | AGG (sum_l(_._0.Y) AS _0) GROUP
         BY () | ON EMPTY NULL | MAP (_._0._0 AS S)'
-    task_count: 831
-    task_total_time_ms: 24
-    transform_count: 220
-    transform_time_ms: 11
+    task_count: 904
+    task_total_time_ms: 60
+    transform_count: 219
+    transform_time_ms: 23
     transform_yield_count: 62
     insert_time_ms: 1
     insert_new_count: 74

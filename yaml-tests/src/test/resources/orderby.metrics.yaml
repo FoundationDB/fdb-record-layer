@@ -1,46 +1,46 @@
 orderby-tests:
 -   query: EXPLAIN select c from t1 order by b
     ref: orderby.yamsql:248
-    explain: 'COVERING(I1 <,> -> [A: KEY[2], B: KEY[0], C: VALUE[0]]) | MAP (_.C AS
-        C, _.B AS B) | MAP (_.C AS C)'
-    task_count: 302
-    task_total_time_ms: 22
+    explain: 'COVERING(I1 <,> -> [A: KEY:[2], B: KEY:[0], C: VALUE:[0]]) | MAP (_.C
+        AS C, _.B AS B) | MAP (_.C AS C)'
+    task_count: 329
+    task_total_time_ms: 17
     transform_count: 77
-    transform_time_ms: 11
+    transform_time_ms: 9
     transform_yield_count: 36
     insert_time_ms: 0
     insert_new_count: 25
     insert_reused_count: 2
 -   query: EXPLAIN select b from t1 order by c
     ref: orderby.yamsql:252
-    explain: 'COVERING(I2 <,> -> [A: KEY[2], B: VALUE[0], C: KEY[0]]) | MAP (_.B AS
-        B, _.C AS C) | MAP (_.B AS B)'
-    task_count: 407
-    task_total_time_ms: 240
+    explain: 'COVERING(I2 <,> -> [A: KEY:[2], B: VALUE:[0], C: KEY:[0]]) | MAP (_.B
+        AS B, _.C AS C) | MAP (_.B AS B)'
+    task_count: 456
+    task_total_time_ms: 32
     transform_count: 94
-    transform_time_ms: 198
+    transform_time_ms: 12
     transform_yield_count: 43
-    insert_time_ms: 7
+    insert_time_ms: 1
     insert_new_count: 41
     insert_reused_count: 4
 -   query: EXPLAIN select c from t1 order by b desc
     ref: orderby.yamsql:257
-    explain: 'COVERING(I1 <,> REVERSE -> [A: KEY[2], B: KEY[0], C: VALUE[0]]) | MAP
-        (_.C AS C, _.B AS B) | MAP (_.C AS C)'
-    task_count: 302
+    explain: 'COVERING(I1 <,> REVERSE -> [A: KEY:[2], B: KEY:[0], C: VALUE:[0]]) |
+        MAP (_.C AS C, _.B AS B) | MAP (_.C AS C)'
+    task_count: 329
     task_total_time_ms: 14
     transform_count: 77
-    transform_time_ms: 8
+    transform_time_ms: 5
     transform_yield_count: 36
     insert_time_ms: 0
     insert_new_count: 25
     insert_reused_count: 2
 -   query: EXPLAIN select b from t1 order by c desc
     ref: orderby.yamsql:261
-    explain: 'COVERING(I2 <,> REVERSE -> [A: KEY[2], B: VALUE[0], C: KEY[0]]) | MAP
-        (_.B AS B, _.C AS C) | MAP (_.B AS B)'
-    task_count: 407
-    task_total_time_ms: 36
+    explain: 'COVERING(I2 <,> REVERSE -> [A: KEY:[2], B: VALUE:[0], C: KEY:[0]]) |
+        MAP (_.B AS B, _.C AS C) | MAP (_.B AS B)'
+    task_count: 456
+    task_total_time_ms: 46
     transform_count: 94
     transform_time_ms: 16
     transform_yield_count: 43
@@ -49,12 +49,12 @@ orderby-tests:
     insert_reused_count: 4
 -   query: EXPLAIN select c, b from t5 order by c, b desc;
     ref: orderby.yamsql:266
-    explain: 'COVERING(I8 <,> -> [A: KEY[3], B: from_ordered_bytes(KEY:[1], DESC_NULLS_LAST),
-        C: KEY[0]]) | MAP (_.C AS C, _.B AS B)'
-    task_count: 210
-    task_total_time_ms: 18
+    explain: 'COVERING(I8 <,> -> [A: KEY:[3], B: from_ordered_bytes(KEY:[1], DESC_NULLS_LAST),
+        C: KEY:[0]]) | MAP (_.C AS C, _.B AS B)'
+    task_count: 231
+    task_total_time_ms: 14
     transform_count: 53
-    transform_time_ms: 9
+    transform_time_ms: 7
     transform_yield_count: 22
     insert_time_ms: 0
     insert_new_count: 20
@@ -62,10 +62,10 @@ orderby-tests:
 -   query: EXPLAIN select q as "nested", q.a as "ordered" from t2 order by "ordered"
     ref: orderby.yamsql:272
     explain: ISCAN(I4 <,>) | MAP (_.Q AS nested, _.Q.A AS ordered)
-    task_count: 194
-    task_total_time_ms: 11
+    task_count: 210
+    task_total_time_ms: 10
     transform_count: 53
-    transform_time_ms: 6
+    transform_time_ms: 5
     transform_yield_count: 26
     insert_time_ms: 0
     insert_new_count: 17
@@ -74,10 +74,10 @@ orderby-tests:
         t2) as T order by "ordered"
     ref: orderby.yamsql:282
     explain: ISCAN(I4 <,>) | MAP ((_.Q AS nested, _.Q.A AS ordered) AS T)
-    task_count: 220
-    task_total_time_ms: 16
-    transform_count: 59
-    transform_time_ms: 7
+    task_count: 238
+    task_total_time_ms: 13
+    transform_count: 58
+    transform_time_ms: 6
     transform_yield_count: 28
     insert_time_ms: 0
     insert_new_count: 21
@@ -85,10 +85,10 @@ orderby-tests:
 -   query: EXPLAIN select (*) from t2_func() order by "ordered"
     ref: orderby.yamsql:288
     explain: ISCAN(I4 <,>) | MAP ((_.Q AS nesting, _.Q.A AS ordered) AS T2_FUNC)
-    task_count: 220
-    task_total_time_ms: 33
-    transform_count: 59
-    transform_time_ms: 15
+    task_count: 238
+    task_total_time_ms: 14
+    transform_count: 58
+    transform_time_ms: 9
     transform_yield_count: 28
     insert_time_ms: 0
     insert_new_count: 21
