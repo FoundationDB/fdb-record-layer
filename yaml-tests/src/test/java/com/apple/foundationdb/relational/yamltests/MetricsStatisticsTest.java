@@ -210,6 +210,28 @@ class MetricsStatisticsTest {
     }
 
     @Test
+    void testSortedPercentDiffs() {
+        // base=[10,20,30,40,50], head=[12,22,32,42,52] → diff=2 each
+        // pcts = [20.0, 10.0, 6.67, 5.0, 4.0] → sorted ascending: [4.0, 5.0, 6.67, 10.0, 20.0]
+        final var stats = MetricsStatistics.newBuilder()
+                .addDifference("task_count", 10L, 12L)
+                .addDifference("task_count", 20L, 22L)
+                .addDifference("task_count", 30L, 32L)
+                .addDifference("task_count", 40L, 42L)
+                .addDifference("task_count", 50L, 52L)
+                .build();
+
+        final var fieldStats = stats.getFieldStatistics("task_count");
+        assertThat(fieldStats.sortedPercentDiffs).hasSize(5);
+        assertThat(fieldStats.sortedPercentDiffs.get(0)).isCloseTo(4.0, offset(0.01));   // 2/50*100
+        assertThat(fieldStats.sortedPercentDiffs.get(4)).isCloseTo(20.0, offset(0.01));  // 2/10*100
+        for (int i = 0; i < fieldStats.sortedPercentDiffs.size() - 1; i++) {
+            assertThat(fieldStats.sortedPercentDiffs.get(i))
+                    .isLessThanOrEqualTo(fieldStats.sortedPercentDiffs.get(i + 1));
+        }
+    }
+
+    @Test
     void testZeroValues() {
         final var builder = new MetricsStatistics.Builder();
 
