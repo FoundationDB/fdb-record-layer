@@ -1,11 +1,11 @@
-ž
+›
 R
-arrays-testsBEXPLAIN select [x[1]] AS arr_1, [pk] AS arr_2 FROM F WHERE pk >= 1Ç
-Þ¸õå> Èà®(0·Š%8@ÆSCAN([IS F, [GREATER_THAN_OR_EQUALS promote(@c21 AS INT)]]) | MAP (array(promote(_.X[promote(@c21 AS INT)> AS INT AS X, DOUBLE AS Y, ARRAY(INT) AS Z)) AS ARR_1, array(promote(_.PK AS INT)) AS ARR_2)àdigraph G {
+arrays-testsBEXPLAIN select [x[1]] AS arr_1, [pk] AS arr_2 FROM F WHERE pk >= 1Ä
+ðÔÉÔ> µèŒ(0ûÅ8@ÆSCAN([IS F, [GREATER_THAN_OR_EQUALS promote(@c21 AS INT)]]) | MAP (array(promote(_.X[promote(@c21 AS INT)] AS INT AS X, DOUBLE AS Y, ARRAY(INT) AS Z)) AS ARR_1, array(promote(_.PK AS INT)) AS ARR_2)Ýdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (array(promote(q2.X[promote(@c21 AS INT)&gt; AS INT AS X, DOUBLE AS Y, ARRAY(INT) AS Z)) AS ARR_1, array(promote(q2.PK AS INT)) AS ARR_2)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(ARRAY(INT AS X, DOUBLE AS Y, ARRAY(INT) AS Z) AS ARR_1, ARRAY(INT) AS ARR_2)" ];
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (array(promote(q2.X[promote(@c21 AS INT)] AS INT AS X, DOUBLE AS Y, ARRAY(INT) AS Z)) AS ARR_1, array(promote(q2.PK AS INT)) AS ARR_2)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(ARRAY(INT AS X, DOUBLE AS Y, ARRAY(INT) AS Z) AS ARR_1, ARRAY(INT) AS ARR_2)" ];
   2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">comparisons: [IS F, [GREATER_THAN_OR_EQUALS promote(@c21 AS INT)]]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS PK, ARRAY(INT AS X, DOUBLE AS Y, ARRAY(INT) AS Z) AS X)" ];
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [A, B, C, D, E, F, G, A_NOT_NULL, A_NULL]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(INT AS PK, ARRAY(INT AS X, DOUBLE AS Y, ARRAY(INT) AS Z) AS X)" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];

@@ -521,6 +521,10 @@ public class PlannerGraphVisitor implements SimpleExpressionVisitor<PlannerGraph
                             .stream()
                             .map(childGraph -> {
                                 final Node root = childGraph.getRoot();
+                                @Nullable final RelationalExpression memberExpression =
+                                        root instanceof PlannerGraph.WithExpression
+                                        ? ((PlannerGraph.WithExpression)root).getExpression()
+                                        : null;
                                 final Optional<String> debugNameOptional =
                                         Debugger.mapDebugger(debugger -> {
                                             if (root instanceof PlannerGraph.WithExpression) {
@@ -531,9 +535,13 @@ public class PlannerGraphVisitor implements SimpleExpressionVisitor<PlannerGraph
                                             return null;
                                         });
 
+                                //
+                                // Color the reference member circle by whether the expression is exploratory (blue)
+                                // or final (orange) in this reference. Fall back to white when membership is unknown.
+                                //
+                                final String fillColor = memberFillColor(ref, memberExpression);
                                 final Node member =
-                                        debugNameOptional.map(PlannerGraph.ReferenceMemberNode::new)
-                                                .orElse(new PlannerGraph.ReferenceMemberNode());
+                                        new PlannerGraph.ReferenceMemberNode(debugNameOptional.orElse("m"), fillColor);
                                 return PlannerGraph.builder(member)
                                         .addGraph(childGraph)
                                         .addEdge(root, member, new PlannerGraph.ReferenceEdge())
@@ -549,5 +557,28 @@ public class PlannerGraphVisitor implements SimpleExpressionVisitor<PlannerGraph
         } else { // !renderSingleGroups && memberResults.size() == 1
             return Iterables.getOnlyElement(memberResults);
         }
+    }
+
+    /**
+     * Determine the fill color for a reference member circle based on whether the member expression is exploratory
+     * or final within the given reference: exploratory expressions are shown in indigo, final expressions in orange.
+     * Members whose membership cannot be determined (e.g. {@code null} expression) are left white.
+     * @param ref the reference the member belongs to
+     * @param memberExpression the member expression, or {@code null} if unknown
+     * @return the fill color to use for the member node
+     */
+    @Nonnull
+    private static String memberFillColor(@Nonnull final Reference ref,
+                                          @Nullable final RelationalExpression memberExpression) {
+        if (memberExpression == null) {
+            return "white";
+        }
+        if (ref.getExploratoryExpressions().contains(memberExpression)) {
+            return "#4b0082";
+        }
+        if (ref.getFinalExpressions().contains(memberExpression)) {
+            return "orange";
+        }
+        return "white";
     }
 }

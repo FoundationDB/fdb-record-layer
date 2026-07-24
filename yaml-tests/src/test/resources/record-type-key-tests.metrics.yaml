@@ -2,8 +2,8 @@ primary-key-equality:
 -   query: EXPLAIN SELECT * from t1 where a = 10
     ref: record-type-key-tests.yamsql:43
     explain: SCAN([IS T1, EQUALS promote(@c7 AS LONG)])
-    task_count: 311
-    task_total_time_ms: 3
+    task_count: 348
+    task_total_time_ms: 4
     transform_count: 76
     transform_time_ms: 1
     transform_yield_count: 30
@@ -13,8 +13,8 @@ primary-key-equality:
 -   query: EXPLAIN SELECT * from t2 where c = 100
     ref: record-type-key-tests.yamsql:47
     explain: SCAN([IS T2, EQUALS promote(@c7 AS LONG)])
-    task_count: 311
-    task_total_time_ms: 2
+    task_count: 348
+    task_total_time_ms: 4
     transform_count: 76
     transform_time_ms: 1
     transform_yield_count: 30
@@ -25,21 +25,21 @@ full-table-scan:
 -   query: EXPLAIN SELECT * from t1
     ref: record-type-key-tests.yamsql:57
     explain: ISCAN(I1 <,>)
-    task_count: 221
-    task_total_time_ms: 20
+    task_count: 243
+    task_total_time_ms: 2
     transform_count: 62
-    transform_time_ms: 13
+    transform_time_ms: 1
     transform_yield_count: 25
-    insert_time_ms: 1
+    insert_time_ms: 0
     insert_new_count: 19
     insert_reused_count: 6
 -   query: EXPLAIN SELECT * from t2
     ref: record-type-key-tests.yamsql:61
     explain: ISCAN(I2 <,>)
-    task_count: 221
-    task_total_time_ms: 16
+    task_count: 243
+    task_total_time_ms: 2
     transform_count: 62
-    transform_time_ms: 9
+    transform_time_ms: 1
     transform_yield_count: 25
     insert_time_ms: 0
     insert_new_count: 19
@@ -48,8 +48,8 @@ primary-key-range-scan:
 -   query: EXPLAIN SELECT * from t1 where a > 10
     ref: record-type-key-tests.yamsql:71
     explain: SCAN([IS T1, [GREATER_THAN promote(@c7 AS LONG)]])
-    task_count: 311
-    task_total_time_ms: 2
+    task_count: 348
+    task_total_time_ms: 3
     transform_count: 76
     transform_time_ms: 1
     transform_yield_count: 30
@@ -59,8 +59,8 @@ primary-key-range-scan:
 -   query: EXPLAIN SELECT * from t1 where a >= 11
     ref: record-type-key-tests.yamsql:75
     explain: SCAN([IS T1, [GREATER_THAN_OR_EQUALS promote(@c8 AS LONG)]])
-    task_count: 311
-    task_total_time_ms: 2
+    task_count: 348
+    task_total_time_ms: 3
     transform_count: 76
     transform_time_ms: 1
     transform_yield_count: 30
@@ -70,8 +70,8 @@ primary-key-range-scan:
 -   query: EXPLAIN SELECT * from t1 where a < 12
     ref: record-type-key-tests.yamsql:79
     explain: SCAN([IS T1, [LESS_THAN promote(@c7 AS LONG)]])
-    task_count: 311
-    task_total_time_ms: 2
+    task_count: 348
+    task_total_time_ms: 3
     transform_count: 76
     transform_time_ms: 1
     transform_yield_count: 30
@@ -81,8 +81,8 @@ primary-key-range-scan:
 -   query: EXPLAIN SELECT * from t1 where a <= 11
     ref: record-type-key-tests.yamsql:83
     explain: SCAN([IS T1, [LESS_THAN_OR_EQUALS promote(@c8 AS LONG)]])
-    task_count: 311
-    task_total_time_ms: 2
+    task_count: 348
+    task_total_time_ms: 3
     transform_count: 76
     transform_time_ms: 1
     transform_yield_count: 30
@@ -93,8 +93,8 @@ primary-key-range-scan:
     ref: record-type-key-tests.yamsql:87
     explain: SCAN([IS T1, [GREATER_THAN_OR_EQUALS promote(@c8 AS LONG) && LESS_THAN_OR_EQUALS
         promote(@c13 AS LONG)]])
-    task_count: 311
-    task_total_time_ms: 2
+    task_count: 348
+    task_total_time_ms: 3
     transform_count: 76
     transform_time_ms: 1
     transform_yield_count: 30
@@ -104,7 +104,7 @@ primary-key-range-scan:
 -   query: EXPLAIN SELECT * from t2 where c > 101
     ref: record-type-key-tests.yamsql:91
     explain: SCAN([IS T2, [GREATER_THAN promote(@c7 AS LONG)]])
-    task_count: 311
+    task_count: 348
     task_total_time_ms: 3
     transform_count: 76
     transform_time_ms: 1
@@ -115,22 +115,22 @@ primary-key-range-scan:
 index-scan:
 -   query: EXPLAIN SELECT * from t1 where b = 21
     ref: record-type-key-tests.yamsql:101
-    explain: ISCAN(I1 [EQUALS promote(@c8 AS LONG)])
-    task_count: 311
-    task_total_time_ms: 13
+    explain: ISCAN(I1 [EQUALS promote(@c7 AS LONG)])
+    task_count: 348
+    task_total_time_ms: 3
     transform_count: 75
-    transform_time_ms: 7
+    transform_time_ms: 1
     transform_yield_count: 30
     insert_time_ms: 0
     insert_new_count: 31
     insert_reused_count: 4
 -   query: EXPLAIN SELECT * from t2 where d = 201
     ref: record-type-key-tests.yamsql:105
-    explain: ISCAN(I2 [EQUALS promote(@c8 AS LONG)])
-    task_count: 311
-    task_total_time_ms: 13
+    explain: ISCAN(I2 [EQUALS promote(@c7 AS LONG)])
+    task_count: 348
+    task_total_time_ms: 3
     transform_count: 75
-    transform_time_ms: 6
+    transform_time_ms: 1
     transform_yield_count: 30
     insert_time_ms: 0
     insert_new_count: 31
@@ -138,34 +138,34 @@ index-scan:
 table-isolation:
 -   query: EXPLAIN SELECT count(*) from t1
     ref: record-type-key-tests.yamsql:115
-    explain: ISCAN(I1 <,>) | MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY
-        NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)
-    task_count: 319
-    task_total_time_ms: 16
+    explain: ISCAN(I1 <,>) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY ()
+        | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)
+    task_count: 353
+    task_total_time_ms: 3
     transform_count: 76
-    transform_time_ms: 9
+    transform_time_ms: 1
     transform_yield_count: 27
-    insert_time_ms: 1
+    insert_time_ms: 0
     insert_new_count: 33
     insert_reused_count: 4
 -   query: EXPLAIN SELECT count(*) from t2
     ref: record-type-key-tests.yamsql:119
-    explain: ISCAN(I2 <,>) | MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY
-        NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)
-    task_count: 319
-    task_total_time_ms: 18
+    explain: ISCAN(I2 <,>) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY ()
+        | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)
+    task_count: 353
+    task_total_time_ms: 3
     transform_count: 76
-    transform_time_ms: 12
+    transform_time_ms: 1
     transform_yield_count: 27
-    insert_time_ms: 1
+    insert_time_ms: 0
     insert_new_count: 33
     insert_reused_count: 4
 dml-operations:
 -   query: EXPLAIN SELECT * from t1 where a = 13
     ref: record-type-key-tests.yamsql:132
     explain: SCAN([IS T1, EQUALS promote(@c7 AS LONG)])
-    task_count: 311
-    task_total_time_ms: 3
+    task_count: 348
+    task_total_time_ms: 4
     transform_count: 76
     transform_time_ms: 1
     transform_yield_count: 30
@@ -175,8 +175,8 @@ dml-operations:
 -   query: EXPLAIN SELECT * from t2 where c = 103
     ref: record-type-key-tests.yamsql:139
     explain: SCAN([IS T2, EQUALS promote(@c7 AS LONG)])
-    task_count: 311
-    task_total_time_ms: 2
+    task_count: 348
+    task_total_time_ms: 4
     transform_count: 76
     transform_time_ms: 1
     transform_yield_count: 30
@@ -186,8 +186,8 @@ dml-operations:
 -   query: EXPLAIN SELECT * from t1 where a = 13
     ref: record-type-key-tests.yamsql:146
     explain: SCAN([IS T1, EQUALS promote(@c7 AS LONG)])
-    task_count: 311
-    task_total_time_ms: 3
+    task_count: 348
+    task_total_time_ms: 4
     transform_count: 76
     transform_time_ms: 1
     transform_yield_count: 30

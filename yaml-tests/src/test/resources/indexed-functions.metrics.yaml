@@ -2,22 +2,22 @@ unnamed-2:
 -   query: EXPLAIN select * from t where b + c > 7;
     ref: indexed-functions.yamsql:45
     explain: ISCAN(BPLUSC [[GREATER_THAN promote(@c9 AS LONG)]])
-    task_count: 608
-    task_total_time_ms: 49
+    task_count: 689
+    task_total_time_ms: 93
     transform_count: 149
-    transform_time_ms: 26
+    transform_time_ms: 40
     transform_yield_count: 67
-    insert_time_ms: 1
+    insert_time_ms: 2
     insert_new_count: 72
     insert_reused_count: 7
 -   query: EXPLAIN select a, b + c AS sum from t where e = 'alpha' order by b + c;
     ref: indexed-functions.yamsql:54
-    explain: ISCAN(BPLUSCBYE [EQUALS promote(@c14 AS STRING)]) | MAP (_.A AS A, _.B
+    explain: ISCAN(BPLUSCBYE [EQUALS promote(@c13 AS STRING)]) | MAP (_.A AS A, _.B
         + _.C AS SUM)
-    task_count: 379
-    task_total_time_ms: 33
+    task_count: 411
+    task_total_time_ms: 63
     transform_count: 110
-    transform_time_ms: 14
+    transform_time_ms: 28
     transform_yield_count: 47
     insert_time_ms: 1
     insert_new_count: 37
@@ -25,22 +25,22 @@ unnamed-2:
 -   query: EXPLAIN select * from t where d & 1 = 0;
     ref: indexed-functions.yamsql:91
     explain: ISCAN(DMASK1 [EQUALS promote(@c9 AS LONG)])
-    task_count: 608
-    task_total_time_ms: 47
+    task_count: 689
+    task_total_time_ms: 90
     transform_count: 150
-    transform_time_ms: 20
+    transform_time_ms: 40
     transform_yield_count: 67
-    insert_time_ms: 0
+    insert_time_ms: 3
     insert_new_count: 72
     insert_reused_count: 7
 -   query: EXPLAIN select * from t where d & 2 = 0;
     ref: indexed-functions.yamsql:110
     explain: ISCAN(DMASK2 [EQUALS promote(@c9 AS LONG)])
-    task_count: 608
-    task_total_time_ms: 19
+    task_count: 689
+    task_total_time_ms: 92
     transform_count: 150
-    transform_time_ms: 12
+    transform_time_ms: 41
     transform_yield_count: 67
-    insert_time_ms: 0
+    insert_time_ms: 2
     insert_new_count: 72
     insert_reused_count: 7

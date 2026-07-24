@@ -84,6 +84,14 @@ public class ReferenceMatchers {
     }
 
     @Nonnull
+    @SuppressWarnings("unchecked")
+    public static <E extends RelationalExpression> BindingMatcher<Reference> finalMembers(@Nonnull final CollectionMatcher<E> downstream) {
+        return TypedMatcherWithExtractAndDownstream.typedWithDownstream(Reference.class,
+                Extractor.of(Reference::getFinalExpressions, name -> "finalMember(" + name + ")"),
+                downstream);
+    }
+
+    @Nonnull
     public static <E extends RelationalExpression> BindingMatcher<Reference> exploratoryMember(@Nonnull final BindingMatcher<E> downstream) {
         return TypedMatcherWithExtractAndDownstream.typedWithDownstream(Reference.class,
                 Extractor.of(Reference::getExploratoryExpressions, name -> "exploratoryMember(" + name + ")"),

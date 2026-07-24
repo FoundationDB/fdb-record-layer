@@ -8,10 +8,10 @@ semantic-search-new-metrics-tests:
         EQUALS promote(@c20 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c9: @c44}:[]
         BY_DISTANCE) | MAP (_.DOCID AS DOCID, _.TITLE AS TITLE, (_.EMBEDDING) euclidean_square_distance
         @c9 AS _2)'
-    task_count: 215
-    task_total_time_ms: 9
+    task_count: 227
+    task_total_time_ms: 6
     transform_count: 66
-    transform_time_ms: 6
+    transform_time_ms: 3
     transform_yield_count: 28
     insert_time_ms: 0
     insert_new_count: 17
@@ -25,10 +25,10 @@ semantic-search-new-metrics-tests:
         EQUALS promote(@c18 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c7: @c42}:[]
         BY_DISTANCE) | MAP (_.DOCID AS DOCID, (_.EMBEDDING) euclidean_square_distance
         @c7 AS _1)'
-    task_count: 215
-    task_total_time_ms: 5
+    task_count: 227
+    task_total_time_ms: 9
     transform_count: 66
-    transform_time_ms: 3
+    transform_time_ms: 5
     transform_yield_count: 28
     insert_time_ms: 0
     insert_new_count: 17
@@ -41,10 +41,10 @@ semantic-search-new-metrics-tests:
     explain: 'ISCAN(DOCUMENTSEUCLIDEANSQUAREINDEX [EQUALS promote(@c7 AS STRING),
         EQUALS promote(@c11 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c29: @c39}:[hnswEfSearch:
         100] BY_DISTANCE) | MAP (_.DOCID AS DOCID)'
-    task_count: 215
-    task_total_time_ms: 5
+    task_count: 227
+    task_total_time_ms: 10
     transform_count: 66
-    transform_time_ms: 3
+    transform_time_ms: 6
     transform_yield_count: 28
     insert_time_ms: 0
     insert_new_count: 17
@@ -57,10 +57,10 @@ semantic-search-new-metrics-tests:
     explain: 'ISCAN(DOCUMENTSEUCLIDEANSQUAREINDEX [EQUALS promote(@c7 AS STRING),
         EQUALS promote(@c11 AS STRING)]:{DISTANCE_RANK_LESS_THAN @c29: @c38}:[hnswEfSearch:
         200] BY_DISTANCE) | MAP (_.DOCID AS DOCID)'
-    task_count: 215
-    task_total_time_ms: 5
+    task_count: 227
+    task_total_time_ms: 9
     transform_count: 66
-    transform_time_ms: 3
+    transform_time_ms: 6
     transform_yield_count: 28
     insert_time_ms: 0
     insert_new_count: 17
@@ -72,8 +72,8 @@ semantic-search-new-metrics-tests:
     explain: 'ISCAN(DOCUMENTSEUCLIDEANSQUAREINDEX [EQUALS promote(@c7 AS STRING),
         EQUALS promote(@c11 AS STRING)]:{DISTANCE_RANK_LESS_THAN @c29: @c34}:[] BY_DISTANCE)
         | MAP (_.DOCID AS DOCID)'
-    task_count: 215
-    task_total_time_ms: 7
+    task_count: 227
+    task_total_time_ms: 8
     transform_count: 66
     transform_time_ms: 5
     transform_yield_count: 28
@@ -88,8 +88,8 @@ semantic-search-new-metrics-tests:
         promote(@c20 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c9: @c44}:[] BY_DISTANCE)
         | MAP (_.DOCID AS DOCID, _.TITLE AS TITLE, (_.EMBEDDING) dot_product_distance
         @c9 AS _2)'
-    task_count: 215
-    task_total_time_ms: 6
+    task_count: 227
+    task_total_time_ms: 5
     transform_count: 66
     transform_time_ms: 3
     transform_yield_count: 28
@@ -103,10 +103,10 @@ semantic-search-new-metrics-tests:
     explain: 'ISCAN(DOCUMENTSDOTPRODUCTINDEX [EQUALS promote(@c14 AS STRING), EQUALS
         promote(@c18 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c7: @c42}:[] BY_DISTANCE)
         | MAP (_.DOCID AS DOCID, (_.EMBEDDING) dot_product_distance @c7 AS _1)'
-    task_count: 215
+    task_count: 227
     task_total_time_ms: 5
     transform_count: 66
-    transform_time_ms: 3
+    transform_time_ms: 2
     transform_yield_count: 28
     insert_time_ms: 0
     insert_new_count: 17
@@ -118,10 +118,10 @@ semantic-search-new-metrics-tests:
     explain: 'ISCAN(DOCUMENTSDOTPRODUCTINDEX [EQUALS promote(@c7 AS STRING), EQUALS
         promote(@c11 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c29: @c39}:[hnswEfSearch:
         100] BY_DISTANCE) | MAP (_.DOCID AS DOCID)'
-    task_count: 215
-    task_total_time_ms: 5
+    task_count: 227
+    task_total_time_ms: 4
     transform_count: 66
-    transform_time_ms: 3
+    transform_time_ms: 2
     transform_yield_count: 28
     insert_time_ms: 0
     insert_new_count: 17
@@ -133,10 +133,10 @@ semantic-search-new-metrics-tests:
     explain: 'ISCAN(DOCUMENTSDOTPRODUCTINDEX [EQUALS promote(@c7 AS STRING), EQUALS
         promote(@c11 AS STRING)]:{DISTANCE_RANK_LESS_THAN @c29: @c38}:[hnswEfSearch:
         200] BY_DISTANCE) | MAP (_.DOCID AS DOCID)'
-    task_count: 215
+    task_count: 227
     task_total_time_ms: 5
     transform_count: 66
-    transform_time_ms: 3
+    transform_time_ms: 2
     transform_yield_count: 28
     insert_time_ms: 0
     insert_new_count: 17
@@ -148,10 +148,10 @@ semantic-search-new-metrics-tests:
     explain: 'ISCAN(DOCUMENTSDOTPRODUCTINDEX [EQUALS promote(@c7 AS STRING), EQUALS
         promote(@c11 AS STRING)]:{DISTANCE_RANK_LESS_THAN @c29: @c34}:[] BY_DISTANCE)
         | MAP (_.DOCID AS DOCID)'
-    task_count: 215
-    task_total_time_ms: 5
+    task_count: 227
+    task_total_time_ms: 4
     transform_count: 66
-    transform_time_ms: 3
+    transform_time_ms: 2
     transform_yield_count: 28
     insert_time_ms: 0
     insert_new_count: 17
@@ -163,10 +163,10 @@ semantic-search-new-metrics-tests:
     explain: 'ISCAN(MULTITYPEEUCLIDEANSQUAREINDEX [EQUALS promote(@c7 AS LONG), EQUALS
         promote(@c11 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c29: @c35}:[]
         BY_DISTANCE) | MAP (_.DOCID AS DOCID)'
-    task_count: 215
+    task_count: 227
     task_total_time_ms: 5
     transform_count: 66
-    transform_time_ms: 3
+    transform_time_ms: 2
     transform_yield_count: 28
     insert_time_ms: 0
     insert_new_count: 17
@@ -178,10 +178,10 @@ semantic-search-new-metrics-tests:
     explain: 'ISCAN(MULTITYPEEUCLIDEANSQUAREINDEX [EQUALS promote(@c7 AS LONG), EQUALS
         promote(@c11 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c29: @c35}:[]
         BY_DISTANCE) | MAP (_.DOCID AS DOCID)'
-    task_count: 215
+    task_count: 227
     task_total_time_ms: 5
     transform_count: 66
-    transform_time_ms: 3
+    transform_time_ms: 2
     transform_yield_count: 28
     insert_time_ms: 0
     insert_new_count: 17
@@ -193,8 +193,8 @@ semantic-search-new-metrics-tests:
     explain: 'ISCAN(MULTITYPEDOTPRODUCTINDEX [EQUALS promote(@c9 AS LONG), EQUALS
         promote(@c13 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c31: @c37}:[]
         BY_DISTANCE) | MAP (_.DOCID AS DOCID, _.TITLE AS TITLE)'
-    task_count: 215
-    task_total_time_ms: 7
+    task_count: 227
+    task_total_time_ms: 6
     transform_count: 66
     transform_time_ms: 4
     transform_yield_count: 28
@@ -209,7 +209,7 @@ semantic-search-new-metrics-tests:
     explain: 'ISCAN(MULTITYPEEUCLIDEANSQUAREINDEX [EQUALS promote(@c9 AS LONG), EQUALS
         promote(@c13 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c31: @c39}:[]
         BY_DISTANCE) | MAP (_.DOCID AS DOCID, _.TITLE AS TITLE)'
-    task_count: 215
+    task_count: 227
     task_total_time_ms: 5
     transform_count: 66
     transform_time_ms: 3
