@@ -18,6 +18,8 @@
  * limitations under the License.
  */
 
+import java.time.Instant
+
 plugins {
     alias(libs.plugins.gitversion)
     id 'java-test-fixtures'
@@ -26,7 +28,7 @@ plugins {
 apply from: rootProject.file('gradle/publishing.gradle')
 
 
-task createVersionPropertiesFile()  {
+tasks.register('createVersionPropertiesFile') {
     // Write a file of version and build info for the java processes to read
     // from their classpaths.
     def versionsFile = new File(projectDir, "src/gen/main/resources/version.properties")
@@ -49,7 +51,7 @@ branch=${gitDetails.branchName}
 # Returned as RelationalDatabaseMetaData#getUrl()
 url=${projectUrl.replace('\'', '')}
 user=${System.getProperty("user.name")}
-buildtime=${java.time.Instant.now()}
+buildtime=${Instant.now()}
 buildHost=${InetAddress.getLocalHost().getCanonicalHostName()}
 """
     }
@@ -82,7 +84,7 @@ sourceSets {
     }
 }
 
-sourcesJar {
+tasks.named('sourcesJar') {
     dependsOn "createVersionPropertiesFile"
 }
 

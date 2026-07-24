@@ -21,16 +21,9 @@
 package com.apple.foundationdb.record.provider.foundationdb.indexes;
 
 import com.apple.foundationdb.KeyValue;
-import com.apple.foundationdb.ReadTransaction;
 import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncUtil;
-import com.apple.foundationdb.async.hnsw.Config;
-import com.apple.foundationdb.async.hnsw.HNSW;
-import com.apple.foundationdb.async.hnsw.Node;
-import com.apple.foundationdb.async.hnsw.NodeReference;
-import com.apple.foundationdb.async.hnsw.OnReadListener;
-import com.apple.foundationdb.async.hnsw.OnWriteListener;
 import com.apple.foundationdb.async.common.ResultEntry;
 import com.apple.foundationdb.linear.RealVector;
 import com.apple.foundationdb.record.CursorStreamingMode;
@@ -60,7 +53,6 @@ import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanBounds;
 import com.apple.foundationdb.record.provider.foundationdb.KeyValueCursor;
 import com.apple.foundationdb.record.provider.foundationdb.VectorIndexScanBounds;
-import com.apple.foundationdb.record.provider.foundationdb.VectorIndexScanOptions;
 import com.apple.foundationdb.record.query.QueryToKeyMatcher;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
@@ -82,21 +74,27 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 
 /**
- * An index maintainer for keeping an {@link HNSW}.
+ * An index maintainer for a {@link com.apple.foundationdb.record.metadata.IndexTypes#VECTOR vector} index. The
+ * maintainer is engine-neutral: it owns the continuation/cursor machinery, the prefix skip-scan, locking, and the
+ * translation of engine results into {@link IndexEntry index entries}, while delegating the actual vector-structure work
+ * (search, insert, delete) to a {@link VectorIndexEngine}. The engine — an
+ * {@link com.apple.foundationdb.async.hnsw.HNSW HNSW} graph or a
+ * {@link com.apple.foundationdb.async.guardiann.Guardiann Guardiann} clustered structure — is selected by the
+ * {@link com.apple.foundationdb.record.metadata.IndexOptions#VECTOR_ENGINE} index option.
  */
 @API(API.Status.EXPERIMENTAL)
 public class VectorIndexMaintainer extends StandardIndexMaintainer {
     @Nonnull
-    private final Config config;
+    private final VectorIndexEngine engine;
 
     public VectorIndexMaintainer(IndexMaintainerState state) {
         super(state);
-        this.config = VectorIndexHelper.getConfig(state.index);
+        this.engine = VectorIndexEngine.fromIndex(state.index);
     }
 
     @Nonnull
-    public Config getConfig() {
-        return config;
+    private VectorIndexEngine getEngine() {
+        return engine;
     }
 
     /**
@@ -114,10 +112,9 @@ public class VectorIndexMaintainer extends StandardIndexMaintainer {
         if (!scanBounds.getScanType().equals(IndexScanType.BY_DISTANCE)) {
             throw new RecordCoreException("Can only scan vector index by value.");
         }
-        if (!(scanBounds instanceof VectorIndexScanBounds)) {
+        if (!(scanBounds instanceof final VectorIndexScanBounds vectorIndexScanBounds)) {
             throw new RecordCoreException("Need proper vector index scan bounds.");
         }
-        final VectorIndexScanBounds vectorIndexScanBounds = (VectorIndexScanBounds)scanBounds;
 
         final KeyWithValueExpression keyWithValueExpression = getKeyWithValueExpression(state.index.getRootExpression());
         final int prefixSize = keyWithValueExpression.getSplitPoint();
@@ -125,25 +122,25 @@ public class VectorIndexMaintainer extends StandardIndexMaintainer {
         final ExecuteProperties executeProperties = scanProperties.getExecuteProperties();
         final ScanProperties innerScanProperties = scanProperties.with(ExecuteProperties::clearSkipAndLimit);
         final Subspace indexSubspace = getIndexSubspace();
-        final FDBStoreTimer timer = Objects.requireNonNull(state.context.getTimer());
+        @Nullable final FDBStoreTimer timer = getTimer();
 
         //
         // If there is a {@code prefix > 0}, then we model the scan as a flatmap over the distinct prefixes as the outer
-        // and the correlated HNSW search as the inner.
+        // and the correlated per-partition vector search as the inner.
         //
         if (prefixSize > 0) {
             //
             // Skip-scan through the prefixes in a way that we only consider each distinct prefix. That skip scan
-            // forms the outer of a join with an inner that searches the R-tree for that prefix using the
-            // spatial predicates of the scan bounds.
+            // forms the outer of a join with an inner that searches the partition's vector structure for that prefix
+            // using the query vector of the scan bounds.
             //
             return RecordCursor.flatMapPipelined(prefixSkipScan(prefixSize, timer, vectorIndexScanBounds, innerScanProperties),
                             (prefixTuple, innerContinuation) -> {
                                 Verify.verify(prefixTuple.size() == prefixSize);
-                                final Subspace hnswSubspace = indexSubspace.subspace(prefixTuple);
+                                final Subspace partitionSubspace = indexSubspace.subspace(prefixTuple);
 
-                                return scanSinglePartition(prefixTuple, innerContinuation, hnswSubspace,
-                                        timer, vectorIndexScanBounds, scanProperties);
+                                return scanSinglePartition(prefixTuple, innerContinuation, partitionSubspace,
+                                        vectorIndexScanBounds, scanProperties);
                             },
                             continuation,
                             state.store.getPipelineSize(PipelineOperation.INDEX_TO_RECORD))
@@ -152,21 +149,20 @@ public class VectorIndexMaintainer extends StandardIndexMaintainer {
             //
             // As {@code prefix == 0}, there only is exactly one prefix ({@code null}). While it is possible to also
             // just do a flatmap over some non-existing outer, it's probably more efficient to just do a plain scan
-            // of the HNSW here.
+            // of the single partition here.
             //
             return scanSinglePartition(null, continuation,
-                    indexSubspace, timer, vectorIndexScanBounds, scanProperties)
+                    indexSubspace, vectorIndexScanBounds, scanProperties)
                     .skipThenLimit(executeProperties.getSkip(), executeProperties.getReturnedRowLimit());
         }
     }
 
     /**
-     * Scan one partition of the vector index, i.e. the one HNSW that holds the data for the partition identified
-     * by {@code prefixTuple}.
+     * Scan one partition of the vector index, i.e. the one vector structure that holds the data for the partition
+     * identified by {@code prefixTuple}.
      * @param prefixTuple the tuple identifying the partition
      * @param continuation the continuation for this scan or {@code null} if this is the first execution
-     * @param hnswSubspace the subspace where the HNSW resides
-     * @param timer the times
+     * @param partitionSubspace the subspace where the partition's vector structure resides
      * @param vectorIndexScanBounds the bounds for this scan
      * @param scanProperties the scan properties for this scan
      * @return a {@link RecordCursor} returning the index entries for this scan
@@ -175,8 +171,7 @@ public class VectorIndexMaintainer extends StandardIndexMaintainer {
     @SuppressWarnings("resource")
     private RecordCursor<IndexEntry> scanSinglePartition(@Nullable final Tuple prefixTuple,
                                                          @Nullable final byte[] continuation,
-                                                         @Nonnull final Subspace hnswSubspace,
-                                                         @Nonnull final FDBStoreTimer timer,
+                                                         @Nonnull final Subspace partitionSubspace,
                                                          @Nonnull final VectorIndexScanBounds vectorIndexScanBounds,
                                                          @Nonnull final ScanProperties scanProperties) {
         if (continuation != null) {
@@ -196,16 +191,13 @@ public class VectorIndexMaintainer extends StandardIndexMaintainer {
                             result.withContinuation(new Continuation(indexEntries, result.getContinuation())));
         }
 
-        final HNSW hnsw = new HNSW(hnswSubspace, getExecutor(), getConfig(),
-                OnWriteListener.NOOP, new OnRead(timer));
-        final ReadTransaction transaction =
-                state.context.readTransaction(scanProperties.getExecuteProperties().getIsolationLevel().isSnapshot());
+        final boolean snapshot = scanProperties.getExecuteProperties().getIsolationLevel().isSnapshot();
         return new LazyCursor<>(
-                state.context.acquireReadLock(new LockIdentifier(hnswSubspace))
+                state.context.acquireReadLock(new LockIdentifier(partitionSubspace))
                         .thenApply(lock ->
                                 new AsyncLockCursor<>(lock,
                                         new LazyCursor<>(
-                                                kNearestNeighborSearch(prefixTuple, hnsw, transaction,
+                                                kNearestNeighborSearch(prefixTuple, partitionSubspace, snapshot,
                                                         vectorIndexScanBounds),
                                                 getExecutor()))),
                 state.context.getExecutor());
@@ -215,12 +207,10 @@ public class VectorIndexMaintainer extends StandardIndexMaintainer {
     @Nonnull
     private CompletableFuture<RecordCursor<IndexEntry>>
             kNearestNeighborSearch(@Nullable final Tuple prefixTuple,
-                                   @Nonnull final HNSW hnsw,
-                                   @Nonnull final ReadTransaction transaction,
+                                   @Nonnull final Subspace partitionSubspace,
+                                   final boolean snapshot,
                                    @Nonnull final VectorIndexScanBounds vectorIndexScanBounds) {
-        return hnsw.kNearestNeighborsSearch(transaction, vectorIndexScanBounds.getAdjustedLimit(),
-                        efSearch(vectorIndexScanBounds), returnVectors(hnsw.getConfig(), vectorIndexScanBounds),
-                        Objects.requireNonNull(vectorIndexScanBounds.getQueryVector()))
+        return getEngine().search(state.context, snapshot, partitionSubspace, vectorIndexScanBounds)
                 .thenApply(resultEntries -> {
                     final ImmutableList.Builder<IndexEntry> nearestNeighborEntriesBuilder = ImmutableList.builder();
                     for (final ResultEntry nearestNeighbor : resultEntries) {
@@ -261,18 +251,22 @@ public class VectorIndexMaintainer extends StandardIndexMaintainer {
 
     @Nonnull
     private Function<byte[], RecordCursor<Tuple>> prefixSkipScan(final int prefixSize,
-                                                                 @Nonnull final StoreTimer timer,
+                                                                 @Nullable final StoreTimer timer,
                                                                  @Nonnull final VectorIndexScanBounds vectorIndexScanBounds,
                                                                  @Nonnull final ScanProperties innerScanProperties) {
         Verify.verify(prefixSize > 0);
-        return outerContinuation -> timer.instrument(VectorIndexHelper.Events.VECTOR_SKIP_SCAN,
-                new ChainedCursor<>(state.context,
-                        lastKeyOptional -> nextPrefixTuple(vectorIndexScanBounds.getPrefixRange(),
-                                prefixSize, lastKeyOptional.orElse(null), innerScanProperties),
-                        Tuple::pack,
-                        Tuple::fromBytes,
-                        outerContinuation,
-                        innerScanProperties));
+        return outerContinuation -> {
+            final ChainedCursor<Tuple> chainedCursor = new ChainedCursor<>(state.context,
+                    lastKeyOptional -> nextPrefixTuple(vectorIndexScanBounds.getPrefixRange(),
+                            prefixSize, lastKeyOptional.orElse(null), innerScanProperties),
+                    Tuple::pack,
+                    Tuple::fromBytes,
+                    outerContinuation,
+                    innerScanProperties);
+            return timer == null
+                   ? chainedCursor
+                   : timer.instrument(VectorIndexHelper.Events.VECTOR_SKIP_SCAN, chainedCursor);
+        };
     }
 
     @SuppressWarnings({"resource", "PMD.CloseResource"})
@@ -332,24 +326,21 @@ public class VectorIndexMaintainer extends StandardIndexMaintainer {
         }
 
         final Tuple prefixKey = indexEntry.getKey();
-        final Subspace rtSubspace;
+        final Subspace partitionSubspace;
         if (prefixSize > 0) {
-            rtSubspace = indexSubspace.subspace(prefixKey);
+            partitionSubspace = indexSubspace.subspace(prefixKey);
         } else {
-            rtSubspace = indexSubspace;
+            partitionSubspace = indexSubspace;
         }
-        return state.context.doWithWriteLock(new LockIdentifier(rtSubspace), () -> {
+        return state.context.doWithWriteLock(new LockIdentifier(partitionSubspace), () -> {
             final List<Object> primaryKeyParts = Lists.newArrayList(savedRecord.getPrimaryKey().getItems());
             state.index.trimPrimaryKey(primaryKeyParts);
             final Tuple trimmedPrimaryKey = Tuple.fromList(primaryKeyParts);
-            final FDBStoreTimer timer = Objects.requireNonNull(getTimer());
-            final HNSW hnsw =
-                    new HNSW(rtSubspace, getExecutor(), getConfig(), new OnWrite(timer), OnReadListener.NOOP);
+            final RealVector vector = RealVector.fromBytes(vectorBytes);
             if (remove) {
-                return hnsw.delete(state.transaction, trimmedPrimaryKey);
+                return getEngine().delete(state.context, partitionSubspace, trimmedPrimaryKey, vector);
             } else {
-                return hnsw.insert(state.transaction, trimmedPrimaryKey,
-                        RealVector.fromBytes(vectorBytes), null);
+                return getEngine().insert(state.context, partitionSubspace, trimmedPrimaryKey, vector);
             }
         });
     }
@@ -369,7 +360,13 @@ public class VectorIndexMaintainer extends StandardIndexMaintainer {
     }
 
     /**
-     * TODO.
+     * Narrows the index's root key expression to the {@link KeyWithValueExpression} that every vector index is required
+     * to have: the split point separates the partition prefix from the indexed vector column. The validator enforces
+     * this shape at metadata time, so a failure here means an index slipped through with an unsupported structure.
+     *
+     * @param root the index's root key expression
+     * @return the root as a {@link KeyWithValueExpression}
+     * @throws RecordCoreException if the root is not a {@link KeyWithValueExpression}
      */
     @Nonnull
     private static KeyWithValueExpression getKeyWithValueExpression(@Nonnull final KeyExpression root) {
@@ -377,105 +374,6 @@ public class VectorIndexMaintainer extends StandardIndexMaintainer {
             return (KeyWithValueExpression)root;
         }
         throw new RecordCoreException("structure of vector index is not supported");
-    }
-
-    private int efSearch(@Nonnull final VectorIndexScanBounds scanBounds) {
-        final VectorIndexScanOptions scanOptions = scanBounds.getVectorIndexScanOptions();
-        final Integer efSearchOptionValue = scanOptions.getOption(VectorIndexScanOptions.HNSW_EF_SEARCH);
-        if (efSearchOptionValue != null) {
-            return efSearchOptionValue;
-        }
-        final var k = scanBounds.getAdjustedLimit();
-        return Math.min(Math.max(4 * k, 64), Math.max(k, 400));
-    }
-
-    private boolean returnVectors(@Nonnull final Config config, @Nonnull final VectorIndexScanBounds scanBounds) {
-        final VectorIndexScanOptions scanOptions = scanBounds.getVectorIndexScanOptions();
-        final Boolean returnVectorsValue = scanOptions.getOption(VectorIndexScanOptions.HNSW_RETURN_VECTORS);
-        if (returnVectorsValue != null) {
-            return returnVectorsValue;
-        }
-
-        //
-        // If we use RaBitQ, the vectors returned must be reconstructed which means we potentially wasted computation
-        // resources if the user didn't explicitly ask for it. If RaBitQ is not used, the vectors returned are identical
-        // to their inserted counterparts. We also already fetched them, so returning them is free.
-        //
-        return !config.useRaBitQ();
-    }
-
-    static class OnRead implements OnReadListener {
-        @Nonnull
-        private final FDBStoreTimer timer;
-
-        public OnRead(@Nonnull final FDBStoreTimer timer) {
-            this.timer = timer;
-        }
-
-        @Override
-        public <N extends NodeReference, T extends Node<N>> CompletableFuture<T> onAsyncRead(@Nonnull CompletableFuture<T> future) {
-            return timer.instrument(VectorIndexHelper.Events.VECTOR_SCAN, future);
-        }
-
-        @Override
-        public void onNodeRead(final int layer, @Nonnull final Node<? extends NodeReference> node) {
-            if (layer == 0) {
-                timer.increment(FDBStoreTimer.Counts.VECTOR_NODE0_READS);
-            } else {
-                timer.increment(FDBStoreTimer.Counts.VECTOR_NODE_READS);
-            }
-        }
-
-        @Override
-        public void onKeyValueRead(final int layer, @Nonnull final byte[] key, @Nullable final byte[] value) {
-            final int keyLength = key.length;
-            final int valueLength = value == null ? 0 : value.length;
-
-            timer.increment(FDBStoreTimer.Counts.LOAD_INDEX_KEY);
-            timer.increment(FDBStoreTimer.Counts.LOAD_INDEX_KEY_BYTES, keyLength);
-            timer.increment(FDBStoreTimer.Counts.LOAD_INDEX_VALUE_BYTES, valueLength);
-
-            if (layer == 0) {
-                timer.increment(FDBStoreTimer.Counts.VECTOR_NODE0_READ_BYTES);
-            } else {
-                timer.increment(FDBStoreTimer.Counts.VECTOR_NODE_READ_BYTES);
-            }
-        }
-    }
-
-    static class OnWrite implements OnWriteListener {
-        @Nonnull
-        private final FDBStoreTimer timer;
-
-        public OnWrite(@Nonnull final FDBStoreTimer timer) {
-            this.timer = timer;
-        }
-
-        @Override
-        public void onNodeWritten(final int layer, @Nonnull final Node<? extends NodeReference> node) {
-            if (layer == 0) {
-                timer.increment(FDBStoreTimer.Counts.VECTOR_NODE0_WRITES);
-            } else {
-                timer.increment(FDBStoreTimer.Counts.VECTOR_NODE_WRITES);
-            }
-        }
-
-        @Override
-        public void onKeyValueWritten(final int layer, @Nonnull final byte[] key, @Nonnull final byte[] value) {
-            final int keyLength = key.length;
-            final int valueLength = value.length;
-
-            final int totalLength = keyLength + valueLength;
-            timer.increment(FDBStoreTimer.Counts.SAVE_INDEX_KEY);
-            timer.increment(FDBStoreTimer.Counts.SAVE_INDEX_KEY_BYTES, keyLength);
-            timer.increment(FDBStoreTimer.Counts.SAVE_INDEX_VALUE_BYTES, valueLength);
-
-            if (layer == 0) {
-                timer.increment(FDBStoreTimer.Counts.VECTOR_NODE0_WRITE_BYTES, totalLength);
-            } else {
-                timer.increment(FDBStoreTimer.Counts.VECTOR_NODE_WRITE_BYTES, totalLength);
-            }
-        }
     }
 
     private static final class Continuation implements RecordCursorContinuation {

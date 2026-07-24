@@ -25,7 +25,6 @@ import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.TransactionManager;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
-import org.apache.commons.lang3.NotImplementedException;
 
 import javax.annotation.Nonnull;
 import java.util.HashMap;
@@ -76,17 +75,17 @@ public class InMemoryTransactionManager implements TransactionManager {
         @Nonnull
         @Override
         public Optional<SchemaTemplate> getBoundSchemaTemplateMaybe() {
-            throw new NotImplementedException("method is not implemented");
+            throw new UnsupportedOperationException("method is not implemented");
         }
 
         @Override
         public void setBoundSchemaTemplate(@Nonnull final SchemaTemplate schemaTemplate) {
-            throw new NotImplementedException("method is not implemented");
+            throw new UnsupportedOperationException("method is not implemented");
         }
 
         @Override
         public void unsetBoundSchemaTemplate() {
-            throw new NotImplementedException("method is not implemented");
+            throw new UnsupportedOperationException("method is not implemented");
         }
 
         @Override

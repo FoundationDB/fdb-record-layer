@@ -24,6 +24,7 @@ import com.apple.foundationdb.linear.DoubleRealVector;
 import com.apple.foundationdb.linear.FloatRealVector;
 import com.apple.foundationdb.linear.HalfRealVector;
 import com.apple.foundationdb.linear.RealVector;
+import com.apple.foundationdb.record.util.pair.Pair;
 import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.EmbeddedRelationalArray;
 import com.apple.foundationdb.relational.api.EmbeddedRelationalStruct;
@@ -46,8 +47,6 @@ import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.utils.Ddl;
 import com.apple.foundationdb.relational.utils.RelationalAssertions;
 import com.apple.foundationdb.relational.utils.ResultSetAssert;
-import org.apache.commons.lang3.tuple.Pair;
-import org.apache.commons.lang3.tuple.Triple;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Order;
@@ -78,6 +77,15 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.fail;
 
 public class StandardQueryTests {
+    /**
+     * A restaurant review.
+     */
+    private record Review(long reviewer, long rating, @Nonnull List<Pair<Long, String>> endorsements) {
+        @Nonnull
+        static Review of(long reviewer, long rating, @Nonnull final List<Pair<Long, String>> endorsements) {
+            return new Review(reviewer, rating, endorsements);
+        }
+    }
 
     private static final String schemaTemplate =
             "CREATE TYPE AS STRUCT Location (address string, latitude string, longitude string)" +
@@ -711,9 +719,9 @@ public class StandardQueryTests {
         try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 insertRestaurantComplexRecord(statement);
-                insertRestaurantComplexRecord(statement, 42L, "rest1", List.of(Triple.of(1L, 4L, List.of()), Triple.of(2L, 5L, List.of())));
-                RelationalStruct l43 = insertRestaurantComplexRecord(statement, 43L, "rest2", List.of(Triple.of(3L, 9L, List.of()), Triple.of(4L, 8L, List.of())));
-                RelationalStruct l44 = insertRestaurantComplexRecord(statement, 44L, "rest3", List.of(Triple.of(3L, 10L, List.of())));
+                insertRestaurantComplexRecord(statement, 42L, "rest1", List.of(Review.of(1L, 4L, List.of()), Review.of(2L, 5L, List.of())));
+                RelationalStruct l43 = insertRestaurantComplexRecord(statement, 43L, "rest2", List.of(Review.of(3L, 9L, List.of()), Review.of(4L, 8L, List.of())));
+                RelationalStruct l44 = insertRestaurantComplexRecord(statement, 44L, "rest3", List.of(Review.of(3L, 10L, List.of())));
                 try (final RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM RestaurantComplexRecord AS R WHERE EXISTS (SELECT * FROM R.reviews AS RE WHERE RE.rating >= 9)")) {
                     ResultSetAssert.assertThat(resultSet).containsRowsPartly(l43, l44);
                 }
@@ -725,9 +733,9 @@ public class StandardQueryTests {
     void existsPredicateWorksWithNonNullableArray() throws Exception {
         try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplateWithNonNullableArrays).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
-                insertRestaurantComplexRecord(statement, 42L, "rest1", List.of(Triple.of(1L, 4L, List.of()), Triple.of(2L, 5L, List.of())));
-                RelationalStruct l43 = insertRestaurantComplexRecord(statement, 43L, "rest2", List.of(Triple.of(3L, 9L, List.of()), Triple.of(4L, 8L, List.of())));
-                RelationalStruct l44 = insertRestaurantComplexRecord(statement, 44L, "rest3", List.of(Triple.of(3L, 10L, List.of())));
+                insertRestaurantComplexRecord(statement, 42L, "rest1", List.of(Review.of(1L, 4L, List.of()), Review.of(2L, 5L, List.of())));
+                RelationalStruct l43 = insertRestaurantComplexRecord(statement, 43L, "rest2", List.of(Review.of(3L, 9L, List.of()), Review.of(4L, 8L, List.of())));
+                RelationalStruct l44 = insertRestaurantComplexRecord(statement, 44L, "rest3", List.of(Review.of(3L, 10L, List.of())));
                 try (final RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM RestaurantComplexRecord AS R WHERE EXISTS (SELECT * FROM R.reviews AS RE WHERE RE.rating >= 9)")) {
                     ResultSetAssert.assertThat(resultSet).containsRowsPartly(l43, l44);
                 }
@@ -741,10 +749,10 @@ public class StandardQueryTests {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 insertRestaurantComplexRecord(statement);
                 RelationalStruct l42 = insertRestaurantComplexRecord(statement, 42L, "rest1",
-                        List.of(Triple.of(1L, 4L, List.of(
+                        List.of(Review.of(1L, 4L, List.of(
                                         Pair.of(400L, "good"),
                                         Pair.of(401L, "meh"))),
-                                Triple.of(2L, 5L, List.of(
+                                Review.of(2L, 5L, List.of(
                                         Pair.of(402L, "awesome"),
                                         Pair.of(401L, "wow")))));
                 try (final RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM RestaurantComplexRecord AS R WHERE EXISTS (SELECT * FROM R.reviews AS RE WHERE EXISTS(SELECT * FROM RE.endorsements AS REE WHERE REE.\"endorsementText\"='wow'))")) {
@@ -1719,7 +1727,7 @@ public class StandardQueryTests {
         return insertRestaurantComplexRecord(s, recordNumber, recordName, List.of());
     }
 
-    private RelationalStruct insertRestaurantComplexRecord(RelationalStatement s, Long recordNumber, @Nonnull final String recordName, @Nonnull final List<Triple<Long, Long, List<Pair<Long, String>>>> reviews) throws SQLException {
+    private RelationalStruct insertRestaurantComplexRecord(RelationalStatement s, Long recordNumber, @Nonnull final String recordName, @Nonnull final List<Review> reviews) throws SQLException {
         final var recBuilder2 = EmbeddedRelationalStruct.newBuilder()
                 .addLong("REST_NO", recordNumber)
                 .addString("NAME", recordName)
@@ -1729,12 +1737,12 @@ public class StandardQueryTests {
                         .addString("LONGITUDE", "1")
                         .build());
         final var reviewsArrayBuilder = EmbeddedRelationalArray.newBuilder();
-        for (final Triple<Long, Long, List<Pair<Long, String>>> review : reviews) {
+        for (final Review review : reviews) {
             final var reviewBuilder = EmbeddedRelationalStruct.newBuilder()
-                    .addLong("REVIEWER", review.getLeft())
-                    .addLong("RATING", review.getMiddle());
+                    .addLong("REVIEWER", review.reviewer())
+                    .addLong("RATING", review.rating());
             final var endorsementsArrayBuilder = EmbeddedRelationalArray.newBuilder();
-            for (var endorsement : review.getRight()) {
+            for (var endorsement : review.endorsements()) {
                 endorsementsArrayBuilder.addStruct(EmbeddedRelationalStruct.newBuilder()
                         .addLong("endorsementId", endorsement.getLeft())
                         .addString("endorsementText", endorsement.getRight())
@@ -1750,7 +1758,7 @@ public class StandardQueryTests {
         return getExpected(recordNumber, recordName, reviews);
     }
 
-    private static RelationalStruct getExpected(Long recordNumber, @Nonnull final String recordName, @Nonnull final List<Triple<Long, Long, List<Pair<Long, String>>>> reviews) {
+    private static RelationalStruct getExpected(Long recordNumber, @Nonnull final String recordName, @Nonnull final List<Review> reviews) {
         final var locationType = DataType.StructType.from("LOCATION", List.of(
                 DataType.StructType.Field.from("ADDRESS", DataType.Primitives.STRING.type(), 1),
                 DataType.StructType.Field.from("LATITUDE", DataType.Primitives.STRING.type(), 2),
@@ -1774,12 +1782,12 @@ public class StandardQueryTests {
         final var locationStruct = new ImmutableRowStruct(new ArrayRow("address", 1, 1), RelationalStructMetaData.of(locationType));
         final var reviewsList = new ArrayList<RelationalStruct>();
         reviews.forEach(review -> {
-            final var endorsementsList = review.getRight().stream()
+            final var endorsementsList = review.endorsements().stream()
                     .map(e -> new ImmutableRowStruct(new ArrayRow(e.getLeft(), e.getRight()), RelationalStructMetaData.of(endorsementType)))
                     .collect(Collectors.toList());
             reviewsList.add(new ImmutableRowStruct(new ArrayRow(
-                    review.getLeft(),
-                    review.getMiddle(),
+                    review.reviewer(),
+                    review.rating(),
                     new RowArray(endorsementsList, RelationalArrayMetaData.of(DataType.ArrayType.from(endorsementType, false)))
             ), RelationalStructMetaData.of(reviewType)));
         });

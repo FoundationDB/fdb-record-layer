@@ -773,10 +773,18 @@ public class FDBStoreTimer extends StoreTimer {
         VECTOR_NODE_WRITE_BYTES("intermediate node bytes written", true),
         VECTOR_NODE0_WRITES("intermediate nodes written", false),
         VECTOR_NODE0_WRITE_BYTES("intermediate node bytes written", true),
+        /** Count of vector references materialized from the database (Guardiann engine). */
+        VECTOR_VECTOR_READS("vector references read", false),
+        /** Count of deferred maintenance tasks enqueued (Guardiann engine). */
+        VECTOR_TASK_ENQUEUED("vector maintenance tasks enqueued", false),
+        /** Count of deferred maintenance tasks executed (Guardiann engine). */
+        VECTOR_TASK_EXECUTED("vector maintenance tasks executed", false),
         /** Count of the writes to a {@code PendingWritesQueue}. */
         PENDING_WRITES_QUEUE_WRITE("pending writes queue writes", false),
         /** Count of the entries cleared from a {@code PendingWritesQueue}. */
         PENDING_WRITES_QUEUE_CLEAR("pending writes queue clears", false),
+        /** Count of the indexes disabled because their {@code PendingWritesQueue} overflowed. */
+        PENDING_WRITES_QUEUE_OVERFLOW_DISABLED_INDEX("indexes disabled on pending writes queue overflow", false),
         ;
 
         private final String title;

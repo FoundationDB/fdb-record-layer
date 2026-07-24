@@ -50,8 +50,6 @@ class ConfigTest {
         final boolean useRaBitQ = true;
         final int raBitQNumExBits = Config.DEFAULT_RABITQ_NUM_EX_BITS + 1;
         final boolean deterministicRandomness = true;
-        final int maxNumConcurrentNodeFetches = Config.DEFAULT_MAX_NUM_CONCURRENT_NODE_FETCHES + 1;
-        final int maxNumConcurrentNeighborhoodFetches = Config.DEFAULT_MAX_NUM_CONCURRENT_NEIGHBOR_FETCHES + 1;
         final int sampleBatchSize = Config.DEFAULT_SAMPLE_BATCH_SIZE + 1;
         final int insertMaxCandidateClusters = Config.DEFAULT_INSERT_MAX_CANDIDATE_CLUSTERS + 1;
         final int deleteMaxCandidateClusters = Config.DEFAULT_DELETE_MAX_CANDIDATE_CLUSTERS + 1;
@@ -86,8 +84,6 @@ class ConfigTest {
         Assertions.assertThat(defaultConfig.useRaBitQ()).isNotEqualTo(useRaBitQ);
         Assertions.assertThat(defaultConfig.raBitQNumExBits()).isNotEqualTo(raBitQNumExBits);
         Assertions.assertThat(defaultConfig.deterministicRandomness()).isNotEqualTo(deterministicRandomness);
-        Assertions.assertThat(defaultConfig.maxNumConcurrentNodeFetches()).isNotEqualTo(maxNumConcurrentNodeFetches);
-        Assertions.assertThat(defaultConfig.maxNumConcurrentNeighborhoodFetches()).isNotEqualTo(maxNumConcurrentNeighborhoodFetches);
         Assertions.assertThat(defaultConfig.sampleBatchSize()).isNotEqualTo(sampleBatchSize);
         Assertions.assertThat(defaultConfig.insertMaxCandidateClusters()).isNotEqualTo(insertMaxCandidateClusters);
         Assertions.assertThat(defaultConfig.deleteMaxCandidateClusters()).isNotEqualTo(deleteMaxCandidateClusters);
@@ -122,8 +118,6 @@ class ConfigTest {
                         .setUseRaBitQ(useRaBitQ)
                         .setRaBitQNumExBits(raBitQNumExBits)
                         .setDeterministicRandomness(deterministicRandomness)
-                        .setMaxNumConcurrentNodeFetches(maxNumConcurrentNodeFetches)
-                        .setMaxNumConcurrentNeighborhoodFetches(maxNumConcurrentNeighborhoodFetches)
                         .setSampleBatchSize(sampleBatchSize)
                         .setInsertMaxCandidateClusters(insertMaxCandidateClusters)
                         .setDeleteMaxCandidateClusters(deleteMaxCandidateClusters)
@@ -157,8 +151,6 @@ class ConfigTest {
         Assertions.assertThat(newConfig.useRaBitQ()).isEqualTo(useRaBitQ);
         Assertions.assertThat(newConfig.raBitQNumExBits()).isEqualTo(raBitQNumExBits);
         Assertions.assertThat(newConfig.deterministicRandomness()).isEqualTo(deterministicRandomness);
-        Assertions.assertThat(newConfig.maxNumConcurrentNodeFetches()).isEqualTo(maxNumConcurrentNodeFetches);
-        Assertions.assertThat(newConfig.maxNumConcurrentNeighborhoodFetches()).isEqualTo(maxNumConcurrentNeighborhoodFetches);
         Assertions.assertThat(newConfig.sampleBatchSize()).isEqualTo(sampleBatchSize);
         Assertions.assertThat(newConfig.insertMaxCandidateClusters()).isEqualTo(insertMaxCandidateClusters);
         Assertions.assertThat(newConfig.deleteMaxCandidateClusters()).isEqualTo(deleteMaxCandidateClusters);

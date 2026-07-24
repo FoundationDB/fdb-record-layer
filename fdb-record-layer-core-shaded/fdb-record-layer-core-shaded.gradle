@@ -47,9 +47,9 @@ build.dependsOn {
     shadowJar
 }
 
-createDistribution {dependsOn('shadowJar')}
+tasks.named('createDistribution') { dependsOn('shadowJar') }
 
-task shadedSourcesJar(type: Jar) {
+tasks.register('shadedSourcesJar', Jar) {
     description = "Assembles a Jar archive containing the main sources."
     group = JavaBasePlugin.DOCUMENTATION_GROUP
     archiveAppendix = null
@@ -60,7 +60,7 @@ task shadedSourcesJar(type: Jar) {
     dependsOn(project(coreProject).tasks.compileJava)
 }
 
-task shadedJavadocJar(type: Jar) {
+tasks.register('shadedJavadocJar', Jar) {
     description = "Assembles a Jar archive containing the main Javadoc."
     group = JavaBasePlugin.DOCUMENTATION_GROUP
     archiveAppendix = null
@@ -91,7 +91,7 @@ apply from: rootProject.file('gradle/publishing.gradle')
 
 publishing {
     publications {
-        shadow(MavenPublication) { publication ->
+        shadow(MavenPublication) { MavenPublication publication ->
             from components.shadow
             addPublishingInfo(publication) // function imported from publishing.gradle
             publication.pom { pom ->
@@ -99,9 +99,9 @@ publishing {
                 pom.withXml { xml ->
                     // Remove any existing dependencies sections
                     def childNodes = xml.asNode().children()
-                    def dependenciesNodes = new ArrayList<groovy.util.Node>()
-                    childNodes.forEach { childNode ->
-                        if (childNode.name().equals('dependencies')) {
+                    def dependenciesNodes = new ArrayList<Node>()
+                    childNodes.forEach { Node childNode ->
+                        if (childNode.name() == 'dependencies') {
                             dependenciesNodes.add(childNode)
                         }
                     }
@@ -114,8 +114,8 @@ publishing {
                     addDependencies(project(':fdb-extensions'), dependenciesNode)
                 }
             }
-            artifact tasks.shadedSourcesJar
-            artifact tasks.shadedJavadocJar
+            artifact tasks.named('shadedSourcesJar')
+            artifact tasks.named('shadedJavadocJar')
         }
 
     }

@@ -35,13 +35,13 @@ dependencyReport {
     projects = project.allprojects
 }
 
-def generateMD5(File file) {
+static def generateMD5(File file) {
     def digest = MessageDigest.getInstance("MD5")
     file.withInputStream() { is ->
         byte[] buffer = new byte[8192]
-        int read = 0
+        int read
         while ((read = is.read(buffer)) > 0) {
-            digest.update(buffer, 0, read);
+            digest.update(buffer, 0, read)
         }
     }
     byte[] md5sum = digest.digest()
@@ -49,7 +49,7 @@ def generateMD5(File file) {
     bigInt.toString(16).padLeft(32, '0')
 }
 
-task checksumsVerify {
+tasks.register('checksumsVerify') {
 
     doLast {
         def checksumsFile = file('.checksum')
@@ -63,7 +63,7 @@ task checksumsVerify {
             if (!md5.equalsIgnoreCase(checksum)) {
                 failed.add(name)
             }
-
+            return
         }
         if (!failed.empty) {
             throw new RuntimeException("Some MD5 sums failed to verify: " + failed)
