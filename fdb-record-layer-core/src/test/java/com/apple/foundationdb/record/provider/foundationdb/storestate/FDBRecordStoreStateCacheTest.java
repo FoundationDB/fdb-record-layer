@@ -29,6 +29,7 @@ import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.expressions.RecordKeyExpressionProto;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
+import com.apple.foundationdb.record.provider.foundationdb.DeleteStoreMode;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactory;
 import com.apple.foundationdb.record.provider.foundationdb.FDBExceptions;
@@ -54,6 +55,8 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.Isolated;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
 
 import javax.annotation.Nonnull;
@@ -98,6 +101,12 @@ public class FDBRecordStoreStateCacheTest extends FDBRecordStoreTestBase {
     @Nonnull
     public static Stream<StateCacheTestContext> testContextSource() {
         return Stream.of(new ReadVersionStateCacheTestContext(), new MetaDataVersionStampStateCacheTestContext());
+    }
+
+    @Nonnull
+    public static Stream<Arguments> testContextAndDeleteStoreModeSource() {
+        return testContextSource().flatMap(testContext ->
+                Stream.of(DeleteStoreMode.values()).map(mode -> Arguments.of(testContext, mode)));
     }
 
     /**
@@ -642,10 +651,10 @@ public class FDBRecordStoreStateCacheTest extends FDBRecordStoreTestBase {
      * Validate that deleting a record store causes the record store to go back to the database as it's possible the
      * cached stuff is what was deleted.
      */
-    @ParameterizedTest(name = "storeDeletionInSameContext (test context = {0})")
-    @MethodSource("testContextSource")
-    public void storeDeletionInSameContext(@Nonnull StateCacheTestContext testContext) throws Exception {
-        // TODO parameterize these tests on whether the use `deleteStore` or `deleteStoreAsync`
+    @ParameterizedTest(name = "storeDeletionInSameContext (test context = {0}, deleteMode = {1})")
+    @MethodSource("testContextAndDeleteStoreModeSource")
+    public void storeDeletionInSameContext(@Nonnull StateCacheTestContext testContext,
+                                           @Nonnull DeleteStoreMode deleteStoreMode) throws Exception {
         fdb.setStoreStateCache(testContext.getCache(fdb));
 
         FDBRecordStore.Builder storeBuilder;
@@ -660,7 +669,7 @@ public class FDBRecordStoreStateCacheTest extends FDBRecordStoreTestBase {
             assertCacheHit(context.getTimer(), 1);
 
             context.getTimer().reset();
-            FDBRecordStore.deleteStore(context, recordStore.getSubspace());
+            deleteStoreMode.deleteStore(context, recordStore.getSubspace());
             recordStore.asBuilder().create();
             assertCacheMiss(context.getTimer(), 1);
 
@@ -704,9 +713,10 @@ public class FDBRecordStoreStateCacheTest extends FDBRecordStoreTestBase {
     /**
      * After a store is deleted, validate that future transactions need to reload it from cache.
      */
-    @ParameterizedTest(name = "storeDeletionAcrossContexts (test context = {0})")
-    @MethodSource("testContextSource")
-    public void storeDeletionAcrossContexts(@Nonnull StateCacheTestContext testContext) throws Exception {
+    @ParameterizedTest(name = "storeDeletionAcrossContexts (test context = {0}, deleteMode = {1})")
+    @MethodSource("testContextAndDeleteStoreModeSource")
+    public void storeDeletionAcrossContexts(@Nonnull StateCacheTestContext testContext,
+                                            @Nonnull DeleteStoreMode deleteStoreMode) throws Exception {
         fdb.setStoreStateCache(testContext.getCache(fdb));
 
         FDBRecordStore.Builder storeBuilder;
@@ -721,7 +731,7 @@ public class FDBRecordStoreStateCacheTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = testContext.getCachedContext(fdb, storeBuilder, FDBRecordStoreBase.StoreExistenceCheck.ERROR_IF_NOT_EXISTS)) {
             openSimpleRecordStore(context);
             assertCacheHit(context.getTimer(), 1);
-            FDBRecordStore.deleteStore(context, recordStore.getSubspace());
+            deleteStoreMode.deleteStore(context, recordStore.getSubspace());
             commit(context);
         }
 
@@ -771,23 +781,38 @@ public class FDBRecordStoreStateCacheTest extends FDBRecordStoreTestBase {
     }
 
     /**
-     * Deleting a non-cacheable store must NOT bump the meta-data version stamp: no other
-     * client can possibly hold a cached copy of a non-cacheable header, so the version stamp
-     * (a JVM-wide bottleneck on the {@code \xff/metadataVersion} key) shouldn't be touched.
-     * This means that deleting a store won't cause any interaction with any cacheable store to conflict.
+     * Behavior of {@link FDBRecordStore#deleteStore}/{@link FDBRecordStore#deleteStoreAsync} on a non-cacheable store,
+     * across both modes:
+     *
+     * <ul>
+     *   <li>{@link DeleteStoreMode#ASYNC ASYNC} (new): reads the header, sees non-cacheable, and skips the meta-data
+     *       version-stamp bump. No other client can hold a cached copy of a non-cacheable header, so bumping the
+     *       cluster-wide bottleneck on the {@code \xff/metadataVersion} key would be pure waste. This is key to
+     *       reducing cache invalidations and conflicts if a cluster is using the meta-data version-stamp, and is
+     *       frequently deleting non-cacheable stores. For, example, if you have the relational catalog, and are
+     *       frequently creating/deleting unrelated schemas, they would have conflicted with each other, because the
+     *       catalog is a store with a cached header.</li>
+     *   <li>{@link DeleteStoreMode#SYNC SYNC} (deprecated): bumps the meta-data version stamp unconditionally without
+     *       reading the header — the pre-{@code deleteStoreAsync} behavior. Documented here so the deprecated method's
+     *       cost is not silently forgotten.</li>
+     * </ul>
      */
-    @Test
-    void deleteNonCacheableStoreDoesNotBumpMetaDataVersionStamp() throws Exception {
+    @ParameterizedTest(name = "deleteNonCacheableStoreDoesNotBumpMetaDataVersionStamp [{0}]")
+    @EnumSource(DeleteStoreMode.class)
+    void deleteNonCacheableStoreDoesNotBumpMetaDataVersionStamp(@Nonnull DeleteStoreMode deleteStoreMode) throws Exception {
         ensureMetaDataVersionStampInitialized();
-        deleteStoreDoesNotBumpMetaDataVersion(createStore(false).subspace());
+        assertMetaDataVersionStampBehaviorOnNonCacheableOrMissingStore(createStore(false).subspace(), deleteStoreMode);
     }
 
     /**
-     * Deleting an empty subspace (no store header present) must not bump the stamp either —
-     * there's no cached header to invalidate.
+     * Behavior of {@link FDBRecordStore#deleteStore} on an empty subspace with no store
+     * header, mirroring the {@link #deleteNonCacheableStoreDoesNotBumpMetaDataVersionStamp}
+     * split: {@link DeleteStoreMode#ASYNC ASYNC} sees the missing header and skips the bump;
+     * {@link DeleteStoreMode#SYNC SYNC} bumps unconditionally.
      */
-    @Test
-    void deleteMissingStoreDoesNotBumpMetaDataVersionStamp() {
+    @ParameterizedTest(name = "deleteMissingStoreDoesNotBumpMetaDataVersionStamp [{0}]")
+    @EnumSource(DeleteStoreMode.class)
+    void deleteMissingStoreDoesNotBumpMetaDataVersionStamp(@Nonnull DeleteStoreMode deleteStoreMode) {
         ensureMetaDataVersionStampInitialized();
 
         // Use the test's per-instance path, but never open a store there.
@@ -795,28 +820,44 @@ public class FDBRecordStoreStateCacheTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             subspace = path.toSubspace(context);
         }
-        deleteStoreDoesNotBumpMetaDataVersion(subspace);
-    }
-
-    private void deleteStoreDoesNotBumpMetaDataVersion(final Subspace subspace) {
-        final byte[] beforeStamp = getMetaDataVersionStamp();
-        assertNotNull(beforeStamp);
-
-        deleteStore(subspace);
-
-        final byte[] afterStamp = getMetaDataVersionStamp();
-        assertNotNull(afterStamp);
-        assertArrayEquals(beforeStamp, afterStamp,
-                "deleting a cacheable store should not have bumped the meta-data version stamp");
+        assertMetaDataVersionStampBehaviorOnNonCacheableOrMissingStore(subspace, deleteStoreMode);
     }
 
     /**
-     * Complement of {@link #deleteNonCacheableStoreDoesNotBumpMetaDataVersionStamp()}: deleting
-     * a cacheable store MUST bump the stamp — otherwise sibling clients could keep serving
-     * reads out of a stale cached header long after the store is gone.
+     * Snapshot the meta-data version stamp, run a delete of the given subspace via {@code mode},
+     * and assert the stamp behaved as the mode's contract requires: {@link DeleteStoreMode#SYNC}
+     * bumps unconditionally, {@link DeleteStoreMode#ASYNC} leaves the stamp untouched when the
+     * header is absent or marks the store non-cacheable.
      */
-    @Test
-    void deleteCacheableStoreBumpsMetaDataVersionStamp() throws Exception {
+    private void assertMetaDataVersionStampBehaviorOnNonCacheableOrMissingStore(final Subspace subspace,
+                                                                                @Nonnull DeleteStoreMode deleteStoreMode) {
+        final byte[] beforeStamp = getMetaDataVersionStamp();
+        assertNotNull(beforeStamp);
+
+        deleteStore(subspace, deleteStoreMode);
+
+        final byte[] afterStamp = getMetaDataVersionStamp();
+        assertNotNull(afterStamp);
+        if (deleteStoreMode == DeleteStoreMode.SYNC) {
+            assertFalse(Arrays.equals(beforeStamp, afterStamp),
+                    "deprecated sync deleteStore always bumps the meta-data version stamp, " +
+                            "even when the store header is absent or non-cacheable");
+        } else {
+            assertArrayEquals(beforeStamp, afterStamp,
+                    "async deleteStoreAsync must not bump the meta-data version stamp when the " +
+                            "store header is absent or non-cacheable — nothing to invalidate");
+        }
+    }
+
+    /**
+     * Complement of {@link #deleteNonCacheableStoreDoesNotBumpMetaDataVersionStamp(DeleteStoreMode)}:
+     * deleting a cacheable store MUST bump the stamp — otherwise sibling clients could keep serving
+     * reads out of a stale cached header long after the store is gone. Both modes bump: SYNC does
+     * so unconditionally, ASYNC does so because the header parses as cacheable.
+     */
+    @ParameterizedTest(name = "deleteCacheableStoreBumpsMetaDataVersionStamp [{0}]")
+    @EnumSource(DeleteStoreMode.class)
+    void deleteCacheableStoreBumpsMetaDataVersionStamp(@Nonnull DeleteStoreMode deleteStoreMode) throws Exception {
         ensureMetaDataVersionStampInitialized();
 
         final Subspace subspace = createStore(true).subspace();
@@ -824,7 +865,7 @@ public class FDBRecordStoreStateCacheTest extends FDBRecordStoreTestBase {
         final byte[] beforeStamp = getMetaDataVersionStamp();
         assertNotNull(beforeStamp);
 
-        deleteStore(subspace);
+        deleteStore(subspace, deleteStoreMode);
 
         final byte[] afterStamp = getMetaDataVersionStamp();
         assertNotNull(afterStamp);
@@ -833,13 +874,25 @@ public class FDBRecordStoreStateCacheTest extends FDBRecordStoreTestBase {
     }
 
     /**
-     * Race check for {@link FDBRecordStore#deleteStore(FDBRecordContext, Subspace)}.
-     * <p>The bug we're guarding against: {@code deleteStore} commits without bumping the
-     * stamp, concurrently with another transaction that sets the store as cacheable.
-     * The delete should conflict.</p>
+     * Race check for {@link FDBRecordStore#deleteStore(FDBRecordContext, Subspace)} vs a concurrent
+     * {@link FDBRecordStore#setStateCacheability(boolean) setStateCacheability(true)} flip that commits first. The two
+     * variants observe different outcomes:
+     *
+     * <ul>
+     *   <li>{@link DeleteStoreMode#ASYNC ASYNC} (new): the SERIALIZABLE header read inside
+     *       {@link FDBRecordStore#deleteStoreAsync(FDBRecordContext, Subspace) deleteStoreAsync} adds a read-conflict
+     *       range on {@code STORE_INFO_KEY}, so the flipper's committed write forces the deleter to conflict and abort.
+     *       Correctness invariant: a cacheable store cannot be silently deleted with the stamp still pointing at the
+     *       flipper's potentially cached value.</li>
+     *   <li>{@link DeleteStoreMode#SYNC SYNC} (deprecated): does not read the header and does not add any read-conflict
+     *       range, so the deleter commits regardless of the flipper. This is ok, because the SYNC method always bump
+     *       the meta-data version-stamp, and thus, any cached header would be invalidated
+     *       (see {@link #deleteCacheableStoreBumpsMetaDataVersionStamp}).</li>
+     * </ul>
      */
-    @Test
-    void concurrentSetCacheabilityPreventsDeleteStore() throws Exception {
+    @ParameterizedTest(name = "concurrentSetCacheabilityPreventsDeleteStore [{0}]")
+    @EnumSource(DeleteStoreMode.class)
+    void concurrentSetCacheabilityPreventsDeleteStore(@Nonnull DeleteStoreMode deleteStoreMode) throws Exception {
         fdb.setStoreStateCache(metaDataVersionStampCacheFactory.getCache(fdb));
         ensureMetaDataVersionStampInitialized();
 
@@ -867,17 +920,19 @@ public class FDBRecordStoreStateCacheTest extends FDBRecordStoreTestBase {
             // deleterContext: reads STORE_INFO_KEY at snapshot at its pinned pre-flip RV, sees
             // non-cacheable. The deleteStore also adds a point read conflict
             // on STORE_INFO_KEY — which the flipper's committed write will conflict with.
-            FDBRecordStore.deleteStore(deleterContext, setup.subspace());
+            deleteStoreMode.deleteStore(deleterContext, setup.subspace());
             deleterCommitted = tryCommitOrDetectConflict(deleterContext);
         }
 
-        if (deleterCommitted) {
+        if (deleteStoreMode == DeleteStoreMode.SYNC) {
+            assertTrue(deleterCommitted,
+                    "deprecated sync deleteStore does not add a read conflict on STORE_INFO_KEY, " +
+                            "so it does not detect a concurrent setStateCacheability(true) flip");
+        } else if (deleterCommitted) {
             fail("delete committed after a concurrent setStateCacheability(true) flip " +
                     "and did not bump the meta-data version stamp; a subsequent writer " +
                     "could have trusted its (now-stale) cache entry and inserted a record into a " +
-                    "subspace whose store header has been deleted — an on-disk orphan. " +
-                    "This is the correctness bug deleteStore's read-conflict guard is meant " +
-                    "to prevent.");
+                    "subspace whose store header has been deleted — an on-disk orphan. ");
         } else {
             // Deleter correctly conflicted with the flipper. The store still exists (the
             // flipper's cacheable header); caches remain consistent with disk.
@@ -890,15 +945,12 @@ public class FDBRecordStoreStateCacheTest extends FDBRecordStoreTestBase {
     }
 
     /**
-     * Companion invariant to {@link #concurrentSetCacheabilityPreventsDeleteStore()}: with the
-     * commit order flipped (deleter first, then flipper), the flipper must conflict. Unlike its
-     * companion, this test relies on general read/write conflict machinery — specifically, that
-     * setStateCacheability's own SERIALIZABLE header read (via open() → loadRecordStoreStateAsync
-     * or handleCachedState) puts STORE_INFO_KEY in the flipper's read set, so any concurrent
-     * write to that key by a preceding delete forces a conflict.
+     * Companion invariant to {@link #concurrentSetCacheabilityPreventsDeleteStore(DeleteStoreMode)}:
+     * with the commit order flipped (deleter first, then flipper), the flipper must conflict.
      */
-    @Test
-    void concurrentSetCacheabilityConflictsWithDeleteStore() throws Exception {
+    @ParameterizedTest(name = "concurrentSetCacheabilityConflictsWithDeleteStore [{0}]")
+    @EnumSource(DeleteStoreMode.class)
+    void concurrentSetCacheabilityConflictsWithDeleteStore(@Nonnull DeleteStoreMode deleteStoreMode) throws Exception {
         fdb.setStoreStateCache(metaDataVersionStampCacheFactory.getCache(fdb));
         ensureMetaDataVersionStampInitialized();
 
@@ -909,7 +961,7 @@ public class FDBRecordStoreStateCacheTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext flipperContext = fdb.openContext(null, new FDBStoreTimer())) {
             FDBRecordStore flipperStore = setup.builder().copyBuilder().setContext(flipperContext).open();
             try (FDBRecordContext deleterContext = fdb.openContext(null, new FDBStoreTimer())) {
-                FDBRecordStore.deleteStore(deleterContext, setup.subspace());
+                deleteStoreMode.deleteStore(deleterContext, setup.subspace());
                 commit(deleterContext);
             }
             assertTrue(flipperStore.setStateCacheability(true),
@@ -1433,9 +1485,9 @@ public class FDBRecordStoreStateCacheTest extends FDBRecordStoreTestBase {
         }
     }
 
-    private void deleteStore(final Subspace subspace) {
+    private void deleteStore(final Subspace subspace, @Nonnull DeleteStoreMode deleteStoreMode) {
         try (FDBRecordContext context = openContext()) {
-            FDBRecordStore.deleteStore(context, subspace);
+            deleteStoreMode.deleteStore(context, subspace);
             commit(context);
         }
     }
