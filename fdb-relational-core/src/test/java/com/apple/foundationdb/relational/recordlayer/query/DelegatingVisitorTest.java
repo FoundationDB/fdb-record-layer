@@ -329,7 +329,7 @@ public class DelegatingVisitorTest {
                         generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
                     @Override
                     public Object visitStatementOptions(@Nonnull RelationalParser.StatementOptionsContext ctx) {
-                        called.setTrue();
+                        called.set(true);
                         return null;
                     }
                 });
@@ -344,7 +344,7 @@ public class DelegatingVisitorTest {
                         generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
                     @Override
                     public Object visitStatementOption(@Nonnull RelationalParser.StatementOptionContext ctx) {
-                        called.setTrue();
+                        called.set(true);
                         return null;
                     }
                 });
