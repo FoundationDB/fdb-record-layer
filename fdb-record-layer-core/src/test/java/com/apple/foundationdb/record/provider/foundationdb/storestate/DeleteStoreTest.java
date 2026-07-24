@@ -29,6 +29,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreTestBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
+import com.apple.foundationdb.record.provider.foundationdb.RecordStoreDoesNotExistException;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.test.ParameterizedTestUtils;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -46,6 +47,7 @@ import static com.apple.foundationdb.record.provider.foundationdb.storestate.FDB
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
@@ -277,6 +279,67 @@ public class DeleteStoreTest extends FDBRecordStoreTestBase {
                 "deleting a cacheable store should have bumped the meta-data version stamp");
     }
 
+    /**
+     * Sanity check that {@link FDBRecordStore#deleteStore}/{@link FDBRecordStore#deleteStoreAsync}
+     * actually clears the store's subspace: both the store header and every previously-saved
+     * record disappear on commit.
+     */
+    @ParameterizedTest
+    @EnumSource(DeleteStoreMode.class)
+    void deleteStoreClearsSubspace(@Nonnull DeleteStoreMode deleteStoreMode) throws Exception {
+        final StoreSetup setup = createStoreWithRecords(1L, 2L);
+        assertFalse(isSubspaceEmpty(setup.subspace()),
+                "store should have data on disk before deletion");
+
+        deleteStore(setup.subspace(), deleteStoreMode);
+
+        // After the delete, the subspace should be entirely empty — no header, no records,
+        // no index entries. deleteStore clears subspace.range() unconditionally.
+        assertTrue(isSubspaceEmpty(setup.subspace()),
+                "store subspace should be empty after deletion");
+    }
+
+    /**
+     * After a delete, opening the same store with the default
+     * {@link FDBRecordStoreBase.StoreExistenceCheck#ERROR_IF_NOT_EXISTS} check (i.e. via
+     * {@link FDBRecordStore.Builder#open() Builder.open()}) must throw
+     * {@link RecordStoreDoesNotExistException} — the store header is gone, so as far as
+     * the record layer is concerned the store no longer exists.
+     */
+    @ParameterizedTest
+    @EnumSource(DeleteStoreMode.class)
+    void openAfterDeleteThrows(@Nonnull DeleteStoreMode deleteStoreMode) throws Exception {
+        final StoreSetup setup = createStoreWithRecords(1L);
+        deleteStore(setup.subspace(), deleteStoreMode);
+
+        try (FDBRecordContext context = openContext()) {
+            assertThrows(RecordStoreDoesNotExistException.class,
+                    () -> setup.builder().copyBuilder().setContext(context).open(),
+                    "opening a deleted store should throw RecordStoreDoesNotExistException");
+        }
+    }
+
+    /**
+     * After deleting a store, {@link FDBRecordStore.Builder#create()} must succeed on the
+     * same path — a fresh, empty store — proving the delete really wiped every trace of the
+     * old store's header rather than merely marking it inactive.
+     */
+    @ParameterizedTest
+    @EnumSource(DeleteStoreMode.class)
+    void deletedStoreCanBeRecreated(@Nonnull DeleteStoreMode deleteStoreMode) throws Exception {
+        final StoreSetup setup = createStoreWithRecords(1L);
+        deleteStore(setup.subspace(), deleteStoreMode);
+
+        // Recreate the store; expect no prior records and be able to save fresh ones.
+        try (FDBRecordContext context = openContext()) {
+            final FDBRecordStore recreated = setup.builder().copyBuilder().setContext(context).create();
+            assertNotNull(recreated);
+            recreated.saveRecord(TestRecords1Proto.MySimpleRecord.newBuilder()
+                    .setRecNo(1L).setStrValueIndexed("new").build());
+            commit(context);
+        }
+    }
+
 
     @Nonnull
     public static Stream<Arguments> concurrentOperationPreventsDeleteStore() {
@@ -501,6 +564,33 @@ public class DeleteStoreTest extends FDBRecordStoreTestBase {
             final Subspace subspace = recordStore.getSubspace();
             commit(context);
             return new StoreSetup(builder, subspace);
+        }
+    }
+
+    /**
+     * Same as {@link #createStore(boolean) createStore(false)} but additionally saves one
+     * {@link TestRecords1Proto.MySimpleRecord MySimpleRecord} per given {@code recNo} in a
+     * follow-up transaction, so tests get a store with some concrete on-disk data to
+     * exercise deletion against without having to hand-roll the save-then-commit boilerplate.
+     */
+    private StoreSetup createStoreWithRecords(long... recNos) throws Exception {
+        final StoreSetup setup = createStore(false);
+        try (FDBRecordContext context = openContext()) {
+            final FDBRecordStore store = setup.builder().copyBuilder().setContext(context).open();
+            for (long recNo : recNos) {
+                store.saveRecord(TestRecords1Proto.MySimpleRecord.newBuilder()
+                        .setRecNo(recNo)
+                        .setStrValueIndexed("rec-" + recNo)
+                        .build());
+            }
+            commit(context);
+        }
+        return setup;
+    }
+
+    private boolean isSubspaceEmpty(@Nonnull Subspace subspace) {
+        try (FDBRecordContext context = fdb.openContext()) {
+            return context.ensureActive().getRange(subspace.range()).asList().join().isEmpty();
         }
     }
 
