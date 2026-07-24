@@ -39,7 +39,6 @@ import com.apple.foundationdb.record.lucene.directory.AgilityContext;
 import com.apple.foundationdb.record.lucene.directory.FDBDirectory;
 import com.apple.foundationdb.record.lucene.directory.FDBDirectoryManager;
 import com.apple.foundationdb.record.lucene.directory.FDBLuceneFileReference;
-import com.apple.foundationdb.record.lucene.directory.PendingWriteQueue;
 import com.apple.foundationdb.record.lucene.idformat.LuceneIndexKeySerializer;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexAggregateFunction;
@@ -178,8 +177,8 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
 
     private <M extends Message> void writeDocument(final FDBIndexableRecord<M> newRecord, final Map.Entry<Tuple, List<LuceneDocumentFromRecord.DocumentField>> entry, final Integer partitionId) {
         if (shouldUseQueue(entry.getKey(), partitionId)) {
-            PendingWriteQueue queue = directoryManager.getPendingWriteQueue(entry.getKey(), partitionId);
-            queue.enqueueInsert(state.store.getContext(), newRecord.getPrimaryKey(), entry.getValue(), getIncarnationSafe(state.store));
+            directoryManager.getDirectoryWrapper(entry.getKey(), partitionId).enqueuePendingInsert(
+                    state.store.getContext(), newRecord.getPrimaryKey(), entry.getValue(), getIncarnationSafe(state.store));
             // Require deferred merge (+ drain) in case there is a merge indicator without an active merge
             this.state.store.getIndexDeferredMaintenanceControl().setMergeRequiredIndexes(this.state.index);
         } else {
@@ -210,8 +209,8 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
 
     private int deleteDocument(Tuple groupingKey, @Nullable Integer partitionId, Tuple primaryKey) throws IOException {
         if (shouldUseQueue(groupingKey, partitionId)) {
-            PendingWriteQueue queue = directoryManager.getPendingWriteQueue(groupingKey, partitionId);
-            queue.enqueueDelete(state.store.getContext(), primaryKey, getIncarnationSafe(state.store));
+            directoryManager.getDirectoryWrapper(groupingKey, partitionId).enqueuePendingDelete(
+                    state.store.getContext(), primaryKey, getIncarnationSafe(state.store));
             // Require deferred merge (+ drain) in case there is a merge indicator without an active merge
             this.state.store.getIndexDeferredMaintenanceControl().setMergeRequiredIndexes(this.state.index);
             return 0; // partition count will be adjusted during drain
@@ -589,7 +588,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
                         directory.getFieldInfosCount();
                 final CompletableFuture<Long> queueSizeFuture =
                         directoryManager.getPendingWriteQueue(groupingKey, partitionId)
-                                        .getQueueSize(state.context);
+                                        .getQueueSizeNoConflict(state.context);
                 return filesFuture.thenCompose(fileList ->
                         fieldInfosFuture.thenCompose(fieldInfosCount ->
                                 queueSizeFuture.thenApply(queueSize ->

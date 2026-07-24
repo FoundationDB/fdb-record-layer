@@ -53,6 +53,7 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Function;
 
 /**
  * A persistent FDB-backed queue of pending entries, each carrying a typed Protobuf payload.
@@ -130,6 +131,10 @@ public class PendingWritesQueue<T extends Message> {
     /**
      * Construct a pending writes queue.
      *
+     * <p>The queue only ever writes the current envelope format. The queue does support
+     * reading of a previous encoded format through passing in a legacy encoder to
+     * {@link #getQueueCursor(FDBRecordContext, ScanProperties, byte[], Function)}.</p>
+     *
      * @param queueSubspace subspace under which queue entries live; the caller owns its layout
      * @param queueSizeSubspace subspace under which the atomic size counter lives; must not
      * overlap with {@code queueSubspace}
@@ -178,6 +183,27 @@ public class PendingWritesQueue<T extends Message> {
      * Return a cursor that iterates through the queue entries in {@code (incarnation,
      * versionstamp)} order.
      *
+     * <p>Equivalent to {@link #getQueueCursor(FDBRecordContext, ScanProperties, byte[], Function)}
+     * with no legacy decoder.</p>
+     *
+     * @param context the record context to scan within
+     * @param scanProperties scan properties; the isolation level is always forced to {@link IsolationLevel#SNAPSHOT}
+     * @param continuation continuation from a previous cursor invocation, or {@code null} to
+     * start from the beginning
+     *
+     * @return a cursor over {@link PendingWritesQueueEntry} values
+     */
+    @Nonnull
+    public RecordCursor<PendingWritesQueueEntry<T>> getQueueCursor(@Nonnull FDBRecordContext context,
+                                                                   @Nonnull ScanProperties scanProperties,
+                                                                   @Nullable byte[] continuation) {
+        return getQueueCursor(context, scanProperties, continuation, null);
+    }
+
+    /**
+     * Return a cursor that iterates through the queue entries in {@code (incarnation,
+     * versionstamp)} order.
+     *
      * <p>The cursor always uses {@link IsolationLevel#SNAPSHOT} regardless of what the caller
      * passes in {@code scanProperties}. This is intentional: it lets a drain transaction
      * iterate the queue and clear entries without installing a read-conflict range that would
@@ -188,6 +214,10 @@ public class PendingWritesQueue<T extends Message> {
      * @param scanProperties scan properties; the isolation level is always forced to {@link IsolationLevel#SNAPSHOT}
      * @param continuation continuation from a previous cursor invocation, or {@code null} to
      * start from the beginning
+     * @param legacyDecoder fallback that turns the raw stored bytes of a previous-format entry
+     * (one that fails to parse as the current envelope) into a
+     * payload {@code T}; {@code null} if there is no legacy format to read, in which case such an
+     * entry is a storage error.
      *
      * @return a cursor over {@link PendingWritesQueueEntry} values
      */
@@ -195,7 +225,8 @@ public class PendingWritesQueue<T extends Message> {
     @Nonnull
     public RecordCursor<PendingWritesQueueEntry<T>> getQueueCursor(@Nonnull FDBRecordContext context,
                                                                    @Nonnull ScanProperties scanProperties,
-                                                                   @Nullable byte[] continuation) {
+                                                                   @Nullable byte[] continuation,
+                                                                   @Nullable Function<byte[], T> legacyDecoder) {
         // Inner-cursor properties: clear per-row limits (the unsplitter applies entry-level
         // limits) and force snapshot isolation so the read never installs a read-conflict
         // range over the queue subspace. The unsplitter below still receives the ORIGINAL
@@ -218,7 +249,7 @@ public class PendingWritesQueue<T extends Message> {
                 context, queueSubspace, inner,
                 false, null, scanProperties)
                 .limitRowsTo(scanProperties.getExecuteProperties().getReturnedRowLimit());
-        return unsplitter.map(rawRecord -> toQueueEntry(rawRecord.getPrimaryKey(), rawRecord.getRawRecord()));
+        return unsplitter.map(rawRecord -> toQueueEntry(rawRecord.getPrimaryKey(), rawRecord.getRawRecord(), legacyDecoder));
     }
 
     /**
@@ -337,21 +368,37 @@ public class PendingWritesQueue<T extends Message> {
     }
 
     @Nonnull
-    private PendingWritesQueueEntry<T> toQueueEntry(@Nonnull Tuple keyTuple, @Nonnull byte[] valueBytes) {
-        PendingWritesQueueProto.PendingWriteItem item;
-        try {
-            item = PendingWritesQueueProto.PendingWriteItem.parseFrom(valueBytes);
-        } catch (InvalidProtocolBufferException ex) {
-            throw new RecordCoreStorageException("Failed to parse pending writes queue entry", ex)
-                    .addLogInfo(LogMessageKeys.KEY_TUPLE, keyTuple);
+    private PendingWritesQueueEntry<T> toQueueEntry(@Nonnull Tuple keyTuple, @Nonnull byte[] valueBytes,
+                                                    @Nullable Function<byte[], T> legacyDecoder) {
+        final PendingWritesQueueProto.PendingWriteItem item = tryParseEnvelope(valueBytes);
+        if (item != null && item.getVersion() > 0) {
+            // Current format: a versioned envelope carrying an Any payload.
+            return currentFormatEntry(keyTuple, item);
         }
+        // Not the current format (parse failed, or the entry has no version): fall back to the
+        // legacy decoder if one is configured.
+        if (legacyDecoder == null) {
+            throw new RecordCoreStorageException("Failed to parse pending writes queue entry and no legacy decoder is configured")
+                    .addLogInfo(LogMessageKeys.KEY_TUPLE, keyTuple)
+                    .addLogInfo(LogMessageKeys.STORED_VERSION, item == null ? -1 : item.getVersion());
+        }
+        return legacyFormatEntry(keyTuple, valueBytes, legacyDecoder);
+    }
+
+    /**
+     * Build an entry from a current-format envelope: validate the version and payload type, then
+     * unpack the {@code Any} into the queue's bound message type.
+     */
+    @Nonnull
+    private PendingWritesQueueEntry<T> currentFormatEntry(@Nonnull Tuple keyTuple,
+                                                          @Nonnull PendingWritesQueueProto.PendingWriteItem item) {
         if (item.getVersion() > CURRENT_VERSION) {
             throw new RecordCoreStorageException("Pending writes queue entry version is newer than this reader supports")
                     .addLogInfo(LogMessageKeys.VERSION, CURRENT_VERSION)
                     .addLogInfo(LogMessageKeys.STORED_VERSION, item.getVersion())
                     .addLogInfo(LogMessageKeys.KEY_TUPLE, keyTuple);
         }
-        Any storedPayload = item.getPayload();
+        final Any storedPayload = item.getPayload();
         // Any#is derives the expected type URL from the bound message class internally and
         // compares it to the stored URL. If it doesn't match, we surface both URLs for
         // diagnostics before unpacking would itself throw.
@@ -361,7 +408,7 @@ public class PendingWritesQueue<T extends Message> {
                     .addLogInfo(LogMessageKeys.EXPECTED_TYPE, payloadClass.getName())
                     .addLogInfo(LogMessageKeys.ACTUAL_TYPE, storedPayload.getTypeUrl());
         }
-        T payload;
+        final T payload;
         try {
             payload = storedPayload.unpack(payloadClass);
         } catch (InvalidProtocolBufferException ex) {
@@ -369,7 +416,44 @@ public class PendingWritesQueue<T extends Message> {
                     .addLogInfo(LogMessageKeys.KEY_TUPLE, keyTuple)
                     .addLogInfo(LogMessageKeys.EXPECTED_TYPE, payloadClass.getName());
         }
-        return new PendingWritesQueueEntry<>(keyTuple, payload, storedPayload.getTypeUrl(), item.getEnqueueTimestamp());
+        return new PendingWritesQueueEntry<>(keyTuple, payload, item.getVersion(), storedPayload.getTypeUrl(), item.getEnqueueTimestamp());
+    }
+
+    /**
+     * Build an entry from a previous format value using the supplied {@code legacyDecoder}.
+     *
+     * @param keyTuple the key for the queue entry
+     * @param valueBytes the serialized bytes to decode
+     * @param legacyDecoder the read-path decoder for non-current-format entries
+     */
+    @Nonnull
+    private PendingWritesQueueEntry<T> legacyFormatEntry(@Nonnull Tuple keyTuple,
+                                                         @Nonnull byte[] valueBytes,
+                                                         @Nonnull Function<byte[], T> legacyDecoder) {
+        final T payload;
+        try {
+            payload = legacyDecoder.apply(valueBytes);
+        } catch (RuntimeException ex) {
+            throw new RecordCoreStorageException("Failed to decode legacy pending writes queue entry", ex)
+                    .addLogInfo(LogMessageKeys.KEY_TUPLE, keyTuple);
+        }
+        // Legacy entries were not Any-wrapped and carry no versioned envelope, so the version is
+        // 0, the payload type URL is empty, and the enqueue timestamp is unavailable at this layer.
+        return new PendingWritesQueueEntry<>(keyTuple, payload, 0, "", 0L);
+    }
+
+    /**
+     * Parse the stored bytes as the current envelope, returning {@code null} if they are not a
+     * valid envelope (e.g. an entry written by a predecessor implementation in a different
+     * layout, which the read-path legacy decoder handles instead).
+     */
+    @Nullable
+    private static PendingWritesQueueProto.PendingWriteItem tryParseEnvelope(@Nonnull byte[] valueBytes) {
+        try {
+            return PendingWritesQueueProto.PendingWriteItem.parseFrom(valueBytes);
+        } catch (InvalidProtocolBufferException ex) {
+            return null;
+        }
     }
 
     private void mutateQueueSizeCounter(@Nonnull FDBRecordContext context, long delta) {

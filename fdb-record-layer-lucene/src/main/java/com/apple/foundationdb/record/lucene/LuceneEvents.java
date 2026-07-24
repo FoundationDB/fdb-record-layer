@@ -186,6 +186,8 @@ public class LuceneEvents {
         WAIT_LUCENE_REPLAY_QUEUE("lucene replay pending writes queue"),
         /** Get the number of entries in the pending writes queue. */
         WAIT_LUCENE_GET_QUEUE_SIZE("lucene get pending writes queue size"),
+        /** Wait for an enqueue into the pending writes queue (includes the capacity-check read). */
+        WAIT_LUCENE_PENDING_QUEUE_WRITE("lucene pending queue write"),
         WAIT_LUCENE_SERIALIZE("lucene serialize data"),
         WAIT_LUCENE_DESERIALIZE("lucene deserialize data");
         private final String title;

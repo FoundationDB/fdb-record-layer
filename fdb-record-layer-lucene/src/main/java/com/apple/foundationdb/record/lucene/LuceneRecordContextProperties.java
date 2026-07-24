@@ -142,4 +142,12 @@ public final class LuceneRecordContextProperties {
      * Max size of pending writes queue.
      */
     public static final RecordLayerPropertyKey<Integer> LUCENE_MAX_PENDING_QUEUE_SIZE = RecordLayerPropertyKey.integerPropertyKey("com.apple.foundationdb.record.lucene.max.pending.queue.size", PendingWriteQueue.DEFAULT_MAX_PENDING_QUEUE_SIZE);
+    /**
+     * Whether to write pending-write-queue entries in the new (versioned {@code Any}-payload)
+     * format instead of the legacy format. Readers always understand both formats; this only
+     * controls what is written. It must be turned on only after every instance in the deployment
+     * runs a version that can read the new format, so no older instance encounters an entry it
+     * cannot parse. Default: {@code false} (write the legacy format).
+     */
+    public static final RecordLayerPropertyKey<Boolean> LUCENE_PENDING_WRITE_QUEUE_WRITE_NEW_FORMAT = RecordLayerPropertyKey.booleanPropertyKey("com.apple.foundationdb.record.lucene.pending.writes.queue.write.new.format", false);
 }
