@@ -149,6 +149,22 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
     }
 
     /**
+     * Builds a stored record without saving it, for driving an index maintainer directly (e.g. a stub-backed
+     * {@link SlidingWindowIndexMaintainer}) without the real maintainer touching the same subspace.
+     */
+    @Nonnull
+    private FDBStoredRecord<Message> storedRec(final long recNo, final long relevance) {
+        final Message msg = SlidingWindowVectorRecord.newBuilder()
+                .setRecNo(recNo).setZone("z").setCategory("c").setRelevance(relevance).setScore(0)
+                .setVectorData(ByteString.copyFrom(sampleVector().getRawData()))
+                .build();
+        return FDBStoredRecord.newBuilder(msg)
+                .setPrimaryKey(Tuple.from(recNo))
+                .setRecordType(recordStore.getRecordMetaData().getRecordTypeForDescriptor(msg.getDescriptorForType()))
+                .build();
+    }
+
+    /**
      * Probe: snapshot of the sliding-window state for the ungrouped index.
      */
     @Nonnull
@@ -1192,6 +1208,64 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
     }
 
     @Test
+    void updateWhileWriteOnlyPreemptiveDeletes() throws Exception {
+        // The preemptive delete in updateWhileWriteOnly must touch the sliding-window, but not the delegate
+        try (FDBRecordContext context = openContext()) {
+            openStore(context, 3, Direction.DESC);
+            final Index index = recordStore.getRecordMetaData().getIndex(INDEX_NAME);
+            final IndexMaintainerState state = new IndexMaintainerState(
+                    recordStore, index, IndexMaintenanceFilter.NORMAL);
+            final CountingDelegate delegate = new CountingDelegate(state);
+            final SlidingWindowIndexMaintainer sw = new SlidingWindowIndexMaintainer(state, delegate);
+
+            // Fill a size-3 window with rec 1 and rec 2 (both in window).
+            sw.update(null, storedRec(1, 100)).join();
+            sw.update(null, storedRec(2, 200)).join();
+            assertEquals(2, delegate.inserts);
+            assertEquals(0, delegate.deletes);
+
+            // Re-present rec 2, already tracked, with no old record: exercises the preemptive delete.
+            delegate.inserts = 0;
+            delegate.deletes = 0;
+            sw.updateWhileWriteOnly(null, storedRec(2, 200)).join();
+
+            assertEquals(0, delegate.deletes);
+            assertEquals(1, delegate.inserts);
+            assertEquals(1, timer.getCount(SlidingWindowIndexMaintainer.SlidingWindowCounter.SW_PREEMPTIVE_DELETE_WRITE_ONLY));
+            commit(context);
+        }
+    }
+
+    @Test
+    void updateWhileWriteOnlySameWindowKeyRefreshesDelegate() throws Exception {
+        // An update that leaves the window key unchanged (same relevance, same primary key) but changes the
+        // vector must delete the old node from the delegate so the reinsert refreshes it.
+        try (FDBRecordContext context = openContext()) {
+            openStore(context, 3, Direction.DESC);
+            final Index index = recordStore.getRecordMetaData().getIndex(INDEX_NAME);
+            final IndexMaintainerState state = new IndexMaintainerState(
+                    recordStore, index, IndexMaintenanceFilter.NORMAL);
+            final CountingDelegate delegate = new CountingDelegate(state);
+            final SlidingWindowIndexMaintainer sw = new SlidingWindowIndexMaintainer(state, delegate);
+
+            // Index rec 2 at relevance 200 (simulating a prior range-scan insert).
+            sw.update(null, storedRec(2, 200)).join();
+            assertEquals(1, delegate.inserts);
+            assertEquals(0, delegate.deletes);
+
+            // In-place update at the same window key (relevance 200).
+            delegate.inserts = 0;
+            delegate.deletes = 0;
+            sw.updateWhileWriteOnly(storedRec(2, 200), storedRec(2, 200)).join();
+
+            assertEquals(1, delegate.deletes);
+            assertEquals(1, delegate.inserts);
+            assertEquals(0, timer.getCount(SlidingWindowIndexMaintainer.SlidingWindowCounter.SW_PREEMPTIVE_DELETE_WRITE_ONLY));
+            commit(context);
+        }
+    }
+
+    @Test
     void updateWhileWriteOnlyUpdateExistingRecord() throws Exception {
         try (FDBRecordContext context = openContext()) {
             openStore(context, 3, Direction.DESC);
@@ -1692,6 +1766,32 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
         @Nonnull
         @Override
         public CompletableFuture<Void> mergeIndex() {
+            return AsyncUtil.DONE;
+        }
+    }
+
+    /**
+     * A {@link StubIndexMaintainer} that counts delegate insert/delete calls, so tests can assert which delegate
+     * operations a sliding-window mutation actually performs.
+     */
+    private static final class CountingDelegate extends StubIndexMaintainer {
+        private int inserts;
+        private int deletes;
+
+        CountingDelegate(@Nonnull IndexMaintainerState state) {
+            super(state);
+        }
+
+        @Nonnull
+        @Override
+        public <M extends Message> CompletableFuture<Void> update(@Nullable FDBIndexableRecord<M> oldRecord,
+                                                                  @Nullable FDBIndexableRecord<M> newRecord) {
+            if (oldRecord != null && newRecord == null) {
+                deletes++;
+            }
+            if (oldRecord == null && newRecord != null) {
+                inserts++;
+            }
             return AsyncUtil.DONE;
         }
     }

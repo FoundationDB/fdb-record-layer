@@ -34,6 +34,7 @@ import com.google.protobuf.Any;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.Message;
+import com.google.protobuf.ZeroCopyByteString;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -118,7 +119,7 @@ public abstract class StandardIndexMaintainerWithQueue extends StandardIndexMain
     @Nonnull
     static <M extends Message> ByteString serializePendingRecord(@Nonnull final IndexMaintainerState state,
                                                                  @Nonnull final FDBIndexableRecord<M> indexableRecord) {
-        return ByteString.copyFrom(state.store.getSerializer().serialize(state.store.getRecordMetaData(),
+        return ZeroCopyByteString.wrap(state.store.getSerializer().serialize(state.store.getRecordMetaData(),
                 indexableRecord.getRecordType(), indexableRecord.getRecord(), state.store.getTimer()));
     }
 

@@ -412,13 +412,33 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
         //
         // The net effect is that after this method completes, newRecord is indexed exactly
         // once with its current values, and the counter accurately reflects the window size.
-        if (newRecord != null) {
-            incrementCounter(SlidingWindowCounter.SW_PREEMPTIVE_DELETE_WRITE_ONLY);
-        }
-        // The preemptive delete must fully complete (committing its writes and releasing the sliding-window write lock)
-        // before the reinsert runs.
-        return update(newRecord, null)
-                .thenCompose(ignore -> update(oldRecord, newRecord));
+        final EntryKey oldKey = shouldMaintain(oldRecord) ? entryKeyOf(oldRecord) : null;
+        final EntryKey newKey = shouldMaintain(newRecord) ? entryKeyOf(newRecord) : null;
+        return updateWindowWhileWriteOnly(oldKey, newKey,
+                () -> delegate.update(oldRecord, null),
+                () -> delegate.update(null, newRecord));
+    }
+
+    @Nonnull
+    private CompletableFuture<Void> updateWindowWhileWriteOnly(@Nullable final EntryKey oldKey,
+                                                               @Nullable final EntryKey newKey,
+                                                               @Nonnull final Supplier<CompletableFuture<Void>> delegateDelete,
+                                                               @Nonnull final Supplier<CompletableFuture<Void>> delegateInsert) {
+        final Subspace swSubspace = getSlidingWindowSubspace();
+        return state.context.doWithWriteLock(new LockIdentifier(swSubspace), () -> {
+            CompletableFuture<Void> future = AsyncUtil.DONE;
+            if (newKey != null && !newKey.equals(oldKey)) {
+                incrementCounter(SlidingWindowCounter.SW_PREEMPTIVE_DELETE_WRITE_ONLY);
+                future = future.thenCompose(ignore -> handleDelete(newKey, () -> AsyncUtil.DONE));
+            }
+            if (oldKey != null) {
+                future = future.thenCompose(ignore -> handleDelete(oldKey, delegateDelete));
+            }
+            if (newKey != null) {
+                future = future.thenCompose(ignore -> handleInsert(newKey, delegateInsert));
+            }
+            return future;
+        });
     }
 
     @Nonnull
@@ -465,27 +485,12 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
         final EntryKey newKey = entry.hasNewEntryKey() ? entryKeyOf(entry.getNewEntryKey()) : null;
         final Any delegateDelete = entry.hasDelegatedDelete() ? entry.getDelegatedDelete() : null;
         final Any delegateInsert = entry.hasDelegatedInsert() ? entry.getDelegatedInsert() : null;
-
-        final Subspace swSubspace = getSlidingWindowSubspace();
-        return state.context.doWithWriteLock(new LockIdentifier(swSubspace), () -> {
-            // Mirror updateWhileWriteOnly: preemptively clear newKey from the window so a re-drained entry is not
-            // double-counted. This is key-only (no delegate op) — the delegate re-insert below is idempotent — and the
-            // maintenance filter was already applied when the write was first deferred, so it is not re-evaluated here.
-            CompletableFuture<Void> future = AsyncUtil.DONE;
-            if (newKey != null) {
-                incrementCounter(SlidingWindowCounter.SW_PREEMPTIVE_DELETE_WRITE_ONLY);
-                future = future.thenCompose(ignore -> handleDelete(newKey, () -> AsyncUtil.DONE));
-            }
-            if (oldKey != null) {
-                validateOrThrowEx(delegateDelete != null, "old record key without delegate delete");
-                future = future.thenCompose(ignore -> handleDelete(oldKey, () -> delegate.updateFromQueue(delegateDelete)));
-            }
-            if (newKey != null) {
-                validateOrThrowEx(delegateInsert != null, "new record key without delegate insert");
-                future = future.thenCompose(ignore -> handleInsert(newKey, () -> delegate.updateFromQueue(delegateInsert)));
-            }
-            return future;
-        });
+        // The maintenance filter was already applied when the update was first deferred, so it is not re-evaluated here.
+        validateOrThrowEx(oldKey == null || delegateDelete != null, "old record key without delegate delete");
+        validateOrThrowEx(newKey == null || delegateInsert != null, "new record key without delegate insert");
+        return updateWindowWhileWriteOnly(oldKey, newKey,
+                () -> delegate.updateFromQueue(delegateDelete),
+                () -> delegate.updateFromQueue(delegateInsert));
     }
 
     private void validateOrThrowEx(boolean isValid, @Nonnull String msg) {
