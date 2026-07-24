@@ -26,8 +26,10 @@ import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.RecordMetaDataOptionsProto;
 import com.apple.foundationdb.record.RecordMetaDataProto;
+import com.apple.foundationdb.record.TestRecords1EvolvedProto;
 import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.TestRecords4Proto;
+import com.apple.foundationdb.record.TestRecordsDoubleNestedProto;
 import com.apple.foundationdb.record.TestRecordsEnumProto;
 import com.apple.foundationdb.record.TestRecordsIdenticalTypesProto;
 import com.apple.foundationdb.record.TestRecordsWithHeaderProto;
@@ -39,10 +41,12 @@ import com.apple.foundationdb.record.evolution.TestSelfReferenceUnspooledProto;
 import com.apple.foundationdb.record.evolution.TestSplitNestedTypesProto;
 import com.apple.foundationdb.record.evolution.TestUnmergedNestedTypesProto;
 import com.apple.foundationdb.record.expressions.RecordKeyExpressionProto;
+import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.common.text.AllSuffixesTextTokenizer;
 import com.apple.foundationdb.record.provider.common.text.DefaultTextTokenizer;
 import com.apple.foundationdb.record.provider.common.text.PrefixTextTokenizer;
 import com.apple.foundationdb.record.provider.common.text.TextTokenizer;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreTestBase;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerFactoryRegistryImpl;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.ParameterizedTestUtils;
@@ -56,6 +60,7 @@ import org.junit.jupiter.api.Named;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -64,9 +69,10 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
-import java.util.function.UnaryOperator;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -240,14 +246,23 @@ class MetaDataEvolutionValidatorTest {
     // Schema evolution tests
 
     @Nonnull
+    static RecordMetaData updateMetaData(@Nonnull RecordMetaData metaData, @Nonnull Consumer<RecordMetaDataProto.MetaData.Builder> updater) {
+        RecordMetaDataProto.MetaData.Builder metaDataProtoBuilder = metaData.toProto().toBuilder();
+        metaDataProtoBuilder.setVersion(metaData.getVersion() + 1);
+        updater.accept(metaDataProtoBuilder);
+        return RecordMetaData.newBuilder()
+                .addDependency(TestRecords1Proto.getDescriptor())
+                .setRecords(metaDataProtoBuilder.build())
+                .build();
+    }
+
+    @Nonnull
     static RecordMetaData replaceRecordsDescriptor(@Nonnull RecordMetaData metaData, @Nonnull FileDescriptor newDescriptor,
                                                     @Nonnull Consumer<RecordMetaDataProto.MetaData.Builder> metaDataMutation) {
-        RecordMetaDataProto.MetaData.Builder protoBuilder = metaData.toProto().toBuilder()
-                .setVersion(metaData.getVersion() + 1)
-                .setRecords(newDescriptor.toProto())
-                .addDependencies(TestRecords1Proto.getDescriptor().toProto());
-        metaDataMutation.accept(protoBuilder);
-        return RecordMetaData.build(protoBuilder.build());
+        return updateMetaData(metaData, protoBuilder -> {
+            protoBuilder.setRecords(newDescriptor.toProto());
+            metaDataMutation.accept(protoBuilder);
+        });
     }
 
     @Nonnull
@@ -312,6 +327,59 @@ class MetaDataEvolutionValidatorTest {
                 .orElse(0);
         return message.addFieldBuilder()
                 .setNumber(maxFieldNumber + 1);
+    }
+
+    @Nonnull
+    static DescriptorProtos.FieldDescriptorProto.Builder findField(@Nonnull DescriptorProtos.DescriptorProto.Builder message, @Nonnull String name) {
+        return message.getFieldBuilderList().stream()
+                .filter(field -> field.getName().equals(name))
+                .findFirst()
+                .orElseGet(() -> fail("unable to find field " + name));
+    }
+
+    /**
+     * Rename a field on a message and create a new field with that same name. This does two things:
+     *
+     * <ul>
+     *     <li>
+     *         Finds the field called {@code name} and adds the suffix {@code __old} to it. If {@code deprecateOld} is true, then this also
+     *         marks that field as deprecated.
+     *     </li>
+     *     <li>
+     *         Adds a new field to the type with the same name. This allows meta-data validation (<em>not</em> evolution
+     *         validation but the validation done by the {@link MetaDataValidator}) on meta-data defined over this type to
+     *         succeed as it provides a field for any pre-existing reference to refer to.
+     *     </li>
+     * </ul>
+     *
+     * <p>
+     * This then returns the mutable {@link DescriptorProtos.FieldDescriptorProto.Builder} with the field already
+     * set. The new field will have the same label as the original field (unless the original field was {@code required},
+     * in which case the new field will be {@code optional} as new fields are not allowed to be {@code required}), and
+     * type information will also be copied over. However, the returned object is mutable, so the user can modify that
+     * information if they'd like to test modifying the type at the same time as replacing the field.
+     * </p>
+     *
+     * @param message the message type to update
+     * @param name the name of the field to modify
+     * @param deprecateOld whether to deprecate that field when renaming it
+     * @return new {@link DescriptorProtos.FieldDescriptorProto.Builder} referring to the new field
+     */
+    @Nonnull
+    static DescriptorProtos.FieldDescriptorProto.Builder replaceField(@Nonnull DescriptorProtos.DescriptorProto.Builder message, @Nonnull String name, boolean deprecateOld) {
+        final DescriptorProtos.FieldDescriptorProto.Builder oldField = findField(message, name);
+        if (deprecateOld) {
+            deprecateField(oldField);
+        }
+        oldField.setName(name + "__old");
+        final DescriptorProtos.FieldDescriptorProto.Builder newField = addField(message)
+                .setName(name)
+                .setLabel(oldField.getLabel() == DescriptorProtos.FieldDescriptorProto.Label.LABEL_REQUIRED ? DescriptorProtos.FieldDescriptorProto.Label.LABEL_OPTIONAL : oldField.getLabel())
+                .setType(oldField.getType());
+        if (oldField.hasTypeName()) {
+            newField.setTypeName(oldField.getTypeName());
+        }
+        return newField;
     }
 
     static void deprecateField(@Nonnull DescriptorProtos.FieldDescriptorProto.Builder field) {
@@ -560,11 +628,7 @@ class MetaDataEvolutionValidatorTest {
             fileBuilder.addMessageType(newMessageType);
             fileBuilder.getMessageTypeBuilderList().forEach(message -> {
                 if (message.getName().equals(RecordMetaDataBuilder.DEFAULT_UNION_NAME)) {
-                    message.getFieldBuilderList().forEach(field -> {
-                        if (field.getName().equals("_MyOtherOtherRecord")) {
-                            field.setTypeName("MyOtherOtherRecord");
-                        }
-                    });
+                    findField(message, "_MyOtherOtherRecord").setTypeName("MyOtherOtherRecord");
                 }
             });
         });
@@ -592,12 +656,9 @@ class MetaDataEvolutionValidatorTest {
                     if (messageType.getName().equals("MyOtherRecord")) {
                         messageType.setName("MyOtherOtherRecord");
                     } else if (messageType.getName().equals(RecordMetaDataBuilder.DEFAULT_UNION_NAME)) {
-                        messageType.getFieldBuilderList().forEach(field -> {
-                            if (field.getName().equals("_MyOtherRecord")) {
-                                field.setName("_MyOtherOtherRecord");
-                                field.setTypeName("MyOtherOtherRecord");
-                            }
-                        });
+                        findField(messageType, "_MyOtherRecord")
+                                .setName("_MyOtherOtherRecord")
+                                .setTypeName("MyOtherOtherRecord");
                     }
                 })
         );
@@ -949,23 +1010,10 @@ class MetaDataEvolutionValidatorTest {
     @MethodSource("deprecatedArgs")
     void renameFieldWithIndex(boolean deprecated) {
         RecordMetaData metaData1 = RecordMetaData.build(TestRecords1Proto.getDescriptor());
-        FileDescriptor updatedFile = mutateMessageType("MySimpleRecord", simpleRecordType -> {
-            simpleRecordType.getFieldBuilderList().stream()
-                    .filter(field -> field.getName().equals("str_value_indexed"))
-                    .forEach(field -> {
-                        if (deprecated) {
-                            deprecateField(field);
-                        }
-                        field.setName("str_value_indexed_old");
-                    });
-
-            // Add a new field also called str_value_indexed. This is necessary as the validation logic invoked
-            // when building the meta-data will fail if there's an index on a field that doesn't exist
-            addField(simpleRecordType)
-                    .setName("str_value_indexed")
-                    .setType(DescriptorProtos.FieldDescriptorProto.Type.TYPE_BYTES)
-                    .setLabel(DescriptorProtos.FieldDescriptorProto.Label.LABEL_OPTIONAL);
-        });
+        FileDescriptor updatedFile = mutateMessageType("MySimpleRecord", simpleRecordType ->
+                replaceField(simpleRecordType, "str_value_indexed", deprecated)
+                        .setType(DescriptorProtos.FieldDescriptorProto.Type.TYPE_BYTES)
+        );
         RecordMetaData metaData2 = replaceRecordsDescriptor(metaData1, updatedFile);
 
         // This is rejected even if we allow field renames as the index expression has not been updated
@@ -975,7 +1023,7 @@ class MetaDataEvolutionValidatorTest {
         RecordMetaData metaData3 = replaceRecordsDescriptor(metaData1, updatedFile, protoBuilder ->
                 protoBuilder.getIndexesBuilderList().forEach(index -> {
                     if (index.getName().equals("MySimpleRecord$str_value_indexed")) {
-                        index.setRootExpression(Key.Expressions.field("str_value_indexed_old").toKeyExpression());
+                        index.setRootExpression(Key.Expressions.field("str_value_indexed__old").toKeyExpression());
                     }
                 })
         );
@@ -989,21 +1037,10 @@ class MetaDataEvolutionValidatorTest {
         metaDataBuilder.addUniversalIndex(new Index("all$num_value_2", "num_value_2"));
         RecordMetaData metaData1 = metaDataBuilder.build();
 
-        FileDescriptor updatedFile = mutateMessageType("MySimpleRecord", simpleRecordType -> {
-            simpleRecordType.getFieldBuilderList().stream()
-                    .filter(field -> field.getName().equals("num_value_2"))
-                    .forEach(field -> {
-                        if (deprecated) {
-                            deprecateField(field);
-                        }
-                        field.setName("num_value_2__old");
-                    });
-
-            addField(simpleRecordType)
-                    .setName("num_value_2")
-                    .setType(DescriptorProtos.FieldDescriptorProto.Type.TYPE_SFIXED64)
-                    .setLabel(DescriptorProtos.FieldDescriptorProto.Label.LABEL_OPTIONAL);
-        });
+        FileDescriptor updatedFile = mutateMessageType("MySimpleRecord", simpleRecordType ->
+                replaceField(simpleRecordType, "num_value_2", deprecated)
+                        .setType(DescriptorProtos.FieldDescriptorProto.Type.TYPE_SFIXED64)
+        );
         RecordMetaData metaData2 = replaceRecordsDescriptor(metaData1, updatedFile);
 
         // Still not allowed as the multi-type index requires the new key expression num_value_2__old on one record
@@ -1011,27 +1048,15 @@ class MetaDataEvolutionValidatorTest {
         fieldRenameChecker.assertInvalidRenaming("field renames result in inconsistent index definition for multi-type index", deprecated, metaData1, metaData2);
 
         // Update the other types num_value_2 so now all types rename num_value_2 the same way
-        updatedFile = mutateMessageType("MyOtherRecord", updatedFile, otherRecordType -> {
-            otherRecordType.getFieldBuilderList().stream()
-                    .filter(field -> field.getName().equals("num_value_2"))
-                    .forEach(field -> {
-                        if (deprecated) {
-                            deprecateField(field);
-                        }
-                        field.setName("num_value_2__old");
-                    });
-
-            addField(otherRecordType)
-                    .setName("num_value_2")
-                    .setType(DescriptorProtos.FieldDescriptorProto.Type.TYPE_INT64)
-                    .setLabel(DescriptorProtos.FieldDescriptorProto.Label.LABEL_OPTIONAL);
-        });
+        updatedFile = mutateMessageType("MyOtherRecord", updatedFile, otherRecordType ->
+                replaceField(otherRecordType, "num_value_2", deprecated)
+                        .setType(DescriptorProtos.FieldDescriptorProto.Type.TYPE_INT64)
+        );
         RecordMetaData metaData3 = replaceRecordsDescriptor(metaData1, updatedFile);
         // Still not allowed as the index hasn't been updated
         fieldRenameChecker.assertInvalidRenaming("index key expression does not match required", deprecated, metaData1, metaData3);
 
-        RecordMetaData metaData4 = replaceIndex(metaData3, "all$num_value_2",
-                indexProto -> indexProto.toBuilder().setRootExpression(Key.Expressions.field("num_value_2__old").toKeyExpression()).build());
+        RecordMetaData metaData4 = mutateIndexRootExpression(metaData3, "all$num_value_2", Key.Expressions.field("num_value_2__old"));
         fieldRenameChecker.assertValidRenaming(deprecated, metaData1, metaData4);
     }
 
@@ -1049,7 +1074,7 @@ class MetaDataEvolutionValidatorTest {
 
         // Updating the name in just one type results in different types requiring different field renames
         for (String type : types) {
-            FileDescriptor renamedOneName = mutateMessageType(type, TestRecords4Proto.getDescriptor(), descriptor -> updateNameField(descriptor, deprecated));
+            FileDescriptor renamedOneName = mutateMessageType(type, TestRecords4Proto.getDescriptor(), descriptor -> replaceField(descriptor, "name", deprecated));
             RecordMetaData metaData2 = replaceRecordsDescriptor(metaData1, renamedOneName);
 
             fieldRenameChecker.assertInvalidRenaming("field renames result in inconsistent index definition for multi-type index", deprecated, metaData1, metaData2);
@@ -1057,52 +1082,25 @@ class MetaDataEvolutionValidatorTest {
 
         // Updating all the names changes the error message
         FileDescriptor updateAllNames = types.stream()
-                .reduce(TestRecords4Proto.getDescriptor(), (fileDescriptor, type) -> mutateMessageType(type, fileDescriptor, descriptor -> updateNameField(descriptor, deprecated)), (fileA, fileB) -> fail("cannot combine"));
+                .reduce(TestRecords4Proto.getDescriptor(),
+                        (fileDescriptor, type) -> mutateMessageType(type, fileDescriptor, descriptor -> replaceField(descriptor, "name", deprecated)),
+                        (fileA, fileB) -> fail("cannot combine"));
         RecordMetaData metaData3 = replaceRecordsDescriptor(metaData1, updateAllNames);
         fieldRenameChecker.assertInvalidRenaming("index key expression does not match required", deprecated, metaData1, metaData3);
 
         // Updating the key expression in the index to match the new name is legal if field renames are allowed
-        RecordMetaData metaData4 = replaceIndex(metaData3, "multi_name", index -> index.toBuilder().setRootExpression(Key.Expressions.field("name_a").toKeyExpression()).build());
+        RecordMetaData metaData4 = mutateIndexRootExpression(metaData3, "multi_name", Key.Expressions.field("name__old"));
         fieldRenameChecker.assertValidRenaming(deprecated, metaData1, metaData4);
-    }
-
-    private void updateNameField(@Nonnull DescriptorProtos.DescriptorProto.Builder descriptor, boolean deprecateOld) {
-        // Rename name to name_a
-        descriptor.getFieldBuilderList().stream()
-                .filter(field -> field.getName().equals("name"))
-                .forEach(field -> {
-                    if (deprecateOld) {
-                        deprecateField(field);
-                    }
-                    field.setName("name_a");
-                });
-        // Add in a name field to ensure meta-data validation (not evolution validation) passes
-        addField(descriptor)
-                .setName("name")
-                .setType(DescriptorProtos.FieldDescriptorProto.Type.TYPE_STRING)
-                .setLabel(DescriptorProtos.FieldDescriptorProto.Label.LABEL_OPTIONAL);
     }
 
     @ParameterizedTest
     @MethodSource("deprecatedArgs")
     void renameFieldInPrimaryKey(boolean deprecated) {
         RecordMetaData metaData1 = RecordMetaData.build(TestRecords1Proto.getDescriptor());
-        FileDescriptor updatedFile = mutateMessageType("MySimpleRecord", simpleRecordType -> {
-            simpleRecordType.getFieldBuilderList().stream()
-                    .filter(field -> field.getName().equals("rec_no"))
-                    .forEach(field -> {
-                        if (deprecated) {
-                            deprecateField(field);
-                        }
-                        field.setName("old_rec_no");
-                    });
-
-            // Add a new field also called rec_no so that we pass meta-data validation
-            addField(simpleRecordType)
-                    .setName("rec_no")
-                    .setType(DescriptorProtos.FieldDescriptorProto.Type.TYPE_BYTES)
-                    .setLabel(DescriptorProtos.FieldDescriptorProto.Label.LABEL_OPTIONAL);
-        });
+        FileDescriptor updatedFile = mutateMessageType("MySimpleRecord", simpleRecordType ->
+                replaceField(simpleRecordType, "rec_no", deprecated)
+                        .setType(DescriptorProtos.FieldDescriptorProto.Type.TYPE_BYTES)
+        );
         RecordMetaData metaData2 = replaceRecordsDescriptor(metaData1, updatedFile);
 
         // This is rejected even if we allow field renames as the primary key has not been updated
@@ -1112,7 +1110,7 @@ class MetaDataEvolutionValidatorTest {
         RecordMetaData metaData3 = replaceRecordsDescriptor(metaData1, updatedFile, protoBuilder ->
                 protoBuilder.getRecordTypesBuilderList().forEach(recordType -> {
                     if (recordType.getName().equals("MySimpleRecord")) {
-                        recordType.setPrimaryKey(Key.Expressions.field("old_rec_no").toKeyExpression());
+                        recordType.setPrimaryKey(Key.Expressions.field("rec_no__old").toKeyExpression());
                     }
                 })
         );
@@ -1370,8 +1368,8 @@ class MetaDataEvolutionValidatorTest {
         fieldRenameChecker.assertInvalidRenaming("index key expression does not match required", deprecated, metaData1, metaData2);
 
         // Update the index so that it reflects the new field name for a.a_prime -> a.b
-        final RecordMetaData metaData3 = replaceIndex(metaData2, "MyRecord$a.b+b.b", indexProto ->
-                indexProto.toBuilder().setRootExpression(Key.Expressions.concat(Key.Expressions.field("a").nest("b"), Key.Expressions.field("b").nest("b")).toKeyExpression()).build());
+        final RecordMetaData metaData3 = mutateIndexRootExpression(metaData2, "MyRecord$a.b+b.b",
+                Key.Expressions.concat(Key.Expressions.field("a").nest("b"), Key.Expressions.field("b").nest("b")));
         fieldRenameChecker.assertValidRenaming(deprecated, metaData1, metaData3);
     }
 
@@ -1446,8 +1444,8 @@ class MetaDataEvolutionValidatorTest {
         fieldRenameChecker.assertInvalidRenaming("index key expression does not match required", deprecated, metaData1, metaData2);
 
         // Update the index so that it reflects the new field name for a.b -> a.b_1 and b.b -> b.b_2
-        final RecordMetaData metaData3 = replaceIndex(metaData2, "MyRecord$a.b+b.b", indexProto ->
-                indexProto.toBuilder().setRootExpression(Key.Expressions.concat(Key.Expressions.field("a").nest("b_1"), Key.Expressions.field("b").nest("b_2")).toKeyExpression()).build());
+        final RecordMetaData metaData3 = mutateIndexRootExpression(metaData2, "MyRecord$a.b+b.b",
+                Key.Expressions.concat(Key.Expressions.field("a").nest("b_1"), Key.Expressions.field("b").nest("b_2")));
         fieldRenameChecker.assertValidRenaming(deprecated, metaData1, metaData3);
     }
 
@@ -1633,6 +1631,1082 @@ class MetaDataEvolutionValidatorTest {
 
         RecordMetaData metaData2 = RecordMetaData.build(protoBuilder.build());
         assertInvalid("record type primary key changed", metaData1, metaData2);
+    }
+
+    // JoinedRecordType type tests
+
+    private void addNumValue2Join(@Nonnull RecordMetaDataBuilder metaDataBuilder) {
+        final JoinedRecordTypeBuilder joinBuilder = metaDataBuilder.addJoinedRecordType("join_nv2");
+        joinBuilder.addConstituent("l", "MySimpleRecord");
+        joinBuilder.addConstituent("r", "MyOtherRecord");
+        joinBuilder.addJoin("l", Key.Expressions.field("num_value_2"), "r", Key.Expressions.field("num_value_2"));
+
+        metaDataBuilder.addIndex("join_nv2", "joined$l.num_value_unique", Key.Expressions.field("l").nest("num_value_unique"));
+    }
+
+    private void addAsymmetricNumValue2Join(@Nonnull RecordMetaDataBuilder metaDataBuilder) {
+        // Unlike addNumValue2Join, the left and right join expressions here refer to different fields. This is
+        // important for validating that the left and right expressions are not confused with each other when
+        // checking that a join is unchanged.
+        final JoinedRecordTypeBuilder joinBuilder = metaDataBuilder.addJoinedRecordType("join_nv2");
+        joinBuilder.addConstituent("l", "MySimpleRecord");
+        joinBuilder.addConstituent("r", "MyOtherRecord");
+        joinBuilder.addJoin("l", Key.Expressions.field("num_value_2"), "r", Key.Expressions.field("num_value_3_indexed"));
+
+        metaDataBuilder.addIndex("join_nv2", "joined$l.num_value_unique", Key.Expressions.field("l").nest("num_value_unique"));
+    }
+
+    private void addThreeWayNumValue2Join(@Nonnull RecordMetaDataBuilder metaDataBuilder) {
+        final JoinedRecordTypeBuilder joinBuilder = metaDataBuilder.addJoinedRecordType("join_nv2");
+        joinBuilder.addConstituent("s", "MySimpleRecord");
+        joinBuilder.addConstituent("o", "MyOtherRecord");
+        joinBuilder.addConstituent("a", "AnotherRecord");
+        joinBuilder.addJoin("s", Key.Expressions.field("num_value_2"), "o", Key.Expressions.field("num_value_2"));
+        joinBuilder.addJoin("s", Key.Expressions.field("num_value_2"), "a", Key.Expressions.field("num_value_2"));
+
+        metaDataBuilder.addIndex("join_nv2", "joined$nv3", Key.Expressions.concat(
+                Key.Expressions.field("s").nest("num_value_3_indexed"),
+                Key.Expressions.field("o").nest("num_value_3_indexed"),
+                Key.Expressions.field("a").nest("num_value_3_indexed"))
+        );
+    }
+
+    private void addStrValueSelfJoin(@Nonnull RecordMetaDataBuilder metaDataBuilder) {
+        final JoinedRecordTypeBuilder joinBuilder = metaDataBuilder.addJoinedRecordType("self_join_svi");
+        joinBuilder.addConstituent("s1", "MySimpleRecord");
+        joinBuilder.addConstituent("s2", "MySimpleRecord");
+        joinBuilder.addJoin("s1", Key.Expressions.field("str_value_indexed"), "s2", Key.Expressions.field("str_value_indexed"));
+
+        metaDataBuilder.addIndex("self_join_svi", "self_join_svi$num_value_unique", Key.Expressions.concat(Key.Expressions.field("s1").nest("num_value_unique"), Key.Expressions.field("s2").nest("num_value_unique")));
+    }
+
+    @Nonnull
+    private RecordMetaData createSimpleMetaData(@Nonnull FDBRecordStoreTestBase.RecordMetaDataHook hook) {
+        RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecords1Proto.getDescriptor());
+        hook.apply(metaDataBuilder);
+        return metaDataBuilder.build();
+    }
+
+    @Nonnull
+    private RecordMetaData createEvolvedMetaData(@Nonnull FDBRecordStoreTestBase.RecordMetaDataHook hook) {
+        RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecords1EvolvedProto.getDescriptor());
+        hook.apply(metaDataBuilder);
+        return metaDataBuilder.build();
+    }
+
+    @Nonnull
+    private RecordMetaData mutateJoinedRecordType(@Nonnull RecordMetaData metaData, @Nonnull String typeName, @Nonnull Consumer<RecordMetaDataProto.JoinedRecordType.Builder> typeMutator) {
+        return updateMetaData(metaData, metaDataProtoBuilder -> {
+            for (RecordMetaDataProto.JoinedRecordType.Builder typeBuilder : metaDataProtoBuilder.getJoinedRecordTypesBuilderList()) {
+                if (typeBuilder.getName().equals(typeName)) {
+                    typeMutator.accept(typeBuilder);
+                }
+            }
+        });
+    }
+
+    @Test
+    void addJoinedType() {
+        final RecordMetaData metaData1 = RecordMetaData.build(TestRecords1Proto.getDescriptor());
+
+        RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecords1Proto.getDescriptor());
+        metaDataBuilder.setVersion(metaData1.getVersion() + 1);
+        addNumValue2Join(metaDataBuilder);
+        RecordMetaData metaData2 = metaDataBuilder.build();
+
+        validator.validate(metaData1, metaData2);
+    }
+
+    @Test
+    void dropJoinedType() {
+        final RecordMetaData metaData1 = createSimpleMetaData(this::addNumValue2Join);
+
+        RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecords1Proto.getDescriptor());
+        metaDataBuilder.setVersion(metaData1.getVersion() + 1);
+        metaDataBuilder.addFormerIndex(new FormerIndex("joined$l.num_value_unique", metaData1.getVersion(), metaData1.getVersion() + 1, "joined$l.num_value_unique"));
+        RecordMetaData metaData2 = metaDataBuilder.build();
+
+        validator.validate(metaData1, metaData2);
+    }
+
+    @Test
+    void renameJoinedType() {
+        final RecordMetaData metaData1 = createSimpleMetaData(this::addNumValue2Join);
+
+        final RecordMetaData metaData2 = updateMetaData(metaData1, metaDataBuilder -> {
+            RecordMetaDataProto.JoinedRecordType.Builder joinedTypeBuilder = metaDataBuilder.getJoinedRecordTypesBuilder(0);
+
+            // Add a copy with the same name but an additional join that indexes will point to
+            metaDataBuilder.addJoinedRecordTypes(joinedTypeBuilder.build().toBuilder()
+                    .setRecordTypeKey(RecordKeyExpressionProto.Value.newBuilder().setLongValue(-2))
+                    .addJoins(RecordMetaDataProto.JoinedRecordType.Join.newBuilder()
+                            .setLeft("l")
+                            .setLeftExpression(Key.Expressions.field("num_value_unique").toKeyExpression())
+                            .setRight("r")
+                            .setRightExpression(Key.Expressions.field("num_value_3_indexed").toKeyExpression())
+                    )
+            );
+
+            // Rename the original type
+            joinedTypeBuilder.setName("join_nv2_old");
+        });
+
+        assertInvalid("new index removes record type", metaData1, metaData2);
+        final MetaDataEvolutionValidator stricterValidator = validator.asBuilder()
+                .setDisallowTypeRenames(true)
+                .build();
+        assertInvalid("synthetic record type name changed", stricterValidator, metaData1, metaData2);
+
+        final RecordMetaData metaData3 = mutateIndex(metaData2, "joined$l.num_value_unique", indexBuilder ->
+                indexBuilder.clearRecordType().addRecordType("join_nv2_old"));
+        validator.validate(metaData1, metaData3);
+        assertInvalid("synthetic record type name changed", stricterValidator, metaData1, metaData3);
+    }
+
+    @Test
+    void swapJoinTypeDefinitions() {
+        final RecordMetaData metaData1 = createSimpleMetaData(metaDataBuilder -> {
+            addNumValue2Join(metaDataBuilder);
+            addStrValueSelfJoin(metaDataBuilder);
+        });
+
+        final RecordMetaData metaData2 = updateMetaData(metaData1, metaDataBuilder -> {
+            final RecordMetaDataProto.JoinedRecordType.Builder type1 = metaDataBuilder.getJoinedRecordTypesBuilder(0);
+            final RecordMetaDataProto.JoinedRecordType.Builder type2 = metaDataBuilder.getJoinedRecordTypesBuilder(1);
+
+            // Swap the two types' record type keys
+            RecordKeyExpressionProto.Value type1Key = type1.getRecordTypeKey();
+            type1.setRecordTypeKey(type2.getRecordTypeKey());
+            type2.setRecordTypeKey(type1Key);
+        });
+
+        assertNotEquals(metaData1.getSyntheticRecordType("join_nv2").getRecordTypeKey(), metaData2.getSyntheticRecordType("join_nv2").getRecordTypeKey());
+        assertNotEquals(metaData1.getSyntheticRecordType("self_join_svi").getRecordTypeKey(), metaData2.getSyntheticRecordType("self_join_svi").getRecordTypeKey());
+
+        assertInvalid("join constituent name changed", metaData1, metaData2);
+        final MetaDataEvolutionValidator stricterValidator = validator.asBuilder()
+                .setDisallowTypeRenames(true)
+                .build();
+        assertInvalid("synthetic record type name changed", stricterValidator, metaData1, metaData2);
+    }
+
+    @Test
+    void swapJoinConstituents() {
+        final RecordMetaData metaData1 = createSimpleMetaData(this::addNumValue2Join);
+
+        final RecordMetaData metaData2 = mutateJoinedRecordType(metaData1, "join_nv2", joinedType -> {
+            final var constituentsList = joinedType.getJoinConstituentsList();
+            joinedType.clearJoinConstituents();
+            joinedType.addJoinConstituents(constituentsList.get(1));
+            joinedType.addJoinConstituents(constituentsList.get(0));
+        });
+
+        assertInvalid("join constituent name changed", metaData1, metaData2);
+        final MetaDataEvolutionValidator laxerValidator = validator.asBuilder()
+                .setAllowFieldRenames(true)
+                .build();
+        assertInvalid("join constituent type changed", laxerValidator, metaData1, metaData2);
+    }
+
+    @Test
+    void swapSelfJoinConstituents() {
+        final RecordMetaData metaData1 = createSimpleMetaData(this::addStrValueSelfJoin);
+
+        final RecordMetaData metaData2 = mutateJoinedRecordType(metaData1, "self_join_svi", joinedType -> {
+            final var constituentsList = joinedType.getJoinConstituentsList();
+            joinedType.clearJoinConstituents();
+            joinedType.addJoinConstituents(constituentsList.get(1));
+            joinedType.addJoinConstituents(constituentsList.get(0));
+        });
+
+        assertInvalid("join constituent name changed", metaData1, metaData2);
+        final MetaDataEvolutionValidator laxerValidator = validator.asBuilder()
+                .setAllowFieldRenames(true)
+                .build();
+        assertInvalid("join changed left constituent", laxerValidator, metaData1, metaData2);
+
+        final RecordMetaData metaData3 = mutateJoinedRecordType(metaData2, "self_join_svi",
+                // Swap the names in the Join definition
+                joinedType -> joinedType.getJoinsBuilder(0).setLeft("s2").setRight("s1"));
+        assertInvalid("join constituent name changed", metaData1, metaData3);
+        assertInvalid("index key expression does not match required", laxerValidator, metaData1, metaData3);
+
+        final RecordMetaData metaData4 = mutateIndexRootExpression(metaData3, "self_join_svi$num_value_unique",
+                // Swap the names in the index definition
+                Key.Expressions.concat(Key.Expressions.field("s2").nest("num_value_unique"), Key.Expressions.field("s1").nest("num_value_unique")));
+        assertInvalid("join constituent name changed", metaData1, metaData4);
+        laxerValidator.validate(metaData1, metaData4);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"MySimpleRecord", "MyOtherRecord"})
+    void changeUnderlyingJoinConstituentType(String recordType) {
+        final RecordMetaData metaData1 = createSimpleMetaData(this::addNumValue2Join);
+
+        // Delete and recreate the MySimpleRecord type. As we can't actually delete types, this is done by
+        // renaming the old type and deprecating its field in the union descriptor. We then add a new copy of
+        // it to the list of types, ensuring to assign that new type a new union descriptor field.
+        // We use a recreated version of the same type to maximize the number of things that are the same:
+        // the same type name, the same set of fields, etc. The only way that it should notice that something
+        // is up is that it has to check the position in the union descriptor
+        FileDescriptor updatedDescriptor = mutateFile(TestRecords1Proto.getDescriptor(), fileBuilder -> {
+            DescriptorProtos.DescriptorProto oldType = null;
+            for (DescriptorProtos.DescriptorProto.Builder messageType : fileBuilder.getMessageTypeBuilderList()) {
+                if (messageType.getName().equals(recordType)) {
+                    // Rename the old MySimpleRecord. Save a copy prior to the rename
+                    oldType = messageType.build();
+                    messageType.setName(recordType + "__old");
+                } else if (messageType.getName().equals(RecordMetaDataBuilder.DEFAULT_UNION_NAME)) {
+                    // Rename the reference in the union descriptor
+                    for (DescriptorProtos.FieldDescriptorProto.Builder fieldBuilder : messageType.getFieldBuilderList()) {
+                        if (fieldBuilder.getTypeName().endsWith(recordType)) {
+                            deprecateField(fieldBuilder);
+                            fieldBuilder
+                                    .setName("_" + recordType + "__old")
+                                    .setTypeName(recordType + "__old");
+                        }
+                    }
+                    // Create a field for the recreated MySimpleRecord (added below)
+                    addField(messageType)
+                            .setLabel(DescriptorProtos.FieldDescriptorProto.Label.LABEL_OPTIONAL)
+                            .setType(DescriptorProtos.FieldDescriptorProto.Type.TYPE_MESSAGE)
+                            .setTypeName(recordType)
+                            .setName("_" + recordType);
+
+                }
+            }
+            // Add a copy of MySimpleRecord to the fileBuilder. This represents recreating a new type with
+            // the same name (and in this case, the same set of fields).
+            fileBuilder.addMessageType(oldType);
+        });
+        final RecordMetaData metaData2 = replaceRecordsDescriptor(metaData1, updatedDescriptor, metaDataBuilder -> {
+            // Rename the old record type
+            for (RecordMetaDataProto.RecordType.Builder recordTypeBuilder : metaDataBuilder.getRecordTypesBuilderList()) {
+                if (recordTypeBuilder.getName().equals(recordType)) {
+                    recordTypeBuilder.setName(recordType + "__old");
+                }
+            }
+            // Create a new record type with an updated since version
+            metaDataBuilder.addRecordTypesBuilder()
+                    .setName(recordType)
+                    .setSinceVersion(metaDataBuilder.getVersion())
+                    .setPrimaryKey(Key.Expressions.field("rec_no").toKeyExpression());
+
+            for (RecordMetaDataProto.Index.Builder indexBuilder : metaDataBuilder.getIndexesBuilderList()) {
+                // Rename any references to the type in the indexes. Note that the joined record type's index is _not_ updated
+                if (indexBuilder.getRecordTypeList().contains(recordType)) {
+                    final List<String> oldTypes = indexBuilder.getRecordTypeList();
+                    indexBuilder.clearRecordType();
+                    oldTypes.stream()
+                            .map(type -> type.equals(recordType) ? (recordType + "__old") : type)
+                            .forEach(indexBuilder::addRecordType);
+                }
+            }
+        });
+
+        assertFalse(validator.disallowsTypeRenames());
+        assertInvalid("join constituent type changed", metaData1, metaData2);
+        final MetaDataEvolutionValidator stricterValidator = validator.asBuilder()
+                .setDisallowTypeRenames(true)
+                .build();
+        assertTrue(stricterValidator.disallowsTypeRenames());
+        assertInvalid("record type name changed", stricterValidator, metaData1, metaData2);
+
+        RecordMetaData metaData3 = mutateJoinedRecordType(metaData2, "join_nv2", typeBuilder -> {
+            for (RecordMetaDataProto.JoinedRecordType.JoinConstituent.Builder constituent : typeBuilder.getJoinConstituentsBuilderList()) {
+                if (constituent.getRecordType().equals(recordType)) {
+                    constituent.setRecordType(recordType + "__old");
+                }
+            }
+        });
+        validator.validate(metaData1, metaData3);
+        assertInvalid("record type name changed", stricterValidator, metaData1, metaData2);
+    }
+
+    @Test
+    void changeJoinConstituentName() {
+        final RecordMetaData metaData1 = createSimpleMetaData(this::addStrValueSelfJoin);
+
+        final RecordMetaData metaData2 = updateMetaData(metaData1, metaDataBuilder -> {
+            for (RecordMetaDataProto.JoinedRecordType.Builder joinedTypeBuilder : metaDataBuilder.getJoinedRecordTypesBuilderList()) {
+                if (joinedTypeBuilder.getName().equals("self_join_svi")) {
+                    for (RecordMetaDataProto.JoinedRecordType.JoinConstituent.Builder constituentBuilder : joinedTypeBuilder.getJoinConstituentsBuilderList()) {
+                        if (constituentBuilder.getName().equals("s1")) {
+                            constituentBuilder.setName("x");
+                        }
+                    }
+                    joinedTypeBuilder.getJoinsBuilderList().get(0)
+                            .setLeft("x");
+                }
+            }
+
+            for (RecordMetaDataProto.Index.Builder indexBuilder : metaDataBuilder.getIndexesBuilderList()) {
+                if (indexBuilder.getName().equals("self_join_svi$num_value_unique")) {
+                    indexBuilder.setRootExpression(Key.Expressions.concat(Key.Expressions.field("x").nest("num_value_unique"), Key.Expressions.field("s2").nest("num_value_unique")).toKeyExpression());
+                }
+            }
+        });
+
+        assertInvalid("join constituent name changed", metaData1, metaData2);
+        final MetaDataEvolutionValidator laxerValidator = validator.asBuilder()
+                .setAllowFieldRenames(true)
+                .build();
+        laxerValidator.validate(metaData1, metaData2);
+    }
+
+    @Test
+    void addJoinConstituent() {
+        final RecordMetaData metaData1 = createSimpleMetaData(this::addNumValue2Join);
+
+        final RecordMetaData metaData2 = replaceRecordsDescriptor(metaData1, TestRecords1EvolvedProto.getDescriptor(), metaDataBuilder -> {
+            metaDataBuilder.addRecordTypesBuilder()
+                    .setName("AnotherRecord")
+                    .setPrimaryKey(Key.Expressions.field("rec_no").toKeyExpression())
+                    .setSinceVersion(metaDataBuilder.getVersion());
+
+            for (RecordMetaDataProto.JoinedRecordType.Builder joinTypeBuilder : metaDataBuilder.getJoinedRecordTypesBuilderList()) {
+                joinTypeBuilder.addJoinConstituentsBuilder()
+                        .setName("x")
+                        .setRecordType("AnotherRecord")
+                        .setOuterJoined(false);
+                joinTypeBuilder.addJoinsBuilder()
+                        .setLeft("l")
+                        .setLeftExpression(Key.Expressions.field("num_value_2").toKeyExpression())
+                        .setRight("x")
+                        .setRightExpression(Key.Expressions.field("num_value_2").toKeyExpression());
+            }
+        });
+        assertInvalid("join constituent count changed", metaData1, metaData2);
+    }
+
+    @Test
+    void removeJoinConstituent() {
+        final RecordMetaData metaData1 = createEvolvedMetaData(this::addThreeWayNumValue2Join);
+
+        final RecordMetaData metaData2 = updateMetaData(metaData1, metaDataBuilder -> {
+            for (RecordMetaDataProto.JoinedRecordType.Builder joinedTypeBuilder : metaDataBuilder.getJoinedRecordTypesBuilderList()) {
+                if (joinedTypeBuilder.getName().equals("join_nv2")) {
+                    joinedTypeBuilder.removeJoinConstituents(0);
+                    joinedTypeBuilder.clearJoins();
+                    joinedTypeBuilder.addJoinsBuilder()
+                            .setLeft("o")
+                            .setLeftExpression(Key.Expressions.field("num_value_2").toKeyExpression())
+                            .setRight("a")
+                            .setRightExpression(Key.Expressions.field("num_value_2").toKeyExpression());
+                }
+            }
+            for (RecordMetaDataProto.Index.Builder index : metaDataBuilder.getIndexesBuilderList()) {
+                if (index.getRecordTypeList().contains("join_nv2")) {
+                    index.setRootExpression(Key.Expressions.concat(
+                            Key.Expressions.field("o").nest("num_value_3_indexed"),
+                            Key.Expressions.field("a").nest("num_value_3_indexed")
+                    ).toKeyExpression());
+                }
+            }
+        });
+        assertInvalid("join constituent count changed", metaData1, metaData2);
+    }
+
+    @Test
+    void addJoinCondition() {
+        final RecordMetaData metaData1 = createEvolvedMetaData(this::addThreeWayNumValue2Join);
+
+        final RecordMetaData metaData2 = mutateJoinedRecordType(metaData1, "join_nv2", joinedTypeBuilder ->
+                // Technically, this join criterion is implied by the existing two criteria via transitivity, so
+                // this may need to change if we ever modify the check to account for that
+                joinedTypeBuilder.addJoinsBuilder()
+                        .setLeft("o")
+                        .setLeftExpression(Key.Expressions.field("num_value_2").toKeyExpression())
+                        .setLeft("a")
+                        .setRightExpression(Key.Expressions.field("num_value_2").toKeyExpression()));
+
+        assertInvalid("join type join count changed", metaData1, metaData2);
+    }
+
+    @Test
+    void removeJoinCondition() {
+        final RecordMetaData metaData1 = createEvolvedMetaData(this::addThreeWayNumValue2Join);
+
+        final RecordMetaData metaData2 = mutateJoinedRecordType(metaData1, "join_nv2",
+                joinedTypeBuilder -> joinedTypeBuilder.removeJoins(0));
+        assertInvalid("join type join count changed", metaData1, metaData2);
+    }
+
+    @Test
+    void changeOuterJoinedProperty() {
+        final RecordMetaData metaData1 = createSimpleMetaData(this::addNumValue2Join);
+
+        // Assert cannot go from not outer joined to outer joined
+        final RecordMetaData metaData2 = mutateJoinedRecordType(metaData1, "join_nv2",
+                joinedTypeBuilder -> joinedTypeBuilder.getJoinConstituentsBuilder(0).setOuterJoined(true));
+        assertInvalid("join constituent outer-joined property changed", metaData1, metaData2);
+
+        // Assert cannot go from outer joined to not outer joined
+        final RecordMetaData metaData3 = updateMetaData(metaData1, metaDataBuilder -> metaDataBuilder.setVersion(metaData2.getVersion() + 1));
+        assertInvalid("join constituent outer-joined property changed", metaData2, metaData3);
+    }
+
+    @Test
+    void changeJoinLeftComponents() {
+        final RecordMetaData metaData1 = createEvolvedMetaData(this::addThreeWayNumValue2Join);
+
+        final RecordMetaData metaData2 = mutateJoinedRecordType(metaData1, "join_nv2", joinedTypeBuilder -> {
+            final RecordMetaDataProto.JoinedRecordType.Join.Builder joinBuilder = joinedTypeBuilder.getJoinsBuilder(0);
+            joinBuilder.setLeft("a");
+        });
+        assertInvalid("join changed left constituent", metaData1, metaData2);
+
+        final RecordMetaData metaData3 = mutateJoinedRecordType(metaData1, "join_nv2", joinedTypeBuilder -> {
+            final RecordMetaDataProto.JoinedRecordType.Join.Builder joinBuilder = joinedTypeBuilder.getJoinsBuilder(0);
+            joinBuilder.setLeftExpression(Key.Expressions.field("num_value_unique").toKeyExpression());
+        });
+        assertInvalid("join changed left expression", metaData1, metaData3);
+    }
+
+    @Test
+    void changeJoinRightComponents() {
+        final RecordMetaData metaData1 = createEvolvedMetaData(this::addThreeWayNumValue2Join);
+
+        final RecordMetaData metaData2 = mutateJoinedRecordType(metaData1, "join_nv2", joinedTypeBuilder -> {
+            final RecordMetaDataProto.JoinedRecordType.Join.Builder joinBuilder = joinedTypeBuilder.getJoinsBuilder(0);
+            joinBuilder.setRight("a");
+        });
+        assertInvalid("join changed right constituent", metaData1, metaData2);
+
+        final RecordMetaData metaData3 = mutateJoinedRecordType(metaData1, "join_nv2", joinedTypeBuilder -> {
+            final RecordMetaDataProto.JoinedRecordType.Join.Builder joinBuilder = joinedTypeBuilder.getJoinsBuilder(0);
+            joinBuilder.setRightExpression(Key.Expressions.field("num_value_3_indexed").toKeyExpression());
+        });
+        assertInvalid("join changed right expression", metaData1, metaData3);
+    }
+
+    @ParameterizedTest
+    @MethodSource("deprecatedArgs")
+    void renameFieldInJoinExpression(boolean deprecated) {
+        final RecordMetaData metaData1 = createSimpleMetaData(this::addNumValue2Join);
+
+        // Change a field in MySimpleRecord used in the join
+        FileDescriptor renamedSimpleNum2 = mutateMessageType("MySimpleRecord", typeBuilder ->
+                replaceField(typeBuilder, "num_value_2", deprecated)
+                        .setType(DescriptorProtos.FieldDescriptorProto.Type.TYPE_SFIXED64)
+        );
+        final RecordMetaData metaData2 = replaceRecordsDescriptor(metaData1, renamedSimpleNum2);
+        fieldRenameChecker.assertInvalidRenaming("join changed left expression", deprecated, metaData1, metaData2);
+
+        final RecordMetaData metaData3 = mutateJoinedRecordType(metaData2, "join_nv2", joinedTypeBuilder -> {
+            final RecordMetaDataProto.JoinedRecordType.Join.Builder joinBuilder = joinedTypeBuilder.getJoinsBuilder(0);
+            joinBuilder.setLeftExpression(Key.Expressions.field("num_value_2__old").toKeyExpression());
+        });
+        fieldRenameChecker.assertValidRenaming(deprecated, metaData1, metaData3);
+
+        // Now change the same field in MyOtherRecord
+        FileDescriptor renamedOtherNum2 = mutateMessageType("MyOtherRecord", renamedSimpleNum2, typeBuilder ->
+                replaceField(typeBuilder, "num_value_2", deprecated)
+                        .setType(DescriptorProtos.FieldDescriptorProto.Type.TYPE_SFIXED64)
+        );
+        final RecordMetaData metaData4 = replaceRecordsDescriptor(metaData3, renamedOtherNum2);
+        fieldRenameChecker.assertInvalidRenaming("join changed right expression", deprecated, metaData1, metaData4);
+        fieldRenameChecker.assertInvalidRenaming("join changed right expression", deprecated, metaData3, metaData4);
+
+        final RecordMetaData metaData5 = mutateJoinedRecordType(metaData4, "join_nv2", joinedTypeBuilder -> {
+            final RecordMetaDataProto.JoinedRecordType.Join.Builder joinBuilder = joinedTypeBuilder.getJoinsBuilder(0);
+            joinBuilder.setRightExpression(Key.Expressions.field("num_value_2__old").toKeyExpression());
+        });
+        fieldRenameChecker.assertValidRenaming(deprecated, metaData1, metaData5);
+        fieldRenameChecker.assertValidRenaming(deprecated, metaData3, metaData5);
+    }
+
+    @Test
+    void unchangedAsymmetricJoinIsValid() {
+        // This is a somewhat basic test, but this makes sure that if there's a joined record type, then updating
+        // nothing still validates as correct. This helps ensure that we are comparing like-with-like (including
+        // left expressions with left expressions and right expressions with right expressions)
+        final RecordMetaData metaData1 = createSimpleMetaData(this::addAsymmetricNumValue2Join);
+        final RecordMetaData metaData2 = updateMetaData(metaData1, ignore -> { });
+        validator.validate(metaData1, metaData2);
+    }
+
+    @Test
+    void rejectChangingJoinFieldFromAsymmetricJoinToSymmetric() {
+        // We should not be able to make an asymmetric join symmetric. This tests to make sure that
+        // when we do comparisons, we don't accidentally compare the left expression of the join with
+        // the old right expression, or vice versa
+        final RecordMetaData metaData1 = createSimpleMetaData(this::addAsymmetricNumValue2Join);
+
+        final RecordMetaData metaData2 = updateMetaData(metaData1, metaDataProto ->
+                // Update the left expression in the join so that it is now a symmetric join on the num value 3 field.
+                metaDataProto.getJoinedRecordTypesBuilder(0)
+                        .getJoinsBuilder(0)
+                        .setLeftExpression(Key.Expressions.field("num_value_3_indexed").toKeyExpression())
+        );
+        assertInvalid("join changed left expression", metaData1, metaData2);
+
+        final RecordMetaData metaData3 = updateMetaData(metaData1, metaDataProto ->
+                // Update the right expression in the join so that it is now a symmetric join on the num value 2 field.
+                metaDataProto.getJoinedRecordTypesBuilder(0)
+                        .getJoinsBuilder(0)
+                        .setRightExpression(Key.Expressions.field("num_value_2").toKeyExpression())
+        );
+        assertInvalid("join changed right expression", metaData1, metaData3);
+    }
+
+    @ParameterizedTest
+    @MethodSource("deprecatedArgs")
+    void renameFieldsInAsymmetricJoin(boolean deprecated) {
+        final RecordMetaData metaData1 = createSimpleMetaData(this::addAsymmetricNumValue2Join);
+
+        final FileDescriptor secondFile = mutateFile(metaData1.getRecordsDescriptor(), fileDescriptor -> {
+            for (DescriptorProtos.DescriptorProto.Builder message : fileDescriptor.getMessageTypeBuilderList()) {
+                if (message.getName().equals("MySimpleRecord")) {
+                    replaceField(message, "num_value_2", deprecated);
+                } else if (message.getName().equals("MyOtherRecord")) {
+                    replaceField(message, "num_value_3_indexed", deprecated);
+                }
+            }
+        });
+        final RecordMetaData metaData2 = replaceRecordsDescriptor(metaData1, secondFile);
+        fieldRenameChecker.assertInvalidRenaming("join changed left expression", deprecated, metaData1, metaData2);
+
+        final RecordMetaData metaData3 = updateMetaData(metaData2, metaDataProto ->
+                metaDataProto
+                        .getJoinedRecordTypesBuilder(0)
+                        .getJoinsBuilder(0)
+                        .setLeftExpression(Key.Expressions.field("num_value_2__old").toKeyExpression())
+        );
+        fieldRenameChecker.assertInvalidRenaming("join changed right expression", deprecated, metaData1, metaData3);
+
+        final RecordMetaData metaData4 = updateMetaData(metaData3, metaDataProto ->
+                metaDataProto
+                        .getJoinedRecordTypesBuilder(0)
+                        .getJoinsBuilder(0)
+                        .setRightExpression(Key.Expressions.field("num_value_3_indexed__old").toKeyExpression())
+        );
+        fieldRenameChecker.assertValidRenaming(deprecated, metaData1, metaData4);
+    }
+
+    // UnnestedRecordTypeTests
+
+    private void addUnnestedManyMiddleType(@Nonnull RecordMetaDataBuilder metaDataBuilder) {
+        final UnnestedRecordTypeBuilder unnestedBuilder = metaDataBuilder.addUnnestedRecordType("unnest_many_middle");
+        unnestedBuilder.addParentConstituent("outer", metaDataBuilder.getRecordType("OuterRecord"));
+        unnestedBuilder.addNestedConstituent("middle", TestRecordsDoubleNestedProto.OuterRecord.MiddleRecord.getDescriptor(), "outer", Key.Expressions.field("many_middle", KeyExpression.FanType.FanOut));
+
+        metaDataBuilder.addIndex("unnest_many_middle", new Index("unnest$other_int", Key.Expressions.concat(Key.Expressions.field("outer").nest("other_int"), Key.Expressions.field("middle").nest("other_int"))));
+    }
+
+    private void addUnnestedManyMiddleAndInnerType(@Nonnull RecordMetaDataBuilder metaDataBuilder) {
+        final UnnestedRecordTypeBuilder unnestedBuilder = metaDataBuilder.addUnnestedRecordType("unnest_many_middle_and_inner");
+        unnestedBuilder.addParentConstituent("outer", metaDataBuilder.getRecordType("OuterRecord"));
+        unnestedBuilder.addNestedConstituent("middle", TestRecordsDoubleNestedProto.OuterRecord.MiddleRecord.getDescriptor(), "outer", Key.Expressions.field("many_middle", KeyExpression.FanType.FanOut));
+        unnestedBuilder.addNestedConstituent("inner", TestRecordsDoubleNestedProto.OuterRecord.MiddleRecord.InnerRecord.getDescriptor(), "middle", Key.Expressions.field("inner", KeyExpression.FanType.FanOut));
+
+        metaDataBuilder.addIndex("unnest_many_middle_and_inner", new Index("unnest$other_int+foo", Key.Expressions.concat(Key.Expressions.field("middle").nest("other_int"), Key.Expressions.field("inner").nest("foo"))));
+    }
+
+    private void addCrossProduceManyMiddleType(@Nonnull RecordMetaDataBuilder metaDataBuilder) {
+        final UnnestedRecordTypeBuilder unnestedBuilder = metaDataBuilder.addUnnestedRecordType("unnest_cross_many_middle");
+        unnestedBuilder.addParentConstituent("outer", metaDataBuilder.getRecordType("OuterRecord"));
+        unnestedBuilder.addNestedConstituent("m1", TestRecordsDoubleNestedProto.OuterRecord.MiddleRecord.getDescriptor(), "outer", Key.Expressions.field("many_middle", KeyExpression.FanType.FanOut));
+        unnestedBuilder.addNestedConstituent("m2", TestRecordsDoubleNestedProto.OuterRecord.MiddleRecord.getDescriptor(), "outer", Key.Expressions.field("many_middle", KeyExpression.FanType.FanOut));
+
+        metaDataBuilder.addIndex("unnest_cross_many_middle", new Index("unnest$all_other_int", Key.Expressions.concat(
+                Key.Expressions.field("outer").nest("other_int"),
+                Key.Expressions.field("m1").nest("other_int"),
+                Key.Expressions.field("m2").nest("other_int"))));
+    }
+
+    private void addCrossProductManyMiddleAndInnerType(@Nonnull RecordMetaDataBuilder metaDataBuilder) {
+        final UnnestedRecordTypeBuilder unnestedBuilder = metaDataBuilder.addUnnestedRecordType("unnest_cross_many_middle_and_inner");
+        unnestedBuilder.addParentConstituent("outer", metaDataBuilder.getRecordType("OuterRecord"));
+        unnestedBuilder.addNestedConstituent("m1", TestRecordsDoubleNestedProto.OuterRecord.MiddleRecord.getDescriptor(), "outer", Key.Expressions.field("many_middle", KeyExpression.FanType.FanOut));
+        unnestedBuilder.addNestedConstituent("m2", TestRecordsDoubleNestedProto.OuterRecord.MiddleRecord.getDescriptor(), "outer", Key.Expressions.field("many_middle", KeyExpression.FanType.FanOut));
+        unnestedBuilder.addNestedConstituent("inner", TestRecordsDoubleNestedProto.OuterRecord.MiddleRecord.InnerRecord.getDescriptor(), "m1", Key.Expressions.field("inner", KeyExpression.FanType.FanOut));
+
+        metaDataBuilder.addIndex("unnest_cross_many_middle_and_inner", new Index("unnest$inner_foo_bar",
+                Key.Expressions.field("inner").nest(Key.Expressions.concatenateFields("foo", "bar"))));
+    }
+
+    @Nonnull
+    private RecordMetaData mutateUnnestedRecordType(@Nonnull RecordMetaData metaData, @Nonnull String typeName, @Nonnull Consumer<RecordMetaDataProto.UnnestedRecordType.Builder> typeMutator) {
+        return updateMetaData(metaData, metaDataProtoBuilder -> {
+            for (RecordMetaDataProto.UnnestedRecordType.Builder typeBuilder : metaDataProtoBuilder.getUnnestedRecordTypesBuilderList()) {
+                if (typeBuilder.getName().equals(typeName)) {
+                    typeMutator.accept(typeBuilder);
+                }
+            }
+        });
+    }
+
+    @Nonnull
+    private RecordMetaData createDoubleNestedMetaData(@Nonnull FDBRecordStoreTestBase.RecordMetaDataHook hook) {
+        RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecordsDoubleNestedProto.getDescriptor());
+        hook.apply(metaDataBuilder);
+        return metaDataBuilder.build();
+    }
+
+    @Test
+    void addUnnestedRecordType() {
+        final RecordMetaData metaData1 = RecordMetaData.build(TestRecordsDoubleNestedProto.getDescriptor());
+
+        final RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecordsDoubleNestedProto.getDescriptor());
+        metaDataBuilder.setVersion(metaData1.getVersion() + 1);
+        addUnnestedManyMiddleType(metaDataBuilder);
+        final RecordMetaData metaData2 = metaDataBuilder.build();
+
+        validator.validate(metaData1, metaData2);
+    }
+
+    @Test
+    void dropUnnestedRecordType() {
+        final RecordMetaData metaData1 = createDoubleNestedMetaData(this::addUnnestedManyMiddleType);
+
+        final RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecordsDoubleNestedProto.getDescriptor());
+        metaDataBuilder.setVersion(metaData1.getVersion() + 1);
+        metaDataBuilder.addFormerIndex(new FormerIndex("unnest$other_int", metaData1.getVersion(), metaData1.getVersion() + 1, "unnest$other_int"));
+        final RecordMetaData metaData2 = metaDataBuilder.build();
+        assertThat(metaData2.getSyntheticRecordTypes().values(), empty());
+
+        validator.validate(metaData1, metaData2);
+    }
+
+    @Test
+    void renameUnnestedRecordType() {
+        final RecordMetaData metaData1 = createDoubleNestedMetaData(this::addUnnestedManyMiddleType);
+
+        final RecordMetaData metaData2 = updateMetaData(metaData1, metaDataBuilder -> {
+            RecordMetaDataProto.UnnestedRecordType.Builder unnestedTypeBuilder = metaDataBuilder.getUnnestedRecordTypesBuilder(0);
+
+            // Make a copy with the old name and an additional constituent that old indexes will point to
+            metaDataBuilder.addUnnestedRecordTypes(
+                    unnestedTypeBuilder.build().toBuilder()
+                            .setRecordTypeKey(RecordKeyExpressionProto.Value.newBuilder().setLongValue(-2))
+                            .addNestedConstituents(RecordMetaDataProto.UnnestedRecordType.NestedConstituent.newBuilder()
+                                    .setName("inner")
+                                    .setParent("middle")
+                                    .setTypeName(TestRecordsDoubleNestedProto.OuterRecord.MiddleRecord.InnerRecord.getDescriptor().getFullName())
+                                    .setNestingExpression(Key.Expressions.field("inner", KeyExpression.FanType.FanOut).toKeyExpression())
+                            )
+            );
+            // Update the name of the old one
+            unnestedTypeBuilder.setName("unnest_type_old");
+        });
+
+        assertInvalid("new index removes record type", metaData1, metaData2);
+        final MetaDataEvolutionValidator stricterValidator = validator.asBuilder()
+                .setDisallowTypeRenames(true)
+                .build();
+        assertInvalid("synthetic record type name changed", stricterValidator, metaData1, metaData2);
+
+        final RecordMetaData metaData3 = mutateIndex(metaData2, "unnest$other_int", indexBuilder ->
+                indexBuilder.clearRecordType().addRecordType("unnest_type_old"));
+        validator.validate(metaData1, metaData3);
+        assertInvalid("synthetic record type name changed", stricterValidator, metaData1, metaData3);
+    }
+
+    @Test
+    void addUnnestedConstituent() {
+        final RecordMetaData metaData1 = createDoubleNestedMetaData(this::addUnnestedManyMiddleType);
+
+        final RecordMetaData metaData2 = mutateUnnestedRecordType(metaData1, "unnest_many_middle",
+                unnestedTypeBuilder -> unnestedTypeBuilder.addNestedConstituentsBuilder()
+                        .setName("inner")
+                        .setParent("middle")
+                        .setNestingExpression(Key.Expressions.field("inner").toKeyExpression())
+                        .setTypeName(TestRecordsDoubleNestedProto.OuterRecord.MiddleRecord.InnerRecord.getDescriptor().getFullName()));
+
+        assertInvalid("unnested type constituent count changed", metaData1, metaData2);
+    }
+
+    @Test
+    void flipNestedConstituents() {
+        final RecordMetaData metaData1 = createDoubleNestedMetaData(this::addCrossProduceManyMiddleType);
+
+        final RecordMetaData metaData2 = mutateUnnestedRecordType(metaData1, "unnest_cross_many_middle", unnestedTypeBuilder -> {
+            // Flip the order of the m2 and m1 constituents
+            final RecordMetaDataProto.UnnestedRecordType.NestedConstituent m1 = unnestedTypeBuilder.getNestedConstituents(1);
+            final RecordMetaDataProto.UnnestedRecordType.NestedConstituent m2 = unnestedTypeBuilder.getNestedConstituents(2);
+            unnestedTypeBuilder.removeNestedConstituents(2);
+            unnestedTypeBuilder.removeNestedConstituents(1);
+            unnestedTypeBuilder.addNestedConstituents(m2);
+            unnestedTypeBuilder.addNestedConstituents(m1);
+        });
+
+        assertInvalid("nested constituent name changed", metaData1, metaData2);
+        final MetaDataEvolutionValidator laxerValidator = validator.asBuilder()
+                .setAllowFieldRenames(true)
+                .build();
+        assertInvalid("index key expression does not match required", laxerValidator, metaData1, metaData2);
+
+        final RecordMetaData metaData3 = mutateIndexRootExpression(metaData2, "unnest$all_other_int",
+                Key.Expressions.concat(
+                        Key.Expressions.field("outer").nest("other_int"),
+                        Key.Expressions.field("m2").nest("other_int"),
+                        Key.Expressions.field("m1").nest("other_int")
+                ));
+        assertInvalid("nested constituent name changed", metaData1, metaData3);
+        laxerValidator.validate(metaData1, metaData3);
+    }
+
+    @Test
+    void swapParentAndChildConstituents() {
+        final RecordMetaData metaData1 = createDoubleNestedMetaData(this::addUnnestedManyMiddleType);
+
+        // Swapping the parent and child is not allowed as the parent has to come first. But if we ever loosen that, we
+        // should update this test to validate that the validator rejects this change
+        assertThrows(MetaDataException.class, () -> mutateUnnestedRecordType(metaData1, "unnest_many_middle", unnestedTypeBuilder -> {
+            RecordMetaDataProto.UnnestedRecordType.NestedConstituent parentConstituent = unnestedTypeBuilder.getNestedConstituents(0);
+            RecordMetaDataProto.UnnestedRecordType.NestedConstituent childConstituent = unnestedTypeBuilder.getNestedConstituents(1);
+            unnestedTypeBuilder.clearNestedConstituents();
+            unnestedTypeBuilder.addNestedConstituents(childConstituent);
+            unnestedTypeBuilder.addNestedConstituents(parentConstituent);
+        }));
+    }
+
+    @Test
+    void changeParentType() {
+        final RecordMetaData metaData1 = createDoubleNestedMetaData(this::addUnnestedManyMiddleType);
+
+        final RecordMetaData metaData2 = mutateUnnestedRecordType(metaData1, "unnest_many_middle", unnestedTypeBuilder -> {
+            // Change the parent from OuterRecord to middle record
+            final RecordMetaDataProto.UnnestedRecordType.NestedConstituent.Builder parent = unnestedTypeBuilder.getNestedConstituentsBuilder(0);
+            parent.setTypeName("MiddleRecord");
+
+            // Update the path for the nesting key expression. It still actually points to the same nested type as before, it just takes a more interesting path to get there
+            final RecordMetaDataProto.UnnestedRecordType.NestedConstituent.Builder middle = unnestedTypeBuilder.getNestedConstituentsBuilder(1);
+            middle.setNestingExpression(Key.Expressions.field("other_middle").nest(Key.Expressions.field("other").nest(Key.Expressions.field("many_middle", KeyExpression.FanType.FanOut))).toKeyExpression());
+        });
+
+        assertInvalid("unnested type parent record type changed", metaData1, metaData2);
+    }
+
+    @Test
+    void renameParentType() {
+        final RecordMetaData metaData1 = createDoubleNestedMetaData(this::addUnnestedManyMiddleType);
+
+        FileDescriptor renamedDescriptor = mutateFile(TestRecordsDoubleNestedProto.getDescriptor(), fileBuilder -> {
+            DescriptorProtos.DescriptorProto outerRecord = null;
+            for (DescriptorProtos.DescriptorProto.Builder messageBuilder : fileBuilder.getMessageTypeBuilderList()) {
+                if (messageBuilder.getName().equals("OuterRecord")) {
+                    outerRecord = messageBuilder.build();
+                    messageBuilder.setName("OuterRecord__old");
+                } else if (messageBuilder.getName().equals(RecordMetaDataBuilder.DEFAULT_UNION_NAME)) {
+                    for (DescriptorProtos.FieldDescriptorProto.Builder fieldBuilder : messageBuilder.getFieldBuilderList()) {
+                        if (fieldBuilder.getTypeName().endsWith("OuterRecord")) {
+                            deprecateField(fieldBuilder);
+                            fieldBuilder.setTypeName("OuterRecord__old").setName("_OuterRecord__old");
+                        }
+                    }
+                    addField(messageBuilder)
+                            .setLabel(DescriptorProtos.FieldDescriptorProto.Label.LABEL_OPTIONAL)
+                            .setType(DescriptorProtos.FieldDescriptorProto.Type.TYPE_MESSAGE)
+                            .setTypeName("OuterRecord")
+                            .setName("_OuterRecord");
+
+                }
+            }
+            fileBuilder.addMessageType(Objects.requireNonNull(outerRecord));
+        });
+        final RecordMetaData metaData2 = replaceRecordsDescriptor(metaData1, renamedDescriptor, metaDataBuilder -> {
+            for (RecordMetaDataProto.RecordType.Builder recordTypeBuilder : metaDataBuilder.getRecordTypesBuilderList()) {
+                if (recordTypeBuilder.getName().equals("OuterRecord")) {
+                    recordTypeBuilder.setName("OuterRecord__old");
+                }
+            }
+            metaDataBuilder.addRecordTypesBuilder()
+                    .setName("OuterRecord")
+                    .setSinceVersion(metaDataBuilder.getVersion())
+                    .setPrimaryKey(Key.Expressions.field("rec_no").toKeyExpression());
+        });
+
+        assertInvalid("unnested type parent record type changed", metaData1, metaData2);
+        final MetaDataEvolutionValidator stricterValidator = validator.asBuilder()
+                .setDisallowTypeRenames(true)
+                .build();
+        assertInvalid("record type name changed", stricterValidator, metaData1, metaData2);
+
+        final RecordMetaData metaData3 = mutateUnnestedRecordType(metaData2, "unnest_many_middle",
+                unnestedTypeBuilder -> unnestedTypeBuilder.getNestedConstituentsBuilder(0).setTypeName("OuterRecord__old"));
+        validator.validate(metaData1, metaData3);
+        assertInvalid("record type name changed", stricterValidator, metaData1, metaData3);
+    }
+
+    @Test
+    void changeNestedParent() {
+        final RecordMetaData metaData1 = createDoubleNestedMetaData(this::addCrossProductManyMiddleAndInnerType);
+
+        final RecordMetaData metaData2 = mutateUnnestedRecordType(metaData1, "unnest_cross_many_middle_and_inner",
+                // Change the inner from pointing to m2 to m1
+                unnestedRecordType -> unnestedRecordType.getNestedConstituentsBuilder(3).setParent("m2"));
+        assertInvalid("nested constituent changed parent", metaData1, metaData2);
+
+        final RecordMetaData metaData3 = mutateUnnestedRecordType(metaData2, "unnest_cross_many_middle_and_inner", unnestedRecordType -> {
+            // Swap the positions of m1 and m2 so that now m2 is back to referring to the first middle
+            final List<RecordMetaDataProto.UnnestedRecordType.NestedConstituent> nestedConstituents = List.of(
+                    unnestedRecordType.getNestedConstituents(0),
+                    unnestedRecordType.getNestedConstituents(2),
+                    unnestedRecordType.getNestedConstituents(1),
+                    unnestedRecordType.getNestedConstituents(3)
+            );
+            unnestedRecordType.clearNestedConstituents().addAllNestedConstituents(nestedConstituents);
+        });
+        assertInvalid("nested constituent name changed", metaData1, metaData3);
+        final MetaDataEvolutionValidator laxerValidator = validator.asBuilder()
+                .setAllowFieldRenames(true)
+                .build();
+        laxerValidator.validate(metaData1, metaData3);
+    }
+
+    @Test
+    void swapChildConstituentNames() {
+        final RecordMetaData metaData1 = createDoubleNestedMetaData(metaData -> {
+            addCrossProductManyMiddleAndInnerType(metaData);
+            final Index index = new Index("index_referencing_m1_m2", Key.Expressions.concat(
+                    Key.Expressions.field("m1").nest("other_int"),
+                    Key.Expressions.field("m2").nest("other_int"),
+                    Key.Expressions.field("inner").nest("foo")
+            ));
+            metaData.addIndex("unnest_cross_many_middle_and_inner", index);
+        });
+
+        // Swap the names of the m1 and m2 constituents. They refer to items of the same type, so internal validations
+        // should still pass. However, things referencing the constituents should throw an error in evolution validation
+        // until they are updated
+        final RecordMetaData metaData2 = mutateUnnestedRecordType(metaData1, "unnest_cross_many_middle_and_inner",
+                unnestedRecordType -> {
+                    unnestedRecordType.getNestedConstituentsBuilder(1).setName("m2");
+                    unnestedRecordType.getNestedConstituentsBuilder(2).setName("m1");
+                });
+        assertInvalid("nested constituent name changed", metaData1, metaData2);
+
+        final MetaDataEvolutionValidator laxerValidator = validator.asBuilder()
+                .setAllowFieldRenames(true)
+                .build();
+        assertInvalid("nested constituent changed parent", laxerValidator, metaData1, metaData2);
+
+        // The "inner" constituent was a child of the old m1, so it needs to become a child of m2 now
+        final RecordMetaData metaData3 = mutateUnnestedRecordType(metaData2, "unnest_cross_many_middle_and_inner",
+                unnestedRecordType -> unnestedRecordType.getNestedConstituentsBuilder(3).setParent("m2"));
+        assertInvalid("nested constituent name changed", metaData1, metaData3);
+        assertInvalid("index key expression does not match required", laxerValidator, metaData1, metaData3);
+
+        // Swap m1 and m2 in the index definition as well
+        final RecordMetaData metaData4 = mutateIndexRootExpression(metaData3, "index_referencing_m1_m2", Key.Expressions.concat(
+                Key.Expressions.field("m2").nest("other_int"),
+                Key.Expressions.field("m1").nest("other_int"),
+                Key.Expressions.field("inner").nest("foo")
+        ));
+        assertInvalid("nested constituent name changed", metaData1, metaData4);
+        laxerValidator.validate(metaData1, metaData4);
+    }
+
+    @Test
+    void changeNestedConstituentExpression() {
+        final RecordMetaData metaData1 = createDoubleNestedMetaData(this::addUnnestedManyMiddleType);
+
+        final RecordMetaData metaData2 = mutateUnnestedRecordType(metaData1, "unnest_many_middle", unnestedTypeBuilder ->
+                unnestedTypeBuilder.getNestedConstituentsBuilder(1).setNestingExpression(
+                        Key.Expressions.field("other").nest(Key.Expressions.field("outer").nest(Key.Expressions.field("many_middle", KeyExpression.FanType.FanOut))).toKeyExpression()));
+
+        assertInvalid("nested constituent nesting expression changed", metaData1, metaData2);
+    }
+
+    @Test
+    void evolveNestedConstituentType() {
+        final RecordMetaData metaData1 = createDoubleNestedMetaData(this::addUnnestedManyMiddleType);
+
+        // Make a valid change to a field mentioned in by an unnested record type
+        FileDescriptor updatedDescriptor = mutateMessageType("OuterRecord", TestRecordsDoubleNestedProto.getDescriptor(), messageBuilder -> {
+            final DescriptorProtos.DescriptorProto.Builder middleRecordBuilder = messageBuilder.getNestedTypeBuilder(0);
+            addField(middleRecordBuilder)
+                    .setLabel(DescriptorProtos.FieldDescriptorProto.Label.LABEL_OPTIONAL)
+                    .setType(DescriptorProtos.FieldDescriptorProto.Type.TYPE_STRING)
+                    .setName("blah");
+        });
+        RecordMetaData metaData2 = replaceRecordsDescriptor(metaData1, updatedDescriptor, metaDataBuilder ->
+                metaDataBuilder.addIndexesBuilder()
+                        .setName("unnest$blah")
+                        .addRecordType("unnest_many_middle")
+                        .setRootExpression(Key.Expressions.concat(Key.Expressions.field("outer").nest("other_int"), Key.Expressions.field("middle").nest("blah")).toKeyExpression())
+                        .setType(IndexTypes.VALUE)
+                        .setAddedVersion(metaDataBuilder.getVersion())
+                        .setLastModifiedVersion(metaDataBuilder.getVersion()));
+        validator.validate(metaData1, metaData2);
+
+        // Make an invalid change
+        FileDescriptor updatedAgainDescriptor = mutateMessageType("OuterRecord", updatedDescriptor, messageBuilder -> {
+            final DescriptorProtos.DescriptorProto.Builder middleRecordBuilder = messageBuilder.getNestedTypeBuilder(0);
+            findField(middleRecordBuilder, "blah").setType(DescriptorProtos.FieldDescriptorProto.Type.TYPE_BYTES);
+        });
+        RecordMetaData metaData3 = replaceRecordsDescriptor(metaData2, updatedAgainDescriptor);
+        assertInvalid("field type changed", metaData2, metaData3);
+    }
+
+    @Test
+    void changeNestedConstituentTypeName() {
+        final RecordMetaData metaData1 = createDoubleNestedMetaData(this::addUnnestedManyMiddleAndInnerType);
+
+        final String newFullTypeName = TestRecordsDoubleNestedProto.OuterRecord.MiddleRecord.InnerRecord.getDescriptor().getFullName() + "_new";
+        FileDescriptor renamedFileDescriptor = mutateFile(TestRecordsDoubleNestedProto.getDescriptor(), fileBuilder -> {
+            for (DescriptorProtos.DescriptorProto.Builder outerMessageBuilder : fileBuilder.getMessageTypeBuilderList()) {
+                if (outerMessageBuilder.getName().equals("OuterRecord")) {
+                    for (DescriptorProtos.FieldDescriptorProto.Builder outerFieldBuilder : outerMessageBuilder.getFieldBuilderList()) {
+                        if (outerFieldBuilder.getTypeName().endsWith("InnerRecord")) {
+                            outerFieldBuilder.setTypeName(newFullTypeName);
+                        }
+                    }
+                    for (DescriptorProtos.DescriptorProto.Builder middleMessageBuilder : outerMessageBuilder.getNestedTypeBuilderList()) {
+                        for (DescriptorProtos.FieldDescriptorProto.Builder middleFieldBuilder : middleMessageBuilder.getFieldBuilderList()) {
+                            if (middleFieldBuilder.getTypeName().endsWith("InnerRecord")) {
+                                middleFieldBuilder.setTypeName(newFullTypeName);
+                            }
+                        }
+                        for (DescriptorProtos.DescriptorProto.Builder innerMessageBuilder : middleMessageBuilder.getNestedTypeBuilderList()) {
+                            if (innerMessageBuilder.getName().equals("InnerRecord")) {
+                                innerMessageBuilder.setName("InnerRecord_new");
+                            }
+                        }
+                    }
+                }
+            }
+        });
+        final RecordMetaData metaData2 = replaceRecordsDescriptor(metaData1, renamedFileDescriptor, metaDataBuilder -> {
+            for (RecordMetaDataProto.UnnestedRecordType.Builder unnestedTypeBuilder : metaDataBuilder.getUnnestedRecordTypesBuilderList()) {
+                for (RecordMetaDataProto.UnnestedRecordType.NestedConstituent.Builder constituentBuilder : unnestedTypeBuilder.getNestedConstituentsBuilderList()) {
+                    if (constituentBuilder.getTypeName().endsWith("InnerRecord")) {
+                        constituentBuilder.setTypeName(newFullTypeName);
+                    }
+                }
+            }
+        });
+
+        validator.validate(metaData1, metaData2);
+    }
+
+    @ParameterizedTest
+    @MethodSource("deprecatedArgs")
+    void renameFieldInNestingExpression(boolean deprecated) {
+        final RecordMetaData metaData1 = createDoubleNestedMetaData(this::addUnnestedManyMiddleType);
+
+        FileDescriptor renamedDescriptor = mutateMessageType("OuterRecord", TestRecordsDoubleNestedProto.getDescriptor(), messageType ->
+                replaceField(messageType, "many_middle", deprecated)
+                        .setTypeName(TestRecordsDoubleNestedProto.MiddleRecord.getDescriptor().getFullName())
+        );
+        final RecordMetaData metaData2 = replaceRecordsDescriptor(metaData1, renamedDescriptor);
+        fieldRenameChecker.assertInvalidRenaming("nested constituent nesting expression changed", deprecated, metaData1, metaData2);
+
+        final RecordMetaData metaData3 = mutateUnnestedRecordType(metaData2, "unnest_many_middle", unnestedTypeBuilder ->
+                unnestedTypeBuilder.getNestedConstituentsBuilder(1).setNestingExpression(Key.Expressions.field("many_middle__old", KeyExpression.FanType.FanOut).toKeyExpression()));
+        fieldRenameChecker.assertValidRenaming(deprecated, metaData1, metaData3);
+    }
+
+    @Test
+    void unnestedTypeBecomesJoinedRecordType() {
+        final RecordMetaData metaData1 = createDoubleNestedMetaData(this::addUnnestedManyMiddleType);
+
+        // Update the meta-data so that we now have a joined type instead of an unnested record type with the same key
+        final RecordMetaData metaData2 = updateMetaData(metaData1, metaDataBuilder -> {
+            final RecordMetaDataProto.UnnestedRecordType unnestedType = metaDataBuilder.getUnnestedRecordTypes(0);
+            metaDataBuilder.clearUnnestedRecordTypes();
+
+            // Copy the same constituent name, record type key, and constituent names from the unnested type so that
+            // any indexes defined on it pass local validation
+            final RecordMetaDataProto.UnnestedRecordType.NestedConstituent outer = unnestedType.getNestedConstituents(0);
+            final RecordMetaDataProto.UnnestedRecordType.NestedConstituent middle = unnestedType.getNestedConstituents(1);
+            metaDataBuilder.addJoinedRecordTypesBuilder()
+                    .setName(unnestedType.getName())
+                    .setRecordTypeKey(unnestedType.getRecordTypeKey())
+                    .addJoinConstituents(RecordMetaDataProto.JoinedRecordType.JoinConstituent.newBuilder()
+                            .setName(outer.getName())
+                            .setRecordType(outer.getTypeName())
+                            .setOuterJoined(false))
+                    .addJoinConstituents(RecordMetaDataProto.JoinedRecordType.JoinConstituent.newBuilder()
+                            .setName(middle.getName())
+                            .setRecordType("MiddleRecord")
+                            .setOuterJoined(false))
+                    .addJoins(RecordMetaDataProto.JoinedRecordType.Join.newBuilder()
+                            .setLeft(outer.getName())
+                            .setLeftExpression(Key.Expressions.field("middle").nest("other_int").toKeyExpression())
+                            .setRight(middle.getName())
+                            .setRightExpression(Key.Expressions.field("other_middle").nest("other_int").toKeyExpression()));
+        });
+
+        assertInvalid("synthetic record type changed type", metaData1, metaData2);
+
+        // Should also be a problem if we change back
+        final RecordMetaData metaData3 = updateMetaData(metaData1, metaDataBuilder -> metaDataBuilder.setVersion(metaData2.getVersion() + 1));
+        assertInvalid("synthetic record type changed type", metaData2, metaData3);
+    }
+
+    @Test
+    void reuseSyntheticTypeKeyAfterRemovingReferences() {
+        final RecordMetaData metaData1 = createDoubleNestedMetaData(this::addUnnestedManyMiddleType);
+
+        // Make sure that we cannot drop the synthetic type while there are still references to it (in this case, an index)
+        assertThrows(MetaDataException.class, () -> updateMetaData(metaData1, RecordMetaDataProto.MetaData.Builder::clearUnnestedRecordTypes));
+
+        // Create a new meta-data that drops the synthetic type and the indexes that reference it
+        // This is a valid iteration, and indeed, it's important that we can do this, as that's the only
+        // way to prevent us from doing unproductive synthetic record type creation during record saves
+        final AtomicReference<RecordKeyExpressionProto.Value> recordTypeKey = new AtomicReference<>();
+        final RecordMetaData metaData2 = updateMetaData(metaData1, metaDataBuilder -> {
+            final RecordMetaDataProto.UnnestedRecordType unnestedRecordType = metaDataBuilder.getUnnestedRecordTypes(0);
+            recordTypeKey.set(unnestedRecordType.getRecordTypeKey());
+            metaDataBuilder.clearUnnestedRecordTypes();
+
+            // Remove all referencing indexes
+            for (int i = metaDataBuilder.getIndexesCount() - 1; i >= 0; i--) {
+                final RecordMetaDataProto.Index index = metaDataBuilder.getIndexes(i);
+                if (index.getRecordTypeList().contains(unnestedRecordType.getName())) {
+                    metaDataBuilder.removeIndexes(i);
+                    metaDataBuilder.addFormerIndexesBuilder()
+                            .setAddedVersion(index.getAddedVersion())
+                            .setFormerName(index.getName())
+                            .setSubspaceKey(index.getSubspaceKey())
+                            .setRemovedVersion(metaData1.getVersion() + 1);
+                }
+            }
+        });
+        validator.validate(metaData1, metaData2);
+
+        // Create a new synthetic type that re-uses the original record type's record type key. This is a valid
+        // evolution from metaData2, as the old synthetic type is gone
+        final RecordMetaData metaData3 = updateMetaData(metaData2, metaDataBuilder -> {
+            metaDataBuilder.addJoinedRecordTypesBuilder()
+                    .setName("join_type")
+                    .setRecordTypeKey(recordTypeKey.get())
+                    .addJoinConstituents(RecordMetaDataProto.JoinedRecordType.JoinConstituent.newBuilder()
+                            .setName("outer")
+                            .setRecordType("OuterRecord")
+                            .setOuterJoined(false)
+                    )
+                    .addJoinConstituents(RecordMetaDataProto.JoinedRecordType.JoinConstituent.newBuilder()
+                            .setName("middle")
+                            .setRecordType("MiddleRecord")
+                            .setOuterJoined(false)
+                    )
+                    .addJoins(RecordMetaDataProto.JoinedRecordType.Join.newBuilder()
+                            .setLeft("outer")
+                            .setLeftExpression(Key.Expressions.field("middle").nest("other_int").toKeyExpression())
+                            .setRight("middle")
+                            .setRightExpression(Key.Expressions.field("other_middle").nest("other_int").toKeyExpression())
+                    );
+
+            // For good measure, reference the type in an index
+            metaDataBuilder.addIndexesBuilder()
+                    .setName("join_type$blah")
+                    .addRecordType("join_type")
+                    .setType(IndexTypes.VALUE)
+                    .setAddedVersion(metaData2.getVersion() + 1)
+                    .setLastModifiedVersion(metaData2.getVersion() + 1)
+                    .setRootExpression(Key.Expressions.concat(Key.Expressions.field("outer").nest("other_int"), Key.Expressions.field("middle").nest("other_int")).toKeyExpression());
+        });
+        validator.validate(metaData2, metaData3);
+
+        // Validation fails if going directly from 1 to 3, bypassing 2. This is arguably a violation of the transitive
+        // property, and it's possible we should make this work at some point. We'd need to be sure before we allow
+        // type key re-use that _all_ references to the old type are appropriately updated--e.g., that all the last_modified_versions
+        // on all the referencing indexes are greater than the old meta-data's version.
+        assertInvalid("synthetic record type changed type", metaData1, metaData3);
     }
 
     // Former index tests
@@ -1839,12 +2913,11 @@ class MetaDataEvolutionValidatorTest {
         RecordMetaData metaData1 = RecordMetaData.build(TestRecords1Proto.getDescriptor());
 
         // Step 1: Update the index definition in a way that updates the last modified version
-        RecordMetaData metaData2 = replaceIndex(metaData1, "MySimpleRecord$str_value_indexed", index ->
-                // Mark the index as unique (and bump its last modified version
-                index.toBuilder()
-                        .addOptions(RecordMetaDataProto.Index.Option.newBuilder().setKey("unique").setValue("true"))
-                        .setLastModifiedVersion(index.getLastModifiedVersion() + 1)
-                        .build());
+        RecordMetaData metaData2 = mutateIndex(metaData1, "MySimpleRecord$str_value_indexed", index -> {
+            // Mark the index as unique (and bump its last modified version
+            makeUnique(index);
+            index.setLastModifiedVersion(index.getLastModifiedVersion() + 1);
+        });
         assertFalse(validator.allowsIndexRebuilds());
         assertInvalid("last modified version of index changed", metaData1, metaData2);
 
@@ -1892,50 +2965,49 @@ class MetaDataEvolutionValidatorTest {
 
     // Index tests
 
-    @Nonnull
-    private RecordMetaDataProto.Index changeOption(@Nonnull RecordMetaDataProto.Index indexProto, @Nonnull String key, @Nullable String value) {
-        RecordMetaDataProto.Index.Builder builder = indexProto.toBuilder();
+    private void changeOption(@Nonnull RecordMetaDataProto.Index.Builder indexProto, @Nonnull String key, @Nullable String value) {
         boolean found = false;
-        for (int i = 0; i < builder.getOptionsCount(); i++) {
-            final RecordMetaDataProto.Index.Option option = builder.getOptions(i);
+        int i = 0;
+        for (RecordMetaDataProto.Index.Option.Builder option : indexProto.getOptionsBuilderList()) {
             if (key.equals(option.getKey())) {
-                if (value == null) {
-                    builder.removeOptions(i);
-                } else {
-                    builder.setOptions(i, RecordMetaDataProto.Index.Option.newBuilder().setKey(key).setValue(value));
+                if (value != null) {
+                    option.setValue(value);
                 }
                 found = true;
                 break;
             }
+            i++;
         }
-        if (!found && value != null) {
-            builder.addOptions(RecordMetaDataProto.Index.Option.newBuilder().setKey(key).setValue(value));
+        if (found && value == null) {
+            indexProto.removeOptions(i);
+        } else if (!found && value != null) {
+            indexProto.addOptions(RecordMetaDataProto.Index.Option.newBuilder().setKey(key).setValue(value));
         }
-        return builder.build();
+    }
+
+    private void makeUnique(@Nonnull RecordMetaDataProto.Index.Builder indexProto) {
+        changeOption(indexProto, IndexOptions.UNIQUE_OPTION, "true");
     }
 
     @Nonnull
-    private RecordMetaDataProto.Index makeUnique(@Nonnull RecordMetaDataProto.Index indexProto) {
-        return changeOption(indexProto, IndexOptions.UNIQUE_OPTION, "true");
+    private void clearOptions(@Nonnull RecordMetaDataProto.Index.Builder indexProto) {
+        indexProto.clearOptions();
     }
 
     @Nonnull
-    private RecordMetaDataProto.Index clearOptions(@Nonnull RecordMetaDataProto.Index indexProto) {
-        return indexProto.toBuilder().clearOptions().build();
-    }
-
-    @Nonnull
-    private RecordMetaData replaceIndex(@Nonnull RecordMetaData metaData, @Nonnull String indexName, UnaryOperator<RecordMetaDataProto.Index> indexReplacement) {
-        RecordMetaDataProto.MetaData metaDataProto = metaData.toProto();
-        RecordMetaDataProto.MetaData.Builder metaDataProtoBuilder = metaDataProto.toBuilder();
-        metaDataProtoBuilder.setVersion(metaData.getVersion() + 1);
-        for (int i = 0; i < metaDataProto.getIndexesCount(); i ++) {
-            RecordMetaDataProto.Index indexProto = metaDataProto.getIndexes(i);
-            if (indexProto.getName().equals(indexName)) {
-                metaDataProtoBuilder.setIndexes(i, indexReplacement.apply(indexProto));
+    private RecordMetaData mutateIndex(@Nonnull RecordMetaData metaData, @Nonnull String indexName, @Nonnull Consumer<RecordMetaDataProto.Index.Builder> indexMutator) {
+        return updateMetaData(metaData, metaDataProtoBuilder -> {
+            for (RecordMetaDataProto.Index.Builder indexProto : metaDataProtoBuilder.getIndexesBuilderList()) {
+                if (indexProto.getName().equals(indexName)) {
+                    indexMutator.accept(indexProto);
+                }
             }
-        }
-        return RecordMetaData.build(metaDataProtoBuilder.build());
+        });
+    }
+
+    @Nonnull
+    private RecordMetaData mutateIndexRootExpression(@Nonnull RecordMetaData metaData, @Nonnull String indexName, @Nonnull KeyExpression newRootExpression) {
+        return mutateIndex(metaData, indexName, indexProto -> indexProto.setRootExpression(newRootExpression.toKeyExpression()));
     }
 
     @Test
@@ -1972,8 +3044,8 @@ class MetaDataEvolutionValidatorTest {
         // The index subspace key is the thing that determines whether an index is even there, so changing it
         // is identical to removing the index
         RecordMetaData metaData1 = RecordMetaData.build(TestRecords1Proto.getDescriptor());
-        RecordMetaData metaData2 = replaceIndex(metaData1, "MySimpleRecord$str_value_indexed", indexProto ->
-                indexProto.toBuilder().setSubspaceKey(ByteString.copyFrom(Tuple.from("dummy_key").pack())).build()
+        RecordMetaData metaData2 = mutateIndex(metaData1, "MySimpleRecord$str_value_indexed", indexProto ->
+                indexProto.setSubspaceKey(ByteString.copyFrom(Tuple.from("dummy_key").pack()))
         );
         assertInvalid("index missing in new meta-data", metaData1, metaData2);
     }
@@ -1981,11 +3053,10 @@ class MetaDataEvolutionValidatorTest {
     @Test
     void indexNameChanged() {
         RecordMetaData metaData1 = RecordMetaData.build(TestRecords1Proto.getDescriptor());
-        RecordMetaData metaData2 = replaceIndex(metaData1, "MySimpleRecord$str_value_indexed", indexProto ->
-                indexProto.toBuilder()
+        RecordMetaData metaData2 = mutateIndex(metaData1, "MySimpleRecord$str_value_indexed", indexProto ->
+                indexProto
                         .setSubspaceKey(ByteString.copyFrom(Tuple.from("MySimpleRecord$str_value_indexed").pack()))
                         .setName("a_different_name")
-                        .build()
         );
         assertInvalid("index name changed", metaData1, metaData2);
     }
@@ -1993,34 +3064,29 @@ class MetaDataEvolutionValidatorTest {
     @Test
     void indexAddedVersionChanged() {
         RecordMetaData metaData1 = RecordMetaData.build(TestRecords1Proto.getDescriptor());
-        RecordMetaData metaData2 = replaceIndex(metaData1, "MySimpleRecord$str_value_indexed", indexProto ->
-                indexProto.toBuilder().setAddedVersion(metaData1.getVersion() + 1).setLastModifiedVersion(metaData1.getVersion() + 1).build()
-        );
+        RecordMetaData metaData2 = mutateIndex(metaData1, "MySimpleRecord$str_value_indexed",
+                indexProto -> indexProto.setAddedVersion(metaData1.getVersion() + 1).setLastModifiedVersion(metaData1.getVersion() + 1));
         assertInvalid("new index added version does not match old index added version", metaData1, metaData2);
 
-        metaData2 = replaceIndex(metaData2, "MySimpleRecord$str_value_indexed", indexProto ->
-                indexProto.toBuilder().setAddedVersion(indexProto.getAddedVersion() - 1).build()
-        );
+        metaData2 = mutateIndex(metaData2, "MySimpleRecord$str_value_indexed",
+                indexProto -> indexProto.setAddedVersion(indexProto.getAddedVersion() - 1));
         assertInvalid("new index added version does not match old index added version", metaData1, metaData2);
     }
 
     @Test
     void indexLastModifiedVersionTooOld() {
-        RecordMetaData metaData1 = replaceIndex(RecordMetaData.build(TestRecords1Proto.getDescriptor()), "MySimpleRecord$str_value_indexed", indexProto ->
-                indexProto.toBuilder().setLastModifiedVersion(2).build()
-        );
-        RecordMetaData metaData2 = replaceIndex(metaData1, "MySimpleRecord$str_value_indexed", indexProto ->
-                indexProto.toBuilder().setLastModifiedVersion(1).build()
-        );
+        RecordMetaData metaData1 = mutateIndex(RecordMetaData.build(TestRecords1Proto.getDescriptor()), "MySimpleRecord$str_value_indexed",
+                indexProto -> indexProto.setLastModifiedVersion(2));
+        RecordMetaData metaData2 = mutateIndex(metaData1, "MySimpleRecord$str_value_indexed",
+                indexProto -> indexProto.setLastModifiedVersion(1));
         assertInvalid("old index has last-modified version newer than new index", metaData1, metaData2);
     }
 
     @Test
     void indexLastModifiedVersionChanged() {
         RecordMetaData metaData1 = RecordMetaData.build(TestRecords1Proto.getDescriptor());
-        RecordMetaData metaData2 = replaceIndex(metaData1, "MySimpleRecord$str_value_indexed", indexProto ->
-                indexProto.toBuilder().setLastModifiedVersion(metaData1.getVersion() + 1).build()
-        );
+        RecordMetaData metaData2 = mutateIndex(metaData1, "MySimpleRecord$str_value_indexed",
+                indexProto -> indexProto.setLastModifiedVersion(metaData1.getVersion() + 1));
         assertFalse(validator.allowsIndexRebuilds());
         assertInvalid("last modified version of index changed", metaData1, metaData2);
 
@@ -2031,18 +3097,17 @@ class MetaDataEvolutionValidatorTest {
         laxerValidator.validate(metaData1, metaData2);
     }
 
-    private void validateIndexMutation(@Nonnull String errMsg, @Nonnull RecordMetaData metaData1, @Nonnull String indexName, UnaryOperator<RecordMetaDataProto.Index> indexReplacement) {
+    private void validateIndexMutation(@Nonnull String errMsg, @Nonnull RecordMetaData metaData1, @Nonnull String indexName, Consumer<RecordMetaDataProto.Index.Builder> indexReplacement) {
         MetaDataEvolutionValidator laxerValidator = MetaDataEvolutionValidator.newBuilder()
                 .setAllowIndexRebuilds(true)
                 .build();
-        RecordMetaData metaData2 = replaceIndex(metaData1, indexName, indexReplacement);
+        RecordMetaData metaData2 = mutateIndex(metaData1, indexName, indexReplacement);
         assertInvalid(errMsg, metaData1, metaData2);
         assertInvalid(errMsg, laxerValidator, metaData1, metaData2);
 
         // Allow the change if and only if the last modified version is updated and the option allowing rebuilds is set
-        RecordMetaData metaData3 = replaceIndex(metaData2, indexName, indexProto ->
-                indexProto.toBuilder().setLastModifiedVersion(metaData2.getVersion()).build()
-        );
+        RecordMetaData metaData3 = mutateIndex(metaData2, indexName,
+                indexProto -> indexProto.setLastModifiedVersion(metaData2.getVersion()));
         assertInvalid("last modified version of index changed", metaData1, metaData3);
         laxerValidator.validate(metaData1, metaData3);
     }
@@ -2050,17 +3115,16 @@ class MetaDataEvolutionValidatorTest {
     @Test
     void indexTypeChanged() {
         RecordMetaData metaData1 = RecordMetaData.build(TestRecords1Proto.getDescriptor());
-        validateIndexMutation("index type changed", metaData1, "MySimpleRecord$str_value_indexed", indexProto ->
-                indexProto.toBuilder().setType(IndexTypes.RANK).build()
+        validateIndexMutation("index type changed", metaData1, "MySimpleRecord$str_value_indexed",
+                indexProto -> indexProto.setType(IndexTypes.RANK)
         );
     }
 
     @Test
     void indexKeyExpressionChanged() {
         RecordMetaData metaData1 = RecordMetaData.build(TestRecords1Proto.getDescriptor());
-        validateIndexMutation("index key expression changed", metaData1, "MySimpleRecord$str_value_indexed", indexProto ->
-                indexProto.toBuilder().setRootExpression(Key.Expressions.field("num_value_2").toKeyExpression()).build()
-        );
+        validateIndexMutation("index key expression changed", metaData1, "MySimpleRecord$str_value_indexed",
+                indexProto -> indexProto.setRootExpression(Key.Expressions.field("num_value_2").toKeyExpression()));
     }
 
     @Test
@@ -2070,8 +3134,8 @@ class MetaDataEvolutionValidatorTest {
         metaDataBuilder.addMultiTypeIndex(Arrays.asList(metaDataBuilder.getRecordType("MySimpleRecord"), metaDataBuilder.getRecordType("MyOtherRecord")),
                 new Index(indexName, "num_value_2"));
         RecordMetaData metaData1 = metaDataBuilder.getRecordMetaData();
-        validateIndexMutation("new index removes record type", metaData1, indexName, indexProto ->
-                indexProto.toBuilder().clearRecordType().addRecordType("MySimpleRecord").build()
+        validateIndexMutation("new index removes record type", metaData1, indexName,
+                indexProto -> indexProto.clearRecordType().addRecordType("MySimpleRecord")
         );
     }
 
@@ -2079,14 +3143,14 @@ class MetaDataEvolutionValidatorTest {
     void indexRecordTypeAdded() {
         RecordMetaData metaData1 = RecordMetaData.build(TestRecords1Proto.getDescriptor());
         validateIndexMutation("new index adds record type that is not newer than old meta-data", metaData1, "MySimpleRecord$num_value_3_indexed", indexProto ->
-                indexProto.toBuilder().addRecordType("MyOtherRecord").build()
+                indexProto.addRecordType("MyOtherRecord").build()
         );
 
         // Add NewRecord as a record type to the existing meta-data and index and validate that this change is okay
         // because the new record type is newer the old meta-data version.
         RecordMetaData tempMetaData = addNewRecordType(metaData1);
-        RecordMetaData metaData2 = replaceIndex(tempMetaData, "MySimpleRecord$num_value_3_indexed", indexProto ->
-                indexProto.toBuilder().addRecordType("NewRecord").build());
+        RecordMetaData metaData2 = mutateIndex(tempMetaData, "MySimpleRecord$num_value_3_indexed",
+                indexProto -> indexProto.addRecordType("NewRecord"));
         validator.validate(metaData1, metaData2); // valid if type and index change happen together
         assertInvalid("new index adds record type that is not newer than old meta-data", tempMetaData, metaData2);
     }
@@ -2099,8 +3163,8 @@ class MetaDataEvolutionValidatorTest {
         assertThat(metaData1.getIndex("rec_no").hasPrimaryKeyComponentPositions(), is(true));
 
         RecordMetaData tempMetaData = addNewRecordType(metaData1);
-        RecordMetaData metaData2 = replaceIndex(tempMetaData, "rec_no", indexProto ->
-                indexProto.toBuilder().addRecordType("NewRecord").build());
+        RecordMetaData metaData2 = mutateIndex(tempMetaData, "rec_no",
+                indexProto -> indexProto.addRecordType("NewRecord"));
         assertInvalid("new index drops primary key component positions", metaData1, metaData2);
 
         // This is essentially the behavior change outlined by: https://github.com/FoundationDB/fdb-record-layer/issues/93
@@ -2128,8 +3192,8 @@ class MetaDataEvolutionValidatorTest {
         validator.validate(metaData1, metaData2);
 
         // Make the index a multi-type index on the original record types
-        RecordMetaData metaData3 = replaceIndex(metaData2, "rec_no", indexProto ->
-                indexProto.toBuilder().addRecordType("MySimpleRecord").addRecordType("MyOtherRecord").build());
+        RecordMetaData metaData3 = mutateIndex(metaData2, "rec_no",
+                indexProto -> indexProto.addRecordType("MySimpleRecord").addRecordType("MyOtherRecord"));
         MetaDataException e = assertThrows(MetaDataException.class, () -> metaData3.getUniversalIndex("rec_no"));
         assertThat(e.getMessage(), containsString("Index rec_no not defined"));
         assertInvalid("new index removes record type", metaData2, metaData3);
@@ -2143,10 +3207,10 @@ class MetaDataEvolutionValidatorTest {
         validateIndexMutation("index adds uniqueness constraint", metaData1, "MySimpleRecord$str_value_indexed", this::makeUnique);
 
         // Removing the uniqueness constraint is fine
-        RecordMetaData metaData2 = replaceIndex(metaData1, "MySimpleRecord$str_value_indexed", this::makeUnique);
-        RecordMetaData metaData3 = replaceIndex(metaData2, "MySimpleRecord$str_value_indexed", this::clearOptions);
+        RecordMetaData metaData2 = mutateIndex(metaData1, "MySimpleRecord$str_value_indexed", this::makeUnique);
+        RecordMetaData metaData3 = mutateIndex(metaData2, "MySimpleRecord$str_value_indexed", this::clearOptions);
         validator.validate(metaData2, metaData3);
-        RecordMetaData metaData4 = replaceIndex(metaData2, "MySimpleRecord$str_value_indexed", indexProto -> changeOption(indexProto, IndexOptions.UNIQUE_OPTION, "false"));
+        RecordMetaData metaData4 = mutateIndex(metaData2, "MySimpleRecord$str_value_indexed", indexProto -> changeOption(indexProto, IndexOptions.UNIQUE_OPTION, "false"));
         validator.validate(metaData2, metaData4);
     }
 
@@ -2154,25 +3218,25 @@ class MetaDataEvolutionValidatorTest {
     void allowedForQueriesChanged() {
         // Changing this option is always fine
         RecordMetaData metaData1 = RecordMetaData.build(TestRecords1Proto.getDescriptor());
-        RecordMetaData metaData2 = replaceIndex(metaData1, "MySimpleRecord$str_value_indexed",
+        RecordMetaData metaData2 = mutateIndex(metaData1, "MySimpleRecord$str_value_indexed",
                 indexProto -> changeOption(indexProto, IndexOptions.ALLOWED_FOR_QUERY_OPTION, "false"));
         validator.validate(metaData1, metaData2);
-        RecordMetaData metaData3 = replaceIndex(metaData2, "MySimpleRecord$str_value_indexed",
+        RecordMetaData metaData3 = mutateIndex(metaData2, "MySimpleRecord$str_value_indexed",
                 indexProto -> changeOption(indexProto, IndexOptions.ALLOWED_FOR_QUERY_OPTION, "true"));
         validator.validate(metaData2, metaData3);
-        RecordMetaData metaData4 = replaceIndex(metaData3, "MySimpleRecord$str_value_indexed", this::clearOptions);
+        RecordMetaData metaData4 = mutateIndex(metaData3, "MySimpleRecord$str_value_indexed", this::clearOptions);
         validator.validate(metaData3, metaData4);
     }
 
     @Test
     void changeReplacedByIndex() {
         RecordMetaData metaData1 = RecordMetaData.build(TestRecords1Proto.getDescriptor());
-        RecordMetaData metaData2 = replaceIndex(metaData1, "MySimpleRecord$str_value_indexed",
+        RecordMetaData metaData2 = mutateIndex(metaData1, "MySimpleRecord$str_value_indexed",
                 indexProto -> changeOption(indexProto, IndexOptions.REPLACED_BY_OPTION_PREFIX, "MySimpleRecord$num_value_3_indexed"));
         assertEquals(Collections.singletonList("MySimpleRecord$num_value_3_indexed"),
                 metaData2.getIndex("MySimpleRecord$str_value_indexed").getReplacedByIndexNames());
         validator.validate(metaData1, metaData2);
-        RecordMetaData metaData3 = replaceIndex(metaData2, "MySimpleRecord$str_value_indexed", this::clearOptions);
+        RecordMetaData metaData3 = mutateIndex(metaData2, "MySimpleRecord$str_value_indexed", this::clearOptions);
         assertEquals(Collections.emptyList(),
                 metaData3.getIndex("MySimpleRecord$str_value_indexed").getReplacedByIndexNames());
         validator.validate(metaData2, metaData3);
@@ -2181,14 +3245,14 @@ class MetaDataEvolutionValidatorTest {
     @Test
     void changeReplacedByIndexSet() {
         RecordMetaData metaData1 = RecordMetaData.build(TestRecords1Proto.getDescriptor());
-        RecordMetaData metaData2 = replaceIndex(metaData1, "MySimpleRecord$str_value_indexed", indexProto ->
-                changeOption(changeOption(indexProto, IndexOptions.REPLACED_BY_OPTION_PREFIX + "_0", "MySimpleRecord$num_value_3_indexed"),
-                        IndexOptions.REPLACED_BY_OPTION_PREFIX + "_1", "MySimpleRecord$num_value_unique")
-        );
+        RecordMetaData metaData2 = mutateIndex(metaData1, "MySimpleRecord$str_value_indexed", indexProto -> {
+            changeOption(indexProto, IndexOptions.REPLACED_BY_OPTION_PREFIX + "_0", "MySimpleRecord$num_value_3_indexed");
+            changeOption(indexProto, IndexOptions.REPLACED_BY_OPTION_PREFIX + "_1", "MySimpleRecord$num_value_unique");
+        });
         assertThat(metaData2.getIndex("MySimpleRecord$str_value_indexed").getReplacedByIndexNames(),
                 containsInAnyOrder("MySimpleRecord$num_value_3_indexed", "MySimpleRecord$num_value_unique"));
         validator.validate(metaData1, metaData2);
-        RecordMetaData metaData3 = replaceIndex(metaData2, "MySimpleRecord$str_value_indexed", this::clearOptions);
+        RecordMetaData metaData3 = mutateIndex(metaData2, "MySimpleRecord$str_value_indexed", this::clearOptions);
         assertEquals(Collections.emptyList(),
                 metaData3.getIndex("MySimpleRecord$str_value_indexed").getReplacedByIndexNames());
         validator.validate(metaData2, metaData3);
@@ -2199,9 +3263,11 @@ class MetaDataEvolutionValidatorTest {
         RecordMetaData metaData1 = RecordMetaData.build(TestRecords1Proto.getDescriptor());
         validateIndexMutation("index option changed", metaData1, "MySimpleRecord$str_value_indexed",
                 indexProto -> changeOption(indexProto, "dummyOption", "dummyValue"));
-        RecordMetaData metaData2 = replaceIndex(metaData1, "MySimpleRecord$str_value_indexed",
-                indexProto -> makeUnique(changeOption(indexProto, "dummyOption", "dummyValue")));
-        RecordMetaData metaData3 = replaceIndex(metaData2, "MySimpleRecord$str_value_indexed",
+        RecordMetaData metaData2 = mutateIndex(metaData1, "MySimpleRecord$str_value_indexed", indexProto -> {
+            makeUnique(indexProto);
+            changeOption(indexProto, "dummyOption", "dummyValue");
+        });
+        RecordMetaData metaData3 = mutateIndex(metaData2, "MySimpleRecord$str_value_indexed",
                 indexProto -> changeOption(indexProto, IndexOptions.UNIQUE_OPTION, null));
         validator.validate(metaData2, metaData3);
         validateIndexMutation("index option changed", metaData3, "MySimpleRecord$str_value_indexed",
@@ -2221,10 +3287,10 @@ class MetaDataEvolutionValidatorTest {
                 indexProto -> changeOption(indexProto, IndexOptions.RANK_NLEVELS, "" + RankedSet.MAX_LEVELS));
 
         // Setting the default explicitly is fine
-        RecordMetaData metaData2 = replaceIndex(metaData1, indexName,
+        RecordMetaData metaData2 = mutateIndex(metaData1, indexName,
                 indexProto -> changeOption(indexProto, IndexOptions.RANK_NLEVELS, "" + RankedSet.DEFAULT_LEVELS));
         validator.validate(metaData1, metaData2);
-        RecordMetaData metaData3 = replaceIndex(metaData2, indexName, this::clearOptions);
+        RecordMetaData metaData3 = mutateIndex(metaData2, indexName, this::clearOptions);
         validator.validate(metaData2, metaData3);
     }
 
@@ -2239,37 +3305,37 @@ class MetaDataEvolutionValidatorTest {
                 indexProto -> changeOption(indexProto, IndexOptions.TEXT_TOKENIZER_NAME_OPTION, AllSuffixesTextTokenizer.NAME));
 
         // Setting the default explicitly is fine
-        RecordMetaData metaData2 = replaceIndex(metaData1, indexName,
+        RecordMetaData metaData2 = mutateIndex(metaData1, indexName,
                 indexProto -> changeOption(indexProto, IndexOptions.TEXT_TOKENIZER_NAME_OPTION, DefaultTextTokenizer.NAME));
         validator.validate(metaData1, metaData2);
-        RecordMetaData metaData3 = replaceIndex(metaData2, indexName, this::clearOptions);
+        RecordMetaData metaData3 = mutateIndex(metaData2, indexName, this::clearOptions);
         validator.validate(metaData2, metaData3);
 
         // Increasing the tokenizer version is fine, but decreasing it is not
-        RecordMetaData metaData4 = replaceIndex(metaData3, indexName,
+        RecordMetaData metaData4 = mutateIndex(metaData3, indexName,
                 indexProto -> changeOption(indexProto, IndexOptions.TEXT_TOKENIZER_NAME_OPTION, PrefixTextTokenizer.NAME));
-        RecordMetaData metaData5 = replaceIndex(metaData4, indexName,
+        RecordMetaData metaData5 = mutateIndex(metaData4, indexName,
                 indexProto -> changeOption(indexProto, IndexOptions.TEXT_TOKENIZER_VERSION_OPTION, "" + TextTokenizer.GLOBAL_MIN_VERSION));
         validator.validate(metaData4, metaData5);
-        RecordMetaData metaData6 = replaceIndex(metaData5, indexName,
+        RecordMetaData metaData6 = mutateIndex(metaData5, indexName,
                 indexProto -> changeOption(indexProto, IndexOptions.TEXT_TOKENIZER_VERSION_OPTION, "" + (TextTokenizer.GLOBAL_MIN_VERSION + 1)));
         validator.validate(metaData5, metaData6);
         validateIndexMutation("text tokenizer version downgraded", metaData6, indexName,
                 indexProto -> changeOption(indexProto, IndexOptions.TEXT_TOKENIZER_VERSION_OPTION, "" + TextTokenizer.GLOBAL_MIN_VERSION));
 
         // Changing whether aggressive conflict ranges are allowed is safe
-        RecordMetaData metaData7 = replaceIndex(metaData6, indexName,
+        RecordMetaData metaData7 = mutateIndex(metaData6, indexName,
                 indexProto -> changeOption(indexProto, IndexOptions.TEXT_ADD_AGGRESSIVE_CONFLICT_RANGES_OPTION, "true"));
         validator.validate(metaData6, metaData7);
-        RecordMetaData metaData8 = replaceIndex(metaData7, indexName,
+        RecordMetaData metaData8 = mutateIndex(metaData7, indexName,
                 indexProto -> changeOption(indexProto, IndexOptions.TEXT_ADD_AGGRESSIVE_CONFLICT_RANGES_OPTION, "false"));
         validator.validate(metaData7, metaData8);
 
         // Changing whether position lists are omitted is safe
-        RecordMetaData metaData9 = replaceIndex(metaData8, indexName,
+        RecordMetaData metaData9 = mutateIndex(metaData8, indexName,
                 indexProto -> changeOption(indexProto, IndexOptions.TEXT_OMIT_POSITIONS_OPTION, "true"));
         validator.validate(metaData8, metaData9);
-        RecordMetaData metaData10 = replaceIndex(metaData9, indexName,
+        RecordMetaData metaData10 = mutateIndex(metaData9, indexName,
                 indexProto -> changeOption(indexProto, IndexOptions.TEXT_OMIT_POSITIONS_OPTION, "false"));
         validator.validate(metaData9, metaData10);
     }
@@ -2277,7 +3343,7 @@ class MetaDataEvolutionValidatorTest {
     @Test
     void optionChangeAllowedWithCustomIndexValidatorRegistry() {
         RecordMetaData metaData1 = RecordMetaData.build(TestRecords1Proto.getDescriptor());
-        RecordMetaData metaData2 = replaceIndex(metaData1, "MySimpleRecord$str_value_indexed", this::makeUnique);
+        RecordMetaData metaData2 = mutateIndex(metaData1, "MySimpleRecord$str_value_indexed", this::makeUnique);
         assertSame(IndexMaintainerFactoryRegistryImpl.instance(), validator.getIndexValidatorRegistry());
         assertInvalid("index adds uniqueness constraint", metaData1, metaData2);
 
