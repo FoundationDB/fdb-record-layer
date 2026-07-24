@@ -109,6 +109,26 @@ public class StoredQueriesTest {
                     "       FUNCTION1 sq1(in x bigint) AS (SELECT * FROM t1 WHERE col1 < x)" +
                     " AS SELECT * FROM sq1(10)";
 
+    /** Positional parameter signature (type + open-bound range); body uses a plain {@code ?}. */
+    private static final String SCHEMA_TEMPLATE_PARAM_SIG =
+            "CREATE TABLE t1(id bigint, col1 bigint, col2 bigint, PRIMARY KEY(id))" +
+                    " CREATE STORED QUERY by_col1(bigint > 5) AS select * from t1 where col1 > ?";
+
+    /** Every signature form (type only, open bound, two bounds, BETWEEN, IN) plus a multi-parameter signature. */
+    private static final String SCHEMA_TEMPLATE_PARAM_SIG_FORMS =
+            "CREATE TABLE t1(id bigint, col1 bigint, col2 bigint, PRIMARY KEY(id))" +
+                    " CREATE STORED QUERY q_type       (bigint)                   AS select * from t1 where col1 = ?" +
+                    " CREATE STORED QUERY q_open       (bigint > 0)               AS select * from t1 where col1 > ?" +
+                    " CREATE STORED QUERY q_two_bounds (bigint > 0 and < 100)     AS select * from t1 where col1 > ?" +
+                    " CREATE STORED QUERY q_between    (bigint between 0 and 100) AS select * from t1 where col1 > ?" +
+                    " CREATE STORED QUERY q_in         (bigint in (1, 2, 3))      AS select * from t1 where col1 = ?" +
+                    " CREATE STORED QUERY q_multi      (bigint > 0, string)       AS select * from t1 where col1 > ? and col2 = ?";
+
+    /** Signature entry without a type — fails to parse. */
+    private static final String SCHEMA_TEMPLATE_PARAM_SIG_NO_TYPE =
+            "CREATE TABLE t1(id bigint, col1 bigint, col2 bigint, PRIMARY KEY(id))" +
+                    " CREATE STORED QUERY q(> 5) AS select * from t1 where col1 > ?";
+
 
     @RegisterExtension
     @Order(0)
@@ -572,6 +592,59 @@ public class StoredQueriesTest {
                                 .relationalExtension(relationalExtension)
                                 .schemaTemplate(SCHEMA_TEMPLATE_TF_BAD_SYNTAX)
                                 .build())
+                .hasErrorCode(ErrorCode.SYNTAX_ERROR);
+    }
+
+    @Test
+    void storedQueryParameterSignatureParses() throws Exception {
+        try (var ddl = Ddl.builder()
+                .database(URI.create("/TEST/SQ_PARAM_SIG"))
+                .relationalExtension(relationalExtension)
+                .schemaTemplate(SCHEMA_TEMPLATE_PARAM_SIG)
+                .build()) {
+            final var connection = ddl.setSchemaAndGetConnection();
+            final var embeddedConnection = connection.unwrap(EmbeddedRelationalConnection.class);
+            embeddedConnection.setAutoCommit(false);
+            embeddedConnection.createNewTransaction();
+            final var schemaTemplate = embeddedConnection.getSchemaTemplate().unwrap(RecordLayerSchemaTemplate.class);
+            embeddedConnection.rollback();
+            embeddedConnection.setAutoCommit(true);
+            final var storedQueries = schemaTemplate.getStoredQueries();
+            Assertions.assertEquals(1, storedQueries.size());
+            // The positional signature is separated from the body: the body (with its plain "?") is stored as the
+            // query, and the signature text is captured separately.
+            Assertions.assertEquals("select * from t1 where col1 > ?", storedQueries.get("BY_COL1").getQuery());
+            Assertions.assertEquals("(bigint > 5)", storedQueries.get("BY_COL1").getParameters());
+        }
+    }
+
+    @Test
+    void storedQueryParameterSignatureFormsParse() throws Exception {
+        try (var ddl = Ddl.builder()
+                .database(URI.create("/TEST/SQ_PARAM_SIG_FORMS"))
+                .relationalExtension(relationalExtension)
+                .schemaTemplate(SCHEMA_TEMPLATE_PARAM_SIG_FORMS)
+                .build()) {
+            final var connection = ddl.setSchemaAndGetConnection();
+            final var embeddedConnection = connection.unwrap(EmbeddedRelationalConnection.class);
+            embeddedConnection.setAutoCommit(false);
+            embeddedConnection.createNewTransaction();
+            final var schemaTemplate = embeddedConnection.getSchemaTemplate().unwrap(RecordLayerSchemaTemplate.class);
+            embeddedConnection.rollback();
+            embeddedConnection.setAutoCommit(true);
+            // type-only, open bound, two bounds, BETWEEN, IN, and a multi-parameter signature all parse.
+            Assertions.assertEquals(6, schemaTemplate.getStoredQueries().size());
+        }
+    }
+
+    @Test
+    void storedQueryParameterSignatureMissingTypeFailsToParse() {
+        RelationalAssertions.assertThrowsSqlException(() ->
+                Ddl.builder()
+                        .database(URI.create("/TEST/SQ_PARAM_SIG_NO_TYPE_DB"))
+                        .relationalExtension(relationalExtension)
+                        .schemaTemplate(SCHEMA_TEMPLATE_PARAM_SIG_NO_TYPE)
+                        .build())
                 .hasErrorCode(ErrorCode.SYNTAX_ERROR);
     }
 

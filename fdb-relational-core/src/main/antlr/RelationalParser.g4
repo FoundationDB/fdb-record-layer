@@ -247,7 +247,21 @@ viewDefinition
     ;
 
 storedQueryDefinition
-    : STORED QUERY queryName=uid declareBlock? AS storedQuery=query
+    : STORED QUERY queryName=uid storedQueryParameterList? declareBlock? AS storedQuery=query
+    ;
+
+storedQueryParameterList
+    : '(' storedQueryParameter (',' storedQueryParameter)* ')'
+    ;
+
+storedQueryParameter
+    : parameterType=functionColumnType parameterRange?
+    ;
+
+parameterRange
+    : comparisonOperator constant (AND comparisonOperator constant)?
+    | BETWEEN low=constant AND high=constant
+    | IN '(' constant (COMMA constant)* ')'
     ;
 
 declareBlock

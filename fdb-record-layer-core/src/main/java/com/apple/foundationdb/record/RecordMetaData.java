@@ -717,6 +717,9 @@ public class RecordMetaData implements RecordMetaDataProvider {
             if (!storedQuery.getTempFunctions().isEmpty()) {
                 storedQueryBuilder.addAllTempFunctions(storedQuery.getTempFunctions());
             }
+            if (!storedQuery.getParameters().isEmpty()) {
+                storedQueryBuilder.setParameters(storedQuery.getParameters());
+            }
             builder.addStoredQueries(storedQueryBuilder.build());
         }
         builder.setSplitLongRecords(splitLongRecords);
@@ -758,10 +761,18 @@ public class RecordMetaData implements RecordMetaDataProvider {
         private final String query;
         @Nonnull
         private final List<String> tempFunctions;
+        @Nonnull
+        private final String parameters;
 
         public StoredQuery(@Nonnull final String storedQuery, @Nonnull final List<String> tempFunctions) {
+            this(storedQuery, tempFunctions, "");
+        }
+
+        public StoredQuery(@Nonnull final String storedQuery, @Nonnull final List<String> tempFunctions,
+                           @Nonnull final String parameters) {
             this.query = storedQuery;
             this.tempFunctions = List.copyOf(tempFunctions);
+            this.parameters = parameters;
         }
 
         @Nonnull
@@ -772,6 +783,16 @@ public class RecordMetaData implements RecordMetaDataProvider {
         @Nonnull
         public List<String> getTempFunctions() {
             return tempFunctions;
+        }
+
+        /**
+         * The verbatim parameter signature text (e.g. {@code "(bigint > 5)"}), or an empty string if the stored
+         * query declares no parameter signature.
+         * @return the parameter signature text
+         */
+        @Nonnull
+        public String getParameters() {
+            return parameters;
         }
     }
 

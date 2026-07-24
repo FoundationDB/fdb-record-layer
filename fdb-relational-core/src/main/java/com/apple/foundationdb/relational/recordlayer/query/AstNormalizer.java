@@ -124,6 +124,14 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
      */
     private boolean allowLiteralAddition;
 
+    /**
+     * Controls whether we are currently descending into a stored query body (the {@code query} of a
+     * {@code storedQueryDefinition}). Such a body is opaque to the enclosing DDL statement — it is persisted verbatim
+     * and normalized/planned separately at warmup — so its {@code ?} placeholders must NOT be consumed as parameters
+     * of the DDL statement being normalized here.
+     */
+    private boolean inStoredQueryBody;
+
     @Nonnull
     private final NormalizedQueryExecutionContext.Builder queryHasherContextBuilder;
 
@@ -380,7 +388,27 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
     }
 
     @Override
+    public Object visitStoredQueryDefinition(@Nonnull RelationalParser.StoredQueryDefinitionContext ctx) {
+        // The stored query body is opaque to DDL normalization (persisted verbatim, planned later at warmup), so any
+        // "?" placeholders inside it are the stored query's own parameters, not parameters of this DDL statement.
+        final var previous = inStoredQueryBody;
+        inStoredQueryBody = true;
+        try {
+            return visitChildren(ctx);
+        } finally {
+            inStoredQueryBody = previous;
+        }
+    }
+
+    @Override
     public Object visitPreparedStatementParameter(@Nonnull RelationalParser.PreparedStatementParameterContext ctx) {
+        if (inStoredQueryBody) {
+            // Do not pull a DDL parameter value; keep the placeholder verbatim in the canonical representation.
+            if (allowTokenAddition) {
+                sqlCanonicalizer.append(ctx.getText()).append(" ");
+            }
+            return null;
+        }
         Object param;
         if (ctx.QUESTION() != null) {
             final int currentUnnamedParameterIndex = preparedStatementParameters.currentUnnamedParamIndex();
