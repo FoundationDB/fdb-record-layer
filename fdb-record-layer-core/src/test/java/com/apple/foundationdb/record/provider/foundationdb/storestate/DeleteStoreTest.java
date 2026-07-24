@@ -42,8 +42,6 @@ import javax.annotation.Nullable;
 import java.util.Arrays;
 import java.util.stream.Stream;
 
-import static com.apple.foundationdb.record.provider.foundationdb.storestate.FDBRecordStoreStateCacheTestUtils.metaDataVersionStampCacheFactory;
-import static com.apple.foundationdb.record.provider.foundationdb.storestate.FDBRecordStoreStateCacheTestUtils.testContextSource;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -367,7 +365,7 @@ public class DeleteStoreTest extends FDBRecordStoreTestBase {
     void concurrentOperationPreventsDeleteStore(@Nonnull ConcurrentOperation op,
                                                 @Nonnull DeleteStoreMode deleteStoreMode,
                                                 boolean startCacheable) throws Exception {
-        fdb.setStoreStateCache(metaDataVersionStampCacheFactory.getCache(fdb));
+        fdb.setStoreStateCache(FDBRecordStoreStateCacheTestUtils.metaDataVersionStampCacheFactory.getCache(fdb));
         ensureMetaDataVersionStampInitialized();
 
         final StoreSetup setup = createStore(startCacheable);
@@ -438,7 +436,7 @@ public class DeleteStoreTest extends FDBRecordStoreTestBase {
                                                      @Nonnull DeleteStoreMode deleteStoreMode,
                                                      boolean startCacheable,
                                                      boolean cachePreWarmed) throws Exception {
-        fdb.setStoreStateCache(metaDataVersionStampCacheFactory.getCache(fdb));
+        fdb.setStoreStateCache(FDBRecordStoreStateCacheTestUtils.metaDataVersionStampCacheFactory.getCache(fdb));
         ensureMetaDataVersionStampInitialized();
 
         final StoreSetup setup = createStore(startCacheable);
@@ -488,7 +486,7 @@ public class DeleteStoreTest extends FDBRecordStoreTestBase {
 
     @Nonnull
     public static Stream<Arguments> testContextAndDeleteStoreModeSource() {
-        return testContextSource().flatMap(testContext ->
+        return FDBRecordStoreStateCacheTestUtils.testContextSource().flatMap(testContext ->
                 Stream.of(DeleteStoreMode.values()).map(mode -> Arguments.of(testContext, mode)));
     }
 
