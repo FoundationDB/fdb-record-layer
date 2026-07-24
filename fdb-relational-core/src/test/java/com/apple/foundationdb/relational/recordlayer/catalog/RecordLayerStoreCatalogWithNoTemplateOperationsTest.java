@@ -25,6 +25,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
 import com.apple.foundationdb.test.FDBTestEnvironment;
+import com.apple.foundationdb.test.TestExecutors;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
@@ -44,6 +45,9 @@ public class RecordLayerStoreCatalogWithNoTemplateOperationsTest extends RecordL
 
     @BeforeEach
     void setUpCatalog() throws RelationalException {
+        // Install a multi-thread scheduler so JUnit-parallel tests don't fight over
+        // MoreAsyncUtil's single-thread default (see #4333).
+        FDBDatabaseFactory.instance().setScheduledExecutor(TestExecutors.defaultScheduledThreadPool());
         fdb = FDBDatabaseFactory.instance().getDatabase(FDBTestEnvironment.randomClusterFile());
         // create a FDBRecordStore
         try (Transaction txn = new RecordContextTransaction(fdb.openContext())) {
