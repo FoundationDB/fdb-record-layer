@@ -1,0 +1,49 @@
+#
+# comments-documentation-queries.yamsql
+#
+# Runnable versions of the SQL comment examples in docs/sphinx/source/reference/Comments.md.
+# Queries are written as YAML block scalars (`query: |`) so that the raw `--` and `/* */` markers reach the SQL
+# lexer instead of being interpreted by the YAML parser.
+#
+---
+options:
+  supported_version: !current_version
+---
+schema_template:
+    create table products(id bigint, name string, price bigint, primary key(id))
+    create index name_idx as select name from products order by name
+---
+setup:
+  steps:
+    - query: insert into products values (1, 'Widget', 150), (2, 'Gadget', 200), (3, 'A -- B', 50)
+---
+test_block:
+  name: comments-documentation-tests
+  preset: single_repetition_ordered
+  tests:
+    -
+      # line comment: everything after '--' to the end of the line is ignored
+      - query: |
+          -- Select the premium products.
+          select name from products where price > 100 order by name
+      - result: [{name: "Gadget"}, {name: "Widget"}]
+    -
+      # inline and multi-line block comments produce the same result
+      - query: |
+          select name /* only the name */ from products
+          where price > 100 /* this predicate
+                               spans multiple lines */
+          order by name
+      - result: [{name: "Gadget"}, {name: "Widget"}]
+    -
+      # '--' begins a comment even when glued to the preceding token (ANSI/PostgreSQL behaviour)
+      - query: |
+          select name--only the name
+          from products where price > 100 order by name
+      - result: [{name: "Gadget"}, {name: "Widget"}]
+    -
+      # comment markers inside a string literal are ordinary data, not a comment
+      - query: |
+          select name from products where name = 'A -- B'
+      - result: [{name: "A -- B"}]
+...
