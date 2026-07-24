@@ -59,6 +59,10 @@ shadowJar {
     application {
         mainClass = mainServerClass
     }
+    // Override the duplicates strategy from the EXCLUDE default to INCLUDE, so that duplicate `META-INF/services/*`
+    // files reach `mergeServiceFiles()` and their registries (e.g. `PlanDeserializer`) merge properly rather than
+    // collapse to a single provider.
+    duplicatesStrategy = DuplicatesStrategy.INCLUDE
     mergeServiceFiles()
 }
 
