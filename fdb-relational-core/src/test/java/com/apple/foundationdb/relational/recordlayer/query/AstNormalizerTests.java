@@ -564,7 +564,7 @@ public class AstNormalizerTests {
                         "-- a leading comment\nselect * from t1 where col1 = col2",
                         "select *\n/* this comment\n   spans multiple\n   lines */\nfrom t1 where col1 = col2",
                         "select * from t1 /* comment text that looks like SQL: drop table t1 */ where col1 = col2"),
-                "select * from \"T1\" where \"COL1\" = \"COL2\" ");
+                "SELECT * FROM \"T1\" WHERE \"COL1\" = \"COL2\" ");
     }
 
     @Test
@@ -584,7 +584,7 @@ public class AstNormalizerTests {
 
         Assertions.assertThat(commentedResult.getQueryCacheKey().getCanonicalQueryString())
                 .as("canonical query string must be comment-free")
-                .isEqualTo("select * from \"T1\" where \"COL1\" = ? ")
+                .isEqualTo("SELECT * FROM \"T1\" WHERE \"COL1\" = ? ")
                 .isEqualTo(bareResult.getQueryCacheKey().getCanonicalQueryString());
         Assertions.assertThat(commentedResult.getQueryCacheKey())
                 .as("commented and bare queries must share the same cache key")
@@ -601,7 +601,7 @@ public class AstNormalizerTests {
         // markers and all, must survive verbatim as the stripped constant rather than being truncated.
         //
         validate("select '-- not a comment' from t1 where col1 = 'trailing # not a comment'",
-                "select ? from \"T1\" where \"COL1\" = ? ",
+                "SELECT ? FROM \"T1\" WHERE \"COL1\" = ? ",
                 Map.of(constantId(1), "-- not a comment",
                         constantId(7), "trailing # not a comment"));
     }
@@ -613,7 +613,7 @@ public class AstNormalizerTests {
         // '*/' must not terminate anything and the literal must be preserved in full.
         //
         validate("select 'a /* still */ here' from t1",
-                "select ? from \"T1\" ",
+                "SELECT ? FROM \"T1\" ",
                 Map.of(constantId(1), "a /* still */ here"));
     }
 
