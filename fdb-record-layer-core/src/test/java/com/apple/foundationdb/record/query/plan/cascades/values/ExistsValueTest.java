@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.query.plan.cascades.values;
 
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.planprotos.PValue;
+import com.apple.foundationdb.record.query.plan.cascades.CallSiteArguments;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.google.common.collect.ImmutableList;
@@ -39,7 +40,7 @@ class ExistsValueTest {
     void encapsulateTest() {
         final var childValue = QuantifiedObjectValue.of(
                 CorrelationIdentifier.of("q1"), Type.primitiveType(Type.TypeCode.BOOLEAN, true));
-        final var result = new ExistsValue.ExistsFn().encapsulate(ImmutableList.of(childValue));
+        final var result = new ExistsValue.ExistsFn().encapsulate(CallSiteArguments.ofPositional(childValue));
         assertThat(result).isInstanceOf(ExistsValue.class);
         assertThat(((ExistsValue) result).getChild()).isEqualTo(childValue);
     }

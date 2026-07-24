@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.query.plan.cascades.AccessHint;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInTableFunction;
+import com.apple.foundationdb.record.query.plan.cascades.CallSiteArguments;
 import com.apple.foundationdb.record.query.plan.cascades.CatalogedFunction;
 import com.apple.foundationdb.record.query.plan.cascades.Correlated;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
@@ -996,13 +997,14 @@ public class SemanticAnalyzer {
             argumentList.add(Expression.ofUnnamed(new LiteralValue<>(BITMAP_DEFAULT_ENTRY_SIZE)));
         }
 
-        final List<? extends Typed> valueArgs = argumentList.build().stream().map(Expression::getUnderlying)
+        final List<Value> valueArgs = argumentList.build().stream().map(Expression::getUnderlying)
                 .map(v -> flattenSingleItemRecords ? SqlFunctionCatalog.flattenRecordWithOneField(v) : v)
+                .map(Value.class::cast)
                 .collect(ImmutableList.toImmutableList());
         final var resultingValue =
                 Assert.castUnchecked(allNamedArguments
-                                     ? resolvedFunction.encapsulate(arguments.toNamedArgumentInvocation())
-                                     : resolvedFunction.encapsulate(valueArgs),
+                                     ? resolvedFunction.encapsulate(CallSiteArguments.ofNamed(arguments.toNamedArgumentInvocation()))
+                                     : resolvedFunction.encapsulate(CallSiteArguments.ofPositional(valueArgs)),
                         Value.class);
         return Expression.ofUnnamed(DataTypeUtils.toRelationalType(resultingValue.getResultType()), resultingValue);
     }
@@ -1116,11 +1118,12 @@ public class SemanticAnalyzer {
         var functionValue = functionExpr.getUnderlying();
         Assert.thatUnchecked(functionValue.getResultType().isFunction());
         final Value.HighOrderValue highOrderValue = Assert.castUnchecked(functionValue, Value.HighOrderValue.class);
-        final List<? extends Typed> valueArgs = StreamSupport.stream(arguments.get(1).underlying().spliterator(), false)
+        final List<Value> valueArgs = StreamSupport.stream(arguments.get(1).underlying().spliterator(), false)
                     .map(v -> flattenSingleItemRecords ? SqlFunctionCatalog.flattenRecordWithOneField(v) : v)
+                    .map(Value.class::cast)
                     .collect(ImmutableList.toImmutableList());
         final var highOrderFunctionBuilder = Assert.notNullUnchecked(highOrderValue.evalWithoutStore(EvaluationContext.EMPTY));
-        functionValue = Assert.castUnchecked(highOrderFunctionBuilder.encapsulate(valueArgs), Value.class);
+        functionValue = Assert.castUnchecked(highOrderFunctionBuilder.encapsulate(CallSiteArguments.ofPositional(valueArgs)), Value.class);
         Assert.thatUnchecked(!functionValue.getResultType().isFunction());
         return Expression.ofUnnamed(DataTypeUtils.toRelationalType(functionValue.getResultType()), functionValue);
     }
@@ -1128,11 +1131,12 @@ public class SemanticAnalyzer {
     @Nonnull
     private Expression encapsulateValueFunction(@Nonnull final Value value, @Nonnull final Expressions arguments, boolean flattenSingleItemRecords) {
         final Value.HighOrderValue highOrderValue = Assert.castUnchecked(value, Value.HighOrderValue.class);
-        final List<? extends Typed> valueArgs = arguments.stream().map(Expression::getUnderlying)
+        final List<Value> valueArgs = arguments.stream().map(Expression::getUnderlying)
                 .map(v -> flattenSingleItemRecords ? SqlFunctionCatalog.flattenRecordWithOneField(v) : v)
+                .map(Value.class::cast)
                 .collect(ImmutableList.toImmutableList());
         final var firstOrderValue = Assert.castUnchecked(Assert.notNullUnchecked(highOrderValue.evalWithoutStore(EvaluationContext.EMPTY))
-                .encapsulate(valueArgs), Value.class);
+                .encapsulate(CallSiteArguments.ofPositional(valueArgs)), Value.class);
         return Expression.ofUnnamed(DataTypeUtils.toRelationalType(firstOrderValue.getResultType()), firstOrderValue);
     }
 
@@ -1181,12 +1185,13 @@ public class SemanticAnalyzer {
                 "function doesn't support named arguments");
         processFunctionSideEffects(tableFunction);
 
-        final List<? extends Typed> valueArgs = Streams.stream(arguments.underlying().iterator())
+        final List<Value> valueArgs = Streams.stream(arguments.underlying().iterator())
                 .map(v -> flattenSingleItemRecords ? SqlFunctionCatalog.flattenRecordWithOneField(v) : v)
+                .map(Value.class::cast)
                 .collect(ImmutableList.toImmutableList());
         final var resultingValue = arguments.allNamedArguments()
-                ? tableFunction.encapsulate(arguments.toNamedArgumentInvocation())
-                : tableFunction.encapsulate(valueArgs);
+                ? tableFunction.encapsulate(CallSiteArguments.ofNamed(arguments.toNamedArgumentInvocation()))
+                : tableFunction.encapsulate(CallSiteArguments.ofPositional(valueArgs));
         if (resultingValue instanceof StreamingValue) {
             final var tableFunctionExpression = new TableFunctionExpression(Assert.castUnchecked(resultingValue, StreamingValue.class));
             final var reference = Reference.initialOf(tableFunctionExpression);

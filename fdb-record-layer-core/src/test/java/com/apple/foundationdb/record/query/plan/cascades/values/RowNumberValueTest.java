@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.query.plan.cascades.values;
 
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
+import com.apple.foundationdb.record.query.plan.cascades.CallSiteArguments;
 import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.serialization.DefaultPlanSerializationRegistry;
@@ -240,7 +241,7 @@ class RowNumberValueTest {
                 RowNumberValue.RowNumberHighOrderFn.INDEX_RETURNS_VECTORS_ARGUMENT, returnsVectorsValue
         );
 
-        final var result = fn.encapsulate(namedArguments);
+        final var result = fn.encapsulate(CallSiteArguments.ofNamed(namedArguments));
 
         Assertions.assertNotNull(result, "Encapsulated value should not be null");
         Assertions.assertInstanceOf(RowNumberHighOrderValue.class, result,
@@ -252,7 +253,7 @@ class RowNumberValueTest {
         final var fn = new RowNumberValue.RowNumberHighOrderFn();
         final var namedArguments = Map.<String, LiteralValue<?>>of();
 
-        final var result = fn.encapsulate(namedArguments);
+        final var result = fn.encapsulate(CallSiteArguments.ofNamed(namedArguments));
 
         Assertions.assertNotNull(result, "Encapsulated value should not be null");
         Assertions.assertInstanceOf(RowNumberHighOrderValue.class, result,
@@ -267,7 +268,7 @@ class RowNumberValueTest {
         final var namedArguments = Map.of("invalid_argument", invalidValue);
 
         Assertions.assertThrows(SemanticException.class,
-                () -> fn.encapsulate(namedArguments),
+                () -> fn.encapsulate(CallSiteArguments.ofNamed(namedArguments)),
                 "Should reject invalid named arguments");
     }
 
@@ -285,7 +286,7 @@ class RowNumberValueTest {
         );
 
         Assertions.assertThrows(SemanticException.class,
-                () -> fn.encapsulate(namedArguments),
+                () -> fn.encapsulate(CallSiteArguments.ofNamed(namedArguments)),
                 "Should reject too many named arguments");
     }
 }

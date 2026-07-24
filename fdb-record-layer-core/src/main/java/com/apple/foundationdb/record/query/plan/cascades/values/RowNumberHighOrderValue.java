@@ -30,6 +30,7 @@ import com.apple.foundationdb.record.planprotos.PValue;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
 import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokens;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence;
 import com.google.auto.service.AutoService;
@@ -39,6 +40,7 @@ import com.google.common.collect.Iterables;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.List;
 import java.util.Locale;
 import java.util.function.Supplier;
 
@@ -154,7 +156,8 @@ public class RowNumberHighOrderValue extends AbstractValue implements Value.High
 
     public static final class CurriedRowNumberFn extends BuiltInFunction<RowNumberValue> {
         CurriedRowNumberFn(@Nullable final Integer efSearch, @Nullable final Boolean isReturningVectors) {
-            super("row_number", ImmutableList.of(Type.any(), Type.any()), (builtInFunction, arguments) -> {
+            super("row_number", ImmutableList.of(Type.any(), Type.any()), (builtInFunction, callSiteArguments) -> {
+                final List<? extends Typed> arguments = callSiteArguments.getArgumentsList();
                 SemanticException.check(arguments.size() == 2,
                         SemanticException.ErrorCode.FUNCTION_UNDEFINED_FOR_GIVEN_ARGUMENT_TYPES);
                 SemanticException.check(arguments.get(0) instanceof AbstractArrayConstructorValue,

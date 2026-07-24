@@ -192,7 +192,7 @@ public class LikeOperatorValue extends AbstractValue implements BooleanValue {
         public LikeFn() {
             super("like",
                     ImmutableList.of(Type.primitiveType(TypeCode.STRING), Type.primitiveType(TypeCode.STRING)),
-                    (ignored, args) -> LikeOperatorValue.encapsulate(args));
+                    (ignored, args) -> LikeOperatorValue.encapsulate(args.getArgumentsList()));
         }
     }
 

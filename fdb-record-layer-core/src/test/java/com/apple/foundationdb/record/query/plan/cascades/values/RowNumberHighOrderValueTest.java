@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.planprotos.PRowNumberHighOrderValue;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
+import com.apple.foundationdb.record.query.plan.cascades.CallSiteArguments;
 import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.serialization.DefaultPlanSerializationRegistry;
@@ -259,7 +260,7 @@ class RowNumberHighOrderValueTest {
                 ImmutableList.of(LiteralValue.ofScalar(2)));
         final List<Value> arguments = ImmutableList.of(partitioningValues, argumentValues);
 
-        final var rowNumberValue = curriedFn.encapsulate(arguments);
+        final var rowNumberValue = curriedFn.encapsulate(CallSiteArguments.ofPositional(arguments));
 
         Assertions.assertNotNull(rowNumberValue, "Encapsulated value should not be null");
         Assertions.assertInstanceOf(RowNumberValue.class, rowNumberValue,
@@ -275,7 +276,7 @@ class RowNumberHighOrderValueTest {
         final List<Value> invalidArguments = ImmutableList.of(LiteralValue.ofScalar(1));
 
         Assertions.assertThrows(SemanticException.class,
-                () -> curriedFn.encapsulate(invalidArguments),
+                () -> curriedFn.encapsulate(CallSiteArguments.ofPositional(invalidArguments)),
                 "Should throw SemanticException for invalid argument count");
     }
 
@@ -291,7 +292,7 @@ class RowNumberHighOrderValueTest {
         );
 
         Assertions.assertThrows(SemanticException.class,
-                () -> curriedFn.encapsulate(invalidArguments),
+                () -> curriedFn.encapsulate(CallSiteArguments.ofPositional(invalidArguments)),
                 "Should throw SemanticException for invalid argument types");
     }
 

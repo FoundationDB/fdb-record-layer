@@ -150,7 +150,7 @@ public class CardinalityValue extends AbstractValue {
     public static class CardinalityFn extends BuiltInFunction<Value> {
         public CardinalityFn() {
             super(FunctionNames.CARDINALITY,
-                    List.of(Type.any()), (builtInFunction, arguments) -> encapsulateInternal(arguments));
+                    List.of(Type.any()), (builtInFunction, arguments) -> encapsulateInternal(arguments.getArgumentsList()));
         }
 
         private static Value encapsulateInternal(@Nonnull final List<? extends Typed> arguments) {

@@ -30,6 +30,7 @@ import com.apple.foundationdb.record.planprotos.PValue;
 import com.apple.foundationdb.record.provider.foundationdb.VectorIndexScanOptions;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
+import com.apple.foundationdb.record.query.plan.cascades.CallSiteArguments;
 import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
@@ -436,7 +437,11 @@ public class RowNumberValue extends WindowedValue implements Value.IndexOnlyValu
 
         @Nonnull
         @Override
-        public HighOrderValue encapsulate(@Nonnull final Map<String, ? extends Typed> namedArguments) {
+        public HighOrderValue encapsulate(@Nonnull final CallSiteArguments arguments) {
+            if (!arguments.isNamed()) {
+                return encapsulateInternal(this, arguments);
+            }
+            final Map<String, Value> namedArguments = arguments.asNamedArguments().namedArguments();
             SemanticException.check(namedArguments.size() <= 2,
                     SemanticException.ErrorCode.FUNCTION_UNDEFINED_FOR_GIVEN_ARGUMENT_TYPES);
             // Validate that namedArguments only contains EF_SEARCH_ARGUMENT or INDEX_RETURNS_VECTORS_ARGUMENT (or is empty)
@@ -456,7 +461,8 @@ public class RowNumberValue extends WindowedValue implements Value.IndexOnlyValu
 
         @Nonnull
         private static RowNumberHighOrderValue encapsulateInternal(@Nonnull final BuiltInFunction<RowNumberHighOrderValue> ignored,
-                                                                   @Nonnull final List<? extends Typed> arguments) {
+                                                                   @Nonnull final CallSiteArguments callSiteArguments) {
+            final List<Value> arguments = callSiteArguments.getArgumentsList();
             SemanticException.check(arguments.size() <= 2,
                     SemanticException.ErrorCode.FUNCTION_UNDEFINED_FOR_GIVEN_ARGUMENT_TYPES);
 
