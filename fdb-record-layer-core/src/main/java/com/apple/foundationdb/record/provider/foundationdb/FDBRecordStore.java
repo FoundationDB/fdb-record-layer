@@ -1825,12 +1825,26 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * the store existed.
      *
      * <p>
-     * This method does not read the underlying record store, so it does not validate
-     * that a record store exists in the given subspace. As it might be the case that
-     * this record store has a cacheable store state (see {@link #setStateCacheability(boolean)}),
-     * this method resets the database's
-     * {@linkplain FDBRecordContext#getMetaDataVersionStamp(IsolationLevel) meta-data version-stamp}.
-     * As a result, calling this method may cause other clients to invalidate their caches needlessly.
+     * This method reads only the record store's header key (see {@link #STORE_INFO_KEY}) in
+     * order to decide whether it needs to invalidate cached state. If a header is present and
+     * marks the store as {@linkplain #setStateCacheability(boolean) cacheable}, the database's
+     * {@linkplain FDBRecordContext#getMetaDataVersionStamp(IsolationLevel) meta-data
+     * version-stamp} is reset so that other clients drop their cached copies; if the header is
+     * missing (store doesn't exist) or marks the store as non-cacheable, the version-stamp is
+     * not touched. This means callers who only ever operate on non-cacheable stores do not
+     * contend on the single meta-data version-stamp key.
+     * </p>
+     *
+     * <p>
+     * The header read uses snapshot isolation to avoid adding a read-conflict range on every
+     * delete. Only when the on-disk header says the store is non-cacheable (or is missing) —
+     * i.e., the case in which we would skip the bump — do we add an explicit point read
+     * conflict on {@link #STORE_INFO_KEY}. That closes the race with a concurrent
+     * {@link #setStateCacheability(boolean)} that flips the store to cacheable: if such a
+     * writer commits before us, our commit fails with a serialization error and the caller
+     * retries with a fresh snapshot that sees the new header and bumps the stamp. In the
+     * common case (delete of a store that was and stays non-cacheable), no read conflict is
+     * added at all.
      * </p>
      *
      * @param context the transactional context in which to delete the record store
@@ -1838,9 +1852,55 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      */
     @SuppressWarnings("PMD.CloseResource")
     public static void deleteStore(FDBRecordContext context, Subspace subspace) {
-        // In theory, we only need to set the meta-data version stamp if the record store's
-        // meta-data is cacheable, but we can't know that from here.
-        context.setMetaDataVersionStamp();
+        // Read the store header at snapshot isolation so we don't add a read conflict on
+        // every delete. The clear below already creates a write conflict on the whole range,
+        // which serializes us against any concurrent writer that lands INSIDE this subspace.
+        // The single race the snapshot read leaves open is a concurrent commit that writes
+        // STORE_INFO_KEY (e.g. a setStateCacheability that flips cacheable=true and bumps
+        // the meta-data version stamp). If that writer commits first, our snapshot read
+        // misses the flip and we would skip our own bump — leaving sibling caches populated
+        // from the writer's committed state stale after our delete.
+        //
+        // We close that race narrowly: only on the branches where we decide NOT to bump
+        // (header absent, or header parses as non-cacheable), we add an explicit point read
+        // conflict on STORE_INFO_KEY. That way:
+        //   - the common case (delete of a store that was and stays non-cacheable) still
+        //     contributes zero read conflicts, and
+        //   - the racy case (concurrent flip to cacheable) is detected: the writer's SET on
+        //     STORE_INFO_KEY overlaps our added read conflict and we lose the commit race.
+        final byte[] headerKey = subspace.pack(STORE_INFO_KEY);
+        final byte[] headerBytes = context.asyncToSync(FDBStoreTimer.Waits.WAIT_LOAD_RECORD_STORE_STATE,
+                context.readTransaction(true).get(headerKey));
+        boolean shouldBump;
+        if (headerBytes == null) {
+            // Header absent: no cached state exists to invalidate — no bump needed. But guard
+            // against a concurrent creator/enabler flipping the store to cacheable underneath
+            // us: adding a read conflict on STORE_INFO_KEY makes such a writer's commit
+            // exclude ours.
+            context.ensureActive().addReadConflictKey(headerKey);
+            shouldBump = false;
+        } else {
+            boolean cacheable;
+            try {
+                cacheable = RecordMetaDataProto.DataStoreInfo.parseFrom(headerBytes).getCacheable();
+            } catch (InvalidProtocolBufferException e) {
+                // If we can't parse the header, fall back to the conservative
+                // behavior and bump. Also skip the read conflict — bumping unconditionally
+                // is safe regardless of what a concurrent writer does.
+                cacheable = true;
+            }
+            if (cacheable) {
+                shouldBump = true;
+            } else {
+                // Header says non-cacheable AND parsed cleanly. If a concurrent writer flips
+                // it to cacheable, we must lose the commit race so the caller retries.
+                context.ensureActive().addReadConflictKey(headerKey);
+                shouldBump = false;
+            }
+        }
+        if (shouldBump) {
+            context.setMetaDataVersionStamp();
+        }
         context.setDirtyStoreState(true);
         context.clear(subspace.range());
     }
