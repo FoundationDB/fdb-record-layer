@@ -273,15 +273,15 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
     }
 
     @Override
-    public RelationalExpression visitQueryOptions(@Nonnull RelationalParser.QueryOptionsContext ctx) {
-        for (final var opt : ctx.queryOption()) {
+    public RelationalExpression visitStatementOptions(@Nonnull RelationalParser.StatementOptionsContext ctx) {
+        for (final var opt : ctx.statementOption()) {
             visit(opt);
         }
         return null;
     }
 
     @Override
-    public Object visitQueryOption(@Nonnull RelationalParser.QueryOptionContext ctx) {
+    public Object visitStatementOption(@Nonnull RelationalParser.StatementOptionContext ctx) {
         try {
             if (ctx.NOCACHE() != null) {
                 queryCachingFlags.add(NormalizationResult.QueryCachingFlags.WITH_NO_CACHE_OPTION);
@@ -478,8 +478,8 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
     public Object visitExecuteContinuationStatement(@Nonnull RelationalParser.ExecuteContinuationStatementContext ctx) {
         queryCachingFlags.add(NormalizationResult.QueryCachingFlags.IS_EXECUTE_CONTINUATION_STATEMENT);
         queryCachingFlags.add(NormalizationResult.QueryCachingFlags.WITH_NO_CACHE_OPTION);
-        if (ctx.queryOptions() != null) {
-            ctx.queryOptions().accept(this);
+        if (ctx.statementOptions() != null) {
+            ctx.statementOptions().accept(this);
         }
         return ctx.packageBytes.accept(this);
     }

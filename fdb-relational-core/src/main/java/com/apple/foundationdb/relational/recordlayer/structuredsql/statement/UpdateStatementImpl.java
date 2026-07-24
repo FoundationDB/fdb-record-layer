@@ -452,14 +452,14 @@ public class UpdateStatementImpl implements UpdateStatement {
                     }
                 }
 
-                if (ctx.queryOptions() != null) {
-                    visit(ctx.queryOptions());
+                if (ctx.statementOptions() != null) {
+                    visit(ctx.statementOptions());
                 }
                 return null;
             }
 
             @Override
-            public Void visitQueryOption(RelationalParser.QueryOptionContext ctx) {
+            public Void visitStatementOption(RelationalParser.StatementOptionContext ctx) {
                 if (ctx.NOCACHE() != null) {
                     updateBuilder.withOption(QueryOptions.NOCACHE);
                 } else if (ctx.LOG() != null) {
