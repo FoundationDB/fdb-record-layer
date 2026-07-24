@@ -1225,12 +1225,16 @@ namedFunctionArg
     ;
 
 //    Expressions, predicates
+//    Mathemtical and logical expressions must be listed as different alternatives to the left-recursive
+//    rules to represent the precedence of the underlying operators.
 
 expression
-    : notOperator=(NOT | '!') expression                                                 #notExpression     // done
+    : notOperator=(NOT | EXCLAMATION_SYMBOL) expression                                  #notExpression     // done
     | EXISTS '(' query ')'                                                               #existsExpressionAtom // done
     | expressionAtom predicate?                                                          #predicatedExpression
-    | expression logicalOperator expression                                              #logicalExpression // done
+    | left=expressionAtom comparisonOperator right=expressionAtom                        #binaryComparisonExpression // done
+    | left=expression operator=(AND | LOGICAL_AND_AND) right=expression                  #logicalExpression // done
+    | left=expression operator=(XOR | OR | LOGICAL_OR_OR) expression                     #logicalExpression // done
     ;
 
 predicate
@@ -1241,16 +1245,19 @@ predicate
     ;
 
 expressionAtom
-    : constant                                                                            #constantExpressionAtom // done
-    | fullColumnName                                                                      #fullColumnNameExpressionAtom // done
-    | functionCall                                                                        #functionCallExpressionAtom // done
-    | preparedStatementParameter                                                          #preparedStatementParameterAtom // done
-    | recordConstructor                                                                   #recordConstructorExpressionAtom // done
-    | arrayConstructor                                                                    #arrayConstructorExpressionAtom // done
-    | base=expressionAtom LEFT_SQUARE_BRACKET index=expressionAtom RIGHT_SQUARE_BRACKET   #subscriptExpression // done
-    | left=expressionAtom bitOperator right=expressionAtom                                #bitExpressionAtom // done
-    | left=expressionAtom mathOperator right=expressionAtom                               #mathExpressionAtom // done
-    | left=expressionAtom comparisonOperator right=expressionAtom                         #binaryComparisonPredicate // done
+    : constant                                                                                      #constantExpressionAtom // done
+    | fullColumnName                                                                                #fullColumnNameExpressionAtom // done
+    | functionCall                                                                                  #functionCallExpressionAtom // done
+    | preparedStatementParameter                                                                    #preparedStatementParameterAtom // done
+    | recordConstructor                                                                             #recordConstructorExpressionAtom // done
+    | arrayConstructor                                                                              #arrayConstructorExpressionAtom // done
+    | base=expressionAtom LEFT_SQUARE_BRACKET index=expressionAtom RIGHT_SQUARE_BRACKET             #subscriptExpression // done
+    | left=expressionAtom operator=(BIT_SHIFT_LEFT_OP | BIT_SHIFT_RIGHT_OP) right=expressionAtom    #bitExpressionAtom // done
+    | left=expressionAtom operator=BIT_AND_OP right=expressionAtom                                  #bitExpressionAtom //   done
+    | left=expressionAtom operator=(BIT_XOR_OP | BIT_OR_OP) right=expressionAtom                    #bitExpressionAtom // done
+    | left=expressionAtom operator=(STAR|DIVIDE) right=expressionAtom                               #mathExpressionAtom // done
+    | left=expressionAtom operator=(MODULO|DIV|MOD) right=expressionAtom                            #mathExpressionAtom // done
+    | left=expressionAtom operator=(PLUS|MINUS) right=expressionAtom                                #mathExpressionAtom // done
     ;
 
 inList
@@ -1272,18 +1279,6 @@ comparisonOperator
     : '=' | '>' | '<' | '<' '=' | '>' '='
     | '<' '>' | '!' '=' // | '<' '=' '>' // no support for null-safe equality
     | IS NOT? DISTINCT FROM
-    ;
-
-logicalOperator
-    : AND | '&' '&' | XOR | OR | '|' '|'
-    ;
-
-bitOperator
-    : '<' '<' | '>' '>' | '&' | '^' | '|'
-    ;
-
-mathOperator
-    : '*' | '/' | '%' | DIV | MOD | '+' | '-'
     ;
 
 jsonOperator
