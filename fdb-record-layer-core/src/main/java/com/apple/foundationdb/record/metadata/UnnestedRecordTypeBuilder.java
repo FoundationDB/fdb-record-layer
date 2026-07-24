@@ -317,6 +317,7 @@ public final class UnnestedRecordTypeBuilder extends SyntheticRecordTypeBuilder<
                         .setLabel(DescriptorProtos.FieldDescriptorProto.Label.LABEL_OPTIONAL)
                         .setType(DescriptorProtos.FieldDescriptorProto.Type.TYPE_INT64)
                         .setName(constituent.getName())
+                        .setJsonName(constituent.getName())
                         .setNumber(indexPosition++);
             }
         }
@@ -325,6 +326,7 @@ public final class UnnestedRecordTypeBuilder extends SyntheticRecordTypeBuilder<
                 .setType(DescriptorProtos.FieldDescriptorProto.Type.TYPE_MESSAGE)
                 .setTypeName(name + "." + indexesProto.getName())
                 .setName(UnnestedRecordType.POSITIONS_FIELD)
+                .setJsonName(UnnestedRecordType.POSITIONS_FIELD)
                 .setNumber(getConstituents().size() + 1);
     }
 
