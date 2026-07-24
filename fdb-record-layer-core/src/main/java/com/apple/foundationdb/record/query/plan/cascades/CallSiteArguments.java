@@ -33,7 +33,7 @@ public sealed interface CallSiteArguments
         permits CallSiteArguments.PositionalArguments,
                 CallSiteArguments.NamedArguments {
 
-    CallSiteArguments EMPTY = new PositionalArguments(List.of(), ImmutableMap.of());
+    CallSiteArguments EMPTY = new PositionalArguments(List.of(), ImmutableMap.of(), WindowSpecification.NONE);
 
     @Nonnull
     Iterable<Value> getArguments();
@@ -53,6 +53,9 @@ public sealed interface CallSiteArguments
     Map<String, Object> getOptions();
 
     @Nonnull
+    WindowSpecification getWindowSpecification();
+
+    @Nonnull
     CallSiteArguments withArguments(@Nonnull Iterable<Value> newValues);
 
     @Nonnull
@@ -60,6 +63,9 @@ public sealed interface CallSiteArguments
 
     @Nonnull
     CallSiteArguments withOptions(@Nonnull Map<String, Object> newOptions);
+
+    @Nonnull
+    CallSiteArguments withWindowSpecification(@Nonnull WindowSpecification newWindowSpecification);
 
     default NamedArguments asNamedArguments() {
         return (NamedArguments)this;
@@ -70,15 +76,19 @@ public sealed interface CallSiteArguments
     }
 
     default boolean isSimplePositional() {
-        return this instanceof PositionalArguments && getOptions().isEmpty();
+        return this instanceof PositionalArguments && !isWindowed() && getOptions().isEmpty();
     }
 
     default boolean isSimpleNamed() {
-        return isNamed() && getOptions().isEmpty();
+        return isNamed() && !isWindowed() && getOptions().isEmpty();
     }
 
     default boolean isNamed() {
         return this instanceof NamedArguments;
+    }
+
+    default boolean isWindowed() {
+        return !getWindowSpecification().isNone();
     }
 
     default boolean hasOptions() {
@@ -86,7 +96,7 @@ public sealed interface CallSiteArguments
     }
 
     default boolean isEmpty() {
-        return Iterables.isEmpty(getArguments()) && getOptions().isEmpty();
+        return Iterables.isEmpty(getArguments()) && getOptions().isEmpty() && !isWindowed();
     }
 
     default int arity() {
@@ -104,36 +114,60 @@ public sealed interface CallSiteArguments
 
     @Nonnull
     static CallSiteArguments ofPositional(@Nonnull final List<? extends Value> values) {
-        return new PositionalArguments(ImmutableList.copyOf(values), ImmutableMap.of());
+        return new PositionalArguments(ImmutableList.copyOf(values), ImmutableMap.of(), WindowSpecification.NONE);
     }
 
     @Nonnull
     static CallSiteArguments ofPositional(@Nonnull final Value value) {
-        return new PositionalArguments(ImmutableList.of(value), ImmutableMap.of());
+        return new PositionalArguments(ImmutableList.of(value), ImmutableMap.of(), WindowSpecification.NONE);
     }
 
     @Nonnull
     static CallSiteArguments ofPositional(@Nonnull final Value... values) {
-        return new PositionalArguments(ImmutableList.copyOf(values), ImmutableMap.of());
+        return new PositionalArguments(ImmutableList.copyOf(values), ImmutableMap.of(), WindowSpecification.NONE);
     }
 
     @Nonnull
     static CallSiteArguments ofPositional(@Nonnull final Iterable<? extends Value> values) {
-        return new PositionalArguments(ImmutableList.copyOf(values), ImmutableMap.of());
+        return new PositionalArguments(ImmutableList.copyOf(values), ImmutableMap.of(), WindowSpecification.NONE);
     }
 
     @Nonnull
     static CallSiteArguments ofNamed(@Nonnull final Map<String, ? extends Value> namedValues) {
-        return new NamedArguments(ImmutableMap.copyOf(namedValues), ImmutableMap.of());
+        return new NamedArguments(ImmutableMap.copyOf(namedValues), ImmutableMap.of(), WindowSpecification.NONE);
     }
 
     @Nonnull
     static CallSiteArguments ofNamed(@Nonnull final String argumentName, Value argumentValue) {
-        return new NamedArguments(ImmutableMap.of(argumentName, argumentValue), ImmutableMap.of());
+        return new NamedArguments(ImmutableMap.of(argumentName, argumentValue), ImmutableMap.of(), WindowSpecification.NONE);
+    }
+
+    /**
+     * Bundles the window-specific components of a call site that are not already modeled by the ordinary call-site
+     * arguments: the {@code PARTITION BY} columns and the {@code ORDER BY} columns (as {@link WindowOrderingPart}s,
+     * which pair each ordering value with its sort direction). Carrying these here lets a windowed function receive
+     * its partitioning and ordering columns directly, rather than encoded positionally as an array of arrays. Use
+     * {@link #NONE} for non-windowed call sites.
+     * <p>
+     * A {@code WindowFrameSpecification} component is intentionally omitted for now and can be added later without
+     * disturbing existing call sites.
+     * </p>
+     *
+     * @param partitioningValues the {@code PARTITION BY} columns
+     * @param orderingParts the {@code ORDER BY} columns paired with their sort directions
+     */
+    record WindowSpecification(@Nonnull List<Value> partitioningValues,
+                               @Nonnull List<WindowOrderingPart> orderingParts) {
+        public static final WindowSpecification NONE = new WindowSpecification(List.of(), List.of());
+
+        public boolean isNone() {
+            return partitioningValues.isEmpty() && orderingParts.isEmpty();
+        }
     }
 
     record PositionalArguments(@Nonnull Iterable<Value> values,
-                               @Nonnull Map<String, Object> options) implements CallSiteArguments {
+                               @Nonnull Map<String, Object> options,
+                               @Nonnull WindowSpecification windowSpecification) implements CallSiteArguments {
         @Nonnull
         @Override
         public Iterable<Value> getArguments() {
@@ -148,25 +182,38 @@ public sealed interface CallSiteArguments
 
         @Nonnull
         @Override
+        public WindowSpecification getWindowSpecification() {
+            return windowSpecification;
+        }
+
+        @Nonnull
+        @Override
         public CallSiteArguments withArguments(@Nonnull final Iterable<Value> newValues) {
-            return new PositionalArguments(newValues, options);
+            return new PositionalArguments(newValues, options, windowSpecification);
         }
 
         @Nonnull
         @Override
         public CallSiteArguments withNamedArguments(@Nonnull final Map<String, Value> newNamedValues) {
-            return new NamedArguments(newNamedValues, options);
+            return new NamedArguments(newNamedValues, options, windowSpecification);
         }
 
         @Nonnull
         @Override
         public CallSiteArguments withOptions(@Nonnull final Map<String, Object> newOptions) {
-            return new PositionalArguments(values, newOptions);
+            return new PositionalArguments(values, newOptions, windowSpecification);
+        }
+
+        @Nonnull
+        @Override
+        public CallSiteArguments withWindowSpecification(@Nonnull final WindowSpecification newWindowSpecification) {
+            return new PositionalArguments(values, options, newWindowSpecification);
         }
     }
 
     record NamedArguments(@Nonnull Map<String, Value> namedArguments,
-                          @Nonnull Map<String, Object> options) implements CallSiteArguments {
+                          @Nonnull Map<String, Object> options,
+                          @Nonnull WindowSpecification windowSpecification) implements CallSiteArguments {
         @Nonnull
         @Override
         public List<Value> getArguments() {
@@ -181,20 +228,32 @@ public sealed interface CallSiteArguments
 
         @Nonnull
         @Override
+        public WindowSpecification getWindowSpecification() {
+            return windowSpecification;
+        }
+
+        @Nonnull
+        @Override
         public CallSiteArguments withArguments(@Nonnull final Iterable<Value> newValues) {
-            return new PositionalArguments(newValues, options);
+            return new PositionalArguments(newValues, options, windowSpecification);
         }
 
         @Nonnull
         @Override
         public CallSiteArguments withNamedArguments(@Nonnull final Map<String, Value> newNamedValues) {
-            return new NamedArguments(newNamedValues, options);
+            return new NamedArguments(newNamedValues, options, windowSpecification);
         }
 
         @Nonnull
         @Override
         public CallSiteArguments withOptions(@Nonnull final Map<String, Object> newOptions) {
-            return new NamedArguments(namedArguments, newOptions);
+            return new NamedArguments(namedArguments, newOptions, windowSpecification);
+        }
+
+        @Nonnull
+        @Override
+        public CallSiteArguments withWindowSpecification(@Nonnull final WindowSpecification newWindowSpecification) {
+            return new NamedArguments(namedArguments, options, newWindowSpecification);
         }
     }
 }

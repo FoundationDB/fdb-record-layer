@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.record.query.plan.cascades.values;
 
-import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanSerializationContext;
@@ -31,18 +30,16 @@ import com.apple.foundationdb.record.provider.foundationdb.VectorIndexScanOption
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
 import com.apple.foundationdb.record.query.plan.cascades.CallSiteArguments;
-import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
+import com.apple.foundationdb.record.query.plan.cascades.WindowOrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
-import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -130,19 +127,13 @@ import static com.apple.foundationdb.record.query.plan.cascades.values.DistanceV
  * HNSW indexes.
  * </p>
  *
- * <h2>Integration with Higher-Order Functions</h2>
+ * <h2>Resolution</h2>
  * <p>
- * {@code ROW_NUMBER()} is resolved as a higher-order function through {@link RowNumberHighOrderValue}.
- * The resolution process is:
- * <ol>
- *   <li>Parser encounters {@code ROW_NUMBER(ef_search: 100)}</li>
- *   <li>{@link RowNumberHighOrderFn} creates {@link RowNumberHighOrderValue} with configuration</li>
- *   <li>Higher-order value is evaluated to produce a curried function</li>
- *   <li>Curried function is applied with partition and ordering arguments</li>
- *   <li>Final {@code RowNumberValue} is produced with configuration baked in</li>
- * </ol>
- * This multi-stage resolution enables flexible syntax where configuration parameters can be specified
- * separately from the window specification.
+ * {@code ROW_NUMBER()} is resolved in a single step by {@link RowNumberFn}. The partitioning and ordering columns
+ * are taken from the {@link com.apple.foundationdb.record.query.plan.cascades.CallSiteArguments.WindowSpecification},
+ * while the vector-search options ({@code ef_search}, {@code return_vectors}) are read from the
+ * {@link com.apple.foundationdb.record.query.plan.cascades.CallSiteArguments} options map. {@code RowNumberFn} reads
+ * both and constructs the final {@code RowNumberValue} directly.
  * </p>
  *
  * <h2>Index-Only Semantics</h2>
@@ -159,8 +150,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.values.DistanceV
  * </p>
  *
  * @see WindowedValue for the window function base class
- * @see RowNumberHighOrderValue for the higher-order function wrapper
- * @see RowNumberHighOrderFn for the function definition and resolution
+ * @see RowNumberFn for the function definition and resolution
  * @see EuclideanDistanceRowNumberValue for Euclidean distance specialization
  * @see CosineDistanceRowNumberValue for Cosine distance specialization
  * @see Comparisons.DistanceRankValueComparison for the transformed comparison type
@@ -418,9 +408,15 @@ public class RowNumberValue extends WindowedValue implements Value.IndexOnlyValu
 
     /**
      * The {@code row_number} window function.
+     * <p>
+     * The partitioning and ordering columns are taken from the {@link CallSiteArguments.WindowSpecification} rather
+     * than from positional arguments, and the vector-search options ({@code ef_search}, {@code return_vectors}) are
+     * read from the {@link CallSiteArguments} options map. This lets {@code row_number} be encapsulated in a single
+     * step without the higher-order currying it previously relied on.
+     * </p>
      */
     @AutoService(BuiltInFunction.class)
-    public static final class RowNumberHighOrderFn extends BuiltInFunction<RowNumberHighOrderValue> {
+    public static final class RowNumberFn extends BuiltInFunction<RowNumberValue> {
 
         @Nonnull
         public static final String EF_SEARCH_ARGUMENT = VectorIndexScanOptions.HNSW_EF_SEARCH.getOptionName();
@@ -428,72 +424,24 @@ public class RowNumberValue extends WindowedValue implements Value.IndexOnlyValu
         @Nonnull
         public static final String INDEX_RETURNS_VECTORS_ARGUMENT = VectorIndexScanOptions.VECTOR_RETURN_VECTORS.getOptionName();
 
-        public RowNumberHighOrderFn() {
-            super("row_number", ImmutableList.of(EF_SEARCH_ARGUMENT, INDEX_RETURNS_VECTORS_ARGUMENT),
-                    ImmutableList.of(Type.primitiveType(Type.TypeCode.INT), Type.primitiveType(Type.TypeCode.BOOLEAN)),
-                    ImmutableList.of(Optional.of(LiteralValue.ofScalar(null)), Optional.of(LiteralValue.ofScalar(null))),
-                    RowNumberHighOrderFn::encapsulateInternal);
+        public RowNumberFn() {
+            super("row_number", ImmutableList.of(), RowNumberFn::encapsulateInternal);
         }
 
         @Nonnull
-        @Override
-        public HighOrderValue encapsulate(@Nonnull final CallSiteArguments arguments) {
-            if (!arguments.isNamed()) {
-                return encapsulateInternal(this, arguments);
-            }
-            final Map<String, Value> namedArguments = arguments.asNamedArguments().namedArguments();
-            SemanticException.check(namedArguments.size() <= 2,
-                    SemanticException.ErrorCode.FUNCTION_UNDEFINED_FOR_GIVEN_ARGUMENT_TYPES);
-            // Validate that namedArguments only contains EF_SEARCH_ARGUMENT or INDEX_RETURNS_VECTORS_ARGUMENT (or is empty)
-            for (final String key : namedArguments.keySet()) {
-                SemanticException.check(EF_SEARCH_ARGUMENT.equals(key) || INDEX_RETURNS_VECTORS_ARGUMENT.equals(key),
-                        SemanticException.ErrorCode.FUNCTION_UNDEFINED_FOR_GIVEN_ARGUMENT_TYPES);
-            }
+        private static RowNumberValue encapsulateInternal(@Nonnull final BuiltInFunction<RowNumberValue> ignored,
+                                                          @Nonnull final CallSiteArguments callSiteArguments) {
+            final var windowSpecification = callSiteArguments.getWindowSpecification();
+            final var partitioningValues = windowSpecification.partitioningValues();
+            final var argumentValues = windowSpecification.orderingParts().stream()
+                    .map(WindowOrderingPart::getValue)
+                    .collect(ImmutableList.toImmutableList());
 
-            final Typed efSearchValue = namedArguments.getOrDefault(EF_SEARCH_ARGUMENT, null);
-            final Integer efSearch = efSearchValue == null ? null : (Integer)Verify.verifyNotNull(((LiteralValue<?>)efSearchValue).evalWithoutStore(EvaluationContext.EMPTY));
+            final Map<String, Object> options = callSiteArguments.getOptions();
+            final Integer efSearch = (Integer)options.get(EF_SEARCH_ARGUMENT);
+            final Boolean isReturningVectors = (Boolean)options.get(INDEX_RETURNS_VECTORS_ARGUMENT);
 
-            final Typed indexReturnsVectorsValue = namedArguments.getOrDefault(INDEX_RETURNS_VECTORS_ARGUMENT, null);
-            final Boolean indexReturnsValue = indexReturnsVectorsValue == null ? null : (Boolean)Verify.verifyNotNull(((LiteralValue<?>)indexReturnsVectorsValue).evalWithoutStore(EvaluationContext.EMPTY));
-
-            return new RowNumberHighOrderValue(efSearch, indexReturnsValue);
-        }
-
-        @Nonnull
-        private static RowNumberHighOrderValue encapsulateInternal(@Nonnull final BuiltInFunction<RowNumberHighOrderValue> ignored,
-                                                                   @Nonnull final CallSiteArguments callSiteArguments) {
-            final List<Value> arguments = callSiteArguments.getArgumentsList();
-            SemanticException.check(arguments.size() <= 2,
-                    SemanticException.ErrorCode.FUNCTION_UNDEFINED_FOR_GIVEN_ARGUMENT_TYPES);
-
-            if (arguments.isEmpty()) {
-                return new RowNumberHighOrderValue(null, null);
-            }
-
-            if (arguments.size() == 1) {
-                final Typed argument = arguments.get(0);
-                SemanticException.check(argument instanceof LiteralValue, SemanticException.ErrorCode.FUNCTION_UNDEFINED_FOR_GIVEN_ARGUMENT_TYPES);
-                final var argumentValue = (LiteralValue<?>)argument;
-                final var argumentType = argumentValue.getResultType().getTypeCode();
-                if (argumentType.equals(Type.TypeCode.BOOLEAN)) {
-                    boolean indexReturnsValue = (boolean)Verify.verifyNotNull(argumentValue.evalWithoutStore(EvaluationContext.EMPTY));
-                    return new RowNumberHighOrderValue(null, indexReturnsValue);
-                } else if (argumentType.equals(Type.TypeCode.INT)) {
-                    int efSearch = (int)Verify.verifyNotNull(argumentValue.evalWithoutStore(EvaluationContext.EMPTY));
-                    return new RowNumberHighOrderValue(efSearch, null);
-                }
-                SemanticException.fail(SemanticException.ErrorCode.FUNCTION_UNDEFINED_FOR_GIVEN_ARGUMENT_TYPES, "function undefined for given argument " + argumentValue);
-            }
-
-            final Typed efSearchValue = arguments.get(0);
-            SemanticException.check(efSearchValue instanceof LiteralValue, SemanticException.ErrorCode.FUNCTION_UNDEFINED_FOR_GIVEN_ARGUMENT_TYPES);
-            final int efSearch = (int)Verify.verifyNotNull(((LiteralValue<?>)efSearchValue).evalWithoutStore(EvaluationContext.EMPTY));
-
-            final Typed indexReturnsVectorsValue = arguments.get(1);
-            SemanticException.check(indexReturnsVectorsValue instanceof LiteralValue, SemanticException.ErrorCode.FUNCTION_UNDEFINED_FOR_GIVEN_ARGUMENT_TYPES);
-            final boolean indexReturnsValue = (boolean)Verify.verifyNotNull(((LiteralValue<?>)indexReturnsVectorsValue).evalWithoutStore(EvaluationContext.EMPTY));
-
-            return new RowNumberHighOrderValue(efSearch, indexReturnsValue);
+            return new RowNumberValue(partitioningValues, argumentValues, efSearch, isReturningVectors);
         }
     }
 }

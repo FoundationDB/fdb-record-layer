@@ -25,7 +25,6 @@ import com.apple.foundationdb.record.planprotos.PValue;
 import com.apple.foundationdb.record.query.plan.cascades.CallSiteArguments;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
-import com.google.common.collect.ImmutableList;
 import com.google.protobuf.InvalidProtocolBufferException;
 import org.junit.jupiter.api.Test;
 

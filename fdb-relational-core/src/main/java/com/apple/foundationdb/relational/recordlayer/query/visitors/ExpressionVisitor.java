@@ -279,28 +279,16 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
         final String functionName = windowedFunctionContext.functionName.getText();
         final WindowSpecExpression windowSpecExpression = getDelegate().visitOverClause(windowedFunctionContext.overClause());
 
-        final var partitionExpressions = windowSpecExpression.getPartitions();
-        final var partitionValues = Streams.stream(partitionExpressions.underlying()).collect(ImmutableList.toImmutableList());
-        final var partitionArray = AbstractArrayConstructorValue.LightArrayConstructorValue.of(partitionValues, Type.any());
-
         final var orderByExpressions = windowSpecExpression.getOrderByExpressions();
         final var allowedSortSpecs = StreamSupport.stream(orderByExpressions.spliterator(), false)
                 .allMatch(exp -> exp.toSortOrder() == OrderingPart.RequestedSortOrder.ASCENDING || exp.toSortOrder() == OrderingPart.RequestedSortOrder.ANY);
         Assert.thatUnchecked(allowedSortSpecs, ErrorCode.UNSUPPORTED_SORT, "provided sort specification not supported with window function");
-        // TODO should pass down sort specification correctly.
-        final var orderByValues = StreamSupport.stream(orderByExpressions.spliterator(), false).map(r -> r.getExpression().getUnderlying())
-                .collect(ImmutableList.toImmutableList());
 
-        final ImmutableList.Builder<Expression> argumentsBuilder = ImmutableList.builder();
-        final var orderByArray = AbstractArrayConstructorValue.LightArrayConstructorValue.of(orderByValues, Type.any());
-        argumentsBuilder.add(Expression.ofUnnamed(partitionArray)).add(Expression.ofUnnamed(orderByArray));
-
-        final var higherOrderArgumentsBuilder = ImmutableList.<Expressions>builder();
-        if (!windowSpecExpression.getWindowOptions().isEmpty()) {
-            higherOrderArgumentsBuilder.add(windowSpecExpression.getWindowOptions());
-        }
-        higherOrderArgumentsBuilder.add(Expressions.of(argumentsBuilder.build()));
-        return getDelegate().getSemanticAnalyzer().resolveHighOrderScalarFunction(functionName, true, higherOrderArgumentsBuilder.build());
+        // The partitioning and ordering columns are carried on the window specification; the window options (e.g.
+        // ef_search) are carried on the call-site arguments' options map. The window function itself takes no direct
+        // positional arguments.
+        return getDelegate().getSemanticAnalyzer()
+                .resolveWindowFunction(functionName, true, windowSpecExpression, Expressions.empty());
     }
 
     @Nonnull
