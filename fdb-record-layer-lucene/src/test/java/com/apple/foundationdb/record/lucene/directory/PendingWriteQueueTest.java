@@ -504,8 +504,7 @@ class PendingWriteQueueTest extends FDBRecordStoreTestBase {
     }
 
     /**
-     * The happy path: a single transaction can drain and then assert emptiness without conflict, because there
-     * is no external writer to conflict with.
+     * The happy path: a single transaction can drain and then assert emptiness.
      */
     @Test
     void testIsEmptyDoesNotConflictWithDrainerInSameTx() {
