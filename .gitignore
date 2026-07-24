@@ -63,9 +63,6 @@ atlassian-ide-plugin.xml
 # NetBeans specific files/directories
 .nbattrs
 
-protogen/
-/protogen/
-*/protogen/*
 **/gen/*
 
 *.orig
