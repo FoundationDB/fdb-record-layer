@@ -859,48 +859,6 @@ class SelectMergeRuleTest {
     }
 
     /**
-     * Test the case where we have multiple variants underneath a reference. We merge the variant with the fewest
-     * {@link SelectExpression}s.
-     */
-    @Test
-    void combineWithVariants() {
-        final Quantifier baseQun = baseT();
-
-        // Two equivalent expressions which all have the same predicates
-        final SelectExpression expr1 = selectWithPredicates(baseQun,
-                fieldPredicate(baseQun, "a", EQUALS_42),
-                fieldPredicate(baseQun, "b", EQUALS_PARAM));
-        final LogicalFilterExpression expr2 = new LogicalFilterExpression(
-                ImmutableList.of(fieldPredicate(baseQun, "a", EQUALS_42), fieldPredicate(baseQun, "b", EQUALS_PARAM)),
-                baseQun);
-
-        // Another one with the same semantics, but the predicates are still at different layers in the DAG
-        final Quantifier paramPredQun = forEach(selectWithPredicates(baseQun, fieldPredicate(baseQun, "b", EQUALS_PARAM)));
-        final SelectExpression expr3 = selectWithPredicates(paramPredQun,
-                fieldPredicate(paramPredQun, "a", EQUALS_42));
-
-        // Variant with a "distinct" in the middle. This is not pushable through
-        final Quantifier qunForDistinct = forEach(selectWithPredicates(baseQun,
-                fieldPredicate(baseQun, "a", EQUALS_42),
-                fieldPredicate(baseQun, "b", EQUALS_PARAM)));
-        final LogicalDistinctExpression expr4 = new LogicalDistinctExpression(qunForDistinct);
-
-        final Reference lowerRef = Reference.ofFinalExpressions(PlannerStage.INITIAL, ImmutableSet.of(expr1, expr2, expr3, expr4));
-        final Quantifier lowerQun = Quantifier.forEach(lowerRef);
-
-        // Select on top of the lower qun
-        final SelectExpression upper = selectWithPredicates(lowerQun, ImmutableList.of("c", "d"),
-                fieldPredicate(lowerQun, "d", new Comparisons.ValueComparison(Comparisons.Type.GREATER_THAN, fieldValue(lowerQun, "b"))));
-
-        final SelectExpression merged1 = selectWithPredicates(baseQun, ImmutableList.of("c", "d"),
-                fieldPredicate(baseQun, "a", EQUALS_42),
-                fieldPredicate(baseQun, "b", EQUALS_PARAM),
-                fieldPredicate(baseQun, "d", new Comparisons.ValueComparison(Comparisons.Type.GREATER_THAN, fieldValue(baseQun, "b"))));
-
-        testHelper.assertYields(upper, merged1);
-    }
-
-    /**
      * Test of what happens if merging the selects results in the same quantifier being added multiple
      * times to a combined {@link SelectExpression}. This is done by creating a base quantifier, and then
      * creating a join between that base quantifier and a select on top of it. Merging attempts to

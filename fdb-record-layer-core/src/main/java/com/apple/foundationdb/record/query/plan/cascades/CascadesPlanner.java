@@ -521,6 +521,7 @@ public class CascadesPlanner implements QueryPlanner {
                                                     @Nonnull final Reference group,
                                                     @Nonnull final RelationalExpression expression,
                                                     final boolean forceExploration) {
+        exploreExpressionOnOptimizedInputs(plannerPhase, group, expression, forceExploration);
         taskStack.push(new OptimizeInputs(plannerPhase, group, expression));
         exploreExpression(plannerPhase, group, expression, forceExploration);
     }
@@ -531,9 +532,21 @@ public class CascadesPlanner implements QueryPlanner {
                                    final boolean forceExploration) {
         Verify.verify(group.containsExactly(expression));
         if (forceExploration) {
-            taskStack.push(new ExploreExpression(plannerPhase, group, expression));
+            taskStack.push(new ExploreExpression(plannerPhase, group, expression, false));
         }  else {
-            taskStack.push(new ReExploreExpression(plannerPhase, group, expression));
+            taskStack.push(new ReExploreExpression(plannerPhase, group, expression, false));
+        }
+    }
+
+    private void exploreExpressionOnOptimizedInputs(@Nonnull final PlannerPhase plannerPhase,
+                                                    @Nonnull final Reference group,
+                                                    @Nonnull final RelationalExpression expression,
+                                                    final boolean forceExploration) {
+        Verify.verify(group.containsExactly(expression));
+        if (forceExploration) {
+            taskStack.push(new ExploreExpression(plannerPhase, group, expression, true));
+        }  else {
+            taskStack.push(new ReExploreExpression(plannerPhase, group, expression, true));
         }
     }
 
@@ -814,10 +827,15 @@ public class CascadesPlanner implements QueryPlanner {
      * </pre>
      */
     private abstract class AbstractExploreExpression extends ExploreTask {
+
+        boolean onOptimizedInputs;
+
         public AbstractExploreExpression(@Nonnull final PlannerPhase plannerPhase,
                                          @Nonnull final Reference group,
-                                         @Nonnull final RelationalExpression expression) {
+                                         @Nonnull final RelationalExpression expression,
+                                         boolean onOptimizedInputs) {
             super(plannerPhase, group, expression);
+            this.onOptimizedInputs = onOptimizedInputs;
         }
 
         @Override
@@ -827,6 +845,7 @@ public class CascadesPlanner implements QueryPlanner {
             // push all rules that need to run after all exploration for a (group, expression) pair is done.
             ruleSet.getMatchPartitionRules(rule -> configuration.isRuleEnabled(rule))
                     .filter(this::shouldPushRule)
+                    .filter(this::isApplicableBasedOnOptimizedInputs)
                     .forEach(this::pushTransformMatchPartition);
 
             // This is closely tied to the way that rule finding works _now_. Specifically, rules are indexed only
@@ -835,7 +854,7 @@ public class CascadesPlanner implements QueryPlanner {
             // what happens towards the leaves of the tree.
             ruleSet.getRules(getExpression(), rule -> configuration.isRuleEnabled(rule))
                     .filter(rule -> !(rule instanceof PreOrderRule) &&
-                            shouldPushRule(rule))
+                            shouldPushRule(rule) && isApplicableBasedOnOptimizedInputs(rule))
                     .forEach(this::pushTransformTask);
 
             // push explore group for all groups this expression ranges over
@@ -847,11 +866,15 @@ public class CascadesPlanner implements QueryPlanner {
 
             ruleSet.getRules(getExpression(), rule -> configuration.isRuleEnabled(rule))
                     .filter(rule -> rule instanceof PreOrderRule &&
-                            shouldPushRule(rule))
+                            shouldPushRule(rule) && isApplicableBasedOnOptimizedInputs(rule))
                     .forEach(this::pushTransformTask);
         }
 
         protected abstract boolean shouldPushRule(@Nonnull CascadesRule<?> rule);
+
+        protected final boolean isApplicableBasedOnOptimizedInputs(@Nonnull CascadesRule<?> rule) {
+            return rule.onlyOnPrunedChildren() == onOptimizedInputs;
+        }
 
         private void pushTransformTask(@Nonnull CascadesRule<? extends RelationalExpression> rule) {
             taskStack.push(new TransformExpression(getPlannerPhase(), getGroup(), getExpression(), rule));
@@ -891,8 +914,9 @@ public class CascadesPlanner implements QueryPlanner {
     private class ReExploreExpression extends AbstractExploreExpression {
         public ReExploreExpression(@Nonnull final PlannerPhase plannerPhase,
                                    @Nonnull final Reference group,
-                                   @Nonnull final RelationalExpression expression) {
-            super(plannerPhase, group, expression);
+                                   @Nonnull final RelationalExpression expression,
+                                   boolean onOptimizedInputs) {
+            super(plannerPhase, group, expression, onOptimizedInputs);
         }
 
         @Override
@@ -922,8 +946,9 @@ public class CascadesPlanner implements QueryPlanner {
     private class ExploreExpression extends AbstractExploreExpression {
         public ExploreExpression(@Nonnull final PlannerPhase plannerPhase,
                                  @Nonnull final Reference group,
-                                 @Nonnull final RelationalExpression expression) {
-            super(plannerPhase, group, expression);
+                                 @Nonnull final RelationalExpression expression,
+                                 boolean onOptimizedInputs) {
+            super(plannerPhase, group, expression, onOptimizedInputs);
         }
 
         @Override

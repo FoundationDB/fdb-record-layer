@@ -2,10 +2,10 @@ nested-with-nulls-tests:
 -   query: EXPLAIN select id from t1 where a.a.a IS NULL
     ref: nested-with-nulls.yamsql:47
     explain: ISCAN(I1 <,>) | FILTER _.A.A.A IS_NULL | MAP (_.ID AS ID)
-    task_count: 355
-    task_total_time_ms: 14
+    task_count: 390
+    task_total_time_ms: 25
     transform_count: 99
-    transform_time_ms: 4
+    transform_time_ms: 6
     transform_yield_count: 30
     insert_time_ms: 0
     insert_new_count: 36
@@ -13,31 +13,31 @@ nested-with-nulls-tests:
 -   query: EXPLAIN select id from t1 where a.a.b IS NULL
     ref: nested-with-nulls.yamsql:51
     explain: ISCAN(I1 <,>) | FILTER _.A.A.B IS_NULL | MAP (_.ID AS ID)
-    task_count: 355
-    task_total_time_ms: 17
+    task_count: 390
+    task_total_time_ms: 27
     transform_count: 99
-    transform_time_ms: 6
+    transform_time_ms: 8
     transform_yield_count: 30
     insert_time_ms: 0
     insert_new_count: 36
     insert_reused_count: 4
 -   query: EXPLAIN select id from t1 where a.b.a IS NULL
     ref: nested-with-nulls.yamsql:55
-    explain: 'COVERING(I1 [[null],[null]] -> [ID: KEY[2], A: [B: [A: KEY[0]]]]) |
-        MAP (_.ID AS ID)'
-    task_count: 443
-    task_total_time_ms: 18
+    explain: 'COVERING(I1 [[null],[null]] -> [ID: KEY:[2], A: [B: [A: KEY:[0]]]])
+        | MAP (_.ID AS ID)'
+    task_count: 496
+    task_total_time_ms: 32
     transform_count: 109
-    transform_time_ms: 4
+    transform_time_ms: 8
     transform_yield_count: 36
-    insert_time_ms: 0
+    insert_time_ms: 1
     insert_new_count: 45
     insert_reused_count: 4
 -   query: EXPLAIN select id from t1 where a.b.b IS NULL
     ref: nested-with-nulls.yamsql:59
     explain: ISCAN(I1 <,>) | FILTER _.A.B.B IS_NULL | MAP (_.ID AS ID)
-    task_count: 355
-    task_total_time_ms: 23
+    task_count: 390
+    task_total_time_ms: 26
     transform_count: 99
     transform_time_ms: 7
     transform_yield_count: 30
@@ -47,10 +47,10 @@ nested-with-nulls-tests:
 -   query: EXPLAIN select id from t1 where b.a.a IS NULL
     ref: nested-with-nulls.yamsql:63
     explain: ISCAN(I1 <,>) | FILTER _.B.A.A IS_NULL | MAP (_.ID AS ID)
-    task_count: 355
-    task_total_time_ms: 13
+    task_count: 390
+    task_total_time_ms: 20
     transform_count: 99
-    transform_time_ms: 4
+    transform_time_ms: 6
     transform_yield_count: 30
     insert_time_ms: 0
     insert_new_count: 36
@@ -58,21 +58,21 @@ nested-with-nulls-tests:
 -   query: EXPLAIN select id from t1 where b.a.b IS NULL
     ref: nested-with-nulls.yamsql:67
     explain: ISCAN(I1 <,>) | FILTER _.B.A.B IS_NULL | MAP (_.ID AS ID)
-    task_count: 355
-    task_total_time_ms: 24
+    task_count: 390
+    task_total_time_ms: 28
     transform_count: 99
-    transform_time_ms: 7
+    transform_time_ms: 8
     transform_yield_count: 30
-    insert_time_ms: 0
+    insert_time_ms: 1
     insert_new_count: 36
     insert_reused_count: 4
 -   query: EXPLAIN select id from t1 where b.b.a IS NULL
     ref: nested-with-nulls.yamsql:71
     explain: ISCAN(I1 <,>) | FILTER _.B.B.A IS_NULL | MAP (_.ID AS ID)
-    task_count: 355
-    task_total_time_ms: 14
+    task_count: 390
+    task_total_time_ms: 20
     transform_count: 99
-    transform_time_ms: 3
+    transform_time_ms: 6
     transform_yield_count: 30
     insert_time_ms: 0
     insert_new_count: 36
@@ -80,10 +80,10 @@ nested-with-nulls-tests:
 -   query: EXPLAIN select id from t1 where b.b.b IS NULL
     ref: nested-with-nulls.yamsql:75
     explain: ISCAN(I1 <,>) | FILTER _.B.B.B IS_NULL | MAP (_.ID AS ID)
-    task_count: 355
-    task_total_time_ms: 14
+    task_count: 390
+    task_total_time_ms: 26
     transform_count: 99
-    transform_time_ms: 6
+    transform_time_ms: 7
     transform_yield_count: 30
     insert_time_ms: 0
     insert_new_count: 36
@@ -91,10 +91,10 @@ nested-with-nulls-tests:
 -   query: EXPLAIN select id from t1 where a.a.a IS NOT NULL
     ref: nested-with-nulls.yamsql:79
     explain: ISCAN(I1 <,>) | FILTER _.A.A.A NOT_NULL | MAP (_.ID AS ID)
-    task_count: 355
-    task_total_time_ms: 8
+    task_count: 390
+    task_total_time_ms: 26
     transform_count: 99
-    transform_time_ms: 3
+    transform_time_ms: 9
     transform_yield_count: 30
     insert_time_ms: 0
     insert_new_count: 36
@@ -103,10 +103,10 @@ nested-with-nulls-tests:
     ref: nested-with-nulls.yamsql:83
     explain: 'COVERING(I2 ([null],> -> [ID: KEY:[2], A: [A: [B: KEY:[0]]]]) | MAP
         (_.ID AS ID)'
-    task_count: 454
-    task_total_time_ms: 31
+    task_count: 502
+    task_total_time_ms: 18
     transform_count: 124
-    transform_time_ms: 11
+    transform_time_ms: 7
     transform_yield_count: 38
     insert_time_ms: 0
     insert_new_count: 47
@@ -115,10 +115,10 @@ nested-with-nulls-tests:
     ref: nested-with-nulls.yamsql:87
     explain: 'COVERING(I1 ([null],> -> [ID: KEY:[2], A: [B: [A: KEY:[0]]]]) | MAP
         (_.ID AS ID)'
-    task_count: 443
-    task_total_time_ms: 15
+    task_count: 496
+    task_total_time_ms: 11
     transform_count: 110
-    transform_time_ms: 5
+    transform_time_ms: 4
     transform_yield_count: 36
     insert_time_ms: 0
     insert_new_count: 45
@@ -126,8 +126,8 @@ nested-with-nulls-tests:
 -   query: EXPLAIN select id from t1 where a.b.b IS NOT NULL
     ref: nested-with-nulls.yamsql:91
     explain: ISCAN(I1 <,>) | FILTER _.A.B.B NOT_NULL | MAP (_.ID AS ID)
-    task_count: 355
-    task_total_time_ms: 23
+    task_count: 390
+    task_total_time_ms: 25
     transform_count: 99
     transform_time_ms: 7
     transform_yield_count: 30
@@ -137,10 +137,10 @@ nested-with-nulls-tests:
 -   query: EXPLAIN select id from t1 where b.a.a IS NOT NULL
     ref: nested-with-nulls.yamsql:95
     explain: ISCAN(I1 <,>) | FILTER _.B.A.A NOT_NULL | MAP (_.ID AS ID)
-    task_count: 355
-    task_total_time_ms: 8
+    task_count: 390
+    task_total_time_ms: 26
     transform_count: 99
-    transform_time_ms: 3
+    transform_time_ms: 7
     transform_yield_count: 30
     insert_time_ms: 0
     insert_new_count: 36
@@ -148,10 +148,10 @@ nested-with-nulls-tests:
 -   query: EXPLAIN select id from t1 where b.a.b IS NOT NULL
     ref: nested-with-nulls.yamsql:99
     explain: ISCAN(I1 <,>) | FILTER _.B.A.B NOT_NULL | MAP (_.ID AS ID)
-    task_count: 355
+    task_count: 390
     task_total_time_ms: 21
     transform_count: 99
-    transform_time_ms: 6
+    transform_time_ms: 5
     transform_yield_count: 30
     insert_time_ms: 0
     insert_new_count: 36
@@ -159,10 +159,10 @@ nested-with-nulls-tests:
 -   query: EXPLAIN select id from t1 where b.b.a IS NOT NULL
     ref: nested-with-nulls.yamsql:103
     explain: ISCAN(I1 <,>) | FILTER _.B.B.A NOT_NULL | MAP (_.ID AS ID)
-    task_count: 355
-    task_total_time_ms: 18
+    task_count: 390
+    task_total_time_ms: 27
     transform_count: 99
-    transform_time_ms: 7
+    transform_time_ms: 8
     transform_yield_count: 30
     insert_time_ms: 0
     insert_new_count: 36
@@ -170,8 +170,8 @@ nested-with-nulls-tests:
 -   query: EXPLAIN select id from t1 where b.b.b IS NOT NULL
     ref: nested-with-nulls.yamsql:107
     explain: ISCAN(I1 <,>) | FILTER _.B.B.B NOT_NULL | MAP (_.ID AS ID)
-    task_count: 355
-    task_total_time_ms: 26
+    task_count: 390
+    task_total_time_ms: 29
     transform_count: 99
     transform_time_ms: 9
     transform_yield_count: 30
@@ -182,8 +182,8 @@ nested-with-nulls-tests:
     ref: nested-with-nulls.yamsql:111
     explain: ISCAN(I1 <,>) | FILTER coalesce_string(_.A.A.A, promote(@c13 AS STRING))
         EQUALS promote(@c16 AS STRING) | MAP (_.ID AS ID)
-    task_count: 371
-    task_total_time_ms: 28
+    task_count: 406
+    task_total_time_ms: 29
     transform_count: 104
     transform_time_ms: 9
     transform_yield_count: 32
@@ -194,8 +194,8 @@ nested-with-nulls-tests:
     ref: nested-with-nulls.yamsql:115
     explain: ISCAN(I1 <,>) | FILTER coalesce_string(_.A.A.A, promote(@c13 AS STRING))
         EQUALS promote(@c16 AS STRING) | MAP (_.ID AS ID)
-    task_count: 371
-    task_total_time_ms: 28
+    task_count: 406
+    task_total_time_ms: 29
     transform_count: 104
     transform_time_ms: 9
     transform_yield_count: 32
@@ -206,10 +206,10 @@ nested-with-nulls-tests:
     ref: nested-with-nulls.yamsql:120
     explain: ISCAN(I1 <,>) | FILTER coalesce_string(_.A.A.A, promote(@c13 AS STRING))
         NOT_NULL | MAP (_.ID AS ID)
-    task_count: 371
-    task_total_time_ms: 14
+    task_count: 406
+    task_total_time_ms: 16
     transform_count: 104
-    transform_time_ms: 3
+    transform_time_ms: 6
     transform_yield_count: 32
     insert_time_ms: 0
     insert_new_count: 40
@@ -218,10 +218,10 @@ nested-with-nulls-tests:
     ref: nested-with-nulls.yamsql:125
     explain: ISCAN(I1 <,>) | FILTER coalesce_string(_.A.A.A, NULL) NOT_NULL | MAP
         (_.ID AS ID)
-    task_count: 371
-    task_total_time_ms: 28
+    task_count: 406
+    task_total_time_ms: 20
     transform_count: 104
-    transform_time_ms: 9
+    transform_time_ms: 6
     transform_yield_count: 32
     insert_time_ms: 0
     insert_new_count: 40
@@ -230,8 +230,8 @@ nested-with-nulls-tests:
     ref: nested-with-nulls.yamsql:129
     explain: ISCAN(I1 <,>) | FILTER coalesce_string(_.A.B.A, promote(@c13 AS STRING))
         EQUALS promote(@c13 AS STRING) | MAP (_.ID AS ID)
-    task_count: 371
-    task_total_time_ms: 28
+    task_count: 406
+    task_total_time_ms: 30
     transform_count: 104
     transform_time_ms: 9
     transform_yield_count: 32
@@ -242,8 +242,8 @@ nested-with-nulls-tests:
     ref: nested-with-nulls.yamsql:133
     explain: ISCAN(I1 <,>) | FILTER coalesce_string(_.A.B.A, promote(@c13 AS STRING))
         EQUALS promote(@c13 AS STRING) | MAP (_.ID AS ID)
-    task_count: 371
-    task_total_time_ms: 28
+    task_count: 406
+    task_total_time_ms: 30
     transform_count: 104
     transform_time_ms: 9
     transform_yield_count: 32
@@ -254,10 +254,10 @@ nested-with-nulls-tests:
     ref: nested-with-nulls.yamsql:138
     explain: ISCAN(I1 <,>) | FILTER coalesce_string(_.A.B.A, promote(@c13 AS STRING))
         IS_NULL | MAP (_.ID AS ID)
-    task_count: 371
-    task_total_time_ms: 8
+    task_count: 406
+    task_total_time_ms: 20
     transform_count: 104
-    transform_time_ms: 3
+    transform_time_ms: 6
     transform_yield_count: 32
     insert_time_ms: 0
     insert_new_count: 40
@@ -266,10 +266,10 @@ nested-with-nulls-tests:
     ref: nested-with-nulls.yamsql:143
     explain: ISCAN(I1 <,>) | FILTER coalesce_string(_.A.B.A, NULL) IS_NULL | MAP (_.ID
         AS ID)
-    task_count: 371
-    task_total_time_ms: 21
+    task_count: 406
+    task_total_time_ms: 23
     transform_count: 104
-    transform_time_ms: 6
+    transform_time_ms: 7
     transform_yield_count: 32
     insert_time_ms: 0
     insert_new_count: 40
@@ -278,22 +278,22 @@ nested-with-nulls-tests:
     ref: nested-with-nulls.yamsql:148
     explain: ISCAN(I1 <,>) | FILTER coalesce_string(_.A.B.A, promote(@c13 AS STRING))
         NOT_NULL | MAP (_.ID AS ID)
-    task_count: 371
-    task_total_time_ms: 14
+    task_count: 406
+    task_total_time_ms: 30
     transform_count: 104
-    transform_time_ms: 5
+    transform_time_ms: 9
     transform_yield_count: 32
-    insert_time_ms: 0
+    insert_time_ms: 1
     insert_new_count: 40
     insert_reused_count: 4
 -   query: EXPLAIN select id from t1 where coalesce(b.a.b, 3) = 3
     ref: nested-with-nulls.yamsql:152
     explain: ISCAN(I1 <,>) | FILTER coalesce_long(_.B.A.B, promote(@c13 AS LONG))
         EQUALS promote(@c13 AS LONG) | MAP (_.ID AS ID)
-    task_count: 355
+    task_count: 390
     task_total_time_ms: 28
     transform_count: 99
-    transform_time_ms: 11
+    transform_time_ms: 9
     transform_yield_count: 30
     insert_time_ms: 0
     insert_new_count: 36
@@ -302,10 +302,10 @@ nested-with-nulls-tests:
     ref: nested-with-nulls.yamsql:156
     explain: ISCAN(I1 <,>) | FILTER coalesce_long(_.B.A.B, promote(@c13 AS LONG))
         EQUALS promote(@c13 AS LONG) | MAP (_.ID AS ID)
-    task_count: 355
+    task_count: 390
     task_total_time_ms: 28
     transform_count: 99
-    transform_time_ms: 11
+    transform_time_ms: 9
     transform_yield_count: 30
     insert_time_ms: 0
     insert_new_count: 36
@@ -314,10 +314,10 @@ nested-with-nulls-tests:
     ref: nested-with-nulls.yamsql:161
     explain: ISCAN(I1 <,>) | FILTER coalesce_long(_.B.A.B, promote(@c13 AS LONG))
         IS_NULL | MAP (_.ID AS ID)
-    task_count: 355
-    task_total_time_ms: 27
+    task_count: 390
+    task_total_time_ms: 15
     transform_count: 99
-    transform_time_ms: 9
+    transform_time_ms: 5
     transform_yield_count: 30
     insert_time_ms: 0
     insert_new_count: 36
@@ -326,10 +326,10 @@ nested-with-nulls-tests:
     ref: nested-with-nulls.yamsql:166
     explain: ISCAN(I1 <,>) | FILTER coalesce_long(_.B.A.B, promote(@c13 AS LONG))
         NOT_NULL | MAP (_.ID AS ID)
-    task_count: 355
-    task_total_time_ms: 7
+    task_count: 390
+    task_total_time_ms: 28
     transform_count: 99
-    transform_time_ms: 3
+    transform_time_ms: 9
     transform_yield_count: 30
     insert_time_ms: 0
     insert_new_count: 36

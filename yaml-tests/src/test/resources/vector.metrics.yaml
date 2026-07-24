@@ -4,7 +4,7 @@ vector-tests:
     ref: vector.yamsql:62
     explain: SCAN([IS TDOUBLEVECTOR, EQUALS promote(@c23 AS LONG)]) | MAP (CAST(array(@c4,
         @c6, @c8) AS VECTOR(32, 3)) AS _0)
-    task_count: 206
+    task_count: 224
     task_total_time_ms: 3
     transform_count: 57
     transform_time_ms: 1
@@ -17,8 +17,8 @@ vector-tests:
     ref: vector.yamsql:67
     explain: SCAN([IS TDOUBLEVECTOR, EQUALS promote(@c23 AS LONG)]) | MAP (CAST(array(@c4,
         @c6, @c8) AS VECTOR(16, 3)) AS _0)
-    task_count: 206
-    task_total_time_ms: 3
+    task_count: 224
+    task_total_time_ms: 2
     transform_count: 57
     transform_time_ms: 1
     transform_yield_count: 16
@@ -30,8 +30,8 @@ vector-tests:
     ref: vector.yamsql:72
     explain: SCAN([IS TDOUBLEVECTOR, EQUALS promote(@c23 AS LONG)]) | MAP (CAST(array(@c4,
         @c6, @c8) AS VECTOR(16, 3)) AS _0)
-    task_count: 206
-    task_total_time_ms: 3
+    task_count: 224
+    task_total_time_ms: 2
     transform_count: 57
     transform_time_ms: 1
     transform_yield_count: 16
@@ -43,7 +43,7 @@ vector-tests:
     ref: vector.yamsql:77
     explain: SCAN([IS TDOUBLEVECTOR, EQUALS promote(@c23 AS LONG)]) | MAP (CAST(array(@c4,
         @c6, @c8) AS VECTOR(16, 3)) AS _0)
-    task_count: 206
+    task_count: 224
     task_total_time_ms: 3
     transform_count: 57
     transform_time_ms: 1
@@ -56,7 +56,7 @@ vector-tests:
     ref: vector.yamsql:82
     explain: SCAN([IS TDOUBLEVECTOR, EQUALS promote(@c23 AS LONG)]) | MAP (CAST(array(@c4,
         @c6, @c8) AS VECTOR(16, 3)) AS _0)
-    task_count: 206
+    task_count: 224
     task_total_time_ms: 3
     transform_count: 57
     transform_time_ms: 1
@@ -69,7 +69,7 @@ vector-tests:
     ref: vector.yamsql:87
     explain: SCAN([IS TDOUBLEVECTOR, EQUALS promote(@c23 AS LONG)]) | MAP (CAST(array(@c4,
         @c6, @c8) AS VECTOR(32, 3)) AS _0)
-    task_count: 206
+    task_count: 224
     task_total_time_ms: 3
     transform_count: 57
     transform_time_ms: 1
@@ -82,7 +82,7 @@ vector-tests:
     ref: vector.yamsql:92
     explain: SCAN([IS TDOUBLEVECTOR, EQUALS promote(@c23 AS LONG)]) | MAP (CAST(array(@c4,
         @c6, @c8) AS VECTOR(32, 3)) AS _0)
-    task_count: 206
+    task_count: 224
     task_total_time_ms: 3
     transform_count: 57
     transform_time_ms: 1
@@ -95,7 +95,7 @@ vector-tests:
     ref: vector.yamsql:97
     explain: SCAN([IS TDOUBLEVECTOR, EQUALS promote(@c23 AS LONG)]) | MAP (CAST(array(@c4,
         @c6, @c8) AS VECTOR(32, 3)) AS _0)
-    task_count: 206
+    task_count: 224
     task_total_time_ms: 3
     transform_count: 57
     transform_time_ms: 1
@@ -108,7 +108,7 @@ vector-tests:
     ref: vector.yamsql:106
     explain: SCAN([IS TDOUBLEVECTOR, EQUALS promote(@c23 AS LONG)]) | MAP (CAST(array(@c4,
         @c6, @c8) AS VECTOR(64, 3)) AS _0)
-    task_count: 206
+    task_count: 224
     task_total_time_ms: 2
     transform_count: 57
     transform_time_ms: 1
@@ -121,7 +121,7 @@ vector-tests:
     ref: vector.yamsql:111
     explain: SCAN([IS TDOUBLEVECTOR, EQUALS promote(@c23 AS LONG)]) | MAP (CAST(array(@c4,
         @c6, @c8) AS VECTOR(64, 3)) AS _0)
-    task_count: 206
+    task_count: 224
     task_total_time_ms: 3
     transform_count: 57
     transform_time_ms: 1
@@ -132,10 +132,10 @@ vector-tests:
 -   query: EXPLAIN select cast([1, 2.5, 3L] as VECTOR(3, HALF)) from tDoubleVector
         where a = 100
     ref: vector.yamsql:116
-    explain: SCAN([IS TDOUBLEVECTOR, EQUALS promote(@c23 AS LONG)]) | MAP (CAST(array(@c4,
-        @c6, @c8) AS VECTOR(16, 3)) AS _0)
-    task_count: 206
-    task_total_time_ms: 3
+    explain: SCAN([IS TDOUBLEVECTOR, EQUALS promote(@c23 AS LONG)]) | MAP (CAST(array(promote(@c4
+        AS DOUBLE), @c6, promote(@c8 AS DOUBLE)) AS VECTOR(16, 3)) AS _0)
+    task_count: 224
+    task_total_time_ms: 4
     transform_count: 57
     transform_time_ms: 1
     transform_yield_count: 16
@@ -145,12 +145,12 @@ vector-tests:
 -   query: EXPLAIN select cast([1, 2.5, 3L] as VECTOR(3, FLOAT)) from tDoubleVector
         where a = 100
     ref: vector.yamsql:121
-    explain: SCAN([IS TDOUBLEVECTOR, EQUALS promote(@c23 AS LONG)]) | MAP (CAST(array(@c4,
-        @c6, @c8) AS VECTOR(32, 3)) AS _0)
-    task_count: 206
+    explain: SCAN([IS TDOUBLEVECTOR, EQUALS promote(@c23 AS LONG)]) | MAP (CAST(array(promote(@c4
+        AS DOUBLE), @c6, promote(@c8 AS DOUBLE)) AS VECTOR(32, 3)) AS _0)
+    task_count: 224
     task_total_time_ms: 4
     transform_count: 57
-    transform_time_ms: 1
+    transform_time_ms: 2
     transform_yield_count: 16
     insert_time_ms: 0
     insert_new_count: 17
@@ -160,7 +160,7 @@ vector-tests:
     ref: vector.yamsql:126
     explain: SCAN([IS TDOUBLEVECTOR, EQUALS promote(@c23 AS LONG)]) | MAP (CAST(array(@c4,
         @c6, @c8) AS VECTOR(16, 3)) AS _0)
-    task_count: 206
+    task_count: 224
     task_total_time_ms: 3
     transform_count: 57
     transform_time_ms: 1
@@ -173,7 +173,7 @@ vector-tests:
     ref: vector.yamsql:131
     explain: SCAN([IS TDOUBLEVECTOR, EQUALS promote(@c23 AS LONG)]) | MAP (CAST(array(@c4,
         @c6, @c8) AS VECTOR(32, 3)) AS _0)
-    task_count: 206
+    task_count: 224
     task_total_time_ms: 3
     transform_count: 57
     transform_time_ms: 1
@@ -186,10 +186,10 @@ vector-tests:
     ref: vector.yamsql:136
     explain: SCAN([IS TDOUBLEVECTOR, EQUALS promote(@c26 AS LONG)]) | MAP (CAST(array(@c4,
         @c7, @c10) AS VECTOR(16, 3)) AS _0)
-    task_count: 206
+    task_count: 224
     task_total_time_ms: 4
     transform_count: 57
-    transform_time_ms: 1
+    transform_time_ms: 2
     transform_yield_count: 16
     insert_time_ms: 0
     insert_new_count: 17
@@ -199,10 +199,10 @@ vector-tests:
     ref: vector.yamsql:140
     explain: SCAN([IS TDOUBLEVECTOR, EQUALS promote(@c26 AS LONG)]) | MAP (CAST(array(@c4,
         @c7, @c10) AS VECTOR(32, 3)) AS _0)
-    task_count: 206
-    task_total_time_ms: 4
+    task_count: 224
+    task_total_time_ms: 5
     transform_count: 57
-    transform_time_ms: 1
+    transform_time_ms: 2
     transform_yield_count: 16
     insert_time_ms: 0
     insert_new_count: 17
@@ -212,10 +212,10 @@ vector-tests:
     ref: vector.yamsql:144
     explain: SCAN([IS TDOUBLEVECTOR, EQUALS promote(@c26 AS LONG)]) | MAP (CAST(array(@c4,
         @c7, @c10) AS VECTOR(64, 3)) AS _0)
-    task_count: 206
-    task_total_time_ms: 4
+    task_count: 224
+    task_total_time_ms: 5
     transform_count: 57
-    transform_time_ms: 2
+    transform_time_ms: 1
     transform_yield_count: 16
     insert_time_ms: 0
     insert_new_count: 17
@@ -224,7 +224,7 @@ vector-tests:
     ref: vector.yamsql:159
     explain: SCAN([IS THALFVECTOR, EQUALS promote(@c9 AS LONG)]) | MAP (_.B equals
         NULL AS _0)
-    task_count: 206
+    task_count: 224
     task_total_time_ms: 3
     transform_count: 57
     transform_time_ms: 1
@@ -236,8 +236,8 @@ vector-tests:
     ref: vector.yamsql:163
     explain: SCAN([IS THALFVECTOR, EQUALS promote(@c9 AS LONG)]) | MAP (NULL equals
         _.B AS _0)
-    task_count: 206
-    task_total_time_ms: 3
+    task_count: 224
+    task_total_time_ms: 4
     transform_count: 57
     transform_time_ms: 1
     transform_yield_count: 16
@@ -248,8 +248,8 @@ vector-tests:
     ref: vector.yamsql:167
     explain: SCAN([IS THALFVECTOR, EQUALS promote(@c10 AS LONG)]) | MAP (_.B notEquals
         NULL AS _0)
-    task_count: 206
-    task_total_time_ms: 2
+    task_count: 224
+    task_total_time_ms: 5
     transform_count: 57
     transform_time_ms: 1
     transform_yield_count: 16
@@ -260,8 +260,8 @@ vector-tests:
     ref: vector.yamsql:171
     explain: SCAN([IS THALFVECTOR, EQUALS promote(@c10 AS LONG)]) | MAP (NULL notEquals
         _.B AS _0)
-    task_count: 206
-    task_total_time_ms: 3
+    task_count: 224
+    task_total_time_ms: 4
     transform_count: 57
     transform_time_ms: 1
     transform_yield_count: 16
@@ -271,8 +271,8 @@ vector-tests:
 -   query: EXPLAIN select a from tHalfVector where b = null
     ref: vector.yamsql:255
     explain: SCAN([IS THALFVECTOR]) | FILTER null | MAP (_.A AS A)
-    task_count: 222
-    task_total_time_ms: 3
+    task_count: 238
+    task_total_time_ms: 2
     transform_count: 64
     transform_time_ms: 1
     transform_yield_count: 17
@@ -282,8 +282,8 @@ vector-tests:
 -   query: EXPLAIN select a from tFloatVector where b != null
     ref: vector.yamsql:260
     explain: SCAN([IS TFLOATVECTOR]) | FILTER _.B NOT_EQUALS NULL | MAP (_.A AS A)
-    task_count: 222
-    task_total_time_ms: 4
+    task_count: 238
+    task_total_time_ms: 2
     transform_count: 64
     transform_time_ms: 1
     transform_yield_count: 17
@@ -293,8 +293,8 @@ vector-tests:
 -   query: EXPLAIN select a from tHalfVector where null = b
     ref: vector.yamsql:265
     explain: SCAN([IS THALFVECTOR]) | FILTER null | MAP (_.A AS A)
-    task_count: 222
-    task_total_time_ms: 3
+    task_count: 238
+    task_total_time_ms: 2
     transform_count: 64
     transform_time_ms: 1
     transform_yield_count: 17
@@ -304,8 +304,8 @@ vector-tests:
 -   query: EXPLAIN select a from tFloatVector where null != b
     ref: vector.yamsql:270
     explain: SCAN([IS TFLOATVECTOR]) | FILTER _.B NOT_EQUALS NULL | MAP (_.A AS A)
-    task_count: 222
-    task_total_time_ms: 3
+    task_count: 238
+    task_total_time_ms: 2
     transform_count: 64
     transform_time_ms: 1
     transform_yield_count: 17
@@ -316,8 +316,8 @@ vector-tests:
     ref: vector.yamsql:275
     explain: SCAN([IS TDOUBLEVECTOR]) | FILTER _.B IS_DISTINCT_FROM NULL | MAP (_.A
         AS A)
-    task_count: 206
-    task_total_time_ms: 3
+    task_count: 222
+    task_total_time_ms: 2
     transform_count: 59
     transform_time_ms: 1
     transform_yield_count: 15
@@ -328,8 +328,8 @@ vector-tests:
     ref: vector.yamsql:280
     explain: SCAN([IS TDOUBLEVECTOR]) | FILTER _.B NOT_DISTINCT_FROM NULL | MAP (_.A
         AS A)
-    task_count: 206
-    task_total_time_ms: 3
+    task_count: 222
+    task_total_time_ms: 2
     transform_count: 59
     transform_time_ms: 1
     transform_yield_count: 15
@@ -340,10 +340,10 @@ vector-tests:
     ref: vector.yamsql:285
     explain: SCAN([IS TDOUBLEVECTOR]) | FILTER _.B IS_DISTINCT_FROM NULL | MAP (_.A
         AS A)
-    task_count: 206
-    task_total_time_ms: 3
+    task_count: 222
+    task_total_time_ms: 2
     transform_count: 59
-    transform_time_ms: 1
+    transform_time_ms: 0
     transform_yield_count: 15
     insert_time_ms: 0
     insert_new_count: 18
@@ -352,8 +352,8 @@ vector-tests:
     ref: vector.yamsql:290
     explain: SCAN([IS TDOUBLEVECTOR]) | FILTER _.B NOT_DISTINCT_FROM NULL | MAP (_.A
         AS A)
-    task_count: 206
-    task_total_time_ms: 3
+    task_count: 222
+    task_total_time_ms: 2
     transform_count: 59
     transform_time_ms: 1
     transform_yield_count: 15

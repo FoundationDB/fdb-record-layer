@@ -1,9 +1,9 @@
 enum-tests:
 -   query: EXPLAIN SELECT * From table_a where "name" = 'bar'
-    ref: filter-index.yamsql:42
+    ref: filter-index.yamsql:47
     explain: ISCAN(I1 [EQUALS promote(@c7 AS STRING)])
-    task_count: 229
-    task_total_time_ms: 11
+    task_count: 248
+    task_total_time_ms: 15
     transform_count: 64
     transform_time_ms: 5
     transform_yield_count: 24

@@ -37,4 +37,15 @@ import java.util.Set;
 public interface CascadesRule<T> extends PlannerRule<CascadesRuleCall, T> {
     @Nonnull
     Set<PlannerConstraint<?>> getConstraintDependencies();
+
+    default boolean onlyOnPrunedChildren() {
+        return false;
+    }
+
+    interface PostPruneRule<T> extends CascadesRule<T> {
+        @Override
+        default boolean onlyOnPrunedChildren() {
+            return true;
+        }
+    }
 }
