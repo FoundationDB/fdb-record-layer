@@ -1267,6 +1267,34 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
     }
 
     @Test
+    void updateWhileWriteOnlyChangedWindowKeyRefreshesDelegate() throws Exception {
+        // The complement of the same-window-key case
+        try (FDBRecordContext context = openContext()) {
+            openStore(context, 3, Direction.DESC);
+            final Index index = recordStore.getRecordMetaData().getIndex(INDEX_NAME);
+            final IndexMaintainerState state = new IndexMaintainerState(
+                    recordStore, index, IndexMaintenanceFilter.NORMAL);
+            final CountingDelegate delegate = new CountingDelegate(state);
+            final SlidingWindowIndexMaintainer sw = new SlidingWindowIndexMaintainer(state, delegate);
+
+            // Index rec 2 at relevance 200 (simulating a prior range-scan insert).
+            sw.update(null, storedRec(2, 200)).join();
+            assertEquals(1, delegate.inserts);
+            assertEquals(0, delegate.deletes);
+
+            // Update to a different window key (relevance 200 -> 300).
+            delegate.inserts = 0;
+            delegate.deletes = 0;
+            sw.updateWhileWriteOnly(storedRec(2, 200), storedRec(2, 300)).join();
+
+            assertEquals(1, delegate.deletes);
+            assertEquals(1, delegate.inserts);
+            assertEquals(1, timer.getCount(SlidingWindowIndexMaintainer.SlidingWindowCounter.SW_PREEMPTIVE_DELETE_WRITE_ONLY));
+            commit(context);
+        }
+    }
+
+    @Test
     void updateWhileWriteOnlyUpdateExistingRecord() throws Exception {
         try (FDBRecordContext context = openContext()) {
             openStore(context, 3, Direction.DESC);
