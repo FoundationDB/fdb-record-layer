@@ -415,8 +415,8 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
         final EntryKey oldKey = shouldMaintain(oldRecord) ? entryKeyOf(oldRecord) : null;
         final EntryKey newKey = shouldMaintain(newRecord) ? entryKeyOf(newRecord) : null;
         return updateWindowWhileWriteOnly(oldKey, newKey,
-                () -> delegate.update(oldRecord, null),
-                () -> delegate.update(null, newRecord));
+                () -> delegate.updateWhileWriteOnly(oldRecord, null),
+                () -> delegate.updateWhileWriteOnly(null, newRecord));
     }
 
     @Nonnull
