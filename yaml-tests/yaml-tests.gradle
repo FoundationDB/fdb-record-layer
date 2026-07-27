@@ -74,6 +74,12 @@ dependencies {
     annotationProcessor(libs.autoService)
 }
 
+// Versions that should never be selected as an "other" external server when resolving dynamic versions for
+// compatibility testing, because they are broken in some way. For example, 4.12.14.0 was published in an incomplete
+// state (see: https://github.com/FoundationDB/fdb-record-layer/actions/runs/30123182087): we didn't fully publish
+// it, including no release notes, but somehow the artifacts are available in maven central.
+ext.permanentlyRejectedServerVersions = ["4.12.14.0"].toSet().asImmutable()
+
 // This "method" resolves the latest shadowJar version of the relational-server, and returns the file reference to it
 // which can be used in `Copy` tasks.
 ext.resolveOtherServer = { Set<String> rejectedVersions ->
@@ -149,8 +155,7 @@ static def getAttributesFromJar(File file) {
 
 ext.resolveManyServers = { ->
     Set<File> selectedServers = new HashSet<>()
-    Set<String> rejectedVersions = new HashSet<>()
-    rejectedVersions.add("4.12.14.0")
+    Set<String> rejectedVersions = new HashSet<>(permanentlyRejectedServerVersions)
     while (selectedServers.size() < 10) {
         def serverFile = resolveOtherServer(rejectedVersions)
         def attributes = getAttributesFromJar(serverFile)
@@ -188,7 +193,7 @@ ext.resolveSpecificServer = { String version ->
 // Resolves the n most-recent released version strings in descending order (most recent first).
 ext.resolveRecentVersionStrings = { int n ->
     List<String> resolvedVersions = new ArrayList<>()
-    Set<String> rejectedVersions = new HashSet<>()
+    Set<String> rejectedVersions = new HashSet<>(permanentlyRejectedServerVersions)
     while (resolvedVersions.size() < n) {
         def serverFile = resolveOtherServer(rejectedVersions)
         def attributes = getAttributesFromJar(serverFile)
@@ -206,7 +211,7 @@ tasks.register('serverJars', Copy) {
     notCompatibleWithConfigurationCache("Resolves dynamic external server versions at execution time")
     dependsOn ":fdb-relational-server:package", "cleanExternalServerDirectory"
     into project.layout.buildDirectory.dir('externalServer')
-    from { resolveOtherServer(["4.12.14.0"].toSet()) }
+    from { resolveOtherServer(new HashSet<>(permanentlyRejectedServerVersions)) }
     from (rootProject.project("fdb-relational-server").layout.files('.dist')) {
         include("fdb-relational-server-${rootProject.version}-all.jar")
     }
