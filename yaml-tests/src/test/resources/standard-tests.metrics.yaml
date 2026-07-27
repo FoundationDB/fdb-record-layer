@@ -177,26 +177,26 @@ standard-tests:
         5) as y;
     ref: standard-tests.yamsql:285
     explain: SCAN([IS T1, EQUALS promote(@c18 AS LONG)])
-    task_count: 404
-    task_total_time_ms: 66
-    transform_count: 86
-    transform_time_ms: 26
-    transform_yield_count: 34
-    insert_time_ms: 5
-    insert_new_count: 42
-    insert_reused_count: 3
+    task_count: 427
+    task_total_time_ms: 40
+    transform_count: 92
+    transform_time_ms: 13
+    transform_yield_count: 35
+    insert_time_ms: 2
+    insert_new_count: 45
+    insert_reused_count: 4
 -   query: EXPLAIN select * from (select * from (select * from T1) as x) as y where
         ID = 5;
     ref: standard-tests.yamsql:289
     explain: SCAN([IS T1, EQUALS promote(@c21 AS LONG)])
-    task_count: 404
-    task_total_time_ms: 68
-    transform_count: 86
-    transform_time_ms: 27
-    transform_yield_count: 34
+    task_count: 427
+    task_total_time_ms: 53
+    transform_count: 92
+    transform_time_ms: 21
+    transform_yield_count: 35
     insert_time_ms: 4
-    insert_new_count: 42
-    insert_reused_count: 3
+    insert_new_count: 45
+    insert_reused_count: 4
 -   query: EXPLAIN select count(*) from (select * from (select * from (select * from
         T1  where ID = 5) as x) as y) as z;
     ref: standard-tests.yamsql:293
@@ -204,9 +204,9 @@ standard-tests:
         AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l
         AS LONG)) AS _0)
     task_count: 658
-    task_total_time_ms: 85
-    transform_count: 141
-    transform_time_ms: 20
+    task_total_time_ms: 80
+    transform_count: 144
+    transform_time_ms: 30
     transform_yield_count: 41
     insert_time_ms: 3
     insert_new_count: 66
@@ -216,10 +216,10 @@ standard-tests:
     ref: standard-tests.yamsql:297
     explain: SCAN([IS T1, [GREATER_THAN promote(@c19 AS LONG)]])
     task_count: 432
-    task_total_time_ms: 59
-    transform_count: 91
-    transform_time_ms: 21
+    task_total_time_ms: 56
+    transform_count: 94
+    transform_time_ms: 27
     transform_yield_count: 36
-    insert_time_ms: 2
+    insert_time_ms: 1
     insert_new_count: 46
     insert_reused_count: 3

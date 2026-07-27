@@ -1,7 +1,7 @@
 Ë
 {
 transactions-testsEXPLAIN select * from t2Kcreate temporary function t2() on commit drop function AS SELECT * FROM t1;Ë
-Ωﬁøê5 é∫Ç(0¢—"8@SCAN([IS T1])ªdigraph G {
+Ω»‚ä6 ÷ã≥(0Á™,8@SCAN([IS T1])ªdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -11,7 +11,7 @@
 }¡
 â
 transactions-testsEXPLAIN select * from t2Ycreate temporary function t2() on commit drop function AS SELECT * FROM t1 where id < 50;≤
-’€áÏ8 ≠ì–(0“‰8@2SCAN([IS T1, [LESS_THAN promote(@cT218 AS LONG)]])‡digraph G {
+’≠Ω‡9 à€î(0ı»8@2SCAN([IS T1, [LESS_THAN promote(@cT218 AS LONG)]])‡digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;

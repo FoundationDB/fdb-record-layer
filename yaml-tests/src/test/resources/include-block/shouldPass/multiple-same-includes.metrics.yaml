@@ -5,11 +5,11 @@ transactions-tests:
     ref: multiple-same-includes.yamsql:25 > include-with-explain.yamsql:35
     explain: SCAN([IS T1])
     task_count: 177
-    task_total_time_ms: 18
-    transform_count: 47
+    task_total_time_ms: 16
+    transform_count: 48
     transform_time_ms: 7
     transform_yield_count: 15
-    insert_time_ms: 1
+    insert_time_ms: 0
     insert_new_count: 14
     insert_reused_count: 2
 -   query: EXPLAIN select * from t2
@@ -20,8 +20,8 @@ transactions-tests:
     explain: SCAN([IS T1, [LESS_THAN promote(@cT218 AS LONG)]])
     task_count: 201
     task_total_time_ms: 21
-    transform_count: 50
-    transform_time_ms: 10
+    transform_count: 51
+    transform_time_ms: 9
     transform_yield_count: 17
     insert_time_ms: 0
     insert_new_count: 17

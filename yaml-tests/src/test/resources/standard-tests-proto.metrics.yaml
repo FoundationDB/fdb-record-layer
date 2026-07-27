@@ -4,27 +4,27 @@ unnamed-2:
     ref: standard-tests-proto.yamsql:54
     explain: SCAN([EQUALS promote(@c22 AS LONG)]) | TFILTER T1 | MAP (_.ID AS ID,
         _.COL1 AS COL1, _.COL2 AS COL2)
-    task_count: 309
-    task_total_time_ms: 28
-    transform_count: 69
+    task_count: 332
+    task_total_time_ms: 31
+    transform_count: 75
     transform_time_ms: 6
-    transform_yield_count: 20
-    insert_time_ms: 0
-    insert_new_count: 28
-    insert_reused_count: 1
+    transform_yield_count: 21
+    insert_time_ms: 1
+    insert_new_count: 31
+    insert_reused_count: 2
 -   query: EXPLAIN select id, col1, col2 from (select * from (select * from T1) as
         x) as y where ID = 5;
     ref: standard-tests-proto.yamsql:58
     explain: SCAN([EQUALS promote(@c25 AS LONG)]) | TFILTER T1 | MAP (_.ID AS ID,
         _.COL1 AS COL1, _.COL2 AS COL2)
-    task_count: 309
-    task_total_time_ms: 28
-    transform_count: 69
+    task_count: 332
+    task_total_time_ms: 32
+    transform_count: 75
     transform_time_ms: 6
-    transform_yield_count: 20
-    insert_time_ms: 0
-    insert_new_count: 28
-    insert_reused_count: 1
+    transform_yield_count: 21
+    insert_time_ms: 1
+    insert_new_count: 31
+    insert_reused_count: 2
 -   query: EXPLAIN select count(*) from (select * from (select * from (select * from
         T1  where ID = 5) as x) as y) as z;
     ref: standard-tests-proto.yamsql:62
@@ -33,7 +33,7 @@ unnamed-2:
         promote(0l AS LONG)) AS _0)
     task_count: 436
     task_total_time_ms: 29
-    transform_count: 95
+    transform_count: 98
     transform_time_ms: 5
     transform_yield_count: 25
     insert_time_ms: 0
@@ -45,10 +45,10 @@ unnamed-2:
     explain: SCAN([[GREATER_THAN promote(@c23 AS LONG)]]) | TFILTER T1 | MAP (_.ID
         AS ID, _.COL1 AS COL1, _.COL2 AS COL2)
     task_count: 337
-    task_total_time_ms: 22
-    transform_count: 74
-    transform_time_ms: 4
+    task_total_time_ms: 28
+    transform_count: 77
+    transform_time_ms: 7
     transform_yield_count: 22
-    insert_time_ms: 0
+    insert_time_ms: 1
     insert_new_count: 32
     insert_reused_count: 1

@@ -78,9 +78,9 @@ user-defined-scalar-function-tests:
     explain: ISCAN(I2 <,>) | FILTER _.ID LESS_THAN_OR_EQUALS promote(@c5 AS LONG)
         | MAP (_.ID AS ID, _.ID AS ID_COPY, _.R.V.Z AS Z_VAL)
     task_count: 551
-    task_total_time_ms: 35
-    transform_count: 129
-    transform_time_ms: 10
+    task_total_time_ms: 40
+    transform_count: 132
+    transform_time_ms: 11
     transform_yield_count: 41
     insert_time_ms: 1
     insert_new_count: 65
@@ -90,8 +90,8 @@ user-defined-scalar-function-tests:
     explain: ISCAN(I2 [[GREATER_THAN_OR_EQUALS promote(@c5 AS LONG)]]) | MAP (_.ID
         AS PROCESSED_ID, _.R.V.Z AS Z_VAL)
     task_count: 587
-    task_total_time_ms: 45
-    transform_count: 133
+    task_total_time_ms: 40
+    transform_count: 136
     transform_time_ms: 11
     transform_yield_count: 43
     insert_time_ms: 1
@@ -102,11 +102,11 @@ user-defined-scalar-function-tests:
     explain: SCAN([IS SIMPLE_TABLE, [GREATER_THAN_OR_EQUALS promote(@c5 AS LONG) &&
         LESS_THAN_OR_EQUALS promote(@c7 AS LONG)]]) | MAP (_.A AS A_VAL, _.A AS A_COPY)
     task_count: 389
-    task_total_time_ms: 26
-    transform_count: 89
-    transform_time_ms: 7
+    task_total_time_ms: 30
+    transform_count: 92
+    transform_time_ms: 8
     transform_yield_count: 29
-    insert_time_ms: 2
+    insert_time_ms: 0
     insert_new_count: 46
     insert_reused_count: 1
 -   query: EXPLAIN select t1.id_copy as A, t2.processed_id as B from table_func1(2)
@@ -116,9 +116,9 @@ user-defined-scalar-function-tests:
         q0 -> { ISCAN(I2 <,>) | FILTER _.ID EQUALS q0.ID AND _.ID LESS_THAN_OR_EQUALS
         promote(@c15 AS LONG) AS q1 RETURN (q1.ID AS A, q0.ID AS B) }
     task_count: 1346
-    task_total_time_ms: 88
-    transform_count: 308
-    transform_time_ms: 31
+    task_total_time_ms: 89
+    transform_count: 313
+    transform_time_ms: 36
     transform_yield_count: 96
     insert_time_ms: 3
     insert_new_count: 175
@@ -128,9 +128,9 @@ user-defined-scalar-function-tests:
     explain: ISCAN(I2 <,>) | FILTER _.ID LESS_THAN_OR_EQUALS promote(@c14 AS LONG)
         | MAP (_.ID AS A, _.R.V.Z AS B)
     task_count: 551
-    task_total_time_ms: 34
-    transform_count: 129
-    transform_time_ms: 10
+    task_total_time_ms: 30
+    transform_count: 132
+    transform_time_ms: 9
     transform_yield_count: 41
     insert_time_ms: 1
     insert_new_count: 65
@@ -141,9 +141,9 @@ user-defined-scalar-function-tests:
     explain: SCAN([IS SIMPLE_TABLE, [GREATER_THAN_OR_EQUALS promote(@c20 AS LONG)
         && LESS_THAN_OR_EQUALS promote(@c22 AS LONG)]]) | MAP (_.A AS A, _.A AS B)
     task_count: 389
-    task_total_time_ms: 22
-    transform_count: 89
-    transform_time_ms: 7
+    task_total_time_ms: 21
+    transform_count: 92
+    transform_time_ms: 6
     transform_yield_count: 29
     insert_time_ms: 0
     insert_new_count: 46
@@ -153,14 +153,14 @@ user-defined-scalar-function-tests:
     explain: ISCAN(I2 <,>) | FILTER _.ID LESS_THAN_OR_EQUALS promote(@c5 AS LONG)
         AND _.ID GREATER_THAN promote(@c13 AS LONG) | MAP (_.ID AS ID, _.ID AS ID_COPY,
         _.R.V.Z AS Z_VAL)
-    task_count: 551
-    task_total_time_ms: 35
-    transform_count: 130
+    task_count: 574
+    task_total_time_ms: 39
+    transform_count: 137
     transform_time_ms: 11
-    transform_yield_count: 41
+    transform_yield_count: 42
     insert_time_ms: 1
-    insert_new_count: 65
-    insert_reused_count: 4
+    insert_new_count: 68
+    insert_reused_count: 5
 -   query: EXPLAIN select id, abcd(a) as d_val from deep_nested_t
     ref: user-defined-macro-function-tests.yamsql:151
     explain: 'COVERING(DEEP_IDX <,> -> [ID: KEY:[2], A: [B: [C: [D: KEY:[0]]]]]) |

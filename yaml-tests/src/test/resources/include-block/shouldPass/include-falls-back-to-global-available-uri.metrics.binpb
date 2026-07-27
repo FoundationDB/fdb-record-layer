@@ -1,17 +1,17 @@
 È
 {
 transactions-testsEXPLAIN select * from t2Kcreate temporary function t2() on commit drop function AS SELECT * FROM t1;È
-±£Ìü\/ òô÷G(0ß¥µ8@SCAN([IS T1])ªdigraph G {
+±√∂ëX0 √¸@(0†¢è8@SCAN([IS T1])ªdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
   1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">comparisons: [IS T1]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS COL1)" ];
   2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [T1]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS COL1)" ];
   2 -> 1 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}¡
+}¬
 â
-transactions-testsEXPLAIN select * from t2Ycreate temporary function t2() on commit drop function AS SELECT * FROM t1 where id < 50;≤
-…ÊñàO2 ¡‰ü@(0çËp8@2SCAN([IS T1, [LESS_THAN promote(@cT218 AS LONG)]])‡digraph G {
+transactions-testsEXPLAIN select * from t2Ycreate temporary function t2() on commit drop function AS SELECT * FROM t1 where id < 50;≥
+…∞à˘M3 ó˝¿7(0¯áî8@2SCAN([IS T1, [LESS_THAN promote(@cT218 AS LONG)]])‡digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;

@@ -75,9 +75,9 @@ orderby-tests:
     ref: orderby.yamsql:282
     explain: ISCAN(I4 <,>) | MAP ((_.Q AS nested, _.Q.A AS ordered) AS T)
     task_count: 238
-    task_total_time_ms: 13
-    transform_count: 58
-    transform_time_ms: 6
+    task_total_time_ms: 14
+    transform_count: 59
+    transform_time_ms: 7
     transform_yield_count: 28
     insert_time_ms: 0
     insert_new_count: 21
@@ -86,9 +86,9 @@ orderby-tests:
     ref: orderby.yamsql:288
     explain: ISCAN(I4 <,>) | MAP ((_.Q AS nesting, _.Q.A AS ordered) AS T2_FUNC)
     task_count: 238
-    task_total_time_ms: 14
-    transform_count: 58
-    transform_time_ms: 9
+    task_total_time_ms: 66
+    transform_count: 59
+    transform_time_ms: 47
     transform_yield_count: 28
     insert_time_ms: 0
     insert_new_count: 21

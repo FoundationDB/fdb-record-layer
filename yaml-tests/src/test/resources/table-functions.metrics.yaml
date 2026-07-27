@@ -62,8 +62,8 @@ table-functions:
         AS Y, @c28 AS Z) AS W), (@c33 AS B, @c35 AS C, (@c38 AS X, @c40 AS Y, @c42
         AS Z) AS W)) | MAP (_.B AS B, _.C AS Q, _.W.X AS X)
     task_count: 153
-    task_total_time_ms: 2
-    transform_count: 32
+    task_total_time_ms: 3
+    transform_count: 33
     transform_time_ms: 0
     transform_yield_count: 8
     insert_time_ms: 0
@@ -77,14 +77,14 @@ table-functions:
         AS Y, @c28 AS Z) AS W), (@c33 AS B, @c35 AS C, (@c38 AS X, @c40 AS Y, @c42
         AS Z) AS W)) | FILTER _.B LESS_THAN @c67 | MAP (_.B AS B, _.C AS Q, _.W.X
         AS X)
-    task_count: 166
-    task_total_time_ms: 2
-    transform_count: 34
-    transform_time_ms: 0
-    transform_yield_count: 8
+    task_count: 189
+    task_total_time_ms: 3
+    transform_count: 39
+    transform_time_ms: 1
+    transform_yield_count: 9
     insert_time_ms: 0
-    insert_new_count: 14
-    insert_reused_count: 0
+    insert_new_count: 17
+    insert_reused_count: 1
 -   query: EXPLAIN select * from range(0, 11, 5)
     ref: table-functions.yamsql:97
     explain: TF range(promote(@c5 AS LONG), promote(@c7 AS LONG), STEP promote(@c9

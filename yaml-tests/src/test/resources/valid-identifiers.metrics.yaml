@@ -276,11 +276,11 @@ all-tests:
         | FILTER _.my__parent EQUALS promote(@c7 AS LONG) AS q1 RETURN (q1.me AS _0,
         q1.my__parent AS _1, q0.me AS _2, q0.my__parent AS _3) }
     task_count: 1617
-    task_total_time_ms: 151
-    transform_count: 324
-    transform_time_ms: 49
+    task_total_time_ms: 137
+    transform_count: 342
+    transform_time_ms: 41
     transform_yield_count: 117
-    insert_time_ms: 8
+    insert_time_ms: 5
     insert_new_count: 279
     insert_reused_count: 17
 -   query: EXPLAIN select * from "$yay"(5);
@@ -288,9 +288,9 @@ all-tests:
     explain: SCAN([IS foo__2tableE]) | FILTER _.foo.tableE.E3.S1 EQUALS promote(@c5
         AS LONG) | MAP (_.foo.tableE.E1 AS _$x.id)
     task_count: 387
-    task_total_time_ms: 30
-    transform_count: 91
-    transform_time_ms: 6
+    task_total_time_ms: 32
+    transform_count: 94
+    transform_time_ms: 7
     transform_yield_count: 28
     insert_time_ms: 1
     insert_new_count: 47
@@ -300,11 +300,11 @@ all-tests:
     explain: SCAN([IS foo__2tableE]) | FILTER _.foo.tableE.E3.S1 EQUALS promote(@c5
         AS LONG) | MAP (_.foo.tableE.E1 AS _$y.id)
     task_count: 387
-    task_total_time_ms: 29
-    transform_count: 91
-    transform_time_ms: 8
+    task_total_time_ms: 21
+    transform_count: 94
+    transform_time_ms: 4
     transform_yield_count: 28
-    insert_time_ms: 1
+    insert_time_ms: 0
     insert_new_count: 47
     insert_reused_count: 2
 -   query: EXPLAIN select * from "नमस्त"(4);
@@ -312,11 +312,11 @@ all-tests:
     explain: SCAN([IS foo__2tableE]) | FILTER _.foo.tableE.E3.S1 EQUALS promote(@c5
         AS LONG) | MAP (_.foo.tableE.E1 AS _$z.id)
     task_count: 387
-    task_total_time_ms: 13
-    transform_count: 91
-    transform_time_ms: 3
+    task_total_time_ms: 22
+    transform_count: 94
+    transform_time_ms: 6
     transform_yield_count: 28
-    insert_time_ms: 0
+    insert_time_ms: 1
     insert_new_count: 47
     insert_reused_count: 2
 -   query: EXPLAIN select * from "$yay__view";
@@ -649,9 +649,9 @@ unnamed-12:
     explain: SCAN([IS __T3]) | FILTER _.__T3$COL2 EQUALS promote(@c5 AS LONG) | MAP
         (_.__T3$COL1 AS c.1, _.__T3$COL3 AS c.2)
     task_count: 387
-    task_total_time_ms: 23
-    transform_count: 91
-    transform_time_ms: 5
+    task_total_time_ms: 16
+    transform_count: 94
+    transform_time_ms: 4
     transform_yield_count: 28
     insert_time_ms: 0
     insert_new_count: 47

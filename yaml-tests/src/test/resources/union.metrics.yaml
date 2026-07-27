@@ -26,9 +26,9 @@ union-tests:
         AS LONG)) AS _0) | MAP (_ AS _0) | AGG (sum_l(_._0.Y) AS _0) GROUP BY () |
         ON EMPTY NULL | MAP (_._0._0 AS S)'
     task_count: 820
-    task_total_time_ms: 41
-    transform_count: 207
-    transform_time_ms: 17
+    task_total_time_ms: 48
+    transform_count: 208
+    transform_time_ms: 18
     transform_yield_count: 55
     insert_time_ms: 0
     insert_new_count: 65
@@ -43,9 +43,9 @@ union-tests:
         AS LONG)) AS _0) | MAP (_ AS _0) | AGG (sum_l(_._0.Y) AS _0) GROUP BY () |
         ON EMPTY NULL | MAP (_._0._0 AS S)'
     task_count: 932
-    task_total_time_ms: 66
-    transform_count: 211
-    transform_time_ms: 22
+    task_total_time_ms: 43
+    transform_count: 212
+    transform_time_ms: 14
     transform_yield_count: 65
     insert_time_ms: 1
     insert_new_count: 82
@@ -59,10 +59,10 @@ union-tests:
         promote(0l AS LONG)) AS _0) | MAP (_ AS _0) | AGG (sum_l(_._0.Y) AS _0) GROUP
         BY () | ON EMPTY NULL | MAP (_._0._0 AS S)'
     task_count: 904
-    task_total_time_ms: 60
-    transform_count: 219
-    transform_time_ms: 23
+    task_total_time_ms: 61
+    transform_count: 220
+    transform_time_ms: 26
     transform_yield_count: 62
-    insert_time_ms: 1
+    insert_time_ms: 2
     insert_new_count: 74
     insert_reused_count: 6

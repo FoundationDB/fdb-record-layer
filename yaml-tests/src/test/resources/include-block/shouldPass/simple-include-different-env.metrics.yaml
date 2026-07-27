@@ -5,9 +5,9 @@ transactions-tests:
     ref: simple-include-different-env.yamsql:30 > include-with-explain.yamsql:35
     explain: SCAN([IS T1])
     task_count: 189
-    task_total_time_ms: 31
-    transform_count: 53
-    transform_time_ms: 23
+    task_total_time_ms: 23
+    transform_count: 54
+    transform_time_ms: 11
     transform_yield_count: 21
     insert_time_ms: 0
     insert_new_count: 14
@@ -19,9 +19,9 @@ transactions-tests:
     ref: simple-include-different-env.yamsql:30 > include-with-explain.yamsql:45
     explain: SCAN([IS T1, [LESS_THAN promote(@cT218 AS LONG)]])
     task_count: 213
-    task_total_time_ms: 33
-    transform_count: 56
-    transform_time_ms: 18
+    task_total_time_ms: 26
+    transform_count: 57
+    transform_time_ms: 12
     transform_yield_count: 23
     insert_time_ms: 0
     insert_new_count: 17

@@ -83,7 +83,7 @@ digraph G {
 }©
 s
 orderby-testsbEXPLAIN select (T.*) from (select q as "nested", q.a as "ordered" from t2) as T order by "ordered"±
-Ó·¨ß: ∂ò©(0¡Å'8@<ISCAN(I4 <,>) | MAP ((_.Q AS nested, _.Q.A AS ordered) AS T)’
+Ó´¯ﬂ; Ù«À(0èû8@<ISCAN(I4 <,>) | MAP ((_.Q AS nested, _.Q.A AS ordered) AS T)’
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -96,7 +96,7 @@ digraph G {
 }ê
 E
 orderby-tests4EXPLAIN select (*) from t2_func() order by "ordered"∆
-Ó‘Íí: £≥¡(0∞∞"8@CISCAN(I4 <,>) | MAP ((_.Q AS nesting, _.Q.A AS ordered) AS T2_FUNC)„
+Ó£æﬂ; µ’ﬂ(0áæ98@CISCAN(I4 <,>) | MAP ((_.Q AS nesting, _.Q.A AS ordered) AS T2_FUNC)„
 digraph G {
   fontname=courier;
   rankdir=BT;

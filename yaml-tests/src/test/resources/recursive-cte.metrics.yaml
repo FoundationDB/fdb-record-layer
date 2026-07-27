@@ -371,9 +371,9 @@ recursive-cte-tests-with-hints:
         (_.ID AS ID, _.PARENT AS PARENT, q0.LEVEL + @c80 AS LEVEL) } | MAP (_.ID AS
         ID, _.PARENT AS PARENT, _.LEVEL AS LEVEL)'
     task_count: 1416
-    task_total_time_ms: 67
-    transform_count: 305
-    transform_time_ms: 16
+    task_total_time_ms: 144
+    transform_count: 306
+    transform_time_ms: 25
     transform_yield_count: 69
     insert_time_ms: 2
     insert_new_count: 155

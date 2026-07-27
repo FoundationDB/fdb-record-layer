@@ -67,11 +67,11 @@ join-tests:
         FILTER q1.EMP_ID EQUALS _.ID | MAP (1 AS _0) AS q2 RETURN q1 } AS q1 RETURN
         (q0.NAME AS _0, q1.NAME AS _1) }'
     task_count: 3611
-    task_total_time_ms: 531
-    transform_count: 982
-    transform_time_ms: 174
+    task_total_time_ms: 463
+    transform_count: 983
+    transform_time_ms: 146
     transform_yield_count: 210
-    insert_time_ms: 22
+    insert_time_ms: 21
     insert_new_count: 481
     insert_reused_count: 31
 -   query: EXPLAIN select (*) from (select dept.name, project.name from emp, dept,
@@ -82,11 +82,11 @@ join-tests:
         FILTER q1.EMP_ID EQUALS _.ID | MAP (1 AS _0) AS q2 RETURN q1 } AS q1 RETURN
         ((q0.NAME AS _0, q1.NAME AS _1) AS X) }'
     task_count: 3611
-    task_total_time_ms: 490
-    transform_count: 982
-    transform_time_ms: 149
+    task_total_time_ms: 437
+    transform_count: 983
+    transform_time_ms: 135
     transform_yield_count: 210
-    insert_time_ms: 19
+    insert_time_ms: 17
     insert_new_count: 481
     insert_reused_count: 31
 -   query: EXPLAIN select dept.name, project.name from project inner join emp on emp.id
@@ -436,11 +436,11 @@ three-way-joins-right-deep-planner:
         FLATMAP q1 -> { SCAN([IS PROJECT]) | FILTER _.EMP_ID EQUALS q1.ID AS q2 RETURN
         q2 } AS q2 RETURN (q0.NAME AS _0, q2.NAME AS _1) }
     task_count: 2442
-    task_total_time_ms: 304
-    transform_count: 608
-    transform_time_ms: 93
+    task_total_time_ms: 274
+    transform_count: 609
+    transform_time_ms: 94
     transform_yield_count: 159
-    insert_time_ms: 9
+    insert_time_ms: 7
     insert_new_count: 327
     insert_reused_count: 21
 -   query: EXPLAIN select (*) from (select dept.name, project.name from emp, dept,
@@ -450,11 +450,11 @@ three-way-joins-right-deep-planner:
         FLATMAP q1 -> { SCAN([IS PROJECT]) | FILTER _.EMP_ID EQUALS q1.ID AS q2 RETURN
         q2 } AS q2 RETURN ((q0.NAME AS _0, q2.NAME AS _1) AS X) }
     task_count: 2442
-    task_total_time_ms: 305
-    transform_count: 608
-    transform_time_ms: 90
+    task_total_time_ms: 263
+    transform_count: 609
+    transform_time_ms: 85
     transform_yield_count: 159
-    insert_time_ms: 10
+    insert_time_ms: 7
     insert_new_count: 327
     insert_reused_count: 21
 -   query: EXPLAIN select dept.name, project.name from project inner join emp on emp.id

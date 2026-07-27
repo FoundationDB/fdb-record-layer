@@ -6,9 +6,9 @@ transactions-tests:
     ref: include-prioritize-local-uri.yamsql:32 > include-scoped.yamsql:38
     explain: SCAN([IS T2])
     task_count: 177
-    task_total_time_ms: 23
-    transform_count: 47
-    transform_time_ms: 12
+    task_total_time_ms: 22
+    transform_count: 48
+    transform_time_ms: 9
     transform_yield_count: 15
     insert_time_ms: 1
     insert_new_count: 14
@@ -20,8 +20,8 @@ transactions-tests:
     ref: include-prioritize-local-uri.yamsql:32 > include-scoped.yamsql:48
     explain: SCAN([IS T2, [LESS_THAN promote(@cT2_FUNC18 AS LONG)]])
     task_count: 201
-    task_total_time_ms: 30
-    transform_count: 50
+    task_total_time_ms: 28
+    transform_count: 51
     transform_time_ms: 11
     transform_yield_count: 17
     insert_time_ms: 0

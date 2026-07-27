@@ -167,9 +167,9 @@ unnamed-1:
         AS LONG)) AS _0) | MAP (_ AS _0) | AGG (sum_l(_._0.Y) AS _0) GROUP BY () |
         ON EMPTY NULL | MAP (_._0._0 AS S)'
     task_count: 820
-    task_total_time_ms: 57
-    transform_count: 207
-    transform_time_ms: 25
+    task_total_time_ms: 63
+    transform_count: 208
+    transform_time_ms: 26
     transform_yield_count: 55
     insert_time_ms: 1
     insert_new_count: 65
@@ -184,9 +184,9 @@ unnamed-1:
         AS LONG)) AS _0) | MAP (_ AS _0) | AGG (sum_l(_._0.Y) AS _0) GROUP BY () |
         ON EMPTY NULL | MAP (_._0._0 AS S)'
     task_count: 845
-    task_total_time_ms: 59
-    transform_count: 196
-    transform_time_ms: 19
+    task_total_time_ms: 33
+    transform_count: 197
+    transform_time_ms: 13
     transform_yield_count: 54
     insert_time_ms: 1
     insert_new_count: 70
@@ -199,9 +199,9 @@ unnamed-1:
         | MAP (_.B AS B) | DEFAULT NULL | FILTER _ NOT_NULL AS q1 RETURN (q0.COL2
         AS COL2) }
     task_count: 757
-    task_total_time_ms: 54
-    transform_count: 206
-    transform_time_ms: 18
+    task_total_time_ms: 34
+    transform_count: 208
+    transform_time_ms: 13
     transform_yield_count: 61
     insert_time_ms: 1
     insert_new_count: 67

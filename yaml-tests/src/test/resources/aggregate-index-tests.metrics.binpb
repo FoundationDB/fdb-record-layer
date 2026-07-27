@@ -300,7 +300,7 @@ u
 }π
 ñ
 agg-index-testsÇEXPLAIN select t.* from (select col3, max(col2) as m from t2 where col1 = 1 group by col1, col3) as t where m < 2 order by m desc;ù
-“ˇßï&ä Ñ´·(F0πü'8@©AISCAN(MV9 [EQUALS promote(@c20 AS LONG), [LESS_THAN promote(@c32 AS LONG)]] BY_GROUP REVERSE -> [_0: KEY:[0], _1: KEY:[2], _2: KEY:[1]]) | MAP (_._1 AS COL3, _._2 AS M)“digraph G {
+Èı≠º%è «ü˜(G0óÿ&8 @©AISCAN(MV9 [EQUALS promote(@c20 AS LONG), [LESS_THAN promote(@c32 AS LONG)]] BY_GROUP REVERSE -> [_0: KEY:[0], _1: KEY:[2], _2: KEY:[1]]) | MAP (_._1 AS COL3, _._2 AS M)“digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -312,7 +312,7 @@ u
 }Í
 ç
 agg-index-testszEXPLAIN select col3, m from (select col3, max(col2) as m from t2 where col1 = 1 group by col1, col3) as t order by m desc;◊
-≈∆°˜(à ºÔ¸(F0°”&8@ÜAISCAN(MV9 [EQUALS promote(@c20 AS LONG)] BY_GROUP REVERSE -> [_0: KEY:[0], _1: KEY:[2], _2: KEY:[1]]) | MAP (_._1 AS COL3, _._2 AS M)Ødigraph G {
+≈å›Í(â öÄ(F0„Ñ"8@ÜAISCAN(MV9 [EQUALS promote(@c20 AS LONG)] BY_GROUP REVERSE -> [_0: KEY:[0], _1: KEY:[2], _2: KEY:[1]]) | MAP (_._1 AS COL3, _._2 AS M)Ødigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -1221,7 +1221,7 @@ t
 }∞
 …
 agg-index-tests-t6-tvf_EXPLAIN select a, ek.k, b, max(d) from "t6v", (select k from "t6v".c) as ek group by a, ek.k, bNcreate temporary function "t6v" () on commit drop function AS SELECT * FROM t6·
-©˙Ìæ&z «Ë(%0∑»,8"@ÖAISCAN(MV20 <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[2]]) | MAP (_._0 AS A, _._1 AS K, _._2 AS B, _._3 AS _3)ªdigraph G {
+©çÎó+{ ÉçÖ(%0Ù∏&8"@ÖAISCAN(MV20 <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[2]]) | MAP (_._0 AS A, _._1 AS K, _._2 AS B, _._3 AS _3)ªdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -1233,7 +1233,7 @@ t
 }»
 œ
 agg-index-tests-t6-tvfYEXPLAIN select ek.k, b, max(d) from "t6v", (select k from "t6v".c) as ek group by ek.k, bZcreate temporary function "t6v" () on commit drop function AS SELECT * FROM t6 WHERE a = 1Û
-ﬂ¬ßø*ò ñ®ù((0™†-8$@òAISCAN(MV20 [EQUALS promote(@ct6v18 AS LONG)] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[2]]) | MAP (_._1 AS K, _._2 AS B, _._3 AS _2)πdigraph G {
+ﬂ÷⁄Å-ô √é„((0◊´$8$@òAISCAN(MV20 [EQUALS promote(@ct6v18 AS LONG)] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[2]]) | MAP (_._1 AS K, _._2 AS B, _._3 AS _2)πdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -1245,7 +1245,7 @@ t
 }»
 œ
 agg-index-tests-t6-tvfYEXPLAIN select ek.k, b, max(d) from "t6v", (select k from "t6v".c) as ek group by ek.k, bZcreate temporary function "t6v" () on commit drop function AS SELECT * FROM t6 WHERE a = 2Û
-ﬂ¬ßø*ò ñ®ù((0™†-8$@òAISCAN(MV20 [EQUALS promote(@ct6v18 AS LONG)] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[2]]) | MAP (_._1 AS K, _._2 AS B, _._3 AS _2)πdigraph G {
+ﬂ÷⁄Å-ô √é„((0◊´$8$@òAISCAN(MV20 [EQUALS promote(@ct6v18 AS LONG)] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[2]]) | MAP (_._1 AS K, _._2 AS B, _._3 AS _2)πdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -1257,7 +1257,7 @@ t
 }ñ
 ›
 agg-index-tests-t6-tvfgEXPLAIN select ek.k, b, max(d) from "t6v", (select k from "t6v".c where k = 'q') as ek group by ek.k, bZcreate temporary function "t6v" () on commit drop function AS SELECT * FROM t6 WHERE a = 2≥
-üÔå”.∞ – ˙(-0Ö§98+@∏AISCAN(MV20 [EQUALS promote(@ct6v18 AS LONG), EQUALS promote(@c24 AS STRING)] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[2]]) | MAP (_._1 AS K, _._2 AS B, _._3 AS _2)Ÿdigraph G {
+üŒ˙ê2± ©‰Ê(-0©–58+@∏AISCAN(MV20 [EQUALS promote(@ct6v18 AS LONG), EQUALS promote(@c24 AS STRING)] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[2]]) | MAP (_._1 AS K, _._2 AS B, _._3 AS _2)Ÿdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -1269,7 +1269,7 @@ t
 }≤
 ‰
 agg-index-tests-t6-tvfnEXPLAIN select ek.k, b, max(d) from "t6v", (select k from "t6v".c) as ek group by ek.k, b having max(d) >= 150Zcreate temporary function "t6v" () on commit drop function AS SELECT * FROM t6 WHERE a = 1»
-ÇÙÚ»,û ’Ï’()0Ô…88(@”AISCAN(MV20 [EQUALS promote(@ct6v18 AS LONG)] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[2]]) | FILTER _._3 GREATER_THAN_OR_EQUALS promote(@c38 AS LONG) | MAP (_._1 AS K, _._2 AS B, _._3 AS _2)”digraph G {
+ÇòÀÂ2ü Â©˚()0πÍ38(@”AISCAN(MV20 [EQUALS promote(@ct6v18 AS LONG)] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[2]]) | FILTER _._3 GREATER_THAN_OR_EQUALS promote(@c38 AS LONG) | MAP (_._1 AS K, _._2 AS B, _._3 AS _2)”digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -1283,7 +1283,7 @@ t
 }†
 ¯
 agg-index-tests-t6-tvfÅEXPLAIN select a, ek.k, b, max(d) from "t6v", (select k from "t6v".c where k = 'q') as ek group by a, ek.k, b having max(d) > 100Zcreate temporary function "t6v" () on commit drop function AS SELECT * FROM t6 WHERE a = 2¢
-¨ç—ª,≤ Ïüı(-0¯úF8,@ÈAISCAN(MV20 [EQUALS promote(@ct6v18 AS LONG), EQUALS promote(@c26 AS STRING), [GREATER_THAN promote(@c45 AS LONG)]] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[2]]) | MAP (_._0 AS A, _._1 AS K, _._2 AS B, _._3 AS _3)ódigraph G {
+¨¸Ä“,≥ π≤©(-0ÑâB8,@ÈAISCAN(MV20 [EQUALS promote(@ct6v18 AS LONG), EQUALS promote(@c26 AS STRING), [GREATER_THAN promote(@c45 AS LONG)]] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[2]]) | MAP (_._0 AS A, _._1 AS K, _._2 AS B, _._3 AS _3)ódigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;

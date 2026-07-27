@@ -178,7 +178,7 @@ y
 }¨
 b
 standard-testsPEXPLAIN select * from (select * from (select * from T1) as x where ID = 5) as y;Á
-”²§ÊV ›°Ý("0ÛÙÔ8*@+SCAN([IS T1, EQUALS promote(@c18 AS LONG)])õdigraph G {
+«ÂÚ \ Üû¼(#0Ñ …8-@+SCAN([IS T1, EQUALS promote(@c18 AS LONG)])õdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -188,7 +188,8 @@ b
 }¨
 b
 standard-testsPEXPLAIN select * from (select * from (select * from T1) as x) as y where ID = 5;Á
-”ÍÍê V áúù("0Ç¡­8*@+SCAN([IS T1, EQUALS promote(@c21 AS LONG)])õdigraph G {
+«–ÑÈ\ –Ì±
+(#0“ê‘8-@+SCAN([IS T1, EQUALS promote(@c21 AS LONG)])õdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -198,7 +199,7 @@ b
 }
 
 standard-testsmEXPLAIN select count(*) from (select * from (select * from (select * from T1  where ID = 5) as x) as y) as z;ý
-’÷Àï( êÓÒ	()0åÇÉ8B@­SCAN([IS T1, EQUALS promote(@c22 AS LONG)]) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)­digraph G {
+’ˆÍ–& œÈ¹()0¦õØ8B@­SCAN([IS T1, EQUALS promote(@c22 AS LONG)]) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)­digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -213,11 +214,10 @@ b
   5 -> 4 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   6 -> 5 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q12> label="q12" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}Ï
+}Î
 y
-standard-testsgEXPLAIN select * from (select * from (select * from (select * from T1  where ID > 10) as x) as y) as z;Ñ
-°™¢Ã[ ÔŠ©
-($0›´©8.@3SCAN([IS T1, [GREATER_THAN promote(@c19 AS LONG)]])ýdigraph G {
+standard-testsgEXPLAIN select * from (select * from (select * from (select * from T1  where ID > 10) as x) as y) as z;Ð
+° åá^ šû…($0åöt8.@3SCAN([IS T1, [GREATER_THAN promote(@c19 AS LONG)]])ýdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;

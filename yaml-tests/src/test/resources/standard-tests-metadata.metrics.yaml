@@ -6,9 +6,9 @@ standard-tests-metadata:
         (count_star(*) AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0,
         promote(0l AS LONG)) AS _0)
     task_count: 436
-    task_total_time_ms: 31
-    transform_count: 95
-    transform_time_ms: 3
+    task_total_time_ms: 18
+    transform_count: 98
+    transform_time_ms: 2
     transform_yield_count: 25
     insert_time_ms: 0
     insert_new_count: 41

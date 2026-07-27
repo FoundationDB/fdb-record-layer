@@ -6,11 +6,11 @@ transactions-tests:
     ref: include-scoped.yamsql:38
     explain: SCAN([IS T2])
     task_count: 177
-    task_total_time_ms: 222
-    transform_count: 47
-    transform_time_ms: 162
+    task_total_time_ms: 144
+    transform_count: 48
+    transform_time_ms: 105
     transform_yield_count: 15
-    insert_time_ms: 14
+    insert_time_ms: 9
     insert_new_count: 14
     insert_reused_count: 2
 -   query: EXPLAIN select * from t2_func
@@ -20,10 +20,10 @@ transactions-tests:
     ref: include-scoped.yamsql:48
     explain: SCAN([IS T2, [LESS_THAN promote(@cT2_FUNC18 AS LONG)]])
     task_count: 201
-    task_total_time_ms: 167
-    transform_count: 50
-    transform_time_ms: 130
+    task_total_time_ms: 124
+    transform_count: 51
+    transform_time_ms: 91
     transform_yield_count: 17
-    insert_time_ms: 3
+    insert_time_ms: 2
     insert_new_count: 17
     insert_reused_count: 1
