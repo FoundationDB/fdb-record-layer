@@ -24,7 +24,6 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactory;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
-import com.apple.foundationdb.test.FDBTestEnvironment;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
@@ -32,7 +31,7 @@ import com.apple.foundationdb.relational.api.metadata.Schema;
 import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.RecordContextTransaction;
 import com.apple.foundationdb.relational.recordlayer.RelationalKeyspaceProvider;
-
+import com.apple.foundationdb.test.FDBTestEnvironment;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -56,7 +55,7 @@ public class RecordLayerStoreCatalogWithNoTemplateOperationsTest extends RecordL
     void deleteAllRecords() throws RelationalException {
         try (Transaction txn = new RecordContextTransaction(fdb.openContext())) {
             final KeySpacePath keySpacePath = RelationalKeyspaceProvider.instance().toDatabasePath(URI.create("/__SYS")).schemaPath("CATALOG");
-            FDBRecordStore.deleteStore(txn.unwrap(FDBRecordContext.class), keySpacePath);
+            FDBRecordStore.deleteStoreAsync(txn.unwrap(FDBRecordContext.class), keySpacePath).join();
             txn.commit();
         }
     }

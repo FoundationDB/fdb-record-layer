@@ -1806,21 +1806,25 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     }
 
     /**
-     * Delete the record store at the given {@link KeySpacePath}. This behaves like
+     * Delete the record store at the given {@link KeySpacePath}; <em>deprecated</em>, use
+     * {@link #deleteStoreAsync(FDBRecordContext, KeySpacePath)} instead.
+     * This behaves like
      * {@link #deleteStore(FDBRecordContext, Subspace)} on the record store saved
      * at {@link KeySpacePath#toSubspace(FDBRecordContext)}.
+     * This is a blocking call that calls {@link FDBRecordContext#asyncToSync}.
      *
      * @param context the transactional context in which to delete the record store
      * @param path the path to the record store
-     * @see #deleteStore(FDBRecordContext, Subspace)
      */
+    @API(API.Status.DEPRECATED)
     public static void deleteStore(FDBRecordContext context, KeySpacePath path) {
         final Subspace subspace = path.toSubspace(context);
         deleteStore(context, subspace);
     }
 
     /**
-     * Delete the record store at the given {@link Subspace}. In addition to the store's
+     * Delete the record store at the given {@link Subspace}; <em>deprecated</em>, use
+     * {@link #deleteStoreAsync(FDBRecordContext, Subspace)} instead. In addition to the store's
      * data this will delete the store's header and therefore will remove any evidence that
      * the store existed.
      *
@@ -1836,13 +1840,75 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * @param context the transactional context in which to delete the record store
      * @param subspace the subspace containing the record store
      */
+    @API(API.Status.DEPRECATED)
     @SuppressWarnings("PMD.CloseResource")
     public static void deleteStore(FDBRecordContext context, Subspace subspace) {
         // In theory, we only need to set the meta-data version stamp if the record store's
-        // meta-data is cacheable, but we can't know that from here.
+        // meta-data is cacheable, deleteStoreAsync checks that
         context.setMetaDataVersionStamp();
         context.setDirtyStoreState(true);
         context.clear(subspace.range());
+    }
+
+
+    /**
+     * Delete the record store at the given {@link KeySpacePath}. This behaves like
+     * {@link #deleteStoreAsync(FDBRecordContext, Subspace)} on the record store saved
+     * at {@link KeySpacePath#toSubspaceAsync(FDBRecordContext)}.
+     *
+     * @param context the transactional context in which to delete the record store
+     * @param path the path to the record store
+     * @return A future that will be completed once the store is deleted
+     * @see #deleteStoreAsync(FDBRecordContext, Subspace)
+     */
+    public static CompletableFuture<Void> deleteStoreAsync(FDBRecordContext context, KeySpacePath path) {
+        return path.toSubspaceAsync(context).thenCompose(subspace -> deleteStoreAsync(context, subspace));
+    }
+
+    /**
+     * Delete the record store at the given {@link Subspace}. In addition to the store's
+     * data this will delete the store's header and therefore will remove any evidence that
+     * the store existed.
+     *
+     * <p>
+     * This method reads only the record store's header key (see {@link #STORE_INFO_KEY}) in
+     * order to decide whether it needs to invalidate cached state. If a header is present and
+     * marks the store as {@linkplain #setStateCacheability(boolean) cacheable}, the database's
+     * {@linkplain FDBRecordContext#getMetaDataVersionStamp(IsolationLevel) meta-data
+     * version-stamp} is reset so that other clients drop their cached copies; if the header is
+     * missing (store doesn't exist) or marks the store as non-cacheable, the version-stamp is
+     * not touched. This means callers who only ever operate on non-cacheable stores do not
+     * contend on the single meta-data version-stamp key.
+     * </p>
+     *
+     * @param context the transactional context in which to delete the record store
+     * @param subspace the subspace containing the record store
+     * @return A future that will be completed once the store is deleted
+     */
+    @SuppressWarnings("PMD.CloseResource")
+    public static CompletableFuture<Void> deleteStoreAsync(FDBRecordContext context, Subspace subspace) {
+        final byte[] headerKey = subspace.pack(STORE_INFO_KEY);
+        return context.readTransaction(false).get(headerKey).thenAccept(headerBytes -> {
+            boolean shouldBump;
+            if (headerBytes == null) {
+                // Header absent: no cached state exists to invalidate — no bump needed.
+                shouldBump = false;
+            } else {
+                try {
+                    // If the header says it is not cacheable, we don't need to bump the MetaDataVersion.
+                    // If the header says it is cacheable, we need to bump the MetaDataVersion.
+                    shouldBump = RecordMetaDataProto.DataStoreInfo.parseFrom(headerBytes).getCacheable();
+                } catch (InvalidProtocolBufferException e) {
+                    // If we can't parse the header, fall back to the conservative behavior and bump.
+                    shouldBump = true;
+                }
+            }
+            if (shouldBump) {
+                context.setMetaDataVersionStamp();
+            }
+            context.setDirtyStoreState(true);
+            context.clear(subspace.range());
+        });
     }
 
     @Override

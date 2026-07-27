@@ -586,7 +586,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
             commit(context);
         }
         try (FDBRecordContext context = openContext()) {
-            FDBRecordStore.deleteStore(context, recordStore.getSubspace());
+            FDBRecordStore.deleteStoreAsync(context, recordStore.getSubspace()).join();
             commit(context);
         }
         try (FDBRecordContext context = openContext()) {
@@ -864,7 +864,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
             commit(context);
         }
         try (FDBRecordContext context = openContext()) {
-            FDBRecordStore.deleteStore(context, recordStore.getSubspace());
+            FDBRecordStore.deleteStoreAsync(context, recordStore.getSubspace()).join();
             commit(context);
         }
         // Then, repeated key comes *after* text.
