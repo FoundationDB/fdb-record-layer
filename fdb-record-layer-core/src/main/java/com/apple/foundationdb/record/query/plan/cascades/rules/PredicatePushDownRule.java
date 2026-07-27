@@ -64,7 +64,6 @@ import java.util.Set;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ExpressionsPartitionMatchers.expressionPartitions;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ExpressionsPartitionMatchers.expressions;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ExpressionsPartitionMatchers.filterPartition;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ExpressionsPartitionMatchers.rollUpPartitionsTo;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ListMatcher.only;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.MultiMatcher.atLeastOne;
@@ -197,9 +196,7 @@ public class PredicatePushDownRule extends AbstractCascadesRule<SelectExpression
 
     @Nonnull
     private static final BindingMatcher<Reference> childReferenceMatcher =
-            expressionPartitions(filterPartition(partition -> !partition.getPartitionPropertyValue(SelectMergeableProperty.selectMergeable()),
-                    rollUpPartitionsTo(only(childPartitionsMatcher), SelectMergeableProperty.selectMergeable())));
-
+            expressionPartitions(rollUpPartitionsTo(only(childPartitionsMatcher), SelectMergeableProperty.selectMergeable()));
 
     @Nonnull
     private static final CollectionMatcher<Quantifier.ForEach> quantifiersMatcher =
