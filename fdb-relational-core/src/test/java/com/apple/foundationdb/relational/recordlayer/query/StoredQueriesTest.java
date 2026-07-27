@@ -115,6 +115,12 @@ public class StoredQueriesTest {
             "CREATE TABLE t1(id bigint, col1 bigint, col2 bigint, PRIMARY KEY(id))" +
                     " CREATE STORED QUERY by_col1(bigint > 5) AS select * from t1 where col1 > ?";
 
+    /** A sparse (filtered) index plus a stored query whose declared range is enclosed by the index predicate. */
+    private static final String SCHEMA_TEMPLATE_SPARSE_PARAM =
+            "CREATE TABLE t1(id bigint, col1 bigint, col2 bigint, PRIMARY KEY(id))" +
+                    " CREATE INDEX i1 AS SELECT col1 FROM t1 WHERE col1 > 42" +
+                    " CREATE STORED QUERY hot(bigint > 50) AS select col1 from t1 where col1 > ?";
+
     /** Every signature form (type only, open bound, two bounds, BETWEEN, IN) plus a multi-parameter signature. */
     private static final String SCHEMA_TEMPLATE_PARAM_SIG_FORMS =
             "CREATE TABLE t1(id bigint, col1 bigint, col2 bigint, PRIMARY KEY(id))" +
@@ -773,4 +779,64 @@ public class StoredQueriesTest {
         Assertions.assertNull(StoredQuerySignatureParser.parse("(bigint)").get(1).getRange());
     }
 
+    @Test
+    void storedQueriesDeclaredParamRangeSelectsFilteredIndex() throws Exception {
+        final String dbUri = "/TEST/SQ_PARAM_SPARSE";
+        try (var ddl = Ddl.builder()
+                .database(URI.create(dbUri))
+                .relationalExtension(relationalExtension)
+                .schemaTemplate(SCHEMA_TEMPLATE_SPARSE_PARAM)
+                .build()) {
+            final var connection = ddl.setSchemaAndGetConnection();
+            final String templateName = ddl.getSchemaTemplateName();
+            final String schemaName = connection.getSchema();
+
+            try (var stmt = connection.createStatement()) {
+                stmt.execute("INSERT INTO T1 VALUES (1, 10, 1)");
+                stmt.execute("INSERT INTO T1 VALUES (2, 50, 2)");
+                stmt.execute("INSERT INTO T1 VALUES (3, 100, 3)");
+                stmt.execute("INSERT INTO T1 VALUES (4, 200, 4)");
+            }
+
+            // fresh engine triggers OfflineStoredQueriesProcessor
+            final var engineDriver = relationalExtension.getDriver(
+                    com.apple.foundationdb.record.provider.foundationdb.FormatVersion.getDefaultFormatVersion());
+            final var connectionUtils = new ConnectionUtils(engineDriver);
+
+            // The declared range (> 50) seeds the representative value 50, so the value-free plan selects the sparse
+            // index i1 (col1 > 42), which encloses (50, +inf). Warmup: 1 miss, 1 cached plan.
+            Assertions.assertEquals(1, eventCounterCount(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_MISS));
+            Assertions.assertEquals(Long.valueOf(1), connectionUtils.getFromCatalog(c -> countCachedPlans(c, templateName)));
+
+            // A value inside the index coverage hits the warmed filtered-index plan.
+            connectionUtils.runAgainstConnection(dbUri, schemaName, c -> {
+                try (var stmt = c.createStatement(); RelationalResultSet rs = stmt.executeQuery("select col1 from t1 where col1 > 60L")) {
+                    Assertions.assertTrue(rs.next());
+                    Assertions.assertEquals(100, rs.getLong("COL1"));
+                    Assertions.assertTrue(rs.next());
+                    Assertions.assertEquals(200, rs.getLong("COL1"));
+                    Assertions.assertFalse(rs.next());
+                }
+            });
+            Assertions.assertEquals(1, eventCounterCount(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_HIT));
+            Assertions.assertEquals(1, eventCounterCount(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_MISS));
+
+            // A value below the index bound (42) cannot be served by the filtered-index plan: its constraint (col1 > 42)
+            // rejects it, so it misses and re-plans. This is what proves the warmed plan is the filtered index — a
+            // full-scan warmup would carry only an IS_NOT_NULL/OfType constraint and would HIT here instead.
+            connectionUtils.runAgainstConnection(dbUri, schemaName, c -> {
+                try (var stmt = c.createStatement(); RelationalResultSet rs = stmt.executeQuery("select col1 from t1 where col1 > 30L")) {
+                    Assertions.assertTrue(rs.next());
+                    Assertions.assertEquals(50, rs.getLong("COL1"));
+                    Assertions.assertTrue(rs.next());
+                    Assertions.assertEquals(100, rs.getLong("COL1"));
+                    Assertions.assertTrue(rs.next());
+                    Assertions.assertEquals(200, rs.getLong("COL1"));
+                    Assertions.assertFalse(rs.next());
+                }
+            });
+            Assertions.assertEquals(1, eventCounterCount(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_HIT));
+            Assertions.assertEquals(2, eventCounterCount(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_MISS));
+        }
+    }
 }
