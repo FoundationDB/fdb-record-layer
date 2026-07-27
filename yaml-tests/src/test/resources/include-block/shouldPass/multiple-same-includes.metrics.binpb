@@ -1,7 +1,7 @@
 è
 {
 transactions-testsEXPLAIN select * from t2Kcreate temporary function t2() on commit drop function AS SELECT * FROM t1;è
-¦Î™è	0 í«ú(0÷â88@SCAN([IS T1])»digraph G {
+±™çÍ/ ïÕÙ(0ÉÃL8@SCAN([IS T1])»digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -11,7 +11,8 @@
 }Á
 ‰
 transactions-testsEXPLAIN select * from t2Ycreate temporary function t2() on commit drop function AS SELECT * FROM t1 where id < 50;²
-ºû°3 Æ»Ö(0Äó%8@2SCAN([IS T1, [LESS_THAN promote(@cT218 AS LONG)]])àdigraph G {
+É‚£“
+2 Î(0Â­!8@2SCAN([IS T1, [LESS_THAN promote(@cT218 AS LONG)]])àdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -21,11 +22,11 @@
 }í
 <
 transactions-tests&EXPLAIN select * from t1 where id < 50¬
- Ê…- ¡Ö“(0„ÿ8@/SCAN([IS T1, [LESS_THAN promote(@c8 AS LONG)]])Ýdigraph G {
+­Ð¤ø- ­¤˜(0ä8@/SCAN([IS T1, [LESS_THAN promote(@c7 AS LONG)]])Ýdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">comparisons: [IS T1, [LESS_THAN promote(@c8 AS LONG)]]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS COL1)" ];
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">comparisons: [IS T1, [LESS_THAN promote(@c7 AS LONG)]]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS COL1)" ];
   2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [T1]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS COL1)" ];
   2 -> 1 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
 }

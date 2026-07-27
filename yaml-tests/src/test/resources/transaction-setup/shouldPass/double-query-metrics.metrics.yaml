@@ -4,12 +4,12 @@ transactions-tests:
     - create temporary function t2() on commit drop function AS SELECT * FROM t1;
     ref: double-query-metrics.yamsql:37
     explain: SCAN([IS T1])
-    task_count: 166
-    task_total_time_ms: 242
-    transform_count: 48
-    transform_time_ms: 177
+    task_count: 177
+    task_total_time_ms: 228
+    transform_count: 47
+    transform_time_ms: 169
     transform_yield_count: 15
-    insert_time_ms: 13
+    insert_time_ms: 17
     insert_new_count: 14
     insert_reused_count: 2
 -   query: EXPLAIN select * from t2
@@ -18,11 +18,11 @@ transactions-tests:
         id < 50;
     ref: double-query-metrics.yamsql:47
     explain: SCAN([IS T1, [LESS_THAN promote(@cT218 AS LONG)]])
-    task_count: 186
-    task_total_time_ms: 188
-    transform_count: 51
-    transform_time_ms: 141
+    task_count: 201
+    task_total_time_ms: 182
+    transform_count: 50
+    transform_time_ms: 134
     transform_yield_count: 17
-    insert_time_ms: 3
+    insert_time_ms: 5
     insert_new_count: 17
     insert_reused_count: 1
