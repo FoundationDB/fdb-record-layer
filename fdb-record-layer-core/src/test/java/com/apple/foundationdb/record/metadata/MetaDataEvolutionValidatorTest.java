@@ -30,6 +30,7 @@ import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.TestRecords4Proto;
 import com.apple.foundationdb.record.TestRecordsEnumProto;
 import com.apple.foundationdb.record.TestRecordsIdenticalTypesProto;
+import com.apple.foundationdb.record.TestRecordsMultidimensionalProto;
 import com.apple.foundationdb.record.TestRecordsWithHeaderProto;
 import com.apple.foundationdb.record.evolution.TestHeaderAsGroupProto;
 import com.apple.foundationdb.record.evolution.TestMergedNestedTypesProto;
@@ -39,6 +40,7 @@ import com.apple.foundationdb.record.evolution.TestSelfReferenceUnspooledProto;
 import com.apple.foundationdb.record.evolution.TestSplitNestedTypesProto;
 import com.apple.foundationdb.record.evolution.TestUnmergedNestedTypesProto;
 import com.apple.foundationdb.record.expressions.RecordKeyExpressionProto;
+import com.apple.foundationdb.record.metadata.expressions.DimensionsKeyExpression;
 import com.apple.foundationdb.record.provider.common.text.AllSuffixesTextTokenizer;
 import com.apple.foundationdb.record.provider.common.text.DefaultTextTokenizer;
 import com.apple.foundationdb.record.provider.common.text.PrefixTextTokenizer;
@@ -46,6 +48,7 @@ import com.apple.foundationdb.record.provider.common.text.TextTokenizer;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerFactoryRegistryImpl;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.ParameterizedTestUtils;
+import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.DescriptorProtos;
 import com.google.protobuf.Descriptors;
@@ -64,6 +67,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 import java.util.function.Consumer;
 import java.util.function.UnaryOperator;
@@ -2142,12 +2146,20 @@ class MetaDataEvolutionValidatorTest {
         RecordMetaData metaData1 = RecordMetaData.build(TestRecords1Proto.getDescriptor());
         validateIndexMutation("index adds uniqueness constraint", metaData1, "MySimpleRecord$str_value_indexed", this::makeUnique);
 
-        // Removing the uniqueness constraint is fine
+        // If we ignore the unique option, then it succeeds
         RecordMetaData metaData2 = replaceIndex(metaData1, "MySimpleRecord$str_value_indexed", this::makeUnique);
+        final MetaDataEvolutionValidator laxerValidator = validator.asBuilder()
+                .setIgnoredIndexOptions(Set.of(IndexOptions.UNIQUE_OPTION))
+                .build();
+        laxerValidator.validate(metaData1, metaData2);
+
+        // Removing the uniqueness constraint is fine
         RecordMetaData metaData3 = replaceIndex(metaData2, "MySimpleRecord$str_value_indexed", this::clearOptions);
         validator.validate(metaData2, metaData3);
+        laxerValidator.validate(metaData2, metaData3);
         RecordMetaData metaData4 = replaceIndex(metaData2, "MySimpleRecord$str_value_indexed", indexProto -> changeOption(indexProto, IndexOptions.UNIQUE_OPTION, "false"));
         validator.validate(metaData2, metaData4);
+        laxerValidator.validate(metaData2, metaData4);
     }
 
     @Test
@@ -2204,8 +2216,16 @@ class MetaDataEvolutionValidatorTest {
         RecordMetaData metaData3 = replaceIndex(metaData2, "MySimpleRecord$str_value_indexed",
                 indexProto -> changeOption(indexProto, IndexOptions.UNIQUE_OPTION, null));
         validator.validate(metaData2, metaData3);
-        validateIndexMutation("index option changed", metaData3, "MySimpleRecord$str_value_indexed",
-                indexProto -> changeOption(indexProto, "dummyOption", "dummyValue2"));
+
+        final UnaryOperator<RecordMetaDataProto.Index> dummyOptionMutation = indexProto -> changeOption(indexProto, "dummyOption", "dummyValue2");
+        validateIndexMutation("index option changed", metaData3, "MySimpleRecord$str_value_indexed", dummyOptionMutation);
+
+        // Ignore the unknown option completely. Validation should now pass
+        final MetaDataEvolutionValidator laxerValidator = validator.asBuilder()
+                .setIgnoredIndexOptions(Set.of("dummyOption"))
+                .build();
+        final RecordMetaData metaData4 = replaceIndex(metaData3, "MySimpleRecord$str_value_indexed", dummyOptionMutation);
+        laxerValidator.validate(metaData3, metaData4);
     }
 
     @Test
@@ -2275,6 +2295,45 @@ class MetaDataEvolutionValidatorTest {
     }
 
     @Test
+    void ignoreSomeButNotAllDisallowedChanges() {
+        final String indexName = "MyMultidimensionalRecord$(start, end)+domain_by_calendar";
+        RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecordsMultidimensionalProto.getDescriptor());
+        RecordTypeBuilder typeBuilder = metaDataBuilder.getRecordType("MyMultidimensionalRecord");
+        typeBuilder.setPrimaryKey(Key.Expressions.field("rec_no"));
+        metaDataBuilder.addIndex(typeBuilder,
+                new Index(indexName,
+                        DimensionsKeyExpression.of(Key.Expressions.field("calendar_name"), Key.Expressions.concatenateFields("start_epoch", "end_epoch"), Key.Expressions.field("info").nest("rec_domain")),
+                        IndexTypes.MULTIDIMENSIONAL,
+                        Map.of(IndexOptions.RTREE_STORAGE, "BY_SLOT", IndexOptions.RTREE_USE_NODE_SLOT_INDEX, "false", IndexOptions.ALLOWED_FOR_QUERY_OPTION, "true")));
+        RecordMetaData metaData1 = metaDataBuilder.getRecordMetaData();
+
+        // Change three options. The two R-tree specific options are not allowed to change (unless we ignore them), while
+        // the "allowed for query" option can be arbitrarily modified.
+        // The error we get back should reflect that one of the two R-tree options changed, though it isn't strictly important which
+        RecordMetaData metaData2 = replaceIndex(metaData1, indexName, indexProto ->
+                changeOption(changeOption(changeOption(indexProto, IndexOptions.RTREE_STORAGE, "BY_NODE"), IndexOptions.RTREE_USE_NODE_SLOT_INDEX, "true"), IndexOptions.ALLOWED_FOR_QUERY_OPTION, "false"));
+        assertInvalid("rtree storage changed", metaData1, metaData2);
+
+        // Ignore one of the options. The error should reflect the change in the other option
+        MetaDataEvolutionValidator ignoreSlotIndexValidator = validator.asBuilder()
+                .setIgnoredIndexOptions(ImmutableSet.of(IndexOptions.RTREE_USE_NODE_SLOT_INDEX))
+                .build();
+        assertInvalid("rtree storage changed", ignoreSlotIndexValidator, metaData1, metaData2);
+
+        // Ignore the other option. The error should reflect the change in the first option now
+        MetaDataEvolutionValidator ignoreStorageValidator = validator.asBuilder()
+                .setIgnoredIndexOptions(ImmutableSet.of(IndexOptions.RTREE_STORAGE))
+                .build();
+        assertInvalid("rtree use node slot index changed", ignoreStorageValidator, metaData1, metaData2);
+
+        // Ignore both R-tree options. We should now validate.
+        MetaDataEvolutionValidator ignoreBothOptionsValidator = validator.asBuilder()
+                .setIgnoredIndexOptions(ImmutableSet.of(IndexOptions.RTREE_STORAGE, IndexOptions.RTREE_USE_NODE_SLOT_INDEX))
+                .build();
+        ignoreBothOptionsValidator.validate(metaData1, metaData2);
+    }
+
+    @Test
     void optionChangeAllowedWithCustomIndexValidatorRegistry() {
         RecordMetaData metaData1 = RecordMetaData.build(TestRecords1Proto.getDescriptor());
         RecordMetaData metaData2 = replaceIndex(metaData1, "MySimpleRecord$str_value_indexed", this::makeUnique);
@@ -2295,7 +2354,7 @@ class MetaDataEvolutionValidatorTest {
         }
 
         @Override
-        protected void validateChangedOptions(@Nonnull final Index oldIndex, @Nonnull final Set<String> changedOptions) {
+        public void validateChangedOptions(@Nonnull final Index oldIndex, @Nonnull final Set<String> changedOptions) {
             // Always say it's good to go
         }
     }
