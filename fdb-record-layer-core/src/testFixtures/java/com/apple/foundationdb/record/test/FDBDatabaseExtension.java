@@ -149,6 +149,12 @@ public class FDBDatabaseExtension implements AfterEachCallback {
             }
             setupBlockingInAsyncDetection(databaseFactory);
             databaseFactory.setExecutor(threadPoolExecutor);
+            // Override the per-factory scheduled executor so parallel tests don't fight over the
+            // JVM-wide single-thread ScheduledThreadPoolExecutor that MoreAsyncUtil installs by
+            // default. Under N-way JUnit parallelism the single-thread default falls behind and
+            // triggers spurious DeadlineExceededException from AsyncLoadingCache (most
+            // prominently FDBDatabase.resolverStateCache during KeySpacePath.toTuple cleanup).
+            databaseFactory.setScheduledExecutor(TestExecutors.defaultScheduledThreadPool());
         }
         return databaseFactory;
     }

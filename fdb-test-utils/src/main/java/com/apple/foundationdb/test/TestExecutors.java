@@ -23,6 +23,7 @@ package com.apple.foundationdb.test;
 import javax.annotation.Nonnull;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -32,6 +33,9 @@ import java.util.concurrent.atomic.AtomicInteger;
 public final class TestExecutors {
     @Nonnull
     private static final Executor DEFAULT_THREAD_POOL = newThreadPool("fdb-unit-test");
+    @Nonnull
+    private static final ScheduledExecutorService DEFAULT_SCHEDULED_THREAD_POOL =
+            newScheduledThreadPool("fdb-unit-test-scheduled");
 
     private TestExecutors() {
     }
@@ -64,5 +68,34 @@ public final class TestExecutors {
     @Nonnull
     public static Executor defaultThreadPool() {
         return DEFAULT_THREAD_POOL;
+    }
+
+    /**
+     * Create a new {@link ScheduledExecutorService} with at least four threads (or one per
+     * available CPU, whichever is larger). Test code that installs a scheduler on an
+     * {@code FDBDatabaseFactory} should use this rather than the single-thread scheduler
+     * {@code MoreAsyncUtil} installs by default — under JUnit-parallel execution the
+     * single-thread default falls behind, causing {@code DeadlineExceededException}s from
+     * {@code AsyncLoadingCache}.
+     *
+     * @param namePrefix prefix for thread names created by this pool
+     * @return a fresh scheduled executor sized for the current JVM
+     */
+    @Nonnull
+    private static ScheduledExecutorService newScheduledThreadPool(@Nonnull String namePrefix) {
+        return Executors.newScheduledThreadPool(
+                Math.max(Runtime.getRuntime().availableProcessors(), 4),
+                new TestThreadFactory(namePrefix));
+    }
+
+    /**
+     * JVM-wide singleton scheduled executor for test code. Many test extensions install this as the scheduled executor
+     * on their own {@code FDBDatabaseFactory}.
+     *
+     * @return the shared singleton scheduled executor
+     */
+    @Nonnull
+    public static ScheduledExecutorService defaultScheduledThreadPool() {
+        return DEFAULT_SCHEDULED_THREAD_POOL;
     }
 }

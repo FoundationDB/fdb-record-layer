@@ -25,8 +25,8 @@ import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
-import com.apple.foundationdb.record.expressions.RecordKeyExpressionProto;
 import com.apple.foundationdb.record.TestRecords1Proto;
+import com.apple.foundationdb.record.expressions.RecordKeyExpressionProto;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
@@ -1179,8 +1179,8 @@ public class FDBRecordStoreStateCacheTest extends FDBRecordStoreTestBase {
     public void useWithDifferentDatabase(FDBRecordStoreStateCacheFactory storeStateCacheFactory) throws Exception {
         final FDBDatabaseFactory factory = dbExtension.getDatabaseFactory();
         String clusterFile = FakeClusterFileUtil.createFakeClusterFile("record_store_cache_");
-        FDBDatabaseFactory.instance().setStoreStateCacheFactory(readVersionCacheFactory);
-        FDBDatabase secondDatabase = FDBDatabaseFactory.instance().getDatabase(clusterFile);
+        factory.setStoreStateCacheFactory(readVersionCacheFactory);
+        FDBDatabase secondDatabase = factory.getDatabase(clusterFile);
 
         // Using the cache with a context from the wrong database shouldn't work
         try (FDBRecordContext context = openContext()) {

@@ -23,7 +23,6 @@ package com.apple.foundationdb.relational.jdbc;
 import com.apple.foundationdb.record.provider.foundationdb.APIVersion;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactory;
-import com.apple.foundationdb.test.FDBTestEnvironment;
 import com.apple.foundationdb.relational.api.EmbeddedRelationalDriver;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.RelationalDriver;
@@ -37,7 +36,8 @@ import com.apple.foundationdb.relational.recordlayer.catalog.StoreCatalogProvide
 import com.apple.foundationdb.relational.recordlayer.ddl.RecordLayerMetadataOperationsFactory;
 import com.apple.foundationdb.relational.recordlayer.query.cache.RelationalPlanCache;
 import com.apple.foundationdb.relational.util.BuildVersion;
-
+import com.apple.foundationdb.test.FDBTestEnvironment;
+import com.apple.foundationdb.test.TestExecutors;
 import com.codahale.metrics.MetricRegistry;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
@@ -67,12 +67,14 @@ public class JDBCEmbedDriverTest {
     public static void beforeAll() throws SQLException, RelationalException {
         RelationalKeyspaceProvider.instance().registerDomainIfNotExists("FRL");
 
-        RecordLayerConfig rlCfg = RecordLayerConfig.getDefault();
         //here we are extending the StorageCluster so that we can track which internal Databases were
         // connected to and we can validate that they were all closed properly
 
         // This needs to be done prior to the first call to factory.getDatabase()
         FDBDatabaseFactory.instance().setAPIVersion(APIVersion.API_VERSION_7_1);
+        // Install a multi-thread scheduler so JUnit-parallel tests don't fight over
+        // MoreAsyncUtil's single-thread default (see #4333).
+        FDBDatabaseFactory.instance().setScheduledExecutor(TestExecutors.defaultScheduledThreadPool());
 
         final FDBDatabase database = FDBDatabaseFactory.instance().getDatabase(FDBTestEnvironment.randomClusterFile());
         StoreCatalog storeCatalog;
@@ -81,6 +83,7 @@ public class JDBCEmbedDriverTest {
             txn.commit();
         }
 
+        RecordLayerConfig rlCfg = RecordLayerConfig.getDefault();
         RecordLayerMetadataOperationsFactory ddlFactory = RecordLayerMetadataOperationsFactory.defaultFactory()
                 .setBaseKeySpace(RelationalKeyspaceProvider.instance().getKeySpace())
                 .setRlConfig(rlCfg)

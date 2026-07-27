@@ -24,6 +24,7 @@ import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactory;
 import com.apple.foundationdb.test.FDBTestEnvironment;
+import com.apple.foundationdb.test.TestExecutors;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.catalog.StoreCatalog;
@@ -54,6 +55,9 @@ class CatalogMetaDataProviderTest {
 
         //now create a RecordStore in that Catalog
         FDBDatabaseFactory factory = FDBDatabaseFactory.instance();
+        // Install a multi-thread scheduler so JUnit-parallel tests don't fight over
+        // MoreAsyncUtil's single-thread default (see #4333).
+        factory.setScheduledExecutor(TestExecutors.defaultScheduledThreadPool());
         FdbConnection fdbConn = new DirectFdbConnection(factory.getDatabase(FDBTestEnvironment.randomClusterFile()));
         StoreCatalog storeCatalog;
         try (Transaction txn = fdbConn.getTransactionManager().createTransaction(Options.NONE)) {

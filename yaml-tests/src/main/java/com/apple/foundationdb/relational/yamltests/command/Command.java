@@ -25,6 +25,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactory;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContextConfig;
 import com.apple.foundationdb.record.provider.foundationdb.FormatVersion;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
+import com.apple.foundationdb.test.TestExecutors;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.catalog.StoreCatalog;
@@ -131,6 +132,9 @@ public abstract class Command {
 
     private static void applyMetadataOperationDirectly(@Nonnull RecordLayerConfig rlConfig, @Nonnull ApplyState applyState,
                                                        @Nullable String clusterFile) throws RelationalException {
+        // Install a multi-thread scheduler so JUnit-parallel yaml-tests don't fight over
+        // MoreAsyncUtil's single-thread default (see #4333).
+        FDBDatabaseFactory.instance().setScheduledExecutor(TestExecutors.defaultScheduledThreadPool());
         final FDBDatabase fdbDb = FDBDatabaseFactory.instance().getDatabase(clusterFile);
         final RelationalKeyspaceProvider keyspaceProvider = RelationalKeyspaceProvider.instance();
         keyspaceProvider.registerDomainIfNotExists("FRL");
