@@ -1824,7 +1824,7 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
         }
 
         @Override
-        @NonNull
+        @Nonnull
         public <M extends Message> CompletableFuture<Void> updateWhileWriteOnly(@Nullable final FDBIndexableRecord<M> o, @Nullable final FDBIndexableRecord<M> n) {
             return update(o, n);
         }
