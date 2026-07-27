@@ -874,13 +874,13 @@ public class BaseVisitor extends RelationalParserBaseVisitor<Object> implements 
 
     @Nonnull
     @Override
-    public Object visitQueryOptions(@Nonnull RelationalParser.QueryOptionsContext ctx) {
+    public Object visitStatementOptions(@Nonnull RelationalParser.StatementOptionsContext ctx) {
         return visitChildren(ctx);
     }
 
     @Nonnull
     @Override
-    public Object visitQueryOption(@Nonnull RelationalParser.QueryOptionContext ctx) {
+    public Object visitStatementOption(@Nonnull RelationalParser.StatementOptionContext ctx) {
         return visitChildren(ctx);
     }
 
