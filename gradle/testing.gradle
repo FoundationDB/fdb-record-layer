@@ -102,7 +102,7 @@ static def getMixedModeVersion(descriptor) {
             break
         }
 
-        Matcher versionMatch = descriptor.displayName =~ /^MultiServer \((?:((?:\d+\.)+\d+) then JDBC In-Process|JDBC In-Process then ((?:\d+\.)+\d+))\)/
+        Matcher versionMatch = descriptor.displayName =~ /^MultiServer \((?:((?:\d+\.)+\d+|!current_version) then JDBC In-Process|JDBC In-Process then ((?:\d+\.)+\d+|!current_version))\)/
         if (versionMatch.size() != 0) {
             def version = versionMatch[0][1]
             if (version == null) {
