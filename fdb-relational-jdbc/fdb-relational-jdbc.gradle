@@ -57,7 +57,7 @@ def fdbEnvironmentYamlFile = new File("${rootProject.projectDir}/fdb-environment
 if (fdbEnvironmentYamlFile.exists()) {
     def firstClusterFile = new Yaml().loadAll(fdbEnvironmentYamlFile.newInputStream()).first().clusterFiles.first()
     allprojects {
-        tasks.withType(Test) { task ->
+        tasks.withType(Test).configureEach { task ->
             task.environment(FDB_CLUSTER_FILE: firstClusterFile)
         }
     }
@@ -77,10 +77,10 @@ build.dependsOn {
     shadowJar
 }
 
-createDistribution.configure {
-    afterEvaluate {
-        dependsOn shadowJar
-        from tasks.shadowJar
+afterEvaluate {
+    tasks.named('createDistribution').configure {
+        dependsOn tasks.named('shadowJar')
+        from tasks.named('shadowJar')
     }
 }
 

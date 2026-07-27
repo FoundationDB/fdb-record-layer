@@ -26,6 +26,7 @@ import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.EvaluationContext;
+import com.apple.foundationdb.record.IndexBuildProto;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.IsolationLevel;
@@ -59,6 +60,7 @@ import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.TupleHelpers;
 import com.google.common.base.Verify;
+import com.google.protobuf.Any;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
@@ -360,6 +362,11 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
         return delegate.isIdempotent();
     }
 
+    @Override
+    public boolean isPendingWriteQueueAllowed() {
+        return delegate.isPendingWriteQueueAllowed();
+    }
+
     @Nonnull
     @Override
     public <M extends Message> CompletableFuture<Void> update(@Nullable FDBIndexableRecord<M> oldRecord,
@@ -415,8 +422,29 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
         if (newRecord != null) {
             incrementCounter(SlidingWindowCounter.SW_PREEMPTIVE_DELETE_WRITE_ONLY);
         }
-        update(newRecord, null);
-        return update(oldRecord, newRecord);
+        // The preemptive delete must fully complete (committing its writes and releasing the sliding-window write lock)
+        // before the reinsert runs. Chain the two updates rather than firing the delete as a discarded future: dropping
+        // it would leave the delete unsequenced relative to the reinsert and silently swallow any exception it raises.
+        return update(newRecord, null)
+                .thenCompose(ignore -> update(oldRecord, newRecord));
+    }
+
+    @Nonnull
+    @Override
+    public <M extends Message> Any serializePendingWriteQueue(@Nullable final FDBIndexableRecord<M> oldRecord, @Nullable final FDBIndexableRecord<M> newRecord) {
+        // TODO: use delegate.serializePendingWriteQueue data and add it to a sliding window message. The correctly handle it in updateFromQueue
+        return Any.pack(StandardIndexMaintainer.buildOldAndNewRecords(state, oldRecord, newRecord));
+    }
+
+    @Nonnull
+    @Override
+    public CompletableFuture<Void> updateFromQueue(@Nonnull final Any data) {
+        // Apply via updateWhileWriteOnly (the sliding-window semantics), lest this update be re-pushed to the queue
+        final IndexBuildProto.OldAndNewRecords records =
+                StandardIndexMaintainer.oldAndNewRecords(data);
+        return updateWhileWriteOnly(
+                StandardIndexMaintainer.getOldRecord(state, records),
+                StandardIndexMaintainer.getNewRecord(state, records));
     }
 
     /**

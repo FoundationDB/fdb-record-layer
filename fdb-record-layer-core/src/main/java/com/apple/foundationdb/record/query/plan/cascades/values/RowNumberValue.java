@@ -425,7 +425,7 @@ public class RowNumberValue extends WindowedValue implements Value.IndexOnlyValu
         public static final String EF_SEARCH_ARGUMENT = VectorIndexScanOptions.HNSW_EF_SEARCH.getOptionName();
 
         @Nonnull
-        public static final String INDEX_RETURNS_VECTORS_ARGUMENT = VectorIndexScanOptions.HNSW_RETURN_VECTORS.getOptionName();
+        public static final String INDEX_RETURNS_VECTORS_ARGUMENT = VectorIndexScanOptions.VECTOR_RETURN_VECTORS.getOptionName();
 
         public RowNumberHighOrderFn() {
             super("row_number", ImmutableList.of(EF_SEARCH_ARGUMENT, INDEX_RETURNS_VECTORS_ARGUMENT),

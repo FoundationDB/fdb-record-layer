@@ -66,10 +66,10 @@ build.dependsOn {
     shadowJar
 }
 
-createDistribution.configure {
-    afterEvaluate {
-        dependsOn shadowJar
-        from tasks.shadowJar
+afterEvaluate {
+    tasks.named('createDistribution').configure {
+        dependsOn tasks.named('shadowJar')
+        from tasks.named('shadowJar')
     }
 }
 

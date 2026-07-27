@@ -351,6 +351,54 @@ test_block:
           - { ID: !l 3, PAYLOAD: !randomStr seed 1002 length 500 }
 
 # ============================================================================
+# Schema Template Block: Version-Gated Variants
+# ============================================================================
+# Instead of a single definition, a `schema_template` can be written as a list
+# of *variants*. Each variant carries its own `definition` body and is gated by
+# `initialVersionAtLeast` and/or `initialVersionLessThan`. At runtime the
+# framework selects the one variant whose version range contains the version
+# that originally created the store, and runs that variant's DDL. This lets a
+# single file describe how a schema evolved across releases, so mixed-version
+# runs (where an older server may have created the store) build the right shape.
+#
+# Rules:
+#   - The variants must be mutually exclusive (non-overlapping version ranges)
+#     and must cover every possible version (no gaps).
+#   - `!current_version` may be used as a bound to mean "the version being
+#     built"; the release process rewrites it to the concrete version on release.
+#
+# In the example below, stores created by an older server get a bare table,
+# while stores created by the current server additionally get an index on `val`.
+# The query only filters on the primary key, so its result is identical for
+# either variant (and no `explain`/version-dependent result is needed).
+#
+# See: initial-version/schema-template-variants.yamsql
+---
+schema_template:
+    - initialVersionLessThan: !current_version
+      definition: |
+          create table variant_demo(id bigint, val bigint, primary key(id))
+    - initialVersionAtLeast: !current_version
+      definition: |
+          create table variant_demo(id bigint, val bigint, primary key(id))
+          create index variant_demo_val as select val from variant_demo
+---
+setup:
+  # This is the second schema_template block in the file, so it is referenced by index 2.
+  connect: 2
+  steps:
+    - query: INSERT INTO variant_demo VALUES (1, 100), (2, 200)
+---
+test_block:
+  name: schema-template-variants
+  connect: 2
+  preset: single_repetition_ordered
+  tests:
+    -
+      - query: select * from variant_demo where id = 1
+      - result: [{ID: !l 1, VAL: !l 100}]
+
+# ============================================================================
 # Cleaning up manually created location
 # ============================================================================
 ---

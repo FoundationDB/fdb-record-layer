@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.relational.yamltests.command;
 
+import com.apple.foundationdb.record.util.pair.Pair;
 import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.yamltests.YamlReference;
 import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
@@ -32,7 +33,6 @@ import com.apple.foundationdb.relational.yamltests.command.parameterinjection.Un
 import com.apple.foundationdb.relational.yamltests.tags.BytesTag;
 import com.apple.foundationdb.relational.yamltests.tags.FloatTag;
 import com.apple.foundationdb.relational.yamltests.tags.LongTag;
-import org.apache.commons.lang3.tuple.Pair;
 import org.yaml.snakeyaml.LoaderOptions;
 import org.yaml.snakeyaml.Yaml;
 import org.yaml.snakeyaml.constructor.AbstractConstruct;

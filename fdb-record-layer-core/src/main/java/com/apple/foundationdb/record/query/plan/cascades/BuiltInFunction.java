@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.query.plan.cascades;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
+import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.base.Verify;
 
 import javax.annotation.Nonnull;
@@ -68,7 +69,7 @@ public abstract class BuiltInFunction<T extends Typed> extends CatalogedFunction
 
     protected BuiltInFunction(@Nonnull final String functionName, @Nonnull final List<String> parameterNames,
                               @Nonnull final List<Type> parameterTypes,
-                              @Nonnull final List<Optional<? extends Typed>> parameterDefaults,
+                              @Nonnull final List<Optional<Value>> parameterDefaults,
                               @Nonnull final EncapsulationFunction<T> encapsulationFunction) {
         super(functionName, parameterNames, parameterTypes, parameterDefaults);
         this.encapsulationFunction = encapsulationFunction;

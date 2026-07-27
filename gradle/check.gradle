@@ -37,10 +37,11 @@ def BANNED_IMPORTS = [
     'org.apache.log4j'                           // log4j logging: use slf4j instead
 ]
 
-task checkstyleAll
+tasks.register('checkstyleAll') {
+    dependsOn(tasks.withType(Checkstyle))
+}
 
-tasks.withType(Checkstyle) { task ->
-    checkstyleAll.dependsOn task
+tasks.withType(Checkstyle).configureEach { task ->
     task.exclude '**/protogen/**'
     task.configProperties = ["projectDir" : rootProject.projectDir, 'bannedImports': BANNED_IMPORTS.join(',')]
     task.maxHeapSize.set("1g")
@@ -52,7 +53,7 @@ checkstyle {
     toolVersion = "10.20.1"
 }
 
-task checkstyleMandatory(type: Checkstyle) { task ->
+tasks.register('checkstyleMandatory', Checkstyle) { task ->
     group = 'Verification'
     description = 'Perform subset of Checkstyle checks that must pass in order for the build to be successful'
 
@@ -64,14 +65,15 @@ task checkstyleMandatory(type: Checkstyle) { task ->
     }
 }
 
-quickCheck.dependsOn checkstyleMandatory
+tasks.named('quickCheck') { dependsOn 'checkstyleMandatory' }
 
 // SpotBugs
 apply plugin: 'com.github.spotbugs'
 // It looks like there is an issue with having spotbugs in a separate file
 // https://github.com/spotbugs/spotbugs-gradle-plugin/issues/972
 def classLoader = plugins['com.github.spotbugs'].class.classLoader
-def SpotBugsEffort = classLoader.findLoadedClass( 'com.github.spotbugs.snom.Effort' )
+def SpotBugsEffort = classLoader.findLoadedClass('com.github.spotbugs.snom.Effort')
+def SpotBugsTaskClass = classLoader.findLoadedClass('com.github.spotbugs.snom.SpotBugsTask')
 spotbugs {
     toolVersion = libs.versions.spotbugs.get()
     ignoreFailures = false
@@ -85,7 +87,7 @@ def spotbugsFailed = false
 
 // TODO we may be able to remove this, as it should now print to stdout
 // https://github.com/spotbugs/spotbugs-gradle-plugin/commit/b78a1b349487031590e281fe17c7ed5c245d42ae
-def printInstructionsOnRunningWithHtmlOutput = task('printInstructionsOnRunningWithHtmlOutput') {
+def printInstructionsOnRunningWithHtmlOutput = tasks.register('printInstructionsOnRunningWithHtmlOutput') {
     doLast {
         if (spotbugsFailed) {
             logger.error "*** SPOTBUGS FAILED: you can generate the HTML report by adding -PspotbugsEnableHtmlReport"
@@ -93,7 +95,7 @@ def printInstructionsOnRunningWithHtmlOutput = task('printInstructionsOnRunningW
     }
 }
 
-tasks.withType(rootProject.SpotBugsTask) { task ->
+tasks.withType(SpotBugsTaskClass) { task ->
     if (project.hasProperty('spotbugsEnableHtmlReport')) {
         // SpotBugs task can only have one report type enabled at a time
         reports {
@@ -132,7 +134,7 @@ tasks.withType(Pmd) { task ->
     task.setSource 'src/main/java'
 }
 
-task banSnapshots {
+tasks.register('banSnapshots') {
     doLast {
         // configurations.compile is included in runtime & we don't really care about snapshots in testCompile and testRuntime
         def resolved = configurations.runtime.resolvedConfiguration
@@ -145,5 +147,5 @@ task banSnapshots {
 }
 
 if (!Boolean.parseBoolean(allowSnapshots)) {
-    quickCheck.dependsOn banSnapshots
+    tasks.named('quickCheck') { dependsOn 'banSnapshots' }
 }

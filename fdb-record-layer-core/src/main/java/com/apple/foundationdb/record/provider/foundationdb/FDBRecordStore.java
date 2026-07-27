@@ -773,18 +773,44 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         }
         for (Index index : indexes) {
             final IndexMaintainer maintainer = getIndexMaintainer(index);
+            final IndexState indexState = getIndexState(index);
             final CompletableFuture<Void> future;
-            if (isIndexWriteOnly(index)) {
-                // In this case, the index is still being built. For some index
-                // types, the index update needs to check whether indexing
-                // process has already built the relevant ranges, and it
-                // may adjust the way the index is built in response.
-                future = maintainer.updateWhileWriteOnly(oldRecord, newRecord);
-                context.addToSessionSet(ContextSessionKey.WRITE_ONLY_INDEXES_UPDATED, index.getName());
-            } else {
-                future = maintainer.update(oldRecord, newRecord);
-                // Both READABLE and READABLE_UNIQUE_PENDING will cause the index to be updated and so are captured here
-                context.addToSessionSet(ContextSessionKey.READABLE_INDEXES_UPDATED, index.getName());
+            switch (indexState) {
+                case WRITE_ONLY_WITH_QUEUE:
+                    // Push the old/new record to a write pending queue instead of updating the index directly. The
+                    // ongoing online indexer will drain the queue and perform the actual index update.
+                    if (!maintainer.isPendingWriteQueueAllowed()) {
+                        // The indexer should not have allowed the WRITE_ONLY_WITH_QUEUE index state for this maintainer.
+                        throw new RecordCoreException("index does not support the pending write queue")
+                                .addLogInfo(LogMessageKeys.INDEX_NAME, index.getName());
+                    }
+                    future = IndexingPendingWriteQueue.enqueuePendingIndexUpdate(this, index,
+                            IndexBuildProto.PendingWritesQueueEntry.newBuilder()
+                                    .setOperation(IndexBuildProto.PendingWritesQueueEntry.Operation.UPDATE)
+                                    .setData(maintainer.serializePendingWriteQueue(oldRecord, newRecord))
+                                    .build());
+                    context.addToSessionSet(ContextSessionKey.WRITE_ONLY_WITH_QUEUE_INDEXES_UPDATED, index.getName());
+                    break;
+
+                case WRITE_ONLY:
+                    // The index is still being built. For some index
+                    // types, the index update needs to check whether indexing
+                    // process has already built the relevant ranges, and it
+                    // may adjust the way the index is built in response.
+                    future = maintainer.updateWhileWriteOnly(oldRecord, newRecord);
+                    context.addToSessionSet(ContextSessionKey.WRITE_ONLY_INDEXES_UPDATED, index.getName());
+                    break;
+
+                case DISABLED:
+                    // No-op
+                    future = AsyncUtil.DONE;
+                    break;
+
+                default:
+                    // Both READABLE and READABLE_UNIQUE_PENDING will cause the index to be updated and so are captured here
+                    future = maintainer.update(oldRecord, newRecord);
+                    context.addToSessionSet(ContextSessionKey.READABLE_INDEXES_UPDATED, index.getName());
+                    break;
             }
             if (!MoreAsyncUtil.isCompletedNormally(future)) {
                 futures.add(future);
@@ -3159,6 +3185,18 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     }
 
     /**
+     * Prepare an index for indexing via a write-pending queue by clearing any existing data and marking the
+     * index as {@link IndexState#WRITE_ONLY_WITH_QUEUE}.
+     * @param index the index to build
+     * @return a future that completes when the index has been cleared and marked write-only-with-queue for building
+     */
+    @Nonnull
+    public CompletableFuture<Void> clearAndMarkIndexWriteOnlyWithQueue(@Nonnull Index index) {
+        return markIndexWriteOnlyWithQueue(index)
+                .thenRun(() -> clearIndexData(index));
+    }
+
+    /**
      * Enum controlling how the store state cacheability flag should be changed when the store is opened.
      * By default, the store state data is not cacheable and must be re-read every time to ensure transactional
      * consistency between the store's meta-data and the rest of the data. To enable the transactional cache,
@@ -3723,6 +3761,32 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     }
 
     /**
+     * Adds the given index to the list of write-only-with-queue indexes stored within the store.
+     * See {@link #markIndexWriteOnly(String)} for details on the mark semantics; the only difference is the target
+     * state is {@link IndexState#WRITE_ONLY_WITH_QUEUE}.
+     *
+     * @param indexName the name of the index to mark as write-only-with-queue
+     * @return a future that will contain <code>true</code> if the store was modified and <code>false</code>
+     * otherwise
+     * @throws IllegalArgumentException if the index is not present in the meta-data
+     */
+    @Nonnull
+    public CompletableFuture<Boolean> markIndexWriteOnlyWithQueue(@Nonnull String indexName) {
+        return markIndexNotReadable(indexName, IndexState.WRITE_ONLY_WITH_QUEUE);
+    }
+
+    /**
+     * Adds the given index to the list of write-only-with-queue indexes stored within the store.
+     * @param index the index to mark as write-only-with-queue
+     * @return a future that will contain <code>true</code> if the store was modified and
+     * <code>false</code> otherwise
+     */
+    @Nonnull
+    public CompletableFuture<Boolean> markIndexWriteOnlyWithQueue(@Nonnull Index index) {
+        return markIndexWriteOnlyWithQueue(index.getName());
+    }
+
+    /**
      * Adds the index of the given name to the list of disabled indexes stored
      * within the store. Because reading a disabled index later is unsafe unless
      * one does a rebuild between the time it is marked disabled and the
@@ -4264,7 +4328,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     }
 
     /**
-     * Determine if the index is write-only for this record store. This method will not perform
+     * Determine if the index is write-only (but not write-only-with-queue) for this record store. This method will not perform
      * any queries to the underlying database and instead satisfies the answer based on the
      * in-memory cache of store state. However, if another operation in a different transaction
      * happens concurrently that changes the index's state, operations using the same {@link FDBRecordContext}
@@ -4274,12 +4338,12 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * @return <code>true</code> if the index is write-only and <code>false</code> otherwise
      * @throws IllegalArgumentException if no index in the metadata has the same name as this index
      */
-    public boolean isIndexWriteOnly(@Nonnull Index index) {
-        return isIndexWriteOnly(index.getName());
+    public boolean isIndexWriteOnlyNoQueue(@Nonnull Index index) {
+        return isIndexWriteOnlyNoQueue(index.getName());
     }
 
     /**
-     * Determine if the index with the given name is write-only for this record store.
+     * Determine if the index with the given name is write-only (but not write-only-with-queue) for this record store.
      * This method will not perform any queries to the underlying database and instead
      * satisfies the answer based on the in-memory cache of store state.
      *
@@ -4287,8 +4351,66 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * @return <code>true</code> if the named index is write-only and <code>false</code> otherwise
      * @throws IllegalArgumentException if no index in the metadata has the given name
      */
+    public boolean isIndexWriteOnlyNoQueue(@Nonnull String indexName) {
+        return getIndexState(indexName).isWriteOnlyNoQueue();
+    }
+
+    /**
+     * Determine if the index is write-only with a pending queue for this record store. This method will not perform
+     * any queries to the underlying database and instead satisfies the answer based on the
+     * in-memory cache of store state. However, if another operation in a different transaction
+     * happens concurrently that changes the index's state, operations using the same {@link FDBRecordContext}
+     * as this record store will fail to commit due to conflicts.
+     *
+     * @param index the index to check if write-only with a queue
+     * @return <code>true</code> if the index is write-only with a queue and <code>false</code> otherwise
+     * @throws IllegalArgumentException if no index in the metadata has the same name as this index
+     */
+    public boolean isIndexWriteOnlyWithQueue(@Nonnull Index index) {
+        return isIndexWriteOnlyWithQueue(index.getName());
+    }
+
+    /**
+     * Determine if the index with the given name is write-only with a pending queue for this record store.
+     * This method will not perform any queries to the underlying database and instead
+     * satisfies the answer based on the in-memory cache of store state.
+     *
+     * @param indexName the name of the index to check if write-only with a queue
+     * @return <code>true</code> if the named index is write-only with a queue and <code>false</code> otherwise
+     * @throws IllegalArgumentException if no index in the metadata has the given name
+     */
+    public boolean isIndexWriteOnlyWithQueue(@Nonnull String indexName) {
+        return getIndexState(indexName).equals(IndexState.WRITE_ONLY_WITH_QUEUE);
+    }
+
+    /**
+     * Determine if the index is write-only in any form ({@link IndexState#WRITE_ONLY} or
+     * {@link IndexState#WRITE_ONLY_WITH_QUEUE}) for this record store. This method will not perform
+     * any queries to the underlying database and instead satisfies the answer based on the
+     * in-memory cache of store state. However, if another operation in a different transaction
+     * happens concurrently that changes the index's state, operations using the same {@link FDBRecordContext}
+     * as this record store will fail to commit due to conflicts.
+     *
+     * @param index the index to check if write-only in any form
+     * @return <code>true</code> if the index is write-only in any form and <code>false</code> otherwise
+     * @throws IllegalArgumentException if no index in the metadata has the same name as this index
+     */
+    public boolean isIndexWriteOnly(@Nonnull Index index) {
+        return isIndexWriteOnly(index.getName());
+    }
+
+    /**
+     * Determine if the index with the given name is write-only in any form ({@link IndexState#WRITE_ONLY} or
+     * {@link IndexState#WRITE_ONLY_WITH_QUEUE}) for this record store. This method will not perform
+     * any queries to the underlying database and instead satisfies the answer based on the
+     * in-memory cache of store state.
+     *
+     * @param indexName the name of the index to check if write-only in any form
+     * @return <code>true</code> if the named index is write-only in any form and <code>false</code> otherwise
+     * @throws IllegalArgumentException if no index in the metadata has the given name
+     */
     public boolean isIndexWriteOnly(@Nonnull String indexName) {
-        return getIndexState(indexName).equals(IndexState.WRITE_ONLY);
+        return getIndexState(indexName).isWriteOnly();
     }
 
     /**
@@ -4588,6 +4710,9 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             case WRITE_ONLY:
                 errMessageBuilder.append("clear and mark index write only");
                 return clearAndMarkIndexWriteOnly(index).thenApply(b -> null);
+            case WRITE_ONLY_WITH_QUEUE:
+                errMessageBuilder.append("clear and mark index write only with queue");
+                return clearAndMarkIndexWriteOnlyWithQueue(index).thenApply(b -> null);
             case DISABLED:
                 errMessageBuilder.append("mark index disabled");
                 return markIndexDisabled(index).thenApply(b -> null);
@@ -4816,7 +4941,16 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                                                         int oldFormatVersion, @Nonnull RecordMetaData metaData, int oldMetaDataVersion,
                                                         boolean rebuildRecordCounts, List<CompletableFuture<Void>> work) {
         final boolean newStore = oldFormatVersion == 0;
-        final Map<Index, List<RecordType>> indexes = metaData.getIndexesToBuildSince(oldMetaDataVersion);
+        // Note: We are specifically calling `getIndexesSince` and not `getIndexesToBuildSince` because we want to see
+        // *All* new indexes so that we can deal with them appropriately. Most importantly we need to see the replaced
+        // indexes, even if they're new, to update their state.
+        // We could try and optimize and not build indexes that have been replaced, but that is relevant in a very
+        // specific scenario
+        // 1. The replaced index is getting picked up in the same transaction as its replacement
+        // 2. They are small enough that it is feasible to build the replaced index, and the replacements in a single transaction
+        // 3. They are big enough that you care about it
+        // Note that new stores will get the indexes for free.
+        final Map<Index, List<RecordType>> indexes = metaData.getIndexesSince(oldMetaDataVersion);
         handleNoLongerUniqueIndex(metaData, work, indexes);
         if (!indexes.isEmpty()) {
             // If all the new indexes are only for a record type whose primary key has a type prefix, then we can scan less.
@@ -4855,7 +4989,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             if (!indexesToBuildSince.containsKey(index) &&
                     !index.isUnique()) {
                 final IndexState indexState = getIndexState(index);
-                if (indexState == IndexState.READABLE_UNIQUE_PENDING || indexState == IndexState.WRITE_ONLY) {
+                if (indexState == IndexState.READABLE_UNIQUE_PENDING || indexState.isWriteOnly()) {
                     final CompletableFuture<Void> uniquenessFuture = AsyncUtil.getAll(getRecordContext().removeCommitChecks(
                             commitCheck -> {
                                 if (commitCheck instanceof IndexUniquenessCommitCheck) {
@@ -5041,26 +5175,33 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         Map<Index, CompletableFuture<IndexState>> newStates = new HashMap<>();
         for (Map.Entry<Index, List<RecordType>> entry : indexes.entrySet()) {
             Index index = entry.getKey();
-            List<RecordType> recordTypes = entry.getValue();
-            boolean indexOnNewRecordTypes = areAllRecordTypesSince(recordTypes, oldMetaDataVersion);
-            CompletableFuture<IndexState> stateFuture = userVersionChecker == null ?
-                    lazyRecordCount.get().thenApply(recordCount -> FDBRecordStore.disabledIfTooManyRecordsForRebuild(recordCount, indexOnNewRecordTypes)) :
-                    userVersionChecker.needRebuildIndex(index, lazyRecordCount, lazyRecordsSize, indexOnNewRecordTypes);
-            if (IndexTypes.VERSION.equals(index.getType())
-                    && !newStore
-                    && oldFormatVersion < SAVE_VERSION_WITH_RECORD_FORMAT_VERSION
-                    && !useOldVersionFormat()) {
-                stateFuture = stateFuture.thenApply(state -> {
-                    if (IndexState.READABLE.equals(state)) {
-                        // Do not rebuild any version indexes while the format conversion is going on.
-                        // Otherwise, the process moving the versions might race against the index
-                        // build and some versions won't be indexed correctly.
-                        return IndexState.DISABLED;
-                    }
-                    return state;
-                });
+            // Any indexes that are flagged to be replaced should never be built.
+            // Note: It is possible that the replaced index(es) is also not built, in which case the store will end up
+            // with neither.
+            if (index.getReplacedByIndexNames().isEmpty()) {
+                List<RecordType> recordTypes = entry.getValue();
+                boolean indexOnNewRecordTypes = areAllRecordTypesSince(recordTypes, oldMetaDataVersion);
+                CompletableFuture<IndexState> stateFuture = userVersionChecker == null ?
+                                                            lazyRecordCount.get().thenApply(recordCount -> FDBRecordStore.disabledIfTooManyRecordsForRebuild(recordCount, indexOnNewRecordTypes)) :
+                                                            userVersionChecker.needRebuildIndex(index, lazyRecordCount, lazyRecordsSize, indexOnNewRecordTypes);
+                if (IndexTypes.VERSION.equals(index.getType())
+                        && !newStore
+                        && oldFormatVersion < SAVE_VERSION_WITH_RECORD_FORMAT_VERSION
+                        && !useOldVersionFormat()) {
+                    stateFuture = stateFuture.thenApply(state -> {
+                        if (IndexState.READABLE.equals(state)) {
+                            // Do not rebuild any version indexes while the format conversion is going on.
+                            // Otherwise, the process moving the versions might race against the index
+                            // build and some versions won't be indexed correctly.
+                            return IndexState.DISABLED;
+                        }
+                        return state;
+                    });
+                }
+                newStates.put(index, stateFuture);
+            } else {
+                newStates.put(index, CompletableFuture.completedFuture(IndexState.DISABLED));
             }
-            newStates.put(index, stateFuture);
         }
         return newStates;
     }

@@ -18,7 +18,7 @@
 # limitations under the License.
 ---
 options:
-  supported_version: 4.9.4.0
+  supported_version: !current_version
 ---
 schema_template:
     create table documents(zone string, docId string, bookshelf string, title string, embedding vector(3, half), primary key (zone, docId))
@@ -237,7 +237,7 @@ test_block:
           join documents d2 on d2.zone = d1.zone and d2.bookshelf = 'science'
           where r.zone = 'zone1'
           qualify row_number() over (partition by d2.zone, d2.bookshelf order by euclidean_distance(d2.embedding, d1.embedding) asc options ef_search = 100) < 2
-      - explain: "SCAN([IS REVIEWS]) | FLATMAP q0 -> { SCAN([IS DOCUMENTS]) | FILTER q0.ZONE EQUALS _.ZONE AND q0.ZONE EQUALS promote(@c56 AS STRING) AND q0.DOCID EQUALS _.DOCID | FLATMAP q1 -> { ISCAN(DOCUMENTSEUCLIDEANINDEX [EQUALS q1.ZONE, EQUALS promote(@c50 AS STRING)]:{DISTANCE_RANK_LESS_THAN q1.EMBEDDING: @c91}:[hnswEfSearch: 100] BY_DISTANCE) AS q2 RETURN q2 } AS q2 RETURN (q0.REVIEWID AS REVIEWID, q2.DOCID AS DOCID, q2.TITLE AS TITLE) }"
+      - explain: "SCAN([IS DOCUMENTS]) | FLATMAP q0 -> { SCAN([IS REVIEWS]) | FILTER _.ZONE EQUALS q0.ZONE AND _.ZONE EQUALS promote(@c56 AS STRING) AND _.DOCID EQUALS q0.DOCID | FLATMAP q1 -> { ISCAN(DOCUMENTSEUCLIDEANINDEX [EQUALS q0.ZONE, EQUALS promote(@c50 AS STRING)]:{DISTANCE_RANK_LESS_THAN q0.EMBEDDING: @c91}:[hnswEfSearch: 100] BY_DISTANCE) AS q2 RETURN (q1 AS _0, q2 AS _1) } AS q3 RETURN (q3._0.REVIEWID AS REVIEWID, q3._1.DOCID AS DOCID, q3._1.TITLE AS TITLE) }"
       - unorderedResult: [
           {'r1', 'd10', 'Relativity'},
           {'r2', 'd10', 'Relativity'},

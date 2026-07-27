@@ -21,16 +21,14 @@
 package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
-import com.apple.foundationdb.async.hnsw.Config;
-import com.apple.foundationdb.linear.Metric;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.metadata.Index;
-import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyWithValueExpression;
+import com.apple.foundationdb.record.provider.foundationdb.indexes.VectorIndexHelper;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.MatchableSortExpression;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.Placeholder;
@@ -192,18 +190,16 @@ public class VectorIndexExpansionVisitor extends KeyExpressionExpansionVisitor i
     @Nonnull
     private Placeholder createDistanceValuePlaceholder(@Nonnull Iterable<? extends Value> partitioningValues,
                                                        @Nonnull Iterable<? extends Value> argumentValues) {
-        final var metric = index.getOptions().getOrDefault(IndexOptions.HNSW_METRIC, Config.DEFAULT_METRIC.name());
-        switch (Metric.valueOf(metric)) {
-            case EUCLIDEAN_METRIC:
-                return new EuclideanDistanceRowNumberValue(partitioningValues, argumentValues).asPlaceholder(newParameterAlias());
-            case EUCLIDEAN_SQUARE_METRIC:
-                return new EuclideanSquareDistanceRowNumberValue(partitioningValues, argumentValues).asPlaceholder(newParameterAlias());
-            case COSINE_METRIC:
-                return new CosineDistanceRowNumberValue(partitioningValues, argumentValues).asPlaceholder(newParameterAlias());
-            case DOT_PRODUCT_METRIC:
-                return new DotProductDistanceRowNumberValue(partitioningValues, argumentValues).asPlaceholder(newParameterAlias());
-            default:
-                throw new RecordCoreException("vector index does not support provided metric type " + metric);
-        }
+        final var metric = VectorIndexHelper.getMetric(index);
+        return switch (metric) {
+            case EUCLIDEAN_METRIC ->
+                    new EuclideanDistanceRowNumberValue(partitioningValues, argumentValues).asPlaceholder(newParameterAlias());
+            case EUCLIDEAN_SQUARE_METRIC ->
+                    new EuclideanSquareDistanceRowNumberValue(partitioningValues, argumentValues).asPlaceholder(newParameterAlias());
+            case COSINE_METRIC ->
+                    new CosineDistanceRowNumberValue(partitioningValues, argumentValues).asPlaceholder(newParameterAlias());
+            case DOT_PRODUCT_METRIC ->
+                    new DotProductDistanceRowNumberValue(partitioningValues, argumentValues).asPlaceholder(newParameterAlias());
+        };
     }
 }
