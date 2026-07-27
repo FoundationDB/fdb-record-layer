@@ -57,6 +57,7 @@ test_block:
                     partition by zone, bookshelf
                     order by euclidean_distance(embedding, !! !v16 [1.0, 0.0, 0.0] !!) asc
                 ) <= 1
+      - explain: "ISCAN(DOCUMENTSGUARDIANNINDEX [EQUALS promote(@c16 AS STRING), EQUALS promote(@c20 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c7: @c44}:[] BY_DISTANCE) | MAP (_.DOCID AS DOCID, (_.EMBEDDING) euclidean_distance @c7 AS DISTANCE)"
       - result: [{docId: 'd1', distance: 0.0}]
 
     # Top-3 nearest neighbors in the fiction partition.
@@ -68,6 +69,7 @@ test_block:
                     partition by zone, bookshelf
                     order by euclidean_distance(embedding, !! !v16 [1.0, 0.0, 0.0] !!) asc
                 ) <= 3
+      - explain: "ISCAN(DOCUMENTSGUARDIANNINDEX [EQUALS promote(@c16 AS STRING), EQUALS promote(@c20 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c7: @c44}:[] BY_DISTANCE) | MAP (_.DOCID AS DOCID, (_.EMBEDDING) euclidean_distance @c7 AS DISTANCE)"
       - result: [{docId: 'd1', distance: 0.0},
                  {docId: 'd2', distance: 0.14147317261689443},
                  {docId: 'd3', distance: 0.28294634523378887}]
@@ -81,4 +83,5 @@ test_block:
                     partition by zone, bookshelf
                     order by euclidean_distance(embedding, !! !v16 [0.0, 1.0, 0.0] !!) asc
                 ) <= 2
+      - explain: "ISCAN(DOCUMENTSGUARDIANNINDEX [EQUALS promote(@c7 AS STRING), EQUALS promote(@c11 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c29: @c35}:[] BY_DISTANCE) | MAP (_.DOCID AS DOCID)"
       - result: [{docId: 'd6'}, {docId: 'd7'}]
