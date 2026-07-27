@@ -40,6 +40,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.relational.api.RelationalArray;
 import com.apple.foundationdb.relational.api.RelationalStruct;
 import com.apple.foundationdb.relational.api.WithMetadata;
+import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.metadata.DataTypeUtils;
 import com.apple.foundationdb.relational.util.Assert;
@@ -487,16 +488,54 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
 
     /**
      * Processes a stored query signature parameter (from {@link PreparedParams.DeclaredParameter}): it carries a
-     * declared type but no bound value, so it becomes a value-free {@link ConstantObjectValue} of that type. (The
-     * declared range is applied to plan constraints in a later step.)
+     * declared type but no bound value, so it becomes a {@link ConstantObjectValue} of that type.
+     *
+     * <p>The literal is seeded with a non-null <em>representative</em> value of the declared type rather than
+     * {@code null}. A {@code null} would let the planner constant-fold the enclosing predicate at warmup (e.g.
+     * {@code col > null} is never true), baking an empty-result plan that stays empty even once a real value is bound
+     * at runtime. A concrete non-null value keeps the {@link ConstantObjectValue} a value-independent placeholder
+     * (exactly as a bound {@code ?} would be), and makes the derived plan constraint an {@code IS_NOT_NULL} so runtime
+     * non-null values match the warmed plan. The runtime value replaces this placeholder at execution.</p>
+     *
+     * <p>(The declared range is applied to plan constraints in a later step.)</p>
      */
     @Nonnull
     private Value processDeclaredParameter(@Nonnull final PreparedParams.DeclaredParameter declared,
                                            final int unnamedParameterIndex, final int tokenIndex) {
-        final var orderedLiteral = literalsBuilder.addLiteral(declared.getType(), null, unnamedParameterIndex, null, tokenIndex);
+        final var orderedLiteral = literalsBuilder.addLiteral(declared.getType(),
+                representativeValue(declared.getType()), unnamedParameterIndex, null, tokenIndex);
         final var result = ConstantObjectValue.of(Quantifier.constant(), orderedLiteral.getConstantId(), declared.getType());
         addLiteralReference(result);
         return result;
+    }
+
+    /**
+     * A non-null placeholder value for a declared parameter's type, used only to plan the stored query body value-free
+     * at warmup (see {@link #processDeclaredParameter}). The concrete value is irrelevant to the resulting plan shape;
+     * it only needs to be non-null and of the declared type.
+     */
+    @Nonnull
+    private static Object representativeValue(@Nonnull final Type type) {
+        switch (type.getTypeCode()) {
+            case BOOLEAN:
+                return false;
+            case INT:
+                return 0;
+            case LONG:
+                return 0L;
+            case FLOAT:
+                return 0.0f;
+            case DOUBLE:
+                return 0.0d;
+            case STRING:
+                return "";
+            case BYTES:
+                return ZeroCopyByteString.wrap(new byte[0]);
+            default:
+                throw new RelationalException("Unsupported declared parameter type", ErrorCode.UNSUPPORTED_OPERATION)
+                        .addContext("typeCode", type.getTypeCode())
+                        .toUncheckedWrappedException();
+        }
     }
 
     @Nonnull
