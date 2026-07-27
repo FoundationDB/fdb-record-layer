@@ -21,12 +21,15 @@
 package com.apple.foundationdb.relational.recordlayer.query;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.query.expressions.Comparisons;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.RangeConstraints;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.generated.RelationalParser;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Map;
@@ -36,7 +39,8 @@ import java.util.Map;
  * parameters. The signature is persisted as text and re-parsed here at warmup; each {@code ?} in the stored query body
  * maps positionally (1-based) to one signature entry.
  * <p>
- * Only primitive parameter types are supported for now; the declared range (if any) is not yet extracted.
+ * Only primitive parameter types are supported for now; the declared range (if any) is parsed into a
+ * {@link RangeConstraints} for numeric comparison and {@code BETWEEN} forms (used later for filtered-index selection).
  * </p>
  */
 @API(API.Status.EXPERIMENTAL)
@@ -61,10 +65,115 @@ public final class StoredQuerySignatureParser {
         final var parameters = parameterList.storedQueryParameter();
         for (int i = 0; i < parameters.size(); i++) {
             final var type = resolveType(parameters.get(i).parameterType);
-            // TODO: extract the declared range from parameters.get(i).parameterRange() for filtered-index selection.
-            declared.put(i + 1, new PreparedParams.DeclaredParameter(type, null));
+            final var range = parseRange(parameters.get(i).parameterRange(), type);
+            declared.put(i + 1, new PreparedParams.DeclaredParameter(type, range));
         }
         return declared;
+    }
+
+    /**
+     * Builds a {@link RangeConstraints} from a parameter's declared range. Handles the comparison-list form
+     * ({@code > 5}, {@code > 0 and < 100}) and {@code BETWEEN low AND high}; {@code IN} and non-numeric range constants
+     * are not yet supported.
+     *
+     * @param ctx the range context, or {@code null} if the parameter declares no range
+     * @param declaredType the parameter's declared (primitive) type; range constants are coerced to it
+     * @return the range constraints, or {@code null} if no range was declared
+     */
+    @Nullable
+    private static RangeConstraints parseRange(@Nullable final RelationalParser.ParameterRangeContext ctx,
+                                               @Nonnull final Type declaredType) {
+        if (ctx == null) {
+            return null;
+        }
+        final var builder = RangeConstraints.newBuilder();
+        if (ctx.BETWEEN() != null) {
+            // BETWEEN low AND high  ==>  >= low AND <= high
+            builder.addComparisonMaybe(new Comparisons.SimpleComparison(
+                    Comparisons.Type.GREATER_THAN_OR_EQUALS, numericComparand(ctx.low, declaredType)));
+            builder.addComparisonMaybe(new Comparisons.SimpleComparison(
+                    Comparisons.Type.LESS_THAN_OR_EQUALS, numericComparand(ctx.high, declaredType)));
+        } else if (ctx.IN() != null) {
+            throw new RelationalException("IN ranges are not yet supported in stored query signatures",
+                    ErrorCode.UNSUPPORTED_OPERATION).toUncheckedWrappedException();
+        } else {
+            final var operators = ctx.comparisonOperator();
+            final var constants = ctx.constant();
+            for (int i = 0; i < operators.size(); i++) {
+                builder.addComparisonMaybe(new Comparisons.SimpleComparison(
+                        comparisonType(operators.get(i)), numericComparand(constants.get(i), declaredType)));
+            }
+        }
+        return builder.build().orElse(null);
+    }
+
+    @Nonnull
+    private static Comparisons.Type comparisonType(@Nonnull final RelationalParser.ComparisonOperatorContext ctx) {
+        switch (ctx.getText()) {
+            case "=":
+                return Comparisons.Type.EQUALS;
+            case ">":
+                return Comparisons.Type.GREATER_THAN;
+            case "<":
+                return Comparisons.Type.LESS_THAN;
+            case ">=":
+                return Comparisons.Type.GREATER_THAN_OR_EQUALS;
+            case "<=":
+                return Comparisons.Type.LESS_THAN_OR_EQUALS;
+            default:
+                throw new RelationalException("unsupported comparison operator in stored query signature range",
+                        ErrorCode.UNSUPPORTED_OPERATION).addContext("operator", ctx.getText()).toUncheckedWrappedException();
+        }
+    }
+
+    /**
+     * Extracts a numeric range-bound constant and coerces it to the declared type's Java representation, so the range
+     * comparand type matches the runtime value/index-predicate comparand. Only numeric constants are supported for now.
+     */
+    @Nonnull
+    private static Object numericComparand(@Nonnull final RelationalParser.ConstantContext ctx,
+                                           @Nonnull final Type declaredType) {
+        final Object raw;
+        if (ctx instanceof RelationalParser.DecimalConstantContext) {
+            raw = ParseHelpers.parseDecimal(((RelationalParser.DecimalConstantContext) ctx).decimalLiteral().getText());
+        } else if (ctx instanceof RelationalParser.NegativeDecimalConstantContext) {
+            final var magnitude = (Number) ParseHelpers.parseDecimal(
+                    ((RelationalParser.NegativeDecimalConstantContext) ctx).decimalLiteral().getText());
+            raw = negate(magnitude);
+        } else {
+            throw new RelationalException("only numeric range bounds are supported in stored query signatures",
+                    ErrorCode.UNSUPPORTED_OPERATION).addContext("constant", ctx.getText()).toUncheckedWrappedException();
+        }
+        return coerce((Number) raw, declaredType);
+    }
+
+    @Nonnull
+    private static Number negate(@Nonnull final Number value) {
+        if (value instanceof Long) {
+            return -value.longValue();
+        }
+        if (value instanceof Integer) {
+            return -value.intValue();
+        }
+        return -value.doubleValue();
+    }
+
+    @Nonnull
+    private static Object coerce(@Nonnull final Number value, @Nonnull final Type declaredType) {
+        switch (declaredType.getTypeCode()) {
+            case LONG:
+                return value.longValue();
+            case INT:
+                return value.intValue();
+            case DOUBLE:
+                return value.doubleValue();
+            case FLOAT:
+                return value.floatValue();
+            default:
+                throw new RelationalException("range bounds are only supported for numeric declared types",
+                        ErrorCode.UNSUPPORTED_OPERATION).addContext("typeCode", declaredType.getTypeCode())
+                        .toUncheckedWrappedException();
+        }
     }
 
     @Nonnull

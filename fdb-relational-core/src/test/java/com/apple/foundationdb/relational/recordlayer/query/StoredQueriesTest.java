@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.relational.recordlayer.query;
 
+import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
@@ -638,6 +639,103 @@ public class StoredQueriesTest {
     }
 
     @Test
+    void storedQueriesUsageDeclaredParamHitsCache() throws Exception {
+        final String dbUri = "/TEST/SQ_PARAM_SIG_USAGE";
+        try (var ddl = Ddl.builder()
+                .database(URI.create(dbUri))
+                .relationalExtension(relationalExtension)
+                .schemaTemplate(SCHEMA_TEMPLATE_PARAM_SIG)
+                .build()) {
+            final var connection = ddl.setSchemaAndGetConnection();
+            final String templateName = ddl.getSchemaTemplateName();
+            final String schemaName = connection.getSchema();
+
+            try (var stmt = connection.createStatement()) {
+                stmt.execute("INSERT INTO T1 VALUES (1, 10, 1)");
+                stmt.execute("INSERT INTO T1 VALUES (2, 20, 2)");
+                stmt.execute("INSERT INTO T1 VALUES (3, 30, 3)");
+            }
+
+            // fresh engine triggers OfflineStoredQueriesProcessor
+            final var engineDriver = relationalExtension.getDriver(
+                    com.apple.foundationdb.record.provider.foundationdb.FormatVersion.getDefaultFormatVersion());
+            final var connectionUtils = new ConnectionUtils(engineDriver);
+
+            // The stored query body (select * from t1 where col1 > ?) is planned value-free from the declared
+            // signature (bigint > 5): 1 warm-up miss, 1 cached plan.
+            Assertions.assertEquals(1, eventCounterCount(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_MISS));
+            Assertions.assertEquals(0, eventCounterCount(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_HIT));
+            Assertions.assertEquals(Long.valueOf(1), connectionUtils.getFromCatalog(c -> countCachedPlans(c, templateName)));
+
+            // Runtime query supplies a concrete (non-null) value. The declared parameter warmed the plan with an
+            // IS_NOT_NULL constraint (via a representative value), so this hits the pre-warmed plan instead of missing.
+            // The literal is written as 15L (LONG) to match the declared bigint: OfType constrains primitives by exact
+            // type code, so a plain 15 (INT) would legitimately miss and re-plan.
+            connectionUtils.runAgainstConnection(dbUri, schemaName, c -> {
+                try (var stmt = c.createStatement(); RelationalResultSet rs = stmt.executeQuery("select * from t1 where col1 > 15L")) {
+                    Assertions.assertTrue(rs.next());
+                    Assertions.assertEquals(2, rs.getLong("ID"));
+                    Assertions.assertTrue(rs.next());
+                    Assertions.assertEquals(3, rs.getLong("ID"));
+                    Assertions.assertFalse(rs.next());
+                }
+            });
+
+            // hit the pre-warmed cache: hit +1, miss unchanged, cache size unchanged.
+            Assertions.assertEquals(1, eventCounterCount(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_HIT));
+            Assertions.assertEquals(1, eventCounterCount(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_MISS));
+            Assertions.assertEquals(Long.valueOf(1), connectionUtils.getFromCatalog(c -> countCachedPlans(c, templateName)));
+        }
+    }
+
+    @Test
+    void storedQueriesUsageDeclaredParamJdbcPrepare() throws Exception {
+        final String dbUri = "/TEST/SQ_PARAM_SIG_USAGE_JDBC";
+        try (var ddl = Ddl.builder()
+                .database(URI.create(dbUri))
+                .relationalExtension(relationalExtension)
+                .schemaTemplate(SCHEMA_TEMPLATE_PARAM_SIG)
+                .build()) {
+            final var connection = ddl.setSchemaAndGetConnection();
+            final String templateName = ddl.getSchemaTemplateName();
+            final String schemaName = connection.getSchema();
+
+            try (var stmt = connection.createStatement()) {
+                stmt.execute("INSERT INTO T1 VALUES (1, 10, 1)");
+                stmt.execute("INSERT INTO T1 VALUES (2, 20, 2)");
+                stmt.execute("INSERT INTO T1 VALUES (3, 30, 3)");
+            }
+
+            // fresh engine triggers OfflineStoredQueriesProcessor
+            final var engineDriver = relationalExtension.getDriver(
+                    com.apple.foundationdb.record.provider.foundationdb.FormatVersion.getDefaultFormatVersion());
+            final var connectionUtils = new ConnectionUtils(engineDriver);
+
+            Assertions.assertEquals(1, eventCounterCount(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_MISS));
+            Assertions.assertEquals(Long.valueOf(1), connectionUtils.getFromCatalog(c -> countCachedPlans(c, templateName)));
+
+            // A JDBC PreparedStatement binds the "?" positionally; canonical SQL matches the stored body, and the
+            // bound (non-null) value satisfies the warmed IS_NOT_NULL constraint — cache hit.
+            connectionUtils.runAgainstConnection(dbUri, schemaName, c -> {
+                try (var ps = c.prepareStatement("select * from t1 where col1 > ?")) {
+                    ps.setLong(1, 15);
+                    try (RelationalResultSet rs = ps.executeQuery()) {
+                        Assertions.assertTrue(rs.next());
+                        Assertions.assertEquals(2, rs.getLong("ID"));
+                        Assertions.assertTrue(rs.next());
+                        Assertions.assertEquals(3, rs.getLong("ID"));
+                        Assertions.assertFalse(rs.next());
+                    }
+                }
+            });
+
+            Assertions.assertEquals(1, eventCounterCount(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_HIT));
+            Assertions.assertEquals(1, eventCounterCount(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_MISS));
+            Assertions.assertEquals(Long.valueOf(1), connectionUtils.getFromCatalog(c -> countCachedPlans(c, templateName)));
+        }
+    }
+
+    @Test
     void storedQueryParameterSignatureMissingTypeFailsToParse() {
         RelationalAssertions.assertThrowsSqlException(() ->
                 Ddl.builder()
@@ -646,6 +744,33 @@ public class StoredQueriesTest {
                         .schemaTemplate(SCHEMA_TEMPLATE_PARAM_SIG_NO_TYPE)
                         .build())
                 .hasErrorCode(ErrorCode.SYNTAX_ERROR);
+    }
+
+    @Test
+    void storedQuerySignatureParsesNumericRanges() {
+        // open bound: bigint > 5  ->  a single GREATER_THAN(5L) comparison
+        final var open = StoredQuerySignatureParser.parse("(bigint > 5)");
+        Assertions.assertEquals(1, open.size());
+        final var openRange = open.get(1).getRange();
+        Assertions.assertNotNull(openRange);
+        Assertions.assertEquals(1, openRange.getComparisons().size());
+        final var openCmp = openRange.getComparisons().get(0);
+        Assertions.assertEquals(Comparisons.Type.GREATER_THAN, openCmp.getType());
+        Assertions.assertEquals(5L, openCmp.getComparand());
+
+        // two bounds: bigint > 0 and < 100  ->  two comparisons
+        final var twoBounds = StoredQuerySignatureParser.parse("(bigint > 0 and < 100)");
+        Assertions.assertEquals(2, twoBounds.get(1).getRange().getComparisons().size());
+
+        // BETWEEN 0 AND 100  ->  >= 0 AND <= 100
+        final var between = StoredQuerySignatureParser.parse("(bigint between 0 and 100)");
+        final var betweenCmps = between.get(1).getRange().getComparisons();
+        Assertions.assertEquals(2, betweenCmps.size());
+        Assertions.assertTrue(betweenCmps.stream().anyMatch(c -> c.getType() == Comparisons.Type.GREATER_THAN_OR_EQUALS));
+        Assertions.assertTrue(betweenCmps.stream().anyMatch(c -> c.getType() == Comparisons.Type.LESS_THAN_OR_EQUALS));
+
+        // no range declared  ->  null
+        Assertions.assertNull(StoredQuerySignatureParser.parse("(bigint)").get(1).getRange());
     }
 
 }
