@@ -47,12 +47,13 @@ public enum DeleteStoreMode {
     ASYNC {
         @Override
         public void deleteStore(@Nonnull FDBRecordContext context, @Nonnull KeySpacePath path) {
-            FDBRecordStore.deleteStoreAsync(context, path).join();
+            context.asyncToSync(FDBStoreTimer.Waits.WAIT_DELETE_STORE, FDBRecordStore.deleteStoreAsync(context, path));
         }
 
         @Override
         public void deleteStore(@Nonnull FDBRecordContext context, @Nonnull Subspace subspace) {
-            FDBRecordStore.deleteStoreAsync(context, subspace).join();
+            context.asyncToSync(FDBStoreTimer.Waits.WAIT_DELETE_STORE,
+                    FDBRecordStore.deleteStoreAsync(context, subspace));
         }
     };
 

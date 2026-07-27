@@ -1887,9 +1887,6 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      */
     @SuppressWarnings("PMD.CloseResource")
     public static CompletableFuture<Void> deleteStoreAsync(FDBRecordContext context, Subspace subspace) {
-        // Every writer to the store must read the store header, if it is not cached, otherwise they must check
-        // the MetaDataVersionStamp if it is cacheable, thus we must bump the MetaDataVersionStamp if it is cacheable,
-        // but otherwise we don't need to do so.
         final byte[] headerKey = subspace.pack(STORE_INFO_KEY);
         return context.readTransaction(false).get(headerKey).thenAccept(headerBytes -> {
             boolean shouldBump;

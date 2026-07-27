@@ -477,7 +477,8 @@ public class FDBStoreTimer extends StoreTimer {
         /** Wait to run all the postClose hooks. */
         WAIT_RUN_CLOSE_HOOKS("Wait to run all postClose hooks"),
         /** Wait to delete a store. */
-        WAIT_DELETE_STORE("wait for delete store");
+        WAIT_DELETE_STORE("wait for delete store"),
+        ;
 
         private final String title;
         private final String logKey;
