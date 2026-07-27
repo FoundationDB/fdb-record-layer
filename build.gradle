@@ -20,6 +20,8 @@
 
 import org.yaml.snakeyaml.Yaml
 
+import groovy.json.JsonSlurper
+
 import org.apache.tools.ant.taskdefs.condition.Os
 
 import javax.inject.Inject
@@ -327,12 +329,86 @@ subprojects {
     }
 }
 
+// Polls the Maven Central Portal status endpoint until the given deployment reaches the
+// terminal PUBLISHED state. If the portal reports that publishing FAILED, this throws an error
+// and reports back to the user what has gone wrong. If publishing has not completed before the
+// timeout elapses, this moves on to avoid blocking the build on a slow connection. Publishing
+// will then continue asynchronously on the portal server, and it is the user's responsibility
+// to monitor for success or failure.
+// See: https://central.sonatype.org/publish/publish-portal-api/#verify-status-of-the-deployment
+def waitForCentralDeploymentToPublish(String deploymentId, String encodedCredentials, int timeoutSeconds = 600, int pollIntervalSeconds = 10) {
+    logger.lifecycle("Validating ${deploymentId} deployment state")
+
+    def statusUrl = new URL("https://central.sonatype.com/api/v1/publisher/status?id=${deploymentId}")
+    def deadline = System.currentTimeMillis() + timeoutSeconds * 1000L
+    def lastKnownState = 'UNKNOWN'
+    def waiting = false
+
+    while (true) {
+        def connection = statusUrl.openConnection() as HttpURLConnection
+        try {
+            connection.setRequestMethod('POST')
+            connection.setRequestProperty('Authorization', "Bearer ${encodedCredentials}")
+            connection.setConnectTimeout(30_000)
+            connection.setReadTimeout(30_000)
+
+            def responseCode = connection.responseCode
+            if (responseCode != 200) {
+                def errorResponse = connection.errorStream?.text ?: connection.responseMessage
+                throw new GradleException("Failed to query deployment status (HTTP ${responseCode}): ${errorResponse}")
+            }
+
+            def status = new JsonSlurper().parseText(connection.inputStream.text)
+            def deploymentState = status.deploymentState
+            if (deploymentState != lastKnownState) {
+                if (waiting) {
+                    println()
+                    waiting = false
+                }
+                println("Deployment ${deploymentId} is now in state: ${deploymentState}")
+            } else {
+                if (!waiting) {
+                    print("Waiting for state update...")
+                    waiting = true
+                }
+                print(".")
+            }
+            lastKnownState = deploymentState
+
+            if (lastKnownState == 'PUBLISHED') {
+                return
+            }
+            if (lastKnownState == 'FAILED') {
+                throw new GradleException("Deployment ${deploymentId} failed to publish: ${status.errors}")
+            }
+        } finally {
+            connection.disconnect()
+        }
+
+        if (System.currentTimeMillis() > deadline) {
+            if (waiting) {
+                println()
+            }
+            logger.warn("Artifact deployment ${deploymentId} still publishing after ${timeoutSeconds} seconds " +
+                    "(last known state: ${lastKnownState}). Check status manually via: " +
+                    "https://central.sonatype.com/api/v1/publisher/status?id=${deploymentId}")
+            logger.warn("Publishing will continue asynchronously. Continuing on.")
+            return
+        }
+        sleep(pollIntervalSeconds * 1000L)
+    }
+}
+
 // Configure publishing for maven central. This is done in the top-level build.gradle, and then
 // all of the subprojects configure the artifacts they want published by applying
 // ${rootDir}/gradle/publishing.gradle in the project gradle. By default, we publish a library
 // from each package, but this can be configured by adjusting the publishLibrary variable.
 // Each subproject will place its artifacts into the central staging repository,
-// which will then be picked up by the bundle task
+// which will then be picked up by the bundle task.
+//
+// Both publishBuild and centralPublish must be set for these tasks to be registered at all -
+// the release workflow always passes both together, so this just avoids registering
+// publish-only tasks on builds that never intend to invoke them.
 if (Boolean.parseBoolean(publishBuild) && Boolean.parseBoolean(centralPublish)) {
     var stagingRepo = layout.buildDirectory.dir('staging-repo')
 
@@ -341,7 +417,7 @@ if (Boolean.parseBoolean(publishBuild) && Boolean.parseBoolean(centralPublish)) 
         description = "Creates a bundle zip of all artifacts for Maven Central upload"
         group = "publishing"
 
-        dependsOn subprojects.collect { it.tasks.matching { it.name == 'publish' } }
+        dependsOn subprojects.collect { it.tasks.named('publish') }
 
         archiveBaseName = "${rootProject.group}-${rootProject.name}"
         archiveVersion = project.version
@@ -349,7 +425,7 @@ if (Boolean.parseBoolean(publishBuild) && Boolean.parseBoolean(centralPublish)) 
         destinationDirectory = layout.buildDirectory.dir('distributions')
 
         from(stagingRepo) {
-            include "${rootProject.group.replaceAll('.', '/')}/**/${project.version}/*"
+            include "${rootProject.group.replace('.', '/')}/**/${project.version}/*"
             exclude '**/maven-metadata*'
         }
 
@@ -393,6 +469,11 @@ if (Boolean.parseBoolean(publishBuild) && Boolean.parseBoolean(centralPublish)) 
                 connection.setRequestMethod('POST')
                 connection.setDoOutput(true)
                 connection.setRequestProperty('Authorization', "Bearer ${encodedCredentials}")
+                // Connecting should be quick, but the read timeout also bounds how long we wait for
+                // the server to acknowledge the upload once the bundle has been fully streamed, so it
+                // needs to be generous enough to cover large bundles.
+                connection.setConnectTimeout(30_000)
+                connection.setReadTimeout(10 * 60_000)
 
                 def boundary = "----GradleBoundary${UUID.randomUUID().toString()}"
                 connection.setRequestProperty('Content-Type', "multipart/form-data; boundary=${boundary}")
@@ -427,6 +508,13 @@ if (Boolean.parseBoolean(publishBuild) && Boolean.parseBoolean(centralPublish)) 
                     logger.lifecycle("Upload successful!")
                     logger.lifecycle("Deployment ID: ${deploymentId}")
                     logger.lifecycle("You can check the status at: https://central.sonatype.com/api/v1/publisher/status?id=${deploymentId}")
+
+                    // The upload endpoint only confirms that the bundle was received. With
+                    // publishingType=AUTOMATIC, Central still validates the bundle and releases it
+                    // asynchronously, so poll the status endpoint until it reaches a terminal state to
+                    // catch validation failures instead of leaving this task green while the deployment
+                    // silently fails behind the scenes.
+                    waitForCentralDeploymentToPublish(deploymentId, encodedCredentials)
                 } else {
                     def errorResponse = connection.errorStream?.text ?: responseMessage
                     throw new GradleException("Upload failed with status ${responseCode}: ${errorResponse}")
