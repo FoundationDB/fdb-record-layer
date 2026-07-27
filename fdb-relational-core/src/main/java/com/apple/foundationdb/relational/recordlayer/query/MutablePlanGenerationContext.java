@@ -479,7 +479,24 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
         } else {
             param = preparedParams.nextUnnamedParamValue();
         }
+        if (param instanceof PreparedParams.DeclaredParameter) {
+            return processDeclaredParameter((PreparedParams.DeclaredParameter) param, currentUnnamedParameterIndex, tokenIndex);
+        }
         return processPreparedStatementParameter(param, getObjectType(param), currentUnnamedParameterIndex, null, tokenIndex);
+    }
+
+    /**
+     * Processes a stored query signature parameter (from {@link PreparedParams.DeclaredParameter}): it carries a
+     * declared type but no bound value, so it becomes a value-free {@link ConstantObjectValue} of that type. (The
+     * declared range is applied to plan constraints in a later step.)
+     */
+    @Nonnull
+    private Value processDeclaredParameter(@Nonnull final PreparedParams.DeclaredParameter declared,
+                                           final int unnamedParameterIndex, final int tokenIndex) {
+        final var orderedLiteral = literalsBuilder.addLiteral(declared.getType(), null, unnamedParameterIndex, null, tokenIndex);
+        final var result = ConstantObjectValue.of(Quantifier.constant(), orderedLiteral.getConstantId(), declared.getType());
+        addLiteralReference(result);
+        return result;
     }
 
     @Nonnull

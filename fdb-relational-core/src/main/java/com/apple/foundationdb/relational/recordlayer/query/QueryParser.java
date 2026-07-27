@@ -170,6 +170,11 @@ public class QueryParser {
         return parse(viewDefinition, ignored -> { } , RelationalParser::query);
     }
 
+    @Nonnull
+    public static RelationalParser.StoredQueryParameterListContext parseStoredQueryParameterList(@Nonnull final String signature) {
+        return parse(signature, ignored -> { }, RelationalParser::storedQueryParameterList);
+    }
+
     private static final class PreparedParamsValidator extends RelationalParserBaseVisitor<Void> {
         @Override
         public Void visitPreparedStatementParameter(final RelationalParser.PreparedStatementParameterContext ctx) {

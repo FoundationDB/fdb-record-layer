@@ -401,22 +401,28 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
         if (ctx.QUESTION() != null) {
             final int currentUnnamedParameterIndex = preparedStatementParameters.currentUnnamedParamIndex();
             param = preparedStatementParameters.nextUnnamedParamValue();
-            if (param instanceof Array || param instanceof Struct) {
-                allowLiteralAddition = false;
-            }
-            processUnnamedParameter(param,  currentUnnamedParameterIndex, ctx.getStart().getTokenIndex());
-            if (param instanceof Array || param instanceof Struct) {
-                allowLiteralAddition = true;
-            }
+            if (param instanceof PreparedParams.DeclaredParameter) {
+                // A stored query signature parameter (warmup): no bound value. Canonicalize to "?" and register a
+                // value-free literal; the declared type is applied during planning.
+                processDeclaredParameter(currentUnnamedParameterIndex, ctx.getStart().getTokenIndex());
+            } else {
+                if (param instanceof Array || param instanceof Struct) {
+                    allowLiteralAddition = false;
+                }
+                processUnnamedParameter(param, currentUnnamedParameterIndex, ctx.getStart().getTokenIndex());
+                if (param instanceof Array || param instanceof Struct) {
+                    allowLiteralAddition = true;
+                }
 
-            if (param instanceof Array) {
-                allowTokenAddition = false;
-                processArrayParameter((Array) param, currentUnnamedParameterIndex, null, ctx.getStart().getTokenIndex());
-                allowTokenAddition = true;
-            } else if (param instanceof Struct) {
-                allowTokenAddition = false;
-                processStructParameter((Struct) param, currentUnnamedParameterIndex, null, ctx.getStart().getTokenIndex());
-                allowTokenAddition = true;
+                if (param instanceof Array) {
+                    allowTokenAddition = false;
+                    processArrayParameter((Array)param, currentUnnamedParameterIndex, null, ctx.getStart().getTokenIndex());
+                    allowTokenAddition = true;
+                } else if (param instanceof Struct) {
+                    allowTokenAddition = false;
+                    processStructParameter((Struct)param, currentUnnamedParameterIndex, null, ctx.getStart().getTokenIndex());
+                    allowTokenAddition = true;
+                }
             }
         } else {
             // Note we preserve named parameters in canonical representation, otherwise we could mix up different queries
@@ -564,6 +570,21 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
     private void processUnnamedParameter(@Nonnull final Object literal, final int unnamedParameterIndex,
                                          final int tokenIndex) {
         processLiteral(literal, tokenIndex, unnamedParameterIndex, null);
+    }
+
+    /**
+     * Registers a stored query signature parameter (a value-free {@code ?} whose type/range come from the signature)
+     * during normalization: canonicalize to {@code ?} and record a value-free literal (no bound value).
+     */
+    private void processDeclaredParameter(final int unnamedParameterIndex, final int tokenIndex) {
+        if (allowLiteralAddition) {
+            queryHasherContextBuilder.getLiteralsBuilder()
+                    .addLiteral(Type.any(), null, unnamedParameterIndex, null, tokenIndex);
+        }
+        if (allowTokenAddition) {
+            sqlCanonicalizer.append("?").append(" ");
+            parameterHash.putInt(Objects.hash("?", null));
+        }
     }
 
     private void processNamedParameter(@Nonnull final Object literal, @Nonnull final String parameterName,
