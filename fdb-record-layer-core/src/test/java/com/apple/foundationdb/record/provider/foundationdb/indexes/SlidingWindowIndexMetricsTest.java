@@ -25,7 +25,6 @@ import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexPredicate.RowNumberWindowPredicate.Direction;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreTestBase;
-import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainer;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.SlidingWindowIndexMaintainer.SlidingWindowCounter;
@@ -36,7 +35,6 @@ import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
 import com.google.common.collect.ImmutableList;
 import com.google.protobuf.ByteString;
-import com.google.protobuf.Message;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -46,7 +44,6 @@ import java.util.List;
 
 import static com.apple.foundationdb.record.provider.foundationdb.indexes.SlidingWindowTestHelpers.sampleVector;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -269,23 +266,6 @@ class SlidingWindowIndexMetricsTest extends FDBRecordStoreTestBase {
     }
 
     // ===== Special operations =====
-
-    @Test
-    void preemptiveDeleteWriteOnlyFiresOnUpdateWhileWriteOnly() throws Exception {
-        try (FDBRecordContext context = openContext()) {
-            openStore(context, 3, Direction.DESC);
-            rec(1, 100);
-            final FDBStoredRecord<Message> stored = recordStore.loadRecord(Tuple.from(1L));
-            assertNotNull(stored);
-
-            timer.reset();
-
-            maintainer().updateWhileWriteOnly(null, stored).join();
-
-            assertEquals(1, count(SlidingWindowCounter.SW_PREEMPTIVE_DELETE_WRITE_ONLY));
-            commit(context);
-        }
-    }
 
     @Test
     void partitionClearedFiresOnDeleteWhere() throws Exception {

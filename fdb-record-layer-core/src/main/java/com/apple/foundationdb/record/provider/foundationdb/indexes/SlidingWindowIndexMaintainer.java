@@ -99,7 +99,7 @@ import java.util.concurrent.CompletableFuture;
  * partition group from the sliding window subspace and delegates to the inner index.</p>
  */
 @API(API.Status.EXPERIMENTAL)
-public class SlidingWindowIndexMaintainer extends IndexMaintainer {
+public class SlidingWindowIndexMaintainer extends StandardIndexMaintainer {
 
     protected enum Type {
         MIN(Comparator.naturalOrder()),
@@ -359,7 +359,7 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
 
     @Override
     public boolean isIdempotent() {
-        return delegate.isIdempotent();
+        return false;
     }
 
     @Override
@@ -395,38 +395,6 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
             }
             return future;
         });
-    }
-
-    @Nonnull
-    @Override
-    public <M extends Message> CompletableFuture<Void> updateWhileWriteOnly(@Nullable FDBIndexableRecord<M> oldRecord,
-                                                                            @Nullable FDBIndexableRecord<M> newRecord) {
-        // During a write-only index build, the sliding window cannot rely on the normal
-        // update(old, new) contract because the indexer may have already processed newRecord
-        // in an earlier range scan. If we blindly call update(null, newRecord), the window
-        // counter would be incremented a second time, leading to an inflated count and
-        // incorrect eviction/re-election behavior.
-        //
-        // The standard index maintainer (StandardIndexMaintainer.updateWriteOnlyByRecords)
-        // handles this by checking the range set to see if the record's primary key has
-        // already been built. The sliding window takes a simpler approach: preemptively
-        // delete newRecord from the window (if it exists) before applying the full
-        // update(old, new). This is safe because:
-        //  - If newRecord was NOT previously indexed, the delete is a no-op (the entry
-        //    simply isn't found in the entries subspace).
-        //  - If newRecord WAS previously indexed, the delete removes it from the window
-        //    and decrements the counter, so the subsequent insert does not double-count.
-        //
-        // The net effect is that after this method completes, newRecord is indexed exactly
-        // once with its current values, and the counter accurately reflects the window size.
-        if (newRecord != null) {
-            incrementCounter(SlidingWindowCounter.SW_PREEMPTIVE_DELETE_WRITE_ONLY);
-        }
-        // The preemptive delete must fully complete (committing its writes and releasing the sliding-window write lock)
-        // before the reinsert runs. Chain the two updates rather than firing the delete as a discarded future: dropping
-        // it would leave the delete unsequenced relative to the reinsert and silently swallow any exception it raises.
-        return update(newRecord, null)
-                .thenCompose(ignore -> update(oldRecord, newRecord));
     }
 
     @Nonnull
@@ -760,7 +728,6 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
         SW_PARTITION_EMPTIED("partition emptied (no entries remain)"),
         SW_EVICTED_RECORD_MISSING("boundary record could not be loaded for eviction"),
         SW_PROMOTED_RECORD_MISSING("overflow record could not be loaded for promotion"),
-        SW_PREEMPTIVE_DELETE_WRITE_ONLY("preemptive delete during write-only index build"),
         SW_PARTITION_CLEARED("partition cleared via deleteWhere");
 
         @Nonnull

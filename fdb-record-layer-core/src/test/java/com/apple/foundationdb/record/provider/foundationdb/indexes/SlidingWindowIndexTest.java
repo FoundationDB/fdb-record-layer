@@ -1184,6 +1184,51 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
         }
     }
 
+    // ===== Double-counting tests =====
+
+    @Test
+    void writeOnlyNoQueueThenOnlineIndexBuild() throws Exception {
+
+        try (FDBRecordContext context = openContext()) {
+            openStore(context, 5, Direction.DESC);
+            final Index index = recordStore.getRecordMetaData().getIndex(INDEX_NAME);
+            recordStore.clearAndMarkIndexWriteOnly(index).join();
+            assertTrue(recordStore.isIndexWriteOnlyNoQueue(INDEX_NAME));
+
+            rec(1, 100);
+            rec(2, 200);
+            rec(3, 300);
+
+            assertThat(slidingWindow()).hasSizeOf(0).underlyingHnsw().isEmpty();
+            commit(context);
+        }
+
+        // Finish the build with the online indexer, which marks the index readable.
+        try (FDBRecordContext context = openContext()) {
+            openStore(context, 5, Direction.DESC);
+            final Index index = recordStore.getRecordMetaData().getIndex(INDEX_NAME);
+            try (OnlineIndexer indexer = OnlineIndexer.newBuilder()
+                    .setRecordStore(recordStore)
+                    .setIndex(index)
+                    .build()) {
+                indexer.buildIndex(true);
+            }
+            commit(context);
+        }
+
+        try (FDBRecordContext context = openContext()) {
+            openStore(context, 5, Direction.DESC);
+            final Index index = recordStore.getRecordMetaData().getIndex(INDEX_NAME);
+            assertTrue(recordStore.isIndexReadable(index));
+            assertThat(slidingWindow())
+                    .as("the online indexer must not re-insert records that updateWhileWriteOnly already indexed: "
+                            + "a count above the number of records means the window counter was double counted")
+                    .hasSizeOf(3)
+                    .underlyingHnsw().containsInAnyOrder(1, 2, 3);
+            commit(context);
+        }
+    }
+
     // ===== Rebuild tests =====
 
     @Test
@@ -1239,17 +1284,18 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
         // Regression test for the originally reported bug: FDBRecordStore.clearIndexData did
         // not clear the sliding window subspace, so calling clearAndMarkIndexWriteOnly (which
         // routes through clearIndexData) left stale window bookkeeping (count, boundary,
-        // entries) behind. Subsequent writes under the WRITE_ONLY state go through
-        // SlidingWindowIndexMaintainer.updateWhileWriteOnly → handleInsert, which reads the
-        // count and boundary from the subspace to decide whether to add to the window or
-        // evict. With stale state, the maintainer would incorrectly believe the window is
-        // already full and trigger a phantom eviction (against a delegate that has already
-        // been cleared), leaving the window's count out of sync with the records actually
-        // indexed since the clear.
+        // entries) behind, out of sync with a delegate index that had just been emptied.
         //
-        // This test exercises that path directly: after a clear + a single new write, the
-        // count must be exactly 1. Without the fix, the count would be 2 (the stale pre-clear
-        // value, preserved through a window-full eviction).
+        // The sliding window is not idempotent, so writes under the WRITE_ONLY state go through
+        // StandardIndexMaintainer.updateWhileWriteOnly, which consults the range set and skips
+        // records the build has not reached yet. clearAndMarkIndexWriteOnly resets that range set,
+        // so the write below is deferred to the build and the window must be *empty* right after
+        // the clear. Without the fix, the stale count (2) and boundary ((100, 1)) survive the clear
+        // and the window reports a size it no longer has any entries for.
+        //
+        // The build then indexes every record exactly once, which is what proves the deferred write
+        // was not lost: rec3 has to end up in the window, and the count has to match the records
+        // actually in the delegate index.
         try (FDBRecordContext context = openContext()) {
             openStore(context, 2, Direction.DESC);
             rec(1, 100);   // window: count becomes 1
@@ -1262,19 +1308,42 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
             final Index index = recordStore.getRecordMetaData().getIndex(INDEX_NAME);
             recordStore.clearAndMarkIndexWriteOnly(index).join();
 
-            // Save a single record under the now-WRITE_ONLY state. With the fix, the sliding
-            // window subspace was emptied by clearAndMarkIndexWriteOnly, so this is the first
-            // entry: count must be 1. Without the fix, the maintainer reads the stale count=2,
-            // takes the "window full" branch, evicts the stale (100, 1) boundary entry, and
-            // leaves count at 2 — a value that no longer reflects the records actually present
-            // in the (rebuilt-from-empty) delegate index.
+            // Save a single record under the now-WRITE_ONLY state. The clear emptied both the
+            // delegate index and the sliding window subspace, and reset the range set, so this
+            // write is deferred to the build and leaves no window state behind.
             rec(3, 300);
             assertThat(slidingWindow())
-                    .as("After clearAndMarkIndexWriteOnly + one write, the sliding window count must "
-                            + "reflect only the new record. A count > 1 means clearIndexData left "
+                    .as("After clearAndMarkIndexWriteOnly, the window must be empty: the write is "
+                            + "deferred to the index build. A non-zero count means clearIndexData left "
                             + "stale window bookkeeping behind, corrupting the window's internal "
                             + "accounting.")
-                    .hasSizeOf(1);
+                    .hasSizeOf(0)
+                    .underlyingHnsw()
+                    .isEmpty();
+            commit(context);
+        }
+        try (FDBRecordContext context = openContext()) {
+            openStore(context, 2, Direction.DESC);
+            final Index index = recordStore.getRecordMetaData().getIndex(INDEX_NAME);
+            try (OnlineIndexer indexer = OnlineIndexer.newBuilder()
+                    .setRecordStore(recordStore)
+                    .setIndex(index)
+                    .build()) {
+                indexer.buildIndex(true);
+            }
+            commit(context);
+        }
+        try (FDBRecordContext context = openContext()) {
+            openStore(context, 2, Direction.DESC);
+            assertTrue(recordStore.isIndexReadable(INDEX_NAME));
+            // All three records are rebuilt from scratch; the window of 2 keeps the two highest
+            // relevances, so the record written while WRITE_ONLY is in the window and rec1 is not.
+            assertThat(slidingWindow())
+                    .as("The build must index the record that was written while WRITE_ONLY, and count "
+                            + "each record exactly once.")
+                    .hasSizeOf(2)
+                    .underlyingHnsw()
+                    .containsInAnyOrder(2L, 3L);
             commit(context);
         }
     }
