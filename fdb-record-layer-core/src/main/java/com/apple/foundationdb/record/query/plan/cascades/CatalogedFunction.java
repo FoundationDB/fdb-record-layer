@@ -30,6 +30,8 @@ import com.google.common.base.Verify;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.common.collect.Streams;
 
@@ -39,6 +41,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -158,6 +161,45 @@ public abstract class CatalogedFunction {
 
     public int getDefaultValuesCount() {
         return parameterDefaults.size();
+    }
+
+    /**
+     * The options this function understands when supplied at a call site, e.g. through the {@code OPTIONS} clause of a
+     * window specification. Options are declared per function rather than centrally, so a function owns the names and
+     * value types of its own options and two unrelated functions may declare an option of the same name with different
+     * value types.
+     * <p>
+     * The default is to declare no options at all, which means any option supplied at a call site is rejected rather
+     * than silently ignored. Option names must be unique within the returned set.
+     * </p>
+     * @return the options this function understands
+     */
+    @Nonnull
+    public Set<CallSiteArguments.Option<?>> getSupportedOptions() {
+        return ImmutableSet.of();
+    }
+
+    /**
+     * Resolves the options supplied at a call site against the options this function declares, rejecting any option
+     * this function does not understand and converting each remaining value to its declared type. Implementors of
+     * {@link #encapsulate(CallSiteArguments)} must pass the arguments through this method before reading any option.
+     *
+     * @param arguments the call-site arguments
+     * @return {@code arguments}, with the option values converted to their declared types
+     */
+    @Nonnull
+    protected final CallSiteArguments validateAndNormalizeOptions(@Nonnull final CallSiteArguments arguments) {
+        if (!arguments.hasOptions()) {
+            return arguments;
+        }
+        //
+        // toImmutableMap() rejects duplicate keys, so a function that declares two options of the same name fails fast.
+        // The index is built on demand rather than cached, as it is only needed for the rare call site that supplies
+        // options at all.
+        //
+        final var supportedOptionsByName = getSupportedOptions().stream()
+                .collect(ImmutableMap.toImmutableMap(CallSiteArguments.Option::getName, Functions.identity()));
+        return arguments.withOptions(arguments.getOptions().resolve(supportedOptionsByName, functionName));
     }
 
     /**

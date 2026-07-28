@@ -37,12 +37,13 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 
 import static com.apple.foundationdb.record.query.plan.cascades.values.DistanceValue.DistanceOperator.COSINE_DISTANCE;
 import static com.apple.foundationdb.record.query.plan.cascades.values.DistanceValue.DistanceOperator.DOT_PRODUCT_DISTANCE;
@@ -411,21 +412,42 @@ public class RowNumberValue extends WindowedValue implements Value.IndexOnlyValu
      * <p>
      * The partitioning and ordering columns are taken from the {@link CallSiteArguments.WindowSpecification} rather
      * than from positional arguments, and the vector-search options ({@code ef_search}, {@code return_vectors}) are
-     * read from the {@link CallSiteArguments} options map. This lets {@code row_number} be encapsulated in a single
-     * step without the higher-order currying it previously relied on.
+     * read from the call site's {@link CallSiteArguments.Options} through the typed keys this function declares in
+     * {@link #getSupportedOptions()}. This lets {@code row_number} be encapsulated in a single step without the
+     * higher-order currying it previously relied on.
      * </p>
      */
     @AutoService(BuiltInFunction.class)
     public static final class RowNumberFn extends BuiltInFunction<RowNumberValue> {
 
+        /**
+         * The HNSW search-quality option. Its name is the one the corresponding scan option is stored under, since this
+         * call-site option exists to feed {@link VectorIndexScanOptions#HNSW_EF_SEARCH}.
+         */
         @Nonnull
-        public static final String EF_SEARCH_ARGUMENT = VectorIndexScanOptions.HNSW_EF_SEARCH.getOptionName();
+        public static final CallSiteArguments.Option<Integer> EF_SEARCH =
+                CallSiteArguments.Option.ofInteger(VectorIndexScanOptions.HNSW_EF_SEARCH.getOptionName());
+
+        /**
+         * The option controlling whether the index scan returns the vectors themselves. Named after
+         * {@link VectorIndexScanOptions#VECTOR_RETURN_VECTORS}, which it feeds.
+         */
+        @Nonnull
+        public static final CallSiteArguments.Option<Boolean> RETURN_VECTORS =
+                CallSiteArguments.Option.ofBoolean(VectorIndexScanOptions.VECTOR_RETURN_VECTORS.getOptionName());
 
         @Nonnull
-        public static final String INDEX_RETURNS_VECTORS_ARGUMENT = VectorIndexScanOptions.VECTOR_RETURN_VECTORS.getOptionName();
+        private static final Set<CallSiteArguments.Option<?>> SUPPORTED_OPTIONS =
+                ImmutableSet.of(EF_SEARCH, RETURN_VECTORS);
 
         public RowNumberFn() {
             super("row_number", ImmutableList.of(), RowNumberFn::encapsulateInternal);
+        }
+
+        @Nonnull
+        @Override
+        public Set<CallSiteArguments.Option<?>> getSupportedOptions() {
+            return SUPPORTED_OPTIONS;
         }
 
         @Nonnull
@@ -437,9 +459,8 @@ public class RowNumberValue extends WindowedValue implements Value.IndexOnlyValu
                     .map(WindowOrderingPart::getValue)
                     .collect(ImmutableList.toImmutableList());
 
-            final Map<String, Object> options = callSiteArguments.getOptions();
-            final Integer efSearch = (Integer)options.get(EF_SEARCH_ARGUMENT);
-            final Boolean isReturningVectors = (Boolean)options.get(INDEX_RETURNS_VECTORS_ARGUMENT);
+            final Integer efSearch = callSiteArguments.getOption(EF_SEARCH).orElse(null);
+            final Boolean isReturningVectors = callSiteArguments.getOption(RETURN_VECTORS).orElse(null);
 
             return new RowNumberValue(partitioningValues, argumentValues, efSearch, isReturningVectors);
         }

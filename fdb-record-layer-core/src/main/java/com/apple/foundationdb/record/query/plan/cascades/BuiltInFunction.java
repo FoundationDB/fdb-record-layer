@@ -84,6 +84,10 @@ public abstract class BuiltInFunction<T extends Typed> extends CatalogedFunction
             //
             throw new RecordCoreException("built-in functions do not support named argument calling conventions");
         }
-        return Verify.verifyNotNull(encapsulationFunction).encapsulate(this, arguments);
+        //
+        // This is the single funnel through which all built-in functions are encapsulated, so it is where a call site's
+        // options are checked against the options this function declares.
+        //
+        return Verify.verifyNotNull(encapsulationFunction).encapsulate(this, validateAndNormalizeOptions(arguments));
     }
 }

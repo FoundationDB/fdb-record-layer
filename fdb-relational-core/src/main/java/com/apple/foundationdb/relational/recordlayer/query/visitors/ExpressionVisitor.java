@@ -21,7 +21,6 @@
 package com.apple.foundationdb.relational.recordlayer.query.visitors;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.provider.foundationdb.VectorIndexScanOptions;
 import com.apple.foundationdb.record.query.plan.cascades.OrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.CompatibleTypeEvolutionPredicate;
@@ -36,6 +35,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.NullValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.PromoteValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.RowNumberValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.WindowedValue;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
@@ -333,8 +333,12 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
     @Override
     public Expression visitWindowOption(final RelationalParser.WindowOptionContext ctx) {
         if (ctx.EF_SEARCH() != null) {
-            final var value = LiteralValue.ofScalar(Assert.castUnchecked(ParseHelpers.parseDecimal(ctx.efSearch.getText()), Integer.class));
-            return Expression.of(value, Identifier.of(VectorIndexScanOptions.HNSW_EF_SEARCH.getOptionName()));
+            //
+            // The literal is passed on as parsed; the option's declared type is enforced when the window function is
+            // encapsulated, so an out-of-range value is reported as a bad option value rather than an internal error.
+            //
+            final var value = LiteralValue.ofScalar(ParseHelpers.parseDecimal(ctx.efSearch.getText()));
+            return Expression.of(value, Identifier.of(RowNumberValue.RowNumberFn.EF_SEARCH.getName()));
         }
         throw Assert.failUnchecked(ErrorCode.INTERNAL_ERROR, "unexpected option " + ctx.getText());
     }

@@ -69,7 +69,6 @@ import com.google.common.base.Equivalence;
 import com.google.common.base.Function;
 import com.google.common.base.Functions;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.common.collect.Streams;
@@ -1012,14 +1011,14 @@ public class SemanticAnalyzer {
                 .withWindowSpecification(windowSpecification);
         final var windowOptions = windowSpecExpression.getWindowOptions();
         if (!windowOptions.isEmpty()) {
-            callSiteArguments = callSiteArguments.withOptions(windowOptionsToMap(windowOptions));
+            callSiteArguments = callSiteArguments.withOptions(toCallSiteOptions(windowOptions));
         }
         return resolveFunction(functionName, callSiteArguments, flattenSingleItemRecords);
     }
 
     @Nonnull
-    private static Map<String, Object> windowOptionsToMap(@Nonnull final Expressions windowOptions) {
-        final var optionsBuilder = ImmutableMap.<String, Object>builder();
+    private static CallSiteArguments.Options toCallSiteOptions(@Nonnull final Expressions windowOptions) {
+        final var optionsBuilder = CallSiteArguments.Options.builder();
         for (final var option : windowOptions) {
             Assert.thatUnchecked(option.getName().isPresent(), ErrorCode.SYNTAX_ERROR,
                     "window options must be named");
@@ -1028,7 +1027,11 @@ public class SemanticAnalyzer {
             //
             Assert.thatUnchecked(option.getUnderlying() instanceof LiteralValue<?>, ErrorCode.SYNTAX_ERROR,
                     "window options must be literal values");
-            optionsBuilder.put(option.getName().orElseThrow().toString(),
+            //
+            // The values are put in raw: the option's declared type is only known once the called function has been
+            // resolved, which is where they are type-checked.
+            //
+            optionsBuilder.putRaw(option.getName().orElseThrow().toString(),
                     Objects.requireNonNull(((LiteralValue<?>)option.getUnderlying()).getLiteralValue()));
         }
         return optionsBuilder.build();
