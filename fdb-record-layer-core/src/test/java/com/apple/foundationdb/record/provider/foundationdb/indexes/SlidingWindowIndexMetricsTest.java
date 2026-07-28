@@ -25,8 +25,8 @@ import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexPredicate.RowNumberWindowPredicate.Direction;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreTestBase;
-import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
+import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainer;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.SlidingWindowIndexMaintainer.SlidingWindowCounter;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.SlidingWindowIndexMaintainer.SlidingWindowEvent;
@@ -35,6 +35,7 @@ import com.apple.foundationdb.record.slidingwindowvector.TestRecordsSlidingWindo
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
 import com.google.common.collect.ImmutableList;
+import com.google.protobuf.Any;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Message;
 import org.junit.jupiter.api.BeforeEach;
@@ -298,6 +299,25 @@ class SlidingWindowIndexMetricsTest extends FDBRecordStoreTestBase {
             maintainer().deleteWhere(context.ensureActive(), Tuple.from("A")).join();
 
             assertEquals(1, count(SlidingWindowCounter.SW_PARTITION_CLEARED));
+            commit(context);
+        }
+    }
+
+    @Test
+    void preemptiveDeleteWriteOnlyFiresOncePerUpdateFromQueue() throws Exception {
+        // Draining pending writes queue must increment the preemptive-delete counter exactly once.
+        try (FDBRecordContext context = openContext()) {
+            openStore(context, 3, Direction.DESC);
+            rec(1, 100);
+            final FDBStoredRecord<Message> stored = recordStore.loadRecord(Tuple.from(1L));
+            assertNotNull(stored);
+            final Any entry = maintainer().serializePendingWriteQueue(null, stored);
+
+            timer.reset();
+            maintainer().updateFromQueue(entry).join();
+
+            assertEquals(1, count(SlidingWindowCounter.SW_PREEMPTIVE_DELETE_WRITE_ONLY),
+                    "updateFromQueue must not double-count the preemptive-delete counter");
             commit(context);
         }
     }
