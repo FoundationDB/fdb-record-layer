@@ -33,7 +33,7 @@ Snapshot isolation applies only to the reads of the statement it is attached to.
 writes in the same transaction — and everything else on the connection — continue to use their
 normal (serializable) isolation, so a snapshot ``SELECT`` can be freely mixed with serializable reads
 and writes in a single transaction. (For how an ``OPTIONS`` clause is scoped in general, see
-:doc:`Query options </reference/query_options>`.)
+:doc:`Statement options </reference/statement_options>`.)
 
 Examples
 ########
@@ -75,39 +75,39 @@ Sequence-like ids from a ``MAX_EVER`` index and a random offset
 ---------------------------------------------------------------
 
 Suppose the application needs to assign roughly-increasing ids without a central sequence generator.
-A ``MAX_EVER`` index tracks the largest key ever assigned:
+A ``MAX_EVER`` index tracks the largest id ever assigned:
 
 .. code-block:: sql
 
-    CREATE TABLE zone (zone_key BIGINT, name STRING, PRIMARY KEY(zone_key));
-    CREATE INDEX max_zone_key AS SELECT max_ever(zone_key) FROM zone;
+    CREATE TABLE folder (folder_id BIGINT, name STRING, PRIMARY KEY(folder_id));
+    CREATE INDEX max_folder_id AS SELECT max_ever(folder_id) FROM folder;
 
-To assign a new key, read the current maximum:
+To assign a new id, read the current maximum:
 
 .. code-block:: sql
 
-    SELECT max_ever(zone_key) AS max_key
-    FROM zone
+    SELECT max_ever(folder_id) AS max_id
+    FROM folder
     OPTIONS (ISOLATION LEVEL SNAPSHOT);
 
 .. list-table::
     :header-rows: 1
 
-    * - :sql:`max_key`
+    * - :sql:`max_id`
     * - :json:`250`
 
-The application then adds a small random offset to ``max_key`` and inserts the row with that key
-(for example ``INSERT INTO zone VALUES (max_key + <random 1..100>, 'the-name')``). Every insert
-updates the single ``max_zone_key`` index entry, so — as in the previous example — reading it at
+The application then adds a small random offset to ``max_id`` and inserts the row with that id
+(for example ``INSERT INTO folder VALUES (max_id + <random 1..100>, 'the-name')``). Every insert
+updates the single ``max_folder_id`` index entry, so — as in the previous example — reading it at
 serializable isolation would conflict with every concurrent id assignment. Reading it at snapshot
 isolation avoids that conflict, and the random offset makes it unlikely that two concurrent
-assignments choose the same key.
+assignments choose the same id.
 
 Because snapshot reads do not conflict, two transactions can read the same maximum and act on it
 independently, so design for the possibility that another transaction derived the same value. Here
-that possibility is handled for free: if two transactions do pick the same new key, the primary-key
+that possibility is handled for free: if two transactions do pick the same new id, the primary-key
 write itself conflicts (write-write) and one transaction retries. Widening the random range lowers
-the collision probability, at the cost of leaving larger gaps between assigned keys.
+the collision probability, at the cost of leaving larger gaps between assigned ids.
 
 Restrictions
 ############

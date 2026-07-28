@@ -1,8 +1,8 @@
-=============
-Query options
-=============
+=================
+Statement options
+=================
 
-Query options are a comma-separated list of directives that influence how a statement is planned or
+Statement options are a comma-separated list of directives that influence how a statement is planned or
 executed. They are supplied through an ``OPTIONS`` clause:
 
 .. code-block:: sql
@@ -28,4 +28,4 @@ others only to data-modifying statements. See each option's page for details.
 .. toctree::
     :maxdepth: 1
 
-    query_options/ISOLATION_LEVEL_SNAPSHOT
+    statement_options/ISOLATION_LEVEL_SNAPSHOT
