@@ -34,6 +34,8 @@ import com.google.common.collect.ImmutableSet;
 import org.junit.jupiter.api.Test;
 
 import javax.annotation.Nonnull;
+import java.util.Optional;
+import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -151,6 +153,74 @@ class CascadesPlannerTest {
     }
 
     /**
+     * On re-exploration, only the inner rules of a {@link ConditionalCascadesRule} whose own constraint dependencies
+     * are actually stale get pushed into the chain; inner rules that are not sensitive to the constraint that changed
+     * are filtered out entirely, rather than being tried (and failing to match anything new) regardless.
+     */
+    @Test
+    void testConditionalCascadesRule6() {
+        final RelationalExpression expression = scanExpression("A");
+        final Reference group = Reference.initialOf(expression);
+        final CascadesPlanner planner = newPlanner();
+
+        // Simulate a group that has already been fully explored and committed once.
+        group.setExplored();
+        // Push a new value for CONSTRAINT_A only; CONSTRAINT_B is left untouched, so only CONSTRAINT_A is stale
+        // relative to the committed exploration.
+        group.getConstraintsMap().pushProperty(CONSTRAINT_A, new Object());
+        group.startExploration();
+
+        final RecordingExplorationCascadesRule staleRule =
+                new RecordingExplorationCascadesRule(true, ImmutableSet.<PlannerConstraint<?>>of(CONSTRAINT_A));
+        final RecordingExplorationCascadesRule notStaleRule =
+                new RecordingExplorationCascadesRule(true, ImmutableSet.<PlannerConstraint<?>>of(CONSTRAINT_B));
+        // `notStaleRule` is listed *first*: if it weren't filtered out, it would match and short-circuit the chain
+        // before `staleRule` (listed second) is ever reached, since `notStaleRule` also yields on a match. So this
+        // ordering is what actually distinguishes "filtered out" from "chain just moved on past it".
+        final ConditionalCascadesRule<RelationalExpression, RecordingExplorationCascadesRule> conditionalRule =
+                new ConditionalCascadesRule<>(ImmutableList.of(notStaleRule, staleRule));
+        // `ReExploreExpression` itself is not visible here; this reproduces its `shouldPushRule()` logic (staleness
+        // with respect to the group's committed exploration) on top of the otherwise-testable base class.
+        final CascadesPlanner.AbstractExploreExpression reExplore =
+                planner.new AbstractExploreExpression(PlannerPhase.REWRITING, group, expression) {
+                    @Override
+                    protected boolean shouldPushRule(@Nonnull final CascadesRule<?> rule) {
+                        return group.isFullyExploring() || !group.isExploredForAttributes(rule.getConstraintDependencies());
+                    }
+                };
+
+        reExplore.pushTransformTask(conditionalRule);
+
+        final CascadesPlanner.Task pushedTask = planner.getTaskStack().pop();
+        assertThat(pushedTask).isInstanceOf(CascadesPlanner.ConditionalTransformExpression.class);
+        assertThat(pushedTask.execute()).isTrue();
+        assertThat(staleRule.matchCount).isEqualTo(1);
+        assertThat(notStaleRule.matchCount).isEqualTo(0);
+        assertThat(planner.getTaskStack()).noneMatch(CascadesPlanner.ConditionalTransformExpression.class::isInstance);
+    }
+
+    /**
+     * A stub {@link PlannerConstraint} used to exercise the per-inner-rule staleness filtering in
+     * {@link CascadesPlanner.AbstractExploreExpression#pushTransformTask}. Its {@code combine()} method is never
+     * invoked by these tests; identity is all that matters.
+     */
+    private static final PlannerConstraint<Object> CONSTRAINT_A = new PlannerConstraint<Object>() {
+        @Nonnull
+        @Override
+        public Optional<Object> combine(@Nonnull final Object currentConstraint, @Nonnull final Object newConstraint) {
+            return Optional.empty();
+        }
+    };
+
+    private static final PlannerConstraint<Object> CONSTRAINT_B = new PlannerConstraint<Object>() {
+        @Nonnull
+        @Override
+        public Optional<Object> combine(@Nonnull final Object currentConstraint, @Nonnull final Object newConstraint) {
+            return Optional.empty();
+        }
+    };
+
+    /**
      * Creates a {@link CascadesPlanner} over an empty {@link TestRecords1Proto}-based store.
      */
     @Nonnull
@@ -180,7 +250,11 @@ class CascadesPlannerTest {
         private int matchCount;
 
         RecordingExplorationCascadesRule(final boolean shouldYield) {
-            super(matcher());
+            this(shouldYield, ImmutableSet.of());
+        }
+
+        RecordingExplorationCascadesRule(final boolean shouldYield, @Nonnull final Set<PlannerConstraint<?>> constraintDependencies) {
+            super(matcher(), constraintDependencies);
             this.shouldYield = shouldYield;
         }
 

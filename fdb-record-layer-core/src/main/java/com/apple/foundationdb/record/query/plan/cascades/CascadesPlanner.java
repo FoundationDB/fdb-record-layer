@@ -876,7 +876,8 @@ public class CascadesPlanner implements QueryPlanner {
         /**
          * Pushes a task that transforms the current group/expression pair using the given rule. For an ordinary rule,
          * pushes a {@link TransformExpression} task. For a {@link ConditionalCascadesRule}, pushes a single
-         * {@link ConditionalTransformExpression} task holding the enabled inner rules (but only if there are any).
+         * {@link ConditionalTransformExpression} task holding the subset of inner rules that are both enabled and
+         * currently worth trying according to {@code shouldPushRule()}. If that subset is empty, no task is pushed.
          */
         @VisibleForTesting
         void pushTransformTask(@Nonnull CascadesRule<? extends RelationalExpression> rule) {
@@ -886,9 +887,14 @@ public class CascadesPlanner implements QueryPlanner {
             if (rule instanceof final ConditionalCascadesRule<?, ?> conditionalRule) {
                 // Filter the individual inner rules by `configuration::isRuleEnabled` here, since the filter that is
                 // applied earlier at `ruleSet.getRules()` pertains only to the `ConditionalCascadesRule` wrapper.
-                final var enabledRules = getEnabledRules(conditionalRule);
-                if (!enabledRules.isEmpty()) {
-                    taskStack.push(new ConditionalTransformExpression(phase, group, expression, enabledRules));
+                // Also re-apply `shouldPushRule()` to each inner rule (rather than just the wrapper) so that on
+                // re-exploration only the inner rules that are actually sensitive to a newly-stale constraint get
+                // another chance to fire, instead of unconditionally restarting the whole chain from the first rule.
+                final var rules = getEnabledRules(conditionalRule).stream()
+                        .filter(this::shouldPushRule)
+                        .collect(ImmutableList.<CascadesRule<? extends RelationalExpression>>toImmutableList());
+                if (!rules.isEmpty()) {
+                    taskStack.push(new ConditionalTransformExpression(phase, group, expression, rules));
                 }
             } else {
                 taskStack.push(new TransformExpression(phase, group, expression, rule));
