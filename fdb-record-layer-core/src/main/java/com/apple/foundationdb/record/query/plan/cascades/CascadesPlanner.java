@@ -900,9 +900,9 @@ public class CascadesPlanner implements QueryPlanner {
          * the planner {@link #configuration}, preserving their order.
          */
         @VisibleForTesting
-        <T extends RelationalExpression> List<AbstractCascadesRule<T>> getEnabledRules(ConditionalCascadesRule<?, ?> rule) {
+        <T extends RelationalExpression> List<CascadesRule<T>> getEnabledRules(ConditionalCascadesRule<?, ?> rule) {
             final var rules = rule.getRules(configuration::isRuleEnabled);
-            @SuppressWarnings("unchecked") final var result = (List<AbstractCascadesRule<T>>)rules;
+            @SuppressWarnings("unchecked") final var result = (List<CascadesRule<T>>)rules;
             return result;
         }
 
@@ -1204,20 +1204,20 @@ public class CascadesPlanner implements QueryPlanner {
     @VisibleForTesting
     class ConditionalTransformExpression extends TransformExpression {
         @Nonnull
-        private final List<AbstractCascadesRule<? extends RelationalExpression>> rules;
+        private final List<CascadesRule<? extends RelationalExpression>> rules;
         private final int index;
 
         public ConditionalTransformExpression(@Nonnull final PlannerPhase plannerPhase,
                                               @Nonnull final Reference group,
                                               @Nonnull final RelationalExpression expression,
-                                              @Nonnull final List<? extends AbstractCascadesRule<? extends RelationalExpression>> rules) {
+                                              @Nonnull final List<? extends CascadesRule<? extends RelationalExpression>> rules) {
             this(plannerPhase, group, expression, ImmutableList.copyOf(rules), 0);
         }
 
         private ConditionalTransformExpression(@Nonnull final PlannerPhase plannerPhase,
                                                @Nonnull final Reference group,
                                                @Nonnull final RelationalExpression expression,
-                                               @Nonnull final List<AbstractCascadesRule<? extends RelationalExpression>> rules,
+                                               @Nonnull final List<CascadesRule<? extends RelationalExpression>> rules,
                                                final int index) {
             super(plannerPhase, group, expression, rules.get(index));
             this.rules = rules;
