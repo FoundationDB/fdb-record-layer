@@ -97,7 +97,7 @@ public class IndexScenarioModel {
             case JOINED_CONSTITUENTS:
                 return ScenarioRecords.joinedConstituents(count, definition);
             case UNNESTED_PARENTS:
-                return ScenarioRecords.unnestedParents(count);
+                return ScenarioRecords.unnestedParents(count, definition);
             case SCENARIO:
             default:
                 return ScenarioRecords.scenarioRecords(count, definition);

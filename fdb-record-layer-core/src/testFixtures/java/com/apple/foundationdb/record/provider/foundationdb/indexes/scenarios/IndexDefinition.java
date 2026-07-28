@@ -25,7 +25,6 @@ import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TestRecordsIndexScenariosProto;
 import com.apple.foundationdb.record.metadata.Index;
-import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 
 import java.util.List;
@@ -53,21 +52,20 @@ public interface IndexDefinition {
     TestRecordsIndexScenariosProto.IndexedMessage generateIndexedMessage(int index);
 
     /**
-     * Build the index under test over the {@code indexed} content. The framework passes the grouping
-     * prefix it wants the index to be grouped by: {@link ScenarioRecords#noPrefix()} (an empty
-     * expression) for ungrouped scenarios, or {@code field("group")} for grouped /
-     * {@code deleteRecordsWhere} scenarios. The definition composes the prefix into its
-     * root/grouping expression (see {@link IndexScenarioMetaData#prefixed}) and nests through the
-     * singular {@code indexed} field to reach its value field(s).
+     * Build the index under test. The {@link IndexTarget} roots the definition's value expression
+     * (written relative to an {@code IndexedMessage}) at the correct location for the current
+     * scenario (normal / grouped / joined / unnested), and supplies the grouping prefix. The same
+     * method therefore serves every scenario, including synthetic record types.
      *
-     * @param groupingPrefix empty for ungrouped, or the grouping-field expression for grouped scenarios
+     * @param target roots value expressions at the indexed message and supplies the grouping prefix
      * @return the index to add to the store
      */
-    Index buildIndex(KeyExpression groupingPrefix);
+    Index buildIndex(IndexTarget target);
 
     /**
-     * The record type (or synthetic record type) the index is added to. Normal definitions return
-     * {@link ScenarioRecords#SCENARIO_RECORD}.
+     * The record type the index is added to for the normal (non-synthetic) scenarios. Normal
+     * definitions return {@link ScenarioRecords#SCENARIO_RECORD}. (Synthetic scenarios add the index
+     * to the framework-created synthetic type.)
      *
      * @return the indexed type name
      */
@@ -89,26 +87,15 @@ public interface IndexDefinition {
 
     /**
      * Whether this index can be built over a synthetic record type (the {@code SyntheticJoinedType}
-     * and {@code SyntheticUnnestedType} scenarios). Default {@code false}; a definition overrides to
-     * {@code true} and implements {@link #buildSyntheticIndex} when it supports synthetic types.
+     * and {@code SyntheticUnnestedType} scenarios). Default {@code true} (the unified
+     * {@link #buildIndex} roots the same value expression under a synthetic constituent); a definition
+     * overrides to {@code false} <em>with a documented reason</em> only when the maintainer itself
+     * cannot support the index over a synthetic type.
      *
      * @return whether the synthetic-type scenarios apply
      */
     default boolean supportsSynthetic() {
-        return false;
-    }
-
-    /**
-     * Build the index over a synthetic record type, given the fully-resolved value expression the
-     * framework computed for the synthetic constituent (already nested through the constituent and,
-     * for joined types, the {@code indexed} message). The definition just wraps it in its index
-     * type. Only called when {@link #supportsSynthetic()} is {@code true}.
-     *
-     * @param valueExpression the resolved value expression to index
-     * @return the index to add to the synthetic type
-     */
-    default Index buildSyntheticIndex(KeyExpression valueExpression) {
-        throw new UnsupportedOperationException("index does not support synthetic types: " + getIndexName());
+        return true;
     }
 
     /**

@@ -35,11 +35,10 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanRange;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.scenarios.IndexDefinition;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.scenarios.IndexScenarioMetaData;
+import com.apple.foundationdb.record.provider.foundationdb.indexes.scenarios.IndexTarget;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.scenarios.ScenarioRecords;
 
 import java.util.Collections;
-
-import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 
 class PermutedMinMaxIndexDefinition implements IndexDefinition {
     private final String indexName = "permutedIndex";
@@ -69,15 +68,15 @@ class PermutedMinMaxIndexDefinition implements IndexDefinition {
     }
 
     @Override
-    public Index buildIndex(final KeyExpression groupingPrefix) {
+    public Index buildIndex(final IndexTarget target) {
         // Grouping columns: [group?, string_value, int_value]; grouped value: long_value; permuted size 1
         // permutes int_value.
         final KeyExpression columns = Key.Expressions.concat(
-                field(ScenarioRecords.INDEXED).nest(ScenarioRecords.STRING_VALUE),
-                field(ScenarioRecords.INDEXED).nest(ScenarioRecords.INT_VALUE),
-                field(ScenarioRecords.INDEXED).nest(ScenarioRecords.LONG_VALUE));
+                target.indexedField(ScenarioRecords.STRING_VALUE),
+                target.indexedField(ScenarioRecords.INT_VALUE),
+                target.indexedField(ScenarioRecords.LONG_VALUE));
         final KeyExpression grouping = new GroupingKeyExpression(
-                IndexScenarioMetaData.prefixed(groupingPrefix, columns), 1);
+                IndexScenarioMetaData.prefixed(target.groupingPrefix(), columns), 1);
         return new Index(indexName, grouping, indexType,
                 Collections.singletonMap(IndexOptions.PERMUTED_SIZE_OPTION, "1"));
     }

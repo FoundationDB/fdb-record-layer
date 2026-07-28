@@ -28,14 +28,12 @@ import com.apple.foundationdb.record.TestRecordsIndexScenariosProto;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexTypes;
-import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanRange;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.scenarios.IndexDefinition;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.scenarios.IndexScenarioMetaData;
+import com.apple.foundationdb.record.provider.foundationdb.indexes.scenarios.IndexTarget;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.scenarios.ScenarioRecords;
-
-import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 
 class ValueIndexDefinition implements IndexDefinition {
     private final String indexName = "valueIndex";
@@ -58,9 +56,9 @@ class ValueIndexDefinition implements IndexDefinition {
     }
 
     @Override
-    public Index buildIndex(final KeyExpression groupingPrefix) {
+    public Index buildIndex(final IndexTarget target) {
         return new Index(indexName,
-                IndexScenarioMetaData.prefixed(groupingPrefix, field(ScenarioRecords.INDEXED).nest(ScenarioRecords.INT_VALUE)),
+                IndexScenarioMetaData.prefixed(target.groupingPrefix(), target.indexedField(ScenarioRecords.INT_VALUE)),
                 IndexTypes.VALUE);
     }
 
@@ -68,15 +66,5 @@ class ValueIndexDefinition implements IndexDefinition {
     public RecordCursor<IndexEntry> scanIndex(final FDBRecordStore store, final ScanProperties scanProperties) {
         return store.scanIndex(store.getRecordMetaData().getIndex(indexName),
                 new IndexScanRange(IndexScanType.BY_VALUE, TupleRange.ALL), null, scanProperties);
-    }
-
-    @Override
-    public boolean supportsSynthetic() {
-        return true;
-    }
-
-    @Override
-    public Index buildSyntheticIndex(final KeyExpression valueExpression) {
-        return new Index(indexName, valueExpression, IndexTypes.VALUE);
     }
 }

@@ -37,6 +37,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.VectorIndexScanComparisons;
 import com.apple.foundationdb.record.provider.foundationdb.VectorIndexScanOptions;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.scenarios.IndexDefinition;
+import com.apple.foundationdb.record.provider.foundationdb.indexes.scenarios.IndexTarget;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.scenarios.ScenarioRecords;
 import com.google.common.collect.ImmutableMap;
 import com.google.protobuf.ByteString;
@@ -44,7 +45,6 @@ import com.google.protobuf.ByteString;
 import javax.annotation.Nonnull;
 
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
-import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 
 class VectorIndexDefinition implements IndexDefinition {
     private final String indexName = "vectorIndex";
@@ -73,8 +73,9 @@ class VectorIndexDefinition implements IndexDefinition {
     }
 
     @Override
-    public Index buildIndex(final KeyExpression groupingPrefix) {
-        final KeyExpression vectorField = field(ScenarioRecords.INDEXED).nest(ScenarioRecords.BYTES_VALUE);
+    public Index buildIndex(final IndexTarget target) {
+        final KeyExpression vectorField = target.indexedField(ScenarioRecords.BYTES_VALUE);
+        final KeyExpression groupingPrefix = target.groupingPrefix();
         final KeyExpression root = groupingPrefix.getColumnSize() == 0
                 ? new KeyWithValueExpression(vectorField, 0)
                 : new KeyWithValueExpression(concat(groupingPrefix, vectorField), groupingPrefix.getColumnSize());

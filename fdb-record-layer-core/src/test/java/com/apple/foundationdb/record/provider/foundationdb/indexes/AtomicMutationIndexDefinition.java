@@ -34,11 +34,10 @@ import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanRange;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.scenarios.IndexDefinition;
+import com.apple.foundationdb.record.provider.foundationdb.indexes.scenarios.IndexTarget;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.scenarios.ScenarioRecords;
 
 import java.util.Objects;
-
-import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 
 class AtomicMutationIndexDefinition implements IndexDefinition {
     private final String indexType;
@@ -66,12 +65,12 @@ class AtomicMutationIndexDefinition implements IndexDefinition {
     }
 
     @Override
-    public Index buildIndex(final KeyExpression groupingPrefix) {
+    public Index buildIndex(final IndexTarget target) {
         // COUNT-family indexes aggregate over an empty value; the others aggregate over a numeric field.
         final KeyExpression value = Objects.equals(indexType, IndexTypes.COUNT) || Objects.equals(indexType, IndexTypes.COUNT_UPDATES)
                 ? Key.Expressions.empty()
-                : field(ScenarioRecords.INDEXED).nest(ScenarioRecords.INT_VALUE);
-        return new Index(indexName, GroupingKeyExpression.of(value, groupingPrefix), indexType);
+                : target.indexedField(ScenarioRecords.INT_VALUE);
+        return new Index(indexName, GroupingKeyExpression.of(value, target.groupingPrefix()), indexType);
     }
 
     @Override

@@ -32,6 +32,7 @@ import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.NestingKeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.scenarios.IndexDefinition;
+import com.apple.foundationdb.record.provider.foundationdb.indexes.scenarios.IndexTarget;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.scenarios.ScenarioRecords;
 
 import java.util.Collections;
@@ -59,6 +60,14 @@ class LeaderboardIndexDefinition implements IndexDefinition {
     }
 
     @Override
+    public boolean supportsSynthetic() {
+        // A time-window leaderboard needs windows created before indexing and a time-window scan; combining
+        // that with synthetic record types (where the leaderboard entries are themselves a repeated field
+        // within an unnested/joined constituent) is not supported without maintainer-level work. Skip.
+        return false;
+    }
+
+    @Override
     public TestRecordsIndexScenariosProto.IndexedMessage generateIndexedMessage(final int index) {
         return TestRecordsIndexScenariosProto.IndexedMessage.newBuilder()
                 .addEntries(TestRecordsIndexScenariosProto.ScoreEntry.newBuilder()
@@ -69,15 +78,15 @@ class LeaderboardIndexDefinition implements IndexDefinition {
     }
 
     @Override
-    public Index buildIndex(final KeyExpression groupingPrefix) {
-        // Nest through the singular indexed message (SCALAR), then fan out over the repeated entries.
-        final NestingKeyExpression scores = Key.Expressions.field(ScenarioRecords.INDEXED)
-                .nest(Key.Expressions.field(ScenarioRecords.ENTRIES, KeyExpression.FanType.FanOut)
-                        .nest(Key.Expressions.concat(Key.Expressions.field(ScenarioRecords.SCORE),
-                                Key.Expressions.field(ScenarioRecords.TIMESTAMP))));
-        final KeyExpression root = groupingPrefix.getColumnSize() == 0
+    public Index buildIndex(final IndexTarget target) {
+        // Within the indexed message: fan out over the repeated entries and take (score, timestamp).
+        final KeyExpression withinIndexed = Key.Expressions.field(ScenarioRecords.ENTRIES, KeyExpression.FanType.FanOut)
+                .nest(Key.Expressions.concat(Key.Expressions.field(ScenarioRecords.SCORE),
+                        Key.Expressions.field(ScenarioRecords.TIMESTAMP)));
+        final NestingKeyExpression scores = target.indexed(withinIndexed);
+        final KeyExpression root = target.groupingPrefix().getColumnSize() == 0
                 ? scores.ungrouped()
-                : scores.groupBy(groupingPrefix);
+                : scores.groupBy(target.groupingPrefix());
         return new Index(indexName, root, IndexTypes.TIME_WINDOW_LEADERBOARD);
     }
 

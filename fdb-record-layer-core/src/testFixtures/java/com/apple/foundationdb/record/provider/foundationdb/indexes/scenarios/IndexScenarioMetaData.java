@@ -28,6 +28,9 @@ import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.JoinedRecordTypeBuilder;
 import com.apple.foundationdb.record.metadata.UnnestedRecordTypeBuilder;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
+import com.apple.foundationdb.record.metadata.expressions.NestingKeyExpression;
+
+import java.util.function.Function;
 
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
@@ -78,9 +81,11 @@ public final class IndexScenarioMetaData {
     public static RecordMetaData forScenario(final IndexDefinition definition, final GroupingMode mode) {
         final RecordMetaDataBuilder builder = RecordMetaData.newBuilder()
                 .setRecords(TestRecordsIndexScenariosProto.getDescriptor());
-        final KeyExpression prefix = mode == GroupingMode.GROUPED
+        final KeyExpression groupingPrefix = mode == GroupingMode.GROUPED
                 ? field(ScenarioRecords.GROUP) : ScenarioRecords.noPrefix();
-        final Index index = definition.buildIndex(prefix);
+        // Normal scenario: the indexed message is the top-level `indexed` field.
+        final Index index = definition.buildIndex(
+                target(within -> field(ScenarioRecords.INDEXED).nest(within), groupingPrefix));
         if (IndexTypes.VERSION.equals(index.getType())) {
             builder.setStoreRecordVersions(true);
         }
@@ -95,7 +100,9 @@ public final class IndexScenarioMetaData {
 
     /**
      * Build metadata for a synthetic-type scenario, wiring up either a joined or an unnested record
-     * type and adding the definition's index over it.
+     * type and adding the definition's index over it. The definition's value expression is rooted at
+     * the synthetic constituent's {@code IndexedMessage} via the {@link IndexTarget}, so the same
+     * {@link IndexDefinition#buildIndex} works over synthetic types.
      *
      * @param definition the index definition under test
      * @param kind joined or unnested
@@ -113,26 +120,50 @@ public final class IndexScenarioMetaData {
                     builder.getRecordType(ScenarioRecords.OTHER_RECORD), false);
             joined.addJoin(ScenarioRecords.SIMPLE_CONSTITUENT, ScenarioRecords.OTHER_REC_NO,
                     ScenarioRecords.OTHER_CONSTITUENT, ScenarioRecords.REC_NO);
-            // Index the simple constituent's indexed.int_value.
-            index = definition.buildSyntheticIndex(field(ScenarioRecords.SIMPLE_CONSTITUENT)
-                    .nest(field(ScenarioRecords.INDEXED).nest(ScenarioRecords.INT_VALUE)));
-            maybeStoreVersions(builder, index);
+            // The simple constituent's indexed message: simple.indexed.
+            index = definition.buildIndex(target(
+                    within -> field(ScenarioRecords.SIMPLE_CONSTITUENT).nest(field(ScenarioRecords.INDEXED).nest(within)),
+                    ScenarioRecords.noPrefix()));
             builder.addIndex(ScenarioRecords.JOINED_TYPE, index);
         } else {
             final UnnestedRecordTypeBuilder unnested = builder.addUnnestedRecordType(ScenarioRecords.UNNESTED_TYPE);
             unnested.addParentConstituent(ScenarioRecords.PARENT_CONSTITUENT,
                     builder.getRecordType(ScenarioRecords.SCENARIO_RECORD));
-            // The repeated entries live inside the (singular) indexed message: indexed.entries.
+            // Unnest the repeated IndexedMessage, so the entry constituent is itself an IndexedMessage.
             unnested.addNestedConstituent(ScenarioRecords.ENTRY_CONSTITUENT,
-                    TestRecordsIndexScenariosProto.ScoreEntry.getDescriptor(),
+                    TestRecordsIndexScenariosProto.IndexedMessage.getDescriptor(),
                     ScenarioRecords.PARENT_CONSTITUENT,
-                    field(ScenarioRecords.INDEXED).nest(field(ScenarioRecords.ENTRIES, KeyExpression.FanType.FanOut)));
-            // Index the unnested entry constituent's score.
-            index = definition.buildSyntheticIndex(field(ScenarioRecords.ENTRY_CONSTITUENT).nest(ScenarioRecords.SCORE));
-            maybeStoreVersions(builder, index);
+                    field(ScenarioRecords.REPEATED_INDEXED, KeyExpression.FanType.FanOut));
+            // The entry constituent IS an IndexedMessage.
+            index = definition.buildIndex(target(
+                    within -> field(ScenarioRecords.ENTRY_CONSTITUENT).nest(within), ScenarioRecords.noPrefix()));
             builder.addIndex(ScenarioRecords.UNNESTED_TYPE, index);
         }
+        maybeStoreVersions(builder, index);
         return builder.build();
+    }
+
+    /**
+     * Create an {@link IndexTarget} from a rooting function (which places a value expression written
+     * relative to an {@code IndexedMessage} at its actual location) and a grouping prefix.
+     *
+     * @param rooting roots a value expression at the indexed message
+     * @param groupingPrefix the grouping prefix (empty for ungrouped / synthetic)
+     * @return the index target
+     */
+    private static IndexTarget target(final Function<KeyExpression, NestingKeyExpression> rooting,
+                                      final KeyExpression groupingPrefix) {
+        return new IndexTarget() {
+            @Override
+            public NestingKeyExpression indexed(final KeyExpression withinIndexedMessage) {
+                return rooting.apply(withinIndexedMessage);
+            }
+
+            @Override
+            public KeyExpression groupingPrefix() {
+                return groupingPrefix;
+            }
+        };
     }
 
     private static void maybeStoreVersions(final RecordMetaDataBuilder builder, final Index index) {

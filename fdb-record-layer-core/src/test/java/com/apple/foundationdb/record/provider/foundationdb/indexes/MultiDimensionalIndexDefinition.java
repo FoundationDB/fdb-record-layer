@@ -34,13 +34,13 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.MultidimensionalIndexScanBounds;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.scenarios.IndexDefinition;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.scenarios.IndexScenarioMetaData;
+import com.apple.foundationdb.record.provider.foundationdb.indexes.scenarios.IndexTarget;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.scenarios.ScenarioRecords;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
 import static com.apple.foundationdb.async.rtree.RTree.Storage.BY_NODE;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
-import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 
 class MultiDimensionalIndexDefinition implements IndexDefinition {
     private final String indexName = "EventIntervals";
@@ -65,15 +65,15 @@ class MultiDimensionalIndexDefinition implements IndexDefinition {
     }
 
     @Override
-    public Index buildIndex(final KeyExpression groupingPrefix) {
+    public Index buildIndex(final IndexTarget target) {
         // The R-tree always needs a (non-empty) dimensions prefix; use string_value as the base and prepend
         // the group prefix when grouped, so deleteRecordsWhere can clear a whole group (whose column is at
         // the front of, and no longer than, the dimensions prefix).
-        final KeyExpression prefix = IndexScenarioMetaData.prefixed(groupingPrefix,
-                field(ScenarioRecords.INDEXED).nest(ScenarioRecords.STRING_VALUE));
+        final KeyExpression prefix = IndexScenarioMetaData.prefixed(target.groupingPrefix(),
+                target.indexedField(ScenarioRecords.STRING_VALUE));
         final KeyExpression dimensions = concat(
-                field(ScenarioRecords.INDEXED).nest(ScenarioRecords.LONG_VALUE),
-                field(ScenarioRecords.INDEXED).nest(ScenarioRecords.LONG_VALUE_2));
+                target.indexedField(ScenarioRecords.LONG_VALUE),
+                target.indexedField(ScenarioRecords.LONG_VALUE_2));
         return new Index(indexName,
                 DimensionsKeyExpression.of(prefix, dimensions),
                 IndexTypes.MULTIDIMENSIONAL,

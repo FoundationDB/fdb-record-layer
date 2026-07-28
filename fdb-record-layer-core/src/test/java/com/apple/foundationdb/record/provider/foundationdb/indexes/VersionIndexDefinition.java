@@ -28,12 +28,12 @@ import com.apple.foundationdb.record.TestRecordsIndexScenariosProto;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexTypes;
-import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.VersionKeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanRange;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.scenarios.IndexDefinition;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.scenarios.IndexScenarioMetaData;
+import com.apple.foundationdb.record.provider.foundationdb.indexes.scenarios.IndexTarget;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.scenarios.ScenarioRecords;
 
 class VersionIndexDefinition implements IndexDefinition {
@@ -56,8 +56,10 @@ class VersionIndexDefinition implements IndexDefinition {
     }
 
     @Override
-    public Index buildIndex(final KeyExpression groupingPrefix) {
-        return new Index(indexName, IndexScenarioMetaData.prefixed(groupingPrefix, VersionKeyExpression.VERSION),
+    public Index buildIndex(final IndexTarget target) {
+        // The version is a property of the record as a whole, so the indexed message is not used.
+        return new Index(indexName,
+                IndexScenarioMetaData.prefixed(target.groupingPrefix(), VersionKeyExpression.VERSION),
                 IndexTypes.VERSION);
     }
 
@@ -65,16 +67,5 @@ class VersionIndexDefinition implements IndexDefinition {
     public RecordCursor<IndexEntry> scanIndex(final FDBRecordStore store, final ScanProperties scanProperties) {
         return store.scanIndex(store.getRecordMetaData().getIndex(indexName),
                 new IndexScanRange(IndexScanType.BY_VALUE, TupleRange.ALL), null, scanProperties);
-    }
-
-    @Override
-    public boolean supportsSynthetic() {
-        return true;
-    }
-
-    @Override
-    public Index buildSyntheticIndex(final KeyExpression valueExpression) {
-        // The version is a property of the synthetic record as a whole.
-        return new Index(indexName, VersionKeyExpression.VERSION, IndexTypes.VERSION);
     }
 }

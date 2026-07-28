@@ -28,13 +28,11 @@ import com.apple.foundationdb.record.TestRecordsIndexScenariosProto;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexTypes;
-import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanRange;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.scenarios.IndexDefinition;
+import com.apple.foundationdb.record.provider.foundationdb.indexes.scenarios.IndexTarget;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.scenarios.ScenarioRecords;
-
-import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 
 class BitmapValueIndexDefinition implements IndexDefinition {
     private final String indexName = "bitmapIndex";
@@ -58,11 +56,11 @@ class BitmapValueIndexDefinition implements IndexDefinition {
     }
 
     @Override
-    public Index buildIndex(final KeyExpression groupingPrefix) {
+    public Index buildIndex(final IndexTarget target) {
         // The grouped column is the bit position; groupBy(empty) is a single bitmap, groupBy(group) is one
         // bitmap per group.
         return new Index(indexName,
-                field(ScenarioRecords.INDEXED).nest(ScenarioRecords.INT_VALUE).groupBy(groupingPrefix),
+                target.indexedField(ScenarioRecords.INT_VALUE).groupBy(target.groupingPrefix()),
                 IndexTypes.BITMAP_VALUE, BitmapValueIndexTest.SMALL_BITMAP_OPTIONS);
     }
 

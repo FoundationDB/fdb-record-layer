@@ -44,6 +44,7 @@ public final class ScenarioRecords {
     public static final String REC_NO = "rec_no";
     public static final String GROUP = "group";
     public static final String INDEXED = "indexed";
+    public static final String REPEATED_INDEXED = "repeated_indexed";
     public static final String OTHER_REC_NO = "other_rec_no";
 
     // Field names on IndexedMessage.
@@ -144,24 +145,20 @@ public final class ScenarioRecords {
 
     /**
      * Generate parent records for an unnested synthetic type: each {@code ScenarioRecord} carries two
-     * {@code ScoreEntry}s (with distinct scores), so unnesting yields two synthetic records per parent.
-     * The unnested index is over {@code ScoreEntry.score}, so this content is fixed by the framework.
+     * {@code IndexedMessage}s (from the definition, with distinct indices), so unnesting yields two
+     * synthetic records per parent, each indexed the same way as a normal record.
      *
      * @param count the number of parent records
+     * @param definition the index definition providing the indexed content
      * @return the parent records to save
      */
-    public static List<Message> unnestedParents(final int count) {
+    public static List<Message> unnestedParents(final int count, final IndexDefinition definition) {
         return IntStream.range(0, count)
                 .mapToObj(i -> (Message)TestRecordsIndexScenariosProto.ScenarioRecord.newBuilder()
                         .setRecNo(i)
                         .setGroup(i % NUM_GROUPS)
-                        .setIndexed(TestRecordsIndexScenariosProto.IndexedMessage.newBuilder()
-                                .addEntries(TestRecordsIndexScenariosProto.ScoreEntry.newBuilder()
-                                        .setScore(2L * i)
-                                        .setTimestamp(1000L + i))
-                                .addEntries(TestRecordsIndexScenariosProto.ScoreEntry.newBuilder()
-                                        .setScore(2L * i + 1)
-                                        .setTimestamp(2000L + i)))
+                        .addRepeatedIndexed(definition.generateIndexedMessage(2 * i))
+                        .addRepeatedIndexed(definition.generateIndexedMessage(2 * i + 1))
                         .build())
                 .toList();
     }
