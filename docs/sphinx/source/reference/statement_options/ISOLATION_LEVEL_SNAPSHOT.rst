@@ -41,7 +41,7 @@ Examples
 Approximate row limit protected by a count index
 -------------------------------------------------
 
-Suppose a table has a ``COUNT(*)`` index and the application wants to cap it at roughly a maximum
+Suppose the application wants to cap a table at roughly a maximum
 number of rows:
 
 .. code-block:: sql
@@ -63,7 +63,7 @@ Before inserting a new row, read the current count and proceed only if it is und
     * - :sql:`document_count`
     * - :json:`3`
 
-Every insert into ``document`` updates the single ``document_count`` index entry. If the count were
+Every insert into ``document`` reads and updates the single ``document_count`` index entry. If the count were
 read at serializable isolation, that read would conflict with every concurrent insert, effectively
 serializing all inserts and causing frequent retries. Reading it at snapshot isolation adds no
 conflict range, so concurrent inserts proceed. The trade-off is that the limit becomes
@@ -106,7 +106,7 @@ assignments choose the same id.
 Because snapshot reads do not conflict, two transactions can read the same maximum and act on it
 independently, so design for the possibility that another transaction derived the same value. Here
 that possibility is handled for free: if two transactions do pick the same new id, the primary-key
-write itself conflicts (write-write) and one transaction retries. Widening the random range lowers
+write itself conflicts and one transaction retries. Widening the random range lowers
 the collision probability, at the cost of leaving larger gaps between assigned ids.
 
 Restrictions

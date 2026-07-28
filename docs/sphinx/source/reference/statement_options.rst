@@ -18,7 +18,7 @@ individual clause within it. It is written once, at the end of a top-level state
 query such as a subquery, a common table expression, or an index definition; placing ``OPTIONS``
 anywhere other than at the end of a top-level statement is a syntax error.
 
-An option affects only the statement it is attached to. It does not change any connection- or
+An option affects only the statement it is attached to. It does not change any connection-wide or
 transaction-wide setting, and it is not remembered for later statements — each statement that needs
 an option must specify it.
 
