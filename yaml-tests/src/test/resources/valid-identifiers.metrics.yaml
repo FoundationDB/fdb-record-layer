@@ -5,11 +5,11 @@ all-tests:
     explain: 'COVERING(foo.table$nested.repeated.idx.field.1.3 [EQUALS promote(@c24
         AS LONG)] -> [ID: KEY:[2]]) | MAP (_.ID AS ID)'
     task_count: 714
-    task_total_time_ms: 43
-    transform_count: 203
-    transform_time_ms: 19
+    task_total_time_ms: 23
+    transform_count: 201
+    transform_time_ms: 10
     transform_yield_count: 53
-    insert_time_ms: 1
+    insert_time_ms: 0
     insert_new_count: 66
     insert_reused_count: 1
 -   query: EXPLAIN select t.id from "foo.table$nested.repeated" as t where exists
@@ -19,9 +19,9 @@ all-tests:
     explain: 'COVERING(foo.table$nested.repeated.idx.field.1.2.1 [EQUALS promote(@c26
         AS LONG)] -> [ID: KEY:[2]]) | MAP (_.ID AS ID)'
     task_count: 714
-    task_total_time_ms: 57
-    transform_count: 203
-    transform_time_ms: 22
+    task_total_time_ms: 35
+    transform_count: 201
+    transform_time_ms: 15
     transform_yield_count: 53
     insert_time_ms: 1
     insert_new_count: 66
@@ -33,9 +33,9 @@ all-tests:
     explain: 'COVERING(foo.table$nested.repeated.idx.field.1.1.1 [EQUALS promote(@c26
         AS LONG)] -> [ID: KEY:[2]]) | MAP (_.ID AS ID)'
     task_count: 992
-    task_total_time_ms: 95
-    transform_count: 320
-    transform_time_ms: 38
+    task_total_time_ms: 105
+    transform_count: 318
+    transform_time_ms: 47
     transform_yield_count: 69
     insert_time_ms: 2
     insert_new_count: 94
@@ -46,11 +46,11 @@ all-tests:
     explain: SCAN([IS foo__2table__1nested, EQUALS promote(@c11 AS LONG)]) | MAP (_.level0.field1.level1$field.1.level2$field.1
         AS level2$field.1)
     task_count: 505
-    task_total_time_ms: 45
-    transform_count: 110
-    transform_time_ms: 12
+    task_total_time_ms: 18
+    transform_count: 109
+    transform_time_ms: 5
     transform_yield_count: 34
-    insert_time_ms: 1
+    insert_time_ms: 0
     insert_new_count: 48
     insert_reused_count: 4
 -   query: EXPLAIN select "foo.table$repeated".id from "foo.table$repeated" where
@@ -59,9 +59,9 @@ all-tests:
     explain: SCAN([IS foo__2table__1repeated]) | FLATMAP q0 -> { EXPLODE arrayDistinct(q0.field.1$array)
         | FILTER @c7 EQUALS _ AS q1 RETURN (q0.ID AS ID) }
     task_count: 375
-    task_total_time_ms: 26
-    transform_count: 116
-    transform_time_ms: 9
+    task_total_time_ms: 15
+    transform_count: 115
+    transform_time_ms: 6
     transform_yield_count: 25
     insert_time_ms: 0
     insert_new_count: 32
@@ -72,9 +72,9 @@ all-tests:
     explain: 'COVERING(foo.table$repeated.2 [EQUALS @c19] -> [ID: KEY:[2]]) | MAP
         (_.ID AS ID)'
     task_count: 514
-    task_total_time_ms: 33
-    transform_count: 138
-    transform_time_ms: 10
+    task_total_time_ms: 25
+    transform_count: 136
+    transform_time_ms: 11
     transform_yield_count: 36
     insert_time_ms: 0
     insert_new_count: 44
@@ -86,9 +86,9 @@ all-tests:
         | FILTER promote(@c9 AS LONG) EQUALS _ AS q1 RETURN (q0.field.1$array AS field.1$array)
         }
     task_count: 375
-    task_total_time_ms: 16
-    transform_count: 116
-    transform_time_ms: 7
+    task_total_time_ms: 22
+    transform_count: 115
+    transform_time_ms: 8
     transform_yield_count: 25
     insert_time_ms: 0
     insert_new_count: 32
@@ -99,8 +99,8 @@ all-tests:
     explain: ISCAN(foo.table$repeated.1 [EQUALS promote(@c21 AS LONG)]) | MAP (_.field.1$array
         AS field.1$array)
     task_count: 481
-    task_total_time_ms: 16
-    transform_count: 134
+    task_total_time_ms: 19
+    transform_count: 132
     transform_time_ms: 7
     transform_yield_count: 34
     insert_time_ms: 0
@@ -110,9 +110,9 @@ all-tests:
     ref: valid-identifiers.yamsql:200
     explain: ISCAN(foo.tableA.idx3 <,>)
     task_count: 345
-    task_total_time_ms: 27
-    transform_count: 86
-    transform_time_ms: 14
+    task_total_time_ms: 13
+    transform_count: 85
+    transform_time_ms: 6
     transform_yield_count: 41
     insert_time_ms: 0
     insert_new_count: 28
@@ -121,9 +121,9 @@ all-tests:
     ref: valid-identifiers.yamsql:205
     explain: ISCAN(foo.tableA.idx3 <,>)
     task_count: 345
-    task_total_time_ms: 22
-    transform_count: 86
-    transform_time_ms: 9
+    task_total_time_ms: 35
+    transform_count: 85
+    transform_time_ms: 12
     transform_yield_count: 41
     insert_time_ms: 0
     insert_new_count: 28
@@ -132,9 +132,9 @@ all-tests:
     ref: valid-identifiers.yamsql:210
     explain: ISCAN(foo.tableA.idx3 <,>)
     task_count: 345
-    task_total_time_ms: 23
-    transform_count: 86
-    transform_time_ms: 10
+    task_total_time_ms: 32
+    transform_count: 85
+    transform_time_ms: 8
     transform_yield_count: 41
     insert_time_ms: 0
     insert_new_count: 28
@@ -145,11 +145,11 @@ all-tests:
     explain: 'AISCAN(foo.tableA.idx2 <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]])
         | MAP (_._0 AS foo.tableA.A2, _._1 AS _1)'
     task_count: 443
-    task_total_time_ms: 39
-    transform_count: 117
-    transform_time_ms: 21
+    task_total_time_ms: 68
+    transform_count: 115
+    transform_time_ms: 22
     transform_yield_count: 44
-    insert_time_ms: 0
+    insert_time_ms: 3
     insert_new_count: 36
     insert_reused_count: 3
 -   query: EXPLAIN select * from "foo.tableA", "foo.tableB" where "foo.tableA"."foo.tableA.A1"
@@ -160,11 +160,11 @@ all-tests:
         AS foo.tableA.A2, q1.foo.tableA.A3 AS foo.tableA.A3, q0.foo.tableB.B1 AS foo.tableB.B1,
         q0.foo.tableB.B2 AS foo.tableB.B2, q0.foo.tableB.B3 AS foo.tableB.B3) }
     task_count: 832
-    task_total_time_ms: 94
-    transform_count: 206
-    transform_time_ms: 37
+    task_total_time_ms: 70
+    transform_count: 205
+    transform_time_ms: 30
     transform_yield_count: 69
-    insert_time_ms: 2
+    insert_time_ms: 1
     insert_new_count: 99
     insert_reused_count: 6
 -   query: EXPLAIN select "foo$tableC$C2", sum("foo$tableC$C1") from "foo$tableC"
@@ -173,9 +173,9 @@ all-tests:
     explain: 'AISCAN(foo$tableC$idx2 <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]])
         | MAP (_._0 AS foo$tableC$C2, _._1 AS _1)'
     task_count: 358
-    task_total_time_ms: 19
-    transform_count: 102
-    transform_time_ms: 11
+    task_total_time_ms: 25
+    transform_count: 100
+    transform_time_ms: 14
     transform_yield_count: 34
     insert_time_ms: 0
     insert_new_count: 24
@@ -184,9 +184,9 @@ all-tests:
     ref: valid-identifiers.yamsql:317
     explain: ISCAN(__foo__tableD$idx <,>)
     task_count: 251
-    task_total_time_ms: 14
-    transform_count: 66
-    transform_time_ms: 6
+    task_total_time_ms: 6
+    transform_count: 65
+    transform_time_ms: 3
     transform_yield_count: 29
     insert_time_ms: 0
     insert_new_count: 19
@@ -198,9 +198,9 @@ all-tests:
         KEY:[1], __foo__0tableD__1D3: KEY:[2]]) | FILTER _.__foo__tableD$D3 GREATER_THAN_OR_EQUALS
         promote(@c10 AS LONG) | FETCH'
     task_count: 358
-    task_total_time_ms: 24
-    transform_count: 81
-    transform_time_ms: 7
+    task_total_time_ms: 14
+    transform_count: 80
+    transform_time_ms: 6
     transform_yield_count: 33
     insert_time_ms: 0
     insert_new_count: 35
@@ -210,9 +210,9 @@ all-tests:
     explain: 'COVERING(__foo__tableD$idx <,> -> [__foo__0tableD__1D1: KEY:[0], __foo__0tableD__1D2:
         KEY:[1], __foo__0tableD__1D3: KEY:[2]]) | MAP (_.__foo__tableD$D1 AS __foo__tableD$D1)'
     task_count: 276
-    task_total_time_ms: 22
-    transform_count: 62
-    transform_time_ms: 8
+    task_total_time_ms: 14
+    transform_count: 61
+    transform_time_ms: 6
     transform_yield_count: 29
     insert_time_ms: 0
     insert_new_count: 25
@@ -222,9 +222,9 @@ all-tests:
     explain: 'COVERING(__foo__tableD$idx <,> -> [__foo__0tableD__1D1: KEY:[0], __foo__0tableD__1D2:
         KEY:[1], __foo__0tableD__1D3: KEY:[2]]) | MAP (_.__foo__tableD$D1 AS __foo__tableD$D1)'
     task_count: 276
-    task_total_time_ms: 15
-    transform_count: 62
-    transform_time_ms: 4
+    task_total_time_ms: 10
+    transform_count: 61
+    transform_time_ms: 3
     transform_yield_count: 29
     insert_time_ms: 0
     insert_new_count: 25
@@ -236,8 +236,8 @@ all-tests:
         KEY:[1], __foo__0tableD__1D3: KEY:[2]]) | FILTER _.__foo__tableD$D3 GREATER_THAN_OR_EQUALS
         promote(@c10 AS LONG) | FETCH'
     task_count: 367
-    task_total_time_ms: 14
-    transform_count: 83
+    task_total_time_ms: 15
+    transform_count: 82
     transform_time_ms: 5
     transform_yield_count: 33
     insert_time_ms: 0
@@ -249,9 +249,9 @@ all-tests:
     explain: SCAN([IS foo__2tableE]) | FILTER _.foo.tableE.E3.S1 EQUALS promote(@c21
         AS LONG) | MAP (_.foo.tableE.E3.S2 AS ___h.1)
     task_count: 222
-    task_total_time_ms: 18
-    transform_count: 59
-    transform_time_ms: 6
+    task_total_time_ms: 10
+    transform_count: 58
+    transform_time_ms: 3
     transform_yield_count: 15
     insert_time_ms: 0
     insert_new_count: 18
@@ -263,7 +263,7 @@ all-tests:
         promote(@c22 AS LONG) | MAP (_.foo.tableE.E3.S1 AS ___h.1)
     task_count: 222
     task_total_time_ms: 6
-    transform_count: 59
+    transform_count: 58
     transform_time_ms: 2
     transform_yield_count: 15
     insert_time_ms: 0
@@ -275,22 +275,22 @@ all-tests:
         q0 -> { SCAN([IS my__1adjacency__1list, [LESS_THAN promote(@c5 AS LONG)]])
         | FILTER _.my__parent EQUALS promote(@c7 AS LONG) AS q1 RETURN (q1.me AS _0,
         q1.my__parent AS _1, q0.me AS _2, q0.my__parent AS _3) }
-    task_count: 1617
-    task_total_time_ms: 137
-    transform_count: 342
-    transform_time_ms: 41
+    task_count: 1593
+    task_total_time_ms: 150
+    transform_count: 283
+    transform_time_ms: 51
     transform_yield_count: 117
-    insert_time_ms: 5
+    insert_time_ms: 7
     insert_new_count: 279
     insert_reused_count: 17
 -   query: EXPLAIN select * from "$yay"(5);
     ref: valid-identifiers.yamsql:360
     explain: SCAN([IS foo__2tableE]) | FILTER _.foo.tableE.E3.S1 EQUALS promote(@c5
         AS LONG) | MAP (_.foo.tableE.E1 AS _$x.id)
-    task_count: 387
-    task_total_time_ms: 32
-    transform_count: 94
-    transform_time_ms: 7
+    task_count: 383
+    task_total_time_ms: 48
+    transform_count: 83
+    transform_time_ms: 18
     transform_yield_count: 28
     insert_time_ms: 1
     insert_new_count: 47
@@ -299,10 +299,10 @@ all-tests:
     ref: valid-identifiers.yamsql:364
     explain: SCAN([IS foo__2tableE]) | FILTER _.foo.tableE.E3.S1 EQUALS promote(@c5
         AS LONG) | MAP (_.foo.tableE.E1 AS _$y.id)
-    task_count: 387
-    task_total_time_ms: 21
-    transform_count: 94
-    transform_time_ms: 4
+    task_count: 383
+    task_total_time_ms: 13
+    transform_count: 83
+    transform_time_ms: 3
     transform_yield_count: 28
     insert_time_ms: 0
     insert_new_count: 47
@@ -311,12 +311,12 @@ all-tests:
     ref: valid-identifiers.yamsql:368
     explain: SCAN([IS foo__2tableE]) | FILTER _.foo.tableE.E3.S1 EQUALS promote(@c5
         AS LONG) | MAP (_.foo.tableE.E1 AS _$z.id)
-    task_count: 387
-    task_total_time_ms: 22
-    transform_count: 94
-    transform_time_ms: 6
+    task_count: 383
+    task_total_time_ms: 13
+    transform_count: 83
+    transform_time_ms: 4
     transform_yield_count: 28
-    insert_time_ms: 1
+    insert_time_ms: 0
     insert_new_count: 47
     insert_reused_count: 2
 -   query: EXPLAIN select * from "$yay__view";
@@ -324,9 +324,9 @@ all-tests:
     explain: SCAN([IS foo__2tableE]) | FILTER _.foo.tableE.E3.S1 EQUALS 4 | MAP (_.foo.tableE.E1
         AS _$x.id)
     task_count: 322
-    task_total_time_ms: 29
-    transform_count: 80
-    transform_time_ms: 5
+    task_total_time_ms: 14
+    transform_count: 78
+    transform_time_ms: 4
     transform_yield_count: 19
     insert_time_ms: 0
     insert_new_count: 24
@@ -336,9 +336,9 @@ all-tests:
     explain: SCAN([IS foo__2tableE]) | FILTER _.foo.tableE.E3.S1 EQUALS 5 | MAP (_.foo.tableE.E1
         AS _$y.id)
     task_count: 322
-    task_total_time_ms: 15
-    transform_count: 80
-    transform_time_ms: 3
+    task_total_time_ms: 10
+    transform_count: 78
+    transform_time_ms: 2
     transform_yield_count: 19
     insert_time_ms: 0
     insert_new_count: 24
@@ -348,8 +348,8 @@ all-tests:
     explain: SCAN([IS foo__2tableE]) | FILTER _.foo.tableE.E3.S1 EQUALS 6 | MAP (_.foo.tableE.E1
         AS _$z.id)
     task_count: 322
-    task_total_time_ms: 18
-    transform_count: 80
+    task_total_time_ms: 15
+    transform_count: 78
     transform_time_ms: 3
     transform_yield_count: 19
     insert_time_ms: 0
@@ -361,8 +361,8 @@ all-tests:
     explain: EXPLODE array((@c5 AS _$$$, @c7 AS _$$, @c9 AS _$), (@c13 AS _$$$, @c15
         AS _$$, @c17 AS _$))
     task_count: 117
-    task_total_time_ms: 6
-    transform_count: 29
+    task_total_time_ms: 1
+    transform_count: 28
     transform_time_ms: 0
     transform_yield_count: 6
     insert_time_ms: 0
@@ -373,20 +373,20 @@ all-tests:
     ref: valid-identifiers.yamsql:392
     explain: SCAN([IS foo__2tableA]) | MAP (_ AS _0)
     task_count: 558
-    task_total_time_ms: 42
-    transform_count: 136
-    transform_time_ms: 12
+    task_total_time_ms: 30
+    transform_count: 135
+    transform_time_ms: 8
     transform_yield_count: 50
-    insert_time_ms: 1
+    insert_time_ms: 0
     insert_new_count: 51
     insert_reused_count: 3
 -   query: EXPLAIN select struct "x$$" ("foo.tableA".*) from "foo.tableA"
     ref: valid-identifiers.yamsql:397
     explain: ISCAN(foo.tableA.idx3 <,>) | MAP (_ AS foo.tableA)
     task_count: 321
-    task_total_time_ms: 21
-    transform_count: 74
-    transform_time_ms: 9
+    task_total_time_ms: 18
+    transform_count: 73
+    transform_time_ms: 8
     transform_yield_count: 37
     insert_time_ms: 0
     insert_new_count: 32
@@ -397,9 +397,9 @@ all-tests:
     explain: ISCAN(foo.tableA.idx3 <,>) | MAP ((_.foo.tableA.A2 + _.foo.tableA.A1
         AS __$$__) AS _0)
     task_count: 321
-    task_total_time_ms: 12
-    transform_count: 72
-    transform_time_ms: 4
+    task_total_time_ms: 20
+    transform_count: 71
+    transform_time_ms: 8
     transform_yield_count: 37
     insert_time_ms: 0
     insert_new_count: 32
@@ -408,9 +408,9 @@ all-tests:
     ref: valid-identifiers.yamsql:408
     explain: ISCAN(foo.enum.type$enum__1 <,>)
     task_count: 243
-    task_total_time_ms: 12
-    transform_count: 62
-    transform_time_ms: 5
+    task_total_time_ms: 10
+    transform_count: 61
+    transform_time_ms: 4
     transform_yield_count: 25
     insert_time_ms: 0
     insert_new_count: 19
@@ -420,11 +420,11 @@ all-tests:
     explain: ISCAN(foo.enum.type$enum__1 [EQUALS promote(@c7 AS ENUM<A(0), B$C(1),
         C.D(2), E__F(3), __G$H(4)>)])
     task_count: 348
-    task_total_time_ms: 19
-    transform_count: 75
-    transform_time_ms: 5
+    task_total_time_ms: 27
+    transform_count: 74
+    transform_time_ms: 12
     transform_yield_count: 30
-    insert_time_ms: 0
+    insert_time_ms: 1
     insert_new_count: 31
     insert_reused_count: 4
 -   query: EXPLAIN select * from "foo.enum.type" where "enum_type.enum__1" = 'C.D';
@@ -432,11 +432,11 @@ all-tests:
     explain: ISCAN(foo.enum.type$enum__1 [EQUALS promote(@c7 AS ENUM<A(0), B$C(1),
         C.D(2), E__F(3), __G$H(4)>)])
     task_count: 348
-    task_total_time_ms: 19
-    transform_count: 75
-    transform_time_ms: 5
+    task_total_time_ms: 27
+    transform_count: 74
+    transform_time_ms: 12
     transform_yield_count: 30
-    insert_time_ms: 0
+    insert_time_ms: 1
     insert_new_count: 31
     insert_reused_count: 4
 -   query: EXPLAIN select * from "foo.enum.type" where "enum_type.enum__1" = 'A';
@@ -444,11 +444,11 @@ all-tests:
     explain: ISCAN(foo.enum.type$enum__1 [EQUALS promote(@c7 AS ENUM<A(0), B$C(1),
         C.D(2), E__F(3), __G$H(4)>)])
     task_count: 348
-    task_total_time_ms: 19
-    transform_count: 75
-    transform_time_ms: 5
+    task_total_time_ms: 27
+    transform_count: 74
+    transform_time_ms: 12
     transform_yield_count: 30
-    insert_time_ms: 0
+    insert_time_ms: 1
     insert_new_count: 31
     insert_reused_count: 4
 -   query: EXPLAIN select * from "foo.enum.type" where "enum_type.enum__2" = 'B$C';
@@ -456,11 +456,11 @@ all-tests:
     explain: ISCAN(foo.enum.type$enum__1 <,>) | FILTER _.enum_type.enum__2 EQUALS
         promote(@c7 AS ENUM<A(0), B$C(1), C.D(2), E__F(3), __G$H(4)>)
     task_count: 304
-    task_total_time_ms: 12
-    transform_count: 72
-    transform_time_ms: 4
+    task_total_time_ms: 36
+    transform_count: 71
+    transform_time_ms: 13
     transform_yield_count: 27
-    insert_time_ms: 0
+    insert_time_ms: 1
     insert_new_count: 29
     insert_reused_count: 3
 -   query: EXPLAIN select * from "foo.enum.type" where "enum_type.enum__2" = 'C.D';
@@ -468,11 +468,11 @@ all-tests:
     explain: ISCAN(foo.enum.type$enum__1 <,>) | FILTER _.enum_type.enum__2 EQUALS
         promote(@c7 AS ENUM<A(0), B$C(1), C.D(2), E__F(3), __G$H(4)>)
     task_count: 304
-    task_total_time_ms: 12
-    transform_count: 72
-    transform_time_ms: 4
+    task_total_time_ms: 36
+    transform_count: 71
+    transform_time_ms: 13
     transform_yield_count: 27
-    insert_time_ms: 0
+    insert_time_ms: 1
     insert_new_count: 29
     insert_reused_count: 3
 -   query: EXPLAIN select * from "foo.enum.type" where "enum_type.enum__2" = 'A';
@@ -480,11 +480,11 @@ all-tests:
     explain: ISCAN(foo.enum.type$enum__1 <,>) | FILTER _.enum_type.enum__2 EQUALS
         promote(@c7 AS ENUM<A(0), B$C(1), C.D(2), E__F(3), __G$H(4)>)
     task_count: 304
-    task_total_time_ms: 12
-    transform_count: 72
-    transform_time_ms: 4
+    task_total_time_ms: 36
+    transform_count: 71
+    transform_time_ms: 13
     transform_yield_count: 27
-    insert_time_ms: 0
+    insert_time_ms: 1
     insert_new_count: 29
     insert_reused_count: 3
 update-delete-statements:
@@ -496,7 +496,7 @@ update-delete-statements:
         BY PK | FETCH | UPDATE foo__2tableA'
     task_count: 814
     task_total_time_ms: 12
-    transform_count: 141
+    transform_count: 140
     transform_time_ms: 4
     transform_yield_count: 57
     insert_time_ms: 0
@@ -509,11 +509,11 @@ update-delete-statements:
         KEY:[0], foo__2tableA__2A2: KEY:[1], foo__2tableA__2A3: KEY:[2]]) | DISTINCT
         BY PK | FETCH | UPDATE foo__2tableA | MAP (_.new.foo.tableA.A1 AS foo.tableA.A1)'
     task_count: 875
-    task_total_time_ms: 11
-    transform_count: 155
-    transform_time_ms: 4
+    task_total_time_ms: 16
+    transform_count: 153
+    transform_time_ms: 6
     transform_yield_count: 57
-    insert_time_ms: 0
+    insert_time_ms: 1
     insert_new_count: 87
     insert_reused_count: 5
 -   query: EXPLAIN DELETE FROM "foo.tableA" WHERE "foo.tableA.A1" = 1 RETURNING "foo.tableA.A1"
@@ -522,9 +522,9 @@ update-delete-statements:
     explain: ISCAN(foo.tableA.idx [EQUALS promote(@c6 AS LONG)]) | DELETE | MAP (_.foo.tableA.A1
         + _.foo.tableA.A2 + _.foo.tableA.A3 AS _0)
     task_count: 638
-    task_total_time_ms: 11
-    transform_count: 129
-    transform_time_ms: 4
+    task_total_time_ms: 12
+    transform_count: 127
+    transform_time_ms: 3
     transform_yield_count: 53
     insert_time_ms: 0
     insert_new_count: 68
@@ -534,7 +534,7 @@ update-delete-statements:
     explain: ISCAN(foo.tableA.idx3 [EQUALS promote(@c6 AS LONG)]) | DELETE
     task_count: 517
     task_total_time_ms: 8
-    transform_count: 110
+    transform_count: 109
     transform_time_ms: 3
     transform_yield_count: 47
     insert_time_ms: 0
@@ -545,9 +545,9 @@ unnamed-12:
     ref: valid-identifiers.yamsql:657
     explain: SCAN([IS T1])
     task_count: 149
-    task_total_time_ms: 7
-    transform_count: 42
-    transform_time_ms: 2
+    task_total_time_ms: 10
+    transform_count: 41
+    transform_time_ms: 3
     transform_yield_count: 13
     insert_time_ms: 0
     insert_new_count: 10
@@ -556,9 +556,9 @@ unnamed-12:
     ref: valid-identifiers.yamsql:661
     explain: SCAN([IS T1]) | FILTER _.T1.COL2 GREATER_THAN promote(@c7 AS LONG)
     task_count: 175
-    task_total_time_ms: 10
-    transform_count: 46
-    transform_time_ms: 3
+    task_total_time_ms: 5
+    transform_count: 45
+    transform_time_ms: 2
     transform_yield_count: 14
     insert_time_ms: 0
     insert_new_count: 14
@@ -568,8 +568,8 @@ unnamed-12:
     explain: SCAN([IS T1]) | FILTER _.T1.COL2 GREATER_THAN promote(@c7 AS LONG) |
         MAP (_.T1.COL2 AS T1.COL2)
     task_count: 222
-    task_total_time_ms: 9
-    transform_count: 59
+    task_total_time_ms: 11
+    transform_count: 58
     transform_time_ms: 3
     transform_yield_count: 15
     insert_time_ms: 0
@@ -579,9 +579,9 @@ unnamed-12:
     ref: valid-identifiers.yamsql:669
     explain: ISCAN(T2$T2.COL1 <,>)
     task_count: 243
-    task_total_time_ms: 9
-    transform_count: 62
-    transform_time_ms: 4
+    task_total_time_ms: 6
+    transform_count: 61
+    transform_time_ms: 2
     transform_yield_count: 25
     insert_time_ms: 0
     insert_new_count: 19
@@ -591,9 +591,9 @@ unnamed-12:
     explain: ISCAN(T2$T2.COL1 <,>) | FILTER _.T2$COL2 GREATER_THAN promote(@c7 AS
         LONG)
     task_count: 304
-    task_total_time_ms: 18
-    transform_count: 72
-    transform_time_ms: 6
+    task_total_time_ms: 16
+    transform_count: 71
+    transform_time_ms: 5
     transform_yield_count: 27
     insert_time_ms: 0
     insert_new_count: 29
@@ -603,9 +603,9 @@ unnamed-12:
     explain: ISCAN(T2$T2.COL1 <,>) | FILTER _.T2$COL2 GREATER_THAN promote(@c7 AS
         LONG) | MAP (_.T2$COL2 AS T2$COL2)
     task_count: 386
-    task_total_time_ms: 21
-    transform_count: 96
-    transform_time_ms: 7
+    task_total_time_ms: 25
+    transform_count: 95
+    transform_time_ms: 3
     transform_yield_count: 28
     insert_time_ms: 0
     insert_new_count: 36
@@ -614,9 +614,9 @@ unnamed-12:
     ref: valid-identifiers.yamsql:681
     explain: SCAN([IS __T3])
     task_count: 149
-    task_total_time_ms: 5
-    transform_count: 42
-    transform_time_ms: 1
+    task_total_time_ms: 4
+    transform_count: 41
+    transform_time_ms: 2
     transform_yield_count: 13
     insert_time_ms: 0
     insert_new_count: 10
@@ -625,9 +625,9 @@ unnamed-12:
     ref: valid-identifiers.yamsql:691
     explain: SCAN([IS __T3]) | FILTER _.__T3$COL2 GREATER_THAN promote(@c7 AS LONG)
     task_count: 175
-    task_total_time_ms: 5
-    transform_count: 46
-    transform_time_ms: 2
+    task_total_time_ms: 12
+    transform_count: 45
+    transform_time_ms: 4
     transform_yield_count: 14
     insert_time_ms: 0
     insert_new_count: 14
@@ -637,9 +637,9 @@ unnamed-12:
     explain: SCAN([IS __T3]) | FILTER _.__T3$COL2 GREATER_THAN promote(@c7 AS LONG)
         | MAP (_.__T3$COL2 AS __T3$COL2)
     task_count: 222
-    task_total_time_ms: 12
-    transform_count: 59
-    transform_time_ms: 3
+    task_total_time_ms: 5
+    transform_count: 58
+    transform_time_ms: 2
     transform_yield_count: 15
     insert_time_ms: 0
     insert_new_count: 18
@@ -648,10 +648,10 @@ unnamed-12:
     ref: valid-identifiers.yamsql:702
     explain: SCAN([IS __T3]) | FILTER _.__T3$COL2 EQUALS promote(@c5 AS LONG) | MAP
         (_.__T3$COL1 AS c.1, _.__T3$COL3 AS c.2)
-    task_count: 387
-    task_total_time_ms: 16
-    transform_count: 94
-    transform_time_ms: 4
+    task_count: 383
+    task_total_time_ms: 11
+    transform_count: 83
+    transform_time_ms: 3
     transform_yield_count: 28
     insert_time_ms: 0
     insert_new_count: 47
@@ -660,8 +660,8 @@ unnamed-12:
     ref: valid-identifiers.yamsql:706
     explain: SCAN([IS T4])
     task_count: 149
-    task_total_time_ms: 5
-    transform_count: 42
+    task_total_time_ms: 2
+    transform_count: 41
     transform_time_ms: 1
     transform_yield_count: 13
     insert_time_ms: 0
@@ -671,9 +671,9 @@ unnamed-12:
     ref: valid-identifiers.yamsql:719
     explain: SCAN([IS T4]) | FILTER _.T4.COL2 GREATER_THAN promote(@c7 AS LONG)
     task_count: 175
-    task_total_time_ms: 10
-    transform_count: 46
-    transform_time_ms: 3
+    task_total_time_ms: 4
+    transform_count: 45
+    transform_time_ms: 2
     transform_yield_count: 14
     insert_time_ms: 0
     insert_new_count: 14
@@ -683,9 +683,9 @@ unnamed-12:
     explain: SCAN([IS T4]) | FILTER _.T4.COL2 GREATER_THAN promote(@c7 AS LONG) |
         MAP (_.T4.COL2 AS T4.COL2)
     task_count: 222
-    task_total_time_ms: 8
-    transform_count: 59
-    transform_time_ms: 3
+    task_total_time_ms: 5
+    transform_count: 58
+    transform_time_ms: 2
     transform_yield_count: 15
     insert_time_ms: 0
     insert_new_count: 18
@@ -695,9 +695,9 @@ unnamed-12:
     explain: SCAN([IS T4]) | FILTER _.T4.COL1 GREATER_THAN 0 AND _.T4.COL2 GREATER_THAN
         0 | MAP (_.T4.COL1 AS c__1, _.T4.COL2 AS c__2)
     task_count: 322
-    task_total_time_ms: 13
-    transform_count: 80
-    transform_time_ms: 4
+    task_total_time_ms: 7
+    transform_count: 78
+    transform_time_ms: 3
     transform_yield_count: 19
     insert_time_ms: 0
     insert_new_count: 24
@@ -706,9 +706,9 @@ unnamed-12:
     ref: valid-identifiers.yamsql:740
     explain: SCAN([IS T4]) | MAP (_.___hidden.a AS a)
     task_count: 157
-    task_total_time_ms: 5
-    transform_count: 40
-    transform_time_ms: 2
+    task_total_time_ms: 3
+    transform_count: 39
+    transform_time_ms: 1
     transform_yield_count: 13
     insert_time_ms: 0
     insert_new_count: 12
@@ -718,8 +718,8 @@ unnamed-12:
     explain: SCAN([IS T5__UNESCAPED])
     task_count: 149
     task_total_time_ms: 5
-    transform_count: 42
-    transform_time_ms: 1
+    transform_count: 41
+    transform_time_ms: 2
     transform_yield_count: 13
     insert_time_ms: 0
     insert_new_count: 10
@@ -728,9 +728,9 @@ unnamed-12:
     ref: valid-identifiers.yamsql:757
     explain: SCAN([IS T5__UNESCAPED]) | FILTER _.T5__COL1 EQUALS promote(@c7 AS LONG)
     task_count: 175
-    task_total_time_ms: 11
-    transform_count: 46
-    transform_time_ms: 3
+    task_total_time_ms: 4
+    transform_count: 45
+    transform_time_ms: 2
     transform_yield_count: 14
     insert_time_ms: 0
     insert_new_count: 14
@@ -740,9 +740,9 @@ unnamed-12:
     explain: SCAN([IS T5__UNESCAPED]) | FILTER _.T5__COL1 EQUALS promote(@c9 AS LONG)
         | MAP (_.ID AS ID, _.__T5__COL2 AS __T5__COL2)
     task_count: 222
-    task_total_time_ms: 10
-    transform_count: 59
-    transform_time_ms: 2
+    task_total_time_ms: 17
+    transform_count: 58
+    transform_time_ms: 4
     transform_yield_count: 15
     insert_time_ms: 0
     insert_new_count: 18
@@ -752,9 +752,9 @@ unnamed-12:
     explain: SCAN([IS T5__UNESCAPED]) | FILTER _.__T5__COL2 LESS_THAN promote(@c7
         AS LONG)
     task_count: 175
-    task_total_time_ms: 10
-    transform_count: 46
-    transform_time_ms: 3
+    task_total_time_ms: 4
+    transform_count: 45
+    transform_time_ms: 2
     transform_yield_count: 14
     insert_time_ms: 0
     insert_new_count: 14
@@ -765,9 +765,9 @@ unnamed-12:
     explain: SCAN([IS T5__UNESCAPED]) | FILTER _.__T5__COL2 LESS_THAN promote(@c9
         AS LONG) | MAP (_.ID AS ID, _.__T5__COL2 AS __T5__COL2)
     task_count: 222
-    task_total_time_ms: 13
-    transform_count: 59
-    transform_time_ms: 4
+    task_total_time_ms: 6
+    transform_count: 58
+    transform_time_ms: 2
     transform_yield_count: 15
     insert_time_ms: 0
     insert_new_count: 18
@@ -776,9 +776,9 @@ unnamed-12:
     ref: valid-identifiers.yamsql:793
     explain: ISCAN(T6$ENUM2 <,>)
     task_count: 337
-    task_total_time_ms: 10
-    transform_count: 82
-    transform_time_ms: 5
+    task_total_time_ms: 17
+    transform_count: 81
+    transform_time_ms: 7
     transform_yield_count: 37
     insert_time_ms: 0
     insert_new_count: 28
@@ -787,9 +787,9 @@ unnamed-12:
     ref: valid-identifiers.yamsql:806
     explain: ISCAN(T6$ENUM2 <,>) | FILTER _.T6$__COL1__ EQUALS promote(@c7 AS LONG)
     task_count: 433
-    task_total_time_ms: 20
-    transform_count: 98
-    transform_time_ms: 9
+    task_total_time_ms: 10
+    transform_count: 97
+    transform_time_ms: 4
     transform_yield_count: 40
     insert_time_ms: 0
     insert_new_count: 44
@@ -800,22 +800,22 @@ unnamed-12:
     explain: ISCAN(T6$COL2 <,>) | FILTER _.T6$__COL1__ EQUALS promote(@c9 AS LONG)
         | MAP (_.ID AS ID, _.__T6.COL2__VALUE AS __T6.COL2__VALUE)
     task_count: 550
-    task_total_time_ms: 24
-    transform_count: 135
-    transform_time_ms: 8
+    task_total_time_ms: 27
+    transform_count: 134
+    transform_time_ms: 11
     transform_yield_count: 41
-    insert_time_ms: 1
+    insert_time_ms: 0
     insert_new_count: 54
     insert_reused_count: 6
 -   query: EXPLAIN SELECT * FROM "___T6.__UNESCAPED" WHERE "__T6.COL2__VALUE" < 10
     ref: valid-identifiers.yamsql:826
     explain: ISCAN(T6$COL2 [[LESS_THAN promote(@c7 AS LONG)]])
     task_count: 477
-    task_total_time_ms: 25
-    transform_count: 102
-    transform_time_ms: 8
+    task_total_time_ms: 18
+    transform_count: 101
+    transform_time_ms: 9
     transform_yield_count: 43
-    insert_time_ms: 0
+    insert_time_ms: 1
     insert_new_count: 46
     insert_reused_count: 5
 -   query: EXPLAIN SELECT ID, "__T6.COL2__VALUE" FROM "___T6.__UNESCAPED" WHERE "__T6.COL2__VALUE"
@@ -824,9 +824,9 @@ unnamed-12:
     explain: 'COVERING(T6$COL2 [[LESS_THAN promote(@c9 AS LONG)]] -> [ID: KEY:[2],
         __T6__2COL2__VALUE: KEY:[0]]) | MAP (_.ID AS ID, _.__T6.COL2__VALUE AS __T6.COL2__VALUE)'
     task_count: 656
-    task_total_time_ms: 38
-    transform_count: 146
-    transform_time_ms: 14
+    task_total_time_ms: 19
+    transform_count: 145
+    transform_time_ms: 6
     transform_yield_count: 47
     insert_time_ms: 1
     insert_new_count: 63
@@ -836,9 +836,9 @@ unnamed-12:
     explain: ISCAN(T6$ENUM2 <,>) | FILTER _.T6$__ENUM_1 EQUALS promote(@c7 AS ENUM<A(0),
         B__(1), C__(2), __D.__(3)>)
     task_count: 433
-    task_total_time_ms: 15
-    transform_count: 98
-    transform_time_ms: 6
+    task_total_time_ms: 14
+    transform_count: 97
+    transform_time_ms: 7
     transform_yield_count: 40
     insert_time_ms: 0
     insert_new_count: 44
@@ -849,20 +849,20 @@ unnamed-12:
     explain: ISCAN(T6$COL2 <,>) | FILTER _.T6$__ENUM_1 EQUALS promote(@c9 AS ENUM<A(0),
         B__(1), C__(2), __D.__(3)>) | MAP (_.ID AS ID, _.T6$__ENUM_2 AS T6$__ENUM_2)
     task_count: 550
-    task_total_time_ms: 17
-    transform_count: 135
-    transform_time_ms: 6
+    task_total_time_ms: 25
+    transform_count: 134
+    transform_time_ms: 9
     transform_yield_count: 41
-    insert_time_ms: 1
+    insert_time_ms: 0
     insert_new_count: 54
     insert_reused_count: 6
 -   query: EXPLAIN SELECT * FROM "___T6.__UNESCAPED" WHERE "T6$__ENUM_2" = '__D.__'
     ref: valid-identifiers.yamsql:856
     explain: ISCAN(T6$ENUM2 [EQUALS promote(@c7 AS ENUM<A(0), B__(1), C__(2), __D.__(3)>)])
     task_count: 477
-    task_total_time_ms: 24
-    transform_count: 101
-    transform_time_ms: 10
+    task_total_time_ms: 21
+    transform_count: 100
+    transform_time_ms: 8
     transform_yield_count: 43
     insert_time_ms: 0
     insert_new_count: 46
@@ -873,10 +873,10 @@ unnamed-12:
     explain: ISCAN(T6$ENUM2 [EQUALS promote(@c9 AS ENUM<A(0), B__(1), C__(2), __D.__(3)>)])
         | MAP (_.ID AS ID, _.T6$__ENUM_1 AS T6$__ENUM_1)
     task_count: 586
-    task_total_time_ms: 38
-    transform_count: 138
-    transform_time_ms: 10
+    task_total_time_ms: 19
+    transform_count: 137
+    transform_time_ms: 6
     transform_yield_count: 43
-    insert_time_ms: 1
+    insert_time_ms: 0
     insert_new_count: 56
     insert_reused_count: 5

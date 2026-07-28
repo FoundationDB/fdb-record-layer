@@ -1,7 +1,7 @@
-ú
+ù
 ;
-showcasing-tests'EXPLAIN select * from t1 where id > 15;º
-­´×…- —à…(0²Ì8@2SCAN([IS T1, [GREATER_THAN promote(@c7 AS LONG)]])èdigraph G {
+showcasing-tests'EXPLAIN select * from t1 where id > 15;¹
+­Ëì¨, ÝžV(0Ùþ8@2SCAN([IS T1, [GREATER_THAN promote(@c7 AS LONG)]])èdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;

@@ -1,7 +1,8 @@
 ž
 ¯
 bitmap-agg-index-tests”EXPLAIN SELECT bitmap_construct_agg(bitmap_bit_position(id)) as bitmap, bitmap_bucket_offset(id) as offset FROM T1 GROUP BY bitmap_bucket_offset(id)é
-âÝÈ§f ¬á ( 0¸¤*8@hAISCAN(BITMAPINDEX1 <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._1 AS BITMAP, _._0 AS OFFSET)á
+â Öód °Ë¥
+( 0¾“!8@hAISCAN(BITMAPINDEX1 <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._1 AS BITMAP, _._0 AS OFFSET)á
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -14,7 +15,7 @@ digraph G {
 }‡
 Ã
 bitmap-agg-index-tests¨EXPLAIN SELECT bitmap_construct_agg(bitmap_bit_position(id)) as bitmap, category, bitmap_bucket_offset(id) as offset FROM T1 GROUP BY category, bitmap_bucket_offset(id)¾
-âÃ•¦f ÙŽû( 0 É<8@‡AISCAN(BITMAPINDEX2 <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: VALUE:[0]]) | MAP (_._2 AS BITMAP, _._0 AS CATEGORY, _._1 AS OFFSET)–digraph G {
+âˆŸºd ×æ™( 0Â€"8@‡AISCAN(BITMAPINDEX2 <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: VALUE:[0]]) | MAP (_._2 AS BITMAP, _._0 AS CATEGORY, _._1 AS OFFSET)–digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -26,7 +27,7 @@ digraph G {
 }À
 ¯
 bitmap-agg-index-tests”EXPLAIN SELECT bitmap_construct_agg(bitmap_bit_position(id)) as bitmap, bitmap_bucket_offset(id) as offset FROM T2 GROUP BY bitmap_bucket_offset(id)‹
-µ©É…J Êñá(0§š&8@ÓISCAN(AGG_INDEX_1 <,>) | MAP (_ AS _0) | AGG (bitmap_construct_agg_l((_._0.ID) bitmap_bit_position 10000) AS _0) GROUP BY ((_._0.ID) bitmap_bucket_offset 10000 AS _0) | MAP (_._1._0 AS BITMAP, _._0._0 AS OFFSET)—digraph G {
+µÙ¿ûH …öå(0³ð-8@ÓISCAN(AGG_INDEX_1 <,>) | MAP (_ AS _0) | AGG (bitmap_construct_agg_l((_._0.ID) bitmap_bit_position 10000) AS _0) GROUP BY ((_._0.ID) bitmap_bucket_offset 10000 AS _0) | MAP (_._1._0 AS BITMAP, _._0._0 AS OFFSET)—digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -42,7 +43,7 @@ digraph G {
 }Í
 Ã
 bitmap-agg-index-tests¨EXPLAIN SELECT bitmap_construct_agg(bitmap_bit_position(id)) as bitmap, category, bitmap_bucket_offset(id) as offset FROM T2 GROUP BY category, bitmap_bucket_offset(id)„
-µñ¨¹J ÅàÌ(0”¾88@ýISCAN(AGG_INDEX_2 <,>) | MAP (_ AS _0) | AGG (bitmap_construct_agg_l((_._0.ID) bitmap_bit_position 10000) AS _0) GROUP BY (_._0.CATEGORY AS _0, (_._0.ID) bitmap_bucket_offset 10000 AS _1) | MAP (_._1._0 AS BITMAP, _._0._0 AS CATEGORY, _._0._1 AS OFFSET)ædigraph G {
+µ¡È¯H ÁÚ‡(0¢Ï,8@ýISCAN(AGG_INDEX_2 <,>) | MAP (_ AS _0) | AGG (bitmap_construct_agg_l((_._0.ID) bitmap_bit_position 10000) AS _0) GROUP BY (_._0.CATEGORY AS _0, (_._0.ID) bitmap_bucket_offset 10000 AS _1) | MAP (_._1._0 AS BITMAP, _._0._0 AS CATEGORY, _._0._1 AS OFFSET)ædigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;

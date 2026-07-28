@@ -5,8 +5,8 @@ arrays-tests:
         AS INT)] AS INT AS X, DOUBLE AS Y, ARRAY(INT) AS Z)) AS ARR_1, array(promote(_.PK
         AS INT)) AS ARR_2)
     task_count: 240
-    task_total_time_ms: 5
-    transform_count: 62
+    task_total_time_ms: 4
+    transform_count: 60
     transform_time_ms: 2
     transform_yield_count: 18
     insert_time_ms: 0

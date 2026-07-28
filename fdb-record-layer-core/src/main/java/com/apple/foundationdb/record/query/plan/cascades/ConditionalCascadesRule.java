@@ -102,6 +102,11 @@ public class ConditionalCascadesRule<T, R extends CascadesRule<T>> extends Abstr
         return rules;
     }
 
+    @Override
+    public boolean onlyOnPrunedChildren() {
+        return getRules().stream().map(CascadesRule::onlyOnPrunedChildren).reduce(true, (a, b) -> a && b);
+    }
+
     /**
      * Returns the inner rules grouped by this rule that satisfy the given predicate, preserving their order.
      */

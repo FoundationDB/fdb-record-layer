@@ -3,9 +3,9 @@ enum-tests:
     ref: filter-index.yamsql:47
     explain: ISCAN(I1 [EQUALS promote(@c7 AS STRING)])
     task_count: 248
-    task_total_time_ms: 15
-    transform_count: 64
-    transform_time_ms: 5
+    task_total_time_ms: 13
+    transform_count: 62
+    transform_time_ms: 4
     transform_yield_count: 24
     insert_time_ms: 0
     insert_new_count: 23

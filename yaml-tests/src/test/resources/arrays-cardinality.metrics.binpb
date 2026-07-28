@@ -1,7 +1,7 @@
-é
+ç
 P
-arrays-cardinality-tests4EXPLAIN SELECT CARDINALITY("int_arr") FROM "tab1_nn"π
-ù¶±¿( ºÀb(0Ûò8@7SCAN([IS tab1_nn]) | MAP (cardinality(_.int_arr) AS _0)„
+arrays-cardinality-tests4EXPLAIN SELECT CARDINALITY("int_arr") FROM "tab1_nn"∏
+ùõ≥W' »Õ$(0«¯8@7SCAN([IS tab1_nn]) | MAP (cardinality(_.int_arr) AS _0)„
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -11,10 +11,10 @@ digraph G {
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [dummy, tab1, tab1_indexed_nn, tab2, tab1_nn, tab1_indexed]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(INT AS id, ARRAY(INT) AS int_arr)" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}Ö
+}Ñ
 M
-arrays-cardinality-tests1EXPLAIN SELECT CARDINALITY("int_arr") FROM "tab1"≥
-ùè˝Â( Êò`(0ı¶8@4SCAN([IS tab1]) | MAP (cardinality(_.int_arr) AS _0)‡
+arrays-cardinality-tests1EXPLAIN SELECT CARDINALITY("int_arr") FROM "tab1"≤
+ùΩﬁU' §à#(0ΩÓ8@4SCAN([IS tab1]) | MAP (cardinality(_.int_arr) AS _0)‡
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -24,10 +24,10 @@ digraph G {
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [dummy, tab1, tab1_indexed_nn, tab2, tab1_nn, tab1_indexed]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(INT AS id, ARRAY(INT) AS int_arr)" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}ı
+}Ù
 >
-arrays-cardinality-index-testsEXPLAIN SELECT * FROM "tab1"≤
-ïÌÚû* ¸÷I(0≈æ8
+arrays-cardinality-index-testsEXPLAIN SELECT * FROM "tab1"±
+ïØ—E) ˘Î(0ËÄ8
 @SCAN([IS tab1])Ñdigraph G {
   fontname=courier;
   rankdir=BT;
@@ -35,10 +35,10 @@ digraph G {
   1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">comparisons: [IS tab1]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS id, ARRAY(INT) AS int_arr)" ];
   2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [dummy, tab1, tab1_indexed_nn, tab2, tab1_nn, tab1_indexed]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(INT AS id, ARRAY(INT) AS int_arr)" ];
   2 -> 1 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}‹
+}€
 I
-arrays-cardinality-index-tests'EXPLAIN SELECT * FROM "tab1_indexed_nn"é
-Û‘∑“> á∑ù(0öÔ8@ ISCAN(tab1_indexed_nn_index <,>)Œdigraph G {
+arrays-cardinality-index-tests'EXPLAIN SELECT * FROM "tab1_indexed_nn"ç
+ÛÎã•= ˘òU(0ﬂÍ8@ ISCAN(tab1_indexed_nn_index <,>)Œdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -48,18 +48,17 @@ I
 }”
 F
 arrays-cardinality-index-tests$EXPLAIN SELECT * FROM "tab1_indexed"à
-ÛøëÅ> ÊÃÇ(0’ﬁ
-8@ISCAN(tab1_indexed_index <,>)Àdigraph G {
+Û‰€ú= ›ëŒ(0ñ≠8@ISCAN(tab1_indexed_index <,>)Àdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
   1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS id, ARRAY(INT) AS int_arr)" ];
   2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">tab1_indexed_index</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(INT AS id, ARRAY(INT) AS int_arr)" ];
   2 -> 1 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}‹
+}€
 L
-arrays-cardinality-index-tests*EXPLAIN SELECT "id" FROM "tab1_indexed_nn"ã
-åï∆; ÒΩÜ(0è¨8@GCOVERING(tab1_indexed_nn_index <,> -> [id: KEY:[2]]) | MAP (_.id AS id)§
+arrays-cardinality-index-tests*EXPLAIN SELECT "id" FROM "tab1_indexed_nn"ä
+å˚ûæ: ëôN(0ÄÅ	8@GCOVERING(tab1_indexed_nn_index <,> -> [id: KEY:[2]]) | MAP (_.id AS id)§
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -69,10 +68,10 @@ digraph G {
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">tab1_indexed_nn_index</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(INT AS id, ARRAY(INT) AS int_arr)" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q37> label="q37" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}”
+}“
 I
-arrays-cardinality-index-tests'EXPLAIN SELECT "id" FROM "tab1_indexed"Ö
-åè°ê; ‡ﬁæ(0ÅË8@DCOVERING(tab1_indexed_index <,> -> [id: KEY:[2]]) | MAP (_.id AS id)°
+arrays-cardinality-index-tests'EXPLAIN SELECT "id" FROM "tab1_indexed"Ñ
+åÂúƒ: ÁªL(0õ 	8@DCOVERING(tab1_indexed_index <,> -> [id: KEY:[2]]) | MAP (_.id AS id)°
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -85,7 +84,7 @@ digraph G {
 }´
 n
 arrays-cardinality-index-testsLEXPLAIN SELECT "id", CARDINALITY("int_arr") AS "card" FROM "tab1_indexed_nn"∏
-Î«Ìä7 ⁄†v(0•Ê8@SISCAN(tab1_indexed_nn_index <,>) | MAP (_.id AS id, cardinality(_.int_arr) AS card)∆
+Î≥∏•6 º˜E(0±‘8@SISCAN(tab1_indexed_nn_index <,>) | MAP (_.id AS id, cardinality(_.int_arr) AS card)∆
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -95,10 +94,10 @@ digraph G {
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">tab1_indexed_nn_index</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(INT AS id, ARRAY(INT) AS int_arr)" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}£
+}¢
 k
-arrays-cardinality-index-testsIEXPLAIN SELECT "id", CARDINALITY("int_arr") AS "card" FROM "tab1_indexed"≥
-Î•‡ó7 óåâ(0•π8@PISCAN(tab1_indexed_index <,>) | MAP (_.id AS id, cardinality(_.int_arr) AS card)√
+arrays-cardinality-index-testsIEXPLAIN SELECT "id", CARDINALITY("int_arr") AS "card" FROM "tab1_indexed"≤
+ÎÂù®6 †âH(0ôò8@PISCAN(tab1_indexed_index <,>) | MAP (_.id AS id, cardinality(_.int_arr) AS card)√
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -108,10 +107,10 @@ digraph G {
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">tab1_indexed_index</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(INT AS id, ARRAY(INT) AS int_arr)" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}ª
+}∫
 _
-arrays-cardinality-index-tests=EXPLAIN SELECT "id" FROM "tab1_indexed_nn" ORDER BY "id" DESC◊
-©Û”∂, ° e(0≥ï8@-SCAN([IS tab1_indexed_nn]) | MAP (_.id AS id)ãdigraph G {
+arrays-cardinality-index-tests=EXPLAIN SELECT "id" FROM "tab1_indexed_nn" ORDER BY "id" DESC÷
+©öm+ ∫≠9(0ƒÏ8@-SCAN([IS tab1_indexed_nn]) | MAP (_.id AS id)ãdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -123,7 +122,7 @@ _
 }≤
 \
 arrays-cardinality-index-tests:EXPLAIN SELECT "id" FROM "tab1_indexed" ORDER BY "id" DESC—
-©µ¬ò, ‡óO(0˙˝8@*SCAN([IS tab1_indexed]) | MAP (_.id AS id)àdigraph G {
+©Íüö+ ˚õY(0ñÙ8@*SCAN([IS tab1_indexed]) | MAP (_.id AS id)àdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -135,8 +134,7 @@ _
 }ø
 q
 arrays-cardinality-index-testsOEXPLAIN SELECT "id" FROM "tab1_indexed_nn" ORDER BY CARDINALITY("int_arr") DESC…
-àÀäÛA ©∂k(0Òù
-8@lISCAN(tab1_indexed_nn_index <,> REVERSE) | MAP (_.id AS id, cardinality(_.int_arr) AS _1) | MAP (_.id AS id)ædigraph G {
+à‰ß≥? åœJ(0⁄ì8@lISCAN(tab1_indexed_nn_index <,> REVERSE) | MAP (_.id AS id, cardinality(_.int_arr) AS _1) | MAP (_.id AS id)ædigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -150,7 +148,7 @@ q
 }∂
 n
 arrays-cardinality-index-testsLEXPLAIN SELECT "id" FROM "tab1_indexed" ORDER BY CARDINALITY("int_arr") DESC√
-à√ÅÄA ıÉo(0œÑ8@iISCAN(tab1_indexed_index <,> REVERSE) | MAP (_.id AS id, cardinality(_.int_arr) AS _1) | MAP (_.id AS id)ªdigraph G {
+àÒœ≤? ¥˙J(0Üº8@iISCAN(tab1_indexed_index <,> REVERSE) | MAP (_.id AS id, cardinality(_.int_arr) AS _1) | MAP (_.id AS id)ªdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -161,10 +159,10 @@ n
   3 -> 2 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}Õ
+}Ã
 é
-arrays-cardinality-index-testslEXPLAIN SELECT CARDINALITY("int_arr") AS "card", "id" FROM "tab1_indexed_nn" ORDER BY CARDINALITY("int_arr")π
-∆£œÂ1 éÜÉ(0ßÅ	8@SISCAN(tab1_indexed_nn_index <,>) | MAP (cardinality(_.int_arr) AS card, _.id AS id)∆
+arrays-cardinality-index-testslEXPLAIN SELECT CARDINALITY("int_arr") AS "card", "id" FROM "tab1_indexed_nn" ORDER BY CARDINALITY("int_arr")∏
+∆‹Áç0 Ë‘C(0ã¢8@SISCAN(tab1_indexed_nn_index <,>) | MAP (cardinality(_.int_arr) AS card, _.id AS id)∆
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -177,7 +175,7 @@ digraph G {
 }√
 ã
 arrays-cardinality-index-testsiEXPLAIN SELECT CARDINALITY("int_arr") AS "card", "id" FROM "tab1_indexed" ORDER BY CARDINALITY("int_arr")≤
-∆Ÿºá1 éÀp(0∂è8@PISCAN(tab1_indexed_index <,>) | MAP (cardinality(_.int_arr) AS card, _.id AS id)√
+∆Á˘è0 ﬁçD(0˜∂8@PISCAN(tab1_indexed_index <,>) | MAP (cardinality(_.int_arr) AS card, _.id AS id)√
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -187,10 +185,10 @@ digraph G {
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">tab1_indexed_index</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(INT AS id, ARRAY(INT) AS int_arr)" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}©
+}®
 m
-arrays-cardinality-index-testsKEXPLAIN SELECT "id" FROM "tab1_indexed_nn" WHERE CARDINALITY("int_arr") = 1∑
-µ≥¯úh éùõ(!0òÅ8*@aCOVERING(tab1_indexed_nn_index [EQUALS promote(@c10 AS INT)] -> [id: KEY:[2]]) | MAP (_.id AS id)∂
+arrays-cardinality-index-testsKEXPLAIN SELECT "id" FROM "tab1_indexed_nn" WHERE CARDINALITY("int_arr") = 1∂
+µ◊´üf À‹i(!0÷≥8*@aCOVERING(tab1_indexed_nn_index [EQUALS promote(@c10 AS INT)] -> [id: KEY:[2]]) | MAP (_.id AS id)∂
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -200,10 +198,10 @@ digraph G {
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">tab1_indexed_nn_index</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(INT AS id, ARRAY(INT) AS int_arr)" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q53> label="q53" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}†
+}ü
 j
-arrays-cardinality-index-testsHEXPLAIN SELECT "id" FROM "tab1_indexed" WHERE CARDINALITY("int_arr") = 1±
-µÎÈõh ◊Ïï(!0»Á8*@^COVERING(tab1_indexed_index [EQUALS promote(@c10 AS INT)] -> [id: KEY:[2]]) | MAP (_.id AS id)≥
+arrays-cardinality-index-testsHEXPLAIN SELECT "id" FROM "tab1_indexed" WHERE CARDINALITY("int_arr") = 1∞
+µÁ∞f ∂…q(!0ò◊8*@^COVERING(tab1_indexed_index [EQUALS promote(@c10 AS INT)] -> [id: KEY:[2]]) | MAP (_.id AS id)≥
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -216,7 +214,8 @@ digraph G {
 }Ç
 n
 arrays-cardinality-index-testsLEXPLAIN SELECT "id" FROM "tab1_indexed" WHERE CARDINALITY("int_arr") IS NULLè
-•¶¨Öc ŒÉ}(0î˚8&@PCOVERING(tab1_indexed_index [[null],[null]] -> [id: KEY:[2]]) | MAP (_.id AS id)†
+•ªñ˘b ´»W(0ﬂˆ
+8&@PCOVERING(tab1_indexed_index [[null],[null]] -> [id: KEY:[2]]) | MAP (_.id AS id)†
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -226,10 +225,10 @@ digraph G {
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">tab1_indexed_index</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(INT AS id, ARRAY(INT) AS int_arr)" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q52> label="q52" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}Å
+}Ä
 r
-arrays-cardinality-index-testsPEXPLAIN SELECT "id" FROM "tab1_indexed" WHERE CARDINALITY("int_arr") IS NOT NULLä
-•È€˚c ◊Ïã(0‰§8&@JCOVERING(tab1_indexed_index ([null],> -> [id: KEY:[2]]) | MAP (_.id AS id)†
+arrays-cardinality-index-testsPEXPLAIN SELECT "id" FROM "tab1_indexed" WHERE CARDINALITY("int_arr") IS NOT NULLâ
+•·Ñâb Á∆_(0üó8&@JCOVERING(tab1_indexed_index ([null],> -> [id: KEY:[2]]) | MAP (_.id AS id)†
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -242,7 +241,7 @@ digraph G {
 }ã
 q
 arrays-cardinality-index-testsOEXPLAIN SELECT "id" FROM "tab1_indexed_nn" WHERE CARDINALITY("int_arr") IS NULLï
-•ÔÁ€c öûy(0âˆ8&@SCOVERING(tab1_indexed_nn_index [[null],[null]] -> [id: KEY:[2]]) | MAP (_.id AS id)£
+•ø∂ûb ≥Ñ_(0»Ó8&@SCOVERING(tab1_indexed_nn_index [[null],[null]] -> [id: KEY:[2]]) | MAP (_.id AS id)£
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -252,10 +251,10 @@ digraph G {
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">tab1_indexed_nn_index</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(INT AS id, ARRAY(INT) AS int_arr)" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q52> label="q52" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}ä
+}â
 u
-arrays-cardinality-index-testsSEXPLAIN SELECT "id" FROM "tab1_indexed_nn" WHERE CARDINALITY("int_arr") IS NOT NULLê
-•ê´àc –É√(0∆ª!8&@MCOVERING(tab1_indexed_nn_index ([null],> -> [id: KEY:[2]]) | MAP (_.id AS id)£
+arrays-cardinality-index-testsSEXPLAIN SELECT "id" FROM "tab1_indexed_nn" WHERE CARDINALITY("int_arr") IS NOT NULLè
+•ÿ˝õb åˆl(0ÀŸ8&@MCOVERING(tab1_indexed_nn_index ([null],> -> [id: KEY:[2]]) | MAP (_.id AS id)£
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -265,10 +264,10 @@ digraph G {
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">tab1_indexed_nn_index</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(INT AS id, ARRAY(INT) AS int_arr)" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q52> label="q52" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}‰
+}„
 e
-arrays-cardinality-index-testsCEXPLAIN SELECT "id" FROM "tab1" WHERE CARDINALITY("int_arr") = NULL˙
-Ó÷æ¢@ Ú§†(0à™8@0SCAN([IS tab1]) | FILTER null | MAP (_.id AS id)™digraph G {
+arrays-cardinality-index-testsCEXPLAIN SELECT "id" FROM "tab1" WHERE CARDINALITY("int_arr") = NULL˘
+Ó‹‚Ö> Å˘/(0 ò8@0SCAN([IS tab1]) | FILTER null | MAP (_.id AS id)™digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -282,7 +281,7 @@ e
 }Ï
 h
 arrays-cardinality-index-testsFEXPLAIN SELECT "id" FROM "tab1_nn" WHERE CARDINALITY("int_arr") = NULLˇ
-Ó»Ì‡@ ˇ™N(0à≈8@3SCAN([IS tab1_nn]) | FILTER null | MAP (_.id AS id)≠digraph G {
+ÓıÏÉ> û÷.(0√å8@3SCAN([IS tab1_nn]) | FILTER null | MAP (_.id AS id)≠digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -293,10 +292,10 @@ h
   3 -> 2 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q23> label="q23" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}É
+}Ç
 m
-arrays-cardinality-index-testsKEXPLAIN SELECT "id" FROM "tab1_indexed" WHERE CARDINALITY("int_arr") = NULLë
-µÏîÃh ùÕœ(!0º¥8*@NCOVERING(tab1_indexed_index [EQUALS NULL] -> [id: KEY:[2]]) | MAP (_.id AS id)£
+arrays-cardinality-index-testsKEXPLAIN SELECT "id" FROM "tab1_indexed" WHERE CARDINALITY("int_arr") = NULLê
+µëü™f ¥¨m(!0Çﬂ8*@NCOVERING(tab1_indexed_index [EQUALS NULL] -> [id: KEY:[2]]) | MAP (_.id AS id)£
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -306,10 +305,10 @@ digraph G {
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">tab1_indexed_index</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(INT AS id, ARRAY(INT) AS int_arr)" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q53> label="q53" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}å
+}ã
 p
-arrays-cardinality-index-testsNEXPLAIN SELECT "id" FROM "tab1_indexed_nn" WHERE CARDINALITY("int_arr") = NULLó
-µ¥—ôh ≤†™(!0“»8*@QCOVERING(tab1_indexed_nn_index [EQUALS NULL] -> [id: KEY:[2]]) | MAP (_.id AS id)¶
+arrays-cardinality-index-testsNEXPLAIN SELECT "id" FROM "tab1_indexed_nn" WHERE CARDINALITY("int_arr") = NULLñ
+µÈ∏ìf ß¿_(!0ŒØ8*@QCOVERING(tab1_indexed_nn_index [EQUALS NULL] -> [id: KEY:[2]]) | MAP (_.id AS id)¶
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -319,10 +318,10 @@ digraph G {
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">tab1_indexed_nn_index</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(INT AS id, ARRAY(INT) AS int_arr)" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q53> label="q53" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}õ
+}ö
 ∞
-arrays-cardinality-index-testsçEXPLAIN SELECT CARDINALITY("int_arr") AS "card", "id" FROM "tab1_indexed_nn" WHERE CARDINALITY("int_arr") = 1 ORDER BY CARDINALITY("int_arr")Â
-ÆèÁÿM Ò’á(0Ò·8@mISCAN(tab1_indexed_nn_index [EQUALS promote(@c17 AS INT)]) | MAP (cardinality(_.int_arr) AS card, _.id AS id)ÿ
+arrays-cardinality-index-testsçEXPLAIN SELECT CARDINALITY("int_arr") AS "card", "id" FROM "tab1_indexed_nn" WHERE CARDINALITY("int_arr") = 1 ORDER BY CARDINALITY("int_arr")‰
+Æ„ÎÏK «¨b(0õÙ	8@mISCAN(tab1_indexed_nn_index [EQUALS promote(@c17 AS INT)]) | MAP (cardinality(_.int_arr) AS card, _.id AS id)ÿ
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -332,10 +331,10 @@ digraph G {
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">tab1_indexed_nn_index</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(INT AS id, ARRAY(INT) AS int_arr)" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}∑
+}∂
 ¿
-arrays-cardinality-index-testsùEXPLAIN SELECT CARDINALITY("struct"."int_arr") AS "card", "id" FROM "tab2" WHERE CARDINALITY("struct"."int_arr") = 1 ORDER BY CARDINALITY("struct"."int_arr")Ò
-Æá⁄∏M ‰óÅ(0›≈8@iISCAN(tab2_index [EQUALS promote(@c21 AS INT)]) | MAP (cardinality(_.struct.int_arr) AS card, _.id AS id)Ë
+arrays-cardinality-index-testsùEXPLAIN SELECT CARDINALITY("struct"."int_arr") AS "card", "id" FROM "tab2" WHERE CARDINALITY("struct"."int_arr") = 1 ORDER BY CARDINALITY("struct"."int_arr")
+ÆñÀK •Ça(0‹µ	8@iISCAN(tab2_index [EQUALS promote(@c21 AS INT)]) | MAP (cardinality(_.struct.int_arr) AS card, _.id AS id)Ë
 digraph G {
   fontname=courier;
   rankdir=BT;

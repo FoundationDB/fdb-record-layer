@@ -7,11 +7,11 @@ array-join-default-planner:
         q2.T2_REFS | FILTER _ EQUALS q1.ID AS q3 RETURN q2 } AS q2 RETURN (q2.NAME
         AS _0, q1.NAME AS _1) }'
     task_count: 3621
-    task_total_time_ms: 359
-    transform_count: 1485
-    transform_time_ms: 72
+    task_total_time_ms: 295
+    transform_count: 1483
+    transform_time_ms: 59
     transform_yield_count: 186
-    insert_time_ms: 24
+    insert_time_ms: 19
     insert_new_count: 401
     insert_reused_count: 57
 array-join-right-deep-planner:
@@ -23,11 +23,11 @@ array-join-right-deep-planner:
         q2.T2_REFS | FILTER _ EQUALS q1.ID AS q3 RETURN q2 } AS q2 RETURN (q2.NAME
         AS _0, q1.NAME AS _1) }'
     task_count: 2028
-    task_total_time_ms: 207
-    transform_count: 763
-    transform_time_ms: 43
+    task_total_time_ms: 188
+    transform_count: 761
+    transform_time_ms: 42
     transform_yield_count: 108
-    insert_time_ms: 7
+    insert_time_ms: 5
     insert_new_count: 226
     insert_reused_count: 26
 array-join-right-deep-query-option:
@@ -39,10 +39,10 @@ array-join-right-deep-query-option:
         q2.T2_REFS | FILTER _ EQUALS q1.ID AS q3 RETURN q2 } AS q2 RETURN (q2.NAME
         AS _0, q1.NAME AS _1) }'
     task_count: 2028
-    task_total_time_ms: 207
-    transform_count: 763
-    transform_time_ms: 43
+    task_total_time_ms: 188
+    transform_count: 761
+    transform_time_ms: 42
     transform_yield_count: 108
-    insert_time_ms: 7
+    insert_time_ms: 5
     insert_new_count: 226
     insert_reused_count: 26

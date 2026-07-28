@@ -124,7 +124,7 @@ class CascadesPlannerTest {
         final ConditionalCascadesRule<RelationalExpression, RecordingExplorationCascadesRule> conditionalRule =
                 new ConditionalCascadesRule<>(ImmutableList.of(disabled, enabled));
         final CascadesPlanner.ExploreExpression explore =
-                planner.new ExploreExpression(PlannerPhase.REWRITING, group, expression);
+                planner.new ExploreExpression(PlannerPhase.REWRITING, group, expression, false);
 
         assertThat(explore.<RelationalExpression>getEnabledRules(conditionalRule)).containsExactly(enabled);
     }

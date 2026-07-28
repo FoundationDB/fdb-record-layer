@@ -2,7 +2,7 @@
 +
 	unnamed-3EXPLAIN SELECT * From "TableA"Î
 
-≠Ö–Î) å»v(0ê¿8@SCAN(<,>) | TFILTER TableA≤
+≠Â∫∫( Ñ†m(0ûÄ8@SCAN(<,>) | TFILTER TableA≤
 digraph G {
   fontname=courier;
   rankdir=BT;

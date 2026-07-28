@@ -1,7 +1,8 @@
 ﬂ
 =
 primary-key-equality%EXPLAIN SELECT * from t1 where a = 10ù
-‹ÑúáL Ìâw(0‡ì8"@*SCAN([IS T1, EQUALS promote(@c7 AS LONG)])‘digraph G {
+‹ﬁùÔK £óq(0óí
+8"@*SCAN([IS T1, EQUALS promote(@c7 AS LONG)])‘digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -11,8 +12,7 @@
 }‡
 >
 primary-key-equality&EXPLAIN SELECT * from t2 where c = 100ù
-‹’—ıL ˛ïm(0Ëÿ
-8"@*SCAN([IS T2, EQUALS promote(@c7 AS LONG)])‘digraph G {
+‹¢ƒ⁄K íÜb(0∆Ü	8"@*SCAN([IS T2, EQUALS promote(@c7 AS LONG)])‘digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -22,7 +22,7 @@
 }ˇ
 +
 full-table-scanEXPLAIN SELECT * from t1œ
-Û·®°> ±™N(0†“8@ISCAN(I1 <,>)£digraph G {
+Ûø∞ä= Ï∫A(0ƒØ8@ISCAN(I1 <,>)£digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -32,7 +32,7 @@
 }ˇ
 +
 full-table-scanEXPLAIN SELECT * from t2œ
-Ûú…£> Ä«N(0”›8@ISCAN(I2 <,>)£digraph G {
+Ûø∑í= û∆G(0Åó8@ISCAN(I2 <,>)£digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -42,7 +42,7 @@
 }Ò
 ?
 primary-key-range-scan%EXPLAIN SELECT * from t1 where a > 10≠
-‹∏¨ÿL ﬂã\(0ÎÃ	8"@2SCAN([IS T1, [GREATER_THAN promote(@c7 AS LONG)]])‹digraph G {
+‹”Ã‰K µ—j(0º˜	8"@2SCAN([IS T1, [GREATER_THAN promote(@c7 AS LONG)]])‹digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -52,8 +52,7 @@
 }Ü
 @
 primary-key-range-scan&EXPLAIN SELECT * from t1 where a >= 11¡
-‹®¸‰L Ú§d(0òë
-8"@<SCAN([IS T1, [GREATER_THAN_OR_EQUALS promote(@c8 AS LONG)]])Êdigraph G {
+‹ç¬⁄K –‡b(0É”	8"@<SCAN([IS T1, [GREATER_THAN_OR_EQUALS promote(@c8 AS LONG)]])Êdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -63,7 +62,8 @@
 }Î
 ?
 primary-key-range-scan%EXPLAIN SELECT * from t1 where a < 12ß
-‹ÔÔŒL √òW(0ﬂä	8"@/SCAN([IS T1, [LESS_THAN promote(@c7 AS LONG)]])Ÿdigraph G {
+‹…ä…K ˇÄX(0ıÅ
+8"@/SCAN([IS T1, [LESS_THAN promote(@c7 AS LONG)]])Ÿdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -73,7 +73,7 @@
 }Ä
 @
 primary-key-range-scan&EXPLAIN SELECT * from t1 where a <= 11ª
-‹•†‚L ¶¡c(0äÏ	8"@9SCAN([IS T1, [LESS_THAN_OR_EQUALS promote(@c8 AS LONG)]])„digraph G {
+‹±Ä‘K Ê_(0ë•	8"@9SCAN([IS T1, [LESS_THAN_OR_EQUALS promote(@c8 AS LONG)]])„digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -83,7 +83,8 @@
 }Ù
 L
 primary-key-range-scan2EXPLAIN SELECT * from t1 where a >= 10 and a <= 11£
-‹ı∑ÏL ≠ék(0Õ≥8"@iSCAN([IS T1, [GREATER_THAN_OR_EQUALS promote(@c8 AS LONG) && LESS_THAN_OR_EQUALS promote(@c13 AS LONG)]])õdigraph G {
+‹ıä◊K ìîb(0Æò
+8"@iSCAN([IS T1, [GREATER_THAN_OR_EQUALS promote(@c8 AS LONG) && LESS_THAN_OR_EQUALS promote(@c13 AS LONG)]])õdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -93,7 +94,7 @@ L
 }Ú
 @
 primary-key-range-scan&EXPLAIN SELECT * from t2 where c > 101≠
-‹ú˚ÕL ¶¬U(0Ëñ	8"@2SCAN([IS T2, [GREATER_THAN promote(@c7 AS LONG)]])‹digraph G {
+‹ü£¡K î∂Q(0Ãæ8"@2SCAN([IS T2, [GREATER_THAN promote(@c7 AS LONG)]])‹digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -104,7 +105,7 @@ L
 3
 
 index-scan%EXPLAIN SELECT * from t1 where b = 21˚
-‹ç‘ÎK Æ·j(0«Ê	8@'ISCAN(I1 [EQUALS promote(@c7 AS LONG)])µdigraph G {
+‹ü±ºJ ◊’N(0¬¥8@'ISCAN(I1 [EQUALS promote(@c7 AS LONG)])µdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -115,7 +116,7 @@ index-scan%EXPLAIN SELECT * from t1 where b = 21˚
 4
 
 index-scan&EXPLAIN SELECT * from t2 where d = 201˚
-‹ÒΩ–K √∏Y(0«œ8@'ISCAN(I2 [EQUALS promote(@c7 AS LONG)])µdigraph G {
+‹ÁÓ√J µ›S(0ºÒ8@'ISCAN(I2 [EQUALS promote(@c7 AS LONG)])µdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -125,7 +126,7 @@ index-scan&EXPLAIN SELECT * from t2 where d = 201˚
 }©
 2
 table-isolationEXPLAIN SELECT count(*) from t1Ú
-·ÃÚ‘L ≥≤F(0˛…8!@èISCAN(I1 <,>) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)√digraph G {
+·◊ØƒJ ∑ΩB(0’ì8!@èISCAN(I1 <,>) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)√digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -143,8 +144,7 @@ index-scan&EXPLAIN SELECT * from t2 where d = 201˚
 }©
 2
 table-isolationEXPLAIN SELECT count(*) from t2Ú
-·’ﬁÃL ≤ÓE(0ÿ˘
-8!@èISCAN(I2 <,>) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)√digraph G {
+·ı˙ÍJ “ó_(0˛Ê8!@èISCAN(I2 <,>) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)√digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -162,7 +162,8 @@ index-scan&EXPLAIN SELECT * from t2 where d = 201˚
 }Ÿ
 7
 dml-operations%EXPLAIN SELECT * from t1 where a = 13ù
-‹ÑúáL Ìâw(0‡ì8"@*SCAN([IS T1, EQUALS promote(@c7 AS LONG)])‘digraph G {
+‹ﬁùÔK £óq(0óí
+8"@*SCAN([IS T1, EQUALS promote(@c7 AS LONG)])‘digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -172,8 +173,7 @@ index-scan&EXPLAIN SELECT * from t2 where d = 201˚
 }⁄
 8
 dml-operations&EXPLAIN SELECT * from t2 where c = 103ù
-‹’—ıL ˛ïm(0Ëÿ
-8"@*SCAN([IS T2, EQUALS promote(@c7 AS LONG)])‘digraph G {
+‹¢ƒ⁄K íÜb(0∆Ü	8"@*SCAN([IS T2, EQUALS promote(@c7 AS LONG)])‘digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;

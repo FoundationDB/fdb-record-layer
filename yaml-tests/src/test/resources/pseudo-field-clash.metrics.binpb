@@ -1,7 +1,7 @@
-ﬂ
+ﬁ
 6
-pseudo-field-clash-queriesEXPLAIN SELECT * FROM t1§
-ï°… * ‰Ö£(0∆€8
+pseudo-field-clash-queriesEXPLAIN SELECT * FROM t1£
+ïäéÒ) øàf(0ı’8
 @SCAN([IS T1])˜digraph G {
   fontname=courier;
   rankdir=BT;
@@ -12,7 +12,7 @@
 }’
 6
 pseudo-field-clash-queriesEXPLAIN SELECT * FROM t2ö
-—ˇΩ∑R ƒÍ®(%0€Û(8@
+—„ÁÓ	Q ∆âÆ(%0ú˛"8@
 ISCAN(T2_VERSION <,>)Âdigraph G {
   fontname=courier;
   rankdir=BT;
@@ -23,7 +23,7 @@
 }µ
 6
 pseudo-field-clash-queriesEXPLAIN SELECT * FROM t3˙
-πÈŒƒF ΩßΩ(!0ﬂ°B8 @HISCAN(T3_VERSION <,>) | MAP (_.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2)ídigraph G {
+πøõæE Ÿáü(!0üË$8 @HISCAN(T3_VERSION <,>) | MAP (_.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2)ídigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -32,10 +32,11 @@
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T3_VERSION</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS COL1, STRING AS COL2, VERSION AS __ROW_VERSION)" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}´
+}¨
 H
-pseudo-field-clash-queries*EXPLAIN SELECT ID, "__ROW_VERSION" FROM t1ﬁ
-ùóı¥( ñ¨z(0·ı8@BSCAN([IS T1]) | MAP (_.ID AS ID, _.__ROW_VERSION AS __ROW_VERSION)˝
+pseudo-field-clash-queries*EXPLAIN SELECT ID, "__ROW_VERSION" FROM t1ﬂ
+ù•“á' ´åÒ(0«„
+8@BSCAN([IS T1]) | MAP (_.ID AS ID, _.__ROW_VERSION AS __ROW_VERSION)˝
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -48,7 +49,7 @@ digraph G {
 }‹
 H
 pseudo-field-clash-queries*EXPLAIN SELECT ID, "__ROW_VERSION" FROM t2è
-˚Ï“ƒN æ‹ä(%0ﬂ◊H8&@vCOVERING(T2_VERSION <,> -> [ID: KEY:[2], __ROW_VERSION: KEY:[0]]) | MAP (_.ID AS ID, _.__ROW_VERSION AS __ROW_VERSION)˘
+˚æèΩM ™ÚΩ(%0ô“58&@vCOVERING(T2_VERSION <,> -> [ID: KEY:[2], __ROW_VERSION: KEY:[0]]) | MAP (_.ID AS ID, _.__ROW_VERSION AS __ROW_VERSION)˘
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -61,7 +62,8 @@ digraph G {
 }∆
 H
 pseudo-field-clash-queries*EXPLAIN SELECT ID, "__ROW_VERSION" FROM t3˘
-π⁄∏√F ˝îÜ(!0…°78 @JISCAN(T3_VERSION <,>) | MAP (_.ID AS ID, _.__ROW_VERSION AS __ROW_VERSION)èdigraph G {
+πòÈÀ
+E ÄÒ˝(!0Ú√'8 @JISCAN(T3_VERSION <,>) | MAP (_.ID AS ID, _.__ROW_VERSION AS __ROW_VERSION)èdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -73,7 +75,7 @@ H
 }≠
 T
 pseudo-field-clash-queries6EXPLAIN SELECT * FROM t2 ORDER BY "__ROW_VERSION" DESC‘
-‚±Äû: ıåÄ(0√ì8@ISCAN(T2_VERSION <,> REVERSE)ódigraph G {
+‚‹ìè9 ‡ÑÚ(0ÀÁ8@ISCAN(T2_VERSION <,> REVERSE)ódigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -83,7 +85,8 @@ T
 }ç
 T
 pseudo-field-clash-queries6EXPLAIN SELECT * FROM t3 ORDER BY "__ROW_VERSION" DESC¥
-ﬁ˚Â…S ñÕõ(!0à÷8@PISCAN(T3_VERSION <,> REVERSE) | MAP (_.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2)ƒdigraph G {
+ﬁ≈◊»
+Q ˜œÑ(!0Ö≠8@PISCAN(T3_VERSION <,> REVERSE) | MAP (_.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2)ƒdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -95,7 +98,7 @@ T
 }¡
 [
 pseudo-field-clash-queries=EXPLAIN SELECT id, col1 FROM t2 ORDER BY "__ROW_VERSION" DESC·
-ﬁµﬂÄS ©π™(!0Æª8@@ISCAN(T2_VERSION <,> REVERSE) | MAP (_.ID AS ID, _.COL1 AS COL1)Ådigraph G {
+ﬁ™ﬁÓQ à• (!0Äæ8@@ISCAN(T2_VERSION <,> REVERSE) | MAP (_.ID AS ID, _.COL1 AS COL1)Ådigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -107,7 +110,7 @@ T
 }–
 [
 pseudo-field-clash-queries=EXPLAIN SELECT id, col1 FROM t3 ORDER BY "__ROW_VERSION" DESC
-î“©ß	E Ñù…(0›’8@ÖISCAN(T3_VERSION <,> REVERSE) | MAP (_.ID AS ID, _.COL1 AS COL1, _.__ROW_VERSION AS __ROW_VERSION) | MAP (_.ID AS ID, _.COL1 AS COL1) digraph G {
+îΩÍÁC ≤é¨(0«¢8@ÖISCAN(T3_VERSION <,> REVERSE) | MAP (_.ID AS ID, _.COL1 AS COL1, _.__ROW_VERSION AS __ROW_VERSION) | MAP (_.ID AS ID, _.COL1 AS COL1) digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -121,7 +124,7 @@ T
 }’
 V
 pseudo-field-clash-queries8EXPLAIN SELECT * FROM t1 WHERE "__ROW_VERSION" > x'0010'˙
-ø˝∏3 †ß‹(0»º 8@ISCAN([IS T1]) | FILTER _.__ROW_VERSION GREATER_THAN promote(@c7 AS BYTES)ëdigraph G {
+øâª†1 †«¨(0ﬂŒ8@ISCAN([IS T1]) | FILTER _.__ROW_VERSION GREATER_THAN promote(@c7 AS BYTES)ëdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -133,7 +136,7 @@ V
 }≤
 S
 pseudo-field-clash-queries5EXPLAIN SELECT * FROM t2 WHERE "__ROW_VERSION" > 'ab'⁄
-õäÏép –í¸(/0ˆƒU88@9ISCAN(T2_VERSION [[GREATER_THAN promote(@c7 AS STRING)]])Ådigraph G {
+õ¯Ï‡n §¡õ(/0ìñA88@9ISCAN(T2_VERSION [[GREATER_THAN promote(@c7 AS STRING)]])Ådigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -143,7 +146,8 @@ S
 }õ
 F
 pseudo-field-clash-queries(EXPLAIN SELECT * FROM t2 WHERE col1 = 20–
-›Ÿ◊Äe ˛ç‡(+0Ìæ@8.@4ISCAN(T2_COL1_VERSION [EQUALS promote(@c7 AS LONG)])¸digraph G {
+›™ìß
+d ®ÔÈ(+0ıÚ%8.@4ISCAN(T2_COL1_VERSION [EQUALS promote(@c7 AS LONG)])¸digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -153,7 +157,7 @@ F
 }¸
 F
 pseudo-field-clash-queries(EXPLAIN SELECT * FROM t3 WHERE col1 = 20±
- Ê√“ä ¨âµ(+0≥µJ88@gISCAN(T3_COL1_VERSION [EQUALS promote(@c7 AS LONG)]) | MAP (_.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2)©digraph G {
+ âŒ∏â ‹º¡(+0Ûı;88@gISCAN(T3_COL1_VERSION [EQUALS promote(@c7 AS LONG)]) | MAP (_.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2)©digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -165,8 +169,7 @@ F
 }Û
 d
 pseudo-field-clash-queriesFEXPLAIN SELECT * FROM t2 WHERE col1 = 20 ORDER BY "__ROW_VERSION" DESCä
-∂√ÜÒ
-K —‚∞(!0ïﬂ8@<ISCAN(T2_COL1_VERSION [EQUALS promote(@c7 AS LONG)] REVERSE)Ædigraph G {
+∂√∫æJ ÄıÀ(!0≤º8@<ISCAN(T2_COL1_VERSION [EQUALS promote(@c7 AS LONG)] REVERSE)Ædigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -176,7 +179,7 @@ d
 }”
 d
 pseudo-field-clash-queriesFEXPLAIN SELECT * FROM t3 WHERE col1 = 20 ORDER BY "__ROW_VERSION" DESCÍ
-≤è∂˚a ù∂é(%0”ï'8%@oISCAN(T3_COL1_VERSION [EQUALS promote(@c7 AS LONG)] REVERSE) | MAP (_.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2)€digraph G {
+≤—à⁄_ ‰∞‚(%0˜ù8%@oISCAN(T3_COL1_VERSION [EQUALS promote(@c7 AS LONG)] REVERSE) | MAP (_.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2)€digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -188,7 +191,7 @@ d
 }–
 k
 pseudo-field-clash-queriesMEXPLAIN SELECT id, col1 FROM t2 WHERE col1 = 20 ORDER BY "__ROW_VERSION" DESC‡
-«⁄áÎd §ñ≈(&0™Ñ$8'@öCOVERING(T2_COL1_VERSION [EQUALS promote(@c9 AS LONG)] REVERSE -> [COL1: KEY:[0], ID: KEY:[3], __ROW_VERSION: KEY:[1]]) | MAP (_.ID AS ID, _.COL1 AS COL1)•digraph G {
+«ô∆Ôb …¿æ(&0‚£8'@öCOVERING(T2_COL1_VERSION [EQUALS promote(@c9 AS LONG)] REVERSE -> [COL1: KEY:[0], ID: KEY:[3], __ROW_VERSION: KEY:[1]]) | MAP (_.ID AS ID, _.COL1 AS COL1)•digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -200,7 +203,7 @@ k
 }ñ
 k
 pseudo-field-clash-queriesMEXPLAIN SELECT id, col1 FROM t3 WHERE col1 = 20 ORDER BY "__ROW_VERSION" DESC¶
-ΩŒØøq Ü”Õ(#0∂›88&@§ISCAN(T3_COL1_VERSION [EQUALS promote(@c9 AS LONG)] REVERSE) | MAP (_.ID AS ID, _.COL1 AS COL1, _.__ROW_VERSION AS __ROW_VERSION) | MAP (_.ID AS ID, _.COL1 AS COL1)·digraph G {
+ΩøóÀo É≤˙(#0Ö≈ 8&@§ISCAN(T3_COL1_VERSION [EQUALS promote(@c9 AS LONG)] REVERSE) | MAP (_.ID AS ID, _.COL1 AS COL1, _.__ROW_VERSION AS __ROW_VERSION) | MAP (_.ID AS ID, _.COL1 AS COL1)·digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -214,7 +217,7 @@ k
 }Û&
 y
 pseudo-field-clash-queries[EXPLAIN SELECT (t1.*), (t2.*), (t3.*) FROM t1, t2, t3 WHERE t2.id = t1.id AND t3.id = t1.idı%
-ñ≈ë√Ÿ‡ ß˝D(•0û¯È8Ç@"ÙSCAN([IS T1]) | FLATMAP q0 -> { SCAN([IS T3, EQUALS q0.ID]) | FLATMAP q1 -> { SCAN([IS T2, EQUALS q0.ID]) AS q2 RETURN (q2 AS _0, q1 AS _1) } AS q3 RETURN (q0 AS T1, q3._0 AS T2, (q3._1.ID AS ID, q3._1.COL1 AS COL1, q3._1.COL2 AS COL2) AS T3) }€#digraph G {
+ñ¥ ˆ…ﬂ Ò‚¡@(•0æû≈8Ç@"ÙSCAN([IS T1]) | FLATMAP q0 -> { SCAN([IS T3, EQUALS q0.ID]) | FLATMAP q1 -> { SCAN([IS T2, EQUALS q0.ID]) AS q2 RETURN (q2 AS _0, q1 AS _1) } AS q3 RETURN (q0 AS T1, q3._0 AS T2, (q3._1.ID AS ID, q3._1.COL1 AS COL1, q3._1.COL2 AS COL2) AS T3) }€#digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -222,22 +225,17 @@ y
   2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">comparisons: [IS T1]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS COL1, BYTES AS __ROW_VERSION)" ];
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [T1, T2, T3]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS COL1, BYTES AS __ROW_VERSION)" ];
   4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP (q6 AS _0, q10 AS _1)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS COL1, STRING AS __ROW_VERSION AS _0, LONG AS ID, LONG AS COL1, STRING AS COL2, VERSION AS __ROW_VERSION AS _1)" ];
-  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">comparisons: [IS T3, EQUALS q2.ID]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS COL1, STRING AS COL2, VERSION AS __ROW_VERSION)" ];
-  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">comparisons: [IS T2, EQUALS q2.ID]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS COL1, STRING AS __ROW_VERSION)" ];
-  7 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [T1, T2, T3]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS COL1, STRING AS COL2, VERSION AS __ROW_VERSION)" ];
-  8 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [T1, T2, T3]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS COL1, STRING AS __ROW_VERSION)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">comparisons: [IS T2, EQUALS q2.ID]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS COL1, STRING AS __ROW_VERSION)" ];
+  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">comparisons: [IS T3, EQUALS q2.ID]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS COL1, STRING AS COL2, VERSION AS __ROW_VERSION)" ];
+  7 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [T1, T2, T3]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS COL1, STRING AS __ROW_VERSION)" ];
+  8 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [T1, T2, T3]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS COL1, STRING AS COL2, VERSION AS __ROW_VERSION)" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  5 -> 4 [ label=<&nbsp;q10> label="q10" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  6 -> 4 [ label=<&nbsp;q6> label="q6" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 4 [ label=<&nbsp;q6> label="q6" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  6 -> 4 [ label=<&nbsp;q10> label="q10" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   7 -> 5 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   8 -> 6 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 1 [ label=<&nbsp;q97> label="q97" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  {
-    rank=same;
-    rankDir=LR;
-    5 -> 6 [ color="red" style="invis" ];
-  }
   {
     5 -> 1 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
   }
@@ -249,10 +247,15 @@ y
     rankDir=LR;
     2 -> 4 [ color="red" style="invis" ];
   }
-}…*
+  {
+    rank=same;
+    rankDir=LR;
+    6 -> 5 [ color="red" style="invis" ];
+  }
+}»*
 ›
-pseudo-field-clash-queriesæEXPLAIN SELECT (t1.id, t1.col1, t1."__ROW_VERSION"), (t2.id, t2.col1, t2."__ROW_VERSION"), (t3.id, t3.col1, t3.col2, t3."__ROW_VERSION") FROM t1, t2, t3 WHERE t2.id = t1.id AND t3.id = t1.idÊ(
-ñÖè•™‡ ¬àı>(•0çÆΩ8Ç@"ûSCAN([IS T1]) | FLATMAP q0 -> { SCAN([IS T3, EQUALS q0.ID]) | FLATMAP q1 -> { SCAN([IS T2, EQUALS q0.ID]) AS q2 RETURN (q2 AS _0, q1 AS _1) } AS q3 RETURN ((q0.ID AS ID, q0.COL1 AS COL1, q0.__ROW_VERSION AS __ROW_VERSION) AS _0, (q3._0.ID AS ID, q3._0.COL1 AS COL1, q3._0.__ROW_VERSION AS __ROW_VERSION) AS _1, (q3._1.ID AS ID, q3._1.COL1 AS COL1, q3._1.COL2 AS COL2, q3._1.__ROW_VERSION AS __ROW_VERSION) AS _2) }¢%digraph G {
+pseudo-field-clash-queriesæEXPLAIN SELECT (t1.id, t1.col1, t1."__ROW_VERSION"), (t2.id, t2.col1, t2."__ROW_VERSION"), (t3.id, t3.col1, t3.col2, t3."__ROW_VERSION") FROM t1, t2, t3 WHERE t2.id = t1.id AND t3.id = t1.idÂ(
+ñ£éÑﬂ øà˝-(•0Ö≠˚8Ç@"ûSCAN([IS T1]) | FLATMAP q0 -> { SCAN([IS T3, EQUALS q0.ID]) | FLATMAP q1 -> { SCAN([IS T2, EQUALS q0.ID]) AS q2 RETURN (q2 AS _0, q1 AS _1) } AS q3 RETURN ((q0.ID AS ID, q0.COL1 AS COL1, q0.__ROW_VERSION AS __ROW_VERSION) AS _0, (q3._0.ID AS ID, q3._0.COL1 AS COL1, q3._0.__ROW_VERSION AS __ROW_VERSION) AS _1, (q3._1.ID AS ID, q3._1.COL1 AS COL1, q3._1.COL2 AS COL2, q3._1.__ROW_VERSION AS __ROW_VERSION) AS _2) }¢%digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -272,6 +275,11 @@ y
   8 -> 6 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 1 [ label=<&nbsp;q97> label="q97" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   {
+    rank=same;
+    rankDir=LR;
+    5 -> 6 [ color="red" style="invis" ];
+  }
+  {
     5 -> 1 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
   }
   {
@@ -281,10 +289,5 @@ y
     rank=same;
     rankDir=LR;
     2 -> 4 [ color="red" style="invis" ];
-  }
-  {
-    rank=same;
-    rankDir=LR;
-    5 -> 6 [ color="red" style="invis" ];
   }
 }

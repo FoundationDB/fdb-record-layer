@@ -4,9 +4,9 @@ unnamed-4:
     explain: 'COVERING(C2 <,> -> [C1: KEY:[2], C2: KEY:[0]]) | FILTER _.C2 LIKE @c7
         ESCAPE ''null'' | FETCH'
     task_count: 350
-    task_total_time_ms: 15
-    transform_count: 77
-    transform_time_ms: 6
+    task_total_time_ms: 23
+    transform_count: 76
+    transform_time_ms: 9
     transform_yield_count: 29
     insert_time_ms: 0
     insert_new_count: 35
@@ -16,9 +16,9 @@ unnamed-4:
     explain: 'COVERING(C2 <,> -> [C1: KEY:[2], C2: KEY:[0]]) | FILTER _.C2 LIKE @c7
         ESCAPE ''null'' | FETCH'
     task_count: 350
-    task_total_time_ms: 15
-    transform_count: 77
-    transform_time_ms: 6
+    task_total_time_ms: 23
+    transform_count: 76
+    transform_time_ms: 9
     transform_yield_count: 29
     insert_time_ms: 0
     insert_new_count: 35
@@ -28,9 +28,9 @@ unnamed-4:
     explain: 'COVERING(C2 <,> -> [C1: KEY:[2], C2: KEY:[0]]) | FILTER _.C2 LIKE @c7
         ESCAPE ''null'' | FETCH'
     task_count: 350
-    task_total_time_ms: 15
-    transform_count: 77
-    transform_time_ms: 6
+    task_total_time_ms: 23
+    transform_count: 76
+    transform_time_ms: 9
     transform_yield_count: 29
     insert_time_ms: 0
     insert_new_count: 35
@@ -40,9 +40,9 @@ unnamed-4:
     explain: 'COVERING(C2 <,> -> [C1: KEY:[2], C2: KEY:[0]]) | FILTER _.C2 LIKE @c7
         ESCAPE ''null'' | FETCH'
     task_count: 350
-    task_total_time_ms: 15
-    transform_count: 77
-    transform_time_ms: 6
+    task_total_time_ms: 23
+    transform_count: 76
+    transform_time_ms: 9
     transform_yield_count: 29
     insert_time_ms: 0
     insert_new_count: 35
@@ -52,9 +52,9 @@ unnamed-4:
     explain: 'COVERING(C2 <,> -> [C1: KEY:[2], C2: KEY:[0]]) | FILTER _.C2 LIKE @c7
         ESCAPE ''null'' | FETCH'
     task_count: 350
-    task_total_time_ms: 15
-    transform_count: 77
-    transform_time_ms: 6
+    task_total_time_ms: 23
+    transform_count: 76
+    transform_time_ms: 9
     transform_yield_count: 29
     insert_time_ms: 0
     insert_new_count: 35
@@ -64,9 +64,9 @@ unnamed-4:
     explain: 'COVERING(C2 <,> -> [C1: KEY:[2], C2: KEY:[0]]) | FILTER _.C2 LIKE @c7
         ESCAPE ''null'' | FETCH'
     task_count: 350
-    task_total_time_ms: 15
-    transform_count: 77
-    transform_time_ms: 6
+    task_total_time_ms: 23
+    transform_count: 76
+    transform_time_ms: 9
     transform_yield_count: 29
     insert_time_ms: 0
     insert_new_count: 35
@@ -76,9 +76,9 @@ unnamed-4:
     explain: 'COVERING(C2 <,> -> [C1: KEY:[2], C2: KEY:[0]]) | FILTER _.C2 LIKE @c7
         ESCAPE ''null'' | FETCH'
     task_count: 350
-    task_total_time_ms: 15
-    transform_count: 77
-    transform_time_ms: 6
+    task_total_time_ms: 23
+    transform_count: 76
+    transform_time_ms: 9
     transform_yield_count: 29
     insert_time_ms: 0
     insert_new_count: 35
@@ -88,9 +88,9 @@ unnamed-4:
     explain: 'COVERING(C2 <,> -> [C1: KEY:[2], C2: KEY:[0]]) | FILTER _.C2 LIKE @c7
         ESCAPE ''null'' | FETCH'
     task_count: 350
-    task_total_time_ms: 15
-    transform_count: 77
-    transform_time_ms: 6
+    task_total_time_ms: 23
+    transform_count: 76
+    transform_time_ms: 9
     transform_yield_count: 29
     insert_time_ms: 0
     insert_new_count: 35
@@ -100,9 +100,9 @@ unnamed-4:
     explain: 'COVERING(C2 <,> -> [C1: KEY:[2], C2: KEY:[0]]) | FILTER _.C2 LIKE @c7
         ESCAPE ''null'' | FETCH'
     task_count: 350
-    task_total_time_ms: 15
-    transform_count: 77
-    transform_time_ms: 6
+    task_total_time_ms: 23
+    transform_count: 76
+    transform_time_ms: 9
     transform_yield_count: 29
     insert_time_ms: 0
     insert_new_count: 35

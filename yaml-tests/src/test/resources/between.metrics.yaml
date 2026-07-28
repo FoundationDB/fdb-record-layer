@@ -4,9 +4,9 @@ between-index-tests:
     explain: ISCAN(I1 [[GREATER_THAN_OR_EQUALS promote(@c7 AS INT) && LESS_THAN_OR_EQUALS
         promote(@c7 AS INT)]])
     task_count: 364
-    task_total_time_ms: 29
-    transform_count: 81
-    transform_time_ms: 9
+    task_total_time_ms: 27
+    transform_count: 79
+    transform_time_ms: 10
     transform_yield_count: 32
     insert_time_ms: 0
     insert_new_count: 35
@@ -16,9 +16,9 @@ between-index-tests:
     explain: ISCAN(I1 <,>) | FILTER _.COL1 + @c7 GREATER_THAN_OR_EQUALS promote(@c9
         AS INT) AND _.COL1 + @c7 LESS_THAN_OR_EQUALS promote(@c11 AS INT)
     task_count: 320
-    task_total_time_ms: 27
-    transform_count: 77
-    transform_time_ms: 10
+    task_total_time_ms: 25
+    transform_count: 75
+    transform_time_ms: 9
     transform_yield_count: 29
     insert_time_ms: 0
     insert_new_count: 33
@@ -28,9 +28,9 @@ between-index-tests:
     explain: ISCAN(I1 <,>) | FILTER _.COL1 + @c7 LESS_THAN promote(@c10 AS INT) OR
         _.COL1 + @c7 GREATER_THAN promote(@c12 AS INT)
     task_count: 320
-    task_total_time_ms: 30
-    transform_count: 78
-    transform_time_ms: 12
+    task_total_time_ms: 26
+    transform_count: 76
+    transform_time_ms: 11
     transform_yield_count: 29
     insert_time_ms: 0
     insert_new_count: 33

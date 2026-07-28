@@ -1,7 +1,7 @@
-ñ
+ï
 c
-simple_value_indexMEXPLAIN select price from products_mat_view where price > 18.0 order by priceÆ
-˘Í⁄Á8⁄ ûÊÿ(y0·¿√8X@ COVERING(IDX_MV_PRICE_DESC [[LESS_THAN to_ordered_bytes(promote(@c7 AS DOUBLE), DESC_NULLS_LAST)]] REVERSE -> [ID: KEY:[2], PRICE: from_ordered_bytes(KEY:[0], DESC_NULLS_LAST)]) | MAP (_.PRICE AS PRICE)¡digraph G {
+simple_value_indexMEXPLAIN select price from products_mat_view where price > 18.0 order by price≠
+˘“ë©(ÿ ø⁄à(y0˙⁄{8X@ COVERING(IDX_MV_PRICE_DESC [[LESS_THAN to_ordered_bytes(promote(@c7 AS DOUBLE), DESC_NULLS_LAST)]] REVERSE -> [ID: KEY:[2], PRICE: from_ordered_bytes(KEY:[0], DESC_NULLS_LAST)]) | MAP (_.PRICE AS PRICE)¡digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -13,7 +13,7 @@ c
 }ò
 c
 simple_value_indexMEXPLAIN select price from products_index_on where price > 18.0 order by price∞
-˘Ó¬9⁄ ¿ˇà(y0˜ƒø8X@ÀCOVERING(IDX_IOT_PRICE_DESC [[LESS_THAN to_ordered_bytes(promote(@c7 AS DOUBLE), DESC_NULLS_LAST)]] REVERSE -> [ID: KEY:[2], PRICE: from_ordered_bytes(KEY:[0], DESC_NULLS_LAST)]) | MAP (_.PRICE AS PRICE)¬digraph G {
+˘Ì≥Ó-ÿ Àã¸(y0˝¬É8X@ÀCOVERING(IDX_IOT_PRICE_DESC [[LESS_THAN to_ordered_bytes(promote(@c7 AS DOUBLE), DESC_NULLS_LAST)]] REVERSE -> [ID: KEY:[2], PRICE: from_ordered_bytes(KEY:[0], DESC_NULLS_LAST)]) | MAP (_.PRICE AS PRICE)¬digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -22,10 +22,10 @@ c
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">IDX_IOT_PRICE_DESC</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(INT AS ID, STRING AS NAME, DOUBLE AS PRICE, STRING AS CATEGORY, INT AS STOCK, STRING AS SUPPLIER, DOUBLE AS RATING)" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q172> label="q172" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}˜
+}ˆ
 c
-simple_value_indexMEXPLAIN select category from products_mat_view where category = 'Electronics'è
-ÀÃﬁ˝êò ÃÕﬁA(¬0áï≥8É@|COVERING(IDX_MV_CATEGORY [EQUALS promote(@c7 AS STRING)] -> [CATEGORY: KEY:[0], ID: KEY:[2]]) | MAP (_.CATEGORY AS CATEGORY)Ódigraph G {
+simple_value_indexMEXPLAIN select category from products_mat_view where category = 'Electronics'é
+Àñ¢\ñ •ÕÂ)(¬0öà˙8É@|COVERING(IDX_MV_CATEGORY [EQUALS promote(@c7 AS STRING)] -> [CATEGORY: KEY:[0], ID: KEY:[2]]) | MAP (_.CATEGORY AS CATEGORY)Ódigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -34,10 +34,10 @@ c
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">IDX_MV_CATEGORY</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(INT AS ID, STRING AS NAME, DOUBLE AS PRICE, STRING AS CATEGORY, INT AS STOCK, STRING AS SUPPLIER, DOUBLE AS RATING)" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q350> label="q350" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}˘
+}¯
 c
-simple_value_indexMEXPLAIN select category from products_index_on where category = 'Electronics'ë
-Àˆì¿åò ¥˜A(¬0‰Âô	8É@}COVERING(IDX_IOT_CATEGORY [EQUALS promote(@c7 AS STRING)] -> [CATEGORY: KEY:[0], ID: KEY:[2]]) | MAP (_.CATEGORY AS CATEGORY)Ôdigraph G {
+simple_value_indexMEXPLAIN select category from products_index_on where category = 'Electronics'ê
+À∆à„Wñ ¥íÑ)(¬0üÕØ8É@}COVERING(IDX_IOT_CATEGORY [EQUALS promote(@c7 AS STRING)] -> [CATEGORY: KEY:[0], ID: KEY:[2]]) | MAP (_.CATEGORY AS CATEGORY)Ôdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -46,10 +46,10 @@ c
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">IDX_IOT_CATEGORY</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(INT AS ID, STRING AS NAME, DOUBLE AS PRICE, STRING AS CATEGORY, INT AS STOCK, STRING AS SUPPLIER, DOUBLE AS RATING)" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q350> label="q350" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}Ê
+}Â
 â
-multi_column_value_indexmEXPLAIN select category, price from products_mat_view where category = 'Electronics' order by category, price◊
-ÁÆ≠Ö=« â—‰(t0®É¶8H@üCOVERING(IDX_MV_CAT_PRICE [EQUALS promote(@c9 AS STRING)] -> [CATEGORY: KEY:[0], ID: KEY:[3], PRICE: KEY:[1]]) | MAP (_.CATEGORY AS CATEGORY, _.PRICE AS PRICE)ïdigraph G {
+multi_column_value_indexmEXPLAIN select category, price from products_mat_view where category = 'Electronics' order by category, price÷
+ÁƒÊË1≈ ›ª∆(t0ﬁÛq8H@üCOVERING(IDX_MV_CAT_PRICE [EQUALS promote(@c9 AS STRING)] -> [CATEGORY: KEY:[0], ID: KEY:[3], PRICE: KEY:[1]]) | MAP (_.CATEGORY AS CATEGORY, _.PRICE AS PRICE)ïdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -58,10 +58,10 @@ c
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">IDX_MV_CAT_PRICE</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(INT AS ID, STRING AS NAME, DOUBLE AS PRICE, STRING AS CATEGORY, INT AS STOCK, STRING AS SUPPLIER, DOUBLE AS RATING)" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q152> label="q152" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}Ë
+}Á
 â
-multi_column_value_indexmEXPLAIN select category, price from products_index_on where category = 'Electronics' order by category, priceŸ
-Á◊±Ó=« „Ωﬂ(t0 ±ó8H@†COVERING(IDX_IOT_CAT_PRICE [EQUALS promote(@c9 AS STRING)] -> [CATEGORY: KEY:[0], ID: KEY:[3], PRICE: KEY:[1]]) | MAP (_.CATEGORY AS CATEGORY, _.PRICE AS PRICE)ñdigraph G {
+multi_column_value_indexmEXPLAIN select category, price from products_index_on where category = 'Electronics' order by category, priceÿ
+Á”™Ñ3≈ ˝á…(t0™Ê{8H@†COVERING(IDX_IOT_CAT_PRICE [EQUALS promote(@c9 AS STRING)] -> [CATEGORY: KEY:[0], ID: KEY:[3], PRICE: KEY:[1]]) | MAP (_.CATEGORY AS CATEGORY, _.PRICE AS PRICE)ñdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -70,10 +70,10 @@ c
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">IDX_IOT_CAT_PRICE</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(INT AS ID, STRING AS NAME, DOUBLE AS PRICE, STRING AS CATEGORY, INT AS STOCK, STRING AS SUPPLIER, DOUBLE AS RATING)" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q152> label="q152" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}∑
+}∂
 f
-multi_column_value_indexJEXPLAIN select name, rating from products_mat_view where name = 'Widget A'Ã
-ˆÌˆÚ±˛ ÑÛ∂S(≤0≈∆≈8Û@òCOVERING(IDX_MV_NAME_RATING [EQUALS promote(@c9 AS STRING)] -> [ID: KEY:[3], NAME: KEY:[0], RATING: KEY:[1]]) | MAP (_.NAME AS NAME, _.RATING AS RATING)édigraph G {
+multi_column_value_indexJEXPLAIN select name, rating from products_mat_view where name = 'Widget A'À
+ˆèº˜s¸ º˜‰7(≤0„¶ä8Û@òCOVERING(IDX_MV_NAME_RATING [EQUALS promote(@c9 AS STRING)] -> [ID: KEY:[3], NAME: KEY:[0], RATING: KEY:[1]]) | MAP (_.NAME AS NAME, _.RATING AS RATING)édigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -82,10 +82,10 @@ f
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">IDX_MV_NAME_RATING</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(INT AS ID, STRING AS NAME, DOUBLE AS PRICE, STRING AS CATEGORY, INT AS STOCK, STRING AS SUPPLIER, DOUBLE AS RATING)" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q356> label="q356" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}π
+}∏
 f
-multi_column_value_indexJEXPLAIN select name, rating from products_index_on where name = 'Widget A'Œ
-ˆ¥êÅ§˛ ˜Œ”M(≤0˘¥ü8Û@ôCOVERING(IDX_IOT_NAME_RATING [EQUALS promote(@c9 AS STRING)] -> [ID: KEY:[3], NAME: KEY:[0], RATING: KEY:[1]]) | MAP (_.NAME AS NAME, _.RATING AS RATING)èdigraph G {
+multi_column_value_indexJEXPLAIN select name, rating from products_index_on where name = 'Widget A'Õ
+ˆëÂ‡l¸ °±’5(≤0ÙÅ˛8Û@ôCOVERING(IDX_IOT_NAME_RATING [EQUALS promote(@c9 AS STRING)] -> [ID: KEY:[3], NAME: KEY:[0], RATING: KEY:[1]]) | MAP (_.NAME AS NAME, _.RATING AS RATING)èdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -97,7 +97,7 @@ f
 }≥
 u
 covering_value_index]EXPLAIN select price, name, supplier from products_mat_view where price > 15.0 order by priceπ
-Ìæì˙LÃ ∫√÷$(q0ÊÚ»8J@–COVERING(IDX_MV_PRICE_COVERING [[GREATER_THAN promote(@c11 AS DOUBLE)]] -> [ID: KEY:[2], NAME: VALUE:[0], PRICE: KEY:[0], SUPPLIER: VALUE:[1]]) | MAP (_.PRICE AS PRICE, _.NAME AS NAME, _.SUPPLIER AS SUPPLIER)∆digraph G {
+Ì˝˛Ü/  ¨¸‘(q0¨÷Å8J@–COVERING(IDX_MV_PRICE_COVERING [[GREATER_THAN promote(@c11 AS DOUBLE)]] -> [ID: KEY:[2], NAME: VALUE:[0], PRICE: KEY:[0], SUPPLIER: VALUE:[1]]) | MAP (_.PRICE AS PRICE, _.NAME AS NAME, _.SUPPLIER AS SUPPLIER)∆digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -109,7 +109,7 @@ u
 }µ
 u
 covering_value_index]EXPLAIN select price, name, supplier from products_index_on where price > 15.0 order by priceª
-Ì±ÌÊLÃ À“ó"(q0…Í·8J@—COVERING(IDX_IOT_PRICE_COVERING [[GREATER_THAN promote(@c11 AS DOUBLE)]] -> [ID: KEY:[2], NAME: VALUE:[0], PRICE: KEY:[0], SUPPLIER: VALUE:[1]]) | MAP (_.PRICE AS PRICE, _.NAME AS NAME, _.SUPPLIER AS SUPPLIER)«digraph G {
+ÌóØ˚-  ú˘≠(q0ø´É8J@—COVERING(IDX_IOT_PRICE_COVERING [[GREATER_THAN promote(@c11 AS DOUBLE)]] -> [ID: KEY:[2], NAME: VALUE:[0], PRICE: KEY:[0], SUPPLIER: VALUE:[1]]) | MAP (_.PRICE AS PRICE, _.NAME AS NAME, _.SUPPLIER AS SUPPLIER)«digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -118,10 +118,10 @@ u
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">IDX_IOT_PRICE_COVERING</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(INT AS ID, STRING AS NAME, DOUBLE AS PRICE, STRING AS CATEGORY, INT AS STOCK, STRING AS SUPPLIER, DOUBLE AS RATING)" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q166> label="q166" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}é
+}ç
 í
-covering_value_indexzEXPLAIN select category, price, name, stock from products_mat_view where category = 'Electronics' order by category, priceˆ
-ÄÇ·ÿPº ÕÃ,(n0èÓ 8?@ÓCOVERING(IDX_MV_CAT_PRICE_COVERING [EQUALS promote(@c13 AS STRING)] -> [CATEGORY: KEY:[0], ID: KEY:[3], NAME: VALUE:[0], PRICE: KEY:[1], STOCK: VALUE:[1]]) | MAP (_.CATEGORY AS CATEGORY, _.PRICE AS PRICE, _.NAME AS NAME, _.STOCK AS STOCK)Âdigraph G {
+covering_value_indexzEXPLAIN select category, price, name, stock from products_mat_view where category = 'Electronics' order by category, priceı
+Äéﬁ¢-∫ øŸ°(n0ŒûO8?@ÓCOVERING(IDX_MV_CAT_PRICE_COVERING [EQUALS promote(@c13 AS STRING)] -> [CATEGORY: KEY:[0], ID: KEY:[3], NAME: VALUE:[0], PRICE: KEY:[1], STOCK: VALUE:[1]]) | MAP (_.CATEGORY AS CATEGORY, _.PRICE AS PRICE, _.NAME AS NAME, _.STOCK AS STOCK)Âdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -130,10 +130,10 @@ u
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">IDX_MV_CAT_PRICE_COVERING</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(INT AS ID, STRING AS NAME, DOUBLE AS PRICE, STRING AS CATEGORY, INT AS STOCK, STRING AS SUPPLIER, DOUBLE AS RATING)" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q152> label="q152" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}ê
+}è
 í
-covering_value_indexzEXPLAIN select category, price, name, stock from products_index_on where category = 'Electronics' order by category, price¯
-Ä‘÷÷Lº ¥öÅ#(n0Û‚ê8?@ÔCOVERING(IDX_IOT_CAT_PRICE_COVERING [EQUALS promote(@c13 AS STRING)] -> [CATEGORY: KEY:[0], ID: KEY:[3], NAME: VALUE:[0], PRICE: KEY:[1], STOCK: VALUE:[1]]) | MAP (_.CATEGORY AS CATEGORY, _.PRICE AS PRICE, _.NAME AS NAME, _.STOCK AS STOCK)Êdigraph G {
+covering_value_indexzEXPLAIN select category, price, name, stock from products_index_on where category = 'Electronics' order by category, price˜
+ÄåÕÊ0∫ Ω≠±(n0ó≠]8?@ÔCOVERING(IDX_IOT_CAT_PRICE_COVERING [EQUALS promote(@c13 AS STRING)] -> [CATEGORY: KEY:[0], ID: KEY:[3], NAME: VALUE:[0], PRICE: KEY:[1], STOCK: VALUE:[1]]) | MAP (_.CATEGORY AS CATEGORY, _.PRICE AS PRICE, _.NAME AS NAME, _.STOCK AS STOCK)Êdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -142,10 +142,10 @@ u
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">IDX_IOT_CAT_PRICE_COVERING</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(INT AS ID, STRING AS NAME, DOUBLE AS PRICE, STRING AS CATEGORY, INT AS STOCK, STRING AS SUPPLIER, DOUBLE AS RATING)" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q152> label="q152" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}—
+}–
 Z
-mixed_asc_desc_ordering?EXPLAIN select price from products_mat_view order by price descÚ
-ôﬂ‘¡*| òÍÈ(b0ﬁÜñ8,@~COVERING(IDX_MV_PRICE_DESC <,> -> [ID: KEY:[2], PRICE: from_ordered_bytes(KEY:[0], DESC_NULLS_LAST)]) | MAP (_.PRICE AS PRICE)”digraph G {
+mixed_asc_desc_ordering?EXPLAIN select price from products_mat_view order by price descÒ
+ô˘∫€{ òÇñ(b0ÿ±P8,@~COVERING(IDX_MV_PRICE_DESC <,> -> [ID: KEY:[2], PRICE: from_ordered_bytes(KEY:[0], DESC_NULLS_LAST)]) | MAP (_.PRICE AS PRICE)”digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -154,10 +154,10 @@ Z
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">IDX_MV_PRICE_DESC</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(INT AS ID, STRING AS NAME, DOUBLE AS PRICE, STRING AS CATEGORY, INT AS STOCK, STRING AS SUPPLIER, DOUBLE AS RATING)" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q131> label="q131" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}”
+}“
 Z
-mixed_asc_desc_ordering?EXPLAIN select price from products_index_on order by price descÙ
-ô«°«.| √⁄í(b0˚≠ì8,@COVERING(IDX_IOT_PRICE_DESC <,> -> [ID: KEY:[2], PRICE: from_ordered_bytes(KEY:[0], DESC_NULLS_LAST)]) | MAP (_.PRICE AS PRICE)‘digraph G {
+mixed_asc_desc_ordering?EXPLAIN select price from products_index_on order by price descÛ
+ô¡è¢{ ﬁ»‘(b0ìÌR8,@COVERING(IDX_IOT_PRICE_DESC <,> -> [ID: KEY:[2], PRICE: from_ordered_bytes(KEY:[0], DESC_NULLS_LAST)]) | MAP (_.PRICE AS PRICE)‘digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -169,7 +169,7 @@ Z
 }”
 r
 mixed_asc_desc_orderingWEXPLAIN select category, price from products_mat_view order by category desc, price asc‹
-Î∏…ü#c ±Ù≤(X0Û/8@±COVERING(IDX_MV_CAT_DESC_PRICE_ASC <,> -> [CATEGORY: from_ordered_bytes(KEY:[0], DESC_NULLS_LAST), ID: KEY:[3], PRICE: KEY:[1]]) | MAP (_.CATEGORY AS CATEGORY, _.PRICE AS PRICE)ädigraph G {
+Îìó«b …›¢(X0È‰8@±COVERING(IDX_MV_CAT_DESC_PRICE_ASC <,> -> [CATEGORY: from_ordered_bytes(KEY:[0], DESC_NULLS_LAST), ID: KEY:[3], PRICE: KEY:[1]]) | MAP (_.CATEGORY AS CATEGORY, _.PRICE AS PRICE)ädigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -181,7 +181,7 @@ r
 }’
 r
 mixed_asc_desc_orderingWEXPLAIN select category, price from products_index_on order by category desc, price ascﬁ
-ÎÄË∂"c úÒÍ(X0¿ø<8@≤COVERING(IDX_IOT_CAT_DESC_PRICE_ASC <,> -> [CATEGORY: from_ordered_bytes(KEY:[0], DESC_NULLS_LAST), ID: KEY:[3], PRICE: KEY:[1]]) | MAP (_.CATEGORY AS CATEGORY, _.PRICE AS PRICE)ãdigraph G {
+Î∏¥ôb ÑÅ˘(X0©í-8@≤COVERING(IDX_IOT_CAT_DESC_PRICE_ASC <,> -> [CATEGORY: from_ordered_bytes(KEY:[0], DESC_NULLS_LAST), ID: KEY:[3], PRICE: KEY:[1]]) | MAP (_.CATEGORY AS CATEGORY, _.PRICE AS PRICE)ãdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -193,7 +193,7 @@ r
 }≈
 ^
 nulls_orderingLEXPLAIN select rating from products_mat_view order by rating asc nulls first‚
-ÎÖÏÔc Ç„è(X0É«$8@dCOVERING(IDX_MV_RATING_NULLS_FIRST <,> -> [ID: KEY:[2], RATING: KEY:[0]]) | MAP (_.RATING AS RATING)ﬁdigraph G {
+Î„Ω¸b Á—“(X0Î”8@dCOVERING(IDX_MV_RATING_NULLS_FIRST <,> -> [ID: KEY:[2], RATING: KEY:[0]]) | MAP (_.RATING AS RATING)ﬁdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -205,7 +205,7 @@ r
 }«
 ^
 nulls_orderingLEXPLAIN select rating from products_index_on order by rating asc nulls first‰
-Î⁄Íπc ß¥ˆ(X0ä∂78@eCOVERING(IDX_IOT_RATING_NULLS_FIRST <,> -> [ID: KEY:[2], RATING: KEY:[0]]) | MAP (_.RATING AS RATING)ﬂdigraph G {
+ÎµˆÊb ñ‡Ñ(X0∂µ8@eCOVERING(IDX_IOT_RATING_NULLS_FIRST <,> -> [ID: KEY:[2], RATING: KEY:[0]]) | MAP (_.RATING AS RATING)ﬂdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -217,7 +217,7 @@ r
 }Á
 ]
 nulls_orderingKEXPLAIN select rating from products_mat_view order by rating asc nulls lastÖ
-Î°ËΩc Âæ´(X0Ôß,8@áCOVERING(IDX_MV_RATING_NULLS_LAST <,> -> [ID: KEY:[2], RATING: from_ordered_bytes(KEY:[0], ASC_NULLS_LAST)]) | MAP (_.RATING AS RATING)›digraph G {
+ÎôÔìb ÔˆÛ	(X0€–8@áCOVERING(IDX_MV_RATING_NULLS_LAST <,> -> [ID: KEY:[2], RATING: from_ordered_bytes(KEY:[0], ASC_NULLS_LAST)]) | MAP (_.RATING AS RATING)›digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -229,7 +229,7 @@ r
 }È
 ]
 nulls_orderingKEXPLAIN select rating from products_index_on order by rating asc nulls lastá
-ÎÆö•c õ˝≤(X0«Ê.8@àCOVERING(IDX_IOT_RATING_NULLS_LAST <,> -> [ID: KEY:[2], RATING: from_ordered_bytes(KEY:[0], ASC_NULLS_LAST)]) | MAP (_.RATING AS RATING)ﬁdigraph G {
+ÎÆãÉb ÁÄÒ(X0¶ó8@àCOVERING(IDX_IOT_RATING_NULLS_LAST <,> -> [ID: KEY:[2], RATING: from_ordered_bytes(KEY:[0], ASC_NULLS_LAST)]) | MAP (_.RATING AS RATING)ﬁdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -241,7 +241,7 @@ r
 }ã
 c
 nulls_orderingQEXPLAIN select supplier from products_mat_view order by supplier desc nulls first£
-Îî c é‡‡	(X0∏ﬁ.8@óCOVERING(IDX_MV_SUPPLIER_DESC_NULLS_FIRST <,> -> [ID: KEY:[2], SUPPLIER: from_ordered_bytes(KEY:[0], DESC_NULLS_FIRST)]) | MAP (_.SUPPLIER AS SUPPLIER)Îdigraph G {
+ÎÜ≈êb ‚¯∂(X0ùÔ8@óCOVERING(IDX_MV_SUPPLIER_DESC_NULLS_FIRST <,> -> [ID: KEY:[2], SUPPLIER: from_ordered_bytes(KEY:[0], DESC_NULLS_FIRST)]) | MAP (_.SUPPLIER AS SUPPLIER)Îdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -253,7 +253,7 @@ c
 }ç
 c
 nulls_orderingQEXPLAIN select supplier from products_index_on order by supplier desc nulls first•
-Îøâ≈c  ŸÖ(X0˝⁄,8@òCOVERING(IDX_IOT_SUPPLIER_DESC_NULLS_FIRST <,> -> [ID: KEY:[2], SUPPLIER: from_ordered_bytes(KEY:[0], DESC_NULLS_FIRST)]) | MAP (_.SUPPLIER AS SUPPLIER)Ïdigraph G {
+Îêﬁ·b ÿ‚ÿ	(X0˛ƒ8@òCOVERING(IDX_IOT_SUPPLIER_DESC_NULLS_FIRST <,> -> [ID: KEY:[2], SUPPLIER: from_ordered_bytes(KEY:[0], DESC_NULLS_FIRST)]) | MAP (_.SUPPLIER AS SUPPLIER)Ïdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -262,10 +262,10 @@ c
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">IDX_IOT_SUPPLIER_DESC_NULLS_FIRST</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(INT AS ID, STRING AS NAME, DOUBLE AS PRICE, STRING AS CATEGORY, INT AS STOCK, STRING AS SUPPLIER, DOUBLE AS RATING)" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q110> label="q110" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}Ã
+}À
 U
-reverse_scan_tests?EXPLAIN select price from products_mat_view order by price descÚ
-ôﬂ‘¡*| òÍÈ(b0ﬁÜñ8,@~COVERING(IDX_MV_PRICE_DESC <,> -> [ID: KEY:[2], PRICE: from_ordered_bytes(KEY:[0], DESC_NULLS_LAST)]) | MAP (_.PRICE AS PRICE)”digraph G {
+reverse_scan_tests?EXPLAIN select price from products_mat_view order by price descÒ
+ô˘∫€{ òÇñ(b0ÿ±P8,@~COVERING(IDX_MV_PRICE_DESC <,> -> [ID: KEY:[2], PRICE: from_ordered_bytes(KEY:[0], DESC_NULLS_LAST)]) | MAP (_.PRICE AS PRICE)”digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -274,10 +274,10 @@ U
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">IDX_MV_PRICE_DESC</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(INT AS ID, STRING AS NAME, DOUBLE AS PRICE, STRING AS CATEGORY, INT AS STOCK, STRING AS SUPPLIER, DOUBLE AS RATING)" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q131> label="q131" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}Œ
+}Õ
 U
-reverse_scan_tests?EXPLAIN select price from products_index_on order by price descÙ
-ô«°«.| √⁄í(b0˚≠ì8,@COVERING(IDX_IOT_PRICE_DESC <,> -> [ID: KEY:[2], PRICE: from_ordered_bytes(KEY:[0], DESC_NULLS_LAST)]) | MAP (_.PRICE AS PRICE)‘digraph G {
+reverse_scan_tests?EXPLAIN select price from products_index_on order by price descÛ
+ô¡è¢{ ﬁ»‘(b0ìÌR8,@COVERING(IDX_IOT_PRICE_DESC <,> -> [ID: KEY:[2], PRICE: from_ordered_bytes(KEY:[0], DESC_NULLS_LAST)]) | MAP (_.PRICE AS PRICE)‘digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -289,7 +289,7 @@ U
 }Ö
 T
 reverse_scan_tests>EXPLAIN select price from products_mat_view order by price asc¨
-ôò™®| Ω•◊(b0œüe8,@ÜCOVERING(IDX_MV_PRICE_DESC <,> REVERSE -> [ID: KEY:[2], PRICE: from_ordered_bytes(KEY:[0], DESC_NULLS_LAST)]) | MAP (_.PRICE AS PRICE)Ödigraph G {
+ôÂ—–{ Ä∫Œ(b0ÎÅC8,@ÜCOVERING(IDX_MV_PRICE_DESC <,> REVERSE -> [ID: KEY:[2], PRICE: from_ordered_bytes(KEY:[0], DESC_NULLS_LAST)]) | MAP (_.PRICE AS PRICE)Ödigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -298,10 +298,11 @@ T
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">IDX_MV_PRICE_DESC</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(INT AS ID, STRING AS NAME, DOUBLE AS PRICE, STRING AS CATEGORY, INT AS STOCK, STRING AS SUPPLIER, DOUBLE AS RATING)" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q131> label="q131" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}à
+}á
 T
-reverse_scan_tests>EXPLAIN select price from products_index_on order by price ascØ
-ôÁµ√| û™í(b0ﬁƒä8,@áCOVERING(IDX_IOT_PRICE_DESC <,> REVERSE -> [ID: KEY:[2], PRICE: from_ordered_bytes(KEY:[0], DESC_NULLS_LAST)]) | MAP (_.PRICE AS PRICE)Üdigraph G {
+reverse_scan_tests>EXPLAIN select price from products_index_on order by price ascÆ
+ô‡é≥{ „È˚
+(b0 ÖE8,@áCOVERING(IDX_IOT_PRICE_DESC <,> REVERSE -> [ID: KEY:[2], PRICE: from_ordered_bytes(KEY:[0], DESC_NULLS_LAST)]) | MAP (_.PRICE AS PRICE)Üdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -310,10 +311,10 @@ T
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">IDX_IOT_PRICE_DESC</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(INT AS ID, STRING AS NAME, DOUBLE AS PRICE, STRING AS CATEGORY, INT AS STOCK, STRING AS SUPPLIER, DOUBLE AS RATING)" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q131> label="q131" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}⁄
+}Ÿ
 e
-filtered_indexesQEXPLAIN select name, price from products_mat_view where price > 20 order by price
-Õ¥Â·2‡ …Íá(w0ËÏΩ8Q@∑COVERING(IDX_MV_PRICE_COVERING [[GREATER_THAN promote(@c9 AS DOUBLE)]] -> [ID: KEY:[2], NAME: VALUE:[0], PRICE: KEY:[0], SUPPLIER: VALUE:[1]]) | MAP (_.NAME AS NAME, _.PRICE AS PRICE)ñdigraph G {
+filtered_indexesQEXPLAIN select name, price from products_mat_view where price > 20 order by priceÔ
+Õ££ˆﬂ ﬂâ‚	(w0¢˛88Q@∑COVERING(IDX_MV_PRICE_COVERING [[GREATER_THAN promote(@c9 AS DOUBLE)]] -> [ID: KEY:[2], NAME: VALUE:[0], PRICE: KEY:[0], SUPPLIER: VALUE:[1]]) | MAP (_.NAME AS NAME, _.PRICE AS PRICE)ñdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -325,7 +326,7 @@ e
 }€
 e
 filtered_indexesQEXPLAIN select name, price from products_index_on where price > 20 order by priceÒ
-¨ºÂ¸1‹ ŒÏã(u0∏Õy8N@∏COVERING(IDX_IOT_PRICE_COVERING [[GREATER_THAN promote(@c9 AS DOUBLE)]] -> [ID: KEY:[2], NAME: VALUE:[0], PRICE: KEY:[0], SUPPLIER: VALUE:[1]]) | MAP (_.NAME AS NAME, _.PRICE AS PRICE)ódigraph G {
+¨»òö+€ î§Û(u0Ï∆q8N@∏COVERING(IDX_IOT_PRICE_COVERING [[GREATER_THAN promote(@c9 AS DOUBLE)]] -> [ID: KEY:[2], NAME: VALUE:[0], PRICE: KEY:[0], SUPPLIER: VALUE:[1]]) | MAP (_.NAME AS NAME, _.PRICE AS PRICE)ódigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -337,7 +338,7 @@ e
 }Î
 y
 filtered_indexeseEXPLAIN select name, price, stock from products_mat_view where category = 'Electronics' order by nameÌ
-†ˆ’Ç(ï Ö”Ã(c0ºª^8(@®COVERING(IDX_MV_FILTERED_ELECTRONICS <,> -> [ID: KEY:[2], NAME: KEY:[0], PRICE: VALUE:[0], STOCK: VALUE:[1]]) | MAP (_.NAME AS NAME, _.PRICE AS PRICE, _.STOCK AS STOCK)£digraph G {
+†êöƒ"ì ΩπÊ(c0¢∑B8(@®COVERING(IDX_MV_FILTERED_ELECTRONICS <,> -> [ID: KEY:[2], NAME: KEY:[0], PRICE: VALUE:[0], STOCK: VALUE:[1]]) | MAP (_.NAME AS NAME, _.PRICE AS PRICE, _.STOCK AS STOCK)£digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -349,7 +350,7 @@ y
 }Ì
 y
 filtered_indexeseEXPLAIN select name, price, stock from products_index_on where category = 'Electronics' order by nameÔ
-†ë†Í'ï ÒﬂΩ(c0≈â`8(@©COVERING(IDX_IOT_FILTERED_ELECTRONICS <,> -> [ID: KEY:[2], NAME: KEY:[0], PRICE: VALUE:[0], STOCK: VALUE:[1]]) | MAP (_.NAME AS NAME, _.PRICE AS PRICE, _.STOCK AS STOCK)§digraph G {
+†ãæßì ìéÑ(c0è¸68(@©COVERING(IDX_IOT_FILTERED_ELECTRONICS <,> -> [ID: KEY:[2], NAME: KEY:[0], PRICE: VALUE:[0], STOCK: VALUE:[1]]) | MAP (_.NAME AS NAME, _.PRICE AS PRICE, _.STOCK AS STOCK)§digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -362,7 +363,7 @@ y
 Ç
 filtered_indexesnEXPLAIN select category, price, stock from products_mat_view where price > 15 and stock > 60 order by category˚
 ò
-Ù¿Í5† ÷≈ä(Ç0ëØ§8}@ÆCOVERING(IDX_MV_FILTERED_MULTI <,> -> [CATEGORY: KEY:[0], ID: KEY:[2], PRICE: VALUE:[0], STOCK: VALUE:[1]]) | MAP (_.CATEGORY AS CATEGORY, _.PRICE AS PRICE, _.STOCK AS STOCK)©digraph G {
+›¿°;û ≠–·(Ç0¥∆Î8}@ÆCOVERING(IDX_MV_FILTERED_MULTI <,> -> [CATEGORY: KEY:[0], ID: KEY:[2], PRICE: VALUE:[0], STOCK: VALUE:[1]]) | MAP (_.CATEGORY AS CATEGORY, _.PRICE AS PRICE, _.STOCK AS STOCK)©digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -375,7 +376,7 @@ y
 Ç
 filtered_indexesnEXPLAIN select category, price, stock from products_index_on where price > 15 and stock > 60 order by category˝
 ò
-€™ù5† ˝“—(Ç0ÕñÜ8}@ØCOVERING(IDX_IOT_FILTERED_MULTI <,> -> [CATEGORY: KEY:[0], ID: KEY:[2], PRICE: VALUE:[0], STOCK: VALUE:[1]]) | MAP (_.CATEGORY AS CATEGORY, _.PRICE AS PRICE, _.STOCK AS STOCK)™digraph G {
+Ù¥÷9û Ãÿ˝(Ç0⁄Ú 8}@ØCOVERING(IDX_IOT_FILTERED_MULTI <,> -> [CATEGORY: KEY:[0], ID: KEY:[2], PRICE: VALUE:[0], STOCK: VALUE:[1]]) | MAP (_.CATEGORY AS CATEGORY, _.PRICE AS PRICE, _.STOCK AS STOCK)™digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -384,10 +385,10 @@ y
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">IDX_IOT_FILTERED_MULTI</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(INT AS ID, STRING AS NAME, DOUBLE AS PRICE, STRING AS CATEGORY, INT AS STOCK, STRING AS SUPPLIER, DOUBLE AS RATING)" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q223> label="q223" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}⁄
+}Ÿ
 e
-filtered_indexesQEXPLAIN select name, price from products_mat_view where price > 50 order by price
-Õ¥Â·2‡ …Íá(w0ËÏΩ8Q@∑COVERING(IDX_MV_PRICE_COVERING [[GREATER_THAN promote(@c9 AS DOUBLE)]] -> [ID: KEY:[2], NAME: VALUE:[0], PRICE: KEY:[0], SUPPLIER: VALUE:[1]]) | MAP (_.NAME AS NAME, _.PRICE AS PRICE)ñdigraph G {
+filtered_indexesQEXPLAIN select name, price from products_mat_view where price > 50 order by priceÔ
+Õ££ˆﬂ ﬂâ‚	(w0¢˛88Q@∑COVERING(IDX_MV_PRICE_COVERING [[GREATER_THAN promote(@c9 AS DOUBLE)]] -> [ID: KEY:[2], NAME: VALUE:[0], PRICE: KEY:[0], SUPPLIER: VALUE:[1]]) | MAP (_.NAME AS NAME, _.PRICE AS PRICE)ñdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -399,7 +400,7 @@ e
 }€
 e
 filtered_indexesQEXPLAIN select name, price from products_index_on where price > 50 order by priceÒ
-¨ºÂ¸1‹ ŒÏã(u0∏Õy8N@∏COVERING(IDX_IOT_PRICE_COVERING [[GREATER_THAN promote(@c9 AS DOUBLE)]] -> [ID: KEY:[2], NAME: VALUE:[0], PRICE: KEY:[0], SUPPLIER: VALUE:[1]]) | MAP (_.NAME AS NAME, _.PRICE AS PRICE)ódigraph G {
+¨»òö+€ î§Û(u0Ï∆q8N@∏COVERING(IDX_IOT_PRICE_COVERING [[GREATER_THAN promote(@c9 AS DOUBLE)]] -> [ID: KEY:[2], NAME: VALUE:[0], PRICE: KEY:[0], SUPPLIER: VALUE:[1]]) | MAP (_.NAME AS NAME, _.PRICE AS PRICE)ódigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;

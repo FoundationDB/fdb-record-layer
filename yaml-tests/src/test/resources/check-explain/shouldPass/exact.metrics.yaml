@@ -3,9 +3,9 @@ unnamed-2:
     ref: exact.yamsql:33
     explain: SCAN([IS T1])
     task_count: 173
-    task_total_time_ms: 26
-    transform_count: 45
-    transform_time_ms: 7
+    task_total_time_ms: 27
+    transform_count: 44
+    transform_time_ms: 9
     transform_yield_count: 15
     insert_time_ms: 0
     insert_new_count: 13

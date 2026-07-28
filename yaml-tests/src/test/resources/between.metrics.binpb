@@ -1,7 +1,7 @@
 Î
 L
 between-index-tests5EXPLAIN select * from t1 WHERE col1 BETWEEN 10 AND 10ö
-Ï©ı¯Q Ü¬√( 0•§58#@cISCAN(I1 [[GREATER_THAN_OR_EQUALS promote(@c7 AS INT) && LESS_THAN_OR_EQUALS promote(@c7 AS INT)]])ódigraph G {
+Ïœ∑ëO ’÷Î( 0Ì¢38#@cISCAN(I1 [[GREATER_THAN_OR_EQUALS promote(@c7 AS INT) && LESS_THAN_OR_EQUALS promote(@c7 AS INT)]])ódigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -11,7 +11,7 @@ L
 }ä
 P
 between-index-tests9EXPLAIN select * from t1 WHERE col1 + 5 BETWEEN 10 AND 20µ
-¿î«óM é›„(0Åª-8!@àISCAN(I1 <,>) | FILTER _.COL1 + @c7 GREATER_THAN_OR_EQUALS promote(@c9 AS INT) AND _.COL1 + @c7 LESS_THAN_OR_EQUALS promote(@c11 AS INT)ådigraph G {
+¿¶íîK ŸÈƒ(0°è/8!@àISCAN(I1 <,>) | FILTER _.COL1 + @c7 GREATER_THAN_OR_EQUALS promote(@c9 AS INT) AND _.COL1 + @c7 LESS_THAN_OR_EQUALS promote(@c11 AS INT)ådigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -23,7 +23,7 @@ P
 }Â
 T
 between-index-tests=EXPLAIN select * from t1 WHERE col1 + 5 NOT BETWEEN 10 AND 20å
-¿ª¬≤N Ùîﬂ(0Üı58!@tISCAN(I1 <,>) | FILTER _.COL1 + @c7 LESS_THAN promote(@c10 AS INT) OR _.COL1 + @c7 GREATER_THAN promote(@c12 AS INT)¯
+¿ñ ËL ∑îŒ(0•Ô88!@tISCAN(I1 <,>) | FILTER _.COL1 + @c7 LESS_THAN promote(@c10 AS INT) OR _.COL1 + @c7 GREATER_THAN promote(@c12 AS INT)¯
 digraph G {
   fontname=courier;
   rankdir=BT;

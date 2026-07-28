@@ -4,9 +4,9 @@ agg-index-tests-count-empty:
     explain: 'AISCAN(MV1 <,> BY_GROUP -> [_0: VALUE:[0]]) | MAP (_ AS _0) | ON EMPTY
         NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)'
     task_count: 457
-    task_total_time_ms: 39
-    transform_count: 120
-    transform_time_ms: 21
+    task_total_time_ms: 28
+    transform_count: 118
+    transform_time_ms: 17
     transform_yield_count: 46
     insert_time_ms: 0
     insert_new_count: 35
@@ -16,9 +16,9 @@ agg-index-tests-count-empty:
     explain: 'AISCAN(MV2 <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._1
         AS _0)'
     task_count: 378
-    task_total_time_ms: 38
-    transform_count: 114
-    transform_time_ms: 23
+    task_total_time_ms: 26
+    transform_count: 112
+    transform_time_ms: 16
     transform_yield_count: 44
     insert_time_ms: 0
     insert_new_count: 24
@@ -28,9 +28,9 @@ agg-index-tests-count-empty:
     explain: 'AISCAN(MV3 <,> BY_GROUP -> [_0: VALUE:[0]]) | MAP (_ AS _0) | ON EMPTY
         NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)'
     task_count: 457
-    task_total_time_ms: 40
-    transform_count: 120
-    transform_time_ms: 21
+    task_total_time_ms: 25
+    transform_count: 118
+    transform_time_ms: 14
     transform_yield_count: 46
     insert_time_ms: 0
     insert_new_count: 35
@@ -41,8 +41,8 @@ agg-index-tests-count-empty:
         AS _0)'
     task_count: 378
     task_total_time_ms: 18
-    transform_count: 114
-    transform_time_ms: 11
+    transform_count: 112
+    transform_time_ms: 12
     transform_yield_count: 44
     insert_time_ms: 0
     insert_new_count: 24
@@ -52,9 +52,9 @@ agg-index-tests-count-empty:
     explain: ISCAN(MV5 <,>) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY ()
         | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)
     task_count: 353
-    task_total_time_ms: 16
-    transform_count: 76
-    transform_time_ms: 4
+    task_total_time_ms: 18
+    transform_count: 74
+    transform_time_ms: 5
     transform_yield_count: 27
     insert_time_ms: 0
     insert_new_count: 33
@@ -64,9 +64,9 @@ agg-index-tests-count-empty:
     explain: ISCAN(MV5 <,>) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY (_._0.COL2
         AS _0) | MAP (_._1._0 AS _0)
     task_count: 297
-    task_total_time_ms: 20
-    transform_count: 70
-    transform_time_ms: 5
+    task_total_time_ms: 14
+    transform_count: 68
+    transform_time_ms: 4
     transform_yield_count: 24
     insert_time_ms: 0
     insert_new_count: 25
@@ -76,9 +76,9 @@ agg-index-tests-count-empty:
     explain: ISCAN(MV5 <,>) | MAP (_ AS _0) | AGG (count(_._0.COL1) AS _0) GROUP BY
         () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)
     task_count: 353
-    task_total_time_ms: 21
-    transform_count: 76
-    transform_time_ms: 5
+    task_total_time_ms: 16
+    transform_count: 74
+    transform_time_ms: 4
     transform_yield_count: 27
     insert_time_ms: 0
     insert_new_count: 33
@@ -88,9 +88,9 @@ agg-index-tests-count-empty:
     explain: ISCAN(MV5 <,>) | MAP (_ AS _0) | AGG (count(_._0.COL1) AS _0) GROUP BY
         (_._0.COL2 AS _0) | MAP (_._1._0 AS _0)
     task_count: 297
-    task_total_time_ms: 7
-    transform_count: 70
-    transform_time_ms: 2
+    task_total_time_ms: 16
+    transform_count: 68
+    transform_time_ms: 5
     transform_yield_count: 24
     insert_time_ms: 0
     insert_new_count: 25
@@ -102,8 +102,8 @@ agg-index-tests-count-empty:
         ((_._2 AS _0) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l
         AS LONG)) AS _0)'
     task_count: 456
-    task_total_time_ms: 31
-    transform_count: 123
+    task_total_time_ms: 33
+    transform_count: 121
     transform_time_ms: 17
     transform_yield_count: 44
     insert_time_ms: 0

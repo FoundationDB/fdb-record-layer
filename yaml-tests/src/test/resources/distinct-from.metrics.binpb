@@ -1,7 +1,7 @@
 Õ
 U
 distinct-from-tests>EXPLAIN select * from t1 WHERE col2 is   distinct    from nullÛ
-ÁÉÆ‡k †≤ú(.0¢–L82@^COVERING(I2 <,> -> [COL2: KEY:[0], ID: KEY:[2]]) | FILTER _.COL2 IS_DISTINCT_FROM NULL | FETCHıdigraph G {
+Á◊¡ j ≈ˇÿ(.0¨¢582@^COVERING(I2 <,> -> [COL2: KEY:[0], ID: KEY:[2]]) | FILTER _.COL2 IS_DISTINCT_FROM NULL | FETCHıdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -15,7 +15,7 @@ U
 }‰
 N
 distinct-from-tests7EXPLAIN select * from t1 WHERE col1 is DISTINCT from 10ë
-˜˘Äp ∂û˜(00ÒøR86@mCOVERING(I1 <,> -> [COL1: KEY:[0], ID: KEY:[2]]) | FILTER _.COL1 IS_DISTINCT_FROM promote(@c9 AS INT) | FETCHÑdigraph G {
+˜æ≤«n “ûµ(00ßí286@mCOVERING(I1 <,> -> [COL1: KEY:[0], ID: KEY:[2]]) | FILTER _.COL1 IS_DISTINCT_FROM promote(@c9 AS INT) | FETCHÑdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -29,7 +29,7 @@ N
 }»
 P
 distinct-from-tests9EXPLAIN select * from t1 WHERE null is distinct from col2Û
-Á©Ï¥k ˘Ï≤(.0ﬁ©I82@^COVERING(I2 <,> -> [COL2: KEY:[0], ID: KEY:[2]]) | FILTER _.COL2 IS_DISTINCT_FROM NULL | FETCHıdigraph G {
+Áá…âj ∑Ωö(.0‹È+82@^COVERING(I2 <,> -> [COL2: KEY:[0], ID: KEY:[2]]) | FILTER _.COL2 IS_DISTINCT_FROM NULL | FETCHıdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -43,7 +43,7 @@ P
 }‰
 N
 distinct-from-tests7EXPLAIN select * from t1 WHERE 10 is distinct from col1ë
-˜Å¨ûp ﬂ´˝(00ï§W86@mCOVERING(I1 <,> -> [COL1: KEY:[0], ID: KEY:[2]]) | FILTER _.COL1 IS_DISTINCT_FROM promote(@c5 AS INT) | FETCHÑdigraph G {
+˜Œ©∏n øï…(00ÎÑA86@mCOVERING(I1 <,> -> [COL1: KEY:[0], ID: KEY:[2]]) | FILTER _.COL1 IS_DISTINCT_FROM promote(@c5 AS INT) | FETCHÑdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -57,7 +57,7 @@ N
 }¬
 P
 distinct-from-tests9EXPLAIN select * from t1 WHERE null is distinct from nullÌ
-ï‚ªÉp ≤Éì(00íÇU88@\COVERING(I1 <,> -> [COL1: KEY:[0], ID: KEY:[2]]) | FILTER NULL IS_DISTINCT_FROM NULL | FETCHÒdigraph G {
+ï∏ﬁîo µƒæ(00Å≤H88@\COVERING(I1 <,> -> [COL1: KEY:[0], ID: KEY:[2]]) | FILTER NULL IS_DISTINCT_FROM NULL | FETCHÒdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -71,7 +71,7 @@ P
 }∫
 L
 distinct-from-tests5EXPLAIN select * from t1 WHERE 10 is distinct from 10È
-ïÑØ§p õﬂ˚(00‚·`88@ZCOVERING(I1 <,> -> [COL1: KEY:[0], ID: KEY:[2]]) | FILTER @c5 IS_DISTINCT_FROM @c5 | FETCHÔdigraph G {
+ïªïo ≈Ω÷(00≠Å@88@ZCOVERING(I1 <,> -> [COL1: KEY:[0], ID: KEY:[2]]) | FILTER @c5 IS_DISTINCT_FROM @c5 | FETCHÔdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -85,7 +85,7 @@ L
 }◊
 ]
 not-distinct-from-testsBEXPLAIN select * from t1 WHERE col2 is      not distinct from nullı
-ÁΩ™¿j Ê≤é	(.0¿¨G82@_COVERING(I2 <,> -> [COL2: KEY:[0], ID: KEY:[2]]) | FILTER _.COL2 NOT_DISTINCT_FROM NULL | FETCHˆdigraph G {
+Á´ï—i œ◊¯(.0¬†K82@_COVERING(I2 <,> -> [COL2: KEY:[0], ID: KEY:[2]]) | FILTER _.COL2 NOT_DISTINCT_FROM NULL | FETCHˆdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -99,7 +99,7 @@ L
 }
 V
 not-distinct-from-tests;EXPLAIN select * from t1 WHERE col1 is not distinct from 20ï
-˜«›≈o ¬ôã(00˛∆S86@oCOVERING(I1 <,> -> [COL1: KEY:[0], ID: KEY:[2]]) | FILTER _.COL1 NOT_DISTINCT_FROM promote(@c10 AS INT) | FETCHÜdigraph G {
+˜›ÿëm ¸∞Ô(00ÑÀM86@oCOVERING(I1 <,> -> [COL1: KEY:[0], ID: KEY:[2]]) | FILTER _.COL1 NOT_DISTINCT_FROM promote(@c10 AS INT) | FETCHÜdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -113,7 +113,7 @@ V
 }“
 X
 not-distinct-from-tests=EXPLAIN select * from t1 WHERE null is not distinct from col2ı
-ÁπÊ‹j ’»˚(.0é˙W82@_COVERING(I2 <,> -> [COL2: KEY:[0], ID: KEY:[2]]) | FILTER _.COL2 NOT_DISTINCT_FROM NULL | FETCHˆdigraph G {
+Á¶§Úi Ó≠µ(.0•ùF82@_COVERING(I2 <,> -> [COL2: KEY:[0], ID: KEY:[2]]) | FILTER _.COL2 NOT_DISTINCT_FROM NULL | FETCHˆdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -127,7 +127,7 @@ X
 }Ó
 V
 not-distinct-from-tests;EXPLAIN select * from t1 WHERE 20 is not distinct from col1ì
-˜∑∞´o ≥‡–(00πêQ86@nCOVERING(I1 <,> -> [COL1: KEY:[0], ID: KEY:[2]]) | FILTER _.COL1 NOT_DISTINCT_FROM promote(@c5 AS INT) | FETCHÖdigraph G {
+˜∞’√m Ï°ï(00Ã≠N86@nCOVERING(I1 <,> -> [COL1: KEY:[0], ID: KEY:[2]]) | FILTER _.COL1 NOT_DISTINCT_FROM promote(@c5 AS INT) | FETCHÖdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -141,7 +141,7 @@ V
 }
 _
 not-distinct-from-testsDEXPLAIN select count(*) from t1 WHERE null is not distinct from nullå
-≤ˆ¬ÇŒ Õ⁄ñ	(<0ß†w8]@™AISCAN(CNT <,> BY_GROUP -> [_0: VALUE:[0]]) | FILTER NULL NOT_DISTINCT_FROM NULL | MAP (_ AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)¿digraph G {
+≤è”§Ã —π—(<0‰≠G8]@™AISCAN(CNT <,> BY_GROUP -> [_0: VALUE:[0]]) | FILTER NULL NOT_DISTINCT_FROM NULL | MAP (_ AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)¿digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -159,7 +159,7 @@ _
 }Ë
 [
 not-distinct-from-tests@EXPLAIN select count(*) from t1 WHERE 10 is not distinct from 10à
-≤ªã⁄Œ ëº€	(<0…∂z8]@®AISCAN(CNT <,> BY_GROUP -> [_0: VALUE:[0]]) | FILTER @c8 NOT_DISTINCT_FROM @c8 | MAP (_ AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)ædigraph G {
+≤é¢Ã ≈Ã…(<0ØË>8]@®AISCAN(CNT <,> BY_GROUP -> [_0: VALUE:[0]]) | FILTER @c8 NOT_DISTINCT_FROM @c8 | MAP (_ AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)ædigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;

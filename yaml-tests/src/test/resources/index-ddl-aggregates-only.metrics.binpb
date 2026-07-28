@@ -1,7 +1,7 @@
 Ÿ
 Ü
 sum_aggregate_single_groupingeEXPLAIN select category, sum(amount) as total from sales_mat_view group by category order by categoryÕ
-Ò»úı{ß Àæ Y(å0„ÂÒ8b@
+Òïﬁà\• Ñ›¢F(å0ΩúÊ8b@
 sAISCAN(IDX_MV_SUM_BY_CATEGORY <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0 AS CATEGORY, _._1 AS TOTAL)∑digraph G {
   fontname=courier;
   rankdir=BT;
@@ -14,7 +14,7 @@
 }€
 Ü
 sum_aggregate_single_groupingeEXPLAIN select category, sum(amount) as total from sales_index_on group by category order by categoryœ
-ÒÁ˝˜{ß ⁄ﬁÈW(å0ãóœ8b@
+ÒÆ»ªd• ÷æ˝I(å0Ö•º8b@
 tAISCAN(IDX_IOT_SUM_BY_CATEGORY <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0 AS CATEGORY, _._1 AS TOTAL)∏digraph G {
   fontname=courier;
   rankdir=BT;
@@ -27,7 +27,7 @@
 }»
 Ä
 sum_aggregate_single_grouping_EXPLAIN select region, sum(amount) as total from sales_mat_view group by region order by region¬
-≥ÃˆÑB≠ ñüØ0(h0Éìõ8$@oAISCAN(IDX_MV_SUM_BY_REGION <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0 AS REGION, _._1 AS TOTAL)±digraph G {
+≥ƒõÓM´ ÎÙÒ=(h0ƒ·Ñ8$@oAISCAN(IDX_MV_SUM_BY_REGION <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0 AS REGION, _._1 AS TOTAL)±digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -36,10 +36,10 @@
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">IDX_MV_SUM_BY_REGION</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PRODUCT_ID, STRING AS CATEGORY, STRING AS REGION, LONG AS AMOUNT, LONG AS QUANTITY)" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}…
+} 
 Ä
-sum_aggregate_single_grouping_EXPLAIN select region, sum(amount) as total from sales_index_on group by region order by region√
-≥¥≤√C≠ ß”é0(h0ﬂùr8$@pAISCAN(IDX_IOT_SUM_BY_REGION <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0 AS REGION, _._1 AS TOTAL)≤digraph G {
+sum_aggregate_single_grouping_EXPLAIN select region, sum(amount) as total from sales_index_on group by region order by regionƒ
+≥ëË”R´ ê«õ@(h0∫‡™8$@pAISCAN(IDX_IOT_SUM_BY_REGION <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0 AS REGION, _._1 AS TOTAL)≤digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -48,10 +48,10 @@
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">IDX_IOT_SUM_BY_REGION</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PRODUCT_ID, STRING AS CATEGORY, STRING AS REGION, LONG AS AMOUNT, LONG AS QUANTITY)" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}Ω
+}º
 ù
-sum_aggregate_multi_grouping}EXPLAIN select category, region, sum(amount) as total from sales_mat_view group by category, region order by category, regionö
-ÙüÀòî¯ æõ∆p(~0Â‹£8E@èAISCAN(IDX_MV_CAT_REGION_SUM <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: VALUE:[0]]) | MAP (_._0 AS CATEGORY, _._1 AS REGION, _._2 AS TOTAL)Ádigraph G {
+sum_aggregate_multi_grouping}EXPLAIN select category, region, sum(amount) as total from sales_mat_view group by category, region order by category, regionô
+ÙÊúÍyˆ Á÷ØZ(~0ÜÊù8E@èAISCAN(IDX_MV_CAT_REGION_SUM <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: VALUE:[0]]) | MAP (_._0 AS CATEGORY, _._1 AS REGION, _._2 AS TOTAL)Ádigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -63,7 +63,7 @@
 }ø
 ù
 sum_aggregate_multi_grouping}EXPLAIN select category, region, sum(amount) as total from sales_index_on group by category, region order by category, regionú
-Ù¶´⁄ï¯ ∑÷πo(~0ôÆõ8E@êAISCAN(IDX_IOT_CAT_REGION_SUM <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: VALUE:[0]]) | MAP (_._0 AS CATEGORY, _._1 AS REGION, _._2 AS TOTAL)Ëdigraph G {
+ÙÌ¢ŸÄˆ œå•c(~0ˆ˘Í8E@êAISCAN(IDX_IOT_CAT_REGION_SUM <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: VALUE:[0]]) | MAP (_._0 AS CATEGORY, _._1 AS REGION, _._2 AS TOTAL)Ëdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -75,7 +75,7 @@
 }Ü
 ≥
 sum_aggregate_multi_groupingíEXPLAIN select category, region, sum(amount) as total from sales_mat_view where category = 'Electronics' group by category, region order by regionÕ
-¢¿¬…öî œ¶Ùl(Å0Ã¢û8G@¨AISCAN(IDX_MV_CAT_REGION_SUM [EQUALS promote(@c16 AS STRING)] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: VALUE:[0]]) | MAP (_._0 AS CATEGORY, _._1 AS REGION, _._2 AS TOTAL)¸digraph G {
+¢ÖõôÑë ◊ôÿ`(Å0»üˇ8G@¨AISCAN(IDX_MV_CAT_REGION_SUM [EQUALS promote(@c16 AS STRING)] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: VALUE:[0]]) | MAP (_._0 AS CATEGORY, _._1 AS REGION, _._2 AS TOTAL)¸digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -87,7 +87,7 @@
 }à
 ≥
 sum_aggregate_multi_groupingíEXPLAIN select category, region, sum(amount) as total from sales_index_on where category = 'Electronics' group by category, region order by regionœ
-¢ıóªõî ∑®æk(Å0—ß¡8G@≠AISCAN(IDX_IOT_CAT_REGION_SUM [EQUALS promote(@c16 AS STRING)] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: VALUE:[0]]) | MAP (_._0 AS CATEGORY, _._1 AS REGION, _._2 AS TOTAL)˝digraph G {
+¢Â—«Çë ˇô˝`(Å0Å∑ƒ8G@≠AISCAN(IDX_IOT_CAT_REGION_SUM [EQUALS promote(@c16 AS STRING)] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: VALUE:[0]]) | MAP (_._0 AS CATEGORY, _._1 AS REGION, _._2 AS TOTAL)˝digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -99,7 +99,7 @@
 }Æ
 ¬
 sum_aggregate_three_grouping°EXPLAIN select category, region, product_id, sum(amount) as total from sales_mat_view group by category, region, product_id order by category, region, product_idÊ
-ÍòΩÀO¢ ≠Í“@(d0Ú”U8@¨AISCAN(IDX_MV_SUM_BY_ALL <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[2], _3: VALUE:[0]]) | MAP (_._0 AS CATEGORY, _._1 AS REGION, _._2 AS PRODUCT_ID, _._3 AS TOTAL)òdigraph G {
+Í¸ª˙A† »∏ó8(d0Û◊.8@¨AISCAN(IDX_MV_SUM_BY_ALL <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[2], _3: VALUE:[0]]) | MAP (_._0 AS CATEGORY, _._1 AS REGION, _._2 AS PRODUCT_ID, _._3 AS TOTAL)òdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -111,7 +111,7 @@
 }∞
 ¬
 sum_aggregate_three_grouping°EXPLAIN select category, region, product_id, sum(amount) as total from sales_index_on group by category, region, product_id order by category, region, product_idË
-ÍÚí∂O¢ ¬Ò§@(d0Ã˚>8@≠AISCAN(IDX_IOT_SUM_BY_ALL <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[2], _3: VALUE:[0]]) | MAP (_._0 AS CATEGORY, _._1 AS REGION, _._2 AS PRODUCT_ID, _._3 AS TOTAL)ôdigraph G {
+Íåë¥A† ∏…◊7(d0œˇE8@≠AISCAN(IDX_IOT_SUM_BY_ALL <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[2], _3: VALUE:[0]]) | MAP (_._0 AS CATEGORY, _._1 AS REGION, _._2 AS PRODUCT_ID, _._3 AS TOTAL)ôdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -123,7 +123,7 @@
 }«
 x
 count_star_aggregate`EXPLAIN select category, count(*) as cnt from sales_mat_view group by category order by category 
-¶éæ∑Fæ »›—-(n0ñ˛◊88@sAISCAN(IDX_MV_COUNT_BY_CATEGORY <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0 AS CATEGORY, _._1 AS CNT)µdigraph G {
+¶Áç¯0º Ë»ﬂ (n0–¬ü88@sAISCAN(IDX_MV_COUNT_BY_CATEGORY <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0 AS CATEGORY, _._1 AS CNT)µdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -135,7 +135,7 @@ x
 }…
 x
 count_star_aggregate`EXPLAIN select category, count(*) as cnt from sales_index_on group by category order by categoryÃ
-¶åﬂìEæ ‚»˜+(n0Ô∆Õ88@tAISCAN(IDX_IOT_COUNT_BY_CATEGORY <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0 AS CATEGORY, _._1 AS CNT)∂digraph G {
+¶üπÀ1º ùﬁÜ(n0ÄΩé88@tAISCAN(IDX_IOT_COUNT_BY_CATEGORY <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0 AS CATEGORY, _._1 AS CNT)∂digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -147,7 +147,7 @@ x
 }«
 {
 count_column_aggregateaEXPLAIN select region, count(quantity) as cnt from sales_mat_view group by region order by region«
-≥ë§—7≠ ë•´&(h0±Èz8$@sAISCAN(IDX_MV_COUNT_QTY_BY_REGION <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0 AS REGION, _._1 AS CNT)≥digraph G {
+≥îﬁë,´ ª˛ò(h0ÀﬂU8$@sAISCAN(IDX_MV_COUNT_QTY_BY_REGION <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0 AS REGION, _._1 AS CNT)≥digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -159,7 +159,7 @@ x
 }…
 {
 count_column_aggregateaEXPLAIN select region, count(quantity) as cnt from sales_index_on group by region order by region…
-≥¥µ˚5≠ ·¶“$(h0≤‰d8$@tAISCAN(IDX_IOT_COUNT_QTY_BY_REGION <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0 AS REGION, _._1 AS CNT)¥digraph G {
+≥‹ı,´ î‰Ê(h0Õ‡T8$@tAISCAN(IDX_IOT_COUNT_QTY_BY_REGION <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0 AS REGION, _._1 AS CNT)¥digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -171,7 +171,7 @@ x
 }ì
 ò
 aggregate_with_havingEXPLAIN select category, sum(amount) as total from sales_mat_view group by category having sum(amount) > 2000 order by categoryı
-÷	ê˙˘¢π ’π∞s(ê0ï¥“8o@
+÷	ÅÈ•è∑ ò–·g(ê0„ƒ8o@
 §AISCAN(IDX_MV_SUM_BY_CATEGORY <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | FILTER _._1 GREATER_THAN promote(@c20 AS LONG) | MAP (_._0 AS CATEGORY, _._1 AS TOTAL)¨digraph G {
   fontname=courier;
   rankdir=BT;
@@ -186,7 +186,7 @@ x
 }ï
 ò
 aggregate_with_havingEXPLAIN select category, sum(amount) as total from sales_index_on group by category having sum(amount) > 2000 order by category˜
-÷	¸ìŒ§π Ö¥˙v(ê0íâ≥8o@
+÷	è¸⁄ç∑ °∑‡b(ê0˝çÓ8o@
 •AISCAN(IDX_IOT_SUM_BY_CATEGORY <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | FILTER _._1 GREATER_THAN promote(@c20 AS LONG) | MAP (_._0 AS CATEGORY, _._1 AS TOTAL)≠digraph G {
   fontname=courier;
   rankdir=BT;
@@ -198,10 +198,10 @@ x
   3 -> 2 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}€
+}⁄
 x
-min_aggregategEXPLAIN select category, min(amount) as min_amt from sales_mat_view group by category order by categoryﬁ
-◊¶›å^Â —Áå?(z0¿Èˆ8H@zAISCAN(IDX_MV_MIN_AMOUNT_BY_CATEGORY <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[1]]) | MAP (_._0 AS CATEGORY, _._1 AS MIN_AMT)¬digraph G {
+min_aggregategEXPLAIN select category, min(amount) as min_amt from sales_mat_view group by category order by category›
+◊Ùíû„ ù≥∑(z0´…`8H@zAISCAN(IDX_MV_MIN_AMOUNT_BY_CATEGORY <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[1]]) | MAP (_._0 AS CATEGORY, _._1 AS MIN_AMT)¬digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -213,7 +213,7 @@ x
 }›
 x
 min_aggregategEXPLAIN select category, min(amount) as min_amt from sales_index_on group by category order by category‡
-»‹ïÍR≈ ∂∏Ú8(u0’≤∂8:@{AISCAN(IDX_IOT_MIN_AMOUNT_BY_CATEGORY <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[1]]) | MAP (_._0 AS CATEGORY, _._1 AS MIN_AMT)√digraph G {
+»§ £C√ ›ó¥.(u0π∏í8:@{AISCAN(IDX_IOT_MIN_AMOUNT_BY_CATEGORY <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[1]]) | MAP (_._0 AS CATEGORY, _._1 AS MIN_AMT)√digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -225,7 +225,7 @@ x
 } 
 r
 max_aggregateaEXPLAIN select region, max(amount) as max_amt from sales_mat_view group by region order by region”
-À´Ú©8± Ö∏˙&(j0˛Ì]8&@vAISCAN(IDX_MV_MAX_AMOUNT_BY_REGION <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[1]]) | MAP (_._0 AS REGION, _._1 AS MAX_AMT)ºdigraph G {
+À¬‹á*Ø ï‘Ã(j0îŒE8&@vAISCAN(IDX_MV_MAX_AMOUNT_BY_REGION <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[1]]) | MAP (_._0 AS REGION, _._1 AS MAX_AMT)ºdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -237,7 +237,7 @@ r
 }Ã
 r
 max_aggregateaEXPLAIN select region, max(amount) as max_amt from sales_index_on group by region order by region’
-ÀÈﬁ˝7± ∆•≥&(j0¬ÿf8&@wAISCAN(IDX_IOT_MAX_AMOUNT_BY_REGION <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[1]]) | MAP (_._0 AS REGION, _._1 AS MAX_AMT)Ωdigraph G {
+À˚≤¡-Ø ßˇä (j0˝Î>8&@wAISCAN(IDX_IOT_MAX_AMOUNT_BY_REGION <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[1]]) | MAP (_._0 AS REGION, _._1 AS MAX_AMT)Ωdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -246,10 +246,10 @@ r
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">IDX_IOT_MAX_AMOUNT_BY_REGION</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PRODUCT_ID, STRING AS CATEGORY, STRING AS REGION, LONG AS AMOUNT, LONG AS QUANTITY)" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}Ó
+}Ì
 Ñ
-min_ever_aggregatenEXPLAIN select category, min_ever(quantity) as min_qty from sales_mat_view group by category order by category‰
-Ä≈ÌÊ:ª √»˙'(l0¡Ωè82@~AISCAN(IDX_MV_MIN_EVER_QTY_BY_CATEGORY <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0 AS CATEGORY, _._1 AS MIN_QTY)ƒdigraph G {
+min_ever_aggregatenEXPLAIN select category, min_ever(quantity) as min_qty from sales_mat_view group by category order by category„
+Ä∑Åπ0π ±Ûê"(l0äﬂ|82@~AISCAN(IDX_MV_MIN_EVER_QTY_BY_CATEGORY <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0 AS CATEGORY, _._1 AS MIN_QTY)ƒdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -261,7 +261,7 @@ r
 }
 Ñ
 min_ever_aggregatenEXPLAIN select category, min_ever(quantity) as min_qty from sales_index_on group by category order by categoryÊ
-Ä°Ã◊9ª ı¸©'(l0·æö82@AISCAN(IDX_IOT_MIN_EVER_QTY_BY_CATEGORY <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0 AS CATEGORY, _._1 AS MIN_QTY)≈digraph G {
+Ä¥÷Â1π Á Ÿ"(l0∫◊É82@AISCAN(IDX_IOT_MIN_EVER_QTY_BY_CATEGORY <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0 AS CATEGORY, _._1 AS MIN_QTY)≈digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -273,7 +273,7 @@ r
 }‹
 ~
 max_ever_aggregatehEXPLAIN select region, max_ever(quantity) as max_qty from sales_mat_view group by region order by regionŸ
-†˛˛»2´ É∞¿#(g0ÊÈX8!@zAISCAN(IDX_MV_MAX_EVER_QTY_BY_REGION <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0 AS REGION, _._1 AS MAX_QTY)ædigraph G {
+†∆’Ê'© Ææ˛(g0¢ÎC8!@zAISCAN(IDX_MV_MAX_EVER_QTY_BY_REGION <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0 AS REGION, _._1 AS MAX_QTY)ædigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -285,7 +285,7 @@ r
 }ﬁ
 ~
 max_ever_aggregatehEXPLAIN select region, max_ever(quantity) as max_qty from sales_index_on group by region order by region€
-†°Ωè2´ Ç¡ò"(g0◊ûW8!@{AISCAN(IDX_IOT_MAX_EVER_QTY_BY_REGION <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0 AS REGION, _._1 AS MAX_QTY)ødigraph G {
+†Ì‡Ä/© ›¥ﬁ#(g0ûÓU8!@{AISCAN(IDX_IOT_MAX_EVER_QTY_BY_REGION <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0 AS REGION, _._1 AS MAX_QTY)ødigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -294,10 +294,10 @@ r
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">IDX_IOT_MAX_EVER_QTY_BY_REGION</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PRODUCT_ID, STRING AS CATEGORY, STRING AS REGION, LONG AS AMOUNT, LONG AS QUANTITY)" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}¿
+}ø
 ù
-aggregate_in_middle_of_keyEXPLAIN select category, max(amount) as max_amt, region from sales_mat_view group by category, region order by category, regionù
-ıäˇæF∏ ∆Ó/(l0‰öÄ8.@èAISCAN(IDX_MV_CAT_MAX_REGION <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[2]]) | MAP (_._0 AS CATEGORY, _._2 AS MAX_AMT, _._1 AS REGION)Îdigraph G {
+aggregate_in_middle_of_keyEXPLAIN select category, max(amount) as max_amt, region from sales_mat_view group by category, region order by category, regionú
+ıúéæ6∂ Ò‡ˆ#(l0±∂}8.@èAISCAN(IDX_MV_CAT_MAX_REGION <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[2]]) | MAP (_._0 AS CATEGORY, _._2 AS MAX_AMT, _._1 AS REGION)Îdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -309,7 +309,7 @@ r
 }ú
 ù
 aggregate_in_middle_of_keyEXPLAIN select category, max(amount) as max_amt, region from sales_index_on group by category, region order by category, region˘
-ÈÙÊÊ;ñ Ã¡Æ,(e0°àR8!@«ISCAN(IDX_IOT_MIN_CAT_REGION <,>) | MAP (_ AS _0) | AGG (max_l(_._0.AMOUNT) AS _0) GROUP BY (_._0.CATEGORY AS _0, _._0.REGION AS _1) | MAP (_._0._0 AS CATEGORY, _._1._0 AS MAX_AMT, _._0._1 AS REGION)êdigraph G {
+Èªµ⁄2î ‘÷Ç'(e0¬ÊA8!@«ISCAN(IDX_IOT_MIN_CAT_REGION <,>) | MAP (_ AS _0) | AGG (max_l(_._0.AMOUNT) AS _0) GROUP BY (_._0.CATEGORY AS _0, _._0.REGION AS _1) | MAP (_._0._0 AS CATEGORY, _._1._0 AS MAX_AMT, _._0._1 AS REGION)êdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -322,10 +322,10 @@ r
   4 -> 3 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   5 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}¿
+}ø
 ù
-aggregate_in_middle_of_keyEXPLAIN select min(amount) as min_amt, category, region from sales_mat_view group by category, region order by category, regionù
-ıÿ†òF∏ Ÿô∆1(l0Ü—Ç8.@èAISCAN(IDX_MV_MIN_CAT_REGION <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[2]]) | MAP (_._2 AS MIN_AMT, _._0 AS CATEGORY, _._1 AS REGION)Îdigraph G {
+aggregate_in_middle_of_keyEXPLAIN select min(amount) as min_amt, category, region from sales_mat_view group by category, region order by category, regionú
+ıÕƒπ4∂ Ë¸õ#(l0ö©Z8.@èAISCAN(IDX_MV_MIN_CAT_REGION <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[2]]) | MAP (_._2 AS MIN_AMT, _._0 AS CATEGORY, _._1 AS REGION)Îdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -337,7 +337,7 @@ r
 }ú
 ù
 aggregate_in_middle_of_keyEXPLAIN select min(amount) as min_amt, category, region from sales_index_on group by category, region order by category, region˘
-ÈŒ¯Ü?ñ é¡.(e0∆ÚT8!@«ISCAN(IDX_IOT_MIN_CAT_REGION <,>) | MAP (_ AS _0) | AGG (min_l(_._0.AMOUNT) AS _0) GROUP BY (_._0.CATEGORY AS _0, _._0.REGION AS _1) | MAP (_._1._0 AS MIN_AMT, _._0._0 AS CATEGORY, _._0._1 AS REGION)êdigraph G {
+È·ÁÌ(î £„ı(e0ê 48!@«ISCAN(IDX_IOT_MIN_CAT_REGION <,>) | MAP (_ AS _0) | AGG (min_l(_._0.AMOUNT) AS _0) GROUP BY (_._0.CATEGORY AS _0, _._0.REGION AS _1) | MAP (_._1._0 AS MIN_AMT, _._0._0 AS CATEGORY, _._0._1 AS REGION)êdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;

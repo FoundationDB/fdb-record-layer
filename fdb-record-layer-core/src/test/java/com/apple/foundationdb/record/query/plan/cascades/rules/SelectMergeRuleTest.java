@@ -95,7 +95,7 @@ class SelectMergeRuleTest {
         SelectExpression select = selectWithPredicates(
                 baseQun, ImmutableList.of("a", "b"),
                 fieldPredicate(baseQun, "d", EQUALS_PARAM));
-        testHelper.assertYieldsNothing(select, true);
+        testHelper.assertYieldsNothing(select, false);
     }
 
     /**
@@ -302,7 +302,7 @@ class SelectMergeRuleTest {
                 .addPredicate(new ExistentialValuePredicate(QuantifiedObjectValue.of(existsHigherFQun), new Comparisons.NullComparison(Comparisons.Type.NOT_NULL)))
                 .build().buildSelect();
 
-        testHelper.assertYieldsNothing(upper, true);
+        testHelper.assertYieldsNothing(upper, false);
     }
 
     /**
@@ -374,7 +374,7 @@ class SelectMergeRuleTest {
                 .addPredicate(new ExistentialValuePredicate(QuantifiedObjectValue.of(existsHigherTwoQun), new Comparisons.NullComparison(Comparisons.Type.NOT_NULL)))
                 .build().buildSelect();
 
-        testHelper.assertYieldsNothing(upper, true);
+        testHelper.assertYieldsNothing(upper, false);
     }
 
     /**
@@ -405,7 +405,7 @@ class SelectMergeRuleTest {
                 fieldPredicate(lowerQun, "a", EQUALS_42));
 
         // This rule doesn't even get matched if the child quantifier has null-on-empty
-        testHelper.assertYieldsNothing(upper, true);
+        testHelper.assertYieldsNothing(upper, false);
     }
 
     /**
@@ -852,7 +852,7 @@ class SelectMergeRuleTest {
         testHelper.assertYields(firstMerge, finalMerge);
 
         // No more merges!
-        testHelper.assertYieldsNothing(finalMerge, true);
+        testHelper.assertYieldsNothing(finalMerge, false);
     }
 
     /**

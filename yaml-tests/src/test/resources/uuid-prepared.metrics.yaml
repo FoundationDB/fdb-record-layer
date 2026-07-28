@@ -3,9 +3,9 @@ uuid-as-a-field-tests:
     ref: uuid-prepared.yamsql:82
     explain: SCAN([IS TA])
     task_count: 149
-    task_total_time_ms: 21
-    transform_count: 42
-    transform_time_ms: 12
+    task_total_time_ms: 11
+    transform_count: 41
+    transform_time_ms: 5
     transform_yield_count: 13
     insert_time_ms: 0
     insert_new_count: 10
@@ -14,11 +14,11 @@ uuid-as-a-field-tests:
     ref: uuid-prepared.yamsql:93
     explain: SCAN([IS TA]) | FILTER _.B GREATER_THAN promote(@c7 AS UUID)
     task_count: 191
-    task_total_time_ms: 19
-    transform_count: 51
-    transform_time_ms: 8
+    task_total_time_ms: 15
+    transform_count: 49
+    transform_time_ms: 6
     transform_yield_count: 16
-    insert_time_ms: 1
+    insert_time_ms: 0
     insert_new_count: 18
     insert_reused_count: 2
 -   query: EXPLAIN select * from ta where b < ?
@@ -26,7 +26,7 @@ uuid-as-a-field-tests:
     explain: SCAN([IS TA]) | FILTER _.B LESS_THAN promote(@c7 AS UUID)
     task_count: 191
     task_total_time_ms: 17
-    transform_count: 51
+    transform_count: 49
     transform_time_ms: 7
     transform_yield_count: 16
     insert_time_ms: 1
@@ -36,42 +36,42 @@ uuid-as-a-field-tests:
     ref: uuid-prepared.yamsql:104
     explain: SCAN([IS TA]) | FILTER _.B GREATER_THAN_OR_EQUALS promote(@c8 AS UUID)
     task_count: 191
-    task_total_time_ms: 26
-    transform_count: 51
-    transform_time_ms: 10
+    task_total_time_ms: 14
+    transform_count: 49
+    transform_time_ms: 6
     transform_yield_count: 16
-    insert_time_ms: 2
+    insert_time_ms: 0
     insert_new_count: 18
     insert_reused_count: 2
 -   query: EXPLAIN select * from ta where b <= ?
     ref: uuid-prepared.yamsql:110
     explain: SCAN([IS TA]) | FILTER _.B LESS_THAN_OR_EQUALS promote(@c8 AS UUID)
     task_count: 191
-    task_total_time_ms: 26
-    transform_count: 51
-    transform_time_ms: 10
+    task_total_time_ms: 11
+    transform_count: 49
+    transform_time_ms: 5
     transform_yield_count: 16
-    insert_time_ms: 2
+    insert_time_ms: 1
     insert_new_count: 18
     insert_reused_count: 2
 -   query: EXPLAIN select * from ta where b = ?
     ref: uuid-prepared.yamsql:117
     explain: SCAN([IS TA]) | FILTER _.B EQUALS promote(@c7 AS UUID)
     task_count: 191
-    task_total_time_ms: 26
-    transform_count: 51
-    transform_time_ms: 10
+    task_total_time_ms: 14
+    transform_count: 49
+    transform_time_ms: 5
     transform_yield_count: 16
-    insert_time_ms: 1
+    insert_time_ms: 0
     insert_new_count: 18
     insert_reused_count: 2
 -   query: EXPLAIN select * from ta where b != ?
     ref: uuid-prepared.yamsql:121
     explain: SCAN([IS TA]) | FILTER _.B NOT_EQUALS promote(@c8 AS UUID)
     task_count: 191
-    task_total_time_ms: 26
-    transform_count: 51
-    transform_time_ms: 10
+    task_total_time_ms: 18
+    transform_count: 49
+    transform_time_ms: 7
     transform_yield_count: 16
     insert_time_ms: 1
     insert_new_count: 18
@@ -80,9 +80,9 @@ uuid-as-a-field-tests:
     ref: uuid-prepared.yamsql:129
     explain: SCAN([IS TA]) | FILTER _.B IS_NULL
     task_count: 175
-    task_total_time_ms: 16
-    transform_count: 46
-    transform_time_ms: 7
+    task_total_time_ms: 11
+    transform_count: 45
+    transform_time_ms: 5
     transform_yield_count: 14
     insert_time_ms: 0
     insert_new_count: 14
@@ -92,11 +92,11 @@ uuid-as-a-field-tests_uuid_parameter_as_string:
     ref: uuid-prepared.yamsql:143
     explain: SCAN([IS TA]) | FILTER _.B GREATER_THAN promote(@c7 AS UUID)
     task_count: 191
-    task_total_time_ms: 19
-    transform_count: 51
-    transform_time_ms: 8
+    task_total_time_ms: 15
+    transform_count: 49
+    transform_time_ms: 6
     transform_yield_count: 16
-    insert_time_ms: 1
+    insert_time_ms: 0
     insert_new_count: 18
     insert_reused_count: 2
 -   query: EXPLAIN select * from ta where b < ?
@@ -104,7 +104,7 @@ uuid-as-a-field-tests_uuid_parameter_as_string:
     explain: SCAN([IS TA]) | FILTER _.B LESS_THAN promote(@c7 AS UUID)
     task_count: 191
     task_total_time_ms: 17
-    transform_count: 51
+    transform_count: 49
     transform_time_ms: 7
     transform_yield_count: 16
     insert_time_ms: 1
@@ -114,42 +114,42 @@ uuid-as-a-field-tests_uuid_parameter_as_string:
     ref: uuid-prepared.yamsql:154
     explain: SCAN([IS TA]) | FILTER _.B GREATER_THAN_OR_EQUALS promote(@c8 AS UUID)
     task_count: 191
-    task_total_time_ms: 26
-    transform_count: 51
-    transform_time_ms: 10
+    task_total_time_ms: 14
+    transform_count: 49
+    transform_time_ms: 6
     transform_yield_count: 16
-    insert_time_ms: 2
+    insert_time_ms: 0
     insert_new_count: 18
     insert_reused_count: 2
 -   query: EXPLAIN select * from ta where b <= ?
     ref: uuid-prepared.yamsql:160
     explain: SCAN([IS TA]) | FILTER _.B LESS_THAN_OR_EQUALS promote(@c8 AS UUID)
     task_count: 191
-    task_total_time_ms: 26
-    transform_count: 51
-    transform_time_ms: 10
+    task_total_time_ms: 11
+    transform_count: 49
+    transform_time_ms: 5
     transform_yield_count: 16
-    insert_time_ms: 2
+    insert_time_ms: 1
     insert_new_count: 18
     insert_reused_count: 2
 -   query: EXPLAIN select * from ta where b = ?
     ref: uuid-prepared.yamsql:167
     explain: SCAN([IS TA]) | FILTER _.B EQUALS promote(@c7 AS UUID)
     task_count: 191
-    task_total_time_ms: 26
-    transform_count: 51
-    transform_time_ms: 10
+    task_total_time_ms: 14
+    transform_count: 49
+    transform_time_ms: 5
     transform_yield_count: 16
-    insert_time_ms: 1
+    insert_time_ms: 0
     insert_new_count: 18
     insert_reused_count: 2
 -   query: EXPLAIN select * from ta where b != ?
     ref: uuid-prepared.yamsql:171
     explain: SCAN([IS TA]) | FILTER _.B NOT_EQUALS promote(@c8 AS UUID)
     task_count: 191
-    task_total_time_ms: 26
-    transform_count: 51
-    transform_time_ms: 10
+    task_total_time_ms: 18
+    transform_count: 49
+    transform_time_ms: 7
     transform_yield_count: 16
     insert_time_ms: 1
     insert_new_count: 18
@@ -159,9 +159,9 @@ uuid-as-a-primary-key:
     ref: uuid-prepared.yamsql:185
     explain: SCAN([IS TB]) | MAP (_.B AS B, _.A AS A)
     task_count: 157
-    task_total_time_ms: 23
-    transform_count: 40
-    transform_time_ms: 7
+    task_total_time_ms: 19
+    transform_count: 39
+    transform_time_ms: 10
     transform_yield_count: 13
     insert_time_ms: 0
     insert_new_count: 12
@@ -171,11 +171,11 @@ uuid-as-a-primary-key:
     explain: SCAN([IS TB, [GREATER_THAN promote(@c9 AS UUID)]]) | MAP (_.B AS B, _.A
         AS A)
     task_count: 240
-    task_total_time_ms: 37
-    transform_count: 62
-    transform_time_ms: 11
+    task_total_time_ms: 29
+    transform_count: 60
+    transform_time_ms: 9
     transform_yield_count: 18
-    insert_time_ms: 2
+    insert_time_ms: 1
     insert_new_count: 21
     insert_reused_count: 1
 -   query: EXPLAIN select B, A from TB where a < ?
@@ -183,9 +183,9 @@ uuid-as-a-primary-key:
     explain: SCAN([IS TB, [LESS_THAN promote(@c9 AS UUID)]]) | MAP (_.B AS B, _.A
         AS A)
     task_count: 240
-    task_total_time_ms: 36
-    transform_count: 62
-    transform_time_ms: 12
+    task_total_time_ms: 28
+    transform_count: 60
+    transform_time_ms: 9
     transform_yield_count: 18
     insert_time_ms: 1
     insert_new_count: 21
@@ -195,9 +195,9 @@ uuid-as-a-primary-key:
     explain: SCAN([IS TB, [GREATER_THAN_OR_EQUALS promote(@c10 AS UUID)]]) | MAP (_.B
         AS B, _.A AS A)
     task_count: 240
-    task_total_time_ms: 37
-    transform_count: 62
-    transform_time_ms: 10
+    task_total_time_ms: 22
+    transform_count: 60
+    transform_time_ms: 6
     transform_yield_count: 18
     insert_time_ms: 1
     insert_new_count: 21
@@ -207,9 +207,9 @@ uuid-as-a-primary-key:
     explain: SCAN([IS TB, [LESS_THAN_OR_EQUALS promote(@c10 AS UUID)]]) | MAP (_.B
         AS B, _.A AS A)
     task_count: 240
-    task_total_time_ms: 38
-    transform_count: 62
-    transform_time_ms: 11
+    task_total_time_ms: 27
+    transform_count: 60
+    transform_time_ms: 8
     transform_yield_count: 18
     insert_time_ms: 1
     insert_new_count: 21
@@ -218,11 +218,11 @@ uuid-as-a-primary-key:
     ref: uuid-prepared.yamsql:218
     explain: SCAN([IS TB, EQUALS promote(@c9 AS UUID)]) | MAP (_.B AS B, _.A AS A)
     task_count: 240
-    task_total_time_ms: 40
-    transform_count: 62
-    transform_time_ms: 11
+    task_total_time_ms: 30
+    transform_count: 60
+    transform_time_ms: 13
     transform_yield_count: 18
-    insert_time_ms: 1
+    insert_time_ms: 2
     insert_new_count: 21
     insert_reused_count: 1
 -   query: EXPLAIN select B, A from TB where a != ?
@@ -230,20 +230,20 @@ uuid-as-a-primary-key:
     explain: SCAN([IS TB]) | FILTER _.A NOT_EQUALS promote(@c10 AS UUID) | MAP (_.B
         AS B, _.A AS A)
     task_count: 238
-    task_total_time_ms: 28
-    transform_count: 64
-    transform_time_ms: 10
+    task_total_time_ms: 21
+    transform_count: 62
+    transform_time_ms: 6
     transform_yield_count: 17
-    insert_time_ms: 3
+    insert_time_ms: 1
     insert_new_count: 22
     insert_reused_count: 2
 -   query: EXPLAIN select B, A from TB where a is not null
     ref: uuid-prepared.yamsql:230
     explain: SCAN([IS TB, [NOT_NULL]]) | MAP (_.B AS B, _.A AS A)
     task_count: 224
-    task_total_time_ms: 29
-    transform_count: 57
-    transform_time_ms: 10
+    task_total_time_ms: 22
+    transform_count: 56
+    transform_time_ms: 7
     transform_yield_count: 16
     insert_time_ms: 0
     insert_new_count: 17
@@ -254,9 +254,9 @@ uuid-in-index-definition:
     explain: 'COVERING(TC1 <,> -> [A: KEY:[2], B: KEY:[0], C: VALUE:[0]]) | MAP (_.B
         AS B, _.C AS C)'
     task_count: 342
-    task_total_time_ms: 68
-    transform_count: 72
-    transform_time_ms: 26
+    task_total_time_ms: 55
+    transform_count: 71
+    transform_time_ms: 18
     transform_yield_count: 34
     insert_time_ms: 3
     insert_new_count: 33
@@ -265,9 +265,9 @@ uuid-in-index-definition:
     ref: uuid-prepared.yamsql:254
     explain: ISCAN(TC1 <,>)
     task_count: 308
-    task_total_time_ms: 45
-    transform_count: 74
-    transform_time_ms: 21
+    task_total_time_ms: 43
+    transform_count: 73
+    transform_time_ms: 17
     transform_yield_count: 34
     insert_time_ms: 2
     insert_new_count: 25
@@ -277,9 +277,9 @@ uuid-in-index-definition:
     ref: uuid-prepared.yamsql:263
     explain: ISCAN(TC1 [[GREATER_THAN promote(@c7 AS UUID)]])
     task_count: 466
-    task_total_time_ms: 61
-    transform_count: 95
-    transform_time_ms: 24
+    task_total_time_ms: 52
+    transform_count: 94
+    transform_time_ms: 20
     transform_yield_count: 42
     insert_time_ms: 2
     insert_new_count: 41
@@ -289,9 +289,9 @@ uuid-in-index-definition:
     ref: uuid-prepared.yamsql:267
     explain: ISCAN(TC1 [[LESS_THAN promote(@c7 AS UUID)]] REVERSE)
     task_count: 466
-    task_total_time_ms: 63
-    transform_count: 95
-    transform_time_ms: 24
+    task_total_time_ms: 61
+    transform_count: 94
+    transform_time_ms: 29
     transform_yield_count: 42
     insert_time_ms: 2
     insert_new_count: 41
@@ -303,10 +303,10 @@ uuid-in-index-definition:
         B: KEY:[0], C: VALUE:[0]]) | FILTER _.C GREATER_THAN promote(@c11 AS LONG)
         | FETCH'
     task_count: 586
-    task_total_time_ms: 79
-    transform_count: 109
-    transform_time_ms: 31
+    task_total_time_ms: 63
+    transform_count: 108
+    transform_time_ms: 21
     transform_yield_count: 46
-    insert_time_ms: 3
+    insert_time_ms: 2
     insert_new_count: 55
     insert_reused_count: 2

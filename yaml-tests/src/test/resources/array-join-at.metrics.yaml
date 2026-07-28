@@ -4,9 +4,9 @@ array-join-at:
     explain: SCAN([IS T1]) | FLATMAP q0 -> { EXPLODE q0.arr1 AS q1 RETURN (q0.id AS
         id, q1 AS val) }
     task_count: 175
-    task_total_time_ms: 4
-    transform_count: 46
-    transform_time_ms: 2
+    task_total_time_ms: 2
+    transform_count: 45
+    transform_time_ms: 1
     transform_yield_count: 13
     insert_time_ms: 0
     insert_new_count: 15
@@ -16,9 +16,9 @@ array-join-at:
     explain: SCAN([IS T1]) | FLATMAP q0 -> { EXPLODE q0.arr1 WITH ORDINALITY AS q1
         RETURN (q0.id AS id, q1._0 AS val, q1._1 AS at) }
     task_count: 175
-    task_total_time_ms: 5
-    transform_count: 46
-    transform_time_ms: 2
+    task_total_time_ms: 2
+    transform_count: 45
+    transform_time_ms: 1
     transform_yield_count: 13
     insert_time_ms: 0
     insert_new_count: 15
@@ -28,9 +28,9 @@ array-join-at:
     explain: SCAN([IS T1]) | FLATMAP q0 -> { EXPLODE q0.arr1 WITH ORDINALITY AS q1
         RETURN (q0.id AS id, q1._1 AS at) }
     task_count: 175
-    task_total_time_ms: 4
-    transform_count: 46
-    transform_time_ms: 1
+    task_total_time_ms: 2
+    transform_count: 45
+    transform_time_ms: 0
     transform_yield_count: 13
     insert_time_ms: 0
     insert_new_count: 15
@@ -41,9 +41,9 @@ array-join-at:
     ref: array-join-at.yamsql:107
     explain: SCAN([IS T1]) | FLATMAP q0 -> { EXPLODE q0.arr1 WITH ORDINALITY AS q1
         RETURN (q0.id + @c17 - @c17 AS id, q1._1 AS at, q1._0 AS val) }
-    task_count: 206
+    task_count: 205
     task_total_time_ms: 5
-    transform_count: 52
+    transform_count: 49
     transform_time_ms: 2
     transform_yield_count: 15
     insert_time_ms: 0
@@ -56,8 +56,8 @@ array-join-at:
         @c24, @c26) AS arr)) | FLATMAP q0 -> { EXPLODE q0.arr WITH ORDINALITY AS q1
         RETURN (q0.id AS id, q1._0 AS val, q1._1 AS at) }
     task_count: 264
-    task_total_time_ms: 4
-    transform_count: 70
+    task_total_time_ms: 5
+    transform_count: 69
     transform_time_ms: 1
     transform_yield_count: 14
     insert_time_ms: 0
@@ -70,7 +70,7 @@ array-join-at:
         RETURN (q0.id AS id, q1._1 + @c5 AS at_plus_10) }
     task_count: 175
     task_total_time_ms: 3
-    transform_count: 46
+    transform_count: 45
     transform_time_ms: 1
     transform_yield_count: 13
     insert_time_ms: 0
@@ -83,9 +83,9 @@ array-join-at:
         FILTER _._0 GREATER_THAN promote(@c19 AS INT) AS q1 RETURN (q0.id AS id, q1._0
         AS val, q1._1 AS at) }
     task_count: 274
-    task_total_time_ms: 4
-    transform_count: 81
-    transform_time_ms: 2
+    task_total_time_ms: 6
+    transform_count: 79
+    transform_time_ms: 3
     transform_yield_count: 17
     insert_time_ms: 0
     insert_new_count: 27
@@ -98,7 +98,7 @@ array-join-at:
         q1._0 AS val, q1._1 AS at) }
     task_count: 274
     task_total_time_ms: 5
-    transform_count: 81
+    transform_count: 79
     transform_time_ms: 2
     transform_yield_count: 17
     insert_time_ms: 0
@@ -112,9 +112,9 @@ array-join-at:
         } AS q3 RETURN (q0.id AS id, q3._0._1 AS at1, q3._0._0 AS val1, q3._1._1 AS
         at2, q3._1._0 AS val2) }
     task_count: 277
-    task_total_time_ms: 5
-    transform_count: 87
-    transform_time_ms: 2
+    task_total_time_ms: 3
+    transform_count: 86
+    transform_time_ms: 1
     transform_yield_count: 18
     insert_time_ms: 0
     insert_new_count: 27
@@ -127,9 +127,9 @@ array-join-at:
         } AS q3 RETURN (q0.id AS id, q3._0._0 AS val1, q3._0._1 AS at1, q3._1._0 AS
         val2, q3._1._1 AS at2) }
     task_count: 263
-    task_total_time_ms: 5
-    transform_count: 86
-    transform_time_ms: 2
+    task_total_time_ms: 3
+    transform_count: 85
+    transform_time_ms: 1
     transform_yield_count: 17
     insert_time_ms: 0
     insert_new_count: 25
@@ -142,7 +142,7 @@ array-join-at:
         arr1_nn_val) }
     task_count: 175
     task_total_time_ms: 2
-    transform_count: 46
+    transform_count: 45
     transform_time_ms: 1
     transform_yield_count: 13
     insert_time_ms: 0
@@ -157,12 +157,12 @@ array-join-at:
         ORDINALITY | FILTER _._0 EQUALS q1._0 AS q3 RETURN q3 } AS q3 RETURN (q3 AS
         _0, q1 AS _1) } AS q5 RETURN (q0.id AS id, q5._1._1 AS at, q5._1._0 AS val,
         q5._0._0 AS val2) }
-    task_count: 6916
-    task_total_time_ms: 165
-    transform_count: 3064
-    transform_time_ms: 41
+    task_count: 6915
+    task_total_time_ms: 206
+    transform_count: 3061
+    transform_time_ms: 55
     transform_yield_count: 295
-    insert_time_ms: 23
+    insert_time_ms: 29
     insert_new_count: 757
     insert_reused_count: 133
 -   query: EXPLAIN SELECT T2."id", "val1", "at1", "val2" FROM T2, T2."arr1" AS "val1"
@@ -172,8 +172,8 @@ array-join-at:
         q0.arr1 WITH ORDINALITY AS q2 RETURN (q2 AS _0, q1 AS _1) } AS q3 RETURN (q0.id
         AS id, q3._0._0 AS val1, q3._0._1 AS at1, q3._1 AS val2) }
     task_count: 277
-    task_total_time_ms: 5
-    transform_count: 87
+    task_total_time_ms: 3
+    transform_count: 86
     transform_time_ms: 1
     transform_yield_count: 18
     insert_time_ms: 0
@@ -186,9 +186,9 @@ array-join-at:
         T1, EQUALS q0]) | FLATMAP q1 -> { EXPLODE q1.arr1_nn WITH ORDINALITY AS q2
         RETURN (q1.id AS id, q2._0 AS val, q2._1 AS at) } }'
     task_count: 1284
-    task_total_time_ms: 24
-    transform_count: 452
-    transform_time_ms: 8
+    task_total_time_ms: 20
+    transform_count: 451
+    transform_time_ms: 7
     transform_yield_count: 68
     insert_time_ms: 1
     insert_new_count: 140
@@ -201,7 +201,7 @@ array-join-at:
         }
     task_count: 1157
     task_total_time_ms: 14
-    transform_count: 421
+    transform_count: 420
     transform_time_ms: 4
     transform_yield_count: 52
     insert_time_ms: 0

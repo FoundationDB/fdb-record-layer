@@ -1,7 +1,7 @@
-⌡
+ 
 R
-arrays-testsBEXPLAIN select [x[1]] AS arr_1, [pk] AS arr_2 FROM F WHERE pk >= 1д
-Птит> ╣Х▄(0Ше8@фSCAN([IS F, [GREATER_THAN_OR_EQUALS promote(@c21 AS INT)]]) | MAP (array(promote(_.X[promote(@c21 AS INT)] AS INT AS X, DOUBLE AS Y, ARRAY(INT) AS Z)) AS ARR_1, array(promote(_.PK AS INT)) AS ARR_2)щdigraph G {
+arrays-testsBEXPLAIN select [x[1]] AS arr_1, [pk] AS arr_2 FROM F WHERE pk >= 1ц
+П┴²╒< М╘z(0╜Б8@фSCAN([IS F, [GREATER_THAN_OR_EQUALS promote(@c21 AS INT)]]) | MAP (array(promote(_.X[promote(@c21 AS INT)] AS INT AS X, DOUBLE AS Y, ARRAY(INT) AS Z)) AS ARR_1, array(promote(_.PK AS INT)) AS ARR_2)щdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;

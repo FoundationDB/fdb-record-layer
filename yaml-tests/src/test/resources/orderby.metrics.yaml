@@ -4,9 +4,9 @@ orderby-tests:
     explain: 'COVERING(I1 <,> -> [A: KEY:[2], B: KEY:[0], C: VALUE:[0]]) | MAP (_.C
         AS C, _.B AS B) | MAP (_.C AS C)'
     task_count: 329
-    task_total_time_ms: 17
-    transform_count: 77
-    transform_time_ms: 9
+    task_total_time_ms: 18
+    transform_count: 75
+    transform_time_ms: 7
     transform_yield_count: 36
     insert_time_ms: 0
     insert_new_count: 25
@@ -16,11 +16,11 @@ orderby-tests:
     explain: 'COVERING(I2 <,> -> [A: KEY:[2], B: VALUE:[0], C: KEY:[0]]) | MAP (_.B
         AS B, _.C AS C) | MAP (_.B AS B)'
     task_count: 456
-    task_total_time_ms: 32
-    transform_count: 94
-    transform_time_ms: 12
+    task_total_time_ms: 36
+    transform_count: 92
+    transform_time_ms: 15
     transform_yield_count: 43
-    insert_time_ms: 1
+    insert_time_ms: 0
     insert_new_count: 41
     insert_reused_count: 4
 -   query: EXPLAIN select c from t1 order by b desc
@@ -28,9 +28,9 @@ orderby-tests:
     explain: 'COVERING(I1 <,> REVERSE -> [A: KEY:[2], B: KEY:[0], C: VALUE:[0]]) |
         MAP (_.C AS C, _.B AS B) | MAP (_.C AS C)'
     task_count: 329
-    task_total_time_ms: 14
-    transform_count: 77
-    transform_time_ms: 5
+    task_total_time_ms: 18
+    transform_count: 75
+    transform_time_ms: 8
     transform_yield_count: 36
     insert_time_ms: 0
     insert_new_count: 25
@@ -40,9 +40,9 @@ orderby-tests:
     explain: 'COVERING(I2 <,> REVERSE -> [A: KEY:[2], B: VALUE:[0], C: KEY:[0]]) |
         MAP (_.B AS B, _.C AS C) | MAP (_.B AS B)'
     task_count: 456
-    task_total_time_ms: 46
-    transform_count: 94
-    transform_time_ms: 16
+    task_total_time_ms: 26
+    transform_count: 92
+    transform_time_ms: 10
     transform_yield_count: 43
     insert_time_ms: 1
     insert_new_count: 41
@@ -52,9 +52,9 @@ orderby-tests:
     explain: 'COVERING(I8 <,> -> [A: KEY:[3], B: from_ordered_bytes(KEY:[1], DESC_NULLS_LAST),
         C: KEY:[0]]) | MAP (_.C AS C, _.B AS B)'
     task_count: 231
-    task_total_time_ms: 14
-    transform_count: 53
-    transform_time_ms: 7
+    task_total_time_ms: 29
+    transform_count: 52
+    transform_time_ms: 12
     transform_yield_count: 22
     insert_time_ms: 0
     insert_new_count: 20
@@ -63,9 +63,9 @@ orderby-tests:
     ref: orderby.yamsql:272
     explain: ISCAN(I4 <,>) | MAP (_.Q AS nested, _.Q.A AS ordered)
     task_count: 210
-    task_total_time_ms: 10
-    transform_count: 53
-    transform_time_ms: 5
+    task_total_time_ms: 26
+    transform_count: 52
+    transform_time_ms: 14
     transform_yield_count: 26
     insert_time_ms: 0
     insert_new_count: 17
@@ -74,10 +74,10 @@ orderby-tests:
         t2) as T order by "ordered"
     ref: orderby.yamsql:282
     explain: ISCAN(I4 <,>) | MAP ((_.Q AS nested, _.Q.A AS ordered) AS T)
-    task_count: 238
-    task_total_time_ms: 14
-    transform_count: 59
-    transform_time_ms: 7
+    task_count: 237
+    task_total_time_ms: 30
+    transform_count: 56
+    transform_time_ms: 19
     transform_yield_count: 28
     insert_time_ms: 0
     insert_new_count: 21
@@ -85,10 +85,10 @@ orderby-tests:
 -   query: EXPLAIN select (*) from t2_func() order by "ordered"
     ref: orderby.yamsql:288
     explain: ISCAN(I4 <,>) | MAP ((_.Q AS nesting, _.Q.A AS ordered) AS T2_FUNC)
-    task_count: 238
-    task_total_time_ms: 66
-    transform_count: 59
-    transform_time_ms: 47
+    task_count: 237
+    task_total_time_ms: 15
+    transform_count: 56
+    transform_time_ms: 8
     transform_yield_count: 28
     insert_time_ms: 0
     insert_new_count: 21

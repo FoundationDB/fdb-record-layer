@@ -6,11 +6,11 @@ select-star-tests:
         A1, _._0._1 AS A2, _._0._2 AS A3, q0.B1 AS B1) | DEFAULT NULL | FILTER _ NOT_NULL
         AS q0 RETURN (q0.B1 AS B1) }
     task_count: 553
-    task_total_time_ms: 55
-    transform_count: 144
-    transform_time_ms: 19
+    task_total_time_ms: 37
+    transform_count: 141
+    transform_time_ms: 11
     transform_yield_count: 42
-    insert_time_ms: 1
+    insert_time_ms: 0
     insert_new_count: 47
     insert_reused_count: 2
 -   query: EXPLAIN select B1 from B where exists (select A.*, B1 from A group by A1,A2,A3);
@@ -20,11 +20,11 @@ select-star-tests:
         A1, _._0._1 AS A2, _._0._2 AS A3, q0.B1 AS B1) | DEFAULT NULL | FILTER _ NOT_NULL
         AS q0 RETURN (q0.B1 AS B1) }
     task_count: 553
-    task_total_time_ms: 55
-    transform_count: 144
-    transform_time_ms: 19
+    task_total_time_ms: 37
+    transform_count: 141
+    transform_time_ms: 11
     transform_yield_count: 42
-    insert_time_ms: 1
+    insert_time_ms: 0
     insert_new_count: 47
     insert_reused_count: 2
 -   query: EXPLAIN select B.* from B where exists (select A.*, B.* from A group by
@@ -35,9 +35,9 @@ select-star-tests:
         A1, _._0._1 AS A2, _._0._2 AS A3, q0.B1 AS B1, q0.B2 AS B2, q0.B3 AS B3) |
         DEFAULT NULL | FILTER _ NOT_NULL AS q0 RETURN q0 }
     task_count: 553
-    task_total_time_ms: 58
-    transform_count: 144
-    transform_time_ms: 15
+    task_total_time_ms: 53
+    transform_count: 141
+    transform_time_ms: 19
     transform_yield_count: 42
     insert_time_ms: 0
     insert_new_count: 47

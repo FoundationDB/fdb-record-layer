@@ -1,7 +1,7 @@
 ≤
 9
 single-type-versions-queriesEXPLAIN select * from t1;Ù
-ùœﬂâ( ÌΩ¢(0…É8@@SCAN([IS T1]) | MAP (_.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2)îdigraph G {
+ù∆´á' ã˙ä(0À‹8@@SCAN([IS T1]) | MAP (_.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2)îdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -13,7 +13,7 @@
 }á
 J
 single-type-versions-queries*EXPLAIN select *, "__ROW_VERSION" from t1;∏
-≠¨—◊- ±§û(0£Û	8@SCAN([IS T1])ãdigraph G {
+≠øñ˘, ¶äñ(0˚Ó8@SCAN([IS T1])ãdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -23,7 +23,7 @@ J
 }˝
 Z
 single-type-versions-queries:EXPLAIN select "__ROW_VERSION", * from t1 where col1 = 20;û
-ﬁƒÁó; ¥˙Ï(0éÀ8@éSCAN([IS T1]) | FILTER _.COL1 EQUALS promote(@c9 AS LONG) | MAP (_.__ROW_VERSION AS __ROW_VERSION, _.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2)Ôdigraph G {
+ﬁÖœÕ: ∂ˇâ(0Ê±8@éSCAN([IS T1]) | FILTER _.COL1 EQUALS promote(@c9 AS LONG) | MAP (_.__ROW_VERSION AS __ROW_VERSION, _.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2)Ôdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -37,8 +37,7 @@ Z
 }‰
 >
 single-type-versions-queriesEXPLAIN select * from t1_v(10)°
-É∫È√
-^ ’¡Ü(0èù18/@éSCAN([IS T1]) | FILTER _.COL1 EQUALS promote(@c5 AS LONG) | MAP (_.__ROW_VERSION AS __ROW_VERSION, _.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2)Údigraph G {
+ˇ°ø≥S ‡ñÁ(0∂‰58/@éSCAN([IS T1]) | FILTER _.COL1 EQUALS promote(@c5 AS LONG) | MAP (_.__ROW_VERSION AS __ROW_VERSION, _.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2)Údigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;

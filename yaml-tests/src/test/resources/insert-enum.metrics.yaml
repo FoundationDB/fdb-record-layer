@@ -3,8 +3,8 @@ unnamed-3:
     ref: insert-enum.yamsql:40
     explain: SCAN(<,>) | TFILTER TableA
     task_count: 173
-    task_total_time_ms: 8
-    transform_count: 41
+    task_total_time_ms: 7
+    transform_count: 40
     transform_time_ms: 1
     transform_yield_count: 13
     insert_time_ms: 0

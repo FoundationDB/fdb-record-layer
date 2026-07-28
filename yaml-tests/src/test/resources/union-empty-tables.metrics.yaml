@@ -5,8 +5,8 @@ unnamed-1:
         AS _1) GROUP BY () | ON EMPTY NULL | MAP (_._0._0 AS A, coalesce_long(_._0._1,
         promote(0l AS LONG)) AS B)
     task_count: 268
-    task_total_time_ms: 12
-    transform_count: 62
+    task_total_time_ms: 10
+    transform_count: 60
     transform_time_ms: 2
     transform_yield_count: 17
     insert_time_ms: 0
@@ -23,11 +23,11 @@ unnamed-1:
         (sum_l(_._0.A) AS _0, sum_l(_._0.B) AS _1) GROUP BY () | ON EMPTY NULL | MAP
         (_._0._0 AS A, _._0._1 AS B)
     task_count: 724
-    task_total_time_ms: 42
-    transform_count: 165
-    transform_time_ms: 8
+    task_total_time_ms: 25
+    transform_count: 159
+    transform_time_ms: 4
     transform_yield_count: 42
-    insert_time_ms: 1
+    insert_time_ms: 0
     insert_new_count: 58
     insert_reused_count: 4
 -   query: EXPLAIN select col1, col2 from t1 union all select col1, col2 from t1
@@ -35,9 +35,9 @@ unnamed-1:
     explain: SCAN([IS T1]) | MAP (_.COL1 AS COL1, _.COL2 AS COL2) ⊎ SCAN([IS T1])
         | MAP (_.COL1 AS COL1, _.COL2 AS COL2)
     task_count: 322
-    task_total_time_ms: 21
-    transform_count: 79
-    transform_time_ms: 6
+    task_total_time_ms: 15
+    transform_count: 77
+    transform_time_ms: 3
     transform_yield_count: 25
     insert_time_ms: 0
     insert_new_count: 27
@@ -46,9 +46,9 @@ unnamed-1:
     ref: union-empty-tables.yamsql:45
     explain: SCAN([IS T1]) ⊎ SCAN([IS T1])
     task_count: 306
-    task_total_time_ms: 18
-    transform_count: 83
-    transform_time_ms: 6
+    task_total_time_ms: 13
+    transform_count: 81
+    transform_time_ms: 4
     transform_yield_count: 25
     insert_time_ms: 0
     insert_new_count: 23
@@ -57,9 +57,9 @@ unnamed-1:
     ref: union-empty-tables.yamsql:49
     explain: SCAN([IS T1]) ⊎ SCAN([IS T1])
     task_count: 330
-    task_total_time_ms: 20
-    transform_count: 86
-    transform_time_ms: 6
+    task_total_time_ms: 16
+    transform_count: 84
+    transform_time_ms: 3
     transform_yield_count: 27
     insert_time_ms: 0
     insert_new_count: 27
@@ -69,8 +69,8 @@ unnamed-1:
     explain: SCAN([IS T1]) ⊎ SCAN([IS T1])
     task_count: 330
     task_total_time_ms: 16
-    transform_count: 86
-    transform_time_ms: 5
+    transform_count: 84
+    transform_time_ms: 4
     transform_yield_count: 27
     insert_time_ms: 0
     insert_new_count: 27
@@ -82,8 +82,8 @@ unnamed-1:
         AS W, _.X AS X, _.Y AS Y) ⊎ SCAN([IS T1]) | MAP (_.ID AS ID, _.COL1 AS COL1,
         _.COL2 AS COL2)
     task_count: 443
-    task_total_time_ms: 25
-    transform_count: 113
+    task_total_time_ms: 28
+    transform_count: 109
     transform_time_ms: 6
     transform_yield_count: 29
     insert_time_ms: 0
@@ -96,9 +96,9 @@ unnamed-1:
         AS W, _.X AS X, _.Y AS Y) ⊎ SCAN([IS T1]) | MAP (_.ID AS ID, _.COL1 AS COL1,
         _.COL2 AS COL2)
     task_count: 443
-    task_total_time_ms: 30
-    transform_count: 113
-    transform_time_ms: 6
+    task_total_time_ms: 20
+    transform_count: 109
+    transform_time_ms: 4
     transform_yield_count: 29
     insert_time_ms: 0
     insert_new_count: 33
@@ -110,9 +110,9 @@ unnamed-1:
         AS W, _.X AS X, _.Y AS Y) ⊎ SCAN([IS T1]) | MAP (_.ID AS ID, _.COL1 AS COL1,
         _.COL2 AS COL2)
     task_count: 443
-    task_total_time_ms: 23
-    transform_count: 113
-    transform_time_ms: 5
+    task_total_time_ms: 12
+    transform_count: 109
+    transform_time_ms: 4
     transform_yield_count: 29
     insert_time_ms: 0
     insert_new_count: 33
@@ -124,11 +124,11 @@ unnamed-1:
         AS W, _.X AS X, _.Y AS Y) ⊎ SCAN([IS T1]) | MAP (_.ID AS ID, _.COL1 AS COL1,
         _.COL2 AS COL2)
     task_count: 443
-    task_total_time_ms: 33
-    transform_count: 113
-    transform_time_ms: 7
+    task_total_time_ms: 27
+    transform_count: 109
+    transform_time_ms: 8
     transform_yield_count: 29
-    insert_time_ms: 1
+    insert_time_ms: 0
     insert_new_count: 33
     insert_reused_count: 4
 -   query: EXPLAIN ((select id as W, col1 as X, col2 as Y from t1) union all select
@@ -138,9 +138,9 @@ unnamed-1:
         AS W, _.X AS X, _.Y AS Y) ⊎ SCAN([IS T1]) | MAP (_.ID AS ID, _.COL1 AS COL1,
         _.COL2 AS COL2)
     task_count: 443
-    task_total_time_ms: 30
-    transform_count: 113
-    transform_time_ms: 6
+    task_total_time_ms: 27
+    transform_count: 109
+    transform_time_ms: 5
     transform_yield_count: 29
     insert_time_ms: 0
     insert_new_count: 33
@@ -151,9 +151,9 @@ unnamed-1:
         AS DOUBLE) AS B) ⊎ SCAN([IS T4]) | MAP (_.A AS A, _.B AS B) | MAP (promote(_.A
         AS DOUBLE) AS A, _.B AS B)
     task_count: 495
-    task_total_time_ms: 29
-    transform_count: 125
-    transform_time_ms: 6
+    task_total_time_ms: 23
+    transform_count: 121
+    transform_time_ms: 5
     transform_yield_count: 39
     insert_time_ms: 0
     insert_new_count: 38
@@ -166,12 +166,12 @@ unnamed-1:
         AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l
         AS LONG)) AS _0) | MAP (_ AS _0) | AGG (sum_l(_._0.Y) AS _0) GROUP BY () |
         ON EMPTY NULL | MAP (_._0._0 AS S)'
-    task_count: 820
-    task_total_time_ms: 63
-    transform_count: 208
-    transform_time_ms: 26
+    task_count: 819
+    task_total_time_ms: 49
+    transform_count: 200
+    transform_time_ms: 21
     transform_yield_count: 55
-    insert_time_ms: 1
+    insert_time_ms: 0
     insert_new_count: 65
     insert_reused_count: 3
 -   query: EXPLAIN select sum(Y) as S from (select count(*) as Y from t3 union all
@@ -183,9 +183,9 @@ unnamed-1:
         AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l
         AS LONG)) AS _0) | MAP (_ AS _0) | AGG (sum_l(_._0.Y) AS _0) GROUP BY () |
         ON EMPTY NULL | MAP (_._0._0 AS S)'
-    task_count: 845
-    task_total_time_ms: 33
-    transform_count: 197
+    task_count: 844
+    task_total_time_ms: 37
+    transform_count: 189
     transform_time_ms: 13
     transform_yield_count: 54
     insert_time_ms: 1
@@ -198,10 +198,10 @@ unnamed-1:
         q0.COL2]]) | MAP (_.A AS A) ⊎ SCAN([IS T4, [GREATER_THAN_OR_EQUALS q0.COL2]])
         | MAP (_.B AS B) | DEFAULT NULL | FILTER _ NOT_NULL AS q1 RETURN (q0.COL2
         AS COL2) }
-    task_count: 757
-    task_total_time_ms: 34
-    transform_count: 208
-    transform_time_ms: 13
+    task_count: 755
+    task_total_time_ms: 49
+    transform_count: 201
+    transform_time_ms: 14
     transform_yield_count: 61
     insert_time_ms: 1
     insert_new_count: 67

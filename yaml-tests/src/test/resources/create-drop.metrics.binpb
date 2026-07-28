@@ -1,7 +1,7 @@
 ‘
 S
 	unnamed-4FEXPLAIN select count(*) from "TEMPLATES" where template_name = 'TEMP1'¸
-”Ø˜…	S ˙úü(0Èô8@∂SCAN([IS TEMPLATES, EQUALS promote(@c10 AS STRING)]) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)•digraph G {
+”Œ”¢P ±∫‘(0ÒÈ8@∂SCAN([IS TEMPLATES, EQUALS promote(@c10 AS STRING)]) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)•digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -20,7 +20,8 @@ S
 T
 
 unnamed-10FEXPLAIN select count(*) from "DATABASES" where database_id = '/FRL/DB'Ô
-ﬂ‘º£\ Ä…¡(0∏ÿ8@∂SCAN([IS DATABASES, EQUALS promote(@c10 AS STRING)]) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)òdigraph G {
+ﬂ¿Õ©Y ﬁØç(0≥Í
+8@∂SCAN([IS DATABASES, EQUALS promote(@c10 AS STRING)]) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)òdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -39,7 +40,7 @@ unnamed-10FEXPLAIN select count(*) from "DATABASES" where database_id = '/FRL/D
 R
 
 unnamed-20DEXPLAIN select count(*) from "SCHEMAS" where database_id = '/FRL/DB'«
-‹»‚Èç –Ô„(,0·©(8<@¥SCAN([IS SCHEMAS, EQUALS promote(@c10 AS STRING)]) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)Òdigraph G {
+‹©√©ä µóˇ(,0ú§8<@¥SCAN([IS SCHEMAS, EQUALS promote(@c10 AS STRING)]) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)Òdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;

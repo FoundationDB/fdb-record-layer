@@ -4,10 +4,10 @@ transactions-tests:
     - create temporary function t2() on commit drop function AS SELECT * FROM t1;
     ref: multiple-same-includes.yamsql:25 > include-with-explain.yamsql:35
     explain: SCAN([IS T1])
-    task_count: 177
-    task_total_time_ms: 16
-    transform_count: 48
-    transform_time_ms: 7
+    task_count: 176
+    task_total_time_ms: 13
+    transform_count: 45
+    transform_time_ms: 5
     transform_yield_count: 15
     insert_time_ms: 0
     insert_new_count: 14
@@ -18,10 +18,10 @@ transactions-tests:
         id < 50;
     ref: multiple-same-includes.yamsql:25 > include-with-explain.yamsql:45
     explain: SCAN([IS T1, [LESS_THAN promote(@cT218 AS LONG)]])
-    task_count: 201
-    task_total_time_ms: 21
-    transform_count: 51
-    transform_time_ms: 9
+    task_count: 200
+    task_total_time_ms: 26
+    transform_count: 48
+    transform_time_ms: 13
     transform_yield_count: 17
     insert_time_ms: 0
     insert_new_count: 17
@@ -30,9 +30,9 @@ transactions-tests:
     ref: multiple-same-includes.yamsql:28 > include-with-a-test-block.yamsql:29
     explain: SCAN([IS T1, [LESS_THAN promote(@c7 AS LONG)]])
     task_count: 173
-    task_total_time_ms: 29
-    transform_count: 45
-    transform_time_ms: 17
+    task_total_time_ms: 20
+    transform_count: 44
+    transform_time_ms: 10
     transform_yield_count: 15
     insert_time_ms: 0
     insert_new_count: 13
@@ -41,9 +41,9 @@ transactions-tests:
     ref: multiple-same-includes.yamsql:31 > include-with-a-test-block.yamsql:29
     explain: SCAN([IS T1, [LESS_THAN promote(@c7 AS LONG)]])
     task_count: 173
-    task_total_time_ms: 29
-    transform_count: 45
-    transform_time_ms: 17
+    task_total_time_ms: 20
+    transform_count: 44
+    transform_time_ms: 10
     transform_yield_count: 15
     insert_time_ms: 0
     insert_new_count: 13
@@ -52,9 +52,9 @@ transactions-tests:
     ref: multiple-same-includes.yamsql:34 > include-with-a-test-block.yamsql:29
     explain: SCAN([IS T1, [LESS_THAN promote(@c7 AS LONG)]])
     task_count: 173
-    task_total_time_ms: 29
-    transform_count: 45
-    transform_time_ms: 17
+    task_total_time_ms: 20
+    transform_count: 44
+    transform_time_ms: 10
     transform_yield_count: 15
     insert_time_ms: 0
     insert_new_count: 13
@@ -63,9 +63,9 @@ transactions-tests:
     ref: multiple-same-includes.yamsql:37 > include-with-a-test-block.yamsql:29
     explain: SCAN([IS T1, [LESS_THAN promote(@c7 AS LONG)]])
     task_count: 173
-    task_total_time_ms: 29
-    transform_count: 45
-    transform_time_ms: 17
+    task_total_time_ms: 20
+    transform_count: 44
+    transform_time_ms: 10
     transform_yield_count: 15
     insert_time_ms: 0
     insert_new_count: 13

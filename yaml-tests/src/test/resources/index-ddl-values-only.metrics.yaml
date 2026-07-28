@@ -6,11 +6,11 @@ simple_value_index:
         AS DOUBLE), DESC_NULLS_LAST)]] REVERSE -> [ID: KEY:[2], PRICE: from_ordered_bytes(KEY:[0],
         DESC_NULLS_LAST)]) | MAP (_.PRICE AS PRICE)'
     task_count: 1017
-    task_total_time_ms: 119
-    transform_count: 218
-    transform_time_ms: 55
+    task_total_time_ms: 84
+    transform_count: 216
+    transform_time_ms: 39
     transform_yield_count: 121
-    insert_time_ms: 3
+    insert_time_ms: 2
     insert_new_count: 88
     insert_reused_count: 5
 -   query: EXPLAIN select price from products_index_on where price > 18.0 order by
@@ -20,11 +20,11 @@ simple_value_index:
         AS DOUBLE), DESC_NULLS_LAST)]] REVERSE -> [ID: KEY:[2], PRICE: from_ordered_bytes(KEY:[0],
         DESC_NULLS_LAST)]) | MAP (_.PRICE AS PRICE)'
     task_count: 1017
-    task_total_time_ms: 120
-    transform_count: 218
-    transform_time_ms: 56
+    task_total_time_ms: 96
+    transform_count: 216
+    transform_time_ms: 46
     transform_yield_count: 121
-    insert_time_ms: 3
+    insert_time_ms: 2
     insert_new_count: 88
     insert_reused_count: 5
 -   query: EXPLAIN select category from products_mat_view where category = 'Electronics'
@@ -32,11 +32,11 @@ simple_value_index:
     explain: 'COVERING(IDX_MV_CATEGORY [EQUALS promote(@c7 AS STRING)] -> [CATEGORY:
         KEY:[0], ID: KEY:[2]]) | MAP (_.CATEGORY AS CATEGORY)'
     task_count: 2507
-    task_total_time_ms: 304
-    transform_count: 536
-    transform_time_ms: 137
+    task_total_time_ms: 194
+    transform_count: 534
+    transform_time_ms: 87
     transform_yield_count: 194
-    insert_time_ms: 15
+    insert_time_ms: 10
     insert_new_count: 259
     insert_reused_count: 22
 -   query: EXPLAIN select category from products_index_on where category = 'Electronics'
@@ -44,11 +44,11 @@ simple_value_index:
     explain: 'COVERING(IDX_IOT_CATEGORY [EQUALS promote(@c7 AS STRING)] -> [CATEGORY:
         KEY:[0], ID: KEY:[2]]) | MAP (_.CATEGORY AS CATEGORY)'
     task_count: 2507
-    task_total_time_ms: 294
-    transform_count: 536
-    transform_time_ms: 138
+    task_total_time_ms: 184
+    transform_count: 534
+    transform_time_ms: 86
     transform_yield_count: 194
-    insert_time_ms: 19
+    insert_time_ms: 9
     insert_new_count: 259
     insert_reused_count: 22
 multi_column_value_index:
@@ -59,11 +59,11 @@ multi_column_value_index:
         KEY:[0], ID: KEY:[3], PRICE: KEY:[1]]) | MAP (_.CATEGORY AS CATEGORY, _.PRICE
         AS PRICE)'
     task_count: 871
-    task_total_time_ms: 128
-    transform_count: 199
-    transform_time_ms: 60
+    task_total_time_ms: 104
+    transform_count: 197
+    transform_time_ms: 47
     transform_yield_count: 116
-    insert_time_ms: 2
+    insert_time_ms: 1
     insert_new_count: 72
     insert_reused_count: 3
 -   query: EXPLAIN select category, price from products_index_on where category =
@@ -73,9 +73,9 @@ multi_column_value_index:
         KEY:[0], ID: KEY:[3], PRICE: KEY:[1]]) | MAP (_.CATEGORY AS CATEGORY, _.PRICE
         AS PRICE)'
     task_count: 871
-    task_total_time_ms: 129
-    transform_count: 199
-    transform_time_ms: 62
+    task_total_time_ms: 107
+    transform_count: 197
+    transform_time_ms: 49
     transform_yield_count: 116
     insert_time_ms: 2
     insert_new_count: 72
@@ -87,11 +87,11 @@ multi_column_value_index:
         KEY:[3], NAME: KEY:[0], RATING: KEY:[1]]) | MAP (_.NAME AS NAME, _.RATING
         AS RATING)'
     task_count: 2294
-    task_total_time_ms: 373
-    transform_count: 510
-    transform_time_ms: 174
+    task_total_time_ms: 243
+    transform_count: 508
+    transform_time_ms: 116
     transform_yield_count: 178
-    insert_time_ms: 15
+    insert_time_ms: 8
     insert_new_count: 243
     insert_reused_count: 20
 -   query: EXPLAIN select name, rating from products_index_on where name = 'Widget
@@ -101,11 +101,11 @@ multi_column_value_index:
         KEY:[3], NAME: KEY:[0], RATING: KEY:[1]]) | MAP (_.NAME AS NAME, _.RATING
         AS RATING)'
     task_count: 2294
-    task_total_time_ms: 343
-    transform_count: 510
-    transform_time_ms: 162
+    task_total_time_ms: 228
+    transform_count: 508
+    transform_time_ms: 112
     transform_yield_count: 178
-    insert_time_ms: 15
+    insert_time_ms: 8
     insert_new_count: 243
     insert_reused_count: 20
 covering_value_index:
@@ -116,11 +116,11 @@ covering_value_index:
         -> [ID: KEY:[2], NAME: VALUE:[0], PRICE: KEY:[0], SUPPLIER: VALUE:[1]]) |
         MAP (_.PRICE AS PRICE, _.NAME AS NAME, _.SUPPLIER AS SUPPLIER)'
     task_count: 877
-    task_total_time_ms: 161
-    transform_count: 204
-    transform_time_ms: 76
+    task_total_time_ms: 98
+    transform_count: 202
+    transform_time_ms: 51
     transform_yield_count: 113
-    insert_time_ms: 3
+    insert_time_ms: 2
     insert_new_count: 74
     insert_reused_count: 3
 -   query: EXPLAIN select price, name, supplier from products_index_on where price
@@ -130,11 +130,11 @@ covering_value_index:
         -> [ID: KEY:[2], NAME: VALUE:[0], PRICE: KEY:[0], SUPPLIER: VALUE:[1]]) |
         MAP (_.PRICE AS PRICE, _.NAME AS NAME, _.SUPPLIER AS SUPPLIER)'
     task_count: 877
-    task_total_time_ms: 161
-    transform_count: 204
-    transform_time_ms: 71
+    task_total_time_ms: 96
+    transform_count: 202
+    transform_time_ms: 48
     transform_yield_count: 113
-    insert_time_ms: 3
+    insert_time_ms: 2
     insert_new_count: 74
     insert_reused_count: 3
 -   query: EXPLAIN select category, price, name, stock from products_mat_view where
@@ -145,11 +145,11 @@ covering_value_index:
         VALUE:[1]]) | MAP (_.CATEGORY AS CATEGORY, _.PRICE AS PRICE, _.NAME AS NAME,
         _.STOCK AS STOCK)'
     task_count: 768
-    task_total_time_ms: 169
-    transform_count: 188
-    transform_time_ms: 93
+    task_total_time_ms: 94
+    transform_count: 186
+    transform_time_ms: 48
     transform_yield_count: 110
-    insert_time_ms: 3
+    insert_time_ms: 1
     insert_new_count: 63
     insert_reused_count: 3
 -   query: EXPLAIN select category, price, name, stock from products_index_on where
@@ -160,11 +160,11 @@ covering_value_index:
         VALUE:[1]]) | MAP (_.CATEGORY AS CATEGORY, _.PRICE AS PRICE, _.NAME AS NAME,
         _.STOCK AS STOCK)'
     task_count: 768
-    task_total_time_ms: 160
-    transform_count: 188
-    transform_time_ms: 73
+    task_total_time_ms: 102
+    transform_count: 186
+    transform_time_ms: 55
     transform_yield_count: 110
-    insert_time_ms: 2
+    insert_time_ms: 1
     insert_new_count: 63
     insert_reused_count: 3
 mixed_asc_desc_ordering:
@@ -173,11 +173,11 @@ mixed_asc_desc_ordering:
     explain: 'COVERING(IDX_MV_PRICE_DESC <,> -> [ID: KEY:[2], PRICE: from_ordered_bytes(KEY:[0],
         DESC_NULLS_LAST)]) | MAP (_.PRICE AS PRICE)'
     task_count: 537
-    task_total_time_ms: 89
-    transform_count: 124
-    transform_time_ms: 54
+    task_total_time_ms: 64
+    transform_count: 123
+    transform_time_ms: 38
     transform_yield_count: 98
-    insert_time_ms: 2
+    insert_time_ms: 1
     insert_new_count: 44
     insert_reused_count: 6
 -   query: EXPLAIN select price from products_index_on order by price desc
@@ -185,11 +185,11 @@ mixed_asc_desc_ordering:
     explain: 'COVERING(IDX_IOT_PRICE_DESC <,> -> [ID: KEY:[2], PRICE: from_ordered_bytes(KEY:[0],
         DESC_NULLS_LAST)]) | MAP (_.PRICE AS PRICE)'
     task_count: 537
-    task_total_time_ms: 97
-    transform_count: 124
-    transform_time_ms: 59
+    task_total_time_ms: 63
+    transform_count: 123
+    transform_time_ms: 34
     transform_yield_count: 98
-    insert_time_ms: 2
+    insert_time_ms: 1
     insert_new_count: 44
     insert_reused_count: 6
 -   query: EXPLAIN select category, price from products_mat_view order by category
@@ -199,9 +199,9 @@ mixed_asc_desc_ordering:
         DESC_NULLS_LAST), ID: KEY:[3], PRICE: KEY:[1]]) | MAP (_.CATEGORY AS CATEGORY,
         _.PRICE AS PRICE)'
     task_count: 363
-    task_total_time_ms: 73
-    transform_count: 99
-    transform_time_ms: 49
+    task_total_time_ms: 51
+    transform_count: 98
+    transform_time_ms: 29
     transform_yield_count: 88
     insert_time_ms: 0
     insert_new_count: 20
@@ -213,9 +213,9 @@ mixed_asc_desc_ordering:
         DESC_NULLS_LAST), ID: KEY:[3], PRICE: KEY:[1]]) | MAP (_.CATEGORY AS CATEGORY,
         _.PRICE AS PRICE)'
     task_count: 363
-    task_total_time_ms: 72
-    transform_count: 99
-    transform_time_ms: 47
+    task_total_time_ms: 57
+    transform_count: 98
+    transform_time_ms: 39
     transform_yield_count: 88
     insert_time_ms: 0
     insert_new_count: 20
@@ -227,9 +227,9 @@ nulls_ordering:
     explain: 'COVERING(IDX_MV_RATING_NULLS_FIRST <,> -> [ID: KEY:[2], RATING: KEY:[0]])
         | MAP (_.RATING AS RATING)'
     task_count: 363
-    task_total_time_ms: 50
-    transform_count: 99
-    transform_time_ms: 31
+    task_total_time_ms: 39
+    transform_count: 98
+    transform_time_ms: 24
     transform_yield_count: 88
     insert_time_ms: 0
     insert_new_count: 20
@@ -240,9 +240,9 @@ nulls_ordering:
     explain: 'COVERING(IDX_IOT_RATING_NULLS_FIRST <,> -> [ID: KEY:[2], RATING: KEY:[0]])
         | MAP (_.RATING AS RATING)'
     task_count: 363
-    task_total_time_ms: 49
-    transform_count: 99
-    transform_time_ms: 33
+    task_total_time_ms: 41
+    transform_count: 98
+    transform_time_ms: 25
     transform_yield_count: 88
     insert_time_ms: 0
     insert_new_count: 20
@@ -253,9 +253,9 @@ nulls_ordering:
     explain: 'COVERING(IDX_MV_RATING_NULLS_LAST <,> -> [ID: KEY:[2], RATING: from_ordered_bytes(KEY:[0],
         ASC_NULLS_LAST)]) | MAP (_.RATING AS RATING)'
     task_count: 363
-    task_total_time_ms: 51
-    transform_count: 99
-    transform_time_ms: 32
+    task_total_time_ms: 33
+    transform_count: 98
+    transform_time_ms: 20
     transform_yield_count: 88
     insert_time_ms: 0
     insert_new_count: 20
@@ -266,9 +266,9 @@ nulls_ordering:
     explain: 'COVERING(IDX_IOT_RATING_NULLS_LAST <,> -> [ID: KEY:[2], RATING: from_ordered_bytes(KEY:[0],
         ASC_NULLS_LAST)]) | MAP (_.RATING AS RATING)'
     task_count: 363
-    task_total_time_ms: 48
-    transform_count: 99
-    transform_time_ms: 32
+    task_total_time_ms: 39
+    transform_count: 98
+    transform_time_ms: 24
     transform_yield_count: 88
     insert_time_ms: 0
     insert_new_count: 20
@@ -279,9 +279,9 @@ nulls_ordering:
     explain: 'COVERING(IDX_MV_SUPPLIER_DESC_NULLS_FIRST <,> -> [ID: KEY:[2], SUPPLIER:
         from_ordered_bytes(KEY:[0], DESC_NULLS_FIRST)]) | MAP (_.SUPPLIER AS SUPPLIER)'
     task_count: 363
-    task_total_time_ms: 37
-    transform_count: 99
-    transform_time_ms: 20
+    task_total_time_ms: 40
+    transform_count: 98
+    transform_time_ms: 23
     transform_yield_count: 88
     insert_time_ms: 0
     insert_new_count: 20
@@ -292,9 +292,9 @@ nulls_ordering:
     explain: 'COVERING(IDX_IOT_SUPPLIER_DESC_NULLS_FIRST <,> -> [ID: KEY:[2], SUPPLIER:
         from_ordered_bytes(KEY:[0], DESC_NULLS_FIRST)]) | MAP (_.SUPPLIER AS SUPPLIER)'
     task_count: 363
-    task_total_time_ms: 51
-    transform_count: 99
-    transform_time_ms: 31
+    task_total_time_ms: 33
+    transform_count: 98
+    transform_time_ms: 20
     transform_yield_count: 88
     insert_time_ms: 0
     insert_new_count: 20
@@ -305,11 +305,11 @@ reverse_scan_tests:
     explain: 'COVERING(IDX_MV_PRICE_DESC <,> -> [ID: KEY:[2], PRICE: from_ordered_bytes(KEY:[0],
         DESC_NULLS_LAST)]) | MAP (_.PRICE AS PRICE)'
     task_count: 537
-    task_total_time_ms: 89
-    transform_count: 124
-    transform_time_ms: 54
+    task_total_time_ms: 64
+    transform_count: 123
+    transform_time_ms: 38
     transform_yield_count: 98
-    insert_time_ms: 2
+    insert_time_ms: 1
     insert_new_count: 44
     insert_reused_count: 6
 -   query: EXPLAIN select price from products_index_on order by price desc
@@ -317,11 +317,11 @@ reverse_scan_tests:
     explain: 'COVERING(IDX_IOT_PRICE_DESC <,> -> [ID: KEY:[2], PRICE: from_ordered_bytes(KEY:[0],
         DESC_NULLS_LAST)]) | MAP (_.PRICE AS PRICE)'
     task_count: 537
-    task_total_time_ms: 97
-    transform_count: 124
-    transform_time_ms: 59
+    task_total_time_ms: 63
+    transform_count: 123
+    transform_time_ms: 34
     transform_yield_count: 98
-    insert_time_ms: 2
+    insert_time_ms: 1
     insert_new_count: 44
     insert_reused_count: 6
 -   query: EXPLAIN select price from products_mat_view order by price asc
@@ -329,9 +329,9 @@ reverse_scan_tests:
     explain: 'COVERING(IDX_MV_PRICE_DESC <,> REVERSE -> [ID: KEY:[2], PRICE: from_ordered_bytes(KEY:[0],
         DESC_NULLS_LAST)]) | MAP (_.PRICE AS PRICE)'
     task_count: 537
-    task_total_time_ms: 61
-    transform_count: 124
-    transform_time_ms: 37
+    task_total_time_ms: 51
+    transform_count: 123
+    transform_time_ms: 26
     transform_yield_count: 98
     insert_time_ms: 1
     insert_new_count: 44
@@ -341,11 +341,11 @@ reverse_scan_tests:
     explain: 'COVERING(IDX_IOT_PRICE_DESC <,> REVERSE -> [ID: KEY:[2], PRICE: from_ordered_bytes(KEY:[0],
         DESC_NULLS_LAST)]) | MAP (_.PRICE AS PRICE)'
     task_count: 537
-    task_total_time_ms: 59
-    transform_count: 124
-    transform_time_ms: 33
+    task_total_time_ms: 38
+    transform_count: 123
+    transform_time_ms: 23
     transform_yield_count: 98
-    insert_time_ms: 2
+    insert_time_ms: 1
     insert_new_count: 44
     insert_reused_count: 6
 filtered_indexes:
@@ -356,11 +356,11 @@ filtered_indexes:
         -> [ID: KEY:[2], NAME: VALUE:[0], PRICE: KEY:[0], SUPPLIER: VALUE:[1]]) |
         MAP (_.NAME AS NAME, _.PRICE AS PRICE)'
     task_count: 973
-    task_total_time_ms: 106
-    transform_count: 224
-    transform_time_ms: 54
+    task_total_time_ms: 37
+    transform_count: 223
+    transform_time_ms: 20
     transform_yield_count: 119
-    insert_time_ms: 3
+    insert_time_ms: 0
     insert_new_count: 81
     insert_reused_count: 3
 -   query: EXPLAIN select name, price from products_index_on where price > 20 order
@@ -370,9 +370,9 @@ filtered_indexes:
         -> [ID: KEY:[2], NAME: VALUE:[0], PRICE: KEY:[0], SUPPLIER: VALUE:[1]]) |
         MAP (_.NAME AS NAME, _.PRICE AS PRICE)'
     task_count: 940
-    task_total_time_ms: 104
-    transform_count: 220
-    transform_time_ms: 54
+    task_total_time_ms: 90
+    transform_count: 219
+    transform_time_ms: 41
     transform_yield_count: 117
     insert_time_ms: 1
     insert_new_count: 78
@@ -384,9 +384,9 @@ filtered_indexes:
         PRICE: VALUE:[0], STOCK: VALUE:[1]]) | MAP (_.NAME AS NAME, _.PRICE AS PRICE,
         _.STOCK AS STOCK)'
     task_count: 544
-    task_total_time_ms: 83
-    transform_count: 149
-    transform_time_ms: 51
+    task_total_time_ms: 72
+    transform_count: 147
+    transform_time_ms: 41
     transform_yield_count: 99
     insert_time_ms: 1
     insert_new_count: 40
@@ -398,11 +398,11 @@ filtered_indexes:
         PRICE: VALUE:[0], STOCK: VALUE:[1]]) | MAP (_.NAME AS NAME, _.PRICE AS PRICE,
         _.STOCK AS STOCK)'
     task_count: 544
-    task_total_time_ms: 83
-    transform_count: 149
-    transform_time_ms: 40
+    task_total_time_ms: 59
+    transform_count: 147
+    transform_time_ms: 31
     transform_yield_count: 99
-    insert_time_ms: 1
+    insert_time_ms: 0
     insert_new_count: 40
     insert_reused_count: 2
 -   query: EXPLAIN select category, price, stock from products_mat_view where price
@@ -412,11 +412,11 @@ filtered_indexes:
         PRICE: VALUE:[0], STOCK: VALUE:[1]]) | MAP (_.CATEGORY AS CATEGORY, _.PRICE
         AS PRICE, _.STOCK AS STOCK)'
     task_count: 1304
-    task_total_time_ms: 112
-    transform_count: 288
-    transform_time_ms: 54
+    task_total_time_ms: 124
+    transform_count: 286
+    transform_time_ms: 62
     transform_yield_count: 130
-    insert_time_ms: 4
+    insert_time_ms: 3
     insert_new_count: 125
     insert_reused_count: 7
 -   query: EXPLAIN select category, price, stock from products_index_on where price
@@ -426,11 +426,11 @@ filtered_indexes:
         PRICE: VALUE:[0], STOCK: VALUE:[1]]) | MAP (_.CATEGORY AS CATEGORY, _.PRICE
         AS PRICE, _.STOCK AS STOCK)'
     task_count: 1304
-    task_total_time_ms: 111
-    transform_count: 288
-    transform_time_ms: 51
+    task_total_time_ms: 120
+    transform_count: 286
+    transform_time_ms: 60
     transform_yield_count: 130
-    insert_time_ms: 4
+    insert_time_ms: 3
     insert_new_count: 125
     insert_reused_count: 7
 -   query: EXPLAIN select name, price from products_mat_view where price > 50 order
@@ -440,11 +440,11 @@ filtered_indexes:
         -> [ID: KEY:[2], NAME: VALUE:[0], PRICE: KEY:[0], SUPPLIER: VALUE:[1]]) |
         MAP (_.NAME AS NAME, _.PRICE AS PRICE)'
     task_count: 973
-    task_total_time_ms: 106
-    transform_count: 224
-    transform_time_ms: 54
+    task_total_time_ms: 37
+    transform_count: 223
+    transform_time_ms: 20
     transform_yield_count: 119
-    insert_time_ms: 3
+    insert_time_ms: 0
     insert_new_count: 81
     insert_reused_count: 3
 -   query: EXPLAIN select name, price from products_index_on where price > 50 order
@@ -454,9 +454,9 @@ filtered_indexes:
         -> [ID: KEY:[2], NAME: VALUE:[0], PRICE: KEY:[0], SUPPLIER: VALUE:[1]]) |
         MAP (_.NAME AS NAME, _.PRICE AS PRICE)'
     task_count: 940
-    task_total_time_ms: 104
-    transform_count: 220
-    transform_time_ms: 54
+    task_total_time_ms: 90
+    transform_count: 219
+    transform_time_ms: 41
     transform_yield_count: 117
     insert_time_ms: 1
     insert_new_count: 78
