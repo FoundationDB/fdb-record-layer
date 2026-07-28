@@ -865,7 +865,7 @@ public class AstNormalizerTests {
     void parseDqlStatementWithoutSnapshotIsolationSetsItToFalse() throws Exception {
         validate(List.of("select * from t1 where col1 > 42"),
                 PreparedParams.empty(),
-                "select * from \"T1\" where \"COL1\" > ? ",
+                "SELECT * FROM \"T1\" WHERE \"COL1\" > ? ",
                 List.of(Map.of(constantId(7), 42)),
                 null,
                 -1,
@@ -878,7 +878,7 @@ public class AstNormalizerTests {
         validate(List.of("select * from t1 where col1 > 42 options (isolation level snapshot)",
                          "  select * from t1   where   col1 > 42 options (  isolation   level  snapshot     )"),
                 PreparedParams.empty(),
-                "select * from \"T1\" where \"COL1\" > ? ",
+                "SELECT * FROM \"T1\" WHERE \"COL1\" > ? ",
                 List.of(Map.of(constantId(7), 42), Map.of(constantId(7), 42)),
                 null,
                 -1,
