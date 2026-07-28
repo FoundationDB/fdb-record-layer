@@ -476,6 +476,8 @@ public class FDBStoreTimer extends StoreTimer {
         WAIT_LOAD_LUCENE_PARTITION_METADATA("wait to load lucene partition metadata"),
         /** Wait to run all the postClose hooks. */
         WAIT_RUN_CLOSE_HOOKS("Wait to run all postClose hooks"),
+        /** Wait to delete a store. */
+        WAIT_DELETE_STORE("wait for delete store"),
         ;
 
         private final String title;
