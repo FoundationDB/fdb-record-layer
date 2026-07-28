@@ -196,7 +196,9 @@ public abstract class RecordQueryAbstractDataModificationPlan extends AbstractRe
                                                                      @Nonnull final ExecuteProperties executeProperties) {
         // Data-modification plans must run at serializable isolation: they read existing records (to maintain
         // indexes, enforce uniqueness, etc.) and those reads must participate in conflict detection to remain
-        // correct. Executing at SNAPSHOT isolation would drop those conflict ranges and is never safe.
+        // correct. Executing at SNAPSHOT isolation would, at a minimum, require adding any records read to the conflict
+        // range to ensure index consistency. It also requires determining and documenting the exact semantics. Because
+        // of this complexity and a lack of immediate requests, this is not supported.
         if (executeProperties.getIsolationLevel().isSnapshot()) {
             throw new RecordCoreArgumentException("Cannot execute a data-modification plan at SNAPSHOT isolation level")
                     .addLogInfo(LogMessageKeys.PLAN, getClass().getSimpleName());

@@ -366,7 +366,7 @@ public class FDBModificationQueryTest extends FDBRecordStoreQueryTestBase {
                         final var updatePath = FieldValue.resolveFieldPath(qun.getFlowedObjectType(),
                                 ImmutableList.of(new FieldValue.Accessor("name", -1)));
                         final var updateValue = new ArithmeticValue(ArithmeticValue.PhysicalOperator.ADD_SS,
-                                FieldValue.ofFieldName(qun.getFlowedObjectValue(), "name"), LiteralValue.ofScalar(" McDonald's"));
+                                FieldValue.ofFieldName(qun.getFlowedObjectValue(), "name"), LiteralValue.ofScalar(" Pasta General"));
                         qun = Quantifier.forEach(Reference.initialOf(new UpdateExpression(qun, "RestaurantRecord",
                                 restaurantType, ImmutableMap.of(updatePath, updateValue))));
                         return Reference.initialOf(LogicalSortExpression.unsorted(qun));

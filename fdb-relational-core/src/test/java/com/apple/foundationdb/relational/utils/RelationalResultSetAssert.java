@@ -108,7 +108,7 @@ public class RelationalResultSetAssert extends AbstractAssert<RelationalResultSe
     /**
      * Drains the result set, counting the rows, and asserts the total equals {@code expected}. This both
      * consumes the result set and verifies its size, which is convenient for tests that need the scan to
-     * fully execute (for example, concurrency tests) while also checking how many rows were returned.
+     * fully execute, but care less about the contents, while also checking how many rows were returned.
      */
     public RelationalResultSetAssert hasRowCount(int expected) {
         isNotNull();

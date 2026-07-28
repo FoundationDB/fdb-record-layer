@@ -69,7 +69,6 @@ public class SnapshotIsolationConcurrencyTest {
             "CREATE TABLE t(id BIGINT, val BIGINT, PRIMARY KEY(id))"
             + " CREATE TABLE u(id BIGINT, val BIGINT, PRIMARY KEY(id))";
 
-    /** Number of id slots (0 ... RECORD_COUNT-1) partitioned across the three {@code id % 3} buckets. */
     private static final int RECORD_COUNT = 30;
 
     /** Upper bound of the scan; every data id is below it, so the scan covers the whole data range. */
@@ -80,7 +79,7 @@ public class SnapshotIsolationConcurrencyTest {
 
     /**
      * A dedicated key transaction A writes (so it is a read-write transaction that can conflict). It is
-     * outside the scanned range and is never written by B, so it can never cause a write-write conflict
+     * outside the scanned range and is never written by B, so it can never cause a conflict
      * that would mask the read-conflict behavior under test.
      */
     private static final long A_OWN_KEY = SCAN_UPPER_BOUND;

@@ -205,8 +205,8 @@ public final class Options {
         PLAN_RIGHT_DEEP,
 
         /**
-         * A boolean indicating that a {@code SELECT} query should be executed using FDB's snapshot isolation
-         * (per-read snapshot semantics), so that its reads do not add conflict ranges to the enclosing transaction.
+         * A boolean indicating that a {@code SELECT} query should be executed using FDB's snapshot isolation,
+         * so that its reads do not add conflict ranges to the enclosing transaction.
          * This only affects the scans of the query it is set on; other reads and writes in the same transaction
          * continue to use their configured (typically serializable) isolation. Only supported on read-only
          * ({@code SELECT}) queries.
