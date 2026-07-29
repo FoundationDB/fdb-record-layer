@@ -212,7 +212,7 @@ vectorIndexOptions
     ;
 
 vectorIndexOption
-    : optionName=uid '=' optionValue=vectorIndexOptionValue
+    : optionName=simpleId '=' optionValue=vectorIndexOptionValue
     ;
 
 vectorIndexOptionValue
