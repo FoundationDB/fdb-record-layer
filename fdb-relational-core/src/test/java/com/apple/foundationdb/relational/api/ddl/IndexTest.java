@@ -1404,6 +1404,75 @@ public class IndexTest {
     }
 
     @Test
+    void createGuardiannVectorIndexWithOptionsWorksCorrectly() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TABLE T(p bigint, b vector(3, float), primary key(p))" +
+                "CREATE VECTOR INDEX MV1 USING GUARDIANN ON T(b) PARTITION BY (p) " +
+                "OPTIONS (METRIC = COSINE_METRIC, PRIMARY_CLUSTER_MIN = 20, PRIMARY_CLUSTER_MAX = 200, " +
+                "REPLICATED_CLUSTER_TARGET = 50, REPLICATION_PRIORITY_MIN = 0.75, COLLAPSE_MIN_DUPLICATES = 100)";
+        indexIs(stmt,
+                keyWithValue(concat(field("P"), field("B")), 1),
+                IndexTypes.VECTOR,
+                idx -> {
+                    final var options = idx.getOptions();
+                    Assertions.assertEquals("GUARDIANN", options.get(IndexOptions.VECTOR_ENGINE));
+                    // shared options are written under their (currently canonical) hnsw* wire names
+                    Assertions.assertEquals("3", options.get(IndexOptions.HNSW_NUM_DIMENSIONS));
+                    Assertions.assertEquals("COSINE_METRIC", options.get(IndexOptions.HNSW_METRIC));
+                    Assertions.assertEquals("20", options.get(IndexOptions.GUARDIANN_PRIMARY_CLUSTER_MIN));
+                    Assertions.assertEquals("200", options.get(IndexOptions.GUARDIANN_PRIMARY_CLUSTER_MAX));
+                    Assertions.assertEquals("50", options.get(IndexOptions.GUARDIANN_REPLICATED_CLUSTER_TARGET));
+                    Assertions.assertEquals("0.75", options.get(IndexOptions.GUARDIANN_REPLICATION_PRIORITY_MIN));
+                    Assertions.assertEquals("100", options.get(IndexOptions.GUARDIANN_COLLAPSE_MIN_DUPLICATES));
+                    // and the same values read back through the typed option keys
+                    final var coreIndex = toCoreIndex(idx);
+                    Assertions.assertEquals(3, VectorIndexOptionKeys.NUM_DIMENSIONS.read(coreIndex));
+                    Assertions.assertEquals(Metric.COSINE_METRIC, VectorIndexOptionKeys.METRIC.read(coreIndex));
+                    Assertions.assertEquals(20, VectorIndexOptionKeys.GUARDIANN_PRIMARY_CLUSTER_MIN.read(coreIndex));
+                    Assertions.assertEquals(200, VectorIndexOptionKeys.GUARDIANN_PRIMARY_CLUSTER_MAX.read(coreIndex));
+                    Assertions.assertEquals(50, VectorIndexOptionKeys.GUARDIANN_REPLICATED_CLUSTER_TARGET.read(coreIndex));
+                    Assertions.assertEquals(0.75, VectorIndexOptionKeys.GUARDIANN_REPLICATION_PRIORITY_MIN.read(coreIndex));
+                    Assertions.assertEquals(100, VectorIndexOptionKeys.GUARDIANN_COLLAPSE_MIN_DUPLICATES.read(coreIndex));
+                    validateVectorIndex(idx);
+                });
+    }
+
+    @Test
+    void createGuardiannVectorIndexWithHnswOnlyOptionIsRejected() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TABLE T(p bigint, b vector(3, float), primary key(p))" +
+                "CREATE VECTOR INDEX MV1 USING GUARDIANN ON T(b) PARTITION BY (p) OPTIONS (CONNECTIVITY = 16)";
+        shouldFailWith(stmt, ErrorCode.UNSUPPORTED_OPERATION, "not valid for the GUARDIANN vector engine");
+    }
+
+    @Test
+    void createGuardiannVectorIndexWithNonNumericOptionValueIsRejected() throws Exception {
+        // PRIMARY_CLUSTER_MAX expects an integer. 1.5 is a valid vectorIndexOptionValue (a REAL_LITERAL) but cannot be
+        // coerced to an int, so option parsing surfaces a syntax error rather than letting the NumberFormatException
+        // escape.
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TABLE T(p bigint, b vector(3, float), primary key(p))" +
+                "CREATE VECTOR INDEX MV1 USING GUARDIANN ON T(b) PARTITION BY (p) OPTIONS (PRIMARY_CLUSTER_MAX = 1.5)";
+        shouldFailWith(stmt, ErrorCode.SYNTAX_ERROR, "invalid value");
+    }
+
+    @Test
+    void createHnswVectorIndexWithGuardiannOnlyOptionIsRejected() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TABLE T(p bigint, b vector(3, float), primary key(p))" +
+                "CREATE VECTOR INDEX MV1 USING HNSW ON T(b) PARTITION BY (p) OPTIONS (PRIMARY_CLUSTER_MIN = 20)";
+        shouldFailWith(stmt, ErrorCode.UNSUPPORTED_OPERATION, "not valid for the HNSW vector engine");
+    }
+
+    @Test
+    void createVectorIndexWithUnknownOptionIsRejected() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TABLE T(p bigint, b vector(3, float), primary key(p))" +
+                "CREATE VECTOR INDEX MV1 USING HNSW ON T(b) PARTITION BY (p) OPTIONS (BOGUS_OPTION = 5)";
+        shouldFailWith(stmt, ErrorCode.UNSUPPORTED_OPERATION, "unsupported vector index option 'bogus_option'");
+    }
+
+    @Test
     void createVectorIndexOnMultipleColumnsFails() throws Exception {
         final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
                 "CREATE TABLE T(p bigint, b vector(3, float), c vector(3, float), primary key(p))" +
