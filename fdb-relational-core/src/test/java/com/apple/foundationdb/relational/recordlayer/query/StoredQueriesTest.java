@@ -50,6 +50,26 @@ public class StoredQueriesTest {
                     " CREATE STORED QUERY by_col1 AS select * from t1 where col1 = 10" +
                     " CREATE STORED QUERY by_id AS select * from t1 where id = 1";
 
+    /**
+     * A stored query whose body uses an inline typed positional parameter ({@code ?{bigint}}) instead of a concrete
+     * literal, so it is planned value-free at warmup and reused by any runtime value of the declared type.
+     */
+    private static final String SCHEMA_TEMPLATE_TYPED_PARAM =
+            "CREATE TABLE t1(id bigint, col1 bigint, col2 bigint, PRIMARY KEY(id))" +
+                    " CREATE INDEX i1 AS SELECT col1 FROM t1" +
+                    " CREATE STORED QUERY by_col1_typed AS select * from t1 where col1 > ?{bigint}";
+
+    /**
+     * A stored query with two inline typed parameters. Because {@code ?{type}} is a single lexer token, it occupies
+     * exactly one token slot (like a bare {@code ?}), so the second parameter's constant id (derived from the token
+     * index) matches the second {@code ?} of a runtime {@code col1 > ? and col2 < ?}. A multi-token annotation would
+     * shift it and bind the runtime values to the wrong slots.
+     */
+    private static final String SCHEMA_TEMPLATE_TWO_TYPED_PARAMS =
+            "CREATE TABLE t1(id bigint, col1 bigint, col2 bigint, PRIMARY KEY(id))" +
+                    " CREATE INDEX i1 AS SELECT col1 FROM t1" +
+                    " CREATE STORED QUERY by_two_typed AS select * from t1 where col1 > ?{bigint} and col2 < ?{bigint}";
+
     /** Stored query body has a typo (`select1` rather than `select`) — DDL fails to parse. */
     private static final String SCHEMA_TEMPLATE_BAD_SYNTAX =
             "CREATE TABLE t1(id bigint, col1 bigint, col2 bigint, PRIMARY KEY(id))" +
@@ -359,6 +379,91 @@ public class StoredQueriesTest {
                 }
             });
             Assertions.assertEquals(Long.valueOf(2), connectionUtils.getFromCatalog(c -> countCachedPlans(c, templateName)));
+        }
+    }
+
+    @Test
+    void storedQueriesUsageTypedParam() throws Exception {
+        final String dbUri = "/TEST/STOREDQUERIES_TYPED_DB";
+        try (var ddl = Ddl.builder()
+                .database(URI.create(dbUri))
+                .relationalExtension(relationalExtension)
+                .schemaTemplate(SCHEMA_TEMPLATE_TYPED_PARAM)
+                .build()) {
+            final var connection = ddl.setSchemaAndGetConnection();
+            final String templateName = ddl.getSchemaTemplateName();
+            final String schemaName = connection.getSchema();
+
+            try (var stmt = connection.createStatement()) {
+                stmt.execute("INSERT INTO T1 VALUES (1, 10, 1)");
+                stmt.execute("INSERT INTO T1 VALUES (2, 20, 2)");
+                stmt.execute("INSERT INTO T1 VALUES (3, 30, 3)");
+            }
+
+            // Fresh engine: OfflineStoredQueriesProcessor warms the single value-free stored query.
+            final var engineDriver = relationalExtension.getDriver(
+                    com.apple.foundationdb.record.provider.foundationdb.FormatVersion.getDefaultFormatVersion());
+            final var connectionUtils = new ConnectionUtils(engineDriver);
+            Assertions.assertEquals(Long.valueOf(1), connectionUtils.getFromCatalog(c -> countCachedPlans(c, templateName)));
+
+            // Runtime 'col1 > ?' bound to a bigint (setLong) — canonical SQL and OfType(LONG) match the warmed
+            // value-free plan, so it is reused (no new plan is generated: countCachedPlans stays 1). A type mismatch
+            // or a value-derived plan would instead replan and bump the count to 2.
+            connectionUtils.runAgainstConnection(dbUri, schemaName, c -> {
+                try (var ps = c.prepareStatement("select * from t1 where col1 > ?")) {
+                    ps.setLong(1, 15L);
+                    try (RelationalResultSet rs = ps.executeQuery()) {
+                        Assertions.assertTrue(rs.next());
+                        Assertions.assertEquals(2, rs.getLong("ID"));
+                        Assertions.assertTrue(rs.next());
+                        Assertions.assertEquals(3, rs.getLong("ID"));
+                        Assertions.assertFalse(rs.next());
+                    }
+                }
+            });
+            Assertions.assertEquals(Long.valueOf(1), connectionUtils.getFromCatalog(c -> countCachedPlans(c, templateName)));
+        }
+    }
+
+    @Test
+    void storedQueriesUsageTwoTypedParams() throws Exception {
+        final String dbUri = "/TEST/STOREDQUERIES_TWO_TYPED_DB";
+        try (var ddl = Ddl.builder()
+                .database(URI.create(dbUri))
+                .relationalExtension(relationalExtension)
+                .schemaTemplate(SCHEMA_TEMPLATE_TWO_TYPED_PARAMS)
+                .build()) {
+            final var connection = ddl.setSchemaAndGetConnection();
+            final String templateName = ddl.getSchemaTemplateName();
+            final String schemaName = connection.getSchema();
+
+            try (var stmt = connection.createStatement()) {
+                stmt.execute("INSERT INTO T1 VALUES (1, 10, 1)");
+                stmt.execute("INSERT INTO T1 VALUES (2, 20, 2)");
+                stmt.execute("INSERT INTO T1 VALUES (3, 30, 3)");
+            }
+
+            // Fresh engine: warm the single value-free stored query with two typed parameters.
+            final var engineDriver = relationalExtension.getDriver(
+                    com.apple.foundationdb.record.provider.foundationdb.FormatVersion.getDefaultFormatVersion());
+            final var connectionUtils = new ConnectionUtils(engineDriver);
+            Assertions.assertEquals(Long.valueOf(1), connectionUtils.getFromCatalog(c -> countCachedPlans(c, templateName)));
+
+            // Runtime 'col1 > ? and col2 < ?' with two bound bigints. Both values must bind to the correct constant
+            // ids: col1 > 15 -> {id 2, 3}; col2 < 3 -> {id 1, 2}; intersection -> id 2. A shifted second constant id
+            // would bind the values to the wrong slots (wrong rows) or fail to reuse the plan.
+            connectionUtils.runAgainstConnection(dbUri, schemaName, c -> {
+                try (var ps = c.prepareStatement("select * from t1 where col1 > ? and col2 < ?")) {
+                    ps.setLong(1, 15L);
+                    ps.setLong(2, 3L);
+                    try (RelationalResultSet rs = ps.executeQuery()) {
+                        Assertions.assertTrue(rs.next());
+                        Assertions.assertEquals(2, rs.getLong("ID"));
+                        Assertions.assertFalse(rs.next());
+                    }
+                }
+            });
+            Assertions.assertEquals(Long.valueOf(1), connectionUtils.getFromCatalog(c -> countCachedPlans(c, templateName)));
         }
     }
 
