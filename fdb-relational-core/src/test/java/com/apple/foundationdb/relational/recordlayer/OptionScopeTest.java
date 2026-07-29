@@ -102,7 +102,7 @@ public class OptionScopeTest {
      * set the option on the connection, run a few reads, and switch back.
      */
     @Test
-    public void snapshotIsolationTakenFromConnection() throws SQLException, RelationalException {
+    void snapshotIsolationTakenFromConnection() throws SQLException {
         final var driver = (RelationalDriver) DriverManager.getDriver(db.getConnectionUri().toString());
         try (Connection conn = driver.connect(db.getConnectionUri(), Options.builder().withOption(Options.Name.SNAPSHOT_ISOLATION, true).build())) {
             conn.setSchema(db.getSchemaName());
@@ -121,7 +121,7 @@ public class OptionScopeTest {
      * with the option set is therefore effectively read-only until the option is cleared.
      */
     @Test
-    public void snapshotIsolationConnectionOptionRejectsDml() throws SQLException {
+    void snapshotIsolationConnectionOptionRejectsDml() throws SQLException {
         final var driver = (RelationalDriver) DriverManager.getDriver(db.getConnectionUri().toString());
         try (Connection conn = driver.connect(db.getConnectionUri(), Options.builder().withOption(Options.Name.SNAPSHOT_ISOLATION, true).build())) {
             conn.setSchema(db.getSchemaName());
