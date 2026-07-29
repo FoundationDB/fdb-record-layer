@@ -71,7 +71,13 @@ public class SnapshotIsolationConcurrencyTest {
 
     private static final String SCHEMA_TEMPLATE =
             "CREATE TABLE t(id BIGINT, val BIGINT, PRIMARY KEY(id))"
-            + " CREATE TABLE u(id BIGINT, val BIGINT, PRIMARY KEY(id))";
+            + " CREATE TABLE u(id BIGINT, val BIGINT, PRIMARY KEY(id))"
+            // Tables backing the documentation examples (docs/.../statement_options/ISOLATION_LEVEL_SNAPSHOT.rst):
+            // a COUNT(*) index and a MAX_EVER index, each a single index entry that every insert updates.
+            + " CREATE TABLE document(id BIGINT, data STRING, PRIMARY KEY(id))"
+            + " CREATE INDEX document_count AS SELECT count(*) FROM document"
+            + " CREATE TABLE folder(folder_id BIGINT, name STRING, PRIMARY KEY(folder_id))"
+            + " CREATE INDEX max_folder_id AS SELECT max_ever(folder_id) FROM folder";
 
     private static final int RECORD_COUNT = 30;
 
@@ -120,7 +126,7 @@ public class SnapshotIsolationConcurrencyTest {
         // Query transaction: read the whole range, optionally at snapshot isolation, fully draining it. It
         // must have actually read the initial records, so that the update transaction's interleaved writes
         // below fall between records it read (and hence within its read range).
-        final var query = SCAN_QUERY + (useSnapshot ? " OPTIONS (ISOLATION LEVEL SNAPSHOT)" : "");
+        final var query = SCAN_QUERY + snapshotOptions(useSnapshot);
         assertQueryReturns(queryConnection, query, bucketSize());
 
         // Update transaction:
@@ -166,8 +172,7 @@ public class SnapshotIsolationConcurrencyTest {
         final Continuation firstPage;
         try (RelationalStatement statement = queryConnection.createStatement()) {
             statement.setMaxRows(1);
-            try (RelationalResultSet resultSet =
-                    statement.executeQuery(SCAN_QUERY + " OPTIONS (ISOLATION LEVEL SNAPSHOT)")) {
+            try (RelationalResultSet resultSet = statement.executeQuery(SCAN_QUERY + snapshotOptions(true))) {
                 assertThat(resultSet.next()).isTrue();
                 firstPage = resultSet.getContinuation();
             }
@@ -178,8 +183,7 @@ public class SnapshotIsolationConcurrencyTest {
         insertBucket(updateConnection, "t", 1);
         updateConnection.commit();
 
-        final var resumeSql = "EXECUTE CONTINUATION ?continuation"
-                + (repeatOptionOnResume ? " OPTIONS (ISOLATION LEVEL SNAPSHOT)" : "");
+        final var resumeSql = "EXECUTE CONTINUATION ?continuation" + snapshotOptions(repeatOptionOnResume);
 
         // Resume the first page of the continuation (guaranteed to exist by the assertion above).
         Continuation current = resumeContinuationPage(queryConnection, resumeSql, firstPage);
@@ -210,7 +214,7 @@ public class SnapshotIsolationConcurrencyTest {
     @ParameterizedTest
     @BooleanSource("useSnapshot")
     void snapshotReadSeesOwnWrites(boolean useSnapshot) throws SQLException {
-        final var option = useSnapshot ? " OPTIONS (ISOLATION LEVEL SNAPSHOT)" : "";
+        final var option = snapshotOptions(useSnapshot);
         queryConnection.setAutoCommit(false);
 
         // Write a new row within the query transaction; a point read in the same transaction must see it.
@@ -251,7 +255,7 @@ public class SnapshotIsolationConcurrencyTest {
         // We do a different query so that we have not queried all of the data that we will query in the second
         // transaction.
         assertQueryReturns(queryConnection, "SELECT id FROM t WHERE id < " + BUCKET_COUNT * 2 +
-                " OPTIONS (ISOLATION LEVEL SNAPSHOT)", 2);
+                snapshotOptions(true), 2);
 
         // Update transaction commits new rows (id % 3 == 1) after the query transaction's read version was
         // established.
@@ -260,7 +264,7 @@ public class SnapshotIsolationConcurrencyTest {
 
         // The query transaction reads again at snapshot isolation: it still sees only the original rows, not
         // the newly committed insert. Under READ_COMMITTED this second read would return 2 * bucketSize() rows.
-        assertQueryReturns(queryConnection, SCAN_QUERY + " OPTIONS (ISOLATION LEVEL SNAPSHOT)", bucketSize());
+        assertQueryReturns(queryConnection, SCAN_QUERY + snapshotOptions(true), bucketSize());
 
         queryConnection.commit();
     }
@@ -282,8 +286,7 @@ public class SnapshotIsolationConcurrencyTest {
         updateConnection.setAutoCommit(false);
 
         // Query transaction: join t and u on the non-indexed val column, forcing both tables to be scanned.
-        final var query = "SELECT t.id FROM t, u WHERE t.val = u.val"
-                + (useSnapshot ? " OPTIONS (ISOLATION LEVEL SNAPSHOT)" : "");
+        final var query = "SELECT t.id FROM t, u WHERE t.val = u.val" + snapshotOptions(useSnapshot);
         assertQueryReturns(queryConnection, query, bucketSize());
 
         // Update transaction: insert interleaved rows into whichever joined table, and commit.
@@ -312,7 +315,7 @@ public class SnapshotIsolationConcurrencyTest {
         // Query transaction: union of t and u, which scans both tables fully.
         final var query = "SELECT id FROM t WHERE id < " + SCAN_UPPER_BOUND
                 + " UNION ALL SELECT id FROM u WHERE id < " + SCAN_UPPER_BOUND
-                + (useSnapshot ? " OPTIONS (ISOLATION LEVEL SNAPSHOT)" : "");
+                + snapshotOptions(useSnapshot);
         assertQueryReturns(queryConnection, query, 2 * bucketSize());
 
         // Update transaction: insert interleaved rows into whichever unioned table, and commit.
@@ -321,6 +324,104 @@ public class SnapshotIsolationConcurrencyTest {
 
         // A snapshot union added no conflict range for either input; a serializable union spans the writes.
         writeOwnKeyAndAssertCommit(!useSnapshot);
+    }
+
+    /**
+     * Simulates the first documentation example (an approximate row limit protected by a {@code COUNT(*)}
+     * index).
+     * <p>
+     * See {@code docs/sphinx/source/reference/statement_options/ISOLATION_LEVEL_SNAPSHOT.rst} and
+     * {@code yaml-tests/.../isolation-level-snapshot-documentation-queries.yamsql}.
+     */
+    @ParameterizedTest
+    @BooleanSource("useSnapshot")
+    void approximateRowLimitWithCountIndex(boolean useSnapshot) throws SQLException {
+        // Initial committed data: three documents, so the document_count index reads 3.
+        try (RelationalStatement statement = updateConnection.createStatement()) {
+            statement.executeUpdate("INSERT INTO document VALUES (1, 'a'), (2, 'b'), (3, 'c')");
+        }
+
+        queryConnection.setAutoCommit(false);
+        updateConnection.setAutoCommit(false);
+
+        // Query transaction: read the current row count via the count index to decide whether it is under a cap.
+        final var option = snapshotOptions(useSnapshot);
+        assertDocumentCount(queryConnection, option, 3L);
+
+        // Update transaction: a concurrent insert bumps the single document_count index entry, and commits.
+        assertDocumentCount(updateConnection, option, 3L);
+        insertDocument(updateConnection, 100, "concurrent");
+        updateConnection.commit();
+
+        // The observed count was under the cap, so the query transaction proceeds with its own insert.
+        insertDocument(queryConnection, 200, "mine");
+        // At serializable, reading the count index entry conflicts with the concurrent insert that modified
+        // it, so the commit fails; at snapshot isolation the read added no conflict range and the insert
+        // proceeds against a now-stale count — the "approximate" limit the documentation describes.
+        commitQueryConnection(!useSnapshot);
+
+        assertDocumentCount(updateConnection, option, useSnapshot ? 5L : 4L);
+    }
+
+    private void insertDocument(@Nonnull final RelationalConnectionRule connection,
+                                final int id, @Nonnull final String data) throws SQLException {
+        try (RelationalStatement statement1 = connection.createStatement()) {
+            statement1.executeUpdate("INSERT INTO document VALUES (" + id + ", '" + data + "')");
+        }
+    }
+
+    private void assertDocumentCount(@Nonnull final RelationalConnectionRule connection, @Nonnull final String option,
+                                     final long expected) throws SQLException {
+        assertScalar(connection, "SELECT count(*) AS document_count FROM document" + option, "DOCUMENT_COUNT", expected);
+    }
+
+    /**
+     * Simulates the second documentation example (sequence-like ids from a {@code MAX_EVER} index and a
+     * random offset), except we use fixed offsets to ensure a stable test.
+     * <p>
+     * See {@code docs/sphinx/source/reference/statement_options/ISOLATION_LEVEL_SNAPSHOT.rst} and
+     * {@code yaml-tests/.../isolation-level-snapshot-documentation-queries.yamsql}.
+     */
+    @ParameterizedTest
+    @BooleanSource({"useSnapshot", "snapshotInsertsBigger"})
+    void sequenceLikeIdsWithMaxEverIndex(boolean useSnapshot, boolean snapshotInsertsBigger) throws SQLException {
+        // Initial committed data: the largest folder_id so far is 250, tracked by the max_folder_id index.
+        try (RelationalStatement statement = updateConnection.createStatement()) {
+            statement.executeUpdate("INSERT INTO folder VALUES (100, 'first'), (250, 'second'), (175, 'third')");
+        }
+
+        queryConnection.setAutoCommit(false);
+        updateConnection.setAutoCommit(false);
+
+        // Query transaction: read the current maximum id via the max_ever index to derive the next id.
+        final var option = snapshotOptions(useSnapshot);
+        assertMaxEverFolderId(queryConnection, option, 250L);
+
+        // Update transaction: a concurrent assignment inserts a higher id, bumping the single max_folder_id
+        // index entry, and commits.
+        assertMaxEverFolderId(updateConnection, option, 250L);
+        insertFolder(updateConnection, "concurent", 300);
+        updateConnection.commit();
+
+        // The application adds a small (here fixed) offset to the observed maximum and inserts the new folder.
+        insertFolder(queryConnection, "mine", (snapshotInsertsBigger ? 313 : 257));
+        // At serializable, reading the max_ever entry conflicts with the concurrent assignment that modified
+        // it; at snapshot isolation it added no conflict range, so concurrent id assignments proceed.
+        commitQueryConnection(!useSnapshot);
+
+        assertMaxEverFolderId(updateConnection, option, (useSnapshot && snapshotInsertsBigger) ? 313L : 300L);
+    }
+
+    private void insertFolder(@Nonnull final RelationalConnectionRule connection,
+                              @Nonnull final String name, final int id) throws SQLException {
+        try (RelationalStatement statement = connection.createStatement()) {
+            statement.executeUpdate("INSERT INTO folder VALUES (" + id + ", '" + name + "')");
+        }
+    }
+
+    private void assertMaxEverFolderId(@Nonnull final RelationalConnectionRule connection,
+                                       @Nonnull final String option, final long expected) throws SQLException {
+        assertScalar(connection, "SELECT max_ever(folder_id) AS max_id FROM folder" + option, "MAX_ID", expected);
     }
 
     /**
@@ -354,25 +455,43 @@ public class SnapshotIsolationConcurrencyTest {
         }
     }
 
-    /** Runs a query on the connection and asserts it returns exactly one row whose {@code VAL} column equals {@code expectedVal}. */
+    /** Runs a query and asserts it returns exactly one row whose {@code VAL} column equals {@code expectedVal}. */
     private void assertQueryReturnsVal(@Nonnull RelationalConnectionRule connection, @Nonnull final String query,
                                        final long expectedVal) throws SQLException {
+        assertScalar(connection, query, "VAL", expectedVal);
+    }
+
+    /**
+     * Runs a query and asserts it returns exactly one row whose {@code column} equals
+     * {@code expected}. Used by the documentation-example tests, whose aggregates are aliased to a named column.
+     */
+    private void assertScalar(final RelationalConnectionRule connection, @Nonnull final String query,
+                              @Nonnull final String column, final long expected)
+            throws SQLException {
         try (RelationalStatement statement = connection.createStatement();
                  RelationalResultSet resultSet = statement.executeQuery(query)) {
-            RelationalResultSetAssert.assertThat(resultSet).hasExactly(Map.of("VAL", expectedVal));
+            RelationalResultSetAssert.assertThat(resultSet).hasExactly(Map.of(column, expected));
         }
     }
 
     /**
      * Performs the query transaction's own write (a dedicated key the update transaction never touches, so
      * it cannot cause a write-write conflict) to make it a read-write transaction, then commits, asserting
-     * whether the commit conflicts. A conflict surfaces specifically as a {@code SERIALIZATION_FAILURE}
-     * (rather than any {@code SQLException}), so an unrelated failure cannot make the control case pass.
+     * whether the commit conflicts.
      */
     private void writeOwnKeyAndAssertCommit(final boolean expectConflict) throws SQLException {
         try (RelationalStatement statement = queryConnection.createStatement()) {
             statement.executeUpdate("INSERT INTO t VALUES (" + QUERY_OWN_KEY + ", 0)");
         }
+        commitQueryConnection(expectConflict);
+    }
+
+    /**
+     * Commits the query transaction, asserting whether it conflicts. A conflict surfaces specifically as a
+     * {@code SERIALIZATION_FAILURE} (rather than any {@code SQLException}), so an unrelated failure cannot
+     * make the control case pass.
+     */
+    private void commitQueryConnection(final boolean expectConflict) throws SQLException {
         if (expectConflict) {
             RelationalAssertions.assertThrowsSqlException(queryConnection::commit)
                     .hasErrorCode(ErrorCode.SERIALIZATION_FAILURE);
@@ -395,5 +514,10 @@ public class SnapshotIsolationConcurrencyTest {
                 return resultSet.getContinuation();
             }
         }
+    }
+
+    @Nonnull
+    private static String snapshotOptions(final boolean useSnapshot) {
+        return useSnapshot ? " OPTIONS (ISOLATION LEVEL SNAPSHOT)" : "";
     }
 }

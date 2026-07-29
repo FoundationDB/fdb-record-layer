@@ -20,7 +20,9 @@
 # Backs the runnable snapshot-isolation examples in
 # docs/sphinx/source/reference/statement_options/ISOLATION_LEVEL_SNAPSHOT.rst. YAMSQL cannot exercise
 # true concurrency, so these only verify that the example queries parse, plan, and return the results
-# shown in the docs; the "no conflict range" behavior is verified in SnapshotIsolationConcurrencyTest.
+# shown in the docs. The concurrent "no conflict range" behavior each example relies on is verified in
+# SnapshotIsolationConcurrencyTest: example 1 by approximateRowLimitWithCountIndex, example 2 by
+# sequenceLikeIdsWithMaxEverIndex.
 ---
 options:
     supported_version: !current_version
@@ -41,6 +43,7 @@ test_block:
   preset: single_repetition_ordered
   tests:
     # Example 1: approximate row limit protected by a count index.
+    # Concurrency behavior: SnapshotIsolationConcurrencyTest.approximateRowLimitWithCountIndex.
     -
       - query: SELECT count(*) AS document_count
               FROM document
@@ -48,6 +51,7 @@ test_block:
       - result: [{document_count: 3}]
 
     # Example 2: sequence-like ids from a MAX_EVER index and a random offset.
+    # Concurrency behavior: SnapshotIsolationConcurrencyTest.sequenceLikeIdsWithMaxEverIndex.
     -
       - query: SELECT max_ever(folder_id) AS max_id
               FROM folder
