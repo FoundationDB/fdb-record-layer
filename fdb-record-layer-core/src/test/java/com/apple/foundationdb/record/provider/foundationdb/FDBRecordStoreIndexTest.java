@@ -291,11 +291,13 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
             saveNumValue2(2L, 200);
             saveNumValue2(3L, 300);
 
-            // Here the aggregate index diverges from the sliding window, and this is exactly what keeps
-            // it safe: SUM is not idempotent (AtomicMutation.Standard.isIdempotent() is false for
-            // SUM_LONG), so StandardIndexMaintainer.updateWhileWriteOnly routes through
-            // updateWriteOnlyByRecords, which consults the range set and drops the write because the
-            // build has not reached this record's range yet. The build will pick these records up.
+            // The two index types reach exactly-once by different routes. SUM is not idempotent
+            // (AtomicMutation.Standard.isIdempotent() is false for SUM_LONG), so
+            // StandardIndexMaintainer.updateWhileWriteOnly routes through updateWriteOnlyByRecords,
+            // which consults the range set and drops the write because the build has not reached this
+            // record's range yet: the build owns these records. The sliding window instead applies the
+            // write immediately and makes the later build application a no-op by preemptively deleting
+            // the entry it is about to insert.
             assertEquals(0L, rawAggregate(index, total),
                     "writes to a range the build has not reached yet must not touch a non-idempotent "
                             + "aggregate; the build is responsible for them");
