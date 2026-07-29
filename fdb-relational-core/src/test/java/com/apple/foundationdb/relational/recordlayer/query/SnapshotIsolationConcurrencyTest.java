@@ -109,8 +109,8 @@ public class SnapshotIsolationConcurrencyTest {
             new RelationalConnectionRule(database::getConnectionUri).withSchema("TEST_SCHEMA");
 
     @ParameterizedTest
-    @BooleanSource("useSnapshot")
-    void snapshotReadDoesNotCreateConflictRange(boolean useSnapshot) throws SQLException {
+    @BooleanSource({"useSnapshot", "updateRecords"})
+    void snapshotReadDoesNotCreateConflictRange(boolean useSnapshot, boolean updateRecords) throws SQLException {
         // Initial data: the id % 3 == 0 records.
         insertBucket(queryConnection, "t", 0);
 
@@ -123,9 +123,17 @@ public class SnapshotIsolationConcurrencyTest {
         final var query = SCAN_QUERY + (useSnapshot ? " OPTIONS (ISOLATION LEVEL SNAPSHOT)" : "");
         assertQueryReturns(queryConnection, query, bucketSize());
 
-        // Update transaction: insert the id % 3 == 1 records (interleaved between the records the query read)
-        // and commit.
-        insertBucket(updateConnection, "t", 1);
+        // Update transaction:
+        if (updateRecords) {
+            // update the records we read
+            try (RelationalStatement statement = updateConnection.createStatement()) {
+                statement.executeUpdate("UPDATE t SET val = val + 10");
+            }
+        } else {
+            // insert the id % 3 == 1 records (interleaved between the records the query read)
+            // and commit.
+            insertBucket(updateConnection, "t", 1);
+        }
         updateConnection.commit();
 
         // A snapshot read added no conflict range, so the interleaved writes do not conflict; a serializable
