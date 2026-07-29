@@ -1446,6 +1446,17 @@ public class IndexTest {
     }
 
     @Test
+    void createGuardiannVectorIndexWithNonNumericOptionValueIsRejected() throws Exception {
+        // PRIMARY_CLUSTER_MAX expects an integer. 1.5 is a valid vectorIndexOptionValue (a REAL_LITERAL) but cannot be
+        // coerced to an int, so option parsing surfaces a syntax error rather than letting the NumberFormatException
+        // escape.
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TABLE T(p bigint, b vector(3, float), primary key(p))" +
+                "CREATE VECTOR INDEX MV1 USING GUARDIANN ON T(b) PARTITION BY (p) OPTIONS (PRIMARY_CLUSTER_MAX = 1.5)";
+        shouldFailWith(stmt, ErrorCode.SYNTAX_ERROR, "invalid value");
+    }
+
+    @Test
     void createHnswVectorIndexWithGuardiannOnlyOptionIsRejected() throws Exception {
         final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
                 "CREATE TABLE T(p bigint, b vector(3, float), primary key(p))" +
