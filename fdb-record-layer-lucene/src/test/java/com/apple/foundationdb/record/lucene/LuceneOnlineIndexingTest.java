@@ -158,13 +158,13 @@ class LuceneOnlineIndexingTest extends FDBRecordStoreTestBase {
                     .setRecordStore(recordStore)
                     .setIndex(index)
                     .build()) {
-                assertTrue(recordStore.isIndexDisabled(index));
+                assertTrue(recordStore.getIndexState(index).isDisabled());
                 indexBuilder.buildIndex(true);
             }
         }
         try (final FDBRecordContext context = openContext()) {
             rebuildIndexMetaData(context, SIMPLE_DOC, index);
-            assertTrue(recordStore.isIndexReadable(index));
+            assertTrue(recordStore.getIndexState(index).isReadable());
         }
         String[] allFiles = listFiles(index);
         assertTrue(allFiles.length < 12);
@@ -216,7 +216,7 @@ class LuceneOnlineIndexingTest extends FDBRecordStoreTestBase {
                         throw stopBuildException;
                     })
                     .build()) {
-                assertTrue(recordStore.isIndexDisabled(index));
+                assertTrue(recordStore.getIndexState(index).isDisabled());
                 final RuntimeException thrown = assertThrows(RuntimeException.class, () -> indexBuilder.buildIndex(true));
                 assertSame(stopBuildException, thrown);
             }
@@ -234,7 +234,7 @@ class LuceneOnlineIndexingTest extends FDBRecordStoreTestBase {
         // this will succeed
         try (final FDBRecordContext context = openContext(contextProps)) {
             rebuildIndexMetaData(context, COMPLEX_DOC, index);
-            assertTrue(recordStore.isIndexWriteOnly(index));
+            assertTrue(recordStore.getIndexState(index).isWriteOnly());
             recordStore.saveRecord(createComplexDocument(docId_1, ENGINEER_JOKE, 1, startTime));
             context.commit();
         }
@@ -250,7 +250,7 @@ class LuceneOnlineIndexingTest extends FDBRecordStoreTestBase {
         // this will also succeed
         try (final FDBRecordContext context = openContext(contextProps)) {
             rebuildIndexMetaData(context, COMPLEX_DOC, index);
-            assertTrue(recordStore.isIndexWriteOnly(index));
+            assertTrue(recordStore.getIndexState(index).isWriteOnly());
             recordStore.saveRecord(createComplexDocument(docId_2, ENGINEER_JOKE, 1, startTime + 1_000));
             // update record a second time
             recordStore.saveRecord(createComplexDocument(docId_1, ENGINEER_JOKE + " XANADU", 1, startTime));
@@ -271,7 +271,7 @@ class LuceneOnlineIndexingTest extends FDBRecordStoreTestBase {
                     .setRecordStore(recordStore)
                     .setIndex(index)
                     .build()) {
-                assertTrue(recordStore.isIndexWriteOnly(index));
+                assertTrue(recordStore.getIndexState(index).isWriteOnly());
                 indexBuilder.buildIndex(true);
             }
         }
@@ -407,7 +407,7 @@ class LuceneOnlineIndexingTest extends FDBRecordStoreTestBase {
         try (final FDBRecordContext context = openContext(contextProps)) {
             rebuildIndexMetaData(context, COMPLEX_DOC, index);
 
-            assertTrue(recordStore.isIndexReadable(index));
+            assertTrue(recordStore.getIndexState(index).isReadable());
 
             // search for docs with Math.pow(docCount, 2) - docCount < time < Math.pow(docCount, 2)
             // which should return all docs, if their updates completed successfully during index build
@@ -529,7 +529,7 @@ class LuceneOnlineIndexingTest extends FDBRecordStoreTestBase {
                             .setInitialMergesCountLimit(mergesLimit)
                             .build())
                     .build()) {
-                assertTrue(recordStore.isIndexDisabled(index));
+                assertTrue(recordStore.getIndexState(index).isDisabled());
                 indexBuilder.buildIndex(true);
             }
             context.commit();
@@ -537,7 +537,7 @@ class LuceneOnlineIndexingTest extends FDBRecordStoreTestBase {
         // .. and assert readable mode
         try (final FDBRecordContext context = openContext()) {
             rebuildIndexMetaData(context, document, index);
-            assertTrue(recordStore.isIndexReadable(index));
+            assertTrue(recordStore.getIndexState(index).isReadable());
         }
         // assert number of segments, the number below is based on previous runs of this test.
         // the key thing is to make sure that while it was building the index it actually did the merges.
@@ -617,7 +617,7 @@ class LuceneOnlineIndexingTest extends FDBRecordStoreTestBase {
                     .setLimit(transactionLimit)
                     .build()) {
                 for (Index index: indexes) {
-                    assertTrue(recordStore.isIndexDisabled(index));
+                    assertTrue(recordStore.getIndexState(index).isDisabled());
                 }
                 indexBuilder.buildIndex(true);
             }
@@ -626,7 +626,7 @@ class LuceneOnlineIndexingTest extends FDBRecordStoreTestBase {
         try (final FDBRecordContext context = openContext()) {
             recordStore = LuceneIndexTestUtils.openRecordStore(context, path, hook);
             for (Index index: indexes) {
-                assertTrue(recordStore.isIndexReadable(index));
+                assertTrue(recordStore.getIndexState(index).isReadable());
             }
         }
         // assert number of segments
@@ -712,14 +712,14 @@ class LuceneOnlineIndexingTest extends FDBRecordStoreTestBase {
                     .setRecordStore(recordStore)
                     .setIndex(index)
                     .build()) {
-                assertTrue(recordStore.isIndexDisabled(index));
+                assertTrue(recordStore.getIndexState(index).isDisabled());
                 indexBuilder.buildIndex(true);
             }
         }
         // .. and assert readable mode
         try (final FDBRecordContext context = openContext()) {
             openRecordStore(context, hook);
-            assertTrue(recordStore.isIndexReadable(index));
+            assertTrue(recordStore.getIndexState(index).isReadable());
         }
     }
 

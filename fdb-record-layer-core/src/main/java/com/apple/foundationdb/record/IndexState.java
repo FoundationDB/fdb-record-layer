@@ -98,8 +98,16 @@ public enum IndexState {
         return logName;
     }
 
+    public boolean isReadable() {
+        return this.equals(READABLE);
+    }
+
+    public boolean isReadableUniquePending() {
+        return this.equals(READABLE_UNIQUE_PENDING);
+    }
+
     public boolean isScannable() {
-        return this.equals(READABLE) || this.equals(READABLE_UNIQUE_PENDING);
+        return isReadable() || isReadableUniquePending();
     }
 
     public boolean isWriteOnlyNoQueue() {
@@ -112,6 +120,10 @@ public enum IndexState {
 
     public boolean isWriteOnly() {
         return isWriteOnlyNoQueue() || isWriteOnlyWithQueue();
+    }
+
+    public boolean isDisabled() {
+        return this.equals(DISABLED);
     }
 
     public static IndexState fromCode(@Nonnull Object code) {
