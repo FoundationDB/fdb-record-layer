@@ -421,7 +421,7 @@ public class Matchers {
             final int[] columnWidths = new int[columnCount];
             for (final var row : rows) {
                 for (int i = 0; i < row.size(); i++) {
-                    columnWidths[i] = Math.max(columnWidths[i], row.get(i).trim().length());
+                    columnWidths[i] = Math.max(columnWidths[i], row.get(i).length());
                 }
             }
             final String rule = buildRule(columnWidths);
@@ -450,8 +450,8 @@ public class Matchers {
         }
 
         /**
-         * Builds a single table row, trimming and left-aligning each cell within its column width and padding short
-         * rows with empty cells so the output stays rectangular.
+         * Builds a single table row, left-aligning each cell within its column width and padding short rows with empty
+         * cells so the output stays rectangular.
          *
          * @param row the cell values for this row
          * @param columnWidths the rendered width of each column, excluding cell padding
@@ -461,7 +461,7 @@ public class Matchers {
         private static String buildRow(@Nonnull final List<String> row, @Nonnull final int[] columnWidths) {
             final var sb = new StringBuilder();
             for (int i = 0; i < columnWidths.length; i++) {
-                final String cell = i < row.size() ? row.get(i).trim() : "";
+                final String cell = i < row.size() ? row.get(i) : "";
                 sb.append("| ").append(cell).append(" ".repeat(columnWidths[i] - cell.length())).append(' ');
             }
             return sb.append("|\n").toString();
