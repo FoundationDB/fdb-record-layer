@@ -4249,14 +4249,12 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * in-memory cache of store state. However, if another operation in a different transaction
      * happens concurrently that changes the index's state, operations using the same {@link FDBRecordContext}
      * as this record store will fail to commit due to conflicts.
-     * <p>
-     *     TODO: This function will be deprecated soon.
-     * </p>
      *
      * @param index the index to check for readability
      * @return <code>true</code> if the index is readable and <code>false</code> otherwise
      * @throws IllegalArgumentException if no index in the metadata has the same name as this index
      */
+    @API(API.Status.DEPRECATED)
     public boolean isIndexReadable(@Nonnull Index index) {
         return isIndexReadable(index.getName());
     }
@@ -4265,14 +4263,12 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * Determine if the index with the given name is readable for this record store.
      * This method will not perform any queries to the underlying database and instead
      * satisfies the answer based on the in-memory cache of store state.
-     * <p>
-     *     TODO: This function will be deprecated soon.
-     * </p>
      *
      * @param indexName the name of the index to check for readability
      * @return <code>true</code> if the named index is readable and <code>false</code> otherwise
      * @throws IllegalArgumentException if no index in the metadata has the given name
      */
+    @API(API.Status.DEPRECATED)
     public boolean isIndexReadable(@Nonnull String indexName) {
         return getIndexState(indexName).isReadable();
     }
@@ -4286,14 +4282,12 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * The readable-unique-pending index state may happen after a unique index is built, but duplications are
      * found. The index will be maintained in this mode until the last duplication is resolved, then its state
      * will be changed to READABLE.
-     * <p>
-     *     TODO: This function will be deprecated soon.
-     * </p>
      *
      * @param index the index to check for readability
      * @return <code>true</code> if the index is readable-unique-pending and <code>false</code> otherwise
      * @throws IllegalArgumentException if no index in the metadata has the same name as this index
      */
+    @API(API.Status.DEPRECATED)
     public boolean isIndexReadableUniquePending(@Nonnull Index index) {
         return isIndexReadableUniquePending(index.getName());
     }
@@ -4305,14 +4299,12 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * The readable-unique-pending index state may happen after a unique index is built, but duplications are
      * found. The index will be maintained in this mode until the last duplication is resolved, then its state
      * will be changed to READABLE.
-     * <p>
-     *     TODO: This function will be deprecated soon.
-     * </p>
      *
      * @param indexName the name of the index to check for readability
      * @return <code>true</code> if the named index is readable-unique-pending and <code>false</code> otherwise
      * @throws IllegalArgumentException if no index in the metadata has the given name
      */
+    @API(API.Status.DEPRECATED)
     public boolean isIndexReadableUniquePending(@Nonnull String indexName) {
         return getIndexState(indexName).isReadableUniquePending();
     }
@@ -4322,14 +4314,12 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * {@link #isIndexReadableUniquePending(Index)} for this record store.
      * This method will not perform any queries to the underlying database and instead
      * satisfies the answer based on the in-memory cache of store state.
-     * <p>
-     *     TODO: This function will be deprecated soon.
-     * </p>
      *
      * @param index the index to check
      * @return <code>true</code> if the named index is scannable and <code>false</code> otherwise
      * @throws IllegalArgumentException if no index in the metadata has the given name
      */
+    @API(API.Status.DEPRECATED)
     public boolean isIndexScannable(@Nonnull Index index) {
         return isIndexScannable(index.getName());
     }
@@ -4339,14 +4329,12 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * {@link #isIndexReadableUniquePending(String)} for this record store.
      * This method will not perform any queries to the underlying database and instead
      * satisfies the answer based on the in-memory cache of store state.
-     * <p>
-     *     TODO: This function will be deprecated soon.
-     * </p>
      *
      * @param indexName the name of the index to check
      * @return <code>true</code> if the named index is scannable and <code>false</code> otherwise
      * @throws IllegalArgumentException if no index in the metadata has the given name
      */
+    @API(API.Status.DEPRECATED)
     public boolean isIndexScannable(@Nonnull String indexName) {
         return getIndexState(indexName).isScannable();
     }
@@ -4357,14 +4345,12 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * in-memory cache of store state. However, if another operation in a different transaction
      * happens concurrently that changes the index's state, operations using the same {@link FDBRecordContext}
      * as this record store will fail to commit due to conflicts.
-     * <p>
-     *     TODO: This function will be deprecated soon.
-     * </p>
      *
      * @param index the index to check if write-only
      * @return <code>true</code> if the index is write-only and <code>false</code> otherwise
      * @throws IllegalArgumentException if no index in the metadata has the same name as this index
      */
+    @API(API.Status.DEPRECATED)
     public boolean isIndexWriteOnlyNoQueue(@Nonnull Index index) {
         return isIndexWriteOnlyNoQueue(index.getName());
     }
@@ -4373,14 +4359,12 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * Determine if the index with the given name is write-only (but not write-only-with-queue) for this record store.
      * This method will not perform any queries to the underlying database and instead
      * satisfies the answer based on the in-memory cache of store state.
-     * <p>
-     *     TODO: This function will be deprecated soon.
-     * </p>
      *
      * @param indexName the name of the index to check if write-only
      * @return <code>true</code> if the named index is write-only and <code>false</code> otherwise
      * @throws IllegalArgumentException if no index in the metadata has the given name
      */
+    @API(API.Status.DEPRECATED)
     public boolean isIndexWriteOnlyNoQueue(@Nonnull String indexName) {
         return getIndexState(indexName).isWriteOnlyNoQueue();
     }
@@ -4391,14 +4375,12 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * in-memory cache of store state. However, if another operation in a different transaction
      * happens concurrently that changes the index's state, operations using the same {@link FDBRecordContext}
      * as this record store will fail to commit due to conflicts.
-     * <p>
-     *     TODO: This function will be deprecated soon.
-     * </p>
      *
      * @param index the index to check if write-only with a queue
      * @return <code>true</code> if the index is write-only with a queue and <code>false</code> otherwise
      * @throws IllegalArgumentException if no index in the metadata has the same name as this index
      */
+    @API(API.Status.DEPRECATED)
     public boolean isIndexWriteOnlyWithQueue(@Nonnull Index index) {
         return isIndexWriteOnlyWithQueue(index.getName());
     }
@@ -4407,14 +4389,12 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * Determine if the index with the given name is write-only with a pending queue for this record store.
      * This method will not perform any queries to the underlying database and instead
      * satisfies the answer based on the in-memory cache of store state.
-     * <p>
-     *     TODO: This function will be deprecated soon.
-     * </p>
      *
      * @param indexName the name of the index to check if write-only with a queue
      * @return <code>true</code> if the named index is write-only with a queue and <code>false</code> otherwise
      * @throws IllegalArgumentException if no index in the metadata has the given name
      */
+    @API(API.Status.DEPRECATED)
     public boolean isIndexWriteOnlyWithQueue(@Nonnull String indexName) {
         return getIndexState(indexName).isWriteOnlyWithQueue();
     }
@@ -4426,14 +4406,12 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * in-memory cache of store state. However, if another operation in a different transaction
      * happens concurrently that changes the index's state, operations using the same {@link FDBRecordContext}
      * as this record store will fail to commit due to conflicts.
-     * <p>
-     *     TODO: This function will be deprecated soon.
-     * </p>
      *
      * @param index the index to check if write-only in any form
      * @return <code>true</code> if the index is write-only in any form and <code>false</code> otherwise
      * @throws IllegalArgumentException if no index in the metadata has the same name as this index
      */
+    @API(API.Status.DEPRECATED)
     public boolean isIndexWriteOnly(@Nonnull Index index) {
         return isIndexWriteOnly(index.getName());
     }
@@ -4443,14 +4421,12 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * {@link IndexState#WRITE_ONLY_WITH_QUEUE}) for this record store. This method will not perform
      * any queries to the underlying database and instead satisfies the answer based on the
      * in-memory cache of store state.
-     * <p>
-     *     TODO: This function will be deprecated soon.
-     * </p>
      *
      * @param indexName the name of the index to check if write-only in any form
      * @return <code>true</code> if the named index is write-only in any form and <code>false</code> otherwise
      * @throws IllegalArgumentException if no index in the metadata has the given name
      */
+    @API(API.Status.DEPRECATED)
     public boolean isIndexWriteOnly(@Nonnull String indexName) {
         return getIndexState(indexName).isWriteOnly();
     }
@@ -4461,14 +4437,12 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * in-memory cache of store state. However, if another operation in a different transaction
      * happens concurrently that changes the index's state, operations using the same {@link FDBRecordContext}
      * as this record store will fail to commit due to conflicts.
-     * <p>
-     *     TODO: This function will be deprecated soon.
-     * </p>
      *
      * @param index the index to check if write-only
      * @return <code>true</code> if the index is disabled and <code>false</code> otherwise
      * @throws IllegalArgumentException if no index in the metadata has the same name as this index
      */
+    @API(API.Status.DEPRECATED)
     public boolean isIndexDisabled(@Nonnull Index index) {
         return isIndexDisabled(index.getName());
     }
@@ -4477,14 +4451,12 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * Determine if the index with the given name is disabled for this record store.
      * This method will not perform any queries to the underlying database and instead
      * satisfies the answer based on the in-memory cache of store state.
-     * <p>
-     *     TODO: This function will be deprecated soon.
-     * </p>
      *
      * @param indexName the name of the index to check if disabled
      * @return <code>true</code> if the named index is disabled and <code>false</code> otherwise
      * @throws IllegalArgumentException if no index in the metadata has the given name
      */
+    @API(API.Status.DEPRECATED)
     public boolean isIndexDisabled(@Nonnull String indexName) {
         return getIndexState(indexName).isDisabled();
     }
