@@ -117,10 +117,10 @@ publishing {
             }
 
             if (Boolean.parseBoolean(centralPublish)) {
-                // Publish this project to the root project's staging repo. This will be
-                // bundled up by createMavenCentralBundle for publishing
+                // Publish this project to the root project's staging repo
+                // See: central-publishing.gradle
                 maven {
-                    url = rootProject.layout.buildDirectory.dir("staging-repo")
+                    url = rootProject.layout.buildDirectory.dir(rootProject.ext.stagingRepoDirName)
                 }
             }
         }
