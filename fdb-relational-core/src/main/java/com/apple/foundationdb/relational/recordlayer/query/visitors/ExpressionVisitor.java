@@ -497,6 +497,12 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
         final Value value;
         if (ctx.QUESTION() != null) {
             value = getDelegate().getPlanGenerationContext().processUnnamedPreparedParam(tokenIndex);
+        } else if (ctx.TYPED_PARAMETER() != null) {
+            // ?{type} — an inline typed positional parameter. Strip the "?{" prefix and "}" suffix to get the
+            // declared type name; the value is supplied at runtime (value-free at warmup).
+            final var raw = ctx.TYPED_PARAMETER().getText();
+            final var typeName = raw.substring(2, raw.length() - 1).trim();
+            value = getDelegate().getPlanGenerationContext().processTypedPreparedParam(typeName, tokenIndex);
         } else {
             final String parameterName = ctx.NAMED_PARAMETER().getText().substring(1); // starts with ?, e.g. ?foo
             value = getDelegate().getPlanGenerationContext().processNamedPreparedParam(parameterName, tokenIndex);
