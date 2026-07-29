@@ -37,10 +37,24 @@ import java.util.Set;
 class CallSiteOptionsTest {
 
     private static final CallSiteArguments.Option<Integer> INT_OPTION = CallSiteArguments.Option.ofInteger("anInt");
+    private static final CallSiteArguments.Option<Long> LONG_OPTION = CallSiteArguments.Option.ofLong("aLong");
     private static final CallSiteArguments.Option<Boolean> BOOLEAN_OPTION =
             CallSiteArguments.Option.ofBoolean("aBoolean");
     private static final CallSiteArguments.Option<Double> DOUBLE_OPTION = CallSiteArguments.Option.ofDouble("aDouble");
     private static final CallSiteArguments.Option<String> STRING_OPTION = CallSiteArguments.Option.ofString("aString");
+
+    /**
+     * An option with a bespoke conversion, to exercise {@link CallSiteArguments.Option#of}. It accepts the
+     * single-character strings a front end would produce for a {@link Character}-typed option.
+     */
+    private static final CallSiteArguments.Option<Character> CHAR_OPTION =
+            CallSiteArguments.Option.of("aChar", Character.class, (optionName, rawValue) -> {
+                if (rawValue instanceof CharSequence && ((CharSequence)rawValue).length() == 1) {
+                    return ((CharSequence)rawValue).charAt(0);
+                }
+                throw SemanticException.newException(SemanticException.ErrorCode.INCOMPATIBLE_TYPE,
+                        "not a single character");
+            });
 
     /**
      * An enum to exercise {@link CallSiteArguments.Option#ofEnum}.
@@ -188,6 +202,66 @@ class CallSiteOptionsTest {
     }
 
     @Test
+    void longOptionAcceptsAnyIntegralValue() {
+        Assertions.assertEquals(5L, LONG_OPTION.coerce(5L));
+        Assertions.assertEquals(5L, LONG_OPTION.coerce(5), "an Integer literal is exactly representable as a Long");
+        Assertions.assertEquals(5L, LONG_OPTION.coerce((short)5));
+        Assertions.assertEquals(5L, LONG_OPTION.coerce((byte)5));
+        Assertions.assertEquals(Long.class, LONG_OPTION.coerce(5).getClass());
+
+        // a Long option has no upper bound to exceed, unlike an Integer one
+        final var resolved = resolveAgainstAllOptions(CallSiteArguments.Options.builder()
+                .putRaw(LONG_OPTION.getName(), 5_000_000_000L)
+                .build());
+        Assertions.assertEquals(5_000_000_000L, resolved.get(LONG_OPTION).orElseThrow());
+    }
+
+    @Test
+    void longOptionRejectsNonIntegralValues() {
+        final var fractionalException = Assertions.assertThrows(SemanticException.class,
+                () -> LONG_OPTION.coerce(1.5d));
+        Assertions.assertEquals(SemanticException.ErrorCode.INCOMPATIBLE_TYPE, fractionalException.getErrorCode());
+        Assertions.assertEquals("Long",
+                fractionalException.getLogInfo().get(LogMessageKeys.EXPECTED_TYPE.toString()));
+
+        Assertions.assertThrows(SemanticException.class, () -> LONG_OPTION.coerce("5"),
+                "a numeric string is not an integral value");
+    }
+
+    @Test
+    void stringOptionAcceptsAnyCharSequence() {
+        Assertions.assertEquals("abc", STRING_OPTION.coerce("abc"));
+        Assertions.assertEquals("abc", STRING_OPTION.coerce(new StringBuilder("abc")),
+                "a CharSequence that is not a String should be converted");
+        Assertions.assertEquals(String.class, STRING_OPTION.coerce(new StringBuilder("abc")).getClass());
+
+        final var semanticException = Assertions.assertThrows(SemanticException.class,
+                () -> STRING_OPTION.coerce(42));
+        Assertions.assertEquals(SemanticException.ErrorCode.INCOMPATIBLE_TYPE, semanticException.getErrorCode());
+        Assertions.assertEquals("String",
+                semanticException.getLogInfo().get(LogMessageKeys.EXPECTED_TYPE.toString()));
+        Assertions.assertEquals("Integer",
+                semanticException.getLogInfo().get(LogMessageKeys.ACTUAL_TYPE.toString()));
+    }
+
+    @Test
+    void optionWithBespokeCoercerUsesIt() {
+        Assertions.assertEquals('x', CHAR_OPTION.coerce('x'), "a value of the declared type is handed back as-is");
+        Assertions.assertEquals('x', CHAR_OPTION.coerce("x"));
+        Assertions.assertEquals(Character.class, CHAR_OPTION.getType());
+
+        final var semanticException = Assertions.assertThrows(SemanticException.class,
+                () -> CHAR_OPTION.coerce("xy"));
+        Assertions.assertEquals(SemanticException.ErrorCode.INCOMPATIBLE_TYPE, semanticException.getErrorCode());
+
+        // the bespoke conversion is applied on the way out of a resolved option set, just like the built-in ones
+        final var resolved = resolveAgainstAllOptions(CallSiteArguments.Options.builder()
+                .putRaw(CHAR_OPTION.getName(), "y")
+                .build());
+        Assertions.assertEquals('y', resolved.get(CHAR_OPTION).orElseThrow());
+    }
+
+    @Test
     void coercionIsIdempotent() {
         Assertions.assertEquals(100, INT_OPTION.coerce(INT_OPTION.coerce(100L)));
         Assertions.assertEquals("abc", STRING_OPTION.coerce(STRING_OPTION.coerce("abc")));
@@ -257,7 +331,8 @@ class CallSiteOptionsTest {
             @Nonnull
             @Override
             public Set<CallSiteArguments.Option<?>> getSupportedOptions() {
-                return ImmutableSet.of(INT_OPTION, BOOLEAN_OPTION, DOUBLE_OPTION, STRING_OPTION, ENUM_OPTION);
+                return ImmutableSet.of(INT_OPTION, LONG_OPTION, BOOLEAN_OPTION, DOUBLE_OPTION, STRING_OPTION,
+                        ENUM_OPTION, CHAR_OPTION);
             }
 
             @Nonnull
