@@ -3,11 +3,13 @@ Statement options
 =================
 
 Statement options are a comma-separated list of directives that influence how a statement is planned or
-executed. They are supplied through an ``OPTIONS`` clause:
+executed. They are supplied through an ``OPTIONS`` clause.
 
-.. code-block:: sql
+Syntax
+######
 
-    <statement> OPTIONS (<option> [, <option> ...])
+.. raw:: html
+    :file: statement_options.diagram.svg
 
 Scope
 #####

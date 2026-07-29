@@ -10,9 +10,15 @@ performed by the query do **not** add read-conflict ranges to the enclosing tran
 concurrent writes to the data the query reads will not cause the transaction to fail when it
 commits.
 
-.. code-block:: sql
+Syntax
+######
 
-    SELECT ... OPTIONS (ISOLATION LEVEL SNAPSHOT)
+.. raw:: html
+    :file: ISOLATION_LEVEL_SNAPSHOT.diagram.svg
+
+It is one of the options accepted by a statement's ``OPTIONS`` clause (see
+:doc:`Statement options </reference/statement_options>`), so it may be combined with other options
+and appears at the end of the statement.
 
 Overview
 ########
