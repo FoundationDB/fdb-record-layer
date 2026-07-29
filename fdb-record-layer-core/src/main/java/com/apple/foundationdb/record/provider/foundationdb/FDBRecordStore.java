@@ -4244,12 +4244,14 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     }
 
     /**
-     * TODO: This function will be deprecated soon.
      * Determine if the index is readable for this record store. This method will not perform
      * any queries to the underlying database and instead satisfies the answer based on the
      * in-memory cache of store state. However, if another operation in a different transaction
      * happens concurrently that changes the index's state, operations using the same {@link FDBRecordContext}
      * as this record store will fail to commit due to conflicts.
+     * <p>
+     *     TODO: This function will be deprecated soon.
+     * </p>
      *
      * @param index the index to check for readability
      * @return <code>true</code> if the index is readable and <code>false</code> otherwise
@@ -4260,10 +4262,12 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     }
 
     /**
-     * TODO: This function will be deprecated soon.
      * Determine if the index with the given name is readable for this record store.
      * This method will not perform any queries to the underlying database and instead
      * satisfies the answer based on the in-memory cache of store state.
+     * <p>
+     *     TODO: This function will be deprecated soon.
+     * </p>
      *
      * @param indexName the name of the index to check for readability
      * @return <code>true</code> if the named index is readable and <code>false</code> otherwise
@@ -4274,7 +4278,6 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     }
 
     /**
-     * TODO: This function will be deprecated soon.
      * Determine if the index is readable-unique-pending for this record store. This method will not perform
      * any queries to the underlying database and instead satisfies the answer based on the
      * in-memory cache of store state. However, if another operation in a different transaction
@@ -4283,6 +4286,9 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * The readable-unique-pending index state may happen after a unique index is built, but duplications are
      * found. The index will be maintained in this mode until the last duplication is resolved, then its state
      * will be changed to READABLE.
+     * <p>
+     *     TODO: This function will be deprecated soon.
+     * </p>
      *
      * @param index the index to check for readability
      * @return <code>true</code> if the index is readable-unique-pending and <code>false</code> otherwise
@@ -4293,13 +4299,15 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     }
 
     /**
-     * TODO: This function will be deprecated soon.
      * Determine if the index with the given name is readable-unique-pending for this record store.
      * This method will not perform any queries to the underlying database and instead
      * satisfies the answer based on the in-memory cache of store state.
      * The readable-unique-pending index state may happen after a unique index is built, but duplications are
      * found. The index will be maintained in this mode until the last duplication is resolved, then its state
      * will be changed to READABLE.
+     * <p>
+     *     TODO: This function will be deprecated soon.
+     * </p>
      *
      * @param indexName the name of the index to check for readability
      * @return <code>true</code> if the named index is readable-unique-pending and <code>false</code> otherwise
@@ -4310,11 +4318,13 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     }
 
     /**
-     * TODO: This function will be deprecated soon.
      * Determine if the index with the given name is scannable - i.e. either {@link #isIndexReadable(Index)} or
      * {@link #isIndexReadableUniquePending(Index)} for this record store.
      * This method will not perform any queries to the underlying database and instead
      * satisfies the answer based on the in-memory cache of store state.
+     * <p>
+     *     TODO: This function will be deprecated soon.
+     * </p>
      *
      * @param index the index to check
      * @return <code>true</code> if the named index is scannable and <code>false</code> otherwise
@@ -4325,11 +4335,13 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     }
 
     /**
-     * TODO: This function will be deprecated soon.
      * Determine if the index with the given name is scannable - i.e. either {@link #isIndexReadable(String)} or
      * {@link #isIndexReadableUniquePending(String)} for this record store.
      * This method will not perform any queries to the underlying database and instead
      * satisfies the answer based on the in-memory cache of store state.
+     * <p>
+     *     TODO: This function will be deprecated soon.
+     * </p>
      *
      * @param indexName the name of the index to check
      * @return <code>true</code> if the named index is scannable and <code>false</code> otherwise
@@ -4340,12 +4352,14 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     }
 
     /**
-     * TODO: This function will be deprecated soon.
      * Determine if the index is write-only (but not write-only-with-queue) for this record store. This method will not perform
      * any queries to the underlying database and instead satisfies the answer based on the
      * in-memory cache of store state. However, if another operation in a different transaction
      * happens concurrently that changes the index's state, operations using the same {@link FDBRecordContext}
      * as this record store will fail to commit due to conflicts.
+     * <p>
+     *     TODO: This function will be deprecated soon.
+     * </p>
      *
      * @param index the index to check if write-only
      * @return <code>true</code> if the index is write-only and <code>false</code> otherwise
@@ -4356,10 +4370,12 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     }
 
     /**
-     * TODO: This function will be deprecated soon.
      * Determine if the index with the given name is write-only (but not write-only-with-queue) for this record store.
      * This method will not perform any queries to the underlying database and instead
      * satisfies the answer based on the in-memory cache of store state.
+     * <p>
+     *     TODO: This function will be deprecated soon.
+     * </p>
      *
      * @param indexName the name of the index to check if write-only
      * @return <code>true</code> if the named index is write-only and <code>false</code> otherwise
@@ -4370,12 +4386,14 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     }
 
     /**
-     * TODO: This function will be deprecated soon.
      * Determine if the index is write-only with a pending queue for this record store. This method will not perform
      * any queries to the underlying database and instead satisfies the answer based on the
      * in-memory cache of store state. However, if another operation in a different transaction
      * happens concurrently that changes the index's state, operations using the same {@link FDBRecordContext}
      * as this record store will fail to commit due to conflicts.
+     * <p>
+     *     TODO: This function will be deprecated soon.
+     * </p>
      *
      * @param index the index to check if write-only with a queue
      * @return <code>true</code> if the index is write-only with a queue and <code>false</code> otherwise
@@ -4386,10 +4404,12 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     }
 
     /**
-     * TODO: This function will be deprecated soon.
      * Determine if the index with the given name is write-only with a pending queue for this record store.
      * This method will not perform any queries to the underlying database and instead
      * satisfies the answer based on the in-memory cache of store state.
+     * <p>
+     *     TODO: This function will be deprecated soon.
+     * </p>
      *
      * @param indexName the name of the index to check if write-only with a queue
      * @return <code>true</code> if the named index is write-only with a queue and <code>false</code> otherwise
@@ -4400,13 +4420,15 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     }
 
     /**
-     * TODO: This function will be deprecated soon.
      * Determine if the index is write-only in any form ({@link IndexState#WRITE_ONLY} or
      * {@link IndexState#WRITE_ONLY_WITH_QUEUE}) for this record store. This method will not perform
      * any queries to the underlying database and instead satisfies the answer based on the
      * in-memory cache of store state. However, if another operation in a different transaction
      * happens concurrently that changes the index's state, operations using the same {@link FDBRecordContext}
      * as this record store will fail to commit due to conflicts.
+     * <p>
+     *     TODO: This function will be deprecated soon.
+     * </p>
      *
      * @param index the index to check if write-only in any form
      * @return <code>true</code> if the index is write-only in any form and <code>false</code> otherwise
@@ -4417,11 +4439,13 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     }
 
     /**
-     * TODO: This function will be deprecated soon.
      * Determine if the index with the given name is write-only in any form ({@link IndexState#WRITE_ONLY} or
      * {@link IndexState#WRITE_ONLY_WITH_QUEUE}) for this record store. This method will not perform
      * any queries to the underlying database and instead satisfies the answer based on the
      * in-memory cache of store state.
+     * <p>
+     *     TODO: This function will be deprecated soon.
+     * </p>
      *
      * @param indexName the name of the index to check if write-only in any form
      * @return <code>true</code> if the named index is write-only in any form and <code>false</code> otherwise
@@ -4432,12 +4456,14 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     }
 
     /**
-     * TODO: This function will be deprecated soon.
      * Determine if the index is disabled for this record store. This method will not perform
      * any queries to the underlying database and instead satisfies the answer based on the
      * in-memory cache of store state. However, if another operation in a different transaction
      * happens concurrently that changes the index's state, operations using the same {@link FDBRecordContext}
      * as this record store will fail to commit due to conflicts.
+     * <p>
+     *     TODO: This function will be deprecated soon.
+     * </p>
      *
      * @param index the index to check if write-only
      * @return <code>true</code> if the index is disabled and <code>false</code> otherwise
@@ -4448,10 +4474,12 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     }
 
     /**
-     * TODO: This function will be deprecated soon.
      * Determine if the index with the given name is disabled for this record store.
      * This method will not perform any queries to the underlying database and instead
      * satisfies the answer based on the in-memory cache of store state.
+     * <p>
+     *     TODO: This function will be deprecated soon.
+     * </p>
      *
      * @param indexName the name of the index to check if disabled
      * @return <code>true</code> if the named index is disabled and <code>false</code> otherwise
@@ -5209,7 +5237,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                         && oldFormatVersion < SAVE_VERSION_WITH_RECORD_FORMAT_VERSION
                         && !useOldVersionFormat()) {
                     stateFuture = stateFuture.thenApply(state -> {
-                        if (IndexState.READABLE.equals(state)) {
+                        if (state != null && state.isReadable()) {
                             // Do not rebuild any version indexes while the format conversion is going on.
                             // Otherwise, the process moving the versions might race against the index
                             // build and some versions won't be indexed correctly.
