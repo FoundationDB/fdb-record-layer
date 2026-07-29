@@ -42,7 +42,7 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 import java.net.URI;
 import java.sql.SQLException;
 
-public class StoredQueriesTest {
+class StoredQueriesTest {
 
     private static final String SCHEMA_TEMPLATE =
             "CREATE TABLE t1(id bigint, col1 bigint, col2 bigint, PRIMARY KEY(id))" +
@@ -69,6 +69,27 @@ public class StoredQueriesTest {
             "CREATE TABLE t1(id bigint, col1 bigint, col2 bigint, PRIMARY KEY(id))" +
                     " CREATE INDEX i1 AS SELECT col1 FROM t1" +
                     " CREATE STORED QUERY by_two_typed AS select * from t1 where col1 > ?{bigint} and col2 < ?{bigint}";
+
+    /**
+     * A value-free stored query against a schema whose only col1 index is <em>range-filtered</em>. Selecting that
+     * index needs the parameter's value (to prove it falls in the index range), which is absent at warmup — so this
+     * characterizes what warmup does in that case (skip + runtime replan, or something else).
+     */
+    private static final String SCHEMA_TEMPLATE_FILTERED_INDEX =
+            "CREATE TABLE t1(id bigint, col1 bigint, col2 bigint, PRIMARY KEY(id))" +
+                    " CREATE INDEX i2 AS SELECT col1 FROM t1 WHERE col1 > 42" +
+                    " CREATE STORED QUERY by_col1_filtered AS select * from t1 where col1 > ?{bigint}";
+
+    /**
+     * The declared parameter type ({@code string}) is incompatible with the column it is compared to ({@code col1} is
+     * {@code bigint}), so {@code col1 > ?{string}} is ill-typed. The body is stored verbatim at DDL time and only
+     * type-checked when planned at warmup, so this characterizes that the ill-typed stored query fails to warm
+     * (and is skipped) rather than producing a broken plan.
+     */
+    private static final String SCHEMA_TEMPLATE_INCOMPATIBLE_TYPE =
+            "CREATE TABLE t1(id bigint, col1 bigint, col2 bigint, PRIMARY KEY(id))" +
+                    " CREATE INDEX i1 AS SELECT col1 FROM t1" +
+                    " CREATE STORED QUERY by_col1_badtype AS select * from t1 where col1 > ?{string}";
 
     /** Stored query body has a typo (`select1` rather than `select`) — DDL fails to parse. */
     private static final String SCHEMA_TEMPLATE_BAD_SYNTAX =
@@ -464,6 +485,77 @@ public class StoredQueriesTest {
                 }
             });
             Assertions.assertEquals(Long.valueOf(1), connectionUtils.getFromCatalog(c -> countCachedPlans(c, templateName)));
+        }
+    }
+
+    @Test
+    void storedQueriesFilteredIndexCharacterization() throws Exception {
+        final String dbUri = "/TEST/STOREDQUERIES_FILTERED_DB";
+        try (var ddl = Ddl.builder()
+                .database(URI.create(dbUri))
+                .relationalExtension(relationalExtension)
+                .schemaTemplate(SCHEMA_TEMPLATE_FILTERED_INDEX)
+                .build()) {
+            final var connection = ddl.setSchemaAndGetConnection();
+            final String templateName = ddl.getSchemaTemplateName();
+            final String schemaName = connection.getSchema();
+
+            try (var stmt = connection.createStatement()) {
+                stmt.execute("INSERT INTO T1 VALUES (1, 10, 1)");
+                stmt.execute("INSERT INTO T1 VALUES (2, 20, 2)");
+                stmt.execute("INSERT INTO T1 VALUES (3, 30, 3)");
+            }
+
+            final var engineDriver = relationalExtension.getDriver(
+                    com.apple.foundationdb.record.provider.foundationdb.FormatVersion.getDefaultFormatVersion());
+            final var connectionUtils = new ConnectionUtils(engineDriver);
+
+            // HYPOTHESIS: selecting the range-filtered index i2 needs the value, which is absent at warmup, so
+            // OfflineStoredQueriesProcessor's per-query catch skips this stored query -> nothing is pre-warmed.
+            Assertions.assertEquals(Long.valueOf(0), connectionUtils.getFromCatalog(c -> countCachedPlans(c, templateName)));
+
+            // Correctness regardless: at runtime the value is present, so the query replans and returns the right rows
+            // (col1 > 15 -> id 2, 3; i2 covers only col1 > 42, so a scan is used for value 15).
+            connectionUtils.runAgainstConnection(dbUri, schemaName, c -> {
+                try (var ps = c.prepareStatement("select * from t1 where col1 > ?")) {
+                    ps.setLong(1, 15L);
+                    try (RelationalResultSet rs = ps.executeQuery()) {
+                        Assertions.assertTrue(rs.next());
+                        Assertions.assertEquals(2, rs.getLong("ID"));
+                        Assertions.assertTrue(rs.next());
+                        Assertions.assertEquals(3, rs.getLong("ID"));
+                        Assertions.assertFalse(rs.next());
+                    }
+                }
+            });
+
+            Assertions.assertEquals(Long.valueOf(1), connectionUtils.getFromCatalog(c -> countCachedPlans(c, templateName)));
+        }
+    }
+
+    @Test
+    void storedQueriesTypedParamIncompatibleType() throws Exception {
+        final String dbUri = "/TEST/STOREDQUERIES_BADTYPE_DB";
+        try (var ddl = Ddl.builder()
+                .database(URI.create(dbUri))
+                .relationalExtension(relationalExtension)
+                .schemaTemplate(SCHEMA_TEMPLATE_INCOMPATIBLE_TYPE)
+                .build()) {
+            final var connection = ddl.setSchemaAndGetConnection();
+            final String templateName = ddl.getSchemaTemplateName();
+
+            try (var stmt = connection.createStatement()) {
+                stmt.execute("INSERT INTO T1 VALUES (1, 10, 1)");
+                stmt.execute("INSERT INTO T1 VALUES (2, 20, 2)");
+            }
+
+            // The body 'col1 > ?{string}' is ill-typed (bigint column compared to a string parameter). It is stored
+            // verbatim at DDL time and only type-checked when planned at warmup, so warmup fails to plan it and skips
+            // it (OfflineStoredQueriesProcessor's per-query catch): nothing is pre-warmed.
+            final var engineDriver = relationalExtension.getDriver(
+                    com.apple.foundationdb.record.provider.foundationdb.FormatVersion.getDefaultFormatVersion());
+            final var connectionUtils = new ConnectionUtils(engineDriver);
+            Assertions.assertEquals(Long.valueOf(0), connectionUtils.getFromCatalog(c -> countCachedPlans(c, templateName)));
         }
     }
 
