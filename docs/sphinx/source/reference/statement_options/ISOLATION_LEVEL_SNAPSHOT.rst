@@ -116,6 +116,11 @@ Restrictions
   ``EXECUTE CONTINUATION``). It may be written on an ``INSERT``, ``UPDATE``, or ``DELETE`` statement,
   but is rejected there because mutations rely on serializable reads (for example, when maintaining
   indexes and enforcing primary-key uniqueness) to remain correct.
+* Snapshot isolation may also be set at connection scope (as a default for every statement on the
+  connection). Because it is rejected on mutations, a connection with the option set will reject any
+  ``INSERT``, ``UPDATE``, ``DELETE``, or DDL statement with an ``UNSUPPORTED_OPERATION`` error until
+  the option is cleared. Setting it on the connection is therefore intended for read-only phases in
+  which the connection issues only ``SELECT`` statements.
 * Snapshot isolation changes only conflict detection, not visibility. A snapshot read still returns
   data as of the transaction's read version and never sees uncommitted or later-committed writes
   from other transactions. It will include writes from the current transaction.
