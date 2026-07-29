@@ -581,7 +581,7 @@ public class FDBRecordStoreOpeningTest extends FDBRecordStoreTestBase {
 
         // Delete the record store, then insert a key at an unknown keyspace
         try (FDBRecordContext context = openContext()) {
-            FDBRecordStore.deleteStore(context, path);
+            FDBRecordStore.deleteStoreAsync(context, path).join();
             Subspace subspace = path.toSubspace(context);
             context.ensureActive().set(subspace.pack("unknown_keyspace"), Tuple.from("doesn't matter").pack());
             commit(context);

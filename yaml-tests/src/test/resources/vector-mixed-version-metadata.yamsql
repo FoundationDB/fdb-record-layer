@@ -30,7 +30,7 @@
 # vector-index query plan, whose continuation/plan-hash is a separate breaking change across versions and would fail
 # in mixed mode. Isolating inserts keeps this test focused on the metadata (option-name) compatibility.
 #
-# Note: supported_version is a concrete (non-!current_version) version so the file actually participates in mixed
+# Note: supported_version is a concrete (non-4.12.15.0) version so the file actually participates in mixed
 # mode; it matches the windowed-vector floor used by window-function-documentation-queries.yamsql.
 ---
 options:
