@@ -177,6 +177,16 @@ public abstract class VectorIndexTestBase extends FDBRecordStoreQueryTestBase {
         return new HalfRealVector(componentData);
     }
 
+    @Nonnull
+    protected static HalfRealVector constantHalfVector(final float value, final int numDimensions) {
+        final Half[] componentData = new Half[numDimensions];
+        for (int i = 0; i < componentData.length; i++) {
+            componentData[i] = Half.valueOf(value);
+        }
+
+        return new HalfRealVector(componentData);
+    }
+
     protected List<FDBStoredRecord<Message>> saveRandomRecords(final boolean useAsync,
                                                                @Nonnull final RecordMetaDataHook hook,
                                                                @Nonnull final Random random,
