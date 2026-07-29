@@ -21,8 +21,10 @@
 package com.apple.foundationdb.record.lucene.directory;
 
 import com.apple.foundationdb.MutationType;
+import com.apple.foundationdb.Range;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.ExecuteProperties;
+import com.apple.foundationdb.record.IsolationLevel;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCoreInternalException;
 import com.apple.foundationdb.record.RecordCoreStorageException;
@@ -179,8 +181,16 @@ public class PendingWriteQueue {
     /**
      * Return a cursor that iterates through the queue elements.
      *
+     * <p>The scan always reads at {@link IsolationLevel#SNAPSHOT}, regardless of the isolation level in
+     * {@code scanProperties}. This is intentional: a drain transaction iterates the queue and clears entries,
+     * and a serializable read would install a read-conflict range over the queue subspace, causing the drain
+     * to conflict with any concurrent enqueue.
+     * A caller that needs to fail if writes arrived concurrently must instead gate on
+     * {@link #isQueueEmpty(FDBRecordContext)}, which is the intended (and only) conflict point.</p>
+     *
      * @param context the record context to use
-     * @param scanProperties the scan properties for the cursor
+     * @param scanProperties the scan properties for the cursor; the isolation level is always forced to
+     * {@link IsolationLevel#SNAPSHOT}, while row/byte/skip limits are still honored at the entry level
      * @param continuation the continuation to continue from (null means start from the beginning)
      *
      * @return a record cursor that iterates through the elements of the queue, in order
@@ -190,12 +200,19 @@ public class PendingWriteQueue {
             @Nonnull FDBRecordContext context,
             @Nonnull ScanProperties scanProperties,
             @Nullable byte[] continuation) {
+        // Force snapshot isolation on the inner cursor (the only component that issues FDB reads) so the drain
+        // never installs a read-conflict range over the queue subspace. The unsplitter still receives the
+        // original scanProperties, so the caller's row/byte/skip limits are honored (it issues no reads itself,
+        // so its isolation level is irrelevant).
         KeyValueCursor inner = KeyValueCursor.Builder.newBuilder(queueSubspace)
                 .setContext(context)
                 .setScanProperties(scanProperties
                         .with(ExecuteProperties::clearRowAndTimeLimits)
                         .with(ExecuteProperties::clearSkipAndLimit)
-                        .with(ExecuteProperties::clearState))
+                        .with(ExecuteProperties::clearState)
+                        .with(executeProperties -> executeProperties.toBuilder()
+                                .setIsolationLevel(IsolationLevel.SNAPSHOT)
+                                .build()))
                 .setContinuation(continuation)
                 .build();
         RecordCursor<FDBRawRecord> unsplitter = new SplitHelper.KeyValueUnsplitter(
@@ -234,7 +251,14 @@ public class PendingWriteQueue {
      * @param entry the entry to remove
      */
     public void clearEntry(@Nonnull FDBRecordContext context, @Nonnull QueueEntry entry) {
-        SplitHelper.deleteSplit(context, queueSubspace, entry.getKeyTuple(), true, false, false, null);
+        // Install a read-conflict range over the keys this entry occupies. Clears are blind writes that do not
+        // conflict with each other, so without this two transactions could concurrently clear the same entry and
+        // each decrement the size counter, making it drift. The read conflict ensures at most one clear of
+        // a given entry commits.
+        final Tuple key = entry.getKeyTuple();
+        final Range entryRange = Range.startsWith(queueSubspace.pack(key));
+        context.ensureActive().addReadConflictRange(entryRange.begin, entryRange.end);
+        SplitHelper.deleteSplit(context, queueSubspace, key, true, false, false, null);
 
         // Atomically decrement the queue size counter
         mutateQueueSizeCounter(context, -1);

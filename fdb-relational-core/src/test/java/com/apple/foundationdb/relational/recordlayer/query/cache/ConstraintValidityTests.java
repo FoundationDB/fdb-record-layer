@@ -351,7 +351,7 @@ public class ConstraintValidityTests {
         final var ticker = new FakeTicker();
         final var cache = getCache(ticker);
         planQuery(cache, "SELECT game.name from score, game use index (gameIdx) where game.score_id is not null and game.score_id = score.id", GameIdx);
-        cacheShouldBe(cache, Map.of("SELECT \"GAME\" . \"NAME\" from \"SCORE\" , \"GAME\" use index ( \"GAMEIDX\" ) " +
-                "where \"GAME\" . \"SCORE_ID\" is not null and \"GAME\" . \"SCORE_ID\" = \"SCORE\" . \"ID\" ", Map.of(ppe(QueryPlanConstraint.noConstraint()), GameIdx)));
+        cacheShouldBe(cache, Map.of("SELECT \"GAME\" . \"NAME\" FROM \"SCORE\" , \"GAME\" USE INDEX ( \"GAMEIDX\" ) " +
+                "WHERE \"GAME\" . \"SCORE_ID\" IS NOT NULL AND \"GAME\" . \"SCORE_ID\" = \"SCORE\" . \"ID\" ", Map.of(ppe(QueryPlanConstraint.noConstraint()), GameIdx)));
     }
 }

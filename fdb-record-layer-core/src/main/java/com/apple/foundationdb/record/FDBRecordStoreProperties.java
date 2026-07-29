@@ -77,6 +77,19 @@ public final class FDBRecordStoreProperties {
     public static final RecordLayerPropertyKey<Boolean> DISABLE_INDEX_ON_PENDING_WRITE_QUEUE_OVERFLOW = RecordLayerPropertyKey.booleanPropertyKey(
             "com.apple.foundationdb.record.recordstore.disable_index_on_pending_write_queue_overflow", true);
 
+    /**
+     * The maximum number of entries that the pending-writes queue of an index in the
+     * {@link IndexState#WRITE_ONLY_WITH_QUEUE} state may hold before it is considered full (see
+     * {@link com.apple.foundationdb.record.provider.foundationdb.queue.PendingWritesQueue}). While such an index is
+     * being built, user writes are deferred to this queue instead of maintaining the index directly. Once the queue
+     * reaches this size, further writes overflow, which either fails the user transaction or disables the index
+     * depending on {@link #DISABLE_INDEX_ON_PENDING_WRITE_QUEUE_OVERFLOW}. A larger value tolerates a slower or stalled
+     * online indexer at the cost of more accumulated queue data; a value of {@code 0} disables the cap entirely.
+     */
+    @API(API.Status.EXPERIMENTAL)
+    public static final RecordLayerPropertyKey<Integer> MAX_PENDING_WRITE_QUEUE_SIZE = RecordLayerPropertyKey.integerPropertyKey(
+            "com.apple.foundationdb.record.recordstore.max_pending_write_queue_size", 100_000);
+
     private FDBRecordStoreProperties() {
         throw new RecordCoreException("should not instantiate class of static prop");
     }

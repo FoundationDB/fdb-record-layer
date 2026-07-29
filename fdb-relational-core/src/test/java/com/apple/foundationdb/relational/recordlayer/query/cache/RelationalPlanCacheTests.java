@@ -533,6 +533,22 @@ public class RelationalPlanCacheTests {
     }
 
     @Test
+    void testKeywordCaseSharesCacheEntry() throws Exception {
+        final var ticker = new FakeTicker();
+        final var cache = getCache(ticker);
+
+        // warm the cache with a canonically-cased query.
+        planQuery(cache, "SELECT * FROM BOOKS WHERE YEAR > 1970 AND YEAR < 1979", "SCHEMA_TEMPLATE_1", 10,
+                Set.of(i1970, i1980), i1970);
+        // an otherwise-identical query that differs only in keyword case reuses the same cache entry, because
+        // keyword case is normalized in the canonical form. The cache therefore still has a single entry.
+        planQuery(cache, "sELEct * frOm BOOKS wHeRe YEAR > 1970 aNd YEAR < 1979", "SCHEMA_TEMPLATE_1", 10,
+                Set.of(i1970, i1980), i1970);
+        shouldBe(cache, Map.of(new Tuple("SELECT * FROM \"BOOKS\" WHERE \"YEAR\" > ? AND \"YEAR\" < ? ", "SCHEMA_TEMPLATE_1", 10, configOf(Set.of(i1970, i1980)), ""),
+                Map.of(ppe(cons(c1970Cp0(7), c1970Cp1(11)), cons(ofTypeIntCp0(7), ofTypeIntCp1(11), isNotNullInt(7), isNotNullInt(11))), i1970)));
+    }
+
+    @Test
     void testCachingDifferentSchemaTemplateNames() throws Exception {
         final var ticker = new FakeTicker();
         final var cache = getCache(ticker);

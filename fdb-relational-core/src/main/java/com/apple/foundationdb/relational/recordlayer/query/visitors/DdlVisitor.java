@@ -22,8 +22,8 @@ package com.apple.foundationdb.relational.recordlayer.query.visitors;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.linear.Metric;
-import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexTypes;
+import com.apple.foundationdb.record.provider.foundationdb.indexes.VectorIndexOptionKeys;
 import com.apple.foundationdb.record.query.plan.cascades.RawSqlFunction;
 import com.apple.foundationdb.record.query.plan.cascades.UserDefinedFunction;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalSortExpression;
@@ -259,7 +259,7 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
         Assert.thatUnchecked(type.getCode() == DataType.Code.VECTOR, ErrorCode.SYNTAX_ERROR,
                 () -> "indexed column must be of vector type, found '" + type.getCode() + "' instead");
         final var numberOfDimensions = ((DataType.VectorType)type).getDimensions();
-        indexGeneratorBuilder.addIndexOption(IndexOptions.HNSW_NUM_DIMENSIONS, String.valueOf(numberOfDimensions));
+        VectorIndexOptionKeys.NUM_DIMENSIONS.put(indexGeneratorBuilder::addIndexOption, numberOfDimensions);
 
         Assert.isNullUnchecked(indexDefinitionContext.includeClause(), ErrorCode.UNSUPPORTED_OPERATION,
                 "INCLUDE clause is not supported for vector indexes");
@@ -300,36 +300,56 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
 
         for (final var option : indexOptionsContext.vectorIndexOption()) {
             if (option.EF_CONSTRUCTION() != null) {
-                indexOptionsBuilder.put(IndexOptions.HNSW_EF_CONSTRUCTION, option.efConstruction.getText());
+                VectorIndexOptionKeys.HNSW_EF_CONSTRUCTION.put(indexOptionsBuilder::put,
+                        Integer.parseInt(option.efConstruction.getText()));
             } else if (option.CONNECTIVITY() != null) {
-                indexOptionsBuilder.put(IndexOptions.HNSW_M, option.connectivity.getText());
+                VectorIndexOptionKeys.HNSW_M.put(indexOptionsBuilder::put,
+                        Integer.parseInt(option.connectivity.getText()));
             } else if (option.M_MAX() != null) {
-                indexOptionsBuilder.put(IndexOptions.HNSW_M_MAX, option.mMax.getText());
+                VectorIndexOptionKeys.HNSW_M_MAX.put(indexOptionsBuilder::put,
+                        Integer.parseInt(option.mMax.getText()));
             } else if (option.MAINTAIN_STATS_PROBABILITY() != null) {
-                indexOptionsBuilder.put(IndexOptions.HNSW_MAINTAIN_STATS_PROBABILITY, option.maintainStatsProbability.getText());
+                VectorIndexOptionKeys.MAINTAIN_STATS_PROBABILITY.put(indexOptionsBuilder::put,
+                        Double.parseDouble(option.maintainStatsProbability.getText()));
             } else if (option.METRIC() != null) {
-                if (option.metric.DOT_PRODUCT_METRIC() != null) {
-                    indexOptionsBuilder.put(IndexOptions.HNSW_METRIC, Metric.DOT_PRODUCT_METRIC.name());
-                } else if (option.metric.EUCLIDEAN_METRIC() != null) {
-                    indexOptionsBuilder.put(IndexOptions.HNSW_METRIC, Metric.EUCLIDEAN_METRIC.name());
-                } else if (option.metric.EUCLIDEAN_SQUARE_METRIC() != null) {
-                    indexOptionsBuilder.put(IndexOptions.HNSW_METRIC, Metric.EUCLIDEAN_SQUARE_METRIC.name());
-                } else if (option.metric.COSINE_METRIC() != null) {
-                    indexOptionsBuilder.put(IndexOptions.HNSW_METRIC, Metric.COSINE_METRIC.name());
-                } else {
-                    Assert.failUnchecked("metric " + option.metric.getText() + " is not currently supported");
-                }
+                VectorIndexOptionKeys.METRIC.put(indexOptionsBuilder::put, parseMetric(option.metric));
             } else if (option.RABITQ_NUM_EX_BITS() != null) {
-                indexOptionsBuilder.put(IndexOptions.HNSW_RABITQ_NUM_EX_BITS, option.rabitQNumExBits.getText());
+                VectorIndexOptionKeys.RABITQ_NUM_EX_BITS.put(indexOptionsBuilder::put,
+                        Integer.parseInt(option.rabitQNumExBits.getText()));
             } else if (option.SAMPLE_VECTOR_STATS_PROBABILITY() != null) {
-                indexOptionsBuilder.put(IndexOptions.HNSW_SAMPLE_VECTOR_STATS_PROBABILITY, option.statsProbability.getText());
+                VectorIndexOptionKeys.SAMPLE_VECTOR_STATS_PROBABILITY.put(indexOptionsBuilder::put,
+                        Double.parseDouble(option.statsProbability.getText()));
             } else if (option.STATS_THRESHOLD() != null) {
-                indexOptionsBuilder.put(IndexOptions.HNSW_STATS_THRESHOLD, option.statsThreshold.getText());
+                VectorIndexOptionKeys.STATS_THRESHOLD.put(indexOptionsBuilder::put,
+                        Integer.parseInt(option.statsThreshold.getText()));
             } else if (option.USE_RABITQ() != null) {
-                indexOptionsBuilder.put(IndexOptions.HNSW_USE_RABITQ, option.useRabitQ.getText());
+                VectorIndexOptionKeys.USE_RABITQ.put(indexOptionsBuilder::put,
+                        Boolean.parseBoolean(option.useRabitQ.getText()));
             }
         }
         return indexOptionsBuilder.build();
+    }
+
+    /**
+     * Maps a parsed {@code METRIC = ...} clause to its {@link Metric}. The typed metric option key then serializes it
+     * back to the canonical wire form (the enum constant name), so the mapping lives here rather than being spelled as
+     * raw {@code Metric.X.name()} strings at the write site.
+     *
+     * @param metricContext the parsed metric clause
+     * @return the corresponding metric
+     */
+    @Nonnull
+    private static Metric parseMetric(@Nonnull final RelationalParser.HnswMetricContext metricContext) {
+        if (metricContext.DOT_PRODUCT_METRIC() != null) {
+            return Metric.DOT_PRODUCT_METRIC;
+        } else if (metricContext.EUCLIDEAN_METRIC() != null) {
+            return Metric.EUCLIDEAN_METRIC;
+        } else if (metricContext.EUCLIDEAN_SQUARE_METRIC() != null) {
+            return Metric.EUCLIDEAN_SQUARE_METRIC;
+        } else if (metricContext.COSINE_METRIC() != null) {
+            return Metric.COSINE_METRIC;
+        }
+        throw Assert.failUnchecked("metric " + metricContext.getText() + " is not currently supported");
     }
 
     @Nonnull

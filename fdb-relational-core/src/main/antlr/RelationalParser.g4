@@ -379,14 +379,14 @@ deleteStatement
       (WHERE whereExpr)?
       orderByClause? limitClause?
       (RETURNING selectElements)?
-      queryOptions?
+      statementOptions?
     ;
 
 insertStatement
     : INSERT
       INTO? tableName
       (columns=uidListWithNestingsInParens)? insertStatementValue
-      queryOptions?
+      statementOptions?
     ;
 
 continuationAtom
@@ -395,7 +395,7 @@ continuationAtom
     ;
 
 selectStatement
-    : query
+    : query statementOptions?
     ;
 
 query
@@ -456,7 +456,7 @@ updateStatement
       SET updatedElement (',' updatedElement)*
       (WHERE whereExpr)?
       (RETURNING selectElements)?
-      queryOptions?
+      statementOptions?
     ;
 
 // details
@@ -530,8 +530,7 @@ queryTerm
     qualifyClause?
     /*windowClause?*/
     orderByClause?
-    limitClause?
-    queryOptions?                                                  #simpleTable
+    limitClause?                                                   #simpleTable
     | '(' query ')'                                                #parenthesisQuery
     ;
 
@@ -587,15 +586,14 @@ limitClauseAtom
     | preparedStatementParameter
     ;
 
-queryOptions
-    : OPTIONS '(' queryOption (',' queryOption)* ')'
+statementOptions
+    : OPTIONS '(' statementOption (',' statementOption)* ')'
     ;
 
-queryOption
+statementOption
     : NOCACHE
     | LOG QUERY
     | DRY RUN
-    | EF_SEARCH decimalLiteral
     | PLAN RIGHT DEEP
     ;
 
@@ -686,7 +684,7 @@ resetStatement
 
 executeContinuationStatement
     : EXECUTE CONTINUATION packageBytes=continuationAtom
-      queryOptions?
+      statementOptions?
     ;
 
 copyStatement
@@ -740,7 +738,7 @@ helpStatement
 
 describeObjectClause
     : (
-        query | deleteStatement | insertStatement
+        query statementOptions? | deleteStatement | insertStatement
         | updateStatement | executeContinuationStatement
       )                                                             #describeStatements
     | FOR CONNECTION uid                                            #describeConnection
