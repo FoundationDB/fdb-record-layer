@@ -49,7 +49,6 @@ dependencies {
     implementation project(":fdb-relational-jdbc")
     implementation project(":fdb-relational-server")
     implementation(libs.jline)
-    implementation(libs.asciitable)
     implementation(libs.jsr305)
     implementation(libs.junit.api)
     implementation(libs.junit.params)
