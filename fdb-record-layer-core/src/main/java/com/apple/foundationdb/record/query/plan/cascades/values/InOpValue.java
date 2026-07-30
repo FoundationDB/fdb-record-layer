@@ -207,7 +207,7 @@ public class InOpValue extends AbstractValue implements BooleanValue {
     public static class InFn extends BuiltInFunction<Value> {
         public InFn() {
             super("in",
-                    List.of(new Type.Any(), new Type.Array()), (builtInFunc, args) -> encapsulateInternal(args));
+                    List.of(new Type.Any(), new Type.Array()), (builtInFunc, args) -> encapsulateInternal(args.getArgumentsList()));
         }
 
         @Nonnull

@@ -29,6 +29,7 @@ import com.apple.foundationdb.record.planprotos.PSubscriptValue;
 import com.apple.foundationdb.record.planprotos.PValue;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
+import com.apple.foundationdb.record.query.plan.cascades.CallSiteArguments;
 import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
@@ -186,7 +187,8 @@ public class SubscriptValue extends AbstractValue {
 
         @SuppressWarnings({"PMD.UnusedFormalParameter", "PMD.UnusedPrivateMethod"}) // false positive, method is used
         private static Value encapsulate(@Nonnull BuiltInFunction<Value> ignored,
-                                         @Nonnull final List<? extends Typed> arguments) {
+                                         @Nonnull final CallSiteArguments callSiteArguments) {
+            final List<? extends Typed> arguments = callSiteArguments.getArgumentsList();
             Verify.verify(arguments.size() == 2);
             var indexValue = (Value)arguments.get(0);
             final var indexMaxType = Type.maximumType(indexValue.getResultType(), Type.primitiveType(Type.TypeCode.INT));
