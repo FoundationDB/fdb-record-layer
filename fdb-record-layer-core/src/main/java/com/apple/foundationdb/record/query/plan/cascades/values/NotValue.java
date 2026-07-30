@@ -186,7 +186,7 @@ public class NotValue extends AbstractValue implements BooleanValue, ValueWithCh
         public NotFn() {
             super("not",
                     ImmutableList.of(Type.primitiveType(Type.TypeCode.BOOLEAN)),
-                    (builtInFunction, arguments) -> encapsulateInternal(arguments));
+                    (builtInFunction, arguments) -> encapsulateInternal(arguments.getArgumentsList()));
         }
 
         private static Value encapsulateInternal(@Nonnull final List<? extends Typed> arguments) {
