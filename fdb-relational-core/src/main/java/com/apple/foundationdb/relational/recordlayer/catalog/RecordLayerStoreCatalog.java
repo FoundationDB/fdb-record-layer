@@ -44,6 +44,7 @@ import com.apple.foundationdb.relational.api.Row;
 import com.apple.foundationdb.relational.api.StructMetaData;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.catalog.CatalogValidator;
+import com.apple.foundationdb.relational.api.catalog.SchemaExistsBehavior;
 import com.apple.foundationdb.relational.api.catalog.SchemaTemplateCatalog;
 import com.apple.foundationdb.relational.api.catalog.StoreCatalog;
 import com.apple.foundationdb.relational.api.ddl.ProtobufDdlUtil;
@@ -180,18 +181,12 @@ class RecordLayerStoreCatalog implements StoreCatalog, KeySpaceProvider {
                 schemaTemplateCatalog.createTemplate(createTxn, this.catalogSchemaTemplate);
             }
             this.schemaTemplateCatalog = schemaTemplateCatalog;
-            // Persist our hard-coded catalog schema — but only if it isn't already there. Every
-            // FRL construction and every proactive test-time initializer calls this method;
-            // writing the same schema row on every call turned every parallel init into a
-            // write-write commit conflict on the schema's record in the catalog. Gate on doesSchemaExist so the
-            // second and subsequent inits become read-only and can commit concurrently.
-            // We trust that the catalog's schema isn't changing, and so if it already exists we will continue to use
-            // that schema; without the check we would always replace (blindly, not upgrading). We should probably push
-            // this down into saveSchema, but that requires validating that the save is ok; deferring that until we have
-            // a comprehensive ddl evolution story.
-            if (!doesSchemaExist(createTxn, URI.create(this.catalogSchema.getDatabaseName()), this.catalogSchema.getName())) {
-                saveSchema(createTxn, this.catalogSchema, true);
-            }
+            // Persist our hard-coded catalog schema. Many places call this to ensure the catalog is initialized
+            // so we want to validate that the existing schema is the same, but we don't want to introduce conflicts
+            // if other transactions are also lazily initializing the catalog schema after it already exists.
+            // In theory this could use UPGRADE, but that would probably be better to be done intentionally, rather than
+            // part of lazy initialization.
+            saveSchema(createTxn, this.catalogSchema, true, SchemaExistsBehavior.ERROR_IF_DIFFERENT);
         } catch (RecordCoreStorageException ex) {
             throw ExceptionUtil.toRelationalException(ex);
         }
@@ -224,7 +219,8 @@ class RecordLayerStoreCatalog implements StoreCatalog, KeySpaceProvider {
 
     @Override
     public void saveSchema(@Nonnull final Transaction txn, @Nonnull final Schema schema,
-                           boolean createDatabaseIfNecessary) throws RelationalException {
+                           boolean createDatabaseIfNecessary,
+                           @Nonnull SchemaExistsBehavior existsBehavior) throws RelationalException {
         var recordStore = RecordLayerStoreUtils.openRecordStore(txn, this.catalogSchemaPath,
                 this.catalogRecordMetaDataProvider);
         CatalogValidator.validateSchema(schema);
@@ -243,11 +239,82 @@ class RecordLayerStoreCatalog implements StoreCatalog, KeySpaceProvider {
                 () -> String.format(Locale.ROOT, "Cannot create schema %s because schema template %s version %d does not exist.",
                         schema.getName(), schema.getSchemaTemplate().getName(),
                         schema.getSchemaTemplate().getVersion()));
+        // Decide, based on existsBehavior, whether to fall through and write. Variants that do
+        // NOT write on the exists-branch leave the transaction read-only w.r.t. the schema row
+        // so concurrent no-op saves can commit without conflict.
+        final Tuple primaryKey = getSchemaKey(URI.create(schema.getDatabaseName()), schema.getName());
+        final boolean exists;
+        try {
+            exists = recordStore.loadRecord(primaryKey) != null;
+        } catch (RecordCoreException ex) {
+            throw ExceptionUtil.toRelationalException(ex);
+        }
+        if (exists) {
+            switch (existsBehavior) {
+                case ERROR:
+                    throw new RelationalException(
+                            String.format(Locale.ROOT, "Schema %s/%s already exists.",
+                                    schema.getDatabaseName(), schema.getName()),
+                            ErrorCode.SCHEMA_ALREADY_EXISTS);
+                case ERROR_IF_DIFFERENT: {
+                    final Schema existing = loadSchema(txn, URI.create(schema.getDatabaseName()), schema.getName());
+                    if (schemasMatchOnTemplate(existing, schema)) {
+                        return;
+                    }
+                    throw new RelationalException(
+                            String.format(Locale.ROOT,
+                                    "Schema %s/%s already exists with a different template (%s@%d vs %s@%d).",
+                                    schema.getDatabaseName(), schema.getName(),
+                                    existing.getSchemaTemplate().getName(), existing.getSchemaTemplate().getVersion(),
+                                    schema.getSchemaTemplate().getName(), schema.getSchemaTemplate().getVersion()),
+                            ErrorCode.SCHEMA_ALREADY_EXISTS);
+                }
+                case DO_NOTHING:
+                    return;
+                case UPGRADE: {
+                    final Schema existing = loadSchema(txn, URI.create(schema.getDatabaseName()), schema.getName());
+                    if (!existing.getSchemaTemplate().getName().equals(schema.getSchemaTemplate().getName())) {
+                        throw new RelationalException(
+                                String.format(Locale.ROOT,
+                                        "Cannot upgrade schema %s/%s: existing template %s does not match new template %s.",
+                                        schema.getDatabaseName(), schema.getName(),
+                                        existing.getSchemaTemplate().getName(), schema.getSchemaTemplate().getName()),
+                                ErrorCode.SCHEMA_ALREADY_EXISTS);
+                    }
+                    final int existingVersion = existing.getSchemaTemplate().getVersion();
+                    final int newVersion = schema.getSchemaTemplate().getVersion();
+                    if (newVersion < existingVersion) {
+                        throw new RelationalException(
+                                String.format(Locale.ROOT,
+                                        "Cannot upgrade schema %s/%s: new template version %d is lower than existing version %d.",
+                                        schema.getDatabaseName(), schema.getName(), newVersion, existingVersion),
+                                ErrorCode.SCHEMA_ALREADY_EXISTS);
+                    }
+                    if (newVersion == existingVersion) {
+                        return;
+                    }
+                    // newVersion > existingVersion — fall through and write.
+                    break;
+                }
+                default:
+                    throw new RelationalException(
+                            "Unhandled SchemaExistsBehavior: " + existsBehavior, ErrorCode.INTERNAL_ERROR);
+            }
+        }
         try {
             putSchema((RecordLayerSchema) schema, recordStore);
         } catch (RecordCoreException ex) {
             throw ExceptionUtil.toRelationalException(ex);
         }
+    }
+
+    /**
+     * @return {@code true} iff the two schemas persist the same {@code (templateName, templateVersion)}
+     *   pair — the pair the catalog actually stores for a schema row.
+     */
+    private static boolean schemasMatchOnTemplate(@Nonnull Schema a, @Nonnull Schema b) {
+        return a.getSchemaTemplate().getName().equals(b.getSchemaTemplate().getName())
+                && a.getSchemaTemplate().getVersion() == b.getSchemaTemplate().getVersion();
     }
 
     @Override
@@ -257,7 +324,7 @@ class RecordLayerStoreCatalog implements StoreCatalog, KeySpaceProvider {
         // load latest schema template
         final SchemaTemplate template = schemaTemplateCatalog.loadSchemaTemplate(txn, schema.getSchemaTemplate().getName());
         final Schema newSchema = template.generateSchema(databaseId, schemaName);
-        saveSchema(txn, newSchema, false);
+        saveSchema(txn, newSchema, false, SchemaExistsBehavior.UPGRADE);
     }
 
     @Override

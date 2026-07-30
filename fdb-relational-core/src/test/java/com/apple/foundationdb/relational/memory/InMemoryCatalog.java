@@ -25,6 +25,7 @@ import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.Transaction;
+import com.apple.foundationdb.relational.api.catalog.SchemaExistsBehavior;
 import com.apple.foundationdb.relational.api.catalog.SchemaTemplateCatalog;
 import com.apple.foundationdb.relational.api.catalog.StoreCatalog;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
@@ -77,14 +78,51 @@ public class InMemoryCatalog implements StoreCatalog {
     }
 
     @Override
-    public void saveSchema(@Nonnull Transaction txn, @Nonnull Schema dataToWrite, boolean createDatabaseIfNecessary) throws RelationalException {
+    public void saveSchema(@Nonnull Transaction txn, @Nonnull Schema dataToWrite, boolean createDatabaseIfNecessary,
+                           @Nonnull SchemaExistsBehavior existsBehavior) throws RelationalException {
         final URI key = URI.create(dataToWrite.getDatabaseName());
         List<InMemorySchema> schemas = dbToSchemas.computeIfAbsent(key, k -> Collections.synchronizedList(new ArrayList<>()));
 
         for (InMemorySchema schema : schemas) {
             if (schema.schema.getName().equalsIgnoreCase(dataToWrite.getName())) {
+                // Schema already exists — obey the caller's requested behaviour.
+                final Schema existing = schema.schema;
+                switch (existsBehavior) {
+                    case ERROR:
+                        throw new RelationalException(
+                                "Schema " + dataToWrite.getDatabaseName() + "/" + dataToWrite.getName() + " already exists.",
+                                ErrorCode.SCHEMA_ALREADY_EXISTS);
+                    case ERROR_IF_DIFFERENT:
+                        if (existing.getSchemaTemplate().getName().equals(dataToWrite.getSchemaTemplate().getName())
+                                && existing.getSchemaTemplate().getVersion() == dataToWrite.getSchemaTemplate().getVersion()) {
+                            return;
+                        }
+                        throw new RelationalException(
+                                "Schema " + dataToWrite.getDatabaseName() + "/" + dataToWrite.getName()
+                                        + " already exists with a different template.",
+                                ErrorCode.SCHEMA_ALREADY_EXISTS);
+                    case DO_NOTHING:
+                        return;
+                    case UPGRADE:
+                        if (!existing.getSchemaTemplate().getName().equals(dataToWrite.getSchemaTemplate().getName())
+                                || dataToWrite.getSchemaTemplate().getVersion() < existing.getSchemaTemplate().getVersion()) {
+                            throw new RelationalException(
+                                    "Cannot upgrade schema " + dataToWrite.getDatabaseName() + "/" + dataToWrite.getName()
+                                            + ": incompatible template or version regression.",
+                                    ErrorCode.SCHEMA_ALREADY_EXISTS);
+                        }
+                        if (dataToWrite.getSchemaTemplate().getVersion() == existing.getSchemaTemplate().getVersion()) {
+                            return;
+                        }
+                        // Fall through and overwrite for a strictly-greater version.
+                        break;
+                    default:
+                        throw new RelationalException(
+                                "Unhandled SchemaExistsBehavior: " + existsBehavior, ErrorCode.INTERNAL_ERROR);
+                }
                 schema.schema = dataToWrite;
                 schema.createTables();
+                return;
             }
         }
 

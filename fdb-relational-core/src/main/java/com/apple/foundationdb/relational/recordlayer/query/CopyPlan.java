@@ -45,6 +45,7 @@ import com.apple.foundationdb.relational.api.RelationalArray;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStructMetaData;
 import com.apple.foundationdb.relational.api.Transaction;
+import com.apple.foundationdb.relational.api.catalog.SchemaExistsBehavior;
 import com.apple.foundationdb.relational.api.catalog.SchemaTemplateCatalog;
 import com.apple.foundationdb.relational.api.catalog.StoreCatalog;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
@@ -60,7 +61,6 @@ import com.apple.foundationdb.relational.recordlayer.ArrayRow;
 import com.apple.foundationdb.relational.recordlayer.ContinuationBuilder;
 import com.apple.foundationdb.relational.recordlayer.ContinuationImpl;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalConnection;
-import com.google.protobuf.ByteString;
 import com.apple.foundationdb.relational.recordlayer.KeySpaceUtils;
 import com.apple.foundationdb.relational.recordlayer.RecordContextTransaction;
 import com.apple.foundationdb.relational.recordlayer.RecordLayerIterator;
@@ -68,6 +68,8 @@ import com.apple.foundationdb.relational.recordlayer.RecordLayerResultSet;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
 import com.apple.foundationdb.relational.transactionbound.catalog.HollowStoreCatalog;
 import com.apple.foundationdb.relational.util.catalog.KeySpaceProvider;
+import com.google.protobuf.ByteString;
+
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.net.URI;
@@ -436,6 +438,7 @@ public final class CopyPlan extends QueryPlan {
                 storeCatalog.createDatabase(transaction, databaseUri);
             }
 
+            // TODO take advantage of the new options
             if (storeCatalog.doesSchemaExist(transaction, databaseUri, schemaName)) {
                 // Schema exists, verify the template matches
                 final Schema existingSchema = storeCatalog.loadSchema(transaction, databaseUri, schemaName);
@@ -471,7 +474,7 @@ public final class CopyPlan extends QueryPlan {
                 // Load the template and create a schema from it
                 final SchemaTemplate template = templateCatalog.loadSchemaTemplate(transaction, templateName, templateVersion);
                 final Schema newSchema = template.generateSchema(databaseUri.getPath(), schemaName);
-                storeCatalog.saveSchema(transaction, newSchema, false);
+                storeCatalog.saveSchema(transaction, newSchema, false, SchemaExistsBehavior.ERROR);
             }
         } catch (RelationalException e) {
             throw e;
