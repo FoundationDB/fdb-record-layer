@@ -25,7 +25,6 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metadata.Schema;
 
 import javax.annotation.Nonnull;
-import java.util.Locale;
 
 /**
  * Governs what {@link StoreCatalog#saveSchema} does when a schema already exists at the
@@ -47,8 +46,8 @@ public enum SchemaExistsBehavior {
     ERROR {
         @Override
         public boolean shouldWrite(@Nonnull Schema newSchema, @Nonnull Schema existingSchema) throws RelationalException {
-            throw schemaAlreadyExists("Schema %s/%s already exists.",
-                    newSchema.getDatabaseName(), newSchema.getName());
+            throw new RelationalException("Schema " + newSchema.getDatabaseName() + "/" + newSchema.getName() +
+                    " already exists.", ErrorCode.SCHEMA_ALREADY_EXISTS);
         }
     },
 
@@ -61,11 +60,11 @@ public enum SchemaExistsBehavior {
             if (areSchemasIdentical(newSchema, existingSchema)) {
                 return false;
             }
-            throw schemaAlreadyExists(
-                    "Schema %s/%s already exists with a different template (%s@%d vs %s@%d).",
-                    newSchema.getDatabaseName(), newSchema.getName(),
-                    existingSchema.getSchemaTemplate().getName(), existingSchema.getSchemaTemplate().getVersion(),
-                    newSchema.getSchemaTemplate().getName(), newSchema.getSchemaTemplate().getVersion());
+            throw new RelationalException("Schema " + newSchema.getDatabaseName() + "/" + newSchema.getName() +
+                    " already exists with a different template (" +
+                    existingSchema.getSchemaTemplate().getName() + "@" + existingSchema.getSchemaTemplate().getVersion() +
+                    " vs " + newSchema.getSchemaTemplate().getName() + "@" + newSchema.getSchemaTemplate().getVersion() + ").",
+                    ErrorCode.SCHEMA_ALREADY_EXISTS);
         }
     },
 
@@ -90,19 +89,21 @@ public enum SchemaExistsBehavior {
             final String existingTemplateName = existingSchema.getSchemaTemplate().getName();
             final String newTemplateName = newSchema.getSchemaTemplate().getName();
             if (!existingTemplateName.equals(newTemplateName)) {
-                throw schemaAlreadyExists(
-                        "Cannot upgrade schema %s/%s: existing template %s does not match new template %s.",
-                        newSchema.getDatabaseName(), newSchema.getName(),
-                        existingTemplateName, newTemplateName);
+                throw new RelationalException("Cannot upgrade schema " +
+                        newSchema.getDatabaseName() + "/" + newSchema.getName() +
+                        ": existing template " + existingTemplateName + " does not match new template " +
+                        newTemplateName + ".",
+                        ErrorCode.SCHEMA_ALREADY_EXISTS);
             }
             final int existingVersion = existingSchema.getSchemaTemplate().getVersion();
             final int newVersion = newSchema.getSchemaTemplate().getVersion();
             if (newVersion < existingVersion) {
-                throw schemaAlreadyExists(
-                        "Cannot upgrade schema %s/%s: new template version %d is lower than existing version %d.",
-                        newSchema.getDatabaseName(), newSchema.getName(), newVersion, existingVersion);
+                throw new RelationalException("Cannot upgrade schema " +
+                        newSchema.getDatabaseName() + "/" + newSchema.getName() +
+                        ": new template version " + newVersion + " is lower than existing version " + existingVersion + ".",
+                        ErrorCode.SCHEMA_ALREADY_EXISTS);
             }
-            // newVersion >= existingVersion. When strictly greater, write; on equality, no-op.
+            // When strictly greater, write; on equality, no-op.
             return newVersion > existingVersion;
         }
     };
@@ -132,8 +133,4 @@ public enum SchemaExistsBehavior {
                 && a.getSchemaTemplate().getVersion() == b.getSchemaTemplate().getVersion();
     }
 
-    @Nonnull
-    private static RelationalException schemaAlreadyExists(@Nonnull String messageFormat, Object... args) {
-        return new RelationalException(String.format(Locale.ROOT, messageFormat, args), ErrorCode.SCHEMA_ALREADY_EXISTS);
-    }
 }
