@@ -358,6 +358,21 @@ class StoredQueriesTest {
                 }
             });
             Assertions.assertEquals(Long.valueOf(1), connectionUtils.getFromCatalog(c -> countCachedPlans(c, templateName)));
+
+            // Also reuse the same warmed plan from a plain (non-prepared) query with a LONG literal in the text.
+            // 15L is a LONG literal, matching the declared bigint (OfType(LONG)); a bare 15 would be an INT literal
+            // that would instead miss and replan.
+            connectionUtils.runAgainstConnection(dbUri, schemaName, c -> {
+                try (var stmt = c.createStatement();
+                        RelationalResultSet rs = stmt.executeQuery("select * from t1 where col1 > 15L")) {
+                    Assertions.assertTrue(rs.next());
+                    Assertions.assertEquals(2, rs.getLong("ID"));
+                    Assertions.assertTrue(rs.next());
+                    Assertions.assertEquals(3, rs.getLong("ID"));
+                    Assertions.assertFalse(rs.next());
+                }
+            });
+            Assertions.assertEquals(Long.valueOf(1), connectionUtils.getFromCatalog(c -> countCachedPlans(c, templateName)));
         }
     }
 
