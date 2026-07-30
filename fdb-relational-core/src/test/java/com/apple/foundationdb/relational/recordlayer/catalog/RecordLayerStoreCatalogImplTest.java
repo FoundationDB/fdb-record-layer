@@ -50,6 +50,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 import javax.annotation.Nonnull;
 import java.net.URI;
 import java.util.Locale;
+import java.util.UUID;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -549,31 +550,34 @@ public class RecordLayerStoreCatalogImplTest extends RecordLayerStoreCatalogTest
                 Stream.of(SchemaExistsBehavior.values()).filter(behavior -> behavior != SchemaExistsBehavior.ERROR),
                 Stream.of(SchemaExistsBehavior.values()).filter(behavior -> behavior != SchemaExistsBehavior.ERROR),
                 Stream.of(SecondSaveShape.values()),
-                Stream.of(SecondSaveShape.values())
+                Stream.of(SecondSaveShape.values()),
+                ParameterizedTestUtils.booleans("txn2UnrelatedWrite")
         );
     }
 
     /**
      * Direct concurrent-{@code saveSchema} coverage across every non-throwing (shape, behavior)
-     * pair the two transactions might see.
-     * <p>{@link #testTwoSimultaneousInitializationsDoNotConflict()} exercises
-     * a subset of this same path via {@code StoreCatalogProvider.getCatalog}; this test
-     * additionally covers every synchronous-succeed combination of the four behaviors × four
-     * shapes on each side.</p>
+     * pair the two transactions might see, optionally with an unrelated write in {@code txn2}.
+     *
+     * <p>{@link #testTwoSimultaneousInitializationsDoNotConflict()} exercises a subset of this
+     * same path via {@code StoreCatalogProvider.getCatalog}; this test additionally covers every
+     * synchronous-succeed combination on each side.</p>
      */
     @ParameterizedTest
     @MethodSource
     void concurrentSaveSchema(@Nonnull SchemaExistsBehavior behavior1,
                               @Nonnull SchemaExistsBehavior behavior2,
                               @Nonnull SecondSaveShape shape1,
-                              @Nonnull SecondSaveShape shape2) throws RelationalException {
+                              @Nonnull SecondSaveShape shape2,
+                              boolean txn2UnrelatedWrite) throws RelationalException {
         // We only exercise pairs where BOTH sides return from saveSchema — otherwise the
         // synchronous throw kills the setup and there's no commit ordering to observe.
         Assumptions.assumeThat(shape1.succeeds(behavior1)).isTrue();
         Assumptions.assumeThat(shape2.succeeds(behavior2)).isTrue();
 
         final URI dbId = preSaveExistingSchema("db_concurrent_" +
-                String.join("_", behavior1.name(), behavior2.name(), shape1.name(), shape2.name()));
+                String.join("_", behavior1.name(), behavior2.name(),
+                        shape1.name(), shape2.name(), Boolean.toString(txn2UnrelatedWrite)));
 
         final Schema secondForTxn1 = secondSaveSchema(dbId, shape1);
         final Schema secondForTxn2 = secondSaveSchema(dbId, shape2);
@@ -583,24 +587,29 @@ public class RecordLayerStoreCatalogImplTest extends RecordLayerStoreCatalogTest
                 Transaction txn2 = new RecordContextTransaction(fdb.openContext())) {
             storeCatalog.saveSchema(txn1, secondForTxn1, false, behavior1);
             storeCatalog.saveSchema(txn2, secondForTxn2, false, behavior2);
+            if (txn2UnrelatedWrite) {
+                // Do an unrelated write in txn2, otherwise txn2 is read-only
+                storeCatalog.createDatabase(txn2, URI.create("/TEST/" + UUID.randomUUID()));
+            }
             txn1.commit();
-            if (txn1Writes && txn2Writes) {
-                // Write-write conflict on the schema record's primary key: txn1's committed
-                // write invalidates txn2's own read/write on the same key.
+            final boolean txn2ReachesResolver = txn2Writes || txn2UnrelatedWrite;
+            if (txn1Writes && txn2ReachesResolver) {
+                // Read-write conflict on the schema row: txn1's committed write invalidates
+                // txn2's earlier read of that row, and txn2's commit reaches the resolver
+                // (either via its own schema write or via the unrelated write above).
                 RelationalAssertions.assertThrows(txn2::commit)
                                 .hasErrorCode(ErrorCode.SERIALIZATION_FAILURE);
             } else {
-                // TODO cover the case where txn2 writes a record or something else
-                // At most one side wrote; the non-writer's commit is either a no-op or affects
-                // no key that txn1's commit touched. Both commit cleanly.
+                // Either txn1 didn't write, or txn2 is truly read-only and skips the resolver.
+                // Both commit cleanly.
                 txn2.commit();
             }
         }
 
         // Post-state depends on which committed writes happened:
-        //   * both wrote  → txn2 aborted, on-disk = txn1's write
-        //   * only txn1 wrote → on-disk = txn1's write
-        //   * only txn2 wrote → txn2 committed after txn1, so on-disk = txn2's write
+        //   * txn1 wrote → on-disk = txn1's write (whether txn2 aborted or committed as a
+        //     no-op on the schema row, the schema row now reflects txn1)
+        //   * only txn2 wrote → on-disk = txn2's write
         //   * neither wrote → on-disk unchanged
         if (txn1Writes) {
             assertPersistedTemplateEquals(dbId, secondForTxn1.getSchemaTemplate().getName(),
