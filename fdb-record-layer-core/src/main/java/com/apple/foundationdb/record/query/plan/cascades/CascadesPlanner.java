@@ -841,58 +841,63 @@ public class CascadesPlanner implements QueryPlanner {
 
         @Override
         public boolean execute() {
-            final var ruleSet = getPlannerPhase().getRuleSet();
+            final RelationalExpression expression = getExpression();
+            final CascadesRuleSet ruleSet = getPlannerPhase().getRuleSet();
 
-            // push all rules that need to run after all exploration for a (group, expression) pair is done.
-            ruleSet.getMatchPartitionRules(configuration::isRuleEnabled)
-                    .filter(this::shouldPushRule)
-                    .forEach(this::pushTransformMatchPartition);
+            // Push all rules that need to run after all exploration for a (group, expression) pair is done.
+            ruleSet.getMatchPartitionRules().forEach(this::pushTransformMatchPartitionMaybe);
 
+            // Push `TransformExpression` tasks for non-pre-order rules.
+            //
             // This is closely tied to the way that rule finding works _now_. Specifically, rules are indexed only
             // by the type of their _root_, not any of the stuff lower down. As a result, we have enough information
             // right here to determine the set of all possible rules that could ever be applied here, regardless of
             // what happens towards the leaves of the tree.
-            ruleSet.getRules(getExpression(), configuration::isRuleEnabled)
-                    .filter(rule -> !(rule instanceof PreOrderRule) &&
-                            shouldPushRule(rule))
-                    .forEach(this::pushTransformTask);
+            ruleSet.getRules(expression)
+                    .filter(rule -> !(rule instanceof PreOrderRule))
+                    .forEach(this::pushTransformTaskMaybe);
 
-            // push explore group for all groups this expression ranges over
-            getExpression()
-                    .getQuantifiers()
-                    .stream()
+            // Push `ExploreGroup` tasks for all groups this expression ranges over.
+            expression.getQuantifiers().stream()
                     .map(Quantifier::getRangesOver)
                     .forEach(this::pushExploreGroup);
 
-            ruleSet.getRules(getExpression(), configuration::isRuleEnabled)
-                    .filter(rule -> rule instanceof PreOrderRule &&
-                            shouldPushRule(rule))
-                    .forEach(this::pushTransformTask);
+            // Push `TransformExpression` tasks for pre-order rules.
+            ruleSet.getRules(expression)
+                    .filter(rule -> rule instanceof PreOrderRule)
+                    .forEach(this::pushTransformTaskMaybe);
+
             return true;
         }
 
         protected abstract boolean shouldPushRule(@Nonnull CascadesRule<?> rule);
 
         /**
-         * Pushes a task that transforms the current group/expression pair using the given rule. For an ordinary rule,
-         * pushes a {@link TransformExpression} task. For a {@link ConditionalCascadesRule}, pushes a single
-         * {@link ConditionalTransformExpression} task holding the subset of inner rules that are both enabled and
-         * currently worth trying according to {@code shouldPushRule()}. If that subset is empty, no task is pushed.
+         * Pushes a task that transforms the current group/expression pair using the given rule, if that rule is
+         * currently enabled and worth trying according to {@link #shouldPushRule}. For an ordinary rule, pushes a
+         * {@link TransformExpression} task. For a {@link ConditionalCascadesRule}, pushes a single
+         * {@link ConditionalTransformExpression} task holding the subset of inner rules that are enabled and worth
+         * trying; if that subset is empty, no task is pushed.
          */
         @VisibleForTesting
-        void pushTransformTask(@Nonnull CascadesRule<? extends RelationalExpression> rule) {
+        void pushTransformTaskMaybe(@Nonnull CascadesRule<? extends RelationalExpression> rule) {
+            if (!configuration.isRuleEnabled(rule) || !shouldPushRule(rule)) {
+                return;
+            }
             final PlannerPhase phase = getPlannerPhase();
             final Reference group = getGroup();
             final RelationalExpression expression = getExpression();
             if (rule instanceof final ConditionalCascadesRule<?, ?> conditionalRule) {
-                // Filter the individual inner rules by `configuration::isRuleEnabled` here, since the filter that is
-                // applied earlier at `ruleSet.getRules()` pertains only to the `ConditionalCascadesRule` wrapper.
-                // Also re-apply `shouldPushRule()` to each inner rule (rather than just the wrapper) so that on
-                // re-exploration only the inner rules that are actually sensitive to a newly-stale constraint get
-                // another chance to fire, instead of unconditionally restarting the whole chain from the first rule.
-                final var rules = getEnabledRules(conditionalRule).stream()
-                        .filter(this::shouldPushRule)
-                        .collect(ImmutableList.<CascadesRule<? extends RelationalExpression>>toImmutableList());
+                // Check `shouldPushRule()` and `isRuleEnabled()` for each inner rule as well (rather than just the
+                // wrapper) so that on re-exploration only the inner rules that are actually sensitive to a newly-stale
+                // constraint get another chance to fire, instead of unconditionally restarting the whole chain from the
+                // first rule.
+                @SuppressWarnings("unchecked")
+                final var innerRules = (List<CascadesRule<? extends RelationalExpression>>)conditionalRule.getRules();
+                final var rules = innerRules.stream()
+                        .filter(innerRule ->
+                                configuration.isRuleEnabled(innerRule) && shouldPushRule(innerRule))
+                        .collect(ImmutableList.toImmutableList());
                 if (!rules.isEmpty()) {
                     taskStack.push(new ConditionalTransformExpression(phase, group, expression, rules));
                 }
@@ -901,18 +906,10 @@ public class CascadesPlanner implements QueryPlanner {
             }
         }
 
-        /**
-         * Returns the inner rules of the given {@link ConditionalCascadesRule} that are currently enabled according to
-         * the planner {@link #configuration}, preserving their order.
-         */
-        @VisibleForTesting
-        <T extends RelationalExpression> List<CascadesRule<T>> getEnabledRules(ConditionalCascadesRule<?, ?> rule) {
-            final var rules = rule.getRules(configuration::isRuleEnabled);
-            @SuppressWarnings("unchecked") final var result = (List<CascadesRule<T>>)rules;
-            return result;
-        }
-
-        private void pushTransformMatchPartition(AbstractCascadesRule<? extends MatchPartition> rule) {
+        private void pushTransformMatchPartitionMaybe(AbstractCascadesRule<? extends MatchPartition> rule) {
+            if (!configuration.isRuleEnabled(rule) || !shouldPushRule(rule)) {
+                return;
+            }
             taskStack.push(new TransformMatchPartition(getPlannerPhase(), getGroup(), getExpression(), rule));
         }
 

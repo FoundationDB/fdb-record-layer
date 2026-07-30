@@ -177,22 +177,6 @@ class ConditionalCascadesRuleTest {
     }
 
     @Test
-    void getRulesWithPredicateFiltersInOrder() {
-        final StubRule first = stubRule(SelectExpression.class);
-        final StubRule second = stubRule(SelectExpression.class);
-        final StubRule third = stubRule(SelectExpression.class);
-        final ConditionalCascadesRule<RelationalExpression, StubRule> rule = conditionalRuleOf(first, second, third);
-        assertThat(rule.getRules(candidate -> candidate == first || candidate == third)).containsExactly(first, third);
-    }
-
-    @Test
-    void getRulesWithNeverMatchingPredicateReturnsEmpty() {
-        final ConditionalCascadesRule<RelationalExpression, StubRule> rule =
-                conditionalRuleOf(stubRule(SelectExpression.class), stubRule(SelectExpression.class));
-        assertThat(rule.getRules(candidate -> false)).isEmpty();
-    }
-
-    @Test
     void onMatchThrows() {
         final ConditionalCascadesRule<RelationalExpression, StubRule> rule =
                 conditionalRuleOf(stubRule(SelectExpression.class));

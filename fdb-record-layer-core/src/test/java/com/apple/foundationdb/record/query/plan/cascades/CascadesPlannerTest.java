@@ -122,13 +122,22 @@ class CascadesPlannerTest {
                 .build());
 
         final RecordingExplorationCascadesRule disabled = new RecordingExplorationCascadesRule(true);
-        final OtherRecordingExplorationCascadesRule enabled = new OtherRecordingExplorationCascadesRule(true);
+        final RecordingExplorationCascadesRule enabled = new OtherRecordingExplorationCascadesRule(true);
+        // Make `disabled` the *first* inner rule. If it weren't filtered out, it would match and short-circuit the
+        // chain before `enabled` (listed second) is ever reached, since `disabled` also yields on a match. So this
+        // ordering is what actually distinguishes “filtered out” from “chain just moved on past it”.
         final ConditionalCascadesRule<RelationalExpression, RecordingExplorationCascadesRule> conditionalRule =
                 new ConditionalCascadesRule<>(ImmutableList.of(disabled, enabled));
         final CascadesPlanner.ExploreExpression explore =
                 planner.new ExploreExpression(PlannerPhase.REWRITING, group, expression);
 
-        assertThat(explore.<RelationalExpression>getEnabledRules(conditionalRule)).containsExactly(enabled);
+        explore.pushTransformTaskMaybe(conditionalRule);
+
+        final CascadesPlanner.Task pushedTask = planner.getTaskStack().pop();
+        assertThat(pushedTask).isInstanceOf(CascadesPlanner.ConditionalTransformExpression.class);
+        assertThat(pushedTask.execute()).isTrue();
+        assertThat(enabled.matchCount).isEqualTo(1);
+        assertThat(disabled.matchCount).isEqualTo(0);
     }
 
     /**
@@ -189,7 +198,7 @@ class CascadesPlannerTest {
                     }
                 };
 
-        reExplore.pushTransformTask(conditionalRule);
+        reExplore.pushTransformTaskMaybe(conditionalRule);
 
         final CascadesPlanner.Task pushedTask = planner.getTaskStack().pop();
         assertThat(pushedTask).isInstanceOf(CascadesPlanner.ConditionalTransformExpression.class);
@@ -201,7 +210,7 @@ class CascadesPlannerTest {
 
     /**
      * A stub {@link PlannerConstraint} used to exercise the per-inner-rule staleness filtering in
-     * {@link CascadesPlanner.AbstractExploreExpression#pushTransformTask}. Its {@code combine()} method is never
+     * {@link CascadesPlanner.AbstractExploreExpression#pushTransformTaskMaybe}. Its {@code combine()} method is never
      * invoked by these tests; identity is all that matters.
      */
     private static final PlannerConstraint<Object> CONSTRAINT_A = new PlannerConstraint<Object>() {

@@ -34,7 +34,6 @@ import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
-import java.util.function.Predicate;
 
 /**
  * A {@link CascadesRule} that groups together an ordered sequence of related inner rules for improved planning
@@ -100,16 +99,6 @@ public class ConditionalCascadesRule<T, R extends CascadesRule<T>> extends Abstr
     @Nonnull
     public List<R> getRules() {
         return rules;
-    }
-
-    /**
-     * Returns the inner rules grouped by this rule that satisfy the given predicate, preserving their order.
-     */
-    @Nonnull
-    public List<R> getRules(@Nonnull final Predicate<? super R> rulePredicate) {
-        return rules.stream()
-                .filter(rulePredicate)
-                .collect(ImmutableList.toImmutableList());
     }
 
     /**
