@@ -1210,31 +1210,29 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
     }
 
     @Test
-    void updateFromQueuePreemptiveDeletes() throws Exception {
-        // The preemptive delete when draining the pending write queue must touch the sliding-window, but not the
-        // delegate.
+    void updateFromQueueOfTrackedEntryDoesNothing() throws Exception {
+        // Draining a queue entry whose window entry is already tracked must leave both the sliding-window
+        // bookkeeping and the delegate untouched.
         try (FDBRecordContext context = openContext()) {
             openStore(context, 3, Direction.DESC);
+
+            // Fill a size-3 window with rec 1 and rec 2 (both in window). These are real saves, so the
+            // records land in the base table, which is what the insert consults to resolve their window value.
+            rec(1, 100);
+            rec(2, 200);
+
             final Index index = recordStore.getRecordMetaData().getIndex(INDEX_NAME);
             final IndexMaintainerState state = new IndexMaintainerState(
                     recordStore, index, IndexMaintenanceFilter.NORMAL);
             final CountingDelegate delegate = new CountingDelegate(state);
             final SlidingWindowIndexMaintainer sw = new SlidingWindowIndexMaintainer(state, delegate);
 
-            // Fill a size-3 window with rec 1 and rec 2 (both in window).
-            sw.update(null, storedRec(1, 100)).join();
-            sw.update(null, storedRec(2, 200)).join();
-            assertEquals(2, delegate.inserts);
-            assertEquals(0, delegate.deletes);
-
-            // Drain rec 2, already tracked, with no old record: exercises the preemptive delete.
-            delegate.inserts = 0;
-            delegate.deletes = 0;
+            // Drain rec 2, already tracked, with no old record: the insert has nothing left to do.
             sw.updateFromQueue(sw.serializePendingWriteQueue(null, storedRec(2, 200))).join();
 
             assertEquals(0, delegate.deletes);
-            assertEquals(1, delegate.inserts);
-            assertEquals(1, timer.getCount(SlidingWindowIndexMaintainer.SlidingWindowCounter.SW_PREEMPTIVE_DELETE_BEFORE_INSERT));
+            assertEquals(0, delegate.inserts);
+            assertEquals(1, timer.getCount(SlidingWindowIndexMaintainer.SlidingWindowCounter.SW_INSERT_ALREADY_TRACKED));
             commit(context);
         }
     }
@@ -1245,32 +1243,43 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
         // vector must delete the old node from the delegate so the reinsert refreshes it.
         try (FDBRecordContext context = openContext()) {
             openStore(context, 3, Direction.DESC);
+
+            // Index rec 2 at relevance 200, as a real save so the base table holds it too.
+            rec(2, 200);
+
             final Index index = recordStore.getRecordMetaData().getIndex(INDEX_NAME);
             final IndexMaintainerState state = new IndexMaintainerState(
                     recordStore, index, IndexMaintenanceFilter.NORMAL);
             final CountingDelegate delegate = new CountingDelegate(state);
             final SlidingWindowIndexMaintainer sw = new SlidingWindowIndexMaintainer(state, delegate);
 
-            // Index rec 2 at relevance 200 (simulating a prior range-scan insert).
-            sw.update(null, storedRec(2, 200)).join();
-            assertEquals(1, delegate.inserts);
-            assertEquals(0, delegate.deletes);
-
             // In-place update at the same window key (relevance 200).
-            delegate.inserts = 0;
-            delegate.deletes = 0;
             sw.updateWhileWriteOnly(storedRec(2, 200), storedRec(2, 200)).join();
 
             assertEquals(1, delegate.deletes);
             assertEquals(1, delegate.inserts);
-            assertEquals(0, timer.getCount(SlidingWindowIndexMaintainer.SlidingWindowCounter.SW_PREEMPTIVE_DELETE_BEFORE_INSERT));
+            assertEquals(0, timer.getCount(SlidingWindowIndexMaintainer.SlidingWindowCounter.SW_INSERT_ALREADY_TRACKED));
             commit(context);
         }
     }
 
     @Test
     void updateFromQueueChangedWindowKeyRefreshesDelegate() throws Exception {
-        // The complement of the same-window-key case
+        // The complement of the same-window-key case. The record has to actually be at relevance 300 in the
+        // base table by the time the drain runs, which is what the WRITE_ONLY_WITH_QUEUE phase below sets up:
+        // the save persists the record but defers the index update onto the queue.
+        try (FDBRecordContext context = openContext()) {
+            openStore(context, 3, Direction.DESC);
+            rec(2, 200);
+            assertThat(slidingWindow()).hasSizeOf(1).underlyingHnsw().containsInAnyOrder(2L);
+            commit(context);
+        }
+        try (FDBRecordContext context = openContext()) {
+            openStore(context, 3, Direction.DESC);
+            recordStore.markIndexWriteOnlyWithQueue(INDEX_NAME).join();
+            rec(2, 300);
+            commit(context);
+        }
         try (FDBRecordContext context = openContext()) {
             openStore(context, 3, Direction.DESC);
             final Index index = recordStore.getRecordMetaData().getIndex(INDEX_NAME);
@@ -1279,21 +1288,14 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
             final CountingDelegate delegate = new CountingDelegate(state);
             final SlidingWindowIndexMaintainer sw = new SlidingWindowIndexMaintainer(state, delegate);
 
-            // Index rec 2 at relevance 200 (simulating a prior range-scan insert).
-            sw.update(null, storedRec(2, 200)).join();
-            assertEquals(1, delegate.inserts);
-            assertEquals(0, delegate.deletes);
-
-            // Drain an update to a different window key (relevance 200 -> 300).
-            delegate.inserts = 0;
-            delegate.deletes = 0;
+            // Drain the deferred update to a different window key (relevance 200 -> 300).
             sw.updateFromQueue(sw.serializePendingWriteQueue(storedRec(2, 200), storedRec(2, 300))).join();
 
             assertEquals(1, delegate.deletes);
             assertEquals(1, delegate.inserts);
-            // Nothing was tracked at relevance 300 before this drain, so the insert had no entry to
-            // preemptively delete: the old entry at relevance 200 is removed by the delete half.
-            assertEquals(0, timer.getCount(SlidingWindowIndexMaintainer.SlidingWindowCounter.SW_PREEMPTIVE_DELETE_BEFORE_INSERT));
+            // Nothing was tracked at relevance 300 before this drain, so the insert had a genuinely new entry
+            // to add: the old entry at relevance 200 is removed by the delete half.
+            assertEquals(0, timer.getCount(SlidingWindowIndexMaintainer.SlidingWindowCounter.SW_INSERT_ALREADY_TRACKED));
             commit(context);
         }
     }
@@ -1404,6 +1406,118 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
                             + "was double counted")
                     .hasSizeOf(3)
                     .underlyingHnsw().containsInAnyOrder(1, 2, 3);
+            commit(context);
+        }
+    }
+
+    @Test
+    void reAddingRecordWithChangedWindowKeyDoesNotDoubleCount() throws Exception {
+        // The entries subspace is keyed by (windowValue, primaryKey), so an entry for a record under a
+        // changed window value looks like a brand new entry even though the record is already indexed.
+        // The HNSW delegate keys on the primary key alone, so it absorbs the second insert and holds one
+        // node either way. If the window trusted its own entry key alone, the counter would go to 4 while
+        // the delegate still held 3 records. The insert therefore resolves the record's window value from
+        // the base table, which is keyed by primary key, before deciding that this is a new entry.
+        try (FDBRecordContext context = openContext()) {
+            openStore(context, 5, Direction.DESC);
+            rec(1, 100);
+            rec(2, 200);
+            rec(3, 300);
+            assertThat(slidingWindow()).hasSizeOf(3).underlyingHnsw().containsInAnyOrder(1L, 2L, 3L);
+
+            // Re-present rec 1 under a different window key, with no old record to clear the entry it
+            // already has. This is what a stale replay looks like: the base table still says 100.
+            final IndexMaintainer sw = recordStore.getIndexMaintainer(
+                    recordStore.getRecordMetaData().getIndex(INDEX_NAME));
+            sw.update(null, storedRec(1, 200)).join();
+
+            assertThat(slidingWindow())
+                    .as("re-adding an already indexed record under a changed window key must not add a "
+                            + "second entry for it: a count above the number of records in the delegate "
+                            + "means the window counter and the HNSW have drifted apart")
+                    .hasSizeOf(3)
+                    .underlyingHnsw()
+                    .containsInAnyOrder(1L, 2L, 3L);
+            commit(context);
+        }
+    }
+
+
+    @Test
+    void supersededInsertStillAppliedWhenRecordIsNotTracked() throws Exception {
+        // The complement of the superseded-replay case. An insert whose entry key is not the one the record
+        // owns is only safe to drop once the record is known to be in the window under its own key. Here the
+        // window bookkeeping has been cleared out from under the record, so nothing represents it, and
+        // discarding the update would leave it unindexed for good. It gets applied instead.
+        try (FDBRecordContext context = openContext()) {
+            openStore(context, 3, Direction.DESC);
+            rec(1, 100);
+            assertThat(slidingWindow()).hasSizeOf(1).underlyingHnsw().containsInAnyOrder(1L);
+
+            // Drop the window bookkeeping while leaving the record itself in the base table.
+            final Index index = recordStore.getRecordMetaData().getIndex(INDEX_NAME);
+            recordStore.clearAndMarkIndexWriteOnly(index).join();
+            assertThat(slidingWindow()).hasSizeOf(0).underlyingHnsw().isEmpty();
+
+            // Offer an insert for rec 1 under a window key it does not own: the base table still says 100.
+            timer.reset();
+            recordStore.getIndexMaintainer(index).update(null, storedRec(1, 200)).join();
+
+            assertEquals(1, timer.getCount(SlidingWindowIndexMaintainer
+                            .SlidingWindowCounter.SW_INSERT_SUPERSEDED_BUT_RECORD_UNTRACKED),
+                    "the insert must be recognised as superseded but applied anyway");
+            assertThat(slidingWindow())
+                    .as("a superseded insert must still be applied when the record it names is in the window "
+                            + "under no key at all: dropping it would leave the record unindexed")
+                    .hasSizeOf(1)
+                    .underlyingHnsw()
+                    .containsInAnyOrder(1L);
+
+            // The entry has to be filed under the window value the record actually has, not the one the
+            // superseded update offered. Deleting the record resolves its entry key from the base table, so it
+            // only finds the entry if that is where the insert put it: had it been filed under relevance 200,
+            // this delete would miss and the window would still claim to hold it.
+            recordStore.deleteRecord(Tuple.from(1L));
+            assertThat(slidingWindow())
+                    .as("the repaired entry must be filed under the record's own window value, so a delete "
+                            + "driven from the stored record finds and removes it")
+                    .hasSizeOf(0)
+                    .underlyingHnsw()
+                    .isEmpty();
+            commit(context);
+        }
+    }
+
+    @Test
+    void drainingSupersededQueueEntriesLeavesWindowConsistent() throws Exception {
+        // A queue entry is a snapshot taken when the write was deferred, so a drain can arrive carrying a
+        // version of a record that has since been superseded — in particular after the build already indexed
+        // the record's current version. Such a drain must not add a second entry for the record on the way in,
+        // and its paired delete must not strip the record out of the delegate on the way through.
+        try (FDBRecordContext context = openContext()) {
+            openStore(context, 3, Direction.DESC);
+            rec(2, 300);   // the build indexed the current version
+            final SlidingWindowIndexMaintainer sw =
+                    (SlidingWindowIndexMaintainer)recordStore.getIndexMaintainer(
+                            recordStore.getRecordMetaData().getIndex(INDEX_NAME));
+            assertThat(slidingWindow()).hasSizeOf(1).underlyingHnsw().containsInAnyOrder(2L);
+
+            // Drain the superseded insert of relevance 100.
+            sw.updateFromQueue(sw.serializePendingWriteQueue(null, storedRec(2, 100))).join();
+            assertThat(slidingWindow())
+                    .as("a superseded insert must not add a second entry for a record already in the window")
+                    .hasSizeOf(1)
+                    .underlyingHnsw()
+                    .containsInAnyOrder(2L);
+
+            // Drain the pair that moved it from 100 to 300, which the build already applied.
+            sw.updateFromQueue(sw.serializePendingWriteQueue(storedRec(2, 100), storedRec(2, 300))).join();
+            assertThat(slidingWindow())
+                    .as("replaying an update the build already applied must leave the window and the delegate "
+                            + "holding the same single record")
+                    .hasSizeOf(1)
+                    .underlyingHnsw()
+                    .containsInAnyOrder(2L);
             commit(context);
         }
     }
