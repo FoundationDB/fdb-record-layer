@@ -200,7 +200,7 @@ class Insert {
                     }
 
                     // do some deferred tasks
-                    return primitives.executeSomeDeferredTasks(transaction, accessInfo, 1)
+                    return primitives.executeDeferredTasks(transaction, accessInfo, 1)
                             .thenApply(ignored -> accessInfoAndNodeExistence);
                 }).thenCompose(accessInfoAndNodeExistence ->
                         insertIntoClusters(transaction, random, accessInfoAndNodeExistence,

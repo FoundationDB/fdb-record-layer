@@ -34,6 +34,7 @@ import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
@@ -54,7 +55,7 @@ import java.util.concurrent.CompletableFuture;
  * and builds its own read/write listeners so it can attribute the right work to the shared {@link FDBStoreTimer}.
  * <p>
  * The interface is {@code sealed}: the set of engines is closed and known at compile time, which lets
- * {@link #fromIndex(Index)} exhaustively dispatch on the {@link IndexOptions#VECTOR_ENGINE} option.
+ * {@link #fromIndex(Index, Subspace)} exhaustively dispatch on the {@link IndexOptions#VECTOR_ENGINE} option.
  */
 sealed interface VectorIndexEngine permits HnswVectorIndexEngine, GuardiannVectorIndexEngine {
     /**
@@ -84,13 +85,16 @@ sealed interface VectorIndexEngine permits HnswVectorIndexEngine, GuardiannVecto
      * @param subspace the partition subspace holding this engine's structure
      * @param primaryKey the (prefix-trimmed) primary key of the record
      * @param vector the vector to insert
+     * @param register the outstanding-work counter to bump as deferred maintenance tasks are enqueued/executed during
+     *        this insert, or {@code null} if this engine does not maintain task counts
      * @return a future that completes when the insert is done
      */
     @Nonnull
     CompletableFuture<Void> insert(@Nonnull FDBRecordContext context,
                                    @Nonnull Subspace subspace,
                                    @Nonnull Tuple primaryKey,
-                                   @Nonnull RealVector vector);
+                                   @Nonnull RealVector vector,
+                                   @Nullable TaskCountRegister register);
 
     /**
      * Deletes a single vector from a partition. The vector is always supplied because some engines (notably Guardiann)
@@ -101,13 +105,50 @@ sealed interface VectorIndexEngine permits HnswVectorIndexEngine, GuardiannVecto
      * @param subspace the partition subspace holding this engine's structure
      * @param primaryKey the (prefix-trimmed) primary key of the record
      * @param vector the vector being deleted
+     * @param register the outstanding-work counter to bump as deferred maintenance tasks are enqueued/executed during
+     *        this delete, or {@code null} if this engine does not maintain task counts
      * @return a future that completes when the delete is done
      */
     @Nonnull
     CompletableFuture<Void> delete(@Nonnull FDBRecordContext context,
                                    @Nonnull Subspace subspace,
                                    @Nonnull Tuple primaryKey,
-                                   @Nonnull RealVector vector);
+                                   @Nonnull RealVector vector,
+                                   @Nullable TaskCountRegister register);
+
+    /**
+     * The register that tracks this engine's outstanding deferred-maintenance work, or {@code null} for an engine that
+     * does everything inline (HNSW) and therefore has nothing to track. The engine owns it (built from the index's
+     * secondary subspace at construction), so the maintainer can ask for it without a per-engine branch of its own.
+     * @return this engine's task-count register, or {@code null} if the engine defers no work
+     */
+    @Nullable
+    VectorIndexTaskCounts getTaskCounts();
+
+    /**
+     * Drains up to {@code numTasks} of a partition's deferred maintenance tasks, running them inline in
+     * {@code context}'s transaction. This is how a merge pays down the backlog that inserts and deletes only nibble at:
+     * the maintainer calls it once per partition that has outstanding work. The Guardiann engine runs its queued
+     * split/merge/reassign/collapse tasks; an engine that does everything inline (HNSW) never enqueues tasks and is
+     * never routed here — being asked to drain is a programming error, so it throws.
+     * <p>
+     * When {@code register} is supplied, executing a task fires the write listener's task-executed callback, which
+     * decrements the outstanding-work count in the same transaction — so the count stays in step with the queue as the
+     * merge drains it.
+     *
+     * @param context the record context to drain under; supplies the transaction, executor and timer
+     * @param subspace the partition subspace holding this engine's structure
+     * @param numTasks the maximum number of queued tasks to run in this transaction
+     * @param register the outstanding-work counter to decrement as tasks are executed, or {@code null} if this engine
+     *        does not maintain task counts
+     * @return a future of the number of tasks actually run — fewer than {@code numTasks} exactly when the queue held
+     *         fewer, which is how a merge learns a partition is drained
+     */
+    @Nonnull
+    CompletableFuture<Integer> executeDeferredTasks(@Nonnull FDBRecordContext context,
+                                                    @Nonnull Subspace subspace,
+                                                    int numTasks,
+                                                    @Nullable TaskCountRegister register);
 
     /**
      * The kinds of vector engine, as selectable through the {@link IndexOptions#VECTOR_ENGINE} index option.
@@ -149,18 +190,33 @@ sealed interface VectorIndexEngine permits HnswVectorIndexEngine, GuardiannVecto
     }
 
     /**
-     * Builds the engine an index is configured to use, parsing its engine-specific configuration from the index
-     * options. Parsing eagerly validates the options, so this doubles as the config-validation entry point used by the
-     * index validator.
+     * Eagerly parses the engine-specific configuration for an index, purely to validate it: an invalid option throws.
+     * This is the config-validation entry point used by the index validator and by option tests, neither of which has a
+     * store — so it parses the config without building an engine (which would need the index's secondary subspace).
+     *
+     * @param index the index definition to validate
+     */
+    static void validate(@Nonnull final Index index) {
+        switch (kindFromIndex(index)) {
+            case HNSW -> HnswVectorIndexEngine.parseConfig(index);
+            case GUARDIANN -> GuardiannVectorIndexEngine.parseConfig(index);
+        }
+    }
+
+    /**
+     * Builds the engine an index is configured to use, giving it the index's secondary subspace so a deferring engine
+     * (Guardiann) can own its {@link VectorIndexTaskCounts}. Parsing the engine's configuration eagerly validates the
+     * index options (an invalid option throws).
      *
      * @param index the index definition
+     * @param indexSecondarySubspace the index's secondary subspace
      * @return the engine backing this index
      */
     @Nonnull
-    static VectorIndexEngine fromIndex(@Nonnull final Index index) {
+    static VectorIndexEngine fromIndex(@Nonnull final Index index, @Nonnull final Subspace indexSecondarySubspace) {
         return switch (kindFromIndex(index)) {
             case HNSW -> HnswVectorIndexEngine.fromIndex(index);
-            case GUARDIANN -> GuardiannVectorIndexEngine.fromIndex(index);
+            case GUARDIANN -> GuardiannVectorIndexEngine.fromIndex(index, indexSecondarySubspace);
         };
     }
 

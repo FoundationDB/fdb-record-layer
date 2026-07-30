@@ -120,7 +120,7 @@ class Delete {
                                 }
 
                                 // do some deferred tasks
-                                return primitives.executeSomeDeferredTasks(transaction, accessInfo, 1)
+                                return primitives.executeDeferredTasks(transaction, accessInfo, 1)
                                         .thenCompose(ignored ->
                                                 deleteFromClusters(transaction, random, accessInfo, primaryKey,
                                                         vector));

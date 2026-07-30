@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.provider.foundationdb.indexes;
 import com.apple.foundationdb.KeyValue;
 import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.async.AsyncIterator;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.common.ResultEntry;
 import com.apple.foundationdb.linear.RealVector;
@@ -49,6 +50,7 @@ import com.apple.foundationdb.record.metadata.expressions.KeyWithValueExpression
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBIndexableRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
+import com.apple.foundationdb.record.provider.foundationdb.IndexDeferredMaintenanceControl;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanBounds;
 import com.apple.foundationdb.record.provider.foundationdb.KeyValueCursor;
@@ -71,6 +73,8 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 
 /**
@@ -89,7 +93,7 @@ public class VectorIndexMaintainer extends StandardIndexMaintainer {
 
     public VectorIndexMaintainer(IndexMaintainerState state) {
         super(state);
-        this.engine = VectorIndexEngine.fromIndex(state.index);
+        this.engine = VectorIndexEngine.fromIndex(state.index, state.store.indexSecondarySubspace(state.index));
     }
 
     @Nonnull
@@ -332,15 +336,17 @@ public class VectorIndexMaintainer extends StandardIndexMaintainer {
         } else {
             partitionSubspace = indexSubspace;
         }
+        final VectorIndexTaskCounts taskCounts = getEngine().getTaskCounts();
+        @Nullable final TaskCountRegister register = taskCounts == null ? null : taskCounts.registerFor(prefixKey);
         return state.context.doWithWriteLock(new LockIdentifier(partitionSubspace), () -> {
             final List<Object> primaryKeyParts = Lists.newArrayList(savedRecord.getPrimaryKey().getItems());
             state.index.trimPrimaryKey(primaryKeyParts);
             final Tuple trimmedPrimaryKey = Tuple.fromList(primaryKeyParts);
             final RealVector vector = RealVector.fromBytes(vectorBytes);
             if (remove) {
-                return getEngine().delete(state.context, partitionSubspace, trimmedPrimaryKey, vector);
+                return getEngine().delete(state.context, partitionSubspace, trimmedPrimaryKey, vector, register);
             } else {
-                return getEngine().insert(state.context, partitionSubspace, trimmedPrimaryKey, vector);
+                return getEngine().insert(state.context, partitionSubspace, trimmedPrimaryKey, vector, register);
             }
         });
     }
@@ -356,7 +362,107 @@ public class VectorIndexMaintainer extends StandardIndexMaintainer {
     @Override
     public CompletableFuture<Void> deleteWhere(@Nonnull final Transaction tr, @Nonnull final Tuple prefix) {
         Verify.verify(getKeyWithValueExpression(state.index.getRootExpression()).getColumnSize() >= prefix.size());
+        final VectorIndexTaskCounts taskCounts = getEngine().getTaskCounts();
+        if (taskCounts != null) {
+            // super.deleteWhere clears only the primary index subspace; drop the outstanding-work counts for the
+            // group(s) being removed too (they live in the secondary subspace).
+            taskCounts.clearPrefix(tr, prefix);
+        }
         return super.deleteWhere(tr, prefix);
+    }
+
+    /**
+     * Merges this index by paying down its deferred maintenance backlog. Guardiann performs its structural maintenance
+     * (split/merge/reassign/collapse) as tasks that inserts and deletes only nibble at, so the {@code OnlineIndexer}
+     * merge path drains the rest here. Discovery is a single snapshot read of the outstanding-work counter (no read
+     * conflicts); only the partitions that actually have queued tasks are visited.
+     * <p>
+     * Each invocation runs in its own transaction and drains at most {@code mergeControl.getMergesLimit()} tasks (one
+     * when the limit is "unlimited", so a single transaction stays small). It then reports {@code mergesTried} and
+     * {@code mergesFound} to the {@link IndexDeferredMaintenanceControl} so {@code IndexingMerger} re-invokes it until
+     * every queue is drained. Engines that do all their work inline (HNSW) have no task counter and merge to a no-op —
+     * this must not throw, since the merge driver calls it for every target index.
+     *
+     * @return a future that completes when this transaction's slice of the backlog has been drained
+     */
+    @Nonnull
+    @Override
+    public CompletableFuture<Void> mergeIndex() {
+        final VectorIndexTaskCounts taskCounts = getEngine().getTaskCounts();
+        if (taskCounts == null) {
+            return AsyncUtil.DONE;
+        }
+        final IndexDeferredMaintenanceControl mergeControl = state.store.getIndexDeferredMaintenanceControl();
+        // Record the step so IndexingMerger.handleFailure retries a transient failure with a smaller budget rather than
+        // treating it as fatal.
+        mergeControl.setLastStep(IndexDeferredMaintenanceControl.LastStep.MERGE);
+        // The driver's per-transaction budget. A limit of 0 means "unlimited" elsewhere; here that becomes a single
+        // task, so one merge transaction stays small and the driver keeps pumping.
+        final int taskBudget = mergeControl.getMergesLimit() > 0
+                               ? (int)Math.min(mergeControl.getMergesLimit(), Integer.MAX_VALUE)
+                               : 1;
+        final Subspace indexSubspace = getIndexSubspace();
+        final AsyncIterator<PrefixTaskCount> prefixes =
+                taskCounts.prefixesWithOutstandingWork(state.context.readTransaction(true), getExecutor());
+
+        final AtomicInteger remaining = new AtomicInteger(taskBudget);
+        final AtomicInteger executed = new AtomicInteger();
+        final AtomicBoolean moreWork = new AtomicBoolean(false);
+        return AsyncUtil.whileTrue(() -> prefixes.onHasNext().thenCompose(hasNext -> {
+            if (!hasNext) {
+                return AsyncUtil.READY_FALSE;
+            }
+            final PrefixTaskCount prefixTaskCount = prefixes.next();
+            if (remaining.get() <= 0) {
+                // Budget spent but at least one more partition still has work: tell the driver to run again.
+                moreWork.set(true);
+                return AsyncUtil.READY_FALSE;
+            }
+            final Tuple prefix = prefixTaskCount.prefix();
+            // Mirror updateIndexKeys: an unpartitioned index (empty prefix) lives directly in the index subspace.
+            final Subspace partitionSubspace = prefix.isEmpty() ? indexSubspace : indexSubspace.subspace(prefix);
+            // prefixTaskCount.count() is the EXPECTED number of queued tasks for this partition; ask for at most the
+            // remaining budget of them.
+            final int requested = (int)Math.min(prefixTaskCount.count(), remaining.get());
+            final TaskCountRegister register = taskCounts.registerFor(prefix);
+            // No in-context write lock: the merge runs in its own dedicated transaction, so nothing else in this
+            // context races the drain. Cross-transaction races are handled by FDB conflict detection on the task queue.
+            return getEngine().executeDeferredTasks(state.context, partitionSubspace, requested, register)
+                    .thenApply(executedForPrefix -> {
+                        // Enqueue and execute keep the counter in lock-step with the queue, so the engine must run
+                        // exactly the expected number of tasks. Verify that invariant rather than trusting it blindly.
+                        Verify.verify(executedForPrefix == requested,
+                                "vector merge expected to run %s deferred task(s) but ran %s", requested,
+                                executedForPrefix);
+                        executed.addAndGet(requested);
+                        remaining.addAndGet(-requested);
+                        if (requested < prefixTaskCount.count()) {
+                            // A full budget-limited batch with more still queued for this partition — run again.
+                            moreWork.set(true);
+                        }
+                        return true;
+                    });
+        }), getExecutor()).thenApply(ignore -> {
+            // Drive the IndexingMerger loop: it re-invokes mergeIndex while mergesFound > mergesTried, so report one
+            // extra "found" whenever work remains and equal counts once every queue is drained.
+            mergeControl.setMergesTried(executed.get());
+            mergeControl.setMergesFound(moreWork.get() ? executed.get() + 1 : executed.get());
+            return null;
+        });
+    }
+
+    /**
+     * Whether this index has any outstanding deferred-maintenance work, via an O(1) snapshot read of the index-wide
+     * total. Always {@code false} for engines that do not defer work (HNSW).
+     * @return a future that is {@code true} iff some partition has outstanding tasks
+     */
+    @Nonnull
+    CompletableFuture<Boolean> hasOutstandingWork() {
+        final VectorIndexTaskCounts taskCounts = getEngine().getTaskCounts();
+        if (taskCounts == null) {
+            return AsyncUtil.READY_FALSE;
+        }
+        return taskCounts.hasOutstandingWork(state.context.readTransaction(true));
     }
 
     /**

@@ -851,7 +851,7 @@ class TestHelpers {
      * and executing it in its own transaction until the tasks subspace is empty.
      * <p>
      * Insertions and deletions piggy-back deferred-task execution onto themselves (one task per
-     * op, via {@link Primitives#executeSomeDeferredTasks}). Once those producer ops stop, pending
+     * op, via {@link Primitives#executeDeferredTasks}). Once those producer ops stop, pending
      * tasks remain in the tasks subspace until something pulls them out — this method is that
      * something. Tests typically call it before checking post-condition invariants so the
      * structure is observed at a quiescent state.

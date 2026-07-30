@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.provider.foundationdb.indexes;
 
 import com.apple.foundationdb.KeyValue;
+import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.async.AsyncIterable;
 import com.apple.foundationdb.async.common.ResultEntry;
 import com.apple.foundationdb.async.common.TimedAsyncIterable;
@@ -90,9 +91,13 @@ final class GuardiannVectorIndexEngine implements VectorIndexEngine {
 
     @Nonnull
     private final Config config;
+    @Nonnull
+    private final VectorIndexTaskCounts taskCounts;
 
-    GuardiannVectorIndexEngine(@Nonnull final Config config) {
+    GuardiannVectorIndexEngine(@Nonnull final Config config, @Nonnull final Subspace indexSecondarySubspace) {
         this.config = config;
+        // Own the outstanding-work register, built once (cheaply) from the index's secondary subspace.
+        this.taskCounts = new VectorIndexTaskCounts(indexSecondarySubspace);
     }
 
     @Nonnull
@@ -114,14 +119,16 @@ final class GuardiannVectorIndexEngine implements VectorIndexEngine {
     public CompletableFuture<Void> insert(@Nonnull final FDBRecordContext context,
                                           @Nonnull final Subspace subspace,
                                           @Nonnull final Tuple primaryKey,
-                                          @Nonnull final RealVector vector) {
+                                          @Nonnull final RealVector vector,
+                                          @Nullable final TaskCountRegister register) {
         // Insert reads (to find candidate clusters) and writes (references and deferred-task bookkeeping), so wire both
-        // listeners.
+        // listeners. The write listener also maintains the outstanding-task register as tasks are enqueued/executed.
         final FDBStoreTimer timer = context.getTimer();
+        final Transaction transaction = context.ensureActive();
         final Guardiann guardiann =
-                new Guardiann(subspace, context.getExecutor(), config, OnWrite.fromTimer(timer),
-                        OnRead.fromTimer(timer));
-        return guardiann.insert(context.ensureActive(), primaryKey, vector, null);
+                new Guardiann(subspace, context.getExecutor(), config,
+                        OnWrite.forWrites(timer, transaction, register), OnRead.fromTimer(timer));
+        return guardiann.insert(transaction, primaryKey, vector, null);
     }
 
     @Nonnull
@@ -129,14 +136,39 @@ final class GuardiannVectorIndexEngine implements VectorIndexEngine {
     public CompletableFuture<Void> delete(@Nonnull final FDBRecordContext context,
                                           @Nonnull final Subspace subspace,
                                           @Nonnull final Tuple primaryKey,
-                                          @Nonnull final RealVector vector) {
+                                          @Nonnull final RealVector vector,
+                                          @Nullable final TaskCountRegister register) {
         // Guardiann needs the vector to locate the cluster references to remove; it reads while probing candidate
-        // clusters and writes as it removes references, so both listeners are wired.
+        // clusters and writes as it removes references, so both listeners are wired. The write listener also maintains
+        // the outstanding-task register as tasks are enqueued/executed.
         final FDBStoreTimer timer = context.getTimer();
+        final Transaction transaction = context.ensureActive();
         final Guardiann guardiann =
-                new Guardiann(subspace, context.getExecutor(), config, OnWrite.fromTimer(timer),
-                        OnRead.fromTimer(timer));
-        return guardiann.delete(context.ensureActive(), primaryKey, vector);
+                new Guardiann(subspace, context.getExecutor(), config,
+                        OnWrite.forWrites(timer, transaction, register), OnRead.fromTimer(timer));
+        return guardiann.delete(transaction, primaryKey, vector);
+    }
+
+    @Nonnull
+    @Override
+    public VectorIndexTaskCounts getTaskCounts() {
+        return taskCounts;
+    }
+
+    @Nonnull
+    @Override
+    public CompletableFuture<Integer> executeDeferredTasks(@Nonnull final FDBRecordContext context,
+                                                           @Nonnull final Subspace subspace,
+                                                           final int numTasks,
+                                                           @Nullable final TaskCountRegister register) {
+        // Draining runs queued tasks, which is a write path: wire OnWrite so each executed task both attributes to the
+        // timer and — via the register — decrements the partition's outstanding-work count in this same transaction.
+        final FDBStoreTimer timer = context.getTimer();
+        final Transaction transaction = context.ensureActive();
+        final Guardiann guardiann =
+                new Guardiann(subspace, context.getExecutor(), config,
+                        OnWrite.forWrites(timer, transaction, register), OnRead.fromTimer(timer));
+        return guardiann.executeDeferredTasks(transaction, numTasks);
     }
 
     /**
@@ -187,14 +219,17 @@ final class GuardiannVectorIndexEngine implements VectorIndexEngine {
     }
 
     /**
-     * Builds the Guardiann engine for an index, parsing its {@link Config} from the index options.
+     * Builds the Guardiann engine for an index, parsing its {@link Config} from the index options and giving it the
+     * index's secondary subspace so it can own its {@link VectorIndexTaskCounts}.
      *
      * @param index the index definition
+     * @param indexSecondarySubspace the index's secondary subspace
      * @return the Guardiann engine
      */
     @Nonnull
-    static GuardiannVectorIndexEngine fromIndex(@Nonnull final Index index) {
-        return new GuardiannVectorIndexEngine(parseConfig(index));
+    static GuardiannVectorIndexEngine fromIndex(@Nonnull final Index index,
+                                                @Nonnull final Subspace indexSecondarySubspace) {
+        return new GuardiannVectorIndexEngine(parseConfig(index), indexSecondarySubspace);
     }
 
     /**
@@ -397,36 +432,64 @@ final class GuardiannVectorIndexEngine implements VectorIndexEngine {
     }
 
     /**
-     * Write listener that attributes Guardiann writes and deferred-task activity to the store timer.
+     * Write listener that attributes Guardiann writes and deferred-task activity to the store timer, and — when a
+     * {@link TaskCountRegister} is supplied (insert/delete/drain) — maintains the index's outstanding-task counts as
+     * tasks are enqueued and executed, against the operation's transaction.
      */
     static final class OnWrite implements OnWriteListener {
-        @Nonnull
+        @Nullable
         private final FDBStoreTimer timer;
+        @Nonnull
+        private final Transaction transaction;
+        @Nullable
+        private final TaskCountRegister register;
 
-        OnWrite(@Nonnull final FDBStoreTimer timer) {
+        private OnWrite(@Nullable final FDBStoreTimer timer, @Nonnull final Transaction transaction,
+                        @Nullable final TaskCountRegister register) {
             this.timer = timer;
+            this.transaction = transaction;
+            this.register = register;
         }
 
         @Override
         public void onKeyValueWritten(@Nonnull final byte[] key, @Nonnull final byte[] value) {
-            VectorIndexInstrumentation.recordKeyValueWritten(timer, key, value);
+            if (timer != null) {
+                VectorIndexInstrumentation.recordKeyValueWritten(timer, key, value);
+            }
         }
 
         @Override
         public void onTaskEnqueued(@Nonnull final TaskKind kind, @Nonnull final UUID taskId,
                                    @Nonnull final Set<UUID> targetClusterIds) {
-            timer.increment(FDBStoreTimer.Counts.VECTOR_TASK_ENQUEUED);
+            if (timer != null) {
+                timer.increment(FDBStoreTimer.Counts.VECTOR_TASK_ENQUEUED);
+            }
+            if (register != null) {
+                register.onTaskEnqueued(transaction);
+            }
         }
 
         @Override
         public void onTaskExecuted(@Nonnull final TaskKind taskKind, @Nonnull final UUID taskId,
                                    @Nonnull final Set<UUID> targetClusterIds) {
-            timer.increment(FDBStoreTimer.Counts.VECTOR_TASK_EXECUTED);
+            if (timer != null) {
+                timer.increment(FDBStoreTimer.Counts.VECTOR_TASK_EXECUTED);
+            }
+            if (register != null) {
+                register.onTaskExecuted(transaction);
+            }
         }
 
+        // Listener for insert/delete/drain: metrics plus, when a register is supplied, outstanding-task-count
+        // maintenance against the operation's transaction.
         @Nonnull
-        private static OnWriteListener fromTimer(@Nullable final FDBStoreTimer timer) {
-            return timer == null ? OnWriteListener.NOOP : new OnWrite(timer);
+        private static OnWriteListener forWrites(@Nullable final FDBStoreTimer timer,
+                                                 @Nonnull final Transaction transaction,
+                                                 @Nullable final TaskCountRegister register) {
+            if (timer == null && register == null) {
+                return OnWriteListener.NOOP;
+            }
+            return new OnWrite(timer, transaction, register);
         }
     }
 }

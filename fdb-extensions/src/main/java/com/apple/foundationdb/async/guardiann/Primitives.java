@@ -935,18 +935,20 @@ class Primitives {
      * @param transaction the transaction to fetch and run the tasks within
      * @param accessInfo the access context passed to each rehydrated task
      * @param numTasks the maximum number of tasks to run
-     * @return a future that completes when the fetched tasks have all run
+     * @return a future of the number of tasks actually executed (which is fewer than {@code numTasks} exactly when the
+     *         queue held fewer than that)
      */
     @Nonnull
-    CompletableFuture<Void> executeSomeDeferredTasks(@Nonnull final Transaction transaction,
-                                                     @Nonnull final AccessInfo accessInfo,
-                                                     final int numTasks) {
+    CompletableFuture<Integer> executeDeferredTasks(@Nonnull final Transaction transaction,
+                                                    @Nonnull final AccessInfo accessInfo,
+                                                    final int numTasks) {
         return fetchSomeDeferredTasks(transaction, accessInfo, numTasks)
                 .thenCompose(deferredTasks ->
-                        forLoop(0, null,
+                        forLoop(0, (Void)null,
                                 i -> i < deferredTasks.size(), i -> i + 1,
                                 (i, ignored) ->
-                                        executeSingleDeferredTask(transaction, deferredTasks.get(i)), getExecutor()));
+                                        executeSingleDeferredTask(transaction, deferredTasks.get(i)), getExecutor())
+                                .thenApply(ignored -> deferredTasks.size()));
     }
 
     /**
