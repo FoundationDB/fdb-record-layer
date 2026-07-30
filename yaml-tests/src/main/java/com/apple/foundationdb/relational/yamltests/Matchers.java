@@ -72,8 +72,7 @@ public class Matchers {
         if (obj instanceof List) {
             return (List<?>) obj;
         }
-        fail(String.format(Locale.ROOT, "Expecting '%s' to be of type '%s'", desc, List.class.getSimpleName()));
-        return null;
+        return fail(String.format(Locale.ROOT, "Expecting '%s' to be of type '%s'", desc, List.class.getSimpleName()));
     }
 
     @Nonnull
@@ -86,8 +85,7 @@ public class Matchers {
         if (obj instanceof Map<?, ?>) {
             return (Map<?, ?>) obj;
         }
-        fail(String.format(Locale.ROOT, "Expecting %s to be of type %s", desc, Map.class.getSimpleName()));
-        return null;
+        return fail(String.format(Locale.ROOT, "Expecting %s to be of type %s", desc, Map.class.getSimpleName()));
     }
 
     public static Map.Entry<?, ?> mapEntry(@Nonnull final Object obj, @Nonnull final String desc) {
@@ -213,8 +211,7 @@ public class Matchers {
         if (obj instanceof Message) {
             return (Message) obj;
         }
-        fail(String.format(Locale.ROOT, "Expecting %s to be of type %s, however it is of type %s.", obj, Message.class.getSimpleName(), obj.getClass().getSimpleName()));
-        return null;
+        return fail(String.format(Locale.ROOT, "Expecting %s to be of type %s, however it is of type %s.", obj, Message.class.getSimpleName(), obj.getClass().getSimpleName()));
     }
 
     @Nonnull
@@ -230,8 +227,7 @@ public class Matchers {
         if (obj instanceof Map) {
             return ((Map<?, ?>) obj).entrySet().iterator().next();
         }
-        fail(String.format(Locale.ROOT, "Expecting %s to be of type %s, however it is of type %s.", desc, Map.class.getSimpleName(), obj.getClass().getSimpleName()));
-        return null;
+        return fail(String.format(Locale.ROOT, "Expecting %s to be of type %s, however it is of type %s.", desc, Map.class.getSimpleName(), obj.getClass().getSimpleName()));
     }
 
     @Nonnull
