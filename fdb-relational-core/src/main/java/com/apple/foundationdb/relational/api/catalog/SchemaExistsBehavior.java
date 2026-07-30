@@ -58,7 +58,7 @@ public enum SchemaExistsBehavior {
     ERROR_IF_DIFFERENT {
         @Override
         public boolean shouldWrite(@Nonnull Schema newSchema, @Nonnull Schema existingSchema) throws RelationalException {
-            if (isEquivalent(newSchema, existingSchema)) {
+            if (areSchemasIdentical(newSchema, existingSchema)) {
                 return false;
             }
             throw schemaAlreadyExists(
@@ -125,10 +125,10 @@ public enum SchemaExistsBehavior {
     public abstract boolean shouldWrite(@Nonnull Schema newSchema, @Nonnull Schema existingSchema) throws RelationalException;
 
     /**
-     * @return {@code true} iff the two schemas persist the same {@code (templateName, templateVersion)}
-     *   pair — the pair the catalog actually stores for a schema row.
+     * Return if the two provided schemas are identical.
+     * @return {@code true} if and only if the two schemas are identical
      */
-    private static boolean isEquivalent(@Nonnull Schema a, @Nonnull Schema b) {
+    private static boolean areSchemasIdentical(@Nonnull Schema a, @Nonnull Schema b) {
         return a.getSchemaTemplate().getName().equals(b.getSchemaTemplate().getName())
                 && a.getSchemaTemplate().getVersion() == b.getSchemaTemplate().getVersion();
     }
