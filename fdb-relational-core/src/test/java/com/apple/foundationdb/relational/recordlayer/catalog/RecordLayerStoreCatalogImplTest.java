@@ -59,6 +59,11 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class RecordLayerStoreCatalogImplTest extends RecordLayerStoreCatalogTestBase {
 
+    /** Initial template name used by tests involving {@link SecondSaveShape}. **/
+    private static final String INITIAL_TEMPLATE = "tmpl";
+    /** Initial template version used by tests involving {@link SecondSaveShape}. **/
+    private static final int INITIAL_VERSION = 1;
+
     @BeforeEach
     void setUpCatalog() throws RelationalException {
         fdb = FDBDatabaseFactory.instance().getDatabase(FDBTestEnvironment.randomClusterFile());
@@ -403,10 +408,6 @@ public class RecordLayerStoreCatalogImplTest extends RecordLayerStoreCatalogTest
         }
     }
 
-    /** The initial template + version used by every parameterized test. */
-    private static final String INITIAL_TEMPLATE = "tmpl";
-    private static final int INITIAL_VERSION = 1;
-
     /** How the second saveSchema call's schema relates to the already-committed one. */
     private enum SecondSaveShape {
         /** Same (templateName, templateVersion) as the existing row. */
@@ -501,7 +502,7 @@ public class RecordLayerStoreCatalogImplTest extends RecordLayerStoreCatalogTest
                 Stream.of(SchemaExistsBehavior.values()));
     }
 
-    /** Test a saveSchema with various exists behaviors. **/
+    /** Test a saveSchema with various exists behaviors when the schema already exists. **/
     @ParameterizedTest
     @MethodSource
     void saveSchemaExistsBehavior(@Nonnull SecondSaveShape shape, @Nonnull SchemaExistsBehavior behavior) throws RelationalException {
@@ -527,16 +528,16 @@ public class RecordLayerStoreCatalogImplTest extends RecordLayerStoreCatalogTest
         }
     }
 
-    /** Test a saveSchema with various exists behaviors. **/
+    /** Test a saveSchema with various exists behaviors when the schema does not already exist. **/
     @ParameterizedTest
     @EnumSource(SchemaExistsBehavior.class)
     void saveSchemaExistsBehaviorWithNothing(@Nonnull SchemaExistsBehavior behavior) throws RelationalException {
         final String dbId = "/TEST/" + "schema_exists_with_nothing" + behavior;
-        final Schema existing = generateTestSchema("s", dbId, INITIAL_TEMPLATE, INITIAL_VERSION);
+        final Schema initialSchema = generateTestSchema("s", dbId, INITIAL_TEMPLATE, INITIAL_VERSION);
         try (Transaction txn = new RecordContextTransaction(fdb.openContext())) {
-            storeCatalog.getSchemaTemplateCatalog().createTemplate(txn, existing.getSchemaTemplate());
+            storeCatalog.getSchemaTemplateCatalog().createTemplate(txn, initialSchema.getSchemaTemplate());
             storeCatalog.createDatabase(txn, URI.create(dbId));
-            storeCatalog.saveSchema(txn, existing, false, behavior);
+            storeCatalog.saveSchema(txn, initialSchema, false, behavior);
             txn.commit();
         }
         assertPersistedTemplateEquals(URI.create(dbId), INITIAL_TEMPLATE, INITIAL_VERSION);

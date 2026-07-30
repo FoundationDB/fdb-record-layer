@@ -438,7 +438,6 @@ public final class CopyPlan extends QueryPlan {
                 storeCatalog.createDatabase(transaction, databaseUri);
             }
 
-            // Schema doesn't exist, create it from the template
             final SchemaTemplateCatalog templateCatalog = storeCatalog.getSchemaTemplateCatalog();
             if (!templateCatalog.doesSchemaTemplateExist(transaction, templateName, templateVersion)) {
                 final RecordMetaData recordMetaData = RecordMetaData.newBuilder()

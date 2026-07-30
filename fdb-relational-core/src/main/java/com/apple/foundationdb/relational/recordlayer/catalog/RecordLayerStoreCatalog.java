@@ -204,11 +204,22 @@ class RecordLayerStoreCatalog implements StoreCatalog, KeySpaceProvider {
         var recordStore = RecordLayerStoreUtils.openRecordStore(txn, this.catalogSchemaPath,
                 this.catalogRecordMetaDataProvider);
         Assert.notNull(recordStore);
+        final RecordLayerSchema recordLayerSchema = loadSchemaIfExists(txn, databaseId, schemaName, recordStore);
+        if (recordLayerSchema == null) {
+            throw new RelationalException("Schema <" + databaseId.getPath() + "/" + schemaName + "> does not exist in the catalog!", ErrorCode.UNDEFINED_SCHEMA);
+        }
+        return recordLayerSchema;
+    }
+
+    @Nullable
+    private RecordLayerSchema loadSchemaIfExists(@Nonnull final Transaction txn, @Nonnull final URI databaseId,
+                                                 @Nonnull final String schemaName,
+                                                 @Nonnull final FDBRecordStoreBase<Message> recordStore) throws RelationalException {
         final Tuple primaryKey = Tuple.from(SystemTableRegistry.SCHEMA_RECORD_TYPE_KEY, databaseId.getPath(), schemaName);
         try {
             final FDBStoredRecord<Message> record = recordStore.loadRecord(primaryKey);
             if (record == null) {
-                throw new RelationalException("Schema <" + databaseId.getPath() + "/" + schemaName + "> does not exist in the catalog!", ErrorCode.UNDEFINED_SCHEMA);
+                return null;
             }
             Message m = record.getRecord();
             return parseSchemaTable(m, txn);
@@ -224,9 +235,10 @@ class RecordLayerStoreCatalog implements StoreCatalog, KeySpaceProvider {
         var recordStore = RecordLayerStoreUtils.openRecordStore(txn, this.catalogSchemaPath,
                 this.catalogRecordMetaDataProvider);
         CatalogValidator.validateSchema(schema);
-        if (!doesDatabaseExist(recordStore, URI.create(schema.getDatabaseName()))) {
+        final URI databaseUri = URI.create(schema.getDatabaseName());
+        if (!doesDatabaseExist(recordStore, databaseUri)) {
             if (createDatabaseIfNecessary) {
-                createDatabase(recordStore, URI.create(schema.getDatabaseName()));
+                createDatabase(recordStore, databaseUri);
             } else {
                 throw new RelationalException(String.format(Locale.ROOT, "Cannot create schema %s because database %s does not exist.", schema.getName(), schema.getDatabaseName()),
                         ErrorCode.UNDEFINED_DATABASE);
@@ -242,15 +254,8 @@ class RecordLayerStoreCatalog implements StoreCatalog, KeySpaceProvider {
         // Decide, based on existsBehavior, whether to fall through and write. Variants that do
         // NOT write on the exists-branch leave the transaction read-only w.r.t. the schema row
         // so concurrent no-op saves can commit without conflict.
-        final Tuple primaryKey = getSchemaKey(URI.create(schema.getDatabaseName()), schema.getName());
-        final boolean exists;
-        try {
-            exists = recordStore.loadRecord(primaryKey) != null;
-        } catch (RecordCoreException ex) {
-            throw ExceptionUtil.toRelationalException(ex);
-        }
-        if (exists) {
-            final Schema existingSchema = loadSchema(txn, URI.create(schema.getDatabaseName()), schema.getName());
+        final RecordLayerSchema existingSchema = loadSchemaIfExists(txn, databaseUri, schema.getName(), recordStore);
+        if (existingSchema != null) {
             if (!existsBehavior.shouldWrite(schema, existingSchema)) {
                 return;
             }

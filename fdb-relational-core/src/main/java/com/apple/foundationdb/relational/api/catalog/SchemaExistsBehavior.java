@@ -72,8 +72,7 @@ public enum SchemaExistsBehavior {
     /**
      * Silently succeed if a schema is already present at {@code (databaseId, schemaName)},
      * regardless of whether the existing schema matches the one being saved. No comparison is
-     * performed and no write is issued in the exists branch. Useful for idempotent initialization paths
-     * that must survive concurrent invocation.
+     * performed and no write is issued in the exists branch. This aligns with common {@code IF EXISTS} behavior.
      */
     DO_NOTHING {
         @Override
