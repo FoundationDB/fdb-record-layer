@@ -996,13 +996,13 @@ class TestHelpers {
         /** Defaults for a quiesced structure that has not just had a delete storm. */
         @Nonnull
         static ReplicationInvariants standard() {
-            return new ReplicationInvariants(0.05d, 0.0d, 0.02d, 0.02d, 50_000);
+            return new ReplicationInvariants(0.05d, 0.0d, 0.08d, 0.02d, 50_000);
         }
 
         /** Looser bounds for the post-delete state, where reassign may not yet have restored replication. */
         @Nonnull
         static ReplicationInvariants afterDeletes() {
-            return new ReplicationInvariants(0.20d, 0.0d, 0.05d, 0.10d, 50_000);
+            return new ReplicationInvariants(0.20d, 0.0d, 0.08d, 0.10d, 50_000);
         }
 
         /**

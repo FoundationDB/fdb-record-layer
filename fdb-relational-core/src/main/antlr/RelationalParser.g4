@@ -5,7 +5,7 @@ Copyright (c) 2015-2017, Ivan Kochurkin (kvanttt@gmail.com), Positive Technologi
 Copyright (c) 2017, Ivan Khudyashev (IHudyashov@ptsecurity.com)
 Copyright 2021-2025 Apple Inc. and the FoundationDB project authors
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
+Permission is hereby granted, free of  charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
 in the Software without restriction, including without limitation the rights
 to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
@@ -133,7 +133,7 @@ columnDefinition
 // this is not aligned with SQL standard, but it eliminates ambiguities related to necessating a lookahead of 1 to resolve
 // column with a custom type (which is a mere ID, just like the column ID).
 functionColumnType
-    : primitiveType | TYPE customType=uid;
+    : (primitiveType | TYPE customType=uid) ARRAY?;
 
 columnType
     : primitiveType | customType=uid;
@@ -171,7 +171,7 @@ enumDefinition
 indexDefinition
     : (UNIQUE)? INDEX indexName=uid AS queryTerm indexAttributes?                                                                  #indexAsSelectDefinition
     | (UNIQUE)? INDEX indexName=uid ON source=fullId indexColumnList includeClause? indexOptions?                                  #indexOnSourceDefinition
-    | VECTOR INDEX indexName=uid USING HNSW ON source=fullId indexColumnList includeClause? indexPartitionClause? vectorIndexOptions?   #vectorIndexDefinition
+    | VECTOR INDEX indexName=uid USING engine=vectorEngine ON source=fullId indexColumnList includeClause? indexPartitionClause? vectorIndexOptions?   #vectorIndexDefinition
     ;
 
 indexColumnList
@@ -202,21 +202,24 @@ indexOption
     : LEGACY_EXTREMUM_EVER
     ;
 
+vectorEngine
+    : HNSW
+    | GUARDIANN
+    ;
+
 vectorIndexOptions
     : OPTIONS '(' vectorIndexOption (COMMA vectorIndexOption)* ')'
     ;
 
 vectorIndexOption
-    : EF_CONSTRUCTION '=' efConstruction=DECIMAL_LITERAL
-    | CONNECTIVITY '=' connectivity=DECIMAL_LITERAL
-    | M_MAX '=' mMax=DECIMAL_LITERAL
-    | M_MAX_0 '=' mMaxZero=DECIMAL_LITERAL
-    | MAINTAIN_STATS_PROBABILITY '=' maintainStatsProbability=REAL_LITERAL
-    | METRIC '=' metric=hnswMetric
-    | RABITQ_NUM_EX_BITS '=' rabitQNumExBits=DECIMAL_LITERAL
-    | SAMPLE_VECTOR_STATS_PROBABILITY '=' statsProbability=REAL_LITERAL
-    | STATS_THRESHOLD '=' statsThreshold=DECIMAL_LITERAL
-    | USE_RABITQ '=' useRabitQ=booleanLiteral
+    : optionName=simpleId '=' optionValue=vectorIndexOptionValue
+    ;
+
+vectorIndexOptionValue
+    : DECIMAL_LITERAL
+    | REAL_LITERAL
+    | booleanLiteral
+    | hnswMetric
     ;
 
 hnswMetric
@@ -294,7 +297,7 @@ returnsClause
     ;
 
 returnsType
-    : returnsDataType=columnType
+    : returnsDataType=columnType ARRAY?
     | returnsTableType
     ;
 
@@ -341,18 +344,9 @@ dispatchClause
     ;
 
 routineBody
-    : AS queryTerm         #statementBody
-    | AS fullId            #userDefinedScalarFunctionStatementBody
-    | sqlReturnStatement   #expressionBody
+    : AS queryTerm                    #statementBody
+    | (RETURN | AS) expression        #userDefinedMacroFunctionStatementBody
     // | externalBodyReferences TODO
-    ;
-
-sqlReturnStatement
-    : RETURN returnValue
-    ;
-
-returnValue
-    : expression
     ;
 
 charSet
@@ -388,14 +382,14 @@ deleteStatement
       (WHERE whereExpr)?
       orderByClause? limitClause?
       (RETURNING selectElements)?
-      queryOptions?
+      statementOptions?
     ;
 
 insertStatement
     : INSERT
       INTO? tableName
       (columns=uidListWithNestingsInParens)? insertStatementValue
-      queryOptions?
+      statementOptions?
     ;
 
 continuationAtom
@@ -404,7 +398,7 @@ continuationAtom
     ;
 
 selectStatement
-    : query
+    : query statementOptions?
     ;
 
 query
@@ -424,10 +418,10 @@ namedQuery
     ;
 
 tableFunction
-    : tableFunctionName '(' tableFunctionArgs? ')' inlineTableDefinition?
+    : tableFunctionName '(' namedOrUnnamedFunctionArgs? ')' inlineTableDefinition?
     ;
 
-tableFunctionArgs
+namedOrUnnamedFunctionArgs
     : functionArg ( ',' functionArg )*
     | namedFunctionArg ( ',' namedFunctionArg)*
     ;
@@ -465,7 +459,7 @@ updateStatement
       SET updatedElement (',' updatedElement)*
       (WHERE whereExpr)?
       (RETURNING selectElements)?
-      queryOptions?
+      statementOptions?
     ;
 
 // details
@@ -539,8 +533,7 @@ queryTerm
     qualifyClause?
     /*windowClause?*/
     orderByClause?
-    limitClause?
-    queryOptions?                                                  #simpleTable
+    limitClause?                                                   #simpleTable
     | '(' query ')'                                                #parenthesisQuery
     ;
 
@@ -596,15 +589,14 @@ limitClauseAtom
     | preparedStatementParameter
     ;
 
-queryOptions
-    : OPTIONS '(' queryOption (',' queryOption)* ')'
+statementOptions
+    : OPTIONS '(' statementOption (',' statementOption)* ')'
     ;
 
-queryOption
+statementOption
     : NOCACHE
     | LOG QUERY
     | DRY RUN
-    | EF_SEARCH decimalLiteral
     | PLAN RIGHT DEEP
     ;
 
@@ -695,7 +687,7 @@ resetStatement
 
 executeContinuationStatement
     : EXECUTE CONTINUATION packageBytes=continuationAtom
-      queryOptions?
+      statementOptions?
     ;
 
 copyStatement
@@ -749,7 +741,7 @@ helpStatement
 
 describeObjectClause
     : (
-        query | deleteStatement | insertStatement
+        query statementOptions? | deleteStatement | insertStatement
         | updateStatement | executeContinuationStatement
       )                                                             #describeStatements
     | FOR CONNECTION uid                                            #describeConnection
@@ -1011,11 +1003,11 @@ ifNotExists
 //    Functions
 
 functionCall
-    : aggregateWindowedFunction                                     #aggregateFunctionCall // done (supported)
-    | nonAggregateWindowedFunction                                  #nonAggregateFunctionCall // done
-    | specificFunction                                              #specificFunctionCall //
-    | scalarFunctionName '(' functionArgs? ')'                      #scalarFunctionCall // done (unsupported)
-    | userDefinedScalarFunctionName '(' functionArgs? ')'           #userDefinedScalarFunctionCall
+    : aggregateWindowedFunction                                                   #aggregateFunctionCall // done (supported)
+    | nonAggregateWindowedFunction                                                #nonAggregateFunctionCall // done
+    | specificFunction                                                            #specificFunctionCall //
+    | scalarFunctionName '(' functionArgs? ')'                                    #scalarFunctionCall // done (unsupported)
+    | userDefinedScalarFunctionName '(' namedOrUnnamedFunctionArgs? ')'           #userDefinedScalarFunctionCall
     ;
 
 specificFunction
@@ -1317,7 +1309,9 @@ intervalTypeBase
     ;
 
 keywordsCanBeId
-    : ACCOUNT | ACTION | ADMIN | AFTER | AGGREGATE | ALGORITHM | ANY
+    : CONNECTIVITY | EF_CONSTRUCTION | M_MAX | M_MAX_0 | MAINTAIN_STATS_PROBABILITY | METRIC
+    | RABITQ_NUM_EX_BITS | SAMPLE_VECTOR_STATS_PROBABILITY | STATS_THRESHOLD | USE_RABITQ
+    | ACCOUNT | ACTION | ADMIN | AFTER | AGGREGATE | ALGORITHM | ANY
     | AT | AUDIT_ADMIN | AUTHORS | AUTOCOMMIT | AUTOEXTEND_SIZE
     | AUTO_INCREMENT | AVG | AVG_ROW_LENGTH | BACKUP_ADMIN | BEGIN | BINLOG | BINLOG_ADMIN | BINLOG_ENCRYPTION_ADMIN | BIT | BIT_AND | BIT_OR | BIT_XOR
     | BLOCK | BOOL | BTREE | CACHE | CASCADED | CHAIN | CHANGED

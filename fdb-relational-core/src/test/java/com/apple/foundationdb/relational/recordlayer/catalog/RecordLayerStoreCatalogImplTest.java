@@ -79,7 +79,7 @@ public class RecordLayerStoreCatalogImplTest extends RecordLayerStoreCatalogTest
         try (Transaction txn = new RecordContextTransaction(fdb.openContext())) {
 
             final KeySpacePath keySpacePath = RelationalKeyspaceProvider.toDatabasePath(URI.create("/__SYS"), keySpace).schemaPath("CATALOG");
-            FDBRecordStore.deleteStore(txn.unwrap(FDBRecordContext.class), keySpacePath);
+            FDBRecordStore.deleteStoreAsync(txn.unwrap(FDBRecordContext.class), keySpacePath).join();
             txn.commit();
         }
     }

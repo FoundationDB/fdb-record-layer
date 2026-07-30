@@ -23,7 +23,7 @@ package com.apple.foundationdb.record.query.plan.cascades;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
-import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
+import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 
 import javax.annotation.Nonnull;
 import java.util.List;
@@ -56,7 +56,7 @@ public abstract class UserDefinedFunction extends CatalogedFunction {
      */
     public UserDefinedFunction(@Nonnull final String functionName, @Nonnull final List<String> parameterNames,
                                 @Nonnull final List<Type> parameterTypes,
-                                @Nonnull final List<Optional<? extends Typed>> parameterDefaults) {
+                                @Nonnull final List<Optional<Value>> parameterDefaults) {
         super(functionName, parameterNames, parameterTypes, parameterDefaults);
     }
 

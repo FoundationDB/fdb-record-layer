@@ -260,7 +260,7 @@ public class ConstantFoldingTestUtils {
     public static ValueWrapper coalesce(@Nonnull final ValueWrapper... valueWrappers) {
         final var evaluationContext = ValueWrapper.mergeEvaluationContexts(valueWrappers);
         final var values = Arrays.stream(valueWrappers).map(ValueWrapper::value).collect(ImmutableList.toImmutableList());
-        final var value = (Value)new VariadicFunctionValue.CoalesceFn().encapsulate(values);
+        final var value = (Value)new VariadicFunctionValue.CoalesceFn().encapsulate(CallSiteArguments.ofPositional(values));
         return new ValueWrapper(value, Optional.of(evaluationContext));
     }
 

@@ -360,7 +360,7 @@ public abstract class IndexOnlyAggregateValue extends AbstractValue implements A
     @AutoService(BuiltInFunction.class)
     public static class MinEverFn extends BuiltInFunction<AggregateValue> {
         public MinEverFn() {
-            super("MIN_EVER", ImmutableList.of(new Type.Any()), (ignored, arguments) -> MinEverValue.encapsulate(arguments));
+            super("MIN_EVER", ImmutableList.of(new Type.Any()), (ignored, arguments) -> MinEverValue.encapsulate(arguments.getArgumentsList()));
         }
     }
 
@@ -370,7 +370,7 @@ public abstract class IndexOnlyAggregateValue extends AbstractValue implements A
     @AutoService(BuiltInFunction.class)
     public static class MaxEverFn extends BuiltInFunction<AggregateValue> {
         public MaxEverFn() {
-            super("MAX_EVER", ImmutableList.of(new Type.Any()), (ignored, arguments) -> MaxEverValue.encapsulate(arguments));
+            super("MAX_EVER", ImmutableList.of(new Type.Any()), (ignored, arguments) -> MaxEverValue.encapsulate(arguments.getArgumentsList()));
         }
     }
 }

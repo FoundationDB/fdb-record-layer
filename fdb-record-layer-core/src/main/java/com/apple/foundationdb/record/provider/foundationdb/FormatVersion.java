@@ -170,7 +170,13 @@ public enum FormatVersion implements Comparable<FormatVersion> {
      * {@code FormatVersion}.
      * This version also introduces {@linkplain RecordMetaDataProto.DataStoreInfo.StoreLockState.State#FULL_STORE}.
      */
-    FULL_STORE_LOCK(14)
+    FULL_STORE_LOCK(14),
+    /**
+     * This FormatVersion allows the store to mark indexes as {@link com.apple.foundationdb.record.IndexState#WRITE_ONLY_WITH_QUEUE}.
+     * In this state, user IO is added to write pending queue, and the indexing process is responsible to drain the queue and update
+     * the index. This special indexing mode is designed to prevent conflicts between the indexer and user transactions.
+     */
+    WRITE_ONLY_WITH_QUEUE(15)
     ;
 
     private final int value;

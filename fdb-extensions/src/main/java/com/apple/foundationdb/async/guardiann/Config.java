@@ -53,8 +53,6 @@ import javax.annotation.Nonnull;
  * @param useRaBitQ indicator if we should use RaBitQ quantization
  * @param raBitQNumExBits number of extra bits per dimension for RaBitQ encoding
  * @param deterministicRandomness whether randomness should always be deterministic (for debugging/replay)
- * @param maxNumConcurrentNodeFetches maximum concurrent node fetches (passed through to HNSW config)
- * @param maxNumConcurrentNeighborhoodFetches maximum concurrent neighborhood fetches (passed through to HNSW config)
  * @param sampleBatchSize number of sampled vectors consumed per statistics-computation pass
  * @param insertMaxCandidateClusters maximum clusters evaluated as insertion targets
  * @param deleteMaxCandidateClusters maximum clusters probed when locating a vector's references during delete
@@ -91,8 +89,6 @@ public record Config(@Nonnull Metric metric,
                      boolean useRaBitQ,
                      int raBitQNumExBits,
                      boolean deterministicRandomness,
-                     int maxNumConcurrentNodeFetches,
-                     int maxNumConcurrentNeighborhoodFetches,
                      int sampleBatchSize,
                      // insert
                      int insertMaxCandidateClusters,
@@ -136,9 +132,6 @@ public record Config(@Nonnull Metric metric,
     public static final int DEFAULT_RABITQ_NUM_EX_BITS = 4;
     // randomness
     public static final boolean DEFAULT_DETERMINISTIC_RANDOMNESS = false;
-    // HNSW concurrency (passed through)
-    public static final int DEFAULT_MAX_NUM_CONCURRENT_NODE_FETCHES = 16;
-    public static final int DEFAULT_MAX_NUM_CONCURRENT_NEIGHBOR_FETCHES = 10;
     // stats sampling
     public static final int DEFAULT_SAMPLE_BATCH_SIZE = 50;
 
@@ -178,7 +171,6 @@ public record Config(@Nonnull Metric metric,
                 replicationPriorityMin(), replicationDistanceRatioWeight(), replicationZScoreWeight(),
                 replicationStatsMinSampleSize(), sampleVectorStatsProbability(), maintainStatsProbability(),
                 statsThreshold(), useRaBitQ(), raBitQNumExBits(), deterministicRandomness(),
-                maxNumConcurrentNodeFetches(), maxNumConcurrentNeighborhoodFetches(),
                 sampleBatchSize(), insertMaxCandidateClusters(),
                 deleteMaxCandidateClusters(), deleteConcurrency(),
                 splitNumNearestClusters(), mergeNumNearestClusters(),
@@ -205,8 +197,6 @@ public record Config(@Nonnull Metric metric,
                 ", maintainStatsProbability=" + maintainStatsProbability() + ", statsThreshold=" + statsThreshold() +
                 ", useRaBitQ=" + useRaBitQ() + ", raBitQNumExBits=" + raBitQNumExBits() +
                 ", deterministicRandomness=" + deterministicRandomness() +
-                ", maxNumConcurrentNodeFetches=" + maxNumConcurrentNodeFetches() +
-                ", maxNumConcurrentNeighborhoodFetches=" + maxNumConcurrentNeighborhoodFetches() +
                 ", sampleBatchSize=" + sampleBatchSize() +
                 ", insertMaxCandidateClusters=" + insertMaxCandidateClusters() +
                 ", deleteMaxCandidateClusters=" + deleteMaxCandidateClusters() +
@@ -253,8 +243,6 @@ public record Config(@Nonnull Metric metric,
         private int raBitQNumExBits = DEFAULT_RABITQ_NUM_EX_BITS;
 
         private boolean deterministicRandomness = DEFAULT_DETERMINISTIC_RANDOMNESS;
-        private int maxNumConcurrentNodeFetches = DEFAULT_MAX_NUM_CONCURRENT_NODE_FETCHES;
-        private int maxNumConcurrentNeighborhoodFetches = DEFAULT_MAX_NUM_CONCURRENT_NEIGHBOR_FETCHES;
         private int sampleBatchSize = DEFAULT_SAMPLE_BATCH_SIZE;
 
         // insert
@@ -290,8 +278,7 @@ public record Config(@Nonnull Metric metric,
                              final int replicationStatsMinSampleSize,
                              final double sampleVectorStatsProbability, final double maintainStatsProbability,
                              final int statsThreshold, final boolean useRaBitQ, final int raBitQNumExBits,
-                             final boolean deterministicRandomness, final int maxNumConcurrentNodeFetches,
-                             final int maxNumConcurrentNeighborhoodFetches,
+                             final boolean deterministicRandomness,
                              final int sampleBatchSize,
                              final int insertMaxCandidateClusters,
                              final int deleteMaxCandidateClusters, final int deleteConcurrency,
@@ -320,8 +307,6 @@ public record Config(@Nonnull Metric metric,
             this.useRaBitQ = useRaBitQ;
             this.raBitQNumExBits = raBitQNumExBits;
             this.deterministicRandomness = deterministicRandomness;
-            this.maxNumConcurrentNodeFetches = maxNumConcurrentNodeFetches;
-            this.maxNumConcurrentNeighborhoodFetches = maxNumConcurrentNeighborhoodFetches;
             this.sampleBatchSize = sampleBatchSize;
             this.insertMaxCandidateClusters = insertMaxCandidateClusters;
             this.deleteMaxCandidateClusters = deleteMaxCandidateClusters;
@@ -516,28 +501,6 @@ public record Config(@Nonnull Metric metric,
             return this;
         }
 
-        public int getMaxNumConcurrentNodeFetches() {
-            return maxNumConcurrentNodeFetches;
-        }
-
-        @CanIgnoreReturnValue
-        @Nonnull
-        public ConfigBuilder setMaxNumConcurrentNodeFetches(final int maxNumConcurrentNodeFetches) {
-            this.maxNumConcurrentNodeFetches = maxNumConcurrentNodeFetches;
-            return this;
-        }
-
-        public int getMaxNumConcurrentNeighborhoodFetches() {
-            return maxNumConcurrentNeighborhoodFetches;
-        }
-
-        @CanIgnoreReturnValue
-        @Nonnull
-        public ConfigBuilder setMaxNumConcurrentNeighborhoodFetches(final int maxNumConcurrentNeighborhoodFetches) {
-            this.maxNumConcurrentNeighborhoodFetches = maxNumConcurrentNeighborhoodFetches;
-            return this;
-        }
-
         public int getSampleBatchSize() {
             return sampleBatchSize;
         }
@@ -711,8 +674,7 @@ public record Config(@Nonnull Metric metric,
                     getReplicationDistanceRatioWeight(), getReplicationZScoreWeight(),
                     getReplicationStatsMinSampleSize(), getSampleVectorStatsProbability(),
                     getMaintainStatsProbability(), getStatsThreshold(), isUseRaBitQ(), getRaBitQNumExBits(),
-                    isDeterministicRandomness(), getMaxNumConcurrentNodeFetches(),
-                    getMaxNumConcurrentNeighborhoodFetches(),
+                    isDeterministicRandomness(),
                     getSampleBatchSize(), getInsertMaxCandidateClusters(),
                     getDeleteMaxCandidateClusters(), getDeleteConcurrency(),
                     getSplitNumNearestClusters(), getMergeNumNearestClusters(),

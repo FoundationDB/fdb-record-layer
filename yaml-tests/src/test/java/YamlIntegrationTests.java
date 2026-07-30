@@ -203,6 +203,11 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
+    public void guardiannSemanticSearchTest(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("guardiann-semantic-search.yamsql");
+    }
+
+    @TestTemplate
     public void inPredicate(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("in-predicate.yamsql");
     }
@@ -285,6 +290,11 @@ public class YamlIntegrationTests {
     @TestTemplate
     public void indexDdlAggregatesOnly(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("index-ddl-aggregates-only.yamsql");
+    }
+
+    @TestTemplate
+    public void keywordCaseInsensitivity(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("keyword-case-insensitivity.yamsql");
     }
 
     @TestTemplate
@@ -472,6 +482,11 @@ public class YamlIntegrationTests {
     @TestTemplate
     public void validIdentifierTests(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("valid-identifiers.yamsql");
+    }
+
+    @TestTemplate
+    public void vectorMixedVersionMetadataTests(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("vector-mixed-version-metadata.yamsql");
     }
 
     @TestTemplate

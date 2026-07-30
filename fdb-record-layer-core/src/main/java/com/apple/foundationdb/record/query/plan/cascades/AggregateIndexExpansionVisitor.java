@@ -362,7 +362,7 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
     @Nonnull
     public static Optional<AggregateValue> aggregateValue(@Nonnull final Index index, @Nonnull final Value argument) {
         return Optional.of((AggregateValue)aggregateMap.get()
-                .get(index.getType()).encapsulate(ImmutableList.of(argument)));
+                .get(index.getType()).encapsulate(CallSiteArguments.ofPositional(argument)));
     }
 
     @Nonnull
@@ -388,7 +388,7 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
     public static Optional<AggregateValue> rollUpAggregateValueMaybe(@Nonnull final String indexType, @Nonnull final Value argument) {
         return Optional.ofNullable(rollUpAggregateMap.get()
                 .get(indexType))
-                .map(fn -> (AggregateValue)fn.encapsulate(ImmutableList.of(argument)));
+                .map(fn -> (AggregateValue)fn.encapsulate(CallSiteArguments.ofPositional(argument)));
     }
 
     @Nonnull

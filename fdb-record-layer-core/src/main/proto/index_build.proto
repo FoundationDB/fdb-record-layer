@@ -23,6 +23,8 @@ syntax = "proto2";
 package com.apple.foundationdb.record;
 option java_outer_classname = "IndexBuildProto";
 
+import "google/protobuf/any.proto";
+
 // This stamp indicates an ongoing indexing process. It will be used to assure a coherent indexing
 // continuation - which continued by another process.
 
@@ -56,11 +58,52 @@ message IndexBuildHeartbeat {
 
 // The message that gets saved into the pending writes queue.
 // This message gets stored in an google.protobuf.Any field in the queue. This means that this message type SHOULD NOT be moved
-// or renamed to preserve wire-format compatibility with existing data
-// This represents a record change that needs to be indexed:
-// Either of the records (but not both) can be null, where null "old_record" means we are inserting a new
-// record and null "new_record" means we are deleting an existing one.
+// or renamed to preserve wire-format compatibility with existing data.
 message PendingWritesQueueEntry {
+  // The kind of deferred index operation carried by this entry. New operations (e.g. DELETE_WHERE) may be added over
+  // time; a drainer that does not recognize an operation should fail rather than silently skip it.
+  enum Operation {
+    UPDATE = 1; // apply an old/new record change; `data` holds a serialized information needed for an index update
+    DELETE_WHERE = 2; // clear an index key prefix; `data` holds a serialized DeleteWhere
+  }
+  required Operation operation = 1;
+  optional google.protobuf.Any data = 2;
+}
+
+// Data for PendingWritesQueueEntry DELETE_WHERE operation. This defers a `deleteRecordsWhere`
+message DeleteWhere {
+  optional bytes prefix = 1; // the packed key prefix to clear from the index
+}
+
+// The `data` payload for a PendingWritesQueueEntry UPDATE operation. This represents a record change that needs to be
+// indexed: Either of the records (but not both) can be null, where null "old_records" means we are inserting a new
+// record and null "new_record" means we are deleting an existing one.
+message OldAndNewRecords {
+  // Simple cases where store serializer can handle the records (typically this is not the case for synthetic records)
   optional bytes old_records = 1;
   optional bytes new_record = 2;
+}
+
+// A single index entry
+message IndexEntry {
+  optional bytes key = 1;
+  optional bytes value = 2;
+  optional bytes primary_key = 3;
+}
+
+// Lists of old and new index entries. This can be used as data for PendingWritesQueueEntry if that is the only data
+// required for deferred indexing.
+message OldAndNewIndexEntries {
+  repeated IndexEntry old_entries = 1;
+  repeated IndexEntry new_entries = 2;
+}
+
+
+message SlidingWindowQueueEntry {
+  // The sliding-window entry keys (partition + window value + primary key, packed) drive the window's own
+  // bookkeeping on drain; the dedicated Any messages carry the delegate index's serialized single-sided updates.
+  optional bytes old_entry_key = 1;
+  optional bytes new_entry_key = 2;
+  optional google.protobuf.Any delegated_delete = 3;
+  optional google.protobuf.Any delegated_insert = 4;
 }

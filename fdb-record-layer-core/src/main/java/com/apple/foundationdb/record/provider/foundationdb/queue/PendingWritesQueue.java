@@ -324,6 +324,13 @@ public class PendingWritesQueue<T extends Message> {
             // A null counter means the queue has never been written; treat as size 0 (matches
             // FDB ADD semantics on a missing key).
             if (currentSize != null && currentSize >= maxQueueSize) {
+                // TODO: replace with another "non-throwing-operation".
+                // If the indexer had stopped, for any reason, and the queue becomes oversized, the
+                // right thing to do - instead of preventing any user operations - will be to disable this
+                // index. Some options:
+                // 1. disable the index in the user IO (best option, but this may be a problem because of the way this IO transaction is constructed)
+                // 2. avoid updating, trusting the indexer to disable the index when it detects a "MAX minus epsilon" size (epsilon should be big enough to prevent concurrency issues)
+                // 3. user transaction, when avoiding queue update, can set size to a negative number. Indicating to the indexer that the queue is invalid and the index should be rebuilt from scratch.
                 throw new PendingWritesQueueTooLargeException(currentSize, maxQueueSize);
             }
         });
