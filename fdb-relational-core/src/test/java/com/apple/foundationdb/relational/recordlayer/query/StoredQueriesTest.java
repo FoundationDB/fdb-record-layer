@@ -50,64 +50,6 @@ class StoredQueriesTest {
                     " CREATE STORED QUERY by_col1 AS select * from t1 where col1 = 10" +
                     " CREATE STORED QUERY by_id AS select * from t1 where id = 1";
 
-    /**
-     * A stored query whose body uses an inline typed positional parameter ({@code ?{bigint}}) instead of a concrete
-     * literal, so it is planned value-free at warmup and reused by any runtime value of the declared type.
-     */
-    private static final String SCHEMA_TEMPLATE_TYPED_PARAM =
-            "CREATE TABLE t1(id bigint, col1 bigint, col2 bigint, PRIMARY KEY(id))" +
-                    " CREATE INDEX i1 AS SELECT col1 FROM t1" +
-                    " CREATE STORED QUERY by_col1_typed AS select * from t1 where col1 > ?{bigint}";
-
-    /**
-     * A stored query with two inline typed parameters. Because {@code ?{type}} is a single lexer token, it occupies
-     * exactly one token slot (like a bare {@code ?}), so the second parameter's constant id (derived from the token
-     * index) matches the second {@code ?} of a runtime {@code col1 > ? and col2 < ?}. A multi-token annotation would
-     * shift it and bind the runtime values to the wrong slots.
-     */
-    private static final String SCHEMA_TEMPLATE_TWO_TYPED_PARAMS =
-            "CREATE TABLE t1(id bigint, col1 bigint, col2 bigint, PRIMARY KEY(id))" +
-                    " CREATE INDEX i1 AS SELECT col1 FROM t1" +
-                    " CREATE STORED QUERY by_two_typed AS select * from t1 where col1 > ?{bigint} and col2 < ?{bigint}";
-
-    /**
-     * A value-free stored query against a schema whose only col1 index is <em>range-filtered</em>. Selecting that
-     * index needs the parameter's value (to prove it falls in the index range), which is absent at warmup — so this
-     * characterizes what warmup does in that case (skip + runtime replan, or something else).
-     */
-    private static final String SCHEMA_TEMPLATE_FILTERED_INDEX =
-            "CREATE TABLE t1(id bigint, col1 bigint, col2 bigint, PRIMARY KEY(id))" +
-                    " CREATE INDEX i2 AS SELECT col1 FROM t1 WHERE col1 > 42" +
-                    " CREATE STORED QUERY by_col1_filtered AS select * from t1 where col1 > ?{bigint}";
-
-    /**
-     * The declared parameter type ({@code string}) is incompatible with the column it is compared to ({@code col1} is
-     * {@code bigint}), so {@code col1 > ?{string}} is ill-typed. The body is stored verbatim at DDL time and only
-     * type-checked when planned at warmup, so this characterizes that the ill-typed stored query fails to warm
-     * (and is skipped) rather than producing a broken plan.
-     */
-    private static final String SCHEMA_TEMPLATE_INCOMPATIBLE_TYPE =
-            "CREATE TABLE t1(id bigint, col1 bigint, col2 bigint, PRIMARY KEY(id))" +
-                    " CREATE INDEX i1 AS SELECT col1 FROM t1" +
-                    " CREATE STORED QUERY by_col1_badtype AS select * from t1 where col1 > ?{string}";
-
-    /** Stored query body has a typo (`select1` rather than `select`) — DDL fails to parse. */
-    private static final String SCHEMA_TEMPLATE_BAD_SYNTAX =
-            "CREATE TABLE t1(id bigint, col1 bigint, col2 bigint, PRIMARY KEY(id))" +
-                    " CREATE STORED QUERY by_col1 AS select1 * from t1 where col1 = 10";
-
-    /** Stored query body is itself a DDL statement — rejected by the grammar. */
-    private static final String SCHEMA_TEMPLATE_DDL_IN_QUERY =
-            "CREATE TABLE t1(id bigint, col1 bigint, col2 bigint, PRIMARY KEY(id))" +
-                    " CREATE STORED QUERY ddl_t AS CREATE TABLE t2(id bigint, col1 bigint, PRIMARY KEY(id))";
-
-    /** Stored query references a column that does not exist on the table. */
-    private static final String SCHEMA_TEMPLATE_BAD_COLUMN =
-            "CREATE TABLE t1(id bigint, col1 bigint, col2 bigint, PRIMARY KEY(id))" +
-                    " CREATE INDEX i1 AS SELECT col1 FROM t1" +
-                    " CREATE STORED QUERY by_col1 AS select * from t1 where col3 = 10" + // col3 does not exit
-                    " CREATE STORED QUERY by_id AS select * from t1 where id = 1";
-
     /** One stored query whose body calls a single temp function. */
     private static final String SCHEMA_TEMPLATE_TF_SINGLE =
             "CREATE TABLE t1(id bigint, col1 bigint, col2 bigint, PRIMARY KEY(id))" +
@@ -115,39 +57,6 @@ class StoredQueriesTest {
                     " CREATE STORED QUERY by_x" +
                     "   DECLARE" +
                     "       FUNCTION sq1(in x bigint) AS (SELECT * FROM t1 WHERE col1 < 40 + x)" +
-                    " AS SELECT * FROM sq1(10)";
-
-    /**
-     * Chained temp functions.
-     */
-    private static final String SCHEMA_TEMPLATE_TF_CHAINED =
-            "CREATE TABLE t1(id bigint, col1 bigint, col2 bigint, PRIMARY KEY(id))" +
-                    " CREATE INDEX i1 AS SELECT col1 FROM t1" +
-                    " CREATE STORED QUERY by_chained" +
-                    "   DECLARE" +
-                    "       FUNCTION sq1(in x bigint) AS (SELECT * FROM t1 WHERE col1 < x);" +
-                    "       FUNCTION sq2(in x bigint) AS (SELECT * FROM sq1(x + 1))" +
-                    " AS SELECT * FROM sq2(50)";
-
-    /** The first stored query's temp function references a column that does not exist. */
-    private static final String SCHEMA_TEMPLATE_TF_BAD =
-            "CREATE TABLE t1(id bigint, col1 bigint, col2 bigint, PRIMARY KEY(id))" +
-                    " CREATE INDEX i1 AS SELECT col1 FROM t1" +
-                    " CREATE STORED QUERY by_bad" +
-                    "   DECLARE" +
-                    "       FUNCTION sq_bad() AS (SELECT * FROM t1 WHERE col_does_not_exist = 1)" +
-                    " AS SELECT * FROM sq_bad()" +
-                    " CREATE STORED QUERY by_good" +
-                    "   DECLARE" +
-                    "       FUNCTION sq_good() AS (SELECT * FROM t1 WHERE col1 = 10)" +
-                    " AS SELECT * FROM sq_good()";
-
-    /** Typo in the temp-function keyword  — DDL fails to parse. */
-    private static final String SCHEMA_TEMPLATE_TF_BAD_SYNTAX =
-            "CREATE TABLE t1(id bigint, col1 bigint, col2 bigint, PRIMARY KEY(id))" +
-                    " CREATE STORED QUERY by_x" +
-                    "   DECLARE" +
-                    "       FUNCTION1 sq1(in x bigint) AS (SELECT * FROM t1 WHERE col1 < x)" +
                     " AS SELECT * FROM sq1(10)";
 
 
@@ -405,11 +314,17 @@ class StoredQueriesTest {
 
     @Test
     void storedQueriesUsageTypedParam() throws Exception {
+        // A stored query whose body uses an inline typed positional parameter (?{bigint}) instead of a concrete
+        // literal, so it is planned value-free at warmup and reused by any runtime value of the declared type.
+        final String schemaTemplate =
+                "CREATE TABLE t1(id bigint, col1 bigint, col2 bigint, PRIMARY KEY(id))" +
+                        " CREATE INDEX i1 AS SELECT col1 FROM t1" +
+                        " CREATE STORED QUERY by_col1_typed AS select * from t1 where col1 > ?{bigint}";
         final String dbUri = "/TEST/STOREDQUERIES_TYPED_DB";
         try (var ddl = Ddl.builder()
                 .database(URI.create(dbUri))
                 .relationalExtension(relationalExtension)
-                .schemaTemplate(SCHEMA_TEMPLATE_TYPED_PARAM)
+                .schemaTemplate(schemaTemplate)
                 .build()) {
             final var connection = ddl.setSchemaAndGetConnection();
             final String templateName = ddl.getSchemaTemplateName();
@@ -448,11 +363,19 @@ class StoredQueriesTest {
 
     @Test
     void storedQueriesUsageTwoTypedParams() throws Exception {
+        // A stored query with two inline typed parameters. Because ?{type} is a single lexer token, it occupies
+        // exactly one token slot (like a bare ?), so the second parameter's constant id (derived from the token
+        // index) matches the second ? of a runtime col1 > ? and col2 < ?. A multi-token annotation would
+        // shift it and bind the runtime values to the wrong slots.
+        final String schemaTemplate =
+                "CREATE TABLE t1(id bigint, col1 bigint, col2 bigint, PRIMARY KEY(id))" +
+                        " CREATE INDEX i1 AS SELECT col1 FROM t1" +
+                        " CREATE STORED QUERY by_two_typed AS select * from t1 where col1 > ?{bigint} and col2 < ?{bigint}";
         final String dbUri = "/TEST/STOREDQUERIES_TWO_TYPED_DB";
         try (var ddl = Ddl.builder()
                 .database(URI.create(dbUri))
                 .relationalExtension(relationalExtension)
-                .schemaTemplate(SCHEMA_TEMPLATE_TWO_TYPED_PARAMS)
+                .schemaTemplate(schemaTemplate)
                 .build()) {
             final var connection = ddl.setSchemaAndGetConnection();
             final String templateName = ddl.getSchemaTemplateName();
@@ -490,11 +413,18 @@ class StoredQueriesTest {
 
     @Test
     void storedQueriesFilteredIndexCharacterization() throws Exception {
+        // A value-free stored query against a schema whose only col1 index is range-filtered. Selecting that
+        // index needs the parameter's value (to prove it falls in the index range), which is absent at warmup — so this
+        // characterizes what warmup does in that case (skip + runtime replan, or something else).
+        final String schemaTemplate =
+                "CREATE TABLE t1(id bigint, col1 bigint, col2 bigint, PRIMARY KEY(id))" +
+                        " CREATE INDEX i2 AS SELECT col1 FROM t1 WHERE col1 > 42" +
+                        " CREATE STORED QUERY by_col1_filtered AS select * from t1 where col1 > ?{bigint}";
         final String dbUri = "/TEST/STOREDQUERIES_FILTERED_DB";
         try (var ddl = Ddl.builder()
                 .database(URI.create(dbUri))
                 .relationalExtension(relationalExtension)
-                .schemaTemplate(SCHEMA_TEMPLATE_FILTERED_INDEX)
+                .schemaTemplate(schemaTemplate)
                 .build()) {
             final var connection = ddl.setSchemaAndGetConnection();
             final String templateName = ddl.getSchemaTemplateName();
@@ -535,11 +465,19 @@ class StoredQueriesTest {
 
     @Test
     void storedQueriesTypedParamIncompatibleType() throws Exception {
+        // The declared parameter type (string) is incompatible with the column it is compared to (col1 is
+        // bigint), so col1 > ?{string} is ill-typed. The body is stored verbatim at DDL time and only
+        // type-checked when planned at warmup, so this characterizes that the ill-typed stored query fails to warm
+        // (and is skipped) rather than producing a broken plan.
+        final String schemaTemplate =
+                "CREATE TABLE t1(id bigint, col1 bigint, col2 bigint, PRIMARY KEY(id))" +
+                        " CREATE INDEX i1 AS SELECT col1 FROM t1" +
+                        " CREATE STORED QUERY by_col1_badtype AS select * from t1 where col1 > ?{string}";
         final String dbUri = "/TEST/STOREDQUERIES_BADTYPE_DB";
         try (var ddl = Ddl.builder()
                 .database(URI.create(dbUri))
                 .relationalExtension(relationalExtension)
-                .schemaTemplate(SCHEMA_TEMPLATE_INCOMPATIBLE_TYPE)
+                .schemaTemplate(schemaTemplate)
                 .build()) {
             final var connection = ddl.setSchemaAndGetConnection();
             final String templateName = ddl.getSchemaTemplateName();
@@ -560,34 +498,271 @@ class StoredQueriesTest {
     }
 
     @Test
+    void storedQueriesUsageTypedParamArithmetic() throws Exception {
+        // The typed parameter appears inside a constant-foldable sub-expression (?{bigint} + 3). If the planner
+        // tries to constant-fold that sub-expression at warmup it would dereference the value-free (unbound) constant.
+        // This characterizes what happens (warm value-free, or skip because folding fails).
+        final String schemaTemplate =
+                "CREATE TABLE t1(id bigint, col1 bigint, col2 bigint, PRIMARY KEY(id))" +
+                        " CREATE INDEX i1 AS SELECT col1 FROM t1" +
+                        " CREATE STORED QUERY by_col1_arith AS select * from t1 where col1 > ?{bigint} + 3";
+        final String dbUri = "/TEST/STOREDQUERIES_ARITH_DB";
+        try (var ddl = Ddl.builder()
+                .database(URI.create(dbUri))
+                .relationalExtension(relationalExtension)
+                .schemaTemplate(schemaTemplate)
+                .build()) {
+            final var connection = ddl.setSchemaAndGetConnection();
+            final String templateName = ddl.getSchemaTemplateName();
+            final String schemaName = connection.getSchema();
+
+            try (var stmt = connection.createStatement()) {
+                stmt.execute("INSERT INTO T1 VALUES (1, 10, 1)");
+                stmt.execute("INSERT INTO T1 VALUES (2, 20, 2)");
+                stmt.execute("INSERT INTO T1 VALUES (3, 30, 3)");
+            }
+
+            final var engineDriver = relationalExtension.getDriver(
+                    com.apple.foundationdb.record.provider.foundationdb.FormatVersion.getDefaultFormatVersion());
+            final var connectionUtils = new ConnectionUtils(engineDriver);
+
+            // The parameter appears in the constant-foldable sub-expression 'COV + 3', but the whole predicate is not
+            // constant (col1 is a field), so the planner keeps 'COV + 3' symbolic rather than dereferencing the
+            // value-free constant. The stored query therefore warms value-free (one tertiary mapping).
+            Assertions.assertEquals(Long.valueOf(1), connectionUtils.getFromCatalog(c -> countCachedPlans(c, templateName)));
+
+            // Runtime 'col1 > ? + 3' with 12 -> col1 > 15 -> id 2, 3. Reuses the warmed plan (hit): count stays 1.
+            connectionUtils.runAgainstConnection(dbUri, schemaName, c -> {
+                try (var ps = c.prepareStatement("select * from t1 where col1 > ? + 3")) {
+                    ps.setLong(1, 12L);
+                    try (RelationalResultSet rs = ps.executeQuery()) {
+                        Assertions.assertTrue(rs.next());
+                        Assertions.assertEquals(2, rs.getLong("ID"));
+                        Assertions.assertTrue(rs.next());
+                        Assertions.assertEquals(3, rs.getLong("ID"));
+                        Assertions.assertFalse(rs.next());
+                    }
+                }
+            });
+            Assertions.assertEquals(Long.valueOf(1), connectionUtils.getFromCatalog(c -> countCachedPlans(c, templateName)));
+        }
+    }
+
+    @Test
+    void storedQueriesUsageTypedParamString() throws Exception {
+        // A value-free stored query with a non-numeric (string) typed parameter on an indexed string column.
+        final String schemaTemplate =
+                "CREATE TABLE ts(id bigint, name string, PRIMARY KEY(id))" +
+                        " CREATE INDEX i_name AS SELECT name FROM ts" +
+                        " CREATE STORED QUERY by_name AS select * from ts where name = ?{string}";
+        final String dbUri = "/TEST/STOREDQUERIES_STRING_DB";
+        try (var ddl = Ddl.builder()
+                .database(URI.create(dbUri))
+                .relationalExtension(relationalExtension)
+                .schemaTemplate(schemaTemplate)
+                .build()) {
+            final var connection = ddl.setSchemaAndGetConnection();
+            final String templateName = ddl.getSchemaTemplateName();
+            final String schemaName = connection.getSchema();
+
+            try (var stmt = connection.createStatement()) {
+                stmt.execute("INSERT INTO TS VALUES (1, 'alice')");
+                stmt.execute("INSERT INTO TS VALUES (2, 'bob')");
+                stmt.execute("INSERT INTO TS VALUES (3, 'carol')");
+            }
+
+            final var engineDriver = relationalExtension.getDriver(
+                    com.apple.foundationdb.record.provider.foundationdb.FormatVersion.getDefaultFormatVersion());
+            final var connectionUtils = new ConnectionUtils(engineDriver);
+            // The value-free string parameter warms one plan (declared string / OfType(STRING)).
+            Assertions.assertEquals(Long.valueOf(1), connectionUtils.getFromCatalog(c -> countCachedPlans(c, templateName)));
+
+            // Runtime 'name = ?' bound to a string matches OfType(STRING), so the warmed plan is reused (hit): count
+            // stays 1 and the right row is returned.
+            connectionUtils.runAgainstConnection(dbUri, schemaName, c -> {
+                try (var ps = c.prepareStatement("select * from ts where name = ?")) {
+                    ps.setString(1, "bob");
+                    try (RelationalResultSet rs = ps.executeQuery()) {
+                        Assertions.assertTrue(rs.next());
+                        Assertions.assertEquals(2, rs.getLong("ID"));
+                        Assertions.assertFalse(rs.next());
+                    }
+                }
+            });
+            Assertions.assertEquals(Long.valueOf(1), connectionUtils.getFromCatalog(c -> countCachedPlans(c, templateName)));
+        }
+    }
+
+    @Test
+    void storedQueriesBooleanPairConstantFold() throws Exception {
+        // A WHERE predicate that is a pure constant comparison of two value-free boolean parameters
+        // (?{boolean} = ?{boolean}). There is no column in the predicate, so it is fully constant-foldable — this
+        // exercises the value-free folding path: both constants are unbound at warmup, so the plan stays symbolic
+        // (warms value-free) and is reused for any bound pair rather than folding a phantom value.
+        final String schemaTemplate =
+                "CREATE TABLE tb(id bigint, flag boolean, PRIMARY KEY(id))" +
+                        " CREATE STORED QUERY by_boolpair3 AS select * from tb where ?{boolean} = ?{boolean}";
+        final String dbUri = "/TEST/STOREDQUERIES_BOOLPAIR_DB";
+        try (var ddl = Ddl.builder()
+                .database(URI.create(dbUri))
+                .relationalExtension(relationalExtension)
+                .schemaTemplate(schemaTemplate)
+                .build()) {
+            final var connection = ddl.setSchemaAndGetConnection();
+            final String templateName = ddl.getSchemaTemplateName();
+            final String schemaName = connection.getSchema();
+
+            try (var stmt = connection.createStatement()) {
+                stmt.execute("INSERT INTO TB VALUES (1, true)");
+                stmt.execute("INSERT INTO TB VALUES (2, false)");
+            }
+
+            // The single value-free query warms exactly one plan, whose literal constraint is IS_NOT_NULL on both
+            // constants. The count is 1 deterministically — with a single query there is no dependence on warmup (Map)
+            // iteration order. (Mixing this with concrete-literal queries of the same canonical '? = ?' shape would
+            // make the count order-dependent: the broad IS_NOT_NULL plan absorbs narrower literal queries warmed after
+            // it. That is why this test asserts behavior, not a fragile multi-query plan count.)
+            final var engineDriver = relationalExtension.getDriver(
+                    com.apple.foundationdb.record.provider.foundationdb.FormatVersion.getDefaultFormatVersion());
+            final var connectionUtils = new ConnectionUtils(engineDriver);
+            Assertions.assertEquals(Long.valueOf(1), connectionUtils.getFromCatalog(c -> countCachedPlans(c, templateName)));
+
+            // Runtime '? = ?' with true = true -> predicate true -> all rows; reuses the warmed plan (count stays 1).
+            connectionUtils.runAgainstConnection(dbUri, schemaName, c -> {
+                try (var ps = c.prepareStatement("select * from tb where ? = ?")) {
+                    ps.setBoolean(1, true);
+                    ps.setBoolean(2, true);
+                    try (RelationalResultSet rs = ps.executeQuery()) {
+                        Assertions.assertTrue(rs.next());
+                        Assertions.assertEquals(1, rs.getLong("ID"));
+                        Assertions.assertTrue(rs.next());
+                        Assertions.assertEquals(2, rs.getLong("ID"));
+                        Assertions.assertFalse(rs.next());
+                    }
+                }
+            });
+            Assertions.assertEquals(Long.valueOf(1), connectionUtils.getFromCatalog(c -> countCachedPlans(c, templateName)));
+
+            // Runtime '? = ?' with false = true -> predicate false -> no rows; reuses the same plan (count stays 1).
+            connectionUtils.runAgainstConnection(dbUri, schemaName, c -> {
+                try (var ps = c.prepareStatement("select * from tb where ? = ?")) {
+                    ps.setBoolean(1, false);
+                    ps.setBoolean(2, true);
+                    try (RelationalResultSet rs = ps.executeQuery()) {
+                        Assertions.assertFalse(rs.next());
+                    }
+                }
+            });
+            Assertions.assertEquals(Long.valueOf(1), connectionUtils.getFromCatalog(c -> countCachedPlans(c, templateName)));
+        }
+    }
+
+    @Test
+    void storedQueriesBooleanConstraintFork() throws Exception {
+        // A single value-free boolean stored query flag = ?{boolean}. It warms one plan whose literal constraint
+        // is IS_NOT_NULL, which matches any non-null bound value — so the one warmed plan serves both flag = true
+        // and flag = false at runtime, with no per-value fork and no manual enumeration.
+        final String schemaTemplate =
+                "CREATE TABLE tb(id bigint, flag boolean, PRIMARY KEY(id))" +
+                        " CREATE INDEX i_flag AS SELECT flag FROM tb" +
+                        " CREATE STORED QUERY by_flag_param AS select * from tb where flag = ?{boolean}";
+        final String dbUri = "/TEST/STOREDQUERIES_BOOLFORK_DB";
+        try (var ddl = Ddl.builder()
+                .database(URI.create(dbUri))
+                .relationalExtension(relationalExtension)
+                .schemaTemplate(schemaTemplate)
+                .build()) {
+            final var connection = ddl.setSchemaAndGetConnection();
+            final String templateName = ddl.getSchemaTemplateName();
+            final String schemaName = connection.getSchema();
+
+            try (var stmt = connection.createStatement()) {
+                stmt.execute("INSERT INTO TB VALUES (1, true)");
+                stmt.execute("INSERT INTO TB VALUES (2, false)");
+                stmt.execute("INSERT INTO TB VALUES (3, true)");
+            }
+
+            // The value-free 'flag = ?{boolean}' warms a single plan ISCAN(I_FLAG [EQUALS @cov]) whose literal
+            // constraint is IS_NOT_NULL. IS_NOT_NULL matches any non-null bound value, so this one plan serves both
+            // true and false at runtime — no per-value fork.
+            final var engineDriver = relationalExtension.getDriver(
+                    com.apple.foundationdb.record.provider.foundationdb.FormatVersion.getDefaultFormatVersion());
+            final var connectionUtils = new ConnectionUtils(engineDriver);
+            Assertions.assertEquals(Long.valueOf(1), connectionUtils.getFromCatalog(c -> countCachedPlans(c, templateName)));
+
+            // Runtime 'flag = ?' with true -> id 1, 3. Reuses the value-free plan; no new plan (count stays 1).
+            connectionUtils.runAgainstConnection(dbUri, schemaName, c -> {
+                try (var ps = c.prepareStatement("select * from tb where flag = ?")) {
+                    ps.setBoolean(1, true);
+                    try (RelationalResultSet rs = ps.executeQuery()) {
+                        Assertions.assertTrue(rs.next());
+                        Assertions.assertEquals(1, rs.getLong("ID"));
+                        Assertions.assertTrue(rs.next());
+                        Assertions.assertEquals(3, rs.getLong("ID"));
+                        Assertions.assertFalse(rs.next());
+                    }
+                }
+            });
+            Assertions.assertEquals(Long.valueOf(1), connectionUtils.getFromCatalog(c -> countCachedPlans(c, templateName)));
+
+            // A bound false value returns row id 2 and reuses the same warmed plan, so the cache still holds one plan.
+            connectionUtils.runAgainstConnection(dbUri, schemaName, c -> {
+                try (var ps = c.prepareStatement("select * from tb where flag = ?")) {
+                    ps.setBoolean(1, false);
+                    try (RelationalResultSet rs = ps.executeQuery()) {
+                        Assertions.assertTrue(rs.next());
+                        Assertions.assertEquals(2, rs.getLong("ID"));
+                        Assertions.assertFalse(rs.next());
+                    }
+                }
+            });
+            Assertions.assertEquals(Long.valueOf(1), connectionUtils.getFromCatalog(c -> countCachedPlans(c, templateName)));
+        }
+    }
+
+    @Test
     void badStoredQuery() {
+        // Stored query body has a typo (`select1` rather than `select`) — DDL fails to parse.
+        final String schemaTemplate =
+                "CREATE TABLE t1(id bigint, col1 bigint, col2 bigint, PRIMARY KEY(id))" +
+                        " CREATE STORED QUERY by_col1 AS select1 * from t1 where col1 = 10";
         RelationalAssertions.assertThrowsSqlException(() ->
                 Ddl.builder()
                         .database(URI.create("/TEST/BADSTOREDQUERY_DB"))
                         .relationalExtension(relationalExtension)
-                        .schemaTemplate(SCHEMA_TEMPLATE_BAD_SYNTAX)
+                        .schemaTemplate(schemaTemplate)
                         .build())
                 .hasErrorCode(ErrorCode.SYNTAX_ERROR);
     }
 
     @Test
     void storedQueryDdl() {
+        // Stored query body is itself a DDL statement — rejected by the grammar.
+        final String schemaTemplate =
+                "CREATE TABLE t1(id bigint, col1 bigint, col2 bigint, PRIMARY KEY(id))" +
+                        " CREATE STORED QUERY ddl_t AS CREATE TABLE t2(id bigint, col1 bigint, PRIMARY KEY(id))";
         RelationalAssertions.assertThrowsSqlException(() ->
                 Ddl.builder()
                         .database(URI.create("/TEST/DDLSTOREDQUERY_DB"))
                         .relationalExtension(relationalExtension)
-                        .schemaTemplate(SCHEMA_TEMPLATE_DDL_IN_QUERY)
+                        .schemaTemplate(schemaTemplate)
                         .build())
                 .hasErrorCode(ErrorCode.SYNTAX_ERROR);
     }
 
     @Test
     void storedQueryBadColumn() throws Exception {
+        // Stored query references a column that does not exist on the table.
+        final String schemaTemplate =
+                "CREATE TABLE t1(id bigint, col1 bigint, col2 bigint, PRIMARY KEY(id))" +
+                        " CREATE INDEX i1 AS SELECT col1 FROM t1" +
+                        " CREATE STORED QUERY by_col1 AS select * from t1 where col3 = 10" + // col3 does not exit
+                        " CREATE STORED QUERY by_id AS select * from t1 where id = 1";
         final String dbUri = "/TEST/STOREDQUERIES_DB5";
         try (var ddl = Ddl.builder()
                 .database(URI.create(dbUri))
                 .relationalExtension(relationalExtension)
-                .schemaTemplate(SCHEMA_TEMPLATE_BAD_COLUMN)
+                .schemaTemplate(schemaTemplate)
                 .build()) {
             final var connection = ddl.setSchemaAndGetConnection();
             final String templateName = ddl.getSchemaTemplateName();
@@ -725,10 +900,19 @@ class StoredQueriesTest {
 
     @Test
     void startupPlanGenerationChained() throws Exception {
+        // Chained temp functions.
+        final String schemaTemplate =
+                "CREATE TABLE t1(id bigint, col1 bigint, col2 bigint, PRIMARY KEY(id))" +
+                        " CREATE INDEX i1 AS SELECT col1 FROM t1" +
+                        " CREATE STORED QUERY by_chained" +
+                        "   DECLARE" +
+                        "       FUNCTION sq1(in x bigint) AS (SELECT * FROM t1 WHERE col1 < x);" +
+                        "       FUNCTION sq2(in x bigint) AS (SELECT * FROM sq1(x + 1))" +
+                        " AS SELECT * FROM sq2(50)";
         try (var ddl = Ddl.builder()
                 .database(URI.create("/TEST/SQ_TF_CHAINED"))
                 .relationalExtension(relationalExtension)
-                .schemaTemplate(SCHEMA_TEMPLATE_TF_CHAINED)
+                .schemaTemplate(schemaTemplate)
                 .build()) {
             final String templateName = ddl.getSchemaTemplateName();
 
@@ -745,10 +929,22 @@ class StoredQueriesTest {
 
     @Test
     void badTempFunc() throws Exception {
+        // The first stored query's temp function references a column that does not exist.
+        final String schemaTemplate =
+                "CREATE TABLE t1(id bigint, col1 bigint, col2 bigint, PRIMARY KEY(id))" +
+                        " CREATE INDEX i1 AS SELECT col1 FROM t1" +
+                        " CREATE STORED QUERY by_bad" +
+                        "   DECLARE" +
+                        "       FUNCTION sq_bad() AS (SELECT * FROM t1 WHERE col_does_not_exist = 1)" +
+                        " AS SELECT * FROM sq_bad()" +
+                        " CREATE STORED QUERY by_good" +
+                        "   DECLARE" +
+                        "       FUNCTION sq_good() AS (SELECT * FROM t1 WHERE col1 = 10)" +
+                        " AS SELECT * FROM sq_good()";
         try (var ddl = Ddl.builder()
                 .database(URI.create("/TEST/SQ_TF_BAD"))
                 .relationalExtension(relationalExtension)
-                .schemaTemplate(SCHEMA_TEMPLATE_TF_BAD)
+                .schemaTemplate(schemaTemplate)
                 .build()) {
             final String templateName = ddl.getSchemaTemplateName();
 
@@ -763,11 +959,18 @@ class StoredQueriesTest {
 
     @Test
     void tempFuncBadSyntax() {
+        // Typo in the temp-function keyword  — DDL fails to parse.
+        final String schemaTemplate =
+                "CREATE TABLE t1(id bigint, col1 bigint, col2 bigint, PRIMARY KEY(id))" +
+                        " CREATE STORED QUERY by_x" +
+                        "   DECLARE" +
+                        "       FUNCTION1 sq1(in x bigint) AS (SELECT * FROM t1 WHERE col1 < x)" +
+                        " AS SELECT * FROM sq1(10)";
         RelationalAssertions.assertThrowsSqlException(() ->
                         Ddl.builder()
                                 .database(URI.create("/TEST/SQ_TF_BAD_SYNTAX_DB"))
                                 .relationalExtension(relationalExtension)
-                                .schemaTemplate(SCHEMA_TEMPLATE_TF_BAD_SYNTAX)
+                                .schemaTemplate(schemaTemplate)
                                 .build())
                 .hasErrorCode(ErrorCode.SYNTAX_ERROR);
     }
