@@ -438,44 +438,21 @@ public final class CopyPlan extends QueryPlan {
                 storeCatalog.createDatabase(transaction, databaseUri);
             }
 
-            // TODO take advantage of the new options
-            if (storeCatalog.doesSchemaExist(transaction, databaseUri, schemaName)) {
-                // Schema exists, verify the template matches
-                final Schema existingSchema = storeCatalog.loadSchema(transaction, databaseUri, schemaName);
-                final SchemaTemplate existingTemplate = existingSchema.getSchemaTemplate();
-
-                if (!existingTemplate.getName().equals(templateName)) {
-                    throw new RelationalException(
-                            "Schema " + databaseUri.getPath() + "/" + schemaName +
-                                    " exists but uses different template: expected " + templateName +
-                                    ", found " + existingTemplate.getName(),
-                            ErrorCode.INVALID_SCHEMA_TEMPLATE);
-                }
-
-                if (existingTemplate.getVersion() != templateVersion) {
-                    throw new RelationalException(
-                            "Schema " + databaseUri.getPath() + "/" + schemaName +
-                                    " exists but uses different template version: expected " + templateVersion +
-                                    ", found " + existingTemplate.getVersion(),
-                            ErrorCode.INVALID_SCHEMA_TEMPLATE);
-                }
-            } else {
-                // Schema doesn't exist, create it from the template
-                final SchemaTemplateCatalog templateCatalog = storeCatalog.getSchemaTemplateCatalog();
-                if (!templateCatalog.doesSchemaTemplateExist(transaction, templateName, templateVersion)) {
-                    final RecordMetaData recordMetaData = RecordMetaData.newBuilder()
-                            .setRecords(MetaData.parseFrom(catalogInfo.getTemplateMetadata()))
-                            .getRecordMetaData();
-                    final SchemaTemplate newTemplate = RecordLayerSchemaTemplate.fromRecordMetadata(
-                            recordMetaData, templateName, templateVersion);
-                    templateCatalog.createTemplate(transaction, newTemplate);
-                }
-
-                // Load the template and create a schema from it
-                final SchemaTemplate template = templateCatalog.loadSchemaTemplate(transaction, templateName, templateVersion);
-                final Schema newSchema = template.generateSchema(databaseUri.getPath(), schemaName);
-                storeCatalog.saveSchema(transaction, newSchema, false, SchemaExistsBehavior.ERROR);
+            // Schema doesn't exist, create it from the template
+            final SchemaTemplateCatalog templateCatalog = storeCatalog.getSchemaTemplateCatalog();
+            if (!templateCatalog.doesSchemaTemplateExist(transaction, templateName, templateVersion)) {
+                final RecordMetaData recordMetaData = RecordMetaData.newBuilder()
+                        .setRecords(MetaData.parseFrom(catalogInfo.getTemplateMetadata()))
+                        .getRecordMetaData();
+                final SchemaTemplate newTemplate = RecordLayerSchemaTemplate.fromRecordMetadata(
+                        recordMetaData, templateName, templateVersion);
+                templateCatalog.createTemplate(transaction, newTemplate);
             }
+
+            // Load the template and create a schema from it
+            final SchemaTemplate template = templateCatalog.loadSchemaTemplate(transaction, templateName, templateVersion);
+            final Schema newSchema = template.generateSchema(databaseUri.getPath(), schemaName);
+            storeCatalog.saveSchema(transaction, newSchema, false, SchemaExistsBehavior.ERROR_IF_DIFFERENT);
         } catch (RelationalException e) {
             throw e;
         } catch (Exception e) {
