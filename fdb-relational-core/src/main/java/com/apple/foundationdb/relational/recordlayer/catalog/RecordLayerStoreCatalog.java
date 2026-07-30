@@ -250,71 +250,17 @@ class RecordLayerStoreCatalog implements StoreCatalog, KeySpaceProvider {
             throw ExceptionUtil.toRelationalException(ex);
         }
         if (exists) {
-            switch (existsBehavior) {
-                case ERROR:
-                    throw new RelationalException(
-                            String.format(Locale.ROOT, "Schema %s/%s already exists.",
-                                    schema.getDatabaseName(), schema.getName()),
-                            ErrorCode.SCHEMA_ALREADY_EXISTS);
-                case ERROR_IF_DIFFERENT: {
-                    final Schema existing = loadSchema(txn, URI.create(schema.getDatabaseName()), schema.getName());
-                    if (schemasMatchOnTemplate(existing, schema)) {
-                        return;
-                    }
-                    throw new RelationalException(
-                            String.format(Locale.ROOT,
-                                    "Schema %s/%s already exists with a different template (%s@%d vs %s@%d).",
-                                    schema.getDatabaseName(), schema.getName(),
-                                    existing.getSchemaTemplate().getName(), existing.getSchemaTemplate().getVersion(),
-                                    schema.getSchemaTemplate().getName(), schema.getSchemaTemplate().getVersion()),
-                            ErrorCode.SCHEMA_ALREADY_EXISTS);
-                }
-                case DO_NOTHING:
-                    return;
-                case UPGRADE: {
-                    final Schema existing = loadSchema(txn, URI.create(schema.getDatabaseName()), schema.getName());
-                    if (!existing.getSchemaTemplate().getName().equals(schema.getSchemaTemplate().getName())) {
-                        throw new RelationalException(
-                                String.format(Locale.ROOT,
-                                        "Cannot upgrade schema %s/%s: existing template %s does not match new template %s.",
-                                        schema.getDatabaseName(), schema.getName(),
-                                        existing.getSchemaTemplate().getName(), schema.getSchemaTemplate().getName()),
-                                ErrorCode.SCHEMA_ALREADY_EXISTS);
-                    }
-                    final int existingVersion = existing.getSchemaTemplate().getVersion();
-                    final int newVersion = schema.getSchemaTemplate().getVersion();
-                    if (newVersion < existingVersion) {
-                        throw new RelationalException(
-                                String.format(Locale.ROOT,
-                                        "Cannot upgrade schema %s/%s: new template version %d is lower than existing version %d.",
-                                        schema.getDatabaseName(), schema.getName(), newVersion, existingVersion),
-                                ErrorCode.SCHEMA_ALREADY_EXISTS);
-                    }
-                    if (newVersion == existingVersion) {
-                        return;
-                    }
-                    // newVersion > existingVersion — fall through and write.
-                    break;
-                }
-                default:
-                    throw new RelationalException(
-                            "Unhandled SchemaExistsBehavior: " + existsBehavior, ErrorCode.INTERNAL_ERROR);
+            final Schema existingSchema = loadSchema(txn, URI.create(schema.getDatabaseName()), schema.getName());
+            if (!existsBehavior.shouldWrite(schema, existingSchema)) {
+                return;
             }
+            // shouldWrite returned true → fall through and overwrite the row.
         }
         try {
             putSchema((RecordLayerSchema) schema, recordStore);
         } catch (RecordCoreException ex) {
             throw ExceptionUtil.toRelationalException(ex);
         }
-    }
-
-    /**
-     * @return {@code true} iff the two schemas persist the same {@code (templateName, templateVersion)}
-     *   pair — the pair the catalog actually stores for a schema row.
-     */
-    private static boolean schemasMatchOnTemplate(@Nonnull Schema a, @Nonnull Schema b) {
-        return a.getSchemaTemplate().getName().equals(b.getSchemaTemplate().getName())
-                && a.getSchemaTemplate().getVersion() == b.getSchemaTemplate().getVersion();
     }
 
     @Override

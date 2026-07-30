@@ -85,40 +85,10 @@ public class InMemoryCatalog implements StoreCatalog {
 
         for (InMemorySchema schema : schemas) {
             if (schema.schema.getName().equalsIgnoreCase(dataToWrite.getName())) {
-                // Schema already exists — obey the caller's requested behaviour.
-                final Schema existing = schema.schema;
-                switch (existsBehavior) {
-                    case ERROR:
-                        throw new RelationalException(
-                                "Schema " + dataToWrite.getDatabaseName() + "/" + dataToWrite.getName() + " already exists.",
-                                ErrorCode.SCHEMA_ALREADY_EXISTS);
-                    case ERROR_IF_DIFFERENT:
-                        if (existing.getSchemaTemplate().getName().equals(dataToWrite.getSchemaTemplate().getName())
-                                && existing.getSchemaTemplate().getVersion() == dataToWrite.getSchemaTemplate().getVersion()) {
-                            return;
-                        }
-                        throw new RelationalException(
-                                "Schema " + dataToWrite.getDatabaseName() + "/" + dataToWrite.getName()
-                                        + " already exists with a different template.",
-                                ErrorCode.SCHEMA_ALREADY_EXISTS);
-                    case DO_NOTHING:
-                        return;
-                    case UPGRADE:
-                        if (!existing.getSchemaTemplate().getName().equals(dataToWrite.getSchemaTemplate().getName())
-                                || dataToWrite.getSchemaTemplate().getVersion() < existing.getSchemaTemplate().getVersion()) {
-                            throw new RelationalException(
-                                    "Cannot upgrade schema " + dataToWrite.getDatabaseName() + "/" + dataToWrite.getName()
-                                            + ": incompatible template or version regression.",
-                                    ErrorCode.SCHEMA_ALREADY_EXISTS);
-                        }
-                        if (dataToWrite.getSchemaTemplate().getVersion() == existing.getSchemaTemplate().getVersion()) {
-                            return;
-                        }
-                        // Fall through and overwrite for a strictly-greater version.
-                        break;
-                    default:
-                        throw new RelationalException(
-                                "Unhandled SchemaExistsBehavior: " + existsBehavior, ErrorCode.INTERNAL_ERROR);
+                // Schema already exists — delegate the decision to the enum. It either throws
+                // SCHEMA_ALREADY_EXISTS (refused), returns false (no-op) or returns true (overwrite).
+                if (!existsBehavior.shouldWrite(dataToWrite, schema.schema)) {
+                    return;
                 }
                 schema.schema = dataToWrite;
                 schema.createTables();

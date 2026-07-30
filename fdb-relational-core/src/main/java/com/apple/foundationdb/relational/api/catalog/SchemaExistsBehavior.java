@@ -20,6 +20,13 @@
 
 package com.apple.foundationdb.relational.api.catalog;
 
+import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
+import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.relational.api.metadata.Schema;
+
+import javax.annotation.Nonnull;
+import java.util.Locale;
+
 /**
  * Governs what {@link StoreCatalog#saveSchema} does when a schema already exists at the
  * target {@code (databaseId, schemaName)} coordinate.
@@ -28,45 +35,106 @@ package com.apple.foundationdb.relational.api.catalog;
  * used to encode ad-hoc at the call site (pre-load + throw, gate on {@code doesSchemaExist},
  * overwrite blindly, etc.). Pushing them into the enum forces every caller to declare its
  * intent and lets the catalog enforce that intent uniformly.</p>
+ *
+ * <p>The compare-and-decide logic itself lives on the enum via
+ * {@link #shouldWrite(Schema, Schema)}, so every {@code StoreCatalog} implementation can share
+ * one decision path rather than each open-coding an identical switch.</p>
  */
 public enum SchemaExistsBehavior {
     /**
-     * Throw {@code SCHEMA_ALREADY_EXISTS} if a schema is already present at
-     * {@code (databaseId, schemaName)}.
+     * Throw {@code SCHEMA_ALREADY_EXISTS} if a schema is already present at {@code (databaseId, schemaName)}.
      */
-    ERROR,
+    ERROR {
+        @Override
+        public boolean shouldWrite(@Nonnull Schema newSchema, @Nonnull Schema existingSchema) throws RelationalException {
+            throw schemaAlreadyExists("Schema %s/%s already exists.",
+                    newSchema.getDatabaseName(), newSchema.getName());
+        }
+    },
 
     /**
-     * If a schema is already present at {@code (databaseId, schemaName)}, compare the existing
-     * row to the schema being saved:
-     * <ul>
-     *   <li>identical → no-op, return without writing; this implies that this transaction won't cause other 
-     *       transactions to conflict because they read the schema.</li>
-     *   <li>different → throw {@code SCHEMA_ALREADY_EXISTS}.</li>
-     * </ul>
+     * A no-op if the requested schema is the same as the one that exists, otherwise fail.
      */
-    ERROR_IF_DIFFERENT,
+    ERROR_IF_DIFFERENT {
+        @Override
+        public boolean shouldWrite(@Nonnull Schema newSchema, @Nonnull Schema existingSchema) throws RelationalException {
+            if (isEquivalent(newSchema, existingSchema)) {
+                return false;
+            }
+            throw schemaAlreadyExists(
+                    "Schema %s/%s already exists with a different template (%s@%d vs %s@%d).",
+                    newSchema.getDatabaseName(), newSchema.getName(),
+                    existingSchema.getSchemaTemplate().getName(), existingSchema.getSchemaTemplate().getVersion(),
+                    newSchema.getSchemaTemplate().getName(), newSchema.getSchemaTemplate().getVersion());
+        }
+    },
 
     /**
      * Silently succeed if a schema is already present at {@code (databaseId, schemaName)},
      * regardless of whether the existing schema matches the one being saved. No comparison is
-     * performed and no write is issued in the exists branch. Useful for idempotent init paths
+     * performed and no write is issued in the exists branch. Useful for idempotent initialization paths
      * that must survive concurrent invocation.
      */
-    DO_NOTHING,
+    DO_NOTHING {
+        @Override
+        public boolean shouldWrite(@Nonnull Schema newSchema, @Nonnull Schema existingSchema) {
+            return false;
+        }
+    },
 
     /**
-     * Only allow the save when the existing schema is a valid upgrade target for the schema
-     * being saved. Concretely, the existing schema must have the same template name; then:
-     * <ul>
-     *   <li>new template version {@code >} existing → write the new row (the existing row is
-     *       overwritten);</li>
-     *   <li>new template version {@code ==} existing → no-op, return without writing (keeps
-     *       the transaction read-only w.r.t. this schema row, so concurrent same-version
-     *       upgrades do not collide);</li>
-     *   <li>new template version {@code <} existing, OR template name differs → throw
-     *       {@code SCHEMA_ALREADY_EXISTS}.</li>
-     * </ul>
+     * Only allow the save when the existing schema is a valid upgrade target for the schema being saved.
      */
-    UPGRADE
+    UPGRADE {
+        @Override
+        public boolean shouldWrite(@Nonnull Schema newSchema, @Nonnull Schema existingSchema) throws RelationalException {
+            final String existingTemplateName = existingSchema.getSchemaTemplate().getName();
+            final String newTemplateName = newSchema.getSchemaTemplate().getName();
+            if (!existingTemplateName.equals(newTemplateName)) {
+                throw schemaAlreadyExists(
+                        "Cannot upgrade schema %s/%s: existing template %s does not match new template %s.",
+                        newSchema.getDatabaseName(), newSchema.getName(),
+                        existingTemplateName, newTemplateName);
+            }
+            final int existingVersion = existingSchema.getSchemaTemplate().getVersion();
+            final int newVersion = newSchema.getSchemaTemplate().getVersion();
+            if (newVersion < existingVersion) {
+                throw schemaAlreadyExists(
+                        "Cannot upgrade schema %s/%s: new template version %d is lower than existing version %d.",
+                        newSchema.getDatabaseName(), newSchema.getName(), newVersion, existingVersion);
+            }
+            // newVersion >= existingVersion. When strictly greater, write; on equality, no-op.
+            return newVersion > existingVersion;
+        }
+    };
+
+    /**
+     * Decide what a {@code saveSchema} caller should do when a schema is already present at
+     * {@code newSchema}'s coordinates. Returning {@code true} tells the caller to overwrite the
+     * on-disk row with {@code newSchema}; returning {@code false} tells the caller to leave the
+     * on-disk row untouched (a no-op). Throwing {@code RelationalException} with
+     * {@link ErrorCode#SCHEMA_ALREADY_EXISTS} tells the caller to refuse the save.
+     *
+     * @param newSchema      the schema the caller was asked to save
+     * @param existingSchema the schema currently persisted at {@code (dbId, schemaName)}
+     * @return {@code true} to write {@code newSchema} over the existing row, {@code false} to
+     *         return without writing
+     * @throws RelationalException with {@link ErrorCode#SCHEMA_ALREADY_EXISTS} when this
+     *                             behavior refuses the save
+     */
+    public abstract boolean shouldWrite(@Nonnull Schema newSchema, @Nonnull Schema existingSchema) throws RelationalException;
+
+    /**
+     * @return {@code true} iff the two schemas persist the same {@code (templateName, templateVersion)}
+     *   pair — the pair the catalog actually stores for a schema row.
+     */
+    private static boolean isEquivalent(@Nonnull Schema a, @Nonnull Schema b) {
+        return a.getSchemaTemplate().getName().equals(b.getSchemaTemplate().getName())
+                && a.getSchemaTemplate().getVersion() == b.getSchemaTemplate().getVersion();
+    }
+
+    @Nonnull
+    private static RelationalException schemaAlreadyExists(@Nonnull String messageFormat, Object... args) {
+        return new RelationalException(String.format(Locale.ROOT, messageFormat, args), ErrorCode.SCHEMA_ALREADY_EXISTS);
+    }
 }
