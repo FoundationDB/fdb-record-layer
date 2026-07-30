@@ -4,11 +4,11 @@ CREATE STORED QUERY
 
 .. _create_stored_query:
 
-Registers a named query inside a schema template. Its plan is generated ahead of time ("warmed") when the engine starts up, so that matching queries issued at runtime reuse the cached plan instead of being planned from scratch.
+Registers a named query inside a schema template so its plan is generated ahead of time ("warmed"), letting matching queries issued at runtime reuse the cached plan instead of being planned from scratch. A stored query is not invoked by name, it exists only to pre-populate the plan cache.
 
-Stored queries are declared as part of a :ref:`schema template <schema_template>`, alongside tables and indexes. A stored query is not invoked by name; instead it pre-populates the plan cache. The warmed plan is keyed by the canonical (literal-stripped) form of the body, the temporary functions in scope, and its plan constraints, so any runtime query with the same canonical form, equivalent temporary functions, and compatible bound values transparently hits it.
+The plan cache is local to each engine instance and starts empty. When a fresh instance is constructed it opens the catalog once and, for every schema template present that declares stored queries, plans each stored query offline and stores the resulting plan in that instance's cache. Templates created after the instance is up are warmed by the next fresh instance.
 
-Warming happens once, when the engine is constructed: each stored query is planned against the schema template it belongs to. Only schema templates already present in the catalog at that moment are warmed — a schema template created after the engine is up is warmed the next time an engine is constructed against that catalog.
+A runtime query hits a warmed plan when its canonical (literal-stripped) form, the temporary functions in scope, and its plan constraints all match — so bound values may differ from those the stored query was written with.
 
 Syntax
 ======
@@ -56,7 +56,7 @@ Declare a stored query as part of a schema template:
 
     SELECT * FROM t1 WHERE col1 = 42    -- reuses the warmed plan
 
-A ``DECLARE`` block makes transaction-local functions available to the body:
+A ``DECLARE`` block declares transaction-local functions the body can call. A declared function is the warm-up counterpart of a runtime :ref:`CREATE TEMPORARY FUNCTION <create_temporary_function>` — same function, supplied while warming instead of in a live session:
 
 .. code-block:: sql
 
@@ -66,7 +66,7 @@ A ``DECLARE`` block makes transaction-local functions available to the body:
     AS
         SELECT * FROM recent(10)
 
-The declared function is transaction-local: it exists only for warming the stored query and is not visible to arbitrary runtime queries. A runtime query therefore cannot reference ``recent`` directly — and it does not need to. Because the temporary functions in scope are part of the plan-cache key (alongside the canonical query text), a runtime session reuses the warmed plan by installing an *equivalent* temporary function and issuing the same query:
+Temporary functions in scope are part of the plan-cache key, so a runtime query reuses this warmed plan only if it has declared the same temporary function. The runtime session installs an equivalent ``CREATE TEMPORARY FUNCTION`` and issues the same query:
 
 .. code-block:: sql
 
@@ -75,7 +75,7 @@ The declared function is transaction-local: it exists only for warming the store
 
     SELECT * FROM recent(20)    -- reuses the warmed plan
 
-The function definition and the invocation must match what was declared in the stored query (the invocation's literal is stripped, so any argument value reuses the plan). This lets an application share one pre-warmed plan across sessions that each re-declare the same ad-hoc function.
+The function definition must match the one declared in the stored query; the invocation's literal is stripped, so any argument value reuses the plan.
 
 See Also
 ========
