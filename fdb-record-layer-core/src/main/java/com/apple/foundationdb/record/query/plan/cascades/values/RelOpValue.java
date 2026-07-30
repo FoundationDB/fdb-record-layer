@@ -221,7 +221,6 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
     }
 
     @Nonnull
-    @SpotBugsSuppressWarnings("RCN_REDUNDANT_NULLCHECK_OF_NONNULL_VALUE")
     private static Optional<QueryPredicate> promoteOperandsAndCreatePredicate(@Nullable final TypeRepository typeRepository,
                                                                               @Nonnull Value leftChild,
                                                                               @Nonnull Value rightChild,
@@ -256,7 +255,6 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
      * @return if successful, a constant {@link QueryPredicate}, otherwise an empty {@link Optional}.
      */
     @Nonnull
-    @SpotBugsSuppressWarnings("RCN_REDUNDANT_NULLCHECK_OF_NONNULL_VALUE")
     private Optional<QueryPredicate> tryBoxSelfAsConstantPredicate(@Nonnull TypeRepository typeRepository) {
         final Object constantValue = evalWithoutStore(EvaluationContext.forTypeRepository(typeRepository));
         if (constantValue instanceof Boolean) {
