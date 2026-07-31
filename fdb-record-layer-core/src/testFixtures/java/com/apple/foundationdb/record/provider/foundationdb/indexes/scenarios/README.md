@@ -15,33 +15,6 @@ synthetic-type wiring — and runs every scenario against every index type autom
 
 ## Architecture
 
-```mermaid
-flowchart LR
-    subgraph test["Per-index-type test (src/test)"]
-        T["XxxIndexTest<br/>@ParameterizedTest @IndexScenarios"]
-        D["XxxIndexDefinition<br/>implements IndexDefinition"]
-    end
-    subgraph fw["Framework (src/testFixtures .../indexes/scenarios)"]
-        AP["IndexScenariosArgumentsProvider<br/>(ServiceLoader)"]
-        S["IndexScenario implementations"]
-        M["IndexScenarioModel<br/>(drives a record store)"]
-        MD["IndexScenarioMetaData<br/>(RecordMetaData + IndexTarget)"]
-        R["ScenarioRecords<br/>(record generation)"]
-    end
-    P["scenario proto<br/>ScenarioRecord / IndexedMessage"]
-
-    AP -->|"provides scenarios"| T
-    T -->|"supplies a definition factory"| S
-    S --> M
-    M --> MD
-    M --> R
-    MD --> P
-    R --> P
-    S -.->|"buildIndex / scanIndex"| D
-    MD -.->|"buildIndex(IndexTarget)"| D
-    R -.->|"indexed content"| D
-```
-
 Two responsibilities are cleanly split:
 
 - **The definition** says *what* to index and *how* to scan it — nothing about storage, records, or
@@ -71,31 +44,6 @@ void indexScenariosTest(IndexScenario scenario) throws Exception {
 
 ---
 
-## How a scenario run flows
-
-```mermaid
-sequenceDiagram
-    participant Scenario as IndexScenario
-    participant Model as IndexScenarioModel
-    participant Meta as IndexScenarioMetaData
-    participant Recs as ScenarioRecords
-    participant Def as IndexDefinition
-
-    Scenario->>Def: getDefinition()
-    Scenario->>Model: configure (normal / grouped / synthetic)
-    Model->>Meta: build RecordMetaData
-    Meta->>Def: buildIndex(IndexTarget)
-    Meta-->>Model: metadata (PK, grouping, synthetic wiring)
-    Scenario->>Model: generate + save records
-    Model->>Recs: generate records
-    Recs->>Def: indexed content per record
-    Scenario->>Model: store operations (rebuild, delete, scan, ...)
-    Model->>Def: scanIndex(...)
-    Scenario->>Scenario: assertions
-```
-
----
-
 ## The shared schema + `IndexTarget`
 
 Rather than a bespoke record type per index, the framework uses **one** record type whose indexable
@@ -106,14 +54,6 @@ The definition writes its value expression **relative to that sub-message**, and
 roots it at wherever the sub-message actually lives for the current run. That single indirection is
 what lets one `buildIndex` implementation serve normal, grouped, and synthetic (joined/unnested)
 runs — so synthetic-type coverage comes essentially for free for every index type.
-
-```mermaid
-flowchart TD
-    V["definition's value expression<br/>(relative to the indexed sub-message)"]
-    V --> N["normal / grouped<br/>rooted at the record's field"]
-    V --> J["joined<br/>rooted through the join constituent"]
-    V --> U["unnested<br/>rooted at the unnested constituent"]
-```
 
 Where a maintainer genuinely cannot support a scenario, its definition opts out via a capability
 flag (with the reason documented at the opt-out) — so the matrix stays green without weakening the
