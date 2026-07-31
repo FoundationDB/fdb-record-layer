@@ -102,11 +102,13 @@ public class FileDescriptorSerializer extends SkeletonVisitor {
         // add the table as an entry in the final 'RecordTypeUnion' entry of the record store metadata. There is one
         // field for each generation of the RecordLayerTable.
         for (Map.Entry<Integer, DescriptorProtos.FieldOptions> version : generations.entrySet()) {
+            final String name = typeDescriptor + "_" + (fieldCounter++);
             final var tableEntryInUnionDescriptor = DescriptorProtos.FieldDescriptorProto.newBuilder()
                     .setNumber(version.getKey())
-                    .setName(typeDescriptor + "_" + (fieldCounter++))
+                    .setName(name)
+                    .setJsonName(name)
                     .setType(DescriptorProtos.FieldDescriptorProto.Type.TYPE_MESSAGE)
-                    .setTypeName(typeDescriptor)
+                    .setTypeName("." + typeDescriptor)
                     .setOptions(version.getValue())
                     .build();
             unionDescriptorBuilder.addField(tableEntryInUnionDescriptor);
