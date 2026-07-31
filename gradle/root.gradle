@@ -178,3 +178,33 @@ tasks.register('codeCoverageReport', JacocoReport) {
         html.required = true
     }
 }
+
+// Seed empty jacoco execution data files at the paths codeCoverageReport reads, so that a
+// coverage report can still be generated when no tests actually ran (e.g. a pull_request build
+// whose diff affected no coverage subproject). codeCoverageReport has a built-in onlyIf that
+// skips it unless at least one execution data file exists; an empty (zero-byte) .exec loads as
+// an empty execution-data store, which yields a full-codebase 0% report when combined with the
+// subproject jars. This task only creates files that don't already exist, so it never clobbers
+// real coverage data and is a no-op on normal test/coverage runs.
+tasks.register('createEmptyCoverageData') {
+    def coverageSubprojects = subprojects.findAll { sp ->
+        sp.name != 'examples' &&
+            sp.name != 'fdb-record-layer-core-shaded' &&
+            sp.name != 'fdb-record-layer-jmh'
+    }
+    // Resolve the destination files to plain File objects at configuration time (mirroring how
+    // codeCoverageReport builds its executionData) so the doLast action captures only a
+    // serializable List<File> and stays compatible with the configuration cache.
+    def execFiles = coverageSubprojects.collectMany { sp -> sp.tasks.withType(Test) }.collect { testTask ->
+        def dest = testTask.jacoco.destinationFile
+        (dest instanceof Provider) ? dest.get().asFile : dest as File
+    }
+    doLast {
+        execFiles.each { execFile ->
+            if (!execFile.exists()) {
+                execFile.parentFile.mkdirs()
+                execFile.createNewFile()
+            }
+        }
+    }
+}
