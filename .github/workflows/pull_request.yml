@@ -222,6 +222,17 @@ jobs:
         uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3 # v8.0.0
         with:
           name: other-coverage-data
+      # If this run tested no subprojects there are no jars or execution data to merge, so
+      # codeCoverageReport would be skipped and no coverage-report artifact would be produced.
+      # Build all jars and seed empty execution data so codeCoverageReport still emits a
+      # full-codebase 0% report. This must be a separate Gradle invocation from the report below:
+      # codeCoverageReport only mustRunAfter (not dependsOn) the jar tasks and evaluates which
+      # jars exist at configuration time, so the jars must already be on disk when it configures.
+      - name: Build jars and seed empty coverage data
+        if: needs.plan.outputs.run_all != 'true' && needs.plan.outputs.matrix == '[]' && needs.plan.outputs.run_other_tests != 'true'
+        uses: ./actions/run-gradle
+        with:
+          gradle_command: jar createEmptyCoverageData
       - name: Run JaCoCo Report
         uses: ./actions/run-gradle
         with:
