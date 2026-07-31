@@ -32,6 +32,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Verify;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.protobuf.Descriptors;
@@ -41,6 +42,7 @@ import com.google.protobuf.Descriptors.FieldDescriptor;
 
 import javax.annotation.Nonnull;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -107,6 +109,8 @@ public class MetaDataEvolutionValidator {
     private final boolean allowOlderFormerIndexAddedVersions;
     private final boolean allowUnsplitToSplit;
     private final boolean disallowTypeRenames;
+    @Nonnull
+    private final Set<String> ignoredIndexOptions;
 
     private MetaDataEvolutionValidator() {
         this.indexValidatorRegistry = IndexMaintainerFactoryRegistryImpl.instance();
@@ -120,6 +124,7 @@ public class MetaDataEvolutionValidator {
         this.allowOlderFormerIndexAddedVersions = false;
         this.allowUnsplitToSplit = false;
         this.disallowTypeRenames = false;
+        this.ignoredIndexOptions = ImmutableSet.of();
     }
 
     private MetaDataEvolutionValidator(@Nonnull Builder builder) {
@@ -134,6 +139,7 @@ public class MetaDataEvolutionValidator {
         this.allowOlderFormerIndexAddedVersions = builder.allowOlderFormerIndexAddedVersions;
         this.allowUnsplitToSplit = builder.allowUnsplitToSplit;
         this.disallowTypeRenames = builder.disallowTypeRenames;
+        this.ignoredIndexOptions = ImmutableSet.copyOf(builder.ignoredIndexOptions);
     }
 
     /**
@@ -743,10 +749,50 @@ public class MetaDataEvolutionValidator {
         }
         // If there have been any changes to the index options, ask the index validator for that type
         // to validate the changed options.
-        if (!oldIndex.getOptions().equals(newIndex.getOptions())) {
+        Set<String> changedOptions = getChangedOptions(oldIndex, newIndex);
+        if (!changedOptions.isEmpty()) {
             IndexValidator validatorForIndex = indexValidatorRegistry.getIndexValidator(newIndex);
-            validatorForIndex.validateChangedOptions(oldIndex);
+            validatorForIndex.validateChangedOptions(oldIndex, changedOptions);
         }
+    }
+
+    /**
+     * Get a set containing all changed index options. This compares the options map of the
+     * two versions of the index and returns any that have changed, including options that
+     * are set in only one version and keys in both where the value has changed. It ignores
+     * any options that are in the {@code ignoredIndexOptions} set.
+     *
+     * <p>
+     * This returns a mutable set. This is important, as it is handed to {@link IndexValidator#validateChangedOptions(Index, Set)},
+     * which requires in its contract that the set it is given is mutable.
+     * </p>
+     *
+     * @param oldIndex an older version of the index
+     * @param newIndex a newer version of the same index
+     * @return a mutable set of option names that have had their value changed
+     */
+    @Nonnull
+    private Set<String> getChangedOptions(@Nonnull Index oldIndex, @Nonnull Index newIndex) {
+        Set<String> changedOptions = new HashSet<>();
+        for (Map.Entry<String, String> oldOptionEntry : oldIndex.getOptions().entrySet()) {
+            final String optionName = oldOptionEntry.getKey();
+            if (ignoredIndexOptions.contains(optionName)) {
+                continue;
+            }
+            final String newOptionValue = newIndex.getOption(optionName);
+            if (!Objects.equals(oldOptionEntry.getValue(), newOptionValue)) {
+                changedOptions.add(optionName);
+            }
+        }
+        for (Map.Entry<String, String> newOptionEntry : newIndex.getOptions().entrySet()) {
+            final String optionName = newOptionEntry.getKey();
+            if (!ignoredIndexOptions.contains(optionName)
+                    && !oldIndex.getOptions().containsKey(optionName)
+                    && newOptionEntry.getValue() != null) {
+                changedOptions.add(optionName);
+            }
+        }
+        return changedOptions;
     }
 
     /**
@@ -943,7 +989,7 @@ public class MetaDataEvolutionValidator {
     /**
      * Whether this validator disallows record types from being renamed. The record type name is not
      * persisted to the database with any record, so renaming a record type is generally possible
-     * as long as one also updates the record type's name in the any referencing index. Note, however,
+     * as long as one also updates the record type's name in any referencing index. Note, however,
      * that renaming a record type also requires that the user modify any existing queries that are
      * restricted to that record type. As a result, the user may elect to disallow renaming record types
      * to avoid needing to audit and update any references to the changed record type name.
@@ -952,6 +998,28 @@ public class MetaDataEvolutionValidator {
      */
     public boolean disallowsTypeRenames() {
         return disallowTypeRenames;
+    }
+
+    /**
+     * Get the set of index options that are ignored when validating an index's evolution.
+     * In general, index option validation is handled by the appropriate {@link IndexValidator} for
+     * the index, which is determined by its type. However, if there are any index options that are
+     * ignored by the index maintainer implementations but that the adopter uses for their own
+     * bookkeeping purposes, they may need to configure this validator to ignore any changes to
+     * those index options.
+     *
+     * <p>
+     * This returns an immutable collection. The caller should not attempt to add or remove elements
+     * from the returned set.
+     * </p>
+     *
+     * @return the set of index options that this validator ignores any changes to
+     * @see IndexValidator#validateChangedOptions(Index, Set)
+     * @see #getIndexValidatorRegistry()
+     */
+    @Nonnull
+    public Set<String> getIgnoredIndexOptions() {
+        return ignoredIndexOptions;
     }
 
     /**
@@ -1003,6 +1071,8 @@ public class MetaDataEvolutionValidator {
         private boolean allowOlderFormerIndexAddedVersions;
         private boolean allowUnsplitToSplit;
         private boolean disallowTypeRenames;
+        @Nonnull
+        private Set<String> ignoredIndexOptions;
 
         private Builder(@Nonnull MetaDataEvolutionValidator validator) {
             this.indexValidatorRegistry = validator.indexValidatorRegistry;
@@ -1016,6 +1086,7 @@ public class MetaDataEvolutionValidator {
             this.allowOlderFormerIndexAddedVersions = validator.allowOlderFormerIndexAddedVersions;
             this.allowUnsplitToSplit = validator.allowUnsplitToSplit;
             this.disallowTypeRenames = validator.disallowTypeRenames;
+            this.ignoredIndexOptions = ImmutableSet.copyOf(validator.ignoredIndexOptions);
         }
 
         /**
@@ -1279,6 +1350,38 @@ public class MetaDataEvolutionValidator {
          */
         public boolean disallowsTypeRenames() {
             return disallowTypeRenames;
+        }
+
+        /**
+         * Sets which index options (if any) should be ignored during index evolution validation.
+         * This copies the data into the builder, so any mutations made to the original collection
+         * after calling this method will not be reflected in the final validator.
+         *
+         * @param ignoredIndexOptions a collection of options that will be ignored during validation
+         * @return this builder
+         * @see MetaDataEvolutionValidator#getIgnoredIndexOptions()
+         */
+        @CanIgnoreReturnValue
+        @Nonnull
+        public Builder setIgnoredIndexOptions(@Nonnull Collection<String> ignoredIndexOptions) {
+            this.ignoredIndexOptions = ImmutableSet.copyOf(ignoredIndexOptions);
+            return this;
+        }
+
+        /**
+         * Get the set of index options that are ignored when validating an index's evolution.
+         *
+         * <p>
+         * This returns an immutable collection. The caller should not attempt to add or remove elements
+         * from the returned set.
+         * </p>
+         *
+         * @return the set of index options that this validator ignores any changes to
+         * @see MetaDataEvolutionValidator#getIgnoredIndexOptions()
+         */
+        @Nonnull
+        public Set<String> getIgnoredIndexOptions() {
+            return ignoredIndexOptions;
         }
 
         /**
