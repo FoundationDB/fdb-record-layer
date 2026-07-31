@@ -167,16 +167,10 @@ public abstract class RecordQueryInJoinPlan extends AbstractRelationalExpression
     @Nonnull
     @Override
     public Set<Type> getDynamicTypes() {
-        final var resultType = inSource.getResultType();
-
-        if (!resultType.isAny()) {
-            final var resultTypesBuilder = ImmutableSet.<Type>builder();
-            resultTypesBuilder.addAll(RecordQueryPlanWithChild.super.getDynamicTypes());
-            resultTypesBuilder.add(resultType);
-            return resultTypesBuilder.build();
-        } else {
-            return RecordQueryPlanWithChild.super.getDynamicTypes();
-        }
+        return ImmutableSet.<Type>builder()
+                .addAll(RecordQueryPlanWithChild.super.getDynamicTypes())
+                .addAll(inSource.getDynamicTypes())
+                .build();
     }
 
     @Nonnull
@@ -213,6 +207,9 @@ public abstract class RecordQueryInJoinPlan extends AbstractRelationalExpression
             return true;
         }
         if (getClass() != otherExpression.getClass()) {
+            return false;
+        }
+        if (!semanticEqualsForResults(otherExpression, equivalencesMap)) {
             return false;
         }
         final RecordQueryInJoinPlan other = (RecordQueryInJoinPlan)otherExpression;

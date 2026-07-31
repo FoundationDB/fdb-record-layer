@@ -46,6 +46,7 @@ import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.IndexState;
 import com.apple.foundationdb.record.IsolationLevel;
+import com.apple.foundationdb.record.KeyRange;
 import com.apple.foundationdb.record.MutableRecordStoreState;
 import com.apple.foundationdb.record.PipelineOperation;
 import com.apple.foundationdb.record.PlanHashable;
@@ -116,6 +117,7 @@ import com.apple.foundationdb.util.LoggableException;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableMap;
+import com.google.protobuf.Any;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.InvalidProtocolBufferException;
@@ -245,9 +247,6 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     // The size of preload cache
     private static final int PRELOAD_CACHE_SIZE = 100;
 
-    @Nonnull
-    private static final CompletableFuture<IndexState> READY_READABLE = CompletableFuture.completedFuture(IndexState.READABLE);
-
     protected static final Object STORE_INFO_KEY = FDBRecordStoreKeyspace.STORE_INFO.key();
     protected static final Object RECORD_KEY = FDBRecordStoreKeyspace.RECORD.key();
     protected static final Object INDEX_KEY = FDBRecordStoreKeyspace.INDEX.key();
@@ -258,6 +257,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     protected static final Object INDEX_UNIQUENESS_VIOLATIONS_KEY = FDBRecordStoreKeyspace.INDEX_UNIQUENESS_VIOLATIONS_SPACE.key();
     protected static final Object RECORD_VERSION_KEY = FDBRecordStoreKeyspace.RECORD_VERSION_SPACE.key();
     protected static final Object INDEX_BUILD_SPACE_KEY = FDBRecordStoreKeyspace.INDEX_BUILD_SPACE.key();
+    protected static final Object INDEX_SLIDING_WINDOW_SPACE_KEY = FDBRecordStoreKeyspace.INDEX_SLIDING_WINDOW_SPACE.key();
 
     @SuppressWarnings("squid:S2386")
     @SpotBugsSuppressWarnings("MS_MUTABLE_ARRAY")
@@ -310,8 +310,6 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
 
     @Nonnull
     private final FDBPreloadRecordCache preloadCache;
-
-    private boolean recordsReadConflict;
 
     private boolean storeStateReadConflict;
     private IndexDeferredMaintenanceControl indexDeferredMaintenanceControl;
@@ -776,15 +774,40 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         }
         for (Index index : indexes) {
             final IndexMaintainer maintainer = getIndexMaintainer(index);
+            final IndexState indexState = getIndexState(index);
             final CompletableFuture<Void> future;
-            if (isIndexWriteOnly(index)) {
-                // In this case, the index is still being built. For some index
-                // types, the index update needs to check whether indexing
-                // process has already built the relevant ranges, and it
-                // may adjust the way the index is built in response.
-                future = maintainer.updateWhileWriteOnly(oldRecord, newRecord);
-            } else {
-                future = maintainer.update(oldRecord, newRecord);
+            switch (indexState) {
+                case WRITE_ONLY_WITH_QUEUE:
+                    // Push the old/new record to a write pending queue instead of updating the index directly. The
+                    // ongoing online indexer will drain the queue and perform the actual index update. A maintainer that
+                    // does not support the queue will throw from serializePendingWriteQueue below.
+                    future = IndexingPendingWriteQueue.enqueuePendingIndexUpdate(this, index,
+                            IndexBuildProto.PendingWritesQueueEntry.newBuilder()
+                                    .setOperation(IndexBuildProto.PendingWritesQueueEntry.Operation.UPDATE)
+                                    .setData(maintainer.serializePendingWriteQueue(oldRecord, newRecord))
+                                    .build());
+                    context.addToSessionSet(ContextSessionKey.WRITE_ONLY_WITH_QUEUE_INDEXES_UPDATED, index.getName());
+                    break;
+
+                case WRITE_ONLY:
+                    // The index is still being built. For some index
+                    // types, the index update needs to check whether indexing
+                    // process has already built the relevant ranges, and it
+                    // may adjust the way the index is built in response.
+                    future = maintainer.updateWhileWriteOnly(oldRecord, newRecord);
+                    context.addToSessionSet(ContextSessionKey.WRITE_ONLY_INDEXES_UPDATED, index.getName());
+                    break;
+
+                case DISABLED:
+                    // No-op
+                    future = AsyncUtil.DONE;
+                    break;
+
+                default:
+                    // Both READABLE and READABLE_UNIQUE_PENDING will cause the index to be updated and so are captured here
+                    future = maintainer.update(oldRecord, newRecord);
+                    context.addToSessionSet(ContextSessionKey.READABLE_INDEXES_UPDATED, index.getName());
+                    break;
             }
             if (!MoreAsyncUtil.isCompletedNormally(future)) {
                 futures.add(future);
@@ -933,6 +956,18 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     }
 
     /**
+     * Subspace for sliding window index bookkeeping (window, overflow, and count partitions).
+     * Separate from the secondary subspace to avoid collisions with delegate index types
+     * that also use the secondary subspace (e.g. rank, permuted min/max, text).
+     * @param index the index to retrieve the sliding window subspace for
+     * @return the sliding window subspace for the given index
+     */
+    @Nonnull
+    public Subspace indexSlidingWindowSubspace(@Nonnull Index index) {
+        return getSubspace().subspace(Tuple.from(INDEX_SLIDING_WINDOW_SPACE_KEY, index.getSubspaceTupleKey()));
+    }
+
+    /**
      * Subspace for index in which to place a {@link com.apple.foundationdb.async.RangeSet RangeSet}.
      * This is used for determining how much progress has been made on building the index in the
      * case that one is building the index offline.
@@ -974,7 +1009,8 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     @Nonnull
     @Override
     public IndexMaintainer getIndexMaintainer(@Nonnull Index index) {
-        return indexMaintainerRegistry.getIndexMaintainer(new IndexMaintainerState(this, index, indexMaintenanceFilter));
+        final IndexMaintainerState maintainerState = new IndexMaintainerState(this, index, indexMaintenanceFilter);
+        return indexMaintainerRegistry.getIndexMaintainer(maintainerState);
     }
 
     @Nonnull
@@ -1270,6 +1306,24 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         return scanTypedRecords(serializer, low, high, lowEndpoint, highEndpoint, continuation, scanProperties);
     }
 
+    /**
+     * Scan the records in the database in a range - using {@link KeyRange} raw key bytes boundaries. This can be useful
+     * when it is not possible to arrange for strict primary key scan boundaries, which is typically during an internal use.
+     *
+     * @param range the range of records to scan, expressed as raw key bytes within the records subspace
+     * @param continuation any continuation from a previous scan invocation
+     * @param scanProperties skip, limit and other properties of the scan
+     *
+     * @return a cursor over the stored records in the given range
+     */
+    @Nonnull
+    @API(API.Status.INTERNAL)
+    public RecordCursor<FDBStoredRecord<Message>> scanRecords(@Nonnull final KeyRange range,
+                                                              @Nullable byte[] continuation,
+                                                              @Nonnull ScanProperties scanProperties) {
+        return scanTypedRecords(serializer, range, continuation, scanProperties);
+    }
+
     @Nonnull
     @Override
     @SuppressWarnings("PMD.CloseResource")
@@ -1324,6 +1378,33 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                                                                                  @Nonnull final EndpointType lowEndpoint, @Nonnull final EndpointType highEndpoint,
                                                                                  @Nullable byte[] continuation,
                                                                                  @Nonnull ScanProperties scanProperties) {
+        final Subspace recordsSubspace = recordsSubspace();
+        return scanTypedRecords(typedSerializer,
+                low != null ? recordsSubspace.pack(low) : recordsSubspace.pack(), lowEndpoint,
+                high != null ? recordsSubspace.pack(high) : recordsSubspace.pack(), highEndpoint,
+                continuation, scanProperties);
+    }
+
+    @Nonnull
+    @SuppressWarnings("PMD.CloseResource")
+    public <M extends Message> RecordCursor<FDBStoredRecord<M>> scanTypedRecords(@Nonnull RecordSerializer<M> typedSerializer,
+                                                                                 @Nonnull final KeyRange range,
+                                                                                 @Nullable byte[] continuation,
+                                                                                 @Nonnull ScanProperties scanProperties) {
+        final byte[] subspacePrefix = recordsSubspace().pack();
+        return scanTypedRecords(typedSerializer,
+                ByteArrayUtil.join(subspacePrefix, range.getLowKey()), range.getLowEndpoint(),
+                ByteArrayUtil.join(subspacePrefix, range.getHighKey()), range.getHighEndpoint(),
+                continuation, scanProperties);
+    }
+
+    @Nonnull
+    @SuppressWarnings("PMD.CloseResource")
+    private <M extends Message> RecordCursor<FDBStoredRecord<M>> scanTypedRecords(@Nonnull RecordSerializer<M> typedSerializer,
+                                                                                  @Nonnull byte[] lowBytes, @Nonnull EndpointType lowEndpoint,
+                                                                                  @Nonnull byte[] highBytes, @Nonnull EndpointType highEndpoint,
+                                                                                  @Nullable byte[] continuation,
+                                                                                  @Nonnull ScanProperties scanProperties) {
         final RecordMetaData metaData = metaDataProvider.getRecordMetaData();
         final Subspace recordsSubspace = recordsSubspace();
         final SplitHelper.SizeInfo sizeInfo = new SplitHelper.SizeInfo();
@@ -1331,8 +1412,8 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         if (metaData.isSplitLongRecords()) {
             RecordCursor<KeyValue> keyValues = KeyValueCursor.Builder.withSubspace(recordsSubspace)
                     .setContext(context).setContinuation(continuation)
-                    .setLow(low, lowEndpoint)
-                    .setHigh(high, highEndpoint)
+                    .setLow(lowBytes, lowEndpoint)
+                    .setHigh(highBytes, highEndpoint)
                     .setScanProperties(scanProperties.with(ExecuteProperties::clearRowAndTimeLimits).with(ExecuteProperties::clearSkipAndLimit).with(ExecuteProperties::clearState))
                     .build();
             rawRecords = new SplitHelper.KeyValueUnsplitter(context, recordsSubspace, keyValues, useOldVersionFormat(), sizeInfo, scanProperties.isReverse(),
@@ -1342,8 +1423,8 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         } else {
             KeyValueCursor.Builder keyValuesBuilder = KeyValueCursor.Builder.withSubspace(recordsSubspace)
                     .setContext(context).setContinuation(continuation)
-                    .setLow(low, lowEndpoint)
-                    .setHigh(high, highEndpoint);
+                    .setLow(lowBytes, lowEndpoint)
+                    .setHigh(highBytes, highEndpoint);
             if (omitUnsplitRecordSuffix) {
                 rawRecords = keyValuesBuilder.setScanProperties(scanProperties).build().map(kv -> {
                     sizeInfo.set(kv);
@@ -1722,21 +1803,25 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     }
 
     /**
-     * Delete the record store at the given {@link KeySpacePath}. This behaves like
+     * Delete the record store at the given {@link KeySpacePath}; <em>deprecated</em>, use
+     * {@link #deleteStoreAsync(FDBRecordContext, KeySpacePath)} instead.
+     * This behaves like
      * {@link #deleteStore(FDBRecordContext, Subspace)} on the record store saved
      * at {@link KeySpacePath#toSubspace(FDBRecordContext)}.
+     * This is a blocking call that calls {@link FDBRecordContext#asyncToSync}.
      *
      * @param context the transactional context in which to delete the record store
      * @param path the path to the record store
-     * @see #deleteStore(FDBRecordContext, Subspace)
      */
+    @API(API.Status.DEPRECATED)
     public static void deleteStore(FDBRecordContext context, KeySpacePath path) {
         final Subspace subspace = path.toSubspace(context);
         deleteStore(context, subspace);
     }
 
     /**
-     * Delete the record store at the given {@link Subspace}. In addition to the store's
+     * Delete the record store at the given {@link Subspace}; <em>deprecated</em>, use
+     * {@link #deleteStoreAsync(FDBRecordContext, Subspace)} instead. In addition to the store's
      * data this will delete the store's header and therefore will remove any evidence that
      * the store existed.
      *
@@ -1752,13 +1837,75 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * @param context the transactional context in which to delete the record store
      * @param subspace the subspace containing the record store
      */
+    @API(API.Status.DEPRECATED)
     @SuppressWarnings("PMD.CloseResource")
     public static void deleteStore(FDBRecordContext context, Subspace subspace) {
         // In theory, we only need to set the meta-data version stamp if the record store's
-        // meta-data is cacheable, but we can't know that from here.
+        // meta-data is cacheable, deleteStoreAsync checks that
         context.setMetaDataVersionStamp();
         context.setDirtyStoreState(true);
         context.clear(subspace.range());
+    }
+
+
+    /**
+     * Delete the record store at the given {@link KeySpacePath}. This behaves like
+     * {@link #deleteStoreAsync(FDBRecordContext, Subspace)} on the record store saved
+     * at {@link KeySpacePath#toSubspaceAsync(FDBRecordContext)}.
+     *
+     * @param context the transactional context in which to delete the record store
+     * @param path the path to the record store
+     * @return A future that will be completed once the store is deleted
+     * @see #deleteStoreAsync(FDBRecordContext, Subspace)
+     */
+    public static CompletableFuture<Void> deleteStoreAsync(FDBRecordContext context, KeySpacePath path) {
+        return path.toSubspaceAsync(context).thenCompose(subspace -> deleteStoreAsync(context, subspace));
+    }
+
+    /**
+     * Delete the record store at the given {@link Subspace}. In addition to the store's
+     * data this will delete the store's header and therefore will remove any evidence that
+     * the store existed.
+     *
+     * <p>
+     * This method reads only the record store's header key (see {@link #STORE_INFO_KEY}) in
+     * order to decide whether it needs to invalidate cached state. If a header is present and
+     * marks the store as {@linkplain #setStateCacheability(boolean) cacheable}, the database's
+     * {@linkplain FDBRecordContext#getMetaDataVersionStamp(IsolationLevel) meta-data
+     * version-stamp} is reset so that other clients drop their cached copies; if the header is
+     * missing (store doesn't exist) or marks the store as non-cacheable, the version-stamp is
+     * not touched. This means callers who only ever operate on non-cacheable stores do not
+     * contend on the single meta-data version-stamp key.
+     * </p>
+     *
+     * @param context the transactional context in which to delete the record store
+     * @param subspace the subspace containing the record store
+     * @return A future that will be completed once the store is deleted
+     */
+    @SuppressWarnings("PMD.CloseResource")
+    public static CompletableFuture<Void> deleteStoreAsync(FDBRecordContext context, Subspace subspace) {
+        final byte[] headerKey = subspace.pack(STORE_INFO_KEY);
+        return context.readTransaction(false).get(headerKey).thenAccept(headerBytes -> {
+            boolean shouldBump;
+            if (headerBytes == null) {
+                // Header absent: no cached state exists to invalidate — no bump needed.
+                shouldBump = false;
+            } else {
+                try {
+                    // If the header says it is not cacheable, we don't need to bump the MetaDataVersion.
+                    // If the header says it is cacheable, we need to bump the MetaDataVersion.
+                    shouldBump = RecordMetaDataProto.DataStoreInfo.parseFrom(headerBytes).getCacheable();
+                } catch (InvalidProtocolBufferException e) {
+                    // If we can't parse the header, fall back to the conservative behavior and bump.
+                    shouldBump = true;
+                }
+            }
+            if (shouldBump) {
+                context.setMetaDataVersionStamp();
+            }
+            context.setDirtyStoreState(true);
+            context.clear(subspace.range());
+        });
     }
 
     @Override
@@ -2165,13 +2312,25 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
 
             final List<CompletableFuture<Void>> futures = new ArrayList<>();
             final Tuple indexPrefix = indexEvaluated.toTuple();
-            for (IndexMaintainer index : indexMaintainers) {
+            for (IndexMaintainer indexMaintainer : indexMaintainers) {
                 final CompletableFuture<Void> future;
                 // Only need to check key expression in the case where a normal index has a different prefix.
-                if (TupleHelpers.equals(prefix, indexPrefix) || Key.Expressions.hasRecordTypePrefix(index.state.index.getRootExpression())) {
-                    future = index.deleteWhere(tr, prefix);
+                final Tuple prefixForIndex =
+                        (TupleHelpers.equals(prefix, indexPrefix) || Key.Expressions.hasRecordTypePrefix(indexMaintainer.state.index.getRootExpression()))
+                                ? prefix : indexPrefix;
+                if (getIndexState(indexMaintainer.state.index).isWriteOnlyWithQueue()) {
+                    // The index is being built and user writes are deferred onto the pending write queue. Defer this
+                    // prefix clear onto the same queue so that, when drained, it is applied in order relative to the
+                    // updates already queued for this prefix instead of racing them.
+                    future = IndexingPendingWriteQueue.enqueuePendingIndexUpdate(FDBRecordStore.this, indexMaintainer.state.index,
+                            IndexBuildProto.PendingWritesQueueEntry.newBuilder()
+                                    .setOperation(IndexBuildProto.PendingWritesQueueEntry.Operation.DELETE_WHERE)
+                                    .setData(Any.pack(IndexBuildProto.DeleteWhere.newBuilder()
+                                            .setPrefix(ByteString.copyFrom(prefixForIndex.pack()))
+                                            .build()))
+                                    .build());
                 } else {
-                    future = index.deleteWhere(tr, indexPrefix);
+                    future = indexMaintainer.deleteWhere(tr, prefixForIndex);
                 }
                 if (!MoreAsyncUtil.isCompletedNormally(future)) {
                     futures.add(future);
@@ -2868,35 +3027,19 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     }
 
     private void beginRecordStoreStateRead() {
-        // When the record store state is being updated multiple times, this function (and its implicit retry loop at
-        // the atomic reference level) will retry the update on the new record store state, so the operation always
-        // does what's expected (i.e., update the "in flight reads" value while leaving the record store state otherwise
-        // in tact).
-        recordStoreStateRef.updateAndGet(state -> {
-            state.beginRead();
-            return state;
-        });
+        recordStoreStateRef.get().beginRead();
     }
 
     private void endRecordStoreStateRead() {
-        recordStoreStateRef.updateAndGet(state -> {
-            state.endRead();
-            return state;
-        });
+        recordStoreStateRef.get().endRead();
     }
 
     private void beginRecordStoreStateWrite() {
-        recordStoreStateRef.updateAndGet(state -> {
-            state.beginWrite();
-            return state;
-        });
+        recordStoreStateRef.get().beginWrite();
     }
 
     private void endRecordStoreStateWrite() {
-        recordStoreStateRef.updateAndGet(state -> {
-            state.endWrite();
-            return state;
-        });
+        recordStoreStateRef.get().endWrite();
     }
 
     @Nonnull
@@ -2997,6 +3140,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         // Note that index states are *not* cleared, as rebuilding the indexes resets each state
         context.clear(getSubspace().range(Tuple.from(INDEX_KEY)));
         context.clear(getSubspace().range(Tuple.from(INDEX_SECONDARY_SPACE_KEY)));
+        context.clear(getSubspace().range(Tuple.from(INDEX_SLIDING_WINDOW_SPACE_KEY)));
         context.clear(getSubspace().range(Tuple.from(INDEX_RANGE_SPACE_KEY)));
         context.clear(getSubspace().range(Tuple.from(INDEX_UNIQUENESS_VIOLATIONS_KEY)));
         List<CompletableFuture<Void>> work = new LinkedList<>();
@@ -3043,6 +3187,18 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     @Nonnull
     public CompletableFuture<Void> clearAndMarkIndexWriteOnly(@Nonnull Index index) {
         return markIndexWriteOnly(index)
+                .thenRun(() -> clearIndexData(index));
+    }
+
+    /**
+     * Prepare an index for indexing via a write-pending queue by clearing any existing data and marking the
+     * index as {@link IndexState#WRITE_ONLY_WITH_QUEUE}.
+     * @param index the index to build
+     * @return a future that completes when the index has been cleared and marked write-only-with-queue for building
+     */
+    @Nonnull
+    public CompletableFuture<Void> clearAndMarkIndexWriteOnlyWithQueue(@Nonnull Index index) {
+        return markIndexWriteOnlyWithQueue(index)
                 .thenRun(() -> clearIndexData(index));
     }
 
@@ -3611,6 +3767,32 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     }
 
     /**
+     * Adds the given index to the list of write-only-with-queue indexes stored within the store.
+     * See {@link #markIndexWriteOnly(String)} for details on the mark semantics; the only difference is the target
+     * state is {@link IndexState#WRITE_ONLY_WITH_QUEUE}.
+     *
+     * @param indexName the name of the index to mark as write-only-with-queue
+     * @return a future that will contain <code>true</code> if the store was modified and <code>false</code>
+     * otherwise
+     * @throws IllegalArgumentException if the index is not present in the meta-data
+     */
+    @Nonnull
+    public CompletableFuture<Boolean> markIndexWriteOnlyWithQueue(@Nonnull String indexName) {
+        return markIndexNotReadable(indexName, IndexState.WRITE_ONLY_WITH_QUEUE);
+    }
+
+    /**
+     * Adds the given index to the list of write-only-with-queue indexes stored within the store.
+     * @param index the index to mark as write-only-with-queue
+     * @return a future that will contain <code>true</code> if the store was modified and
+     * <code>false</code> otherwise
+     */
+    @Nonnull
+    public CompletableFuture<Boolean> markIndexWriteOnlyWithQueue(@Nonnull Index index) {
+        return markIndexWriteOnlyWithQueue(index.getName());
+    }
+
+    /**
      * Adds the index of the given name to the list of disabled indexes stored
      * within the store. Because reading a disabled index later is unsafe unless
      * one does a rebuild between the time it is marked disabled and the
@@ -3998,20 +4180,6 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     }
 
     /**
-     * Add a read conflict key for all records.
-     */
-    @SuppressWarnings("PMD.CloseResource")
-    private void addRecordsReadConflict() {
-        if (recordsReadConflict) {
-            return;
-        }
-        recordsReadConflict = true;
-        Transaction tr = ensureContextActive();
-        byte[] recordKey = getSubspace().pack(Tuple.from(RECORD_KEY));
-        tr.addReadConflictRange(recordKey, ByteArrayUtil.strinc(recordKey));
-    }
-
-    /**
      * Add a read conflict key so that the transaction will fail if the index state has changed.
      * @param indexName the index to conflict on, if it's state changes
      */
@@ -4166,7 +4334,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     }
 
     /**
-     * Determine if the index is write-only for this record store. This method will not perform
+     * Determine if the index is write-only (but not write-only-with-queue) for this record store. This method will not perform
      * any queries to the underlying database and instead satisfies the answer based on the
      * in-memory cache of store state. However, if another operation in a different transaction
      * happens concurrently that changes the index's state, operations using the same {@link FDBRecordContext}
@@ -4176,12 +4344,12 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * @return <code>true</code> if the index is write-only and <code>false</code> otherwise
      * @throws IllegalArgumentException if no index in the metadata has the same name as this index
      */
-    public boolean isIndexWriteOnly(@Nonnull Index index) {
-        return isIndexWriteOnly(index.getName());
+    public boolean isIndexWriteOnlyNoQueue(@Nonnull Index index) {
+        return isIndexWriteOnlyNoQueue(index.getName());
     }
 
     /**
-     * Determine if the index with the given name is write-only for this record store.
+     * Determine if the index with the given name is write-only (but not write-only-with-queue) for this record store.
      * This method will not perform any queries to the underlying database and instead
      * satisfies the answer based on the in-memory cache of store state.
      *
@@ -4189,8 +4357,66 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * @return <code>true</code> if the named index is write-only and <code>false</code> otherwise
      * @throws IllegalArgumentException if no index in the metadata has the given name
      */
+    public boolean isIndexWriteOnlyNoQueue(@Nonnull String indexName) {
+        return getIndexState(indexName).isWriteOnlyNoQueue();
+    }
+
+    /**
+     * Determine if the index is write-only with a pending queue for this record store. This method will not perform
+     * any queries to the underlying database and instead satisfies the answer based on the
+     * in-memory cache of store state. However, if another operation in a different transaction
+     * happens concurrently that changes the index's state, operations using the same {@link FDBRecordContext}
+     * as this record store will fail to commit due to conflicts.
+     *
+     * @param index the index to check if write-only with a queue
+     * @return <code>true</code> if the index is write-only with a queue and <code>false</code> otherwise
+     * @throws IllegalArgumentException if no index in the metadata has the same name as this index
+     */
+    public boolean isIndexWriteOnlyWithQueue(@Nonnull Index index) {
+        return isIndexWriteOnlyWithQueue(index.getName());
+    }
+
+    /**
+     * Determine if the index with the given name is write-only with a pending queue for this record store.
+     * This method will not perform any queries to the underlying database and instead
+     * satisfies the answer based on the in-memory cache of store state.
+     *
+     * @param indexName the name of the index to check if write-only with a queue
+     * @return <code>true</code> if the named index is write-only with a queue and <code>false</code> otherwise
+     * @throws IllegalArgumentException if no index in the metadata has the given name
+     */
+    public boolean isIndexWriteOnlyWithQueue(@Nonnull String indexName) {
+        return getIndexState(indexName).equals(IndexState.WRITE_ONLY_WITH_QUEUE);
+    }
+
+    /**
+     * Determine if the index is write-only in any form ({@link IndexState#WRITE_ONLY} or
+     * {@link IndexState#WRITE_ONLY_WITH_QUEUE}) for this record store. This method will not perform
+     * any queries to the underlying database and instead satisfies the answer based on the
+     * in-memory cache of store state. However, if another operation in a different transaction
+     * happens concurrently that changes the index's state, operations using the same {@link FDBRecordContext}
+     * as this record store will fail to commit due to conflicts.
+     *
+     * @param index the index to check if write-only in any form
+     * @return <code>true</code> if the index is write-only in any form and <code>false</code> otherwise
+     * @throws IllegalArgumentException if no index in the metadata has the same name as this index
+     */
+    public boolean isIndexWriteOnly(@Nonnull Index index) {
+        return isIndexWriteOnly(index.getName());
+    }
+
+    /**
+     * Determine if the index with the given name is write-only in any form ({@link IndexState#WRITE_ONLY} or
+     * {@link IndexState#WRITE_ONLY_WITH_QUEUE}) for this record store. This method will not perform
+     * any queries to the underlying database and instead satisfies the answer based on the
+     * in-memory cache of store state.
+     *
+     * @param indexName the name of the index to check if write-only in any form
+     * @return <code>true</code> if the named index is write-only in any form and <code>false</code> otherwise
+     * @throws IllegalArgumentException if no index in the metadata has the given name
+     */
     public boolean isIndexWriteOnly(@Nonnull String indexName) {
-        return getIndexState(indexName).equals(IndexState.WRITE_ONLY);
+        return getIndexState(indexName).isWriteOnly();
     }
 
     /**
@@ -4382,12 +4608,36 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         }
     }
 
+    private CompletableFuture<Map<Index, IndexState>> rebuildIndexesGetDesiredIndexStates(
+            @Nonnull List<CompletableFuture<Void>> preWork,
+            @Nonnull Map<Index, CompletableFuture<IndexState>> newStates) {
+        final ConcurrentHashMap<Index, IndexState> desiredIndexStates = new ConcurrentHashMap<>();
+        // Combine pre-existing work and newStates resolution into a single list of futures
+        final List<CompletableFuture<Void>> allWork = new ArrayList<>(preWork);
+        for (Map.Entry<Index, CompletableFuture<IndexState>> entry : newStates.entrySet()) {
+            allWork.add(entry.getValue().thenAccept(state -> desiredIndexStates.put(entry.getKey(), state)));
+        }
+        return AsyncUtil.whenAll(allWork).thenApply(ignore -> desiredIndexStates);
+    }
+
     @Nonnull
     protected CompletableFuture<Void> rebuildIndexes(@Nonnull Map<Index, List<RecordType>> indexes,
                                                      @Nonnull Map<Index, CompletableFuture<IndexState>> newStates,
                                                      @Nonnull List<CompletableFuture<Void>> work,
                                                      @Nonnull RebuildIndexReason reason,
                                                      @Nullable Integer oldMetaDataVersion) {
+        // Finish any pre-existing work items and resolve desired index states (which may query index states) before
+        // rebuilding indexes (which writes index states)
+        return rebuildIndexesGetDesiredIndexStates(work, newStates).thenCompose(desiredIndexStates ->
+                rebuildIndexes(indexes, desiredIndexStates, reason, oldMetaDataVersion));
+    }
+
+    @Nonnull
+    protected CompletableFuture<Void> rebuildIndexes(@Nonnull Map<Index, List<RecordType>> indexes,
+                                                     @Nonnull Map<Index, IndexState> desiredIndexStates,
+                                                     @Nonnull RebuildIndexReason reason,
+                                                     @Nullable Integer oldMetaDataVersion) {
+        List<CompletableFuture<Void>> work = new ArrayList<>();
         Iterator<Map.Entry<Index, List<RecordType>>> indexIter = indexes.entrySet().iterator();
         return AsyncUtil.whileTrue(() -> {
             Iterator<CompletableFuture<Void>> workIter = work.iterator();
@@ -4403,11 +4653,10 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                     Map.Entry<Index, List<RecordType>> indexItem = indexIter.next();
                     Index index = indexItem.getKey();
                     List<RecordType> recordTypes = indexItem.getValue();
+                    IndexState indexState = desiredIndexStates.getOrDefault(index, IndexState.READABLE);
                     final StringBuilder errMessageBuilder = new StringBuilder("unable to ");
                     final CompletableFuture<Void> rebuildOrMarkIndexSafely = MoreAsyncUtil.handleOnException(
-                            () -> newStates.getOrDefault(index, READY_READABLE).thenCompose(
-                                    indexState -> rebuildOrMarkIndex(index, indexState, recordTypes, reason, oldMetaDataVersion, errMessageBuilder)
-                            ),
+                            () -> rebuildOrMarkIndex(index, indexState, recordTypes, reason, oldMetaDataVersion, errMessageBuilder),
                             exception -> {
                                 // If there is any issue, simply mark the index as disabled without blocking checkVersion
                                 logExceptionAsWarn(KeyValueLogMessage.build(errMessageBuilder.toString(),
@@ -4467,6 +4716,9 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             case WRITE_ONLY:
                 errMessageBuilder.append("clear and mark index write only");
                 return clearAndMarkIndexWriteOnly(index).thenApply(b -> null);
+            case WRITE_ONLY_WITH_QUEUE:
+                errMessageBuilder.append("clear and mark index write only with queue");
+                return clearAndMarkIndexWriteOnlyWithQueue(index).thenApply(b -> null);
             case DISABLED:
                 errMessageBuilder.append("mark index disabled");
                 return markIndexDisabled(index).thenApply(b -> null);
@@ -4688,14 +4940,23 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             removeFormerIndex(formerIndex);
         }
 
-        return checkRebuildIndexes(userVersionChecker, info, oldFormatVersion, metaData, oldMetaDataVersion, rebuildRecordCounts, work);
+        return checkRebuildIndexes(userVersionChecker, oldFormatVersion, metaData, oldMetaDataVersion, rebuildRecordCounts, work);
     }
 
-    private CompletableFuture<Void> checkRebuildIndexes(@Nullable UserVersionChecker userVersionChecker, @Nonnull RecordMetaDataProto.DataStoreInfo.Builder info,
+    private CompletableFuture<Void> checkRebuildIndexes(@Nullable UserVersionChecker userVersionChecker,
                                                         int oldFormatVersion, @Nonnull RecordMetaData metaData, int oldMetaDataVersion,
                                                         boolean rebuildRecordCounts, List<CompletableFuture<Void>> work) {
         final boolean newStore = oldFormatVersion == 0;
-        final Map<Index, List<RecordType>> indexes = metaData.getIndexesToBuildSince(oldMetaDataVersion);
+        // Note: We are specifically calling `getIndexesSince` and not `getIndexesToBuildSince` because we want to see
+        // *All* new indexes so that we can deal with them appropriately. Most importantly we need to see the replaced
+        // indexes, even if they're new, to update their state.
+        // We could try and optimize and not build indexes that have been replaced, but that is relevant in a very
+        // specific scenario
+        // 1. The replaced index is getting picked up in the same transaction as its replacement
+        // 2. They are small enough that it is feasible to build the replaced index, and the replacements in a single transaction
+        // 3. They are big enough that you care about it
+        // Note that new stores will get the indexes for free.
+        final Map<Index, List<RecordType>> indexes = metaData.getIndexesSince(oldMetaDataVersion);
         handleNoLongerUniqueIndex(metaData, work, indexes);
         if (!indexes.isEmpty()) {
             // If all the new indexes are only for a record type whose primary key has a type prefix, then we can scan less.
@@ -4706,34 +4967,6 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             AtomicLong recordsSizeRef = new AtomicLong(-1);
             final Supplier<CompletableFuture<Long>> lazyRecordsSize = getAndRememberFutureLong(recordsSizeRef,
                     () -> getRecordSizeForRebuildIndexes(singleRecordTypeWithPrefixKey));
-            if (singleRecordTypeWithPrefixKey == null
-                    && formatVersion.isAtLeast(FormatVersion.SAVE_UNSPLIT_WITH_SUFFIX)
-                    && omitUnsplitRecordSuffix) {
-                // Check to see if the unsplit format can be upgraded on an empty store.
-                // Only works if singleRecordTypeWithPrefixKey is null as otherwise, the recordCount will not contain
-                // all records
-                work.add(lazyRecordCount.get().thenAccept(recordCount -> {
-                    if (recordCount == 0) {
-                        if (newStore ? LOGGER.isDebugEnabled() : LOGGER.isInfoEnabled()) {
-                            KeyValueLogMessage msg = KeyValueLogMessage.build("upgrading unsplit format on empty store",
-                                    LogMessageKeys.NEW_FORMAT_VERSION, formatVersion,
-                                    subspaceProvider.logKey(), subspaceProvider.toString(context));
-                            if (newStore) {
-                                if (LOGGER.isDebugEnabled()) {
-                                    LOGGER.debug(msg.toString());
-                                }
-                            } else {
-                                if (LOGGER.isInfoEnabled()) {
-                                    LOGGER.info(msg.toString());
-                                }
-                            }
-                        }
-                        omitUnsplitRecordSuffix = !formatVersion.isAtLeast(FormatVersion.SAVE_UNSPLIT_WITH_SUFFIX);
-                        info.clearOmitUnsplitRecordSuffix();
-                        addRecordsReadConflict(); // We used snapshot to determine emptiness, and are now acting on it.
-                    }
-                }));
-            }
 
             Map<Index, CompletableFuture<IndexState>> newStates = getStatesForRebuildIndexes(userVersionChecker, indexes, lazyRecordCount, lazyRecordsSize, newStore, oldMetaDataVersion, oldFormatVersion);
             return rebuildIndexes(indexes, newStates, work, newStore ? RebuildIndexReason.NEW_STORE : RebuildIndexReason.FEW_RECORDS, oldMetaDataVersion).thenRun(() -> {
@@ -4762,7 +4995,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             if (!indexesToBuildSince.containsKey(index) &&
                     !index.isUnique()) {
                 final IndexState indexState = getIndexState(index);
-                if (indexState == IndexState.READABLE_UNIQUE_PENDING || indexState == IndexState.WRITE_ONLY) {
+                if (indexState == IndexState.READABLE_UNIQUE_PENDING || indexState.isWriteOnly()) {
                     final CompletableFuture<Void> uniquenessFuture = AsyncUtil.getAll(getRecordContext().removeCommitChecks(
                             commitCheck -> {
                                 if (commitCheck instanceof IndexUniquenessCommitCheck) {
@@ -4948,26 +5181,33 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         Map<Index, CompletableFuture<IndexState>> newStates = new HashMap<>();
         for (Map.Entry<Index, List<RecordType>> entry : indexes.entrySet()) {
             Index index = entry.getKey();
-            List<RecordType> recordTypes = entry.getValue();
-            boolean indexOnNewRecordTypes = areAllRecordTypesSince(recordTypes, oldMetaDataVersion);
-            CompletableFuture<IndexState> stateFuture = userVersionChecker == null ?
-                    lazyRecordCount.get().thenApply(recordCount -> FDBRecordStore.disabledIfTooManyRecordsForRebuild(recordCount, indexOnNewRecordTypes)) :
-                    userVersionChecker.needRebuildIndex(index, lazyRecordCount, lazyRecordsSize, indexOnNewRecordTypes);
-            if (IndexTypes.VERSION.equals(index.getType())
-                    && !newStore
-                    && oldFormatVersion < SAVE_VERSION_WITH_RECORD_FORMAT_VERSION
-                    && !useOldVersionFormat()) {
-                stateFuture = stateFuture.thenApply(state -> {
-                    if (IndexState.READABLE.equals(state)) {
-                        // Do not rebuild any version indexes while the format conversion is going on.
-                        // Otherwise, the process moving the versions might race against the index
-                        // build and some versions won't be indexed correctly.
-                        return IndexState.DISABLED;
-                    }
-                    return state;
-                });
+            // Any indexes that are flagged to be replaced should never be built.
+            // Note: It is possible that the replaced index(es) is also not built, in which case the store will end up
+            // with neither.
+            if (index.getReplacedByIndexNames().isEmpty()) {
+                List<RecordType> recordTypes = entry.getValue();
+                boolean indexOnNewRecordTypes = areAllRecordTypesSince(recordTypes, oldMetaDataVersion);
+                CompletableFuture<IndexState> stateFuture = userVersionChecker == null ?
+                                                            lazyRecordCount.get().thenApply(recordCount -> FDBRecordStore.disabledIfTooManyRecordsForRebuild(recordCount, indexOnNewRecordTypes)) :
+                                                            userVersionChecker.needRebuildIndex(index, lazyRecordCount, lazyRecordsSize, indexOnNewRecordTypes);
+                if (IndexTypes.VERSION.equals(index.getType())
+                        && !newStore
+                        && oldFormatVersion < SAVE_VERSION_WITH_RECORD_FORMAT_VERSION
+                        && !useOldVersionFormat()) {
+                    stateFuture = stateFuture.thenApply(state -> {
+                        if (IndexState.READABLE.equals(state)) {
+                            // Do not rebuild any version indexes while the format conversion is going on.
+                            // Otherwise, the process moving the versions might race against the index
+                            // build and some versions won't be indexed correctly.
+                            return IndexState.DISABLED;
+                        }
+                        return state;
+                    });
+                }
+                newStates.put(index, stateFuture);
+            } else {
+                newStates.put(index, CompletableFuture.completedFuture(IndexState.DISABLED));
             }
-            newStates.put(index, stateFuture);
         }
         return newStates;
     }
@@ -5027,12 +5267,13 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     void clearIndexData(@Nonnull Index index) {
         context.clear(Range.startsWith(indexSubspace(index).pack())); // startsWith to handle ungrouped aggregate indexes
         context.clear(indexSecondarySubspace(index).range());
+        context.clear(indexSlidingWindowSubspace(index).range());
         IndexingRangeSet.forIndexBuild(this, index).clear();
         // clear even if non-unique in case the index was previously unique
         context.clear(indexUniquenessViolationsSubspace(index).range());
         // Under the index build subspace, there are multiple lower level subspaces - the lock subspace and few others. We are
         // not supposed to clear the lock subspace, which might have been used to an online index job that had invoked this method.
-        IndexingSubspaces.eraseAllIndexingDataButTheLock(context, this, index);
+        IndexingSubspaces.eraseAllIndexingDataButTheLockAndRangeSet(context, this, index);
     }
 
     @SuppressWarnings("PMD.CloseResource")
@@ -5051,8 +5292,15 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         // It also won't clear some of the secondary state from TimeWindowLeaderboard indexes.
         context.clear(getSubspace().range(Tuple.from(INDEX_KEY, formerIndex.getSubspaceTupleKey())));
         context.clear(getSubspace().range(Tuple.from(INDEX_SECONDARY_SPACE_KEY, formerIndex.getSubspaceTupleKey())));
+        context.clear(getSubspace().range(Tuple.from(INDEX_SLIDING_WINDOW_SPACE_KEY, formerIndex.getSubspaceTupleKey())));
         context.clear(getSubspace().range(Tuple.from(INDEX_RANGE_SPACE_KEY, formerIndex.getSubspaceTupleKey())));
-        context.clear(getSubspace().pack(Tuple.from(INDEX_STATE_SPACE_KEY, formerIndex.getSubspaceTupleKey())));
+        final String formerIndexName = formerIndex.getFormerName();
+        if (formerIndexName != null) {
+            // The index state space is currently keyed by the index name rather than the index subspace key.
+            // This will need to be adapted if we resolve: https://github.com/foundationdb/fdb-record-layer/issues/514
+            // Note that we set it to "readable" to clear it out
+            updateIndexState(formerIndexName, getSubspace().pack(Tuple.from(INDEX_STATE_SPACE_KEY, formerIndexName)), IndexState.READABLE);
+        }
         context.clear(getSubspace().range(Tuple.from(INDEX_UNIQUENESS_VIOLATIONS_KEY, formerIndex.getSubspaceTupleKey())));
         if (getTimer() != null) {
             getTimer().recordSinceNanoTime(FDBStoreTimer.Events.REMOVE_FORMER_INDEX, startTime);

@@ -34,11 +34,11 @@ dependencies {
     annotationProcessor(libs.autoService)
 
     testImplementation project(':fdb-test-utils')
-    testImplementation project(path: coreProject, configuration: 'tests')
+    testImplementation(testFixtures(project(coreProject)))
     testImplementation(libs.bundles.test.impl)
     testImplementation(libs.lucene.testFramework)
-    testRuntimeOnly(libs.junit.vintange)
     testRuntimeOnly(libs.bundles.test.runtime)
+    testRuntimeOnly(libs.junit.vintage)
     testCompileOnly(libs.bundles.test.compileOnly)
     testImplementation(libs.snakeyaml)
     testAnnotationProcessor(libs.autoService)

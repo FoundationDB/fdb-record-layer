@@ -137,6 +137,7 @@ test_block:
             (21, 'Nina', 20, 'Marketing'),
             (22, 'Oscar', 21, 'Marketing')
     # Nested Recursive CTE Example
+    # we force level-based on top at the moment because of https://github.com/FoundationDB/fdb-record-layer/issues/4047
     -
       - query: WITH RECURSIVE colleagues_of_bob AS (
               WITH RECURSIVE bob_managers AS (
@@ -152,6 +153,7 @@ test_block:
               FROM colleagues_of_bob AS c, employees AS e
               WHERE c.id = e.manager_id AND NOT EXISTS (SELECT name FROM c WHERE name = e.name)
           )
+          TRAVERSAL ORDER level_order
           SELECT name FROM colleagues_of_bob WHERE name != 'Bob'
       - supported_version: 4.7.2.0
       - unorderedResult: [{name: "Alice"},

@@ -265,8 +265,12 @@ public class ExplainPlanVisitor extends ExplainTokens implements RecordQueryPlan
     @Nonnull
     @Override
     public ExplainTokens visitExplodePlan(@Nonnull final RecordQueryExplodePlan explodePlan) {
-        return addKeyword("EXPLODE").addWhitespace()
+        addKeyword("EXPLODE").addWhitespace()
                 .addNested(explodePlan.getCollectionValue().explain().getExplainTokens());
+        if (explodePlan.isWithOrdinality()) {
+            addWhitespace().addKeyword("WITH").addWhitespace().addKeyword("ORDINALITY");
+        }
+        return this;
     }
 
     @Nonnull

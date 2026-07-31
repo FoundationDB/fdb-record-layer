@@ -29,6 +29,7 @@ import com.apple.foundationdb.record.query.plan.cascades.properties.PredicateCou
 
 import javax.annotation.Nonnull;
 
+import static com.apple.foundationdb.record.query.plan.cascades.properties.ExpressionCountProperty.outerJoinCount;
 import static com.apple.foundationdb.record.query.plan.cascades.properties.ExpressionCountProperty.selectCount;
 import static com.apple.foundationdb.record.query.plan.cascades.properties.ExpressionCountProperty.tableFunctionCount;
 import static com.apple.foundationdb.record.query.plan.cascades.properties.PredicateCountByLevelProperty.predicateCountByLevel;
@@ -55,6 +56,17 @@ public class RewritingCostModel implements CascadesCostModel {
 
     @Override
     public int compare(final RelationalExpression a, final RelationalExpression b) {
+        //
+        // Penalize any surviving `OuterJoinExpression` first. The rewriting phase is expected to eliminate outer joins
+        // by rewriting them into nested `SelectExpression` boxes. Without this, the later `selectCount()` tie-breaker
+        // would actually prefer an un-rewritten `OuterJoinExpression` (0 selects) over the canonical form (2 selects).
+        //
+        int aOuterJoins = outerJoinCount().evaluate(a);
+        int bOuterJoins = outerJoinCount().evaluate(b);
+        if (aOuterJoins != bOuterJoins) {
+            return Integer.compare(aOuterJoins, bOuterJoins);
+        }
+
         //
         // Choose the expression with the fewest select boxes
         //

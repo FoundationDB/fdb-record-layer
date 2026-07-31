@@ -260,6 +260,7 @@ public enum LogMessageKeys {
     NEW_INDEX_TYPE,
     OLD_KEY_EXPRESSION,
     NEW_KEY_EXPRESSION,
+    REQUIRED_KEY_EXPRESSION,
     RECORD_TYPE,
     OLD_RECORD_TYPE,
     NEW_RECORD_TYPE,
@@ -308,6 +309,8 @@ public enum LogMessageKeys {
     REBUILD_RECORD_COUNTS,
     SCANNED_SO_FAR,
     MAX_LIMIT,
+    MAX_QUEUE_SIZE,
+    INCARNATION,
     NEXT_CONTINUATION,
     SUCCESSFUL_TRANSACTIONS_COUNT,
     FAILED_TRANSACTIONS_COUNT,
@@ -347,6 +350,9 @@ public enum LogMessageKeys {
     // Store Lock State
     STORE_LOCK_STATE_REASON,
     STORE_LOCK_STATE_TIMESTAMP_MILLIS,
+    // function call-site options
+    OPTION_NAME,
+    OPTION_VALUE,
     ;
 
     private final String logKey;

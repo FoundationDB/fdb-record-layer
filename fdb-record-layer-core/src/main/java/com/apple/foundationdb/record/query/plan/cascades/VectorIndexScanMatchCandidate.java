@@ -102,7 +102,7 @@ import java.util.function.Supplier;
  * @see Comparisons.DistanceRankValueComparison for distance-based ranking predicates
  * @see com.apple.foundationdb.record.query.plan.cascades.values.RowNumberValue for comparison transformation
  */
-public class VectorIndexScanMatchCandidate implements WithPrimaryKeyMatchCandidate {
+public class VectorIndexScanMatchCandidate implements WithPrimaryKeyMatchCandidate, WithBaseQuantifierMatchCandidate {
     /**
      * Index metadata structure.
      */
@@ -221,6 +221,7 @@ public class VectorIndexScanMatchCandidate implements WithPrimaryKeyMatchCandida
     }
 
     @Nonnull
+    @Override
     public Type.Record getBaseType() {
         return baseType;
     }
@@ -244,6 +245,11 @@ public class VectorIndexScanMatchCandidate implements WithPrimaryKeyMatchCandida
     @Override
     public boolean createsDuplicates() {
         return index.getRootExpression().createsDuplicates();
+    }
+
+    @Override
+    public boolean isScopedToSingleType() {
+        return queriedRecordTypes.size() == 1 || hasAndOrderedByRecordTypeKey();
     }
 
     @Nonnull
@@ -286,14 +292,16 @@ public class VectorIndexScanMatchCandidate implements WithPrimaryKeyMatchCandida
             final var value =
                     new ScalarTranslationVisitor(normalizedKeyExpression).toResultValue(Quantifier.current(),
                             getBaseType());
-            if (normalizedValues.add(value)) {
+            if (!normalizedValues.contains(value)) {
                 final var matchedOrderingPart =
                         value.<OrderingPart.MatchedSortOrder, OrderingPart.MatchedOrderingPart>deriveOrderingPart(EvaluationContext.empty(),
                                 AliasMap.emptyMap(), ImmutableSet.of(),
                                 (v, sortOrder) ->
                                         OrderingPart.MatchedOrderingPart.of(parameterId, v, comparisonRange, sortOrder),
                                 OrderingValueComputationRuleSet.usingMatchedOrderingParts());
-                builder.add(matchedOrderingPart);
+                if (normalizedValues.add(matchedOrderingPart.getValue())) {
+                    builder.add(matchedOrderingPart);
+                }
             }
         }
 

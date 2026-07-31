@@ -1,23 +1,35 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
-  <component name="CheckStyle-IDEA">
-    <option name="configuration">
-      <map>
-        <entry key="active-configuration-0" value="PROJECT_RELATIVE:$PROJECT_DIR$/gradle/codequality/checkstyle.xml:Record Layer Checks;All" />
-        <entry key="checkstyle-version" value="10.2" />
-        <entry key="copy-libs" value="false" />
-        <entry key="location-0" value="BUNDLED:(bundled):Sun Checks;All" />
-        <entry key="location-1" value="BUNDLED:(bundled):Google Checks;All" />
-        <entry key="location-2" value="PROJECT_RELATIVE:$PROJECT_DIR$/gradle/codequality/checkstyle.xml:Record Layer Checks;All" />
-        <entry key="location-3" value="PROJECT_RELATIVE:$PROJECT_DIR$/gradle/codequality/checkstyle-mandatory.xml:Record Layer Mandatory;All" />
-        <entry key="property-2.bannedImports" value="awt,com.sun,sun,edu.emory.mathcs.backport.java.util.concurrent,org.codehaus.jackson,scala,org.jetbrains.annotations,com.drew.lang.annotations,junit.framework,org.junit.Assert,org.junit.Test,org.apache.log4j" />
-        <entry key="property-2.projectDir" value="$PROJECT_DIR$" />
-        <entry key="property-3.bannedImports" value="awt,com.sun,sun,edu.emory.mathcs.backport.java.util.concurrent,org.codehaus.jackson,scala,org.jetbrains.annotations,com.drew.lang.annotations,junit.framework,org.junit.Assert,org.junit.Test,org.apache.log4j" />
-        <entry key="property-3.projectDir" value="$PROJECT_DIR$" />
-        <entry key="scan-before-checkin" value="false" />
-        <entry key="scanscope" value="JavaOnlyWithTests" />
-        <entry key="suppress-errors" value="false" />
-      </map>
+  <component name="CheckStyle-IDEA" serialisationVersion="2">
+    <checkstyleVersion>10.2</checkstyleVersion>
+    <scanScope>JavaOnlyWithTests</scanScope>
+    <option name="thirdPartyClasspath" />
+    <option name="activeLocationIds">
+      <option value="aa820844-959a-4c2d-9ca2-9b049d907e43" />
+    </option>
+    <option name="locations">
+      <list>
+        <ConfigurationLocation id="bundled-sun-checks" type="BUNDLED" scope="All" description="Sun Checks">(bundled)</ConfigurationLocation>
+        <ConfigurationLocation id="bundled-google-checks" type="BUNDLED" scope="All" description="Google Checks">(bundled)</ConfigurationLocation>
+        <ConfigurationLocation id="aa820844-959a-4c2d-9ca2-9b049d907e43" type="PROJECT_RELATIVE" scope="All" description="Record Layer Checks">
+          $PROJECT_DIR$/gradle/codequality/checkstyle.xml
+          <option name="properties">
+            <map>
+              <entry key="bannedImports" value="awt,com.sun,sun,edu.emory.mathcs.backport.java.util.concurrent,org.codehaus.jackson,scala,org.jetbrains.annotations,com.drew.lang.annotations,junit.framework,org.junit.Assert,org.junit.Test,org.apache.log4j" />
+              <entry key="projectDir" value="$PROJECT_DIR$" />
+            </map>
+          </option>
+        </ConfigurationLocation>
+        <ConfigurationLocation id="e32196d6-6309-4af1-9210-21a09a1e66d3" type="PROJECT_RELATIVE" scope="All" description="Record Layer Mandatory">
+          $PROJECT_DIR$/gradle/codequality/checkstyle-mandatory.xml
+          <option name="properties">
+            <map>
+              <entry key="bannedImports" value="awt,com.sun,sun,edu.emory.mathcs.backport.java.util.concurrent,org.codehaus.jackson,scala,org.jetbrains.annotations,com.drew.lang.annotations,junit.framework,org.junit.Assert,org.junit.Test,org.apache.log4j" />
+              <entry key="projectDir" value="$PROJECT_DIR$" />
+            </map>
+          </option>
+        </ConfigurationLocation>
+      </list>
     </option>
   </component>
 </project>

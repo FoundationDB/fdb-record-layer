@@ -35,6 +35,7 @@ import javax.annotation.Nonnull;
 import java.net.URI;
 import java.sql.DriverManager;
 import java.sql.SQLException;
+import java.util.List;
 import java.util.Set;
 import java.util.stream.Stream;
 
@@ -46,7 +47,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 public class InitialVersionTest {
     private static final SemanticVersion VERSION = SemanticVersion.parse("3.0.18.0");
     private static final String CLUSTER_FILE = FDBTestEnvironment.randomClusterFile();
-    private static final EmbeddedConfig config = new EmbeddedConfig(CLUSTER_FILE);
+    private static final EmbeddedConfig config = new EmbeddedConfig(List.of(CLUSTER_FILE));
 
     @BeforeAll
     static void beforeAll() throws Exception {
@@ -73,7 +74,7 @@ public class InitialVersionTest {
     YamlConnectionFactory createConnectionFactory() {
         return new YamlConnectionFactory() {
             @Override
-            public YamlConnection getNewConnection(@Nonnull URI connectPath) throws SQLException {
+            public YamlConnection getNewConnection(@Nonnull URI connectPath, int clusterIndex) throws SQLException {
                 return new SimpleYamlConnection(DriverManager.getConnection(connectPath.toString()), VERSION, CLUSTER_FILE);
             }
 
@@ -90,9 +91,13 @@ public class InitialVersionTest {
                 "do-not-allow-max-rows-in-at-least",
                 "do-not-allow-max-rows-in-less-than",
                 "explain-after-version",
+                "malformed-version-schema-template-variants",
                 "mid-query",
+                "missing-version-tag-schema-template-variants",
                 "non-exhaustive-versions",
                 "non-exhaustive-current-version",
+                "non-exhaustive-schema-template-variants",
+                "overlapping-schema-template-variants",
                 "wrong-result-at-least",
                 "wrong-result-less-than",
                 "wrong-count-at-least",
@@ -115,7 +120,9 @@ public class InitialVersionTest {
     static Stream<String> shouldPass() {
         return Stream.of(
                 "less-than-version-tests",
-                "at-least-version-tests"
+                "at-least-version-tests",
+                "schema-template-variants",
+                "multiple-schema-template-variants"
         );
     }
 
@@ -127,9 +134,13 @@ public class InitialVersionTest {
 
     static Stream<String> shouldFailOnCurrent() {
         return Stream.of(
+                "malformed-version-schema-template-variants",
                 "mid-query",
+                "missing-version-tag-schema-template-variants",
                 "non-exhaustive-versions",
                 "non-exhaustive-current-version",
+                "non-exhaustive-schema-template-variants",
+                "overlapping-schema-template-variants",
                 "wrong-result-at-least",
                 "wrong-count-at-least",
                 "wrong-unordered-at-least",
@@ -148,6 +159,8 @@ public class InitialVersionTest {
         return Stream.of(
                 "at-least-current-version",
                 "at-least-version-tests",
+                "schema-template-variants",
+                "multiple-schema-template-variants",
                 "wrong-result-less-than",
                 "wrong-count-less-than",
                 "wrong-unordered-less-than",

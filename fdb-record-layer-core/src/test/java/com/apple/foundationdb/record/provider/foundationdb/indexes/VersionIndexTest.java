@@ -51,6 +51,7 @@ import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.VersionKeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.APIVersion;
+import com.apple.foundationdb.record.provider.foundationdb.DeleteStoreMode;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBIndexedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
@@ -84,6 +85,7 @@ import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.TupleHelpers;
 import com.apple.foundationdb.tuple.Versionstamp;
+import com.apple.test.ParameterizedTestUtils;
 import com.apple.test.Tags;
 import com.google.auto.service.AutoService;
 import com.google.common.collect.Lists;
@@ -1192,9 +1194,9 @@ public class VersionIndexTest {
             // This assert may need to change if additional indexes subspaces are created
             long rangeDeletes = context.getTimer().getCount(FDBStoreTimer.Counts.RANGE_DELETES);
             if (inLegacyVersionSpace) {
-                assertEquals(9L, rangeDeletes);
+                assertEquals(11L, rangeDeletes);
             } else {
-                assertEquals(8L, rangeDeletes);
+                assertEquals(10L, rangeDeletes);
             }
         }
     }
@@ -3029,18 +3031,18 @@ public class VersionIndexTest {
     }
 
     static Stream<Arguments> deleteStoreWithUncommittedVersionData() {
-        return formatVersionsOfInterest().flatMap(testFormatVersion ->
-                Stream.of(false, true).flatMap(testSplitLongRecords ->
-                        Stream.of(false, true).map(clearPath ->
-                            Arguments.of(testFormatVersion, testSplitLongRecords, clearPath)
-                        )
-                )
+        return ParameterizedTestUtils.cartesianProduct(
+                formatVersionsOfInterest(),
+                ParameterizedTestUtils.booleans("splitLongRecords"),
+                ParameterizedTestUtils.booleans("clearPath"),
+                Arrays.stream(DeleteStoreMode.values())
         );
     }
 
-    @ParameterizedTest(name = "deleteStoreWithUncommittedVersionData [" + ARGUMENTS_PLACEHOLDER + "]")
+    @ParameterizedTest
     @MethodSource
-    void deleteStoreWithUncommittedVersionData(FormatVersion testFormatVersion, boolean testSplitLongRecords, boolean clearPath) throws Exception {
+    void deleteStoreWithUncommittedVersionData(FormatVersion testFormatVersion, boolean testSplitLongRecords, boolean clearPath,
+                                               DeleteStoreMode deleteStoreMode) throws Exception {
         formatVersion = testFormatVersion;
         splitLongRecords = testSplitLongRecords;
 
@@ -3098,7 +3100,7 @@ public class VersionIndexTest {
             if (clearPath) {
                 path1.deleteAllData(context);
             } else {
-                FDBRecordStore.deleteStore(context, path1);
+                deleteStoreMode.deleteStore(context, path1);
             }
 
             i = 0;
@@ -3115,7 +3117,7 @@ public class VersionIndexTest {
                     if (clearPath) {
                         path.deleteAllData(context);
                     } else {
-                        FDBRecordStore.deleteStore(context, path);
+                        deleteStoreMode.deleteStore(context, path);
                     }
                 } else {
                     FDBRecordStore pathStore = recordStore.asBuilder()

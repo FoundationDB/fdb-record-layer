@@ -21,7 +21,6 @@
 package com.apple.foundationdb.relational.recordlayer.query.visitors;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.provider.foundationdb.VectorIndexScanOptions;
 import com.apple.foundationdb.record.query.plan.cascades.OrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.CompatibleTypeEvolutionPredicate;
@@ -34,7 +33,9 @@ import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.NullValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.PromoteValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.RowNumberValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.WindowedValue;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
@@ -44,6 +45,7 @@ import com.apple.foundationdb.relational.generated.RelationalParser;
 import com.apple.foundationdb.relational.recordlayer.metadata.DataTypeUtils;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerColumn;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerTable;
+import com.apple.foundationdb.relational.recordlayer.query.ColumnarValue;
 import com.apple.foundationdb.relational.recordlayer.query.Expression;
 import com.apple.foundationdb.relational.recordlayer.query.Expressions;
 import com.apple.foundationdb.relational.recordlayer.query.Identifier;
@@ -59,6 +61,7 @@ import com.apple.foundationdb.relational.util.Assert;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Streams;
 import com.google.protobuf.ZeroCopyByteString;
 import org.antlr.v4.runtime.ParserRuleContext;
@@ -94,13 +97,14 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
     @Override
     public LogicalOperator visitTableFunction(@Nonnull RelationalParser.TableFunctionContext ctx) {
         final var functionName = visitTableFunctionName(ctx.tableFunctionName());
-        return ctx.tableFunctionArgs() == null
-                ? getDelegate().resolveTableValuedFunction(functionName, Expressions.empty())
-                : getDelegate().resolveTableValuedFunction(functionName, visitTableFunctionArgs(ctx.tableFunctionArgs()));
+        final var arguments = ctx.namedOrUnnamedFunctionArgs() == null ?
+                              Expressions.empty() :
+                              Assert.castUnchecked(visit(ctx.namedOrUnnamedFunctionArgs()), Expressions.class);
+        return getDelegate().resolveTableValuedFunction(functionName, arguments);
     }
 
     @Override
-    public Expressions visitTableFunctionArgs(@Nonnull final RelationalParser.TableFunctionArgsContext ctx) {
+    public Expressions visitNamedOrUnnamedFunctionArgs(RelationalParser.NamedOrUnnamedFunctionArgsContext ctx) {
         if (!ctx.namedFunctionArg().isEmpty()) {
             final var namedArguments = Expressions.of(ctx.namedFunctionArg().stream()
                     .map(this::visitNamedFunctionArg).collect(ImmutableList.toImmutableList()));
@@ -160,9 +164,18 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
     @Nonnull
     @Override
     public Expressions visitSelectElements(@Nonnull RelationalParser.SelectElementsContext selectElementsContext) {
-        return Expressions.of(selectElementsContext.selectElement().stream()
+        final var selectElements = Expressions.of(selectElementsContext.selectElement().stream()
                 .map(selectElement -> Assert.castUnchecked(selectElement.accept(this), Expression.class))
                 .collect(ImmutableList.toImmutableList()));
+
+        Assert.thatUnchecked(
+                selectElements.stream().noneMatch(
+                        exp -> exp.getDataType().getCode() == DataType.Code.ARRAY &&
+                                ((DataType.ArrayType)exp.getDataType()).getElementType().getCode() == DataType.Code.ARRAY),
+                ErrorCode.UNSUPPORTED_OPERATION,
+                "nested arrays are not supported");
+
+        return selectElements;
     }
 
     @Nonnull
@@ -266,28 +279,16 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
         final String functionName = windowedFunctionContext.functionName.getText();
         final WindowSpecExpression windowSpecExpression = getDelegate().visitOverClause(windowedFunctionContext.overClause());
 
-        final var partitionExpressions = windowSpecExpression.getPartitions();
-        final var partitionValues = Streams.stream(partitionExpressions.underlying()).collect(ImmutableList.toImmutableList());
-        final var partitionArray = AbstractArrayConstructorValue.LightArrayConstructorValue.of(partitionValues, Type.any());
-
         final var orderByExpressions = windowSpecExpression.getOrderByExpressions();
         final var allowedSortSpecs = StreamSupport.stream(orderByExpressions.spliterator(), false)
                 .allMatch(exp -> exp.toSortOrder() == OrderingPart.RequestedSortOrder.ASCENDING || exp.toSortOrder() == OrderingPart.RequestedSortOrder.ANY);
         Assert.thatUnchecked(allowedSortSpecs, ErrorCode.UNSUPPORTED_SORT, "provided sort specification not supported with window function");
-        // TODO should pass down sort specification correctly.
-        final var orderByValues = StreamSupport.stream(orderByExpressions.spliterator(), false).map(r -> r.getExpression().getUnderlying())
-                .collect(ImmutableList.toImmutableList());
 
-        final ImmutableList.Builder<Expression> argumentsBuilder = ImmutableList.builder();
-        final var orderByArray = AbstractArrayConstructorValue.LightArrayConstructorValue.of(orderByValues, Type.any());
-        argumentsBuilder.add(Expression.ofUnnamed(partitionArray)).add(Expression.ofUnnamed(orderByArray));
-
-        final var higherOrderArgumentsBuilder = ImmutableList.<Expressions>builder();
-        if (!windowSpecExpression.getWindowOptions().isEmpty()) {
-            higherOrderArgumentsBuilder.add(windowSpecExpression.getWindowOptions());
-        }
-        higherOrderArgumentsBuilder.add(Expressions.of(argumentsBuilder.build()));
-        return getDelegate().getSemanticAnalyzer().resolveHighOrderScalarFunction(functionName, true, higherOrderArgumentsBuilder.build());
+        // The partitioning and ordering columns are carried on the window specification; the window options (e.g.
+        // ef_search) are carried on the call-site arguments' options map. The window function itself takes no direct
+        // positional arguments.
+        return getDelegate().getSemanticAnalyzer()
+                .resolveWindowFunction(functionName, true, windowSpecExpression, Expressions.empty());
     }
 
     @Nonnull
@@ -299,7 +300,11 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
         final Expressions partitions = partitionClause == null ? Expressions.empty() : getDelegate().visitPartitionClause(partitionClause);
 
         @Nullable final var orderByClause = ctx.windowSpec().orderByClause();
-        final List<OrderByExpression> orderByExpressions = orderByClause == null ? ImmutableList.of() : visitOrderByClause(orderByClause);
+        // Parse ORDER BY expressions directly — the isTopLevel() check in visitOrderByClause
+        // is for query-level ORDER BY and does not apply inside OVER clauses.
+        final List<OrderByExpression> orderByExpressions = orderByClause == null ? ImmutableList.of()
+                                                                                 : orderByClause.orderByExpression().stream().map(this::visitOrderByExpression)
+                                                                                   .collect(ImmutableList.toImmutableList());
 
         @Nullable final var windowOptionsClause = ctx.windowSpec().windowOptionsClause();
         final Expressions windowOptions = windowOptionsClause == null ? Expressions.empty() : getDelegate().visitWindowOptionsClause(windowOptionsClause);
@@ -328,8 +333,12 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
     @Override
     public Expression visitWindowOption(final RelationalParser.WindowOptionContext ctx) {
         if (ctx.EF_SEARCH() != null) {
-            final var value = LiteralValue.ofScalar(Assert.castUnchecked(ParseHelpers.parseDecimal(ctx.efSearch.getText()), Integer.class));
-            return Expression.of(value, Identifier.of(VectorIndexScanOptions.HNSW_EF_SEARCH.getOptionName()));
+            //
+            // The literal is passed on as parsed; the option's declared type is enforced when the window function is
+            // encapsulated, so an out-of-range value is reported as a bad option value rather than an internal error.
+            //
+            final var value = LiteralValue.ofScalar(ParseHelpers.parseDecimal(ctx.efSearch.getText()));
+            return Expression.of(value, Identifier.of(RowNumberValue.RowNumberFn.EF_SEARCH.getName()));
         }
         throw Assert.failUnchecked(ErrorCode.INTERNAL_ERROR, "unexpected option " + ctx.getText());
     }
@@ -377,7 +386,7 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
                 return result;
             });
             arguments = Expressions.of(Streams.concat(Stream.of(classNameExpression),
-                    argumentNodes.stream().skip(1).map(this::visitFunctionArg))
+                            argumentNodes.stream().skip(1).map(this::visitFunctionArg))
                     .collect(Collectors.toUnmodifiableList()));
         } else {
             arguments = visitFunctionArgs(ctx.functionArgs());
@@ -389,8 +398,9 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
     @Override
     public Expression visitUserDefinedScalarFunctionCall(@Nonnull RelationalParser.UserDefinedScalarFunctionCallContext ctx) {
         final var functionName = Identifier.of(getDelegate().normalizeString(ctx.userDefinedScalarFunctionName().getText()));
-
-        Expressions arguments = visitFunctionArgs(ctx.functionArgs());
+        Expressions arguments = ctx.namedOrUnnamedFunctionArgs() == null ?
+                                Expressions.empty() :
+                                Assert.castUnchecked(visit(ctx.namedOrUnnamedFunctionArgs()), Expressions.class);
         return getDelegate().resolveFunction(functionName.getName(), arguments.asList().toArray(new Expression[0]));
     }
 
@@ -429,8 +439,9 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
             final var targetDataType = getDelegate().getSemanticAnalyzer().lookupBuiltInType(typeInfo);
             final var targetType = DataTypeUtils.toRecordLayerType(targetDataType);
             final var underlyingType = sourceExpression.getUnderlying().getResultType();
-            final var castValue = CastValue.inject(sourceExpression.getUnderlying(), targetType.withNullability(underlyingType.isNullable()));
-            return Expression.ofUnnamed(targetDataType, castValue);
+            // Note: `inject()` does not necessarily return a `CastValue`.
+            final var value = CastValue.inject(sourceExpression.getUnderlying(), targetType.withNullability(underlyingType.isNullable()));
+            return Expression.ofUnnamed(targetDataType, value);
         }
 
         Assert.failUnchecked(ErrorCode.UNSUPPORTED_OPERATION, "CONVERT function is not yet supported");
@@ -559,8 +570,10 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
          */
         final var selectOperator = visitQuery(ctx.query());
         final var asExistential = selectOperator.withQuantifier(Quantifier.existential(selectOperator.getQuantifier().getRangesOver()));
-        final var underlyingValue = new ExistsValue(asExistential.getQuantifier().getAlias());
-        getDelegate().getCurrentPlanFragment().addOperator(asExistential);
+        final var underlyingValue = new ExistsValue(QuantifiedObjectValue.of(asExistential.getQuantifier()));
+        if (getDelegate().getPlanGenerationContext().shouldProcessLiteral()) {
+            getDelegate().getCurrentPlanFragment().addOperator(asExistential);
+        }
         return Expression.ofUnnamed(underlyingValue);
     }
 
@@ -599,10 +612,8 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
         } else {
             escapeValue = new LiteralValue<>(null);
         }
-        final var pattern = Assert.notNullUnchecked(getDelegate().normalizeString(ctx.pattern.getText()));
-        final var patternValueBinding = getDelegate().getPlanGenerationContext().processQueryLiteral(
-                Type.primitiveType(Type.TypeCode.STRING), pattern, ctx.pattern.getTokenIndex());
-        final var patternFunction = getDelegate().resolveFunction("__pattern_for_like", Expression.ofUnnamed(patternValueBinding),
+        final var patternValueBinding = Assert.castUnchecked(ctx.pattern.accept(this), Expression.class);
+        final var patternFunction = getDelegate().resolveFunction("__pattern_for_like", patternValueBinding,
                 Expression.ofUnnamed(escapeValue));
         final var likeFunction = getDelegate().resolveFunction(ctx.LIKE().getText(), operand, patternFunction);
         if (ctx.NOT() != null) {
@@ -846,19 +857,19 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
     @Override
     public CompatibleTypeEvolutionPredicate.FieldAccessTrieNode visitUidListWithNestings(@Nonnull final RelationalParser.UidListWithNestingsContext ctx) {
         final var uidMap = Streams.mapWithIndex(ctx.uidWithNestings().stream(),
-                                (ctxWithNesting, index) -> {
-                                    final var uid = visitUid(ctxWithNesting.uid());
-                                    final var accessor = FieldValue.ResolvedAccessor.of(uid.getName(), (int)index, Type.any());
-                                    if (ctxWithNesting.uidListWithNestingsInParens() == null) {
-                                        return NonnullPair.of(accessor, CompatibleTypeEvolutionPredicate.FieldAccessTrieNode.of(Type.any(), null));
-                                    } else {
-                                        return NonnullPair.of(accessor, visitUidListWithNestingsInParens(ctxWithNesting.uidListWithNestingsInParens()));
-                                    }
-                                })
-                        .collect(ImmutableMap.toImmutableMap(NonnullPair::getLeft, NonnullPair::getRight,
-                                (l, r) -> {
-                                    throw Assert.failUnchecked(ErrorCode.AMBIGUOUS_COLUMN, "duplicate column " + l);
-                                }));
+                        (ctxWithNesting, index) -> {
+                            final var uid = visitUid(ctxWithNesting.uid());
+                            final var accessor = FieldValue.ResolvedAccessor.of(uid.getName(), (int)index, Type.any());
+                            if (ctxWithNesting.uidListWithNestingsInParens() == null) {
+                                return NonnullPair.of(accessor, CompatibleTypeEvolutionPredicate.FieldAccessTrieNode.of(Type.any(), null));
+                            } else {
+                                return NonnullPair.of(accessor, visitUidListWithNestingsInParens(ctxWithNesting.uidListWithNestingsInParens()));
+                            }
+                        })
+                .collect(ImmutableMap.toImmutableMap(NonnullPair::getLeft, NonnullPair::getRight,
+                        (l, r) -> {
+                            throw Assert.failUnchecked(ErrorCode.AMBIGUOUS_COLUMN, "duplicate column " + l);
+                        }));
         return CompatibleTypeEvolutionPredicate.FieldAccessTrieNode.of(Type.any(), uidMap);
     }
 
@@ -888,12 +899,23 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
             } else {
                 final var star = getDelegate().getSemanticAnalyzer().expandStar(Optional.of(id), getDelegate().getLogicalOperators());
                 final var resultValue = star.getUnderlying();
-                return Expression.ofUnnamed(resultValue);
+                // Name the column after the qualifier (table name or alias) that was expanded.
+                return Expression.of(resultValue, id);
             }
         }
         if (ctx.STAR() != null) {
             final var star = getDelegate().getSemanticAnalyzer().expandStar(Optional.empty(), getDelegate().getLogicalOperators());
             final var resultValue = star.getUnderlying();
+            // Name the column after the sole for-each quantifier in scope.
+            // Both standard joins and PartiQL unnest expansions introduce multiple for-each
+            // quantifiers (attributes originating from different sources), so fall back to
+            // an unnamed column whenever there is more than one.
+            final var forEachOps = getDelegate().getLogicalOperators().forEachOnly();
+            if (Iterables.size(forEachOps) == 1) {
+                return Iterables.getOnlyElement(forEachOps).getName()
+                        .map(name -> Expression.of(resultValue, name))
+                        .orElse(Expression.ofUnnamed(resultValue));
+            }
             return Expression.ofUnnamed(resultValue);
         }
         final var expressions = parseRecordFieldsUnderReorderings(ctx.expressionWithOptionalName());
@@ -955,8 +977,8 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
             reorderings = maybeState.get().getTargetTypeReorderings().get();
         }
         final var targetFieldReorderings = (reorderings == null || reorderings.getChildrenMap() == null) ?
-                null :
-                reorderings.getChildrenMap().get(targetField.getFieldName());
+                                           null :
+                                           reorderings.getChildrenMap().get(targetField.getFieldName());
         final var newStateBuilder = LogicalPlanFragment.State.newBuilder();
         final Expression expression;
         try {
@@ -975,7 +997,11 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
         if (fieldType == null) {
             return expression;
         }
-        final var coercedExpression = coerceIfNecessary(expression, fieldType);
+        var coercedExpression = coerceIfNecessary(expression, fieldType);
+        if (targetField.getFieldIndexOptional().isPresent()) {
+            coercedExpression = coercedExpression.withUnderlying(new ColumnarValue(coercedExpression.getUnderlying(),
+                    targetField.getFieldIndex()));
+        }
         if (expression.getName().isPresent() && targetField.getFieldNameOptional().isPresent()) {
             Assert.thatUnchecked(expression.getName().get().equals(Identifier.of(targetField.getFieldNameOptional().get())));
         }
@@ -1042,7 +1068,11 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
                     // We do not yet support default values for any types, hence it makes sense to simply fail if the field type
                     // expects non-null but no value is provided.
                     Assert.thatUnchecked(fieldType.isNullable(), ErrorCode.NOT_NULL_VIOLATION, "null value in column \"" + elementField.getFieldName() + "\" violates not-null constraint");
-                    currentFieldColumns = Expression.fromUnderlying(new NullValue(fieldType));
+                    Value value = new NullValue(fieldType);
+                    if (elementField.getFieldIndexOptional().isPresent()) {
+                        value = new ColumnarValue(value, elementField.getFieldIndex());
+                    }
+                    currentFieldColumns = Expression.fromUnderlying(value);
                 }
                 resultColumnsBuilder.add(currentFieldColumns);
             }
@@ -1065,22 +1095,16 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
 
     @Nonnull
     private Expression handleArray(@Nonnull RelationalParser.ArrayConstructorContext ctx) {
-        final var elements = visitExpressions(ctx.expressions()).underlying();
+        // Promote array elements to its non-nullable type as record layer doesn't nullable array elements.
+        final var arrayElementValues = visitExpressions(ctx.expressions()).underlying();
+        final var elements =
+                Streams.stream(arrayElementValues)
+                        .map(arrayElementValue ->
+                                Expression.fromUnderlying(
+                                        PromoteValue.inject(arrayElementValue, arrayElementValue.getResultType().notNullable())))
+                        .collect(ImmutableList.toImmutableList());
 
-        //
-        // TODO This absolutely must call the encapsulator to create the array constructor. The reason being that
-        //      we cannot otherwise guarantee that the proper promotions get injected BEFORE the array is constructed.
-        //
-        //        final var arrayFunctionOptional = FunctionCatalog.resolve("array", elementValues.size());
-        //        Assert.thatUnchecked(arrayFunctionOptional.isPresent());
-        //        final var arrayFunction = arrayFunctionOptional.get();
-        //        return arrayFunction.encapsulate(elementValues);
-        //
-        // TODO The commented out code does not work yet as we cannot properly compute the max type over complicated
-        //      records. Fix that!
-        //
-        return Expression.ofUnnamed(AbstractArrayConstructorValue
-                .LightArrayConstructorValue.of(Streams.stream(elements).collect(ImmutableList.toImmutableList())));
+        return getDelegate().resolveFunction("__internal_array", false, elements.toArray(new Expression[0]));
     }
 
     @Nonnull

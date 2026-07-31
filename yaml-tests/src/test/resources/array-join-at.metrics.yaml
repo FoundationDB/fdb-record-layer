@@ -1,0 +1,209 @@
+array-join-at:
+-   query: EXPLAIN SELECT "id", "val" FROM T1, T1."arr1" AS "val" ORDER BY "id"
+    ref: array-join-at.yamsql:46
+    explain: SCAN([IS T1]) | FLATMAP q0 -> { EXPLODE q0.arr1 AS q1 RETURN (q0.id AS
+        id, q1 AS val) }
+    task_count: 160
+    task_total_time_ms: 51
+    transform_count: 47
+    transform_time_ms: 38
+    transform_yield_count: 13
+    insert_time_ms: 0
+    insert_new_count: 15
+    insert_reused_count: 0
+-   query: EXPLAIN SELECT "id", "val", "at" FROM T1, T1."arr1" AS "val" AT "at"
+    ref: array-join-at.yamsql:56
+    explain: SCAN([IS T1]) | FLATMAP q0 -> { EXPLODE q0.arr1 WITH ORDINALITY AS q1
+        RETURN (q0.id AS id, q1._0 AS val, q1._1 AS at) }
+    task_count: 160
+    task_total_time_ms: 13
+    transform_count: 47
+    transform_time_ms: 6
+    transform_yield_count: 13
+    insert_time_ms: 0
+    insert_new_count: 15
+    insert_reused_count: 0
+-   query: EXPLAIN SELECT "id", "at" FROM T1, T1."arr1" AT "at"
+    ref: array-join-at.yamsql:93
+    explain: SCAN([IS T1]) | FLATMAP q0 -> { EXPLODE q0.arr1 WITH ORDINALITY AS q1
+        RETURN (q0.id AS id, q1._1 AS at) }
+    task_count: 160
+    task_total_time_ms: 12
+    transform_count: 47
+    transform_time_ms: 5
+    transform_yield_count: 13
+    insert_time_ms: 0
+    insert_new_count: 15
+    insert_reused_count: 0
+-   query: EXPLAIN SELECT "subquery"."id" - 100 AS "id", "at", "val" FROM (SELECT
+        "id" + 100 AS "id", "arr1" FROM T1) AS "subquery", "subquery"."arr1" AS "val"
+        AT "at"
+    ref: array-join-at.yamsql:104
+    explain: SCAN([IS T1]) | FLATMAP q0 -> { EXPLODE q0.arr1 WITH ORDINALITY AS q1
+        RETURN (q0.id + @c17 - @c17 AS id, q1._1 AS at, q1._0 AS val) }
+    task_count: 188
+    task_total_time_ms: 13
+    transform_count: 51
+    transform_time_ms: 5
+    transform_yield_count: 15
+    insert_time_ms: 0
+    insert_new_count: 21
+    insert_reused_count: 0
+-   query: EXPLAIN SELECT "values"."id", "val", "at" FROM VALUES (1, [101]), (2, [201,
+        202, 203]) AS "values" ("id", "arr"), "values"."arr" AS "val" AT "at"
+    ref: array-join-at.yamsql:115
+    explain: EXPLODE array((@c11 AS id, array(@c14) AS arr), (@c19 AS id, array(@c22,
+        @c24, @c26) AS arr)) | FLATMAP q0 -> { EXPLODE q0.arr WITH ORDINALITY AS q1
+        RETURN (q0.id AS id, q1._0 AS val, q1._1 AS at) }
+    task_count: 238
+    task_total_time_ms: 16
+    transform_count: 71
+    transform_time_ms: 5
+    transform_yield_count: 14
+    insert_time_ms: 0
+    insert_new_count: 24
+    insert_reused_count: 0
+-   query: EXPLAIN SELECT "id", "at" + 10 AS "at_plus_10" FROM T1, T1."arr1" AS "val"
+        AT "at"
+    ref: array-join-at.yamsql:140
+    explain: SCAN([IS T1]) | FLATMAP q0 -> { EXPLODE q0.arr1 WITH ORDINALITY AS q1
+        RETURN (q0.id AS id, q1._1 + @c5 AS at_plus_10) }
+    task_count: 160
+    task_total_time_ms: 5
+    transform_count: 47
+    transform_time_ms: 2
+    transform_yield_count: 13
+    insert_time_ms: 0
+    insert_new_count: 15
+    insert_reused_count: 0
+-   query: EXPLAIN SELECT "id", "val", "at" FROM T1, T1."arr1_nn" AS "val" AT "at"
+        WHERE "val" > 201
+    ref: array-join-at.yamsql:150
+    explain: SCAN([IS T1]) | FLATMAP q0 -> { EXPLODE q0.arr1_nn WITH ORDINALITY |
+        FILTER _._0 GREATER_THAN promote(@c19 AS INT) AS q1 RETURN (q0.id AS id, q1._0
+        AS val, q1._1 AS at) }
+    task_count: 253
+    task_total_time_ms: 15
+    transform_count: 83
+    transform_time_ms: 5
+    transform_yield_count: 17
+    insert_time_ms: 1
+    insert_new_count: 27
+    insert_reused_count: 1
+-   query: EXPLAIN SELECT "id", "val", "at" FROM T1, T1."arr1_nn" AS "val" AT "at"
+        WHERE "at" + 1 = 3
+    ref: array-join-at.yamsql:158
+    explain: SCAN([IS T1]) | FLATMAP q0 -> { EXPLODE q0.arr1_nn WITH ORDINALITY |
+        FILTER _._1 + @c19 EQUALS promote(@c21 AS INT) AS q1 RETURN (q0.id AS id,
+        q1._0 AS val, q1._1 AS at) }
+    task_count: 253
+    task_total_time_ms: 12
+    transform_count: 83
+    transform_time_ms: 5
+    transform_yield_count: 17
+    insert_time_ms: 1
+    insert_new_count: 27
+    insert_reused_count: 1
+-   query: EXPLAIN SELECT T2."id", "at1", "val1", "at2", "val2" FROM T2, T2."arr1"
+        AS "val1" AT "at1", T2."arr2" AS "val2" AT "at2"
+    ref: array-join-at.yamsql:172
+    explain: SCAN([IS T2]) | FLATMAP q0 -> { EXPLODE q0.arr1 WITH ORDINALITY | FLATMAP
+        q1 -> { EXPLODE q0.arr2 WITH ORDINALITY AS q2 RETURN (q1 AS _0, q2 AS _1)
+        } AS q3 RETURN (q0.id AS id, q3._0._1 AS at1, q3._0._0 AS val1, q3._1._1 AS
+        at2, q3._1._0 AS val2) }
+    task_count: 253
+    task_total_time_ms: 10
+    transform_count: 89
+    transform_time_ms: 5
+    transform_yield_count: 18
+    insert_time_ms: 0
+    insert_new_count: 27
+    insert_reused_count: 0
+-   query: EXPLAIN SELECT T2."id", "val1", "at1", "val2", "at2" FROM T2, T2."arr1"
+        AS "val1" AT "at1", T2."arr1" AS "val2" AT "at2"
+    ref: array-join-at.yamsql:183
+    explain: SCAN([IS T2]) | FLATMAP q0 -> { EXPLODE q0.arr1 WITH ORDINALITY | FLATMAP
+        q1 -> { EXPLODE q0.arr1 WITH ORDINALITY AS q2 RETURN (q1 AS _0, q2 AS _1)
+        } AS q3 RETURN (q0.id AS id, q3._0._0 AS val1, q3._0._1 AS at1, q3._1._0 AS
+        val2, q3._1._1 AS at2) }
+    task_count: 242
+    task_total_time_ms: 7
+    transform_count: 88
+    transform_time_ms: 3
+    transform_yield_count: 17
+    insert_time_ms: 0
+    insert_new_count: 25
+    insert_reused_count: 1
+-   query: EXPLAIN SELECT "id", "at", "arr1_val", T1."arr1_nn"["at"] AS "arr1_nn_val"
+        FROM T1, T1."arr1" AS "arr1_val" AT "at"
+    ref: array-join-at.yamsql:202
+    explain: SCAN([IS T1]) | FLATMAP q0 -> { EXPLODE q0.arr1 WITH ORDINALITY AS q1
+        RETURN (q0.id AS id, q1._1 AS at, q1._0 AS arr1_val, q0.arr1_nn[q1._1> AS
+        arr1_nn_val) }
+    task_count: 160
+    task_total_time_ms: 5
+    transform_count: 47
+    transform_time_ms: 2
+    transform_yield_count: 13
+    insert_time_ms: 0
+    insert_new_count: 15
+    insert_reused_count: 0
+-   query: EXPLAIN SELECT "id", "at", "val", "val2" FROM T1, T1."arr1" AS "val" AT
+        "at", (SELECT "val2" FROM T1 AS "OtherT1", "OtherT1"."arr1_nn" AS "val2" AT
+        "at2" WHERE "OtherT1"."id" = T1."id" AND "val2" = "val" ) AS "subquery"
+    ref: array-join-at.yamsql:219
+    explain: SCAN([IS T1]) | FLATMAP q0 -> { EXPLODE q0.arr1 WITH ORDINALITY | FLATMAP
+        q1 -> { SCAN([IS T1, EQUALS q0.id]) | FLATMAP q2 -> { EXPLODE q2.arr1_nn WITH
+        ORDINALITY | FILTER _._0 EQUALS q1._0 AS q3 RETURN q3 } AS q3 RETURN (q3 AS
+        _0, q1 AS _1) } AS q5 RETURN (q0.id AS id, q5._1._1 AS at, q5._1._0 AS val,
+        q5._0._0 AS val2) }
+    task_count: 6364
+    task_total_time_ms: 272
+    transform_count: 3065
+    transform_time_ms: 102
+    transform_yield_count: 295
+    insert_time_ms: 37
+    insert_new_count: 757
+    insert_reused_count: 133
+-   query: EXPLAIN SELECT T2."id", "val1", "at1", "val2" FROM T2, T2."arr1" AS "val1"
+        AT "at1", T2."arr2" AS "val2"
+    ref: array-join-at.yamsql:258
+    explain: SCAN([IS T2]) | FLATMAP q0 -> { EXPLODE q0.arr2 | FLATMAP q1 -> { EXPLODE
+        q0.arr1 WITH ORDINALITY AS q2 RETURN (q2 AS _0, q1 AS _1) } AS q3 RETURN (q0.id
+        AS id, q3._0._0 AS val1, q3._0._1 AS at1, q3._1 AS val2) }
+    task_count: 253
+    task_total_time_ms: 4
+    transform_count: 89
+    transform_time_ms: 2
+    transform_yield_count: 18
+    insert_time_ms: 0
+    insert_new_count: 27
+    insert_reused_count: 0
+-   query: EXPLAIN SELECT "id", "val", "at" FROM T1, T1."arr1_nn" AS "val" AT "at"
+        WHERE T1."id" IN (1, 2)
+    ref: array-join-at.yamsql:298
+    explain: '[IN arrayDistinct(promote(@c21 AS ARRAY(LONG)))] | INJOIN q0 -> { SCAN([IS
+        T1, EQUALS q0]) | FLATMAP q1 -> { EXPLODE q1.arr1_nn WITH ORDINALITY AS q2
+        RETURN (q1.id AS id, q2._0 AS val, q2._1 AS at) } }'
+    task_count: 1164
+    task_total_time_ms: 31
+    transform_count: 453
+    transform_time_ms: 14
+    transform_yield_count: 68
+    insert_time_ms: 2
+    insert_new_count: 140
+    insert_reused_count: 9
+-   query: EXPLAIN SELECT "id", "val", "at" FROM T1, T1."arr1_nn" AS "val" AT "at"
+        WHERE "at" IN (1, 2)
+    ref: array-join-at.yamsql:310
+    explain: SCAN([IS T1]) | FLATMAP q0 -> { EXPLODE q0.arr1_nn WITH ORDINALITY |
+        FILTER _._1 IN @c19 AS q1 RETURN (q0.id AS id, q1._0 AS val, q1._1 AS at)
+        }
+    task_count: 1058
+    task_total_time_ms: 15
+    transform_count: 422
+    transform_time_ms: 6
+    transform_yield_count: 52
+    insert_time_ms: 1
+    insert_new_count: 115
+    insert_reused_count: 6

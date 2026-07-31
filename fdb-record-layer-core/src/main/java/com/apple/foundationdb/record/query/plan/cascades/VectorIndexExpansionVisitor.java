@@ -20,21 +20,19 @@
 
 package com.apple.foundationdb.record.query.plan.cascades;
 
-import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
-import com.apple.foundationdb.async.hnsw.Config;
-import com.apple.foundationdb.linear.Metric;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.metadata.Index;
-import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyWithValueExpression;
+import com.apple.foundationdb.record.provider.foundationdb.indexes.VectorIndexHelper;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.MatchableSortExpression;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.Placeholder;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.PredicateWithValueAndRanges;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.CosineDistanceRowNumberValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.DotProductDistanceRowNumberValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.EuclideanDistanceRowNumberValue;
@@ -51,7 +49,6 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
-import java.util.function.Supplier;
 
 /**
  * Class to expand vector index access into a candidate graph. The visitation methods are left unchanged from the super
@@ -76,13 +73,21 @@ public class VectorIndexExpansionVisitor extends KeyExpressionExpansionVisitor i
 
     @Nonnull
     @Override
-    @SpotBugsSuppressWarnings("NP_PARAMETER_MUST_BE_NONNULL_BUT_MARKED_AS_NULLABLE")
-    public MatchCandidate expand(@Nonnull final Supplier<Quantifier.ForEach> baseQuantifierSupplier,
+    public MatchCandidate expand(@Nonnull final Set<String> availableRecordTypeNames,
+                                 @Nonnull final Set<String> queriedRecordTypeNames,
+                                 @Nonnull final Type.Record baseType,
+                                 @Nonnull final AccessHint accessHint,
                                  @Nullable final KeyExpression primaryKey,
                                  final boolean isReverse) {
         Debugger.updateIndex(PredicateWithValueAndRanges.class, old -> 0);
 
-        final var baseQuantifier = baseQuantifierSupplier.get();
+        //
+        // to support pushing down record type key predicate defined on vector index, we should change
+        // the instantiation of the type filter below to create a placeholder for the record type key parameter
+        // alias and reuse it here. Similar to what we currently do for primary scans.
+        //
+        final var baseQuantifier = Quantifier.forEach(ExpansionVisitor.createBaseRef(availableRecordTypeNames,
+                queriedRecordTypeNames, baseType, null, accessHint));
         final var allExpansionsBuilder = ImmutableList.<GraphExpansion>builder();
 
         allExpansionsBuilder.add(GraphExpansion.ofQuantifier(baseQuantifier));
@@ -128,26 +133,28 @@ public class VectorIndexExpansionVisitor extends KeyExpressionExpansionVisitor i
 
         if (index.hasPredicate()) {
             final var filteredIndexPredicate = Objects.requireNonNull(index.getPredicate()).toPredicate(baseQuantifier.getFlowedObjectValue());
-            final var valueRangesMaybe = IndexPredicateExpansion.dnfPredicateToRanges(filteredIndexPredicate);
-            final var predicateExpansionBuilder = GraphExpansion.builder();
-            if (valueRangesMaybe.isEmpty()) { // could not create DNF, store the predicate as-is.
-                allExpansionsBuilder.add(GraphExpansion.ofPredicate(filteredIndexPredicate));
-            } else {
-                final var valueRanges = valueRangesMaybe.get();
-                for (final var value : valueRanges.keySet()) {
-                    // we check if the predicate value is a placeholder, if so, create a placeholder, otherwise, add it as a constraint.
-                    final var maybePlaceholder = keyValueExpansion.getPlaceholders()
-                            .stream()
-                            .filter(existingPlaceholder -> existingPlaceholder.getValue().semanticEquals(value, AliasMap.emptyMap()))
-                            .findFirst();
-                    if (maybePlaceholder.isEmpty()) {
-                        predicateExpansionBuilder.addPredicate(PredicateWithValueAndRanges.ofRanges(value, ImmutableSet.copyOf(valueRanges.get(value))));
-                    } else {
-                        predicateExpansionBuilder.addPlaceholder(maybePlaceholder.get().withExtraRanges(ImmutableSet.copyOf(valueRanges.get(value))));
+            if (!filteredIndexPredicate.isTautology()) {
+                final var valueRangesMaybe = IndexPredicateExpansion.dnfPredicateToRanges(filteredIndexPredicate);
+                final var predicateExpansionBuilder = GraphExpansion.builder();
+                if (valueRangesMaybe.isEmpty()) { // could not create DNF, store the predicate as-is.
+                    allExpansionsBuilder.add(GraphExpansion.ofPredicate(filteredIndexPredicate));
+                } else {
+                    final var valueRanges = valueRangesMaybe.get();
+                    for (final var value : valueRanges.keySet()) {
+                        // we check if the predicate value is a placeholder, if so, create a placeholder, otherwise, add it as a constraint.
+                        final var maybePlaceholder = keyValueExpansion.getPlaceholders()
+                                .stream()
+                                .filter(existingPlaceholder -> existingPlaceholder.getValue().semanticEquals(value, AliasMap.emptyMap()))
+                                .findFirst();
+                        if (maybePlaceholder.isEmpty()) {
+                            predicateExpansionBuilder.addPredicate(PredicateWithValueAndRanges.ofRanges(value, ImmutableSet.copyOf(valueRanges.get(value))));
+                        } else {
+                            predicateExpansionBuilder.addPlaceholder(maybePlaceholder.get().withExtraRanges(ImmutableSet.copyOf(valueRanges.get(value))));
+                        }
                     }
                 }
+                allExpansionsBuilder.add(predicateExpansionBuilder.build());
             }
-            allExpansionsBuilder.add(predicateExpansionBuilder.build());
         }
 
         final var completeExpansion = GraphExpansion.ofOthers(allExpansionsBuilder.build());
@@ -181,18 +188,16 @@ public class VectorIndexExpansionVisitor extends KeyExpressionExpansionVisitor i
     @Nonnull
     private Placeholder createDistanceValuePlaceholder(@Nonnull Iterable<? extends Value> partitioningValues,
                                                        @Nonnull Iterable<? extends Value> argumentValues) {
-        final var metric = index.getOptions().getOrDefault(IndexOptions.HNSW_METRIC, Config.DEFAULT_METRIC.name());
-        switch (Metric.valueOf(metric)) {
-            case EUCLIDEAN_METRIC:
-                return new EuclideanDistanceRowNumberValue(partitioningValues, argumentValues).asPlaceholder(newParameterAlias());
-            case EUCLIDEAN_SQUARE_METRIC:
-                return new EuclideanSquareDistanceRowNumberValue(partitioningValues, argumentValues).asPlaceholder(newParameterAlias());
-            case COSINE_METRIC:
-                return new CosineDistanceRowNumberValue(partitioningValues, argumentValues).asPlaceholder(newParameterAlias());
-            case DOT_PRODUCT_METRIC:
-                return new DotProductDistanceRowNumberValue(partitioningValues, argumentValues).asPlaceholder(newParameterAlias());
-            default:
-                throw new RecordCoreException("vector index does not support provided metric type " + metric);
-        }
+        final var metric = VectorIndexHelper.getMetric(index);
+        return switch (metric) {
+            case EUCLIDEAN_METRIC ->
+                    new EuclideanDistanceRowNumberValue(partitioningValues, argumentValues).asPlaceholder(newParameterAlias());
+            case EUCLIDEAN_SQUARE_METRIC ->
+                    new EuclideanSquareDistanceRowNumberValue(partitioningValues, argumentValues).asPlaceholder(newParameterAlias());
+            case COSINE_METRIC ->
+                    new CosineDistanceRowNumberValue(partitioningValues, argumentValues).asPlaceholder(newParameterAlias());
+            case DOT_PRODUCT_METRIC ->
+                    new DotProductDistanceRowNumberValue(partitioningValues, argumentValues).asPlaceholder(newParameterAlias());
+        };
     }
 }

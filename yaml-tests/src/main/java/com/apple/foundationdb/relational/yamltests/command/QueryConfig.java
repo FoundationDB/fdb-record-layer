@@ -21,22 +21,23 @@
 package com.apple.foundationdb.relational.yamltests.command;
 
 import com.apple.foundationdb.relational.api.RelationalResultSet;
+import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.recordlayer.ErrorCapturingResultSet;
 import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.yamltests.CustomYamlConstructor;
 import com.apple.foundationdb.relational.yamltests.Matchers;
-import com.apple.foundationdb.relational.yamltests.YamlReference;
 import com.apple.foundationdb.relational.yamltests.YamlConnection;
 import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
+import com.apple.foundationdb.relational.yamltests.YamlReference;
 import com.apple.foundationdb.relational.yamltests.block.PreambleBlock;
 import com.apple.foundationdb.relational.yamltests.command.queryconfigs.CheckExplainConfig;
+import com.apple.foundationdb.relational.yamltests.command.queryconfigs.CheckResultMetadataConfig;
 import com.apple.foundationdb.relational.yamltests.server.SemanticVersion;
+import com.apple.foundationdb.relational.yamltests.server.SemanticVersionRanges;
 import com.apple.foundationdb.relational.yamltests.server.SupportedVersionCheck;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Range;
-import com.google.common.collect.RangeSet;
-import com.google.common.collect.TreeRangeSet;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.junit.jupiter.api.Assertions;
@@ -53,13 +54,40 @@ import java.util.Set;
 import static com.apple.foundationdb.relational.yamltests.command.QueryCommand.reportTestFailure;
 
 /**
- * A {@link QueryConfig} defines how the query is to be run and how the output of the query execution or the error
- * (in case of failure in query execution) is to be tested. To do so, it utilizes 2 methods
- * <ul>
- *     <li>{@code decorateQuery}: takes in the canonical query string and changes it as is needed to be run</li>
- *     <li>{@code checkResult}: checks for the result from the query execution.</li>
- *     <li>{@code checkError}: checks for the error.</li>
- * </ul>
+ * A {@link QueryConfig} defines how a query is validated after execution. Each test in a {@code test_block} consists
+ * of a query command followed by zero or more config directives. The supported directives are:
+ *
+ * <table>
+ *   <caption>Query configuration directives (parsed by {@code parseConfig})</caption>
+ *   <tr><th>Directive</th><th>Description</th></tr>
+ *   <tr><td>{@code result}</td><td>Validate result rows in order. Multiple {@code result} directives test consecutive
+ *       continuations (pagination). Rows can use named syntax ({@code [{ID: !l 10, NAME: 'Alice'}]}) or
+ *       positional syntax with {@code !pos} ({@code [{!pos 1: !l 10, !pos 2: 'Alice'}]}).</td></tr>
+ *   <tr><td>{@code unorderedResult}</td><td>Validate result rows regardless of order.</td></tr>
+ *   <tr><td>{@code count}</td><td>Validate the affected row count for INSERT/UPDATE/DELETE.</td></tr>
+ *   <tr><td>{@code error}</td><td>Expect failure with a specific SQL state code (e.g., {@code "42601"}).</td></tr>
+ *   <tr><td>{@code explain}</td><td>Validate the exact query execution plan string.</td></tr>
+ *   <tr><td>{@code explainContains}</td><td>Validate the plan contains a given substring.</td></tr>
+ *   <tr><td>{@code planHash}</td><td>Validate the query plan hash (integer).</td></tr>
+ *   <tr><td>{@code maxRows}</td><td>Limit rows fetched per result set (enables pagination testing with multiple
+ *       {@code result} directives).</td></tr>
+ *   <tr><td>{@code setup}</td><td>Inline transaction-scoped setup SQL (only {@code CREATE TEMPORARY FUNCTION}).</td></tr>
+ *   <tr><td>{@code setupReference}</td><td>Reference a named setup from a {@code transaction_setups} block.</td></tr>
+ *   <tr><td>{@code supported_version}</td><td>Minimum version for this query. Must be the first directive if
+ *       present.</td></tr>
+ *   <tr><td>{@code initialVersionAtLeast} / {@code initialVersionLessThan}</td><td>Version-dependent expected results.
+ *       Ranges must cover all possible versions.</td></tr>
+ *   <tr><td>{@code debugger}</td><td>Attach a planner debugger ({@code SANE}, {@code VERBOSE}, {@code QUIET}).</td></tr>
+ *   <tr><td>{@code noOp}</td><td>No-operation placeholder indicating the query continues.</td></tr>
+ * </table>
+ *
+ * <p>Result directives must appear last (after all non-result directives). See {@code showcasing-tests.yamsql} for
+ * examples of each directive.</p>
+ * <p>Note: any queries that validate the plan string exactly ({@code explain}, not {@code explainContains}) will also
+ * validate the planner metrics, putting them in two corresponding files, with {@code ".metrics.binpb"} and
+ * {@code ".metrics.yaml"} instead of {@code ".yamsql"}. The {@code .binpb} file is used for the actual assertions, and
+ * {@code .yaml} file provides a human-readable version for comparing, and the test will fail if the number of tasks the
+ * planner does changes.</p>
  */
 @SuppressWarnings({"PMD.GuardLogStatement", "PMD.AvoidCatchingThrowable"})
 public abstract class QueryConfig {
@@ -81,9 +109,11 @@ public abstract class QueryConfig {
     public static final String QUERY_CONFIG_SETUP = "setup";
     public static final String QUERY_CONFIG_SETUP_REFERENCE = "setupReference";
     public static final String QUERY_CONFIG_DEBUGGER = "debugger";
+    public static final String QUERY_CONFIG_RESULT_METADATA = "resultMetadata";
 
-    private static final Set<String> RESULT_CONFIGS = ImmutableSet.of(QUERY_CONFIG_ERROR, QUERY_CONFIG_COUNT, QUERY_CONFIG_RESULT, QUERY_CONFIG_UNORDERED_RESULT);
+    private static final Set<String> RESULT_CONFIGS = ImmutableSet.of(QUERY_CONFIG_ERROR, QUERY_CONFIG_COUNT, QUERY_CONFIG_RESULT, QUERY_CONFIG_UNORDERED_RESULT, QUERY_CONFIG_RESULT_METADATA);
     private static final Set<String> VERSION_DEPENDENT_RESULT_CONFIGS = ImmutableSet.of(QUERY_CONFIG_INITIAL_VERSION_AT_LEAST, QUERY_CONFIG_INITIAL_VERSION_LESS_THAN);
+    private static final Set<String> RESULT_CONSUMING_CONFIGS = ImmutableSet.of(QUERY_CONFIG_ERROR, QUERY_CONFIG_COUNT, QUERY_CONFIG_RESULT, QUERY_CONFIG_UNORDERED_RESULT);
 
     @Nullable private final Object value;
     @Nonnull private final YamlReference reference;
@@ -206,7 +236,14 @@ public abstract class QueryConfig {
         return new CheckExplainConfig(configName, value, reference, executionContext, isExact, blockName);
     }
 
+    private static QueryConfig getCheckResultMetadataConfig(@Nonnull String configName, @Nullable Object value,
+                                                            @Nonnull final YamlReference reference,
+                                                            @Nonnull YamlExecutionContext executionContext) {
+        return new CheckResultMetadataConfig(configName, value, reference, executionContext);
+    }
+
     private static QueryConfig getCheckErrorConfig(@Nullable Object value, @Nonnull final YamlReference reference) {
+        final String expectedCode = resolveErrorCode(value, reference);
         return new QueryConfig(QUERY_CONFIG_ERROR, value, reference) {
 
             @Override
@@ -234,13 +271,49 @@ public abstract class QueryConfig {
             @Override
             void checkErrorInternal(@Nonnull SQLException e, @Nonnull String queryDescription) {
                 logger.debug("⛳️ Checking error code resulted from executing '{}'", queryDescription);
-                if (!e.getSQLState().equals(getVal())) {
-                    reportTestFailure("‼️ expecting '" + getVal() + "' error code, got '" + e.getSQLState() + "' instead at " + getReference() + "!", e);
+                final String actualCode = e.getSQLState();
+                if (!actualCode.equals(expectedCode)) {
+                    reportTestFailure("‼️ expecting '" + formatErrorCode(expectedCode) + "' error code, got '" + formatErrorCode(actualCode) + "' instead at " + getReference() + "!", e);
                 } else {
-                    logger.debug("✅ error codes '{}' match!", getVal());
+                    logger.debug("✅ error codes '{}' match!", expectedCode);
                 }
             }
         };
+    }
+
+    /**
+     * Resolves an error value from a yamsql file to a 5-character SQLSTATE code.
+     * Accepts either a raw 5-character SQLSTATE code (e.g. {@code "42601"}) or an
+     * {@link ErrorCode} enum name (e.g. {@code "SYNTAX_ERROR"}) for readability.
+     */
+    private static String resolveErrorCode(@Nullable Object value, @Nonnull YamlReference reference) {
+        if (value == null) {
+            return null;
+        }
+        final String str = value.toString();
+        if (str.length() == 5) {
+            return str;
+        }
+        try {
+            return ErrorCode.valueOf(str).getErrorCode();
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException("'" + str + "' is not a valid ErrorCode enum name or a 5-character SQLSTATE code at " + reference, e);
+        }
+    }
+
+    /**
+     * Formats a 5-character SQLSTATE code for display. If the code maps to a known
+     * {@link ErrorCode}, returns {@code "ENUM_NAME (code)"}; otherwise returns the raw code.
+     */
+    private static String formatErrorCode(@Nullable String code) {
+        if (code == null) {
+            return "null";
+        }
+        final ErrorCode errorCode = ErrorCode.get(code);
+        if (errorCode == ErrorCode.UNKNOWN) {
+            return code;
+        }
+        return errorCode.name() + " (" + code + ")";
     }
 
     private static QueryConfig getCheckCountConfig(@Nullable Object value, @Nonnull final YamlReference reference) {
@@ -388,7 +461,9 @@ public abstract class QueryConfig {
                 if (requireResults && !resultOrVersionConfig) {
                     throw new IllegalArgumentException("Only result configurations can follow first result or version specification config");
                 }
-                requireResults |= resultOrVersionConfig;
+                // resultMetadata is allowed anywhere (before or after result configs) but does not itself
+                // trigger the ordering constraint — non-result configs such as explain may follow it.
+                requireResults |= (resultOrVersionConfig && !QUERY_CONFIG_RESULT_METADATA.equals(key));
                 configs.add(parseConfig(blockName, key, value, reference, executionContext));
             } catch (Exception e) {
                 throw YamlExecutionContext.wrapContext(e, () -> "‼️ Error parsing the query config at " + reference, "config", reference);
@@ -455,6 +530,8 @@ public abstract class QueryConfig {
             return getSetupConfig(executionContext.getTransactionSetup(value), reference);
         } else if (QUERY_CONFIG_DEBUGGER.equals(key)) {
             return getDebuggerConfig(value, reference);
+        } else if (QUERY_CONFIG_RESULT_METADATA.equals(key)) {
+            return getCheckResultMetadataConfig(key, value, reference, executionContext);
         } else {
             throw Assert.failUnchecked("‼️ '" + key + "' is not a valid configuration");
         }
@@ -465,18 +542,20 @@ public abstract class QueryConfig {
                         .noneMatch(config -> QueryConfig.QUERY_CONFIG_SUPPORTED_VERSION.equals(config.getConfigName())),
                 "supported_version must be the first config in a query (after the query itself)");
 
+        if (configs.stream().anyMatch(c -> QUERY_CONFIG_RESULT_METADATA.equals(c.getConfigName()))) {
+            Assert.thatUnchecked(configs.stream().anyMatch(c -> RESULT_CONSUMING_CONFIGS.contains(c.getConfigName())),
+                    "resultMetadata requires at least one of result, unorderedResult, error, or count to be present");
+        }
+
         // Validate that the results check each version comprehensively by making sure the set of
         // covered ranges spans the range [MIN_VERSION, MAX_VERSION)
         if (configs.stream().anyMatch(config -> config instanceof QueryConfig.InitialVersionCheckConfig)) {
-            // Creating an interval set including each covered range
-            RangeSet<SemanticVersion> rangeSet = TreeRangeSet.create();
-            configs.stream().filter(config -> config instanceof QueryConfig.InitialVersionCheckConfig)
-                    .map(config -> (QueryConfig.InitialVersionCheckConfig)config)
-                    .forEach(config -> rangeSet.add(Range.closedOpen(config.getMinVersion(), config.getMaxVersion())));
-            // Get the set of uncovered ranges that span over [MIN_VERSION, MAX_VERSION)
-            Set<Range<SemanticVersion>> uncovered = rangeSet.complement()
-                    .subRangeSet(Range.closedOpen(SemanticVersion.min(), SemanticVersion.max()))
-                    .asRanges();
+            List<Range<SemanticVersion>> ranges = configs.stream()
+                    .filter(config -> config instanceof QueryConfig.InitialVersionCheckConfig)
+                    .map(config -> (QueryConfig.InitialVersionCheckConfig) config)
+                    .map(config -> Range.closedOpen(config.getMinVersion(), config.getMaxVersion()))
+                    .toList();
+            Set<Range<SemanticVersion>> uncovered = SemanticVersionRanges.uncovered(ranges);
             if (!uncovered.isEmpty()) {
                 IllegalArgumentException e = new IllegalArgumentException("Test case does not cover complete set of versions as it is missing: " + uncovered);
                 throw YamlExecutionContext.wrapContext(e, () -> "‼️ Non-comprehensive test case found at " + reference, "config", reference);
@@ -536,7 +615,7 @@ public abstract class QueryConfig {
         }
     }
 
-    private static boolean shouldExecuteExplain(final YamlExecutionContext executionContext) {
+    static boolean shouldExecuteExplain(final YamlExecutionContext executionContext) {
         return (! executionContext.getConnectionFactory().isMultiServer());
     }
 

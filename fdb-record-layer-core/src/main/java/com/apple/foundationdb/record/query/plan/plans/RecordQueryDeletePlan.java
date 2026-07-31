@@ -165,7 +165,10 @@ public class RecordQueryDeletePlan extends AbstractRelationalExpressionWithChild
         if (this == other) {
             return true;
         }
-        return getClass() == other.getClass();
+        if (getClass() != other.getClass()) {
+            return false;
+        }
+        return semanticEqualsForResults(other, equivalences);
     }
 
     @Override

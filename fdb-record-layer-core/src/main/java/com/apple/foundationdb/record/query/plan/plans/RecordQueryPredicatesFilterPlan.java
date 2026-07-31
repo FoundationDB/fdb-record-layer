@@ -180,6 +180,9 @@ public class RecordQueryPredicatesFilterPlan extends RecordQueryFilterPlanBase i
             return false;
         }
         final var otherPlan = (RecordQueryPredicatesFilterPlan)otherExpression;
+        if (!semanticEqualsForResults(otherPlan, equivalencesMap)) {
+            return false;
+        }
         final var otherPredicates = otherPlan.getPredicates();
         if (predicates.size() != otherPredicates.size()) {
             return false;

@@ -521,7 +521,7 @@ public class Quantifiers {
         final List<? extends Reference> newReferences = References.rebaseGraphs(oldReferences, memoizer, translationMap, shouldSimplifyValues);
 
         return Streams.zip(quantifiers.stream(), newReferences.stream(), (oldQun, newRef) -> {
-            CorrelationIdentifier newAlias = translationMap.getTargetOrDefault(oldQun.getAlias(), oldQun.getAlias());
+            CorrelationIdentifier newAlias = translationMap.getTargetMaybe(oldQun.getAlias()).orElse(oldQun.getAlias());
             if (newAlias.equals(oldQun.getAlias()) && oldQun.getRangesOver() == newRef) {
                 return oldQun;
             } else {

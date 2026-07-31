@@ -26,6 +26,7 @@ schema_template:
     create index mv4 as select count(col1) from t1 group by col2
     create table t2(id bigint, col1 bigint, col2 bigint, col3 bigint, primary key(id))
     create index mv5 as select col2 from t2
+    create index mv6 as select count(col2) from t1 group by col1, col2
 ---
 test_block:
   name: agg-index-tests-count-empty
@@ -36,10 +37,12 @@ test_block:
       - initialVersionLessThan: 4.0.561.0
       - result: []
       - initialVersionAtLeast: 4.0.561.0
+      - resultMetadata: [{_0: BIGINT}]
       - result: [{0}]
     -
       - query: select count(*) from t1 group by col2
       - explain: "AISCAN(MV2 <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._1 AS _0)"
+      - resultMetadata: [{_0: BIGINT}]
       - result: []
     -
       - query: select count(col1) from t1
@@ -50,25 +53,36 @@ test_block:
       - result: [{0}]
     -
       - query: select count(col1) from t1 group by col2
+      - resultMetadata: [{_0: BIGINT}]
       - explain: "AISCAN(MV4 <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._1 AS _0)"
       - result: []
     -
       - query: select * from t2
+      - resultMetadata: [{ID: BIGINT}, {COL1: BIGINT}, {COL2: BIGINT}, {COL3: BIGINT}]
       - result: []
     -
       - query: select count(*) from t2
-      - explain: "ISCAN(MV5 <,>) | MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
+      - explain: "ISCAN(MV5 <,>) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
+      - resultMetadata: [{_0: BIGINT}]
       - result: [{0}]
     -
       - query: select count(*) from t2 group by col2
+      - resultMetadata: [{_0: BIGINT}]
       - explain: "ISCAN(MV5 <,>) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY (_._0.COL2 AS _0) | MAP (_._1._0 AS _0)"
       - result: []
     -
       - query: select count(col1) from t2
-      - explain: "ISCAN(MV5 <,>) | MAP (_ AS _0) | AGG (count(_._0.COL1) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
+      - explain: "ISCAN(MV5 <,>) | MAP (_ AS _0) | AGG (count(_._0.COL1) AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
+      - resultMetadata: [{_0: BIGINT}]
       - result: [{0}]
     -
       - query: select count(col1) from t2 group by col2
+      - resultMetadata: [{_0: BIGINT}]
       - explain: "ISCAN(MV5 <,>) | MAP (_ AS _0) | AGG (count(_._0.COL1) AS _0) GROUP BY (_._0.COL2 AS _0) | MAP (_._1._0 AS _0)"
       - result: []
+    -
+      - query: select count(col2) from t1 where col1 = 22
+      - explain: "AISCAN(MV6 [EQUALS promote(@c10 AS LONG)] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: VALUE:[0]]) | AGG sum_l(_._2) GROUP BY (_._0 AS _0) | MAP ((_._2 AS _0) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
+      - resultMetadata: [ { _0: BIGINT } ]
+      - result: [{0}]
 ...

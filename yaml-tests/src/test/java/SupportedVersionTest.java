@@ -35,6 +35,7 @@ import javax.annotation.Nonnull;
 import java.net.URI;
 import java.sql.DriverManager;
 import java.sql.SQLException;
+import java.util.List;
 import java.util.Set;
 import java.util.stream.Stream;
 
@@ -47,7 +48,7 @@ public class SupportedVersionTest {
 
     private static final SemanticVersion VERSION = SemanticVersion.parse("3.0.18.0");
     private static final String CLUSTER_FILE = FDBTestEnvironment.randomClusterFile();
-    private static final EmbeddedConfig config = new EmbeddedConfig(CLUSTER_FILE);
+    private static final EmbeddedConfig config = new EmbeddedConfig(List.of(CLUSTER_FILE));
 
     @BeforeAll
     static void beforeAll() throws Exception {
@@ -66,7 +67,7 @@ public class SupportedVersionTest {
     YamlConnectionFactory createConnectionFactory() {
         return new YamlConnectionFactory() {
             @Override
-            public YamlConnection getNewConnection(@Nonnull URI connectPath) throws SQLException {
+            public YamlConnection getNewConnection(@Nonnull URI connectPath, int clusterIndex) throws SQLException {
                 return new SimpleYamlConnection(DriverManager.getConnection(connectPath.toString()), VERSION, CLUSTER_FILE);
             }
 
@@ -109,7 +110,9 @@ public class SupportedVersionTest {
                 "unsupported-at-query",
                 "current-version-at-file",
                 "current-version-at-block",
+                "current-version-at-file-and-setup-block",
                 "current-version-at-query",
+                "current-version-at-setup-block",
                 "higher-at-block",
                 "higher-at-query",
                 "fully-supported",

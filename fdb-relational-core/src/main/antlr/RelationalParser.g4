@@ -5,7 +5,7 @@ Copyright (c) 2015-2017, Ivan Kochurkin (kvanttt@gmail.com), Positive Technologi
 Copyright (c) 2017, Ivan Khudyashev (IHudyashov@ptsecurity.com)
 Copyright 2021-2025 Apple Inc. and the FoundationDB project authors
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
+Permission is hereby granted, free of  charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
 in the Software without restriction, including without limitation the rights
 to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
@@ -91,7 +91,7 @@ utilityStatement
 
 templateClause
     :
-        CREATE ( structDefinition | tableDefinition | enumDefinition | indexDefinition | sqlInvokedFunction | viewDefinition )
+        CREATE ( structDefinition | tableDefinition | enumDefinition | indexDefinition | sqlInvokedFunction | viewDefinition | storedQueryDefinition )
     ;
 
 createStatement
@@ -133,7 +133,7 @@ columnDefinition
 // this is not aligned with SQL standard, but it eliminates ambiguities related to necessating a lookahead of 1 to resolve
 // column with a custom type (which is a mere ID, just like the column ID).
 functionColumnType
-    : primitiveType | TYPE customType=uid;
+    : (primitiveType | TYPE customType=uid) ARRAY?;
 
 columnType
     : primitiveType | customType=uid;
@@ -171,7 +171,7 @@ enumDefinition
 indexDefinition
     : (UNIQUE)? INDEX indexName=uid AS queryTerm indexAttributes?                                                                  #indexAsSelectDefinition
     | (UNIQUE)? INDEX indexName=uid ON source=fullId indexColumnList includeClause? indexOptions?                                  #indexOnSourceDefinition
-    | VECTOR INDEX indexName=uid USING HNSW ON source=fullId indexColumnList includeClause? indexPartitionClause? vectorIndexOptions?   #vectorIndexDefinition
+    | VECTOR INDEX indexName=uid USING engine=vectorEngine ON source=fullId indexColumnList includeClause? indexPartitionClause? vectorIndexOptions?   #vectorIndexDefinition
     ;
 
 indexColumnList
@@ -202,21 +202,24 @@ indexOption
     : LEGACY_EXTREMUM_EVER
     ;
 
+vectorEngine
+    : HNSW
+    | GUARDIANN
+    ;
+
 vectorIndexOptions
     : OPTIONS '(' vectorIndexOption (COMMA vectorIndexOption)* ')'
     ;
 
 vectorIndexOption
-    : EF_CONSTRUCTION '=' efConstruction=DECIMAL_LITERAL
-    | CONNECTIVITY '=' connectivity=DECIMAL_LITERAL
-    | M_MAX '=' mMax=DECIMAL_LITERAL
-    | M_MAX_0 '=' mMaxZero=DECIMAL_LITERAL
-    | MAINTAIN_STATS_PROBABILITY '=' maintainStatsProbability=REAL_LITERAL
-    | METRIC '=' metric=hnswMetric
-    | RABITQ_NUM_EX_BITS '=' rabitQNumExBits=DECIMAL_LITERAL
-    | SAMPLE_VECTOR_STATS_PROBABILITY '=' statsProbability=REAL_LITERAL
-    | STATS_THRESHOLD '=' statsThreshold=DECIMAL_LITERAL
-    | USE_RABITQ '=' useRabitQ=booleanLiteral
+    : optionName=simpleId '=' optionValue=vectorIndexOptionValue
+    ;
+
+vectorIndexOptionValue
+    : DECIMAL_LITERAL
+    | REAL_LITERAL
+    | booleanLiteral
+    | hnswMetric
     ;
 
 hnswMetric
@@ -244,6 +247,18 @@ dropTempFunction
 
 viewDefinition
     : VIEW viewName=fullId AS viewQuery=query
+    ;
+
+storedQueryDefinition
+    : STORED QUERY queryName=uid declareBlock? AS storedQuery=query
+    ;
+
+declareBlock
+    : DECLARE declaredFunction (SEMI declaredFunction)* SEMI?
+    ;
+
+declaredFunction
+    : FUNCTION functionName=uid sqlParameterDeclarationList AS '(' functionBody=query ')'
     ;
 
 tempSqlInvokedFunction
@@ -282,7 +297,7 @@ returnsClause
     ;
 
 returnsType
-    : returnsDataType=columnType
+    : returnsDataType=columnType ARRAY?
     | returnsTableType
     ;
 
@@ -329,18 +344,9 @@ dispatchClause
     ;
 
 routineBody
-    : AS queryTerm         #statementBody
-    | AS fullId            #userDefinedScalarFunctionStatementBody
-    | sqlReturnStatement   #expressionBody
+    : AS queryTerm                    #statementBody
+    | (RETURN | AS) expression        #userDefinedMacroFunctionStatementBody
     // | externalBodyReferences TODO
-    ;
-
-sqlReturnStatement
-    : RETURN returnValue
-    ;
-
-returnValue
-    : expression
     ;
 
 charSet
@@ -376,14 +382,14 @@ deleteStatement
       (WHERE whereExpr)?
       orderByClause? limitClause?
       (RETURNING selectElements)?
-      queryOptions?
+      statementOptions?
     ;
 
 insertStatement
     : INSERT
       INTO? tableName
       (columns=uidListWithNestingsInParens)? insertStatementValue
-      queryOptions?
+      statementOptions?
     ;
 
 continuationAtom
@@ -392,7 +398,7 @@ continuationAtom
     ;
 
 selectStatement
-    : query
+    : query statementOptions?
     ;
 
 query
@@ -412,10 +418,10 @@ namedQuery
     ;
 
 tableFunction
-    : tableFunctionName '(' tableFunctionArgs? ')' inlineTableDefinition?
+    : tableFunctionName '(' namedOrUnnamedFunctionArgs? ')' inlineTableDefinition?
     ;
 
-tableFunctionArgs
+namedOrUnnamedFunctionArgs
     : functionArg ( ',' functionArg )*
     | namedFunctionArg ( ',' namedFunctionArg)*
     ;
@@ -453,7 +459,7 @@ updateStatement
       SET updatedElement (',' updatedElement)*
       (WHERE whereExpr)?
       (RETURNING selectElements)?
-      queryOptions?
+      statementOptions?
     ;
 
 // details
@@ -480,7 +486,7 @@ tableSource // done
     ;
 
 tableSourceItem // done
-    : tableName (AS? alias=uid)? (indexHint (',' indexHint)* )?                                             #atomTableItem // done
+    : tableName (AS? alias=uid)? (AT atAlias=uid)? (indexHint (',' indexHint)*)?                            #atomTableItem // done
     | '(' query ')' AS? alias=uid                                                                           #subqueryTableItem // done
     | VALUES recordConstructorForInlineTable (',' recordConstructorForInlineTable )* inlineTableDefinition? #inlineTableItem
     | tableFunction (AS? alias=uid)?                                                                        #tableValuedFunction
@@ -527,8 +533,7 @@ queryTerm
     qualifyClause?
     /*windowClause?*/
     orderByClause?
-    limitClause?
-    queryOptions?                                                  #simpleTable
+    limitClause?                                                   #simpleTable
     | '(' query ')'                                                #parenthesisQuery
     ;
 
@@ -584,15 +589,15 @@ limitClauseAtom
     | preparedStatementParameter
     ;
 
-queryOptions
-    : OPTIONS '(' queryOption (',' queryOption)* ')'
+statementOptions
+    : OPTIONS '(' statementOption (',' statementOption)* ')'
     ;
 
-queryOption
+statementOption
     : NOCACHE
     | LOG QUERY
     | DRY RUN
-    | EF_SEARCH decimalLiteral
+    | PLAN RIGHT DEEP
     ;
 
 // Transaction's Statements
@@ -682,12 +687,17 @@ resetStatement
 
 executeContinuationStatement
     : EXECUTE CONTINUATION packageBytes=continuationAtom
-      queryOptions?
+      statementOptions?
     ;
 
 copyStatement
-    : COPY path                                    #copyExportStatement
+    : COPY path incarnationOption                  #copyExportStatement
     | COPY path FROM preparedStatementParameter    #copyImportStatement
+    ;
+
+incarnationOption
+    : PRESERVE INCARNATION
+    | INCREMENT INCARNATION
     ;
 
 // details
@@ -731,7 +741,7 @@ helpStatement
 
 describeObjectClause
     : (
-        query | deleteStatement | insertStatement
+        query statementOptions? | deleteStatement | insertStatement
         | updateStatement | executeContinuationStatement
       )                                                             #describeStatements
     | FOR CONNECTION uid                                            #describeConnection
@@ -993,11 +1003,11 @@ ifNotExists
 //    Functions
 
 functionCall
-    : aggregateWindowedFunction                                     #aggregateFunctionCall // done (supported)
-    | nonAggregateWindowedFunction                                  #nonAggregateFunctionCall // done
-    | specificFunction                                              #specificFunctionCall //
-    | scalarFunctionName '(' functionArgs? ')'                      #scalarFunctionCall // done (unsupported)
-    | userDefinedScalarFunctionName '(' functionArgs? ')'           #userDefinedScalarFunctionCall
+    : aggregateWindowedFunction                                                   #aggregateFunctionCall // done (supported)
+    | nonAggregateWindowedFunction                                                #nonAggregateFunctionCall // done
+    | specificFunction                                                            #specificFunctionCall //
+    | scalarFunctionName '(' functionArgs? ')'                                    #scalarFunctionCall // done (unsupported)
+    | userDefinedScalarFunctionName '(' namedOrUnnamedFunctionArgs? ')'           #userDefinedScalarFunctionCall
     ;
 
 specificFunction
@@ -1189,6 +1199,7 @@ partitionClause
 
 scalarFunctionName
     : functionNameBase
+    | functionNameKeyword
     | ASCII | CURDATE | CURRENT_DATE | CURRENT_TIME
     | CURRENT_TIMESTAMP | CURTIME | DATE_ADD | DATE_SUB
     | IF | INSERT | LOCALTIME | LOCALTIMESTAMP | MID | NOW
@@ -1226,7 +1237,7 @@ expression
 predicate
     : NOT? BETWEEN left=expressionAtom AND right=expressionAtom           #betweenComparisonPredicate // done
     | NOT? IN inList                                                      #inPredicate // done
-    | NOT? LIKE pattern=STRING_LITERAL (ESCAPE escape=STRING_LITERAL)?    #likePredicate // done
+    | NOT? LIKE pattern=constant (ESCAPE escape=STRING_LITERAL)?          #likePredicate // done
     | IS NOT? testValue=(TRUE | FALSE | NULL_LITERAL)                     #isExpression      // done
     ;
 
@@ -1298,7 +1309,9 @@ intervalTypeBase
     ;
 
 keywordsCanBeId
-    : ACCOUNT | ACTION | ADMIN | AFTER | AGGREGATE | ALGORITHM | ANY
+    : CONNECTIVITY | EF_CONSTRUCTION | M_MAX | M_MAX_0 | MAINTAIN_STATS_PROBABILITY | METRIC
+    | RABITQ_NUM_EX_BITS | SAMPLE_VECTOR_STATS_PROBABILITY | STATS_THRESHOLD | USE_RABITQ
+    | ACCOUNT | ACTION | ADMIN | AFTER | AGGREGATE | ALGORITHM | ANY
     | AT | AUDIT_ADMIN | AUTHORS | AUTOCOMMIT | AUTOEXTEND_SIZE
     | AUTO_INCREMENT | AVG | AVG_ROW_LENGTH | BACKUP_ADMIN | BEGIN | BINLOG | BINLOG_ADMIN | BINLOG_ENCRYPTION_ADMIN | BIT | BIT_AND | BIT_OR | BIT_XOR
     | BLOCK | BOOL | BTREE | CACHE | CASCADED | CHAIN | CHANGED
@@ -1318,8 +1331,8 @@ keywordsCanBeId
     | FIELDS | FILE_BLOCK_SIZE | FILTER | FIREWALL_ADMIN | FIREWALL_USER | FIRST | FIXED | FLUSH
     | FOLLOWS | FOUND | FULL | FUNCTION | GENERAL | GLOBAL | GRANTS | GROUP | GROUP_CONCAT
     |  HANDLER | HASH | HELP | HOST | HOSTS | IDENTIFIED
-    | IGNORED | IGNORE_SERVER_IDS | IMPORT | INDEX | INDEXES | INITIAL_SIZE | INNODB_REDO_LOG_ARCHIVE
-    | INPLACE | INSERT_METHOD | INSTALL | INSTANCE | INSTANT | INTERNAL | INVOKER | IO
+    | IGNORED | IGNORE_SERVER_IDS | IMPORT | INCARNATION | INCREMENT | INDEX | INDEXES | INITIAL_SIZE
+    | INNODB_REDO_LOG_ARCHIVE | INPLACE | INSERT_METHOD | INSTALL | INSTANCE | INSTANT | INTERNAL | INVOKER | IO
     | IO_THREAD | IPC | ISO | ISOLATION | ISSUER | JIS | JSON | KEY | KEY_BLOCK_SIZE
     | LANGUAGE | LAST | LEAVES | LESS | LEVEL | LIST | LOCAL
     | LOGFILE | LOGS | MASTER | MASTER_AUTO_POSITION
@@ -1392,7 +1405,7 @@ functionNameBase
     | ISCLOSED | ISEMPTY | ISNULL
     | ISSIMPLE | IS_FREE_LOCK | IS_IPV4 | IS_IPV4_COMPAT
     | IS_IPV4_MAPPED | IS_IPV6 | IS_USED_LOCK | LAG | LAST_INSERT_ID | LAST_VALUE
-    | LCASE | LEAD | LEAST | LEFT | LENGTH | LINEFROMTEXT | LINEFROMWKB
+    | LCASE | LEAD | LEAST | LENGTH | LINEFROMTEXT | LINEFROMWKB
     | LINESTRING | LINESTRINGFROMTEXT | LINESTRINGFROMWKB | LN
     | LOAD_FILE | LOCATE | LOG | LOG10 | LOG2 | LOWER | LPAD
     | LTRIM | MAKEDATE | MAKETIME | MAKE_SET | MASTER_POS_WAIT
@@ -1409,7 +1422,7 @@ functionNameBase
     | POINTFROMTEXT | POINTFROMWKB | POINTN | POLYFROMTEXT
     | POLYFROMWKB | POLYGON | POLYGONFROMTEXT | POLYGONFROMWKB
     | POSITION | POW | POWER | QUARTER | QUOTE | RADIANS | RAND | RANK
-    | RANDOM_BYTES | RELEASE_LOCK | REVERSE | RIGHT | ROUND
+    | RANDOM_BYTES | RELEASE_LOCK | REVERSE | ROUND
     | ROW_COUNT | ROW_NUMBER | RPAD | RTRIM | SECOND | SEC_TO_TIME
     | SCHEMA | SESSION_USER | SESSION_VARIABLES_ADMIN
     | SHA | SHA1 | SHA2 | SIGN | SIN | SLEEP
@@ -1451,4 +1464,15 @@ functionNameBase
     | JSON_VALID | JSON_TABLE | JSON_SCHEMA_VALID | JSON_SCHEMA_VALIDATION_REPORT
     | JSON_PRETTY | JSON_STORAGE_FREE | JSON_STORAGE_SIZE | JSON_ARRAYAGG
     | JSON_OBJECTAGG
+    ;
+
+// Tokens that may serve as function names but are also keywords. These are _not_ accepted as identifiers (`simpleId`)
+// because they also introduce other grammar constructs.
+//
+// For example, LEFT and RIGHT are included here because they introduce {LEFT|RIGHT} [OUTER] JOIN clauses, and allowing
+// them as table aliases would create a grammar ambiguity in `tableSourceItem`. They are, however, available as
+// function names via `scalarFunctionName`. To use them as identifiers, they must be double-quoted (e.g., "left").
+functionNameKeyword
+    : LEFT
+    | RIGHT
     ;

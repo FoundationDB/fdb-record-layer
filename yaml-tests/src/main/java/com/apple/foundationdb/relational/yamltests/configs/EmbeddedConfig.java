@@ -20,28 +20,42 @@
 
 package com.apple.foundationdb.relational.yamltests.configs;
 
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.relational.api.Options;
+import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.server.FRL;
 import com.apple.foundationdb.relational.yamltests.YamlConnectionFactory;
 import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
+import com.apple.foundationdb.relational.yamltests.connectionfactory.Clusters;
 import com.apple.foundationdb.relational.yamltests.connectionfactory.EmbeddedYamlConnectionFactory;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import java.util.List;
+import java.util.Objects;
 
 /**
  * Run directly against an instance of {@link FRL}.
+ * <p>
+ * Starts one FRL per cluster file so that multi-cluster tests
+ * (using {@code connect: { cluster: N }}) can route to the correct cluster.
  */
 public class EmbeddedConfig implements YamlTestConfig {
-    private FRL frl;
-    @Nullable
-    private final String clusterFile;
+    @Nonnull
+    private final List<String> clusterFiles;
+    @Nonnull
+    private Clusters<Clusters.Entry<FRL>> clusters = Clusters.empty();
 
-    public EmbeddedConfig(@Nullable final String clusterFile) {
-        this.clusterFile = clusterFile;
+    @API(API.Status.DEPRECATED)
+    public EmbeddedConfig(@Nonnull final String clusterFile) {
+        this(List.of(clusterFile));
+    }
+
+    public EmbeddedConfig(@Nonnull final List<String> clusterFiles) {
+        this.clusterFiles = clusterFiles;
     }
 
     @Override
+    @SuppressWarnings("PMD.CloseResource") // FRLs are tracked in the list and closed in afterAll()
     public void beforeAll() throws Exception {
         var options = Options.builder()
                 .withOption(Options.Name.PLAN_CACHE_PRIMARY_TIME_TO_LIVE_MILLIS, 3_600_000L)
@@ -49,24 +63,37 @@ public class EmbeddedConfig implements YamlTestConfig {
                 .withOption(Options.Name.PLAN_CACHE_TERTIARY_TIME_TO_LIVE_MILLIS, 3_600_000L)
                 .withOption(Options.Name.PLAN_CACHE_PRIMARY_MAX_ENTRIES, 10)
                 .build();
-        frl = new FRL(options, clusterFile);
+        // The primary FRL registers its driver in DriverManager; additional ones do not
+        // We register the primary one to make sure that everything works the same if it is registered vs not, to
+        // the extent that is validated in the yaml test framework.
+        final String registeredCluster = clusterFiles.get(0);
+        clusters = Clusters.fromClusterFilesAsEntries(clusterFiles,
+                clusterFile -> {
+                    try {
+                        return new FRL(options, clusterFile, Objects.equals(clusterFile, registeredCluster));
+                    } catch (RelationalException e) {
+                        throw e.toUncheckedWrappedException();
+                    }
+                });
     }
 
     @Override
+    @SuppressWarnings("PMD.CloseResource") // FRLs are being closed in this loop
     public void afterAll() throws Exception {
-        if (frl != null) {
-            frl.close();
-            frl = null;
+        for (final Clusters.Entry<FRL> cluster : clusters) {
+            cluster.server().close();
         }
+        clusters = Clusters.empty();
     }
 
     @Override
     public YamlConnectionFactory createConnectionFactory() {
-        return new EmbeddedYamlConnectionFactory(clusterFile);
+        return new EmbeddedYamlConnectionFactory(clusters.map(e -> Clusters.mapEntry(e, FRL::getDriver)));
     }
 
+    @Nonnull
     @Override
-    public @Nonnull YamlExecutionContext.ContextOptions getRunnerOptions() {
+    public YamlExecutionContext.ContextOptions getRunnerOptions() {
         return YamlExecutionContext.ContextOptions.EMPTY_OPTIONS;
     }
 

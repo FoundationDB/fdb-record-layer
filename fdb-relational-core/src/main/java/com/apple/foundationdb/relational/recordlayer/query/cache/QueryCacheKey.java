@@ -34,7 +34,7 @@ import java.util.Objects;
  * <ul>
  *     <li>The schema template name to which the query is bound. It is necessary to use it so we can segregate
  *     the otherwise identical plans but coming from different schemas (see Example 1 below)</li>
- *     <li>The schema template version, user version, and a bit-set of all readable indexes</li>
+ *     <li>The schema template version and a bit-set of all readable indexes</li>
  *     <li>The canonical query string where all literals are removed and white spaces are normalised (see example 2)</li>
  *     <li>The hash of the query, see {@link AstNormalizer} for more information on how is this generated.</li>
  * </ul>
@@ -108,31 +108,23 @@ public final class QueryCacheKey {
     @Nonnull
     private final String auxiliaryMetadata;
 
-    private final int hash;
-
     private final int schemaTemplateVersion;
-
-    private final int userVersion;
 
     private final int memoizedHashCode;
 
     private QueryCacheKey(@Nonnull final String canonicalQueryString,
                           @Nonnull final PlannerConfiguration plannerConfiguration,
                           @Nonnull final String auxiliaryMetadata,
-                          int hash,
-                          int schemaTemplateVersion,
-                          int userVersion) {
+                          int schemaTemplateVersion) {
         this.canonicalQueryString = canonicalQueryString;
-        this.hash = hash;
         this.schemaTemplateVersion = schemaTemplateVersion;
-        this.userVersion = userVersion;
         this.auxiliaryMetadata = auxiliaryMetadata;
         this.plannerConfiguration = plannerConfiguration;
 
         // Memoize the hash code. Because this object is used as a key in a hash map, it is important that
-        // hashCode() be quick. Note that this includes information about the query (like the query hash),
+        // hashCode() be quick. Note that this includes information about the query (canonicalQueryString is like the query hash),
         // the schema template version, and the schema (like the set of readable indexes)
-        this.memoizedHashCode = Objects.hash(hash, schemaTemplateVersion, plannerConfiguration, userVersion, auxiliaryMetadata);
+        this.memoizedHashCode = Objects.hash(canonicalQueryString, schemaTemplateVersion, plannerConfiguration, auxiliaryMetadata);
     }
 
     @Override
@@ -144,9 +136,7 @@ public final class QueryCacheKey {
             return false;
         }
         final var that = (QueryCacheKey) other;
-        return hash == that.hash &&
-                schemaTemplateVersion == that.schemaTemplateVersion &&
-                userVersion == that.userVersion &&
+        return schemaTemplateVersion == that.schemaTemplateVersion &&
                 Objects.equals(canonicalQueryString, that.canonicalQueryString) &&
                 Objects.equals(auxiliaryMetadata, that.auxiliaryMetadata) &&
                 Objects.equals(plannerConfiguration, that.plannerConfiguration);
@@ -155,10 +145,6 @@ public final class QueryCacheKey {
     @Override
     public int hashCode() {
         return memoizedHashCode;
-    }
-
-    public int getHash() {
-        return hash;
     }
 
     @Nonnull
@@ -175,10 +161,6 @@ public final class QueryCacheKey {
         return plannerConfiguration;
     }
 
-    public int getUserVersion() {
-        return userVersion;
-    }
-
     @Nonnull
     public String getAuxiliaryMetadata() {
         return auxiliaryMetadata;
@@ -186,17 +168,14 @@ public final class QueryCacheKey {
 
     @Override
     public String toString() {
-        return "(" + schemaTemplateVersion + " || " + auxiliaryMetadata + ")" + "||" + canonicalQueryString + "||" + hash;
+        return "(" + schemaTemplateVersion + " || " + auxiliaryMetadata + ")" + "||" + canonicalQueryString + "||" + memoizedHashCode;
     }
 
     @Nonnull
     public static QueryCacheKey of(@Nonnull final String query,
                                    @Nonnull final PlannerConfiguration plannerConfiguration,
                                    @Nonnull final String auxiliaryMetadata,
-                                   int queryHash,
-                                   int schemaTemplateVersion,
-                                   int userVersion) {
-        return new QueryCacheKey(query, plannerConfiguration, auxiliaryMetadata, queryHash, schemaTemplateVersion,
-                userVersion);
+                                   int schemaTemplateVersion) {
+        return new QueryCacheKey(query, plannerConfiguration, auxiliaryMetadata, schemaTemplateVersion);
     }
 }

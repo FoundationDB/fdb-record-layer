@@ -42,11 +42,21 @@ import java.util.Locale;
 public interface MetricCollector {
 
     /**
+     * Increments the count event by {@code val}.
+     *
+     * @param count the count event to be modified
+     * @param val   the amount to increment by
+     * */
+    void increment(@Nonnull RelationalMetric.RelationalCount count, int val);
+
+    /**
      * Increments the count event by 1.
      *
      * @param count     the count event to be modified
      * */
-    void increment(@Nonnull RelationalMetric.RelationalCount count);
+    default void increment(@Nonnull RelationalMetric.RelationalCount count) {
+        increment(count, 1);
+    }
 
     /**
      * Records the time taken to execute a function.

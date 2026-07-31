@@ -46,13 +46,23 @@ public class DataInKeySpacePath {
 
     public DataInKeySpacePath(@Nonnull final KeySpacePath path, @Nullable final Tuple remainder,
                               @Nullable final byte[] value) {
-        this.path = path;
-        this.remainder = remainder;
+        this(path, remainder, toByteString(path, value));
+    }
+
+    @Nonnull
+    private static ByteString toByteString(@Nonnull final KeySpacePath path, @Nullable final byte [] value) {
         if (value == null) {
             throw new RecordCoreArgumentException("Value cannot be null")
                     .addLogInfo(LogMessageKeys.KEY, path);
         }
-        this.value = ByteString.copyFrom(value);
+        return ByteString.copyFrom(value);
+    }
+
+    public DataInKeySpacePath(@Nonnull final KeySpacePath path, @Nullable final Tuple remainder,
+                              @Nonnull final ByteString value) {
+        this.path = path;
+        this.remainder = remainder;
+        this.value = value;
     }
 
     @Nonnull

@@ -30,20 +30,21 @@ import com.apple.foundationdb.record.metadata.IndexComparison;
 import com.apple.foundationdb.record.planprotos.PCompilableRange;
 import com.apple.foundationdb.record.planprotos.PRangeConstraints;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
+import com.apple.foundationdb.record.query.expressions.RecordTypeKeyComparison;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
-import com.apple.foundationdb.record.query.plan.cascades.ConstrainedBoolean;
 import com.apple.foundationdb.record.query.plan.cascades.ComparisonRange;
+import com.apple.foundationdb.record.query.plan.cascades.ConstrainedBoolean;
 import com.apple.foundationdb.record.query.plan.cascades.Correlated;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.explain.DefaultExplainFormatter;
-import com.apple.foundationdb.record.query.plan.explain.ExplainTokens;
-import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence;
-import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence.Precedence;
 import com.apple.foundationdb.record.query.plan.cascades.UsesValueEquivalence;
 import com.apple.foundationdb.record.query.plan.cascades.ValueEquivalence;
 import com.apple.foundationdb.record.query.plan.cascades.values.ConstantObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
+import com.apple.foundationdb.record.query.plan.explain.DefaultExplainFormatter;
+import com.apple.foundationdb.record.query.plan.explain.ExplainTokens;
+import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence;
+import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence.Precedence;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
@@ -149,18 +150,16 @@ public class RangeConstraints implements PlanHashable, Correlated<RangeConstrain
     }
 
     /**
-     * Returns an equivalent {@link ComparisonRange}.
-     * Note: This method is created for compatibility reasons.
+     * Returns an equivalent {@link ComparisonRange} along with any residual comparisons that
+     * could not be pushed into the range. Values that cannot be combined into the single range
+     * will need to be compensated for by the caller.
      *
-     * @return An equivalent {@link ComparisonRange}.
+     * @return An equivalent {@link ComparisonRange} along with a set of residual comparisons
+     *     that require compensation
      */
     @Nonnull
-    public ComparisonRange asComparisonRange() {
-        var resultRange = ComparisonRange.EMPTY;
-        for (final var comparison : getComparisons()) {
-            resultRange = resultRange.merge(comparison).getComparisonRange();
-        }
-        return resultRange;
+    public ComparisonRange.MergeResult asMergedComparisonRange() {
+        return ComparisonRange.mergeAll(getComparisons());
     }
 
     @Nonnull
@@ -568,6 +567,9 @@ public class RangeConstraints implements PlanHashable, Correlated<RangeConstrain
         @Nonnull
         private static Tuple toTuple(@Nonnull final Comparisons.Comparison comparison, @Nonnull final EvaluationContext evaluationContext) {
             final List<Object> items = new ArrayList<>();
+            if (comparison instanceof RecordTypeKeyComparison.RecordTypeComparison) {
+                return Tuple.from(((RecordTypeKeyComparison.RecordTypeComparison)comparison).getRecordTypeName());
+            }
             var comparand = comparison.getComparand(null, evaluationContext);
             if (comparison.hasMultiColumnComparand()) {
                 items.addAll(((Tuple)comparand).getItems());
@@ -745,7 +747,8 @@ public class RangeConstraints implements PlanHashable, Correlated<RangeConstrain
         }
 
         private boolean isCompileTime(@Nonnull final Comparisons.Comparison comparison) {
-            return IndexComparison.isSupported(comparison) && allowedComparisonTypes.contains(comparison.getType());
+            return (comparison instanceof RecordTypeKeyComparison.RecordTypeComparison || IndexComparison.isSupported(comparison))
+                    && allowedComparisonTypes.contains(comparison.getType());
         }
 
         private boolean canBeUsedInScanPrefix(@Nonnull final Comparisons.Comparison comparison) {

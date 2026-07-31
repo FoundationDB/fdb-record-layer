@@ -22,47 +22,65 @@ package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
-import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordMetaDataProto;
+import com.apple.foundationdb.record.planprotos.PUserDefinedFunctionArgumentDefaultValue;
 import com.apple.foundationdb.record.planprotos.PUserDefinedMacroFunction;
-import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.RegularTranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.apple.foundationdb.record.query.plan.serialization.DefaultPlanSerializationRegistry;
+import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
 import java.util.List;
-import java.util.Map;
-import java.util.stream.Collectors;
+import java.util.Optional;
 
 /**
  * UserDefinedMacroFunction that expands a body (referring to parameters) into a {@link Value} (through encapsulation) call site.
  */
 public class UserDefinedMacroFunction extends UserDefinedFunction {
     @Nonnull
-    private final Value bodyValue;
-    @Nonnull
     private final List<CorrelationIdentifier> parameterIdentifiers;
+    @Nonnull
+    private final Value bodyValue;
 
-    public UserDefinedMacroFunction(@Nonnull final String functionName, @Nonnull final List<QuantifiedObjectValue> parameters, @Nonnull final Value bodyValue) {
-        super(functionName, parameters.stream().map(QuantifiedObjectValue::getResultType).collect(Collectors.toUnmodifiableList()));
-        this.parameterIdentifiers = parameters.stream().map(QuantifiedObjectValue::getAlias).collect(Collectors.toList());
+    public UserDefinedMacroFunction(@Nonnull final String functionName,
+                                    @Nonnull final List<QuantifiedObjectValue> parameters,
+                                    @Nonnull final Value bodyValue) {
+        super(functionName, parameters.stream().map(QuantifiedObjectValue::getResultType).collect(ImmutableList.toImmutableList()));
+        this.parameterIdentifiers = parameters.stream().map(QuantifiedObjectValue::getAlias).collect(ImmutableList.toImmutableList());
+        this.bodyValue = bodyValue;
+    }
+
+    public UserDefinedMacroFunction(@Nonnull final String functionName,
+                                    @Nonnull final List<QuantifiedObjectValue> parameters,
+                                    @Nonnull final List<String> parameterNames,
+                                    @Nonnull final List<Optional<Value>> parameterDefaults,
+                                    @Nonnull final Value bodyValue) {
+        super(functionName, parameterNames,
+                parameters.stream().map(QuantifiedObjectValue::getResultType).collect(ImmutableList.toImmutableList()),
+                parameterDefaults);
+        this.parameterIdentifiers = parameters.stream().map(QuantifiedObjectValue::getAlias).collect(ImmutableList.toImmutableList());
         this.bodyValue = bodyValue;
     }
 
     @Nonnull
     @Override
-    public Value encapsulate(@Nonnull List<? extends Typed> arguments) {
-        // replace the QuantifiedObjectValue in body with arguments
-        SemanticException.check(arguments.size() == parameterTypes.size(), SemanticException.ErrorCode.FUNCTION_UNDEFINED_FOR_GIVEN_ARGUMENT_TYPES, "argument length doesn't match with function definition");
+    public Value encapsulate(@Nonnull final CallSiteArguments arguments) {
+        if (arguments.isNamed()) {
+            return encapsulateFromArgumentValues(
+                    resolveParameterValuesFromArguments(arguments.asNamedArguments().namedArguments()));
+        }
+        return encapsulateFromArgumentValues(resolveParameterValuesFromArguments(arguments.getArgumentsList()));
+    }
+
+    private Value encapsulateFromArgumentValues(@Nonnull List<Value> resolvedArgumentValues) {
         final RegularTranslationMap.Builder translationMapBuilder = TranslationMap.regularBuilder();
-        for (int i = 0; i < arguments.size(); i++) {
-            // check that arguments[i] type matches with parameterTypes[i]
-            final int finalI = i;
-            SemanticException.check(arguments.get(finalI).getResultType().equals(parameterTypes.get(i)), SemanticException.ErrorCode.FUNCTION_UNDEFINED_FOR_GIVEN_ARGUMENT_TYPES, "argument type doesn't match with function definition");
-            translationMapBuilder.when(parameterIdentifiers.get(finalI)).then((sourceAlias, leafValue) -> (Value)arguments.get(finalI));
+        for (var paramIdx = 0; paramIdx < resolvedArgumentValues.size(); paramIdx++) {
+            final int finalParamIdx = paramIdx;
+            translationMapBuilder.when(parameterIdentifiers.get(paramIdx))
+                    .then((sourceAlias, leafValue) -> resolvedArgumentValues.get(finalParamIdx));
         }
         return bodyValue.translateCorrelations(translationMapBuilder.build());
     }
@@ -74,7 +92,21 @@ public class UserDefinedMacroFunction extends UserDefinedFunction {
                 PlanHashable.CURRENT_FOR_CONTINUATION);
         PUserDefinedMacroFunction.Builder builder = PUserDefinedMacroFunction.newBuilder();
         for (int i = 0; i < parameterTypes.size(); i++) {
-            builder.addArguments(QuantifiedObjectValue.of(parameterIdentifiers.get(i), parameterTypes.get(i)).toValueProto(serializationContext));
+            builder.addArguments(
+                    QuantifiedObjectValue.of(parameterIdentifiers.get(i), parameterTypes.get(i))
+                            .toValueProto(serializationContext));
+            if (!hasNamedParameters()) {
+                continue;
+            }
+
+            builder.addArgumentNames(getParameterName(i));
+            final var defaultValueForArgument = getDefaultValue(i);
+            final var defaultArgumentBuilder = PUserDefinedFunctionArgumentDefaultValue.newBuilder()
+                    .setIsProvided(defaultValueForArgument.isPresent());
+            defaultValueForArgument.ifPresent(defaultValue ->
+                    defaultArgumentBuilder.setValue(defaultValue.toValueProto(serializationContext)));
+            builder.addDefaultArgumentValues(defaultArgumentBuilder);
+
         }
         return RecordMetaDataProto.PUserDefinedFunction.newBuilder()
                 .setUserDefinedMacroFunction(builder
@@ -83,20 +115,23 @@ public class UserDefinedMacroFunction extends UserDefinedFunction {
                 .build();
     }
 
-
-    @Nonnull
-    @Override
-    public Typed encapsulate(@Nonnull final Map<String, ? extends Typed> namedArguments) {
-        throw new RecordCoreException("user defined scalar functions do not support named argument calling conventions");
-    }
-
     @Nonnull
     public static UserDefinedMacroFunction fromProto(@Nonnull final PUserDefinedMacroFunction function) {
         PlanSerializationContext serializationContext = new PlanSerializationContext(DefaultPlanSerializationRegistry.INSTANCE,
                 PlanHashable.CURRENT_FOR_CONTINUATION);
-        return new UserDefinedMacroFunction(
-                function.getFunctionName(),
-                function.getArgumentsList().stream().map(pvalue -> ((QuantifiedObjectValue)Value.fromValueProto(serializationContext, pvalue))).collect(Collectors.toList()),
-                Value.fromValueProto(serializationContext, function.getBody()));
+        final var parametersQuantifiedObjectValues = function.getArgumentsList().stream()
+                .map(pvalue -> ((QuantifiedObjectValue)Value.fromValueProto(serializationContext, pvalue)))
+                .collect(ImmutableList.toImmutableList());
+        final var bodyValue = Value.fromValueProto(serializationContext, function.getBody());
+        final List<String> parameterNames = function.getArgumentNamesList();
+        if (parameterNames.isEmpty()) {
+            return new UserDefinedMacroFunction(function.getFunctionName(), parametersQuantifiedObjectValues, bodyValue);
+        }
+        final List<Optional<Value>> parameterDefaults = function.getDefaultArgumentValuesList().stream().map(
+                pDefaultArgumentValue ->
+                        !pDefaultArgumentValue.getIsProvided() ? Optional.<Value>empty() :
+                        Optional.of(Value.fromValueProto(serializationContext, pDefaultArgumentValue.getValue())))
+                .collect(ImmutableList.toImmutableList());
+        return new UserDefinedMacroFunction(function.getFunctionName(), parametersQuantifiedObjectValues, parameterNames, parameterDefaults, bodyValue);
     }
 }

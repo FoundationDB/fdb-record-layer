@@ -49,6 +49,8 @@ import java.util.Collections;
  */
 @API(API.Status.UNSTABLE)
 public interface IndexMaintainerFactory {
+    IndexGeneralAttributes DEFAULT_GENERAL_ATTRIBUTES = new IndexGeneralAttributes(false);
+
     /**
      * Get the index types supported by this factory.
      * @return a collection of strings of index types supported by this factory
@@ -115,5 +117,17 @@ public interface IndexMaintainerFactory {
     @Nonnull
     default Iterable<MatchCandidate> createMatchCandidates(@Nonnull RecordMetaData metaData, @Nonnull Index index, boolean reverse) {
         return Collections.emptyList();
+    }
+
+    /**
+     * Get the {@link IndexGeneralAttributes} for the given index. The attributes provide general information
+     * and guidelines about the index.
+     *
+     * @param index the index to get attributes for
+     * @return the index attributes for this index
+     */
+    @Nonnull
+    default IndexGeneralAttributes getIndexGeneralAttributes(@Nonnull Index index) {
+        return DEFAULT_GENERAL_ATTRIBUTES;
     }
 }

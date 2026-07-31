@@ -45,17 +45,7 @@ public interface TranslationMap {
     boolean containsSourceAlias(@Nullable CorrelationIdentifier sourceAlias);
 
     @Nonnull
-    default CorrelationIdentifier getTargetOrDefault(@Nonnull final CorrelationIdentifier sourceAlias,
-                                                     @Nonnull final CorrelationIdentifier defaultAlias) {
-        final var targetFromMap = getTarget(sourceAlias);
-        if (targetFromMap != null) {
-            return targetFromMap;
-        }
-        return defaultAlias;
-    }
-
-    @Nullable
-    CorrelationIdentifier getTarget(@Nonnull CorrelationIdentifier sourceAlias);
+    Optional<CorrelationIdentifier> getTargetMaybe(@Nonnull CorrelationIdentifier sourceAlias);
 
     @Nonnull
     Value applyTranslationFunction(@Nonnull CorrelationIdentifier sourceAlias,

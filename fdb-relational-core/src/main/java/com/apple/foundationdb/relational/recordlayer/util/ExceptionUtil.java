@@ -95,6 +95,8 @@ public final class ExceptionUtil {
                 return ErrorCode.INVALID_ARGUMENT_FOR_FUNCTION;
             case INVALID_CAST:
                 return ErrorCode.INVALID_CAST;
+            case COMPARISON_OF_INCOMPATIBLE_TYPES:
+                return ErrorCode.DATATYPE_MISMATCH;
             default:
                 return ErrorCode.INTERNAL_ERROR;
         }

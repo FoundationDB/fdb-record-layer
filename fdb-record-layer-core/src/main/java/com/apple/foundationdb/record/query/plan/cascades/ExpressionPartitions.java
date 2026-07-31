@@ -24,6 +24,7 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalE
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Streams;
 
 import javax.annotation.Nonnull;
 import java.util.Collection;
@@ -31,6 +32,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * Helpers for collections of {@link ExpressionPartition}s.
@@ -62,6 +64,27 @@ public class ExpressionPartitions {
                 (PartitionCreator<E, ExpressionPartition<E>>)ExpressionPartition::new);
     }
 
+    /**
+     * Merges (rolls up) a collection of partitions into fewer, coarser partitions by retaining only the
+     * properties in {@code rollupProperties} as grouping keys.
+     *
+     * <p>Each incoming partition carries a map of <em>partitioning properties</em> (the key that defines the
+     * partition) and a map of <em>non-partitioning properties</em> (per-expression property values within the
+     * partition). This method projects the partitioning-property map down to the subset specified by
+     * {@code rollupProperties}. Partitions whose projected keys are equal are merged: their non-partitioning
+     * property maps are combined so that the resulting partition contains the union of all expressions from the
+     * merged input partitions.
+     *
+     * <p>Passing an empty {@code rollupProperties} set causes <em>all</em> partitions to merge into one
+     * (a full roll-up), since every partition projects to the same empty key.
+     *
+     * @param <E>              the expression type
+     * @param <P>              the partition type
+     * @param partitions       the input partitions to roll up
+     * @param rollupProperties the properties to keep as grouping keys; all others are discarded from the key
+     * @param partitionCreator factory for constructing result partitions
+     * @return a list of rolled-up partitions, one per distinct projected key
+     */
     @Nonnull
     static <E extends RelationalExpression, P extends ExpressionPartition<E>> List<P> rollUpTo(@Nonnull final Collection<P> partitions,
                                                                                                @Nonnull final Set<ExpressionProperty<?>> rollupProperties,
@@ -77,13 +100,28 @@ public class ExpressionPartitions {
                             .filter(attributeEntry ->
                                     rollupProperties.contains(attributeEntry.getKey()))
                             .collect(ImmutableMap.toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
-            rolledUpMap.compute(filteredPropertiesMap, (key, oldValue) -> {
-                if (oldValue == null) {
-                    return new LinkedIdentityMap<>(partition.getNonPartitioningPropertiesMap());
-                }
-                oldValue.putAll(partition.getNonPartitioningPropertiesMap());
-                return oldValue;
-            });
+
+            final var nonTrackedPartitioningProperties = rollupProperties.stream()
+                    .filter(property -> !groupingPropertyMap.containsKey(property))
+                    .collect(Collectors.toSet());
+
+            for (final E expression : partition.getExpressions()) {
+                final Map<ExpressionProperty<?>, ?> partitioningPropertiesForExpression = Streams.concat(
+                        filteredPropertiesMap.entrySet().stream(),
+                        nonTrackedPartitioningProperties.stream().map(
+                                expressionProperty -> Map.entry(
+                                        expressionProperty, expressionProperty.createVisitor().visit(expression)))
+                        ).collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+
+                final var nonPartitioningPropertiesMapForExpression = partition.getNonPartitioningPropertiesMap().get(expression);
+                rolledUpMap.compute(partitioningPropertiesForExpression, (key, oldValue) -> {
+                    if (oldValue == null) {
+                        oldValue = new LinkedHashMap<>();
+                    }
+                    oldValue.put(expression, nonPartitioningPropertiesMapForExpression);
+                    return oldValue;
+                });
+            }
         }
 
         final var resultsBuilder = ImmutableList.<P>builder();

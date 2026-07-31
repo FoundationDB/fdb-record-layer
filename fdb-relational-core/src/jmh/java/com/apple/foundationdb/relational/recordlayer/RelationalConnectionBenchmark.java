@@ -66,13 +66,13 @@ public class RelationalConnectionBenchmark extends EmbeddedRelationalBenchmark {
     @Param(value = {"true", "false"})
     boolean setSchemaAtConnTime;
 
-    final String schemaName = "testSchema";
+    static final String SCHEMA_NAME = "testSchema";
     URI dbUri = URI.create("/BENCHMARKS/connectionDb");
 
     @Setup(Level.Trial)
     public void trialUp() throws SQLException, RelationalException {
         driver.up();
-        EmbeddedRelationalBenchmark.createDatabase(dbUri, schemaTemplateName, schemaName);
+        EmbeddedRelationalBenchmark.createDatabase(dbUri, schemaTemplateName, SCHEMA_NAME);
     }
 
     @TearDown(Level.Trial)
@@ -88,13 +88,13 @@ public class RelationalConnectionBenchmark extends EmbeddedRelationalBenchmark {
     public String connect() throws SQLException {
         String connUri;
         if (setSchemaAtConnTime) {
-            connUri = "jdbc:embed:" + dbUri.getPath() + "?schema=" + schemaName;
+            connUri = "jdbc:embed:" + dbUri.getPath() + "?schema=" + SCHEMA_NAME;
         } else {
             connUri = "jdbc:embed:" + dbUri.getPath();
         }
         try (final var vc = DriverManager.getConnection(connUri)) {
             if (!setSchemaAtConnTime) {
-                vc.setSchema(schemaName);
+                vc.setSchema(SCHEMA_NAME);
             }
             return vc.getSchema();
         }

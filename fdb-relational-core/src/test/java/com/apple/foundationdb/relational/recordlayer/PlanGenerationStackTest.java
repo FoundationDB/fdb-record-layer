@@ -100,7 +100,7 @@ public class PlanGenerationStackTest {
                     Arguments.of(12, "select * from restaurant where rest_no is null ", null),
                     Arguments.of(13, "select * from restaurant where rest_no is not null ", null),
                     Arguments.of(14, "select * from restaurant where NON_EXISTING > 10 ", "Attempting to query non existing column NON_EXISTING"),
-                    Arguments.of(15, "select * from restaurant where rest_no > 'hello'", "unable to encapsulate comparison operation due to type mismatch(es)"),
+                    Arguments.of(15, "select * from restaurant where rest_no > 'hello'", "The operands of a comparison operator are not compatible."),
                     Arguments.of(16, "select * from restaurant where rest_no > 10 AND rest_no < 20", null),
                     Arguments.of(17, "select * from restaurant where rest_no < 10 AND rest_no < 20", null),
                     Arguments.of(18, "select * from restaurant where rest_no = 10 AND rest_no < 20", null),

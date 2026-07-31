@@ -42,8 +42,8 @@ public class YamlConnectionFactoryWithOptions implements YamlConnectionFactory {
     }
 
     @Override
-    public YamlConnection getNewConnection(@Nonnull final URI connectPath) throws SQLException {
-        final var connection = underlying.getNewConnection(connectPath);
+    public YamlConnection getNewConnection(@Nonnull final URI connectPath, int clusterIndex) throws SQLException {
+        final var connection = underlying.getNewConnection(connectPath, clusterIndex);
         connection.setConnectionOptions(options);
         return connection;
     }
@@ -51,6 +51,11 @@ public class YamlConnectionFactoryWithOptions implements YamlConnectionFactory {
     @Override
     public Set<SemanticVersion> getVersionsUnderTest() {
         return underlying.getVersionsUnderTest();
+    }
+
+    @Override
+    public int getAvailableClusterCount() {
+        return underlying.getAvailableClusterCount();
     }
 
     @Override

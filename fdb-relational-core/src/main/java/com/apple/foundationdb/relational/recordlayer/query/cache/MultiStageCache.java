@@ -23,10 +23,12 @@ package com.apple.foundationdb.relational.recordlayer.query.cache;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
+import com.apple.foundationdb.relational.api.metrics.MetricCollector;
 import com.apple.foundationdb.relational.api.metrics.RelationalMetric;
 import com.apple.foundationdb.relational.util.Assert;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
+import com.github.benmanes.caffeine.cache.RemovalCause;
 import com.github.benmanes.caffeine.cache.RemovalListener;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Ticker;
@@ -38,7 +40,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
-import java.util.function.Consumer;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -95,6 +97,10 @@ public class MultiStageCache<K, S, T, V> extends AbstractCache<K, S, T, V> {
     @Nonnull
     private final Cache<K, Cache<S, Cache<T, V>>> mainCache;
 
+    private final AtomicInteger pendingPrimaryLruEvictions = new AtomicInteger(0);
+    private final AtomicInteger pendingSecondaryLruEvictions = new AtomicInteger(0);
+    private final AtomicInteger pendingTertiaryLruEvictions = new AtomicInteger(0);
+
     private final int secondarySize;
     private final int tertiarySize;
 
@@ -133,6 +139,11 @@ public class MultiStageCache<K, S, T, V> extends AbstractCache<K, S, T, V> {
 
         final var mainCacheBuilder = Caffeine.newBuilder().recordStats().maximumSize(size);
         mainCacheBuilder.expireAfterAccess(ttl, ttlTimeUnit);
+        mainCacheBuilder.removalListener((RemovalListener<K, Cache<S, Cache<T, V>>>) (k, v, cause) -> {
+            if (cause == RemovalCause.SIZE) {
+                pendingPrimaryLruEvictions.incrementAndGet();
+            }
+        });
         if (executor != null) {
             mainCacheBuilder.executor(executor);
         }
@@ -161,13 +172,19 @@ public class MultiStageCache<K, S, T, V> extends AbstractCache<K, S, T, V> {
                     @Nonnull final Supplier<NonnullPair<T, V>> tertiaryKeyValueSupplier,
                     @Nonnull final Function<V, V> valueWithEnvironmentDecorator,
                     @Nonnull final Function<Stream<V>, V> reductionFunction,
-                    @Nonnull final Consumer<RelationalMetric.RelationalCount> registerCacheEvent) {
+                    @Nonnull final MetricCollector metricCollector) {
+        metricCollector.increment(RelationalMetric.RelationalCount.PLAN_CACHE_PRIMARY_LRU_EVICTION, pendingPrimaryLruEvictions.getAndSet(0));
+        metricCollector.increment(RelationalMetric.RelationalCount.PLAN_CACHE_SECONDARY_LRU_EVICTION, pendingSecondaryLruEvictions.getAndSet(0));
+        metricCollector.increment(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_LRU_EVICTION, pendingTertiaryLruEvictions.getAndSet(0));
         final var secondaryCache = mainCache.get(key, newKey -> {
-            registerCacheEvent.accept(RelationalMetric.RelationalCount.PLAN_CACHE_PRIMARY_MISS);
+            metricCollector.increment(RelationalMetric.RelationalCount.PLAN_CACHE_PRIMARY_MISS);
             final var secondaryCacheBuilder = Caffeine.newBuilder()
                     .maximumSize(secondarySize)
                     .recordStats()
                     .removalListener((RemovalListener<S, Cache<T, V>>) (k, v, i) -> {
+                        if (i == RemovalCause.SIZE) {
+                            pendingSecondaryLruEvictions.incrementAndGet();
+                        }
                         final var value = mainCache.getIfPresent(key);
                         if (value != null && value.asMap().isEmpty()) {
                             mainCache.invalidate(key); // best effort
@@ -186,11 +203,14 @@ public class MultiStageCache<K, S, T, V> extends AbstractCache<K, S, T, V> {
         });
 
         final var tertiaryCache = secondaryCache.get(secondaryKey, newKey -> {
-            registerCacheEvent.accept(RelationalMetric.RelationalCount.PLAN_CACHE_SECONDARY_MISS);
+            metricCollector.increment(RelationalMetric.RelationalCount.PLAN_CACHE_SECONDARY_MISS);
             final var tertiaryCacheBuilder = Caffeine.newBuilder()
                     .maximumSize(tertiarySize)
                     .recordStats()
                     .removalListener((RemovalListener<T, V>) (k, v, i) -> {
+                        if (i == RemovalCause.SIZE) {
+                            pendingTertiaryLruEvictions.incrementAndGet();
+                        }
                         final var value = secondaryCache.getIfPresent(secondaryKey);
                         if (value != null && value.asMap().isEmpty()) {
                             secondaryCache.invalidate(secondaryKey); // best effort
@@ -210,10 +230,10 @@ public class MultiStageCache<K, S, T, V> extends AbstractCache<K, S, T, V> {
 
         final var result = reductionFunction.apply(tertiaryCache.asMap().entrySet().stream().filter(kvPair -> kvPair.getKey().equals(tertiaryKey)).map(Map.Entry::getValue));
         if (result != null) {
-            registerCacheEvent.accept(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_HIT);
+            metricCollector.increment(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_HIT);
             return valueWithEnvironmentDecorator.apply(result);
         } else {
-            registerCacheEvent.accept(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_MISS);
+            metricCollector.increment(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_MISS);
             final var keyValuePair = tertiaryKeyValueSupplier.get();
             tertiaryCache.put(keyValuePair.getKey(), keyValuePair.getValue());
             return keyValuePair.getValue();

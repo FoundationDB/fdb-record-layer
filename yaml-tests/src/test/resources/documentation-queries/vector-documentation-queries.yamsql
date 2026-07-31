@@ -106,20 +106,20 @@ test_block:
     # Test CAST errors - Array must match vector dimension (documentation example)
     -
       - query: SELECT CAST([1.0, 2.0, 3.0, 4.0] AS VECTOR(3, FLOAT)) FROM embeddings WHERE id = 1
-      - error: "22F3H"
+      - error: INVALID_CAST
 
     -
       - query: SELECT CAST([1.0, 2.0] AS VECTOR(3, DOUBLE)) FROM embeddings WHERE id = 1
-      - error: "22F3H"
+      - error: INVALID_CAST
 
     # Test CAST errors - Only numeric arrays can be cast to vectors (documentation example)
     -
       - query: SELECT CAST(['a', 'b', 'c'] AS VECTOR(3, FLOAT)) FROM embeddings WHERE id = 1
-      - error: "22F3H"
+      - error: INVALID_CAST
 
     -
       - query: SELECT CAST([true, false, true] AS VECTOR(3, HALF)) FROM embeddings WHERE id = 1
-      - error: "22F3H"
+      - error: INVALID_CAST
 
     # Vectors in Struct Fields - Insert vector within struct (documentation example)
     # Note: Using YAML DSL syntax for inserts as CAST expressions don't work with prepared statements

@@ -45,6 +45,11 @@ public interface PlannerRule<C extends PlannerRuleCall, T> {
     @Nonnull
     Optional<Class<?>> getRootOperator();
 
+    /**
+     * Called by the planner when the matcher of this rule matches part of the expression being planned.
+     *
+     * @param call the rule call, providing access to the planner context and the matched bindings
+     */
     void onMatch(@Nonnull C call);
 
     @Nonnull

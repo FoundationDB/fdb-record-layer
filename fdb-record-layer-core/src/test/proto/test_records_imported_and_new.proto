@@ -38,6 +38,7 @@ message MyOtherRecord {
     optional int64 rec_no = 1 [(field).primary_key = true];
     optional int32 num_value_3_indexed = 2 [(field).index = {}];
     optional MySimpleRecord simple = 3;
+    optional test1.MySimpleRecord imported_simple = 4;
 }
 
 message RecordTypeUnion {

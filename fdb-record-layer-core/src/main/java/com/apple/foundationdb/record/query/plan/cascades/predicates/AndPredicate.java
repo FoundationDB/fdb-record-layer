@@ -62,7 +62,7 @@ import java.util.function.Supplier;
  * <li>Else {@code null}.</li>
  * </ul>
  */
-public class AndPredicate extends AndOrPredicate {
+public final class AndPredicate extends AndOrPredicate {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("And-Predicate");
 
     private AndPredicate(@Nonnull final PlanSerializationContext serializationContext,
@@ -187,9 +187,11 @@ public class AndPredicate extends AndOrPredicate {
 
     @Nonnull
     public static QueryPredicate and(@Nonnull final Collection<? extends QueryPredicate> conjuncts, final boolean isAtomic) {
+        // Keep only conjuncts that aren’t tautologies; except for placeholders (where tautology means "no range
+        // constraint"). All placeholders must be retained for the index-matching machinery to work correctly.
         final var filteredConjuncts =
                 conjuncts.stream()
-                        .filter(queryPredicate -> !queryPredicate.isTautology())
+                        .filter(queryPredicate -> (queryPredicate instanceof Placeholder) || !queryPredicate.isTautology())
                         .collect(ImmutableList.toImmutableList());
 
         if (filteredConjuncts.isEmpty()) {

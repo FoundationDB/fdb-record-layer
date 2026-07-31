@@ -278,7 +278,7 @@ public abstract class RecordLayerStoreCatalogTestBase {
                 schemaCount += 1;
                 schemas.add(relationalResultSet.getString("SCHEMA_NAME"));
             }
-            Assertions.assertEquals(1, schemaCount);
+            Assertions.assertEquals(1, schemaCount, schemas::toString);
             Assertions.assertTrue(schemas.contains("CATALOG"));
         }
 

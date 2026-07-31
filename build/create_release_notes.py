@@ -29,7 +29,7 @@ import subprocess
 import sys
 
 class Version:
-    minor_header = re.compile(r'^## (\d+\.\d)$')  # match all version headers, including major or minor headers
+    minor_header = re.compile(r'^## (\d+\.\d+)$')  # match all version headers, including major or minor headers
     precise_header = re.compile(r'^### (\d+\.\d+\.\d+\.\d+)$')  # match precise version headers
 
     def __init__(self, version: str):

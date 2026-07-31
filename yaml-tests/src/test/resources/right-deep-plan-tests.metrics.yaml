@@ -1,0 +1,48 @@
+array-join-default-planner:
+-   query: EXPLAIN SELECT t1.name, t2.name FROM t1, t1.t2_refs AS ref JOIN t2 ON ref
+        = t2.id WHERE t2.id IN (1000, 2000)
+    ref: right-deep-plan-tests.yamsql:37
+    explain: '[IN arrayDistinct(promote(@c30 AS ARRAY(LONG)))] | INJOIN q0 -> { SCAN([IS
+        T2, EQUALS q0]) } | FLATMAP q1 -> { SCAN([IS T1]) | FLATMAP q2 -> { EXPLODE
+        q2.T2_REFS | FILTER _ EQUALS q1.ID AS q3 RETURN q2 } AS q2 RETURN (q2.NAME
+        AS _0, q1.NAME AS _1) }'
+    task_count: 3321
+    task_total_time_ms: 252
+    transform_count: 1489
+    transform_time_ms: 55
+    transform_yield_count: 186
+    insert_time_ms: 18
+    insert_new_count: 401
+    insert_reused_count: 57
+array-join-right-deep-planner:
+-   query: EXPLAIN SELECT t1.name, t2.name FROM t1, t1.t2_refs AS ref JOIN t2 ON ref
+        = t2.id WHERE t2.id IN (1000, 2000)
+    ref: right-deep-plan-tests.yamsql:56
+    explain: '[IN arrayDistinct(promote(@c30 AS ARRAY(LONG)))] | INJOIN q0 -> { SCAN([IS
+        T2, EQUALS q0]) } | FLATMAP q1 -> { SCAN([IS T1]) | FLATMAP q2 -> { EXPLODE
+        q2.T2_REFS | FILTER _ EQUALS q1.ID AS q3 RETURN q2 } AS q2 RETURN (q2.NAME
+        AS _0, q1.NAME AS _1) }'
+    task_count: 1852
+    task_total_time_ms: 161
+    transform_count: 767
+    transform_time_ms: 35
+    transform_yield_count: 108
+    insert_time_ms: 5
+    insert_new_count: 226
+    insert_reused_count: 26
+array-join-right-deep-query-option:
+-   query: EXPLAIN SELECT t1.name, t2.name FROM t1, t1.t2_refs AS ref JOIN t2 ON ref
+        = t2.id WHERE t2.id IN (1000, 2000) OPTIONS (PLAN RIGHT DEEP)
+    ref: right-deep-plan-tests.yamsql:76
+    explain: '[IN arrayDistinct(promote(@c30 AS ARRAY(LONG)))] | INJOIN q0 -> { SCAN([IS
+        T2, EQUALS q0]) } | FLATMAP q1 -> { SCAN([IS T1]) | FLATMAP q2 -> { EXPLODE
+        q2.T2_REFS | FILTER _ EQUALS q1.ID AS q3 RETURN q2 } AS q2 RETURN (q2.NAME
+        AS _0, q1.NAME AS _1) }'
+    task_count: 1852
+    task_total_time_ms: 161
+    transform_count: 767
+    transform_time_ms: 35
+    transform_yield_count: 108
+    insert_time_ms: 5
+    insert_new_count: 226
+    insert_reused_count: 26

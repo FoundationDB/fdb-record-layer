@@ -46,7 +46,7 @@ test_block:
 # retains the remaining predicate (b1 < 20) and must fall back to a less efficient covering
 # scan or potentially worse execution strategy.
       - query: select * from B where b3 = 4 and b2 = 'b' and (!! !n null !! is null or b1 < 20)
-      - explain: "ISCAN(I1 [EQUALS promote(@c8 AS LONG), EQUALS @c12])"
+      - explain: "ISCAN(I1 [EQUALS promote(@c7 AS LONG), EQUALS @c11])"
       - result: [{3, 'b', 4}]
     -
 # This query contains two `null` values, creating an equality constraint that handles `null`
@@ -84,7 +84,7 @@ test_block:
   tests:
     -
       - query: select * from B where b3 = 4 and b2 = 'b' and (!! !n null !! is null or b1 < 20)
-      - explain: "COVERING(I1 [EQUALS promote(@c8 AS LONG), EQUALS promote(@c12 AS STRING)] -> [B1: KEY:[3], B2: KEY:[1], B3: KEY:[0]]) | FILTER @c15 IS_NULL OR _.B1 LESS_THAN promote(@c21 AS INT) | FETCH"
+      - explain: "COVERING(I1 [EQUALS promote(@c7 AS LONG), EQUALS promote(@c11 AS STRING)] -> [B1: KEY:[3], B2: KEY:[1], B3: KEY:[0]]) | FILTER @c14 IS_NULL OR _.B1 LESS_THAN promote(@c20 AS INT) | FETCH"
       - result: [{3, 'b', 4}]
     -
       - query: select * from B where !! !n null !! = 42 and !! !n null !! = 43

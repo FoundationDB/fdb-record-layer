@@ -48,4 +48,4 @@ test_block:
       - initialVersionLessThan: !current_version
       - result: []
       - initialVersionAtLeast: !current_version
-      - error: '42601'
+      - error: SYNTAX_ERROR

@@ -38,30 +38,40 @@ import java.util.Set;
 
 public class ExternalServerYamlConnectionFactory implements YamlConnectionFactory {
     private static final Logger LOG = LogManager.getLogger(ExternalServerYamlConnectionFactory.class);
-    private final ExternalServer externalServer;
+    @Nonnull
+    private final Clusters<ExternalServer> clusters;
 
-    public ExternalServerYamlConnectionFactory(final ExternalServer externalServer) {
-        this.externalServer = externalServer;
+    public ExternalServerYamlConnectionFactory(@Nonnull Clusters<ExternalServer> clusters) {
+        this.clusters = clusters;
     }
 
     @Override
-    public YamlConnection getNewConnection(@Nonnull URI connectPath) throws SQLException {
-        String uriStr = connectPath.toString().replaceFirst("embed:", "relational://localhost:" + externalServer.getPort());
+    public YamlConnection getNewConnection(@Nonnull URI connectPath, int clusterIndex) throws SQLException {
+        return createConnection(connectPath, clusters.get(clusterIndex));
+    }
+
+    @Override
+    public int getAvailableClusterCount() {
+        return clusters.size();
+    }
+
+    private YamlConnection createConnection(@Nonnull URI connectPath, @Nonnull ExternalServer server) throws SQLException {
+        String uriStr = connectPath.toString().replaceFirst("embed:", "relational://localhost:" + server.getPort());
         if (LOG.isInfoEnabled()) {
             LOG.info(KeyValueLogMessage.of("Rewrote connection string for external server",
                     "original", connectPath,
                     "rewritten", uriStr,
-                    "version", externalServer.getVersion()));
+                    "version", server.getVersion()));
         }
 
         final Connection connection = DriverManager.getConnection(uriStr);
-        externalServer.validateConnectionVersion(connection);
-        return new SimpleYamlConnection(connection, externalServer.getVersion(), externalServer.getClusterFile());
+        server.validateConnectionVersion(connection);
+        return new SimpleYamlConnection(connection, server.getVersion(), server.clusterFile());
     }
 
     @Override
     public Set<SemanticVersion> getVersionsUnderTest() {
-        return Set.of(externalServer.getVersion());
+        return Set.of(clusters.getInfo(ExternalServer::getVersion));
     }
 
 }

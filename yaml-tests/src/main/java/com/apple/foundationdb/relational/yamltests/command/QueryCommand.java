@@ -27,6 +27,8 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.util.Environment;
+import com.apple.foundationdb.relational.yamltests.command.queryconfigs.CheckExplainConfig;
+import com.apple.foundationdb.relational.yamltests.command.queryconfigs.CheckResultMetadataConfig;
 import com.apple.foundationdb.relational.yamltests.CustomYamlConstructor;
 import com.apple.foundationdb.relational.yamltests.Matchers;
 import com.apple.foundationdb.relational.yamltests.YamlReference;
@@ -40,6 +42,7 @@ import org.opentest4j.TestAbortedException;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
@@ -91,7 +94,7 @@ public final class QueryCommand extends Command {
             final var queryString = Matchers.notNull(Matchers.string(queryCommand.getValue(), "query string"), "query string");
             final var queryInterpreter = QueryInterpreter.withQueryString(reference, queryString, executionContext);
             final List<?> queryConfigsWithValueList = Matchers.arrayList(object).stream().skip(1).collect(Collectors.toList());
-            final var configs = queryConfigsWithValueList.isEmpty() ?
+            List<QueryConfig> configs = queryConfigsWithValueList.isEmpty() ?
                     List.of(QueryConfig.getNoCheckConfig(reference)) :
                     QueryConfig.parseConfigs(blockName, reference, queryConfigsWithValueList, executionContext);
 
@@ -103,6 +106,50 @@ public final class QueryCommand extends Command {
                         ((QueryConfig.SkipConfig)skipConfigs.get(0)).getMessage(),
                         queryInterpreter.getQuery());
             }
+
+            // When OPTION_ADD_RESULT_METADATA is set, inject a synthetic resultMetadata config for queries
+            // that have a result/unorderedResult config but no resultMetadata block yet.
+            // Only inject for result-returning queries (those with result: or unorderedResult:) to avoid
+            // re-executing INSERT/UPDATE/DELETE statements that have no result config.
+            // Insert it before the first result/unorderedResult config so it runs while queryIsRunning is
+            // false (independent query execution), matching the expected ordering in YAMSQL files.
+            if (executionContext.shouldAddResultMetadata()
+                    && configs.stream().noneMatch(c -> QueryConfig.QUERY_CONFIG_RESULT_METADATA.equals(c.getConfigName()))
+                    && configs.stream().anyMatch(c -> QueryConfig.QUERY_CONFIG_RESULT.equals(c.getConfigName())
+                            || QueryConfig.QUERY_CONFIG_UNORDERED_RESULT.equals(c.getConfigName()))) {
+                final List<QueryConfig> mutableConfigs = new ArrayList<>(configs);
+                int insertIdx = mutableConfigs.size();
+                for (int i = 0; i < mutableConfigs.size(); i++) {
+                    final String name = mutableConfigs.get(i).getConfigName();
+                    if (QueryConfig.QUERY_CONFIG_RESULT.equals(name) || QueryConfig.QUERY_CONFIG_UNORDERED_RESULT.equals(name)) {
+                        insertIdx = i;
+                        break;
+                    }
+                }
+                mutableConfigs.add(insertIdx, new CheckResultMetadataConfig(
+                        QueryConfig.QUERY_CONFIG_RESULT_METADATA, null, reference, executionContext));
+                configs = mutableConfigs;
+            }
+
+            // When OPTION_ADD_EXPLAIN is set, inject a synthetic explain config for queries that have a
+            // result/unorderedResult config but no explain block yet, so the actual plan is captured and
+            // written into the YAMSQL source file.
+            if (executionContext.shouldAddExplains()
+                    && QueryConfig.shouldExecuteExplain(executionContext)
+                    && configs.stream().noneMatch(c -> QueryConfig.QUERY_CONFIG_EXPLAIN.equals(c.getConfigName())
+                            || QueryConfig.QUERY_CONFIG_EXPLAIN_CONTAINS.equals(c.getConfigName()))
+                    && configs.stream().anyMatch(c -> QueryConfig.QUERY_CONFIG_RESULT.equals(c.getConfigName())
+                            || QueryConfig.QUERY_CONFIG_UNORDERED_RESULT.equals(c.getConfigName()))) {
+                final List<QueryConfig> mutableConfigs = new ArrayList<>(configs);
+                // Insert after supported_version if it is the first config, otherwise at the front.
+                int insertIdx = (!mutableConfigs.isEmpty()
+                        && QueryConfig.QUERY_CONFIG_SUPPORTED_VERSION.equals(mutableConfigs.get(0).getConfigName()))
+                        ? 1 : 0;
+                mutableConfigs.add(insertIdx, new CheckExplainConfig(
+                        QueryConfig.QUERY_CONFIG_EXPLAIN, null, reference, executionContext, true, blockName));
+                configs = mutableConfigs;
+            }
+
             final boolean hasDebuggerConfig =
                     configs.stream()
                             .anyMatch(config -> Objects.equals(config.getConfigName(), QueryConfig.QUERY_CONFIG_DEBUGGER));
@@ -167,6 +214,9 @@ public final class QueryCommand extends Command {
         Integer maxRows = null;
         boolean exhausted = false;
         boolean errored = false;
+        // The most recently seen resultMetadata config. Passed to every result/count/error executor
+        // call so metadata is checked inline on every page (including the first).
+        CheckResultMetadataConfig stickyMetadata = null;
 
         final DebuggerImplementation debuggerImplementation =
                 queryConfigs.stream()
@@ -198,6 +248,10 @@ public final class QueryCommand extends Command {
                 Integer finalMaxRows = maxRows;
                 runWithDebugger(executionContext, debuggerImplementation,
                         () -> executor.execute(connection, null, queryConfig, checkCache, finalMaxRows));
+            } else if (QueryConfig.QUERY_CONFIG_RESULT_METADATA.equals(queryConfig.getConfigName())) {
+                stickyMetadata = (CheckResultMetadataConfig) queryConfig;
+                // Checked inline when the next result/count/error block executes (all pages).
+                // If mid-continuation, the next page picks it up automatically.
             } else if (QueryConfig.QUERY_CONFIG_EXPLAIN.equals(queryConfig.getConfigName()) || QueryConfig.QUERY_CONFIG_EXPLAIN_CONTAINS.equals(queryConfig.getConfigName())) {
                 Assert.that(!queryIsRunning, "Explain test should not be intermingled with query result tests");
                 // ignore debugger configuration, always set the debugger for explain, so we can always get consistent
@@ -233,7 +287,9 @@ public final class QueryCommand extends Command {
                             "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤%n",
                             queryConfig.getReference(), queryConfig.getValueString()));
                 }
-                continuation = executor.execute(connection, continuation, queryConfig, checkCache, maxRows);
+                continuation = executor.execute(connection, continuation, queryConfig, checkCache, maxRows,
+                        stickyMetadata);
+                // stickyMetadata is intentionally not cleared: it applies to all remaining continuation pages.
                 if (continuation == null || continuation.atEnd()) {
                     queryIsRunning = false;
                     exhausted = true;

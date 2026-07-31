@@ -72,10 +72,13 @@ import java.util.stream.Stream;
 
 public class TransactionBoundQueryTest {
     @Nonnull
-    private static final String SCHEMA_TEMPLATE = " CREATE TABLE t1(id bigint, a bigint, b string, PRIMARY KEY(id)) " +
-            "CREATE TYPE as STRUCT entry(key string, value bigint) " +
-            "CREATE TABLE t2(id bigint, a bigint, c string, d entry ARRAY, PRIMARY KEY (id)) " +
-            "CREATE TABLE t3(id bigint, a bigint, e bigint, f bigint, PRIMARY KEY(id))";
+    private static final String SCHEMA_TEMPLATE =
+            """
+            CREATE TABLE t1(id bigint, a bigint, b string, PRIMARY KEY(id))
+            CREATE TYPE as STRUCT entry(key string, value bigint)
+            CREATE TABLE t2(id bigint, a bigint, c string, d entry ARRAY, PRIMARY KEY (id))
+            CREATE TABLE t3(id bigint, a bigint, e bigint, f bigint, PRIMARY KEY(id))
+            """;
     @RegisterExtension
     @Order(0)
     @Nonnull
@@ -283,7 +286,7 @@ public class TransactionBoundQueryTest {
                                 .hasNextRow();
                         Assertions.assertThat(resultSet.getString("plan"))
                                 .doesNotContain(countIndex)
-                                .contains("SCAN(<,>)");
+                                .contains("SCAN([IS T1])");
                         RelationalResultSetAssert.assertThat(resultSet)
                                 .hasNoNextRow();
                     }

@@ -29,6 +29,7 @@ import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.util.RandomSecretUtil;
+import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.ParameterizedTestUtils;
 import com.apple.test.RandomSeedSource;
@@ -51,6 +52,7 @@ import javax.annotation.Nullable;
 import javax.crypto.SecretKey;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.security.GeneralSecurityException;
 import java.security.InvalidKeyException;
 import java.security.Key;
 import java.util.ArrayList;
@@ -58,6 +60,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Random;
 import java.util.stream.Stream;
+import java.util.zip.DataFormatException;
 import java.util.zip.Deflater;
 
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -340,6 +343,12 @@ public class TransformedRecordSerializerTest {
                 () -> deserialize(serializer, PRIMARY_KEY, serialized));
         assertThat(tooLargeException.getMessage(), containsString("decompressed record too large"));
         assertThat(tooLargeException.getLogInfo(), hasEntry(LogMessageKeys.EXPECTED.toString(), innerSize / 2));
+
+        updateSize(serialized, -1);
+        RecordSerializationException negativeLengthException = assertThrows(RecordSerializationException.class,
+                () -> deserialize(serializer, PRIMARY_KEY, serialized));
+        assertThat(negativeLengthException.getMessage(), containsString("invalid decompressed length"));
+        assertThat(negativeLengthException.getLogInfo(), hasEntry("decompressedLength", -1));
     }
 
     @Test
@@ -809,6 +818,380 @@ public class TransformedRecordSerializerTest {
         ByteBuffer.wrap(serialized, 2, Integer.BYTES)
                 .order(ByteOrder.BIG_ENDIAN)
                 .putInt(newSize);
+    }
+
+    /**
+     * Validate that {@code writeEncryptionValidationRatio = 1.0} passes silently when encryption is correct.
+     */
+    @ParameterizedTest
+    @RandomSeedSource
+    void encryptionValidationPassesForCorrectEncryption(long seed) {
+        SecretKey key = RandomSecretUtil.randomSecretKey(seed);
+        TransformedRecordSerializer<Message> serializer = TransformedRecordSerializerJCE.newDefaultBuilder()
+                .setEncryptWhenSerializing(true)
+                .setEncryptionKey(key)
+                .setWriteEncryptionValidationRatio(1.0)
+                .build();
+
+        MySimpleRecord mySimpleRecord = MySimpleRecord.newBuilder().setRecNo(PRIMARY_KEY_REC_NO).setStrValueIndexed(SONNET_108).build();
+        assertDoesNotThrow(() -> serialize(serializer, mySimpleRecord));
+    }
+
+    /**
+     * Validate that {@code writeEncryptionValidationRatio = 1.0} detects when the encrypted output
+     * has been corrupted (IV tampered so decryption produces different plaintext).
+     */
+    @ParameterizedTest
+    @RandomSeedSource
+    void encryptionValidationDetectsMismatch(long seed) {
+        final SecretKey key = RandomSecretUtil.randomSecretKey(seed);
+        final TransformedRecordSerializer<Message> base = TransformedRecordSerializerJCE.newDefaultBuilder()
+                .setEncryptionKey(key)
+                .setEncryptWhenSerializing(true)
+                .setWriteEncryptionValidationRatio(1.0)
+                .build();
+        final CorruptEncryptSerializer serializer = new CorruptEncryptSerializer((TransformedRecordSerializerJCE<Message>) base);
+
+        final MySimpleRecord mySimpleRecord = MySimpleRecord.newBuilder().setRecNo(PRIMARY_KEY_REC_NO).setStrValueIndexed(SONNET_108).build();
+        RecordSerializationValidationException e = assertThrows(RecordSerializationValidationException.class,
+                () -> serialize(serializer, mySimpleRecord));
+        assertThat(e.getMessage(), containsString("encryption validation error: decrypted bytes do not match original"));
+    }
+
+    /**
+     * Validate that {@code writeEncryptionValidationRatio = 0.0} skips validation entirely,
+     * even when the encrypted output is corrupted.
+     */
+    @ParameterizedTest
+    @RandomSeedSource
+    void encryptionValidationSkippedWhenRatioIsZero(long seed) {
+        final SecretKey key = RandomSecretUtil.randomSecretKey(seed);
+        final TransformedRecordSerializer<Message> base = TransformedRecordSerializerJCE.newDefaultBuilder()
+                .setEncryptWhenSerializing(true)
+                .setEncryptionKey(key)
+                .setWriteEncryptionValidationRatio(0.0)
+                .build();
+        final CorruptEncryptSerializer serializer = new CorruptEncryptSerializer((TransformedRecordSerializerJCE<Message>) base);
+
+        final MySimpleRecord mySimpleRecord = MySimpleRecord.newBuilder().setRecNo(PRIMARY_KEY_REC_NO).setStrValueIndexed(SONNET_108).build();
+        assertDoesNotThrow(() -> serialize(serializer, mySimpleRecord));
+    }
+
+    /**
+     * Encrypts normally then flips the first byte of the IV so that {@code validateEncrypt}'s
+     * decryption produces different first-block plaintext, triggering the mismatch check.
+     */
+    private static class CorruptEncryptSerializer extends TransformedRecordSerializerJCE<Message> {
+        CorruptEncryptSerializer(@Nonnull TransformedRecordSerializerJCE<Message> base) {
+            super(base.inner, base.compressWhenSerializing, base.compressionLevel, base.encryptWhenSerializing,
+                    base.writeValidationRatio, base.writeEncryptionValidationRatio, base.failOnDeserializeReattempt,
+                    base.deserializeReattemptCount, base.keyManager);
+        }
+
+        @Override
+        protected void encrypt(@Nonnull TransformedRecordSerializerState state, @Nullable StoreTimer timer) throws GeneralSecurityException {
+            super.encrypt(state, timer);
+            // Flip one bit in the IV so decryption in validateEncryption produces different plaintext
+            byte[] data = state.getDataArray();
+            data[0] ^= 0x01;
+        }
+
+        @Nonnull
+        @Override
+        public RecordSerializer<Message> widen() {
+            return this;
+        }
+    }
+
+    static Stream<Arguments> permanentlyCorruptRecordTestArgs() {
+        return ParameterizedTestUtils.cartesianProduct(
+                RandomizedTestUtils.randomSeeds(),
+                Stream.of(0, 1, 4),
+                ParameterizedTestUtils.booleans("failOnDeserializeReattempt"));
+    }
+
+    /**
+     * Validate that corrupting the ciphertext of an encrypted+compressed record throws a
+     * {@link RecordSerializationException}. With no retries configured the exception is thrown
+     * immediately without retry metadata. With {@code deserializeReattemptCount != 0} the retry also
+     * fails on permanently corrupt data, and the exception includes {@code RETRY_COUNT=`n`} and
+     * {@code RESULT="failure"}. The {@code failOnDeserializeReattempt} flag does not affect this
+     * behavior since the data is permanently corrupt.
+     */
+    @ParameterizedTest
+    @MethodSource("permanentlyCorruptRecordTestArgs")
+    void permanentlyCorruptRecordTest(long seed, int reattemptCount, boolean failOnDeserializeReattempt) {
+        SecretKey key = RandomSecretUtil.randomSecretKey(seed);
+        TransformedRecordSerializer<Message> serializer = TransformedRecordSerializerJCE.newDefaultBuilder()
+                .setEncryptWhenSerializing(true)
+                .setEncryptionKey(key)
+                .setCompressWhenSerializing(true)
+                .setDeserializeReattemptCount(reattemptCount)
+                .setFailOnDeserializeReattempt(failOnDeserializeReattempt)
+                .build();
+
+        MySimpleRecord mySimpleRecord = MySimpleRecord.newBuilder().setRecNo(PRIMARY_KEY_REC_NO).setStrValueIndexed(SONNET_108).build();
+        byte[] serialized = serialize(serializer, mySimpleRecord);
+        assertTrue(isCompressed(serialized));
+
+        // Corrupt the first byte of the actual ciphertext (after the 1-byte prefix and 16-byte IV).
+        serialized[1 + CipherPool.IV_SIZE] ^= (byte)0xFF;
+
+        RecordSerializationException e = assertThrows(RecordSerializationException.class,
+                () -> deserialize(serializer, PRIMARY_KEY, serialized));
+        assertThat(e.getLogInfo(), hasEntry(LogMessageKeys.PRIMARY_KEY.toString(), PRIMARY_KEY));
+        assertThat(e.getLogInfo(), hasEntry(LogMessageKeys.RETRY_COUNT.toString(), reattemptCount));
+        assertThat(e.getLogInfo(), hasEntry(LogMessageKeys.RESULT.toString(), "failure"));
+    }
+
+    static Stream<Arguments> transientDecryptionFailureTestArgs() {
+        return ParameterizedTestUtils.cartesianProduct(
+                RandomizedTestUtils.randomSeeds(),
+                Stream.of(NonnullPair.of(0, 0), NonnullPair.of(0, 1), NonnullPair.of(1, 1), NonnullPair.of(1, 2), NonnullPair.of(4, 3), NonnullPair.of(4, 5)),
+                ParameterizedTestUtils.booleans("failOnDeserializeReattempt"));
+    }
+
+    /**
+     * Validates deserialization behavior under transient decrypt failures.
+     *
+     * <p>The deserializer corrupts the plaintext on the first {@code initialKFailures} calls to
+     * {@link TransformedRecordSerializerJCE#decrypt}. Whether deserialization ultimately succeeds
+     * depends on whether the configured {@code deserializeReattemptCount} is sufficient to
+     * outlast the failures:
+     * <ul>
+     *   <li>If {@code initialKFailures <= reattemptCount}: deserialization succeeds.
+     *       If {@code failOnDeserializeReattempt=true} and at least one retry was needed, a
+     *       {@link RecordSerializationException} with {@code RESULT="success"} is still thrown
+     *       for observability.</li>
+     *   <li>If {@code initialKFailures > reattemptCount}: deserialization fails with a
+     *       {@link RecordSerializationException}. When retries were configured,
+     *       {@code RETRY_COUNT} and {@code RESULT="failure"} are included in the log info.</li>
+     * </ul>
+     */
+    @ParameterizedTest
+    @MethodSource("transientDecryptionFailureTestArgs")
+    void transientDecryptionHardwareFailureTest(long seed, @Nonnull final NonnullPair<Integer, Integer> reattemptCountAndInitialKFailures, boolean failOnDeserializeReattempt) {
+        final SecretKey key = RandomSecretUtil.randomSecretKey(seed);
+        final int reattemptCount = reattemptCountAndInitialKFailures.getLeft();
+        final int initialKFailures = reattemptCountAndInitialKFailures.getRight();
+
+        // Build a regular serializer to serialize the record
+        final TransformedRecordSerializerJCE<Message> serializer = TransformedRecordSerializerJCE.newDefaultBuilder()
+                .setEncryptWhenSerializing(true)
+                .setEncryptionKey(key)
+                .setCompressWhenSerializing(true)
+                .build();
+
+        final MySimpleRecord mySimpleRecord = MySimpleRecord.newBuilder().setRecNo(PRIMARY_KEY_REC_NO).setStrValueIndexed(SONNET_108).build();
+        final byte[] serialized = serialize(serializer, mySimpleRecord);
+        assertTrue(isCompressed(serialized));
+
+        // Build a deserializer that corrupts plaintext on the first initialKFailures decrypt calls.
+        final CorruptFirstKDecryptSerializer deserializer = new CorruptFirstKDecryptSerializer(
+                (TransformedRecordSerializerJCE<Message>) TransformedRecordSerializerJCE.newDefaultBuilder()
+                        .setEncryptionKey(key)
+                        .setDeserializeReattemptCount(reattemptCount)
+                        .setFailOnDeserializeReattempt(failOnDeserializeReattempt)
+                        .setEncryptWhenSerializing(true)
+                        .setCompressWhenSerializing(true)
+                        .build(), initialKFailures);
+
+        final boolean deserializeWillSucceedUltimately = initialKFailures <= reattemptCount;
+        if (deserializeWillSucceedUltimately) {
+            if (failOnDeserializeReattempt && initialKFailures > 0) {
+                // Retry succeeded but failOnDeserializeReattempt=true: expect exception.
+                RecordSerializationException e = assertThrows(RecordSerializationException.class,
+                        () -> deserialize(deserializer, PRIMARY_KEY, serialized));
+                assertThat(e.getLogInfo(), hasEntry(LogMessageKeys.RETRY_COUNT.toString(), initialKFailures));
+                assertThat(e.getLogInfo(), hasEntry(LogMessageKeys.RESULT.toString(), "success"));
+                // The originating failure from the last failed attempt is threaded through as the cause.
+                // For this test, decrypt corrupts the post-header payload, so decompress fails inside
+                // Inflater with DataFormatException, which decompressOrThrow wraps into a
+                // RecordSerializationException.
+                assertNotNull(e.getCause());
+                assertThat(e.getCause(), instanceOf(RecordSerializationException.class));
+                assertThat(e.getCause().getCause(), instanceOf(DataFormatException.class));
+            } else {
+                // No retry needed, or failOnDeserializeReattempt=false: success.
+                Message deserialized = deserialize(deserializer, PRIMARY_KEY, serialized);
+                assertEquals(mySimpleRecord, deserialized);
+            }
+        } else {
+            RecordSerializationException e = assertThrows(RecordSerializationException.class,
+                    () -> deserialize(deserializer, PRIMARY_KEY, serialized));
+            assertThat(e.getLogInfo(), hasEntry(LogMessageKeys.PRIMARY_KEY.toString(), PRIMARY_KEY));
+            assertThat(e.getLogInfo(), hasEntry(LogMessageKeys.RETRY_COUNT.toString(), reattemptCount));
+            assertThat(e.getLogInfo(), hasEntry(LogMessageKeys.RESULT.toString(), "failure"));
+        }
+    }
+
+    static Stream<Arguments> transientDecryptionThrowingFailureTestArgs() {
+        return ParameterizedTestUtils.cartesianProduct(
+                RandomizedTestUtils.randomSeeds(),
+                Stream.of(NonnullPair.of(0, 0), NonnullPair.of(0, 1), NonnullPair.of(1, 1), NonnullPair.of(1, 2), NonnullPair.of(4, 3), NonnullPair.of(4, 5)),
+                ParameterizedTestUtils.booleans("failOnDeserializeReattempt"));
+    }
+
+    /**
+     * Validates deserialization behavior when {@code decrypt} itself throws on the first
+     * {@code initialKFailures} calls. Mirrors {@link #transientDecryptionHardwareFailureTest},
+     * but exercises the retry path where decryption raises a {@link GeneralSecurityException}
+     * directly rather than producing corrupt plaintext that decompression catches.
+     *
+     * <ul>
+     *   <li>If {@code initialKFailures <= reattemptCount}: deserialization succeeds.
+     *       If {@code failOnDeserializeReattempt=true} and at least one retry was needed, a
+     *       {@link RecordSerializationException} with {@code RESULT="success"} is still thrown
+     *       for observability.</li>
+     *   <li>If {@code initialKFailures > reattemptCount}: deserialization fails with a
+     *       {@link RecordSerializationException}. When retries were configured,
+     *       {@code RETRY_COUNT} and {@code RESULT="failure"} are included in the log info.</li>
+     * </ul>
+     */
+    @ParameterizedTest
+    @MethodSource("transientDecryptionThrowingFailureTestArgs")
+    void transientDecryptionThrowingFailureTest(long seed, @Nonnull final NonnullPair<Integer, Integer> reattemptCountAndInitialKFailures, boolean failOnDeserializeReattempt) {
+        final SecretKey key = RandomSecretUtil.randomSecretKey(seed);
+        final int reattemptCount = reattemptCountAndInitialKFailures.getLeft();
+        final int initialKFailures = reattemptCountAndInitialKFailures.getRight();
+
+        final TransformedRecordSerializerJCE<Message> serializer = TransformedRecordSerializerJCE.newDefaultBuilder()
+                .setEncryptWhenSerializing(true)
+                .setEncryptionKey(key)
+                .setCompressWhenSerializing(true)
+                .build();
+
+        final MySimpleRecord mySimpleRecord = MySimpleRecord.newBuilder().setRecNo(PRIMARY_KEY_REC_NO).setStrValueIndexed(SONNET_108).build();
+        final byte[] serialized = serialize(serializer, mySimpleRecord);
+        assertTrue(isCompressed(serialized));
+
+        final ThrowingFirstKDecryptSerializer deserializer = new ThrowingFirstKDecryptSerializer(
+                (TransformedRecordSerializerJCE<Message>) TransformedRecordSerializerJCE.newDefaultBuilder()
+                        .setEncryptionKey(key)
+                        .setDeserializeReattemptCount(reattemptCount)
+                        .setFailOnDeserializeReattempt(failOnDeserializeReattempt)
+                        .setEncryptWhenSerializing(true)
+                        .setCompressWhenSerializing(true)
+                        .build(), initialKFailures);
+
+        final boolean deserializeWillSucceedUltimately = initialKFailures <= reattemptCount;
+        if (deserializeWillSucceedUltimately) {
+            if (failOnDeserializeReattempt && initialKFailures > 0) {
+                RecordSerializationException e = assertThrows(RecordSerializationException.class,
+                        () -> deserialize(deserializer, PRIMARY_KEY, serialized));
+                assertThat(e.getLogInfo(), hasEntry(LogMessageKeys.RETRY_COUNT.toString(), initialKFailures));
+                assertThat(e.getLogInfo(), hasEntry(LogMessageKeys.RESULT.toString(), "success"));
+                // The originating failure from the last failed attempt is threaded through as the cause.
+                // For this test, decrypt threw GeneralSecurityException directly, which gets wrapped in
+                // RecordSerializationException by decryptOrThrow.
+                assertNotNull(e.getCause());
+                assertThat(e.getCause(), instanceOf(RecordSerializationException.class));
+                assertThat(e.getCause().getCause(), instanceOf(GeneralSecurityException.class));
+            } else {
+                Message deserialized = deserialize(deserializer, PRIMARY_KEY, serialized);
+                assertEquals(mySimpleRecord, deserialized);
+            }
+        } else {
+            RecordSerializationException e = assertThrows(RecordSerializationException.class,
+                    () -> deserialize(deserializer, PRIMARY_KEY, serialized));
+            assertThat(e.getLogInfo(), hasEntry(LogMessageKeys.PRIMARY_KEY.toString(), PRIMARY_KEY));
+            assertThat(e.getLogInfo(), hasEntry(LogMessageKeys.RETRY_COUNT.toString(), reattemptCount));
+            assertThat(e.getLogInfo(), hasEntry(LogMessageKeys.RESULT.toString(), "failure"));
+        }
+    }
+
+    /**
+     * Without compression a prior implementation had no retry path, so a transient decrypt
+     * failure was always fatal. This verifies that with the change extending retries to cover
+     * decryption, an encryption-only serializer recovers from a single transient decrypt
+     * failure when {@code deserializeReattemptCount >= 1}.
+     */
+    @Test
+    void transientDecryptThrowsRetryWithoutCompression() {
+        final SecretKey key = RandomSecretUtil.randomSecretKey(0xC0FFEEL);
+
+        final TransformedRecordSerializerJCE<Message> serializer = TransformedRecordSerializerJCE.newDefaultBuilder()
+                .setEncryptWhenSerializing(true)
+                .setEncryptionKey(key)
+                .build();
+
+        final MySimpleRecord mySimpleRecord = MySimpleRecord.newBuilder().setRecNo(PRIMARY_KEY_REC_NO).setStrValueIndexed("Hello").build();
+        final byte[] serialized = serialize(serializer, mySimpleRecord);
+        assertFalse(isCompressed(serialized));
+
+        final ThrowingFirstKDecryptSerializer deserializer = new ThrowingFirstKDecryptSerializer(
+                (TransformedRecordSerializerJCE<Message>) TransformedRecordSerializerJCE.newDefaultBuilder()
+                        .setEncryptionKey(key)
+                        .setDeserializeReattemptCount(1)
+                        .setEncryptWhenSerializing(true)
+                        .build(), 1);
+
+        Message deserialized = deserialize(deserializer, PRIMARY_KEY, serialized);
+        assertEquals(mySimpleRecord, deserialized);
+    }
+
+    private static class ThrowingFirstKDecryptSerializer extends TransformedRecordSerializerJCE<Message> {
+        private int decryptCallCount = 0;
+        private final int initialFailCount;
+
+        ThrowingFirstKDecryptSerializer(@Nonnull TransformedRecordSerializerJCE<Message> base, int initialFailCount) {
+            super(base.inner, base.compressWhenSerializing, base.compressionLevel, base.encryptWhenSerializing,
+                    base.writeValidationRatio, base.writeEncryptionValidationRatio, base.failOnDeserializeReattempt,
+                    base.deserializeReattemptCount, base.keyManager);
+            this.initialFailCount = initialFailCount;
+        }
+
+        @Override
+        protected void decrypt(@Nonnull TransformedRecordSerializerState state, @Nullable StoreTimer timer) throws GeneralSecurityException {
+            if (decryptCallCount++ < initialFailCount) {
+                throw new GeneralSecurityException("simulated transient decrypt failure");
+            }
+            super.decrypt(state, timer);
+        }
+
+        @Nonnull
+        @Override
+        public RecordSerializer<Message> widen() {
+            return this;
+        }
+    }
+
+    private static class CorruptFirstKDecryptSerializer extends TransformedRecordSerializerJCE<Message> {
+        private int decryptCallCount = 0;
+        private final int initialFailCount;
+
+        CorruptFirstKDecryptSerializer(@Nonnull TransformedRecordSerializerJCE<Message> base, int initialFailCount) {
+            super(base.inner, base.compressWhenSerializing, base.compressionLevel, base.encryptWhenSerializing,
+                    base.writeValidationRatio, base.writeEncryptionValidationRatio, base.failOnDeserializeReattempt,
+                    base.deserializeReattemptCount, base.keyManager);
+            this.initialFailCount = initialFailCount;
+        }
+
+        @Override
+        protected void decrypt(@Nonnull TransformedRecordSerializerState state, @Nullable StoreTimer timer) throws GeneralSecurityException {
+            super.decrypt(state, timer);
+            if (decryptCallCount < initialFailCount) {
+                // Preserve the 5-byte compression header (version + uncompressed length) so that
+                // decompress reaches Inflater and fails with DataFormatException — which gets wrapped
+                // by decompressOrThrow into a RecordSerializationException with the DataFormatException
+                // as its cause. Wiping the header instead would short-circuit with "unknown compression
+                // version" and no cause, losing the failure-chain information.
+                byte[] data = state.getDataArray();
+                final int payloadStart = state.getOffset() + 5;
+                final int payloadEnd = state.getOffset() + state.getLength();
+                for (int i = payloadStart; i < payloadEnd; i++) {
+                    data[i] = (byte) 0xFF;
+                }
+                state.setDataArray(data);
+            }
+            decryptCallCount++;
+        }
+
+        @Nonnull
+        @Override
+        public RecordSerializer<Message> widen() {
+            return this;
+        }
     }
 
     /**

@@ -1,11 +1,1056 @@
-
-# Release Notes
+# Release notes
 
 This document contains a log of changes to the FoundationDB Record Layer. It aims to include mostly user-visible changes or improvements. Within each minor release, larger or more involved changes are highlighted first before detailing the changes that were included in each build or patch version. Users should especially take note of any breaking changes or special upgrade instructions which should always be included as a preface to the minor version as a whole before looking at changes at a version-by-version level.
 
 As the [versioning guide](Versioning.md) details, it cannot always be determined solely by looking at the version numbers whether one Record Layer version contains all changes included in another. In particular, bug fixes and backwards-compatible changes might be back-ported to or introduced as patches against older versions. To track when a patch version has been included in the main release train, some releases will say as a note that they contain all changes from a specific patch.
 
+## 4.12
+
+### 4.12.16.0
+
+<h4> New Features </h4>
+
+* Support pending write queue specifically in the sliding window index maintainer - [PR #4370](https://github.com/FoundationDB/fdb-record-layer/pull/4370)
+* Add deleteStoreAsync that checks StoreHeader before bumping MetaDataVersionStamp - [PR #4354](https://github.com/FoundationDB/fdb-record-layer/pull/4354)
+
+
+**[Full Changelog (4.12.15.0...4.12.16.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.12.15.0...4.12.16.0)**
+
+#### Mixed Mode Test Results
+
+Mixed mode testing run against the following previous versions:
+
+✅`4.12.5.0`, ✅`4.12.6.0`, ✅`4.12.7.0`, ✅`4.12.8.0`, ✅`4.12.9.0`, ✅`4.12.10.0`, ✅`4.12.11.0`, ✅`4.12.12.0`, ✅`4.12.13.0`, ✅`4.12.15.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/30306714390)
+
+
+
+### 4.12.15.0
+
+<h4> Breaking Changes </h4>
+
+* Convert queryOptions to statementOptions - [PR #4362](https://github.com/FoundationDB/fdb-record-layer/pull/4362)
+<h4> New Features </h4>
+
+* Case-insensitive canonical query representation - [PR #4379](https://github.com/FoundationDB/fdb-record-layer/pull/4379)
+* Make the pending write queue max queue size configurable. - [PR #4389](https://github.com/FoundationDB/fdb-record-layer/pull/4389)
+* support GuardiANN in VectorIndexMaintainer - [PR #4357](https://github.com/FoundationDB/fdb-record-layer/pull/4357)
+* Disable on queue full - [PR #4373](https://github.com/FoundationDB/fdb-record-layer/pull/4373)
+<h4> Bug Fixes </h4>
+
+* Fix issue with drain always conflicting with enqueues - [PR #4380](https://github.com/FoundationDB/fdb-record-layer/pull/4380)
+* Correctly disable replaced index when the replacement is disabled during checkVersion - [PR #4371](https://github.com/FoundationDB/fdb-record-layer/pull/4371)
+
+<details>
+<summary>
+
+<h4> Build/Test/Documentation/Style Improvements (click to expand) </h4>
+
+</summary>
+
+* Skip over external server version 4.12.14.0 - [PR #4400](https://github.com/FoundationDB/fdb-record-layer/pull/4400)
+* Fix merge skew - [PR #4395](https://github.com/FoundationDB/fdb-record-layer/pull/4395)
+* fixed: primaries assigned to a non-nearest cluster (X of Y) exceed th… - [PR #4387](https://github.com/FoundationDB/fdb-record-layer/pull/4387)
+* Update the `jts` and `log4j` dependencies; remove `h2` and `opencsv` - [PR #4368](https://github.com/FoundationDB/fdb-record-layer/pull/4368)
+* Avoid unnecessary configuration of Gradle tasks (lazy realization) - [PR #4365](https://github.com/FoundationDB/fdb-record-layer/pull/4365)
+* Eliminate remaining usages of Apache Commons Lang - [PR #4378](https://github.com/FoundationDB/fdb-record-layer/pull/4378)
+* Remove aged-out `schema_template` variants - [PR #4377](https://github.com/FoundationDB/fdb-record-layer/pull/4377)
+
+</details>
+
+
+**[Full Changelog (4.12.13.0...4.12.15.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.12.13.0...4.12.15.0)**
+
+#### Mixed Mode Test Results
+
+Mixed mode testing run against the following previous versions:
+
+✅`4.12.4.0`, ✅`4.12.5.0`, ✅`4.12.6.0`, ✅`4.12.7.0`, ✅`4.12.8.0`, ✅`4.12.9.0`, ✅`4.12.10.0`, ✅`4.12.11.0`, ✅`4.12.12.0`, ✅`4.12.13.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/30281940581)
+
+
+
+### 4.12.13.0
+
+<h4> Breaking Changes </h4>
+
+* Pending write queue infrastructure to support non-trivial indexes - [PR #4350](https://github.com/FoundationDB/fdb-record-layer/pull/4350)
+<h4> New Features </h4>
+
+* Add support for user-defined macro functions with arbitrary expressions - [PR #4318](https://github.com/FoundationDB/fdb-record-layer/pull/4318)
+* Write pending queue during online indexing - [PR #4293](https://github.com/FoundationDB/fdb-record-layer/pull/4293)
+* GuardiANN - [PR #4083](https://github.com/FoundationDB/fdb-record-layer/pull/4083)
+* Change syntax to CREATE STORED QUERY - [PR #4327](https://github.com/FoundationDB/fdb-record-layer/pull/4327)
+* Support temporary functions in stored queries - [PR #4291](https://github.com/FoundationDB/fdb-record-layer/pull/4291)
+* Pending writes queue - [PR #4309](https://github.com/FoundationDB/fdb-record-layer/pull/4309)
+* Store queries in schema template and warmup plan cache on startup - [PR #4157](https://github.com/FoundationDB/fdb-record-layer/pull/4157)
+<h4> Bug Fixes </h4>
+
+* Update plans with array expressions after merging #4171 - [PR #4372](https://github.com/FoundationDB/fdb-record-layer/pull/4372)
+* Improve handling of nested arrays and arrays of nullable values - [PR #4171](https://github.com/FoundationDB/fdb-record-layer/pull/4171)
+* Fix explain string for SubscriptValue - [PR #4302](https://github.com/FoundationDB/fdb-record-layer/pull/4302)
+<h4> Performance Improvements </h4>
+
+* Cleanups and micro-optimizations around `deserializeRecordMetaData()` - [PR #4351](https://github.com/FoundationDB/fdb-record-layer/pull/4351)
+
+<details>
+<summary>
+
+<h4> Build/Test/Documentation/Style Improvements (click to expand) </h4>
+
+</summary>
+
+* Run scalarFallbackTest with tests not style during release - [PR #4376](https://github.com/FoundationDB/fdb-record-layer/pull/4376)
+* Remove usage of List.getFirst() from test - [PR #4375](https://github.com/FoundationDB/fdb-record-layer/pull/4375)
+* Pin the Java toolchain to JDK 21 using `java { toolchain {…} }` - [PR #4366](https://github.com/FoundationDB/fdb-record-layer/pull/4366)
+* Gradle/Groovy code quality improvements - [PR #4367](https://github.com/FoundationDB/fdb-record-layer/pull/4367)
+* Make various tasks compatible with the Gradle Configuration Cache - [PR #4356](https://github.com/FoundationDB/fdb-record-layer/pull/4356)
+* Skip subproject tests during PRB if the code is unaffected - [PR #4328](https://github.com/FoundationDB/fdb-record-layer/pull/4328)
+* Install Mockito as a JVM -javaagent on every Test task - [PR #4349](https://github.com/FoundationDB/fdb-record-layer/pull/4349)
+* reduce the _large_ sample size to 50_000 - [PR #4331](https://github.com/FoundationDB/fdb-record-layer/pull/4331)
+* Restructure the SQL reference - [PR #4330](https://github.com/FoundationDB/fdb-record-layer/pull/4330)
+* Migrate fdb-record-layer-core test bases to testFixtures - [PR #4297](https://github.com/FoundationDB/fdb-record-layer/pull/4297)
+* Change the nightly workflow so that it runs nightly modules in parallel - [PR #4329](https://github.com/FoundationDB/fdb-record-layer/pull/4329)
+* Introduce `AbstractCascadesRule` and split rule kinds into interfaces - [PR #4322](https://github.com/FoundationDB/fdb-record-layer/pull/4322)
+* Normalize all headings in the Sphinx documentation - [PR #4324](https://github.com/FoundationDB/fdb-record-layer/pull/4324)
+* Overhaul `README.md` and Sphinx `index.md` - [PR #4321](https://github.com/FoundationDB/fdb-record-layer/pull/4321)
+* Introduce minimal parallelism in tests - [PR #4319](https://github.com/FoundationDB/fdb-record-layer/pull/4319)
+* Clean up the structure of the Sphinx documentation - [PR #4314](https://github.com/FoundationDB/fdb-record-layer/pull/4314)
+* teamscale_upload workflow: Convert array of pull requests to json - [PR #4307](https://github.com/FoundationDB/fdb-record-layer/pull/4307)
+* Investigate teamscale_upload PR summary - [PR #4303](https://github.com/FoundationDB/fdb-record-layer/pull/4303)
+* Upgrade JUnit 5.14.4 -> 6.1.0 - [PR #4294](https://github.com/FoundationDB/fdb-record-layer/pull/4294)
+* Add PR information to the teamscale upload task - [PR #4299](https://github.com/FoundationDB/fdb-record-layer/pull/4299)
+
+</details>
+
+
+**[Full Changelog (4.12.12.0...4.12.13.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.12.12.0...4.12.13.0)**
+
+#### Mixed Mode Test Results
+
+Mixed mode testing run against the following previous versions:
+
+✅`4.12.3.0`, ✅`4.12.4.0`, ✅`4.12.5.0`, ✅`4.12.6.0`, ✅`4.12.7.0`, ✅`4.12.8.0`, ✅`4.12.9.0`, ✅`4.12.10.0`, ✅`4.12.11.0`, ✅`4.12.12.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/29912093802)
+
+
+
+### 4.12.12.0
+
+<h4> New Features </h4>
+
+* Add observability for the set of indexes updated in a transaction - [PR #4289](https://github.com/FoundationDB/fdb-record-layer/pull/4289)
+* Extend deserialize retry to cover decryption failures - [PR #4290](https://github.com/FoundationDB/fdb-record-layer/pull/4290)
+*   Refine DistinctRecordsProperty for EXPLODE WITH ORDINALITY - [PR #4285](https://github.com/FoundationDB/fdb-record-layer/pull/4285)
+* SIMD support for vector operations - [PR #4218](https://github.com/FoundationDB/fdb-record-layer/pull/4218)
+<h4> Bug Fixes </h4>
+
+* Update `RecordTypeTable` so that `RelationalStruct`s with UUID-valued fields can be converted appropriately - [PR #4243](https://github.com/FoundationDB/fdb-record-layer/pull/4243)
+
+<details>
+<summary>
+
+<h4> Build/Test/Documentation/Style Improvements (click to expand) </h4>
+
+</summary>
+
+* Cache downloaded build assets using GitHub actions - [PR #4264](https://github.com/FoundationDB/fdb-record-layer/pull/4264)
+* Use ArrayList rather than newArrayList from JCommander - [PR #4284](https://github.com/FoundationDB/fdb-record-layer/pull/4284)
+* Add AI assistant tooling: AGENTS.md, CLAUDE.md, skills - [PR #4286](https://github.com/FoundationDB/fdb-record-layer/pull/4286)
+* Update all test-only dependencies - [PR #4268](https://github.com/FoundationDB/fdb-record-layer/pull/4268)
+* Remove unused bndtools dependency - [PR #4283](https://github.com/FoundationDB/fdb-record-layer/pull/4283)
+* Add a test: online indexer takeover multi-target to single - [PR #4262](https://github.com/FoundationDB/fdb-record-layer/pull/4262)
+* Add enough data in yamsql tests for force-continuation testing - [PR #4197](https://github.com/FoundationDB/fdb-record-layer/pull/4197)
+* Introduce new microbenchmarks to compare perf of direct access API with SQL path - [PR #3996](https://github.com/FoundationDB/fdb-record-layer/pull/3996)
+* Remove commonsCollections dependency - [PR #4282](https://github.com/FoundationDB/fdb-record-layer/pull/4282)
+
+</details>
+
+
+**[Full Changelog (4.12.11.0...4.12.12.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.12.11.0...4.12.12.0)**
+
+#### Mixed Mode Test Results
+
+Mixed mode testing run against the following previous versions:
+
+✅`4.12.2.0`, ✅`4.12.3.0`, ✅`4.12.4.0`, ✅`4.12.5.0`, ✅`4.12.6.0`, ✅`4.12.7.0`, ✅`4.12.8.0`, ✅`4.12.9.0`, ✅`4.12.10.0`, ✅`4.12.11.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/28028771688)
+
+
+
+### 4.12.11.0
+
+<h4> Bug Fixes </h4>
+
+* Avoid a case where the planner was erroneously dropping predicates - [PR #3965](https://github.com/FoundationDB/fdb-record-layer/pull/3965)
+* Stabilize hash codes used by the planner - [PR #4263](https://github.com/FoundationDB/fdb-record-layer/pull/4263)
+<h4> Performance Improvements </h4>
+
+* Simplify `ComposeFieldValueOverFieldValueRule` - [PR #4258](https://github.com/FoundationDB/fdb-record-layer/pull/4258)
+
+
+**[Full Changelog (4.12.10.0...4.12.11.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.12.10.0...4.12.11.0)**
+
+#### Mixed Mode Test Results
+
+Mixed mode testing run against the following previous versions:
+
+✅`4.12.1.0`, ✅`4.12.2.0`, ✅`4.12.3.0`, ✅`4.12.4.0`, ✅`4.12.5.0`, ✅`4.12.6.0`, ✅`4.12.7.0`, ✅`4.12.8.0`, ✅`4.12.9.0`, ✅`4.12.10.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/27554838526)
+
+
+
+### 4.12.10.0
+
+<h4> New Features </h4>
+
+* Define sliding window counters and timing events - [PR #4278](https://github.com/FoundationDB/fdb-record-layer/pull/4278)
+* Allow table name as column reference to return row as struct (`SELECT t from t`) - [PR #4195](https://github.com/FoundationDB/fdb-record-layer/pull/4195)
+
+<details>
+<summary>
+
+<h4> Build/Test/Documentation/Style Improvements (click to expand) </h4>
+
+</summary>
+
+* Add CREATE VIEW documentation - [PR #4208](https://github.com/FoundationDB/fdb-record-layer/pull/4208)
+
+</details>
+
+
+**[Full Changelog (4.12.9.0...4.12.10.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.12.9.0...4.12.10.0)**
+
+#### Mixed Mode Test Results
+
+Mixed mode testing run against the following previous versions:
+
+✅`4.11.1.0`, ✅`4.12.1.0`, ✅`4.12.2.0`, ✅`4.12.3.0`, ✅`4.12.4.0`, ✅`4.12.5.0`, ✅`4.12.6.0`, ✅`4.12.7.0`, ✅`4.12.8.0`, ✅`4.12.9.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/27360184639)
+
+
+
+### 4.12.9.0
+
+<h4> Breaking Changes </h4>
+
+* Disallow `LEFT` and `RIGHT` as simple identifiers in the SQL grammar - [PR #4272](https://github.com/FoundationDB/fdb-record-layer/pull/4272)
+<h4> New Features </h4>
+
+* Don’t generate unnecessary casts in `CastValue.inject()` - [PR #4252](https://github.com/FoundationDB/fdb-record-layer/pull/4252)
+* kmeans package - [PR #4203](https://github.com/FoundationDB/fdb-record-layer/pull/4203)
+* Indexer: fix typed records optimization - [PR #4244](https://github.com/FoundationDB/fdb-record-layer/pull/4244)
+<h4> Bug Fixes </h4>
+
+* Make the null-supplying side of `OUTER JOIN` nullable in the result value - [PR #4274](https://github.com/FoundationDB/fdb-record-layer/pull/4274)
+* Fail if metrics are missing for a query in yaml-tests - [PR #4194](https://github.com/FoundationDB/fdb-record-layer/pull/4194)
+* Fix an unreachable `if` branch in `QueryPredicateSimplificationRule` - [PR #4257](https://github.com/FoundationDB/fdb-record-layer/pull/4257)
+<h4> Performance Improvements </h4>
+
+* Removed a check from `checkVersion` that would clear the `omit_unsplit_record_suffix` on empty stores - [PR #4277](https://github.com/FoundationDB/fdb-record-layer/pull/4277)
+* Enable efficient rule-index-based matching for `AbsorptionRule` - [PR #4255](https://github.com/FoundationDB/fdb-record-layer/pull/4255)
+* Remove a dead call to `Simplification.optimize()` from `VectorIndexExpansionVisitor` - [PR #4256](https://github.com/FoundationDB/fdb-record-layer/pull/4256)
+<h4> Dependency Updates </h4>
+
+* Add a dependabot.yml to enable automatic dependency updates - [PR #4250](https://github.com/FoundationDB/fdb-record-layer/pull/4250)
+
+<details>
+<summary>
+
+<h4> Build/Test/Documentation/Style Improvements (click to expand) </h4>
+
+</summary>
+
+* improve numerical stability of test - [PR #4276](https://github.com/FoundationDB/fdb-record-layer/pull/4276)
+* Update some Gradle plugins and remove the `com.github.ben-manes.versions` plugin - [PR #4267](https://github.com/FoundationDB/fdb-record-layer/pull/4267)
+* Expand the SQL documentation for ARRAY unnesting - [PR #4271](https://github.com/FoundationDB/fdb-record-layer/pull/4271)
+* Harden GitHub Actions security posture - [PR #4249](https://github.com/FoundationDB/fdb-record-layer/pull/4249)
+* Raise the `maxHeapSize` from 512 MB to 4 GB on Gradle `Test` tasks - [PR #4265](https://github.com/FoundationDB/fdb-record-layer/pull/4265)
+* Delete `FoldConstantRule` - [PR #4259](https://github.com/FoundationDB/fdb-record-layer/pull/4259)
+
+</details>
+
+
+**[Full Changelog (4.12.8.0...4.12.9.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.12.8.0...4.12.9.0)**
+
+#### Mixed Mode Test Results
+
+Mixed mode testing run against the following previous versions:
+
+✅`4.10.20.0`, ✅`4.11.1.0`, ✅`4.12.1.0`, ✅`4.12.2.0`, ✅`4.12.3.0`, ✅`4.12.4.0`, ✅`4.12.5.0`, ✅`4.12.6.0`, ✅`4.12.7.0`, ✅`4.12.8.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/27294965829)
+
+
+
+### 4.12.8.0
+
+<h4> New Features </h4>
+
+* Implement some optimisations for value simplification and ConstrainedBooleans - [PR #4251](https://github.com/FoundationDB/fdb-record-layer/pull/4251)
+* Generate plan offline - [PR #4223](https://github.com/FoundationDB/fdb-record-layer/pull/4223)
+* Expose shutdown hook disablement through `FDBDatabaseFactory` - [PR #4246](https://github.com/FoundationDB/fdb-record-layer/pull/4246)
+
+<details>
+<summary>
+
+<h4> Build/Test/Documentation/Style Improvements (click to expand) </h4>
+
+</summary>
+
+* Update Gradle from 8.14 to 9.5.1 - [PR #4138](https://github.com/FoundationDB/fdb-record-layer/pull/4138)
+* Indexer test: assert that no heartbeat is committed during index rebuild - [PR #4248](https://github.com/FoundationDB/fdb-record-layer/pull/4248)
+* Bump Python deps with reported CVEs - [PR #4201](https://github.com/FoundationDB/fdb-record-layer/pull/4201)
+
+</details>
+
+
+**[Full Changelog (4.12.7.0...4.12.8.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.12.7.0...4.12.8.0)**
+
+#### Mixed Mode Test Results
+
+Mixed mode testing run against the following previous versions:
+
+✅`4.10.19.0`, ✅`4.10.20.0`, ✅`4.11.1.0`, ✅`4.12.1.0`, ✅`4.12.2.0`, ✅`4.12.3.0`, ✅`4.12.4.0`, ✅`4.12.5.0`, ✅`4.12.6.0`, ✅`4.12.7.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/26950367850)
+
+
+
+### 4.12.7.0
+
+<h4> Bug Fixes </h4>
+
+* Make `CastValue.hashCodeWithoutChildren()` stable - [PR #4241](https://github.com/FoundationDB/fdb-record-layer/pull/4241)
+
+
+**[Full Changelog (4.12.6.0...4.12.7.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.12.6.0...4.12.7.0)**
+
+#### Mixed Mode Test Results
+
+Mixed mode testing run against the following previous versions:
+
+✅`4.10.17.0`, ✅`4.10.18.0`, ✅`4.10.19.0`, ✅`4.10.20.0`, ✅`4.11.1.0`, ✅`4.12.1.0`, ✅`4.12.2.0`, ✅`4.12.3.0`, ✅`4.12.4.0`, ✅`4.12.5.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/26599506639)
+
+
+
+### 4.12.6.0
+
+<h4> New Features </h4>
+
+* Indexer: New feature: setEnforcedPostTransactionDelay - [PR #4229](https://github.com/FoundationDB/fdb-record-layer/pull/4229)
+* Indexer: Remove indexing metadata after successfully marking the index as readable - [PR #4233](https://github.com/FoundationDB/fdb-record-layer/pull/4233)
+* Support LEFT OUTER JOIN and RIGHT OUTER JOIN - [PR #4122](https://github.com/FoundationDB/fdb-record-layer/pull/4122)
+* Support EXISTS subqueries in projection list - [PR #4168](https://github.com/FoundationDB/fdb-record-layer/pull/4168)
+* Replace `PullUpNullOnEmptyRule` with `EliminateNullOnEmptyRule` - [PR #4186](https://github.com/FoundationDB/fdb-record-layer/pull/4186)
+* Improve constant folding of `NULL` operands in predicates and values - [PR #4224](https://github.com/FoundationDB/fdb-record-layer/pull/4224)
+* Remove userVersion from plan caching pipeline - [PR #4193](https://github.com/FoundationDB/fdb-record-layer/pull/4193)
+<h4> Bug Fixes </h4>
+
+* Use full entry key as boundary tiebreaker in sliding window admission - [PR #4231](https://github.com/FoundationDB/fdb-record-layer/pull/4231)
+* Clear INDEX_SLIDING_WINDOW_SPACE in clearIndexData and related lifecycle paths - [PR #4232](https://github.com/FoundationDB/fdb-record-layer/pull/4232)
+* Index scrubbing iteration may leave behind a rangeSet key - [PR #4226](https://github.com/FoundationDB/fdb-record-layer/pull/4226)
+* Restrict `ExpandRecordRule` to non-nullable values - [PR #4220](https://github.com/FoundationDB/fdb-record-layer/pull/4220)
+
+<details>
+<summary>
+
+<h4> Build/Test/Documentation/Style Improvements (click to expand) </h4>
+
+</summary>
+
+* Temporarily disable some `join-tests.yamsql` tests - [PR #4238](https://github.com/FoundationDB/fdb-record-layer/pull/4238)
+* Update the documentation for SQL joins - [PR #4144](https://github.com/FoundationDB/fdb-record-layer/pull/4144)
+* Document CREATE/DROP TEMPORARY FUNCTION - [PR #4207](https://github.com/FoundationDB/fdb-record-layer/pull/4207)
+* Reduce yaml-tests log verbosity - [PR #4202](https://github.com/FoundationDB/fdb-record-layer/pull/4202)
+* Fix release notes script to handle two-digit minor versions - [PR #4225](https://github.com/FoundationDB/fdb-record-layer/pull/4225)
+
+</details>
+
+
+**[Full Changelog (4.12.5.0...4.12.6.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.12.5.0...4.12.6.0)**
+
+#### Mixed Mode Test Results
+
+Mixed mode testing run against the following previous versions:
+
+✅`4.10.17.0`, ✅`4.10.18.0`, ✅`4.10.19.0`, ✅`4.10.20.0`, ✅`4.11.1.0`, ✅`4.12.1.0`, ✅`4.12.2.0`, ✅`4.12.3.0`, ✅`4.12.4.0`, ✅`4.12.5.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/26593427982)
+
+
+
+### 4.12.5.0
+
+<h4> New Features </h4>
+
+* Name struct columns from parenthesised-star expressions after their source - [PR #4182](https://github.com/FoundationDB/fdb-record-layer/pull/4182)
+* Fix bug when SplitSelectExtractIndependentQuantifiersRule selects from an exploded primitive array - [PR #4007](https://github.com/FoundationDB/fdb-record-layer/pull/4007)
+<h4> Bug Fixes </h4>
+
+* Fix `RecordQueryRecursiveLevelUnionPlan#computeHashCodeWithoutChildren()` - [PR #4189](https://github.com/FoundationDB/fdb-record-layer/pull/4189)
+* Make `RelationalExpression#equalsWithoutChildren()` compare the result values where necessary - [PR #4185](https://github.com/FoundationDB/fdb-record-layer/pull/4185)
+
+<details>
+<summary>
+
+<h4> Build/Test/Documentation/Style Improvements (click to expand) </h4>
+
+</summary>
+
+* Allow ErrorCode enum names in yamsql error directives - [PR #4200](https://github.com/FoundationDB/fdb-record-layer/pull/4200)
+
+</details>
+
+
+**[Full Changelog (4.12.4.0...4.12.5.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.12.4.0...4.12.5.0)**
+
+#### Mixed Mode Test Results
+
+Mixed mode testing run against the following previous versions:
+
+✅`4.10.16.0`, ✅`4.10.17.0`, ✅`4.10.18.0`, ✅`4.10.19.0`, ✅`4.10.20.0`, ✅`4.11.1.0`, ✅`4.12.1.0`, ✅`4.12.2.0`, ✅`4.12.3.0`, ✅`4.12.4.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/26464186416)
+
+
+
+### 4.12.4.0
+
+<h4> New Features </h4>
+
+* Allow more types of boolean expressions as top-level `WHERE`/`ON` predicates - [PR #4162](https://github.com/FoundationDB/fdb-record-layer/pull/4162)
+* Queue size in metadata - [PR #4181](https://github.com/FoundationDB/fdb-record-layer/pull/4181)
+
+<details>
+<summary>
+
+<h4> Build/Test/Documentation/Style Improvements (click to expand) </h4>
+
+</summary>
+
+* Remove jacoco-report from our pull_request builds - [PR #4173](https://github.com/FoundationDB/fdb-record-layer/pull/4173)
+* Remove FDB Binaries Cache - [PR #4175](https://github.com/FoundationDB/fdb-record-layer/pull/4175)
+
+</details>
+
+
+**[Full Changelog (4.12.3.0...4.12.4.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.12.3.0...4.12.4.0)**
+
+#### Mixed Mode Test Results
+
+Mixed mode testing run against the following previous versions:
+
+✅`4.10.15.0`, ✅`4.10.16.0`, ✅`4.10.17.0`, ✅`4.10.18.0`, ✅`4.10.19.0`, ✅`4.10.20.0`, ✅`4.11.1.0`, ✅`4.12.1.0`, ✅`4.12.2.0`, ✅`4.12.3.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/26309943491)
+
+
+
+### 4.12.3.0
+
+<h4> Breaking Changes </h4>
+
+* Fix the NULL result of `field()` key expressions with fan-type `Concatenate` - [PR #4130](https://github.com/FoundationDB/fdb-record-layer/pull/4130)
+<h4> New Features </h4>
+
+* Implement the PartiQL “AT” construct for unnesting with ordinality - [PR #4112](https://github.com/FoundationDB/fdb-record-layer/pull/4112)
+* Support CARDINALITY() in indexes - [PR #4100](https://github.com/FoundationDB/fdb-record-layer/pull/4100)
+<h4> Bug Fixes </h4>
+
+* Fix semantic analysis of unary grouping comparisons  - [PR #4174](https://github.com/FoundationDB/fdb-record-layer/pull/4174)
+* Disallow CREATE INDEX on ARRAY fields with implicit fan-out - [PR #4156](https://github.com/FoundationDB/fdb-record-layer/pull/4156)
+
+<details>
+<summary>
+
+<h4> Build/Test/Documentation/Style Improvements (click to expand) </h4>
+
+</summary>
+
+* Upgrade to Gradle 8.14 - [PR #4176](https://github.com/FoundationDB/fdb-record-layer/pull/4176)
+* Handle binary files in diffs for coverage_annotations - [PR #4178](https://github.com/FoundationDB/fdb-record-layer/pull/4178)
+* Update OperationsTest.testBasicInsertRingSearch expectation based on nightly runs - [PR #4142](https://github.com/FoundationDB/fdb-record-layer/pull/4142)
+* Introduce custom mechanism for exposing coverage information - [PR #4146](https://github.com/FoundationDB/fdb-record-layer/pull/4146)
+* Cleanup 4.5.3.0 Release Notes - [PR #3521](https://github.com/FoundationDB/fdb-record-layer/pull/3521)
+* Add support for using the COPY command in yamsql - [PR #4053](https://github.com/FoundationDB/fdb-record-layer/pull/4053)
+* Prepare for upgrading Gradle from 8.13 to 9.5 - [PR #4140](https://github.com/FoundationDB/fdb-record-layer/pull/4140)
+* Support per-version variants to `schema_template` in .yamsql tests - [PR #4155](https://github.com/FoundationDB/fdb-record-layer/pull/4155)
+* Update actions dependencies to not depend on Node 20 - [PR #4145](https://github.com/FoundationDB/fdb-record-layer/pull/4145)
+
+</details>
+
+
+**[Full Changelog (4.12.2.0...4.12.3.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.12.2.0...4.12.3.0)**
+
+#### Mixed Mode Test Results
+
+Mixed mode testing run against the following previous versions:
+
+✅`4.10.13.0`, ✅`4.10.15.0`, ✅`4.10.16.0`, ✅`4.10.17.0`, ✅`4.10.18.0`, ✅`4.10.19.0`, ✅`4.10.20.0`, ✅`4.11.1.0`, ✅`4.12.1.0`, ✅`4.12.2.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/26186643524)
+
+
+
+### 4.12.2.0
+
+<h4> Breaking Changes </h4>
+
+* Disallow CREATE INDEX on ARRAY fields with implicit fan-out - [PR #4104](https://github.com/FoundationDB/fdb-record-layer/pull/4104)
+<h4> New Features </h4>
+
+* Create IndexGeneralAttributes - [PR #4123](https://github.com/FoundationDB/fdb-record-layer/pull/4123)
+* `MetaDataEvolutionValidator` can now be configured to ignore field renames only on deprecated fields - [PR #4119](https://github.com/FoundationDB/fdb-record-layer/pull/4119)
+<h4> Bug Fixes </h4>
+
+* Bug fix: handle proto field number correctly - [PR #4026](https://github.com/FoundationDB/fdb-record-layer/pull/4026)
+* Revert "Disallow CREATE INDEX on ARRAY fields with implicit fan-out (#4104)" - [PR #4152](https://github.com/FoundationDB/fdb-record-layer/pull/4152)
+* Fix infinite `RecursiveCursor` out-of-band behavior - [PR #4136](https://github.com/FoundationDB/fdb-record-layer/pull/4136)
+* Disallow the STRAIGHT_JOIN and NATURAL JOIN variants - [PR #4143](https://github.com/FoundationDB/fdb-record-layer/pull/4143)
+* Prevent producing aggregate index matches with incompatible roll-ups - [PR #4014](https://github.com/FoundationDB/fdb-record-layer/pull/4014)
+
+<details>
+<summary>
+
+<h4> Build/Test/Documentation/Style Improvements (click to expand) </h4>
+
+</summary>
+
+* Add aggregate and scalar function documentation - [PR #3757](https://github.com/FoundationDB/fdb-record-layer/pull/3757)
+* Add addExplain annotation to Yamsql framework - [PR #4128](https://github.com/FoundationDB/fdb-record-layer/pull/4128)
+* Add subqueries documentation - [PR #3774](https://github.com/FoundationDB/fdb-record-layer/pull/3774)
+* Fix relational-core JMH benchmarks to compile and run - [PR #3995](https://github.com/FoundationDB/fdb-record-layer/pull/3995)
+* Extend `KeyExpressionTest` tests for `nest()` - [PR #4137](https://github.com/FoundationDB/fdb-record-layer/pull/4137)
+* Add test of inconsistent field renaming being caught in multi-type index - [PR #4116](https://github.com/FoundationDB/fdb-record-layer/pull/4116)
+* `testConcurrentMixedOperations` is flaky - [PR #4132](https://github.com/FoundationDB/fdb-record-layer/pull/4132)
+* Resolve Gradle 9 deprecation warnings - [PR #4133](https://github.com/FoundationDB/fdb-record-layer/pull/4133)
+
+</details>
+
+
+**[Full Changelog (4.12.1.0...4.12.2.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.12.1.0...4.12.2.0)**
+
+#### Mixed Mode Test Results
+
+Mixed mode testing run against the following previous versions:
+
+✅`4.10.12.0`, ✅`4.10.13.0`, ✅`4.10.15.0`, ✅`4.10.16.0`, ✅`4.10.17.0`, ✅`4.10.18.0`, ✅`4.10.19.0`, ✅`4.10.20.0`, ✅`4.11.1.0`, ✅`4.12.1.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/25728632242)
+
+
+
+### 4.12.1.0
+
+<h4> Breaking Changes </h4>
+
+* Disallow `.*` star expansion on unnested scalar arrays - [PR #4120](https://github.com/FoundationDB/fdb-record-layer/pull/4120)
+* Clean up `VersionValue`, breaking cross-version compatibility for continuations generated from before 4.10 - [PR #4101](https://github.com/FoundationDB/fdb-record-layer/pull/4101)
+<h4> New Features </h4>
+
+* Allow CREATE INDEX on unnested scalar ARRAY elements - [PR #4106](https://github.com/FoundationDB/fdb-record-layer/pull/4106)
+* Support field renames in the `MetaDataEvolutionValidator` - [PR #4034](https://github.com/FoundationDB/fdb-record-layer/pull/4034)
+* Support Arrays of byte[] and float in JDBC - [PR #4070](https://github.com/FoundationDB/fdb-record-layer/pull/4070)
+<h4> Bug Fixes </h4>
+
+* Stop implementing aggregate plans on top of non-continuable plans - [PR #4076](https://github.com/FoundationDB/fdb-record-layer/pull/4076)
+
+<details>
+<summary>
+
+<h4> Build/Test/Documentation/Style Improvements (click to expand) </h4>
+
+</summary>
+
+* Lucene queries with special characters test - [PR #4127](https://github.com/FoundationDB/fdb-record-layer/pull/4127)
+* Assert resultMetadata always come with some result check - [PR #4118](https://github.com/FoundationDB/fdb-record-layer/pull/4118)
+* `LuceneIndexMaintenanceTest.concurrentMix`is flaky - resolve deadlock - [PR #4113](https://github.com/FoundationDB/fdb-record-layer/pull/4113)
+* Check ResultSetMetadata in yamsql framework - [PR #4054](https://github.com/FoundationDB/fdb-record-layer/pull/4054)
+* Upgrade build to JDK 21 (targeting Java 17 compatibility) - [PR #4092](https://github.com/FoundationDB/fdb-record-layer/pull/4092)
+* Fix flaky test `FDBRecordStoreIndexTest.failUpdateConcurrentWithStateChange` - [PR #4109](https://github.com/FoundationDB/fdb-record-layer/pull/4109)
+* Make PendingWritesQueueTooLargeException final … - [PR #4098](https://github.com/FoundationDB/fdb-record-layer/pull/4098)
+
+</details>
+
+
+**[Full Changelog (4.11.1.0...4.12.1.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.11.1.0...4.12.1.0)**
+
+#### Mixed Mode Test Results
+
+Mixed mode testing run against the following previous versions:
+
+❌`4.10.10.0`, ✅`4.10.12.0`, ✅`4.10.13.0`, ✅`4.10.15.0`, ✅`4.10.16.0`, ✅`4.10.17.0`, ✅`4.10.18.0`, ✅`4.10.19.0`, ✅`4.10.20.0`, ✅`4.11.1.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/25374059724)
+
+
+
+## 4.11
+
+### 4.11.1.0
+
+<h4> Breaking Changes </h4>
+
+* Update language level to JDK 17 - [PR #3967](https://github.com/FoundationDB/fdb-record-layer/pull/3967)
+* Increment Incarnation as part of COPY command - [PR #4045](https://github.com/FoundationDB/fdb-record-layer/pull/4045)
+<h4> New Features </h4>
+
+* Multi-Cluster support for yamsql & support not-registering the driver with FRL - [PR #4042](https://github.com/FoundationDB/fdb-record-layer/pull/4042)
+* Support the CARDINALITY() SQL function - [PR #4074](https://github.com/FoundationDB/fdb-record-layer/pull/4074)
+* Support equality/inequality and NULL comparisons for ARRAYs - [PR #4080](https://github.com/FoundationDB/fdb-record-layer/pull/4080)
+<h4> Bug Fixes </h4>
+
+* Fix NullPointerException in FlatMapPipelinedCursor.close & unclosed resources - [PR #4077](https://github.com/FoundationDB/fdb-record-layer/pull/4077)
+* Preserve unconstrained placeholders in `AndPredicate#and()` - [PR #4090](https://github.com/FoundationDB/fdb-record-layer/pull/4090)
+* Fix issues with ARRAY columns and NULL values - [PR #4073](https://github.com/FoundationDB/fdb-record-layer/pull/4073)
+<h4> Dependency Updates </h4>
+
+* Update actions dependencies to not depend on Node 20 - [PR #4068](https://github.com/FoundationDB/fdb-record-layer/pull/4068)
+
+<details>
+<summary>
+
+<h4> Build/Test/Documentation/Style Improvements (click to expand) </h4>
+
+</summary>
+
+* Join two unjoined futures in FDBRecordStoreRepairHeaderTest - [PR #4096](https://github.com/FoundationDB/fdb-record-layer/pull/4096)
+* Increase documentation for yamsql code and showcasing-tests.yamsql - [PR #4038](https://github.com/FoundationDB/fdb-record-layer/pull/4038)
+* Add SECURITY.md - [PR #4093](https://github.com/FoundationDB/fdb-record-layer/pull/4093)
+* uncomment `like.yamsql` explains - [PR #4094](https://github.com/FoundationDB/fdb-record-layer/pull/4094)
+
+</details>
+
+
+**[Full Changelog (4.10.20.0...4.11.1.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.10.20.0...4.11.1.0)**
+
+#### Mixed Mode Test Results
+
+Mixed mode testing run against the following previous versions:
+
+✅`4.10.9.0`, ✅`4.10.10.0`, ✅`4.10.12.0`, ✅`4.10.13.0`, ✅`4.10.15.0`, ✅`4.10.16.0`, ✅`4.10.17.0`, ✅`4.10.18.0`, ✅`4.10.19.0`, ✅`4.10.20.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/24841938252)
+
+
+
 ## 4.10
+
+### 4.10.20.0
+
+<h4> New Features </h4>
+
+* Add sliding window index maintainer - [PR #4062](https://github.com/FoundationDB/fdb-record-layer/pull/4062)
+* Make `SelectMergeRule` greedily merge all child selects - [PR #3850](https://github.com/FoundationDB/fdb-record-layer/pull/3850)
+<h4> Bug Fixes </h4>
+
+* Fix `LIKE` predicate literal stripping in AST normalizer - [PR #4088](https://github.com/FoundationDB/fdb-record-layer/pull/4088)
+* Do not pullUp all values for fixed binding in ordering - [PR #4086](https://github.com/FoundationDB/fdb-record-layer/pull/4086)
+* fix sanity check failures - [PR #4085](https://github.com/FoundationDB/fdb-record-layer/pull/4085)
+* VectorIndexIndexingTest: preset seeds for Random objects - [PR #4027](https://github.com/FoundationDB/fdb-record-layer/pull/4027)
+
+
+**[Full Changelog (4.10.19.0...4.10.20.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.10.19.0...4.10.20.0)**
+
+#### Mixed Mode Test Results
+
+Mixed mode testing run against the following previous versions:
+
+✅`4.10.8.0`, ✅`4.10.9.0`, ✅`4.10.10.0`, ✅`4.10.12.0`, ✅`4.10.13.0`, ✅`4.10.15.0`, ✅`4.10.16.0`, ✅`4.10.17.0`, ✅`4.10.18.0`, ✅`4.10.19.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/24519920189)
+
+
+
+### 4.10.19.0
+
+<h4> New Features </h4>
+
+* Collect PLANNER_METRICS for each plan generation - [PR #4059](https://github.com/FoundationDB/fdb-record-layer/pull/4059)
+* Reuse cached plan for explain request. (Attempt 2) - [PR #4036](https://github.com/FoundationDB/fdb-record-layer/pull/4036)
+* LRU eviction metrics to the plan cache - [PR #4067](https://github.com/FoundationDB/fdb-record-layer/pull/4067)
+<h4> Bug Fixes </h4>
+
+* Allow for first of 2 ops to go longer than time quota - [PR #4078](https://github.com/FoundationDB/fdb-record-layer/pull/4078)
+* Fix CopyPlan's inconsistent plan hash - [PR #4063](https://github.com/FoundationDB/fdb-record-layer/pull/4063)
+* Attempt preventing "record store state is being used for queries" during index rebuild - [PR #4011](https://github.com/FoundationDB/fdb-record-layer/pull/4011)
+* Cover case of negative array size in decompression of corrupt record - [PR #4066](https://github.com/FoundationDB/fdb-record-layer/pull/4066)
+
+<details>
+<summary>
+
+<h4> Build/Test/Documentation/Style Improvements (click to expand) </h4>
+
+</summary>
+
+* Bump version to 4.10.18.0 - [PR #4082](https://github.com/FoundationDB/fdb-record-layer/pull/4082)
+* Remove local variable when push release changes - [PR #4081](https://github.com/FoundationDB/fdb-record-layer/pull/4081)
+* Remove two unused test classes - [PR #4072](https://github.com/FoundationDB/fdb-record-layer/pull/4072)
+* Increase coverage of `MetaDataEvolutionValidator` tests - [PR #4075](https://github.com/FoundationDB/fdb-record-layer/pull/4075)
+* Fetch changes during release before pushing - [PR #4052](https://github.com/FoundationDB/fdb-record-layer/pull/4052)
+
+</details>
+
+
+**[Full Changelog (4.10.17.0...4.10.19.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.10.17.0...4.10.19.0)**
+
+#### Mixed Mode Test Results
+
+Mixed mode testing run against the following previous versions:
+
+✅`4.10.7.0`, ✅`4.10.8.0`, ✅`4.10.9.0`, ✅`4.10.10.0`, ✅`4.10.12.0`, ✅`4.10.13.0`, ✅`4.10.15.0`, ✅`4.10.16.0`, ✅`4.10.17.0`, ✅`4.10.18.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/24423382662)
+
+
+
+### 4.10.17.0
+
+<h4> New Features </h4>
+
+*  Improve distinct union planning time - [PR #4056](https://github.com/FoundationDB/fdb-record-layer/pull/4056)
+<h4> Dependency Updates </h4>
+
+* Update JaCoCo from 0.8.5 to 0.8.14 - [PR #4055](https://github.com/FoundationDB/fdb-record-layer/pull/4055)
+
+
+**[Full Changelog (4.10.16.0...4.10.17.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.10.16.0...4.10.17.0)**
+
+#### Mixed Mode Test Results
+
+Mixed mode testing run against the following previous versions:
+
+✅`4.10.5.0`, ✅`4.10.6.0`, ✅`4.10.7.0`, ✅`4.10.8.0`, ✅`4.10.9.0`, ✅`4.10.10.0`, ✅`4.10.12.0`, ✅`4.10.13.0`, ✅`4.10.15.0`, ✅`4.10.16.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/24145343967)
+
+
+
+### 4.10.16.0
+
+<h4> New Features </h4>
+
+* Ensure all callbacks (or close()) calls are made in the occurrence of exceptions  - [PR #4025](https://github.com/FoundationDB/fdb-record-layer/pull/4025)
+
+<details>
+<summary>
+
+<h4> Build/Test/Documentation/Style Improvements (click to expand) </h4>
+
+</summary>
+
+* Fail tests in CI if MaintainYamlTestConfig annotation exists - [PR #4049](https://github.com/FoundationDB/fdb-record-layer/pull/4049)
+
+</details>
+
+
+**[Full Changelog (4.10.15.0...4.10.16.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.10.15.0...4.10.16.0)**
+
+#### Mixed Mode Test Results
+
+Mixed mode testing run against the following previous versions:
+
+✅`4.10.3.0`, ✅`4.10.4.0`, ✅`4.10.5.0`, ✅`4.10.6.0`, ✅`4.10.7.0`, ✅`4.10.8.0`, ✅`4.10.9.0`, ✅`4.10.10.0`, ✅`4.10.12.0`, ✅`4.10.13.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/24100346761)
+
+
+
+### 4.10.15.0
+
+<h4> New Features </h4>
+
+* Add store timer events for Lucene serialization - [PR #4044](https://github.com/FoundationDB/fdb-record-layer/pull/4044)
+
+
+**[Full Changelog (4.10.14.0...4.10.15.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.10.14.0...4.10.15.0)**
+
+#### Mixed Mode Test Results
+
+Mixed mode testing run against the following previous versions:
+
+✅`4.10.3.0`, ✅`4.10.4.0`, ✅`4.10.5.0`, ✅`4.10.6.0`, ✅`4.10.7.0`, ✅`4.10.8.0`, ✅`4.10.9.0`, ✅`4.10.10.0`, ✅`4.10.12.0`, ✅`4.10.13.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/24097526594)
+
+
+
+### 4.10.14.0
+
+<h4> New Features </h4>
+
+* Add store timer events for Lucene serialization - [PR #4044](https://github.com/FoundationDB/fdb-record-layer/pull/4044)
+
+<details>
+<summary>
+
+<h4> Build/Test/Documentation/Style Improvements (click to expand) </h4>
+
+</summary>
+
+* remove `MaintainYamlTestConfig` from YAML test. - [PR #4048](https://github.com/FoundationDB/fdb-record-layer/pull/4048)
+
+</details>
+
+
+**[Full Changelog (4.10.13.0...4.10.14.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.10.13.0...4.10.14.0)**
+
+#### Mixed Mode Test Results
+
+Mixed mode testing run against the following previous versions:
+
+✅`4.10.3.0`, ✅`4.10.4.0`, ✅`4.10.5.0`, ✅`4.10.6.0`, ✅`4.10.7.0`, ✅`4.10.8.0`, ✅`4.10.9.0`, ✅`4.10.10.0`, ✅`4.10.12.0`, ✅`4.10.13.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/24095703139)
+
+
+
+### 4.10.13.0
+
+<h4> New Features </h4>
+
+* Planner support for matching record type key - [PR #4032](https://github.com/FoundationDB/fdb-record-layer/pull/4032)
+
+
+**[Full Changelog (4.10.12.0...4.10.13.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.10.12.0...4.10.13.0)**
+
+#### Mixed Mode Test Results
+
+Mixed mode testing run against the following previous versions:
+
+❌`4.10.2.0`, ❌`4.10.3.0`, ❌`4.10.4.0`, ❌`4.10.5.0`, ❌`4.10.6.0`, ❌`4.10.7.0`, ❌`4.10.8.0`, ❌`4.10.9.0`, ❌`4.10.10.0`, ❌`4.10.12.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/24091073556)
+
+
+
+### 4.10.12.0
+
+
+
+**[Full Changelog (4.10.11.0...4.10.12.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.10.11.0...4.10.12.0)**
+
+#### Mixed Mode Test Results
+
+Mixed mode testing run against the following previous versions:
+
+✅`4.10.1.0`, ✅`4.10.2.0`, ✅`4.10.3.0`, ✅`4.10.4.0`, ✅`4.10.5.0`, ✅`4.10.6.0`, ✅`4.10.7.0`, ✅`4.10.8.0`, ✅`4.10.9.0`, ✅`4.10.10.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/23917226305)
+
+
+
+### 4.10.11.0
+
+<h4> New Features </h4>
+
+* Lucene: Pending write queue: add incarnation - [PR #4015](https://github.com/FoundationDB/fdb-record-layer/pull/4015)
+<h4> Bug Fixes </h4>
+
+* Online Indexing: Eliminate typed records optimization - [PR #4041](https://github.com/FoundationDB/fdb-record-layer/pull/4041)
+* Clear index state information of `FormerIndex`es based on the index name rather than subspace key - [PR #4024](https://github.com/FoundationDB/fdb-record-layer/pull/4024)
+* Fix `current` Correlation Identifier name - [PR #4033](https://github.com/FoundationDB/fdb-record-layer/pull/4033)
+* log planCache=INCONCLUSIVE in case there is an exception - [PR #4029](https://github.com/FoundationDB/fdb-record-layer/pull/4029)
+<h4> Performance Improvements </h4>
+
+* Limit join exploration to right-deep plans when the new `PLAN RIGHT DEEP` option is set - [PR #4008](https://github.com/FoundationDB/fdb-record-layer/pull/4008)
+
+<details>
+<summary>
+
+<h4> Build/Test/Documentation/Style Improvements (click to expand) </h4>
+
+</summary>
+
+* Make LucenePrimaryKeySegmentIndexTest.flakyAgileContext join future - [PR #4040](https://github.com/FoundationDB/fdb-record-layer/pull/4040)
+
+</details>
+
+
+**[Full Changelog (4.10.10.0...4.10.11.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.10.10.0...4.10.11.0)**
+
+#### Mixed Mode Test Results
+
+Mixed mode testing run against the following previous versions:
+
+✅`4.10.1.0`, ✅`4.10.2.0`, ✅`4.10.3.0`, ✅`4.10.4.0`, ✅`4.10.5.0`, ✅`4.10.6.0`, ✅`4.10.7.0`, ✅`4.10.8.0`, ✅`4.10.9.0`, ✅`4.10.10.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/23915496359)
+
+
+
+### 4.10.10.0
+
+<h4> New Features </h4>
+
+* Support user defined function on exploded array - [PR #4001](https://github.com/FoundationDB/fdb-record-layer/pull/4001)
+<h4> Bug Fixes </h4>
+
+* Revert "Reuse cached plan for explain request. (#4013)" - [PR #4031](https://github.com/FoundationDB/fdb-record-layer/pull/4031)
+
+
+**[Full Changelog (4.10.9.0...4.10.10.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.10.9.0...4.10.10.0)**
+
+#### Mixed Mode Test Results
+
+Mixed mode testing run against the following previous versions:
+
+✅`4.9.9.0`, ✅`4.10.1.0`, ✅`4.10.2.0`, ✅`4.10.3.0`, ✅`4.10.4.0`, ✅`4.10.5.0`, ✅`4.10.6.0`, ✅`4.10.7.0`, ✅`4.10.8.0`, ✅`4.10.9.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/23757892829)
+
+
+
+### 4.10.9.0
+
+<h4> New Features </h4>
+
+* Reuse cached plan for explain request. - [PR #4013](https://github.com/FoundationDB/fdb-record-layer/pull/4013)
+
+
+**[Full Changelog (4.10.8.0...4.10.9.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.10.8.0...4.10.9.0)**
+
+#### Mixed Mode Test Results
+
+Mixed mode testing run against the following previous versions:
+
+✅`4.9.8.0`, ✅`4.9.9.0`, ✅`4.10.1.0`, ✅`4.10.2.0`, ✅`4.10.3.0`, ✅`4.10.4.0`, ✅`4.10.5.0`, ✅`4.10.6.0`, ✅`4.10.7.0`, ✅`4.10.8.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/23742394217)
+
+
+
+### 4.10.8.0
+
+<h4> New Features </h4>
+
+* Retry while deserializing in `TransformedRecordSerializer` - [PR #4009](https://github.com/FoundationDB/fdb-record-layer/pull/4009)
+* Add post-encryption validation to `TransformedRecordSerializer` - [PR #4010](https://github.com/FoundationDB/fdb-record-layer/pull/4010)
+* Change COPY to export/import information for the catalog - [PR #3847](https://github.com/FoundationDB/fdb-record-layer/pull/3847)
+
+<details>
+<summary>
+
+<h4> Build/Test/Documentation/Style Improvements (click to expand) </h4>
+
+</summary>
+
+* Test cleanup of the `MetaDataEvolutionValidator` - [PR #4023](https://github.com/FoundationDB/fdb-record-layer/pull/4023)
+* Fix javadoc of QueryInterpreter - [PR #4006](https://github.com/FoundationDB/fdb-record-layer/pull/4006)
+* Add vector deletion tests - [PR #4002](https://github.com/FoundationDB/fdb-record-layer/pull/4002)
+
+</details>
+
+
+**[Full Changelog (4.10.7.0...4.10.8.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.10.7.0...4.10.8.0)**
+
+#### Mixed Mode Test Results
+
+Mixed mode testing run against the following previous versions:
+
+✅`4.9.7.0`, ✅`4.9.8.0`, ✅`4.9.9.0`, ✅`4.10.1.0`, ✅`4.10.2.0`, ✅`4.10.3.0`, ✅`4.10.4.0`, ✅`4.10.5.0`, ✅`4.10.6.0`, ✅`4.10.7.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/23739048691)
+
+
+
+### 4.10.7.0
+
+<h4> Breaking Changes </h4>
+
+* Lucene: Split large Lucene  pending writes queue entries - [PR #3970](https://github.com/FoundationDB/fdb-record-layer/pull/3970)
+* Support COPY command with a TransactionBoundDatabase - [PR #3826](https://github.com/FoundationDB/fdb-record-layer/pull/3826)
+<h4> Bug Fixes </h4>
+
+* Lucene: Merge: skip pending queue drain when merge fails to obtain a … - [PR #3992](https://github.com/FoundationDB/fdb-record-layer/pull/3992)
+
+<details>
+<summary>
+
+<h4> Build/Test/Documentation/Style Improvements (click to expand) </h4>
+
+</summary>
+
+* Document hierarchical navigable small worlds (hnsw)-based vector index technology - [PR #3997](https://github.com/FoundationDB/fdb-record-layer/pull/3997)
+
+</details>
+
+
+**[Full Changelog (4.10.6.0...4.10.7.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.10.6.0...4.10.7.0)**
+
+#### Mixed Mode Test Results
+
+Mixed mode testing run against the following previous versions:
+
+✅`4.9.6.0`, ✅`4.9.7.0`, ✅`4.9.8.0`, ✅`4.9.9.0`, ✅`4.10.1.0`, ✅`4.10.2.0`, ✅`4.10.3.0`, ✅`4.10.4.0`, ✅`4.10.5.0`, ✅`4.10.6.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/22967018846)
+
+
+
+### 4.10.6.0
+
+<h4> New Features </h4>
+
+* Add lucene queue size timer event - [PR #3988](https://github.com/FoundationDB/fdb-record-layer/pull/3988)
+
+
+**[Full Changelog (4.10.5.0...4.10.6.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.10.5.0...4.10.6.0)**
+
+#### Mixed Mode Test Results
+
+Mixed mode testing run against the following previous versions:
+
+✅`4.9.4.0`, ✅`4.9.6.0`, ✅`4.9.7.0`, ❌`4.9.8.0`, ✅`4.9.9.0`, ✅`4.10.1.0`, ✅`4.10.2.0`, ✅`4.10.3.0`, ✅`4.10.4.0`, ✅`4.10.5.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/22728009119)
+
+
+
+### 4.10.5.0
+
+<h4> New Features </h4>
+
+* Allow leaving corrupted indexes as readable after header repair - [PR #3801](https://github.com/FoundationDB/fdb-record-layer/pull/3801)
+<h4> Bug Fixes </h4>
+
+* Lucene: Convert  merge & drain pending queue to a future - [PR #3982](https://github.com/FoundationDB/fdb-record-layer/pull/3982)
+* Fix verify exception that could be forwarded if the `ORDER BY` expression was on a join constituent not in the final projection - [PR #3989](https://github.com/FoundationDB/fdb-record-layer/pull/3989)
+
+<details>
+<summary>
+
+<h4> Build/Test/Documentation/Style Improvements (click to expand) </h4>
+
+</summary>
+
+* Yaml tests with large records (split across multiple k/v) - [PR #3986](https://github.com/FoundationDB/fdb-record-layer/pull/3986)
+* Add `!randomStr` custom YAML tag for large string testing - [PR #3984](https://github.com/FoundationDB/fdb-record-layer/pull/3984)
+* Add an online indexing test for vector indexes - [PR #3972](https://github.com/FoundationDB/fdb-record-layer/pull/3972)
+
+</details>
+
+
+**[Full Changelog (4.10.4.0...4.10.5.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.10.4.0...4.10.5.0)**
+
+#### Mixed Mode Test Results
+
+Mixed mode testing run against the following previous versions:
+
+❌`4.9.3.0`, ✅`4.9.4.0`, ✅`4.9.6.0`, ✅`4.9.7.0`, ✅`4.9.8.0`, ✅`4.9.9.0`, ✅`4.10.1.0`, ✅`4.10.2.0`, ✅`4.10.3.0`, ✅`4.10.4.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/22710891170)
+
+
 
 ### 4.10.4.0
 
@@ -1406,9 +2451,13 @@ Mixed mode testing run against the following previous versions:
 
 ### 4.5.3.0
 
+<h4> Bug Fixes </h4>
+
+* Fix some software rot in the sqlline CLI - [PR #3502](https://github.com/FoundationDB/fdb-record-layer/pull/3502)
+* `NULL` handling fixes in plan generator - [PR #3506](https://github.com/FoundationDB/fdb-record-layer/pull/3506)
 
 
-**[Full Changelog (4.5.2.0...4.5.3.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.5.2.0...4.5.3.0)**
+**[Full Changelog (4.5.1.0...4.5.3.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.5.1.0...4.5.3.0)**
 
 #### Mixed Mode Test Results
 
@@ -1417,26 +2466,6 @@ Mixed mode testing run against the following previous versions:
 ❌`4.4.7.0`, ❌`4.4.8.0`, ❌`4.4.9.0`, ❌`4.4.10.0`, ❌`4.4.11.0`, ✅`4.4.12.0`, ✅`4.4.14.0`, ✅`4.4.15.0`, ✅`4.5.1.0`, ✅`4.5.2.0`
 
 [See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/16629945151)
-
-
-
-### 4.5.2.0
-
-<h4> Bug Fixes </h4>
-
-* Fix some software rot in the sqlline CLI - [PR #3502](https://github.com/FoundationDB/fdb-record-layer/pull/3502)
-* `NULL` handling fixes in plan generator - [PR #3506](https://github.com/FoundationDB/fdb-record-layer/pull/3506)
-
-
-**[Full Changelog (4.5.1.0...4.5.2.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.5.1.0...4.5.2.0)**
-
-#### Mixed Mode Test Results
-
-Mixed mode testing run against the following previous versions:
-
-✅`4.4.4.0`, ❌`4.4.7.0`, ❌`4.4.8.0`, ❌`4.4.9.0`, ❌`4.4.10.0`, ❌`4.4.11.0`, ✅`4.4.12.0`, ✅`4.4.14.0`, ✅`4.4.15.0`, ✅`4.5.1.0`
-
-[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/16627768059)
 
 
 
@@ -2730,7 +3759,7 @@ The Apache Commons library has been removed as a dependency. There were a few lo
 
 ### Breaking Changes
 
-Support for the Protobuf 2 runtime has been removed as of this version. All artifacts now use Protobuf version 3. Note that the choice of Protobuf runtime version is distinct from the choice of Protobuf message syntax, and that users wishing to retain Protobuf 2 behavior can still achieve the same semantics (including [optional field behavior](Overview.md#indexing-and-querying-of-missing--null-values)) as long as they specify the syntax on their Protobuf file as `proto2`. Note that the Maven artifacts using Protobuf version 3 used to be suffixed with `-pb3`. Existing Protobuf 3 users must remove that suffix from their dependency declarations (e.g., `fdb-record-layer-core-pb3` should now be `fdb-record-layer-core`).
+Support for the Protobuf 2 runtime has been removed as of this version. All artifacts now use Protobuf version 3. Note that the choice of Protobuf runtime version is distinct from the choice of Protobuf message syntax, and that users wishing to retain Protobuf 2 behavior can still achieve the same semantics (including [optional field behavior](Overview.md#indexing-and-querying-of-missing-values-or-null-values)) as long as they specify the syntax on their Protobuf file as `proto2`. Note that the Maven artifacts using Protobuf version 3 used to be suffixed with `-pb3`. Existing Protobuf 3 users must remove that suffix from their dependency declarations (e.g., `fdb-record-layer-core-pb3` should now be `fdb-record-layer-core`).
 
 Starting with version [3.4.455.0](#344550), the semantics of `UnnestedRecordType` were changed in response to [Issue #2512](https://github.com/FoundationDB/fdb-record-layer/issues/2512). It was identified that extraneous synthetic records were being produced when one of the children was empty. This did not match the semantics of `FanOut` expressions, and so the unnesting calculation was changed. This means that any index on an existing `UnnestedRecordType` requires rebuilding to clear out any such entries from older indexes.
 

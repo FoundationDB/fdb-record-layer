@@ -71,16 +71,19 @@ test_block:
       # Test basic temporary table-valued function
       - query: SELECT * FROM sq1(10)
       - setupReference: tvf_sq1
+      - resultMetadata: [{ID: BIGINT}, {A: BIGINT}, {B: STRING}, {C: INTEGER}]
       - unorderedResult: [{ID: 1, A: 10, B: 'test1', C: 100}, {ID: 2, A: 20, B: 'test2', C: 200}, {ID: 3, A: 30, B: 'test3', C: 300}]
     -
       # Call tmpFunction1 with different parameter
       - query: SELECT * FROM tmpFunction1(20)
       - setupReference: tvf_tmpFunction1
+      - resultMetadata: [{ID: BIGINT}, {A: BIGINT}, {B: STRING}, {C: INTEGER}]
       - unorderedResult: [{ID: 1, A: 10, B: 'test1', C: 100}, {ID: 2, A: 20, B: 'test2', C: 200}, {ID: 3, A: 30, B: 'test3', C: 300}, {ID: 4, A: 50, B: 'test4', C: 400}]
     -
       # Verify the function with multiple conditions filters correctly
       - query: SELECT * FROM tmpFunction2(10)
       - setupReference: tvf_tmpFunction2
+      - resultMetadata: [{ID: BIGINT}, {A: BIGINT}, {B: STRING}, {C: INTEGER}]
       - unorderedResult: [{ID: 2, A: 20, B: 'test2', C: 200}, {ID: 3, A: 30, B: 'test3', C: 300}]
     -
       # Test joining two temporary functions with WHERE condition
@@ -91,6 +94,7 @@ test_block:
       - supported_version: 4.9.6.0
       - setupReference: tvf_T1
       - setupReference: tvf_T2
+      - resultMetadata: [{X_ID: BIGINT}, {A: BIGINT}, {B: STRING}, {C: INTEGER}, {Y_ID: BIGINT}, {COL1: BIGINT}, {COL2: STRING}]
       - unorderedResult: [
           {X_ID: 1, A: 10, B: 'test1', C: 100, Y_ID: 1, COL1: 100, COL2: 'data1'},
           {X_ID: 2, A: 20, B: 'test2', C: 200, Y_ID: 2, COL1: 200, COL2: 'data2'},
@@ -101,6 +105,7 @@ test_block:
       - supported_version: 4.9.6.0
       - setupReference: tvf_T1
       - setupReference: tvf_T2
+      - resultMetadata: [{A: BIGINT}, {COL2: STRING}]
       - unorderedResult: [
           {A: 10, COL2: 'data1'},
           {A: 20, COL2: 'data2'},
@@ -111,6 +116,7 @@ test_block:
       - supported_version: 4.9.6.0
       - setupReference: tvf_T1
       - setupReference: tvf_T2
+      - resultMetadata: [{ID: BIGINT}, {A: BIGINT}, {COL1: BIGINT}]
       - unorderedResult: [
           {ID: 2, A: 20, COL1: 200},
           {ID: 3, A: 30, COL1: 300}]
@@ -120,6 +126,7 @@ test_block:
       - query: SELECT parent.id AS parent_id, parent.name AS parent_name, child.id AS child_id, child.name AS child_name FROM Nodes AS parent, Nodes AS child WHERE parent.id = child.parent_id
       - supported_version: 4.9.6.0
       - setupReference: tvf_Nodes
+      - resultMetadata: [{PARENT_ID: BIGINT}, {PARENT_NAME: STRING}, {CHILD_ID: BIGINT}, {CHILD_NAME: STRING}]
       - unorderedResult: [
           {PARENT_ID: 1, PARENT_NAME: 'root', CHILD_ID: 2, CHILD_NAME: 'child1'},
           {PARENT_ID: 1, PARENT_NAME: 'root', CHILD_ID: 3, CHILD_NAME: 'child2'},
@@ -131,6 +138,7 @@ test_block:
       - query: SELECT parent.name AS parent_name, child.name AS child_name FROM Nodes AS parent, Nodes AS child WHERE parent.id = child.parent_id AND parent.id = 1
       - supported_version: 4.9.6.0
       - setupReference: tvf_Nodes
+      - resultMetadata: [{PARENT_NAME: STRING}, {CHILD_NAME: STRING}]
       - unorderedResult: [
           {PARENT_NAME: 'root', CHILD_NAME: 'child1'},
           {PARENT_NAME: 'root', CHILD_NAME: 'child2'}]
@@ -140,6 +148,7 @@ test_block:
       - query: SELECT grandparent.name AS grandparent, grandchild.name AS grandchild FROM Nodes AS grandparent, Nodes AS parent, Nodes AS grandchild WHERE grandparent.id = parent.parent_id AND parent.id = grandchild.parent_id
       - supported_version: 4.9.6.0
       - setupReference: tvf_Nodes
+      - resultMetadata: [{GRANDPARENT: STRING}, {GRANDCHILD: STRING}]
       - unorderedResult: [
           {GRANDPARENT: 'root', GRANDCHILD: 'grandchild1'},
           {GRANDPARENT: 'root', GRANDCHILD: 'grandchild2'},
@@ -149,6 +158,7 @@ test_block:
       - query: SELECT f.id, f.a, f.b FROM sq1(10) AS f
       - supported_version: 4.9.6.0
       - setupReference: tvf_sq1
+      - resultMetadata: [{ID: BIGINT}, {A: BIGINT}, {B: STRING}]
       - unorderedResult: [
           {ID: 1, A: 10, B: 'test1'},
           {ID: 2, A: 20, B: 'test2'},
@@ -158,12 +168,14 @@ test_block:
       - query: SELECT f.a, f.c FROM tmpFunction2(10) AS f WHERE f.c > 200
       - supported_version: 4.9.6.0
       - setupReference: tvf_tmpFunction2
+      - resultMetadata: [{A: BIGINT}, {C: INTEGER}]
       - unorderedResult: [{A: 30, C: 300}]
     -
       # Test multiple aliases of the same function in self-join
       - query: SELECT v1.id AS id1, v2.id AS id2, v1.a AS a1, v2.a AS a2 FROM T1 AS v1, T1 AS v2 WHERE v1.a < v2.a
       - supported_version: 4.9.6.0
       - setupReference: tvf_T1
+      - resultMetadata: [{ID1: BIGINT}, {ID2: BIGINT}, {A1: BIGINT}, {A2: BIGINT}]
       - unorderedResult: [
           {ID1: 1, ID2: 2, A1: 10, A2: 20},
           {ID1: 1, ID2: 3, A1: 10, A2: 30},
@@ -173,6 +185,7 @@ test_block:
       - query: SELECT v.id, v.a * 2 AS doubled_a, v.c - 100 AS adjusted_c FROM T1 AS v WHERE v.a <= 20
       - supported_version: 4.9.6.0
       - setupReference: tvf_T1
+      - resultMetadata: [{ID: BIGINT}, {DOUBLED_A: BIGINT}, {ADJUSTED_C: INTEGER}]
       - unorderedResult: [
           {ID: 1, DOUBLED_A: 20, ADJUSTED_C: 0},
           {ID: 2, DOUBLED_A: 40, ADJUSTED_C: 100}]
@@ -181,6 +194,7 @@ test_block:
       - query: SELECT DISTINCT v.c / 100 AS category FROM T1 AS v
       - supported_version: 4.9.6.0
       - setupReference: tvf_T1
+      - resultMetadata: [{CATEGORY: INTEGER}]
       - unorderedResult: [
           {CATEGORY: 1},
           {CATEGORY: 2},
@@ -190,12 +204,14 @@ test_block:
       - query: SELECT v.id, v.a, t.c FROM T1 AS v, table_t1 AS t WHERE v.id = t.id AND t.a > 20
       - supported_version: 4.9.6.0
       - setupReference: tvf_T1
+      - resultMetadata: [{ID: BIGINT}, {A: BIGINT}, {C: INTEGER}]
       - unorderedResult: [{ID: 3, A: 30, C: 300}]
     -
       # Test aliasing with CASE expression
       - query: SELECT v.id, CASE WHEN v.a < 20 THEN 'low' WHEN v.a < 30 THEN 'medium' ELSE 'high' END AS category FROM T1 AS v
       - supported_version: 4.9.6.0
       - setupReference: tvf_T1
+      - resultMetadata: [{ID: BIGINT}, {CATEGORY: STRING}]
       - unorderedResult: [
           {ID: 1, CATEGORY: 'low'},
           {ID: 2, CATEGORY: 'medium'},
@@ -206,6 +222,7 @@ test_block:
       - supported_version: 4.9.6.0
       - setupReference: tvf_sq1
       - setupReference: tvf_tmpFunction1
+      - resultMetadata: [{ID1: BIGINT}, {ID2: BIGINT}]
       - unorderedResult: [
           {ID1: 1, ID2: 1},
           {ID1: 2, ID2: 2},
@@ -215,6 +232,7 @@ test_block:
       - query: SELECT v.id, v.a + v.c AS sum_val FROM T1 AS v WHERE v.a + v.c > 200
       - supported_version: 4.9.6.0
       - setupReference: tvf_T1
+      - resultMetadata: [{ID: BIGINT}, {SUM_VAL: BIGINT}]
       - unorderedResult: [
           {ID: 2, SUM_VAL: 220},
           {ID: 3, SUM_VAL: 330}]
@@ -223,6 +241,7 @@ test_block:
       - query: SELECT outer_v.id, outer_v.a FROM (SELECT * FROM T1 AS inner_v WHERE inner_v.a >= 20) AS outer_v
       - supported_version: 4.9.6.0
       - setupReference: tvf_T1
+      - resultMetadata: [{ID: BIGINT}, {A: BIGINT}]
       - unorderedResult: [
           {ID: 2, A: 20},
           {ID: 3, A: 30}]
@@ -231,6 +250,7 @@ test_block:
       - query: WITH cte AS (SELECT * FROM T1) SELECT c.id, c.a FROM cte AS c
       - supported_version: 4.9.6.0
       - setupReference: tvf_T1
+      - resultMetadata: [{ID: BIGINT}, {A: BIGINT}]
       - unorderedResult: [
           {ID: 1, A: 10},
           {ID: 2, A: 20},
@@ -240,6 +260,7 @@ test_block:
       - query: WITH cte AS (SELECT * FROM T1) SELECT c.id, c.a, c.b FROM cte AS c WHERE c.a >= 20
       - supported_version: 4.9.6.0
       - setupReference: tvf_T1
+      - resultMetadata: [{ID: BIGINT}, {A: BIGINT}, {B: STRING}]
       - unorderedResult: [
           {ID: 2, A: 20, B: 'test2'},
           {ID: 3, A: 30, B: 'test3'}]
@@ -249,6 +270,7 @@ test_block:
       - supported_version: 4.9.6.0
       - setupReference: tvf_T1
       - setupReference: tvf_T2
+      - resultMetadata: [{A: BIGINT}, {COL2: STRING}]
       - unorderedResult: [
           {A: 10, COL2: 'data1'},
           {A: 20, COL2: 'data2'},
@@ -258,6 +280,7 @@ test_block:
       - query: WITH cte AS (SELECT * FROM sq1(10)) SELECT c.id, c.a FROM cte AS c WHERE c.a <= 20
       - supported_version: 4.9.6.0
       - setupReference: tvf_sq1
+      - resultMetadata: [{ID: BIGINT}, {A: BIGINT}]
       - unorderedResult: [
           {ID: 1, A: 10},
           {ID: 2, A: 20}]
@@ -266,6 +289,7 @@ test_block:
       - query: WITH cte AS (SELECT * FROM T1) SELECT c1.id AS id1, c2.id AS id2 FROM cte AS c1, cte AS c2 WHERE c1.a < c2.a AND c1.a = 10
       - supported_version: 4.9.6.0
       - setupReference: tvf_T1
+      - resultMetadata: [{ID1: BIGINT}, {ID2: BIGINT}]
       - unorderedResult: [
           {ID1: 1, ID2: 2},
           {ID1: 1, ID2: 3}]
@@ -274,6 +298,7 @@ test_block:
       - query: SELECT sub.id, sub.a FROM (SELECT * FROM T1 WHERE a >= 20) AS sub
       - supported_version: 4.9.6.0
       - setupReference: tvf_T1
+      - resultMetadata: [{ID: BIGINT}, {A: BIGINT}]
       - unorderedResult: [
           {ID: 2, A: 20},
           {ID: 3, A: 30}]
@@ -282,6 +307,7 @@ test_block:
       - query: SELECT sub.max_a, sub.min_a FROM (SELECT MAX(a) AS max_a, MIN(a) AS min_a FROM T1) AS sub
       - supported_version: 4.9.6.0
       - setupReference: tvf_T1
+      - resultMetadata: [{MAX_A: BIGINT}, {MIN_A: BIGINT}]
       - unorderedResult: [{MAX_A: 30, MIN_A: 10}]
     -
       # Test join between subqueries with aliases
@@ -289,6 +315,7 @@ test_block:
       - supported_version: 4.9.6.0
       - setupReference: tvf_T1
       - setupReference: tvf_T2
+      - resultMetadata: [{ID: BIGINT}, {COL1: BIGINT}]
       - unorderedResult: [
           {ID: 1, COL1: 100},
           {ID: 2, COL1: 200}]
@@ -297,6 +324,7 @@ test_block:
       - query: SELECT sub.a, sub.c FROM (SELECT * FROM tmpFunction2(10) WHERE c >= 200) AS sub
       - supported_version: 4.9.6.0
       - setupReference: tvf_tmpFunction2
+      - resultMetadata: [{A: BIGINT}, {C: INTEGER}]
       - unorderedResult: [
           {A: 20, C: 200},
           {A: 30, C: 300}]
@@ -305,6 +333,7 @@ test_block:
       - query: SELECT outer_sub.id, outer_sub.a FROM (SELECT * FROM (SELECT * FROM T1 WHERE a >= 10) AS inner_sub WHERE inner_sub.a <= 20) AS outer_sub
       - supported_version: 4.9.6.0
       - setupReference: tvf_T1
+      - resultMetadata: [{ID: BIGINT}, {A: BIGINT}]
       - unorderedResult: [
           {ID: 1, A: 10},
           {ID: 2, A: 20}]
@@ -313,12 +342,14 @@ test_block:
       - query: WITH cte AS (SELECT * FROM T1) SELECT c.id, c.a, t.b FROM cte AS c, table_t1 AS t WHERE c.id = t.id AND c.a = 10
       - supported_version: 4.9.6.0
       - setupReference: tvf_T1
+      - resultMetadata: [{ID: BIGINT}, {A: BIGINT}, {B: STRING}]
       - unorderedResult: [{ID: 1, A: 10, B: 'test1'}]
     -
       # Test subquery with DISTINCT and alias
       - query: SELECT sub.a FROM (SELECT DISTINCT a FROM T1 WHERE a >= 10) AS sub
       - supported_version: 4.9.6.0
       - setupReference: tvf_T1
+      - resultMetadata: [{A: BIGINT}]
       - unorderedResult: [
           {A: 10},
           {A: 20},
@@ -328,6 +359,7 @@ test_block:
       - query: WITH cte AS (SELECT * FROM T1) SELECT c.id, CASE WHEN c.a < 20 THEN 'small' ELSE 'large' END AS size FROM cte AS c
       - supported_version: 4.9.6.0
       - setupReference: tvf_T1
+      - resultMetadata: [{ID: BIGINT}, {SIZE: STRING}]
       - unorderedResult: [
           {ID: 1, SIZE: 'small'},
           {ID: 2, SIZE: 'large'},
@@ -337,6 +369,7 @@ test_block:
       - query: SELECT t.id, t.a FROM table_t1 AS t WHERE EXISTS (SELECT 1 FROM T1 AS v WHERE v.id = t.id AND v.a <= 20)
       - supported_version: 4.9.6.0
       - setupReference: tvf_T1
+      - resultMetadata: [{ID: BIGINT}, {A: BIGINT}]
       - unorderedResult: [
           {ID: 1, A: 10},
           {ID: 2, A: 20}]
@@ -344,6 +377,7 @@ test_block:
       # Test basic view aliasing with column selection
       - query: SELECT v.id, v.a, v.b FROM view_t1_filtered AS v
       - supported_version: 4.9.6.0
+      - resultMetadata: [{ID: BIGINT}, {A: BIGINT}, {B: STRING}]
       - unorderedResult: [
           {ID: 1, A: 10, B: 'test1'},
           {ID: 2, A: 20, B: 'test2'},
@@ -352,6 +386,7 @@ test_block:
       # Test view alias with WHERE clause referencing alias
       - query: SELECT v.id, v.a FROM view_t1_filtered AS v WHERE v.c > 100
       - supported_version: 4.9.6.0
+      - resultMetadata: [{ID: BIGINT}, {A: BIGINT}]
       - unorderedResult: [
           {ID: 2, A: 20},
           {ID: 3, A: 30}]
@@ -359,11 +394,13 @@ test_block:
       # Test view alias with complex WHERE conditions using alias
       - query: SELECT v.id, v.a, v.c FROM view_t1_filtered AS v WHERE v.a >= 20 AND v.c < 300
       - supported_version: 4.9.6.0
+      - resultMetadata: [{ID: BIGINT}, {A: BIGINT}, {C: INTEGER}]
       - unorderedResult: [{ID: 2, A: 20, C: 200}]
     -
       # Test aliasing joined view with column references
       - query: SELECT vj.t1_id, vj.a, vj.col2 FROM view_joined AS vj
       - supported_version: 4.9.6.0
+      - resultMetadata: [{T1_ID: BIGINT}, {A: BIGINT}, {COL2: STRING}]
       - unorderedResult: [
           {T1_ID: 1, A: 10, COL2: 'data1'},
           {T1_ID: 2, A: 20, COL2: 'data2'},
@@ -372,6 +409,7 @@ test_block:
       # Test joined view alias in WHERE clause
       - query: SELECT vj.t1_id, vj.col1, vj.col2 FROM view_joined AS vj WHERE vj.a >= 20
       - supported_version: 4.9.6.0
+      - resultMetadata: [{T1_ID: BIGINT}, {COL1: BIGINT}, {COL2: STRING}]
       - unorderedResult: [
           {T1_ID: 2, COL1: 200, COL2: 'data2'},
           {T1_ID: 3, COL1: 300, COL2: 'data3'}]
@@ -379,6 +417,7 @@ test_block:
       # Test self-join on same view with different aliases
       - query: SELECT v1.id AS id1, v2.id AS id2, v1.a AS a1, v2.a AS a2 FROM view_t1_filtered AS v1, view_t1_filtered AS v2 WHERE v1.a < v2.a
       - supported_version: 4.9.6.0
+      - resultMetadata: [{ID1: BIGINT}, {ID2: BIGINT}, {A1: BIGINT}, {A2: BIGINT}]
       - unorderedResult: [
           {ID1: 1, ID2: 2, A1: 10, A2: 20},
           {ID1: 1, ID2: 3, A1: 10, A2: 30},
@@ -387,6 +426,7 @@ test_block:
       # Test joining two different views with aliases
       - query: SELECT vf.id, vf.a, vj.col2 FROM view_t1_filtered AS vf, view_joined AS vj WHERE vf.id = vj.t1_id
       - supported_version: 4.9.6.0
+      - resultMetadata: [{ID: BIGINT}, {A: BIGINT}, {COL2: STRING}]
       - unorderedResult: [
           {ID: 1, A: 10, COL2: 'data1'},
           {ID: 2, A: 20, COL2: 'data2'},
@@ -395,6 +435,7 @@ test_block:
       # Test joining view alias with table alias
       - query: SELECT v.id, v.a, t.col2 FROM view_t1_filtered AS v, table_t2 AS t WHERE v.c = t.col1
       - supported_version: 4.9.6.0
+      - resultMetadata: [{ID: BIGINT}, {A: BIGINT}, {COL2: STRING}]
       - unorderedResult: [
           {ID: 1, A: 10, COL2: 'data1'},
           {ID: 2, A: 20, COL2: 'data2'},
@@ -403,6 +444,7 @@ test_block:
       # Test view alias with arithmetic expressions
       - query: SELECT v.id, v.a * 2 AS doubled_a, v.c - v.a AS diff FROM view_t1_filtered AS v WHERE v.a <= 20
       - supported_version: 4.9.6.0
+      - resultMetadata: [{ID: BIGINT}, {DOUBLED_A: BIGINT}, {DIFF: BIGINT}]
       - unorderedResult: [
           {ID: 1, DOUBLED_A: 20, DIFF: 90},
           {ID: 2, DOUBLED_A: 40, DIFF: 180}]
@@ -410,6 +452,7 @@ test_block:
       # Test view alias in subquery
       - query: SELECT outer_v.id, outer_v.a FROM (SELECT v.id, v.a, v.c FROM view_t1_filtered AS v WHERE v.a >= 20) AS outer_v
       - supported_version: 4.9.6.0
+      - resultMetadata: [{ID: BIGINT}, {A: BIGINT}]
       - unorderedResult: [
           {ID: 2, A: 20},
           {ID: 3, A: 30}]
@@ -417,11 +460,13 @@ test_block:
       # Test multiple view aliases in nested subquery
       - query: SELECT sub.id FROM (SELECT v1.id, v1.a FROM view_t1_filtered AS v1, view_t1_filtered AS v2 WHERE v1.id = v2.id AND v1.a = 10) AS sub
       - supported_version: 4.9.6.0
+      - resultMetadata: [{ID: BIGINT}]
       - unorderedResult: [{ID: 1}]
     -
       # Test view alias with CASE expression referencing alias
       - query: SELECT v.id, CASE WHEN v.a < 20 THEN 'low' WHEN v.a < 30 THEN 'medium' ELSE 'high' END AS category FROM view_t1_filtered AS v
       - supported_version: 4.9.6.0
+      - resultMetadata: [{ID: BIGINT}, {CATEGORY: STRING}]
       - unorderedResult: [
           {ID: 1, CATEGORY: 'low'},
           {ID: 2, CATEGORY: 'medium'},
@@ -430,6 +475,7 @@ test_block:
       # Test view alias in CTE
       - query: WITH cte AS (SELECT v.id, v.a, v.b FROM view_t1_filtered AS v WHERE v.a <= 20) SELECT c.id, c.b FROM cte AS c
       - supported_version: 4.9.6.0
+      - resultMetadata: [{ID: BIGINT}, {B: STRING}]
       - unorderedResult: [
           {ID: 1, B: 'test1'},
           {ID: 2, B: 'test2'}]
@@ -437,6 +483,7 @@ test_block:
       # Test multiple CTEs with different view aliases
       - query: WITH cte1 AS (SELECT v1.id, v1.a FROM view_t1_filtered AS v1), cte2 AS (SELECT v2.t1_id, v2.col2 FROM view_joined AS v2) SELECT c1.id, c2.col2 FROM cte1 AS c1, cte2 AS c2 WHERE c1.id = c2.t1_id
       - supported_version: 4.9.6.0
+      - resultMetadata: [{ID: BIGINT}, {COL2: STRING}]
       - unorderedResult: [
           {ID: 1, COL2: 'data1'},
           {ID: 2, COL2: 'data2'},
@@ -445,6 +492,7 @@ test_block:
       # Test view alias with DISTINCT
       - query: SELECT DISTINCT v.c / 100 AS category FROM view_t1_filtered AS v
       - supported_version: 4.9.6.0
+      - resultMetadata: [{CATEGORY: INTEGER}]
       - unorderedResult: [
           {CATEGORY: 1},
           {CATEGORY: 2},
@@ -454,6 +502,7 @@ test_block:
       - query: SELECT v.id AS view_id, v.a AS view_a, f.id AS func_id FROM view_t1_filtered AS v, T1 AS f WHERE v.id = f.id AND v.a >= 20
       - supported_version: 4.9.6.0
       - setupReference: tvf_T1
+      - resultMetadata: [{VIEW_ID: BIGINT}, {VIEW_A: BIGINT}, {FUNC_ID: BIGINT}]
       - unorderedResult: [
           {VIEW_ID: 2, VIEW_A: 20, FUNC_ID: 2},
           {VIEW_ID: 3, VIEW_A: 30, FUNC_ID: 3}]
@@ -461,11 +510,13 @@ test_block:
       # Test complex multi-way join with view aliases
       - query: SELECT v1.id, v2.col2, t.b FROM view_t1_filtered AS v1, view_joined AS v2, table_t1 AS t WHERE v1.id = v2.t1_id AND v1.id = t.id AND v1.a = 10
       - supported_version: 4.9.6.0
+      - resultMetadata: [{ID: BIGINT}, {COL2: STRING}, {B: STRING}]
       - unorderedResult: [{ID: 1, COL2: 'data1', B: 'test1'}]
     -
       # Test view alias in EXISTS subquery
       - query: SELECT t.id, t.a FROM table_t1 AS t WHERE EXISTS (SELECT 1 FROM view_t1_filtered AS v WHERE v.id = t.id AND v.a <= 20)
       - supported_version: 4.9.6.0
+      - resultMetadata: [{ID: BIGINT}, {A: BIGINT}]
       - unorderedResult: [
           {ID: 1, A: 10},
           {ID: 2, A: 20}]
@@ -473,6 +524,7 @@ test_block:
       # Test view alias with column arithmetic in WHERE
       - query: SELECT v.id, v.a + v.c AS sum_val FROM view_t1_filtered AS v WHERE v.a + v.c > 200
       - supported_version: 4.9.6.0
+      - resultMetadata: [{ID: BIGINT}, {SUM_VAL: BIGINT}]
       - unorderedResult: [
           {ID: 2, SUM_VAL: 220},
           {ID: 3, SUM_VAL: 330}]

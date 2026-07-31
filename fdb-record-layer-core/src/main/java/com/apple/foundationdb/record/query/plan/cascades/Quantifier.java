@@ -45,7 +45,6 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
-import java.util.UUID;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
@@ -80,7 +79,7 @@ public abstract class Quantifier implements Correlated<Quantifier> {
      * A (fake alias) that references the "current" record.
      */
     @Nonnull
-    private static final UUID CURRENT = UUID.randomUUID();
+    private static final String CURRENT = "___current";
 
     /**
      * Constant quantifier representing a reference to a constant box of literals.
@@ -401,6 +400,12 @@ public abstract class Quantifier implements Correlated<Quantifier> {
                     .from(this)
                     .withAlias(newAlias)
                     .build(reference);
+        }
+
+        @Nonnull
+        @Override
+        public Type getFlowedObjectType() {
+            return super.getFlowedObjectType().nullable();
         }
 
         @Nonnull
@@ -744,20 +749,22 @@ public abstract class Quantifier implements Correlated<Quantifier> {
     @Nonnull
     protected abstract List<Column<? extends FieldValue>> computeFlowedColumns();
 
+    /**
+     * Builds the canonical “pull-up” columns for a record-typed flow. Returns one {@link Column} per field of
+     * {@code type}, each carrying a {@link FieldValue} that reads its ordinal off a fresh {@link QuantifiedObjectValue}
+     * bound to {@code alias}. Throws if {@code type} is not a record type, since only record-flowing quantifiers
+     * have addressable columns.
+     */
     @Nonnull
-    protected static List<Column<? extends FieldValue>> pullUpResultColumns(@Nonnull final Type type, @Nonnull CorrelationIdentifier alias) {
-        final List<Field> fields;
-        if (type instanceof Type.Record) {
-            fields = Objects.requireNonNull(((Type.Record)type).getFields());
-        } else {
+    protected static List<Column<? extends FieldValue>> pullUpResultColumns(@Nonnull final Type type, @Nonnull final CorrelationIdentifier alias) {
+        if (!(type instanceof Type.Record recordType)) {
             throw new IllegalStateException("quantifier does not flow records");
         }
-
-        final var recordType = (Type.Record)type;
-        final var resultBuilder = ImmutableList.<Column<? extends FieldValue>>builder();
-        for (var i = 0; i < fields.size(); i++) {
-            final var field = fields.get(i);
-            resultBuilder.add(Column.of(field, FieldValue.ofOrdinalNumber(QuantifiedObjectValue.of(alias, recordType), Math.toIntExact(i))));
+        final List<Field> fields = Objects.requireNonNull(recordType.getFields());
+        final QuantifiedObjectValue qov = QuantifiedObjectValue.of(alias, recordType);
+        final ImmutableList.Builder<Column<? extends FieldValue>> resultBuilder = ImmutableList.builder();
+        for (int i = 0; i < fields.size(); i++) {
+            resultBuilder.add(Column.of(fields.get(i), FieldValue.ofOrdinalNumber(qov, i)));
         }
         return resultBuilder.build();
     }
@@ -771,6 +778,22 @@ public abstract class Quantifier implements Correlated<Quantifier> {
     private List<? extends FieldValue> computeFlowedValues() {
         return getFlowedColumns()
                 .stream()
+                .map(Column::getValue)
+                .collect(ImmutableList.toImmutableList());
+    }
+
+    /**
+     * Returns the flowed values as if the flowed object type had the given {@code nullability}. If the flowed object
+     * type already has the requested nullability, this method returns the memoized {@link #getFlowedValues()} directly.
+     */
+    @Nonnull
+    public List<? extends FieldValue> pullUpResultColumnsWithNullability(boolean nullability) {
+        final Type type = getFlowedObjectType();
+        if (type.isNullable() == nullability) {
+            return getFlowedValues();
+        }
+        final Type typeWithNullability = type.withNullability(nullability);
+        return pullUpResultColumns(typeWithNullability, getAlias()).stream()
                 .map(Column::getValue)
                 .collect(ImmutableList.toImmutableList());
     }
@@ -822,7 +845,7 @@ public abstract class Quantifier implements Correlated<Quantifier> {
 
     @Nonnull
     public static CorrelationIdentifier current() {
-        return CorrelationIdentifier.uniqueSingletonID(CURRENT, "𝓆");
+        return CorrelationIdentifier.of(CURRENT);
     }
 
     @Nonnull

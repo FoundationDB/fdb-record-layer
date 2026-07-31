@@ -92,10 +92,16 @@ public class ListParameter implements Parameter {
             return SqlTypeNamesSupport.getSqlTypeName(Types.INTEGER);
         } else if (firstNonNull instanceof Long) {
             return SqlTypeNamesSupport.getSqlTypeName(Types.BIGINT);
+        } else if (firstNonNull instanceof Boolean) {
+            return SqlTypeNamesSupport.getSqlTypeName(Types.BOOLEAN);
         } else if (firstNonNull instanceof Double) {
             return SqlTypeNamesSupport.getSqlTypeName(Types.DOUBLE);
+        } else if (firstNonNull instanceof Float) {
+            return SqlTypeNamesSupport.getSqlTypeName(Types.FLOAT);
         } else if (firstNonNull instanceof String) {
             return SqlTypeNamesSupport.getSqlTypeName(Types.VARCHAR);
+        } else if (firstNonNull instanceof byte[]) {
+            return SqlTypeNamesSupport.getSqlTypeName(Types.BINARY);
         } else if (firstNonNull instanceof Array) {
             return SqlTypeNamesSupport.getSqlTypeName(Types.ARRAY);
         } else if (firstNonNull instanceof Struct) {

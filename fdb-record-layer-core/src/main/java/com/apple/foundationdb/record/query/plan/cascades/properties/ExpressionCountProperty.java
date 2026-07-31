@@ -1,5 +1,5 @@
 /*
- * ExpressionDepthProperty.java
+ * ExpressionCountProperty.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -23,10 +23,12 @@ package com.apple.foundationdb.record.query.plan.cascades.properties;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionProperty;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalFilterExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.OuterJoinExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpressionVisitorWithDefaults;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.TableFunctionExpression;
+import com.apple.foundationdb.record.query.plan.cascades.rules.SelectMergeRule;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -38,13 +40,18 @@ import java.util.Objects;
 import java.util.function.Predicate;
 
 /**
- * A property representing the minimum depth of any of a set of relational planner expression types in a relational
- * planner expression: that is, the smallest integer such that one of those types is exactly that many relational
- * planner expressions away from the root expression.
+ * A property representing the count of any of a set of relational planner expression types in a relational
+ * planner expression: that is, the number of times one of those types appears in the DAG of the root expression.
  */
 public class ExpressionCountProperty implements ExpressionProperty<Integer> {
+    /**
+     * Counts "select-like" relational expressions in a subtree. This is used by {@link SelectMergeRule} to estimate
+     * the complexity of a child branch when choosing merge candidates.
+     */
     @Nonnull
     private static final ExpressionCountProperty SELECT_COUNT = ofTrackedTypes(SelectExpression.class, LogicalFilterExpression.class);
+    @Nonnull
+    private static final ExpressionCountProperty OUTER_JOIN_COUNT = ofTrackedTypes(OuterJoinExpression.class);
     @Nonnull
     private static final ExpressionCountProperty TABLE_FUNCTION_COUNT = ofTrackedTypes(TableFunctionExpression.class);
 
@@ -74,6 +81,11 @@ public class ExpressionCountProperty implements ExpressionProperty<Integer> {
     @Nonnull
     public static ExpressionCountProperty selectCount() {
         return SELECT_COUNT;
+    }
+
+    @Nonnull
+    public static ExpressionCountProperty outerJoinCount() {
+        return OUTER_JOIN_COUNT;
     }
 
     @Nonnull

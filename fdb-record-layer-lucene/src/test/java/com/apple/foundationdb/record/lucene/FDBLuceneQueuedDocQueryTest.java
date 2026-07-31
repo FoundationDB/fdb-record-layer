@@ -353,18 +353,18 @@ public class FDBLuceneQueuedDocQueryTest extends FDBRecordStoreTestBase {
 
     private void enqueueInsert(FDBRecordContext context, PendingWriteQueue queue, TestRecordsTextProto.SimpleDocument doc) {
         List<LuceneDocumentFromRecord.DocumentField> fields = toDocumentFields(doc);
-        queue.enqueueInsert(context, Tuple.from(doc.getDocId()), fields);
+        queue.enqueueInsert(context, Tuple.from(doc.getDocId()), fields, 0);
     }
 
     private void enqueueUpdate(FDBRecordContext context, PendingWriteQueue queue, long docId, String text) {
         List<LuceneDocumentFromRecord.DocumentField> fields = toDocumentFields(text);
         // Update is delete followed by insert
-        queue.enqueueDelete(context, Tuple.from(docId));
-        queue.enqueueInsert(context, Tuple.from(docId), fields);
+        queue.enqueueDelete(context, Tuple.from(docId), 0);
+        queue.enqueueInsert(context, Tuple.from(docId), fields, 0);
     }
 
     private void enqueueDelete(FDBRecordContext context, PendingWriteQueue queue, TestRecordsTextProto.SimpleDocument doc) {
-        queue.enqueueDelete(context, Tuple.from(doc.getDocId()));
+        queue.enqueueDelete(context, Tuple.from(doc.getDocId()), 0);
     }
 
     private void emptyQueue(FDBRecordContext context, PendingWriteQueue queue) {

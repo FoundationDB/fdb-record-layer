@@ -56,6 +56,7 @@ import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.BooleanSource;
 import com.apple.test.Tags;
 import com.google.auto.service.AutoService;
+import com.google.protobuf.Any;
 import com.google.protobuf.Message;
 import org.hamcrest.Matcher;
 import org.hamcrest.Matchers;
@@ -852,6 +853,18 @@ public class FDBRecordStoreUniqueIndexTest extends FDBRecordStoreTestBase {
 
         @Nonnull
         @Override
+        public <M extends Message> Any serializePendingWriteQueue(@Nullable final FDBIndexableRecord<M> oldRecord, @Nullable final FDBIndexableRecord<M> newRecord) {
+            return underlying.serializePendingWriteQueue(oldRecord, newRecord);
+        }
+
+        @Nonnull
+        @Override
+        public CompletableFuture<Void> updateFromQueue(@Nonnull final Any data) {
+            return underlying.updateFromQueue(data);
+        }
+
+        @Nonnull
+        @Override
         public RecordCursor<IndexEntry> scanUniquenessViolations(@Nonnull final TupleRange range, @Nullable final byte[] continuation, @Nonnull final ScanProperties scanProperties) {
             return underlying.scanUniquenessViolations(range, continuation, scanProperties);
         }
@@ -904,6 +917,11 @@ public class FDBRecordStoreUniqueIndexTest extends FDBRecordStoreTestBase {
         @Override
         public boolean isIdempotent() {
             return underlying.isIdempotent();
+        }
+
+        @Override
+        public boolean isPendingWriteQueueAllowed() {
+            return underlying.isPendingWriteQueueAllowed();
         }
 
         @Nonnull

@@ -22,10 +22,15 @@ package com.apple.foundationdb.relational.recordlayer.query;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
+import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.Column;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.ConstantPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.values.AggregateValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.AndOrValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.ArithmeticValue;
@@ -33,9 +38,11 @@ import com.apple.foundationdb.record.query.plan.cascades.values.BooleanValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.ConstantObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.NotValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.NullValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RelOpValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.recordlayer.metadata.DataTypeUtils;
 import com.apple.foundationdb.relational.util.Assert;
@@ -351,18 +358,45 @@ public class Expression {
                     .collect(ImmutableList.toImmutableList());
         }
 
+        /**
+         * Converts a boolean-typed {@link Expression} into a {@link QueryPredicate} suitable for use as a
+         * {@code WHERE} or {@code ON} predicate. If the underlying value already implements {@link BooleanValue}
+         * (for example, an {@code AND}, {@code OR}, comparison, or {@code NOT} expression), it converts itself.
+         * Otherwise, the value may be a SQL {@code NULL} ({@link NullValue}), a {@code BOOLEAN}-typed literal,
+         * constant reference, parameter, or column. A {@code NullValue} folds to {@link ConstantPredicate#NULL}.
+         * A literal ({@link LiteralValue}) folds to the corresponding {@link ConstantPredicate}. Everything
+         * else is wrapped as a {@code ValuePredicate} performing a {@code «value» = TRUE} comparison.
+         */
         @Nonnull
         public static QueryPredicate toUnderlyingPredicate(@Nonnull final Expression expression,
                                                            @Nonnull final Set<CorrelationIdentifier> localAliases,
                                                            boolean forDdl) {
-            final var value = Assert.castUnchecked(expression.getUnderlying(), BooleanValue.class);
-            final Optional<QueryPredicate> result;
-            if (forDdl) {
-                result = value.toQueryPredicate(ParseHelpers.EMPTY_TYPE_REPOSITORY, localAliases);
-            } else {
-                result = value.toQueryPredicate(null, localAliases);
+            final Value value = expression.getUnderlying();
+
+            // A `BooleanValue` can convert itself into a `QueryPredicate`.
+            if (value instanceof final BooleanValue booleanValue) {
+                final TypeRepository typeRepository = forDdl ? ParseHelpers.EMPTY_TYPE_REPOSITORY : null;
+                final Optional<QueryPredicate> result = booleanValue.toQueryPredicate(typeRepository, localAliases);
+                return Assert.optionalUnchecked(result);
             }
-            return Assert.optionalUnchecked(result);
+
+            // Recognize `NullValue` as a null boolean `ConstantPredicate`.
+            if (value instanceof NullValue) {
+                return ConstantPredicate.NULL;
+            }
+
+            // At this point the `value` is some other boolean expression that does not implement `BooleanValue`.
+            Assert.thatUnchecked(value.getResultType().getTypeCode() == Type.TypeCode.BOOLEAN,
+                    ErrorCode.DATATYPE_MISMATCH,
+                    () -> "expected boolean expression but got " + value.getResultType());
+
+            // Convert a plain boolean `LiteralValue` to `ConstantPredicate`.
+            if (value instanceof final LiteralValue<?> literalValue) {
+                return ConstantPredicate.of((Boolean) literalValue.getLiteralValue());
+            }
+
+            // For other cases, lift the expression into a `ValuePredicate` performing a `«value» = TRUE` comparison.
+            return new ValuePredicate(value, new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, true));
         }
     }
 

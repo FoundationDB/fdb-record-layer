@@ -61,6 +61,8 @@ import org.jline.terminal.impl.DumbTerminal;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.Execution;
+import org.junit.jupiter.api.parallel.ExecutionMode;
 
 import javax.annotation.Nonnull;
 import java.io.ByteArrayOutputStream;
@@ -77,7 +79,11 @@ import java.util.Set;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-
+// Tests set up shared state (the debugger) on a ThreadLocal via Debugger.setDebugger in @BeforeEach.
+// When JUnit's parallel execution is enabled, lifecycle methods and the test body can run on
+// different worker threads, leaving the test body without a debugger installed. Pin everything in
+// this class to a single thread so the thread-local survives between @BeforeEach and @Test.
+@Execution(ExecutionMode.SAME_THREAD)
 class CommandsTest {
     private String query;
     private PipedOutputStream outIn;
@@ -307,7 +313,7 @@ class CommandsTest {
 
         terminal.writer().close();
         assertThat(outputStream.toString()).contains(
-                ReplTestUtil.coloredKeyValue("paused in", "Test worker at") + " " + ReplTestUtil.coloredKeyValue("tick", "2"),
+                ReplTestUtil.coloredKeyValue("paused in", Thread.currentThread().getName() + " at") + " " + ReplTestUtil.coloredKeyValue("tick", "2"),
                 String.join(
                         "; ",
                         ReplTestUtil.coloredKeyValue("shorthand", "insert_into_memo"),
@@ -344,7 +350,7 @@ class CommandsTest {
                         ReplTestUtil.coloredKeyValue("location", "end")
                 ),
 
-                ReplTestUtil.coloredKeyValue("paused in", "Test worker at") + " " + ReplTestUtil.coloredKeyValue("tick", "3"),
+                ReplTestUtil.coloredKeyValue("paused in", Thread.currentThread().getName() + " at") + " " + ReplTestUtil.coloredKeyValue("tick", "3"),
                 String.join(
                         "; ",
                         ReplTestUtil.coloredKeyValue("shorthand", "initphase"),
@@ -367,7 +373,7 @@ class CommandsTest {
 
         terminal.writer().close();
         assertThat(outputStream.toString()).contains(
-                ReplTestUtil.coloredKeyValue("paused in", "Test worker at") + " " + ReplTestUtil.coloredKeyValue("tick", "2"),
+                ReplTestUtil.coloredKeyValue("paused in", Thread.currentThread().getName() + " at") + " " + ReplTestUtil.coloredKeyValue("tick", "2"),
                 String.join(
                         "; ",
                         ReplTestUtil.coloredKeyValue("shorthand", "initphase"),
@@ -407,7 +413,7 @@ class CommandsTest {
                         ReplTestUtil.coloredKeyValue("count down", "-1"),
                         ReplTestUtil.coloredKeyValue("ruleNamePrefix", "ImplementSimpleSelectRule")
                 ),
-                ReplTestUtil.coloredKeyValue("paused in", "Test worker at") + " " + ReplTestUtil.coloredKeyValue("tick", "3"),
+                ReplTestUtil.coloredKeyValue("paused in", Thread.currentThread().getName() + " at") + " " + ReplTestUtil.coloredKeyValue("tick", "3"),
                 String.join(
                         "; ",
                         ReplTestUtil.coloredKeyValue("shorthand", "transform"),
@@ -465,7 +471,7 @@ class CommandsTest {
                         ReplTestUtil.coloredKeyValue("count down", "-1"),
                         ReplTestUtil.coloredKeyValue("ruleNamePrefix", "ImplementSimpleSelectRule")
                 ),
-                ReplTestUtil.coloredKeyValue("paused in", "Test worker at") + " " + ReplTestUtil.coloredKeyValue("tick", "3"),
+                ReplTestUtil.coloredKeyValue("paused in", Thread.currentThread().getName() + " at") + " " + ReplTestUtil.coloredKeyValue("tick", "3"),
                 String.join(
                         "; ",
                         ReplTestUtil.coloredKeyValue("shorthand", "rulecall"),
@@ -518,7 +524,7 @@ class CommandsTest {
                         ReplTestUtil.coloredKeyValue("location", "end"),
                         ReplTestUtil.coloredKeyValue("expression", "exp1")
                 ),
-                ReplTestUtil.coloredKeyValue("paused in", "Test worker at") + " " + ReplTestUtil.coloredKeyValue("tick", "4"),
+                ReplTestUtil.coloredKeyValue("paused in", Thread.currentThread().getName() + " at") + " " + ReplTestUtil.coloredKeyValue("tick", "4"),
                 String.join(
                         "; ",
                         ReplTestUtil.coloredKeyValue("shorthand", "rulecall"),
@@ -586,7 +592,7 @@ class CommandsTest {
                         ReplTestUtil.coloredKeyValue("location", "end"),
                         ReplTestUtil.coloredKeyValue("candidate", "idx1")
                 ),
-                ReplTestUtil.coloredKeyValue("paused in", "Test worker at") + " " + ReplTestUtil.coloredKeyValue("tick", "1"),
+                ReplTestUtil.coloredKeyValue("paused in", Thread.currentThread().getName() + " at") + " " + ReplTestUtil.coloredKeyValue("tick", "1"),
                 String.join(
                         "; ",
                         ReplTestUtil.coloredKeyValue("shorthand", "rulecall"),

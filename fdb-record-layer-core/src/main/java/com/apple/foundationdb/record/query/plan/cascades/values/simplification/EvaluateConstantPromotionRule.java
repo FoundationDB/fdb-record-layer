@@ -21,8 +21,10 @@
 package com.apple.foundationdb.record.query.plan.cascades.values.simplification;
 
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.NullValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.PromoteValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.base.Verify;
 
 import javax.annotation.Nonnull;
@@ -34,6 +36,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  *
  * <ul>
  *     <li>{@code Promote(NullValue, TypeXYZ) -> NullValue of type TypeXYZ}</li>
+ *     <li>{@code Promote('[] untyped empty array, ArrayType<T>) -> '[] LightArrayConstructorValue of element type T}</li>
  *     <li>{@code Promote('True, T | T is BooleanType) -> 'True of T}</li>
  *     <li>{@code Promote('False, T | T is BooleanType) -> 'False of T}</li>
  *     <li>{@code Promote('Null, T | T is BooleanType) -> 'Null of T}</li>
@@ -50,27 +53,40 @@ public class EvaluateConstantPromotionRule extends ValueSimplificationRule<Promo
 
     @Override
     public void onMatch(@Nonnull final ValueSimplificationRuleCall call) {
-        final var promoteValue = call.getBindings().get(rootMatcher);
-        final var childValue = promoteValue.getChild();
+        final PromoteValue promoteValue = call.getBindings().get(rootMatcher);
+        final Type promoteType = promoteValue.getResultType();
+        final Value value = promoteValue.getChild();
+        final Type type = value.getResultType();
 
-        if (childValue instanceof NullValue) {
-            call.yieldResult(childValue.with(promoteValue.getResultType()));
+        // Case 1: NULL value
+        if (value instanceof NullValue) {
+            call.yieldResult(value.with(promoteType));
             return;
         }
 
-        if (childValue.getResultType().nullable().equals(promoteValue.getResultType().nullable())) {
+        // Case 2: Untyped empty array constructor []
+        if (type.isNone()) {
+            // Yield a typed empty array of the desired element type.
+            Verify.verify(promoteType.isArray());
+            call.yieldResult(value.with(promoteType));
+            return;
+        }
 
-            // both types are the same, either type (but not both) must be not nullable, otherwise the promotion would
-            // not be necessary.
-            Verify.verify(childValue.getResultType().isNullable() != promoteValue.getResultType().isNullable());
+        // Case 3: A value of the desired type that differs only in nullability.
+        if (type.nullable().equals(promoteType.nullable())) {
+            // The types must differ in nullability; otherwise the promotion would not be needed in the first place.
+            Verify.verify(type.isNullable() != promoteType.isNullable());
 
-            // Returns the child value with its original non-nullable type, overriding any nullable type requested by promotion.
-            // This intentional restriction is acceptable because it allows for subsequent simplifications and optimizations.
-            // For example, IsNull(Promote('42L, NullableLong)) can be simplified to 'False' due to this type restriction.
-            if (childValue.getResultType().isNotNullable()) {
-                call.yieldResult(childValue);
-            } else {
-                childValue.overrideTypeMaybe(promoteValue.getResultType()).ifPresent(call::yieldResult);
+            // Ignore a promotion from not-nullable to nullable. This is to facilitate subsequent simplifications.
+            // For example, `IsNull(Promote('42L, NullableLong))` could subsequently be simplified to 'False.
+            if (!type.isNullable()) {
+                call.yieldResult(value);
+                return;
+            }
+
+            if (value.canResultInType(promoteType)) {
+                call.yieldResult(value.with(promoteType));
+                return;
             }
         }
     }

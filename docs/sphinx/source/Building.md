@@ -38,7 +38,7 @@ To verify that you have a working configuration, pick some tests that depend on 
 
 If this does not work smoothly for you, please create a [new issue](https://github.com/FoundationDB/fdb-record-layer/issues/new) or ask in [the forum](https://forums.foundationdb.org/c/using-layers).
 
-### Behind the Scenes
+### Behind the scenes
 
 *(This section explains what happened above and why, in case you are interested.)*
 
@@ -50,7 +50,7 @@ If you make changes to most IntelliJ settings, they will save over the files tha
 
 However, there are a few settings that we use for consistency that are saved in the user-specific `workspace.xml` file. These settings must be enabled manually by each developer. (Step 8, 9)
 
-## Building the Core
+## Building the core
 
 To do the full suite of checks and tests run:
 ```

@@ -45,8 +45,10 @@ import java.sql.SQLException;
  */
 public class CaseSensitiveDbObjectsTest {
     @Nonnull
-    private static final String SCHEMA_TEMPLATE = "CREATE TABLE \"t1\" (\"group\" bigint, \"id\" string, \"val\" " +
-            "bigint, PRIMARY KEY(\"group\", \"id\")) ";
+    private static final String SCHEMA_TEMPLATE =
+            """
+            CREATE TABLE "t1" ("group" bigint, "id" string, "val" bigint, PRIMARY KEY("group", "id"))
+            """;
 
     @RegisterExtension
     @Order(0)
@@ -127,7 +129,7 @@ public class CaseSensitiveDbObjectsTest {
                     .isRowExactly("abc")
                     .hasNoNextRow();
         }
-        Assertions.assertThat(logAppender.getLastLogEventMessage()).contains("select 'id' from 't1' where 'group' = ?");
+        Assertions.assertThat(logAppender.getLastLogEventMessage()).contains("SELECT 'id' FROM 't1' WHERE 'group' = ?");
         Assertions.assertThat(logAppender.getLastLogEventMessage()).contains("planCache=\"miss\"");
 
         try (RelationalResultSet resultSet = statement.executeQuery("select id from t1 where group = 1 options (log query)")) {
@@ -135,7 +137,7 @@ public class CaseSensitiveDbObjectsTest {
                     .isRowExactly("abc")
                     .hasNoNextRow();
         }
-        Assertions.assertThat(logAppender.getLastLogEventMessage()).contains("select 'id' from 't1' where 'group' = ?");
+        Assertions.assertThat(logAppender.getLastLogEventMessage()).contains("SELECT 'id' FROM 't1' WHERE 'group' = ?");
         Assertions.assertThat(logAppender.getLastLogEventMessage()).contains("planCache=\"hit\"");
     }
 
@@ -148,7 +150,7 @@ public class CaseSensitiveDbObjectsTest {
                     .isRowExactly("abc")
                     .hasNoNextRow();
         }
-        Assertions.assertThat(logAppender.getLastLogEventMessage()).contains("select 'id' from 't1' where 'group' = ?");
+        Assertions.assertThat(logAppender.getLastLogEventMessage()).contains("SELECT 'id' FROM 't1' WHERE 'group' = ?");
         Assertions.assertThat(logAppender.getLastLogEventMessage()).contains("planCache=\"miss\"");
 
         try (RelationalConnection caseInsensitiveConn = DriverManager.getConnection(database.getConnectionUri()
@@ -161,7 +163,7 @@ public class CaseSensitiveDbObjectsTest {
                             .isRowExactly("abc")
                             .hasNoNextRow();
                 }
-                Assertions.assertThat(logAppender.getLastLogEventMessage()).contains("select 'id' from 't1' where 'group' = ?");
+                Assertions.assertThat(logAppender.getLastLogEventMessage()).contains("SELECT 'id' FROM 't1' WHERE 'group' = ?");
                 Assertions.assertThat(logAppender.getLastLogEventMessage()).contains("planCache=\"hit\"");
             }
         }

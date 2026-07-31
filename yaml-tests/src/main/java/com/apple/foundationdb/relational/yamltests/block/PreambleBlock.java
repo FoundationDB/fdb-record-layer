@@ -42,6 +42,7 @@ public class PreambleBlock extends SupportBlock {
 
     public static final String OPTIONS = "options";
     public static final String PREAMBLE_BLOCK_SUPPORTED_VERSION = "supported_version";
+    public static final String PREAMBLE_BLOCK_REQUIRED_CLUSTERS = "required_clusters";
     public static final String PREAMBLE_BLOCK_CONNECTION_OPTIONS = "connection_options";
     private static final Logger logger = LogManager.getLogger(PreambleBlock.class);
 
@@ -62,6 +63,15 @@ public class PreambleBlock extends SupportBlock {
             }
             Assumptions.assumeTrue(check.isSupported(), check.getMessage());
         }
+
+        // read the required_clusters option, and skip the test if not enough clusters are available.
+        if (optionsMap.containsKey(PREAMBLE_BLOCK_REQUIRED_CLUSTERS)) {
+            final int requiredClusters = ((Number) optionsMap.get(PREAMBLE_BLOCK_REQUIRED_CLUSTERS)).intValue();
+            final int availableClusters = executionContext.getConnectionFactory().getAvailableClusterCount();
+            Assumptions.assumeTrue(availableClusters >= requiredClusters,
+                    "Test requires " + requiredClusters + " clusters but only " + availableClusters + " available");
+        }
+
         var connectionOptions = Options.none();
         if (optionsMap.containsKey(PREAMBLE_BLOCK_CONNECTION_OPTIONS)) {
             connectionOptions = TestBlock.TestBlockOptions.parseConnectionOptions(Matchers.map(optionsMap.get(PREAMBLE_BLOCK_CONNECTION_OPTIONS)));

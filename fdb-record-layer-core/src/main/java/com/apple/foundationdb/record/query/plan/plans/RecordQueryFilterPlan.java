@@ -153,6 +153,9 @@ public class RecordQueryFilterPlan extends RecordQueryFilterPlanBase {
         if (getClass() != otherExpression.getClass()) {
             return false;
         }
+        if (!semanticEqualsForResults(otherExpression, equivalencesMap)) {
+            return false;
+        }
         final RecordQueryFilterPlan otherPlan = (RecordQueryFilterPlan)otherExpression;
         return conjunctedFilter.equals(otherPlan.getConjunctedFilter());
     }

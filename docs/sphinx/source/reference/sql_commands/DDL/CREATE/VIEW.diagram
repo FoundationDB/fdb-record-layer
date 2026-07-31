@@ -1,0 +1,9 @@
+Diagram(
+    Sequence(
+        Terminal('CREATE'),
+        Terminal('VIEW'),
+        NonTerminal('viewName'),
+        Terminal('AS'),
+        NonTerminal('query')
+    )
+)

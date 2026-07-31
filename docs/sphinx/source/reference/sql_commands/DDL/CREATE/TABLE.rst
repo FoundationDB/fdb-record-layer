@@ -109,3 +109,9 @@ Attempting to insert a second row in a :sql:`SINGLE ROW ONLY` table will result 
     * - :sql:`NULL`
       - :json:`0.0`
       - :json:`"X"`
+
+See Also
+========
+
+* :ref:`CREATE VIEW <create-view>` — Virtual (non-materialized) tables defined by a query
+* :doc:`INDEX` — Defining indexes on tables and views

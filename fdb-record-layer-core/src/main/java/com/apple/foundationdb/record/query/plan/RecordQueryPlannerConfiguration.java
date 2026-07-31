@@ -24,6 +24,7 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.IndexFetchMethod;
 import com.apple.foundationdb.record.RecordPlannerConfigurationProto;
 import com.apple.foundationdb.record.query.RecordQuery;
+import com.apple.foundationdb.record.query.plan.cascades.AbstractCascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerRule;
 import com.apple.foundationdb.record.query.plan.cascades.PlanningRuleSet;
@@ -67,6 +68,7 @@ public class RecordQueryPlannerConfiguration {
     private static final long PLAN_OTHER_ATTEMPT_FULL_FILTER_MASK = 1L << 9;
     private static final long NORMALIZE_NESTED_FIELDS_MASK = 1L << 10;
     private static final long OMIT_PRIMARY_KEY_IN_ORDERING_KEY_FOR_IN_UNION_MASK = 1L << 11;
+    private static final long JOIN_RIGHT_DEEP_MASK = 1L << 12;
 
     @Nonnull
     private final RecordPlannerConfigurationProto.PlannerConfiguration proto;
@@ -384,6 +386,20 @@ public class RecordQueryPlannerConfiguration {
     }
 
     /**
+     * Should joins be planned right-deep. This influences the join exploration algorithm in order
+     * to limit exploration time. When planning multi-way joins, if this option is set, the
+     * {@link com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner} will limit
+     * the joins considered to cases where one join constituent is planned as the outer
+     * of a nested loop join and all other constituents are planned as the inner. This differs
+     * from the default behavior, where the join constituents partitioned exhaustively.
+     *
+     * @return whether joins should be planned right-deep
+     */
+    public boolean shouldJoinRightDeep() {
+        return flagSet(JOIN_RIGHT_DEEP_MASK);
+    }
+
+    /**
      * Return a protobuf representation of this configuration object. This can then be serialized and
      * returned along with, say, a plan continuation. If the original query is re-planned, the serialized
      * planner configuration object can be used to ensure (as much as possible) that the same plan is
@@ -622,9 +638,9 @@ public class RecordQueryPlannerConfiguration {
          */
         @CanIgnoreReturnValue
         @Nonnull
-        public Builder setDisabledTransformationRules(@Nonnull final Set<Class<? extends CascadesRule<?>>> disabledTransformationRules) {
+        public Builder setDisabledTransformationRules(@Nonnull final Set<Class<? extends AbstractCascadesRule<?>>> disabledTransformationRules) {
             protoBuilder.clearDisabledTransformationRules();
-            for (Class<? extends CascadesRule<?>> rule : disabledTransformationRules) {
+            for (Class<? extends AbstractCascadesRule<?>> rule : disabledTransformationRules) {
                 protoBuilder.addDisabledTransformationRules(rule.getSimpleName());
             }
             return this;
@@ -664,7 +680,7 @@ public class RecordQueryPlannerConfiguration {
         @Nonnull
         public Builder disableRewritingRules() {
             for (CascadesRule<?> rule : RewritingRuleSet.OPTIONAL_RULES) {
-                disableTransformationRule((Class<? extends CascadesRule<?>>) rule.getClass());
+                disableTransformationRule((Class<? extends AbstractCascadesRule<?>>) rule.getClass());
             }
             return this;
         }
@@ -676,7 +692,7 @@ public class RecordQueryPlannerConfiguration {
          */
         @CanIgnoreReturnValue
         @Nonnull
-        public Builder disableTransformationRule(@Nonnull Class<? extends CascadesRule<?>> ruleClass) {
+        public Builder disableTransformationRule(@Nonnull Class<? extends AbstractCascadesRule<?>> ruleClass) {
             protoBuilder.addDisabledTransformationRules(ruleClass.getSimpleName());
             return this;
         }
@@ -785,6 +801,21 @@ public class RecordQueryPlannerConfiguration {
         @Nonnull
         public Builder setNormalizeNestedFields(boolean normalizeNestedFields) {
             updateFlags(normalizeNestedFields, NORMALIZE_NESTED_FIELDS_MASK);
+            return this;
+        }
+
+        /**
+         * Set whether joins should be planned right-deep. See {@link #shouldJoinRightDeep()} for
+         * more details.
+         *
+         * @param joinRightDeep whether joins should be planned right-deep
+         * @return this builder
+         * @see #shouldJoinRightDeep()
+         */
+        @CanIgnoreReturnValue
+        @Nonnull
+        public Builder setJoinRightDeep(boolean joinRightDeep) {
+            updateFlags(joinRightDeep, JOIN_RIGHT_DEEP_MASK);
             return this;
         }
 

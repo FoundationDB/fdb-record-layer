@@ -33,6 +33,16 @@ import javax.annotation.Nonnull;
  * implementation of {@link IndexMaintainerFactory} that can generate {@link IndexMaintainer}s
  * and {@link IndexValidator}s for indexes of that type. This registry stores the mapping of
  * the index type to one of those factory classes.
+ *
+ * <p>The registry also handles the sliding window index, which is not a standalone index type
+ * but a decorator on top of vector indexes. When
+ * {@link #getIndexMaintainerFactory(Index)} is called for a vector index that carries a
+ * {@link com.apple.foundationdb.record.metadata.IndexPredicate.RowNumberWindowPredicate},
+ * the registry wraps the vector factory with a
+ * {@link com.apple.foundationdb.record.provider.foundationdb.indexes.SlidingWindowIndexMaintainerFactory}.
+ * This wrapping is not composable: a sliding window factory cannot itself be wrapped by
+ * another sliding window factory. The detection and wrapping happen exactly once in
+ * {@link IndexMaintainerFactoryRegistryImpl#getIndexMaintainerFactory(Index)}.</p>
  */
 @API(API.Status.UNSTABLE)
 public interface IndexMaintainerFactoryRegistry extends IndexMaintainerRegistry, IndexMatchCandidateRegistry {

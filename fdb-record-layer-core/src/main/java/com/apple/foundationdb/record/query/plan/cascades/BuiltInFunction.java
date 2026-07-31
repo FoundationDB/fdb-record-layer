@@ -23,12 +23,12 @@ package com.apple.foundationdb.record.query.plan.cascades;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
+import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.base.Verify;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 
 /**
@@ -68,7 +68,7 @@ public abstract class BuiltInFunction<T extends Typed> extends CatalogedFunction
 
     protected BuiltInFunction(@Nonnull final String functionName, @Nonnull final List<String> parameterNames,
                               @Nonnull final List<Type> parameterTypes,
-                              @Nonnull final List<Optional<? extends Typed>> parameterDefaults,
+                              @Nonnull final List<Optional<Value>> parameterDefaults,
                               @Nonnull final EncapsulationFunction<T> encapsulationFunction) {
         super(functionName, parameterNames, parameterTypes, parameterDefaults);
         this.encapsulationFunction = encapsulationFunction;
@@ -76,13 +76,18 @@ public abstract class BuiltInFunction<T extends Typed> extends CatalogedFunction
 
     @Nonnull
     @Override
-    public Typed encapsulate(@Nonnull final List<? extends Typed> arguments) {
-        return Verify.verifyNotNull(encapsulationFunction).encapsulate(this, arguments);
-    }
-
-    @Nonnull
-    @Override
-    public Typed encapsulate(@Nonnull final Map<String, ? extends Typed> namedArguments) {
-        throw new RecordCoreException("built-in functions do not support named argument calling conventions");
+    public Typed encapsulate(@Nonnull final CallSiteArguments arguments) {
+        if (arguments.isNamed()) {
+            //
+            // customer should not be able to reach this code path, the relational parser defines built-in functions
+            // rules with positional parameters.
+            //
+            throw new RecordCoreException("built-in functions do not support named argument calling conventions");
+        }
+        //
+        // This is the single funnel through which all built-in functions are encapsulated, so it is where a call site's
+        // options are checked against the options this function declares.
+        //
+        return Verify.verifyNotNull(encapsulationFunction).encapsulate(this, validateAndNormalizeOptions(arguments));
     }
 }

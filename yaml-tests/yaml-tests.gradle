@@ -49,7 +49,6 @@ dependencies {
     implementation project(":fdb-relational-jdbc")
     implementation project(":fdb-relational-server")
     implementation(libs.jline)
-    implementation(libs.asciitable)
     implementation(libs.jsr305)
     implementation(libs.junit.api)
     implementation(libs.junit.params)
@@ -73,6 +72,12 @@ dependencies {
     compileOnly(libs.autoService)
     annotationProcessor(libs.autoService)
 }
+
+// Versions that should never be selected as an "other" external server when resolving dynamic versions for
+// compatibility testing, because they are broken in some way. For example, 4.12.14.0 was published in an incomplete
+// state (see: https://github.com/FoundationDB/fdb-record-layer/actions/runs/30123182087): we didn't fully publish
+// it, including no release notes, but somehow the artifacts are available in maven central.
+ext.permanentlyRejectedServerVersions = ["4.12.14.0"].toSet().asImmutable()
 
 // This "method" resolves the latest shadowJar version of the relational-server, and returns the file reference to it
 // which can be used in `Copy` tasks.
@@ -100,11 +105,9 @@ ext.resolveOtherServer = { Set<String> rejectedVersions ->
         // Every time we get a version that has `-SNAPSHOT` we add it to the `rejectedVersions` list, and recurse
         // until we find a version that doesn't have a `-SNAPSHOT`, and that's what we use.
         dependencies.add(configurationName,
-                ['group': 'org.foundationdb',
-                 'name': 'fdb-relational-server',
-                 // the all classifier specifies that we want to fetch the shadow jar, which includes all the
-                 // dependencies
-                 'classifier': 'all'],
+                // the `all` classifier specifies that we want to fetch the shadow jar, which includes all the
+                // dependencies. The empty version slot is filled in by the `version { strictly '+' }` Action below.
+                'org.foundationdb:fdb-relational-server::all',
                 {
                     version {
                         strictly '+'
@@ -117,7 +120,7 @@ ext.resolveOtherServer = { Set<String> rejectedVersions ->
                     // grpc dependency.
                     transitive=false
                 })
-        def configuration = configurations.getByName(configurationName, { })
+        def configuration = configurations.named(configurationName).get()
 
         File resolution = configuration.resolve()[0]
         Matcher versionMatch = resolution.getName() =~ /^fdb-relational-server-(.*-SNAPSHOT)-all.jar$/
@@ -150,8 +153,8 @@ static def getAttributesFromJar(File file) {
 }
 
 ext.resolveManyServers = { ->
-    Set<File> selectedServers = new HashSet<>();
-    Set<String> rejectedVersions = new HashSet<>();
+    Set<File> selectedServers = new HashSet<>()
+    Set<String> rejectedVersions = new HashSet<>(permanentlyRejectedServerVersions)
     while (selectedServers.size() < 10) {
         def serverFile = resolveOtherServer(rejectedVersions)
         def attributes = getAttributesFromJar(serverFile)
@@ -172,16 +175,14 @@ ext.resolveSpecificServer = { String version ->
             }
         })
         dependencies.add(configurationName,
-                ['group': 'org.foundationdb',
-                 'name': 'fdb-relational-server',
-                 'classifier': 'all'],
+                'org.foundationdb:fdb-relational-server::all',
                 {
                     it.version {
                         strictly version
                     }
                     transitive = false
                 })
-        def configuration = configurations.getByName(configurationName, { })
+        def configuration = configurations.named(configurationName).get()
         File resolution = configuration.resolve()[0]
         println("Downloaded specific external server: " + resolution.getName())
         return resolution
@@ -191,7 +192,7 @@ ext.resolveSpecificServer = { String version ->
 // Resolves the n most-recent released version strings in descending order (most recent first).
 ext.resolveRecentVersionStrings = { int n ->
     List<String> resolvedVersions = new ArrayList<>()
-    Set<String> rejectedVersions = new HashSet<>()
+    Set<String> rejectedVersions = new HashSet<>(permanentlyRejectedServerVersions)
     while (resolvedVersions.size() < n) {
         def serverFile = resolveOtherServer(rejectedVersions)
         def attributes = getAttributesFromJar(serverFile)
@@ -201,20 +202,22 @@ ext.resolveRecentVersionStrings = { int n ->
     return resolvedVersions
 }
 
-task cleanExternalServerDirectory(type: Delete) {
+tasks.register('cleanExternalServerDirectory', Delete) {
     delete project.layout.buildDirectory.dir('externalServer')
 }
 
-task serverJars(type: Copy) {
+tasks.register('serverJars', Copy) {
+    notCompatibleWithConfigurationCache("Resolves dynamic external server versions at execution time")
     dependsOn ":fdb-relational-server:package", "cleanExternalServerDirectory"
     into project.layout.buildDirectory.dir('externalServer')
-    from { resolveOtherServer(["4.2.3.0", "4.2.4.0"].toSet()) }
+    from { resolveOtherServer(new HashSet<>(permanentlyRejectedServerVersions)) }
     from (rootProject.project("fdb-relational-server").layout.files('.dist')) {
         include("fdb-relational-server-${rootProject.version}-all.jar")
     }
 }
 
-task downloadManyExternalServers(type: Copy) {
+tasks.register('downloadManyExternalServers', Copy) {
+    notCompatibleWithConfigurationCache("Resolves dynamic external server versions at execution time")
     dependsOn "cleanExternalServerDirectory"
     from { resolveManyServers() }
     into project.layout.buildDirectory.dir('externalServer')
@@ -223,15 +226,16 @@ task downloadManyExternalServers(type: Copy) {
 // Resolves the n most-recent released version strings and writes them to a file, comma-separated.
 // n defaults to 10 and can be overridden with -Ptests.listVersionsCount=<n>.
 // Output file: <buildDir>/recentVersions.txt
-task listRecentVersions {
+tasks.register('listRecentVersions') {
+    notCompatibleWithConfigurationCache("Resolves dynamic external server versions at execution time")
+    def listVersionsCountProvider = providers.gradleProperty('tests.listVersionsCount')
+    def outputFileProvider = layout.buildDirectory.file('recentVersions.txt')
     doLast {
-        int count = project.hasProperty('tests.listVersionsCount')
-            ? Integer.parseInt(project.getProperty('tests.listVersionsCount'))
-            : 10
+        int count = listVersionsCountProvider.map { Integer.parseInt(it) }.getOrElse(10)
         def versions = resolveRecentVersionStrings(count)
         // we don't want the output to be a declared output, otherwise gradle will conclude that it doesn't need to
         // rerun this when the property changes.
-        def outputFile = project.layout.buildDirectory.file('recentVersions.txt').get().asFile
+        def outputFile = outputFileProvider.get().asFile
         outputFile.parentFile.mkdirs()
         String jsonArray = '["' + versions.join('", "') + '"]'
         outputFile.text = "versions=" + jsonArray
@@ -244,16 +248,18 @@ task listRecentVersions {
 //
 //   -Ptests.mixedModeVersion=4.10.3.0
 //
-task downloadSpecificExternalServer(type: Copy) {
+tasks.register('downloadSpecificExternalServer', Copy) {
+    notCompatibleWithConfigurationCache("Resolves dynamic external server versions at execution time")
     dependsOn "cleanExternalServerDirectory"
     into project.layout.buildDirectory.dir('externalServer')
+    def mixedModeVersionProvider = providers.gradleProperty('tests.mixedModeVersion')
     // Resolve which JAR to download only when the task is actually executed.
     // Using from(Callable) defers evaluation to execution time, which avoids
     // failing at configuration time when neither property is set and this task
     // is not part of the requested task graph.
     from({
-        if (project.hasProperty('tests.mixedModeVersion')) {
-            def exactVersion = project.getProperty('tests.mixedModeVersion')
+        def exactVersion = mixedModeVersionProvider.orNull
+        if (exactVersion != null) {
             println("Using explicitly specified external server version: ${exactVersion}")
             return resolveSpecificServer(exactVersion)
         } else {
@@ -263,7 +269,7 @@ task downloadSpecificExternalServer(type: Copy) {
     })
 }
 
-mixedModeTest {
+tasks.named('mixedModeTest') {
     if (project.hasProperty('tests.mixedModeVersion')) {
         dependsOn("downloadSpecificExternalServer")
     } else {
@@ -272,19 +278,19 @@ mixedModeTest {
     systemProperty("yaml_testing_external_server", project.layout.buildDirectory.dir('externalServer').get().asFile)
 }
 
-singleVersionTest {
+tasks.named('singleVersionTest') {
     dependsOn("downloadManyExternalServers")
     systemProperty("yaml_testing_external_server", project.layout.buildDirectory.dir('externalServer').get().asFile)
 }
 
-test {
+tasks.named('test') {
     dependsOn "serverJars"
     systemProperty("yaml_testing_external_server", project.layout.buildDirectory.dir('externalServer').get().asFile)
     def seed
     if (project.hasProperty('tests.yaml.seed')) {
         seed = Long.parseLong(project.getProperty('tests.yaml.seed'))
     } else {
-        seed = ThreadLocalRandom.current().nextLong();
+        seed = ThreadLocalRandom.current().nextLong()
     }
     println("Using seed for yaml-tests: ${seed}")
     systemProperty('tests.yaml.seed', seed)
@@ -305,6 +311,11 @@ def copyTempLogs = tasks.register("copyTempLogs", Copy) {
         it.path = it.path.replaceFirst("tmp-", "")
     }
     setIncludeEmptyDirs(false)
+}
+
+tasks.withType(Test).configureEach {
+    // Override the global debug-level log4j config; yaml-tests has its own tuned config
+    systemProperty('log4j2.configurationFile', project.file('src/test/resources/log4j2-test.properties').toURI())
 }
 
 tasks.withType(Test).configureEach {

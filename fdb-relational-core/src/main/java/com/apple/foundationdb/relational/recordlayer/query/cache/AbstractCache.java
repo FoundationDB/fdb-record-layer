@@ -21,7 +21,7 @@
 package com.apple.foundationdb.relational.recordlayer.query.cache;
 
 import com.apple.foundationdb.record.util.pair.NonnullPair;
-import com.apple.foundationdb.relational.api.metrics.RelationalMetric;
+import com.apple.foundationdb.relational.api.metrics.MetricCollector;
 import com.google.common.annotations.VisibleForTesting;
 
 import javax.annotation.Nonnull;
@@ -29,7 +29,6 @@ import javax.annotation.Nullable;
 import javax.annotation.concurrent.ThreadSafe;
 import java.util.Map;
 import java.util.Set;
-import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
@@ -130,7 +129,7 @@ public abstract class AbstractCache<K, S, T, V> {
      * @param tertiaryKeyValueSupplier supplier for a tertiary key and value pair in case the item is not found.
      * @param valueWithEnvironmentDecorator decorates the retrieved value with an environment preparing it for execution.
      * @param reductionFunction a function for choosing one matching value from a list of matches.
-     * @param registerCacheEvent consumer to register events from interacting with the cache.
+     * @param metricCollector metric collector to consume events from interacting with the cache.
      * @return The value referenced {@code key} and {@code secondaryKey}.
      */
     @Nonnull
@@ -140,7 +139,7 @@ public abstract class AbstractCache<K, S, T, V> {
                              @Nonnull Supplier<NonnullPair<T, V>> tertiaryKeyValueSupplier,
                              @Nonnull Function<V, V> valueWithEnvironmentDecorator,
                              @Nonnull Function<Stream<V>, V> reductionFunction,
-                             Consumer<RelationalMetric.RelationalCount> registerCacheEvent);
+                             @Nonnull MetricCollector metricCollector);
 
     /**
      * Retrieves the statistics of the cache.

@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2024 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2026 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -31,6 +31,7 @@ import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordCursorStartContinuation;
 import com.apple.foundationdb.record.RecordCursorVisitor;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
+import com.google.common.base.Verify;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.ZeroCopyByteString;
@@ -331,12 +332,12 @@ public final class RecursiveCursor<T> implements RecordCursor<RecursiveCursor.Re
             final NoNextReason noNextReason = childResult.getNoNextReason();
             if (noNextReason.isOutOfBand()) {
                 final RecordCursorContinuation continuation;
-                if (node.emitPending) {
-                    // Stop before parent.
-                    continuation = buildContinuation(depth - 1);
-                } else {
-                    // Stop before child.
+                // For preorder traversal with an un-emitted parent, build the continuation at the parent
+                // depth so resumption emits it before descending.
+                if (node.emitPending && isPreorder) {
                     continuation = buildContinuation(depth);
+                } else {
+                    continuation = buildContinuation(depth + 1);
                 }
                 lastResult = RecordCursorResult.withoutNextValue(continuation, noNextReason);
                 return AsyncUtil.READY_FALSE;
@@ -390,7 +391,9 @@ public final class RecursiveCursor<T> implements RecordCursor<RecursiveCursor.Re
         nodes.add(childNode);
     }
 
+    @Nonnull
     private RecordCursorContinuation buildContinuation(int depth) {
+        Verify.verify(depth > 0);
         final List<RecordCursorContinuation> continuations = new ArrayList<>(depth);
         final List<byte[]> checkValues = checkValueFunction == null ? null : new ArrayList<>(depth - 1);
         for (int i = 0; i < depth; i++) {

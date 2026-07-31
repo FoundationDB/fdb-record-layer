@@ -38,6 +38,7 @@ import com.apple.foundationdb.record.provider.foundationdb.indexes.InvalidIndexE
 import com.apple.foundationdb.record.query.QueryToKeyMatcher;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
+import com.google.protobuf.Any;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
@@ -81,6 +82,18 @@ public abstract class IndexMaintainer {
     @Nonnull
     public Subspace getSecondarySubspace() {
         return state.store.indexSecondarySubspace(state.index);
+    }
+
+    /**
+     * Returns the sliding window subspace for this index. This is a separate keyspace
+     * from the secondary subspace, used exclusively by {@code SlidingWindowIndexMaintainer}
+     * for window/overflow/count bookkeeping, so it does not collide with delegate index
+     * types that also use the secondary subspace.
+     * @return sliding window subspace for index data
+     */
+    @Nonnull
+    public Subspace getSlidingWindowSubspace() {
+        return state.store.indexSlidingWindowSubspace(state.index);
     }
 
     /**
@@ -139,6 +152,39 @@ public abstract class IndexMaintainer {
     @Nonnull
     public abstract <M extends Message> CompletableFuture<Void> updateWhileWriteOnly(@Nullable FDBIndexableRecord<M> oldRecord,
                                                                                      @Nullable FDBIndexableRecord<M> newRecord);
+
+
+    /**
+     * Serialize the old/new record pair into an {@link com.google.protobuf.Any}-packed message describing the deferred
+     * index update. The data will be later provided to {@link #updateFromQueue(Any)} to implement the index update.
+     * <p>
+     * This is only called for maintainers that allow pending write queue (see {@link #isPendingWriteQueueAllowed()}); the
+     * caller is responsible for checking that before invoking this method.
+     *
+     * @param oldRecord the previous stored record or <code>null</code> if a new record is being created
+     * @param newRecord the new record or <code>null</code> if an old record is being deleted
+     * @param <M> type of message
+     * @return a packed message to save in the pending write queue
+     */
+    @Nonnull
+    @API(API.Status.EXPERIMENTAL)
+    public <M extends Message> Any serializePendingWriteQueue(@Nullable FDBIndexableRecord<M> oldRecord,
+                                                              @Nullable FDBIndexableRecord<M> newRecord) {
+        throw new UnsupportedOperationException(state.index.getName() + " does not support the pending write queue");
+    }
+
+
+    /**
+     * Apply a queued index update that was previously deferred onto the pending writes queue by {@link #serializePendingWriteQueue(FDBIndexableRecord, FDBIndexableRecord)}.
+     *
+     * @param data the {@link com.google.protobuf.Any}-packed message produced by {@code serializePendingWriteQueue}
+     * @return a future that is complete when the update has been applied
+     */
+    @Nonnull
+    @API(API.Status.EXPERIMENTAL)
+    public CompletableFuture<Void> updateFromQueue(@Nonnull Any data) {
+        throw new UnsupportedOperationException(state.index.getName() + " does not support the pending write queue");
+    }
 
 
     /**
@@ -281,6 +327,20 @@ public abstract class IndexMaintainer {
      * @return whether updating this index is idempotent
      */
     public abstract boolean isIdempotent();
+
+    /**
+     * Whether this index maintainer supports being built with a pending write queue (the
+     * {@link com.apple.foundationdb.record.IndexState#WRITE_ONLY_WITH_QUEUE WRITE_ONLY_WITH_QUEUE} index state). While
+     * an index is in this state, user updates are deferred to a pending write queue instead of being applied to the
+     * index directly, and the online indexer drains that queue as it builds.
+     * Maintainers that cannot correctly defer and later replay updates should return {@code false} to refuse this state;
+     * this is the default, so maintainers that do support the queue must opt in by overriding this method.
+     * @return whether this index may be built with a pending write queue
+     */
+    @API(API.Status.EXPERIMENTAL)
+    public boolean isPendingWriteQueueAllowed() {
+        return false;
+    }
 
     /**
      * Whether this key has been added to some range within the {@link com.apple.foundationdb.async.RangeSet RangeSet}

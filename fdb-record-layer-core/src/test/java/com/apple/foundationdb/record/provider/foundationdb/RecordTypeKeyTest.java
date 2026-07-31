@@ -79,7 +79,6 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.filterPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.indexName;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.indexPlan;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.predicatesFilterPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.queryComponents;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.recordTypes;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.scanComparisons;
@@ -210,16 +209,9 @@ public class RecordTypeKeyTest extends FDBRecordStoreQueryTestBase {
 
             assertEquals(recs.subList(0, 2), recordStore.executeQuery(query)
                     .map(FDBQueriedRecord::getStoredRecord).asList().join());
-            if (useCascadesPlanner) {
-                // Currently sub-optimal due to: https://github.com/FoundationDB/fdb-record-layer/issues/2108
-                assertMatchesExactly(plan,
-                        typeFilterPlan(
-                                scanPlan().where(scanComparisons(unbounded()))
-                        ).where(recordTypes(containsAll(ImmutableSet.of("MySimpleRecord")))));
-            } else {
-                assertMatchesExactly(plan, scanPlan()
-                        .where(scanComparisons(range("[IS MySimpleRecord]"))));
-            }
+
+            assertMatchesExactly(plan, scanPlan()
+                    .where(scanComparisons(range("[IS MySimpleRecord]"))));
         }
     }
 
@@ -247,11 +239,8 @@ public class RecordTypeKeyTest extends FDBRecordStoreQueryTestBase {
             assertEquals(recs.subList(0, 2), recordStore.executeQuery(query)
                     .map(FDBQueriedRecord::getStoredRecord).asList().join());
             if (useCascadesPlanner) {
-                // Currently sub-optimal due to: https://github.com/FoundationDB/fdb-record-layer/issues/2108
-                assertMatchesExactly(plan,
-                        typeFilterPlan(
-                                scanPlan().where(scanComparisons(unbounded()))
-                        ).where(recordTypes(containsAll(ImmutableSet.of("MySimpleRecord")))));
+                assertMatchesExactly(plan, scanPlan()
+                        .where(scanComparisons(range("[IS MySimpleRecord]"))));
             } else {
                 assertMatchesExactly(plan, indexPlan()
                         .where(indexName("MySimpleRecord$str_value_indexed"))
@@ -309,18 +298,9 @@ public class RecordTypeKeyTest extends FDBRecordStoreQueryTestBase {
 
             assertEquals(recs.subList(0, 1), recordStore.executeQuery(query)
                     .map(FDBQueriedRecord::getStoredRecord).asList().join());
-            if (useCascadesPlanner) {
-                // Currently sub-optimal due to: https://github.com/FoundationDB/fdb-record-layer/issues/2108
-                assertMatchesExactly(plan,
-                        predicatesFilterPlan(
-                                typeFilterPlan(
-                                        scanPlan().where(scanComparisons(unbounded()))
-                                ).where(recordTypes(containsAll(ImmutableSet.of("MySimpleRecord"))))
-                        ));
-            } else {
-                assertMatchesExactly(plan, scanPlan()
-                        .where(scanComparisons(range("[IS MySimpleRecord, [LESS_THAN 400]]"))));
-            }
+
+            assertMatchesExactly(plan, scanPlan()
+                    .where(scanComparisons(range("[IS MySimpleRecord, [LESS_THAN 400]]"))));
         }
     }
 
@@ -341,18 +321,8 @@ public class RecordTypeKeyTest extends FDBRecordStoreQueryTestBase {
 
             assertEquals(recs.subList(1, 2), recordStore.executeQuery(query)
                     .map(FDBQueriedRecord::getStoredRecord).asList().join());
-            if (useCascadesPlanner) {
-                // Currently sub-optimal due to: https://github.com/FoundationDB/fdb-record-layer/issues/2108
-                assertMatchesExactly(plan,
-                        predicatesFilterPlan(
-                                typeFilterPlan(
-                                        scanPlan().where(scanComparisons(unbounded()))
-                                ).where(recordTypes(containsAll(ImmutableSet.of("MySimpleRecord"))))
-                        ));
-            } else {
-                assertMatchesExactly(plan, scanPlan()
-                        .where(scanComparisons(range("[IS MySimpleRecord, [GREATER_THAN 200 && LESS_THAN 500]]"))));
-            }
+            assertMatchesExactly(plan, scanPlan()
+                    .where(scanComparisons(range("[IS MySimpleRecord, [GREATER_THAN 200 && LESS_THAN 500]]"))));
         }
     }
 
@@ -800,6 +770,65 @@ public class RecordTypeKeyTest extends FDBRecordStoreQueryTestBase {
             assertTrue(recordStore.isIndexReadable("newMaxIndex"));
 
             context.commit();
+        }
+    }
+
+    @Test
+    void testOnlineIndexBuilderRecordTypeKeyZero() throws Exception {
+        final int numRecords = 201; // Exceed MAX_RECORDS_FOR_REBUILD so the new index stays disabled.
+
+        // MySimpleRecord gets explicit record type key 0; MyOtherRecord keeps its default (= 2).
+        final RecordMetaDataHook setupHook = metaData -> {
+            BASIC_HOOK.apply(metaData);
+            metaData.getRecordType("MySimpleRecord").setRecordTypeKey(0L);
+        };
+
+        // Create the store and save records of the type-key-0 type, plus a few of the other type
+        // to verify the OnlineIndexer only indexes records matching the index's record type.
+        try (FDBRecordContext context = openContext()) {
+            uncheckedOpenSimpleRecordStore(context, setupHook);
+            recordStore.checkVersion(null, FDBRecordStoreBase.StoreExistenceCheck.ERROR_IF_EXISTS).join();
+            for (int j = 0; j < numRecords; j++) {
+                recordStore.saveRecord(TestRecords1Proto.MySimpleRecord.newBuilder()
+                        .setRecNo(j)
+                        .setNumValue2(j)
+                        .build());
+            }
+            for (int j = 0; j < 3; j++) {
+                recordStore.saveRecord(TestRecords1Proto.MyOtherRecord.newBuilder()
+                        .setRecNo(j)
+                        .setNumValue2(j)
+                        .build());
+            }
+            context.commit();
+        }
+
+        final RecordMetaDataHook addIndex = metaData -> {
+            setupHook.apply(metaData);
+            metaData.addIndex("MySimpleRecord", "newIndex", "num_value_2");
+        };
+        try (FDBRecordContext context = openContext()) {
+            uncheckedOpenSimpleRecordStore(context, addIndex);
+            recordStore.checkVersion(null, FDBRecordStoreBase.StoreExistenceCheck.ERROR_IF_NOT_EXISTS).join();
+            assertTrue(recordStore.isIndexDisabled("newIndex"));
+            context.commit();
+        }
+
+        try (OnlineIndexer indexBuilder = OnlineIndexer.forRecordStoreAndIndex(recordStore, "newIndex")) {
+            indexBuilder.buildIndex();
+            // The typed-records optimization restricts the scan to MySimpleRecord's record-type range, so only the
+            // matching records are scanned - the 3 MyOtherRecord records are skipped.
+            assertEquals(numRecords, indexBuilder.getTotalRecordsScanned());
+        }
+
+        try (FDBRecordContext context = openContext()) {
+            uncheckedOpenSimpleRecordStore(context, addIndex);
+            recordStore.checkVersion(null, FDBRecordStoreBase.StoreExistenceCheck.ERROR_IF_NOT_EXISTS).join();
+            assertTrue(recordStore.isIndexReadable("newIndex"));
+            assertEquals(IntStream.range(0, numRecords).mapToObj(j -> Tuple.from(j, 0L, j)).collect(Collectors.toList()),
+                    recordStore.scanIndex(recordStore.getRecordMetaData().getIndex("newIndex"),
+                            IndexScanType.BY_VALUE, TupleRange.ALL, null, ScanProperties.FORWARD_SCAN)
+                            .map(IndexEntry::getKey).asList().join());
         }
     }
 

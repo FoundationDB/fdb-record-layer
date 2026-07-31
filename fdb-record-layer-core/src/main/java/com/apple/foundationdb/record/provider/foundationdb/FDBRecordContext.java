@@ -30,13 +30,13 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.MoreAsyncUtil;
-import com.apple.foundationdb.record.locking.AsyncLock;
-import com.apple.foundationdb.record.locking.LockRegistry;
 import com.apple.foundationdb.record.IsolationLevel;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCoreStorageException;
+import com.apple.foundationdb.record.locking.AsyncLock;
 import com.apple.foundationdb.record.locking.LockIdentifier;
+import com.apple.foundationdb.record.locking.LockRegistry;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
@@ -48,6 +48,7 @@ import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.system.SystemKeyspace;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
+import com.apple.foundationdb.util.CallbackUtils;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.CharMatcher;
 import com.google.common.base.Utf8;
@@ -60,11 +61,13 @@ import java.nio.charset.Charset;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Queue;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentNavigableMap;
 import java.util.concurrent.ConcurrentSkipListMap;
@@ -428,6 +431,7 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
         try {
             closeTransaction(false);
         } finally {
+            // This may throw exception when any/some of the callbacks failed, and that exception should be propagated
             asyncToSync(FDBStoreTimer.Waits.WAIT_RUN_CLOSE_HOOKS, runPostClose());
         }
     }
@@ -1043,28 +1047,48 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
         }
     }
 
+    /**
+     * Run all post-commit callbacks.
+     * This method does its best to ensure all callbacks are invoked, regardless if some throw exceptions.
+     * @return a future that completes when all callbacks were invoked and all futures have completed
+     */
     @Nonnull
     private CompletableFuture<Void> runPostCommits() {
-        return runPostCommits(postCommits);
+        synchronized (postCommits) {
+            return runPostCommits(postCommits);
+        }
     }
 
+    /**
+     * Run all post-close callbacks.
+     * This method does its best to ensure all callbacks are invoked, regardless if some throw exceptions.
+     * @return a future that completes when all callbacks were invoked and all futures have completed
+     */
     @Nonnull
     private CompletableFuture<Void> runPostClose() {
-        return runPostCommits(postClose);
+        synchronized (postClose) {
+            return runPostCommits(postClose);
+        }
     }
 
     @Nonnull
     private CompletableFuture<Void> runPostCommits(Map<String, PostCommit> hooksToRun) {
-        synchronized (hooksToRun) {
-            if (hooksToRun.isEmpty()) {
-                return AsyncUtil.DONE;
-            }
-            List<CompletableFuture<Void>> work = hooksToRun.values().stream()
-                    .map(PostCommit::get)
-                    .collect(Collectors.toList());
-            hooksToRun.clear();
-            return AsyncUtil.whenAll(work);
+        if (hooksToRun.isEmpty()) {
+            return AsyncUtil.DONE;
         }
+        try {
+            List<Supplier<CompletableFuture<Void>>> callbacks = hooksToRun.values().stream()
+                    .map(this::postCommitCallback)
+                    .collect(Collectors.toList());
+            // This would ensure best-effort in calling all suppliers and waiting for all the futures
+            return CallbackUtils.invokeAllFutures(callbacks);
+        } finally {
+            hooksToRun.clear();
+        }
+    }
+
+    private Supplier<CompletableFuture<Void>> postCommitCallback(PostCommit pc) {
+        return pc::get;
     }
 
     private void checkCommitHookName(@Nonnull String name) {
@@ -1135,12 +1159,12 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
     }
 
     /**
-     * Get the database's meta-data version-stamp. This key is somewhat different from other keys in the
-     * database in that its value is returned to the client at the same time that the client receives its
-     * {@linkplain Transaction#getReadVersion() read version}. This means that reading this key does not
-     * require querying any storage server, so the client can use this key as a kind of "cache invalidation" key
-     * without needing to worry about the extra reads to this key overloading the backing storage servers (which
-     * would be the case for other keys).
+     * Get the database's meta-data version-stamp. This key is somewhat different from other keys in the database,
+     * in that its value is returned to the client at the same time that the client receives its
+     * {@linkplain Transaction#getReadVersion() read version}, which means that reading it does not require querying
+     * any storage server. The intended use is as a coordinated cross-process cache-invalidation signal: any transaction
+     * that calls {@link #setMetaDataVersionStamp()} advances the stamp, and every other client's next read sees the new
+     * value at zero storage-server cost.
      *
      * <p>
      * This key can only be updated by calling {@link #setMetaDataVersionStamp()}, which will set the key
@@ -1191,8 +1215,8 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
     }
 
     /**
-     * Update the meta-data version-stamp. At commit time, the database will write to this key
-     * the commit version-stamp of this transaction. After this has been committed, any subsequent
+     * Update the meta-data version-stamp. At commit time, the database will write the commit version-stamp of this
+     * transaction to a system key. After this has been committed, any subsequent
      * transaction will see an updated value when calling {@link #getMetaDataVersionStamp(IsolationLevel)},
      * and those transactions may use that value to invalidate any stale cache entries using the
      * meta-data version-stamp key. After this method has been called, any calls to {@code getMetaDataVersionStamp()}
@@ -1529,6 +1553,19 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
     }
 
     /**
+     * Retrieve a typed value from the session data using a {@link ContextSessionKey}.
+     *
+     * @param key the session key
+     * @param <T> the value type, as declared by the key constant
+     * @return the stored value for the transaction, or {@code null} if absent
+     */
+    @Nullable
+    @API(API.Status.EXPERIMENTAL)
+    public synchronized <T> T getInSession(@Nonnull ContextSessionKey<T> key) {
+        return key.cast(session.get(key));
+    }
+
+    /**
      * Put an object into the session of the FDBRecordContext.
      *
      * @param key key
@@ -1538,6 +1575,34 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
     @API(API.Status.EXPERIMENTAL)
     public synchronized <T extends Object> void putInSessionIfAbsent(@Nonnull Object key, @Nonnull T value) {
         session.put(key, value);
+    }
+
+    /**
+     * Store a typed value in the session under the given {@link ContextSessionKey}, replacing any existing value.
+     *
+     * @param key the session key
+     * @param value the value to store
+     * @param <T> the value type, as declared by the key constant
+     */
+    @API(API.Status.EXPERIMENTAL)
+    public synchronized <T> void putInSession(@Nonnull ContextSessionKey<T> key, @Nonnull T value) {
+        session.put(key, value);
+    }
+
+    /**
+     * Add an element to a set of values for the given key.
+     * Convenience method to add elements to a set in the session info. This would create a HashSet for the elements
+     * if none yet exists, then add the element to the set.
+     *
+     * @param key the key for the session info set of values
+     * @param value the value to add to the set
+     * @param <T> the type of value being added
+     */
+    @API(API.Status.EXPERIMENTAL)
+    @SuppressWarnings("unchecked")
+    public synchronized <T> void addToSessionSet(@Nonnull ContextSessionKey<Set<T>> key, @Nonnull T value) {
+        Set<T> valueSet = (Set<T>) session.computeIfAbsent(key, k -> new HashSet<>());
+        valueSet.add(value);
     }
 
     /**
@@ -1552,6 +1617,20 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
     @API(API.Status.EXPERIMENTAL)
     public synchronized <T> T removeFromSession(@Nonnull String key, @Nonnull Class<T> clazz) {
         return (T) session.remove(key);
+    }
+
+    /**
+     * Remove and return the value stored under the given {@link ContextSessionKey}.
+     * Returns {@code null} if no value was stored under this key.
+     *
+     * @param key the session key
+     * @param <T> the value type, as declared by the key constant
+     * @return the previously stored value, or {@code null} if absent
+     */
+    @Nullable
+    @API(API.Status.EXPERIMENTAL)
+    public synchronized <T> T removeFromSession(@Nonnull ContextSessionKey<T> key) {
+        return key.cast(session.remove(key));
     }
 
     /**

@@ -37,8 +37,8 @@ public class PlanPartitions {
     }
 
     @Nonnull
-    public static List<PlanPartition> rollUpTo(@Nonnull Collection<PlanPartition> planPartitions, @Nonnull final ExpressionProperty<?> rollupAttributes) {
-        return rollUpTo(planPartitions, ImmutableSet.of(rollupAttributes));
+    public static List<PlanPartition> rollUpTo(@Nonnull Collection<PlanPartition> planPartitions, @Nonnull final ExpressionProperty<?> rollupAttribute) {
+        return rollUpTo(planPartitions, ImmutableSet.of(rollupAttribute));
     }
 
     @Nonnull

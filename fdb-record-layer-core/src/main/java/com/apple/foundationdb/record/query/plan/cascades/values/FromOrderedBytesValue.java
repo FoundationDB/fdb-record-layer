@@ -28,19 +28,20 @@ import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.metadata.expressions.TupleFieldsHelper;
 import com.apple.foundationdb.record.planprotos.PFromOrderedBytesValue;
 import com.apple.foundationdb.record.planprotos.PValue;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
-import com.apple.foundationdb.record.query.plan.cascades.ConstrainedBoolean;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
-import com.apple.foundationdb.record.query.plan.explain.ExplainTokens;
-import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence;
+import com.apple.foundationdb.record.query.plan.cascades.ConstrainedBoolean;
 import com.apple.foundationdb.record.query.plan.cascades.Ordering;
 import com.apple.foundationdb.record.query.plan.cascades.Ordering.OrderPreservingValue;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value.InvertableValue;
+import com.apple.foundationdb.record.query.plan.explain.ExplainTokens;
+import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence;
 import com.apple.foundationdb.tuple.TupleOrdering;
 import com.apple.foundationdb.tuple.TupleOrdering.Direction;
 import com.google.auto.service.AutoService;
@@ -143,7 +144,10 @@ public class FromOrderedBytesValue extends AbstractValue implements ValueWithChi
     public <M extends Message> Object eval(@Nullable final FDBRecordStoreBase<M> store,
                                            @Nonnull final EvaluationContext context) {
         final var childResult = (ByteString)Objects.requireNonNull(child.eval(store, context));
-        final Object result = TupleOrdering.unpack(childResult.toByteArray(), direction).get(0);
+        final Object value = TupleOrdering.unpack(childResult.toByteArray(), direction).get(0);
+
+        final Object result = TupleFieldsHelper.tupleValueToRuntimeValue(value, getResultType());
+
         Debugger.sanityCheck(() -> resultType.validateObject(result));
         return result;
     }
@@ -219,7 +223,7 @@ public class FromOrderedBytesValue extends AbstractValue implements ValueWithChi
         public FromOrderedBytesAscNullsFirstFn() {
             super("FROM_ORDERED_BYTES_" + Direction.ASC_NULLS_FIRST,
                     ImmutableList.of(Type.primitiveType(Type.TypeCode.BYTES)),
-                    (builtInFunction, arguments) -> new FromOrderedBytesValue((Value)arguments.get(0), Direction.ASC_NULLS_FIRST, Type.any()));
+                    (builtInFunction, arguments) -> new FromOrderedBytesValue(arguments.getArgumentsList().get(0), Direction.ASC_NULLS_FIRST, Type.any()));
         }
     }
 
@@ -232,7 +236,7 @@ public class FromOrderedBytesValue extends AbstractValue implements ValueWithChi
         public FromOrderedBytesAscNullsLastFn() {
             super("FROM_ORDERED_BYTES_" + Direction.ASC_NULLS_LAST,
                     ImmutableList.of(Type.any()),
-                    (builtInFunction, arguments) -> new FromOrderedBytesValue((Value)arguments.get(0), Direction.ASC_NULLS_LAST, Type.any()));
+                    (builtInFunction, arguments) -> new FromOrderedBytesValue(arguments.getArgumentsList().get(0), Direction.ASC_NULLS_LAST, Type.any()));
         }
     }
 
@@ -245,7 +249,7 @@ public class FromOrderedBytesValue extends AbstractValue implements ValueWithChi
         public FromOrderedBytesDescNullsFirstFn() {
             super("FROM_ORDERED_BYTES_" + Direction.DESC_NULLS_FIRST,
                     ImmutableList.of(Type.any()),
-                    (builtInFunction, arguments) -> new FromOrderedBytesValue((Value)arguments.get(0), Direction.DESC_NULLS_FIRST, Type.any()));
+                    (builtInFunction, arguments) -> new FromOrderedBytesValue(arguments.getArgumentsList().get(0), Direction.DESC_NULLS_FIRST, Type.any()));
         }
     }
 
@@ -258,7 +262,7 @@ public class FromOrderedBytesValue extends AbstractValue implements ValueWithChi
         public FromOrderedBytesDescNullsLastFn() {
             super("FROM_ORDERED_BYTES_" + Direction.DESC_NULLS_LAST,
                     ImmutableList.of(Type.any()),
-                    (builtInFunction, arguments) -> new FromOrderedBytesValue((Value)arguments.get(0), Direction.DESC_NULLS_LAST, Type.any()));
+                    (builtInFunction, arguments) -> new FromOrderedBytesValue(arguments.getArgumentsList().get(0), Direction.DESC_NULLS_LAST, Type.any()));
         }
     }
 

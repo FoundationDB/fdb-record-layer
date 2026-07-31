@@ -62,8 +62,6 @@ public final class PlanContext {
     @Nonnull
     private final SchemaTemplate schemaTemplate;
 
-    private final int userVersion;
-
     private final boolean isCaseSensitive;
 
     /**
@@ -77,7 +75,6 @@ public final class PlanContext {
      * @param dbUri                       The URI of the database.
      * @param ddlQueryFactory             The DDL factory.
      * @param preparedStatementParameters A list of prepared statement parameters.
-     * @param userVersion                 The user version bound to the opened record store.
      * @param isCaseSensitive             {@code True} if SQL identifiers should be treated as case-sensitive, otherwise
      *                                    {@code false}.
      **/
@@ -89,7 +86,6 @@ public final class PlanContext {
                         @Nonnull DdlQueryFactory ddlQueryFactory,
                         @Nonnull URI dbUri,
                         @Nonnull PreparedParams preparedStatementParameters,
-                        final int userVersion,
                         boolean isCaseSensitive) {
         this.metaData = metaData;
         this.metricCollector = metricCollector;
@@ -99,7 +95,6 @@ public final class PlanContext {
         this.ddlQueryFactory = ddlQueryFactory;
         this.dbUri = dbUri;
         this.preparedStatementParameters = preparedStatementParameters;
-        this.userVersion = userVersion;
         this.isCaseSensitive = isCaseSensitive;
     }
 
@@ -153,10 +148,6 @@ public final class PlanContext {
         return schemaTemplate;
     }
 
-    public int getUserVersion() {
-        return userVersion;
-    }
-
     @Nonnull
     public static Builder builder() {
         return new Builder();
@@ -169,8 +160,6 @@ public final class PlanContext {
         private MetricCollector metricCollector;
 
         private PlannerConfiguration plannerConfiguration;
-
-        private int userVersion;
 
         private SchemaTemplate schemaTemplate;
 
@@ -210,13 +199,6 @@ public final class PlanContext {
         @VisibleForTesting
         public Builder withPlannerConfiguration(@Nonnull PlannerConfiguration plannerConfiguration) {
             this.plannerConfiguration = plannerConfiguration;
-            return this;
-        }
-
-        @Nonnull
-        @VisibleForTesting
-        public Builder withUserVersion(int userVersion) {
-            this.userVersion = userVersion;
             return this;
         }
 
@@ -266,12 +248,18 @@ public final class PlanContext {
 
         @Nonnull
         public Builder fromRecordStore(@Nonnull FDBRecordStoreBase<?> recordStore, @Nonnull final Options options) {
-            final var plannerConfig = recordStore.getRecordStoreState().allIndexesReadable() ?
+            return fromMetaDataAndState(recordStore.getRecordMetaData(), recordStore.getRecordStoreState(), options);
+        }
+
+        @Nonnull
+        public Builder fromMetaDataAndState(@Nonnull RecordMetaData metaData,
+                                            @Nonnull RecordStoreState recordStoreState,
+                                            @Nonnull final Options options) {
+            final var plannerConfig = recordStoreState.allIndexesReadable() ?
                     PlannerConfiguration.ofAllAvailableIndexes(options) :
-                    PlannerConfiguration.of(getReadableIndexes(recordStore.getRecordMetaData(), recordStore.getRecordStoreState()), options);
+                    PlannerConfiguration.of(getReadableIndexes(metaData, recordStoreState), options);
             return withPlannerConfiguration(plannerConfig)
-                    .withMetadata(recordStore.getRecordMetaData())
-                    .withUserVersion(recordStore.getRecordStoreState().getStoreHeader().getUserVersion())
+                    .withMetadata(metaData)
                     .isCaseSensitive(options.getOption(Options.Name.CASE_SENSITIVE_IDENTIFIERS));
         }
 
@@ -298,7 +286,7 @@ public final class PlanContext {
         public PlanContext build() throws RelationalException {
             verify();
             return new PlanContext(metaData, metricCollector, schemaTemplate, plannerConfiguration, metadataOperationsFactory,
-                    ddlQueryFactory, dbUri, preparedStatementParameters, userVersion, isCaseSensitive);
+                    ddlQueryFactory, dbUri, preparedStatementParameters, isCaseSensitive);
         }
 
         @Nonnull
@@ -316,7 +304,6 @@ public final class PlanContext {
                     .withSchemaTemplate(planContext.schemaTemplate)
                     .withDdlQueryFactory(planContext.ddlQueryFactory)
                     .withPlannerConfiguration(planContext.plannerConfiguration)
-                    .withUserVersion(planContext.userVersion)
                     .withPreparedParameters(planContext.preparedStatementParameters)
                     .isCaseSensitive(planContext.isCaseSensitive);
         }

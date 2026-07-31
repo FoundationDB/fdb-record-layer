@@ -22,13 +22,13 @@ package com.apple.foundationdb.relational.recordlayer.query.functions;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
+import com.apple.foundationdb.record.query.plan.cascades.CallSiteArguments;
 import com.apple.foundationdb.record.query.plan.cascades.CatalogedFunction;
 import com.apple.foundationdb.record.query.plan.cascades.UserDefinedFunction;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.apple.foundationdb.record.query.plan.cascades.values.BuiltInFunctionCatalog;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
-import com.apple.foundationdb.relational.recordlayer.query.Expressions;
 import com.apple.foundationdb.relational.util.Assert;
 import com.google.common.collect.ImmutableMap;
 
@@ -55,7 +55,7 @@ final class SqlFunctionCatalogImpl implements SqlFunctionCatalog {
 
     @Nonnull
     @Override
-    public CatalogedFunction lookupFunction(@Nonnull final String name, @Nonnull final Expressions arguments) {
+    public CatalogedFunction lookupFunction(@Nonnull final String name, @Nonnull final CallSiteArguments arguments) {
         final var builtInFunctionMaybe = lookupBuiltInFunction(name, arguments);
         final var userDefinedFunctionMaybe = lookupUserDefinedFunction(name, arguments);
         if (builtInFunctionMaybe.isPresent() && userDefinedFunctionMaybe.isPresent()) {
@@ -73,19 +73,19 @@ final class SqlFunctionCatalogImpl implements SqlFunctionCatalog {
 
     @Nonnull
     private Optional<? extends CatalogedFunction> lookupBuiltInFunction(@Nonnull final String name,
-                                                                        @Nonnull final Expressions expressions) {
+                                                                        @Nonnull final CallSiteArguments callSiteArguments) {
         final var functionValidator = builtInSynonyms.get(name.toLowerCase(Locale.ROOT));
         if (functionValidator == null) {
             return Optional.empty();
         }
         // TODO we should streamline the validation logic.
-        return functionValidator.apply(expressions.size());
+        return functionValidator.apply(callSiteArguments.size());
     }
 
     @Nonnull
     private Optional<? extends CatalogedFunction> lookupUserDefinedFunction(@Nonnull final String name,
-                                                                            @Nonnull final Expressions expressions) {
-        return userDefinedFunctionCatalog.lookup(name, expressions);
+                                                                            @Nonnull final CallSiteArguments arguments) {
+        return userDefinedFunctionCatalog.lookup(name, arguments);
     }
 
     @Override
@@ -156,6 +156,7 @@ final class SqlFunctionCatalogImpl implements SqlFunctionCatalog {
                 .put("__internal_array", argumentsCount -> BuiltInFunctionCatalog.resolve("array", argumentsCount))
                 .put("__pick_value", argumentsCount -> BuiltInFunctionCatalog.resolve("pick", argumentsCount))
                 .put("get_versionstamp_incarnation", argumentsCount -> BuiltInFunctionCatalog.resolve("get_versionstamp_incarnation", argumentsCount))
+                .put("cardinality", argumentsCount -> BuiltInFunctionCatalog.resolve("cardinality", argumentsCount))
                 .build();
     }
 

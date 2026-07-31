@@ -23,8 +23,8 @@ package com.apple.foundationdb.record.query.plan.cascades.rules;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.combinatorics.ChooseK;
+import com.apple.foundationdb.record.query.plan.cascades.AbstractCascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
-import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.ComparisonRange;
 import com.apple.foundationdb.record.query.plan.cascades.Compensation;
@@ -54,6 +54,7 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalInte
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.properties.CardinalitiesProperty.Cardinality;
+
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.RegularTranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
@@ -109,7 +110,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.properties.Cardi
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings({"java:S3776", "java:S4738", "OptionalUsedAsFieldOrParameterType"})
-public abstract class AbstractDataAccessRule extends CascadesRule<MatchPartition> {
+public abstract class AbstractDataAccessRule extends AbstractCascadesRule<MatchPartition> {
     private static final Logger logger = LoggerFactory.getLogger(AbstractDataAccessRule.class);
 
     private final BindingMatcher<PartialMatch> completeMatchMatcher;
@@ -1060,15 +1061,35 @@ public abstract class AbstractDataAccessRule extends CascadesRule<MatchPartition
         final var partialMatch = singleMatchedAccess.getPartialMatch();
         final var boundParametersPrefixMap =
                 partialMatch.getBoundParameterPrefixMap();
-        final List<MatchedOrderingPart> adjustedMatchOrderingParts =
-                partialMatch.getMatchInfo()
-                        .getMatchedOrderingParts()
+        final var adjustedMatchOrderingPartsBuilder = ImmutableList.<MatchedOrderingPart>builder();
+
+        //
+        // Reorganize the matched ordering parts so that implicit equality-bound parts (e.g. the record type key)
+        // are placed first, followed by the remaining matched ordering parts. The implicit parts are always
+        // equality-bound and must precede the rest to correctly reflect the scan order. Any matched ordering part
+        // that duplicates an implicit part is filtered out to avoid repetition. Additionally, matched parts that
+        // are equality-bound but not present in the bound parameters prefix map are demoted, since they cannot
+        // contribute to the ordering guarantee.
+        //
+        final var equalityBoundImplicitOrderingParts = partialMatch.getMatchCandidate().computeEqualityBoundImplicitOrderingParts();
+        final var equalityBoundImplicitOrderingValues = equalityBoundImplicitOrderingParts.stream().map(OrderingPart::getValue)
+                .collect(ImmutableSet.toImmutableSet());
+
+        final var matchedOrderingParts = partialMatch.getMatchInfo()
+                .getMatchedOrderingParts()
+                .stream()
+                .filter(part -> !(equalityBoundImplicitOrderingValues.contains(part.getValue())))
+                .collect(ImmutableList.toImmutableList());
+
+        adjustedMatchOrderingPartsBuilder
+                .addAll(equalityBoundImplicitOrderingParts)
+                .addAll(matchedOrderingParts
                         .stream()
                         .map(matchedOrderingPart -> matchedOrderingPart.getComparisonRange().isEquality() &&
                                                             !boundParametersPrefixMap.containsKey(matchedOrderingPart.getParameterId())
                                                     ? matchedOrderingPart.demote() : matchedOrderingPart)
-                        .collect(ImmutableList.toImmutableList());
-        return NonnullPair.of(adjustedMatchOrderingParts, singleMatchedAccess.isReverseScanOrder());
+                        .collect(ImmutableList.toImmutableList()));
+        return NonnullPair.of(adjustedMatchOrderingPartsBuilder.build(), singleMatchedAccess.isReverseScanOrder());
     }
 
     /**

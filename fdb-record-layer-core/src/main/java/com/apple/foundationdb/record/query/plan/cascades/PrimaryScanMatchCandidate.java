@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.cascades;
 
+import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
@@ -148,6 +149,15 @@ public class PrimaryScanMatchCandidate implements MatchCandidate, ValueIndexLike
 
     @Nonnull
     @Override
+    public Set<CorrelationIdentifier> getSargableAliasesRequiredForBinding() {
+        if (hasAndOrderedByRecordTypeKey()) {
+            return ImmutableSet.of(parameters.get(0));
+        }
+        return ImmutableSet.of();
+    }
+
+    @Nonnull
+    @Override
     public KeyExpression getFullKeyExpression() {
         return primaryKey;
     }
@@ -184,32 +194,46 @@ public class PrimaryScanMatchCandidate implements MatchCandidate, ValueIndexLike
         final var queriedRecordTypeNames = getQueriedRecordTypeNames();
         Verify.verify(availableRecordTypeNames.containsAll(queriedRecordTypeNames));
 
-        RecordQueryScanPlan scanPlan;
-        if (queriedRecordTypeNames.size() == availableRecordTypeNames.size()) {
-            scanPlan =
-                    new RecordQueryScanPlan(availableRecordTypeNames,
-                            baseType,
-                            primaryKey,
-                            toScanComparisons(comparisonRanges),
-                            reverseScanOrder,
-                            false,
-                            this);
-            return scanPlan;
-        } else {
-            scanPlan =
-                    new RecordQueryScanPlan(availableRecordTypeNames,
-                            new Type.AnyRecord(false),
-                            primaryKey,
-                            toScanComparisons(comparisonRanges),
-                            reverseScanOrder,
-                            false,
-                            this);
+        final var flowedTypes = inferScanType(queriedRecordTypes);
 
-            return new RecordQueryTypeFilterPlan(
-                    Quantifier.physical(memoizer.memoizePlan(scanPlan)),
-                    queriedRecordTypeNames,
-                    baseType);
+        final var scanPlan = new RecordQueryScanPlan(availableRecordTypeNames,
+                flowedTypes,
+                primaryKey,
+                toScanComparisons(comparisonRanges),
+                reverseScanOrder,
+                false,
+                this);
+
+        if (hasAndOrderedByRecordTypeKey()) {
+            return scanPlan;
         }
+
+        return new RecordQueryTypeFilterPlan(
+                Quantifier.physical(memoizer.memoizePlan(scanPlan)),
+                queriedRecordTypeNames,
+                baseType);
+    }
+
+    @Override
+    public boolean hasAndOrderedByRecordTypeKey() {
+        return Key.Expressions.recordType().isPrefixKey(primaryKey);
+    }
+
+    @Nonnull
+    private Type inferScanType(@Nonnull final Collection<RecordType> types) {
+        if (types.size() == 1 && hasAndOrderedByRecordTypeKey()) {
+            return baseType;
+        }
+        //
+        // this should be replaced with a new Type capable of representing a choice among multiple types, akin
+        // to the Either type in functional languages.
+        //
+        return new Type.AnyRecord(false);
+    }
+
+    @Override
+    public boolean isScopedToSingleType() {
+        return queriedRecordTypes.size() == 1 || hasAndOrderedByRecordTypeKey();
     }
 
     @Nonnull

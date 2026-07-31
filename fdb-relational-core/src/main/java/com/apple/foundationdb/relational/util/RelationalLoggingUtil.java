@@ -48,6 +48,7 @@ public class RelationalLoggingUtil {
             message.addKeyAndValue("plan", plan.explain());
         }
         if (e != null) {
+            message.addKeyAndValue("planCache", PlanCacheEvent.INCONCLUSIVE);
             logger.error(message, e);
         } else if (logQuery || isSlow) {
             logger.info(message);
@@ -86,5 +87,6 @@ public class RelationalLoggingUtil {
         SKIP,
         HIT,
         MISS,
+        INCONCLUSIVE,
     }
 }

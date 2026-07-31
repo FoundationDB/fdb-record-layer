@@ -357,7 +357,7 @@ public class RangeSetTest {
         Range fullRange = new Range(new byte[]{1}, new byte[]{(byte) (transactionCount + 1)});
         List<Range> gaps = IntStream.range(0, transactionCount)
                 .mapToObj(i -> new Range(new byte[]{(byte)(i + 1), 0x00}, new byte[]{(byte)(i + 2)}))
-                .collect(Collectors.toList());
+                .toList();
         assertGaps(fullRange, gaps, new byte[]{(byte)(transactionCount), 0x00});
     }
 
@@ -386,7 +386,7 @@ public class RangeSetTest {
         List<Range> gaps = IntStream.range(0, transactionCount)
                 .filter(i -> i % 2 != 0)
                 .mapToObj(i -> new Range(new byte[]{(byte)(i + 1), 0x00}, new byte[]{(byte)(i + 2)}))
-                .collect(Collectors.toList());
+                .toList();
         assertGaps(fullRange, gaps, new byte[]{(byte)(transactionCount), 0x00});
     }
 
@@ -432,7 +432,7 @@ public class RangeSetTest {
     void concurrentlyReadAndFillInGaps() {
         List<Range> ranges = IntStream.range(0, 10)
                 .mapToObj(i -> new Range(new byte[]{(byte) (2 * i + 1)}, new byte[]{(byte) (2 * i + 2)}))
-                .collect(Collectors.toList());
+                .toList();
         try (Transaction tr = db.createTransaction()) {
             for (Range r : ranges) {
                 rs.insertRange(tr, r, true).join();

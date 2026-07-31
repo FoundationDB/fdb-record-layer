@@ -60,19 +60,15 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.PseudoField;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
-import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedRecordValue;
-import com.apple.foundationdb.record.query.plan.cascades.values.VersionValue;
 import com.apple.foundationdb.record.query.plan.plans.QueryResult;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.tuple.Tuple;
-import com.apple.test.BooleanSource;
 import com.apple.test.Tags;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Message;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Tag;
-import org.junit.jupiter.params.ParameterizedTest;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -658,9 +654,7 @@ class FDBVersionsQueryTest extends FDBRecordStoreQueryTestBase {
     }
 
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
-    @ParameterizedTest
-    @BooleanSource
-    void versionsInProjectionOnly(boolean useVersionValue) {
+    void versionsInProjectionOnly() {
         Assumptions.assumeTrue(useCascadesPlanner);
         List<FDBStoredRecord<MySimpleRecord>> records = populateRecords();
 
@@ -676,7 +670,7 @@ class FDBVersionsQueryTest extends FDBRecordStoreQueryTestBase {
 
                 final var selectQun = forEach(GraphExpansion.builder()
                         .addQuantifier(qun)
-                        .addResultColumn(resultColumn(useVersionValue ? new VersionValue(QuantifiedRecordValue.of(qun)) : fieldValue(qun, PseudoField.ROW_VERSION.getFieldName()), "version"))
+                        .addResultColumn(resultColumn(fieldValue(qun, PseudoField.ROW_VERSION.getFieldName()), "version"))
                         .addResultColumn(projectColumn(qun, "rec_no"))
                         .addPredicate(fieldPredicate(qun, "str_value_indexed", new Comparisons.ValueComparison(Comparisons.Type.EQUALS, LiteralValue.ofScalar("even"))))
                         .build()
@@ -699,9 +693,7 @@ class FDBVersionsQueryTest extends FDBRecordStoreQueryTestBase {
     }
 
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
-    @ParameterizedTest
-    @BooleanSource
-    void versionsInProjectionOnlyFromScan(boolean useVersionValue) {
+    void versionsInProjectionOnlyFromScan() {
         Assumptions.assumeTrue(useCascadesPlanner);
         List<FDBStoredRecord<MyOtherRecord>> records = populateOtherRecords();
 
@@ -717,7 +709,7 @@ class FDBVersionsQueryTest extends FDBRecordStoreQueryTestBase {
 
                 final var selectQun = forEach(GraphExpansion.builder()
                         .addQuantifier(qun)
-                        .addResultColumn(resultColumn(useVersionValue ? new VersionValue(QuantifiedRecordValue.of(qun)) : fieldValue(qun, PseudoField.ROW_VERSION.getFieldName()), "version"))
+                        .addResultColumn(resultColumn(fieldValue(qun, PseudoField.ROW_VERSION.getFieldName()), "version"))
                         .addResultColumn(projectColumn(qun, "rec_no"))
                         .addPredicate(fieldPredicate(qun, "num_value_2", new Comparisons.ValueComparison(Comparisons.Type.EQUALS, LiteralValue.ofScalar(1))))
                         .build()
@@ -741,9 +733,7 @@ class FDBVersionsQueryTest extends FDBRecordStoreQueryTestBase {
     }
 
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
-    @ParameterizedTest
-    @BooleanSource
-    void versionsInProjectionOnlyFromScanOfOnlyType(boolean useVersionValue) throws Exception {
+    void versionsInProjectionOnlyFromScanOfOnlyType() throws Exception {
         Assumptions.assumeTrue(useCascadesPlanner);
         final RecordMetaDataHook hook = metaDataBuilder -> metaDataBuilder.setStoreRecordVersions(true);
 
@@ -777,7 +767,7 @@ class FDBVersionsQueryTest extends FDBRecordStoreQueryTestBase {
 
                 final var selectQun = forEach(GraphExpansion.builder()
                         .addQuantifier(qun)
-                        .addResultColumn(resultColumn(useVersionValue ? new VersionValue(QuantifiedRecordValue.of(qun)) : fieldValue(qun, PseudoField.ROW_VERSION.getFieldName()), "version"))
+                        .addResultColumn(resultColumn(fieldValue(qun, PseudoField.ROW_VERSION.getFieldName()), "version"))
                         .addResultColumn(projectColumn(qun, "rec_no"))
                         .build()
                         .buildSelect());
@@ -785,7 +775,7 @@ class FDBVersionsQueryTest extends FDBRecordStoreQueryTestBase {
             });
 
             assertMatchesExactly(plan, mapPlan(
-                    scanPlan().where(scanComparisons(unbounded()))
+                    typeFilterPlan(scanPlan().where(scanComparisons(unbounded())))
             ));
 
             assertVersionsByIdMatch(expectedVersionsById, plan);

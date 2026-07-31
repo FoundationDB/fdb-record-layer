@@ -63,19 +63,36 @@ import java.util.Objects;
 import java.util.Set;
 
 /**
- * A query plan that applies the values it contains over the incoming ones. In a sense, this is similar to the {@code Stream.map()}
- * method: Mapping one {@link Value} to another.
+ * A {@code FLATMAP} plan node. {@code FLATMAP} implements correlated lateral joins by executing an inner plan for each
+ * row produced by a “driving” outer plan and combining the results. The inner plan may reference the outer row via
+ * correlation. The outer and inner rows are combined by applying the {@link #resultValue} expression.
  */
 @API(API.Status.INTERNAL)
 public class RecordQueryFlatMapPlan extends AbstractRelationalExpressionWithChildren implements RecordQueryPlanWithChildren, ExplainPlannerGraphRewritable, InternalPlannerGraphRewritable {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Record-Query-Flat-Map-Plan");
 
+    /**
+     * The outer plan.
+     */
     @Nonnull
     private final Quantifier.Physical outerQuantifier;
+
+    /**
+     * The inner plan that is executed per outer row.
+     */
     @Nonnull
     private final Quantifier.Physical innerQuantifier;
+
+    /**
+     * A value expression that produces the final output tuple. It is evaluated in a context where both the outer and
+     * inner quantifier aliases are bound.
+     */
     @Nonnull
     private final Value resultValue;
+
+    /**
+     * If true, the output {@link QueryResult} carries the record metadata of the outer row.
+     */
     private final boolean inheritOuterRecordProperties;
 
     public RecordQueryFlatMapPlan(@Nonnull final Quantifier.Physical outerQuantifier,

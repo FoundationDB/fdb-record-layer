@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.relational.yamltests.block;
 
+import com.apple.foundationdb.relational.yamltests.ConnectionTarget;
 import com.apple.foundationdb.relational.yamltests.YamlReference;
 import com.apple.foundationdb.relational.yamltests.YamlConnection;
 import com.apple.foundationdb.relational.yamltests.YamlConnectionFactory;
@@ -28,7 +29,6 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import javax.annotation.Nonnull;
-import java.net.URI;
 import java.sql.SQLException;
 import java.util.Collection;
 import java.util.List;
@@ -54,14 +54,14 @@ public abstract class ConnectedBlock extends ReferencedBlock implements Block {
     @Nonnull
     YamlExecutionContext executionContext;
     @Nonnull
-    private final URI connectionURI;
+    private final ConnectionTarget connectionTarget;
     @Nonnull
     final List<Consumer<YamlConnection>> executables;
 
-    ConnectedBlock(@Nonnull YamlReference reference, @Nonnull List<Consumer<YamlConnection>> executables, @Nonnull URI connectionURI, @Nonnull YamlExecutionContext executionContext) {
+    ConnectedBlock(@Nonnull YamlReference reference, @Nonnull List<Consumer<YamlConnection>> executables, @Nonnull ConnectionTarget connectionTarget, @Nonnull YamlExecutionContext executionContext) {
         super(reference);
         this.executables = executables;
-        this.connectionURI = connectionURI;
+        this.connectionTarget = connectionTarget;
         this.executionContext = executionContext;
     }
 
@@ -75,14 +75,14 @@ public abstract class ConnectedBlock extends ReferencedBlock implements Block {
      * @param consumer operations to be performed on the database using the established connection.
      */
     void connectToDatabaseAndExecute(Consumer<YamlConnection> consumer) {
-        logger.debug("🚠 Connecting to database: `{}`", connectionURI);
-        try (var connection = executionContext.getConnectionFactory().getNewConnection(connectionURI)) {
-            logger.debug("✅ Connected to database: `{}`", connectionURI);
+        logger.debug("🚠 Connecting to database: `{}`", connectionTarget);
+        try (var connection = executionContext.getConnectionFactory().getNewConnection(connectionTarget.getUri(), connectionTarget.getClusterIndex())) {
+            logger.debug("✅ Connected to database: `{}`", connectionTarget);
             consumer.accept(connection);
         } catch (SQLException sqle) {
             throw YamlExecutionContext.wrapContext(sqle,
-                    () -> String.format(Locale.ROOT, "‼️ Error connecting to the database `%s` in block at %s", connectionURI, getReference()),
-                    "connection [" + connectionURI + "]", getReference());
+                    () -> String.format(Locale.ROOT, "‼️ Error connecting to the database `%s` in block at %s", connectionTarget, getReference()),
+                    "connection [" + connectionTarget + "]", getReference());
         }
     }
 

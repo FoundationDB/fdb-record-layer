@@ -1,5 +1,6 @@
 between-index-tests:
 -   query: EXPLAIN select * from t1 WHERE col1 BETWEEN 10 AND 10
+    ref: between.yamsql:77
     explain: ISCAN(I1 [[GREATER_THAN_OR_EQUALS promote(@c8 AS INT) && LESS_THAN_OR_EQUALS
         promote(@c8 AS INT)]])
     task_count: 327
@@ -11,19 +12,21 @@ between-index-tests:
     insert_new_count: 35
     insert_reused_count: 4
 -   query: EXPLAIN select * from t1 WHERE col1 + 5 BETWEEN 10 AND 20
-    explain: ISCAN(I1 <,>) | FILTER _.COL1 + @c8 GREATER_THAN_OR_EQUALS promote(@c10
-        AS INT) AND _.COL1 + @c8 LESS_THAN_OR_EQUALS promote(@c12 AS INT)
+    ref: between.yamsql:83
+    explain: ISCAN(I1 <,>) | FILTER _.COL1 + @c7 GREATER_THAN_OR_EQUALS promote(@c9
+        AS INT) AND _.COL1 + @c7 LESS_THAN_OR_EQUALS promote(@c11 AS INT)
     task_count: 291
-    task_total_time_ms: 16
+    task_total_time_ms: 17
     transform_count: 77
     transform_time_ms: 6
     transform_yield_count: 29
     insert_time_ms: 0
     insert_new_count: 33
-    insert_reused_count: 4
+    insert_reused_count: 3
 -   query: EXPLAIN select * from t1 WHERE col1 + 5 NOT BETWEEN 10 AND 20
-    explain: ISCAN(I1 <,>) | FILTER _.COL1 + @c8 LESS_THAN promote(@c11 AS INT) OR
-        _.COL1 + @c8 GREATER_THAN promote(@c13 AS INT)
+    ref: between.yamsql:89
+    explain: ISCAN(I1 <,>) | FILTER _.COL1 + @c7 LESS_THAN promote(@c10 AS INT) OR
+        _.COL1 + @c7 GREATER_THAN promote(@c12 AS INT)
     task_count: 291
     task_total_time_ms: 17
     transform_count: 78
@@ -31,4 +34,4 @@ between-index-tests:
     transform_yield_count: 29
     insert_time_ms: 0
     insert_new_count: 33
-    insert_reused_count: 4
+    insert_reused_count: 3

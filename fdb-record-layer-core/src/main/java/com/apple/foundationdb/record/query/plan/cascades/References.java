@@ -135,7 +135,7 @@ public class References {
 
         for (final var reference : references) {
             rebaseGraph(memoizer, translationMap, shouldSimplifyValues, reference, translationsCache,
-                    sourceAlias -> translationMap.getTargetOrDefault(sourceAlias, sourceAlias));
+                    sourceAlias -> translationMap.getTargetMaybe(sourceAlias).orElse(sourceAlias));
         }
 
         return refs.stream()

@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.record.query.plan.cascades.predicates;
 
-import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.planprotos.PPredicateWithValueAndRanges;
@@ -63,6 +62,14 @@ public class Placeholder extends PredicateWithValueAndRanges implements WithAlia
     }
 
     @Nonnull
+    public Placeholder withAlias(@Nonnull final CorrelationIdentifier newParameterAlias) {
+        if (newParameterAlias.equals(parameterAlias)) {
+            return this;
+        }
+        return new Placeholder(getValue(), getRanges(), newParameterAlias);
+    }
+
+    @Nonnull
     @Override
     public PredicateWithValueAndRanges withRanges(@Nonnull final Set<RangeConstraints> ranges) {
         return new Placeholder(getValue(), ranges, parameterAlias);
@@ -81,6 +88,11 @@ public class Placeholder extends PredicateWithValueAndRanges implements WithAlia
     @Nonnull
     public static Placeholder newInstanceWithoutRanges(@Nonnull Value value, @Nonnull CorrelationIdentifier parameterAlias) {
         return new Placeholder(value, ImmutableSet.of(), parameterAlias);
+    }
+
+    @Nonnull
+    public static Placeholder of(@Nonnull final Value value, @Nonnull final Set<RangeConstraints> ranges, @Nonnull CorrelationIdentifier parameterAlias) {
+        return new Placeholder(value, ranges, parameterAlias);
     }
 
     public boolean isConstraining() {
@@ -121,7 +133,6 @@ public class Placeholder extends PredicateWithValueAndRanges implements WithAlia
                 .filter(ignored -> Objects.equals(parameterAlias, ((Placeholder)other).parameterAlias));
     }
 
-    @SpotBugsSuppressWarnings("EQ_UNUSUAL")
     @Override
     public boolean equals(final Object other) {
         if (!super.semanticEquals(other, AliasMap.emptyMap())) {

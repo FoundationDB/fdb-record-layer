@@ -31,6 +31,7 @@ import com.apple.foundationdb.record.metadata.MetaDataValidator;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.common.text.TextTokenizer;
+import com.apple.foundationdb.record.provider.foundationdb.IndexGeneralAttributes;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainer;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerFactory;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
@@ -59,6 +60,7 @@ public class TextIndexMaintainerFactory implements IndexMaintainerFactory {
             IndexOptions.TEXT_OMIT_POSITIONS_OPTION,
             IndexOptions.TEXT_ADD_AGGRESSIVE_CONFLICT_RANGES_OPTION
     );
+    private static final IndexGeneralAttributes GENERAL_ATTRIBUTES = new IndexGeneralAttributes(false);
 
     /**
      * A list containing only the name of the "{@value IndexTypes#TEXT}" index type.
@@ -196,5 +198,11 @@ public class TextIndexMaintainerFactory implements IndexMaintainerFactory {
     @Override
     public IndexMaintainer getIndexMaintainer(@Nonnull IndexMaintainerState state) {
         return new TextIndexMaintainer(state);
+    }
+
+    @Nonnull
+    @Override
+    public IndexGeneralAttributes getIndexGeneralAttributes(@Nonnull final Index index) {
+        return GENERAL_ATTRIBUTES;
     }
 }

@@ -23,8 +23,10 @@ package com.apple.foundationdb.record.query.plan.cascades.rules;
 import com.apple.foundationdb.record.provider.foundationdb.query.FDBQueryGraphTestHelpers;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
+import com.apple.foundationdb.record.query.plan.cascades.CallSiteArguments;
 import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
 import com.apple.foundationdb.record.query.plan.cascades.OrderingPart;
+import com.apple.foundationdb.record.query.plan.cascades.PlannerPhase;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerStage;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
@@ -41,8 +43,9 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalUniq
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ConstantPredicate;
-import com.apple.foundationdb.record.query.plan.cascades.predicates.ExistsPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.OrPredicate;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.ExistentialValuePredicate;
+import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.AggregateValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.ConstantObjectValue;
@@ -86,7 +89,7 @@ public class PredicatePushDownRuleTest {
     @Nonnull
     private static final PredicatePushDownRule rule = new PredicatePushDownRule();
     @Nonnull
-    private static final RuleTestHelper testHelper = new RuleTestHelper(rule);
+    private static final RuleTestHelper testHelper = new RuleTestHelper(rule, PlannerPhase.REWRITING);
 
     @BeforeEach
     void setUp() {
@@ -156,7 +159,7 @@ public class PredicatePushDownRuleTest {
         builder.addResultColumn(column(lowerQun, "b", "b"));
         builder.addAllPredicates(ImmutableList.of(
                 fieldPredicate(lowerQun, "a", EQUALS_42),
-                new ExistsPredicate(existentialQun.getAlias())
+                new ExistentialValuePredicate(QuantifiedObjectValue.of(existentialQun), new Comparisons.NullComparison(Comparisons.Type.NOT_NULL))
         ));
         SelectExpression higher = builder.build().buildSelect();
 
@@ -169,7 +172,7 @@ public class PredicatePushDownRuleTest {
         GraphExpansion.Builder newBuilder = GraphExpansion.builder().addQuantifier(newLowerQun).addQuantifier(existentialQun);
         newBuilder.addResultColumn(column(newLowerQun, "b", "b"));
         newBuilder.addAllPredicates(ImmutableList.of(
-                new ExistsPredicate(existentialQun.getAlias())
+                new ExistentialValuePredicate(QuantifiedObjectValue.of(existentialQun), new Comparisons.NullComparison(Comparisons.Type.NOT_NULL))
         ));
         SelectExpression newHigher = newBuilder.build().buildSelect();
 
@@ -515,7 +518,7 @@ public class PredicatePushDownRuleTest {
         ));
         SelectExpression topSelect = join(baseQun, nestedExistsQun)
                 .addResultColumn(projectColumn(baseQun, "a"))
-                .addPredicate(new ExistsPredicate(nestedExistsQun.getAlias()))
+                .addPredicate(new ExistentialValuePredicate(QuantifiedObjectValue.of(nestedExistsQun), new Comparisons.NullComparison(Comparisons.Type.NOT_NULL)))
                 .addPredicate(fieldPredicate(baseQun, "b", GREATER_THAN_HELLO))
                 .build()
                 .buildSelect();
@@ -1180,7 +1183,7 @@ public class PredicatePushDownRuleTest {
                         projectColumn(base, "b"),
                         projectColumn(base, "d")
                 )),
-                (AggregateValue)new NumericAggregationValue.SumFn().encapsulate(ImmutableList.of(fieldValue(base, "a"))),
+                (AggregateValue)new NumericAggregationValue.SumFn().encapsulate(CallSiteArguments.ofPositional(fieldValue(base, "a"))),
                 GroupByExpression::nestedResults,
                 base
         ));
@@ -1196,7 +1199,7 @@ public class PredicatePushDownRuleTest {
                         projectColumn(newInner, "b"),
                         projectColumn(newInner, "d")
                 )),
-                (AggregateValue)new NumericAggregationValue.SumFn().encapsulate(ImmutableList.of(fieldValue(newInner, "a"))),
+                (AggregateValue)new NumericAggregationValue.SumFn().encapsulate(CallSiteArguments.ofPositional(fieldValue(newInner, "a"))),
                 GroupByExpression::nestedResults,
                 newInner
         ));
@@ -1223,7 +1226,7 @@ public class PredicatePushDownRuleTest {
                         projectColumn(base, "d"),
                         projectColumn(base, "c")
                 )),
-                (AggregateValue)new NumericAggregationValue.MaxFn().encapsulate(ImmutableList.of(fieldValue(base, "e.one"))),
+                (AggregateValue)new NumericAggregationValue.MaxFn().encapsulate(CallSiteArguments.ofPositional(fieldValue(base, "e.one"))),
                 GroupByExpression::flattenedResults,
                 base
         ));
@@ -1239,7 +1242,7 @@ public class PredicatePushDownRuleTest {
                         projectColumn(newInner, "d"),
                         projectColumn(newInner, "c")
                 )),
-                (AggregateValue)new NumericAggregationValue.MaxFn().encapsulate(ImmutableList.of(fieldValue(newInner, "e.one"))),
+                (AggregateValue)new NumericAggregationValue.MaxFn().encapsulate(CallSiteArguments.ofPositional(fieldValue(newInner, "e.one"))),
                 GroupByExpression::flattenedResults,
                 newInner
         ));
@@ -1283,7 +1286,7 @@ public class PredicatePushDownRuleTest {
                         projectColumn(base, "b"),
                         projectColumn(base, "c")
                 )),
-                (AggregateValue)new NumericAggregationValue.SumFn().encapsulate(ImmutableList.of(fieldValue(base, "a"))),
+                (AggregateValue)new NumericAggregationValue.SumFn().encapsulate(CallSiteArguments.ofPositional(fieldValue(base, "a"))),
                 GroupByExpression::nestedResults,
                 base
         ));
@@ -1313,7 +1316,7 @@ public class PredicatePushDownRuleTest {
                         projectColumn(base, "b"),
                         projectColumn(base, "c")
                 )),
-                (AggregateValue)new NumericAggregationValue.SumFn().encapsulate(ImmutableList.of(fieldValue(base, "a"))),
+                (AggregateValue)new NumericAggregationValue.SumFn().encapsulate(CallSiteArguments.ofPositional(fieldValue(base, "a"))),
                 GroupByExpression::flattenedResults,
                 base
         ));

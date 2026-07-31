@@ -182,6 +182,9 @@ public class RecordQueryUnorderedDistinctPlan extends AbstractRelationalExpressi
         if (getClass() != otherExpression.getClass()) {
             return false;
         }
+        if (!semanticEqualsForResults(otherExpression, equivalencesMap)) {
+            return false;
+        }
         return comparisonKey.equals(((RecordQueryUnorderedDistinctPlan)otherExpression).comparisonKey);
     }
 

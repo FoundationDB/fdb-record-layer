@@ -46,6 +46,7 @@ import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.catalog.CatalogValidator;
 import com.apple.foundationdb.relational.api.catalog.SchemaTemplateCatalog;
 import com.apple.foundationdb.relational.api.catalog.StoreCatalog;
+import com.apple.foundationdb.relational.util.catalog.KeySpaceProvider;
 import com.apple.foundationdb.relational.api.ddl.ProtobufDdlUtil;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
@@ -106,7 +107,7 @@ import java.util.Objects;
  * ...
  * </pre>
  */
-class RecordLayerStoreCatalog implements StoreCatalog {
+class RecordLayerStoreCatalog implements StoreCatalog, KeySpaceProvider {
     private static final URI DASH_DASH_SYS = URI.create("/" + RelationalKeyspaceProvider.SYS);
     private static final String CATALOG_TEMPLATE = RelationalKeyspaceProvider.CATALOG + "_TEMPLATE";
     private static final int CATALOG_TEMPLATE_VERSION = 1;
@@ -119,6 +120,7 @@ class RecordLayerStoreCatalog implements StoreCatalog {
     private final RelationalKeyspaceProvider.RelationalSchemaPath catalogSchemaPath;
 
     private final RecordMetaDataProvider catalogRecordMetaDataProvider;
+    private final KeySpace keySpace;
 
     private SchemaTemplateCatalog schemaTemplateCatalog;
 
@@ -128,6 +130,7 @@ class RecordLayerStoreCatalog implements StoreCatalog {
 
     @SpotBugsSuppressWarnings(value = "CT_CONSTRUCTOR_THROW", justification = "Hard to remove exception with current inheritance")
     RecordLayerStoreCatalog(@Nonnull final KeySpace keySpace) throws RelationalException {
+        this.keySpace = keySpace;
         this.catalogSchemaPath = RelationalKeyspaceProvider.toDatabasePath(DASH_DASH_SYS, keySpace)
                 .schemaPath(RelationalKeyspaceProvider.CATALOG);
         final var schemaBuilder = RecordLayerSchemaTemplate.newBuilder();
@@ -366,6 +369,12 @@ class RecordLayerStoreCatalog implements StoreCatalog {
             throw ExceptionUtil.toRelationalException(rce);
         }
         return true;
+    }
+
+    @Nonnull
+    @Override
+    public KeySpace getKeySpace() {
+        return keySpace;
     }
 
     // delete schemas for the matching dbUri.

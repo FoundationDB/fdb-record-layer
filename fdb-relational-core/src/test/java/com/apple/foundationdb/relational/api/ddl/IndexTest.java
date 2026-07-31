@@ -20,8 +20,11 @@
 
 package com.apple.foundationdb.relational.api.ddl;
 
+import com.apple.foundationdb.linear.Metric;
 import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexTypes;
+import com.apple.foundationdb.record.provider.foundationdb.indexes.VectorIndexHelper;
+import com.apple.foundationdb.record.provider.foundationdb.indexes.VectorIndexOptionKeys;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyWithValueExpression;
@@ -53,9 +56,11 @@ import javax.annotation.Nonnull;
 import java.util.Locale;
 import java.util.function.Consumer;
 
+import static com.apple.foundationdb.record.RecordMetaDataProto.AndPredicate;
 import static com.apple.foundationdb.record.RecordMetaDataProto.Comparison;
 import static com.apple.foundationdb.record.RecordMetaDataProto.ComparisonType;
 import static com.apple.foundationdb.record.RecordMetaDataProto.Predicate;
+import static com.apple.foundationdb.record.RecordMetaDataProto.RowNumberWindowPredicate;
 import static com.apple.foundationdb.record.RecordMetaDataProto.SimpleComparison;
 import static com.apple.foundationdb.record.RecordMetaDataProto.ValuePredicate;
 import static com.apple.foundationdb.record.expressions.RecordKeyExpressionProto.Value;
@@ -281,6 +286,121 @@ public class IndexTest {
                 IndexTypes.VALUE);
     }
 
+    /**
+     * Scalar array unnesting via correlated subquery: STRING ARRAY, INDEX…AS syntax.
+     */
+    @Test
+    void createIndexOnScalarStringArray() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template "
+                + "CREATE TABLE T(p BIGINT, items STRING ARRAY, PRIMARY KEY (p)) " +
+                "CREATE INDEX mv1 AS SELECT SQ.item FROM T AS t, (SELECT item FROM t.items AS item) SQ ORDER BY SQ.item";
+        indexIs(stmt, field("ITEMS").nest(field(REPEATED_FIELD_NAME, KeyExpression.FanType.FanOut)), IndexTypes.VALUE);
+    }
+
+    /**
+     * Scalar array unnesting via correlated subquery: STRING ARRAY, VIEW + INDEX…ON syntax.
+     */
+    @Test
+    void createIndexOnScalarStringArrayUsingView() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TABLE T(p BIGINT, items STRING ARRAY, PRIMARY KEY (p)) " +
+                "CREATE VIEW v1 AS SELECT SQ.item FROM T AS t, (SELECT item FROM t.items AS item) SQ " +
+                "CREATE INDEX mv1 ON v1(item)";
+        indexIs(stmt, field("ITEMS").nest(field(REPEATED_FIELD_NAME, KeyExpression.FanType.FanOut)), IndexTypes.VALUE);
+    }
+
+    /**
+     * Scalar array unnesting via correlated subquery: INTEGER ARRAY (to exercise a different scalar type).
+     */
+    @Test
+    void createIndexOnScalarIntegerArray() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TABLE T(p BIGINT, nums INTEGER ARRAY, PRIMARY KEY (p)) " +
+                "CREATE INDEX mv1 AS SELECT SQ.num FROM T AS t, (SELECT num FROM t.nums AS num) SQ ORDER BY SQ.num";
+        indexIs(stmt, field("NUMS").nest(field(REPEATED_FIELD_NAME, KeyExpression.FanType.FanOut)), IndexTypes.VALUE);
+    }
+
+    /**
+     * Scalar array unnesting via correlated subquery: array element + table column, ordered by (item, p).
+     */
+    @Test
+    void createIndexOnScalarArrayAndConcat() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TABLE T(p BIGINT, items STRING ARRAY, PRIMARY KEY (p)) " +
+                "CREATE INDEX mv1 AS SELECT SQ.item, t.p FROM T AS t, (SELECT item FROM t.items AS item) SQ ORDER BY SQ.item, t.p";
+        indexIs(stmt, concat(field("ITEMS").nest(field(REPEATED_FIELD_NAME, KeyExpression.FanType.FanOut)), field("P")), IndexTypes.VALUE);
+    }
+
+    /**
+     * Scalar array unnesting via correlated subquery: array element + table column, ordered by (p, item).
+     */
+    @Test
+    void createIndexOnScalarArrayAndConcatDifferentOrder() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TABLE T(p BIGINT, items STRING ARRAY, PRIMARY KEY (p)) " +
+                "CREATE INDEX mv1 AS SELECT t.p, SQ.item FROM T AS t, (SELECT item FROM t.items AS item) SQ ORDER BY t.p, SQ.item";
+        indexIs(stmt, concat(field("P"), field("ITEMS").nest(field(REPEATED_FIELD_NAME, KeyExpression.FanType.FanOut))), IndexTypes.VALUE);
+    }
+
+    /**
+     * Scalar array unnesting via PartiQL syntax: STRING ARRAY, INDEX…AS syntax.
+     */
+    @Test
+    void createIndexOnScalarStringArrayPartiQL() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TABLE T(p BIGINT, items STRING ARRAY, PRIMARY KEY (p)) " +
+                "CREATE INDEX mv1 AS SELECT item FROM T AS t, t.items AS item ORDER BY item";
+        indexIs(stmt, field("ITEMS").nest(field(REPEATED_FIELD_NAME, KeyExpression.FanType.FanOut)), IndexTypes.VALUE);
+    }
+
+    /**
+     * Scalar array unnesting via PartiQL syntax: STRING ARRAY, VIEW + INDEX…ON syntax.
+     */
+    @SuppressWarnings("checkstyle:AbbreviationAsWordInName")
+    @Test
+    void createIndexOnScalarStringArrayPartiQLUsingView() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TABLE T(p BIGINT, items STRING ARRAY, PRIMARY KEY (p)) " +
+                "CREATE VIEW v1 AS SELECT item FROM T AS t, t.items AS item " +
+                "CREATE INDEX mv1 ON v1(item)";
+        indexIs(stmt, field("ITEMS").nest(field(REPEATED_FIELD_NAME, KeyExpression.FanType.FanOut)), IndexTypes.VALUE);
+    }
+
+    /**
+     * Scalar array unnesting via PartiQL syntax: INTEGER ARRAY (different scalar type).
+     */
+    @Test
+    void createIndexOnScalarIntegerArrayPartiQL() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TABLE T(p BIGINT, nums INTEGER ARRAY, PRIMARY KEY (p)) " +
+                "CREATE INDEX mv1 AS SELECT num FROM T AS t, t.nums AS num ORDER BY num";
+        indexIs(stmt, field("NUMS").nest(field(REPEATED_FIELD_NAME, KeyExpression.FanType.FanOut)), IndexTypes.VALUE);
+    }
+
+    /**
+     * Scalar array unnesting via PartiQL syntax: array element + table column, ordered by (item, p).
+     */
+    @SuppressWarnings("checkstyle:AbbreviationAsWordInName")
+    @Test
+    void createIndexOnScalarArrayPartiQLAndConcat() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TABLE T(p BIGINT, items STRING ARRAY, PRIMARY KEY (p)) " +
+                "CREATE INDEX mv1 AS SELECT item, t.p FROM T AS t, t.items AS item ORDER BY item, t.p";
+        indexIs(stmt, concat(field("ITEMS").nest(field(REPEATED_FIELD_NAME, KeyExpression.FanType.FanOut)), field("P")), IndexTypes.VALUE);
+    }
+
+    /**
+     * Scalar array unnesting via PartiQL syntax: array element + table column, ordered by (p, item).
+     */
+    @SuppressWarnings("checkstyle:AbbreviationAsWordInName")
+    @Test
+    void createIndexOnScalarArrayPartiQLAndConcatDifferentOrder() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TABLE T(p BIGINT, items STRING ARRAY, PRIMARY KEY (p)) " +
+                "CREATE INDEX mv1 AS SELECT t.p, item FROM T AS t, t.items AS item ORDER BY t.p, item";
+        indexIs(stmt, concat(field("P"), field("ITEMS").nest(field(REPEATED_FIELD_NAME, KeyExpression.FanType.FanOut))), IndexTypes.VALUE);
+    }
+
     @Test
     void createLegacyIndexWithPredicateIsSupported() throws Exception {
         final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
@@ -299,6 +419,58 @@ public class IndexTest {
                                             .setOperand(Value.newBuilder().setLongValue(10L).build())
                                             .build())
                                     .build())
+                            .build())
+                    .build());
+        });
+    }
+
+    @Test
+    void createSlidingWindowValueIndexIsSupported() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TYPE AS STRUCT A(x bigint) " +
+                "CREATE TYPE AS STRUCT B(y string) " +
+                "CREATE TYPE AS STRUCT C(z string) " +
+                "CREATE TABLE T(p bigint, a A array, b B array, c C, primary key(p))" +
+                "CREATE VIEW v AS SELECT p FROM T where p > 10 qualify row_number() over (order by c) <= 10 " +
+                "CREATE INDEX mv1 ON v(p)";
+        indexIs(stmt, field("P", KeyExpression.FanType.None), IndexTypes.VALUE, index -> {
+            assertThat(index.isUnique()).isFalse();
+            assertThat(index.getPredicate()).isEqualTo(Predicate.newBuilder()
+                    .setAndPredicate(AndPredicate.newBuilder()
+                            .addChildren(Predicate.newBuilder()
+                                    .setValuePredicate(ValuePredicate.newBuilder().addValue("P")
+                                            .setComparison(Comparison.newBuilder()
+                                                    .setSimpleComparison(SimpleComparison.newBuilder()
+                                                            .setType(ComparisonType.GREATER_THAN)
+                                                            .setOperand(Value.newBuilder().setLongValue(10L).build())
+                                                            .build())
+                                                    .build())
+                                            .build())
+                                    .build())
+                            .addChildren(Predicate.newBuilder()
+                                    .setRowNumberWindowPredicate(RowNumberWindowPredicate.newBuilder()
+                                            .addOrderingField("C")
+                                            .setSize(10)
+                                            .setDirection(RowNumberWindowPredicate.Direction.ASC)
+                                            .build())
+                                    .build())
+                            .build())
+                    .build());
+        });
+    }
+
+    @Test
+    void createSlidingWindowValueIndexWithoutWhereClause() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TABLE T(p bigint, score bigint, primary key(p)) " +
+                "CREATE VIEW v AS SELECT p FROM T qualify row_number() over (order by score) <= 50 " +
+                "CREATE INDEX mv1 ON v(p)";
+        indexIs(stmt, field("P", KeyExpression.FanType.None), IndexTypes.VALUE, index -> {
+            assertThat(index.getPredicate()).isEqualTo(Predicate.newBuilder()
+                    .setRowNumberWindowPredicate(RowNumberWindowPredicate.newBuilder()
+                            .addOrderingField("SCORE")
+                            .setSize(50)
+                            .setDirection(RowNumberWindowPredicate.Direction.ASC)
                             .build())
                     .build());
         });
@@ -358,6 +530,25 @@ public class IndexTest {
                 "CREATE TABLE T1(p1 bigint, a1 A array, c1 B array, primary key(p1)) " +
                 "CREATE INDEX mv1 AS SELECT 5+1 FROM T1";
         indexIs(stmt, function("add", concat(value(5), value(1))), IndexTypes.VALUE);
+    }
+
+    @Test
+    void createIndexWithCardinalityFunctionOnNonNullableArrayIsSupported() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TABLE T1(p1 BIGINT, int_arr INTEGER ARRAY NOT NULL, PRIMARY KEY(p1)) " +
+                "CREATE INDEX mv1 AS SELECT CARDINALITY(int_arr) FROM T1";
+        var exp = function("cardinality", field("INT_ARR", KeyExpression.FanType.Concatenate));
+        indexIs(stmt, exp, IndexTypes.VALUE);
+    }
+
+    @Test
+    void createIndexWithCardinalityFunctionOnNullableArrayIsSupported() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TABLE T1(p1 BIGINT, int_arr INTEGER ARRAY NULL, PRIMARY KEY(p1)) " +
+                "CREATE INDEX mv1 AS SELECT CARDINALITY(int_arr) FROM T1";
+        // Notice the nested "values" field that gets introduced when the array is nullable.
+        var exp = function("cardinality", field("INT_ARR").nest(field("values", KeyExpression.FanType.Concatenate)));
+        indexIs(stmt, exp, IndexTypes.VALUE);
     }
 
     @Test
@@ -1016,6 +1207,23 @@ public class IndexTest {
     }
 
     @Test
+    void createIndexOnArrayFieldWithoutUnnestingIsDisallowed() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TABLE T (p BIGINT, items STRING ARRAY, PRIMARY KEY (p))" +
+                "CREATE INDEX MV1 AS SELECT items FROM T";
+        shouldFailWith(stmt, ErrorCode.UNSUPPORTED_OPERATION, "cannot create index on array field");
+    }
+
+    @Test
+    void createIndexNavigatingThroughArrayWithoutUnnestingIsDisallowed() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TYPE AS STRUCT A(x BIGINT) " +
+                "CREATE TABLE T (p BIGINT, a A ARRAY, PRIMARY KEY (p))" +
+                "CREATE INDEX MV1 AS SELECT a.x FROM T";
+        shouldFailWith(stmt, ErrorCode.UNDEFINED_COLUMN, "A.X");
+    }
+
+    @Test
     void createIndexWithOrderByMixedDirection() throws Exception {
         final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
                 "CREATE TABLE T1(col1 bigint, col2 bigint, col3 bigint, primary key(col1)) " +
@@ -1080,6 +1288,13 @@ public class IndexTest {
                     Assertions.assertEquals("32", options.get(IndexOptions.HNSW_M_MAX));
                     Assertions.assertEquals("200", options.get(IndexOptions.HNSW_EF_CONSTRUCTION));
                     Assertions.assertEquals("COSINE_METRIC", options.get(IndexOptions.HNSW_METRIC));
+                    // and the same values read back through the typed option keys
+                    final var coreIndex = toCoreIndex(idx);
+                    Assertions.assertEquals(3, VectorIndexOptionKeys.NUM_DIMENSIONS.read(coreIndex));
+                    Assertions.assertEquals(16, VectorIndexOptionKeys.HNSW_M.read(coreIndex));
+                    Assertions.assertEquals(32, VectorIndexOptionKeys.HNSW_M_MAX.read(coreIndex));
+                    Assertions.assertEquals(200, VectorIndexOptionKeys.HNSW_EF_CONSTRUCTION.read(coreIndex));
+                    Assertions.assertEquals(Metric.COSINE_METRIC, VectorIndexOptionKeys.METRIC.read(coreIndex));
                     validateVectorIndex(idx);
                 });
     }
@@ -1099,6 +1314,12 @@ public class IndexTest {
                     Assertions.assertEquals("true", options.get(IndexOptions.HNSW_USE_RABITQ));
                     Assertions.assertEquals("4", options.get(IndexOptions.HNSW_RABITQ_NUM_EX_BITS));
                     Assertions.assertEquals("0.01", options.get(IndexOptions.HNSW_MAINTAIN_STATS_PROBABILITY));
+                    // and the same values read back through the typed option keys
+                    final var coreIndex = toCoreIndex(idx);
+                    Assertions.assertEquals(128, VectorIndexOptionKeys.NUM_DIMENSIONS.read(coreIndex));
+                    Assertions.assertEquals(true, VectorIndexOptionKeys.USE_RABITQ.read(coreIndex));
+                    Assertions.assertEquals(4, VectorIndexOptionKeys.RABITQ_NUM_EX_BITS.read(coreIndex));
+                    Assertions.assertEquals(0.01, VectorIndexOptionKeys.MAINTAIN_STATS_PROBABILITY.read(coreIndex));
                     validateVectorIndex(idx);
                 });
     }
@@ -1112,6 +1333,7 @@ public class IndexTest {
         indexIs(stmt, keyWithValue(concat(field("P"), field("B")), 1), IndexTypes.VECTOR,
                 idx -> {
                     Assertions.assertEquals(String.valueOf(dimensions), idx.getOptions().get(IndexOptions.HNSW_NUM_DIMENSIONS));
+                    Assertions.assertEquals(dimensions, VectorIndexOptionKeys.NUM_DIMENSIONS.read(toCoreIndex(idx)));
                     validateVectorIndex(idx);
                 });
     }
@@ -1127,14 +1349,29 @@ public class IndexTest {
                 idx -> {
                     Assertions.assertEquals("512", idx.getOptions().get(IndexOptions.HNSW_NUM_DIMENSIONS));
                     Assertions.assertEquals(metric, idx.getOptions().get(IndexOptions.HNSW_METRIC));
+                    final var coreIndex = toCoreIndex(idx);
+                    Assertions.assertEquals(512, VectorIndexOptionKeys.NUM_DIMENSIONS.read(coreIndex));
+                    Assertions.assertEquals(Metric.valueOf(metric), VectorIndexOptionKeys.METRIC.read(coreIndex));
                     // Validate using VectorIndexMaintainerFactory validator
                     validateVectorIndex(idx);
                 });
     }
 
     private void validateVectorIndex(RecordLayerIndex recordLayerIndex) {
-        // Convert RecordLayerIndex to core Index
-        final var coreIndex = new com.apple.foundationdb.record.metadata.Index(
+        final var coreIndex = toCoreIndex(recordLayerIndex);
+
+        // Validate using VectorIndexHelper - this validates the configuration options
+        // VectorIndexHelper.validate() will throw if options are invalid
+        Assertions.assertDoesNotThrow(() -> VectorIndexHelper.validate(coreIndex),
+                "Vector index configuration should be valid");
+    }
+
+    /**
+     * Converts a {@link RecordLayerIndex} to a core {@link com.apple.foundationdb.record.metadata.Index} so its options
+     * can be read back through the typed {@link VectorIndexOptionKeys} (whose {@code read} operates on a core index).
+     */
+    private com.apple.foundationdb.record.metadata.Index toCoreIndex(RecordLayerIndex recordLayerIndex) {
+        return new com.apple.foundationdb.record.metadata.Index(
                 recordLayerIndex.getName(),
                 recordLayerIndex.getKeyExpression(),
                 recordLayerIndex.getIndexType(),
@@ -1143,12 +1380,6 @@ public class IndexTest {
                         ? com.apple.foundationdb.record.metadata.IndexPredicate.fromProto(recordLayerIndex.getPredicate())
                         : null
         );
-
-        // Validate using VectorIndexHelper - this validates the configuration options
-        // VectorIndexHelper.getConfig() will throw IllegalArgumentException if options are invalid
-        Assertions.assertDoesNotThrow(() ->
-                com.apple.foundationdb.record.provider.foundationdb.indexes.VectorIndexHelper.getConfig(coreIndex),
-                "Vector index configuration should be valid");
     }
 
     @Test
@@ -1164,8 +1395,81 @@ public class IndexTest {
                     final var options = idx.getOptions();
                     Assertions.assertEquals("64", options.get(IndexOptions.HNSW_NUM_DIMENSIONS));
                     Assertions.assertEquals("0.05", options.get(IndexOptions.HNSW_SAMPLE_VECTOR_STATS_PROBABILITY));
+                    // and the same values read back through the typed option keys
+                    final var coreIndex = toCoreIndex(idx);
+                    Assertions.assertEquals(64, VectorIndexOptionKeys.NUM_DIMENSIONS.read(coreIndex));
+                    Assertions.assertEquals(0.05, VectorIndexOptionKeys.SAMPLE_VECTOR_STATS_PROBABILITY.read(coreIndex));
                     validateVectorIndex(idx);
                 });
+    }
+
+    @Test
+    void createGuardiannVectorIndexWithOptionsWorksCorrectly() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TABLE T(p bigint, b vector(3, float), primary key(p))" +
+                "CREATE VECTOR INDEX MV1 USING GUARDIANN ON T(b) PARTITION BY (p) " +
+                "OPTIONS (METRIC = COSINE_METRIC, PRIMARY_CLUSTER_MIN = 20, PRIMARY_CLUSTER_MAX = 200, " +
+                "REPLICATED_CLUSTER_TARGET = 50, REPLICATION_PRIORITY_MIN = 0.75, COLLAPSE_MIN_DUPLICATES = 100)";
+        indexIs(stmt,
+                keyWithValue(concat(field("P"), field("B")), 1),
+                IndexTypes.VECTOR,
+                idx -> {
+                    final var options = idx.getOptions();
+                    Assertions.assertEquals("GUARDIANN", options.get(IndexOptions.VECTOR_ENGINE));
+                    // shared options are written under their (currently canonical) hnsw* wire names
+                    Assertions.assertEquals("3", options.get(IndexOptions.HNSW_NUM_DIMENSIONS));
+                    Assertions.assertEquals("COSINE_METRIC", options.get(IndexOptions.HNSW_METRIC));
+                    Assertions.assertEquals("20", options.get(IndexOptions.GUARDIANN_PRIMARY_CLUSTER_MIN));
+                    Assertions.assertEquals("200", options.get(IndexOptions.GUARDIANN_PRIMARY_CLUSTER_MAX));
+                    Assertions.assertEquals("50", options.get(IndexOptions.GUARDIANN_REPLICATED_CLUSTER_TARGET));
+                    Assertions.assertEquals("0.75", options.get(IndexOptions.GUARDIANN_REPLICATION_PRIORITY_MIN));
+                    Assertions.assertEquals("100", options.get(IndexOptions.GUARDIANN_COLLAPSE_MIN_DUPLICATES));
+                    // and the same values read back through the typed option keys
+                    final var coreIndex = toCoreIndex(idx);
+                    Assertions.assertEquals(3, VectorIndexOptionKeys.NUM_DIMENSIONS.read(coreIndex));
+                    Assertions.assertEquals(Metric.COSINE_METRIC, VectorIndexOptionKeys.METRIC.read(coreIndex));
+                    Assertions.assertEquals(20, VectorIndexOptionKeys.GUARDIANN_PRIMARY_CLUSTER_MIN.read(coreIndex));
+                    Assertions.assertEquals(200, VectorIndexOptionKeys.GUARDIANN_PRIMARY_CLUSTER_MAX.read(coreIndex));
+                    Assertions.assertEquals(50, VectorIndexOptionKeys.GUARDIANN_REPLICATED_CLUSTER_TARGET.read(coreIndex));
+                    Assertions.assertEquals(0.75, VectorIndexOptionKeys.GUARDIANN_REPLICATION_PRIORITY_MIN.read(coreIndex));
+                    Assertions.assertEquals(100, VectorIndexOptionKeys.GUARDIANN_COLLAPSE_MIN_DUPLICATES.read(coreIndex));
+                    validateVectorIndex(idx);
+                });
+    }
+
+    @Test
+    void createGuardiannVectorIndexWithHnswOnlyOptionIsRejected() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TABLE T(p bigint, b vector(3, float), primary key(p))" +
+                "CREATE VECTOR INDEX MV1 USING GUARDIANN ON T(b) PARTITION BY (p) OPTIONS (CONNECTIVITY = 16)";
+        shouldFailWith(stmt, ErrorCode.UNSUPPORTED_OPERATION, "not valid for the GUARDIANN vector engine");
+    }
+
+    @Test
+    void createGuardiannVectorIndexWithNonNumericOptionValueIsRejected() throws Exception {
+        // PRIMARY_CLUSTER_MAX expects an integer. 1.5 is a valid vectorIndexOptionValue (a REAL_LITERAL) but cannot be
+        // coerced to an int, so option parsing surfaces a syntax error rather than letting the NumberFormatException
+        // escape.
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TABLE T(p bigint, b vector(3, float), primary key(p))" +
+                "CREATE VECTOR INDEX MV1 USING GUARDIANN ON T(b) PARTITION BY (p) OPTIONS (PRIMARY_CLUSTER_MAX = 1.5)";
+        shouldFailWith(stmt, ErrorCode.SYNTAX_ERROR, "invalid value");
+    }
+
+    @Test
+    void createHnswVectorIndexWithGuardiannOnlyOptionIsRejected() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TABLE T(p bigint, b vector(3, float), primary key(p))" +
+                "CREATE VECTOR INDEX MV1 USING HNSW ON T(b) PARTITION BY (p) OPTIONS (PRIMARY_CLUSTER_MIN = 20)";
+        shouldFailWith(stmt, ErrorCode.UNSUPPORTED_OPERATION, "not valid for the HNSW vector engine");
+    }
+
+    @Test
+    void createVectorIndexWithUnknownOptionIsRejected() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TABLE T(p bigint, b vector(3, float), primary key(p))" +
+                "CREATE VECTOR INDEX MV1 USING HNSW ON T(b) PARTITION BY (p) OPTIONS (BOGUS_OPTION = 5)";
+        shouldFailWith(stmt, ErrorCode.UNSUPPORTED_OPERATION, "unsupported vector index option 'bogus_option'");
     }
 
     @Test

@@ -1,0 +1,12 @@
+Diagram(
+    Terminal('GREATEST'),
+    Terminal('('),
+    NonTerminal('expression'),
+    OneOrMore(
+        Sequence(
+            Terminal(','),
+            NonTerminal('expression')
+        )
+    ),
+    Terminal(')'),
+)

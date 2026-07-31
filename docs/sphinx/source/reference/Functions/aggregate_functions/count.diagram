@@ -1,0 +1,9 @@
+Diagram(
+    Terminal('COUNT'),
+    Terminal('('),
+    Choice(0,
+        Terminal('*'),
+        NonTerminal('expression'),
+    ),
+    Terminal(')'),
+)
