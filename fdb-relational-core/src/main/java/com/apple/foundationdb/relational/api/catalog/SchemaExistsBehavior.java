@@ -109,11 +109,11 @@ public enum SchemaExistsBehavior {
     };
 
     /**
-     * Decide what a {@code saveSchema} caller should do when a schema is already present at
-     * {@code newSchema}'s coordinates. Returning {@code true} tells the caller to overwrite the
-     * on-disk row with {@code newSchema}; returning {@code false} tells the caller to leave the
-     * on-disk row untouched (a no-op). Throwing {@code RelationalException} with
-     * {@link ErrorCode#SCHEMA_ALREADY_EXISTS} tells the caller to refuse the save.
+     * Decide what a {@code saveSchema} caller should do when the schema already exists in the catalog.
+     * Returning {@code true} tells the caller to overwrite the on-disk row with {@code newSchema};
+     * returning {@code false} tells the caller to leave the on-disk row untouched (a no-op).
+     * Throwing {@code RelationalException} with {@link ErrorCode#SCHEMA_ALREADY_EXISTS} tells the caller to refuse
+     * the save.
      *
      * @param newSchema      the schema the caller was asked to save
      * @param existingSchema the schema currently persisted at {@code (dbId, schemaName)}
