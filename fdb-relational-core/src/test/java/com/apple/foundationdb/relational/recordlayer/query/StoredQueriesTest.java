@@ -39,6 +39,7 @@ import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
+import javax.annotation.Nonnull;
 import java.net.URI;
 import java.sql.SQLException;
 
@@ -990,4 +991,92 @@ class StoredQueriesTest {
                 .hasErrorCode(ErrorCode.SYNTAX_ERROR);
     }
 
+    @Test
+    void storedQueriesNullLiteral() throws Exception {
+        final String schemaTemplate =
+                "CREATE TABLE t1(id bigint, col1 bigint, PRIMARY KEY(id))"
+                        + " CREATE STORED QUERY by_val_q"
+                        + "   DECLARE"
+                        + "       FUNCTION by_val(in p bigint) AS (SELECT * FROM t1 WHERE p IS NULL OR col1 = p)"
+                        + " AS SELECT id FROM by_val(?{bigint}) ORDER BY id";
+        final String dbUri = "/TEST/SQ_NULL_LITERAL";
+        try (var ddl = Ddl.builder()
+                .database(URI.create(dbUri))
+                .relationalExtension(relationalExtension)
+                .schemaTemplate(schemaTemplate)
+                .build()) {
+            final var connection = ddl.setSchemaAndGetConnection();
+            final String templateName = ddl.getSchemaTemplateName();
+            final String schemaName = connection.getSchema();
+
+            try (var stmt = connection.createStatement()) {
+                stmt.execute("INSERT INTO t1 VALUES (1, 10), (2, 20), (3, 20), (4, 30)");
+            }
+
+            // ---- Stored-query warm-up. 'by_val_q' declares by_val and invokes it with a concrete LONG
+            // literal (20L → stripped to '?'), warming a value-free 'by_val(?)' plan with an IS NOT NULL /
+            // OF TYPE LONG constraint. A fresh engine triggers OfflineStoredQueriesProcessor. (Asserted
+            // before any session query runs, so the shared metric counters reflect only the warm-up.)
+            final var engineDriver = relationalExtension.getDriver(
+                    com.apple.foundationdb.record.provider.foundationdb.FormatVersion.getDefaultFormatVersion());
+            final var connectionUtils = new ConnectionUtils(engineDriver);
+            Assertions.assertEquals(1, eventCounterCount(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_MISS));
+            Assertions.assertEquals(0, eventCounterCount(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_HIT));
+            Assertions.assertEquals(Long.valueOf(1), connectionUtils.getFromCatalog(c -> countCachedPlans(c, templateName)));
+
+            // A runtime session re-installs the same temp function and issues the canonical query bound to a
+            // LONG value; it reuses the warmed plan (hit +1, no new cache entry).
+            connectionUtils.runAgainstConnection(dbUri, schemaName, c -> {
+                c.setAutoCommit(false);
+                try (var stmt = c.createStatement()) {
+                    stmt.execute("CREATE TEMPORARY FUNCTION by_val(in p bigint) ON COMMIT DROP FUNCTION "
+                            + "AS SELECT * FROM t1 WHERE p IS NULL OR col1 = p");
+
+                    try (var ps = c.prepareStatement("SELECT id FROM by_val(?) ORDER BY id")) {
+                        ps.setLong(1, 20L);
+                        assertIds(ps.executeQuery(), 2, 3);
+                    }
+
+                    assertIds(stmt.executeQuery("SELECT id FROM by_val(20L) ORDER BY id"), 2, 3);
+
+                    try (var ps = c.prepareStatement("SELECT id FROM by_val(?) ORDER BY id")) {
+                        ps.setNull(1, java.sql.Types.BIGINT);
+                        assertIds(ps.executeQuery(), 1, 2, 3, 4);
+                    }
+                }
+                dumpCache(c, templateName);
+                c.rollback();
+            });
+            Assertions.assertEquals(2, eventCounterCount(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_MISS));
+            Assertions.assertEquals(2, eventCounterCount(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_HIT));
+            Assertions.assertEquals(Long.valueOf(2), connectionUtils.getFromCatalog(c -> countCachedPlans(c, templateName)));
+        }
+    }
+
+    /** Asserts the result set yields exactly {@code expectedIds} (in order) in column {@code ID}, then ends. */
+    private static void assertIds(@Nonnull final RelationalResultSet rs, final long... expectedIds) throws SQLException {
+        try (rs) {
+            for (final long expectedId : expectedIds) {
+                Assertions.assertTrue(rs.next());
+                Assertions.assertEquals(expectedId, rs.getLong("ID"));
+            }
+            Assertions.assertFalse(rs.next());
+        }
+    }
+
+    private void dumpCache(RelationalConnection connection, String templateName) throws SQLException {
+        final var cache = connection.unwrap(EmbeddedRelationalConnection.class)
+                .getRecordLayerDatabase().getPlanCache();
+        if (cache == null) {
+            System.out.println("=== no plan cache ===");
+            return;
+        }
+        System.out.println("=== CACHE DUMP (" + templateName + ") ===");
+        for (QueryCacheKey secondaryKey : cache.getStats().getAllSecondaryKeys(templateName)) {
+            System.out.println("L2 KEY: " + secondaryKey);
+            for (var entry : cache.getStats().getAllTertiaryMappings(templateName, secondaryKey).entrySet()) {
+                System.out.println("    L3 (constraint): " + entry.getKey());
+            }
+        }
+    }
 }
