@@ -1,8 +1,8 @@
-œ
+›
 +
-	unnamed-3EXPLAIN SELECT * From "TableA"ì
+	unnamed-3EXPLAIN SELECT * From "TableA"ë
 
-ŸÐ‘ï) Ñ’Á(0±Ú8@SCAN(<,>) | TFILTER TableA²
+­åºº( „ m(0ž€8@SCAN(<,>) | TFILTER TableA²
 digraph G {
   fontname=courier;
   rankdir=BT;

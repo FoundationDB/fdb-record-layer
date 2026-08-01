@@ -27,7 +27,6 @@ import com.apple.foundationdb.record.query.plan.cascades.CallSiteArguments;
 import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
 import com.apple.foundationdb.record.query.plan.cascades.OrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerPhase;
-import com.apple.foundationdb.record.query.plan.cascades.PlannerStage;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.RequestedOrdering;
@@ -42,7 +41,6 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalUnio
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalUniqueExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
-import com.apple.foundationdb.record.query.plan.cascades.predicates.ConstantPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.OrPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ExistentialValuePredicate;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
@@ -145,7 +143,7 @@ public class PredicatePushDownRuleTest {
      * }</pre>
      */
     @Test
-    void pushDownOnePredicateOfMultiple() {
+    void pushDownPredicateRetainingExistentialPredicate() {
         Quantifier baseQun = baseT();
 
         Quantifier lowerQun = forEach(selectWithPredicates(
@@ -293,79 +291,6 @@ public class PredicatePushDownRuleTest {
                 fieldPredicate(baseQun, "b", GREATER_THAN_HELLO));
 
         testHelper.assertYieldsNothing(singleExpression, true);
-    }
-
-    /**
-     * Test what happens when there is a reference with multiple expressions that can accept a pushed
-     * predicate. If that is the case, during the rewrite, the predicate should be pushed down to
-     * all children of the original expression.
-     */
-    @Test
-    void canPushDownToMultipleChildren() {
-        Quantifier baseQun = baseT();
-
-        SelectExpression lower1 = selectWithPredicates(
-                baseQun, List.of("a", "b", "c")
-        );
-        SelectExpression lower2 = selectWithPredicates(
-                baseQun, List.of("a", "b", "c"),
-                new ConstantPredicate(true)
-        );
-        Reference lowerRef = Reference.ofFinalExpressions(PlannerStage.INITIAL, ImmutableSet.of(lower1, lower2));
-        Quantifier lowerQun = Quantifier.forEach(lowerRef);
-
-        SelectExpression higher = selectWithPredicates(
-                lowerQun, List.of("b", "c"),
-                fieldPredicate(lowerQun, "a", EQUALS_42)
-        );
-
-        SelectExpression newLower1 = selectWithPredicates(
-                baseQun, List.of("a", "b", "c"),
-                fieldPredicate(baseQun, "a", EQUALS_42)
-        );
-        SelectExpression newLower2 = selectWithPredicates(
-                baseQun, List.of("a", "b", "c"),
-                new ConstantPredicate(true),
-                fieldPredicate(baseQun, "a", EQUALS_42)
-        );
-        Reference newLowerRef = Reference.ofFinalExpressions(PlannerStage.CANONICAL, ImmutableSet.of(newLower1, newLower2));
-        Quantifier newLowerQun = Quantifier.forEach(newLowerRef);
-
-        SelectExpression newHigher = selectWithPredicates(
-                newLowerQun, List.of("b", "c")
-        );
-
-        testHelper.assertYields(higher, newHigher);
-    }
-
-    /**
-     * Test what happens if we have multiple children, some of whom can push down the predicate
-     * and some of whom can't. In this case, we expect it to create a new reference that contains
-     * only the children that accept the predicate.
-     */
-    @Test
-    void canPushDownToSomeChildren() {
-        Quantifier baseQun = baseT();
-
-        // Add a second expression to the baseQun quantifier. It is identical
-        // to the original quantifier contents, except it inserts an additional
-        // select (which does no filtering or projection).
-        Quantifier baseQun2 = baseT();
-        SelectExpression selectAllT = selectWithPredicates(baseQun2);
-        baseQun.getRangesOver().insertFinalExpression(selectAllT);
-
-        SelectExpression higher = selectWithPredicates(
-                baseQun, List.of("a", "c"),
-                fieldPredicate(baseQun, "b", EQUALS_PARAM));
-
-        Quantifier newLowerQun = forEach(selectWithPredicates(baseQun2,
-                fieldPredicate(baseQun2, "b", EQUALS_PARAM)
-        ));
-        SelectExpression newHigher = selectWithPredicates(
-                newLowerQun, List.of("a", "c")
-        );
-
-        testHelper.assertYields(higher, newHigher);
     }
 
     /**
@@ -529,13 +454,13 @@ public class PredicatePushDownRuleTest {
     /**
      * Push down an OR predicate. This takes a query like:
      * <pre>{@code
-     * SELECT a, b FROM (SELECT a, b, c FROM t) WHERE a = $p OR b > 'hello' OR @1 = d
+     * SELECT a, b FROM (SELECT a, b, d FROM t) WHERE a = $p OR b > 'hello' OR @1 = d
      * }</pre>
      * <p>
      * And modifies it to:
      * </p>
      * <pre>{@code
-     * SELECT a, b FROM (SELECT a, b, c FROM t WHERE a = $p OR b > 'hello' OR @1 = d)
+     * SELECT a, b FROM (SELECT a, b, d FROM t WHERE a = $p OR b > 'hello' OR @1 = d)
      * }</pre>
      */
     @Test
@@ -890,8 +815,8 @@ public class PredicatePushDownRuleTest {
      *   WHERE t.b = tau.beta
      * }</pre>
      * <p>
-     * Note that each rule invocation only pushes down a single predicate down a single leg, but they wind up
-     * with the same final statement at the end.
+     * Both single-leg predicates are pushed down in a single rule invocation, leaving only the join predicate on the
+     * top-level select.
      * </p>
      */
     @Test
@@ -917,8 +842,8 @@ public class PredicatePushDownRuleTest {
                 .build()
                 .buildSelect();
 
-        // As we only invoke the rule once, we get two transformations of the join, one which pushes down the predicate
-        // on table t and the other that pushes down the predicate on table tau
+        // In a single invocation, both single-leg predicates are pushed down to their respective legs, leaving only
+        // the join predicate on the top-level select.
         final Quantifier newTLowQun = forEach(selectWithPredicates(
                 t, List.of("a", "b", "c"),
                 fieldPredicate(t, "c", cComparison)
@@ -927,34 +852,14 @@ public class PredicatePushDownRuleTest {
                 tau, List.of("alpha", "beta", "gamma"),
                 fieldPredicate(tau, "gamma", gammaComparison)
         ));
-        final SelectExpression newHigherWithNewT = join(newTLowQun, tauLowQun)
-                .addResultColumn(FDBQueryGraphTestHelpers.projectColumn(newTLowQun, "a"))
-                .addResultColumn(FDBQueryGraphTestHelpers.projectColumn(tauLowQun, "alpha"))
-                .addPredicate(fieldPredicate(newTLowQun, "b", new Comparisons.ValueComparison(Comparisons.Type.EQUALS, fieldValue(tauLowQun, "beta"))))
-                .addPredicate(fieldPredicate(tauLowQun, "gamma", gammaComparison))
-                .build()
-                .buildSelect();
-        final SelectExpression newHigherWithNewTau = join(tLowQun, newTauLowQun)
-                .addResultColumn(FDBQueryGraphTestHelpers.projectColumn(tLowQun, "a"))
-                .addResultColumn(FDBQueryGraphTestHelpers.projectColumn(newTauLowQun, "alpha"))
-                .addPredicate(fieldPredicate(tLowQun, "b", new Comparisons.ValueComparison(Comparisons.Type.EQUALS, fieldValue(newTauLowQun, "beta"))))
-                .addPredicate(fieldPredicate(tLowQun, "c", cComparison))
-                .build()
-                .buildSelect();
-
-        testHelper.assertYields(higher, newHigherWithNewT, newHigherWithNewTau);
-
-        // If the rule is pushed to either of the new expressions, we should get a final version that pushes all
-        // predicates down to both sides
-        final SelectExpression newestHigher = join(newTLowQun, newTauLowQun)
+        final SelectExpression newHigher = join(newTLowQun, newTauLowQun)
                 .addResultColumn(FDBQueryGraphTestHelpers.projectColumn(newTLowQun, "a"))
                 .addResultColumn(FDBQueryGraphTestHelpers.projectColumn(newTauLowQun, "alpha"))
                 .addPredicate(fieldPredicate(newTLowQun, "b", new Comparisons.ValueComparison(Comparisons.Type.EQUALS, fieldValue(newTauLowQun, "beta"))))
                 .build()
                 .buildSelect();
 
-        testHelper.assertYields(newHigherWithNewT, newestHigher);
-        testHelper.assertYields(newHigherWithNewTau, newestHigher);
+        testHelper.assertYields(higher, newHigher);
     }
 
     /**

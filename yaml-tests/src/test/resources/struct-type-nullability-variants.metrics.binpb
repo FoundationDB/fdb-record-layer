@@ -1,7 +1,7 @@
 „
 r
 struct-type-variants-testsTEXPLAIN SELECT id, name, home_address FROM users WHERE home_address.city = 'Anytown'
-ÒÏ“‚7 ÷¶(0‚ü8@LSCAN([IS USERS]) | FILTER _.HOME_ADDRESS.CITY EQUALS promote(@c13 AS STRING)¡digraph G {
+äí£”5 ˜¿ì(0äÇ8@LSCAN([IS USERS]) | FILTER _.HOME_ADDRESS.CITY EQUALS promote(@c13 AS STRING)¡digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -13,7 +13,7 @@ r
 }†
 t
 struct-type-variants-testsVEXPLAIN SELECT id, name, home_address FROM users WHERE home_address.city = 'Somewhere'
-ÒÏ“‚7 ÷¶(0‚ü8@LSCAN([IS USERS]) | FILTER _.HOME_ADDRESS.CITY EQUALS promote(@c13 AS STRING)¡digraph G {
+äí£”5 ˜¿ì(0äÇ8@LSCAN([IS USERS]) | FILTER _.HOME_ADDRESS.CITY EQUALS promote(@c13 AS STRING)¡digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -25,7 +25,7 @@ t
 }¹	
 \
 struct-type-variants-tests>EXPLAIN SELECT id, name, addresses FROM locations WHERE id = 1Ø
-»»½å4 ±„¤(0ª¯8@1SCAN([IS LOCATIONS, EQUALS promote(@c11 AS INT)])‡digraph G {
+Êòï2 þ÷î(0ç¹8@1SCAN([IS LOCATIONS, EQUALS promote(@c11 AS INT)])‡digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -35,7 +35,7 @@ t
 }þ
 b
 struct-type-variants-testsDEXPLAIN SELECT id, name FROM locations WHERE name = 'Office Complex'—
-Þç¡ò@ Í¡Ä(0ÖÓ 8@eSCAN([IS LOCATIONS]) | FILTER _.NAME EQUALS promote(@c9 AS STRING) | MAP (_.ID AS ID, _.NAME AS NAME)’digraph G {
+îêèÍ> £Å„(0˜ï'8@eSCAN([IS LOCATIONS]) | FILTER _.NAME EQUALS promote(@c9 AS STRING) | MAP (_.ID AS ID, _.NAME AS NAME)’digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -49,7 +49,7 @@ b
 }Œ
 Ž
 struct-type-variants-testspEXPLAIN SELECT id, name, headquarters, branch_offices FROM businesses WHERE headquarters.city = 'Silicon Valley'ø
-Ò“ÀÂ7 »Òµ(0€¨8@QSCAN([IS BUSINESSES]) | FILTER _.HEADQUARTERS.CITY EQUALS promote(@c15 AS STRING)‡digraph G {
+äÛ¯à5 åƒö(0’€8@QSCAN([IS BUSINESSES]) | FILTER _.HEADQUARTERS.CITY EQUALS promote(@c15 AS STRING)‡digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;

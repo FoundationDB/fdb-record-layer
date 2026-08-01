@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.cascades.rules.DecorrelateValuesRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.FinalizeExpressionsRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.PredicatePushDownRule;
@@ -42,14 +43,18 @@ import java.util.Set;
 public class RewritingRuleSet extends CascadesRuleSet {
     private static final Set<ExplorationCascadesRule<? extends RelationalExpression>> EXPLORATION_RULES = ImmutableSet.of(
             new QueryPredicateSimplificationRule(),
-            new PredicatePushDownRule(),
             new DecorrelateValuesRule(),
             new RewriteOuterJoinRule()
     );
     private static final Set<AbstractCascadesRule<? extends RelationalExpression>> PREORDER_RULES = ImmutableSet.of();
 
+    private static final ConditionalCascadesRule.ConditionalImplementationCascadesRule<SelectExpression>
+            selectMergeThenPushDown =
+            new ConditionalCascadesRule.ConditionalImplementationCascadesRule<>(new SelectMergeRule(),
+                    new PredicatePushDownRule());
+
     private static final Set<ImplementationCascadesRule<? extends RelationalExpression>> IMPLEMENTATION_RULES = ImmutableSet.of(
-            new SelectMergeRule(),
+            selectMergeThenPushDown,
             new FinalizeExpressionsRule()
     );
 

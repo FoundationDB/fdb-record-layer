@@ -6,12 +6,12 @@ join-tests:
         [EQUALS q0.ID]) | FLATMAP q1 -> { SCAN([IS PROJECT]) | FILTER _.EMP_ID EQUALS
         q1.ID AS q2 RETURN q1 } AS q1 RETURN (q1.FNAME AS FNAME, q1.LNAME AS LNAME)
         }
-    task_count: 3739
-    task_total_time_ms: 338
-    transform_count: 1181
-    transform_time_ms: 104
+    task_count: 4200
+    task_total_time_ms: 526
+    transform_count: 1175
+    transform_time_ms: 159
     transform_yield_count: 239
-    insert_time_ms: 15
+    insert_time_ms: 22
     insert_new_count: 599
     insert_reused_count: 39
 -   query: EXPLAIN select dept.name, project.name from emp, dept, project where emp.dept_id
@@ -21,12 +21,12 @@ join-tests:
         -> { COVERING(EMPDEPT [EQUALS q0.ID] -> [DEPT_ID: KEY:[0], ID: KEY:[2]]) |
         FILTER q1.EMP_ID EQUALS _.ID | MAP (1 AS _0) AS q2 RETURN q1 } AS q1 RETURN
         (q0.NAME AS _0, q1.NAME AS _1) }'
-    task_count: 3182
-    task_total_time_ms: 534
-    transform_count: 979
-    transform_time_ms: 264
+    task_count: 3577
+    task_total_time_ms: 399
+    transform_count: 976
+    transform_time_ms: 124
     transform_yield_count: 208
-    insert_time_ms: 28
+    insert_time_ms: 20
     insert_new_count: 477
     insert_reused_count: 31
 -   query: EXPLAIN select dept.name, project.name from emp inner join dept on emp.dept_id
@@ -36,10 +36,10 @@ join-tests:
         -> { COVERING(EMPDEPT [EQUALS q0.ID] -> [DEPT_ID: KEY:[0], ID: KEY:[2]]) |
         FILTER q1.EMP_ID EQUALS _.ID | MAP (1 AS _0) AS q2 RETURN q1 } AS q1 RETURN
         (q0.NAME AS _0, q1.NAME AS _1) }'
-    task_count: 3182
-    task_total_time_ms: 291
-    transform_count: 979
-    transform_time_ms: 93
+    task_count: 3577
+    task_total_time_ms: 363
+    transform_count: 976
+    transform_time_ms: 109
     transform_yield_count: 208
     insert_time_ms: 15
     insert_new_count: 477
@@ -51,10 +51,10 @@ join-tests:
         -> { COVERING(EMPDEPT [EQUALS q0.ID] -> [DEPT_ID: KEY:[0], ID: KEY:[2]]) |
         FILTER q1.EMP_ID EQUALS _.ID | MAP (1 AS _0) AS q2 RETURN q1 } AS q1 RETURN
         (q0.NAME AS _0, q1.NAME AS _1) }'
-    task_count: 3182
-    task_total_time_ms: 291
-    transform_count: 979
-    transform_time_ms: 93
+    task_count: 3577
+    task_total_time_ms: 363
+    transform_count: 976
+    transform_time_ms: 109
     transform_yield_count: 208
     insert_time_ms: 15
     insert_new_count: 477
@@ -66,12 +66,12 @@ join-tests:
         -> { COVERING(EMPDEPT [EQUALS q0.ID] -> [DEPT_ID: KEY:[0], ID: KEY:[2]]) |
         FILTER q1.EMP_ID EQUALS _.ID | MAP (1 AS _0) AS q2 RETURN q1 } AS q1 RETURN
         (q0.NAME AS _0, q1.NAME AS _1) }'
-    task_count: 3212
-    task_total_time_ms: 558
-    transform_count: 983
-    transform_time_ms: 279
+    task_count: 3610
+    task_total_time_ms: 321
+    transform_count: 980
+    transform_time_ms: 107
     transform_yield_count: 210
-    insert_time_ms: 24
+    insert_time_ms: 13
     insert_new_count: 481
     insert_reused_count: 31
 -   query: EXPLAIN select (*) from (select dept.name, project.name from emp, dept,
@@ -81,12 +81,12 @@ join-tests:
         -> { COVERING(EMPDEPT [EQUALS q0.ID] -> [DEPT_ID: KEY:[0], ID: KEY:[2]]) |
         FILTER q1.EMP_ID EQUALS _.ID | MAP (1 AS _0) AS q2 RETURN q1 } AS q1 RETURN
         ((q0.NAME AS _0, q1.NAME AS _1) AS X) }'
-    task_count: 3212
-    task_total_time_ms: 544
-    transform_count: 983
-    transform_time_ms: 255
+    task_count: 3610
+    task_total_time_ms: 459
+    transform_count: 980
+    transform_time_ms: 138
     transform_yield_count: 210
-    insert_time_ms: 31
+    insert_time_ms: 18
     insert_new_count: 481
     insert_reused_count: 31
 -   query: EXPLAIN select dept.name, project.name from project inner join emp on emp.id
@@ -95,12 +95,12 @@ join-tests:
     explain: ISCAN(DEPTNAME <,>) | FLATMAP q0 -> { SCAN([IS PROJECT]) | FLATMAP q1
         -> { SCAN([IS EMP, EQUALS q1.EMP_ID]) | FILTER _.DEPT_ID EQUALS q0.ID AS q2
         RETURN q1 } AS q1 RETURN (q0.NAME AS _0, q1.NAME AS _1) }
-    task_count: 3225
-    task_total_time_ms: 230
-    transform_count: 981
-    transform_time_ms: 64
+    task_count: 3633
+    task_total_time_ms: 457
+    transform_count: 978
+    transform_time_ms: 132
     transform_yield_count: 213
-    insert_time_ms: 8
+    insert_time_ms: 16
     insert_new_count: 494
     insert_reused_count: 28
 -   query: EXPLAIN select dept.id, dept.name, project.name from emp, dept, project
@@ -112,12 +112,12 @@ join-tests:
         | FLATMAP q1 -> { COVERING(EMPDEPT [EQUALS q0.ID] -> [DEPT_ID: KEY:[0], ID:
         KEY:[2]]) | FILTER q1.EMP_ID EQUALS _.ID | MAP (1 AS _0) AS q2 RETURN q1 }
         AS q1 RETURN (q0.ID AS ID, q0.NAME AS _1, q1.NAME AS _2) }'
-    task_count: 3678
-    task_total_time_ms: 411
-    transform_count: 1135
-    transform_time_ms: 134
+    task_count: 4136
+    task_total_time_ms: 467
+    transform_count: 1132
+    transform_time_ms: 135
     transform_yield_count: 233
-    insert_time_ms: 22
+    insert_time_ms: 19
     insert_new_count: 552
     insert_reused_count: 42
 -   query: EXPLAIN select dept.id, dept.name, project.name from emp inner join dept
@@ -129,12 +129,12 @@ join-tests:
         | FLATMAP q1 -> { COVERING(EMPDEPT [EQUALS q0.ID] -> [DEPT_ID: KEY:[0], ID:
         KEY:[2]]) | FILTER q1.EMP_ID EQUALS _.ID | MAP (1 AS _0) AS q2 RETURN q1 }
         AS q1 RETURN (q0.ID AS ID, q0.NAME AS _1, q1.NAME AS _2) }'
-    task_count: 3678
-    task_total_time_ms: 400
-    transform_count: 1135
-    transform_time_ms: 136
+    task_count: 4136
+    task_total_time_ms: 524
+    transform_count: 1132
+    transform_time_ms: 157
     transform_yield_count: 233
-    insert_time_ms: 19
+    insert_time_ms: 20
     insert_new_count: 552
     insert_reused_count: 42
 -   query: EXPLAIN select project.id, project.name from emp, dept, project where emp.dept_id
@@ -147,12 +147,12 @@ join-tests:
         [EQUALS q0.ID] -> [DEPT_ID: KEY:[0], ID: KEY:[2]]) | FILTER q1.EMP_ID EQUALS
         _.ID | MAP (1 AS _0) AS q2 RETURN q1 } AS q1 RETURN (q1.ID AS ID, q1.NAME
         AS NAME) }'
-    task_count: 4386
-    task_total_time_ms: 388
-    transform_count: 1407
-    transform_time_ms: 121
+    task_count: 4917
+    task_total_time_ms: 600
+    transform_count: 1404
+    transform_time_ms: 167
     transform_yield_count: 269
-    insert_time_ms: 24
+    insert_time_ms: 32
     insert_new_count: 656
     insert_reused_count: 60
 -   query: EXPLAIN select dept.id, dept.name, project.name from emp, dept, project
@@ -164,12 +164,12 @@ join-tests:
         [EQUALS q1.ID] -> [DEPT_ID: KEY:[0], ID: KEY:[2]]) | FILTER q2.EMP_ID EQUALS
         _.ID | MAP (1 AS _0) AS q3 RETURN q2 } AS q2 RETURN (q1.ID AS ID, q1.NAME
         AS _1, q2.NAME AS _2) } }'
-    task_count: 21938
-    task_total_time_ms: 1364
-    transform_count: 8114
-    transform_time_ms: 352
+    task_count: 24567
+    task_total_time_ms: 2847
+    transform_count: 8111
+    transform_time_ms: 679
     transform_yield_count: 1209
-    insert_time_ms: 203
+    insert_time_ms: 423
     insert_new_count: 3823
     insert_reused_count: 409
 -   query: EXPLAIN select emp.id, fname from emp, dept where emp.dept_id = dept.id
@@ -179,12 +179,12 @@ join-tests:
         DEPT, EQUALS q0]) } | FLATMAP q1 -> { COVERING(EMPDEPT [EQUALS q1.ID] -> [DEPT_ID:
         KEY:[0], ID: KEY:[2]]) | FILTER NOT _.ID IN promote(@c34 AS ARRAY(LONG)) |
         FETCH AS q2 RETURN (q2.ID AS ID, q2.FNAME AS FNAME) }'
-    task_count: 6259
-    task_total_time_ms: 436
-    transform_count: 1874
-    transform_time_ms: 120
+    task_count: 7092
+    task_total_time_ms: 855
+    transform_count: 1872
+    transform_time_ms: 235
     transform_yield_count: 368
-    insert_time_ms: 21
+    insert_time_ms: 40
     insert_new_count: 1096
     insert_reused_count: 65
 -   query: EXPLAIN select emp.id, fname from emp, dept where dept.id = emp.dept_id
@@ -194,12 +194,12 @@ join-tests:
         DEPT, EQUALS q0]) } | FLATMAP q1 -> { COVERING(EMPDEPT <,> -> [DEPT_ID: KEY:[0],
         ID: KEY:[2]]) | FILTER NOT _.ID IN promote(@c34 AS ARRAY(LONG)) AND q1.ID
         EQUALS _.DEPT_ID | FETCH AS q2 RETURN (q2.ID AS ID, q2.FNAME AS FNAME) }'
-    task_count: 5356
-    task_total_time_ms: 407
-    transform_count: 1623
-    transform_time_ms: 118
+    task_count: 6057
+    task_total_time_ms: 751
+    transform_count: 1621
+    transform_time_ms: 209
     transform_yield_count: 319
-    insert_time_ms: 23
+    insert_time_ms: 34
     insert_new_count: 882
     insert_reused_count: 60
 -   query: EXPLAIN select emp.id from emp, dept where emp.dept_id = dept.id and dept.id
@@ -208,12 +208,12 @@ join-tests:
     explain: SCAN([IS DEPT, EQUALS promote(@c21 AS LONG)]) | FLATMAP q0 -> { [IN arrayDistinct(promote(@c27
         AS ARRAY(LONG)))] | INJOIN q1 -> { SCAN([IS EMP, EQUALS q1]) | FILTER _.DEPT_ID
         EQUALS q0.ID } AS q2 RETURN (q2.ID AS ID) }
-    task_count: 6628
-    task_total_time_ms: 461
-    transform_count: 1915
-    transform_time_ms: 126
+    task_count: 7536
+    task_total_time_ms: 921
+    transform_count: 1913
+    transform_time_ms: 232
     transform_yield_count: 406
-    insert_time_ms: 23
+    insert_time_ms: 37
     insert_new_count: 1216
     insert_reused_count: 60
 -   query: EXPLAIN select * from ja join jb using(c1) join jd using(c1);
@@ -222,12 +222,12 @@ join-tests:
         JA, EQUALS q1.C1]) | FILTER _.C1 EQUALS q0.C1 AS q2 RETURN (q2 AS _0, q1 AS
         _1) } AS q3 RETURN (q3._0.C1 AS C1, q3._0.C2 AS C2, q3._1.C3 AS C3, q0.C4
         AS C4) }
-    task_count: 1215
-    task_total_time_ms: 69
-    transform_count: 512
-    transform_time_ms: 23
+    task_count: 1326
+    task_total_time_ms: 173
+    transform_count: 509
+    transform_time_ms: 58
     transform_yield_count: 80
-    insert_time_ms: 2
+    insert_time_ms: 7
     insert_new_count: 136
     insert_reused_count: 21
 -   query: EXPLAIN select jua.c5, jub.c5, jud.c5 from jua join jub using(c1) join
@@ -236,12 +236,12 @@ join-tests:
     explain: SCAN([IS JUD]) | FLATMAP q0 -> { SCAN([IS JUB]) | FLATMAP q1 -> { SCAN([IS
         JUA, EQUALS q1.C1]) | FILTER _.C1 EQUALS q0.C1 AS q2 RETURN (q2 AS _0, q1
         AS _1) } AS q3 RETURN (q3._0.C5 AS _0, q3._1.C5 AS _1, q0.C5 AS _2) }
-    task_count: 1215
-    task_total_time_ms: 102
-    transform_count: 511
-    transform_time_ms: 32
+    task_count: 1326
+    task_total_time_ms: 209
+    transform_count: 508
+    transform_time_ms: 59
     transform_yield_count: 80
-    insert_time_ms: 3
+    insert_time_ms: 12
     insert_new_count: 136
     insert_reused_count: 21
 -   query: EXPLAIN select * from jua join (select * from jub join jud using(c1)) as
@@ -251,12 +251,12 @@ join-tests:
         q1 -> { SCAN([IS JUA, EQUALS q1.C1]) AS q2 RETURN (q2 AS _0, q1 AS _1) } AS
         q3 RETURN (q3._0.C1 AS C1, q3._0.C2 AS C2, q3._0.C5 AS _2, q3._1.C3 AS C3,
         q3._1.C5 AS _4, q0.C4 AS C4, q0.C5 AS _6) }
-    task_count: 1497
-    task_total_time_ms: 174
-    transform_count: 595
-    transform_time_ms: 52
+    task_count: 1644
+    task_total_time_ms: 285
+    transform_count: 592
+    transform_time_ms: 76
     transform_yield_count: 97
-    insert_time_ms: 6
+    insert_time_ms: 9
     insert_new_count: 184
     insert_reused_count: 26
 -   query: EXPLAIN select emp.fname, emp.lname from emp, dept where emp.lname > dept.name
@@ -265,12 +265,12 @@ join-tests:
     explain: ISCAN(DEPTNAME [EQUALS promote(@c25 AS STRING)]) | FLATMAP q0 -> { ISCAN(EMPNAME
         [[GREATER_THAN q0.NAME && LESS_THAN promote(@c31 AS STRING)]]) AS q1 RETURN
         (q1.FNAME AS FNAME, q1.LNAME AS LNAME) }
-    task_count: 1084
-    task_total_time_ms: 290
-    transform_count: 283
-    transform_time_ms: 163
+    task_count: 1225
+    task_total_time_ms: 148
+    transform_count: 279
+    transform_time_ms: 57
     transform_yield_count: 92
-    insert_time_ms: 17
+    insert_time_ms: 3
     insert_new_count: 152
     insert_reused_count: 10
 -   query: EXPLAIN select emp.fname, emp.lname from emp, dept where dept.name < emp.lname
@@ -280,10 +280,10 @@ join-tests:
         { COVERING(DEPTNAME [EQUALS promote(@c25 AS STRING)] -> [ID: KEY:[2], NAME:
         KEY:[0]]) | FILTER _.NAME LESS_THAN q0.LNAME | FETCH AS q1 RETURN (q0.FNAME
         AS FNAME, q0.LNAME AS LNAME) }'
-    task_count: 1172
-    task_total_time_ms: 104
-    transform_count: 307
-    transform_time_ms: 42
+    task_count: 1324
+    task_total_time_ms: 133
+    transform_count: 303
+    transform_time_ms: 52
     transform_yield_count: 100
     insert_time_ms: 3
     insert_new_count: 167
@@ -292,22 +292,22 @@ join-tests:
     ref: join-tests.yamsql:488
     explain: SCAN([IS JA]) | FLATMAP q0 -> { SCAN([IS JB]) AS q1 RETURN (q0.C1 AS
         C1, q0.C2 AS C2, q1.C3 AS C3) }
-    task_count: 460
-    task_total_time_ms: 23
-    transform_count: 151
-    transform_time_ms: 7
+    task_count: 506
+    task_total_time_ms: 63
+    transform_count: 147
+    transform_time_ms: 20
     transform_yield_count: 38
-    insert_time_ms: 0
+    insert_time_ms: 1
     insert_new_count: 50
     insert_reused_count: 6
 -   query: EXPLAIN select ja.c1, ja.c2, jb.c3 from ja, jb where true;
     ref: join-tests.yamsql:494
     explain: SCAN([IS JA]) | FLATMAP q0 -> { SCAN([IS JB]) AS q1 RETURN (q0.C1 AS
         C1, q0.C2 AS C2, q1.C3 AS C3) }
-    task_count: 460
-    task_total_time_ms: 49
-    transform_count: 151
-    transform_time_ms: 16
+    task_count: 506
+    task_total_time_ms: 61
+    transform_count: 147
+    transform_time_ms: 21
     transform_yield_count: 38
     insert_time_ms: 1
     insert_new_count: 50
@@ -316,10 +316,10 @@ join-tests:
     ref: join-tests.yamsql:500
     explain: SCAN([IS JA]) | FLATMAP q0 -> { SCAN([IS JB]) | FILTER false AS q1 RETURN
         (q0.C1 AS C1, q0.C2 AS C2, q1.C3 AS C3) }
-    task_count: 466
-    task_total_time_ms: 59
-    transform_count: 149
-    transform_time_ms: 14
+    task_count: 514
+    task_total_time_ms: 51
+    transform_count: 145
+    transform_time_ms: 16
     transform_yield_count: 38
     insert_time_ms: 1
     insert_new_count: 54
@@ -328,12 +328,12 @@ join-tests:
     ref: join-tests.yamsql:506
     explain: SCAN([IS JA]) | FLATMAP q0 -> { SCAN([IS JB]) | FILTER false AS q1 RETURN
         (q0.C1 AS C1, q0.C2 AS C2, q1.C3 AS C3) }
-    task_count: 466
-    task_total_time_ms: 30
-    transform_count: 149
-    transform_time_ms: 10
+    task_count: 514
+    task_total_time_ms: 40
+    transform_count: 145
+    transform_time_ms: 14
     transform_yield_count: 38
-    insert_time_ms: 0
+    insert_time_ms: 1
     insert_new_count: 54
     insert_reused_count: 6
 -   query: EXPLAIN select ja.c1, ja.c2, jb.c3 from ja inner join jb on cast(null as
@@ -341,10 +341,10 @@ join-tests:
     ref: join-tests.yamsql:512
     explain: SCAN([IS JA]) | FLATMAP q0 -> { SCAN([IS JB]) | FILTER null AS q1 RETURN
         (q0.C1 AS C1, q0.C2 AS C2, q1.C3 AS C3) }
-    task_count: 447
-    task_total_time_ms: 15
-    transform_count: 143
-    transform_time_ms: 5
+    task_count: 494
+    task_total_time_ms: 64
+    transform_count: 141
+    transform_time_ms: 21
     transform_yield_count: 36
     insert_time_ms: 0
     insert_new_count: 49
@@ -353,34 +353,34 @@ join-tests:
     ref: join-tests.yamsql:518
     explain: SCAN([IS JA]) | FLATMAP q0 -> { SCAN([IS JB]) | FILTER null AS q1 RETURN
         (q0.C1 AS C1, q0.C2 AS C2, q1.C3 AS C3) }
-    task_count: 447
-    task_total_time_ms: 32
-    transform_count: 143
-    transform_time_ms: 12
+    task_count: 494
+    task_total_time_ms: 67
+    transform_count: 141
+    transform_time_ms: 21
     transform_yield_count: 36
-    insert_time_ms: 0
+    insert_time_ms: 1
     insert_new_count: 49
     insert_reused_count: 6
 -   query: EXPLAIN select ja.c1, ja.c2, jb.c3 from ja inner join jb on null;
     ref: join-tests.yamsql:524
     explain: SCAN([IS JA]) | FLATMAP q0 -> { SCAN([IS JB]) | FILTER null AS q1 RETURN
         (q0.C1 AS C1, q0.C2 AS C2, q1.C3 AS C3) }
-    task_count: 447
-    task_total_time_ms: 37
-    transform_count: 143
-    transform_time_ms: 11
+    task_count: 494
+    task_total_time_ms: 57
+    transform_count: 141
+    transform_time_ms: 16
     transform_yield_count: 36
-    insert_time_ms: 1
+    insert_time_ms: 0
     insert_new_count: 49
     insert_reused_count: 6
 -   query: EXPLAIN select ja.c1, ja.c2, jb.c3 from ja, jb where null;
     ref: join-tests.yamsql:530
     explain: SCAN([IS JA]) | FLATMAP q0 -> { SCAN([IS JB]) | FILTER null AS q1 RETURN
         (q0.C1 AS C1, q0.C2 AS C2, q1.C3 AS C3) }
-    task_count: 447
-    task_total_time_ms: 30
-    transform_count: 143
-    transform_time_ms: 10
+    task_count: 494
+    task_total_time_ms: 55
+    transform_count: 141
+    transform_time_ms: 14
     transform_yield_count: 36
     insert_time_ms: 0
     insert_new_count: 49
@@ -393,12 +393,12 @@ three-way-joins-right-deep-planner:
         [EQUALS q0.ID]) | FLATMAP q1 -> { SCAN([IS PROJECT]) | FILTER _.EMP_ID EQUALS
         q1.ID AS q2 RETURN q1 } AS q1 RETURN (q1.FNAME AS FNAME, q1.LNAME AS LNAME)
         }
-    task_count: 2430
-    task_total_time_ms: 197
-    transform_count: 679
-    transform_time_ms: 59
+    task_count: 2745
+    task_total_time_ms: 295
+    transform_count: 673
+    transform_time_ms: 98
     transform_yield_count: 175
-    insert_time_ms: 5
+    insert_time_ms: 7
     insert_new_count: 376
     insert_reused_count: 22
 -   query: EXPLAIN select dept.name, project.name from emp, dept, project where emp.dept_id
@@ -407,12 +407,12 @@ three-way-joins-right-deep-planner:
     explain: ISCAN(DEPTNAME <,>) | FLATMAP q0 -> { ISCAN(EMPDEPT [EQUALS q0.ID]) |
         FLATMAP q1 -> { SCAN([IS PROJECT]) | FILTER _.EMP_ID EQUALS q1.ID AS q2 RETURN
         q2 } AS q2 RETURN (q0.NAME AS _0, q2.NAME AS _1) }
-    task_count: 2134
-    task_total_time_ms: 186
-    transform_count: 605
-    transform_time_ms: 57
+    task_count: 2408
+    task_total_time_ms: 295
+    transform_count: 602
+    transform_time_ms: 94
     transform_yield_count: 157
-    insert_time_ms: 4
+    insert_time_ms: 9
     insert_new_count: 323
     insert_reused_count: 21
 -   query: EXPLAIN select dept.name, project.name from emp inner join dept on emp.dept_id
@@ -421,12 +421,12 @@ three-way-joins-right-deep-planner:
     explain: ISCAN(DEPTNAME <,>) | FLATMAP q0 -> { ISCAN(EMPDEPT [EQUALS q0.ID]) |
         FLATMAP q1 -> { SCAN([IS PROJECT]) | FILTER _.EMP_ID EQUALS q1.ID AS q2 RETURN
         q2 } AS q2 RETURN (q0.NAME AS _0, q2.NAME AS _1) }
-    task_count: 2134
-    task_total_time_ms: 193
-    transform_count: 605
-    transform_time_ms: 58
+    task_count: 2408
+    task_total_time_ms: 235
+    transform_count: 602
+    transform_time_ms: 71
     transform_yield_count: 157
-    insert_time_ms: 4
+    insert_time_ms: 6
     insert_new_count: 323
     insert_reused_count: 21
 -   query: EXPLAIN select * from (select dept.name, project.name from emp, dept, project
@@ -435,12 +435,12 @@ three-way-joins-right-deep-planner:
     explain: ISCAN(DEPTNAME <,>) | FLATMAP q0 -> { ISCAN(EMPDEPT [EQUALS q0.ID]) |
         FLATMAP q1 -> { SCAN([IS PROJECT]) | FILTER _.EMP_ID EQUALS q1.ID AS q2 RETURN
         q2 } AS q2 RETURN (q0.NAME AS _0, q2.NAME AS _1) }
-    task_count: 2164
-    task_total_time_ms: 168
-    transform_count: 609
-    transform_time_ms: 51
+    task_count: 2441
+    task_total_time_ms: 251
+    transform_count: 606
+    transform_time_ms: 84
     transform_yield_count: 159
-    insert_time_ms: 8
+    insert_time_ms: 9
     insert_new_count: 327
     insert_reused_count: 21
 -   query: EXPLAIN select (*) from (select dept.name, project.name from emp, dept,
@@ -449,12 +449,12 @@ three-way-joins-right-deep-planner:
     explain: ISCAN(DEPTNAME <,>) | FLATMAP q0 -> { ISCAN(EMPDEPT [EQUALS q0.ID]) |
         FLATMAP q1 -> { SCAN([IS PROJECT]) | FILTER _.EMP_ID EQUALS q1.ID AS q2 RETURN
         q2 } AS q2 RETURN ((q0.NAME AS _0, q2.NAME AS _1) AS X) }
-    task_count: 2164
-    task_total_time_ms: 197
-    transform_count: 609
-    transform_time_ms: 64
+    task_count: 2441
+    task_total_time_ms: 283
+    transform_count: 606
+    transform_time_ms: 102
     transform_yield_count: 159
-    insert_time_ms: 5
+    insert_time_ms: 8
     insert_new_count: 327
     insert_reused_count: 21
 -   query: EXPLAIN select dept.name, project.name from project inner join emp on emp.id
@@ -463,12 +463,12 @@ three-way-joins-right-deep-planner:
     explain: ISCAN(DEPTNAME <,>) | FLATMAP q0 -> { SCAN([IS PROJECT]) | FLATMAP q1
         -> { SCAN([IS EMP, EQUALS q1.EMP_ID]) | FILTER _.DEPT_ID EQUALS q0.ID AS q2
         RETURN q1 } AS q1 RETURN (q0.NAME AS _0, q1.NAME AS _1) }
-    task_count: 2145
-    task_total_time_ms: 146
-    transform_count: 604
-    transform_time_ms: 44
+    task_count: 2424
+    task_total_time_ms: 233
+    transform_count: 601
+    transform_time_ms: 73
     transform_yield_count: 159
-    insert_time_ms: 3
+    insert_time_ms: 6
     insert_new_count: 330
     insert_reused_count: 19
 -   query: EXPLAIN select dept.id, dept.name, project.name from emp, dept, project
@@ -480,10 +480,10 @@ three-way-joins-right-deep-planner:
         [EQUALS q0.ID]) | FLATMAP q1 -> { SCAN([IS PROJECT]) | FILTER _.EMP_ID EQUALS
         q1.ID AS q2 RETURN q2 } AS q2 RETURN (q0.ID AS ID, q0.NAME AS _1, q2.NAME
         AS _2) }'
-    task_count: 2388
-    task_total_time_ms: 216
-    transform_count: 675
-    transform_time_ms: 67
+    task_count: 2695
+    task_total_time_ms: 305
+    transform_count: 672
+    transform_time_ms: 101
     transform_yield_count: 172
     insert_time_ms: 9
     insert_new_count: 361
@@ -497,12 +497,12 @@ three-way-joins-right-deep-planner:
         [EQUALS q0.ID]) | FLATMAP q1 -> { SCAN([IS PROJECT]) | FILTER _.EMP_ID EQUALS
         q1.ID AS q2 RETURN q2 } AS q2 RETURN (q0.ID AS ID, q0.NAME AS _1, q2.NAME
         AS _2) }'
-    task_count: 2388
-    task_total_time_ms: 214
-    transform_count: 675
-    transform_time_ms: 67
+    task_count: 2695
+    task_total_time_ms: 300
+    transform_count: 672
+    transform_time_ms: 107
     transform_yield_count: 172
-    insert_time_ms: 5
+    insert_time_ms: 10
     insert_new_count: 361
     insert_reused_count: 24
 -   query: EXPLAIN select project.id, project.name from emp, dept, project where emp.dept_id
@@ -514,12 +514,12 @@ three-way-joins-right-deep-planner:
         [EQUALS q0.ID]) | FLATMAP q1 -> { SCAN([IS PROJECT]) | FILTER NOT _.ID IN
         promote(@c36 AS ARRAY(LONG)) AND _.EMP_ID EQUALS q1.ID AS q2 RETURN q2 } AS
         q2 RETURN (q2.ID AS ID, q2.NAME AS NAME) }'
-    task_count: 2496
-    task_total_time_ms: 194
-    transform_count: 716
-    transform_time_ms: 67
+    task_count: 2813
+    task_total_time_ms: 319
+    transform_count: 713
+    transform_time_ms: 94
     transform_yield_count: 178
-    insert_time_ms: 6
+    insert_time_ms: 9
     insert_new_count: 375
     insert_reused_count: 26
 -   query: EXPLAIN select dept.id, dept.name, project.name from emp, dept, project
@@ -530,12 +530,12 @@ three-way-joins-right-deep-planner:
         DEPT, EQUALS q0]) } | FLATMAP q1 -> { ISCAN(EMPDEPT [EQUALS q1.ID]) | FLATMAP
         q2 -> { SCAN([IS PROJECT]) | FILTER _.EMP_ID EQUALS q2.ID AS q3 RETURN q3
         } AS q3 RETURN (q1.ID AS ID, q1.NAME AS _1, q3.NAME AS _2) }'
-    task_count: 8828
-    task_total_time_ms: 538
-    transform_count: 2649
-    transform_time_ms: 148
+    task_count: 9994
+    task_total_time_ms: 640
+    transform_count: 2646
+    transform_time_ms: 184
     transform_yield_count: 525
-    insert_time_ms: 27
+    insert_time_ms: 36
     insert_new_count: 1559
     insert_reused_count: 110
 -   query: EXPLAIN select * from ja join jb using(c1) join jd using(c1);
@@ -544,12 +544,12 @@ three-way-joins-right-deep-planner:
         JA, EQUALS q1.C1]) | FILTER _.C1 EQUALS q0.C1 AS q2 RETURN (q2 AS _0, q1 AS
         _1) } AS q3 RETURN (q3._0.C1 AS C1, q3._0.C2 AS C2, q3._1.C3 AS C3, q0.C4
         AS C4) }
-    task_count: 912
-    task_total_time_ms: 32
-    transform_count: 356
-    transform_time_ms: 11
+    task_count: 996
+    task_total_time_ms: 144
+    transform_count: 353
+    transform_time_ms: 50
     transform_yield_count: 65
-    insert_time_ms: 1
+    insert_time_ms: 5
     insert_new_count: 106
     insert_reused_count: 12
 -   query: EXPLAIN select jua.c5, jub.c5, jud.c5 from jua join jub using(c1) join
@@ -558,9 +558,9 @@ three-way-joins-right-deep-planner:
     explain: SCAN([IS JUD]) | FLATMAP q0 -> { SCAN([IS JUB]) | FLATMAP q1 -> { SCAN([IS
         JUA, EQUALS q1.C1]) | FILTER _.C1 EQUALS q0.C1 AS q2 RETURN (q2 AS _0, q1
         AS _1) } AS q3 RETURN (q3._0.C5 AS _0, q3._1.C5 AS _1, q0.C5 AS _2) }
-    task_count: 912
-    task_total_time_ms: 91
-    transform_count: 355
+    task_count: 996
+    task_total_time_ms: 110
+    transform_count: 352
     transform_time_ms: 30
     transform_yield_count: 65
     insert_time_ms: 2
@@ -573,11 +573,11 @@ three-way-joins-right-deep-planner:
         q1 -> { SCAN([IS JUA, EQUALS q1.C1]) AS q2 RETURN (q2 AS _0, q1 AS _1) } AS
         q3 RETURN (q3._0.C1 AS C1, q3._0.C2 AS C2, q3._0.C5 AS _2, q3._1.C3 AS C3,
         q3._1.C5 AS _4, q0.C4 AS C4, q0.C5 AS _6) }
-    task_count: 1094
-    task_total_time_ms: 112
-    transform_count: 387
-    transform_time_ms: 39
+    task_count: 1207
+    task_total_time_ms: 165
+    transform_count: 384
+    transform_time_ms: 44
     transform_yield_count: 78
-    insert_time_ms: 2
+    insert_time_ms: 11
     insert_new_count: 137
     insert_reused_count: 13
