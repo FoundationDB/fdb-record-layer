@@ -25,7 +25,6 @@ schema_template:
     create table T(id bigint, primary key(id))
 ---
 test_block:
-  preset: single_repetition_ordered
   tests:
     -
       - query: SELECT 'bob' AS greeting
