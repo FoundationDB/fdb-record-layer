@@ -35,6 +35,11 @@ schema_template:
     create index deptName as select name from dept
     create stored query by_col1_typed as select * from t1 where col1 > ?{bigint}
     create stored query by_name_typed as select * from dept where name = ?{string}
+    create stored query by_col1_declared
+        declare
+            function above(in threshold bigint) as (select * from t1 where col1 > threshold)
+    as
+        select * from above(?{bigint})
 ---
 setup:
   steps:
@@ -56,4 +61,10 @@ test_block:
     -
       - query: select * from dept where name = 'Sales'
       - result: [{ID: 20, NAME: 'Sales'}]
+    -
+      # runtime counterpart of by_col1_declared: reinstall the same temp function, then invoke it
+      - query: select * from above(20)
+      - setup: create temporary function above(in threshold bigint) on commit drop function as
+               select * from t1 where col1 > threshold
+      - unorderedResult: [{ID: 3, COL1: 30}]
 ...

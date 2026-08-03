@@ -51,7 +51,7 @@ At runtime, an ordinary parameterized query reuses the warmed plan:
 
 .. code-block:: sql
 
-    SELECT * FROM t1 WHERE col1 > ?    -- bound to a BIGINT value; hits the warmed plan
+    SELECT * FROM t1 WHERE col1 > ?    -- bound to a BIGINT value; hits the warmed plan: RelationalPreparedStatement.setLong(1, 20L);
 
 Supported types are the primitive types ``BOOLEAN``, ``INTEGER``, ``BIGINT``, ``FLOAT``, ``DOUBLE``, ``STRING``, ``BYTES``, and ``UUID``, plus the special ``NULL`` (see below).
 
