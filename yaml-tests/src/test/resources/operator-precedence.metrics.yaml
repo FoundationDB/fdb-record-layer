@@ -1,0 +1,40 @@
+unnamed-2:
+-   query: EXPLAIN select a1 from A where a4 is true or a2 > 10 and a1 > 10
+    ref: operator-precedence.yamsql:65
+    explain: SCAN([IS A]) | FILTER _.A4 NOT_NULL AND _.A4 EQUALS promote('true' AS
+        BOOLEAN) ∪ SCAN([IS A, [GREATER_THAN promote(@c11 AS LONG)]]) | FILTER _.A2
+        GREATER_THAN promote(@c11 AS INT) COMPARE BY (_.A1) | MAP (_.A1 AS A1)
+    task_count: 1855
+    task_total_time_ms: 403
+    transform_count: 498
+    transform_time_ms: 195
+    transform_yield_count: 110
+    insert_time_ms: 23
+    insert_new_count: 212
+    insert_reused_count: 26
+-   query: EXPLAIN select a1 from A where NOT a4 is false or a2 > 10 and a1 > 10
+    ref: operator-precedence.yamsql:72
+    explain: SCAN([IS A]) | FILTER NOT _.A4 NOT_NULL ∪ SCAN([IS A]) | FILTER _.A4
+        NOT_EQUALS 'false' ∪ SCAN([IS A, [GREATER_THAN promote(@c12 AS LONG)]]) |
+        FILTER _.A2 GREATER_THAN @c12 COMPARE BY (_.A1) | MAP (_.A1 AS A1)
+    task_count: 1349
+    task_total_time_ms: 171
+    transform_count: 364
+    transform_time_ms: 65
+    transform_yield_count: 78
+    insert_time_ms: 8
+    insert_new_count: 149
+    insert_reused_count: 21
+-   query: EXPLAIN select a1 from A where a4 is true || a2 > 10 && a1 > 10
+    ref: operator-precedence.yamsql:79
+    explain: SCAN([IS A]) | FILTER _.A4 NOT_NULL AND _.A4 EQUALS promote('true' AS
+        BOOLEAN) ∪ SCAN([IS A, [GREATER_THAN promote(@c11 AS LONG)]]) | FILTER _.A2
+        GREATER_THAN promote(@c11 AS INT) COMPARE BY (_.A1) | MAP (_.A1 AS A1)
+    task_count: 1855
+    task_total_time_ms: 391
+    transform_count: 498
+    transform_time_ms: 186
+    transform_yield_count: 110
+    insert_time_ms: 22
+    insert_new_count: 212
+    insert_reused_count: 26

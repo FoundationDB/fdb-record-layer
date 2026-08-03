@@ -906,7 +906,7 @@ public interface TypedVisitor extends RelationalParserVisitor<Object> {
 
     @Nonnull
     @Override
-    Expression visitBinaryComparisonPredicate(@Nonnull RelationalParser.BinaryComparisonPredicateContext ctx);
+    Expression visitBinaryComparisonExpression(@Nonnull RelationalParser.BinaryComparisonExpressionContext ctx);
 
     @Override
     Expression visitSubscriptExpression(@Nonnull RelationalParser.SubscriptExpressionContext ctx);
@@ -962,18 +962,6 @@ public interface TypedVisitor extends RelationalParserVisitor<Object> {
     @Nonnull
     @Override
     Object visitComparisonOperator(@Nonnull RelationalParser.ComparisonOperatorContext ctx);
-
-    @Nonnull
-    @Override
-    Object visitLogicalOperator(@Nonnull RelationalParser.LogicalOperatorContext ctx);
-
-    @Nonnull
-    @Override
-    Object visitBitOperator(@Nonnull RelationalParser.BitOperatorContext ctx);
-
-    @Nonnull
-    @Override
-    Object visitMathOperator(@Nonnull RelationalParser.MathOperatorContext ctx);
 
     @Nonnull
     @Override
