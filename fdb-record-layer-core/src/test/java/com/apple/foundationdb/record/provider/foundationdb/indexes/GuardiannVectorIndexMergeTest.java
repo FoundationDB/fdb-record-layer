@@ -35,6 +35,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import javax.annotation.Nonnull;
 import java.util.Map;
 import java.util.Random;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.fail;
@@ -52,8 +53,9 @@ class GuardiannVectorIndexMergeTest extends VectorIndexTestBase {
     private static final int NUM_RECORDS = 1000;
     // Per-transaction drain budget while merging to completion (mergeControl.getMergesLimit()).
     private static final int MERGE_BATCH = 100;
-    // Safety bound on the drive loop; convergence for this dataset needs far fewer passes.
-    private static final int MAX_MERGE_PASSES = 200;
+    // Safety bound on the drive loop. Higher than the pure-drain version because the per-prefix merge lease splits
+    // claiming from draining: each partition costs an extra "claim" pass before its drain passes.
+    private static final int MAX_MERGE_PASSES = 500;
     private static final ImmutableList<String> INDEX_NAMES =
             ImmutableList.of("UngroupedVectorIndex", "GroupedVectorIndex");
 
@@ -96,7 +98,8 @@ class GuardiannVectorIndexMergeTest extends VectorIndexTestBase {
 
     /**
      * A single {@code mergeIndex()} honors {@code mergesLimit} (drains at most that many tasks) and, while a backlog
-     * remains, reports {@code mergesFound > mergesTried} so {@code IndexingMerger} keeps looping.
+     * remains, reports {@code mergesFound > mergesTried} so {@code IndexingMerger} keeps looping. With the per-partition
+     * lease, claiming and draining are separate invocations: the first claims (drains nothing), the second drains.
      */
     @ParameterizedTest
     @RandomSeedSource({0x5ca1ab1eL})
@@ -111,17 +114,64 @@ class GuardiannVectorIndexMergeTest extends VectorIndexTestBase {
                     .isTrue();
 
             final IndexDeferredMaintenanceControl mergeControl = recordStore.getIndexDeferredMaintenanceControl();
+            mergeControl.setMergeSessionId(UUID.randomUUID());
             mergeControl.setMergesLimit(1);
-            maintainer.mergeIndex().get();
 
+            // First invocation only claims a partition's lease (the claim must commit before any drain), so it drains
+            // nothing; the second, now owning that partition (read-your-writes sees its own claim), drains one task.
+            maintainer.mergeIndex().get();
+            assertThat(mergeControl.getMergesTried())
+                    .as("the claim invocation drains no tasks").isEqualTo(0L);
+
+            maintainer.mergeIndex().get();
             assertThat(mergeControl.getMergesTried())
                     .as("a budget of 1 drains at most one task").isEqualTo(1L);
-            // The drain is uncommitted but read-your-writes still reflects the decremented counter here.
             if (maintainer.hasOutstandingWork().get()) {
                 assertThat(mergeControl.getMergesFound())
                         .as("with work still queued the driver must be told to loop")
                         .isGreaterThan(mergeControl.getMergesTried());
             }
+        }
+    }
+
+    /**
+     * With a per-partition lease, a second concurrent merge (a different session) that finds a partition already held
+     * by a live owner skips it rather than racing into the same drain. The ungrouped index has a single partition, so
+     * once owner A claims it (committing the claim without draining), owner B has nothing it can do and stops — leaving
+     * the backlog for A to finish.
+     */
+    @Test
+    void secondOwnerSkipsAPrefixHeldByTheFirst() throws Exception {
+        saveRandomRecords(false, this::addUngroupedVectorIndex, new Random(0x5ca1ab1eL), NUM_RECORDS);
+        final UUID ownerA = UUID.randomUUID();
+        final UUID ownerB = UUID.randomUUID();
+
+        // Owner A claims the single prefix: a commit with no drain.
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context, this::addUngroupedVectorIndex);
+            assertThat(maintainerFor("UngroupedVectorIndex").hasOutstandingWork().get()).isTrue();
+            final IndexDeferredMaintenanceControl mergeControl = recordStore.getIndexDeferredMaintenanceControl();
+            mergeControl.setMergeSessionId(ownerA);
+            mergeControl.setMergesLimit(MERGE_BATCH);
+            maintainerFor("UngroupedVectorIndex").mergeIndex().get();
+            assertThat(mergeControl.getMergesTried()).as("A only claims, does not drain").isEqualTo(0L);
+            commit(context);
+        }
+
+        // Owner B, a different session, finds the only prefix held live by A: it drains nothing and stops
+        // (found == tried), so the backlog is untouched and waits for A.
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context, this::addUngroupedVectorIndex);
+            final IndexDeferredMaintenanceControl mergeControl = recordStore.getIndexDeferredMaintenanceControl();
+            mergeControl.setMergeSessionId(ownerB);
+            mergeControl.setMergesLimit(MERGE_BATCH);
+            maintainerFor("UngroupedVectorIndex").mergeIndex().get();
+            assertThat(mergeControl.getMergesTried()).isEqualTo(0L);
+            assertThat(mergeControl.getMergesFound())
+                    .as("B skips A's live-held prefix and stops").isEqualTo(0L);
+            assertThat(maintainerFor("UngroupedVectorIndex").hasOutstandingWork().get())
+                    .as("B drained nothing, so the backlog remains").isTrue();
+            commit(context);
         }
     }
 
@@ -153,10 +203,16 @@ class GuardiannVectorIndexMergeTest extends VectorIndexTestBase {
      * enqueue follow-ups, so the queue drains over several passes), until no outstanding work remains.
      */
     private void drainToCompletion(@Nonnull final String indexName) throws Exception {
+        // One stable session id for the whole drive loop so the maintainer recognizes and keeps its own per-partition
+        // lease across passes — a direct mergeIndex() call gets no id from the (absent) indexing session, so without
+        // this a fresh id each pass would skip its own just-claimed prefix and never drain.
+        final UUID sessionId = UUID.randomUUID();
         for (int pass = 0; pass < MAX_MERGE_PASSES; pass++) {
             try (FDBRecordContext context = openContext()) {
                 openRecordStore(context, this::addVectorIndexes);
-                recordStore.getIndexDeferredMaintenanceControl().setMergesLimit(MERGE_BATCH);
+                final IndexDeferredMaintenanceControl mergeControl = recordStore.getIndexDeferredMaintenanceControl();
+                mergeControl.setMergeSessionId(sessionId);
+                mergeControl.setMergesLimit(MERGE_BATCH);
                 maintainerFor(indexName).mergeIndex().get();
                 commit(context);
             }

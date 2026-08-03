@@ -156,4 +156,18 @@ final class VectorIndexTaskCounts {
     private static long decodeCount(@Nullable final byte[] value) {
         return value == null ? 0L : AtomicMutation.Standard.decodeUnsignedLong(value);
     }
+
+    /**
+     * Snapshot-reads the outstanding task count for a single {@code prefix}. Read-your-writes-aware within the
+     * transaction — the atomic {@code ADD}/{@code COMPARE_AND_CLEAR} mutations of a drain in flight are reflected — so a
+     * merge can ask "is this partition empty now?" immediately after draining it (including any follow-up tasks the
+     * drain enqueued).
+     * @param snapshot a snapshot read view
+     * @param prefix the partition prefix
+     * @return a future of the current outstanding count for {@code prefix} ({@code 0} if the entry is absent)
+     */
+    @Nonnull
+    CompletableFuture<Long> countFor(@Nonnull final ReadTransaction snapshot, @Nonnull final Tuple prefix) {
+        return snapshot.get(perPrefixSubspace.pack(prefix)).thenApply(VectorIndexTaskCounts::decodeCount);
+    }
 }
