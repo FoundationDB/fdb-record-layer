@@ -195,13 +195,7 @@ public interface RealVector {
      */
     default double dot(@Nonnull final RealVector other) {
         Preconditions.checkArgument(getNumDimensions() == other.getNumDimensions());
-        double sum = 0.0d;
-        final double[] thisData = getData();
-        final double[] otherData = other.getData();
-        for (int i = 0; i < thisData.length; i++) {
-            sum += thisData[i] * otherData[i];
-        }
-        return sum;
+        return RealVectorPrimitives.dot(getData(), other.getData());
     }
 
     /**
@@ -212,14 +206,7 @@ public interface RealVector {
      */
     default double l2SquaredDistance(@Nonnull final RealVector other) {
         Preconditions.checkArgument(getNumDimensions() == other.getNumDimensions());
-        double sum = 0.0d;
-        final double[] thisData = getData();
-        final double[] otherData = other.getData();
-        for (int i = 0; i < thisData.length; i++) {
-            final double diff = thisData[i] - otherData[i];
-            sum += diff * diff;
-        }
-        return sum;
+        return RealVectorPrimitives.euclideanSquared(getData(), other.getData());
     }
 
     /**
@@ -245,12 +232,16 @@ public interface RealVector {
     }
 
     /**
-     * Returns the squared L2 norm {@code Σ_i this[i]^2}. Implementations typically memoize this
-     * since the value is reused by {@link #l2Norm()} and several distance helpers.
+     * Returns the squared L2 norm {@code Σ_i this[i]^2}. The default routes through
+     * {@link RealVectorPrimitives#l2SquaredNorm(double[])} so the active SIMD/scalar backend is
+     * picked transparently; subtypes are encouraged to override with a memoized variant, since
+     * the value is reused by {@link #l2Norm()} and several distance helpers.
      *
      * @return the squared L2 norm of this vector
      */
-    double l2SquaredNorm();
+    default double l2SquaredNorm() {
+        return RealVectorPrimitives.l2SquaredNorm(getData());
+    }
 
     /**
      * Returns a new vector pointing in the same direction as this vector but scaled to unit L2
@@ -263,7 +254,73 @@ public interface RealVector {
      */
     @Nonnull
     default RealVector normalize() {
-        return withData(RealVectorPrimitives.normalizeInto(this, new double[getNumDimensions()]));
+        return withData(RealVectorPrimitives.normalizeInto(this.getData(), new double[getNumDimensions()]));
+    }
+
+    /**
+     * Bit-reproducible counterpart to {@link #dot(RealVector)} that forces the scalar backend.
+     * Prefer this over {@link #dot(RealVector)} whenever the result is persisted and later
+     * compared byte-for-byte across machines: the ambient SIMD backend can differ from scalar
+     * (and between SIMD hosts of different vector widths) by a few ULPs, which is enough to flip
+     * a downstream hash or {@code floor} boundary. It costs a scalar reduction and is otherwise
+     * identical to {@link #dot(RealVector)}.
+     *
+     * @param other the right operand; must have the same dimensionality as this vector
+     * @return the dot product, computed on the scalar backend
+     * @throws IllegalArgumentException if {@code other} has a different dimensionality
+     */
+    default double dotExact(@Nonnull final RealVector other) {
+        Preconditions.checkArgument(getNumDimensions() == other.getNumDimensions());
+        return RealVectorPrimitives.dotExact(getData(), other.getData());
+    }
+
+    /**
+     * Bit-reproducible counterpart to {@link #l2SquaredNorm()} that forces the scalar backend.
+     * Unlike {@link #l2SquaredNorm()}, this is intentionally <em>not</em> memoized: it always
+     * recomputes from {@link #getData()} so it can never return a value that an earlier SIMD call
+     * cached on a memoizing subtype. See {@link #dotExact(RealVector)} for when to prefer the
+     * exact variants.
+     *
+     * @return the squared L2 norm, computed on the scalar backend
+     */
+    default double l2SquaredNormExact() {
+        return RealVectorPrimitives.l2SquaredNormExact(getData());
+    }
+
+    /**
+     * Bit-reproducible counterpart to {@link #l2Norm()} that forces the scalar backend, via
+     * {@link #l2SquaredNormExact()}. See {@link #dotExact(RealVector)}.
+     *
+     * @return the L2 norm, computed on the scalar backend
+     */
+    default double l2NormExact() {
+        return Math.sqrt(l2SquaredNormExact());
+    }
+
+    /**
+     * Bit-reproducible counterpart to {@link #l2SquaredDistance(RealVector)} that forces the
+     * scalar backend. See {@link #dotExact(RealVector)}.
+     *
+     * @param other the right operand; must have the same dimensionality as this vector
+     * @return the squared Euclidean distance, computed on the scalar backend
+     * @throws IllegalArgumentException if {@code other} has a different dimensionality
+     */
+    default double l2SquaredDistanceExact(@Nonnull final RealVector other) {
+        Preconditions.checkArgument(getNumDimensions() == other.getNumDimensions());
+        return RealVectorPrimitives.euclideanSquaredExact(getData(), other.getData());
+    }
+
+    /**
+     * Bit-reproducible counterpart to {@link #normalize()} that forces the scalar backend for the
+     * underlying norm. Only the norm is a reduction and thus backend-sensitive; the subsequent
+     * element-wise scaling is bit-identical on either backend. See {@link #dotExact(RealVector)}.
+     *
+     * @return a non-null unit-norm vector, normalized using the scalar backend
+     * @throws IllegalArgumentException if this vector's L2 norm is zero, infinite, or NaN
+     */
+    @Nonnull
+    default RealVector normalizeExact() {
+        return withData(RealVectorPrimitives.normalizeIntoExact(this.getData(), new double[getNumDimensions()]));
     }
 
     /**
@@ -276,7 +333,7 @@ public interface RealVector {
      */
     @Nonnull
     default RealVector add(@Nonnull final RealVector other) {
-        return withData(RealVectorPrimitives.addInto(this, other, new double[getNumDimensions()]));
+        return withData(RealVectorPrimitives.addInto(this.getData(), other.getData(), new double[getNumDimensions()]));
     }
 
     /**
@@ -288,7 +345,7 @@ public interface RealVector {
      */
     @Nonnull
     default RealVector add(final double scalar) {
-        return withData(RealVectorPrimitives.addInto(this, scalar, new double[getNumDimensions()]));
+        return withData(RealVectorPrimitives.addInto(this.getData(), scalar, new double[getNumDimensions()]));
     }
 
     /**
@@ -301,7 +358,7 @@ public interface RealVector {
      */
     @Nonnull
     default RealVector subtract(@Nonnull final RealVector other) {
-        return withData(RealVectorPrimitives.subtractInto(this, other, new double[getNumDimensions()]));
+        return withData(RealVectorPrimitives.subtractInto(this.getData(), other.getData(), new double[getNumDimensions()]));
     }
 
     /**
@@ -313,7 +370,7 @@ public interface RealVector {
      */
     @Nonnull
     default RealVector subtract(final double scalar) {
-        return withData(RealVectorPrimitives.subtractInto(this, scalar, new double[getNumDimensions()]));
+        return withData(RealVectorPrimitives.subtractInto(this.getData(), scalar, new double[getNumDimensions()]));
     }
 
     /**
@@ -325,7 +382,7 @@ public interface RealVector {
      */
     @Nonnull
     default RealVector multiply(final double scalar) {
-        return withData(RealVectorPrimitives.multiplyInto(this, scalar, new double[getNumDimensions()]));
+        return withData(RealVectorPrimitives.multiplyInto(this.getData(), scalar, new double[getNumDimensions()]));
     }
 
     /**
@@ -369,15 +426,11 @@ public interface RealVector {
      */
     @Nonnull
     static RealVector fromBytes(@Nonnull final VectorType vectorType, @Nonnull final byte[] vectorBytes) {
-        switch (vectorType) {
-            case HALF:
-                return HalfRealVector.fromBytes(vectorBytes);
-            case SINGLE:
-                return FloatRealVector.fromBytes(vectorBytes);
-            case DOUBLE:
-                return DoubleRealVector.fromBytes(vectorBytes);
-            default:
-                throw new RuntimeException("unable to deserialize vector");
-        }
+        return switch (vectorType) {
+            case HALF -> HalfRealVector.fromBytes(vectorBytes);
+            case SINGLE -> FloatRealVector.fromBytes(vectorBytes);
+            case DOUBLE -> DoubleRealVector.fromBytes(vectorBytes);
+            default -> throw new RuntimeException("unable to deserialize vector");
+        };
     }
 }

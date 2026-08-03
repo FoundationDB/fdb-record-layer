@@ -210,6 +210,7 @@ message MetaData {
   repeated UnnestedRecordType unnested_record_types = 13;
   repeated PUserDefinedFunction user_defined_functions = 14;
   repeated PView views = 15;
+  repeated PStoredQuery stored_queries = 16;
   extensions 1000 to 2000;
 }
 
@@ -223,6 +224,12 @@ message PUserDefinedFunction {
 message PView {
   optional string name = 1;
   optional string definition = 2;
+}
+
+message PStoredQuery {
+  optional string name = 1;
+  optional string query = 2;
+  repeated string temp_functions = 3;
 }
 
 message JoinedRecordType {

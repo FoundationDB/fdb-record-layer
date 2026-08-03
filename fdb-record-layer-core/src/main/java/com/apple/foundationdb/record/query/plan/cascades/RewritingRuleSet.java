@@ -21,7 +21,6 @@
 package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.rules.DecorrelateValuesRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.FinalizeExpressionsRule;
@@ -47,7 +46,7 @@ public class RewritingRuleSet extends CascadesRuleSet {
             new DecorrelateValuesRule(),
             new RewriteOuterJoinRule()
     );
-    private static final Set<CascadesRule<? extends RelationalExpression>> PREORDER_RULES = ImmutableSet.of();
+    private static final Set<AbstractCascadesRule<? extends RelationalExpression>> PREORDER_RULES = ImmutableSet.of();
 
     private static final Set<ImplementationCascadesRule<? extends RelationalExpression>> IMPLEMENTATION_RULES = ImmutableSet.of(
             new SelectMergeRule(),
@@ -72,7 +71,6 @@ public class RewritingRuleSet extends CascadesRuleSet {
     public static final RewritingRuleSet DEFAULT = new RewritingRuleSet();
 
     @VisibleForTesting
-    @SpotBugsSuppressWarnings("NP_NULL_ON_SOME_PATH_FROM_RETURN_VALUE")
     RewritingRuleSet() {
         super(ALL_EXPRESSION_RULES);
     }

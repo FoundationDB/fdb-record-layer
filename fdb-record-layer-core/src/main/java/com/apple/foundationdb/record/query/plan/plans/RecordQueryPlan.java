@@ -259,7 +259,7 @@ public interface RecordQueryPlan extends QueryPlan<FDBQueriedRecord<Message>>, P
         // of the experimental planner. However, they provide access to the underlying groups, which allow us to
         // substitute children without adding additional mutable access to the children of a query plan.
         // This makes some amount of conceptual sense, too, since we're performing the same kind of substitution
-        // that a CascadesRule would provide.
+        // that a AbstractCascadesRule would provide.
 
         for (Quantifier childQuantifier : getQuantifiers()) {
             if (!(childQuantifier instanceof Quantifier.Physical)) {

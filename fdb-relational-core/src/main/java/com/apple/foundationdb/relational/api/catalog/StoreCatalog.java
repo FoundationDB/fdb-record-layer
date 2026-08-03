@@ -21,8 +21,8 @@
 package com.apple.foundationdb.relational.api.catalog;
 
 import com.apple.foundationdb.relational.api.Continuation;
-import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
+import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metadata.Schema;
 
@@ -56,15 +56,17 @@ public interface StoreCatalog {
     Schema loadSchema(@Nonnull Transaction txn, @Nonnull URI databaseId, @Nonnull String schemaName) throws RelationalException;
 
     /**
-     * Updates schema, returns true if succeeds. Change applied after transaction is committed.
-     * When 2 transactions try to update the same schema simultaneously, transaction commit fails with FDBExceptions.FDBStoreTransactionConflictException
+     * Save the given schema.
      *
-     * @param txn         a Transaction
-     * @param dataToWrite the new Schema
+     * @param txn                       a transaction to use for saving the schema
+     * @param dataToWrite               the new Schema
      * @param createDatabaseIfNecessary create the corresponding database entry if it does not exist
+     * @param existsBehavior            what to do if a schema is already present at the target key; note that some
+     * values of this will affect how this save will conflict with other interactions to the schema.
      * @throws RelationalException if something goes wrong, with a specific ErrorCode saying what.
      */
-    void saveSchema(@Nonnull Transaction txn, @Nonnull Schema dataToWrite, boolean createDatabaseIfNecessary) throws RelationalException;
+    void saveSchema(@Nonnull Transaction txn, @Nonnull Schema dataToWrite, boolean createDatabaseIfNecessary,
+                    @Nonnull SchemaExistsBehavior existsBehavior) throws RelationalException;
 
     /**
      * Updates schema to the latest template.

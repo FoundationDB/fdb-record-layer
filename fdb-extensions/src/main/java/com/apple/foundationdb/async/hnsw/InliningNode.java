@@ -24,6 +24,7 @@ import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.linear.RealVector;
 import com.apple.foundationdb.linear.Transformed;
 import com.apple.foundationdb.tuple.Tuple;
+import com.google.common.base.Verify;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -46,7 +47,9 @@ class InliningNode extends AbstractNode<NodeReferenceWithVector> {
         @Override
         public AbstractNode<NodeReferenceWithVector> create(@Nonnull final Tuple primaryKey,
                                                             @Nullable final Transformed<RealVector> vector,
+                                                            @Nullable final Tuple additionalValues,
                                                             @Nonnull final List<? extends NodeReference> neighbors) {
+            Verify.verify(additionalValues == null, "inlining nodes do not carry additional values");
             return new InliningNode(primaryKey, (List<NodeReferenceWithVector>)neighbors);
         }
 
@@ -101,6 +104,11 @@ class InliningNode extends AbstractNode<NodeReferenceWithVector> {
         return NodeKind.INLINING;
     }
 
+    @Override
+    public boolean isCompactNode() {
+        return false;
+    }
+
     /**
      * Casts this node to a {@link CompactNode}.
      * <p>
@@ -113,6 +121,11 @@ class InliningNode extends AbstractNode<NodeReferenceWithVector> {
     @Override
     public CompactNode asCompactNode() {
         throw new IllegalStateException("this is not a compact node");
+    }
+
+    @Override
+    public boolean isInliningNode() {
+        return true;
     }
 
     /**

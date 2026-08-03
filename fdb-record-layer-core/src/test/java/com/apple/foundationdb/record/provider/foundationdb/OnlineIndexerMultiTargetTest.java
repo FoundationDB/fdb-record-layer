@@ -478,6 +478,51 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
     }
 
     @Test
+    void testMultiTargetToSingleTakeover() {
+        // Verify TakeoverTypes.MULTI_TARGET_TO_SINGLE: partly build as multi target, then finish each index
+        // individually as single target with only that takeover type allowed.
+
+        final FDBStoreTimer timer = new FDBStoreTimer();
+        final int numRecords = 80;
+        final int chunkSize  = 13;
+
+        List<Index> indexes = new ArrayList<>();
+        indexes.add(new Index("indexA", field("num_value_2"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS));
+        indexes.add(new Index("indexB", field("num_value_3_indexed"), IndexTypes.VALUE));
+        indexes.add(new Index("indexC", field("num_value_unique"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS));
+
+        populateData(numRecords);
+
+        FDBRecordStoreTestBase.RecordMetaDataHook hook = allIndexesHook(indexes);
+        openSimpleMetaData(hook);
+        disableAll(indexes);
+
+        // 1. partly build multi
+        buildIndexAndCrashHalfway(chunkSize, 3, timer, newIndexerBuilder(indexes));
+
+        // 2. Without the takeover allowed, single-target continuation is rejected
+        try (OnlineIndexer indexBuilder = newIndexerBuilder(indexes.get(0))
+                .setLimit(chunkSize)
+                .build()) {
+            assertThrows(IndexingBase.PartlyBuiltException.class, indexBuilder::buildIndex);
+        }
+
+        // 3. With MULTI_TARGET_TO_SINGLE allowed, each index finishes individually
+        for (Index index : indexes) {
+            try (OnlineIndexer indexBuilder = newIndexerBuilder(index)
+                    .setLimit(chunkSize)
+                    .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
+                            .allowTakeoverContinue(List.of(OnlineIndexer.IndexingPolicy.TakeoverTypes.MULTI_TARGET_TO_SINGLE)))
+                    .build()) {
+                indexBuilder.buildIndex(true);
+            }
+        }
+
+        assertReadable(indexes);
+        scrubAndValidate(indexes);
+    }
+
+    @Test
     void testMultiTargetIndividualContinueByIndexAfterCrash() {
         // After crash, finish building each index individually
 
@@ -951,7 +996,7 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
         t1.start();
         startBuildingSemaphore.acquire();
         startBuildingSemaphore.release();
-        // Try one index at a time
+        // Try one index at a time, fail because of the other indexer is still active
         for (Index index : indexes) {
             try (OnlineIndexer indexBuilder = newIndexerBuilder()
                     .setIndex(index)

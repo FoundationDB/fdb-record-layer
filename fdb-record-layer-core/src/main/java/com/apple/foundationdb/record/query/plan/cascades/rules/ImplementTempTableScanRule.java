@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.cascades.rules;
 
+import com.apple.foundationdb.record.query.plan.cascades.AbstractCascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.ImplementationCascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.ImplementationCascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.TempTableScanExpression;
@@ -33,7 +34,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 /**
  * A rule that implements a {@link TempTableScanExpression} producing a {@link TempTableScanPlan} operator.
  */
-public class ImplementTempTableScanRule extends ImplementationCascadesRule<TempTableScanExpression> {
+public class ImplementTempTableScanRule extends AbstractCascadesRule<TempTableScanExpression> implements ImplementationCascadesRule<TempTableScanExpression> {
 
     @Nonnull
     private static final BindingMatcher<TempTableScanExpression> root = tempTableScanExpression();

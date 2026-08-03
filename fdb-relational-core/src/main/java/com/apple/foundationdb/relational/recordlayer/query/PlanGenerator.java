@@ -42,6 +42,7 @@ import com.apple.foundationdb.record.query.plan.serialization.DefaultPlanSeriali
 import com.apple.foundationdb.record.util.ProtoUtils;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.relational.api.Options;
+import com.apple.foundationdb.relational.api.ddl.MetadataOperationsFactory;
 import com.apple.foundationdb.relational.api.ddl.ThrowingQueryFactory;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
@@ -73,6 +74,7 @@ import java.net.URI;
 import java.sql.SQLException;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -130,8 +132,14 @@ public final class PlanGenerator {
      */
     @Nonnull
     public Plan<?> getPlan(@Nonnull final String query) throws RelationalException {
+        return getPlan(query, Map.of());
+    }
+
+    @Nonnull
+    public Plan<?> getPlan(@Nonnull final String query, @Nonnull final Map<String, Object> logContext) throws RelationalException {
+        final KeyValueLogMessage message = KeyValueLogMessage.build("PlanGenerator");
+        message.addKeysAndValues(logContext);
         resetTimer();
-        KeyValueLogMessage message = KeyValueLogMessage.build("PlanGenerator");
         Plan<?> plan = null;
         RelationalException exception = null;
         try {
@@ -540,6 +548,37 @@ public final class PlanGenerator {
                 .withDbUri(URI.create("embed:offline"))
                 .build();
         return create(cache, planContext, metaData, recordStoreState,
+                IndexMaintainerFactoryRegistryImpl.instance(), options);
+    }
+
+    /**
+     * Create a plan generator for offline DDL queries &mdash; against a known
+     * schema template, with a caller-supplied {@link MetadataOperationsFactory} that captures
+     * the result of the query to the new {@link RecordLayerSchemaTemplate}.
+     *
+     * @param schemaTemplate            schema template used to resolve names in the function body
+     * @param metadataOperationsFactory caller-provided factory for DDL
+     * @param metricCollector           metric collector
+     * @param options                   planner options
+     * @return a new plan generator
+     * @throws RelationalException if creation fails
+     */
+    @Nonnull
+    public static PlanGenerator create(@Nonnull final RecordLayerSchemaTemplate schemaTemplate,
+                                       @Nonnull final MetadataOperationsFactory metadataOperationsFactory,
+                                       @Nonnull final MetricCollector metricCollector,
+                                       @Nonnull final Options options) throws RelationalException {
+        final var metaData = schemaTemplate.toRecordMetadata();
+        final var recordStoreState = new RecordStoreState(null, null);
+        final var planContext = PlanContext.Builder.create()
+                .fromMetaDataAndState(metaData, recordStoreState, options)
+                .withSchemaTemplate(schemaTemplate)
+                .withMetricsCollector(metricCollector)
+                .withConstantActionFactory(metadataOperationsFactory)
+                .withDdlQueryFactory(ThrowingQueryFactory.INSTANCE)
+                .withDbUri(URI.create("embed:offline"))
+                .build();
+        return create(Optional.empty(), planContext, metaData, recordStoreState,
                 IndexMaintainerFactoryRegistryImpl.instance(), options);
     }
 }

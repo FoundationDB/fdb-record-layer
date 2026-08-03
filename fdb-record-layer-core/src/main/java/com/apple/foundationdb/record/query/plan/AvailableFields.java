@@ -21,7 +21,6 @@
 package com.apple.foundationdb.record.query.plan;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
@@ -278,7 +277,6 @@ public class AvailableFields {
     }
 
     @Nonnull
-    @SpotBugsSuppressWarnings("NP_NULL_ON_SOME_PATH_FROM_RETURN_VALUE")
     private static FieldData constrainFieldData(@Nonnull final RecordType recordType,
                                                 @Nonnull final ImmutableMap<String, ImmutableIntArray> constituentNameToPathMap,
                                                 @Nonnull final KeyExpression keyField,

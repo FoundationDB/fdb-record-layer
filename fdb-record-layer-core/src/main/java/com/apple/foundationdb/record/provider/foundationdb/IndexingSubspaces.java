@@ -42,6 +42,8 @@ public final class IndexingSubspaces {
     private static final Object INDEX_SCRUBBED_RECORDS_RANGES = 5L;
     private static final Object INDEX_SCRUBBED_INDEX_RANGES = 6L;
     private static final Object INDEX_BUILD_HEARTBEAT_PREFIX = 7L;
+    private static final Object INDEX_PENDING_WRITE_QUEUE_PREFIX = 8L;
+    private static final Object INDEX_PENDING_WRITE_QUEUE_SIZE = 9L;
 
     private IndexingSubspaces() {
         throw new IllegalStateException("Utility class");
@@ -106,6 +108,28 @@ public final class IndexingSubspaces {
     @Nonnull
     public static byte[] indexHeartbeatSubspaceBytes(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index, @Nonnull UUID indexerId) {
         return indexHeartbeatSubspace(store, index).subspace(Tuple.from(indexerId)).pack();
+    }
+
+    /**
+     * Subspace that stores the indexing pending write queue.
+     * @param store store
+     * @param index index
+     * @return subspace
+     */
+    @Nonnull
+    public static Subspace indexPendingWriteQueueSubspace(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index) {
+        return indexBuildSubspace(store, index, INDEX_PENDING_WRITE_QUEUE_PREFIX);
+    }
+
+    /**
+     * Subspace that stores the indexing pending write queue size counter.
+     * @param store store
+     * @param index index
+     * @return subspace
+     */
+    @Nonnull
+    public static Subspace indexPendingWriteQueueSizeSubspace(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index) {
+        return indexBuildSubspace(store, index, INDEX_PENDING_WRITE_QUEUE_SIZE);
     }
 
     /**
@@ -207,6 +231,8 @@ public final class IndexingSubspaces {
      */
     public static void eraseAllIndexingDataButTheLockAndRangeSet(@Nonnull FDBRecordContext context, @Nonnull FDBRecordStore store, @Nonnull Index index) {
         eraseAllIndexingScrubbingData(context, store, index);
+        context.clear(Range.startsWith(indexPendingWriteQueueSubspace(store, index).pack()));
+        context.clear(Range.startsWith(indexPendingWriteQueueSizeSubspace(store, index).pack()));
         context.clear(Range.startsWith(indexBuildScannedRecordsSubspace(store, index).pack()));
         context.clear(Range.startsWith(indexBuildTypeSubspace(store, index).pack()));
         // The heartbeats, unlike the sync lock, may be erased here. If needed, an appropriate heartbeat will be set after this clear & within the same transaction.

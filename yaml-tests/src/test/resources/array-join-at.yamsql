@@ -205,7 +205,7 @@ test_block:
       # An AT variable can be used within the subscript [] operator to access another array. This enables “parallel”
       # unnesting of two arrays within the same row.
       - query: SELECT "id", "at", "arr1_val", T1."arr1_nn"["at"] AS "arr1_nn_val" FROM T1, T1."arr1" AS "arr1_val" AT "at"
-      - explain: "SCAN([IS T1]) | FLATMAP q0 -> { EXPLODE q0.arr1 WITH ORDINALITY AS q1 RETURN (q0.id AS id, q1._1 AS at, q1._0 AS arr1_val, q0.arr1_nn[q1._1> AS arr1_nn_val) }"
+      - explain: "SCAN([IS T1]) | FLATMAP q0 -> { EXPLODE q0.arr1 WITH ORDINALITY AS q1 RETURN (q0.id AS id, q1._1 AS at, q1._0 AS arr1_val, q0.arr1_nn[q1._1] AS arr1_nn_val) }"
       - unorderedResult: [
           {id: 1, at: 1, arr1_val: 101, arr1_nn_val: 101},
           {id: 2, at: 1, arr1_val: 201, arr1_nn_val: 201},

@@ -35,7 +35,6 @@ import com.apple.foundationdb.relational.recordlayer.catalog.CatalogMetaDataStor
 import com.apple.foundationdb.relational.recordlayer.ddl.RecordLayerCatalogQueryFactory;
 import com.apple.foundationdb.relational.recordlayer.ddl.RecordLayerMetadataOperationsFactory;
 import com.apple.foundationdb.relational.recordlayer.query.cache.RelationalPlanCache;
-import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -98,7 +97,6 @@ public class RecordLayerStorageCluster implements StorageCluster {
      * @return the database at that path, or {@code null} if no database with that path exists in this cluster
      */
 
-    @SpotBugsSuppressWarnings(value = "RCN_REDUNDANT_NULLCHECK_WOULD_HAVE_BEEN_A_NPE", justification = "false positive. https://github.com/spotbugs/spotbugs/issues/1694")
     @Override
     @Nullable
     public RelationalDatabase loadDatabase(@Nonnull URI url,

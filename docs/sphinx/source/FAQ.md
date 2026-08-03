@@ -1,4 +1,4 @@
-# FoundationDB Record Layer FAQ
+# FAQ
 
 Welcome to FoundationDB Record Layer Frequently Asked Questions (FAQ)! 
 

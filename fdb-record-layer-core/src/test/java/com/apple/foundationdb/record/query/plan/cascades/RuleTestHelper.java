@@ -112,7 +112,7 @@ public class RuleTestHelper {
 
     @Nonnull
     public static Quantifier rangeOneQun() {
-        var rangeValue = (RangeValue) new RangeValue.RangeFn().encapsulate(ImmutableList.of(LiteralValue.ofScalar(1L)));
+        var rangeValue = (RangeValue) new RangeValue.RangeFn().encapsulate(CallSiteArguments.ofPositional(LiteralValue.ofScalar(1L)));
         TableFunctionExpression tvf = new TableFunctionExpression(rangeValue);
         return Quantifier.forEach(Reference.initialOf(tvf));
     }
@@ -138,12 +138,12 @@ public class RuleTestHelper {
     }
 
     @Nonnull
-    private final CascadesRule<? extends RelationalExpression> rule;
+    private final AbstractCascadesRule<? extends RelationalExpression> rule;
 
     @Nonnull
     private final PlannerPhase plannerPhase;
 
-    public RuleTestHelper(@Nonnull CascadesRule<? extends RelationalExpression> rule, @Nonnull PlannerPhase plannerPhase) {
+    public RuleTestHelper(@Nonnull AbstractCascadesRule<? extends RelationalExpression> rule, @Nonnull PlannerPhase plannerPhase) {
         this.rule = rule;
         this.plannerPhase = plannerPhase;
     }

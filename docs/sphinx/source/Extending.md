@@ -1,4 +1,4 @@
-# Extending the Record Layer
+# Extension points
 
 As the name suggests, the Record Layer is meant to sit above the FoundationDB key-value store and possibly below higher level layers such as query language parsers. Within the layer itself, there are a number of extension points. Generally, concepts that have several variants or involve significant implementation tradeoffs are defined and accessed through such an extension point.
 

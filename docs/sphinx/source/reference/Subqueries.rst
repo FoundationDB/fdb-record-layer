@@ -6,11 +6,11 @@ Subqueries
 
 A subquery is a query nested inside another query. Subqueries can appear in various parts of a SQL statement and can be correlated (referencing columns from outer queries) or non-correlated (independent of outer queries).
 
-Subquery Types
+Subquery types
 ==============
 
-EXISTS Subqueries
------------------
+``EXISTS`` subqueries
+---------------------
 
 Tests whether a subquery returns any rows:
 
@@ -18,8 +18,8 @@ Tests whether a subquery returns any rows:
 
     SELECT columns FROM table WHERE EXISTS (subquery)
 
-Subqueries in FROM Clause
---------------------------
+Subqueries in FROM clause
+-------------------------
 
 A subquery can appear in the FROM clause as a derived table:
 
@@ -27,7 +27,7 @@ A subquery can appear in the FROM clause as a derived table:
 
     SELECT columns FROM (subquery) AS alias
 
-Correlated Subqueries
+Correlated subqueries
 ---------------------
 
 A subquery that references columns from the outer query:
@@ -62,8 +62,8 @@ For these examples, assume we have the following tables:
         (2, [(21), (22), (23)]),
         (3, [(31), (32), (33)])
 
-Non-Correlated EXISTS Subquery
--------------------------------
+Non-correlated ``EXISTS`` subquery
+----------------------------------
 
 Check if a condition exists in a table, independent of the outer query:
 
@@ -81,8 +81,8 @@ Check if a condition exists in a table, independent of the outer query:
 
 Since the subquery ``SELECT ida FROM a WHERE ida = 1`` returns at least one row (where ida = 1), the EXISTS condition is true for all rows in the outer query.
 
-Correlated Subquery in FROM Clause
------------------------------------
+Correlated subquery in FROM clause
+----------------------------------
 
 Use a correlated subquery as a derived table:
 
@@ -115,7 +115,7 @@ Use a correlated subquery as a derived table:
 
 The subquery ``(SELECT * FROM r WHERE r.idr = a.x)`` is correlated because it references ``a.x`` from the outer query.
 
-Unnesting Arrays with a Subquery
+Unnesting arrays with a subquery
 --------------------------------
 
 A subquery in the ``FROM`` clause can be used to unnest an array column:
@@ -134,8 +134,8 @@ Here the subquery iterates over the ``nr`` array in each row of ``r`` and return
 
 For more information about unnesting arrays, see :doc:`Unnesting`.
 
-Correlated Subquery with GROUP BY
-----------------------------------
+Correlated subquery with ``GROUP BY``
+-------------------------------------
 
 Use a correlated subquery with aggregation:
 
@@ -158,8 +158,8 @@ Use a correlated subquery with aggregation:
 
 The subquery references ``a.x`` from the outer query in both the SELECT list and WHERE clause. For each row in ``a``, the subquery finds rows in ``b`` where ``q`` is greater than the current ``a.x`` value and groups them by ``q``.
 
-Correlation in Aggregation Functions
--------------------------------------
+Correlation in aggregation functions
+------------------------------------
 
 Correlations can also appear inside aggregate functions:
 
@@ -182,7 +182,7 @@ Correlations can also appear inside aggregate functions:
 
 Here, ``MAX(a.x)`` aggregates the correlated column ``a.x``, which has the same value for all rows processed by each instance of the subquery.
 
-Important Notes
+Important notes
 ===============
 
 Subqueries in the FROM clause create a new query scope. Columns from the subquery are accessed via the subquery alias:
@@ -198,7 +198,7 @@ When a column reference is not qualified with a table alias, the semantic analyz
     -- In the subquery, 'x' refers to column x from table a, not table x
     SELECT idx FROM x WHERE EXISTS (SELECT x FROM a WHERE ida = 1)
 
-See Also
+See also
 ========
 
 * :doc:`sql_commands/DQL/Operators/Logical/EXISTS` - EXISTS operator documentation

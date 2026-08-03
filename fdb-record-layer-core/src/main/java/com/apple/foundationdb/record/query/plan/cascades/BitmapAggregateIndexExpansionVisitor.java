@@ -94,7 +94,8 @@ public class BitmapAggregateIndexExpansionVisitor extends AggregateIndexExpansio
         final int entrySize = sizeArgument != null ? Integer.parseInt(sizeArgument) : BitmapValueIndexMaintainer.DEFAULT_ENTRY_SIZE;
         final var entrySizeValue = LiteralValue.ofScalar(entrySize);
 
-        final var aggregateValue = (Value)bitmapConstructAggFunc.encapsulate(ImmutableList.of(bitmapBitPositionFunc.encapsulate(ImmutableList.of(argument, entrySizeValue))));
+        final var aggregateValue = (Value)bitmapConstructAggFunc.encapsulate(CallSiteArguments.ofPositional(
+                (Value)bitmapBitPositionFunc.encapsulate(CallSiteArguments.ofPositional(argument, entrySizeValue))));
         // add an RCV column representing the grouping columns as the first result set column
         // also, make sure to set the field type names correctly for each field value in the grouping keys RCV.
 
@@ -103,7 +104,7 @@ public class BitmapAggregateIndexExpansionVisitor extends AggregateIndexExpansio
                 .map(Column::getValue)
                 .collect(ImmutableList.toImmutableList());
         final var bitmapBitPosition = BuiltInFunctionCatalog.getFunctionSingleton(ArithmeticValue.BitmapBucketOffsetFn.class).orElseThrow();
-        final var implicitGroupingValue = (Value)bitmapBitPosition.encapsulate(ImmutableList.of(argument, entrySizeValue));
+        final var implicitGroupingValue = (Value)bitmapBitPosition.encapsulate(CallSiteArguments.ofPositional(argument, entrySizeValue));
         final var placeHolder = Placeholder.newInstanceWithoutRanges(implicitGroupingValue, newParameterAlias());
 
         final var selectQunValue = selectWhereQun.getRangesOver().get().getResultValue();

@@ -62,7 +62,7 @@ public interface VectorOperator {
      */
     @Nonnull
     default Transformed<RealVector> transform(@Nonnull final RealVector vector) {
-        return new Transformed<>(apply(vector));
+        return Transformed.underlyingLens().identityTransform(apply(vector));
     }
 
     /**

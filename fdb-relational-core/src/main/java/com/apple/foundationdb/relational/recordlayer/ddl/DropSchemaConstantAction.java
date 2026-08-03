@@ -25,6 +25,7 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
+import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.catalog.StoreCatalog;
@@ -61,7 +62,8 @@ public class DropSchemaConstantAction implements ConstantAction {
         }
         FDBRecordContext ctx = txn.unwrap(FDBRecordContext.class);
         try {
-            FDBRecordStore.deleteStore(ctx, RelationalKeyspaceProvider.toDatabasePath(dbUri, keySpace).schemaPath(schemaName));
+            ctx.asyncToSync(FDBStoreTimer.Waits.WAIT_DELETE_STORE,
+                    FDBRecordStore.deleteStoreAsync(ctx, RelationalKeyspaceProvider.toDatabasePath(dbUri, keySpace).schemaPath(schemaName)));
         } catch (RecordCoreException ex) {
             throw ExceptionUtil.toRelationalException(ex);
         }

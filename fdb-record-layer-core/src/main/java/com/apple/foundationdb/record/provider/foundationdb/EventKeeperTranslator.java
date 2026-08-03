@@ -44,15 +44,15 @@ class EventKeeperTranslator implements EventKeeper {
     // is preloaded with the old names.
     static {
         eventKeeperMap.put(EventKeeper.Events.JNI_CALL,
-                new Count("JNI_CALLS", "jni calls", false));
+                FDBStoreTimer.Counts.JNI_CALLS);
         eventKeeperMap.put(EventKeeper.Events.RANGE_QUERY_FETCHES,
-                new Count("RANGE_FETCHES", "range fetches", false));
+                FDBStoreTimer.Counts.RANGE_FETCHES);
         eventKeeperMap.put(EventKeeper.Events.RANGE_QUERY_RECORDS_FETCHED,
-                new Count("RANGE_KEYVALUES_FETCHED", "range key-values ", false));
+                FDBStoreTimer.Counts.RANGE_KEYVALUES_FETCHED);
         eventKeeperMap.put(EventKeeper.Events.RANGE_QUERY_CHUNK_FAILED,
-                new Count("CHUNK_READ_FAILURES", "read fails", false));
+                FDBStoreTimer.Counts.CHUNK_READ_FAILURES);
         eventKeeperMap.put(EventKeeper.Events.RANGE_QUERY_FETCH_TIME_NANOS,
-                new Event("FETCHES", "fetches"));
+                FDBStoreTimer.Events.FETCHES);
     }
 
     @Nullable
@@ -66,7 +66,7 @@ class EventKeeperTranslator implements EventKeeper {
     public void count(final EventKeeper.Event event, final long amount) {
         if (underlying != null) {
             StoreTimer.Event storeTimerEvent = getEvent(event);
-            if (storeTimerEvent instanceof Count) {
+            if (storeTimerEvent instanceof StoreTimer.Count) {
                 underlying.increment((StoreTimer.Count) storeTimerEvent, (int) amount);
             } else {
                 underlying.record(storeTimerEvent, amount);
@@ -97,6 +97,9 @@ class EventKeeperTranslator implements EventKeeper {
 
     private static StoreTimer.Event getEvent(EventKeeper.Event event) {
         return eventKeeperMap.computeIfAbsent(event, keeperEvent -> {
+            // If the EventKeeper event is not mapped cleanly to a predefined event in the map, create one
+            // This may be a bad idea. It's possible we'd want to rely solely on a predefined set of
+            // events known at compile time and then ignore any events we don't know about
             final String name = event.name();
             final String title = event.name().toLowerCase(Locale.ROOT).replace('_', ' ');
             if (event.isTimeEvent()) {

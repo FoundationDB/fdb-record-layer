@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.record.query.plan.cascades.rules;
 
+import com.apple.foundationdb.record.query.plan.cascades.AbstractCascadesRule;
+import com.apple.foundationdb.record.query.plan.cascades.CallSiteArguments;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.ExplorationCascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.ExplorationCascadesRuleCall;
@@ -134,7 +136,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  * }</pre>
  */
 @SuppressWarnings("PMD.TooManyStaticImports")
-public class DecorrelateValuesRule extends ExplorationCascadesRule<SelectExpression> {
+public class DecorrelateValuesRule extends AbstractCascadesRule<SelectExpression> implements ExplorationCascadesRule<SelectExpression> {
     // TODO: This could use filtered expression partitions, but we have to make modifications to the test infrastructure to ensure there are final children
     // We currently use a predicate over the expressions in the reference rather than a matcher here because we don't
     // want to create multiple matches if there happens to be a reference containing multiple range(1) values. Doing
@@ -258,7 +260,7 @@ public class DecorrelateValuesRule extends ExplorationCascadesRule<SelectExpress
             //
             // We're about to push down all the quantifiers. Introduce a range(1) box here to avoid creating a Select with no children
             //
-            TableFunctionExpression rangeOneExpr = new TableFunctionExpression((StreamingValue) new RangeValue.RangeFn().encapsulate(ImmutableList.of(LiteralValue.ofScalar(1L))));
+            TableFunctionExpression rangeOneExpr = new TableFunctionExpression((StreamingValue) new RangeValue.RangeFn().encapsulate(CallSiteArguments.ofPositional(LiteralValue.ofScalar(1L))));
             Quantifier newRangeQun = Quantifier.forEach(call.memoizeExploratoryExpression(rangeOneExpr));
             newQuantifiersBuilder.add(newRangeQun);
         }

@@ -158,11 +158,16 @@ public final class RaBitQuantizer implements Quantizer {
         }
         final RealVector xuCb = new DoubleRealVector(xuCbData);
 
-        final double residualL2Sqr = data.dot(data);
+        // These three reductions feed the calibration constants (fAddEx/fRescaleEx/fErrorEx) that
+        // are serialized verbatim into the encoded vector's wire format, which in turn is hashed
+        // into a content signature used to detect duplicates. They must therefore be
+        // backend-independent: a SIMD host and a scalar host (or two SIMD hosts of different vector
+        // widths) have to produce byte-identical encodings, so we force the scalar backend here.
+        final double residualL2Sqr = data.dotExact(data);
         final double residualL2Norm = Math.sqrt(residualL2Sqr);
-        final double ipResidualXuCb = data.dot(xuCb);
+        final double ipResidualXuCb = data.dotExact(xuCb);
 
-        final double xuCbNorm = xuCb.l2Norm();
+        final double xuCbNorm = xuCb.l2NormExact();
         final double xuCbNormSqr = xuCbNorm * xuCbNorm;
 
         final double ipResidualXuCbSafe = (ipResidualXuCb == 0.0) ? Double.POSITIVE_INFINITY : ipResidualXuCb;
@@ -380,7 +385,10 @@ public final class RaBitQuantizer implements Quantizer {
      * normalized input vector.
      */
     private static RealVector absOfNormalized(@Nonnull final RealVector x) {
-        double n = x.l2Norm();
+        // Scalar backend: this norm feeds oAbs, which drives both the chosen scale t and the
+        // per-dimension floor() codes. A ULP difference here can flip an integer code near a
+        // boundary, so the encoded bytes would otherwise depend on the ambient backend.
+        double n = x.l2NormExact();
         double[] y = new double[x.getNumDimensions()];
         if (n == 0.0 || !Double.isFinite(n)) {
             return new DoubleRealVector(y); // all zeros

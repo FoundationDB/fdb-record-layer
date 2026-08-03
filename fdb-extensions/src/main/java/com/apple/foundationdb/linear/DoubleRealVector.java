@@ -188,7 +188,7 @@ public class DoubleRealVector extends AbstractRealVector {
     @Nonnull
     @Override
     public DoubleRealVector normalize() {
-        return withData(RealVectorPrimitives.normalizeInto(this, new double[getNumDimensions()]));
+        return withData(RealVectorPrimitives.normalizeInto(this.getData(), new double[getNumDimensions()]));
     }
 
     /**
@@ -199,7 +199,7 @@ public class DoubleRealVector extends AbstractRealVector {
     @Nonnull
     @Override
     public DoubleRealVector add(@Nonnull final RealVector other) {
-        return withData(RealVectorPrimitives.addInto(this, other, new double[getNumDimensions()]));
+        return withData(RealVectorPrimitives.addInto(this.getData(), other.getData(), new double[getNumDimensions()]));
     }
 
     /**
@@ -210,7 +210,7 @@ public class DoubleRealVector extends AbstractRealVector {
     @Nonnull
     @Override
     public DoubleRealVector add(final double scalar) {
-        return withData(RealVectorPrimitives.addInto(this, scalar, new double[getNumDimensions()]));
+        return withData(RealVectorPrimitives.addInto(this.getData(), scalar, new double[getNumDimensions()]));
     }
 
     /**
@@ -221,7 +221,7 @@ public class DoubleRealVector extends AbstractRealVector {
     @Nonnull
     @Override
     public DoubleRealVector subtract(@Nonnull final RealVector other) {
-        return withData(RealVectorPrimitives.subtractInto(this, other, new double[getNumDimensions()]));
+        return withData(RealVectorPrimitives.subtractInto(this.getData(), other.getData(), new double[getNumDimensions()]));
     }
 
     /**
@@ -232,7 +232,7 @@ public class DoubleRealVector extends AbstractRealVector {
     @Nonnull
     @Override
     public DoubleRealVector subtract(final double scalar) {
-        return withData(RealVectorPrimitives.subtractInto(this, scalar, new double[getNumDimensions()]));
+        return withData(RealVectorPrimitives.subtractInto(this.getData(), scalar, new double[getNumDimensions()]));
     }
 
     /**
@@ -243,7 +243,7 @@ public class DoubleRealVector extends AbstractRealVector {
     @Nonnull
     @Override
     public DoubleRealVector multiply(final double scalar) {
-        return withData(RealVectorPrimitives.multiplyInto(this, scalar, new double[getNumDimensions()]));
+        return withData(RealVectorPrimitives.multiplyInto(this.getData(), scalar, new double[getNumDimensions()]));
     }
 
     /**

@@ -21,14 +21,15 @@
 package com.apple.foundationdb.async.hnsw;
 
 import com.apple.foundationdb.ReadTransaction;
-import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.async.AsyncIterator;
 import com.apple.foundationdb.async.AsyncUtil;
+import com.apple.foundationdb.async.common.StorageTransform;
 import com.apple.foundationdb.linear.DistanceEstimator;
 import com.apple.foundationdb.linear.RealVector;
 import com.apple.foundationdb.linear.Transformed;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.base.Verify;
+import com.google.common.collect.ImmutableSet;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -39,6 +40,7 @@ import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.PriorityQueue;
 import java.util.Queue;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -64,6 +66,8 @@ class OutwardTraversalIterator implements AsyncIterator<NodeReferenceAndNode<Nod
     private final Tuple minimumPrimaryKey;
     private final int efOutwardSearch;
 
+    private final boolean shouldQuickStart;
+
     /**
      * State of the iteration. All structures within the state are mutable (and in fact updates frequently)
      * as part of {@link  #computeNextRecord()}.
@@ -74,7 +78,6 @@ class OutwardTraversalIterator implements AsyncIterator<NodeReferenceAndNode<Nod
     @Nullable
     private CompletableFuture<NodeReferenceAndNode<NodeReferenceWithDistance, NodeReference>> nextFuture;
 
-    @SpotBugsSuppressWarnings("EI_EXPOSE_REP2")
     public OutwardTraversalIterator(@Nonnull final Locator locator,
                                     @Nonnull final StorageAdapter<NodeReference> storageAdapter,
                                     @Nonnull final ReadTransaction readTransaction,
@@ -82,7 +85,8 @@ class OutwardTraversalIterator implements AsyncIterator<NodeReferenceAndNode<Nod
                                     @Nonnull final RealVector centerVector,
                                     final double minimumRadius,
                                     @Nullable final Tuple minimumPrimaryKey,
-                                    final int efOutwardSearch) {
+                                    final int efOutwardSearch,
+                                    final boolean shouldQuickStart) {
         this.locator = locator;
         this.storageAdapter = storageAdapter;
         this.readTransaction = readTransaction;
@@ -91,6 +95,7 @@ class OutwardTraversalIterator implements AsyncIterator<NodeReferenceAndNode<Nod
         this.minimumRadius = minimumRadius;
         this.minimumPrimaryKey = minimumPrimaryKey;
         this.efOutwardSearch = efOutwardSearch;
+        this.shouldQuickStart = shouldQuickStart;
 
         this.traversalState = null;
         this.nextFuture = null;
@@ -134,10 +139,13 @@ class OutwardTraversalIterator implements AsyncIterator<NodeReferenceAndNode<Nod
         final PriorityQueue<NodeReferenceWithDistance> candidates =
                 // This initial capacity is somewhat arbitrary as m is not necessarily
                 // a limit, but it gives us a number that is better than the default.
-                new PriorityQueue<>(getConfig().getM(), NodeReferenceWithDistance.comparator());
+                new PriorityQueue<>(getConfig().m(), NodeReferenceWithDistance.comparator());
         final SpatialRestrictions visited = new SpatialRestrictions(1, minimumRadius, minimumPrimaryKey);
 
         final PriorityQueue<NodeReferenceWithDistance> out =
+                new PriorityQueue<>(efOutwardSearch + 1, // prevent reallocation further down
+                        NodeReferenceWithDistance.comparator());
+        final PriorityQueue<NodeReferenceWithDistance> quickStart =
                 new PriorityQueue<>(efOutwardSearch + 1, // prevent reallocation further down
                         NodeReferenceWithDistance.comparator());
 
@@ -153,10 +161,12 @@ class OutwardTraversalIterator implements AsyncIterator<NodeReferenceAndNode<Nod
                     new NodeReferenceWithDistance(primaryKey, vector, distance);
             visited.add(nodeReferenceWithDistance);
             candidates.add(nodeReferenceWithDistance);
+            if (shouldQuickStart) {
+                quickStart.add(nodeReferenceWithDistance);
+            }
         }
-
         return new OutwardTraversalState(storageTransform, distanceEstimator,
-                transformedCenterVector, candidates, visited, out, zoomInResult.getNodeCache());
+                transformedCenterVector, candidates, visited, out, quickStart, zoomInResult.getNodeCache());
     }
 
     @Nonnull
@@ -169,16 +179,27 @@ class OutwardTraversalIterator implements AsyncIterator<NodeReferenceAndNode<Nod
         final Queue<NodeReferenceWithDistance> candidates = localTraversalState.getCandidates();
         final SpatialRestrictions spatialRestrictions = localTraversalState.getSpatialRestrictions();
         final Queue<NodeReferenceWithDistance> out = localTraversalState.getOut();
+        final Queue<NodeReferenceWithDistance> quickStart = localTraversalState.getQuickStart();
+        final Set<Tuple> quickStartPrimaryKeys = localTraversalState.getQuickStartPrimaryKeys();
         final Map<Tuple, AbstractNode<NodeReference>> nodeCache = localTraversalState.getNodeCache();
 
         return AsyncUtil.whileTrue(() -> {
+            while (!quickStart.isEmpty()) {
+                final NodeReferenceWithDistance currentQuickStart = quickStart.peek();
+                if (spatialRestrictions.isGreaterThanMinimum(currentQuickStart)) {
+                    return AsyncUtil.READY_FALSE;
+                }
+                quickStart.poll();
+            }
+
             if (candidates.isEmpty() || out.size() >= efOutwardSearch) {
                 // break the refill loop
                 return AsyncUtil.READY_FALSE;
             }
 
             final NodeReferenceWithDistance candidate = candidates.poll();
-            if (spatialRestrictions.isGreaterThanMinimum(candidate)) {
+            if (spatialRestrictions.isGreaterThanMinimum(candidate) &&
+                    !quickStartPrimaryKeys.contains(candidate.getPrimaryKey())) {
                 out.add(candidate);
             }
 
@@ -203,17 +224,22 @@ class OutwardTraversalIterator implements AsyncIterator<NodeReferenceAndNode<Nod
                         return true;
                     });
         }).thenCompose(ignored -> {
-            if (out.isEmpty()) {
-                Verify.verify(candidates.isEmpty());
-                return CompletableFuture.completedFuture(null);
+            final NodeReferenceWithDistance nodeReference;
+            if (!quickStart.isEmpty()) {
+                nodeReference = quickStart.poll();
+            } else {
+                if (out.isEmpty()) {
+                    Verify.verify(candidates.isEmpty());
+                    return CompletableFuture.completedFuture(null);
+                }
+                nodeReference = out.poll();
             }
-            final NodeReferenceWithDistance nodeReference = out.poll();
             return primitives.fetchNodeIfNotCached(storageAdapter, readTransaction, storageTransform, 0, nodeReference, nodeCache)
                     .thenApply(node -> new NodeReferenceAndNode<>(nodeReference, node));
         }).thenApply(nextNodeReferenceAndNode -> {
             if (logger.isTraceEnabled()) {
                 logger.trace("iterating for efOutwardSearch={} with result=={}", efOutwardSearch,
-                        nextNodeReferenceAndNode.getNodeReference().getPrimaryKey());
+                        nextNodeReferenceAndNode == null ? null : nextNodeReferenceAndNode.getNodeReference().getPrimaryKey());
             }
             return nextNodeReferenceAndNode;
         });
@@ -257,6 +283,10 @@ class OutwardTraversalIterator implements AsyncIterator<NodeReferenceAndNode<Nod
         @Nonnull
         private final Queue<NodeReferenceWithDistance> out;
         @Nonnull
+        private final Queue<NodeReferenceWithDistance> quickStart;
+        @Nonnull
+        private final Set<Tuple> quickStartPrimaryKeys;
+        @Nonnull
         private final Map<Tuple, AbstractNode<NodeReference>> nodeCache;
 
         public OutwardTraversalState(@Nonnull final StorageTransform storageTransform,
@@ -265,6 +295,7 @@ class OutwardTraversalIterator implements AsyncIterator<NodeReferenceAndNode<Nod
                                      @Nonnull final Queue<NodeReferenceWithDistance> candidates,
                                      @Nonnull final SpatialRestrictions spatialRestrictions,
                                      @Nonnull final Queue<NodeReferenceWithDistance> out,
+                                     @Nonnull final Queue<NodeReferenceWithDistance> quickStart,
                                      @Nonnull final Map<Tuple, AbstractNode<NodeReference>> nodeCache) {
             this.storageTransform = storageTransform;
             this.distanceEstimator = distanceEstimator;
@@ -272,6 +303,12 @@ class OutwardTraversalIterator implements AsyncIterator<NodeReferenceAndNode<Nod
             this.candidates = candidates;
             this.spatialRestrictions = spatialRestrictions;
             this.out = out;
+            this.quickStart = quickStart;
+            final ImmutableSet.Builder<Tuple> quickStartPrimaryKeysBuilder = ImmutableSet.builder();
+            for (final NodeReferenceWithDistance nodeReferenceWithDistance : quickStart) {
+                quickStartPrimaryKeysBuilder.add(nodeReferenceWithDistance.getPrimaryKey());
+            }
+            this.quickStartPrimaryKeys = quickStartPrimaryKeysBuilder.build();
             this.nodeCache = nodeCache;
         }
 
@@ -303,6 +340,16 @@ class OutwardTraversalIterator implements AsyncIterator<NodeReferenceAndNode<Nod
         @Nonnull
         public Queue<NodeReferenceWithDistance> getOut() {
             return out;
+        }
+
+        @Nonnull
+        public Queue<NodeReferenceWithDistance> getQuickStart() {
+            return quickStart;
+        }
+
+        @Nonnull
+        public Set<Tuple> getQuickStartPrimaryKeys() {
+            return quickStartPrimaryKeys;
         }
 
         @Nonnull

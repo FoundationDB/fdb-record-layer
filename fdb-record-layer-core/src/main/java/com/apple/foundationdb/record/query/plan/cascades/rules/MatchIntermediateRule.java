@@ -25,7 +25,7 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.combinatorics.EnumeratingIterable;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
-import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
+import com.apple.foundationdb.record.query.plan.cascades.AbstractCascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.IdentityBiMap;
@@ -149,7 +149,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  * </p>
  */
 @API(API.Status.EXPERIMENTAL)
-public class MatchIntermediateRule extends CascadesRule<RelationalExpression> {
+public class MatchIntermediateRule extends AbstractCascadesRule<RelationalExpression> {
     private static final BindingMatcher<Quantifier> quantifierMatcher = QuantifierMatchers.anyQuantifier();
     private static final BindingMatcher<RelationalExpression> root =
             RelationalExpressionMatchers.ofTypeOwning(RelationalExpression.class, all(quantifierMatcher));

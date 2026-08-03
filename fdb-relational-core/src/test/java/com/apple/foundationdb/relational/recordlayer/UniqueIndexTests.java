@@ -37,6 +37,7 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.UUID;
 
 public class UniqueIndexTests {
 
@@ -53,9 +54,10 @@ public class UniqueIndexTests {
             CREATE TABLE T3(t3_p bigint, t3_a bigint, t3_b bigint, primary key(t3_p))
             CREATE UNIQUE INDEX mv3 AS SELECT t3_a FROM t3
             CREATE UNIQUE INDEX mv4 AS SELECT t3_b FROM t3
-            CREATE TYPE AS STRUCT ST1(st1_a bigint)
+            CREATE TYPE AS STRUCT ST1(st1_a bigint, st1_b uuid)
             CREATE TABLE T4(t4_p bigint, t4_st1 st1 array, primary key(t4_p))
             CREATE UNIQUE INDEX mv5 AS SELECT v.st1_a from t4 t, (SELECT u.st1_a from t.t4_st1 u) v
+            CREATE UNIQUE INDEX mv5b AS SELECT v.st1_b from t4 t, (SELECT u.st1_b from t.t4_st1 u) v
             CREATE TABLE T5(t5_p bigint, t5_a bigint, t5_b bigint, t5_c bigint, t5_d bigint, primary key(t5_p))
             CREATE UNIQUE INDEX mv6 AS SELECT t5_a, t5_b, t5_c, t5_d from t5 order by t5_d, t5_c
             """;
@@ -203,6 +205,33 @@ public class UniqueIndexTests {
                 .addArray("T4_ST1", EmbeddedRelationalArray.newBuilder()
                         .addStruct(EmbeddedRelationalStruct.newBuilder()
                                 .addLong("ST1_A", 1)
+                                .build()
+                        ).build()
+                ).build()
+        );
+        checkErrorOnNonUniqueInsertionsToTable(nonUniqueRecord, "T4");
+    }
+
+    @Test
+    public void insertToArrayNestedUuidFieldMarkedUnique() throws Exception {
+        final var records = new ArrayList<RelationalStruct>();
+        final UUID nonUniqueUuid = UUID.randomUUID();
+        for (var i = 0; i < 5; i++) {
+            var builder = EmbeddedRelationalStruct.newBuilder();
+            builder.addLong("T4_P", i);
+            var ST1ArrayBuilder = EmbeddedRelationalArray.newBuilder();
+            for (var j = 0; j < 5; j++) {
+                ST1ArrayBuilder.addStruct(EmbeddedRelationalStruct.newBuilder().addUuid("ST1_B", (i == 2 && j == 3) ? nonUniqueUuid : UUID.randomUUID()).build());
+            }
+            builder.addArray("T4_ST1", ST1ArrayBuilder.build());
+            records.add(builder.build());
+        }
+        insertUniqueRecordsToTable(records, "T4");
+        final var nonUniqueRecord = List.of(EmbeddedRelationalStruct.newBuilder()
+                .addLong("T4_P", 5)
+                .addArray("T4_ST1", EmbeddedRelationalArray.newBuilder()
+                        .addStruct(EmbeddedRelationalStruct.newBuilder()
+                                .addUuid("ST1_B", nonUniqueUuid)
                                 .build()
                         ).build()
                 ).build()

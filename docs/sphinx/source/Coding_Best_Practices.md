@@ -1,7 +1,6 @@
-# FoundationDB Record Layer Coding Best Practices
+# Coding guidelines
 
-This is a living document aimed towards documenting and clarifying our
-coding best practives.
+This living document collects and clarifies our coding best practices.
 
 ## Exceptions 
 

@@ -28,6 +28,7 @@ import com.apple.foundationdb.async.CloseableAsyncIterator;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.FunctionNames;
+import com.apple.foundationdb.record.IndexBuildProto;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.IndexState;
@@ -65,6 +66,8 @@ import com.apple.foundationdb.record.metadata.expressions.KeyExpression.FanType;
 import com.apple.foundationdb.record.metadata.expressions.ThenKeyExpression;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.InvalidIndexEntry;
+import com.apple.foundationdb.record.provider.foundationdb.indexes.ValueIndexMaintainerWithQueue;
+import com.apple.foundationdb.record.provider.foundationdb.queue.PendingWritesQueue;
 import com.apple.foundationdb.record.query.IndexQueryabilityFilter;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
@@ -78,6 +81,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Iterators;
+import com.google.protobuf.Any;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.Message;
 import org.hamcrest.Description;
@@ -948,6 +952,108 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
             assertEquals(Collections.singletonList(1066L),
                     recordStore.scanIndexRecords(indexName)
                             .map(rec -> TestRecords1Proto.MySimpleRecord.newBuilder().mergeFrom(rec.getRecord()).getRecNo()).asList().get());
+            commit(context);
+        }
+    }
+
+    @Test
+    void writeOnlyWithQueueIndex() throws Exception {
+        final String standardIndexName = "queued_num_value_3";
+        final String permissiveIndexName = "permissive_index";
+        // The "permissive" index type is backed by NoOpIndexMaintainer, which does not allow the pending write queue,
+        // while the queued index is backed by ValueIndexMaintainerWithQueue, which does. Marking the queued index
+        // WRITE_ONLY_WITH_QUEUE and then saving a record exercises serializePendingWriteQueue on its maintainer.
+        final RecordMetaDataHook hook = metaData -> {
+            metaData.addIndex("MySimpleRecord",
+                    new Index(standardIndexName, field("num_value_3_indexed"), ValueIndexMaintainerWithQueue.Factory.INDEX_TYPE));
+            metaData.addIndex("MySimpleRecord",
+                    new Index(permissiveIndexName, field("num_value_3_indexed"), "permissive"));
+        };
+
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, hook);
+            final Index standardIndex = recordStore.getRecordMetaData().getIndex(standardIndexName);
+            final Index permissiveIndex = recordStore.getRecordMetaData().getIndex(permissiveIndexName);
+
+            recordStore.markIndexWriteOnlyWithQueue(standardIndex).get();
+            recordStore.markIndexWriteOnlyWithQueue(permissiveIndexName).get();
+
+            // Exercise both the Index and String overloads of isIndexWriteOnlyWithQueue.
+            assertThat(recordStore.isIndexWriteOnlyWithQueue(standardIndex), is(true));
+            assertThat(recordStore.isIndexWriteOnlyWithQueue(standardIndexName), is(true));
+            assertThat(recordStore.isIndexWriteOnlyWithQueue(permissiveIndex), is(true));
+            assertThat(recordStore.isIndexWriteOnlyWithQueue(permissiveIndexName), is(true));
+            assertThat(recordStore.isIndexWriteOnlyNoQueue(standardIndexName), is(false));
+            assertThat(recordStore.isIndexReadable(standardIndexName), is(false));
+
+            // The NoOp-backed permissive index does not allow the pending write queue, so saving a record while it is
+            // in WRITE_ONLY_WITH_QUEUE is rejected: serializePendingWriteQueue throws UnsupportedOperationException.
+            assertThrows(UnsupportedOperationException.class, () -> recordStore.saveRecord(TestRecords1Proto.MySimpleRecord.newBuilder()
+                    .setRecNo(1066L)
+                    .setNumValue3Indexed(42)
+                    .build()));
+        }
+
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, hook);
+            final Index standardIndex = recordStore.getRecordMetaData().getIndex(standardIndexName);
+
+            // Now only the standard index is deferred to the queue; the permissive index stays readable.
+            recordStore.markIndexWriteOnlyWithQueue(standardIndex).get();
+
+            // Saving a record routes the update through serializePendingWriteQueue for the standard maintainer
+            // rather than writing the index entries directly.
+            recordStore.saveRecord(TestRecords1Proto.MySimpleRecord.newBuilder()
+                    .setRecNo(1066L)
+                    .setNumValue3Indexed(42)
+                    .build());
+
+            commit(context);
+        }
+
+        // Read back in a fresh transaction: the deferred write is keyed by a versionstamp that is only resolved at
+        // commit, so the queue entry is not visible via a range read within the writing transaction.
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, hook);
+            final Index standardIndex = recordStore.getRecordMetaData().getIndex(standardIndexName);
+
+            // The ValueIndexMaintainerWithQueue routed the update to its pending queue: exactly one deferred write.
+            final PendingWritesQueue<IndexBuildProto.PendingWritesQueueEntry> standardQueue =
+                    IndexingPendingWriteQueue.getIndexingQueue(recordStore, standardIndex);
+            assertThat(standardQueue.getQueueSizeNoConflict(context).join(), is(1L));
+
+            // That deferred entry carries the saved record as an insert (a new record, no old record) - i.e. the
+            // routing preserved the update correctly.
+            final IndexBuildProto.PendingWritesQueueEntry payload =
+                    standardQueue.getQueueCursor(context, ScanProperties.FORWARD_SCAN, null)
+                            .asList().join().get(0).getPayload();
+            assertThat(payload.getOperation(), is(IndexBuildProto.PendingWritesQueueEntry.Operation.UPDATE));
+            final IndexBuildProto.OldAndNewRecords records =
+                    payload.getData().unpack(IndexBuildProto.OldAndNewRecords.class);
+            assertThat(records.hasOldRecords(), is(false));
+            assertThat(records.hasNewRecord(), is(true));
+            final TestRecords1Proto.MySimpleRecord enqueued = TestRecords1Proto.MySimpleRecord.newBuilder()
+                    .mergeFrom(recordStore.getSerializer().deserialize(recordStore.getRecordMetaData(),
+                            TupleHelpers.EMPTY, records.getNewRecord().toByteArray(), recordStore.getTimer()))
+                    .build();
+            assertThat(enqueued.getRecNo(), is(1066L));
+            assertThat(enqueued.getNumValue3Indexed(), is(42));
+
+            // The update was deferred, not written directly: the standard index subspace holds no entries.
+            assertThat(context.ensureActive().getRange(recordStore.indexSubspace(standardIndex).range()).asList().join(),
+                    is(empty()));
+
+            // Draining a queued entry through the NoOp maintainer is also a no-op that completes without applying
+            // anything to the index (the permissive index never defers real work to the queue).
+            final Index permissiveIndex = recordStore.getRecordMetaData().getIndex(permissiveIndexName);
+            final IndexMaintainer permissiveMaintainer = recordStore.getIndexMaintainer(permissiveIndex);
+
+            // The NoOp maintainer does not allow the pending write queue, so it throw on these operations
+            assertThrows(UnsupportedOperationException.class,
+                    () -> permissiveMaintainer.updateFromQueue(Any.getDefaultInstance()).join());
+            assertThrows(UnsupportedOperationException.class,
+                    () -> permissiveMaintainer.serializePendingWriteQueue(null, null));
+
             commit(context);
         }
     }
@@ -3116,6 +3222,59 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
             commit(context);
         }
         database.close();
+    }
+
+    @Test
+    void testWriteOnlyIndexUpdatesTrackedInSession() throws Exception {
+        final String indexName = "MySimpleRecord$num_value_3_indexed";
+
+        // Mark the index write-only in a committed transaction first
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context);
+            recordStore.markIndexWriteOnly(indexName).get();
+            commit(context);
+        }
+
+        // Save a record; the write-only index update should be registered in the session
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context);
+            recordStore.saveRecord(TestRecords1Proto.MySimpleRecord.newBuilder()
+                    .setRecNo(1066L)
+                    .setNumValue3Indexed(42)
+                    .build());
+
+            Set<String> tracked = context.getInSession(ContextSessionKey.WRITE_ONLY_INDEXES_UPDATED);
+            assertNotNull(tracked, "session should record write-only index updates");
+            assertEquals(1, tracked.size());
+            assertTrue(tracked.contains(indexName),
+                    "tracked set should contain the write-only index name");
+
+            tracked = context.getInSession(ContextSessionKey.READABLE_INDEXES_UPDATED);
+            assertFalse(tracked.contains(indexName), "index is not readable, should not be tracked");
+        }
+    }
+
+    @Test
+    void testReadableIndexUpdatesTrackedInSession() throws Exception {
+        final String indexName = "MySimpleRecord$num_value_3_indexed";
+
+        // All indexes are readable by default
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context);
+            recordStore.saveRecord(TestRecords1Proto.MySimpleRecord.newBuilder()
+                    .setRecNo(1066L)
+                    .setNumValue3Indexed(42)
+                    .build());
+
+            assertNull(context.getInSession(ContextSessionKey.WRITE_ONLY_INDEXES_UPDATED),
+                    "session should be empty when no write-only indexes were touched");
+
+            Set<String> tracked = context.getInSession(ContextSessionKey.READABLE_INDEXES_UPDATED);
+            assertNotNull(tracked, "session should record readable index updates");
+            assertFalse(tracked.isEmpty());
+            assertTrue(tracked.contains(indexName),
+                    "tracked set should contain the readable index name");
+        }
     }
 
     private void testRangeCount(@Nonnull FDBRecordContext context, @Nonnull ArrayList<byte[]> keys, byte[] upperBound, int rangeCount) {

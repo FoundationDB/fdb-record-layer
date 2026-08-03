@@ -64,8 +64,8 @@ In each case, the fact that index entries are ordered by `fname` is leveraged, e
 the scan to a smaller range of index entries. The `lname` field can then be returned to the user without having to
 perform an additional lookup of the underlying row.
 
-Index Syntax Alternatives
-##########################
+Index syntax alternatives
+#########################
 
 The Relational Layer supports two equivalent syntaxes for creating indexes:
 
@@ -75,8 +75,8 @@ The Relational Layer supports two equivalent syntaxes for creating indexes:
 Both syntaxes produce identical index structures and have the same capabilities. The choice between them is primarily
 a matter of style and organizational preference.
 
-INDEX ON Syntax
-***************
+``INDEX ON`` syntax
+*******************
 
 The ``INDEX ON`` syntax provides a more traditional approach to index creation, specifying columns directly rather
 than through a SELECT query:
@@ -102,7 +102,7 @@ Using the same employee table from above, we can create an equivalent index usin
 This creates the same index structure as the INDEX AS SELECT example - a VALUE index with ``fname`` in the key
 and ``lname`` as a covered value.
 
-Syntax Comparison
+Syntax comparison
 *****************
 
 These two approaches create identical indexes:
@@ -122,13 +122,13 @@ These two approaches create identical indexes:
 
     CREATE INDEX fnameIdx ON employee(fname) INCLUDE(lname)
 
-Column Ordering and NULL Handling
-##################################
+Column ordering and ``NULL`` handling
+#####################################
 
 When creating indexes using either syntax, you can control how values are sorted in the index through ordering
 clauses and NULL semantics.
 
-Sorting Criteria
+Sorting criteria
 ****************
 
 Each key column in an INDEX ON definition supports explicit sort order:
@@ -138,8 +138,8 @@ Each key column in an INDEX ON definition supports explicit sort order:
 
 For INDEX AS SELECT, the sort order is specified in the ORDER BY clause.
 
-NULL Semantics
-**************
+``NULL`` semantics
+******************
 
 You can control where NULL values appear in the sort order:
 
@@ -151,8 +151,8 @@ You can control where NULL values appear in the sort order:
 * For ``ASC`` ordering: ``NULLS FIRST`` is the default
 * For ``DESC`` ordering: ``NULLS LAST`` is the default
 
-Ordering Syntax Examples
-*************************
+Ordering syntax examples
+************************
 
 The ordering clause for each column in INDEX ON can take several forms:
 
@@ -189,7 +189,7 @@ For INDEX AS SELECT syntax, the same ordering is specified in the ORDER BY claus
         FROM products
         ORDER BY rating ASC NULLS LAST
 
-Indexes on Unnested ``ARRAY`` Fields
+Indexes on unnested ``ARRAY`` fields
 ####################################
 
 If the table underlying the index contains an ``ARRAY`` column, it is possible to define an index on the result of unnesting the array. (This is subject to certain constraints, as described under :ref:`index_rules`.)
@@ -223,8 +223,8 @@ As a (less terse) alternative, the same index can also be written with an explic
 
 Both forms produce the same underlying key expression, ``field("reviews", FAN_OUT).nest(field("rating"))``. For each row of ``restaurant``, the index emits one entry per element of ``reviews``, keyed on the ``rating`` of the element. The general translation rule is described under :ref:`Implementation details <implementation_details>` below.
 
-Partitioning for Vector Indexes
-################################
+Partitioning for vector indexes
+###############################
 
 Vector indexes support an optional ``PARTITION BY`` clause that allows organizing vectors by category or tenant.
 This clause is **only applicable to vector indexes** created with the ``VECTOR INDEX`` syntax and is not supported
@@ -287,7 +287,7 @@ that resembles the structure of the SQL statement:
 * Projected nested fields (:sql:`f1`, :sql:`f2`, ... :sql:`fn`) from a repeated field :sql:`rf`, i.e. :sql:`select f1, f2, ... fn, ... from FOO.rf`
   maps to :sql:`field(rf, FAN_OUT).nest(field(f1), (field(f2), ..., field(fn)))`.
 
-See Also
+See also
 ########
 
 * :doc:`CREATE INDEX <sql_commands/DDL/CREATE/INDEX>` - Complete CREATE INDEX command reference with detailed syntax and examples
