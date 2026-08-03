@@ -63,14 +63,31 @@ public final class PhysicalPlanEquivalence {
     @Nonnull
     private final Optional<EvaluationContext> evaluationContext;
 
+    /**
+     * When {@code true}, this instance is an <em>environment</em> needle produced during offline (stored-query
+     * warm-up) planning, and the cache lookup is skipped (this needle never matches any entry). The lookup is skipped
+     * because it cannot run: matching evaluates a cached constraint against this needle's context, but the warm-up
+     * context is value-free, so dereferencing the constant it references fails ("Missing binding"). Skipping is safe
+     * because the cache is write-only during warm-up — the lookup would always miss anyway, and the freshly planned
+     * entry is written regardless. See {@link #equals}.
+     */
+    private final boolean offlinePlanning;
+
     @VisibleForTesting
     PhysicalPlanEquivalence(@Nonnull final Optional<QueryPlanConstraint> constraint,
                             @Nonnull final Optional<EvaluationContext> evaluationContext) {
+        this(constraint, evaluationContext, false);
+    }
+
+    private PhysicalPlanEquivalence(@Nonnull final Optional<QueryPlanConstraint> constraint,
+                                    @Nonnull final Optional<EvaluationContext> evaluationContext,
+                                    final boolean offlinePlanning) {
         Assert.thatUnchecked(constraint.isPresent() ^ evaluationContext.isPresent(),
                 ErrorCode.INTERNAL_ERROR, "Either constraint or evaluation context must be set (but not both)"
         );
         this.constraint = constraint;
         this.evaluationContext = evaluationContext;
+        this.offlinePlanning = offlinePlanning;
     }
 
     /**
@@ -109,6 +126,13 @@ public final class PhysicalPlanEquivalence {
         }
         final var other = (PhysicalPlanEquivalence) object;
 
+        // Offline (stored-query warm-up) planning: skip the lookup (this needle matches nothing). Matching would
+        // evaluate a cached constraint against this value-free context, where dereferencing the referenced constant
+        // fails ("Missing binding"); skipping is safe since the write-only warm-up cache would miss anyway.
+        if (offlinePlanning || other.offlinePlanning) {
+            return false;
+        }
+
         if (other.constraint.isEmpty()) {
             if (constraint.isPresent()) {
                 // special semantics for cache lookup.
@@ -146,6 +170,18 @@ public final class PhysicalPlanEquivalence {
     @Nonnull
     public static PhysicalPlanEquivalence of(@Nonnull final EvaluationContext evaluationContext) {
         return new PhysicalPlanEquivalence(Optional.empty(), Optional.of(evaluationContext));
+    }
+
+    /**
+     * Creates an environment needle for offline (stored-query warm-up) planning: it never matches a cached entry, so
+     * the freshly planned entry is always written rather than matched against the value-free warm-up context.
+     *
+     * @param evaluationContext the (value-free) evaluation context
+     * @return an offline-planning environment needle
+     */
+    @Nonnull
+    public static PhysicalPlanEquivalence ofOfflinePlanning(@Nonnull final EvaluationContext evaluationContext) {
+        return new PhysicalPlanEquivalence(Optional.empty(), Optional.of(evaluationContext), true);
     }
 
     @Nonnull

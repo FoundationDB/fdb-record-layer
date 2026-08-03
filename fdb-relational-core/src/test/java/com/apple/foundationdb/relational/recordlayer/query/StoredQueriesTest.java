@@ -995,10 +995,14 @@ class StoredQueriesTest {
     void storedQueriesNullLiteral() throws Exception {
         final String schemaTemplate =
                 "CREATE TABLE t1(id bigint, col1 bigint, PRIMARY KEY(id))"
-                        + " CREATE STORED QUERY by_val_q"
+                        + " CREATE STORED QUERY by_val_bigint"
                         + "   DECLARE"
                         + "       FUNCTION by_val(in p bigint) AS (SELECT * FROM t1 WHERE p IS NULL OR col1 = p)"
-                        + " AS SELECT id FROM by_val(?{bigint}) ORDER BY id";
+                        + " AS SELECT id FROM by_val(?{bigint}) ORDER BY id"
+                        + " CREATE STORED QUERY by_val_null"
+                        + "   DECLARE"
+                        + "       FUNCTION by_val(in p bigint) AS (SELECT * FROM t1 WHERE p IS NULL OR col1 = p)"
+                        + " AS SELECT id FROM by_val(?{null}) ORDER BY id";
         final String dbUri = "/TEST/SQ_NULL_LITERAL";
         try (var ddl = Ddl.builder()
                 .database(URI.create(dbUri))
@@ -1013,19 +1017,22 @@ class StoredQueriesTest {
                 stmt.execute("INSERT INTO t1 VALUES (1, 10), (2, 20), (3, 20), (4, 30)");
             }
 
-            // ---- Stored-query warm-up. 'by_val_q' declares by_val and invokes it with a concrete LONG
-            // literal (20L → stripped to '?'), warming a value-free 'by_val(?)' plan with an IS NOT NULL /
-            // OF TYPE LONG constraint. A fresh engine triggers OfflineStoredQueriesProcessor. (Asserted
-            // before any session query runs, so the shared metric counters reflect only the warm-up.)
+            // ---- Stored-query warm-up. Two stored queries share the canonical body 'by_val(?)' but differ by the
+            // inline typed parameter: by_val_bigint uses ?{bigint} (warming an OF TYPE LONG / IS NOT NULL plan) and
+            // by_val_null uses ?{null} (warming an OF TYPE NULL / IS NULL plan). A fresh engine triggers
+            // OfflineStoredQueriesProcessor, which warms both value-free plans as two separate cache entries.
+            // (Asserted before any session query runs, so the shared metric counters reflect only the warm-up.)
             final var engineDriver = relationalExtension.getDriver(
                     com.apple.foundationdb.record.provider.foundationdb.FormatVersion.getDefaultFormatVersion());
             final var connectionUtils = new ConnectionUtils(engineDriver);
-            Assertions.assertEquals(1, eventCounterCount(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_MISS));
+            Assertions.assertEquals(2, eventCounterCount(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_MISS));
             Assertions.assertEquals(0, eventCounterCount(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_HIT));
-            Assertions.assertEquals(Long.valueOf(1), connectionUtils.getFromCatalog(c -> countCachedPlans(c, templateName)));
+            Assertions.assertEquals(Long.valueOf(2), connectionUtils.getFromCatalog(c -> countCachedPlans(c, templateName)));
 
-            // A runtime session re-installs the same temp function and issues the canonical query bound to a
-            // LONG value; it reuses the warmed plan (hit +1, no new cache entry).
+            // A runtime session re-installs the same temp function and issues the canonical query. Each binding reuses
+            // the matching warmed plan without adding a cache entry: a LONG value (setLong, or the 20L literal) hits
+            // the ?{bigint} plan and returns col1 = 20 (ids 2, 3); setNull hits the ?{null} plan whose IS NULL branch
+            // returns every row (ids 1..4).
             connectionUtils.runAgainstConnection(dbUri, schemaName, c -> {
                 c.setAutoCommit(false);
                 try (var stmt = c.createStatement()) {
@@ -1044,11 +1051,11 @@ class StoredQueriesTest {
                         assertIds(ps.executeQuery(), 1, 2, 3, 4);
                     }
                 }
-                dumpCache(c, templateName);
                 c.rollback();
             });
+            // All three runtime queries reused warmed plans: three hits, misses and cache size unchanged.
             Assertions.assertEquals(2, eventCounterCount(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_MISS));
-            Assertions.assertEquals(2, eventCounterCount(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_HIT));
+            Assertions.assertEquals(3, eventCounterCount(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_HIT));
             Assertions.assertEquals(Long.valueOf(2), connectionUtils.getFromCatalog(c -> countCachedPlans(c, templateName)));
         }
     }
@@ -1061,22 +1068,6 @@ class StoredQueriesTest {
                 Assertions.assertEquals(expectedId, rs.getLong("ID"));
             }
             Assertions.assertFalse(rs.next());
-        }
-    }
-
-    private void dumpCache(RelationalConnection connection, String templateName) throws SQLException {
-        final var cache = connection.unwrap(EmbeddedRelationalConnection.class)
-                .getRecordLayerDatabase().getPlanCache();
-        if (cache == null) {
-            System.out.println("=== no plan cache ===");
-            return;
-        }
-        System.out.println("=== CACHE DUMP (" + templateName + ") ===");
-        for (QueryCacheKey secondaryKey : cache.getStats().getAllSecondaryKeys(templateName)) {
-            System.out.println("L2 KEY: " + secondaryKey);
-            for (var entry : cache.getStats().getAllTertiaryMappings(templateName, secondaryKey).entrySet()) {
-                System.out.println("    L3 (constraint): " + entry.getKey());
-            }
         }
     }
 }

@@ -374,14 +374,21 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
         // triggering constant folding internally.
         final var evaluationContext = getEvaluationContext();
         constantObjectValues.forEach(cov -> {
-            final var evaluatesTo =
-                    evaluationContext.containsConstantBinding(cov.getAlias(), cov.getConstantId())
-                            ? EvaluatesToValue.of(cov, evaluationContext)
-                            // Value-free (unbound) constant, e.g. a ?{type} stored-query parameter: there is no value at
-                            // plan time. Emit IS_NOT_NULL directly rather than dereferencing to null — that would yield
-                            // an IS_NULL constraint (making runtime non-null values miss) and would trip the
-                            // non-nullable-type check in ConstantObjectValue.eval.
-                            : EvaluatesToValue.isNotNull(cov);
+            final EvaluatesToValue evaluatesTo;
+            if (evaluationContext.containsConstantBinding(cov.getAlias(), cov.getConstantId())) {
+                evaluatesTo = EvaluatesToValue.of(cov, evaluationContext);
+            } else if (cov.getResultType().isNull()) {
+                // Value-free ?{NULL} stored-query parameter: it warms the plan for a runtime parameter bound to
+                // NULL (e.g. JDBC setNull), so its constraint is IS_NULL. The type is the nullable NULL type, so
+                // dereferencing to null in ConstantObjectValue.eval is allowed.
+                evaluatesTo = EvaluatesToValue.isNull(cov);
+            } else {
+                // Value-free (unbound) constant, e.g. a ?{type} stored-query parameter: there is no value at
+                // plan time. Emit IS_NOT_NULL directly rather than dereferencing to null — that would yield
+                // an IS_NULL constraint (making runtime non-null values miss) and would trip the
+                // non-nullable-type check in ConstantObjectValue.eval.
+                evaluatesTo = EvaluatesToValue.isNotNull(cov);
+            }
             predicateBuilder.add(new ValuePredicate(evaluatesTo,
                     new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, true)));
         });
@@ -515,9 +522,11 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
     }
 
     /**
-     * Resolves the inline type name of a {@code ?{type}} parameter to a non-nullable record-layer {@link Type}. The
-     * type is non-nullable so its {@code OfType} plan constraint matches the raw type produced at runtime by
-     * {@code Type.fromObject(value)} for a bound value (which yields a non-nullable primitive type).
+     * Resolves the inline type name of a {@code ?{type}} parameter to a record-layer {@link Type}. Ordinary types are
+     * non-nullable so their {@code OfType} plan constraint matches the raw type produced at runtime by
+     * {@code Type.fromObject(value)} for a bound value (which yields a non-nullable primitive type). The special
+     * {@code ?{NULL}} resolves to the nullable {@link Type#nullType()}: it warms the plan for a runtime parameter bound
+     * to {@code NULL} (e.g. JDBC {@code setNull}), whose runtime type is likewise {@code NULL}.
      */
     @Nonnull
     private static Type primitiveTypeForName(@Nonnull final String typeName) {
@@ -538,6 +547,8 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
                 return Type.primitiveType(Type.TypeCode.BYTES, false);
             case "UUID":
                 return Type.uuidType(false);
+            case "NULL":
+                return Type.nullType();
             default:
                 throw new RelationalException("unsupported stored query parameter type '" + typeName + "'",
                         ErrorCode.UNSUPPORTED_OPERATION).toUncheckedWrappedException();

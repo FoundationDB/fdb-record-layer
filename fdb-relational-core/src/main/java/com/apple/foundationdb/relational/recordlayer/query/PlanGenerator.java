@@ -147,6 +147,9 @@ public final class PlanGenerator {
         } catch (RelationalException e) {
             exception = e;
             throw e;
+        } catch (RuntimeException e) {
+            exception = new RelationalException(e.getMessage(), ErrorCode.INTERNAL_ERROR, e);
+            throw e;
         } finally {
             RelationalLoggingUtil.publishPlanGenerationLogs(logger, message, plan, exception, totalTimeMicros(), options);
         }
@@ -183,7 +186,9 @@ public final class PlanGenerator {
             RelationalLoggingUtil.publishPlanCacheLogs(message, RelationalLoggingUtil.PlanCacheEvent.HIT, -1, cache.get().getStats().numEntries());
 
             // otherwise, lookup the query in the cache
-            final var planEquivalence = PhysicalPlanEquivalence.of(astHashResult.getQueryExecutionContext().getEvaluationContext());
+            final var planEquivalence = planContext.isOfflinePlanning()
+                    ? PhysicalPlanEquivalence.ofOfflinePlanning(astHashResult.getQueryExecutionContext().getEvaluationContext())
+                    : PhysicalPlanEquivalence.of(astHashResult.getQueryExecutionContext().getEvaluationContext());
             return planContext.getMetricsCollector().clock(RelationalMetric.RelationalEvent.CACHE_LOOKUP, () ->
                     cache.get().reduce(
                             astHashResult.getSchemaTemplateName(),
@@ -546,6 +551,7 @@ public final class PlanGenerator {
                 .withConstantActionFactory(ThrowingMetadataOperationsFactory.INSTANCE)
                 .withDdlQueryFactory(ThrowingQueryFactory.INSTANCE)
                 .withDbUri(URI.create("embed:offline"))
+                .withOfflinePlanning(true)
                 .build();
         return create(cache, planContext, metaData, recordStoreState,
                 IndexMaintainerFactoryRegistryImpl.instance(), options);
@@ -577,6 +583,7 @@ public final class PlanGenerator {
                 .withConstantActionFactory(metadataOperationsFactory)
                 .withDdlQueryFactory(ThrowingQueryFactory.INSTANCE)
                 .withDbUri(URI.create("embed:offline"))
+                .withOfflinePlanning(true)
                 .build();
         return create(Optional.empty(), planContext, metaData, recordStoreState,
                 IndexMaintainerFactoryRegistryImpl.instance(), options);
