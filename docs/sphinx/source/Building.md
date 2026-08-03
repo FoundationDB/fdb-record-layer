@@ -1,5 +1,9 @@
 # Building the Record Layer
 
+```{eval-rst}
+.. tocdepth:: 2
+```
+
 This page explains how to build the FoundationDB Record Layer and set up a development environment for working on it. It covers building from source, configuring your IDE for development, and running the tests against a local cluster, as well as some advanced workflows. If you intend to contribute to the FoundationDB Record Layer, please also consult our [contribution guidelines](https://github.com/FoundationDB/fdb-record-layer/blob/main/CONTRIBUTING.md). If anything in this guide does not work smoothly for you, feel free to [create a new issue](https://github.com/FoundationDB/fdb-record-layer/issues/new) or open a thread in [the FoundationDB Forums](https://forums.foundationdb.org/c/using-layers).
 
 ## Building the project
