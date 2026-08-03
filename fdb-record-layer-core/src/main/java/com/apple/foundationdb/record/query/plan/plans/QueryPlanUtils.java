@@ -84,7 +84,7 @@ public class QueryPlanUtils {
     @API(API.Status.INTERNAL)
     static void enforceSerializable(@Nonnull final ExecuteProperties executeProperties,
                                     final Class<?> planClass) {
-        if (executeProperties.getIsolationLevel() == IsolationLevel.SERIALIZABLE) {
+        if (executeProperties.getIsolationLevel() != IsolationLevel.SERIALIZABLE) {
             throw new RecordCoreArgumentException("Cannot execute plan at SNAPSHOT isolation level")
                     .addLogInfo(LogMessageKeys.PLAN, planClass.getSimpleName());
         }
