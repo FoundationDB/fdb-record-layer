@@ -54,11 +54,13 @@ import java.util.Set;
  * <p>All inner rules must agree on the root class of their root binding matcher and on their root operator.
  * The wrapping conditional rule exposes a single binding matcher and root operator that stands in for the whole group.
  *
- * @param <T> a parent planner expression type of all possible root planner expressions that this rule could match
+ * @param <T> a parent planner expression type of all possible root planner expressions that this rule could match;
+ *            bounded by {@link RelationalExpression} because conditional rules only ever group expression-transform
+ *            rules, letting callers treat the grouped rules as {@code CascadesRule<? extends RelationalExpression>}
  * @param <R> the kind of inner {@link CascadesRule} grouped by this rule
  */
 @API(API.Status.EXPERIMENTAL)
-public class ConditionalCascadesRule<T, R extends CascadesRule<T>> extends AbstractCascadesRule<T> {
+public class ConditionalCascadesRule<T extends RelationalExpression, R extends CascadesRule<T>> extends AbstractCascadesRule<T> {
     /**
      * The grouped inner rules, as an immutable list.
      */

@@ -131,7 +131,7 @@ class CascadesPlannerTest {
         final CascadesPlanner.ExploreExpression explore =
                 planner.new ExploreExpression(PlannerPhase.REWRITING, group, expression);
 
-        explore.pushTransformTaskMaybe(conditionalRule);
+        explore.pushTransformExpressionIfNeeded(conditionalRule);
 
         final CascadesPlanner.Task pushedTask = planner.getTaskStack().pop();
         assertThat(pushedTask).isInstanceOf(CascadesPlanner.ConditionalTransformExpression.class);
@@ -198,7 +198,7 @@ class CascadesPlannerTest {
                     }
                 };
 
-        reExplore.pushTransformTaskMaybe(conditionalRule);
+        reExplore.pushTransformExpressionIfNeeded(conditionalRule);
 
         final CascadesPlanner.Task pushedTask = planner.getTaskStack().pop();
         assertThat(pushedTask).isInstanceOf(CascadesPlanner.ConditionalTransformExpression.class);
@@ -210,7 +210,7 @@ class CascadesPlannerTest {
 
     /**
      * A stub {@link PlannerConstraint} used to exercise the per-inner-rule staleness filtering in
-     * {@link CascadesPlanner.AbstractExploreExpression#pushTransformTaskMaybe}. Its {@code combine()} method is never
+     * {@link CascadesPlanner.AbstractExploreExpression#pushTransformExpressionIfNeeded}. Its {@code combine()} method is never
      * invoked by these tests; identity is all that matters.
      */
     private static final PlannerConstraint<Object> CONSTRAINT_A = new PlannerConstraint<Object>() {

@@ -845,7 +845,7 @@ public class CascadesPlanner implements QueryPlanner {
             final CascadesRuleSet ruleSet = getPlannerPhase().getRuleSet();
 
             // Push all rules that need to run after all exploration for a (group, expression) pair is done.
-            ruleSet.getMatchPartitionRules().forEach(this::pushTransformMatchPartitionMaybe);
+            ruleSet.getMatchPartitionRules().forEach(this::pushTransformMatchPartitionIfNeeded);
 
             // Push `TransformExpression` tasks for non-pre-order rules.
             //
@@ -855,7 +855,7 @@ public class CascadesPlanner implements QueryPlanner {
             // what happens towards the leaves of the tree.
             ruleSet.getRules(expression)
                     .filter(rule -> !(rule instanceof PreOrderRule))
-                    .forEach(this::pushTransformTaskMaybe);
+                    .forEach(this::pushTransformExpressionIfNeeded);
 
             // Push `ExploreGroup` tasks for all groups this expression ranges over.
             expression.getQuantifiers().stream()
@@ -865,7 +865,7 @@ public class CascadesPlanner implements QueryPlanner {
             // Push `TransformExpression` tasks for pre-order rules.
             ruleSet.getRules(expression)
                     .filter(rule -> rule instanceof PreOrderRule)
-                    .forEach(this::pushTransformTaskMaybe);
+                    .forEach(this::pushTransformExpressionIfNeeded);
 
             return true;
         }
@@ -880,7 +880,7 @@ public class CascadesPlanner implements QueryPlanner {
          * trying; if that subset is empty, no task is pushed.
          */
         @VisibleForTesting
-        void pushTransformTaskMaybe(@Nonnull CascadesRule<? extends RelationalExpression> rule) {
+        void pushTransformExpressionIfNeeded(@Nonnull CascadesRule<? extends RelationalExpression> rule) {
             if (!configuration.isRuleEnabled(rule) || !shouldPushRule(rule)) {
                 return;
             }
@@ -892,9 +892,7 @@ public class CascadesPlanner implements QueryPlanner {
                 // wrapper) so that on re-exploration only the inner rules that are actually sensitive to a newly-stale
                 // constraint get another chance to fire, instead of unconditionally restarting the whole chain from the
                 // first rule.
-                @SuppressWarnings("unchecked")
-                final var innerRules = (List<CascadesRule<? extends RelationalExpression>>)conditionalRule.getRules();
-                final var rules = innerRules.stream()
+                final var rules = conditionalRule.getRules().stream()
                         .filter(innerRule ->
                                 configuration.isRuleEnabled(innerRule) && shouldPushRule(innerRule))
                         .collect(ImmutableList.toImmutableList());
@@ -906,7 +904,7 @@ public class CascadesPlanner implements QueryPlanner {
             }
         }
 
-        private void pushTransformMatchPartitionMaybe(AbstractCascadesRule<? extends MatchPartition> rule) {
+        private void pushTransformMatchPartitionIfNeeded(AbstractCascadesRule<? extends MatchPartition> rule) {
             if (!configuration.isRuleEnabled(rule) || !shouldPushRule(rule)) {
                 return;
             }
