@@ -33,7 +33,7 @@ public interface StructuredQuery {
         LOG_QUERY("LOG QUERY"),
         DRY_RUN("DRY RUN"),
         PLAN_RIGHT_DEEP("PLAN RIGHT DEEP"),
-        SNAPSHOT_ISOLATION("ISOLATION LEVEL SNAPSHOT");
+        ISOLATION_LEVEL_SNAPSHOT("ISOLATION LEVEL SNAPSHOT");
 
         @Nonnull
         private final String name;

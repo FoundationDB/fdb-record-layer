@@ -97,14 +97,14 @@ public class OptionScopeTest {
     }
 
     /**
-     * {@code SNAPSHOT_ISOLATION} is supported as a connection option: a {@code SELECT} on the connection
+     * {@code ISOLATION_LEVEL_SNAPSHOT} is supported as a connection option: a {@code SELECT} on the connection
      * runs (at snapshot isolation) without needing a per-query {@code OPTIONS} clause. This lets a user
      * set the option on the connection, run a few reads, and switch back.
      */
     @Test
     void snapshotIsolationTakenFromConnection() throws SQLException {
         final var driver = (RelationalDriver) DriverManager.getDriver(db.getConnectionUri().toString());
-        try (Connection conn = driver.connect(db.getConnectionUri(), Options.builder().withOption(Options.Name.SNAPSHOT_ISOLATION, true).build())) {
+        try (Connection conn = driver.connect(db.getConnectionUri(), Options.builder().withOption(Options.Name.ISOLATION_LEVEL_SNAPSHOT, true).build())) {
             conn.setSchema(db.getSchemaName());
             try (Statement statement = conn.createStatement()) {
                 try (ResultSet rs = statement.executeQuery(SELECT_QUERY)) {
@@ -115,7 +115,7 @@ public class OptionScopeTest {
     }
 
     /**
-     * Because {@code SNAPSHOT_ISOLATION} is rejected on mutations, setting it as a connection option makes
+     * Because {@code ISOLATION_LEVEL_SNAPSHOT} is rejected on mutations, setting it as a connection option makes
      * every non-{@code SELECT} statement on that connection fail: the option applies to the {@code INSERT}
      * just as it would to a {@code SELECT}, and mutations cannot run at snapshot isolation. A connection
      * with the option set is therefore effectively read-only until the option is cleared.
@@ -123,7 +123,7 @@ public class OptionScopeTest {
     @Test
     void snapshotIsolationConnectionOptionRejectsDml() throws SQLException {
         final var driver = (RelationalDriver) DriverManager.getDriver(db.getConnectionUri().toString());
-        try (Connection conn = driver.connect(db.getConnectionUri(), Options.builder().withOption(Options.Name.SNAPSHOT_ISOLATION, true).build())) {
+        try (Connection conn = driver.connect(db.getConnectionUri(), Options.builder().withOption(Options.Name.ISOLATION_LEVEL_SNAPSHOT, true).build())) {
             conn.setSchema(db.getSchemaName());
             try (Statement statement = conn.createStatement()) {
                 RelationalAssertions.assertThrowsSqlException(() -> statement.executeUpdate(INSERT_QUERY))

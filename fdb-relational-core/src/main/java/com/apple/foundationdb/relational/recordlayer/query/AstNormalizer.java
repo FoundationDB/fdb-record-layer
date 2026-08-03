@@ -296,7 +296,7 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
                 queryOptions.withOption(Options.Name.PLAN_RIGHT_DEEP, true);
             }
             if (ctx.SNAPSHOT() != null) {
-                queryOptions.withOption(Options.Name.SNAPSHOT_ISOLATION, true);
+                queryOptions.withOption(Options.Name.ISOLATION_LEVEL_SNAPSHOT, true);
             }
             return null;
         } catch (SQLException e) {

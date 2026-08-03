@@ -212,7 +212,7 @@ public final class Options {
          * ({@code SELECT}) queries.
          * Scope: Query
          */
-        SNAPSHOT_ISOLATION,
+        ISOLATION_LEVEL_SNAPSHOT,
 
         /**
          * Treat identifiers as-is in terms of case without upper-casing non-quoted ones.
@@ -305,7 +305,7 @@ public final class Options {
         builder.put(Name.EXECUTION_SCANNED_ROWS_LIMIT, Integer.MAX_VALUE);
         builder.put(Name.DRY_RUN, false);
         builder.put(Name.PLAN_RIGHT_DEEP, false);
-        builder.put(Name.SNAPSHOT_ISOLATION, false);
+        builder.put(Name.ISOLATION_LEVEL_SNAPSHOT, false);
         builder.put(Name.CASE_SENSITIVE_IDENTIFIERS, false);
         builder.put(Name.ASYNC_OPERATIONS_TIMEOUT_MILLIS, 10_000L);
         builder.put(Name.ENCRYPT_WHEN_SERIALIZING, false);
@@ -561,7 +561,7 @@ public final class Options {
         data.put(Name.EXECUTION_SCANNED_BYTES_LIMIT, List.of(TypeContract.longType(), RangeContract.of(0L, Long.MAX_VALUE)));
         data.put(Name.DRY_RUN, List.of(TypeContract.booleanType()));
         data.put(Name.PLAN_RIGHT_DEEP, List.of(TypeContract.booleanType()));
-        data.put(Name.SNAPSHOT_ISOLATION, List.of(TypeContract.booleanType()));
+        data.put(Name.ISOLATION_LEVEL_SNAPSHOT, List.of(TypeContract.booleanType()));
         data.put(Name.CASE_SENSITIVE_IDENTIFIERS, List.of(TypeContract.booleanType()));
         data.put(Name.CURRENT_PLAN_HASH_MODE, List.of(TypeContract.stringType()));
         data.put(Name.VALID_PLAN_HASH_MODES, List.of(TypeContract.stringType()));

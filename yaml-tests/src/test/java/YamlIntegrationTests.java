@@ -378,8 +378,8 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
-    public void snapshotIsolation(YamlTest.Runner runner) throws Exception {
-        runner.runYamsql("snapshot-isolation.yamsql");
+    public void isolationLevelSnapshot(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("isolation-level-snapshot.yamsql");
     }
 
     @TestTemplate

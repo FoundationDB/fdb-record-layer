@@ -870,7 +870,7 @@ public class AstNormalizerTests {
                 null,
                 -1,
                 EnumSet.of(AstNormalizer.NormalizationResult.QueryCachingFlags.IS_DQL_STATEMENT),
-                Map.of(Options.Name.SNAPSHOT_ISOLATION, false));
+                Map.of(Options.Name.ISOLATION_LEVEL_SNAPSHOT, false));
     }
 
     @Test
@@ -883,7 +883,7 @@ public class AstNormalizerTests {
                 null,
                 -1,
                 EnumSet.of(AstNormalizer.NormalizationResult.QueryCachingFlags.IS_DQL_STATEMENT),
-                Map.of(Options.Name.SNAPSHOT_ISOLATION, true));
+                Map.of(Options.Name.ISOLATION_LEVEL_SNAPSHOT, true));
     }
 
     @Test

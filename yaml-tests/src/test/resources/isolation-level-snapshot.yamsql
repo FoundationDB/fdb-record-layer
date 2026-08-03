@@ -1,5 +1,5 @@
 #
-# snapshot-isolation.yamsql
+# isolation-level-snapshot.yamsql
 #
 # This source file is part of the FoundationDB open source project
 #

@@ -167,7 +167,7 @@ public final class PlanGenerator {
             RelationalLoggingUtil.publishNormalizeQueryLogs(message, stepTimeMicros(), astHashResult.getQueryCacheKey().hashCode(),
                     astHashResult.getQueryCacheKey().getCanonicalQueryString());
             options = options.withChild(astHashResult.getQueryOptions());
-            validateSnapshotIsolationOption(astHashResult.getQueryCachingFlags());
+            validateIsolationLevelSnapshotOption(astHashResult.getQueryCachingFlags());
 
             // shortcut plan cache if the query is determined not-cacheable or the cache is not set (disabled).
             if (shouldNotCache(astHashResult.getQueryCachingFlags()) || cache.isEmpty()) {
@@ -491,9 +491,9 @@ public final class PlanGenerator {
      * @throws RelationalException with {@link ErrorCode#UNSUPPORTED_OPERATION} if the option is used on a
      *         statement that is neither a {@code SELECT} nor an {@code EXECUTE CONTINUATION}.
      */
-    private void validateSnapshotIsolationOption(@Nonnull final Set<AstNormalizer.NormalizationResult.QueryCachingFlags> queryCachingFlags)
+    private void validateIsolationLevelSnapshotOption(@Nonnull final Set<AstNormalizer.NormalizationResult.QueryCachingFlags> queryCachingFlags)
             throws RelationalException {
-        if (!Boolean.TRUE.equals(options.getOption(Options.Name.SNAPSHOT_ISOLATION))) {
+        if (!Boolean.TRUE.equals(options.getOption(Options.Name.ISOLATION_LEVEL_SNAPSHOT))) {
             return;
         }
         final var isSelect = queryCachingFlags.contains(AstNormalizer.NormalizationResult.QueryCachingFlags.IS_DQL_STATEMENT);
