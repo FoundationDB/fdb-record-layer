@@ -20,8 +20,13 @@
 
 package com.apple.foundationdb.record.query.plan.plans;
 
+import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.IndexEntry;
+import com.apple.foundationdb.record.IsolationLevel;
+import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordMetaData;
+import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
@@ -61,5 +66,27 @@ public class QueryPlanUtils {
         final Index index = metaData.getIndex(indexName);
         final Descriptors.Descriptor recordDescriptor = recordType.getDescriptor();
         return indexEntry -> store.coveredIndexQueriedRecord(index, indexEntry, recordType, (M) toRecord.toRecord(recordDescriptor, indexEntry), hasPrimaryKey);
+    }
+
+    /**
+     * Some plans require serializable isolation (such as DML); this should be enforced by the parser, but as a backup
+     * this method can be used to additionally protect.
+     * <p>
+     *     For example, data-modification plans must run at serializable isolation: they read existing records (to
+     *     maintain indexes, enforce uniqueness, etc.) and those reads must participate in conflict detection to remain
+     *     correct. Executing at SNAPSHOT isolation would, at a minimum, require adding any records read to the conflict
+     *     range to ensure index consistency. It also requires determining and documenting the exact semantics. Because
+     *     of this complexity and a lack of immediate requests, this is not supported.
+     * </p>
+     * @param executeProperties the execute properties used for executing
+     * @param planClass the class of the plan being protected
+     */
+    @API(API.Status.INTERNAL)
+    static void enforceSerializable(@Nonnull final ExecuteProperties executeProperties,
+                                    final Class<?> planClass) {
+        if (executeProperties.getIsolationLevel() == IsolationLevel.SERIALIZABLE) {
+            throw new RecordCoreArgumentException("Cannot execute plan at SNAPSHOT isolation level")
+                    .addLogInfo(LogMessageKeys.PLAN, planClass.getSimpleName());
+        }
     }
 }
