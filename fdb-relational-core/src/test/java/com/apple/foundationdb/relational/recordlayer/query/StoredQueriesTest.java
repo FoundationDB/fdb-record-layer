@@ -1070,4 +1070,35 @@ class StoredQueriesTest {
             Assertions.assertFalse(rs.next());
         }
     }
+
+    @Test
+    void storedQueriesDuplicatePlansCollapse() throws Exception {
+        // Two differently named stored queries with identical bodies. Each canonicalizes to the same L2 key and
+        // produces the same plan constraint, so warm-up plans both (two tertiary misses) but the second plan overwrites
+        // the first under the identical tertiary key, leaving a single cache record.
+        final String schemaTemplate =
+                "CREATE TABLE t1(id bigint, col1 bigint, PRIMARY KEY(id))"
+                        + " CREATE STORED QUERY dup_d AS SELECT * FROM t1 WHERE col1 = 10L"
+                        + " CREATE STORED QUERY dup_c AS SELECT * FROM t1 WHERE col1 = 10L"
+                        + " CREATE STORED QUERY dup_a AS SELECT * FROM t1 WHERE col1 = ?{bigint}"
+                        + " CREATE STORED QUERY dup_b AS SELECT * FROM t1 WHERE col1 = ?{bigint}";
+        try (var ddl = Ddl.builder()
+                .database(URI.create("/TEST/SQ_DUP_PLANS"))
+                .relationalExtension(relationalExtension)
+                .schemaTemplate(schemaTemplate)
+                .build()) {
+            final String templateName = ddl.getSchemaTemplateName();
+
+            // A fresh engine triggers OfflineStoredQueriesProcessor, warming both stored queries.
+            final var engineDriver = relationalExtension.getDriver(
+                    com.apple.foundationdb.record.provider.foundationdb.FormatVersion.getDefaultFormatVersion());
+            final var connectionUtils = new ConnectionUtils(engineDriver);
+
+            // all stored queries were planned (4 tertiary misses) ...
+            Assertions.assertEquals(4, eventCounterCount(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_MISS));
+            Assertions.assertEquals(0, eventCounterCount(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_HIT));
+            // ... but they collapse to a single cache record (same L2 key, same constraint).
+            Assertions.assertEquals(Long.valueOf(1), connectionUtils.getFromCatalog(c -> countCachedPlans(c, templateName)));
+        }
+    }
 }
