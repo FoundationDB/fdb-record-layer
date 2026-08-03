@@ -33,7 +33,6 @@ import com.apple.foundationdb.relational.jdbc.grpc.v1.column.Column;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.column.ColumnMetadata;
 import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
 import com.apple.foundationdb.relational.util.PositionalIndex;
-import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
 import com.google.common.base.Suppliers;
 
 import javax.annotation.Nonnull;
@@ -279,7 +278,6 @@ class RelationalResultSetFacade implements RelationalResultSet {
 
     @Override
     @Nonnull
-    @SpotBugsSuppressWarnings("NP") // TODO: Will need to fix null handling
     public Continuation getContinuation() throws SQLException {
         if (hasNext()) {
             throw new SQLException("Continuation can only be returned for the last row");

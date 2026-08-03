@@ -280,7 +280,6 @@ message PValue {
     PRowNumberValue row_number_value = 55;
     PEuclideanDistanceRowNumberValue euclidean_distance_row_number_value = 56;
     PCosineDistanceRowNumberValue cosine_distance_row_number_value = 57;
-    PRowNumberHighOrderValue row_number_high_order_value = 58;
     PDistanceValue distance_value = 59;
     PEuclideanSquareDistanceRowNumberValue euclidean_square_distance_row_number_value = 60;
     PDotProductDistanceRowNumberValue dot_product_distance_row_number_value = 61;
@@ -289,6 +288,8 @@ message PValue {
   }
   // Removed types that are no longer supported
   reserved 38;
+  // 58: PRowNumberHighOrderValue -- a compile-time-only value that was never persisted; retired.
+  reserved 58;
 }
 
 message PUserDefinedFunctionArgumentDefaultValue {
@@ -726,11 +727,6 @@ message PRecordConstructorValue {
 message PRecordTypeValue {
   optional string alias = 1; // deprecated
   optional PValue in = 2;
-}
-
-message PRowNumberHighOrderValue {
-  optional int32 efSearch = 2;
-  optional bool isReturningVectors = 3;
 }
 
 message PRowNumberValue {

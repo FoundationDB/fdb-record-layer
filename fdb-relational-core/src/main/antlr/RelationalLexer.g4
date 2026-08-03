@@ -114,6 +114,7 @@ GRANT:                               'GRANT';
 GROUP:                               'GROUP';
 HAVING:                              'HAVING';
 HNSW:                                'HNSW';
+GUARDIANN:                           'GUARDIANN';
 HIGH_PRIORITY:                       'HIGH_PRIORITY';
 HISTOGRAM:                           'HISTOGRAM';
 IF:                                  'IF';

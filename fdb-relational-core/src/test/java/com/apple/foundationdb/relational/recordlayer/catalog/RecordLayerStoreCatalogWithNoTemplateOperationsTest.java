@@ -25,6 +25,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
 import com.apple.foundationdb.relational.api.Transaction;
+import com.apple.foundationdb.relational.api.catalog.SchemaExistsBehavior;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metadata.Schema;
@@ -69,7 +70,7 @@ public class RecordLayerStoreCatalogWithNoTemplateOperationsTest extends RecordL
             Schema schema1 = generateTestSchema("test_schema_name", "/TEST/test_database_id", templateName, templateVersion);
             storeCatalog.getSchemaTemplateCatalog().createTemplate(txn, schema1.getSchemaTemplate());
             storeCatalog.createDatabase(txn, URI.create(schema1.getDatabaseName()));
-            storeCatalog.saveSchema(txn, schema1, false);
+            storeCatalog.saveSchema(txn, schema1, false, SchemaExistsBehavior.ERROR);
             txn.commit();
         }
 
@@ -94,7 +95,7 @@ public class RecordLayerStoreCatalogWithNoTemplateOperationsTest extends RecordL
         try (Transaction txn = new RecordContextTransaction(fdb.openContext())) {
             Schema schema1 = generateTestSchema("test_schema_name", "/TEST/test_database_id", templateName, templateVersion);
             storeCatalog.createDatabase(txn, URI.create(schema1.getDatabaseName()));
-            storeCatalog.saveSchema(txn, schema1, false);
+            storeCatalog.saveSchema(txn, schema1, false, SchemaExistsBehavior.ERROR);
             txn.commit();
         }
     }
@@ -106,7 +107,7 @@ public class RecordLayerStoreCatalogWithNoTemplateOperationsTest extends RecordL
         try (Transaction txn = new RecordContextTransaction(fdb.openContext())) {
             storeCatalog.getSchemaTemplateCatalog().createTemplate(txn, schema1.getSchemaTemplate());
             storeCatalog.createDatabase(txn, URI.create(schema1.getDatabaseName()));
-            storeCatalog.saveSchema(txn, schema1, false);
+            storeCatalog.saveSchema(txn, schema1, false, SchemaExistsBehavior.ERROR);
             txn.commit();
         }
         // save schema template with version  2

@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.record.query.plan.cascades;
 
-import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
@@ -222,7 +221,6 @@ public abstract class ValueEquivalence {
 
         @Nonnull
         @Override
-        @SpotBugsSuppressWarnings("NP_NULL_ON_SOME_PATH_FROM_RETURN_VALUE") // false-positive
         public ConstrainedBoolean isDefinedEqual(@Nonnull final Value left, @Nonnull final Value right) {
             final var rightFromMap = valueEquivalenceMap.get(left);
             if (rightFromMap == null || !rightFromMap.equals(right)) {
@@ -373,7 +371,6 @@ public abstract class ValueEquivalence {
             return falseValue();
         }
 
-        @SpotBugsSuppressWarnings(value = "RCN_REDUNDANT_NULLCHECK_OF_NONNULL_VALUE", justification = "evalWithoutStore can return nullable")
         @Nonnull
         public ConstrainedBoolean isDefinedEqual(@Nonnull final ConstantObjectValue constantObjectValue,
                                                  @Nonnull final LiteralValue<?> literalValue) {

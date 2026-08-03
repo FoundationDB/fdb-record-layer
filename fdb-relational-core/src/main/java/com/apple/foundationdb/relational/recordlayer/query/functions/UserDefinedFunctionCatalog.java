@@ -20,14 +20,9 @@
 
 package com.apple.foundationdb.relational.recordlayer.query.functions;
 
+import com.apple.foundationdb.record.query.plan.cascades.CallSiteArguments;
 import com.apple.foundationdb.record.query.plan.cascades.CatalogedFunction;
 import com.apple.foundationdb.record.query.plan.cascades.UserDefinedFunction;
-import com.apple.foundationdb.record.query.plan.cascades.values.Value;
-import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
-import com.apple.foundationdb.relational.recordlayer.query.Expressions;
-import com.apple.foundationdb.relational.util.Assert;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 
 import javax.annotation.Nonnull;
 import java.util.LinkedHashMap;
@@ -57,7 +52,7 @@ final class UserDefinedFunctionCatalog {
     }
 
     @Nonnull
-    public Optional<CatalogedFunction> lookup(@Nonnull final String functionName, Expressions arguments) {
+    public Optional<CatalogedFunction> lookup(@Nonnull final String functionName, @Nonnull final CallSiteArguments arguments) {
         final var functionSupplier = functionsMap.get(functionName);
         if (functionSupplier == null) {
             return Optional.empty();
@@ -66,33 +61,12 @@ final class UserDefinedFunctionCatalog {
         // lazy-compile the function
         final var function = functionSupplier.apply(isCaseSensitive);
 
-        // either all arguments are named, or none is named.
-        // I think partial naming is supported in SQL standard, but we do not support that at the moment.
-        int countNamed = 0;
-        int countUnnamed = 0; // Java container builders do not have size for some reason.
-        final var namedArgumentsBuilder = ImmutableMap.<String, Value>builder();
-        final var unnamedArgumentsBuilder = ImmutableList.<Value>builder();
-        for (final var argument : arguments) {
-            if (argument.isNamedArgument()) {
-                Assert.thatUnchecked(countUnnamed == 0, ErrorCode.UNSUPPORTED_OPERATION,
-                        "mixing named and unnamed arguments is not supported");
-                countNamed++;
-                namedArgumentsBuilder.put(argument.getName().get().toString(), argument.getUnderlying());
-            } else {
-                Assert.thatUnchecked(countNamed == 0, ErrorCode.UNSUPPORTED_OPERATION,
-                        "mixing named and unnamed arguments is not supported");
-                countUnnamed++;
-                unnamedArgumentsBuilder.add(argument.getUnderlying());
-            }
-        }
-
         // These validations don't include checking if the type of the provided arguments matches the expected function
         // parameter types or the provided values can be promoted to the expected types. Instead, this is delegated
         // to the encapsulation logic.
-        final var namedArguments = namedArgumentsBuilder.build();
-        if (!namedArguments.isEmpty()) {
-            return function.validateCall(namedArguments);
+        if (arguments.isNamed()) {
+            return function.validateCall(arguments.asNamedArguments().namedArguments());
         }
-        return function.validateCall(unnamedArgumentsBuilder.build());
+        return function.validateCall(arguments.getArgumentsList());
     }
 }

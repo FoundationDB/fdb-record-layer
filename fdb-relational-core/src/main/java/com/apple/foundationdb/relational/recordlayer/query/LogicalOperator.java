@@ -25,6 +25,7 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.AccessHint;
 import com.apple.foundationdb.record.query.plan.cascades.AccessHints;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
+import com.apple.foundationdb.record.query.plan.cascades.CallSiteArguments;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
@@ -659,7 +660,7 @@ public class LogicalOperator {
                 // "If no row qualifies, then the result of COUNT is 0 (zero), and the result of any other aggregate function is the null value.
                 if (subValue instanceof CountValue) {
                     final var zero = LiteralValue.ofScalar(0L);
-                    return (Value) new VariadicFunctionValue.CoalesceFn().encapsulate(ImmutableList.of(subValue, zero));
+                    return (Value) new VariadicFunctionValue.CoalesceFn().encapsulate(CallSiteArguments.ofPositional(subValue, zero));
                 }
                 return subValue;
             })));

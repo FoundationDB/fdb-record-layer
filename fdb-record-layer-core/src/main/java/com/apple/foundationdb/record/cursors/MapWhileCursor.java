@@ -21,7 +21,6 @@
 package com.apple.foundationdb.record.cursors;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorContinuation;
 import com.apple.foundationdb.record.RecordCursorResult;
@@ -70,7 +69,6 @@ public class MapWhileCursor<T, V> implements RecordCursor<V> {
     @Nonnull
     private RecordCursorResult<V> nextResult = RecordCursorResult.withNextValue(null, RecordCursorStartContinuation.START);
 
-    @SpotBugsSuppressWarnings("EI_EXPOSE_REP2")
     @SuppressWarnings("PMD.UnusedFormalParameter") // for compatibility reasons
     public MapWhileCursor(@Nonnull RecordCursor<T> inner, @Nonnull Function<T, Optional<V>> func,
                           @Nonnull StopContinuation stopContinuation, @Nullable byte[] initialContinuation,
