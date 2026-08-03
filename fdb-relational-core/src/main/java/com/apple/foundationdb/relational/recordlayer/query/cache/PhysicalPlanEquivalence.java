@@ -26,10 +26,6 @@ import com.apple.foundationdb.record.Bindings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
-import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
-import com.apple.foundationdb.relational.util.Assert;
-
-import com.google.common.annotations.VisibleForTesting;
 
 import javax.annotation.Nonnull;
 import java.util.Objects;
@@ -73,20 +69,15 @@ public final class PhysicalPlanEquivalence {
      */
     private final boolean offlinePlanning;
 
-    @VisibleForTesting
-    PhysicalPlanEquivalence(@Nonnull final Optional<QueryPlanConstraint> constraint,
-                            @Nonnull final Optional<EvaluationContext> evaluationContext) {
-        this(constraint, evaluationContext, false);
+    private PhysicalPlanEquivalence(@Nonnull final QueryPlanConstraint constraint) {
+        this.constraint = Optional.of(constraint);
+        this.evaluationContext = Optional.empty();
+        this.offlinePlanning = false;
     }
 
-    private PhysicalPlanEquivalence(@Nonnull final Optional<QueryPlanConstraint> constraint,
-                                    @Nonnull final Optional<EvaluationContext> evaluationContext,
-                                    final boolean offlinePlanning) {
-        Assert.thatUnchecked(constraint.isPresent() ^ evaluationContext.isPresent(),
-                ErrorCode.INTERNAL_ERROR, "Either constraint or evaluation context must be set (but not both)"
-        );
-        this.constraint = constraint;
-        this.evaluationContext = evaluationContext;
+    private PhysicalPlanEquivalence(@Nonnull final EvaluationContext evaluationContext, final boolean offlinePlanning) {
+        this.constraint = Optional.empty();
+        this.evaluationContext = Optional.of(evaluationContext);
         this.offlinePlanning = offlinePlanning;
     }
 
@@ -164,12 +155,12 @@ public final class PhysicalPlanEquivalence {
 
     @Nonnull
     public PhysicalPlanEquivalence withConstraint(@Nonnull final QueryPlanConstraint constraint) {
-        return new PhysicalPlanEquivalence(Optional.of(constraint), Optional.empty());
+        return new PhysicalPlanEquivalence(constraint);
     }
 
     @Nonnull
     public static PhysicalPlanEquivalence of(@Nonnull final EvaluationContext evaluationContext) {
-        return new PhysicalPlanEquivalence(Optional.empty(), Optional.of(evaluationContext));
+        return new PhysicalPlanEquivalence(evaluationContext, false);
     }
 
     /**
@@ -181,12 +172,12 @@ public final class PhysicalPlanEquivalence {
      */
     @Nonnull
     public static PhysicalPlanEquivalence ofOfflinePlanning(@Nonnull final EvaluationContext evaluationContext) {
-        return new PhysicalPlanEquivalence(Optional.empty(), Optional.of(evaluationContext), true);
+        return new PhysicalPlanEquivalence(evaluationContext, true);
     }
 
     @Nonnull
     public static PhysicalPlanEquivalence of(@Nonnull final QueryPlanConstraint constraint) {
-        return new PhysicalPlanEquivalence(Optional.of(constraint), Optional.empty());
+        return new PhysicalPlanEquivalence(constraint);
     }
 
     @Override

@@ -36,7 +36,6 @@ import org.junit.jupiter.api.Test;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Random;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
@@ -61,12 +60,12 @@ public class ConcurrentCacheTests {
 
     @Nonnull
     private static PhysicalPlanEquivalence ppeFor(@Nonnull final QueryPlanConstraint constraint) {
-        return new PhysicalPlanEquivalence(Optional.of(constraint), Optional.empty());
+        return PhysicalPlanEquivalence.of(constraint);
     }
 
     @Nonnull
     private static PhysicalPlanEquivalence ppeFor(@Nonnull final EvaluationContext evaluationContext) {
-        return new PhysicalPlanEquivalence(Optional.empty(), Optional.of(evaluationContext));
+        return PhysicalPlanEquivalence.of(evaluationContext);
     }
 
     @Nonnull
