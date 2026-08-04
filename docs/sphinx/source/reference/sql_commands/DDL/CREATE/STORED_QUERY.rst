@@ -131,17 +131,24 @@ These warm two separate plans (``IS NOT NULL`` vs ``IS NULL``). A runtime sessio
 Corner case: concrete literals
 ------------------------------
 
-A body may use a concrete literal instead of a ``?{type}`` parameter. This is needed only when the value must stay fixed at plan time — for example a value compared against a filtered/range index, or to enumerate specific ``NULL`` / boolean cases as distinct stored queries:
+A body may use a concrete literal instead of a ``?{type}`` parameter. This is needed when the value must stay fixed at plan time — most importantly when it is compared against a **filtered/range index**, because the planner has to check that the value falls inside the index's predicate to select that index. A ``?{type}`` here has no value to check, so the stored query would be skipped at warm-up; a concrete literal lets it warm normally:
 
 .. code-block:: sql
 
-    CREATE STORED QUERY by_col1_10 AS SELECT * FROM t1 WHERE col1 = 10
+    CREATE SCHEMA TEMPLATE example_template
+        CREATE TABLE t1(id BIGINT, col1 BIGINT, PRIMARY KEY(id))
+        -- filtered index: only rows with col1 > 42 are indexed
+        CREATE INDEX hot AS SELECT col1 FROM t1 WHERE col1 > 42 ORDER BY col1
+        -- concrete literal 50 lets the planner prove 50 > 42, so the plan uses the "hot" index
+        CREATE STORED QUERY hot_col1 AS SELECT * FROM t1 WHERE col1 > 50
 
-Because literal values are stripped during planning, any runtime query of the same shape reuses this plan regardless of the constant:
+The index's filter goes into the plan constraint, so the warmed plan works for any literal that satisfies that constraint:
 
 .. code-block:: sql
 
-    SELECT * FROM t1 WHERE col1 = 42    -- reuses the warmed plan
+    SELECT * FROM t1 WHERE col1 > 60    -- 60 > 42, reuses the warmed index-scan plan
+
+Writing ``col1 > ?{bigint}`` instead would leave the planner unable to prove the value falls in ``col1 > 42``, so that stored query is skipped at warm-up (it still plans normally at runtime, once a value is bound).
 
 See Also
 ========
