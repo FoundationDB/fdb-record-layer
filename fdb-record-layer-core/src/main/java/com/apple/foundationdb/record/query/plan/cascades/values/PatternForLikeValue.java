@@ -210,7 +210,7 @@ public class PatternForLikeValue extends AbstractValue {
         public PatternForLikeFn() {
             super("patternForLike",
                     ImmutableList.of(Type.primitiveType(TypeCode.STRING), Type.primitiveType(TypeCode.STRING)),
-                    (ignored, args) -> PatternForLikeValue.encapsulate(args));
+                    (ignored, args) -> PatternForLikeValue.encapsulate(args.getArgumentsList()));
         }
     }
 

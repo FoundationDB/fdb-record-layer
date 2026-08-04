@@ -88,6 +88,60 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
     private static final Set<String> HNSW_ONLY = ImmutableSet.of(HNSW_ENGINE);
     private static final Set<String> GUARDIANN_ONLY = ImmutableSet.of(GUARDIANN_ENGINE);
 
+    // The curated set of vector index options exposed through SQL DDL, keyed by their (lower-cased) SQL option name.
+    // Adding or removing an option, or changing which engine it applies to, is a one-line change here and needs no
+    // grammar change.
+    private static final Map<String, VectorSqlOption<?>> SUPPORTED_VECTOR_OPTIONS =
+            ImmutableMap.<String, VectorSqlOption<?>>builder()
+                    // shared by both engines
+                    .put("metric", new VectorSqlOption<>(VectorIndexOptionKeys.METRIC, ANY_ENGINE,
+                            value -> parseMetric(value.hnswMetric())))
+                    .put("use_rabitq", new VectorSqlOption<>(VectorIndexOptionKeys.USE_RABITQ, ANY_ENGINE,
+                            DdlVisitor::parseOptionBoolean))
+                    .put("rabitq_num_ex_bits", new VectorSqlOption<>(VectorIndexOptionKeys.RABITQ_NUM_EX_BITS,
+                            ANY_ENGINE, DdlVisitor::parseOptionInt))
+                    .put("maintain_stats_probability", new VectorSqlOption<>(VectorIndexOptionKeys.MAINTAIN_STATS_PROBABILITY,
+                            ANY_ENGINE, DdlVisitor::parseOptionDouble))
+                    .put("sample_vector_stats_probability", new VectorSqlOption<>(VectorIndexOptionKeys.SAMPLE_VECTOR_STATS_PROBABILITY,
+                            ANY_ENGINE, DdlVisitor::parseOptionDouble))
+                    .put("stats_threshold", new VectorSqlOption<>(VectorIndexOptionKeys.STATS_THRESHOLD, ANY_ENGINE,
+                            DdlVisitor::parseOptionInt))
+                    // HNSW-only
+                    .put("connectivity", new VectorSqlOption<>(VectorIndexOptionKeys.HNSW_M, HNSW_ONLY,
+                            DdlVisitor::parseOptionInt))
+                    .put("ef_construction", new VectorSqlOption<>(VectorIndexOptionKeys.HNSW_EF_CONSTRUCTION, HNSW_ONLY,
+                            DdlVisitor::parseOptionInt))
+                    .put("m_max", new VectorSqlOption<>(VectorIndexOptionKeys.HNSW_M_MAX, HNSW_ONLY,
+                            DdlVisitor::parseOptionInt))
+                    .put("m_max_0", new VectorSqlOption<>(VectorIndexOptionKeys.HNSW_M_MAX_0, HNSW_ONLY,
+                            DdlVisitor::parseOptionInt))
+                    // Guardiann-only (curated subset)
+                    .put("primary_cluster_min", new VectorSqlOption<>(VectorIndexOptionKeys.GUARDIANN_PRIMARY_CLUSTER_MIN,
+                            GUARDIANN_ONLY, DdlVisitor::parseOptionInt))
+                    .put("primary_cluster_max", new VectorSqlOption<>(VectorIndexOptionKeys.GUARDIANN_PRIMARY_CLUSTER_MAX,
+                            GUARDIANN_ONLY, DdlVisitor::parseOptionInt))
+                    .put("underreplicated_primary_cluster_max", new VectorSqlOption<>(VectorIndexOptionKeys.GUARDIANN_UNDERREPLICATED_PRIMARY_CLUSTER_MAX,
+                            GUARDIANN_ONLY, DdlVisitor::parseOptionInt))
+                    .put("replicated_cluster_max_writes", new VectorSqlOption<>(VectorIndexOptionKeys.GUARDIANN_REPLICATED_CLUSTER_MAX_WRITES,
+                            GUARDIANN_ONLY, DdlVisitor::parseOptionInt))
+                    .put("replicated_cluster_target", new VectorSqlOption<>(VectorIndexOptionKeys.GUARDIANN_REPLICATED_CLUSTER_TARGET,
+                            GUARDIANN_ONLY, DdlVisitor::parseOptionInt))
+                    .put("replication_priority_min", new VectorSqlOption<>(VectorIndexOptionKeys.GUARDIANN_REPLICATION_PRIORITY_MIN,
+                            GUARDIANN_ONLY, DdlVisitor::parseOptionDouble))
+                    .put("insert_max_candidate_clusters", new VectorSqlOption<>(VectorIndexOptionKeys.GUARDIANN_INSERT_MAX_CANDIDATE_CLUSTERS,
+                            GUARDIANN_ONLY, DdlVisitor::parseOptionInt))
+                    .put("delete_max_candidate_clusters", new VectorSqlOption<>(VectorIndexOptionKeys.GUARDIANN_DELETE_MAX_CANDIDATE_CLUSTERS,
+                            GUARDIANN_ONLY, DdlVisitor::parseOptionInt))
+                    .put("split_num_nearest_clusters", new VectorSqlOption<>(VectorIndexOptionKeys.GUARDIANN_SPLIT_NUM_NEAREST_CLUSTERS,
+                            GUARDIANN_ONLY, DdlVisitor::parseOptionInt))
+                    .put("merge_num_nearest_clusters", new VectorSqlOption<>(VectorIndexOptionKeys.GUARDIANN_MERGE_NUM_NEAREST_CLUSTERS,
+                            GUARDIANN_ONLY, DdlVisitor::parseOptionInt))
+                    .put("reassign_num_neighboring_clusters", new VectorSqlOption<>(VectorIndexOptionKeys.GUARDIANN_REASSIGN_NUM_NEIGHBORING_CLUSTERS,
+                            GUARDIANN_ONLY, DdlVisitor::parseOptionInt))
+                    .put("collapse_min_duplicates", new VectorSqlOption<>(VectorIndexOptionKeys.GUARDIANN_COLLAPSE_MIN_DUPLICATES,
+                            GUARDIANN_ONLY, DdlVisitor::parseOptionInt))
+                    .build();
+
     @Nonnull
     private final RecordLayerSchemaTemplate.Builder metadataBuilder;
 
@@ -324,60 +378,6 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
         }
     }
 
-    // The curated set of vector index options exposed through SQL DDL, keyed by their (lower-cased) SQL option name.
-    // Adding or removing an option, or changing which engine it applies to, is a one-line change here and needs no
-    // grammar change.
-    private static final Map<String, VectorSqlOption<?>> SUPPORTED_VECTOR_OPTIONS =
-            ImmutableMap.<String, VectorSqlOption<?>>builder()
-                    // shared by both engines
-                    .put("metric", new VectorSqlOption<>(VectorIndexOptionKeys.METRIC, ANY_ENGINE,
-                            value -> parseMetric(value.hnswMetric())))
-                    .put("use_rabitq", new VectorSqlOption<>(VectorIndexOptionKeys.USE_RABITQ, ANY_ENGINE,
-                            DdlVisitor::parseOptionBoolean))
-                    .put("rabitq_num_ex_bits", new VectorSqlOption<>(VectorIndexOptionKeys.RABITQ_NUM_EX_BITS,
-                            ANY_ENGINE, DdlVisitor::parseOptionInt))
-                    .put("maintain_stats_probability", new VectorSqlOption<>(VectorIndexOptionKeys.MAINTAIN_STATS_PROBABILITY,
-                            ANY_ENGINE, DdlVisitor::parseOptionDouble))
-                    .put("sample_vector_stats_probability", new VectorSqlOption<>(VectorIndexOptionKeys.SAMPLE_VECTOR_STATS_PROBABILITY,
-                            ANY_ENGINE, DdlVisitor::parseOptionDouble))
-                    .put("stats_threshold", new VectorSqlOption<>(VectorIndexOptionKeys.STATS_THRESHOLD, ANY_ENGINE,
-                            DdlVisitor::parseOptionInt))
-                    // HNSW-only
-                    .put("connectivity", new VectorSqlOption<>(VectorIndexOptionKeys.HNSW_M, HNSW_ONLY,
-                            DdlVisitor::parseOptionInt))
-                    .put("ef_construction", new VectorSqlOption<>(VectorIndexOptionKeys.HNSW_EF_CONSTRUCTION, HNSW_ONLY,
-                            DdlVisitor::parseOptionInt))
-                    .put("m_max", new VectorSqlOption<>(VectorIndexOptionKeys.HNSW_M_MAX, HNSW_ONLY,
-                            DdlVisitor::parseOptionInt))
-                    .put("m_max_0", new VectorSqlOption<>(VectorIndexOptionKeys.HNSW_M_MAX_0, HNSW_ONLY,
-                            DdlVisitor::parseOptionInt))
-                    // Guardiann-only (curated subset)
-                    .put("primary_cluster_min", new VectorSqlOption<>(VectorIndexOptionKeys.GUARDIANN_PRIMARY_CLUSTER_MIN,
-                            GUARDIANN_ONLY, DdlVisitor::parseOptionInt))
-                    .put("primary_cluster_max", new VectorSqlOption<>(VectorIndexOptionKeys.GUARDIANN_PRIMARY_CLUSTER_MAX,
-                            GUARDIANN_ONLY, DdlVisitor::parseOptionInt))
-                    .put("underreplicated_primary_cluster_max", new VectorSqlOption<>(VectorIndexOptionKeys.GUARDIANN_UNDERREPLICATED_PRIMARY_CLUSTER_MAX,
-                            GUARDIANN_ONLY, DdlVisitor::parseOptionInt))
-                    .put("replicated_cluster_max_writes", new VectorSqlOption<>(VectorIndexOptionKeys.GUARDIANN_REPLICATED_CLUSTER_MAX_WRITES,
-                            GUARDIANN_ONLY, DdlVisitor::parseOptionInt))
-                    .put("replicated_cluster_target", new VectorSqlOption<>(VectorIndexOptionKeys.GUARDIANN_REPLICATED_CLUSTER_TARGET,
-                            GUARDIANN_ONLY, DdlVisitor::parseOptionInt))
-                    .put("replication_priority_min", new VectorSqlOption<>(VectorIndexOptionKeys.GUARDIANN_REPLICATION_PRIORITY_MIN,
-                            GUARDIANN_ONLY, DdlVisitor::parseOptionDouble))
-                    .put("insert_max_candidate_clusters", new VectorSqlOption<>(VectorIndexOptionKeys.GUARDIANN_INSERT_MAX_CANDIDATE_CLUSTERS,
-                            GUARDIANN_ONLY, DdlVisitor::parseOptionInt))
-                    .put("delete_max_candidate_clusters", new VectorSqlOption<>(VectorIndexOptionKeys.GUARDIANN_DELETE_MAX_CANDIDATE_CLUSTERS,
-                            GUARDIANN_ONLY, DdlVisitor::parseOptionInt))
-                    .put("split_num_nearest_clusters", new VectorSqlOption<>(VectorIndexOptionKeys.GUARDIANN_SPLIT_NUM_NEAREST_CLUSTERS,
-                            GUARDIANN_ONLY, DdlVisitor::parseOptionInt))
-                    .put("merge_num_nearest_clusters", new VectorSqlOption<>(VectorIndexOptionKeys.GUARDIANN_MERGE_NUM_NEAREST_CLUSTERS,
-                            GUARDIANN_ONLY, DdlVisitor::parseOptionInt))
-                    .put("reassign_num_neighboring_clusters", new VectorSqlOption<>(VectorIndexOptionKeys.GUARDIANN_REASSIGN_NUM_NEIGHBORING_CLUSTERS,
-                            GUARDIANN_ONLY, DdlVisitor::parseOptionInt))
-                    .put("collapse_min_duplicates", new VectorSqlOption<>(VectorIndexOptionKeys.GUARDIANN_COLLAPSE_MIN_DUPLICATES,
-                            GUARDIANN_ONLY, DdlVisitor::parseOptionInt))
-                    .build();
-
     @Nonnull
     private static String parseVectorEngine(@Nonnull final RelationalParser.VectorEngineContext engineContext) {
         return engineContext.GUARDIANN() != null ? GUARDIANN_ENGINE : HNSW_ENGINE;
@@ -427,7 +427,7 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
                 spec.writeTo(indexOptionsBuilder::put, option.optionValue);
             } catch (final NumberFormatException e) {
                 throw Assert.failUnchecked(ErrorCode.SYNTAX_ERROR,
-                        "invalid value '" + option.optionValue.getText() + "' for vector index option '" + name + "'");
+                        "invalid value '" + option.optionValue.getText() + "' for vector index option '" + name + "'", e);
             }
         }
         return indexOptionsBuilder.build();

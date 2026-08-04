@@ -350,6 +350,9 @@ public enum LogMessageKeys {
     // Store Lock State
     STORE_LOCK_STATE_REASON,
     STORE_LOCK_STATE_TIMESTAMP_MILLIS,
+    // function call-site options
+    OPTION_NAME,
+    OPTION_VALUE,
     ;
 
     private final String logKey;

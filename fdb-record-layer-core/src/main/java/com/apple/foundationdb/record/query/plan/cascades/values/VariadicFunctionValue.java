@@ -33,6 +33,7 @@ import com.apple.foundationdb.record.planprotos.PVariadicFunctionValue.PPhysical
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
+import com.apple.foundationdb.record.query.plan.cascades.CallSiteArguments;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokens;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence;
 import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
@@ -188,7 +189,8 @@ public class VariadicFunctionValue extends AbstractValue {
     @Nonnull
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
     private static Value encapsulate(@Nonnull BuiltInFunction<Value> builtInFunction,
-                                     @Nonnull final List<? extends Typed> arguments) {
+                                     @Nonnull final CallSiteArguments callSiteArguments) {
+        final List<? extends Typed> arguments = callSiteArguments.getArgumentsList();
         Verify.verify(arguments.size() >= 2);
         Type resultType = null;
         for (final var arg : arguments) {

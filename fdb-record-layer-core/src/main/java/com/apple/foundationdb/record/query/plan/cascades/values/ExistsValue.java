@@ -70,7 +70,6 @@ public class ExistsValue extends AbstractValue implements BooleanValue, ValueWit
 
     @Override
     @SuppressWarnings({"java:S2637", "ConstantConditions"}) // TODO the alternative component should not be null
-    @SpotBugsSuppressWarnings("NP_NONNULL_PARAM_VIOLATION")
     public Optional<QueryPredicate> toQueryPredicate(@Nullable final TypeRepository typeRepository,
                                                      @Nonnull final Set<CorrelationIdentifier> localAliases) {
         return Optional.of(new ExistentialValuePredicate(value, new Comparisons.NullComparison(Comparisons.Type.NOT_NULL)));
@@ -158,7 +157,7 @@ public class ExistsValue extends AbstractValue implements BooleanValue, ValueWit
     public static class ExistsFn extends BuiltInFunction<Value> {
         public ExistsFn() {
             super("exists",
-                    ImmutableList.of(new Type.Relation()), (builtInFunction, arguments) -> encapsulateInternal(arguments));
+                    ImmutableList.of(new Type.Relation()), (builtInFunction, arguments) -> encapsulateInternal(arguments.getArgumentsList()));
         }
 
         // TODO this is sus
