@@ -74,6 +74,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 
@@ -417,11 +418,13 @@ public class VectorIndexMaintainer extends StandardIndexMaintainer {
                 taskCounts.prefixesWithOutstandingWork(state.context.readTransaction(true), getExecutor());
 
         // Scan the non-zero prefixes. Prefer a prefix I already hold a (committed) lease on — that is my drain target
-        // this invocation. Otherwise remember the first free/stale prefix to claim. A prefix held live by another owner
-        // is skipped. A process holds at most one prefix at a time, so a held prefix is finished before a new one is
+        // this invocation. Otherwise, remember the free/stale prefix with the highest per-owner weight to claim (so
+        // concurrent merges spread rather than all claiming the same one). A prefix held live by another owner is
+        // skipped. A process holds at most one prefix at a time, so a held prefix is finished before a new one is
         // claimed — hence we scan for an owned prefix before settling for a free one.
         final AtomicReference<PrefixTaskCount> drainTarget = new AtomicReference<>();
         final AtomicReference<Tuple> acquireCandidate = new AtomicReference<>();
+        final AtomicLong acquireCandidateWeight = new AtomicLong();
         return AsyncUtil.whileTrue(() -> prefixes.onHasNext().thenCompose(hasNext -> {
             if (!hasNext) {
                 return AsyncUtil.READY_FALSE;
@@ -432,8 +435,15 @@ public class VectorIndexMaintainer extends StandardIndexMaintainer {
                     drainTarget.set(prefixTaskCount); // my prefix -> drain it; stop scanning
                     return false;
                 }
-                if (owner == null && acquireCandidate.get() == null) {
-                    acquireCandidate.set(prefixTaskCount.prefix()); // first free/stale; keep looking for an owned one
+                if (owner == null) {
+                    // Free/stale: keep the highest-weight free prefix for this owner (rendezvous hashing) so that
+                    // concurrent merges spread across prefixes instead of all claiming the first one; keep scanning
+                    // in case we also own a prefix, which takes priority.
+                    final long weight = lock.claimWeight(prefixTaskCount.prefix());
+                    if (acquireCandidate.get() == null || weight > acquireCandidateWeight.get()) {
+                        acquireCandidate.set(prefixTaskCount.prefix());
+                        acquireCandidateWeight.set(weight);
+                    }
                 }
                 return true;
             });

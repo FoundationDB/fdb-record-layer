@@ -199,7 +199,11 @@ class Insert {
                                         new AccessInfoAndNodeExistence(initialAccessInfo, false));
                     }
 
-                    // do some deferred tasks
+                    // Optionally drain a deferred task in this transaction; when disabled (the default) tasks accumulate
+                    // and are left for the background merge process.
+                    if (!getConfig().executeDeferredTasksInTransaction()) {
+                        return CompletableFuture.completedFuture(accessInfoAndNodeExistence);
+                    }
                     return primitives.executeDeferredTasks(transaction, accessInfo, 1)
                             .thenApply(ignored -> accessInfoAndNodeExistence);
                 }).thenCompose(accessInfoAndNodeExistence ->

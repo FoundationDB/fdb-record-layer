@@ -1416,6 +1416,10 @@ public class IndexTest {
                 idx -> {
                     final var options = idx.getOptions();
                     Assertions.assertEquals("GUARDIANN", options.get(IndexOptions.VECTOR_ENGINE));
+                    // the DDL path stamps in-transaction deferred-task execution on for Guardiann (yamsql runs no
+                    // background merge); it is not user-settable via SQL
+                    Assertions.assertEquals("true",
+                            options.get(IndexOptions.VECTOR_EXECUTE_DEFERRED_TASKS_IN_TRANSACTION));
                     // shared options are written under their (currently canonical) hnsw* wire names
                     Assertions.assertEquals("3", options.get(IndexOptions.HNSW_NUM_DIMENSIONS));
                     Assertions.assertEquals("COSINE_METRIC", options.get(IndexOptions.HNSW_METRIC));

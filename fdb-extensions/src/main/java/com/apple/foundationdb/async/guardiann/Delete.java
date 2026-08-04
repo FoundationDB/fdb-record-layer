@@ -119,7 +119,11 @@ class Delete {
                                     return AsyncUtil.DONE;
                                 }
 
-                                // do some deferred tasks
+                                // Optionally drain a deferred task in this transaction; when disabled (the default)
+                                // tasks accumulate and are left for the background merge process.
+                                if (!getConfig().executeDeferredTasksInTransaction()) {
+                                    return deleteFromClusters(transaction, random, accessInfo, primaryKey, vector);
+                                }
                                 return primitives.executeDeferredTasks(transaction, accessInfo, 1)
                                         .thenCompose(ignored ->
                                                 deleteFromClusters(transaction, random, accessInfo, primaryKey,

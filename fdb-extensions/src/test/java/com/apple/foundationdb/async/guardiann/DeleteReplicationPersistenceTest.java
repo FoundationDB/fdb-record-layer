@@ -126,6 +126,7 @@ public class DeleteReplicationPersistenceTest implements BaseTest {
 
         final Subspace runSubspace = getSubspace();
         final Config config = Guardiann.newConfigBuilder()
+                .setExecuteDeferredTasksInTransaction(true)
                 .setUseRaBitQ(true)
                 .setRaBitQNumExBits(6)
                 .setMetric(Metric.EUCLIDEAN_METRIC)

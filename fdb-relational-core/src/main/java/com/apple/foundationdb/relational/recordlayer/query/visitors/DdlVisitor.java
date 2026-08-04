@@ -403,6 +403,10 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
         // implicit (keeps HNSW index metadata unchanged and readable by nodes that predate the engine option).
         if (GUARDIANN_ENGINE.equals(engine)) {
             indexOptionsBuilder.put(IndexOptions.VECTOR_ENGINE, engine);
+            // The DDL path is exercised by yamsql tests, where no background merge process runs to drain deferred
+            // maintenance tasks. So a Guardiann index created via SQL must maintain itself in the writing transaction.
+            // This is stamped unconditionally (not exposed as a user-settable SQL option).
+            VectorIndexOptionKeys.EXECUTE_DEFERRED_TASKS_IN_TRANSACTION.put(indexOptionsBuilder::put, true);
         }
         if (indexOptionsContext == null) {
             return indexOptionsBuilder.build();

@@ -253,6 +253,11 @@ sealed interface VectorIndexEngine permits HnswVectorIndexEngine, GuardiannVecto
         VectorIndexOptionsHelper.disallowChange(changedOptions, IndexOptions.VECTOR_ENGINE,
                 kindFromIndex(oldIndex), newIndexKind, newIndex.getName());
 
+        // Engine-neutral runtime knob (no on-disk reinterpretation): mutable for both engines — Guardiann acts on it,
+        // HNSW ignores it. Handled here once so it never falls through to the factory's default rejection.
+        VectorIndexOptionsHelper.allowChange(changedOptions,
+                VectorIndexOptionKeys.EXECUTE_DEFERRED_TASKS_IN_TRANSACTION);
+
         switch (newIndexKind) {
             case HNSW:
                 HnswVectorIndexEngine.validateChangedOptions(oldIndex, newIndex, changedOptions);

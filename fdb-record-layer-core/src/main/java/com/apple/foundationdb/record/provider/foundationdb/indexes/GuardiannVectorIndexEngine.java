@@ -256,6 +256,8 @@ final class GuardiannVectorIndexEngine implements VectorIndexEngine {
         applyInteger(VectorIndexOptionKeys.STATS_THRESHOLD, index, builder::setStatsThreshold);
         applyBoolean(VectorIndexOptionKeys.USE_RABITQ, index, builder::setUseRaBitQ);
         applyInteger(VectorIndexOptionKeys.RABITQ_NUM_EX_BITS, index, builder::setRaBitQNumExBits);
+        applyBoolean(VectorIndexOptionKeys.EXECUTE_DEFERRED_TASKS_IN_TRANSACTION, index,
+                builder::setExecuteDeferredTasksInTransaction);
 
         // Guardiann-only knobs.
         applyInteger(VectorIndexOptionKeys.GUARDIANN_PRIMARY_CLUSTER_MIN, index, builder::setPrimaryClusterMin);

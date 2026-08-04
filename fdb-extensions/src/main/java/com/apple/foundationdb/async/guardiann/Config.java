@@ -70,6 +70,9 @@ import javax.annotation.Nonnull;
  * @param constructionSearchConfig centroid-walk tuning ({@link SearchConfig}) for the non-search insert/delete/maintenance
  *        paths, which probe the centroid HNSW without a per-query {@code SearchConfig}; only its {@code centroidEf*}
  *        knobs are consulted there
+ * @param executeDeferredTasksInTransaction whether the write path drains one deferred maintenance task inside the
+ *        writing transaction on each insert/delete; when {@code false} (the default) tasks accumulate and are drained
+ *        only by the background merge process
  */
 @SuppressWarnings("checkstyle:MemberName")
 public record Config(@Nonnull Metric metric,
@@ -110,7 +113,9 @@ public record Config(@Nonnull Metric metric,
                      int collapseConcurrency,
                      int bounceConcurrency,
                      // construction (centroid-walk tuning for the non-search insert/delete/maintenance paths)
-                     @Nonnull SearchConfig constructionSearchConfig) implements VectorEncodingConfig {
+                     @Nonnull SearchConfig constructionSearchConfig,
+                     // whether the write path runs deferred maintenance tasks in the writing transaction
+                     boolean executeDeferredTasksInTransaction) implements VectorEncodingConfig {
 
     @Nonnull public static final Metric DEFAULT_METRIC = Metric.EUCLIDEAN_METRIC;
     public static final int DEFAULT_PRIMARY_CLUSTER_MIN = 100;
@@ -159,6 +164,8 @@ public record Config(@Nonnull Metric metric,
     // SearchConfig, whose centroidEf* match the values these paths used before they were made configurable
     @Nonnull
     public static final SearchConfig DEFAULT_CONSTRUCTION_SEARCH_CONFIG = new SearchConfig.SearchConfigBuilder().build();
+    // Default: do NOT run deferred maintenance tasks in the writing transaction; leave them for the background merge.
+    public static final boolean DEFAULT_EXECUTE_DEFERRED_TASKS_IN_TRANSACTION = false;
 
     public Config {
         Preconditions.checkArgument(numDimensions >= 1, "numDimensions must be >= 1");
@@ -178,7 +185,7 @@ public record Config(@Nonnull Metric metric,
                 reassignNumNeighboringClusters(),
                 collapseMinDuplicates(), splitMergeConcurrency(), reassignConcurrency(),
                 collapseConcurrency(), bounceConcurrency(),
-                constructionSearchConfig());
+                constructionSearchConfig(), executeDeferredTasksInTransaction());
     }
 
     @Override
@@ -212,6 +219,7 @@ public record Config(@Nonnull Metric metric,
                 ", collapseConcurrency=" + collapseConcurrency() +
                 ", bounceConcurrency=" + bounceConcurrency() +
                 ", constructionSearchConfig=" + constructionSearchConfig() +
+                ", executeDeferredTasksInTransaction=" + executeDeferredTasksInTransaction() +
                 "]";
     }
 
@@ -267,6 +275,7 @@ public record Config(@Nonnull Metric metric,
         // construction (centroid-walk tuning for the non-search insert/delete/maintenance paths)
         @Nonnull
         private SearchConfig constructionSearchConfig = DEFAULT_CONSTRUCTION_SEARCH_CONFIG;
+        private boolean executeDeferredTasksInTransaction = DEFAULT_EXECUTE_DEFERRED_TASKS_IN_TRANSACTION;
 
         public ConfigBuilder() {
         }
@@ -290,7 +299,8 @@ public record Config(@Nonnull Metric metric,
                              final int splitMergeConcurrency, final int reassignConcurrency,
                              final int collapseConcurrency,
                              final int bounceConcurrency,
-                             @Nonnull final SearchConfig constructionSearchConfig) {
+                             @Nonnull final SearchConfig constructionSearchConfig,
+                             final boolean executeDeferredTasksInTransaction) {
             this.metric = metric;
             this.primaryClusterMin = primaryClusterMin;
             this.primaryClusterMax = primaryClusterMax;
@@ -322,6 +332,7 @@ public record Config(@Nonnull Metric metric,
             this.collapseConcurrency = collapseConcurrency;
             this.bounceConcurrency = bounceConcurrency;
             this.constructionSearchConfig = constructionSearchConfig;
+            this.executeDeferredTasksInTransaction = executeDeferredTasksInTransaction;
         }
 
         @Nonnull
@@ -667,6 +678,17 @@ public record Config(@Nonnull Metric metric,
             return this;
         }
 
+        public boolean isExecuteDeferredTasksInTransaction() {
+            return executeDeferredTasksInTransaction;
+        }
+
+        @CanIgnoreReturnValue
+        @Nonnull
+        public ConfigBuilder setExecuteDeferredTasksInTransaction(final boolean executeDeferredTasksInTransaction) {
+            this.executeDeferredTasksInTransaction = executeDeferredTasksInTransaction;
+            return this;
+        }
+
         public Config build(final int numDimensions) {
             return new Config(getMetric(), numDimensions, getPrimaryClusterMin(), getPrimaryClusterMax(),
                     getUnderreplicatedPrimaryClusterMax(), getReplicatedClusterMaxWrites(),
@@ -682,7 +704,7 @@ public record Config(@Nonnull Metric metric,
                     getReassignNumNeighboringClusters(),
                     getCollapseMinDuplicates(), getSplitMergeConcurrency(), getReassignConcurrency(),
                     getCollapseConcurrency(), getBounceConcurrency(),
-                    getConstructionSearchConfig());
+                    getConstructionSearchConfig(), isExecuteDeferredTasksInTransaction());
         }
     }
 }

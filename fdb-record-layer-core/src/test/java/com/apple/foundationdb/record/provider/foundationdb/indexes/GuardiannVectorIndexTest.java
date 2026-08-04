@@ -64,6 +64,7 @@ class GuardiannVectorIndexTest extends VectorIndexEngineTestSuite {
                 .put(IndexOptions.GUARDIANN_PRIMARY_CLUSTER_MAX, "200")
                 .put(IndexOptions.GUARDIANN_PRIMARY_CLUSTER_MIN, "20")
                 .put(IndexOptions.GUARDIANN_DETERMINISTIC_RANDOMNESS, "true")
+                .put(IndexOptions.VECTOR_EXECUTE_DEFERRED_TASKS_IN_TRANSACTION, "true")
                 .build();
     }
 
@@ -100,7 +101,8 @@ class GuardiannVectorIndexTest extends VectorIndexEngineTestSuite {
                             .put(IndexOptions.GUARDIANN_SPLIT_MERGE_CONCURRENCY, "5")
                             .put(IndexOptions.GUARDIANN_REASSIGN_CONCURRENCY, "5")
                             .put(IndexOptions.GUARDIANN_COLLAPSE_CONCURRENCY, "5")
-                            .put(IndexOptions.GUARDIANN_BOUNCE_CONCURRENCY, "5").build());
+                            .put(IndexOptions.GUARDIANN_BOUNCE_CONCURRENCY, "5")
+                            .put(IndexOptions.VECTOR_EXECUTE_DEFERRED_TASKS_IN_TRANSACTION, "true").build());
 
             // switching the engine is never allowed
             Assertions.assertThatThrownBy(() -> validateIndexEvolution(metaDataValidator, index,

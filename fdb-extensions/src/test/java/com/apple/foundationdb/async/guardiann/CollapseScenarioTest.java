@@ -586,6 +586,7 @@ public class CollapseScenarioTest implements BaseTest {
     private Guardiann newGuardiann(final int primaryClusterMax, final int collapseMinDuplicates) {
         onWriteListener = new TestHelpers.TestOnWriteListener();
         final Config config = Guardiann.newConfigBuilder()
+                .setExecuteDeferredTasksInTransaction(true)
                 .setUseRaBitQ(true)
                 .setRaBitQNumExBits(6)
                 .setMetric(Metric.EUCLIDEAN_METRIC)

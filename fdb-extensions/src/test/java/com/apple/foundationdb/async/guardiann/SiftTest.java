@@ -490,6 +490,7 @@ public class SiftTest implements BaseTest {
     @Nonnull
     private static Config buildConfig() {
         return Guardiann.newConfigBuilder()
+                .setExecuteDeferredTasksInTransaction(true)
                 .setUseRaBitQ(true)
                 .setRaBitQNumExBits(6)
                 .setMetric(Metric.EUCLIDEAN_METRIC)

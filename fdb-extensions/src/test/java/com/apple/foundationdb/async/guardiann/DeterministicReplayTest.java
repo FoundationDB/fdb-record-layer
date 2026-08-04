@@ -215,6 +215,7 @@ public class DeterministicReplayTest implements BaseTest {
                              @Nonnull final List<PrimaryKeyAndVector> deletes) {
         final Subspace runSubspace = getSubspace().subspace(Tuple.from(runName));
         final Config config = Guardiann.newConfigBuilder()
+                .setExecuteDeferredTasksInTransaction(true)
                 .setUseRaBitQ(true)
                 .setRaBitQNumExBits(6)
                 .setMetric(Metric.EUCLIDEAN_METRIC)

@@ -111,6 +111,7 @@ public class SplitMergeSplitScenarioTest implements BaseTest {
         final TestHelpers.TestOnReadListener onReadListener = new TestHelpers.TestOnReadListener();
 
         final Config config = Guardiann.newConfigBuilder()
+                .setExecuteDeferredTasksInTransaction(true)
                 .setUseRaBitQ(true)
                 .setRaBitQNumExBits(6)
                 .setMetric(Metric.EUCLIDEAN_METRIC)
