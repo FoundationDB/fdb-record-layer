@@ -1073,9 +1073,14 @@ class StoredQueriesTest {
 
     @Test
     void storedQueriesDuplicatePlansCollapse() throws Exception {
-        // Two differently named stored queries with identical bodies. Each canonicalizes to the same L2 key and
-        // produces the same plan constraint, so warm-up plans both (two tertiary misses) but the second plan overwrites
-        // the first under the identical tertiary key, leaving a single cache record.
+        // Four stored queries that all canonicalize to the same L2 key (`col1 = ?`): two concrete-literal bodies and
+        // two value-free `?{bigint}` bodies, all producing the same OfType(LONG)+IS_NOT_NULL constraint.
+        //  - dup_d (literal 10L): tertiary bucket empty → MISS, plan cached.
+        //  - dup_c (identical literal 10L): its needle binds 10L, which satisfies dup_d's cached constraint → HIT.
+        //  - dup_a (?{bigint}): value-free needle cannot evaluate the cached constraint (missing binding → treated as
+        //    not-matched) → MISS; but its constraint equals dup_d's, so the write overwrites rather than adds.
+        //  - dup_b (?{bigint}): same as dup_a → MISS + overwrite.
+        // Net: 3 misses, 1 hit, and a single cache record (all constraints are equal).
         final String schemaTemplate =
                 "CREATE TABLE t1(id bigint, col1 bigint, PRIMARY KEY(id))"
                         + " CREATE STORED QUERY dup_d AS SELECT * FROM t1 WHERE col1 = 10L"
@@ -1089,16 +1094,60 @@ class StoredQueriesTest {
                 .build()) {
             final String templateName = ddl.getSchemaTemplateName();
 
-            // A fresh engine triggers OfflineStoredQueriesProcessor, warming both stored queries.
+            // A fresh engine triggers OfflineStoredQueriesProcessor, warming all four stored queries.
             final var engineDriver = relationalExtension.getDriver(
                     com.apple.foundationdb.record.provider.foundationdb.FormatVersion.getDefaultFormatVersion());
             final var connectionUtils = new ConnectionUtils(engineDriver);
 
-            // all stored queries were planned (4 tertiary misses) ...
-            Assertions.assertEquals(4, eventCounterCount(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_MISS));
-            Assertions.assertEquals(0, eventCounterCount(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_HIT));
-            // ... but they collapse to a single cache record (same L2 key, same constraint).
+            // dup_d, dup_a, dup_b each miss; dup_c reuses dup_d's plan.
+            Assertions.assertEquals(3, eventCounterCount(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_MISS));
+            Assertions.assertEquals(1, eventCounterCount(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_HIT));
+            // ... and they collapse to a single cache record (same L2 key, same constraint).
             Assertions.assertEquals(Long.valueOf(1), connectionUtils.getFromCatalog(c -> countCachedPlans(c, templateName)));
+        }
+    }
+
+    @Test
+    void storedQueriesNullBindingAgainstTypedPlan() throws Exception {
+        // Warms a non-null value-free plan (`col1 = ?{bigint}` → OfType(LONG) + IS NOT NULL). At runtime the same
+        // canonical query (`col1 = ?`) is issued with a NULL binding (setNull). The cache lookup evaluates the cached
+        // non-null constraint against the null-bound needle, which has no binding for that constant, so
+        // ConstantObjectValue.eval throws "Missing binding". QueryPlanConstraint.compileTimeEval catches that and
+        // treats it as a non-match, so the query cleanly replans for the null case instead of crashing. col1 = NULL
+        // matches nothing → empty result.
+        final String schemaTemplate =
+                "CREATE TABLE t1(id bigint, col1 bigint, PRIMARY KEY(id))"
+                        + " CREATE STORED QUERY by_col1 AS SELECT * FROM t1 WHERE col1 = ?{bigint}";
+        final String dbUri = "/TEST/SQ_NULL_BINDING";
+        try (var ddl = Ddl.builder()
+                .database(URI.create(dbUri))
+                .relationalExtension(relationalExtension)
+                .schemaTemplate(schemaTemplate)
+                .build()) {
+            final var connection = ddl.setSchemaAndGetConnection();
+            final String templateName = ddl.getSchemaTemplateName();
+            final String schemaName = connection.getSchema();
+
+            try (var stmt = connection.createStatement()) {
+                stmt.execute("INSERT INTO t1 VALUES (1, 10), (2, 20)");
+            }
+
+            // Fresh engine warms the single non-null value-free plan.
+            final var engineDriver = relationalExtension.getDriver(
+                    com.apple.foundationdb.record.provider.foundationdb.FormatVersion.getDefaultFormatVersion());
+            final var connectionUtils = new ConnectionUtils(engineDriver);
+            Assertions.assertEquals(Long.valueOf(1), connectionUtils.getFromCatalog(c -> countCachedPlans(c, templateName)));
+
+            // Runtime NULL binding against the warmed non-null plan: must not crash; col1 = NULL matches nothing.
+            connectionUtils.runAgainstConnection(dbUri, schemaName, c -> {
+                try (var ps = c.prepareStatement("SELECT * FROM t1 WHERE col1 = ?")) {
+                    ps.setNull(1, java.sql.Types.BIGINT);
+                    try (RelationalResultSet rs = ps.executeQuery()) {
+                        Assertions.assertFalse(rs.next());
+                    }
+                }
+            });
+            Assertions.assertEquals(Long.valueOf(2), connectionUtils.getFromCatalog(c -> countCachedPlans(c, templateName)));
         }
     }
 }

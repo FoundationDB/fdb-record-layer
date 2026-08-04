@@ -65,12 +65,6 @@ public final class PlanContext {
     private final boolean isCaseSensitive;
 
     /**
-     * When {@code true}, planning runs offline (stored-query warm-up): the plan cache is write-only, so the cache
-     * lookup is forced to miss rather than matching the freshly planned entry against the value-free warm-up context.
-     */
-    private final boolean offlinePlanning;
-
-    /**
      * Creates a new instance of {@link PlanContext} needed for generating plans.
      *
      * @param metaData                    The record store metadata.
@@ -92,8 +86,7 @@ public final class PlanContext {
                         @Nonnull DdlQueryFactory ddlQueryFactory,
                         @Nonnull URI dbUri,
                         @Nonnull PreparedParams preparedStatementParameters,
-                        boolean isCaseSensitive,
-                        boolean offlinePlanning) {
+                        boolean isCaseSensitive) {
         this.metaData = metaData;
         this.metricCollector = metricCollector;
         this.schemaTemplate = schemaTemplate;
@@ -103,7 +96,6 @@ public final class PlanContext {
         this.dbUri = dbUri;
         this.preparedStatementParameters = preparedStatementParameters;
         this.isCaseSensitive = isCaseSensitive;
-        this.offlinePlanning = offlinePlanning;
     }
 
     @Nonnull
@@ -146,10 +138,6 @@ public final class PlanContext {
         return dbUri;
     }
 
-    public boolean isOfflinePlanning() {
-        return offlinePlanning;
-    }
-
     @Nonnull
     public PreparedParams getPreparedStatementParameters() {
         return preparedStatementParameters;
@@ -184,8 +172,6 @@ public final class PlanContext {
         private PreparedParams preparedStatementParameters;
 
         private boolean isCaseSensitive;
-
-        private boolean offlinePlanning;
 
         private Builder() {
         }
@@ -238,12 +224,6 @@ public final class PlanContext {
         @Nonnull
         public Builder withDbUri(@Nonnull URI dbUri) {
             this.dbUri = dbUri;
-            return this;
-        }
-
-        @Nonnull
-        public Builder withOfflinePlanning(boolean offlinePlanning) {
-            this.offlinePlanning = offlinePlanning;
             return this;
         }
 
@@ -306,7 +286,7 @@ public final class PlanContext {
         public PlanContext build() throws RelationalException {
             verify();
             return new PlanContext(metaData, metricCollector, schemaTemplate, plannerConfiguration, metadataOperationsFactory,
-                    ddlQueryFactory, dbUri, preparedStatementParameters, isCaseSensitive, offlinePlanning);
+                    ddlQueryFactory, dbUri, preparedStatementParameters, isCaseSensitive);
         }
 
         @Nonnull
@@ -325,8 +305,7 @@ public final class PlanContext {
                     .withDdlQueryFactory(planContext.ddlQueryFactory)
                     .withPlannerConfiguration(planContext.plannerConfiguration)
                     .withPreparedParameters(planContext.preparedStatementParameters)
-                    .isCaseSensitive(planContext.isCaseSensitive)
-                    .withOfflinePlanning(planContext.offlinePlanning);
+                    .isCaseSensitive(planContext.isCaseSensitive);
         }
     }
 }
