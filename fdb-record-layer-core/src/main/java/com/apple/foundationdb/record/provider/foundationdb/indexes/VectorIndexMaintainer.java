@@ -69,6 +69,7 @@ import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -392,12 +393,28 @@ public class VectorIndexMaintainer extends StandardIndexMaintainer {
         } catch (InvalidProtocolBufferException ex) {
             throw new RecordCoreException("failed to parse vector index pending write queue entry data", ex);
         }
-        CompletableFuture<Void> future = AsyncUtil.DONE;
-        for (final IndexBuildProto.IndexEntry entry : entries.getOldEntriesList()) {
-            future = future.thenCompose(ignore -> updateIndexEntry(fromProto(entry), true));
+        List<IndexEntry> oldIndexEntries = fromProto(entries.getOldEntriesList());
+        List<IndexEntry> newIndexEntries = fromProto(entries.getNewEntriesList());
+        if (oldIndexEntries != null && newIndexEntries != null && skipUpdateForUnchangedKeys()) {
+            // Remove unchanged keys from the lists of keys to update, mirroring StandardIndexMaintainer.update.
+            final List<IndexEntry> commonKeys = commonKeys(oldIndexEntries, newIndexEntries);
+            if (!commonKeys.isEmpty()) {
+                oldIndexEntries = makeMutable(oldIndexEntries);
+                oldIndexEntries.removeAll(commonKeys);
+                newIndexEntries = makeMutable(newIndexEntries);
+                newIndexEntries.removeAll(commonKeys);
+            }
         }
-        for (final IndexBuildProto.IndexEntry entry : entries.getNewEntriesList()) {
-            future = future.thenCompose(ignore -> updateIndexEntry(fromProto(entry), false));
+        CompletableFuture<Void> future = AsyncUtil.DONE;
+        if (oldIndexEntries != null) {
+            for (final IndexEntry entry : oldIndexEntries) {
+                future = future.thenCompose(ignore -> updateIndexEntry(entry, true));
+            }
+        }
+        if (newIndexEntries != null) {
+            for (final IndexEntry entry : newIndexEntries) {
+                future = future.thenCompose(ignore -> updateIndexEntry(entry, false));
+            }
         }
         return future;
     }
@@ -417,6 +434,18 @@ public class VectorIndexMaintainer extends StandardIndexMaintainer {
                 Tuple.fromBytes(entry.getKey().toByteArray()),
                 Tuple.fromBytes(entry.getValue().toByteArray()),
                 Tuple.fromBytes(entry.getPrimaryKey().toByteArray()));
+    }
+
+    @Nullable
+    private List<IndexEntry> fromProto(@Nonnull final List<IndexBuildProto.IndexEntry> protoEntries) {
+        if (protoEntries.isEmpty()) {
+            return null;
+        }
+        final List<IndexEntry> indexEntries = new ArrayList<>(protoEntries.size());
+        for (final IndexBuildProto.IndexEntry entry : protoEntries) {
+            indexEntries.add(fromProto(entry));
+        }
+        return indexEntries;
     }
 
     @Override

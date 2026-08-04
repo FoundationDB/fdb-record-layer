@@ -164,8 +164,7 @@ public abstract class IndexMaintainer {
      * @param oldRecord the previous stored record or <code>null</code> if a new record is being created
      * @param newRecord the new record or <code>null</code> if an old record is being deleted
      * @param <M> type of message
-     * @return a packed message to save in the pending write queue, or <code>null</code> if this update requires no
-     *     change to the index and so nothing needs to be deferred onto the queue
+     * @return a packed message to save in the pending write queue. Null is returned if no update is needed.
      */
     @Nullable
     @API(API.Status.EXPERIMENTAL)

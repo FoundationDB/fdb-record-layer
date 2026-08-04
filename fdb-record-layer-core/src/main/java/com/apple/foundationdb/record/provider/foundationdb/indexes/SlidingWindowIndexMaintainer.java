@@ -450,8 +450,6 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
                 IndexBuildProto.SlidingWindowQueueEntry.newBuilder();
         boolean anyChange = false;
         if (shouldMaintain(oldRecord)) {
-            // The delegate governs whether this half is a real change; if it defers nothing then the entry key is
-            // omitted too, keeping the oldEntryKey/delegatedDelete pairing that updateFromQueue validates.
             final Any delegatedDelete = delegate.serializePendingWriteQueue(oldRecord, null);
             if (delegatedDelete != null) {
                 builder.setOldEntryKey(entryKeyOf(oldRecord).pack());
@@ -467,7 +465,7 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
                 anyChange = true;
             }
         }
-        // Nothing was maintained for either record: no change is needed, so defer nothing onto the queue.
+        // If nothing was maintained for either records, return null to indicate that no change is needed
         return anyChange ? Any.pack(builder.build()) : null;
     }
 

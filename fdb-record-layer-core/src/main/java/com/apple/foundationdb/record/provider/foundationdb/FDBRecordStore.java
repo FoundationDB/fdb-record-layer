@@ -783,8 +783,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                     // does not support the queue will throw from serializePendingWriteQueue below.
                     final Any pendingWriteData = maintainer.serializePendingWriteQueue(oldRecord, newRecord);
                     if (pendingWriteData == null) {
-                        // The maintainer reported that this update requires no index change (e.g. the record is
-                        // filtered out of the index), so there is nothing to defer onto the queue.
+                        // Nothing to defer onto the queue.
                         future = AsyncUtil.DONE;
                     } else {
                         future = IndexingPendingWriteQueue.enqueuePendingIndexUpdate(this, index,
