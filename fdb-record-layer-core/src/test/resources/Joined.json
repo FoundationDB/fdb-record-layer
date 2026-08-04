@@ -84,7 +84,7 @@
               "fan_type": "SCALAR"
             }
           },
-          "right": "textSearch",
+          "right": "T2",
           "right_expression": {
             "field": {
               "field_name": "ID",
