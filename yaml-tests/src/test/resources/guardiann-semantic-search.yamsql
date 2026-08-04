@@ -30,7 +30,7 @@ options:
 schema_template:
     create table documents(zone string, docId string, bookshelf string, title string, embedding vector(3, half), primary key (zone, docId))
     create view documentsView as select embedding, zone, bookshelf, docId, title from documents
-    create vector index documentsGuardiannIndex using guardiann on documentsView(embedding) partition by(zone, bookshelf) options (metric = euclidean_metric, primary_cluster_min = 1, primary_cluster_max = 100)
+    create vector index documentsGuardiannIndex using guardiann on documentsView(embedding) partition by(zone, bookshelf) options (metric = euclidean_metric, primary_cluster_min = 1, primary_cluster_max = 100, collapse_min_duplicates = 50)
 ---
 test_block:
   name: guardiann-semantic-search-tests

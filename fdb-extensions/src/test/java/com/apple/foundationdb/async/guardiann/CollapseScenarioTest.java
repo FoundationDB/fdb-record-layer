@@ -267,9 +267,10 @@ public class CollapseScenarioTest implements BaseTest {
     @ParameterizedTest
     @RandomSeedSource({0x0fdbL, 0x5ca1eL, 123456L, 78910L, 1123581321345589L})
     void clusterOverlapDiagnosticsDetectsRealSphereOverlap(final long randomSeed) throws Exception {
-        // Small cap forces the near-duplicate cloud to split into co-located sub-clusters; the huge
-        // collapseMinDuplicates (plus distinct perturbed signatures) keeps CollapseTask from folding them away.
-        final Guardiann guardiann = newGuardiann(50, 1_000_000);
+        // Small cap forces the near-duplicate cloud to split into co-located sub-clusters; the distinct perturbed
+        // signatures keep CollapseTask from folding them away (collapseMinDuplicates is pinned just under the cap, the
+        // highest the config invariant allows).
+        final Guardiann guardiann = newGuardiann(50, 49);
         final Search search = guardiann.getLocator().search();
         final SearchConfig searchConfig = new SearchConfig.SearchConfigBuilder().build();
 

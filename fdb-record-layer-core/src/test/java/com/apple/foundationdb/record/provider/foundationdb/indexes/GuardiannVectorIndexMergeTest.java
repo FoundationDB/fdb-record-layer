@@ -72,6 +72,7 @@ class GuardiannVectorIndexMergeTest extends VectorIndexTestBase {
                 // small clusters -> frequent splits -> a real deferred-task backlog
                 .put(IndexOptions.GUARDIANN_PRIMARY_CLUSTER_MAX, "64")
                 .put(IndexOptions.GUARDIANN_PRIMARY_CLUSTER_MIN, "8")
+                .put(IndexOptions.GUARDIANN_COLLAPSE_MIN_DUPLICATES, "32")
                 .put(IndexOptions.GUARDIANN_DETERMINISTIC_RANDOMNESS, "true")
                 .build();
     }

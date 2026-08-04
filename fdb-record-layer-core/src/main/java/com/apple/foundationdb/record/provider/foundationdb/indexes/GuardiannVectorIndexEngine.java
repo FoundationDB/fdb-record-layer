@@ -25,6 +25,7 @@ import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.async.AsyncIterable;
 import com.apple.foundationdb.async.common.ResultEntry;
 import com.apple.foundationdb.async.common.TimedAsyncIterable;
+import com.apple.foundationdb.async.guardiann.ClusterCapacityExceededException;
 import com.apple.foundationdb.async.guardiann.Config;
 import com.apple.foundationdb.async.guardiann.Config.ConfigBuilder;
 import com.apple.foundationdb.async.guardiann.Guardiann;
@@ -51,6 +52,8 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
+import java.util.concurrent.ExecutionException;
 import java.util.function.DoubleConsumer;
 import java.util.function.IntConsumer;
 
@@ -74,8 +77,9 @@ import static com.apple.foundationdb.record.provider.foundationdb.indexes.Vector
  */
 @SuppressWarnings("PMD.TooManyStaticImports")
 final class GuardiannVectorIndexEngine implements VectorIndexEngine {
-    // Only stats and concurrency knobs may change on an existing index; see validateChangedOptions. Each key already
-    // covers its current and legacy names.
+    // Only stats and concurrency knobs may change on an existing index, plus the primary-cluster hard cap (a runtime
+    // back-pressure valve, not an on-disk encoding knob); see validateChangedOptions. Each key already covers its
+    // current and legacy names.
     private static final List<VectorOptionKey<?>> MUTABLE_OPTIONS = ImmutableList.of(
             // stats knobs
             VectorIndexOptionKeys.SAMPLE_VECTOR_STATS_PROBABILITY,
@@ -87,7 +91,9 @@ final class GuardiannVectorIndexEngine implements VectorIndexEngine {
             VectorIndexOptionKeys.GUARDIANN_SPLIT_MERGE_CONCURRENCY,
             VectorIndexOptionKeys.GUARDIANN_REASSIGN_CONCURRENCY,
             VectorIndexOptionKeys.GUARDIANN_COLLAPSE_CONCURRENCY,
-            VectorIndexOptionKeys.GUARDIANN_BOUNCE_CONCURRENCY);
+            VectorIndexOptionKeys.GUARDIANN_BOUNCE_CONCURRENCY,
+            // back-pressure valve (does not reinterpret on-disk data)
+            VectorIndexOptionKeys.GUARDIANN_PRIMARY_CLUSTER_HARD_MAX);
 
     @Nonnull
     private final Config config;
@@ -129,7 +135,33 @@ final class GuardiannVectorIndexEngine implements VectorIndexEngine {
         final Guardiann guardiann =
                 new Guardiann(subspace, context.getExecutor(), config,
                         OnWrite.forWrites(timer, transaction, register), OnRead.fromTimer(timer));
-        return guardiann.insert(transaction, primaryKey, vector, null);
+        // Guardiann back-pressures over its hard cap with an extensions-layer exception it cannot express as a
+        // record-layer type; translate it here so callers see a VectorIndexClusterTooLargeException.
+        return guardiann.insert(transaction, primaryKey, vector, null)
+                .exceptionally(GuardiannVectorIndexEngine::translateInsertBackPressure);
+    }
+
+    /**
+     * Rethrows an insert failure, translating Guardiann's extensions-layer {@link ClusterCapacityExceededException}
+     * hard-cap signal into the record-layer {@link VectorIndexClusterTooLargeException} (Guardiann cannot reference
+     * record-layer exceptions across the module boundary) and passing every other failure through unchanged. Never
+     * returns normally; the {@code Void} return type is only there to satisfy {@code exceptionally}.
+     */
+    private static Void translateInsertBackPressure(@Nonnull final Throwable throwable) {
+        Throwable cause = throwable;
+        while ((cause instanceof CompletionException || cause instanceof ExecutionException)
+                && cause.getCause() != null) {
+            cause = cause.getCause();
+        }
+        if (cause instanceof ClusterCapacityExceededException) {
+            throw new VectorIndexClusterTooLargeException(
+                    "vector index cluster reached its hard cap; a background merge must drain the deferred split "
+                            + "backlog before more vectors can be inserted", cause);
+        }
+        if (throwable instanceof RuntimeException) {
+            throw (RuntimeException)throwable;
+        }
+        throw new CompletionException(throwable);
     }
 
     @Nonnull
@@ -271,6 +303,8 @@ final class GuardiannVectorIndexEngine implements VectorIndexEngine {
         // Guardiann-only knobs.
         applyInteger(VectorIndexOptionKeys.GUARDIANN_PRIMARY_CLUSTER_MIN, index, builder::setPrimaryClusterMin);
         applyInteger(VectorIndexOptionKeys.GUARDIANN_PRIMARY_CLUSTER_MAX, index, builder::setPrimaryClusterMax);
+        applyInteger(VectorIndexOptionKeys.GUARDIANN_PRIMARY_CLUSTER_HARD_MAX, index,
+                builder::setPrimaryClusterHardMax);
         applyInteger(VectorIndexOptionKeys.GUARDIANN_UNDERREPLICATED_PRIMARY_CLUSTER_MAX, index,
                 builder::setUnderreplicatedPrimaryClusterMax);
         applyInteger(VectorIndexOptionKeys.GUARDIANN_REPLICATED_CLUSTER_MAX_WRITES, index,

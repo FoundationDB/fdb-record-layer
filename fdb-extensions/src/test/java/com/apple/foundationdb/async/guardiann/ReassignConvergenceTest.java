@@ -268,6 +268,7 @@ public class ReassignConvergenceTest implements BaseTest {
                 .setRaBitQNumExBits(6)
                 .setMetric(Metric.EUCLIDEAN_METRIC)
                 .setPrimaryClusterMax(80)
+                .setCollapseMinDuplicates(40)
                 .setPrimaryClusterMin(1)
                 .setDeterministicRandomness(true)
                 .setUnderreplicatedPrimaryClusterMax(3)

@@ -153,6 +153,7 @@ public class ReassignScenarioTest implements BaseTest {
                 .setRaBitQNumExBits(6)
                 .setMetric(Metric.EUCLIDEAN_METRIC)
                 .setPrimaryClusterMax(PRIMARY_CLUSTER_MAX)
+                .setCollapseMinDuplicates(PRIMARY_CLUSTER_MAX / 2)
                 .setPrimaryClusterMin(1)
                 .setDeterministicRandomness(true)
                 .setUnderreplicatedPrimaryClusterMax(UNDERREPLICATED_MAX)

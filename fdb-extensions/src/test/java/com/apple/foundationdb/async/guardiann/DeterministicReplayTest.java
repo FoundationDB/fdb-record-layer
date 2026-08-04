@@ -220,6 +220,7 @@ public class DeterministicReplayTest implements BaseTest {
                 .setRaBitQNumExBits(6)
                 .setMetric(Metric.EUCLIDEAN_METRIC)
                 .setPrimaryClusterMax(CLUSTER_MAX)
+                .setCollapseMinDuplicates(CLUSTER_MAX / 2)
                 .setPrimaryClusterMin(PRIMARY_CLUSTER_MIN)
                 .setDeterministicRandomness(true)
                 .setReplicationPriorityMin(0.65d)
