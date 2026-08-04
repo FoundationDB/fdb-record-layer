@@ -64,7 +64,7 @@ public abstract class StandardIndexMaintainerWithQueue extends StandardIndexMain
     }
 
     @Override
-    @Nonnull
+    @Nullable
     public <M extends Message> Any serializePendingWriteQueue(@Nullable final FDBIndexableRecord<M> oldRecord,
                                                               @Nullable final FDBIndexableRecord<M> newRecord) {
         return serializePendingWrites(state, oldRecord, newRecord);
@@ -86,12 +86,15 @@ public abstract class StandardIndexMaintainerWithQueue extends StandardIndexMain
      * @param oldRecord the previous stored record, or {@code null} for an insert
      * @param newRecord the new record, or {@code null} for a delete
      * @param <M> type of message
-     * @return the packed payload to enqueue
+     * @return the packed payload to enqueue, or {@code null} if there is nothing to defer (both records {@code null})
      */
-    @Nonnull
+    @Nullable
     static <M extends Message> Any serializePendingWrites(@Nonnull final IndexMaintainerState state,
                                                           @Nullable final FDBIndexableRecord<M> oldRecord,
                                                           @Nullable final FDBIndexableRecord<M> newRecord) {
+        if (oldRecord == null && newRecord == null) {
+            return null;
+        }
         final IndexBuildProto.OldAndNewRecords.Builder builder = IndexBuildProto.OldAndNewRecords.newBuilder();
         if (oldRecord != null) {
             builder.setOldRecords(serializePendingRecord(state, oldRecord));

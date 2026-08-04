@@ -441,22 +441,34 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
         });
     }
 
-    @Nonnull
+    @Nullable
     @Override
     public <M extends Message> Any serializePendingWriteQueue(@Nullable final FDBIndexableRecord<M> oldRecord, @Nullable final FDBIndexableRecord<M> newRecord) {
         // The maintenance filter is applied here, at enqueue time, so a record filtered out of this index is never
         // deferred onto the queue and updateFromQueue does not need the record to re-check it.
         final IndexBuildProto.SlidingWindowQueueEntry.Builder builder =
                 IndexBuildProto.SlidingWindowQueueEntry.newBuilder();
+        boolean anyChange = false;
         if (shouldMaintain(oldRecord)) {
-            builder.setOldEntryKey(entryKeyOf(oldRecord).pack());
-            builder.setDelegatedDelete(delegate.serializePendingWriteQueue(oldRecord, null));
+            // The delegate governs whether this half is a real change; if it defers nothing then the entry key is
+            // omitted too, keeping the oldEntryKey/delegatedDelete pairing that updateFromQueue validates.
+            final Any delegatedDelete = delegate.serializePendingWriteQueue(oldRecord, null);
+            if (delegatedDelete != null) {
+                builder.setOldEntryKey(entryKeyOf(oldRecord).pack());
+                builder.setDelegatedDelete(delegatedDelete);
+                anyChange = true;
+            }
         }
         if (shouldMaintain(newRecord)) {
-            builder.setNewEntryKey(entryKeyOf(newRecord).pack());
-            builder.setDelegatedInsert(delegate.serializePendingWriteQueue(null, newRecord));
+            final Any delegatedInsert = delegate.serializePendingWriteQueue(null, newRecord);
+            if (delegatedInsert != null) {
+                builder.setNewEntryKey(entryKeyOf(newRecord).pack());
+                builder.setDelegatedInsert(delegatedInsert);
+                anyChange = true;
+            }
         }
-        return Any.pack(builder.build());
+        // Nothing was maintained for either record: no change is needed, so defer nothing onto the queue.
+        return anyChange ? Any.pack(builder.build()) : null;
     }
 
     /**

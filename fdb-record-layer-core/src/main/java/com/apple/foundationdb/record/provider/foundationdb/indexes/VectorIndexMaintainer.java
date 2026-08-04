@@ -359,7 +359,7 @@ public class VectorIndexMaintainer extends StandardIndexMaintainer {
     }
 
     @Override
-    @Nonnull
+    @Nullable
     public <M extends Message> Any serializePendingWriteQueue(@Nullable final FDBIndexableRecord<M> oldRecord,
                                                               @Nullable final FDBIndexableRecord<M> newRecord) {
         // Serialize the computed index entries rather than the whole record.
@@ -375,6 +375,10 @@ public class VectorIndexMaintainer extends StandardIndexMaintainer {
         if (newEntries != null) {
             Verify.verify(newEntries.size() == 1);
             builder.addNewEntries(toProto(newEntries.get(0), newRecord.getPrimaryKey()));
+        }
+        if (oldEntries == null && newEntries == null) {
+            // Both records were filtered out of this index; there is nothing to defer onto the queue.
+            return null;
         }
         return Any.pack(builder.build());
     }
