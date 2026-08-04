@@ -38,9 +38,9 @@ import java.util.UUID;
 public class ClusterCapacityExceededException extends LoggableException {
     public ClusterCapacityExceededException(@Nonnull final UUID clusterId, final int numPrimaryVectors,
                                             final int primaryClusterHardMax) {
-        super("primary cluster reached its hard cap while the deferred split backlog is not being drained");
-        addLogInfo("clusterId", clusterId);
-        addLogInfo("numPrimaryVectors", numPrimaryVectors);
-        addLogInfo("primaryClusterHardMax", primaryClusterHardMax);
+        super("primary cluster reached its hard cap while the deferred split backlog is not being drained",
+                "clusterId", clusterId,
+                "numPrimaryVectors", numPrimaryVectors,
+                "primaryClusterHardMax", primaryClusterHardMax);
     }
 }
