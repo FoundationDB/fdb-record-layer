@@ -98,10 +98,10 @@ final class HnswVectorIndexEngine implements VectorIndexEngine {
                                           @Nonnull final Subspace subspace,
                                           @Nonnull final Tuple primaryKey,
                                           @Nonnull final RealVector vector,
-                                          @Nullable final TaskCountRegister register) {
+                                          @Nonnull final TaskEventRegister register) {
         // Insert traverses the graph greedily from the entry point, so it reads many nodes; wire a real read listener
         // in addition to the write listener so that read work is instrumented too. HNSW does all its work inline, so it
-        // enqueues no deferred tasks and ignores the task-count register.
+        // enqueues no deferred tasks and ignores the task-event register (it is always TaskEventRegister.NOOP).
         final FDBStoreTimer timer = context.getTimer();
         final HNSW hnsw = new HNSW(subspace, context.getExecutor(), config, OnWrite.fromTimer(timer),
                 OnRead.fromTimer(timer));
@@ -114,10 +114,10 @@ final class HnswVectorIndexEngine implements VectorIndexEngine {
                                           @Nonnull final Subspace subspace,
                                           @Nonnull final Tuple primaryKey,
                                           @Nonnull final RealVector vector,
-                                          @Nullable final TaskCountRegister register) {
+                                          @Nonnull final TaskEventRegister register) {
         // HNSW keys nodes on the primary key alone, so the vector is not needed to locate the node to delete. Delete
         // reads heavily to repair the graph around the removed node, so it also gets a real read listener. HNSW enqueues
-        // no deferred tasks and ignores the task-count register.
+        // no deferred tasks and ignores the task-event register (it is always TaskEventRegister.NOOP).
         final FDBStoreTimer timer = context.getTimer();
         final HNSW hnsw = new HNSW(subspace, context.getExecutor(), config, OnWrite.fromTimer(timer),
                 OnRead.fromTimer(timer));
@@ -131,14 +131,21 @@ final class HnswVectorIndexEngine implements VectorIndexEngine {
         return null;
     }
 
+    @Override
+    public boolean signalsMergeRequiredToCaller() {
+        // HNSW enqueues no deferred tasks, so it never asks the caller to merge.
+        return false;
+    }
+
     @Nonnull
     @Override
     public CompletableFuture<Integer> executeDeferredTasks(@Nonnull final FDBRecordContext context,
                                                            @Nonnull final Subspace subspace,
                                                            final int numTasks,
-                                                           @Nullable final TaskCountRegister register) {
-        // HNSW does all its work inline during insert/delete, so it never enqueues deferred tasks. It has no task-count
-        // register, so the maintainer never routes a merge here; being asked to is a programming error.
+                                                           @Nonnull final TaskEventRegister register) {
+        // HNSW does all its work inline during insert/delete, so it never enqueues deferred tasks. It tracks no task
+        // counts (getTaskCounts() is null), so the maintainer never routes a merge here; being asked to is a
+        // programming error.
         throw new RecordCoreException("the HNSW vector engine has no deferred tasks to execute");
     }
 

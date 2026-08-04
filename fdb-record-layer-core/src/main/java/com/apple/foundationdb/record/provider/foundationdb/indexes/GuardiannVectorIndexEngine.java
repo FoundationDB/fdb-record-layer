@@ -116,11 +116,12 @@ final class GuardiannVectorIndexEngine implements VectorIndexEngine {
 
     @Nonnull
     @Override
+    @SuppressWarnings("PMD.CloseResource") // context owns the transaction returned by ensureActive(); we don't close it
     public CompletableFuture<Void> insert(@Nonnull final FDBRecordContext context,
                                           @Nonnull final Subspace subspace,
                                           @Nonnull final Tuple primaryKey,
                                           @Nonnull final RealVector vector,
-                                          @Nullable final TaskCountRegister register) {
+                                          @Nonnull final TaskEventRegister register) {
         // Insert reads (to find candidate clusters) and writes (references and deferred-task bookkeeping), so wire both
         // listeners. The write listener also maintains the outstanding-task register as tasks are enqueued/executed.
         final FDBStoreTimer timer = context.getTimer();
@@ -133,11 +134,12 @@ final class GuardiannVectorIndexEngine implements VectorIndexEngine {
 
     @Nonnull
     @Override
+    @SuppressWarnings("PMD.CloseResource") // context owns the transaction returned by ensureActive(); we don't close it
     public CompletableFuture<Void> delete(@Nonnull final FDBRecordContext context,
                                           @Nonnull final Subspace subspace,
                                           @Nonnull final Tuple primaryKey,
                                           @Nonnull final RealVector vector,
-                                          @Nullable final TaskCountRegister register) {
+                                          @Nonnull final TaskEventRegister register) {
         // Guardiann needs the vector to locate the cluster references to remove; it reads while probing candidate
         // clusters and writes as it removes references, so both listeners are wired. The write listener also maintains
         // the outstanding-task register as tasks are enqueued/executed.
@@ -155,12 +157,19 @@ final class GuardiannVectorIndexEngine implements VectorIndexEngine {
         return taskCounts;
     }
 
+    @Override
+    public boolean signalsMergeRequiredToCaller() {
+        // Guardiann defers maintenance; a caller-driven merge is needed on enqueue unless we drain in-transaction.
+        return !config.executeDeferredTasksInTransaction();
+    }
+
     @Nonnull
     @Override
+    @SuppressWarnings("PMD.CloseResource") // context owns the transaction returned by ensureActive(); we don't close it
     public CompletableFuture<Integer> executeDeferredTasks(@Nonnull final FDBRecordContext context,
                                                            @Nonnull final Subspace subspace,
                                                            final int numTasks,
-                                                           @Nullable final TaskCountRegister register) {
+                                                           @Nonnull final TaskEventRegister register) {
         // Draining runs queued tasks, which is a write path: wire OnWrite so each executed task both attributes to the
         // timer and — via the register — decrements the partition's outstanding-work count in this same transaction.
         final FDBStoreTimer timer = context.getTimer();
@@ -434,20 +443,21 @@ final class GuardiannVectorIndexEngine implements VectorIndexEngine {
     }
 
     /**
-     * Write listener that attributes Guardiann writes and deferred-task activity to the store timer, and — when a
-     * {@link TaskCountRegister} is supplied (insert/delete/drain) — maintains the index's outstanding-task counts as
-     * tasks are enqueued and executed, against the operation's transaction.
+     * Write listener that attributes Guardiann writes and deferred-task activity to the store timer and forwards task
+     * enqueue/execute events to the supplied {@link TaskEventRegister} — which the maintainer composes to keep the
+     * index's outstanding-task counts and/or flag that a background merge is needed — against the operation's
+     * transaction.
      */
     static final class OnWrite implements OnWriteListener {
         @Nullable
         private final FDBStoreTimer timer;
         @Nonnull
         private final Transaction transaction;
-        @Nullable
-        private final TaskCountRegister register;
+        @Nonnull
+        private final TaskEventRegister register;
 
         private OnWrite(@Nullable final FDBStoreTimer timer, @Nonnull final Transaction transaction,
-                        @Nullable final TaskCountRegister register) {
+                        @Nonnull final TaskEventRegister register) {
             this.timer = timer;
             this.transaction = transaction;
             this.register = register;
@@ -466,9 +476,7 @@ final class GuardiannVectorIndexEngine implements VectorIndexEngine {
             if (timer != null) {
                 timer.increment(FDBStoreTimer.Counts.VECTOR_TASK_ENQUEUED);
             }
-            if (register != null) {
-                register.onTaskEnqueued(transaction);
-            }
+            register.onTaskEnqueued(transaction);
         }
 
         @Override
@@ -477,20 +485,15 @@ final class GuardiannVectorIndexEngine implements VectorIndexEngine {
             if (timer != null) {
                 timer.increment(FDBStoreTimer.Counts.VECTOR_TASK_EXECUTED);
             }
-            if (register != null) {
-                register.onTaskExecuted(transaction);
-            }
+            register.onTaskExecuted(transaction);
         }
 
-        // Listener for insert/delete/drain: metrics plus, when a register is supplied, outstanding-task-count
-        // maintenance against the operation's transaction.
+        // Listener for insert/delete/drain: metrics plus forwarding task enqueue/execute events to the register
+        // (e.g. count maintenance and/or merge-required signaling) against the operation's transaction.
         @Nonnull
         private static OnWriteListener forWrites(@Nullable final FDBStoreTimer timer,
                                                  @Nonnull final Transaction transaction,
-                                                 @Nullable final TaskCountRegister register) {
-            if (timer == null && register == null) {
-                return OnWriteListener.NOOP;
-            }
+                                                 @Nonnull final TaskEventRegister register) {
             return new OnWrite(timer, transaction, register);
         }
     }

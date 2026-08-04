@@ -34,12 +34,13 @@ import javax.annotation.Nonnull;
  * @param counts the register to update
  * @param prefix the partition prefix this handle counts against (empty for an unpartitioned index)
  */
-record TaskCountRegister(@Nonnull VectorIndexTaskCounts counts, @Nonnull Tuple prefix) {
+record TaskCountRegister(@Nonnull VectorIndexTaskCounts counts, @Nonnull Tuple prefix) implements TaskEventRegister {
     /**
      * Records that a task was enqueued for this prefix.
      * @param transaction the transaction the enqueue happened in
      */
-    void onTaskEnqueued(@Nonnull final Transaction transaction) {
+    @Override
+    public void onTaskEnqueued(@Nonnull final Transaction transaction) {
         counts.increment(transaction, prefix);
     }
 
@@ -47,7 +48,8 @@ record TaskCountRegister(@Nonnull VectorIndexTaskCounts counts, @Nonnull Tuple p
      * Records that a task for this prefix was executed (and thereby removed from the queue).
      * @param transaction the transaction the execution happened in
      */
-    void onTaskExecuted(@Nonnull final Transaction transaction) {
+    @Override
+    public void onTaskExecuted(@Nonnull final Transaction transaction) {
         counts.decrement(transaction, prefix);
     }
 }

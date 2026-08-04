@@ -346,7 +346,19 @@ public class VectorIndexMaintainer extends StandardIndexMaintainer {
             partitionSubspace = indexSubspace;
         }
         final VectorIndexTaskCounts taskCounts = getEngine().getTaskCounts();
-        @Nullable final TaskCountRegister register = taskCounts == null ? null : taskCounts.registerFor(prefixKey);
+        // Assemble the task-event registers this write should notify: the outstanding-work count register (when this
+        // engine tracks counts) and, when the engine wants a caller-driven merge (Guardiann, not draining
+        // in-transaction), a MaintenanceControlRegister that flags the index as needing a background merge on enqueue —
+        // via the store's IndexDeferredMaintenanceControl, exactly as Lucene does. compose() collapses 0/1 registers.
+        final ImmutableList.Builder<TaskEventRegister> registers = ImmutableList.builder();
+        if (taskCounts != null) {
+            registers.add(taskCounts.registerFor(prefixKey));
+        }
+        if (getEngine().signalsMergeRequiredToCaller()) {
+            registers.add(new MaintenanceControlRegister(state.store.getIndexDeferredMaintenanceControl(),
+                    state.index));
+        }
+        final TaskEventRegister register = TaskEventRegister.compose(registers.build());
         return state.context.doWithWriteLock(new LockIdentifier(partitionSubspace), () -> {
             final List<Object> primaryKeyParts = Lists.newArrayList(indexEntry.getPrimaryKey().getItems());
             state.index.trimPrimaryKey(primaryKeyParts);

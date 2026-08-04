@@ -58,6 +58,9 @@ class GuardiannVectorIndexMergeTest extends VectorIndexTestBase {
     private static final int MAX_MERGE_PASSES = 500;
     private static final ImmutableList<String> INDEX_NAMES =
             ImmutableList.of("UngroupedVectorIndex", "GroupedVectorIndex");
+    // A single-transaction insert load comfortably above PRIMARY_CLUSTER_MAX (64), so one open transaction overflows a
+    // cluster and enqueues a deferred split — letting a test observe the merge-required flag before the write commits.
+    private static final int SINGLE_TXN_SPLIT_FORCING_INSERTS = 200;
 
     @Nonnull
     @Override
@@ -196,6 +199,141 @@ class GuardiannVectorIndexMergeTest extends VectorIndexTestBase {
             assertThat(maintainer.hasOutstandingWork().get()).isFalse();
             commit(context);
         }
+    }
+
+    /**
+     * With deferred tasks NOT drained in-transaction (the default), an insert that overflows a cluster enqueues a
+     * deferred split and must flag its index as needing a background merge — the same signal Lucene raises for its
+     * pending-write queue, which a caller's commit hook reads to schedule the merge. The flag is asserted within the
+     * writing transaction, before commit, because the {@link IndexDeferredMaintenanceControl} lives on the record store.
+     */
+    @ParameterizedTest
+    @RandomSeedSource({0x5ca1ab1eL, 0xf00dcafeL})
+    void insertEnqueuingDeferredTaskSignalsMergeRequired(final long seed) throws Exception {
+        final var generator = getRecordGenerator(new Random(seed), 0.0d);
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context, this::addUngroupedVectorIndex);
+            final Index index = recordStore.getRecordMetaData().getIndex("UngroupedVectorIndex");
+            final IndexDeferredMaintenanceControl mergeControl = recordStore.getIndexDeferredMaintenanceControl();
+            for (int i = 0; i < SINGLE_TXN_SPLIT_FORCING_INSERTS; i++) {
+                recordStore.saveRecord(generator.apply((long)i));
+            }
+            assertThat(isFlaggedForMerge(mergeControl, index))
+                    .as("an insert that enqueues a deferred split must flag the index for a background merge")
+                    .isTrue();
+            commit(context);
+        }
+    }
+
+    /**
+     * The delete leg of the signal mirrors the insert leg — {@code updateIndexEntry} hands the same composed register to
+     * both branches. A delete-driven task is only enqueued once a primary cluster drops below its minimum <em>and</em> a
+     * mergeable neighbor exists and the cluster carries no pending task, so the split backlog is first drained to a
+     * settled multi-cluster state; then primaries are deleted (in one open transaction) until a cluster underflows, at
+     * which point the index must be flagged for a background merge — read before commit.
+     */
+    @ParameterizedTest
+    @RandomSeedSource({0x5ca1ab1eL, 0xf00dcafeL})
+    void deleteEnqueuingDeferredTaskSignalsMergeRequired(final long seed) throws Exception {
+        final var saved = saveRandomRecords(false, this::addVectorIndexes, new Random(seed), NUM_RECORDS);
+        // Drain the split backlog so clusters settle into many neighbors, none carrying a pending SPLIT_MERGE task —
+        // the preconditions a delete-driven merge needs (a lone or already-tasked cluster never enqueues one).
+        drainToCompletion("UngroupedVectorIndex");
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context, this::addVectorIndexes);
+            final Index index = recordStore.getRecordMetaData().getIndex("UngroupedVectorIndex");
+            final IndexDeferredMaintenanceControl mergeControl = recordStore.getIndexDeferredMaintenanceControl();
+            // Delete primaries until a cluster underflows PRIMARY_CLUSTER_MIN with neighbors still present; stop at the
+            // first flag so plenty of clusters survive (cardinality stays MULTIPLE, the merge precondition).
+            boolean flagged = false;
+            for (int i = 0; i < saved.size() && !flagged; i++) {
+                recordStore.deleteRecordAsync(saved.get(i).getPrimaryKey()).get();
+                flagged = isFlaggedForMerge(mergeControl, index);
+            }
+            assertThat(flagged)
+                    .as("a delete that drops a cluster below its minimum (with a mergeable neighbor) must flag the index")
+                    .isTrue();
+            commit(context);
+        }
+    }
+
+    /**
+     * An index configured to drain deferred tasks in-transaction is self-maintaining and needs no caller-driven merge,
+     * so even a split-enqueuing insert must NOT flag it. The maintainer never composes the merge-signal register for
+     * such an index (its engine's {@code signalsMergeRequiredToCaller()} is false), so the flag stays clear even though
+     * the same insert load flags it under the default configuration.
+     */
+    @ParameterizedTest
+    @RandomSeedSource({0x5ca1ab1eL})
+    void insertDoesNotSignalMergeRequiredWhenDrainingInTransaction(final long seed) throws Exception {
+        final Map<String, String> inTransactionOptions = ImmutableMap.<String, String>builder()
+                .putAll(indexOptions())
+                .put(IndexOptions.VECTOR_EXECUTE_DEFERRED_TASKS_IN_TRANSACTION, "true")
+                .build();
+        final RecordMetaDataHook hook = metaDataBuilder -> addUngroupedVectorIndex(metaDataBuilder, inTransactionOptions);
+        final var generator = getRecordGenerator(new Random(seed), 0.0d);
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context, hook);
+            final Index index = recordStore.getRecordMetaData().getIndex("UngroupedVectorIndex");
+            final IndexDeferredMaintenanceControl mergeControl = recordStore.getIndexDeferredMaintenanceControl();
+            for (int i = 0; i < SINGLE_TXN_SPLIT_FORCING_INSERTS; i++) {
+                recordStore.saveRecord(generator.apply((long)i));
+            }
+            assertThat(isFlaggedForMerge(mergeControl, index))
+                    .as("an index draining deferred tasks in-transaction is self-maintaining; no caller merge is needed")
+                    .isFalse();
+            commit(context);
+        }
+    }
+
+    /**
+     * Draining the backlog pays down merge work rather than creating it: the follow-up tasks a drain enqueues flow
+     * through the bare task-count register, never the merge-signal one, so a merge in progress must never (re-)flag its
+     * index. Flagging is the insert/delete path's job, done once; a drain that re-flagged would make a merge perpetually
+     * reschedule itself.
+     */
+    @ParameterizedTest
+    @RandomSeedSource({0x5ca1ab1eL})
+    void drainingNeverSignalsMergeRequired(final long seed) throws Exception {
+        saveRandomRecords(false, this::addVectorIndexes, new Random(seed), NUM_RECORDS);
+        final String indexName = "UngroupedVectorIndex";
+        final UUID sessionId = UUID.randomUUID();
+        long tasksDrained = 0L;
+        for (int pass = 0; pass < MAX_MERGE_PASSES; pass++) {
+            try (FDBRecordContext context = openContext()) {
+                openRecordStore(context, this::addVectorIndexes);
+                final Index index = recordStore.getRecordMetaData().getIndex(indexName);
+                final IndexDeferredMaintenanceControl mergeControl = recordStore.getIndexDeferredMaintenanceControl();
+                mergeControl.setMergeSessionId(sessionId);
+                mergeControl.setMergesLimit(MERGE_BATCH);
+                maintainerFor(indexName).mergeIndex().get();
+                assertThat(isFlaggedForMerge(mergeControl, index))
+                        .as("a merge draining the backlog must not (re-)flag the index for a caller-driven merge")
+                        .isFalse();
+                tasksDrained += mergeControl.getMergesTried();
+                commit(context);
+            }
+            if (!hasOutstandingWork(indexName)) {
+                // mergeIndex()'s first pass only claims the prefix and drains nothing, so the never-reflag assertion
+                // above only bites once a pass has actually executed tasks (whose follow-up enqueues could otherwise
+                // re-flag). Require at least one real drain, so the assertion is not vacuously satisfied by claim passes.
+                assertThat(tasksDrained)
+                        .as("the drain loop must execute at least one deferred task, else the never-reflag check is vacuous")
+                        .isGreaterThan(0L);
+                return;
+            }
+        }
+        fail(String.format("merge did not drain the backlog for %s within %d passes", indexName, MAX_MERGE_PASSES));
+    }
+
+    /**
+     * Whether {@code index} is flagged for a background merge on {@code mergeControl}, treating the lazily-initialized
+     * (null-until-first-set) merge-required set as "nothing flagged".
+     */
+    private static boolean isFlaggedForMerge(@Nonnull final IndexDeferredMaintenanceControl mergeControl,
+                                             @Nonnull final Index index) {
+        final var mergeRequired = mergeControl.getMergeRequiredIndexes();
+        return mergeRequired != null && mergeRequired.contains(index);
     }
 
     /**

@@ -85,8 +85,9 @@ sealed interface VectorIndexEngine permits HnswVectorIndexEngine, GuardiannVecto
      * @param subspace the partition subspace holding this engine's structure
      * @param primaryKey the (prefix-trimmed) primary key of the record
      * @param vector the vector to insert
-     * @param register the outstanding-work counter to bump as deferred maintenance tasks are enqueued/executed during
-     *        this insert, or {@code null} if this engine does not maintain task counts
+     * @param register notified as deferred maintenance tasks are enqueued/executed during this insert (via its
+     *        {@code onTaskEnqueued}/{@code onTaskExecuted} callbacks); {@link TaskEventRegister#NOOP} if there is
+     *        nothing to react to
      * @return a future that completes when the insert is done
      */
     @Nonnull
@@ -94,7 +95,7 @@ sealed interface VectorIndexEngine permits HnswVectorIndexEngine, GuardiannVecto
                                    @Nonnull Subspace subspace,
                                    @Nonnull Tuple primaryKey,
                                    @Nonnull RealVector vector,
-                                   @Nullable TaskCountRegister register);
+                                   @Nonnull TaskEventRegister register);
 
     /**
      * Deletes a single vector from a partition. The vector is always supplied because some engines (notably Guardiann)
@@ -105,8 +106,9 @@ sealed interface VectorIndexEngine permits HnswVectorIndexEngine, GuardiannVecto
      * @param subspace the partition subspace holding this engine's structure
      * @param primaryKey the (prefix-trimmed) primary key of the record
      * @param vector the vector being deleted
-     * @param register the outstanding-work counter to bump as deferred maintenance tasks are enqueued/executed during
-     *        this delete, or {@code null} if this engine does not maintain task counts
+     * @param register notified as deferred maintenance tasks are enqueued/executed during this delete (via its
+     *        {@code onTaskEnqueued}/{@code onTaskExecuted} callbacks); {@link TaskEventRegister#NOOP} if there is
+     *        nothing to react to
      * @return a future that completes when the delete is done
      */
     @Nonnull
@@ -114,7 +116,7 @@ sealed interface VectorIndexEngine permits HnswVectorIndexEngine, GuardiannVecto
                                    @Nonnull Subspace subspace,
                                    @Nonnull Tuple primaryKey,
                                    @Nonnull RealVector vector,
-                                   @Nullable TaskCountRegister register);
+                                   @Nonnull TaskEventRegister register);
 
     /**
      * The register that tracks this engine's outstanding deferred-maintenance work, or {@code null} for an engine that
@@ -126,21 +128,31 @@ sealed interface VectorIndexEngine permits HnswVectorIndexEngine, GuardiannVecto
     VectorIndexTaskCounts getTaskCounts();
 
     /**
+     * Whether an insert/delete that enqueues deferred maintenance work should tell the caller — through the record
+     * store's {@link com.apple.foundationdb.record.provider.foundationdb.IndexDeferredMaintenanceControl} — that a
+     * background merge is needed. True only for an engine that defers work <em>and</em> does not drain it inside the
+     * writing transaction; {@code false} for an engine that does everything inline (HNSW) or that self-drains
+     * in-transaction. The maintainer uses this to decide whether to compose a {@link MaintenanceControlRegister} into
+     * the register it hands the engine, keeping the engine itself decoupled from the store.
+     * @return whether the caller should be signalled to merge when this engine enqueues deferred work
+     */
+    boolean signalsMergeRequiredToCaller();
+
+    /**
      * Drains up to {@code numTasks} of a partition's deferred maintenance tasks, running them inline in
      * {@code context}'s transaction. This is how a merge pays down the backlog that inserts and deletes only nibble at:
      * the maintainer calls it once per partition that has outstanding work. The Guardiann engine runs its queued
      * split/merge/reassign/collapse tasks; an engine that does everything inline (HNSW) never enqueues tasks and is
      * never routed here — being asked to drain is a programming error, so it throws.
      * <p>
-     * When {@code register} is supplied, executing a task fires the write listener's task-executed callback, which
-     * decrements the outstanding-work count in the same transaction — so the count stays in step with the queue as the
-     * merge drains it.
+     * As each task executes, the write listener notifies {@code register}'s {@code onTaskExecuted} callback in the same
+     * transaction — e.g. so a task-count register stays in step with the queue as the merge drains it.
      *
      * @param context the record context to drain under; supplies the transaction, executor and timer
      * @param subspace the partition subspace holding this engine's structure
      * @param numTasks the maximum number of queued tasks to run in this transaction
-     * @param register the outstanding-work counter to decrement as tasks are executed, or {@code null} if this engine
-     *        does not maintain task counts
+     * @param register notified as tasks are executed during the drain (via its {@code onTaskExecuted} callback);
+     *        {@link TaskEventRegister#NOOP} if there is nothing to react to
      * @return a future of the number of tasks actually run — fewer than {@code numTasks} exactly when the queue held
      *         fewer, which is how a merge learns a partition is drained
      */
@@ -148,7 +160,7 @@ sealed interface VectorIndexEngine permits HnswVectorIndexEngine, GuardiannVecto
     CompletableFuture<Integer> executeDeferredTasks(@Nonnull FDBRecordContext context,
                                                     @Nonnull Subspace subspace,
                                                     int numTasks,
-                                                    @Nullable TaskCountRegister register);
+                                                    @Nonnull TaskEventRegister register);
 
     /**
      * The kinds of vector engine, as selectable through the {@link IndexOptions#VECTOR_ENGINE} index option.
@@ -196,6 +208,7 @@ sealed interface VectorIndexEngine permits HnswVectorIndexEngine, GuardiannVecto
      *
      * @param index the index definition to validate
      */
+    @SuppressWarnings("checkstyle:MissingSwitchDefault")
     static void validate(@Nonnull final Index index) {
         switch (kindFromIndex(index)) {
             case HNSW -> HnswVectorIndexEngine.parseConfig(index);
