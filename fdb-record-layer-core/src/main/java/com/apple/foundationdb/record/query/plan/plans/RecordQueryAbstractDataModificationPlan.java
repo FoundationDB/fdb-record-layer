@@ -288,7 +288,7 @@ public abstract class RecordQueryAbstractDataModificationPlan extends AbstractRe
         if (getClass() != other.getClass()) {
             return false;
         }
-        final RecordQueryUpdatePlan otherUpdatePlan = (RecordQueryUpdatePlan)other;
+        final RecordQueryAbstractDataModificationPlan otherUpdatePlan = (RecordQueryAbstractDataModificationPlan)other;
         if (!getTargetRecordType().equals(otherUpdatePlan.getTargetRecordType())) {
             return false;
         }
