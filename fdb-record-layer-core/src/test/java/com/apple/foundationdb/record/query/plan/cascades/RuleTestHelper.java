@@ -178,7 +178,7 @@ public class RuleTestHelper {
             //
             preExploreForRule(copiedOriginal, false);
         }
-        Reference ref = rule instanceof ImplementationCascadesRule && plannerPhase == PlannerPhase.REWRITING ?
+        Reference ref = rule instanceof ImplementationCascadesRule ?
                         Reference.ofFinalExpression(PlannerStage.CANONICAL, copiedOriginal) :
                         Reference.ofExploratoryExpression(PlannerStage.CANONICAL, copiedOriginal);
         PlanContext planContext = new FakePlanContext();
