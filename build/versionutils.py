@@ -86,6 +86,23 @@ def get_version(filename: str) -> tuple[int, int, int, int]:
     return version
 
 
+def check_version_tag(version: tuple[int, int, int, int]):
+    tag = version_string(version)
+    try:
+        # limit search to tags >= 4.x
+        remote_tags = subprocess.check_output(['git', 'ls-remote', '--tags', 'upstream', 'refs/tags/4.*'], text=True)
+    except subprocess.CalledProcessError as e:
+        raise RuntimeError(f'Failed to fetch remote tags: {e}')
+    for line in remote_tags.splitlines():
+        ref = line.split()[-1]
+        # refs/tags/4.10.16.0 or refs/tags/4.10.16.0^{}
+        remote_tag = ref.removeprefix('refs/tags/').removesuffix('^{}')
+        if remote_tag == tag:
+            print(f'Error: Tag {tag} already exists on the remote. Aborting version update.', file=sys.stderr)
+            sys.exit(1)
+    print(f'Tag {tag} does not exist on the remote. Proceeding.')
+
+
 def main(argv: list[str]):
     parser = argparse.ArgumentParser(prog='versionutils',
                                      description='Utility to increment the project version stored in a version file')
@@ -94,10 +111,15 @@ def main(argv: list[str]):
     parser.add_argument('-u', '--update-type', type=str, default='BUILD', choices=VERSION_POSITIONS,
                         help='Type of update. Determines which position within the build number is updated')
     parser.add_argument('-c', '--commit', action='store_true', default=False, help='Whether to commit the update or not')
+    parser.add_argument('--check-tag', action='store_true', default=False,
+                        help='Check that the new version does not already exist as a remote tag')
 
     args = parser.parse_args(argv)
     if args.increment:
         new_version = update_version(args.filename, args.update_type)
+
+        if args.check_tag:
+            check_version_tag(new_version)
 
         if args.commit:
             subprocess.check_output(['git', 'add', args.filename])
