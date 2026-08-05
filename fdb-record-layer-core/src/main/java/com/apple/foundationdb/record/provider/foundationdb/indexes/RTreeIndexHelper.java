@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.indexes;
 
-import com.apple.foundationdb.KeyValue;
 import com.apple.foundationdb.ReadTransaction;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncIterator;
@@ -33,8 +32,6 @@ import com.apple.foundationdb.async.rtree.OnReadListener;
 import com.apple.foundationdb.async.rtree.OnWriteListener;
 import com.apple.foundationdb.async.rtree.RTree;
 import com.apple.foundationdb.async.rtree.RTreeHilbertCurveHelpers;
-import com.apple.foundationdb.record.CursorStreamingMode;
-import com.apple.foundationdb.record.EndpointType;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.PipelineOperation;
@@ -47,19 +44,15 @@ import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.cursors.AsyncIteratorCursor;
 import com.apple.foundationdb.record.cursors.AsyncLockCursor;
-import com.apple.foundationdb.record.cursors.ChainedCursor;
 import com.apple.foundationdb.record.cursors.CursorLimitManager;
 import com.apple.foundationdb.record.cursors.LazyCursor;
 import com.apple.foundationdb.record.locking.LockIdentifier;
-import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBIndexableRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
-import com.apple.foundationdb.record.provider.foundationdb.KeyValueCursor;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.apple.foundationdb.tuple.Tuple;
-import com.apple.foundationdb.tuple.TupleHelpers;
 import com.google.common.base.Verify;
 import com.google.common.collect.Lists;
 import com.google.protobuf.ByteString;
@@ -74,7 +67,6 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
-import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
@@ -82,10 +74,10 @@ import java.util.stream.Collectors;
  * Shared maintenance and scan mechanics for index maintainers backed by a Hilbert {@link RTree}. The R-tree stores a
  * point plus a key suffix per record, partitioned into one tree per <em>prefix</em> tuple (the leading grouping/prefix
  * columns of the index key). This helper owns everything that does not depend on how the concrete index interprets its
- * coordinate columns: the prefix skip-scan, the R-tree traversal, continuations, instrumentation listeners, and the
- * insert/delete path. Concrete maintainers supply the coordinate-specific behavior through {@link PointBuilder} (how a
- * key's coordinate columns become a stored point) and {@link CoordinateReconstructor} (how stored coordinates are
- * rendered back into a returned index entry key).
+ * coordinate columns: the R-tree traversal, continuations, instrumentation listeners, and the insert/delete path (the
+ * prefix skip-scan itself is delegated to {@link PrefixSkipScanHelper}). Concrete maintainers supply the
+ * coordinate-specific behavior through {@link PointBuilder} (how a key's coordinate columns become a stored point)
+ * and {@link CoordinateReconstructor} (how stored coordinates are rendered back into a returned index entry key).
  *
  * @see MultidimensionalIndexMaintainer
  * @see GeospatialRTreeIndexMaintainer
@@ -167,7 +159,9 @@ public class RTreeIndexHelper {
         // forms the outer of a join with an inner that searches the R-tree for that prefix using the
         // spatial predicates of the scan bounds.
         //
-        return RecordCursor.flatMapPipelined(prefixSkipScan(state, prefixSize, timer, prefixRange, innerScanProperties),
+        return RecordCursor.flatMapPipelined(
+                        PrefixSkipScanHelper.prefixSkipScan(state, prefixSize, timer,
+                                MultiDimensionalIndexHelper.Events.MULTIDIMENSIONAL_SKIP_SCAN, prefixRange, innerScanProperties),
                         (prefixTuple, innerContinuation) -> {
                             final Subspace rtSubspace;
                             final Subspace rtNodeSlotIndexSubspace;
@@ -212,67 +206,6 @@ public class RTreeIndexHelper {
                         continuation,
                         state.store.getPipelineSize(PipelineOperation.INDEX_TO_RECORD))
                 .skipThenLimit(executeProperties.getSkip(), executeProperties.getReturnedRowLimit());
-    }
-
-    @Nonnull
-    private static Function<byte[], RecordCursor<Tuple>> prefixSkipScan(@Nonnull final IndexMaintainerState state,
-                                                                        final int prefixSize,
-                                                                        @Nonnull final StoreTimer timer,
-                                                                        @Nonnull final TupleRange prefixRange,
-                                                                        @Nonnull final ScanProperties innerScanProperties) {
-        final Function<byte[], RecordCursor<Tuple>> outerFunction;
-        if (prefixSize > 0) {
-            outerFunction = outerContinuation -> timer.instrument(MultiDimensionalIndexHelper.Events.MULTIDIMENSIONAL_SKIP_SCAN,
-                    new ChainedCursor<>(state.context,
-                            lastKeyOptional -> nextPrefixTuple(state, prefixRange,
-                                    prefixSize, lastKeyOptional.orElse(null), innerScanProperties),
-                            Tuple::pack,
-                            Tuple::fromBytes,
-                            outerContinuation,
-                            innerScanProperties));
-        } else {
-            outerFunction = outerContinuation -> RecordCursor.fromFuture(CompletableFuture.completedFuture(null));
-        }
-        return outerFunction;
-    }
-
-    @SuppressWarnings({"resource", "PMD.CloseResource"})
-    private static CompletableFuture<Optional<Tuple>> nextPrefixTuple(@Nonnull final IndexMaintainerState state,
-                                                                      @Nonnull final TupleRange prefixRange,
-                                                                      final int prefixSize,
-                                                                      @Nullable final Tuple lastPrefixTuple,
-                                                                      @Nonnull final ScanProperties scanProperties) {
-        final Subspace indexSubspace = state.indexSubspace;
-        final KeyValueCursor cursor;
-        if (lastPrefixTuple == null) {
-            cursor = KeyValueCursor.Builder.withSubspace(indexSubspace)
-                    .setContext(state.context)
-                    .setRange(prefixRange)
-                    .setContinuation(null)
-                    .setScanProperties(scanProperties.setStreamingMode(CursorStreamingMode.ITERATOR)
-                            .with(innerExecuteProperties -> innerExecuteProperties.setReturnedRowLimit(1)))
-                    .build();
-        } else {
-            KeyValueCursor.Builder builder = KeyValueCursor.Builder.withSubspace(indexSubspace)
-                    .setContext(state.context)
-                    .setContinuation(null)
-                    .setScanProperties(scanProperties)
-                    .setScanProperties(scanProperties.setStreamingMode(CursorStreamingMode.ITERATOR)
-                            .with(innerExecuteProperties -> innerExecuteProperties.setReturnedRowLimit(1)));
-
-            cursor = builder.setLow(indexSubspace.pack(lastPrefixTuple), EndpointType.RANGE_EXCLUSIVE)
-                    .setHigh(prefixRange.getHigh(), prefixRange.getHighEndpoint())
-                    .build();
-        }
-
-        return cursor.onNext().thenApply(next -> {
-            cursor.close();
-            if (next.hasNext()) {
-                final KeyValue kv = Objects.requireNonNull(next.get());
-                return Optional.of(TupleHelpers.subTuple(indexSubspace.unpack(kv.getKey()), 0, prefixSize));
-            }
-            return Optional.empty();
-        });
     }
 
     /**
