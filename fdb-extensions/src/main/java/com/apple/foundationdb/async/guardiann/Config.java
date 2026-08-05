@@ -119,7 +119,6 @@ public record Config(@Nonnull Metric metric,
                      int bounceConcurrency,
                      // construction (centroid-walk tuning for the non-search insert/delete/maintenance paths)
                      @Nonnull SearchConfig constructionSearchConfig,
-                     // whether the write path runs deferred maintenance tasks in the writing transaction
                      boolean executeDeferredTasksInTransaction) implements VectorEncodingConfig {
 
     @Nonnull public static final Metric DEFAULT_METRIC = Metric.EUCLIDEAN_METRIC;
@@ -153,7 +152,6 @@ public record Config(@Nonnull Metric metric,
     public static final int DEFAULT_DELETE_CONCURRENCY = 10;
     // split/merge
     public static final int DEFAULT_SPLIT_NUM_NEAREST_CLUSTERS = 32;
-    // covers the largest merge candidate (3-to-2 dissolves 3 core clusters) plus ~8 absorbing neighbors
     public static final int DEFAULT_MERGE_NUM_NEAREST_CLUSTERS = 11;
     public static final int DEFAULT_KMEANS_MAX_ITERATIONS = 8;
     public static final int DEFAULT_KMEANS_MAX_RESTARTS = 3;
@@ -166,11 +164,8 @@ public record Config(@Nonnull Metric metric,
     public static final int DEFAULT_REASSIGN_CONCURRENCY = 10;
     public static final int DEFAULT_COLLAPSE_CONCURRENCY = 10;
     public static final int DEFAULT_BOUNCE_CONCURRENCY = 10;
-    // construction (centroid-walk tuning for the non-search insert/delete/maintenance paths): the all-defaults
-    // SearchConfig, whose centroidEf* match the values these paths used before they were made configurable
     @Nonnull
     public static final SearchConfig DEFAULT_CONSTRUCTION_SEARCH_CONFIG = new SearchConfig.SearchConfigBuilder().build();
-    // Default: do NOT run deferred maintenance tasks in the writing transaction; leave them for the background merge.
     public static final boolean DEFAULT_EXECUTE_DEFERRED_TASKS_IN_TRANSACTION = false;
 
     public Config {

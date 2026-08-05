@@ -322,8 +322,8 @@ class Insert {
             if (isPrimaryCluster) {
                 // Back-pressure: if this insert would push the primary cluster above its hard cap and we are not
                 // draining deferred tasks in-transaction, the split backlog has fallen too far behind — refuse the
-                // write so the caller slows down while the background merge catches up. (Only the primary cluster
-                // gains a primary; replica writes and the delete/underflow path are never capped.)
+                // write so the caller slows down while the background merge catches up (only the primary cluster
+                // gains a primary vector).
                 if (!config.executeDeferredTasksInTransaction()
                         && clusterMetadata.getNumPrimaryVectors() + 1 > config.primaryClusterHardMax()) {
                     throw new ClusterCapacityExceededException(clusterId, clusterMetadata.getNumPrimaryVectors() + 1,
