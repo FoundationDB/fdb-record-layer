@@ -22,8 +22,10 @@ package com.apple.foundationdb.relational.recordlayer.query.visitors;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.linear.Metric;
+import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.VectorIndexOptionKeys;
+import com.apple.foundationdb.record.provider.foundationdb.indexes.VectorOptionKey;
 import com.apple.foundationdb.record.query.plan.cascades.RawSqlFunction;
 import com.apple.foundationdb.record.query.plan.cascades.UserDefinedFunction;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalSortExpression;
@@ -66,16 +68,79 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.net.URI;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.BiConsumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
 @API(API.Status.EXPERIMENTAL)
 public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
+    // Engine names as stored in the IndexOptions.VECTOR_ENGINE option (mirrors VectorIndexEngine.Kind, which is not
+    // visible from this module). HNSW is the engine used when the option is absent.
+    private static final String HNSW_ENGINE = "HNSW";
+    private static final String GUARDIANN_ENGINE = "GUARDIANN";
+    private static final Set<String> ANY_ENGINE = ImmutableSet.of(HNSW_ENGINE, GUARDIANN_ENGINE);
+    private static final Set<String> HNSW_ONLY = ImmutableSet.of(HNSW_ENGINE);
+    private static final Set<String> GUARDIANN_ONLY = ImmutableSet.of(GUARDIANN_ENGINE);
+
+    // The curated set of vector index options exposed through SQL DDL, keyed by their (lower-cased) SQL option name.
+    // Adding or removing an option, or changing which engine it applies to, is a one-line change here and needs no
+    // grammar change.
+    private static final Map<String, VectorSqlOption<?>> SUPPORTED_VECTOR_OPTIONS =
+            ImmutableMap.<String, VectorSqlOption<?>>builder()
+                    // shared by both engines
+                    .put("metric", new VectorSqlOption<>(VectorIndexOptionKeys.METRIC, ANY_ENGINE,
+                            value -> parseMetric(value.hnswMetric())))
+                    .put("use_rabitq", new VectorSqlOption<>(VectorIndexOptionKeys.USE_RABITQ, ANY_ENGINE,
+                            DdlVisitor::parseOptionBoolean))
+                    .put("rabitq_num_ex_bits", new VectorSqlOption<>(VectorIndexOptionKeys.RABITQ_NUM_EX_BITS,
+                            ANY_ENGINE, DdlVisitor::parseOptionInt))
+                    .put("maintain_stats_probability", new VectorSqlOption<>(VectorIndexOptionKeys.MAINTAIN_STATS_PROBABILITY,
+                            ANY_ENGINE, DdlVisitor::parseOptionDouble))
+                    .put("sample_vector_stats_probability", new VectorSqlOption<>(VectorIndexOptionKeys.SAMPLE_VECTOR_STATS_PROBABILITY,
+                            ANY_ENGINE, DdlVisitor::parseOptionDouble))
+                    .put("stats_threshold", new VectorSqlOption<>(VectorIndexOptionKeys.STATS_THRESHOLD, ANY_ENGINE,
+                            DdlVisitor::parseOptionInt))
+                    // HNSW-only
+                    .put("connectivity", new VectorSqlOption<>(VectorIndexOptionKeys.HNSW_M, HNSW_ONLY,
+                            DdlVisitor::parseOptionInt))
+                    .put("ef_construction", new VectorSqlOption<>(VectorIndexOptionKeys.HNSW_EF_CONSTRUCTION, HNSW_ONLY,
+                            DdlVisitor::parseOptionInt))
+                    .put("m_max", new VectorSqlOption<>(VectorIndexOptionKeys.HNSW_M_MAX, HNSW_ONLY,
+                            DdlVisitor::parseOptionInt))
+                    .put("m_max_0", new VectorSqlOption<>(VectorIndexOptionKeys.HNSW_M_MAX_0, HNSW_ONLY,
+                            DdlVisitor::parseOptionInt))
+                    // Guardiann-only (curated subset)
+                    .put("primary_cluster_min", new VectorSqlOption<>(VectorIndexOptionKeys.GUARDIANN_PRIMARY_CLUSTER_MIN,
+                            GUARDIANN_ONLY, DdlVisitor::parseOptionInt))
+                    .put("primary_cluster_max", new VectorSqlOption<>(VectorIndexOptionKeys.GUARDIANN_PRIMARY_CLUSTER_MAX,
+                            GUARDIANN_ONLY, DdlVisitor::parseOptionInt))
+                    .put("underreplicated_primary_cluster_max", new VectorSqlOption<>(VectorIndexOptionKeys.GUARDIANN_UNDERREPLICATED_PRIMARY_CLUSTER_MAX,
+                            GUARDIANN_ONLY, DdlVisitor::parseOptionInt))
+                    .put("replicated_cluster_max_writes", new VectorSqlOption<>(VectorIndexOptionKeys.GUARDIANN_REPLICATED_CLUSTER_MAX_WRITES,
+                            GUARDIANN_ONLY, DdlVisitor::parseOptionInt))
+                    .put("replicated_cluster_target", new VectorSqlOption<>(VectorIndexOptionKeys.GUARDIANN_REPLICATED_CLUSTER_TARGET,
+                            GUARDIANN_ONLY, DdlVisitor::parseOptionInt))
+                    .put("replication_priority_min", new VectorSqlOption<>(VectorIndexOptionKeys.GUARDIANN_REPLICATION_PRIORITY_MIN,
+                            GUARDIANN_ONLY, DdlVisitor::parseOptionDouble))
+                    .put("insert_max_candidate_clusters", new VectorSqlOption<>(VectorIndexOptionKeys.GUARDIANN_INSERT_MAX_CANDIDATE_CLUSTERS,
+                            GUARDIANN_ONLY, DdlVisitor::parseOptionInt))
+                    .put("delete_max_candidate_clusters", new VectorSqlOption<>(VectorIndexOptionKeys.GUARDIANN_DELETE_MAX_CANDIDATE_CLUSTERS,
+                            GUARDIANN_ONLY, DdlVisitor::parseOptionInt))
+                    .put("split_num_nearest_clusters", new VectorSqlOption<>(VectorIndexOptionKeys.GUARDIANN_SPLIT_NUM_NEAREST_CLUSTERS,
+                            GUARDIANN_ONLY, DdlVisitor::parseOptionInt))
+                    .put("merge_num_nearest_clusters", new VectorSqlOption<>(VectorIndexOptionKeys.GUARDIANN_MERGE_NUM_NEAREST_CLUSTERS,
+                            GUARDIANN_ONLY, DdlVisitor::parseOptionInt))
+                    .put("reassign_num_neighboring_clusters", new VectorSqlOption<>(VectorIndexOptionKeys.GUARDIANN_REASSIGN_NUM_NEIGHBORING_CLUSTERS,
+                            GUARDIANN_ONLY, DdlVisitor::parseOptionInt))
+                    .put("collapse_min_duplicates", new VectorSqlOption<>(VectorIndexOptionKeys.GUARDIANN_COLLAPSE_MIN_DUPLICATES,
+                            GUARDIANN_ONLY, DdlVisitor::parseOptionInt))
+                    .build();
 
     @Nonnull
     private final RecordLayerSchemaTemplate.Builder metadataBuilder;
@@ -235,7 +300,8 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
         getDelegate().getCurrentPlanFragment().setOperator(logicalOperator);
 
         final Identifier indexId = visitUid(indexDefinitionContext.indexName);
-        final var indexOptions = parseVectorOptions(indexDefinitionContext.vectorIndexOptions());
+        final var engine = parseVectorEngine(indexDefinitionContext.engine);
+        final var indexOptions = parseVectorOptions(engine, indexDefinitionContext.vectorIndexOptions());
         final var indexGeneratorBuilder = OnSourceIndexGenerator.newBuilder()
                 .setIndexName(indexId)
                 .setIndexSource(getDelegate().getCurrentPlanFragment())
@@ -291,40 +357,73 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
         return logicalOperator;
     }
 
+    /**
+     * The SQL-facing binding of a single vector index option: the typed record-layer {@code key} it maps to, the vector
+     * engine(s) it is valid for, and how to {@code coerce} the parsed SQL value into the key's value type. This wrapper
+     * (rather than a bare {@link VectorOptionKey}) is what lets the DDL layer (a) reject an option used with the wrong
+     * engine — engine applicability is DDL policy that the engine-agnostic key does not carry — and (b) turn the parsed
+     * grammar value into the key's typed value (the key's own parser is for the stored wire form, and some values, such
+     * as the metric, arrive as a typed sub-rule). Keeping {@code T} on the record also lets {@link #writeTo} call
+     * {@code key.put(...)} without the wildcard-capture problem a bare {@code VectorOptionKey<?>} map would hit at the
+     * call site. Curating {@link #SUPPORTED_VECTOR_OPTIONS} is how the SQL option surface is curated.
+     *
+     * @param <T> the option's value type
+     */
+    private record VectorSqlOption<T>(@Nonnull VectorOptionKey<T> key,
+                                      @Nonnull Set<String> engines,
+                                      @Nonnull Function<RelationalParser.VectorIndexOptionValueContext, T> coerce) {
+        void writeTo(@Nonnull final BiConsumer<String, String> sink,
+                     @Nonnull final RelationalParser.VectorIndexOptionValueContext value) {
+            key.put(sink, coerce.apply(value));
+        }
+    }
+
     @Nonnull
-    private Map<String, String> parseVectorOptions(@Nullable final RelationalParser.VectorIndexOptionsContext indexOptionsContext) {
+    private static String parseVectorEngine(@Nonnull final RelationalParser.VectorEngineContext engineContext) {
+        return engineContext.GUARDIANN() != null ? GUARDIANN_ENGINE : HNSW_ENGINE;
+    }
+
+    private static int parseOptionInt(@Nonnull final RelationalParser.VectorIndexOptionValueContext value) {
+        return Integer.parseInt(value.getText());
+    }
+
+    private static double parseOptionDouble(@Nonnull final RelationalParser.VectorIndexOptionValueContext value) {
+        return Double.parseDouble(value.getText());
+    }
+
+    private static boolean parseOptionBoolean(@Nonnull final RelationalParser.VectorIndexOptionValueContext value) {
+        return Boolean.parseBoolean(value.getText());
+    }
+
+    @Nonnull
+    private Map<String, String> parseVectorOptions(@Nonnull final String engine,
+                                                   @Nullable final RelationalParser.VectorIndexOptionsContext indexOptionsContext) {
         final var indexOptionsBuilder = ImmutableMap.<String, String>builder();
+        // Guardiann must be recorded explicitly; HNSW is the default when the engine option is absent, so leave it
+        // implicit (keeps HNSW index metadata unchanged and readable by nodes that predate the engine option).
+        if (GUARDIANN_ENGINE.equals(engine)) {
+            indexOptionsBuilder.put(IndexOptions.VECTOR_ENGINE, engine);
+        }
         if (indexOptionsContext == null) {
             return indexOptionsBuilder.build();
         }
-
+        final Set<String> seen = new HashSet<>();
         for (final var option : indexOptionsContext.vectorIndexOption()) {
-            if (option.EF_CONSTRUCTION() != null) {
-                VectorIndexOptionKeys.HNSW_EF_CONSTRUCTION.put(indexOptionsBuilder::put,
-                        Integer.parseInt(option.efConstruction.getText()));
-            } else if (option.CONNECTIVITY() != null) {
-                VectorIndexOptionKeys.HNSW_M.put(indexOptionsBuilder::put,
-                        Integer.parseInt(option.connectivity.getText()));
-            } else if (option.M_MAX() != null) {
-                VectorIndexOptionKeys.HNSW_M_MAX.put(indexOptionsBuilder::put,
-                        Integer.parseInt(option.mMax.getText()));
-            } else if (option.MAINTAIN_STATS_PROBABILITY() != null) {
-                VectorIndexOptionKeys.MAINTAIN_STATS_PROBABILITY.put(indexOptionsBuilder::put,
-                        Double.parseDouble(option.maintainStatsProbability.getText()));
-            } else if (option.METRIC() != null) {
-                VectorIndexOptionKeys.METRIC.put(indexOptionsBuilder::put, parseMetric(option.metric));
-            } else if (option.RABITQ_NUM_EX_BITS() != null) {
-                VectorIndexOptionKeys.RABITQ_NUM_EX_BITS.put(indexOptionsBuilder::put,
-                        Integer.parseInt(option.rabitQNumExBits.getText()));
-            } else if (option.SAMPLE_VECTOR_STATS_PROBABILITY() != null) {
-                VectorIndexOptionKeys.SAMPLE_VECTOR_STATS_PROBABILITY.put(indexOptionsBuilder::put,
-                        Double.parseDouble(option.statsProbability.getText()));
-            } else if (option.STATS_THRESHOLD() != null) {
-                VectorIndexOptionKeys.STATS_THRESHOLD.put(indexOptionsBuilder::put,
-                        Integer.parseInt(option.statsThreshold.getText()));
-            } else if (option.USE_RABITQ() != null) {
-                VectorIndexOptionKeys.USE_RABITQ.put(indexOptionsBuilder::put,
-                        Boolean.parseBoolean(option.useRabitQ.getText()));
+            final String name = option.optionName.getText().toLowerCase(Locale.ROOT);
+            final var spec = SUPPORTED_VECTOR_OPTIONS.get(name);
+            if (spec == null) {
+                throw Assert.failUnchecked(ErrorCode.UNSUPPORTED_OPERATION,
+                        "unsupported vector index option '" + name + "'");
+            }
+            Assert.thatUnchecked(spec.engines().contains(engine), ErrorCode.UNSUPPORTED_OPERATION,
+                    () -> "vector index option '" + name + "' is not valid for the " + engine + " vector engine");
+            Assert.thatUnchecked(seen.add(name), ErrorCode.SYNTAX_ERROR,
+                    () -> "duplicate vector index option '" + name + "'");
+            try {
+                spec.writeTo(indexOptionsBuilder::put, option.optionValue);
+            } catch (final NumberFormatException e) {
+                throw Assert.failUnchecked(ErrorCode.SYNTAX_ERROR,
+                        "invalid value '" + option.optionValue.getText() + "' for vector index option '" + name + "'", e);
             }
         }
         return indexOptionsBuilder.build();

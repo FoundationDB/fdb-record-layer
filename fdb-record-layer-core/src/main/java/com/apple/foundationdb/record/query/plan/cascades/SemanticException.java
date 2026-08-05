@@ -119,4 +119,16 @@ public class SemanticException extends RecordCoreException {
     public static void fail(@Nonnull final ErrorCode message, @Nonnull final String additionalErrorMessage) {
         throw new SemanticException(message, additionalErrorMessage);
     }
+
+    /**
+     * Creates (but does not throw) a new exception, for callers that need to attach log info before throwing.
+     * @param errorCode the error code
+     * @param additionalErrorMessage a static message that supplements the error code's message
+     * @return a new {@link SemanticException}
+     */
+    @Nonnull
+    public static SemanticException newException(@Nonnull final ErrorCode errorCode,
+                                                @Nonnull final String additionalErrorMessage) {
+        return new SemanticException(errorCode, additionalErrorMessage);
+    }
 }

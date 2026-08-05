@@ -252,12 +252,13 @@ public class BaseVisitor extends RelationalParserBaseVisitor<Object> implements 
 
     @Nonnull
     public Expression resolveFunction(@Nonnull String functionName, @Nonnull Expression... arguments) {
-        return getSemanticAnalyzer().resolveScalarFunction(functionName, Expressions.of(arguments), true);
+        return getSemanticAnalyzer().resolveFunction(functionName, Expressions.of(arguments).toCallSiteArguments(true), true);
     }
 
     @Nonnull
     public Expression resolveFunction(@Nonnull String functionName, boolean flattenSingleItemRecords, @Nonnull Expression... arguments) {
-        return getSemanticAnalyzer().resolveScalarFunction(functionName, Expressions.of(arguments), flattenSingleItemRecords);
+        return getSemanticAnalyzer().resolveFunction(functionName,
+                Expressions.of(arguments).toCallSiteArguments(flattenSingleItemRecords), flattenSingleItemRecords);
     }
 
     @Nonnull

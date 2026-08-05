@@ -203,6 +203,11 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
+    public void guardiannSemanticSearchTest(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("guardiann-semantic-search.yamsql");
+    }
+
+    @TestTemplate
     public void inPredicate(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("in-predicate.yamsql");
     }
@@ -527,5 +532,10 @@ public class YamlIntegrationTests {
     @TestTemplate
     public void filterIndexTest(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("filter-index.yamsql");
+    }
+
+    @TestTemplate
+    public void selectWithoutFrom(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("select-without-from.yamsql");
     }
 }

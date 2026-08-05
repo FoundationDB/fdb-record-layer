@@ -25,6 +25,7 @@ import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.Transaction;
+import com.apple.foundationdb.relational.api.catalog.SchemaExistsBehavior;
 import com.apple.foundationdb.relational.api.catalog.SchemaTemplateCatalog;
 import com.apple.foundationdb.relational.api.catalog.StoreCatalog;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
@@ -77,14 +78,21 @@ public class InMemoryCatalog implements StoreCatalog {
     }
 
     @Override
-    public void saveSchema(@Nonnull Transaction txn, @Nonnull Schema dataToWrite, boolean createDatabaseIfNecessary) throws RelationalException {
+    public void saveSchema(@Nonnull Transaction txn, @Nonnull Schema dataToWrite, boolean createDatabaseIfNecessary,
+                           @Nonnull SchemaExistsBehavior existsBehavior) throws RelationalException {
         final URI key = URI.create(dataToWrite.getDatabaseName());
         List<InMemorySchema> schemas = dbToSchemas.computeIfAbsent(key, k -> Collections.synchronizedList(new ArrayList<>()));
 
         for (InMemorySchema schema : schemas) {
             if (schema.schema.getName().equalsIgnoreCase(dataToWrite.getName())) {
+                // Schema already exists — delegate the decision to the enum. It either throws
+                // SCHEMA_ALREADY_EXISTS (refused), returns false (no-op) or returns true (overwrite).
+                if (!existsBehavior.shouldWrite(dataToWrite, schema.schema)) {
+                    return;
+                }
                 schema.schema = dataToWrite;
                 schema.createTables();
+                return;
             }
         }
 

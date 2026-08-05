@@ -364,7 +364,7 @@ test_block:
 # Rules:
 #   - The variants must be mutually exclusive (non-overlapping version ranges)
 #     and must cover every possible version (no gaps).
-#   - `!current_version` may be used as a bound to mean "the version being
+#   - `4.12.15.0` may be used as a bound to mean "the version being
 #     built"; the release process rewrites it to the concrete version on release.
 #
 # In the example below, stores created by an older server get a bare table,
@@ -375,10 +375,10 @@ test_block:
 # See: initial-version/schema-template-variants.yamsql
 ---
 schema_template:
-    - initialVersionLessThan: !current_version
+    - initialVersionLessThan: 4.12.15.0
       definition: |
           create table variant_demo(id bigint, val bigint, primary key(id))
-    - initialVersionAtLeast: !current_version
+    - initialVersionAtLeast: 4.12.15.0
       definition: |
           create table variant_demo(id bigint, val bigint, primary key(id))
           create index variant_demo_val as select val from variant_demo

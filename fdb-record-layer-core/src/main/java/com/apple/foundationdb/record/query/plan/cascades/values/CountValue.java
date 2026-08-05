@@ -36,6 +36,7 @@ import com.apple.foundationdb.record.planprotos.PValue;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
+import com.apple.foundationdb.record.query.plan.cascades.CallSiteArguments;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokens;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
@@ -228,7 +229,8 @@ public class CountValue extends AbstractValue implements AggregateValue, Streama
 
         @Nonnull
         private static AggregateValue encapsulate(@Nonnull BuiltInFunction<AggregateValue> builtInFunction,
-                                                  @Nonnull final List<? extends Typed> arguments) {
+                                                  @Nonnull final CallSiteArguments callSiteArguments) {
+            final List<? extends Typed> arguments = callSiteArguments.getArgumentsList();
             final Typed arg0 = arguments.get(0);
             return new CountValue((Value)arg0);
         }
