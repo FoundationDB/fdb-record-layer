@@ -199,7 +199,7 @@ class HnswVectorIndexIndexingTest extends VectorIndexTestBase {
 
             // Index should be in disabled state initially
             final Index index = recordStore.getRecordMetaData().getIndex(indexName);
-            assertThat(recordStore.isIndexReadable(index)).isFalse();
+            assertThat(recordStore.getIndexState(index).isReadable()).isFalse();
 
             commit(context);
         }
@@ -217,7 +217,7 @@ class HnswVectorIndexIndexingTest extends VectorIndexTestBase {
             index = recordStore.getRecordMetaData().getIndex(indexName);
             // Verify that the index will be only built here
             // (this is not a requirement, but only used for this module's tests)
-            assertThat(recordStore.isIndexReadable(index)).isFalse();
+            assertThat(recordStore.getIndexState(index).isReadable()).isFalse();
 
             try (OnlineIndexer indexer = OnlineIndexer.newBuilder()
                     .setRecordStore(recordStore)
@@ -231,7 +231,7 @@ class HnswVectorIndexIndexingTest extends VectorIndexTestBase {
         // Verify that the index is readable
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context, indexHook);
-            assertThat(recordStore.isIndexReadable(index)).isTrue();
+            assertThat(recordStore.getIndexState(index).isReadable()).isTrue();
             commit(context);
         }
 

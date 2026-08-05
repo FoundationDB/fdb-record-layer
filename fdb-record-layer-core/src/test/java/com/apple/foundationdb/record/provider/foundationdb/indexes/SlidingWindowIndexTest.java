@@ -1118,7 +1118,7 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             openStore(context, 3, Direction.DESC, grouping);
             recordStore.markIndexWriteOnlyWithQueue(INDEX_NAME).join();
-            assertTrue(recordStore.isIndexWriteOnlyWithQueue(INDEX_NAME));
+            assertTrue(recordStore.getIndexState(INDEX_NAME).isWriteOnlyWithQueue());
 
             rec(5, "A", "c", 150, 0, sampleVector());   // queued ahead of the delete
             rec(6, "B", "c", 350, 0, sampleVector());   // queued ahead of the delete
@@ -1130,7 +1130,7 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
         // Before the drain the queued writes are not applied yet: the window still reflects the readable build.
         try (FDBRecordContext context = openContext()) {
             openStore(context, 3, Direction.DESC, grouping);
-            assertTrue(recordStore.isIndexWriteOnlyWithQueue(INDEX_NAME));
+            assertTrue(recordStore.getIndexState(INDEX_NAME).isWriteOnlyWithQueue());
             assertThat(groupedSlidingWindow(Tuple.from("A"))).hasSizeOf(2).underlyingHnsw().containsInAnyOrder(1L, 2L);
             assertThat(groupedSlidingWindow(Tuple.from("B"))).hasSizeOf(2).underlyingHnsw().containsInAnyOrder(3L, 4L);
             commit(context);
@@ -1142,7 +1142,7 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             openStore(context, 3, Direction.DESC, grouping);
             final Index index = index();
-            assertTrue(recordStore.isIndexReadable(index));
+            assertTrue(recordStore.getIndexState(index).isReadable());
             assertThat(groupedSlidingWindow(Tuple.from("A"))).hasSizeOf(1).underlyingHnsw().containsInAnyOrder(7L);
             assertThat(groupedSlidingWindow(Tuple.from("B"))).hasSizeOf(3).underlyingHnsw().containsInAnyOrder(3L, 4L, 6L);
             assertNull(queueSize(context, index), "the queue data should have been erased once the index became readable");
@@ -1910,7 +1910,7 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             openStore(context, 5, Direction.DESC);
             recordStore.markIndexWriteOnlyWithQueue(INDEX_NAME).join();
-            assertTrue(recordStore.isIndexWriteOnlyWithQueue(INDEX_NAME));
+            assertTrue(recordStore.getIndexState(INDEX_NAME).isWriteOnlyWithQueue());
 
             rec(1, 100);
             rec(2, 200);
@@ -1951,7 +1951,7 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             openStore(context, 5, Direction.DESC);
             final Index index = recordStore.getRecordMetaData().getIndex(INDEX_NAME);
-            assertTrue(recordStore.isIndexReadable(index));
+            assertTrue(recordStore.getIndexState(index).isReadable());
             assertThat(slidingWindow())
                     .hasSizeOf(2)
                     .underlyingHnsw().containsInAnyOrder(1, 2);
@@ -1966,7 +1966,7 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             openStore(context, 2, Direction.DESC);
             recordStore.markIndexWriteOnlyWithQueue(INDEX_NAME).join();
-            assertTrue(recordStore.isIndexWriteOnlyWithQueue(INDEX_NAME));
+            assertTrue(recordStore.getIndexState(INDEX_NAME).isWriteOnlyWithQueue());
 
             // Descending relevance in primary-key order: recs 1 and 2 fill the window; recs 3 and 4 are below the
             // window boundary and must overflow (stay out of the window) once the queue is drained.
@@ -2014,7 +2014,7 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             openStore(context, 2, Direction.DESC);
             final Index index = recordStore.getRecordMetaData().getIndex(INDEX_NAME);
-            assertTrue(recordStore.isIndexReadable(index));
+            assertTrue(recordStore.getIndexState(index).isReadable());
             assertThat(slidingWindow())
                     .hasSizeOf(2)
                     .underlyingHnsw().containsInAnyOrder(1, 2);
@@ -2030,7 +2030,7 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             openStore(context, 2, Direction.DESC);
             recordStore.markIndexWriteOnlyWithQueue(INDEX_NAME).join();
-            assertTrue(recordStore.isIndexWriteOnlyWithQueue(INDEX_NAME));
+            assertTrue(recordStore.getIndexState(INDEX_NAME).isWriteOnlyWithQueue());
 
             rec(1, 100);
             rec(2, 200);
@@ -2044,7 +2044,7 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             openStore(context, 2, Direction.DESC);
             final Index index = index();
-            assertTrue(recordStore.isIndexReadable(index));
+            assertTrue(recordStore.getIndexState(index).isReadable());
             assertThat(slidingWindow())
                     .hasSizeOf(2)
                     .underlyingHnsw().containsInAnyOrder(3, 4);
@@ -2078,7 +2078,7 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             openStore(context, 3, Direction.DESC);
             final Index index = index();
-            assertTrue(recordStore.isIndexReadable(index));
+            assertTrue(recordStore.getIndexState(index).isReadable());
             assertThat(slidingWindow())
                     .hasSizeOf(2)
                     .underlyingHnsw().containsInAnyOrder(1, 3);
@@ -2171,7 +2171,7 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             openStore(context, 2, Direction.DESC, grouping);
             final Index index = index();
-            assertTrue(recordStore.isIndexReadable(index));
+            assertTrue(recordStore.getIndexState(index).isReadable());
             assertThat(groupedSlidingWindow(Tuple.from("A")))
                     .hasSizeOf(2)
                     .underlyingHnsw().containsInAnyOrder(1, 2);
@@ -2267,7 +2267,7 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             openStore(context, 2, Direction.DESC);
             final Index index = index();
-            assertTrue(recordStore.isIndexReadable(index));
+            assertTrue(recordStore.getIndexState(index).isReadable());
             // rec 1 has entered the window and evicted rec 3
             assertThat(slidingWindow())
                     .hasSizeOf(2)
@@ -2303,7 +2303,7 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             openStore(context, 2, Direction.DESC);
             final Index index = index();
-            assertTrue(recordStore.isIndexReadable(index));
+            assertTrue(recordStore.getIndexState(index).isReadable());
             // rec 1 has dropped out of the window and rec 3 has taken its place
             assertThat(slidingWindow())
                     .hasSizeOf(2)
@@ -2332,7 +2332,7 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             openStore(context, 2, Direction.DESC);
             final Index index = index();
-            assertTrue(recordStore.isIndexReadable(index));
+            assertTrue(recordStore.getIndexState(index).isReadable());
             assertThat(slidingWindow())
                     .hasSizeOf(2)
                     .underlyingHnsw().containsInAnyOrder(1, 2);
@@ -2360,7 +2360,7 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             openStore(context, 2, Direction.DESC);
             final Index index = index();
-            assertTrue(recordStore.isIndexReadable(index));
+            assertTrue(recordStore.getIndexState(index).isReadable());
             assertThat(slidingWindow())
                     .hasSizeOf(2)
                     .underlyingHnsw().containsInAnyOrder(2, 3);
@@ -2423,7 +2423,7 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             openStore(context, 3, Direction.DESC, ImmutableList.of(ImmutableList.of("zone")));
             recordStore.markIndexWriteOnlyWithQueue(INDEX_NAME).join();
-            assertTrue(recordStore.isIndexWriteOnlyWithQueue(INDEX_NAME));
+            assertTrue(recordStore.getIndexState(INDEX_NAME).isWriteOnlyWithQueue());
 
             final IndexMaintainer maintainer = maintainer();
             final QueryToKeyMatcher matcher =

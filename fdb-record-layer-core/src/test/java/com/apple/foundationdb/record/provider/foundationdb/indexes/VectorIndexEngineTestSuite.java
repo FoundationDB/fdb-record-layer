@@ -722,7 +722,7 @@ abstract class VectorIndexEngineTestSuite extends VectorIndexTestBase {
 
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context, hook);
-            assertThat(recordStore.isIndexReadable(recordStore.getRecordMetaData().getIndex(indexName))).isTrue();
+            assertThat(recordStore.getIndexState(recordStore.getRecordMetaData().getIndex(indexName)).isReadable()).isTrue();
             commit(context);
         }
     }
