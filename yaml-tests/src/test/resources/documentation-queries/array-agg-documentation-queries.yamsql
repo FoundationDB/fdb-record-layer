@@ -1,0 +1,107 @@
+#
+# array-agg-documentation-queries.yamsql
+#
+# This source file is part of the FoundationDB open source project
+#
+# Copyright 2021-2026 Apple Inc. and the FoundationDB project authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+---
+options:
+  supported_version: !current_version
+---
+# The `sales` table and its `product_idx` index are the ones shown in the ARRAY_AGG() documentation page. The index is
+# what allows the GROUP BY query below to be planned, since a streaming aggregation needs its input sorted on the
+# grouping column.
+# The `parent` and `child` tables back the “ARRAY_AGG() in a correlated subquery” section, which describes them in prose
+# rather than giving their DDL. The `doc_rev` table backs the “Arrays of arrays” note, whose examples use `rid` and
+# `tags`.
+schema_template:
+    CREATE TABLE sales (id BIGINT, product STRING, region STRING, amount BIGINT, PRIMARY KEY (id))
+    CREATE INDEX product_idx AS SELECT product FROM sales ORDER BY product
+
+    CREATE TABLE parent (pid BIGINT, name STRING, PRIMARY KEY (pid))
+    CREATE TABLE child (cid BIGINT, pid BIGINT, val BIGINT, PRIMARY KEY (cid))
+    CREATE INDEX child_by_pid AS SELECT pid FROM child ORDER BY pid
+
+    CREATE TABLE doc_rev (rid BIGINT, title STRING, tags STRING ARRAY, PRIMARY KEY (rid))
+---
+setup:
+  steps:
+    - query: INSERT INTO sales VALUES
+             (1, 'Widget', 'North', 100),
+             (2, 'Widget', 'South', 150),
+             (3, 'Gadget', 'North', 200),
+             (4, 'Gadget', 'South', NULL),
+             (5, 'Widget', 'North', 120)
+    - query: INSERT INTO parent VALUES (1, 'a'), (2, 'b'), (3, 'c')
+    - query: INSERT INTO child VALUES (1, 1, 100), (2, 1, 200), (3, 2, 300), (4, 2, NULL)
+    - query: INSERT INTO doc_rev VALUES (10, 'draft', ['internal']), (20, 'final', ['featured', 'public'])
+---
+test_block:
+  name: array-agg-documentation-tests
+  preset: single_repetition_ordered
+  tests:
+    -
+      - query: SELECT ARRAY_AGG(amount IGNORE NULLS) AS amounts FROM sales
+      - result: [{amounts: [200, 100, 150, 120]}]
+
+    -
+      - query: SELECT product, ARRAY_AGG(amount IGNORE NULLS) AS amounts
+               FROM sales
+               GROUP BY product
+      - result: [{product: 'Gadget', amounts: [200]},
+                 {product: 'Widget', amounts: [100, 150, 120]}]
+
+    -
+      - query: SELECT ARRAY_AGG(x) AS numbers
+                 FROM (SELECT a FROM VALUES ([2, 1, -2, 3, -2, 1, 2]) AS T(a)) AS sq,
+                      sq.a AS x
+      - result: [{numbers: [2, 1, -2, 3, -2, 1, 2]}]
+
+    -
+      - query: SELECT p.pid, sq.vals
+                 FROM parent p,
+                      (SELECT ARRAY_AGG(c.val IGNORE NULLS) AS vals FROM child c WHERE c.pid = p.pid) sq
+      - result: [{pid: 1, vals: [100, 200]},
+                 {pid: 2, vals: [300]},
+                 {pid: 3, vals: !null _}]
+
+    -
+      - query: SELECT p.pid, (SELECT ARRAY_AGG(c.val IGNORE NULLS) FROM child c WHERE c.pid = p.pid) FROM parent p
+      - error: SYNTAX_ERROR
+
+    -
+      # “Arrays of arrays”: Aggregating an ARRAY-typed argument is rejected, …
+      - query: SELECT ARRAY_AGG(tags) FROM doc_rev
+      - error: UNSUPPORTED_OPERATION
+
+    -
+      # … while wrapping the inner array in a struct works.
+      - query: SELECT ARRAY_AGG((rid, tags)) FROM doc_rev
+      - result: [{[{10, ['internal']}, {20, ['featured', 'public']}]}]
+
+---
+# “ARRAY_AGG() in indexes”: An index cannot be defined over ARRAY_AGG(). The schema template is created against the catalog,
+# as it is the DDL itself that has to be rejected.
+test_block:
+  name: array-agg-not-indexable-documentation-tests
+  connect: "jdbc:embed:/__SYS?schema=CATALOG"
+  preset: single_repetition_ordered
+  tests:
+    -
+      - query: CREATE SCHEMA TEMPLATE array_agg_doc_index_template
+               CREATE TABLE tab(id BIGINT, grp BIGINT, val BIGINT, PRIMARY KEY(id))
+               CREATE INDEX idx AS SELECT ARRAY_AGG(val) FROM tab GROUP BY grp
+      - error: UNSUPPORTED_OPERATION
+...
