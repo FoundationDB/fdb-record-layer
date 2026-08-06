@@ -855,6 +855,10 @@ public interface TypedVisitor extends RelationalParserVisitor<Object> {
 
     @Nonnull
     @Override
+    Boolean visitNullTreatmentClause(@Nonnull RelationalParser.NullTreatmentClauseContext ctx);
+
+    @Nonnull
+    @Override
     Expression visitNonAggregateWindowedFunction(@Nonnull RelationalParser.NonAggregateWindowedFunctionContext ctx);
 
     @Nonnull
