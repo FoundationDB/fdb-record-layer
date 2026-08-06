@@ -1371,13 +1371,13 @@ public class BaseVisitor extends RelationalParserBaseVisitor<Object> implements 
         return expressionVisitor.visitExpressionWithOptionalName(ctx);
     }
 
-    @Nonnull
+    @Nullable
     @Override
     public Object visitIfExists(@Nonnull RelationalParser.IfExistsContext ctx) {
         return visitChildren(ctx);
     }
 
-    @Nonnull
+    @Nullable
     @Override
     public Object visitIfNotExists(@Nonnull RelationalParser.IfNotExistsContext ctx) {
         return visitChildren(ctx);
