@@ -285,6 +285,7 @@ message PValue {
     PDotProductDistanceRowNumberValue dot_product_distance_row_number_value = 61;
     PIncarnationValue incarnation_value = 62;
     PCardinalityValue cardinality_value = 63;
+    PArrayAggValue array_agg_value = 64;
   }
   // Removed types that are no longer supported
   reserved 38;
@@ -484,6 +485,12 @@ message PCountValue {
   }
   optional PPhysicalOperator operator = 1;
   optional PValue child = 2;
+}
+
+message PArrayAggValue {
+  optional PValue child = 1;
+  optional PType element_type = 2;
+  optional bool ignore_nulls = 3;
 }
 
 message PDerivedValue {

@@ -23,11 +23,28 @@ options:
     connection_options:
       CASE_SENSITIVE_IDENTIFIERS: true
 ---
+# The schema includes indexes on the grouping column so `GROUP BY grp` can be planned by the streaming aggregation.
 schema_template:
     CREATE TABLE T1 (id BIGINT, grp BIGINT, val BIGINT, PRIMARY KEY (id))
+    CREATE INDEX T1_grp AS SELECT grp FROM T1 ORDER BY grp
+
     CREATE TABLE parent (pid BIGINT, name STRING, PRIMARY KEY (pid))
     CREATE TABLE child (cid BIGINT, pid BIGINT, val BIGINT, PRIMARY KEY (cid))
     CREATE TABLE keywords (array_agg BIGINT, respect BIGINT, PRIMARY KEY (array_agg))
+    CREATE INDEX child_by_pid AS SELECT pid FROM child ORDER BY pid
+
+    CREATE TYPE AS STRUCT Struct1 (a BIGINT, b BIGINT)
+    CREATE TABLE T2 (id BIGINT, grp BIGINT, s Struct1, PRIMARY KEY (id))
+    CREATE INDEX T2_grp AS SELECT grp FROM T2 ORDER BY grp
+
+    CREATE TYPE AS STRUCT Struct2 (u UUID, b BYTES)
+    CREATE TABLE T3 (id BIGINT, grp BIGINT, u UUID, b BYTES, s Struct2, PRIMARY KEY (id))
+    CREATE INDEX T3_grp AS SELECT grp FROM T3 ORDER BY grp
+
+    CREATE TABLE doc_meta (mid BIGINT, owner STRING, PRIMARY KEY (mid))
+    CREATE TABLE doc_rev (rid BIGINT, title STRING, tags STRING ARRAY, PRIMARY KEY (rid))
+    CREATE TABLE doc_asset (aid BIGINT, rid BIGINT, url STRING, PRIMARY KEY (aid))
+    CREATE INDEX doc_asset_by_rid AS SELECT rid FROM doc_asset ORDER BY rid
 ---
 setup:
   steps:
@@ -38,53 +55,123 @@ setup:
                     (4, 20, 400),
                     (5, 20, 500),
                     (6, 30, NULL)
-    - query: INSERT INTO keywords VALUES (1, 2)
+    - query: INSERT INTO keywords
+             VALUES (1, 2)
+    - query: INSERT INTO parent
+             VALUES (1, 'a'),
+                    (2, 'b'),
+                    (3, 'c')
+    - query: INSERT INTO child
+             VALUES (1, 1, 100),
+                    (2, 1, 200),
+                    (3, 2, 300),
+                    (4, 2, NULL)
+    - query: INSERT INTO T2
+             VALUES (1, 10, (1, 2)),
+                    (2, 10, (3, 4)),
+                    (3, 20, (5, 6))
+    - query: INSERT INTO T3
+             VALUES (1, 10, '0920df1c-be81-4ec1-8a06-2180226f051d', X'0a0b', ('64120112-4e39-40c3-94b9-2cc88a52e8df', X'0c0d')),
+                    (2, 10, 'c35ba01f-f8fc-47d7-bb00-f077e8a75682', X'0e0f', ('5394a912-aa8e-40fc-a4bb-ddf3f89ac45b', X'1011'))
+    - query: INSERT INTO doc_meta
+             VALUES (1, 'ann')
+    - query: INSERT INTO doc_rev
+             VALUES (10, 'draft', ['internal']),
+                    (20, 'final', ['featured', 'public'])
+    - query: INSERT INTO doc_asset
+             VALUES (1, 10, 'a1.png'),
+                    (2, 20, 'b1.png'),
+                    (3, 20, 'b2.png')
 ---
 test_block:
   name: array-agg-tests
   tests:
     -
-      # The plain form is grammatically accepted.
+      # Basic ARRAY_AGG() over the whole table produces a single implicit group.
+      - query: SELECT ARRAY_AGG(val IGNORE NULLS) FROM T1
+      - resultMetadata: [{_0: {array: BIGINT}}]
+      - result: [{[100, 200, 300, 400, 500]}]
+    -
+      # The ALL set quantifier is accepted and behaves like the bare form.
+      - query: SELECT ARRAY_AGG(ALL val) FROM T1 WHERE grp = 10
+      - result: [{[100, 200, 300]}]
+    -
+      # IGNORE NULLS omits NULL elements. A group whose only value is NULL yields an empty array (which indicates that
+      # the group did see rows, in contrast to the empty-input case below, which yields NULL).
+      - query: SELECT ARRAY_AGG(val IGNORE NULLS) FROM T1 WHERE grp = 30
+      - result: [{[]}]
+    -
+      # Empty input with no GROUP BY yields a single row whose aggregate is NULL (as prescribed by SQL:2011).
+      - query: SELECT ARRAY_AGG(val) FROM T1 WHERE grp = 999
+      - result: [{!null _}]
+    -
+      # ARRAY_AGG() with GROUP BY produces one array per group.
+      - query: SELECT grp, ARRAY_AGG(val IGNORE NULLS) FROM T1 GROUP BY grp
+      - resultMetadata: [{grp: BIGINT}, {_1: {array: BIGINT}}]
+      - result: [{10, [100, 200, 300]}, {20, [400, 500]}, {30, []}]
+    -
+      # Empty input yields no rows when grouped with GROUP BY.
+      - query: SELECT grp, ARRAY_AGG(val) FROM T1 WHERE grp = 999 GROUP BY grp
+      - result: []
+    -
+      # The bare ARRAY_AGG() form means RESPECT NULLS. This currently fails at runtime, since T1 contains a NULL value
+      # that cannot be represented as an array element (Issue #3646).
       - query: SELECT ARRAY_AGG(val) FROM T1
-      - error: UNSUPPORTED_QUERY
+      - error: UNSUPPORTED_OPERATION
     -
-      # ALL is the default set quantifier and is accepted.
-      - query: SELECT ARRAY_AGG(ALL val) FROM T1
-      - error: UNSUPPORTED_QUERY
+      # An explicit RESPECT NULLS behaves the same way.
+      - query: SELECT ARRAY_AGG(val RESPECT NULLS) FROM T1
+      - error: UNSUPPORTED_OPERATION
     -
-      # DISTINCT is grammatically accepted but rejected at semantic-analysis time, like other aggregates such as SUM().
+      # The bare ARRAY_AGG() form (with RESPECT NULLS semantics) succeeds if the input doesn’t contain any NULL.
+      - query: SELECT ARRAY_AGG(val) FROM T1 WHERE grp = 10
+      - result: [{[100, 200, 300]}]
+    -
+      # … as does ARRAY_AGG() with an explicit RESPECT NULLS.
+      - query: SELECT ARRAY_AGG(val RESPECT NULLS) FROM T1 WHERE grp = 10
+      - result: [{[100, 200, 300]}]
+    -
+      # The argument can be an arbitrary expression.
+      - query: SELECT ARRAY_AGG(val + 1 IGNORE NULLS) FROM T1
+      - result: [{[101, 201, 301, 401, 501]}]
+    -
+      # COALESCE() can be used to wrap a nullable argument and make the element type non-nullable.
+      - query: SELECT ARRAY_AGG(COALESCE(val, 0)) FROM T1
+      - result: [{[100, 200, 300, 400, 500, 0]}]
+    -
+      # DISTINCT is grammatically accepted but rejected at semantic analysis time (like other aggregates such as SUM).
       - query: SELECT ARRAY_AGG(DISTINCT val) FROM T1
       - error: UNSUPPORTED_QUERY
     -
-      # Using ARRAY_AGG() as a window function is grammatically accepted but rejected at semantic-analysis time, like
-      # other aggregates such as MAX().
+      # Using ARRAY_AGG() as a window function is grammatically accepted but rejected at semantic analysis time
+      # (like other aggregates such as MAX).
       - query: SELECT ARRAY_AGG(val) OVER () FROM T1
       - error: UNSUPPORTED_QUERY
     -
-      # In-call ORDER BY is grammatically accepted but rejected at semantic-analysis time (not yet implemented).
+      # An ORDER BY clause is grammatically accepted but rejected at semantic analysis time (not yet implemented).
       - query: SELECT ARRAY_AGG(val ORDER BY val) FROM T1
       - error: UNSUPPORTED_QUERY
     -
-      # The sort expressions are still resolved, so a bogus one is reported as such before the clause is rejected.
+      # The ORDER BY expressions are still resolved, so a bogus one is reported as such before the clause is rejected.
       - query: SELECT ARRAY_AGG(val ORDER BY bogus) FROM T1
       - error: UNDEFINED_COLUMN
     -
-      # The aggregate's own argument is resolved before the ORDER BY clause is rejected, so a bogus argument is
+      # ORDER BY can take an arbitrary expression, not just a column reference.
+      - query: SELECT ARRAY_AGG(val ORDER BY val + 1) FROM T1
+      - error: UNSUPPORTED_QUERY
+    -
+      - query: SELECT ARRAY_AGG(val ORDER BY GREATEST(val, 0 - val)) FROM T1
+      - error: UNSUPPORTED_QUERY
+    -
+      # The aggregate’s own argument is resolved before the ORDER BY clause is rejected, so a bogus argument is
       # reported in preference to the unsupported clause.
       - query: SELECT ARRAY_AGG(bogus ORDER BY val) FROM T1
       - error: UNDEFINED_COLUMN
     -
-      # The grammar admits the null treatment clause for ARRAY_AGG() only, so it is a parse error elsewhere. The
-      # ordinary aggregates ignore NULL inputs implicitly, so the clause would be meaningless for them anyway.
+      # The grammar admits the null treatment clause for ARRAY_AGG() only, so it is a parse error elsewhere.
+      # (The ordinary aggregates ignore NULL inputs implicitly.)
       - query: SELECT SUM(val IGNORE NULLS) FROM T1
       - error: SYNTAX_ERROR
-    -
-      # IGNORE NULLS and RESPECT NULLS are grammatically accepted and resolved during semantic analysis.
-      - query: SELECT ARRAY_AGG(val IGNORE NULLS) FROM T1
-      - error: UNSUPPORTED_QUERY
-    -
-      - query: SELECT ARRAY_AGG(val RESPECT NULLS) FROM T1
-      - error: UNSUPPORTED_QUERY
     -
       # The null treatment clause precedes the in-call ORDER BY clause. Here the ORDER BY is what gets rejected.
       - query: SELECT ARRAY_AGG(val IGNORE NULLS ORDER BY val) FROM T1
@@ -109,6 +196,44 @@ test_block:
       - result: [{val: 100}]
 ---
 test_block:
+  name: array-agg-continuations
+  tests:
+    -
+      # Paginating a grouped ARRAY_AGG() returns one group per page, each with its array fully collected.
+      # The `grp=30` group additionally covers a group that consists of only NULL values.
+      - query: SELECT grp, ARRAY_AGG(val IGNORE NULLS) FROM T1 GROUP BY grp
+      - maxRows: 1
+      - result: [{10, [100, 200, 300]}]
+      - result: [{20, [400, 500]}]
+      - result: [{30, []}]
+      - result: []
+---
+test_block:
+  name: array-agg-nested-element-types
+  tests:
+    -
+      # ARRAY_AGG() over a non-primitive (struct) element type. This exercises the accumulator’s wrapper-record
+      # serialization for a nested element type.
+      - query: SELECT grp, ARRAY_AGG(s) FROM T2 GROUP BY grp
+      - resultMetadata: [{grp: BIGINT}, {_1: {array: [STRUCT1, {a: BIGINT}, {b: BIGINT}]}}]
+      - result: [{10, [{1, 2}, {3, 4}]}, {20, [{5, 6}]}]
+    -
+      # The struct element type may itself have an ARRAY-typed member, which puts a nested array one level down.
+      - query: SELECT ARRAY_AGG((rid, tags)) FROM doc_rev
+      - resultMetadata: [{_0: {array: [{rid: BIGINT}, {tags: {array: STRING}}]}}]
+      - result: [{[{10, ['internal']}, {20, ['featured', 'public']}]}]
+    -
+      # Aggregating an ARRAY-typed argument directly, on the other hand, yields an array of arrays, which is not
+      # supported (Issue #4167).
+      - query: SELECT ARRAY_AGG(tags) FROM doc_rev
+      - error: UNSUPPORTED_OPERATION
+    -
+      # The Issue #4167 limitation also applies to the select elements of a subquery, even where the nested array never
+      # reaches the result set.
+      - query: SELECT sq.agg[1] FROM (SELECT ARRAY_AGG(tags) AS agg FROM doc_rev) sq
+      - error: UNSUPPORTED_OPERATION
+---
+test_block:
   name: array-agg-correlated-subquery
   tests:
     -
@@ -117,4 +242,186 @@ test_block:
       # subqueries there).
       - query: SELECT p.pid, (SELECT ARRAY_AGG(c.val) FROM child c WHERE c.pid = p.pid) AS vals FROM parent p
       - error: SYNTAX_ERROR
+    -
+      # Supported rewrite: A correlated ARRAY_AGG() subquery in the FROM clause. This is the recommended alternative
+      # for the projection form above. Row `pid=3` has no children, so its aggregate is NULL.
+      - query: SELECT p.pid, sq.vals FROM parent p, (SELECT ARRAY_AGG(c.val IGNORE NULLS) AS vals FROM child c WHERE c.pid = p.pid) sq
+      - result: [{1, [100, 200]}, {2, [300]}, {3, !null _}]
+---
+# Tests involving element types whose runtime representation differs from their protobuf one. The accumulator has to
+# convert such types, both when it serializes its partial state and when it hands its result to the enclosing record
+# constructor.
+test_block:
+  name: array-agg-converted-element-types
+  tests:
+    -
+      # A UUID is a `java.util.UUID` at runtime but a message on the wire.
+      - query: SELECT ARRAY_AGG(u) FROM T3
+      - result: [{[!uuid '0920df1c-be81-4ec1-8a06-2180226f051d', !uuid 'c35ba01f-f8fc-47d7-bb00-f077e8a75682']}]
+    -
+      # BYTES is `byte[]` at runtime and a `ByteString` on the wire.
+      - query: SELECT ARRAY_AGG(b) FROM T3
+      - result: [{[X'0a0b', X'0e0f']}]
+    -
+      # Same, but moved one level down: A struct element type with UUID and BYTES members.
+      - query: SELECT ARRAY_AGG(s) FROM T3
+      - result: [{[{!uuid '64120112-4e39-40c3-94b9-2cc88a52e8df', X'0c0d'}, {!uuid '5394a912-aa8e-40fc-a4bb-ddf3f89ac45b', X'1011'}]}]
+    -
+      # GROUP BY variant, so that the elements go through the accumulator’s partial-state serialization per group.
+      - query: SELECT grp, ARRAY_AGG(u) FROM T3 GROUP BY grp
+      - result: [{10, [!uuid '0920df1c-be81-4ec1-8a06-2180226f051d', !uuid 'c35ba01f-f8fc-47d7-bb00-f077e8a75682']}]
+---
+# ARRAY_AGG() alongside other aggregates, and consumers of the resulting array.
+test_block:
+  name: array-agg-combined-with-other-aggregates
+  tests:
+    -
+      # Two ARRAY_AGG() aggregates differing only in their null treatment must not be conflated: they are distinct
+      # values, with distinct element type nullability, so both survive into the plan (see the explain).
+      - query: SELECT ARRAY_AGG(val IGNORE NULLS) AS a, ARRAY_AGG(val RESPECT NULLS) AS b FROM T1 WHERE grp = 10
+      - explain: "ISCAN(T1_grp [EQUALS promote(@c23 AS LONG)]) | MAP (_ AS _0) | AGG (array_agg(_._0.val IGNORE NULLS) AS _0, array_agg(_._0.val) AS _1) GROUP BY () | ON EMPTY NULL | MAP (_._0._0 AS a, _._0._1 AS b)"
+      - result: [{a: [100, 200, 300], b: [100, 200, 300]}]
+    -
+      # ARRAY_AGG() next to a scalar aggregate, grouped. The `grp=30` group has only NULL values, so SUM() aggregates to
+      # NULL there while ARRAY_AGG(IGNORE NULLS) aggregates to an empty array.
+      - query: SELECT grp, SUM(val) AS s, ARRAY_AGG(val IGNORE NULLS) AS a FROM T1 GROUP BY grp
+      - result: [{10, 600, [100, 200, 300]}, {20, 900, [400, 500]}, {30, !null _, []}]
+    -
+      # The resulting array can be consumed like any other array, e.g. subscripted …
+      - query: SELECT sq.a[2] AS elem FROM (SELECT ARRAY_AGG(val IGNORE NULLS) AS a FROM T1 WHERE grp = 10) sq
+      - result: [{elem: 200}]
+    -
+      # … or passed to a function taking an array.
+      - query: SELECT CARDINALITY(sq.a) AS n FROM (SELECT ARRAY_AGG(val IGNORE NULLS) AS a FROM T1) sq
+      - result: [{n: 5}]
+    -
+      # A STRING element type, i.e. a primitive other than the BIGINT used everywhere else in this file.
+      - query: SELECT ARRAY_AGG(title) FROM doc_rev
+      - result: [{['draft', 'final']}]
+---
+# ARRAY_AGG() cannot back an aggregate index, since it is deliberately not an `IndexableAggregateValue`: there is no
+# index type that materializes it. The DDL therefore has to be rejected rather than accepted and then mis-maintained.
+test_block:
+  name: array-agg-not-indexable
+  connect: "jdbc:embed:/__SYS?schema=CATALOG"
+  preset: single_repetition_ordered
+  tests:
+    -
+      - query: CREATE SCHEMA TEMPLATE array_agg_index_template
+               CREATE TABLE tab (id BIGINT, grp BIGINT, val BIGINT, PRIMARY KEY (id))
+               CREATE INDEX idx AS SELECT ARRAY_AGG(val) FROM tab GROUP BY grp
+      - error: UNSUPPORTED_OPERATION
+---
+# ARRAY_AGG() over constant inputs.
+test_block:
+  name: array-agg-constant-inputs
+  tests:
+    -
+      # Unnest an array literal and collect it back, reproducing the original array (duplicates and order included).
+      - query: SELECT ARRAY_AGG(x) AS agg
+                 FROM (SELECT a FROM VALUES ([2, 1, -2, 3, -2, 1, 2]) AS T(a)) AS sq,
+                      sq.a AS x
+      - result: [{agg: [2, 1, -2, 3, -2, 1, 2]}]
+    -
+      # IGNORE NULLS example where the NULL inputs come from rows via VALUES.
+      - query: SELECT ARRAY_AGG(x IGNORE NULLS) AS agg
+                 FROM VALUES (1, 2), (2, 1), (3, CAST(NULL AS BIGINT)), (4, 3),
+                             (5, CAST(NULL AS BIGINT)), (6, 1), (7, 2) AS T (id, x)
+      - result: [{agg: [2, 1, 3, 1, 2]}]
+    -
+      # An array literal that contains NULLs is not supported currently (Issue #3646), so IGNORE NULLS cannot be
+      # demonstrated that way. The NULL element is rejected while the array literal itself is resolved, before
+      # ARRAY_AGG() ever sees it.
+      - query: SELECT ARRAY_AGG(x IGNORE NULLS) AS agg
+          FROM (SELECT a FROM VALUES ([2, 1, NULL, 3, NULL, 1, 2]) AS T(a)) AS sq,
+          sq.a AS x
+      - error: UNSUPPORTED_OPERATION
+    -
+      # Same rejection when the NULL element arrives as a typed CAST rather than as the bare NULL literal. This one is
+      # caught while the array is evaluated rather than while it is resolved.
+      - query: SELECT ARRAY_AGG(x IGNORE NULLS) AS agg
+          FROM (SELECT a FROM VALUES ([1, CAST(NULL AS INTEGER)]) AS T(a)) AS sq,
+          sq.a AS x
+      - error: UNSUPPORTED_OPERATION
+    -
+      # Ungrouped ARRAY_AGG() example where the rows come from constant SELECTs in a common-table expression.
+      - query: WITH vals AS (
+                 SELECT 1 AS x, 'a' AS y UNION ALL
+                 SELECT 1 AS x, 'b' AS y UNION ALL
+                 SELECT 2 AS x, 'a' AS y UNION ALL
+                 SELECT 2 AS x, 'c' AS y
+               )
+               SELECT ARRAY_AGG(y) AS agg FROM vals
+      - result: [{agg: ['a', 'b', 'a', 'c']}]
+---
+# Exercises a larger, more realistic scenario. Alongside scalar columns drawn from two independent row sources, this
+# example query projects a nested collection of related detail rows, restricted by a membership test against an
+# ARRAY-typed column.
+test_block:
+  name: array-agg-scenario
+  tests:
+    -
+      # Variant 1: This places the ARRAY_AGG() subquery directly in the projection, which is (arguably) the most natural
+      # way to express the query. This is not yet supported in the grammar.
+      - query: SELECT m.mid, r.rid,
+                      (SELECT ARRAY_AGG(a.url) FROM doc_asset a WHERE a.rid = r.rid) AS assets
+                 FROM doc_meta m, doc_rev r
+                WHERE m.owner IS NOT NULL
+                  AND 'featured' IN r.tags
+                  AND r.rid = 20
+      - error: SYNTAX_ERROR
+    -
+      # Variant 2: Moves the correlated ARRAY_AGG() subquery into the FROM clause.
+      - query: SELECT m.mid, r.rid, sq.assets
+                 FROM doc_meta m,
+                      doc_rev r,
+                      (SELECT ARRAY_AGG(a.url) AS assets FROM doc_asset a WHERE a.rid = r.rid) sq
+                WHERE m.owner IS NOT NULL
+                  AND 'featured' IN r.tags
+                  AND r.rid = 20
+      - resultMetadata: [{mid: BIGINT}, {rid: BIGINT}, {assets: {array: STRING}}]
+      - explain: "SCAN([IS doc_rev, EQUALS promote(@c60 AS LONG)]) | FILTER @c50 IN _.tags | FLATMAP q0 -> { ISCAN(doc_asset_by_rid [EQUALS q0.rid]) | MAP (_ AS _0) | AGG (array_agg(_._0.url) AS _0) GROUP BY () | ON EMPTY NULL AS q0 RETURN (q0 AS _0, q0 AS _1) } | FLATMAP q1 -> { SCAN([IS doc_meta]) | FILTER _.owner NOT_NULL AS q2 RETURN (q2.mid AS mid, q1._0.rid AS rid, q1._1._0._0 AS assets) }"
+      - result: [{1, 20, ['b1.png', 'b2.png']}]
+    -
+      # Variant 3: Joins in the assets and then groups via GROUP BY. This cannot currently be planned because the
+      # streaming aggregation needs its input sorted on the grouping columns, and no index provides that ordering for
+      # the result of a join.
+      - query: SELECT m.mid, r.rid, ARRAY_AGG(a.url) AS assets
+                 FROM doc_meta m,
+                      doc_rev r,
+                      doc_asset a
+                WHERE m.owner IS NOT NULL
+                  AND 'featured' IN r.tags
+                  AND r.rid = 20
+                  AND a.rid = r.rid
+                GROUP BY m.mid, r.rid
+      - error: UNSUPPORTED_QUERY
+    -
+      # Variant 4: Aggregates the detail table on its own, grouping by the join column, and joins in the result. Unlike
+      # the two variants above, the subquery here is not correlated. The `doc_asset_by_rid` index provides the ordering
+      # that the GROUP BY needs.
+      - query: SELECT m.mid, r.rid, sq.assets
+                 FROM doc_meta m,
+                      doc_rev r,
+                      (SELECT a.rid AS rid, ARRAY_AGG(a.url) AS assets FROM doc_asset a GROUP BY a.rid) sq
+                WHERE m.owner IS NOT NULL
+                  AND 'featured' IN r.tags
+                  AND r.rid = 20
+                  AND sq.rid = r.rid
+      - explain: "ISCAN(doc_asset_by_rid <,>) | MAP (_ AS _0) | AGG (array_agg(_._0.url) AS _0) GROUP BY (_._0.rid AS _0) | FLATMAP q0 -> { SCAN([IS doc_rev, EQUALS promote(@c63 AS LONG)]) | FILTER @c53 IN _.tags AND q0._0._0 EQUALS _.rid | FLATMAP q1 -> { SCAN([IS doc_meta]) | FILTER _.owner NOT_NULL AS q2 RETURN (q2 AS _0, q1 AS _1) } AS q3 RETURN (q3._0.mid AS mid, q3._1.rid AS rid, q0._1._0 AS assets) }"
+      - result: [{1, 20, ['b1.png', 'b2.png']}]
+    -
+      # Variant 5: Collects the detail rows as a whole into an array of structs, by constructing a record from the
+      # columns of interest. Note that neither `ARRAY_AGG(a)` nor `ARRAY_AGG(a.*)` currently works for this, since an
+      # aggregate argument has to be an expression. So the columns have to be enumerated explicitly.
+      - query: SELECT m.mid, r.rid, sq.assets
+                 FROM doc_meta m,
+                      doc_rev r,
+                      (SELECT ARRAY_AGG((a.aid, a.url)) AS assets FROM doc_asset a WHERE a.rid = r.rid) sq
+                WHERE m.owner IS NOT NULL
+                  AND 'featured' IN r.tags
+                  AND r.rid = 20
+      - resultMetadata: [{mid: BIGINT}, {rid: BIGINT}, {assets: {array: [{aid: BIGINT}, {url: STRING}]}}]
+      - explain: "SCAN([IS doc_rev, EQUALS promote(@c66 AS LONG)]) | FILTER @c56 IN _.tags | FLATMAP q0 -> { ISCAN(doc_asset_by_rid [EQUALS q0.rid]) | MAP (_ AS _0) | AGG (array_agg((_._0.aid AS aid, _._0.url AS url)) AS _0) GROUP BY () | ON EMPTY NULL AS q0 RETURN (q0 AS _0, q0 AS _1) } | FLATMAP q1 -> { SCAN([IS doc_meta]) | FILTER _.owner NOT_NULL AS q2 RETURN (q2.mid AS mid, q1._0.rid AS rid, q1._1._0._0 AS assets) }"
+      - result: [{1, 20, [{2, 'b1.png'}, {3, 'b2.png'}]}]
 ...
