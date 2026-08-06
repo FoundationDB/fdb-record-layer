@@ -41,7 +41,7 @@ class HnswVectorIndexTest extends VectorIndexEngineTestSuite {
     @Nonnull
     @Override
     protected Map<String, String> indexOptions() {
-        return ImmutableMap.of(IndexOptions.VECTOR_ENGINE, VectorIndexEngine.Kind.HNSW.name(),
+        return ImmutableMap.of(IndexOptions.VECTOR_ENGINE, VectorIndexEngineKind.HNSW.name(),
                 IndexOptions.VECTOR_METRIC, Metric.EUCLIDEAN_METRIC.name(),
                 IndexOptions.VECTOR_NUM_DIMENSIONS, "128");
     }
@@ -57,7 +57,7 @@ class HnswVectorIndexTest extends VectorIndexEngineTestSuite {
             // validate the allowed changes all at once
             validateOptionsEvolution(metaData, index,
                     ImmutableMap.<String, String>builder()
-                            .put(IndexOptions.VECTOR_ENGINE, VectorIndexEngine.Kind.HNSW.name())
+                            .put(IndexOptions.VECTOR_ENGINE, VectorIndexEngineKind.HNSW.name())
                             // cannot change those per se but must accept same value
                             .put(IndexOptions.VECTOR_METRIC, Metric.EUCLIDEAN_METRIC.name())
                             .put(IndexOptions.VECTOR_NUM_DIMENSIONS, "128")
@@ -90,7 +90,7 @@ class HnswVectorIndexTest extends VectorIndexEngineTestSuite {
             // switching the engine is never allowed
             assertInvalidOptionsEvolution(metaData, index,
                     ImmutableMap.of(IndexOptions.VECTOR_NUM_DIMENSIONS, "128",
-                            IndexOptions.VECTOR_ENGINE, VectorIndexEngine.Kind.GUARDIANN.name()));
+                            IndexOptions.VECTOR_ENGINE, VectorIndexEngineKind.GUARDIANN.name()));
 
             assertInvalidOptionsEvolution(metaData, index,
                     ImmutableMap.of(IndexOptions.VECTOR_NUM_DIMENSIONS, "128",
