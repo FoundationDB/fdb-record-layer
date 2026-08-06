@@ -2153,6 +2153,50 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
     }
 
     @Test
+    void writeOnlyWithQueueUpdateOfWindowValueOnlyRefilesEntry() throws Exception {
+        // Test the case of record change that affects the window, but not the delegate
+        try (FDBRecordContext context = openContext()) {
+            openStore(context, 3, Direction.DESC);
+            rec(1, 100);   // the boundary: the worst of three entries in a window of 3
+            rec(2, 200);
+            rec(3, 300);
+            assertThat(slidingWindow()).hasSizeOf(3).underlyingHnsw().containsInAnyOrder(1, 2, 3);
+            commit(context);
+        }
+
+        try (FDBRecordContext context = openContext()) {
+            openStore(context, 3, Direction.DESC);
+            recordStore.markIndexWriteOnlyWithQueue(INDEX_NAME).join();
+            rec(1, 250);  // update: 100 -> 250, same vector, deferred to the queue
+            commit(context);
+        }
+
+        drainQueue(3, Direction.DESC);
+
+        try (FDBRecordContext context = openContext()) {
+            openStore(context, 3, Direction.DESC);
+            assertThat(slidingWindow())
+                    .hasSizeOf(3)
+                    .underlyingHnsw().containsInAnyOrder(1, 2, 3);
+            commit(context);
+        }
+
+        // The count and the delegate look identical whether the entry was re-filed, so probe the boundary
+        // instead: rec 2 at 200 is now the worst entry in the window, so a new record at 220 has to evict it. Had
+        // rec 1's entry been left behind at 100, rec 1 would still be the boundary and would have been evicted.
+        try (FDBRecordContext context = openContext()) {
+            openStore(context, 3, Direction.DESC);
+            assertTrue(recordStore.isIndexReadable(index()));
+            rec(4, 220);
+            assertThat(slidingWindow())
+                    .as("the boundary must have moved to rec 2 when rec 1 was re-filed at its higher window value")
+                    .hasSizeOf(3)
+                    .underlyingHnsw().containsInAnyOrder(1, 3, 4);
+            commit(context);
+        }
+    }
+
+    @Test
     void writeOnlyWithQueueGroupedRoutesPerGroup() throws Exception {
         // Each partition maintains its own window when writes are deferred and later drained.
         final List<List<String>> grouping = ImmutableList.of(ImmutableList.of("zone"));

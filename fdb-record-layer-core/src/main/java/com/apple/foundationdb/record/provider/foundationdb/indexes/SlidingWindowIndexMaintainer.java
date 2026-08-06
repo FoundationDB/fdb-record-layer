@@ -450,20 +450,20 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
                 IndexBuildProto.SlidingWindowQueueEntry.newBuilder();
         boolean anyChange = false;
         if (shouldMaintain(oldRecord)) {
+            builder.setOldEntryKey(entryKeyOf(oldRecord).pack());
             final Any delegatedDelete = delegate.serializePendingWriteQueue(oldRecord, null);
             if (delegatedDelete != null) {
-                builder.setOldEntryKey(entryKeyOf(oldRecord).pack());
                 builder.setDelegatedDelete(delegatedDelete);
-                anyChange = true;
             }
+            anyChange = true;
         }
         if (shouldMaintain(newRecord)) {
+            builder.setNewEntryKey(entryKeyOf(newRecord).pack());
             final Any delegatedInsert = delegate.serializePendingWriteQueue(null, newRecord);
             if (delegatedInsert != null) {
-                builder.setNewEntryKey(entryKeyOf(newRecord).pack());
                 builder.setDelegatedInsert(delegatedInsert);
-                anyChange = true;
             }
+            anyChange = true;
         }
         // If nothing was maintained for either records, return null to indicate that no change is needed
         return anyChange ? Any.pack(builder.build()) : null;
@@ -496,11 +496,11 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
         final Any delegateDelete = entry.hasDelegatedDelete() ? entry.getDelegatedDelete() : null;
         final Any delegateInsert = entry.hasDelegatedInsert() ? entry.getDelegatedInsert() : null;
         // The maintenance filter was already applied when the update was first deferred, so it is not re-evaluated here.
-        validateOrThrowEx(oldKey == null || delegateDelete != null, "old record key without delegate delete");
-        validateOrThrowEx(newKey == null || delegateInsert != null, "new record key without delegate insert");
+        validateOrThrowEx(delegateDelete == null || oldKey != null, "delegate delete without old record key");
+        validateOrThrowEx(delegateInsert == null || newKey != null, "delegate insert without new record key");
         return updateWindowWhileWriteOnly(oldKey, newKey,
-                () -> delegate.updateFromQueue(delegateDelete),
-                () -> delegate.updateFromQueue(delegateInsert));
+                () -> delegateDelete == null ? AsyncUtil.DONE : delegate.updateFromQueue(delegateDelete),
+                () -> delegateInsert == null ? AsyncUtil.DONE : delegate.updateFromQueue(delegateInsert));
     }
 
     private void validateOrThrowEx(boolean isValid, @Nonnull String msg) {
