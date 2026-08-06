@@ -152,8 +152,8 @@ public class MultidimensionalIndexMaintainer extends StandardIndexMaintainer {
     private static RTree.Point validatePoint(@Nonnull RTree.Point point) {
         for (int d = 0; d < point.getNumDimensions(); d ++) {
             Object coordinate = point.getCoordinate(d);
-            Preconditions.checkArgument(coordinate == null || coordinate instanceof Long,
-                    "dimension coordinates must be of type long");
+            Preconditions.checkArgument(coordinate == null || coordinate instanceof Long || coordinate instanceof Double,
+                    "dimension coordinates must be of type long or double");
         }
         return point;
     }

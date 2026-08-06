@@ -41,6 +41,7 @@ import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.ArrayDeque;
 import java.util.Arrays;
@@ -2321,9 +2322,23 @@ public class RTree {
         public BigInteger area() {
             BigInteger currentArea = BigInteger.ONE;
             for (int d = 0; d < getNumDimensions(); d++) {
-                currentArea = currentArea.multiply(BigInteger.valueOf(((Number)getHigh(d)).longValue() - ((Number)getLow(d)).longValue()));
+                currentArea = currentArea.multiply(dimensionLength(d));
             }
             return currentArea;
+        }
+
+        /**
+         * Length of this rectangle along one dimension, rounding {@code double} bounds via {@link BigDecimal}
+         * rather than truncating them through {@link Number#longValue()}.
+         */
+        @Nonnull
+        private BigInteger dimensionLength(final int dimension) {
+            final Number high = (Number)getHigh(dimension);
+            final Number low = (Number)getLow(dimension);
+            if (high instanceof Double || low instanceof Double) {
+                return BigDecimal.valueOf(high.doubleValue()).subtract(BigDecimal.valueOf(low.doubleValue())).toBigInteger();
+            }
+            return BigInteger.valueOf(high.longValue() - low.longValue());
         }
 
         @Nonnull
@@ -2454,7 +2469,7 @@ public class RTree {
         public String toPlotString() {
             final StringBuilder builder = new StringBuilder();
             for (int d = 0; d < getNumDimensions(); d++) {
-                builder.append(((Number)getLow(d)).longValue());
+                builder.append(getLow(d));
                 if (d + 1 < getNumDimensions()) {
                     builder.append(",");
                 }
@@ -2463,7 +2478,7 @@ public class RTree {
             builder.append(",");
 
             for (int d = 0; d < getNumDimensions(); d++) {
-                builder.append(((Number)getHigh(d)).longValue());
+                builder.append(getHigh(d));
                 if (d + 1 < getNumDimensions()) {
                     builder.append(",");
                 }
