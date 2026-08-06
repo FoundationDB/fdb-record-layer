@@ -272,12 +272,15 @@ public class Guardiann {
      * @param newPrimaryKey the unique {@link Tuple} primary key for the new vector being inserted
      * @param newVector the {@link RealVector} data to be inserted
      * @param additionalValues additional values to be associated with the new vector/record, or {@code null}
+     * @param maintainInTransaction when {@code true}, drain one deferred maintenance task inside this writing
+     *        transaction (and skip hard-cap back-pressure); when {@code false} tasks accumulate for a background merge
      * @return a {@link CompletableFuture} that completes when the insertion operation is finished
      */
     @Nonnull
     public CompletableFuture<Void> insert(@Nonnull final Transaction transaction, @Nonnull final Tuple newPrimaryKey,
-                                          @Nonnull final RealVector newVector, @Nullable final Tuple additionalValues) {
-        return insert().insert(transaction, newPrimaryKey, newVector, additionalValues);
+                                          @Nonnull final RealVector newVector, @Nullable final Tuple additionalValues,
+                                          final boolean maintainInTransaction) {
+        return insert().insert(transaction, newPrimaryKey, newVector, additionalValues, maintainInTransaction);
     }
 
     /**
@@ -290,12 +293,14 @@ public class Guardiann {
      * @param transaction the {@link Transaction} context for all database operations
      * @param primaryKey the unique {@link Tuple} primary key of the vector to delete
      * @param vector the {@link RealVector} data of the vector being deleted
+     * @param maintainInTransaction when {@code true}, drain one deferred maintenance task inside this writing
+     *        transaction; when {@code false} tasks accumulate for a background merge
      * @return a {@link CompletableFuture} that completes when the deletion is finished
      */
     @Nonnull
     public CompletableFuture<Void> delete(@Nonnull final Transaction transaction, @Nonnull final Tuple primaryKey,
-                                          @Nonnull final RealVector vector) {
-        return delete().delete(transaction, primaryKey, vector);
+                                          @Nonnull final RealVector vector, final boolean maintainInTransaction) {
+        return delete().delete(transaction, primaryKey, vector, maintainInTransaction);
     }
 
     /**

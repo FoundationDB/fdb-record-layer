@@ -88,6 +88,10 @@ sealed interface VectorIndexEngine permits HnswVectorIndexEngine, GuardiannVecto
      * @param register notified as deferred maintenance tasks are enqueued/executed during this insert (via its
      *        {@code onTaskEnqueued}/{@code onTaskExecuted} callbacks); {@link TaskEventRegister#NOOP} if there is
      *        nothing to react to
+     * @param maintainInTransaction when {@code true}, the engine drains a deferred maintenance task inside this
+     *        writing transaction (Guardiann); when {@code false} it lets work accumulate for a background merge.
+     *        Engines that do everything inline (HNSW) ignore it. Sourced from the store's
+     *        {@link com.apple.foundationdb.record.provider.foundationdb.IndexDeferredMaintenanceControl#shouldAutoMergeDuringCommit()}
      * @return a future that completes when the insert is done
      */
     @Nonnull
@@ -95,7 +99,8 @@ sealed interface VectorIndexEngine permits HnswVectorIndexEngine, GuardiannVecto
                                    @Nonnull Subspace subspace,
                                    @Nonnull Tuple primaryKey,
                                    @Nonnull RealVector vector,
-                                   @Nonnull TaskEventRegister register);
+                                   @Nonnull TaskEventRegister register,
+                                   boolean maintainInTransaction);
 
     /**
      * Deletes a single vector from a partition. The vector is always supplied because some engines (notably Guardiann)
@@ -109,6 +114,9 @@ sealed interface VectorIndexEngine permits HnswVectorIndexEngine, GuardiannVecto
      * @param register notified as deferred maintenance tasks are enqueued/executed during this delete (via its
      *        {@code onTaskEnqueued}/{@code onTaskExecuted} callbacks); {@link TaskEventRegister#NOOP} if there is
      *        nothing to react to
+     * @param maintainInTransaction when {@code true}, the engine drains a deferred maintenance task inside this
+     *        writing transaction (Guardiann); when {@code false} it lets work accumulate for a background merge.
+     *        Engines that do everything inline (HNSW) ignore it
      * @return a future that completes when the delete is done
      */
     @Nonnull
@@ -116,7 +124,8 @@ sealed interface VectorIndexEngine permits HnswVectorIndexEngine, GuardiannVecto
                                    @Nonnull Subspace subspace,
                                    @Nonnull Tuple primaryKey,
                                    @Nonnull RealVector vector,
-                                   @Nonnull TaskEventRegister register);
+                                   @Nonnull TaskEventRegister register,
+                                   boolean maintainInTransaction);
 
     /**
      * The register that tracks this engine's outstanding deferred-maintenance work, or {@code null} for an engine that
@@ -130,13 +139,16 @@ sealed interface VectorIndexEngine permits HnswVectorIndexEngine, GuardiannVecto
     /**
      * Whether an insert/delete that enqueues deferred maintenance work should tell the caller — through the record
      * store's {@link com.apple.foundationdb.record.provider.foundationdb.IndexDeferredMaintenanceControl} — that a
-     * background merge is needed. True only for an engine that defers work <em>and</em> does not drain it inside the
-     * writing transaction; {@code false} for an engine that does everything inline (HNSW) or that self-drains
-     * in-transaction. The maintainer uses this to decide whether to compose a {@link MaintenanceControlRegister} into
-     * the register it hands the engine, keeping the engine itself decoupled from the store.
+     * background merge is needed. True only for an engine that defers work <em>and</em> is not draining it inside the
+     * writing transaction for this write; {@code false} for an engine that does everything inline (HNSW) or when this
+     * write self-drains in-transaction. The maintainer uses this to decide whether to compose a
+     * {@link MaintenanceControlRegister} into the register it hands the engine, keeping the engine itself decoupled
+     * from the store.
+     * @param maintainInTransaction whether this write drains a deferred task in its own transaction (see
+     *        {@link #insert}); an engine that defers work signals the caller only when this is {@code false}
      * @return whether the caller should be signalled to merge when this engine enqueues deferred work
      */
-    boolean signalsMergeRequiredToCaller();
+    boolean signalsMergeRequiredToCaller(boolean maintainInTransaction);
 
     /**
      * Drains up to {@code numTasks} of a partition's deferred maintenance tasks, running them inline in
@@ -265,11 +277,6 @@ sealed interface VectorIndexEngine permits HnswVectorIndexEngine, GuardiannVecto
         final Kind newIndexKind = kindFromIndex(newIndex);
         VectorIndexOptionsHelper.disallowChange(changedOptions, IndexOptions.VECTOR_ENGINE,
                 kindFromIndex(oldIndex), newIndexKind, newIndex.getName());
-
-        // Engine-neutral runtime knob (no on-disk reinterpretation): mutable for both engines — Guardiann acts on it,
-        // HNSW ignores it. Handled here once so it never falls through to the factory's default rejection.
-        VectorIndexOptionsHelper.allowChange(changedOptions,
-                VectorIndexOptionKeys.EXECUTE_DEFERRED_TASKS_IN_TRANSACTION);
 
         switch (newIndexKind) {
             case HNSW:

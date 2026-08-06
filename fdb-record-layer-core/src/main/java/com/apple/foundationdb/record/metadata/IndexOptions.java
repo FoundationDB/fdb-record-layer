@@ -289,14 +289,6 @@ public class IndexOptions {
      */
     public static final String VECTOR_RABITQ_NUM_EX_BITS = "vectorRaBitQNumExBits";
 
-    /**
-     * Whether the write path runs one deferred maintenance task inside the writing transaction on each insert/delete.
-     * When {@code false} (the default) tasks accumulate and are drained only by the background merge process
-     * ({@link com.apple.foundationdb.record.provider.foundationdb.OnlineIndexer#mergeIndex()}). Engine-neutral, but only
-     * the Guardiann engine defers maintenance; HNSW ignores this option.
-     */
-    public static final String VECTOR_EXECUTE_DEFERRED_TASKS_IN_TRANSACTION = "vectorExecuteDeferredTasksInTransaction";
-
     //
     // HNSW-only options. Each mirrors a field of the HNSW config; see
     // {@link com.apple.foundationdb.async.hnsw.Config} for the semantics and default of each. Unset options fall

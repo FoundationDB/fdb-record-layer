@@ -171,13 +171,17 @@ class Insert {
      * @param newPrimaryKey the unique {@link Tuple} primary key for the new node being inserted
      * @param newVector the {@link RealVector} data to be inserted into the graph
      * @param newAdditionalValues additional values that are associated with the new vector and stored with the node
+     * @param maintainInTransaction when {@code true}, drain one deferred maintenance task inside this writing
+     *        transaction (and skip the hard-cap back-pressure valve); when {@code false} tasks accumulate for a
+     *        background merge and the hard cap back-pressures the caller
      *
      * @return a {@link CompletableFuture} that completes when the insertion operation is finished
      */
     @Nonnull
     public CompletableFuture<Void> insert(@Nonnull final Transaction transaction, @Nonnull final Tuple newPrimaryKey,
                                           @Nonnull final RealVector newVector,
-                                          @Nullable final Tuple newAdditionalValues) {
+                                          @Nullable final Tuple newAdditionalValues,
+                                          final boolean maintainInTransaction) {
         final SplittableRandom random = RandomHelpers.random(newPrimaryKey);
         final Primitives primitives = primitives();
 
@@ -201,14 +205,14 @@ class Insert {
 
                     // Optionally drain a deferred task in this transaction; when disabled (the default) tasks accumulate
                     // and are left for the background merge process.
-                    if (!getConfig().executeDeferredTasksInTransaction()) {
+                    if (!maintainInTransaction) {
                         return CompletableFuture.completedFuture(accessInfoAndNodeExistence);
                     }
                     return primitives.executeDeferredTasks(transaction, accessInfo, 1)
                             .thenApply(ignored -> accessInfoAndNodeExistence);
                 }).thenCompose(accessInfoAndNodeExistence ->
                         insertIntoClusters(transaction, random, accessInfoAndNodeExistence,
-                                newPrimaryKey, newVector, newAdditionalValues));
+                                newPrimaryKey, newVector, newAdditionalValues, maintainInTransaction));
     }
 
     @Nonnull
@@ -217,7 +221,8 @@ class Insert {
                                                        @Nonnull final AccessInfoAndNodeExistence accessInfoAndNodeExistence,
                                                        @Nonnull final Tuple newPrimaryKey,
                                                        @Nonnull final RealVector newVector,
-                                                       @Nullable final Tuple newAdditionalValues) {
+                                                       @Nullable final Tuple newAdditionalValues,
+                                                       final boolean maintainInTransaction) {
         if (accessInfoAndNodeExistence.nodeExists()) {
             return AsyncUtil.DONE;
         }
@@ -291,7 +296,8 @@ class Insert {
                 .thenAccept(replicationCandidates ->
                         writeNeighboringClusterReferences(transaction, random, accessInfo, quantizer, estimator,
                                 primaryClusterIdAtomic.get(), primaryDistanceAtomic.get(),
-                                newVectorMetadata, transformedNewVector, replicationCandidates))
+                                newVectorMetadata, transformedNewVector, replicationCandidates,
+                                maintainInTransaction))
                 .thenCompose(ignored ->
                         addToStatsIfNecessary(transaction, random, accessInfo, transformedNewVector));
     }
@@ -305,7 +311,8 @@ class Insert {
                                                    final double distanceToPrimaryCentroid,
                                                    @Nonnull final VectorMetadata newVectorMetadata,
                                                    @Nonnull final Transformed<RealVector> transformedNewVector,
-                                                   @Nonnull final List<ClusterMetadataWithDistance> replicationCandidates) {
+                                                   @Nonnull final List<ClusterMetadataWithDistance> replicationCandidates,
+                                                   final boolean maintainInTransaction) {
         final Config config = getConfig();
         final Primitives primitives = primitives();
         final List<ClusterMetadataWithDistance> selectedReplicationClusters =
@@ -324,7 +331,7 @@ class Insert {
                 // draining deferred tasks in-transaction, the split backlog has fallen too far behind — refuse the
                 // write so the caller slows down while the background merge catches up (only the primary cluster
                 // gains a primary vector).
-                if (!config.executeDeferredTasksInTransaction()
+                if (!maintainInTransaction
                         && clusterMetadata.getNumPrimaryVectors() + 1 > config.primaryClusterHardMax()) {
                     throw new ClusterCapacityExceededException(clusterId, clusterMetadata.getNumPrimaryVectors() + 1,
                             config.primaryClusterHardMax());

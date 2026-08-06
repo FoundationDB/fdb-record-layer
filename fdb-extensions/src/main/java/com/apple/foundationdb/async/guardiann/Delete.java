@@ -94,13 +94,16 @@ class Delete {
      * @param transaction the {@link Transaction} context for all database operations
      * @param primaryKey the unique {@link Tuple} primary key of the vector to delete
      * @param vector the {@link RealVector} data of the vector being deleted (needed to locate its clusters)
+     * @param maintainInTransaction when {@code true}, drain one deferred maintenance task inside this writing
+     *        transaction; when {@code false} tasks accumulate for a background merge
      * @return a {@link CompletableFuture} that completes when the deletion is finished, or completes
      *         immediately if the vector does not exist
      */
     @Nonnull
     public CompletableFuture<Void> delete(@Nonnull final Transaction transaction,
                                           @Nonnull final Tuple primaryKey,
-                                          @Nonnull final RealVector vector) {
+                                          @Nonnull final RealVector vector,
+                                          final boolean maintainInTransaction) {
         final SplittableRandom random = RandomHelpers.random(primaryKey);
         final Primitives primitives = primitives();
 
@@ -121,7 +124,7 @@ class Delete {
 
                                 // Optionally drain a deferred task in this transaction; when disabled (the default)
                                 // tasks accumulate and are left for the background merge process.
-                                if (!getConfig().executeDeferredTasksInTransaction()) {
+                                if (!maintainInTransaction) {
                                     return deleteFromClusters(transaction, random, accessInfo, primaryKey, vector);
                                 }
                                 return primitives.executeDeferredTasks(transaction, accessInfo, 1)

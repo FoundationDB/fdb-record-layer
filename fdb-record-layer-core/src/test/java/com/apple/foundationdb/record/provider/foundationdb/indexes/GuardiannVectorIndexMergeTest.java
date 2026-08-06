@@ -259,24 +259,19 @@ class GuardiannVectorIndexMergeTest extends VectorIndexTestBase {
     }
 
     /**
-     * An index configured to drain deferred tasks in-transaction is self-maintaining and needs no caller-driven merge,
-     * so even a split-enqueuing insert must NOT flag it. The maintainer never composes the merge-signal register for
-     * such an index (its engine's {@code signalsMergeRequiredToCaller()} is false), so the flag stays clear even though
-     * the same insert load flags it under the default configuration.
+     * When a write drains its deferred maintenance in the same transaction (autoMergeDuringCommit), there is no
+     * background merge for the caller to run, so the index must not be flagged as merge-required — even by an insert
+     * that enqueues a split. This is the opposite of the default (deferred) case, where the same load does flag it.
      */
     @ParameterizedTest
     @RandomSeedSource({0x5ca1ab1eL})
     void insertDoesNotSignalMergeRequiredWhenDrainingInTransaction(final long seed) throws Exception {
-        final Map<String, String> inTransactionOptions = ImmutableMap.<String, String>builder()
-                .putAll(indexOptions())
-                .put(IndexOptions.VECTOR_EXECUTE_DEFERRED_TASKS_IN_TRANSACTION, "true")
-                .build();
-        final RecordMetaDataHook hook = metaDataBuilder -> addUngroupedVectorIndex(metaDataBuilder, inTransactionOptions);
         final var generator = getRecordGenerator(new Random(seed), 0.0d);
         try (FDBRecordContext context = openContext()) {
-            openRecordStore(context, hook);
+            openRecordStore(context, this::addUngroupedVectorIndex);
             final Index index = recordStore.getRecordMetaData().getIndex("UngroupedVectorIndex");
             final IndexDeferredMaintenanceControl mergeControl = recordStore.getIndexDeferredMaintenanceControl();
+            mergeControl.setAutoMergeDuringCommit(true);
             for (int i = 0; i < SINGLE_TXN_SPLIT_FORCING_INSERTS; i++) {
                 recordStore.saveRecord(generator.apply((long)i));
             }

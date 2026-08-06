@@ -65,10 +65,6 @@ public final class VectorIndexOptionKeys {
             VectorOptionKey.ofBoolean(IndexOptions.HNSW_USE_RABITQ, IndexOptions.VECTOR_USE_RABITQ);
     public static final VectorOptionKey<Integer> RABITQ_NUM_EX_BITS =
             VectorOptionKey.ofInteger(IndexOptions.HNSW_RABITQ_NUM_EX_BITS, IndexOptions.VECTOR_RABITQ_NUM_EX_BITS);
-    // Engine-neutral and brand-new, so a single canonical VECTOR_* name (no legacy hnsw* alias). Only Guardiann acts on
-    // it; HNSW ignores it.
-    public static final VectorOptionKey<Boolean> EXECUTE_DEFERRED_TASKS_IN_TRANSACTION =
-            VectorOptionKey.ofBoolean(IndexOptions.VECTOR_EXECUTE_DEFERRED_TASKS_IN_TRANSACTION);
 
     //
     // HNSW-only options.
@@ -161,7 +157,7 @@ public final class VectorIndexOptionKeys {
      */
     static final List<VectorOptionKey<?>> ALL = ImmutableList.of(
             METRIC, NUM_DIMENSIONS, SAMPLE_VECTOR_STATS_PROBABILITY, MAINTAIN_STATS_PROBABILITY, STATS_THRESHOLD,
-            USE_RABITQ, RABITQ_NUM_EX_BITS, EXECUTE_DEFERRED_TASKS_IN_TRANSACTION,
+            USE_RABITQ, RABITQ_NUM_EX_BITS,
             HNSW_USE_INLINING, HNSW_M, HNSW_M_MAX, HNSW_M_MAX_0, HNSW_EF_CONSTRUCTION, HNSW_EF_REPAIR,
             HNSW_EXTEND_CANDIDATES, HNSW_KEEP_PRUNED_CONNECTIONS, HNSW_MAX_NUM_CONCURRENT_DELETE_FROM_LAYER,
             HNSW_MAX_NUM_CONCURRENT_NODE_FETCHES, HNSW_MAX_NUM_CONCURRENT_NEIGHBORHOOD_FETCHES,

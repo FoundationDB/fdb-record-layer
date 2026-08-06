@@ -148,7 +148,6 @@ public class ReassignScenarioTest implements BaseTest {
         final TestHelpers.TestOnReadListener onReadListener = new TestHelpers.TestOnReadListener();
 
         final Config config = Guardiann.newConfigBuilder()
-                .setExecuteDeferredTasksInTransaction(true)
                 .setUseRaBitQ(true)
                 .setRaBitQNumExBits(6)
                 .setMetric(Metric.EUCLIDEAN_METRIC)
@@ -181,7 +180,7 @@ public class ReassignScenarioTest implements BaseTest {
                 VecsDatasetLoaders.loadVectors(SiftTestHelpers.SIFT_SMALL_BASE_PATH, NUM_WARMUP_INSERTS);
         for (final PrimaryKeyAndVector record : warmup) {
             db.run(tr -> {
-                guardiann.insert(tr, record.primaryKey(), record.vector(), null).join();
+                guardiann.insert(tr, record.primaryKey(), record.vector(), null, true).join();
                 return null;
             });
         }

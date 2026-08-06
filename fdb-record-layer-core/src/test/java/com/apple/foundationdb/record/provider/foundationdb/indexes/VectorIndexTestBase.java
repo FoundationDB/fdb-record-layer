@@ -149,6 +149,20 @@ public abstract class VectorIndexTestBase extends FDBRecordStoreQueryTestBase {
         metaDataBuilder.getRecordType("VectorRecord").setPrimaryKey(concatenateFields("group_id", "rec_no"));
         hook.apply(metaDataBuilder);
         createOrOpenRecordStore(context, metaDataBuilder.getRecordMetaData());
+        // In-transaction vs. deferred index maintenance is a runtime, per-store switch (autoMergeDuringCommit). It
+        // defaults to false here (deferred, matching production/CK, so merge tests get a real backlog); a subclass whose
+        // scenarios have no background merger (e.g. the behavioral suite) overrides maintainIndexesInTransaction().
+        recordStore.getIndexDeferredMaintenanceControl().setAutoMergeDuringCommit(maintainIndexesInTransaction());
+    }
+
+    /**
+     * Whether vector-index maintenance should run inside the writing transaction (Guardiann drains its deferred tasks
+     * inline) rather than being deferred to a background merge. Defaults to {@code false}; subclasses that exercise
+     * end-to-end behavior with no background merger override this to {@code true}.
+     * @return whether to enable in-transaction index maintenance for stores opened by this test
+     */
+    protected boolean maintainIndexesInTransaction() {
+        return false;
     }
 
     protected static Function<Long, VectorRecord> getRecordGenerator(@Nonnull final Random random,

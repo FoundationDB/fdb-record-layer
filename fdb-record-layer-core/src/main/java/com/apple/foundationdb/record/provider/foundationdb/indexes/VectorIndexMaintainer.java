@@ -346,6 +346,8 @@ public class VectorIndexMaintainer extends StandardIndexMaintainer {
             partitionSubspace = indexSubspace;
         }
         final VectorIndexTaskCounts taskCounts = getEngine().getTaskCounts();
+        final boolean maintainInTransaction =
+                state.store.getIndexDeferredMaintenanceControl().shouldAutoMergeDuringCommit();
         // Assemble the task-event registers this write should notify: the outstanding-work count register (when this
         // engine tracks counts) and, when the engine wants a caller-driven merge (Guardiann, not draining
         // in-transaction), a MaintenanceControlRegister that flags the index as needing a background merge on enqueue —
@@ -354,7 +356,7 @@ public class VectorIndexMaintainer extends StandardIndexMaintainer {
         if (taskCounts != null) {
             registers.add(taskCounts.registerFor(prefixKey));
         }
-        if (getEngine().signalsMergeRequiredToCaller()) {
+        if (getEngine().signalsMergeRequiredToCaller(maintainInTransaction)) {
             registers.add(new MaintenanceControlRegister(state.store.getIndexDeferredMaintenanceControl(),
                     state.index));
         }
@@ -365,9 +367,11 @@ public class VectorIndexMaintainer extends StandardIndexMaintainer {
             final Tuple trimmedPrimaryKey = Tuple.fromList(primaryKeyParts);
             final RealVector vector = RealVector.fromBytes(vectorBytes);
             if (remove) {
-                return getEngine().delete(state.context, partitionSubspace, trimmedPrimaryKey, vector, register);
+                return getEngine().delete(state.context, partitionSubspace, trimmedPrimaryKey, vector, register,
+                        maintainInTransaction);
             } else {
-                return getEngine().insert(state.context, partitionSubspace, trimmedPrimaryKey, vector, register);
+                return getEngine().insert(state.context, partitionSubspace, trimmedPrimaryKey, vector, register,
+                        maintainInTransaction);
             }
         });
     }

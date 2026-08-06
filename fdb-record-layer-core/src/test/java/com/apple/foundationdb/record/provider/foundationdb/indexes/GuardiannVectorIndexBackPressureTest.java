@@ -61,7 +61,7 @@ class GuardiannVectorIndexBackPressureTest extends VectorIndexTestBase {
                 .put(IndexOptions.GUARDIANN_PRIMARY_CLUSTER_HARD_MAX, "16")
                 .put(IndexOptions.GUARDIANN_COLLAPSE_MIN_DUPLICATES, "4")
                 .put(IndexOptions.GUARDIANN_DETERMINISTIC_RANDOMNESS, "true")
-                // executeDeferredTasksInTransaction left at its false default so the split backlog accrues
+                // maintainIndexesInTransaction left at its false default so the split backlog accrues
                 .build();
     }
 
@@ -97,14 +97,10 @@ class GuardiannVectorIndexBackPressureTest extends VectorIndexTestBase {
     @ParameterizedTest
     @RandomSeedSource({0x5ca1ab1eL})
     void inTransactionDrainingNeverBackPressures(final long seed) throws Exception {
-        final Map<String, String> inTransactionOptions = ImmutableMap.<String, String>builder()
-                .putAll(indexOptions())
-                .put(IndexOptions.VECTOR_EXECUTE_DEFERRED_TASKS_IN_TRANSACTION, "true")
-                .build();
-        final RecordMetaDataHook hook = metaDataBuilder -> addUngroupedVectorIndex(metaDataBuilder, inTransactionOptions);
         final var generator = getRecordGenerator(new Random(seed), 0.0d);
         try (FDBRecordContext context = openContext()) {
-            openRecordStore(context, hook);
+            openRecordStore(context, this::addUngroupedVectorIndex);
+            recordStore.getIndexDeferredMaintenanceControl().setAutoMergeDuringCommit(true);
             for (int i = 0; i < HARD_CAP_FORCING_INSERTS; i++) {
                 recordStore.saveRecord(generator.apply((long)i));
             }

@@ -127,7 +127,8 @@ final class GuardiannVectorIndexEngine implements VectorIndexEngine {
                                           @Nonnull final Subspace subspace,
                                           @Nonnull final Tuple primaryKey,
                                           @Nonnull final RealVector vector,
-                                          @Nonnull final TaskEventRegister register) {
+                                          @Nonnull final TaskEventRegister register,
+                                          final boolean maintainInTransaction) {
         // Insert reads (to find candidate clusters) and writes (references and deferred-task bookkeeping), so wire both
         // listeners. The write listener also maintains the outstanding-task register as tasks are enqueued/executed.
         final FDBStoreTimer timer = context.getTimer();
@@ -137,7 +138,7 @@ final class GuardiannVectorIndexEngine implements VectorIndexEngine {
                         OnWrite.forWrites(timer, transaction, register), OnRead.fromTimer(timer));
         // Guardiann back-pressures over its hard cap with an extensions-layer exception it cannot express as a
         // record-layer type; translate it here so callers see a VectorIndexClusterTooLargeException.
-        return guardiann.insert(transaction, primaryKey, vector, null)
+        return guardiann.insert(transaction, primaryKey, vector, null, maintainInTransaction)
                 .exceptionally(GuardiannVectorIndexEngine::translateInsertBackPressure);
     }
 
@@ -171,7 +172,8 @@ final class GuardiannVectorIndexEngine implements VectorIndexEngine {
                                           @Nonnull final Subspace subspace,
                                           @Nonnull final Tuple primaryKey,
                                           @Nonnull final RealVector vector,
-                                          @Nonnull final TaskEventRegister register) {
+                                          @Nonnull final TaskEventRegister register,
+                                          final boolean maintainInTransaction) {
         // Guardiann needs the vector to locate the cluster references to remove; it reads while probing candidate
         // clusters and writes as it removes references, so both listeners are wired. The write listener also maintains
         // the outstanding-task register as tasks are enqueued/executed.
@@ -180,7 +182,7 @@ final class GuardiannVectorIndexEngine implements VectorIndexEngine {
         final Guardiann guardiann =
                 new Guardiann(subspace, context.getExecutor(), config,
                         OnWrite.forWrites(timer, transaction, register), OnRead.fromTimer(timer));
-        return guardiann.delete(transaction, primaryKey, vector);
+        return guardiann.delete(transaction, primaryKey, vector, maintainInTransaction);
     }
 
     @Nonnull
@@ -190,9 +192,10 @@ final class GuardiannVectorIndexEngine implements VectorIndexEngine {
     }
 
     @Override
-    public boolean signalsMergeRequiredToCaller() {
-        // Guardiann defers maintenance; a caller-driven merge is needed on enqueue unless we drain in-transaction.
-        return !config.executeDeferredTasksInTransaction();
+    public boolean signalsMergeRequiredToCaller(final boolean maintainInTransaction) {
+        // Guardiann defers maintenance; a caller-driven merge is needed on enqueue unless this write drained
+        // in-transaction.
+        return !maintainInTransaction;
     }
 
     @Nonnull
@@ -297,8 +300,6 @@ final class GuardiannVectorIndexEngine implements VectorIndexEngine {
         applyInteger(VectorIndexOptionKeys.STATS_THRESHOLD, index, builder::setStatsThreshold);
         applyBoolean(VectorIndexOptionKeys.USE_RABITQ, index, builder::setUseRaBitQ);
         applyInteger(VectorIndexOptionKeys.RABITQ_NUM_EX_BITS, index, builder::setRaBitQNumExBits);
-        applyBoolean(VectorIndexOptionKeys.EXECUTE_DEFERRED_TASKS_IN_TRANSACTION, index,
-                builder::setExecuteDeferredTasksInTransaction);
 
         // Guardiann-only knobs.
         applyInteger(VectorIndexOptionKeys.GUARDIANN_PRIMARY_CLUSTER_MIN, index, builder::setPrimaryClusterMin);

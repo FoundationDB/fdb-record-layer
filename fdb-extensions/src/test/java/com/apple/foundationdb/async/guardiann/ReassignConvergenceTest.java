@@ -263,7 +263,6 @@ public class ReassignConvergenceTest implements BaseTest {
     @Nonnull
     private Guardiann newGuardiannSmall() {
         return guardiannFor(Guardiann.newConfigBuilder()
-                .setExecuteDeferredTasksInTransaction(true)
                 .setUseRaBitQ(true)
                 .setRaBitQNumExBits(6)
                 .setMetric(Metric.EUCLIDEAN_METRIC)
@@ -290,7 +289,6 @@ public class ReassignConvergenceTest implements BaseTest {
     @Nonnull
     private Guardiann newGuardiannBig() {
         return guardiannFor(Guardiann.newConfigBuilder()
-                .setExecuteDeferredTasksInTransaction(true)
                 .setUseRaBitQ(true)
                 .setRaBitQNumExBits(6)
                 .setMetric(Metric.EUCLIDEAN_METRIC)

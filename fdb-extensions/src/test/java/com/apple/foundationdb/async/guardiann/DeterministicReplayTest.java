@@ -215,7 +215,6 @@ public class DeterministicReplayTest implements BaseTest {
                              @Nonnull final List<PrimaryKeyAndVector> deletes) {
         final Subspace runSubspace = getSubspace().subspace(Tuple.from(runName));
         final Config config = Guardiann.newConfigBuilder()
-                .setExecuteDeferredTasksInTransaction(true)
                 .setUseRaBitQ(true)
                 .setRaBitQNumExBits(6)
                 .setMetric(Metric.EUCLIDEAN_METRIC)
@@ -237,7 +236,7 @@ public class DeterministicReplayTest implements BaseTest {
         onWriteListener.pushFrame();
         for (final PrimaryKeyAndVector op : inserts) {
             db.run(transaction -> {
-                guardiann.insert(transaction, op.primaryKey(), op.vector(), null).join();
+                guardiann.insert(transaction, op.primaryKey(), op.vector(), null, true).join();
                 return null;
             });
         }
@@ -250,7 +249,7 @@ public class DeterministicReplayTest implements BaseTest {
         onWriteListener.pushFrame();
         for (final PrimaryKeyAndVector op : deletes) {
             db.run(transaction -> {
-                guardiann.delete(transaction, op.primaryKey(), op.vector()).join();
+                guardiann.delete(transaction, op.primaryKey(), op.vector(), true).join();
                 return null;
             });
         }

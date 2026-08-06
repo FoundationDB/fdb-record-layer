@@ -68,7 +68,6 @@ class ConfigTest {
         final SearchConfig constructionSearchConfig = new SearchConfig.SearchConfigBuilder()
                 .setCentroidEfRingSearch(SearchConfig.DEFAULT_CENTROID_EF_RING_SEARCH + 1)
                 .build();
-        final boolean executeDeferredTasksInTransaction = true;
 
         Assertions.assertThat(defaultConfig.metric()).isNotSameAs(metric);
         Assertions.assertThat(defaultConfig.primaryClusterMin()).isNotEqualTo(primaryClusterMin);
@@ -102,7 +101,6 @@ class ConfigTest {
         Assertions.assertThat(defaultConfig.collapseConcurrency()).isNotEqualTo(collapseConcurrency);
         Assertions.assertThat(defaultConfig.bounceConcurrency()).isNotEqualTo(bounceConcurrency);
         Assertions.assertThat(defaultConfig.constructionSearchConfig()).isNotEqualTo(constructionSearchConfig);
-        Assertions.assertThat(defaultConfig.executeDeferredTasksInTransaction()).isNotEqualTo(executeDeferredTasksInTransaction);
 
         final Config newConfig =
                 defaultConfig.toBuilder()
@@ -138,7 +136,6 @@ class ConfigTest {
                         .setCollapseConcurrency(collapseConcurrency)
                         .setBounceConcurrency(bounceConcurrency)
                         .setConstructionSearchConfig(constructionSearchConfig)
-                        .setExecuteDeferredTasksInTransaction(executeDeferredTasksInTransaction)
                         .build(NUM_DIMENSIONS);
 
         Assertions.assertThat(newConfig.metric()).isSameAs(metric);
@@ -173,7 +170,6 @@ class ConfigTest {
         Assertions.assertThat(newConfig.collapseConcurrency()).isEqualTo(collapseConcurrency);
         Assertions.assertThat(newConfig.bounceConcurrency()).isEqualTo(bounceConcurrency);
         Assertions.assertThat(newConfig.constructionSearchConfig()).isEqualTo(constructionSearchConfig);
-        Assertions.assertThat(newConfig.executeDeferredTasksInTransaction()).isEqualTo(executeDeferredTasksInTransaction);
     }
 
     @Test

@@ -120,7 +120,7 @@ class TestHelpers {
                                 data.add(record);
 
                                 return guardiann.insert(tr, record.primaryKey(),
-                                                record.vector(), null)
+                                                record.vector(), null, true)
                                         .thenApply(ignored -> i + 1);
                             }, guardiann.getExecutor());
             return loopFuture.thenApply(vignore -> data.build())
@@ -176,7 +176,7 @@ class TestHelpers {
                             (i, u) -> {
                                 final PrimaryKeyAndVector record = recordsToDelete.get(i);
                                 data.add(record);
-                                return guardiann.delete(tr, record.primaryKey(), record.vector())
+                                return guardiann.delete(tr, record.primaryKey(), record.vector(), true)
                                         .thenApply(ignored -> i + 1);
                             }, guardiann.getExecutor());
             return loopFuture.thenApply(vignore -> data.build())

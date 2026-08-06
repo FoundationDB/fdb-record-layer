@@ -98,10 +98,12 @@ final class HnswVectorIndexEngine implements VectorIndexEngine {
                                           @Nonnull final Subspace subspace,
                                           @Nonnull final Tuple primaryKey,
                                           @Nonnull final RealVector vector,
-                                          @Nonnull final TaskEventRegister register) {
+                                          @Nonnull final TaskEventRegister register,
+                                          final boolean maintainInTransaction) {
         // Insert traverses the graph greedily from the entry point, so it reads many nodes; wire a real read listener
         // in addition to the write listener so that read work is instrumented too. HNSW does all its work inline, so it
-        // enqueues no deferred tasks and ignores the task-event register (it is always TaskEventRegister.NOOP).
+        // enqueues no deferred tasks and ignores the task-event register (it is always TaskEventRegister.NOOP) and the
+        // in-transaction-maintenance flag (there is never any deferred work to defer).
         final FDBStoreTimer timer = context.getTimer();
         final HNSW hnsw = new HNSW(subspace, context.getExecutor(), config, OnWrite.fromTimer(timer),
                 OnRead.fromTimer(timer));
@@ -114,10 +116,12 @@ final class HnswVectorIndexEngine implements VectorIndexEngine {
                                           @Nonnull final Subspace subspace,
                                           @Nonnull final Tuple primaryKey,
                                           @Nonnull final RealVector vector,
-                                          @Nonnull final TaskEventRegister register) {
+                                          @Nonnull final TaskEventRegister register,
+                                          final boolean maintainInTransaction) {
         // HNSW keys nodes on the primary key alone, so the vector is not needed to locate the node to delete. Delete
         // reads heavily to repair the graph around the removed node, so it also gets a real read listener. HNSW enqueues
-        // no deferred tasks and ignores the task-event register (it is always TaskEventRegister.NOOP).
+        // no deferred tasks and ignores the task-event register (always TaskEventRegister.NOOP) and the
+        // in-transaction-maintenance flag.
         final FDBStoreTimer timer = context.getTimer();
         final HNSW hnsw = new HNSW(subspace, context.getExecutor(), config, OnWrite.fromTimer(timer),
                 OnRead.fromTimer(timer));
@@ -132,7 +136,7 @@ final class HnswVectorIndexEngine implements VectorIndexEngine {
     }
 
     @Override
-    public boolean signalsMergeRequiredToCaller() {
+    public boolean signalsMergeRequiredToCaller(final boolean maintainInTransaction) {
         // HNSW enqueues no deferred tasks, so it never asks the caller to merge.
         return false;
     }

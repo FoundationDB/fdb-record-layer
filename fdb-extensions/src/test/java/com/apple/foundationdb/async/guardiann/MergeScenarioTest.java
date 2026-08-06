@@ -123,7 +123,6 @@ public class MergeScenarioTest implements BaseTest {
         final TestHelpers.TestOnReadListener onReadListener = new TestHelpers.TestOnReadListener();
 
         final Config config = Guardiann.newConfigBuilder()
-                .setExecuteDeferredTasksInTransaction(true)
                 .setUseRaBitQ(true)
                 .setRaBitQNumExBits(6)
                 .setMetric(Metric.EUCLIDEAN_METRIC)
@@ -159,7 +158,7 @@ public class MergeScenarioTest implements BaseTest {
             final DoubleRealVector perturbed = CommonTestHelpers.perturb(base, sampler, PERTURBATION_SIGMA);
             final Tuple pk = CommonTestHelpers.createPrimaryKey(i);
             db.run(tr -> {
-                guardiann.insert(tr, pk, perturbed, null).join();
+                guardiann.insert(tr, pk, perturbed, null, true).join();
                 return null;
             });
             inserted.add(new PrimaryKeyAndVector(pk, perturbed));

@@ -137,7 +137,7 @@ class GuardiannVectorIndexConcurrentMergeTest extends VectorIndexTestBase {
                         Integer.toString(UNDERREPLICATED_PRIMARY_CLUSTER_MAX))
                 .put(IndexOptions.GUARDIANN_DETERMINISTIC_RANDOMNESS, "true")
                 .build();
-        // executeDeferredTasksInTransaction is left at its false default so the split backlog accrues for the merger.
+        // maintainIndexesInTransaction is left at its false default so the split backlog accrues for the merger.
     }
 
     @Test

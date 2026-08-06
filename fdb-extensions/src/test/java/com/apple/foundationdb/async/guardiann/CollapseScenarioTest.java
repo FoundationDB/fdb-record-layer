@@ -288,7 +288,7 @@ public class CollapseScenarioTest implements BaseTest {
             final DoubleRealVector perturbed = CommonTestHelpers.perturb(base, sampler, 0.5d);
             final Tuple pk = Tuple.from("overlap", i);
             db.run(tr -> {
-                guardiann.insert(tr, pk, perturbed, null).join();
+                guardiann.insert(tr, pk, perturbed, null, true).join();
                 return null;
             });
         }
@@ -501,7 +501,7 @@ public class CollapseScenarioTest implements BaseTest {
             final Tuple primaryKey = Tuple.from("distinct", i);
             final RealVector vector = records.get(i).vector();
             db.run(tr -> {
-                guardiann.insert(tr, primaryKey, vector, null).join();
+                guardiann.insert(tr, primaryKey, vector, null, true).join();
                 return null;
             });
         }
@@ -587,7 +587,6 @@ public class CollapseScenarioTest implements BaseTest {
     private Guardiann newGuardiann(final int primaryClusterMax, final int collapseMinDuplicates) {
         onWriteListener = new TestHelpers.TestOnWriteListener();
         final Config config = Guardiann.newConfigBuilder()
-                .setExecuteDeferredTasksInTransaction(true)
                 .setUseRaBitQ(true)
                 .setRaBitQNumExBits(6)
                 .setMetric(Metric.EUCLIDEAN_METRIC)
@@ -618,7 +617,7 @@ public class CollapseScenarioTest implements BaseTest {
             final Tuple primaryKey = Tuple.from(pkBase + i);
             primaryKeys.add(primaryKey);
             db.run(tr -> {
-                guardiann.insert(tr, primaryKey, vector, null).join();
+                guardiann.insert(tr, primaryKey, vector, null, true).join();
                 return null;
             });
         }
