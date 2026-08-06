@@ -76,6 +76,12 @@ public class ConditionalCascadesRule<T extends RelationalExpression, R extends C
     final Class<?> rootOperator;
 
     /**
+     * Whether this rule, and all of its inner rules, should only fire after their children have been pruned.
+     * All inner rules are required to agree on this value (verified at construction).
+     */
+    private final boolean onlyOnPrunedChildren;
+
+    /**
      * Creates a rule that groups the given inner rules. The list of rules must be non-empty. All rules must agree on
      * their root operator and on the root class of their binding matcher.
      */
@@ -83,6 +89,7 @@ public class ConditionalCascadesRule<T extends RelationalExpression, R extends C
         super(deriveBindingMatcher(rules), deriveConstraintDependencies(rules));
         this.rules = ImmutableList.copyOf(rules);
         this.rootOperator = deriveRootOperator(rules);
+        this.onlyOnPrunedChildren = deriveOnlyOnPrunedChildren(rules);
     }
 
     /**
@@ -111,6 +118,11 @@ public class ConditionalCascadesRule<T extends RelationalExpression, R extends C
     @Override
     public Optional<Class<?>> getRootOperator() {
         return Optional.ofNullable(rootOperator);
+    }
+
+    @Override
+    public boolean onlyOnPrunedChildren() {
+        return onlyOnPrunedChildren;
     }
 
     @Override
@@ -172,6 +184,23 @@ public class ConditionalCascadesRule<T extends RelationalExpression, R extends C
             dependencies.addAll(rule.getConstraintDependencies());
         }
         return dependencies.build();
+    }
+
+    /**
+     * Derives the {@code onlyOnPrunedChildren} flag for a group of inner rules. All rules must agree: either every
+     * rule is a {@link PostPruneRule} (and the conditional rule inherits that scheduling behaviour) or none of them
+     * is. A mix of post-prune and normal rules is rejected at construction time, because the two kinds are scheduled
+     * in separate passes by the planner and combining them inside a single conditional chain would silently skip one
+     * half of the chain during each pass.
+     */
+    private static <T, R extends CascadesRule<T>> boolean deriveOnlyOnPrunedChildren(@Nonnull final List<R> rules) {
+        Verify.verify(!rules.isEmpty(), "`ConditionalCascadesRule` must contain at least one rule");
+        final boolean first = rules.get(0).onlyOnPrunedChildren();
+        for (final R rule : rules) {
+            Verify.verify(rule.onlyOnPrunedChildren() == first,
+                    "all inner rules of a `ConditionalCascadesRule` must agree on `onlyOnPrunedChildren`");
+        }
+        return first;
     }
 
     /**
