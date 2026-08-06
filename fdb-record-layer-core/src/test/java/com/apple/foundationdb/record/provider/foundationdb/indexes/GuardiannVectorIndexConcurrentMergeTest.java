@@ -20,10 +20,17 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.indexes;
 
+import com.apple.foundationdb.async.common.PrimaryKeyAndVector;
+import com.apple.foundationdb.async.guardiann.Config;
+import com.apple.foundationdb.async.guardiann.Guardiann;
+import com.apple.foundationdb.async.guardiann.GuardiannStructureAsserts;
+import com.apple.foundationdb.async.guardiann.OnReadListener;
+import com.apple.foundationdb.async.guardiann.OnWriteListener;
+import com.apple.foundationdb.async.guardiann.SiftTestHelpers;
+import com.apple.foundationdb.async.guardiann.VecsDatasetLoaders;
 import com.apple.foundationdb.linear.DoubleRealVector;
 import com.apple.foundationdb.linear.HalfRealVector;
 import com.apple.foundationdb.linear.Metric;
-import com.apple.foundationdb.linear.StoredVecsIterator;
 import com.apple.foundationdb.record.Bindings;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorIterator;
@@ -40,7 +47,9 @@ import com.apple.foundationdb.record.provider.foundationdb.OnlineIndexer;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.apple.foundationdb.record.vector.TestRecordsVectorsProto;
 import com.apple.foundationdb.record.vector.TestRecordsVectorsProto.VectorRecord;
+import com.apple.foundationdb.subspace.Subspace;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Message;
 import org.junit.jupiter.api.Test;
@@ -49,11 +58,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
-import java.io.IOException;
-import java.nio.channels.FileChannel;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -86,12 +90,6 @@ import static org.assertj.core.api.Assertions.assertThat;
  */
 class GuardiannVectorIndexConcurrentMergeTest extends VectorIndexTestBase {
     private static final Logger logger = LoggerFactory.getLogger(GuardiannVectorIndexConcurrentMergeTest.class);
-
-    // SIFT-small files, extracted by the `extractSiftSmall` gradle task into the module build dir; the test runs with
-    // the module directory as its working directory.
-    private static final String SIFT_BASE = ".out/extracted/siftsmall/siftsmall_base.fvecs";
-    private static final String SIFT_QUERY = ".out/extracted/siftsmall/siftsmall_query.fvecs";
-    private static final String SIFT_GROUNDTRUTH = ".out/extracted/siftsmall/siftsmall_groundtruth.ivecs";
 
     private static final String INDEX_NAME = "UngroupedVectorIndex";
     private static final int DIMENSIONS = 128;
@@ -145,9 +143,12 @@ class GuardiannVectorIndexConcurrentMergeTest extends VectorIndexTestBase {
     @Test
     @Timeout(value = 15, unit = TimeUnit.MINUTES)
     void concurrentSiftInsertAndMerge() throws Exception {
-        final List<DoubleRealVector> base = loadFvecs(SIFT_BASE, Integer.MAX_VALUE);
-        final List<DoubleRealVector> queries = loadFvecs(SIFT_QUERY, Integer.MAX_VALUE);
-        final List<List<Integer>> groundTruth = loadIvecs(SIFT_GROUNDTRUTH);
+        final List<PrimaryKeyAndVector> base = VecsDatasetLoaders.loadVectors(SiftTestHelpers.SIFT_SMALL_BASE_PATH,
+                Integer.MAX_VALUE);
+        final List<DoubleRealVector> queries =
+                VecsDatasetLoaders.loadQueryVectors(SiftTestHelpers.SIFT_SMALL_QUERY_PATH);
+        final List<Set<Integer>> groundTruth =
+                VecsDatasetLoaders.loadGroundTruth(SiftTestHelpers.SIFT_SMALL_GROUNDTRUTH_PATH, -1);
         assertThat(base).as("siftsmall base must be present/extracted").isNotEmpty();
         final int numBase = base.size();
         logger.info("loaded SIFT-small: {} base, {} queries, {} ground-truth rows", numBase, queries.size(),
@@ -251,6 +252,10 @@ class GuardiannVectorIndexConcurrentMergeTest extends VectorIndexTestBase {
         final double meanRecall = meanRecallAtK(queries, groundTruth);
         logger.info("mean recall@{} = {}", RECALL_K, meanRecall);
         assertThat(meanRecall).as("recall@%d after concurrent load+merge", RECALL_K).isGreaterThanOrEqualTo(MIN_RECALL);
+
+        // 4. The on-disk Guardiann structure is internally consistent (no orphaned/duplicate primaries, no dangling
+        //    replicas, replication within tolerance), per fdb-extensions' structural-invariant checker.
+        assertGuardiannStructureInvariants(metaData);
     }
 
     /**
@@ -259,7 +264,7 @@ class GuardiannVectorIndexConcurrentMergeTest extends VectorIndexTestBase {
      * primary key, so replaying a rolled-back batch is safe.
      */
     private void insertBatchWithRetry(@Nonnull final RecordMetaData metaData,
-                                      @Nonnull final List<DoubleRealVector> base,
+                                      @Nonnull final List<PrimaryKeyAndVector> base,
                                       @Nonnull final List<Integer> batch,
                                       @Nonnull final AtomicLong committed,
                                       @Nonnull final AtomicLong conflictRetries,
@@ -268,7 +273,7 @@ class GuardiannVectorIndexConcurrentMergeTest extends VectorIndexTestBase {
             try (FDBRecordContext context = openContext()) {
                 final FDBRecordStore store = openStore(context, metaData);
                 for (final int index : batch) {
-                    store.saveRecord(toVectorRecord(index, base.get(index)));
+                    store.saveRecord(toVectorRecord(index, (DoubleRealVector) base.get(index).vector()));
                 }
                 context.commit();
                 committed.addAndGet(batch.size());
@@ -316,6 +321,29 @@ class GuardiannVectorIndexConcurrentMergeTest extends VectorIndexTestBase {
         throw new AssertionError("merge did not drain the backlog within " + MAX_FINAL_MERGE_PASSES + " passes");
     }
 
+    /**
+     * Verifies the on-disk Guardiann structure is internally consistent after the concurrent load + merge: rebuild a
+     * raw {@link Guardiann} over the index's subspace — the same keys the record-layer engine wrote — and run
+     * fdb-extensions' structural-invariant checker. Reusing {@link GuardiannVectorIndexEngine#parseConfig} guarantees
+     * the reconstructed {@link Guardiann} is configured exactly as the engine that wrote the data (dimensions,
+     * cluster sizes, replication thresholds). This is the no-delete variant (the test only inserts), so it also
+     * asserts every replica references a live primary. The checker first drains to quiescence, which is a no-op here
+     * because {@link #drainToCompletion} already emptied the backlog.
+     */
+    private void assertGuardiannStructureInvariants(@Nonnull final RecordMetaData metaData) {
+        final Subspace indexSubspace;
+        final Config config;
+        try (FDBRecordContext context = openContext()) {
+            final FDBRecordStore store = openStore(context, metaData);
+            final Index index = store.getRecordMetaData().getIndex(INDEX_NAME);
+            indexSubspace = store.indexSubspace(index);
+            config = GuardiannVectorIndexEngine.parseConfig(index);
+        }
+        final Guardiann guardiann = new Guardiann(indexSubspace, fdb.getExecutor(), config,
+                OnWriteListener.NOOP, OnReadListener.NOOP);
+        GuardiannStructureAsserts.assertGuardiannInvariants(fdb.database(), guardiann);
+    }
+
     private boolean hasOutstandingWork(@Nonnull final RecordMetaData metaData) throws Exception {
         try (FDBRecordContext context = openContext()) {
             final FDBRecordStore store = openStore(context, metaData);
@@ -327,17 +355,17 @@ class GuardiannVectorIndexConcurrentMergeTest extends VectorIndexTestBase {
 
     /** Mean recall@{@link #RECALL_K} of the index over every SIFT query vs. the provided ground truth. */
     private double meanRecallAtK(@Nonnull final List<DoubleRealVector> queries,
-                                 @Nonnull final List<List<Integer>> groundTruth) throws Exception {
+                                 @Nonnull final List<Set<Integer>> groundTruth) throws Exception {
         double totalRecall = 0.0d;
         for (int q = 0; q < queries.size(); q++) {
-            final Set<Long> expected = new HashSet<>();
-            final List<Integer> truth = groundTruth.get(q);
-            for (int j = 0; j < RECALL_K && j < truth.size(); j++) {
-                expected.add(truth.get(j).longValue());
-            }
+            // siftsmall's ground truth carries the top-100 nearest per query and RECALL_K == 100, so the whole
+            // ground-truth set is the recall@K reference set.
+            final Set<Long> expected = groundTruth.get(q).stream()
+                    .map(Integer::longValue)
+                    .collect(ImmutableSet.toImmutableSet());
             final Set<Long> got = queryTopK(queries.get(q).toHalfRealVector(), RECALL_K);
             final long hits = got.stream().filter(expected::contains).count();
-            totalRecall += (double)hits / RECALL_K;
+            totalRecall += (double) hits / RECALL_K;
         }
         return totalRecall / queries.size();
     }
@@ -387,35 +415,6 @@ class GuardiannVectorIndexConcurrentMergeTest extends VectorIndexTestBase {
                 .setGroupId(0)
                 .setVectorData(ByteString.copyFrom(vector.toHalfRealVector().getRawData()))
                 .build();
-    }
-
-    // --- SIFT loaders: reuse the main-code StoredVecsIterator (the fdb-extensions test loaders are not on core's
-    // test classpath); these thin wrappers are all that is duplicated. ---
-
-    @Nonnull
-    private static List<DoubleRealVector> loadFvecs(@Nonnull final String file, final int max) throws IOException {
-        final List<DoubleRealVector> out = new ArrayList<>();
-        final Path filePath = Paths.get(file);
-        try (FileChannel channel = FileChannel.open(filePath, StandardOpenOption.READ)) {
-            final StoredVecsIterator.StoredFVecsIterator iterator = new StoredVecsIterator.StoredFVecsIterator(channel);
-            while (iterator.hasNext() && out.size() < max) {
-                out.add(iterator.next());
-            }
-        }
-        return out;
-    }
-
-    @Nonnull
-    private static List<List<Integer>> loadIvecs(@Nonnull final String file) throws IOException {
-        final List<List<Integer>> out = new ArrayList<>();
-        final Path filePath = Paths.get(file);
-        try (FileChannel channel = FileChannel.open(filePath, StandardOpenOption.READ)) {
-            final StoredVecsIterator.StoredIVecsIterator iterator = new StoredVecsIterator.StoredIVecsIterator(channel);
-            while (iterator.hasNext()) {
-                out.add(iterator.next());
-            }
-        }
-        return out;
     }
 
     private static boolean isOrHasCause(@Nonnull final Throwable throwable,

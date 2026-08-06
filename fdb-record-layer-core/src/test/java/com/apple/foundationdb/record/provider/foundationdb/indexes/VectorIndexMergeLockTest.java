@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.provider.foundationdb.indexes;
 
 import com.apple.foundationdb.linear.Metric;
 import com.apple.foundationdb.record.metadata.IndexOptions;
+import com.apple.foundationdb.record.provider.foundationdb.FDBExceptions;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
@@ -38,6 +39,7 @@ import java.util.UUID;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * Unit tests for {@link VectorIndexMergeLock}'s lease semantics — acquire, refuse-while-live, steal-once-stale, and
@@ -102,6 +104,98 @@ class VectorIndexMergeLockTest extends VectorIndexTestBase {
             lockB.release(context, prefix).get();
             assertThat(lockB.currentOwner(context, prefix).get()).as("released -> free").isNull();
         }
+    }
+
+    /**
+     * The dangerous ordering the delete-guard exists for: a {@code deleteWhere} commits first, then a merge claim's
+     * blind {@code acquire} tries to commit. The claim's read-conflict on the (index-wide) guard — which
+     * {@code deleteWhere} write-conflicts — must abort it, so it cannot orphan a lease into the just-emptied group. The
+     * claim pins its read version first, exactly as the real claim invocation does via its snapshot scans.
+     */
+    @Test
+    void claimConflictsWithConcurrentDeleteWhere() throws Exception {
+        final Subspace secondary = secondarySubspace();
+        final Tuple prefix = Tuple.from();
+        try (FDBRecordContext claim = openContext();
+                FDBRecordContext delete = openContext()) {
+            claim.getReadVersion();
+            newLock(secondary).acquire(claim, prefix);
+
+            VectorIndexMergeLock.addDeleteWhereConflicts(delete.ensureActive(), secondary, prefix);
+            delete.commit();
+
+            assertThatThrownBy(claim::commit)
+                    .as("a merge claim must abort when a concurrent deleteWhere commits first")
+                    .satisfies(e -> assertThat(isOrHasCause(e,
+                            FDBExceptions.FDBStoreTransactionConflictException.class)).isTrue());
+        }
+    }
+
+    /**
+     * Two concurrent claims must NOT conflict with each other: {@code acquire} only ever reads the guard (never writes
+     * it) and the lease writes are blind last-writer-wins, so both commit — preserving the design where concurrent
+     * merges spread across prefixes without contending.
+     */
+    @Test
+    void concurrentClaimsDoNotConflict() throws Exception {
+        final Subspace secondary = secondarySubspace();
+        final Tuple prefix = Tuple.from();
+        try (FDBRecordContext claimA = openContext();
+                FDBRecordContext claimB = openContext()) {
+            claimA.getReadVersion();
+            claimB.getReadVersion();
+            newLock(secondary).acquire(claimA, prefix);
+            newLock(secondary).acquire(claimB, prefix);
+            claimB.commit();
+            claimA.commit(); // must not conflict with claimB's concurrent claim
+        }
+    }
+
+    /**
+     * The other ordering: a claim commits first, then {@code deleteWhere}. The delete's lease clear must wipe the lease
+     * the earlier claim wrote, so no orphan survives.
+     */
+    @Test
+    void deleteWhereWipesAnEarlierClaimLease() throws Exception {
+        final Subspace secondary = secondarySubspace();
+        final Tuple prefix = Tuple.from();
+        try (FDBRecordContext claim = openContext()) {
+            newLock(secondary).acquire(claim, prefix);
+            claim.commit();
+        }
+        try (FDBRecordContext delete = openContext()) {
+            VectorIndexMergeLock.addDeleteWhereConflicts(delete.ensureActive(), secondary, prefix);
+            delete.commit();
+        }
+        try (FDBRecordContext check = openContext()) {
+            assertThat(newLock(secondary).currentOwner(check, prefix).get())
+                    .as("deleteWhere must clear a lease an earlier claim wrote").isNull();
+        }
+    }
+
+    @Nonnull
+    private Subspace secondarySubspace() throws Exception {
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context, this::addUngroupedVectorIndex);
+            return recordStore.indexSecondarySubspace(
+                    recordStore.getRecordMetaData().getIndex("UngroupedVectorIndex"));
+        }
+    }
+
+    @Nonnull
+    private static VectorIndexMergeLock newLock(@Nonnull final Subspace secondary) {
+        return new VectorIndexMergeLock(secondary, UUID.randomUUID(), WINDOW_MILLIS, System::currentTimeMillis);
+    }
+
+    private static boolean isOrHasCause(@Nonnull final Throwable throwable,
+                                        @Nonnull final Class<? extends Throwable> type) {
+        for (Throwable current = throwable; current != null && current != current.getCause();
+                current = current.getCause()) {
+            if (type.isInstance(current)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     @Test

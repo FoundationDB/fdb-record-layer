@@ -146,7 +146,7 @@ public class MergeScenarioTest implements BaseTest {
     @Test
     void underpopulatedClusterTriggersMerge() throws Exception {
         final List<PrimaryKeyAndVector> baseLoaded =
-                TestHelpers.loadVectors(SiftTestHelpers.SIFT_SMALL_BASE_PATH, 1);
+                VecsDatasetLoaders.loadVectors(SiftTestHelpers.SIFT_SMALL_BASE_PATH, 1);
         Verify.verify(!baseLoaded.isEmpty(), "SIFT-small must contain at least one vector");
         final DoubleRealVector base = (DoubleRealVector) baseLoaded.get(0).vector();
 
@@ -164,9 +164,9 @@ public class MergeScenarioTest implements BaseTest {
             });
             inserted.add(new PrimaryKeyAndVector(pk, perturbed));
         }
-        TestHelpers.runToQuiescence(db, guardiann);
+        GuardiannStructureAsserts.runToQuiescence(db, guardiann);
 
-        final StructureSnapshot afterInsert = TestHelpers.snapshotStructure(db, guardiann);
+        final StructureSnapshot afterInsert = GuardiannStructureAsserts.snapshotStructure(db, guardiann);
         assertThat(afterInsert)
                 .as("structure snapshot must be non-null after inserts")
                 .isNotNull();
@@ -179,7 +179,7 @@ public class MergeScenarioTest implements BaseTest {
         onWriteListener.pushFrame();
         try {
             deleteRecords(inserted.subList(0, NUM_NEAR_DUPLICATES - REMAINING_AFTER_DELETE));
-            TestHelpers.runToQuiescence(db, guardiann);
+            GuardiannStructureAsserts.runToQuiescence(db, guardiann);
 
             final Map<TaskKind, Integer> deletePhaseTasks =
                     onWriteListener.getNumTasksExecutedByKind();
@@ -197,9 +197,9 @@ public class MergeScenarioTest implements BaseTest {
         }
 
         // Deletes can leave dangling replicas, so use the after-deletes invariant variant.
-        TestHelpers.assertGuardiannInvariantsAfterDeletes(db, guardiann);
+        GuardiannStructureAsserts.assertGuardiannInvariantsAfterDeletes(db, guardiann);
 
-        final StructureSnapshot afterDelete = TestHelpers.snapshotStructure(db, guardiann);
+        final StructureSnapshot afterDelete = GuardiannStructureAsserts.snapshotStructure(db, guardiann);
         assertThat(afterDelete)
                 .as("structure snapshot must be non-null after deletes")
                 .isNotNull();

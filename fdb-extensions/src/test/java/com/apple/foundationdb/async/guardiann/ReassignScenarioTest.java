@@ -178,15 +178,15 @@ public class ReassignScenarioTest implements BaseTest {
         // warmup; we don't track those — the only post-condition that matters here is a
         // quiescent multi-cluster shape to inject into.
         final List<PrimaryKeyAndVector> warmup =
-                TestHelpers.loadVectors(SiftTestHelpers.SIFT_SMALL_BASE_PATH, NUM_WARMUP_INSERTS);
+                VecsDatasetLoaders.loadVectors(SiftTestHelpers.SIFT_SMALL_BASE_PATH, NUM_WARMUP_INSERTS);
         for (final PrimaryKeyAndVector record : warmup) {
             db.run(tr -> {
                 guardiann.insert(tr, record.primaryKey(), record.vector(), null).join();
                 return null;
             });
         }
-        TestHelpers.runToQuiescence(db, guardiann);
-        TestHelpers.assertGuardiannInvariants(db, guardiann);
+        GuardiannStructureAsserts.runToQuiescence(db, guardiann);
+        GuardiannStructureAsserts.assertGuardiannInvariants(db, guardiann);
 
         // Fixed query vector for injection — first SIFT-small vector (already inserted as part
         // of warmup; we only need its coordinates here, not its primary key).
@@ -267,7 +267,7 @@ public class ReassignScenarioTest implements BaseTest {
             });
 
             // ---- Phase 3: drain & verify ----
-            TestHelpers.runToQuiescence(db, guardiann);
+            GuardiannStructureAsserts.runToQuiescence(db, guardiann);
 
             final Map<TaskKind, Integer> executed =
                     onWriteListener.getNumTasksExecutedByKind();
@@ -278,9 +278,9 @@ public class ReassignScenarioTest implements BaseTest {
                             + "exceeds underreplicatedPrimaryClusterMax=%d", UNDERREPLICATED_MAX)
                     .isGreaterThanOrEqualTo(1);
 
-            TestHelpers.assertGuardiannInvariants(db, guardiann);
+            GuardiannStructureAsserts.assertGuardiannInvariants(db, guardiann);
 
-            final StructureSnapshot snap = TestHelpers.snapshotStructure(db, guardiann);
+            final StructureSnapshot snap = GuardiannStructureAsserts.snapshotStructure(db, guardiann);
             assertThat(snap)
                     .as("structure snapshot must be non-null after warmup + injection")
                     .isNotNull();

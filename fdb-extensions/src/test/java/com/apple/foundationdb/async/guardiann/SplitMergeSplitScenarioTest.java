@@ -136,7 +136,7 @@ public class SplitMergeSplitScenarioTest implements BaseTest {
         // Read just the first SIFT-small vector as the "center" of the near-duplicate cloud.
         // Stream a single entry via loadVectors rather than slurping all 10k via loadSiftSmall().
         final List<PrimaryKeyAndVector> baseLoaded =
-                TestHelpers.loadVectors(SiftTestHelpers.SIFT_SMALL_BASE_PATH, 1);
+                VecsDatasetLoaders.loadVectors(SiftTestHelpers.SIFT_SMALL_BASE_PATH, 1);
         Verify.verify(!baseLoaded.isEmpty(), "SIFT-small must contain at least one vector");
         final DoubleRealVector base = (DoubleRealVector) baseLoaded.get(0).vector();
 
@@ -157,7 +157,7 @@ public class SplitMergeSplitScenarioTest implements BaseTest {
                 });
             }
 
-            TestHelpers.runToQuiescence(db, guardiann);
+            GuardiannStructureAsserts.runToQuiescence(db, guardiann);
 
             final Map<TaskKind, Integer> executed =
                     onWriteListener.getNumTasksExecutedByKind();
@@ -168,9 +168,9 @@ public class SplitMergeSplitScenarioTest implements BaseTest {
                             CLUSTER_MAX)
                     .isGreaterThanOrEqualTo(1);
 
-            TestHelpers.assertGuardiannInvariants(db, guardiann);
+            GuardiannStructureAsserts.assertGuardiannInvariants(db, guardiann);
 
-            final StructureSnapshot snap = TestHelpers.snapshotStructure(db, guardiann);
+            final StructureSnapshot snap = GuardiannStructureAsserts.snapshotStructure(db, guardiann);
             assertThat(snap)
                     .as("structure snapshot must be non-null after inserts")
                     .isNotNull();

@@ -241,7 +241,7 @@ public class DeterministicReplayTest implements BaseTest {
                 return null;
             });
         }
-        TestHelpers.runToQuiescence(db, guardiann);
+        GuardiannStructureAsserts.runToQuiescence(db, guardiann);
         logger.info("{}: insert-phase tasks executed by kind={}", runName,
                 Map.copyOf(onWriteListener.getNumTasksExecutedByKind()));
         onWriteListener.popFrame();
@@ -254,7 +254,7 @@ public class DeterministicReplayTest implements BaseTest {
                 return null;
             });
         }
-        TestHelpers.runToQuiescence(db, guardiann);
+        GuardiannStructureAsserts.runToQuiescence(db, guardiann);
         logger.info("{}: delete-phase tasks executed by kind={}", runName,
                 Map.copyOf(onWriteListener.getNumTasksExecutedByKind()));
         onWriteListener.popFrame();
@@ -266,7 +266,7 @@ public class DeterministicReplayTest implements BaseTest {
     /** Snapshots the cluster topology and dumps the raw stored state for the run's subspace. */
     @Nonnull
     private Capture capture(@Nonnull final Guardiann guardiann, @Nonnull final Subspace runSubspace) {
-        final StructureSnapshot snapshot = TestHelpers.snapshotStructure(db, guardiann);
+        final StructureSnapshot snapshot = GuardiannStructureAsserts.snapshotStructure(db, guardiann);
         Verify.verifyNotNull(snapshot, "structure must be non-empty");
         return new Capture(snapshot.numClusters(), snapshot.totalPrimaries(), snapshot.totalReplicas(),
                 snapshot.totalCollapsedRefs(), clusterFingerprint(snapshot), dump(runSubspace));
@@ -338,7 +338,7 @@ public class DeterministicReplayTest implements BaseTest {
     @Nonnull
     private List<PrimaryKeyAndVector> buildInserts(final long seed) throws Exception {
         final List<PrimaryKeyAndVector> baseLoaded =
-                TestHelpers.loadVectors(SiftTestHelpers.SIFT_SMALL_BASE_PATH, NUM_BASES);
+                VecsDatasetLoaders.loadVectors(SiftTestHelpers.SIFT_SMALL_BASE_PATH, NUM_BASES);
         Verify.verify(baseLoaded.size() == NUM_BASES, "SIFT-small must contain at least %s vectors", NUM_BASES);
         final List<DoubleRealVector> bases = new ArrayList<>(NUM_BASES);
         for (final PrimaryKeyAndVector pkv : baseLoaded) {

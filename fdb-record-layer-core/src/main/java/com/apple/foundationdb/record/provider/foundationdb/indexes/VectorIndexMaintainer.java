@@ -448,8 +448,11 @@ public class VectorIndexMaintainer extends StandardIndexMaintainer {
         final VectorIndexTaskCounts taskCounts = getEngine().getTaskCounts();
         if (taskCounts != null) {
             // super.deleteWhere clears only the primary index subspace; drop the outstanding-work counts for the
-            // group(s) being removed too (they live in the secondary subspace).
+            // group(s) being removed too (they live in the secondary subspace). Also clear any merge lease under the
+            // prefix and write-conflict the delete-guard so a concurrent merge's blind lease acquire cannot orphan a
+            // lease into the emptied group (see VectorIndexMergeLock.addDeleteWhereConflicts).
             taskCounts.clearPrefix(tr, prefix);
+            VectorIndexMergeLock.addDeleteWhereConflicts(tr, state.store.indexSecondarySubspace(state.index), prefix);
         }
         return super.deleteWhere(tr, prefix);
     }

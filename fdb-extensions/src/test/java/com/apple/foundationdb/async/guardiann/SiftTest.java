@@ -182,13 +182,13 @@ public class SiftTest implements BaseTest {
     @Timeout(value = 10, unit = TimeUnit.MINUTES)
     void insertSiftSmall() throws Exception {
         final List<PrimaryKeyAndVector> dataset =
-                TestHelpers.loadVectors(SiftTestHelpers.SIFT_SMALL_BASE_PATH, SAMPLE_SIZE_SMALL);
+                VecsDatasetLoaders.loadVectors(SiftTestHelpers.SIFT_SMALL_BASE_PATH, SAMPLE_SIZE_SMALL);
         final Guardiann guardiann = newGuardiann();
         insertAndQuiesce(guardiann, dataset);
 
         final List<DoubleRealVector> queries = loadQueries(SiftTestHelpers.SIFT_SMALL_QUERY_PATH);
         final List<Set<Integer>> groundTruth =
-                TestHelpers.loadGroundTruth(SiftTestHelpers.SIFT_SMALL_GROUNDTRUTH_PATH, -1);
+                VecsDatasetLoaders.loadGroundTruth(SiftTestHelpers.SIFT_SMALL_GROUNDTRUTH_PATH, -1);
         TestHelpers.assertRecallAtKAtLeast(getDb(), guardiann, queries, groundTruth, RECALL_K, MIN_RECALL);
         TestHelpers.assertOrderedByDistanceQualityAtLeast(getDb(), guardiann,
                 TestHelpers.deterministicSample(queries, 0L, NUM_ORDERED_BY_DISTANCE_QUERIES), dataset.size(),
@@ -196,8 +196,8 @@ public class SiftTest implements BaseTest {
 
         // SIFT-small is dense/overlapping, so the split sub-clusters have borders and must carry replicas; a
         // near-zero replica count would mean replication is broken (a coarse floor, not a fraction-of-demand check).
-        TestHelpers.assertGuardiannInvariants(getDb(), guardiann,
-                TestHelpers.ReplicationInvariants.standard().withMinReplicatedFraction(0.1d));
+        GuardiannStructureAsserts.assertGuardiannInvariants(getDb(), guardiann,
+                GuardiannStructureAsserts.ReplicationInvariants.standard().withMinReplicatedFraction(0.1d));
     }
 
     /**
@@ -222,7 +222,7 @@ public class SiftTest implements BaseTest {
                 MIN_ORDERED_BY_DISTANCE_QUALITY);
         // No replica floor yet for the sparse 1M subsample: assertReplicasNotTooFew logs the observed fraction so
         // it can be calibrated from a real run before being enforced.
-        TestHelpers.assertGuardiannInvariants(getDb(), guardiann, TestHelpers.ReplicationInvariants.standard());
+        GuardiannStructureAsserts.assertGuardiannInvariants(getDb(), guardiann, GuardiannStructureAsserts.ReplicationInvariants.standard());
     }
 
     // ---------------------------------------------------------------------------------------------------------
@@ -253,7 +253,7 @@ public class SiftTest implements BaseTest {
     @Timeout(value = 10, unit = TimeUnit.MINUTES)
     void insertDeleteAllSiftSmall(final long seed) throws Exception {
         final List<PrimaryKeyAndVector> startup =
-                TestHelpers.loadVectors(SiftTestHelpers.SIFT_SMALL_BASE_PATH, SAMPLE_SIZE_SMALL);
+                VecsDatasetLoaders.loadVectors(SiftTestHelpers.SIFT_SMALL_BASE_PATH, SAMPLE_SIZE_SMALL);
         final List<DoubleRealVector> queries = loadQueries(SiftTestHelpers.SIFT_SMALL_QUERY_PATH);
         runInsertThenDeleteAll(seed, startup, queries);
     }
@@ -361,10 +361,10 @@ public class SiftTest implements BaseTest {
                 totalBatches, totalDeleteBatches, totalInsertBatches, active.size());
 
         // ---- drain & invariants (after-deletes: dangling replicas of deleted primaries are expected) ----
-        TestHelpers.assertGuardiannInvariantsAfterDeletes(getDb(), guardiann);
+        GuardiannStructureAsserts.assertGuardiannInvariantsAfterDeletes(getDb(), guardiann);
 
         // ---- only setB remains ----
-        final StructureSnapshot snap = TestHelpers.snapshotStructure(getDb(), guardiann);
+        final StructureSnapshot snap = GuardiannStructureAsserts.snapshotStructure(getDb(), guardiann);
         assertThat(snap)
                 .as("structure snapshot must be non-null after the run")
                 .isNotNull();
@@ -444,13 +444,13 @@ public class SiftTest implements BaseTest {
         logger.info("drain complete: deleteBatches={}, active.size={}", totalDeleteBatches, active.size());
 
         // ---- drain & invariants (after-deletes) ----
-        TestHelpers.assertGuardiannInvariantsAfterDeletes(getDb(), guardiann);
+        GuardiannStructureAsserts.assertGuardiannInvariantsAfterDeletes(getDb(), guardiann);
 
         // ---- the structure must be empty ----
         assertThat(active)
                 .as("local active map must be empty after deleting every record")
                 .isEmpty();
-        final StructureSnapshot snap = TestHelpers.snapshotStructure(getDb(), guardiann);
+        final StructureSnapshot snap = GuardiannStructureAsserts.snapshotStructure(getDb(), guardiann);
         final int remainingPrimaries = snap == null ? 0 : snap.totalPrimaries();
         assertThat(remainingPrimaries)
                 .as("no primaries may remain after deleting every record")
@@ -474,7 +474,7 @@ public class SiftTest implements BaseTest {
     private void insertAndQuiesce(@Nonnull final Guardiann guardiann,
                                   @Nonnull final List<PrimaryKeyAndVector> dataset) throws Exception {
         TestHelpers.insertRecords(getDb(), guardiann, dataset, BATCH_SIZE);
-        TestHelpers.runToQuiescence(getDb(), guardiann);
+        GuardiannStructureAsserts.runToQuiescence(getDb(), guardiann);
     }
 
     /** A mutable {@code primaryKey -> vector} map over {@code records}, mirroring what is live in the index. */
@@ -508,7 +508,7 @@ public class SiftTest implements BaseTest {
 
     @Nonnull
     private static List<DoubleRealVector> loadQueries(@Nonnull final String queryPath) throws IOException {
-        final List<DoubleRealVector> all = TestHelpers.loadQueryVectors(queryPath);
+        final List<DoubleRealVector> all = VecsDatasetLoaders.loadQueryVectors(queryPath);
         return List.copyOf(all.subList(0, Math.min(RECALL_NUM_QUERIES, all.size())));
     }
 

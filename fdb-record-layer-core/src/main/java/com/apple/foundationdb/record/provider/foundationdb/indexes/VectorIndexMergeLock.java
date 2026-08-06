@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.indexes;
 
+import com.apple.foundationdb.Range;
+import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
@@ -49,15 +51,25 @@ import java.util.function.LongSupplier;
  * process recognizes its own lease; it comes from the indexing session (see
  * {@code IndexDeferredMaintenanceControl.getMergeSessionId()}). A crashed holder stops refreshing its lease; once the
  * lease ages past {@code leaseWindowMillis} it reads as free and another process (or a future run) can reclaim it.
+ * <p>
+ * One correctness concern the lease itself does carry is against a concurrent {@code deleteWhere}: a blind lease
+ * {@link #acquire} committing after a {@code deleteWhere} emptied the group would orphan a lease into it. A single,
+ * index-wide <em>delete-guard</em> key closes this — {@code acquire} read-conflicts it and
+ * {@link #addDeleteWhereConflicts deleteWhere} write-conflicts it (plus clears any lease under the deleted prefix), so
+ * a claim racing a delete aborts while acquires still never conflict with each other. See those two methods.
  */
 final class VectorIndexMergeLock {
     private static final String MERGE_LOCK_DISCRIMINATOR = "mergeLock";
+    /** Discriminator for the single, index-wide delete-guard conflict key (see {@link #addDeleteWhereConflicts}). */
+    private static final String DELETE_GUARD_DISCRIMINATOR = "mergeLockDeleteGuard";
     /** Default lease window: comfortably longer than the gap between a holder's merge invocations (incl. driver
      * back-off), short enough to reclaim a crashed holder's prefix promptly. */
     static final long DEFAULT_LEASE_WINDOW_MILLIS = 10_000L;
 
     @Nonnull
     private final Subspace lockSubspace;
+    @Nonnull
+    private final byte[] deleteGuardKey;
     @Nonnull
     private final UUID ownerId;
     private final long leaseWindowMillis;
@@ -67,6 +79,7 @@ final class VectorIndexMergeLock {
     VectorIndexMergeLock(@Nonnull final Subspace indexSecondarySubspace, @Nonnull final UUID ownerId,
                          final long leaseWindowMillis, @Nonnull final LongSupplier clock) {
         this.lockSubspace = indexSecondarySubspace.subspace(Tuple.from(MERGE_LOCK_DISCRIMINATOR));
+        this.deleteGuardKey = deleteGuardKeyFor(indexSecondarySubspace);
         this.ownerId = ownerId;
         this.leaseWindowMillis = leaseWindowMillis;
         this.clock = clock;
@@ -124,11 +137,22 @@ final class VectorIndexMergeLock {
      * claimants both write cheaply (last-writer-wins) and neither drains, so the loser simply discovers on its next
      * invocation (its re-read no longer matches) that it is not the owner. The caller must have determined via
      * {@link #currentOwner} that the prefix is free/stale or already its own.
+     * <p>
+     * The lease write is deliberately blind — but we additionally register a read-conflict on the single, index-wide
+     * delete-guard key so that this transaction (which, for a fresh claim, otherwise reads only at snapshot isolation
+     * and would never conflict with anything) fails if a concurrent {@link #addDeleteWhereConflicts deleteWhere}
+     * commits. That is the one thing that must abort a claim: writing a lease into a group a concurrent
+     * {@code deleteWhere} just emptied would orphan it. Because only {@code deleteWhere} writes the guard and only
+     * {@code acquire} reads it, two acquires never conflict with each other (both leave the guard unwritten) and a
+     * claim never conflicts with a normal insert/delete (which touch {@code "taskCount"}/the partition, not the
+     * guard) — so merges still spread across prefixes via blind, last-writer-wins lease writes.
      * @param context the merge context
      * @param prefix the partition prefix
      */
     void acquire(@Nonnull final FDBRecordContext context, @Nonnull final Tuple prefix) {
-        context.ensureActive().set(lockSubspace.pack(prefix), Tuple.from(ownerId, clock.getAsLong()).pack());
+        final Transaction transaction = context.ensureActive();
+        transaction.set(lockSubspace.pack(prefix), Tuple.from(ownerId, clock.getAsLong()).pack());
+        transaction.addReadConflictKey(deleteGuardKey);
     }
 
     /**
@@ -146,5 +170,40 @@ final class VectorIndexMergeLock {
                 context.ensureActive().clear(key);
             }
         });
+    }
+
+    /**
+     * The single, index-wide delete-guard key: a coordination coordinate (never materialized as data) that
+     * {@code deleteWhere} write-conflicts and {@link #acquire} read-conflicts, so a merge claim aborts if it races a
+     * {@code deleteWhere}. One key for the whole index (independent of prefix) keeps this trivially correct for a
+     * partial grouping-prefix delete — no range covering the affected partitions is needed.
+     */
+    @Nonnull
+    private static byte[] deleteGuardKeyFor(@Nonnull final Subspace indexSecondarySubspace) {
+        return indexSecondarySubspace.pack(Tuple.from(DELETE_GUARD_DISCRIMINATOR));
+    }
+
+    /**
+     * Registers, on a {@code deleteWhere} transaction, the conflicts that keep the merge lease consistent with the
+     * group(s) being removed. Static because {@code deleteWhere} has no merge owner id / clock (it is not a merge).
+     * Two parts, closing the two race orderings against a concurrent blind {@link #acquire}:
+     * <ol>
+     *   <li>Clear any lease under {@code prefix} ({@code "mergeLock"} discriminator), completing the secondary-subspace
+     *       removal that {@code deleteWhere} already does for {@code "taskCount"} and the partition. This wipes a lease
+     *       an {@code acquire} committed <em>before</em> this delete (last-writer-wins vs the blind lease {@code set}).</li>
+     *   <li>Write-conflict the index-wide delete-guard key, which {@link #acquire} read-conflicts. This aborts an
+     *       {@code acquire} that would otherwise commit <em>after</em> this delete and re-write a lease into the emptied
+     *       group.</li>
+     * </ol>
+     * @param transaction the {@code deleteWhere} transaction
+     * @param indexSecondarySubspace the index's secondary subspace (where the lease and guard live)
+     * @param prefix the grouping prefix being deleted
+     */
+    static void addDeleteWhereConflicts(@Nonnull final Transaction transaction,
+                                        @Nonnull final Subspace indexSecondarySubspace,
+                                        @Nonnull final Tuple prefix) {
+        final Subspace lockSubspace = indexSecondarySubspace.subspace(Tuple.from(MERGE_LOCK_DISCRIMINATOR));
+        transaction.clear(Range.startsWith(lockSubspace.pack(prefix)));
+        transaction.addWriteConflictKey(deleteGuardKeyFor(indexSecondarySubspace));
     }
 }
