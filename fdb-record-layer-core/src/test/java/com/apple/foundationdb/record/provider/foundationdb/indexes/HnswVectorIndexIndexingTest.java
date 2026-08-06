@@ -58,7 +58,7 @@ class HnswVectorIndexIndexingTest extends VectorIndexTestBase {
     @Nonnull
     @Override
     protected Map<String, String> indexOptions() {
-        return ImmutableMap.of(IndexOptions.VECTOR_ENGINE, VectorIndexEngine.Kind.HNSW.name(),
+        return ImmutableMap.of(IndexOptions.VECTOR_ENGINE, VectorIndexEngineKind.HNSW.name(),
                 IndexOptions.VECTOR_METRIC, Metric.EUCLIDEAN_METRIC.name(),
                 IndexOptions.VECTOR_NUM_DIMENSIONS, "128");
     }
