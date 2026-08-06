@@ -692,20 +692,12 @@ public class PlannerGraph extends AbstractPlannerGraph<PlannerGraph.Node, Planne
      * Node class for {@link Reference} - member.
      */
     public static class ReferenceMemberNode extends Node {
-        @Nonnull
-        private final String fillColor;
-
-        public ReferenceMemberNode(final String name, @Nonnull final String fillColor) {
-            super(new Object(), name);
-            this.fillColor = fillColor;
-        }
-
         public ReferenceMemberNode(final String name) {
-            this(name, "white");
+            super(new Object(), name);
         }
 
         public ReferenceMemberNode() {
-            this("m", "white");
+            super(new Object(), "m");
         }
 
         @Nonnull
@@ -737,7 +729,7 @@ public class PlannerGraph extends AbstractPlannerGraph<PlannerGraph.Node, Planne
         @Nonnull
         @Override
         public String getFillColor() {
-            return fillColor;
+            return "white";
         }
 
         @Nonnull

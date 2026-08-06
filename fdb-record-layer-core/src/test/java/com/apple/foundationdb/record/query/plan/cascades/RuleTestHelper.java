@@ -96,6 +96,11 @@ public class RuleTestHelper {
     }
 
     @Nonnull
+    public static FullUnorderedScanExpression fuseExpression() {
+        return new FullUnorderedScanExpression(ImmutableSet.of("T", "TAU"), Type.Record.fromFields(ImmutableList.of()), new AccessHints());
+    }
+
+    @Nonnull
     public static Quantifier baseT() {
         return forEach(LogicalTypeFilterExpression.of(ImmutableSet.of("T"), fuseQun(), TYPE_T));
     }
