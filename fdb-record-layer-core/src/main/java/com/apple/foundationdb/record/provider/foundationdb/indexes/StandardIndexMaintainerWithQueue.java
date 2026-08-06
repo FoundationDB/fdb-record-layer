@@ -65,9 +65,16 @@ public abstract class StandardIndexMaintainerWithQueue extends StandardIndexMain
 
     @Override
     @Nullable
-    public <M extends Message> Any serializePendingWriteQueue(@Nullable final FDBIndexableRecord<M> oldRecord,
-                                                              @Nullable final FDBIndexableRecord<M> newRecord) {
-        return serializePendingWrites(state, oldRecord, newRecord);
+    public <M extends Message> Any serializePendingWriteQueue(@Nullable FDBIndexableRecord<M> oldRecord,
+                                                              @Nullable FDBIndexableRecord<M> newRecord) {
+        final IndexBuildProto.OldAndNewRecords.Builder builder = IndexBuildProto.OldAndNewRecords.newBuilder();
+        if (oldRecord != null) {
+            builder.setOldRecords(serializePendingRecord(state, oldRecord));
+        }
+        if (newRecord != null) {
+            builder.setNewRecord(serializePendingRecord(state, newRecord));
+        }
+        return Any.pack(builder.build());
     }
 
     @Override
@@ -81,29 +88,8 @@ public abstract class StandardIndexMaintainerWithQueue extends StandardIndexMain
     }
 
     /**
-     * Serialize an old/new record pair into the {@link Any}-packed payload deferred onto the pending write queue.
-     * @param state the maintainer state whose store serializer is used
-     * @param oldRecord the previous stored record, or {@code null} for an insert
-     * @param newRecord the new record, or {@code null} for a delete
-     * @param <M> type of message
-     * @return the packed payload to enqueue
-     */
-    private static <M extends Message> Any serializePendingWrites(@Nonnull final IndexMaintainerState state,
-                                                                  @Nullable final FDBIndexableRecord<M> oldRecord,
-                                                          @Nullable final FDBIndexableRecord<M> newRecord) {
-        final IndexBuildProto.OldAndNewRecords.Builder builder = IndexBuildProto.OldAndNewRecords.newBuilder();
-        if (oldRecord != null) {
-            builder.setOldRecords(serializePendingRecord(state, oldRecord));
-        }
-        if (newRecord != null) {
-            builder.setNewRecord(serializePendingRecord(state, newRecord));
-        }
-        return Any.pack(builder.build());
-    }
-
-    /**
      * Unpack the {@link IndexBuildProto.OldAndNewRecords} payload from a queue entry's data.
-     * @param data the {@link Any}-packed payload produced by {@link #serializePendingWrites}
+     * @param data the {@link Any}-packed payload produced by {@link #serializePendingWriteQueue(FDBIndexableRecord, FDBIndexableRecord)}
      * @return the unpacked old/new records
      */
     @Nonnull

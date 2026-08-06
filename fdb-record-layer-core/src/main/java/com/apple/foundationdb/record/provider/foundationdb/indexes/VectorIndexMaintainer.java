@@ -69,7 +69,6 @@ import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -395,7 +394,7 @@ public class VectorIndexMaintainer extends StandardIndexMaintainer {
         }
         List<IndexEntry> oldIndexEntries = fromProto(entries.getOldEntriesList());
         List<IndexEntry> newIndexEntries = fromProto(entries.getNewEntriesList());
-        if (oldIndexEntries != null && newIndexEntries != null && skipUpdateForUnchangedKeys()) {
+        if (skipUpdateForUnchangedKeys()) {
             // Remove unchanged keys from the lists of keys to update, mirroring StandardIndexMaintainer.update.
             final List<IndexEntry> commonKeys = commonKeys(oldIndexEntries, newIndexEntries);
             if (!commonKeys.isEmpty()) {
@@ -406,15 +405,11 @@ public class VectorIndexMaintainer extends StandardIndexMaintainer {
             }
         }
         CompletableFuture<Void> future = AsyncUtil.DONE;
-        if (oldIndexEntries != null) {
-            for (final IndexEntry entry : oldIndexEntries) {
-                future = future.thenCompose(ignore -> updateIndexEntry(entry, true));
-            }
+        for (final IndexEntry entry : oldIndexEntries) {
+            future = future.thenCompose(ignore -> updateIndexEntry(entry, true));
         }
-        if (newIndexEntries != null) {
-            for (final IndexEntry entry : newIndexEntries) {
-                future = future.thenCompose(ignore -> updateIndexEntry(entry, false));
-            }
+        for (final IndexEntry entry : newIndexEntries) {
+            future = future.thenCompose(ignore -> updateIndexEntry(entry, false));
         }
         return future;
     }
@@ -436,16 +431,9 @@ public class VectorIndexMaintainer extends StandardIndexMaintainer {
                 Tuple.fromBytes(entry.getPrimaryKey().toByteArray()));
     }
 
-    @Nullable
+    @Nonnull
     private List<IndexEntry> fromProto(@Nonnull final List<IndexBuildProto.IndexEntry> protoEntries) {
-        if (protoEntries.isEmpty()) {
-            return null;
-        }
-        final List<IndexEntry> indexEntries = new ArrayList<>(protoEntries.size());
-        for (final IndexBuildProto.IndexEntry entry : protoEntries) {
-            indexEntries.add(fromProto(entry));
-        }
-        return indexEntries;
+        return protoEntries.stream().map(this::fromProto).toList();
     }
 
     @Override
