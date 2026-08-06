@@ -75,7 +75,7 @@ public class DelegatingVisitor<D extends TypedVisitor> implements TypedVisitor {
         return getDelegate().visitStatements(ctx);
     }
 
-    @Nonnull
+    @Nullable
     @Override
     public Object visitStatement(@Nonnull RelationalParser.StatementContext ctx) {
         return getDelegate().visitStatement(ctx);
@@ -749,6 +749,7 @@ public class DelegatingVisitor<D extends TypedVisitor> implements TypedVisitor {
         return getDelegate().visitHavingClause(ctx);
     }
 
+    @Nonnull
     @Override
     public Expression visitQualifyClause(final RelationalParser.QualifyClauseContext ctx) {
         return getDelegate().visitQualifyClause(ctx);
@@ -1448,6 +1449,12 @@ public class DelegatingVisitor<D extends TypedVisitor> implements TypedVisitor {
     @Override
     public Expression visitAggregateWindowedFunction(@Nonnull RelationalParser.AggregateWindowedFunctionContext ctx) {
         return getDelegate().visitAggregateWindowedFunction(ctx);
+    }
+
+    @Nonnull
+    @Override
+    public Boolean visitNullTreatmentClause(@Nonnull RelationalParser.NullTreatmentClauseContext ctx) {
+        return getDelegate().visitNullTreatmentClause(ctx);
     }
 
     @Nonnull

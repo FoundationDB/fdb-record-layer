@@ -252,7 +252,12 @@ public class BaseVisitor extends RelationalParserBaseVisitor<Object> implements 
 
     @Nonnull
     public Expression resolveFunction(@Nonnull String functionName, @Nonnull Expression... arguments) {
-        return getSemanticAnalyzer().resolveFunction(functionName, Expressions.of(arguments).toCallSiteArguments(true), true);
+        return resolveFunction(functionName, Expressions.of(arguments));
+    }
+
+    @Nonnull
+    public Expression resolveFunction(@Nonnull String functionName, @Nonnull Expressions arguments) {
+        return getSemanticAnalyzer().resolveFunction(functionName, arguments.toCallSiteArguments(true), true);
     }
 
     @Nonnull
@@ -1507,6 +1512,12 @@ public class BaseVisitor extends RelationalParserBaseVisitor<Object> implements 
     @Override
     public Expression visitAggregateWindowedFunction(@Nonnull RelationalParser.AggregateWindowedFunctionContext ctx) {
         return expressionVisitor.visitAggregateWindowedFunction(ctx);
+    }
+
+    @Nonnull
+    @Override
+    public Boolean visitNullTreatmentClause(@Nonnull RelationalParser.NullTreatmentClauseContext ctx) {
+        return expressionVisitor.visitNullTreatmentClause(ctx);
     }
 
     @Nonnull
