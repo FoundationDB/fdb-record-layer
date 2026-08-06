@@ -5,10 +5,10 @@ left-outer-join:
     explain: 'ISCAN(emp$fname <,>) | FLATMAP q0 -> { COVERING(dept$name <,> -> [id:
         KEY:[2], name: KEY:[0]]) | FILTER q0.dept_id EQUALS _.id | FETCH | ON EMPTY
         NULL AS q1 RETURN (q0.fname AS fname, q1.name AS name) }'
-    task_count: 622
+    task_count: 553
     task_total_time_ms: 7
     transform_count: 134
-    transform_time_ms: 3
+    transform_time_ms: 4
     transform_yield_count: 51
     insert_time_ms: 0
     insert_new_count: 63
@@ -19,7 +19,7 @@ left-outer-join:
     explain: 'ISCAN(emp$fname <,>) | FLATMAP q0 -> { COVERING(dept$name <,> -> [id:
         KEY:[2], name: KEY:[0]]) | FILTER q0.dept_id EQUALS _.id | FETCH | ON EMPTY
         NULL AS q1 RETURN (q0.fname AS fname, q1.name AS name) }'
-    task_count: 622
+    task_count: 553
     task_total_time_ms: 6
     transform_count: 134
     transform_time_ms: 3
@@ -34,8 +34,8 @@ left-outer-join:
         | FLATMAP q0 -> { COVERING(dept$name <,> -> [id: KEY:[2], name: KEY:[0]])
         | FILTER q0.dept_id EQUALS _.id | FETCH | ON EMPTY NULL AS q1 RETURN (q0.fname
         AS fname, q1.name AS name) }'
-    task_count: 892
-    task_total_time_ms: 9
+    task_count: 787
+    task_total_time_ms: 10
     transform_count: 197
     transform_time_ms: 4
     transform_yield_count: 64
@@ -49,7 +49,7 @@ left-outer-join:
         KEY:[2], name: KEY:[0]]) | FILTER q0.dept_id EQUALS _.id | FILTER _.name EQUALS
         promote(@c28 AS STRING) | FETCH AS q1 RETURN (q0.fname AS fname, q1.name AS
         name) }'
-    task_count: 1233
+    task_count: 1084
     task_total_time_ms: 13
     transform_count: 239
     transform_time_ms: 5
@@ -64,7 +64,7 @@ left-outer-join:
         KEY:[2], name: KEY:[0]]) | FILTER q0.dept_id EQUALS _.id | FETCH | ON EMPTY
         NULL | FILTER _.id IS_NULL AS q1 RETURN (q0.fname AS fname, q0.lname AS lname)
         }'
-    task_count: 900
+    task_count: 793
     task_total_time_ms: 10
     transform_count: 181
     transform_time_ms: 4
@@ -78,8 +78,8 @@ left-outer-join:
     explain: ISCAN(dept$name <,>) | FLATMAP q0 -> { SCAN([IS project]) | FILTER q0.id
         EQUALS _.emp_id | ON EMPTY NULL AS q1 RETURN (q0.name AS _0, q1.name AS _1)
         }
-    task_count: 432
-    task_total_time_ms: 7
+    task_count: 400
+    task_total_time_ms: 4
     transform_count: 105
     transform_time_ms: 2
     transform_yield_count: 37
@@ -92,8 +92,8 @@ left-outer-join:
     explain: 'ISCAN(emp$fname <,>) | FLATMAP q0 -> { COVERING(dept$name <,> -> [id:
         KEY:[2], name: KEY:[0]]) | FILTER q0.dept_id EQUALS _.id | FETCH | ON EMPTY
         NULL AS q1 RETURN (q0.id AS id, q0.fname AS fname) }'
-    task_count: 622
-    task_total_time_ms: 7
+    task_count: 553
+    task_total_time_ms: 6
     transform_count: 134
     transform_time_ms: 3
     transform_yield_count: 51
@@ -106,7 +106,7 @@ left-outer-join:
     explain: 'ISCAN(emp$fname <,>) | FLATMAP q0 -> { COVERING(dept$name <,> -> [id:
         KEY:[2], name: KEY:[0]]) | FILTER q0.id EQUALS _.id | FETCH | ON EMPTY NULL
         AS q1 RETURN (q0.fname AS fname, q1.name AS name) }'
-    task_count: 622
+    task_count: 553
     task_total_time_ms: 6
     transform_count: 134
     transform_time_ms: 3
@@ -123,8 +123,8 @@ left-outer-join:
         NULL | FLATMAP q1 -> { SCAN([IS project]) | FILTER q0.id EQUALS _.emp_id |
         ON EMPTY NULL AS q2 RETURN (q1 AS _0, q2 AS _1) } AS q3 RETURN (q0.fname AS
         fname, q3._0.name AS _1, q3._1.name AS _2) }'
-    task_count: 988
-    task_total_time_ms: 11
+    task_count: 893
+    task_total_time_ms: 12
     transform_count: 230
     transform_time_ms: 5
     transform_yield_count: 78
@@ -138,7 +138,7 @@ left-outer-join:
         KEY:[2], name: KEY:[0]]) | FILTER q0.dept_id EQUALS _.id | FETCH | ON EMPTY
         NULL AS q1 RETURN (q0.id AS _0, q0.fname AS fname, q0.lname AS lname, q0.dept_id
         AS dept_id, q1.id AS _4, q1.name AS name) }'
-    task_count: 622
+    task_count: 553
     task_total_time_ms: 6
     transform_count: 134
     transform_time_ms: 3
@@ -151,8 +151,8 @@ left-outer-join:
     explain: ISCAN(emp$fname <,>) | FLATMAP q0 -> { SCAN([IS dept, EQUALS q0.dept_id])
         | ON EMPTY NULL AS q1 RETURN (q0.id AS _0, q0.fname AS fname, q0.lname AS
         lname, q0.dept_id AS dept_id, q1.id AS _4, q1.name AS name) }
-    task_count: 612
-    task_total_time_ms: 7
+    task_count: 543
+    task_total_time_ms: 6
     transform_count: 131
     transform_time_ms: 3
     transform_yield_count: 51
@@ -166,7 +166,7 @@ left-outer-join:
         KEY:[2], name: KEY:[0]]) | FILTER q0.dept_id EQUALS _.id AND _.name NOT_EQUALS
         promote(@c29 AS STRING) | FETCH | ON EMPTY NULL AS q1 RETURN (q0.fname AS
         fname, q1.name AS name) }'
-    task_count: 638
+    task_count: 569
     task_total_time_ms: 7
     transform_count: 139
     transform_time_ms: 3
@@ -180,10 +180,10 @@ left-outer-join:
     explain: 'ISCAN(emp$fname <,>) | FLATMAP q0 -> { COVERING(dept$name <,> -> [id:
         KEY:[2], name: KEY:[0]]) | FILTER @c16 EQUALS @c16 | FETCH | ON EMPTY NULL
         AS q1 RETURN (q0.fname AS fname, q1.name AS name) }'
-    task_count: 671
-    task_total_time_ms: 7
+    task_count: 593
+    task_total_time_ms: 6
     transform_count: 138
-    transform_time_ms: 3
+    transform_time_ms: 2
     transform_yield_count: 53
     insert_time_ms: 0
     insert_new_count: 72
@@ -194,10 +194,10 @@ left-outer-join:
     explain: ISCAN(emp$fname <,>) | FLATMAP q0 -> { SCAN([IS award]) | FILTER q0.id
         EQUALS _.emp_id | ON EMPTY NULL AS q1 RETURN (q0.fname AS fname, q1.name AS
         name) }
-    task_count: 432
-    task_total_time_ms: 6
+    task_count: 400
+    task_total_time_ms: 4
     transform_count: 105
-    transform_time_ms: 3
+    transform_time_ms: 2
     transform_yield_count: 37
     insert_time_ms: 0
     insert_new_count: 42
@@ -210,12 +210,12 @@ left-outer-join:
         _.dept_id EQUALS q0.id | FLATMAP q1 -> { SCAN([IS project]) | FILTER q1.id
         EQUALS _.emp_id | ON EMPTY NULL AS q2 RETURN (q1 AS _0, q2 AS _1) } AS q3
         RETURN (q3._0.fname AS fname, q0.name AS _1, q3._1.name AS _2) }
-    task_count: 1277
-    task_total_time_ms: 24
+    task_count: 1140
+    task_total_time_ms: 16
     transform_count: 334
-    transform_time_ms: 10
+    transform_time_ms: 7
     transform_yield_count: 90
-    insert_time_ms: 1
+    insert_time_ms: 0
     insert_new_count: 131
     insert_reused_count: 9
 -   query: EXPLAIN SELECT "e"."fname", "d"."name" FROM "emp" "e" LEFT JOIN "dept"
@@ -224,10 +224,10 @@ left-outer-join:
     explain: 'ISCAN(emp$fname <,>) | FLATMAP q0 -> { COVERING(dept$name <,> -> [id:
         KEY:[2], name: KEY:[0]]) | FILTER q0.dept_id EQUALS _.id | FETCH | ON EMPTY
         NULL AS q1 RETURN (q0.fname AS fname, q1.name AS name) }'
-    task_count: 611
-    task_total_time_ms: 8
+    task_count: 545
+    task_total_time_ms: 7
     transform_count: 132
-    transform_time_ms: 4
+    transform_time_ms: 3
     transform_yield_count: 50
     insert_time_ms: 0
     insert_new_count: 61
@@ -241,10 +241,10 @@ left-outer-join:
         KEY:[0], id: KEY:[2]]) | FILTER _.id GREATER_THAN_OR_EQUALS coalesce_long(q0._0._0,
         promote(0l AS LONG)) | FETCH | ON EMPTY NULL AS q1 RETURN (coalesce_long(q0._0._0,
         promote(0l AS LONG)) AS c, q1.fname AS fname, q1.lname AS lname) }'
-    task_count: 772
-    task_total_time_ms: 9
+    task_count: 693
+    task_total_time_ms: 10
     transform_count: 160
-    transform_time_ms: 4
+    transform_time_ms: 5
     transform_yield_count: 60
     insert_time_ms: 0
     insert_new_count: 79
@@ -256,10 +256,10 @@ left-outer-join:
         EQUALS _.emp_id | ON EMPTY NULL AS q1 RETURN ((q0.id AS _0, q0.name AS _1,
         q1.id AS _2, q1.name AS _3, q1.emp_id AS _4) AS _0) } | AGG (count_star(*)
         AS _0) GROUP BY (_._0._1 AS _0) | MAP (_._0._0 AS name, _._1._0 AS _1)
-    task_count: 526
+    task_count: 489
     task_total_time_ms: 6
     transform_count: 124
-    transform_time_ms: 2
+    transform_time_ms: 3
     transform_yield_count: 40
     insert_time_ms: 0
     insert_new_count: 48
@@ -273,8 +273,8 @@ left-outer-join:
         AS _3, q1.id AS _4, q1.name AS _5) AS _0) } | AGG (count_star(*) AS _0) GROUP
         BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS
         _0)'
-    task_count: 742
-    task_total_time_ms: 9
+    task_count: 662
+    task_total_time_ms: 10
     transform_count: 156
     transform_time_ms: 4
     transform_yield_count: 55
@@ -287,8 +287,8 @@ left-outer-join:
     explain: ISCAN(emp$fname <,>) | FLATMAP q0 -> { SCAN([IS dept, [LESS_THAN promote(@c23
         AS LONG)]]) | FILTER q0.dept_id EQUALS _.id | ON EMPTY NULL AS q1 RETURN (q0.fname
         AS fname, q1.name AS name) }
-    task_count: 760
-    task_total_time_ms: 9
+    task_count: 667
+    task_total_time_ms: 11
     transform_count: 149
     transform_time_ms: 4
     transform_yield_count: 55
@@ -302,12 +302,12 @@ left-outer-join:
         { COVERING(dept$name <,> -> [id: KEY:[2], name: KEY:[0]]) | FILTER q0.dept_id
         EQUALS _.id | FETCH | ON EMPTY NULL | FILTER _.id IS_NULL AS q1 RETURN (q0.fname
         AS fname) }'
-    task_count: 1183
+    task_count: 1025
     task_total_time_ms: 14
     transform_count: 227
     transform_time_ms: 6
     transform_yield_count: 69
-    insert_time_ms: 0
+    insert_time_ms: 1
     insert_new_count: 113
     insert_reused_count: 12
 -   query: EXPLAIN SELECT "e"."fname", COALESCE("d"."name", 'None') FROM "emp" "e"
@@ -317,10 +317,10 @@ left-outer-join:
         KEY:[2], name: KEY:[0]]) | FILTER q0.dept_id EQUALS _.id | FETCH | ON EMPTY
         NULL AS q1 RETURN (q0.fname AS fname, coalesce_string(q1.name, promote(@c11
         AS STRING)) AS _1) }'
-    task_count: 622
+    task_count: 553
     task_total_time_ms: 7
     transform_count: 134
-    transform_time_ms: 3
+    transform_time_ms: 4
     transform_yield_count: 51
     insert_time_ms: 0
     insert_new_count: 63
@@ -331,8 +331,8 @@ left-outer-join:
     explain: 'ISCAN(emp$fname <,>) | FLATMAP q0 -> { COVERING(emp$fname <,> -> [fname:
         KEY:[0], id: KEY:[2]]) | FILTER q0.dept_id EQUALS _.id | FETCH | ON EMPTY
         NULL | FILTER _.id IS_NULL AS q1 RETURN (q0.fname AS fname) }'
-    task_count: 863
-    task_total_time_ms: 10
+    task_count: 756
+    task_total_time_ms: 9
     transform_count: 169
     transform_time_ms: 4
     transform_yield_count: 48
@@ -346,8 +346,8 @@ left-outer-join:
         EQUALS _.name | ON EMPTY NULL | FLATMAP q1 -> { ISCAN(emp$fname <,>) | FILTER
         _.dept_id EQUALS q0.id AS q2 RETURN q2 } AS q2 RETURN (q2.fname AS fname,
         q0.name AS name) }
-    task_count: 1431
-    task_total_time_ms: 20
+    task_count: 1273
+    task_total_time_ms: 18
     transform_count: 375
     transform_time_ms: 7
     transform_yield_count: 95
@@ -360,8 +360,8 @@ left-outer-join:
     explain: 'ISCAN(emp$fname <,>) | FLATMAP q0 -> { COVERING(dept$name <,> -> [id:
         KEY:[2], name: KEY:[0]]) | FILTER q0.dept_id GREATER_THAN_OR_EQUALS _.id |
         FETCH | ON EMPTY NULL AS q1 RETURN (q0.fname AS fname, q1.name AS name) }'
-    task_count: 622
-    task_total_time_ms: 7
+    task_count: 553
+    task_total_time_ms: 8
     transform_count: 134
     transform_time_ms: 3
     transform_yield_count: 51
@@ -375,12 +375,12 @@ left-outer-join:
         q0 -> { COVERING(dept$name <,> -> [id: KEY:[2], name: KEY:[0]]) | FILTER q0.dept_id
         EQUALS _.id | FETCH | ON EMPTY NULL AS q1 RETURN (q0.fname AS fname, q1.name
         AS name) }'
-    task_count: 1037
-    task_total_time_ms: 11
+    task_count: 914
+    task_total_time_ms: 14
     transform_count: 214
-    transform_time_ms: 5
+    transform_time_ms: 6
     transform_yield_count: 71
-    insert_time_ms: 0
+    insert_time_ms: 1
     insert_new_count: 110
     insert_reused_count: 9
 -   query: EXPLAIN SELECT "e"."fname", "d"."name" FROM "emp" "e" LEFT JOIN "dept"
@@ -390,10 +390,10 @@ left-outer-join:
         promote(@c28 AS STRING)]] -> [id: KEY:[2], name: KEY:[0]]) | FILTER q0.dept_id
         EQUALS _.id | FETCH | ON EMPTY NULL AS q1 RETURN (q0.fname AS fname, q1.name
         AS name) }'
-    task_count: 681
-    task_total_time_ms: 7
+    task_count: 603
+    task_total_time_ms: 8
     transform_count: 143
-    transform_time_ms: 3
+    transform_time_ms: 4
     transform_yield_count: 54
     insert_time_ms: 0
     insert_new_count: 70
@@ -405,10 +405,10 @@ left-outer-join:
         KEY:[2], name: KEY:[0]]) | FILTER q0.dept_id EQUALS _.id | FILTER _.name GREATER_THAN
         promote(@c28 AS STRING) | FETCH AS q1 RETURN (q0.fname AS fname, q1.name AS
         name) }'
-    task_count: 1233
-    task_total_time_ms: 15
+    task_count: 1084
+    task_total_time_ms: 18
     transform_count: 239
-    transform_time_ms: 6
+    transform_time_ms: 8
     transform_yield_count: 70
     insert_time_ms: 1
     insert_new_count: 127
@@ -420,10 +420,10 @@ left-outer-join:
         KEY:[2], name: KEY:[0]]) | FILTER q0.dept_id EQUALS _.id | FETCH | ON EMPTY
         NULL AS q1 RETURN (q0.fname AS fname, (q1.id AS id, q1.name AS name) AS _1)
         }'
-    task_count: 622
-    task_total_time_ms: 8
+    task_count: 553
+    task_total_time_ms: 7
     transform_count: 134
-    transform_time_ms: 4
+    transform_time_ms: 3
     transform_yield_count: 51
     insert_time_ms: 0
     insert_new_count: 63
@@ -435,10 +435,10 @@ left-outer-join:
     explain: ISCAN(emp$fname <,>) | FLATMAP q0 -> { SCAN([IS dept]) | FILTER q0.dept_id
         EQUALS _.id | MAP (_.id AS k, _ AS info) | ON EMPTY NULL AS q1 RETURN (q0.fname
         AS fname, q1.info AS info) }
-    task_count: 834
-    task_total_time_ms: 10
+    task_count: 735
+    task_total_time_ms: 11
     transform_count: 173
-    transform_time_ms: 4
+    transform_time_ms: 5
     transform_yield_count: 57
     insert_time_ms: 0
     insert_new_count: 80
@@ -450,10 +450,10 @@ right-outer-join:
     explain: ISCAN(dept$name <,>) | FLATMAP q0 -> { ISCAN(emp$fname <,>) | FILTER
         _.dept_id EQUALS q0.id | ON EMPTY NULL AS q1 RETURN (q1.fname AS fname, q0.name
         AS name) }
-    task_count: 579
-    task_total_time_ms: 7
+    task_count: 519
+    task_total_time_ms: 8
     transform_count: 130
-    transform_time_ms: 3
+    transform_time_ms: 4
     transform_yield_count: 50
     insert_time_ms: 0
     insert_new_count: 57
@@ -464,10 +464,10 @@ right-outer-join:
     explain: ISCAN(dept$name <,>) | FLATMAP q0 -> { ISCAN(emp$fname <,>) | FILTER
         _.dept_id EQUALS q0.id | ON EMPTY NULL AS q1 RETURN (q1.fname AS fname, q0.name
         AS name) }
-    task_count: 579
-    task_total_time_ms: 7
+    task_count: 519
+    task_total_time_ms: 8
     transform_count: 130
-    transform_time_ms: 3
+    transform_time_ms: 4
     transform_yield_count: 50
     insert_time_ms: 0
     insert_new_count: 57
@@ -478,10 +478,10 @@ right-outer-join:
     explain: 'ISCAN(emp$fname <,>) | FLATMAP q0 -> { COVERING(dept$name <,> -> [id:
         KEY:[2], name: KEY:[0]]) | FILTER q0.dept_id EQUALS _.id | FETCH | ON EMPTY
         NULL AS q1 RETURN (q0.fname AS fname, q1.name AS name) }'
-    task_count: 622
-    task_total_time_ms: 7
+    task_count: 553
+    task_total_time_ms: 9
     transform_count: 134
-    transform_time_ms: 3
+    transform_time_ms: 4
     transform_yield_count: 51
     insert_time_ms: 0
     insert_new_count: 63
@@ -492,10 +492,10 @@ right-outer-join:
     explain: SCAN([IS dept, [LESS_THAN promote(@c28 AS LONG)]]) | FLATMAP q0 -> {
         ISCAN(emp$fname <,>) | FILTER _.dept_id EQUALS q0.id | ON EMPTY NULL AS q1
         RETURN (q1.fname AS fname, q0.name AS name) }
-    task_count: 942
-    task_total_time_ms: 11
+    task_count: 825
+    task_total_time_ms: 10
     transform_count: 200
-    transform_time_ms: 5
+    transform_time_ms: 4
     transform_yield_count: 66
     insert_time_ms: 0
     insert_new_count: 94
@@ -506,10 +506,10 @@ right-outer-join:
     explain: ISCAN(dept$name <,>) | FLATMAP q0 -> { ISCAN(emp$fname <,>) | FILTER
         _.dept_id EQUALS q0.id | ON EMPTY NULL | FILTER _.id IS_NULL AS q1 RETURN
         (q0.name AS name) }
-    task_count: 847
+    task_count: 751
     task_total_time_ms: 10
     transform_count: 177
-    transform_time_ms: 4
+    transform_time_ms: 5
     transform_yield_count: 55
     insert_time_ms: 0
     insert_new_count: 80
@@ -520,10 +520,10 @@ right-outer-join:
     explain: ISCAN(dept$name <,>) | FLATMAP q0 -> { SCAN([IS project]) | FILTER q0.id
         EQUALS _.emp_id | ON EMPTY NULL AS q1 RETURN (q0.name AS _0, q1.name AS _1)
         }
-    task_count: 432
-    task_total_time_ms: 5
+    task_count: 400
+    task_total_time_ms: 6
     transform_count: 105
-    transform_time_ms: 2
+    transform_time_ms: 3
     transform_yield_count: 37
     insert_time_ms: 0
     insert_new_count: 42
@@ -533,8 +533,8 @@ right-outer-join:
     ref: join-tests-outer.yamsql:474
     explain: ISCAN(dept$name <,>) | FLATMAP q0 -> { SCAN([IS award]) | FILTER _.emp_id
         EQUALS q0.id | ON EMPTY NULL AS q1 RETURN (q1.name AS _0, q0.name AS _1) }
-    task_count: 432
-    task_total_time_ms: 5
+    task_count: 400
+    task_total_time_ms: 4
     transform_count: 105
     transform_time_ms: 2
     transform_yield_count: 37
@@ -546,10 +546,10 @@ right-outer-join:
     ref: join-tests-outer.yamsql:483
     explain: ISCAN(dept$name <,>) | FLATMAP q0 -> { SCAN([IS emp, EQUALS q0.id]) |
         ON EMPTY NULL AS q1 RETURN (q1.fname AS fname, q0.name AS name) }
-    task_count: 612
-    task_total_time_ms: 8
+    task_count: 543
+    task_total_time_ms: 9
     transform_count: 131
-    transform_time_ms: 4
+    transform_time_ms: 5
     transform_yield_count: 51
     insert_time_ms: 0
     insert_new_count: 62
@@ -560,8 +560,8 @@ right-outer-join:
     explain: ISCAN(dept$name <,>) | FLATMAP q0 -> { ISCAN(emp$fname <,>) | FILTER
         _.dept_id EQUALS q0.id | ON EMPTY NULL AS q1 RETURN (coalesce_string(q1.fname,
         promote(@c7 AS STRING)) AS _0, q0.name AS name) }
-    task_count: 579
-    task_total_time_ms: 8
+    task_count: 519
+    task_total_time_ms: 7
     transform_count: 130
     transform_time_ms: 3
     transform_yield_count: 50
@@ -574,8 +574,8 @@ right-outer-join:
     explain: ISCAN(dept$name <,>) | FLATMAP q0 -> { ISCAN(emp$fname <,>) | FILTER
         _.dept_id EQUALS q0.id | ON EMPTY NULL AS q1 RETURN ((q1.id AS id, q1.fname
         AS fname) AS _0, q0.name AS name) }
-    task_count: 579
-    task_total_time_ms: 7
+    task_count: 519
+    task_total_time_ms: 6
     transform_count: 130
     transform_time_ms: 3
     transform_yield_count: 50

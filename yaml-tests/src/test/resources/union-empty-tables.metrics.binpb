@@ -1,7 +1,7 @@
 ˛
 A
 	unnamed-14EXPLAIN select sum(col1) as a, count(*) as b from t1∏
-¢˚˘∆> πª◊(0¸Ñ$8@¥SCAN([IS T1]) | MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0, count_star(*) AS _1) GROUP BY () | ON EMPTY NULL | MAP (_._0._0 AS A, coalesce_long(_._0._1, promote(0l AS LONG)) AS B)„digraph G {
+å≈˛⁄> ä∞ï(0£Ñ8@¥SCAN([IS T1]) | MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0, count_star(*) AS _1) GROUP BY () | ON EMPTY NULL | MAP (_._0._0 AS A, coalesce_long(_._0._1, promote(0l AS LONG)) AS B)„digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -19,7 +19,7 @@ A
 }ëG
 •
 	unnamed-1óEXPLAIN select sum(a) as a, sum(b) as b from (select sum(col1) as a, count(*) as b from t1 union all select sum(col1) as a, count(*) as b from t2) as xÊE
-ê›Å„• µŒ„(*0ø˚:8:@ÌSCAN([IS T1]) | MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0, count_star(*) AS _1) GROUP BY () | ON EMPTY NULL | MAP (_._0._0 AS A, coalesce_long(_._0._1, promote(0l AS LONG)) AS B) ‚äé SCAN([IS T2]) | MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0, count_star(*) AS _1) GROUP BY () | ON EMPTY NULL | MAP (_._0._0 AS A, coalesce_long(_._0._1, promote(0l AS LONG)) AS B) | MAP (_ AS _0) | AGG (sum_l(_._0.A) AS _0, sum_l(_._0.B) AS _1) GROUP BY () | ON EMPTY NULL | MAP (_._0._0 AS A, _._0._1 AS B)◊Adigraph G {
+‘™ ÷• ´ÎÅ(*0¨¡P8:@ÌSCAN([IS T1]) | MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0, count_star(*) AS _1) GROUP BY () | ON EMPTY NULL | MAP (_._0._0 AS A, coalesce_long(_._0._1, promote(0l AS LONG)) AS B) ‚äé SCAN([IS T2]) | MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0, count_star(*) AS _1) GROUP BY () | ON EMPTY NULL | MAP (_._0._0 AS A, coalesce_long(_._0._1, promote(0l AS LONG)) AS B) | MAP (_ AS _0) | AGG (sum_l(_._0.A) AS _0, sum_l(_._0.B) AS _1) GROUP BY () | ON EMPTY NULL | MAP (_._0._0 AS A, _._0._1 AS B)◊Adigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -28,38 +28,39 @@ A
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Streaming Aggregate</td></tr><tr><td align="left">COLLECT (sum_l(q85._0.A) AS _0, sum_l(q85._0.B) AS _1)</td></tr><tr><td align="left">GROUP BY ()</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0, LONG AS _1 AS _0)" ];
   4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q20 AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, LONG AS B AS _0)" ];
   5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Union All</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="12" tooltip="RELATION(LONG AS A, LONG AS B)" ];
-  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q6._0._0 AS A, coalesce_long(q6._0._1, promote(0l AS LONG)) AS B)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, LONG AS B)" ];
-  7 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q16._0._0 AS A, coalesce_long(q16._0._1, promote(0l AS LONG)) AS B)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, LONG AS B)" ];
-  8 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">$q6 OR NULL</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0, LONG AS _1 AS _0)" ];
-  9 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">$q16 OR NULL</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0, LONG AS _1 AS _0)" ];
-  10 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Streaming Aggregate</td></tr><tr><td align="left">COLLECT (sum_l(q76._0.COL1) AS _0, count_star(*) AS _1)</td></tr><tr><td align="left">GROUP BY ()</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0, LONG AS _1 AS _0)" ];
-  11 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Streaming Aggregate</td></tr><tr><td align="left">COLLECT (sum_l(q64._0.COL1) AS _0, count_star(*) AS _1)</td></tr><tr><td align="left">GROUP BY ()</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0, LONG AS _1 AS _0)" ];
-  12 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q2 AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS COL1, LONG AS COL2 AS _0)" ];
-  13 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q12 AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS COL1, LONG AS COL2, LONG AS COL3 AS _0)" ];
-  14 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">comparisons: [IS T1]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS COL1, LONG AS COL2)" ];
-  15 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">comparisons: [IS T2]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS COL1, LONG AS COL2, LONG AS COL3)" ];
-  16 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [T4, T5, T1, T2, T3]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS COL1, LONG AS COL2)" ];
-  17 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [T4, T5, T1, T2, T3]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS COL1, LONG AS COL2, LONG AS COL3)" ];
+  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q16._0._0 AS A, coalesce_long(q16._0._1, promote(0l AS LONG)) AS B)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, LONG AS B)" ];
+  7 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q6._0._0 AS A, coalesce_long(q6._0._1, promote(0l AS LONG)) AS B)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, LONG AS B)" ];
+  8 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">$q16 OR NULL</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0, LONG AS _1 AS _0)" ];
+  9 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">$q6 OR NULL</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0, LONG AS _1 AS _0)" ];
+  10 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Streaming Aggregate</td></tr><tr><td align="left">COLLECT (sum_l(q64._0.COL1) AS _0, count_star(*) AS _1)</td></tr><tr><td align="left">GROUP BY ()</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0, LONG AS _1 AS _0)" ];
+  11 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Streaming Aggregate</td></tr><tr><td align="left">COLLECT (sum_l(q76._0.COL1) AS _0, count_star(*) AS _1)</td></tr><tr><td align="left">GROUP BY ()</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0, LONG AS _1 AS _0)" ];
+  12 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q12 AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS COL1, LONG AS COL2, LONG AS COL3 AS _0)" ];
+  13 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q2 AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS COL1, LONG AS COL2 AS _0)" ];
+  14 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">comparisons: [IS T2]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS COL1, LONG AS COL2, LONG AS COL3)" ];
+  15 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">comparisons: [IS T1]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS COL1, LONG AS COL2)" ];
+  16 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [T4, T5, T1, T2, T3]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS COL1, LONG AS COL2, LONG AS COL3)" ];
+  17 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [T4, T5, T1, T2, T3]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS COL1, LONG AS COL2)" ];
   3 -> 2 [ label=<&nbsp;q24> label="q24" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 3 [ label=<&nbsp;q85> label="q85" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   5 -> 4 [ label=<&nbsp;q20> label="q20" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  6 -> 5 [ label=<&nbsp;q80> label="q80" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  7 -> 5 [ label=<&nbsp;q82> label="q82" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  8 -> 6 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  9 -> 7 [ label=<&nbsp;q16> label="q16" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  10 -> 8 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  11 -> 9 [ label=<&nbsp;q16> label="q16" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  12 -> 10 [ label=<&nbsp;q76> label="q76" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  13 -> 11 [ label=<&nbsp;q64> label="q64" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  14 -> 12 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  15 -> 13 [ label=<&nbsp;q12> label="q12" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  6 -> 5 [ label=<&nbsp;q82> label="q82" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  7 -> 5 [ label=<&nbsp;q80> label="q80" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  8 -> 6 [ label=<&nbsp;q16> label="q16" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  9 -> 7 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  10 -> 8 [ label=<&nbsp;q16> label="q16" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  11 -> 9 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  12 -> 10 [ label=<&nbsp;q64> label="q64" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  13 -> 11 [ label=<&nbsp;q76> label="q76" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  14 -> 12 [ label=<&nbsp;q12> label="q12" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  15 -> 13 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   16 -> 14 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   17 -> 15 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q24> label="q24" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
 }ê
 R
 	unnamed-1EEXPLAIN select col1, col2 from t1 union all select col1, col2 from t1π
-€í˘˙O äèœ(0ì∑8@mSCAN([IS T1]) | MAP (_.COL1 AS COL1, _.COL2 AS COL2) ‚äé SCAN([IS T1]) | MAP (_.COL1 AS COL1, _.COL2 AS COL2)¨digraph G {
+¬£ÈΩ
+O ≈÷”(0Çé 8@mSCAN([IS T1]) | MAP (_.COL1 AS COL1, _.COL2 AS COL2) ‚äé SCAN([IS T1]) | MAP (_.COL1 AS COL1, _.COL2 AS COL2)¨digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -79,7 +80,7 @@ R
 }›
 A
 	unnamed-14EXPLAIN select * from t1 union all select * from t1;ó
-ÀÉ©àS ÄÍ¶(0≤ó8@SCAN([IS T1]) ‚äé SCAN([IS T1])ÿdigraph G {
+≤„∏•S ‡ı¸(0ü˙8@SCAN([IS T1]) ‚äé SCAN([IS T1])ÿdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -95,7 +96,8 @@ A
 }Í
 N
 	unnamed-1AEXPLAIN select * from t1 union all select id, col1, col2 from t1;ó
-È†≥ºV ÄÀì(0„ü8@SCAN([IS T1]) ‚äé SCAN([IS T1])ÿdigraph G {
+ áàÄ
+V ‚Ì¿(0Çé8@SCAN([IS T1]) ‚äé SCAN([IS T1])ÿdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -111,7 +113,7 @@ N
 }Í
 N
 	unnamed-1AEXPLAIN select id, col1, col2 from t1 union all select * from t1;ó
-È…˛≥V º¡⁄(0˚ß8@SCAN([IS T1]) ‚äé SCAN([IS T1])ÿdigraph G {
+ ¢àÌ	V –Óº(0•œ8@SCAN([IS T1]) ‚äé SCAN([IS T1])ÿdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -127,7 +129,7 @@ N
 }Ù
 ]
 	unnamed-1PEXPLAIN select id as W, col1 as X, col2 as Y from t1 union all select * from t1;í
-ﬁçÔßq È≈¥(0É¯8!@£SCAN([IS T1]) | MAP (_.ID AS W, _.COL1 AS X, _.COL2 AS Y) | MAP (_.W AS W, _.X AS X, _.Y AS Y) ‚äé SCAN([IS T1]) | MAP (_.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2)Œdigraph G {
+ª÷°Ûq âË‚(0©π 8!@£SCAN([IS T1]) | MAP (_.ID AS W, _.COL1 AS X, _.COL2 AS Y) | MAP (_.W AS W, _.X AS X, _.Y AS Y) ‚äé SCAN([IS T1]) | MAP (_.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2)Œdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -149,7 +151,7 @@ N
 }ˆ
 _
 	unnamed-1REXPLAIN (select id as W, col1 as X, col2 as Y from t1) union all select * from t1;í
-ﬁëÒëq Øﬂü(0Àî-8!@£SCAN([IS T1]) | MAP (_.ID AS W, _.COL1 AS X, _.COL2 AS Y) | MAP (_.W AS W, _.X AS X, _.Y AS Y) ‚äé SCAN([IS T1]) | MAP (_.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2)Œdigraph G {
+ª¨π≥q Âéß(0‰⁄8!@£SCAN([IS T1]) | MAP (_.ID AS W, _.COL1 AS X, _.COL2 AS Y) | MAP (_.W AS W, _.X AS X, _.Y AS Y) ‚äé SCAN([IS T1]) | MAP (_.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2)Œdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -171,7 +173,7 @@ _
 }ˆ
 _
 	unnamed-1REXPLAIN select id as W, col1 as X, col2 as Y from t1 union all (select * from t1);í
-ﬁ⁄â…q ë≠Õ(0Áö8!@£SCAN([IS T1]) | MAP (_.ID AS W, _.COL1 AS X, _.COL2 AS Y) | MAP (_.W AS W, _.X AS X, _.Y AS Y) ‚äé SCAN([IS T1]) | MAP (_.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2)Œdigraph G {
+ªõ£¬q ï≤√(0Èı!8!@£SCAN([IS T1]) | MAP (_.ID AS W, _.COL1 AS X, _.COL2 AS Y) | MAP (_.W AS W, _.X AS X, _.Y AS Y) ‚äé SCAN([IS T1]) | MAP (_.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2)Œdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -193,7 +195,7 @@ _
 }¯
 a
 	unnamed-1TEXPLAIN (select id as W, col1 as X, col2 as Y from t1 union all (select * from t1));í
-ﬁùÃõq ⁄Ïß(0·Ø8!@£SCAN([IS T1]) | MAP (_.ID AS W, _.COL1 AS X, _.COL2 AS Y) | MAP (_.W AS W, _.X AS X, _.Y AS Y) ‚äé SCAN([IS T1]) | MAP (_.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2)Œdigraph G {
+ª’•∑q ñÉÆ(0≥≠#8!@£SCAN([IS T1]) | MAP (_.ID AS W, _.COL1 AS X, _.COL2 AS Y) | MAP (_.W AS W, _.X AS X, _.Y AS Y) ‚äé SCAN([IS T1]) | MAP (_.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2)Œdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -215,8 +217,7 @@ a
 }¯
 a
 	unnamed-1TEXPLAIN ((select id as W, col1 as X, col2 as Y from t1) union all select * from t1);í
-ﬁíø˚
-q ö°ˇ(0á$8!@£SCAN([IS T1]) | MAP (_.ID AS W, _.COL1 AS X, _.COL2 AS Y) | MAP (_.W AS W, _.X AS X, _.Y AS Y) ‚äé SCAN([IS T1]) | MAP (_.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2)Œdigraph G {
+ªµÿ¬q „Æœ(0ﬂ‘8!@£SCAN([IS T1]) | MAP (_.ID AS W, _.COL1 AS X, _.COL2 AS Y) | MAP (_.W AS W, _.X AS X, _.Y AS Y) ‚äé SCAN([IS T1]) | MAP (_.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2)Œdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -238,7 +239,7 @@ a
 }â#
 F
 	unnamed-19EXPLAIN select a, b from t3 union all select a, b from t4æ"
-í®ÍŒ} ÿÁ˜('0ˇÙ8&@±SCAN([IS T3]) | MAP (_.A AS A, _.B AS B) | MAP (_.A AS A, promote(_.B AS DOUBLE) AS B) ‚äé SCAN([IS T4]) | MAP (_.A AS A, _.B AS B) | MAP (promote(_.A AS DOUBLE) AS A, _.B AS B)Ï digraph G {
+ÔÑòÓ} ¸◊ˇ('0Áà.8&@±SCAN([IS T3]) | MAP (_.A AS A, _.B AS B) | MAP (_.A AS A, promote(_.B AS DOUBLE) AS B) ‚äé SCAN([IS T4]) | MAP (_.A AS A, _.B AS B) | MAP (promote(_.A AS DOUBLE) AS A, _.B AS B)Ï digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -262,7 +263,7 @@ F
 }Ê7
 ä
 	unnamed-1}EXPLAIN select sum(Y) as S from (select count(*) as Y from t3 where a < 10 group by a union all select count(*) from t4) as X÷6
-áÑÒ– ∑áö	(70∑ﬁE8A@ﬁAISCAN(MV10 [[LESS_THAN promote(@c21 AS DOUBLE)]] BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._1 AS Y) ‚äé SCAN([IS T4]) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0) | MAP (_ AS _0) | AGG (sum_l(_._0.Y) AS _0) GROUP BY () | ON EMPTY NULL | MAP (_._0._0 AS S)÷3digraph G {
+¥˜ãÔ– éÑ˜	(70íÕA8A@ﬁAISCAN(MV10 [[LESS_THAN promote(@c21 AS DOUBLE)]] BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._1 AS Y) ‚äé SCAN([IS T4]) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0) | MAP (_ AS _0) | AGG (sum_l(_._0.Y) AS _0) GROUP BY () | ON EMPTY NULL | MAP (_._0._0 AS S)÷3digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -296,7 +297,7 @@ F
 }ÂC
 r
 	unnamed-1eEXPLAIN select sum(Y) as S from (select count(*) as Y from t3 union all select count(*) from t1) as XÓB
-ññÛß≈ íı§(60‚ÏI8F@¨AISCAN(MV10 <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | AGG sum_l(_._1) GROUP BY () | MAP ((_._1 AS _0) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS Y) ‚äé SCAN([IS T1]) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0) | MAP (_ AS _0) | AGG (sum_l(_._0.Y) AS _0) GROUP BY () | ON EMPTY NULL | MAP (_._0._0 AS S)†?digraph G {
+Õ®∏¡≈ ÚÉä(60ÉèR8F@¨AISCAN(MV10 <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | AGG sum_l(_._1) GROUP BY () | MAP ((_._1 AS _0) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS Y) ‚äé SCAN([IS T1]) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0) | MAP (_ AS _0) | AGG (sum_l(_._0.Y) AS _0) GROUP BY () | ON EMPTY NULL | MAP (_._0._0 AS S)†?digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -336,7 +337,7 @@ r
 }Ç2
 Ö
 	unnamed-1xEXPLAIN select col2 from t1 where exists (select a from t3 where col2 <= id union all select b from t4 where col2 <= id)˜0
-∏£Œ¸– ô«¥(=0»˚U8C@ÈSCAN([IS T1]) | FLATMAP q0 -> { SCAN([IS T3, [GREATER_THAN_OR_EQUALS q0.COL2]]) | MAP (_.A AS A) ‚äé SCAN([IS T4, [GREATER_THAN_OR_EQUALS q0.COL2]]) | MAP (_.B AS B) | DEFAULT NULL | FILTER _ NOT_NULL AS q1 RETURN (q0.COL2 AS COL2) }Ï.digraph G {
+ıØ∆˝– ·¯õ(=0™†D8C@ÈSCAN([IS T1]) | FLATMAP q0 -> { SCAN([IS T3, [GREATER_THAN_OR_EQUALS q0.COL2]]) | MAP (_.A AS A) ‚äé SCAN([IS T4, [GREATER_THAN_OR_EQUALS q0.COL2]]) | MAP (_.B AS B) | DEFAULT NULL | FILTER _ NOT_NULL AS q1 RETURN (q0.COL2 AS COL2) }Ï.digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;

@@ -1,8 +1,7 @@
 •
 5
 	unnamed-2(EXPLAIN select * from t where b + c > 7;Û
-¾—½™• ø¾Þ
-(C0ãô^8H@3ISCAN(BPLUSC [[GREATER_THAN promote(@c9 AS LONG)]])‡digraph G {
+±¨áý-• Þùó(C0÷Þz8H@3ISCAN(BPLUSC [[GREATER_THAN promote(@c9 AS LONG)]])‡digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -12,8 +11,8 @@
 }»
 T
 	unnamed-2GEXPLAIN select a, b + c AS sum from t where e = 'alpha' order by b + c;â
-Ì¾Ã–n „–Ó
-(/0…N8%@TISCAN(BPLUSCBYE [EQUALS promote(@c13 AS STRING)]) | MAP (_.A AS A, _.B + _.C AS SUM)î
+›Ðæ’n ·øò
+(/0òí>8%@TISCAN(BPLUSCBYE [EQUALS promote(@c13 AS STRING)]) | MAP (_.A AS A, _.B + _.C AS SUM)î
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -26,17 +25,17 @@ digraph G {
 }†
 5
 	unnamed-2(EXPLAIN select * from t where d & 1 = 0;Ì
-¾–Ï«,– ¹íž(C0ò®¢8H@+ISCAN(DMASK1 [EQUALS promote(@c9 AS LONG)])ÿdigraph G {
+±Ç¶™-– õœ˜(C0äˆè8H@+ISCAN(DMASK1 [EQUALS promote(@c9 AS LONG)])ÿdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
   1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c9 AS LONG)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, LONG AS B, LONG AS C, LONG AS D, STRING AS E)" ];
   2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">DMASK1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, LONG AS B, LONG AS C, LONG AS D, STRING AS E)" ];
   2 -> 1 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}†
+}…
 5
-	unnamed-2(EXPLAIN select * from t where d & 2 = 0;Ì
-¾¨ê¤/– ÒÍ¤(C0â¼‡8H@+ISCAN(DMASK2 [EQUALS promote(@c9 AS LONG)])ÿdigraph G {
+	unnamed-2(EXPLAIN select * from t where d & 2 = 0;Ë
+±“ö‡+– Îáû(C0…äj8H@+ISCAN(DMASK2 [EQUALS promote(@c9 AS LONG)])ÿdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;

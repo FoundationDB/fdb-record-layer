@@ -2,8 +2,8 @@ pseudo-field-clash-queries:
 -   query: EXPLAIN SELECT * FROM t1
     ref: pseudo-field-clash.yamsql:69
     explain: SCAN([IS T1])
-    task_count: 160
-    task_total_time_ms: 6
+    task_count: 149
+    task_total_time_ms: 5
     transform_count: 42
     transform_time_ms: 1
     transform_yield_count: 13
@@ -13,8 +13,8 @@ pseudo-field-clash-queries:
 -   query: EXPLAIN SELECT * FROM t2
     ref: pseudo-field-clash.yamsql:80
     explain: ISCAN(T2_VERSION <,>)
-    task_count: 398
-    task_total_time_ms: 21
+    task_count: 337
+    task_total_time_ms: 17
     transform_count: 82
     transform_time_ms: 7
     transform_yield_count: 37
@@ -24,21 +24,21 @@ pseudo-field-clash-queries:
 -   query: EXPLAIN SELECT * FROM t3
     ref: pseudo-field-clash.yamsql:91
     explain: ISCAN(T3_VERSION <,>) | MAP (_.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2)
-    task_count: 362
-    task_total_time_ms: 35
+    task_count: 313
+    task_total_time_ms: 21
     transform_count: 70
-    transform_time_ms: 18
+    transform_time_ms: 7
     transform_yield_count: 33
-    insert_time_ms: 2
+    insert_time_ms: 0
     insert_new_count: 32
     insert_reused_count: 6
 -   query: EXPLAIN SELECT ID, "__ROW_VERSION" FROM t1
     ref: pseudo-field-clash.yamsql:102
     explain: SCAN([IS T1]) | MAP (_.ID AS ID, _.__ROW_VERSION AS __ROW_VERSION)
-    task_count: 168
-    task_total_time_ms: 9
+    task_count: 157
+    task_total_time_ms: 6
     transform_count: 40
-    transform_time_ms: 4
+    transform_time_ms: 1
     transform_yield_count: 13
     insert_time_ms: 0
     insert_new_count: 12
@@ -47,21 +47,21 @@ pseudo-field-clash-queries:
     ref: pseudo-field-clash.yamsql:113
     explain: 'COVERING(T2_VERSION <,> -> [ID: KEY:[2], __ROW_VERSION: KEY:[0]]) |
         MAP (_.ID AS ID, _.__ROW_VERSION AS __ROW_VERSION)'
-    task_count: 446
-    task_total_time_ms: 47
+    task_count: 379
+    task_total_time_ms: 30
     transform_count: 78
-    transform_time_ms: 10
+    transform_time_ms: 11
     transform_yield_count: 37
-    insert_time_ms: 1
+    insert_time_ms: 0
     insert_new_count: 38
     insert_reused_count: 6
 -   query: EXPLAIN SELECT ID, "__ROW_VERSION" FROM t3
     ref: pseudo-field-clash.yamsql:124
     explain: ISCAN(T3_VERSION <,>) | MAP (_.ID AS ID, _.__ROW_VERSION AS __ROW_VERSION)
-    task_count: 362
-    task_total_time_ms: 17
+    task_count: 313
+    task_total_time_ms: 23
     transform_count: 70
-    transform_time_ms: 8
+    transform_time_ms: 10
     transform_yield_count: 33
     insert_time_ms: 0
     insert_new_count: 32
@@ -69,7 +69,7 @@ pseudo-field-clash-queries:
 -   query: EXPLAIN SELECT * FROM t2 ORDER BY "__ROW_VERSION" DESC
     ref: pseudo-field-clash.yamsql:135
     explain: ISCAN(T2_VERSION <,> REVERSE)
-    task_count: 251
+    task_count: 226
     task_total_time_ms: 13
     transform_count: 58
     transform_time_ms: 4
@@ -81,10 +81,10 @@ pseudo-field-clash-queries:
     ref: pseudo-field-clash.yamsql:146
     explain: ISCAN(T3_VERSION <,> REVERSE) | MAP (_.ID AS ID, _.COL1 AS COL1, _.COL2
         AS COL2)
-    task_count: 396
-    task_total_time_ms: 23
+    task_count: 350
+    task_total_time_ms: 17
     transform_count: 83
-    transform_time_ms: 5
+    transform_time_ms: 4
     transform_yield_count: 33
     insert_time_ms: 0
     insert_new_count: 27
@@ -92,8 +92,8 @@ pseudo-field-clash-queries:
 -   query: EXPLAIN SELECT id, col1 FROM t2 ORDER BY "__ROW_VERSION" DESC
     ref: pseudo-field-clash.yamsql:157
     explain: ISCAN(T2_VERSION <,> REVERSE) | MAP (_.ID AS ID, _.COL1 AS COL1)
-    task_count: 396
-    task_total_time_ms: 19
+    task_count: 350
+    task_total_time_ms: 18
     transform_count: 83
     transform_time_ms: 5
     transform_yield_count: 33
@@ -104,10 +104,10 @@ pseudo-field-clash-queries:
     ref: pseudo-field-clash.yamsql:168
     explain: ISCAN(T3_VERSION <,> REVERSE) | MAP (_.ID AS ID, _.COL1 AS COL1, _.__ROW_VERSION
         AS __ROW_VERSION) | MAP (_.ID AS ID, _.COL1 AS COL1)
-    task_count: 300
-    task_total_time_ms: 15
+    task_count: 276
+    task_total_time_ms: 18
     transform_count: 69
-    transform_time_ms: 5
+    transform_time_ms: 6
     transform_yield_count: 28
     insert_time_ms: 0
     insert_new_count: 21
@@ -115,8 +115,8 @@ pseudo-field-clash-queries:
 -   query: EXPLAIN SELECT * FROM t1 WHERE "__ROW_VERSION" > x'0010'
     ref: pseudo-field-clash.yamsql:179
     explain: SCAN([IS T1]) | FILTER _.__ROW_VERSION GREATER_THAN promote(@c7 AS BYTES)
-    task_count: 205
-    task_total_time_ms: 10
+    task_count: 191
+    task_total_time_ms: 8
     transform_count: 51
     transform_time_ms: 2
     transform_yield_count: 16
@@ -126,10 +126,10 @@ pseudo-field-clash-queries:
 -   query: EXPLAIN SELECT * FROM t2 WHERE "__ROW_VERSION" > 'ab'
     ref: pseudo-field-clash.yamsql:187
     explain: ISCAN(T2_VERSION [[GREATER_THAN promote(@c7 AS STRING)]])
-    task_count: 642
+    task_count: 539
     task_total_time_ms: 31
     transform_count: 112
-    transform_time_ms: 9
+    transform_time_ms: 11
     transform_yield_count: 47
     insert_time_ms: 0
     insert_new_count: 56
@@ -137,8 +137,8 @@ pseudo-field-clash-queries:
 -   query: EXPLAIN SELECT * FROM t2 WHERE col1 = 20
     ref: pseudo-field-clash.yamsql:196
     explain: ISCAN(T2_COL1_VERSION [EQUALS promote(@c7 AS LONG)])
-    task_count: 568
-    task_total_time_ms: 30
+    task_count: 477
+    task_total_time_ms: 22
     transform_count: 101
     transform_time_ms: 8
     transform_yield_count: 43
@@ -149,8 +149,8 @@ pseudo-field-clash-queries:
     ref: pseudo-field-clash.yamsql:204
     explain: ISCAN(T3_COL1_VERSION [EQUALS promote(@c7 AS LONG)]) | MAP (_.ID AS ID,
         _.COL1 AS COL1, _.COL2 AS COL2)
-    task_count: 686
-    task_total_time_ms: 39
+    task_count: 586
+    task_total_time_ms: 41
     transform_count: 138
     transform_time_ms: 10
     transform_yield_count: 43
@@ -160,10 +160,10 @@ pseudo-field-clash-queries:
 -   query: EXPLAIN SELECT * FROM t2 WHERE col1 = 20 ORDER BY "__ROW_VERSION" DESC
     ref: pseudo-field-clash.yamsql:212
     explain: ISCAN(T2_COL1_VERSION [EQUALS promote(@c7 AS LONG)] REVERSE)
-    task_count: 356
-    task_total_time_ms: 18
+    task_count: 310
+    task_total_time_ms: 19
     transform_count: 75
-    transform_time_ms: 5
+    transform_time_ms: 6
     transform_yield_count: 33
     insert_time_ms: 0
     insert_new_count: 27
@@ -172,10 +172,10 @@ pseudo-field-clash-queries:
     ref: pseudo-field-clash.yamsql:220
     explain: ISCAN(T3_COL1_VERSION [EQUALS promote(@c7 AS LONG)] REVERSE) | MAP (_.ID
         AS ID, _.COL1 AS COL1, _.COL2 AS COL2)
-    task_count: 500
-    task_total_time_ms: 27
+    task_count: 434
+    task_total_time_ms: 22
     transform_count: 97
-    transform_time_ms: 7
+    transform_time_ms: 5
     transform_yield_count: 37
     insert_time_ms: 0
     insert_new_count: 37
@@ -186,8 +186,8 @@ pseudo-field-clash-queries:
     explain: 'COVERING(T2_COL1_VERSION [EQUALS promote(@c9 AS LONG)] REVERSE -> [COL1:
         KEY:[0], ID: KEY:[3], __ROW_VERSION: KEY:[1]]) | MAP (_.ID AS ID, _.COL1 AS
         COL1)'
-    task_count: 527
-    task_total_time_ms: 25
+    task_count: 455
+    task_total_time_ms: 26
     transform_count: 100
     transform_time_ms: 6
     transform_yield_count: 38
@@ -200,8 +200,8 @@ pseudo-field-clash-queries:
     explain: ISCAN(T3_COL1_VERSION [EQUALS promote(@c9 AS LONG)] REVERSE) | MAP (_.ID
         AS ID, _.COL1 AS COL1, _.__ROW_VERSION AS __ROW_VERSION) | MAP (_.ID AS ID,
         _.COL1 AS COL1)
-    task_count: 501
-    task_total_time_ms: 32
+    task_count: 445
+    task_total_time_ms: 30
     transform_count: 113
     transform_time_ms: 8
     transform_yield_count: 35
@@ -215,12 +215,12 @@ pseudo-field-clash-queries:
         q1 -> { SCAN([IS T2, EQUALS q0.ID]) AS q2 RETURN (q2 AS _0, q1 AS _1) } AS
         q3 RETURN (q0 AS T1, q3._0 AS T2, (q3._1.ID AS ID, q3._1.COL1 AS COL1, q3._1.COL2
         AS COL2) AS T3) }
-    task_count: 3003
-    task_total_time_ms: 369
+    task_count: 2582
+    task_total_time_ms: 311
     transform_count: 736
-    transform_time_ms: 121
+    transform_time_ms: 101
     transform_yield_count: 165
-    insert_time_ms: 12
+    insert_time_ms: 9
     insert_new_count: 386
     insert_reused_count: 34
 -   query: EXPLAIN SELECT (t1.id, t1.col1, t1."__ROW_VERSION"), (t2.id, t2.col1, t2."__ROW_VERSION"),
@@ -233,11 +233,11 @@ pseudo-field-clash-queries:
         AS _0, (q3._0.ID AS ID, q3._0.COL1 AS COL1, q3._0.__ROW_VERSION AS __ROW_VERSION)
         AS _1, (q3._1.ID AS ID, q3._1.COL1 AS COL1, q3._1.COL2 AS COL2, q3._1.__ROW_VERSION
         AS __ROW_VERSION) AS _2) }
-    task_count: 3003
-    task_total_time_ms: 429
+    task_count: 2582
+    task_total_time_ms: 341
     transform_count: 736
-    transform_time_ms: 155
+    transform_time_ms: 129
     transform_yield_count: 165
-    insert_time_ms: 11
+    insert_time_ms: 8
     insert_new_count: 386
     insert_reused_count: 34

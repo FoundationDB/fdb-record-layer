@@ -1,7 +1,7 @@
 è
 S
 "user-defined-scalar-function-tests-EXPLAIN select z(r) from nested group by z(r)∑
-ƒÇ¯ËF ˜˝é(0òÅ8@XISCAN(I2 <,>) | MAP (_ AS _0) | AGG () GROUP BY (_._0.R.V.Z AS _0) | MAP (_._0._0 AS _0)ødigraph G {
+©‡áÃF äÈ§(0˙¬8@XISCAN(I2 <,>) | MAP (_ AS _0) | AGG () GROUP BY (_._0.R.V.Z AS _0) | MAP (_._0._0 AS _0)ødigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -17,7 +17,7 @@ S
 }©
 L
 "user-defined-scalar-function-tests&EXPLAIN select st2_func(r) from nestedÿ
-â•À∫6 €ÿï(0Ø†8@!ISCAN(I2 <,>) | MAP (_.R.U AS _0)ódigraph G {
+ÎÚÉ‡6 ÑØû(0„«8@!ISCAN(I2 <,>) | MAP (_.R.U AS _0)ódigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -29,7 +29,7 @@ L
 }ˆ
 g
 "user-defined-scalar-function-testsAEXPLAIN select id from nested where self(id) > 2 and self(id) < 5ä
-∏°„¥` Ë›·(0øù+8$@zISCAN(I2 <,>) | FILTER _.ID GREATER_THAN promote(@c10 AS LONG) AND _.ID LESS_THAN promote(@c17 AS LONG) | MAP (_.ID AS ID)digraph G {
+Çîî¿` «–≥(0•∂48$@zISCAN(I2 <,>) | FILTER _.ID GREATER_THAN promote(@c10 AS LONG) AND _.ID LESS_THAN promote(@c17 AS LONG) | MAP (_.ID AS ID)digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -43,7 +43,7 @@ g
 }ô
 ~
 "user-defined-scalar-function-testsXEXPLAIN select self(id) as A, self(id) as B, self(id * 2) as C from nested where id <= 2ñ
-∏¨Ùï` ˜≠Ò(0“ﬁ98$@tISCAN(I2 <,>) | FILTER _.ID LESS_THAN_OR_EQUALS promote(@c29 AS LONG) | MAP (_.ID AS A, _.ID AS B, _.ID * @c29 AS C)Çdigraph G {
+Çâﬂ÷` Ã±®(0∑≠,8$@tISCAN(I2 <,>) | FILTER _.ID LESS_THAN_OR_EQUALS promote(@c29 AS LONG) | MAP (_.ID AS A, _.ID AS B, _.ID * @c29 AS C)Çdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -57,7 +57,8 @@ g
 }Ö
 t
 "user-defined-scalar-function-testsNEXPLAIN select z(r) as A, z(r) as B, st2_func(r) as C from nested where id = 1å
-∏ˇÎÍa õÄ»(0∂Æ+8$@gISCAN(I2 <,>) | FILTER _.ID EQUALS promote(@c26 AS LONG) | MAP (_.R.V.Z AS A, _.R.V.Z AS B, _.R.U AS C)Ödigraph G {
+Ç·ëÂ
+a Æää(0œò"8$@gISCAN(I2 <,>) | FILTER _.ID EQUALS promote(@c26 AS LONG) | MAP (_.R.V.Z AS A, _.R.V.Z AS B, _.R.U AS C)Ödigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -71,7 +72,7 @@ t
 }À
 á
 "user-defined-scalar-function-testsaEXPLAIN select self(id) as A, z(r) as B, z(r) as C from nested where z(r) = 100 and self(id) <= 3æ
-ë‰ÈÒh Ωëë(0ﬁ˙.8*@éISCAN(I2 [EQUALS promote(@c29 AS LONG)]) | FILTER _.ID LESS_THAN_OR_EQUALS promote(@c37 AS LONG) | MAP (_.ID AS A, _.R.V.Z AS B, _.R.V.Z AS C)èdigraph G {
+…«ÜØh Ê‚œ(0Ãæ68*@éISCAN(I2 [EQUALS promote(@c29 AS LONG)]) | FILTER _.ID LESS_THAN_OR_EQUALS promote(@c37 AS LONG) | MAP (_.ID AS A, _.R.V.Z AS B, _.R.V.Z AS C)èdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -85,7 +86,7 @@ t
 }Ä
 J
 "user-defined-scalar-function-tests$EXPLAIN select * from table_func1(3)±
-›Ê‰ÚÑ í“ë()0é…U8A@zISCAN(I2 <,>) | FILTER _.ID LESS_THAN_OR_EQUALS promote(@c5 AS LONG) | MAP (_.ID AS ID, _.ID AS ID_COPY, _.R.V.Z AS Z_VAL)ñdigraph G {
+ß‰ÑøÑ Å⁄˝()0˛ë;8A@zISCAN(I2 <,>) | FILTER _.ID LESS_THAN_OR_EQUALS promote(@c5 AS LONG) | MAP (_.ID AS ID, _.ID AS ID_COPY, _.R.V.Z AS Z_VAL)ñdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -99,7 +100,7 @@ J
 }æ
 L
 "user-defined-scalar-function-tests&EXPLAIN select * from table_func2(140)Ì
-çÏá‹à ù‘°(+0⁄ΩQ8C@hISCAN(I2 [[GREATER_THAN_OR_EQUALS promote(@c5 AS LONG)]]) | MAP (_.ID AS PROCESSED_ID, _.R.V.Z AS Z_VAL)‰digraph G {
+À˚ïÍà ÎÃ¢(+0Ü÷M8C@hISCAN(I2 [[GREATER_THAN_OR_EQUALS promote(@c5 AS LONG)]]) | MAP (_.ID AS PROCESSED_ID, _.R.V.Z AS Z_VAL)‰digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -111,7 +112,7 @@ L
 }Ì
 O
 "user-defined-scalar-function-tests)EXPLAIN select * from table_func3(20, 40)ô
-úØÆ¢\ ‰ˇ˚(0ˆ‹,8.@ñSCAN([IS SIMPLE_TABLE, [GREATER_THAN_OR_EQUALS promote(@c5 AS LONG) && LESS_THAN_OR_EQUALS promote(@c7 AS LONG)]]) | MAP (_.A AS A_VAL, _.A AS A_COPY)‚digraph G {
+Ö˙ﬁÆ\ øü≠(0ùÙ.8.@ñSCAN([IS SIMPLE_TABLE, [GREATER_THAN_OR_EQUALS promote(@c5 AS LONG) && LESS_THAN_OR_EQUALS promote(@c7 AS LONG)]]) | MAP (_.A AS A_VAL, _.A AS A_COPY)‚digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -123,7 +124,8 @@ O
 }§
 ™
 "user-defined-scalar-function-testsÉEXPLAIN select t1.id_copy as A, t2.processed_id as B from table_func1(2) t1, table_func2(100) t2 where t1.id_copy = t2.processed_idÙ
-ÛôÙLπ ïÚ°(`0⁄¿ª8Ø@	–ISCAN(I2 [[GREATER_THAN_OR_EQUALS promote(@c21 AS LONG)]]) | FLATMAP q0 -> { ISCAN(I2 <,>) | FILTER _.ID EQUALS q0.ID AND _.ID LESS_THAN_OR_EQUALS promote(@c15 AS LONG) AS q1 RETURN (q1.ID AS A, q0.ID AS B) }Ädigraph G {
+¬
+åù˝6π ß«Á(`0™ã∞8Ø@	–ISCAN(I2 [[GREATER_THAN_OR_EQUALS promote(@c21 AS LONG)]]) | FLATMAP q0 -> { ISCAN(I2 <,>) | FILTER _.ID EQUALS q0.ID AND _.ID LESS_THAN_OR_EQUALS promote(@c15 AS LONG) AS q1 RETURN (q1.ID AS A, q0.ID AS B) }Ädigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -149,7 +151,7 @@ O
 }€
 g
 "user-defined-scalar-function-testsAEXPLAIN select self(id_copy) as A, z_val as B from table_func1(4)Ô
-›Âí⁄Ñ çü©()0ú‡Z8A@eISCAN(I2 <,>) | FILTER _.ID LESS_THAN_OR_EQUALS promote(@c14 AS LONG) | MAP (_.ID AS A, _.R.V.Z AS B)Èdigraph G {
+ßöÃÍÑ Ì„Î()0æ–78A@eISCAN(I2 <,>) | FILTER _.ID LESS_THAN_OR_EQUALS promote(@c14 AS LONG) | MAP (_.ID AS A, _.R.V.Z AS B)Èdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -163,7 +165,7 @@ g
 }˛
 w
 "user-defined-scalar-function-testsQEXPLAIN select self(self(a_val)) as A, self(a_copy) as B from table_func3(10, 30)Ç
-ú ∏≤\ “¬¢(0çé#8.@èSCAN([IS SIMPLE_TABLE, [GREATER_THAN_OR_EQUALS promote(@c20 AS LONG) && LESS_THAN_OR_EQUALS promote(@c22 AS LONG)]]) | MAP (_.A AS A, _.A AS B)“digraph G {
+Ö˝˜∑\ “∂Ø(0“⁄'8.@èSCAN([IS SIMPLE_TABLE, [GREATER_THAN_OR_EQUALS promote(@c20 AS LONG) && LESS_THAN_OR_EQUALS promote(@c22 AS LONG)]]) | MAP (_.A AS A, _.A AS B)“digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -175,7 +177,7 @@ w
 }Û
 b
 "user-defined-scalar-function-tests<EXPLAIN select * from table_func1(6) where self(id_copy) > 3å
-Ùœ˜¡â éçÉ(*0îóN8D@¶ISCAN(I2 <,>) | FILTER _.ID LESS_THAN_OR_EQUALS promote(@c5 AS LONG) AND _.ID GREATER_THAN promote(@c13 AS LONG) | MAP (_.ID AS ID, _.ID AS ID_COPY, _.R.V.Z AS Z_VAL)ƒdigraph G {
+æñÇ…â ‘°Ò(*0ô‹I8D@¶ISCAN(I2 <,>) | FILTER _.ID LESS_THAN_OR_EQUALS promote(@c5 AS LONG) AND _.ID GREATER_THAN promote(@c13 AS LONG) | MAP (_.ID AS ID, _.ID AS ID_COPY, _.R.V.Z AS Z_VAL)ƒdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -189,7 +191,7 @@ b
 }â
 \
 "user-defined-scalar-function-tests6EXPLAIN select id, abcd(a) as d_val from deep_nested_t®
-≥ËªÏ	; éÏ∂(0“à8@iCOVERING(DEEP_IDX <,> -> [ID: KEY:[2], A: [B: [C: [D: KEY:[0]]]]]) | MAP (_.ID AS ID, _.A.B.C.D AS D_VAL)üdigraph G {
+åâ—º; €ûæ(0¯Ì8@iCOVERING(DEEP_IDX <,> -> [ID: KEY:[2], A: [B: [C: [D: KEY:[0]]]]]) | MAP (_.ID AS ID, _.A.B.C.D AS D_VAL)üdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -201,8 +203,7 @@ b
 }ˇ
 `
 "user-defined-scalar-function-tests:EXPLAIN select abcd(a) from deep_nested_t group by abcd(a)ö
-ƒØ∞Ê
-F ŒêÚ(0êÚ8@`ISCAN(DEEP_IDX <,>) | MAP (_ AS _0) | AGG () GROUP BY (_._0.A.B.C.D AS _0) | MAP (_._0._0 AS _0)ödigraph G {
+©•⁄µF µææ(0›™8@`ISCAN(DEEP_IDX <,>) | MAP (_ AS _0) | AGG () GROUP BY (_._0.A.B.C.D AS _0) | MAP (_._0._0 AS _0)ödigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -215,11 +216,10 @@ b
   4 -> 3 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   5 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}˜
+}ı
 e
-3user-defined-scalar-function-with-expressions-tests.EXPLAIN select add_udf(0, 1l) from range(1, 2)ç
-à¥Ó¬ ∫À
-(0¥®8	@ hTF range(promote(@c10 AS LONG), promote(@c12 AS LONG), STEP 1l) | MAP (promote(@c3 AS LONG) + @c5 AS _0)Üdigraph G {
+3user-defined-scalar-function-with-expressions-tests.EXPLAIN select add_udf(0, 1l) from range(1, 2)ã
+}óq ¶Ù(0ëç8	@ hTF range(promote(@c10 AS LONG), promote(@c12 AS LONG), STEP 1l) | MAP (promote(@c3 AS LONG) + @c5 AS _0)Üdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -229,17 +229,17 @@ e
 }÷
 g
 3user-defined-scalar-function-with-expressions-tests0EXPLAIN select add_udf(5l, 10l) from range(1, 2)Í
-àÕÓU ∫‚(0ò™8	@ WTF range(promote(@c10 AS LONG), promote(@c12 AS LONG), STEP 1l) | MAP (@c3 + @c5 AS _0)ıdigraph G {
+}¥ƒß ù°	(0ãπ8	@ WTF range(promote(@c10 AS LONG), promote(@c12 AS LONG), STEP 1l) | MAP (@c3 + @c5 AS _0)ıdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
   1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (@c3 + @c5 AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0)" ];
   2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">TFUNC range(promote(@c10 AS LONG), promote(@c12 AS LONG), STEP 1l)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
   2 -> 1 [ label=<&nbsp;q0> label="q0" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}í
+}ì
 h
-3user-defined-scalar-function-with-expressions-tests1EXPLAIN select st1_constructor(r.u.x) from nested•
-®òÁ°( —Ü{(0ìõ8@YSCAN([IS NESTED]) | MAP (promote((_.R.U.X AS A, 0l AS _1) AS LONG AS Y, LONG AS Z) AS _0)≠digraph G {
+3user-defined-scalar-function-with-expressions-tests1EXPLAIN select st1_constructor(r.u.x) from nested¶
+ù®ôë( ÄÙÜ(0⁄Û8@YSCAN([IS NESTED]) | MAP (promote((_.R.U.X AS A, 0l AS _1) AS LONG AS Y, LONG AS Z) AS _0)≠digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -248,10 +248,10 @@ h
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [NESTED]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS W, LONG AS X AS U, LONG AS Y, LONG AS Z AS V AS R)" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}ó
+}ñ
 l
-3user-defined-scalar-function-with-expressions-tests5EXPLAIN select st1_constructor_alt(r.u.x) from nested¶
-®äêˇ( ı®ü(0≤¬8@YSCAN([IS NESTED]) | MAP (promote((_.R.U.X AS A, 5l AS _1) AS LONG AS Y, LONG AS Z) AS _0)≠digraph G {
+3user-defined-scalar-function-with-expressions-tests5EXPLAIN select st1_constructor_alt(r.u.x) from nested•
+ùØÅÊ( ó[(0µ˙	8@YSCAN([IS NESTED]) | MAP (promote((_.R.U.X AS A, 5l AS _1) AS LONG AS Y, LONG AS Z) AS _0)≠digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -263,7 +263,7 @@ l
 }å
 V
 3user-defined-scalar-function-with-expressions-testsEXPLAIN select z(r) from nested±
-®´¥£( çºC(0ÛÎ8@'SCAN([IS NESTED]) | MAP (_.R.V.Z AS _0)Î
+ùùÂˆ( —√p(0ÇÇ8@'SCAN([IS NESTED]) | MAP (_.R.V.Z AS _0)Î
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -276,7 +276,8 @@ digraph G {
 }ê
 Z
 3user-defined-scalar-function-with-expressions-tests#EXPLAIN select z_alt(r) from nested±
-®–ı˝( Üóp(0≈Á	8@'SCAN([IS NESTED]) | MAP (_.R.V.Z AS _0)Î
+ù¶©¿( ∑‘i(0äÈ
+8@'SCAN([IS NESTED]) | MAP (_.R.V.Z AS _0)Î
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -286,21 +287,22 @@ digraph G {
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [NESTED]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS W, LONG AS X AS U, LONG AS Y, LONG AS Z AS V AS R)" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}û
+}ù
 
 j
-3user-defined-scalar-function-with-expressions-tests3EXPLAIN select st1_array((1l, 2l)) from range(1, 2)Ø	
-à¿ñ˘ ∆Æ	(0ÀÖ8	@ ≠TF range(promote(@c12 AS LONG), promote(@c14 AS LONG), STEP 1l) | MAP (array(promote(promote((@c4 AS _0, @c6 AS _1) AS LONG AS Y, LONG AS Z) AS LONG AS Y, LONG AS Z)) AS _0)‚digraph G {
+3user-defined-scalar-function-with-expressions-tests3EXPLAIN select st1_array((1l, 2l)) from range(1, 2)Æ	
+}˙®» §”
+(0ÛÖ8	@ ≠TF range(promote(@c12 AS LONG), promote(@c14 AS LONG), STEP 1l) | MAP (array(promote(promote((@c4 AS _0, @c6 AS _1) AS LONG AS Y, LONG AS Z) AS LONG AS Y, LONG AS Z)) AS _0)‚digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
   1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (array(promote(promote((@c4 AS _0, @c6 AS _1) AS LONG AS Y, LONG AS Z) AS LONG AS Y, LONG AS Z)) AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(ARRAY(LONG AS Y, LONG AS Z) AS _0)" ];
   2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">TFUNC range(promote(@c12 AS LONG), promote(@c14 AS LONG), STEP 1l)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
   2 -> 1 [ label=<&nbsp;q0> label="q0" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}˝
+}˛
 d
-3user-defined-scalar-function-with-expressions-tests-EXPLAIN select st1_array_alt(r.v) from nestedî
-®‹‘¥( ˜¯{(0√∑8@MSCAN([IS NESTED]) | MAP (array(promote(_.R.V AS LONG AS Y, LONG AS Z)) AS _0)®digraph G {
+3user-defined-scalar-function-with-expressions-tests-EXPLAIN select st1_array_alt(r.v) from nestedï
+ùÖ™¶( πßÇ(0÷Ω8@MSCAN([IS NESTED]) | MAP (array(promote(_.R.V AS LONG AS Y, LONG AS Z)) AS _0)®digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -309,10 +311,10 @@ d
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [NESTED]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS W, LONG AS X AS U, LONG AS Y, LONG AS Z AS V AS R)" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}ç
+}é
 t
-3user-defined-scalar-function-with-expressions-tests=EXPLAIN select st1_array_without_return_type(r.v) from nestedî
-®πø°( Ôê~(0∞…8@MSCAN([IS NESTED]) | MAP (array(promote(_.R.V AS LONG AS Y, LONG AS Z)) AS _0)®digraph G {
+3user-defined-scalar-function-with-expressions-tests=EXPLAIN select st1_array_without_return_type(r.v) from nestedï
+ùÈ›¶( ÛÛà(0åÜ8@MSCAN([IS NESTED]) | MAP (array(promote(_.R.V AS LONG AS Y, LONG AS Z)) AS _0)®digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -321,21 +323,21 @@ t
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [NESTED]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS W, LONG AS X AS U, LONG AS Y, LONG AS Z AS V AS R)" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}Œ
+}Õ
 
 {
-3user-defined-scalar-function-with-expressions-testsDEXPLAIN select st1_array_first(st1_array((1l, 2l))) from range(1, 2)Œ	
-à÷»© ¿ï	(0ñö8	@ ¿TF range(promote(@c15 AS LONG), promote(@c17 AS LONG), STEP 1l) | MAP (array(promote(promote((@c6 AS _0, @c8 AS _1) AS LONG AS Y, LONG AS Z) AS LONG AS Y, LONG AS Z))[promote(1 AS INT)] AS _0)Ódigraph G {
+3user-defined-scalar-function-with-expressions-testsDEXPLAIN select st1_array_first(st1_array((1l, 2l))) from range(1, 2)Õ	
+}‰˚© Êö(0∑Ø8	@ ¿TF range(promote(@c15 AS LONG), promote(@c17 AS LONG), STEP 1l) | MAP (array(promote(promote((@c6 AS _0, @c8 AS _1) AS LONG AS Y, LONG AS Z) AS LONG AS Y, LONG AS Z))[promote(1 AS INT)] AS _0)Ódigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
   1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (array(promote(promote((@c6 AS _0, @c8 AS _1) AS LONG AS Y, LONG AS Z) AS LONG AS Y, LONG AS Z))[promote(1 AS INT)] AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS Y, LONG AS Z AS _0)" ];
   2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">TFUNC range(promote(@c15 AS LONG), promote(@c17 AS LONG), STEP 1l)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
   2 -> 1 [ label=<&nbsp;q0> label="q0" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}¸
+}˝
 ÷
-3user-defined-scalar-function-with-expressions-tests?EXPLAIN select temp_constructor(r.u.w) from nested where id = 1^create temporary function temp_constructor(IN x bigint) on commit drop function return (x, 5L)†
-˜≈ı°9 ÷’s(0ñπ8@VSCAN([IS NESTED, EQUALS promote(@c14 AS LONG)]) | MAP ((_.R.U.W AS X, 5l AS _1) AS _0)´digraph G {
+3user-defined-scalar-function-with-expressions-tests?EXPLAIN select temp_constructor(r.u.w) from nested where id = 1^create temporary function temp_constructor(IN x bigint) on commit drop function return (x, 5L)°
+‡Å…¿9 Úèö(0˙ü8@VSCAN([IS NESTED, EQUALS promote(@c14 AS LONG)]) | MAP ((_.R.U.W AS X, 5l AS _1) AS _0)´digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -344,51 +346,50 @@ t
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [NESTED]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS W, LONG AS X AS U, LONG AS Y, LONG AS Z AS V AS R)" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q4> label="q4" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}Œ	
+}Ã	
 w
-3user-defined-scalar-function-with-expressions-tests@EXPLAIN select st1_constructor_with_defaults(4) from range(1, 2)“
-à∑˘¬ Ó»
-(0Ëó8	@ ÇTF range(promote(@c8 AS LONG), promote(@c10 AS LONG), STEP 1l) | MAP ((promote(@c3 AS LONG) AS Y, promote(2l AS LONG) AS Z) AS _0)∞digraph G {
+3user-defined-scalar-function-with-expressions-tests@EXPLAIN select st1_constructor_with_defaults(4) from range(1, 2)–
+}ü˜R ≠©	(0πü8	@ ÇTF range(promote(@c8 AS LONG), promote(@c10 AS LONG), STEP 1l) | MAP ((promote(@c3 AS LONG) AS Y, promote(2l AS LONG) AS Z) AS _0)∞digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
   1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP ((promote(@c3 AS LONG) AS Y, promote(2l AS LONG) AS Z) AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS Y, LONG AS Z AS _0)" ];
   2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">TFUNC range(promote(@c8 AS LONG), promote(@c10 AS LONG), STEP 1l)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
   2 -> 1 [ label=<&nbsp;q0> label="q0" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}‚	
+}·	
 {
-3user-defined-scalar-function-with-expressions-testsDEXPLAIN select st1_constructor_with_defaults((3*2)) from range(1, 2)‚
-àëÃ– ˆÜ(0∑Í8	@ äTF range(promote(@c12 AS LONG), promote(@c14 AS LONG), STEP 1l) | MAP ((promote(@c4 * @c14 AS LONG) AS Y, promote(2l AS LONG) AS Z) AS _0)∏digraph G {
+3user-defined-scalar-function-with-expressions-testsDEXPLAIN select st1_constructor_with_defaults((3*2)) from range(1, 2)·
+}∑Ωë µÄ(0î—8	@ äTF range(promote(@c12 AS LONG), promote(@c14 AS LONG), STEP 1l) | MAP ((promote(@c4 * @c14 AS LONG) AS Y, promote(2l AS LONG) AS Z) AS _0)∏digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
   1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP ((promote(@c4 * @c14 AS LONG) AS Y, promote(2l AS LONG) AS Z) AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS Y, LONG AS Z AS _0)" ];
   2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">TFUNC range(promote(@c12 AS LONG), promote(@c14 AS LONG), STEP 1l)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
   2 -> 1 [ label=<&nbsp;q0> label="q0" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}’	
+}‘	
 z
-3user-defined-scalar-function-with-expressions-testsCEXPLAIN select st1_constructor_with_defaults(4, 5) from range(1, 2)÷
-à˜ƒÚ öŸ	(0˜Â8	@ ÑTF range(promote(@c10 AS LONG), promote(@c12 AS LONG), STEP 1l) | MAP ((promote(@c3 AS LONG) AS Y, promote(@c5 AS LONG) AS Z) AS _0)≤digraph G {
+3user-defined-scalar-function-with-expressions-testsCEXPLAIN select st1_constructor_with_defaults(4, 5) from range(1, 2)’
+}í®¥ Ω˘(0ãπ8	@ ÑTF range(promote(@c10 AS LONG), promote(@c12 AS LONG), STEP 1l) | MAP ((promote(@c3 AS LONG) AS Y, promote(@c5 AS LONG) AS Z) AS _0)≤digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
   1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP ((promote(@c3 AS LONG) AS Y, promote(@c5 AS LONG) AS Z) AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS Y, LONG AS Z AS _0)" ];
   2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">TFUNC range(promote(@c10 AS LONG), promote(@c12 AS LONG), STEP 1l)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
   2 -> 1 [ label=<&nbsp;q0> label="q0" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}’	
+}”	
 |
-3user-defined-scalar-function-with-expressions-testsEEXPLAIN select st1_constructor_with_defaults(y => 4) from range(1, 2)‘
-àÜ≥€ Ÿ’(0˙Ü8	@ ÉTF range(promote(@c10 AS LONG), promote(@c12 AS LONG), STEP 1l) | MAP ((promote(@c5 AS LONG) AS Y, promote(2l AS LONG) AS Z) AS _0)±digraph G {
+3user-defined-scalar-function-with-expressions-testsEEXPLAIN select st1_constructor_with_defaults(y => 4) from range(1, 2)“
+}Ë®n ”„	(0•8	@ ÉTF range(promote(@c10 AS LONG), promote(@c12 AS LONG), STEP 1l) | MAP ((promote(@c5 AS LONG) AS Y, promote(2l AS LONG) AS Z) AS _0)±digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
   1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP ((promote(@c5 AS LONG) AS Y, promote(2l AS LONG) AS Z) AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS Y, LONG AS Z AS _0)" ];
   2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">TFUNC range(promote(@c10 AS LONG), promote(@c12 AS LONG), STEP 1l)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
   2 -> 1 [ label=<&nbsp;q0> label="q0" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}¡	
+}¿	
 j
-3user-defined-scalar-function-with-expressions-tests3EXPLAIN select st1_constructor(5l) from range(1, 2)“
-àôæ⁄ åô	(0˘∞8	@ ÇTF range(promote(@c8 AS LONG), promote(@c10 AS LONG), STEP 1l) | MAP (promote((@c3 AS A, 0l AS _1) AS LONG AS Y, LONG AS Z) AS _0)∞digraph G {
+3user-defined-scalar-function-with-expressions-tests3EXPLAIN select st1_constructor(5l) from range(1, 2)—
+}ªèÆ ‹Õ(0˚Ô8	@ ÇTF range(promote(@c8 AS LONG), promote(@c10 AS LONG), STEP 1l) | MAP (promote((@c3 AS A, 0l AS _1) AS LONG AS Y, LONG AS Z) AS _0)∞digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;

@@ -1,7 +1,7 @@
 …G
 §
 union-tests—EXPLAIN select sum(a) as a, sum(b) as b from (select sum(col1) as a, count(*) as b from t1 union all select sum(col1) as a, count(*) as b from t2) as xØE
-ü‰½ ´ ãÃŠ(50Þ«?8F@îISCAN(VI1 <,>) | MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0, count_star(*) AS _1) GROUP BY () | ON EMPTY NULL | MAP (_._0._0 AS A, coalesce_long(_._0._1, promote(0l AS LONG)) AS B) âŠŽ SCAN([IS T2]) | MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0, count_star(*) AS _1) GROUP BY () | ON EMPTY NULL | MAP (_._0._0 AS A, coalesce_long(_._0._1, promote(0l AS LONG)) AS B) | MAP (_ AS _0) | AGG (sum_l(_._0.A) AS _0, sum_l(_._0.B) AS _1) GROUP BY () | ON EMPTY NULL | MAP (_._0._0 AS A, _._0._1 AS B)ÈAdigraph G {
+«±¨÷	´ ÇžÄ(50±ò(8F@îISCAN(VI1 <,>) | MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0, count_star(*) AS _1) GROUP BY () | ON EMPTY NULL | MAP (_._0._0 AS A, coalesce_long(_._0._1, promote(0l AS LONG)) AS B) âŠŽ SCAN([IS T2]) | MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0, count_star(*) AS _1) GROUP BY () | ON EMPTY NULL | MAP (_._0._0 AS A, coalesce_long(_._0._1, promote(0l AS LONG)) AS B) | MAP (_ AS _0) | AGG (sum_l(_._0.A) AS _0, sum_l(_._0.B) AS _1) GROUP BY () | ON EMPTY NULL | MAP (_._0._0 AS A, _._0._1 AS B)ÈAdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -41,7 +41,7 @@
 }ð7
 Œ
 union-tests}EXPLAIN select sum(Y) as S from (select count(*) as Y from t3 where a < 10 group by a union all select count(*) from t4) as XÞ6
-ð“Ñ®Ð Ô„ü	(70„¤48A@ÞAISCAN(MV10 [[LESS_THAN promote(@c21 AS DOUBLE)]] BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._1 AS Y) âŠŽ SCAN([IS T4]) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0) | MAP (_ AS _0) | AGG (sum_l(_._0.Y) AS _0) GROUP BY () | ON EMPTY NULL | MAP (_._0._0 AS S)Þ3digraph G {
+´¡‡ûÐ ‚˜‡(70µŠ*8A@ÞAISCAN(MV10 [[LESS_THAN promote(@c21 AS DOUBLE)]] BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._1 AS Y) âŠŽ SCAN([IS T4]) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0) | MAP (_ AS _0) | AGG (sum_l(_._0.Y) AS _0) GROUP BY () | ON EMPTY NULL | MAP (_._0._0 AS S)Þ3digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -75,7 +75,7 @@
 }ÎC
 t
 union-testseEXPLAIN select sum(Y) as S from (select count(*) as Y from t3 union all select count(*) from t1) as XÕB
-‚ü˜ŠÔ Æìµ(A0Ô”[8R@­AISCAN(MV10 <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | AGG sum_l(_._1) GROUP BY () | MAP ((_._1 AS _0) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS Y) âŠŽ ISCAN(VI1 <,>) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0) | MAP (_ AS _0) | AGG (sum_l(_._0.Y) AS _0) GROUP BY () | ON EMPTY NULL | MAP (_._0._0 AS S)†?digraph G {
+¤ÞîòÔ ÿó¤(A0†òD8R@­AISCAN(MV10 <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | AGG sum_l(_._1) GROUP BY () | MAP ((_._1 AS _0) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS Y) âŠŽ ISCAN(VI1 <,>) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0) | MAP (_ AS _0) | AGG (sum_l(_._0.Y) AS _0) GROUP BY () | ON EMPTY NULL | MAP (_._0._0 AS S)†?digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -115,7 +115,7 @@ t
 }á:
 t
 union-testseEXPLAIN select sum(Y) as S from (select count(*) as Y from t6 union all select count(*) from t7) as Xè9
-Øúº²Ü ¿¦Â(>0±ßF8J@íAISCAN(MV11 <,> BY_GROUP -> [_0: VALUE:[0]]) | MAP (_ AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS Y) âŠŽ AISCAN(MV12 <,> BY_GROUP -> [_0: VALUE:[0]]) | MAP (_ AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0) | MAP (_ AS _0) | AGG (sum_l(_._0.Y) AS _0) GROUP BY () | ON EMPTY NULL | MAP (_._0._0 AS S)Ù6digraph G {
+ˆž£çÜ ˆª½(>0’¸58J@íAISCAN(MV11 <,> BY_GROUP -> [_0: VALUE:[0]]) | MAP (_ AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS Y) âŠŽ AISCAN(MV12 <,> BY_GROUP -> [_0: VALUE:[0]]) | MAP (_ AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0) | MAP (_ AS _0) | AGG (sum_l(_._0.Y) AS _0) GROUP BY () | ON EMPTY NULL | MAP (_._0._0 AS S)Ù6digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;

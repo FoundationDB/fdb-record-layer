@@ -1,7 +1,7 @@
 ´
 4
 orderby-tests#EXPLAIN select c from t1 order by bÚ
-ÏúäÿM Ã•Ù($0´èx8@fCOVERING(I1 <,> -> [A: KEY:[2], B: KEY:[0], C: VALUE:[0]]) | MAP (_.C AS C, _.B AS B) | MAP (_.C AS C)Ïdigraph G {
+…·ˇ∏M ∏à†($0Õ‹,8@fCOVERING(I1 <,> -> [A: KEY:[2], B: KEY:[0], C: VALUE:[0]]) | MAP (_.C AS C, _.B AS B) | MAP (_.C AS C)Ïdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -15,7 +15,7 @@
 }´
 4
 orderby-tests#EXPLAIN select b from t1 order by cÚ
-éîåÄ^ ¬˛°(+0÷…R8)@fCOVERING(I2 <,> -> [A: KEY:[2], B: VALUE:[0], C: KEY:[0]]) | MAP (_.B AS B, _.C AS C) | MAP (_.B AS B)Ïdigraph G {
+»ıñ‰^ ÎÈÚ(+0ü‘=8)@fCOVERING(I2 <,> -> [A: KEY:[2], B: VALUE:[0], C: KEY:[0]]) | MAP (_.B AS B, _.C AS C) | MAP (_.B AS B)Ïdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -29,7 +29,7 @@
 }Í
 9
 orderby-tests(EXPLAIN select c from t1 order by b desc¨
-Ï∫˛ºM ÚÔû($0◊Ú-8@nCOVERING(I1 <,> REVERSE -> [A: KEY:[2], B: KEY:[0], C: VALUE:[0]]) | MAP (_.C AS C, _.B AS B) | MAP (_.C AS C)ûdigraph G {
+…∆‹ÜM æÕà($0ã›*8@nCOVERING(I1 <,> REVERSE -> [A: KEY:[2], B: KEY:[0], C: VALUE:[0]]) | MAP (_.C AS C, _.B AS B) | MAP (_.C AS C)ûdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -40,10 +40,11 @@
   3 -> 2 [ label=<&nbsp;q47> label="q47" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}Î
+}Í
 9
-orderby-tests(EXPLAIN select b from t1 order by c desc≠
-éìƒÚ^ µ«”	(+0àÿ‡8)@nCOVERING(I2 <,> REVERSE -> [A: KEY:[2], B: VALUE:[0], C: KEY:[0]]) | MAP (_.B AS B, _.C AS C) | MAP (_.B AS B)ûdigraph G {
+orderby-tests(EXPLAIN select b from t1 order by c desc¨
+»˙‡Û
+^ œ°≥(+0†§68)@nCOVERING(I2 <,> REVERSE -> [A: KEY:[2], B: VALUE:[0], C: KEY:[0]]) | MAP (_.B AS B, _.C AS C) | MAP (_.B AS B)ûdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -57,7 +58,7 @@
 }Å
 @
 orderby-tests/EXPLAIN select c, b from t5 order by c, b desc;º
-Éó„◊5 îÄÌ(0ø˙28@xCOVERING(I8 <,> -> [A: KEY:[3], B: from_ordered_bytes(KEY:[1], DESC_NULLS_LAST), C: KEY:[0]]) | MAP (_.C AS C, _.B AS B)§
+Á»œ∞5 ˛¿ç(0Õ•#8@xCOVERING(I8 <,> -> [A: KEY:[3], B: from_ordered_bytes(KEY:[1], DESC_NULLS_LAST), C: KEY:[0]]) | MAP (_.C AS C, _.B AS B)§
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -70,7 +71,7 @@ digraph G {
 }˝
 Z
 orderby-testsIEXPLAIN select q as "nested", q.a as "ordered" from t2 order by "ordered"û
-Â∑πˇ5 »˙º(0ã˚8@5ISCAN(I4 <,>) | MAP (_.Q AS nested, _.Q.A AS ordered)…
+“ñ ä	5 ßîÿ(0ºÆ&8@5ISCAN(I4 <,>) | MAP (_.Q AS nested, _.Q.A AS ordered)…
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -83,7 +84,8 @@ digraph G {
 }©
 s
 orderby-testsbEXPLAIN select (T.*) from (select q as "nested", q.a as "ordered" from t2) as T order by "ordered"±
-Å€¡í; ˘ˇ£(0›ö78@<ISCAN(I4 <,>) | MAP ((_.Q AS nested, _.Q.A AS ordered) AS T)’
+Ó¸Ùü
+; ÄÑÀ(0¿Î8@<ISCAN(I4 <,>) | MAP ((_.Q AS nested, _.Q.A AS ordered) AS T)’
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -96,7 +98,7 @@ digraph G {
 }ê
 E
 orderby-tests4EXPLAIN select (*) from t2_func() order by "ordered"∆
-Å§Ò˝; îÚô(0è∞!8@CISCAN(I4 <,>) | MAP ((_.Q AS nesting, _.Q.A AS ordered) AS T2_FUNC)„
+ÓΩºË	; ø¢Ì(0°Ÿ28@CISCAN(I4 <,>) | MAP ((_.Q AS nesting, _.Q.A AS ordered) AS T2_FUNC)„
 digraph G {
   fontname=courier;
   rankdir=BT;

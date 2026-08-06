@@ -3,10 +3,10 @@ agg-index-tests-count-empty:
     ref: aggregate-index-tests-count-empty.yamsql:36
     explain: 'AISCAN(MV1 <,> BY_GROUP -> [_0: VALUE:[0]]) | MAP (_ AS _0) | ON EMPTY
         NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)'
-    task_count: 502
-    task_total_time_ms: 39
+    task_count: 457
+    task_total_time_ms: 30
     transform_count: 120
-    transform_time_ms: 21
+    transform_time_ms: 18
     transform_yield_count: 46
     insert_time_ms: 0
     insert_new_count: 35
@@ -15,8 +15,8 @@ agg-index-tests-count-empty:
     ref: aggregate-index-tests-count-empty.yamsql:44
     explain: 'AISCAN(MV2 <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._1
         AS _0)'
-    task_count: 403
-    task_total_time_ms: 32
+    task_count: 378
+    task_total_time_ms: 30
     transform_count: 114
     transform_time_ms: 19
     transform_yield_count: 44
@@ -27,10 +27,10 @@ agg-index-tests-count-empty:
     ref: aggregate-index-tests-count-empty.yamsql:49
     explain: 'AISCAN(MV3 <,> BY_GROUP -> [_0: VALUE:[0]]) | MAP (_ AS _0) | ON EMPTY
         NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)'
-    task_count: 502
-    task_total_time_ms: 15
+    task_count: 457
+    task_total_time_ms: 29
     transform_count: 120
-    transform_time_ms: 9
+    transform_time_ms: 16
     transform_yield_count: 46
     insert_time_ms: 0
     insert_new_count: 35
@@ -39,10 +39,10 @@ agg-index-tests-count-empty:
     ref: aggregate-index-tests-count-empty.yamsql:57
     explain: 'AISCAN(MV4 <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._1
         AS _0)'
-    task_count: 403
-    task_total_time_ms: 36
+    task_count: 378
+    task_total_time_ms: 22
     transform_count: 114
-    transform_time_ms: 21
+    transform_time_ms: 14
     transform_yield_count: 44
     insert_time_ms: 0
     insert_new_count: 24
@@ -51,8 +51,8 @@ agg-index-tests-count-empty:
     ref: aggregate-index-tests-count-empty.yamsql:65
     explain: ISCAN(MV5 <,>) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY ()
         | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)
-    task_count: 396
-    task_total_time_ms: 23
+    task_count: 353
+    task_total_time_ms: 20
     transform_count: 76
     transform_time_ms: 5
     transform_yield_count: 27
@@ -63,10 +63,10 @@ agg-index-tests-count-empty:
     ref: aggregate-index-tests-count-empty.yamsql:71
     explain: ISCAN(MV5 <,>) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY (_._0.COL2
         AS _0) | MAP (_._1._0 AS _0)
-    task_count: 324
-    task_total_time_ms: 20
+    task_count: 297
+    task_total_time_ms: 18
     transform_count: 70
-    transform_time_ms: 5
+    transform_time_ms: 6
     transform_yield_count: 24
     insert_time_ms: 0
     insert_new_count: 25
@@ -75,10 +75,10 @@ agg-index-tests-count-empty:
     ref: aggregate-index-tests-count-empty.yamsql:75
     explain: ISCAN(MV5 <,>) | MAP (_ AS _0) | AGG (count(_._0.COL1) AS _0) GROUP BY
         () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)
-    task_count: 396
-    task_total_time_ms: 21
+    task_count: 353
+    task_total_time_ms: 19
     transform_count: 76
-    transform_time_ms: 5
+    transform_time_ms: 4
     transform_yield_count: 27
     insert_time_ms: 0
     insert_new_count: 33
@@ -87,10 +87,10 @@ agg-index-tests-count-empty:
     ref: aggregate-index-tests-count-empty.yamsql:81
     explain: ISCAN(MV5 <,>) | MAP (_ AS _0) | AGG (count(_._0.COL1) AS _0) GROUP BY
         (_._0.COL2 AS _0) | MAP (_._1._0 AS _0)
-    task_count: 324
-    task_total_time_ms: 22
+    task_count: 297
+    task_total_time_ms: 19
     transform_count: 70
-    transform_time_ms: 5
+    transform_time_ms: 4
     transform_yield_count: 24
     insert_time_ms: 0
     insert_new_count: 25
@@ -101,10 +101,10 @@ agg-index-tests-count-empty:
         _1: KEY:[1], _2: VALUE:[0]]) | AGG sum_l(_._2) GROUP BY (_._0 AS _0) | MAP
         ((_._2 AS _0) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l
         AS LONG)) AS _0)'
-    task_count: 500
-    task_total_time_ms: 40
+    task_count: 456
+    task_total_time_ms: 26
     transform_count: 123
-    transform_time_ms: 21
+    transform_time_ms: 15
     transform_yield_count: 44
     insert_time_ms: 0
     insert_new_count: 35

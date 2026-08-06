@@ -1,7 +1,7 @@
 Ş
 U
 %simple-query-with-different-debuggers,EXPLAIN select id, col1 from t1 where id > 1„
-÷Ù³¾9 ÀºT(0½É8@USCAN([IS T1, [GREATER_THAN promote(@c9 AS LONG)]]) | MAP (_.ID AS ID, _.COL1 AS COL1)digraph G {
+àÈÎÌ9 Ãc(0Í‘	8@USCAN([IS T1, [GREATER_THAN promote(@c9 AS LONG)]]) | MAP (_.ID AS ID, _.COL1 AS COL1)digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -13,7 +13,7 @@ U
 }Ş
 U
 %simple-query-with-different-debuggers,EXPLAIN select id, col2 from t1 where id > 1„
-÷—íÆ9 ‹¥p(0ê¦8@USCAN([IS T1, [GREATER_THAN promote(@c9 AS LONG)]]) | MAP (_.ID AS ID, _.COL2 AS COL2)digraph G {
+àù¹›9 ï_(0­«8@USCAN([IS T1, [GREATER_THAN promote(@c9 AS LONG)]]) | MAP (_.ID AS ID, _.COL2 AS COL2)digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -25,7 +25,7 @@ U
 }ß
 U
 %simple-query-with-different-debuggers,EXPLAIN select id, col3 from t1 where id > 1…
-÷È¨Ú9 ¾û”(0¨ú8@USCAN([IS T1, [GREATER_THAN promote(@c9 AS LONG)]]) | MAP (_.ID AS ID, _.COL3 AS COL3)digraph G {
+à­Š¬9 ˆ€ú(0´°l8@USCAN([IS T1, [GREATER_THAN promote(@c9 AS LONG)]]) | MAP (_.ID AS ID, _.COL3 AS COL3)digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;

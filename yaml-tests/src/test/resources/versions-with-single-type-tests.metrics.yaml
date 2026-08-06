@@ -2,8 +2,8 @@ single-type-versions-queries:
 -   query: EXPLAIN select * from t1;
     ref: versions-with-single-type-tests.yamsql:56
     explain: SCAN([IS T1]) | MAP (_.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2)
-    task_count: 168
-    task_total_time_ms: 10
+    task_count: 157
+    task_total_time_ms: 9
     transform_count: 40
     transform_time_ms: 2
     transform_yield_count: 13
@@ -13,8 +13,8 @@ single-type-versions-queries:
 -   query: EXPLAIN select *, "__ROW_VERSION" from t1;
     ref: versions-with-single-type-tests.yamsql:74
     explain: SCAN([IS T1])
-    task_count: 190
-    task_total_time_ms: 11
+    task_count: 173
+    task_total_time_ms: 9
     transform_count: 45
     transform_time_ms: 2
     transform_yield_count: 15
@@ -25,8 +25,8 @@ single-type-versions-queries:
     ref: versions-with-single-type-tests.yamsql:92
     explain: SCAN([IS T1]) | FILTER _.COL1 EQUALS promote(@c9 AS LONG) | MAP (_.__ROW_VERSION
         AS __ROW_VERSION, _.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2)
-    task_count: 242
-    task_total_time_ms: 14
+    task_count: 222
+    task_total_time_ms: 11
     transform_count: 59
     transform_time_ms: 3
     transform_yield_count: 15
@@ -37,10 +37,10 @@ single-type-versions-queries:
     ref: versions-with-single-type-tests.yamsql:105
     explain: SCAN([IS T1]) | FILTER _.COL1 EQUALS promote(@c5 AS LONG) | MAP (_.__ROW_VERSION
         AS __ROW_VERSION, _.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2)
-    task_count: 407
-    task_total_time_ms: 34
+    task_count: 387
+    task_total_time_ms: 24
     transform_count: 94
-    transform_time_ms: 8
+    transform_time_ms: 6
     transform_yield_count: 28
     insert_time_ms: 0
     insert_new_count: 47

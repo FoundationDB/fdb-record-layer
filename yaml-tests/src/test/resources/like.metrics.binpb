@@ -1,7 +1,7 @@
 Ç
 6
 	unnamed-4)EXPLAIN select * from C WHERE C2 LIKE '%'«
-óﬂÔ§M ö°ù(0∏›8#@[COVERING(C2 <,> -> [C1: KEY:[2], C2: KEY:[0]]) | FILTER _.C2 LIKE @c7 ESCAPE 'null' | FETCHÃdigraph G {
+ﬁÇ”æM ‹‹Õ(0·ó8#@[COVERING(C2 <,> -> [C1: KEY:[2], C2: KEY:[0]]) | FILTER _.C2 LIKE @c7 ESCAPE 'null' | FETCHÃdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -15,7 +15,7 @@
 }É
 7
 	unnamed-4*EXPLAIN select * from C WHERE C2 LIKE 'a%'«
-óﬂÔ§M ö°ù(0∏›8#@[COVERING(C2 <,> -> [C1: KEY:[2], C2: KEY:[0]]) | FILTER _.C2 LIKE @c7 ESCAPE 'null' | FETCHÃdigraph G {
+ﬁÇ”æM ‹‹Õ(0·ó8#@[COVERING(C2 <,> -> [C1: KEY:[2], C2: KEY:[0]]) | FILTER _.C2 LIKE @c7 ESCAPE 'null' | FETCHÃdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -29,7 +29,7 @@
 }Ñ
 8
 	unnamed-4+EXPLAIN select * from C WHERE C2 LIKE 'ap%'«
-óﬂÔ§M ö°ù(0∏›8#@[COVERING(C2 <,> -> [C1: KEY:[2], C2: KEY:[0]]) | FILTER _.C2 LIKE @c7 ESCAPE 'null' | FETCHÃdigraph G {
+ﬁÇ”æM ‹‹Õ(0·ó8#@[COVERING(C2 <,> -> [C1: KEY:[2], C2: KEY:[0]]) | FILTER _.C2 LIKE @c7 ESCAPE 'null' | FETCHÃdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -43,7 +43,7 @@
 }Ö
 9
 	unnamed-4,EXPLAIN select * from C WHERE C2 LIKE 'a%l%'«
-óﬂÔ§M ö°ù(0∏›8#@[COVERING(C2 <,> -> [C1: KEY:[2], C2: KEY:[0]]) | FILTER _.C2 LIKE @c7 ESCAPE 'null' | FETCHÃdigraph G {
+ﬁÇ”æM ‹‹Õ(0·ó8#@[COVERING(C2 <,> -> [C1: KEY:[2], C2: KEY:[0]]) | FILTER _.C2 LIKE @c7 ESCAPE 'null' | FETCHÃdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -57,7 +57,7 @@
 }Ñ
 8
 	unnamed-4+EXPLAIN select * from C WHERE C2 LIKE 'ca%'«
-óﬂÔ§M ö°ù(0∏›8#@[COVERING(C2 <,> -> [C1: KEY:[2], C2: KEY:[0]]) | FILTER _.C2 LIKE @c7 ESCAPE 'null' | FETCHÃdigraph G {
+ﬁÇ”æM ‹‹Õ(0·ó8#@[COVERING(C2 <,> -> [C1: KEY:[2], C2: KEY:[0]]) | FILTER _.C2 LIKE @c7 ESCAPE 'null' | FETCHÃdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -71,7 +71,7 @@
 }Ü
 :
 	unnamed-4-EXPLAIN select * from C WHERE C2 LIKE 'ca_al'«
-óﬂÔ§M ö°ù(0∏›8#@[COVERING(C2 <,> -> [C1: KEY:[2], C2: KEY:[0]]) | FILTER _.C2 LIKE @c7 ESCAPE 'null' | FETCHÃdigraph G {
+ﬁÇ”æM ‹‹Õ(0·ó8#@[COVERING(C2 <,> -> [C1: KEY:[2], C2: KEY:[0]]) | FILTER _.C2 LIKE @c7 ESCAPE 'null' | FETCHÃdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -85,7 +85,7 @@
 }Ü
 :
 	unnamed-4-EXPLAIN select * from C WHERE C2 LIKE 'ca%al'«
-óﬂÔ§M ö°ù(0∏›8#@[COVERING(C2 <,> -> [C1: KEY:[2], C2: KEY:[0]]) | FILTER _.C2 LIKE @c7 ESCAPE 'null' | FETCHÃdigraph G {
+ﬁÇ”æM ‹‹Õ(0·ó8#@[COVERING(C2 <,> -> [C1: KEY:[2], C2: KEY:[0]]) | FILTER _.C2 LIKE @c7 ESCAPE 'null' | FETCHÃdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -99,7 +99,7 @@
 }á
 ;
 	unnamed-4.EXPLAIN select * from C WHERE C2 LIKE 'ca_al%'«
-óﬂÔ§M ö°ù(0∏›8#@[COVERING(C2 <,> -> [C1: KEY:[2], C2: KEY:[0]]) | FILTER _.C2 LIKE @c7 ESCAPE 'null' | FETCHÃdigraph G {
+ﬁÇ”æM ‹‹Õ(0·ó8#@[COVERING(C2 <,> -> [C1: KEY:[2], C2: KEY:[0]]) | FILTER _.C2 LIKE @c7 ESCAPE 'null' | FETCHÃdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -113,7 +113,7 @@
 }á
 ;
 	unnamed-4.EXPLAIN select * from C WHERE C2 LIKE 'ca%al%'«
-óﬂÔ§M ö°ù(0∏›8#@[COVERING(C2 <,> -> [C1: KEY:[2], C2: KEY:[0]]) | FILTER _.C2 LIKE @c7 ESCAPE 'null' | FETCHÃdigraph G {
+ﬁÇ”æM ‹‹Õ(0·ó8#@[COVERING(C2 <,> -> [C1: KEY:[2], C2: KEY:[0]]) | FILTER _.C2 LIKE @c7 ESCAPE 'null' | FETCHÃdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;

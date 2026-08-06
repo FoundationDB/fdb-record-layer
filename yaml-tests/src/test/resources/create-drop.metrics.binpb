@@ -1,7 +1,7 @@
 ‘
 S
 	unnamed-4FEXPLAIN select count(*) from "TEMPLATES" where template_name = 'TEMP1'¸
-Ú––ÂS áº≥(0îƒ8@∂SCAN([IS TEMPLATES, EQUALS promote(@c10 AS STRING)]) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)•digraph G {
+”∫€ÉS €≠Ä(0Éœ8@∂SCAN([IS TEMPLATES, EQUALS promote(@c10 AS STRING)]) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)•digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -16,11 +16,11 @@ S
   5 -> 4 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   6 -> 5 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}«
+}»
 T
 
-unnamed-10FEXPLAIN select count(*) from "DATABASES" where database_id = '/FRL/DB'Ó
-˛çÖñ\ ÓÀ}(0¢˚8@∂SCAN([IS DATABASES, EQUALS promote(@c10 AS STRING)]) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)òdigraph G {
+unnamed-10FEXPLAIN select count(*) from "DATABASES" where database_id = '/FRL/DB'Ô
+ﬂáªò\ ñÖÇ(0»‡8@∂SCAN([IS DATABASES, EQUALS promote(@c10 AS STRING)]) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)òdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -39,7 +39,7 @@ unnamed-10FEXPLAIN select count(*) from "DATABASES" where database_id = '/FRL/D
 R
 
 unnamed-20DEXPLAIN select count(*) from "SCHEMAS" where database_id = '/FRL/DB'«
-¥ˇ˚»ç ¯ﬂâ(,0•´8<@¥SCAN([IS SCHEMAS, EQUALS promote(@c10 AS STRING)]) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)Òdigraph G {
+‹ﬁ“˜ç °ºÁ(,0ã‰8<@¥SCAN([IS SCHEMAS, EQUALS promote(@c10 AS STRING)]) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)Òdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;

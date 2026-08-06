@@ -3,10 +3,10 @@ unnamed-3:
         < 20)
     ref: null-extraction-tests.yamsql:49
     explain: ISCAN(I1 [EQUALS promote(@c7 AS LONG), EQUALS @c11])
-    task_count: 424
-    task_total_time_ms: 27
+    task_count: 364
+    task_total_time_ms: 23
     transform_count: 80
-    transform_time_ms: 9
+    transform_time_ms: 8
     transform_yield_count: 32
     insert_time_ms: 0
     insert_new_count: 35
@@ -18,10 +18,10 @@ agg-index-tests-count:
     explain: 'COVERING(I1 [EQUALS promote(@c7 AS LONG), EQUALS promote(@c11 AS STRING)]
         -> [B1: KEY:[3], B2: KEY:[1], B3: KEY:[0]]) | FILTER @c14 IS_NULL OR _.B1
         LESS_THAN promote(@c20 AS INT) | FETCH'
-    task_count: 2366
-    task_total_time_ms: 40
+    task_count: 1963
+    task_total_time_ms: 47
     transform_count: 292
-    transform_time_ms: 12
+    transform_time_ms: 14
     transform_yield_count: 94
     insert_time_ms: 1
     insert_new_count: 203

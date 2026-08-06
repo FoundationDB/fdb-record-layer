@@ -1,7 +1,7 @@
 ·
 j
 	unnamed-2]EXPLAIN select id, col1, col2 from (select * from (select * from T1) as x where ID = 5) as y;È
-é˜¶àK ‰àŒ(0‡Á/8@dSCAN([EQUALS promote(@c22 AS LONG)]) | TFILTER T1 | MAP (_.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2)Ädigraph G {
+ÌËóÙ	K î‡ù(0ªƒ$8@dSCAN([EQUALS promote(@c22 AS LONG)]) | TFILTER T1 | MAP (_.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2)Ädigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -15,7 +15,8 @@ j
 }·
 j
 	unnamed-2]EXPLAIN select id, col1, col2 from (select * from (select * from T1) as x) as y where ID = 5;È
-éÝ½©K ˜ÎÌ(0ò·08@dSCAN([EQUALS promote(@c25 AS LONG)]) | TFILTER T1 | MAP (_.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2)Ädigraph G {
+ÌãÌå
+K Ï¡(0£·+8@dSCAN([EQUALS promote(@c25 AS LONG)]) | TFILTER T1 | MAP (_.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2)Ädigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -29,8 +30,7 @@ j
 }í
 z
 	unnamed-2mEXPLAIN select count(*) from (select * from (select * from (select * from T1  where ID = 5) as x) as y) as z;î
-ÙØ«ú
-b —‚¶(0Ðµ8)@³SCAN([EQUALS promote(@c22 AS LONG)]) | TFILTER T1 | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)šdigraph G {
+´þðÀ	b ÿÎ¤(0†ù8)@³SCAN([EQUALS promote(@c22 AS LONG)]) | TFILTER T1 | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)šdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -50,7 +50,7 @@ z
 }ß
 
 	unnamed-2tEXPLAIN select id, col1, col2 from (select * from (select * from (select * from T1  where ID > 10) as x) as y) as z;Ø
-îê·ÚM €‚ð(0à›$8 @lSCAN([[GREATER_THAN promote(@c23 AS LONG)]]) | TFILTER T1 | MAP (_.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2)Ìdigraph G {
+Ñò”î	M ï§å(0¤œ!8 @lSCAN([[GREATER_THAN promote(@c23 AS LONG)]]) | TFILTER T1 | MAP (_.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2)Ìdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;

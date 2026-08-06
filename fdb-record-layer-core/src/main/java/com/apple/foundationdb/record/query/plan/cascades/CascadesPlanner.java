@@ -929,6 +929,9 @@ public class CascadesPlanner implements QueryPlanner {
             if (!configuration.isRuleEnabled(rule) || !shouldPushRule(rule)) {
                 return;
             }
+            if (rule.onlyOnPrunedChildren() != onOptimizedInputs) {
+                return;
+            }
             taskStack.push(new TransformMatchPartition(getPlannerPhase(), getGroup(), getExpression(), rule));
         }
 

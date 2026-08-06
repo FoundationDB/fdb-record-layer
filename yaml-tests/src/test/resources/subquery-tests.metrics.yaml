@@ -4,10 +4,10 @@ subquery-tests:
     explain: SCAN([IS A, EQUALS promote(@c14 AS INT)]) | MAP (_.IDA AS IDA) | DEFAULT
         NULL | FILTER _ NOT_NULL | FLATMAP q0 -> { SCAN([IS A]) AS q1 RETURN (q1.IDA
         AS IDA) }
-    task_count: 597
-    task_total_time_ms: 60
+    task_count: 532
+    task_total_time_ms: 50
     transform_count: 131
-    transform_time_ms: 15
+    transform_time_ms: 14
     transform_yield_count: 33
     insert_time_ms: 1
     insert_new_count: 52
@@ -17,8 +17,8 @@ subquery-tests:
     explain: SCAN([IS A, EQUALS promote(@c14 AS INT)]) | MAP (_.X AS X) | DEFAULT
         NULL | FILTER _ NOT_NULL | FLATMAP q0 -> { SCAN([IS X]) AS q1 RETURN (q1.IDX
         AS IDX) }
-    task_count: 628
-    task_total_time_ms: 45
+    task_count: 563
+    task_total_time_ms: 44
     transform_count: 140
     transform_time_ms: 13
     transform_yield_count: 38
@@ -32,10 +32,10 @@ subquery-tests:
         (_ AS _0) | AGG (max_i(_._0.IDB) AS _0) GROUP BY (_._0.Q AS _0) | MAP (q0.X
         AS X, _._1._0 AS _1) | DEFAULT NULL | FILTER _ NOT_NULL AS q0 RETURN (q0.X
         AS X) }
-    task_count: 741
-    task_total_time_ms: 39
+    task_count: 663
+    task_total_time_ms: 49
     transform_count: 170
-    transform_time_ms: 13
+    transform_time_ms: 16
     transform_yield_count: 46
     insert_time_ms: 1
     insert_new_count: 57
@@ -47,10 +47,10 @@ subquery-tests:
         (_ AS _0) | AGG (max_i(_._0.IDB) AS _0) GROUP BY (_._0.Q AS _0) | MAP (q0.X
         AS X, _._1._0 AS _1) | DEFAULT NULL | FILTER _ NOT_NULL AS q0 RETURN (q0.X
         AS X) }
-    task_count: 741
-    task_total_time_ms: 54
+    task_count: 663
+    task_total_time_ms: 51
     transform_count: 170
-    transform_time_ms: 16
+    transform_time_ms: 17
     transform_yield_count: 46
     insert_time_ms: 1
     insert_new_count: 57
@@ -62,12 +62,12 @@ subquery-tests:
         (_ AS _0) | AGG (max_i(q0.X) AS _0, max_i(_._0.IDB) AS _1) GROUP BY (_._0.Q
         AS _0) | MAP (_._1._0 AS _0, _._1._1 AS _1) | DEFAULT NULL | FILTER _ NOT_NULL
         AS q0 RETURN (q0.X AS X) }
-    task_count: 741
-    task_total_time_ms: 59
+    task_count: 663
+    task_total_time_ms: 47
     transform_count: 170
-    transform_time_ms: 22
+    transform_time_ms: 14
     transform_yield_count: 46
-    insert_time_ms: 1
+    insert_time_ms: 0
     insert_new_count: 57
     insert_reused_count: 1
 -   query: EXPLAIN select x from a where exists (select max(a.x), max(idb) from b
@@ -77,10 +77,10 @@ subquery-tests:
         (_ AS _0) | AGG (max_i(q0.X) AS _0, max_i(_._0.IDB) AS _1) GROUP BY (_._0.Q
         AS _0) | MAP (_._1._0 AS _0, _._1._1 AS _1) | DEFAULT NULL | FILTER _ NOT_NULL
         AS q0 RETURN (q0.X AS X) }
-    task_count: 741
-    task_total_time_ms: 63
+    task_count: 663
+    task_total_time_ms: 47
     transform_count: 170
-    transform_time_ms: 20
+    transform_time_ms: 13
     transform_yield_count: 46
     insert_time_ms: 1
     insert_new_count: 57
@@ -91,11 +91,11 @@ subquery-tests:
     explain: ISCAN(IR [EQUALS promote(@c17 AS INT), EQUALS promote(@c31 AS INT)])
         | FLATMAP q0 -> { EXPLODE q0.NR | FILTER _.F GREATER_THAN promote(@c31 AS
         INT) AND _.F NOT_NULL AS q1 RETURN (q0.IDR AS IDR, q0.Z AS Z) }
-    task_count: 869
-    task_total_time_ms: 89
+    task_count: 783
+    task_total_time_ms: 85
     transform_count: 191
-    transform_time_ms: 33
+    transform_time_ms: 35
     transform_yield_count: 57
-    insert_time_ms: 4
+    insert_time_ms: 3
     insert_new_count: 96
     insert_reused_count: 2

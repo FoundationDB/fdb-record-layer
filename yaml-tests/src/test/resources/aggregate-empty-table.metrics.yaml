@@ -3,8 +3,8 @@ agg-empty-table-tests:
     ref: aggregate-empty-table.yamsql:39
     explain: SCAN([IS T1]) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY ()
         | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)
-    task_count: 290
-    task_total_time_ms: 14
+    task_count: 268
+    task_total_time_ms: 11
     transform_count: 62
     transform_time_ms: 2
     transform_yield_count: 17
@@ -16,8 +16,8 @@ agg-empty-table-tests:
     explain: SCAN([IS T1]) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY ()
         | ON EMPTY NULL | FILTER coalesce_long(_._0._0, 0l) GREATER_THAN promote(@c13
         AS LONG) | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)
-    task_count: 322
-    task_total_time_ms: 17
+    task_count: 297
+    task_total_time_ms: 18
     transform_count: 68
     transform_time_ms: 4
     transform_yield_count: 19
@@ -29,10 +29,10 @@ agg-empty-table-tests:
     explain: SCAN([IS T1]) | FILTER _.COL1 EQUALS promote(@c10 AS LONG) | MAP (_ AS
         _0) | AGG (count_star(*) AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0,
         promote(0l AS LONG)) AS _0)
-    task_count: 364
-    task_total_time_ms: 20
+    task_count: 333
+    task_total_time_ms: 16
     transform_count: 81
-    transform_time_ms: 4
+    transform_time_ms: 3
     transform_yield_count: 19
     insert_time_ms: 0
     insert_new_count: 27
@@ -42,10 +42,10 @@ agg-empty-table-tests:
     explain: SCAN([IS T1]) | FILTER _.COL1 GREATER_THAN promote(@c10 AS LONG) | MAP
         (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0,
         promote(0l AS LONG)) AS _0)
-    task_count: 364
-    task_total_time_ms: 17
+    task_count: 333
+    task_total_time_ms: 14
     transform_count: 81
-    transform_time_ms: 3
+    transform_time_ms: 2
     transform_yield_count: 19
     insert_time_ms: 0
     insert_new_count: 27
@@ -54,10 +54,10 @@ agg-empty-table-tests:
     ref: aggregate-empty-table.yamsql:77
     explain: 'AISCAN(T2_I1 <,> BY_GROUP -> [_0: VALUE:[0]]) | MAP (_ AS _0) | ON EMPTY
         NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)'
-    task_count: 510
-    task_total_time_ms: 39
+    task_count: 465
+    task_total_time_ms: 40
     transform_count: 124
-    transform_time_ms: 21
+    transform_time_ms: 24
     transform_yield_count: 50
     insert_time_ms: 0
     insert_new_count: 35
@@ -67,10 +67,10 @@ agg-empty-table-tests:
     explain: 'AISCAN(T2_I1 <,> BY_GROUP -> [_0: VALUE:[0]]) | MAP (_ AS _0) | ON EMPTY
         NULL | FILTER coalesce_long(_._0._0, 0l) GREATER_THAN promote(@c13 AS LONG)
         | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)'
-    task_count: 542
-    task_total_time_ms: 48
+    task_count: 494
+    task_total_time_ms: 36
     transform_count: 130
-    transform_time_ms: 24
+    transform_time_ms: 22
     transform_yield_count: 52
     insert_time_ms: 0
     insert_new_count: 40
@@ -80,10 +80,10 @@ agg-empty-table-tests:
     explain: 'AISCAN(T2_I2 [EQUALS promote(@c10 AS LONG)] BY_GROUP -> [_0: KEY:[0],
         _1: VALUE:[0]]) | MAP ((_._1 AS _0) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0,
         promote(0l AS LONG)) AS _0)'
-    task_count: 494
-    task_total_time_ms: 38
+    task_count: 453
+    task_total_time_ms: 34
     transform_count: 127
-    transform_time_ms: 20
+    transform_time_ms: 19
     transform_yield_count: 50
     insert_time_ms: 0
     insert_new_count: 33
@@ -94,10 +94,10 @@ agg-empty-table-tests:
         KEY:[0], _1: VALUE:[0]]) | AGG sum_l(_._1) GROUP BY () | MAP ((_._1 AS _0)
         AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG))
         AS _0)'
-    task_count: 512
-    task_total_time_ms: 54
+    task_count: 468
+    task_total_time_ms: 42
     transform_count: 128
-    transform_time_ms: 31
+    transform_time_ms: 24
     transform_yield_count: 50
     insert_time_ms: 0
     insert_new_count: 35
@@ -106,10 +106,10 @@ agg-empty-table-tests:
     ref: aggregate-empty-table.yamsql:101
     explain: 'AISCAN(T2_I2 <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._1
         AS _0)'
-    task_count: 411
-    task_total_time_ms: 42
+    task_count: 386
+    task_total_time_ms: 31
     transform_count: 118
-    transform_time_ms: 24
+    transform_time_ms: 19
     transform_yield_count: 48
     insert_time_ms: 0
     insert_new_count: 24
@@ -118,10 +118,10 @@ agg-empty-table-tests:
     ref: aggregate-empty-table.yamsql:106
     explain: 'AISCAN(T2_I2 [EQUALS promote(@c10 AS LONG)] BY_GROUP -> [_0: KEY:[0],
         _1: VALUE:[0]]) | MAP (_._1 AS _0)'
-    task_count: 411
-    task_total_time_ms: 50
+    task_count: 386
+    task_total_time_ms: 38
     transform_count: 119
-    transform_time_ms: 28
+    transform_time_ms: 22
     transform_yield_count: 48
     insert_time_ms: 0
     insert_new_count: 24
@@ -130,10 +130,10 @@ agg-empty-table-tests:
     ref: aggregate-empty-table.yamsql:111
     explain: 'AISCAN(T2_I2 [[GREATER_THAN promote(@c10 AS LONG)]] BY_GROUP -> [_0:
         KEY:[0], _1: VALUE:[0]]) | MAP (_._1 AS _0)'
-    task_count: 411
-    task_total_time_ms: 23
+    task_count: 386
+    task_total_time_ms: 25
     transform_count: 119
-    transform_time_ms: 14
+    transform_time_ms: 15
     transform_yield_count: 48
     insert_time_ms: 0
     insert_new_count: 24
@@ -142,12 +142,12 @@ agg-empty-table-tests:
     ref: aggregate-empty-table.yamsql:116
     explain: ISCAN(T3_I2 <,>) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY
         () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)
-    task_count: 502
-    task_total_time_ms: 30
+    task_count: 438
+    task_total_time_ms: 25
     transform_count: 90
-    transform_time_ms: 8
+    transform_time_ms: 7
     transform_yield_count: 37
-    insert_time_ms: 1
+    insert_time_ms: 0
     insert_new_count: 45
     insert_reused_count: 6
 -   query: EXPLAIN select count(*) from T3 where col1 = 0;
@@ -155,8 +155,8 @@ agg-empty-table-tests:
     explain: ISCAN(T3_I1 [EQUALS promote(@c10 AS LONG)]) | MAP (_ AS _0) | AGG (count_star(*)
         AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l
         AS LONG)) AS _0)
-    task_count: 787
-    task_total_time_ms: 46
+    task_count: 680
+    task_total_time_ms: 42
     transform_count: 156
     transform_time_ms: 11
     transform_yield_count: 45
@@ -168,8 +168,8 @@ agg-empty-table-tests:
     explain: ISCAN(T3_I1 [[GREATER_THAN promote(@c10 AS LONG)]]) | MAP (_ AS _0) |
         AGG (count_star(*) AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0,
         promote(0l AS LONG)) AS _0)
-    task_count: 811
-    task_total_time_ms: 45
+    task_count: 699
+    task_total_time_ms: 42
     transform_count: 157
     transform_time_ms: 10
     transform_yield_count: 46
@@ -180,10 +180,10 @@ agg-empty-table-tests:
     ref: aggregate-empty-table.yamsql:131
     explain: ISCAN(T3_I1 <,>) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY
         (_._0.COL1 AS _0) | MAP (_._1._0 AS _0)
-    task_count: 336
-    task_total_time_ms: 21
+    task_count: 309
+    task_total_time_ms: 18
     transform_count: 74
-    transform_time_ms: 6
+    transform_time_ms: 5
     transform_yield_count: 30
     insert_time_ms: 0
     insert_new_count: 25
@@ -192,10 +192,10 @@ agg-empty-table-tests:
     ref: aggregate-empty-table.yamsql:136
     explain: ISCAN(T3_I1 [EQUALS promote(@c10 AS LONG)]) | MAP (_ AS _0) | AGG (count_star(*)
         AS _0) GROUP BY (_._0.COL1 AS _0) | MAP (_._1._0 AS _0)
-    task_count: 470
-    task_total_time_ms: 37
+    task_count: 419
+    task_total_time_ms: 24
     transform_count: 100
-    transform_time_ms: 8
+    transform_time_ms: 6
     transform_yield_count: 34
     insert_time_ms: 0
     insert_new_count: 35
@@ -204,10 +204,10 @@ agg-empty-table-tests:
     ref: aggregate-empty-table.yamsql:141
     explain: ISCAN(T3_I1 [[GREATER_THAN promote(@c10 AS LONG)]]) | MAP (_ AS _0) |
         AGG (count_star(*) AS _0) GROUP BY (_._0.COL1 AS _0) | MAP (_._1._0 AS _0)
-    task_count: 470
-    task_total_time_ms: 37
+    task_count: 419
+    task_total_time_ms: 22
     transform_count: 100
-    transform_time_ms: 9
+    transform_time_ms: 7
     transform_yield_count: 34
     insert_time_ms: 0
     insert_new_count: 35
@@ -216,10 +216,10 @@ agg-empty-table-tests:
     ref: aggregate-empty-table.yamsql:146
     explain: SCAN([IS T1]) | MAP (_ AS _0) | AGG (count(_._0.COL2) AS _0) GROUP BY
         () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)
-    task_count: 290
-    task_total_time_ms: 12
+    task_count: 268
+    task_total_time_ms: 14
     transform_count: 62
-    transform_time_ms: 1
+    transform_time_ms: 2
     transform_yield_count: 17
     insert_time_ms: 0
     insert_new_count: 21
@@ -229,8 +229,8 @@ agg-empty-table-tests:
     explain: SCAN([IS T1]) | FILTER _.COL1 EQUALS promote(@c10 AS LONG) | MAP (_ AS
         _0) | AGG (count(_._0.COL2) AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0,
         promote(0l AS LONG)) AS _0)
-    task_count: 364
-    task_total_time_ms: 19
+    task_count: 333
+    task_total_time_ms: 20
     transform_count: 81
     transform_time_ms: 3
     transform_yield_count: 19
@@ -242,7 +242,7 @@ agg-empty-table-tests:
     explain: SCAN([IS T1]) | FILTER _.COL1 GREATER_THAN promote(@c10 AS LONG) | MAP
         (_ AS _0) | AGG (count(_._0.COL2) AS _0) GROUP BY () | ON EMPTY NULL | MAP
         (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)
-    task_count: 364
+    task_count: 333
     task_total_time_ms: 12
     transform_count: 81
     transform_time_ms: 2
@@ -254,10 +254,10 @@ agg-empty-table-tests:
     ref: aggregate-empty-table.yamsql:176
     explain: 'AISCAN(T2_I3 <,> BY_GROUP -> [_0: VALUE:[0]]) | MAP (_ AS _0) | ON EMPTY
         NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)'
-    task_count: 510
-    task_total_time_ms: 48
+    task_count: 465
+    task_total_time_ms: 32
     transform_count: 124
-    transform_time_ms: 27
+    transform_time_ms: 19
     transform_yield_count: 50
     insert_time_ms: 0
     insert_new_count: 35
@@ -267,12 +267,12 @@ agg-empty-table-tests:
     explain: 'AISCAN(T2_I4 [EQUALS promote(@c10 AS LONG)] BY_GROUP -> [_0: KEY:[0],
         _1: VALUE:[0]]) | MAP ((_._1 AS _0) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0,
         promote(0l AS LONG)) AS _0)'
-    task_count: 494
-    task_total_time_ms: 48
+    task_count: 453
+    task_total_time_ms: 45
     transform_count: 127
     transform_time_ms: 26
     transform_yield_count: 50
-    insert_time_ms: 4
+    insert_time_ms: 0
     insert_new_count: 33
     insert_reused_count: 3
 -   query: EXPLAIN select count(col2) from T2 where col1 > 0;
@@ -281,22 +281,22 @@ agg-empty-table-tests:
         KEY:[0], _1: VALUE:[0]]) | AGG sum_l(_._1) GROUP BY () | MAP ((_._1 AS _0)
         AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG))
         AS _0)'
-    task_count: 512
-    task_total_time_ms: 52
+    task_count: 468
+    task_total_time_ms: 30
     transform_count: 128
-    transform_time_ms: 31
+    transform_time_ms: 18
     transform_yield_count: 50
-    insert_time_ms: 1
+    insert_time_ms: 0
     insert_new_count: 35
     insert_reused_count: 3
 -   query: EXPLAIN select count(col2) from T2 group by col1;
     ref: aggregate-empty-table.yamsql:193
     explain: 'AISCAN(T2_I4 <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._1
         AS _0)'
-    task_count: 411
-    task_total_time_ms: 50
+    task_count: 386
+    task_total_time_ms: 39
     transform_count: 118
-    transform_time_ms: 31
+    transform_time_ms: 24
     transform_yield_count: 48
     insert_time_ms: 0
     insert_new_count: 24
@@ -305,10 +305,10 @@ agg-empty-table-tests:
     ref: aggregate-empty-table.yamsql:198
     explain: 'AISCAN(T2_I4 [EQUALS promote(@c10 AS LONG)] BY_GROUP -> [_0: KEY:[0],
         _1: VALUE:[0]]) | MAP (_._1 AS _0)'
-    task_count: 411
-    task_total_time_ms: 39
+    task_count: 386
+    task_total_time_ms: 35
     transform_count: 119
-    transform_time_ms: 23
+    transform_time_ms: 21
     transform_yield_count: 48
     insert_time_ms: 0
     insert_new_count: 24
@@ -317,10 +317,10 @@ agg-empty-table-tests:
     ref: aggregate-empty-table.yamsql:203
     explain: 'AISCAN(T2_I4 [[GREATER_THAN promote(@c10 AS LONG)]] BY_GROUP -> [_0:
         KEY:[0], _1: VALUE:[0]]) | MAP (_._1 AS _0)'
-    task_count: 411
-    task_total_time_ms: 50
+    task_count: 386
+    task_total_time_ms: 35
     transform_count: 119
-    transform_time_ms: 31
+    transform_time_ms: 22
     transform_yield_count: 48
     insert_time_ms: 0
     insert_new_count: 24
@@ -330,12 +330,12 @@ agg-empty-table-tests:
     explain: ISCAN(T3_I1 <,>) | MAP (_ AS _0) | AGG (count(_._0.COL2) AS _0) GROUP
         BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS
         _0)
-    task_count: 502
-    task_total_time_ms: 22
+    task_count: 438
+    task_total_time_ms: 28
     transform_count: 90
-    transform_time_ms: 6
+    transform_time_ms: 8
     transform_yield_count: 37
-    insert_time_ms: 0
+    insert_time_ms: 1
     insert_new_count: 45
     insert_reused_count: 6
 -   query: EXPLAIN select count(col2) from T3 where col1 = 0;
@@ -343,10 +343,10 @@ agg-empty-table-tests:
     explain: ISCAN(T3_I1 [EQUALS promote(@c10 AS LONG)]) | MAP (_ AS _0) | AGG (count(_._0.COL2)
         AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l
         AS LONG)) AS _0)
-    task_count: 787
-    task_total_time_ms: 59
+    task_count: 680
+    task_total_time_ms: 43
     transform_count: 156
-    transform_time_ms: 13
+    transform_time_ms: 10
     transform_yield_count: 45
     insert_time_ms: 1
     insert_new_count: 67
@@ -356,10 +356,10 @@ agg-empty-table-tests:
     explain: ISCAN(T3_I1 [[GREATER_THAN promote(@c10 AS LONG)]]) | MAP (_ AS _0) |
         AGG (count(_._0.COL2) AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0,
         promote(0l AS LONG)) AS _0)
-    task_count: 811
-    task_total_time_ms: 39
+    task_count: 699
+    task_total_time_ms: 34
     transform_count: 157
-    transform_time_ms: 12
+    transform_time_ms: 8
     transform_yield_count: 46
     insert_time_ms: 1
     insert_new_count: 69
@@ -368,10 +368,10 @@ agg-empty-table-tests:
     ref: aggregate-empty-table.yamsql:223
     explain: ISCAN(T3_I1 <,>) | MAP (_ AS _0) | AGG (count(_._0.COL2) AS _0) GROUP
         BY (_._0.COL1 AS _0) | MAP (_._1._0 AS _0)
-    task_count: 336
-    task_total_time_ms: 18
+    task_count: 309
+    task_total_time_ms: 19
     transform_count: 74
-    transform_time_ms: 5
+    transform_time_ms: 6
     transform_yield_count: 30
     insert_time_ms: 0
     insert_new_count: 25
@@ -380,10 +380,10 @@ agg-empty-table-tests:
     ref: aggregate-empty-table.yamsql:228
     explain: ISCAN(T3_I1 [EQUALS promote(@c10 AS LONG)]) | MAP (_ AS _0) | AGG (count(_._0.COL2)
         AS _0) GROUP BY (_._0.COL1 AS _0) | MAP (_._1._0 AS _0)
-    task_count: 470
-    task_total_time_ms: 29
+    task_count: 419
+    task_total_time_ms: 26
     transform_count: 100
-    transform_time_ms: 7
+    transform_time_ms: 6
     transform_yield_count: 34
     insert_time_ms: 0
     insert_new_count: 35
@@ -393,10 +393,10 @@ agg-empty-table-tests:
     explain: ISCAN(T3_I1 [[GREATER_THAN promote(@c10 AS LONG)]]) | MAP (_ AS _0) |
         AGG (count(_._0.COL2) AS _0) GROUP BY (_._0.COL1 AS _0) | MAP (_._1._0 AS
         _0)
-    task_count: 470
-    task_total_time_ms: 27
+    task_count: 419
+    task_total_time_ms: 24
     transform_count: 100
-    transform_time_ms: 8
+    transform_time_ms: 6
     transform_yield_count: 34
     insert_time_ms: 0
     insert_new_count: 35
@@ -405,10 +405,10 @@ agg-empty-table-tests:
     ref: aggregate-empty-table.yamsql:238
     explain: SCAN([IS T1]) | MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0) GROUP BY
         () | ON EMPTY NULL | MAP (_._0._0 AS _0)
-    task_count: 290
-    task_total_time_ms: 14
+    task_count: 268
+    task_total_time_ms: 10
     transform_count: 62
-    transform_time_ms: 2
+    transform_time_ms: 1
     transform_yield_count: 17
     insert_time_ms: 0
     insert_new_count: 21
@@ -418,10 +418,10 @@ agg-empty-table-tests:
     explain: SCAN([IS T1]) | FILTER _.COL1 EQUALS promote(@c10 AS LONG) | MAP (_ AS
         _0) | AGG (sum_l(_._0.COL1) AS _0) GROUP BY () | ON EMPTY NULL | MAP (_._0._0
         AS _0)
-    task_count: 364
-    task_total_time_ms: 23
+    task_count: 333
+    task_total_time_ms: 16
     transform_count: 81
-    transform_time_ms: 4
+    transform_time_ms: 2
     transform_yield_count: 19
     insert_time_ms: 0
     insert_new_count: 27
@@ -431,10 +431,10 @@ agg-empty-table-tests:
     explain: SCAN([IS T1]) | FILTER _.COL2 EQUALS promote(@c10 AS LONG) | MAP (_ AS
         _0) | AGG (sum_l(_._0.COL1) AS _0) GROUP BY () | ON EMPTY NULL | MAP (_._0._0
         AS _0)
-    task_count: 364
+    task_count: 333
     task_total_time_ms: 14
     transform_count: 81
-    transform_time_ms: 2
+    transform_time_ms: 3
     transform_yield_count: 19
     insert_time_ms: 0
     insert_new_count: 27
@@ -444,8 +444,8 @@ agg-empty-table-tests:
     explain: SCAN([IS T1]) | FILTER _.COL1 GREATER_THAN promote(@c10 AS LONG) | MAP
         (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0) GROUP BY () | ON EMPTY NULL | MAP
         (_._0._0 AS _0)
-    task_count: 364
-    task_total_time_ms: 19
+    task_count: 333
+    task_total_time_ms: 14
     transform_count: 81
     transform_time_ms: 3
     transform_yield_count: 19
@@ -457,8 +457,8 @@ agg-empty-table-tests:
     explain: SCAN([IS T1]) | FILTER _.COL2 GREATER_THAN promote(@c10 AS LONG) | MAP
         (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0) GROUP BY () | ON EMPTY NULL | MAP
         (_._0._0 AS _0)
-    task_count: 364
-    task_total_time_ms: 16
+    task_count: 333
+    task_total_time_ms: 15
     transform_count: 81
     transform_time_ms: 3
     transform_yield_count: 19
@@ -469,10 +469,10 @@ agg-empty-table-tests:
     ref: aggregate-empty-table.yamsql:263
     explain: 'AISCAN(T2_I5 <,> BY_GROUP -> [_0: VALUE:[0]]) | MAP (_ AS _0) | ON EMPTY
         NULL | MAP (_._0._0 AS _0)'
-    task_count: 510
-    task_total_time_ms: 41
+    task_count: 465
+    task_total_time_ms: 40
     transform_count: 124
-    transform_time_ms: 22
+    transform_time_ms: 24
     transform_yield_count: 50
     insert_time_ms: 0
     insert_new_count: 35
@@ -482,10 +482,10 @@ agg-empty-table-tests:
     explain: SCAN([IS T2]) | FILTER _.COL1 EQUALS promote(@c10 AS LONG) | MAP (_ AS
         _0) | AGG (sum_l(_._0.COL1) AS _0) GROUP BY () | ON EMPTY NULL | MAP (_._0._0
         AS _0)
-    task_count: 422
-    task_total_time_ms: 45
+    task_count: 391
+    task_total_time_ms: 38
     transform_count: 112
-    transform_time_ms: 29
+    transform_time_ms: 24
     transform_yield_count: 48
     insert_time_ms: 0
     insert_new_count: 29
@@ -495,10 +495,10 @@ agg-empty-table-tests:
     explain: 'AISCAN(T2_I6 [EQUALS promote(@c10 AS LONG)] BY_GROUP -> [_0: KEY:[0],
         _1: VALUE:[0]]) | MAP ((_._1 AS _0) AS _0) | ON EMPTY NULL | MAP (_._0._0
         AS _0)'
-    task_count: 494
-    task_total_time_ms: 37
+    task_count: 453
+    task_total_time_ms: 45
     transform_count: 127
-    transform_time_ms: 20
+    transform_time_ms: 26
     transform_yield_count: 50
     insert_time_ms: 0
     insert_new_count: 33
@@ -508,10 +508,10 @@ agg-empty-table-tests:
     explain: SCAN([IS T2]) | FILTER _.COL1 GREATER_THAN promote(@c10 AS LONG) | MAP
         (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0) GROUP BY () | ON EMPTY NULL | MAP
         (_._0._0 AS _0)
-    task_count: 422
-    task_total_time_ms: 33
+    task_count: 391
+    task_total_time_ms: 35
     transform_count: 112
-    transform_time_ms: 22
+    transform_time_ms: 23
     transform_yield_count: 48
     insert_time_ms: 0
     insert_new_count: 29
@@ -521,10 +521,10 @@ agg-empty-table-tests:
     explain: 'AISCAN(T2_I6 [[GREATER_THAN promote(@c10 AS LONG)]] BY_GROUP -> [_0:
         KEY:[0], _1: VALUE:[0]]) | AGG sum_l(_._1) GROUP BY () | MAP ((_._1 AS _0)
         AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)'
-    task_count: 512
-    task_total_time_ms: 40
+    task_count: 468
+    task_total_time_ms: 47
     transform_count: 128
-    transform_time_ms: 24
+    transform_time_ms: 29
     transform_yield_count: 50
     insert_time_ms: 0
     insert_new_count: 35
@@ -533,10 +533,10 @@ agg-empty-table-tests:
     ref: aggregate-empty-table.yamsql:293
     explain: 'AISCAN(T2_I6 [EQUALS promote(@c10 AS LONG)] BY_GROUP -> [_0: KEY:[0],
         _1: VALUE:[0]]) | MAP (_._1 AS _0)'
-    task_count: 411
-    task_total_time_ms: 36
+    task_count: 386
+    task_total_time_ms: 42
     transform_count: 119
-    transform_time_ms: 20
+    transform_time_ms: 24
     transform_yield_count: 48
     insert_time_ms: 0
     insert_new_count: 24
@@ -545,10 +545,10 @@ agg-empty-table-tests:
     ref: aggregate-empty-table.yamsql:301
     explain: 'AISCAN(T2_I6 [[GREATER_THAN promote(@c10 AS LONG)]] BY_GROUP -> [_0:
         KEY:[0], _1: VALUE:[0]]) | MAP (_._1 AS _0)'
-    task_count: 411
-    task_total_time_ms: 42
+    task_count: 386
+    task_total_time_ms: 35
     transform_count: 119
-    transform_time_ms: 25
+    transform_time_ms: 22
     transform_yield_count: 48
     insert_time_ms: 0
     insert_new_count: 24
@@ -557,7 +557,7 @@ agg-empty-table-tests:
     ref: aggregate-empty-table.yamsql:306
     explain: ISCAN(T3_I1 <,>) | MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0) GROUP
         BY () | ON EMPTY NULL | MAP (_._0._0 AS _0)
-    task_count: 502
+    task_count: 438
     task_total_time_ms: 29
     transform_count: 90
     transform_time_ms: 8
@@ -569,10 +569,10 @@ agg-empty-table-tests:
     ref: aggregate-empty-table.yamsql:311
     explain: ISCAN(T3_I1 [EQUALS promote(@c10 AS LONG)]) | MAP (_ AS _0) | AGG (sum_l(_._0.COL1)
         AS _0) GROUP BY () | ON EMPTY NULL | MAP (_._0._0 AS _0)
-    task_count: 787
-    task_total_time_ms: 48
+    task_count: 680
+    task_total_time_ms: 43
     transform_count: 156
-    transform_time_ms: 11
+    transform_time_ms: 10
     transform_yield_count: 45
     insert_time_ms: 1
     insert_new_count: 67
@@ -581,8 +581,8 @@ agg-empty-table-tests:
     ref: aggregate-empty-table.yamsql:316
     explain: ISCAN(T3_I2 [EQUALS promote(@c10 AS LONG)]) | MAP (_ AS _0) | AGG (sum_l(_._0.COL1)
         AS _0) GROUP BY () | ON EMPTY NULL | MAP (_._0._0 AS _0)
-    task_count: 787
-    task_total_time_ms: 50
+    task_count: 680
+    task_total_time_ms: 38
     transform_count: 156
     transform_time_ms: 10
     transform_yield_count: 45
@@ -594,10 +594,10 @@ agg-empty-table-tests:
     explain: ISCAN(T3_I1 [[GREATER_THAN promote(@c10 AS LONG)]]) | MAP (_ AS _0) |
         AGG (sum_l(_._0.COL1) AS _0) GROUP BY () | ON EMPTY NULL | MAP (_._0._0 AS
         _0)
-    task_count: 811
-    task_total_time_ms: 34
+    task_count: 699
+    task_total_time_ms: 35
     transform_count: 157
-    transform_time_ms: 8
+    transform_time_ms: 9
     transform_yield_count: 46
     insert_time_ms: 1
     insert_new_count: 69
@@ -607,10 +607,10 @@ agg-empty-table-tests:
     explain: ISCAN(T3_I2 [[GREATER_THAN promote(@c10 AS LONG)]]) | MAP (_ AS _0) |
         AGG (sum_l(_._0.COL1) AS _0) GROUP BY () | ON EMPTY NULL | MAP (_._0._0 AS
         _0)
-    task_count: 811
-    task_total_time_ms: 42
+    task_count: 699
+    task_total_time_ms: 40
     transform_count: 157
-    transform_time_ms: 11
+    transform_time_ms: 9
     transform_yield_count: 46
     insert_time_ms: 1
     insert_new_count: 69
@@ -620,10 +620,10 @@ agg-empty-table-tests:
     explain: ISCAN(T3_I2 <,>) | FILTER _.COL1 EQUALS promote(@c10 AS LONG) | MAP (_
         AS _0) | AGG (sum_l(_._0.COL1) AS _0) GROUP BY (_._0.COL2 AS _0) | MAP (_._1._0
         AS _0)
-    task_count: 437
-    task_total_time_ms: 29
+    task_count: 395
+    task_total_time_ms: 27
     transform_count: 98
-    transform_time_ms: 8
+    transform_time_ms: 9
     transform_yield_count: 33
     insert_time_ms: 0
     insert_new_count: 33
@@ -632,10 +632,10 @@ agg-empty-table-tests:
     ref: aggregate-empty-table.yamsql:336
     explain: ISCAN(T3_I2 [EQUALS promote(@c10 AS LONG)]) | MAP (_ AS _0) | AGG (sum_l(_._0.COL1)
         AS _0) GROUP BY (_._0.COL2 AS _0) | MAP (_._1._0 AS _0)
-    task_count: 470
-    task_total_time_ms: 33
+    task_count: 419
+    task_total_time_ms: 25
     transform_count: 100
-    transform_time_ms: 8
+    transform_time_ms: 6
     transform_yield_count: 34
     insert_time_ms: 0
     insert_new_count: 35
@@ -645,10 +645,10 @@ agg-empty-table-tests:
     explain: ISCAN(T3_I2 <,>) | FILTER _.COL1 GREATER_THAN promote(@c10 AS LONG) |
         MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0) GROUP BY (_._0.COL2 AS _0) |
         MAP (_._1._0 AS _0)
-    task_count: 437
-    task_total_time_ms: 31
+    task_count: 395
+    task_total_time_ms: 29
     transform_count: 98
-    transform_time_ms: 10
+    transform_time_ms: 9
     transform_yield_count: 33
     insert_time_ms: 0
     insert_new_count: 33
@@ -658,10 +658,10 @@ agg-empty-table-tests:
     explain: ISCAN(T3_I2 [[GREATER_THAN promote(@c10 AS LONG)]]) | MAP (_ AS _0) |
         AGG (sum_l(_._0.COL1) AS _0) GROUP BY (_._0.COL2 AS _0) | MAP (_._1._0 AS
         _0)
-    task_count: 470
-    task_total_time_ms: 29
+    task_count: 419
+    task_total_time_ms: 25
     transform_count: 100
-    transform_time_ms: 8
+    transform_time_ms: 7
     transform_yield_count: 34
     insert_time_ms: 0
     insert_new_count: 35
@@ -671,8 +671,8 @@ agg-empty-table-tests-after-modifications:
     ref: aggregate-empty-table.yamsql:377
     explain: SCAN([IS T1]) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY ()
         | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)
-    task_count: 290
-    task_total_time_ms: 14
+    task_count: 268
+    task_total_time_ms: 11
     transform_count: 62
     transform_time_ms: 2
     transform_yield_count: 17
@@ -684,8 +684,8 @@ agg-empty-table-tests-after-modifications:
     explain: SCAN([IS T1]) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY ()
         | ON EMPTY NULL | FILTER coalesce_long(_._0._0, 0l) GREATER_THAN promote(@c13
         AS LONG) | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)
-    task_count: 322
-    task_total_time_ms: 17
+    task_count: 297
+    task_total_time_ms: 18
     transform_count: 68
     transform_time_ms: 4
     transform_yield_count: 19
@@ -697,10 +697,10 @@ agg-empty-table-tests-after-modifications:
     explain: SCAN([IS T1]) | FILTER _.COL1 EQUALS promote(@c10 AS LONG) | MAP (_ AS
         _0) | AGG (count_star(*) AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0,
         promote(0l AS LONG)) AS _0)
-    task_count: 364
-    task_total_time_ms: 20
+    task_count: 333
+    task_total_time_ms: 16
     transform_count: 81
-    transform_time_ms: 4
+    transform_time_ms: 3
     transform_yield_count: 19
     insert_time_ms: 0
     insert_new_count: 27
@@ -710,10 +710,10 @@ agg-empty-table-tests-after-modifications:
     explain: SCAN([IS T1]) | FILTER _.COL1 GREATER_THAN promote(@c10 AS LONG) | MAP
         (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0,
         promote(0l AS LONG)) AS _0)
-    task_count: 364
-    task_total_time_ms: 17
+    task_count: 333
+    task_total_time_ms: 14
     transform_count: 81
-    transform_time_ms: 3
+    transform_time_ms: 2
     transform_yield_count: 19
     insert_time_ms: 0
     insert_new_count: 27
@@ -722,10 +722,10 @@ agg-empty-table-tests-after-modifications:
     ref: aggregate-empty-table.yamsql:411
     explain: 'AISCAN(T2_I1 <,> BY_GROUP -> [_0: VALUE:[0]]) | MAP (_ AS _0) | ON EMPTY
         NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)'
-    task_count: 510
-    task_total_time_ms: 39
+    task_count: 465
+    task_total_time_ms: 40
     transform_count: 124
-    transform_time_ms: 21
+    transform_time_ms: 24
     transform_yield_count: 50
     insert_time_ms: 0
     insert_new_count: 35
@@ -735,10 +735,10 @@ agg-empty-table-tests-after-modifications:
     explain: 'AISCAN(T2_I1 <,> BY_GROUP -> [_0: VALUE:[0]]) | MAP (_ AS _0) | ON EMPTY
         NULL | FILTER coalesce_long(_._0._0, 0l) GREATER_THAN promote(@c13 AS LONG)
         | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)'
-    task_count: 542
-    task_total_time_ms: 48
+    task_count: 494
+    task_total_time_ms: 36
     transform_count: 130
-    transform_time_ms: 24
+    transform_time_ms: 22
     transform_yield_count: 52
     insert_time_ms: 0
     insert_new_count: 40
@@ -747,10 +747,10 @@ agg-empty-table-tests-after-modifications:
     ref: aggregate-empty-table.yamsql:491
     explain: 'AISCAN(T2_I3 <,> BY_GROUP -> [_0: VALUE:[0]]) | MAP (_ AS _0) | ON EMPTY
         NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)'
-    task_count: 510
-    task_total_time_ms: 48
+    task_count: 465
+    task_total_time_ms: 32
     transform_count: 124
-    transform_time_ms: 27
+    transform_time_ms: 19
     transform_yield_count: 50
     insert_time_ms: 0
     insert_new_count: 35
@@ -760,12 +760,12 @@ agg-empty-table-tests-after-modifications:
     explain: 'AISCAN(T2_I4 [EQUALS promote(@c10 AS LONG)] BY_GROUP -> [_0: KEY:[0],
         _1: VALUE:[0]]) | MAP ((_._1 AS _0) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0,
         promote(0l AS LONG)) AS _0)'
-    task_count: 494
-    task_total_time_ms: 48
+    task_count: 453
+    task_total_time_ms: 45
     transform_count: 127
     transform_time_ms: 26
     transform_yield_count: 50
-    insert_time_ms: 4
+    insert_time_ms: 0
     insert_new_count: 33
     insert_reused_count: 3
 -   query: EXPLAIN select count(col2) from T2 where col1 > 0;
@@ -774,12 +774,12 @@ agg-empty-table-tests-after-modifications:
         KEY:[0], _1: VALUE:[0]]) | AGG sum_l(_._1) GROUP BY () | MAP ((_._1 AS _0)
         AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG))
         AS _0)'
-    task_count: 512
-    task_total_time_ms: 52
+    task_count: 468
+    task_total_time_ms: 30
     transform_count: 128
-    transform_time_ms: 31
+    transform_time_ms: 18
     transform_yield_count: 50
-    insert_time_ms: 1
+    insert_time_ms: 0
     insert_new_count: 35
     insert_reused_count: 3
 -   query: EXPLAIN select count(col2) from T3;
@@ -787,12 +787,12 @@ agg-empty-table-tests-after-modifications:
     explain: ISCAN(T3_I1 <,>) | MAP (_ AS _0) | AGG (count(_._0.COL2) AS _0) GROUP
         BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS
         _0)
-    task_count: 502
-    task_total_time_ms: 22
+    task_count: 438
+    task_total_time_ms: 28
     transform_count: 90
-    transform_time_ms: 6
+    transform_time_ms: 8
     transform_yield_count: 37
-    insert_time_ms: 0
+    insert_time_ms: 1
     insert_new_count: 45
     insert_reused_count: 6
 -   query: EXPLAIN select count(col2) from T3 where col1 = 0;
@@ -800,10 +800,10 @@ agg-empty-table-tests-after-modifications:
     explain: ISCAN(T3_I1 [EQUALS promote(@c10 AS LONG)]) | MAP (_ AS _0) | AGG (count(_._0.COL2)
         AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l
         AS LONG)) AS _0)
-    task_count: 787
-    task_total_time_ms: 59
+    task_count: 680
+    task_total_time_ms: 43
     transform_count: 156
-    transform_time_ms: 13
+    transform_time_ms: 10
     transform_yield_count: 45
     insert_time_ms: 1
     insert_new_count: 67
@@ -813,10 +813,10 @@ agg-empty-table-tests-after-modifications:
     explain: ISCAN(T3_I1 [[GREATER_THAN promote(@c10 AS LONG)]]) | MAP (_ AS _0) |
         AGG (count(_._0.COL2) AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0,
         promote(0l AS LONG)) AS _0)
-    task_count: 811
-    task_total_time_ms: 39
+    task_count: 699
+    task_total_time_ms: 34
     transform_count: 157
-    transform_time_ms: 12
+    transform_time_ms: 8
     transform_yield_count: 46
     insert_time_ms: 1
     insert_new_count: 69
@@ -825,10 +825,10 @@ agg-empty-table-tests-after-modifications:
     ref: aggregate-empty-table.yamsql:533
     explain: ISCAN(T3_I1 <,>) | MAP (_ AS _0) | AGG (count(_._0.COL2) AS _0) GROUP
         BY (_._0.COL1 AS _0) | MAP (_._1._0 AS _0)
-    task_count: 336
-    task_total_time_ms: 18
+    task_count: 309
+    task_total_time_ms: 19
     transform_count: 74
-    transform_time_ms: 5
+    transform_time_ms: 6
     transform_yield_count: 30
     insert_time_ms: 0
     insert_new_count: 25
@@ -837,10 +837,10 @@ agg-empty-table-tests-after-modifications:
     ref: aggregate-empty-table.yamsql:538
     explain: ISCAN(T3_I1 [EQUALS promote(@c10 AS LONG)]) | MAP (_ AS _0) | AGG (count(_._0.COL2)
         AS _0) GROUP BY (_._0.COL1 AS _0) | MAP (_._1._0 AS _0)
-    task_count: 470
-    task_total_time_ms: 29
+    task_count: 419
+    task_total_time_ms: 26
     transform_count: 100
-    transform_time_ms: 7
+    transform_time_ms: 6
     transform_yield_count: 34
     insert_time_ms: 0
     insert_new_count: 35
@@ -850,10 +850,10 @@ agg-empty-table-tests-after-modifications:
     explain: ISCAN(T3_I1 [[GREATER_THAN promote(@c10 AS LONG)]]) | MAP (_ AS _0) |
         AGG (count(_._0.COL2) AS _0) GROUP BY (_._0.COL1 AS _0) | MAP (_._1._0 AS
         _0)
-    task_count: 470
-    task_total_time_ms: 27
+    task_count: 419
+    task_total_time_ms: 24
     transform_count: 100
-    transform_time_ms: 8
+    transform_time_ms: 6
     transform_yield_count: 34
     insert_time_ms: 0
     insert_new_count: 35
@@ -862,10 +862,10 @@ agg-empty-table-tests-after-modifications:
     ref: aggregate-empty-table.yamsql:548
     explain: SCAN([IS T1]) | MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0) GROUP BY
         () | ON EMPTY NULL | MAP (_._0._0 AS _0)
-    task_count: 290
-    task_total_time_ms: 14
+    task_count: 268
+    task_total_time_ms: 10
     transform_count: 62
-    transform_time_ms: 2
+    transform_time_ms: 1
     transform_yield_count: 17
     insert_time_ms: 0
     insert_new_count: 21
@@ -875,10 +875,10 @@ agg-empty-table-tests-after-modifications:
     explain: SCAN([IS T1]) | FILTER _.COL1 EQUALS promote(@c10 AS LONG) | MAP (_ AS
         _0) | AGG (sum_l(_._0.COL1) AS _0) GROUP BY () | ON EMPTY NULL | MAP (_._0._0
         AS _0)
-    task_count: 364
-    task_total_time_ms: 23
+    task_count: 333
+    task_total_time_ms: 16
     transform_count: 81
-    transform_time_ms: 4
+    transform_time_ms: 2
     transform_yield_count: 19
     insert_time_ms: 0
     insert_new_count: 27
@@ -888,10 +888,10 @@ agg-empty-table-tests-after-modifications:
     explain: SCAN([IS T1]) | FILTER _.COL2 EQUALS promote(@c10 AS LONG) | MAP (_ AS
         _0) | AGG (sum_l(_._0.COL1) AS _0) GROUP BY () | ON EMPTY NULL | MAP (_._0._0
         AS _0)
-    task_count: 364
+    task_count: 333
     task_total_time_ms: 14
     transform_count: 81
-    transform_time_ms: 2
+    transform_time_ms: 3
     transform_yield_count: 19
     insert_time_ms: 0
     insert_new_count: 27
@@ -901,8 +901,8 @@ agg-empty-table-tests-after-modifications:
     explain: SCAN([IS T1]) | FILTER _.COL1 GREATER_THAN promote(@c10 AS LONG) | MAP
         (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0) GROUP BY () | ON EMPTY NULL | MAP
         (_._0._0 AS _0)
-    task_count: 364
-    task_total_time_ms: 19
+    task_count: 333
+    task_total_time_ms: 14
     transform_count: 81
     transform_time_ms: 3
     transform_yield_count: 19
@@ -914,8 +914,8 @@ agg-empty-table-tests-after-modifications:
     explain: SCAN([IS T1]) | FILTER _.COL2 GREATER_THAN promote(@c10 AS LONG) | MAP
         (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0) GROUP BY () | ON EMPTY NULL | MAP
         (_._0._0 AS _0)
-    task_count: 364
-    task_total_time_ms: 16
+    task_count: 333
+    task_total_time_ms: 15
     transform_count: 81
     transform_time_ms: 3
     transform_yield_count: 19
@@ -926,10 +926,10 @@ agg-empty-table-tests-after-modifications:
     ref: aggregate-empty-table.yamsql:578
     explain: 'AISCAN(T2_I5 <,> BY_GROUP -> [_0: VALUE:[0]]) | MAP (_ AS _0) | ON EMPTY
         NULL | MAP (_._0._0 AS _0)'
-    task_count: 510
-    task_total_time_ms: 41
+    task_count: 465
+    task_total_time_ms: 40
     transform_count: 124
-    transform_time_ms: 22
+    transform_time_ms: 24
     transform_yield_count: 50
     insert_time_ms: 0
     insert_new_count: 35
@@ -939,10 +939,10 @@ agg-empty-table-tests-after-modifications:
     explain: 'AISCAN(T2_I6 [EQUALS promote(@c10 AS LONG)] BY_GROUP -> [_0: KEY:[0],
         _1: VALUE:[0]]) | MAP ((_._1 AS _0) AS _0) | ON EMPTY NULL | MAP (_._0._0
         AS _0)'
-    task_count: 494
-    task_total_time_ms: 37
+    task_count: 453
+    task_total_time_ms: 45
     transform_count: 127
-    transform_time_ms: 20
+    transform_time_ms: 26
     transform_yield_count: 50
     insert_time_ms: 0
     insert_new_count: 33
@@ -952,10 +952,10 @@ agg-empty-table-tests-after-modifications:
     explain: SCAN([IS T2]) | FILTER _.COL1 GREATER_THAN promote(@c10 AS LONG) | MAP
         (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0) GROUP BY () | ON EMPTY NULL | MAP
         (_._0._0 AS _0)
-    task_count: 422
-    task_total_time_ms: 33
+    task_count: 391
+    task_total_time_ms: 35
     transform_count: 112
-    transform_time_ms: 22
+    transform_time_ms: 23
     transform_yield_count: 48
     insert_time_ms: 0
     insert_new_count: 29
@@ -965,10 +965,10 @@ agg-empty-table-tests-after-modifications:
     explain: 'AISCAN(T2_I6 [[GREATER_THAN promote(@c10 AS LONG)]] BY_GROUP -> [_0:
         KEY:[0], _1: VALUE:[0]]) | AGG sum_l(_._1) GROUP BY () | MAP ((_._1 AS _0)
         AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)'
-    task_count: 512
-    task_total_time_ms: 40
+    task_count: 468
+    task_total_time_ms: 47
     transform_count: 128
-    transform_time_ms: 24
+    transform_time_ms: 29
     transform_yield_count: 50
     insert_time_ms: 0
     insert_new_count: 35
@@ -977,10 +977,10 @@ agg-empty-table-tests-after-modifications:
     ref: aggregate-empty-table.yamsql:621
     explain: ISCAN(T3_I1 [EQUALS promote(@c10 AS LONG)]) | MAP (_ AS _0) | AGG (sum_l(_._0.COL1)
         AS _0) GROUP BY () | ON EMPTY NULL | MAP (_._0._0 AS _0)
-    task_count: 787
-    task_total_time_ms: 48
+    task_count: 680
+    task_total_time_ms: 43
     transform_count: 156
-    transform_time_ms: 11
+    transform_time_ms: 10
     transform_yield_count: 45
     insert_time_ms: 1
     insert_new_count: 67
@@ -989,8 +989,8 @@ agg-empty-table-tests-after-modifications:
     ref: aggregate-empty-table.yamsql:626
     explain: ISCAN(T3_I2 [EQUALS promote(@c10 AS LONG)]) | MAP (_ AS _0) | AGG (sum_l(_._0.COL1)
         AS _0) GROUP BY () | ON EMPTY NULL | MAP (_._0._0 AS _0)
-    task_count: 787
-    task_total_time_ms: 50
+    task_count: 680
+    task_total_time_ms: 38
     transform_count: 156
     transform_time_ms: 10
     transform_yield_count: 45
@@ -1002,10 +1002,10 @@ agg-empty-table-tests-after-modifications:
     explain: ISCAN(T3_I1 [[GREATER_THAN promote(@c10 AS LONG)]]) | MAP (_ AS _0) |
         AGG (sum_l(_._0.COL1) AS _0) GROUP BY () | ON EMPTY NULL | MAP (_._0._0 AS
         _0)
-    task_count: 811
-    task_total_time_ms: 34
+    task_count: 699
+    task_total_time_ms: 35
     transform_count: 157
-    transform_time_ms: 8
+    transform_time_ms: 9
     transform_yield_count: 46
     insert_time_ms: 1
     insert_new_count: 69
@@ -1015,10 +1015,10 @@ agg-empty-table-tests-after-modifications:
     explain: ISCAN(T3_I2 [[GREATER_THAN promote(@c10 AS LONG)]]) | MAP (_ AS _0) |
         AGG (sum_l(_._0.COL1) AS _0) GROUP BY () | ON EMPTY NULL | MAP (_._0._0 AS
         _0)
-    task_count: 811
-    task_total_time_ms: 42
+    task_count: 699
+    task_total_time_ms: 40
     transform_count: 157
-    transform_time_ms: 11
+    transform_time_ms: 9
     transform_yield_count: 46
     insert_time_ms: 1
     insert_new_count: 69
@@ -1027,12 +1027,12 @@ agg-empty-table-tests-after-modifications:
     ref: aggregate-empty-table.yamsql:658
     explain: ISCAN(T3_I1 <,>) | MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0) GROUP
         BY () | ON EMPTY NULL | FILTER _._0._0 IS_NULL | MAP (_._0._0 AS _0)
-    task_count: 518
-    task_total_time_ms: 14
+    task_count: 451
+    task_total_time_ms: 23
     transform_count: 92
-    transform_time_ms: 4
+    transform_time_ms: 8
     transform_yield_count: 37
-    insert_time_ms: 0
+    insert_time_ms: 1
     insert_new_count: 46
     insert_reused_count: 6
 -   query: EXPLAIN select count(col1) from t3 having count(col1) is null
@@ -1040,10 +1040,10 @@ agg-empty-table-tests-after-modifications:
     explain: ISCAN(T3_I1 <,>) | MAP (_ AS _0) | AGG (count(_._0.COL1) AS _0) GROUP
         BY () | FILTER coalesce_long(_._0._0, promote(0l AS LONG)) IS_NULL | MAP (coalesce_long(_._0._0,
         promote(0l AS LONG)) AS _0)
-    task_count: 601
-    task_total_time_ms: 23
+    task_count: 525
+    task_total_time_ms: 25
     transform_count: 110
-    transform_time_ms: 5
+    transform_time_ms: 8
     transform_yield_count: 42
     insert_time_ms: 1
     insert_new_count: 57
@@ -1053,10 +1053,10 @@ agg-empty-table-tests-after-modifications:
     explain: ISCAN(T3_I2 <,>) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY
         () | FILTER coalesce_long(_._0._0, 0l) IS_NULL | MAP (coalesce_long(_._0._0,
         promote(0l AS LONG)) AS _0)
-    task_count: 601
-    task_total_time_ms: 23
+    task_count: 525
+    task_total_time_ms: 21
     transform_count: 110
-    transform_time_ms: 8
+    transform_time_ms: 6
     transform_yield_count: 42
     insert_time_ms: 0
     insert_new_count: 57
@@ -1065,8 +1065,8 @@ agg-empty-table-tests-after-modifications:
     ref: aggregate-empty-table.yamsql:676
     explain: ISCAN(T3_I2 <,>) | MAP (_ AS _0) | AGG (max_l(_._0.COL1) AS _0) GROUP
         BY (_._0.COL2 AS _0) | FILTER _._0._0 IS_NULL | MAP (_._1._0 AS _0)
-    task_count: 352
-    task_total_time_ms: 17
+    task_count: 322
+    task_total_time_ms: 16
     transform_count: 76
     transform_time_ms: 5
     transform_yield_count: 30
@@ -1077,10 +1077,10 @@ agg-empty-table-tests-after-modifications:
     ref: aggregate-empty-table.yamsql:681
     explain: ISCAN(T3_I2 <,>) | MAP (_ AS _0) | AGG (count(_._0.COL1) AS _0) GROUP
         BY (_._0.COL2 AS _0) | FILTER _._0._0 IS_NULL | MAP (_._1._0 AS _0)
-    task_count: 352
-    task_total_time_ms: 14
+    task_count: 322
+    task_total_time_ms: 10
     transform_count: 76
-    transform_time_ms: 5
+    transform_time_ms: 3
     transform_yield_count: 30
     insert_time_ms: 0
     insert_new_count: 26
@@ -1091,8 +1091,8 @@ agg-empty-table-tests-after-modifications:
     explain: ISCAN(T3_I2 <,>) | MAP (_ AS _0) | AGG (count(_._0.COL1) AS _0) GROUP
         BY (_._0.COL2 AS _0) | FILTER _._0._0 IS_NULL OR _._0._0 EQUALS promote(@c17
         AS LONG) | MAP (_._1._0 AS _0)
-    task_count: 352
-    task_total_time_ms: 12
+    task_count: 322
+    task_total_time_ms: 11
     transform_count: 76
     transform_time_ms: 4
     transform_yield_count: 30
@@ -1106,12 +1106,12 @@ agg-empty-table-tests-after-modifications:
         BY () | ON EMPTY NULL | FILTER coalesce_long(_._0._0, promote(0l AS LONG))
         IS_NULL OR coalesce_long(_._0._0, promote(0l AS LONG)) GREATER_THAN promote(@c20
         AS LONG) | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)
-    task_count: 534
-    task_total_time_ms: 31
+    task_count: 467
+    task_total_time_ms: 19
     transform_count: 96
-    transform_time_ms: 13
+    transform_time_ms: 8
     transform_yield_count: 39
-    insert_time_ms: 1
+    insert_time_ms: 0
     insert_new_count: 50
     insert_reused_count: 6
 -   query: EXPLAIN select count(*) from t3 having count(*) is null or count(*) > 100
@@ -1120,10 +1120,10 @@ agg-empty-table-tests-after-modifications:
         () | ON EMPTY NULL | FILTER coalesce_long(_._0._0, 0l) IS_NULL OR coalesce_long(_._0._0,
         0l) GREATER_THAN promote(@c20 AS LONG) | MAP (coalesce_long(_._0._0, promote(0l
         AS LONG)) AS _0)
-    task_count: 534
-    task_total_time_ms: 13
+    task_count: 467
+    task_total_time_ms: 22
     transform_count: 96
-    transform_time_ms: 5
+    transform_time_ms: 7
     transform_yield_count: 39
     insert_time_ms: 0
     insert_new_count: 50
@@ -1134,10 +1134,10 @@ agg-empty-table-tests-after-modifications:
     explain: ISCAN(T3_I1 <,>) | MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0) GROUP
         BY () | ON EMPTY NULL | FILTER _._0._0 IS_NULL OR _._0._0 GREATER_THAN promote(@c20
         AS LONG) | MAP (_._0._0 AS _0)
-    task_count: 518
-    task_total_time_ms: 23
+    task_count: 451
+    task_total_time_ms: 20
     transform_count: 92
-    transform_time_ms: 8
+    transform_time_ms: 6
     transform_yield_count: 37
     insert_time_ms: 0
     insert_new_count: 46
@@ -1148,10 +1148,10 @@ agg-empty-table-tests-after-modifications:
         BY () | ON EMPTY NULL | FILTER coalesce_long(_._0._0, promote(0l AS LONG))
         EQUALS promote(@c13 AS LONG) | MAP (coalesce_long(_._0._0, promote(0l AS LONG))
         AS _0)
-    task_count: 534
+    task_count: 467
     task_total_time_ms: 15
     transform_count: 96
-    transform_time_ms: 6
+    transform_time_ms: 5
     transform_yield_count: 39
     insert_time_ms: 0
     insert_new_count: 50
@@ -1160,8 +1160,8 @@ agg-empty-table-tests-after-modifications:
     ref: aggregate-empty-table.yamsql:714
     explain: ISCAN(T3_I1 <,>) | MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0) GROUP
         BY () | FILTER _._0._0 EQUALS promote(@c13 AS LONG) | MAP (_._0._0 AS _0)
-    task_count: 585
-    task_total_time_ms: 20
+    task_count: 509
+    task_total_time_ms: 19
     transform_count: 106
     transform_time_ms: 7
     transform_yield_count: 40

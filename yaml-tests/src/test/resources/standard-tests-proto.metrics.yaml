@@ -4,8 +4,8 @@ unnamed-2:
     ref: standard-tests-proto.yamsql:54
     explain: SCAN([EQUALS promote(@c22 AS LONG)]) | TFILTER T1 | MAP (_.ID AS ID,
         _.COL1 AS COL1, _.COL2 AS COL2)
-    task_count: 361
-    task_total_time_ms: 26
+    task_count: 332
+    task_total_time_ms: 20
     transform_count: 75
     transform_time_ms: 4
     transform_yield_count: 21
@@ -17,10 +17,10 @@ unnamed-2:
     ref: standard-tests-proto.yamsql:58
     explain: SCAN([EQUALS promote(@c25 AS LONG)]) | TFILTER T1 | MAP (_.ID AS ID,
         _.COL1 AS COL1, _.COL2 AS COL2)
-    task_count: 361
-    task_total_time_ms: 25
+    task_count: 332
+    task_total_time_ms: 22
     transform_count: 75
-    transform_time_ms: 5
+    transform_time_ms: 4
     transform_yield_count: 21
     insert_time_ms: 0
     insert_new_count: 31
@@ -31,8 +31,8 @@ unnamed-2:
     explain: SCAN([EQUALS promote(@c22 AS LONG)]) | TFILTER T1 | MAP (_ AS _0) | AGG
         (count_star(*) AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0,
         promote(0l AS LONG)) AS _0)
-    task_count: 473
-    task_total_time_ms: 22
+    task_count: 436
+    task_total_time_ms: 19
     transform_count: 98
     transform_time_ms: 2
     transform_yield_count: 25
@@ -44,8 +44,8 @@ unnamed-2:
     ref: standard-tests-proto.yamsql:66
     explain: SCAN([[GREATER_THAN promote(@c23 AS LONG)]]) | TFILTER T1 | MAP (_.ID
         AS ID, _.COL1 AS COL1, _.COL2 AS COL2)
-    task_count: 366
-    task_total_time_ms: 24
+    task_count: 337
+    task_total_time_ms: 20
     transform_count: 77
     transform_time_ms: 3
     transform_yield_count: 22

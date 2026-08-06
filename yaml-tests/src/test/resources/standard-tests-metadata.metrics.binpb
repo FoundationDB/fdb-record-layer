@@ -1,7 +1,8 @@
 ¸
 à
 standard-tests-metadatamEXPLAIN select count(*) from (select * from (select * from (select * from T1  where ID = 5) as x) as y) as z;Ó
-Ÿ•”‚b áÉ (0≤¶8)@≥SCAN([EQUALS promote(@c22 AS LONG)]) | TFILTER T1 | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)ödigraph G {
+¥´‘Ã
+b ‚è∑(0«◊8)@≥SCAN([EQUALS promote(@c22 AS LONG)]) | TFILTER T1 | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)ödigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;

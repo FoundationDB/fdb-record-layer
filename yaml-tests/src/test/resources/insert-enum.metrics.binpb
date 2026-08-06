@@ -2,7 +2,7 @@
 +
 	unnamed-3EXPLAIN SELECT * From "TableA"ë
 
-»ŒÕ€) £™z(0Îé8@SCAN(<,>) | TFILTER TableA²
+­Ú©©) ÎÓk(0úè8@SCAN(<,>) | TFILTER TableA²
 digraph G {
   fontname=courier;
   rankdir=BT;

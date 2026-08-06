@@ -1,7 +1,7 @@
 û
 N
 nested-with-nulls-proto-tests-EXPLAIN select id from t1 where a.a.a IS NULLÀ
-•Î∞≥B Ÿˆç(0∂î8@8SCAN(<,>) | TFILTER T1 | FILTER false | MAP (_.ID AS ID)Ûdigraph G {
+ã√óËB · à(0Ø≠8@8SCAN(<,>) | TFILTER T1 | FILTER false | MAP (_.ID AS ID)Ûdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -14,10 +14,10 @@ N
   4 -> 3 [ label=<&nbsp;q20> label="q20" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   5 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q27> label="q27" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}≥
+}≤
 N
-nested-with-nulls-proto-tests-EXPLAIN select id from t1 where a.a.b IS NULL‡
-ï◊Ë†= åóÅ(0ı•8@BSCAN(<,>) | TFILTER T1 | FILTER _.A.A.B IS_NULL | MAP (_.ID AS ID)˛digraph G {
+nested-with-nulls-proto-tests-EXPLAIN select id from t1 where a.a.b IS NULLﬂ
+˚¯Ö†= ñ¯x(0ﬂÜ8@BSCAN(<,>) | TFILTER T1 | FILTER _.A.A.B IS_NULL | MAP (_.ID AS ID)˛digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -30,10 +30,10 @@ N
   4 -> 3 [ label=<&nbsp;q19> label="q19" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   5 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q26> label="q26" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}≥
+}≤
 N
-nested-with-nulls-proto-tests-EXPLAIN select id from t1 where a.b.a IS NULL‡
-ï¢¡Î= πì¨(0ÂÚ8@BSCAN(<,>) | TFILTER T1 | FILTER _.A.B.A IS_NULL | MAP (_.ID AS ID)˛digraph G {
+nested-with-nulls-proto-tests-EXPLAIN select id from t1 where a.b.a IS NULLﬂ
+˚Õ‘¢= »òZ(0âê8@BSCAN(<,>) | TFILTER T1 | FILTER _.A.B.A IS_NULL | MAP (_.ID AS ID)˛digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -46,10 +46,10 @@ N
   4 -> 3 [ label=<&nbsp;q19> label="q19" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   5 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q26> label="q26" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}≥
+}≤
 N
-nested-with-nulls-proto-tests-EXPLAIN select id from t1 where a.b.b IS NULL‡
-ï©é˙= ä˘√(0§˛8@BSCAN(<,>) | TFILTER T1 | FILTER _.A.B.B IS_NULL | MAP (_.ID AS ID)˛digraph G {
+nested-with-nulls-proto-tests-EXPLAIN select id from t1 where a.b.b IS NULLﬂ
+˚Ó∏°= ÑÌy(0–¬8@BSCAN(<,>) | TFILTER T1 | FILTER _.A.B.B IS_NULL | MAP (_.ID AS ID)˛digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -62,10 +62,10 @@ N
   4 -> 3 [ label=<&nbsp;q19> label="q19" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   5 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q26> label="q26" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}≤
+}≥
 N
-nested-with-nulls-proto-tests-EXPLAIN select id from t1 where b.a.a IS NULLﬂ
-ï∆à¬= ˚Ïz(0÷∫8@BSCAN(<,>) | TFILTER T1 | FILTER _.B.A.A IS_NULL | MAP (_.ID AS ID)˛digraph G {
+nested-with-nulls-proto-tests-EXPLAIN select id from t1 where b.a.a IS NULL‡
+˚Àº“= Ëé†(0…Ï8@BSCAN(<,>) | TFILTER T1 | FILTER _.B.A.A IS_NULL | MAP (_.ID AS ID)˛digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -81,7 +81,7 @@ N
 }≥
 N
 nested-with-nulls-proto-tests-EXPLAIN select id from t1 where b.a.b IS NULL‡
-ï±®◊= é‰≠(0ﬁ…8@BSCAN(<,>) | TFILTER T1 | FILTER _.B.A.B IS_NULL | MAP (_.ID AS ID)˛digraph G {
+˚öçÚ= Ó˜ä(0â˘8@BSCAN(<,>) | TFILTER T1 | FILTER _.B.A.B IS_NULL | MAP (_.ID AS ID)˛digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -97,7 +97,7 @@ N
 }≤
 N
 nested-with-nulls-proto-tests-EXPLAIN select id from t1 where b.b.a IS NULLﬂ
-ïœÁ◊= îøk(0Ö…8@BSCAN(<,>) | TFILTER T1 | FILTER _.B.B.A IS_NULL | MAP (_.ID AS ID)˛digraph G {
+˚”¶π= ¡—h(0∂8@BSCAN(<,>) | TFILTER T1 | FILTER _.B.B.A IS_NULL | MAP (_.ID AS ID)˛digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -110,10 +110,10 @@ N
   4 -> 3 [ label=<&nbsp;q19> label="q19" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   5 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q26> label="q26" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}≥
+}≤
 N
-nested-with-nulls-proto-tests-EXPLAIN select id from t1 where b.b.b IS NULL‡
-ï»˘Ì= ÎÏ™(0éå8@BSCAN(<,>) | TFILTER T1 | FILTER _.B.B.B IS_NULL | MAP (_.ID AS ID)˛digraph G {
+nested-with-nulls-proto-tests-EXPLAIN select id from t1 where b.b.b IS NULLﬂ
+˚ÜÑ˘= é≈[(0Æ’8@BSCAN(<,>) | TFILTER T1 | FILTER _.B.B.B IS_NULL | MAP (_.ID AS ID)˛digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -129,7 +129,7 @@ N
 }Õ
 R
 nested-with-nulls-proto-tests1EXPLAIN select id from t1 where a.a.a IS NOT NULLˆ
-ïì˝∑A êæb(0˛´8@)SCAN(<,>) | TFILTER T1 | MAP (_.ID AS ID)Ædigraph G {
+˛ªó¸A ÊÃO(0£õ8@)SCAN(<,>) | TFILTER T1 | MAP (_.ID AS ID)Ædigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -143,7 +143,7 @@ R
 }∏
 R
 nested-with-nulls-proto-tests1EXPLAIN select id from t1 where a.a.b IS NOT NULL·
-ï£˚Û= ó∏q(0Å¢8@CSCAN(<,>) | TFILTER T1 | FILTER _.A.A.B NOT_NULL | MAP (_.ID AS ID)ˇdigraph G {
+˚ªÄ˛= ÒÏZ(0Î◊8@CSCAN(<,>) | TFILTER T1 | FILTER _.A.A.B NOT_NULL | MAP (_.ID AS ID)ˇdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -159,7 +159,7 @@ R
 }π
 R
 nested-with-nulls-proto-tests1EXPLAIN select id from t1 where a.b.a IS NOT NULL‚
-ïÏ≥≈= Óì¢(0öé8@CSCAN(<,>) | TFILTER T1 | FILTER _.A.B.A NOT_NULL | MAP (_.ID AS ID)ˇdigraph G {
+˚ëæ¡= ≤≤ö(0‰Ù8@CSCAN(<,>) | TFILTER T1 | FILTER _.A.B.A NOT_NULL | MAP (_.ID AS ID)ˇdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -172,10 +172,10 @@ R
   4 -> 3 [ label=<&nbsp;q19> label="q19" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   5 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q26> label="q26" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}π
+}∏
 R
-nested-with-nulls-proto-tests1EXPLAIN select id from t1 where a.b.b IS NOT NULL‚
-ïÜÓÿ= Øåπ(0öÖ8@CSCAN(<,>) | TFILTER T1 | FILTER _.A.B.B NOT_NULL | MAP (_.ID AS ID)ˇdigraph G {
+nested-with-nulls-proto-tests1EXPLAIN select id from t1 where a.b.b IS NOT NULL·
+˚¡ôÁ= ˇ—X(0Áî8@CSCAN(<,>) | TFILTER T1 | FILTER _.A.B.B NOT_NULL | MAP (_.ID AS ID)ˇdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -191,7 +191,7 @@ R
 }∏
 R
 nested-with-nulls-proto-tests1EXPLAIN select id from t1 where b.a.a IS NOT NULL·
-ï∑¥º= ¢¯c(0ëú8@CSCAN(<,>) | TFILTER T1 | FILTER _.B.A.A NOT_NULL | MAP (_.ID AS ID)ˇdigraph G {
+˚·Âı= ˜§(0∂Æ8@CSCAN(<,>) | TFILTER T1 | FILTER _.B.A.A NOT_NULL | MAP (_.ID AS ID)ˇdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -207,7 +207,7 @@ R
 }∏
 R
 nested-with-nulls-proto-tests1EXPLAIN select id from t1 where b.a.b IS NOT NULL·
-ïÙ∂”= »≈c(0µÖ8@CSCAN(<,>) | TFILTER T1 | FILTER _.B.A.B NOT_NULL | MAP (_.ID AS ID)ˇdigraph G {
+˚≤úõ= ˙áZ(0«¿8@CSCAN(<,>) | TFILTER T1 | FILTER _.B.A.B NOT_NULL | MAP (_.ID AS ID)ˇdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -223,7 +223,7 @@ R
 }π
 R
 nested-with-nulls-proto-tests1EXPLAIN select id from t1 where b.b.a IS NOT NULL‚
-ïû–Œ= ›ê∏(0˘Ò 8@CSCAN(<,>) | TFILTER T1 | FILTER _.B.B.A NOT_NULL | MAP (_.ID AS ID)ˇdigraph G {
+˚ƒè©= Åˆõ(0Ëá8@CSCAN(<,>) | TFILTER T1 | FILTER _.B.B.A NOT_NULL | MAP (_.ID AS ID)ˇdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -239,7 +239,7 @@ R
 }∏
 R
 nested-with-nulls-proto-tests1EXPLAIN select id from t1 where b.b.b IS NOT NULL·
-ï¶¸ú= Ï™Z(0±“8@CSCAN(<,>) | TFILTER T1 | FILTER _.B.B.B NOT_NULL | MAP (_.ID AS ID)ˇdigraph G {
+˚ªøÙ= â§k(0à«8@CSCAN(<,>) | TFILTER T1 | FILTER _.B.B.B NOT_NULL | MAP (_.ID AS ID)ˇdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -255,7 +255,7 @@ R
 }˙
 _
 nested-with-nulls-proto-tests>EXPLAIN select id from t1 where coalesce(a.a.a, 'blah') = 'a1'ñ
-ï¸≥Î= Ñ¬å(0•…8@]SCAN(<,>) | TFILTER T1 | FILTER coalesce_string(_.A.A.A, @c13) EQUALS @c16 | MAP (_.ID AS ID)ôdigraph G {
+˚Ïç = À¿•(0∞¡8@]SCAN(<,>) | TFILTER T1 | FILTER coalesce_string(_.A.A.A, @c13) EQUALS @c16 | MAP (_.ID AS ID)ôdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -271,7 +271,7 @@ _
 }˚
 `
 nested-with-nulls-proto-tests?EXPLAIN select id from t1 where coalesce(a.a.a, 'blah') = 'a1p'ñ
-ï¸≥Î= Ñ¬å(0•…8@]SCAN(<,>) | TFILTER T1 | FILTER coalesce_string(_.A.A.A, @c13) EQUALS @c16 | MAP (_.ID AS ID)ôdigraph G {
+˚Ïç = À¿•(0∞¡8@]SCAN(<,>) | TFILTER T1 | FILTER coalesce_string(_.A.A.A, @c13) EQUALS @c16 | MAP (_.ID AS ID)ôdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -284,10 +284,11 @@ _
   4 -> 3 [ label=<&nbsp;q19> label="q19" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   5 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q26> label="q26" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}‡
+}ﬂ
 d
-nested-with-nulls-proto-testsCEXPLAIN select id from t1 where coalesce(a.a.a, 'blah') IS NOT NULL˜
-ï∞‡˜A Çπù(0À∆8@)SCAN(<,>) | TFILTER T1 | MAP (_.ID AS ID)Ædigraph G {
+nested-with-nulls-proto-testsCEXPLAIN select id from t1 where coalesce(a.a.a, 'blah') IS NOT NULLˆ
+˛∑´‹A ÿ˙=(0®ﬂ
+8@)SCAN(<,>) | TFILTER T1 | MAP (_.ID AS ID)Ædigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -298,10 +299,10 @@ d
   3 -> 2 [ label=<&nbsp;q20> label="q20" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}ﬁ
+}›
 b
-nested-with-nulls-proto-testsAEXPLAIN select id from t1 where coalesce(a.a.a, null) IS NOT NULL˜
-ïè°ÑA Ù’®(0§â8@)SCAN(<,>) | TFILTER T1 | MAP (_.ID AS ID)Ædigraph G {
+nested-with-nulls-proto-testsAEXPLAIN select id from t1 where coalesce(a.a.a, null) IS NOT NULLˆ
+˛¨â—A Ï†t(0ÄÖ8@)SCAN(<,>) | TFILTER T1 | MAP (_.ID AS ID)Ædigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -315,7 +316,7 @@ b
 }≈
 ]
 nested-with-nulls-proto-tests<EXPLAIN select id from t1 where coalesce(a.b.a, 'a2') = 'a2'„
-•ï˜áB Û≤Ê(0‘ƒ8@ÉSCAN(<,>) | TFILTER T1 | FILTER coalesce_string(_.A.B.A, promote(@c13 AS STRING)) EQUALS promote(@c13 AS STRING) | MAP (_.ID AS ID)ødigraph G {
+ã„ÊîB ¥ª“(0†‰!8@ÉSCAN(<,>) | TFILTER T1 | FILTER coalesce_string(_.A.B.A, promote(@c13 AS STRING)) EQUALS promote(@c13 AS STRING) | MAP (_.ID AS ID)ødigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -331,7 +332,7 @@ b
 }«
 _
 nested-with-nulls-proto-tests>EXPLAIN select id from t1 where coalesce(a.b.a, 'foo') = 'foo'„
-•ï˜áB Û≤Ê(0‘ƒ8@ÉSCAN(<,>) | TFILTER T1 | FILTER coalesce_string(_.A.B.A, promote(@c13 AS STRING)) EQUALS promote(@c13 AS STRING) | MAP (_.ID AS ID)ødigraph G {
+ã„ÊîB ¥ª“(0†‰!8@ÉSCAN(<,>) | TFILTER T1 | FILTER coalesce_string(_.A.B.A, promote(@c13 AS STRING)) EQUALS promote(@c13 AS STRING) | MAP (_.ID AS ID)ødigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -347,7 +348,7 @@ _
 }ò
 _
 nested-with-nulls-proto-tests>EXPLAIN select id from t1 where coalesce(a.b.a, 'foo') IS NULL¥
-•”‚’B äªŒ(0ªÊ8@lSCAN(<,>) | TFILTER T1 | FILTER coalesce_string(_.A.B.A, promote(@c13 AS STRING)) IS_NULL | MAP (_.ID AS ID)®digraph G {
+ãØœôB ¡À¬(0ˆÈ8@lSCAN(<,>) | TFILTER T1 | FILTER coalesce_string(_.A.B.A, promote(@c13 AS STRING)) IS_NULL | MAP (_.ID AS ID)®digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -363,7 +364,7 @@ _
 }Ò
 ^
 nested-with-nulls-proto-tests=EXPLAIN select id from t1 where coalesce(a.b.a, null) IS NULLé
-•é–äB Ôﬂó(0Ô§8@YSCAN(<,>) | TFILTER T1 | FILTER coalesce_string(_.A.B.A, NULL) IS_NULL | MAP (_.ID AS ID)ïdigraph G {
+ãß€öB ≈µ∑(0ùÜ 8@YSCAN(<,>) | TFILTER T1 | FILTER coalesce_string(_.A.B.A, NULL) IS_NULL | MAP (_.ID AS ID)ïdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -376,10 +377,10 @@ _
   4 -> 3 [ label=<&nbsp;q20> label="q20" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   5 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q27> label="q27" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}û
+}ù
 c
-nested-with-nulls-proto-testsBEXPLAIN select id from t1 where coalesce(a.b.a, 'foo') IS NOT NULL∂
-•ãπÛB ôÁ«(0˘ı8@mSCAN(<,>) | TFILTER T1 | FILTER coalesce_string(_.A.B.A, promote(@c13 AS STRING)) NOT_NULL | MAP (_.ID AS ID)©digraph G {
+nested-with-nulls-proto-testsBEXPLAIN select id from t1 where coalesce(a.b.a, 'foo') IS NOT NULLµ
+ãô†¥B Ïîi(0˚á8@mSCAN(<,>) | TFILTER T1 | FILTER coalesce_string(_.A.B.A, promote(@c13 AS STRING)) NOT_NULL | MAP (_.ID AS ID)©digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -395,7 +396,7 @@ c
 }≤
 W
 nested-with-nulls-proto-tests6EXPLAIN select id from t1 where coalesce(b.a.b, 3) = 3÷
-ïõ⁄œ= ´·Ø(0’≠8@}SCAN(<,>) | TFILTER T1 | FILTER coalesce_long(_.B.A.B, promote(@c13 AS LONG)) EQUALS promote(@c13 AS LONG) | MAP (_.ID AS ID)πdigraph G {
+˚º±≈= ß—¨(0∆á8@}SCAN(<,>) | TFILTER T1 | FILTER coalesce_long(_.B.A.B, promote(@c13 AS LONG)) EQUALS promote(@c13 AS LONG) | MAP (_.ID AS ID)πdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -411,7 +412,7 @@ W
 }¥
 Y
 nested-with-nulls-proto-tests8EXPLAIN select id from t1 where coalesce(b.a.b, 42) = 42÷
-ïõ⁄œ= ´·Ø(0’≠8@}SCAN(<,>) | TFILTER T1 | FILTER coalesce_long(_.B.A.B, promote(@c13 AS LONG)) EQUALS promote(@c13 AS LONG) | MAP (_.ID AS ID)πdigraph G {
+˚º±≈= ß—¨(0∆á8@}SCAN(<,>) | TFILTER T1 | FILTER coalesce_long(_.B.A.B, promote(@c13 AS LONG)) EQUALS promote(@c13 AS LONG) | MAP (_.ID AS ID)πdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -424,10 +425,10 @@ Y
   4 -> 3 [ label=<&nbsp;q19> label="q19" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   5 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q26> label="q26" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}ç
+}å
 \
-nested-with-nulls-proto-tests;EXPLAIN select id from t1 where coalesce(b.a.b, 42) IS NULL¨
-ïû€Ê= ò√†(0¿∑8@hSCAN(<,>) | TFILTER T1 | FILTER coalesce_long(_.B.A.B, promote(@c13 AS LONG)) IS_NULL | MAP (_.ID AS ID)§digraph G {
+nested-with-nulls-proto-tests;EXPLAIN select id from t1 where coalesce(b.a.b, 42) IS NULL´
+˚»ºÊ= ∞ùW(0Ñ≈8@hSCAN(<,>) | TFILTER T1 | FILTER coalesce_long(_.B.A.B, promote(@c13 AS LONG)) IS_NULL | MAP (_.ID AS ID)§digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -440,10 +441,10 @@ Y
   4 -> 3 [ label=<&nbsp;q19> label="q19" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   5 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q26> label="q26" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}ì
+}í
 `
-nested-with-nulls-proto-tests?EXPLAIN select id from t1 where coalesce(b.a.b, 42) IS NOT NULLÆ
-ïìëƒ= åÿ≠(0Ãø8@iSCAN(<,>) | TFILTER T1 | FILTER coalesce_long(_.B.A.B, promote(@c13 AS LONG)) NOT_NULL | MAP (_.ID AS ID)•digraph G {
+nested-with-nulls-proto-tests?EXPLAIN select id from t1 where coalesce(b.a.b, 42) IS NOT NULL≠
+˚ˇ˘Å= π‰Z(0‹Ë8@iSCAN(<,>) | TFILTER T1 | FILTER coalesce_long(_.B.A.B, promote(@c13 AS LONG)) NOT_NULL | MAP (_.ID AS ID)•digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;

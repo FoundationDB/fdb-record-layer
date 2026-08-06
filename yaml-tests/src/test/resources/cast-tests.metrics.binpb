@@ -1,7 +1,7 @@
 ∫
 a
 cast-operator-testsJEXPLAIN select CAST([1, 2, 3] AS STRING ARRAY) from test_cast where id = 1‘
-˜¢ ï9 ÉüD(0ò€8@mSCAN([IS TEST_CAST, EQUALS promote(@c19 AS LONG)]) | MAP (CAST(array(@c19, @c6, @c8) AS ARRAY(STRING)) AS _0)»digraph G {
+‡¢Ñú9 £¿I(0∂â8@mSCAN([IS TEST_CAST, EQUALS promote(@c19 AS LONG)]) | MAP (CAST(array(@c19, @c6, @c8) AS ARRAY(STRING)) AS _0)»digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -13,7 +13,7 @@ a
 }È
 Z
 cast-operator-testsCEXPLAIN select CAST([] AS STRING ARRAY) from test_cast where id = 1ä
-˜ÿÃë9 Ä÷@(0Â˘8@HSCAN([IS TEST_CAST, EQUALS promote(@c14 AS LONG)]) | MAP (array() AS _0)£digraph G {
+‡ó§9 •ÛJ(0™œ8@HSCAN([IS TEST_CAST, EQUALS promote(@c14 AS LONG)]) | MAP (array() AS _0)£digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -25,7 +25,7 @@ Z
 }∫
 a
 cast-operator-testsJEXPLAIN select CAST([1, 2, 3] AS DOUBLE ARRAY) from test_cast where id = 1‘
-˜®Ôï9 º†B(0Á8@mSCAN([IS TEST_CAST, EQUALS promote(@c19 AS LONG)]) | MAP (CAST(array(@c19, @c6, @c8) AS ARRAY(DOUBLE)) AS _0)»digraph G {
+‡Ìó°9 Ÿ°L(0∫Õ8@mSCAN([IS TEST_CAST, EQUALS promote(@c19 AS LONG)]) | MAP (CAST(array(@c19, @c6, @c8) AS ARRAY(DOUBLE)) AS _0)»digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -37,7 +37,7 @@ a
 }π
 k
 cast-operator-testsTEXPLAIN select CAST([1.2d, 4.3d, 5.9d] AS INTEGER ARRAY) from test_cast where id = 1…
-˜˚ûù9 Œ¶G(0´õ8@iSCAN([IS TEST_CAST, EQUALS promote(@c19 AS LONG)]) | MAP (CAST(array(@c4, @c6, @c8) AS ARRAY(INT)) AS _0)¡digraph G {
+‡‹”î9 ˛∞C(0ü÷8@iSCAN([IS TEST_CAST, EQUALS promote(@c19 AS LONG)]) | MAP (CAST(array(@c4, @c6, @c8) AS ARRAY(INT)) AS _0)¡digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -49,7 +49,7 @@ k
 }æ
 p
 cast-operator-testsYEXPLAIN select CAST([80.90f, 25.76f, 16.7f] AS INTEGER ARRAY) from test_cast where id = 1…
-˜«óé9 Íß?(0öÕ8@iSCAN([IS TEST_CAST, EQUALS promote(@c19 AS LONG)]) | MAP (CAST(array(@c4, @c6, @c8) AS ARRAY(INT)) AS _0)¡digraph G {
+‡Ω“ä9 ·§=(0Ç’8@iSCAN([IS TEST_CAST, EQUALS promote(@c19 AS LONG)]) | MAP (CAST(array(@c4, @c6, @c8) AS ARRAY(INT)) AS _0)¡digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -61,7 +61,7 @@ p
 }π
 k
 cast-operator-testsTEXPLAIN select CAST(['42', '100', '7'] AS INTEGER ARRAY) from test_cast where id = 1…
-˜›⁄à9 ‘ª;(0ﬁ®8@iSCAN([IS TEST_CAST, EQUALS promote(@c19 AS LONG)]) | MAP (CAST(array(@c4, @c6, @c8) AS ARRAY(INT)) AS _0)¡digraph G {
+‡∏áá9 ⁄ø:(0⁄®8@iSCAN([IS TEST_CAST, EQUALS promote(@c19 AS LONG)]) | MAP (CAST(array(@c4, @c6, @c8) AS ARRAY(INT)) AS _0)¡digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -73,7 +73,7 @@ k
 }∫
 l
 cast-operator-testsUEXPLAIN select CAST([true, false, true] AS INTEGER ARRAY) from test_cast where id = 1…
-˜∏ÚÄ9 ◊Ö6(0œÉ8@iSCAN([IS TEST_CAST, EQUALS promote(@c19 AS LONG)]) | MAP (CAST(array(@c4, @c6, @c4) AS ARRAY(INT)) AS _0)¡digraph G {
+‡µõÖ9 îÉ9(0¢º8@iSCAN([IS TEST_CAST, EQUALS promote(@c19 AS LONG)]) | MAP (CAST(array(@c4, @c6, @c4) AS ARRAY(INT)) AS _0)¡digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -85,7 +85,7 @@ l
 }ø
 c
 cast-operator-testsLEXPLAIN select CAST([1, 0, 42] AS BOOLEAN ARRAY) from test_cast where id = 1◊
-˜Õıì9 ï§A(0∫›8@nSCAN([IS TEST_CAST, EQUALS promote(@c19 AS LONG)]) | MAP (CAST(array(@c19, @c6, @c8) AS ARRAY(BOOLEAN)) AS _0) digraph G {
+‡ÄóÑ9 ◊ß8(0√£8@nSCAN([IS TEST_CAST, EQUALS promote(@c19 AS LONG)]) | MAP (CAST(array(@c19, @c6, @c8) AS ARRAY(BOOLEAN)) AS _0) digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -94,10 +94,10 @@ c
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [TEST_CAST_ARRAYS, TEST_CAST]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, INT AS NUM_COL, STRING AS STR_COL, BOOLEAN AS BOOL_COL)" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}Á
+}Ê
 [
-cast-operator-testsDEXPLAIN select CAST([] AS INTEGER ARRAY) from test_cast where id = 1á
-˜ˆ–å9 ñ«>(0Ÿ·8@HSCAN([IS TEST_CAST, EQUALS promote(@c14 AS LONG)]) | MAP (array() AS _0)†digraph G {
+cast-operator-testsDEXPLAIN select CAST([] AS INTEGER ARRAY) from test_cast where id = 1Ü
+‡»„x9 ®Â1(0êô8@HSCAN([IS TEST_CAST, EQUALS promote(@c14 AS LONG)]) | MAP (array() AS _0)†digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -106,10 +106,10 @@ c
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [TEST_CAST_ARRAYS, TEST_CAST]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, INT AS NUM_COL, STRING AS STR_COL, BOOLEAN AS BOOL_COL)" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}È
+}Ë
 Z
-cast-operator-testsCEXPLAIN select CAST([] AS DOUBLE ARRAY) from test_cast where id = 1ä
-˜ê®Ä9 √©5(0‚–8@HSCAN([IS TEST_CAST, EQUALS promote(@c14 AS LONG)]) | MAP (array() AS _0)£digraph G {
+cast-operator-testsCEXPLAIN select CAST([] AS DOUBLE ARRAY) from test_cast where id = 1â
+‡≈¡r9 ‘».(0˛Û8@HSCAN([IS TEST_CAST, EQUALS promote(@c14 AS LONG)]) | MAP (array() AS _0)£digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -121,7 +121,7 @@ Z
 }Î
 [
 cast-operator-testsDEXPLAIN select CAST([] AS BOOLEAN ARRAY) from test_cast where id = 1ã
-˜’»Ä9 Çí6(0æ≤8@HSCAN([IS TEST_CAST, EQUALS promote(@c14 AS LONG)]) | MAP (array() AS _0)§digraph G {
+‡· à9 …é>(0•÷8@HSCAN([IS TEST_CAST, EQUALS promote(@c14 AS LONG)]) | MAP (array() AS _0)§digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -130,10 +130,10 @@ Z
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [TEST_CAST_ARRAYS, TEST_CAST]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, INT AS NUM_COL, STRING AS STR_COL, BOOLEAN AS BOOL_COL)" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}ä
+}â
 b
-cast-operator-testsKEXPLAIN select CAST([1, 2, 3] AS INTEGER ARRAY) from test_cast where id = 1£
-˜ﬁìâ9 ∏Ò:(0¸π8@VSCAN([IS TEST_CAST, EQUALS promote(@c19 AS LONG)]) | MAP (array(@c19, @c6, @c8) AS _0)Ædigraph G {
+cast-operator-testsKEXPLAIN select CAST([1, 2, 3] AS INTEGER ARRAY) from test_cast where id = 1¢
+‡ª˛z9 òΩ3(0‚˝8@VSCAN([IS TEST_CAST, EQUALS promote(@c19 AS LONG)]) | MAP (array(@c19, @c6, @c8) AS _0)Ædigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -145,7 +145,7 @@ b
 }•
 w
 cast-operator-tests`EXPLAIN select CAST([1, 2, 3, 4, 5, 6, 7, 8, 9, 10] AS STRING ARRAY) from test_cast where id = 1©
-˜¥Õö9 ıÂ<(0ìó8@óSCAN([IS TEST_CAST, EQUALS promote(@c33 AS LONG)]) | MAP (CAST(array(@c33, @c6, @c8, @c10, @c12, @c14, @c16, @c18, @c20, @c22) AS ARRAY(STRING)) AS _0)Údigraph G {
+‡Ñ≤®9 æØF(0ìŒ8@óSCAN([IS TEST_CAST, EQUALS promote(@c33 AS LONG)]) | MAP (CAST(array(@c33, @c6, @c8, @c10, @c12, @c14, @c16, @c18, @c20, @c22) AS ARRAY(STRING)) AS _0)Údigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -157,7 +157,7 @@ w
 }¥
 i
 cast-operator-testsREXPLAIN select CAST(num_col AS STRING) as casted_value from test_cast where id = 1∆
-˜ÃªÅ9 °ß0(0¨π8@dSCAN([IS TEST_CAST, EQUALS promote(@c14 AS LONG)]) | MAP (CAST(_.NUM_COL AS STRING) AS CASTED_VALUE)√digraph G {
+‡⁄‡é9 ÊÕ8(0∑˙8@dSCAN([IS TEST_CAST, EQUALS promote(@c14 AS LONG)]) | MAP (CAST(_.NUM_COL AS STRING) AS CASTED_VALUE)√digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -169,7 +169,7 @@ i
 }¥
 i
 cast-operator-testsREXPLAIN select CAST(num_col AS DOUBLE) as casted_value from test_cast where id = 1∆
-˜‹åò9 ÔÁ<(0ã•8@dSCAN([IS TEST_CAST, EQUALS promote(@c14 AS LONG)]) | MAP (CAST(_.NUM_COL AS DOUBLE) AS CASTED_VALUE)√digraph G {
+‡í∆Ø9 µ™D(0˜Ì8@dSCAN([IS TEST_CAST, EQUALS promote(@c14 AS LONG)]) | MAP (CAST(_.NUM_COL AS DOUBLE) AS CASTED_VALUE)√digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -181,7 +181,7 @@ i
 }Ø
 k
 cast-operator-testsTEXPLAIN select CAST(bool_col AS INTEGER) as casted_value from test_cast where id = 1ø
-˜—ôÉ9 Ñ«2(0Õÿ8@bSCAN([IS TEST_CAST, EQUALS promote(@c14 AS LONG)]) | MAP (CAST(_.BOOL_COL AS INT) AS CASTED_VALUE)ædigraph G {
+‡îˆä9 πƒ6(0∫Ï8@bSCAN([IS TEST_CAST, EQUALS promote(@c14 AS LONG)]) | MAP (CAST(_.BOOL_COL AS INT) AS CASTED_VALUE)ædigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -193,7 +193,7 @@ k
 }Ø
 k
 cast-operator-testsTEXPLAIN select CAST(bool_col AS INTEGER) as casted_value from test_cast where id = 2ø
-˜—ôÉ9 Ñ«2(0Õÿ8@bSCAN([IS TEST_CAST, EQUALS promote(@c14 AS LONG)]) | MAP (CAST(_.BOOL_COL AS INT) AS CASTED_VALUE)ædigraph G {
+‡îˆä9 πƒ6(0∫Ï8@bSCAN([IS TEST_CAST, EQUALS promote(@c14 AS LONG)]) | MAP (CAST(_.BOOL_COL AS INT) AS CASTED_VALUE)ædigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -205,7 +205,7 @@ k
 }¨
 j
 cast-operator-testsSEXPLAIN select CAST(str_col AS INTEGER) as casted_value from test_cast where id = 3Ω
-˜∆çà9 ƒº3(0´„8@aSCAN([IS TEST_CAST, EQUALS promote(@c14 AS LONG)]) | MAP (CAST(_.STR_COL AS INT) AS CASTED_VALUE)Ωdigraph G {
+‡≥’Ö9 ∫í4(0º›8@aSCAN([IS TEST_CAST, EQUALS promote(@c14 AS LONG)]) | MAP (CAST(_.STR_COL AS INT) AS CASTED_VALUE)Ωdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -217,7 +217,7 @@ j
 }ç
 â
 cast-operator-testsrEXPLAIN select CAST(CAST(CAST(num_col AS STRING) AS INTEGER) AS DOUBLE) as nested_cast from test_cast where id = 1˛
-˜∞îö9 ªß;(0áã8@ÄSCAN([IS TEST_CAST, EQUALS promote(@c24 AS LONG)]) | MAP (CAST(CAST(CAST(_.NUM_COL AS STRING) AS INT) AS DOUBLE) AS NESTED_CAST)ﬁdigraph G {
+‡≥¶û9 «·>(0æŸ8@ÄSCAN([IS TEST_CAST, EQUALS promote(@c24 AS LONG)]) | MAP (CAST(CAST(CAST(_.NUM_COL AS STRING) AS INT) AS DOUBLE) AS NESTED_CAST)ﬁdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -229,7 +229,7 @@ j
 }“
 r
 cast-operator-tests[EXPLAIN select CAST(num_col AS DOUBLE) * 2.5 as cast_arithmetic from test_cast where id = 1€
-˜¸∆ã9 À·4(0ÎÖ8@mSCAN([IS TEST_CAST, EQUALS promote(@c16 AS LONG)]) | MAP (CAST(_.NUM_COL AS DOUBLE) * @c8 AS CAST_ARITHMETIC)œdigraph G {
+‡Ú¡ú9 öä?(0°«8@mSCAN([IS TEST_CAST, EQUALS promote(@c16 AS LONG)]) | MAP (CAST(_.NUM_COL AS DOUBLE) * @c8 AS CAST_ARITHMETIC)œdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -241,7 +241,7 @@ r
 }ﬁ
 {
 cast-operator-testsdEXPLAIN select CAST(num_col AS BIGINT) + CAST(456 AS BIGINT) as cast_sum from test_cast where id = 1ﬁ
-˜ﬁ¢ô9 ÚÛ<(0¨ƒ8@sSCAN([IS TEST_CAST, EQUALS promote(@c21 AS LONG)]) | MAP (CAST(_.NUM_COL AS LONG) + CAST(@c10 AS LONG) AS CAST_SUM)Ãdigraph G {
+‡à≥£9 ã›A(0§ô8@sSCAN([IS TEST_CAST, EQUALS promote(@c21 AS LONG)]) | MAP (CAST(_.NUM_COL AS LONG) + CAST(@c10 AS LONG) AS CAST_SUM)Ãdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -253,7 +253,7 @@ r
 }Ã
 û
 cast-operator-testsÜEXPLAIN select CASE WHEN CAST(bool_col AS INTEGER) = 1 THEN 'TRUE_CASE' ELSE 'FALSE_CASE' END as cast_case from test_cast where id = 1®
-˜À˙º9 Â£E(0Ã”8@ñSCAN([IS TEST_CAST, EQUALS promote(@c23 AS LONG)]) | MAP (pick(ConditionSelector(CAST(_.BOOL_COL AS INT) equals @c23, TRUE), @c12, @c14) AS CAST_CASE)Údigraph G {
+‡õ≈ñ9 ≈’9(0π±8@ñSCAN([IS TEST_CAST, EQUALS promote(@c23 AS LONG)]) | MAP (pick(ConditionSelector(CAST(_.BOOL_COL AS INT) equals @c23, TRUE), @c12, @c14) AS CAST_CASE)Údigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -265,7 +265,7 @@ r
 }ü
 k
 cast-operator-testsTEXPLAIN select id from test_cast where CAST(num_col AS STRING) = CAST(123 AS STRING)Ø
-Ú£«ô; •™J(0úŒ8@fSCAN([IS TEST_CAST]) | FILTER CAST(_.NUM_COL AS STRING) EQUALS CAST(@c14 AS STRING) | MAP (_.ID AS ID)™digraph G {
+ﬁØ„Ü; Æñ>(0’æ8@fSCAN([IS TEST_CAST]) | FILTER CAST(_.NUM_COL AS STRING) EQUALS CAST(@c14 AS STRING) | MAP (_.ID AS ID)™digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -279,7 +279,8 @@ k
 }©
 _
 cast-operator-testsHEXPLAIN select id from test_cast where CAST(bool_col AS INTEGER) + 1 > 1≈
-Çº˝Æ@ Ç‡O(0Ì˙8@qSCAN([IS TEST_CAST]) | FILTER CAST(_.BOOL_COL AS INT) + @c12 GREATER_THAN promote(@c12 AS INT) | MAP (_.ID AS ID)µdigraph G {
+Ó¿Åõ@ ˙≤C(0 ‚
+8@qSCAN([IS TEST_CAST]) | FILTER CAST(_.BOOL_COL AS INT) + @c12 GREATER_THAN promote(@c12 AS INT) | MAP (_.ID AS ID)µdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -293,8 +294,7 @@ _
 }á
 Z
 cast-operator-testsCEXPLAIN select SUM(CAST(num_col AS DOUBLE)) as total from test_cast®
-¢ŸÆ©> íë>(0‹Î
-8@ãSCAN([IS TEST_CAST]) | MAP (_ AS _0) | AGG (sum_d(CAST(_._0.NUM_COL AS DOUBLE)) AS _0) GROUP BY () | ON EMPTY NULL | MAP (_._0._0 AS TOTAL)˝digraph G {
+åìçó> ÈÅ>(0Ω®8@ãSCAN([IS TEST_CAST]) | MAP (_ AS _0) | AGG (sum_d(CAST(_._0.NUM_COL AS DOUBLE)) AS _0) GROUP BY () | ON EMPTY NULL | MAP (_._0._0 AS TOTAL)˝digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -309,101 +309,101 @@ Z
   5 -> 4 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   6 -> 5 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}¡
+}¿
 
 Ê
-cast-operator-testsŒEXPLAIN select cast(null as integer) as a, cast(null as bigint) as b, cast(null as string) as c, cast(null as double) as d, cast(null as boolean) as e, cast(null as string) as f from values (1), (2) as X(X)’
-àã∞4 ﬁÕ(0û∏8	@ pEXPLODE array((@c57 AS X), (@c61 AS X)) | MAP (NULL AS A, NULL AS B, NULL AS C, NULL AS D, NULL AS E, NULL AS F)«digraph G {
+cast-operator-testsŒEXPLAIN select cast(null as integer) as a, cast(null as bigint) as b, cast(null as string) as c, cast(null as double) as d, cast(null as boolean) as e, cast(null as string) as f from values (1), (2) as X(X)‘
+}ÚŒ( êñ(0Ôù8	@ pEXPLODE array((@c57 AS X), (@c61 AS X)) | MAP (NULL AS A, NULL AS B, NULL AS C, NULL AS D, NULL AS E, NULL AS F)«digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
   1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (NULL AS A, NULL AS B, NULL AS C, NULL AS D, NULL AS E, NULL AS F)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS A, LONG AS B, STRING AS C, DOUBLE AS D, BOOLEAN AS E, STRING AS F)" ];
   2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">EXPLODE array((@c57 AS X), (@c61 AS X))</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS X)" ];
   2 -> 1 [ label=<&nbsp;q0> label="q0" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}Ö
+}Ñ
 U
-cast-operator-tests>EXPLAIN select cast(null as uuid) from values (1), (2) as X(X)´
-à‘Ï+ ÆÏ(0Å¥8	@ :EXPLODE array((@c10 AS X), (@c14 AS X)) | MAP (NULL AS _0)”digraph G {
+cast-operator-tests>EXPLAIN select cast(null as uuid) from values (1), (2) as X(X)™
+}ﬂÇ, Ÿï(0è∞8	@ :EXPLODE array((@c10 AS X), (@c14 AS X)) | MAP (NULL AS _0)”digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
   1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (NULL AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(UUID AS _0)" ];
   2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">EXPLODE array((@c10 AS X), (@c14 AS X))</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS X)" ];
   2 -> 1 [ label=<&nbsp;q0> label="q0" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}á
+}Ü
 V
-cast-operator-tests?EXPLAIN select cast(null as float) from values (1), (2) as X(X)¨
-àì¯. ‘Î(0Õ≈8	@ :EXPLODE array((@c10 AS X), (@c14 AS X)) | MAP (NULL AS _0)‘digraph G {
+cast-operator-tests?EXPLAIN select cast(null as float) from values (1), (2) as X(X)´
+}·ô- Ùå(0êΩ8	@ :EXPLODE array((@c10 AS X), (@c14 AS X)) | MAP (NULL AS _0)‘digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
   1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (NULL AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(FLOAT AS _0)" ];
   2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">EXPLODE array((@c10 AS X), (@c14 AS X))</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS X)" ];
   2 -> 1 [ label=<&nbsp;q0> label="q0" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}á
+}Ü
 V
-cast-operator-tests?EXPLAIN select cast(null as bytes) from values (1), (2) as X(X)¨
-àˆô' ﬁÓ(0îí8	@ :EXPLODE array((@c10 AS X), (@c14 AS X)) | MAP (NULL AS _0)‘digraph G {
+cast-operator-tests?EXPLAIN select cast(null as bytes) from values (1), (2) as X(X)´
+}Êƒ( ¿ÿ(0»™8	@ :EXPLODE array((@c10 AS X), (@c14 AS X)) | MAP (NULL AS _0)‘digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
   1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (NULL AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(BYTES AS _0)" ];
   2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">EXPLODE array((@c10 AS X), (@c14 AS X))</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS X)" ];
   2 -> 1 [ label=<&nbsp;q0> label="q0" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}¬	
+}¡	
 ¥
-cast-operator-testsúEXPLAIN select cast(null as vector(10, half)) as a, cast(null as vector(15, float)) as b, cast(null as vector(30, double)) as c from values (1), (2) as X(X)à
-àÊ¢* Àπ(0Úú8	@ OEXPLODE array((@c45 AS X), (@c49 AS X)) | MAP (NULL AS A, NULL AS B, NULL AS C)õdigraph G {
+cast-operator-testsúEXPLAIN select cast(null as vector(10, half)) as a, cast(null as vector(15, float)) as b, cast(null as vector(30, double)) as c from values (1), (2) as X(X)á
+}°⁄. Æ˚(0âø8	@ OEXPLODE array((@c45 AS X), (@c49 AS X)) | MAP (NULL AS A, NULL AS B, NULL AS C)õdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
   1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (NULL AS A, NULL AS B, NULL AS C)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(VECTOR(16, 10) AS A, VECTOR(32, 15) AS B, VECTOR(64, 30) AS C)" ];
   2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">EXPLODE array((@c45 AS X), (@c49 AS X))</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS X)" ];
   2 -> 1 [ label=<&nbsp;q0> label="q0" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}è
+}é
 ä
-cast-operator-testsÚEXPLAIN select cast(null as integer array) as a, cast(null as bigint array) as b, cast(null as string array) as c, cast(null as double array) as d, cast(null as boolean array) as e, cast(null as string array) as f from values (1), (2) as X(X)ˇ
-àçÏ) Åç(0öû8	@ pEXPLODE array((@c63 AS X), (@c67 AS X)) | MAP (NULL AS A, NULL AS B, NULL AS C, NULL AS D, NULL AS E, NULL AS F)Òdigraph G {
+cast-operator-testsÚEXPLAIN select cast(null as integer array) as a, cast(null as bigint array) as b, cast(null as string array) as c, cast(null as double array) as d, cast(null as boolean array) as e, cast(null as string array) as f from values (1), (2) as X(X)˛
+}˘Ã( Æ˛(0∞§8	@ pEXPLODE array((@c63 AS X), (@c67 AS X)) | MAP (NULL AS A, NULL AS B, NULL AS C, NULL AS D, NULL AS E, NULL AS F)Òdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
   1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (NULL AS A, NULL AS B, NULL AS C, NULL AS D, NULL AS E, NULL AS F)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(ARRAY(INT) AS A, ARRAY(LONG) AS B, ARRAY(STRING) AS C, ARRAY(DOUBLE) AS D, ARRAY(BOOLEAN) AS E, ARRAY(STRING) AS F)" ];
   2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">EXPLODE array((@c63 AS X), (@c67 AS X))</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS X)" ];
   2 -> 1 [ label=<&nbsp;q0> label="q0" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}í
+}ë
 [
-cast-operator-testsDEXPLAIN select cast(null as uuid array) from values (1), (2) as X(X)≤
-à‹†' °Ê(0ƒû8	@ :EXPLODE array((@c11 AS X), (@c15 AS X)) | MAP (NULL AS _0)⁄digraph G {
+cast-operator-testsDEXPLAIN select cast(null as uuid array) from values (1), (2) as X(X)±
+}◊¿" ˜∫(0ˆé8	@ :EXPLODE array((@c11 AS X), (@c15 AS X)) | MAP (NULL AS _0)⁄digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
   1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (NULL AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(ARRAY(UUID) AS _0)" ];
   2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">EXPLODE array((@c11 AS X), (@c15 AS X))</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS X)" ];
   2 -> 1 [ label=<&nbsp;q0> label="q0" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}î
+}ì
 \
-cast-operator-testsEEXPLAIN select cast(null as float array) from values (1), (2) as X(X)≥
-àŒï# ®ü(0ÈÑ8	@ :EXPLODE array((@c11 AS X), (@c15 AS X)) | MAP (NULL AS _0)€digraph G {
+cast-operator-testsEEXPLAIN select cast(null as float array) from values (1), (2) as X(X)≤
+}√£% â”(0“ß8	@ :EXPLODE array((@c11 AS X), (@c15 AS X)) | MAP (NULL AS _0)€digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
   1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (NULL AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(ARRAY(FLOAT) AS _0)" ];
   2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">EXPLODE array((@c11 AS X), (@c15 AS X))</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS X)" ];
   2 -> 1 [ label=<&nbsp;q0> label="q0" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}î
+}ì
 \
-cast-operator-testsEEXPLAIN select cast(null as bytes array) from values (1), (2) as X(X)≥
-àˇú$ ¯ü(0≤à8	@ :EXPLODE array((@c11 AS X), (@c15 AS X)) | MAP (NULL AS _0)€digraph G {
+cast-operator-testsEEXPLAIN select cast(null as bytes array) from values (1), (2) as X(X)≤
+}≠é  ù›(0¥á8	@ :EXPLODE array((@c11 AS X), (@c15 AS X)) | MAP (NULL AS _0)€digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
   1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (NULL AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(ARRAY(BYTES) AS _0)" ];
   2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">EXPLODE array((@c11 AS X), (@c15 AS X))</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS X)" ];
   2 -> 1 [ label=<&nbsp;q0> label="q0" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}È	
+}Ë	
 ∆
-cast-operator-testsÆEXPLAIN select cast(null as vector(10, half) array) as a, cast(null as vector(15, float) array) as b, cast(null as vector(30, double) array) as c from values (1), (2) as X(X)ù
-àÉâ+ à¡(0·⁄8	@ OEXPLODE array((@c48 AS X), (@c52 AS X)) | MAP (NULL AS A, NULL AS B, NULL AS C)∞digraph G {
+cast-operator-testsÆEXPLAIN select cast(null as vector(10, half) array) as a, cast(null as vector(15, float) array) as b, cast(null as vector(30, double) array) as c from values (1), (2) as X(X)ú
+}Ω‡# ƒ£(0ÿó8	@ OEXPLODE array((@c48 AS X), (@c52 AS X)) | MAP (NULL AS A, NULL AS B, NULL AS C)∞digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;

@@ -3,10 +3,10 @@ unnamed-4:
     ref: like.yamsql:154
     explain: 'COVERING(C2 <,> -> [C1: KEY:[2], C2: KEY:[0]]) | FILTER _.C2 LIKE @c7
         ESCAPE ''null'' | FETCH'
-    task_count: 407
-    task_total_time_ms: 6
+    task_count: 350
+    task_total_time_ms: 9
     transform_count: 77
-    transform_time_ms: 2
+    transform_time_ms: 3
     transform_yield_count: 29
     insert_time_ms: 0
     insert_new_count: 35
@@ -15,10 +15,10 @@ unnamed-4:
     ref: like.yamsql:178
     explain: 'COVERING(C2 <,> -> [C1: KEY:[2], C2: KEY:[0]]) | FILTER _.C2 LIKE @c7
         ESCAPE ''null'' | FETCH'
-    task_count: 407
-    task_total_time_ms: 6
+    task_count: 350
+    task_total_time_ms: 9
     transform_count: 77
-    transform_time_ms: 2
+    transform_time_ms: 3
     transform_yield_count: 29
     insert_time_ms: 0
     insert_new_count: 35
@@ -27,10 +27,10 @@ unnamed-4:
     ref: like.yamsql:190
     explain: 'COVERING(C2 <,> -> [C1: KEY:[2], C2: KEY:[0]]) | FILTER _.C2 LIKE @c7
         ESCAPE ''null'' | FETCH'
-    task_count: 407
-    task_total_time_ms: 6
+    task_count: 350
+    task_total_time_ms: 9
     transform_count: 77
-    transform_time_ms: 2
+    transform_time_ms: 3
     transform_yield_count: 29
     insert_time_ms: 0
     insert_new_count: 35
@@ -39,10 +39,10 @@ unnamed-4:
     ref: like.yamsql:199
     explain: 'COVERING(C2 <,> -> [C1: KEY:[2], C2: KEY:[0]]) | FILTER _.C2 LIKE @c7
         ESCAPE ''null'' | FETCH'
-    task_count: 407
-    task_total_time_ms: 6
+    task_count: 350
+    task_total_time_ms: 9
     transform_count: 77
-    transform_time_ms: 2
+    transform_time_ms: 3
     transform_yield_count: 29
     insert_time_ms: 0
     insert_new_count: 35
@@ -51,10 +51,10 @@ unnamed-4:
     ref: like.yamsql:278
     explain: 'COVERING(C2 <,> -> [C1: KEY:[2], C2: KEY:[0]]) | FILTER _.C2 LIKE @c7
         ESCAPE ''null'' | FETCH'
-    task_count: 407
-    task_total_time_ms: 6
+    task_count: 350
+    task_total_time_ms: 9
     transform_count: 77
-    transform_time_ms: 2
+    transform_time_ms: 3
     transform_yield_count: 29
     insert_time_ms: 0
     insert_new_count: 35
@@ -63,10 +63,10 @@ unnamed-4:
     ref: like.yamsql:291
     explain: 'COVERING(C2 <,> -> [C1: KEY:[2], C2: KEY:[0]]) | FILTER _.C2 LIKE @c7
         ESCAPE ''null'' | FETCH'
-    task_count: 407
-    task_total_time_ms: 6
+    task_count: 350
+    task_total_time_ms: 9
     transform_count: 77
-    transform_time_ms: 2
+    transform_time_ms: 3
     transform_yield_count: 29
     insert_time_ms: 0
     insert_new_count: 35
@@ -75,10 +75,10 @@ unnamed-4:
     ref: like.yamsql:300
     explain: 'COVERING(C2 <,> -> [C1: KEY:[2], C2: KEY:[0]]) | FILTER _.C2 LIKE @c7
         ESCAPE ''null'' | FETCH'
-    task_count: 407
-    task_total_time_ms: 6
+    task_count: 350
+    task_total_time_ms: 9
     transform_count: 77
-    transform_time_ms: 2
+    transform_time_ms: 3
     transform_yield_count: 29
     insert_time_ms: 0
     insert_new_count: 35
@@ -87,10 +87,10 @@ unnamed-4:
     ref: like.yamsql:308
     explain: 'COVERING(C2 <,> -> [C1: KEY:[2], C2: KEY:[0]]) | FILTER _.C2 LIKE @c7
         ESCAPE ''null'' | FETCH'
-    task_count: 407
-    task_total_time_ms: 6
+    task_count: 350
+    task_total_time_ms: 9
     transform_count: 77
-    transform_time_ms: 2
+    transform_time_ms: 3
     transform_yield_count: 29
     insert_time_ms: 0
     insert_new_count: 35
@@ -99,10 +99,10 @@ unnamed-4:
     ref: like.yamsql:316
     explain: 'COVERING(C2 <,> -> [C1: KEY:[2], C2: KEY:[0]]) | FILTER _.C2 LIKE @c7
         ESCAPE ''null'' | FETCH'
-    task_count: 407
-    task_total_time_ms: 6
+    task_count: 350
+    task_total_time_ms: 9
     transform_count: 77
-    transform_time_ms: 2
+    transform_time_ms: 3
     transform_yield_count: 29
     insert_time_ms: 0
     insert_new_count: 35
