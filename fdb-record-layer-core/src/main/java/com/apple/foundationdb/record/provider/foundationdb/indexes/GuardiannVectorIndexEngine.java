@@ -21,9 +21,11 @@
 package com.apple.foundationdb.record.provider.foundationdb.indexes;
 
 import com.apple.foundationdb.KeyValue;
+import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.async.AsyncIterable;
 import com.apple.foundationdb.async.common.ResultEntry;
 import com.apple.foundationdb.async.common.TimedAsyncIterable;
+import com.apple.foundationdb.async.guardiann.ClusterCapacityExceededException;
 import com.apple.foundationdb.async.guardiann.Config;
 import com.apple.foundationdb.async.guardiann.Config.ConfigBuilder;
 import com.apple.foundationdb.async.guardiann.Guardiann;
@@ -50,6 +52,8 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
+import java.util.concurrent.ExecutionException;
 import java.util.function.DoubleConsumer;
 import java.util.function.IntConsumer;
 
@@ -73,8 +77,9 @@ import static com.apple.foundationdb.record.provider.foundationdb.indexes.Vector
  */
 @SuppressWarnings("PMD.TooManyStaticImports")
 final class GuardiannVectorIndexEngine implements VectorIndexEngine {
-    // Only stats and concurrency knobs may change on an existing index; see validateChangedOptions. Each key already
-    // covers its current and legacy names.
+    // Only stats and concurrency knobs may change on an existing index, plus the primary-cluster hard cap (a runtime
+    // back-pressure valve, not an on-disk encoding knob); see validateChangedOptions. Each key already covers its
+    // current and legacy names.
     private static final List<VectorOptionKey<?>> MUTABLE_OPTIONS = ImmutableList.of(
             // stats knobs
             VectorIndexOptionKeys.SAMPLE_VECTOR_STATS_PROBABILITY,
@@ -86,13 +91,19 @@ final class GuardiannVectorIndexEngine implements VectorIndexEngine {
             VectorIndexOptionKeys.GUARDIANN_SPLIT_MERGE_CONCURRENCY,
             VectorIndexOptionKeys.GUARDIANN_REASSIGN_CONCURRENCY,
             VectorIndexOptionKeys.GUARDIANN_COLLAPSE_CONCURRENCY,
-            VectorIndexOptionKeys.GUARDIANN_BOUNCE_CONCURRENCY);
+            VectorIndexOptionKeys.GUARDIANN_BOUNCE_CONCURRENCY,
+            // back-pressure valve (does not reinterpret on-disk data)
+            VectorIndexOptionKeys.GUARDIANN_PRIMARY_CLUSTER_HARD_MAX);
 
     @Nonnull
     private final Config config;
+    @Nonnull
+    private final VectorIndexTaskCounts taskCounts;
 
-    GuardiannVectorIndexEngine(@Nonnull final Config config) {
+    GuardiannVectorIndexEngine(@Nonnull final Config config, @Nonnull final Subspace indexSecondarySubspace) {
         this.config = config;
+        // Own the outstanding-work register, built once (cheaply) from the index's secondary subspace.
+        this.taskCounts = new VectorIndexTaskCounts(indexSecondarySubspace);
     }
 
     @Nonnull
@@ -111,32 +122,97 @@ final class GuardiannVectorIndexEngine implements VectorIndexEngine {
 
     @Nonnull
     @Override
+    @SuppressWarnings("PMD.CloseResource") // context owns the transaction returned by ensureActive(); we don't close it
     public CompletableFuture<Void> insert(@Nonnull final FDBRecordContext context,
                                           @Nonnull final Subspace subspace,
                                           @Nonnull final Tuple primaryKey,
-                                          @Nonnull final RealVector vector) {
+                                          @Nonnull final RealVector vector,
+                                          @Nonnull final TaskEventRegister register,
+                                          final boolean maintainInTransaction) {
         // Insert reads (to find candidate clusters) and writes (references and deferred-task bookkeeping), so wire both
-        // listeners.
+        // listeners. The write listener also maintains the outstanding-task register as tasks are enqueued/executed.
         final FDBStoreTimer timer = context.getTimer();
+        final Transaction transaction = context.ensureActive();
         final Guardiann guardiann =
-                new Guardiann(subspace, context.getExecutor(), config, OnWrite.fromTimer(timer),
-                        OnRead.fromTimer(timer));
-        return guardiann.insert(context.ensureActive(), primaryKey, vector, null);
+                new Guardiann(subspace, context.getExecutor(), config,
+                        OnWrite.forWrites(timer, transaction, register), OnRead.fromTimer(timer));
+        // Guardiann back-pressures over its hard cap with an extensions-layer exception it cannot express as a
+        // record-layer type; translate it here so callers see a VectorIndexClusterTooLargeException.
+        return guardiann.insert(transaction, primaryKey, vector, null, maintainInTransaction)
+                .exceptionally(GuardiannVectorIndexEngine::translateInsertBackPressure);
+    }
+
+    /**
+     * Rethrows an insert failure, translating Guardiann's extensions-layer {@link ClusterCapacityExceededException}
+     * hard-cap signal into the record-layer {@link VectorIndexClusterTooLargeException} (Guardiann cannot reference
+     * record-layer exceptions across the module boundary) and passing every other failure through unchanged. Never
+     * returns normally; the {@code Void} return type is only there to satisfy {@code exceptionally}.
+     */
+    private static Void translateInsertBackPressure(@Nonnull final Throwable throwable) {
+        Throwable cause = throwable;
+        while ((cause instanceof CompletionException || cause instanceof ExecutionException)
+                && cause.getCause() != null) {
+            cause = cause.getCause();
+        }
+        if (cause instanceof ClusterCapacityExceededException) {
+            throw new VectorIndexClusterTooLargeException(
+                    "vector index cluster reached its hard cap; a background merge must drain the deferred split "
+                            + "backlog before more vectors can be inserted", cause);
+        }
+        if (throwable instanceof RuntimeException) {
+            throw (RuntimeException)throwable;
+        }
+        throw new CompletionException(throwable);
     }
 
     @Nonnull
     @Override
+    @SuppressWarnings("PMD.CloseResource") // context owns the transaction returned by ensureActive(); we don't close it
     public CompletableFuture<Void> delete(@Nonnull final FDBRecordContext context,
                                           @Nonnull final Subspace subspace,
                                           @Nonnull final Tuple primaryKey,
-                                          @Nonnull final RealVector vector) {
+                                          @Nonnull final RealVector vector,
+                                          @Nonnull final TaskEventRegister register,
+                                          final boolean maintainInTransaction) {
         // Guardiann needs the vector to locate the cluster references to remove; it reads while probing candidate
-        // clusters and writes as it removes references, so both listeners are wired.
+        // clusters and writes as it removes references, so both listeners are wired. The write listener also maintains
+        // the outstanding-task register as tasks are enqueued/executed.
         final FDBStoreTimer timer = context.getTimer();
+        final Transaction transaction = context.ensureActive();
         final Guardiann guardiann =
-                new Guardiann(subspace, context.getExecutor(), config, OnWrite.fromTimer(timer),
-                        OnRead.fromTimer(timer));
-        return guardiann.delete(context.ensureActive(), primaryKey, vector);
+                new Guardiann(subspace, context.getExecutor(), config,
+                        OnWrite.forWrites(timer, transaction, register), OnRead.fromTimer(timer));
+        return guardiann.delete(transaction, primaryKey, vector, maintainInTransaction);
+    }
+
+    @Nonnull
+    @Override
+    public VectorIndexTaskCounts getTaskCounts() {
+        return taskCounts;
+    }
+
+    @Override
+    public boolean signalsMergeRequiredToCaller(final boolean maintainInTransaction) {
+        // Guardiann defers maintenance; a caller-driven merge is needed on enqueue unless this write drained
+        // in-transaction.
+        return !maintainInTransaction;
+    }
+
+    @Nonnull
+    @Override
+    @SuppressWarnings("PMD.CloseResource") // context owns the transaction returned by ensureActive(); we don't close it
+    public CompletableFuture<Integer> executeDeferredTasks(@Nonnull final FDBRecordContext context,
+                                                           @Nonnull final Subspace subspace,
+                                                           final int numTasks,
+                                                           @Nonnull final TaskEventRegister register) {
+        // Draining runs queued tasks, which is a write path: wire OnWrite so each executed task both attributes to the
+        // timer and — via the register — decrements the partition's outstanding-work count in this same transaction.
+        final FDBStoreTimer timer = context.getTimer();
+        final Transaction transaction = context.ensureActive();
+        final Guardiann guardiann =
+                new Guardiann(subspace, context.getExecutor(), config,
+                        OnWrite.forWrites(timer, transaction, register), OnRead.fromTimer(timer));
+        return guardiann.executeDeferredTasks(transaction, numTasks);
     }
 
     /**
@@ -187,14 +263,17 @@ final class GuardiannVectorIndexEngine implements VectorIndexEngine {
     }
 
     /**
-     * Builds the Guardiann engine for an index, parsing its {@link Config} from the index options.
+     * Builds the Guardiann engine for an index, parsing its {@link Config} from the index options and giving it the
+     * index's secondary subspace so it can own its {@link VectorIndexTaskCounts}.
      *
      * @param index the index definition
+     * @param indexSecondarySubspace the index's secondary subspace
      * @return the Guardiann engine
      */
     @Nonnull
-    static GuardiannVectorIndexEngine fromIndex(@Nonnull final Index index) {
-        return new GuardiannVectorIndexEngine(parseConfig(index));
+    static GuardiannVectorIndexEngine fromIndex(@Nonnull final Index index,
+                                                @Nonnull final Subspace indexSecondarySubspace) {
+        return new GuardiannVectorIndexEngine(parseConfig(index), indexSecondarySubspace);
     }
 
     /**
@@ -225,6 +304,8 @@ final class GuardiannVectorIndexEngine implements VectorIndexEngine {
         // Guardiann-only knobs.
         applyInteger(VectorIndexOptionKeys.GUARDIANN_PRIMARY_CLUSTER_MIN, index, builder::setPrimaryClusterMin);
         applyInteger(VectorIndexOptionKeys.GUARDIANN_PRIMARY_CLUSTER_MAX, index, builder::setPrimaryClusterMax);
+        applyInteger(VectorIndexOptionKeys.GUARDIANN_PRIMARY_CLUSTER_HARD_MAX, index,
+                builder::setPrimaryClusterHardMax);
         applyInteger(VectorIndexOptionKeys.GUARDIANN_UNDERREPLICATED_PRIMARY_CLUSTER_MAX, index,
                 builder::setUnderreplicatedPrimaryClusterMax);
         applyInteger(VectorIndexOptionKeys.GUARDIANN_REPLICATED_CLUSTER_MAX_WRITES, index,
@@ -397,36 +478,58 @@ final class GuardiannVectorIndexEngine implements VectorIndexEngine {
     }
 
     /**
-     * Write listener that attributes Guardiann writes and deferred-task activity to the store timer.
+     * Write listener that attributes Guardiann writes and deferred-task activity to the store timer and forwards task
+     * enqueue/execute events to the supplied {@link TaskEventRegister} — which the maintainer composes to keep the
+     * index's outstanding-task counts and/or flag that a background merge is needed — against the operation's
+     * transaction.
      */
     static final class OnWrite implements OnWriteListener {
-        @Nonnull
+        @Nullable
         private final FDBStoreTimer timer;
+        @Nonnull
+        private final Transaction transaction;
+        @Nonnull
+        private final TaskEventRegister register;
 
-        OnWrite(@Nonnull final FDBStoreTimer timer) {
+        private OnWrite(@Nullable final FDBStoreTimer timer, @Nonnull final Transaction transaction,
+                        @Nonnull final TaskEventRegister register) {
             this.timer = timer;
+            this.transaction = transaction;
+            this.register = register;
         }
 
         @Override
         public void onKeyValueWritten(@Nonnull final byte[] key, @Nonnull final byte[] value) {
-            VectorIndexInstrumentation.recordKeyValueWritten(timer, key, value);
+            if (timer != null) {
+                VectorIndexInstrumentation.recordKeyValueWritten(timer, key, value);
+            }
         }
 
         @Override
         public void onTaskEnqueued(@Nonnull final TaskKind kind, @Nonnull final UUID taskId,
                                    @Nonnull final Set<UUID> targetClusterIds) {
-            timer.increment(FDBStoreTimer.Counts.VECTOR_TASK_ENQUEUED);
+            if (timer != null) {
+                timer.increment(FDBStoreTimer.Counts.VECTOR_TASK_ENQUEUED);
+            }
+            register.onTaskEnqueued(transaction);
         }
 
         @Override
         public void onTaskExecuted(@Nonnull final TaskKind taskKind, @Nonnull final UUID taskId,
                                    @Nonnull final Set<UUID> targetClusterIds) {
-            timer.increment(FDBStoreTimer.Counts.VECTOR_TASK_EXECUTED);
+            if (timer != null) {
+                timer.increment(FDBStoreTimer.Counts.VECTOR_TASK_EXECUTED);
+            }
+            register.onTaskExecuted(transaction);
         }
 
+        // Listener for insert/delete/drain: metrics plus forwarding task enqueue/execute events to the register
+        // (e.g. count maintenance and/or merge-required signaling) against the operation's transaction.
         @Nonnull
-        private static OnWriteListener fromTimer(@Nullable final FDBStoreTimer timer) {
-            return timer == null ? OnWriteListener.NOOP : new OnWrite(timer);
+        private static OnWriteListener forWrites(@Nullable final FDBStoreTimer timer,
+                                                 @Nonnull final Transaction transaction,
+                                                 @Nonnull final TaskEventRegister register) {
+            return new OnWrite(timer, transaction, register);
         }
     }
 }

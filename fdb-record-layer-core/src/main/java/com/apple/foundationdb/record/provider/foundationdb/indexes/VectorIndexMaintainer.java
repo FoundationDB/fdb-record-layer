@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.provider.foundationdb.indexes;
 import com.apple.foundationdb.KeyValue;
 import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.async.AsyncIterator;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.common.ResultEntry;
 import com.apple.foundationdb.linear.RealVector;
@@ -50,6 +51,7 @@ import com.apple.foundationdb.record.metadata.expressions.KeyWithValueExpression
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBIndexableRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
+import com.apple.foundationdb.record.provider.foundationdb.IndexDeferredMaintenanceControl;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanBounds;
 import com.apple.foundationdb.record.provider.foundationdb.KeyValueCursor;
@@ -72,7 +74,10 @@ import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 
 /**
@@ -91,7 +96,7 @@ public class VectorIndexMaintainer extends StandardIndexMaintainer {
 
     public VectorIndexMaintainer(IndexMaintainerState state) {
         super(state);
-        this.engine = VectorIndexEngine.fromIndex(state.index);
+        this.engine = VectorIndexEngine.fromIndex(state.index, state.store.indexSecondarySubspace(state.index));
     }
 
     @Nonnull
@@ -340,15 +345,33 @@ public class VectorIndexMaintainer extends StandardIndexMaintainer {
         } else {
             partitionSubspace = indexSubspace;
         }
+        final VectorIndexTaskCounts taskCounts = getEngine().getTaskCounts();
+        final boolean maintainInTransaction =
+                state.store.getIndexDeferredMaintenanceControl().shouldAutoMergeDuringCommit();
+        // Assemble the task-event registers this write should notify: the outstanding-work count register (when this
+        // engine tracks counts) and, when the engine wants a caller-driven merge (Guardiann, not draining
+        // in-transaction), a MaintenanceControlRegister that flags the index as needing a background merge on enqueue —
+        // via the store's IndexDeferredMaintenanceControl, exactly as Lucene does. compose() collapses 0/1 registers.
+        final ImmutableList.Builder<TaskEventRegister> registers = ImmutableList.builder();
+        if (taskCounts != null) {
+            registers.add(taskCounts.registerFor(prefixKey));
+        }
+        if (getEngine().signalsMergeRequiredToCaller(maintainInTransaction)) {
+            registers.add(new MaintenanceControlRegister(state.store.getIndexDeferredMaintenanceControl(),
+                    state.index));
+        }
+        final TaskEventRegister register = TaskEventRegister.compose(registers.build());
         return state.context.doWithWriteLock(new LockIdentifier(partitionSubspace), () -> {
             final List<Object> primaryKeyParts = Lists.newArrayList(indexEntry.getPrimaryKey().getItems());
             state.index.trimPrimaryKey(primaryKeyParts);
             final Tuple trimmedPrimaryKey = Tuple.fromList(primaryKeyParts);
             final RealVector vector = RealVector.fromBytes(vectorBytes);
             if (remove) {
-                return getEngine().delete(state.context, partitionSubspace, trimmedPrimaryKey, vector);
+                return getEngine().delete(state.context, partitionSubspace, trimmedPrimaryKey, vector, register,
+                        maintainInTransaction);
             } else {
-                return getEngine().insert(state.context, partitionSubspace, trimmedPrimaryKey, vector);
+                return getEngine().insert(state.context, partitionSubspace, trimmedPrimaryKey, vector, register,
+                        maintainInTransaction);
             }
         });
     }
@@ -426,7 +449,172 @@ public class VectorIndexMaintainer extends StandardIndexMaintainer {
     @Override
     public CompletableFuture<Void> deleteWhere(@Nonnull final Transaction tr, @Nonnull final Tuple prefix) {
         Verify.verify(getKeyWithValueExpression(state.index.getRootExpression()).getColumnSize() >= prefix.size());
+        final VectorIndexTaskCounts taskCounts = getEngine().getTaskCounts();
+        if (taskCounts != null) {
+            // super.deleteWhere clears only the primary index subspace; drop the outstanding-work counts for the
+            // group(s) being removed too (they live in the secondary subspace). Also clear any merge lease under the
+            // prefix and write-conflict the delete-guard so a concurrent merge's blind lease acquire cannot orphan a
+            // lease into the emptied group (see VectorIndexMergeLock.addDeleteWhereConflicts).
+            taskCounts.clearPrefix(tr, prefix);
+            VectorIndexMergeLock.addDeleteWhereConflicts(tr, state.store.indexSecondarySubspace(state.index), prefix);
+        }
         return super.deleteWhere(tr, prefix);
+    }
+
+    /**
+     * Merges this index by draining its deferred maintenance backlog, coordinating with other concurrent merges via
+     * a per-partition lease so at most one merge drains a given prefix at a time — and, crucially, so a second merge
+     * sees a claim (committed) and skips the prefix <em>before</em> doing the expensive drain, rather than racing into
+     * it and rolling one back. HNSW and other inline engines defer no work and merge to a no-op.
+     * <p>
+     * Because claiming and draining must not share a transaction (the claim has to commit and become visible first),
+     * each invocation does at most one of: <b>drain</b> a prefix this process already holds a lease on (re-verified
+     * this invocation), or <b>claim</b> one free/stale prefix and return so the claim commits (the next invocation
+     * drains it). Prefixes held live by another owner are skipped; when only those remain, the run stops and their
+     * holders finish them (a crashed holder's lease expires for a future run to reclaim). Each invocation runs in its
+     * own transaction and reports {@code mergesTried}/{@code mergesFound} so {@code IndexingMerger} re-invokes it (the
+     * "scan again" step) until there is nothing left to claim or drain.
+     *
+     * @return a future that completes when this transaction's claim or drain has been staged
+     */
+    @Nonnull
+    @Override
+    public CompletableFuture<Void> mergeIndex() {
+        final VectorIndexTaskCounts taskCounts = getEngine().getTaskCounts();
+        if (taskCounts == null) {
+            return AsyncUtil.DONE;
+        }
+        final IndexDeferredMaintenanceControl mergeControl = state.store.getIndexDeferredMaintenanceControl();
+        // Record the step so IndexingMerger.handleFailure retries a transient failure with a smaller budget.
+        mergeControl.setLastStep(IndexDeferredMaintenanceControl.LastStep.MERGE);
+        final int taskBudget = mergeControl.getMergesLimit() > 0
+                               ? (int)Math.min(mergeControl.getMergesLimit(), Integer.MAX_VALUE)
+                               : 1;
+        final Subspace indexSubspace = getIndexSubspace();
+        // The merge lease is keyed by a stable owner id so this process can re-verify and keep a prefix's lease across
+        // the driver's re-invocations. IndexingMerger always sets it from the indexing session (the only production
+        // path here), so a missing id means mergeIndex() was invoked outside that path — a programming error rather
+        // than something to paper over with a throwaway id (which could not re-verify its own claim). Fail fast.
+        final UUID ownerId = mergeControl.getMergeSessionId();
+        if (ownerId == null) {
+            throw new RecordCoreException("vector index merge requires a merge session id on the "
+                    + "IndexDeferredMaintenanceControl; drive the merge through the OnlineIndexer / IndexingMerger");
+        }
+        final VectorIndexMergeLock lock =
+                new VectorIndexMergeLock(state.store.indexSecondarySubspace(state.index), ownerId,
+                        VectorIndexMergeLock.DEFAULT_LEASE_WINDOW_MILLIS, System::currentTimeMillis);
+        final AsyncIterator<PrefixTaskCount> prefixes =
+                taskCounts.prefixesWithOutstandingWork(state.context.readTransaction(true), getExecutor());
+
+        // Scan the non-zero prefixes. Prefer a prefix I already hold a (committed) lease on — that is my drain target
+        // this invocation. Otherwise, remember the free/stale prefix with the highest per-owner weight to claim (so
+        // concurrent merges spread rather than all claiming the same one). A prefix held live by another owner is
+        // skipped. A process holds at most one prefix at a time, so a held prefix is finished before a new one is
+        // claimed — hence we scan for an owned prefix before settling for a free one.
+        final AtomicReference<PrefixTaskCount> drainTarget = new AtomicReference<>();
+        final AtomicReference<Tuple> acquireCandidate = new AtomicReference<>();
+        final AtomicLong acquireCandidateWeight = new AtomicLong();
+        return AsyncUtil.whileTrue(() -> prefixes.onHasNext().thenCompose(hasNext -> {
+            if (!hasNext) {
+                return AsyncUtil.READY_FALSE;
+            }
+            final PrefixTaskCount prefixTaskCount = prefixes.next();
+            return lock.currentOwner(state.context, prefixTaskCount.prefix()).thenApply(owner -> {
+                if (ownerId.equals(owner)) {
+                    drainTarget.set(prefixTaskCount); // my prefix -> drain it; stop scanning
+                    return false;
+                }
+                if (owner == null) {
+                    // Free/stale: keep the highest-weight free prefix for this owner (rendezvous hashing) so that
+                    // concurrent merges spread across prefixes instead of all claiming the first one; keep scanning
+                    // in case we also own a prefix, which takes priority.
+                    final long weight = lock.claimWeight(prefixTaskCount.prefix());
+                    if (acquireCandidate.get() == null || weight > acquireCandidateWeight.get()) {
+                        acquireCandidate.set(prefixTaskCount.prefix());
+                        acquireCandidateWeight.set(weight);
+                    }
+                }
+                return true;
+            });
+        }), getExecutor()).thenCompose(ignore -> {
+            final PrefixTaskCount owned = drainTarget.get();
+            if (owned != null) {
+                return drainOwnedPrefix(lock, owned, indexSubspace, taskCounts, taskBudget, mergeControl);
+            }
+            final Tuple candidate = acquireCandidate.get();
+            if (candidate != null) {
+                // Claim it in THIS transaction and return so the claim commits before any expensive drain; the next
+                // invocation re-verifies ownership and drains. Signal more-work so the driver comes back.
+                lock.acquire(state.context, candidate);
+                reportProgress(mergeControl, 0, true);
+                return AsyncUtil.DONE;
+            }
+            // Nothing this process can do: every non-zero prefix is held live by another owner (or none remain). Stop;
+            // the holders finish theirs and a crashed holder's lease expires for a future run to reclaim.
+            reportProgress(mergeControl, 0, false);
+            return AsyncUtil.DONE;
+        });
+    }
+
+    /**
+     * Drains a bounded batch from a partition this process already holds a lease on (re-verified this invocation),
+     * refreshing the lease first so it does not expire mid-work, and releasing it once the partition's queue is empty.
+     * Always signals more-work afterward: this partition may have leftover and other partitions may still need
+     * claiming, so the driver runs again; a later invocation that finds nothing to do reports equal counts and stops.
+     */
+    @Nonnull
+    private CompletableFuture<Void> drainOwnedPrefix(@Nonnull final VectorIndexMergeLock lock,
+                                                     @Nonnull final PrefixTaskCount owned,
+                                                     @Nonnull final Subspace indexSubspace,
+                                                     @Nonnull final VectorIndexTaskCounts taskCounts,
+                                                     final int taskBudget,
+                                                     @Nonnull final IndexDeferredMaintenanceControl mergeControl) {
+        final Tuple prefix = owned.prefix();
+        lock.acquire(state.context, prefix); // refresh the lease timestamp so it stays live while we drain
+        // Mirror updateIndexKeys: an unpartitioned index (empty prefix) lives directly in the index subspace.
+        final Subspace partitionSubspace = prefix.isEmpty() ? indexSubspace : indexSubspace.subspace(prefix);
+        final int requested = (int)Math.min(owned.count(), taskBudget);
+        final TaskCountRegister register = taskCounts.registerFor(prefix);
+        return getEngine().executeDeferredTasks(state.context, partitionSubspace, requested, register)
+                .thenCompose(executedForPrefix -> {
+                    // The per-prefix count is the expected number of queued tasks (enqueue/execute keep it in lock-step
+                    // with the queue), so the engine must run exactly what we asked for. Verify rather than trust.
+                    Verify.verify(executedForPrefix == requested,
+                            "vector merge expected to run %s deferred task(s) but ran %s", requested, executedForPrefix);
+                    // Release the lease only once the partition is truly empty (a read-your-writes-aware snapshot read
+                    // reflects this drain's mutations, including any follow-up tasks it enqueued); otherwise keep it so
+                    // we continue this same partition next invocation.
+                    return taskCounts.countFor(state.context.readTransaction(true), prefix)
+                            .thenCompose(remaining -> {
+                                final CompletableFuture<Void> released =
+                                        remaining <= 0L ? lock.release(state.context, prefix) : AsyncUtil.DONE;
+                                return released.thenAccept(ignore -> reportProgress(mergeControl, requested, true));
+                            });
+                });
+    }
+
+    /**
+     * Reports the merge outcome to the driver: {@code mergesTried} is what we executed; {@code mergesFound} is one more
+     * than that when there is (or may be) more to do, which is how {@code IndexingMerger} decides to re-invoke.
+     */
+    private static void reportProgress(@Nonnull final IndexDeferredMaintenanceControl mergeControl, final int executed,
+                                       final boolean moreWork) {
+        mergeControl.setMergesTried(executed);
+        mergeControl.setMergesFound(moreWork ? executed + 1 : executed);
+    }
+
+    /**
+     * Whether this index has any outstanding deferred-maintenance work, via an O(1) snapshot read of the index-wide
+     * total. Always {@code false} for engines that do not defer work (HNSW).
+     * @return a future that is {@code true} iff some partition has outstanding tasks
+     */
+    @Nonnull
+    CompletableFuture<Boolean> hasOutstandingWork() {
+        final VectorIndexTaskCounts taskCounts = getEngine().getTaskCounts();
+        if (taskCounts == null) {
+            return AsyncUtil.READY_FALSE;
+        }
+        return taskCounts.hasOutstandingWork(state.context.readTransaction(true));
     }
 
     /**

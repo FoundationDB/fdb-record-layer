@@ -19,6 +19,8 @@
  */
 
 import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
+import de.undercouch.gradle.tasks.download.Download
+import de.undercouch.gradle.tasks.download.Verify
 
 plugins {
     id 'java-test-fixtures'
@@ -39,6 +41,10 @@ dependencies {
     annotationProcessor(libs.autoService)
 
     testImplementation project(':fdb-test-utils')
+    // Guardiann structural-invariant assertions + SIFT dataset loaders/paths live in fdb-extensions' testFixtures
+    // (GuardiannStructureAsserts, VecsDatasetLoaders, SiftTestHelpers, PrimaryKeyAndVector), reused by the vector-index
+    // tests here (e.g. GuardiannVectorIndexConcurrentMergeTest).
+    testImplementation(testFixtures(project(':fdb-extensions')))
     testImplementation(libs.bundles.test.impl)
     testRuntimeOnly(libs.bundles.test.runtime)
     testCompileOnly(libs.bundles.test.compileOnly)
@@ -68,6 +74,42 @@ sourceSets {
     main {
         java.srcDir ".out/generated/sources/annotationProcessor/java/main/"
     }
+}
+
+// SIFT-small dataset (10k x 128-dim), used by GuardiannVectorIndexConcurrentMergeTest for a realistic
+// concurrent insert-vs-index-merge stress test. Mirrors fdb-extensions' siftsmall wiring: downloaded once
+// into the shared, clean-surviving asset cache (project.ext.downloadsDirectory), checksum-verified, and
+// extracted into the build dir; the .fvecs/.ivecs files are read at test time via the main-code
+// com.apple.foundationdb.linear.StoredVecsIterator.
+def siftDownloadsDir = project.ext.downloadsDirectory
+def siftExtractDir = layout.buildDirectory.dir("extracted")
+
+def downloadSiftsmall = tasks.register('downloadSiftsmall', Download) {
+    src 'https://huggingface.co/datasets/vecdata/siftsmall/resolve/3106e1b83049c44713b1ce06942d0ab474bbdfb6/siftsmall.tar.gz'
+    dest siftDownloadsDir.file('siftsmall.tar.gz').asFile
+    downloadTaskDir siftDownloadsDir.dir("downloads-task")
+    onlyIfModified true
+    tempAndMove true
+    retries 3
+    overwrite false
+}
+
+def verifySiftsmall = tasks.register('verifySiftsmall', Verify) {
+    dependsOn downloadSiftsmall
+    src siftDownloadsDir.file('siftsmall.tar.gz').asFile
+    algorithm 'SHA256'
+    checksum '987b526d24e749082ba27ee8068003836eb17a61b34f09b4db865750f8a43487'
+}
+
+tasks.register('extractSiftSmall', Copy) {
+    dependsOn verifySiftsmall
+    from(tarTree(resources.gzip(siftDownloadsDir.file('siftsmall.tar.gz').asFile)))
+    into siftExtractDir
+}
+
+tasks.named('test') {
+    dependsOn tasks.named('extractSiftSmall')
+    inputs.dir siftExtractDir
 }
 
 tasks.register('testShadowJar', ShadowJar) {
