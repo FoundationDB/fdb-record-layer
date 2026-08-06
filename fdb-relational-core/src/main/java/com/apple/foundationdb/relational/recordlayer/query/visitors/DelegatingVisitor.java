@@ -1300,13 +1300,13 @@ public class DelegatingVisitor<D extends TypedVisitor> implements TypedVisitor {
         return getDelegate().visitExpressionWithOptionalName(ctx);
     }
 
-    @Nonnull
+    @Nullable
     @Override
     public Object visitIfExists(@Nonnull RelationalParser.IfExistsContext ctx) {
         return getDelegate().visitIfExists(ctx);
     }
 
-    @Nonnull
+    @Nullable
     @Override
     public Object visitIfNotExists(@Nonnull RelationalParser.IfNotExistsContext ctx) {
         return getDelegate().visitIfNotExists(ctx);

@@ -757,11 +757,11 @@ public interface TypedVisitor extends RelationalParserVisitor<Object> {
     @Override
     Expression visitExpressionWithOptionalName(@Nonnull RelationalParser.ExpressionWithOptionalNameContext ctx);
 
-    @Nonnull
+    @Nullable
     @Override
     Object visitIfExists(@Nonnull RelationalParser.IfExistsContext ctx);
 
-    @Nonnull
+    @Nullable
     @Override
     Object visitIfNotExists(@Nonnull RelationalParser.IfNotExistsContext ctx);
 
