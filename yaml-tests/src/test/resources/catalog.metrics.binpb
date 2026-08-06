@@ -1,7 +1,7 @@
 Ê
 Í
 catalog-tests»EXPLAIN select sum(cnt) from (select count(*) as cnt, template_name, template_version from schemas group by template_name, template_version having template_name = 'TEST_TEMPLATE_1') as t;÷
-œ²–±"“ Ö‡ü(-0žÌI86@‘AISCAN(TEMPLATES_COUNT_INDEX [EQUALS promote(@c28 AS STRING)] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: VALUE:[0]]) | MAP ((_._2 AS CNT, _._0 AS TEMPLATE_NAME, _._1 AS TEMPLATE_VERSION) AS _0) | AGG (sum_l(_._0.CNT) AS _0) GROUP BY () | ON EMPTY NULL | MAP (_._0._0 AS _0)Ädigraph G {
+„ÉÖÖ “ Ãå©(-0Öþ@86@‘AISCAN(TEMPLATES_COUNT_INDEX [EQUALS promote(@c28 AS STRING)] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: VALUE:[0]]) | MAP ((_._2 AS CNT, _._0 AS TEMPLATE_NAME, _._1 AS TEMPLATE_VERSION) AS _0) | AGG (sum_l(_._0.CNT) AS _0) GROUP BY () | ON EMPTY NULL | MAP (_._0._0 AS _0)Ädigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -19,7 +19,7 @@
 }
 æ
 catalog-testsÔEXPLAIN select sum(cnt) from (select count(*) as cnt, template_name, template_version from schemas group by template_name, template_version having template_name = 'TEST_TEMPLATE_1' and template_version = 1) as t;±
-œæ¼û“ Î‡ñ(-0’?86@®AISCAN(TEMPLATES_COUNT_INDEX [EQUALS promote(@c28 AS STRING), EQUALS promote(@c32 AS INT)] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: VALUE:[0]]) | MAP ((_._2 AS CNT, _._0 AS TEMPLATE_NAME, _._1 AS TEMPLATE_VERSION) AS _0) | AGG (sum_l(_._0.CNT) AS _0) GROUP BY () | ON EMPTY NULL | MAP (_._0._0 AS _0)ádigraph G {
+„¿Èð"“ ÅùÐ(-0ž@86@®AISCAN(TEMPLATES_COUNT_INDEX [EQUALS promote(@c28 AS STRING), EQUALS promote(@c32 AS INT)] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: VALUE:[0]]) | MAP ((_._2 AS CNT, _._0 AS TEMPLATE_NAME, _._1 AS TEMPLATE_VERSION) AS _0) | AGG (sum_l(_._0.CNT) AS _0) GROUP BY () | ON EMPTY NULL | MAP (_._0._0 AS _0)ádigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;

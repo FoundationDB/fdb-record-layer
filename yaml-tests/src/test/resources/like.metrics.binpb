@@ -1,7 +1,21 @@
-É
+Ç
 6
-	unnamed-4)EXPLAIN select * from C WHERE C2 LIKE '%'»
-∫Ÿô…M ≥—Ÿ(0Ú≥Ä8#@[COVERING(C2 <,> -> [C1: KEY:[2], C2: KEY:[0]]) | FILTER _.C2 LIKE @c7 ESCAPE 'null' | FETCHÃdigraph G {
+	unnamed-4)EXPLAIN select * from C WHERE C2 LIKE '%'«
+óﬂÔ§M ö°ù(0∏›8#@[COVERING(C2 <,> -> [C1: KEY:[2], C2: KEY:[0]]) | FILTER _.C2 LIKE @c7 ESCAPE 'null' | FETCHÃdigraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Fetch Records</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="12" tooltip="RELATION(INT AS C1, STRING AS C2)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q37.C2 LIKE @c7 ESCAPE &#39;null&#39;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS C1, STRING AS C2)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS C1, STRING AS C2)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">C2</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(INT AS C1, STRING AS C2)" ];
+  3 -> 2 [ label=<&nbsp;q37> label="q37" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q39> label="q39" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}É
+7
+	unnamed-4*EXPLAIN select * from C WHERE C2 LIKE 'a%'«
+óﬂÔ§M ö°ù(0∏›8#@[COVERING(C2 <,> -> [C1: KEY:[2], C2: KEY:[0]]) | FILTER _.C2 LIKE @c7 ESCAPE 'null' | FETCHÃdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -13,9 +27,9 @@
   4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q39> label="q39" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
 }Ñ
-7
-	unnamed-4*EXPLAIN select * from C WHERE C2 LIKE 'a%'»
-∫Ÿô…M ≥—Ÿ(0Ú≥Ä8#@[COVERING(C2 <,> -> [C1: KEY:[2], C2: KEY:[0]]) | FILTER _.C2 LIKE @c7 ESCAPE 'null' | FETCHÃdigraph G {
+8
+	unnamed-4+EXPLAIN select * from C WHERE C2 LIKE 'ap%'«
+óﬂÔ§M ö°ù(0∏›8#@[COVERING(C2 <,> -> [C1: KEY:[2], C2: KEY:[0]]) | FILTER _.C2 LIKE @c7 ESCAPE 'null' | FETCHÃdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -27,9 +41,23 @@
   4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q39> label="q39" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
 }Ö
+9
+	unnamed-4,EXPLAIN select * from C WHERE C2 LIKE 'a%l%'«
+óﬂÔ§M ö°ù(0∏›8#@[COVERING(C2 <,> -> [C1: KEY:[2], C2: KEY:[0]]) | FILTER _.C2 LIKE @c7 ESCAPE 'null' | FETCHÃdigraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Fetch Records</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="12" tooltip="RELATION(INT AS C1, STRING AS C2)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q37.C2 LIKE @c7 ESCAPE &#39;null&#39;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS C1, STRING AS C2)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS C1, STRING AS C2)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">C2</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(INT AS C1, STRING AS C2)" ];
+  3 -> 2 [ label=<&nbsp;q37> label="q37" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q39> label="q39" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}Ñ
 8
-	unnamed-4+EXPLAIN select * from C WHERE C2 LIKE 'ap%'»
-∫Ÿô…M ≥—Ÿ(0Ú≥Ä8#@[COVERING(C2 <,> -> [C1: KEY:[2], C2: KEY:[0]]) | FILTER _.C2 LIKE @c7 ESCAPE 'null' | FETCHÃdigraph G {
+	unnamed-4+EXPLAIN select * from C WHERE C2 LIKE 'ca%'«
+óﬂÔ§M ö°ù(0∏›8#@[COVERING(C2 <,> -> [C1: KEY:[2], C2: KEY:[0]]) | FILTER _.C2 LIKE @c7 ESCAPE 'null' | FETCHÃdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -41,9 +69,9 @@
   4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q39> label="q39" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
 }Ü
-9
-	unnamed-4,EXPLAIN select * from C WHERE C2 LIKE 'a%l%'»
-∫Ÿô…M ≥—Ÿ(0Ú≥Ä8#@[COVERING(C2 <,> -> [C1: KEY:[2], C2: KEY:[0]]) | FILTER _.C2 LIKE @c7 ESCAPE 'null' | FETCHÃdigraph G {
+:
+	unnamed-4-EXPLAIN select * from C WHERE C2 LIKE 'ca_al'«
+óﬂÔ§M ö°ù(0∏›8#@[COVERING(C2 <,> -> [C1: KEY:[2], C2: KEY:[0]]) | FILTER _.C2 LIKE @c7 ESCAPE 'null' | FETCHÃdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -54,10 +82,10 @@
   3 -> 2 [ label=<&nbsp;q37> label="q37" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q39> label="q39" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}Ö
-8
-	unnamed-4+EXPLAIN select * from C WHERE C2 LIKE 'ca%'»
-∫Ÿô…M ≥—Ÿ(0Ú≥Ä8#@[COVERING(C2 <,> -> [C1: KEY:[2], C2: KEY:[0]]) | FILTER _.C2 LIKE @c7 ESCAPE 'null' | FETCHÃdigraph G {
+}Ü
+:
+	unnamed-4-EXPLAIN select * from C WHERE C2 LIKE 'ca%al'«
+óﬂÔ§M ö°ù(0∏›8#@[COVERING(C2 <,> -> [C1: KEY:[2], C2: KEY:[0]]) | FILTER _.C2 LIKE @c7 ESCAPE 'null' | FETCHÃdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -69,9 +97,9 @@
   4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q39> label="q39" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
 }á
-:
-	unnamed-4-EXPLAIN select * from C WHERE C2 LIKE 'ca_al'»
-∫Ÿô…M ≥—Ÿ(0Ú≥Ä8#@[COVERING(C2 <,> -> [C1: KEY:[2], C2: KEY:[0]]) | FILTER _.C2 LIKE @c7 ESCAPE 'null' | FETCHÃdigraph G {
+;
+	unnamed-4.EXPLAIN select * from C WHERE C2 LIKE 'ca_al%'«
+óﬂÔ§M ö°ù(0∏›8#@[COVERING(C2 <,> -> [C1: KEY:[2], C2: KEY:[0]]) | FILTER _.C2 LIKE @c7 ESCAPE 'null' | FETCHÃdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -83,37 +111,9 @@
   4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q39> label="q39" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
 }á
-:
-	unnamed-4-EXPLAIN select * from C WHERE C2 LIKE 'ca%al'»
-∫Ÿô…M ≥—Ÿ(0Ú≥Ä8#@[COVERING(C2 <,> -> [C1: KEY:[2], C2: KEY:[0]]) | FILTER _.C2 LIKE @c7 ESCAPE 'null' | FETCHÃdigraph G {
-  fontname=courier;
-  rankdir=BT;
-  splines=line;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Fetch Records</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="12" tooltip="RELATION(INT AS C1, STRING AS C2)" ];
-  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q37.C2 LIKE @c7 ESCAPE &#39;null&#39;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS C1, STRING AS C2)" ];
-  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS C1, STRING AS C2)" ];
-  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">C2</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(INT AS C1, STRING AS C2)" ];
-  3 -> 2 [ label=<&nbsp;q37> label="q37" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  2 -> 1 [ label=<&nbsp;q39> label="q39" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}à
 ;
-	unnamed-4.EXPLAIN select * from C WHERE C2 LIKE 'ca_al%'»
-∫Ÿô…M ≥—Ÿ(0Ú≥Ä8#@[COVERING(C2 <,> -> [C1: KEY:[2], C2: KEY:[0]]) | FILTER _.C2 LIKE @c7 ESCAPE 'null' | FETCHÃdigraph G {
-  fontname=courier;
-  rankdir=BT;
-  splines=line;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Fetch Records</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="12" tooltip="RELATION(INT AS C1, STRING AS C2)" ];
-  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q37.C2 LIKE @c7 ESCAPE &#39;null&#39;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS C1, STRING AS C2)" ];
-  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS C1, STRING AS C2)" ];
-  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">C2</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(INT AS C1, STRING AS C2)" ];
-  3 -> 2 [ label=<&nbsp;q37> label="q37" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  2 -> 1 [ label=<&nbsp;q39> label="q39" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}à
-;
-	unnamed-4.EXPLAIN select * from C WHERE C2 LIKE 'ca%al%'»
-∫Ÿô…M ≥—Ÿ(0Ú≥Ä8#@[COVERING(C2 <,> -> [C1: KEY:[2], C2: KEY:[0]]) | FILTER _.C2 LIKE @c7 ESCAPE 'null' | FETCHÃdigraph G {
+	unnamed-4.EXPLAIN select * from C WHERE C2 LIKE 'ca%al%'«
+óﬂÔ§M ö°ù(0∏›8#@[COVERING(C2 <,> -> [C1: KEY:[2], C2: KEY:[0]]) | FILTER _.C2 LIKE @c7 ESCAPE 'null' | FETCHÃdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;

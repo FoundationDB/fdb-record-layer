@@ -1,7 +1,7 @@
 §
 U
 	cte-testsHEXPLAIN with c1 as (select col1, col2 from t1) select col1, col2 from c1 
-ã·ïÃA ˙ë¡(0Ì¨8@fCOVERING(I1 <,> -> [COL1: KEY:[1], COL2: KEY:[0], ID: KEY:[3]]) | MAP (_.COL1 AS COL1, _.COL2 AS COL2)ƒ
+œÜ£ªA Åóà(0ê«8@fCOVERING(I1 <,> -> [COL1: KEY:[1], COL2: KEY:[0], ID: KEY:[3]]) | MAP (_.COL1 AS COL1, _.COL2 AS COL2)ƒ
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -11,23 +11,23 @@ digraph G {
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS COL1, LONG AS COL2)" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q42> label="q42" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}å
+}ã
 7
-	cte-tests*EXPLAIN select col1 from t1 where col2 < 3–
-∑¿ÊÁk ›÷_("0≈è8-@rCOVERING(I1 [[LESS_THAN promote(@c8 AS LONG)]] -> [COL1: KEY[1], COL2: KEY[0], ID: KEY[3]]) | MAP (_.COL1 AS COL1)ø
+	cte-tests*EXPLAIN select col1 from t1 where col2 < 3œ
+¿Ä˘≠k êÊm("0ß¬8-@uCOVERING(I1 [[LESS_THAN promote(@c7 AS LONG)]] -> [COL1: KEY:[1], COL2: KEY:[0], ID: KEY:[3]]) | MAP (_.COL1 AS COL1)ª
 digraph G {
   fontname=courier;
   rankdir=BT;
-  splines=polyline;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q59.COL1 AS COL1)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1)" ];
-  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [[LESS_THAN promote(@c8 AS LONG)]]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS COL1, LONG AS COL2)" ];
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q57.COL1 AS COL1)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [[LESS_THAN promote(@c7 AS LONG)]]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS COL1, LONG AS COL2)" ];
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS COL1, LONG AS COL2)" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  2 -> 1 [ label=<&nbsp;q59> label="q59" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}©
+  2 -> 1 [ label=<&nbsp;q57> label="q57" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}®
 [
-	cte-testsNEXPLAIN select x from (select col1 as x, col2 as y from t1) as sub where y < 3…
-‰‡ªÒu ∂”é(%0°ı84@sCOVERING(I1 [[LESS_THAN promote(@c20 AS LONG)]] -> [COL1: KEY:[1], COL2: KEY:[0], ID: KEY:[3]]) | MAP (_.COL1 AS X)∂
+	cte-testsNEXPLAIN select x from (select col1 as x, col2 as y from t1) as sub where y < 3»
+ÛÁÒœu Â‡w(%0Ê÷84@sCOVERING(I1 [[LESS_THAN promote(@c20 AS LONG)]] -> [COL1: KEY:[1], COL2: KEY:[0], ID: KEY:[3]]) | MAP (_.COL1 AS X)∂
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -37,10 +37,10 @@ digraph G {
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS COL1, LONG AS COL2)" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q61> label="q61" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}¨
+}´
 ^
-	cte-testsQEXPLAIN with c1(x, y) as (select col1, col2 from t1) select x from c1 where y < 3…
-‰ö‡Œu „ Ç(%0√≤84@sCOVERING(I1 [[LESS_THAN promote(@c23 AS LONG)]] -> [COL1: KEY:[1], COL2: KEY:[0], ID: KEY:[3]]) | MAP (_.COL1 AS X)∂
+	cte-testsQEXPLAIN with c1(x, y) as (select col1, col2 from t1) select x from c1 where y < 3»
+Ûü≠’u ≥ÿz(%0∂Œ84@sCOVERING(I1 [[LESS_THAN promote(@c23 AS LONG)]] -> [COL1: KEY:[1], COL2: KEY:[0], ID: KEY:[3]]) | MAP (_.COL1 AS X)∂
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -53,7 +53,7 @@ digraph G {
 }Á
 Œ
 	cte-tests¿EXPLAIN with dept_data(dept, id, val) as (select col1 as dept, id, col2 as val from t1), large_vals(dept, id) as (select dept, id from dept_data where val >= 6) select dept, id from large_valsì
-˛¡Ûπ| µﬁ´('0‘ﬁ88@èCOVERING(I1 [[GREATER_THAN_OR_EQUALS promote(@c43 AS LONG)]] -> [COL1: KEY:[1], COL2: KEY:[0], ID: KEY:[3]]) | MAP (_.COL1 AS DEPT, _.ID AS ID)„
+è∞ªˆ| »Ïâ('0®∞88@èCOVERING(I1 [[GREATER_THAN_OR_EQUALS promote(@c43 AS LONG)]] -> [COL1: KEY:[1], COL2: KEY:[0], ID: KEY:[3]]) | MAP (_.COL1 AS DEPT, _.ID AS ID)„
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -66,7 +66,7 @@ digraph G {
 }∏
 ˙
 	cte-testsÏEXPLAIN with base_data(d, i, v) as (select col1, id, col2 from t1), filtered(d, i, v) as (select d, i, v from base_data where v > 1), final_data(dept, ident) as (select d, i from filtered where d = 20) select dept, ident from final_data∏
-ﬂ˜é›ê ‡Ç≥(,0Ï§8G@µCOVERING(I1 [[GREATER_THAN promote(@c42 AS LONG)]] -> [COL1: KEY:[1], COL2: KEY:[0], ID: KEY:[3]]) | FILTER _.COL1 EQUALS promote(@c62 AS LONG) | MAP (_.COL1 AS DEPT, _.ID AS IDENT)·digraph G {
+ä≈ñﬂê ⁄”Ø(,0ã‘8G@µCOVERING(I1 [[GREATER_THAN promote(@c42 AS LONG)]] -> [COL1: KEY:[1], COL2: KEY:[0], ID: KEY:[3]]) | FILTER _.COL1 EQUALS promote(@c62 AS LONG) | MAP (_.COL1 AS DEPT, _.ID AS IDENT)·digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -80,8 +80,7 @@ digraph G {
 }Ñ 
 Ö
 	cte-tests˜EXPLAIN with c1(x, y) as (select id, col1 from t1 where col2 < 3), c2(a, b) as (select id, col2 from t1 where col1 = 20), combined(x1, y1, a1, b1) as (select c1.x, c1.y, c2.a, c2.b from c1, c2 where c1.x < c2.a) select x1, y1, a1, b1 from combined˘
-ª	ÑªŒ
-¥ è∞ú(X0ë§78§@ïISCAN(I1 [[LESS_THAN promote(@c18 AS LONG)]]) | FLATMAP q0 -> { COVERING(I1 <,> -> [COL1: KEY:[1], COL2: KEY:[0], ID: KEY:[3]]) | FILTER _.COL1 EQUALS promote(@c38 AS LONG) AND q0.ID LESS_THAN _.ID | FETCH AS q1 RETURN (q0.ID AS X1, q0.COL1 AS Y1, q1.ID AS A1, q1.COL2 AS B1) }¡digraph G {
+…‚çî	¥ ‹µ€(X0ëΩ98§@ïISCAN(I1 [[LESS_THAN promote(@c18 AS LONG)]]) | FLATMAP q0 -> { COVERING(I1 <,> -> [COL1: KEY:[1], COL2: KEY:[0], ID: KEY:[3]]) | FILTER _.COL1 EQUALS promote(@c38 AS LONG) AND q0.ID LESS_THAN _.ID | FETCH AS q1 RETURN (q0.ID AS X1, q0.COL1 AS Y1, q1.ID AS A1, q1.COL2 AS B1) }¡digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;

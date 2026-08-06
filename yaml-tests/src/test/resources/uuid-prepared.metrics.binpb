@@ -1,7 +1,7 @@
 ¶
 1
 uuid-as-a-field-testsEXPLAIN select * from ta
-åŸ¢§* ⁄ù√(0˚Å	8
+†çπ* áå≠(0€æ8
 @SCAN([IS TA])√digraph G {
   fontname=courier;
   rankdir=BT;
@@ -12,7 +12,7 @@
 }–
 =
 uuid-as-a-field-tests$EXPLAIN select * from ta where b > ?é
-≥æ¯˜3 ¢â£(0Üƒ8@<SCAN([IS TA]) | FILTER _.B GREATER_THAN promote(@c7 AS UUID)≤
+Õ°…§3 ∏ë”(0ôá\8@<SCAN([IS TA]) | FILTER _.B GREATER_THAN promote(@c7 AS UUID)≤
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -25,7 +25,7 @@ digraph G {
 } 
 =
 uuid-as-a-field-tests$EXPLAIN select * from ta where b < ?à
-≥ºÈ†3 €±º(0“è%8@9SCAN([IS TA]) | FILTER _.B LESS_THAN promote(@c7 AS UUID)Ø
+Õ€ﬁŒ3 îÈÔ(0‘ﬁ48@9SCAN([IS TA]) | FILTER _.B LESS_THAN promote(@c7 AS UUID)Ø
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -38,7 +38,7 @@ digraph G {
 }Â
 >
 uuid-as-a-field-tests%EXPLAIN select * from ta where b >= ?¢
-≥˙Çå3 ≠È€(0èÙq8@FSCAN([IS TA]) | FILTER _.B GREATER_THAN_OR_EQUALS promote(@c8 AS UUID)º
+Õì∂≤3 ÃÖÀ(0£ïr8@FSCAN([IS TA]) | FILTER _.B GREATER_THAN_OR_EQUALS promote(@c8 AS UUID)º
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -51,7 +51,7 @@ digraph G {
 }ﬂ
 >
 uuid-as-a-field-tests%EXPLAIN select * from ta where b <= ?ú
-≥ﬂõÜ3 ∫Õ⁄(0ﬂ‰8@CSCAN([IS TA]) | FILTER _.B LESS_THAN_OR_EQUALS promote(@c8 AS UUID)π
+Õ£˘π3 ΩÖ«(0ÛÖ78@CSCAN([IS TA]) | FILTER _.B LESS_THAN_OR_EQUALS promote(@c8 AS UUID)π
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -64,7 +64,7 @@ digraph G {
 }ƒ
 =
 uuid-as-a-field-tests$EXPLAIN select * from ta where b = ?Ç
-≥øÔÁ3 ∏√´(0îí8@6SCAN([IS TA]) | FILTER _.B EQUALS promote(@c7 AS UUID)¨
+ÕÄÛ˚3 ö ˝(0ãÚQ8@6SCAN([IS TA]) | FILTER _.B EQUALS promote(@c7 AS UUID)¨
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -77,7 +77,7 @@ digraph G {
 }Õ
 >
 uuid-as-a-field-tests%EXPLAIN select * from ta where b != ?ä
-≥ø‡ß3 áÇ¨(0Áø8@:SCAN([IS TA]) | FILTER _.B NOT_EQUALS promote(@c8 AS UUID)∞
+Õ€éÒ3 —ôô(0˜”/8@:SCAN([IS TA]) | FILTER _.B NOT_EQUALS promote(@c8 AS UUID)∞
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -91,7 +91,7 @@ digraph G {
 A
 uuid-as-a-field-tests(EXPLAIN select * from ta where b is null⁄
 
-£±ï≠. ˛òÈ(0íÌ8@"SCAN([IS TA]) | FILTER _.B IS_NULLò
+ΩÑ‚ê. ˚ÿ∂(0§ª 8@"SCAN([IS TA]) | FILTER _.B IS_NULLò
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -104,7 +104,7 @@ digraph G {
 }È
 V
 .uuid-as-a-field-tests_uuid_parameter_as_string$EXPLAIN select * from ta where b > ?é
-≥æ¯˜3 ¢â£(0Üƒ8@<SCAN([IS TA]) | FILTER _.B GREATER_THAN promote(@c7 AS UUID)≤
+Õ°…§3 ∏ë”(0ôá\8@<SCAN([IS TA]) | FILTER _.B GREATER_THAN promote(@c7 AS UUID)≤
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -117,7 +117,7 @@ digraph G {
 }„
 V
 .uuid-as-a-field-tests_uuid_parameter_as_string$EXPLAIN select * from ta where b < ?à
-≥ºÈ†3 €±º(0“è%8@9SCAN([IS TA]) | FILTER _.B LESS_THAN promote(@c7 AS UUID)Ø
+Õ€ﬁŒ3 îÈÔ(0‘ﬁ48@9SCAN([IS TA]) | FILTER _.B LESS_THAN promote(@c7 AS UUID)Ø
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -130,7 +130,7 @@ digraph G {
 }˛
 W
 .uuid-as-a-field-tests_uuid_parameter_as_string%EXPLAIN select * from ta where b >= ?¢
-≥˙Çå3 ≠È€(0èÙq8@FSCAN([IS TA]) | FILTER _.B GREATER_THAN_OR_EQUALS promote(@c8 AS UUID)º
+Õì∂≤3 ÃÖÀ(0£ïr8@FSCAN([IS TA]) | FILTER _.B GREATER_THAN_OR_EQUALS promote(@c8 AS UUID)º
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -143,7 +143,7 @@ digraph G {
 }¯
 W
 .uuid-as-a-field-tests_uuid_parameter_as_string%EXPLAIN select * from ta where b <= ?ú
-≥ﬂõÜ3 ∫Õ⁄(0ﬂ‰8@CSCAN([IS TA]) | FILTER _.B LESS_THAN_OR_EQUALS promote(@c8 AS UUID)π
+Õ£˘π3 ΩÖ«(0ÛÖ78@CSCAN([IS TA]) | FILTER _.B LESS_THAN_OR_EQUALS promote(@c8 AS UUID)π
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -156,7 +156,7 @@ digraph G {
 }›
 V
 .uuid-as-a-field-tests_uuid_parameter_as_string$EXPLAIN select * from ta where b = ?Ç
-≥øÔÁ3 ∏√´(0îí8@6SCAN([IS TA]) | FILTER _.B EQUALS promote(@c7 AS UUID)¨
+ÕÄÛ˚3 ö ˝(0ãÚQ8@6SCAN([IS TA]) | FILTER _.B EQUALS promote(@c7 AS UUID)¨
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -169,7 +169,7 @@ digraph G {
 }Ê
 W
 .uuid-as-a-field-tests_uuid_parameter_as_string%EXPLAIN select * from ta where b != ?ä
-≥ø‡ß3 áÇ¨(0Áø8@:SCAN([IS TA]) | FILTER _.B NOT_EQUALS promote(@c8 AS UUID)∞
+Õ€éÒ3 —ôô(0˜”/8@:SCAN([IS TA]) | FILTER _.B NOT_EQUALS promote(@c8 AS UUID)∞
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -183,7 +183,7 @@ digraph G {
 4
 uuid-as-a-primary-keyEXPLAIN select B, A from TBÈ
 
-íØñì( ï∂π(0“Ó8@(SCAN([IS TB]) | MAP (_.B AS B, _.A AS A)°
+®˘˘¨( ™üô(0Ê¯ 8@(SCAN([IS TB]) | MAP (_.B AS B, _.A AS A)°
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -196,7 +196,7 @@ digraph G {
 }¯
 @
 uuid-as-a-primary-key'EXPLAIN select B, A from TB where a > ?≥
-ﬁƒó´> › Ä(0‰„8@MSCAN([IS TB, [GREATER_THAN promote(@c9 AS UUID)]]) | MAP (_.B AS B, _.A AS A)∆
+áˇ’ñ> ¡◊∆(0¥á98@MSCAN([IS TB, [GREATER_THAN promote(@c9 AS UUID)]]) | MAP (_.B AS B, _.A AS A)∆
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -209,7 +209,8 @@ digraph G {
 }Ú
 @
 uuid-as-a-primary-key'EXPLAIN select B, A from TB where a < ?≠
-ﬁõ˛≥> Ùº»(0¿Ã%8@JSCAN([IS TB, [LESS_THAN promote(@c9 AS UUID)]]) | MAP (_.B AS B, _.A AS A)√
+áà‘ß
+>  ÿì(0ú48@JSCAN([IS TB, [LESS_THAN promote(@c9 AS UUID)]]) | MAP (_.B AS B, _.A AS A)√
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -222,7 +223,7 @@ digraph G {
 }è
 A
 uuid-as-a-primary-key(EXPLAIN select B, A from TB where a >= ?…
-ﬁÒœ≤> —ﬂˇ(0÷í8@XSCAN([IS TB, [GREATER_THAN_OR_EQUALS promote(@c10 AS UUID)]]) | MAP (_.B AS B, _.A AS A)—
+á±˜≥> ≥∞≥(0„ +8@XSCAN([IS TB, [GREATER_THAN_OR_EQUALS promote(@c10 AS UUID)]]) | MAP (_.B AS B, _.A AS A)—
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -235,7 +236,7 @@ digraph G {
 }â
 A
 uuid-as-a-primary-key(EXPLAIN select B, A from TB where a <= ?√
-ﬁÜ® > ˆ»ı(0≥ä8@USCAN([IS TB, [LESS_THAN_OR_EQUALS promote(@c10 AS UUID)]]) | MAP (_.B AS B, _.A AS A)Œ
+á‚§É> ˇ¸¡(0ìÇ>8@USCAN([IS TB, [LESS_THAN_OR_EQUALS promote(@c10 AS UUID)]]) | MAP (_.B AS B, _.A AS A)Œ
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -248,7 +249,7 @@ digraph G {
 }Ë
 @
 uuid-as-a-primary-key'EXPLAIN select B, A from TB where a = ?£
-ﬁêÊò> Ø´‘(0¬π"8@ESCAN([IS TB, EQUALS promote(@c9 AS UUID)]) | MAP (_.B AS B, _.A AS A)æ
+áÛºÛ> ›ôî(0ÕÆ28@ESCAN([IS TB, EQUALS promote(@c9 AS UUID)]) | MAP (_.B AS B, _.A AS A)æ
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -261,7 +262,7 @@ digraph G {
 }œ
 A
 uuid-as-a-primary-key(EXPLAIN select B, A from TB where a != ?â
-ﬁç•«@ ±Ú§(0¶ë$8@VSCAN([IS TB]) | FILTER _.A NOT_EQUALS promote(@c10 AS UUID) | MAP (_.B AS B, _.A AS A)ìdigraph G {
+Ç¶Ä≈@ ˝ãŸ(0ô˙M8@VSCAN([IS TB]) | FILTER _.A NOT_EQUALS promote(@c10 AS UUID) | MAP (_.B AS B, _.A AS A)ìdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -275,7 +276,7 @@ A
 }Œ
 H
 uuid-as-a-primary-key/EXPLAIN select B, A from TB where a is not nullÅ
-Œ⁄∑‹9 ﬂÚî(0¸à8@4SCAN([IS TB, [NOT_NULL]]) | MAP (_.B AS B, _.A AS A)≠
+˜πŸå	9 Ú™·(0»—8@4SCAN([IS TB, [NOT_NULL]]) | MAP (_.B AS B, _.A AS A)≠
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -288,7 +289,7 @@ digraph G {
 }‚
 B
 uuid-in-index-definition&EXPLAIN select b, c from tc order by bõ
-±‹†“	H ˚‚å("0©í-8!@VCOVERING(TC1 <,> -> [A: KEY:[2], B: KEY:[0], C: VALUE:[0]]) | MAP (_.B AS B, _.C AS C)•
+é≥≥õH ïÃΩ	("0°Ôk8!@VCOVERING(TC1 <,> -> [A: KEY:[2], B: KEY:[0], C: VALUE:[0]]) | MAP (_.B AS B, _.C AS C)•
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -301,37 +302,38 @@ digraph G {
 }¨
 ?
 uuid-in-index-definition#EXPLAIN select * from tc order by bË
-ïœ€áJ å∆≥("0‹≈|8@ISCAN(TC1 <,>)∫digraph G {
+ÊùÈ°J ¡…Ï("0ˆÄ88@ISCAN(TC1 <,>)∫digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
   1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, UUID AS B, LONG AS C)" ];
   2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">TC1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, UUID AS B, LONG AS C)" ];
   2 -> 1 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}ö
+}ô
 p
-uuid-in-index-definitionTEXPLAIN select * from tc where b > 'a8708750-d70f-4800-8c3b-13700d5b369f' order by b•
-õ˘≤_ úÂ€(*0˚°•8)@0ISCAN(TC1 [[GREATER_THAN promote(@c7 AS UUID)]])‘digraph G {
+uuid-in-index-definitionTEXPLAIN select * from tc where b > 'a8708750-d70f-4800-8c3b-13700d5b369f' order by b§
+Æ˙Ü…_ £Ìô	(*0Œ¢R8)@0ISCAN(TC1 [[GREATER_THAN promote(@c7 AS UUID)]])‘digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
   1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [[GREATER_THAN promote(@c7 AS UUID)]]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, UUID AS B, LONG AS C)" ];
   2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">TC1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, UUID AS B, LONG AS C)" ];
   2 -> 1 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}”
+}“
 u
-uuid-in-index-definitionYEXPLAIN select * from tc where b < 'a8708750-d70f-4800-8c3b-13700d5b369f' order by b descŸ
-õ„π¶!_ ›Âˇ(*0“˘∂8)@5ISCAN(TC1 [[LESS_THAN promote(@c7 AS UUID)]] REVERSE)Édigraph G {
+uuid-in-index-definitionYEXPLAIN select * from tc where b < 'a8708750-d70f-4800-8c3b-13700d5b369f' order by b descÿ
+Æ€Ë‡_ £™Ω	(*0ç⁄G8)@5ISCAN(TC1 [[LESS_THAN promote(@c7 AS UUID)]] REVERSE)Édigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
   1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [[LESS_THAN promote(@c7 AS UUID)]]</td></tr><tr><td align="left">direction: reversed</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, UUID AS B, LONG AS C)" ];
   2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">TC1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, UUID AS B, LONG AS C)" ];
   2 -> 1 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}˘
+}¯
 
-uuid-in-index-definitioncEXPLAIN select * from tc where b < 'a8708750-d70f-4800-8c3b-13700d5b369f' and c > 4 order by b descı
-Éê¶ÿ"m ¢•à(.0ÎÓñ87@öCOVERING(TC1 [[LESS_THAN promote(@c7 AS UUID)]] REVERSE -> [A: KEY:[2], B: KEY:[0], C: VALUE:[0]]) | FILTER _.C GREATER_THAN promote(@c11 AS LONG) | FETCHπdigraph G {
+uuid-in-index-definitioncEXPLAIN select * from tc where b < 'a8708750-d70f-4800-8c3b-13700d5b369f' and c > 4 order by b descÙ
+æïåÁm Î„Ö
+(.0›øp87@öCOVERING(TC1 [[LESS_THAN promote(@c7 AS UUID)]] REVERSE -> [A: KEY:[2], B: KEY:[0], C: VALUE:[0]]) | FILTER _.C GREATER_THAN promote(@c11 AS LONG) | FETCHπdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;

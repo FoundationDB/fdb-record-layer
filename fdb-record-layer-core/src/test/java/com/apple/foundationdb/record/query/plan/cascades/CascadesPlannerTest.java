@@ -129,7 +129,7 @@ class CascadesPlannerTest {
         final ConditionalCascadesRule<RelationalExpression, RecordingExplorationCascadesRule> conditionalRule =
                 new ConditionalCascadesRule<>(ImmutableList.of(disabled, enabled));
         final CascadesPlanner.ExploreExpression explore =
-                planner.new ExploreExpression(PlannerPhase.REWRITING, group, expression);
+                planner.new ExploreExpression(PlannerPhase.REWRITING, group, expression, false);
 
         explore.pushTransformExpressionIfNeeded(conditionalRule);
 
@@ -191,7 +191,7 @@ class CascadesPlannerTest {
         // `ReExploreExpression` itself is not visible here; this reproduces its `shouldPushRule()` logic (staleness
         // with respect to the group's committed exploration) on top of the otherwise-testable base class.
         final CascadesPlanner.AbstractExploreExpression reExplore =
-                planner.new AbstractExploreExpression(PlannerPhase.REWRITING, group, expression) {
+                planner.new AbstractExploreExpression(PlannerPhase.REWRITING, group, expression, false) {
                     @Override
                     protected boolean shouldPushRule(@Nonnull final CascadesRule<?> rule) {
                         return group.isFullyExploring() || !group.isExploredForAttributes(rule.getConstraintDependencies());

@@ -1,17 +1,17 @@
-Ô
+Î
 L
-between-index-tests5EXPLAIN select * from t1 WHERE col1 BETWEEN 10 AND 10û
-«ÍÕ≥Q Ÿ–”( 0ÔÔ8#@cISCAN(I1 [[GREATER_THAN_OR_EQUALS promote(@c8 AS INT) && LESS_THAN_OR_EQUALS promote(@c8 AS INT)]])õdigraph G {
+between-index-tests5EXPLAIN select * from t1 WHERE col1 BETWEEN 10 AND 10ö
+®Íﬂ‚Q î¨ç( 0Ä«)8#@cISCAN(I1 [[GREATER_THAN_OR_EQUALS promote(@c7 AS INT) && LESS_THAN_OR_EQUALS promote(@c7 AS INT)]])ódigraph G {
   fontname=courier;
   rankdir=BT;
-  splines=polyline;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [[GREATER_THAN_OR_EQUALS promote(@c8 AS INT) &amp;&amp; LESS_THAN_OR_EQUALS promote(@c8 AS INT)]]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS ID, INT AS COL1, INT AS COL2)" ];
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [[GREATER_THAN_OR_EQUALS promote(@c7 AS INT) &amp;&amp; LESS_THAN_OR_EQUALS promote(@c7 AS INT)]]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS ID, INT AS COL1, INT AS COL2)" ];
   2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(INT AS ID, INT AS COL1, INT AS COL2)" ];
   2 -> 1 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
 }ä
 P
 between-index-tests9EXPLAIN select * from t1 WHERE col1 + 5 BETWEEN 10 AND 20µ
-£æ‚∞M øõı(0óØ8!@àISCAN(I1 <,>) | FILTER _.COL1 + @c7 GREATER_THAN_OR_EQUALS promote(@c9 AS INT) AND _.COL1 + @c7 LESS_THAN_OR_EQUALS promote(@c11 AS INT)ådigraph G {
+Ì˘àÖM Ωé∑(0∫Á+8!@àISCAN(I1 <,>) | FILTER _.COL1 + @c7 GREATER_THAN_OR_EQUALS promote(@c9 AS INT) AND _.COL1 + @c7 LESS_THAN_OR_EQUALS promote(@c11 AS INT)ådigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -23,7 +23,7 @@ P
 }Â
 T
 between-index-tests=EXPLAIN select * from t1 WHERE col1 + 5 NOT BETWEEN 10 AND 20å
-£ßß™N Åâô(0ó◊8!@tISCAN(I1 <,>) | FILTER _.COL1 + @c7 LESS_THAN promote(@c10 AS INT) OR _.COL1 + @c7 GREATER_THAN promote(@c12 AS INT)¯
+Ì‘º√N È¡Ï(0…›,8!@tISCAN(I1 <,>) | FILTER _.COL1 + @c7 LESS_THAN promote(@c10 AS INT) OR _.COL1 + @c7 GREATER_THAN promote(@c12 AS INT)¯
 digraph G {
   fontname=courier;
   rankdir=BT;

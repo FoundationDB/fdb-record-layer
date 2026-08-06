@@ -1,17 +1,17 @@
-–
+’
 Y
-	unnamed-3LEXPLAIN select * from B where b3 = 4 and b2 = 'b' and (? is null or b1 < 20)¸
-ÇŠø P ¤…( 0ð¬8#@4ISCAN(I1 [EQUALS promote(@c8 AS LONG), EQUALS @c12])ädigraph G {
+	unnamed-3LEXPLAIN select * from B where b3 = 4 and b2 = 'b' and (? is null or b1 < 20)´
+¨áâ‡P ÔºÕ( 0Öã8#@4ISCAN(I1 [EQUALS promote(@c7 AS LONG), EQUALS @c11])àdigraph G {
   fontname=courier;
   rankdir=BT;
-  splines=polyline;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c8 AS LONG), EQUALS @c12]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS B1, STRING AS B2, LONG AS B3)" ];
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c7 AS LONG), EQUALS @c11]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS B1, STRING AS B2, LONG AS B3)" ];
   2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(INT AS B1, STRING AS B2, LONG AS B3)" ];
   2 -> 1 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}‹
+}Š
 e
-agg-index-tests-countLEXPLAIN select * from B where b3 = 4 and b2 = 'b' and (? is null or b1 < 20)¡
-Žù–¨F¤ ƒÔ… (^0øÞÆ8Ë@ºCOVERING(I1 [EQUALS promote(@c7 AS LONG), EQUALS promote(@c11 AS STRING)] -> [B1: KEY:[3], B2: KEY:[1], B3: KEY:[0]]) | FILTER @c14 IS_NULL OR _.B1 LESS_THAN promote(@c20 AS INT) | FETCHÃdigraph G {
+agg-index-tests-countLEXPLAIN select * from B where b3 = 4 and b2 = 'b' and (? is null or b1 < 20) 
+¾Ù»¤ ¥›(^0 Õk8Ë@ºCOVERING(I1 [EQUALS promote(@c7 AS LONG), EQUALS promote(@c11 AS STRING)] -> [B1: KEY:[3], B2: KEY:[1], B3: KEY:[0]]) | FILTER @c14 IS_NULL OR _.B1 LESS_THAN promote(@c20 AS INT) | FETCHÃdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
