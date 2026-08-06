@@ -204,6 +204,15 @@ test_block:
       - supported_version: 4.12.1.0
       - explain: "ISCAN(I1 <,>) | FILTER _.COL1 EQUALS promote(@c10 AS LONG) OR _.COL2 EQUALS promote(@c14 AS LONG) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
       - result: [{!l 8}]
+    -
+      # DISTINCT is not yet supported for any aggregate.
+      - query: SELECT SUM(DISTINCT col1) FROM T1
+      - supported_version: !current_version
+      - error: UNSUPPORTED_QUERY
+    -
+      - query: SELECT COUNT(DISTINCT col1) FROM T1
+      - supported_version: !current_version
+      - error: UNSUPPORTED_QUERY
 ---
 test_block:
   name: group-by-tests-with-continuations
