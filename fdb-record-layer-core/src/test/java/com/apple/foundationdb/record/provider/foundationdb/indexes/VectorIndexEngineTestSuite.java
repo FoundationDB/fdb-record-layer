@@ -42,6 +42,7 @@ import com.apple.foundationdb.record.metadata.MetaDataEvolutionValidator;
 import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
+import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainer;
 import com.apple.foundationdb.record.provider.foundationdb.OnlineIndexer;
@@ -568,6 +569,47 @@ abstract class VectorIndexEngineTestSuite extends VectorIndexTestBase {
     }
 
     @Test
+    void pendingWriteQueueSkipsUnchangedVector() throws Exception {
+        // Test record rewriting without its vector changing
+        final HalfRealVector query = constantHalfVector(0.1f, 128);
+        final HalfRealVector witnessVector = constantHalfVector(0.5f, 128);
+        final HalfRealVector vector = constantHalfVector(0.11f, 128);
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context, this::addUngroupedVectorIndex);
+            final Index index = recordStore.getRecordMetaData().getIndex("UngroupedVectorIndex");
+            final IndexMaintainer maintainer = recordStore.getIndexMaintainer(index);
+
+            saveVectorRecord(2L, witnessVector); // witness that must not move
+            final FDBStoredRecord<Message> stored = saveVectorRecord(1L, vector);
+            assertThat(nearestRecNos(index, query, 10)).containsExactly(1L, 2L);
+
+            final Any unchanged = maintainer.serializePendingWriteQueue(stored, rewriteWithVector(stored, vector));
+            assertThat(unchanged)
+                    .as("an unchanged vector is still deferred onto the queue; the skip happens on the way out")
+                    .isNotNull();
+
+            timer.reset();
+            maintainer.updateFromQueue(unchanged).join();
+            final long writesWhenUnchanged = timer.getCount(FDBStoreTimer.Counts.SAVE_INDEX_KEY);
+            final long readsWhenUnchanged = timer.getCount(FDBStoreTimer.Counts.LOAD_INDEX_KEY);
+
+            assertThat(writesWhenUnchanged).isZero();
+            assertThat(readsWhenUnchanged).isZero();
+            assertThat(nearestRecNos(index, query, 10)).containsExactly(1L, 2L);
+
+            final Any changed = maintainer.serializePendingWriteQueue(stored,
+                    rewriteWithVector(stored, constantHalfVector(0.9f, 128)));
+            timer.reset();
+            assertThat(changed).isNotNull();
+            maintainer.updateFromQueue(changed).join();
+            assertThat(timer.getCount(FDBStoreTimer.Counts.SAVE_INDEX_KEY))
+                    .as("a changed vector must still be applied")
+                    .isPositive();
+            commit(context);
+        }
+    }
+
+    @Test
     void updateFromQueueDeleteIsIdempotent() throws Exception {
         // Re-draining a delete entry (e.g. a retried indexer) must be a harmless no-op the second time: HNSW.delete
         // completes without error when the node is already gone.
@@ -683,6 +725,22 @@ abstract class VectorIndexEngineTestSuite extends VectorIndexTestBase {
                 .setVectorData(ByteString.copyFrom(vector.getRawData()))
                 .build();
         return recordStore.saveRecord(rec);
+    }
+
+    @Nonnull
+    private FDBStoredRecord<Message> rewriteWithVector(@Nonnull final FDBStoredRecord<Message> stored,
+                                                       @Nonnull final HalfRealVector vector) {
+        // The primary key is (group_id, rec_no), so both fields come back out of the record being rewritten.
+        final Tuple primaryKey = stored.getPrimaryKey();
+        final Message rec = VectorRecord.newBuilder()
+                .setGroupId(Ints.checkedCast(primaryKey.getLong(0)))
+                .setRecNo(primaryKey.getLong(1))
+                .setVectorData(ByteString.copyFrom(vector.getRawData()))
+                .build();
+        return FDBStoredRecord.newBuilder(rec)
+                .setPrimaryKey(primaryKey)
+                .setRecordType(stored.getRecordType())
+                .build();
     }
 
     /**
