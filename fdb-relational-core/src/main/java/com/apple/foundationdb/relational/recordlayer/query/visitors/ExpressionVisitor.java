@@ -353,6 +353,8 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
     @Nonnull
     @Override
     public Expression visitAggregateWindowedFunction(@Nonnull RelationalParser.AggregateWindowedFunctionContext functionContext) {
+        final var functionName = functionContext.functionName.getText();
+
         // Handle the aggregator (aka. set quantifier). Existing aggregates support only ALL (the default).
         final Token aggregator = functionContext.aggregator;
         Assert.thatUnchecked(
@@ -360,7 +362,14 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
                 ErrorCode.UNSUPPORTED_QUERY,
                 () -> String.format(Locale.ROOT, "aggregator %s is not supported",
                         Assert.notNullUnchecked(aggregator).getText()));
-        final var functionName = functionContext.functionName.getText();
+
+        // Handle the OVER clause. The grammar admits it for most aggregates, but using an aggregate as a window
+        // function is not implemented.
+        Assert.isNullUnchecked(
+                functionContext.overClause(),
+                ErrorCode.UNSUPPORTED_QUERY,
+                String.format(Locale.ROOT, "an OVER clause is not supported for %s()", functionName));
+
         Optional<Expression> argumentMaybe = Optional.empty();
         if (functionContext.starArg != null) {
             argumentMaybe = Optional.of(Expression.ofUnnamed(RecordConstructorValue.ofColumns(List.of())));

@@ -213,6 +213,15 @@ test_block:
       - query: SELECT COUNT(DISTINCT col1) FROM T1
       - supported_version: !current_version
       - error: UNSUPPORTED_QUERY
+    -
+      # An OVER clause is grammatically accepted, but using an aggregate as a window function is not implemented.
+      - query: SELECT SUM(col2) OVER (PARTITION BY col1) FROM T1
+      - supported_version: !current_version
+      - error: UNSUPPORTED_QUERY
+    -
+      - query: SELECT MAX(col2) OVER () FROM T1
+      - supported_version: !current_version
+      - error: UNSUPPORTED_QUERY
 ---
 test_block:
   name: group-by-tests-with-continuations
