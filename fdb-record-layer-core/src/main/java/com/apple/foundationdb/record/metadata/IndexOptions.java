@@ -461,6 +461,13 @@ public class IndexOptions {
     /** Guardiann-only: maximum number of primary vectors in a cluster before a split is triggered. */
     public static final String GUARDIANN_PRIMARY_CLUSTER_MAX = "guardiannPrimaryClusterMax";
 
+    /**
+     * Guardiann-only: hard cap on primary vectors in a cluster, above {@code guardiannPrimaryClusterMax}. When deferred
+     * maintenance tasks are not run in the writing transaction, an insert that would take a cluster above this cap is
+     * rejected with a back-pressure exception, so writers slow down while the background merge drains the split backlog.
+     */
+    public static final String GUARDIANN_PRIMARY_CLUSTER_HARD_MAX = "guardiannPrimaryClusterHardMax";
+
     /** Guardiann-only: maximum number of under-replicated primary vectors before a reassign is triggered. */
     public static final String GUARDIANN_UNDERREPLICATED_PRIMARY_CLUSTER_MAX = "guardiannUnderreplicatedPrimaryClusterMax";
 
