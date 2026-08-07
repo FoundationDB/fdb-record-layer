@@ -335,16 +335,23 @@ jobs:
         run: python ./build/commit_yamsql_updates.py "${{ steps.get_new_version.outputs.version }}"
 
       # Push updates back to origin.
-      # We want to do this regardless of whether publishing actually succeeds or fails, as the
-      # publishing process itself can fail non-atomically. If that happens, we still want to update
-      # the gradle.properties version, the release notes, etc.
+      #
+      # We want to do this whenever publishing runs, regardless of whether it succeeds
+      # or fails, as the publishing process itself can fail non-atomically. If that happens, we still
+      # want to update the gradle.properties version, the release notes, etc. Note that we run this
+      # even if the workflow is cancelled during publishing, as we don't know where in the publishing
+      # step we are. (If the workflow is cancelled before publishing, then the `publish_arifacts` outcome
+      # will be `skipped`, and so we can safely skip this step as well.)
       #
       # We pull updates before doing this as there may be concurrent PRs. This can introduce
       # non-linearities into the history, but comparing tags should still correctly
       # identify all commits that are present in one version but absent in another
       - name: Push updates
         id: push_updates
-        if: steps.publish_artifacts.outcome != 'cancelled'
+        # `always()` is here because `if` conditions that don't reference a status-check function (success()/
+        # failure()/cancelled()/always()) get `success()` implicitly ANDed in by GitHub Actions, so without
+        # it, this would only get run if `publish_artifacts` succeeded, which defeats the purpose
+        if: ${{ always() && steps.publish_artifacts.outcome != 'skipped' }}
         shell: bash
         run: |
             # Remove the leading "refs/heads/" from the branch name stored in the GITHUB_REF environment variable
