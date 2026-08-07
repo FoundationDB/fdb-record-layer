@@ -25,6 +25,7 @@ import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TestRecordsTextProto;
 import com.apple.foundationdb.record.lucene.LuceneIndexMaintainer;
+import com.apple.foundationdb.record.lucene.LuceneIndexOptions;
 import com.apple.foundationdb.record.lucene.LuceneIndexTestUtils;
 import com.apple.foundationdb.record.lucene.LuceneRecordCursor;
 import com.apple.foundationdb.record.lucene.LuceneScanBounds;
@@ -48,8 +49,9 @@ import java.util.List;
 import java.util.Objects;
 import java.util.function.Function;
 
-import static com.apple.foundationdb.record.lucene.LuceneIndexTestUtils.SIMPLE_TEXT_SUFFIXES;
 import static com.apple.foundationdb.record.lucene.LuceneIndexTestUtils.TEXT_AND_STORED_COMPLEX;
+import static com.apple.foundationdb.record.lucene.LuceneIndexTestUtils.simpleTextSuffixesIndex;
+import static com.apple.foundationdb.record.lucene.LuceneIndexTestUtils.textAndStoredComplexIndex;
 import static com.apple.foundationdb.record.provider.foundationdb.indexes.TextIndexTestUtils.COMPLEX_DOC;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
@@ -65,7 +67,8 @@ class PendingWriteQueueSerializationTest extends FDBRecordStoreTestBase {
     @BooleanSource
     void testEndToEndSerialization(boolean overwrite) {
         // Compare two identical records - one of them was written through the pending write queue
-        final Index index = SIMPLE_TEXT_SUFFIXES;
+        final Index index = simpleTextSuffixesIndex(options ->
+                options.put(LuceneIndexOptions.PENDING_WRITE_QUEUE_INCARNATION_ENABLED, "true"));
         final KeySpacePath path = pathManager.createPath(TestKeySpace.RECORD_STORE);
         final Function<FDBRecordContext, FDBRecordStore> schemaSetup = context ->
                 LuceneIndexTestUtils.rebuildIndexMetaData(context, path,
@@ -115,7 +118,8 @@ class PendingWriteQueueSerializationTest extends FDBRecordStoreTestBase {
     @BooleanSource
     void testEndToEndSerializationComplex(boolean overwrite) {
         // compare two identical records - one of them was written through the pending write queue, but use complex index
-        final Index index = TEXT_AND_STORED_COMPLEX;
+        final Index index = textAndStoredComplexIndex(options ->
+                options.put(LuceneIndexOptions.PENDING_WRITE_QUEUE_INCARNATION_ENABLED, "true"));
         final KeySpacePath path = pathManager.createPath(TestKeySpace.RECORD_STORE);
         final Function<FDBRecordContext, FDBRecordStore> schemaSetup = context ->
                 LuceneIndexTestUtils.rebuildIndexMetaData(context, path, COMPLEX_DOC, index, useCascadesPlanner).getLeft();
