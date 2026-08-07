@@ -6,6 +6,54 @@ As the [versioning guide](Versioning.md) details, it cannot always be determined
 
 ## 4.12
 
+### 4.12.17.0
+
+<h4> New Features </h4>
+
+* add additional vector options prematurely - [PR #4422](https://github.com/FoundationDB/fdb-record-layer/pull/4422)
+* Use IndexState predicates instead of comparing index states directly - [PR #4410](https://github.com/FoundationDB/fdb-record-layer/pull/4410)
+* Make `PredicatePushDownRule` and `SelectMergeRule` fire on final expressions - [PR #4382](https://github.com/FoundationDB/fdb-record-layer/pull/4382)
+* Support SELECT without a FROM clause - [PR #4199](https://github.com/FoundationDB/fdb-record-layer/pull/4199)
+* Introduce conditional planner rules (`ConditionalCascadesRule`) - [PR #4332](https://github.com/FoundationDB/fdb-record-layer/pull/4332)
+* Introduce SchemaExistsBehavior when saving schemas - [PR #4363](https://github.com/FoundationDB/fdb-record-layer/pull/4363)
+* Allow for the `MetaDataEvolutionValidator` to be configured to ignore a fixed set of options - [PR #4399](https://github.com/FoundationDB/fdb-record-layer/pull/4399)
+* Improve function encapsulation API - [PR #4397](https://github.com/FoundationDB/fdb-record-layer/pull/4397)
+* GuardiANN DDL - [PR #4398](https://github.com/FoundationDB/fdb-record-layer/pull/4398)
+
+<details>
+<summary>
+
+<h4> Build/Test/Documentation/Style Improvements (click to expand) </h4>
+
+</summary>
+
+* Rework the “Building the Record Layer” guide - [PR #4358](https://github.com/FoundationDB/fdb-record-layer/pull/4358)
+* Simplify `EventKeeperTranslator` so that it references pre-existing events rather than creating copies - [PR #3990](https://github.com/FoundationDB/fdb-record-layer/pull/3990)
+* Document the CREATE STORED QUERY DDL - [PR #4411](https://github.com/FoundationDB/fdb-record-layer/pull/4411)
+* Generate empty code coverage when no tests are run - [PR #4413](https://github.com/FoundationDB/fdb-record-layer/pull/4413)
+* Remove the `asciitable` dependency - [PR #4386](https://github.com/FoundationDB/fdb-record-layer/pull/4386)
+* Update SpotBugs from 4.9.0 to 4.10.3 - [PR #4388](https://github.com/FoundationDB/fdb-record-layer/pull/4388)
+* Use GitHub private vulnerability reporting for security issues - [PR #4408](https://github.com/FoundationDB/fdb-record-layer/pull/4408)
+* Update the `shadow` Gradle plugin - [PR #4383](https://github.com/FoundationDB/fdb-record-layer/pull/4383)
+* Update the `java-diff-utils` dependency - [PR #4385](https://github.com/FoundationDB/fdb-record-layer/pull/4385)
+* Update the `protobuf` Gradle plugin - [PR #4384](https://github.com/FoundationDB/fdb-record-layer/pull/4384)
+* Exclude some Nullability annotations from auto import - [PR #4403](https://github.com/FoundationDB/fdb-record-layer/pull/4403)
+
+</details>
+
+
+**[Full Changelog (4.12.16.0...4.12.17.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.12.16.0...4.12.17.0)**
+
+#### Mixed Mode Test Results
+
+Mixed mode testing run against the following previous versions:
+
+✅`4.12.6.0`, ✅`4.12.7.0`, ✅`4.12.8.0`, ✅`4.12.9.0`, ✅`4.12.10.0`, ✅`4.12.11.0`, ✅`4.12.12.0`, ✅`4.12.13.0`, ✅`4.12.15.0`, ✅`4.12.16.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/31137906444)
+
+
+
 ### 4.12.16.0
 
 <h4> New Features </h4>
