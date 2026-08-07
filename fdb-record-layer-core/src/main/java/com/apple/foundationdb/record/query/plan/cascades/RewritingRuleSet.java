@@ -42,7 +42,6 @@ import java.util.Set;
 public class RewritingRuleSet extends CascadesRuleSet {
     private static final Set<ExplorationCascadesRule<? extends RelationalExpression>> EXPLORATION_RULES = ImmutableSet.of(
             new QueryPredicateSimplificationRule(),
-            new PredicatePushDownRule(),
             new DecorrelateValuesRule(),
             new RewriteOuterJoinRule()
     );
@@ -50,6 +49,7 @@ public class RewritingRuleSet extends CascadesRuleSet {
 
     private static final Set<ImplementationCascadesRule<? extends RelationalExpression>> IMPLEMENTATION_RULES = ImmutableSet.of(
             new SelectMergeRule(),
+            new PredicatePushDownRule(),
             new FinalizeExpressionsRule()
     );
 

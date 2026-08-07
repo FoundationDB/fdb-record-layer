@@ -213,14 +213,14 @@ pseudo-field-clash-queries:
     ref: pseudo-field-clash.yamsql:246
     explain: SCAN([IS T1]) | FLATMAP q0 -> { SCAN([IS T3, EQUALS q0.ID]) | FLATMAP
         q1 -> { SCAN([IS T2, EQUALS q0.ID]) AS q2 RETURN (q2 AS _0, q1 AS _1) } AS
-        q3 RETURN (q0 AS _0, q3._0 AS _1, (q3._1.ID AS ID, q3._1.COL1 AS COL1, q3._1.COL2
-        AS COL2) AS _2) }
+        q3 RETURN (q0 AS T1, q3._0 AS T2, (q3._1.ID AS ID, q3._1.COL1 AS COL1, q3._1.COL2
+        AS COL2) AS T3) }
     task_count: 2300
-    task_total_time_ms: 72
-    transform_count: 738
-    transform_time_ms: 26
+    task_total_time_ms: 293
+    transform_count: 736
+    transform_time_ms: 91
     transform_yield_count: 165
-    insert_time_ms: 3
+    insert_time_ms: 10
     insert_new_count: 386
     insert_reused_count: 34
 -   query: EXPLAIN SELECT (t1.id, t1.col1, t1."__ROW_VERSION"), (t2.id, t2.col1, t2."__ROW_VERSION"),
@@ -234,10 +234,10 @@ pseudo-field-clash-queries:
         AS _1, (q3._1.ID AS ID, q3._1.COL1 AS COL1, q3._1.COL2 AS COL2, q3._1.__ROW_VERSION
         AS __ROW_VERSION) AS _2) }
     task_count: 2300
-    task_total_time_ms: 215
-    transform_count: 738
-    transform_time_ms: 82
+    task_total_time_ms: 280
+    transform_count: 736
+    transform_time_ms: 111
     transform_yield_count: 165
-    insert_time_ms: 5
+    insert_time_ms: 9
     insert_new_count: 386
     insert_reused_count: 34

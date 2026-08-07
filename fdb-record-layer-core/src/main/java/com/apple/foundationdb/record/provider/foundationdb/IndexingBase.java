@@ -211,7 +211,7 @@ public abstract class IndexingBase {
                         .thenCompose(ignore -> AsyncUtil.READY_FALSE);
             }
             boolean shouldClear = desiredAction == OnlineIndexer.IndexingPolicy.DesiredAction.REBUILD;
-            boolean shouldBuild = shouldClear || indexState != IndexState.READABLE;
+            boolean shouldBuild = shouldClear || !indexState.isReadable();
             message.addKeyAndValue(LogMessageKeys.INITIAL_INDEX_STATE, indexState);
             message.addKeyAndValue(LogMessageKeys.INDEXING_POLICY_DESIRED_ACTION, desiredAction);
             message.addKeyAndValue(LogMessageKeys.SHOULD_BUILD_INDEX, shouldBuild);
@@ -301,7 +301,7 @@ public abstract class IndexingBase {
         AtomicBoolean allReadable = new AtomicBoolean(true);
         return getRunner().runAsync(context -> openRecordStore(context).thenCompose(store ->
             forEachTargetIndex(index -> {
-                if (store.isIndexReadable(index)) {
+                if (store.getIndexState(index).isReadable()) {
                     return AsyncUtil.DONE;
                 }
                 final IndexingRangeSet rangeSet = IndexingRangeSet.forIndexBuild(store, index);
