@@ -1,0 +1,293 @@
+#
+# view-dml.yamsql
+#
+# This source file is part of the FoundationDB open source project
+#
+# Copyright 2015-2025 Apple Inc. and the FoundationDB project authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# Integration tests for DML (INSERT / UPDATE / DELETE) through simple updatable views
+# (single-table SELECT+filter+project, no aggregates or joins).
+---
+options:
+    supported_version: !current_version
+---
+schema_template:
+    create table employee(id bigint, name string, dept string, salary bigint, primary key(id))
+    create table departments(code string, budget bigint, primary key(code))
+    create view eng_view as select * from employee where dept = 'eng'
+    create view all_view as select * from employee
+    create view join_view as select e.id, e.name from employee e, departments d where e.dept = d.code
+    create view agg_view as select dept, count(*) as cnt from employee group by dept
+    create view distinct_view as select distinct dept from employee
+    create view partial_view as select id, name from employee
+    create view eng_senior_view as select * from eng_view where salary > 85000
+    create view nested_agg_view as select dept, count(*) as cnt from eng_view group by dept
+---
+test_block:
+  name: view-dml-tests
+  preset: single_repetition_ordered
+  options:
+    connection_lifecycle: block
+  tests:
+    # ── Non-updatable views must be rejected ────────────────────────────────
+    -
+      - query: delete from join_view where id = 1
+      - error: VIEW_NOT_UPDATABLE
+    -
+      - query: update join_view set name = 'x' where id = 1
+      - error: VIEW_NOT_UPDATABLE
+    -
+      - query: insert into join_view (id, name) values (1, 'x')
+      - error: VIEW_NOT_UPDATABLE
+    -
+      - query: delete from agg_view where dept = 'eng'
+      - error: VIEW_NOT_UPDATABLE
+    -
+      - query: update agg_view set cnt = 0 where dept = 'eng'
+      - error: VIEW_NOT_UPDATABLE
+    -
+      - query: insert into agg_view (dept, cnt) values ('eng', 0)
+      - error: VIEW_NOT_UPDATABLE
+    -
+      - query: delete from distinct_view where dept = 'eng'
+      - error: VIEW_NOT_UPDATABLE
+    -
+      - query: update distinct_view set dept = 'x' where dept = 'eng'
+      - error: VIEW_NOT_UPDATABLE
+    -
+      - query: insert into distinct_view (dept) values ('eng')
+      - error: VIEW_NOT_UPDATABLE
+    -
+      - query: delete from partial_view where id = 1
+      - error: VIEW_NOT_UPDATABLE
+    -
+      - query: update partial_view set name = 'x' where id = 1
+      - error: VIEW_NOT_UPDATABLE
+    -
+      - query: insert into partial_view (id, name) values (99, 'x')
+      - error: VIEW_NOT_UPDATABLE
+    -
+      # nested_agg_view has GROUP BY — definitely non-updatable regardless of base chain
+      - query: delete from nested_agg_view where dept = 'eng'
+      - error: VIEW_NOT_UPDATABLE
+    -
+      - query: update nested_agg_view set cnt = 0 where dept = 'eng'
+      - error: VIEW_NOT_UPDATABLE
+    -
+      - query: insert into nested_agg_view (dept, cnt) values ('eng', 0)
+      - error: VIEW_NOT_UPDATABLE
+    -
+      # eng_senior_view = SELECT * FROM eng_view WHERE salary > 85000.
+      # Even though the chain ultimately reads from a single base table, the planner
+      # keeps the inner view reference opaque (does not inline the definition), so the
+      # compiled plan has a view scan rather than a LogicalTypeFilterExpression as its
+      # inner quantifier.  DML through views-on-views is not yet supported.
+      - query: delete from eng_senior_view where id = 1
+      - error: VIEW_NOT_UPDATABLE
+    -
+      - query: update eng_senior_view set salary = 99000 where id = 1
+      - error: VIEW_NOT_UPDATABLE
+    -
+      - query: insert into eng_senior_view (id, name, dept, salary) values (99, 'X', 'eng', 90000)
+      - error: VIEW_NOT_UPDATABLE
+
+    # ── DELETE through filtered view ────────────────────────────────────────
+    -
+      - query: insert into employee values (1, 'Alice', 'eng', 90000), (2, 'Bob', 'eng', 80000), (3, 'Carol', 'mkt', 70000), (4, 'Dave', 'mkt', 60000)
+      - count: 4
+    -
+      # DELETE with WHERE: only the matching eng row is removed
+      - query: delete from eng_view where id = 1
+      - count: 1
+    -
+      - query: select id from employee order by id
+      - result: [{id: 2}, {id: 3}, {id: 4}]
+
+    # reset
+    -
+      - query: delete from employee
+      - count: 3
+    -
+      - query: insert into employee values (1, 'Alice', 'eng', 90000), (2, 'Bob', 'eng', 80000), (3, 'Carol', 'mkt', 70000), (4, 'Dave', 'mkt', 60000)
+      - count: 4
+    -
+      # DELETE without WHERE: view predicate limits deletion to dept='eng' rows only
+      - query: delete from eng_view
+      - count: 2
+    -
+      - query: select id, dept from employee order by id
+      - result: [{id: 3, dept: 'mkt'}, {id: 4, dept: 'mkt'}]
+
+    # ── DELETE through star view ─────────────────────────────────────────────
+    -
+      - query: delete from employee
+      - count: 2
+    -
+      - query: insert into employee values (1, 'Alice', 'eng', 90000), (2, 'Bob', 'eng', 80000), (3, 'Carol', 'mkt', 70000), (4, 'Dave', 'mkt', 60000)
+      - count: 4
+    -
+      - query: delete from all_view where id = 3
+      - count: 1
+    -
+      - query: select id from employee order by id
+      - result: [{id: 1}, {id: 2}, {id: 4}]
+
+    # ── UPDATE through filtered view ─────────────────────────────────────────
+    -
+      - query: delete from employee
+      - count: 3
+    -
+      - query: insert into employee values (1, 'Alice', 'eng', 90000), (2, 'Bob', 'eng', 80000), (3, 'Carol', 'mkt', 70000), (4, 'Dave', 'mkt', 60000)
+      - count: 4
+    -
+      # View predicate (dept='eng') restricts affected rows — mkt employees unchanged
+      - query: update eng_view set salary = 99000
+      - count: 2
+    -
+      - query: select id, salary from employee order by id
+      - result: [{id: 1, salary: 99000}, {id: 2, salary: 99000}, {id: 3, salary: 70000}, {id: 4, salary: 60000}]
+
+    # reset
+    -
+      - query: delete from employee
+      - count: 4
+    -
+      - query: insert into employee values (1, 'Alice', 'eng', 90000), (2, 'Bob', 'eng', 80000), (3, 'Carol', 'mkt', 70000), (4, 'Dave', 'mkt', 60000)
+      - count: 4
+    -
+      # Both view predicate and DML WHERE are applied — only Bob (id=2) is updated
+      - query: update eng_view set salary = 55000 where id = 2
+      - count: 1
+    -
+      - query: select id, salary from employee order by id
+      - result: [{id: 1, salary: 90000}, {id: 2, salary: 55000}, {id: 3, salary: 70000}, {id: 4, salary: 60000}]
+
+    # ── UPDATE through star view ──────────────────────────────────────────────
+    -
+      - query: delete from employee
+      - count: 4
+    -
+      - query: insert into employee values (1, 'Alice', 'eng', 90000), (2, 'Bob', 'eng', 80000), (3, 'Carol', 'mkt', 70000), (4, 'Dave', 'mkt', 60000)
+      - count: 4
+    -
+      - query: update all_view set name = 'Updated' where id = 4
+      - count: 1
+    -
+      - query: select id, name from employee where id = 4
+      - result: [{id: 4, name: 'Updated'}]
+
+    # ── INSERT through star view ──────────────────────────────────────────────
+    -
+      - query: delete from employee
+      - count: 4
+    -
+      - query: insert into all_view (id, name, dept, salary) values (5, 'Eve', 'eng', 85000)
+      - count: 1
+    -
+      - query: select id, name from employee where id = 5
+      - result: [{id: 5, name: 'Eve'}]
+
+    # ── INSERT through filtered view ─────────────────────────────────────────
+    -
+      - query: delete from employee
+      - count: 1
+    -
+      # Row goes into the base table regardless of the view predicate (WITH CHECK OPTION is not yet supported)
+      - query: insert into eng_view (id, name, dept, salary) values (10, 'Frank', 'sales', 50000)
+      - count: 1
+    -
+      - query: select id, dept from employee where id = 10
+      - result: [{id: 10, dept: 'sales'}]
+
+    # ── Zero-rows-affected cases ──────────────────────────────────────────────
+    -
+      - query: delete from employee
+      - count: 1
+    -
+      - query: insert into employee values (1, 'Alice', 'eng', 90000), (2, 'Bob', 'eng', 80000), (3, 'Carol', 'mkt', 70000), (4, 'Dave', 'mkt', 60000)
+      - count: 4
+    -
+      # Carol (id=3) exists in the base table but is not visible through eng_view (dept='mkt')
+      - query: delete from eng_view where id = 3
+      - count: 0
+    -
+      - query: select id from employee order by id
+      - result: [{id: 1}, {id: 2}, {id: 3}, {id: 4}]
+    -
+      # View predicate (dept='eng') and WHERE (dept='mkt') are mutually exclusive — nothing deleted
+      - query: delete from eng_view where dept = 'mkt'
+      - count: 0
+    -
+      - query: select id from employee order by id
+      - result: [{id: 1}, {id: 2}, {id: 3}, {id: 4}]
+    -
+      # Carol (id=3) exists in the base table but is invisible to eng_view — no rows updated
+      - query: update eng_view set salary = 0 where id = 3
+      - count: 0
+    -
+      - query: select id, salary from employee order by id
+      - result: [{id: 1, salary: 90000}, {id: 2, salary: 80000}, {id: 3, salary: 70000}, {id: 4, salary: 60000}]
+    -
+      # View predicate (dept='eng') and WHERE (dept='mkt') are mutually exclusive — nothing updated
+      - query: update eng_view set salary = 0 where dept = 'mkt'
+      - count: 0
+    -
+      - query: select id, salary from employee order by id
+      - result: [{id: 1, salary: 90000}, {id: 2, salary: 80000}, {id: 3, salary: 70000}, {id: 4, salary: 60000}]
+
+    # ── UPDATE violates view predicate (no WITH CHECK OPTION) ─────────────────
+    -
+      # Changing dept to 'sales' moves Alice outside the view's predicate zone.
+      # Without WITH CHECK OPTION the update succeeds; the row stays in the base
+      # table but is no longer visible through eng_view.
+      - query: update eng_view set dept = 'sales' where id = 1
+      - count: 1
+    -
+      - query: select id, dept from employee where id = 1
+      - result: [{id: 1, dept: 'sales'}]
+    -
+      # Only Bob (id=2) still satisfies dept='eng'
+      - query: select id from eng_view order by id
+      - result: [{id: 2}]
+    -
+      # INSERT through eng_view with a row that satisfies the view predicate —
+      # the new row is immediately visible through the view
+      - query: insert into eng_view (id, name, dept, salary) values (20, 'Grace', 'eng', 75000)
+      - count: 1
+    -
+      - query: select id from eng_view order by id
+      - result: [{id: 2}, {id: 20}]
+
+    # ── UPDATE all rows through star view (no WHERE) ──────────────────────────
+    -
+      - query: delete from employee
+      - count: 5
+    -
+      - query: insert into employee values (1, 'Alice', 'eng', 90000), (2, 'Bob', 'eng', 80000), (3, 'Carol', 'mkt', 70000), (4, 'Dave', 'mkt', 60000)
+      - count: 4
+    -
+      - query: update all_view set salary = 0
+      - count: 4
+    -
+      - query: select id, salary from employee order by id
+      - result: [{id: 1, salary: 0}, {id: 2, salary: 0}, {id: 3, salary: 0}, {id: 4, salary: 0}]
+
+    # ── DELETE all rows through star view (no WHERE) ──────────────────────────
+    -
+      - query: delete from all_view
+      - count: 4
+    -
+      - query: select id from employee order by id
+      - result: []
