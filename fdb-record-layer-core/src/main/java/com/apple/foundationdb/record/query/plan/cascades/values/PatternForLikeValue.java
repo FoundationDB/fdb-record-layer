@@ -32,12 +32,12 @@ import com.apple.foundationdb.record.planprotos.PValue;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
-import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence;
-import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence.Precedence;
 import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type.TypeCode;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
+import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence;
+import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence.Precedence;
 import com.apple.foundationdb.util.StringUtils;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
@@ -93,11 +93,14 @@ public class PatternForLikeValue extends AbstractValue {
             replaceMap = REPLACE_MAP;
         } else {
             SemanticException.check(escapeChar.length() == 1, SemanticException.ErrorCode.ESCAPE_CHAR_OF_LIKE_OPERATOR_IS_NOT_SINGLE_CHAR);
-            replaceMap = ImmutableMap.<String, String>builderWithExpectedSize(REPLACE_MAP.size() + 2)
-                    .put(escapeChar + "_", "\\_")
-                    .put(escapeChar + "%", "\\%")
+            ImmutableMap.Builder<String, String> replaceBuilder = ImmutableMap.<String, String>builderWithExpectedSize(REPLACE_MAP.size() + 3)
                     .putAll(REPLACE_MAP)
-                    .build();
+                    .put(escapeChar + "%", "\\%")
+                    .put(escapeChar + "_", "\\_");
+            if (!"\\".equals(escapeChar) && !"_".equals(escapeChar) && !"%".equals(escapeChar)) {
+                replaceBuilder.put(escapeChar + escapeChar, escapeChar);
+            }
+            replaceMap = replaceBuilder.build();
         }
         return StringUtils.replaceEach(patternStr, replaceMap);
     }
