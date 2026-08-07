@@ -37,6 +37,7 @@ import com.apple.foundationdb.record.query.plan.cascades.ConstrainedBoolean;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.PredicateCompensationFunction;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.PredicateMapping;
+import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
 import com.apple.foundationdb.record.query.plan.cascades.ValueEquivalence;
 import com.apple.foundationdb.record.query.plan.cascades.values.ConstantObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
@@ -346,6 +347,12 @@ public class PredicateWithValueAndRanges extends AbstractQueryPredicate implemen
             }
 
             final var candidateRanges = candidatePredicateWithValuesAndRanges.getRanges();
+            // The candidate is a filtered index (it has ranges). Selecting it requires proving that the query value
+            // falls within the index predicate, which needs a concrete value. A value-free, non-nullable constant
+            // (e.g. a stored query's ?{type} parameter, unbound at warmup) has no such value, so fail here with a
+            // clear message rather than tripping the opaque non-nullable-null check inside ConstantObjectValue.eval
+            // during the enclosure check below.
+            verifyNoValueFreeConstantForFilteredIndex(compensatedQueryPredicate, evaluationContext);
             if (compensatedQueryPredicate.getRanges()
                     .stream()
                     .allMatch(range -> candidateRanges.stream()
@@ -404,6 +411,34 @@ public class PredicateWithValueAndRanges extends AbstractQueryPredicate implemen
                 PredicateMapping.regularMappingBuilder(originalQueryPredicate, this, candidatePredicate)
                         .setConstraint(semanticEquals.getConstraint())
                         .build());
+    }
+
+    /**
+     * Fails if the query predicate compares against a value-free, non-nullable {@link ConstantObjectValue} (a constant
+     * that is unbound in {@code evaluationContext}). This is called only when matching against a filtered candidate
+     * (one with ranges): selecting a filtered index needs the concrete value to prove it falls within the index
+     * predicate, and a value-free constant (e.g. a stored query's {@code ?{type}} parameter that has no value at
+     * warmup) cannot provide it. Failing here yields a clear message instead of the opaque non-nullable-null
+     * {@code Verify} failure that {@link ConstantObjectValue#eval} would otherwise raise during enclosure. Nullable
+     * unbound constants and non-constant (correlated/join) comparands are left untouched.
+     */
+    private static void verifyNoValueFreeConstantForFilteredIndex(@Nonnull final PredicateWithValueAndRanges queryPredicate,
+                                                                  @Nonnull final EvaluationContext evaluationContext) {
+        for (final var range : queryPredicate.getRanges()) {
+            for (final var comparison : range.getComparisons()) {
+                if (comparison instanceof Comparisons.ValueComparison) {
+                    ((Comparisons.ValueComparison)comparison).getComparandValue().preOrderStream()
+                            .filter(value -> value instanceof ConstantObjectValue)
+                            .map(value -> (ConstantObjectValue)value)
+                            .filter(cov -> !cov.getResultType().isNullable()
+                                    && !evaluationContext.containsConstantBinding(cov.getAlias(), cov.getConstantId()))
+                            .findFirst()
+                            .ifPresent(cov -> SemanticException.fail(SemanticException.ErrorCode.UNSUPPORTED,
+                                    "value-free parameter (constant " + cov.getConstantId()
+                                            + ") has no value to select a filtered index at plan time"));
+                }
+            }
+        }
     }
 
     @Nonnull

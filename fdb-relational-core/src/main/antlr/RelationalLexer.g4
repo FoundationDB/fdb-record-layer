@@ -1328,6 +1328,10 @@ STRING_CHARSET_NAME:                 '_' CHARSET_NAME;
 
 QUESTION:                            '?';
 NAMED_PARAMETER:                     [?$][A-Za-z][A-Za-z0-9_/]*;
+// A positional parameter carrying an inline declared type, e.g. ?{int}. Lexed as a SINGLE token so it
+// occupies exactly one token slot (identical to a bare '?'), keeping literal token indices — and thus
+// constant ids — stable. Longest-match beats QUESTION; the '{' after '?' rules out NAMED_PARAMETER.
+TYPED_PARAMETER:                     '?' '{' [A-Za-z][A-Za-z0-9_]* '}';
 
 // Identifiers
 

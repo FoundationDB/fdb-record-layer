@@ -147,6 +147,9 @@ public final class PlanGenerator {
         } catch (RelationalException e) {
             exception = e;
             throw e;
+        } catch (RuntimeException e) {
+            exception = new RelationalException(e.getMessage(), ErrorCode.INTERNAL_ERROR, e);
+            throw e;
         } finally {
             RelationalLoggingUtil.publishPlanGenerationLogs(logger, message, plan, exception, totalTimeMicros(), options);
         }

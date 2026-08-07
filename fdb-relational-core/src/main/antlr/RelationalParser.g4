@@ -1263,6 +1263,7 @@ inList
 preparedStatementParameter
     : QUESTION
     | NAMED_PARAMETER
+    | TYPED_PARAMETER
     ;
 
 unaryOperator
