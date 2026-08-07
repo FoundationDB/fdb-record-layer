@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.cascades.rules;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.query.plan.cascades.AbstractCascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.ImplementationCascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.ImplementationCascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.PlanPartition;
@@ -51,7 +52,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
-public class ImplementUnorderedUnionRule extends ImplementationCascadesRule<LogicalUnionExpression> {
+public class ImplementUnorderedUnionRule extends AbstractCascadesRule<LogicalUnionExpression> implements ImplementationCascadesRule<LogicalUnionExpression> {
     @Nonnull
     private static final BindingMatcher<PlanPartition> unionLegPlanPartitionsMatcher = anyPlanPartition();
 

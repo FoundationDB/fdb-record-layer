@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2021-2025 Apple Inc. and the FoundationDB project authors
+ * Copyright 2021-2026 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -80,6 +80,9 @@ public class BaseVisitor extends RelationalParserBaseVisitor<Object> implements 
     @Nonnull
     private final URI dbUri;
 
+    /**
+     * The current plan fragment. This will initially be empty, prior to the first call to {@link #pushPlanFragment()}.
+     */
     @Nonnull
     protected Optional<LogicalPlanFragment> currentPlanFragment;
 
@@ -192,16 +195,41 @@ public class BaseVisitor extends RelationalParserBaseVisitor<Object> implements 
         return !(currentPlanFragment.isPresent() && currentPlanFragment.get().hasParent());
     }
 
+    /**
+     * Enters a new SQL scope by pushing a fresh {@link LogicalPlanFragment} onto the stack. If a fragment already
+     * exists, it becomes the parent of the new fragment (enabling outer-correlation resolution); otherwise a root
+     * fragment is created. Every call must be balanced by a corresponding {@link #popPlanFragment()}.
+     *
+     * <p>Typical call sites: {@code visitSimpleTable} (every {@code SELECT} block), {@code visitQuery} (CTEs and
+     * subqueries), and table-access visitors that set up an initial operator.
+     *
+     * @return the newly created (now current) fragment
+     *
+     * @see #popPlanFragment
+     */
     @Nonnull
     public LogicalPlanFragment pushPlanFragment() {
         currentPlanFragment = Optional.of(currentPlanFragment.map(LogicalPlanFragment::addChild).orElse(LogicalPlanFragment.ofRoot()));
         return currentPlanFragment.get();
     }
 
+    /**
+     * Leaves the current SQL scope by popping the top fragment off the stack. The parent fragment (if any) becomes
+     * current again. After a pop, any operators or predicates accumulated in the popped fragment are no longer directly
+     * accessible; the caller is expected to have already folded them into a relational expression before popping.
+     *
+     * @see #pushPlanFragment
+     */
     public void popPlanFragment() {
         this.currentPlanFragment = currentPlanFragment.flatMap(LogicalPlanFragment::getParentMaybe);
     }
 
+    /**
+     * Returns the plan fragment for the SQL scope currently being translated.
+     *
+     * @throws com.apple.foundationdb.relational.api.exceptions.RelationalException if no fragment has been pushed
+     * @see #pushPlanFragment
+     */
     @Nonnull
     LogicalPlanFragment getCurrentPlanFragment() {
         Assert.thatUnchecked(currentPlanFragment.isPresent());
@@ -224,12 +252,13 @@ public class BaseVisitor extends RelationalParserBaseVisitor<Object> implements 
 
     @Nonnull
     public Expression resolveFunction(@Nonnull String functionName, @Nonnull Expression... arguments) {
-        return getSemanticAnalyzer().resolveScalarFunction(functionName, Expressions.of(arguments), true);
+        return getSemanticAnalyzer().resolveFunction(functionName, Expressions.of(arguments).toCallSiteArguments(true), true);
     }
 
     @Nonnull
     public Expression resolveFunction(@Nonnull String functionName, boolean flattenSingleItemRecords, @Nonnull Expression... arguments) {
-        return getSemanticAnalyzer().resolveScalarFunction(functionName, Expressions.of(arguments), flattenSingleItemRecords);
+        return getSemanticAnalyzer().resolveFunction(functionName,
+                Expressions.of(arguments).toCallSiteArguments(flattenSingleItemRecords), flattenSingleItemRecords);
     }
 
     @Nonnull
@@ -376,12 +405,6 @@ public class BaseVisitor extends RelationalParserBaseVisitor<Object> implements 
 
     @Nonnull
     @Override
-    public DataType visitColumnType(@Nonnull RelationalParser.ColumnTypeContext ctx) {
-        return ddlVisitor.visitColumnType(ctx);
-    }
-
-    @Nonnull
-    @Override
     public Boolean visitNullColumnConstraint(@Nonnull RelationalParser.NullColumnConstraintContext ctx) {
         return ddlVisitor.visitNullColumnConstraint(ctx);
     }
@@ -459,13 +482,8 @@ public class BaseVisitor extends RelationalParserBaseVisitor<Object> implements 
 
     @Nonnull
     @Override
-    public Identifier visitUserDefinedScalarFunctionStatementBody(@Nonnull RelationalParser.UserDefinedScalarFunctionStatementBodyContext ctx) {
-        return identifierVisitor.visitFullId(ctx.fullId());
-    }
-
-    @Override
-    public Object visitExpressionBody(final RelationalParser.ExpressionBodyContext ctx) {
-        return visitChildren(ctx);
+    public Expression visitUserDefinedMacroFunctionStatementBody(@Nonnull RelationalParser.UserDefinedMacroFunctionStatementBodyContext ctx) {
+        return ddlVisitor.visitUserDefinedMacroFunctionStatementBody(ctx);
     }
 
     @Override
@@ -553,16 +571,6 @@ public class BaseVisitor extends RelationalParserBaseVisitor<Object> implements 
         return visitChildren(ctx);
     }
 
-    @Override
-    public LogicalOperator visitSqlReturnStatement(final RelationalParser.SqlReturnStatementContext ctx) {
-        return ddlVisitor.visitSqlReturnStatement(ctx);
-    }
-
-    @Override
-    public LogicalOperator visitReturnValue(final RelationalParser.ReturnValueContext ctx) {
-        return ddlVisitor.visitReturnValue(ctx);
-    }
-
     @Nonnull
     @Override
     public Object visitCharSet(@Nonnull RelationalParser.CharSetContext ctx) {
@@ -635,8 +643,8 @@ public class BaseVisitor extends RelationalParserBaseVisitor<Object> implements 
     }
 
     @Override
-    public Expressions visitTableFunctionArgs(final RelationalParser.TableFunctionArgsContext ctx) {
-        return expressionVisitor.visitTableFunctionArgs(ctx);
+    public Expressions visitNamedOrUnnamedFunctionArgs(RelationalParser.NamedOrUnnamedFunctionArgsContext ctx) {
+        return expressionVisitor.visitNamedOrUnnamedFunctionArgs(ctx);
     }
 
     @Override
@@ -867,13 +875,13 @@ public class BaseVisitor extends RelationalParserBaseVisitor<Object> implements 
 
     @Nonnull
     @Override
-    public Object visitQueryOptions(@Nonnull RelationalParser.QueryOptionsContext ctx) {
+    public Object visitStatementOptions(@Nonnull RelationalParser.StatementOptionsContext ctx) {
         return visitChildren(ctx);
     }
 
     @Nonnull
     @Override
-    public Object visitQueryOption(@Nonnull RelationalParser.QueryOptionContext ctx) {
+    public Object visitStatementOption(@Nonnull RelationalParser.StatementOptionContext ctx) {
         return visitChildren(ctx);
     }
 
@@ -1719,6 +1727,12 @@ public class BaseVisitor extends RelationalParserBaseVisitor<Object> implements 
     @Nonnull
     @Override
     public Object visitFunctionNameBase(@Nonnull RelationalParser.FunctionNameBaseContext ctx) {
+        return visitChildren(ctx);
+    }
+
+    @Nonnull
+    @Override
+    public Object visitFunctionNameKeyword(@Nonnull RelationalParser.FunctionNameKeywordContext ctx) {
         return visitChildren(ctx);
     }
 

@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.relational.yamltests.block;
 
+import com.apple.foundationdb.record.util.pair.Pair;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.yamltests.ConnectionTarget;
@@ -36,7 +37,6 @@ import com.apple.foundationdb.relational.yamltests.server.SemanticVersion;
 import com.apple.foundationdb.relational.yamltests.server.SupportedVersionCheck;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
-import org.apache.commons.lang3.tuple.Pair;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.opentest4j.TestAbortedException;

@@ -80,7 +80,7 @@ public class AnyOfMatcher<T> implements BindingMatcher<T> {
         final ImmutableList<String> downstreamIds = Streams.mapWithIndex(downstreams.stream(), (downstream, index) -> downstream.identifierFromMatcher() + index)
                 .collect(ImmutableList.toImmutableList());
 
-        return "all of {" + newLine(nestedIndentation) +
+        return "any of {" + newLine(nestedIndentation) +
                Streams.zip(downstreams.stream(), downstreamIds.stream(),
                        (downstream, downstreamId) -> downstream.explainMatcher(atLeastType, boundId, nestedIndentation))
                        .collect(Collectors.joining(" && " + newLine(nestedIndentation))) + newLine(indentation) + "}";

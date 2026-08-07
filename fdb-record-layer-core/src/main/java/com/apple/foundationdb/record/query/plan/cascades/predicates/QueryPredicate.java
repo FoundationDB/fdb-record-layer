@@ -21,7 +21,6 @@
 package com.apple.foundationdb.record.query.plan.cascades.predicates;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializable;
@@ -265,7 +264,7 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
      * {@link #impliesCandidatePredicateMaybe(ValueEquivalence, QueryPredicate, QueryPredicate, EvaluationContext)} using
      * a tautology predicate as candidate which should by contract should return a {@link PredicateMapping}.
      * @param valueEquivalence the current alias map together with some other known equalities
-     * @param candidatePredicates an {@link Iterable} of candiate predicates
+     * @param candidatePredicates an {@link Iterable} of candidate predicates
      * @param evaluationContext the evaluation context used to examine predicate implication.
      * @return a non-empty collection of {@link PredicateMapping}s
      */
@@ -317,7 +316,6 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
     }
 
     @Nullable
-    @SpotBugsSuppressWarnings(value = {"NP_NONNULL_PARAM_VIOLATION"}, justification = "compile-time evaluations take their value from the context only")
     default Boolean compileTimeEval(@Nonnull final EvaluationContext context) {
         return eval(null, context);
     }

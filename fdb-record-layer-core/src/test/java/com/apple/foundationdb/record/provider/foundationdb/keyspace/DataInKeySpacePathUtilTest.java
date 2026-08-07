@@ -55,7 +55,7 @@ class DataInKeySpacePathUtilTest {
         // This should only fail when a new format version is added. If this test fails, the developer should
         // validate that bumpIncarnationIfStoreInfo handles the new format version correctly, then update this
         // to the new value.
-        assertEquals(FormatVersion.FULL_STORE_LOCK, FormatVersion.getMaximumSupportedVersion(),
+        assertEquals(FormatVersion.WRITE_ONLY_WITH_QUEUE, FormatVersion.getMaximumSupportedVersion(),
                 "The behavior of bumpIncarnationIfStoreInfo needs to be validated with the new format version");
     }
 

@@ -22,13 +22,19 @@ package com.apple.foundationdb.record.query.plan.serialization;
 
 import com.apple.foundationdb.record.IndexFetchMethod;
 import com.apple.foundationdb.record.PlanSerializationContext;
+import com.apple.foundationdb.record.planprotos.PExistentialValuePredicate;
 import com.apple.foundationdb.record.planprotos.PPlanReference;
+import com.apple.foundationdb.record.planprotos.PQueryPredicate;
 import com.apple.foundationdb.record.planprotos.PValue;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanComparisons;
+import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
+import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.ExistentialValuePredicate;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.IncarnationValue;
@@ -87,7 +93,11 @@ public class PlanSerializationTest {
         return Stream.of(
                 // Both of these are derived from serializing a now-removed VersionValue. There were two different serialization formats, so this tries both
                 Named.of("VersionValueWithAlias", ByteString.copyFrom(Base64.getDecoder().decode("sgIFCgNxOTk="))),
-                Named.of("VersionValueWithChild", ByteString.copyFrom(Base64.getDecoder().decode("sgItEivyASgKCl9fX2N1cnJlbnQSGjIYCAAYASISCgYKBAgIEAASBmFGaWVsZBgB")))
+                Named.of("VersionValueWithChild", ByteString.copyFrom(Base64.getDecoder().decode("sgItEivyASgKCl9fX2N1cnJlbnQSGjIYCAAYASISCgYKBAgIEAASBmFGaWVsZBgB"))),
+                // Derived from serializing a now-removed RowNumberHighOrderValue with an ef_search of 100 and
+                // return_vectors set. That value was compile-time only, so it was never actually persisted, but its
+                // field number is reserved and this pins that down.
+                Named.of("RowNumberHighOrderValue", ByteString.copyFrom(Base64.getDecoder().decode("0gMEEGQYAQ==")))
         );
     }
 
@@ -170,5 +180,35 @@ public class PlanSerializationTest {
         final RecordQueryPlan parsedPlan = planSerializationContext.fromPlanReferenceProto(parsedProto);
         Verify.verify(parsedPlan instanceof RecordQueryDefaultOnEmptyPlan);
         Assertions.assertTrue(plan.semanticEquals(parsedPlan));
+    }
+
+    @Test
+    void existentialValuePredicateSerializationTest() throws Exception {
+        final var alias = CorrelationIdentifier.of("existentialAlias");
+        final var quantifiedObjectValue = QuantifiedObjectValue.of(alias, Type.primitiveType(Type.TypeCode.BOOLEAN, true));
+        final var comparison = new Comparisons.NullComparison(Comparisons.Type.NOT_NULL);
+        final var predicate = new ExistentialValuePredicate(quantifiedObjectValue, comparison);
+
+        // Serialize
+        final var serializationContext = PlanSerializationContext.newForCurrentMode();
+        final var proto = predicate.toProto(serializationContext);
+        assertThat(proto).isInstanceOf(PExistentialValuePredicate.class);
+
+        final var queryPredicateProto = predicate.toQueryPredicateProto(serializationContext);
+        final byte[] bytes = queryPredicateProto.toByteArray();
+        final var parsedQueryPredicateProto = PQueryPredicate.parseFrom(bytes);
+        assertThat(parsedQueryPredicateProto.hasExistentialValuePredicate()).isTrue();
+
+        // Deserialize directly via fromProto
+        final var deserializationContext = PlanSerializationContext.newForCurrentMode();
+        final var deserialized = ExistentialValuePredicate.fromProto(deserializationContext, parsedQueryPredicateProto.getExistentialValuePredicate());
+        assertThat(deserialized).isInstanceOf(ExistentialValuePredicate.class);
+        assertThat(deserialized.semanticEquals(predicate, AliasMap.identitiesFor(predicate.getCorrelatedTo()))).isTrue();
+
+        // Deserialize via generic dispatch (exercises @AutoService Deserializer inner class)
+        final var dispatchDeserialized = QueryPredicate.fromQueryPredicateProto(
+                PlanSerializationContext.newForCurrentMode(), parsedQueryPredicateProto);
+        assertThat(dispatchDeserialized).isInstanceOf(ExistentialValuePredicate.class);
+        assertThat(dispatchDeserialized.semanticEquals(predicate, AliasMap.identitiesFor(predicate.getCorrelatedTo()))).isTrue();
     }
 }

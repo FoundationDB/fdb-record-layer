@@ -52,6 +52,25 @@ public final class Tags {
      * See also {@link RandomizedTestUtils}.
      */
     public static final String Random = "Random";
+    /**
+     * Tests that require the SIMD vector backend ({@code jdk.incubator.vector}) to be loadable
+     * — typically because they assert SIMD-specific behavior such as the active backend's name.
+     * Excluded from any task that forces the scalar fallback via {@code -Dfdb.vector.simd=scalar}.
+     */
+    public static final String RequiresSIMD = "RequiresSIMD";
+    /**
+     * Tests that require the scalar vector backend to be active — typically because they assert
+     * scalar-fallback behavior. Excluded from the default test task (which loads SIMD whenever
+     * the incubator module is on the module path) and included by the scalar-fallback task.
+     */
+    public static final String RequiresScalar = "RequiresScalar";
+    /**
+     * Tests that should run under <em>both</em> the SIMD and the scalar backend — typically
+     * SIMD-vs-scalar parity tests, or correctness tests that need to pass regardless of which
+     * backend {@code RealVectorPrimitives} resolves. Included by the default test task <em>and</em> by the
+     * scalar-fallback task.
+     */
+    public static final String DualScalarSIMD = "DualScalarSIMD";
 
     private Tags() {
     }

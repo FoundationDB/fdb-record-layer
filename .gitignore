@@ -63,9 +63,6 @@ atlassian-ide-plugin.xml
 # NetBeans specific files/directories
 .nbattrs
 
-protogen/
-/protogen/
-*/protogen/*
 **/gen/*
 
 *.orig
@@ -73,6 +70,7 @@ protogen/
 /.idea_build
 .out
 .dist/
+.downloaded-build-assets
 
 # Temporary files.
 .tmp
@@ -88,5 +86,17 @@ run/
 # Token files required for parsing Antlr files correctly in the IDE
 fdb-relational-core/src/main/antlr/*.tokens
 
-# output during release build process
+# Output during CI build processes
+/changed_files.txt
 /mixed-mode-results.md
+/subproject_deps.json
+/subproject_plan.json
+
+# AI assistant local analysis artifacts
+/claude-analysis/
+
+# Claude Code local settings (personal permissions and hooks)
+.claude/settings.local.json
+
+# Byte-compiled Python, generated when running build/*.py scripts locally
+__pycache__/

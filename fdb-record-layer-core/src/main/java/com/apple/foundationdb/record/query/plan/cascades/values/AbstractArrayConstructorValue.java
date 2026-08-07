@@ -220,7 +220,6 @@ public abstract class AbstractArrayConstructorValue extends AbstractValue implem
                 }
                 return LightArrayConstructorValue.of(ImmutableList.copyOf(newChildren), getElementType());
             }
-            Verify.verify(resolveElementType(newChildren).equals(getElementType()));
             final var newChildrenPromoted = injectPromotions(newChildren, getElementType());
             if (elementsArePairwiseReferenceEqual(newChildrenPromoted, getChildren())) {
                 return this;
@@ -355,7 +354,7 @@ public abstract class AbstractArrayConstructorValue extends AbstractValue implem
     public static class ArrayFn extends BuiltInFunction<Value> {
         public ArrayFn() {
             super("array",
-                    ImmutableList.of(), new Type.Any(), (builtInFunction, typedArgs) -> encapsulateInternal(typedArgs));
+                    ImmutableList.of(), new Type.Any(), (builtInFunction, typedArgs) -> encapsulateInternal(typedArgs.getArgumentsList()));
         }
     }
 }

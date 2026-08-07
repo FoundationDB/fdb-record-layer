@@ -20,30 +20,21 @@
 
 package com.apple.foundationdb.async.hnsw;
 
-import com.apple.foundationdb.KeyValue;
-import com.apple.foundationdb.Range;
 import com.apple.foundationdb.ReadTransaction;
-import com.apple.foundationdb.StreamingMode;
 import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.async.AsyncIterable;
-import com.apple.foundationdb.async.AsyncUtil;
+import com.apple.foundationdb.async.common.StorageHelpers;
+import com.apple.foundationdb.async.common.StorageTransform;
 import com.apple.foundationdb.linear.AffineOperator;
-import com.apple.foundationdb.linear.DoubleRealVector;
 import com.apple.foundationdb.linear.Quantizer;
 import com.apple.foundationdb.linear.RealVector;
 import com.apple.foundationdb.linear.Transformed;
-import com.apple.foundationdb.linear.VectorType;
-import com.apple.foundationdb.rabitq.EncodedRealVector;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Verify;
-import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.List;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -234,72 +225,6 @@ interface StorageAdapter<N extends NodeReference> {
     Iterable<AbstractNode<N>> scanLayer(@Nonnull ReadTransaction readTransaction, int layer,
                                         @Nullable Tuple lastPrimaryKey, int maxNumRead);
 
-    /**
-     * Creates a {@link RealVector} from a given {@link Tuple}.
-     * <p>
-     * This method assumes the vector data is stored as a byte array at the first. position (index 0) of the tuple. It
-     * extracts this byte array and then delegates to the {@link #vectorFromBytes(Config, byte[])} method for the
-     * actual conversion.
-     * @param config an HNSW configuration
-     * @param vectorTuple the tuple containing the vector data as a byte array at index 0. Must not be {@code null}.
-     * @return a new {@link RealVector} instance created from the tuple's data.
-     *         This method never returns {@code null}.
-     */
-    @Nonnull
-    static RealVector vectorFromTuple(@Nonnull final Config config, @Nonnull final Tuple vectorTuple) {
-        return vectorFromBytes(config, vectorTuple.getBytes(0));
-    }
-
-    /**
-     * Creates a {@link RealVector} from a byte array.
-     * <p>
-     * This method interprets the input byte array by interpreting the first byte of the array.
-     * It the delegates to {@link RealVector#fromBytes(VectorType, byte[])}.
-     * @param config an HNSW config
-     * @param vectorBytes the non-null byte array to convert.
-     * @return a new {@link RealVector} instance created from the byte array.
-     */
-    @Nonnull
-    static RealVector vectorFromBytes(@Nonnull final Config config, @Nonnull final byte[] vectorBytes) {
-        final byte vectorTypeOrdinal = vectorBytes[0];
-        switch (RealVector.fromVectorTypeOrdinal(vectorTypeOrdinal)) {
-            case RABITQ:
-                Verify.verify(config.isUseRaBitQ());
-                return EncodedRealVector.fromBytes(vectorBytes, config.getNumDimensions(),
-                        config.getRaBitQNumExBits());
-            case HALF:
-            case SINGLE:
-            case DOUBLE:
-                return RealVector.fromBytes(vectorBytes);
-            default:
-                throw new RuntimeException("unable to serialize vector");
-        }
-    }
-
-    /**
-     * Converts a transformed vector into a tuple.
-     * @param vector a transformed vector
-     * @return a new, non-null {@code Tuple} instance representing the contents of the underlying vector.
-     */
-    @Nonnull
-    static Tuple tupleFromVector(@Nonnull final Transformed<RealVector> vector) {
-        return tupleFromVector(vector.getUnderlyingVector());
-    }
-
-    /**
-     * Converts a {@link RealVector} into a {@link Tuple}.
-     * <p>
-     * This method first serializes the given vector into a byte array using the {@link RealVector#getRawData()} getter
-     * method. It then creates a {@link Tuple} from the resulting byte array.
-     * @param vector the {@link RealVector} to convert. Cannot be null.
-     * @return a new, non-null {@code Tuple} instance representing the contents of the vector.
-     */
-    @Nonnull
-    @SuppressWarnings("PrimitiveArrayArgumentToVarargsMethod")
-    static Tuple tupleFromVector(@Nonnull final RealVector vector) {
-        return Tuple.from(vector.getRawData());
-    }
-
     @Nonnull
     static CompletableFuture<AccessInfo> fetchAccessInfo(@Nonnull final Config config,
                                                          @Nonnull final ReadTransaction readTransaction,
@@ -321,7 +246,7 @@ interface StorageAdapter<N extends NodeReference> {
                     final Tuple entryVectorTuple = entryTuple.getNestedTuple(2);
                     final Transformed<RealVector> entryNodeVector =
                             AffineOperator.identity()
-                                    .transform(StorageAdapter.vectorFromTuple(config, entryVectorTuple));
+                                    .transform(StorageHelpers.vectorFromTuple(config, entryVectorTuple));
                     final EntryNodeReference entryNodeReference =
                             new EntryNodeReference(primaryKey, entryNodeVector, layer);
                     final long rotatorSeed = entryTuple.getLong(3);
@@ -330,7 +255,7 @@ interface StorageAdapter<N extends NodeReference> {
                             rotatorSeed,
                             centroidVectorTuple == null
                             ? null
-                            : StorageAdapter.vectorFromTuple(config, centroidVectorTuple));
+                            : StorageHelpers.vectorFromTuple(config, centroidVectorTuple));
                 });
     }
 
@@ -356,9 +281,9 @@ interface StorageAdapter<N extends NodeReference> {
         final byte[] value = Tuple.from(entryNodeReference.getLayer(),
                 entryNodeReference.getPrimaryKey(),
                 // getting underlying is okay as it is only written to the database
-                StorageAdapter.tupleFromVector(entryNodeReference.getVector()),
+                StorageHelpers.tupleFromVector(entryNodeReference.getVector()),
                 accessInfo.getRotatorSeed(),
-                centroid == null ? null : StorageAdapter.tupleFromVector(centroid)).pack();
+                centroid == null ? null : StorageHelpers.tupleFromVector(centroid)).pack();
         transaction.set(key, value);
         onWriteListener.onKeyValueWritten(entryNodeReference.getLayer(), key, value);
     }
@@ -376,68 +301,6 @@ interface StorageAdapter<N extends NodeReference> {
         final byte[] key = entryNodeSubspace.pack();
         transaction.clear(key);
         onWriteListener.onKeyDeleted(-1, key);
-    }
-
-    @Nonnull
-    static CompletableFuture<List<AggregatedVector>> consumeSampledVectors(@Nonnull final Transaction transaction,
-                                                                           @Nonnull final Subspace subspace,
-                                                                           final int numMaxVectors,
-                                                                           @Nonnull final OnReadListener onReadListener) {
-        final Subspace prefixSubspace = samplesSubspace(subspace);
-        final byte[] prefixKey = prefixSubspace.pack();
-        final ReadTransaction snapshot = transaction.snapshot();
-        final Range range = Range.startsWith(prefixKey);
-
-        return AsyncUtil.collect(snapshot.getRange(range, numMaxVectors, true, StreamingMode.ITERATOR),
-                        snapshot.getExecutor())
-                .thenApply(keyValues -> {
-                    final ImmutableList.Builder<AggregatedVector> resultBuilder = ImmutableList.builder();
-                    for (final KeyValue keyValue : keyValues) {
-                        final byte[] key = keyValue.getKey();
-                        final byte[] value = keyValue.getValue();
-                        resultBuilder.add(aggregatedVectorFromRaw(prefixSubspace, key, value));
-                        // this is done to not lock the entire range we just read but jst the keys we did read
-                        transaction.addReadConflictKey(key);
-                        transaction.clear(key);
-                        onReadListener.onKeyValueRead(-1, key, value);
-                    }
-                    return resultBuilder.build();
-                });
-    }
-
-    static void appendSampledVector(@Nonnull final Transaction transaction,
-                                    @Nonnull final Subspace subspace,
-                                    final int partialCount,
-                                    @Nonnull final Transformed<RealVector> vector,
-                                    @Nonnull final OnWriteListener onWriteListener) {
-        final Subspace prefixSubspace = samplesSubspace(subspace);
-        final Subspace keySubspace = prefixSubspace.subspace(Tuple.from(partialCount, UUID.randomUUID()));
-        final byte[] prefixKey = keySubspace.pack();
-        // getting underlying is okay as it is only written to the database
-        final byte[] value = tupleFromVector(vector.getUnderlyingVector().toDoubleRealVector()).pack();
-        transaction.set(prefixKey, value);
-        onWriteListener.onKeyValueWritten(-1, prefixKey, value);
-    }
-
-    static void deleteAllSampledVectors(@Nonnull final Transaction transaction, @Nonnull final Subspace subspace,
-                                        @Nonnull final OnWriteListener onWriteListener) {
-        final Subspace prefixSubspace = samplesSubspace(subspace);
-
-        final byte[] prefixKey = prefixSubspace.pack();
-        final Range range = Range.startsWith(prefixKey);
-        transaction.clear(range);
-        onWriteListener.onRangeDeleted(-1, range);
-    }
-
-    @Nonnull
-    private static AggregatedVector aggregatedVectorFromRaw(@Nonnull final Subspace prefixSubspace,
-                                                            @Nonnull final byte[] key,
-                                                            @Nonnull final byte[] value) {
-        final Tuple keyTuple = prefixSubspace.unpack(key);
-        final int partialCount = Math.toIntExact(keyTuple.getLong(0));
-        final RealVector vector = DoubleRealVector.fromBytes(Tuple.fromBytes(value).getBytes(0));
-
-        return new AggregatedVector(partialCount, AffineOperator.identity().transform(vector));
     }
 
     @Nonnull

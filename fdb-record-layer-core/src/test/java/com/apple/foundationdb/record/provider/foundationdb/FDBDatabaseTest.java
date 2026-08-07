@@ -45,8 +45,6 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.api.function.Executable;
-import org.junit.jupiter.api.parallel.Execution;
-import org.junit.jupiter.api.parallel.ExecutionMode;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.slf4j.Logger;
@@ -83,7 +81,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * Tests for {@link FDBDatabase}.
  */
 @Tag(Tags.RequiresFDB)
-@Execution(ExecutionMode.CONCURRENT)
 class FDBDatabaseTest {
     @Nonnull
     private static final Logger LOGGER = LoggerFactory.getLogger(FDBDatabaseTest.class);

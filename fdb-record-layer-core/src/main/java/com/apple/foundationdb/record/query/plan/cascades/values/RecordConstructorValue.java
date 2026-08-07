@@ -509,7 +509,7 @@ public class RecordConstructorValue extends AbstractValue implements AggregateVa
     public static class RecordFn extends BuiltInFunction<Value> {
         public RecordFn() {
             super("record",
-                    ImmutableList.of(), new Type.Any(), (builtInFunction, arguments) -> encapsulateInternal(arguments));
+                    ImmutableList.of(), new Type.Any(), (builtInFunction, arguments) -> encapsulateInternal(arguments.getArgumentsList()));
         }
 
         @Nonnull

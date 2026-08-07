@@ -57,7 +57,7 @@ def fdbEnvironmentYamlFile = new File("${rootProject.projectDir}/fdb-environment
 if (fdbEnvironmentYamlFile.exists()) {
     def firstClusterFile = new Yaml().loadAll(fdbEnvironmentYamlFile.newInputStream()).first().clusterFiles.first()
     allprojects {
-        tasks.withType(Test) { task ->
+        tasks.withType(Test).configureEach { task ->
             task.environment(FDB_CLUSTER_FILE: firstClusterFile)
         }
     }
@@ -70,6 +70,9 @@ jar {
 // Task to build a fat jar, one w/ all dependencies; good for handing out as the 'jdbc' jar.
 shadowJar {
     archiveClassifier.set('driver')
+    // Override the duplicates strategy from the EXCLUDE default to INCLUDE, so that duplicate `META-INF/services/*`
+    // files reach `mergeServiceFiles()` and their registries merge properly rather than collapse to a single provider.
+    duplicatesStrategy = DuplicatesStrategy.INCLUDE
     mergeServiceFiles()
 }
 
@@ -77,10 +80,10 @@ build.dependsOn {
     shadowJar
 }
 
-createDistribution.configure {
-    afterEvaluate {
-        dependsOn shadowJar
-        from tasks.shadowJar
+afterEvaluate {
+    tasks.named('createDistribution').configure {
+        dependsOn tasks.named('shadowJar')
+        from tasks.named('shadowJar')
     }
 }
 

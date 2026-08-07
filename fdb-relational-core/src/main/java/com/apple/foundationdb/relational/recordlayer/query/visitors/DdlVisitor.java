@@ -22,15 +22,14 @@ package com.apple.foundationdb.relational.recordlayer.query.visitors;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.linear.Metric;
-import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexTypes;
-import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.provider.foundationdb.indexes.VectorIndexEngineKind;
+import com.apple.foundationdb.record.provider.foundationdb.indexes.VectorIndexOptionKeys;
+import com.apple.foundationdb.record.provider.foundationdb.indexes.VectorOptionKey;
 import com.apple.foundationdb.record.query.plan.cascades.RawSqlFunction;
 import com.apple.foundationdb.record.query.plan.cascades.UserDefinedFunction;
-import com.apple.foundationdb.record.query.plan.cascades.UserDefinedMacroFunction;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalSortExpression;
 import com.apple.foundationdb.record.query.plan.cascades.values.PromoteValue;
-import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.ThrowsValue;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.ddl.MetadataOperationsFactory;
@@ -57,6 +56,7 @@ import com.apple.foundationdb.relational.recordlayer.query.SemanticAnalyzer;
 import com.apple.foundationdb.relational.recordlayer.query.ddl.MaterializedViewIndexGenerator;
 import com.apple.foundationdb.relational.recordlayer.query.ddl.OnSourceIndexGenerator;
 import com.apple.foundationdb.relational.recordlayer.query.functions.CompiledSqlFunction;
+import com.apple.foundationdb.relational.recordlayer.query.functions.UserDefinedFunctionBuilder;
 import com.apple.foundationdb.relational.util.Assert;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -68,16 +68,77 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.net.URI;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.BiConsumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
 @API(API.Status.EXPERIMENTAL)
 public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
+    // The vector engines an option may apply to. HNSW is the engine used when the VECTOR_ENGINE option is absent.
+    private static final Set<VectorIndexEngineKind> ANY_ENGINE =
+            ImmutableSet.of(VectorIndexEngineKind.HNSW, VectorIndexEngineKind.GUARDIANN);
+    private static final Set<VectorIndexEngineKind> HNSW_ONLY = ImmutableSet.of(VectorIndexEngineKind.HNSW);
+    private static final Set<VectorIndexEngineKind> GUARDIANN_ONLY = ImmutableSet.of(VectorIndexEngineKind.GUARDIANN);
+
+    // The curated set of vector index options exposed through SQL DDL, keyed by their (lower-cased) SQL option name.
+    // Adding or removing an option, or changing which engine it applies to, is a one-line change here and needs no
+    // grammar change.
+    private static final Map<String, VectorSqlOption<?>> SUPPORTED_VECTOR_OPTIONS =
+            ImmutableMap.<String, VectorSqlOption<?>>builder()
+                    // shared by both engines
+                    .put("metric", new VectorSqlOption<>(VectorIndexOptionKeys.METRIC, ANY_ENGINE,
+                            value -> parseMetric(value.hnswMetric())))
+                    .put("use_rabitq", new VectorSqlOption<>(VectorIndexOptionKeys.USE_RABITQ, ANY_ENGINE,
+                            DdlVisitor::parseOptionBoolean))
+                    .put("rabitq_num_ex_bits", new VectorSqlOption<>(VectorIndexOptionKeys.RABITQ_NUM_EX_BITS,
+                            ANY_ENGINE, DdlVisitor::parseOptionInt))
+                    .put("maintain_stats_probability", new VectorSqlOption<>(VectorIndexOptionKeys.MAINTAIN_STATS_PROBABILITY,
+                            ANY_ENGINE, DdlVisitor::parseOptionDouble))
+                    .put("sample_vector_stats_probability", new VectorSqlOption<>(VectorIndexOptionKeys.SAMPLE_VECTOR_STATS_PROBABILITY,
+                            ANY_ENGINE, DdlVisitor::parseOptionDouble))
+                    .put("stats_threshold", new VectorSqlOption<>(VectorIndexOptionKeys.STATS_THRESHOLD, ANY_ENGINE,
+                            DdlVisitor::parseOptionInt))
+                    // HNSW-only
+                    .put("connectivity", new VectorSqlOption<>(VectorIndexOptionKeys.HNSW_M, HNSW_ONLY,
+                            DdlVisitor::parseOptionInt))
+                    .put("ef_construction", new VectorSqlOption<>(VectorIndexOptionKeys.HNSW_EF_CONSTRUCTION, HNSW_ONLY,
+                            DdlVisitor::parseOptionInt))
+                    .put("m_max", new VectorSqlOption<>(VectorIndexOptionKeys.HNSW_M_MAX, HNSW_ONLY,
+                            DdlVisitor::parseOptionInt))
+                    .put("m_max_0", new VectorSqlOption<>(VectorIndexOptionKeys.HNSW_M_MAX_0, HNSW_ONLY,
+                            DdlVisitor::parseOptionInt))
+                    // Guardiann-only (curated subset)
+                    .put("primary_cluster_min", new VectorSqlOption<>(VectorIndexOptionKeys.GUARDIANN_PRIMARY_CLUSTER_MIN,
+                            GUARDIANN_ONLY, DdlVisitor::parseOptionInt))
+                    .put("primary_cluster_max", new VectorSqlOption<>(VectorIndexOptionKeys.GUARDIANN_PRIMARY_CLUSTER_MAX,
+                            GUARDIANN_ONLY, DdlVisitor::parseOptionInt))
+                    .put("underreplicated_primary_cluster_max", new VectorSqlOption<>(VectorIndexOptionKeys.GUARDIANN_UNDERREPLICATED_PRIMARY_CLUSTER_MAX,
+                            GUARDIANN_ONLY, DdlVisitor::parseOptionInt))
+                    .put("replicated_cluster_max_writes", new VectorSqlOption<>(VectorIndexOptionKeys.GUARDIANN_REPLICATED_CLUSTER_MAX_WRITES,
+                            GUARDIANN_ONLY, DdlVisitor::parseOptionInt))
+                    .put("replicated_cluster_target", new VectorSqlOption<>(VectorIndexOptionKeys.GUARDIANN_REPLICATED_CLUSTER_TARGET,
+                            GUARDIANN_ONLY, DdlVisitor::parseOptionInt))
+                    .put("replication_priority_min", new VectorSqlOption<>(VectorIndexOptionKeys.GUARDIANN_REPLICATION_PRIORITY_MIN,
+                            GUARDIANN_ONLY, DdlVisitor::parseOptionDouble))
+                    .put("insert_max_candidate_clusters", new VectorSqlOption<>(VectorIndexOptionKeys.GUARDIANN_INSERT_MAX_CANDIDATE_CLUSTERS,
+                            GUARDIANN_ONLY, DdlVisitor::parseOptionInt))
+                    .put("delete_max_candidate_clusters", new VectorSqlOption<>(VectorIndexOptionKeys.GUARDIANN_DELETE_MAX_CANDIDATE_CLUSTERS,
+                            GUARDIANN_ONLY, DdlVisitor::parseOptionInt))
+                    .put("split_num_nearest_clusters", new VectorSqlOption<>(VectorIndexOptionKeys.GUARDIANN_SPLIT_NUM_NEAREST_CLUSTERS,
+                            GUARDIANN_ONLY, DdlVisitor::parseOptionInt))
+                    .put("merge_num_nearest_clusters", new VectorSqlOption<>(VectorIndexOptionKeys.GUARDIANN_MERGE_NUM_NEAREST_CLUSTERS,
+                            GUARDIANN_ONLY, DdlVisitor::parseOptionInt))
+                    .put("reassign_num_neighboring_clusters", new VectorSqlOption<>(VectorIndexOptionKeys.GUARDIANN_REASSIGN_NUM_NEIGHBORING_CLUSTERS,
+                            GUARDIANN_ONLY, DdlVisitor::parseOptionInt))
+                    .put("collapse_min_duplicates", new VectorSqlOption<>(VectorIndexOptionKeys.GUARDIANN_COLLAPSE_MIN_DUPLICATES,
+                            GUARDIANN_ONLY, DdlVisitor::parseOptionInt))
+                    .build();
 
     @Nonnull
     private final RecordLayerSchemaTemplate.Builder metadataBuilder;
@@ -114,30 +175,7 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
     @Nonnull
     @Override
     public DataType visitFunctionColumnType(@Nonnull final RelationalParser.FunctionColumnTypeContext ctx) {
-        final var semanticAnalyzer = getDelegate().getSemanticAnalyzer();
-        final SemanticAnalyzer.ParsedTypeInfo typeInfo;
-        if (ctx.customType != null) {
-            final var columnType = visitUid(ctx.customType);
-            typeInfo = SemanticAnalyzer.ParsedTypeInfo.ofCustomType(columnType, true, false);
-        } else {
-            typeInfo = SemanticAnalyzer.ParsedTypeInfo.ofPrimitiveType(ctx.primitiveType(), true, false);
-        }
-        return semanticAnalyzer.lookupType(typeInfo, metadataBuilder::findType);
-    }
-
-    // TODO: remove
-    @Nonnull
-    @Override
-    public DataType visitColumnType(@Nonnull RelationalParser.ColumnTypeContext ctx) {
-        final var semanticAnalyzer = getDelegate().getSemanticAnalyzer();
-        final SemanticAnalyzer.ParsedTypeInfo typeInfo;
-        if (ctx.customType != null) {
-            final var columnType = visitUid(ctx.customType);
-            typeInfo = SemanticAnalyzer.ParsedTypeInfo.ofCustomType(columnType, false, false);
-        } else {
-            typeInfo = SemanticAnalyzer.ParsedTypeInfo.ofPrimitiveType(ctx.primitiveType(), false, false);
-        }
-        return semanticAnalyzer.lookupType(typeInfo, metadataBuilder::findType);
+        return lookupType(ctx.customType, ctx.primitiveType(), true, ctx.ARRAY() != null);
     }
 
     /**
@@ -160,15 +198,7 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
         //       but a way to represent it in RecordMetadata.
         Assert.thatUnchecked(isRepeated || isNullable, ErrorCode.UNSUPPORTED_OPERATION, "NOT NULL is only allowed for ARRAY column type");
         containsNullableArray = containsNullableArray || (isRepeated && isNullable);
-        final var semanticAnalyzer = getDelegate().getSemanticAnalyzer();
-        final SemanticAnalyzer.ParsedTypeInfo typeInfo;
-        if (ctx.columnType().customType != null) {
-            final var columnType = visitUid(ctx.columnType().customType);
-            typeInfo = SemanticAnalyzer.ParsedTypeInfo.ofCustomType(columnType, isNullable, isRepeated);
-        } else {
-            typeInfo = SemanticAnalyzer.ParsedTypeInfo.ofPrimitiveType(ctx.columnType().primitiveType(), isNullable, isRepeated);
-        }
-        final var columnType = semanticAnalyzer.lookupType(typeInfo, metadataBuilder::findType);
+        final var columnType = lookupType(ctx.columnType().customType, ctx.columnType().primitiveType(), isNullable, isRepeated);
         return RecordLayerColumn.newBuilder().setName(columnId.getName()).setDataType(columnType).build();
     }
 
@@ -268,7 +298,8 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
         getDelegate().getCurrentPlanFragment().setOperator(logicalOperator);
 
         final Identifier indexId = visitUid(indexDefinitionContext.indexName);
-        final var indexOptions = parseVectorOptions(indexDefinitionContext.vectorIndexOptions());
+        final var engine = parseVectorEngine(indexDefinitionContext.engine);
+        final var indexOptions = parseVectorOptions(engine, indexDefinitionContext.vectorIndexOptions());
         final var indexGeneratorBuilder = OnSourceIndexGenerator.newBuilder()
                 .setIndexName(indexId)
                 .setIndexSource(getDelegate().getCurrentPlanFragment())
@@ -292,7 +323,7 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
         Assert.thatUnchecked(type.getCode() == DataType.Code.VECTOR, ErrorCode.SYNTAX_ERROR,
                 () -> "indexed column must be of vector type, found '" + type.getCode() + "' instead");
         final var numberOfDimensions = ((DataType.VectorType)type).getDimensions();
-        indexGeneratorBuilder.addIndexOption(IndexOptions.HNSW_NUM_DIMENSIONS, String.valueOf(numberOfDimensions));
+        VectorIndexOptionKeys.NUM_DIMENSIONS.put(indexGeneratorBuilder::addIndexOption, numberOfDimensions);
 
         Assert.isNullUnchecked(indexDefinitionContext.includeClause(), ErrorCode.UNSUPPORTED_OPERATION,
                 "INCLUDE clause is not supported for vector indexes");
@@ -324,45 +355,98 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
         return logicalOperator;
     }
 
+    /**
+     * The SQL-facing binding of a single vector index option: the typed record-layer {@code key} it maps to, the vector
+     * engine(s) it is valid for, and how to {@code coerce} the parsed SQL value into the key's value type. This wrapper
+     * (rather than a bare {@link VectorOptionKey}) is what lets the DDL layer (a) reject an option used with the wrong
+     * engine — engine applicability is DDL policy that the engine-agnostic key does not carry — and (b) turn the parsed
+     * grammar value into the key's typed value (the key's own parser is for the stored wire form, and some values, such
+     * as the metric, arrive as a typed sub-rule). Keeping {@code T} on the record also lets {@link #writeTo} call
+     * {@code key.put(...)} without the wildcard-capture problem a bare {@code VectorOptionKey<?>} map would hit at the
+     * call site. Curating {@link #SUPPORTED_VECTOR_OPTIONS} is how the SQL option surface is curated.
+     *
+     * @param <T> the option's value type
+     */
+    private record VectorSqlOption<T>(@Nonnull VectorOptionKey<T> key,
+                                      @Nonnull Set<VectorIndexEngineKind> engines,
+                                      @Nonnull Function<RelationalParser.VectorIndexOptionValueContext, T> coerce) {
+        void writeTo(@Nonnull final BiConsumer<String, String> sink,
+                     @Nonnull final RelationalParser.VectorIndexOptionValueContext value) {
+            key.put(sink, coerce.apply(value));
+        }
+    }
+
     @Nonnull
-    private Map<String, String> parseVectorOptions(@Nullable final RelationalParser.VectorIndexOptionsContext indexOptionsContext) {
+    private static VectorIndexEngineKind parseVectorEngine(@Nonnull final RelationalParser.VectorEngineContext engineContext) {
+        return engineContext.GUARDIANN() != null ? VectorIndexEngineKind.GUARDIANN : VectorIndexEngineKind.HNSW;
+    }
+
+    private static int parseOptionInt(@Nonnull final RelationalParser.VectorIndexOptionValueContext value) {
+        return Integer.parseInt(value.getText());
+    }
+
+    private static double parseOptionDouble(@Nonnull final RelationalParser.VectorIndexOptionValueContext value) {
+        return Double.parseDouble(value.getText());
+    }
+
+    private static boolean parseOptionBoolean(@Nonnull final RelationalParser.VectorIndexOptionValueContext value) {
+        return Boolean.parseBoolean(value.getText());
+    }
+
+    @Nonnull
+    private Map<String, String> parseVectorOptions(@Nonnull final VectorIndexEngineKind engine,
+                                                   @Nullable final RelationalParser.VectorIndexOptionsContext indexOptionsContext) {
         final var indexOptionsBuilder = ImmutableMap.<String, String>builder();
+        // Guardiann must be recorded explicitly; HNSW is the default when the engine option is absent, so leave it
+        // implicit (keeps HNSW index metadata unchanged and readable by nodes that predate the engine option).
+        if (engine == VectorIndexEngineKind.GUARDIANN) {
+            VectorIndexOptionKeys.ENGINE.put(indexOptionsBuilder::put, engine);
+        }
         if (indexOptionsContext == null) {
             return indexOptionsBuilder.build();
         }
-
+        final Set<String> seen = new HashSet<>();
         for (final var option : indexOptionsContext.vectorIndexOption()) {
-            if (option.EF_CONSTRUCTION() != null) {
-                indexOptionsBuilder.put(IndexOptions.HNSW_EF_CONSTRUCTION, option.efConstruction.getText());
-            } else if (option.CONNECTIVITY() != null) {
-                indexOptionsBuilder.put(IndexOptions.HNSW_M, option.connectivity.getText());
-            } else if (option.M_MAX() != null) {
-                indexOptionsBuilder.put(IndexOptions.HNSW_M_MAX, option.mMax.getText());
-            } else if (option.MAINTAIN_STATS_PROBABILITY() != null) {
-                indexOptionsBuilder.put(IndexOptions.HNSW_MAINTAIN_STATS_PROBABILITY, option.maintainStatsProbability.getText());
-            } else if (option.METRIC() != null) {
-                if (option.metric.DOT_PRODUCT_METRIC() != null) {
-                    indexOptionsBuilder.put(IndexOptions.HNSW_METRIC, Metric.DOT_PRODUCT_METRIC.name());
-                } else if (option.metric.EUCLIDEAN_METRIC() != null) {
-                    indexOptionsBuilder.put(IndexOptions.HNSW_METRIC, Metric.EUCLIDEAN_METRIC.name());
-                } else if (option.metric.EUCLIDEAN_SQUARE_METRIC() != null) {
-                    indexOptionsBuilder.put(IndexOptions.HNSW_METRIC, Metric.EUCLIDEAN_SQUARE_METRIC.name());
-                } else if (option.metric.COSINE_METRIC() != null) {
-                    indexOptionsBuilder.put(IndexOptions.HNSW_METRIC, Metric.COSINE_METRIC.name());
-                } else {
-                    Assert.failUnchecked("metric " + option.metric.getText() + " is not currently supported");
-                }
-            } else if (option.RABITQ_NUM_EX_BITS() != null) {
-                indexOptionsBuilder.put(IndexOptions.HNSW_RABITQ_NUM_EX_BITS, option.rabitQNumExBits.getText());
-            } else if (option.SAMPLE_VECTOR_STATS_PROBABILITY() != null) {
-                indexOptionsBuilder.put(IndexOptions.HNSW_SAMPLE_VECTOR_STATS_PROBABILITY, option.statsProbability.getText());
-            } else if (option.STATS_THRESHOLD() != null) {
-                indexOptionsBuilder.put(IndexOptions.HNSW_STATS_THRESHOLD, option.statsThreshold.getText());
-            } else if (option.USE_RABITQ() != null) {
-                indexOptionsBuilder.put(IndexOptions.HNSW_USE_RABITQ, option.useRabitQ.getText());
+            final String name = option.optionName.getText().toLowerCase(Locale.ROOT);
+            final var spec = SUPPORTED_VECTOR_OPTIONS.get(name);
+            if (spec == null) {
+                throw Assert.failUnchecked(ErrorCode.UNSUPPORTED_OPERATION,
+                        "unsupported vector index option '" + name + "'");
+            }
+            Assert.thatUnchecked(spec.engines().contains(engine), ErrorCode.UNSUPPORTED_OPERATION,
+                    () -> "vector index option '" + name + "' is not valid for the " + engine.name() + " vector engine");
+            Assert.thatUnchecked(seen.add(name), ErrorCode.SYNTAX_ERROR,
+                    () -> "duplicate vector index option '" + name + "'");
+            try {
+                spec.writeTo(indexOptionsBuilder::put, option.optionValue);
+            } catch (final NumberFormatException e) {
+                throw Assert.failUnchecked(ErrorCode.SYNTAX_ERROR,
+                        "invalid value '" + option.optionValue.getText() + "' for vector index option '" + name + "'", e);
             }
         }
         return indexOptionsBuilder.build();
+    }
+
+    /**
+     * Maps a parsed {@code METRIC = ...} clause to its {@link Metric}. The typed metric option key then serializes it
+     * back to the canonical wire form (the enum constant name), so the mapping lives here rather than being spelled as
+     * raw {@code Metric.X.name()} strings at the write site.
+     *
+     * @param metricContext the parsed metric clause
+     * @return the corresponding metric
+     */
+    @Nonnull
+    private static Metric parseMetric(@Nonnull final RelationalParser.HnswMetricContext metricContext) {
+        if (metricContext.DOT_PRODUCT_METRIC() != null) {
+            return Metric.DOT_PRODUCT_METRIC;
+        } else if (metricContext.EUCLIDEAN_METRIC() != null) {
+            return Metric.EUCLIDEAN_METRIC;
+        } else if (metricContext.EUCLIDEAN_SQUARE_METRIC() != null) {
+            return Metric.EUCLIDEAN_SQUARE_METRIC;
+        } else if (metricContext.COSINE_METRIC() != null) {
+            return Metric.COSINE_METRIC;
+        }
+        throw Assert.failUnchecked("metric " + metricContext.getText() + " is not currently supported");
     }
 
     @Nonnull
@@ -414,6 +498,20 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
                 sqlInvokedFunctionClauses.add(templateClause.sqlInvokedFunction());
             } else if (templateClause.viewDefinition() != null) {
                 viewClauses.add(templateClause.viewDefinition());
+            } else if (templateClause.storedQueryDefinition() != null) {
+                final var queryCtx = templateClause.storedQueryDefinition();
+                final var name = visitUid(queryCtx.queryName).getName();
+                final var sourceText = getDelegate().getPlanGenerationContext().getQuery();
+                final var start = queryCtx.storedQuery.start.getStartIndex();
+                final var stop = queryCtx.storedQuery.stop.getStopIndex() + 1;
+                final var queryString = sourceText.substring(start, stop);
+                final ImmutableList.Builder<String> tempFunctionTexts = ImmutableList.builder();
+                if (queryCtx.declareBlock() != null) {
+                    for (final var dfCtx : queryCtx.declareBlock().declaredFunction()) {
+                        tempFunctionTexts.add(rewriteDeclaredFunctionToStandalone(dfCtx, sourceText));
+                    }
+                }
+                metadataBuilder.addStoredQuery(name, queryString, tempFunctionTexts.build());
             } else {
                 Assert.thatUnchecked(templateClause.indexDefinition() != null);
                 indexClauses.add(templateClause.indexDefinition());
@@ -517,9 +615,8 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
                 .setPreparedParams(PreparedParams.copyOf(getDelegate().getPlanGenerationContext().getPreparedParams()))
                 .setNormalizedDescription(getDelegate().getPlanGenerationContext().getCanonicalQueryString());
 
-        boolean isScalar = functionSpecCtx.returnsClause() != null &&
-                functionSpecCtx.returnsClause().returnsType().returnsTableType() == null;
-        if (!isScalar && isTemporary) {
+        boolean isMacro = bodyCtx instanceof RelationalParser.UserDefinedMacroFunctionStatementBodyContext;
+        if (!isMacro && isTemporary) {
             // delay the compilation of table-valued temporary functions for later
             return builder
                     .withUserDefinedFunctionProvider(ignore -> visitSqlInvokedFunction(functionSpecCtx, bodyCtx, isTemporary))
@@ -528,7 +625,7 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
         } else {
             final var userDefinedFunction = visitSqlInvokedFunction(functionSpecCtx, bodyCtx, isTemporary);
             builder.withUserDefinedFunctionProvider(ignore -> userDefinedFunction);
-            if (isScalar) {
+            if (isMacro) {
                 return builder.withSerializableFunction(userDefinedFunction).build();
             } else {
                 return builder.withSerializableFunction(new RawSqlFunction(functionName, functionDefinition)).build();
@@ -597,90 +694,98 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
     }
 
     private UserDefinedFunction visitSqlInvokedFunction(@Nonnull final RelationalParser.FunctionSpecificationContext functionSpecCtx,
-                                                                                                          @Nonnull final RelationalParser.RoutineBodyContext bodyCtx,
-                                                                                                          boolean isTemporary) {
-        // get the function name.
-        final var functionName = visitFullId(functionSpecCtx.schemaQualifiedRoutineName).toString();
-
+                                                        @Nonnull final RelationalParser.RoutineBodyContext bodyCtx,
+                                                        boolean isTemporary) {
         // run implementation-specific validations.
         final var props = functionSpecCtx.routineCharacteristics();
+
+        // SQL-invoked routine 11.60, syntax rules, section 6.f.ii
+        // ... currently we support only CALLED ON NULL INPUT (which is implicitly set if not defined).
+        boolean isNullReturnOnNull = props.nullCallClause() != null && props.nullCallClause().RETURNS() != null;
+        Assert.thatUnchecked(!isNullReturnOnNull, ErrorCode.UNSUPPORTED_OPERATION,
+                "only CALLED ON NULL INPUT clause is supported");
+
+        boolean isSqlParameterStyle = props.parameterStyle() == null || props.parameterStyle().SQL() != null;
+        Assert.thatUnchecked(isSqlParameterStyle, ErrorCode.UNSUPPORTED_OPERATION,
+                "only sql-style parameters are supported");
+
+        // todo: rework Java UDFs to go through this code path as well.
         final var language = (props.languageClause() != null && props.languageClause().languageName().JAVA() != null)
                              ? InvokedRoutine.Language.JAVA
                              : InvokedRoutine.Language.SQL;
-        // SQL-invoked routine 11.60, syntax rules, section 6.f.ii
-        boolean isNullReturnOnNull = props.nullCallClause() != null && props.nullCallClause().RETURNS() != null;
-        // ... currently we support only CALLED ON NULL INPUT (which is implicitly set if not defined).
-        Assert.thatUnchecked(!isNullReturnOnNull, "only CALLED ON NULL INPUT clause is supported");
-        boolean isSqlParameterStyle = props.parameterStyle() == null || props.parameterStyle().SQL() != null;
-        boolean isScalar = functionSpecCtx.returnsClause() != null &&
-                functionSpecCtx.returnsClause().returnsType().returnsTableType() == null;
-        if (isScalar) {
-            final var semanticAnalyzer = getDelegate().getSemanticAnalyzer();
-            // get parameter names and corresponding QuantifiedObjectValue
-            final var parameters = getDelegate().getPlanGenerationContext().withDisabledLiteralProcessing(() ->
-                    visitSqlParameterDeclarationList(functionSpecCtx.sqlParameterDeclarationList()).asNamedArguments());
-            List<Identifier> paramNameIdList = parameters.stream().map(e -> e.getName().get()).collect(Collectors.toList());
-            List<DataType> dataTypeList = parameters.stream().map(Expression::getDataType).collect(Collectors.toList());
-            List<QuantifiedObjectValue> paramValueList = dataTypeList.stream().map(dt -> QuantifiedObjectValue.of(CorrelationIdentifier.uniqueId(), DataTypeUtils.toRecordLayerType(dt))).collect(Collectors.toList());
+        Assert.thatUnchecked(language == InvokedRoutine.Language.SQL, ErrorCode.UNSUPPORTED_OPERATION,
+                "only sql-language functions are supported");
 
-            Assert.thatUnchecked(parameters.asList().size() == 1, "only single input parameter for user defined scalar function is supported");
+        final var isMacro = bodyCtx instanceof RelationalParser.UserDefinedMacroFunctionStatementBodyContext;
+        Assert.thatUnchecked(functionSpecCtx.returnsClause() == null || isMacro,
+                ErrorCode.UNSUPPORTED_OPERATION,
+                "unsupported explicit return type for SQL table function");
 
-            // only support fullId functionBody now
-            final var functionBody = visitUserDefinedScalarFunctionStatementBody(Assert.castUnchecked(bodyCtx, RelationalParser.UserDefinedScalarFunctionStatementBodyContext.class));
-            Optional<Expression> result = semanticAnalyzer.lookupNestedField(functionBody, Expression.of(paramValueList.get(0), paramNameIdList.get(0)), Expression.of(paramValueList.get(0), paramNameIdList.get(0)), true);
-            Assert.thatUnchecked(result.isPresent(), "cannot resolve user defined scalar function value");
-            return new UserDefinedMacroFunction(functionName, paramValueList, result.get().getUnderlying());
+        final DataType returnsType = Optional.ofNullable(functionSpecCtx.returnsClause())
+                .map(returnsClause ->
+                        Assert.castUnchecked(visit(returnsClause), DataType.class))
+                .orElse(null);
+        Assert.thatUnchecked(returnsType == null || returnsType.isResolved(),
+                ErrorCode.UNKNOWN_TYPE,
+                "unknown explicit return type for function");
+
+        final var functionName = visitFullId(functionSpecCtx.schemaQualifiedRoutineName).toString();
+        final var parameters = getDelegate().getPlanGenerationContext().withDisabledLiteralProcessing(() ->
+                visitSqlParameterDeclarationList(functionSpecCtx.sqlParameterDeclarationList()).asNamedArguments());
+        final var sqlFunctionBodyStepBuilder = UserDefinedFunctionBuilder.newBuilder()
+                .setName(functionName)
+                .addAllParameters(parameters)
+                .setReturnType(returnsType)
+                .seal();
+
+        // the nested fragment below serves two purposes:
+        // 1. avoid creating a top-level LSE unnecessarily.
+        // 2. add a fake quantifier with the function parameters (if any) to resolve their references in the function body
+        //    during its plan generation.
+        final var fragment = getDelegate().pushPlanFragment();
+        final var parametersCorrelation = sqlFunctionBodyStepBuilder.getParametersCorrelation();
+        parametersCorrelation.ifPresent(quantifier -> fragment.addOperator(LogicalOperator.newUnnamedOperator(
+                Expressions.fromQuantifier(quantifier), quantifier)));
+
+        final UserDefinedFunctionBuilder.FinalStepBuilder finalStepBuilder;
+        if (isMacro) {
+            // TODO: we should not disable literal processing for temporary macro functions, but UserDefinedMacroFunction
+            //       doesn't support serializing its literals yet. This will be done as part of
+            //       https://github.com/FoundationDB/fdb-record-layer/issues/4306.
+            final var bodyValue = Assert.castUnchecked(
+                    getDelegate().getPlanGenerationContext().withDisabledLiteralProcessing(
+                            () -> visit(bodyCtx)), Expression.class).getUnderlying();
+            finalStepBuilder = sqlFunctionBodyStepBuilder.withBodyValue(bodyValue);
         } else {
-            // table functions
-            Assert.thatUnchecked(isSqlParameterStyle, ErrorCode.UNSUPPORTED_OPERATION, "only sql-style parameters are supported");
-            // todo: rework Java UDFs to go through this code path as well.
-            Assert.thatUnchecked(language == InvokedRoutine.Language.SQL, ErrorCode.UNSUPPORTED_OPERATION,
-                    "only sql-language functions are supported");
-            // create SQL function logical plan by visiting the function body.
-            final var parameters = getDelegate().getPlanGenerationContext().withDisabledLiteralProcessing(() ->
-                    visitSqlParameterDeclarationList(functionSpecCtx.sqlParameterDeclarationList()).asNamedArguments());
-            final var sqlFunctionBuilder = CompiledSqlFunction.newBuilder()
-                    .setName(functionName)
-                    .addAllParameters(parameters)
-                    .seal();
-            final var parametersCorrelation = sqlFunctionBuilder.getParametersCorrelation();
-            final LogicalOperator body;
+            Assert.thatUnchecked(bodyCtx instanceof RelationalParser.StatementBodyContext,
+                    ErrorCode.INVALID_FUNCTION_DEFINITION,
+                    () -> "Unsupported routine body specification for SQL invoked function");
 
-            // the nested fragment below serves two purposes:
-            // 1. avoid creating a top-level LSE unnecessarily.
-            // 2. add a fake quantifier with the function parameters (if any) to resolve their references in the function body
-            //    during its plan generation.
-            final var fragment = getDelegate().pushPlanFragment();
-
-            parametersCorrelation.ifPresent(quantifier -> fragment.addOperator(LogicalOperator.newUnnamedOperator(
-                    Expressions.fromQuantifier(quantifier), quantifier)));
+            final LogicalOperator bodyOperator;
             if (isTemporary) {
-                body = Assert.castUnchecked(visit(bodyCtx), LogicalOperator.class);
+                bodyOperator = Assert.castUnchecked(visit(bodyCtx), LogicalOperator.class);
             } else {
-                body = getDelegate().getPlanGenerationContext().withDisabledLiteralProcessing(() ->
-                        Assert.castUnchecked(visit(bodyCtx), LogicalOperator.class));
+                bodyOperator = Assert.castUnchecked(
+                        getDelegate().getPlanGenerationContext().withDisabledLiteralProcessing(
+                                () -> visit(bodyCtx)), LogicalOperator.class);
             }
-            getDelegate().popPlanFragment();
-            sqlFunctionBuilder.setBody(body.getQuantifier().getRangesOver().get())
+            finalStepBuilder = sqlFunctionBodyStepBuilder.withBodyExpression(bodyOperator.getQuantifier().getRangesOver().get())
                     .setLiterals(getDelegate().getPlanGenerationContext().getLiterals());
-            return sqlFunctionBuilder.build();
         }
+
+        getDelegate().popPlanFragment();
+        return finalStepBuilder.build();
+    }
+
+    @Nonnull
+    @Override
+    public Expression visitUserDefinedMacroFunctionStatementBody(@Nonnull final RelationalParser.UserDefinedMacroFunctionStatementBodyContext ctx) {
+        return Assert.castUnchecked(visit(ctx.expression()), Expression.class);
     }
 
     @Override
     public LogicalOperator visitStatementBody(final RelationalParser.StatementBodyContext ctx) {
         return Assert.castUnchecked(visit(ctx.queryTerm()), LogicalOperator.class);
-    }
-
-    @Override
-    public LogicalOperator visitSqlReturnStatement(final RelationalParser.SqlReturnStatementContext ctx) {
-        return visitReturnValue(ctx.returnValue());
-    }
-
-    @Override
-    public LogicalOperator visitReturnValue(final RelationalParser.ReturnValueContext ctx) {
-        Assert.failUnchecked("scalar functions are not implemented");
-        return null;
     }
 
     @Override
@@ -724,10 +829,27 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
 
     @Override
     public DataType visitReturnsType(@Nonnull RelationalParser.ReturnsTypeContext ctx) {
-        if (ctx.returnsDataType != null) {
-            return visitColumnType(ctx.returnsDataType);
+        Assert.isNullUnchecked(ctx.returnsTableType(), ErrorCode.UNSUPPORTED_OPERATION,
+                "table return type is not supported");
+        return lookupType(ctx.columnType().customType, ctx.columnType().primitiveType(), true, ctx.ARRAY() != null);
+    }
+
+    @Nonnull
+    private DataType lookupType(@Nullable RelationalParser.UidContext customType,
+                                @Nullable RelationalParser.PrimitiveTypeContext primitiveTypeContext,
+                                boolean isNullable,
+                                boolean isRepeated) {
+        final SemanticAnalyzer.ParsedTypeInfo typeInfo;
+        if (customType != null) {
+            final var columnType = visitUid(customType);
+            typeInfo = SemanticAnalyzer.ParsedTypeInfo.ofCustomType(columnType, isNullable, isRepeated);
+        } else if (primitiveTypeContext != null) {
+            typeInfo = SemanticAnalyzer.ParsedTypeInfo.ofPrimitiveType(primitiveTypeContext, isNullable, isRepeated);
+        } else {
+            throw new UnsupportedOperationException("unsupported type specification");
         }
-        throw new UnsupportedOperationException("table type is not supported");
+
+        return getDelegate().getSemanticAnalyzer().lookupType(typeInfo, metadataBuilder::findType);
     }
 
     // TODO: remove
@@ -735,5 +857,43 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
     @Override
     public Boolean visitNullColumnConstraint(@Nonnull RelationalParser.NullColumnConstraintContext ctx) {
         return ctx.nullNotnull().NOT() == null;
+    }
+
+    /**
+     * Rewrites a {@code declaredFunction} block inside a {@code DECLARE} block into the equivalent
+     * standalone {@code CREATE TEMPORARY FUNCTION ... ON COMMIT DROP FUNCTION AS <body>} statement.
+     *
+     * <p>The persisted temp-function text on {@code StoredQuery} is required to be byte-identical to
+     * what the online path submits, otherwise {@code auxiliaryMetadata} on the query cache key
+     * (which fingerprints the {@code normalizedDescription} of each temp routine attached to the
+     * schema template) would diverge between warm-up and online, killing cache hits.</p>
+     *
+     * <p>Pieces are read from the parser context and reassembled &mdash; no surface-syntax
+     * manipulation on the DECLARE fragment.</p>
+     *
+     * <p><b>Case-sensitivity contract with online clients.</b> The keywords emitted here
+     * ({@code CREATE TEMPORARY FUNCTION}, {@code ON COMMIT DROP FUNCTION}, {@code AS}) are
+     * <em>UPPERCASE</em> by construction. The plan cache key derives its canonical query string
+     * from raw keyword tokens (source-preserved by {@code AstNormalizer.visitTerminal}, not
+     * uppercased), so a warm-up plan produced from this rewritten text is reachable at runtime
+     * <em>only</em> if the online client submits the matching standalone
+     * {@code CREATE TEMPORARY FUNCTION ...} DDL with the same uppercase keyword casing. Lowercase
+     * or mixed-case keyword submissions from clients will produce a different canonical string and
+     * thus a different cache key &mdash; warm-up plans become unreachable. See
+     * <a href="https://github.com/FoundationDB/fdb-record-layer/issues/4323">issue #4323</a>
+     * for the underlying case-sensitivity behavior of the normalizer.</p>
+     */
+    @Nonnull
+    private static String rewriteDeclaredFunctionToStandalone(@Nonnull final RelationalParser.DeclaredFunctionContext ctx,
+                                                              @Nonnull final String sourceText) {
+        final String name = sliceSource(sourceText, ctx.functionName);
+        final String paramList = sliceSource(sourceText, ctx.sqlParameterDeclarationList());
+        final String body = sliceSource(sourceText, ctx.functionBody);
+        return "CREATE TEMPORARY FUNCTION " + name + paramList + " ON COMMIT DROP FUNCTION AS " + body;
+    }
+
+    @Nonnull
+    private static String sliceSource(@Nonnull final String sourceText, @Nonnull final ParserRuleContext ctx) {
+        return sourceText.substring(ctx.start.getStartIndex(), ctx.stop.getStopIndex() + 1);
     }
 }

@@ -23,6 +23,7 @@ package com.apple.foundationdb.async.hnsw;
 import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.linear.Quantizer;
 import com.apple.foundationdb.tuple.Tuple;
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import org.slf4j.Logger;
@@ -135,6 +136,7 @@ class DeleteNeighborsChangeSet<N extends NodeReference> implements NeighborsChan
     public void writeDelta(@Nonnull final InliningStorageAdapter storageAdapter, @Nonnull final Transaction transaction,
                            @Nonnull final Quantizer quantizer, final int layer, @Nonnull final AbstractNode<N> node,
                            @Nonnull final Predicate<Tuple> tuplePredicate) {
+        Verify.verify(node.isInliningNode());
         getParent().writeDelta(storageAdapter, transaction, quantizer, layer, node,
                 tuplePredicate.and(tuple -> !deletedNeighborsPrimaryKeys.contains(tuple)));
 

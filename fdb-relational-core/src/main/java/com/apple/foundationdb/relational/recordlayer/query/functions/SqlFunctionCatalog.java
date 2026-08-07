@@ -20,12 +20,12 @@
 
 package com.apple.foundationdb.relational.recordlayer.query.functions;
 
+import com.apple.foundationdb.record.query.plan.cascades.CallSiteArguments;
 import com.apple.foundationdb.record.query.plan.cascades.CatalogedFunction;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
-import com.apple.foundationdb.relational.recordlayer.query.Expressions;
 
 import javax.annotation.Nonnull;
 import java.util.stream.StreamSupport;
@@ -46,7 +46,7 @@ public interface SqlFunctionCatalog {
      * @return the function instance.
      */
     @Nonnull
-    CatalogedFunction lookupFunction(@Nonnull String name, @Nonnull Expressions arguments);
+    CatalogedFunction lookupFunction(@Nonnull String name, @Nonnull CallSiteArguments arguments);
 
     /**
      * Checks whether a function exists in the catalog. Note that invoking this method shall not trigger compiling
@@ -66,7 +66,7 @@ public interface SqlFunctionCatalog {
      *     <ul>user-defined table-valued functions, lazily-compiled</ul>
      * </li>
      * The user-defined functions are loaded from the passed {@code metadata} argument, they are only compiled when
-     * looked up with {@link SqlFunctionCatalog#lookupFunction(String, Expressions)}, and their compiled version is
+     * looked up with {@link SqlFunctionCatalog#lookupFunction(String, CallSiteArguments)}, and their compiled version is
      * cached so it is done at most once.
      *
      * @param metadata The metadata used to load any user-defined functions.
