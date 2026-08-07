@@ -141,13 +141,13 @@ public class QueryLoggingTest {
                 try (ResultSet rs = ps.executeQuery()) {
                     rs.next();
                 }
-                Assertions.assertThat(logAppender.getLastLogEventMessage()).contains("query=\"SELECT 'NAME' from 'RESTAURANT' where 'REST_NO' = ?\"");
+                Assertions.assertThat(logAppender.getLastLogEventMessage()).contains("query=\"SELECT 'NAME' FROM 'RESTAURANT' WHERE 'REST_NO' = ?\"");
             }
             try (Statement ps = conn.createStatement()) {
                 try (ResultSet rs = ps.executeQuery("SELECT name from restaurant")) {
                     rs.next();
                 }
-                Assertions.assertThat(logAppender.getLastLogEventMessage()).contains("query=\"SELECT 'NAME' from 'RESTAURANT'\"");
+                Assertions.assertThat(logAppender.getLastLogEventMessage()).contains("query=\"SELECT 'NAME' FROM 'RESTAURANT'\"");
             }
         }
     }
@@ -191,7 +191,7 @@ public class QueryLoggingTest {
                 try (ResultSet rs = ps.executeQuery()) {
                     rs.next();
                 }
-                Assertions.assertThat(logAppender.getLastLogEventMessage()).contains("query=\"SELECT 'NAME' from 'RESTAURANT' where 'REST_NO' = ?\"");
+                Assertions.assertThat(logAppender.getLastLogEventMessage()).contains("query=\"SELECT 'NAME' FROM 'RESTAURANT' WHERE 'REST_NO' = ?\"");
                 Assertions.assertThat(logAppender.getLogEvents()).hasSize(1);
             }
             logAppender.getLogEvents().clear();
@@ -217,7 +217,7 @@ public class QueryLoggingTest {
                 try (ResultSet rs = ps.executeQuery()) {
                     rs.next();
                 }
-                Assertions.assertThat(logAppender.getLastLogEventMessage()).contains("query=\"SELECT 'NAME' from 'RESTAURANT' where 'REST_NO' = ?\"");
+                Assertions.assertThat(logAppender.getLastLogEventMessage()).contains("query=\"SELECT 'NAME' FROM 'RESTAURANT' WHERE 'REST_NO' = ?\"");
                 Assertions.assertThat(logAppender.getLogEvents()).hasSize(1);
             }
         }

@@ -1,5 +1,5 @@
 /*
- * VectorIndexIndexingTest.java
+ * HnswVectorIndexIndexingTest.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -25,18 +25,21 @@ import com.apple.foundationdb.linear.Metric;
 import com.apple.foundationdb.record.Bindings;
 import com.apple.foundationdb.record.RecordCursorIterator;
 import com.apple.foundationdb.record.metadata.Index;
+import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
 import com.apple.foundationdb.record.provider.foundationdb.OnlineIndexer;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.apple.foundationdb.record.vector.TestRecordsVectorsProto.VectorRecord;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.Message;
 import org.junit.jupiter.api.Test;
 
 import javax.annotation.Nonnull;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Random;
 import java.util.Set;
@@ -46,10 +49,20 @@ import java.util.stream.Stream;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Tests online indexing of vector indexes.
- * These tests verify that vector indexes can be built asynchronously after records are saved.
+ * Tests online indexing of vector indexes backed by the HNSW engine.
+ * These tests verify that vector indexes can be built asynchronously after records are saved. The online-indexing
+ * machinery is engine-agnostic; this suite pins it to HNSW.
  */
-class VectorIndexIndexingTest extends VectorIndexTestBase {
+class HnswVectorIndexIndexingTest extends VectorIndexTestBase {
+
+    @Nonnull
+    @Override
+    protected Map<String, String> indexOptions() {
+        return ImmutableMap.of(IndexOptions.VECTOR_ENGINE, VectorIndexEngineKind.HNSW.name(),
+                IndexOptions.VECTOR_METRIC, Metric.EUCLIDEAN_METRIC.name(),
+                IndexOptions.VECTOR_NUM_DIMENSIONS, "128");
+    }
+
 
     @Test
     void buildVectorIndexOnlineUngrouped() throws Exception {
@@ -186,7 +199,7 @@ class VectorIndexIndexingTest extends VectorIndexTestBase {
 
             // Index should be in disabled state initially
             final Index index = recordStore.getRecordMetaData().getIndex(indexName);
-            assertThat(recordStore.isIndexReadable(index)).isFalse();
+            assertThat(recordStore.getIndexState(index).isReadable()).isFalse();
 
             commit(context);
         }
@@ -204,7 +217,7 @@ class VectorIndexIndexingTest extends VectorIndexTestBase {
             index = recordStore.getRecordMetaData().getIndex(indexName);
             // Verify that the index will be only built here
             // (this is not a requirement, but only used for this module's tests)
-            assertThat(recordStore.isIndexReadable(index)).isFalse();
+            assertThat(recordStore.getIndexState(index).isReadable()).isFalse();
 
             try (OnlineIndexer indexer = OnlineIndexer.newBuilder()
                     .setRecordStore(recordStore)
@@ -218,7 +231,7 @@ class VectorIndexIndexingTest extends VectorIndexTestBase {
         // Verify that the index is readable
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context, indexHook);
-            assertThat(recordStore.isIndexReadable(index)).isTrue();
+            assertThat(recordStore.getIndexState(index).isReadable()).isTrue();
             commit(context);
         }
 

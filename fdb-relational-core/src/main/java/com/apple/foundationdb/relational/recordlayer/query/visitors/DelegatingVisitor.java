@@ -277,6 +277,16 @@ public class DelegatingVisitor<D extends TypedVisitor> implements TypedVisitor {
         return getDelegate().visitHnswMetric(ctx);
     }
 
+    @Override
+    public Object visitVectorEngine(final RelationalParser.VectorEngineContext ctx) {
+        return getDelegate().visitVectorEngine(ctx);
+    }
+
+    @Override
+    public Object visitVectorIndexOptionValue(final RelationalParser.VectorIndexOptionValueContext ctx) {
+        return getDelegate().visitVectorIndexOptionValue(ctx);
+    }
+
     @Nonnull
     @Override
     public Object visitIndexAttributes(@Nonnull RelationalParser.IndexAttributesContext ctx) {
@@ -764,14 +774,14 @@ public class DelegatingVisitor<D extends TypedVisitor> implements TypedVisitor {
 
     @Nonnull
     @Override
-    public Object visitQueryOptions(@Nonnull RelationalParser.QueryOptionsContext ctx) {
-        return getDelegate().visitQueryOptions(ctx);
+    public Object visitStatementOptions(@Nonnull RelationalParser.StatementOptionsContext ctx) {
+        return getDelegate().visitStatementOptions(ctx);
     }
 
     @Nonnull
     @Override
-    public Object visitQueryOption(@Nonnull RelationalParser.QueryOptionContext ctx) {
-        return getDelegate().visitQueryOption(ctx);
+    public Object visitStatementOption(@Nonnull RelationalParser.StatementOptionContext ctx) {
+        return getDelegate().visitStatementOption(ctx);
     }
 
     @Nonnull

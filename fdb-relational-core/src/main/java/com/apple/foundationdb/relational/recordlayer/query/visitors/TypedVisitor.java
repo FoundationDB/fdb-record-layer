@@ -428,11 +428,11 @@ public interface TypedVisitor extends RelationalParserVisitor<Object> {
 
     @Nonnull
     @Override
-    Object visitQueryOptions(@Nonnull RelationalParser.QueryOptionsContext ctx);
+    Object visitStatementOptions(@Nonnull RelationalParser.StatementOptionsContext ctx);
 
     @Nonnull
     @Override
-    Object visitQueryOption(@Nonnull RelationalParser.QueryOptionContext ctx);
+    Object visitStatementOption(@Nonnull RelationalParser.StatementOptionContext ctx);
 
     @Nonnull
     @Override

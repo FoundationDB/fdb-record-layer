@@ -21,7 +21,6 @@
 package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.rules.AdjustMatchRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.AggregateDataAccessRule;
@@ -202,7 +201,6 @@ public class PlanningRuleSet extends CascadesRuleSet {
     }
 
     @VisibleForTesting
-    @SpotBugsSuppressWarnings("NP_NULL_ON_SOME_PATH_FROM_RETURN_VALUE")
     PlanningRuleSet(@Nonnull Set<CascadesRule<? extends RelationalExpression>> rules) {
         super(rules);
     }

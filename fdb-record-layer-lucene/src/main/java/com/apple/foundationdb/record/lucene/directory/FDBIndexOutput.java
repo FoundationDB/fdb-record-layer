@@ -21,7 +21,6 @@
 package com.apple.foundationdb.record.lucene.directory;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
@@ -98,7 +97,6 @@ public final class FDBIndexOutput extends IndexOutput {
      * Close the directory which writes the FileReference.
      */
     @Override
-    @SpotBugsSuppressWarnings(value = "RV_RETURN_VALUE_IGNORED_BAD_PRACTICE", justification = "it is fine if it is not accepted")
     public void close() throws IOException {
         if (LOGGER.isTraceEnabled()) {
             LOGGER.trace(getLogMessage("close()",

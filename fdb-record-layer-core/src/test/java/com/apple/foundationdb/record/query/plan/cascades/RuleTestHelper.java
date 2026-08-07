@@ -112,7 +112,7 @@ public class RuleTestHelper {
 
     @Nonnull
     public static Quantifier rangeOneQun() {
-        var rangeValue = (RangeValue) new RangeValue.RangeFn().encapsulate(ImmutableList.of(LiteralValue.ofScalar(1L)));
+        var rangeValue = (RangeValue) new RangeValue.RangeFn().encapsulate(CallSiteArguments.ofPositional(LiteralValue.ofScalar(1L)));
         TableFunctionExpression tvf = new TableFunctionExpression(rangeValue);
         return Quantifier.forEach(Reference.initialOf(tvf));
     }
@@ -170,7 +170,7 @@ public class RuleTestHelper {
             // Descend the copied original to:
             // 1. apply FinalizeExpressionsRule for all children recursively bottom up
             // 2. run the cost model for the children of the finalized expressions
-            // This simulates exactly what the planner does fo the children of this expression before the current
+            // This simulates exactly what the planner does to the children of this expression before the current
             // rule is applied to the current expression. Note that this is only required for implementation rules
             // as they depend on finalized children to work properly. In fact, we cannot call preExploreForRule(...)
             // here for exploration rules as they attempt to share sub graphs which would then make the verification
@@ -178,7 +178,9 @@ public class RuleTestHelper {
             //
             preExploreForRule(copiedOriginal, false);
         }
-        Reference ref = Reference.ofExploratoryExpression(PlannerStage.CANONICAL, copiedOriginal);
+        Reference ref = rule instanceof ImplementationCascadesRule ?
+                        Reference.ofFinalExpression(PlannerStage.CANONICAL, copiedOriginal) :
+                        Reference.ofExploratoryExpression(PlannerStage.CANONICAL, copiedOriginal);
         PlanContext planContext = new FakePlanContext();
         return TestRuleExecution.applyRule(planContext, rule, ref, evaluationContext, plannerPhase);
     }

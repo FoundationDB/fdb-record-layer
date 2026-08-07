@@ -354,7 +354,7 @@ public abstract class AbstractArrayConstructorValue extends AbstractValue implem
     public static class ArrayFn extends BuiltInFunction<Value> {
         public ArrayFn() {
             super("array",
-                    ImmutableList.of(), new Type.Any(), (builtInFunction, typedArgs) -> encapsulateInternal(typedArgs));
+                    ImmutableList.of(), new Type.Any(), (builtInFunction, typedArgs) -> encapsulateInternal(typedArgs.getArgumentsList()));
         }
     }
 }

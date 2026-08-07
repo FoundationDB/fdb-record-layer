@@ -203,6 +203,11 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
+    public void guardiannSemanticSearchTest(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("guardiann-semantic-search.yamsql");
+    }
+
+    @TestTemplate
     public void inPredicate(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("in-predicate.yamsql");
     }
@@ -285,6 +290,11 @@ public class YamlIntegrationTests {
     @TestTemplate
     public void indexDdlAggregatesOnly(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("index-ddl-aggregates-only.yamsql");
+    }
+
+    @TestTemplate
+    public void keywordCaseInsensitivity(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("keyword-case-insensitivity.yamsql");
     }
 
     @TestTemplate
@@ -475,6 +485,11 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
+    public void vectorMixedVersionMetadataTests(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("vector-mixed-version-metadata.yamsql");
+    }
+
+    @TestTemplate
     public void vectorTests(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("vector.yamsql");
     }
@@ -517,5 +532,10 @@ public class YamlIntegrationTests {
     @TestTemplate
     public void filterIndexTest(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("filter-index.yamsql");
+    }
+
+    @TestTemplate
+    public void selectWithoutFrom(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("select-without-from.yamsql");
     }
 }

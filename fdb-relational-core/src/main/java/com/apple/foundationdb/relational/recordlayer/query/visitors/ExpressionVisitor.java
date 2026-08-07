@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2021-2025 Apple Inc. and the FoundationDB project authors
+ * Copyright 2021-2026 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,7 +21,6 @@
 package com.apple.foundationdb.relational.recordlayer.query.visitors;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.provider.foundationdb.VectorIndexScanOptions;
 import com.apple.foundationdb.record.query.plan.cascades.OrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.CompatibleTypeEvolutionPredicate;
@@ -36,6 +35,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.NullValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.PromoteValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.RowNumberValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.WindowedValue;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
@@ -65,6 +65,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Streams;
 import com.google.protobuf.ZeroCopyByteString;
 import org.antlr.v4.runtime.ParserRuleContext;
+import org.antlr.v4.runtime.Token;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -279,28 +280,16 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
         final String functionName = windowedFunctionContext.functionName.getText();
         final WindowSpecExpression windowSpecExpression = getDelegate().visitOverClause(windowedFunctionContext.overClause());
 
-        final var partitionExpressions = windowSpecExpression.getPartitions();
-        final var partitionValues = Streams.stream(partitionExpressions.underlying()).collect(ImmutableList.toImmutableList());
-        final var partitionArray = AbstractArrayConstructorValue.LightArrayConstructorValue.of(partitionValues, Type.any());
-
         final var orderByExpressions = windowSpecExpression.getOrderByExpressions();
         final var allowedSortSpecs = StreamSupport.stream(orderByExpressions.spliterator(), false)
                 .allMatch(exp -> exp.toSortOrder() == OrderingPart.RequestedSortOrder.ASCENDING || exp.toSortOrder() == OrderingPart.RequestedSortOrder.ANY);
         Assert.thatUnchecked(allowedSortSpecs, ErrorCode.UNSUPPORTED_SORT, "provided sort specification not supported with window function");
-        // TODO should pass down sort specification correctly.
-        final var orderByValues = StreamSupport.stream(orderByExpressions.spliterator(), false).map(r -> r.getExpression().getUnderlying())
-                .collect(ImmutableList.toImmutableList());
 
-        final ImmutableList.Builder<Expression> argumentsBuilder = ImmutableList.builder();
-        final var orderByArray = AbstractArrayConstructorValue.LightArrayConstructorValue.of(orderByValues, Type.any());
-        argumentsBuilder.add(Expression.ofUnnamed(partitionArray)).add(Expression.ofUnnamed(orderByArray));
-
-        final var higherOrderArgumentsBuilder = ImmutableList.<Expressions>builder();
-        if (!windowSpecExpression.getWindowOptions().isEmpty()) {
-            higherOrderArgumentsBuilder.add(windowSpecExpression.getWindowOptions());
-        }
-        higherOrderArgumentsBuilder.add(Expressions.of(argumentsBuilder.build()));
-        return getDelegate().getSemanticAnalyzer().resolveHighOrderScalarFunction(functionName, true, higherOrderArgumentsBuilder.build());
+        // The partitioning and ordering columns are carried on the window specification; the window options (e.g.
+        // ef_search) are carried on the call-site arguments' options map. The window function itself takes no direct
+        // positional arguments.
+        return getDelegate().getSemanticAnalyzer()
+                .resolveWindowFunction(functionName, true, windowSpecExpression, Expressions.empty());
     }
 
     @Nonnull
@@ -345,8 +334,12 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
     @Override
     public Expression visitWindowOption(final RelationalParser.WindowOptionContext ctx) {
         if (ctx.EF_SEARCH() != null) {
-            final var value = LiteralValue.ofScalar(Assert.castUnchecked(ParseHelpers.parseDecimal(ctx.efSearch.getText()), Integer.class));
-            return Expression.of(value, Identifier.of(VectorIndexScanOptions.HNSW_EF_SEARCH.getOptionName()));
+            //
+            // The literal is passed on as parsed; the option's declared type is enforced when the window function is
+            // encapsulated, so an out-of-range value is reported as a bad option value rather than an internal error.
+            //
+            final var value = LiteralValue.ofScalar(ParseHelpers.parseDecimal(ctx.efSearch.getText()));
+            return Expression.of(value, Identifier.of(RowNumberValue.RowNumberFn.EF_SEARCH.getName()));
         }
         throw Assert.failUnchecked(ErrorCode.INTERNAL_ERROR, "unexpected option " + ctx.getText());
     }
@@ -360,9 +353,23 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
     @Nonnull
     @Override
     public Expression visitAggregateWindowedFunction(@Nonnull RelationalParser.AggregateWindowedFunctionContext functionContext) {
-        Assert.thatUnchecked(functionContext.aggregator == null || functionContext.aggregator.getText().equals(functionContext.ALL().getText()),
-                ErrorCode.UNSUPPORTED_QUERY, () -> String.format(Locale.ROOT, "Unsupported aggregator %s", functionContext.aggregator.getText()));
         final var functionName = functionContext.functionName.getText();
+
+        // Handle the aggregator (aka. set quantifier). Existing aggregates support only ALL (the default).
+        final Token aggregator = functionContext.aggregator;
+        Assert.thatUnchecked(
+                aggregator == null || aggregator.getType() == RelationalParser.ALL,
+                ErrorCode.UNSUPPORTED_QUERY,
+                () -> String.format(Locale.ROOT, "aggregator %s is not supported",
+                        Assert.notNullUnchecked(aggregator).getText()));
+
+        // Handle the OVER clause. The grammar admits it for most aggregates, but using an aggregate as a window
+        // function is not implemented.
+        Assert.isNullUnchecked(
+                functionContext.overClause(),
+                ErrorCode.UNSUPPORTED_QUERY,
+                String.format(Locale.ROOT, "an OVER clause is not supported for %s()", functionName));
+
         Optional<Expression> argumentMaybe = Optional.empty();
         if (functionContext.starArg != null) {
             argumentMaybe = Optional.of(Expression.ofUnnamed(RecordConstructorValue.ofColumns(List.of())));

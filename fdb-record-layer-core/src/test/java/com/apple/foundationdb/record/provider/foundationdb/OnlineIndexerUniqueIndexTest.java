@@ -105,7 +105,7 @@ public class OnlineIndexerUniqueIndexTest extends OnlineIndexerTest {
 
         // Case 3: Some in write-only mode.
         fdb.run(context -> {
-            FDBRecordStore.deleteStore(context, path);
+            FDBRecordStore.deleteStoreAsync(context, path).join();
             return null;
         });
         openSimpleMetaData();
@@ -129,7 +129,7 @@ public class OnlineIndexerUniqueIndexTest extends OnlineIndexerTest {
 
         // Case 4: Some in write-only mode with an initial range build that shouldn't affect anything.
         fdb.run(context -> {
-            FDBRecordStore.deleteStore(context, path);
+            FDBRecordStore.deleteStoreAsync(context, path).join();
             return null;
         });
         openSimpleMetaData();
@@ -153,7 +153,7 @@ public class OnlineIndexerUniqueIndexTest extends OnlineIndexerTest {
 
         // Case 5: Should be caught by write-only writes after build.
         fdb.run(context -> {
-            FDBRecordStore.deleteStore(context, path);
+            FDBRecordStore.deleteStoreAsync(context, path).join();
             return null;
         });
         openSimpleMetaData();
@@ -183,7 +183,7 @@ public class OnlineIndexerUniqueIndexTest extends OnlineIndexerTest {
 
         // Case 6: Should be caught by write-only writes after partial build.
         fdb.run(context -> {
-            FDBRecordStore.deleteStore(context, path);
+            FDBRecordStore.deleteStoreAsync(context, path).join();
             return null;
         });
         openSimpleMetaData();
@@ -215,7 +215,7 @@ public class OnlineIndexerUniqueIndexTest extends OnlineIndexerTest {
         // Case 7: The second of these two transactions should fail on not_committed, and then
         // there should be a uniqueness violation.
         fdb.run(context -> {
-            FDBRecordStore.deleteStore(context, path);
+            FDBRecordStore.deleteStoreAsync(context, path).join();
             return null;
         });
         openSimpleMetaData();
@@ -352,7 +352,7 @@ public class OnlineIndexerUniqueIndexTest extends OnlineIndexerTest {
         try (FDBRecordContext context = openContext()) {
             final IndexState indexState = recordStore.getIndexState(indexName);
             assertEquals(IndexState.READABLE_UNIQUE_PENDING, indexState);
-            assertTrue(recordStore.isIndexReadableUniquePending(indexName));
+            assertTrue(recordStore.getIndexState(indexName).isReadableUniquePending());
             context.commit();
         }
         scrubAndValidate(List.of(index));
@@ -451,7 +451,7 @@ public class OnlineIndexerUniqueIndexTest extends OnlineIndexerTest {
             // unique index with uniqueness violation:
             assertEquals(10, (int)recordStore.scanUniquenessViolations(indexes.get(0)).getCount().join());
             if (allowUniquePending) {
-                assertTrue(recordStore.isIndexReadableUniquePending(indexes.get(0)));
+                assertTrue(recordStore.getIndexState(indexes.get(0)).isReadableUniquePending());
                 final List<IndexEntry> scanned = recordStore.scanIndex(indexes.get(0), IndexScanType.BY_VALUE, TupleRange.ALL, null, ScanProperties.FORWARD_SCAN)
                         .asList().join();
                 assertEquals(scanned.size(), records.size());
@@ -460,15 +460,15 @@ public class OnlineIndexerUniqueIndexTest extends OnlineIndexerTest {
                 assertTrue(numValues.containsAll(scannedValues));
                 assertTrue(scannedValues.containsAll(numValues));
             } else {
-                assertTrue(recordStore.isIndexWriteOnly(indexes.get(0)));
+                assertTrue(recordStore.getIndexState(indexes.get(0)).isWriteOnly());
                 RecordCoreException e = assertThrows(ScanNonReadableIndexException.class,
                         () -> recordStore.scanIndex(indexes.get(0), IndexScanType.BY_VALUE, TupleRange.ALL, null, ScanProperties.FORWARD_SCAN));
                 assertTrue(e.getMessage().contains("Cannot scan non-readable index"));
             }
             // non-unique index:
-            assertTrue(recordStore.isIndexReadable(indexes.get(1)));
+            assertTrue(recordStore.getIndexState(indexes.get(1)).isReadable());
             // unique index of unique numbers:
-            assertTrue(recordStore.isIndexReadable(indexes.get(2)));
+            assertTrue(recordStore.getIndexState(indexes.get(2)).isReadable());
             context.commit();
         }
 
@@ -505,7 +505,7 @@ public class OnlineIndexerUniqueIndexTest extends OnlineIndexerTest {
         }
         scrubAndValidate(List.of(index));
         try (FDBRecordContext context = openContext()) {
-            assertTrue(recordStore.isIndexReadable(index.getName()));
+            assertTrue(recordStore.getIndexState(index.getName()).isReadable());
             assertEquals(0, (int)recordStore.scanUniquenessViolations(indexes.get(0)).getCount().join());
             context.commit();
         }
@@ -541,7 +541,7 @@ public class OnlineIndexerUniqueIndexTest extends OnlineIndexerTest {
         // verify that unique pending state is unchanged
         try (FDBRecordContext context = openContext()) {
             for (Index index: indexes) {
-                assertTrue(recordStore.isIndexReadableUniquePending(index));
+                assertTrue(recordStore.getIndexState(index).isReadableUniquePending());
                 boolean changed = recordStore.markIndexReadableOrUniquePending(index).join();
                 assertFalse(changed);
             }
@@ -573,7 +573,7 @@ public class OnlineIndexerUniqueIndexTest extends OnlineIndexerTest {
         // assert change after resolving
         try (FDBRecordContext context = openContext()) {
             for (Index index: indexes) {
-                assertTrue(recordStore.isIndexReadableUniquePending(index));
+                assertTrue(recordStore.getIndexState(index).isReadableUniquePending());
                 boolean changed = recordStore.markIndexReadableOrUniquePending(index).join();
                 assertTrue(changed);
             }
@@ -613,7 +613,7 @@ public class OnlineIndexerUniqueIndexTest extends OnlineIndexerTest {
         // verify that unique pending state is unchanged
         try (FDBRecordContext context = openContext()) {
             for (Index index: indexes) {
-                assertTrue(recordStore.isIndexReadableUniquePending(index));
+                assertTrue(recordStore.getIndexState(index).isReadableUniquePending());
                 boolean changed = recordStore.markIndexReadableOrUniquePending(index).join();
                 assertFalse(changed);
             }
@@ -633,7 +633,7 @@ public class OnlineIndexerUniqueIndexTest extends OnlineIndexerTest {
         // verify that unique pending state is unchanged
         try (FDBRecordContext context = openContext()) {
             for (Index index: indexes) {
-                assertTrue(recordStore.isIndexReadableUniquePending(index));
+                assertTrue(recordStore.getIndexState(index).isReadableUniquePending());
                 boolean changed = recordStore.markIndexReadableOrUniquePending(index).join();
                 assertFalse(changed);
                 assertEquals(20, (int)recordStore.scanUniquenessViolations(index).getCount().join());
@@ -663,7 +663,7 @@ public class OnlineIndexerUniqueIndexTest extends OnlineIndexerTest {
         scrubAndValidate(indexes);
         try (FDBRecordContext context = openContext()) {
             for (Index index: indexes) {
-                assertTrue(recordStore.isIndexReadable(index));
+                assertTrue(recordStore.getIndexState(index).isReadable());
                 assertEquals(0, (int)recordStore.scanUniquenessViolations(index).getCount().join());
             }
             context.commit();
@@ -710,7 +710,7 @@ public class OnlineIndexerUniqueIndexTest extends OnlineIndexerTest {
         // assert failure to mark readable or unique pending
         try (FDBRecordContext context = openContext()) {
             for (Index index: indexes) {
-                assertTrue(recordStore.isIndexWriteOnly(index));
+                assertTrue(recordStore.getIndexState(index).isWriteOnly());
                 assertThrows(Exception.class, () -> recordStore.markIndexReadableOrUniquePending(index).join());
                 assertThrows(Exception.class, () -> recordStore.markIndexReadable(index).join());
             }
@@ -750,7 +750,7 @@ public class OnlineIndexerUniqueIndexTest extends OnlineIndexerTest {
 
         // assert source index state is unique pending
         try (FDBRecordContext context = openContext()) {
-            assertTrue(recordStore.isIndexReadableUniquePending(srcIndex));
+            assertTrue(recordStore.getIndexState(srcIndex).isReadableUniquePending());
             context.commit();
         }
 

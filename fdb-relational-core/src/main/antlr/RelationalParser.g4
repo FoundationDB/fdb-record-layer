@@ -171,7 +171,7 @@ enumDefinition
 indexDefinition
     : (UNIQUE)? INDEX indexName=uid AS queryTerm indexAttributes?                                                                  #indexAsSelectDefinition
     | (UNIQUE)? INDEX indexName=uid ON source=fullId indexColumnList includeClause? indexOptions?                                  #indexOnSourceDefinition
-    | VECTOR INDEX indexName=uid USING HNSW ON source=fullId indexColumnList includeClause? indexPartitionClause? vectorIndexOptions?   #vectorIndexDefinition
+    | VECTOR INDEX indexName=uid USING engine=vectorEngine ON source=fullId indexColumnList includeClause? indexPartitionClause? vectorIndexOptions?   #vectorIndexDefinition
     ;
 
 indexColumnList
@@ -202,21 +202,24 @@ indexOption
     : LEGACY_EXTREMUM_EVER
     ;
 
+vectorEngine
+    : HNSW
+    | GUARDIANN
+    ;
+
 vectorIndexOptions
     : OPTIONS '(' vectorIndexOption (COMMA vectorIndexOption)* ')'
     ;
 
 vectorIndexOption
-    : EF_CONSTRUCTION '=' efConstruction=DECIMAL_LITERAL
-    | CONNECTIVITY '=' connectivity=DECIMAL_LITERAL
-    | M_MAX '=' mMax=DECIMAL_LITERAL
-    | M_MAX_0 '=' mMaxZero=DECIMAL_LITERAL
-    | MAINTAIN_STATS_PROBABILITY '=' maintainStatsProbability=REAL_LITERAL
-    | METRIC '=' metric=hnswMetric
-    | RABITQ_NUM_EX_BITS '=' rabitQNumExBits=DECIMAL_LITERAL
-    | SAMPLE_VECTOR_STATS_PROBABILITY '=' statsProbability=REAL_LITERAL
-    | STATS_THRESHOLD '=' statsThreshold=DECIMAL_LITERAL
-    | USE_RABITQ '=' useRabitQ=booleanLiteral
+    : optionName=simpleId '=' optionValue=vectorIndexOptionValue
+    ;
+
+vectorIndexOptionValue
+    : DECIMAL_LITERAL
+    | REAL_LITERAL
+    | booleanLiteral
+    | hnswMetric
     ;
 
 hnswMetric
@@ -379,14 +382,14 @@ deleteStatement
       (WHERE whereExpr)?
       orderByClause? limitClause?
       (RETURNING selectElements)?
-      queryOptions?
+      statementOptions?
     ;
 
 insertStatement
     : INSERT
       INTO? tableName
       (columns=uidListWithNestingsInParens)? insertStatementValue
-      queryOptions?
+      statementOptions?
     ;
 
 continuationAtom
@@ -395,7 +398,7 @@ continuationAtom
     ;
 
 selectStatement
-    : query
+    : query statementOptions?
     ;
 
 query
@@ -456,7 +459,7 @@ updateStatement
       SET updatedElement (',' updatedElement)*
       (WHERE whereExpr)?
       (RETURNING selectElements)?
-      queryOptions?
+      statementOptions?
     ;
 
 // details
@@ -530,8 +533,7 @@ queryTerm
     qualifyClause?
     /*windowClause?*/
     orderByClause?
-    limitClause?
-    queryOptions?                                                  #simpleTable
+    limitClause?                                                   #simpleTable
     | '(' query ')'                                                #parenthesisQuery
     ;
 
@@ -587,15 +589,14 @@ limitClauseAtom
     | preparedStatementParameter
     ;
 
-queryOptions
-    : OPTIONS '(' queryOption (',' queryOption)* ')'
+statementOptions
+    : OPTIONS '(' statementOption (',' statementOption)* ')'
     ;
 
-queryOption
+statementOption
     : NOCACHE
     | LOG QUERY
     | DRY RUN
-    | EF_SEARCH decimalLiteral
     | PLAN RIGHT DEEP
     ;
 
@@ -686,7 +687,7 @@ resetStatement
 
 executeContinuationStatement
     : EXECUTE CONTINUATION packageBytes=continuationAtom
-      queryOptions?
+      statementOptions?
     ;
 
 copyStatement
@@ -740,7 +741,7 @@ helpStatement
 
 describeObjectClause
     : (
-        query | deleteStatement | insertStatement
+        query statementOptions? | deleteStatement | insertStatement
         | updateStatement | executeContinuationStatement
       )                                                             #describeStatements
     | FOR CONNECTION uid                                            #describeConnection
@@ -1308,7 +1309,9 @@ intervalTypeBase
     ;
 
 keywordsCanBeId
-    : ACCOUNT | ACTION | ADMIN | AFTER | AGGREGATE | ALGORITHM | ANY
+    : CONNECTIVITY | EF_CONSTRUCTION | M_MAX | M_MAX_0 | MAINTAIN_STATS_PROBABILITY | METRIC
+    | RABITQ_NUM_EX_BITS | SAMPLE_VECTOR_STATS_PROBABILITY | STATS_THRESHOLD | USE_RABITQ
+    | ACCOUNT | ACTION | ADMIN | AFTER | AGGREGATE | ALGORITHM | ANY
     | AT | AUDIT_ADMIN | AUTHORS | AUTOCOMMIT | AUTOEXTEND_SIZE
     | AUTO_INCREMENT | AVG | AVG_ROW_LENGTH | BACKUP_ADMIN | BEGIN | BINLOG | BINLOG_ADMIN | BINLOG_ENCRYPTION_ADMIN | BIT | BIT_AND | BIT_OR | BIT_XOR
     | BLOCK | BOOL | BTREE | CACHE | CASCADED | CHAIN | CHANGED
