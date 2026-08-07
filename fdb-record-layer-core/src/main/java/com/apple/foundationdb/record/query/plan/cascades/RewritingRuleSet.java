@@ -21,7 +21,9 @@
 package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.query.plan.cascades.ConditionalCascadesRule.ConditionalExplorationCascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.cascades.rules.DecorrelateValuesRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.FinalizeExpressionsRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.PredicatePushDownRule;
@@ -30,6 +32,7 @@ import com.apple.foundationdb.record.query.plan.cascades.rules.RewriteOuterJoinR
 import com.apple.foundationdb.record.query.plan.cascades.rules.SelectMergeRule;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Streams;
 
 import javax.annotation.Nonnull;
 import java.util.Set;
@@ -40,11 +43,14 @@ import java.util.Set;
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("java:S1452")
 public class RewritingRuleSet extends CascadesRuleSet {
-    private static final Set<ExplorationCascadesRule<? extends RelationalExpression>> EXPLORATION_RULES = ImmutableSet.of(
-            new QueryPredicateSimplificationRule(),
-            new DecorrelateValuesRule(),
-            new RewriteOuterJoinRule()
-    );
+    private static final ConditionalExplorationCascadesRule<SelectExpression>
+            decorrelateThenSimplification =
+            new ConditionalExplorationCascadesRule<>(new DecorrelateValuesRule(),
+                    new QueryPredicateSimplificationRule());
+
+    private static final Set<ExplorationCascadesRule<? extends RelationalExpression>> EXPLORATION_RULES =
+            ImmutableSet.of(decorrelateThenSimplification, new RewriteOuterJoinRule());
+
     private static final Set<AbstractCascadesRule<? extends RelationalExpression>> PREORDER_RULES = ImmutableSet.of();
 
     private static final Set<ImplementationCascadesRule<? extends RelationalExpression>> IMPLEMENTATION_RULES = ImmutableSet.of(
@@ -52,6 +58,9 @@ public class RewritingRuleSet extends CascadesRuleSet {
             new PredicatePushDownRule(),
             new FinalizeExpressionsRule()
     );
+
+    private static final Set<ConditionalCascadesRule<? extends RelationalExpression, ?>> CONDITIONAL_RULES =
+            ImmutableSet.of(decorrelateThenSimplification);
 
     @Nonnull
     private static final Set<CascadesRule<? extends RelationalExpression>> ALL_EXPRESSION_RULES =
@@ -63,8 +72,11 @@ public class RewritingRuleSet extends CascadesRuleSet {
 
     @Nonnull
     public static final Set<CascadesRule<? extends RelationalExpression>> OPTIONAL_RULES =
-            ALL_EXPRESSION_RULES.stream()
-                    .filter(rule -> !(rule instanceof FinalizeExpressionsRule))
+            Streams.concat(PREORDER_RULES.stream(), EXPLORATION_RULES.stream(), IMPLEMENTATION_RULES.stream(),
+                            CONDITIONAL_RULES.stream()
+                                    .flatMap(conditionalCascadesRule -> conditionalCascadesRule.getRules().stream()))
+                    .filter(rule -> !(rule instanceof FinalizeExpressionsRule) &&
+                            !(rule instanceof ConditionalCascadesRule))
                     .collect(ImmutableSet.toImmutableSet());
 
     @Nonnull

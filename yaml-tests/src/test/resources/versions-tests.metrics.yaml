@@ -155,10 +155,10 @@ versions-queries:
     ref: versions-tests.yamsql:272
     explain: ISCAN(I1 [EQUALS promote(@c7 AS LONG)]) | MAP (_.__ROW_VERSION AS __ROW_VERSION,
         _.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2)
-    task_count: 851
-    task_total_time_ms: 73
-    transform_count: 214
-    transform_time_ms: 24
+    task_count: 849
+    task_total_time_ms: 60
+    transform_count: 213
+    transform_time_ms: 14
     transform_yield_count: 71
     insert_time_ms: 1
     insert_new_count: 105
@@ -194,10 +194,10 @@ versions-queries:
     ref: versions-tests.yamsql:287
     explain: ISCAN(I1 [EQUALS promote(@c23 AS LONG)]) | MAP (_.__ROW_VERSION AS VERSION,
         _.COL2 AS COL2)
-    task_count: 877
-    task_total_time_ms: 73
-    transform_count: 220
-    transform_time_ms: 20
+    task_count: 875
+    task_total_time_ms: 61
+    transform_count: 219
+    transform_time_ms: 15
     transform_yield_count: 73
     insert_time_ms: 1
     insert_new_count: 109
@@ -330,12 +330,12 @@ versions-queries:
     ref: versions-tests.yamsql:362
     explain: ISCAN(GROUPED_VERSION_INDEX [EQUALS promote(@c11 AS LONG)]) | MAP (_.__ROW_VERSION
         AS __ROW_VERSION, _.ID AS ID)
-    task_count: 503
-    task_total_time_ms: 55
-    transform_count: 136
-    transform_time_ms: 15
+    task_count: 501
+    task_total_time_ms: 40
+    transform_count: 135
+    transform_time_ms: 12
     transform_yield_count: 52
-    insert_time_ms: 1
+    insert_time_ms: 0
     insert_new_count: 62
     insert_reused_count: 2
 -   query: EXPLAIN select "__ROW_VERSION", t1.id from t1 where col1 = 20 order by
@@ -513,12 +513,12 @@ versions-queries:
         OR _.COL2 EQUALS promote(@c14 AS STRING)) AND _.COL1 EQUALS promote(@c5 AS
         LONG) | MAP (_.__ROW_VERSION AS __ROW_VERSION, _.ID AS ID, _.COL1 AS COL1,
         _.COL2 AS COL2)
-    task_count: 421
-    task_total_time_ms: 37
-    transform_count: 111
-    transform_time_ms: 14
+    task_count: 419
+    task_total_time_ms: 42
+    transform_count: 110
+    transform_time_ms: 11
     transform_yield_count: 33
-    insert_time_ms: 1
+    insert_time_ms: 0
     insert_new_count: 62
     insert_reused_count: 4
 -   query: EXPLAIN select "__ROW_VERSION", (a.*), (b.*) from t1 as a, (select * from
@@ -597,12 +597,12 @@ versions-queries:
         q0.COL2]) | FILTER _.COL1 EQUALS @c43 AND promote(@c53 AS LONG) IN _.COL4
         AS q1 RETURN (q0.__ROW_VERSION AS VERSION3, q0.ID AS ID3, q1.__ROW_VERSION
         AS VERSION4, q1.ID AS ID4, q0.COL2 AS COL2, q1.COL4 AS COL4) }'
-    task_count: 3275
-    task_total_time_ms: 224
-    transform_count: 1059
-    transform_time_ms: 101
+    task_count: 3271
+    task_total_time_ms: 414
+    transform_count: 1057
+    transform_time_ms: 150
     transform_yield_count: 227
-    insert_time_ms: 12
+    insert_time_ms: 11
     insert_new_count: 513
     insert_reused_count: 43
 -   query: EXPLAIN select "__ROW_VERSION", id, col1, col3 from t4 where col3 in (1,
@@ -685,12 +685,12 @@ versions-queries:
         promote(@c15 AS LONG) AS q1 RETURN ((q1.__ROW_VERSION AS __ROW_VERSION, q1.ID
         AS ID, q1.COL1 AS COL1, q1.COL2 AS COL2) AS A, (q0.__ROW_VERSION AS __ROW_VERSION,
         q0.ID AS ID, q0.COL1 AS COL1, q0.COL2 AS COL2) AS B) }
-    task_count: 1347
-    task_total_time_ms: 191
-    transform_count: 361
-    transform_time_ms: 69
+    task_count: 1343
+    task_total_time_ms: 173
+    transform_count: 359
+    transform_time_ms: 57
     transform_yield_count: 110
-    insert_time_ms: 3
+    insert_time_ms: 2
     insert_new_count: 196
     insert_reused_count: 9
 -   query: EXPLAIN select (A.*) as A, (B.*) as B, (C.*) as C from t2_v(2) as A, t3_v(2)
@@ -705,11 +705,11 @@ versions-queries:
         AS __ROW_VERSION, q0.ID AS ID, q0.COL1 AS COL1, q0.COL2 AS COL2) AS B, (q3._1.__ROW_VERSION
         AS __ROW_VERSION, q3._1.ID AS ID, q3._1.COL1 AS COL1, q3._1.COL2 AS COL2)
         AS C) }
-    task_count: 4109
-    task_total_time_ms: 863
-    transform_count: 1355
-    transform_time_ms: 295
+    task_count: 4103
+    task_total_time_ms: 692
+    transform_count: 1352
+    transform_time_ms: 254
     transform_yield_count: 258
-    insert_time_ms: 25
+    insert_time_ms: 14
     insert_new_count: 626
     insert_reused_count: 65
