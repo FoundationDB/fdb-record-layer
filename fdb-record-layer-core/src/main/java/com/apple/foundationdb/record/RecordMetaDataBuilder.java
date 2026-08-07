@@ -246,7 +246,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
             final List<String> tempFunctions = proto.getTempFunctionsCount() > 0
                     ? new ArrayList<>(proto.getTempFunctionsList())
                     : Collections.emptyList();
-            storedQueries.put(proto.getName(), new RecordMetaData.StoredQuery(proto.getQuery(), tempFunctions));
+            storedQueries.put(proto.getName(), new RecordMetaData.StoredQuery(proto.getQuery(), tempFunctions, proto.getParameters()));
         }
         if (metaDataProto.hasSplitLongRecords()) {
             splitLongRecords = metaDataProto.getSplitLongRecords();
@@ -1231,7 +1231,12 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
     }
 
     public void addStoredQuery(@Nonnull String name, @Nonnull String storedQuery, @Nonnull List<String> tempFunctions) {
-        storedQueries.put(name, new RecordMetaData.StoredQuery(storedQuery, tempFunctions));
+        addStoredQuery(name, storedQuery, tempFunctions, "");
+    }
+
+    public void addStoredQuery(@Nonnull String name, @Nonnull String storedQuery, @Nonnull List<String> tempFunctions,
+                               @Nonnull String parameters) {
+        storedQueries.put(name, new RecordMetaData.StoredQuery(storedQuery, tempFunctions, parameters));
     }
 
     public boolean isSplitLongRecords() {

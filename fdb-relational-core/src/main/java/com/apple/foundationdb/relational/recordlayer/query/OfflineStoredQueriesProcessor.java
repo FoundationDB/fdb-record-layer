@@ -227,12 +227,17 @@ public final class OfflineStoredQueriesProcessor {
         }
         try {
             final var sql = storedQuery.getQuery();
+            // The parameter signature declares the type (and range) of each "?" in the body; supply them as
+            // declared parameters so the body plans value-free (no bound values at warmup).
+            final var declaredParams = PreparedParams.ofDeclared(
+                    StoredQuerySignatureParser.parse(storedQuery.getParameters()));
             PlanGenerator.create(
                             Optional.of(cache),
                             currentTemplate,
                             new RecordStoreState(null, null),
                             metricCollector,
-                            Options.NONE)
+                            Options.NONE,
+                            declaredParams)
                     .getPlan(sql, Map.of(
                             "schemaTemplate", templateKey,
                             "storedQueryName", storedQueryName,

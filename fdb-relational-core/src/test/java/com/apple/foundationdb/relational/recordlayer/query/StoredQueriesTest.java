@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.relational.recordlayer.query;
 
+import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
@@ -108,6 +109,32 @@ public class StoredQueriesTest {
                     "   DECLARE" +
                     "       FUNCTION1 sq1(in x bigint) AS (SELECT * FROM t1 WHERE col1 < x)" +
                     " AS SELECT * FROM sq1(10)";
+
+    /** Positional parameter signature (type + open-bound range); body uses a plain {@code ?}. */
+    private static final String SCHEMA_TEMPLATE_PARAM_SIG =
+            "CREATE TABLE t1(id bigint, col1 bigint, col2 bigint, PRIMARY KEY(id))" +
+                    " CREATE STORED QUERY by_col1(bigint > 5) AS select * from t1 where col1 > ?";
+
+    /** A sparse (filtered) index plus a stored query whose declared range is enclosed by the index predicate. */
+    private static final String SCHEMA_TEMPLATE_SPARSE_PARAM =
+            "CREATE TABLE t1(id bigint, col1 bigint, col2 bigint, PRIMARY KEY(id))" +
+                    " CREATE INDEX i1 AS SELECT col1 FROM t1 WHERE col1 > 42" +
+                    " CREATE STORED QUERY hot(bigint > 50) AS select col1 from t1 where col1 > ?";
+
+    /** Every signature form (type only, open bound, two bounds, BETWEEN, IN) plus a multi-parameter signature. */
+    private static final String SCHEMA_TEMPLATE_PARAM_SIG_FORMS =
+            "CREATE TABLE t1(id bigint, col1 bigint, col2 bigint, PRIMARY KEY(id))" +
+                    " CREATE STORED QUERY q_type       (bigint)                   AS select * from t1 where col1 = ?" +
+                    " CREATE STORED QUERY q_open       (bigint > 0)               AS select * from t1 where col1 > ?" +
+                    " CREATE STORED QUERY q_two_bounds (bigint > 0 and < 100)     AS select * from t1 where col1 > ?" +
+                    " CREATE STORED QUERY q_between    (bigint between 0 and 100) AS select * from t1 where col1 > ?" +
+                    " CREATE STORED QUERY q_in         (bigint in (1, 2, 3))      AS select * from t1 where col1 = ?" +
+                    " CREATE STORED QUERY q_multi      (bigint > 0, string)       AS select * from t1 where col1 > ? and col2 = ?";
+
+    /** Signature entry without a type — fails to parse. */
+    private static final String SCHEMA_TEMPLATE_PARAM_SIG_NO_TYPE =
+            "CREATE TABLE t1(id bigint, col1 bigint, col2 bigint, PRIMARY KEY(id))" +
+                    " CREATE STORED QUERY q(> 5) AS select * from t1 where col1 > ?";
 
 
     @RegisterExtension
@@ -575,4 +602,241 @@ public class StoredQueriesTest {
                 .hasErrorCode(ErrorCode.SYNTAX_ERROR);
     }
 
+    @Test
+    void storedQueryParameterSignatureParses() throws Exception {
+        try (var ddl = Ddl.builder()
+                .database(URI.create("/TEST/SQ_PARAM_SIG"))
+                .relationalExtension(relationalExtension)
+                .schemaTemplate(SCHEMA_TEMPLATE_PARAM_SIG)
+                .build()) {
+            final var connection = ddl.setSchemaAndGetConnection();
+            final var embeddedConnection = connection.unwrap(EmbeddedRelationalConnection.class);
+            embeddedConnection.setAutoCommit(false);
+            embeddedConnection.createNewTransaction();
+            final var schemaTemplate = embeddedConnection.getSchemaTemplate().unwrap(RecordLayerSchemaTemplate.class);
+            embeddedConnection.rollback();
+            embeddedConnection.setAutoCommit(true);
+            final var storedQueries = schemaTemplate.getStoredQueries();
+            Assertions.assertEquals(1, storedQueries.size());
+            // The positional signature is separated from the body: the body (with its plain "?") is stored as the
+            // query, and the signature text is captured separately.
+            Assertions.assertEquals("select * from t1 where col1 > ?", storedQueries.get("BY_COL1").getQuery());
+            Assertions.assertEquals("(bigint > 5)", storedQueries.get("BY_COL1").getParameters());
+        }
+    }
+
+    @Test
+    void storedQueryParameterSignatureFormsParse() throws Exception {
+        try (var ddl = Ddl.builder()
+                .database(URI.create("/TEST/SQ_PARAM_SIG_FORMS"))
+                .relationalExtension(relationalExtension)
+                .schemaTemplate(SCHEMA_TEMPLATE_PARAM_SIG_FORMS)
+                .build()) {
+            final var connection = ddl.setSchemaAndGetConnection();
+            final var embeddedConnection = connection.unwrap(EmbeddedRelationalConnection.class);
+            embeddedConnection.setAutoCommit(false);
+            embeddedConnection.createNewTransaction();
+            final var schemaTemplate = embeddedConnection.getSchemaTemplate().unwrap(RecordLayerSchemaTemplate.class);
+            embeddedConnection.rollback();
+            embeddedConnection.setAutoCommit(true);
+            // type-only, open bound, two bounds, BETWEEN, IN, and a multi-parameter signature all parse.
+            Assertions.assertEquals(6, schemaTemplate.getStoredQueries().size());
+        }
+    }
+
+    @Test
+    void storedQueriesUsageDeclaredParamHitsCache() throws Exception {
+        final String dbUri = "/TEST/SQ_PARAM_SIG_USAGE";
+        try (var ddl = Ddl.builder()
+                .database(URI.create(dbUri))
+                .relationalExtension(relationalExtension)
+                .schemaTemplate(SCHEMA_TEMPLATE_PARAM_SIG)
+                .build()) {
+            final var connection = ddl.setSchemaAndGetConnection();
+            final String templateName = ddl.getSchemaTemplateName();
+            final String schemaName = connection.getSchema();
+
+            try (var stmt = connection.createStatement()) {
+                stmt.execute("INSERT INTO T1 VALUES (1, 10, 1)");
+                stmt.execute("INSERT INTO T1 VALUES (2, 20, 2)");
+                stmt.execute("INSERT INTO T1 VALUES (3, 30, 3)");
+            }
+
+            // fresh engine triggers OfflineStoredQueriesProcessor
+            final var engineDriver = relationalExtension.getDriver(
+                    com.apple.foundationdb.record.provider.foundationdb.FormatVersion.getDefaultFormatVersion());
+            final var connectionUtils = new ConnectionUtils(engineDriver);
+
+            // The stored query body (select * from t1 where col1 > ?) is planned value-free from the declared
+            // signature (bigint > 5): 1 warm-up miss, 1 cached plan.
+            Assertions.assertEquals(1, eventCounterCount(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_MISS));
+            Assertions.assertEquals(0, eventCounterCount(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_HIT));
+            Assertions.assertEquals(Long.valueOf(1), connectionUtils.getFromCatalog(c -> countCachedPlans(c, templateName)));
+
+            // Runtime query supplies a concrete (non-null) value. The declared parameter warmed the plan with an
+            // IS_NOT_NULL constraint (via a representative value), so this hits the pre-warmed plan instead of missing.
+            // The literal is written as 15L (LONG) to match the declared bigint: OfType constrains primitives by exact
+            // type code, so a plain 15 (INT) would legitimately miss and re-plan.
+            connectionUtils.runAgainstConnection(dbUri, schemaName, c -> {
+                try (var stmt = c.createStatement(); RelationalResultSet rs = stmt.executeQuery("select * from t1 where col1 > 15L")) {
+                    Assertions.assertTrue(rs.next());
+                    Assertions.assertEquals(2, rs.getLong("ID"));
+                    Assertions.assertTrue(rs.next());
+                    Assertions.assertEquals(3, rs.getLong("ID"));
+                    Assertions.assertFalse(rs.next());
+                }
+            });
+
+            // hit the pre-warmed cache: hit +1, miss unchanged, cache size unchanged.
+            Assertions.assertEquals(1, eventCounterCount(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_HIT));
+            Assertions.assertEquals(1, eventCounterCount(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_MISS));
+            Assertions.assertEquals(Long.valueOf(1), connectionUtils.getFromCatalog(c -> countCachedPlans(c, templateName)));
+        }
+    }
+
+    @Test
+    void storedQueriesUsageDeclaredParamJdbcPrepare() throws Exception {
+        final String dbUri = "/TEST/SQ_PARAM_SIG_USAGE_JDBC";
+        try (var ddl = Ddl.builder()
+                .database(URI.create(dbUri))
+                .relationalExtension(relationalExtension)
+                .schemaTemplate(SCHEMA_TEMPLATE_PARAM_SIG)
+                .build()) {
+            final var connection = ddl.setSchemaAndGetConnection();
+            final String templateName = ddl.getSchemaTemplateName();
+            final String schemaName = connection.getSchema();
+
+            try (var stmt = connection.createStatement()) {
+                stmt.execute("INSERT INTO T1 VALUES (1, 10, 1)");
+                stmt.execute("INSERT INTO T1 VALUES (2, 20, 2)");
+                stmt.execute("INSERT INTO T1 VALUES (3, 30, 3)");
+            }
+
+            // fresh engine triggers OfflineStoredQueriesProcessor
+            final var engineDriver = relationalExtension.getDriver(
+                    com.apple.foundationdb.record.provider.foundationdb.FormatVersion.getDefaultFormatVersion());
+            final var connectionUtils = new ConnectionUtils(engineDriver);
+
+            Assertions.assertEquals(1, eventCounterCount(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_MISS));
+            Assertions.assertEquals(Long.valueOf(1), connectionUtils.getFromCatalog(c -> countCachedPlans(c, templateName)));
+
+            // A JDBC PreparedStatement binds the "?" positionally; canonical SQL matches the stored body, and the
+            // bound (non-null) value satisfies the warmed IS_NOT_NULL constraint — cache hit.
+            connectionUtils.runAgainstConnection(dbUri, schemaName, c -> {
+                try (var ps = c.prepareStatement("select * from t1 where col1 > ?")) {
+                    ps.setLong(1, 15);
+                    try (RelationalResultSet rs = ps.executeQuery()) {
+                        Assertions.assertTrue(rs.next());
+                        Assertions.assertEquals(2, rs.getLong("ID"));
+                        Assertions.assertTrue(rs.next());
+                        Assertions.assertEquals(3, rs.getLong("ID"));
+                        Assertions.assertFalse(rs.next());
+                    }
+                }
+            });
+
+            Assertions.assertEquals(1, eventCounterCount(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_HIT));
+            Assertions.assertEquals(1, eventCounterCount(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_MISS));
+            Assertions.assertEquals(Long.valueOf(1), connectionUtils.getFromCatalog(c -> countCachedPlans(c, templateName)));
+        }
+    }
+
+    @Test
+    void storedQueryParameterSignatureMissingTypeFailsToParse() {
+        RelationalAssertions.assertThrowsSqlException(() ->
+                Ddl.builder()
+                        .database(URI.create("/TEST/SQ_PARAM_SIG_NO_TYPE_DB"))
+                        .relationalExtension(relationalExtension)
+                        .schemaTemplate(SCHEMA_TEMPLATE_PARAM_SIG_NO_TYPE)
+                        .build())
+                .hasErrorCode(ErrorCode.SYNTAX_ERROR);
+    }
+
+    @Test
+    void storedQuerySignatureParsesNumericRanges() {
+        // open bound: bigint > 5  ->  a single GREATER_THAN(5L) comparison
+        final var open = StoredQuerySignatureParser.parse("(bigint > 5)");
+        Assertions.assertEquals(1, open.size());
+        final var openRange = open.get(1).getRange();
+        Assertions.assertNotNull(openRange);
+        Assertions.assertEquals(1, openRange.getComparisons().size());
+        final var openCmp = openRange.getComparisons().get(0);
+        Assertions.assertEquals(Comparisons.Type.GREATER_THAN, openCmp.getType());
+        Assertions.assertEquals(5L, openCmp.getComparand());
+
+        // two bounds: bigint > 0 and < 100  ->  two comparisons
+        final var twoBounds = StoredQuerySignatureParser.parse("(bigint > 0 and < 100)");
+        Assertions.assertEquals(2, twoBounds.get(1).getRange().getComparisons().size());
+
+        // BETWEEN 0 AND 100  ->  >= 0 AND <= 100
+        final var between = StoredQuerySignatureParser.parse("(bigint between 0 and 100)");
+        final var betweenCmps = between.get(1).getRange().getComparisons();
+        Assertions.assertEquals(2, betweenCmps.size());
+        Assertions.assertTrue(betweenCmps.stream().anyMatch(c -> c.getType() == Comparisons.Type.GREATER_THAN_OR_EQUALS));
+        Assertions.assertTrue(betweenCmps.stream().anyMatch(c -> c.getType() == Comparisons.Type.LESS_THAN_OR_EQUALS));
+
+        // no range declared  ->  null
+        Assertions.assertNull(StoredQuerySignatureParser.parse("(bigint)").get(1).getRange());
+    }
+
+    @Test
+    void storedQueriesDeclaredParamRangeSelectsFilteredIndex() throws Exception {
+        final String dbUri = "/TEST/SQ_PARAM_SPARSE";
+        try (var ddl = Ddl.builder()
+                .database(URI.create(dbUri))
+                .relationalExtension(relationalExtension)
+                .schemaTemplate(SCHEMA_TEMPLATE_SPARSE_PARAM)
+                .build()) {
+            final var connection = ddl.setSchemaAndGetConnection();
+            final String templateName = ddl.getSchemaTemplateName();
+            final String schemaName = connection.getSchema();
+
+            try (var stmt = connection.createStatement()) {
+                stmt.execute("INSERT INTO T1 VALUES (1, 10, 1)");
+                stmt.execute("INSERT INTO T1 VALUES (2, 50, 2)");
+                stmt.execute("INSERT INTO T1 VALUES (3, 100, 3)");
+                stmt.execute("INSERT INTO T1 VALUES (4, 200, 4)");
+            }
+
+            // fresh engine triggers OfflineStoredQueriesProcessor
+            final var engineDriver = relationalExtension.getDriver(
+                    com.apple.foundationdb.record.provider.foundationdb.FormatVersion.getDefaultFormatVersion());
+            final var connectionUtils = new ConnectionUtils(engineDriver);
+
+            // The declared range (> 50) seeds the representative value 50, so the value-free plan selects the sparse
+            // index i1 (col1 > 42), which encloses (50, +inf). Warmup: 1 miss, 1 cached plan.
+            Assertions.assertEquals(1, eventCounterCount(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_MISS));
+            Assertions.assertEquals(Long.valueOf(1), connectionUtils.getFromCatalog(c -> countCachedPlans(c, templateName)));
+
+            // A value inside the index coverage hits the warmed filtered-index plan.
+            connectionUtils.runAgainstConnection(dbUri, schemaName, c -> {
+                try (var stmt = c.createStatement(); RelationalResultSet rs = stmt.executeQuery("select col1 from t1 where col1 > 60L")) {
+                    Assertions.assertTrue(rs.next());
+                    Assertions.assertEquals(100, rs.getLong("COL1"));
+                    Assertions.assertTrue(rs.next());
+                    Assertions.assertEquals(200, rs.getLong("COL1"));
+                    Assertions.assertFalse(rs.next());
+                }
+            });
+            Assertions.assertEquals(1, eventCounterCount(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_HIT));
+            Assertions.assertEquals(1, eventCounterCount(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_MISS));
+
+            // A value below the index bound (42) cannot be served by the filtered-index plan: its constraint (col1 > 42)
+            // rejects it, so it misses and re-plans. This is what proves the warmed plan is the filtered index — a
+            // full-scan warmup would carry only an IS_NOT_NULL/OfType constraint and would HIT here instead.
+            connectionUtils.runAgainstConnection(dbUri, schemaName, c -> {
+                try (var stmt = c.createStatement(); RelationalResultSet rs = stmt.executeQuery("select col1 from t1 where col1 > 30L")) {
+                    Assertions.assertTrue(rs.next());
+                    Assertions.assertEquals(50, rs.getLong("COL1"));
+                    Assertions.assertTrue(rs.next());
+                    Assertions.assertEquals(100, rs.getLong("COL1"));
+                    Assertions.assertTrue(rs.next());
+                    Assertions.assertEquals(200, rs.getLong("COL1"));
+                    Assertions.assertFalse(rs.next());
+                }
+            });
+            Assertions.assertEquals(1, eventCounterCount(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_HIT));
+            Assertions.assertEquals(2, eventCounterCount(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_MISS));
+        }
+    }
 }

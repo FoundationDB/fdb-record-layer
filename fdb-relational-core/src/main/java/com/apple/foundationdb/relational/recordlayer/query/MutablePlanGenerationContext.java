@@ -40,6 +40,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.relational.api.RelationalArray;
 import com.apple.foundationdb.relational.api.RelationalStruct;
 import com.apple.foundationdb.relational.api.WithMetadata;
+import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.metadata.DataTypeUtils;
 import com.apple.foundationdb.relational.util.Assert;
@@ -479,7 +480,89 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
         } else {
             param = preparedParams.nextUnnamedParamValue();
         }
+        if (param instanceof PreparedParams.DeclaredParameter) {
+            return processDeclaredParameter((PreparedParams.DeclaredParameter) param, currentUnnamedParameterIndex, tokenIndex);
+        }
         return processPreparedStatementParameter(param, getObjectType(param), currentUnnamedParameterIndex, null, tokenIndex);
+    }
+
+    /**
+     * Processes a stored query signature parameter (from {@link PreparedParams.DeclaredParameter}): it carries a
+     * declared type but no bound value, so it becomes a {@link ConstantObjectValue} of that type.
+     *
+     * <p>The literal is seeded with a non-null <em>representative</em> value rather than {@code null}. A {@code null}
+     * would let the planner constant-fold the enclosing predicate at warmup (e.g. {@code col > null} is never true),
+     * baking an empty-result plan that stays empty even once a real value is bound at runtime. A concrete non-null
+     * value keeps the {@link ConstantObjectValue} a value-independent placeholder (exactly as a bound {@code ?} would
+     * be), and makes the derived plan constraint an {@code IS_NOT_NULL} so runtime non-null values match the warmed
+     * plan. The runtime value replaces this placeholder at execution.</p>
+     *
+     * <p>When the parameter declares a range, the range's boundary value is used as the representative so that warmup
+     * selects a filtered index covering the whole declared range (see {@link #representativeValue}).</p>
+     */
+    @Nonnull
+    private Value processDeclaredParameter(@Nonnull final PreparedParams.DeclaredParameter declared,
+                                           final int unnamedParameterIndex, final int tokenIndex) {
+        final var orderedLiteral = literalsBuilder.addLiteral(declared.getType(),
+                representativeValue(declared), unnamedParameterIndex, null, tokenIndex);
+        final var result = ConstantObjectValue.of(Quantifier.constant(), orderedLiteral.getConstantId(), declared.getType());
+        addLiteralReference(result);
+        return result;
+    }
+
+    /**
+     * A non-null placeholder value used to plan the stored query body value-free at warmup (see
+     * {@link #processDeclaredParameter}).
+     *
+     * <p>The value only affects <em>which</em> plan is warmed (an optimization); correctness is guaranteed by the
+     * captured plan constraint, so any runtime value the warmed plan cannot serve simply misses and re-plans. When the
+     * parameter declares a single-bound range (e.g. {@code (bigint > 50)}), that boundary is the worst-case value for
+     * index enclosure and is already of the declared type, so warmup selects a filtered index that covers the whole
+     * declared range. Otherwise (no range, or a two-sided range whose relevant bound depends on the query operator,
+     * which is not known here) a plain type default is used &mdash; safe, but possibly a wider, non-filtered plan.</p>
+     */
+    @Nonnull
+    private static Object representativeValue(@Nonnull final PreparedParams.DeclaredParameter declared) {
+        final var range = declared.getRange();
+        if (range != null) {
+            final var comparisons = range.getComparisons();
+            if (comparisons.size() == 1) {
+                final var comparand = comparisons.iterator().next().getComparand();
+                if (comparand != null) {
+                    return comparand;
+                }
+            }
+        }
+        return typeDefaultValue(declared.getType());
+    }
+
+    /**
+     * A non-null default value of the given primitive type, used to plan value-free when no range boundary is
+     * available (see {@link #representativeValue}). The concrete value is irrelevant to the resulting plan shape; it
+     * only needs to be non-null and of the declared type.
+     */
+    @Nonnull
+    private static Object typeDefaultValue(@Nonnull final Type type) {
+        switch (type.getTypeCode()) {
+            case BOOLEAN:
+                return false;
+            case INT:
+                return 0;
+            case LONG:
+                return 0L;
+            case FLOAT:
+                return 0.0f;
+            case DOUBLE:
+                return 0.0d;
+            case STRING:
+                return "";
+            case BYTES:
+                return ZeroCopyByteString.wrap(new byte[0]);
+            default:
+                throw new RelationalException("Unsupported declared parameter type", ErrorCode.UNSUPPORTED_OPERATION)
+                        .addContext("typeCode", type.getTypeCode())
+                        .toUncheckedWrappedException();
+        }
     }
 
     @Nonnull
