@@ -28,7 +28,9 @@ import com.apple.foundationdb.record.PipelineOperation;
 import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
+import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCursor;
+import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.planprotos.PRecordQueryDeletePlan;
 import com.apple.foundationdb.record.planprotos.PRecordQueryPlan;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
@@ -96,6 +98,15 @@ public class RecordQueryDeletePlan extends AbstractRelationalExpressionWithChild
                                                                      @Nonnull final EvaluationContext context,
                                                                      @Nullable final byte[] continuation,
                                                                      @Nonnull final ExecuteProperties executeProperties) {
+        // Like other data-modification plans, a delete must run at serializable isolation: it reads existing records
+        // (to maintain indexes, etc.) and those reads must participate in conflict detection to remain
+        // correct. Executing at SNAPSHOT isolation would, at a minimum, require adding any records read to the conflict
+        // range to ensure index consistency. It also requires determining and documenting the exact semantics. Because
+        // of this complexity and a lack of immediate requests, this is not supported.
+        if (executeProperties.getIsolationLevel().isSnapshot()) {
+            throw new RecordCoreArgumentException("Cannot execute a data-modification plan at SNAPSHOT isolation level")
+                    .addLogInfo(LogMessageKeys.PLAN, getClass().getSimpleName());
+        }
         if (executeProperties.isDryRun()) {
             return RecordCursor.flatMapPipelined(
                     outerContinuation -> getInnerPlan().executePlan(store, context, outerContinuation, executeProperties.clearSkipAndLimit()),
