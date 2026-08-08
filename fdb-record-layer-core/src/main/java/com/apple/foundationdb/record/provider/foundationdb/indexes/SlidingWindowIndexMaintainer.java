@@ -374,63 +374,46 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
     @Override
     public <M extends Message> CompletableFuture<Void> update(@Nullable FDBIndexableRecord<M> oldRecord,
                                                               @Nullable FDBIndexableRecord<M> newRecord) {
-        final Subspace swSubspace = getSlidingWindowSubspace();
-        return state.context.doWithWriteLock(new LockIdentifier(swSubspace), () -> {
-            CompletableFuture<Void> future = AsyncUtil.DONE;
-
-            if (shouldMaintain(oldRecord)) {
-                future = future.thenCompose(vignore ->
-                        handleDelete(entryKeyOf(oldRecord), () -> delegate.update(oldRecord, null)));
-            }
-            if (shouldMaintain(newRecord)) {
-                future = future.thenCompose(vignore ->
-                        handleInsert(entryKeyOf(newRecord), () -> delegate.update(null, newRecord)));
-            }
-            return future;
-        });
+        return updateWindow(shouldMaintain(oldRecord) ? entryKeyOf(oldRecord) : null,
+                shouldMaintain(newRecord) ? entryKeyOf(newRecord) : null,
+                () -> delegate.update(oldRecord, null),
+                () -> delegate.update(null, newRecord));
     }
 
     @Nonnull
     @Override
     public <M extends Message> CompletableFuture<Void> updateWhileWriteOnly(@Nullable FDBIndexableRecord<M> oldRecord,
                                                                             @Nullable FDBIndexableRecord<M> newRecord) {
-        // During a write-only index build, the sliding window cannot rely on the normal
-        // update(old, new) contract because the indexer may have already processed newRecord
-        // in an earlier range scan. If we blindly call update(null, newRecord), the window
-        // counter would be incremented a second time, leading to an inflated count and
-        // incorrect eviction/re-election behavior.
+        // During a write-only index build, the sliding window cannot rely on the normal update(old, new)
+        // contract, because this write applies newRecord to the window now and the indexer may scan the range
+        // holding newRecord later and apply it a second time. Blindly adding newRecord to the window would then
+        // increment the counter twice, leading to an inflated count and incorrect eviction and re-election.
         //
-        // The standard index maintainer (StandardIndexMaintainer.updateWriteOnlyByRecords)
-        // handles this by checking the range set to see if the record's primary key has
-        // already been built. The sliding window takes a simpler approach: preemptively
-        // delete newRecord from the window (if it exists) before applying the full
-        // update(old, new). This is safe because:
-        //  - If newRecord was NOT previously indexed, the delete is a no-op (the entry
-        //    simply isn't found in the entries subspace).
-        //  - If newRecord WAS previously indexed, the delete removes it from the window
-        //    and decrements the counter, so the subsequent insert does not double-count.
-        //
-        // The net effect is that after this method completes, newRecord is indexed exactly
-        // once with its current values, and the counter accurately reflects the window size.
-        final EntryKey oldKey = shouldMaintain(oldRecord) ? entryKeyOf(oldRecord) : null;
-        final EntryKey newKey = shouldMaintain(newRecord) ? entryKeyOf(newRecord) : null;
-        return updateWindowWhileWriteOnly(oldKey, newKey,
+        // The standard index maintainer (StandardIndexMaintainer.updateWriteOnlyByRecords) avoids that by
+        // checking the range set and deferring the write to the build when the build has not reached this
+        // record's range yet. The sliding window instead applies the write immediately and relies on
+        // handleInsert skipping an entry that is already tracked, which makes an insert safe to apply twice
+        // regardless of which of the two applications gets there first.
+        return updateWindow(shouldMaintain(oldRecord) ? entryKeyOf(oldRecord) : null,
+                shouldMaintain(newRecord) ? entryKeyOf(newRecord) : null,
                 () -> delegate.updateWhileWriteOnly(oldRecord, null),
                 () -> delegate.updateWhileWriteOnly(null, newRecord));
     }
 
+    /**
+     * Applies a delete of {@code oldKey} and an insert of {@code newKey} to the window bookkeeping under the
+     * partition's write lock, running the matching delegate operation for each. All three update entry points
+     * (a readable update, a write-only update, and a pending-write-queue drain) funnel through here; they differ
+     * only in which delegate operation they pair with each half.
+     */
     @Nonnull
-    private CompletableFuture<Void> updateWindowWhileWriteOnly(@Nullable final EntryKey oldKey,
-                                                               @Nullable final EntryKey newKey,
-                                                               @Nonnull final Supplier<CompletableFuture<Void>> delegateDelete,
-                                                               @Nonnull final Supplier<CompletableFuture<Void>> delegateInsert) {
+    private CompletableFuture<Void> updateWindow(@Nullable final EntryKey oldKey,
+                                                 @Nullable final EntryKey newKey,
+                                                 @Nonnull final Supplier<CompletableFuture<Void>> delegateDelete,
+                                                 @Nonnull final Supplier<CompletableFuture<Void>> delegateInsert) {
         final Subspace swSubspace = getSlidingWindowSubspace();
         return state.context.doWithWriteLock(new LockIdentifier(swSubspace), () -> {
             CompletableFuture<Void> future = AsyncUtil.DONE;
-            if (newKey != null && !newKey.equals(oldKey)) {
-                incrementCounter(SlidingWindowCounter.SW_PREEMPTIVE_DELETE_WRITE_ONLY);
-                future = future.thenCompose(ignore -> handleDelete(newKey, () -> AsyncUtil.DONE));
-            }
             if (oldKey != null) {
                 future = future.thenCompose(ignore -> handleDelete(oldKey, delegateDelete));
             }
@@ -488,7 +471,7 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
         // The maintenance filter was already applied when the update was first deferred, so it is not re-evaluated here.
         validateOrThrowEx(oldKey == null || delegateDelete != null, "old record key without delegate delete");
         validateOrThrowEx(newKey == null || delegateInsert != null, "new record key without delegate insert");
-        return updateWindowWhileWriteOnly(oldKey, newKey,
+        return updateWindow(oldKey, newKey,
                 () -> delegate.updateFromQueue(delegateDelete),
                 () -> delegate.updateFromQueue(delegateInsert));
     }
@@ -557,20 +540,111 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
     @Nonnull
     private CompletableFuture<Void> handleInsert(@Nonnull final EntryKey key,
                                                  @Nonnull final Supplier<CompletableFuture<Void>> delegateInsert) {
-        final Subspace swSubspace = getSlidingWindowSubspace();
         final Transaction tr = state.store.ensureContextActive();
-        final Tuple primaryKey = key.primaryKey();
-        final Tuple partitionTuple = key.partition();
 
+        // Writing the entry key is a no-op overwrite when the entry is already tracked, but the insert below
+        // always increments the window count, so re-applying an insert for a record that the window already
+        // holds would inflate the count without adding an entry. The online indexer does exactly that whenever
+        // it builds a range holding a record that a write already indexed, because IndexingBase applies build
+        // updates as a plain update(null, record) with no dedup of its own.
+        //
+        // "Already held" has to be decided per record, not per entry key. The entries subspace is keyed by
+        // (windowValue, primaryKey), so an entry for a record whose window value has moved looks brand new even
+        // though the record is already in the window, while the delegate keys on the primary key alone and
+        // absorbs the second insert. Trusting the entry key alone would therefore drift the count above the
+        // number of records the delegate actually holds. The base table is keyed by primary key, so it is what
+        // decides which entry key this record legitimately owns.
+        //
+        // Resolving the primary key against the base table is only meaningful because a sliding window index
+        // cannot be defined over synthetic record types: SlidingWindowIndexMaintainerFactory's validator
+        // rejects that at metadata validation time. Every primary key reaching this method therefore addresses
+        // a real stored record, so a load that comes back empty means the record genuinely is not there.
+        return state.store.loadRecordAsync(key.primaryKey()).thenCompose(storedRecord -> {
+            if (storedRecord == null) {
+                // The record is gone, so there is nothing to index under any entry key. Indexing it anyway
+                // would leave an entry that a later eviction or re-election cannot resolve back to a record.
+                incrementCounter(SlidingWindowCounter.SW_INSERTED_RECORD_MISSING);
+                return AsyncUtil.DONE;
+            }
+            final EntryKey storedKey = entryKeyOf(storedRecord);
+            if (key.equals(storedKey)) {
+                return insertUnlessTracked(key, tr, delegateInsert);
+            }
+            // The record owns a different entry key than the one offered, so this looks like a replay of a
+            // version that has since been superseded. Dropping it is only safe once the record is known to be
+            // represented under the key it does own: if it is not, the record is in no window at all, and
+            // discarding this update would leave it unindexed. A stale entry is a visible miscount that a
+            // later update corrects; a missing one is a silent omission that nothing corrects.
+            final Subspace storedPartitionSubspace = partitionSubspaceFor(storedKey);
+            final Subspace storedEntriesSubspace = storedPartitionSubspace.subspace(ENTRIES_SUBSPACE_KEY);
+            return tr.get(storedEntriesSubspace.pack(storedKey.entriesKey())).thenCompose(storedEntry -> {
+                if (storedEntry != null) {
+                    incrementCounter(SlidingWindowCounter.SW_INSERT_SUPERSEDED_WINDOW_VALUE);
+                    return AsyncUtil.DONE;
+                }
+                // Index the record as it actually stands, not as the superseded update described it. Filing it
+                // under the offered key would put it in the window at a window value it no longer has, and a
+                // later eviction of that entry recomputes the window value from the record, so it would clear
+                // the wrong delegate keys and leave the delegate holding an orphan. For the same reason the
+                // delegate operation is rebuilt from the stored record rather than reusing delegateInsert,
+                // whose payload is the superseded version. Only a queue drain can reach here, because the
+                // other two callers pass the record the store just wrote, so their key always matches.
+                incrementCounter(SlidingWindowCounter.SW_INSERT_SUPERSEDED_BUT_RECORD_UNTRACKED);
+                return insertUntrackedEntry(storedKey, storedEntriesSubspace,
+                        storedPartitionSubspace.subspace(META_SUBSPACE_KEY), tr,
+                        () -> delegate.updateWhileWriteOnly(null, storedRecord));
+            });
+        });
+    }
+
+    /**
+     * Adds the entry unless the entries subspace already tracks it. A tracked entry is already accounted for:
+     * which side of the window an entry sits on is decided by its entry key against the boundary and nothing
+     * else, so it is already counted, already the boundary if it is the worst one in the window, and already in
+     * the delegate exactly when it belongs there.
+     */
+    @SuppressWarnings("PMD.CloseResource")
+    @Nonnull
+    private CompletableFuture<Void> insertUnlessTracked(@Nonnull final EntryKey key,
+                                                        @Nonnull final Transaction tr,
+                                                        @Nonnull final Supplier<CompletableFuture<Void>> delegateInsert) {
         // Scope by partition first, then by entries/meta
-        final Subspace partitionSubspace = swSubspace.subspace(partitionTuple);
+        final Subspace partitionSubspace = partitionSubspaceFor(key);
         final Subspace entriesSubspace = partitionSubspace.subspace(ENTRIES_SUBSPACE_KEY);
         final Subspace metaSubspace = partitionSubspace.subspace(META_SUBSPACE_KEY);
+        return tr.get(entriesSubspace.pack(key.entriesKey())).thenCompose(existingEntry -> {
+            if (existingEntry != null) {
+                incrementCounter(SlidingWindowCounter.SW_INSERT_ALREADY_TRACKED);
+                return AsyncUtil.DONE;
+            }
+            return insertUntrackedEntry(key, entriesSubspace, metaSubspace, tr, delegateInsert);
+        });
+    }
 
+    /**
+     * The partition subspace the given entry key belongs to. A superseded update can name a different partition
+     * than the record currently sits in, so the partition has to come from the key being looked up rather than
+     * from the one being applied.
+     */
+    @Nonnull
+    private Subspace partitionSubspaceFor(@Nonnull final EntryKey key) {
+        return getSlidingWindowSubspace().subspace(key.partition());
+    }
+
+    /**
+     * Adds an entry that is known not to be tracked yet: writes it to the entries subspace and then either grows
+     * the window, leaves the entry in overflow, or evicts the boundary to make room for it.
+     */
+    @Nonnull
+    private CompletableFuture<Void> insertUntrackedEntry(@Nonnull final EntryKey key,
+                                                         @Nonnull final Subspace entriesSubspace,
+                                                         @Nonnull final Subspace metaSubspace,
+                                                         @Nonnull final Transaction tr,
+                                                         @Nonnull final Supplier<CompletableFuture<Void>> delegateInsert) {
         final Tuple entryKey = key.entriesKey();
 
         // Always write the entry to the entries subspace
-        tr.set(entriesSubspace.pack(entryKey), primaryKey.pack());
+        tr.set(entriesSubspace.pack(entryKey), key.primaryKey().pack());
 
         final byte[] counterKey = metaSubspace.pack(COUNT_KEY);
         final byte[] boundaryMetaKey = metaSubspace.pack(BOUNDARY_KEY);
@@ -847,7 +921,10 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
         SW_PARTITION_EMPTIED("partition emptied (no entries remain)"),
         SW_EVICTED_RECORD_MISSING("boundary record could not be loaded for eviction"),
         SW_PROMOTED_RECORD_MISSING("overflow record could not be loaded for promotion"),
-        SW_PREEMPTIVE_DELETE_WRITE_ONLY("preemptive delete during write-only index build"),
+        SW_INSERT_ALREADY_TRACKED("insert skipped: the entry is already tracked"),
+        SW_INSERT_SUPERSEDED_WINDOW_VALUE("insert skipped: the record's stored window value has moved on"),
+        SW_INSERT_SUPERSEDED_BUT_RECORD_UNTRACKED("superseded insert applied anyway: the record's own entry key is not tracked"),
+        SW_INSERTED_RECORD_MISSING("record to insert could not be loaded"),
         SW_PARTITION_CLEARED("partition cleared via deleteWhere");
 
         @Nonnull

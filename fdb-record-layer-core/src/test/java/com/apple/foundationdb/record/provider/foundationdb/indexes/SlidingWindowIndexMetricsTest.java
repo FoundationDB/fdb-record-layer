@@ -272,7 +272,8 @@ class SlidingWindowIndexMetricsTest extends FDBRecordStoreTestBase {
     // ===== Special operations =====
 
     @Test
-    void preemptiveDeleteWriteOnlyFiresOnUpdateWhileWriteOnly() throws Exception {
+    void insertAlreadyTrackedFiresOnUpdateWhileWriteOnly() throws Exception {
+        // The write-only entry point reaches the same replay-safe insert as a plain update.
         try (FDBRecordContext context = openContext()) {
             openStore(context, 3, Direction.DESC);
             rec(1, 100);
@@ -283,7 +284,32 @@ class SlidingWindowIndexMetricsTest extends FDBRecordStoreTestBase {
 
             maintainer().updateWhileWriteOnly(null, stored).join();
 
-            assertEquals(1, count(SlidingWindowCounter.SW_PREEMPTIVE_DELETE_WRITE_ONLY));
+            assertEquals(1, count(SlidingWindowCounter.SW_INSERT_ALREADY_TRACKED));
+            commit(context);
+        }
+    }
+
+    @Test
+    void insertAlreadyTrackedFiresOnUpdate() throws Exception {
+        // Re-applying an insert for an already-tracked entry — what the online indexer does when it
+        // builds a range holding a record a write already indexed — must do nothing at all.
+        try (FDBRecordContext context = openContext()) {
+            openStore(context, 3, Direction.DESC);
+            rec(1, 100);
+            final FDBStoredRecord<Message> stored = recordStore.loadRecord(Tuple.from(1L));
+            assertNotNull(stored);
+
+            timer.reset();
+
+            maintainer().update(null, stored).join();
+
+            assertEquals(1, count(SlidingWindowCounter.SW_INSERT_ALREADY_TRACKED));
+            assertEquals(0, count(SlidingWindowCounter.SW_ITEM_ADDED_TO_WINDOW_FILLING),
+                    "a tracked entry is already accounted for, so the replay must not touch the window count");
+            assertEquals(0, count(SlidingWindowCounter.SW_DELETE_UNTRACKED)
+                            + count(SlidingWindowCounter.SW_WINDOW_ENTRY_DELETED)
+                            + count(SlidingWindowCounter.SW_ITEM_PROMOTED_FROM_OVERFLOW),
+                    "the replay must not delete or re-elect anything either");
             commit(context);
         }
     }
@@ -304,8 +330,8 @@ class SlidingWindowIndexMetricsTest extends FDBRecordStoreTestBase {
     }
 
     @Test
-    void preemptiveDeleteWriteOnlyFiresOncePerUpdateFromQueue() throws Exception {
-        // Draining pending writes queue must increment the preemptive-delete counter exactly once.
+    void insertAlreadyTrackedFiresOncePerUpdateFromQueue() throws Exception {
+        // Draining the pending writes queue must increment the already-tracked counter exactly once.
         try (FDBRecordContext context = openContext()) {
             openStore(context, 3, Direction.DESC);
             rec(1, 100);
@@ -316,8 +342,8 @@ class SlidingWindowIndexMetricsTest extends FDBRecordStoreTestBase {
             timer.reset();
             maintainer().updateFromQueue(entry).join();
 
-            assertEquals(1, count(SlidingWindowCounter.SW_PREEMPTIVE_DELETE_WRITE_ONLY),
-                    "updateFromQueue must not double-count the preemptive-delete counter");
+            assertEquals(1, count(SlidingWindowCounter.SW_INSERT_ALREADY_TRACKED),
+                    "updateFromQueue must not double-count the already-tracked counter");
             commit(context);
         }
     }
