@@ -44,7 +44,13 @@ setup:
         ('[abcdefghijk]'),
         ('{abcdefghijk}'),
         ('^$'),
-        ('\\||%');
+        ('\\||%'),
+        ('%'),
+        ('a%z'),
+        ('%z'),
+        ('\xyz'),
+        ('a?xyz')
+        ;
     - query: insert into B values
         (1, 'Y'),
         (2, 'Z'),
@@ -141,14 +147,16 @@ test_block:
       - query: select * from A WHERE A1 LIKE '__'
       - unorderedResult: [
           {'学校'},
-          {'^$'}]
+          {'^$'},
+          {'%z'}]
     -
       - query: select * from A WHERE A1 LIKE '_____'
       - unorderedResult: [
           {'école'},
           {'ありがとう'},
           {'مدرسة'},
-          {'\\||%'}]
+          {'\\||%'},
+          {'a?xyz'}]
     -
       - query: select * from C WHERE C2 LIKE '%'
       - explain: "COVERING(C2 <,> -> [C1: KEY:[2], C2: KEY:[0]]) | FILTER _.C2 LIKE @c7 ESCAPE 'null' | FETCH"
@@ -329,6 +337,16 @@ test_block:
 test_block:
   tests:
     -
+      - query: select * from A WHERE A1 LIKE '%' ESCAPE 'ab'
+      # Internal error from a multi-character escape. Perhaps this should be a more descriptive error
+      - error: 'XX000'
+    -
+      - query: select * from A WHERE A1 LIKE '\%'
+      - unorderedResult: [{'\\||%'}, {'\xyz'}]
+    -
+      - query: select * from A WHERE A1 LIKE '\%' ESCAPE '\'
+      - result: [{'%'}]
+    -
       - query: select * from A WHERE A1 LIKE '|_|_%' ESCAPE '|'
       - result: [{'___abcdef'}]
     -
@@ -336,10 +354,10 @@ test_block:
       - result: [{'___abcdef'}]
     -
       - query: select * from A WHERE A1 LIKE '\_%' ESCAPE '|'
-      - result: [{'\\||%'}]
+      - result: [{'\\||%'}, {'\xyz'}]
     -
       - query: select * from A WHERE A1 LIKE '\_%'
-      - result: [{'\\||%'}]
+      - result: [{'\\||%'}, {'\xyz'}]
     -
       - query: select * from A WHERE A1 LIKE '\_\_\_abcdef' ESCAPE '\'
       - result: [{'___abcdef'}]
@@ -354,7 +372,65 @@ test_block:
       - result: []
     -
       - query: select * from A WHERE A1 LIKE '%\%' ESCAPE '\'
-      - result: [{'\\||%'}]
+      - unorderedResult: [{'\\||%'}, {'%'}]
+    -
+      - query: select * from A WHERE A1 LIKE '%%'
+      - unorderedResult: [
+           {'abcdefghijklmnopqrstuvwxyz'},
+           {'___abcdef'},
+           {'%%abcdef'},
+           {'*abcdef'},
+           {'ABCDEFGHIJKLMNOPQRSTUVWXYZ'},
+           {'école'},
+           {'ありがとう'},
+           {'学校'},
+           {'مدرسة'},
+           {'(abcdefghijk)'},
+           {'[abcdefghijk]'},
+           {'{abcdefghijk}'},
+           {'^$'},
+           {'\\||%'},
+           {'%'},
+           {'a%z'},
+           {'%z'},
+           {'\xyz'},
+           {'a?xyz'},
+      ]
+    -
+      - query: select * from A WHERE A1 LIKE '%%' ESCAPE '%'
+      - unorderedResult: [
+           {'%'},
+        ]
+    -
+      - query: select * from A WHERE A1 LIKE '%%%'
+      - unorderedResult: [
+           {'abcdefghijklmnopqrstuvwxyz'},
+           {'___abcdef'},
+           {'%%abcdef'},
+           {'*abcdef'},
+           {'ABCDEFGHIJKLMNOPQRSTUVWXYZ'},
+           {'école'},
+           {'ありがとう'},
+           {'学校'},
+           {'مدرسة'},
+           {'(abcdefghijk)'},
+           {'[abcdefghijk]'},
+           {'{abcdefghijk}'},
+           {'^$'},
+           {'\\||%'},
+           {'%'},
+           {'a%z'},
+           {'%z'},
+           {'\xyz'},
+           {'a?xyz'},
+      ]
+    -
+      - query: select * from A WHERE A1 LIKE '%%%' ESCAPE '%'
+      - unorderedResult: [
+           {'%%abcdef'},
+           {'%'},
+           {'%z'},
+        ]
     -
       - query: select * from A WHERE A1 NOT LIKE '|_|_%' ESCAPE '|'
       - unorderedResult: [
@@ -370,7 +446,12 @@ test_block:
           {'[abcdefghijk]'},
           {'{abcdefghijk}'},
           {'^$'},
-          {'\\||%'}
+          {'\\||%'},
+          {'%'},
+          {'a%z'},
+          {'%z'},
+          {'\xyz'},
+          {'a?xyz'},
           ]
     -
       - query: select * from A WHERE A1 NOT LIKE '%'
@@ -384,6 +465,59 @@ test_block:
           {'学校'},
           {'مدرسة'},
           {'^$'},
-          {'\\||%'}
+          {'\\||%'},
+          {'%'},
+          {'a%z'},
+          {'%z'},
+          {'\xyz'},
+          {'a?xyz'},
           ]
+    -
+      - query: select * from A WHERE A1 LIKE 'a%z'
+      - unorderedResult: [
+          {'abcdefghijklmnopqrstuvwxyz'},
+          {'a%z'},
+          {'a?xyz'},
+        ]
+    -
+      - query: select * from A WHERE A1 LIKE 'a%z' ESCAPE 'a'
+      - unorderedResult: [
+          {'%z'},
+        ]
+    -
+      - query: select * from A WHERE A1 LIKE 'aa%z'
+      - unorderedResult: [
+        ]
+    -
+      - query: select * from A WHERE A1 LIKE 'aa%z' ESCAPE 'a'
+      - supported_version: !current_version
+      # Should not match: \xyz. This string would get matched if double escape character got mapped to \\ in PatternForLikeValue
+      - unorderedResult: [
+          {'abcdefghijklmnopqrstuvwxyz'},
+          {'a%z'},
+          {'a?xyz'},
+        ]
+    -
+      - query: select * from A WHERE A1 LIKE 'aabcdefghijklmnopqrstuvwxyz' ESCAPE 'a'
+      - supported_version: !current_version
+      - unorderedResult: [
+          {'abcdefghijklmnopqrstuvwxyz'},
+        ]
+    -
+      - query: select * from A WHERE A1 LIKE 'a?%z' ESCAPE '?'
+      - unorderedResult: [
+          {'a%z'},
+        ]
+    -
+      - query: select * from A WHERE A1 LIKE 'a??xyz' ESCAPE '?'
+      - supported_version: !current_version
+      - unorderedResult: [
+          {'a?xyz'},
+        ]
+    -
+      - query: select * from A WHERE A1 LIKE 'a??%z' ESCAPE '?'
+      - supported_version: !current_version
+      - unorderedResult: [
+          {'a?xyz'},
+        ]
 ...
