@@ -173,7 +173,14 @@ class LikeOperatorValueTest {
                     Arguments.of("abtext", "|_|_%", "|", false),
                     Arguments.of("__text", "|_|_%", "|", true),
                     Arguments.of("__", "|_|_%", "|", true),
-                    Arguments.of("\\\\|||", "_____", null, true)
+                    Arguments.of("\\\\|||", "_____", null, true),
+                    // Text containing '%' — wildcard in pattern must not match '%' in text as a literal
+                    Arguments.of("%%abcdef", "%abc%", null, true),
+                    Arguments.of("%hello%", "%hello%", null, true),
+                    Arguments.of("100%", "100%", null, true),
+                    Arguments.of("100%", "100\\%", "\\", true),
+                    Arguments.of("100%off", "100\\%", "\\", false),
+                    Arguments.of("50%", "100%", null, false)
             );
         }
     }

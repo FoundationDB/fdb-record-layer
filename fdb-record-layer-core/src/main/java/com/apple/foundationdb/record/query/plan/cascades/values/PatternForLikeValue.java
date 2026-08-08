@@ -59,24 +59,10 @@ import java.util.function.Supplier;
 @API(API.Status.EXPERIMENTAL)
 public class PatternForLikeValue extends AbstractValue {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Like-Operator-Value");
-    private static final Map<String, String> REPLACE_MAP = ImmutableMap.<String, String>builder()
-            .put("%", ".*")
-            .put("_", ".")
-            .put("|", "\\|")
-            .put(".", "\\.")
-            .put("^", "\\^")
-            .put("$", "\\$")
-            .put("\\", "\\\\")
-            .put("*", "\\*")
-            .put("+", "\\+")
-            .put("?", "\\?")
-            .put("[", "\\[")
-            .put("]", "\\]")
-            .put("{", "\\{")
-            .put("}", "\\}")
-            .put("(", "\\(")
-            .put(")", "\\)")
-            .build();
+    // In the normalized LIKE pattern returned by eval(), backslash is the internal escape character:
+    //   \% = literal percent, \_ = literal underscore, \\ = literal backslash.
+    // All other characters are literal as-is. Only backslash needs escaping here.
+    private static final Map<String, String> REPLACE_MAP = ImmutableMap.of("\\", "\\\\");
 
     @Nonnull
     private final Value patternChild;
@@ -108,12 +94,12 @@ public class PatternForLikeValue extends AbstractValue {
         } else {
             SemanticException.check(escapeChar.length() == 1, SemanticException.ErrorCode.ESCAPE_CHAR_OF_LIKE_OPERATOR_IS_NOT_SINGLE_CHAR);
             replaceMap = ImmutableMap.<String, String>builderWithExpectedSize(REPLACE_MAP.size() + 2)
-                    .put(escapeChar + "_", "_")
-                    .put(escapeChar + "%", "%")
+                    .put(escapeChar + "_", "\\_")
+                    .put(escapeChar + "%", "\\%")
                     .putAll(REPLACE_MAP)
                     .build();
         }
-        return "^" + StringUtils.replaceEach(patternStr, replaceMap) + "$";
+        return StringUtils.replaceEach(patternStr, replaceMap);
     }
 
     @Nonnull
