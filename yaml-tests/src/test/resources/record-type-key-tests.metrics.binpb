@@ -1,7 +1,7 @@
 ﬂ
 =
 primary-key-equality%EXPLAIN SELECT * from t1 where a = 10ù
-∑Õ˝ªL “å](0∂√	8"@*SCAN([IS T1, EQUALS promote(@c7 AS LONG)])‘digraph G {
+‹Áå‹L ùÆf(0®÷	8"@*SCAN([IS T1, EQUALS promote(@c7 AS LONG)])‘digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -11,27 +11,27 @@
 }‡
 >
 primary-key-equality&EXPLAIN SELECT * from t2 where c = 100ù
-∑â°∂L Ã≥U(0ä∏8"@*SCAN([IS T2, EQUALS promote(@c7 AS LONG)])‘digraph G {
+‹Ö˛‘L òÔ_(0‹Ï	8"@*SCAN([IS T2, EQUALS promote(@c7 AS LONG)])‘digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
   1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">comparisons: [IS T2, EQUALS promote(@c7 AS LONG)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS C, LONG AS D)" ];
   2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [T1, T2]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS C, LONG AS D)" ];
   2 -> 1 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}Ä
+}ˇ
 +
-full-table-scanEXPLAIN SELECT * from t1–
-›è®¸	> Êˆ°(0öˆJ8@ISCAN(I1 <,>)£digraph G {
+full-table-scanEXPLAIN SELECT * from t1œ
+ÛâŸç> ÉÔE(0∫Ñ8@ISCAN(I1 <,>)£digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
   1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, LONG AS B)" ];
   2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, LONG AS B)" ];
   2 -> 1 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}Ä
+}˛
 +
-full-table-scanEXPLAIN SELECT * from t2–
-›ƒü”> ó›∏(0º∆:8@ISCAN(I2 <,>)£digraph G {
+full-table-scanEXPLAIN SELECT * from t2Œ
+Û’}> Ó¥;(0œé8@ISCAN(I2 <,>)£digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -41,7 +41,7 @@
 }Ò
 ?
 primary-key-range-scan%EXPLAIN SELECT * from t1 where a > 10≠
-∑Â“éL Ø‹>(0«ƒ8"@2SCAN([IS T1, [GREATER_THAN promote(@c7 AS LONG)]])‹digraph G {
+‹˜Ô¬L ıÑX(0óï	8"@2SCAN([IS T1, [GREATER_THAN promote(@c7 AS LONG)]])‹digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -51,7 +51,7 @@
 }Ü
 @
 primary-key-range-scan&EXPLAIN SELECT * from t1 where a >= 11¡
-∑Õ∂¢L ⁄–K(0ÊÔ8"@<SCAN([IS T1, [GREATER_THAN_OR_EQUALS promote(@c8 AS LONG)]])Êdigraph G {
+‹øª∂L ’∑O(0”º8"@<SCAN([IS T1, [GREATER_THAN_OR_EQUALS promote(@c8 AS LONG)]])Êdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -61,7 +61,7 @@
 }Î
 ?
 primary-key-range-scan%EXPLAIN SELECT * from t1 where a < 12ß
-∑Ã¥£L ˙∑K(0√Ì8"@/SCAN([IS T1, [LESS_THAN promote(@c7 AS LONG)]])Ÿdigraph G {
+‹ Ø™L ±ﬁF(0í‘8"@/SCAN([IS T1, [LESS_THAN promote(@c7 AS LONG)]])Ÿdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -71,7 +71,7 @@
 }Ä
 @
 primary-key-range-scan&EXPLAIN SELECT * from t1 where a <= 11ª
-∑·ì´L Ö¶O(0Ö„8"@9SCAN([IS T1, [LESS_THAN_OR_EQUALS promote(@c8 AS LONG)]])„digraph G {
+‹ÜõπL ∑øP(0ä·8"@9SCAN([IS T1, [LESS_THAN_OR_EQUALS promote(@c8 AS LONG)]])„digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -81,7 +81,7 @@
 }Ù
 L
 primary-key-range-scan2EXPLAIN SELECT * from t1 where a >= 10 and a <= 11£
-∑áÁ≠L ≤ºV(0ê√8"@iSCAN([IS T1, [GREATER_THAN_OR_EQUALS promote(@c8 AS LONG) && LESS_THAN_OR_EQUALS promote(@c13 AS LONG)]])õdigraph G {
+‹∑öøL ’±U(0˝™	8"@iSCAN([IS T1, [GREATER_THAN_OR_EQUALS promote(@c8 AS LONG) && LESS_THAN_OR_EQUALS promote(@c13 AS LONG)]])õdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -91,45 +91,46 @@ L
 }Ú
 @
 primary-key-range-scan&EXPLAIN SELECT * from t2 where c > 101≠
-∑πÌ∫L ºˇZ(0£É	8"@2SCAN([IS T2, [GREATER_THAN promote(@c7 AS LONG)]])‹digraph G {
+‹ÿÜƒL ØıU(0õì	8"@2SCAN([IS T2, [GREATER_THAN promote(@c7 AS LONG)]])‹digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
   1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">comparisons: [IS T2, [GREATER_THAN promote(@c7 AS LONG)]]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS C, LONG AS D)" ];
   2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [T1, T2]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS C, LONG AS D)" ];
   2 -> 1 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}¥
+}≥
 3
 
-index-scan%EXPLAIN SELECT * from t1 where b = 21¸
-∑≤‰¨K ·îØ(0 £$8@'ISCAN(I1 [EQUALS promote(@c8 AS LONG)])µdigraph G {
+index-scan%EXPLAIN SELECT * from t1 where b = 21˚
+‹Ç¿ŒK ã„_(0‰¶	8@'ISCAN(I1 [EQUALS promote(@c7 AS LONG)])µdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c8 AS LONG)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, LONG AS B)" ];
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c7 AS LONG)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, LONG AS B)" ];
   2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, LONG AS B)" ];
   2 -> 1 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}µ
+}¥
 4
 
-index-scan&EXPLAIN SELECT * from t2 where d = 201¸
-∑òêπK Ä…ñ(0˛¥&8@'ISCAN(I2 [EQUALS promote(@c8 AS LONG)])µdigraph G {
+index-scan&EXPLAIN SELECT * from t2 where d = 201˚
+‹÷èΩK ÏŒS(0Á‚8@'ISCAN(I2 [EQUALS promote(@c7 AS LONG)])µdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c8 AS LONG)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS C, LONG AS D)" ];
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c7 AS LONG)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS C, LONG AS D)" ];
   2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I2</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS C, LONG AS D)" ];
   2 -> 1 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}Ù
+}©
 2
-table-isolationEXPLAIN SELECT count(*) from t1Ω
-øµ√‘L Ö‚Ω(0°”K8!@ÉISCAN(I1 <,>) | MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)ôdigraph G {
+table-isolationEXPLAIN SELECT count(*) from t1Ú
+·¯∂∑L ‘ˇA(0•∑
+8!@èISCAN(I1 <,>) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)√digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
   1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (coalesce_long(q6._0._0, promote(0l AS LONG)) AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0)" ];
   2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">$q6 OR NULL</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0 AS _0)" ];
-  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Streaming Aggregate</td></tr><tr><td align="left">COLLECT (count_star(*) AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0 AS _0)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Streaming Aggregate</td></tr><tr><td align="left">COLLECT (count_star(*) AS _0)</td></tr><tr><td align="left">GROUP BY ()</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0 AS _0)" ];
   4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q2 AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, LONG AS B AS _0)" ];
   5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, LONG AS B)" ];
   6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, LONG AS B)" ];
@@ -138,16 +139,16 @@ index-scan&EXPLAIN SELECT * from t2 where d = 201¸
   5 -> 4 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   6 -> 5 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}Ù
+}©
 2
-table-isolationEXPLAIN SELECT count(*) from t2Ω
-ø”ÇÅ	L ∞ÅÌ(0ÅÅI8!@ÉISCAN(I2 <,>) | MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)ôdigraph G {
+table-isolationEXPLAIN SELECT count(*) from t2Ú
+·ﬂµΩL Œ∫E(0ˇñ8!@èISCAN(I2 <,>) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)√digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
   1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (coalesce_long(q6._0._0, promote(0l AS LONG)) AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0)" ];
   2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">$q6 OR NULL</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0 AS _0)" ];
-  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Streaming Aggregate</td></tr><tr><td align="left">COLLECT (count_star(*) AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0 AS _0)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Streaming Aggregate</td></tr><tr><td align="left">COLLECT (count_star(*) AS _0)</td></tr><tr><td align="left">GROUP BY ()</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0 AS _0)" ];
   4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q2 AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS C, LONG AS D AS _0)" ];
   5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS C, LONG AS D)" ];
   6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I2</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS C, LONG AS D)" ];
@@ -159,7 +160,7 @@ index-scan&EXPLAIN SELECT * from t2 where d = 201¸
 }Ÿ
 7
 dml-operations%EXPLAIN SELECT * from t1 where a = 13ù
-∑Õ˝ªL “å](0∂√	8"@*SCAN([IS T1, EQUALS promote(@c7 AS LONG)])‘digraph G {
+‹Áå‹L ùÆf(0®÷	8"@*SCAN([IS T1, EQUALS promote(@c7 AS LONG)])‘digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -169,7 +170,7 @@ index-scan&EXPLAIN SELECT * from t2 where d = 201¸
 }⁄
 8
 dml-operations&EXPLAIN SELECT * from t2 where c = 103ù
-∑â°∂L Ã≥U(0ä∏8"@*SCAN([IS T2, EQUALS promote(@c7 AS LONG)])‘digraph G {
+‹Ö˛‘L òÔ_(0‹Ï	8"@*SCAN([IS T2, EQUALS promote(@c7 AS LONG)])‘digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;

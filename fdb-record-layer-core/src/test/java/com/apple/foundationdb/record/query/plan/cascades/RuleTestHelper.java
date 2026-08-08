@@ -96,6 +96,11 @@ public class RuleTestHelper {
     }
 
     @Nonnull
+    public static FullUnorderedScanExpression fuseExpression() {
+        return new FullUnorderedScanExpression(ImmutableSet.of("T", "TAU"), Type.Record.fromFields(ImmutableList.of()), new AccessHints());
+    }
+
+    @Nonnull
     public static Quantifier baseT() {
         return forEach(LogicalTypeFilterExpression.of(ImmutableSet.of("T"), fuseQun(), TYPE_T));
     }
@@ -178,7 +183,7 @@ public class RuleTestHelper {
             //
             preExploreForRule(copiedOriginal, false);
         }
-        Reference ref = rule instanceof ImplementationCascadesRule ?
+        Reference ref = rule instanceof CascadesRule.PostPruneRule ?
                         Reference.ofFinalExpression(PlannerStage.CANONICAL, copiedOriginal) :
                         Reference.ofExploratoryExpression(PlannerStage.CANONICAL, copiedOriginal);
         PlanContext planContext = new FakePlanContext();

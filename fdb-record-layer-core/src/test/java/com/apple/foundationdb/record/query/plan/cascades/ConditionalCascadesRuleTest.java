@@ -240,6 +240,44 @@ class ConditionalCascadesRuleTest {
                 .contains(StubRule.class.getSimpleName());
     }
 
+    /**
+     * When all inner rules are normal (non-post-prune) rules, the conditional rule inherits
+     * {@code onlyOnPrunedChildren() == false}.
+     */
+    @Test
+    void constructorWithAllNormalRulesInheritsOnlyOnPrunedChildrenFalse() {
+        final StubRule first = stubRule(SelectExpression.class);
+        final StubRule second = stubRule(SelectExpression.class);
+        final ConditionalCascadesRule<RelationalExpression, StubRule> rule = conditionalRuleOf(first, second);
+        assertThat(rule.onlyOnPrunedChildren()).isFalse();
+    }
+
+    /**
+     * When all inner rules implement {@link CascadesRule.PostPruneRule}, the conditional rule inherits
+     * {@code onlyOnPrunedChildren() == true}.
+     */
+    @Test
+    void constructorWithAllPostPruneRulesInheritsOnlyOnPrunedChildrenTrue() {
+        final StubPostPruneRule first = stubPostPruneRule(SelectExpression.class);
+        final StubPostPruneRule second = stubPostPruneRule(SelectExpression.class);
+        final ConditionalCascadesRule<RelationalExpression, StubPostPruneRule> rule =
+                new ConditionalCascadesRule<>(ImmutableList.of(first, second));
+        assertThat(rule.onlyOnPrunedChildren()).isTrue();
+    }
+
+    /**
+     * Mixing a post-prune rule with a normal rule must be rejected at construction time, because the planner
+     * schedules the two kinds in separate passes and a mixed conditional chain would be silently broken.
+     */
+    @Test
+    void constructorWithMismatchedOnlyOnPrunedChildrenThrows() {
+        final StubRule normal = stubRule(SelectExpression.class);
+        final StubPostPruneRule postPrune = stubPostPruneRule(SelectExpression.class);
+        assertThatThrownBy(() -> new ConditionalCascadesRule<>(ImmutableList.of(normal, postPrune)))
+                .isInstanceOf(VerifyException.class)
+                .hasMessageContaining("onlyOnPrunedChildren");
+    }
+
     @Nonnull
     private static ConditionalCascadesRule<RelationalExpression, StubRule> conditionalRuleOf(@Nonnull final StubRule... rules) {
         return new ConditionalCascadesRule<>(ImmutableList.copyOf(rules));
@@ -273,6 +311,11 @@ class ConditionalCascadesRuleTest {
     }
 
     @Nonnull
+    private static StubPostPruneRule stubPostPruneRule(@Nonnull final Class<? extends RelationalExpression> rootClass) {
+        return new StubPostPruneRule(matcherFor(rootClass), rootClass);
+    }
+
+    @Nonnull
     @SuppressWarnings("unchecked")
     private static BindingMatcher<RelationalExpression> matcherFor(@Nonnull final Class<? extends RelationalExpression> rootClass) {
         return (BindingMatcher<RelationalExpression>) (BindingMatcher<?>) RelationalExpressionMatchers.ofType(rootClass);
@@ -282,7 +325,7 @@ class ConditionalCascadesRuleTest {
      * A minimal {@link CascadesRule} whose matcher root class and advertised root operator can be set independently,
      * so the construction-time invariants of {@link ConditionalCascadesRule} can be exercised in isolation.
      */
-    private static final class StubRule extends AbstractCascadesRule<RelationalExpression> {
+    private static class StubRule extends AbstractCascadesRule<RelationalExpression> {
         @Nonnull
         private final Optional<Class<?>> rootOperator;
 
@@ -339,6 +382,19 @@ class ConditionalCascadesRuleTest {
         @Override
         public void onMatch(@Nonnull final ImplementationCascadesRuleCall call) {
             throw new UnsupportedOperationException("stub rule should not be executed");
+        }
+    }
+
+    /**
+     * A minimal rule that implements {@link CascadesRule.PostPruneRule}, used to verify that a conditional rule
+     * whose constituents are all post-prune inherits {@code onlyOnPrunedChildren() == true}, and that mixing
+     * post-prune and normal rules is rejected.
+     */
+    private static final class StubPostPruneRule extends StubRule
+            implements CascadesRule.PostPruneRule<RelationalExpression> {
+        private StubPostPruneRule(@Nonnull final BindingMatcher<RelationalExpression> matcher,
+                                  @Nonnull final Class<? extends RelationalExpression> rootOperator) {
+            super(matcher, Optional.of(rootOperator));
         }
     }
 }

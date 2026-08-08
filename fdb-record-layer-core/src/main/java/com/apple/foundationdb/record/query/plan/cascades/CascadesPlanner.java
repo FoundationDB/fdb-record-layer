@@ -529,6 +529,7 @@ public class CascadesPlanner implements QueryPlanner {
                                                     @Nonnull final Reference group,
                                                     @Nonnull final RelationalExpression expression,
                                                     final boolean forceExploration) {
+        exploreExpressionOnOptimizedInputs(plannerPhase, group, expression, forceExploration);
         taskStack.push(new OptimizeInputs(plannerPhase, group, expression));
         exploreExpression(plannerPhase, group, expression, forceExploration);
     }
@@ -539,9 +540,21 @@ public class CascadesPlanner implements QueryPlanner {
                                    final boolean forceExploration) {
         Verify.verify(group.containsExactly(expression));
         if (forceExploration) {
-            taskStack.push(new ExploreExpression(plannerPhase, group, expression));
+            taskStack.push(new ExploreExpression(plannerPhase, group, expression, false));
         }  else {
-            taskStack.push(new ReExploreExpression(plannerPhase, group, expression));
+            taskStack.push(new ReExploreExpression(plannerPhase, group, expression, false));
+        }
+    }
+
+    private void exploreExpressionOnOptimizedInputs(@Nonnull final PlannerPhase plannerPhase,
+                                                    @Nonnull final Reference group,
+                                                    @Nonnull final RelationalExpression expression,
+                                                    final boolean forceExploration) {
+        Verify.verify(group.containsExactly(expression));
+        if (forceExploration) {
+            taskStack.push(new ExploreExpression(plannerPhase, group, expression, true));
+        }  else {
+            taskStack.push(new ReExploreExpression(plannerPhase, group, expression, true));
         }
     }
 
@@ -833,10 +846,15 @@ public class CascadesPlanner implements QueryPlanner {
      */
     @VisibleForTesting
     abstract class AbstractExploreExpression extends ExploreTask {
+
+        boolean onOptimizedInputs;
+
         public AbstractExploreExpression(@Nonnull final PlannerPhase plannerPhase,
                                          @Nonnull final Reference group,
-                                         @Nonnull final RelationalExpression expression) {
+                                         @Nonnull final RelationalExpression expression,
+                                         boolean onOptimizedInputs) {
             super(plannerPhase, group, expression);
+            this.onOptimizedInputs = onOptimizedInputs;
         }
 
         @Override
@@ -884,6 +902,9 @@ public class CascadesPlanner implements QueryPlanner {
             if (!configuration.isRuleEnabled(rule) || !shouldPushRule(rule)) {
                 return;
             }
+            if (rule.onlyOnPrunedChildren() != onOptimizedInputs) {
+                return;
+            }
             final PlannerPhase phase = getPlannerPhase();
             final Reference group = getGroup();
             final RelationalExpression expression = getExpression();
@@ -906,6 +927,9 @@ public class CascadesPlanner implements QueryPlanner {
 
         private void pushTransformMatchPartitionIfNeeded(AbstractCascadesRule<? extends MatchPartition> rule) {
             if (!configuration.isRuleEnabled(rule) || !shouldPushRule(rule)) {
+                return;
+            }
+            if (rule.onlyOnPrunedChildren() != onOptimizedInputs) {
                 return;
             }
             taskStack.push(new TransformMatchPartition(getPlannerPhase(), getGroup(), getExpression(), rule));
@@ -941,8 +965,9 @@ public class CascadesPlanner implements QueryPlanner {
     private class ReExploreExpression extends AbstractExploreExpression {
         public ReExploreExpression(@Nonnull final PlannerPhase plannerPhase,
                                    @Nonnull final Reference group,
-                                   @Nonnull final RelationalExpression expression) {
-            super(plannerPhase, group, expression);
+                                   @Nonnull final RelationalExpression expression,
+                                   boolean onOptimizedInputs) {
+            super(plannerPhase, group, expression, onOptimizedInputs);
         }
 
         @Override
@@ -973,8 +998,9 @@ public class CascadesPlanner implements QueryPlanner {
     class ExploreExpression extends AbstractExploreExpression {
         public ExploreExpression(@Nonnull final PlannerPhase plannerPhase,
                                  @Nonnull final Reference group,
-                                 @Nonnull final RelationalExpression expression) {
-            super(plannerPhase, group, expression);
+                                 @Nonnull final RelationalExpression expression,
+                                 boolean onOptimizedInputs) {
+            super(plannerPhase, group, expression, onOptimizedInputs);
         }
 
         @Override
