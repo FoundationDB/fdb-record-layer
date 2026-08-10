@@ -1129,9 +1129,9 @@ aggregateWindowedFunction
     | functionName=ARRAY_AGG '('
         aggregator=(ALL | DISTINCT)?
         functionArg
-        orderByClause?
         nullTreatmentClause?
-      ')'
+        orderByClause?
+      ')' overClause?
     | functionName=GROUP_CONCAT '('
         aggregator=DISTINCT?
         functionArgs
@@ -1141,7 +1141,7 @@ aggregateWindowedFunction
     ;
 
 nullTreatmentClause
-    : nullHandling=(IGNORE | RESPECT) NULLS
+    : nullTreatment=(IGNORE | RESPECT) NULLS
     ;
 
 nonAggregateWindowedFunction

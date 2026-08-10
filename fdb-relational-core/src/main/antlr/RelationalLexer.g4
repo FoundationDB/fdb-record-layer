@@ -340,13 +340,13 @@ JSON_OBJECTAGG:                      'JSON_OBJECTAGG';
 
 // Group function Keywords
 
+ARRAY_AGG:                           'ARRAY_AGG';
 AVG:                                 'AVG';
 BIT_AND:                             'BIT_AND';
 BITMAP_BIT_POSITION:                 'BITMAP_BIT_POSITION';
 BITMAP_BUCKET_OFFSET:                'BITMAP_BUCKET_OFFSET';
 BITMAP_BUCKET_NUMBER:                'BITMAP_BUCKET_NUMBER';
 BITMAP_CONSTRUCT_AGG:                'BITMAP_CONSTRUCT_AGG';
-ARRAY_AGG:                           'ARRAY_AGG';
 BIT_OR:                              'BIT_OR';
 BIT_XOR:                             'BIT_XOR';
 COUNT:                               'COUNT';

@@ -288,7 +288,7 @@ public class BaseVisitor extends RelationalParserBaseVisitor<Object> implements 
         return visitChildren(ctx);
     }
 
-    @Nonnull
+    @Nullable
     @Override
     public Object visitStatement(@Nonnull RelationalParser.StatementContext ctx) {
         return visitChildren(ctx);

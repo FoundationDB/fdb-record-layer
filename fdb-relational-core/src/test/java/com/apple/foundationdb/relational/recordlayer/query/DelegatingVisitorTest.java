@@ -675,7 +675,7 @@ public class DelegatingVisitorTest {
                     @Override
                     public Boolean visitNullTreatmentClause(@Nonnull RelationalParser.NullTreatmentClauseContext ctx) {
                         called.set(true);
-                        return ctx.nullHandling.getType() == RelationalParser.IGNORE;
+                        return ctx.nullTreatment.getType() == RelationalParser.IGNORE;
                     }
                 });
     }

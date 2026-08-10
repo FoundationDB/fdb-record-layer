@@ -427,7 +427,7 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
     @Nonnull
     @Override
     public Boolean visitNullTreatmentClause(@Nonnull final RelationalParser.NullTreatmentClauseContext ctx) {
-        return ctx.nullHandling.getType() == RelationalParser.IGNORE;
+        return ctx.nullTreatment.getType() == RelationalParser.IGNORE;
     }
 
     @Nonnull

@@ -27,6 +27,7 @@ schema_template:
     CREATE TABLE T1 (id BIGINT, grp BIGINT, val BIGINT, PRIMARY KEY (id))
     CREATE TABLE parent (pid BIGINT, name STRING, PRIMARY KEY (pid))
     CREATE TABLE child (cid BIGINT, pid BIGINT, val BIGINT, PRIMARY KEY (cid))
+    CREATE TABLE keywords (array_agg BIGINT, respect BIGINT, PRIMARY KEY (array_agg))
 ---
 setup:
   steps:
@@ -37,13 +38,27 @@ setup:
                     (4, 20, 400),
                     (5, 20, 500),
                     (6, 30, NULL)
+    - query: INSERT INTO keywords VALUES (1, 2)
 ---
 test_block:
   name: array-agg-tests
   tests:
     -
+      # The plain form is grammatically accepted.
+      - query: SELECT ARRAY_AGG(val) FROM T1
+      - error: UNSUPPORTED_QUERY
+    -
+      # ALL is the default set quantifier and is accepted.
+      - query: SELECT ARRAY_AGG(ALL val) FROM T1
+      - error: UNSUPPORTED_QUERY
+    -
       # DISTINCT is grammatically accepted but rejected at semantic-analysis time, like other aggregates such as SUM().
       - query: SELECT ARRAY_AGG(DISTINCT val) FROM T1
+      - error: UNSUPPORTED_QUERY
+    -
+      # Using ARRAY_AGG() as a window function is grammatically accepted but rejected at semantic-analysis time, like
+      # other aggregates such as MAX().
+      - query: SELECT ARRAY_AGG(val) OVER () FROM T1
       - error: UNSUPPORTED_QUERY
     -
       # In-call ORDER BY is grammatically accepted but rejected at semantic-analysis time (not yet implemented).
@@ -70,6 +85,28 @@ test_block:
     -
       - query: SELECT ARRAY_AGG(val RESPECT NULLS) FROM T1
       - error: UNSUPPORTED_QUERY
+    -
+      # The null treatment clause precedes the in-call ORDER BY clause. Here the ORDER BY is what gets rejected.
+      - query: SELECT ARRAY_AGG(val IGNORE NULLS ORDER BY val) FROM T1
+      - error: UNSUPPORTED_QUERY
+    -
+      # The opposite order is a parse error.
+      - query: SELECT ARRAY_AGG(val ORDER BY val IGNORE NULLS) FROM T1
+      - error: SYNTAX_ERROR
+---
+test_block:
+  name: array-agg-keywords-as-identifiers
+  tests:
+    -
+      # ARRAY_AGG and RESPECT are in `keywordsCanBeId`, so they are usable as identifiers.
+      - query: SELECT array_agg, respect FROM keywords
+      - result: [{array_agg: 1, respect: 2}]
+    -
+      - query: SELECT val AS array_agg, val AS respect FROM T1 WHERE id = 1
+      - result: [{array_agg: 100, respect: 100}]
+    -
+      - query: SELECT array_agg.val FROM T1 AS array_agg WHERE array_agg.id = 1
+      - result: [{val: 100}]
 ---
 test_block:
   name: array-agg-correlated-subquery
