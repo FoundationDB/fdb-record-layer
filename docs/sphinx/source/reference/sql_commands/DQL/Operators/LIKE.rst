@@ -269,7 +269,7 @@ We get different result sets with different escape values:
     :header-rows: 1
 
     * - :sql:`filename`
-    * - :json:`"final-report.pdf"`
+    * - :json:`"final_report.pdf"`
 
 .. code-block:: sql
 
