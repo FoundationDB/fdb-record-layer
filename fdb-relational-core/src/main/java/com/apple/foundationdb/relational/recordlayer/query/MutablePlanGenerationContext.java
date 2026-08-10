@@ -116,6 +116,25 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
     }
 
     /**
+     * Creates a <em>value-free</em> {@link ConstantObjectValue} of the given declared type at this token's constant id:
+     * a constant reference that carries a type but no plan-time value (e.g. a typed stored-query signature parameter
+     * warmed with no value). It is registered as a literal reference so {@link #getPlanConstraintsForLiteralReferences}
+     * emits its {@code OfType}/nullness constraint, but — unlike a bound literal — no {@link OrderedLiteral} is added,
+     * so its constant id stays unbound in the evaluation context. At runtime the byte-identical parameter token binds a
+     * value at the same constant id, and the warmed plan is reused.
+     *
+     * @param type the declared type of the parameter
+     * @param tokenIndex the token position, which (with the current scope) determines the constant id
+     * @return a value-free {@link ConstantObjectValue} of the declared type
+     */
+    @Nonnull
+    public ConstantObjectValue valueFreeCovOf(@Nonnull final Type type, final int tokenIndex) {
+        final var result = ConstantObjectValue.of(Quantifier.constant(), literalsBuilder.constructConstantId(tokenIndex), type);
+        addLiteralReference(result);
+        return result;
+    }
+
+    /**
      * Checks if the provided literal argument has already been referenced by a registered {@link OrderedLiteral}.
      * <br>
      * If a matching {@link OrderedLiteral} is found, it is returned, and an equality constraint is created
@@ -371,9 +390,26 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
         // add literal evaluation for specific values to enable
         // triggering constant folding internally.
         final var evaluationContext = getEvaluationContext();
-        constantObjectValues.forEach(cov ->
-                predicateBuilder.add(new ValuePredicate(EvaluatesToValue.of(cov, evaluationContext),
-                        new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, true))));
+        constantObjectValues.forEach(cov -> {
+            final EvaluatesToValue evaluatesTo;
+            if (evaluationContext.containsConstantBinding(cov.getAlias(), cov.getConstantId())) {
+                // Bound constant: fold to its concrete value (enables constant folding and, at cache lookup, matches
+                // the runtime value against the plan's constraint).
+                evaluatesTo = EvaluatesToValue.of(cov, evaluationContext);
+            } else if (cov.getResultType().isNull()) {
+                // Value-free constant of the NULL type: warm the IS NULL case.
+                evaluatesTo = EvaluatesToValue.isNull(cov);
+            } else {
+                // Value-free (unbound) constant, e.g. a typed signature parameter warmed with no value. Emit
+                // IS_NOT_NULL directly rather than dereferencing to null: dereferencing would both trip the
+                // non-nullable-type check in ConstantObjectValue.eval and yield an IS_NULL constraint (making runtime
+                // non-null values miss). At runtime the same constant id is bound to a value and this constraint is
+                // re-evaluated against it.
+                evaluatesTo = EvaluatesToValue.isNotNull(cov);
+            }
+            predicateBuilder.add(new ValuePredicate(evaluatesTo,
+                    new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, true)));
+        });
 
         return QueryPlanConstraint.ofPredicates(predicateBuilder.build());
     }
@@ -464,6 +500,14 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
 
     @Nonnull
     public Value processNamedPreparedParam(@Nonnull String param, int tokenIndex) {
+        if (!preparedParams.hasNamedParamValue(param)) {
+            // Value-free warm-up: a named parameter declared (via a stored-query signature) with a type but no value.
+            // Plan it as a value-free typed constant; the runtime re-issue binds a value at the same constant id.
+            final var declaredType = preparedParams.declaredTypeMaybe(param);
+            if (declaredType.isPresent()) {
+                return valueFreeCovOf(declaredType.get(), tokenIndex);
+            }
+        }
         final var value = preparedParams.namedParamValue(param);
         //TODO type should probably be Type.any() instead of null
         return processPreparedStatementParameter(value, getObjectType(value), null, param, tokenIndex);

@@ -133,7 +133,7 @@ public class Bindings {
         } else if (parent != null) {
             return parent.get(name);
         } else {
-            throw new RecordCoreException("Missing binding for " + name);
+            throw new MissingBindingException("Missing binding for " + name);
         }
     }
 
@@ -168,6 +168,21 @@ public class Bindings {
     @Override
     public String toString() {
         return "Bindings(" + asMappingList() + ")";
+    }
+
+    /**
+     * Thrown by {@link #get(String)} when no binding exists for the requested name. This is a distinct
+     * {@link RecordCoreException} subtype so callers that can tolerate an absent binding (for example compile-time
+     * constraint matching against a value-free context, where a plan references a constant that the lookup context
+     * does not bind) can catch precisely this case without also swallowing other {@link RecordCoreException}s.
+     */
+    @SuppressWarnings("serial")
+    public static class MissingBindingException extends RecordCoreException {
+        private static final long serialVersionUID = 1L;
+
+        public MissingBindingException(@Nonnull final String message) {
+            super(message);
+        }
     }
 
     /**
