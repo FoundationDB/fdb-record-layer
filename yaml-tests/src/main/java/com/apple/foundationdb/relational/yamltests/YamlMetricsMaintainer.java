@@ -1,5 +1,5 @@
 /*
- * YamlMetricsResource.java
+ * YamlMetricsMaintainer.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -109,7 +109,6 @@ public class YamlMetricsMaintainer {
         return actualMetricsMap.put(new QueryAndLocation(blockName, query, reference, setups), info);
     }
 
-    @SuppressWarnings("UnusedReturnValue")
     public synchronized void markDirty() {
         this.isDirty = true;
     }
@@ -118,8 +117,8 @@ public class YamlMetricsMaintainer {
         if (!isDirty) {
             return;
         }
-        saveMetricsAsYaml();
         saveMetricsAsBinaryProto();
+        saveMetricsAsYaml();
     }
 
     private void saveMetricsAsBinaryProto() {

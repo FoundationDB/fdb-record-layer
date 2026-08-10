@@ -231,7 +231,13 @@ public class CheckExplainConfig extends QueryConfig {
             executionContext.getMetricsMaintainer().markDirty();
             logger.debug(() -> "⭐️ Successfully updated planner metrics at " + getReference());
         } else {
-            executionContext.getMetricsMaintainer().putMetrics(blockName, currentQuery, getReference(), expectedPlannerMetricsInfo, setups);
+            if (explainIsChanged) {
+                final var expectedMetricsWithActualPlan = expectedPlannerMetricsInfo.toBuilder().setExplain(actualPlannerMetricsInfo.getExplain()).build();
+                executionContext.getMetricsMaintainer().putMetrics(blockName, currentQuery, getReference(), expectedMetricsWithActualPlan, setups);
+                executionContext.getMetricsMaintainer().markDirty();
+            } else {
+                executionContext.getMetricsMaintainer().putMetrics(blockName, currentQuery, getReference(), expectedPlannerMetricsInfo, setups);
+            }
         }
     }
 

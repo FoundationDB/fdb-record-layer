@@ -123,6 +123,7 @@ public final class YamlExecutionContext {
     }
 
     public void registerResource(@Nonnull final YamlReference.YamlResource resource) throws RelationalException {
+        // topLevelResource is already registered in the constructor
         if (resource == topLevelResource) {
             return;
         }
