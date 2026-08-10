@@ -56,6 +56,7 @@ import java.util.stream.Collectors;
  * corrections in descending line-number order — so later edits do not shift the offsets of
  * earlier ones — applies them to the buffer, and writes the result back to the source tree.
  */
+@SuppressWarnings({"PMD.GuardLogStatement"})
 public class YamlFilesMaintainer {
     private static final Logger logger = LogManager.getLogger(YamlFilesMaintainer.class);
 

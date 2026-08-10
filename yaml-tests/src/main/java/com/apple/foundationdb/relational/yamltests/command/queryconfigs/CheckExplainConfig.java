@@ -95,7 +95,7 @@ public class CheckExplainConfig extends QueryConfig {
         } else if (!isExact) {
             checkExplainContains(queryDescription, actualPlannerMetricsInfo, expectedPlannerMetricsInfo);
         } else {
-            checkExplainAndMetrics(currentQuery, queryDescription, setups, actualPlannerMetricsInfo, expectedPlannerMetricsInfo);
+            checkExplainAndMetrics(queryDescription, identifier,  actualPlannerMetricsInfo, expectedPlannerMetricsInfo);
         }
     }
 
@@ -190,9 +190,8 @@ public class CheckExplainConfig extends QueryConfig {
         QueryCommand.reportTestFailure(diffMessage);
     }
 
-    private void checkExplainAndMetrics(@Nonnull final String currentQuery,
-                                        @Nonnull final String queryDescription,
-                                        @Nonnull final List<String> setups,
+    private void checkExplainAndMetrics(@Nonnull final String queryDescription,
+                                        @Nonnull final PlannerMetricsProto.Identifier identifier,
                                         @Nonnull final PlannerMetricsProto.Info actualPlannerMetricsInfo,
                                         @Nullable final PlannerMetricsProto.Info expectedPlannerMetricsInfo) {
         final var actualPlan = actualPlannerMetricsInfo.getExplain();
@@ -213,31 +212,36 @@ public class CheckExplainConfig extends QueryConfig {
         if (!actualPlannerMetricsInfo.hasCountersAndTimers()) {
             if (explainIsChanged && expectedPlannerMetricsInfo != null) {
                 final var expectedMetricsWithActualPlan = expectedPlannerMetricsInfo.toBuilder().setExplain(actualPlannerMetricsInfo.getExplain()).build();
-                executionContext.getMetricsMaintainer().putMetrics(blockName, currentQuery, getReference(), expectedMetricsWithActualPlan, setups);
-                executionContext.getMetricsMaintainer().markDirty();
+                recordMetrics(identifier, expectedMetricsWithActualPlan, true);
             }
         } else if (expectedPlannerMetricsInfo == null) {
             if (!executionContext.shouldCorrectMetrics()) {
                 QueryCommand.reportTestFailure("‼️ No planner metrics at " + getReference());
             }
-            executionContext.getMetricsMaintainer().putMetrics(blockName, currentQuery, getReference(), actualPlannerMetricsInfo, setups);
-            executionContext.getMetricsMaintainer().markDirty();
+            recordMetrics(identifier, actualPlannerMetricsInfo, true);
             logger.debug(() -> "⭐️ Successfully inserted new planner metrics at " + getReference());
         } else if (areMetricsDifferent(expectedPlannerMetricsInfo, actualPlannerMetricsInfo)) {
             if (!executionContext.shouldCorrectMetrics()) {
                 QueryCommand.reportTestFailure("‼️ Planner metrics have changed for " + getReference());
             }
-            executionContext.getMetricsMaintainer().putMetrics(blockName, currentQuery, getReference(), actualPlannerMetricsInfo, setups);
-            executionContext.getMetricsMaintainer().markDirty();
+            recordMetrics(identifier, actualPlannerMetricsInfo, true);
             logger.debug(() -> "⭐️ Successfully updated planner metrics at " + getReference());
         } else {
             if (explainIsChanged) {
                 final var expectedMetricsWithActualPlan = expectedPlannerMetricsInfo.toBuilder().setExplain(actualPlannerMetricsInfo.getExplain()).build();
-                executionContext.getMetricsMaintainer().putMetrics(blockName, currentQuery, getReference(), expectedMetricsWithActualPlan, setups);
-                executionContext.getMetricsMaintainer().markDirty();
+                recordMetrics(identifier, expectedMetricsWithActualPlan, true);
             } else {
-                executionContext.getMetricsMaintainer().putMetrics(blockName, currentQuery, getReference(), expectedPlannerMetricsInfo, setups);
+                recordMetrics(identifier, expectedPlannerMetricsInfo, false);
             }
+        }
+    }
+
+    private void recordMetrics(@Nonnull final PlannerMetricsProto.Identifier identifier,
+                               @Nonnull final PlannerMetricsProto.Info info,
+                               final boolean dirty) {
+        executionContext.getMetricsMaintainer().putMetrics(identifier, getReference(), info);
+        if (dirty) {
+            executionContext.getMetricsMaintainer().markDirty();
         }
     }
 

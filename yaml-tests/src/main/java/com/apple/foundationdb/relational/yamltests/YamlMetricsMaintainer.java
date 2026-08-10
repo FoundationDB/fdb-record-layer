@@ -62,6 +62,7 @@ import java.util.concurrent.TimeUnit;
  * <p>Only the fields listed in {@link #TRACKED_METRIC_FIELDS} are compared between runs;
  * timing fields are stored for context but not checked.
  */
+@SuppressWarnings({"PMD.GuardLogStatement"})
 public class YamlMetricsMaintainer {
     private static final Logger logger = LogManager.getLogger(YamlMetricsMaintainer.class);
 
@@ -101,12 +102,10 @@ public class YamlMetricsMaintainer {
 
     @Nullable
     @SuppressWarnings("UnusedReturnValue")
-    public synchronized PlannerMetricsProto.Info putMetrics(@Nonnull final String blockName,
-                                                            @Nonnull final String query,
+    public synchronized PlannerMetricsProto.Info putMetrics(@Nonnull final PlannerMetricsProto.Identifier identifier,
                                                             @Nonnull final YamlReference reference,
-                                                            @Nonnull final PlannerMetricsProto.Info info,
-                                                            @Nonnull final List<String> setups) {
-        return actualMetricsMap.put(new QueryAndLocation(blockName, query, reference, setups), info);
+                                                            @Nonnull final PlannerMetricsProto.Info info) {
+        return actualMetricsMap.put(new QueryAndLocation(identifier, reference), info);
     }
 
     public synchronized void markDirty() {
@@ -251,13 +250,8 @@ public class YamlMetricsMaintainer {
         @Nonnull
         private final YamlReference reference;
 
-        public QueryAndLocation(@Nonnull final String blockName, final String query, @Nonnull final YamlReference reference,
-                                @Nonnull List<String> setups) {
-            identifier = PlannerMetricsProto.Identifier.newBuilder()
-                    .setBlockName(blockName)
-                    .setQuery(query)
-                    .addAllSetups(setups)
-                    .build();
+        public QueryAndLocation(@Nonnull final PlannerMetricsProto.Identifier identifier, @Nonnull final YamlReference reference) {
+            this.identifier = identifier;
             this.reference = reference;
         }
 
