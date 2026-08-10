@@ -112,10 +112,18 @@ public class LikeOperatorValue extends AbstractValue implements BooleanValue {
      * <p>
      * The {@code pattern} is a {@code LIKE} pattern as specified by the SQL specification: {@code '%'} matches any
      * sequence of characters, {@code '_'} matches exactly one character, and {@code escape} escapes the next character
-     * as a literal if it would otherwise be a special character (so {@code escape + '%'}, {@code escape + '_'},
-     * and {@code escape + escape} are all literals representing {@code '%'}, {@code '_'}, and {@code escape}
-     * respectively). All other characters match themselves. If {@code escape} is null, then no characters are escaped
+     * as a literal. All other characters match themselves. If {@code escape} is null, then no characters are escaped
      * (which means that there is no way to match the literal {@code '%'} or {@code '_'} characters).
+     * </p>
+     *
+     * <p>
+     * Note that the escape character represents "match the next character as a literal" regardless of whether that
+     * character is actually special. So {@code escape + '_'} matches the literal {@code '_'} and {@code escape + '%'}
+     * matches the literal {@code '%'}, but also {@code escape + escape} matches the escape character {@code escape} and
+     * {@code escale + 'b'} matches the literal character {@code 'b'}. This means that if the character following
+     * {@code escape} is not a special character, then the escape character is effectively dropped from the pattern.
+     * Finally, note that if the escape character is the final character in the pattern, then that is a malformed pattern,
+     * which will thus always return {@code false}.
      * </p>
      *
      * <p>
@@ -141,29 +149,63 @@ public class LikeOperatorValue extends AbstractValue implements BooleanValue {
             SemanticException.fail(SemanticException.ErrorCode.ESCAPE_CHAR_OF_LIKE_OPERATOR_IS_NOT_SINGLE_CHAR, "");
         }
 
+        // Conceptually, this is similar to breaking the pattern down into chunks, separated by the wildcard
+        // character %. For each sequence between %s, we can evaluate if a subsequence from the text
+        // matches in linear time. We then do the following:
+        //
+        //   1. Match a prefix from the text against the prefix from the pattern before the first % (or return false)
+        //   2. Match different lengths of substrings from the text (starting with zero) for the %. Find the shortest
+        //      that allows the next substring of non-% characters from the pattern to match.
+        //   3. If we are able to consume the whole text, then we have a match
+        //
+        // The reason that we can always pick the shortest string for each % is that we can always defer text into
+        // the next % if multiple different choices for each % would match. To see this, consider a pattern
+        // p_1 + % + p_2 + % + p_3, where p_1, p_2, and p_3 are sub-patterns that all contain no %s. Suppose that there's
+        // a string that matches, so t = t_1 + x_1 + t_2 + x_2 + t_3, where t_1 matches p_1, t_2 matches p_2, and t_3
+        // matches p_3 and x_1 and x_2 are "matched" to each %. Assume that the algorithm is wrong, so we are *not*
+        // allowed to pick the smallest string such that there's a substring after it in t that matches p_2. So there's
+        // a smaller y_1 such that t begins t_1 + y_1 + t_2p where t_2p matches p_2. It's possible that t_2 and t_2p overlap,
+        // but it's still possible to construct a y_2 from any non-overlapping suffix of t_2 and x_2 so that
+        // t = t_1 + y_1 + t_2p + y_2 + t_3, which will also match. That's a contradiction, so we were in fact allowed to
+        // always take the smallest one. (Generalizing this to an arbitrary number of %s is left as an exercise for the reader.)
+        //
+        // Worst case, this operates in O(tLen * pLen) time. The reason for this is that we need to visit each character in
+        // the text. For each such character, we need to perform an O(pLen) operation (namely: check the next subsequence
+        // of characters in the text to see if they match the pattern) before we can determine if the character should
+        // be identified with the previous wildcard or not. For a string that approximates this worst case, consider
+        // a text like 100,000 'a' characters, and then a pattern like '%aaaa'. To validate this match, we need to
+        // check 100,000 - 4 ≈ 100,000 different substrings for the prefix, and each one requires reading the next 4
+        // characters to evaluate, so that's around 400,000 character comparisons.
         while (t < tLen) {
             boolean matched = false;
             if (p < pLen) {
                 final char pc = pattern.charAt(p);
-                boolean escaped = false;
-                char literal = '\0';
                 if (escape != null && pc == escapeChar) {
-                    literal = (p + 1 < pLen) ? pattern.charAt(p + 1) : '\0';
-                    if (literal != '\0' && (literal == '%' || literal == '_' || literal == escapeChar)) {
-                        escaped = true;
+                    // Escape character. Only allow this to be matched if the next character in the
+                    // text exactly matches the next character in the pattern, even if it is a wildcard
+                    if (p + 1 >= pLen) {
+                        // Pattern terminates in the escape character, which is malformed. Return "no match"
+                        return false;
                     }
-                }
-                if (escaped) {
-                    if (literal == text.charAt(t)) {
+                    if (pattern.charAt(p + 1) == text.charAt(t)) {
                         t++;
                         p += 2;
                         matched = true;
                     }
                 } else if (pc == '%') {
+                    if (p + 1 == pLen) {
+                        // Pattern ends with a %, and we've been able to match everything up to it, so we are
+                        // guaranteed a match. We could remove this early out, but then we'd iterate through
+                        // the rest of the text for no reason
+                        return true;
+                    }
+                    // New %. "Lock in" progress so far. Future backtracking will only reset p to this value.
+                    // Do not advance t, indicating that we're initially mapping the empty string to the wildcard.
                     starP = p++;
                     starT = t;
                     matched = true;
                 } else if (pc == '_' || pc == text.charAt(t)) {
+                    // Single character in the text matches the character in the pattern
                     t++;
                     p++;
                     matched = true;
@@ -171,15 +213,24 @@ public class LikeOperatorValue extends AbstractValue implements BooleanValue {
             }
             if (!matched) {
                 if (starP >= 0) {
+                    // We did not find a match. Try again from the last %, but match an additional character
+                    // in the text to that last wildcard character.
                     p = starP + 1;
                     t = ++starT;
                 } else {
+                    // We have not yet hit a % wildcard. Cannot possibly match, so return now.
                     return false;
                 }
             }
         }
-        while (p < pLen && pattern.charAt(p) == '%') {
-            p++;
+        if (escapeChar != '%') {
+            // Match any trailing wildcards against the empty string.
+            // (Note that if % is the escape character, we have to skip it, as a string of trailing
+            // %s in the pattern should be matched against a (half-as-long) sequence of trailing %s
+            // in the text, which is handled in the loop.)
+            while (p < pLen && pattern.charAt(p) == '%') {
+                p++;
+            }
         }
         return p == pLen;
     }

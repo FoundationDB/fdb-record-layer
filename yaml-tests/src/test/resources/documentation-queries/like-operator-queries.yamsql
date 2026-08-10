@@ -4,6 +4,7 @@ schema_template:
     create index price_idx as select price from products order by price
     create index category_idx as select category from products order by category
     create index name_idx as select name from products order by name
+    create table files(id bigint, filename string, primary key(id))
 ---
 setup:
   steps:
@@ -15,6 +16,10 @@ setup:
                    (5, 'Tool B', 'Hardware', 120, 15),
                    (6, 'Book A', 'Media', 25, 200),
                    (7, 'Book B', 'Media', 30, 150)
+    - query: insert into files values
+        (1, 'report_2024.pdf'),
+        (2, 'data%summary.txt'),
+        (3, 'test_file.csv')
 ---
 test_block:
   name: like-operator-tests
@@ -61,3 +66,62 @@ test_block:
                  {name: "Gadget X"},
                  {name: "Tool A"},
                  {name: "Tool B"}]
+
+    # ESCAPE clause
+    -
+      - query:
+         SELECT filename
+             FROM files
+             WHERE filename LIKE '%\_%' ESCAPE '\'
+      - result: [
+         {"report_2024.pdf"},
+         {"test_file.csv"},
+        ]
+    -
+      - query: insert into files values
+          (4, 'final_report.pdf'),
+          (5, 'final-report.pdf'),
+          (6, 'final\-report.pdf')
+    -
+      - query:
+         SELECT filename
+             FROM files
+             WHERE filename LIKE 'final_report.pdf'
+      - result: [
+         {"final_report.pdf"},
+         {"final-report.pdf"},
+        ]
+    -
+      - query:
+         SELECT filename
+             FROM files
+             WHERE filename LIKE 'final\_report.pdf' ESCAPE '\'
+      - result: [
+         {"final_report.pdf"},
+        ]
+    -
+      - query:
+         SELECT filename
+             FROM files
+             WHERE filename LIKE 'final%_report.pdf' ESCAPE '%'
+      - result: [
+         {"final_report.pdf"},
+        ]
+    -
+      - query:
+         SELECT filename
+             FROM files
+             WHERE filename LIKE 'final\\_report.pdf' ESCAPE '\'
+      - supported_version: !current_version
+      - result: [
+         {"final\\-report.pdf"},
+        ]
+    -
+      - query:
+         SELECT filename
+             FROM files
+             WHERE filename LIKE 'rfrirnrarlr_rrrerprorrrtr.rprdrf' ESCAPE 'r'
+      - supported_version: !current_version
+      - result: [
+         {"final_report.pdf"},
+        ]

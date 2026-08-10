@@ -98,7 +98,8 @@ test_block:
     -
       - query: select * from B WHERE B2 NOT LIKE 'Z' ESCAPE 'Z'
       # This should error; see https://github.com/FoundationDB/fdb-record-layer/issues/3216
-      - result: [{1, 'Y'}, {3, 'A'}, {5, 'B'}]
+      - supported_version: !current_version
+      - result: [{1, 'Y'}, {2, 'Z'}, {3, 'A'}, {4, Z}, {5, 'B'}]
     -
       - query: select * from B WHERE B2 NOT LIKE '\'
       # This should error; see https://github.com/FoundationDB/fdb-record-layer/issues/3216
@@ -429,10 +430,8 @@ test_block:
       ]
     -
       - query: select * from A WHERE A1 LIKE '%%%' ESCAPE '%'
+      - supported_version: !current_version
       - unorderedResult: [
-           {'%%abcdef'},
-           {'%'},
-           {'%z'},
         ]
     -
       - query: select * from A WHERE A1 NOT LIKE '|_|_%' ESCAPE '|'
@@ -479,13 +478,20 @@ test_block:
           ]
     -
       - query: select * from A WHERE A1 NOT LIKE '%abcde%' ESCAPE 'b'
+      - supported_version: !current_version
       - unorderedResult: [
+          {'abcdefghijklmnopqrstuvwxyz'},
+          {'___abcdef'},
+          {'%%abcdef'},
+          {'*abcdef'},
           {'ABCDEFGHIJKLMNOPQRSTUVWXYZ'},
-          {'<acdefghijk>'},
           {'école'},
           {'ありがとう'},
           {'学校'},
           {'مدرسة'},
+          {'(abcdefghijk)'},
+          {'[abcdefghijk]'},
+          {'{abcdefghijk}'},
           {'^$'},
           {'\\||%'},
           {'%'},
@@ -555,25 +561,20 @@ test_block:
       - query: select * from A WHERE A1 LIKE '_abc%' ESCAPE 'b'
       - supported_version: !current_version
       - unorderedResult: [
-          {'*abcdef'},
-          {'(abcdefghijk)'},
-          {'[abcdefghijk]'},
-          {'{abcdefghijk}'},
+          {'<acdefghijk>'},
         ]
     -
       - query: select * from A WHERE A1 LIKE '%%abc%' ESCAPE 'b'
       - supported_version: !current_version
       - unorderedResult: [
-          {'___abcdef'},
-          {'%%abcdef'},
-          {'*abcdef'},
-          {'(abcdefghijk)'},
-          {'[abcdefghijk]'},
-          {'{abcdefghijk}'},
-          {'abcdefghijklmnopqrstuvwxyz'},
+          {'<acdefghijk>'},
         ]
     -
       - query: select * from A WHERE A1 LIKE 'b%b%abc%' ESCAPE 'b'
+      - supported_version: !current_version
+      - unorderedResult: []
+    -
+      - query: select * from A WHERE A1 LIKE 'b%b%abbc%' ESCAPE 'b'
       - supported_version: !current_version
       - unorderedResult: [
           {'%%abcdef'},

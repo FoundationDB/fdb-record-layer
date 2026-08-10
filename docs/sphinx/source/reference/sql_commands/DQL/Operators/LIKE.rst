@@ -216,6 +216,85 @@ To search for literal ``%`` or ``_`` characters, use the ESCAPE clause:
 
 With the ESCAPE clause, ``\_`` matches a literal underscore character.
 
+Note that if the ESCAPE clause is set, then _any_ character following the escape character is
+treated as a literal. This means that, if the escape character is set to ``\`` as above, that
+``\_`` matches the literal underscore and ``\%`` matches the literal percent sign, but also
+``\\`` matches the (single) literal backslash and ``\\n`` matches just the
+character ``n``. So, when the escape precedes a non-special character, it is effectively dropped
+from the pattern during matching. Finally, note that if the escape character is the final character in
+the pattern, then this is considered malformed, and all text will fail to match the pattern. So, using
+the example schema above:
+
+.. code-block:: sql
+
+    INSERT INTO files VALUES
+        (4, 'final_report.pdf'),
+        (5, 'final-report.pdf'),
+        (6, 'final\-report.pdf')
+
+We get different result sets with different escape values:
+
+.. code-block:: sql
+
+    SELECT filename
+    FROM files
+    WHERE filename LIKE 'final_report.pdf'
+
+.. list-table::
+    :header-rows: 1
+
+    * - :sql:`filename`
+    * - :json:`"final_report.pdf"`
+    * - :json:`"final-report.pdf"`
+
+.. code-block:: sql
+
+    SELECT filename
+    FROM files
+    WHERE filename LIKE 'final\_report.pdf' ESCAPE '\'
+
+.. list-table::
+    :header-rows: 1
+
+    * - :sql:`filename`
+    * - :json:`"final_report.pdf"`
+
+.. code-block:: sql
+
+    SELECT filename
+    FROM files
+    WHERE filename LIKE 'final%_report.pdf' ESCAPE '%'
+
+.. list-table::
+    :header-rows: 1
+
+    * - :sql:`filename`
+    * - :json:`"final-report.pdf"`
+
+.. code-block:: sql
+
+    SELECT filename
+    FROM files
+    WHERE filename LIKE 'final\\_report.pdf' ESCAPE '\'
+
+.. list-table::
+    :header-rows: 1
+
+    * - :sql:`filename`
+    * - :json:`"final\-report.pdf"`
+
+.. code-block:: sql
+
+    SELECT filename
+    FROM files
+    WHERE filename LIKE 'rfrirnrarlr_rrrerprorrrtr.rprdrf' escape 'r'
+
+.. list-table::
+    :header-rows: 1
+
+    * - :sql:`filename`
+    * - :json:`"final_report.pdf"`
+
 Important Notes
 ===============
 
