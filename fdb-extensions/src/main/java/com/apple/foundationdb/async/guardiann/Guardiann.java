@@ -305,23 +305,25 @@ public class Guardiann {
 
     /**
      * Drains up to {@code numTasks} of this structure's queued deferred maintenance tasks, running them inline within
-     * {@code transaction}. This is the very same bounded work that inserts and deletes pay down piggy-backed (see the
-     * <em>Maintenance</em> section); exposing it lets a caller drain the backlog on its own — for example a background
-     * merge that pays down maintenance without issuing a foreground write. If the structure has never been initialized
-     * (there is no access info yet), it holds no tasks and this is a no-op.
+     * {@code transaction}. Stops draining before the next task once {@code System.currentTimeMillis()} reaches
+     * {@code deadlineMillis} (at least one task still runs when the queue is non-empty). Lets a background merge bound
+     * how long it drains within a single transaction by wall-clock time rather than only by task count.
+     * Pass {@link Long#MAX_VALUE} for no time bound.
      *
      * @param transaction the {@link Transaction} to fetch and run the tasks within
      * @param numTasks the maximum number of queued tasks to run
+     * @param deadlineMillis an absolute wall-clock deadline (epoch millis) after which no further task is started
      * @return a {@link CompletableFuture} of the number of tasks actually executed ({@code 0} if the structure holds
      *         none, or has never been initialized)
      */
     @Nonnull
-    public CompletableFuture<Integer> executeDeferredTasks(@Nonnull final Transaction transaction, final int numTasks) {
+    public CompletableFuture<Integer> executeDeferredTasks(@Nonnull final Transaction transaction, final int numTasks,
+                                                           final long deadlineMillis) {
         final Primitives primitives = getLocator().primitives();
         return primitives.fetchAccessInfo(transaction)
                 .thenCompose(accessInfo ->
                         accessInfo == null
                         ? CompletableFuture.completedFuture(0)
-                        : primitives.executeDeferredTasks(transaction, accessInfo, numTasks));
+                        : primitives.executeDeferredTasks(transaction, accessInfo, numTasks, deadlineMillis));
     }
 }

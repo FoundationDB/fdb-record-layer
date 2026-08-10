@@ -148,10 +148,11 @@ final class GuardiannVectorIndexEngine implements VectorIndexEngine {
      * record-layer exceptions across the module boundary) and passing every other failure through unchanged. Never
      * returns normally; the {@code Void} return type is only there to satisfy {@code exceptionally}.
      */
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
     private static Void translateInsertBackPressure(@Nonnull final Throwable throwable) {
         Throwable cause = throwable;
         while ((cause instanceof CompletionException || cause instanceof ExecutionException)
-                && cause.getCause() != null) {
+                && cause.getCause() != null && cause.getCause() != cause) {
             cause = cause.getCause();
         }
         if (cause instanceof ClusterCapacityExceededException) {
@@ -204,7 +205,8 @@ final class GuardiannVectorIndexEngine implements VectorIndexEngine {
     public CompletableFuture<Integer> executeDeferredTasks(@Nonnull final FDBRecordContext context,
                                                            @Nonnull final Subspace subspace,
                                                            final int numTasks,
-                                                           @Nonnull final TaskEventRegister register) {
+                                                           @Nonnull final TaskEventRegister register,
+                                                           final long deadlineMillis) {
         // Draining runs queued tasks, which is a write path: wire OnWrite so each executed task both attributes to the
         // timer and — via the register — decrements the partition's outstanding-work count in this same transaction.
         final FDBStoreTimer timer = context.getTimer();
@@ -212,7 +214,7 @@ final class GuardiannVectorIndexEngine implements VectorIndexEngine {
         final Guardiann guardiann =
                 new Guardiann(subspace, context.getExecutor(), config,
                         OnWrite.forWrites(timer, transaction, register), OnRead.fromTimer(timer));
-        return guardiann.executeDeferredTasks(transaction, numTasks);
+        return guardiann.executeDeferredTasks(transaction, numTasks, deadlineMillis);
     }
 
     /**

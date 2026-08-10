@@ -591,6 +591,9 @@ public class CollapseScenarioTest implements BaseTest {
                 .setRaBitQNumExBits(6)
                 .setMetric(Metric.EUCLIDEAN_METRIC)
                 .setPrimaryClusterMax(primaryClusterMax)
+                // Config requires the hard cap to exceed the split threshold; keep it proportional. Every insert here
+                // uses maintainInTransaction=true, which bypasses the hard-cap valve, so this value never back-pressures.
+                .setPrimaryClusterHardMax(2 * primaryClusterMax)
                 .setPrimaryClusterMin(1)
                 .setCollapseMinDuplicates(collapseMinDuplicates)
                 .setDeterministicRandomness(true)

@@ -163,14 +163,18 @@ sealed interface VectorIndexEngine permits HnswVectorIndexEngine, GuardiannVecto
      * @param numTasks the maximum number of queued tasks to run in this transaction
      * @param register notified as tasks are executed during the drain (via its {@code onTaskExecuted} callback);
      *        {@link TaskEventRegister#NOOP} if there is nothing to react to
-     * @return a future of the number of tasks actually run — fewer than {@code numTasks} exactly when the queue held
-     *         fewer, which is how a merge learns a partition is drained
+     * @param deadlineMillis an absolute wall-clock deadline (epoch millis); the engine stops before starting a task
+     *        once it is reached, so a merge can bound a drain by time as well as by {@code numTasks} (at least one task
+     *        still runs). Pass {@link Long#MAX_VALUE} for no time bound
+     * @return a future of the number of tasks actually run — fewer than {@code numTasks} when the queue held fewer or
+     *         the deadline was reached, which is how a merge learns how much of a partition it drained
      */
     @Nonnull
     CompletableFuture<Integer> executeDeferredTasks(@Nonnull FDBRecordContext context,
                                                     @Nonnull Subspace subspace,
                                                     int numTasks,
-                                                    @Nonnull TaskEventRegister register);
+                                                    @Nonnull TaskEventRegister register,
+                                                    long deadlineMillis);
 
     /**
      * Determines the engine kind an index is configured to use.

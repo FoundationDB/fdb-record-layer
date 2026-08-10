@@ -146,7 +146,8 @@ final class HnswVectorIndexEngine implements VectorIndexEngine {
     public CompletableFuture<Integer> executeDeferredTasks(@Nonnull final FDBRecordContext context,
                                                            @Nonnull final Subspace subspace,
                                                            final int numTasks,
-                                                           @Nonnull final TaskEventRegister register) {
+                                                           @Nonnull final TaskEventRegister register,
+                                                           final long deadlineMillis) {
         // HNSW does all its work inline during insert/delete, so it never enqueues deferred tasks. It tracks no task
         // counts (getTaskCounts() is null), so the maintainer never routes a merge here; being asked to is a
         // programming error.

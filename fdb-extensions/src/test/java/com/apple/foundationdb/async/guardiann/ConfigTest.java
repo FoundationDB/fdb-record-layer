@@ -176,7 +176,9 @@ class ConfigTest {
     void testEqualsHashCodeAndToString() {
         final Config config1 = Guardiann.newConfigBuilder().build(NUM_DIMENSIONS);
         final Config config2 = Guardiann.newConfigBuilder().build(NUM_DIMENSIONS);
-        final Config config3 = Guardiann.newConfigBuilder().setPrimaryClusterMax(4).build(NUM_DIMENSIONS);
+        // collapseMinDuplicates must stay below primaryClusterMax (Config invariant), so lower it alongside the cap.
+        final Config config3 = Guardiann.newConfigBuilder().setPrimaryClusterMax(4).setCollapseMinDuplicates(3)
+                .build(NUM_DIMENSIONS);
 
         Assertions.assertThat(config1.hashCode()).isEqualTo(config2.hashCode());
         Assertions.assertThat(config1).isEqualTo(config2);
@@ -200,16 +202,20 @@ class ConfigTest {
     @Test
     void testPrimaryClusterHardMaxMustExceedMax() {
         // The hard cap must sit strictly above the split threshold; equal is not enough (it would back-pressure before
-        // the normal split ever triggers).
+        // the normal split ever triggers). collapseMinDuplicates is kept below primaryClusterMax so that the collapse
+        // invariant passes and the hard-cap invariant is the one exercised here.
         Assertions.assertThatThrownBy(() -> Guardiann.newConfigBuilder()
-                        .setPrimaryClusterMax(100).setPrimaryClusterHardMax(100).build(NUM_DIMENSIONS))
+                        .setPrimaryClusterMax(100).setCollapseMinDuplicates(50).setPrimaryClusterHardMax(100)
+                        .build(NUM_DIMENSIONS))
                 .isInstanceOf(IllegalArgumentException.class);
         Assertions.assertThatThrownBy(() -> Guardiann.newConfigBuilder()
-                        .setPrimaryClusterMax(100).setPrimaryClusterHardMax(99).build(NUM_DIMENSIONS))
+                        .setPrimaryClusterMax(100).setCollapseMinDuplicates(50).setPrimaryClusterHardMax(99)
+                        .build(NUM_DIMENSIONS))
                 .isInstanceOf(IllegalArgumentException.class);
 
         Assertions.assertThat(Guardiann.newConfigBuilder()
-                        .setPrimaryClusterMax(100).setPrimaryClusterHardMax(101).build(NUM_DIMENSIONS)
+                        .setPrimaryClusterMax(100).setCollapseMinDuplicates(50).setPrimaryClusterHardMax(101)
+                        .build(NUM_DIMENSIONS)
                         .primaryClusterHardMax())
                 .isEqualTo(101);
     }

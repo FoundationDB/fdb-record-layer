@@ -91,6 +91,11 @@ import java.util.function.Function;
  */
 @API(API.Status.EXPERIMENTAL)
 public class VectorIndexMaintainer extends StandardIndexMaintainer {
+    // Per-drain time budget used when the driver supplies none (IndexDeferredMaintenanceControl.getTimeQuotaMillis()
+    // defaults to 0). Mirrors Lucene's agile-commit default and stays well under FoundationDB's ~5s transaction limit,
+    // so a single drain commits before the transaction ages out rather than overrunning and being rolled back.
+    private static final long DEFAULT_MERGE_TIME_QUOTA_MILLIS = 4000L;
+
     @Nonnull
     private final VectorIndexEngine engine;
 
@@ -574,13 +579,25 @@ public class VectorIndexMaintainer extends StandardIndexMaintainer {
         // Mirror updateIndexKeys: an unpartitioned index (empty prefix) lives directly in the index subspace.
         final Subspace partitionSubspace = prefix.isEmpty() ? indexSubspace : indexSubspace.subspace(prefix);
         final int requested = (int)Math.min(owned.count(), taskBudget);
+        // Bound the drain by time as well as by count. The driver hands a per-invocation budget via the control's
+        // timeQuotaMillis (IndexingMerger halves it on a transaction-too-old failure and lets it recover on success);
+        // when it hands none, seed the default and write it back so that adaptive feedback has something to work with.
+        // The engine always runs at least one task, so forward progress never stalls even under a tight budget.
+        long timeQuotaMillis = mergeControl.getTimeQuotaMillis();
+        if (timeQuotaMillis <= 0L) {
+            timeQuotaMillis = DEFAULT_MERGE_TIME_QUOTA_MILLIS;
+            mergeControl.setTimeQuotaMillis(timeQuotaMillis);
+        }
+        final long deadlineMillis = System.currentTimeMillis() + timeQuotaMillis;
         final TaskCountRegister register = taskCounts.registerFor(prefix);
-        return getEngine().executeDeferredTasks(state.context, partitionSubspace, requested, register)
+        return getEngine().executeDeferredTasks(state.context, partitionSubspace, requested, register, deadlineMillis)
                 .thenCompose(executedForPrefix -> {
                     // The per-prefix count is the expected number of queued tasks (enqueue/execute keep it in lock-step
-                    // with the queue), so the engine must run exactly what we asked for. Verify rather than trust.
-                    Verify.verify(executedForPrefix == requested,
-                            "vector merge expected to run %s deferred task(s) but ran %s", requested, executedForPrefix);
+                    // with the queue), so the engine can run at most what we asked for; a time-bounded drain may run
+                    // fewer, but always at least one. Verify rather than trust.
+                    Verify.verify(executedForPrefix >= 1 && executedForPrefix <= requested,
+                            "vector merge expected to run 1..%s deferred task(s) but ran %s", requested,
+                            executedForPrefix);
                     // Release the lease only once the partition is truly empty (a read-your-writes-aware snapshot read
                     // reflects this drain's mutations, including any follow-up tasks it enqueued); otherwise keep it so
                     // we continue this same partition next invocation.
@@ -588,7 +605,8 @@ public class VectorIndexMaintainer extends StandardIndexMaintainer {
                             .thenCompose(remaining -> {
                                 final CompletableFuture<Void> released =
                                         remaining <= 0L ? lock.release(state.context, prefix) : AsyncUtil.DONE;
-                                return released.thenAccept(ignore -> reportProgress(mergeControl, requested, true));
+                                return released.thenAccept(ignore -> reportProgress(mergeControl, executedForPrefix,
+                                        true));
                             });
                 });
     }

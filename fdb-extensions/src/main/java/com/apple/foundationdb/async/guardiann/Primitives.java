@@ -942,13 +942,39 @@ class Primitives {
     CompletableFuture<Integer> executeDeferredTasks(@Nonnull final Transaction transaction,
                                                     @Nonnull final AccessInfo accessInfo,
                                                     final int numTasks) {
+        return executeDeferredTasks(transaction, accessInfo, numTasks, Long.MAX_VALUE);
+    }
+
+    /**
+     * Deadline-aware variant of {@link #executeDeferredTasks(Transaction, AccessInfo, int)}: runs queued tasks one at a
+     * time and stops early once {@code System.currentTimeMillis()} reaches {@code deadlineMillis}, so a caller draining
+     * with a time budget (a background merge) commits before the transaction grows too large rather than overrunning
+     * the transaction limit and being rolled back. At least one task always runs when the queue is non-empty (checked
+     * before the second task onward), guaranteeing forward progress even if the deadline has already passed. Pass
+     * {@link Long#MAX_VALUE} for no time bound.
+     *
+     * @param transaction the transaction to fetch and run the tasks within
+     * @param accessInfo the access context passed to each rehydrated task
+     * @param numTasks the maximum number of tasks to run
+     * @param deadlineMillis an absolute wall-clock deadline (epoch millis); draining stops before the next task once it
+     *        is reached
+     * @return a future of the number of tasks actually executed (fewer than {@code numTasks} when the queue held fewer
+     *         <em>or</em> the deadline was reached)
+     */
+    @Nonnull
+    CompletableFuture<Integer> executeDeferredTasks(@Nonnull final Transaction transaction,
+                                                    @Nonnull final AccessInfo accessInfo,
+                                                    final int numTasks,
+                                                    final long deadlineMillis) {
         return fetchSomeDeferredTasks(transaction, accessInfo, numTasks)
                 .thenCompose(deferredTasks ->
-                        forLoop(0, (Void)null,
-                                i -> i < deferredTasks.size(), i -> i + 1,
-                                (i, ignored) ->
-                                        executeSingleDeferredTask(transaction, deferredTasks.get(i)), getExecutor())
-                                .thenApply(ignored -> deferredTasks.size()));
+                        // The accumulator U carries the running count of executed tasks, which is the loop's result.
+                        // The first task always runs (i == 0); subsequent tasks run only while the deadline holds.
+                        forLoop(0, 0,
+                                i -> i < deferredTasks.size() && (i == 0 || System.currentTimeMillis() < deadlineMillis),
+                                i -> i + 1,
+                                (i, executed) -> executeSingleDeferredTask(transaction, deferredTasks.get(i))
+                                        .thenApply(ignored -> executed + 1), getExecutor()));
     }
 
     /**
@@ -1402,12 +1428,11 @@ class Primitives {
                                                         @Nonnull final List<ClusterMetadataWithDistance> coreClusters,
                                                         @Nonnull final StorageTransform storageTransform,
                                                         final int concurrency) {
-        final Primitives primitives = getLocator().primitives();
         final Executor executor = getLocator().getExecutor();
 
         return forEach(coreClusters,
                 clusterMetadata ->
-                        primitives.fetchCluster(transaction, storageTransform,
+                        fetchCluster(transaction, storageTransform,
                                 clusterMetadata.clusterMetadata().id(), clusterMetadata.centroid()),
                 concurrency,
                 executor);
@@ -1432,7 +1457,6 @@ class Primitives {
                                                                      @Nonnull final List<Cluster> clusters,
                                                                      final boolean discardReplicatedVectorReferences,
                                                                      final int concurrency) {
-        final Primitives primitives = getLocator().primitives();
         final Executor executor = getLocator().getExecutor();
 
         final Map<VectorId, VectorReference> vectorsByIdMap = Maps.newHashMap();
@@ -1448,7 +1472,7 @@ class Primitives {
 
         return forEach(vectorsByIdMap.values(),
                 vectorReference ->
-                        primitives.fetchVectorMetadata(transaction, vectorReference.id().primaryKey())
+                        fetchVectorMetadata(transaction, vectorReference.id().primaryKey())
                                 .thenApply(vectorMetadata ->
                                         vectorReference.isCollapsed() ||
                                                 (vectorMetadata != null &&

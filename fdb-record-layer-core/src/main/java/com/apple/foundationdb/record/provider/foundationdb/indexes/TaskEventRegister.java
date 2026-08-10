@@ -27,11 +27,12 @@ import javax.annotation.Nonnull;
 import java.util.List;
 
 /**
- * A sink a vector engine's write listener notifies as deferred maintenance tasks are enqueued and executed during an
- * insert/delete/drain, in the operation's transaction. Implementations decide what that means: {@link TaskCountRegister}
- * keeps the partition's outstanding-work counts, and {@link MaintenanceControlRegister} flags the index as needing a
- * background merge. The maintainer constructs (and, via {@link #compose}, combines) the concrete registers outside the
- * engine, so the engine stays decoupled from the record store — it just notifies whatever it was handed.
+ * A sink that a vector engine's write listener notifies as deferred maintenance tasks are enqueued and executed during
+ * an insert/delete/drain, in the operation's transaction. Implementations decide what that means:
+ * {@link TaskCountRegister} keeps the partition's outstanding-work counts, and {@link MaintenanceControlRegister} flags
+ * the index as needing a background merge. The maintainer constructs (and, via {@link #compose}, combines) the concrete
+ * registers outside the engine, so the engine stays decoupled from the record store —
+ * it just notifies whatever it was handed.
  */
 interface TaskEventRegister {
     /**
