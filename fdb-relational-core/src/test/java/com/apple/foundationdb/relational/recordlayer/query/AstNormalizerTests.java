@@ -408,7 +408,7 @@ public class AstNormalizerTests {
                         .setNormalizedDescription(canonicalFunctionDdl)
                         // invoking the compiled routine should only happen during plan generation.
                         .withUserDefinedFunctionProvider(ignored -> new CompiledSqlFunction("", List.of(), List.of(),
-                                List.of(), Optional.empty(), null, Literals.empty()) {
+                                List.of(), Optional.empty(), null, Literals.empty(), List.of()) {
                             @Nonnull
                             @Override
                             public RecordMetaDataProto.PUserDefinedFunction toProto() {

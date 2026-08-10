@@ -770,7 +770,8 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
                                 () -> visit(bodyCtx)), LogicalOperator.class);
             }
             finalStepBuilder = sqlFunctionBodyStepBuilder.withBodyExpression(bodyOperator.getQuantifier().getRangesOver().get())
-                    .setLiterals(getDelegate().getPlanGenerationContext().getLiterals());
+                    .setLiterals(getDelegate().getPlanGenerationContext().getLiterals())
+                    .setUnboundConstantObjectValues(getDelegate().getPlanGenerationContext().getUnboundConstantObjectValues());
         }
 
         getDelegate().popPlanFragment();

@@ -88,6 +88,15 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
     @Nonnull
     private final List<ConstantObjectValue> constantObjectValues;
 
+    /**
+     * The value-free (unbound) subset of {@link #constantObjectValues} — COVs created by {@link #valueFreeCovOf} for
+     * typed parameters warmed with no value. Tracked explicitly because, unlike a value-bound literal, a value-free
+     * parameter produces no {@link OrderedLiteral}, so it cannot be recovered from the literal table when a function
+     * body's side effects are carried into the enclosing query (see {@link #importAuxiliaryLiterals}).
+     */
+    @Nonnull
+    private final List<ConstantObjectValue> unboundConstantObjectValues;
+
     private boolean shouldProcessLiteral;
 
     private boolean forExplain;
@@ -131,6 +140,7 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
     public ConstantObjectValue valueFreeCovOf(@Nonnull final Type type, final int tokenIndex) {
         final var result = ConstantObjectValue.of(Quantifier.constant(), literalsBuilder.constructConstantId(tokenIndex), type);
         addLiteralReference(result);
+        unboundConstantObjectValues.add(result);
         return result;
     }
 
@@ -297,6 +307,7 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
         this.parameterHash = parameterHash;
         literalsBuilder = Literals.newBuilder();
         constantObjectValues = new LinkedList<>();
+        unboundConstantObjectValues = new LinkedList<>();
         shouldProcessLiteral = true;
         forExplain = false;
         continuation = null;
@@ -488,7 +499,16 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
         return processComplexLiteral(tokenIndex, resolvedType);
     }
 
-    public void importAuxiliaryLiterals(@Nonnull final Literals auxiliaryLiterals) {
+    /**
+     * Imports a function body's plan-generation side effects into this (enclosing) context: its value-bearing
+     * {@code auxiliaryLiterals} and its value-free {@code auxiliaryConstantObjectValues} (typed parameters warmed with
+     * no value). Both kinds are registered into {@code constantObjectValues} so {@link
+     * #getPlanConstraintsForLiteralReferences} emits their {@code OfType}/nullness constraint; the literals additionally
+     * carry their value into the literal table (enabling constant folding and value-based dedup/equality). Value-free
+     * COVs carry no {@link OrderedLiteral}, so they must be passed explicitly rather than recovered from the literals.
+     */
+    public void importAuxiliaryLiterals(@Nonnull final Literals auxiliaryLiterals,
+                                        @Nonnull final List<ConstantObjectValue> auxiliaryConstantObjectValues) {
         final var newLiterals = literalsBuilder.importLiteralsRetrieveNewLiterals(auxiliaryLiterals);
         for (final var literal : newLiterals) {
             final var literalValue = new LiteralValue<>(literal.getLiteralObject());
@@ -496,6 +516,18 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
             duplicateLiteralMaybe.ifPresent(prev -> addEqualityConstraint(prev.getConstantId(), literal.getConstantId(), literalValue.getResultType()));
             constantObjectValues.add(ConstantObjectValue.of(Quantifier.constant(), literal.getConstantId(), literalValue.getResultType()));
         }
+        constantObjectValues.addAll(auxiliaryConstantObjectValues);
+    }
+
+    /**
+     * The value-free (unbound) {@link ConstantObjectValue}s registered in this context — typed parameters warmed with
+     * no value. Captured from a compiled function body so the enclosing query can re-import them via {@link
+     * #importAuxiliaryLiterals}.
+     * @return the value-free constant object values registered so far.
+     */
+    @Nonnull
+    public List<ConstantObjectValue> getUnboundConstantObjectValues() {
+        return ImmutableList.copyOf(unboundConstantObjectValues);
     }
 
     @Nonnull

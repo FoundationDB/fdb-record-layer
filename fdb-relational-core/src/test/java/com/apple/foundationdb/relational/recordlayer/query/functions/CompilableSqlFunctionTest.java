@@ -63,7 +63,8 @@ class CompilableSqlFunctionTest {
                 ImmutableList.of(Optional.empty(), Optional.empty()),
                 Optional.of(com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier.of("test")),
                 createDummyBody(),
-                Literals.empty()
+                Literals.empty(),
+                ImmutableList.of()
         );
     }
 

@@ -667,7 +667,7 @@ public class SchemaTemplateSerDeTests {
         @SuppressWarnings("DataFlowIssue") // only for test.
         CompiledFunctionStub() {
             super("something", List.of(), List.of(), List.of(),
-                    Optional.empty(), null, Literals.empty());
+                    Optional.empty(), null, Literals.empty(), List.of());
         }
     }
 

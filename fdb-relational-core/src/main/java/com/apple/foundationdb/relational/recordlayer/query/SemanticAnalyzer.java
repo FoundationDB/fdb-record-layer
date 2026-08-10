@@ -1041,9 +1041,12 @@ public class SemanticAnalyzer {
         if (!(builtInFunction instanceof WithPlanGenerationSideEffects)) {
             return;
         }
-        // combine the expanded function's literals (if any) with the currently built list of query literals.
-        mutablePlanGenerationContext.importAuxiliaryLiterals(Assert.castUnchecked(builtInFunction,
-                WithPlanGenerationSideEffects.class).getAuxiliaryLiterals());
+        final var sideEffects = Assert.castUnchecked(builtInFunction, WithPlanGenerationSideEffects.class);
+        // Combine the expanded function's side effects with the currently built query: its value-bearing literals and
+        // its value-free (unbound) constant object values — the latter carry no literal, so they are passed explicitly
+        // and only contribute their OfType/nullness plan constraint.
+        mutablePlanGenerationContext.importAuxiliaryLiterals(sideEffects.getAuxiliaryLiterals(),
+                sideEffects.getAuxiliaryConstantObjectValues());
     }
 
     /**

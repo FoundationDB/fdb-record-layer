@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.query.plan.cascades.UserDefinedFunction;
 import com.apple.foundationdb.record.query.plan.cascades.UserDefinedMacroFunction;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.values.ConstantObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.ThrowsValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
@@ -169,6 +170,16 @@ public final class UserDefinedFunctionBuilder {
          * @return this builder, for chaining.
          */
         FinalStepBuilder setLiterals(@Nonnull Literals literals);
+
+        /**
+         * Attaches value-free (unbound) {@link ConstantObjectValue}s gathered while parsing the body — typed parameters
+         * warmed with no value. Defaults to a no-op for function kinds that produce none (e.g. macro functions).
+         * @param unboundConstantObjectValues the value-free constant object values to attach.
+         * @return this builder, for chaining.
+         */
+        default FinalStepBuilder setUnboundConstantObjectValues(@Nonnull List<ConstantObjectValue> unboundConstantObjectValues) {
+            return this;
+        }
 
         /**
          * Builds the {@link UserDefinedFunction} from all the provided specifications.
