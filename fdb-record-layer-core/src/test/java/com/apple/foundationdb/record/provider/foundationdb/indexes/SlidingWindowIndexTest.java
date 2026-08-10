@@ -30,6 +30,7 @@ import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.IsolationLevel;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
+import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TupleRange;
@@ -38,12 +39,14 @@ import com.apple.foundationdb.record.metadata.IndexAggregateFunction;
 import com.apple.foundationdb.record.metadata.IndexPredicate;
 import com.apple.foundationdb.record.metadata.IndexPredicate.RowNumberWindowPredicate.Direction;
 import com.apple.foundationdb.record.metadata.IndexRecordFunction;
+import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBIndexableRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBIndexedRawRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreTestBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainer;
@@ -76,6 +79,10 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Semaphore;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static com.apple.foundationdb.record.provider.foundationdb.indexes.SlidingWindowTestHelpers.SlidingWindowAssert.assertThat;
 import static com.apple.foundationdb.record.provider.foundationdb.indexes.SlidingWindowTestHelpers.makeVector;
@@ -1630,6 +1637,89 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
             // isIdempotent (delegate forwards)
             maintainer.isIdempotent();
 
+            commit(context);
+        }
+    }
+
+    @Test
+    void slidingWindowVectorIndexAllowsPendingWriteQueue() throws Exception {
+        try (FDBRecordContext context = openContext()) {
+            openStore(context, 3, Direction.DESC);
+            final Index index = index();
+            assertEquals(IndexTypes.VECTOR, index.getType());
+
+            final IndexMaintainer maintainer = maintainer();
+            Assertions.assertInstanceOf(SlidingWindowIndexMaintainer.class, maintainer);
+
+            assertTrue(maintainer.isPendingWriteQueueAllowed());
+
+            final IndexMaintainer delegate = new VectorIndexMaintainer(
+                    new IndexMaintainerState(recordStore, index, IndexMaintenanceFilter.NORMAL));
+            assertEquals(delegate.isPendingWriteQueueAllowed(), maintainer.isPendingWriteQueueAllowed());
+            commit(context);
+        }
+
+        // Now verify the state during online indexing. Mark the index disabled to start indexing from scratch.
+        try (FDBRecordContext context = openContext()) {
+            openStore(context, 3, Direction.DESC);
+            rec(1, 100);
+            rec(2, 200);
+            rec(3, 300);
+            recordStore.markIndexDisabled(INDEX_NAME).join();
+            commit(context);
+        }
+
+        final Semaphore pausedSemaphore = new Semaphore(0);
+        final Semaphore resumeSemaphore = new Semaphore(0);
+        final AtomicBoolean pausedOnce = new AtomicBoolean(false);
+        final AtomicReference<Throwable> buildFailure = new AtomicReference<>();
+
+        try (FDBRecordContext context = openContext()) {
+            openStore(context, 3, Direction.DESC);
+            final RecordMetaData metaData = recordStore.getRecordMetaData();
+            final OnlineIndexer.Builder indexerBuilder = OnlineIndexer.newBuilder()
+                    .setRecordStore(recordStore)
+                    .setIndex(index())
+                    .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
+                            .setUsePendingWriteQueue(List.of(index()))
+                            .build())
+                    .setConfigLoader(old -> {
+                        if (pausedOnce.compareAndSet(false, true)) {
+                            pausedSemaphore.release();
+                            Assertions.assertDoesNotThrow(() -> resumeSemaphore.acquire());
+                        }
+                        return old;
+                    });
+
+            final Thread indexerThread = new Thread(() -> {
+                try (OnlineIndexer indexer = indexerBuilder.build()) {
+                    indexer.buildIndex(true);
+                } catch (Throwable t) {
+                    buildFailure.set(t);
+                }
+            });
+            indexerThread.start();
+            try {
+                assertTrue(pausedSemaphore.tryAcquire(60, TimeUnit.SECONDS),
+                        "the config loader was never invoked, so the index state was never observed mid-build");
+                try (FDBRecordContext probeContext = openContext()) {
+                    final FDBRecordStore probeStore = getStoreBuilder(probeContext, metaData).open();
+                    assertTrue(probeStore.getIndexState(INDEX_NAME).isWriteOnlyWithQueue(),
+                            "the build must put the index into the queue state; plain WRITE_ONLY here would mean the "
+                                    + "queue was silently declined");
+                }
+            } finally {
+                resumeSemaphore.release();
+                indexerThread.join();
+            }
+            assertNull(buildFailure.get(), () -> "the build failed: " + buildFailure.get());
+            context.commit();
+        }
+
+        try (FDBRecordContext context = openContext()) {
+            openStore(context, 3, Direction.DESC);
+            assertTrue(recordStore.getIndexState(INDEX_NAME).isReadable());
+            assertThat(slidingWindow()).hasSizeOf(3).underlyingHnsw().containsInAnyOrder(1, 2, 3);
             commit(context);
         }
     }

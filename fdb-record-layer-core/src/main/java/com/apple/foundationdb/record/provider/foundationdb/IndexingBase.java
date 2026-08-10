@@ -271,6 +271,12 @@ public abstract class IndexingBase {
 
     private CompletableFuture<Void> markIndexesWriteOnly(boolean continueBuild, FDBRecordStore store) {
         if (continueBuild) {
+            if (LOGGER.isInfoEnabled() && common.getTargetIndexes().stream().anyMatch(policy::shouldUsePendingWriteQueue)) {
+                // Index states are left as they are, so PWQ requests might be ignored
+                LOGGER.info(KeyValueLogMessage.build("PWQ: continued build; not changing index states")
+                        .addKeysAndValues(common.indexLogMessageKeyValues())
+                        .toString());
+            }
             return AsyncUtil.DONE;
         }
         return forEachTargetIndexContext(indexContext -> markSingleIndexWriteOnly(store, indexContext));
@@ -278,22 +284,49 @@ public abstract class IndexingBase {
 
     @Nonnull
     private CompletableFuture<Boolean> markSingleIndexWriteOnly(final FDBRecordStore store, final IndexingCommon.IndexContext indexContext) {
-        // For now, the pending write queue is not allowed for non-idempotent indexes, nor for indexes whose key
-        // contains a record version: the queue payload holds only the serialized record (not its version), so a
-        // drained version-key index would be built with a null version. It is also not allowed during mutual indexing,
-        // as two concurrent queue drains may cause data inconsistency.
         final Index index = indexContext.index;
         final IndexMaintainer maintainer = store.getIndexMaintainer(index);
-        if (policy.shouldUsePendingWriteQueue(index) &&
-                !policy.isMutual() &&
-                maintainer.isPendingWriteQueueAllowed() &&
-                index.getRootExpression().versionColumns() == 0 &&
-                store.getFormatVersionEnum().isAtLeast(FormatVersion.WRITE_ONLY_WITH_QUEUE)) {
-            // TODO? support versioned index ("?" because these kind of indexes don't tend to have indexing bottlenecks)
-            // TODO? support write-only-with-queue for mutual indexing (may require a drain semaphore)
+        if (!policy.shouldUsePendingWriteQueue(index)) {
+            return store.markIndexWriteOnly(index);
+        }
+        final String refusalReason = pendingWriteQueueRefusalReason(store, index, maintainer);
+        if (refusalReason == null) {
+            if (LOGGER.isInfoEnabled()) {
+                LOGGER.info(KeyValueLogMessage.build("PWQ: marking index write-only-with-queue")
+                        .addKeysAndValues(common.indexLogMessageKeyValues())
+                        .addKeyAndValue(LogMessageKeys.INDEX_NAME, index.getName())
+                        .toString());
+            }
             return store.markIndexWriteOnlyWithQueue(index);
         }
+        if (LOGGER.isWarnEnabled()) {
+            LOGGER.warn(KeyValueLogMessage.build("PWQ: refuse request, mark write-only")
+                    .addKeysAndValues(common.indexLogMessageKeyValues())
+                    .addKeyAndValue(LogMessageKeys.INDEX_NAME, index.getName())
+                    .addKeyAndValue(LogMessageKeys.REASON, refusalReason)
+                    .addKeyAndValue(LogMessageKeys.FORMAT_VERSION, store.getFormatVersionEnum())
+                    .toString());
+        }
         return store.markIndexWriteOnly(index);
+    }
+
+    @Nullable
+    private String pendingWriteQueueRefusalReason(@Nonnull final FDBRecordStore store,
+                                                  @Nonnull final Index index,
+                                                  @Nonnull final IndexMaintainer maintainer) {
+        if (policy.isMutual()) {
+            return "MUTUAL_INDEXING";
+        }
+        if (!maintainer.isPendingWriteQueueAllowed()) {
+            return "MAINTAINER_DOES_NOT_ALLOW_QUEUE";
+        }
+        if (index.getRootExpression().versionColumns() != 0) {
+            return "INDEX_KEY_CONTAINS_RECORD_VERSION";
+        }
+        if (!store.getFormatVersionEnum().isAtLeast(FormatVersion.WRITE_ONLY_WITH_QUEUE)) {
+            return "FORMAT_VERSION_TOO_LOW";
+        }
+        return null;
     }
 
     @Nonnull
