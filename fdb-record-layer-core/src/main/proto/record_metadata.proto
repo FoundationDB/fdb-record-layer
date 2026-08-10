@@ -230,6 +230,9 @@ message PStoredQuery {
   optional string name = 1;
   optional string query = 2;
   repeated string temp_functions = 3;
+  // The stored query's declared parameter signature, as raw parameter-list text (e.g. "param_a bigint, param_b bigint").
+  // Empty when the query has no signature. Parsed at warm-up to type the query's value-free named parameters.
+  optional string signature = 4;
 }
 
 message JoinedRecordType {

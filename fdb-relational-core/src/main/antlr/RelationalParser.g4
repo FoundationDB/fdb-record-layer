@@ -250,7 +250,7 @@ viewDefinition
     ;
 
 storedQueryDefinition
-    : STORED QUERY queryName=uid declareBlock? AS storedQuery=query
+    : STORED QUERY queryName=uid sqlParameterDeclarationList? declareBlock? AS storedQuery=query
     ;
 
 declareBlock

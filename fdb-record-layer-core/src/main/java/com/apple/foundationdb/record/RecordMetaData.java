@@ -717,6 +717,9 @@ public class RecordMetaData implements RecordMetaDataProvider {
             if (!storedQuery.getTempFunctions().isEmpty()) {
                 storedQueryBuilder.addAllTempFunctions(storedQuery.getTempFunctions());
             }
+            if (!storedQuery.getSignature().isEmpty()) {
+                storedQueryBuilder.setSignature(storedQuery.getSignature());
+            }
             builder.addStoredQueries(storedQueryBuilder.build());
         }
         builder.setSplitLongRecords(splitLongRecords);
@@ -758,10 +761,18 @@ public class RecordMetaData implements RecordMetaDataProvider {
         private final String query;
         @Nonnull
         private final List<String> tempFunctions;
+        @Nonnull
+        private final String signature;
 
         public StoredQuery(@Nonnull final String storedQuery, @Nonnull final List<String> tempFunctions) {
+            this(storedQuery, tempFunctions, "");
+        }
+
+        public StoredQuery(@Nonnull final String storedQuery, @Nonnull final List<String> tempFunctions,
+                           @Nonnull final String signature) {
             this.query = storedQuery;
             this.tempFunctions = List.copyOf(tempFunctions);
+            this.signature = signature;
         }
 
         @Nonnull
@@ -772,6 +783,16 @@ public class RecordMetaData implements RecordMetaDataProvider {
         @Nonnull
         public List<String> getTempFunctions() {
             return tempFunctions;
+        }
+
+        /**
+         * The declared parameter signature as raw parameter-list text (e.g. {@code "param_a bigint, param_b bigint"}),
+         * or empty if the query has no signature.
+         * @return the signature text.
+         */
+        @Nonnull
+        public String getSignature() {
+            return signature;
         }
     }
 

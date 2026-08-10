@@ -37,10 +37,18 @@ public final class StoredQuery {
     private final String query;
     @Nonnull
     private final List<String> tempFunctions;
+    @Nonnull
+    private final String signature;
 
     public StoredQuery(@Nonnull final String storedQuery, @Nonnull final List<String> tempFunctions) {
+        this(storedQuery, tempFunctions, "");
+    }
+
+    public StoredQuery(@Nonnull final String storedQuery, @Nonnull final List<String> tempFunctions,
+                       @Nonnull final String signature) {
         this.query = storedQuery;
         this.tempFunctions = ImmutableList.copyOf(tempFunctions);
+        this.signature = signature;
     }
 
     @Nonnull
@@ -51,5 +59,15 @@ public final class StoredQuery {
     @Nonnull
     public List<String> getTempFunctions() {
         return tempFunctions;
+    }
+
+    /**
+     * The declared parameter signature as raw parameter-list text (e.g. {@code "param_a bigint, param_b bigint"}),
+     * or empty if the query has no signature.
+     * @return the signature text.
+     */
+    @Nonnull
+    public String getSignature() {
+        return signature;
     }
 }
