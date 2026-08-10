@@ -420,9 +420,7 @@ public class MessageHelpers {
                 Verify.verify(targetDescriptor instanceof Descriptors.Descriptor);
                 final var wrapperDescriptor = (Descriptors.Descriptor)targetDescriptor;
                 final var valuesField = Verify.verifyNotNull(wrapperDescriptor.findFieldByName(NullableArrayTypeUtils.getRepeatedFieldName()));
-                final var wrapperBuilder = DynamicMessage.newBuilder(wrapperDescriptor);
-                wrapperBuilder.setField(valuesField, current);
-                return wrapperBuilder.build();
+                return wrapNullableArray(wrapperDescriptor, valuesField, (List<?>)current);
             }
 
             return current;
@@ -536,12 +534,35 @@ public class MessageHelpers {
      * @param targetDescriptor Descriptor for the wrapper message holding the array.
      */
     @Nonnull
-    private static DynamicMessage wrapNullableArray(@Nonnull final Descriptors.Descriptor targetDescriptor,
-                                                    @Nonnull final Descriptors.FieldDescriptor targetElementFieldDescriptor,
-                                                    final List<? extends Object> array) {
+    static DynamicMessage wrapNullableArray(@Nonnull final Descriptors.Descriptor targetDescriptor,
+                                            @Nonnull final Descriptors.FieldDescriptor targetElementFieldDescriptor,
+                                            final List<? extends Object> array) {
         final var builder = DynamicMessage.newBuilder(targetDescriptor);
         builder.setField(targetElementFieldDescriptor, array);
         return builder.build();
+    }
+
+    /**
+     * Wraps the given field value if the field’s type is a nullable array. A nullable array is stored in a wrapper
+     * message with a single repeated {@code values} field, so the field value must be wrapped accordingly before it can
+     * be set on the enclosing record message.
+     *
+     * @param fieldType the type of the field being set
+     * @param fieldDescriptor the descriptor of the field being set
+     * @param fieldValue the value to set, unwrapped
+     * @return the wrapped {@code fieldValue}, if {@code fieldType} is a nullable array, or the unchanged
+     *         {@code fieldValue} otherwise
+     */
+    @Nonnull
+    static Object wrapIfNullableArray(@Nonnull final Type fieldType, @Nonnull final Descriptors.FieldDescriptor fieldDescriptor,
+                                      @Nonnull final Object fieldValue) {
+        if (!fieldType.isArray() || !fieldType.isNullable()) {
+            return fieldValue;
+        }
+        final Descriptors.Descriptor wrapperDescriptor = fieldDescriptor.getMessageType();
+        final Descriptors.FieldDescriptor valuesField =
+                Verify.verifyNotNull(wrapperDescriptor.findFieldByName(NullableArrayTypeUtils.getRepeatedFieldName()));
+        return wrapNullableArray(wrapperDescriptor, valuesField, (List<?>)fieldValue);
     }
 
     @Nonnull
