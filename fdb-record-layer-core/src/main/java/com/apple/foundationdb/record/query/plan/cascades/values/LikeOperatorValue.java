@@ -90,7 +90,7 @@ public class LikeOperatorValue extends AbstractValue implements BooleanValue {
     }
 
     @Nullable
-    public static Boolean likeOperation(final String lhs, @Nullable final Message rhs) {
+    public static Boolean likeOperation(@Nullable final String lhs, @Nullable final Message rhs) {
         if (lhs == null || rhs == null) {
             return null;
         }
@@ -106,19 +106,30 @@ public class LikeOperatorValue extends AbstractValue implements BooleanValue {
     }
 
     /**
-     * Linear-time SQL LIKE matcher. The {@code pattern} is a normalized LIKE pattern produced by
-     * {@link PatternForLikeValue}: {@code '%'} matches any sequence of characters, {@code '_'} matches
-     * exactly one character, and {@code escape} escapes the next character as a literal if it would otherwise
-     * be a special character (so {@code escape + '%'}, {@code escape + '_'}, and {@code escape + escape} are all
-     * literals representing {@code '%'}, {@code '_'}, and {@code escape} respectively). All other characters match
-     * themselves. If {@code escape} is null, then no characters are escaped (which means that there is no
-     * way to match the literal {@code '%'} or {@code '_'} characters).
+     * Matcher for the SQL {@code LIKE} operator. It returns whether the given {@code text} matches the given
+     * {@code pattern}.
+     *
+     * <p>
+     * The {@code pattern} is a {@code LIKE} pattern as specified by the SQL specification: {@code '%'} matches any
+     * sequence of characters, {@code '_'} matches exactly one character, and {@code escape} escapes the next character
+     * as a literal if it would otherwise be a special character (so {@code escape + '%'}, {@code escape + '_'},
+     * and {@code escape + escape} are all literals representing {@code '%'}, {@code '_'}, and {@code escape}
+     * respectively). All other characters match themselves. If {@code escape} is null, then no characters are escaped
+     * (which means that there is no way to match the literal {@code '%'} or {@code '_'} characters).
+     * </p>
+     *
+     * <p>
+     * One note on the implementation. Some care has been taken here to avoid exponential backtracking, which naïve
+     * regex compilation could result in for certain patterns. Instead, this is designed to operate in polynomial time,
+     * though given an adversarial pattern, it can still devolve to <i>O</i>(<i>n</i> &sdot; <i>p</i>) where
+     * <i>n</i> is the length of the {@code text} and <i>p</i> is the length of the {@code pattern}.
+     * </p>
      *
      * @param text the text to attempt to match
      * @param pattern the pattern to match the text against
      * @param escape an optional escape character
      */
-    private static boolean matchLike(final String text, final String pattern, @Nullable final String escape) {
+    private static boolean matchLike(@Nonnull final String text, @Nonnull final String pattern, @Nullable final String escape) {
         int t = 0;
         int p = 0;
         int starP = -1;
