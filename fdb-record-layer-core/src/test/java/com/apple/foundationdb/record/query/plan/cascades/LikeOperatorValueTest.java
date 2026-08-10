@@ -30,10 +30,10 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.LikeOperatorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.PatternForLikeValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
-import com.apple.foundationdb.record.query.plan.cascades.values.LikeOperatorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.plans.QueryResult;
 import com.apple.foundationdb.record.query.plan.serialization.DefaultPlanSerializationRegistry;
@@ -47,6 +47,7 @@ import org.junit.jupiter.params.provider.ArgumentsSource;
 import org.junit.jupiter.params.support.ParameterDeclarations;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.Arrays;
 import java.util.Optional;
 import java.util.stream.Stream;
@@ -64,9 +65,10 @@ class LikeOperatorValueTest {
     private static final LiteralValue<String> STRING_1 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.STRING), "a");
     private static final LiteralValue<String> STRING_NULL = new LiteralValue<>(Type.primitiveType(Type.TypeCode.STRING), null);
 
-    private static final TypeRepository.Builder typeRepositoryBuilder = TypeRepository.newBuilder().setName("foo").setPackage("a.b.c");
     @SuppressWarnings({"ConstantConditions"})
-    private static final EvaluationContext evaluationContext = EvaluationContext.forBinding(Bindings.Internal.CORRELATION.bindingName("ident"), QueryResult.ofComputed(TestRecords7Proto.MyRecord1.newBuilder().setRecNo(4L).build()));
+    private static final Bindings bindings = Bindings.newBuilder()
+            .set(Bindings.Internal.CORRELATION.bindingName("ident"), QueryResult.ofComputed(TestRecords7Proto.MyRecord1.newBuilder().setRecNo(4L).build()))
+            .build();
 
     static class InvalidInputArgumentsProvider implements ArgumentsProvider {
         @Override
@@ -202,12 +204,18 @@ class LikeOperatorValueTest {
         }
     }
 
+    @Nullable
+    private Object evalLikeOperator(@Nonnull LikeOperatorValue value) {
+        final TypeRepository typeRepository = TypeRepository.newBuilder().addAllTypes(value.getDynamicTypes()).build();
+        return value.eval(null, EvaluationContext.forBindingsAndTypeRepository(bindings, typeRepository));
+    }
+
     @ParameterizedTest
     @SuppressWarnings({"ConstantConditions"})
     @ArgumentsSource(ValidInputArgumentsProvider.class)
     void testLike(String lhs, String rhs, final String escapeChar, Boolean result) {
         final LikeOperatorValue value = createLikeOperatorValue(lhs, rhs, escapeChar);
-        Assertions.assertEquals(result, value.eval(null, evaluationContext));
+        Assertions.assertEquals(result, evalLikeOperator(value));
     }
 
     @ParameterizedTest
@@ -220,7 +228,7 @@ class LikeOperatorValueTest {
                         PlanHashable.CURRENT_FOR_CONTINUATION));
         final LikeOperatorValue deserialized = LikeOperatorValue.fromProto(new PlanSerializationContext(new DefaultPlanSerializationRegistry(),
                 PlanHashable.CURRENT_FOR_CONTINUATION), proto);
-        Assertions.assertEquals(result, deserialized.eval(null, evaluationContext));
+        Assertions.assertEquals(result, evalLikeOperator(deserialized));
     }
 
 
