@@ -206,7 +206,7 @@ public class YamlFilesMaintainer {
         return inMemoryFile;
     }
 
-    private static final class ExplainCorrection implements YamlCorrection {
+    static final class ExplainCorrection implements YamlCorrection {
         @Nonnull
         private final YamlReference reference;
         @Nonnull
@@ -232,7 +232,7 @@ public class YamlFilesMaintainer {
         }
     }
 
-    public static final class AddExplainCorrection implements YamlCorrection {
+    static final class AddExplainCorrection implements YamlCorrection {
         @Nonnull
         private final YamlReference queryReference;
         @Nonnull
@@ -263,7 +263,7 @@ public class YamlFilesMaintainer {
         }
     }
 
-    public static final class MetadataCorrection implements YamlCorrection {
+    static final class MetadataCorrection implements YamlCorrection {
         @Nonnull
         private final YamlReference reference;
         @Nonnull
@@ -316,7 +316,7 @@ public class YamlFilesMaintainer {
         }
     }
 
-    public static final class AddMetadataCorrection implements YamlCorrection {
+    static final class AddMetadataCorrection implements YamlCorrection {
         @Nonnull
         private final YamlReference queryReference;
         @Nonnull
