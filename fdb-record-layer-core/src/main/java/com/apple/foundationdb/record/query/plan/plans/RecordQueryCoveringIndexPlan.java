@@ -53,6 +53,7 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalE
 import com.apple.foundationdb.record.query.plan.cascades.values.IndexedValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
+import com.apple.foundationdb.record.query.plan.PhysicalIndexKind;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
@@ -374,4 +375,18 @@ public class RecordQueryCoveringIndexPlan extends AbstractRelationalExpressionWi
             return RecordQueryCoveringIndexPlan.fromProto(serializationContext, recordQueryCoveringIndexPlanProto);
         }
     }
+
+    /**
+     * {@inheritDoc}
+     * <p>
+     * A covering scan traverses whatever the index plan it wraps traverses; avoiding the fetch does not change that.
+     *
+     * @return the wrapped index plan's kind
+     */
+    @Nonnull
+    @Override
+    public PhysicalIndexKind getPhysicalIndexKind() {
+        return indexPlan.getPhysicalIndexKind();
+    }
+
 }

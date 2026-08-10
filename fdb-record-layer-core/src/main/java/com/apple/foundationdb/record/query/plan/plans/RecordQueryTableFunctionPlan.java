@@ -50,6 +50,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.QueriedValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.StreamingValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
+import com.apple.foundationdb.record.query.plan.PhysicalIndexKind;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
@@ -73,7 +74,7 @@ public class RecordQueryTableFunctionPlan extends AbstractRelationalExpressionWi
     @Nonnull
     private final StreamingValue value;
 
-    public RecordQueryTableFunctionPlan(@Nonnull final StreamingValue collectionValue) {
+    public  RecordQueryTableFunctionPlan(@Nonnull final StreamingValue collectionValue) {
         this.value = collectionValue;
     }
 
@@ -280,6 +281,17 @@ public class RecordQueryTableFunctionPlan extends AbstractRelationalExpressionWi
                                                       @Nonnull final PRecordQueryTableFunctionPlan message) {
             return RecordQueryTableFunctionPlan.fromProto(serializationContext, message);
         }
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * @return {@code PRIMARY}, as no index is involved
+     */
+    @Nonnull
+    @Override
+    public PhysicalIndexKind getPhysicalIndexKind() {
+        return PhysicalIndexKind.IN_MEMORY;
     }
 }
 

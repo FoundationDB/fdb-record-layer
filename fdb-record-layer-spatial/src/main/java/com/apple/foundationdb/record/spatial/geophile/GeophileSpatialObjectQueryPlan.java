@@ -40,6 +40,7 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalE
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithIndex;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithNoChildren;
+import com.apple.foundationdb.record.query.plan.PhysicalIndexKind;
 import com.apple.foundationdb.tuple.Tuple;
 import com.geophile.z.SpatialIndex;
 import com.geophile.z.SpatialJoin;
@@ -240,4 +241,15 @@ public abstract class GeophileSpatialObjectQueryPlan extends AbstractRelationalE
     public int computeHashCodeWithoutChildren() {
         return Objects.hash(indexName, prefixComparisons);
     }
+    /**
+     * {@inheritDoc}
+     *
+     * @return {@code SPACE_FILLING_CURVE}, the structure a geophile spatial index is backed by
+     */
+    @Nonnull
+    @Override
+    public PhysicalIndexKind getPhysicalIndexKind() {
+        return PhysicalIndexKind.SPACE_FILLING_CURVE;
+    }
+
 }

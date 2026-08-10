@@ -48,6 +48,7 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.QueriedValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
+import com.apple.foundationdb.record.query.plan.PhysicalIndexKind;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
@@ -266,5 +267,16 @@ public class TempTableScanPlan extends AbstractRelationalExpressionWithoutChildr
                                            @Nonnull final PTempTableScanPlan tempTableScanPlanProto) {
             return TempTableScanPlan.fromProto(serializationContext, tempTableScanPlanProto);
         }
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * @return {@code IN_MEMORY}, as a temporary table is not a persistent structure
+     */
+    @Nonnull
+    @Override
+    public PhysicalIndexKind getPhysicalIndexKind() {
+        return PhysicalIndexKind.IN_MEMORY;
     }
 }

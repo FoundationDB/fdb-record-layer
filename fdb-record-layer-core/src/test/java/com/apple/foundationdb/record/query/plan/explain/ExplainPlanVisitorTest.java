@@ -90,6 +90,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedUnionP
 import com.apple.foundationdb.record.query.plan.plans.TranslateValueFunction;
 import com.apple.foundationdb.record.query.plan.sorting.RecordQuerySortKey;
 import com.apple.foundationdb.record.query.plan.sorting.RecordQuerySortPlan;
+import com.apple.foundationdb.record.query.plan.PhysicalIndexKind;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.record.util.pair.Pair;
 import com.apple.foundationdb.tuple.Tuple;
@@ -672,6 +673,12 @@ public class ExplainPlanVisitorTest {
      * of a plan if the size limit has already been hit.
      */
     private static class UnstringableQueryPlan implements RecordQueryPlan {
+        @Nonnull
+        @Override
+        public PhysicalIndexKind getPhysicalIndexKind() {
+            return PhysicalIndexKind.UNKNOWN;
+        }
+
         private final boolean reverse;
 
         public UnstringableQueryPlan() {

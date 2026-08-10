@@ -44,6 +44,7 @@ import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraphRew
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.serialization.PlanSerialization;
 import com.apple.foundationdb.record.query.plan.visitor.RecordQueryPlannerSubstitutionVisitor;
+import com.apple.foundationdb.record.query.plan.PhysicalIndexKind;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Maps;
@@ -385,4 +386,14 @@ public interface RecordQueryPlan extends QueryPlan<FDBQueriedRecord<Message>>, P
                                                     @Nonnull final PRecordQueryPlan recordQueryPlanProto) {
         return (RecordQueryPlan)PlanSerialization.dispatchFromProtoContainer(serializationContext, recordQueryPlanProto);
     }
+
+    /**
+     * Returns the {@link PhysicalIndexKind kind of physical structure} this plan traverses to reach records. A leaf
+     * answers for itself, a plan with a single child answers with its child's kind, and a plan with several children
+     * answers with {@link PhysicalIndexKind#combine(Iterable) their combination}.
+     *
+     * @return the kind of physical structure this plan traverses
+     */
+    @Nonnull
+    PhysicalIndexKind getPhysicalIndexKind();
 }

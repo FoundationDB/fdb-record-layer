@@ -55,6 +55,7 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalE
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
+import com.apple.foundationdb.record.query.plan.PhysicalIndexKind;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
@@ -423,4 +424,16 @@ public class RecordQueryAggregateIndexPlan extends AbstractRelationalExpressionW
             return RecordQueryAggregateIndexPlan.fromProto(serializationContext, recordQueryAggregateIndexPlanProto);
         }
     }
+
+    /**
+     * {@inheritDoc}
+     *
+     * @return the wrapped index plan's kind
+     */
+    @Nonnull
+    @Override
+    public PhysicalIndexKind getPhysicalIndexKind() {
+        return indexPlan.getPhysicalIndexKind();
+    }
+
 }

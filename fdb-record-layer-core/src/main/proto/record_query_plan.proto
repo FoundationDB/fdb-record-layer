@@ -1919,6 +1919,7 @@ message PRecordQueryIndexPlan {
   optional bool strictly_sorted = 7;
   optional PType result_type = 8;
   optional PQueryPlanConstraint constraint = 9;
+  optional PPhysicalIndexKind physical_index_kind = 10;
 }
 
 //
@@ -1983,6 +1984,21 @@ message PVectorIndexScanOptions {
     optional com.apple.foundationdb.record.expressions.Value value = 2;
   }
   repeated POptionEntry optionEntries = 1;
+}
+
+enum PPhysicalIndexKind {
+  UNKNOWN = 1;
+  PRIMARY = 2;
+  BTREE = 3;
+  RANKED_SET = 4;
+  INVERTED = 5;
+  R_TREE = 6;
+  SPACE_FILLING_CURVE = 7;
+  HNSW = 8;
+  GUARDIANN = 9;
+  LUCENE = 10;
+  IN_MEMORY = 11;
+  MIXED = 12;
 }
 
 enum PIndexFetchMethod {

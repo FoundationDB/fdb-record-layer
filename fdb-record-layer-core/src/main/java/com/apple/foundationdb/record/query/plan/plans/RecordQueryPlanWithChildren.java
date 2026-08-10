@@ -26,6 +26,8 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalE
 import javax.annotation.Nonnull;
 import java.util.HashSet;
 import java.util.Set;
+import com.apple.foundationdb.record.query.plan.PhysicalIndexKind;
+import com.google.common.collect.ImmutableList;
 
 /**
  * A query plan with child plans.
@@ -60,5 +62,21 @@ public interface RecordQueryPlanWithChildren extends RecordQueryPlan, Relational
     @Override
     default boolean hasLoadBykeys() {
         return getChildren().stream().anyMatch(RecordQueryPlan::hasLoadBykeys);
+    }
+
+    /**
+     * {@inheritDoc}
+     * <p>
+     * A plan with several children traverses the combination of what its children traverse, which is
+     * {@link PhysicalIndexKind#MIXED} unless they all agree.
+     *
+     * @return the combined kind of the children
+     */
+    @Nonnull
+    @Override
+    default PhysicalIndexKind getPhysicalIndexKind() {
+        return PhysicalIndexKind.combine(getChildren().stream()
+                .map(RecordQueryPlan::getPhysicalIndexKind)
+                .collect(ImmutableList.toImmutableList()));
     }
 }

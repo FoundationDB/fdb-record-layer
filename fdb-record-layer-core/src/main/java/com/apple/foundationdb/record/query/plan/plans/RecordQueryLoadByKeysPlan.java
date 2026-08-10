@@ -48,6 +48,7 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalE
 import com.apple.foundationdb.record.query.plan.cascades.values.QueriedValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
+import com.apple.foundationdb.record.query.plan.PhysicalIndexKind;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -370,4 +371,16 @@ public class RecordQueryLoadByKeysPlan extends AbstractRelationalExpressionWitho
             }
         }
     }
+
+    /**
+     * {@inheritDoc}
+     *
+     * @return {@code PRIMARY}, as no index is involved
+     */
+    @Nonnull
+    @Override
+    public PhysicalIndexKind getPhysicalIndexKind() {
+        return PhysicalIndexKind.PRIMARY;
+    }
+
 }

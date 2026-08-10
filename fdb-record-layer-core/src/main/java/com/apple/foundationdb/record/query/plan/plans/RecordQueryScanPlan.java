@@ -58,6 +58,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokens;
 import com.apple.foundationdb.record.query.plan.explain.WithIndentationsExplainFormatter;
+import com.apple.foundationdb.record.query.plan.PhysicalIndexKind;
 import com.google.auto.service.AutoService;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Suppliers;
@@ -592,5 +593,16 @@ public class RecordQueryScanPlan extends AbstractRelationalExpressionWithoutChil
                                              @Nonnull final PRecordQueryScanPlan recordQueryScanPlanProto) {
             return RecordQueryScanPlan.fromProto(serializationContext, recordQueryScanPlanProto);
         }
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * @return {@code PRIMARY}, as no index is involved
+     */
+    @Nonnull
+    @Override
+    public PhysicalIndexKind getPhysicalIndexKind() {
+        return PhysicalIndexKind.PRIMARY;
     }
 }

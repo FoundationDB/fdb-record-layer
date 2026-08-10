@@ -34,6 +34,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.simplification.OrderingValueComputationRuleSet;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.PullUp;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
+import com.apple.foundationdb.record.query.plan.PhysicalIndexKind;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
@@ -69,6 +70,19 @@ public interface MatchCandidate {
      */
     @Nonnull
     String getName();
+
+    /**
+     * Returns the {@link PhysicalIndexKind kind of physical structure} an access along this candidate traverses. This is
+     * a property of the candidate rather than of the index: one index can offer several candidates that reach it in
+     * different ways, and a {@link com.apple.foundationdb.record.metadata.IndexTypes#RANK rank} index is the standing
+     * example — it offers a windowed candidate that traverses the ranked set, and a plain value candidate that traverses
+     * the ordered keyspace underneath it. The kind is what the resulting plan records, so that costing can reason about
+     * what an access will actually do at runtime.
+     *
+     * @return the kind of physical structure an access along this candidate traverses
+     */
+    @Nonnull
+    PhysicalIndexKind getPhysicalIndexKind();
 
     /**
      * Returns the traversal object for this candidate. The traversal object can either be computed up-front when

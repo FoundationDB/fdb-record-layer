@@ -50,6 +50,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.QueriedValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
+import com.apple.foundationdb.record.query.plan.PhysicalIndexKind;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
@@ -378,5 +379,16 @@ public class RecordQueryExplodePlan extends AbstractRelationalExpressionWithoutC
                                                 @Nonnull final PRecordQueryExplodePlan proto) {
             return RecordQueryExplodePlan.fromProto(serializationContext, proto);
         }
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * @return {@code PRIMARY}, as no index is involved
+     */
+    @Nonnull
+    @Override
+    public PhysicalIndexKind getPhysicalIndexKind() {
+        return PhysicalIndexKind.IN_MEMORY;
     }
 }

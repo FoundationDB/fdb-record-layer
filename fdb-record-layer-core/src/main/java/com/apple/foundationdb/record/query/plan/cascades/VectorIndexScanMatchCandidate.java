@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.metadata.Index;
+import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.VectorIndexScanComparisons;
@@ -33,6 +34,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.simplification.O
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartialRecordPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
+import com.apple.foundationdb.record.query.plan.PhysicalIndexKind;
 import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
@@ -48,6 +50,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Supplier;
+import java.util.Locale;
 
 /**
  * A specialized match candidate for vector similarity search queries backed by vector similarity indexes
@@ -439,4 +442,31 @@ public class VectorIndexScanMatchCandidate implements WithPrimaryKeyMatchCandida
         }
         return builder.build();
     }
+
+    /**
+     * {@inheritDoc}
+     * <p>
+     * A vector index access traverses whichever structure the index's engine maintains.
+     *
+     * @return {@code HNSW} or {@code GUARDIANN}, according to the index's engine
+     */
+    @Nonnull
+    @Override
+    public PhysicalIndexKind getPhysicalIndexKind() {
+        // An unset engine option means HNSW, matching what the maintainer does, so that vector indexes created before
+        // the engine became selectable keep reporting the structure they are actually backed by.
+        final String vectorEngine = index.getOption(IndexOptions.VECTOR_ENGINE);
+        if (vectorEngine == null) {
+            return PhysicalIndexKind.HNSW;
+        }
+        switch (vectorEngine.toUpperCase(Locale.ROOT)) {
+            case "HNSW":
+                return PhysicalIndexKind.HNSW;
+            case "GUARDIANN":
+                return PhysicalIndexKind.GUARDIANN;
+            default:
+                return PhysicalIndexKind.UNKNOWN;
+        }
+    }
+
 }

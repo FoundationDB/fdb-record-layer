@@ -30,6 +30,7 @@ import javax.annotation.Nonnull;
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
+import com.apple.foundationdb.record.query.plan.PhysicalIndexKind;
 
 /**
  * A query plan with a single child plan.
@@ -98,4 +99,18 @@ public interface RecordQueryPlanWithChild extends RecordQueryPlanWithChildren {
 
     @Nonnull
     RecordQueryPlanWithChild withChild(@Nonnull Reference childRef);
+
+    /**
+     * {@inheritDoc}
+     * <p>
+     * A plan with a single child traverses whatever its child traverses.
+     *
+     * @return the child's kind
+     */
+    @Nonnull
+    @Override
+    default PhysicalIndexKind getPhysicalIndexKind() {
+        return getChild().getPhysicalIndexKind();
+    }
+
 }

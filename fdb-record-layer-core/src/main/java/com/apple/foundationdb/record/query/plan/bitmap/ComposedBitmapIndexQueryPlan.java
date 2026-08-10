@@ -48,6 +48,7 @@ import com.apple.foundationdb.record.query.plan.plans.QueryResult;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryCoveringIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithNoChildren;
+import com.apple.foundationdb.record.query.plan.PhysicalIndexKind;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Message;
@@ -604,4 +605,18 @@ public class ComposedBitmapIndexQueryPlan extends AbstractRelationalExpressionWi
         }
     }
 
+    /**
+     * {@inheritDoc}
+     * <p>
+     * A composed bitmap query traverses each of the index plans it composes, so its kind is their combination.
+     *
+     * @return the combined kind of the composed index plans
+     */
+    @Nonnull
+    @Override
+    public PhysicalIndexKind getPhysicalIndexKind() {
+        return PhysicalIndexKind.combine(indexPlans.stream()
+                .map(RecordQueryCoveringIndexPlan::getPhysicalIndexKind)
+                .collect(ImmutableList.toImmutableList()));
+    }
 }

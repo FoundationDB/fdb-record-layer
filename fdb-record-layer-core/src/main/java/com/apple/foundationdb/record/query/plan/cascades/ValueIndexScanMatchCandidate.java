@@ -35,6 +35,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryCoveringIndexPl
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartialRecordPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
+import com.apple.foundationdb.record.query.plan.PhysicalIndexKind;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -311,4 +312,18 @@ public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate
         }
         return builder.build();
     }
+
+    /**
+     * {@inheritDoc}
+     * <p>
+     * A value index access traverses the ordered keyspace.
+     *
+     * @return {@code BTREE}
+     */
+    @Nonnull
+    @Override
+    public PhysicalIndexKind getPhysicalIndexKind() {
+        return PhysicalIndexKind.BTREE;
+    }
+
 }

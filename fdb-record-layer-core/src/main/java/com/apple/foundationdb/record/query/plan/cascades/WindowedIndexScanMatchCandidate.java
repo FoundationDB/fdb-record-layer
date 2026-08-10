@@ -42,6 +42,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryCoveringIndexPl
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartialRecordPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
+import com.apple.foundationdb.record.query.plan.PhysicalIndexKind;
 import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
@@ -479,5 +480,19 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
                                                               @Nonnull final CorrelationIdentifier scoreAlias,
                                                               @Nonnull final List<CorrelationIdentifier> primaryKeyAliases) {
         return ImmutableList.<CorrelationIdentifier>builder().addAll(groupingAliases).add(scoreAlias).addAll(primaryKeyAliases).build();
+    }
+
+    /**
+     * {@inheritDoc}
+     * <p>
+     * A windowed access traverses the ranked set. Note that the same index also offers a plain value candidate, which
+     * traverses the ordered keyspace underneath and therefore reports {@code BTREE}.
+     *
+     * @return {@code RANKED_SET}
+     */
+    @Nonnull
+    @Override
+    public PhysicalIndexKind getPhysicalIndexKind() {
+        return PhysicalIndexKind.RANKED_SET;
     }
 }

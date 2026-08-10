@@ -29,6 +29,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryTypeFilterPlan;
+import com.apple.foundationdb.record.query.plan.PhysicalIndexKind;
 import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
@@ -243,5 +244,18 @@ public class PrimaryScanMatchCandidate implements MatchCandidate, ValueIndexLike
             builder.addComparisonRange(comparisonRange);
         }
         return builder.build();
+    }
+
+    /**
+     * {@inheritDoc}
+     * <p>
+     * A primary scan reaches records through the primary keyspace rather than through an index.
+     *
+     * @return {@code PRIMARY}
+     */
+    @Nonnull
+    @Override
+    public PhysicalIndexKind getPhysicalIndexKind() {
+        return PhysicalIndexKind.PRIMARY;
     }
 }

@@ -52,6 +52,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartia
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryStreamingAggregationPlan;
+import com.apple.foundationdb.record.query.plan.PhysicalIndexKind;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Verify;
@@ -639,5 +640,18 @@ public class AggregateIndexMatchCandidate implements MatchCandidate, WithBaseQua
     @Override
     public Type.Record getBaseType() {
         return baseType;
+    }
+
+    /**
+     * {@inheritDoc}
+     * <p>
+     * An aggregate index access traverses the ordered keyspace holding the grouped aggregates.
+     *
+     * @return {@code BTREE}
+     */
+    @Nonnull
+    @Override
+    public PhysicalIndexKind getPhysicalIndexKind() {
+        return PhysicalIndexKind.BTREE;
     }
 }

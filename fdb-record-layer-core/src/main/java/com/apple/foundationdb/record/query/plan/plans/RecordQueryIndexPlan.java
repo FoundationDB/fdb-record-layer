@@ -83,6 +83,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.QueriedValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartialRecordPlan.FetchIndexRecords;
+import com.apple.foundationdb.record.query.plan.PhysicalIndexKind;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.google.auto.service.AutoService;
@@ -157,6 +158,12 @@ public class RecordQueryIndexPlan extends AbstractRelationalExpressionWithoutChi
     protected final boolean strictlySorted;
     @Nonnull
     private final Optional<? extends MatchCandidate> matchCandidateOptional;
+    /**
+     * The kind of physical structure this scan traverses. Captured from the match candidate when the plan is created,
+     * because the candidate itself does not survive serialization while this does.
+     */
+    @Nonnull
+    private final PhysicalIndexKind physicalIndexKind;
     @Nonnull
     private final Type resultType;
     @Nonnull
@@ -206,7 +213,12 @@ public class RecordQueryIndexPlan extends AbstractRelationalExpressionWithoutChi
                 recordQueryIndexPlanProto.getStrictlySorted(),
                 Optional.empty(),
                 Type.fromTypeProto(serializationContext, Objects.requireNonNull(recordQueryIndexPlanProto.getResultType())),
-                QueryPlanConstraint.fromProto(serializationContext, Objects.requireNonNull(recordQueryIndexPlanProto.getConstraint())));
+                QueryPlanConstraint.fromProto(serializationContext, Objects.requireNonNull(recordQueryIndexPlanProto.getConstraint())),
+                KeyValueCursorBase.SerializationMode.TO_NEW,
+                // A plan written before the kind was carried says nothing about it, which is exactly UNKNOWN.
+                recordQueryIndexPlanProto.hasPhysicalIndexKind()
+                ? PhysicalIndexKind.fromProto(recordQueryIndexPlanProto.getPhysicalIndexKind())
+                : PhysicalIndexKind.UNKNOWN);
     }
 
     @VisibleForTesting
@@ -236,6 +248,24 @@ public class RecordQueryIndexPlan extends AbstractRelationalExpressionWithoutChi
                                 @Nonnull final Type resultType,
                                 @Nonnull final QueryPlanConstraint constraint,
                                 @Nonnull final KeyValueCursorBase.SerializationMode serializationMode) {
+        this(indexName, commonPrimaryKey, scanParameters, indexFetchMethod, fetchIndexRecords, reverse, strictlySorted,
+                matchCandidateOptional, resultType, constraint, serializationMode,
+                matchCandidateOptional.map(MatchCandidate::getPhysicalIndexKind).orElse(PhysicalIndexKind.UNKNOWN));
+    }
+
+    @SuppressWarnings("this-escape")
+    private RecordQueryIndexPlan(@Nonnull final String indexName,
+                                 @Nullable final KeyExpression commonPrimaryKey,
+                                 @Nonnull final IndexScanParameters scanParameters,
+                                 @Nonnull final IndexFetchMethod indexFetchMethod,
+                                 @Nonnull final FetchIndexRecords fetchIndexRecords,
+                                 final boolean reverse,
+                                 final boolean strictlySorted,
+                                 @Nonnull final Optional<? extends MatchCandidate> matchCandidateOptional,
+                                 @Nonnull final Type resultType,
+                                 @Nonnull final QueryPlanConstraint constraint,
+                                 @Nonnull final KeyValueCursorBase.SerializationMode serializationMode,
+                                 @Nonnull final PhysicalIndexKind physicalIndexKind) {
         this.indexName = indexName;
         this.commonPrimaryKey = commonPrimaryKey;
         this.scanParameters = scanParameters;
@@ -244,6 +274,7 @@ public class RecordQueryIndexPlan extends AbstractRelationalExpressionWithoutChi
         this.reverse = reverse;
         this.strictlySorted = strictlySorted;
         this.matchCandidateOptional = matchCandidateOptional;
+        this.physicalIndexKind = physicalIndexKind;
         this.resultType = resultType;
         if (indexFetchMethod != IndexFetchMethod.SCAN_AND_FETCH) {
             if (!scanParameters.getScanType().equals(IndexScanType.BY_VALUE)) {
@@ -579,7 +610,15 @@ public class RecordQueryIndexPlan extends AbstractRelationalExpressionWithoutChi
                 } else {
                     planHash = PlanHashable.objectsPlanHash(mode, BASE_HASH, indexName, scanParameters, reverse, strictlySorted);
                 }
-                return planHash;
+                if (mode == PlanHashMode.VC0) {
+                    return planHash;
+                }
+                //
+                // From VC1 on, the physical structure the scan traverses is part of the plan's identity: it is carried on
+                // the plan rather than derived, so two plans that differ only in it are genuinely different plans. Older
+                // modes must not account for it, or every existing hash would change.
+                //
+                return PlanHashable.objectsPlanHash(mode, planHash, physicalIndexKind);
             default:
                 throw new UnsupportedOperationException("Hash kind " + mode.name() + " is not supported");
         }
@@ -752,6 +791,7 @@ public class RecordQueryIndexPlan extends AbstractRelationalExpressionWithoutChi
         builder.setStrictlySorted(strictlySorted);
         builder.setResultType(resultType.toTypeProto(serializationContext));
         builder.setConstraint(constraint.toProto(serializationContext));
+        builder.setPhysicalIndexKind(physicalIndexKind.toProto());
         return builder.build();
     }
 
@@ -899,5 +939,19 @@ public class RecordQueryIndexPlan extends AbstractRelationalExpressionWithoutChi
                                               @Nonnull final PRecordQueryIndexPlan recordQueryIndexPlanProto) {
             return RecordQueryIndexPlan.fromProto(serializationContext, recordQueryIndexPlanProto);
         }
+    }
+
+    /**
+     * {@inheritDoc}
+     * <p>
+     * Answered from the kind captured when this plan was created, not from the match candidate, so that it is still
+     * available on a plan that has been through serialization.
+     *
+     * @return the kind of physical structure this scan traverses
+     */
+    @Nonnull
+    @Override
+    public PhysicalIndexKind getPhysicalIndexKind() {
+        return physicalIndexKind;
     }
 }
