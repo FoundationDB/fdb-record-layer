@@ -103,6 +103,9 @@ public final class YamlExecutionContext {
     }
 
     YamlExecutionContext(@Nonnull YamlReference.YamlResource topLevelResource, @Nonnull YamlConnectionFactory factory, @Nonnull final ContextOptions additionalOptions) throws RelationalException {
+        this.connectionFactory = factory;
+        this.topLevelResource = topLevelResource;
+        this.additionalOptions = additionalOptions;
         if (isInCI() && (shouldCorrectExplains() || shouldCorrectMetrics() || shouldCorrectResultMetadata() || shouldAddResultMetadata() || shouldAddExplains())) {
             logger.error("‼️ Yamsql files cannot be modified during CI runs.");
             Assertions.fail("‼️ Yamsql files cannot be modified during CI runs. " +
@@ -113,9 +116,6 @@ public final class YamlExecutionContext {
             logger.info("ℹ️ Number of threads to be used for parallel execution " + getNumThreads());
             getNightlyRepetition().ifPresent(rep -> logger.info("ℹ️ Running with high repetition value set to " + rep));
         }
-        this.connectionFactory = factory;
-        this.topLevelResource = topLevelResource;
-        this.additionalOptions = additionalOptions;
         this.metricsMaintainer = new YamlMetricsMaintainer(topLevelResource);
         this.filesMaintainer = new YamlFilesMaintainer();
         loadResourceForEditIfNeeded(topLevelResource);
