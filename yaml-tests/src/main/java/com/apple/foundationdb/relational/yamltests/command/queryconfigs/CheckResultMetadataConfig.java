@@ -248,19 +248,13 @@ public class CheckResultMetadataConfig extends QueryConfig {
     }
 
     private void addResultMetadata(@Nonnull final List<ColumnDescriptor> actualDescriptors) {
-        if (!executionContext.addResultMetadata(getReference(), actualDescriptors)) {
-            QueryCommand.reportTestFailure("‼️ Cannot add resultMetadata at " + getReference());
-        } else {
-            logger.debug(() -> "⭐️ Successfully added resultMetadata at " + getReference());
-        }
+        executionContext.getFilesMaintainer().addResultMetadata(getReference(), actualDescriptors);
+        logger.debug(() -> "⭐️ Successfully added resultMetadata at " + getReference());
     }
 
     private void correctMetadata(@Nonnull final List<ColumnDescriptor> actualDescriptors) {
-        if (!executionContext.correctResultMetadata(getReference(), actualDescriptors)) {
-            QueryCommand.reportTestFailure("‼️ Cannot correct resultMetadata at " + getReference());
-        } else {
-            logger.debug(() -> "⭐️ Successfully corrected resultMetadata at " + getReference());
-        }
+        executionContext.getFilesMaintainer().correctResultMetadata(getReference(), actualDescriptors);
+        logger.debug(() -> "⭐️ Successfully corrected resultMetadata at " + getReference());
     }
 
     private void reportMetadataMismatch(@Nonnull final List<Map<?, ?>> expectedColumns,

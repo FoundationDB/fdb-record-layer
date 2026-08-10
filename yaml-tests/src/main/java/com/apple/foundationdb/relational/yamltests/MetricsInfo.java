@@ -97,7 +97,7 @@ public final class MetricsInfo {
                                               @Nonnull final MetricsInfo actual) {
         final var metricsDescriptor = PlannerMetricsProto.CountersAndTimers.getDescriptor();
 
-        return YamlExecutionContext.TRACKED_METRIC_FIELDS.stream()
+        return YamlMetricsMaintainer.TRACKED_METRIC_FIELDS.stream()
                 .map(metricsDescriptor::findFieldByName)
                 .anyMatch(field -> isMetricDifferent(expected, actual, field));
     }

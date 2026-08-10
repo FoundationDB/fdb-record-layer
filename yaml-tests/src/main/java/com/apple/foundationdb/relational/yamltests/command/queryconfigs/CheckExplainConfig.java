@@ -22,8 +22,8 @@ package com.apple.foundationdb.relational.yamltests.command.queryconfigs;
 
 import com.apple.foundationdb.record.query.plan.cascades.debug.BrowserHelper;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
-import com.apple.foundationdb.relational.api.RelationalStruct;
 import com.apple.foundationdb.relational.yamltests.MaintainYamlTestConfig;
+import com.apple.foundationdb.relational.yamltests.YamlMetricsMaintainer;
 import com.apple.foundationdb.relational.yamltests.YamlReference;
 import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
 import com.apple.foundationdb.relational.yamltests.command.CommandUtil;
@@ -82,141 +82,166 @@ public class CheckExplainConfig extends QueryConfig {
         logger.debug("⛳️ Matching plan for query '{}'", queryDescription);
         final var resultSet = (RelationalResultSet) actual;
         resultSet.next();
-        final var actualPlan = resultSet.getString(1);
-        final var actualDot = resultSet.getString(3);
-        final var metricsMap = executionContext.getMetricsMap();
+        final var actualPlannerMetricsInfo = createPlannerMetricsInfo(resultSet);
         final var identifier = PlannerMetricsProto.Identifier.newBuilder()
                 .setBlockName(blockName)
                 .setQuery(currentQuery)
                 .addAllSetups(setups)
                 .build();
-        final var expectedPlannerMetricsInfo = metricsMap.get(identifier);
+        final var expectedPlannerMetricsInfo = executionContext.getMetricsMaintainer().getMetrics(identifier);
 
-        final String expectedDot = expectedPlannerMetricsInfo == null ? null : expectedPlannerMetricsInfo.getDot();
-
-        checkExplain(queryDescription, actualPlan, actualDot, expectedDot);
-
-        final var actualPlannerMetrics = resultSet.getStruct(6);
-        if (isExact && getVal() != null && actualPlannerMetrics != null) {
-            Objects.requireNonNull(actualDot);
-            checkMetrics(currentQuery, setups, actualPlannerMetrics, expectedPlannerMetricsInfo, actualPlan, actualDot);
+        if (getVal() == null) {
+            addExplain(actualPlannerMetricsInfo);
+        } else if (!isExact) {
+            checkExplainContains(queryDescription, actualPlannerMetricsInfo, expectedPlannerMetricsInfo);
+        } else {
+            checkExplainAndMetrics(currentQuery, queryDescription, setups, actualPlannerMetricsInfo, expectedPlannerMetricsInfo);
         }
     }
 
-    private void checkExplain(final @Nonnull String queryDescription,
-                              final @Nonnull String actualPlan,
-                              final @Nullable String actualDot,
-                              final @Nullable String expectedDot) {
-        // Synthetic explain config (value==null): add the actual plan to the file without comparing.
-        if (getVal() == null) {
-            if (!executionContext.addExplain(getReference(), actualPlan)) {
-                QueryCommand.reportTestFailure("‼️ Cannot add explain plan at " + getReference());
-            } else {
-                logger.debug(() -> "⭐️ Successfully added plan at " + getReference());
-            }
+    private static PlannerMetricsProto.Info createPlannerMetricsInfo(@Nonnull final RelationalResultSet resultSet) throws SQLException {
+        final var builder = PlannerMetricsProto.Info.newBuilder();
+        final var plan = resultSet.getString(1);
+        if (plan == null) {
+            QueryCommand.reportTestFailure("‼️ EXPLAIN result is missing the plan string");
+        } else {
+            builder.setExplain(plan);
+        }
+        final var dot = resultSet.getString(3);
+        if (dot == null) {
+            QueryCommand.reportTestFailure("‼️ EXPLAIN result is missing the DOT representation");
+        } else {
+            builder.setDot(dot);
+        }
+        final var metricsStruct = resultSet.getStruct(6);
+        if (metricsStruct != null) {
+            final var taskCount = metricsStruct.getLong(1);
+            Verify.verify(taskCount > 0);
+            final var taskTotalTimeInNs = metricsStruct.getLong(2);
+            Verify.verify(taskTotalTimeInNs > 0);
+            builder.setCountersAndTimers(PlannerMetricsProto.CountersAndTimers.newBuilder()
+                    .setTaskCount(taskCount)
+                    .setTaskTotalTimeNs(taskTotalTimeInNs)
+                    .setTransformCount(metricsStruct.getLong(3))
+                    .setTransformTimeNs(metricsStruct.getLong(4))
+                    .setTransformYieldCount(metricsStruct.getLong(5))
+                    .setInsertTimeNs(metricsStruct.getLong(6))
+                    .setInsertNewCount(metricsStruct.getLong(7))
+                    .setInsertReusedCount(metricsStruct.getLong(8)));
+        }
+        return builder.build();
+    }
+
+    private void addExplain(@Nonnull final PlannerMetricsProto.Info actualPlannerMetricsInfo) {
+        executionContext.getFilesMaintainer().addExplain(getReference(), actualPlannerMetricsInfo.getExplain());
+        logger.debug(() -> "⭐️ Successfully added plan at " + getReference());
+    }
+
+    private void checkExplainContains(@Nonnull final String queryDescription,
+                                       @Nonnull final PlannerMetricsProto.Info actualPlannerMetricsInfo,
+                                       @Nullable final PlannerMetricsProto.Info expectedPlannerMetricsInfo) {
+        final var actualPlan = actualPlannerMetricsInfo.getExplain();
+        if (actualPlan.contains(Objects.requireNonNull((String) getVal()))) {
+            logger.debug("✅️ plan fragment match!");
+        } else {
+            showPlanDiffIfNeeded(queryDescription, actualPlannerMetricsInfo, expectedPlannerMetricsInfo);
+            calcPlanDiffAndReportFailure(actualPlan);
+        }
+    }
+
+    private void showPlanDiffIfNeeded(@Nonnull final String queryDescription,
+                                      @Nonnull final PlannerMetricsProto.Info actualPlannerMetricsInfo,
+                                      @Nullable final PlannerMetricsProto.Info expectedPlannerMetricsInfo) {
+        if (!executionContext.shouldShowPlanOnDiff()) {
             return;
         }
+        final var actualDot = actualPlannerMetricsInfo.getDot();
+        final var expectedDot = expectedPlannerMetricsInfo == null ? null : expectedPlannerMetricsInfo.getDot();
+        if (!actualDot.isEmpty() && expectedDot != null && !expectedDot.isEmpty()) {
+            BrowserHelper.browse("/showPlanDiff.html",
+                    ImmutableMap.of("$SQL", queryDescription,
+                            "$DOT_EXPECTED", expectedDot,
+                            "$DOT_ACTUAL", actualDot));
+        }
+    }
 
-        var success = isExact ? getVal().equals(actualPlan) : actualPlan.contains((String) getVal());
-        if (success) {
+    private void calcPlanDiffAndReportFailure(@Nonnull final String actualPlan) {
+        final var expectedPlan = getValueString();
+        final var diffGenerator = DiffRowGenerator.create()
+                .showInlineDiffs(true)
+                .inlineDiffByWord(true)
+                .newTag(f -> f ? CommandUtil.Color.RED.toString() : CommandUtil.Color.RESET.toString())
+                .oldTag(f -> f ? CommandUtil.Color.GREEN.toString() : CommandUtil.Color.RESET.toString())
+                .build();
+        final List<DiffRow> diffRows = diffGenerator.generateDiffRows(
+                Collections.singletonList(expectedPlan),
+                Collections.singletonList(actualPlan));
+        final var planDiffs = new StringBuilder();
+        for (final var diffRow : diffRows) {
+            planDiffs.append(diffRow.getOldLine()).append('\n').append(diffRow.getNewLine()).append('\n');
+        }
+        final var diffMessage = String.format(Locale.ROOT, "‼️ plan mismatch at %s:%n" +
+                "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤%n%s" +
+                "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤%n" +
+                "↪ expected plan %s:%n%s%n" +
+                "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤%n" +
+                "↩ actual plan:%n%s",
+                getReference(), planDiffs, (!isExact ? "fragment" : ""), getValueString(), actualPlan);
+        QueryCommand.reportTestFailure(diffMessage);
+    }
+
+    private void checkExplainAndMetrics(@Nonnull final String currentQuery,
+                                        @Nonnull final String queryDescription,
+                                        @Nonnull final List<String> setups,
+                                        @Nonnull final PlannerMetricsProto.Info actualPlannerMetricsInfo,
+                                        @Nullable final PlannerMetricsProto.Info expectedPlannerMetricsInfo) {
+        final var actualPlan = actualPlannerMetricsInfo.getExplain();
+        var explainIsChanged = false;
+        if (Objects.requireNonNull(getVal()).equals(actualPlan)) {
             logger.debug("✅️ plan match!");
         } else {
-            if (executionContext.shouldShowPlanOnDiff() &&
-                    actualDot != null && expectedDot != null) {
-                BrowserHelper.browse("/showPlanDiff.html",
-                        ImmutableMap.of("$SQL", queryDescription,
-                                "$DOT_EXPECTED", expectedDot,
-                                "$DOT_ACTUAL", actualDot));
-            }
-
-            final var expectedPlan = getValueString();
-            final var diffGenerator = DiffRowGenerator.create()
-                    .showInlineDiffs(true)
-                    .inlineDiffByWord(true)
-                    .newTag(f -> f ? CommandUtil.Color.RED.toString() : CommandUtil.Color.RESET.toString())
-                    .oldTag(f -> f ? CommandUtil.Color.GREEN.toString() : CommandUtil.Color.RESET.toString())
-                    .build();
-            final List<DiffRow> diffRows = diffGenerator.generateDiffRows(
-                    Collections.singletonList(expectedPlan),
-                    Collections.singletonList(actualPlan));
-            final var planDiffs = new StringBuilder();
-            for (final var diffRow : diffRows) {
-                planDiffs.append(diffRow.getOldLine()).append('\n').append(diffRow.getNewLine()).append('\n');
-            }
-            if (isExact && (executionContext.shouldCorrectExplains() || executionContext.shouldAddExplains())) {
-                if (!executionContext.correctExplain(getReference(), actualPlan)) {
-                    QueryCommand.reportTestFailure("‼️ Cannot correct explain plan at " + getReference());
-                } else {
-                    logger.debug(() -> "⭐️ Successfully replaced plan at " + getReference());
-                }
+            showPlanDiffIfNeeded(queryDescription, actualPlannerMetricsInfo, expectedPlannerMetricsInfo);
+            if (executionContext.shouldCorrectExplains() || executionContext.shouldAddExplains()) {
+                executionContext.getFilesMaintainer().correctExplain(getReference(), actualPlan);
+                explainIsChanged = true;
+                logger.debug(() -> "⭐️ Successfully replaced plan at " + getReference());
             } else {
-                final var diffMessage = String.format(Locale.ROOT, "‼️ plan mismatch at %s:%n" +
-                        "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤%n%s" +
-                        "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤%n" +
-                        "↪ expected plan %s:%n%s%n" +
-                        "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤%n" +
-                        "↩ actual plan:%n%s",
-                        getReference(), planDiffs, (!isExact ? "fragment" : ""), getValueString(), actualPlan);
-                QueryCommand.reportTestFailure(diffMessage);
+                calcPlanDiffAndReportFailure(actualPlan);
             }
         }
-    }
 
-    private void checkMetrics(final @Nonnull String currentQuery,
-                              final @Nonnull List<String> setups,
-                              final @Nonnull RelationalStruct actualPlannerMetrics,
-                              final @Nullable PlannerMetricsProto.Info expectedPlannerMetricsInfo,
-                              final @Nonnull String actualPlan,
-                              final @Nonnull String actualDot) throws SQLException {
-        final var taskCount = actualPlannerMetrics.getLong(1);
-        Verify.verify(taskCount > 0);
-        final var taskTotalTimeInNs = actualPlannerMetrics.getLong(2);
-        Verify.verify(taskTotalTimeInNs > 0);
-
-        if (expectedPlannerMetricsInfo == null && !executionContext.shouldCorrectMetrics()) {
-            QueryCommand.reportTestFailure("‼️ No planner metrics at " + getReference());
-        }
-        final var actualInfo = PlannerMetricsProto.Info.newBuilder()
-                .setExplain(actualPlan)
-                .setDot(actualDot)
-                .setCountersAndTimers(PlannerMetricsProto.CountersAndTimers.newBuilder()
-                                .setTaskCount(taskCount)
-                                .setTaskTotalTimeNs(taskTotalTimeInNs)
-                                .setTransformCount(actualPlannerMetrics.getLong(3))
-                                .setTransformTimeNs(actualPlannerMetrics.getLong(4))
-                                .setTransformYieldCount(actualPlannerMetrics.getLong(5))
-                                .setInsertTimeNs(actualPlannerMetrics.getLong(6))
-                                .setInsertNewCount(actualPlannerMetrics.getLong(7))
-                                .setInsertReusedCount(actualPlannerMetrics.getLong(8)))
-                .build();
-        if (expectedPlannerMetricsInfo == null) {
-            executionContext.putMetrics(blockName, currentQuery, getReference(), actualInfo, setups);
-            executionContext.markDirty();
+        if (!actualPlannerMetricsInfo.hasCountersAndTimers()) {
+            if (explainIsChanged && expectedPlannerMetricsInfo != null) {
+                final var expectedMetricsWithActualPlan = expectedPlannerMetricsInfo.toBuilder().setExplain(actualPlannerMetricsInfo.getExplain()).build();
+                executionContext.getMetricsMaintainer().putMetrics(blockName, currentQuery, getReference(), expectedMetricsWithActualPlan, setups);
+                executionContext.getMetricsMaintainer().markDirty();
+            }
+        } else if (expectedPlannerMetricsInfo == null) {
+            if (!executionContext.shouldCorrectMetrics()) {
+                QueryCommand.reportTestFailure("‼️ No planner metrics at " + getReference());
+            }
+            executionContext.getMetricsMaintainer().putMetrics(blockName, currentQuery, getReference(), actualPlannerMetricsInfo, setups);
+            executionContext.getMetricsMaintainer().markDirty();
             logger.debug(() -> "⭐️ Successfully inserted new planner metrics at " + getReference());
-        } else {
-            final var expectedCountersAndTimers = expectedPlannerMetricsInfo.getCountersAndTimers();
-            final var actualCountersAndTimers = actualInfo.getCountersAndTimers();
-            final var metricsDescriptor = expectedCountersAndTimers.getDescriptorForType();
-
-            if (areMetricsDifferent(expectedCountersAndTimers, actualCountersAndTimers, metricsDescriptor)) {
-                executionContext.putMetrics(blockName, currentQuery, getReference(), actualInfo, setups);
-                if (executionContext.shouldCorrectMetrics()) {
-                    executionContext.markDirty();
-                    logger.debug(() -> "⭐️ Successfully updated planner metrics at " + getReference());
-                } else {
-                    QueryCommand.reportTestFailure("‼️ Planner metrics have changed for " + getReference());
-                }
-            } else {
-                executionContext.putMetrics(blockName, currentQuery, getReference(), expectedPlannerMetricsInfo, setups);
+        } else if (areMetricsDifferent(expectedPlannerMetricsInfo, actualPlannerMetricsInfo)) {
+            if (!executionContext.shouldCorrectMetrics()) {
+                QueryCommand.reportTestFailure("‼️ Planner metrics have changed for " + getReference());
             }
+            executionContext.getMetricsMaintainer().putMetrics(blockName, currentQuery, getReference(), actualPlannerMetricsInfo, setups);
+            executionContext.getMetricsMaintainer().markDirty();
+            logger.debug(() -> "⭐️ Successfully updated planner metrics at " + getReference());
+        } else {
+            executionContext.getMetricsMaintainer().putMetrics(blockName, currentQuery, getReference(), expectedPlannerMetricsInfo, setups);
         }
     }
 
-    private boolean areMetricsDifferent(final PlannerMetricsProto.CountersAndTimers expectedCountersAndTimers,
-                                        final PlannerMetricsProto.CountersAndTimers actualCountersAndTimers,
-                                        final Descriptors.Descriptor metricsDescriptor) {
+    private boolean areMetricsDifferent(@Nonnull final PlannerMetricsProto.Info expectedPlannerMetricsInfo,
+                                        @Nonnull final PlannerMetricsProto.Info actualPlannerMetricsInfo) {
+        final var expectedCountersAndTimers = expectedPlannerMetricsInfo.getCountersAndTimers();
+        final var actualCountersAndTimers = actualPlannerMetricsInfo.getCountersAndTimers();
+        final var metricsDescriptor = expectedCountersAndTimers.getDescriptorForType();
         boolean different = false;
-        for (String fieldName : YamlExecutionContext.TRACKED_METRIC_FIELDS) {
+        for (String fieldName : YamlMetricsMaintainer.TRACKED_METRIC_FIELDS) {
             // Check each metric. Do NOT short-circuit because we want to log any metrics
             // that have changed (a side effect of isMetricDifferent)
             different |= isMetricDifferent(expectedCountersAndTimers, actualCountersAndTimers,
