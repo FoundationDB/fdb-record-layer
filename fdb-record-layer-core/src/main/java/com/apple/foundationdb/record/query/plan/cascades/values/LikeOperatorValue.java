@@ -34,8 +34,6 @@ import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence;
-import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence.Precedence;
 import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
@@ -43,10 +41,13 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type.TypeCode;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
+import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence;
+import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence.Precedence;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
@@ -84,39 +85,65 @@ public class LikeOperatorValue extends AbstractValue implements BooleanValue {
     @SuppressWarnings("java:S6213")
     public <M extends Message> Object eval(@Nullable final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
         String lhs = (String)srcChild.eval(store, context);
-        String rhs = (String)patternChild.eval(store, context);
+        Message rhs = (Message)patternChild.eval(store, context);
         return likeOperation(lhs, rhs);
     }
 
     @Nullable
-    public static Boolean likeOperation(final String lhs, final String rhs) {
+    public static Boolean likeOperation(final String lhs, @Nullable final Message rhs) {
         if (lhs == null || rhs == null) {
             return null;
         }
-        return matchLike(lhs, rhs);
+        Descriptors.Descriptor rhsDescriptor = rhs.getDescriptorForType();
+        final Descriptors.FieldDescriptor patternField = rhsDescriptor.findFieldByNumber(1);
+        if (!rhs.hasField(patternField)) {
+            return null;
+        }
+        final String pattern = (String) rhs.getField(patternField);
+        final Descriptors.FieldDescriptor escapeField = rhsDescriptor.findFieldByNumber(2);
+        final String escape = rhs.hasField(escapeField) ? (String) rhs.getField(escapeField) : null;
+        return matchLike(lhs, pattern, escape);
     }
 
     /**
      * Linear-time SQL LIKE matcher. The {@code pattern} is a normalized LIKE pattern produced by
-     * {@link PatternForLikeValue}: {@code %} matches any sequence of characters, {@code _} matches
-     * exactly one character, and {@code \} escapes the next character as a literal (so {@code \%},
-     * {@code \_}, and {@code \\} are literals). All other characters match themselves.
+     * {@link PatternForLikeValue}: {@code '%'} matches any sequence of characters, {@code '_'} matches
+     * exactly one character, and {@code escape} escapes the next character as a literal if it would otherwise
+     * be a special character (so {@code escape + '%'}, {@code escape + '_'}, and {@code escape + escape} are all
+     * literals representing {@code '%'}, {@code '_'}, and {@code escape} respectively). All other characters match
+     * themselves. If {@code escape} is null, then no characters are escaped (which means that there is no
+     * way to match the literal {@code '%'} or {@code '_'} characters).
+     *
+     * @param text the text to attempt to match
+     * @param pattern the pattern to match the text against
+     * @param escape an optional escape character
      */
-    private static boolean matchLike(final String text, final String pattern) {
+    private static boolean matchLike(final String text, final String pattern, @Nullable final String escape) {
         int t = 0;
         int p = 0;
         int starP = -1;
         int starT = -1;
         final int tLen = text.length();
         final int pLen = pattern.length();
+        final char escapeChar = escape == null ? '\0' : escape.charAt(0);
+        if (escape != null && escape.length() > 1) {
+            SemanticException.fail(SemanticException.ErrorCode.ESCAPE_CHAR_OF_LIKE_OPERATOR_IS_NOT_SINGLE_CHAR, "");
+        }
 
         while (t < tLen) {
             boolean matched = false;
             if (p < pLen) {
                 final char pc = pattern.charAt(p);
-                if (pc == '\\') {
-                    final char literal = (p + 1 < pLen) ? pattern.charAt(p + 1) : 0;
-                    if (literal != 0 && literal == text.charAt(t)) {
+                boolean escaped = false;
+                char literal = '\0';
+                if (escape != null && pc == escapeChar) {
+                    literal = (p + 1 < pLen) ? pattern.charAt(p + 1) : '\0';
+                    if (literal != '\0' && (literal == '%' || literal == '_' || literal == escapeChar)) {
+                        escaped = true;
+                    }
+                }
+                if (escaped) {
+                    if (literal == text.charAt(t)) {
                         t++;
                         p += 2;
                         matched = true;
@@ -227,7 +254,7 @@ public class LikeOperatorValue extends AbstractValue implements BooleanValue {
         Type srcType = arguments.get(0).getResultType();
         Type patternType = arguments.get(1).getResultType();
         SemanticException.check(srcType.getTypeCode().equals(TypeCode.STRING), SemanticException.ErrorCode.OPERAND_OF_LIKE_OPERATOR_IS_NOT_STRING);
-        SemanticException.check(patternType.getTypeCode().equals(TypeCode.STRING), SemanticException.ErrorCode.OPERAND_OF_LIKE_OPERATOR_IS_NOT_STRING);
+        SemanticException.check(PatternForLikeValue.TYPE.equals(patternType), SemanticException.ErrorCode.OPERAND_OF_LIKE_OPERATOR_IS_NOT_STRING);
 
         return new LikeOperatorValue((Value) arguments.get(0), (Value) arguments.get(1));
     }
@@ -239,7 +266,7 @@ public class LikeOperatorValue extends AbstractValue implements BooleanValue {
     public static class LikeFn extends BuiltInFunction<Value> {
         public LikeFn() {
             super("like",
-                    ImmutableList.of(Type.primitiveType(TypeCode.STRING), Type.primitiveType(TypeCode.STRING)),
+                    ImmutableList.of(Type.primitiveType(TypeCode.STRING), PatternForLikeValue.TYPE),
                     (ignored, args) -> LikeOperatorValue.encapsulate(args.getArgumentsList()));
         }
     }

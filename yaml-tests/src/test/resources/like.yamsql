@@ -43,6 +43,7 @@ setup:
         ('(abcdefghijk)'),
         ('[abcdefghijk]'),
         ('{abcdefghijk}'),
+        ('<acdefghijk>'),
         ('^$'),
         ('\\||%'),
         ('%'),
@@ -388,6 +389,7 @@ test_block:
            {'(abcdefghijk)'},
            {'[abcdefghijk]'},
            {'{abcdefghijk}'},
+           {'<acdefghijk>'},
            {'^$'},
            {'\\||%'},
            {'%'},
@@ -416,6 +418,7 @@ test_block:
            {'(abcdefghijk)'},
            {'[abcdefghijk]'},
            {'{abcdefghijk}'},
+           {'<acdefghijk>'},
            {'^$'},
            {'\\||%'},
            {'%'},
@@ -445,6 +448,7 @@ test_block:
           {'(abcdefghijk)'},
           {'[abcdefghijk]'},
           {'{abcdefghijk}'},
+          {'<acdefghijk>'},
           {'^$'},
           {'\\||%'},
           {'%'},
@@ -460,6 +464,24 @@ test_block:
       - query: select * from A WHERE A1 NOT LIKE '%abcde%'
       - unorderedResult: [
           {'ABCDEFGHIJKLMNOPQRSTUVWXYZ'},
+          {'<acdefghijk>'},
+          {'école'},
+          {'ありがとう'},
+          {'学校'},
+          {'مدرسة'},
+          {'^$'},
+          {'\\||%'},
+          {'%'},
+          {'a%z'},
+          {'%z'},
+          {'\xyz'},
+          {'a?xyz'},
+          ]
+    -
+      - query: select * from A WHERE A1 NOT LIKE '%abcde%' ESCAPE 'b'
+      - unorderedResult: [
+          {'ABCDEFGHIJKLMNOPQRSTUVWXYZ'},
+          {'<acdefghijk>'},
           {'école'},
           {'ありがとう'},
           {'学校'},
@@ -519,5 +541,41 @@ test_block:
       - supported_version: !current_version
       - unorderedResult: [
           {'a?xyz'},
+        ]
+    -
+      - query: select * from A WHERE A1 LIKE '_abc%'
+      - supported_version: !current_version
+      - unorderedResult: [
+          {'*abcdef'},
+          {'(abcdefghijk)'},
+          {'[abcdefghijk]'},
+          {'{abcdefghijk}'},
+        ]
+    -
+      - query: select * from A WHERE A1 LIKE '_abc%' ESCAPE 'b'
+      - supported_version: !current_version
+      - unorderedResult: [
+          {'*abcdef'},
+          {'(abcdefghijk)'},
+          {'[abcdefghijk]'},
+          {'{abcdefghijk}'},
+        ]
+    -
+      - query: select * from A WHERE A1 LIKE '%%abc%' ESCAPE 'b'
+      - supported_version: !current_version
+      - unorderedResult: [
+          {'___abcdef'},
+          {'%%abcdef'},
+          {'*abcdef'},
+          {'(abcdefghijk)'},
+          {'[abcdefghijk]'},
+          {'{abcdefghijk}'},
+          {'abcdefghijklmnopqrstuvwxyz'},
+        ]
+    -
+      - query: select * from A WHERE A1 LIKE 'b%b%abc%' ESCAPE 'b'
+      - supported_version: !current_version
+      - unorderedResult: [
+          {'%%abcdef'},
         ]
 ...

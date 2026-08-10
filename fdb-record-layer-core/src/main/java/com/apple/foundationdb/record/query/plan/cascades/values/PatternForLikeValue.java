@@ -38,31 +38,44 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.Type.TypeCode;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence.Precedence;
-import com.apple.foundationdb.util.StringUtils;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
+import com.google.protobuf.Descriptors;
+import com.google.protobuf.DynamicMessage;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.function.Supplier;
 
 /**
- * A {@link Value} that applies a like operator on its child expressions.
+ * A {@link Value} that constructs the pattern for a {@link LikeOperatorValue}. This extracts two fields, one
+ * of which represents a pattern and the other an escape value. In some ways, this operates like a
+ * {@link RecordConstructorValue}, but it offers two advantages:
+ *
+ * <ul>
+ *     <li><em>It can perform some semantic checks.</em> For example, it can validate that the escape sequence
+ *     is not multi-character.</li>
+ *     <li><em>It is backwards compatible.</em> Previous versions of this value would return a single regex pattern,
+ *     which would then be used to match candidate strings within {@link LikeOperatorValue}. That required a special
+ *     value to do the string manipulation, and so to allow for those older plans to be deserialized, we need
+ *     a special value here, even if it did the same job as a {@link RecordConstructorValue} with a fixed return type.</li>
+ * </ul>
  */
 @API(API.Status.EXPERIMENTAL)
 public class PatternForLikeValue extends AbstractValue {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Like-Operator-Value");
-    // In the normalized LIKE pattern returned by eval(), backslash is the internal escape character:
-    //   \% = literal percent, \_ = literal underscore, \\ = literal backslash.
-    // All other characters are literal as-is. Only backslash needs escaping here.
-    private static final Map<String, String> REPLACE_MAP = ImmutableMap.of("\\", "\\\\");
+
+    @Nonnull
+    public static final Type TYPE = Type.Record.fromFields(false, ImmutableList.of(
+            Type.Record.Field.of(Type.primitiveType(TypeCode.STRING, true), Optional.of("pattern")),
+            Type.Record.Field.of(Type.primitiveType(TypeCode.STRING, true), Optional.of("escape")))
+    );
 
     @Nonnull
     private final Value patternChild;
@@ -82,27 +95,19 @@ public class PatternForLikeValue extends AbstractValue {
     @Nullable
     @Override
     @SuppressWarnings("java:S6213")
-    public <M extends Message> String eval(@Nullable final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
+    public <M extends Message> Message eval(@Nullable final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
+        final Descriptors.Descriptor typeDescriptor = Objects.requireNonNull(context.getTypeRepository().getMessageDescriptor(TYPE));
         String patternStr = (String)patternChild.eval(store, context);
+        final DynamicMessage.Builder resultBuilder = DynamicMessage.newBuilder(typeDescriptor);
+        if (patternStr != null) {
+            resultBuilder.setField(typeDescriptor.findFieldByNumber(1), patternStr);
+        }
         String escapeChar = (String)escapeChild.eval(store, context);
-        if (patternStr == null) {
-            return null;
-        }
-        Map<String, String> replaceMap;
-        if (escapeChar == null) {
-            replaceMap = REPLACE_MAP;
-        } else {
+        if (escapeChar != null) {
             SemanticException.check(escapeChar.length() == 1, SemanticException.ErrorCode.ESCAPE_CHAR_OF_LIKE_OPERATOR_IS_NOT_SINGLE_CHAR);
-            ImmutableMap.Builder<String, String> replaceBuilder = ImmutableMap.<String, String>builderWithExpectedSize(REPLACE_MAP.size() + 3)
-                    .putAll(REPLACE_MAP)
-                    .put(escapeChar + "%", "\\%")
-                    .put(escapeChar + "_", "\\_");
-            if (!"\\".equals(escapeChar) && !"_".equals(escapeChar) && !"%".equals(escapeChar)) {
-                replaceBuilder.put(escapeChar + escapeChar, escapeChar);
-            }
-            replaceMap = replaceBuilder.build();
+            resultBuilder.setField(typeDescriptor.findFieldByNumber(2), escapeChar);
         }
-        return StringUtils.replaceEach(patternStr, replaceMap);
+        return resultBuilder.build();
     }
 
     @Nonnull
@@ -155,7 +160,7 @@ public class PatternForLikeValue extends AbstractValue {
     @Nonnull
     @Override
     public Type getResultType() {
-        return Type.primitiveType(TypeCode.STRING);
+        return TYPE;
     }
 
     @Nonnull
