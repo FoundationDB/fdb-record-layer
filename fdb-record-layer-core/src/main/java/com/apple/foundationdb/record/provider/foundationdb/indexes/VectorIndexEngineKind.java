@@ -24,9 +24,13 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.MetaDataException;
+import com.apple.foundationdb.record.planprotos.PVectorIndexEngineKind;
+import com.apple.foundationdb.record.query.plan.serialization.PlanSerialization;
+import com.google.common.collect.BiMap;
 
 import javax.annotation.Nonnull;
 import java.util.Locale;
+import java.util.Objects;
 
 /**
  * The kinds of vector engine, as selectable through the {@link IndexOptions#VECTOR_ENGINE} index option. Public so
@@ -37,6 +41,10 @@ import java.util.Locale;
 public enum VectorIndexEngineKind {
     HNSW,
     GUARDIANN;
+
+    @Nonnull
+    private static final BiMap<VectorIndexEngineKind, PVectorIndexEngineKind> TO_PROTO =
+            PlanSerialization.protoEnumBiMap(VectorIndexEngineKind.class, PVectorIndexEngineKind.class);
 
     /**
      * Resolves an engine kind from its option string, accepting any letter case. When {@code value} is
@@ -56,5 +64,26 @@ public enum VectorIndexEngineKind {
             case "GUARDIANN" -> GUARDIANN;
             default -> throw new MetaDataException("unknown vector index engine", LogMessageKeys.VALUE, value);
         };
+    }
+
+    /**
+     * Converts this engine kind to its protobuf equivalent, so that a plan can carry it.
+     *
+     * @return the protobuf equivalent of this engine kind
+     */
+    @Nonnull
+    public PVectorIndexEngineKind toProto() {
+        return Objects.requireNonNull(TO_PROTO.get(this));
+    }
+
+    /**
+     * Converts an engine kind back from its protobuf equivalent.
+     *
+     * @param vectorIndexEngineKindProto the protobuf engine kind
+     * @return the engine kind
+     */
+    @Nonnull
+    public static VectorIndexEngineKind fromProto(@Nonnull final PVectorIndexEngineKind vectorIndexEngineKindProto) {
+        return Objects.requireNonNull(TO_PROTO.inverse().get(vectorIndexEngineKindProto));
     }
 }

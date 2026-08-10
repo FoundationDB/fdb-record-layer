@@ -89,6 +89,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedDistin
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedPrimaryKeyDistinctPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedUnionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUpdatePlan;
+import com.apple.foundationdb.record.query.plan.plans.VectorIndexPlan;
 import com.apple.foundationdb.record.query.plan.sorting.RecordQueryDamPlan;
 import com.apple.foundationdb.record.query.plan.sorting.RecordQuerySortPlan;
 import com.apple.foundationdb.record.util.pair.Pair;
@@ -356,6 +357,12 @@ public class OrderingProperty implements ExpressionProperty<Ordering> {
         @Override
         public Ordering visitScoreForRankPlan(@Nonnull final RecordQueryScoreForRankPlan element) {
             return Ordering.empty();
+        }
+
+        @Nonnull
+        @Override
+        public Ordering visitVectorIndexPlan(@Nonnull final VectorIndexPlan vectorIndexPlan) {
+            return visitIndexPlan(vectorIndexPlan);
         }
 
         @Nonnull

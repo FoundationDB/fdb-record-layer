@@ -29,6 +29,7 @@ import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.planprotos.PIndexScanParameters;
+import com.apple.foundationdb.record.query.plan.IndexTraversalKind;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.cascades.Correlated;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence;
@@ -52,6 +53,22 @@ public interface IndexScanParameters extends PlanHashable, Correlated<IndexScanP
      */
     @Nonnull
     IndexScanType getScanType();
+
+    /**
+     * Get the way a scan with these parameters physically traverses the index. Answered by the parameters rather than
+     * derived from the {@link #getScanType() scan type} centrally, because the set of scan types is open: an index
+     * maintainer defined outside the core knows what its scans walk, and nothing else does.
+     * <p>
+     * The default is {@link IndexTraversalKind#UNKNOWN}, which is the honest answer for parameters that have not been
+     * taught to say. Overriding it is worthwhile for anything that means to be told apart from another access by a cost
+     * criterion.
+     *
+     * @return the way a scan with these parameters traverses the index
+     */
+    @Nonnull
+    default IndexTraversalKind getIndexTraversalKind() {
+        return IndexTraversalKind.UNKNOWN;
+    }
 
     /**
      * Get the bound form of the index scan for use by the maintainer.

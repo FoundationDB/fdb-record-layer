@@ -33,6 +33,7 @@ import com.apple.foundationdb.record.planprotos.PIndexScanParameters;
 import com.apple.foundationdb.record.planprotos.PVectorIndexScanComparisons;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.expressions.Comparisons.DistanceRankValueComparison;
+import com.apple.foundationdb.record.query.plan.IndexTraversalKind;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
@@ -78,6 +79,22 @@ public final class VectorIndexScanComparisons implements IndexScanParameters {
     @Override
     public IndexScanType getScanType() {
         return IndexScanType.BY_DISTANCE;
+    }
+
+    /**
+     * {@inheritDoc}
+     * <p>
+     * {@link IndexTraversalKind#UNKNOWN}, and deliberately so: every vector scan looks alike here, while what it walks
+     * depends on the engine the index was built with, which is an index option rather than anything these parameters
+     * carry. A plan that knows the engine answers for itself — see
+     * {@link com.apple.foundationdb.record.query.plan.plans.VectorIndexPlan#getIndexTraversalKind()}.
+     *
+     * @return {@link IndexTraversalKind#UNKNOWN}
+     */
+    @Nonnull
+    @Override
+    public IndexTraversalKind getIndexTraversalKind() {
+        return IndexTraversalKind.UNKNOWN;
     }
 
     @Nonnull

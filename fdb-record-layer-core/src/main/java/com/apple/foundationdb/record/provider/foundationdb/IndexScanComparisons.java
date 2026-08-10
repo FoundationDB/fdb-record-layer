@@ -30,6 +30,7 @@ import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.planprotos.PIndexScanComparisons;
 import com.apple.foundationdb.record.planprotos.PIndexScanParameters;
+import com.apple.foundationdb.record.query.plan.IndexTraversalKind;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
@@ -44,6 +45,7 @@ import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 
@@ -52,6 +54,23 @@ import java.util.Set;
  */
 @API(API.Status.UNSTABLE)
 public class IndexScanComparisons implements IndexScanParameters {
+    /**
+     * The traversal each of the scan types defined by {@link IndexScanType} walks. {@link IndexScanType#BY_DISTANCE} is
+     * deliberately absent: which structure a vector scan walks depends on the engine backing the index, not on the scan
+     * type, so it is left to the plan to say. See
+     * {@link com.apple.foundationdb.record.query.plan.plans.VectorIndexPlan#getIndexTraversalKind()}.
+     */
+    @Nonnull
+    private static final Map<IndexScanType, IndexTraversalKind> CORE_TRAVERSAL_KINDS =
+            ImmutableMap.<IndexScanType, IndexTraversalKind>builder()
+                    .put(IndexScanType.BY_VALUE, IndexTraversalKind.BY_VALUE)
+                    .put(IndexScanType.BY_VALUE_OVER_SCAN, IndexTraversalKind.BY_VALUE)
+                    .put(IndexScanType.BY_GROUP, IndexTraversalKind.BY_VALUE)
+                    .put(IndexScanType.BY_RANK, IndexTraversalKind.RANKED_SET)
+                    .put(IndexScanType.BY_TIME_WINDOW, IndexTraversalKind.RANKED_SET)
+                    .put(IndexScanType.BY_TEXT_TOKEN, IndexTraversalKind.INVERTED)
+                    .build();
+
     @Nonnull
     private final IndexScanType scanType;
     @Nonnull
@@ -90,6 +109,21 @@ public class IndexScanComparisons implements IndexScanParameters {
     @Override
     public IndexScanType getScanType() {
         return scanType;
+    }
+
+    /**
+     * {@inheritDoc}
+     * <p>
+     * Answered from the scan type, which is all these parameters have to go on. A scan type defined elsewhere is not
+     * known here, so it yields {@link IndexTraversalKind#UNKNOWN}; whoever defined it should say what it walks by
+     * overriding this.
+     *
+     * @return the way a scan with these parameters traverses the index
+     */
+    @Nonnull
+    @Override
+    public IndexTraversalKind getIndexTraversalKind() {
+        return Objects.requireNonNullElse(CORE_TRAVERSAL_KINDS.get(scanType), IndexTraversalKind.UNKNOWN);
     }
 
     @Override

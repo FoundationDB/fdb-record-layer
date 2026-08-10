@@ -32,6 +32,7 @@ import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.planprotos.PIndexScanParameters;
 import com.apple.foundationdb.record.planprotos.PMultidimensionalIndexScanComparisons;
 import com.apple.foundationdb.record.provider.foundationdb.MultidimensionalIndexScanBounds.Hypercube;
+import com.apple.foundationdb.record.query.plan.IndexTraversalKind;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
@@ -74,6 +75,20 @@ public class MultidimensionalIndexScanComparisons implements IndexScanParameters
     @Override
     public IndexScanType getScanType() {
         return IndexScanType.BY_VALUE;
+    }
+
+    /**
+     * {@inheritDoc}
+     * <p>
+     * An R-tree, which the scan type does not give away: these parameters report {@link IndexScanType#BY_VALUE}, as the
+     * entries do live in the ordered keyspace, but reaching them is a tree descent rather than a range scan.
+     *
+     * @return the way a scan with these parameters traverses the index
+     */
+    @Nonnull
+    @Override
+    public IndexTraversalKind getIndexTraversalKind() {
+        return IndexTraversalKind.R_TREE;
     }
 
     @Nonnull

@@ -95,6 +95,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedUnionP
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUpdatePlan;
 import com.apple.foundationdb.record.query.plan.plans.TempTableInsertPlan;
 import com.apple.foundationdb.record.query.plan.plans.TempTableScanPlan;
+import com.apple.foundationdb.record.query.plan.plans.VectorIndexPlan;
 import com.apple.foundationdb.record.query.plan.sorting.RecordQueryDamPlan;
 import com.apple.foundationdb.record.query.plan.sorting.RecordQuerySortPlan;
 import com.google.common.base.Verify;
@@ -402,6 +403,12 @@ public class DerivationsProperty implements ExpressionProperty<DerivationsProper
         @Override
         public Derivations visitScoreForRankPlan(@Nonnull final RecordQueryScoreForRankPlan element) {
             throw new RecordCoreException("unsupported plan operator");
+        }
+
+        @Nonnull
+        @Override
+        public Derivations visitVectorIndexPlan(@Nonnull final VectorIndexPlan vectorIndexPlan) {
+            return visitIndexPlan(vectorIndexPlan);
         }
 
         @Nonnull

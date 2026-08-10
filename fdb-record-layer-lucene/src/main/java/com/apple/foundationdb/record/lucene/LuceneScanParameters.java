@@ -33,6 +33,7 @@ import com.apple.foundationdb.record.planprotos.PLuceneScanParameters;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanParameters;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
+import com.apple.foundationdb.record.query.plan.IndexTraversalKind;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
 import com.apple.foundationdb.tuple.Tuple;
@@ -72,6 +73,12 @@ public abstract class LuceneScanParameters implements IndexScanParameters {
     @Override
     public IndexScanType getScanType() {
         return scanType;
+    }
+
+    @Nonnull
+    @Override
+    public IndexTraversalKind getIndexTraversalKind() {
+        return LuceneTraversalKinds.LUCENE;
     }
 
     @Nonnull

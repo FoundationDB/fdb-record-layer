@@ -71,6 +71,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedDistin
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedPrimaryKeyDistinctPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedUnionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUpdatePlan;
+import com.apple.foundationdb.record.query.plan.plans.VectorIndexPlan;
 import com.apple.foundationdb.record.query.plan.sorting.RecordQueryDamPlan;
 import com.apple.foundationdb.record.query.plan.sorting.RecordQuerySortPlan;
 import com.google.common.collect.ImmutableList;
@@ -246,6 +247,12 @@ public class StoredRecordProperty implements ExpressionProperty<Boolean> {
         @Override
         public Boolean visitScoreForRankPlan(@Nonnull final RecordQueryScoreForRankPlan scoreForRankPlan) {
             return storedRecordsFromSingleChild(scoreForRankPlan);
+        }
+
+        @Nonnull
+        @Override
+        public Boolean visitVectorIndexPlan(@Nonnull final VectorIndexPlan vectorIndexPlan) {
+            return visitIndexPlan(vectorIndexPlan);
         }
 
         @Nonnull

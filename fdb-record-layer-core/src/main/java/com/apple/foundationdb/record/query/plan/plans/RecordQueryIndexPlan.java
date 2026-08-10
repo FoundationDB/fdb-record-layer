@@ -61,6 +61,7 @@ import com.apple.foundationdb.record.provider.foundationdb.KeyValueCursorBase;
 import com.apple.foundationdb.record.provider.foundationdb.MultidimensionalIndexScanComparisons;
 import com.apple.foundationdb.record.provider.foundationdb.UnsupportedRemoteFetchIndexException;
 import com.apple.foundationdb.record.query.plan.AvailableFields;
+import com.apple.foundationdb.record.query.plan.IndexTraversalKind;
 import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.cascades.AggregateIndexMatchCandidate;
@@ -414,6 +415,22 @@ public class RecordQueryIndexPlan extends AbstractRelationalExpressionWithoutChi
     @Nonnull
     public IndexFetchMethod getIndexFetchMethod() {
         return indexFetchMethod;
+    }
+
+    /**
+     * Returns the {@link IndexTraversalKind way this plan physically traverses} the index it scans, which is whatever
+     * this plan's {@link #getScanParameters() scan parameters} say it is. Nothing is carried on the plan for this: the
+     * parameters know how the index is scanned, so the kind stays correct through serialization without a field of its
+     * own, and an index maintainer defined outside the core can answer for its own scans.
+     * <p>
+     * A subclass whose traversal does not follow from the scan parameters alone overrides this, as
+     * {@link VectorIndexPlan} does for a scan whose structure depends on the engine backing the index.
+     *
+     * @return the way this plan traverses the index
+     */
+    @Nonnull
+    public IndexTraversalKind getIndexTraversalKind() {
+        return scanParameters.getIndexTraversalKind();
     }
 
     @Nonnull

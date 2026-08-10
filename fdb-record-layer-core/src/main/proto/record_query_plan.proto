@@ -1742,6 +1742,7 @@ message PRecordQueryPlan {
     PRecordQueryStreamingAggregationPlan2 streaming_aggregation_plan2 = 38;
     PRecordQueryMultiIntersectionOnValuesPlan multi_intersection_on_values_plan = 39;
     PRecordQueryRecursiveDfsJoinPlan recursive_dfs_join_plan = 40;
+    PVectorIndexPlan vector_index_plan = 41;
   }
 }
 
@@ -1922,6 +1923,14 @@ message PRecordQueryIndexPlan {
 }
 
 //
+// PVectorIndexPlan
+//
+message PVectorIndexPlan {
+  optional PRecordQueryIndexPlan super = 1;
+  optional PVectorIndexEngineKind engine = 2;
+}
+
+//
 // PTempTableScanPlan
 //
 message PTempTableScanPlan {
@@ -1994,6 +2003,11 @@ enum PIndexFetchMethod {
 enum PFetchIndexRecords {
   PRIMARY_KEY = 1;
   SYNTHETIC_CONSTITUENTS = 2;
+}
+
+enum PVectorIndexEngineKind {
+  HNSW = 1;
+  GUARDIANN = 2;
 }
 
 message PQueryPlanConstraint {
