@@ -42,6 +42,13 @@ import java.util.List;
 @API(API.Status.EXPERIMENTAL)
 public final class VectorIndexOptionKeys {
     //
+    // The engine selector: which vector engine backs the index. Engine-neutral and brand-new, so a single canonical
+    // {@code vector*} name with no legacy alias.
+    //
+    public static final VectorOptionKey<VectorIndexEngineKind> ENGINE =
+            VectorOptionKey.ofEngine(IndexOptions.VECTOR_ENGINE);
+
+    //
     // Shared concepts: one option key per concept both engines share.
     //
     // TEMPORARY (rolling-upgrade wire compatibility): the canonical name is deliberately the legacy {@code hnsw*} name,
@@ -156,6 +163,7 @@ public final class VectorIndexOptionKeys {
      * {@code VectorIndexOptionKeysTest.allContainsEveryDeclaredKey}.
      */
     static final List<VectorOptionKey<?>> ALL = ImmutableList.of(
+            ENGINE,
             METRIC, NUM_DIMENSIONS, SAMPLE_VECTOR_STATS_PROBABILITY, MAINTAIN_STATS_PROBABILITY, STATS_THRESHOLD,
             USE_RABITQ, RABITQ_NUM_EX_BITS,
             HNSW_USE_INLINING, HNSW_M, HNSW_M_MAX, HNSW_M_MAX_0, HNSW_EF_CONSTRUCTION, HNSW_EF_REPAIR,

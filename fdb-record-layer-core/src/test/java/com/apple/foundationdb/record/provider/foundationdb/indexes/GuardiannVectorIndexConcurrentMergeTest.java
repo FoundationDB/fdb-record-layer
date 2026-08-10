@@ -121,7 +121,7 @@ class GuardiannVectorIndexConcurrentMergeTest extends VectorIndexTestBase {
     @Override
     protected Map<String, String> indexOptions() {
         return ImmutableMap.<String, String>builder()
-                .put(IndexOptions.VECTOR_ENGINE, VectorIndexEngine.Kind.GUARDIANN.name())
+                .put(IndexOptions.VECTOR_ENGINE, VectorIndexEngineKind.GUARDIANN.name())
                 .put(IndexOptions.VECTOR_METRIC, Metric.EUCLIDEAN_METRIC.name())
                 .put(IndexOptions.VECTOR_NUM_DIMENSIONS, Integer.toString(DIMENSIONS))
                 .put(IndexOptions.GUARDIANN_PRIMARY_CLUSTER_MAX, Integer.toString(PRIMARY_CLUSTER_MAX))

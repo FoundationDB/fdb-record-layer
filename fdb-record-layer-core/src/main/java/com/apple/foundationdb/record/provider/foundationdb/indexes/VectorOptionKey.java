@@ -57,8 +57,8 @@ import java.util.function.Supplier;
  * key deserialized from a legacy wire name identical to the freshly declared canonical key (so options maps, equality,
  * and plan hashes are stable across the alias). The key is {@link PlanHashable}, contributing only its canonical name,
  * so a scan-options map keyed by these keys hashes deterministically. Instances are created through the typed factories
- * ({@link #ofInteger}, {@link #ofDouble}, {@link #ofBoolean}, {@link #ofMetric}) and are intended to be declared once as
- * {@code static final} catalog entries.
+ * ({@link #ofInteger}, {@link #ofDouble}, {@link #ofBoolean}, {@link #ofMetric}, {@link #ofEngine}) and are intended to
+ * be declared once as {@code static final} catalog entries.
  *
  * @param <T> the parsed/stored value type of the option
  */
@@ -235,5 +235,14 @@ public final class VectorOptionKey<T> implements PlanHashable {
         // Metric::valueOf, so the serializer must be Metric::name to round-trip.
         return new VectorOptionKey<>(canonicalName, ImmutableList.copyOf(aliases), Metric.class, Metric::valueOf,
                 Metric::name);
+    }
+
+    @Nonnull
+    public static VectorOptionKey<VectorIndexEngineKind> ofEngine(@Nonnull final String canonicalName,
+                                                                   @Nonnull final String... aliases) {
+        // Kind.fromOptionValue accepts any letter case (and rejects unknown values); the serializer is Kind::name so the
+        // stored form round-trips back through the parser.
+        return new VectorOptionKey<>(canonicalName, ImmutableList.copyOf(aliases), VectorIndexEngineKind.class,
+                VectorIndexEngineKind::fromOptionValue, VectorIndexEngineKind::name);
     }
 }

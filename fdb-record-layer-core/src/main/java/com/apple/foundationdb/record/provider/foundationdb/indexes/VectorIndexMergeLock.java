@@ -149,6 +149,7 @@ final class VectorIndexMergeLock {
      * @param context the merge context
      * @param prefix the partition prefix
      */
+    @SuppressWarnings("PMD.CloseResource")
     void acquire(@Nonnull final FDBRecordContext context, @Nonnull final Tuple prefix) {
         final Transaction transaction = context.ensureActive();
         transaction.set(lockSubspace.pack(prefix), Tuple.from(ownerId, clock.getAsLong()).pack());

@@ -66,7 +66,7 @@ class GuardiannVectorIndexMergeTest extends VectorIndexTestBase {
     @Override
     protected Map<String, String> indexOptions() {
         return ImmutableMap.<String, String>builder()
-                .put(IndexOptions.VECTOR_ENGINE, VectorIndexEngine.Kind.GUARDIANN.name())
+                .put(IndexOptions.VECTOR_ENGINE, VectorIndexEngineKind.GUARDIANN.name())
                 .put(IndexOptions.VECTOR_METRIC, Metric.EUCLIDEAN_METRIC.name())
                 .put(IndexOptions.VECTOR_NUM_DIMENSIONS, "128")
                 // small clusters -> frequent splits -> a real deferred-task backlog
@@ -186,7 +186,7 @@ class GuardiannVectorIndexMergeTest extends VectorIndexTestBase {
     @Test
     void hnswMergeIsNoOp() throws Exception {
         final Map<String, String> hnswOptions = ImmutableMap.of(
-                IndexOptions.VECTOR_ENGINE, VectorIndexEngine.Kind.HNSW.name(),
+                IndexOptions.VECTOR_ENGINE, VectorIndexEngineKind.HNSW.name(),
                 IndexOptions.VECTOR_METRIC, Metric.EUCLIDEAN_METRIC.name(),
                 IndexOptions.VECTOR_NUM_DIMENSIONS, "128");
         final RecordMetaDataHook hook = metaDataBuilder -> addUngroupedVectorIndex(metaDataBuilder, hnswOptions);

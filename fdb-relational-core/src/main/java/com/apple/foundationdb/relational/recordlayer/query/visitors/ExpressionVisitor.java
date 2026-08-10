@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2021-2025 Apple Inc. and the FoundationDB project authors
+ * Copyright 2021-2026 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -65,6 +65,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Streams;
 import com.google.protobuf.ZeroCopyByteString;
 import org.antlr.v4.runtime.ParserRuleContext;
+import org.antlr.v4.runtime.Token;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -352,9 +353,23 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
     @Nonnull
     @Override
     public Expression visitAggregateWindowedFunction(@Nonnull RelationalParser.AggregateWindowedFunctionContext functionContext) {
-        Assert.thatUnchecked(functionContext.aggregator == null || functionContext.aggregator.getText().equals(functionContext.ALL().getText()),
-                ErrorCode.UNSUPPORTED_QUERY, () -> String.format(Locale.ROOT, "Unsupported aggregator %s", functionContext.aggregator.getText()));
         final var functionName = functionContext.functionName.getText();
+
+        // Handle the aggregator (aka. set quantifier). Existing aggregates support only ALL (the default).
+        final Token aggregator = functionContext.aggregator;
+        Assert.thatUnchecked(
+                aggregator == null || aggregator.getType() == RelationalParser.ALL,
+                ErrorCode.UNSUPPORTED_QUERY,
+                () -> String.format(Locale.ROOT, "aggregator %s is not supported",
+                        Assert.notNullUnchecked(aggregator).getText()));
+
+        // Handle the OVER clause. The grammar admits it for most aggregates, but using an aggregate as a window
+        // function is not implemented.
+        Assert.isNullUnchecked(
+                functionContext.overClause(),
+                ErrorCode.UNSUPPORTED_QUERY,
+                String.format(Locale.ROOT, "an OVER clause is not supported for %s()", functionName));
+
         Optional<Expression> argumentMaybe = Optional.empty();
         if (functionContext.starArg != null) {
             argumentMaybe = Optional.of(Expression.ofUnnamed(RecordConstructorValue.ofColumns(List.of())));

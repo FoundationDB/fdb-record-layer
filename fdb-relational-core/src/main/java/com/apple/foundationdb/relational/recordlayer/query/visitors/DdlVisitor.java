@@ -22,8 +22,8 @@ package com.apple.foundationdb.relational.recordlayer.query.visitors;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.linear.Metric;
-import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexTypes;
+import com.apple.foundationdb.record.provider.foundationdb.indexes.VectorIndexEngineKind;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.VectorIndexOptionKeys;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.VectorOptionKey;
 import com.apple.foundationdb.record.query.plan.cascades.RawSqlFunction;
@@ -80,13 +80,11 @@ import java.util.stream.Collectors;
 
 @API(API.Status.EXPERIMENTAL)
 public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
-    // Engine names as stored in the IndexOptions.VECTOR_ENGINE option (mirrors VectorIndexEngine.Kind, which is not
-    // visible from this module). HNSW is the engine used when the option is absent.
-    private static final String HNSW_ENGINE = "HNSW";
-    private static final String GUARDIANN_ENGINE = "GUARDIANN";
-    private static final Set<String> ANY_ENGINE = ImmutableSet.of(HNSW_ENGINE, GUARDIANN_ENGINE);
-    private static final Set<String> HNSW_ONLY = ImmutableSet.of(HNSW_ENGINE);
-    private static final Set<String> GUARDIANN_ONLY = ImmutableSet.of(GUARDIANN_ENGINE);
+    // The vector engines an option may apply to. HNSW is the engine used when the VECTOR_ENGINE option is absent.
+    private static final Set<VectorIndexEngineKind> ANY_ENGINE =
+            ImmutableSet.of(VectorIndexEngineKind.HNSW, VectorIndexEngineKind.GUARDIANN);
+    private static final Set<VectorIndexEngineKind> HNSW_ONLY = ImmutableSet.of(VectorIndexEngineKind.HNSW);
+    private static final Set<VectorIndexEngineKind> GUARDIANN_ONLY = ImmutableSet.of(VectorIndexEngineKind.GUARDIANN);
 
     // The curated set of vector index options exposed through SQL DDL, keyed by their (lower-cased) SQL option name.
     // Adding or removing an option, or changing which engine it applies to, is a one-line change here and needs no
@@ -370,7 +368,7 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
      * @param <T> the option's value type
      */
     private record VectorSqlOption<T>(@Nonnull VectorOptionKey<T> key,
-                                      @Nonnull Set<String> engines,
+                                      @Nonnull Set<VectorIndexEngineKind> engines,
                                       @Nonnull Function<RelationalParser.VectorIndexOptionValueContext, T> coerce) {
         void writeTo(@Nonnull final BiConsumer<String, String> sink,
                      @Nonnull final RelationalParser.VectorIndexOptionValueContext value) {
@@ -379,8 +377,8 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
     }
 
     @Nonnull
-    private static String parseVectorEngine(@Nonnull final RelationalParser.VectorEngineContext engineContext) {
-        return engineContext.GUARDIANN() != null ? GUARDIANN_ENGINE : HNSW_ENGINE;
+    private static VectorIndexEngineKind parseVectorEngine(@Nonnull final RelationalParser.VectorEngineContext engineContext) {
+        return engineContext.GUARDIANN() != null ? VectorIndexEngineKind.GUARDIANN : VectorIndexEngineKind.HNSW;
     }
 
     private static int parseOptionInt(@Nonnull final RelationalParser.VectorIndexOptionValueContext value) {
@@ -396,13 +394,13 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
     }
 
     @Nonnull
-    private Map<String, String> parseVectorOptions(@Nonnull final String engine,
+    private Map<String, String> parseVectorOptions(@Nonnull final VectorIndexEngineKind engine,
                                                    @Nullable final RelationalParser.VectorIndexOptionsContext indexOptionsContext) {
         final var indexOptionsBuilder = ImmutableMap.<String, String>builder();
         // Guardiann must be recorded explicitly; HNSW is the default when the engine option is absent, so leave it
         // implicit (keeps HNSW index metadata unchanged and readable by nodes that predate the engine option).
-        if (GUARDIANN_ENGINE.equals(engine)) {
-            indexOptionsBuilder.put(IndexOptions.VECTOR_ENGINE, engine);
+        if (engine == VectorIndexEngineKind.GUARDIANN) {
+            VectorIndexOptionKeys.ENGINE.put(indexOptionsBuilder::put, engine);
             // In-transaction vs. deferred maintenance is no longer an index option; the embedded relational store sets
             // it at runtime (BackingRecordStore enables autoMergeDuringCommit, since there is no background merger).
         }
@@ -418,7 +416,7 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
                         "unsupported vector index option '" + name + "'");
             }
             Assert.thatUnchecked(spec.engines().contains(engine), ErrorCode.UNSUPPORTED_OPERATION,
-                    () -> "vector index option '" + name + "' is not valid for the " + engine + " vector engine");
+                    () -> "vector index option '" + name + "' is not valid for the " + engine.name() + " vector engine");
             Assert.thatUnchecked(seen.add(name), ErrorCode.SYNTAX_ERROR,
                     () -> "duplicate vector index option '" + name + "'");
             try {

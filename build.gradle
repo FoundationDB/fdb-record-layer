@@ -18,12 +18,10 @@
  * limitations under the License.
  */
 
+import org.apache.tools.ant.taskdefs.condition.Os
 import org.yaml.snakeyaml.Yaml
 
-import org.apache.tools.ant.taskdefs.condition.Os
-
 import javax.inject.Inject
-import org.gradle.process.ExecOperations
 
 // Gives tasks access to an injected `ExecOperations` for running external processes from a `doLast` block.
 interface InjectedExecOps {
@@ -49,12 +47,22 @@ buildscript {
 plugins {
     alias(libs.plugins.protobuf)
     alias(libs.plugins.spotbugs)
-    alias(libs.plugins.nexus)
     alias(libs.plugins.download)
 }
 
 ext {
     fdbEnvironment = [:]
+    // Name of the directory (under the root project's build directory) that subprojects publish
+    // their artifacts into for publishing to Maven Central
+    stagingRepoDirName = 'staging-repo'
+}
+
+// Configure publishing to maven central.
+//
+// Both publishBuild and centralPublish must be set for these tasks to be registered at all.
+// This avoids registering the tasks if we are not going to be publishing to maven central
+if (Boolean.parseBoolean(publishBuild) && Boolean.parseBoolean(centralPublish)) {
+    apply from: rootProject.file('gradle/central-publishing.gradle')
 }
 
 defaultTasks 'build'
@@ -323,21 +331,6 @@ subprojects {
                         }
                     }
                 }
-            }
-        }
-    }
-}
-
-// Configure publishing for maven central. This is done in the top-level build.gradle, and then
-// all of the subprojects configure the artifacts they want published by applying
-// ${rootDir}/gradle/publishing.gradle in the project gradle. By default, we publish a library
-// from each package, but this can be configured by adjusting the publishLibrary variable
-if (Boolean.parseBoolean(centralPublish)) {
-    nexusPublishing {
-        repositories {
-            sonatype {
-                // Update the URL now that the OSSRH service has been sunset: https://central.sonatype.org/news/20250326_ossrh_sunset/
-                nexusUrl.set(uri("https://ossrh-staging-api.central.sonatype.com/service/local/"))
             }
         }
     }

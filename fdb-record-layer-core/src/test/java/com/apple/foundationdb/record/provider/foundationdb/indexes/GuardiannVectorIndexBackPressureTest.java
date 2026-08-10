@@ -52,7 +52,7 @@ class GuardiannVectorIndexBackPressureTest extends VectorIndexTestBase {
     @Override
     protected Map<String, String> indexOptions() {
         return ImmutableMap.<String, String>builder()
-                .put(IndexOptions.VECTOR_ENGINE, VectorIndexEngine.Kind.GUARDIANN.name())
+                .put(IndexOptions.VECTOR_ENGINE, VectorIndexEngineKind.GUARDIANN.name())
                 .put(IndexOptions.VECTOR_METRIC, Metric.EUCLIDEAN_METRIC.name())
                 .put(IndexOptions.VECTOR_NUM_DIMENSIONS, "128")
                 // tiny clusters and a low hard cap (which must stay strictly above the max) so a short burst trips it
