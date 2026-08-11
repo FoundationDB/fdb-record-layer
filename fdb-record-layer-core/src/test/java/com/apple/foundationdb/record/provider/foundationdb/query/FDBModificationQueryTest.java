@@ -64,6 +64,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.Message;
+import edu.umd.cs.findbugs.annotations.NonNull;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Tag;
 
@@ -159,10 +160,7 @@ public class FDBModificationQueryTest extends FDBRecordStoreQueryTestBase {
             }, ExecuteProperties.newBuilder().setDryRun(true).build());
             Assertions.assertEquals(1, resultValues.size());
 
-            final var selectPlan = cascadesPlanner.planGraph(() -> selectRecordsGraph(FDBModificationQueryTest::whereReviewsIsEmptyGraph),
-                    Optional.empty(),
-                    IndexQueryabilityFilter.TRUE,
-                    EvaluationContext.empty()).getPlan();
+            final var selectPlan = planWhereReviewIsEmpty(cascadesPlanner);
             // select returns 2 records
             resultValues = fetchResultValues(context, selectPlan, record -> {
                 final var recordDescriptor = record.getDescriptorForType();
@@ -260,10 +258,7 @@ public class FDBModificationQueryTest extends FDBRecordStoreQueryTestBase {
             }, ExecuteProperties.newBuilder().setDryRun(true).build());
             Assertions.assertEquals(2, resultValues.size());
 
-            final var selectPlan = cascadesPlanner.planGraph(() -> selectRecordsGraph(FDBModificationQueryTest::whereReviewsIsEmptyGraph),
-                    Optional.empty(),
-                    IndexQueryabilityFilter.TRUE,
-                    EvaluationContext.empty()).getPlan();
+            final var selectPlan = planWhereReviewIsEmpty(cascadesPlanner);
             // select returns 0 record
             resultValues = fetchResultValues(context, selectPlan, record -> record, c -> {
             });
@@ -554,6 +549,15 @@ public class FDBModificationQueryTest extends FDBRecordStoreQueryTestBase {
         return Reference.initialOf(LogicalSortExpression.unsorted(qun));
     }
 
+
+    @NonNull
+    public static RecordQueryPlan planWhereReviewIsEmpty(final CascadesPlanner cascadesPlanner) {
+        return cascadesPlanner.planGraph(() -> selectRecordsGraph(FDBModificationQueryTest::whereReviewsIsEmptyGraph),
+                Optional.empty(),
+                IndexQueryabilityFilter.TRUE,
+                EvaluationContext.empty()).getPlan();
+    }
+
     @Nonnull
     private static QueryPredicate whereReviewsIsEmptyGraph(@Nonnull Quantifier.ForEach qun) {
         final var reviewsValue =
@@ -682,10 +686,7 @@ public class FDBModificationQueryTest extends FDBRecordStoreQueryTestBase {
             }, dryRunExecuteProperties);
             Assertions.assertEquals(1, dryRunResultValues.size());
 
-            final var selectPlan = cascadesPlanner.planGraph(() -> selectRecordsGraph(FDBModificationQueryTest::whereReviewsIsEmptyGraph),
-                    Optional.empty(),
-                    IndexQueryabilityFilter.TRUE,
-                    EvaluationContext.empty()).getPlan();
+            final var selectPlan = planWhereReviewIsEmpty(cascadesPlanner);
             resultValues = fetchResultValues(context, selectPlan, record -> {
                 final var recordDescriptor = record.getDescriptorForType();
                 final var rest_no = recordDescriptor.findFieldByName("rest_no");
@@ -846,10 +847,7 @@ public class FDBModificationQueryTest extends FDBRecordStoreQueryTestBase {
             });
             Assertions.assertEquals(1, resultValues.size());
 
-            final var selectPlan = cascadesPlanner.planGraph(() -> selectRecordsGraph(FDBModificationQueryTest::whereReviewsIsEmptyGraph),
-                    Optional.empty(),
-                    IndexQueryabilityFilter.TRUE,
-                    EvaluationContext.empty()).getPlan();
+            final var selectPlan = planWhereReviewIsEmpty(cascadesPlanner);
             resultValues = fetchResultValues(context, selectPlan, record -> {
                 final var recordDescriptor = record.getDescriptorForType();
                 final var rest_no = recordDescriptor.findFieldByName("rest_no");
