@@ -209,26 +209,37 @@ public class CheckExplainConfig extends QueryConfig {
             }
         }
 
+        // No actual metrics to compare with
         if (!actualPlannerMetricsInfo.hasCountersAndTimers()) {
+            // In this case, if there are existing metrics and the plan is changed -> make sure to only update the plan
             if (explainIsChanged && expectedPlannerMetricsInfo != null) {
                 final var expectedMetricsWithActualPlan = expectedPlannerMetricsInfo.toBuilder().setExplain(actualPlannerMetricsInfo.getExplain()).build();
                 recordMetrics(identifier, expectedMetricsWithActualPlan, true);
             }
+        // actual metrics are there, but existing metrics are not found -> case of new query / changed query
         } else if (expectedPlannerMetricsInfo == null) {
+            // If we CANNOT correct metrics, error out since metrics are ALWAYS expected
             if (!executionContext.shouldCorrectMetrics()) {
                 QueryCommand.reportTestFailure("‼️ No planner metrics at " + getReference());
             }
+            // else, add the actual
             recordMetrics(identifier, actualPlannerMetricsInfo, true);
             logger.debug(() -> "⭐️ Successfully inserted new planner metrics at " + getReference());
+        // both actual and existing are there, but there are differences
         } else if (areMetricsDifferent(expectedPlannerMetricsInfo, actualPlannerMetricsInfo)) {
+            // If we CANNOT correct metrics, error out
             if (!executionContext.shouldCorrectMetrics()) {
                 QueryCommand.reportTestFailure("‼️ Planner metrics have changed for " + getReference());
             }
+            // else, add the actual
             recordMetrics(identifier, actualPlannerMetricsInfo, true);
             logger.debug(() -> "⭐️ Successfully updated planner metrics at " + getReference());
+        // both actual and existing are there, and they match. However, the plan has some changes
         } else if (explainIsChanged) {
+            // make sure to only update the plan
             final var expectedMetricsWithActualPlan = expectedPlannerMetricsInfo.toBuilder().setExplain(actualPlannerMetricsInfo.getExplain()).build();
             recordMetrics(identifier, expectedMetricsWithActualPlan, true);
+        // Else, just preserve the existing metrics that we have gotten for this query
         } else {
             recordMetrics(identifier, expectedPlannerMetricsInfo, false);
         }
