@@ -23,6 +23,7 @@ package com.apple.foundationdb.relational.recordlayer.query;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordStoreState;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.catalog.StoreCatalog;
@@ -45,6 +46,7 @@ import org.apache.logging.log4j.Logger;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -208,10 +210,13 @@ public final class OfflineStoredQueriesProcessor {
                                         @Nonnull final Counts counts) {
         final var tempFuncFactory = new MetadataTempFuncFactory();
         RecordLayerSchemaTemplate currentTemplate = template;
+        // Declared parameter types from the query's signature, so its value-free named parameters are planned
+        // value-free (typed, no value) both in the temp functions and in the SELECT body.
+        final var warmupParams = warmupParamsFor(storedQuery);
 
         for (final var tempFunc : storedQuery.getTempFunctions()) {
             try {
-                PlanGenerator.create(currentTemplate, tempFuncFactory, metricCollector, Options.NONE)
+                PlanGenerator.create(currentTemplate, tempFuncFactory, metricCollector, Options.NONE, warmupParams)
                         .getPlan(tempFunc, Map.of(
                                 "schemaTemplate", templateKey,
                                 "storedQueryName", storedQueryName,
@@ -232,7 +237,8 @@ public final class OfflineStoredQueriesProcessor {
                             currentTemplate,
                             new RecordStoreState(null, null),
                             metricCollector,
-                            Options.NONE)
+                            Options.NONE,
+                            warmupParams)
                     .getPlan(sql, Map.of(
                             "schemaTemplate", templateKey,
                             "storedQueryName", storedQueryName,
@@ -242,6 +248,26 @@ public final class OfflineStoredQueriesProcessor {
             // error already logged inside getPlan's finally
             counts.queriesFailed++;
         }
+    }
+
+    /**
+     * Builds the warm-up {@link PreparedParams} for a stored query: empty values, plus the declared types parsed from
+     * the persisted signature ({@code "name:TYPECODE,..."}), so value-free named parameters are typed but valueless.
+     */
+    @Nonnull
+    private static PreparedParams warmupParamsFor(@Nonnull final StoredQuery storedQuery) {
+        final var signature = storedQuery.getSignature();
+        if (signature.isEmpty()) {
+            return PreparedParams.empty();
+        }
+        final var declaredTypes = new LinkedHashMap<String, Type>();
+        for (final var entry : signature.split(",")) {
+            final var separator = entry.indexOf(':');
+            final var name = entry.substring(0, separator);
+            final var typeCode = entry.substring(separator + 1);
+            declaredTypes.put(name, Type.primitiveType(Type.TypeCode.valueOf(typeCode), false));
+        }
+        return PreparedParams.empty().withDeclaredTypes(declaredTypes);
     }
 
     private static final class Counts {

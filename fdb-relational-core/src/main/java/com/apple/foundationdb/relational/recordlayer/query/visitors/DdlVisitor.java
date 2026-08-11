@@ -36,6 +36,7 @@ import com.apple.foundationdb.relational.api.ddl.MetadataOperationsFactory;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.api.metadata.InvokedRoutine;
+import com.apple.foundationdb.relational.generated.RelationalLexer;
 import com.apple.foundationdb.relational.generated.RelationalParser;
 import com.apple.foundationdb.relational.recordlayer.metadata.DataTypeUtils;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerColumn;
@@ -44,6 +45,7 @@ import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerInvoked
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerTable;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerView;
+import com.apple.foundationdb.relational.recordlayer.query.CaseInsensitiveCharStream;
 import com.apple.foundationdb.relational.recordlayer.query.Expression;
 import com.apple.foundationdb.relational.recordlayer.query.Expressions;
 import com.apple.foundationdb.relational.recordlayer.query.Identifier;
@@ -62,7 +64,9 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import org.antlr.v4.runtime.CommonTokenStream;
 import org.antlr.v4.runtime.ParserRuleContext;
+import org.antlr.v4.runtime.TokenStreamRewriter;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -502,16 +506,42 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
                 final var queryCtx = templateClause.storedQueryDefinition();
                 final var name = visitUid(queryCtx.queryName).getName();
                 final var sourceText = getDelegate().getPlanGenerationContext().getQuery();
+                // Parse the optional typed-named-parameter signature. Each parameter is referenced by name in the query
+                // body and declared function bodies; those references are rewritten to '?name' (see
+                // rewriteReferencesToParams). Matching is case-sensitive — a signature parameter becomes a named
+                // prepared parameter, which is always case-sensitive, so a reference must use the declared spelling.
+                // The signature is persisted as "name:TYPECODE,..." so warm-up can type the value-free parameters.
+                final var declaredNames = new HashSet<String>();
+                final var signatureBuilder = new StringBuilder();
+                final var paramListCtx = queryCtx.sqlParameterDeclarationList();
+                if (paramListCtx != null && paramListCtx.sqlParameterDeclarations() != null) {
+                    for (final var decl : paramListCtx.sqlParameterDeclarations().sqlParameterDeclaration()) {
+                        Assert.thatUnchecked(decl.sqlParameterName != null, ErrorCode.UNSUPPORTED_QUERY,
+                                "stored query signature parameters must be named");
+                        Assert.thatUnchecked(decl.parameterMode() == null || decl.parameterMode().IN() != null,
+                                ErrorCode.UNSUPPORTED_OPERATION, "only IN parameters are supported");
+                        final var paramName = decl.sqlParameterName.getText();
+                        final var paramType = DataTypeUtils.toRecordLayerType(visitFunctionColumnType(decl.parameterType));
+                        Assert.thatUnchecked(paramType.isPrimitive(), ErrorCode.UNSUPPORTED_QUERY,
+                                () -> "stored query signature parameter '" + paramName + "' must have a primitive type");
+                        Assert.thatUnchecked(declaredNames.add(paramName), ErrorCode.UNSUPPORTED_QUERY,
+                                () -> "duplicate stored query signature parameter '" + paramName + "'");
+                        if (signatureBuilder.length() > 0) {
+                            signatureBuilder.append(',');
+                        }
+                        signatureBuilder.append(paramName).append(':').append(paramType.getTypeCode().name());
+                    }
+                }
                 final var start = queryCtx.storedQuery.start.getStartIndex();
                 final var stop = queryCtx.storedQuery.stop.getStopIndex() + 1;
-                final var queryString = sourceText.substring(start, stop);
+                final var queryString = rewriteReferencesToParams(sourceText.substring(start, stop), declaredNames);
                 final ImmutableList.Builder<String> tempFunctionTexts = ImmutableList.builder();
                 if (queryCtx.declareBlock() != null) {
                     for (final var dfCtx : queryCtx.declareBlock().declaredFunction()) {
-                        tempFunctionTexts.add(rewriteDeclaredFunctionToStandalone(dfCtx, sourceText));
+                        tempFunctionTexts.add(rewriteDeclaredFunctionToStandalone(dfCtx, sourceText, declaredNames));
                     }
                 }
-                metadataBuilder.addStoredQuery(name, queryString, tempFunctionTexts.build());
+                metadataBuilder.addStoredQuery(name, queryString, tempFunctionTexts.build(), signatureBuilder.toString());
             } else {
                 Assert.thatUnchecked(templateClause.indexDefinition() != null);
                 indexClauses.add(templateClause.indexDefinition());
@@ -886,11 +916,39 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
      */
     @Nonnull
     private static String rewriteDeclaredFunctionToStandalone(@Nonnull final RelationalParser.DeclaredFunctionContext ctx,
-                                                              @Nonnull final String sourceText) {
+                                                              @Nonnull final String sourceText,
+                                                              @Nonnull final Set<String> declaredNames) {
         final String name = sliceSource(sourceText, ctx.functionName);
         final String paramList = sliceSource(sourceText, ctx.sqlParameterDeclarationList());
-        final String body = sliceSource(sourceText, ctx.functionBody);
+        // Only the body may reference the stored query's signature parameters; the name and this function's own
+        // parameter declarations are left untouched.
+        final String body = rewriteReferencesToParams(sliceSource(sourceText, ctx.functionBody), declaredNames);
         return "CREATE TEMPORARY FUNCTION " + name + paramList + " ON COMMIT DROP FUNCTION AS " + body;
+    }
+
+    /**
+     * Rewrites every unquoted identifier in {@code fragment} that references a stored-query signature parameter into a
+     * named parameter {@code ?name}, so the warm-up plan (parsed from this rewritten text) is reachable at runtime when
+     * the client re-issues the equivalent SQL binding {@code ?name} by name. Matching is <em>case-sensitive</em>: a
+     * signature parameter becomes a named prepared parameter (which is always case-sensitive), so a reference must use
+     * the declared spelling. Signature parameter names <em>shadow</em> columns of the same (exact) name.
+     */
+    @Nonnull
+    private static String rewriteReferencesToParams(@Nonnull final String fragment,
+                                                    @Nonnull final Set<String> declaredNames) {
+        if (declaredNames.isEmpty()) {
+            return fragment;
+        }
+        final var lexer = new RelationalLexer(new CaseInsensitiveCharStream(fragment));
+        final var tokens = new CommonTokenStream(lexer);
+        tokens.fill();
+        final var rewriter = new TokenStreamRewriter(tokens);
+        for (final var token : tokens.getTokens()) {
+            if (token.getType() == RelationalLexer.ID && declaredNames.contains(token.getText())) {
+                rewriter.replace(token, "?" + token.getText());
+            }
+        }
+        return rewriter.getText();
     }
 
     @Nonnull
