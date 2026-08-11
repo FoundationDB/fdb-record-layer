@@ -25,6 +25,7 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.yamltests.command.queryconfigs.CheckResultMetadataConfig;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.assertj.core.util.VisibleForTesting;
 import org.junit.jupiter.api.Assertions;
 
 import javax.annotation.Nonnull;
@@ -70,6 +71,13 @@ public class YamlFilesMaintainer {
      */
     @Nonnull
     private final Map<YamlReference.YamlResource, List<YamlCorrection>> pendingCorrections = new HashMap<>();
+
+    @VisibleForTesting
+    @Nonnull
+    List<YamlCorrection> getPendingCorrections(@Nonnull final YamlReference.YamlResource resource) {
+        final List<YamlCorrection> corrections = pendingCorrections.get(resource);
+        return corrections != null ? corrections : List.of();
+    }
 
     public void loadFile(@Nonnull YamlReference.YamlResource resource) throws RelationalException {
         this.editedFileStream.put(resource, loadYamlResource(resource));

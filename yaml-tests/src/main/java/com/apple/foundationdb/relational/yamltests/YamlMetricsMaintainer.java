@@ -28,6 +28,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.LinkedListMultimap;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.assertj.core.util.VisibleForTesting;
 import org.junit.jupiter.api.Assertions;
 import org.yaml.snakeyaml.DumperOptions;
 import org.yaml.snakeyaml.Yaml;
@@ -93,6 +94,31 @@ public class YamlMetricsMaintainer {
         this.actualMetricsMap = new TreeMap<>(Comparator.comparing(QueryAndLocation::getReference)
                 .thenComparing(QueryAndLocation::getBlockName)
                 .thenComparing(QueryAndLocation::getQuery));
+    }
+
+    /** Testing constructor: bypasses file loading. */
+    YamlMetricsMaintainer(@Nonnull YamlReference.YamlResource resource,
+                          @Nonnull ImmutableMap<PlannerMetricsProto.Identifier, PlannerMetricsProto.Info> expectedMetrics) {
+        this.resource = resource;
+        this.expectedMetricsMap = expectedMetrics;
+        this.actualMetricsMap = new TreeMap<>(Comparator.comparing(QueryAndLocation::getReference)
+                .thenComparing(QueryAndLocation::getBlockName)
+                .thenComparing(QueryAndLocation::getQuery));
+    }
+
+    @VisibleForTesting
+    boolean isMetricsDirty() {
+        return isDirty;
+    }
+
+    @VisibleForTesting
+    @Nullable
+    PlannerMetricsProto.Info getActualMetrics(@Nonnull final PlannerMetricsProto.Identifier identifier) {
+        return actualMetricsMap.entrySet().stream()
+                .filter(e -> e.getKey().getIdentifier().equals(identifier))
+                .map(Map.Entry::getValue)
+                .findFirst()
+                .orElse(null);
     }
 
     @Nullable

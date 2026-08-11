@@ -226,13 +226,11 @@ public class CheckExplainConfig extends QueryConfig {
             }
             recordMetrics(identifier, actualPlannerMetricsInfo, true);
             logger.debug(() -> "⭐️ Successfully updated planner metrics at " + getReference());
+        } else if (explainIsChanged) {
+            final var expectedMetricsWithActualPlan = expectedPlannerMetricsInfo.toBuilder().setExplain(actualPlannerMetricsInfo.getExplain()).build();
+            recordMetrics(identifier, expectedMetricsWithActualPlan, true);
         } else {
-            if (explainIsChanged) {
-                final var expectedMetricsWithActualPlan = expectedPlannerMetricsInfo.toBuilder().setExplain(actualPlannerMetricsInfo.getExplain()).build();
-                recordMetrics(identifier, expectedMetricsWithActualPlan, true);
-            } else {
-                recordMetrics(identifier, expectedPlannerMetricsInfo, false);
-            }
+            recordMetrics(identifier, expectedPlannerMetricsInfo, false);
         }
     }
 
