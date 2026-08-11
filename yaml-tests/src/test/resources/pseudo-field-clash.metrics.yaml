@@ -102,7 +102,7 @@ pseudo-field-clash-queries:
     insert_reused_count: 2
 -   query: EXPLAIN SELECT id, col1 FROM t3 ORDER BY "__ROW_VERSION" DESC
     ref: pseudo-field-clash.yamsql:168
-    explain: ISCAN(T3_VERSION <,> REVERSE) | MAP (_.ID AS ID, _.COL1 AS COL1, version([_])
+    explain: ISCAN(T3_VERSION <,> REVERSE) | MAP (_.ID AS ID, _.COL1 AS COL1, _.__ROW_VERSION
         AS __ROW_VERSION) | MAP (_.ID AS ID, _.COL1 AS COL1)
     task_count: 256
     task_total_time_ms: 23
@@ -170,7 +170,7 @@ pseudo-field-clash-queries:
     insert_reused_count: 2
 -   query: EXPLAIN SELECT * FROM t3 WHERE col1 = 20 ORDER BY "__ROW_VERSION" DESC
     ref: pseudo-field-clash.yamsql:220
-    explain: ISCAN(T3_COL1_VERSION [EQUALS promote(@c8 AS LONG)] REVERSE) | MAP (_.ID
+    explain: ISCAN(T3_COL1_VERSION [EQUALS promote(@c7 AS LONG)] REVERSE) | MAP (_.ID
         AS ID, _.COL1 AS COL1, _.COL2 AS COL2)
     task_count: 390
     task_total_time_ms: 20
@@ -183,7 +183,7 @@ pseudo-field-clash-queries:
 -   query: EXPLAIN SELECT id, col1 FROM t2 WHERE col1 = 20 ORDER BY "__ROW_VERSION"
         DESC
     ref: pseudo-field-clash.yamsql:228
-    explain: 'COVERING(T2_COL1_VERSION [EQUALS promote(@c10 AS LONG)] REVERSE -> [COL1:
+    explain: 'COVERING(T2_COL1_VERSION [EQUALS promote(@c9 AS LONG)] REVERSE -> [COL1:
         KEY:[0], ID: KEY:[3], __ROW_VERSION: KEY:[1]]) | MAP (_.ID AS ID, _.COL1 AS
         COL1)'
     task_count: 408
@@ -197,9 +197,9 @@ pseudo-field-clash-queries:
 -   query: EXPLAIN SELECT id, col1 FROM t3 WHERE col1 = 20 ORDER BY "__ROW_VERSION"
         DESC
     ref: pseudo-field-clash.yamsql:236
-    explain: ISCAN(T3_COL1_VERSION [EQUALS promote(@c10 AS LONG)] REVERSE) | MAP (_.ID
-        AS ID, _.COL1 AS COL1, version([_]) AS __ROW_VERSION) | MAP (_.ID AS ID, _.COL1
-        AS COL1)
+    explain: ISCAN(T3_COL1_VERSION [EQUALS promote(@c9 AS LONG)] REVERSE) | MAP (_.ID
+        AS ID, _.COL1 AS COL1, _.__ROW_VERSION AS __ROW_VERSION) | MAP (_.ID AS ID,
+        _.COL1 AS COL1)
     task_count: 407
     task_total_time_ms: 125
     transform_count: 113

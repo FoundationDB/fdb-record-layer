@@ -81,7 +81,7 @@ sum_aggregate_multi_grouping:
 -   query: EXPLAIN select category, region, sum(amount) as total from sales_mat_view
         where category = 'Electronics' group by category, region order by region
     ref: index-ddl-aggregates-only.yamsql:176
-    explain: 'AISCAN(IDX_MV_CAT_REGION_SUM [EQUALS promote(@c17 AS STRING)] BY_GROUP
+    explain: 'AISCAN(IDX_MV_CAT_REGION_SUM [EQUALS promote(@c16 AS STRING)] BY_GROUP
         -> [_0: KEY:[0], _1: KEY:[1], _2: VALUE:[0]]) | MAP (_._0 AS CATEGORY, _._1
         AS REGION, _._2 AS TOTAL)'
     task_count: 865
@@ -95,7 +95,7 @@ sum_aggregate_multi_grouping:
 -   query: EXPLAIN select category, region, sum(amount) as total from sales_index_on
         where category = 'Electronics' group by category, region order by region
     ref: index-ddl-aggregates-only.yamsql:180
-    explain: 'AISCAN(IDX_IOT_CAT_REGION_SUM [EQUALS promote(@c17 AS STRING)] BY_GROUP
+    explain: 'AISCAN(IDX_IOT_CAT_REGION_SUM [EQUALS promote(@c16 AS STRING)] BY_GROUP
         -> [_0: KEY:[0], _1: KEY:[1], _2: VALUE:[0]]) | MAP (_._0 AS CATEGORY, _._1
         AS REGION, _._2 AS TOTAL)'
     task_count: 865
@@ -196,7 +196,7 @@ aggregate_with_having:
         by category having sum(amount) > 2000 order by category
     ref: index-ddl-aggregates-only.yamsql:232
     explain: 'AISCAN(IDX_MV_SUM_BY_CATEGORY <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]])
-        | FILTER _._1 GREATER_THAN promote(@c21 AS LONG) | MAP (_._0 AS CATEGORY,
+        | FILTER _._1 GREATER_THAN promote(@c20 AS LONG) | MAP (_._0 AS CATEGORY,
         _._1 AS TOTAL)'
     task_count: 1125
     task_total_time_ms: 325
@@ -210,7 +210,7 @@ aggregate_with_having:
         by category having sum(amount) > 2000 order by category
     ref: index-ddl-aggregates-only.yamsql:236
     explain: 'AISCAN(IDX_IOT_SUM_BY_CATEGORY <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]])
-        | FILTER _._1 GREATER_THAN promote(@c21 AS LONG) | MAP (_._0 AS CATEGORY,
+        | FILTER _._1 GREATER_THAN promote(@c20 AS LONG) | MAP (_._0 AS CATEGORY,
         _._1 AS TOTAL)'
     task_count: 1125
     task_total_time_ms: 326
