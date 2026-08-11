@@ -1,5 +1,5 @@
 /*
- * ArithmeticValueTest.java
+ * LikeOperatorValueTest.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -32,11 +32,13 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.LikeOperatorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.NullValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.PatternForLikeValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.plans.QueryResult;
 import com.apple.foundationdb.record.query.plan.serialization.DefaultPlanSerializationRegistry;
+import com.apple.test.ParameterizedTestUtils;
 import com.google.common.collect.ImmutableList;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.extension.ExtensionContext;
@@ -49,6 +51,7 @@ import org.junit.jupiter.params.support.ParameterDeclarations;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Optional;
 import java.util.stream.Stream;
 
@@ -64,16 +67,31 @@ class LikeOperatorValueTest {
     private static final LiteralValue<Boolean> BOOLEAN_1 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.BOOLEAN), false);
     private static final LiteralValue<String> STRING_1 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.STRING), "a");
     private static final LiteralValue<String> STRING_NULL = new LiteralValue<>(Type.primitiveType(Type.TypeCode.STRING), null);
+    private static final NullValue NULL_VALUE = new NullValue(Type.Null.NULL);
 
     @SuppressWarnings({"ConstantConditions"})
     private static final Bindings bindings = Bindings.newBuilder()
             .set(Bindings.Internal.CORRELATION.bindingName("ident"), QueryResult.ofComputed(TestRecords7Proto.MyRecord1.newBuilder().setRecNo(4L).build()))
             .build();
 
-    static class InvalidInputArgumentsProvider implements ArgumentsProvider {
+    static class ValidInputTypesArgumentsProvider implements ArgumentsProvider {
+        @Nonnull
         @Override
-        public Stream<? extends Arguments> provideArguments(final ParameterDeclarations parameterDeclarations,
-                                                            final ExtensionContext context) {
+        public Stream<? extends Arguments> provideArguments(@Nonnull final ParameterDeclarations parameterDeclarations,
+                                                            @Nonnull final ExtensionContext context) {
+            return ParameterizedTestUtils.cartesianProduct(
+                    Stream.of(STRING_1, STRING_NULL, NULL_VALUE),
+                    Stream.of(STRING_1, STRING_NULL, NULL_VALUE),
+                    Stream.of(STRING_1, STRING_NULL, NULL_VALUE)
+            );
+        }
+    }
+
+    static class InvalidInputArgumentsProvider implements ArgumentsProvider {
+        @Nonnull
+        @Override
+        public Stream<? extends Arguments> provideArguments(@Nonnull final ParameterDeclarations parameterDeclarations,
+                                                            @Nonnull final ExtensionContext context) {
             return Stream.of(
                     Arguments.of(INT_1, INT_1, STRING_NULL),
                     Arguments.of(LONG_1, LONG_1, STRING_NULL),
@@ -91,15 +109,35 @@ class LikeOperatorValueTest {
                     Arguments.of(LONG_1, STRING_1, STRING_NULL),
                     Arguments.of(FLOAT_1, STRING_1, STRING_NULL),
                     Arguments.of(DOUBLE_1, STRING_1, STRING_NULL),
-                    Arguments.of(BOOLEAN_1, STRING_1, STRING_NULL)
+                    Arguments.of(BOOLEAN_1, STRING_1, STRING_NULL),
+
+                    Arguments.of(STRING_1, STRING_1, INT_1),
+                    Arguments.of(STRING_1, STRING_1, LONG_1),
+                    Arguments.of(STRING_1, STRING_1, FLOAT_1),
+                    Arguments.of(STRING_1, STRING_1, DOUBLE_1),
+                    Arguments.of(STRING_1, STRING_1, BOOLEAN_1),
+                    Arguments.of(STRING_1, STRING_1, FLOAT_1)
+            );
+        }
+    }
+
+    static class InvalidEscapeArgumentsProvider implements ArgumentsProvider {
+        @Nonnull
+        @Override
+        public Stream<? extends Arguments> provideArguments(@Nonnull final ParameterDeclarations parameterDeclarations,
+                                                            @Nonnull final ExtensionContext context) {
+            return Stream.of(
+                    Arguments.of("blah", "blah%", ""),
+                    Arguments.of("foo", "bar", "ba")
             );
         }
     }
 
     static class ValidInputArgumentsProvider implements ArgumentsProvider {
+        @Nonnull
         @Override
-        public Stream<? extends Arguments> provideArguments(final ParameterDeclarations parameterDeclarations,
-                                                            final ExtensionContext context) {
+        public Stream<? extends Arguments> provideArguments(@Nonnull final ParameterDeclarations parameterDeclarations,
+                                                            @Nonnull final ExtensionContext context) {
             return Stream.of(
                     Arguments.of(null, null, null, null),
                     Arguments.of("a", null, null, null),
@@ -261,20 +299,26 @@ class LikeOperatorValueTest {
     }
 
     @ParameterizedTest
-    @SuppressWarnings({"rawtypes", "unchecked"})
+    @ArgumentsSource(ValidInputTypesArgumentsProvider.class)
+    void testValidArgumentsTypes(Value lhs, Value rhs, Value escapeChar) {
+        BuiltInFunction<?> like = new LikeOperatorValue.LikeFn();
+        BuiltInFunction<?> pattern = new PatternForLikeValue.PatternForLikeFn();
+        Assertions.assertDoesNotThrow(() ->
+                like.encapsulate(CallSiteArguments.ofPositional(List.of(
+                        lhs,
+                        (Value) pattern.encapsulate(CallSiteArguments.ofPositional(List.of(rhs, escapeChar)))))));
+    }
+
+    @ParameterizedTest
     @ArgumentsSource(InvalidInputArgumentsProvider.class)
-    void testSemanticException(Value lhs, Value rhs, Value escapeChar) {
-        BuiltInFunction like = new LikeOperatorValue.LikeFn();
-        BuiltInFunction pattern = new PatternForLikeValue.PatternForLikeFn();
-        try {
-            like.encapsulate(CallSiteArguments.ofPositional(Arrays.asList(
-                    lhs,
-                    (Value) pattern.encapsulate(CallSiteArguments.ofPositional(Arrays.asList(rhs, escapeChar))))));
-            Assertions.fail("expected an exception to be thrown");
-        } catch (Exception e) {
-            Assertions.assertTrue(e instanceof SemanticException);
-            Assertions.assertEquals(((SemanticException)e).getErrorCode(), SemanticException.ErrorCode.OPERAND_OF_LIKE_OPERATOR_IS_NOT_STRING);
-        }
+    void testSemanticException(@Nonnull Value lhs, @Nonnull Value rhs, @Nonnull Value escapeChar) {
+        BuiltInFunction<?> like = new LikeOperatorValue.LikeFn();
+        BuiltInFunction<?> pattern = new PatternForLikeValue.PatternForLikeFn();
+        SemanticException err = Assertions.assertThrows(SemanticException.class, () ->
+                like.encapsulate(CallSiteArguments.ofPositional(List.of(
+                        lhs,
+                        (Value) pattern.encapsulate(CallSiteArguments.ofPositional(List.of(rhs, escapeChar)))))));
+        Assertions.assertEquals(SemanticException.ErrorCode.OPERAND_OF_LIKE_OPERATOR_IS_NOT_STRING, err.getErrorCode());
     }
 
     @Nullable
@@ -284,9 +328,17 @@ class LikeOperatorValueTest {
     }
 
     @ParameterizedTest
+    @ArgumentsSource(InvalidEscapeArgumentsProvider.class)
+    void testInvalidEscape(@Nullable String lhs, @Nullable String rhs, @Nullable String escapeChar) {
+        final LikeOperatorValue value = createLikeOperatorValue(lhs, rhs, escapeChar);
+        final SemanticException err = Assertions.assertThrows(SemanticException.class, () -> evalLikeOperator(value));
+        Assertions.assertEquals(SemanticException.ErrorCode.ESCAPE_CHAR_OF_LIKE_OPERATOR_IS_NOT_SINGLE_CHAR, err.getErrorCode());
+    }
+
+    @ParameterizedTest
     @SuppressWarnings({"ConstantConditions"})
     @ArgumentsSource(ValidInputArgumentsProvider.class)
-    void testLike(String lhs, String rhs, final String escapeChar, Boolean result) {
+    void testLike(@Nullable String lhs, @Nullable String rhs, @Nullable String escapeChar, @Nullable Boolean result) {
         final LikeOperatorValue value = createLikeOperatorValue(lhs, rhs, escapeChar);
         Assertions.assertEquals(result, evalLikeOperator(value));
     }
@@ -294,7 +346,7 @@ class LikeOperatorValueTest {
     @ParameterizedTest
     @SuppressWarnings({"ConstantConditions"})
     @ArgumentsSource(ValidInputArgumentsProvider.class)
-    void testLikeSerialization(String lhs, String rhs, final String escapeChar, Boolean result) {
+    void testLikeSerialization(@Nullable String lhs, @Nullable String rhs, @Nullable String escapeChar, @Nullable Boolean result) {
         final LikeOperatorValue value = createLikeOperatorValue(lhs, rhs, escapeChar);
         final PLikeOperatorValue proto = value.toProto(
                 new PlanSerializationContext(new DefaultPlanSerializationRegistry(),
@@ -305,11 +357,11 @@ class LikeOperatorValueTest {
     }
 
 
-    @SuppressWarnings({"rawtypes", "unchecked", "ConstantConditions"})
+    @SuppressWarnings({"ConstantConditions"})
     @Nonnull
-    private static LikeOperatorValue createLikeOperatorValue(final String lhs, final String rhs, final String escapeChar) {
-        BuiltInFunction like = new LikeOperatorValue.LikeFn();
-        BuiltInFunction pattern = new PatternForLikeValue.PatternForLikeFn();
+    private static LikeOperatorValue createLikeOperatorValue(@Nullable final String lhs, @Nullable final String rhs, @Nullable final String escapeChar) {
+        BuiltInFunction<?> like = new LikeOperatorValue.LikeFn();
+        BuiltInFunction<?> pattern = new PatternForLikeValue.PatternForLikeFn();
         Typed value = like.encapsulate(CallSiteArguments.ofPositional(Arrays.asList(
                 new LiteralValue<>(Type.primitiveType(Type.TypeCode.STRING), lhs),
                 (Value) pattern.encapsulate(CallSiteArguments.ofPositional(Arrays.asList(

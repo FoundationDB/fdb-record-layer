@@ -95,12 +95,12 @@ public class LikeOperatorValue extends AbstractValue implements BooleanValue {
             return null;
         }
         Descriptors.Descriptor rhsDescriptor = rhs.getDescriptorForType();
-        final Descriptors.FieldDescriptor patternField = rhsDescriptor.findFieldByNumber(1);
+        final Descriptors.FieldDescriptor patternField = rhsDescriptor.findFieldByNumber(PatternForLikeValue.PATTERN_FIELD_NUMBER);
         if (!rhs.hasField(patternField)) {
             return null;
         }
         final String pattern = (String) rhs.getField(patternField);
-        final Descriptors.FieldDescriptor escapeField = rhsDescriptor.findFieldByNumber(2);
+        final Descriptors.FieldDescriptor escapeField = rhsDescriptor.findFieldByNumber(PatternForLikeValue.ESCAPE_FIELD_NUMBER);
         final String escape = rhs.hasField(escapeField) ? (String) rhs.getField(escapeField) : null;
         return matchLike(lhs, pattern, escape);
     }
@@ -120,7 +120,7 @@ public class LikeOperatorValue extends AbstractValue implements BooleanValue {
      * Note that the escape character represents "match the next character as a literal" regardless of whether that
      * character is actually special. So {@code escape + '_'} matches the literal {@code '_'} and {@code escape + '%'}
      * matches the literal {@code '%'}, but also {@code escape + escape} matches the escape character {@code escape} and
-     * {@code escale + 'b'} matches the literal character {@code 'b'}. This means that if the character following
+     * {@code escape + 'b'} matches the literal character {@code 'b'}. This means that if the character following
      * {@code escape} is not a special character, then the escape character is effectively dropped from the pattern.
      * Finally, note that if the escape character is the final character in the pattern, then that is a malformed pattern,
      * which will thus always return {@code false}.
@@ -144,10 +144,10 @@ public class LikeOperatorValue extends AbstractValue implements BooleanValue {
         int starT = -1;
         final int tLen = text.length();
         final int pLen = pattern.length();
-        final char escapeChar = escape == null ? '\0' : escape.charAt(0);
-        if (escape != null && escape.length() > 1) {
+        if (escape != null && escape.length() != 1) {
             SemanticException.fail(SemanticException.ErrorCode.ESCAPE_CHAR_OF_LIKE_OPERATOR_IS_NOT_SINGLE_CHAR, "");
         }
+        final char escapeChar = escape == null ? '\0' : escape.charAt(0);
 
         // Conceptually, this is similar to breaking the pattern down into chunks, separated by the wildcard
         // character %. For each sequence between %s, we can evaluate if a subsequence from the text
@@ -315,7 +315,7 @@ public class LikeOperatorValue extends AbstractValue implements BooleanValue {
         Verify.verify(arguments.size() == 2);
         Type srcType = arguments.get(0).getResultType();
         Type patternType = arguments.get(1).getResultType();
-        SemanticException.check(srcType.getTypeCode().equals(TypeCode.STRING), SemanticException.ErrorCode.OPERAND_OF_LIKE_OPERATOR_IS_NOT_STRING);
+        SemanticException.check(srcType.isNull() || srcType.getTypeCode().equals(TypeCode.STRING), SemanticException.ErrorCode.OPERAND_OF_LIKE_OPERATOR_IS_NOT_STRING);
         SemanticException.check(PatternForLikeValue.TYPE.equals(patternType), SemanticException.ErrorCode.OPERAND_OF_LIKE_OPERATOR_IS_NOT_STRING);
 
         return new LikeOperatorValue((Value) arguments.get(0), (Value) arguments.get(1));

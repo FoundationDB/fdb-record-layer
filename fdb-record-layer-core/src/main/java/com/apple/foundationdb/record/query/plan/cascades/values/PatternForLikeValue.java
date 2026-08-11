@@ -71,10 +71,27 @@ import java.util.function.Supplier;
 public class PatternForLikeValue extends AbstractValue {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Like-Operator-Value");
 
+    /**
+     * Field in the returned {@link #TYPE} corresponding to the {@code LIKE}'s pattern.
+     * This should be a SQL pattern as specified by the {@code LIKE} documentation.
+     */
+    public static final int PATTERN_FIELD_NUMBER = 1;
+
+    /**
+     * Field in the returned {@link #TYPE} corresponding to the {@code LIKE}'s escape character.
+     * This can be {@code null} to indicate no escape character should be applied.
+     */
+    public static final int ESCAPE_FIELD_NUMBER = 2;
+
+    /**
+     * Return type of this {@link Value}. This extracts the pattern and escape and creates a
+     * simple struct with that information. Fields should be accessed by number using the
+     * {@link #PATTERN_FIELD_NUMBER} and {@link #ESCAPE_FIELD_NUMBER} constants.
+     */
     @Nonnull
     public static final Type TYPE = Type.Record.fromFields(false, ImmutableList.of(
-            Type.Record.Field.of(Type.primitiveType(TypeCode.STRING, true), Optional.of("pattern")),
-            Type.Record.Field.of(Type.primitiveType(TypeCode.STRING, true), Optional.of("escape")))
+            Type.Record.Field.of(Type.primitiveType(TypeCode.STRING, true), Optional.of("pattern"), Optional.of(PATTERN_FIELD_NUMBER)),
+            Type.Record.Field.of(Type.primitiveType(TypeCode.STRING, true), Optional.of("escape"), Optional.of(ESCAPE_FIELD_NUMBER)))
     );
 
     @Nonnull
@@ -100,12 +117,12 @@ public class PatternForLikeValue extends AbstractValue {
         String patternStr = (String)patternChild.eval(store, context);
         final DynamicMessage.Builder resultBuilder = DynamicMessage.newBuilder(typeDescriptor);
         if (patternStr != null) {
-            resultBuilder.setField(typeDescriptor.findFieldByNumber(1), patternStr);
+            resultBuilder.setField(typeDescriptor.findFieldByNumber(PATTERN_FIELD_NUMBER), patternStr);
         }
         String escapeChar = (String)escapeChild.eval(store, context);
         if (escapeChar != null) {
             SemanticException.check(escapeChar.length() == 1, SemanticException.ErrorCode.ESCAPE_CHAR_OF_LIKE_OPERATOR_IS_NOT_SINGLE_CHAR);
-            resultBuilder.setField(typeDescriptor.findFieldByNumber(2), escapeChar);
+            resultBuilder.setField(typeDescriptor.findFieldByNumber(ESCAPE_FIELD_NUMBER), escapeChar);
         }
         return resultBuilder.build();
     }
@@ -189,9 +206,9 @@ public class PatternForLikeValue extends AbstractValue {
     private static Value encapsulate(@Nonnull final List<? extends Typed> arguments) {
         Verify.verify(arguments.size() == 2);
         Type patternType = arguments.get(0).getResultType();
-        Type escapeType = arguments.get(0).getResultType();
-        SemanticException.check(patternType.getTypeCode().equals(TypeCode.STRING), SemanticException.ErrorCode.OPERAND_OF_LIKE_OPERATOR_IS_NOT_STRING);
-        SemanticException.check(escapeType.getTypeCode().equals(TypeCode.STRING), SemanticException.ErrorCode.OPERAND_OF_LIKE_OPERATOR_IS_NOT_STRING);
+        Type escapeType = arguments.get(1).getResultType();
+        SemanticException.check(patternType.isNull() || patternType.getTypeCode().equals(TypeCode.STRING), SemanticException.ErrorCode.OPERAND_OF_LIKE_OPERATOR_IS_NOT_STRING);
+        SemanticException.check(escapeType.isNull() || escapeType.getTypeCode().equals(TypeCode.STRING), SemanticException.ErrorCode.OPERAND_OF_LIKE_OPERATOR_IS_NOT_STRING);
 
         return new PatternForLikeValue((Value) arguments.get(0), (Value) arguments.get(1));
     }

@@ -111,6 +111,30 @@ test_block:
 test_block:
   tests:
     -
+      - query: select * from A WHERE A1 LIKE NULL
+      - initialVersionAtLeast: !current_version
+      - result: []
+      - initialVersionLessThan: !current_version
+      - error: 'XX000'
+    -
+      - query: select * from A WHERE A1 NOT LIKE NULL
+      - initialVersionAtLeast: !current_version
+      - result: []
+      - initialVersionLessThan: !current_version
+      - error: 'XX000'
+    -
+      - query: select * from A WHERE NULL LIKE NULL
+      - initialVersionAtLeast: !current_version
+      - result: []
+      - initialVersionLessThan: !current_version
+      - error: 'XX000'
+    -
+      - query: select * from A WHERE NULL NOT LIKE NULL
+      - initialVersionAtLeast: !current_version
+      - result: []
+      - initialVersionLessThan: !current_version
+      - error: 'XX000'
+    -
       - query: select * from A WHERE A1 LIKE 'A'
       - result: []
     -
@@ -341,6 +365,10 @@ test_block:
     -
       - query: select * from A WHERE A1 LIKE '%' ESCAPE 'ab'
       # Internal error from a multi-character escape. Perhaps this should be a more descriptive error
+      - error: 'XX000'
+    -
+      - query: select * from A WHERE A1 LIKE '%' ESCAPE ''
+      # Internal error from an empty escape character. Perhaps this should be a more descriptive error
       - error: 'XX000'
     -
       - query: select * from A WHERE A1 LIKE '\%'
